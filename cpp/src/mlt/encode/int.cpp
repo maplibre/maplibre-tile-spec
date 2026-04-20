@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <mlt/encoder.hpp>
 #include <mlt/encode/int.hpp>
 
 #if MLT_WITH_FASTPFOR
@@ -17,12 +18,17 @@ struct IntegerEncoder::Impl {
 #if MLT_WITH_FASTPFOR
     FastPForLib::CompositeCodec<FastPForLib::FastPFor<8>, FastPForLib::VariableByte> codec;
 #endif
+    ::mlt::IntegerEncodingOption encodingOption = ::mlt::IntegerEncodingOption::AUTO;
 };
 
 IntegerEncoder::IntegerEncoder()
     : impl(std::make_unique<Impl>()) {}
 
 IntegerEncoder::~IntegerEncoder() noexcept = default;
+
+void IntegerEncoder::setEncodingOption(::mlt::IntegerEncodingOption option) {
+    impl->encodingOption = option;
+}
 
 std::vector<std::uint8_t> IntegerEncoder::encodeVarints32(std::span<const std::int32_t> values, bool zigZag) {
     std::vector<std::uint8_t> result;
@@ -123,8 +129,10 @@ IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> va
     }
 
     std::vector<std::uint8_t> rleEncoded;
+    std::uint32_t rlePhysicalLength = 0;
     bool isConstStream = false;
-    if (values.size() / runs >= 2) {
+    const bool shouldTryRle = impl->encodingOption != ::mlt::IntegerEncodingOption::AUTO || values.size() / runs >= 2;
+    if (shouldTryRle) {
         auto rle = util::encoding::rle::encodeIntRle<std::int32_t>(values);
         isConstStream = (rle.runs.size() == 1);
 
@@ -140,7 +148,7 @@ IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> va
         }
         rleEncoded = (this->*encode)(flattened, /*zigZag=*/false);
 
-        const auto rlePhysicalLength = static_cast<std::uint32_t>(rle.runs.size() + rle.values.size());
+        rlePhysicalLength = static_cast<std::uint32_t>(rle.runs.size() + rle.values.size());
         if (isConstStream || rleEncoded.size() < best.data->size()) {
             best = {.t1 = LogicalLevelTechnique::RLE,
                     .t2 = LogicalLevelTechnique::NONE,
@@ -151,7 +159,10 @@ IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> va
     }
 
     std::vector<std::uint8_t> deltaRleEncoded;
-    if (deltaValues.size() / deltaRuns >= 2 && !isConstStream) {
+    std::uint32_t deltaRlePhysicalLength = 0;
+    const bool shouldTryDeltaRle = impl->encodingOption != ::mlt::IntegerEncodingOption::AUTO ||
+                                   (deltaValues.size() / deltaRuns >= 2 && !isConstStream);
+    if (shouldTryDeltaRle) {
         auto deltaRle = util::encoding::rle::encodeIntRle<std::int32_t>(deltaValues);
 
         std::vector<std::int32_t> flattened;
@@ -162,14 +173,47 @@ IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> va
         }
         deltaRleEncoded = (this->*encode)(flattened, /*zigZag=*/false);
 
-        const auto drlePhysicalLength = static_cast<std::uint32_t>(deltaRle.runs.size() + deltaRle.values.size());
+        deltaRlePhysicalLength = static_cast<std::uint32_t>(deltaRle.runs.size() + deltaRle.values.size());
         if (deltaRleEncoded.size() < best.data->size()) {
             best = {.t1 = LogicalLevelTechnique::DELTA,
                     .t2 = LogicalLevelTechnique::RLE,
                     .data = &deltaRleEncoded,
                     .numRuns = deltaRuns,
-                    .physicalLength = drlePhysicalLength};
+                    .physicalLength = deltaRlePhysicalLength};
         }
+    }
+
+    switch (impl->encodingOption) {
+        case ::mlt::IntegerEncodingOption::AUTO:
+            break;
+        case ::mlt::IntegerEncodingOption::PLAIN:
+            best = {.t1 = LogicalLevelTechnique::NONE,
+                    .t2 = LogicalLevelTechnique::NONE,
+                    .data = &plainEncoded,
+                    .numRuns = 0,
+                    .physicalLength = static_cast<std::uint32_t>(values.size())};
+            break;
+        case ::mlt::IntegerEncodingOption::DELTA:
+            best = {.t1 = LogicalLevelTechnique::DELTA,
+                    .t2 = LogicalLevelTechnique::NONE,
+                    .data = &deltaEncoded,
+                    .numRuns = 0,
+                    .physicalLength = static_cast<std::uint32_t>(values.size())};
+            break;
+        case ::mlt::IntegerEncodingOption::RLE:
+            best = {.t1 = LogicalLevelTechnique::RLE,
+                    .t2 = LogicalLevelTechnique::NONE,
+                    .data = &rleEncoded,
+                    .numRuns = runs,
+                    .physicalLength = rlePhysicalLength};
+            break;
+        case ::mlt::IntegerEncodingOption::DELTA_RLE:
+            best = {.t1 = LogicalLevelTechnique::DELTA,
+                    .t2 = LogicalLevelTechnique::RLE,
+                    .data = &deltaRleEncoded,
+                    .numRuns = deltaRuns,
+                    .physicalLength = deltaRlePhysicalLength};
+            break;
     }
 
     return {.logicalLevelTechnique1 = best.t1,
@@ -227,7 +271,9 @@ IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> v
     }
 
     std::vector<std::uint8_t> rleEncoded;
-    if (values.size() / runs >= 2) {
+    std::uint32_t rlePhysicalLength = 0;
+    const bool shouldTryRle = impl->encodingOption != ::mlt::IntegerEncodingOption::AUTO || values.size() / runs >= 2;
+    if (shouldTryRle) {
         auto rle = util::encoding::rle::encodeIntRle<std::int64_t>(values);
 
         std::vector<std::int64_t> flattened;
@@ -244,7 +290,7 @@ IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> v
         }
         rleEncoded = encodeVarints64(flattened, /*zigZag=*/false);
 
-        const auto rlePhysicalLength = static_cast<std::uint32_t>(rle.runs.size() + rle.values.size());
+        rlePhysicalLength = static_cast<std::uint32_t>(rle.runs.size() + rle.values.size());
         if (rleEncoded.size() < best.data->size()) {
             best = {.t1 = LogicalLevelTechnique::RLE,
                     .t2 = LogicalLevelTechnique::NONE,
@@ -255,7 +301,10 @@ IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> v
     }
 
     std::vector<std::uint8_t> deltaRleEncoded;
-    if (deltaValues.size() / deltaRuns >= 2) {
+    std::uint32_t deltaRlePhysicalLength = 0;
+    const bool shouldTryDeltaRle = impl->encodingOption != ::mlt::IntegerEncodingOption::AUTO ||
+                                   deltaValues.size() / deltaRuns >= 2;
+    if (shouldTryDeltaRle) {
         const auto deltaRle = util::encoding::rle::encodeIntRle<std::int64_t>(deltaValues);
 
         std::vector<std::int64_t> flattened;
@@ -268,14 +317,47 @@ IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> v
         }
         deltaRleEncoded = encodeVarints64(flattened, /*zigZag=*/false);
 
-        const auto drlePhysicalLength = static_cast<std::uint32_t>(deltaRle.runs.size() + deltaRle.values.size());
+        deltaRlePhysicalLength = static_cast<std::uint32_t>(deltaRle.runs.size() + deltaRle.values.size());
         if (deltaRleEncoded.size() < best.data->size()) {
             best = {.t1 = LogicalLevelTechnique::DELTA,
                     .t2 = LogicalLevelTechnique::RLE,
                     .data = &deltaRleEncoded,
                     .numRuns = deltaRuns,
-                    .physicalLength = drlePhysicalLength};
+                    .physicalLength = deltaRlePhysicalLength};
         }
+    }
+
+    switch (impl->encodingOption) {
+        case ::mlt::IntegerEncodingOption::AUTO:
+            break;
+        case ::mlt::IntegerEncodingOption::PLAIN:
+            best = {.t1 = LogicalLevelTechnique::NONE,
+                    .t2 = LogicalLevelTechnique::NONE,
+                    .data = &plainEncoded,
+                    .numRuns = 0,
+                    .physicalLength = static_cast<std::uint32_t>(values.size())};
+            break;
+        case ::mlt::IntegerEncodingOption::DELTA:
+            best = {.t1 = LogicalLevelTechnique::DELTA,
+                    .t2 = LogicalLevelTechnique::NONE,
+                    .data = &deltaEncoded,
+                    .numRuns = 0,
+                    .physicalLength = static_cast<std::uint32_t>(values.size())};
+            break;
+        case ::mlt::IntegerEncodingOption::RLE:
+            best = {.t1 = LogicalLevelTechnique::RLE,
+                    .t2 = LogicalLevelTechnique::NONE,
+                    .data = &rleEncoded,
+                    .numRuns = runs,
+                    .physicalLength = rlePhysicalLength};
+            break;
+        case ::mlt::IntegerEncodingOption::DELTA_RLE:
+            best = {.t1 = LogicalLevelTechnique::DELTA,
+                    .t2 = LogicalLevelTechnique::RLE,
+                    .data = &deltaRleEncoded,
+                    .numRuns = deltaRuns,
+                    .physicalLength = deltaRlePhysicalLength};
+            break;
     }
 
     return {.logicalLevelTechnique1 = best.t1,

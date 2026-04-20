@@ -337,6 +337,8 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
         return {};
     }
 
+    intEncoder.setEncodingOption(config.integerEncodingOption);
+
     const bool shouldSort = config.sortFeatures && canSort(layer.features);
     const auto sortedStorage = shouldSort ? sortFeatures(layer.features) : std::vector<Feature>{};
     const auto& features = shouldSort ? sortedStorage : layer.features;

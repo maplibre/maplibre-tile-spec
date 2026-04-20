@@ -14,6 +14,14 @@
 
 namespace mlt {
 
+enum class IntegerEncodingOption : std::uint8_t {
+    AUTO = 0,
+    PLAIN = 1,
+    DELTA = 2,
+    RLE = 3,
+    DELTA_RLE = 4,
+};
+
 struct EncoderConfig {
     bool useFastPfor = false;
     bool includeIds = true;
@@ -22,6 +30,7 @@ struct EncoderConfig {
     bool includeOutlines = true;
     bool useMortonEncoding = true;
     bool useFsst = true;
+    IntegerEncodingOption integerEncodingOption = IntegerEncodingOption::AUTO;
 };
 
 class Encoder : public util::noncopyable {

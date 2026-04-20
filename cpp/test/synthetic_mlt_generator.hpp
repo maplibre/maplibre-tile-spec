@@ -334,18 +334,186 @@ public:
 
     static GeneratedTiles generateProperties() { return {generatePropU64(), generatePropsStrFsst()}; }
 
-    static GeneratedTile generateMixPtLine() {
-        // Mixed geometry: one point and one line
-        Feature pt = feat(point(c(38, 29)));
-        Ring line_coords{c(5, 38), c(12, 45), c(9, 70)};
-        Feature ln = feat(line(line_coords));
-        return {
-            .name = "mix_2_pt_line",
-            .bytes = encode(layer(defaultLayerName, {pt, ln}, defaultExtent), cfg()),
-        };
+    // Mix geometry types matching Java SyntheticMltGenerator
+    static Feature mixPt() { return feat(point(c(38, 29))); }
+
+    static Feature mixLine() {
+        Ring coords{c(5, 38), c(12, 45), c(9, 70)};
+        return feat(line(coords));
     }
 
-    static GeneratedTiles generateMixed() { return {generateMixPtLine()}; }
+    static Feature mixPoly() {
+        Ring coords{c(55, 5), c(58, 28), c(75, 22), c(55, 5)};
+        return feat(poly(coords));
+    }
+
+    static Feature mixPolyh() {
+        Ring shell{c(52, 35), c(14, 55), c(60, 72), c(52, 35)};
+        Ring hole{c(32, 50), c(36, 60), c(24, 54), c(32, 50)};
+        return feat(poly(Rings{shell, hole}));
+    }
+
+    static Feature mixMpt() {
+        Ring coords{c(6, 25), c(21, 41), c(23, 69)};
+        return feat(multiPoint(coords));
+    }
+
+    static Feature mixMline() {
+        Ring line1{c(24, 10), c(42, 18)};
+        Ring line2{c(30, 36), c(48, 52), c(35, 62)};
+        return feat(multiLine(Parts{line1, line2}));
+    }
+
+    static Feature mixMpoly() {
+        Ring poly1_shell{c(7, 20), c(21, 31), c(26, 9), c(7, 20)};
+        Ring poly1_hole{c(15, 20), c(20, 15), c(18, 25), c(15, 20)};
+        Ring poly2{c(69, 57), c(71, 66), c(73, 64), c(69, 57)};
+        return feat(multiPoly(Polygons{Rings{poly1_shell, poly1_hole}, Rings{poly2}}));
+    }
+
+    // Helper struct to represent geometry type with name and feature
+    struct GeomTypeInfo {
+        const char* sym;
+        Feature (*getFeature)();
+        metadata::tileset::GeometryType geomType;
+    };
+
+    static inline const GeomTypeInfo mixGeomTypes[] = {
+        {.sym = "pt", .getFeature = mixPt, .geomType = metadata::tileset::GeometryType::POINT},
+        {.sym = "line", .getFeature = mixLine, .geomType = metadata::tileset::GeometryType::LINESTRING},
+        {.sym = "poly", .getFeature = mixPoly, .geomType = metadata::tileset::GeometryType::POLYGON},
+        {.sym = "polyh", .getFeature = mixPolyh, .geomType = metadata::tileset::GeometryType::POLYGON},
+        {.sym = "mpt", .getFeature = mixMpt, .geomType = metadata::tileset::GeometryType::MULTIPOINT},
+        {.sym = "mline", .getFeature = mixMline, .geomType = metadata::tileset::GeometryType::MULTILINESTRING},
+        {.sym = "mpoly", .getFeature = mixMpoly, .geomType = metadata::tileset::GeometryType::MULTIPOLYGON},
+    };
+
+    static constexpr std::size_t mixGeomTypeCount = 7;
+
+    // Check if all geometries in a type list are polygons
+    static bool allPolygonTypes(const std::vector<std::size_t>& typeIndices) {
+        for (std::size_t idx : typeIndices) {
+            if (mixGeomTypes[idx].geomType != metadata::tileset::GeometryType::POLYGON &&
+                mixGeomTypes[idx].geomType != metadata::tileset::GeometryType::MULTIPOLYGON) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Generate a single mix combination
+    static GeneratedTile generateMixCombination(const std::vector<std::size_t>& typeIndices) {
+        std::vector<Feature> features;
+        std::string name = "mix_" + std::to_string(typeIndices.size());
+
+        for (std::size_t idx : typeIndices) {
+            name += "_";
+            name += mixGeomTypes[idx].sym;
+            features.push_back(mixGeomTypes[idx].getFeature());
+        }
+
+        auto config = cfg();
+        config.integerEncodingOption = ::mlt::IntegerEncodingOption::PLAIN;
+
+        // Generate plain encoding
+        GeneratedTile tile{
+            .name = name,
+            .bytes = encode(layer(defaultLayerName, features, defaultExtent), config),
+        };
+
+        return tile;
+    }
+
+    // Generate tessellated variant if all geometries are polygons
+    static GeneratedTile generateMixCombinationTessellated(const std::vector<std::size_t>& typeIndices) {
+        std::vector<Feature> features;
+        std::string name = "mix_" + std::to_string(typeIndices.size());
+
+        for (std::size_t idx : typeIndices) {
+            name += "_";
+            name += mixGeomTypes[idx].sym;
+            features.push_back(mixGeomTypes[idx].getFeature());
+        }
+
+        name += "_tes";
+
+        auto config = cfg();
+        config.preTessellate = true;
+        config.integerEncodingOption = ::mlt::IntegerEncodingOption::PLAIN;
+
+        GeneratedTile tile{
+            .name = name,
+            .bytes = encode(layer(defaultLayerName, features, defaultExtent), config),
+        };
+
+        return tile;
+    }
+
+    // Generate all k-combinations of geometry types
+    static void generateMixedCombinations(std::vector<GeneratedTile>& tiles,
+                                          const std::vector<std::size_t>& typeIndices,
+                                          std::vector<std::size_t>& current,
+                                          std::size_t k,
+                                          std::size_t start) {
+        if (current.size() == k) {
+            tiles.push_back(generateMixCombination(current));
+
+            // Add tessellated variant if all types are polygons
+            if (allPolygonTypes(current)) {
+                tiles.push_back(generateMixCombinationTessellated(current));
+            }
+            return;
+        }
+
+        for (std::size_t i = start; i < typeIndices.size(); ++i) {
+            // Skip duplicates at this level (avoid duplicate combinations)
+            if (i > start && typeIndices[i] == typeIndices[i - 1]) {
+                continue;
+            }
+            current.push_back(typeIndices[i]);
+            generateMixedCombinations(tiles, typeIndices, current, k, i + 1);
+            current.pop_back();
+        }
+    }
+
+    static GeneratedTile generateMixPtLine() {
+        // Mixed geometry: one point and one line (basic test case)
+        return generateMixCombination({0, 1}); // pt, line
+    }
+
+    static GeneratedTiles generateMixed() {
+        std::vector<GeneratedTile> tiles;
+
+        // Generate all k-combinations from k=2 to k=7
+        std::vector<std::size_t> typeIndices{0, 1, 2, 3, 4, 5, 6}; // Indices for all 7 types
+        for (std::size_t k = 2; k <= mixGeomTypeCount; ++k) {
+            std::vector<std::size_t> current;
+            generateMixedCombinations(tiles, typeIndices, current, k, 0);
+        }
+
+        // Generate A-A variants (same geometry twice)
+        for (std::size_t i = 0; i < mixGeomTypeCount; ++i) {
+            std::vector<std::size_t> combo{i, i};
+            tiles.push_back(generateMixCombination(combo));
+            // Add tessellated variant if all types are polygons
+            if (allPolygonTypes(combo)) {
+                tiles.push_back(generateMixCombinationTessellated(combo));
+            }
+        }
+
+        // Generate A-B-A variants (geometry A, B, A)
+        for (std::size_t a = 0; a < mixGeomTypeCount; ++a) {
+            for (std::size_t b = 0; b < mixGeomTypeCount; ++b) {
+                if (a != b) {
+                    std::vector<std::size_t> combo{a, b, a};
+                    tiles.push_back(generateMixCombination(combo));
+                    // Note: A-B-A variants rarely have all polygon types, so skip tessellation check
+                }
+            }
+        }
+
+        return tiles;
+    }
 
     static GeneratedTiles generateSharedDictionaries() {
         const auto val = std::string(30, 'A');

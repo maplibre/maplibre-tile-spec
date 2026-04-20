@@ -10,6 +10,10 @@
 #include <span>
 #include <vector>
 
+namespace mlt {
+enum class IntegerEncodingOption : std::uint8_t;
+}
+
 namespace mlt::encoder {
 
 struct IntegerEncodingResult {
@@ -34,6 +38,8 @@ public:
 
     IntegerEncoder(IntegerEncoder&&) = delete;
     IntegerEncoder& operator=(IntegerEncoder&&) = delete;
+
+    void setEncodingOption(::mlt::IntegerEncodingOption option);
 
     IntegerEncodingResult encodeInt(std::span<const std::int32_t> values, PhysicalLevelTechnique, bool isSigned);
 
