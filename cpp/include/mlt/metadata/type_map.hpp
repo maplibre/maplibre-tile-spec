@@ -1,4 +1,3 @@
-#include <cassert>
 #include <cstddef>
 #include <optional>
 
@@ -117,7 +116,7 @@ struct Tag0x01 {
             }
         }
         // other cases should be impossible
-        assert(false);
+        throw std::runtime_error("Invalid column type for hasStreamCount");
         return false;
     }
 
@@ -181,7 +180,7 @@ private:
             case ScalarType::STRING:
                 return isNullable ? 29 : 28;
             default:
-                assert(false);
+                throw std::runtime_error("Invalid scalar type for encoding");
                 return std::nullopt;
         }
     }

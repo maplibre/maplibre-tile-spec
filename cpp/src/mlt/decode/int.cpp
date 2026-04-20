@@ -43,6 +43,9 @@ std::uint32_t IntegerDecoder::decodeFastPfor([[maybe_unused]] BufferStream& buff
                                              [[maybe_unused]] const std::size_t byteLength) {
 #if MLT_WITH_FASTPFOR
     if (enableFastPFOR) {
+        // If SIMD is enabled, check that the CPU supports the necessary instruction set before
+        // attempting to decode in order to provide a clear error message when it does not.
+#if MLT_WITH_FASTPFOR_SIMD
 #if (defined(_M_IX86) || defined(_M_X64) || defined(_M_IA64) || defined(_M_AMD64))
 #if defined(__GNUC__) || defined(__clang__)
         // https://gcc.gnu.org/onlinedocs/gcc/x86-Built-in-Functions.html
@@ -65,8 +68,9 @@ std::uint32_t IntegerDecoder::decodeFastPfor([[maybe_unused]] BufferStream& buff
                 throw std::runtime_error("FastPFOR decoding requires SSE4.1 on x86 platforms");
             }
         }
-#endif
-#endif
+#endif // __GNUC__ ...
+#endif // _M_IX86 ...
+#endif // MLT_WITH_FASTPFOR_SIMD
 
         const auto* inputValues = reinterpret_cast<const std::uint32_t*>(buffer.getReadPosition());
 

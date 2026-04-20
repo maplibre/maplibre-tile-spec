@@ -184,11 +184,13 @@ TEST(EncodeMetadata, FeatureTableRoundtrip) {
 
 namespace {
 
-MapLibreTile encodeDecode(const std::vector<Encoder::Layer>& layers, EncoderConfig config = {}) {
+MapLibreTile encodeDecode(const std::vector<Encoder::Layer>& layers,
+                          EncoderConfig config = {},
+                          bool enableFastPFOR = true) {
     Encoder encoder;
     auto bytes = encoder.encode(layers, config);
     EXPECT_FALSE(bytes.empty());
-    return makeDecoder().decode({reinterpret_cast<const char*>(bytes.data()), bytes.size()});
+    return Decoder(enableFastPFOR).decode({reinterpret_cast<const char*>(bytes.data()), bytes.size()});
 }
 
 Encoder::Feature makePointFeature(std::uint64_t id,
@@ -2070,7 +2072,7 @@ TEST(Encode, MortonVertexDictionaryDisabled) {
     EXPECT_EQ(decoded->getFeatures().size(), 200u);
 }
 
-TEST(Encode, FastPforDisabled) {
+TEST(Encode, FastPforEncodeDisabled) {
     std::vector<Encoder::Feature> features;
     features.reserve(50);
     for (int i = 0; i < 50; ++i) {
@@ -2083,6 +2085,22 @@ TEST(Encode, FastPforDisabled) {
     const auto* decoded = tile.getLayer("no_pfor");
     ASSERT_TRUE(decoded);
     EXPECT_EQ(decoded->getFeatures().size(), 50u);
+}
+
+TEST(Encode, FastPforDecodeDisabled) {
+    std::vector<Encoder::Feature> features;
+    features.reserve(50);
+    for (int i = 0; i < 50; ++i) {
+        features.push_back(makePointFeature(i, {.x = i * 10, .y = i * 10}, {{"idx", std::int32_t{i}}}));
+    }
+
+    EncoderConfig config;
+    config.useFastPfor = true;
+
+    const auto f = [&]() {
+        encodeDecode({makeLayer("pfor", std::move(features))}, config, false);
+    };
+    EXPECT_THROW(f(), std::runtime_error);
 }
 
 TEST(Encode, FsstDisabledForStrings) {

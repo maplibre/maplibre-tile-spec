@@ -26,6 +26,17 @@ using namespace metadata::stream;
 
 using GeometryType = metadata::tileset::GeometryType;
 
+namespace {
+// `std::visit` requires exhaustive overloads, but the type is determined
+// by column metadata, so the catch-all arms are dead by construction.
+// This is used in cases that should be impossible to reach.
+// GCOVR_EXCL_START
+void throwInvalidType() {
+    throw std::runtime_error("Invalid type");
+};
+// GCOVR_EXCL_STOP
+} // namespace
+
 struct Encoder::Impl {
     IntegerEncoder intEncoder;
 
@@ -91,18 +102,19 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
                 continue;
             }
 
-            auto scalarType = std::visit(util::overloaded{
-                                             [](bool) { return ScalarType::BOOLEAN; },
-                                             [](std::int32_t) { return ScalarType::INT_32; },
-                                             [](std::int64_t) { return ScalarType::INT_64; },
-                                             [](std::uint32_t) { return ScalarType::UINT_32; },
-                                             [](std::uint64_t) { return ScalarType::UINT_64; },
-                                             [](float) { return ScalarType::FLOAT; },
-                                             [](double) { return ScalarType::DOUBLE; },
-                                             [](const std::string&) { return ScalarType::STRING; },
-                                             [](const Encoder::StructValue&) { return ScalarType::STRING; },
-                                         },
-                                         value);
+            auto scalarType = std::visit(
+                util::overloaded{
+                    [](bool) { return ScalarType::BOOLEAN; },
+                    [](std::int32_t) { return ScalarType::INT_32; },
+                    [](std::int64_t) { return ScalarType::INT_64; },
+                    [](std::uint32_t) { return ScalarType::UINT_32; },
+                    [](std::uint64_t) { return ScalarType::UINT_64; },
+                    [](float) { return ScalarType::FLOAT; },
+                    [](double) { return ScalarType::DOUBLE; },
+                    [](const std::string&) { return ScalarType::STRING; },
+                    [](const Encoder::StructValue&) -> ScalarType { throwInvalidType(); }, // GCOVR_EXCL_LINE
+                },
+                value);
 
             auto [it, inserted] = scalarColumns.try_emplace(key, ColumnInfo{.type = scalarType, .nullable = false});
             if (!inserted) {
@@ -462,7 +474,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
         const auto scalarType = scalarCol.getPhysicalType();
         const auto& colName = column.name;
 
-        auto extractColumn = [&]<typename T>(auto&& visitor) {
+        const auto extractColumn = [&]<typename T>(auto&& visitor) {
             std::vector<std::optional<T>> values;
             values.reserve(features.size());
             for (const auto& f : features) {
@@ -481,7 +493,8 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
             case ScalarType::BOOLEAN:
                 encoded = PropertyEncoder::encodeBooleanColumn(extractColumn.template operator()<bool>(util::overloaded{
                     [](bool v) -> bool { return v; },
-                    [](auto) -> bool { return false; },
+                    // the type is already determined by column metadata, so the catch-all arms are dead by construction
+                    [](auto) -> bool { throwInvalidType(); }, // GCOVR_EXCL_LINE
                 }));
                 break;
             case ScalarType::INT_32:
@@ -489,7 +502,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                     extractColumn.template operator()<std::int32_t>(util::overloaded{
                         [](std::int32_t v) -> std::int32_t { return v; },
                         [](std::int64_t v) -> std::int32_t { return static_cast<std::int32_t>(v); },
-                        [](auto) -> std::int32_t { return 0; },
+                        [](auto) -> std::int32_t { throwInvalidType(); }, // GCOVR_EXCL_LINE
                     }),
                     physicalTechnique,
                     true,
@@ -500,7 +513,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                     extractColumn.template operator()<std::int32_t>(util::overloaded{
                         [](std::uint32_t v) -> std::int32_t { return static_cast<std::int32_t>(v); },
                         [](std::int32_t v) -> std::int32_t { return v; },
-                        [](auto) -> std::int32_t { return 0; },
+                        [](auto) -> std::int32_t { throwInvalidType(); }, // GCOVR_EXCL_LINE
                     }),
                     physicalTechnique,
                     false,
@@ -511,7 +524,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                     extractColumn.template operator()<std::int64_t>(util::overloaded{
                         [](std::int64_t v) -> std::int64_t { return v; },
                         [](std::int32_t v) -> std::int64_t { return v; },
-                        [](auto) -> std::int64_t { return 0; },
+                        [](auto) -> std::int64_t { throwInvalidType(); }, // GCOVR_EXCL_LINE
                     }),
                     true,
                     intEncoder);
@@ -521,7 +534,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                     extractColumn.template operator()<std::int64_t>(util::overloaded{
                         [](std::uint64_t v) -> std::int64_t { return static_cast<std::int64_t>(v); },
                         [](std::int64_t v) -> std::int64_t { return v; },
-                        [](auto) -> std::int64_t { return 0; },
+                        [](auto) -> std::int64_t { throwInvalidType(); }, // GCOVR_EXCL_LINE
                     }),
                     false,
                     intEncoder);
@@ -530,7 +543,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                 encoded = PropertyEncoder::encodeFloatColumn(extractColumn.template operator()<float>(util::overloaded{
                     [](float v) -> float { return v; },
                     [](double v) -> float { return static_cast<float>(v); },
-                    [](auto) -> float { return 0.0f; },
+                    [](auto) -> float { throwInvalidType(); }, // GCOVR_EXCL_LINE
                 }));
                 break;
             case ScalarType::DOUBLE:
@@ -538,7 +551,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                     extractColumn.template operator()<double>(util::overloaded{
                         [](double v) -> double { return v; },
                         [](float v) -> double { return static_cast<double>(v); },
-                        [](auto) -> double { return 0.0; },
+                        [](auto) -> double { throwInvalidType(); }, // GCOVR_EXCL_LINE
                     }));
                 break;
             case ScalarType::STRING: {
@@ -565,7 +578,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                 break;
             }
             default:
-                throw std::runtime_error("Unsupported property type for column: " + colName);
+                throwInvalidType(); // GCOVR_EXCL_LINE
         }
         bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
     }

@@ -17,7 +17,7 @@ public:
           maxBound(maxVertexValue) {
         // TODO: fix tile buffer problem
     }
-    virtual ~SpaceFillingCurve() = default;
+    virtual ~SpaceFillingCurve() = default; // GCOVR_EXCL_LINE
 
     virtual std::uint32_t encode(const Coordinate& vertex) const = 0;
 

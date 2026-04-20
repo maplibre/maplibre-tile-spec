@@ -34,7 +34,10 @@ Column decodeColumn(BufferStream& tileData) {
     }
 
     if (type_map::Tag0x01::columnTypeHasChildren(typeCode)) {
-        assert(column->hasComplexType());
+        if (!column->hasComplexType()) {
+            throw std::runtime_error(
+                "Column type code indicates children but decoded column does not have complex type");
+        }
         auto& complex = column->getComplexType();
         const auto childCount = decodeVarint<std::uint32_t>(tileData);
         complex.children = util::generateVector<Column>(childCount, [&](auto) { return decodeColumn(tileData); });
