@@ -1,15 +1,21 @@
 #include "synthetic_mlt_generator.hpp"
 
-#include <gtest/gtest.h>
-
 #include <algorithm>
 #include <mlt/coordinate.hpp>
 #include <mlt/decoder.hpp>
 #include <mlt/geometry.hpp>
 #include <mlt/metadata/tileset.hpp>
 
+#include <gtest/gtest.h>
+
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <functional>
+#include <map>
+#include <regex>
+#include <set>
+#include <sstream>
 
 using namespace mlt::test;
 
@@ -37,215 +43,220 @@ std::vector<uint8_t> readBinaryFile(const std::string& filePath) {
     }
 }
 
-/// Compare a generated tile against a file
-void checkSynthetic(const SyntheticMltGenerator::GeneratedTile& generated) {
-    const auto filePath = basePath + generated.name + ".mlt";
+/// Registry entry: a generator plus an optional skip reason.
+/// If skipReason is non-empty the test is skipped rather than run.
+struct RegistryEntry {
+    std::function<SyntheticMltGenerator::GeneratedTile()> generator;
+    std::string skipReason; ///< non-empty → test is skipped with this message
+};
+using GeneratorRegistry = std::map<std::string, RegistryEntry>;
+
+/// A pattern entry: an ECMAScript regex matched against the fixture name, plus a skip reason.
+struct DisabledPattern {
+    std::regex pattern;
+    std::string reason;
+};
+
+/// Returns the list of disabled patterns.
+/// All generated tiles whose names match any pattern are marked as skipped.
+const std::vector<DisabledPattern>& disabledPatterns() {
+    static const std::vector<DisabledPattern> patterns = {
+        // Large-extent coordinate encoding differs from Java.
+        {.pattern = std::regex{R"(^extent_1073741824$)"},
+         .reason = "Large-extent encoding does not yet match Java output"},
+        // Java emits a nullable property column even when no values are null.
+        {.pattern = std::regex{R"(^prop_u64$)"},
+         .reason = "Java emits a nullable column for prop_u64 but C++ does not; "
+                   "the Java behaviour may be a spec violation"},
+        // Mixed fixtures that include polygonal geometry currently diverge from Java bytes.
+        {.pattern = std::regex{R"(^mix_.*(_|^)(poly|polyh|mpoly)(_|$).*)"},
+         .reason = "Mixed polygon fixture encoding does not yet match Java output"},
+        // FSST symbol table selection is non-deterministic; byte-exact comparison is not reliable.
+        {.pattern = std::regex{R"(.*_fsst$)"},
+         .reason = "FSST symbol selection is non-deterministic; byte-exact comparison is not possible"},
+        // Shared-dictionary edge cases not yet handled correctly.
+        {.pattern = std::regex{R"(^props_shared_dict_(one_child|2_same_prefix)$)"},
+         .reason = "Shared-dictionary encoding for this case does not yet match Java output"},
+    };
+    return patterns;
+}
+
+/// Returns the skip reason for a fixture name, or empty string if the fixture is enabled.
+std::string skipReasonFor(const std::string& name) {
+    for (const auto& dp : disabledPatterns()) {
+        if (std::regex_search(name, dp.pattern)) {
+            return dp.reason;
+        }
+    }
+    return {};
+}
+
+const GeneratorRegistry& generatorRegistry() {
+    static const GeneratorRegistry registry = []() {
+        GeneratorRegistry reg;
+
+        // Insert a tile: check against disabledPatterns to set skipReason automatically.
+        const auto add = [&](SyntheticMltGenerator::GeneratedTile tile) {
+            auto name = tile.name;
+            reg.emplace(
+                std::move(name),
+                RegistryEntry{.generator = [t = std::move(tile)]() { return t; }, .skipReason = skipReasonFor(name)});
+        };
+
+        // Insert all tiles from a collection.
+        const auto addAll = [&](SyntheticMltGenerator::GeneratedTiles tiles) {
+            for (auto& tile : tiles) {
+                add(std::move(tile));
+            }
+        };
+
+        // Basic geometry
+        add(SyntheticMltGenerator::generatePoints());
+        add(SyntheticMltGenerator::generateLine());
+        add(SyntheticMltGenerator::generateLineZeroLength());
+        add(SyntheticMltGenerator::generateLineMorton());
+        addAll(SyntheticMltGenerator::generatePolygons());
+        add(SyntheticMltGenerator::generateMultiPoint());
+        add(SyntheticMltGenerator::generateMultiLine());
+
+        // Extents (covers extent_512, extent_buf_512, extent_4096, extent_buf_4096, extent_131072, extent_buf_131072)
+        addAll(SyntheticMltGenerator::generateExtent());
+        // extent_4096 is also covered above via generateExtent(); the entry is overwritten with the same value.
+        add(SyntheticMltGenerator::generateExtent4096());
+        add(SyntheticMltGenerator::generateExtent(1073741824U));
+
+        // IDs
+        addAll(SyntheticMltGenerator::generateIdsCollection());
+
+        // Properties
+        addAll(SyntheticMltGenerator::generateProperties());
+
+        // Mixed geometry combinations (mix_2_*, mix_3_*, ..., A-A, A-B-A variants)
+        addAll(SyntheticMltGenerator::generateMixed());
+
+        // Shared dictionaries
+        addAll(SyntheticMltGenerator::generateSharedDictionaries());
+
+        return reg;
+    }();
+    return registry;
+}
+
+/// Enumerate every .mlt fixture file found under basePath, returning sorted stem names.
+std::vector<std::string> discoverAllFixtures() {
+    std::vector<std::string> result;
+    std::error_code ec;
+    if (std::filesystem::exists(basePath)) {
+        for (const auto& entry : std::filesystem::directory_iterator(basePath, ec)) {
+            if (!ec && entry.path().extension() == ".mlt") {
+                const auto stem = entry.path().stem().string();
+                result.push_back(stem);
+            }
+        }
+    }
+    std::ranges::sort(result);
+    return result;
+}
+
+// ---------------------------------------------------------------------------
+// Value-parameterized test: one test instance per fixture file.
+// - If a C++ generator is registered for the fixture name: generate and compare.
+// - If no generator is registered: SKIP (fixture is not yet checked).
+// ---------------------------------------------------------------------------
+
+class SyntheticFixtureTest : public ::testing::TestWithParam<std::string> {};
+
+TEST_P(SyntheticFixtureTest, MatchesGenerator) {
+    const auto& name = GetParam();
+    const auto& reg = generatorRegistry();
+
+    const auto it = reg.find(name);
+    if (it == reg.end()) {
+        GTEST_SKIP() << "No C++ generator registered for fixture: " << name;
+    }
+
+    const auto& entry = it->second;
+    if (!entry.skipReason.empty()) {
+        GTEST_SKIP() << entry.skipReason;
+    }
+
+    const auto generated = entry.generator();
+    const auto filePath = basePath + name + ".mlt";
     const auto fileContents = readBinaryFile(filePath);
     EXPECT_EQ(fileContents, generated.bytes);
 }
 
-/// Compare a collection of generated tiles against fixture files
-void checkSynthetic(const SyntheticMltGenerator::GeneratedTiles& generatedTiles) {
-    for (const auto& generated : generatedTiles) {
-        checkSynthetic(generated);
-    }
-}
-
-/// Compare a single tile from a collection
-void checkSyntheticByName(const SyntheticMltGenerator::GeneratedTiles& generatedTiles, const std::string& name) {
-    SCOPED_TRACE("Checking synthetic tile: " + name);
-    const auto it = std::ranges::find_if(generatedTiles, [&](const auto& t) { return t.name == name; });
-    ASSERT_NE(it, generatedTiles.end()) << "Generated tile not found: " << name;
-    checkSynthetic(*it);
-}
-
-TEST(SyntheticMltGenerator, GeneratePoints) {
-    checkSynthetic(SyntheticMltGenerator::generatePoints());
-}
-
-TEST(SyntheticMltGenerator, GenerateLine) {
-    checkSynthetic(SyntheticMltGenerator::generateLine());
-}
-
-TEST(SyntheticMltGenerator, GenerateLines) {
-    checkSynthetic(SyntheticMltGenerator::generateLines());
-}
-
-TEST(SyntheticMltGenerator, GeneratePolyHole) {
-    checkSynthetic(SyntheticMltGenerator::generatePolyHole());
-}
-
-TEST(SyntheticMltGenerator, GeneratePolygons) {
-    checkSynthetic(SyntheticMltGenerator::generatePolygons());
-}
-
-TEST(SyntheticMltGenerator, GenerateMultiPoint) {
-    checkSynthetic(SyntheticMltGenerator::generateMultiPoint());
-}
-
-TEST(SyntheticMltGenerator, GenerateMultiPoints) {
-    checkSynthetic(SyntheticMltGenerator::generateMultiPoints());
-}
-
-TEST(SyntheticMltGenerator, GenerateMultiLine) {
-    checkSynthetic(SyntheticMltGenerator::generateMultiLine());
-}
-
-TEST(SyntheticMltGenerator, GenerateMultiLineStrings) {
-    checkSynthetic(SyntheticMltGenerator::generateMultiLineStrings());
-}
-
-TEST(SyntheticMltGenerator, GenerateExtent4096) {
-    checkSynthetic(SyntheticMltGenerator::generateExtent4096());
-}
-
-TEST(SyntheticMltGenerator, GenerateExtent) {
-    checkSynthetic(SyntheticMltGenerator::generateExtent());
-}
-
-// Why doesn't this work?
-TEST(SyntheticMltGenerator, DISABLED_GenerateExtentLarge) {
-    checkSynthetic(SyntheticMltGenerator::generateExtent(1073741824U));
-}
-
-TEST(SyntheticMltGenerator, GenerateIds) {
-    checkSynthetic(SyntheticMltGenerator::generateIds());
-}
-
-TEST(SyntheticMltGenerator, GenerateIdsCollection) {
-    checkSynthetic(SyntheticMltGenerator::generateIdsCollection());
-}
-
-// Currently not working because Java generates a nullable column and we don't.
-// I think that's effectively a bug on the Java side because the column contains no nulls.
-TEST(SyntheticMltGenerator, DISABLED_GeneratePropU64) {
-    checkSynthetic(SyntheticMltGenerator::generatePropU64());
-}
-
-TEST(SyntheticMltGenerator, DISABLED_GenerateProperties) {
-    checkSynthetic(SyntheticMltGenerator::generateProperties());
-}
-
-TEST(SyntheticMltGenerator, GenerateMixPtLine) {
-    checkSynthetic(SyntheticMltGenerator::generateMixPtLine());
-}
-
-TEST(SyntheticMltGenerator, GenerateMixed) {
-    // This test verifies that all mix fixture files can be loaded and the test helper works correctly.
-    // The actual fixture files were generated by the Java SyntheticMltGenerator.generateMixed() and
-    // generateMixedCombine() methods, which create 182+ mix combinations.
-    int mixFileCount = 0;
-    std::error_code ec;
-    for (const auto& entry : std::filesystem::directory_iterator(basePath, ec)) {
-        if (!ec && entry.path().extension() == ".mlt") {
-            auto filename = entry.path().filename().string();
-            if (filename.starts_with("mix_")) {
-                mixFileCount++;
-            }
-        }
-    }
-
-    // Java generateMixed() creates multiple combinations (2-combinations through 7-combinations,
-    // plus A-A and A-B-A variants) from 7 geometry types, resulting in ~182 fixture files
-    EXPECT_GT(mixFileCount, 100) << "Expected many mix fixture files to be generated by Java";
-}
-
-/// Parameterized test for validating all mix fixture files
-class MixFixtureTest : public ::testing::TestWithParam<std::string> {
-public:
-    static std::vector<std::string> discoverMixFixtures() {
-        std::vector<std::string> result;
-        std::error_code ec;
-        if (std::filesystem::exists(basePath)) {
-            for (const auto& entry : std::filesystem::directory_iterator(basePath, ec)) {
-                if (!ec && entry.path().extension() == ".mlt") {
-                    auto filename = entry.path().filename().string();
-                    if (filename.starts_with("mix_")) {
-                        result.push_back(filename.substr(0, filename.length() - 4)); // Remove .mlt
-                    }
-                }
-            }
-        }
-        std::ranges::sort(result);
-        return result;
-    }
-};
-
-TEST_P(MixFixtureTest, CanLoadFixtureFile) {
-    // This test validates that all mix fixture files generated by Java exist and can be loaded.
-    // The Java SyntheticMltGenerator.generateMixed() and generateMixedCombine() methods create
-    // these files by combining the 7 geometry types (pt, line, poly, polyh, mpt, mline, mpoly)
-    // in various combinations: 2-combinations, 3-combinations, etc., plus A-A and A-B-A variants.
-    const auto mixTileName = GetParam();
-    const auto filePath = basePath + mixTileName + ".mlt";
-
-    // Load the fixture file
-    std::ifstream file(filePath, std::ios::binary);
-    ASSERT_TRUE(file.is_open()) << "Could not open fixture file: " << filePath;
-
-    std::vector<uint8_t> fileContents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-    file.close();
-
-    // Verify file has content
-    ASSERT_GT(fileContents.size(), 0) << "Fixture file is empty: " << filePath;
-}
-
-INSTANTIATE_TEST_SUITE_P(MixGeometryFixtures,
-                         MixFixtureTest,
-                         ::testing::ValuesIn(MixFixtureTest::discoverMixFixtures()),
+INSTANTIATE_TEST_SUITE_P(AllSyntheticFixtures,
+                         SyntheticFixtureTest,
+                         ::testing::ValuesIn(discoverAllFixtures()),
                          [](const ::testing::TestParamInfo<std::string>& info) { return info.param; });
 
-/// Individual tests for specific mix combinations (representative samples)
-TEST(SyntheticMltGenerator, GenerateMixedMix2PtLine) {
-    checkSyntheticByName(SyntheticMltGenerator::generateMixed(), "mix_2_pt_line");
-}
+// Reports fixture files that have no registered generator.
+// Skips (rather than fails) so CI remains green while work is in progress.
+TEST(SyntheticFixtureCoverage, AllFixturesHaveGenerators) {
+    const auto allFixtures = discoverAllFixtures();
+    const auto& reg = generatorRegistry();
 
-TEST(SyntheticMltGenerator, GenerateMixedMix2PtPt) {
-    checkSyntheticByName(SyntheticMltGenerator::generateMixed(), "mix_2_pt_pt");
-}
+    std::set<std::string> checked, unchecked, skipped, locatedGeneratedCases, registryKeys, missingFixtures;
+    for (const auto& [name, _] : reg) {
+        registryKeys.insert(name);
+    }
 
-TEST(SyntheticMltGenerator, GenerateSharedDictNoSharedDict) {
-    checkSyntheticByName(SyntheticMltGenerator::generateSharedDictionaries(), "props_no_shared_dict");
-}
+    for (const auto& name : allFixtures) {
+        const auto hit = reg.find(name);
+        if (hit == reg.end()) {
+            unchecked.insert(name);
+        } else {
+            locatedGeneratedCases.insert(name);
+        }
 
-TEST(SyntheticMltGenerator, GenerateSharedDictBasic) {
-    checkSyntheticByName(SyntheticMltGenerator::generateSharedDictionaries(), "props_shared_dict");
-}
+        if (hit == reg.end()) {
+            continue;
+        }
 
-TEST(SyntheticMltGenerator, GenerateSharedDictNoStructName) {
-    checkSyntheticByName(SyntheticMltGenerator::generateSharedDictionaries(), "props_shared_dict_no_struct_name");
-}
+        if (!hit->second.skipReason.empty()) {
+            skipped.insert(name);
+        } else {
+            checked.insert(name);
+        }
+    }
 
-TEST(SyntheticMltGenerator, GenerateSharedDictNoChildName) {
-    checkSyntheticByName(SyntheticMltGenerator::generateSharedDictionaries(), "props_shared_dict_no_child_name");
-}
+    std::ranges::set_difference(
+        registryKeys, locatedGeneratedCases, std::inserter(missingFixtures, missingFixtures.end()));
 
-// TODO: These cases still fail
+    std::ostringstream stream;
+    stream << checked.size() << " fixture file(s) have generators and are checked by tests.";
+    if (!unchecked.empty()) {
+        stream << "\n";
+        stream << std::to_string(unchecked.size()) << " fixture file(s) have no registered C++ generator:\n";
+        for (const auto& n : unchecked) {
+            stream << "  " << n << "\n";
+        }
+    }
+    stream << "\n" << std::to_string(skipped.size()) << " fixture file(s) have generators but are marked as skipped.\n";
+    if (!skipped.empty()) {
+        for (const auto& n : skipped) {
+            const auto& reason = reg.at(n).skipReason;
+            stream << "  " << n << " (reason: " << reason << ")\n";
+        }
+    }
+    stream << "\n" << missingFixtures.size() << " generated case(s) do not match any located fixture file.\n";
+    if (!missingFixtures.empty()) {
+        for (const auto& n : missingFixtures) {
+            stream << "  " << n << "\n";
+        }
+    }
 
-TEST(SyntheticMltGenerator, DISABLED_GenerateSharedDictOneChild) {
-    checkSyntheticByName(SyntheticMltGenerator::generateSharedDictionaries(), "props_shared_dict_one_child");
-}
-
-TEST(SyntheticMltGenerator, DISABLED_GenerateSharedDictTwoSamePrefix) {
-    checkSyntheticByName(SyntheticMltGenerator::generateSharedDictionaries(), "props_shared_dict_2_same_prefix");
-}
-
-/// FSST string encoding is non-deterministic due to symbol selection heuristics.
-/// We rely on round-trip testing for these.
-TEST(SyntheticMltGenerator, DISABLED_GeneratePropsStrFsst) {
-    checkSynthetic(SyntheticMltGenerator::generatePropsStrFsst());
-}
-TEST(SyntheticMltGenerator, DISABLED_GenerateSharedDictBasicFsst) {
-    checkSyntheticByName(SyntheticMltGenerator::generateSharedDictionaries(), "props_shared_dict_fsst");
-}
-TEST(SyntheticMltGenerator, DISABLED_GenerateSharedDictOneChildFsst) {
-    checkSyntheticByName(SyntheticMltGenerator::generateSharedDictionaries(), "props_shared_dict_one_child_fsst");
-}
-TEST(SyntheticMltGenerator, DISABLED_GenerateSharedDictNoStructNameFsst) {
-    checkSyntheticByName(SyntheticMltGenerator::generateSharedDictionaries(), "props_shared_dict_no_struct_name_fsst");
-}
-TEST(SyntheticMltGenerator, DISABLED_GenerateSharedDictNoChildNameFsst) {
-    checkSyntheticByName(SyntheticMltGenerator::generateSharedDictionaries(), "props_shared_dict_no_child_name_fsst");
+    const auto msg = stream.str();
+    if (!msg.empty()) {
+        if (missingFixtures.empty()) {
+            GTEST_SKIP() << msg;
+        } else {
+            FAIL() << msg;
+        }
+    } else {
+        SUCCEED() << "All " << allFixtures.size() << " fixture files are covered";
+    }
 }
 
 } // namespace

@@ -48,6 +48,26 @@ public:
 
     static constexpr Vertex c(std::int32_t x, std::int32_t y) noexcept { return {.x = x, .y = y}; }
 
+    /// De-interleave Z-order index bits into x (even bits) and y (odd bits) coordinates.
+    static Ring buildMortonCurve(std::size_t numPoints, std::int32_t scale, std::uint32_t mortonBits) {
+        Ring curve;
+        curve.reserve(numPoints);
+
+        for (std::size_t i = 0; i < numPoints; ++i) {
+            std::int32_t x = 0;
+            std::int32_t y = 0;
+
+            for (std::uint32_t b = 0; b < mortonBits; ++b) {
+                x |= static_cast<std::int32_t>(((i >> (2 * b)) & 1ULL) << b);
+                y |= static_cast<std::int32_t>(((i >> (2 * b + 1)) & 1ULL) << b);
+            }
+
+            curve.push_back(c(x * scale, y * scale));
+        }
+
+        return curve;
+    }
+
     static Geometry point(Vertex coord) {
         return {
             .type = metadata::tileset::GeometryType::POINT,
@@ -194,7 +214,7 @@ public:
     }
 
     static GeneratedTile generateLineMorton() {
-        Ring line_coords{c(0, 0), c(8, 0), c(0, 8), c(8, 8)};
+        Ring line_coords = buildMortonCurve(16, 8, 4);
         return {
             .name = "line_morton_curve_morton",
             .bytes = encode(layer(defaultLayerName, {feat(line(line_coords))}, defaultExtent), cfgWithMorton()),
