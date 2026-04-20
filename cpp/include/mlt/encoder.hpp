@@ -6,6 +6,7 @@
 #include <mlt/util/noncopyable.hpp>
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
