@@ -134,12 +134,9 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
     }
 
     for (auto& [key, info] : scalarColumns) {
-        if (info.type == ScalarType::STRING) {
-            info.nullable = true;
-            continue;
-        }
-        info.nullable = std::ranges::any_of(layer.features,
-                                            [&](const auto& feature) { return !feature.properties.contains(key); });
+        info.nullable = config.forceNullableColumns || std::ranges::any_of(layer.features, [&](const auto& feature) {
+                            return !feature.properties.contains(key);
+                        });
     }
 
     for (const auto& [name, info] : scalarColumns) {
@@ -154,7 +151,7 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
     for (const auto& [name, childNames] : structColumns) {
         Column col;
         col.name = name;
-        col.nullable = false;
+        col.nullable = config.forceNullableColumns;
         col.columnScope = ColumnScope::FEATURE;
 
         ComplexColumn complex;
@@ -337,16 +334,17 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
         return {};
     }
 
-    intEncoder.setEncodingOption(config.integerEncodingOption);
+    intEncoder.setDefaultEncodingOption(config.integerEncodingOption);
 
     const bool shouldSort = config.sortFeatures && canSort(layer.features);
     const auto sortedStorage = shouldSort ? sortFeatures(layer.features) : std::vector<Feature>{};
     const auto& features = shouldSort ? sortedStorage : layer.features;
 
-    auto physicalTechnique = config.useFastPfor ? PhysicalLevelTechnique::FAST_PFOR : PhysicalLevelTechnique::VARINT;
+    const auto physicalTechnique = config.useFastPfor ? PhysicalLevelTechnique::FAST_PFOR
+                                                      : PhysicalLevelTechnique::VARINT;
 
-    auto featureTable = buildMetadata(layer, config);
-    auto metadataBytes = encodeFeatureTable(featureTable);
+    const auto featureTable = buildMetadata(layer, config);
+    const auto metadataBytes = encodeFeatureTable(featureTable);
 
     std::vector<std::uint8_t> bodyBytes;
 
@@ -374,6 +372,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
     collectGeometry(features, geometryTypes, numGeometries, numParts, numRings, vertexBuffer);
 
     const bool usePretessellation = config.preTessellate && allPolygons(features);
+    const auto geometryIntegerEncodingOption = config.geometryEncodingOption.value_or(config.integerEncodingOption);
 
     GeometryEncoder::EncodedGeometryColumn encodedGeom = [&] {
         if (usePretessellation) {
@@ -389,6 +388,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                                                                        indexBuffer,
                                                                        physicalTechnique,
                                                                        intEncoder,
+                                                                       geometryIntegerEncodingOption,
                                                                        config.includeOutlines);
         }
         return GeometryEncoder::encodeGeometryColumn(geometryTypes,
@@ -398,6 +398,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                                                      vertexBuffer,
                                                      physicalTechnique,
                                                      intEncoder,
+                                                     geometryIntegerEncodingOption,
                                                      config.useMortonEncoding);
     }();
 
@@ -493,11 +494,14 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
         std::vector<std::uint8_t> encoded;
         switch (scalarType) {
             case ScalarType::BOOLEAN:
-                encoded = PropertyEncoder::encodeBooleanColumn(extractColumn.template operator()<bool>(util::overloaded{
-                    [](bool v) -> bool { return v; },
-                    // the type is already determined by column metadata, so the catch-all arms are dead by construction
-                    [](auto) -> bool { throwInvalidType(); }, // GCOVR_EXCL_LINE
-                }));
+                encoded = PropertyEncoder::encodeBooleanColumn(
+                    extractColumn.template operator()<bool>(util::overloaded{
+                        [](bool v) -> bool { return v; },
+                        // the type is already determined by column metadata, so the catch-all arms are dead by
+                        // construction
+                        [](auto) -> bool { throwInvalidType(); }, // GCOVR_EXCL_LINE
+                    }),
+                    column.nullable);
                 break;
             case ScalarType::INT_32:
                 encoded = PropertyEncoder::encodeInt32Column(
@@ -508,7 +512,8 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                     }),
                     physicalTechnique,
                     true,
-                    intEncoder);
+                    intEncoder,
+                    column.nullable);
                 break;
             case ScalarType::UINT_32:
                 encoded = PropertyEncoder::encodeInt32Column(
@@ -519,7 +524,8 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                     }),
                     physicalTechnique,
                     false,
-                    intEncoder);
+                    intEncoder,
+                    column.nullable);
                 break;
             case ScalarType::INT_64:
                 encoded = PropertyEncoder::encodeInt64Column(
@@ -529,7 +535,8 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                         [](auto) -> std::int64_t { throwInvalidType(); }, // GCOVR_EXCL_LINE
                     }),
                     true,
-                    intEncoder);
+                    intEncoder,
+                    column.nullable);
                 break;
             case ScalarType::UINT_64:
                 encoded = PropertyEncoder::encodeInt64Column(
@@ -539,14 +546,17 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                         [](auto) -> std::int64_t { throwInvalidType(); }, // GCOVR_EXCL_LINE
                     }),
                     false,
-                    intEncoder);
+                    intEncoder,
+                    column.nullable);
                 break;
             case ScalarType::FLOAT:
-                encoded = PropertyEncoder::encodeFloatColumn(extractColumn.template operator()<float>(util::overloaded{
-                    [](float v) -> float { return v; },
-                    [](double v) -> float { return static_cast<float>(v); },
-                    [](auto) -> float { throwInvalidType(); }, // GCOVR_EXCL_LINE
-                }));
+                encoded = PropertyEncoder::encodeFloatColumn(
+                    extractColumn.template operator()<float>(util::overloaded{
+                        [](float v) -> float { return v; },
+                        [](double v) -> float { return static_cast<float>(v); },
+                        [](auto) -> float { throwInvalidType(); }, // GCOVR_EXCL_LINE
+                    }),
+                    column.nullable);
                 break;
             case ScalarType::DOUBLE:
                 encoded = PropertyEncoder::encodeDoubleColumn(
@@ -554,7 +564,8 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                         [](double v) -> double { return v; },
                         [](float v) -> double { return static_cast<double>(v); },
                         [](auto) -> double { throwInvalidType(); }, // GCOVR_EXCL_LINE
-                    }));
+                    }),
+                    column.nullable);
                 break;
             case ScalarType::STRING: {
                 std::vector<std::string> ownedStrings;
@@ -576,7 +587,8 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                         values.push_back(std::nullopt);
                     }
                 }
-                encoded = PropertyEncoder::encodeStringColumn(values, physicalTechnique, intEncoder, config.useFsst);
+                encoded = PropertyEncoder::encodeStringColumn(
+                    values, physicalTechnique, intEncoder, config.useFsst, column.nullable);
                 break;
             }
             default:

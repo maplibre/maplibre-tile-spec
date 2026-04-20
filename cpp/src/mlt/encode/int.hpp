@@ -39,22 +39,40 @@ public:
     IntegerEncoder(IntegerEncoder&&) = delete;
     IntegerEncoder& operator=(IntegerEncoder&&) = delete;
 
-    void setEncodingOption(::mlt::IntegerEncodingOption option);
+    void setDefaultEncodingOption(::mlt::IntegerEncodingOption option);
 
     IntegerEncodingResult encodeInt(std::span<const std::int32_t> values, PhysicalLevelTechnique, bool isSigned);
+    IntegerEncodingResult encodeInt(std::span<const std::int32_t> values,
+                                    PhysicalLevelTechnique,
+                                    bool isSigned,
+                                    ::mlt::IntegerEncodingOption option);
 
     IntegerEncodingResult encodeLong(std::span<const std::int64_t> values, bool isSigned);
+    IntegerEncodingResult encodeLong(std::span<const std::int64_t> values,
+                                     bool isSigned,
+                                     ::mlt::IntegerEncodingOption option);
 
     std::vector<std::uint8_t> encodeIntStream(std::span<const std::int32_t> values,
                                               PhysicalLevelTechnique,
                                               bool isSigned,
                                               PhysicalStreamType,
                                               std::optional<LogicalStreamType>);
+    std::vector<std::uint8_t> encodeIntStream(std::span<const std::int32_t> values,
+                                              PhysicalLevelTechnique,
+                                              bool isSigned,
+                                              PhysicalStreamType,
+                                              std::optional<LogicalStreamType>,
+                                              ::mlt::IntegerEncodingOption option);
 
     std::vector<std::uint8_t> encodeLongStream(std::span<const std::int64_t> values,
                                                bool isSigned,
                                                PhysicalStreamType,
                                                std::optional<LogicalStreamType>);
+    std::vector<std::uint8_t> encodeLongStream(std::span<const std::int64_t> values,
+                                               bool isSigned,
+                                               PhysicalStreamType,
+                                               std::optional<LogicalStreamType>,
+                                               ::mlt::IntegerEncodingOption option);
 
 private:
     struct Impl;

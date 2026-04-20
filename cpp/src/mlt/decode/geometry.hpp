@@ -8,6 +8,7 @@
 #include <mlt/metadata/tileset.hpp>
 #include <mlt/util/buffer_stream.hpp>
 #include <mlt/util/noncopyable.hpp>
+#include <mlt/util/vectorized.hpp>
 
 #include <stdexcept>
 #include <string>
@@ -161,8 +162,16 @@ public:
                                 case PhysicalLevelTechnique::NONE:
                                 case PhysicalLevelTechnique::VARINT:
                                 case PhysicalLevelTechnique::FAST_PFOR:
-                                    intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::int32_t>(
-                                        tileData, vertices, *geomStreamMetadata, /*isSigned=*/true);
+                                    if (geomStreamMetadata->getLogicalLevelTechnique1() ==
+                                        LogicalLevelTechnique::COMPONENTWISE_DELTA) {
+                                        intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::int32_t>(
+                                            tileData, vertices, *geomStreamMetadata, /*isSigned=*/true);
+                                    } else {
+                                        intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::int32_t>(
+                                            tileData, vertices, *geomStreamMetadata, /*isSigned=*/false);
+                                        util::decoding::vectorized::decodeComponentwiseDeltaVec2(vertices.data(),
+                                                                                                 vertices.size());
+                                    }
                                     break;
                                 case PhysicalLevelTechnique::ALP:
                                     throw std::runtime_error("ALP encoding for geometries is not yet supported");

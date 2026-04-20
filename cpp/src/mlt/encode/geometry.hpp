@@ -1,6 +1,7 @@
 #pragma once
 
 #include <mlt/encode/int.hpp>
+#include <mlt/encoder.hpp>
 #include <mlt/metadata/stream.hpp>
 #include <mlt/metadata/tileset.hpp>
 #include <mlt/util/encoding/varint.hpp>
@@ -16,6 +17,10 @@
 #include <set>
 #include <span>
 #include <vector>
+
+namespace mlt {
+enum class IntegerEncodingOption : std::uint8_t;
+}
 
 namespace mlt::encoder {
 
@@ -45,17 +50,25 @@ public:
                                                       std::span<const Vertex> vertexBuffer,
                                                       PhysicalLevelTechnique physicalTechnique,
                                                       IntegerEncoder& intEncoder,
+                                                      IntegerEncodingOption integerEncodingOption,
                                                       bool useMortonEncoding = true) {
         const auto [numStreams, topologyStreams] = encodeTopologyStreams(
             geometryTypes, numGeometries, numParts, numRings, physicalTechnique, intEncoder);
 
         const auto [minVal, maxVal] = vertexBounds(vertexBuffer);
 
-        const auto plainEncoded = encodeVertexBufferPlain(vertexBuffer, physicalTechnique);
+        const auto plainEncoded = encodeVertexBufferPlain(
+            vertexBuffer, physicalTechnique, intEncoder, integerEncodingOption);
+
+        if (integerEncodingOption != IntegerEncodingOption::AUTO && !useMortonEncoding) {
+            std::vector<std::uint8_t> result = std::move(topologyStreams);
+            result.insert(result.end(), plainEncoded.begin(), plainEncoded.end());
+            return {.numStreams = numStreams + 1, .encodedValues = std::move(result), .maxVertexValue = maxVal};
+        }
 
         const auto hilbertDict = buildHilbertDictionary(vertexBuffer, minVal, maxVal);
         const auto hilbertEncoded = encodeHilbertDictionary(
-            hilbertDict, vertexBuffer, minVal, maxVal, physicalTechnique, intEncoder);
+            hilbertDict, vertexBuffer, minVal, maxVal, physicalTechnique, intEncoder, integerEncodingOption);
 
         std::optional<std::vector<std::uint8_t>> mortonEncoded;
         if (useMortonEncoding) {
@@ -91,6 +104,7 @@ public:
                                                                     std::span<const std::uint32_t> indexBuffer,
                                                                     PhysicalLevelTechnique physicalTechnique,
                                                                     IntegerEncoder& intEncoder,
+                                                                    IntegerEncodingOption integerEncodingOption,
                                                                     bool encodeOutlines) {
         using namespace metadata::stream;
 
@@ -116,7 +130,8 @@ public:
                            PhysicalStreamType::OFFSET,
                            LogicalStreamType{OffsetType::INDEX});
 
-        const auto encodedVertices = encodeVertexBufferPlain(vertexBuffer, physicalTechnique);
+        const auto encodedVertices = encodeVertexBufferPlain(
+            vertexBuffer, physicalTechnique, intEncoder, integerEncodingOption);
         result.insert(result.end(), encodedVertices.begin(), encodedVertices.end());
         ++numStreams;
 
@@ -213,8 +228,10 @@ private:
     }
 
     static std::vector<std::uint8_t> encodeVertexBufferPlain(std::span<const Vertex> vertices,
-                                                             PhysicalLevelTechnique physicalTechnique) {
-        return encodeVertexBufferRaw(zigZagDeltaEncode(vertices), physicalTechnique);
+                                                             PhysicalLevelTechnique physicalTechnique,
+                                                             IntegerEncoder& intEncoder,
+                                                             IntegerEncodingOption integerEncodingOption) {
+        return encodeVertexBufferRaw(zigZagDeltaEncode(vertices), physicalTechnique, intEncoder, integerEncodingOption);
     }
 
     struct HilbertDictionary {
@@ -246,9 +263,11 @@ private:
                                                              std::int32_t minVal,
                                                              std::int32_t maxVal,
                                                              PhysicalLevelTechnique physicalTechnique,
-                                                             IntegerEncoder& intEncoder) {
+                                                             IntegerEncoder& intEncoder,
+                                                             IntegerEncodingOption integerEncodingOption) {
         util::HilbertCurve curve(minVal, maxVal);
-        const auto encodedDict = encodeVertexBufferRaw(zigZagDeltaEncode(dict.vertices), physicalTechnique);
+        const auto encodedDict = encodeVertexBufferRaw(
+            zigZagDeltaEncode(dict.vertices), physicalTechnique, intEncoder, integerEncodingOption);
         return encodeDictionaryWithOffsets(
             vertexBuffer, dict.hilbertIds, curve, encodedDict, physicalTechnique, intEncoder);
     }
@@ -314,28 +333,51 @@ private:
     }
 
     static std::vector<std::uint8_t> encodeVertexBufferRaw(std::span<const std::int32_t> zigZagDelta,
-                                                           PhysicalLevelTechnique physicalTechnique) {
+                                                           PhysicalLevelTechnique physicalTechnique,
+                                                           IntegerEncoder& intEncoder,
+                                                           IntegerEncodingOption integerEncodingOption) {
         using namespace metadata::stream;
 
-        std::vector<std::uint8_t> encodedData;
-        encodedData.reserve(zigZagDelta.size() * 2);
-        for (auto v : zigZagDelta) {
-            util::encoding::encodeVarint(static_cast<std::uint32_t>(v), encodedData);
+        const auto encoded = intEncoder.encodeInt(
+            zigZagDelta, physicalTechnique, /*isSigned=*/false, integerEncodingOption);
+
+        // Match Java vertex metadata for plain zigzag-delta streams while preserving
+        // non-plain logical transforms when they are explicitly selected.
+        const bool isPlainZigZagDelta = (encoded.logicalLevelTechnique1 == LogicalLevelTechnique::NONE &&
+                                         encoded.logicalLevelTechnique2 == LogicalLevelTechnique::NONE);
+        const auto metadataLogical1 = isPlainZigZagDelta ? LogicalLevelTechnique::COMPONENTWISE_DELTA
+                                                         : encoded.logicalLevelTechnique1;
+        const auto metadataLogical2 = isPlainZigZagDelta ? LogicalLevelTechnique::NONE : encoded.logicalLevelTechnique2;
+
+        std::vector<std::uint8_t> metadata;
+        const bool isRle = (metadataLogical1 == LogicalLevelTechnique::RLE ||
+                            metadataLogical2 == LogicalLevelTechnique::RLE);
+        if (isRle) {
+            metadata = RleEncodedStreamMetadata(PhysicalStreamType::DATA,
+                                                LogicalStreamType{DictionaryType::VERTEX},
+                                                metadataLogical1,
+                                                metadataLogical2,
+                                                physicalTechnique,
+                                                encoded.physicalLevelEncodedValuesLength,
+                                                static_cast<std::uint32_t>(encoded.encodedValues.size()),
+                                                encoded.numRuns,
+                                                static_cast<std::uint32_t>(zigZagDelta.size()))
+                           .encode();
+        } else {
+            metadata = StreamMetadata(PhysicalStreamType::DATA,
+                                      LogicalStreamType{DictionaryType::VERTEX},
+                                      metadataLogical1,
+                                      metadataLogical2,
+                                      physicalTechnique,
+                                      encoded.physicalLevelEncodedValuesLength,
+                                      static_cast<std::uint32_t>(encoded.encodedValues.size()))
+                           .encode();
         }
 
-        const auto metadata = StreamMetadata(PhysicalStreamType::DATA,
-                                             LogicalStreamType{DictionaryType::VERTEX},
-                                             LogicalLevelTechnique::COMPONENTWISE_DELTA,
-                                             LogicalLevelTechnique::NONE,
-                                             physicalTechnique,
-                                             static_cast<std::uint32_t>(zigZagDelta.size()),
-                                             static_cast<std::uint32_t>(encodedData.size()))
-                                  .encode();
-
         std::vector<std::uint8_t> result;
-        result.reserve(metadata.size() + encodedData.size());
+        result.reserve(metadata.size() + encoded.encodedValues.size());
         result.insert(result.end(), metadata.begin(), metadata.end());
-        result.insert(result.end(), encodedData.begin(), encodedData.end());
+        result.insert(result.end(), encoded.encodedValues.begin(), encoded.encodedValues.end());
         return result;
     }
 

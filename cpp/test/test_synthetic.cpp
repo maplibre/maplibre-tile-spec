@@ -1,6 +1,5 @@
 #include "synthetic_mlt_generator.hpp"
 
-#include <algorithm>
 #include <mlt/coordinate.hpp>
 #include <mlt/decoder.hpp>
 #include <mlt/geometry.hpp>
@@ -61,13 +60,6 @@ struct DisabledPattern {
 /// All generated tiles whose names match any pattern are marked as skipped.
 const std::vector<DisabledPattern>& disabledPatterns() {
     static const std::vector<DisabledPattern> patterns = {
-        // Large-extent coordinate encoding differs from Java.
-        {.pattern = std::regex{R"(^extent_1073741824$)"},
-         .reason = "Large-extent encoding does not yet match Java output"},
-        // Java emits a nullable property column even when no values are null.
-        {.pattern = std::regex{R"(^prop_u64$)"},
-         .reason = "Java emits a nullable column for prop_u64 but C++ does not; "
-                   "the Java behaviour may be a spec violation"},
         // Mixed fixtures that include polygonal geometry currently diverge from Java bytes.
         {.pattern = std::regex{R"(^mix_.*(_|^)(poly|polyh|mpoly)(_|$).*)"},
          .reason = "Mixed polygon fixture encoding does not yet match Java output"},
@@ -118,11 +110,7 @@ const GeneratorRegistry& generatorRegistry() {
         addAll(SyntheticMltGenerator::generatePolygons());
         add(SyntheticMltGenerator::generateMultiPoint());
         add(SyntheticMltGenerator::generateMultiLine());
-
-        // Extents (covers extent_512, extent_buf_512, extent_4096, extent_buf_4096, extent_131072, extent_buf_131072)
         addAll(SyntheticMltGenerator::generateExtent());
-        // extent_4096 is also covered above via generateExtent(); the entry is overwritten with the same value.
-        add(SyntheticMltGenerator::generateExtent4096());
         add(SyntheticMltGenerator::generateExtent(1073741824U));
 
         // IDs

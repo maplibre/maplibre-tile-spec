@@ -153,8 +153,8 @@ public:
         };
     }
 
-    static EncoderConfig cfg() {
-        return {
+    static EncoderConfig cfg(std::function<void(EncoderConfig&)> customizer = {}) {
+        EncoderConfig config = {
             .useFastPfor = false,
             .includeIds = false,
             .sortFeatures = false,
@@ -162,7 +162,12 @@ public:
             .includeOutlines = true,
             .useMortonEncoding = false,
             .useFsst = false,
+            .geometryEncodingOption = ::mlt::IntegerEncodingOption::PLAIN,
         };
+        if (customizer) {
+            customizer(config);
+        }
+        return config;
     }
 
     static EncoderConfig cfgWithIds() {
@@ -180,6 +185,12 @@ public:
     static EncoderConfig cfgWithMorton() {
         auto config = cfg();
         config.useMortonEncoding = true;
+        return config;
+    }
+
+    static EncoderConfig cfgWithPlainIntegers() {
+        auto config = cfg();
+        config.integerEncodingOption = ::mlt::IntegerEncodingOption::PLAIN;
         return config;
     }
 
@@ -266,16 +277,9 @@ public:
 
     static GeneratedTiles generateMultiLineStrings() { return {generateMultiLine()}; }
 
-    static GeneratedTile generateExtent4096() {
-        Ring line_coords{c(0, 0), c(4095, 4095)};
-        return {
-            .name = "extent_4096",
-            .bytes = encode(layer(defaultLayerName, {feat(line(line_coords))}, 4096), cfg()),
-        };
-    }
-
     static GeneratedTile generateExtent(std::uint32_t extent) {
-        Ring line_coords{c(0, 0), c(static_cast<std::int32_t>(extent - 1), static_cast<std::int32_t>(extent - 1))};
+        const Ring line_coords{c(0, 0),
+                               c(static_cast<std::int32_t>(extent - 1), static_cast<std::int32_t>(extent - 1))};
         return {
             .name = "extent_" + std::to_string(extent),
             .bytes = encode(layer(defaultLayerName, {feat(line(line_coords))}, extent), cfg()),
@@ -283,8 +287,8 @@ public:
     }
 
     static GeneratedTile generateExtentBuf(std::uint32_t extent) {
-        Ring line_coords{c(-42, -42),
-                         c(static_cast<std::int32_t>(extent + 42), static_cast<std::int32_t>(extent + 42))};
+        const Ring line_coords{c(-42, -42),
+                               c(static_cast<std::int32_t>(extent + 42), static_cast<std::int32_t>(extent + 42))};
         return {
             .name = "extent_buf_" + std::to_string(extent),
             .bytes = encode(layer(defaultLayerName, {feat(line(line_coords))}, extent), cfg()),
@@ -293,7 +297,7 @@ public:
 
     static GeneratedTiles generateExtent() {
         GeneratedTiles tiles;
-        for (const auto e : {512U, 4096U, 131072U}) {
+        for (const auto e : {512U, 4096U, 131072U, 1073741824U}) {
             tiles.push_back(generateExtent(e));
             tiles.push_back(generateExtentBuf(e));
         }
@@ -302,16 +306,26 @@ public:
 
     static GeneratedTile generateIds() {
         // Java writes: write("id", idFeat(100), cfg().ids());
+        const auto config = cfg([](auto& c) {
+            c.includeIds = true;
+            c.integerEncodingOption = ::mlt::IntegerEncodingOption::PLAIN;
+            c.geometryEncodingOption = ::mlt::IntegerEncodingOption::PLAIN;
+        });
+
         return {
             .name = "id",
-            .bytes = encode(layer(defaultLayerName, {featWithId(100, point(c0))}, defaultExtent), cfgWithIds()),
+            .bytes = encode(layer(defaultLayerName, {featWithId(100, point(c0))}, defaultExtent), config),
         };
     }
 
     static GeneratedTile generateIdMin() {
         return {
             .name = "id_min",
-            .bytes = encode(layer(defaultLayerName, {featWithId(0, point(c0))}, defaultExtent), cfgWithIds()),
+            .bytes = encode(layer(defaultLayerName, {featWithId(0, point(c0))}, defaultExtent), cfg([](auto& c) {
+                                c.includeIds = true;
+                                c.integerEncodingOption = ::mlt::IntegerEncodingOption::PLAIN;
+                                c.geometryEncodingOption = ::mlt::IntegerEncodingOption::PLAIN;
+                            })),
         };
     }
 
@@ -319,7 +333,11 @@ public:
         return {
             .name = "id64",
             .bytes = encode(layer(defaultLayerName, {featWithId(9234567890ULL, point(c0))}, defaultExtent),
-                            cfgWithIds()),
+                            cfg([](auto& c) {
+                                c.includeIds = true;
+                                c.integerEncodingOption = ::mlt::IntegerEncodingOption::PLAIN;
+                                c.geometryEncodingOption = ::mlt::IntegerEncodingOption::PLAIN;
+                            })),
         };
     }
 
@@ -329,9 +347,13 @@ public:
         // Feature with a u64 property value
         PropertyMap props;
         props["bignum"] = PropertyValue{static_cast<std::uint64_t>(1234567890123456789ULL)};
+
+        // Java writes a nullable column for this property even though no values are null.
+        const auto config = cfg([](auto& c) { c.forceNullableColumns = true; });
+
         return {
             .name = "prop_u64",
-            .bytes = encode(layer(defaultLayerName, {feat(point(c0), props)}, defaultExtent), cfg()),
+            .bytes = encode(layer(defaultLayerName, {feat(point(c0), props)}, defaultExtent), config),
         };
     }
 
@@ -544,7 +566,7 @@ public:
                 layer(defaultLayerName,
                       {feat(point(c0), PropertyMap{{"name:en", PropertyValue{val}}, {"name:de", PropertyValue{val}}})},
                       defaultExtent),
-                cfg()),
+                cfg([](auto& c) { c.forceNullableColumns = true; })),
         };
 
         auto sharedDict = GeneratedTile{

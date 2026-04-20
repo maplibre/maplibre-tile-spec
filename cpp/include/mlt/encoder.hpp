@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -30,7 +31,15 @@ struct EncoderConfig {
     bool includeOutlines = true;
     bool useMortonEncoding = true;
     bool useFsst = true;
+    bool forceNullableColumns = false;
     IntegerEncodingOption integerEncodingOption = IntegerEncodingOption::AUTO;
+    std::optional<IntegerEncodingOption> geometryEncodingOption = IntegerEncodingOption::AUTO;
+
+    static EncoderConfig with(std::function<void(EncoderConfig&)> configurator) {
+        EncoderConfig config;
+        configurator(config);
+        return config;
+    }
 };
 
 class Encoder : public util::noncopyable {

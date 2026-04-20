@@ -26,7 +26,7 @@ IntegerEncoder::IntegerEncoder()
 
 IntegerEncoder::~IntegerEncoder() noexcept = default;
 
-void IntegerEncoder::setEncodingOption(::mlt::IntegerEncodingOption option) {
+void IntegerEncoder::setDefaultEncodingOption(::mlt::IntegerEncodingOption option) {
     impl->encodingOption = option;
 }
 
@@ -75,6 +75,13 @@ std::vector<std::uint8_t> IntegerEncoder::encodeFastPfor([[maybe_unused]] std::s
 IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> values,
                                                 [[maybe_unused]] PhysicalLevelTechnique physicalTechnique,
                                                 bool isSigned) {
+    return encodeInt(values, physicalTechnique, isSigned, impl->encodingOption);
+}
+
+IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> values,
+                                                [[maybe_unused]] PhysicalLevelTechnique physicalTechnique,
+                                                bool isSigned,
+                                                ::mlt::IntegerEncodingOption option) {
 #if MLT_WITH_FASTPFOR
     const auto encode = (physicalTechnique == PhysicalLevelTechnique::FAST_PFOR) ? &IntegerEncoder::encodeFastPfor
                                                                                  : &IntegerEncoder::encodeVarints32;
@@ -131,7 +138,7 @@ IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> va
     std::vector<std::uint8_t> rleEncoded;
     std::uint32_t rlePhysicalLength = 0;
     bool isConstStream = false;
-    const bool shouldTryRle = impl->encodingOption != ::mlt::IntegerEncodingOption::AUTO || values.size() / runs >= 2;
+    const bool shouldTryRle = option != ::mlt::IntegerEncodingOption::AUTO || values.size() / runs >= 2;
     if (shouldTryRle) {
         auto rle = util::encoding::rle::encodeIntRle<std::int32_t>(values);
         isConstStream = (rle.runs.size() == 1);
@@ -160,7 +167,7 @@ IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> va
 
     std::vector<std::uint8_t> deltaRleEncoded;
     std::uint32_t deltaRlePhysicalLength = 0;
-    const bool shouldTryDeltaRle = impl->encodingOption != ::mlt::IntegerEncodingOption::AUTO ||
+    const bool shouldTryDeltaRle = option != ::mlt::IntegerEncodingOption::AUTO ||
                                    (deltaValues.size() / deltaRuns >= 2 && !isConstStream);
     if (shouldTryDeltaRle) {
         auto deltaRle = util::encoding::rle::encodeIntRle<std::int32_t>(deltaValues);
@@ -183,7 +190,7 @@ IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> va
         }
     }
 
-    switch (impl->encodingOption) {
+    switch (option) {
         case ::mlt::IntegerEncodingOption::AUTO:
             break;
         case ::mlt::IntegerEncodingOption::PLAIN:
@@ -224,6 +231,12 @@ IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> va
 }
 
 IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> values, bool isSigned) {
+    return encodeLong(values, isSigned, impl->encodingOption);
+}
+
+IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> values,
+                                                 bool isSigned,
+                                                 ::mlt::IntegerEncodingOption option) {
     auto plainEncoded = encodeVarints64(values, isSigned);
 
     std::vector<std::int64_t> deltaValues(values.size());
@@ -272,7 +285,7 @@ IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> v
 
     std::vector<std::uint8_t> rleEncoded;
     std::uint32_t rlePhysicalLength = 0;
-    const bool shouldTryRle = impl->encodingOption != ::mlt::IntegerEncodingOption::AUTO || values.size() / runs >= 2;
+    const bool shouldTryRle = option != ::mlt::IntegerEncodingOption::AUTO || values.size() / runs >= 2;
     if (shouldTryRle) {
         auto rle = util::encoding::rle::encodeIntRle<std::int64_t>(values);
 
@@ -302,8 +315,7 @@ IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> v
 
     std::vector<std::uint8_t> deltaRleEncoded;
     std::uint32_t deltaRlePhysicalLength = 0;
-    const bool shouldTryDeltaRle = impl->encodingOption != ::mlt::IntegerEncodingOption::AUTO ||
-                                   deltaValues.size() / deltaRuns >= 2;
+    const bool shouldTryDeltaRle = option != ::mlt::IntegerEncodingOption::AUTO || deltaValues.size() / deltaRuns >= 2;
     if (shouldTryDeltaRle) {
         const auto deltaRle = util::encoding::rle::encodeIntRle<std::int64_t>(deltaValues);
 
@@ -327,7 +339,7 @@ IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> v
         }
     }
 
-    switch (impl->encodingOption) {
+    switch (option) {
         case ::mlt::IntegerEncodingOption::AUTO:
             break;
         case ::mlt::IntegerEncodingOption::PLAIN:
@@ -409,7 +421,18 @@ std::vector<std::uint8_t> IntegerEncoder::encodeIntStream(std::span<const std::i
                                                           bool isSigned,
                                                           PhysicalStreamType streamType,
                                                           std::optional<LogicalStreamType> logicalType) {
-    const auto encoded = encodeInt(values, physicalTechnique, isSigned);
+    const auto encoded = encodeInt(values, physicalTechnique, isSigned, impl->encodingOption);
+    return buildStream(
+        encoded, static_cast<std::uint32_t>(values.size()), physicalTechnique, streamType, std::move(logicalType));
+}
+
+std::vector<std::uint8_t> IntegerEncoder::encodeIntStream(std::span<const std::int32_t> values,
+                                                          PhysicalLevelTechnique physicalTechnique,
+                                                          bool isSigned,
+                                                          PhysicalStreamType streamType,
+                                                          std::optional<LogicalStreamType> logicalType,
+                                                          ::mlt::IntegerEncodingOption option) {
+    const auto encoded = encodeInt(values, physicalTechnique, isSigned, option);
     return buildStream(
         encoded, static_cast<std::uint32_t>(values.size()), physicalTechnique, streamType, std::move(logicalType));
 }
@@ -418,7 +441,20 @@ std::vector<std::uint8_t> IntegerEncoder::encodeLongStream(std::span<const std::
                                                            bool isSigned,
                                                            PhysicalStreamType streamType,
                                                            std::optional<LogicalStreamType> logicalType) {
-    const auto encoded = encodeLong(values, isSigned);
+    const auto encoded = encodeLong(values, isSigned, impl->encodingOption);
+    return buildStream(encoded,
+                       static_cast<std::uint32_t>(values.size()),
+                       PhysicalLevelTechnique::VARINT,
+                       streamType,
+                       std::move(logicalType));
+}
+
+std::vector<std::uint8_t> IntegerEncoder::encodeLongStream(std::span<const std::int64_t> values,
+                                                           bool isSigned,
+                                                           PhysicalStreamType streamType,
+                                                           std::optional<LogicalStreamType> logicalType,
+                                                           ::mlt::IntegerEncodingOption option) {
+    const auto encoded = encodeLong(values, isSigned, option);
     return buildStream(encoded,
                        static_cast<std::uint32_t>(values.size()),
                        PhysicalLevelTechnique::VARINT,
