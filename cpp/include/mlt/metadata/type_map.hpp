@@ -1,5 +1,6 @@
 #include <cstddef>
 #include <optional>
+#include <stdexcept>
 
 #include <mlt/metadata/tileset.hpp>
 
