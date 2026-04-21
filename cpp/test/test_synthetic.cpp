@@ -69,25 +69,26 @@ void expectDecodedTilesEquivalent(const std::string& fixtureName,
 }
 #endif
 
-/// Registry entry: a generator plus an optional skip reason.
-/// If skipReason is non-empty the test is skipped rather than run.
+/// Registry entry: a generator plus an optional reason for skipping binary equality checks.
 struct RegistryEntry {
     std::function<SyntheticMltGenerator::GeneratedTile()> generator;
-    std::string skipReason; ///< non-empty → test is skipped with this message
+    std::string binaryExceptionReason; ///< if non-empty, the binary check is skipped with this message
 };
 using GeneratorRegistry = std::map<std::string, RegistryEntry>;
 
 /// A pattern entry: an ECMAScript regex matched against the fixture name, plus a skip reason.
-struct DisabledPattern {
+struct ExceptionPattern {
     std::regex pattern;
     std::string reason;
 };
 
-/// The list of disabled patterns.
-/// These cases don't require the generated fixture bytes to match, but still require decoded JSON to match.
-const std::vector<DisabledPattern>& disabledPatterns() {
-    static const std::vector<DisabledPattern> patterns = {
+/// These cases don't require the generated fixture bytes to match.
+/// The decoded JSON still has to match.
+const std::vector<ExceptionPattern>& binaryExceptionPatterns() {
+    static const std::vector<ExceptionPattern> patterns = {
         {.pattern = std::regex{"(mix_.*_tes)"},
+         .reason = "Tessellation triangle ordering is arbitrary; byte comparison is not reliable"},
+        {.pattern = std::regex{"(poly(_.*)?_tes)"},
          .reason = "Tessellation triangle ordering is arbitrary; byte comparison is not reliable"},
         {.pattern = std::regex{"(.*_fsst$)"},
          .reason = "FSST symbol selection is heuristic; byte comparison is not reliable"},
@@ -97,7 +98,7 @@ const std::vector<DisabledPattern>& disabledPatterns() {
 
 /// Returns the skip reason for a fixture name, or empty string if the fixture is enabled.
 std::string skipReasonFor(const std::string& name) {
-    for (const auto& dp : disabledPatterns()) {
+    for (const auto& dp : binaryExceptionPatterns()) {
         if (std::regex_match(name, dp.pattern)) {
             return dp.reason;
         }
@@ -109,19 +110,17 @@ const GeneratorRegistry& generatorRegistry() {
     static const GeneratorRegistry registry = []() {
         GeneratorRegistry reg;
 
-        // Insert a tile: check against disabledPatterns to set skipReason automatically.
+        // Insert a tile: check against the exceptions to set skipReason automatically.
         const auto add = [&](SyntheticMltGenerator::GeneratedTile tile) {
             auto name = tile.name;
-            reg.emplace(
-                std::move(name),
-                RegistryEntry{.generator = [t = std::move(tile)]() { return t; }, .skipReason = skipReasonFor(name)});
+            reg.emplace(std::move(name),
+                        RegistryEntry{.generator = [t = std::move(tile)]() { return t; },
+                                      .binaryExceptionReason = skipReasonFor(name)});
         };
 
         // Insert all tiles from a collection.
-        const auto addAll = [&](SyntheticMltGenerator::GeneratedTiles tiles) {
-            for (auto& tile : tiles) {
-                add(std::move(tile));
-            }
+        const auto addAll = [&](SyntheticMltGenerator::GeneratedTileVec tiles) {
+            std::ranges::for_each(tiles, add);
         };
 
         // Basic geometry
@@ -192,17 +191,23 @@ TEST_P(SyntheticFixtureTest, MatchesGenerator) {
     const auto filePath = basePath + name + ".mlt";
     const auto fileContents = readBinaryFile(filePath);
 
+    // If the results are identical, there's no need to decode and compare JSON
+    if (fileContents == generated.bytes) {
+        SUCCEED();
+        return;
+    }
+
 #if MLT_WITH_JSON
     expectDecodedTilesEquivalent(name, fileContents, generated.bytes);
 #else
 #warning "MLT_WITH_JSON is disabled; skipping decoded semantic comparison and relying on byte-level comparison only"
 #endif
 
-    if (!entry.skipReason.empty()) {
-        GTEST_SKIP() << "Byte-level equality skipped: " << entry.skipReason;
+    if (!entry.binaryExceptionReason.empty()) {
+        SUCCEED() << "Byte equality not checked: " << entry.binaryExceptionReason;
+    } else {
+        EXPECT_EQ(fileContents, generated.bytes);
     }
-
-    EXPECT_EQ(fileContents, generated.bytes);
 }
 
 INSTANTIATE_TEST_SUITE_P(AllSyntheticFixtures,
@@ -211,70 +216,58 @@ INSTANTIATE_TEST_SUITE_P(AllSyntheticFixtures,
                          [](const ::testing::TestParamInfo<std::string>& info) { return info.param; });
 
 // Reports fixture files that have no registered generator.
-// Skips (rather than fails) so CI remains green while work is in progress.
 TEST(SyntheticFixtureCoverage, AllFixturesHaveGenerators) {
     const auto allFixtures = discoverAllFixtures();
     const auto& reg = generatorRegistry();
 
-    std::set<std::string> checked, unchecked, skipped, locatedGeneratedCases, registryKeys, missingFixtures;
-    for (const auto& [name, _] : reg) {
-        registryKeys.insert(name);
-    }
-
+    // Split out the located fixtures into categories:
+    // - checked: have a registered generator and are checked by tests
+    // - jsonChecked: have a registered generator but binary equiality is not required
+    // - unchecked: have no registered generator (and are therefore skipped by tests)
+    // - allMatched: the union of checked and jsonChecked; used to find missing generated cases
+    std::set<std::string> checked, unchecked, jsonChecked, allMatched;
     for (const auto& name : allFixtures) {
         const auto hit = reg.find(name);
         if (hit == reg.end()) {
             unchecked.insert(name);
-        } else {
-            locatedGeneratedCases.insert(name);
-        }
-
-        if (hit == reg.end()) {
             continue;
         }
 
-        if (!hit->second.skipReason.empty()) {
-            skipped.insert(name);
-        } else {
-            checked.insert(name);
-        }
+        allMatched.insert(name);
+        (hit->second.binaryExceptionReason.empty() ? checked : jsonChecked).insert(name);
     }
 
-    std::ranges::set_difference(
-        registryKeys, locatedGeneratedCases, std::inserter(missingFixtures, missingFixtures.end()));
+    // Create a set consisting of the names of all the generated cases
+    std::set<std::string> allGeneratedNames;
+    for (const auto& [name, _] : reg) {
+        allGeneratedNames.insert(name);
+    }
 
+    // Find extra generated cases by subtracting the matched set from the generated set
+    std::set<std::string> missing;
+    std::ranges::set_difference(allGeneratedNames, allMatched, std::inserter(missing, missing.end()));
+
+    // Report the results
     std::ostringstream stream;
-    stream << checked.size() << " fixture file(s) have generators and are checked by tests.";
-    if (!unchecked.empty()) {
-        stream << "\n";
-        stream << std::to_string(unchecked.size()) << " fixture file(s) have no registered C++ generator:\n";
-        for (const auto& n : unchecked) {
-            stream << "  " << n << "\n";
-        }
-    }
-    stream << "\n" << std::to_string(skipped.size()) << " fixture file(s) are not byte-exact, but JSON equivalent\n";
-    if (!skipped.empty()) {
-        for (const auto& n : skipped) {
-            const auto& reason = reg.at(n).skipReason;
-            stream << "  " << n << " (reason: " << reason << ")\n";
-        }
-    }
-    stream << "\n" << missingFixtures.size() << " generated case(s) do not match any located fixture file.\n";
-    if (!missingFixtures.empty()) {
-        for (const auto& n : missingFixtures) {
-            stream << "  " << n << "\n";
-        }
+
+    stream << checked.size() << " fixture file(s) have generators and are checked by tests.\n"
+           << jsonChecked.size() << " fixture file(s) are not byte-exact, but JSON equivalent\n";
+
+    stream << missing.size() << " generated case(s) do not match any located fixture file.\n";
+    for (const auto& n : missing) {
+        stream << "  " << n << "\n";
     }
 
-    const auto msg = stream.str();
-    if (!msg.empty()) {
-        if (missingFixtures.empty()) {
-            GTEST_SKIP() << msg;
-        } else {
-            FAIL() << msg;
-        }
+    stream << unchecked.size() << " fixture file(s) have no registered C++ generator.\n";
+    for (const auto& n : unchecked) {
+        stream << "  " << n << "\n";
+    }
+
+    // The test fails only if there are generated cases with no matching fixture file.
+    if (!missing.empty()) {
+        FAIL() << stream.str();
     } else {
-        SUCCEED() << "All " << allFixtures.size() << " fixture files are covered";
+        GTEST_SKIP() << stream.str();
     }
 }
 

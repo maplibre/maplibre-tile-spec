@@ -21,15 +21,15 @@ public:
     using PropertyValue = Encoder::PropertyValue;
     using PropertyMap = std::map<std::string, PropertyValue>;
     using Ring = std::vector<Vertex>;
-    using Rings = std::vector<Ring>;
-    using Parts = std::vector<Ring>;
-    using Polygons = std::vector<Rings>;
+    using RingVec = std::vector<Ring>;
+    using PartVec = std::vector<Ring>;
+    using PolygonVec = std::vector<RingVec>;
 
     struct GeneratedTile {
         std::string name;
         std::vector<std::uint8_t> bytes;
     };
-    using GeneratedTiles = std::vector<GeneratedTile>;
+    using GeneratedTileVec = std::vector<GeneratedTile>;
 
     static constexpr std::uint32_t defaultExtent = 80;
     static constexpr const char* defaultLayerName = "layer1";
@@ -82,9 +82,9 @@ public:
         };
     }
 
-    static Geometry poly(Ring shell) { return poly(Rings{std::move(shell)}); }
+    static Geometry poly(Ring shell) { return poly(RingVec{std::move(shell)}); }
 
-    static Geometry poly(Rings rings) {
+    static Geometry poly(RingVec rings) {
         Geometry geometry = {
             .type = metadata::tileset::GeometryType::POLYGON,
         };
@@ -104,14 +104,14 @@ public:
         };
     }
 
-    static Geometry multiLine(Parts lines) {
+    static Geometry multiLine(PartVec lines) {
         return {
             .type = metadata::tileset::GeometryType::MULTILINESTRING,
             .parts = std::move(lines),
         };
     }
 
-    static Geometry multiPoly(Polygons polygons) {
+    static Geometry multiPoly(PolygonVec polygons) {
         Geometry geometry = {
             .type = metadata::tileset::GeometryType::MULTIPOLYGON,
         };
@@ -246,29 +246,162 @@ public:
                 }};
     }
 
-    static GeneratedTiles generateLines() { return {generateLine(), generateLineZeroLength()}; }
+    static GeneratedTileVec generateLines() { return {generateLine(), generateLineZeroLength()}; }
 
-    static GeneratedTile generatePolyHole() {
-        // Match Java/JTS polygon ring semantics used by synthetic fixture generation.
-        Ring shell{c1, c2, c3};
-        Ring hole{h1, h2, h3};
-        Rings rings{shell, hole};
-        const auto config = cfg([](auto& c) { c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO; });
-        return {
-            .name = "poly_hole",
-            .bytes = encode(layer(defaultLayerName, {feat(poly(rings))}, defaultExtent), config),
-        };
+    static GeneratedTileVec generatePolyVariants(const std::string& baseName, const Feature& polygonFeature) {
+        GeneratedTileVec tiles;
+
+        const auto plainCfg = cfg([](auto& c) {
+            c.geometryEncodingOption = IntegerEncodingOption::AUTO;
+            c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
+        });
+
+        const auto fastPforCfg = cfg([](auto& c) {
+            c.geometryEncodingOption = IntegerEncodingOption::AUTO;
+            c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
+            c.useFastPfor = true;
+        });
+
+        const auto tessellatedCfg = cfg([](auto& c) {
+            c.geometryEncodingOption = IntegerEncodingOption::AUTO;
+            c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
+            c.preTessellate = true;
+        });
+
+        const auto fastPforTessellatedCfg = cfg([](auto& c) {
+            c.geometryEncodingOption = IntegerEncodingOption::AUTO;
+            c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
+            c.useFastPfor = true;
+            c.preTessellate = true;
+        });
+
+        tiles.push_back({
+            .name = baseName,
+            .bytes = encode(layer(defaultLayerName, {polygonFeature}, defaultExtent), plainCfg),
+        });
+        tiles.push_back({
+            .name = baseName + "_fpf",
+            .bytes = encode(layer(defaultLayerName, {polygonFeature}, defaultExtent), fastPforCfg),
+        });
+        tiles.push_back({
+            .name = baseName + "_tes",
+            .bytes = encode(layer(defaultLayerName, {polygonFeature}, defaultExtent), tessellatedCfg),
+        });
+        tiles.push_back({
+            .name = baseName + "_fpf_tes",
+            .bytes = encode(layer(defaultLayerName, {polygonFeature}, defaultExtent), fastPforTessellatedCfg),
+        });
+
+        return tiles;
     }
 
-    static GeneratedTile generatePoly() {
-        Ring shell{c1, c2, c3};
-        return {
-            .name = "poly",
-            .bytes = encode(layer(defaultLayerName, {feat(poly(shell))}, defaultExtent), cfg()),
-        };
-    }
+    static GeneratedTileVec generatePolygons() {
+        GeneratedTileVec tiles;
 
-    static GeneratedTiles generatePolygons() { return {generatePoly(), generatePolyHole()}; }
+        const auto appendAll = [&](GeneratedTileVec generated) {
+            tiles.insert(tiles.end(), generated.begin(), generated.end());
+        };
+
+        // Java poly/poly_fpf/poly_tes/poly_fpf_tes
+        appendAll(generatePolyVariants("poly", feat(poly(Ring{c1, c2, c3}))));
+
+        // Java poly_collinear*
+        appendAll(generatePolyVariants("poly_collinear", feat(poly(Ring{c(0, 0), c(10, 0), c(20, 0)}))));
+
+        // Java poly_self_intersect*
+        appendAll(
+            generatePolyVariants("poly_self_intersect", feat(poly(Ring{c(0, 0), c(10, 10), c(0, 10), c(10, 0)}))));
+
+        // Java poly_hole*
+        appendAll(generatePolyVariants("poly_hole", feat(poly(RingVec{Ring{c1, c2, c3}, Ring{h1, h2, h3}}))));
+
+        // Java poly_hole_touching*
+        appendAll(generatePolyVariants(
+            "poly_hole_touching",
+            feat(poly(RingVec{Ring{c(0, 0), c(10, 0), c(10, 10), c(0, 10)}, Ring{c(0, 0), c(2, 2), c(5, 2)}}))));
+
+        // Java poly_multi*
+        appendAll(generatePolyVariants(
+            "poly_multi", feat(multiPoly(PolygonVec{RingVec{Ring{c1, c2, c3}}, RingVec{Ring{c21, c22, c23}}}))));
+
+        // Java Morton polygon variants.
+        Ring mortonCurve = buildMortonCurve(16, 8, 4);
+        Ring mortonRing = mortonCurve;
+
+        const auto mortonCfg = cfg([](auto& c) {
+            c.useMortonEncoding = true;
+            c.forceMortonGeometryLayout = true;
+            c.geometryEncodingOption = IntegerEncodingOption::AUTO;
+            c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
+        });
+
+        const auto nonMortonCfg = cfg([](auto& c) {
+            c.useMortonEncoding = false;
+            c.geometryEncodingOption = IntegerEncodingOption::AUTO;
+            c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
+        });
+
+        tiles.push_back({
+            .name = "poly_morton_ring_no_morton",
+            .bytes = encode(layer(defaultLayerName, {feat(poly(std::move(mortonRing)))}, defaultExtent), nonMortonCfg),
+        });
+
+        mortonRing = mortonCurve;
+        tiles.push_back({
+            .name = "poly_morton_ring_morton",
+            .bytes = encode(layer(defaultLayerName, {feat(poly(std::move(mortonRing)))}, defaultExtent), mortonCfg),
+        });
+
+        const std::size_t half = mortonCurve.size() / 2;
+        Ring mortonRing1(mortonCurve.begin(), mortonCurve.begin() + static_cast<std::ptrdiff_t>(half));
+        Ring mortonRing2(mortonCurve.begin() + static_cast<std::ptrdiff_t>(half), mortonCurve.end());
+
+        tiles.push_back({
+            .name = "poly_multi_morton_ring_no_morton",
+            .bytes = encode(
+                layer(defaultLayerName,
+                      {feat(multiPoly(PolygonVec{RingVec{std::move(mortonRing1)}, RingVec{std::move(mortonRing2)}}))},
+                      defaultExtent),
+                nonMortonCfg),
+        });
+
+        mortonRing1 = Ring(mortonCurve.begin(), mortonCurve.begin() + static_cast<std::ptrdiff_t>(half));
+        mortonRing2 = Ring(mortonCurve.begin() + static_cast<std::ptrdiff_t>(half), mortonCurve.end());
+
+        tiles.push_back({
+            .name = "poly_multi_morton_ring_morton",
+            .bytes = encode(
+                layer(defaultLayerName,
+                      {feat(multiPoly(PolygonVec{RingVec{std::move(mortonRing1)}, RingVec{std::move(mortonRing2)}}))},
+                      defaultExtent),
+                mortonCfg),
+        });
+
+        const std::size_t quarter = mortonCurve.size() / 4;
+        mortonRing1 = Ring(mortonCurve.begin(), mortonCurve.begin() + static_cast<std::ptrdiff_t>(quarter));
+        mortonRing2 = Ring(mortonCurve.begin() + static_cast<std::ptrdiff_t>(quarter), mortonCurve.end());
+
+        tiles.push_back({
+            .name = "poly_morton_hole_morton",
+            .bytes = encode(layer(defaultLayerName,
+                                  {feat(poly(RingVec{std::move(mortonRing1), std::move(mortonRing2)}))},
+                                  defaultExtent),
+                            mortonCfg),
+        });
+
+        mortonRing1 = Ring(mortonCurve.begin(), mortonCurve.begin() + static_cast<std::ptrdiff_t>(quarter));
+        mortonRing2 = Ring(mortonCurve.begin() + static_cast<std::ptrdiff_t>(quarter), mortonCurve.end());
+        tiles.push_back({
+            .name = "poly_multi_morton_hole_morton",
+            .bytes = encode(
+                layer(defaultLayerName,
+                      {feat(multiPoly(PolygonVec{RingVec{std::move(mortonRing1), std::move(mortonRing2)}}))},
+                      defaultExtent),
+                mortonCfg),
+        });
+
+        return tiles;
+    }
 
     static GeneratedTile generateMultiPoint() {
         Ring points{c1, c2, c3};
@@ -278,12 +411,12 @@ public:
         };
     }
 
-    static GeneratedTiles generateMultiPoints() { return {generateMultiPoint()}; }
+    static GeneratedTileVec generateMultiPoints() { return {generateMultiPoint()}; }
 
     static GeneratedTile generateMultiLine() {
         Ring line1_coords{c1, c2, c3};
         Ring line2_coords{c21, c22, c23};
-        Parts lines{line1_coords, line2_coords};
+        PartVec lines{line1_coords, line2_coords};
         const auto config = cfg([](auto& c) { c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO; });
         return {
             .name = "multiline",
@@ -291,9 +424,9 @@ public:
         };
     }
 
-    static GeneratedTiles generateMultiLineStrings() { return {generateMultiLine()}; }
+    static GeneratedTileVec generateMultiLineStrings() { return {generateMultiLine()}; }
 
-    static GeneratedTiles generateMultiPointsMorton() {
+    static GeneratedTileVec generateMultiPointsMorton() {
         Ring mortonCurve = buildMortonCurve(16, 8, 4);
         const std::size_t half = mortonCurve.size() / 2;
         Ring mortonPts(mortonCurve.begin(), mortonCurve.begin() + static_cast<std::ptrdiff_t>(half));
@@ -307,7 +440,7 @@ public:
         }};
     }
 
-    static GeneratedTiles generateMultiLineStringsMorton() {
+    static GeneratedTileVec generateMultiLineStringsMorton() {
         Ring mortonCurve = buildMortonCurve(16, 8, 4);
         const std::size_t half = mortonCurve.size() / 2;
         Ring mortonLine1(mortonCurve.begin(), mortonCurve.begin() + static_cast<std::ptrdiff_t>(half));
@@ -321,7 +454,7 @@ public:
         return {{
             .name = "multiline_morton",
             .bytes = encode(layer(defaultLayerName,
-                                  {feat(multiLine(Parts{std::move(mortonLine1), std::move(mortonLine2)}))},
+                                  {feat(multiLine(PartVec{std::move(mortonLine1), std::move(mortonLine2)}))},
                                   defaultExtent),
                             config),
         }};
@@ -345,8 +478,8 @@ public:
         };
     }
 
-    static GeneratedTiles generateExtents() {
-        GeneratedTiles tiles;
+    static GeneratedTileVec generateExtents() {
+        GeneratedTileVec tiles;
         for (const auto e : {512U, 4096U, 131072U, 1073741824U}) {
             tiles.push_back(generateExtent(e));
             tiles.push_back(generateExtentBuf(e));
@@ -477,7 +610,7 @@ public:
         return generateIdsWithEncoding("ids64_opt_delta", ids, IntegerEncodingOption::DELTA);
     }
 
-    static GeneratedTiles generateIdsCollection() {
+    static GeneratedTileVec generateIdsCollection() {
         return {
             generateIds(),
             generateIdsSeries(),
@@ -528,10 +661,10 @@ public:
         };
     }
 
-    static GeneratedTiles generateProperties() { return {generatePropU64(), generatePropsStrFsst()}; }
+    static GeneratedTileVec generateProperties() { return {generatePropU64(), generatePropsStrFsst()}; }
 
-    static GeneratedTiles generateFpfAlignments() {
-        GeneratedTiles tiles;
+    static GeneratedTileVec generateFpfAlignments() {
+        GeneratedTileVec tiles;
 
         std::vector<Feature> features;
         features.reserve(128);
@@ -573,7 +706,7 @@ public:
     static Feature mixPolyh() {
         Ring shell{c(52, 35), c(14, 55), c(60, 72)};
         Ring hole{c(32, 50), c(36, 60), c(24, 54)};
-        return feat(poly(Rings{shell, hole}));
+        return feat(poly(RingVec{shell, hole}));
     }
 
     static Feature mixMpt() {
@@ -584,14 +717,14 @@ public:
     static Feature mixMline() {
         Ring line1{c(24, 10), c(42, 18)};
         Ring line2{c(30, 36), c(48, 52), c(35, 62)};
-        return feat(multiLine(Parts{line1, line2}));
+        return feat(multiLine(PartVec{line1, line2}));
     }
 
     static Feature mixMpoly() {
         Ring poly1_shell{c(7, 20), c(21, 31), c(26, 9)};
         Ring poly1_hole{c(15, 20), c(20, 15), c(18, 25)};
         Ring poly2{c(69, 57), c(71, 66), c(73, 64)};
-        return feat(multiPoly(Polygons{Rings{poly1_shell, poly1_hole}, Rings{poly2}}));
+        return feat(multiPoly(PolygonVec{RingVec{poly1_shell, poly1_hole}, RingVec{poly2}}));
     }
 
     // Helper struct to represent geometry type with name and feature
@@ -705,7 +838,7 @@ public:
         return generateMixCombination({0, 1}); // pt, line
     }
 
-    static GeneratedTiles generateMixed() {
+    static GeneratedTileVec generateMixed() {
         std::vector<GeneratedTile> tiles;
 
         // Generate all k-combinations from k=2 to k=7
@@ -741,7 +874,7 @@ public:
         return tiles;
     }
 
-    static GeneratedTiles generateSharedDictionaries() {
+    static GeneratedTileVec generateSharedDictionaries() {
         const auto val = std::string(30, 'A');
 
         auto noSharedDict = GeneratedTile{

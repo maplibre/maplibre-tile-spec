@@ -29,7 +29,7 @@ using HilbertCurve = mlt::util::HilbertCurve;
 namespace std {
 /// Allow optional IDs to be printed in test failure messages.
 template <typename T>
-// NOLINTNEXTLINE(misc-use-anonymous-namespace) - doesn't work, c-t bug?
+// NOLINTNEXTLINE(misc-use-anonymous-namespace) - doesn't work, clang-tidy bug?
 static std::ostream& operator<<(std::ostream& os, const std::optional<T>& opt) {
     if (opt.has_value()) {
         return os << *opt;
@@ -40,7 +40,6 @@ static std::ostream& operator<<(std::ostream& os, const std::optional<T>& opt) {
 } // namespace std
 
 namespace {
-/// Enable FastPFOR by default
 Decoder makeDecoder(bool enableFastPFOR = true) {
     return Decoder(enableFastPFOR);
 }
@@ -1346,7 +1345,7 @@ Encoder::Layer decodedToEncoderLayer(const Layer& decoded) {
         const auto& feat = decoded.getFeatures()[fi];
         Encoder::Feature ef;
         if (feat.getID()) {
-            ef.id = *feat.getID();
+            ef.id = feat.getID();
         }
 
         const auto& geom = feat.getGeometry();
@@ -1645,7 +1644,7 @@ TEST(CrossValidate, StructColumnOMTRoundtrip) {
         const auto& feat = javaLayer->getFeatures()[fi];
         Encoder::Feature ef;
         if (feat.getID()) {
-            ef.id = *feat.getID();
+            ef.id = feat.getID();
         }
 
         const auto& geom = feat.getGeometry();
@@ -1658,7 +1657,9 @@ TEST(CrossValidate, StructColumnOMTRoundtrip) {
             }
             case metadata::tileset::GeometryType::LINESTRING: {
                 const auto& ls = dynamic_cast<const geometry::LineString&>(geom);
-                for (const auto& c : ls.getCoordinates()) ef.geometry.coordinates.push_back(toEncVertex(c));
+                for (const auto& c : ls.getCoordinates()) {
+                    ef.geometry.coordinates.push_back(toEncVertex(c));
+                }
                 break;
             }
             default:
