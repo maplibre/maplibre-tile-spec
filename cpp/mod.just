@@ -44,7 +44,10 @@ _test-synthetic: _install_npm_deps
 # Run tests
 [working-directory: 'build']
 test: _clean_coverage_data cmake-build _test-synthetic
-    ctest --parallel
+    # Run most of the tests quietly, showing output only for failures
+    ctest -E AllFixturesHaveGenerators --parallel
+    # Run the summary verbosely, printing the status of fixture coverage
+    ctest -R AllFixturesHaveGenerators --verbose
 
 _clean_coverage_data:
     find . -name "*.gcda" -delete

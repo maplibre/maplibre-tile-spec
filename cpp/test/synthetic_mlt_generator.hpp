@@ -385,13 +385,13 @@ public:
     }
 
     static Feature mixPoly() {
-        Ring coords{c(55, 5), c(58, 28), c(75, 22), c(55, 5)};
+        Ring coords{c(55, 5), c(58, 28), c(75, 22)};
         return feat(poly(coords));
     }
 
     static Feature mixPolyh() {
-        Ring shell{c(52, 35), c(14, 55), c(60, 72), c(52, 35)};
-        Ring hole{c(32, 50), c(36, 60), c(24, 54), c(32, 50)};
+        Ring shell{c(52, 35), c(14, 55), c(60, 72)};
+        Ring hole{c(32, 50), c(36, 60), c(24, 54)};
         return feat(poly(Rings{shell, hole}));
     }
 
@@ -407,9 +407,9 @@ public:
     }
 
     static Feature mixMpoly() {
-        Ring poly1_shell{c(7, 20), c(21, 31), c(26, 9), c(7, 20)};
-        Ring poly1_hole{c(15, 20), c(20, 15), c(18, 25), c(15, 20)};
-        Ring poly2{c(69, 57), c(71, 66), c(73, 64), c(69, 57)};
+        Ring poly1_shell{c(7, 20), c(21, 31), c(26, 9)};
+        Ring poly1_hole{c(15, 20), c(20, 15), c(18, 25)};
+        Ring poly2{c(69, 57), c(71, 66), c(73, 64)};
         return feat(multiPoly(Polygons{Rings{poly1_shell, poly1_hole}, Rings{poly2}}));
     }
 
