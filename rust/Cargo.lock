@@ -1424,9 +1424,9 @@ dependencies = [
 
 [[package]]
 name = "geo"
-version = "0.33.0"
+version = "0.33.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1f7044733d8570f68c486cd200318322c09a3f123893ae8cfd1543dd0ea3185"
+checksum = "30eb1fdc57c1e5cfd11826fe0caec4b9dc7901f3758263bb506228d88c8d9e9a"
 dependencies = [
  "earcut",
  "float_next_after",
@@ -1691,6 +1691,15 @@ dependencies = [
 
 [[package]]
 name = "hotpath"
+version = "0.14.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f7d9982fcb4356a5260502f0e646411ec1feb2962cc98c230777104a8d1c5ed3"
+dependencies = [
+ "hotpath-macros 0.14.1",
+]
+
+[[package]]
+name = "hotpath"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28594d8a3d30371e1488dcd6ba545bf07e9ce9dff6d8a57d70dbbaa221d3246d"
@@ -1706,7 +1715,7 @@ dependencies = [
  "eyre",
  "futures-util",
  "hdrhistogram",
- "hotpath-macros",
+ "hotpath-macros 0.15.0",
  "hotpath-meta",
  "libc",
  "mach2",
@@ -1727,6 +1736,12 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
 ]
+
+[[package]]
+name = "hotpath-macros"
+version = "0.14.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4398eddb78466298f1ddcc739abbbd8a942e541d1972c7590bd83de364e626e0"
 
 [[package]]
 name = "hotpath-macros"
@@ -2461,9 +2476,9 @@ checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
 
 [[package]]
 name = "martin-tile-utils"
-version = "0.6.12"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a021ec443e84e60ddd314079ed9e4248d7dd30294af6399b2c78ed4dfe6c059"
+checksum = "a59750066d5ee28c1a551228a0702706d14a0d3f20246f17d8ec3d156bf94d4f"
 dependencies = [
  "brotli",
  "flate2",
@@ -2500,13 +2515,14 @@ dependencies = [
 
 [[package]]
 name = "mbtiles"
-version = "0.15.4"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa68454e84554ab57fee19276f11670d9823de8fcab1b166dbacdc6db7954779"
+checksum = "731c2d69df690e8ca888a8d73c7f87724b3aefe9a5b824c9b63a2560e8fb01e8"
 dependencies = [
  "enum-display",
  "flume 0.12.0",
  "futures",
+ "hotpath 0.14.1",
  "itertools 0.14.0",
  "log",
  "martin-tile-utils",
@@ -2607,7 +2623,7 @@ dependencies = [
  "futures",
  "glob",
  "globset",
- "hotpath",
+ "hotpath 0.15.0",
  "indicatif",
  "martin-tile-utils",
  "mbtiles",
@@ -2640,7 +2656,7 @@ dependencies = [
  "geo-types",
  "hex",
  "hilbert_2d",
- "hotpath",
+ "hotpath 0.15.0",
  "insta",
  "integer-encoding",
  "mvt-reader",
