@@ -10,7 +10,9 @@
 //! - Own-presence bitfields for optional columns (no shared-presence / OptRef*)
 //! - Pure single-geometry-type layers only (no mixed geometry)
 
-use geo_types::{Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
+use geo_types::{
+    Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
+};
 use integer_encoding::{VarInt as _, VarIntWriter as _};
 use zigzag::ZigZag as _;
 
@@ -136,14 +138,16 @@ impl TileLayer01 {
 
         // name
         let name_bytes = self.name.as_bytes();
-        body.write_varint(name_bytes.len() as u32).map_err(MltError::from)?;
+        body.write_varint(name_bytes.len() as u32)
+            .map_err(MltError::from)?;
         body.extend_from_slice(name_bytes);
 
         // extent
         body.write_varint(self.extent).map_err(MltError::from)?;
 
         // feature_count  (v2 addition)
-        body.write_varint(feature_count as u32).map_err(MltError::from)?;
+        body.write_varint(feature_count as u32)
+            .map_err(MltError::from)?;
 
         // ── Geometry section ──────────────────────────────────────────────────
         body.push(geom.layout as u8);
@@ -209,9 +213,12 @@ fn collect_geometry(features: &[TileFeature]) -> MltResult<CollectedGeometry> {
     let has_ring = features
         .iter()
         .any(|f| matches!(f.geometry, Geometry::Polygon(_) | Geometry::MultiPolygon(_)));
-    let has_line = features
-        .iter()
-        .any(|f| matches!(f.geometry, Geometry::LineString(_) | Geometry::MultiLineString(_)));
+    let has_line = features.iter().any(|f| {
+        matches!(
+            f.geometry,
+            Geometry::LineString(_) | Geometry::MultiLineString(_)
+        )
+    });
     let has_part = has_line || has_ring;
 
     let layout = match (has_multi, has_ring, has_part) {
@@ -240,7 +247,14 @@ fn collect_geometry(features: &[TileFeature]) -> MltResult<CollectedGeometry> {
         )?;
     }
 
-    Ok(CollectedGeometry { layout, types, geo_lengths, part_lengths, ring_lengths, vertices })
+    Ok(CollectedGeometry {
+        layout,
+        types,
+        geo_lengths,
+        part_lengths,
+        ring_lengths,
+        vertices,
+    })
 }
 
 fn push_coords(coords: impl Iterator<Item = Coord<i32>>, vertices: &mut Vec<i32>) -> u32 {
@@ -257,7 +271,11 @@ fn push_coords(coords: impl Iterator<Item = Coord<i32>>, vertices: &mut Vec<i32>
 fn ring_vertex_count(ring: &LineString<i32>, vertices: &mut Vec<i32>) -> u32 {
     let coords = &ring.0;
     let has_closing = coords.len() >= 2 && coords.first() == coords.last();
-    let coords_to_write = if has_closing { &coords[..coords.len() - 1] } else { &coords[..] };
+    let coords_to_write = if has_closing {
+        &coords[..coords.len() - 1]
+    } else {
+        &coords[..]
+    };
     push_coords(coords_to_write.iter().copied(), vertices)
 }
 
@@ -344,7 +362,8 @@ fn write_u32_stream_implicit(buf: &mut Vec<u8>, values: &[u32]) -> MltResult<()>
 /// Write a VarInt-encoded `u32` stream with explicit count.
 fn write_u32_stream_explicit(buf: &mut Vec<u8>, values: &[u32]) -> MltResult<()> {
     buf.push(ENC_VARINT_EXPL);
-    buf.write_varint(values.len() as u32).map_err(MltError::from)?;
+    buf.write_varint(values.len() as u32)
+        .map_err(MltError::from)?;
     let mut tmp = Vec::new();
     for &v in values {
         tmp.write_varint(v).map_err(MltError::from)?;
@@ -393,17 +412,22 @@ fn write_i64_stream_implicit(buf: &mut Vec<u8>, values: &[i64]) -> MltResult<()>
 /// Write a fixed-width raw byte stream with explicit count (number of data bytes).
 fn write_raw_bytes(buf: &mut Vec<u8>, data: &[u8]) -> MltResult<()> {
     buf.push(ENC_RAW_EXPL);
-    buf.write_varint(data.len() as u32).map_err(MltError::from)?;
+    buf.write_varint(data.len() as u32)
+        .map_err(MltError::from)?;
     buf.extend_from_slice(data);
     Ok(())
 }
 
 /// Write vertex data using ComponentwiseDelta + VarInt with explicit count (vertex pairs).
 fn write_cwdelta_vertices(buf: &mut Vec<u8>, flat_verts: &[i32]) -> MltResult<()> {
-    debug_assert!(flat_verts.len() % 2 == 0, "vertex buffer must have even length");
+    debug_assert!(
+        flat_verts.len() % 2 == 0,
+        "vertex buffer must have even length"
+    );
     buf.push(ENC_CWDELTA_VARINT_EXPL);
     let pair_count = flat_verts.len() / 2;
-    buf.write_varint(pair_count as u32).map_err(MltError::from)?;
+    buf.write_varint(pair_count as u32)
+        .map_err(MltError::from)?;
 
     let mut encoded: Vec<u32> = Vec::new();
     encode_componentwise_delta_vec2s(flat_verts, &mut encoded);
@@ -497,7 +521,8 @@ fn write_property_column(
 
     // name
     let name_bytes = name.as_bytes();
-    buf.write_varint(name_bytes.len() as u32).map_err(MltError::from)?;
+    buf.write_varint(name_bytes.len() as u32)
+        .map_err(MltError::from)?;
     buf.extend_from_slice(name_bytes);
 
     // presence bitfield (for optional columns)
@@ -544,8 +569,11 @@ fn prop_column_type(sample: &PropValue, any_null: bool) -> u8 {
 fn write_prop_data(buf: &mut Vec<u8>, values: &[&PropValue], any_null: bool) -> MltResult<()> {
     match values[0] {
         PropValue::Bool(_) => {
-            let data: Vec<u8> =
-                values.iter().filter(|v| !is_null(v)).map(|v| prop_bool(v) as u8).collect();
+            let data: Vec<u8> = values
+                .iter()
+                .filter(|v| !is_null(v))
+                .map(|v| prop_bool(v) as u8)
+                .collect();
             write_raw_bytes(buf, &data)?;
         }
         PropValue::I8(_) => {
@@ -557,13 +585,19 @@ fn write_prop_data(buf: &mut Vec<u8>, values: &[&PropValue], any_null: bool) -> 
             write_raw_bytes(buf, &data)?;
         }
         PropValue::U8(_) => {
-            let data: Vec<u8> =
-                values.iter().filter(|v| !is_null(v)).map(|v| prop_u8(v)).collect();
+            let data: Vec<u8> = values
+                .iter()
+                .filter(|v| !is_null(v))
+                .map(|v| prop_u8(v))
+                .collect();
             write_raw_bytes(buf, &data)?;
         }
         PropValue::I32(_) => {
-            let data: Vec<i32> =
-                values.iter().filter(|v| !is_null(v)).map(|v| prop_i32(v)).collect();
+            let data: Vec<i32> = values
+                .iter()
+                .filter(|v| !is_null(v))
+                .map(|v| prop_i32(v))
+                .collect();
             let implicit_count = !any_null;
             if implicit_count {
                 write_i32_stream_implicit(buf, &data)?;
@@ -572,8 +606,11 @@ fn write_prop_data(buf: &mut Vec<u8>, values: &[&PropValue], any_null: bool) -> 
             }
         }
         PropValue::U32(_) => {
-            let data: Vec<u32> =
-                values.iter().filter(|v| !is_null(v)).map(|v| prop_u32(v)).collect();
+            let data: Vec<u32> = values
+                .iter()
+                .filter(|v| !is_null(v))
+                .map(|v| prop_u32(v))
+                .collect();
             let implicit_count = !any_null;
             if implicit_count {
                 write_u32_stream_implicit(buf, &data)?;
@@ -582,8 +619,11 @@ fn write_prop_data(buf: &mut Vec<u8>, values: &[&PropValue], any_null: bool) -> 
             }
         }
         PropValue::I64(_) => {
-            let data: Vec<i64> =
-                values.iter().filter(|v| !is_null(v)).map(|v| prop_i64(v)).collect();
+            let data: Vec<i64> = values
+                .iter()
+                .filter(|v| !is_null(v))
+                .map(|v| prop_i64(v))
+                .collect();
             if !any_null {
                 write_i64_stream_implicit(buf, &data)?;
             } else {
@@ -591,8 +631,11 @@ fn write_prop_data(buf: &mut Vec<u8>, values: &[&PropValue], any_null: bool) -> 
             }
         }
         PropValue::U64(_) => {
-            let data: Vec<u64> =
-                values.iter().filter(|v| !is_null(v)).map(|v| prop_u64(v)).collect();
+            let data: Vec<u64> = values
+                .iter()
+                .filter(|v| !is_null(v))
+                .map(|v| prop_u64(v))
+                .collect();
             if !any_null {
                 write_u64_stream_implicit(buf, &data)?;
             } else {
@@ -629,7 +672,11 @@ fn write_prop_data(buf: &mut Vec<u8>, values: &[&PropValue], any_null: bool) -> 
 
 /// Write string column data streams (lengths + raw bytes).
 /// Only the non-null strings are written (count = popcount when any_null, else feature_count).
-fn write_string_col_data(buf: &mut Vec<u8>, strings: &[Option<&str>], any_null: bool) -> MltResult<()> {
+fn write_string_col_data(
+    buf: &mut Vec<u8>,
+    strings: &[Option<&str>],
+    any_null: bool,
+) -> MltResult<()> {
     let present: Vec<&str> = strings.iter().filter_map(|s| *s).collect();
     let lengths: Vec<u32> = present.iter().map(|s| s.len() as u32).collect();
     let all_bytes: Vec<u8> = present.iter().flat_map(|s| s.as_bytes()).copied().collect();
@@ -696,31 +743,67 @@ fn write_u64_popcount(buf: &mut Vec<u8>, values: &[u64]) -> MltResult<()> {
 // ── PropValue field accessors ─────────────────────────────────────────────────
 
 fn prop_bool(v: &PropValue) -> bool {
-    if let PropValue::Bool(Some(b)) = v { *b } else { false }
+    if let PropValue::Bool(Some(b)) = v {
+        *b
+    } else {
+        false
+    }
 }
 fn prop_i8(v: &PropValue) -> i8 {
-    if let PropValue::I8(Some(b)) = v { *b } else { 0 }
+    if let PropValue::I8(Some(b)) = v {
+        *b
+    } else {
+        0
+    }
 }
 fn prop_u8(v: &PropValue) -> u8 {
-    if let PropValue::U8(Some(b)) = v { *b } else { 0 }
+    if let PropValue::U8(Some(b)) = v {
+        *b
+    } else {
+        0
+    }
 }
 fn prop_i32(v: &PropValue) -> i32 {
-    if let PropValue::I32(Some(b)) = v { *b } else { 0 }
+    if let PropValue::I32(Some(b)) = v {
+        *b
+    } else {
+        0
+    }
 }
 fn prop_u32(v: &PropValue) -> u32 {
-    if let PropValue::U32(Some(b)) = v { *b } else { 0 }
+    if let PropValue::U32(Some(b)) = v {
+        *b
+    } else {
+        0
+    }
 }
 fn prop_i64(v: &PropValue) -> i64 {
-    if let PropValue::I64(Some(b)) = v { *b } else { 0 }
+    if let PropValue::I64(Some(b)) = v {
+        *b
+    } else {
+        0
+    }
 }
 fn prop_u64(v: &PropValue) -> u64 {
-    if let PropValue::U64(Some(b)) = v { *b } else { 0 }
+    if let PropValue::U64(Some(b)) = v {
+        *b
+    } else {
+        0
+    }
 }
 fn prop_f32(v: &PropValue) -> f32 {
-    if let PropValue::F32(Some(b)) = v { *b } else { 0.0 }
+    if let PropValue::F32(Some(b)) = v {
+        *b
+    } else {
+        0.0
+    }
 }
 fn prop_f64(v: &PropValue) -> f64 {
-    if let PropValue::F64(Some(b)) = v { *b } else { 0.0 }
+    if let PropValue::F64(Some(b)) = v {
+        *b
+    } else {
+        0.0
+    }
 }
 
 // ── Decoder ───────────────────────────────────────────────────────────────────
@@ -786,16 +869,10 @@ pub fn decode_v2_layer(data: &[u8]) -> MltResult<TileLayer01> {
                     }
                 }
             }
-            COL_BOOL | COL_OPT_BOOL
-            | COL_I8 | COL_OPT_I8
-            | COL_U8 | COL_OPT_U8
-            | COL_I32 | COL_OPT_I32
-            | COL_U32 | COL_OPT_U32
-            | COL_I64 | COL_OPT_I64
-            | COL_U64 | COL_OPT_U64
-            | COL_F32 | COL_OPT_F32
-            | COL_F64 | COL_OPT_F64
-            | COL_STR | COL_OPT_STR => {
+            COL_BOOL | COL_OPT_BOOL | COL_I8 | COL_OPT_I8 | COL_U8 | COL_OPT_U8 | COL_I32
+            | COL_OPT_I32 | COL_U32 | COL_OPT_U32 | COL_I64 | COL_OPT_I64 | COL_U64
+            | COL_OPT_U64 | COL_F32 | COL_OPT_F32 | COL_F64 | COL_OPT_F64 | COL_STR
+            | COL_OPT_STR => {
                 let (new_data, col_name, col_values) =
                     decode_property_column(data, col_type, feature_count, &mut presence_groups)?;
                 data = new_data;
@@ -815,12 +892,23 @@ pub fn decode_v2_layer(data: &[u8]) -> MltResult<TileLayer01> {
         .enumerate()
         .map(|(i, geom)| {
             let id = feature_ids[i];
-            let properties = (0..prop_count).map(|j| property_columns[j][i].clone()).collect();
-            TileFeature { id, geometry: geom, properties }
+            let properties = (0..prop_count)
+                .map(|j| property_columns[j][i].clone())
+                .collect();
+            TileFeature {
+                id,
+                geometry: geom,
+                properties,
+            }
         })
         .collect();
 
-    Ok(TileLayer01 { name, extent, property_names, features })
+    Ok(TileLayer01 {
+        name,
+        extent,
+        property_names,
+        features,
+    })
 }
 
 // ── Geometry decoding ─────────────────────────────────────────────────────────
@@ -919,7 +1007,10 @@ fn reconstruct_geometries(
             for &part_len in part_lens {
                 let coords: Vec<Coord<i32>> = (0..part_len as usize)
                     .map(|_| {
-                        let c = Coord { x: vertices[vert_pos], y: vertices[vert_pos + 1] };
+                        let c = Coord {
+                            x: vertices[vert_pos],
+                            y: vertices[vert_pos + 1],
+                        };
                         vert_pos += 2;
                         c
                     })
@@ -938,7 +1029,10 @@ fn reconstruct_geometries(
                         part_idx += 1;
                         let coords: Vec<Coord<i32>> = (0..part_len)
                             .map(|_| {
-                                let c = Coord { x: vertices[vert_pos], y: vertices[vert_pos + 1] };
+                                let c = Coord {
+                                    x: vertices[vert_pos],
+                                    y: vertices[vert_pos + 1],
+                                };
                                 vert_pos += 2;
                                 c
                             })
@@ -960,7 +1054,10 @@ fn reconstruct_geometries(
                         ring_idx += 1;
                         let mut coords: Vec<Coord<i32>> = (0..ring_len)
                             .map(|_| {
-                                let c = Coord { x: vertices[vert_pos], y: vertices[vert_pos + 1] };
+                                let c = Coord {
+                                    x: vertices[vert_pos],
+                                    y: vertices[vert_pos + 1],
+                                };
                                 vert_pos += 2;
                                 c
                             })
@@ -1038,15 +1135,23 @@ fn read_enc_byte(data: &[u8]) -> MltResult<(&[u8], bool, u8, u8)> {
 
 /// Read a VarInt u32 stream. If `explicit` is true, read the count from the stream;
 /// otherwise use `implicit_count`. After reading count, reads byte_length and the data.
-fn read_u32_stream(data: &[u8], implicit_count: usize, explicit: bool) -> MltResult<(&[u8], Vec<u32>)> {
+fn read_u32_stream(
+    data: &[u8],
+    implicit_count: usize,
+    explicit: bool,
+) -> MltResult<(&[u8], Vec<u32>)> {
     let (data, has_expl_count, logical, physical) = read_enc_byte(data)?;
 
     if logical != 0 {
         // Only None logical is supported here
-        return Err(MltError::NotImplemented("v2 decoder: unsupported logical encoding for integer stream"));
+        return Err(MltError::NotImplemented(
+            "v2 decoder: unsupported logical encoding for integer stream",
+        ));
     }
     if physical != 2 {
-        return Err(MltError::NotImplemented("v2 decoder: only VarInt physical encoding supported for integer stream"));
+        return Err(MltError::NotImplemented(
+            "v2 decoder: only VarInt physical encoding supported for integer stream",
+        ));
     }
 
     let (data, count) = if has_expl_count || explicit {
@@ -1096,11 +1201,17 @@ fn read_raw_bytes_stream(data: &[u8]) -> MltResult<(&[u8], Vec<u8>)> {
 }
 
 /// Read a ZigZag+VarInt i32 stream (count from context = explicit).
-fn read_i32_stream(data: &[u8], implicit_count: usize, _has_any_null: bool) -> MltResult<(&[u8], Vec<i32>)> {
+fn read_i32_stream(
+    data: &[u8],
+    implicit_count: usize,
+    _has_any_null: bool,
+) -> MltResult<(&[u8], Vec<i32>)> {
     let (data, has_expl_count, logical, physical) = read_enc_byte(data)?;
 
     if logical != 0 || physical != 2 {
-        return Err(MltError::NotImplemented("v2 decoder: only VarInt/ZigZag supported for i32 stream"));
+        return Err(MltError::NotImplemented(
+            "v2 decoder: only VarInt/ZigZag supported for i32 stream",
+        ));
     }
 
     let (data, count) = if has_expl_count {
@@ -1135,7 +1246,9 @@ fn read_i64_stream(data: &[u8], implicit_count: usize) -> MltResult<(&[u8], Vec<
     let (data, _has_expl_count, logical, physical) = read_enc_byte(data)?;
 
     if logical != 0 || physical != 2 {
-        return Err(MltError::NotImplemented("v2 decoder: only VarInt/ZigZag supported for i64 stream"));
+        return Err(MltError::NotImplemented(
+            "v2 decoder: only VarInt/ZigZag supported for i64 stream",
+        ));
     }
 
     let (data, byte_len) = parse_varint::<u32>(data)?;
@@ -1163,7 +1276,9 @@ fn read_u64_stream(data: &[u8], implicit_count: usize) -> MltResult<(&[u8], Vec<
     let (data, _has_expl_count, logical, physical) = read_enc_byte(data)?;
 
     if logical != 0 || physical != 2 {
-        return Err(MltError::NotImplemented("v2 decoder: only VarInt supported for u64 stream"));
+        return Err(MltError::NotImplemented(
+            "v2 decoder: only VarInt supported for u64 stream",
+        ));
     }
 
     let (data, byte_len) = parse_varint::<u32>(data)?;
@@ -1238,7 +1353,6 @@ fn read_cwdelta_stream(data: &[u8]) -> MltResult<(&[u8], Vec<i32>)> {
     Ok((remaining, result))
 }
 
-
 // ── Presence bitfield ─────────────────────────────────────────────────────────
 
 /// Read `ceil(feature_count / 8)` bytes of presence bitfield and return a `Vec<bool>`.
@@ -1293,11 +1407,16 @@ fn decode_property_column<'a>(
 
     let is_optional = matches!(
         col_type,
-        COL_OPT_BOOL | COL_OPT_I8 | COL_OPT_U8
-        | COL_OPT_I32 | COL_OPT_U32
-        | COL_OPT_I64 | COL_OPT_U64
-        | COL_OPT_F32 | COL_OPT_F64
-        | COL_OPT_STR
+        COL_OPT_BOOL
+            | COL_OPT_I8
+            | COL_OPT_U8
+            | COL_OPT_I32
+            | COL_OPT_U32
+            | COL_OPT_I64
+            | COL_OPT_U64
+            | COL_OPT_F32
+            | COL_OPT_F64
+            | COL_OPT_STR
     );
 
     let (data, presence) = if is_optional {
@@ -1308,7 +1427,9 @@ fn decode_property_column<'a>(
         (data, None)
     };
 
-    let popcount = presence.as_ref().map_or(feature_count, |p| p.iter().filter(|&&b| b).count());
+    let popcount = presence
+        .as_ref()
+        .map_or(feature_count, |p| p.iter().filter(|&&b| b).count());
 
     let (data, values) = decode_column_data(data, col_type, feature_count, popcount, &presence)?;
 
@@ -1336,7 +1457,9 @@ fn decode_column_data<'a>(
         COL_I8 | COL_OPT_I8 => {
             let (data, bytes) = read_raw_bytes_stream(data)?;
             let values = expand_with_presence(
-                bytes.iter().map(|&b| PropValue::I8(Some(i8::decode(b as u32 as u8)))),
+                bytes
+                    .iter()
+                    .map(|&b| PropValue::I8(Some(i8::decode(b as u32 as u8)))),
                 presence,
                 feature_count,
                 PropValue::I8(None),
@@ -1422,9 +1545,7 @@ fn decode_column_data<'a>(
             );
             Ok((data, values))
         }
-        COL_STR | COL_OPT_STR => {
-            decode_string_column(data, popcount, presence, feature_count)
-        }
+        COL_STR | COL_OPT_STR => decode_string_column(data, popcount, presence, feature_count),
         _ => Err(MltError::NotImplemented("v2 decoder: unknown column type")),
     }
 }
