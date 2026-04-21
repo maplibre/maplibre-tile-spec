@@ -6,7 +6,7 @@ and decoders.
 
 ---
 
-## 1. Guiding Principles
+## Guiding Principles
 
 | Principle | v1 | v2 |
 |---|---|---|
@@ -36,9 +36,13 @@ and decoders.
 
 ---
 
-## 2. Layer Envelope
+## Layer Envelope
 
 ### v1
+
+`feature_count` is not stored.  It is implied by the length of the geometry types stream.
+Metadata and data are completely separated; the metadata section must be fully parsed
+before any column data can be located.
 
 ```
 [varint body_len+1]
@@ -57,10 +61,6 @@ and decoders.
 ...
 [streams for column N]
 ```
-
-`feature_count` is not stored.  It is implied by the length of the geometry types stream.
-Metadata and data are completely separated; the metadata section must be fully parsed
-before any column data can be located.
 
 ### v2
 
@@ -100,7 +100,7 @@ before any column data can be located.
 
 ---
 
-## 3. Column Layout (Meta + Data Merge)
+## Column Layout (Meta + Data Merge)
 
 Every column — whether top-level or a SharedDict child — follows one of three templates
 depending on its column type:
@@ -166,7 +166,7 @@ rule as v1).
 
 ---
 
-## 4. Encoding Byte
+## Encoding Byte
 
 Every integer stream in v2 is prefixed by exactly one **encoding byte**, whose layout
 replaces the two v1 bytes (stream_type + encoding) for streams where the type is implied.
@@ -273,7 +273,7 @@ recomputing it on the fly is cheaper than storing an extra varint.  `has_explici
 
 ---
 
-## 5. Presence Streams
+## Presence Streams
 
 ### v1 presence stream
 
@@ -334,7 +334,7 @@ have no corresponding `OptRef*` variant either.
 
 ---
 
-## 6. Scalar and ID Columns
+## Scalar and ID Columns
 
 Covers: `Bool`, `I8`, `U8`, `I32`, `U32`, `I64`, `U64`, `F32`, `F64`, `Id`, `LongId`
 and their `Opt*` counterparts.
@@ -405,7 +405,7 @@ Optional — shared presence (`OptRef*`):
 
 ---
 
-## 7. Geometry Column
+## Geometry Column
 
 ### v1 layout
 
@@ -488,7 +488,7 @@ types present:
 
 ---
 
-## 8. String Columns
+## String Columns
 
 ### Overview of changes
 
@@ -727,7 +727,7 @@ Same wire format; decoder does not treat index 0 as null.
 
 ---
 
-## 9. SharedDict Columns
+## SharedDict Columns
 
 A SharedDict column stores a shared string corpus (plain or FSST-compressed) that
 multiple child columns index into.
@@ -803,7 +803,7 @@ multiple child columns index into.
 
 ---
 
-## 10. RLE Encoding
+## RLE Encoding
 
 ### v1 RLE stream header extras
 
@@ -840,7 +840,7 @@ RLE sub-variants.  No extension byte follows.
 
 ---
 
-## 11. Morton Encoding
+## Morton Encoding
 
 ### v1 Morton header extras
 
@@ -875,7 +875,7 @@ explicit `has_extension` flag.
 
 ---
 
-## 12. FastPFor Codec
+## FastPFor Codec
 
 ### v1 FastPFor wire format
 
@@ -903,7 +903,7 @@ Changes:
 
 ---
 
-## 13. Column Type Codes
+## Column Type Codes
 
 ### v1 column type codes
 
@@ -993,7 +993,7 @@ Every nullable scalar/string type has **three** variants:
 
 ---
 
-## 14. Stream Type Bytes (Eliminated)
+## Stream Type Bytes (Eliminated)
 
 In v1 every stream begins with a `stream_type` byte that encodes the stream's role:
 
@@ -1022,7 +1022,7 @@ wire in v2.
 
 ---
 
-## 15. Overhead Comparison Table
+## Overhead Comparison Table
 
 Per-stream header costs, typical small-integer varint values.
 
