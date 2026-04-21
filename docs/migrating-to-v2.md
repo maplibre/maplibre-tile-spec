@@ -11,8 +11,8 @@ and decoders.
 | Principle | v1 | v2 |
 |---|---|---|
 | Feature count | Not stored; implied by geometry stream `num_values` | `feature_count` varint in every layer header |
-| Column layout | Separate metadata section then data section | Column-by-column: type + config + data together |
-| Stream type identification | Explicit `stream_type` byte on every stream | Eliminated; role implied by column type and stream position |
+| Column layout | Separate metadata section then data section | Geometry section first, then counted columns encoded as type + config + data |
+| Stream type identification | Explicit `stream_type` byte on every stream | Eliminated; role implied by `geometry_layout` or by column type plus stream position |
 | Count per stream | Always stored as varint | Omitted when equal to `feature_count` or `popcount(presence_bitfield)`; required only when neither applies |
 | Byte length per stream | Always stored as varint | Encoded in `physical` field: `None-noLen` omits it (derivable as count × width); `None-withLen`, `VarInt`, `FastPFor128` always carry it |
 | Presence streams | Bool-RLE stream with 4-field header | Raw packed bitfield, no header; sharable across columns via index reference |
@@ -70,8 +70,11 @@ before any column data can be located.
 [varint name_len] [name bytes]
 [varint extent]
 [varint feature_count]              ← NEW
-[varint column_count]
+── geometry section ──────────────────────────────
+[u8     geometry_layout]            ← NEW; one of the geometry layouts below
+[geometry streams...]
 ── columns (merged meta + data) ──────────────────
+[varint column_count]               ← counts only non-geometry top-level columns
 [column 0: type + name? + presence? + data]
 [column 1: type + name? + presence? + data]
 ...
@@ -80,8 +83,13 @@ before any column data can be located.
 
 **What changes:**
 - `feature_count` is inserted after `extent`.
+- The geometry section now begins with `geometry_layout`, followed by the geometry
+  streams it declares.
+- The geometry section appears before the counted columns in the layer body.
 - The metadata section is eliminated.  Each column is fully self-describing; its type
   byte, optional name, optional presence section, and stream data appear contiguously.
+- `column_count` now appears immediately before the counted columns and covers only
+  ids, scalars, strings, and shared-dict columns.
 
 **Derived invariants unlocked by `feature_count`:**
 
@@ -129,8 +137,7 @@ depending on its column type:
 [data section]
 ```
 
-`has_name()` is false for `Id`, `OptId`, `LongId`, `OptLongId`, and `Geometry` (same
-rule as v1).
+`has_name()` is false for `Id`, `OptId`, `LongId`, and `OptLongId` (same rule as v1).
 
 ### v1 split vs. v2 merged — concrete example
 
@@ -148,14 +155,15 @@ rule as v1).
 [i32 streams...]
 ```
 
-**v2** (one-pass layout):
+**v2** (one-pass layout; geometry moved out of `column_count`):
 
 ```
 [varint feature_count]
-[varint 3]              ← column_count
-[0x04]                  ← Geometry column_type
-[geometry_flags]
+── geometry section ──
+[0x04]                  ← geometry_layout
 [geometry streams...]
+── columns ────────────
+[varint 2]              ← column_count (Id, OptI32 only)
 [0x00]                  ← Id column_type
 [enc_byte] [data...]
 [0x11]                  ← OptI32 column_type  (own presence — no prefix varint)
@@ -405,7 +413,7 @@ Optional — shared presence (`OptRef*`):
 
 ---
 
-## Geometry Column
+## Geometry Section
 
 ### v1 layout
 
@@ -435,18 +443,20 @@ Stream presence is implicit: `stream_count` streams follow, each identified by i
 
 ### v2 layout
 
-The `geometry_flags` byte is eliminated entirely.  The column type byte is one of
-the named `Geo*` types below, which unambiguously specifies which streams are
-present and in what order.  No name is written (same rule as v1).
+Geometry is no longer encoded as a regular column type.  Instead, v2 starts with a
+geometry section.  That section begins with a single `geometry_layout` byte, which
+selects one of the named layouts below and unambiguously specifies which geometry
+streams are present and in what order.  After the geometry section, `column_count`
+and the regular columns follow.  Geometry does not contribute to that count.
 
 ```
-[u8 column_type]    ← one of the Geo* column types; no name bytes follow
-[streams in fixed order determined by column_type; see table below]
+[u8 geometry_layout]   ← first byte of the geometry section
+[geometry streams in fixed order determined by geometry_layout; see table below]
 ```
 
 Every stream: `[encoding_byte] [optional: varint num_values] [optional: varint byte_length] [data]`
 
-| Column type | Streams (in order, all `has_explicit_count = 1` except Types) |
+| Geometry layout | Streams (in order, all `has_explicit_count = 1` except Types) |
 |---|---|
 | `GeoPoints` | Types¹, Vertices |
 | `GeoPointsDict` | Types¹, VertexData (dict), VertexOffsets |
@@ -465,11 +475,16 @@ Every stream: `[encoding_byte] [optional: varint num_values] [optional: varint b
 
 ¹ Types stream: `has_explicit_count = 0` (count = `feature_count`)
 
+This spec intentionally does **not** include the extra tessellated-with-rings layouts, for example, cases with ring topology but missing or
+degenerate tessellation payloads.  Here, those cases fall back to the corresponding
+non-tessellated polygon layout (`GeoPolygons*` / `GeoMultiPolygons*` as applicable),
+and no tessellation streams (`TriLengths`, `IndexBuffer`) are written.
+
 **Dict columns** store a deduplicated vertex dictionary in VertexData and per-vertex
 indices in VertexOffsets.  The vertex encoding (plain delta, CwDelta, Morton) is
 specified by the `logical` field in the VertexData encoding byte.
 
-**Mixed-type columns** use the type whose stream set is a superset of all geometry
+**Mixed-type layers** use the layout whose stream set is a superset of all geometry
 types present:
 - Point + LineString → `GeoLines` (Points consume no PartLengths entry)
 - LineString + Polygon → `GeoPolygons` (LineString vertex counts stored in RingLengths)
@@ -479,9 +494,9 @@ types present:
 
 | Aspect | v1 | v2 |
 |---|---|---|
-| Stream presence declaration | `varint stream_count` + `stream_type` per stream | Encoded in column type |
+| Stream presence declaration | `varint stream_count` + `stream_type` per stream | Encoded in `geometry_layout` |
 | `stream_count` varint | 1–5 bytes | Eliminated |
-| `geometry_flags` byte | n/a (v1 has no flags) | Eliminated (merged into column type) |
+| Geometry selector | Geometry is a regular column (`column_type = 0x04`) | First byte of the geometry section; outside `column_count` |
 | `stream_type` per stream | 1 byte × N streams | Eliminated |
 | `num_values` for types stream | varint (= feature_count) | Omitted |
 | Vertex encoding style | Read from `stream_type` subtype | Read from `logical` field in encoding byte |
@@ -965,31 +980,10 @@ Every nullable scalar/string type has **three** variants:
 | `SharedDictFsst` | — | — |
 | `SharedDictChildRef` | — (null-at-0; no presence bitfield) |
 
-**Geometry types** (no optional variants; geometry columns are always present):
-
-| Column type | Description |
-|---|---|
-| `GeoPoints` | Point geometries |
-| `GeoPointsDict` | Point geometries with vertex dictionary |
-| `GeoMultiPoints` | MultiPoint geometries |
-| `GeoMultiPointsDict` | MultiPoint geometries with vertex dictionary |
-| `GeoLines` | LineString / mixed point+line geometries |
-| `GeoLinesDict` | LineString geometries with vertex dictionary |
-| `GeoMultiLines` | MultiLineString geometries |
-| `GeoMultiLinesDict` | MultiLineString geometries with vertex dictionary |
-| `GeoPolygons` | Polygon / mixed geometries |
-| `GeoPolygonsDict` | Polygon geometries with vertex dictionary |
-| `GeoMultiPolygons` | MultiPolygon geometries |
-| `GeoMultiPolygonsDict` | MultiPolygon geometries with vertex dictionary |
-| `GeoTessPolygons` | Tessellated polygons (index buffer, no ring topology) |
-| `GeoTessPolygonsWithOutlines` | Tessellated polygons with outline ring topology |
-
 **Invariants:**
 - Dict-family string types (`OptStrDict`, `OptStrFsstDict`, `OptSharedDictChildRef`) have no
   shared-presence variant because they encode null via index 0, not via a presence bitfield.
 - Shared-presence (`OptRef*`) code = own-presence code with bit 7 set.
-- Geometry column types have no optional variants; a missing geometry column is simply absent
-  from the layer.
 
 ---
 
@@ -1008,7 +1002,7 @@ determinable without it:
 | Column type | How stream role is known |
 |---|---|
 | Scalar / ID | Single data stream; role is trivial |
-| `Geo*` | Column type determines which streams are present; position in fixed sequence declares role |
+| Geometry section | `geometry_layout` determines which streams are present; position in fixed sequence declares role |
 | `StrPlain` / `OptStrPlain` | Positions: 1=lengths, 2=string-data |
 | `StrDict` / `OptStrDict` | Positions: 1=dict-lengths, 2=dict-data, 3=indices |
 | `StrFsst` / `OptStrFsst` | Positions: 1=sym-lengths, 2=sym-table, 3=lengths, 4=corpus |
@@ -1035,7 +1029,7 @@ Per-stream header costs, typical small-integer varint values.
 | Non-optional scalar, FastPFor128       | 5–7 | 1 (enc) + varint(size) | 2–4 |
 | Optional scalar, VarInt                | 4–6 | 1 (enc) + varint(size) | 2–4 |
 | RLE stream, VarInt                     | 6–10 | 1 | 5–9 |
-| Geometry: stream_count varint          | 1–3 | 0 (encoded in column type) | 1–3 |
+| Geometry: stream_count varint          | 1–3 | 0 (encoded in `geometry_layout`) | 1–3 |
 | Geometry: types stream                 | 4–6 | 1 | 3–5 |
 | Geometry: aux stream, FastPFor         | 6–10 | 1 + varint(count) + varint(size) | 2–4 |
 | Morton vertex stream                   | 8–14 | 1 + ext + 2 varints | 4–8 |
