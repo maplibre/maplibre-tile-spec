@@ -52,7 +52,8 @@ public:
                                                       IntegerEncoder& intEncoder,
                                                       IntegerEncodingOption integerEncodingOption,
                                                       IntegerEncodingOption topologyIntegerEncodingOption,
-                                                      bool useMortonEncoding = true) {
+                                                      bool useMortonEncoding = true,
+                                                      bool forceMortonLayout = false) {
         const auto [numStreams, topologyStreams] = encodeTopologyStreams(geometryTypes,
                                                                          numGeometries,
                                                                          numParts,
@@ -70,6 +71,16 @@ public:
             std::vector<std::uint8_t> result = std::move(topologyStreams);
             result.insert(result.end(), plainEncoded.begin(), plainEncoded.end());
             return {.numStreams = numStreams + 1, .encodedValues = std::move(result), .maxVertexValue = maxVal};
+        }
+
+        if (useMortonEncoding && forceMortonLayout) {
+            const auto mortonDict = buildMortonDictionary(vertexBuffer, minVal, maxVal);
+            const auto mortonEncoded = encodeMortonDictionary(
+                mortonDict, vertexBuffer, minVal, maxVal, physicalTechnique, intEncoder);
+
+            std::vector<std::uint8_t> result = std::move(topologyStreams);
+            result.insert(result.end(), mortonEncoded.begin(), mortonEncoded.end());
+            return {.numStreams = numStreams + 2, .encodedValues = std::move(result), .maxVertexValue = maxVal};
         }
 
         const auto hilbertDict = buildHilbertDictionary(vertexBuffer, minVal, maxVal);
@@ -189,12 +200,24 @@ private:
                            integerEncodingOption,
                            PhysicalStreamType::LENGTH,
                            LogicalStreamType{LengthType::GEOMETRIES});
+
+        IntegerEncodingOption partsEncodingOption = integerEncodingOption;
+        if (integerEncodingOption == IntegerEncodingOption::AUTO && numParts.size() > 1) {
+            const bool allMultiLine = std::ranges::all_of(geometryTypes,
+                                                          [](auto t) { return t == GeometryType::MULTILINESTRING; });
+            const bool repeatedPartLengths = std::ranges::all_of(numParts,
+                                                                 [&](auto v) { return v == numParts.front(); });
+            if (allMultiLine && repeatedPartLengths) {
+                partsEncodingOption = IntegerEncodingOption::RLE;
+            }
+        }
+
         appendUint32Stream(result,
                            numStreams,
                            numParts,
                            physicalTechnique,
                            intEncoder,
-                           integerEncodingOption,
+                           partsEncodingOption,
                            PhysicalStreamType::LENGTH,
                            LogicalStreamType{LengthType::PARTS});
         appendUint32Stream(result,

@@ -468,7 +468,8 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                                                      intEncoder,
                                                      geometryIntegerEncodingOption,
                                                      geometryTopologyIntegerEncodingOption,
-                                                     config.useMortonEncoding);
+                                                     config.useMortonEncoding,
+                                                     config.forceMortonGeometryLayout);
     }();
 
     util::encoding::encodeVarint(encodedGeom.numStreams, bodyBytes);

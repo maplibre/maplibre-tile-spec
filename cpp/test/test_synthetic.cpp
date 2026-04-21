@@ -128,18 +128,20 @@ const GeneratorRegistry& generatorRegistry() {
         add(SyntheticMltGenerator::generatePoints());
         add(SyntheticMltGenerator::generateLine());
         add(SyntheticMltGenerator::generateLineZeroLength());
-        add(SyntheticMltGenerator::generateLineMorton());
+        addAll(SyntheticMltGenerator::generateLineMorton());
         addAll(SyntheticMltGenerator::generatePolygons());
-        add(SyntheticMltGenerator::generateMultiPoint());
-        add(SyntheticMltGenerator::generateMultiLine());
-        addAll(SyntheticMltGenerator::generateExtent());
-        add(SyntheticMltGenerator::generateExtent(1073741824U));
+        addAll(SyntheticMltGenerator::generateMultiPoints());
+        addAll(SyntheticMltGenerator::generateMultiPointsMorton());
+        addAll(SyntheticMltGenerator::generateMultiLineStrings());
+        addAll(SyntheticMltGenerator::generateMultiLineStringsMorton());
+        addAll(SyntheticMltGenerator::generateExtents());
 
         // IDs
         addAll(SyntheticMltGenerator::generateIdsCollection());
 
         // Properties
         addAll(SyntheticMltGenerator::generateProperties());
+        addAll(SyntheticMltGenerator::generateFpfAlignments());
 
         // Mixed geometry combinations (mix_2_*, mix_3_*, ..., A-A, A-B-A variants)
         addAll(SyntheticMltGenerator::generateMixed());
@@ -250,7 +252,7 @@ TEST(SyntheticFixtureCoverage, AllFixturesHaveGenerators) {
             stream << "  " << n << "\n";
         }
     }
-    stream << "\n" << std::to_string(skipped.size()) << " fixture file(s) have generators but are marked as skipped.\n";
+    stream << "\n" << std::to_string(skipped.size()) << " fixture file(s) are not byte-exact, but JSON equivalent\n";
     if (!skipped.empty()) {
         for (const auto& n : skipped) {
             const auto& reason = reg.at(n).skipReason;

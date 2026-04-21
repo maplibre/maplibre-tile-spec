@@ -39,18 +39,18 @@ public:
     IntegerEncoder(IntegerEncoder&&) = delete;
     IntegerEncoder& operator=(IntegerEncoder&&) = delete;
 
-    void setDefaultEncodingOption(::mlt::IntegerEncodingOption option);
+    void setDefaultEncodingOption(mlt::IntegerEncodingOption option);
 
     IntegerEncodingResult encodeInt(std::span<const std::int32_t> values, PhysicalLevelTechnique, bool isSigned);
     IntegerEncodingResult encodeInt(std::span<const std::int32_t> values,
                                     PhysicalLevelTechnique,
                                     bool isSigned,
-                                    ::mlt::IntegerEncodingOption option);
+                                    mlt::IntegerEncodingOption option);
 
     IntegerEncodingResult encodeLong(std::span<const std::int64_t> values, bool isSigned);
     IntegerEncodingResult encodeLong(std::span<const std::int64_t> values,
                                      bool isSigned,
-                                     ::mlt::IntegerEncodingOption option);
+                                     mlt::IntegerEncodingOption option);
 
     std::vector<std::uint8_t> encodeIntStream(std::span<const std::int32_t> values,
                                               PhysicalLevelTechnique,
@@ -62,7 +62,7 @@ public:
                                               bool isSigned,
                                               PhysicalStreamType,
                                               std::optional<LogicalStreamType>,
-                                              ::mlt::IntegerEncodingOption option);
+                                              mlt::IntegerEncodingOption option);
 
     std::vector<std::uint8_t> encodeLongStream(std::span<const std::int64_t> values,
                                                bool isSigned,
@@ -72,7 +72,7 @@ public:
                                                bool isSigned,
                                                PhysicalStreamType,
                                                std::optional<LogicalStreamType>,
-                                               ::mlt::IntegerEncodingOption option);
+                                               mlt::IntegerEncodingOption option);
 
 private:
     struct Impl;

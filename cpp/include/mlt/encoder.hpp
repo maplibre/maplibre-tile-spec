@@ -32,6 +32,10 @@ struct EncoderConfig {
     bool includeOutlines = true;
     bool useMortonEncoding = true;
     bool useFsst = true;
+
+    // The following options are primarily for testing, and not expected to be useful in production.
+
+    /// Force the use of nullable columns for properties, even if all features have a value for that property.
     bool forceNullableColumns = false;
     /// The strategy for encoding integer streams, including integer properties and string lengths
     IntegerEncodingOption integerEncodingOption = IntegerEncodingOption::AUTO;
@@ -40,6 +44,8 @@ struct EncoderConfig {
     /// The strategy for encoding geometry topology integer streams (e.g. part sizes)
     /// `geometryEncodingOption` is used as a fallback if this is not set.
     std::optional<IntegerEncodingOption> geometryTopologyEncodingOption = std::nullopt;
+    /// Force the use of Morton encoding for geometry, even if it doesn't produce a smaller result.
+    bool forceMortonGeometryLayout = false;
 
     static EncoderConfig with(std::function<void(EncoderConfig&)> configurator) {
         EncoderConfig config;

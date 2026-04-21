@@ -168,7 +168,7 @@ public:
             .includeOutlines = true,
             .useMortonEncoding = false,
             .useFsst = false,
-            .geometryEncodingOption = ::mlt::IntegerEncodingOption::PLAIN,
+            .geometryEncodingOption = IntegerEncodingOption::PLAIN,
         };
         if (customizer) {
             customizer(config);
@@ -196,7 +196,7 @@ public:
 
     static EncoderConfig cfgWithPlainIntegers() {
         auto config = cfg();
-        config.integerEncodingOption = ::mlt::IntegerEncodingOption::PLAIN;
+        config.integerEncodingOption = IntegerEncodingOption::PLAIN;
         return config;
     }
 
@@ -230,12 +230,20 @@ public:
         };
     }
 
-    static GeneratedTile generateLineMorton() {
+    static std::vector<GeneratedTile> generateLineMorton() {
         Ring line_coords = buildMortonCurve(16, 8, 4);
-        return {
-            .name = "line_morton_curve_morton",
-            .bytes = encode(layer(defaultLayerName, {feat(line(line_coords))}, defaultExtent), cfgWithMorton()),
-        };
+        return {{
+                    .name = "line_morton_curve_morton",
+                    .bytes = encode(layer(defaultLayerName, {feat(line(line_coords))}, defaultExtent), cfg([](auto& c) {
+                                        c.useMortonEncoding = true;
+                                        c.forceMortonGeometryLayout = true;
+                                    })),
+                },
+                {
+                    .name = "line_morton_curve_no_morton",
+                    .bytes = encode(layer(defaultLayerName, {feat(line(line_coords))}, defaultExtent),
+                                    cfg([](auto& c) { c.useMortonEncoding = false; })),
+                }};
     }
 
     static GeneratedTiles generateLines() { return {generateLine(), generateLineZeroLength()}; }
@@ -245,7 +253,7 @@ public:
         Ring shell{c1, c2, c3};
         Ring hole{h1, h2, h3};
         Rings rings{shell, hole};
-        const auto config = cfg([](auto& c) { c.geometryTopologyEncodingOption = ::mlt::IntegerEncodingOption::AUTO; });
+        const auto config = cfg([](auto& c) { c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO; });
         return {
             .name = "poly_hole",
             .bytes = encode(layer(defaultLayerName, {feat(poly(rings))}, defaultExtent), config),
@@ -276,7 +284,7 @@ public:
         Ring line1_coords{c1, c2, c3};
         Ring line2_coords{c21, c22, c23};
         Parts lines{line1_coords, line2_coords};
-        const auto config = cfg([](auto& c) { c.geometryTopologyEncodingOption = ::mlt::IntegerEncodingOption::AUTO; });
+        const auto config = cfg([](auto& c) { c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO; });
         return {
             .name = "multiline",
             .bytes = encode(layer(defaultLayerName, {feat(multiLine(lines))}, defaultExtent), config),
@@ -284,6 +292,40 @@ public:
     }
 
     static GeneratedTiles generateMultiLineStrings() { return {generateMultiLine()}; }
+
+    static GeneratedTiles generateMultiPointsMorton() {
+        Ring mortonCurve = buildMortonCurve(16, 8, 4);
+        const std::size_t half = mortonCurve.size() / 2;
+        Ring mortonPts(mortonCurve.begin(), mortonCurve.begin() + static_cast<std::ptrdiff_t>(half));
+        const auto config = cfg([](auto& c) {
+            c.useMortonEncoding = true;
+            c.forceMortonGeometryLayout = true;
+        });
+        return {{
+            .name = "multipoint_morton",
+            .bytes = encode(layer(defaultLayerName, {feat(multiPoint(std::move(mortonPts)))}, defaultExtent), config),
+        }};
+    }
+
+    static GeneratedTiles generateMultiLineStringsMorton() {
+        Ring mortonCurve = buildMortonCurve(16, 8, 4);
+        const std::size_t half = mortonCurve.size() / 2;
+        Ring mortonLine1(mortonCurve.begin(), mortonCurve.begin() + static_cast<std::ptrdiff_t>(half));
+        Ring mortonLine2(mortonCurve.begin() + static_cast<std::ptrdiff_t>(half), mortonCurve.end());
+        const auto config = cfg([](auto& c) {
+            c.useMortonEncoding = true;
+            c.forceMortonGeometryLayout = true;
+            c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
+        });
+
+        return {{
+            .name = "multiline_morton",
+            .bytes = encode(layer(defaultLayerName,
+                                  {feat(multiLine(Parts{std::move(mortonLine1), std::move(mortonLine2)}))},
+                                  defaultExtent),
+                            config),
+        }};
+    }
 
     static GeneratedTile generateExtent(std::uint32_t extent) {
         const Ring line_coords{c(0, 0),
@@ -303,7 +345,7 @@ public:
         };
     }
 
-    static GeneratedTiles generateExtent() {
+    static GeneratedTiles generateExtents() {
         GeneratedTiles tiles;
         for (const auto e : {512U, 4096U, 131072U, 1073741824U}) {
             tiles.push_back(generateExtent(e));
@@ -316,8 +358,8 @@ public:
         // Java writes: write("id", idFeat(100), cfg().ids());
         const auto config = cfg([](auto& c) {
             c.includeIds = true;
-            c.integerEncodingOption = ::mlt::IntegerEncodingOption::PLAIN;
-            c.geometryEncodingOption = ::mlt::IntegerEncodingOption::PLAIN;
+            c.integerEncodingOption = IntegerEncodingOption::PLAIN;
+            c.geometryEncodingOption = IntegerEncodingOption::PLAIN;
         });
 
         return {
@@ -331,8 +373,8 @@ public:
             .name = "id_min",
             .bytes = encode(layer(defaultLayerName, {featWithId(0, point(c0))}, defaultExtent), cfg([](auto& c) {
                                 c.includeIds = true;
-                                c.integerEncodingOption = ::mlt::IntegerEncodingOption::PLAIN;
-                                c.geometryEncodingOption = ::mlt::IntegerEncodingOption::PLAIN;
+                                c.integerEncodingOption = IntegerEncodingOption::PLAIN;
+                                c.geometryEncodingOption = IntegerEncodingOption::PLAIN;
                             })),
         };
     }
@@ -343,15 +385,15 @@ public:
             .bytes = encode(layer(defaultLayerName, {featWithId(9234567890ULL, point(c0))}, defaultExtent),
                             cfg([](auto& c) {
                                 c.includeIds = true;
-                                c.integerEncodingOption = ::mlt::IntegerEncodingOption::PLAIN;
-                                c.geometryEncodingOption = ::mlt::IntegerEncodingOption::PLAIN;
+                                c.integerEncodingOption = IntegerEncodingOption::PLAIN;
+                                c.geometryEncodingOption = IntegerEncodingOption::PLAIN;
                             })),
         };
     }
 
     static GeneratedTile generateIdsWithEncoding(const std::string& name,
                                                  const std::vector<std::optional<std::uint64_t>>& ids,
-                                                 ::mlt::IntegerEncodingOption integerEncodingOption) {
+                                                 IntegerEncodingOption integerEncodingOption) {
         std::vector<Feature> features;
         features.reserve(ids.size());
         for (const auto& id : ids) {
@@ -365,8 +407,8 @@ public:
         const auto config = cfg([&](auto& c) {
             c.includeIds = true;
             c.integerEncodingOption = integerEncodingOption;
-            c.geometryEncodingOption = ::mlt::IntegerEncodingOption::PLAIN;
-            c.geometryTopologyEncodingOption = ::mlt::IntegerEncodingOption::AUTO;
+            c.geometryEncodingOption = IntegerEncodingOption::PLAIN;
+            c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
         });
 
         return {
@@ -377,62 +419,62 @@ public:
 
     static GeneratedTile generateIdsSeries() {
         const std::vector<std::optional<std::uint64_t>> ids{103, 103, 103, 103};
-        return generateIdsWithEncoding("ids", ids, ::mlt::IntegerEncodingOption::PLAIN);
+        return generateIdsWithEncoding("ids", ids, IntegerEncodingOption::PLAIN);
     }
 
     static GeneratedTile generateIdsDelta() {
         const std::vector<std::optional<std::uint64_t>> ids{103, 103, 103, 103};
-        return generateIdsWithEncoding("ids_delta", ids, ::mlt::IntegerEncodingOption::DELTA);
+        return generateIdsWithEncoding("ids_delta", ids, IntegerEncodingOption::DELTA);
     }
 
     static GeneratedTile generateIdsRle() {
         const std::vector<std::optional<std::uint64_t>> ids{103, 103, 103, 103};
-        return generateIdsWithEncoding("ids_rle", ids, ::mlt::IntegerEncodingOption::RLE);
+        return generateIdsWithEncoding("ids_rle", ids, IntegerEncodingOption::RLE);
     }
 
     static GeneratedTile generateIdsDeltaRle() {
         const std::vector<std::optional<std::uint64_t>> ids{103, 103, 103, 103};
-        return generateIdsWithEncoding("ids_delta_rle", ids, ::mlt::IntegerEncodingOption::DELTA_RLE);
+        return generateIdsWithEncoding("ids_delta_rle", ids, IntegerEncodingOption::DELTA_RLE);
     }
 
     static GeneratedTile generateIds64() {
         const std::vector<std::optional<std::uint64_t>> ids{9234567890ULL, 9234567890ULL, 9234567890ULL, 9234567890ULL};
-        return generateIdsWithEncoding("ids64", ids, ::mlt::IntegerEncodingOption::PLAIN);
+        return generateIdsWithEncoding("ids64", ids, IntegerEncodingOption::PLAIN);
     }
 
     static GeneratedTile generateIds64Delta() {
         const std::vector<std::optional<std::uint64_t>> ids{9234567890ULL, 9234567890ULL, 9234567890ULL, 9234567890ULL};
-        return generateIdsWithEncoding("ids64_delta", ids, ::mlt::IntegerEncodingOption::DELTA);
+        return generateIdsWithEncoding("ids64_delta", ids, IntegerEncodingOption::DELTA);
     }
 
     static GeneratedTile generateIds64Rle() {
         const std::vector<std::optional<std::uint64_t>> ids{9234567890ULL, 9234567890ULL, 9234567890ULL, 9234567890ULL};
-        return generateIdsWithEncoding("ids64_rle", ids, ::mlt::IntegerEncodingOption::RLE);
+        return generateIdsWithEncoding("ids64_rle", ids, IntegerEncodingOption::RLE);
     }
 
     static GeneratedTile generateIds64DeltaRle() {
         const std::vector<std::optional<std::uint64_t>> ids{9234567890ULL, 9234567890ULL, 9234567890ULL, 9234567890ULL};
-        return generateIdsWithEncoding("ids64_delta_rle", ids, ::mlt::IntegerEncodingOption::DELTA_RLE);
+        return generateIdsWithEncoding("ids64_delta_rle", ids, IntegerEncodingOption::DELTA_RLE);
     }
 
     static GeneratedTile generateIdsOpt() {
         const std::vector<std::optional<std::uint64_t>> ids{100, 101, std::nullopt, 105, 106};
-        return generateIdsWithEncoding("ids_opt", ids, ::mlt::IntegerEncodingOption::PLAIN);
+        return generateIdsWithEncoding("ids_opt", ids, IntegerEncodingOption::PLAIN);
     }
 
     static GeneratedTile generateIdsOptDelta() {
         const std::vector<std::optional<std::uint64_t>> ids{100, 101, std::nullopt, 105, 106};
-        return generateIdsWithEncoding("ids_opt_delta", ids, ::mlt::IntegerEncodingOption::DELTA);
+        return generateIdsWithEncoding("ids_opt_delta", ids, IntegerEncodingOption::DELTA);
     }
 
     static GeneratedTile generateIds64Opt() {
         const std::vector<std::optional<std::uint64_t>> ids{std::nullopt, 9234567890ULL, 101, 105, 106};
-        return generateIdsWithEncoding("ids64_opt", ids, ::mlt::IntegerEncodingOption::PLAIN);
+        return generateIdsWithEncoding("ids64_opt", ids, IntegerEncodingOption::PLAIN);
     }
 
     static GeneratedTile generateIds64OptDelta() {
         const std::vector<std::optional<std::uint64_t>> ids{std::nullopt, 9234567890ULL, 101, 105, 106};
-        return generateIdsWithEncoding("ids64_opt_delta", ids, ::mlt::IntegerEncodingOption::DELTA);
+        return generateIdsWithEncoding("ids64_opt_delta", ids, IntegerEncodingOption::DELTA);
     }
 
     static GeneratedTiles generateIdsCollection() {
@@ -487,6 +529,33 @@ public:
     }
 
     static GeneratedTiles generateProperties() { return {generatePropU64(), generatePropsStrFsst()}; }
+
+    static GeneratedTiles generateFpfAlignments() {
+        GeneratedTiles tiles;
+
+        std::vector<Feature> features;
+        features.reserve(128);
+        for (std::uint32_t i = 0; i < 128; ++i) {
+            features.push_back(feat(point(c0), PropertyMap{{"v", PropertyValue{static_cast<std::uint32_t>(i % 3)}}}));
+        }
+
+        for (std::uint32_t pad = 0; pad < 8; ++pad) {
+            const auto config = cfg([](auto& c) {
+                // Match Java synthetic generation: cfg().fastPFOR()
+                c.integerEncodingOption = IntegerEncodingOption::PLAIN;
+                c.geometryEncodingOption = IntegerEncodingOption::PLAIN;
+                c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
+                c.useFastPfor = true;
+                c.forceNullableColumns = true;
+            });
+            tiles.push_back({
+                .name = "fpf_align_" + std::to_string(pad + 1),
+                .bytes = encode(layer(std::string(pad + 1, 'a'), features, defaultExtent), config),
+            });
+        }
+
+        return tiles;
+    }
 
     // Mix geometry types matching Java SyntheticMltGenerator
     static Feature mixPt() { return feat(point(c(38, 29))); }
@@ -567,8 +636,8 @@ public:
         }
 
         auto config = cfg();
-        config.integerEncodingOption = mlt::IntegerEncodingOption::PLAIN;
-        // config.geometryEncodingOption = mlt::IntegerEncodingOption::PLAIN;
+        config.integerEncodingOption = IntegerEncodingOption::PLAIN;
+        // config.geometryEncodingOption = IntegerEncodingOption::PLAIN;
 
         // Generate plain encoding
         GeneratedTile tile{
@@ -594,7 +663,7 @@ public:
 
         auto config = cfg();
         config.preTessellate = true;
-        config.integerEncodingOption = ::mlt::IntegerEncodingOption::PLAIN;
+        config.integerEncodingOption = IntegerEncodingOption::PLAIN;
 
         GeneratedTile tile{
             .name = name,
@@ -662,7 +731,9 @@ public:
                 if (a != b) {
                     std::vector<std::size_t> combo{a, b, a};
                     tiles.push_back(generateMixCombination(combo));
-                    // Note: A-B-A variants rarely have all polygon types, so skip tessellation check
+                    if (allPolygonTypes(combo)) {
+                        tiles.push_back(generateMixCombinationTessellated(combo));
+                    }
                 }
             }
         }
