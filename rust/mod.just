@@ -48,11 +48,10 @@ check: (just 'cargo-install' 'cargo-hack')
     cd mlt-core/fuzz && cargo check --all-features
 
 # Generate code coverage report to upload to codecov.io
-ci-coverage: ci-env-info (just 'java::gen-snippets') _coverage
-    mkdir -p target/llvm-cov
-
-    # ATTENTION: the output-path here is used in the CI workflow
-    cargo llvm-cov --doctests --no-clean --workspace --lcov --output-path target/llvm-cov/lcov.info
+ci-coverage: ci-env-info _coverage
+    {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
+    mkdir -p target/llvm-cov      # the output-path here is used in the CI workflow
+    cargo llvm-cov report --include-build-script --lcov --output-path target/llvm-cov/lcov.info
 
 # Run minimal subset of tests to ensure compatibility with MSRV
 ci-check: ci-env-info check
@@ -171,13 +170,13 @@ coverage: _coverage
     cargo llvm-cov report --include-build-script --open
 
 # Generate code coverage report. Installs `cargo llvm-cov`
-_coverage: (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm-cov')
+_coverage: (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm-cov') (just 'java::gen-snippets')
     cargo llvm-cov clean --workspace
     cargo hack llvm-cov --no-report --all-targets --each-feature {{hack_skip}} \
         --workspace --exclude-no-default-features --exclude-all-features
-    cargo llvm-cov run --no-report -p mlt -- ls --validate-to-json --details basic ../test/synthetic/
     rm -rf ../test/synthetic/0x01-rust
     cargo llvm-cov run --no-report -p mlt-synthetics
+    cargo llvm-cov run --no-report -p mlt -- ls --validate-to-json --details basic ../test/synthetic/
     rustup toolchain install nightly --profile minimal --component llvm-tools
     cargo +nightly llvm-cov --no-report --doctests --workspace
 
