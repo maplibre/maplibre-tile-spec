@@ -104,6 +104,9 @@ pub struct ConvertArgs {
     /// Disable grouping of similar string columns into shared dictionaries
     #[clap(long, default_value = "false")]
     no_shared_dict: bool,
+    /// Encode output as experimental MLT v2 format (tag=2 layers)
+    #[clap(long, default_value = "false")]
+    v2: bool,
 }
 
 pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
@@ -115,6 +118,10 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         allow_shared_dict: !args.no_shared_dict,
         ..Default::default()
     };
+
+    if args.v2 && is_mbtiles_extension(&args.input) {
+        bail!("--v2 is not supported with .mbtiles input (only file-based conversion)");
+    }
 
     if is_mbtiles_extension(&args.input) {
         if !is_mbtiles_extension(&args.output) {
@@ -145,8 +152,9 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     };
 
     let failed = AtomicUsize::new(0);
+    let use_v2 = args.v2;
     files.par_iter().for_each(|file| {
-        if let Err(e) = convert_file(file, base, &args.output, cfg) {
+        if let Err(e) = convert_file(file, base, &args.output, cfg, use_v2) {
             eprintln!("error: {}: {e:#}", file.display());
             failed.fetch_add(1, Ordering::Relaxed);
         }
@@ -159,7 +167,13 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     Ok(())
 }
 
-fn convert_file(file: &Path, base: &Path, output: &Path, cfg: EncoderConfig) -> AnyResult<()> {
+fn convert_file(
+    file: &Path,
+    base: &Path,
+    output: &Path,
+    cfg: EncoderConfig,
+    v2: bool,
+) -> AnyResult<()> {
     let rel = file
         .strip_prefix(base)
         .with_context(|| format!("stripping prefix from {}", file.display()))?;
@@ -172,8 +186,16 @@ fn convert_file(file: &Path, base: &Path, output: &Path, cfg: EncoderConfig) -> 
 
     let buffer = fs::read(file).with_context(|| format!("reading {}", file.display()))?;
     let out_bytes = if is_mlt_extension(file) {
-        convert_mlt_buffer(&buffer, cfg)
-            .with_context(|| format!("converting MLT {}", file.display()))?
+        if v2 {
+            convert_mlt_buffer_v2(&buffer)
+                .with_context(|| format!("converting MLT→v2 {}", file.display()))?
+        } else {
+            convert_mlt_buffer(&buffer, cfg)
+                .with_context(|| format!("converting MLT {}", file.display()))?
+        }
+    } else if v2 {
+        convert_mvt_buffer_v2(buffer)
+            .with_context(|| format!("converting MVT→v2 {}", file.display()))?
     } else {
         convert_mvt_buffer(buffer, cfg)
             .with_context(|| format!("converting MVT {}", file.display()))?
@@ -253,6 +275,38 @@ fn convert_mvt_buffer(buffer: Vec<u8>, cfg: EncoderConfig) -> AnyResult<Vec<u8>>
     let mut out: Vec<u8> = Vec::new();
     for tile in mvt_to_tile_layers(buffer)? {
         out.extend_from_slice(&tile.encode(cfg)?);
+    }
+    Ok(out)
+}
+
+/// Re-encode an MLT tile as v2, decoding each Tag01/Tag02 layer and re-encoding as v2.
+fn convert_mlt_buffer_v2(buffer: &[u8]) -> AnyResult<Vec<u8>> {
+    let layers = Parser::default().parse_layers(buffer)?;
+    let mut dec = Decoder::default();
+    let mut out: Vec<u8> = Vec::new();
+
+    for layer in layers {
+        match layer {
+            Layer::Tag01(l) => {
+                let tile = l.into_tile(&mut dec)?;
+                out.extend_from_slice(&tile.encode_v2()?);
+            }
+            Layer::Tag02(tile) => {
+                out.extend_from_slice(&tile.encode_v2()?);
+            }
+            Layer::Unknown(_) => {}
+            _ => {}
+        }
+    }
+
+    Ok(out)
+}
+
+/// Convert an MVT tile to the experimental MLT v2 format.
+fn convert_mvt_buffer_v2(buffer: Vec<u8>) -> AnyResult<Vec<u8>> {
+    let mut out: Vec<u8> = Vec::new();
+    for tile in mvt_to_tile_layers(buffer)? {
+        out.extend_from_slice(&tile.encode_v2()?);
     }
     Ok(out)
 }

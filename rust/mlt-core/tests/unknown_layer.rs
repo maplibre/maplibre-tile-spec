@@ -72,9 +72,10 @@ fn unknown_zero_length_body() {
 
 #[test]
 fn multiple_layers_mixed_unknown_and_tag01() {
-    // Build two unknown layers back-to-back (tags 2 and 3, since tag=1 is Tag01).
-    let mut raw = unknown_layer_bytes(2, b"hello");
-    raw.extend_from_slice(&unknown_layer_bytes(3, b"world"));
+    // Build two unknown layers back-to-back. Tags 1 and 2 are known (Tag01 and Tag02),
+    // so use tags 10 and 11 for these "unknown" tests.
+    let mut raw = unknown_layer_bytes(10, b"hello");
+    raw.extend_from_slice(&unknown_layer_bytes(11, b"world"));
 
     let layers = Parser::default()
         .parse_layers(&raw)
@@ -85,12 +86,12 @@ fn multiple_layers_mixed_unknown_and_tag01() {
     let Layer::Unknown(u0) = &layers[0] else {
         panic!("expected Unknown at index 0");
     };
-    assert_eq!(u0.tag(), 2u32);
+    assert_eq!(u0.tag(), 10u32);
     assert_eq!(u0.data(), b"hello");
 
     let Layer::Unknown(u1) = &layers[1] else {
         panic!("expected Unknown at index 1");
     };
-    assert_eq!(u1.tag(), 3u32);
+    assert_eq!(u1.tag(), 11u32);
     assert_eq!(u1.data(), b"world");
 }
