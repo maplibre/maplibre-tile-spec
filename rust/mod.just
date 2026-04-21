@@ -48,23 +48,10 @@ check: (just 'cargo-install' 'cargo-hack')
     cd mlt-core/fuzz && cargo check --all-features
 
 # Generate code coverage report to upload to codecov.io
-ci-coverage: ci-env-info (just 'java::gen-snippets') (just 'cargo-install' 'cargo-llvm-cov')
+ci-coverage: ci-env-info (just 'java::gen-snippets') _coverage
     mkdir -p target/llvm-cov
 
-    @echo "::group::Generate synthetic MLTs"
-    rm -rf ../test/synthetic/0x01-rust
-    cargo llvm-cov run --no-report -p mlt-synthetics
-    @echo "::endgroup::"
-
-    @echo "::group::Validate synthetic MLTs"
-    {{just}} rust::validate-synthetic
-    @echo "::endgroup::"
-
     # ATTENTION: the output-path here is used in the CI workflow
-    # --no-clean preserves profdata accumulated by the synthetic generation run above
-    # --doctests requires nightly (test job uses nightly toolchain) and may not be mixed with the main
-    {{just}} rust::coverage '--no-clean'
-    # target coverage and doctest coverage cannot be mixed
     cargo llvm-cov --doctests --no-clean --workspace --lcov --output-path target/llvm-cov/lcov.info
 
 # Run minimal subset of tests to ensure compatibility with MSRV
@@ -179,11 +166,20 @@ clippy *args: (just 'cargo-install' 'cargo-hack')
     cargo clippy --all-targets --all-features --workspace {{args}}
     cd mlt-core/fuzz && cargo clippy --all-features {{args}}
 
+# Generate code coverage report and open it
+coverage: _coverage
+    cargo llvm-cov report --include-build-script --open
+
 # Generate code coverage report. Installs `cargo llvm-cov`
-coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm-cov')
-    cargo hack llvm-cov --all-targets --each-feature {{hack_skip}} \
-        --workspace --exclude-no-default-features --exclude-all-features \
-        --include-build-script {{args}}
+_coverage: (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm-cov')
+    cargo llvm-cov clean --workspace
+    cargo hack llvm-cov --no-report --all-targets --each-feature {{hack_skip}} \
+        --workspace --exclude-no-default-features --exclude-all-features
+    cargo llvm-cov run --no-report -p mlt -- ls --validate-to-json --details basic ../test/synthetic/
+    rm -rf ../test/synthetic/0x01-rust
+    cargo llvm-cov run --no-report -p mlt-synthetics
+    rustup toolchain install nightly --profile minimal --component llvm-tools
+    cargo +nightly llvm-cov --no-report --doctests --workspace
 
 # Run the encoder with hotpath profiling (timing + allocation tracking)
 profile *args:
