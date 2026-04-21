@@ -13,7 +13,6 @@ publish = false
 
 [dependencies]
 clap.workspace = true
-geo-types.workspace = true
 mlt-core = { workspace = true, features = ["__private"] }
 serde_json.workspace = true
 thiserror.workspace = true

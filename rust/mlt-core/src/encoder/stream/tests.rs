@@ -4,10 +4,10 @@ use rstest::rstest;
 use super::write::{do_write_i32, do_write_i64};
 use super::{do_write_u32, do_write_u64};
 use crate::decoder::{
-    DictionaryType, IntEncoding, LengthType, LogicalEncoding, LogicalValue, MortonMeta, OffsetType,
-    PhysicalEncoding, RawStream, RawStreamData, RleMeta, StreamMeta, StreamType,
+    DictionaryType, IntEncoding, LengthType, LogicalEncoding, LogicalValue, Morton, OffsetType,
+    PhysicalEncoding, RawStream, RleMeta, StreamMeta, StreamType,
 };
-use crate::encoder::{EncodedStream, EncodedStreamData, Encoder, IntEncoder, PhysicalEncoder};
+use crate::encoder::{EncodedStream, Encoder, IntEncoder, PhysicalEncoder};
 use crate::test_helpers::{assert_empty, dec, parser};
 use crate::utils::BinarySerializer as _;
 
@@ -77,15 +77,7 @@ fn generate_stream_test_cases() -> Vec<StreamTestCase> {
 }
 
 fn create_stream_from_test_case(test_case: &StreamTestCase) -> RawStream<'_> {
-    let data = match test_case.meta.encoding.physical {
-        PhysicalEncoding::VarInt => RawStreamData::VarInt(test_case.data),
-        PhysicalEncoding::None => RawStreamData::Encoded(test_case.data),
-        _ => panic!(
-            "Unsupported physical encoding in test: {:?}",
-            test_case.meta.encoding.physical
-        ),
-    };
-    RawStream::new(test_case.meta, data)
+    RawStream::new(test_case.meta, test_case.data)
 }
 
 #[test]
@@ -172,7 +164,7 @@ fn test_fastpfor_roundtrip(#[case] values: Vec<u32>) {
 #[case::varint(StreamType::Length(LengthType::VarBinary), 3, LogicalEncoding::Delta, PhysicalEncoding::VarInt, vec![0x00, 0x02, 0x02], false)]
 #[case::rle(StreamType::Data(DictionaryType::None), 6, LogicalEncoding::Rle(RleMeta { runs: 3, num_rle_values: 6 }), PhysicalEncoding::VarInt, vec![0x03, 0x02, 0x01, 0x0A, 0x14, 0x1E], false)]
 #[case::rle(StreamType::Data(DictionaryType::None), 5, LogicalEncoding::DeltaRle(RleMeta { runs: 2, num_rle_values: 5 }), PhysicalEncoding::VarInt, vec![0x03, 0x02, 0x00, 0x02], false)]
-#[case::morton(StreamType::Data(DictionaryType::Morton), 4, LogicalEncoding::Morton(MortonMeta { num_bits: 32, coordinate_shift: 0 }), PhysicalEncoding::VarInt, vec![0x01, 0x02, 0x03, 0x04], false)]
+#[case::morton(StreamType::Data(DictionaryType::Morton), 4, LogicalEncoding::Morton(Morton { bits: 32, shift: 0 }), PhysicalEncoding::VarInt, vec![0x01, 0x02, 0x03, 0x04], false)]
 #[case::boolean(StreamType::Present, 16, LogicalEncoding::Rle(RleMeta { runs: 2, num_rle_values: 2 }), PhysicalEncoding::VarInt, vec![0xFF, 0x00], true)]
 fn test_stream_roundtrip(
     #[case] stream_type: StreamType,
@@ -182,20 +174,13 @@ fn test_stream_roundtrip(
     #[case] data_bytes: Vec<u8>,
     #[case] is_bool: bool,
 ) {
-    let stream_data = match physical_encoding {
-        PhysicalEncoding::None | PhysicalEncoding::FastPFor256 => {
-            EncodedStreamData::Encoded(data_bytes)
-        }
-        PhysicalEncoding::VarInt => EncodedStreamData::VarInt(data_bytes),
-        PhysicalEncoding::Alp => panic!("ALP not supported"),
-    };
     let stream = EncodedStream {
         meta: StreamMeta::new(
             stream_type,
             IntEncoding::new(logical_encoding, physical_encoding),
             num_values,
         ),
-        data: stream_data,
+        data: data_bytes,
     };
 
     // Write to buffer
@@ -214,16 +199,7 @@ fn test_stream_roundtrip(
     });
 
     assert_eq!(parsed.meta, stream.meta, "metadata mismatch");
-
-    match (&stream.data, &parsed.data) {
-        (EncodedStreamData::Encoded(exp), RawStreamData::Encoded(act)) => {
-            assert_eq!(exp.as_slice(), *act, "raw data mismatch");
-        }
-        (EncodedStreamData::VarInt(exp), RawStreamData::VarInt(act)) => {
-            assert_eq!(exp.as_slice(), *act, "varint data mismatch");
-        }
-        _ => panic!("data type mismatch"),
-    }
+    assert_eq!(stream.data.as_slice(), parsed.data, "data mismatch");
 }
 
 /// OOM regression: `VarInt` stream with huge `num_values` but `byte_length=0`.

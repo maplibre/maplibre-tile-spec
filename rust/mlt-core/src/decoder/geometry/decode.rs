@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
     DictionaryType, GeometryType, GeometryValues, IntEncoding, LengthType, OffsetType, RawGeometry,
-    RawStream, RawStreamData, StreamMeta, StreamType,
+    RawStream, StreamMeta, StreamType,
 };
 use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, OptSeq, SetOptionOnce as _};
@@ -216,12 +216,6 @@ pub fn decode_level2_length_stream(
     Ok(level2_buffer_offsets)
 }
 
-impl Decode<GeometryValues> for RawGeometry<'_> {
-    fn decode(self, decoder: &mut Decoder) -> MltResult<GeometryValues> {
-        RawGeometry::decode(self, decoder)
-    }
-}
-
 impl<'a> RawGeometry<'a> {
     /// Parse encoded geometry from bytes (expects varint stream count + streams).
     /// Reserves decoded memory against the parser's budget.
@@ -238,7 +232,7 @@ impl<'a> RawGeometry<'a> {
                             IntEncoding::none(),
                             0,
                         ),
-                        RawStreamData::Encoded(&[]),
+                        &[],
                     ),
                     items: Vec::new(),
                 },
@@ -251,11 +245,13 @@ impl<'a> RawGeometry<'a> {
 
         Ok((input, Self { meta, items }))
     }
+}
 
+impl Decode<GeometryValues> for RawGeometry<'_> {
     /// Decode into [`GeometryValues`], charging `dec` before each `Vec<T>`
     /// allocation.  All streams carry `num_values` in their metadata so every
     /// charge is pre-hoc.
-    pub fn decode(self, dec: &mut Decoder) -> MltResult<GeometryValues> {
+    fn decode(self, dec: &mut Decoder) -> MltResult<GeometryValues> {
         let RawGeometry { meta, items } = self;
         let vector_types = decode_geometry_types(meta, dec)?;
         let mut geometry_offsets: Option<Vec<u32>> = None;

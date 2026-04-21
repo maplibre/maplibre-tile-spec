@@ -31,7 +31,7 @@ type MltBatch = Vec<(TileCoord, Vec<u8>)>;
 const CHANNEL_BUFFER: usize = 4;
 /// Maximum time between forced flushes in the writer, regardless of batch fullness.
 /// Keeps data safe on long-running jobs and avoids holding a huge open transaction.
-const SAVE_EVERY: Duration = Duration::from_secs(60);
+const SAVE_EVERY: Duration = Duration::from_mins(1);
 /// Minimum interval between progress log lines in non-interactive (non-TTY) mode.
 const PROGRESS_REPORT_EVERY: Duration = Duration::from_secs(2);
 
@@ -95,6 +95,9 @@ pub struct ConvertArgs {
     /// Schema type for the output `.mbtiles` file; defaults to the input file's schema
     #[clap(long)]
     mbtiles_format: Option<MbtFormat>,
+    /// Disable grouping of similar string columns into shared dictionaries
+    #[clap(long, default_value = "false")]
+    no_shared_dict: bool,
 }
 
 pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
@@ -103,6 +106,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         try_spatial_morton_sort: matches!(args.sort, SortMode::Auto | SortMode::Morton),
         try_spatial_hilbert_sort: matches!(args.sort, SortMode::Auto | SortMode::Hilbert),
         try_id_sort: matches!(args.sort, SortMode::Auto | SortMode::Id),
+        allow_shared_dict: !args.no_shared_dict,
         ..Default::default()
     };
 
@@ -228,6 +232,7 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
             Layer::Unknown(u) => {
                 out.extend(EncodedUnknown::from(u).write_to(Encoder::default())?.data);
             }
+            _ => {}
         }
     }
 

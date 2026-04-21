@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.10](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.9...rust-mlt-v0.1.10) - 2026-04-18
+
+### Added
+
+- *(rust)* mlt UI to browse .mbtiles ([#1306](https://github.com/maplibre/maplibre-tile-spec/pull/1306))
+
+### Other
+
+- remove ALP everywhere - it was never implemented ([#1128](https://github.com/maplibre/maplibre-tile-spec/pull/1128))
+- *(rust)* rm RawStreamData and EncodedStreamData ([#1309](https://github.com/maplibre/maplibre-tile-spec/pull/1309))
+- *(rust)* Coord32 cleanup, dep update ([#1304](https://github.com/maplibre/maplibre-tile-spec/pull/1304))
+- Add offline docs.rs-style workspace docs check to Rust CI and fix surfaced rustdoc links ([#1295](https://github.com/maplibre/maplibre-tile-spec/pull/1295))
+
 ## [0.1.9](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.8...rust-mlt-v0.1.9) - 2026-04-13
 
 ### Added

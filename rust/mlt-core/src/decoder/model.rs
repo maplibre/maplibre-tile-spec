@@ -3,13 +3,14 @@ use std::fmt;
 use num_enum::TryFromPrimitive;
 
 use crate::decoder::{Geometry, Id, Property};
-use crate::{DecodeState, Geom32, Lazy, Parsed};
+use crate::{DecodeState, Lazy, Parsed};
 
 /// A layer that can be one of the known types, or an unknown.
 ///
 /// The decode-state type parameter `S` mirrors [`Layer01<'a, S>`]:
 /// - `Layer<'a>` / `Layer<'a, Lazy>` — freshly parsed; columns may still be raw bytes.
 /// - `Layer<'a, Parsed>` — returned by [`Layer::decode_all`]; all columns are decoded. Use `ParsedLayer` alias.
+#[non_exhaustive]
 pub enum Layer<'a, S: DecodeState = Lazy> {
     /// MVT-compatible layer (tag = 1)
     Tag01(Layer01<'a, S>),
@@ -30,24 +31,29 @@ where
     }
 }
 
-impl<'a, S: DecodeState> PartialEq for Layer<'a, S>
-where
-    Layer01<'a, S>: PartialEq,
-{
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Tag01(a), Self::Tag01(b)) => a == b,
-            (Self::Unknown(a), Self::Unknown(b)) => a == b,
-            _ => false,
-        }
-    }
-}
-
-/// Unknown layer data, stored as encoded bytes
+/// Unknown layer data, stored as encoded bytes.
+///
+/// Returned inside [`Layer::Unknown`] for any layer tag that is not recognized
+/// by this version of the library. Consumers can inspect the tag and raw bytes
+/// to forward or log the layer without losing data.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Unknown<'a> {
     pub(crate) tag: u8,
     pub(crate) value: &'a [u8],
+}
+
+impl<'a> Unknown<'a> {
+    /// The raw layer tag identifying this unrecognised layer type.
+    #[must_use]
+    pub fn tag(&self) -> u32 {
+        u32::from(self.tag)
+    }
+
+    /// The raw encoded bytes of this layer's body.
+    #[must_use]
+    pub fn data(&self) -> &'a [u8] {
+        self.value
+    }
 }
 
 /// Column definition
@@ -95,8 +101,7 @@ pub enum ColumnType {
 /// The type parameter `S` controls how columns are stored:
 ///
 /// - `Layer01<'a>` / `Layer01<'a, Lazy>` (default) — columns are [`LazyParsed`](crate::LazyParsed) enums
-///   that may be raw or decoded. Use `decode_id`, `decode_geometry`, `decode_properties` for
-///   selective in-place decoding, or [`Layer01::decode_all`] to transition to `Layer01<Parsed>`.
+///   that may be raw or decoded. Use [`Layer01::decode_all`] to transition to `Layer01<Parsed>`.
 ///
 /// - `Layer01<'a, Parsed>` — all columns are fully decoded. The fields `id`, `geometry`, and
 ///   `properties` hold the parsed types directly, allowing infallible readonly access.
@@ -104,8 +109,8 @@ pub enum ColumnType {
 pub struct Layer01<'a, S: DecodeState = Lazy> {
     pub name: &'a str,
     pub extent: u32,
-    pub id: Option<Id<'a, S>>,
-    pub geometry: Geometry<'a, S>,
+    pub(crate) id: Option<Id<'a, S>>,
+    pub(crate) geometry: Geometry<'a, S>,
     pub(crate) properties: Vec<Property<'a, S>>,
     #[cfg(fuzzing)]
     pub(crate) layer_order: Vec<crate::decoder::fuzzing::LayerOrdering>,
@@ -171,8 +176,8 @@ pub struct TileLayer01 {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TileFeature {
     pub id: Option<u64>,
-    /// Geometry in `geo_types` / `Geom32` form.
-    pub geometry: Geom32,
+    /// Geometry as a [`geo_types`] form
+    pub geometry: geo_types::Geometry<i32>,
     /// One value per property column, in the same order as
     /// [`TileLayer01::property_names`].
     pub properties: Vec<PropValue>,

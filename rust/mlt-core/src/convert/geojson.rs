@@ -3,12 +3,13 @@
 use std::collections::BTreeMap;
 use std::str::FromStr;
 
+use geo_types::Geometry;
 use serde::ser::SerializeMap as _;
 use serde::{Deserialize, Serialize};
 use serde_json::{Number, Value};
 
 use crate::decoder::{Layer, PropValueRef};
-use crate::{Geom32, MltResult, ParsedLayer};
+use crate::{MltResult, ParsedLayer};
 
 /// `GeoJSON` [`FeatureCollection`]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -70,7 +71,7 @@ impl FromStr for FeatureCollection {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct Feature {
     #[serde(with = "geom_serde")]
-    pub geometry: Geom32,
+    pub geometry: Geometry<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<u64>,
     pub properties: BTreeMap<String, Value>,
@@ -78,7 +79,7 @@ pub struct Feature {
     pub ty: String,
 }
 
-struct Geom32Wire<'a>(&'a Geom32);
+struct Geom32Wire<'a>(&'a Geometry<i32>);
 impl Serialize for Geom32Wire<'_> {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         geom_serde::serialize(self.0, s)
@@ -100,7 +101,7 @@ impl Serialize for Feature {
     }
 }
 
-/// Serialize/deserialize [`Geom32`] in `GeoJSON` wire format:
+/// Serialize/deserialize [`Geometry<i32>`](geo_types::Geometry) in `GeoJSON` wire format:
 /// `{"type":"…","coordinates":…}` with `[x, y]` integer arrays.
 mod geom_serde {
     use geo_types::{
@@ -110,8 +111,6 @@ mod geom_serde {
     use serde::ser::{Error, SerializeMap as _};
     use serde::{Deserialize, Deserializer, Serializer};
     use serde_json::Value;
-
-    use crate::Geom32;
 
     type Arr = [i32; 2];
 
@@ -136,7 +135,7 @@ mod geom_serde {
         Polygon::new(ext, it.map(arr_ls).collect())
     }
 
-    pub fn serialize<S: Serializer>(g: &Geom32, s: S) -> Result<S::Ok, S::Error> {
+    pub fn serialize<S: Serializer>(g: &Geometry<i32>, s: S) -> Result<S::Ok, S::Error> {
         let mut m = s.serialize_map(Some(2))?;
         let (ty, coords): (&str, Value) = match g {
             Geometry::Point(p) => ("Point", serde_json::to_value(Arr::from(*p)).unwrap()),
@@ -162,7 +161,7 @@ mod geom_serde {
         m.end()
     }
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Geom32, D::Error> {
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Geometry<i32>, D::Error> {
         fn parse<T: serde::de::DeserializeOwned, E: serde::de::Error>(v: Value) -> Result<T, E> {
             serde_json::from_value(v).map_err(E::custom)
         }

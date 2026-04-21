@@ -11,13 +11,14 @@ use clap::{Args, ValueEnum};
 use flate2::Compression;
 use flate2::write::GzEncoder;
 use globset::{GlobSet, GlobSetBuilder};
-use mlt_core::StatType::{DecodedDataSize, DecodedMetaSize, FeatureCount};
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::mvt::mvt_to_feature_collection;
-use mlt_core::{
-    Analyze as _, Decoder, DictionaryType, GeometryType, LengthType, LogicalEncoding, OffsetType,
-    Parser, PhysicalEncoding, StreamMeta, StreamType,
+use mlt_core::wire::StatType::{DecodedDataSize, DecodedMetaSize, FeatureCount};
+use mlt_core::wire::{
+    Analyze as _, DictionaryType, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding,
+    StreamMeta, StreamType,
 };
+use mlt_core::{Decoder, GeometryType, Parser};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use serde::Serialize;
 use size_format::SizeFormatterSI;
@@ -172,7 +173,6 @@ impl std::fmt::Display for FileAlgorithm {
                     PhysicalEncoding::None => "",
                     PhysicalEncoding::FastPFor256 => "FastPFOR",
                     PhysicalEncoding::VarInt => "VarInt",
-                    PhysicalEncoding::Alp => "Alp",
                 };
                 let logical = match logical {
                     StatLogicalCodec::None => "",
@@ -577,7 +577,7 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
             data_size += layer01.collect_statistic(DecodedDataSize);
             meta_size += layer01.collect_statistic(DecodedMetaSize);
             feature_count += layer01.collect_statistic(FeatureCount);
-            for &geom_type in layer01.geometry.vector_types() {
+            for &geom_type in layer01.geometry_values().vector_types() {
                 geometries.insert(geom_type);
             }
         }

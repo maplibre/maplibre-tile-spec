@@ -7,12 +7,24 @@
 //! and free from any encoded/decoded duality.
 
 use crate::decoder::{
-    Layer01, ParsedLayer01, ParsedProperty, PropValue, PropValueRef, TileFeature, TileLayer01,
+    GeometryValues, Layer01, ParsedLayer01, ParsedProperty, PropValue, PropValueRef, TileFeature,
+    TileLayer01,
 };
 use crate::errors::AsMltError as _;
 use crate::{Decoder, MltResult};
 
 impl ParsedLayer01<'_> {
+    /// Returns the decoded geometry buffer for this layer.
+    ///
+    /// Provides access to the columnar geometry arrays (vertex buffer, offset arrays, geometry
+    /// types) for advanced use cases such as building typed arrays for WebAssembly or
+    /// performing spatial indexing. For iterating feature geometries as `geo_types` values,
+    /// prefer [`iter_features`](Self::iter_features) instead.
+    #[must_use]
+    pub fn geometry_values(&self) -> &GeometryValues {
+        &self.geometry
+    }
+
     /// Decode and convert into a row-oriented [`TileLayer01`], charging every
     /// heap allocation against `dec`.
     pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer01> {

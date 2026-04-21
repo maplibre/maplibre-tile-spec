@@ -5,12 +5,11 @@ use std::path::PathBuf;
 use std::sync::mpsc::{self, TryRecvError};
 use std::thread;
 
-use geo_types::Polygon;
 use martin_tile_utils::{decode_gzip, decode_zstd};
 use mbtiles::Mbtiles;
+use mlt_core::geo_types::{Coord, Geometry, Polygon};
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::mvt::mvt_to_feature_collection;
-use mlt_core::{Coord32, Geom32};
 use rstar::{AABB, PointDistance, RTree, RTreeObject};
 
 use super::group_by_layer;
@@ -103,7 +102,7 @@ impl TileTransform {
 
     /// Convert a tile-local coordinate to world coordinates.
     #[inline]
-    pub(crate) fn to_world(&self, c: Coord32) -> [f64; 2] {
+    pub(crate) fn to_world(&self, c: Coord<i32>) -> [f64; 2] {
         [
             (self.tx + f64::from(c.x) / self.ext) / self.n,
             (self.ty + f64::from(c.y) / self.ext) / self.n,
@@ -122,17 +121,21 @@ impl TileTransform {
     }
 
     /// Collect world-coordinate vertices from any geometry.
-    pub(crate) fn geom_verts(&self, geom: &Geom32) -> Vec<[f64; 2]> {
+    pub(crate) fn geom_verts(&self, geom: &Geometry<i32>) -> Vec<[f64; 2]> {
         match geom {
-            Geom32::Point(p) => vec![self.to_world(p.0)],
-            Geom32::LineString(ls) => ls.0.iter().copied().map(|c| self.to_world(c)).collect(),
-            Geom32::MultiPoint(mp) => mp.iter().map(|p| self.to_world(p.0)).collect(),
-            Geom32::Polygon(poly) => self.poly_verts(poly),
-            Geom32::MultiLineString(mls) => mls
+            Geometry::<i32>::Point(p) => vec![self.to_world(p.0)],
+            Geometry::<i32>::LineString(ls) => {
+                ls.0.iter().copied().map(|c| self.to_world(c)).collect()
+            }
+            Geometry::<i32>::MultiPoint(mp) => mp.iter().map(|p| self.to_world(p.0)).collect(),
+            Geometry::<i32>::Polygon(poly) => self.poly_verts(poly),
+            Geometry::<i32>::MultiLineString(mls) => mls
                 .iter()
                 .flat_map(|ls| ls.0.iter().copied().map(|c| self.to_world(c)))
                 .collect(),
-            Geom32::MultiPolygon(mpoly) => mpoly.iter().flat_map(|p| self.poly_verts(p)).collect(),
+            Geometry::<i32>::MultiPolygon(mpoly) => {
+                mpoly.iter().flat_map(|p| self.poly_verts(p)).collect()
+            }
             _ => vec![],
         }
     }
@@ -273,7 +276,7 @@ impl MbtilesState {
             return 0;
         }
         #[expect(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-        let z = (-(vp_w.log2())).floor().clamp(0.0, 22.0) as u8;
+        let z = (-vp_w.log2()).floor().clamp(0.0, 22.0) as u8;
         z
     }
 

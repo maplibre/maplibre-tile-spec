@@ -1,24 +1,23 @@
 use geo::{Convert as _, TriangulateEarcut as _};
-use geo_types::{LineString, MultiLineString, MultiPoint, MultiPolygon, Polygon};
+use geo_types::{Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Polygon};
 
 use crate::decoder::{GeometryType, GeometryValues};
-use crate::{Coord32, Geom32};
 
-impl TryFrom<&Geom32> for GeometryType {
+impl TryFrom<&Geometry<i32>> for GeometryType {
     type Error = ();
 
-    fn try_from(geom: &Geom32) -> Result<Self, Self::Error> {
+    fn try_from(geom: &Geometry<i32>) -> Result<Self, Self::Error> {
         Ok(match geom {
-            Geom32::Point(_) => Self::Point,
-            Geom32::MultiPoint(_) => Self::MultiPoint,
-            Geom32::LineString(_) => Self::LineString,
-            Geom32::MultiLineString(_) => Self::MultiLineString,
-            Geom32::Polygon(_) => Self::Polygon,
-            Geom32::MultiPolygon(_) => Self::MultiPolygon,
-            Geom32::Line(_)
-            | Geom32::GeometryCollection(_)
-            | Geom32::Rect(_)
-            | Geom32::Triangle(_) => {
+            Geometry::<i32>::Point(_) => Self::Point,
+            Geometry::<i32>::MultiPoint(_) => Self::MultiPoint,
+            Geometry::<i32>::LineString(_) => Self::LineString,
+            Geometry::<i32>::MultiLineString(_) => Self::MultiLineString,
+            Geometry::<i32>::Polygon(_) => Self::Polygon,
+            Geometry::<i32>::MultiPolygon(_) => Self::MultiPolygon,
+            Geometry::<i32>::Line(_)
+            | Geometry::<i32>::GeometryCollection(_)
+            | Geometry::<i32>::Rect(_)
+            | Geometry::<i32>::Triangle(_) => {
                 return Err(());
             }
         })
@@ -90,27 +89,27 @@ impl GeometryValues {
     }
 
     /// Add a geometry to this decoded geometry collection.
-    /// This is the reverse of `to_geojson` - it converts a `Geom32`
+    /// This is the reverse of `to_geojson` - it converts a `&Geometry<i32>`
     /// into the internal MLT representation with offset arrays.
     #[must_use]
-    pub fn with_geom(mut self, geom: &Geom32) -> Self {
+    pub fn with_geom(mut self, geom: &Geometry<i32>) -> Self {
         self.push_geom(geom);
         self
     }
 
     /// Add a geometry to this decoded geometry collection (mutable version).
-    pub fn push_geom(&mut self, geom: &Geom32) {
+    pub fn push_geom(&mut self, geom: &Geometry<i32>) {
         match geom {
-            Geom32::Point(p) => self.push_point(p.0),
-            Geom32::Line(l) => self.push_linestring(&LineString(vec![l.start, l.end])),
-            Geom32::LineString(ls) => self.push_linestring(ls),
-            Geom32::Polygon(p) => self.push_polygon(p),
-            Geom32::MultiPoint(mp) => self.push_multi_point(mp),
-            Geom32::MultiLineString(mls) => self.push_multi_linestring(mls),
-            Geom32::MultiPolygon(mp) => self.push_multi_polygon(mp),
-            Geom32::Triangle(t) => self.push_polygon(&t.to_polygon()),
-            Geom32::Rect(r) => self.push_polygon(&r.to_polygon()),
-            Geom32::GeometryCollection(gc) => {
+            Geometry::<i32>::Point(p) => self.push_point(p.0),
+            Geometry::<i32>::Line(l) => self.push_linestring(&LineString(vec![l.start, l.end])),
+            Geometry::<i32>::LineString(ls) => self.push_linestring(ls),
+            Geometry::<i32>::Polygon(p) => self.push_polygon(p),
+            Geometry::<i32>::MultiPoint(mp) => self.push_multi_point(mp),
+            Geometry::<i32>::MultiLineString(mls) => self.push_multi_linestring(mls),
+            Geometry::<i32>::MultiPolygon(mp) => self.push_multi_polygon(mp),
+            Geometry::<i32>::Triangle(t) => self.push_polygon(&t.to_polygon()),
+            Geometry::<i32>::Rect(r) => self.push_polygon(&r.to_polygon()),
+            Geometry::<i32>::GeometryCollection(gc) => {
                 for g in gc {
                     self.push_geom(g);
                 }
@@ -118,7 +117,7 @@ impl GeometryValues {
         }
     }
 
-    fn push_point(&mut self, coord: Coord32) {
+    fn push_point(&mut self, coord: Coord<i32>) {
         self.vector_types.push(GeometryType::Point);
         self.vertices
             .get_or_insert_with(Vec::new)
@@ -284,10 +283,10 @@ mod tests {
     use super::*;
     use crate::LazyParsed;
     use crate::decoder::{
-        DictionaryType, IntEncoding, LengthType, LogicalEncoding, MortonMeta, OffsetType,
-        RawGeometry, StreamMeta, StreamType,
+        DictionaryType, IntEncoding, LengthType, LogicalEncoding, Morton, OffsetType, RawGeometry,
+        StreamMeta, StreamType,
     };
-    use crate::encoder::{EncodedStream, EncodedStreamData, Encoder, IntEncoder, do_write_u32};
+    use crate::encoder::{EncodedStream, Encoder, IntEncoder, do_write_u32};
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
 
@@ -308,7 +307,7 @@ mod tests {
             .expect("Failed to decode")
     }
 
-    /// Build a `GeometryValues` from a sequence of `Geom32` values via
+    /// Build a `GeometryValues` from a sequence of `geo_types::Geometry::<i32>` values via
     /// `push_geom` and perform a two-cycle encode/decode:
     ///
     /// 1. push -> encode -> decode  (`canonical`): exercises `push_geom` and
@@ -319,7 +318,7 @@ mod tests {
     ///
     /// Comparing `canonical == output` catches both panics in the push path
     /// and silent data corruption in encode/decode
-    fn roundtrip_via_push(geoms: &[Geom32]) -> (GeometryValues, GeometryValues) {
+    fn roundtrip_via_push(geoms: &[Geometry<i32>]) -> (GeometryValues, GeometryValues) {
         let mut pushed = GeometryValues::default();
         for g in geoms {
             pushed.push_geom(g);
@@ -329,95 +328,121 @@ mod tests {
         (canonical, output)
     }
 
-    fn arb_coord() -> impl Strategy<Value = Coord32> {
-        (any::<i32>(), any::<i32>()).prop_map(|(x, y)| Coord32 { x, y })
+    fn arb_coord() -> impl Strategy<Value = Coord<i32>> {
+        (any::<i32>(), any::<i32>()).prop_map(|(x, y)| Coord::<i32> { x, y })
     }
 
-    fn arb_geom() -> impl Strategy<Value = Geom32> {
+    fn arb_geom() -> impl Strategy<Value = Geometry<i32>> {
         prop_oneof![
             // Point
-            arb_coord().prop_map(Point).prop_map(Geom32::Point),
+            arb_coord().prop_map(Point).prop_map(Geometry::<i32>::Point),
             // LineString
             prop::collection::vec(arb_coord(), 2..10)
-                .prop_map(|coords| Geom32::LineString(LineString(coords))),
+                .prop_map(|coords| Geometry::<i32>::LineString(LineString(coords))),
             // Polygon (single exterior ring, no holes)
             prop::collection::vec(arb_coord(), 3..8).prop_map(|mut coords| {
                 coords.push(coords[0]);
-                Geom32::Polygon(Polygon::new(LineString(coords), vec![]))
+                Geometry::<i32>::Polygon(Polygon::new(LineString(coords), vec![]))
             }),
             // MultiPoint
             prop::collection::vec(arb_coord(), 2..8).prop_map(|coords| {
-                Geom32::MultiPoint(MultiPoint(coords.into_iter().map(Point).collect()))
+                Geometry::<i32>::MultiPoint(MultiPoint(coords.into_iter().map(Point).collect()))
             }),
             // MultiLineString
             prop::collection::vec(prop::collection::vec(arb_coord(), 2..6), 2..5,).prop_map(
-                |lines| Geom32::MultiLineString(MultiLineString(
+                |lines| Geometry::<i32>::MultiLineString(MultiLineString(
                     lines.into_iter().map(LineString).collect(),
                 ))
             ),
             // MultiPolygon
             prop::collection::vec(arb_coord(), 3..6).prop_map(|mut coords| {
                 coords.push(coords[0]);
-                Geom32::MultiPolygon(MultiPolygon(vec![Polygon::new(LineString(coords), vec![])]))
+                Geometry::<i32>::MultiPolygon(MultiPolygon(vec![Polygon::new(
+                    LineString(coords),
+                    vec![],
+                )]))
             }),
         ]
     }
 
     /// Mixing `LineString` with `MultiLineString`
-    fn arb_mixed_linestring_geoms() -> impl Strategy<Value = Vec<Geom32>> {
+    fn arb_mixed_linestring_geoms() -> impl Strategy<Value = Vec<Geometry<i32>>> {
         prop::collection::vec(arb_geom(), 2..12)
             .prop_map(|geoms| {
                 geoms
                     .into_iter()
-                    .filter(|g| matches!(g, Geom32::LineString(_) | Geom32::MultiLineString(_)))
+                    .filter(|g| {
+                        matches!(
+                            g,
+                            Geometry::<i32>::LineString(_) | Geometry::<i32>::MultiLineString(_)
+                        )
+                    })
                     .collect::<Vec<_>>()
             })
             .prop_filter("needs both LS and MLS", |geoms| {
-                geoms.iter().any(|g| matches!(g, Geom32::LineString(_)))
+                geoms
+                    .iter()
+                    .any(|g| matches!(g, Geometry::<i32>::LineString(_)))
                     && geoms
                         .iter()
-                        .any(|g| matches!(g, Geom32::MultiLineString(_)))
+                        .any(|g| matches!(g, Geometry::<i32>::MultiLineString(_)))
             })
     }
 
     /// Mixing `Point` with `MultiPoint`
-    fn arb_mixed_point_geoms() -> impl Strategy<Value = Vec<Geom32>> {
+    fn arb_mixed_point_geoms() -> impl Strategy<Value = Vec<Geometry<i32>>> {
         prop::collection::vec(arb_geom(), 2..12)
             .prop_map(|geoms| {
                 geoms
                     .into_iter()
-                    .filter(|g| matches!(g, Geom32::Point(_) | Geom32::MultiPoint(_)))
+                    .filter(|g| {
+                        matches!(
+                            g,
+                            Geometry::<i32>::Point(_) | Geometry::<i32>::MultiPoint(_)
+                        )
+                    })
                     .collect::<Vec<_>>()
             })
             .prop_filter("needs both P and MP", |geoms| {
-                geoms.iter().any(|g| matches!(g, Geom32::Point(_)))
-                    && geoms.iter().any(|g| matches!(g, Geom32::MultiPoint(_)))
+                geoms.iter().any(|g| matches!(g, Geometry::<i32>::Point(_)))
+                    && geoms
+                        .iter()
+                        .any(|g| matches!(g, Geometry::<i32>::MultiPoint(_)))
             })
     }
 
     /// Mixing `Polygon` with `MultiPolygon`
-    fn arb_mixed_polygon_geoms() -> impl Strategy<Value = Vec<Geom32>> {
+    fn arb_mixed_polygon_geoms() -> impl Strategy<Value = Vec<Geometry<i32>>> {
         prop::collection::vec(arb_geom(), 2..8)
             .prop_map(|geoms| {
                 geoms
                     .into_iter()
-                    .filter(|g| matches!(g, Geom32::Polygon(_) | Geom32::MultiPolygon(_)))
+                    .filter(|g| {
+                        matches!(
+                            g,
+                            Geometry::<i32>::Polygon(_) | Geometry::<i32>::MultiPolygon(_)
+                        )
+                    })
                     .collect::<Vec<_>>()
             })
             .prop_filter("needs both Poly and MPoly", |geoms| {
-                geoms.iter().any(|g| matches!(g, Geom32::Polygon(_)))
-                    && geoms.iter().any(|g| matches!(g, Geom32::MultiPolygon(_)))
+                geoms
+                    .iter()
+                    .any(|g| matches!(g, Geometry::<i32>::Polygon(_)))
+                    && geoms
+                        .iter()
+                        .any(|g| matches!(g, Geometry::<i32>::MultiPolygon(_)))
             })
     }
 
     /// Mixing `Point` with `MultiLineString`
-    fn arb_cross_point_mls_geoms() -> impl Strategy<Value = Vec<Geom32>> {
+    fn arb_cross_point_mls_geoms() -> impl Strategy<Value = Vec<Geometry<i32>>> {
         prop::collection::vec(
             prop_oneof![
-                arb_coord().prop_map(Point).prop_map(Geom32::Point),
+                arb_coord().prop_map(Point).prop_map(Geometry::<i32>::Point),
                 prop::collection::vec(prop::collection::vec(arb_coord(), 2..6), 2..5).prop_map(
                     |lines| {
-                        Geom32::MultiLineString(MultiLineString(
+                        Geometry::<i32>::MultiLineString(MultiLineString(
                             lines.into_iter().map(LineString).collect(),
                         ))
                     }
@@ -426,21 +451,21 @@ mod tests {
             2..12,
         )
         .prop_filter("needs both Point and MultiLineString", |geoms| {
-            geoms.iter().any(|g| matches!(g, Geom32::Point(_)))
+            geoms.iter().any(|g| matches!(g, Geometry::<i32>::Point(_)))
                 && geoms
                     .iter()
-                    .any(|g| matches!(g, Geom32::MultiLineString(_)))
+                    .any(|g| matches!(g, Geometry::<i32>::MultiLineString(_)))
         })
     }
 
     /// Mixing `Point` with `MultiPolygon`.
-    fn arb_cross_point_mpoly_geoms() -> impl Strategy<Value = Vec<Geom32>> {
+    fn arb_cross_point_mpoly_geoms() -> impl Strategy<Value = Vec<Geometry<i32>>> {
         prop::collection::vec(
             prop_oneof![
-                arb_coord().prop_map(Point).prop_map(Geom32::Point),
+                arb_coord().prop_map(Point).prop_map(Geometry::<i32>::Point),
                 prop::collection::vec(arb_coord(), 3..6).prop_map(|mut coords| {
                     coords.push(coords[0]);
-                    Geom32::MultiPolygon(MultiPolygon(vec![Polygon::new(
+                    Geometry::<i32>::MultiPolygon(MultiPolygon(vec![Polygon::new(
                         LineString(coords),
                         vec![],
                     )]))
@@ -449,20 +474,22 @@ mod tests {
             2..10,
         )
         .prop_filter("needs both Point and MultiPolygon", |geoms| {
-            geoms.iter().any(|g| matches!(g, Geom32::Point(_)))
-                && geoms.iter().any(|g| matches!(g, Geom32::MultiPolygon(_)))
+            geoms.iter().any(|g| matches!(g, Geometry::<i32>::Point(_)))
+                && geoms
+                    .iter()
+                    .any(|g| matches!(g, Geometry::<i32>::MultiPolygon(_)))
         })
     }
 
     /// Mixing `LineString` with `MultiPolygon`
-    fn arb_cross_ls_mpoly_geoms() -> impl Strategy<Value = Vec<Geom32>> {
+    fn arb_cross_ls_mpoly_geoms() -> impl Strategy<Value = Vec<Geometry<i32>>> {
         prop::collection::vec(
             prop_oneof![
                 prop::collection::vec(arb_coord(), 2..8)
-                    .prop_map(|coords| Geom32::LineString(LineString(coords))),
+                    .prop_map(|coords| Geometry::<i32>::LineString(LineString(coords))),
                 prop::collection::vec(arb_coord(), 3..6).prop_map(|mut coords| {
                     coords.push(coords[0]);
-                    Geom32::MultiPolygon(MultiPolygon(vec![Polygon::new(
+                    Geometry::<i32>::MultiPolygon(MultiPolygon(vec![Polygon::new(
                         LineString(coords),
                         vec![],
                     )]))
@@ -471,8 +498,12 @@ mod tests {
             2..10,
         )
         .prop_filter("needs both LineString and MultiPolygon", |geoms| {
-            geoms.iter().any(|g| matches!(g, Geom32::LineString(_)))
-                && geoms.iter().any(|g| matches!(g, Geom32::MultiPolygon(_)))
+            geoms
+                .iter()
+                .any(|g| matches!(g, Geometry::<i32>::LineString(_)))
+                && geoms
+                    .iter()
+                    .any(|g| matches!(g, Geometry::<i32>::MultiPolygon(_)))
         })
     }
 
@@ -544,15 +575,12 @@ mod tests {
             meta: StreamMeta::new(
                 StreamType::Data(DictionaryType::Morton),
                 IntEncoding::new(
-                    LogicalEncoding::MortonDelta(MortonMeta {
-                        num_bits: 3,
-                        coordinate_shift: 0,
-                    }),
+                    LogicalEncoding::MortonDelta(Morton { bits: 3, shift: 0 }),
                     physical_encoding,
                 ),
                 3, // 3 dictionary entries -> 3 physical u32 values
             ),
-            data: EncodedStreamData::VarInt(raw_bytes),
+            data: raw_bytes,
         };
 
         // Assemble, serialize, parse, decode — same wire layout as geometry encoder:
@@ -597,9 +625,8 @@ mod tests {
     }
 
     mod tessellation_tests {
-        use geo_types::{LineString, MultiPolygon, Polygon};
+        use geo_types::{Geometry, LineString, MultiPolygon, Polygon};
 
-        use crate::Geom32;
         use crate::decoder::GeometryValues;
 
         #[test]
@@ -607,7 +634,7 @@ mod tests {
             let exterior = LineString::from(vec![(0_i32, 0), (10, 0), (10, 10), (0, 10), (0, 0)]);
             let polygon = Polygon::new(exterior, vec![]);
             let mut g = GeometryValues::new_tessellated();
-            g.push_geom(&Geom32::Polygon(polygon));
+            g.push_geom(&Geometry::<i32>::Polygon(polygon));
             let tris = g.triangles().expect("triangles");
             let n = tris[0];
             assert!(n > 0, "expected at least one triangle");
@@ -624,7 +651,9 @@ mod tests {
             let exterior2 = LineString::from(vec![(20, 0), (30, 0), (30, 10), (20, 10), (20, 0)]);
             let poly2 = Polygon::new(exterior2, vec![]);
             let mut g = GeometryValues::new_tessellated();
-            g.push_geom(&Geom32::MultiPolygon(MultiPolygon(vec![poly1, poly2])));
+            g.push_geom(&Geometry::<i32>::MultiPolygon(MultiPolygon(vec![
+                poly1, poly2,
+            ])));
             let ib = g.index_buffer().expect("index buffer");
             let tris = g.triangles().expect("triangles");
             assert_eq!(tris.len(), 1);

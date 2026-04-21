@@ -173,8 +173,6 @@ public:
                                                                                                  vertices.size());
                                     }
                                     break;
-                                case PhysicalLevelTechnique::ALP:
-                                    throw std::runtime_error("ALP encoding for geometries is not yet supported");
                                 default:
                                     throw std::runtime_error("Unsupported encoding " +
                                                              std::to_string(std::to_underlying(

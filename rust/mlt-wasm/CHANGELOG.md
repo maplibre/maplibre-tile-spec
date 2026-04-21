@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.4...rust-mlt-wasm-v0.1.5) - 2026-04-18
+
+### Fixed
+
+- *(rust)* geo builds on wasm, remove unnecessary feature gates ([#1297](https://github.com/maplibre/maplibre-tile-spec/pull/1297))
+
+### Other
+
+- *(rust)* rm RawStreamData and EncodedStreamData ([#1309](https://github.com/maplibre/maplibre-tile-spec/pull/1309))
+- *(rust)* Coord32 cleanup, dep update ([#1304](https://github.com/maplibre/maplibre-tile-spec/pull/1304))
+- *(rust)* update geo, simplify tessellation ([#1305](https://github.com/maplibre/maplibre-tile-spec/pull/1305))
+- *(java)* Extend synthetic tests to include rings ([#1292](https://github.com/maplibre/maplibre-tile-spec/pull/1292))
+- Add offline docs.rs-style workspace docs check to Rust CI and fix surfaced rustdoc links ([#1295](https://github.com/maplibre/maplibre-tile-spec/pull/1295))
+
 ## [0.1.4](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.3...rust-mlt-wasm-v0.1.4) - 2026-04-13
 
 ### Other

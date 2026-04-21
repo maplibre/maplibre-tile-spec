@@ -20,6 +20,14 @@ pub struct EncodedUnknown {
     pub(crate) value: Vec<u8>,
 }
 
+/// Parameters derived from the vertex set of a feature collection, used to
+/// normalize coordinates before space-filling-curve key computation.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CurveParams {
+    pub shift: u32,
+    pub bits: u32,
+}
+
 /// Columnar layer data being prepared for encoding (stage 2 of the encoding pipeline).
 ///
 /// Holds fully-owned columnar data. Constructed directly (synthetics, benches) or
