@@ -9,6 +9,7 @@
 #include <mlt/metadata/type_map.hpp>
 #include <mlt/util/encoding/varint.hpp>
 #include <mlt/util/hilbert_curve.hpp>
+#include <mlt/util/string.hpp>
 #include <mlt/util/stl.hpp>
 
 #include <mapbox/earcut.hpp>
@@ -40,6 +41,12 @@ void throwInvalidType() {
 struct Encoder::Impl {
     IntegerEncoder intEncoder;
 
+    static bool structValueHasChild(const Encoder::StructValue& sv,
+                                    const std::string& rootName,
+                                    const std::string& childName);
+    static const std::string* resolveStructSourceKey(const std::vector<Feature>& features,
+                                                     const metadata::tileset::Column& column);
+
     std::vector<std::uint8_t> encodeLayer(const Layer& layer, const EncoderConfig& config);
 
     FeatureTable buildMetadata(const Layer& layer, const EncoderConfig& config);
@@ -59,6 +66,54 @@ struct Encoder::Impl {
                                    std::vector<std::uint32_t>& numTriangles,
                                    std::vector<std::uint32_t>& indexBuffer);
 };
+
+bool Encoder::Impl::structValueHasChild(const Encoder::StructValue& sv,
+                                        const std::string& rootName,
+                                        const std::string& childName) {
+    if (sv.contains(childName)) {
+        return true;
+    }
+    return sv.contains(rootName + childName);
+}
+
+const std::string* Encoder::Impl::resolveStructSourceKey(const std::vector<Feature>& features,
+                                                         const metadata::tileset::Column& column) {
+    if (!column.isStruct()) {
+        return nullptr;
+    }
+
+    const auto& complex = column.getComplexType();
+    const auto& rootName = column.name;
+
+    const std::string* bestKey = nullptr;
+    std::size_t bestScore = 0;
+
+    for (const auto& f : features) {
+        for (const auto& [propertyKey, propertyValue] : f.properties) {
+            const auto* sv = std::get_if<Encoder::StructValue>(&propertyValue);
+            if (!sv) {
+                continue;
+            }
+
+            std::size_t score = 0;
+            for (const auto& child : complex.children) {
+                if (structValueHasChild(*sv, rootName, child.name)) {
+                    ++score;
+                }
+            }
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestKey = &propertyKey;
+                if (score == complex.children.size()) {
+                    return bestKey;
+                }
+            }
+        }
+    }
+
+    return bestKey;
+}
 
 FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfig& config) {
     FeatureTable table;
@@ -91,13 +146,13 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
         bool nullable;
     };
     std::map<std::string, ColumnInfo> scalarColumns;
-    std::map<std::string, std::set<std::string>> structColumns;
+    std::map<std::string, std::set<std::string>> structColumnsBySourceKey;
 
     for (const auto& feature : layer.features) {
         for (const auto& [key, value] : feature.properties) {
             if (std::holds_alternative<Encoder::StructValue>(value)) {
                 const auto& sv = std::get<Encoder::StructValue>(value);
-                auto& children = structColumns[key];
+                auto& children = structColumnsBySourceKey[key];
                 for (const auto& [childName, _] : sv) {
                     children.insert(childName);
                 }
@@ -150,17 +205,20 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
         table.columns.push_back(std::move(col));
     }
 
-    for (const auto& [name, childNames] : structColumns) {
+    for (const auto& [sourceKey, childNames] : structColumnsBySourceKey) {
+        const auto derivedRoot = util::longestCommonPrefix(childNames);
+        const bool hasDerivedRoot = childNames.size() > 1 && !derivedRoot.empty();
+
         Column col;
-        col.name = name;
-        col.nullable = config.forceNullableColumns;
+        col.name = hasDerivedRoot ? derivedRoot : sourceKey;
+        col.nullable = false;
         col.columnScope = ColumnScope::FEATURE;
 
         ComplexColumn complex;
         complex.type = ComplexType::STRUCT;
         for (const auto& childName : childNames) {
             Column child;
-            child.name = childName;
+            child.name = hasDerivedRoot ? childName.substr(derivedRoot.size()) : childName;
             child.nullable = true;
             child.columnScope = ColumnScope::FEATURE;
             child.type = ScalarColumn{.type = ScalarType::STRING};
@@ -424,6 +482,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
         if (column.isStruct()) {
             const auto& complex = column.getComplexType();
             const auto& rootName = column.name;
+            const auto sourceKey = resolveStructSourceKey(features, column);
             const auto numChildren = complex.children.size();
 
             std::vector<std::vector<std::string>> ownedStrings(numChildren);
@@ -435,16 +494,20 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
             }
 
             for (const auto& f : features) {
-                auto it = f.properties.find(rootName);
+                auto it = sourceKey ? f.properties.find(*sourceKey) : f.properties.find(rootName);
                 const Encoder::StructValue* sv = nullptr;
                 if (it != f.properties.end() && std::holds_alternative<Encoder::StructValue>(it->second)) {
                     sv = &std::get<Encoder::StructValue>(it->second);
                 }
                 for (std::size_t c = 0; c < numChildren; ++c) {
                     if (sv) {
-                        auto childIt = sv->find(complex.children[c].name);
-                        if (childIt != sv->end()) {
+                        const auto& childName = complex.children[c].name;
+                        if (auto childIt = sv->find(childName); childIt != sv->end()) {
                             ownedStrings[c].push_back(childIt->second);
+                            continue;
+                        }
+                        if (auto prefixedChildIt = sv->find(rootName + childName); prefixedChildIt != sv->end()) {
+                            ownedStrings[c].push_back(prefixedChildIt->second);
                             continue;
                         }
                     }
@@ -462,13 +525,14 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
             for (std::size_t c = 0; c < numChildren; ++c) {
                 sharedCols[c].reserve(features.size());
                 for (std::size_t fi = 0; fi < features.size(); ++fi) {
-                    auto it = features[fi].properties.find(rootName);
+                    auto it = sourceKey ? features[fi].properties.find(*sourceKey)
+                                        : features[fi].properties.find(rootName);
                     const Encoder::StructValue* sv = nullptr;
                     if (it != features[fi].properties.end() &&
                         std::holds_alternative<Encoder::StructValue>(it->second)) {
                         sv = &std::get<Encoder::StructValue>(it->second);
                     }
-                    if (sv && sv->contains(complex.children[c].name)) {
+                    if (sv && structValueHasChild(*sv, rootName, complex.children[c].name)) {
                         sharedCols[c].push_back(&viewStorage[c][fi]);
                     } else {
                         sharedCols[c].push_back(nullptr);

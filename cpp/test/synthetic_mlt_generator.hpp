@@ -704,20 +704,23 @@ public:
             .name = "props_shared_dict_one_child",
             .bytes = encode(layer(defaultLayerName,
                                   {feat(point(c0),
-                                        PropertyMap{{"name:", PropertyValue{StructValue{{"en", val}}}},
+                                        PropertyMap{{"name:en", PropertyValue{StructValue{{"", val}}}},
                                                     {"place", PropertyValue{val}}})},
                                   defaultExtent),
-                            cfg()),
+                            cfg([](auto& c) { c.forceNullableColumns = true; })),
         };
 
         auto sharedDictOneChildFsst = GeneratedTile{
             .name = "props_shared_dict_one_child_fsst",
             .bytes = encode(layer(defaultLayerName,
                                   {feat(point(c0),
-                                        PropertyMap{{"name:", PropertyValue{StructValue{{"en", val}}}},
+                                        PropertyMap{{"name:en", PropertyValue{StructValue{{"", val}}}},
                                                     {"place", PropertyValue{val}}})},
                                   defaultExtent),
-                            cfgWithFsst()),
+                            cfg([](auto& c) {
+                                c.forceNullableColumns = true;
+                                c.useFsst = true;
+                            })),
         };
 
         auto sharedDictNoStructName = GeneratedTile{
@@ -759,8 +762,9 @@ public:
             .bytes = encode(
                 layer(defaultLayerName,
                       {feat(point(c0),
-                            PropertyMap{{"name0", PropertyValue{StructValue{{":de", val}, {"_en", val}}}},
-                                        {"name1", PropertyValue{StructValue{{":he", val}, {"_fr", val}}}}})},
+                            PropertyMap{
+                                {"name_group0", PropertyValue{StructValue{{"name:de", val}, {"name_en", val}}}},
+                                {"name_group1", PropertyValue{StructValue{{"name:he", val}, {"name_fr", val}}}}})},
                       defaultExtent),
                 cfg()),
         };

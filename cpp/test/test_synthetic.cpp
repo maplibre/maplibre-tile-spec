@@ -4,6 +4,10 @@
 #include <mlt/decoder.hpp>
 #include <mlt/geometry.hpp>
 #include <mlt/metadata/tileset.hpp>
+#if MLT_WITH_JSON
+#include <mlt/json.hpp>
+#include <mlt/util/json_diff.hpp>
+#endif
 
 #include <gtest/gtest.h>
 
@@ -42,6 +46,29 @@ std::vector<uint8_t> readBinaryFile(const std::string& filePath) {
     }
 }
 
+mlt::MapLibreTile decodeTile(const std::vector<std::uint8_t>& bytes) {
+    constexpr bool supportFastPFOR = true;
+    return mlt::Decoder(supportFastPFOR).decode({reinterpret_cast<const char*>(bytes.data()), bytes.size()});
+}
+
+#if MLT_WITH_JSON
+void expectDecodedTilesEquivalent(const std::string& fixtureName,
+                                  const std::vector<std::uint8_t>& expectedBytes,
+                                  const std::vector<std::uint8_t>& generatedBytes) {
+    const auto expectedTile = decodeTile(expectedBytes);
+    const auto generatedTile = decodeTile(generatedBytes);
+
+    // Keep tile coordinate aligned with other decode/json regression tests.
+    const mlt::TileCoordinate tileCoordinate{.x = 3, .y = 5, .z = 7};
+    const auto expectedJSON = mlt::json::toJSON(expectedTile, tileCoordinate, true);
+    const auto generatedJSON = mlt::json::toJSON(generatedTile, tileCoordinate, true);
+    const auto diffJSON = mlt::util::diff(expectedJSON, generatedJSON, {}, mlt::util::JSONComparer());
+
+    ASSERT_TRUE(diffJSON.empty()) << "Decoded JSON mismatch for fixture '" << fixtureName
+                                  << "'\nDiff: " << diffJSON.dump(2);
+}
+#endif
+
 /// Registry entry: a generator plus an optional skip reason.
 /// If skipReason is non-empty the test is skipped rather than run.
 struct RegistryEntry {
@@ -56,19 +83,14 @@ struct DisabledPattern {
     std::string reason;
 };
 
-/// Returns the list of disabled patterns.
-/// All generated tiles whose names match any pattern are marked as skipped.
+/// The list of disabled patterns.
+/// These cases don't require the generated fixture bytes to match, but still require decoded JSON to match.
 const std::vector<DisabledPattern>& disabledPatterns() {
     static const std::vector<DisabledPattern> patterns = {
-        // The tessellation cases are non-deterministic in terms of triangle ordering; byte comparison is not reliable.
-        {.pattern = std::regex{R"(^mix_.*_tes$)"},
-         .reason = "Mixed polygon fixture encoding does not yet match Java output"},
-        // FSST symbol table selection is non-deterministic; byte-exact comparison is not reliable.
-        {.pattern = std::regex{R"(.*_fsst$)"},
-         .reason = "FSST symbol selection is non-deterministic; byte-exact comparison is not possible"},
-        // Shared-dictionary edge cases not yet handled correctly.
-        {.pattern = std::regex{R"(^props_shared_dict_(one_child|2_same_prefix)$)"},
-         .reason = "Shared-dictionary encoding for this case does not yet match Java output"},
+        {.pattern = std::regex{"(mix_.*_tes)"},
+         .reason = "Tessellation triangle ordering is arbitrary; byte comparison is not reliable"},
+        {.pattern = std::regex{"(.*_fsst$)"},
+         .reason = "FSST symbol selection is heuristic; byte comparison is not reliable"},
     };
     return patterns;
 }
@@ -76,7 +98,7 @@ const std::vector<DisabledPattern>& disabledPatterns() {
 /// Returns the skip reason for a fixture name, or empty string if the fixture is enabled.
 std::string skipReasonFor(const std::string& name) {
     for (const auto& dp : disabledPatterns()) {
-        if (std::regex_search(name, dp.pattern)) {
+        if (std::regex_match(name, dp.pattern)) {
             return dp.reason;
         }
     }
@@ -164,13 +186,20 @@ TEST_P(SyntheticFixtureTest, MatchesGenerator) {
     }
 
     const auto& entry = it->second;
-    if (!entry.skipReason.empty()) {
-        GTEST_SKIP() << entry.skipReason;
-    }
-
     const auto generated = entry.generator();
     const auto filePath = basePath + name + ".mlt";
     const auto fileContents = readBinaryFile(filePath);
+
+#if MLT_WITH_JSON
+    expectDecodedTilesEquivalent(name, fileContents, generated.bytes);
+#else
+#warning "MLT_WITH_JSON is disabled; skipping decoded semantic comparison and relying on byte-level comparison only"
+#endif
+
+    if (!entry.skipReason.empty()) {
+        GTEST_SKIP() << "Byte-level equality skipped: " << entry.skipReason;
+    }
+
     EXPECT_EQ(fileContents, generated.bytes);
 }
 
