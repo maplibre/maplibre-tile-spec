@@ -1424,9 +1424,9 @@ dependencies = [
 
 [[package]]
 name = "geo"
-version = "0.33.0"
+version = "0.33.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1f7044733d8570f68c486cd200318322c09a3f123893ae8cfd1543dd0ea3185"
+checksum = "30eb1fdc57c1e5cfd11826fe0caec4b9dc7901f3758263bb506228d88c8d9e9a"
 dependencies = [
  "earcut",
  "float_next_after",
