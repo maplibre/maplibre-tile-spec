@@ -1784,7 +1784,8 @@ REENCODE_CORPUS_SUITE(ReencodeAmazonHere, "amazon_here");
 namespace {
 
 std::string featureFingerprint(const Encoder::Feature& f) {
-    std::string fp = std::to_string(f.id) + "|" + std::to_string(static_cast<int>(f.geometry.type));
+    const auto idValue = f.id.value_or(0);
+    std::string fp = std::to_string(idValue) + "|" + std::to_string(static_cast<int>(f.geometry.type));
     for (const auto& v : f.geometry.coordinates) fp += "|" + std::to_string(v.x) + "," + std::to_string(v.y);
     return fp;
 }

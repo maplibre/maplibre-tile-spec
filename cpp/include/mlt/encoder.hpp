@@ -33,8 +33,13 @@ struct EncoderConfig {
     bool useMortonEncoding = true;
     bool useFsst = true;
     bool forceNullableColumns = false;
+    /// The strategy for encoding integer streams, including integer properties and string lengths
     IntegerEncodingOption integerEncodingOption = IntegerEncodingOption::AUTO;
+    /// The strategy for encoding integer streams for geometry coordinates and indexes
     std::optional<IntegerEncodingOption> geometryEncodingOption = IntegerEncodingOption::AUTO;
+    /// The strategy for encoding geometry topology integer streams (e.g. part sizes)
+    /// `geometryEncodingOption` is used as a fallback if this is not set.
+    std::optional<IntegerEncodingOption> geometryTopologyEncodingOption = std::nullopt;
 
     static EncoderConfig with(std::function<void(EncoderConfig&)> configurator) {
         EncoderConfig config;
@@ -73,7 +78,7 @@ public:
     };
 
     struct Feature {
-        std::uint64_t id = 0;
+        std::optional<std::uint64_t> id = 0;
         Geometry geometry;
         std::map<std::string, PropertyValue> properties;
     };

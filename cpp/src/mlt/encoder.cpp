@@ -68,11 +68,13 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
     if (config.includeIds) {
         // Use 64-bit when any ID exceeds INT32_MAX: delta encoding accumulates in
         // int32_t, so uint32 values with bit 31 set would sign-extend on widening.
-        const bool hasLongId = std::ranges::any_of(
-            layer.features, [](const auto& f) { return f.id > std::numeric_limits<std::int32_t>::max(); });
+        const bool hasLongId = std::ranges::any_of(layer.features, [](const auto& f) {
+            return f.id.has_value() && (*f.id > std::numeric_limits<std::int32_t>::max());
+        });
+        const bool hasMissingId = std::ranges::any_of(layer.features, [](const auto& f) { return !f.id.has_value(); });
 
         table.columns.push_back(Column{
-            .nullable = false,
+            .nullable = hasMissingId,
             .columnScope = ColumnScope::FEATURE,
             .type = ScalarColumn{.type = LogicalScalarType::ID, .hasLongID = hasLongId},
         });
@@ -349,19 +351,24 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
     std::vector<std::uint8_t> bodyBytes;
 
     if (config.includeIds) {
-        bool hasLongId = std::ranges::any_of(
-            features, [](const auto& f) { return f.id > std::numeric_limits<std::int32_t>::max(); });
+        const bool hasLongId = std::ranges::any_of(features, [](const auto& f) {
+            return f.id.has_value() && (*f.id > std::numeric_limits<std::int32_t>::max());
+        });
+        const bool hasMissingId = std::ranges::any_of(features, [](const auto& f) { return !f.id.has_value(); });
 
         if (hasLongId) {
-            std::vector<std::uint64_t> ids(features.size());
-            std::ranges::transform(features, ids.begin(), [](const auto& f) { return f.id; });
-            auto encoded = PropertyEncoder::encodeUint64Column(ids, intEncoder);
+            std::vector<std::optional<std::int64_t>> ids(features.size());
+            std::ranges::transform(features, ids.begin(), [](const auto& f) -> std::optional<std::int64_t> {
+                return f.id.has_value() ? std::optional<std::int64_t>{static_cast<std::int64_t>(*f.id)} : std::nullopt;
+            });
+            auto encoded = PropertyEncoder::encodeInt64Column(ids, false, intEncoder, hasMissingId);
             bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
         } else {
-            std::vector<std::uint32_t> ids(features.size());
-            std::ranges::transform(
-                features, ids.begin(), [](const auto& f) { return static_cast<std::uint32_t>(f.id); });
-            auto encoded = PropertyEncoder::encodeUint32Column(ids, physicalTechnique, intEncoder);
+            std::vector<std::optional<std::int32_t>> ids(features.size());
+            std::ranges::transform(features, ids.begin(), [](const auto& f) -> std::optional<std::int32_t> {
+                return f.id.has_value() ? std::optional<std::int32_t>{static_cast<std::int32_t>(*f.id)} : std::nullopt;
+            });
+            auto encoded = PropertyEncoder::encodeInt32Column(ids, physicalTechnique, false, intEncoder, hasMissingId);
             bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
         }
     }
@@ -373,6 +380,8 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
 
     const bool usePretessellation = config.preTessellate && allPolygons(features);
     const auto geometryIntegerEncodingOption = config.geometryEncodingOption.value_or(config.integerEncodingOption);
+    const auto geometryTopologyIntegerEncodingOption = config.geometryTopologyEncodingOption.value_or(
+        geometryIntegerEncodingOption);
 
     GeometryEncoder::EncodedGeometryColumn encodedGeom = [&] {
         if (usePretessellation) {
@@ -389,6 +398,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                                                                        physicalTechnique,
                                                                        intEncoder,
                                                                        geometryIntegerEncodingOption,
+                                                                       geometryTopologyIntegerEncodingOption,
                                                                        config.includeOutlines);
         }
         return GeometryEncoder::encodeGeometryColumn(geometryTypes,
@@ -399,6 +409,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                                                      physicalTechnique,
                                                      intEncoder,
                                                      geometryIntegerEncodingOption,
+                                                     geometryTopologyIntegerEncodingOption,
                                                      config.useMortonEncoding);
     }();
 

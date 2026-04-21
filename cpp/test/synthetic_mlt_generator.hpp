@@ -145,6 +145,12 @@ public:
         };
     }
 
+    static Feature featWithoutId(Geometry geometry, PropertyMap properties = {}) {
+        auto feature = feat(std::move(geometry), std::move(properties));
+        feature.id = std::nullopt;
+        return feature;
+    }
+
     static Layer layer(std::string name, std::vector<Feature> features, std::uint32_t extent = defaultExtent) {
         return {
             .name = std::move(name),
@@ -239,9 +245,10 @@ public:
         Ring shell{c1, c2, c3};
         Ring hole{h1, h2, h3};
         Rings rings{shell, hole};
+        const auto config = cfg([](auto& c) { c.geometryTopologyEncodingOption = ::mlt::IntegerEncodingOption::AUTO; });
         return {
             .name = "poly_hole",
-            .bytes = encode(layer(defaultLayerName, {feat(poly(rings))}, defaultExtent), cfg()),
+            .bytes = encode(layer(defaultLayerName, {feat(poly(rings))}, defaultExtent), config),
         };
     }
 
@@ -269,9 +276,10 @@ public:
         Ring line1_coords{c1, c2, c3};
         Ring line2_coords{c21, c22, c23};
         Parts lines{line1_coords, line2_coords};
+        const auto config = cfg([](auto& c) { c.geometryTopologyEncodingOption = ::mlt::IntegerEncodingOption::AUTO; });
         return {
             .name = "multiline",
-            .bytes = encode(layer(defaultLayerName, {feat(multiLine(lines))}, defaultExtent), cfg()),
+            .bytes = encode(layer(defaultLayerName, {feat(multiLine(lines))}, defaultExtent), config),
         };
     }
 
@@ -341,7 +349,111 @@ public:
         };
     }
 
-    static GeneratedTiles generateIdsCollection() { return {generateIds(), generateIdMin(), generateId64()}; }
+    static GeneratedTile generateIdsWithEncoding(const std::string& name,
+                                                 const std::vector<std::optional<std::uint64_t>>& ids,
+                                                 ::mlt::IntegerEncodingOption integerEncodingOption) {
+        std::vector<Feature> features;
+        features.reserve(ids.size());
+        for (const auto& id : ids) {
+            if (id.has_value()) {
+                features.push_back(featWithId(*id, point(c0)));
+            } else {
+                features.push_back(featWithoutId(point(c0)));
+            }
+        }
+
+        const auto config = cfg([&](auto& c) {
+            c.includeIds = true;
+            c.integerEncodingOption = integerEncodingOption;
+            c.geometryEncodingOption = ::mlt::IntegerEncodingOption::PLAIN;
+            c.geometryTopologyEncodingOption = ::mlt::IntegerEncodingOption::AUTO;
+        });
+
+        return {
+            .name = name,
+            .bytes = encode(layer(defaultLayerName, std::move(features), defaultExtent), config),
+        };
+    }
+
+    static GeneratedTile generateIdsSeries() {
+        const std::vector<std::optional<std::uint64_t>> ids{103, 103, 103, 103};
+        return generateIdsWithEncoding("ids", ids, ::mlt::IntegerEncodingOption::PLAIN);
+    }
+
+    static GeneratedTile generateIdsDelta() {
+        const std::vector<std::optional<std::uint64_t>> ids{103, 103, 103, 103};
+        return generateIdsWithEncoding("ids_delta", ids, ::mlt::IntegerEncodingOption::DELTA);
+    }
+
+    static GeneratedTile generateIdsRle() {
+        const std::vector<std::optional<std::uint64_t>> ids{103, 103, 103, 103};
+        return generateIdsWithEncoding("ids_rle", ids, ::mlt::IntegerEncodingOption::RLE);
+    }
+
+    static GeneratedTile generateIdsDeltaRle() {
+        const std::vector<std::optional<std::uint64_t>> ids{103, 103, 103, 103};
+        return generateIdsWithEncoding("ids_delta_rle", ids, ::mlt::IntegerEncodingOption::DELTA_RLE);
+    }
+
+    static GeneratedTile generateIds64() {
+        const std::vector<std::optional<std::uint64_t>> ids{9234567890ULL, 9234567890ULL, 9234567890ULL, 9234567890ULL};
+        return generateIdsWithEncoding("ids64", ids, ::mlt::IntegerEncodingOption::PLAIN);
+    }
+
+    static GeneratedTile generateIds64Delta() {
+        const std::vector<std::optional<std::uint64_t>> ids{9234567890ULL, 9234567890ULL, 9234567890ULL, 9234567890ULL};
+        return generateIdsWithEncoding("ids64_delta", ids, ::mlt::IntegerEncodingOption::DELTA);
+    }
+
+    static GeneratedTile generateIds64Rle() {
+        const std::vector<std::optional<std::uint64_t>> ids{9234567890ULL, 9234567890ULL, 9234567890ULL, 9234567890ULL};
+        return generateIdsWithEncoding("ids64_rle", ids, ::mlt::IntegerEncodingOption::RLE);
+    }
+
+    static GeneratedTile generateIds64DeltaRle() {
+        const std::vector<std::optional<std::uint64_t>> ids{9234567890ULL, 9234567890ULL, 9234567890ULL, 9234567890ULL};
+        return generateIdsWithEncoding("ids64_delta_rle", ids, ::mlt::IntegerEncodingOption::DELTA_RLE);
+    }
+
+    static GeneratedTile generateIdsOpt() {
+        const std::vector<std::optional<std::uint64_t>> ids{100, 101, std::nullopt, 105, 106};
+        return generateIdsWithEncoding("ids_opt", ids, ::mlt::IntegerEncodingOption::PLAIN);
+    }
+
+    static GeneratedTile generateIdsOptDelta() {
+        const std::vector<std::optional<std::uint64_t>> ids{100, 101, std::nullopt, 105, 106};
+        return generateIdsWithEncoding("ids_opt_delta", ids, ::mlt::IntegerEncodingOption::DELTA);
+    }
+
+    static GeneratedTile generateIds64Opt() {
+        const std::vector<std::optional<std::uint64_t>> ids{std::nullopt, 9234567890ULL, 101, 105, 106};
+        return generateIdsWithEncoding("ids64_opt", ids, ::mlt::IntegerEncodingOption::PLAIN);
+    }
+
+    static GeneratedTile generateIds64OptDelta() {
+        const std::vector<std::optional<std::uint64_t>> ids{std::nullopt, 9234567890ULL, 101, 105, 106};
+        return generateIdsWithEncoding("ids64_opt_delta", ids, ::mlt::IntegerEncodingOption::DELTA);
+    }
+
+    static GeneratedTiles generateIdsCollection() {
+        return {
+            generateIds(),
+            generateIdsSeries(),
+            generateIdMin(),
+            generateId64(),
+            generateIdsDelta(),
+            generateIdsRle(),
+            generateIdsDeltaRle(),
+            generateIds64(),
+            generateIds64Delta(),
+            generateIds64Rle(),
+            generateIds64DeltaRle(),
+            generateIdsOpt(),
+            generateIdsOptDelta(),
+            generateIds64Opt(),
+            generateIds64OptDelta(),
+        };
+    }
 
     static GeneratedTile generatePropU64() {
         // Feature with a u64 property value
@@ -455,7 +567,8 @@ public:
         }
 
         auto config = cfg();
-        config.integerEncodingOption = ::mlt::IntegerEncodingOption::PLAIN;
+        config.integerEncodingOption = mlt::IntegerEncodingOption::PLAIN;
+        // config.geometryEncodingOption = mlt::IntegerEncodingOption::PLAIN;
 
         // Generate plain encoding
         GeneratedTile tile{

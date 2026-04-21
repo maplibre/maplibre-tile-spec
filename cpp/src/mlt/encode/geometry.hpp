@@ -51,9 +51,15 @@ public:
                                                       PhysicalLevelTechnique physicalTechnique,
                                                       IntegerEncoder& intEncoder,
                                                       IntegerEncodingOption integerEncodingOption,
+                                                      IntegerEncodingOption topologyIntegerEncodingOption,
                                                       bool useMortonEncoding = true) {
-        const auto [numStreams, topologyStreams] = encodeTopologyStreams(
-            geometryTypes, numGeometries, numParts, numRings, physicalTechnique, intEncoder);
+        const auto [numStreams, topologyStreams] = encodeTopologyStreams(geometryTypes,
+                                                                         numGeometries,
+                                                                         numParts,
+                                                                         numRings,
+                                                                         physicalTechnique,
+                                                                         intEncoder,
+                                                                         topologyIntegerEncodingOption);
 
         const auto [minVal, maxVal] = vertexBounds(vertexBuffer);
 
@@ -105,20 +111,28 @@ public:
                                                                     PhysicalLevelTechnique physicalTechnique,
                                                                     IntegerEncoder& intEncoder,
                                                                     IntegerEncodingOption integerEncodingOption,
+                                                                    IntegerEncodingOption topologyIntegerEncodingOption,
                                                                     bool encodeOutlines) {
         using namespace metadata::stream;
 
-        auto [numStreams,
-              result] = encodeOutlines
-                            ? encodeTopologyStreams(
-                                  geometryTypes, numGeometries, numParts, numRings, physicalTechnique, intEncoder)
-                            : encodeTopologyStreams(geometryTypes, {}, {}, {}, physicalTechnique, intEncoder);
+        auto [numStreams, result] =
+            encodeOutlines
+                ? encodeTopologyStreams(geometryTypes,
+                                        numGeometries,
+                                        numParts,
+                                        numRings,
+                                        physicalTechnique,
+                                        intEncoder,
+                                        topologyIntegerEncodingOption)
+                : encodeTopologyStreams(
+                      geometryTypes, {}, {}, {}, physicalTechnique, intEncoder, topologyIntegerEncodingOption);
 
         appendUint32Stream(result,
                            numStreams,
                            numTriangles,
                            physicalTechnique,
                            intEncoder,
+                           integerEncodingOption,
                            PhysicalStreamType::LENGTH,
                            LogicalStreamType{LengthType::TRIANGLES});
 
@@ -127,6 +141,7 @@ public:
                            indexBuffer,
                            physicalTechnique,
                            intEncoder,
+                           integerEncodingOption,
                            PhysicalStreamType::OFFSET,
                            LogicalStreamType{OffsetType::INDEX});
 
@@ -151,7 +166,8 @@ private:
                                                 std::span<const std::uint32_t> numParts,
                                                 std::span<const std::uint32_t> numRings,
                                                 PhysicalLevelTechnique physicalTechnique,
-                                                IntegerEncoder& intEncoder) {
+                                                IntegerEncoder& intEncoder,
+                                                IntegerEncodingOption integerEncodingOption) {
         using namespace metadata::stream;
 
         std::vector<std::int32_t> geomTypeValues(geometryTypes.size());
@@ -159,7 +175,7 @@ private:
             geometryTypes, geomTypeValues.begin(), [](auto t) { return static_cast<std::int32_t>(t); });
 
         const auto encodedGeomTypes = intEncoder.encodeIntStream(
-            geomTypeValues, physicalTechnique, false, PhysicalStreamType::LENGTH, std::nullopt);
+            geomTypeValues, physicalTechnique, false, PhysicalStreamType::LENGTH, std::nullopt, integerEncodingOption);
 
         std::vector<std::uint8_t> result;
         result.insert(result.end(), encodedGeomTypes.begin(), encodedGeomTypes.end());
@@ -170,6 +186,7 @@ private:
                            numGeometries,
                            physicalTechnique,
                            intEncoder,
+                           integerEncodingOption,
                            PhysicalStreamType::LENGTH,
                            LogicalStreamType{LengthType::GEOMETRIES});
         appendUint32Stream(result,
@@ -177,6 +194,7 @@ private:
                            numParts,
                            physicalTechnique,
                            intEncoder,
+                           integerEncodingOption,
                            PhysicalStreamType::LENGTH,
                            LogicalStreamType{LengthType::PARTS});
         appendUint32Stream(result,
@@ -184,6 +202,7 @@ private:
                            numRings,
                            physicalTechnique,
                            intEncoder,
+                           integerEncodingOption,
                            PhysicalStreamType::LENGTH,
                            LogicalStreamType{LengthType::RINGS});
 
@@ -195,13 +214,14 @@ private:
                                    std::span<const std::uint32_t> values,
                                    PhysicalLevelTechnique physicalTechnique,
                                    IntegerEncoder& intEncoder,
+                                   IntegerEncodingOption integerEncodingOption,
                                    PhysicalStreamType streamType,
                                    std::optional<LogicalStreamType> logicalType) {
         if (values.empty()) return;
         std::vector<std::int32_t> signedValues(values.size());
         std::ranges::transform(values, signedValues.begin(), [](auto v) { return static_cast<std::int32_t>(v); });
         const auto data = intEncoder.encodeIntStream(
-            signedValues, physicalTechnique, false, streamType, std::move(logicalType));
+            signedValues, physicalTechnique, false, streamType, std::move(logicalType), integerEncodingOption);
         result.insert(result.end(), data.begin(), data.end());
         ++numStreams;
     }
