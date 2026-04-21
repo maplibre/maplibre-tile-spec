@@ -47,10 +47,14 @@ struct EncoderConfig {
     /// Force the use of Morton encoding for geometry, even if it doesn't produce a smaller result.
     bool forceMortonGeometryLayout = false;
 
-    static EncoderConfig with(std::function<void(EncoderConfig&)> configurator) {
-        EncoderConfig config;
+    EncoderConfig update(std::function<void(EncoderConfig&)> configurator) {
+        EncoderConfig config = *this;
         configurator(config);
         return config;
+    }
+
+    static EncoderConfig with(std::function<void(EncoderConfig&)> configurator) {
+        return EncoderConfig().update(configurator);
     }
 };
 

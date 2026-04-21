@@ -4,7 +4,9 @@
 #include <mlt/metadata/tileset.hpp>
 
 #include <cstdint>
+#include <limits>
 #include <map>
+#include <numbers>
 #include <string>
 #include <utility>
 #include <vector>
@@ -630,17 +632,117 @@ public:
         };
     }
 
-    static GeneratedTile generatePropU64() {
-        // Feature with a u64 property value
-        PropertyMap props;
-        props["bignum"] = PropertyValue{static_cast<std::uint64_t>(1234567890123456789ULL)};
-
-        // Java writes a nullable column for this property even though no values are null.
-        const auto config = cfg([](auto& c) { c.forceNullableColumns = true; });
+    static GeneratedTile generatePropTile(std::string name, std::string key, PropertyValue value) {
+        bool forceNullableColumns = true;
+        const auto config = cfg([=](auto& c) {
+            c.forceNullableColumns = forceNullableColumns;
+            c.integerEncodingOption = IntegerEncodingOption::PLAIN;
+        });
 
         return {
-            .name = "prop_u64",
-            .bytes = encode(layer(defaultLayerName, {feat(point(c0), props)}, defaultExtent), config),
+            .name = std::move(name),
+            .bytes = encode(layer(defaultLayerName,
+                                  {feat(point(c0), PropertyMap{{std::move(key), std::move(value)}})},
+                                  defaultExtent),
+                            config),
+        };
+    }
+
+    static GeneratedTile generatePropTileWithNull(std::string name, PropertyValue value, bool nullInSecondFeature) {
+        const auto config = cfg([](auto& c) {
+            c.forceNullableColumns = true;
+            c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
+        });
+
+        std::vector<Feature> features;
+        if (nullInSecondFeature) {
+            features = {feat(point(c0), PropertyMap{{"val", std::move(value)}}), feat(point(c0))};
+        } else {
+            features = {feat(point(c0)), feat(point(c0), PropertyMap{{"val", std::move(value)}})};
+        }
+
+        return {
+            .name = std::move(name),
+            .bytes = encode(layer(defaultLayerName, std::move(features), defaultExtent), config),
+        };
+    }
+
+    static GeneratedTileVec generatePropScalars() {
+        const std::string specialEscaped{"hello\0 world\n", 13};
+        const std::uint64_t u64Value = 1234567890123456789ULL;
+        constexpr std::int64_t i64Value = 9876543210LL;
+        constexpr std::int64_t i64NegValue = -9876543210LL;
+
+        return {
+            generatePropTile("prop_empty_name", "", true),
+            generatePropTile("prop_special_name", specialEscaped, true),
+
+            generatePropTile("prop_bool", "val", true),
+            generatePropTile("prop_bool_false", "val", false),
+            generatePropTileWithNull("prop_bool_true_null", true, true),
+            generatePropTileWithNull("prop_bool_null_true", true, false),
+            generatePropTileWithNull("prop_bool_false_null", false, true),
+            generatePropTileWithNull("prop_bool_null_false", false, false),
+
+            generatePropTile("prop_i32", "val", static_cast<std::int32_t>(42)),
+            generatePropTile("prop_i32_neg", "val", static_cast<std::int32_t>(-42)),
+            generatePropTile("prop_i32_min", "val", std::numeric_limits<std::int32_t>::min()),
+            generatePropTile("prop_i32_max", "val", std::numeric_limits<std::int32_t>::max()),
+            generatePropTileWithNull("prop_i32_val_null", static_cast<std::int32_t>(42), true),
+            generatePropTileWithNull("prop_i32_null_val", static_cast<std::int32_t>(42), false),
+
+            generatePropTile("prop_u32", "val", static_cast<std::uint32_t>(42)),
+            generatePropTile("prop_u32_min", "val", static_cast<std::uint32_t>(0)),
+            generatePropTile("prop_u32_max", "val", std::numeric_limits<std::uint32_t>::max()),
+            generatePropTileWithNull("prop_u32_val_null", static_cast<std::uint32_t>(42), true),
+            generatePropTileWithNull("prop_u32_null_val", static_cast<std::uint32_t>(42), false),
+
+            generatePropTile("prop_i64", "val", i64Value),
+            generatePropTile("prop_i64_neg", "val", i64NegValue),
+            generatePropTile("prop_i64_min", "val", std::numeric_limits<std::int64_t>::min()),
+            generatePropTile("prop_i64_max", "val", std::numeric_limits<std::int64_t>::max()),
+            generatePropTileWithNull("prop_i64_val_null", i64Value, true),
+            generatePropTileWithNull("prop_i64_null_val", i64Value, false),
+
+            generatePropTile("prop_u64", "bignum", u64Value),
+            generatePropTile("prop_u64_min", "bignum", static_cast<std::uint64_t>(0)),
+            generatePropTile("prop_u64_max", "bignum", std::numeric_limits<std::uint64_t>::max()),
+            generatePropTileWithNull("prop_u64_val_null", u64Value, true),
+            generatePropTileWithNull("prop_u64_null_val", u64Value, false),
+
+            generatePropTile("prop_f32", "val", 3.14f),
+            generatePropTile("prop_f32_neg_inf", "val", -std::numeric_limits<float>::infinity()),
+            generatePropTile("prop_f32_min_norm", "val", std::numeric_limits<float>::min()),
+            generatePropTile("prop_f32_min_val", "val", std::numeric_limits<float>::denorm_min()),
+            generatePropTile("prop_f32_neg_zero", "val", -0.0f),
+            generatePropTile("prop_f32_zero", "val", 0.0f),
+            generatePropTile("prop_f32_max", "val", std::numeric_limits<float>::max()),
+            generatePropTile("prop_f32_pos_inf", "val", std::numeric_limits<float>::infinity()),
+            generatePropTile("prop_f32_nan", "val", std::numeric_limits<float>::quiet_NaN()),
+            generatePropTileWithNull("prop_f32_val_null", 3.14f, true),
+            generatePropTileWithNull("prop_f32_null_val", 3.14f, false),
+
+            generatePropTile("prop_f64", "val", std::numbers::pi),
+            generatePropTile("prop_f64_neg_inf", "val", -std::numeric_limits<double>::infinity()),
+            generatePropTile("prop_f64_min_norm", "val", std::numeric_limits<double>::min()),
+            generatePropTile("prop_f64_min_val", "val", std::numeric_limits<double>::denorm_min()),
+            generatePropTile("prop_f64_neg_zero", "val", -0.0),
+            generatePropTile("prop_f64_zero", "val", 0.0),
+            generatePropTile("prop_f64_max", "val", std::numeric_limits<double>::max()),
+            generatePropTile("prop_f64_pos_inf", "val", std::numeric_limits<double>::infinity()),
+            generatePropTile("prop_f64_nan", "val", std::numeric_limits<double>::quiet_NaN()),
+            generatePropTileWithNull("prop_f64_val_null", std::numbers::pi, true),
+            generatePropTileWithNull("prop_f64_null_val", std::numbers::pi, false),
+
+            generatePropTile("prop_str_empty", "val", std::string("")),
+            generatePropTile("prop_str_ascii", "val", std::string("42")),
+            generatePropTile("prop_str_escape", "val", std::string("Line1\n\t\"quoted\"\\path")),
+            generatePropTile("prop_str_unicode", "val", std::string("M\xC3\xBCnchen \xF0\x9F\x93\x8D cafe\xCC\x81")),
+            generatePropTile("prop_str_special", "val", specialEscaped),
+            generatePropTileWithNull("prop_str_val_null", std::string("42"), true),
+            generatePropTileWithNull("prop_str_null_val", std::string("42"), false),
+            generatePropTileWithNull("prop_str_val_empty", std::string(""), true),
+            generatePropTileWithNull("prop_str_empty_val", std::string(""), false),
         };
     }
 
@@ -661,7 +763,11 @@ public:
         };
     }
 
-    static GeneratedTileVec generateProperties() { return {generatePropU64(), generatePropsStrFsst()}; }
+    static GeneratedTileVec generateProperties() {
+        auto tiles = generatePropScalars();
+        tiles.push_back(generatePropsStrFsst());
+        return tiles;
+    }
 
     static GeneratedTileVec generateFpfAlignments() {
         GeneratedTileVec tiles;
@@ -770,7 +876,7 @@ public:
 
         auto config = cfg();
         config.integerEncodingOption = IntegerEncodingOption::PLAIN;
-        // config.geometryEncodingOption = IntegerEncodingOption::PLAIN;
+        config.geometryEncodingOption = IntegerEncodingOption::PLAIN;
 
         // Generate plain encoding
         GeneratedTile tile{
