@@ -3,12 +3,30 @@
 //! This module implements a minimal v2 wire format for round-trip experimentation.
 //! The format uses tag `2` to distinguish v2 layers from v1 layers (tag `1`).
 //!
-//! Simplifications in this initial implementation:
-//! - VarInt physical encoding only (no FastPFor, no Morton)
-//! - ComponentwiseDelta + VarInt for vertex coordinates
-//! - StrPlain (lengths + raw bytes) for strings (no FSST, no shared-dict)
-//! - Own-presence bitfields for optional columns (no shared-presence / OptRef*)
-//! - Pure single-geometry-type layers only (no mixed geometry)
+//! Encoding strategies (each stream picks the smallest result automatically):
+//!
+//! - **Feature ordering**: tries `Unsorted`, `SpatialMorton`, and `SpatialHilbert`, keeping
+//!   the ordering that produces the smallest encoded tile.  Mirrors the v1 optimizer.
+//! - **Geometry types stream**: tries VarInt and RLE.
+//!   For single-type layers (all Points, all Lines …) RLE reduces from N bytes to ~3 bytes.
+//! - **Vertex data**: ComponentwiseDelta applied first, then tries:
+//!   - VarInt (1 byte per small delta)
+//!   - FastPFor128 LE (bit-packing in blocks of 128; wins for layers with many vertices)
+//! - **Integer ID columns**: tries plain VarInt and Delta+VarInt.
+//!   Sequential OSM IDs encode as 1-byte deltas each.
+//! - **String columns**: tries three encodings, keeps smallest:
+//!   - StrPlain / OptStrPlain: per-value byte lengths + raw UTF-8 bytes.
+//!   - StrDict / OptStrDict: deduplicated dictionary + per-feature indices.
+//!     Best for low-cardinality columns (road class, surface type …).
+//!   - StrFsst / OptStrFsst: FSST symbol-table compression.
+//!     Best for high-cardinality columns (street names, place names …).
+//! - **Presence**: raw packed bitfields for optional columns (no bool-RLE header).
+//! - **Shared dictionaries**: string columns with similar content are grouped using MinHash
+//!   similarity (same algorithm as v1).  Each group encodes one shared dictionary corpus
+//!   (plain or FSST-compressed, whichever is smaller) followed by per-child index streams.
+//!   Mirrors v1's `ColumnType::SharedDict` optimization.  Note: property column order in the
+//!   decoded layer may differ from the original when grouping is applied (shared-dict children
+//!   are emitted together before the next non-grouped column).
 
 use geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
@@ -16,11 +34,24 @@ use geo_types::{
 use integer_encoding::{VarInt as _, VarIntWriter as _};
 use zigzag::ZigZag as _;
 
+use fastpfor::{AnyLenCodec as _, FastPFor128};
+
 use crate::MltError;
 use crate::MltResult;
+use crate::codecs::fsst::compress_fsst;
 use crate::codecs::varint::parse_varint;
 use crate::codecs::zigzag::encode_componentwise_delta_vec2s;
 use crate::decoder::{GeometryType, PropValue, TileFeature, TileLayer01};
+use std::collections::HashMap;
+
+use crate::encoder::{
+    EncoderConfig, SortStrategy, StagedSharedDict, StagedSharedDictItem, StringGroup,
+    group_string_properties, spatial_sort_likely_to_help,
+};
+
+/// Minimum feature count above which the bounding-box heuristic is applied
+/// before deciding whether to try spatial sort trials.  Mirrors v1's threshold.
+const SORT_TRIAL_THRESHOLD: usize = 512;
 
 // ── Encoding byte bit positions ───────────────────────────────────────────────
 // bit  7: has_explicit_count
@@ -32,8 +63,14 @@ use crate::decoder::{GeometryType, PropValue, TileFeature, TileLayer01};
 const ENC_VARINT: u8 = 0x08;
 /// `logical=None, physical=VarInt, explicit count follows`
 const ENC_VARINT_EXPL: u8 = 0x88;
+/// `logical=Delta, physical=VarInt, count from context`
+const ENC_DELTA_VARINT: u8 = 0x18;
 /// `logical=CwDelta, physical=VarInt, explicit count follows`
 const ENC_CWDELTA_VARINT_EXPL: u8 = 0xA8;
+/// `logical=CwDelta, physical=FastPFor128, explicit count follows`
+const ENC_CWDELTA_FP128_EXPL: u8 = 0xAC;
+/// `logical=Rle, physical=reserved (00), count from context; byte_length always follows`
+const ENC_RLE: u8 = 0x30;
 /// `logical=None, physical=None-noLen, explicit count follows`
 const ENC_RAW_EXPL: u8 = 0x80;
 
@@ -102,21 +139,72 @@ const COL_OPT_F64: u8 = 27;
 // Strings: StrPlain / OptStrPlain
 const COL_STR: u8 = 28;
 const COL_OPT_STR: u8 = 29;
+// Strings: StrDict / OptStrDict  (no presence stream; for OptStrDict index 0 = null)
+const COL_STR_DICT: u8 = 30;
+const COL_OPT_STR_DICT: u8 = 31;
+// Strings: StrFsst / OptStrFsst  (FSST-compressed; presence bitfield when optional)
+const COL_STR_FSST: u8 = 32;
+const COL_OPT_STR_FSST: u8 = 33;
+// Strings: SharedDict (plain) / SharedDictFsst (FSST corpus) — cross-column shared dictionary.
+// One encoded column entry covers N child string columns that share similar string values.
+const COL_STR_SHARED_DICT: u8 = 34;
+const COL_STR_SHARED_DICT_FSST: u8 = 35;
+
+/// Flag byte for each child within a shared-dict column: bit 0 = child has null values.
+const CHILD_OPTIONAL: u8 = 0x01;
 
 // ── Encoder ───────────────────────────────────────────────────────────────────
 
 impl TileLayer01 {
     /// Encode this layer to the MLT **v2** experimental wire format.
     ///
+    /// Respects the same [`EncoderConfig`] flags as the v1 encoder:
+    /// - `try_spatial_morton_sort` / `try_spatial_hilbert_sort`: spatial sort trials.
+    /// - `allow_fsst`: FSST string compression.
+    /// - `allow_fpf`: FastPFor128 vertex compression.
+    /// - `allow_shared_dict`: cross-column shared dictionary grouping.
+    ///
     /// Returns a complete framed record: `[varint(body_len+1)][tag=2][body…]`
     /// ready to be concatenated with other layers in a tile.
     ///
-    /// Returns an empty slice for empty layers (no features).
-    pub fn encode_v2(&self) -> MltResult<Vec<u8>> {
+    /// Returns an empty `Vec` for layers with no features.
+    pub fn encode_v2(&self, cfg: EncoderConfig) -> MltResult<Vec<u8>> {
         if self.features.is_empty() {
             return Ok(Vec::new());
         }
 
+        // Baseline: unsorted feature order.
+        let mut best = self.encode_v2_with_sort(cfg)?;
+
+        // Apply the same spatial-sort heuristic as the v1 optimizer.
+        let try_spatial = self.features.len() < SORT_TRIAL_THRESHOLD
+            || spatial_sort_likely_to_help(self);
+
+        if try_spatial {
+            let strategies = [
+                (SortStrategy::SpatialMorton, cfg.try_spatial_morton_sort),
+                (SortStrategy::SpatialHilbert, cfg.try_spatial_hilbert_sort),
+            ];
+            for (strategy, enabled) in strategies {
+                if !enabled {
+                    continue;
+                }
+                let mut candidate = self.clone();
+                candidate.sort(strategy);
+                let bytes = candidate.encode_v2_with_sort(cfg)?;
+                if bytes.len() < best.len() {
+                    best = bytes;
+                }
+            }
+        }
+
+        Ok(best)
+    }
+
+    /// Encode this layer to v2 bytes with features in their **current** order.
+    ///
+    /// Called by [`encode_v2`] once per sort-strategy trial.
+    fn encode_v2_with_sort(&self, cfg: EncoderConfig) -> MltResult<Vec<u8>> {
         let feature_count = self.features.len();
 
         // ── Geometry ──────────────────────────────────────────────────────────
@@ -130,8 +218,72 @@ impl TileLayer01 {
             Vec::new()
         };
 
-        // ── Property columns ──────────────────────────────────────────────────
-        let prop_count = self.property_names.len();
+        // ── Collect column chunks ─────────────────────────────────────────────
+        // We must know the total column count before writing it, so collect all
+        // encoded chunks first, then write col_count + chunks together.
+        //
+        // For shared-dict groups, we compare the shared-dict chunk against encoding
+        // each member individually and keep whichever is smaller.
+
+        // Group similar string columns with MinHash (mirrors v1); skip when disabled.
+        let groups = if cfg.allow_shared_dict {
+            group_string_properties(self)
+        } else {
+            Vec::new()
+        };
+        let col_to_group: HashMap<usize, &StringGroup> = groups
+            .iter()
+            .flat_map(|g| g.columns.iter().map(move |(_, i)| (*i, g)))
+            .collect();
+        let mut group_start: HashMap<usize, &StringGroup> =
+            groups.iter().map(|g| (g.columns[0].1, g)).collect();
+
+        let mut col_chunks: Vec<Vec<u8>> = Vec::new();
+
+        // ID column (single chunk)
+        if has_ids {
+            let mut chunk = Vec::new();
+            write_id_column(&mut chunk, &all_ids, feature_count)?;
+            col_chunks.push(chunk);
+        }
+
+        // Property columns
+        for (col_idx, name) in self.property_names.iter().enumerate() {
+            if let Some(g) = group_start.remove(&col_idx) {
+                // Try shared-dict encoding (all group members as one encoded column).
+                let shared_chunk = encode_shared_dict_chunk(g, &self.features, cfg.allow_fsst)?;
+
+                // Try individual encoding for every group member as a baseline.
+                let individual_chunks: Vec<Vec<u8>> = g
+                    .columns
+                    .iter()
+                    .map(|(_, c_idx)| {
+                        let full_name = &self.property_names[*c_idx];
+                        let vals: Vec<&PropValue> =
+                            self.features.iter().map(|f| &f.properties[*c_idx]).collect();
+                        let mut chunk = Vec::new();
+                        write_property_column(
+                            &mut chunk, full_name, &vals, feature_count, cfg.allow_fsst,
+                        )?;
+                        Ok(chunk)
+                    })
+                    .collect::<MltResult<_>>()?;
+                let individual_total: usize = individual_chunks.iter().map(|c| c.len()).sum();
+
+                if shared_chunk.len() <= individual_total {
+                    col_chunks.push(shared_chunk);
+                } else {
+                    col_chunks.extend(individual_chunks);
+                }
+            } else if !col_to_group.contains_key(&col_idx) {
+                let vals: Vec<&PropValue> =
+                    self.features.iter().map(|f| &f.properties[col_idx]).collect();
+                let mut chunk = Vec::new();
+                write_property_column(&mut chunk, name, &vals, feature_count, cfg.allow_fsst)?;
+                col_chunks.push(chunk);
+            }
+            // else: column absorbed into a shared-dict group handled above.
+        }
 
         // ── Build body ────────────────────────────────────────────────────────
         let mut body: Vec<u8> = Vec::new();
@@ -159,21 +311,14 @@ impl TileLayer01 {
             geom.ring_lengths.as_deref(),
             &geom.vertices,
             feature_count,
+            cfg.allow_fpf,
         )?;
 
         // ── Columns ───────────────────────────────────────────────────────────
-        let col_count = u32::try_from(usize::from(has_ids) + prop_count)?;
-        body.write_varint(col_count).map_err(MltError::from)?;
-
-        // ID column
-        if has_ids {
-            write_id_column(&mut body, &all_ids, feature_count)?;
-        }
-
-        // Property columns
-        for (i, name) in self.property_names.iter().enumerate() {
-            let vals: Vec<&PropValue> = self.features.iter().map(|f| &f.properties[i]).collect();
-            write_property_column(&mut body, name, &vals, feature_count)?;
+        body.write_varint(col_chunks.len() as u32)
+            .map_err(MltError::from)?;
+        for chunk in col_chunks {
+            body.extend_from_slice(&chunk);
         }
 
         // ── Frame: [varint(body_len+1)][tag=2][body] ──────────────────────────
@@ -345,17 +490,76 @@ fn push_feature_geometry(
     Ok(())
 }
 
+// ── Stream body builders (return raw bytes, no enc_byte prefix) ───────────────
+
+/// Build the VarInt body for a `u32` slice (no enc_byte, no count, no length).
+fn build_varint_body_u32(values: &[u32]) -> MltResult<Vec<u8>> {
+    let mut tmp = Vec::new();
+    for &v in values {
+        tmp.write_varint(v).map_err(MltError::from)?;
+    }
+    Ok(tmp)
+}
+
+/// Build the RLE body for a `u32` slice: pairs of `(run_length, value)` as VarInts.
+fn build_rle_body_u32(values: &[u32]) -> MltResult<Vec<u8>> {
+    let mut tmp = Vec::new();
+    let mut i = 0;
+    while i < values.len() {
+        let val = values[i];
+        let mut run: u32 = 1;
+        while i + (run as usize) < values.len() && values[i + (run as usize)] == val {
+            run += 1;
+        }
+        tmp.write_varint(run).map_err(MltError::from)?;
+        tmp.write_varint(val).map_err(MltError::from)?;
+        i += run as usize;
+    }
+    Ok(tmp)
+}
+
+/// Build the Delta+VarInt body for a `u64` slice (deltas from the previous value).
+/// The first element is the original value (delta from 0).
+fn build_delta_body_u64(values: &[u64]) -> MltResult<Vec<u8>> {
+    let mut tmp = Vec::new();
+    let mut prev = 0u64;
+    for &v in values {
+        let delta = v.wrapping_sub(prev);
+        tmp.write_varint(delta).map_err(MltError::from)?;
+        prev = v;
+    }
+    Ok(tmp)
+}
+
 // ── Stream write helpers ──────────────────────────────────────────────────────
 
 /// Write a VarInt-encoded `u32` stream with implicit count (= `feature_count`).
 fn write_u32_stream_implicit(buf: &mut Vec<u8>, values: &[u32]) -> MltResult<()> {
     buf.push(ENC_VARINT);
-    let mut tmp = Vec::new();
-    for &v in values {
-        tmp.write_varint(v).map_err(MltError::from)?;
+    let body = build_varint_body_u32(values)?;
+    buf.write_varint(body.len() as u32).map_err(MltError::from)?;
+    buf.extend_from_slice(&body);
+    Ok(())
+}
+
+/// Write a `u32` types stream choosing the smaller of VarInt vs RLE encoding.
+///
+/// For pure single-type layers `[0, 0, 0, …]` this reduces from N bytes to ~3.
+fn write_types_stream(buf: &mut Vec<u8>, values: &[u32]) -> MltResult<()> {
+    let varint_body = build_varint_body_u32(values)?;
+    let rle_body = build_rle_body_u32(values)?;
+
+    // VarInt overhead: 1 (enc_byte) + varint(body_len) + body
+    // RLE overhead:    1 (enc_byte) + varint(body_len) + body  (same shape)
+    if rle_body.len() < varint_body.len() {
+        buf.push(ENC_RLE);
+        buf.write_varint(rle_body.len() as u32).map_err(MltError::from)?;
+        buf.extend_from_slice(&rle_body);
+    } else {
+        buf.push(ENC_VARINT);
+        buf.write_varint(varint_body.len() as u32).map_err(MltError::from)?;
+        buf.extend_from_slice(&varint_body);
     }
-    buf.write_varint(tmp.len() as u32).map_err(MltError::from)?;
-    buf.extend_from_slice(&tmp);
     Ok(())
 }
 
@@ -364,12 +568,34 @@ fn write_u32_stream_explicit(buf: &mut Vec<u8>, values: &[u32]) -> MltResult<()>
     buf.push(ENC_VARINT_EXPL);
     buf.write_varint(values.len() as u32)
         .map_err(MltError::from)?;
-    let mut tmp = Vec::new();
-    for &v in values {
-        tmp.write_varint(v).map_err(MltError::from)?;
+    let body = build_varint_body_u32(values)?;
+    buf.write_varint(body.len() as u32).map_err(MltError::from)?;
+    buf.extend_from_slice(&body);
+    Ok(())
+}
+
+/// Write a `u64` stream choosing the smaller of plain VarInt vs Delta+VarInt.
+///
+/// For sequential IDs (common in OSM) delta encoding reduces each ID to 1 byte.
+fn write_u64_stream_best(buf: &mut Vec<u8>, values: &[u64]) -> MltResult<()> {
+    let plain_body = {
+        let mut tmp = Vec::new();
+        for &v in values {
+            tmp.write_varint(v).map_err(MltError::from)?;
+        }
+        tmp
+    };
+    let delta_body = build_delta_body_u64(values)?;
+
+    if delta_body.len() < plain_body.len() {
+        buf.push(ENC_DELTA_VARINT);
+        buf.write_varint(delta_body.len() as u32).map_err(MltError::from)?;
+        buf.extend_from_slice(&delta_body);
+    } else {
+        buf.push(ENC_VARINT);
+        buf.write_varint(plain_body.len() as u32).map_err(MltError::from)?;
+        buf.extend_from_slice(&plain_body);
     }
-    buf.write_varint(tmp.len() as u32).map_err(MltError::from)?;
-    buf.extend_from_slice(&tmp);
     Ok(())
 }
 
@@ -419,25 +645,70 @@ fn write_raw_bytes(buf: &mut Vec<u8>, data: &[u8]) -> MltResult<()> {
 }
 
 /// Write vertex data using ComponentwiseDelta + VarInt with explicit count (vertex pairs).
-fn write_cwdelta_vertices(buf: &mut Vec<u8>, flat_verts: &[i32]) -> MltResult<()> {
+fn write_cwdelta_vertices_varint(pair_count: u32, encoded: &[u32]) -> MltResult<Vec<u8>> {
+    let mut out = Vec::new();
+    out.push(ENC_CWDELTA_VARINT_EXPL);
+    out.write_varint(pair_count).map_err(MltError::from)?;
+    let mut tmp = Vec::new();
+    for &v in encoded {
+        tmp.write_varint(v).map_err(MltError::from)?;
+    }
+    out.write_varint(tmp.len() as u32).map_err(MltError::from)?;
+    out.extend_from_slice(&tmp);
+    Ok(out)
+}
+
+/// Write vertex data using ComponentwiseDelta + FastPFor128 with explicit count (vertex pairs).
+///
+/// FastPFor128 requires the input length to be a multiple of 128. The tail is handled
+/// by the VarByte portion of the `Composition(FastPFor128, VariableByte)` codec.
+/// Bytes are stored in little-endian u32 order (no byte-swap needed on x86).
+fn write_cwdelta_vertices_fp128(pair_count: u32, encoded: &[u32]) -> MltResult<Vec<u8>> {
+    if encoded.is_empty() {
+        // FP128 can't encode an empty slice; fall back handled by caller.
+        return Ok(Vec::new());
+    }
+    let mut scratch: Vec<u32> = Vec::with_capacity(encoded.len() + 1024);
+    FastPFor128::default()
+        .encode(encoded, &mut scratch)
+        .map_err(|_| MltError::NotImplemented("v2: FastPFor128 encode error"))?;
+
+    // v2 wire format: little-endian u32 words (no byte swap on LE hosts).
+    let byte_data: Vec<u8> = scratch
+        .iter()
+        .flat_map(|&w| w.to_le_bytes())
+        .collect();
+
+    let mut out = Vec::new();
+    out.push(ENC_CWDELTA_FP128_EXPL);
+    out.write_varint(pair_count).map_err(MltError::from)?;
+    out.write_varint(byte_data.len() as u32).map_err(MltError::from)?;
+    out.extend_from_slice(&byte_data);
+    Ok(out)
+}
+
+/// Write vertex data: tries CwDelta+FastPFor128 and CwDelta+VarInt, keeps the smaller.
+/// When `allow_fpf` is false only VarInt is tried (mirrors `EncoderConfig::allow_fpf`).
+fn write_cwdelta_vertices(buf: &mut Vec<u8>, flat_verts: &[i32], allow_fpf: bool) -> MltResult<()> {
     debug_assert!(
         flat_verts.len() % 2 == 0,
         "vertex buffer must have even length"
     );
-    buf.push(ENC_CWDELTA_VARINT_EXPL);
-    let pair_count = flat_verts.len() / 2;
-    buf.write_varint(pair_count as u32)
-        .map_err(MltError::from)?;
+    let pair_count = (flat_verts.len() / 2) as u32;
 
     let mut encoded: Vec<u32> = Vec::new();
     encode_componentwise_delta_vec2s(flat_verts, &mut encoded);
 
-    let mut tmp = Vec::new();
-    for v in &encoded {
-        tmp.write_varint(*v).map_err(MltError::from)?;
+    let varint_bytes = write_cwdelta_vertices_varint(pair_count, &encoded)?;
+
+    if allow_fpf {
+        let fp128_bytes = write_cwdelta_vertices_fp128(pair_count, &encoded)?;
+        if !fp128_bytes.is_empty() && fp128_bytes.len() < varint_bytes.len() {
+            buf.extend_from_slice(&fp128_bytes);
+            return Ok(());
+        }
     }
-    buf.write_varint(tmp.len() as u32).map_err(MltError::from)?;
-    buf.extend_from_slice(&tmp);
+    buf.extend_from_slice(&varint_bytes);
     Ok(())
 }
 
@@ -449,10 +720,11 @@ fn write_geometry_streams(
     ring_lengths: Option<&[u32]>,
     vertices: &[i32],
     feature_count: usize,
+    allow_fpf: bool,
 ) -> MltResult<()> {
     debug_assert_eq!(types.len(), feature_count);
-    // Types stream: count = feature_count (implicit)
-    write_u32_stream_implicit(buf, types)?;
+    // Types stream: count = feature_count (implicit); prefer RLE when all same type.
+    write_types_stream(buf, types)?;
     if let Some(g) = geo_lengths {
         write_u32_stream_explicit(buf, g)?;
     }
@@ -462,7 +734,7 @@ fn write_geometry_streams(
     if let Some(r) = ring_lengths {
         write_u32_stream_explicit(buf, r)?;
     }
-    write_cwdelta_vertices(buf, vertices)
+    write_cwdelta_vertices(buf, vertices, allow_fpf)
 }
 
 // ── Presence bitfield ─────────────────────────────────────────────────────────
@@ -492,12 +764,12 @@ fn write_id_column(buf: &mut Vec<u8>, ids: &[Option<u64>], _feature_count: usize
         let presence: Vec<bool> = ids.iter().map(|id| id.is_some()).collect();
         write_presence(buf, &presence);
         let values: Vec<u64> = ids.iter().filter_map(|id| *id).collect();
-        write_u64_stream_implicit(buf, &values)?;
+        write_u64_stream_best(buf, &values)?;
     } else {
-        // Id: all values present
+        // Id: all values present; Delta+VarInt compresses sequential OSM IDs well.
         buf.push(COL_ID);
         let values: Vec<u64> = ids.iter().map(|id| id.unwrap_or(0)).collect();
-        write_u64_stream_implicit(buf, &values)?;
+        write_u64_stream_best(buf, &values)?;
     }
 
     Ok(())
@@ -510,28 +782,82 @@ fn write_property_column(
     name: &str,
     values: &[&PropValue],
     feature_count: usize,
+    allow_fsst: bool,
 ) -> MltResult<()> {
     debug_assert_eq!(values.len(), feature_count);
 
-    // Determine the dominant type and whether any value is null
     let any_null = values.iter().any(|v| is_null(v));
+
+    // String columns: choose the smallest available encoding.
+    if matches!(values[0], PropValue::Str(_)) {
+        let strings: Vec<Option<&str>> = values
+            .iter()
+            .map(|v| match v {
+                PropValue::Str(Some(s)) => Some(s.as_str()),
+                _ => None,
+            })
+            .collect();
+
+        let plain_bytes = build_string_plain_data(&strings, any_null)?;
+        let dict_bytes = build_string_dict_data(&strings, any_null)?;
+        let fsst_bytes = if allow_fsst {
+            build_string_fsst_data(&strings, any_null)?
+        } else {
+            Vec::new()
+        };
+
+        let name_bytes = name.as_bytes();
+
+        // Choose whichever encoding yields the fewest bytes.
+        let best_size = if fsst_bytes.is_empty() {
+            plain_bytes.len().min(dict_bytes.len())
+        } else {
+            plain_bytes.len().min(dict_bytes.len()).min(fsst_bytes.len())
+        };
+
+        if !fsst_bytes.is_empty() && best_size == fsst_bytes.len() {
+            // FSST: presence bitfield (when optional) + 4 compressed streams.
+            buf.push(if any_null { COL_OPT_STR_FSST } else { COL_STR_FSST });
+            buf.write_varint(name_bytes.len() as u32).map_err(MltError::from)?;
+            buf.extend_from_slice(name_bytes);
+            if any_null {
+                let presence: Vec<bool> = strings.iter().map(|s| s.is_some()).collect();
+                write_presence(buf, &presence);
+            }
+            buf.extend_from_slice(&fsst_bytes);
+        } else if best_size == dict_bytes.len() {
+            // Dict: no separate presence (null = index 0 for OptStrDict).
+            buf.push(if any_null { COL_OPT_STR_DICT } else { COL_STR_DICT });
+            buf.write_varint(name_bytes.len() as u32).map_err(MltError::from)?;
+            buf.extend_from_slice(name_bytes);
+            buf.extend_from_slice(&dict_bytes);
+        } else {
+            // Plain: presence bitfield when optional.
+            buf.push(if any_null { COL_OPT_STR } else { COL_STR });
+            buf.write_varint(name_bytes.len() as u32).map_err(MltError::from)?;
+            buf.extend_from_slice(name_bytes);
+            if any_null {
+                let presence: Vec<bool> = strings.iter().map(|s| s.is_some()).collect();
+                write_presence(buf, &presence);
+            }
+            buf.extend_from_slice(&plain_bytes);
+        }
+        return Ok(());
+    }
 
     let col_type = prop_column_type(values[0], any_null);
     buf.push(col_type);
 
-    // name
     let name_bytes = name.as_bytes();
     buf.write_varint(name_bytes.len() as u32)
         .map_err(MltError::from)?;
     buf.extend_from_slice(name_bytes);
 
-    // presence bitfield (for optional columns)
     if any_null {
         let presence: Vec<bool> = values.iter().map(|v| !is_null(v)).collect();
         write_presence(buf, &presence);
     }
 
-    // data streams
     write_prop_data(buf, values, any_null)
 }
 
@@ -598,12 +924,7 @@ fn write_prop_data(buf: &mut Vec<u8>, values: &[&PropValue], any_null: bool) -> 
                 .filter(|v| !is_null(v))
                 .map(|v| prop_i32(v))
                 .collect();
-            let implicit_count = !any_null;
-            if implicit_count {
-                write_i32_stream_implicit(buf, &data)?;
-            } else {
-                write_i32_stream_as_explicit(buf, &data)?;
-            }
+            write_i32_stream_implicit(buf, &data)?;
         }
         PropValue::U32(_) => {
             let data: Vec<u32> = values
@@ -611,12 +932,7 @@ fn write_prop_data(buf: &mut Vec<u8>, values: &[&PropValue], any_null: bool) -> 
                 .filter(|v| !is_null(v))
                 .map(|v| prop_u32(v))
                 .collect();
-            let implicit_count = !any_null;
-            if implicit_count {
-                write_u32_stream_implicit(buf, &data)?;
-            } else {
-                write_u32_popcount(buf, &data)?;
-            }
+            write_u32_stream_implicit(buf, &data)?;
         }
         PropValue::I64(_) => {
             let data: Vec<i64> = values
@@ -636,11 +952,7 @@ fn write_prop_data(buf: &mut Vec<u8>, values: &[&PropValue], any_null: bool) -> 
                 .filter(|v| !is_null(v))
                 .map(|v| prop_u64(v))
                 .collect();
-            if !any_null {
-                write_u64_stream_implicit(buf, &data)?;
-            } else {
-                write_u64_popcount(buf, &data)?;
-            }
+            write_u64_stream_implicit(buf, &data)?;
         }
         PropValue::F32(_) => {
             let mut data = Vec::new();
@@ -657,87 +969,328 @@ fn write_prop_data(buf: &mut Vec<u8>, values: &[&PropValue], any_null: bool) -> 
             write_raw_bytes(buf, &data)?;
         }
         PropValue::Str(_) => {
-            let strings: Vec<Option<&str>> = values
-                .iter()
-                .map(|v| match v {
-                    PropValue::Str(Some(s)) => Some(s.as_str()),
-                    _ => None,
-                })
-                .collect();
-            write_string_col_data(buf, &strings, any_null)?;
+            // Handled earlier in write_property_column; should not reach here.
+            unreachable!("Str columns are handled before write_prop_data");
         }
     }
     Ok(())
 }
 
-/// Write string column data streams (lengths + raw bytes).
-/// Only the non-null strings are written (count = popcount when any_null, else feature_count).
-fn write_string_col_data(
-    buf: &mut Vec<u8>,
-    strings: &[Option<&str>],
-    any_null: bool,
-) -> MltResult<()> {
+/// Build the bytes for a StrPlain / OptStrPlain column data section.
+/// Returns: lengths_stream + raw_bytes_stream (no col_type, no name, no presence).
+fn build_string_plain_data(strings: &[Option<&str>], _any_null: bool) -> MltResult<Vec<u8>> {
     let present: Vec<&str> = strings.iter().filter_map(|s| *s).collect();
     let lengths: Vec<u32> = present.iter().map(|s| s.len() as u32).collect();
     let all_bytes: Vec<u8> = present.iter().flat_map(|s| s.as_bytes()).copied().collect();
 
-    // Lengths stream: count = popcount (implicit when any_null, else feature_count)
-    if any_null {
-        // count = popcount(presence), which the decoder can compute → use implicit
-        write_u32_stream_implicit(buf, &lengths)?;
-    } else {
-        write_u32_stream_implicit(buf, &lengths)?;
-    }
-    // String data: explicit count = total bytes
-    write_raw_bytes(buf, &all_bytes)?;
+    let mut buf = Vec::new();
+    // Lengths stream: count = len(present), encoded with implicit count.
+    write_u32_stream_implicit(&mut buf, &lengths)?;
+    // String data: raw bytes with explicit byte count.
+    write_raw_bytes(&mut buf, &all_bytes)?;
+    Ok(buf)
+}
 
-    Ok(())
+/// Build the bytes for a StrDict / OptStrDict column data section.
+///
+/// Wire layout: `dict_lengths_stream | dict_data_stream | indices_stream`
+///
+/// - `dict_lengths_stream`: VarInt, explicit count = number of unique values.
+/// - `dict_data_stream`:    raw bytes, explicit count = total UTF-8 bytes in dict.
+/// - `indices_stream`:      VarInt, implicit count = feature_count.
+///   - `OptStrDict`: index 0 = null; indices 1..N map to dict entries 0..N-1.
+///   - `StrDict`:    indices 0..N-1 map to dict entries directly.
+fn build_string_dict_data(strings: &[Option<&str>], any_null: bool) -> MltResult<Vec<u8>> {
+    // Build ordered dictionary (preserves first-occurrence order).
+    let mut dict: Vec<&str> = Vec::new();
+    let mut dict_index: HashMap<&str, u32> = HashMap::new();
+
+    for s in strings.iter().filter_map(|s| *s) {
+        if !dict_index.contains_key(s) {
+            let idx = dict.len() as u32;
+            dict.push(s);
+            dict_index.insert(s, idx);
+        }
+    }
+
+    // Build per-feature index stream.
+    let mut indices: Vec<u32> = Vec::with_capacity(strings.len());
+    for s in strings {
+        match s {
+            None => {
+                // OptStrDict: null = index 0; StrDict should not have nulls.
+                indices.push(0);
+            }
+            Some(s) => {
+                let dict_pos = dict_index[*s];
+                if any_null {
+                    // Shift by 1: index 0 reserved for null.
+                    indices.push(dict_pos + 1);
+                } else {
+                    indices.push(dict_pos);
+                }
+            }
+        }
+    }
+
+    let dict_lengths: Vec<u32> = dict.iter().map(|s| s.len() as u32).collect();
+    let dict_bytes: Vec<u8> = dict.iter().flat_map(|s| s.as_bytes()).copied().collect();
+
+    let mut buf = Vec::new();
+    // dict_lengths: explicit count = number of dict entries.
+    write_u32_stream_explicit(&mut buf, &dict_lengths)?;
+    // dict_data: raw bytes.
+    write_raw_bytes(&mut buf, &dict_bytes)?;
+    // indices: implicit count = feature_count.
+    write_u32_stream_implicit(&mut buf, &indices)?;
+    Ok(buf)
+}
+
+/// Build the bytes for a StrFsst / OptStrFsst column data section.
+///
+/// Wire layout: `sym_lengths_stream | sym_bytes_stream | val_lengths_stream | corpus_stream`
+///
+/// - `sym_lengths_stream`: VarInt, explicit count = number of symbols.
+/// - `sym_bytes_stream`:   raw bytes, explicit count = total symbol bytes.
+/// - `val_lengths_stream`: VarInt, implicit count = popcount (or feature_count if non-optional).
+/// - `corpus_stream`:      raw bytes, explicit count = compressed corpus size.
+fn build_string_fsst_data(strings: &[Option<&str>], _any_null: bool) -> MltResult<Vec<u8>> {
+    let present: Vec<&str> = strings.iter().filter_map(|s| *s).collect();
+    // FSST requires at least one string to train on.
+    if present.is_empty() {
+        // Fall back to an empty structure that the decoder can handle.
+        let mut buf = Vec::new();
+        write_u32_stream_explicit(&mut buf, &[])?; // 0 symbols
+        write_raw_bytes(&mut buf, &[])?;           // 0 symbol bytes
+        write_u32_stream_implicit(&mut buf, &[])?; // 0 lengths
+        write_raw_bytes(&mut buf, &[])?;           // 0 corpus bytes
+        return Ok(buf);
+    }
+
+    let raw = compress_fsst(&present);
+
+    let mut buf = Vec::new();
+    write_u32_stream_explicit(&mut buf, &raw.symbol_lengths)?;
+    write_raw_bytes(&mut buf, &raw.symbol_bytes)?;
+    write_u32_stream_implicit(&mut buf, &raw.value_lengths)?;
+    write_raw_bytes(&mut buf, &raw.corpus)?;
+    Ok(buf)
+}
+
+// ── Shared-dictionary encoding ────────────────────────────────────────────────
+
+/// Build the per-feature index stream for one child of a shared-dict group.
+///
+/// - Non-optional child: index `k` → dict entry `k` (0-based).
+/// - Optional child:     index `0` = null; index `k` (k ≥ 1) → dict entry `k-1`.
+fn build_item_indices(
+    item: &StagedSharedDictItem,
+    span_to_idx: &HashMap<(u32, u32), u32>,
+    optional: bool,
+) -> Vec<u32> {
+    let mut span_iter = item.dense_spans();
+    item.presence_bools()
+        .map(|present| {
+            if present {
+                let span = span_iter.next().expect("v2 SharedDict: presence/dense mismatch");
+                let dict_idx = *span_to_idx
+                    .get(&span)
+                    .expect("v2 SharedDict: span not in dict");
+                if optional { dict_idx + 1 } else { dict_idx }
+            } else {
+                0 // null slot (only reachable when `optional`)
+            }
+        })
+        .collect()
+}
+
+/// Build the encoded bytes for a plain-corpus shared-dict column (`COL_STR_SHARED_DICT`).
+///
+/// Wire layout:
+/// ```text
+/// [u8: COL_STR_SHARED_DICT]
+/// [varint: prefix_len] [prefix bytes]
+/// [varint: child_count]
+/// [dict_lengths: ENC_VARINT_EXPL, count = dict_entry_count, body]
+/// [dict_data:    ENC_RAW_EXPL, count = total UTF-8 bytes]
+/// for each child:
+///   [u8: child_flags]   bit 0 = optional
+///   [varint: suffix_len] [suffix bytes]
+///   [indices: ENC_VARINT, implicit count = feature_count, body]
+///       non-optional: 0..N-1 → dict index
+///       optional:     0 = null, 1..N → dict index + 1
+/// ```
+fn build_shared_dict_plain(
+    prefix: &str,
+    items: &[StagedSharedDictItem],
+    dict_strings: &[&str],
+    span_to_idx: &HashMap<(u32, u32), u32>,
+) -> MltResult<Vec<u8>> {
+    let mut buf = Vec::new();
+    buf.push(COL_STR_SHARED_DICT);
+
+    let prefix_bytes = prefix.as_bytes();
+    buf.write_varint(prefix_bytes.len() as u32)
+        .map_err(MltError::from)?;
+    buf.extend_from_slice(prefix_bytes);
+    buf.write_varint(items.len() as u32).map_err(MltError::from)?;
+
+    let dict_lengths: Vec<u32> = dict_strings.iter().map(|s| s.len() as u32).collect();
+    let dict_bytes: Vec<u8> = dict_strings
+        .iter()
+        .flat_map(|s| s.as_bytes())
+        .copied()
+        .collect();
+    write_u32_stream_explicit(&mut buf, &dict_lengths)?;
+    write_raw_bytes(&mut buf, &dict_bytes)?;
+
+    for item in items {
+        let optional = item.has_presence();
+        buf.push(if optional { CHILD_OPTIONAL } else { 0 });
+        let suffix_bytes = item.suffix.as_bytes();
+        buf.write_varint(suffix_bytes.len() as u32)
+            .map_err(MltError::from)?;
+        buf.extend_from_slice(suffix_bytes);
+        let indices = build_item_indices(item, span_to_idx, optional);
+        write_u32_stream_implicit(&mut buf, &indices)?;
+    }
+
+    Ok(buf)
+}
+
+/// Build the encoded bytes for a FSST-corpus shared-dict column (`COL_STR_SHARED_DICT_FSST`).
+///
+/// Same as [`build_shared_dict_plain`] but the corpus section becomes:
+/// ```text
+/// [sym_lengths: ENC_VARINT_EXPL] [sym_bytes: ENC_RAW_EXPL]
+/// [val_lengths: ENC_VARINT_EXPL, count = dict_entry_count] [corpus: ENC_RAW_EXPL]
+/// ```
+/// Per-child index semantics are identical to the plain variant.
+fn build_shared_dict_fsst(
+    prefix: &str,
+    items: &[StagedSharedDictItem],
+    dict_strings: &[&str],
+    span_to_idx: &HashMap<(u32, u32), u32>,
+) -> MltResult<Vec<u8>> {
+    let raw = compress_fsst(dict_strings);
+
+    let mut buf = Vec::new();
+    buf.push(COL_STR_SHARED_DICT_FSST);
+
+    let prefix_bytes = prefix.as_bytes();
+    buf.write_varint(prefix_bytes.len() as u32)
+        .map_err(MltError::from)?;
+    buf.extend_from_slice(prefix_bytes);
+    buf.write_varint(items.len() as u32).map_err(MltError::from)?;
+
+    write_u32_stream_explicit(&mut buf, &raw.symbol_lengths)?;
+    write_raw_bytes(&mut buf, &raw.symbol_bytes)?;
+    write_u32_stream_explicit(&mut buf, &raw.value_lengths)?;
+    write_raw_bytes(&mut buf, &raw.corpus)?;
+
+    for item in items {
+        let optional = item.has_presence();
+        buf.push(if optional { CHILD_OPTIONAL } else { 0 });
+        let suffix_bytes = item.suffix.as_bytes();
+        buf.write_varint(suffix_bytes.len() as u32)
+            .map_err(MltError::from)?;
+        buf.extend_from_slice(suffix_bytes);
+        let indices = build_item_indices(item, span_to_idx, optional);
+        write_u32_stream_implicit(&mut buf, &indices)?;
+    }
+
+    Ok(buf)
+}
+
+/// Encode a shared-dict group, automatically choosing plain vs FSST corpus.
+///
+/// Returns the encoded bytes for a single shared-dict column entry.  The caller
+/// should compare this against individually-encoded columns and use whichever is
+/// smaller (see [`encode_v2_with_sort`]).
+///
+/// When `allow_fsst` is false only the plain-corpus variant is tried.
+fn encode_shared_dict_chunk(
+    group: &StringGroup,
+    features: &[TileFeature],
+    allow_fsst: bool,
+) -> MltResult<Vec<u8>> {
+    // Extract per-column string values in stable column-index order.
+    let mut order: Vec<usize> = (0..group.columns.len()).collect();
+    order.sort_by_key(|&i| group.columns[i].1);
+
+    let columns: Vec<(String, Vec<Option<String>>)> = order
+        .iter()
+        .map(|&i| {
+            let (suffix, col_idx) = &group.columns[i];
+            let values: Vec<Option<String>> = features
+                .iter()
+                .map(|f| match f.properties.get(*col_idx) {
+                    Some(PropValue::Str(Some(s))) => Some(s.clone()),
+                    _ => None,
+                })
+                .collect();
+            (suffix.clone(), values)
+        })
+        .collect();
+
+    // Build the shared corpus (dedup strings across all children into one buffer).
+    let shared_dict = StagedSharedDict::new(
+        group.prefix.clone(),
+        columns
+            .iter()
+            .map(|(s, v)| (s.as_str(), v.iter().map(|o| o.as_deref()))),
+    )?;
+
+    // Unique dictionary entries (sorted, deduped spans → stable dict order).
+    let dict_spans = {
+        let mut s: Vec<(u32, u32)> = shared_dict
+            .items
+            .iter()
+            .flat_map(|item| item.dense_spans())
+            .collect();
+        s.sort_unstable();
+        s.dedup();
+        s
+    };
+    let dict_strings: Vec<&str> = dict_spans
+        .iter()
+        .map(|&(s, e)| {
+            shared_dict
+                .get((s, e))
+                .ok_or(MltError::NotImplemented("v2: shared dict span OOB"))
+        })
+        .collect::<MltResult<Vec<_>>>()?;
+    let span_to_idx: HashMap<(u32, u32), u32> = dict_spans
+        .iter()
+        .copied()
+        .enumerate()
+        .map(|(i, span)| (span, i as u32))
+        .collect();
+
+    let plain_buf =
+        build_shared_dict_plain(&group.prefix, &shared_dict.items, &dict_strings, &span_to_idx)?;
+
+    if allow_fsst && !dict_strings.is_empty() {
+        let fsst_buf = build_shared_dict_fsst(
+            &group.prefix,
+            &shared_dict.items,
+            &dict_strings,
+            &span_to_idx,
+        )?;
+        if fsst_buf.len() < plain_buf.len() {
+            return Ok(fsst_buf);
+        }
+    }
+
+    Ok(plain_buf)
 }
 
 // ── VarInt stream helpers for optional columns (count = popcount) ─────────────
-
-fn write_i32_stream_as_explicit(buf: &mut Vec<u8>, values: &[i32]) -> MltResult<()> {
-    buf.push(ENC_VARINT); // count = popcount (implicit for optional columns)
-    let mut tmp = Vec::new();
-    for &v in values {
-        tmp.write_varint(i32::encode(v)).map_err(MltError::from)?;
-    }
-    buf.write_varint(tmp.len() as u32).map_err(MltError::from)?;
-    buf.extend_from_slice(&tmp);
-    Ok(())
-}
+// These reuse the same wire format as their _implicit counterparts; the count is
+// determined by the decoder from context (feature_count or popcount).
 
 fn write_i64_stream_as_explicit(buf: &mut Vec<u8>, values: &[i64]) -> MltResult<()> {
-    buf.push(ENC_VARINT); // count = popcount
-    let mut tmp = Vec::new();
-    for &v in values {
-        tmp.write_varint(i64::encode(v)).map_err(MltError::from)?;
-    }
-    buf.write_varint(tmp.len() as u32).map_err(MltError::from)?;
-    buf.extend_from_slice(&tmp);
-    Ok(())
-}
-
-fn write_u32_popcount(buf: &mut Vec<u8>, values: &[u32]) -> MltResult<()> {
-    buf.push(ENC_VARINT); // count = popcount
-    let mut tmp = Vec::new();
-    for &v in values {
-        tmp.write_varint(v).map_err(MltError::from)?;
-    }
-    buf.write_varint(tmp.len() as u32).map_err(MltError::from)?;
-    buf.extend_from_slice(&tmp);
-    Ok(())
-}
-
-fn write_u64_popcount(buf: &mut Vec<u8>, values: &[u64]) -> MltResult<()> {
-    buf.push(ENC_VARINT); // count = popcount
-    let mut tmp = Vec::new();
-    for &v in values {
-        tmp.write_varint(v).map_err(MltError::from)?;
-    }
-    buf.write_varint(tmp.len() as u32).map_err(MltError::from)?;
-    buf.extend_from_slice(&tmp);
-    Ok(())
+    write_i64_stream_implicit(buf, values)
 }
 
 // ── PropValue field accessors ─────────────────────────────────────────────────
@@ -878,6 +1431,29 @@ pub fn decode_v2_layer(data: &[u8]) -> MltResult<TileLayer01> {
                 data = new_data;
                 property_names.push(col_name);
                 property_columns.push(col_values);
+            }
+            COL_STR_DICT | COL_OPT_STR_DICT => {
+                let (new_data, col_name, col_values) =
+                    decode_string_dict_column(data, col_type, feature_count)?;
+                data = new_data;
+                property_names.push(col_name);
+                property_columns.push(col_values);
+            }
+            COL_STR_FSST | COL_OPT_STR_FSST => {
+                let (new_data, col_name, col_values) =
+                    decode_string_fsst_column(data, col_type, feature_count)?;
+                data = new_data;
+                property_names.push(col_name);
+                property_columns.push(col_values);
+            }
+            COL_STR_SHARED_DICT | COL_STR_SHARED_DICT_FSST => {
+                let (new_data, columns) =
+                    decode_shared_dict_v2(data, col_type, feature_count)?;
+                data = new_data;
+                for (col_name, col_values) in columns {
+                    property_names.push(col_name);
+                    property_columns.push(col_values);
+                }
             }
             _ => {
                 return Err(MltError::NotImplemented("unsupported v2 column type"));
@@ -1133,8 +1709,12 @@ fn read_enc_byte(data: &[u8]) -> MltResult<(&[u8], bool, u8, u8)> {
     Ok((&data[1..], has_explicit_count, logical, physical))
 }
 
-/// Read a VarInt u32 stream. If `explicit` is true, read the count from the stream;
-/// otherwise use `implicit_count`. After reading count, reads byte_length and the data.
+/// Read a VarInt (or RLE) u32 stream.
+///
+/// If `explicit` is true, read the count from the stream; otherwise use `implicit_count`.
+/// Supports:
+/// - `logical=0` (None) + `physical=2` (VarInt): plain VarInt stream.
+/// - `logical=3` (Rle):  byte_length always present; data is `(run_len, value)` VarInt pairs.
 fn read_u32_stream(
     data: &[u8],
     implicit_count: usize,
@@ -1142,15 +1722,38 @@ fn read_u32_stream(
 ) -> MltResult<(&[u8], Vec<u32>)> {
     let (data, has_expl_count, logical, physical) = read_enc_byte(data)?;
 
-    if logical != 0 {
-        // Only None logical is supported here
-        return Err(MltError::NotImplemented(
-            "v2 decoder: unsupported logical encoding for integer stream",
-        ));
+    // ── RLE: logical=3, physical bits reserved (00) ──────────────────────────
+    if logical == 3 {
+        // byte_length always follows for RLE; no separate count field.
+        let (data, byte_len) = parse_varint::<u32>(data)?;
+        let byte_len = byte_len as usize;
+        if data.len() < byte_len {
+            return Err(MltError::BufferUnderflow(byte_len as u32, data.len()));
+        }
+        let encoded = &data[..byte_len];
+        let remaining = &data[byte_len..];
+
+        let capacity = if has_expl_count || explicit { implicit_count } else { 16 };
+        let mut values = Vec::with_capacity(capacity);
+        let mut pos = 0;
+        while pos < byte_len {
+            let (run_len, c1) = u32::decode_var(&encoded[pos..])
+                .ok_or(MltError::BufferUnderflow(4, encoded.len() - pos))?;
+            pos += c1;
+            let (val, c2) = u32::decode_var(&encoded[pos..])
+                .ok_or(MltError::BufferUnderflow(4, encoded.len() - pos))?;
+            pos += c2;
+            for _ in 0..run_len {
+                values.push(val);
+            }
+        }
+        return Ok((remaining, values));
     }
-    if physical != 2 {
+
+    // ── VarInt: logical=0, physical=2 ────────────────────────────────────────
+    if logical != 0 || physical != 2 {
         return Err(MltError::NotImplemented(
-            "v2 decoder: only VarInt physical encoding supported for integer stream",
+            "v2 decoder: unsupported encoding for u32 stream",
         ));
     }
 
@@ -1161,7 +1764,6 @@ fn read_u32_stream(
         (data, implicit_count)
     };
 
-    // byte_length
     let (data, byte_len) = parse_varint::<u32>(data)?;
     let byte_len = byte_len as usize;
     if data.len() < byte_len {
@@ -1271,13 +1873,17 @@ fn read_i64_stream(data: &[u8], implicit_count: usize) -> MltResult<(&[u8], Vec<
     Ok((remaining, values))
 }
 
-/// Read a VarInt u64 stream.
+/// Read a VarInt (or Delta+VarInt) u64 stream.
+///
+/// Supports:
+/// - `logical=0` (None) + `physical=2` (VarInt): plain VarInt.
+/// - `logical=1` (Delta) + `physical=2` (VarInt): VarInt-encoded deltas, prefix-sum to recover.
 fn read_u64_stream(data: &[u8], implicit_count: usize) -> MltResult<(&[u8], Vec<u64>)> {
     let (data, _has_expl_count, logical, physical) = read_enc_byte(data)?;
 
-    if logical != 0 || physical != 2 {
+    if physical != 2 || (logical != 0 && logical != 1) {
         return Err(MltError::NotImplemented(
-            "v2 decoder: only VarInt supported for u64 stream",
+            "v2 decoder: only VarInt / Delta+VarInt supported for u64 stream",
         ));
     }
 
@@ -1298,16 +1904,30 @@ fn read_u64_stream(data: &[u8], implicit_count: usize) -> MltResult<(&[u8], Vec<
         pos += consumed;
     }
 
+    // Apply prefix-sum to undo delta encoding.
+    if logical == 1 {
+        let mut acc = 0u64;
+        for v in &mut values {
+            acc = acc.wrapping_add(*v);
+            *v = acc;
+        }
+    }
+
     Ok((remaining, values))
 }
 
-/// Read a ComponentwiseDelta + VarInt vertex stream (explicit count = vertex pairs).
+/// Read a ComponentwiseDelta + (VarInt or FastPFor128) vertex stream (explicit count = vertex pairs).
 fn read_cwdelta_stream(data: &[u8]) -> MltResult<(&[u8], Vec<i32>)> {
     let (data, has_expl_count, logical, physical) = read_enc_byte(data)?;
 
-    if logical != 2 || physical != 2 {
+    if logical != 2 {
         return Err(MltError::NotImplemented(
-            "v2 decoder: only CwDelta+VarInt supported for vertex stream",
+            "v2 decoder: only CwDelta logical encoding supported for vertex stream",
+        ));
+    }
+    if physical != 2 && physical != 3 {
+        return Err(MltError::NotImplemented(
+            "v2 decoder: only VarInt(2) or FastPFor128(3) physical encoding for vertex stream",
         ));
     }
 
@@ -1328,16 +1948,35 @@ fn read_cwdelta_stream(data: &[u8]) -> MltResult<(&[u8], Vec<i32>)> {
     let encoded = &data[..byte_len];
     let remaining = &data[byte_len..];
 
-    // Decode VarInt u32 values
     let coord_count = pair_count * 2;
-    let mut u32_vals = Vec::with_capacity(coord_count);
-    let mut pos = 0;
-    while pos < byte_len {
-        let (v, consumed) = u32::decode_var(&encoded[pos..])
-            .ok_or(MltError::BufferUnderflow(4, encoded.len() - pos))?;
-        u32_vals.push(v);
-        pos += consumed;
-    }
+
+    let u32_vals: Vec<u32> = if physical == 3 {
+        // FastPFor128: bytes are LE u32 words
+        if !byte_len.is_multiple_of(4) {
+            return Err(MltError::NotImplemented("v2 FP128: byte length not multiple of 4"));
+        }
+        let words: Vec<u32> = encoded
+            .chunks_exact(4)
+            .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+            .collect();
+        let mut result = Vec::with_capacity(coord_count + 128);
+        FastPFor128::default()
+            .decode(&words, &mut result, Some(coord_count as u32))
+            .map_err(|_| MltError::NotImplemented("v2: FastPFor128 decode error"))?;
+        result.truncate(coord_count);
+        result
+    } else {
+        // VarInt
+        let mut vals = Vec::with_capacity(coord_count);
+        let mut pos = 0;
+        while pos < byte_len {
+            let (v, consumed) = u32::decode_var(&encoded[pos..])
+                .ok_or(MltError::BufferUnderflow(4, encoded.len() - pos))?;
+            vals.push(v);
+            pos += consumed;
+        }
+        vals
+    };
 
     // Apply inverse CwDelta
     let mut result = Vec::with_capacity(coord_count);
@@ -1578,6 +2217,296 @@ fn decode_string_column<'a>(
         PropValue::Str(None),
     );
     Ok((data, values))
+}
+
+/// Decode a StrFsst (col_type=32) or OptStrFsst (col_type=33) column.
+///
+/// Wire layout: `[presence?] | sym_lengths | sym_bytes | val_lengths | corpus`
+fn decode_string_fsst_column<'a>(
+    data: &'a [u8],
+    col_type: u8,
+    feature_count: usize,
+) -> MltResult<(&'a [u8], String, Vec<PropValue>)> {
+    let optional = col_type == COL_OPT_STR_FSST;
+
+    // name
+    let (data, name_len) = parse_varint::<u32>(data)?;
+    let name_len = name_len as usize;
+    if data.len() < name_len {
+        return Err(MltError::BufferUnderflow(name_len as u32, data.len()));
+    }
+    let name = std::str::from_utf8(&data[..name_len])?.to_string();
+    let data = &data[name_len..];
+
+    // presence (only for optional)
+    let (data, presence) = if optional {
+        let (d, p) = read_presence(data, feature_count)?;
+        (d, Some(p))
+    } else {
+        (data, None)
+    };
+    let popcount = presence
+        .as_ref()
+        .map(|p| p.iter().filter(|&&x| x).count())
+        .unwrap_or(feature_count);
+
+    // val_lengths uses an implicit count (= popcount) in the per-column FSST variant.
+    let (data, present_strings) = read_fsst_strings(data, popcount, false)?;
+
+    let values = if let Some(pres) = &presence {
+        let mut result = Vec::with_capacity(feature_count);
+        let mut iter = present_strings.into_iter();
+        for &present in pres {
+            if present {
+                result.push(PropValue::Str(iter.next().map(Some).unwrap_or(None)));
+            } else {
+                result.push(PropValue::Str(None));
+            }
+        }
+        result
+    } else {
+        present_strings
+            .into_iter()
+            .map(|s| PropValue::Str(Some(s)))
+            .collect()
+    };
+
+    Ok((data, name, values))
+}
+
+/// Decompress an FSST-encoded corpus into individual strings.
+fn fsst_decompress(
+    sym_lengths: &[u32],
+    sym_bytes: &[u8],
+    val_lengths: &[u32],
+    corpus: &[u8],
+) -> MltResult<Vec<String>> {
+    // Build per-symbol offset table.
+    let mut sym_offsets = vec![0usize; sym_lengths.len() + 1];
+    for (i, &len) in sym_lengths.iter().enumerate() {
+        sym_offsets[i + 1] = sym_offsets[i] + len as usize;
+    }
+
+    // Decompress corpus: 0xFF → literal next byte; else → expand symbol.
+    let mut output: Vec<u8> = Vec::new();
+    let mut i = 0;
+    while i < corpus.len() {
+        let sym_idx = corpus[i] as usize;
+        if sym_idx == 255 {
+            i += 1;
+            if i < corpus.len() {
+                output.push(corpus[i]);
+            }
+        } else if sym_idx < sym_lengths.len() {
+            let start = sym_offsets[sym_idx];
+            let end = sym_offsets[sym_idx + 1];
+            output.extend_from_slice(&sym_bytes[start..end]);
+        }
+        i += 1;
+    }
+
+    // Split by value lengths.
+    let mut strings = Vec::with_capacity(val_lengths.len());
+    let mut offset = 0usize;
+    for &len in val_lengths {
+        let end = offset + len as usize;
+        let s = std::str::from_utf8(output.get(offset..end).ok_or(
+            MltError::BufferUnderflow(len, output.len() - offset),
+        )?)
+        .map_err(MltError::from)?
+        .to_string();
+        strings.push(s);
+        offset = end;
+    }
+    Ok(strings)
+}
+
+/// Decode a StrDict (col_type=30) or OptStrDict (col_type=31) column.
+///
+/// Wire layout: `dict_lengths_stream | dict_data_stream | indices_stream`
+///
+/// - `StrDict`:    all features have a value; index `k` → dict entry `k`.
+/// - `OptStrDict`: index `0` = null; index `k` (k≥1) → dict entry `k-1`.
+fn decode_string_dict_column<'a>(
+    data: &'a [u8],
+    col_type: u8,
+    feature_count: usize,
+) -> MltResult<(&'a [u8], String, Vec<PropValue>)> {
+    let optional = col_type == COL_OPT_STR_DICT;
+
+    // name
+    let (data, name_len) = parse_varint::<u32>(data)?;
+    let name_len = name_len as usize;
+    if data.len() < name_len {
+        return Err(MltError::BufferUnderflow(name_len as u32, data.len()));
+    }
+    let name = std::str::from_utf8(&data[..name_len])?.to_string();
+    let data = &data[name_len..];
+
+    // dict_lengths: explicit count = number of dict entries
+    let (data, dict_lengths) = read_u32_stream(data, 0, true)?;
+    // dict_data: raw bytes
+    let (data, dict_bytes) = read_raw_bytes_stream(data)?;
+    // indices: implicit count = feature_count
+    let (data, indices) = read_u32_stream(data, feature_count, false)?;
+
+    // Reconstruct dictionary entries from lengths + raw bytes.
+    let dict = build_strings_from_lengths(&dict_lengths, &dict_bytes)?;
+
+    // Map per-feature indices back to PropValue.
+    let mut values = Vec::with_capacity(feature_count);
+    for &idx in &indices {
+        let pv = if optional {
+            if idx == 0 {
+                PropValue::Str(None)
+            } else {
+                let entry = dict
+                    .get(idx as usize - 1)
+                    .ok_or(MltError::NotImplemented("v2 StrDict: index out of range"))?;
+                PropValue::Str(Some(entry.clone()))
+            }
+        } else {
+            let entry = dict
+                .get(idx as usize)
+                .ok_or(MltError::NotImplemented("v2 StrDict: index out of range"))?;
+            PropValue::Str(Some(entry.clone()))
+        };
+        values.push(pv);
+    }
+
+    Ok((data, name, values))
+}
+
+/// Decode a `COL_STR_SHARED_DICT` or `COL_STR_SHARED_DICT_FSST` column.
+///
+/// Returns a list of `(property_name, per_feature_values)` — one entry per child column in
+/// the group — so the caller can append them individually to `property_names` /
+/// `property_columns`.
+///
+/// Wire layout (plain corpus, `COL_STR_SHARED_DICT`):
+/// ```text
+/// [varint: prefix_len] [prefix bytes]
+/// [varint: child_count]
+/// [dict_lengths: ENC_VARINT_EXPL] [dict_data: ENC_RAW_EXPL]
+/// for each child:
+///   [u8: flags]  bit 0 = optional
+///   [varint: suffix_len] [suffix bytes]
+///   [indices: ENC_VARINT, implicit count = feature_count]
+/// ```
+/// FSST variant (`COL_STR_SHARED_DICT_FSST`) replaces the corpus section with:
+/// ```text
+/// [sym_lengths: ENC_VARINT_EXPL] [sym_bytes: ENC_RAW_EXPL]
+/// [val_lengths: ENC_VARINT_EXPL] [corpus: ENC_RAW_EXPL]
+/// ```
+fn decode_shared_dict_v2<'a>(
+    data: &'a [u8],
+    col_type: u8,
+    feature_count: usize,
+) -> MltResult<(&'a [u8], Vec<(String, Vec<PropValue>)>)> {
+    let use_fsst = col_type == COL_STR_SHARED_DICT_FSST;
+
+    let (data, prefix_len) = parse_varint::<u32>(data)?;
+    let prefix_len = prefix_len as usize;
+    if data.len() < prefix_len {
+        return Err(MltError::BufferUnderflow(prefix_len as u32, data.len()));
+    }
+    let prefix = std::str::from_utf8(&data[..prefix_len])?.to_string();
+    let data = &data[prefix_len..];
+
+    let (data, child_count) = parse_varint::<u32>(data)?;
+    let child_count = child_count as usize;
+
+    // Decode shared dictionary corpus into a Vec<String> (one entry per dict index).
+    let (data, dict_strings): (&[u8], Vec<String>) = if use_fsst {
+        // val_lengths has an explicit count in the FSST shared-dict variant.
+        read_fsst_strings(data, 0, true)?
+    } else {
+        let (data, dict_lengths) = read_u32_stream(data, 0, true)?;
+        let (data, dict_bytes) = read_raw_bytes_stream(data)?;
+        (data, build_strings_from_lengths(&dict_lengths, &dict_bytes)?)
+    };
+
+    let mut result = Vec::with_capacity(child_count);
+    let mut data = data;
+
+    for _ in 0..child_count {
+        if data.is_empty() {
+            return Err(MltError::BufferUnderflow(1, 0));
+        }
+        let flags = data[0];
+        data = &data[1..];
+        let optional = (flags & CHILD_OPTIONAL) != 0;
+
+        let (d, suffix_len) = parse_varint::<u32>(data)?;
+        let suffix_len = suffix_len as usize;
+        if d.len() < suffix_len {
+            return Err(MltError::BufferUnderflow(suffix_len as u32, d.len()));
+        }
+        let suffix = std::str::from_utf8(&d[..suffix_len])?.to_string();
+        data = &d[suffix_len..];
+
+        let col_name = format!("{prefix}{suffix}");
+
+        // indices: implicit count = feature_count
+        let (d, indices) = read_u32_stream(data, feature_count, false)?;
+        data = d;
+
+        let values: MltResult<Vec<PropValue>> = indices
+            .iter()
+            .map(|&idx| {
+                if optional && idx == 0 {
+                    Ok(PropValue::Str(None))
+                } else {
+                    let dict_idx = if optional { idx as usize - 1 } else { idx as usize };
+                    let s = dict_strings
+                        .get(dict_idx)
+                        .ok_or(MltError::NotImplemented("v2 SharedDict: index out of range"))?
+                        .clone();
+                    Ok(PropValue::Str(Some(s)))
+                }
+            })
+            .collect();
+
+        result.push((col_name, values?));
+    }
+
+    Ok((data, result))
+}
+
+/// Reconstruct strings from a parallel `(lengths, flat_bytes)` pair.
+fn build_strings_from_lengths(lengths: &[u32], bytes: &[u8]) -> MltResult<Vec<String>> {
+    let mut strings = Vec::with_capacity(lengths.len());
+    let mut offset = 0usize;
+    for &len in lengths {
+        let end = offset + len as usize;
+        let s = std::str::from_utf8(
+            bytes
+                .get(offset..end)
+                .ok_or(MltError::BufferUnderflow(len, bytes.len().saturating_sub(offset)))?,
+        )
+        .map_err(MltError::from)?
+        .to_string();
+        strings.push(s);
+        offset = end;
+    }
+    Ok(strings)
+}
+
+/// Read FSST-encoded streams and decompress them into plain strings.
+///
+/// `val_explicit` controls whether the value-lengths count is read from the stream
+/// (`true`) or inferred from `val_count` (`false`).
+fn read_fsst_strings<'a>(
+    data: &'a [u8],
+    val_count: usize,
+    val_explicit: bool,
+) -> MltResult<(&'a [u8], Vec<String>)> {
+    let (data, sym_lengths) = read_u32_stream(data, 0, true)?;
+    let (data, sym_bytes) = read_raw_bytes_stream(data)?;
+    let (data, val_lengths) = read_u32_stream(data, val_count, val_explicit)?;
+    let (data, corpus) = read_raw_bytes_stream(data)?;
+    let strings = fsst_decompress(&sym_lengths, &sym_bytes, &val_lengths, &corpus)?;
+    Ok((data, strings))
 }
 
 /// Expand a stream of non-null values back to `feature_count` values by

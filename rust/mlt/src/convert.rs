@@ -119,10 +119,6 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         ..Default::default()
     };
 
-    if args.v2 && is_mbtiles_extension(&args.input) {
-        bail!("--v2 is not supported with .mbtiles input (only file-based conversion)");
-    }
-
     if is_mbtiles_extension(&args.input) {
         if !is_mbtiles_extension(&args.output) {
             bail!(
@@ -134,7 +130,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
             .enable_io()
             .enable_time()
             .build()?
-            .block_on(convert_mbtiles_async(args, cfg));
+            .block_on(convert_mbtiles_async(args, cfg, args.v2));
     }
 
     let mut files: Vec<PathBuf> = Vec::new();
@@ -152,9 +148,8 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     };
 
     let failed = AtomicUsize::new(0);
-    let use_v2 = args.v2;
     files.par_iter().for_each(|file| {
-        if let Err(e) = convert_file(file, base, &args.output, cfg, use_v2) {
+        if let Err(e) = convert_file(file, base, &args.output, cfg, args.v2) {
             eprintln!("error: {}: {e:#}", file.display());
             failed.fetch_add(1, Ordering::Relaxed);
         }
@@ -186,19 +181,13 @@ fn convert_file(
 
     let buffer = fs::read(file).with_context(|| format!("reading {}", file.display()))?;
     let out_bytes = if is_mlt_extension(file) {
-        if v2 {
-            convert_mlt_buffer_v2(&buffer)
-                .with_context(|| format!("converting MLT→v2 {}", file.display()))?
-        } else {
-            convert_mlt_buffer(&buffer, cfg)
-                .with_context(|| format!("converting MLT {}", file.display()))?
-        }
-    } else if v2 {
-        convert_mvt_buffer_v2(buffer)
-            .with_context(|| format!("converting MVT→v2 {}", file.display()))?
+        let label = if v2 { "MLT→v2" } else { "MLT" };
+        convert_mlt_buffer(&buffer, cfg, v2)
+            .with_context(|| format!("converting {label} {}", file.display()))?
     } else {
-        convert_mvt_buffer(buffer, cfg)
-            .with_context(|| format!("converting MVT {}", file.display()))?
+        let label = if v2 { "MVT→v2" } else { "MVT" };
+        convert_mvt_buffer(buffer, cfg, v2)
+            .with_context(|| format!("converting {label} {}", file.display()))?
     };
 
     fs::write(&out_path, &out_bytes).with_context(|| format!("writing {}", out_path.display()))?;
@@ -241,12 +230,13 @@ fn is_mbtiles_extension(path: &Path) -> bool {
     matches!(path.extension().and_then(OsStr::to_str), Some("mbtiles"))
 }
 
-/// Re-encode an MLT tile using automatic encoding selection.
+/// Re-encode an MLT tile, dispatching to v1 or v2 encoding based on `v2`.
 ///
-/// Every Tag01 layer is fully decoded to [`mlt_core::TileLayer01`] and then
-/// re-encoded via [`mlt_core::TileLayer01::encode`]. Unknown layer tags are
-/// passed through unchanged.
-fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
+/// For v1: every `Tag01` layer is re-encoded via [`TileLayer01::encode`];
+/// `Unknown` layers are passed through unchanged.
+/// For v2: `Tag01` and `Tag02` layers are re-encoded via [`TileLayer01::encode_v2`];
+/// `Unknown` layers are dropped (they have no v2 equivalent).
+fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig, v2: bool) -> AnyResult<Vec<u8>> {
     let layers = Parser::default().parse_layers(buffer)?;
     let mut dec = Decoder::default();
     let mut out: Vec<u8> = Vec::new();
@@ -255,9 +245,13 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
         match layer {
             Layer::Tag01(l) => {
                 let tile = l.into_tile(&mut dec)?;
-                out.extend_from_slice(&tile.encode(cfg)?);
+                let bytes = if v2 { tile.encode_v2(cfg)? } else { tile.encode(cfg)? };
+                out.extend_from_slice(&bytes);
             }
-            Layer::Unknown(u) => {
+            Layer::Tag02(tile) if v2 => {
+                out.extend_from_slice(&tile.encode_v2(cfg)?);
+            }
+            Layer::Unknown(u) if !v2 => {
                 out.extend(EncodedUnknown::from(u).write_to(Encoder::default())?.data);
             }
             _ => {}
@@ -267,46 +261,12 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
     Ok(out)
 }
 
-/// Convert an MVT tile to an MLT tile using automatic encoding selection.
-///
-/// Each MVT layer is converted to a [`mlt_core::TileLayer01`] and encoded
-/// via [`mlt_core::TileLayer01::encode`].
-fn convert_mvt_buffer(buffer: Vec<u8>, cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
+/// Convert an MVT tile to MLT, dispatching to v1 or v2 encoding based on `v2`.
+fn convert_mvt_buffer(buffer: Vec<u8>, cfg: EncoderConfig, v2: bool) -> AnyResult<Vec<u8>> {
     let mut out: Vec<u8> = Vec::new();
     for tile in mvt_to_tile_layers(buffer)? {
-        out.extend_from_slice(&tile.encode(cfg)?);
-    }
-    Ok(out)
-}
-
-/// Re-encode an MLT tile as v2, decoding each Tag01/Tag02 layer and re-encoding as v2.
-fn convert_mlt_buffer_v2(buffer: &[u8]) -> AnyResult<Vec<u8>> {
-    let layers = Parser::default().parse_layers(buffer)?;
-    let mut dec = Decoder::default();
-    let mut out: Vec<u8> = Vec::new();
-
-    for layer in layers {
-        match layer {
-            Layer::Tag01(l) => {
-                let tile = l.into_tile(&mut dec)?;
-                out.extend_from_slice(&tile.encode_v2()?);
-            }
-            Layer::Tag02(tile) => {
-                out.extend_from_slice(&tile.encode_v2()?);
-            }
-            Layer::Unknown(_) => {}
-            _ => {}
-        }
-    }
-
-    Ok(out)
-}
-
-/// Convert an MVT tile to the experimental MLT v2 format.
-fn convert_mvt_buffer_v2(buffer: Vec<u8>) -> AnyResult<Vec<u8>> {
-    let mut out: Vec<u8> = Vec::new();
-    for tile in mvt_to_tile_layers(buffer)? {
-        out.extend_from_slice(&tile.encode_v2()?);
+        let bytes = if v2 { tile.encode_v2(cfg)? } else { tile.encode(cfg)? };
+        out.extend_from_slice(&bytes);
     }
     Ok(out)
 }
@@ -356,6 +316,7 @@ async fn mbtiles_compute(
     mlt_tx: Sender<MltBatch>,
     encoding: Encoding,
     cfg: EncoderConfig,
+    v2: bool,
 ) -> AnyResult<()> {
     while let Some(batch) = raw_rx.recv().await {
         let results = spawn_blocking(move || {
@@ -371,7 +332,7 @@ async fn mbtiles_compute(
                         Encoding::Zstd => decode_zstd(&data)?,
                         Encoding::Uncompressed | Encoding::Internal => data,
                     };
-                    let mlt = convert_mvt_buffer(mvt, cfg)?;
+                    let mlt = convert_mvt_buffer(mvt, cfg, v2)?;
                     Ok((coord, mlt))
                 })
                 .collect::<Vec<_>>()
@@ -486,7 +447,7 @@ async fn mbtiles_writer(
 /// ```
 ///
 /// WAL mode is enabled on the destination file for better write throughput.
-async fn convert_mbtiles_async(args: &ConvertArgs, cfg: EncoderConfig) -> AnyResult<()> {
+async fn convert_mbtiles_async(args: &ConvertArgs, cfg: EncoderConfig, v2: bool) -> AnyResult<()> {
     // ── source ────────────────────────────────────────────────────────────────
     let src = Mbtiles::new(&args.input)?;
     let mut src_conn = src.open_readonly().await?;
@@ -559,7 +520,7 @@ async fn convert_mbtiles_async(args: &ConvertArgs, cfg: EncoderConfig) -> AnyRes
 
     let ((), (), total) = tokio::try_join!(
         mbtiles_reader(src, src_conn, raw_tx),
-        mbtiles_compute(raw_rx, mlt_tx, tile_info.encoding, cfg),
+        mbtiles_compute(raw_rx, mlt_tx, tile_info.encoding, cfg, v2),
         mbtiles_writer(dst, dst_conn, mlt_rx, mbt_type, bar.clone()),
     )?;
 
