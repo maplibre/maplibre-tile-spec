@@ -243,7 +243,9 @@ private:
                                    IntegerEncodingOption integerEncodingOption,
                                    PhysicalStreamType streamType,
                                    std::optional<LogicalStreamType> logicalType) {
-        if (values.empty()) return;
+        if (values.empty()) {
+            return;
+        }
         std::vector<std::int32_t> signedValues(values.size());
         std::ranges::transform(values, signedValues.begin(), [](auto v) { return static_cast<std::int32_t>(v); });
         const auto data = intEncoder.encodeIntStream(

@@ -17,11 +17,25 @@ public:
     static std::vector<std::uint8_t> encodeBooleanStream(const Container& values, PhysicalStreamType streamType) {
         const auto count = values.size();
         const auto numBytes = (count + 7) / 8;
-        std::vector<std::uint8_t> bitset(numBytes, 0);
-        for (std::size_t i = 0; i < count; ++i) {
-            if (values[i]) {
-                bitset[i / 8] |= (1 << (i % 8));
+
+        std::vector<std::uint8_t> bitset;
+        bitset.reserve(numBytes);
+
+        std::uint8_t currentByte = 0;
+        std::uint8_t mask = 1;
+        for (const auto value : values) {
+            if (static_cast<bool>(value)) {
+                currentByte |= mask;
             }
+            mask <<= 1;
+            if (mask == 0) {
+                bitset.push_back(currentByte);
+                currentByte = 0;
+                mask = 1;
+            }
+        }
+        if (mask != 1) {
+            bitset.push_back(currentByte);
         }
 
         const auto encodedData = util::encoding::rle::encodeBooleanRle(bitset.data(),

@@ -2,7 +2,11 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <numeric>
 #include <iterator>
+#include <ranges>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace mlt::util {
@@ -18,6 +22,15 @@ std::vector<T> generateVector(const std::size_t count, F generator) {
     std::generate_n(
         std::back_inserter(result), count, [i = I{0}, f = std::move(generator)]() mutable { return f(i++); });
     return result;
+}
+
+/// Sum projected values in a range.
+template <std::ranges::input_range Range, typename Proj>
+auto sum(const Range& values, Proj proj) {
+    using TValue = std::decay_t<std::invoke_result_t<Proj, std::ranges::range_reference_t<Range>>>;
+    return std::accumulate(values.begin(), values.end(), TValue{}, [&](TValue sum, const auto& value) {
+        return sum + static_cast<TValue>(proj(value));
+    });
 }
 
 // Helper for using lambdas with `std::variant`

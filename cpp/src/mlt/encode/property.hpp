@@ -8,9 +8,9 @@
 #include <mlt/metadata/stream.hpp>
 #include <mlt/metadata/tileset.hpp>
 #include <mlt/util/encoding/varint.hpp>
+#include <mlt/util/stl.hpp>
 
 #include <cstdint>
-#include <numeric>
 #include <optional>
 #include <span>
 #include <string_view>
@@ -198,6 +198,10 @@ public:
                                                          bool columnNullable = false) {
         std::vector<bool> presentValues;
         std::vector<std::string_view> dataValues;
+        if (columnNullable) {
+            presentValues.reserve(values.size());
+        }
+        dataValues.reserve(values.size());
         for (const auto& v : values) {
             if (columnNullable) {
                 presentValues.push_back(v.has_value());
@@ -208,7 +212,6 @@ public:
         }
 
         const auto stringResult = StringEncoder::encode(dataValues, physicalTechnique, intEncoder, useFsst);
-
         const auto streamCount = stringResult.numStreams + (columnNullable ? 1 : 0);
 
         EncodedChunks chunks;
@@ -234,7 +237,7 @@ public:
         const auto streamCount = stringResult.numStreams + (columnNullable ? 1 : 0);
 
         EncodedChunks chunks;
-        chunks.reserve(columnNullable ? 3 : 2);
+        chunks.reserve(3);
         std::vector<std::uint8_t> streamCountBytes;
         util::encoding::encodeVarint(streamCount, streamCountBytes);
         chunks.push_back(std::move(streamCountBytes));
@@ -248,16 +251,21 @@ public:
 
 private:
     template <typename T>
+    // Represents an optional column split into a present bitmap, compacted non-null values,
+    // and a fast flag indicating whether any null was observed.
     struct SeparatedNulls {
         std::vector<bool> present;
         std::vector<T> data;
-        bool hasNull;
+        bool hasNull = false;
     };
 
     template <typename T>
+    // Converts optional values into SeparatedNulls so downstream encoders can process
+    // present and data streams independently without re-scanning the input.
     static SeparatedNulls<T> separateNulls(std::span<const std::optional<T>> values) {
         SeparatedNulls<T> result;
-        result.hasNull = false;
+        result.present.reserve(values.size());
+        result.data.reserve(values.size());
         for (const auto& v : values) {
             if (v.has_value()) {
                 result.present.push_back(true);
@@ -298,10 +306,7 @@ private:
     }
 
     static std::vector<std::uint8_t> flattenChunks(EncodedChunks chunks) {
-        const auto totalSize = std::accumulate(
-            chunks.begin(), chunks.end(), std::size_t{0}, [](std::size_t sum, const auto& chunk) {
-                return sum + chunk.size();
-            });
+        const auto totalSize = util::sum(chunks, [](const auto& chunk) { return chunk.size(); });
 
         std::vector<std::uint8_t> result;
         result.reserve(totalSize);

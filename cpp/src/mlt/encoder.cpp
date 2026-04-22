@@ -279,7 +279,9 @@ void Encoder::Impl::collectGeometry(const std::vector<Feature>& features,
     });
 
     const auto pushVertices = [&](const std::vector<Vertex>& coords) {
-        for (const auto& v : coords) vertexBuffer.push_back({v.x, v.y});
+        for (const auto& v : coords) {
+            vertexBuffer.push_back({v.x, v.y});
+        }
     };
 
     for (const auto& feature : features) {
@@ -420,11 +422,7 @@ void Encoder::Impl::tessellateFeatures(const std::vector<Feature>& features,
             std::uint32_t totalTri = 0;
             std::uint32_t vertexOffset = 0;
             std::vector<std::uint32_t> allIndices;
-            // NOLINTNEXTLINE(boost-use-ranges)
-            const auto totalVertices = std::accumulate(
-                geom.parts.begin(), geom.parts.end(), std::size_t{0}, [](std::size_t sum, const auto& part) {
-                    return sum + part.size();
-                });
+            const auto totalVertices = util::sum(geom.parts, [](const auto& part) { return part.size(); });
             allIndices.reserve(totalVertices * 3);
             for (std::size_t p = 0; p < geom.parts.size(); ++p) {
                 auto [nTri, indices] = tessellateOnePolygon(geom.parts[p], geom.partRingSizes[p], vertexOffset);
@@ -462,11 +460,7 @@ Encoder::Impl::ScalarPropertyCache Encoder::Impl::buildScalarPropertyCache(const
 
 std::vector<std::uint8_t> Encoder::Impl::assembleLayerBytes(const std::vector<std::uint8_t>& metadataBytes,
                                                             const EncodedChunks& bodyChunks) {
-    // NOLINTNEXTLINE(boost-use-ranges)
-    const auto bodySize = std::accumulate(
-        bodyChunks.begin(), bodyChunks.end(), std::size_t{0}, [](std::size_t sum, const auto& chunk) {
-            return sum + chunk.size();
-        });
+    const auto bodySize = util::sum(bodyChunks, [](const auto& chunk) { return chunk.size(); });
 
     std::vector<std::uint8_t> layerBytes;
     layerBytes.reserve(metadataBytes.size() + bodySize + 8 /* varint overhead */);

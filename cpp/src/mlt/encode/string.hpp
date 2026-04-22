@@ -5,9 +5,9 @@
 #include <mlt/metadata/stream.hpp>
 #include <mlt/util/encoding/fsst.hpp>
 #include <mlt/util/encoding/varint.hpp>
+#include <mlt/util/stl.hpp>
 
 #include <cstdint>
-#include <numeric>
 #include <optional>
 #include <span>
 #include <string_view>
@@ -68,11 +68,7 @@ public:
                                                IntegerEncoder& intEncoder,
                                                bool useFsst = true) {
         auto chunked = encodeSharedDictionaryChunked(columns, physicalTechnique, intEncoder, useFsst);
-        // NOLINTNEXTLINE(boost-use-ranges)
-        const auto totalSize = std::accumulate(
-            chunked.chunks.begin(), chunked.chunks.end(), std::size_t{0}, [](auto sum, const auto& chunk) {
-                return sum + chunk.size();
-            });
+        const auto totalSize = util::sum(chunked.chunks, [](const auto& chunk) { return chunk.size(); });
 
         std::vector<std::uint8_t> data;
         data.reserve(totalSize);
@@ -311,8 +307,9 @@ private:
                                                     DictionaryType dictType) {
         std::vector<std::int32_t> lengths;
         lengths.reserve(values.size());
-        std::size_t totalBytes = 0;
-        for (const auto sv : values) totalBytes += sv.size();
+
+        const auto totalBytes = util::sum(values, [](const auto& sv) { return sv.size(); });
+
         std::vector<std::uint8_t> rawData;
         rawData.reserve(totalBytes);
         for (const auto sv : values) {
