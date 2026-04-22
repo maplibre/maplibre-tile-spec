@@ -83,6 +83,7 @@ add_cxx_compiler_flag(-Wshorten-64-to-32)
 add_cxx_compiler_flag(-Wswitch)
 add_cxx_compiler_flag(-Wunused-value)
 add_cxx_compiler_flag(-Wunused-but-set-variable)
+add_cxx_compiler_flag(-Wredundant-move)
 add_cxx_compiler_flag(-fstrict-aliasing)
 add_cxx_compiler_flag(-wd4061) # MSVC: enum member not handled in switch
 add_cxx_compiler_flag(-wd4514) # MSVC: unreferenced inline function has been removed

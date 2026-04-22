@@ -468,7 +468,7 @@ IntegerEncodingResult IntegerEncoder::encodeUint32(std::span<const std::uint32_t
         return encodeInt(signedValues, physicalTechnique, /*isSigned=*/false, option);
     });
     if (signedEncoded.has_value()) {
-        return std::move(*signedEncoded);
+        return *signedEncoded;
     }
 
     const auto encode = makeUnsignedPhysicalEncoder<std::uint32_t>(
@@ -487,7 +487,7 @@ IntegerEncodingResult IntegerEncoder::encodeUint64(std::span<const std::uint64_t
     const auto signedEncoded = tryEncodeViaSignedPath<std::uint64_t, std::int64_t>(
         values, [&](auto& signedValues) { return encodeLong(signedValues, /*isSigned=*/false, option); });
     if (signedEncoded.has_value()) {
-        return std::move(*signedEncoded);
+        return *signedEncoded;
     }
 
     const auto encode = [this](std::span<const std::uint64_t> input) {
