@@ -763,9 +763,158 @@ public:
         };
     }
 
+    static GeneratedTile generatePropsMixed() {
+        return {
+            .name = "props_mixed",
+            .bytes = encode(layer(defaultLayerName,
+                                  {feat(point(c0),
+                                        PropertyMap{{"name", std::string("Test Point")},
+                                                    {"active", true},
+                                                    {"count", static_cast<std::int32_t>(42)},
+                                                    {"medium", static_cast<std::uint32_t>(100)},
+                                                    {"bignum", static_cast<std::int32_t>(42)},
+                                                    {"biggest", static_cast<std::uint64_t>(0)},
+                                                    {"temp", 25.5f},
+                                                    {"precision", 0.123456789}})},
+                                  defaultExtent),
+                            cfg([](auto& c) { c.forceNullableColumns = true; })),
+        };
+    }
+
+    static GeneratedTile generatePropsIntSeries(const std::string& name,
+                                                PropertyValue value,
+                                                IntegerEncodingOption encoding) {
+        const auto config = cfg([&](auto& c) {
+            c.forceNullableColumns = true;
+            c.integerEncodingOption = encoding;
+            c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
+        });
+
+        return {
+            .name = name,
+            .bytes = encode(layer(defaultLayerName,
+                                  {feat(point(c0), PropertyMap{{"val", value}}),
+                                   feat(point(c1), PropertyMap{{"val", value}}),
+                                   feat(point(c2), PropertyMap{{"val", value}}),
+                                   feat(point(c3), PropertyMap{{"val", value}})},
+                                  defaultExtent),
+                            config),
+        };
+    }
+
+    static GeneratedTile generatePropsStr() {
+        Feature f1 = feat(point(c1),
+                          PropertyMap{{"val", PropertyValue{std::string("residential_zone_north_sector_1")}}});
+        Feature f2 = feat(point(c2),
+                          PropertyMap{{"val", PropertyValue{std::string("commercial_zone_south_sector_2")}}});
+        Feature f3 = feat(point(c3), PropertyMap{{"val", PropertyValue{std::string("industrial_zone_east_sector_3")}}});
+        Feature f4 = feat(point(h1), PropertyMap{{"val", PropertyValue{std::string("park_zone_west_sector_4")}}});
+        Feature f5 = feat(point(h2), PropertyMap{{"val", PropertyValue{std::string("water_zone_north_sector_5")}}});
+        Feature f6 = feat(point(h3),
+                          PropertyMap{{"val", PropertyValue{std::string("residential_zone_south_sector_6")}}});
+        return {
+            .name = "props_str",
+            .bytes = encode(layer(defaultLayerName, {f1, f2, f3, f4, f5, f6}, defaultExtent), cfg([](auto& c) {
+                                c.forceNullableColumns = true;
+                                c.geometryEncodingOption = IntegerEncodingOption::AUTO;
+                                c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
+                            })),
+        };
+    }
+
+    static GeneratedTile generatePropsOffsetStr(bool useFsst) {
+        const auto val = std::string(30, 'A');
+        auto config = cfg([&](auto& c) {
+            c.useFsst = useFsst;
+            c.forceNullableColumns = true;
+            c.geometryEncodingOption = IntegerEncodingOption::AUTO;
+            c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
+        });
+        return {
+            .name = useFsst ? "props_offset_str_fsst" : "props_offset_str",
+            .bytes = encode(layer(defaultLayerName,
+                                  {feat(point(c1), PropertyMap{{"val", PropertyValue{val}}}),
+                                   feat(point(c2), PropertyMap{{"val", PropertyValue{val}}})},
+                                  defaultExtent),
+                            config),
+        };
+    }
+
+    static GeneratedTileVec generatePropsU32FpfVariants() {
+        GeneratedTileVec tiles;
+        for (const auto multiplier : {1U, 2U, 3U, 4U}) {
+            for (const auto offset : {-1, 0, 1}) {
+                const auto len = static_cast<std::uint32_t>((128 * multiplier) + offset);
+                std::vector<Feature> features;
+                features.reserve(len);
+                for (std::uint32_t i = 0; i < len; ++i) {
+                    features.push_back(
+                        feat(point(c0), PropertyMap{{"val", PropertyValue{static_cast<std::uint32_t>(i % 3)}}}));
+                }
+
+                const auto config = cfg([](auto& c) {
+                    c.useFastPfor = true;
+                    c.forceNullableColumns = true;
+                    c.integerEncodingOption = IntegerEncodingOption::PLAIN;
+                    c.geometryEncodingOption = IntegerEncodingOption::PLAIN;
+                    c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
+                });
+
+                tiles.push_back({
+                    .name = "props_u32_fpf_" + std::to_string(len),
+                    .bytes = encode(layer(defaultLayerName, std::move(features), defaultExtent), config),
+                });
+            }
+        }
+        return tiles;
+    }
+
     static GeneratedTileVec generateProperties() {
         auto tiles = generatePropScalars();
+        tiles.push_back(generatePropsMixed());
+        tiles.push_back(
+            generatePropsIntSeries("props_i32", static_cast<std::int32_t>(42), IntegerEncodingOption::PLAIN));
+        tiles.push_back(
+            generatePropsIntSeries("props_i32_delta", static_cast<std::int32_t>(42), IntegerEncodingOption::DELTA));
+        tiles.push_back(
+            generatePropsIntSeries("props_i32_rle", static_cast<std::int32_t>(42), IntegerEncodingOption::RLE));
+        tiles.push_back(generatePropsIntSeries(
+            "props_i32_delta_rle", static_cast<std::int32_t>(42), IntegerEncodingOption::DELTA_RLE));
+
+        tiles.push_back(
+            generatePropsIntSeries("props_u32", static_cast<std::uint32_t>(9000), IntegerEncodingOption::PLAIN));
+        tiles.push_back(
+            generatePropsIntSeries("props_u32_delta", static_cast<std::uint32_t>(9000), IntegerEncodingOption::DELTA));
+        tiles.push_back(
+            generatePropsIntSeries("props_u32_rle", static_cast<std::uint32_t>(9000), IntegerEncodingOption::RLE));
+        tiles.push_back(generatePropsIntSeries(
+            "props_u32_delta_rle", static_cast<std::uint32_t>(9000), IntegerEncodingOption::DELTA_RLE));
+
+        tiles.push_back(
+            generatePropsIntSeries("props_u64", static_cast<std::uint64_t>(9000), IntegerEncodingOption::PLAIN));
+        tiles.push_back(
+            generatePropsIntSeries("props_u64_delta", static_cast<std::uint64_t>(9000), IntegerEncodingOption::DELTA));
+        tiles.push_back(
+            generatePropsIntSeries("props_u64_rle", static_cast<std::uint64_t>(9000), IntegerEncodingOption::RLE));
+        tiles.push_back(generatePropsIntSeries(
+            "props_u64_delta_rle", static_cast<std::uint64_t>(9000), IntegerEncodingOption::DELTA_RLE));
+
+        tiles.push_back(
+            generatePropsIntSeries("props_i64", static_cast<std::int64_t>(9876543210LL), IntegerEncodingOption::PLAIN));
+        tiles.push_back(generatePropsIntSeries(
+            "props_i64_delta", static_cast<std::int64_t>(9876543210LL), IntegerEncodingOption::DELTA));
+        tiles.push_back(generatePropsIntSeries(
+            "props_i64_rle", static_cast<std::int64_t>(9876543210LL), IntegerEncodingOption::RLE));
+        tiles.push_back(generatePropsIntSeries(
+            "props_i64_delta_rle", static_cast<std::int64_t>(9876543210LL), IntegerEncodingOption::DELTA_RLE));
+
+        tiles.push_back(generatePropsStr());
         tiles.push_back(generatePropsStrFsst());
+        tiles.push_back(generatePropsOffsetStr(false));
+        tiles.push_back(generatePropsOffsetStr(true));
+
+        const auto fpfTiles = generatePropsU32FpfVariants();
+        tiles.insert(tiles.end(), fpfTiles.begin(), fpfTiles.end());
         return tiles;
     }
 

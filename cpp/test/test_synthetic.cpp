@@ -277,8 +277,11 @@ TEST(SyntheticFixtureCoverage, AllFixturesHaveGenerators) {
     }
 
     // The test fails only if there are generated cases with no matching fixture file.
+    // If there are unchecked cases, it's skipped, so that the list of cases is printed.
     if (!missing.empty()) {
         FAIL() << stream.str();
+    } else if (unchecked.empty()) {
+        SUCCEED() << stream.str();
     } else {
         GTEST_SKIP() << stream.str();
     }

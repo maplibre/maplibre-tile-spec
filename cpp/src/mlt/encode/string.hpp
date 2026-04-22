@@ -129,6 +129,11 @@ public:
     }
 
 private:
+    struct EncodedStringStreams {
+        std::vector<std::uint8_t> firstStream;
+        std::vector<std::uint8_t> remainingStreams;
+    };
+
     struct DictionaryIndex {
         std::vector<std::string_view> dictionary;
         std::vector<std::int32_t> offsets;
@@ -138,6 +143,7 @@ private:
         DictionaryIndex result;
         result.offsets.reserve(values.size());
         std::unordered_map<std::string_view, std::uint32_t> indexMap;
+        indexMap.reserve(values.size());
         for (const auto sv : values) {
             auto [it, inserted] = indexMap.try_emplace(sv, static_cast<std::uint32_t>(result.dictionary.size()));
             if (inserted) {
@@ -148,7 +154,8 @@ private:
         return result;
     }
 
-    static std::vector<std::uint8_t> encodeOffsetsAndData(const std::vector<std::uint8_t>& dictData,
+    static std::vector<std::uint8_t> encodeOffsetsAndData(const std::vector<std::uint8_t>& firstStream,
+                                                          const std::vector<std::uint8_t>& remainingStreams,
                                                           std::span<const std::int32_t> offsets,
                                                           PhysicalLevelTechnique physicalTechnique,
                                                           IntegerEncoder& intEncoder) {
@@ -158,22 +165,24 @@ private:
             offsets, physicalTechnique, false, PhysicalStreamType::OFFSET, LogicalStreamType{OffsetType::STRING});
 
         std::vector<std::uint8_t> result;
-        result.reserve(dictData.size() + encodedOffsets.size());
-        result.insert(result.end(), dictData.begin(), dictData.end());
+        result.reserve(firstStream.size() + encodedOffsets.size() + remainingStreams.size());
+        result.insert(result.end(), firstStream.begin(), firstStream.end());
         result.insert(result.end(), encodedOffsets.begin(), encodedOffsets.end());
+        result.insert(result.end(), remainingStreams.begin(), remainingStreams.end());
         return result;
     }
 
     static std::vector<std::uint8_t> encodeDictionary(std::span<const std::string_view> values,
                                                       PhysicalLevelTechnique physicalTechnique,
                                                       IntegerEncoder& intEncoder) {
-        auto [dictionary, offsets] = buildDictIndex(values);
-        auto dictData = encodeStringBytes(dictionary,
-                                          physicalTechnique,
-                                          intEncoder,
-                                          metadata::stream::LengthType::DICTIONARY,
-                                          metadata::stream::DictionaryType::SINGLE);
-        return encodeOffsetsAndData(dictData, offsets, physicalTechnique, intEncoder);
+        const auto [dictionary, offsets] = buildDictIndex(values);
+        auto dictStreams = encodeStringStreams(dictionary,
+                                               physicalTechnique,
+                                               intEncoder,
+                                               metadata::stream::LengthType::DICTIONARY,
+                                               metadata::stream::DictionaryType::SINGLE);
+        return encodeOffsetsAndData(
+            dictStreams.firstStream, dictStreams.remainingStreams, offsets, physicalTechnique, intEncoder);
     }
 
     static std::vector<std::uint8_t> encodeFsstDictionary(std::span<const std::string_view> values,
@@ -188,13 +197,27 @@ private:
             return fsstData;
         }
 
-        return encodeOffsetsAndData(fsstData, offsets, physicalTechnique, intEncoder);
+        auto fsstStreams = encodeFsstStreams(dictionary, physicalTechnique, intEncoder, isShared);
+        return encodeOffsetsAndData(
+            fsstStreams.firstStream, fsstStreams.remainingStreams, offsets, physicalTechnique, intEncoder);
     }
 
     static std::vector<std::uint8_t> encodeFsst(std::span<const std::string_view> values,
                                                 PhysicalLevelTechnique physicalTechnique,
                                                 IntegerEncoder& intEncoder,
                                                 bool isShared) {
+        auto streams = encodeFsstStreams(values, physicalTechnique, intEncoder, isShared);
+        std::vector<std::uint8_t> out;
+        out.reserve(streams.firstStream.size() + streams.remainingStreams.size());
+        out.insert(out.end(), streams.firstStream.begin(), streams.firstStream.end());
+        out.insert(out.end(), streams.remainingStreams.begin(), streams.remainingStreams.end());
+        return out;
+    }
+
+    static EncodedStringStreams encodeFsstStreams(std::span<const std::string_view> values,
+                                                  PhysicalLevelTechnique physicalTechnique,
+                                                  IntegerEncoder& intEncoder,
+                                                  bool isShared) {
         using namespace metadata::stream;
         namespace fsst = util::encoding::fsst;
 
@@ -237,23 +260,26 @@ private:
                                                    static_cast<std::uint32_t>(result.compressedData.size()))
                                         .encode();
 
-        std::vector<std::uint8_t> out;
-        out.reserve(encodedSymbolLengths.size() + symbolTableMetadata.size() + result.symbols.size() +
-                    encodedDictLengths.size() + corpusMetadata.size() + result.compressedData.size());
-        out.insert(out.end(), encodedSymbolLengths.begin(), encodedSymbolLengths.end());
-        out.insert(out.end(), symbolTableMetadata.begin(), symbolTableMetadata.end());
-        out.insert(out.end(), result.symbols.begin(), result.symbols.end());
-        out.insert(out.end(), encodedDictLengths.begin(), encodedDictLengths.end());
-        out.insert(out.end(), corpusMetadata.begin(), corpusMetadata.end());
-        out.insert(out.end(), result.compressedData.begin(), result.compressedData.end());
-        return out;
+        std::vector<std::uint8_t> remainder;
+        remainder.reserve(symbolTableMetadata.size() + result.symbols.size() + encodedDictLengths.size() +
+                          corpusMetadata.size() + result.compressedData.size());
+        remainder.insert(remainder.end(), symbolTableMetadata.begin(), symbolTableMetadata.end());
+        remainder.insert(remainder.end(), result.symbols.begin(), result.symbols.end());
+        remainder.insert(remainder.end(), encodedDictLengths.begin(), encodedDictLengths.end());
+        remainder.insert(remainder.end(), corpusMetadata.begin(), corpusMetadata.end());
+        remainder.insert(remainder.end(), result.compressedData.begin(), result.compressedData.end());
+
+        return {
+            .firstStream = std::move(encodedSymbolLengths),
+            .remainingStreams = std::move(remainder),
+        };
     }
 
-    static std::vector<std::uint8_t> encodeStringBytes(std::span<const std::string_view> values,
-                                                       PhysicalLevelTechnique physicalTechnique,
-                                                       IntegerEncoder& intEncoder,
-                                                       metadata::stream::LengthType lengthType,
-                                                       metadata::stream::DictionaryType dictType) {
+    static EncodedStringStreams encodeStringStreams(std::span<const std::string_view> values,
+                                                    PhysicalLevelTechnique physicalTechnique,
+                                                    IntegerEncoder& intEncoder,
+                                                    metadata::stream::LengthType lengthType,
+                                                    metadata::stream::DictionaryType dictType) {
         using namespace metadata::stream;
 
         std::vector<std::int32_t> lengths;
@@ -276,11 +302,27 @@ private:
                                                  static_cast<std::uint32_t>(rawData.size()))
                                       .encode();
 
+        std::vector<std::uint8_t> remaining;
+        remaining.reserve(dataMetadata.size() + rawData.size());
+        remaining.insert(remaining.end(), dataMetadata.begin(), dataMetadata.end());
+        remaining.insert(remaining.end(), rawData.begin(), rawData.end());
+
+        return {
+            .firstStream = std::move(encodedLengths),
+            .remainingStreams = std::move(remaining),
+        };
+    }
+
+    static std::vector<std::uint8_t> encodeStringBytes(std::span<const std::string_view> values,
+                                                       PhysicalLevelTechnique physicalTechnique,
+                                                       IntegerEncoder& intEncoder,
+                                                       metadata::stream::LengthType lengthType,
+                                                       metadata::stream::DictionaryType dictType) {
+        auto streams = encodeStringStreams(values, physicalTechnique, intEncoder, lengthType, dictType);
         std::vector<std::uint8_t> result;
-        result.reserve(encodedLengths.size() + dataMetadata.size() + rawData.size());
-        result.insert(result.end(), encodedLengths.begin(), encodedLengths.end());
-        result.insert(result.end(), dataMetadata.begin(), dataMetadata.end());
-        result.insert(result.end(), rawData.begin(), rawData.end());
+        result.reserve(streams.firstStream.size() + streams.remainingStreams.size());
+        result.insert(result.end(), streams.firstStream.begin(), streams.firstStream.end());
+        result.insert(result.end(), streams.remainingStreams.begin(), streams.remainingStreams.end());
         return result;
     }
 };
