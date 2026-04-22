@@ -25,6 +25,7 @@ __hotpath-mcp = ["__hotpath", "hotpath/hotpath-mcp", "hotpath/hotpath-mcp-meta"]
 
 [dependencies]
 anyhow.workspace = true
+bytes.workspace = true
 clap.workspace = true
 crossterm.workspace = true
 flate2.workspace = true

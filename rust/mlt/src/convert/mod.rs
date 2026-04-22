@@ -4,6 +4,7 @@ mod tileset;
 use std::path::Path;
 use std::path::PathBuf;
 
+use bytes::Bytes;
 use anyhow::{Result as AnyResult, bail};
 use clap::{Args, ValueEnum};
 use indicatif::ProgressState;
@@ -153,7 +154,7 @@ fn convert_mvt_buffer(buffer: Vec<u8>, cfg: EncoderConfig) -> AnyResult<Vec<u8>>
     Ok(out)
 }
 
-fn encode_one(data: Vec<u8>, encoding: Encoding, cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
+fn encode_one(data: Vec<u8>, encoding: Encoding, cfg: EncoderConfig) -> AnyResult<Bytes> {
     let mvt = match encoding {
         Encoding::Gzip => decode_gzip(&data)?,
         Encoding::Zlib => decode_zlib(&data)?,
@@ -161,5 +162,5 @@ fn encode_one(data: Vec<u8>, encoding: Encoding, cfg: EncoderConfig) -> AnyResul
         Encoding::Zstd => decode_zstd(&data)?,
         Encoding::Uncompressed | Encoding::Internal => data,
     };
-    convert_mvt_buffer(mvt, cfg)
+    convert_mvt_buffer(mvt, cfg).map(Bytes::from_owner)
 }

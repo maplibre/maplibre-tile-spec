@@ -2478,20 +2478,6 @@ checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
 
 [[package]]
 name = "martin-tile-utils"
-version = "0.6.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a021ec443e84e60ddd314079ed9e4248d7dd30294af6399b2c78ed4dfe6c059"
-dependencies = [
- "brotli",
- "flate2",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "zstd",
-]
-
-[[package]]
-name = "martin-tile-utils"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a59750066d5ee28c1a551228a0702706d14a0d3f20246f17d8ec3d156bf94d4f"
@@ -2542,7 +2528,7 @@ dependencies = [
  "hotpath 0.14.1",
  "itertools 0.14.0",
  "log",
- "martin-tile-utils 0.7.0",
+ "martin-tile-utils",
  "md5",
  "moka",
  "num_cpus",
@@ -2636,6 +2622,7 @@ name = "mlt"
 version = "0.1.9"
 dependencies = [
  "anyhow",
+ "bytes",
  "clap",
  "crossterm 0.29.0",
  "flate2",
@@ -2645,7 +2632,7 @@ dependencies = [
  "globset",
  "hotpath 0.15.0",
  "indicatif",
- "martin-tile-utils 0.6.12",
+ "martin-tile-utils",
  "mbtiles",
  "mlt-core",
  "moka",
