@@ -2,9 +2,9 @@ use crate::MltResult;
 use crate::decoder::TileLayer01;
 use crate::encoder::model::{StagedLayer, StagedLayer01};
 use crate::encoder::property::encode::write_properties;
-#[cfg(feature = "sort-coords-iter")]
-use crate::encoder::spatial_sort_likely_to_help;
-use crate::encoder::{Encoder, EncoderConfig, SortStrategy, group_string_properties};
+use crate::encoder::{
+    Encoder, EncoderConfig, SortStrategy, group_string_properties, spatial_sort_likely_to_help,
+};
 
 impl StagedLayer {
     /// Automatically encode and write `self` to `enc`.
@@ -47,7 +47,6 @@ impl StagedLayer01 {
 
 /// Feature-count threshold above which the spatial trial is subject to the
 /// bounding-box pruning heuristic.
-#[cfg(feature = "sort-coords-iter")]
 const SORT_TRIAL_THRESHOLD: usize = 512;
 
 impl TileLayer01 {
@@ -67,19 +66,15 @@ impl TileLayer01 {
         }
 
         let mut sort_by = vec![SortStrategy::Unsorted];
-        #[cfg(feature = "sort-coords-iter")]
+        let try_spatial_sort = cfg.try_spatial_morton_sort || cfg.try_spatial_hilbert_sort;
+        if try_spatial_sort
+            && (self.features.len() < SORT_TRIAL_THRESHOLD || spatial_sort_likely_to_help(&self))
         {
-            let try_spatial_sort = cfg.try_spatial_morton_sort || cfg.try_spatial_hilbert_sort;
-            if try_spatial_sort
-                && (self.features.len() < SORT_TRIAL_THRESHOLD
-                    || spatial_sort_likely_to_help(&self))
-            {
-                if cfg.try_spatial_morton_sort {
-                    sort_by.push(SortStrategy::SpatialMorton);
-                }
-                if cfg.try_spatial_hilbert_sort {
-                    sort_by.push(SortStrategy::SpatialHilbert);
-                }
+            if cfg.try_spatial_morton_sort {
+                sort_by.push(SortStrategy::SpatialMorton);
+            }
+            if cfg.try_spatial_hilbert_sort {
+                sort_by.push(SortStrategy::SpatialHilbert);
             }
         }
         if cfg.try_id_sort {
@@ -94,24 +89,25 @@ impl TileLayer01 {
 
         let (last, init) = sort_by.split_last().expect("at least one strategy");
         if init.is_empty() {
-            StagedLayer01::from_tile(self, *last, &groups).encode_into(Encoder::new(cfg))?
+            StagedLayer01::from_tile(self, *last, &groups, cfg.tessellate)
+                .encode_into(Encoder::new(cfg))?
         } else {
             let mut enc: Encoder = {
                 let first = init[0];
-                StagedLayer01::from_tile(self.clone(), first, &groups)
+                StagedLayer01::from_tile(self.clone(), first, &groups, cfg.tessellate)
                     .encode_into(Encoder::new(cfg))?
             };
             let mut best = enc.preserve_results();
             // Clone for all-but-last strategies
             for &sort in &init[1..] {
-                let layer = StagedLayer01::from_tile(self.clone(), sort, &groups);
+                let layer = StagedLayer01::from_tile(self.clone(), sort, &groups, cfg.tessellate);
                 enc = layer.encode_into(enc)?;
                 if enc.total_len() < best.total_len() {
                     best = enc.preserve_results();
                 }
             }
             // Last strategy: consume self, no clone
-            let layer = StagedLayer01::from_tile(self, *last, &groups);
+            let layer = StagedLayer01::from_tile(self, *last, &groups, cfg.tessellate);
             enc = layer.encode_into(enc)?;
             if enc.total_len() < best.total_len() {
                 best = enc.preserve_results();

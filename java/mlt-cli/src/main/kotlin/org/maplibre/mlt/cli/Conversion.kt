@@ -10,10 +10,10 @@ import org.apache.commons.compress.compressors.gzip.GzipParameters
 import org.apache.commons.lang3.mutable.MutableBoolean
 import org.maplibre.mlt.compare.CompareHelper
 import org.maplibre.mlt.compare.CompareHelper.CompareMode
+import org.maplibre.mlt.converter.ColumnMapping
 import org.maplibre.mlt.converter.ConversionConfig
 import org.maplibre.mlt.converter.FeatureTableOptimizations
 import org.maplibre.mlt.converter.MltConverter
-import org.maplibre.mlt.converter.mvt.ColumnMapping
 import org.maplibre.mlt.converter.mvt.MvtUtils
 import org.maplibre.mlt.decoder.MltDecoder
 import org.maplibre.mlt.metadata.tileset.MltMetadata
@@ -124,12 +124,13 @@ fun logColumnMappings(
 
     for (table in metadata.featureTables) {
         for (column in table.columns) {
-            if (column.complexType != null &&
-                column.complexType.physicalType == MltMetadata.ComplexType.STRUCT
+            val complex = column.field().type().complexType()
+            if (complex != null &&
+                complex.physicalType == MltMetadata.ComplexType.STRUCT
             ) {
                 val mappings =
-                    column.complexType.children
-                        .map { child -> column.name + child.name }
+                    complex.children
+                        .map { child -> (column.getName() ?: "") + child.name }
                         .toSortedSet()
                         .joinToString(", ")
                 val added = MutableBoolean(false)
@@ -199,7 +200,7 @@ fun convertTile(
 
         // Convert the tile using the updated configuration and tessellation source.
         var tileData =
-            MltConverter.convertMvt(
+            MltConverter.encode(
                 decodedMvTile,
                 metadata,
                 targetConfig,
@@ -281,8 +282,8 @@ fun convertTile(
                     decodedTile,
                     decodedMvTile,
                     config.compareMode,
-                    targetConfig.layerFilterPattern,
-                    targetConfig.layerFilterInvert,
+                    targetConfig.layerFilterPattern(),
+                    targetConfig.layerFilterInvert(),
                 )
             if (difference.isPresent) {
                 logger.warn("Decoded tile {}:{},{} doesn't match: {}", z, x, y, difference)
@@ -307,7 +308,7 @@ fun applyColumnMappingsToConversionConfig(
 ): ConversionConfig {
     val conversionConfig = config.conversionConfig
     // If the config already has optimizations, don't modify it
-    if (!conversionConfig.optimizations.isEmpty()) {
+    if (!conversionConfig.optimizations().isEmpty()) {
         return conversionConfig
     }
 
@@ -365,7 +366,7 @@ fun applyColumnMappingsToConversionConfig(
             )
 
     // re-create the config with the applied column mappings
-    return conversionConfig.asBuilder().optimizations(optimizationMap).build()
+    return conversionConfig.toBuilder().optimizations(optimizationMap).build()
 }
 
 val totalCompressedInput = AtomicLong(0L)

@@ -23,15 +23,14 @@ use std::path::PathBuf;
 use std::sync::LazyLock;
 
 use clap::Parser;
-use geo_types::{
-    Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, coord,
-    line_string as line, wkt,
-};
 use mlt_core::encoder::{
     IdWidth, IntEncoder as E, LogicalEncoder as L, StagedProperty as P, StrEncoding,
     VertexBufferType,
 };
-use mlt_core::geojson::Geom32;
+use mlt_core::geo_types::{
+    Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, coord,
+    line_string as line, wkt,
+};
 
 use crate::layer::{
     Layer, SharedDict, geo_fastpfor, geo_varint, geo_varint_with_rle, morton_curve,
@@ -81,7 +80,7 @@ fn p0() -> Layer {
     geo_varint().geo(P0)
 }
 
-static MIX_TYPES: LazyLock<[(&'static str, Geom32); 7]> = LazyLock::new(|| {
+static MIX_TYPES: LazyLock<[(&'static str, Geometry<i32>); 7]> = LazyLock::new(|| {
     [
         ("pt", wkt!(POINT(38 29)).into()),
         ("line", wkt!(LINESTRING(5 38, 12 45, 9 70)).into()),
@@ -317,6 +316,25 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .geo(MultiPoint(vec![P1, P2, P3]))
         .write(w, "multipoint");
+    // Split the Morton curve at a different place so that the rings are different lengths,
+    // use one as the shell and one as the hole of a single and multi-polygon.
+    let quarter = mc.len() / 4;
+    let mut mr_shell = mc[..quarter].to_vec();
+    mr_shell.push(mr_shell[0]);
+    let mut mr_hole = mc[quarter..].to_vec();
+    mr_hole.push(mr_hole[0]);
+    let poly_with_hole = Polygon::new(LineString::new(mr_shell), vec![LineString::new(mr_hole)]);
+    geo_varint()
+        .vertex_buffer_type(VertexBufferType::Morton)
+        .vertex_offsets(E::delta_rle_varint())
+        .geo(poly_with_hole.clone())
+        .write(w, "poly_morton_hole_morton");
+    geo_varint()
+        .vertex_buffer_type(VertexBufferType::Morton)
+        .vertex_offsets(E::delta_rle_varint())
+        .geo(MultiPolygon(vec![poly_with_hole]))
+        .write(w, "poly_multi_morton_hole_morton");
+
     geo_varint()
         .no_rings(E::rle_varint())
         .geo(MultiLineString(vec![line1(), line2()]))
@@ -342,7 +360,10 @@ fn write_mix(w: &mut SynthWriter, current: &[usize]) {
         builder = builder.geo(mix_type.1.clone());
         write!(&mut name, "_{}", mix_type.0).unwrap();
         if let Some(bldr) = builder_t {
-            if matches!(mix_type.1, Geom32::Polygon(_) | Geom32::MultiPolygon(_)) {
+            if matches!(
+                mix_type.1,
+                Geometry::<i32>::Polygon(_) | Geometry::<i32>::MultiPolygon(_)
+            ) {
                 builder_t = Some(bldr.geo(mix_type.1.clone()));
             } else {
                 builder_t = None;
@@ -350,8 +371,10 @@ fn write_mix(w: &mut SynthWriter, current: &[usize]) {
         }
     }
     if let Some(bldr) = builder_t {
+        // let suffix = if ["..."].contains(name) { "" } else { "-rust" };
+        let suffix = "";
         bldr.force_empty_stream("geometries")
-            .write(w, format!("{name}_tes"));
+            .write(w, format!("{name}_tes{suffix}"));
     }
     builder.write(w, &name);
 }

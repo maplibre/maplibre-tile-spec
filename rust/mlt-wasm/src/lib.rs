@@ -2,7 +2,7 @@
 //!
 //! # Design
 //!
-//! A single [`tile::MltTile`] struct owns all decoded [`TileLayer01`] data for
+//! A single `MltTile` struct owns all decoded [`mlt_core::TileLayer01`] data for
 //! every layer in the tile.  No per-layer or per-feature WASM objects are
 //! created; every accessor takes explicit `(layer_idx, feature_idx)` arguments
 //! so the JavaScript side can keep plain numeric indices rather than
@@ -10,19 +10,19 @@
 //!
 //! ## Geometry
 //!
-//! [`tile::MltTile::layer_geometry`] returns a [`geometry::LayerGeometry`]
+//! `MltTile::layer_geometry` returns a `LayerGeometry`
 //! whose typed-array getters expose the raw offset and vertex buffers.
 //! JS walks these directly — zero WASM boundary crossings per feature.
 //!
 //! ## IDs
 //!
-//! [`tile::MltTile::layer_ids`] returns a `Float64Array` — one `f64` per
+//! `MltTile::layer_ids` returns a `Float64Array` — one `f64` per
 //! feature.  Absent IDs are `NaN` (≡ `undefined` after the JS wrapper checks
 //! `isNaN`).  IDs above `Number.MAX_SAFE_INTEGER` lose precision.
 //!
 //! ## Properties
 //!
-//! [`tile::MltTile::layer_property_keys`] and [`tile::MltTile::layer_properties`]
+//! `MltTile::layer_property_keys` and `MltTile::layer_properties`
 //! expose all property columns as typed arrays built once per layer.  JS reads
 //! any feature's property with a single array index — zero WASM calls during
 //! traversal.
@@ -38,10 +38,10 @@ use mlt_core::{Decoder, GeometryType, MltError, Parser};
 use tile::MltTile;
 use wasm_bindgen::prelude::*;
 
-/// Decode a raw MLT tile blob and return an [`MltTile`].
+/// Decode a raw MLT tile blob and return an `MltTile`.
 ///
 /// All geometry, IDs and properties are decoded eagerly into row-oriented
-/// [`TileLayer01`] values.
+/// [`mlt_core::TileLayer01`] values.
 #[wasm_bindgen]
 pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
     let mut parser = Parser::default();
@@ -55,34 +55,38 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
             continue;
         };
 
-        // Decode geometry to columnar GeometryValues first (for WASM typed-array output),
-        // then decode the whole layer to TileLayer01 for properties/IDs.
-        // We need to re-parse the same layer, so clone the raw geometry before consuming.
-        let parsed_geometry = layer01
-            .geometry
-            .clone()
-            .into_parsed(&mut dec)
-            .map_err(|e| to_js_err(&e))?;
+        // Decode all columns at once, then extract geometry arrays before consuming into tile.
+        let parsed_layer = layer01.decode_all(&mut dec).map_err(|e| to_js_err(&e))?;
 
-        // Build types_array from vector_types.
-        let types_bytes: Vec<u8> = parsed_geometry
+        // Clone geometry values for building WASM typed arrays (zero wire-decode overhead:
+        // geometry is already in columnar form from decode_all).
+        let parsed_geometry = parsed_layer.geometry_values().clone();
+
+        let (types_bytes, mlt_types_bytes): (Vec<u8>, Vec<u8>) = parsed_geometry
             .vector_types()
             .iter()
-            .map(|t| match t {
-                GeometryType::Point | GeometryType::MultiPoint => 1,
-                GeometryType::LineString | GeometryType::MultiLineString => 2,
-                GeometryType::Polygon | GeometryType::MultiPolygon => 3,
-                #[allow(unreachable_patterns)]
-                _ => 0,
+            .map(|t| {
+                let mvt = match t {
+                    GeometryType::Point | GeometryType::MultiPoint => 1,
+                    GeometryType::LineString | GeometryType::MultiLineString => 2,
+                    GeometryType::Polygon | GeometryType::MultiPolygon => 3,
+                    #[allow(unreachable_patterns)]
+                    _ => 0,
+                };
+                (mvt, *t as u8)
             })
-            .collect();
+            .unzip();
         let types_array = Uint8Array::from(types_bytes.as_slice());
+        let mlt_types_array = Uint8Array::from(mlt_types_bytes.as_slice());
 
-        let tile = layer01.into_tile(&mut dec).map_err(|e| to_js_err(&e))?;
+        let tile = parsed_layer
+            .into_tile(&mut dec)
+            .map_err(|e| to_js_err(&e))?;
 
         layers.push(DecodedLayer {
             tile,
             types_array,
+            mlt_types_array,
             geometry: parsed_geometry,
         });
     }

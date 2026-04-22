@@ -3,13 +3,14 @@ use std::fs::{File, OpenOptions};
 use std::io;
 use std::path::Path;
 
-use geo_types::Coord;
+use mlt_core::__private::IdValues;
+use mlt_core::GeometryValues;
 use mlt_core::encoder::{
     ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StagedLayer01,
     StagedProperty, StagedSharedDict, StrEncoding, StreamCtx, VertexBufferType,
 };
-use mlt_core::geojson::Geom32;
-use mlt_core::{GeometryValues, IdValues};
+use mlt_core::geo_types::{Coord, Geometry};
+use mlt_core::wire::{LengthType, OffsetType, StreamType};
 
 use crate::writer::{SynthErr, SynthResult, SynthWriter};
 
@@ -69,7 +70,9 @@ impl PropConfig {
 
     /// Resolve the integer encoder for a property stream using wire `StreamType`.
     fn int_enc_for_stream_ctx(&self, ctx: &StreamCtx<'_>) -> IntEncoder {
-        use mlt_core::{LengthType as LT, OffsetType as OT, StreamType as ST};
+        use LengthType as LT;
+        use OffsetType as OT;
+        use StreamType as ST;
         match self {
             Self::Scalar(e) => *e,
             Self::StrFsst {
@@ -122,7 +125,7 @@ pub struct Layer {
     /// Geometry stream names that must be written even when their data is empty.
     /// See [`ExplicitEncoder::force_stream`] for details.
     force_empty_streams: HashSet<&'static str>,
-    geometry_items: Vec<Geom32>,
+    geometry_items: Vec<Geometry<i32>>,
     props: Vec<(StagedProperty, PropConfig)>,
     extent: Option<u32>,
     ids: Option<(Vec<Option<u64>>, IdWidth, IntEncoder)>,
@@ -201,13 +204,16 @@ impl Layer {
     // ── Geometry ──────────────────────────────────────────────────────────────
 
     #[must_use]
-    pub fn geo(mut self, geometry: impl Into<Geom32>) -> Self {
+    pub fn geo(mut self, geometry: impl Into<Geometry<i32>>) -> Self {
         self.geometry_items.push(geometry.into());
         self
     }
 
     #[must_use]
-    pub fn geos<T: Into<Geom32>, I: IntoIterator<Item = T>>(mut self, geometries: I) -> Self {
+    pub fn geos<T: Into<Geometry<i32>>, I: IntoIterator<Item = T>>(
+        mut self,
+        geometries: I,
+    ) -> Self {
         for g in geometries {
             self = self.geo(g.into());
         }
@@ -318,7 +324,7 @@ impl Layer {
     /// Encode and then either verify against the reference dir (non-rust files) or write to the
     /// output dir (`-rust`-suffixed files). Delegates to [`SynthWriter::write`].
     ///
-    /// When `force_empty_streams` is non-empty, also emits a `_ns` ("no [forced] stream")
+    /// When `force_empty_streams` is non-empty, also emits a `_ns` ("no forced stream")
     /// sibling — but only when removing the forced-empty-stream flag **actually changes the
     /// encoded output**.  For some geometry configurations (e.g. Multi* types where the
     /// GEOMETRIES stream is already non-empty) the flag is a no-op; emitting the sibling in
@@ -330,7 +336,12 @@ impl Layer {
             ns_layer.force_empty_streams.clear();
             let ns_bytes = ns_layer.clone().encode_to_bytes().ok();
             if forced_bytes != ns_bytes {
-                w.write(ns_layer, format!("{}_ns", name.as_ref()));
+                let name = if let Some(prefix) = name.as_ref().strip_suffix("-rust") {
+                    format!("{prefix}_ns-rust")
+                } else {
+                    format!("{}_ns", name.as_ref())
+                };
+                w.write(ns_layer, name);
             }
         }
         w.write(self, name);
@@ -369,7 +380,12 @@ impl Layer {
             ids,
         } = self;
 
-        let mut geometry = if tessellate {
+        let enc_cfg = EncoderConfig {
+            tessellate,
+            ..EncoderConfig::default()
+        };
+
+        let mut geometry = if enc_cfg.tessellate {
             GeometryValues::new_tessellated()
         } else {
             GeometryValues::default()
@@ -424,10 +440,6 @@ impl Layer {
             override_presence: Box::new(move |_| force_presence),
         };
 
-        let enc_cfg = EncoderConfig {
-            tessellate,
-            ..EncoderConfig::default()
-        };
         StagedLayer01 {
             name: "layer1".to_string(),
             extent: extent.unwrap_or(80),

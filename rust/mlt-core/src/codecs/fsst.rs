@@ -5,7 +5,7 @@ use crate::{Decoder, MltResult};
 /// Decode an FSST-compressed byte sequence into the original bytes and value lengths,
 /// charging `dec` for the output.
 ///
-/// Takes a [`RawFsstData`] which provides the 4 streams needed for FSST decoding:
+/// Takes a `RawFsstData` which provides the 4 streams needed for FSST decoding:
 /// - `symbol_lengths`: per-symbol byte lengths (decoded as u32 values)
 /// - `symbol_table`: concatenated raw symbol bytes (read as raw bytes)
 /// - `lengths`: original string byte lengths (decoded as u32 values)
@@ -25,8 +25,8 @@ pub fn decode_fsst(raw: RawFsstData<'_>, dec: &mut Decoder) -> MltResult<(String
     } = raw;
 
     let sym_lens = symbol_lengths.decode_u32s(dec)?;
-    let symbols = symbol_table.as_bytes();
-    let compressed = corpus.as_bytes();
+    let symbols = symbol_table.data;
+    let compressed = corpus.data;
 
     // Build symbol offset table from lengths.
     let mut symbol_offsets = vec![0u32; sym_lens.len()];
@@ -141,7 +141,7 @@ mod tests {
     use crate::decoder::{
         DictionaryType, IntEncoding, LengthType, RawFsstData, RawStream, StreamType,
     };
-    use crate::encoder::{EncodedStream, EncodedStreamData, Encoder, IntEncoder, do_write_u32};
+    use crate::encoder::{EncodedStream, Encoder, IntEncoder, do_write_u32};
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
 
@@ -167,7 +167,7 @@ mod tests {
                 IntEncoding::none(),
                 u32::try_from(raw.symbol_lengths.len()).unwrap(),
             ),
-            data: EncodedStreamData::Encoded(raw.symbol_bytes.clone()),
+            data: raw.symbol_bytes.clone(),
         };
         let lengths_bytes = {
             let mut enc = Encoder::default();
@@ -186,7 +186,7 @@ mod tests {
                 IntEncoding::none(),
                 u32::try_from(values.len()).unwrap(),
             ),
-            data: EncodedStreamData::Encoded(raw.corpus.clone()),
+            data: raw.corpus.clone(),
         };
 
         let mut sym_table_buf = Vec::new();

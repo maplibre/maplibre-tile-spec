@@ -50,7 +50,7 @@ impl LogicalEncoder {
     /// (Rle, `DeltaRle`). Passing a long-lived buffer avoids a fresh allocation
     /// per call.
     ///
-    /// See [`crate::decoder::LogicalValue::decode_u32`] for the reverse operation.
+    /// See `LogicalValue::decode_u32` for the reverse operation.
     #[hotpath::measure]
     pub fn encode_u32s(
         self,
@@ -90,7 +90,7 @@ impl LogicalEncoder {
     /// (Rle, `DeltaRle`). Passing a long-lived buffer avoids a fresh allocation
     /// per call.
     ///
-    /// See [`crate::decoder::LogicalValue::decode_i32`] for the reverse operation.
+    /// See `LogicalValue::decode_i32` for the reverse operation.
     #[hotpath::measure]
     pub fn encode_i32s(
         self,
@@ -124,7 +124,7 @@ impl LogicalEncoder {
     ///
     /// `target` is treated as a scratch buffer: it is cleared before writing.
     /// After the call, `target` holds the physically-stored sequence.
-    /// See [`crate::decoder::LogicalValue::decode_u64`] for the reverse operation.
+    /// See `LogicalValue::decode_u64` for the reverse operation.
     #[hotpath::measure]
     pub fn encode_u64s(self, values: &[u64], target: &mut Vec<u64>) -> MltResult<LogicalEncoding> {
         match self {
@@ -154,7 +154,7 @@ impl LogicalEncoder {
     ///
     /// `target` is treated as a scratch buffer: it is cleared before writing.
     /// After the call, `target` holds the physically-stored sequence.
-    /// See [`crate::decoder::LogicalValue::decode_i64`] for the reverse operation.
+    /// See `LogicalValue::decode_i64` for the reverse operation.
     pub fn encode_i64s(self, values: &[i64], target: &mut Vec<u64>) -> MltResult<LogicalEncoding> {
         match self {
             Self::None => {
@@ -187,10 +187,10 @@ mod tests {
 
     use super::*;
     use crate::decoder::{
-        DictionaryType, IntEncoding, LogicalEncoding, PhysicalEncoding, StreamType,
+        DictionaryType, IntEncoding, LogicalEncoding, LogicalValue, PhysicalEncoding, StreamMeta,
+        StreamType,
     };
     use crate::test_helpers::dec;
-    use crate::{LogicalValue, StreamMeta};
 
     fn make_meta(logical_encoding: LogicalEncoding, num_values: usize) -> StreamMeta {
         let num_values =

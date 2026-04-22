@@ -7,9 +7,8 @@ use crate::encoder::{
     Encoder, EncoderConfig, IntEncoder, LogicalEncoder, PhysicalEncoder, SortStrategy,
     StagedProperty, StagedSharedDict, group_string_properties,
 };
-use crate::geojson::Geom32;
 use crate::test_helpers::{dec, parser};
-use crate::{GeometryValues, Layer, PropValue, TileFeature, TileLayer01};
+use crate::{DictRange, GeometryValues, Layer, PropValue, TileFeature, TileLayer01};
 // proptest_derive::Arbitrary is only derived for these types inside the crate
 // under #[cfg(test)], so we write the strategies by hand here.
 
@@ -84,6 +83,29 @@ fn shared_dict_prop(name: &str, children: Vec<(String, Vec<Option<String>>)>) ->
     StagedProperty::SharedDict(StagedSharedDict::new(name, children).expect("build shared dict"))
 }
 
+type SharedDictChildren = Vec<(String, Vec<Option<String>>)>;
+
+fn arb_shared_dict_children() -> impl Strategy<Value = (usize, SharedDictChildren)> {
+    (1usize..20, 1usize..5usize).prop_flat_map(|(n, child_count)| {
+        prop::collection::vec(
+            (
+                "[a-z]{1,6}",
+                prop::collection::vec(prop::option::of("[a-zA-Z ]{0,20}"), n),
+            ),
+            child_count,
+        )
+        .prop_map(move |mut children| {
+            if children
+                .iter()
+                .all(|(_, vals)| vals.iter().all(Option::is_none))
+            {
+                children[0].1[0] = Some(String::new());
+            }
+            (n, children)
+        })
+    })
+}
+
 /// Build a `(name, values)` pair for use as a [`shared_dict_prop`] column.
 fn col(name: &str, values: Vec<Option<String>>) -> (String, Vec<Option<String>>) {
     (name.to_string(), values)
@@ -98,7 +120,7 @@ fn ps(s: &str) -> PropValue {
 fn n_point_geometry(n: usize) -> GeometryValues {
     let mut g = GeometryValues::default();
     for _ in 0..n {
-        g.push_geom(&Geom32::Point(Point::new(0, 0)));
+        g.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
     }
     g
 }
@@ -414,26 +436,34 @@ fn struct_with_nulls() {
 fn struct_shared_dict_inline_ranges_track_nulls_and_empty_strings() {
     // This test validates internal range bookkeeping in StagedSharedDict —
     // not the byte encoding pipeline — so it inspects the staged form directly.
-    let de = opt_strs(&[Some(""), None, Some("Berlin")]);
-    let en = opt_strs(&[Some(""), Some("Berlin"), Some("")]);
-    let prop = shared_dict_prop("name", vec![col(":de", de.clone()), col(":en", en.clone())]);
-    let StagedProperty::SharedDict(shared_dict) = &prop else {
-        panic!("Expected SharedDict");
+    let dict = StagedSharedDict::new(
+        "name",
+        vec![
+            col(":de", opt_strs(&[Some(""), None, Some("Berlin")])),
+            col(":en", opt_strs(&[Some(""), Some("Berlin"), Some("")])),
+        ],
+    )
+    .unwrap();
+    let corpus = dict.corpus();
+    let [de, en] = dict.items.as_slice() else {
+        panic!("expected exactly 2 items");
     };
-    let items = &shared_dict.items;
 
-    assert_eq!(items[0].materialize(shared_dict), de);
-    assert_eq!(items[1].materialize(shared_dict), en);
+    // de: [Some(""), None, Some("Berlin")]
+    assert_ne!(de.ranges[0], DictRange::NULL);
+    assert_eq!(de.ranges[0].start, de.ranges[0].end); // empty string: zero-length span
+    assert_eq!(de.ranges[1], DictRange::NULL); // null entry
+    assert_ne!(de.ranges[2], DictRange::NULL);
+    let start: usize = de.ranges[2].start.try_into().unwrap();
+    let end: usize = de.ranges[2].end.try_into().unwrap();
+    assert_eq!(&corpus[start..end], "Berlin");
 
-    assert_eq!(items[0].ranges[1], (-1, -1));
-    assert_eq!(items[0].get(shared_dict, 1), None);
-
-    let empty_de = items[0].ranges[0];
-    let empty_en = items[1].ranges[0];
-    assert_ne!(empty_de, (-1, -1));
-    assert_ne!(empty_en, (-1, -1));
-    assert_eq!(empty_de.0, empty_de.1);
-    assert_eq!(empty_en.0, empty_en.1);
+    // en: [Some(""), Some("Berlin"), Some("")]
+    assert_ne!(en.ranges[0], DictRange::NULL);
+    assert_eq!(en.ranges[0].start, en.ranges[0].end); // empty string: zero-length span
+    assert_eq!(en.ranges[1], de.ranges[2]); // same deduped span for "Berlin"
+    assert_ne!(en.ranges[2], DictRange::NULL);
+    assert_eq!(en.ranges[2].start, en.ranges[2].end); // empty string: zero-length span
 }
 
 #[test]
@@ -573,20 +603,9 @@ proptest! {
     #[test]
     fn struct_roundtrip(
         struct_name in "[a-z]{1,8}",
-        children in prop::collection::vec(
-            (
-                "[a-z]{1,6}",
-                prop::collection::vec(prop::option::of("[a-zA-Z ]{0,20}"), 1..20),
-            ),
-            1..5usize,
-        ),
+        input in arb_shared_dict_children(),
     ) {
-        let n = children[0].1.len();
-        // SharedDict requires all items to have the same number of features.
-        prop_assume!(children.iter().all(|(_, vals)| vals.len() == n));
-        // A SharedDict where every child column is all-null is skipped in encoding.
-        prop_assume!(children.iter().any(|(_, vals)| vals.iter().any(Option::is_some)));
-
+        let (n, children) = input;
         let staged = StagedProperty::SharedDict(
             StagedSharedDict::new(&struct_name, children.clone()).expect("build shared dict"),
         );
@@ -645,7 +664,7 @@ fn str_vals(values: &[&str]) -> Vec<PropValue> {
 /// Stage a [`TileLayer01`] with `MinHash` grouping and return its properties.
 fn stage_props(tile: TileLayer01) -> Vec<StagedProperty> {
     let groups = group_string_properties(&tile);
-    StagedLayer01::from_tile(tile, SortStrategy::Unsorted, &groups).properties
+    StagedLayer01::from_tile(tile, SortStrategy::Unsorted, &groups, false).properties
 }
 
 #[test]

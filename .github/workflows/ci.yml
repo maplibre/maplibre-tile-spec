@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+      java: ${{ steps.filter.outputs.java }}
+      ts:   ${{ steps.filter.outputs.ts }}
+      cpp:  ${{ steps.filter.outputs.cpp }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            rust:
+              - 'justfile'
+              - 'rust/mod.just'
+              - '.github/**'
+              - 'rust/**'
+              - 'test/**'
+            java:
+              - 'justfile'
+              - 'java/mod.just'
+              - '.github/**'
+              - 'java/**'
+              - 'test/**'
+            ts:
+              - 'justfile'
+              - 'ts/mod.just'
+              - '.github/**'
+              - 'ts/**'
+              - 'test/**'
+            cpp:
+              - 'justfile'
+              - 'cpp/mod.just'
+              - '.github/**'
+              - 'cpp/**'
+              - 'test/**'
+
+  rust:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    uses: ./.github/workflows/rust.yml
+    with:
+      run-release: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    secrets: inherit
+    permissions:
+      contents: write
+      id-token: write
+
+  java:
+    needs: changes
+    if: needs.changes.outputs.java == 'true'
+    uses: ./.github/workflows/java.yml
+    permissions:
+      id-token: write
+      contents: read
+
+  ts:
+    needs: changes
+    if: needs.changes.outputs.ts == 'true'
+    uses: ./.github/workflows/ts.yml
+    permissions:
+      contents: read
+
+  cpp:
+    needs: changes
+    if: needs.changes.outputs.cpp == 'true'
+    uses: ./.github/workflows/cpp.yml
+    permissions:
+      id-token: write
+      contents: read
+
+  docs:
+    uses: ./.github/workflows/gh-pages.yml
+    permissions:
+      contents: write
+
+  ci-passed:
+    needs: [rust, java, ts, cpp, docs]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "${{ toJSON(needs) }}"
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1

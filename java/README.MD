@@ -80,7 +80,7 @@ Convert a Mapbox Vector Tile (MVT) to MLT format:
 ```java
 import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
+import org.maplibre.mlt.converter.ColumnMapping;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;

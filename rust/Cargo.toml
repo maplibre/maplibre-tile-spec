@@ -29,8 +29,8 @@ fastpfor = { version = "0.9", features = ["rust"] }
 flate2 = "1"
 fsst-rs = "0.5"
 futures = "0.3"
-geo = { version = "0.32.0", default-features = false }
-geo-types = "0.7.18"
+geo = { version = "0.33.1", default-features = false }
+geo-types = "0.7.19"
 glob = "0.3"
 globset = "0.4"
 hex = "0.4.3"
@@ -42,7 +42,7 @@ integer-encoding = "4.0.2"
 js-sys = "0.3"
 martin-tile-utils = "0.7"
 mbtiles = { version = "0.16", default-features = false, features = ["transcode"] }
-mlt-core = { version = "0.7.0", path = "mlt-core", default-features = false }  # TODO: rm default-features = false after geo 0.33+ is released
+mlt-core = { version = "0.8.0", path = "mlt-core" }
 moka = { version = "0.12", features = ["sync"] }
 mvt-reader = "2.3.0"
 num-traits = "0.2.19"
@@ -88,7 +88,6 @@ pedantic = { level = "warn", priority = -1 }
 panic_in_result_fn = "warn"
 todo = "warn"
 unimplemented = "warn"
-unused_trait_names = "warn"
 use_self = "warn"
 
 # Too noisy

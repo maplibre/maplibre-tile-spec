@@ -4,8 +4,8 @@ mod tile_transform;
 use std::iter::once;
 use std::ops::Deref;
 
-use geo_types::{LineString, Polygon};
-use mlt_core::geojson::{FeatureCollection, Geom32};
+use mlt_core::geo_types::{Geometry, LineString, Polygon};
+use mlt_core::geojson::FeatureCollection;
 use mlt_core::{
     Decoder, GeometryType, Layer, MltError, MltResult, ParsedLayer01, Parser, PropValueRef,
 };
@@ -99,17 +99,17 @@ fn push_polygon(buf: &mut Vec<u8>, poly: &Polygon<i32>, xf: Option<TileTransform
     push_rings(buf, once(poly.exterior()).chain(poly.interiors()), xf);
 }
 
-fn geom32_to_wkb(geom: &Geom32, xf: Option<TileTransform>) -> MltResult<Vec<u8>> {
+fn geom32_to_wkb(geom: &Geometry<i32>, xf: Option<TileTransform>) -> MltResult<Vec<u8>> {
     let mut buf = Vec::with_capacity(128);
     match geom {
-        Geom32::Point(c) => {
+        Geometry::<i32>::Point(c) => {
             buf.push(0x01);
             push_u32(&mut buf, 1);
             push_coord(&mut buf, (*c).into(), xf);
         }
-        Geom32::LineString(coords) => push_linestring(&mut buf, coords, xf),
-        Geom32::Polygon(poly) => push_polygon(&mut buf, poly, xf),
-        Geom32::MultiPoint(coords) => {
+        Geometry::<i32>::LineString(coords) => push_linestring(&mut buf, coords, xf),
+        Geometry::<i32>::Polygon(poly) => push_polygon(&mut buf, poly, xf),
+        Geometry::<i32>::MultiPoint(coords) => {
             buf.push(0x01);
             push_u32(&mut buf, 4);
             push_u32(&mut buf, coords.0.len() as u32);
@@ -119,7 +119,7 @@ fn geom32_to_wkb(geom: &Geom32, xf: Option<TileTransform>) -> MltResult<Vec<u8>>
                 push_coord(&mut buf, (*c).into(), xf);
             }
         }
-        Geom32::MultiLineString(lines) => {
+        Geometry::<i32>::MultiLineString(lines) => {
             buf.push(0x01);
             push_u32(&mut buf, 5);
             push_u32(&mut buf, lines.0.len() as u32);
@@ -127,7 +127,7 @@ fn geom32_to_wkb(geom: &Geom32, xf: Option<TileTransform>) -> MltResult<Vec<u8>>
                 push_linestring(&mut buf, line, xf);
             }
         }
-        Geom32::MultiPolygon(polygons) => {
+        Geometry::<i32>::MultiPolygon(polygons) => {
             buf.push(0x01);
             push_u32(&mut buf, 6);
             push_u32(&mut buf, polygons.0.len() as u32);
@@ -396,7 +396,7 @@ mod tests {
         let decoded = dec.decode_all(layers).expect("decode_all should succeed");
 
         let l = decoded[0].as_layer01().expect("first layer should be v0.1");
-        let geom = &l.geometry;
+        let geom = l.geometry_values();
 
         let wkb = geom_to_wkb(geom, 0, None).expect("geom_to_wkb should succeed");
         assert!(
@@ -424,7 +424,7 @@ mod tests {
         let decoded = dec.decode_all(layers).expect("decode_all should succeed");
 
         let l = decoded[0].as_layer01().expect("first layer should be v0.1");
-        let geom = &l.geometry;
+        let geom = l.geometry_values();
 
         let xf = TileTransform::from_zxy(0, 0, 0, l.extent, false).unwrap();
 
@@ -455,7 +455,7 @@ mod tests {
         let decoded = dec.decode_all(layers).expect("decode_all should succeed");
 
         let l = decoded[0].as_layer01().expect("first layer should be v0.1");
-        let geom = &l.geometry;
+        let geom = l.geometry_values();
 
         let wkb = geom_to_wkb(geom, 0, None).expect("geom_to_wkb should succeed");
         assert!(wkb.len() >= 5);

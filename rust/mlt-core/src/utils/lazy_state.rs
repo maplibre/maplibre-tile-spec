@@ -21,10 +21,9 @@ pub trait DecodeState: sealed::Sealed {
 
 /// Lazy state: individual columns may still be raw or already decoded.
 ///
-/// This is the default state produced by [`Layer01::from_bytes`](crate::Layer01::from_bytes).
-/// Columns can be decoded in place (via `decode_id`, `decode_geometry`, etc.) or
-/// all at once by calling [`Layer01::decode_all`](crate::Layer01::decode_all), which
-/// consumes `self` and returns a [`Layer01<Parsed>`](crate::Layer01).
+/// This is the default state returned by [`Parser::parse_layers`](crate::Parser::parse_layers).
+/// All columns can be decoded at once by calling [`Layer01::decode_all`](crate::Layer01::decode_all),
+/// which consumes `self` and returns a [`Layer01<Parsed>`](crate::Layer01).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Lazy;
 

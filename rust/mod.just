@@ -48,52 +48,51 @@ check: (just 'cargo-install' 'cargo-hack')
     cd mlt-core/fuzz && cargo check --all-features
 
 # Generate code coverage report to upload to codecov.io
-ci-coverage: ci-env-info (just 'java::gen-snippets') (just 'cargo-install' 'cargo-llvm-cov')
-    mkdir -p target/llvm-cov
-
-    @echo "::group::Generate synthetic MLTs"
-    rm -rf ../test/synthetic/0x01-rust
-    cargo llvm-cov run --no-report -p mlt-synthetics
-    @echo "::endgroup::"
-
-    @echo "::group::Validate synthetic MLTs"
-    {{just}} rust::validate-synthetic
-    @echo "::endgroup::"
-
-    # ATTENTION: the output-path here is used in the CI workflow
-    # --no-clean preserves profdata accumulated by the synthetic generation run above
-    # --doctests requires nightly (test job uses nightly toolchain) and may not be mixed with the main
-    {{just}} rust::coverage '--no-clean'
-    # target coverage and doctest coverage cannot be mixed
-    cargo llvm-cov --doctests --no-clean --workspace --lcov --output-path target/llvm-cov/lcov.info
+ci-coverage: ci-env-info _coverage
+    {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
+    mkdir -p target/llvm-cov      # the output-path here is used in the CI workflow
+    cargo llvm-cov report --include-build-script --lcov --output-path target/llvm-cov/lcov.info
 
 # Run minimal subset of tests to ensure compatibility with MSRV
 ci-check: ci-env-info check
 
 # Print environment info for CI
 ci-env-info:
-    @echo "::group::General environment Information"
-    @echo "Running for '{{main_crate}}' crate {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
-    @echo "PWD {{justfile_directory()}}"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "::group::General environment Information"
+    echo "Running for '{{main_crate}}' crate {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
+    echo "PWD {{justfile_directory()}}"
     {{just}} --version
     rustc --version
     cargo --version
     rustup --version
-    @echo "RUSTFLAGS='$RUSTFLAGS'"
-    @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
-    @echo "RUST_BACKTRACE='$RUST_BACKTRACE'"
-    @echo "::endgroup::"
+    echo "RUSTFLAGS='$RUSTFLAGS'"
+    echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
+    echo "RUST_BACKTRACE='$RUST_BACKTRACE'"
+    echo "::endgroup::"
 
-    @echo "::group::lscpu"
-    lscpu
-    @echo "::endgroup::"
+    # Linux
+    if command -v lscpu &>/dev/null; then
+        echo "::group::lscpu"
+        lscpu
+        echo "::endgroup::"
+    fi
+    if [ -f /proc/cpuinfo ]; then
+        echo "::group::/proc/cpuinfo"
+        cat /proc/cpuinfo
+        echo "::endgroup::"
+    fi
 
-    @echo "::group::/proc/cpuinfo"
-    cat /proc/cpuinfo
-    @echo "::endgroup::"
+    # MacOS
+    if command -v sysctl &>/dev/null && command -v egrep &>/dev/null; then
+        echo "::group::sysctl"
+        sysctl -a 2>/dev/null | egrep "^hw" || true # ignore permission denied to some sysctl entries
+        echo "::endgroup::"
+    fi
 
 # Run linting as expected by CI
-ci-lint: ci-env-info test-fmt clippy
+ci-lint: ci-env-info test-fmt clippy ci-docs-rs
     {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
 
 # Run all tests as expected by CI
@@ -166,11 +165,20 @@ clippy *args: (just 'cargo-install' 'cargo-hack')
     cargo clippy --all-targets --all-features --workspace {{args}}
     cd mlt-core/fuzz && cargo clippy --all-features {{args}}
 
+# Generate code coverage report and open it
+coverage: _coverage
+    cargo llvm-cov report --include-build-script --open
+
 # Generate code coverage report. Installs `cargo llvm-cov`
-coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm-cov')
-    cargo hack llvm-cov --all-targets --each-feature {{hack_skip}} \
-        --workspace --exclude-no-default-features --exclude-all-features \
-        --include-build-script {{args}}
+_coverage: (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm-cov') (just 'java::gen-snippets')
+    cargo llvm-cov clean --workspace
+    cargo hack llvm-cov --no-report --all-targets --each-feature {{hack_skip}} \
+        --workspace --exclude-no-default-features --exclude-all-features
+    rm -rf ../test/synthetic/0x01-rust
+    cargo llvm-cov run --no-report -p mlt-synthetics
+    cargo llvm-cov run --no-report -p mlt -- ls --validate-to-json --details basic ../test/synthetic/
+    rustup toolchain install nightly --profile minimal --component llvm-tools
+    cargo +nightly llvm-cov --no-report --doctests --workspace
 
 # Run the encoder with hotpath profiling (timing + allocation tracking)
 profile *args:
@@ -218,7 +226,7 @@ download-benchmark-tiles outdir='/tmp/benchmark-tiles' maxzoom='6': (just 'insta
 
 # Build and open code documentation
 docs *args='--open':
-    DOCS_RS=1 cargo doc --no-deps {{args}} --features arbitrary --package mlt-core
+    DOCS_RS=1 cargo doc --no-deps {{args}} --features arbitrary --workspace
 
 alias f := fmt
 fmt: (_fmt) (_fmt '--manifest-path' 'mlt-core/fuzz/Cargo.toml')
@@ -350,6 +358,16 @@ test: (just 'cargo-install' 'cargo-hack')
 test-doc: (docs '--document-private-items')
     cargo test --doc --features arbitrary --package mlt-core
 
+# Simulate docs.rs for all workspace crates and verify docs can build offline.
+ci-docs-rs:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rustup toolchain install nightly --profile minimal
+    export DOCS_RS=1
+    export RUSTDOCFLAGS="${RUSTDOCFLAGS:+$RUSTDOCFLAGS } --cfg docsrs"
+    cargo fetch --locked
+    CARGO_NET_OFFLINE=true cargo +nightly doc --workspace --no-deps --locked
+
 # Test code formatting
 test-fmt: (fmt-toml '--check' '--check-format')
     cargo fmt --all -- --check
@@ -366,6 +384,8 @@ udeps: (just 'cargo-install' 'cargo-udeps')
 update:
     cargo +nightly -Z unstable-options update --breaking
     cargo update
+    cd mlt-core/fuzz && cargo +nightly -Z unstable-options update --breaking
+    cd mlt-core/fuzz && cargo update
 
 # Generate synthetic .mlt files and ensure there are no duplicates
 generate-synthetic-mlts *args:

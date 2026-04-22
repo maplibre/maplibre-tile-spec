@@ -1,10 +1,13 @@
-use geo_types::{LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
-use mlt_core::geojson::{Feature, Geom32};
+use mlt_core::geo_types::{
+    Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
+};
+use mlt_core::geojson::Feature;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Line, Modifier, Span, Style};
 use ratatui::widgets::{Paragraph, Wrap};
 
+use crate::ui::mbt::MbtTileData;
 use crate::ui::state::{App, TreeItem, ViewMode};
 use crate::ui::{
     CLR_HOVERED_TREE, STYLE_LABEL, STYLE_SELECTED, block_with_title, feature_suffix,
@@ -56,9 +59,9 @@ pub fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                 TreeItem::SubFeature { layer, feat, part } => {
                     let geom = &app.feature(*layer, *feat).geometry;
                     let n = match geom {
-                        Geom32::MultiPoint(_) => "Point",
-                        Geom32::MultiLineString(_) => "LineString",
-                        Geom32::MultiPolygon(_) => "Polygon",
+                        Geometry::<i32>::MultiPoint(_) => "Point",
+                        Geometry::<i32>::MultiLineString(_) => "LineString",
+                        Geometry::<i32>::MultiPolygon(_) => "Polygon",
                         _ => "Part",
                     };
                     (
@@ -98,7 +101,7 @@ pub fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                 .unwrap_or("unknown");
             format!("{name} - Enter/+/-:expand, Esc:back, h:help, q:quit")
         }
-        ViewMode::FileBrowser => "Features".into(),
+        ViewMode::FileBrowser | ViewMode::MbtilesMap => "Features".into(),
     };
     let inner = area.height.saturating_sub(2) as usize;
     app.tree_inner_height = inner;
@@ -242,39 +245,39 @@ fn info_multi_polygon(lines: &mut Vec<Line<'static>>, mpoly: &MultiPolygon<i32>)
     lines.push(stat_line("Total rings", &total_rings));
 }
 
-fn geometry_stats_lines(geom: &Geom32) -> Vec<Line<'static>> {
+fn geometry_stats_lines(geom: &Geometry<i32>) -> Vec<Line<'static>> {
     let mut lines = vec![stat_line("Type", &geometry_type_name(geom))];
     match geom {
-        Geom32::Point(p) => info_point(&mut lines, *p),
-        Geom32::LineString(ls) => info_line_string(&mut lines, ls),
-        Geom32::Polygon(poly) => info_polygon(&mut lines, poly),
-        Geom32::MultiPoint(pts) => info_multi_point(&mut lines, pts),
-        Geom32::MultiLineString(mls) => info_multi_line_string(&mut lines, mls),
-        Geom32::MultiPolygon(mpoly) => info_multi_polygon(&mut lines, mpoly),
+        Geometry::<i32>::Point(p) => info_point(&mut lines, *p),
+        Geometry::<i32>::LineString(ls) => info_line_string(&mut lines, ls),
+        Geometry::<i32>::Polygon(poly) => info_polygon(&mut lines, poly),
+        Geometry::<i32>::MultiPoint(pts) => info_multi_point(&mut lines, pts),
+        Geometry::<i32>::MultiLineString(mls) => info_multi_line_string(&mut lines, mls),
+        Geometry::<i32>::MultiPolygon(mpoly) => info_multi_polygon(&mut lines, mpoly),
         _ => unreachable!("Unexpected geometry type {geom:?}"),
     }
     lines
 }
 
-fn subpart_stats_lines(geom: &Geom32, part: usize) -> Vec<Line<'static>> {
+fn subpart_stats_lines(geom: &Geometry<i32>, part: usize) -> Vec<Line<'static>> {
     let mut lines = vec![stat_line(
         "Component",
         &format!("part #{} of a {}", part, geometry_type_name(geom)),
     )];
     match geom {
-        Geom32::MultiPoint(pts) => {
+        Geometry::<i32>::MultiPoint(pts) => {
             if let Some(p) = pts.0.get(part) {
                 lines.push(stat_line("Type", &"Point"));
                 info_point(&mut lines, *p);
             }
         }
-        Geom32::MultiLineString(mls) => {
+        Geometry::<i32>::MultiLineString(mls) => {
             if let Some(ls) = mls.0.get(part) {
                 lines.push(stat_line("Type", &"LineString"));
                 info_line_string(&mut lines, ls);
             }
         }
-        Geom32::MultiPolygon(mpoly) => {
+        Geometry::<i32>::MultiPolygon(mpoly) => {
             if let Some(poly) = mpoly.0.get(part) {
                 lines.push(stat_line("Type", &"Polygon"));
                 info_polygon(&mut lines, poly);
@@ -283,6 +286,65 @@ fn subpart_stats_lines(geom: &Geom32, part: usize) -> Vec<Line<'static>> {
         _ => {}
     }
     lines
+}
+
+// ---------------------------------------------------------------------------
+// MBTiles hover properties panel
+// ---------------------------------------------------------------------------
+
+/// Renders the left panel for `MbtilesMap` mode: shows hovered feature properties only.
+pub fn render_mbtiles_hover_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
+    let (title, lines) = mbt_hover_title_and_lines(app);
+    let inner = area.height.saturating_sub(2) as usize;
+    let max = u16::try_from(lines.len().saturating_sub(inner)).unwrap_or(0);
+    app.properties_scroll = app.properties_scroll.min(max);
+    let para = Paragraph::new(lines)
+        .block(block_with_title(title))
+        .wrap(Wrap { trim: true })
+        .scroll((app.properties_scroll, 0));
+    f.render_widget(para, area);
+}
+
+fn mbt_hover_title_and_lines(app: &App) -> (String, Vec<Line<'static>>) {
+    let Some(ref mbt) = app.mbt_state else {
+        return ("Properties".into(), vec![Line::from("No mbtiles loaded")]);
+    };
+    let Some(ref h) = mbt.hovered else {
+        return (
+            "Properties".into(),
+            vec![Line::from("Hover over a feature to inspect properties")],
+        );
+    };
+    let tile_entry = mbt.tiles.get(&h.tile);
+    let Some(MbtTileData::Loaded {
+        fc, layer_groups, ..
+    }) = tile_entry
+    else {
+        let msg: String = match tile_entry {
+            Some(MbtTileData::Empty) => "Tile empty (no vector data)".into(),
+            Some(MbtTileData::Error(e)) => {
+                let snippet: String = e.chars().take(160).collect();
+                format!("Tile error: {snippet}")
+            }
+            None | Some(MbtTileData::Loading | MbtTileData::Loaded { .. }) => {
+                "Tile loading…".into()
+            }
+        };
+        return ("Properties".into(), vec![Line::from(msg)]);
+    };
+    let Some(group) = layer_groups.get(h.layer_idx) else {
+        return ("Properties".into(), vec![Line::from("(feature not found)")]);
+    };
+    let Some(&gi) = group.feature_indices.get(h.feat_idx) else {
+        return ("Properties".into(), vec![Line::from("(feature not found)")]);
+    };
+    let feat = &fc.features[gi];
+    let (z, tx, ty) = h.tile;
+    let title = format!(
+        "Properties — {} feat {} (tile {z}/{tx}/{ty})",
+        group.name, h.feat_idx
+    );
+    (title, feature_property_lines(feat))
 }
 
 fn render_geometry_stats(f: &mut Frame<'_>, area: Rect, app: &App) {

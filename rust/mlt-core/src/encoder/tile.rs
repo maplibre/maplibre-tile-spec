@@ -7,8 +7,8 @@
 //! and free from any encoded/decoded duality.
 //!
 //! Conversion from [`TileLayer01`] to `StagedLayer01` is done via
-//! `StagedLayer01::from_tile` (pre-computed [`StringGroup`] pairings produced by
-//! [`group_string_properties`](crate::encoder::group_string_properties)) or the blanket [`From`] impl (no grouping).
+//! `StagedLayer01::from_tile` (pre-computed `StringGroup` pairings produced by
+//! `group_string_properties`) or the blanket [`From`] impl (no grouping).
 
 use std::collections::HashMap;
 
@@ -18,18 +18,30 @@ use crate::encoder::{SortStrategy, StagedProperty, StagedSharedDict, StringGroup
 
 impl StagedLayer01 {
     /// Construct a [`StagedLayer01`] from a row-oriented [`TileLayer01`], applying
-    /// pre-computed [`StringGroup`] pairings to merge similar string columns into
+    /// pre-computed `StringGroup` pairings to merge similar string columns into
     /// shared dictionaries.
     ///
-    /// `groups` should be the output of [`group_string_properties`](crate::encoder::group_string_properties) called on the
+    /// `groups` should be the output of `group_string_properties` called on the
     /// same [`TileLayer01`] source.  Because unique-value membership is
     /// row-order-independent, the same groups can be reused across sort trials.
+    ///
+    /// When `tessellate` is `true`, polygon and multi-polygon geometries have
+    /// their triangulation stored alongside the geometry.
     #[must_use]
     #[hotpath::measure]
-    pub fn from_tile(mut source: TileLayer01, sort: SortStrategy, groups: &[StringGroup]) -> Self {
+    pub fn from_tile(
+        mut source: TileLayer01,
+        sort: SortStrategy,
+        groups: &[StringGroup],
+        tessellate: bool,
+    ) -> Self {
         assert!(!source.features.is_empty(), "empty tile");
         source.sort(sort);
-        let mut geometry = GeometryValues::default();
+        let mut geometry = if tessellate {
+            GeometryValues::new_tessellated()
+        } else {
+            GeometryValues::default()
+        };
         for f in &source.features {
             geometry.push_geom(&f.geometry);
         }
@@ -152,7 +164,6 @@ mod tests {
     use crate::Layer;
     use crate::decoder::GeometryValues;
     use crate::encoder::{Encoder, StagedLayer};
-    use crate::geojson::Geom32;
     use crate::test_helpers::{dec, parser};
 
     fn layer_tile(staged: StagedLayer01) -> TileLayer01 {
@@ -169,8 +180,8 @@ mod tests {
 
     fn two_points() -> GeometryValues {
         let mut g = GeometryValues::default();
-        g.push_geom(&Geom32::Point(Point::new(0, 0)));
-        g.push_geom(&Geom32::Point(Point::new(1, 1)));
+        g.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
+        g.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(1, 1)));
         g
     }
 

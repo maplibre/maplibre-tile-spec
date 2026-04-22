@@ -24,14 +24,15 @@ import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.PrecisionModel;
+import org.maplibre.mlt.converter.ColumnMapping;
+import org.maplibre.mlt.converter.ColumnMappingConfig;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
-import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
-import org.maplibre.mlt.converter.mvt.MapboxVectorTile;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
+import org.maplibre.mlt.data.MLTFeature;
+import org.maplibre.mlt.data.MapboxVectorTile;
 import org.maplibre.mlt.decoder.MltDecoder;
 import org.maplibre.mlt.json.Json;
 
@@ -81,45 +82,44 @@ class SyntheticMltUtil {
   static final Coordinate[] mortonCurve = buildMortonCurve(16, 8, 4);
 
   /** Builder subclass with no-argument shorthand methods for common flags. */
-  static class Cfg extends ConversionConfig.Builder {
-
+  static class Cfg extends ConversionConfig.ConfigBuilder {
     public Cfg ids() {
-      this.includeIds(true);
+      super.includeIds(true);
       return this;
     }
 
     public Cfg fastPFOR() {
-      this.useFastPFOR(true);
+      super.useFastPFOR(true);
       return this;
     }
 
     public Cfg fsst() {
-      this.useFSST(true);
+      super.useFSST(true);
       return this;
     }
 
     public Cfg geomEnc(ConversionConfig.IntegerEncodingOption encoding) {
-      this.geometryEncoding(encoding);
+      super.geometryEncodingOption(encoding);
       return this;
     }
 
     public Cfg coercePropValues() {
-      this.mismatchPolicy(ConversionConfig.TypeMismatchPolicy.COERCE);
+      super.typeMismatchPolicy(ConversionConfig.TypeMismatchPolicy.COERCE);
       return this;
     }
 
     public Cfg tessellate() {
-      this.preTessellatePolygons(true);
+      super.preTessellatePolygons(true);
       return this;
     }
 
     public Cfg morton() {
-      this.useMortonEncoding(true);
+      super.useMortonEncoding(true);
       return this;
     }
 
     public Cfg filterInvert() {
-      this.layerFilterInvert(true);
+      super.layerFilterInvert(true);
       return this;
     }
 
@@ -133,7 +133,7 @@ class SyntheticMltUtil {
 
       var optimizationsMap = new HashMap<String, FeatureTableOptimizations>();
       optimizationsMap.put("layer1", layerOpt);
-      this.optimizations(optimizationsMap);
+      super.optimizations(optimizationsMap);
       return this;
     }
 
@@ -161,7 +161,7 @@ class SyntheticMltUtil {
     c.includeIds(false);
     c.useFastPFOR(false);
     c.useFSST(false);
-    c.mismatchPolicy(ConversionConfig.TypeMismatchPolicy.FAIL);
+    c.typeMismatchPolicy(ConversionConfig.TypeMismatchPolicy.FAIL);
     // c.optimizations(null); // Map<String, FeatureTableOptimizations>
     c.preTessellatePolygons(false);
     c.useMortonEncoding(false);
@@ -173,8 +173,8 @@ class SyntheticMltUtil {
     c.outlineFeatureTableNames(List.of("ALL"));
     // c.layerFilterPattern(null); // Pattern
     c.layerFilterInvert(false);
-    c.integerEncoding(encoding);
-    c.geometryEncoding(AUTO);
+    c.integerEncodingOption(encoding);
+    c.geometryEncodingOption(AUTO);
     return c;
   }
 
@@ -251,21 +251,21 @@ class SyntheticMltUtil {
   }
 
   static Feature feat(Geometry geom) {
-    return new Feature(geom, Map.of());
+    return MLTFeature.builder().index(0).geometry(geom).build();
   }
 
-  static Feature feat(Geometry geom, Map<String, Object> props) {
-    return new Feature(geom, props);
+  static MLTFeature feat(Geometry geom, Map<String, Object> props) {
+    return MLTFeature.builder().index(0).geometry(geom).rawProperties(props).build();
   }
 
   /** for testing IDs - always use the same geometry */
   static Feature idFeat(long id) {
-    return new Feature(id, p0, Map.of());
+    return MLTFeature.builder().index(0).id(id).geometry(p0).build();
   }
 
   /** for testing IDs - simulate missing ID */
   static Feature idFeat() {
-    return new Feature(p0, Map.of());
+    return feat(p0);
   }
 
   static Layer layer(String name, Feature... features) {
@@ -276,47 +276,46 @@ class SyntheticMltUtil {
     return new Layer(name, Arrays.asList(features), extent);
   }
 
-  static void write(String name, Feature feat, ConversionConfig.Builder cfg) throws IOException {
+  static void write(String name, Feature feat, ConversionConfig.ConfigBuilder cfg)
+      throws IOException {
     write(layer(name, feat), cfg);
   }
 
-  static void write(Layer layer, ConversionConfig.Builder cfg) throws IOException {
+  static void write(Layer layer, ConversionConfig.ConfigBuilder cfg) throws IOException {
     // layer names should be identical to reduce variability in generated MLT files
     // and ensure we observe differences in encoding rather than layer name variations
     write(layer.name(), List.of(new Layer("layer1", layer.features(), layer.tileExtent())), cfg);
   }
 
-  static void write(String fileName, List<Layer> layers, ConversionConfig.Builder cfg)
+  static void write(String fileName, List<Layer> layers, ConversionConfig.ConfigBuilder cfg)
       throws IOException {
     try {
       System.out.println("Generating: " + fileName);
-      var mltFile = SYNTHETICS_DIR.resolve(fileName + ".mlt");
-      Path jsonFile = SYNTHETICS_DIR.resolve(fileName + ".json");
-
       var config = cfg.build();
       var tile = new MapboxVectorTile(layers);
-
-      // Extract column mappings from the config's optimizations
-      final var columnMappings = new ColumnMappingConfig();
-      if (config.getOptimizations() != null && !config.getOptimizations().isEmpty()) {
-        var allColumnMappings =
-            config.getOptimizations().values().stream()
-                .flatMap(opt -> opt.columnMappings().stream())
-                .toList();
-        if (!allColumnMappings.isEmpty()) {
-          columnMappings.put(Pattern.compile(".*"), allColumnMappings);
-        }
-      }
-
-      var metadata =
-          MltConverter.createTilesetMetadata(tile, columnMappings, config.getIncludeIds());
-      var mlt = MltConverter.convertMvt(tile, metadata, config, null);
-      Files.write(mltFile, mlt, StandardOpenOption.CREATE_NEW);
-
+      final var columnMappings = buildColumnMappings(config);
+      var metadata = MltConverter.createTilesetMetadata(tile, columnMappings, config.includeIds());
+      var mlt = MltConverter.encode(tile, metadata, config, null);
+      Files.write(SYNTHETICS_DIR.resolve(fileName + ".mlt"), mlt, StandardOpenOption.CREATE_NEW);
       final String json = Json.toGeoJson(MltDecoder.decodeMlTile(mlt), true) + "\n";
-      Files.writeString(jsonFile, json, StandardOpenOption.CREATE_NEW);
+      Files.writeString(
+          SYNTHETICS_DIR.resolve(fileName + ".json"), json, StandardOpenOption.CREATE_NEW);
     } catch (Exception e) {
       throw new IOException("Error writing MLT file " + fileName, e);
     }
+  }
+
+  private static ColumnMappingConfig buildColumnMappings(ConversionConfig config) {
+    final var columnMappings = new ColumnMappingConfig();
+    if (config.optimizations() != null && !config.optimizations().isEmpty()) {
+      var allColumnMappings =
+          config.optimizations().values().stream()
+              .flatMap(opt -> opt.columnMappings().stream())
+              .toList();
+      if (!allColumnMappings.isEmpty()) {
+        columnMappings.put(Pattern.compile(".*"), allColumnMappings);
+      }
+    }
+    return columnMappings;
   }
 }

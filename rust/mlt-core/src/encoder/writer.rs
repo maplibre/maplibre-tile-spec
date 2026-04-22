@@ -5,7 +5,7 @@ use fastpfor::FastPFor256;
 use fsst::Compressor;
 use integer_encoding::VarIntWriter as _;
 
-use crate::decoder::MortonMeta;
+use crate::decoder::Morton;
 use crate::encoder::model::{ExplicitEncoder, StrEncoding, StreamCtx};
 use crate::encoder::{EncoderConfig, IdWidth, IntEncoder, VertexBufferType};
 use crate::{MltError, MltResult};
@@ -117,10 +117,10 @@ pub struct Encoder {
     /// Regardless of the sort, these values should be identical
     pub(crate) vertex_buffer_type_cache: Option<VertexBufferType>,
 
-    /// Cached result of [`z_order_params`] for the geometry column currently
-    /// being encoded.  Cleared at the start of each [`GeometryValues::write_to`]
+    /// Cached result of `z_order_params` for the geometry column currently
+    /// being encoded.  Cleared at the start of each [`GeometryValues::write_to`](crate::GeometryValues::write_to)
     /// call so it never leaks across columns.
-    pub(crate) morton_meta_cache: Option<MortonMeta>,
+    pub(crate) morton_cache: Option<Morton>,
 
     /// Cached FSST compressor per string column, keyed by column name.
     /// `None` means training found FSST not viable for that column.
@@ -188,7 +188,7 @@ impl Encoder {
             data: mem::take(&mut self.data),
             layer_column_count: mem::take(&mut self.layer_column_count),
             vertex_buffer_type_cache: None,
-            morton_meta_cache: None,
+            morton_cache: None,
             fsst_cache: HashMap::new(),
             alt_stack: vec![],
             tmp_u32: vec![],
@@ -293,8 +293,8 @@ impl Encoder {
     /// Concatenate `hdr + meta + data` into a single buffer **without** a
     /// tag/size prefix.
     ///
-    /// Use this when the caller expects a raw layer body
-    /// (e.g. [`Layer01::from_bytes`](crate::decoder::Layer01)) rather than a framed wire record.
+    /// Use this when the caller expects raw layer body bytes (without the size/tag framing)
+    /// rather than a complete framed wire record — see [`Self::into_layer_bytes`] for the framed form.
     #[must_use]
     pub fn into_raw_bytes(mut self) -> Vec<u8> {
         let mut out = Vec::with_capacity(self.hdr.len() + self.meta.len() + self.data.len());

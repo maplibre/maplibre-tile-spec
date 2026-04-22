@@ -3,7 +3,7 @@ use std::hint::black_box;
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::__private::{dec, parser};
 use mlt_core::Layer;
-use mlt_core::encoder::{LogicalEncoder, SortStrategy};
+use mlt_core::encoder::{EncoderConfig, LogicalEncoder, SortStrategy};
 use strum::IntoEnumIterator as _;
 
 #[path = "bench_utils.rs"]
@@ -25,7 +25,7 @@ fn limit<T>(values: impl Iterator<Item = T>) -> impl Iterator<Item = T> {
 ///
 /// Goes through `Layer01 → TileLayer01 → StagedLayer01`, which is the correct
 /// encode-pipeline entry point per CONTRIBUTING.md.
-fn decode_to_owned(tiles: &[(String, Vec<u8>)]) -> Vec<StagedLayer> {
+fn decode_to_owned(tiles: &[(String, Vec<u8>)], tessellate: bool) -> Vec<StagedLayer> {
     tiles
         .iter()
         .flat_map(|(_, data)| {
@@ -42,6 +42,7 @@ fn decode_to_owned(tiles: &[(String, Vec<u8>)]) -> Vec<StagedLayer> {
                         tile,
                         SortStrategy::Unsorted,
                         &[],
+                        tessellate,
                     )))
                 })
                 .collect::<Vec<_>>()
@@ -51,36 +52,43 @@ fn decode_to_owned(tiles: &[(String, Vec<u8>)]) -> Vec<StagedLayer> {
 
 fn bench_encode(c: &mut Criterion) {
     let mut group = c.benchmark_group("mlt encode");
-
     for zoom in BENCHMARKED_ZOOM_LEVELS {
         let tiles = load_mlt_tiles(zoom);
         let total_bytes: usize = tiles.iter().map(|(_, d)| d.len()).sum();
         group.throughput(Throughput::Bytes(total_bytes as u64));
-
-        for physical in limit(PhysicalEncoder::iter()) {
-            for logical in limit(LogicalEncoder::iter()) {
-                let int_enc = IntEncoder::new(logical, physical);
-                group.bench_with_input(
-                    BenchmarkId::new(format!("{logical:?}-{physical:?}"), zoom),
-                    &tiles,
-                    |b, tiles| {
-                        b.iter_batched(
-                            || decode_to_owned(tiles),
-                            |layers| {
-                                for layer in layers {
-                                    if let StagedLayer::Tag01(l) = layer {
-                                        let enc = Encoder::with_explicit(
-                                            Encoder::default().cfg,
-                                            ExplicitEncoder::all(int_enc),
-                                        );
-                                        black_box(l.encode_into(enc).expect("encode failed"));
+        for tessellate in [true, false] {
+            let enc_config = EncoderConfig {
+                tessellate,
+                ..Default::default()
+            };
+            for physical in limit(PhysicalEncoder::iter()) {
+                for logical in limit(LogicalEncoder::iter()) {
+                    let int_enc = IntEncoder::new(logical, physical);
+                    group.bench_with_input(
+                        BenchmarkId::new(
+                            format!("{logical:?}-{physical:?}/tessellate: {tessellate:?}"),
+                            zoom,
+                        ),
+                        &tiles,
+                        |b, tiles| {
+                            b.iter_batched(
+                                || decode_to_owned(tiles, enc_config.tessellate),
+                                |layers| {
+                                    for layer in layers {
+                                        if let StagedLayer::Tag01(l) = layer {
+                                            let enc = Encoder::with_explicit(
+                                                enc_config,
+                                                ExplicitEncoder::all(int_enc),
+                                            );
+                                            black_box(l.encode_into(enc).expect("encode failed"));
+                                        }
                                     }
-                                }
-                            },
-                            BatchSize::SmallInput,
-                        );
-                    },
-                );
+                                },
+                                BatchSize::SmallInput,
+                            );
+                        },
+                    );
+                }
             }
         }
     }

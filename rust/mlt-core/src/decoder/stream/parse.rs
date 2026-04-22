@@ -4,8 +4,8 @@ use integer_encoding::VarIntWriter as _;
 
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
-    IntEncoding, LogicalEncoding, LogicalTechnique, MortonMeta, PhysicalEncoding, RawStream,
-    RawStreamData, RleMeta, StreamMeta, StreamType,
+    IntEncoding, LogicalEncoding, LogicalTechnique, Morton, PhysicalEncoding, RawStream, RleMeta,
+    StreamMeta, StreamType,
 };
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
 use crate::utils::{AsUsize as _, BinarySerializer as _, parse_u8, take};
@@ -13,19 +13,19 @@ use crate::{MltError, MltRefResult, MltResult, Parser};
 
 impl IntEncoding {
     #[must_use]
-    pub const fn new(logical: LogicalEncoding, physical: PhysicalEncoding) -> Self {
+    pub(crate) const fn new(logical: LogicalEncoding, physical: PhysicalEncoding) -> Self {
         Self { logical, physical }
     }
 
     #[must_use]
-    pub const fn none() -> Self {
+    pub(crate) const fn none() -> Self {
         Self::new(LogicalEncoding::None, PhysicalEncoding::None)
     }
 }
 
 impl StreamMeta {
     #[must_use]
-    pub fn new(stream_type: StreamType, encoding: IntEncoding, num_values: u32) -> Self {
+    pub(crate) fn new(stream_type: StreamType, encoding: IntEncoding, num_values: u32) -> Self {
         Self {
             stream_type,
             encoding,
@@ -97,18 +97,15 @@ impl StreamMeta {
                 // Reserve decoded memory upper bound: worst case u64 = 8 bytes per value
                 let decoded_bytes = num_values.saturating_mul(8);
                 parser.reserve(decoded_bytes)?;
-                let num_bits;
-                let coordinate_shift;
-                (input, num_bits) = parse_varint::<u32>(input)?;
-                (input, coordinate_shift) = parse_varint::<u32>(input)?;
-                let meta = MortonMeta {
-                    num_bits,
-                    coordinate_shift,
-                };
+                let bits;
+                let shift;
+                (input, bits) = parse_varint::<u32>(input)?;
+                (input, shift) = parse_varint::<u32>(input)?;
+                let morton = Morton { bits, shift };
                 match logical2 {
-                    LT::Rle => LogicalEncoding::MortonRle(meta),
-                    LT::Delta => LogicalEncoding::MortonDelta(meta),
-                    _ => LogicalEncoding::Morton(meta),
+                    LT::Rle => LogicalEncoding::MortonRle(morton),
+                    LT::Delta => LogicalEncoding::MortonDelta(morton),
+                    _ => LogicalEncoding::Morton(morton),
                 }
             }
             _ => Err(MltError::InvalidLogicalEncodings(logical1, logical2))?,
@@ -122,7 +119,7 @@ impl StreamMeta {
         Ok((input, (meta, byte_length)))
     }
 
-    pub fn write_to<W: io::Write>(
+    pub(crate) fn write_to<W: io::Write>(
         &self,
         writer: &mut W,
         is_bool: bool,
@@ -147,7 +144,6 @@ impl StreamMeta {
             PhysicalEncoding::None => 0x0,
             PhysicalEncoding::FastPFor256 => 0x1,
             PhysicalEncoding::VarInt => 0x2,
-            PhysicalEncoding::Alp => 0x3,
         };
         writer.write_u8(logical_enc_u8 | physical_enc_u8)?;
         writer.write_varint(self.num_values)?;
@@ -162,8 +158,8 @@ impl StreamMeta {
                 }
             }
             LE::Morton(m) | LE::MortonDelta(m) | LE::MortonRle(m) => {
-                writer.write_varint(m.num_bits)?;
-                writer.write_varint(m.coordinate_shift)?;
+                writer.write_varint(m.bits)?;
+                writer.write_varint(m.shift)?;
             }
             LE::None | LE::Delta | LE::ComponentwiseDelta | LE::PseudoDecimal => {}
         }
@@ -193,22 +189,15 @@ impl fmt::Debug for StreamMeta {
 
 impl<'a> RawStream<'a> {
     #[must_use]
-    pub fn new(meta: StreamMeta, data: RawStreamData<'a>) -> Self {
+    pub(crate) fn new(meta: StreamMeta, data: &'a [u8]) -> Self {
         Self { meta, data }
     }
 
-    #[must_use]
-    pub fn as_bytes(&self) -> &'a [u8] {
-        match &self.data {
-            RawStreamData::Encoded(v) | RawStreamData::VarInt(v) => v,
-        }
-    }
-
-    pub fn from_bytes(input: &'a [u8], parser: &mut Parser) -> MltRefResult<'a, Self> {
+    pub(crate) fn from_bytes(input: &'a [u8], parser: &mut Parser) -> MltRefResult<'a, Self> {
         Self::from_bytes_internal(input, false, parser)
     }
 
-    pub fn parse_multiple(
+    pub(crate) fn parse_multiple(
         mut input: &'a [u8],
         count: usize,
         parser: &mut Parser,
@@ -222,7 +211,7 @@ impl<'a> RawStream<'a> {
         Ok((input, result))
     }
 
-    pub fn parse_bool(input: &'a [u8], parser: &mut Parser) -> MltRefResult<'a, Self> {
+    pub(crate) fn parse_bool(input: &'a [u8], parser: &mut Parser) -> MltRefResult<'a, Self> {
         Self::from_bytes_internal(input, true, parser)
     }
 
@@ -249,13 +238,7 @@ impl<'a> RawStream<'a> {
             validate_rle_varint_stream(data, r.runs, r.num_rle_values)?;
         }
 
-        let stream_data = match meta.encoding.physical {
-            PD::None | PD::FastPFor256 => RawStreamData::Encoded(data),
-            PD::VarInt => RawStreamData::VarInt(data),
-            PD::Alp => return Err(MltError::UnsupportedPhysicalEncoding("ALP")),
-        };
-
-        Ok((input, RawStream::new(meta, stream_data)))
+        Ok((input, RawStream::new(meta, data)))
     }
 }
 

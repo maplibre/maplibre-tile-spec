@@ -1,7 +1,7 @@
 [package]
 name = "mlt-wasm"
 description = "WebAssembly bindings for the MapLibre Tile (MLT) format"
-version = "0.1.4"
+version = "0.1.5"
 authors.workspace = true
 categories.workspace = true
 edition.workspace = true
@@ -19,8 +19,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 js-sys.workspace = true
-# Once geo supports wasm, use default mlt-core
-mlt-core = { workspace = true, default-features = false }
+mlt-core.workspace = true
 wasm-bindgen.workspace = true
 
 [lints]

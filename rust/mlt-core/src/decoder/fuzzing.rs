@@ -1,10 +1,9 @@
 use arbitrary::{Arbitrary, Result, Unstructured};
-use geo_types::Point;
+use geo_types::{Coord, Geometry, Point};
 
 #[cfg(fuzzing)]
 use crate::decoder::ColumnType;
-use crate::decoder::GeometryValues;
-use crate::geojson::{Coord32, Geom32};
+use crate::decoder::{GeometryValues, IdValues};
 #[allow(
     unused_imports,
     clippy::wildcard_imports,
@@ -43,11 +42,10 @@ enum ArbitraryGeometry {
     // FIXME: Add LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon, once supported upstream
 }
 
-impl From<ArbitraryGeometry> for Geom32 {
+impl From<ArbitraryGeometry> for Geometry<i32> {
     fn from(value: ArbitraryGeometry) -> Self {
         match value {
-            ArbitraryGeometry::Point((x, y)) => Self::Point(Point(Coord32 { x, y })),
-            // FIXME: once fully working, add the rest
+            ArbitraryGeometry::Point((x, y)) => Self::Point(Point(Coord::<i32> { x, y })), // FIXME: once fully working, add the rest
         }
     }
 }
@@ -59,7 +57,7 @@ impl Arbitrary<'_> for GeometryValues {
         let mut decoded = Self::default();
         for _ in 0..count {
             let geo: ArbitraryGeometry = u.arbitrary()?;
-            decoded.push_geom(&Geom32::from(geo));
+            decoded.push_geom(&Geometry::<i32>::from(geo));
         }
         Ok(decoded)
     }

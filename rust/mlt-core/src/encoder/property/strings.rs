@@ -341,34 +341,8 @@ impl StagedStrings {
         self.lengths.len()
     }
 
-    fn bounds(&self, i: u32) -> Option<(u32, u32)> {
-        let i = i.as_usize();
-        let end = *self.lengths.get(i)?;
-        if end < 0 {
-            return None;
-        }
-        let end = end.cast_unsigned();
-        let start = if i == 0 {
-            0
-        } else {
-            let prev = self.lengths[i - 1];
-            if prev < 0 {
-                (!prev).cast_unsigned()
-            } else {
-                prev.cast_unsigned()
-            }
-        };
-        Some((start, end))
-    }
-
     pub fn presence_bools(&self) -> impl ExactSizeIterator<Item = bool> + '_ {
         self.lengths.iter().map(|&end| end >= 0)
-    }
-
-    #[must_use]
-    pub fn get(&self, i: u32) -> Option<&str> {
-        let (start, end) = self.bounds(i)?;
-        self.data.get(start.as_usize()..end.as_usize())
     }
 
     #[must_use]

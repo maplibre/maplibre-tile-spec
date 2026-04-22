@@ -4,12 +4,14 @@ use std::sync::mpsc;
 use std::time::Instant;
 
 use mlt_core::GeometryType;
-use mlt_core::geojson::{Feature, FeatureCollection, Geom32};
+use mlt_core::geo_types::{Geometry, Polygon};
+use mlt_core::geojson::{Feature, FeatureCollection};
 use ratatui::layout::{Constraint, Rect};
 use ratatui::widgets::TableState;
 use rstar::{PointDistance as _, RTree};
 
 use crate::ls::{FileAlgorithm, FileSortColumn, LsRow};
+use crate::ui::mbt::MbtilesState;
 use crate::ui::{
     GeometryIndexEntry, auto_expand, coord_f64, group_by_layer, is_entry_visible, load_fc,
     multi_part_count,
@@ -19,6 +21,8 @@ use crate::ui::{
 pub enum ViewMode {
     FileBrowser,
     LayerOverview,
+    /// Interactive world map viewer for .mbtiles files.
+    MbtilesMap,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -144,6 +148,8 @@ pub struct App {
     pub(crate) preview_extent: u32,
     pub(crate) preview_rx: Option<mpsc::Receiver<PreviewValue>>,
     pub(crate) preview_load_requested: Option<PathBuf>,
+    /// State for the `MbtilesMap` mode (Some only when mode == `MbtilesMap`).
+    pub(crate) mbt_state: Option<Box<MbtilesState>>,
 }
 
 impl Default for App {
@@ -201,6 +207,7 @@ impl Default for App {
             preview_extent: 4096,
             preview_rx: None,
             preview_load_requested: None,
+            mbt_state: None,
         }
     }
 }
@@ -220,6 +227,15 @@ impl App {
             analysis_rx,
             file_browser_base: Some(base_path),
             filtered_file_indices,
+            ..Self::default()
+        }
+    }
+
+    pub(crate) fn new_mbtiles(mbt_state: MbtilesState, path: PathBuf) -> Self {
+        Self {
+            mode: ViewMode::MbtilesMap,
+            current_file: Some(path),
+            mbt_state: Some(Box::new(mbt_state)),
             ..Self::default()
         }
     }
@@ -405,6 +421,7 @@ impl App {
                     self.invalidate_bounds();
                 }
             }
+            ViewMode::MbtilesMap => {}
         }
     }
 
@@ -419,7 +436,7 @@ impl App {
     pub(crate) fn page_size(&self) -> usize {
         match self.mode {
             ViewMode::FileBrowser => self.file_table_inner_height,
-            ViewMode::LayerOverview => self.tree_inner_height,
+            ViewMode::LayerOverview | ViewMode::MbtilesMap => self.tree_inner_height,
         }
     }
 
@@ -468,6 +485,7 @@ impl App {
                 }
                 _ => {}
             },
+            ViewMode::MbtilesMap => {}
         }
     }
 
@@ -538,7 +556,7 @@ impl App {
 
     pub(crate) fn handle_escape(&mut self) -> bool {
         match self.mode {
-            ViewMode::FileBrowser => true,
+            ViewMode::FileBrowser | ViewMode::MbtilesMap => true,
             ViewMode::LayerOverview if self.files.is_empty() => true,
             ViewMode::LayerOverview => {
                 self.mode = ViewMode::FileBrowser;
@@ -679,7 +697,7 @@ impl App {
             y1 = y1.max(v[1]);
         };
 
-        let geoms: Vec<&Geom32> = match sel {
+        let geoms: Vec<&Geometry<i32>> = match sel {
             TreeItem::All => self.fc.features.iter().map(|f| &f.geometry).collect(),
             TreeItem::Layer(l) => self.layer_groups[*l]
                 .feature_indices
@@ -870,7 +888,7 @@ fn file_cmp(a: &LsRow, b: &LsRow, col: FileSortColumn, asc: bool) -> std::cmp::O
     if asc { ord } else { ord.reverse() }
 }
 
-fn poly_verts(poly: &geo_types::Polygon<i32>) -> Vec<[f64; 2]> {
+fn poly_verts(poly: &Polygon<i32>) -> Vec<[f64; 2]> {
     poly.exterior()
         .0
         .iter()
@@ -880,28 +898,28 @@ fn poly_verts(poly: &geo_types::Polygon<i32>) -> Vec<[f64; 2]> {
         .collect()
 }
 
-fn geometry_vertices(geom: &Geom32, part: Option<usize>) -> Vec<[f64; 2]> {
+fn geometry_vertices(geom: &Geometry<i32>, part: Option<usize>) -> Vec<[f64; 2]> {
     match (geom, part) {
-        (Geom32::Point(p), None) => vec![coord_f64(p.0)],
-        (Geom32::LineString(ls), None) => ls.0.iter().copied().map(coord_f64).collect(),
-        (Geom32::MultiPoint(mp), None) => mp.iter().map(|p| coord_f64(p.0)).collect(),
-        (Geom32::Polygon(poly), None) => poly_verts(poly),
-        (Geom32::MultiLineString(mls), None) => mls
+        (Geometry::<i32>::Point(p), None) => vec![coord_f64(p.0)],
+        (Geometry::<i32>::LineString(ls), None) => ls.0.iter().copied().map(coord_f64).collect(),
+        (Geometry::<i32>::MultiPoint(mp), None) => mp.iter().map(|p| coord_f64(p.0)).collect(),
+        (Geometry::<i32>::Polygon(poly), None) => poly_verts(poly),
+        (Geometry::<i32>::MultiLineString(mls), None) => mls
             .iter()
             .flat_map(|ls| ls.0.iter().copied().map(coord_f64))
             .collect(),
-        (Geom32::MultiPolygon(mpoly), None) => mpoly.iter().flat_map(poly_verts).collect(),
-        (Geom32::MultiPoint(mp), Some(p)) => {
+        (Geometry::<i32>::MultiPolygon(mpoly), None) => mpoly.iter().flat_map(poly_verts).collect(),
+        (Geometry::<i32>::MultiPoint(mp), Some(p)) => {
             mp.0.get(p)
                 .map(|pt| vec![coord_f64(pt.0)])
                 .unwrap_or_default()
         }
-        (Geom32::MultiLineString(mls), Some(p)) => mls
+        (Geometry::<i32>::MultiLineString(mls), Some(p)) => mls
             .0
             .get(p)
             .map(|ls| ls.0.iter().copied().map(coord_f64).collect())
             .unwrap_or_default(),
-        (Geom32::MultiPolygon(mpoly), Some(p)) => {
+        (Geometry::<i32>::MultiPolygon(mpoly), Some(p)) => {
             mpoly.0.get(p).map(poly_verts).unwrap_or_default()
         }
         _ => Vec::new(),

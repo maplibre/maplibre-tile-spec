@@ -1,16 +1,7 @@
 name: Java CI
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    paths:
-      - 'justfile'
-      - 'java/mod.just'
-      - '.github/**'
-      - 'java/**'
-      - 'test/**'
+  workflow_call:
   workflow_dispatch:
 
 defaults:
@@ -50,7 +41,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: github.repository_owner == 'maplibre'
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           use_oidc: true
           directory: java
