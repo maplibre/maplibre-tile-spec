@@ -18,6 +18,7 @@
 #include <array>
 #include <numeric>
 #include <stdexcept>
+#include <unordered_map>
 
 namespace mlt {
 
@@ -39,6 +40,11 @@ void throwInvalidType() {
 } // namespace
 
 struct Encoder::Impl {
+    struct IdStats {
+        bool hasLongId = false;
+        bool hasMissingId = false;
+    };
+
     IntegerEncoder intEncoder;
 
     static bool structValueHasChild(const Encoder::StructValue& sv,
@@ -49,7 +55,8 @@ struct Encoder::Impl {
 
     std::vector<std::uint8_t> encodeLayer(const Layer& layer, const EncoderConfig& config);
 
-    FeatureTable buildMetadata(const Layer& layer, const EncoderConfig& config);
+    static IdStats collectIdStats(const std::vector<Feature>& features);
+    FeatureTable buildMetadata(const Layer& layer, const EncoderConfig& config, std::optional<IdStats> idStats);
 
     static void collectGeometry(const std::vector<Feature>& features,
                                 std::vector<GeometryType>& geometryTypes,
@@ -58,7 +65,6 @@ struct Encoder::Impl {
                                 std::vector<std::uint32_t>& numRings,
                                 std::vector<GeometryEncoder::Vertex>& vertexBuffer);
 
-    static bool canSort(const std::vector<Encoder::Feature>& features);
     static std::vector<Encoder::Feature> sortFeatures(const std::vector<Encoder::Feature>& features);
 
     static bool allPolygons(const std::vector<Encoder::Feature>& features);
@@ -115,23 +121,39 @@ const std::string* Encoder::Impl::resolveStructSourceKey(const std::vector<Featu
     return bestKey;
 }
 
-FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfig& config) {
+Encoder::Impl::IdStats Encoder::Impl::collectIdStats(const std::vector<Feature>& features) {
+    IdStats idStats;
+    for (const auto& feature : features) {
+        if (!feature.id.has_value()) {
+            idStats.hasMissingId = true;
+            continue;
+        }
+        // Use 64-bit when any ID exceeds INT32_MAX: delta encoding accumulates in
+        // int32_t, so uint32 values with bit 31 set would sign-extend on widening.
+        if (*feature.id > std::numeric_limits<std::int32_t>::max()) {
+            idStats.hasLongId = true;
+        }
+        if (idStats.hasLongId && idStats.hasMissingId) {
+            break;
+        }
+    }
+    return idStats;
+}
+
+FeatureTable Encoder::Impl::buildMetadata(const Layer& layer,
+                                          const EncoderConfig& config,
+                                          std::optional<IdStats> idStats) {
     FeatureTable table;
     table.name = layer.name;
     table.extent = layer.extent;
 
     if (config.includeIds) {
-        // Use 64-bit when any ID exceeds INT32_MAX: delta encoding accumulates in
-        // int32_t, so uint32 values with bit 31 set would sign-extend on widening.
-        const bool hasLongId = std::ranges::any_of(layer.features, [](const auto& f) {
-            return f.id.has_value() && (*f.id > std::numeric_limits<std::int32_t>::max());
-        });
-        const bool hasMissingId = std::ranges::any_of(layer.features, [](const auto& f) { return !f.id.has_value(); });
+        const auto stats = idStats.value_or(collectIdStats(layer.features));
 
         table.columns.push_back(Column{
-            .nullable = hasMissingId,
+            .nullable = stats.hasMissingId,
             .columnScope = ColumnScope::FEATURE,
-            .type = ScalarColumn{.type = LogicalScalarType::ID, .hasLongID = hasLongId},
+            .type = ScalarColumn{.type = LogicalScalarType::ID, .hasLongID = stats.hasLongId},
         });
     }
 
@@ -290,18 +312,21 @@ void Encoder::Impl::collectGeometry(const std::vector<Feature>& features,
     }
 }
 
-bool Encoder::Impl::canSort(const std::vector<Encoder::Feature>& features) {
+std::vector<Encoder::Feature> Encoder::Impl::sortFeatures(const std::vector<Encoder::Feature>& features) {
     if (features.empty()) {
-        return false;
+        return {};
     }
 
-    const auto firstType = features[0].geometry.type;
+    const auto firstType = features.front().geometry.type;
+    if (firstType != GeometryType::POINT && firstType != GeometryType::LINESTRING) {
+        return {};
+    }
     const bool allSame = std::ranges::all_of(features,
                                              [firstType](const auto& f) { return f.geometry.type == firstType; });
-    return allSame && (firstType == GeometryType::POINT || firstType == GeometryType::LINESTRING);
-}
+    if (!allSame) {
+        return {};
+    }
 
-std::vector<Encoder::Feature> Encoder::Impl::sortFeatures(const std::vector<Encoder::Feature>& features) {
     auto minVal = std::numeric_limits<std::int32_t>::max();
     auto maxVal = std::numeric_limits<std::int32_t>::min();
     for (const auto& f : features) {
@@ -394,14 +419,14 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
 
     intEncoder.setDefaultEncodingOption(config.integerEncodingOption);
 
-    const bool shouldSort = config.sortFeatures && canSort(layer.features);
-    const auto sortedStorage = shouldSort ? sortFeatures(layer.features) : std::vector<Feature>{};
-    const auto& features = shouldSort ? sortedStorage : layer.features;
+    const auto sortedStorage = config.sortFeatures ? sortFeatures(layer.features) : std::vector<Feature>{};
+    const auto& features = sortedStorage.empty() ? layer.features : sortedStorage;
 
     const auto physicalTechnique = config.useFastPfor ? PhysicalLevelTechnique::FAST_PFOR
                                                       : PhysicalLevelTechnique::VARINT;
 
-    const auto featureTable = buildMetadata(layer, config);
+    const auto idStats = config.includeIds ? std::optional<IdStats>{collectIdStats(features)} : std::nullopt;
+    const auto featureTable = buildMetadata(layer, config, idStats);
     const auto metadataBytes = encodeFeatureTable(featureTable);
 
     std::vector<std::uint8_t> bodyBytes;
@@ -422,10 +447,8 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
     };
 
     if (config.includeIds) {
-        const bool hasLongId = std::ranges::any_of(features, [](const auto& f) {
-            return f.id.has_value() && (*f.id > std::numeric_limits<std::int32_t>::max());
-        });
-        const bool hasMissingId = std::ranges::any_of(features, [](const auto& f) { return !f.id.has_value(); });
+        const auto hasLongId = idStats->hasLongId;
+        const auto hasMissingId = idStats->hasMissingId;
 
         if (hasLongId) {
             auto ids = extractIds.template operator()<std::uint64_t>(
@@ -485,6 +508,25 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
 
     appendEncodedStreamSet(encodedGeom.numStreams, encodedGeom.encodedValues);
 
+    // Create a cache of properties for each scalar column to avoid repeated linear searches during encoding
+    using PropertyValuePtr = const Encoder::PropertyValue*;
+    std::unordered_map<std::string, std::vector<PropertyValuePtr>> scalarPropertyCache;
+    scalarPropertyCache.reserve(featureTable.columns.size());
+    for (const auto& column : featureTable.columns) {
+        if (!column.isID() && !column.isGeometry() && !column.isStruct()) {
+            scalarPropertyCache.emplace(column.name, std::vector<PropertyValuePtr>(features.size(), nullptr));
+        }
+    }
+
+    for (std::size_t fi = 0; fi < features.size(); ++fi) {
+        for (const auto& [key, value] : features[fi].properties) {
+            auto it = scalarPropertyCache.find(key);
+            if (it != scalarPropertyCache.end()) {
+                it->second[fi] = &value;
+            }
+        }
+    }
+
     for (const auto& column : featureTable.columns) {
         if (column.isID() || column.isGeometry()) {
             continue;
@@ -495,13 +537,6 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
             const auto& rootName = column.name;
             const auto sourceKey = resolveStructSourceKey(features, column);
             const auto numChildren = complex.children.size();
-            const auto getStructValue = [&](const auto& feature) -> const Encoder::StructValue* {
-                auto it = sourceKey ? feature.properties.find(*sourceKey) : feature.properties.find(rootName);
-                if (it != feature.properties.end() && std::holds_alternative<Encoder::StructValue>(it->second)) {
-                    return &std::get<Encoder::StructValue>(it->second);
-                }
-                return nullptr;
-            };
             const auto resolveStructChildValue = [&](const Encoder::StructValue& sv,
                                                      const std::string& childName) -> const std::string* {
                 if (auto childIt = sv.find(childName); childIt != sv.end()) {
@@ -521,13 +556,24 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                 viewStorage[c].reserve(features.size());
             }
 
-            for (const auto& f : features) {
-                const auto* sv = getStructValue(f);
+            std::vector<const Encoder::StructValue*> structValues(features.size(), nullptr);
+            for (std::size_t fi = 0; fi < features.size(); ++fi) {
+                auto it = sourceKey ? features[fi].properties.find(*sourceKey) : features[fi].properties.find(rootName);
+                if (it != features[fi].properties.end() && std::holds_alternative<Encoder::StructValue>(it->second)) {
+                    structValues[fi] = &std::get<Encoder::StructValue>(it->second);
+                }
+            }
+
+            std::vector<std::vector<bool>> childPresent(numChildren, std::vector<bool>(features.size(), false));
+
+            for (std::size_t fi = 0; fi < features.size(); ++fi) {
+                const auto* sv = structValues[fi];
                 for (std::size_t c = 0; c < numChildren; ++c) {
                     if (sv) {
                         if (const auto* childValue = resolveStructChildValue(*sv, complex.children[c].name);
                             childValue != nullptr) {
                             ownedStrings[c].push_back(*childValue);
+                            childPresent[c][fi] = true;
                             continue;
                         }
                     }
@@ -545,8 +591,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
             for (std::size_t c = 0; c < numChildren; ++c) {
                 sharedCols[c].reserve(features.size());
                 for (std::size_t fi = 0; fi < features.size(); ++fi) {
-                    const auto* sv = getStructValue(features[fi]);
-                    if (sv && structValueHasChild(*sv, rootName, complex.children[c].name)) {
+                    if (childPresent[c][fi]) {
                         sharedCols[c].push_back(&viewStorage[c][fi]);
                     } else {
                         sharedCols[c].push_back(nullptr);
@@ -564,14 +609,18 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
         const auto& scalarCol = column.getScalarType();
         const auto scalarType = scalarCol.getPhysicalType();
         const auto& colName = column.name;
+        const auto cachedIt = scalarPropertyCache.find(colName);
+        if (cachedIt == scalarPropertyCache.end()) {
+            throwInvalidType(); // GCOVR_EXCL_LINE
+        }
+        const auto& cachedPropertyValues = cachedIt->second;
 
         const auto extractColumn = [&]<typename T>(auto&& visitor) {
             std::vector<std::optional<T>> values;
             values.reserve(features.size());
-            for (const auto& f : features) {
-                auto it = f.properties.find(colName);
-                if (it != f.properties.end()) {
-                    values.push_back(std::visit(visitor, it->second));
+            for (const auto* propertyValue : cachedPropertyValues) {
+                if (propertyValue != nullptr) {
+                    values.push_back(std::visit(visitor, *propertyValue));
                 } else {
                     values.push_back(std::nullopt);
                 }
@@ -665,16 +714,15 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                 ownedStrings.reserve(features.size());
                 std::vector<std::optional<std::string_view>> values;
                 values.reserve(features.size());
-                for (const auto& f : features) {
-                    auto it = f.properties.find(colName);
-                    if (it != f.properties.end()) {
+                for (const auto* propertyValue : cachedPropertyValues) {
+                    if (propertyValue != nullptr) {
                         auto& owned = ownedStrings.emplace_back(
                             std::visit(util::overloaded{
                                            [](const std::string& v) -> std::string { return v; },
                                            [](const Encoder::StructValue&) -> std::string { return {}; },
                                            [](auto v) -> std::string { return std::to_string(v); },
                                        },
-                                       it->second));
+                                       *propertyValue));
                         values.push_back(std::string_view{owned});
                     } else {
                         values.push_back(std::nullopt);
