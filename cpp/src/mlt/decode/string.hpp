@@ -148,6 +148,12 @@ public:
                 throw std::runtime_error("Currently only string fields are implemented for a struct");
             }
 
+            if (childStreams == 0) {
+                // column with all null values, skip
+                results.emplace(column.name + child.name, PresentProperties{ScalarType::STRING, {}, {}});
+                continue;
+            }
+
             PackedBitset presentStream;
             if (child.nullable) {
                 const auto presentStreamMetadata = metadata::stream::StreamMetadata::decode(tileData);
