@@ -4,8 +4,8 @@ mod tileset;
 use std::path::Path;
 use std::path::PathBuf;
 
-use bytes::Bytes;
 use anyhow::{Result as AnyResult, bail};
+use bytes::Bytes;
 use clap::{Args, ValueEnum};
 use indicatif::ProgressState;
 use martin_tile_utils::{Encoding, decode_brotli, decode_gzip, decode_zlib, decode_zstd};
