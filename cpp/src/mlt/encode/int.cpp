@@ -15,7 +15,12 @@
 
 namespace mlt::encoder {
 
-using namespace metadata::stream;
+using metadata::stream::LogicalLevelTechnique;
+using metadata::stream::LogicalStreamType;
+using metadata::stream::PhysicalLevelTechnique;
+using metadata::stream::PhysicalStreamType;
+using metadata::stream::RleEncodedStreamMetadata;
+using metadata::stream::StreamMetadata;
 
 namespace {
 
@@ -245,7 +250,7 @@ IntegerEncodingResult encodeUnsignedIntegralNoDelta(std::span<const TUInt> value
     std::uint32_t rlePhysicalLength = 0;
     const bool shouldTryRle = option != IntegerEncodingOption::AUTO || values.size() / runs >= 2;
     if (shouldTryRle) {
-        auto rle = util::encoding::rle::encodeIntRle<TUInt>(values);
+        const auto rle = util::encoding::rle::encodeIntRle<TUInt>(values);
 
         std::vector<TUInt> flattened;
         flattened.reserve(rle.runs.size() + rle.values.size());

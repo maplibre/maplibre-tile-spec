@@ -30,6 +30,13 @@ public:
     using PhysicalLevelTechnique = metadata::stream::PhysicalLevelTechnique;
     using PhysicalStreamType = metadata::stream::PhysicalStreamType;
     using LogicalStreamType = metadata::stream::LogicalStreamType;
+    using LogicalLevelTechnique = metadata::stream::LogicalLevelTechnique;
+    using DictionaryType = metadata::stream::DictionaryType;
+    using LengthType = metadata::stream::LengthType;
+    using OffsetType = metadata::stream::OffsetType;
+    using StreamMetadata = metadata::stream::StreamMetadata;
+    using RleEncodedStreamMetadata = metadata::stream::RleEncodedStreamMetadata;
+    using MortonEncodedStreamMetadata = metadata::stream::MortonEncodedStreamMetadata;
 
     struct EncodedGeometryColumn {
         std::uint32_t numStreams;
@@ -124,8 +131,6 @@ public:
                                                                     IntegerEncodingOption integerEncodingOption,
                                                                     IntegerEncodingOption topologyIntegerEncodingOption,
                                                                     bool encodeOutlines) {
-        using namespace metadata::stream;
-
         auto [numStreams, result] =
             encodeOutlines
                 ? encodeTopologyStreams(geometryTypes,
@@ -179,8 +184,6 @@ private:
                                                 PhysicalLevelTechnique physicalTechnique,
                                                 IntegerEncoder& intEncoder,
                                                 IntegerEncodingOption integerEncodingOption) {
-        using namespace metadata::stream;
-
         std::vector<std::int32_t> geomTypeValues(geometryTypes.size());
         std::ranges::transform(
             geometryTypes, geomTypeValues.begin(), [](auto t) { return static_cast<std::int32_t>(t); });
@@ -201,7 +204,7 @@ private:
                            PhysicalStreamType::LENGTH,
                            LogicalStreamType{LengthType::GEOMETRIES});
 
-        IntegerEncodingOption partsEncodingOption = integerEncodingOption;
+        auto partsEncodingOption = integerEncodingOption;
         if (integerEncodingOption == IntegerEncodingOption::AUTO && numParts.size() > 1) {
             const bool allMultiLine = std::ranges::all_of(geometryTypes,
                                                           [](auto t) { return t == GeometryType::MULTILINESTRING; });
@@ -362,8 +365,6 @@ private:
                                                                  const std::vector<std::uint8_t>& encodedDict,
                                                                  PhysicalLevelTechnique physicalTechnique,
                                                                  IntegerEncoder& intEncoder) {
-        using namespace metadata::stream;
-
         const auto offsets = computeOffsets(vertexBuffer, sortedIds, curve);
         const auto encodedOffsets = intEncoder.encodeIntStream(
             offsets, physicalTechnique, false, PhysicalStreamType::OFFSET, LogicalStreamType{OffsetType::VERTEX});
@@ -379,8 +380,6 @@ private:
                                                            PhysicalLevelTechnique physicalTechnique,
                                                            IntegerEncoder& intEncoder,
                                                            IntegerEncodingOption integerEncodingOption) {
-        using namespace metadata::stream;
-
         const auto encoded = intEncoder.encodeInt(
             zigZagDelta, physicalTechnique, /*isSigned=*/false, integerEncodingOption);
 
@@ -428,8 +427,6 @@ private:
                                                        std::uint32_t numBits,
                                                        std::int32_t coordinateShift,
                                                        PhysicalLevelTechnique physicalTechnique) {
-        using namespace metadata::stream;
-
         std::vector<std::int32_t> deltaValues(mortonCodes.size());
         std::int32_t prev = 0;
         for (std::size_t i = 0; i < mortonCodes.size(); ++i) {
@@ -439,7 +436,7 @@ private:
 
         std::vector<std::uint8_t> encodedData;
         encodedData.reserve(deltaValues.size() * 2);
-        for (auto v : deltaValues) {
+        for (const auto v : deltaValues) {
             util::encoding::encodeVarint(static_cast<std::uint32_t>(v), encodedData);
         }
 

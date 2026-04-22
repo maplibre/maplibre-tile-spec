@@ -7,6 +7,7 @@
 #include <mlt/util/encoding/varint.hpp>
 
 #include <cstdint>
+#include <numeric>
 #include <optional>
 #include <span>
 #include <string_view>
@@ -20,7 +21,12 @@ public:
     using PhysicalLevelTechnique = metadata::stream::PhysicalLevelTechnique;
     using PhysicalStreamType = metadata::stream::PhysicalStreamType;
     using LogicalStreamType = metadata::stream::LogicalStreamType;
+    using LogicalLevelTechnique = metadata::stream::LogicalLevelTechnique;
     using StreamMetadata = metadata::stream::StreamMetadata;
+    using LengthType = metadata::stream::LengthType;
+    using DictionaryType = metadata::stream::DictionaryType;
+    using OffsetType = metadata::stream::OffsetType;
+    using EncodedChunks = std::vector<std::vector<std::uint8_t>>;
 
     struct EncodeResult {
         std::uint32_t numStreams;
@@ -29,18 +35,15 @@ public:
 
     struct EncodeChunkedResult {
         std::uint32_t numStreams;
-        std::vector<std::vector<std::uint8_t>> chunks;
+        EncodedChunks chunks;
     };
 
     static EncodeResult encode(std::span<const std::string_view> values,
                                PhysicalLevelTechnique physicalTechnique,
                                IntegerEncoder& intEncoder,
                                bool useFsst = true) {
-        auto plain = encodeStringBytes(values,
-                                       physicalTechnique,
-                                       intEncoder,
-                                       metadata::stream::LengthType::VAR_BINARY,
-                                       metadata::stream::DictionaryType::NONE);
+        auto plain = encodeStringBytes(
+            values, physicalTechnique, intEncoder, LengthType::VAR_BINARY, DictionaryType::NONE);
         auto dict = encodeDictionary(values, physicalTechnique, intEncoder);
 
         std::uint32_t bestStreams = 2;
@@ -65,10 +68,11 @@ public:
                                                IntegerEncoder& intEncoder,
                                                bool useFsst = true) {
         auto chunked = encodeSharedDictionaryChunked(columns, physicalTechnique, intEncoder, useFsst);
-        std::size_t totalSize = 0;
-        for (const auto& chunk : chunked.chunks) {
-            totalSize += chunk.size();
-        }
+        // NOLINTNEXTLINE(boost-use-ranges)
+        const auto totalSize = std::accumulate(
+            chunked.chunks.begin(), chunked.chunks.end(), std::size_t{0}, [](auto sum, const auto& chunk) {
+                return sum + chunk.size();
+            });
 
         std::vector<std::uint8_t> data;
         data.reserve(totalSize);
@@ -84,8 +88,6 @@ public:
         PhysicalLevelTechnique physicalTechnique,
         IntegerEncoder& intEncoder,
         bool useFsst = true) {
-        using namespace metadata::stream;
-
         std::vector<std::string_view> dictionary;
         std::unordered_map<std::string_view, std::uint32_t> dictIndex;
         std::vector<std::vector<std::int32_t>> dataStreams(columns.size());
@@ -110,11 +112,8 @@ public:
             return {.numStreams = 0, .chunks = {}};
         }
 
-        auto dictData = encodeStringBytes(dictionary,
-                                          physicalTechnique,
-                                          intEncoder,
-                                          metadata::stream::LengthType::DICTIONARY,
-                                          metadata::stream::DictionaryType::SHARED);
+        auto dictData = encodeStringBytes(
+            dictionary, physicalTechnique, intEncoder, LengthType::DICTIONARY, DictionaryType::SHARED);
         // Non-FSST shared dictionary emits only LENGTH + DATA streams.
         std::uint32_t dictStreams = 2;
 
@@ -128,7 +127,7 @@ public:
             }
         }
 
-        std::vector<std::vector<std::uint8_t>> chunks;
+        EncodedChunks chunks;
         chunks.reserve(1 + (columns.size() * 3));
         chunks.push_back(std::move(dictData));
 
@@ -190,9 +189,7 @@ private:
                                                           std::span<const std::int32_t> offsets,
                                                           PhysicalLevelTechnique physicalTechnique,
                                                           IntegerEncoder& intEncoder) {
-        using namespace metadata::stream;
-
-        auto encodedOffsets = intEncoder.encodeIntStream(
+        const auto encodedOffsets = intEncoder.encodeIntStream(
             offsets, physicalTechnique, false, PhysicalStreamType::OFFSET, LogicalStreamType{OffsetType::STRING});
 
         std::vector<std::uint8_t> result;
@@ -207,11 +204,8 @@ private:
                                                       PhysicalLevelTechnique physicalTechnique,
                                                       IntegerEncoder& intEncoder) {
         const auto [dictionary, offsets] = buildDictIndex(values);
-        auto dictStreams = encodeStringStreams(dictionary,
-                                               physicalTechnique,
-                                               intEncoder,
-                                               metadata::stream::LengthType::DICTIONARY,
-                                               metadata::stream::DictionaryType::SINGLE);
+        auto dictStreams = encodeStringStreams(
+            dictionary, physicalTechnique, intEncoder, LengthType::DICTIONARY, DictionaryType::SINGLE);
         return encodeOffsetsAndData(
             dictStreams.firstStream, dictStreams.remainingStreams, offsets, physicalTechnique, intEncoder);
     }
@@ -249,7 +243,6 @@ private:
                                                   PhysicalLevelTechnique physicalTechnique,
                                                   IntegerEncoder& intEncoder,
                                                   bool isShared) {
-        using namespace metadata::stream;
         namespace fsst = util::encoding::fsst;
 
         std::vector<std::int32_t> valueLengths;
@@ -314,10 +307,8 @@ private:
     static EncodedStringStreams encodeStringStreams(std::span<const std::string_view> values,
                                                     PhysicalLevelTechnique physicalTechnique,
                                                     IntegerEncoder& intEncoder,
-                                                    metadata::stream::LengthType lengthType,
-                                                    metadata::stream::DictionaryType dictType) {
-        using namespace metadata::stream;
-
+                                                    LengthType lengthType,
+                                                    DictionaryType dictType) {
         std::vector<std::int32_t> lengths;
         lengths.reserve(values.size());
         std::size_t totalBytes = 0;
@@ -355,8 +346,8 @@ private:
     static std::vector<std::uint8_t> encodeStringBytes(std::span<const std::string_view> values,
                                                        PhysicalLevelTechnique physicalTechnique,
                                                        IntegerEncoder& intEncoder,
-                                                       metadata::stream::LengthType lengthType,
-                                                       metadata::stream::DictionaryType dictType) {
+                                                       LengthType lengthType,
+                                                       DictionaryType dictType) {
         auto streams = encodeStringStreams(values, physicalTechnique, intEncoder, lengthType, dictType);
         std::vector<std::uint8_t> result;
         result.reserve(streams.firstStream.size() + streams.remainingStreams.size());

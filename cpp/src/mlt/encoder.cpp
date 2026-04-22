@@ -22,11 +22,24 @@
 
 namespace mlt {
 
-using namespace encoder;
-using namespace metadata::tileset;
-using namespace metadata::stream;
+using encoder::BooleanEncoder;
+using encoder::FloatEncoder;
+using encoder::GeometryEncoder;
+using encoder::IntegerEncoder;
+using encoder::PropertyEncoder;
+using encoder::StringEncoder;
 
-using GeometryType = metadata::tileset::GeometryType;
+using metadata::tileset::Column;
+using metadata::tileset::ColumnScope;
+using metadata::tileset::ComplexColumn;
+using metadata::tileset::ComplexType;
+using metadata::tileset::FeatureTable;
+using metadata::tileset::GeometryType;
+using metadata::tileset::LogicalScalarType;
+using metadata::tileset::ScalarColumn;
+using metadata::tileset::ScalarType;
+
+using metadata::stream::PhysicalLevelTechnique;
 
 namespace {
 // `std::visit` requires exhaustive overloads, but the type is determined
@@ -40,6 +53,10 @@ void throwInvalidType() {
 } // namespace
 
 struct Encoder::Impl {
+    using EncodedChunks = std::vector<std::vector<std::uint8_t>>;
+    using PropertyValuePtr = const Encoder::PropertyValue*;
+    using ScalarPropertyCache = std::unordered_map<std::string, std::vector<PropertyValuePtr>>;
+
     struct IdStats {
         bool hasLongId = false;
         bool hasMissingId = false;
@@ -71,6 +88,10 @@ struct Encoder::Impl {
     static void tessellateFeatures(const std::vector<Feature>& features,
                                    std::vector<std::uint32_t>& numTriangles,
                                    std::vector<std::uint32_t>& indexBuffer);
+    static ScalarPropertyCache buildScalarPropertyCache(const FeatureTable& featureTable,
+                                                        const std::vector<Feature>& features);
+    static std::vector<std::uint8_t> assembleLayerBytes(const std::vector<std::uint8_t>& metadataBytes,
+                                                        const EncodedChunks& bodyChunks);
 };
 
 bool Encoder::Impl::structValueHasChild(const Encoder::StructValue& sv,
@@ -143,9 +164,7 @@ Encoder::Impl::IdStats Encoder::Impl::collectIdStats(const std::vector<Feature>&
 FeatureTable Encoder::Impl::buildMetadata(const Layer& layer,
                                           const EncoderConfig& config,
                                           std::optional<IdStats> idStats) {
-    FeatureTable table;
-    table.name = layer.name;
-    table.extent = layer.extent;
+    FeatureTable table{.name = layer.name, .extent = layer.extent};
 
     if (config.includeIds) {
         const auto stats = idStats.value_or(collectIdStats(layer.features));
@@ -157,11 +176,11 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer,
         });
     }
 
-    Column geomColumn;
-    geomColumn.nullable = false;
-    geomColumn.columnScope = ColumnScope::FEATURE;
-    geomColumn.type = ComplexColumn{.type = ComplexType::GEOMETRY};
-    table.columns.push_back(std::move(geomColumn));
+    table.columns.push_back(Column{
+        .nullable = false,
+        .columnScope = ColumnScope::FEATURE,
+        .type = ComplexColumn{.type = ComplexType::GEOMETRY},
+    });
 
     struct ColumnInfo {
         ScalarType type;
@@ -181,7 +200,7 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer,
                 continue;
             }
 
-            auto scalarType = std::visit(
+            const auto scalarType = std::visit(
                 util::overloaded{
                     [](bool) { return ScalarType::BOOLEAN; },
                     [](std::int32_t) { return ScalarType::INT_32; },
@@ -205,6 +224,7 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer,
                         existing.type = scalarType;
                     } else if ((existing.type == ScalarType::INT_64 && scalarType == ScalarType::INT_32) ||
                                (existing.type == ScalarType::DOUBLE && scalarType == ScalarType::FLOAT)) {
+                        // Keep the wider existing type.
                     } else {
                         existing.type = ScalarType::STRING;
                     }
@@ -214,12 +234,12 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer,
     }
 
     for (const auto& [name, info] : scalarColumns) {
-        Column col;
-        col.name = name;
-        col.nullable = config.forceNullableColumns || info.presentCount != layer.features.size();
-        col.columnScope = ColumnScope::FEATURE;
-        col.type = ScalarColumn{.type = info.type};
-        table.columns.push_back(std::move(col));
+        table.columns.push_back(Column{
+            .name = name,
+            .nullable = config.forceNullableColumns || info.presentCount != layer.features.size(),
+            .columnScope = ColumnScope::FEATURE,
+            .type = ScalarColumn{.type = info.type},
+        });
     }
 
     for (const auto& [sourceKey, childNames] : structColumnsBySourceKey) {
@@ -234,12 +254,12 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer,
         ComplexColumn complex;
         complex.type = ComplexType::STRUCT;
         for (const auto& childName : childNames) {
-            Column child;
-            child.name = hasDerivedRoot ? childName.substr(derivedRoot.size()) : childName;
-            child.nullable = true;
-            child.columnScope = ColumnScope::FEATURE;
-            child.type = ScalarColumn{.type = ScalarType::STRING};
-            complex.children.push_back(std::move(child));
+            complex.children.push_back({
+                .name = hasDerivedRoot ? childName.substr(derivedRoot.size()) : childName,
+                .nullable = true,
+                .columnScope = ColumnScope::FEATURE,
+                .type = ScalarColumn{.type = ScalarType::STRING},
+            });
         }
         col.type = std::move(complex);
         table.columns.push_back(std::move(col));
@@ -278,7 +298,7 @@ void Encoder::Impl::collectGeometry(const std::vector<Feature>& features,
 
             case GeometryType::POLYGON:
                 numParts.push_back(static_cast<std::uint32_t>(geom.ringSizes.size()));
-                for (auto ringSize : geom.ringSizes) {
+                for (const auto ringSize : geom.ringSizes) {
                     numRings.push_back(ringSize);
                 }
                 pushVertices(geom.coordinates);
@@ -302,7 +322,7 @@ void Encoder::Impl::collectGeometry(const std::vector<Feature>& features,
                 for (std::size_t p = 0; p < geom.parts.size(); ++p) {
                     const auto& rings = geom.partRingSizes[p];
                     numParts.push_back(static_cast<std::uint32_t>(rings.size()));
-                    for (auto ringSize : rings) {
+                    for (const auto ringSize : rings) {
                         numRings.push_back(ringSize);
                     }
                     pushVertices(geom.parts[p]);
@@ -400,6 +420,12 @@ void Encoder::Impl::tessellateFeatures(const std::vector<Feature>& features,
             std::uint32_t totalTri = 0;
             std::uint32_t vertexOffset = 0;
             std::vector<std::uint32_t> allIndices;
+            // NOLINTNEXTLINE(boost-use-ranges)
+            const auto totalVertices = std::accumulate(
+                geom.parts.begin(), geom.parts.end(), std::size_t{0}, [](std::size_t sum, const auto& part) {
+                    return sum + part.size();
+                });
+            allIndices.reserve(totalVertices * 3);
             for (std::size_t p = 0; p < geom.parts.size(); ++p) {
                 auto [nTri, indices] = tessellateOnePolygon(geom.parts[p], geom.partRingSizes[p], vertexOffset);
                 totalTri += nTri;
@@ -410,6 +436,46 @@ void Encoder::Impl::tessellateFeatures(const std::vector<Feature>& features,
             indexBuffer.insert(indexBuffer.end(), allIndices.begin(), allIndices.end());
         }
     }
+}
+
+Encoder::Impl::ScalarPropertyCache Encoder::Impl::buildScalarPropertyCache(const FeatureTable& featureTable,
+                                                                           const std::vector<Feature>& features) {
+    ScalarPropertyCache scalarPropertyCache;
+    scalarPropertyCache.reserve(featureTable.columns.size());
+    for (const auto& column : featureTable.columns) {
+        if (!column.isID() && !column.isGeometry() && !column.isStruct()) {
+            scalarPropertyCache.emplace(column.name, std::vector<PropertyValuePtr>(features.size(), nullptr));
+        }
+    }
+
+    for (std::size_t fi = 0; fi < features.size(); ++fi) {
+        for (const auto& [key, value] : features[fi].properties) {
+            auto it = scalarPropertyCache.find(key);
+            if (it != scalarPropertyCache.end()) {
+                it->second[fi] = &value;
+            }
+        }
+    }
+
+    return scalarPropertyCache;
+}
+
+std::vector<std::uint8_t> Encoder::Impl::assembleLayerBytes(const std::vector<std::uint8_t>& metadataBytes,
+                                                            const EncodedChunks& bodyChunks) {
+    // NOLINTNEXTLINE(boost-use-ranges)
+    const auto bodySize = std::accumulate(
+        bodyChunks.begin(), bodyChunks.end(), std::size_t{0}, [](std::size_t sum, const auto& chunk) {
+            return sum + chunk.size();
+        });
+
+    std::vector<std::uint8_t> layerBytes;
+    layerBytes.reserve(metadataBytes.size() + bodySize + 8 /* varint overhead */);
+    util::encoding::encodeVarint(static_cast<std::uint32_t>(1), layerBytes);
+    layerBytes.insert(layerBytes.end(), metadataBytes.begin(), metadataBytes.end());
+    for (const auto& chunk : bodyChunks) {
+        layerBytes.insert(layerBytes.end(), chunk.begin(), chunk.end());
+    }
+    return layerBytes;
 }
 
 std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const EncoderConfig& config) {
@@ -430,11 +496,8 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
     const auto metadataBytes = encodeFeatureTable(featureTable);
 
     // Collect encoded chunks; concatenate once at the end to avoid repeated reallocation.
-    std::vector<std::vector<std::uint8_t>> bodyChunks;
-    const auto appendEncodedColumn = [&](std::vector<std::uint8_t> encoded) {
-        bodyChunks.push_back(std::move(encoded));
-    };
-    const auto appendEncodedColumnChunks = [&](std::vector<std::vector<std::uint8_t>> encodedChunks) {
+    EncodedChunks bodyChunks;
+    const auto appendEncodedColumnChunks = [&](EncodedChunks encodedChunks) {
         for (auto& chunk : encodedChunks) {
             bodyChunks.push_back(std::move(chunk));
         }
@@ -445,8 +508,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
         bodyChunks.push_back(std::move(header));
         bodyChunks.push_back(std::move(encodedValues));
     };
-    const auto appendEncodedStreamSetChunks = [&](std::uint32_t numStreams,
-                                                  std::vector<std::vector<std::uint8_t>> encodedChunks) {
+    const auto appendEncodedStreamSetChunks = [&](std::uint32_t numStreams, EncodedChunks encodedChunks) {
         std::vector<std::uint8_t> header;
         util::encoding::encodeVarint(numStreams, header);
         bodyChunks.push_back(std::move(header));
@@ -468,11 +530,11 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
         const auto hasMissingId = idStats->hasMissingId;
 
         if (hasLongId) {
-            auto ids = extractIds.template operator()<std::uint64_t>(
+            const auto ids = extractIds.template operator()<std::uint64_t>(
                 [](const auto& feature) -> std::optional<std::uint64_t> { return feature.id; });
             appendEncodedColumnChunks(PropertyEncoder::encodeUint64ColumnChunked(ids, intEncoder, hasMissingId).chunks);
         } else {
-            auto ids = extractIds.template operator()<std::int32_t>(
+            const auto ids = extractIds.template operator()<std::int32_t>(
                 [](const auto& feature) -> std::optional<std::int32_t> {
                     return feature.id.has_value() ? std::optional<std::int32_t>{static_cast<std::int32_t>(*feature.id)}
                                                   : std::nullopt;
@@ -526,24 +588,8 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
 
     appendEncodedStreamSet(encodedGeom.numStreams, std::move(encodedGeom.encodedValues));
 
-    // Create a cache of properties for each scalar column to avoid repeated linear searches during encoding
-    using PropertyValuePtr = const Encoder::PropertyValue*;
-    std::unordered_map<std::string, std::vector<PropertyValuePtr>> scalarPropertyCache;
-    scalarPropertyCache.reserve(featureTable.columns.size());
-    for (const auto& column : featureTable.columns) {
-        if (!column.isID() && !column.isGeometry() && !column.isStruct()) {
-            scalarPropertyCache.emplace(column.name, std::vector<PropertyValuePtr>(features.size(), nullptr));
-        }
-    }
-
-    for (std::size_t fi = 0; fi < features.size(); ++fi) {
-        for (const auto& [key, value] : features[fi].properties) {
-            auto it = scalarPropertyCache.find(key);
-            if (it != scalarPropertyCache.end()) {
-                it->second[fi] = &value;
-            }
-        }
-    }
+    // Cache properties by column once to avoid repeated per-feature linear searches.
+    const auto scalarPropertyCache = buildScalarPropertyCache(featureTable, features);
 
     for (const auto& column : featureTable.columns) {
         if (column.isID() || column.isGeometry()) {
@@ -568,7 +614,8 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
 
             std::vector<const Encoder::StructValue*> structValues(features.size(), nullptr);
             for (std::size_t fi = 0; fi < features.size(); ++fi) {
-                auto it = sourceKey ? features[fi].properties.find(*sourceKey) : features[fi].properties.find(rootName);
+                const auto it = sourceKey ? features[fi].properties.find(*sourceKey)
+                                          : features[fi].properties.find(rootName);
                 if (it != features[fi].properties.end() && std::holds_alternative<Encoder::StructValue>(it->second)) {
                     structValues[fi] = &std::get<Encoder::StructValue>(it->second);
                 }
@@ -623,8 +670,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                 }
             };
 
-        const auto encodeSeparatedColumn =
-            [&]<typename T>(auto&& visitor, auto&& encodeColumn) -> std::vector<std::vector<std::uint8_t>> {
+        const auto encodeSeparatedColumn = [&]<typename T>(auto&& visitor, auto&& encodeColumn) -> EncodedChunks {
             std::vector<bool> presentValues;
             std::vector<T> dataValues;
             bool hasNull = false;
@@ -632,7 +678,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
             return encodeColumn(std::span<const T>{dataValues}, presentValues, hasNull);
         };
 
-        std::vector<std::vector<std::uint8_t>> encodedChunks;
+        EncodedChunks encodedChunks;
         switch (scalarType) {
             case ScalarType::BOOLEAN:
                 encodedChunks = encodeSeparatedColumn.template operator()<std::uint8_t>(
@@ -810,20 +856,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
         appendEncodedColumnChunks(std::move(encodedChunks));
     }
 
-    // Compute total body size, then assemble the layer in a single allocation.
-    std::size_t bodySize = 0;
-    for (const auto& chunk : bodyChunks) {
-        bodySize += chunk.size();
-    }
-
-    std::vector<std::uint8_t> layerBytes;
-    layerBytes.reserve(metadataBytes.size() + bodySize + 8 /* varint overhead */);
-    util::encoding::encodeVarint(static_cast<std::uint32_t>(1), layerBytes);
-    layerBytes.insert(layerBytes.end(), metadataBytes.begin(), metadataBytes.end());
-    for (const auto& chunk : bodyChunks) {
-        layerBytes.insert(layerBytes.end(), chunk.begin(), chunk.end());
-    }
-    return layerBytes;
+    return assembleLayerBytes(metadataBytes, bodyChunks);
 }
 
 Encoder::Encoder()
@@ -848,7 +881,7 @@ std::vector<std::uint8_t> Encoder::encode(const std::vector<Layer>& layers, cons
         std::vector<std::uint8_t> sizeVarint;
         util::encoding::encodeVarint(static_cast<std::uint32_t>(layerBytes.size()), sizeVarint);
         totalSize += sizeVarint.size() + layerBytes.size();
-        chunks.push_back({std::move(sizeVarint), std::move(layerBytes)});
+        chunks.push_back(LayerChunk{.sizeVarint = std::move(sizeVarint), .data = std::move(layerBytes)});
     }
     std::vector<std::uint8_t> result;
     result.reserve(totalSize);

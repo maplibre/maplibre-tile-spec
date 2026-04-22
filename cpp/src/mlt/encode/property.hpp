@@ -10,6 +10,7 @@
 #include <mlt/util/encoding/varint.hpp>
 
 #include <cstdint>
+#include <numeric>
 #include <optional>
 #include <span>
 #include <string_view>
@@ -22,9 +23,10 @@ public:
     using ScalarType = metadata::tileset::ScalarType;
     using PhysicalLevelTechnique = metadata::stream::PhysicalLevelTechnique;
     using PhysicalStreamType = metadata::stream::PhysicalStreamType;
+    using EncodedChunks = std::vector<std::vector<std::uint8_t>>;
 
     struct EncodeChunkedResult {
-        std::vector<std::vector<std::uint8_t>> chunks;
+        EncodedChunks chunks;
     };
 
     template <typename T, typename EncodeDataFn>
@@ -33,7 +35,7 @@ public:
                                                                 bool hasNull,
                                                                 bool columnNullable,
                                                                 EncodeDataFn&& encodeData) {
-        std::vector<std::vector<std::uint8_t>> chunks;
+        EncodedChunks chunks;
         chunks.reserve(2);
         appendPresentStream(chunks, presentValues, hasNull, columnNullable);
 
@@ -51,7 +53,7 @@ public:
                                                           bool columnNullable = false) {
         const auto [presentValues, dataValues, hasNull] = separateNulls<bool>(values);
 
-        std::vector<std::vector<std::uint8_t>> chunks;
+        EncodedChunks chunks;
         chunks.reserve(2);
         appendPresentStream(chunks, presentValues, hasNull, columnNullable);
 
@@ -209,7 +211,7 @@ public:
 
         const auto streamCount = stringResult.numStreams + (columnNullable ? 1 : 0);
 
-        std::vector<std::vector<std::uint8_t>> chunks;
+        EncodedChunks chunks;
         chunks.reserve(columnNullable ? 3 : 2);
         std::vector<std::uint8_t> streamCountBytes;
         util::encoding::encodeVarint(streamCount, streamCountBytes);
@@ -231,7 +233,7 @@ public:
         const auto stringResult = StringEncoder::encode(dataValues, physicalTechnique, intEncoder, useFsst);
         const auto streamCount = stringResult.numStreams + (columnNullable ? 1 : 0);
 
-        std::vector<std::vector<std::uint8_t>> chunks;
+        EncodedChunks chunks;
         chunks.reserve(columnNullable ? 3 : 2);
         std::vector<std::uint8_t> streamCountBytes;
         util::encoding::encodeVarint(streamCount, streamCountBytes);
@@ -268,7 +270,7 @@ private:
         return result;
     }
 
-    static void appendPresentStream(std::vector<std::vector<std::uint8_t>>& chunks,
+    static void appendPresentStream(EncodedChunks& chunks,
                                     const std::vector<bool>& presentValues,
                                     bool hasNull,
                                     bool columnNullable = false) {
@@ -295,11 +297,11 @@ private:
             std::span<const T>{dataValues}, presentValues, hasNull, columnNullable, encodeData);
     }
 
-    static std::vector<std::uint8_t> flattenChunks(std::vector<std::vector<std::uint8_t>> chunks) {
-        std::size_t totalSize = 0;
-        for (const auto& chunk : chunks) {
-            totalSize += chunk.size();
-        }
+    static std::vector<std::uint8_t> flattenChunks(EncodedChunks chunks) {
+        const auto totalSize = std::accumulate(
+            chunks.begin(), chunks.end(), std::size_t{0}, [](std::size_t sum, const auto& chunk) {
+                return sum + chunk.size();
+            });
 
         std::vector<std::uint8_t> result;
         result.reserve(totalSize);
