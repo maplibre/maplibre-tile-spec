@@ -23,17 +23,41 @@ public:
     using PhysicalLevelTechnique = metadata::stream::PhysicalLevelTechnique;
     using PhysicalStreamType = metadata::stream::PhysicalStreamType;
 
+    struct EncodeChunkedResult {
+        std::vector<std::vector<std::uint8_t>> chunks;
+    };
+
+    template <typename T, typename EncodeDataFn>
+    static EncodeChunkedResult encodeSeparatedDataColumnChunked(std::span<const T> dataValues,
+                                                                const std::vector<bool>& presentValues,
+                                                                bool hasNull,
+                                                                bool columnNullable,
+                                                                EncodeDataFn&& encodeData) {
+        std::vector<std::vector<std::uint8_t>> chunks;
+        chunks.reserve(2);
+        appendPresentStream(chunks, presentValues, hasNull, columnNullable);
+
+        auto dataStream = encodeData(dataValues);
+        chunks.push_back(std::move(dataStream));
+        return {.chunks = std::move(chunks)};
+    }
+
     static std::vector<std::uint8_t> encodeBooleanColumn(std::span<const std::optional<bool>> values,
                                                          bool columnNullable = false) {
+        return flattenChunks(encodeBooleanColumnChunked(values, columnNullable).chunks);
+    }
+
+    static EncodeChunkedResult encodeBooleanColumnChunked(std::span<const std::optional<bool>> values,
+                                                          bool columnNullable = false) {
         const auto [presentValues, dataValues, hasNull] = separateNulls<bool>(values);
 
-        std::vector<std::uint8_t> result;
-        appendPresentStream(result, presentValues, hasNull, columnNullable);
+        std::vector<std::vector<std::uint8_t>> chunks;
+        chunks.reserve(2);
+        appendPresentStream(chunks, presentValues, hasNull, columnNullable);
 
-        const auto dataStream = BooleanEncoder::encodeBooleanStream(dataValues,
-                                                                    metadata::stream::PhysicalStreamType::DATA);
-        result.insert(result.end(), dataStream.begin(), dataStream.end());
-        return result;
+        auto dataStream = BooleanEncoder::encodeBooleanStream(dataValues, metadata::stream::PhysicalStreamType::DATA);
+        chunks.push_back(std::move(dataStream));
+        return {.chunks = std::move(chunks)};
     }
 
     /// Unsigned integers are encoded separately to avoid undefined behvior when casting unsigned values outside the
@@ -47,6 +71,18 @@ public:
         return encodeIntColumn<std::int32_t>(values, physicalTechnique, isSigned, intEncoder, columnNullable);
     }
 
+    static EncodeChunkedResult encodeInt32ColumnChunked(std::span<const std::optional<std::int32_t>> values,
+                                                        PhysicalLevelTechnique physicalTechnique,
+                                                        bool isSigned,
+                                                        IntegerEncoder& intEncoder,
+                                                        bool columnNullable = false) {
+        return encodeOptionalDataColumnChunked<std::int32_t>(
+            values, columnNullable, [&](std::span<const std::int32_t> dataValues) {
+                return intEncoder.encodeIntStream(
+                    dataValues, physicalTechnique, isSigned, metadata::stream::PhysicalStreamType::DATA, std::nullopt);
+            });
+    }
+
     static std::vector<std::uint8_t> encodeUint32Column(std::span<const std::uint32_t> values,
                                                         PhysicalLevelTechnique physicalTechnique,
                                                         IntegerEncoder& intEncoder) {
@@ -58,7 +94,14 @@ public:
                                                         PhysicalLevelTechnique physicalTechnique,
                                                         IntegerEncoder& intEncoder,
                                                         bool columnNullable = false) {
-        return encodeOptionalDataColumn<std::uint32_t>(
+        return flattenChunks(encodeUint32ColumnChunked(values, physicalTechnique, intEncoder, columnNullable).chunks);
+    }
+
+    static EncodeChunkedResult encodeUint32ColumnChunked(std::span<const std::optional<std::uint32_t>> values,
+                                                         PhysicalLevelTechnique physicalTechnique,
+                                                         IntegerEncoder& intEncoder,
+                                                         bool columnNullable = false) {
+        return encodeOptionalDataColumnChunked<std::uint32_t>(
             values, columnNullable, [&](std::span<const std::uint32_t> dataValues) {
                 return intEncoder.encodeUint32Stream(
                     dataValues, physicalTechnique, metadata::stream::PhysicalStreamType::DATA, std::nullopt);
@@ -73,7 +116,13 @@ public:
     static std::vector<std::uint8_t> encodeUint64Column(std::span<const std::optional<std::uint64_t>> values,
                                                         IntegerEncoder& intEncoder,
                                                         bool columnNullable = false) {
-        return encodeOptionalDataColumn<std::uint64_t>(
+        return flattenChunks(encodeUint64ColumnChunked(values, intEncoder, columnNullable).chunks);
+    }
+
+    static EncodeChunkedResult encodeUint64ColumnChunked(std::span<const std::optional<std::uint64_t>> values,
+                                                         IntegerEncoder& intEncoder,
+                                                         bool columnNullable = false) {
+        return encodeOptionalDataColumnChunked<std::uint64_t>(
             values, columnNullable, [&](std::span<const std::uint64_t> dataValues) {
                 return intEncoder.encodeUint64Stream(
                     dataValues, metadata::stream::PhysicalStreamType::DATA, std::nullopt);
@@ -84,7 +133,14 @@ public:
                                                        bool isSigned,
                                                        IntegerEncoder& intEncoder,
                                                        bool columnNullable = false) {
-        return encodeOptionalDataColumn<std::int64_t>(
+        return flattenChunks(encodeInt64ColumnChunked(values, isSigned, intEncoder, columnNullable).chunks);
+    }
+
+    static EncodeChunkedResult encodeInt64ColumnChunked(std::span<const std::optional<std::int64_t>> values,
+                                                        bool isSigned,
+                                                        IntegerEncoder& intEncoder,
+                                                        bool columnNullable = false) {
+        return encodeOptionalDataColumnChunked<std::int64_t>(
             values, columnNullable, [&](std::span<const std::int64_t> dataValues) {
                 return intEncoder.encodeLongStream(
                     dataValues, isSigned, metadata::stream::PhysicalStreamType::DATA, std::nullopt);
@@ -105,9 +161,23 @@ public:
         return encodeFloatingPointColumn(values, columnNullable);
     }
 
+    static EncodeChunkedResult encodeFloatColumnChunked(std::span<const std::optional<float>> values,
+                                                        bool columnNullable = false) {
+        return encodeOptionalDataColumnChunked<float>(values, columnNullable, [](std::span<const float> dataValues) {
+            return FloatEncoder::encodeStream(dataValues);
+        });
+    }
+
     static std::vector<std::uint8_t> encodeDoubleColumn(std::span<const std::optional<double>> values,
                                                         bool columnNullable = false) {
         return encodeFloatingPointColumn(values, columnNullable);
+    }
+
+    static EncodeChunkedResult encodeDoubleColumnChunked(std::span<const std::optional<double>> values,
+                                                         bool columnNullable = false) {
+        return encodeOptionalDataColumnChunked<double>(values, columnNullable, [](std::span<const double> dataValues) {
+            return FloatEncoder::encodeStream(dataValues);
+        });
     }
 
     static std::vector<std::uint8_t> encodeStringColumn(std::span<const std::optional<std::string_view>> values,
@@ -115,6 +185,15 @@ public:
                                                         IntegerEncoder& intEncoder,
                                                         bool useFsst = true,
                                                         bool columnNullable = false) {
+        return flattenChunks(
+            encodeStringColumnChunked(values, physicalTechnique, intEncoder, useFsst, columnNullable).chunks);
+    }
+
+    static EncodeChunkedResult encodeStringColumnChunked(std::span<const std::optional<std::string_view>> values,
+                                                         PhysicalLevelTechnique physicalTechnique,
+                                                         IntegerEncoder& intEncoder,
+                                                         bool useFsst = true,
+                                                         bool columnNullable = false) {
         std::vector<bool> presentValues;
         std::vector<std::string_view> dataValues;
         for (const auto& v : values) {
@@ -130,14 +209,39 @@ public:
 
         const auto streamCount = stringResult.numStreams + (columnNullable ? 1 : 0);
 
-        std::vector<std::uint8_t> result;
-        util::encoding::encodeVarint(streamCount, result);
+        std::vector<std::vector<std::uint8_t>> chunks;
+        chunks.reserve(columnNullable ? 3 : 2);
+        std::vector<std::uint8_t> streamCountBytes;
+        util::encoding::encodeVarint(streamCount, streamCountBytes);
+        chunks.push_back(std::move(streamCountBytes));
         if (columnNullable) {
-            const auto presentStream = BooleanEncoder::encodeBooleanStream(presentValues, PhysicalStreamType::PRESENT);
-            result.insert(result.end(), presentStream.begin(), presentStream.end());
+            auto presentStream = BooleanEncoder::encodeBooleanStream(presentValues, PhysicalStreamType::PRESENT);
+            chunks.push_back(std::move(presentStream));
         }
-        result.insert(result.end(), stringResult.data.begin(), stringResult.data.end());
-        return result;
+        chunks.push_back(std::move(stringResult.data));
+        return {.chunks = std::move(chunks)};
+    }
+
+    static EncodeChunkedResult encodeStringColumnChunkedFromSeparated(std::span<const std::string_view> dataValues,
+                                                                      const std::vector<bool>& presentValues,
+                                                                      PhysicalLevelTechnique physicalTechnique,
+                                                                      IntegerEncoder& intEncoder,
+                                                                      bool useFsst = true,
+                                                                      bool columnNullable = false) {
+        const auto stringResult = StringEncoder::encode(dataValues, physicalTechnique, intEncoder, useFsst);
+        const auto streamCount = stringResult.numStreams + (columnNullable ? 1 : 0);
+
+        std::vector<std::vector<std::uint8_t>> chunks;
+        chunks.reserve(columnNullable ? 3 : 2);
+        std::vector<std::uint8_t> streamCountBytes;
+        util::encoding::encodeVarint(streamCount, streamCountBytes);
+        chunks.push_back(std::move(streamCountBytes));
+        if (columnNullable) {
+            auto presentStream = BooleanEncoder::encodeBooleanStream(presentValues, PhysicalStreamType::PRESENT);
+            chunks.push_back(std::move(presentStream));
+        }
+        chunks.push_back(std::move(stringResult.data));
+        return {.chunks = std::move(chunks)};
     }
 
 private:
@@ -164,13 +268,13 @@ private:
         return result;
     }
 
-    static void appendPresentStream(std::vector<std::uint8_t>& result,
+    static void appendPresentStream(std::vector<std::vector<std::uint8_t>>& chunks,
                                     const std::vector<bool>& presentValues,
                                     bool hasNull,
                                     bool columnNullable = false) {
         if (hasNull || columnNullable) {
             auto presentStream = BooleanEncoder::encodeBooleanStream(presentValues, PhysicalStreamType::PRESENT);
-            result.insert(result.end(), presentStream.begin(), presentStream.end());
+            chunks.push_back(std::move(presentStream));
         }
     }
 
@@ -178,13 +282,30 @@ private:
     static std::vector<std::uint8_t> encodeOptionalDataColumn(std::span<const std::optional<T>> values,
                                                               bool columnNullable,
                                                               EncodeDataFn&& encodeData) {
+        return flattenChunks(
+            encodeOptionalDataColumnChunked(values, columnNullable, std::forward<EncodeDataFn>(encodeData)).chunks);
+    }
+
+    template <typename T, typename EncodeDataFn>
+    static EncodeChunkedResult encodeOptionalDataColumnChunked(std::span<const std::optional<T>> values,
+                                                               bool columnNullable,
+                                                               EncodeDataFn&& encodeData) {
         const auto [presentValues, dataValues, hasNull] = separateNulls<T>(values);
+        return encodeSeparatedDataColumnChunked(
+            std::span<const T>{dataValues}, presentValues, hasNull, columnNullable, encodeData);
+    }
+
+    static std::vector<std::uint8_t> flattenChunks(std::vector<std::vector<std::uint8_t>> chunks) {
+        std::size_t totalSize = 0;
+        for (const auto& chunk : chunks) {
+            totalSize += chunk.size();
+        }
 
         std::vector<std::uint8_t> result;
-        appendPresentStream(result, presentValues, hasNull, columnNullable);
-
-        const auto dataStream = encodeData(std::span<const T>{dataValues});
-        result.insert(result.end(), dataStream.begin(), dataStream.end());
+        result.reserve(totalSize);
+        for (const auto& chunk : chunks) {
+            result.insert(result.end(), chunk.begin(), chunk.end());
+        }
         return result;
     }
 

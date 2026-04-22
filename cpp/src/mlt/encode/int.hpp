@@ -111,7 +111,7 @@ private:
     std::vector<std::uint8_t> encodeFastPfor(std::span<const std::int32_t> values, bool zigZag);
     std::vector<std::uint8_t> encodeFastPforUnsigned(std::span<const std::uint32_t> values);
 
-    static std::vector<std::uint8_t> buildStream(const IntegerEncodingResult& encoded,
+    static std::vector<std::uint8_t> buildStream(IntegerEncodingResult&& encoded,
                                                  std::uint32_t totalValues,
                                                  PhysicalLevelTechnique,
                                                  PhysicalStreamType,

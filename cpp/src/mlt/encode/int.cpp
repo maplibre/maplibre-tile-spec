@@ -11,6 +11,7 @@
 
 #include <bit>
 #include <cassert>
+#include <iterator>
 
 namespace mlt::encoder {
 
@@ -346,9 +347,12 @@ std::vector<std::uint8_t> encodeStreamWithMetadata(std::span<const TValue> value
                                                    std::optional<LogicalStreamType> logicalType,
                                                    EncodeFn&& encodeValues,
                                                    BuildFn&& buildStreamFn) {
-    const auto encoded = encodeValues(values);
-    return buildStreamFn(
-        encoded, static_cast<std::uint32_t>(values.size()), physicalTechnique, streamType, std::move(logicalType));
+    auto encoded = encodeValues(values);
+    return buildStreamFn(std::move(encoded),
+                         static_cast<std::uint32_t>(values.size()),
+                         physicalTechnique,
+                         streamType,
+                         std::move(logicalType));
 }
 
 } // namespace
@@ -487,7 +491,7 @@ IntegerEncodingResult IntegerEncoder::encodeUint64(std::span<const std::uint64_t
     return encodeUnsignedIntegralNoDelta<std::uint64_t>(values, option, encode);
 }
 
-std::vector<std::uint8_t> IntegerEncoder::buildStream(const IntegerEncodingResult& encoded,
+std::vector<std::uint8_t> IntegerEncoder::buildStream(IntegerEncodingResult&& encoded,
                                                       std::uint32_t totalValues,
                                                       PhysicalLevelTechnique physicalTechnique,
                                                       PhysicalStreamType streamType,
@@ -520,7 +524,9 @@ std::vector<std::uint8_t> IntegerEncoder::buildStream(const IntegerEncodingResul
     std::vector<std::uint8_t> result;
     result.reserve(metadata.size() + encoded.encodedValues.size());
     result.insert(result.end(), metadata.begin(), metadata.end());
-    result.insert(result.end(), encoded.encodedValues.begin(), encoded.encodedValues.end());
+    result.insert(result.end(),
+                  std::make_move_iterator(encoded.encodedValues.begin()),
+                  std::make_move_iterator(encoded.encodedValues.end()));
     return result;
 }
 

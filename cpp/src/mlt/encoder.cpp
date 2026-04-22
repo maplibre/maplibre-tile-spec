@@ -429,13 +429,30 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
     const auto featureTable = buildMetadata(layer, config, idStats);
     const auto metadataBytes = encodeFeatureTable(featureTable);
 
-    std::vector<std::uint8_t> bodyBytes;
-    const auto appendEncodedColumn = [&](const auto& encoded) {
-        bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
+    // Collect encoded chunks; concatenate once at the end to avoid repeated reallocation.
+    std::vector<std::vector<std::uint8_t>> bodyChunks;
+    const auto appendEncodedColumn = [&](std::vector<std::uint8_t> encoded) {
+        bodyChunks.push_back(std::move(encoded));
     };
-    const auto appendEncodedStreamSet = [&](std::uint32_t numStreams, const auto& encodedValues) {
-        util::encoding::encodeVarint(numStreams, bodyBytes);
-        bodyBytes.insert(bodyBytes.end(), encodedValues.begin(), encodedValues.end());
+    const auto appendEncodedColumnChunks = [&](std::vector<std::vector<std::uint8_t>> encodedChunks) {
+        for (auto& chunk : encodedChunks) {
+            bodyChunks.push_back(std::move(chunk));
+        }
+    };
+    const auto appendEncodedStreamSet = [&](std::uint32_t numStreams, std::vector<std::uint8_t> encodedValues) {
+        std::vector<std::uint8_t> header;
+        util::encoding::encodeVarint(numStreams, header);
+        bodyChunks.push_back(std::move(header));
+        bodyChunks.push_back(std::move(encodedValues));
+    };
+    const auto appendEncodedStreamSetChunks = [&](std::uint32_t numStreams,
+                                                  std::vector<std::vector<std::uint8_t>> encodedChunks) {
+        std::vector<std::uint8_t> header;
+        util::encoding::encodeVarint(numStreams, header);
+        bodyChunks.push_back(std::move(header));
+        for (auto& chunk : encodedChunks) {
+            bodyChunks.push_back(std::move(chunk));
+        }
     };
     const auto extractIds = [&]<typename TId>(auto&& convertId) {
         std::vector<std::optional<TId>> ids;
@@ -453,15 +470,16 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
         if (hasLongId) {
             auto ids = extractIds.template operator()<std::uint64_t>(
                 [](const auto& feature) -> std::optional<std::uint64_t> { return feature.id; });
-            appendEncodedColumn(PropertyEncoder::encodeUint64Column(ids, intEncoder, hasMissingId));
+            appendEncodedColumnChunks(PropertyEncoder::encodeUint64ColumnChunked(ids, intEncoder, hasMissingId).chunks);
         } else {
             auto ids = extractIds.template operator()<std::int32_t>(
                 [](const auto& feature) -> std::optional<std::int32_t> {
                     return feature.id.has_value() ? std::optional<std::int32_t>{static_cast<std::int32_t>(*feature.id)}
                                                   : std::nullopt;
                 });
-            appendEncodedColumn(
-                PropertyEncoder::encodeInt32Column(ids, physicalTechnique, false, intEncoder, hasMissingId));
+            appendEncodedColumnChunks(
+                PropertyEncoder::encodeInt32ColumnChunked(ids, physicalTechnique, false, intEncoder, hasMissingId)
+                    .chunks);
         }
     }
 
@@ -506,7 +524,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                                                      config.forceMortonGeometryLayout);
     }();
 
-    appendEncodedStreamSet(encodedGeom.numStreams, encodedGeom.encodedValues);
+    appendEncodedStreamSet(encodedGeom.numStreams, std::move(encodedGeom.encodedValues));
 
     // Create a cache of properties for each scalar column to avoid repeated linear searches during encoding
     using PropertyValuePtr = const Encoder::PropertyValue*;
@@ -548,14 +566,6 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                 return nullptr;
             };
 
-            std::vector<std::vector<std::string>> ownedStrings(numChildren);
-            std::vector<std::vector<std::string_view>> viewStorage(numChildren);
-
-            for (std::size_t c = 0; c < numChildren; ++c) {
-                ownedStrings[c].reserve(features.size());
-                viewStorage[c].reserve(features.size());
-            }
-
             std::vector<const Encoder::StructValue*> structValues(features.size(), nullptr);
             for (std::size_t fi = 0; fi < features.size(); ++fi) {
                 auto it = sourceKey ? features[fi].properties.find(*sourceKey) : features[fi].properties.find(rootName);
@@ -564,45 +574,24 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                 }
             }
 
-            std::vector<std::vector<bool>> childPresent(numChildren, std::vector<bool>(features.size(), false));
-
+            // Build one optional<string_view> column per child, pointing directly into live feature data.
+            // This eliminates the previous ownedStrings (string copies), viewStorage, and childPresent intermediates.
+            std::vector<std::vector<std::optional<std::string_view>>> optCols(numChildren);
+            for (std::size_t c = 0; c < numChildren; ++c) {
+                optCols[c].reserve(features.size());
+            }
             for (std::size_t fi = 0; fi < features.size(); ++fi) {
                 const auto* sv = structValues[fi];
                 for (std::size_t c = 0; c < numChildren; ++c) {
-                    if (sv) {
-                        if (const auto* childValue = resolveStructChildValue(*sv, complex.children[c].name);
-                            childValue != nullptr) {
-                            ownedStrings[c].push_back(*childValue);
-                            childPresent[c][fi] = true;
-                            continue;
-                        }
-                    }
-                    ownedStrings[c].emplace_back();
+                    const auto* childValue = sv ? resolveStructChildValue(*sv, complex.children[c].name) : nullptr;
+                    optCols[c].push_back(childValue ? std::optional<std::string_view>{*childValue} : std::nullopt);
                 }
             }
 
-            for (std::size_t c = 0; c < numChildren; ++c) {
-                for (const auto& s : ownedStrings[c]) {
-                    viewStorage[c].emplace_back(s);
-                }
-            }
+            auto result = StringEncoder::encodeSharedDictionaryChunked(
+                optCols, physicalTechnique, intEncoder, config.useFsst);
 
-            std::vector<std::vector<const std::string_view*>> sharedCols(numChildren);
-            for (std::size_t c = 0; c < numChildren; ++c) {
-                sharedCols[c].reserve(features.size());
-                for (std::size_t fi = 0; fi < features.size(); ++fi) {
-                    if (childPresent[c][fi]) {
-                        sharedCols[c].push_back(&viewStorage[c][fi]);
-                    } else {
-                        sharedCols[c].push_back(nullptr);
-                    }
-                }
-            }
-
-            auto result = StringEncoder::encodeSharedDictionary(
-                sharedCols, physicalTechnique, intEncoder, config.useFsst);
-
-            appendEncodedStreamSet(result.numStreams, result.data);
+            appendEncodedStreamSetChunks(result.numStreams, std::move(result.chunks));
             continue;
         }
 
@@ -615,133 +604,225 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
         }
         const auto& cachedPropertyValues = cachedIt->second;
 
-        const auto extractColumn = [&]<typename T>(auto&& visitor) {
-            std::vector<std::optional<T>> values;
-            values.reserve(features.size());
-            for (const auto* propertyValue : cachedPropertyValues) {
-                if (propertyValue != nullptr) {
-                    values.push_back(std::visit(visitor, *propertyValue));
-                } else {
-                    values.push_back(std::nullopt);
+        const auto extractSeparatedColumn =
+            [&]<typename T>(
+                auto&& visitor, std::vector<bool>& presentValues, std::vector<T>& dataValues, bool& hasNull) {
+                presentValues.clear();
+                presentValues.reserve(features.size());
+                dataValues.clear();
+                dataValues.reserve(features.size());
+                hasNull = false;
+                for (const auto* propertyValue : cachedPropertyValues) {
+                    if (propertyValue != nullptr) {
+                        presentValues.push_back(true);
+                        dataValues.push_back(std::visit(visitor, *propertyValue));
+                    } else {
+                        presentValues.push_back(false);
+                        hasNull = true;
+                    }
                 }
-            }
-            return values;
+            };
+
+        const auto encodeSeparatedColumn =
+            [&]<typename T>(auto&& visitor, auto&& encodeColumn) -> std::vector<std::vector<std::uint8_t>> {
+            std::vector<bool> presentValues;
+            std::vector<T> dataValues;
+            bool hasNull = false;
+            extractSeparatedColumn.template operator()<T>(visitor, presentValues, dataValues, hasNull);
+            return encodeColumn(std::span<const T>{dataValues}, presentValues, hasNull);
         };
 
-        const auto encodeExtractedColumn = [&]<typename T>(auto&& visitor, auto&& encodeColumn) {
-            auto values = extractColumn.template operator()<T>(visitor);
-            return encodeColumn(values);
-        };
-
-        std::vector<std::uint8_t> encoded;
+        std::vector<std::vector<std::uint8_t>> encodedChunks;
         switch (scalarType) {
             case ScalarType::BOOLEAN:
-                encoded = encodeExtractedColumn.template operator()<bool>(
+                encodedChunks = encodeSeparatedColumn.template operator()<std::uint8_t>(
                     util::overloaded{
-                        [](bool v) -> bool { return v; },
+                        [](bool v) -> std::uint8_t { return static_cast<std::uint8_t>(v); },
                         // the type is already determined by column metadata, so the catch-all arms are dead by
                         // construction
-                        [](auto) -> bool { throwInvalidType(); }, // GCOVR_EXCL_LINE
+                        [](auto) -> std::uint8_t { throwInvalidType(); }, // GCOVR_EXCL_LINE
                     },
-                    [&](const auto& values) { return PropertyEncoder::encodeBooleanColumn(values, column.nullable); });
+                    [&](auto dataValues, const auto& presentValues, bool hasNull) {
+                        return PropertyEncoder::encodeSeparatedDataColumnChunked(
+                                   dataValues,
+                                   presentValues,
+                                   hasNull,
+                                   column.nullable,
+                                   [](std::span<const std::uint8_t> input) {
+                                       return BooleanEncoder::encodeBooleanStream(
+                                           input, metadata::stream::PhysicalStreamType::DATA);
+                                   })
+                            .chunks;
+                    });
                 break;
             case ScalarType::INT_32:
-                encoded = encodeExtractedColumn.template operator()<std::int32_t>(
+                encodedChunks = encodeSeparatedColumn.template operator()<std::int32_t>(
                     util::overloaded{
                         [](std::int32_t v) -> std::int32_t { return v; },
                         [](std::int64_t v) -> std::int32_t { return static_cast<std::int32_t>(v); },
                         [](auto) -> std::int32_t { throwInvalidType(); }, // GCOVR_EXCL_LINE
                     },
-                    [&](const auto& values) {
-                        return PropertyEncoder::encodeInt32Column(
-                            values, physicalTechnique, true, intEncoder, column.nullable);
+                    [&](auto dataValues, const auto& presentValues, bool hasNull) {
+                        return PropertyEncoder::encodeSeparatedDataColumnChunked(
+                                   dataValues,
+                                   presentValues,
+                                   hasNull,
+                                   column.nullable,
+                                   [&](std::span<const std::int32_t> input) {
+                                       return intEncoder.encodeIntStream(input,
+                                                                         physicalTechnique,
+                                                                         true,
+                                                                         metadata::stream::PhysicalStreamType::DATA,
+                                                                         std::nullopt);
+                                   })
+                            .chunks;
                     });
                 break;
             case ScalarType::UINT_32:
-                encoded = encodeExtractedColumn.template operator()<std::uint32_t>(
+                encodedChunks = encodeSeparatedColumn.template operator()<std::uint32_t>(
                     util::overloaded{
                         [](std::uint32_t v) -> std::uint32_t { return v; },
                         [](std::int32_t v) -> std::uint32_t { return static_cast<std::uint32_t>(v); },
                         [](auto) -> std::uint32_t { throwInvalidType(); }, // GCOVR_EXCL_LINE
                     },
-                    [&](const auto& values) {
-                        return PropertyEncoder::encodeUint32Column(
-                            values, physicalTechnique, intEncoder, column.nullable);
+                    [&](auto dataValues, const auto& presentValues, bool hasNull) {
+                        return PropertyEncoder::encodeSeparatedDataColumnChunked(
+                                   dataValues,
+                                   presentValues,
+                                   hasNull,
+                                   column.nullable,
+                                   [&](std::span<const std::uint32_t> input) {
+                                       return intEncoder.encodeUint32Stream(input,
+                                                                            physicalTechnique,
+                                                                            metadata::stream::PhysicalStreamType::DATA,
+                                                                            std::nullopt);
+                                   })
+                            .chunks;
                     });
                 break;
             case ScalarType::INT_64:
-                encoded = encodeExtractedColumn.template operator()<std::int64_t>(
+                encodedChunks = encodeSeparatedColumn.template operator()<std::int64_t>(
                     util::overloaded{
                         [](std::int64_t v) -> std::int64_t { return v; },
                         [](std::int32_t v) -> std::int64_t { return v; },
                         [](auto) -> std::int64_t { throwInvalidType(); }, // GCOVR_EXCL_LINE
                     },
-                    [&](const auto& values) {
-                        return PropertyEncoder::encodeInt64Column(values, true, intEncoder, column.nullable);
+                    [&](auto dataValues, const auto& presentValues, bool hasNull) {
+                        return PropertyEncoder::encodeSeparatedDataColumnChunked(
+                                   dataValues,
+                                   presentValues,
+                                   hasNull,
+                                   column.nullable,
+                                   [&](std::span<const std::int64_t> input) {
+                                       return intEncoder.encodeLongStream(
+                                           input, true, metadata::stream::PhysicalStreamType::DATA, std::nullopt);
+                                   })
+                            .chunks;
                     });
                 break;
             case ScalarType::UINT_64:
-                encoded = encodeExtractedColumn.template operator()<std::uint64_t>(
+                encodedChunks = encodeSeparatedColumn.template operator()<std::uint64_t>(
                     util::overloaded{
                         [](std::uint64_t v) -> std::uint64_t { return v; },
                         [](std::int64_t v) -> std::uint64_t { return static_cast<std::uint64_t>(v); },
                         [](auto) -> std::uint64_t { throwInvalidType(); }, // GCOVR_EXCL_LINE
                     },
-                    [&](const auto& values) {
-                        return PropertyEncoder::encodeUint64Column(values, intEncoder, column.nullable);
+                    [&](auto dataValues, const auto& presentValues, bool hasNull) {
+                        return PropertyEncoder::encodeSeparatedDataColumnChunked(
+                                   dataValues,
+                                   presentValues,
+                                   hasNull,
+                                   column.nullable,
+                                   [&](std::span<const std::uint64_t> input) {
+                                       return intEncoder.encodeUint64Stream(
+                                           input, metadata::stream::PhysicalStreamType::DATA, std::nullopt);
+                                   })
+                            .chunks;
                     });
                 break;
             case ScalarType::FLOAT:
-                encoded = encodeExtractedColumn.template operator()<float>(
+                encodedChunks = encodeSeparatedColumn.template operator()<float>(
                     util::overloaded{
                         [](float v) -> float { return v; },
                         [](double v) -> float { return static_cast<float>(v); },
                         [](auto) -> float { throwInvalidType(); }, // GCOVR_EXCL_LINE
                     },
-                    [&](const auto& values) { return PropertyEncoder::encodeFloatColumn(values, column.nullable); });
+                    [&](auto dataValues, const auto& presentValues, bool hasNull) {
+                        return PropertyEncoder::encodeSeparatedDataColumnChunked(
+                                   dataValues,
+                                   presentValues,
+                                   hasNull,
+                                   column.nullable,
+                                   [](std::span<const float> input) { return FloatEncoder::encodeStream(input); })
+                            .chunks;
+                    });
                 break;
             case ScalarType::DOUBLE:
-                encoded = encodeExtractedColumn.template operator()<double>(
+                encodedChunks = encodeSeparatedColumn.template operator()<double>(
                     util::overloaded{
                         [](double v) -> double { return v; },
                         [](float v) -> double { return static_cast<double>(v); },
                         [](auto) -> double { throwInvalidType(); }, // GCOVR_EXCL_LINE
                     },
-                    [&](const auto& values) { return PropertyEncoder::encodeDoubleColumn(values, column.nullable); });
+                    [&](auto dataValues, const auto& presentValues, bool hasNull) {
+                        return PropertyEncoder::encodeSeparatedDataColumnChunked(
+                                   dataValues,
+                                   presentValues,
+                                   hasNull,
+                                   column.nullable,
+                                   [](std::span<const double> input) { return FloatEncoder::encodeStream(input); })
+                            .chunks;
+                    });
                 break;
             case ScalarType::STRING: {
-                std::vector<std::string> ownedStrings;
-                ownedStrings.reserve(features.size());
-                std::vector<std::optional<std::string_view>> values;
-                values.reserve(features.size());
+                std::vector<std::string> coercedStrings;
+                coercedStrings.reserve(features.size());
+                std::vector<bool> presentValues;
+                presentValues.reserve(features.size());
+                std::vector<std::string_view> dataValues;
+                dataValues.reserve(features.size());
                 for (const auto* propertyValue : cachedPropertyValues) {
                     if (propertyValue != nullptr) {
-                        auto& owned = ownedStrings.emplace_back(
-                            std::visit(util::overloaded{
-                                           [](const std::string& v) -> std::string { return v; },
-                                           [](const Encoder::StructValue&) -> std::string { return {}; },
-                                           [](auto v) -> std::string { return std::to_string(v); },
-                                       },
-                                       *propertyValue));
-                        values.push_back(std::string_view{owned});
+                        presentValues.push_back(true);
+                        dataValues.push_back(std::visit(
+                            util::overloaded{
+                                [](const std::string& v) -> std::string_view { return std::string_view{v}; },
+                                [](const Encoder::StructValue&) -> std::string_view { return std::string_view{}; },
+                                [&](auto v) -> std::string_view {
+                                    auto& coerced = coercedStrings.emplace_back(std::to_string(v));
+                                    return std::string_view{coerced};
+                                },
+                            },
+                            *propertyValue));
                     } else {
-                        values.push_back(std::nullopt);
+                        presentValues.push_back(false);
                     }
                 }
-                encoded = PropertyEncoder::encodeStringColumn(
-                    values, physicalTechnique, intEncoder, config.useFsst, column.nullable);
+                encodedChunks =
+                    PropertyEncoder::encodeStringColumnChunkedFromSeparated(
+                        dataValues, presentValues, physicalTechnique, intEncoder, config.useFsst, column.nullable)
+                        .chunks;
                 break;
             }
             default:
                 throwInvalidType(); // GCOVR_EXCL_LINE
         }
-        appendEncodedColumn(encoded);
+        appendEncodedColumnChunks(std::move(encodedChunks));
+    }
+
+    // Compute total body size, then assemble the layer in a single allocation.
+    std::size_t bodySize = 0;
+    for (const auto& chunk : bodyChunks) {
+        bodySize += chunk.size();
     }
 
     std::vector<std::uint8_t> layerBytes;
+    layerBytes.reserve(metadataBytes.size() + bodySize + 8 /* varint overhead */);
     util::encoding::encodeVarint(static_cast<std::uint32_t>(1), layerBytes);
     layerBytes.insert(layerBytes.end(), metadataBytes.begin(), metadataBytes.end());
-    layerBytes.insert(layerBytes.end(), bodyBytes.begin(), bodyBytes.end());
+    for (const auto& chunk : bodyChunks) {
+        layerBytes.insert(layerBytes.end(), chunk.begin(), chunk.end());
+    }
     return layerBytes;
 }
 
@@ -751,14 +832,29 @@ Encoder::Encoder()
 Encoder::~Encoder() noexcept = default;
 
 std::vector<std::uint8_t> Encoder::encode(const std::vector<Layer>& layers, const EncoderConfig& config) {
-    std::vector<std::uint8_t> result;
+    // Accumulate (size-varint, layer-bytes) pairs, then concatenate once.
+    struct LayerChunk {
+        std::vector<std::uint8_t> sizeVarint;
+        std::vector<std::uint8_t> data;
+    };
+    std::vector<LayerChunk> chunks;
+    chunks.reserve(layers.size());
+    std::size_t totalSize = 0;
     for (const auto& layer : layers) {
         auto layerBytes = impl->encodeLayer(layer, config);
         if (layerBytes.empty()) {
             continue;
         }
-        util::encoding::encodeVarint(static_cast<std::uint32_t>(layerBytes.size()), result);
-        result.insert(result.end(), layerBytes.begin(), layerBytes.end());
+        std::vector<std::uint8_t> sizeVarint;
+        util::encoding::encodeVarint(static_cast<std::uint32_t>(layerBytes.size()), sizeVarint);
+        totalSize += sizeVarint.size() + layerBytes.size();
+        chunks.push_back({std::move(sizeVarint), std::move(layerBytes)});
+    }
+    std::vector<std::uint8_t> result;
+    result.reserve(totalSize);
+    for (const auto& chunk : chunks) {
+        result.insert(result.end(), chunk.sizeVarint.begin(), chunk.sizeVarint.end());
+        result.insert(result.end(), chunk.data.begin(), chunk.data.end());
     }
     return result;
 }

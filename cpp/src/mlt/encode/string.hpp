@@ -7,6 +7,7 @@
 #include <mlt/util/encoding/varint.hpp>
 
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string_view>
 #include <unordered_map>
@@ -24,6 +25,11 @@ public:
     struct EncodeResult {
         std::uint32_t numStreams;
         std::vector<std::uint8_t> data;
+    };
+
+    struct EncodeChunkedResult {
+        std::uint32_t numStreams;
+        std::vector<std::vector<std::uint8_t>> chunks;
     };
 
     static EncodeResult encode(std::span<const std::string_view> values,
@@ -54,10 +60,30 @@ public:
         return {.numStreams = bestStreams, .data = std::move(*best)};
     }
 
-    static EncodeResult encodeSharedDictionary(const std::vector<std::vector<const std::string_view*>>& columns,
+    static EncodeResult encodeSharedDictionary(const std::vector<std::vector<std::optional<std::string_view>>>& columns,
                                                PhysicalLevelTechnique physicalTechnique,
                                                IntegerEncoder& intEncoder,
                                                bool useFsst = true) {
+        auto chunked = encodeSharedDictionaryChunked(columns, physicalTechnique, intEncoder, useFsst);
+        std::size_t totalSize = 0;
+        for (const auto& chunk : chunked.chunks) {
+            totalSize += chunk.size();
+        }
+
+        std::vector<std::uint8_t> data;
+        data.reserve(totalSize);
+        for (auto& chunk : chunked.chunks) {
+            data.insert(data.end(), chunk.begin(), chunk.end());
+        }
+
+        return {.numStreams = chunked.numStreams, .data = std::move(data)};
+    }
+
+    static EncodeChunkedResult encodeSharedDictionaryChunked(
+        const std::vector<std::vector<std::optional<std::string_view>>>& columns,
+        PhysicalLevelTechnique physicalTechnique,
+        IntegerEncoder& intEncoder,
+        bool useFsst = true) {
         using namespace metadata::stream;
 
         std::vector<std::string_view> dictionary;
@@ -66,14 +92,14 @@ public:
         std::vector<std::vector<bool>> presentStreams(columns.size());
 
         for (std::size_t col = 0; col < columns.size(); ++col) {
-            for (const auto* sv : columns[col]) {
-                if (!sv) {
+            for (const auto& optSv : columns[col]) {
+                if (!optSv) {
                     presentStreams[col].push_back(false);
                 } else {
                     presentStreams[col].push_back(true);
-                    auto [it, inserted] = dictIndex.try_emplace(*sv, static_cast<std::uint32_t>(dictionary.size()));
+                    auto [it, inserted] = dictIndex.try_emplace(*optSv, static_cast<std::uint32_t>(dictionary.size()));
                     if (inserted) {
-                        dictionary.push_back(*sv);
+                        dictionary.push_back(*optSv);
                     }
                     dataStreams[col].push_back(static_cast<std::int32_t>(it->second));
                 }
@@ -81,7 +107,7 @@ public:
         }
 
         if (dictionary.empty()) {
-            return {.numStreams = 0, .data = {}};
+            return {.numStreams = 0, .chunks = {}};
         }
 
         auto dictData = encodeStringBytes(dictionary,
@@ -102,30 +128,35 @@ public:
             }
         }
 
-        std::vector<std::uint8_t> result;
-        result.insert(result.end(), dictData.begin(), dictData.end());
+        std::vector<std::vector<std::uint8_t>> chunks;
+        chunks.reserve(1 + (columns.size() * 3));
+        chunks.push_back(std::move(dictData));
 
         for (std::size_t col = 0; col < columns.size(); ++col) {
             if (dataStreams[col].empty()) {
-                util::encoding::encodeVarint(static_cast<std::uint32_t>(0), result);
+                std::vector<std::uint8_t> emptyColumn;
+                util::encoding::encodeVarint(static_cast<std::uint32_t>(0), emptyColumn);
+                chunks.push_back(std::move(emptyColumn));
                 continue;
             }
 
-            util::encoding::encodeVarint(static_cast<std::uint32_t>(2), result);
+            std::vector<std::uint8_t> columnNumStreams;
+            util::encoding::encodeVarint(static_cast<std::uint32_t>(2), columnNumStreams);
+            chunks.push_back(std::move(columnNumStreams));
 
             auto presentData = BooleanEncoder::encodeBooleanStream(presentStreams[col], PhysicalStreamType::PRESENT);
-            result.insert(result.end(), presentData.begin(), presentData.end());
+            chunks.push_back(std::move(presentData));
 
             auto offsetData = intEncoder.encodeIntStream(dataStreams[col],
                                                          physicalTechnique,
                                                          false,
                                                          PhysicalStreamType::OFFSET,
                                                          LogicalStreamType{OffsetType::STRING});
-            result.insert(result.end(), offsetData.begin(), offsetData.end());
+            chunks.push_back(std::move(offsetData));
         }
 
         const auto numStreams = dictStreams + (static_cast<std::uint32_t>(columns.size()) * 2);
-        return {.numStreams = numStreams, .data = std::move(result)};
+        return {.numStreams = numStreams, .chunks = std::move(chunks)};
     }
 
 private:
@@ -221,11 +252,16 @@ private:
         using namespace metadata::stream;
         namespace fsst = util::encoding::fsst;
 
-        std::vector<std::uint8_t> joined;
         std::vector<std::int32_t> valueLengths;
         valueLengths.reserve(values.size());
+        std::size_t totalBytes = 0;
         for (const auto sv : values) {
             valueLengths.push_back(static_cast<std::int32_t>(sv.size()));
+            totalBytes += sv.size();
+        }
+        std::vector<std::uint8_t> joined;
+        joined.reserve(totalBytes);
+        for (const auto sv : values) {
             joined.insert(joined.end(), sv.begin(), sv.end());
         }
 
@@ -284,7 +320,10 @@ private:
 
         std::vector<std::int32_t> lengths;
         lengths.reserve(values.size());
+        std::size_t totalBytes = 0;
+        for (const auto sv : values) totalBytes += sv.size();
         std::vector<std::uint8_t> rawData;
+        rawData.reserve(totalBytes);
         for (const auto sv : values) {
             lengths.push_back(static_cast<std::int32_t>(sv.size()));
             rawData.insert(rawData.end(), sv.begin(), sv.end());
