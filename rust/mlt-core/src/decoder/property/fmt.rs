@@ -10,47 +10,47 @@ impl fmt::Debug for ParsedProperty<'_> {
             Self::Bool(v) => f
                 .debug_tuple("Bool")
                 .field(&v.name)
-                .field(&FmtOptVec(&v.values))
+                .field(&FmtOptVec(&v.materialize()))
                 .finish(),
             Self::I8(v) => f
                 .debug_tuple("I8")
                 .field(&v.name)
-                .field(&FmtOptVec(&v.values))
+                .field(&FmtOptVec(&v.materialize()))
                 .finish(),
             Self::U8(v) => f
                 .debug_tuple("U8")
                 .field(&v.name)
-                .field(&FmtOptVec(&v.values))
+                .field(&FmtOptVec(&v.materialize()))
                 .finish(),
             Self::I32(v) => f
                 .debug_tuple("I32")
                 .field(&v.name)
-                .field(&FmtOptVec(&v.values))
+                .field(&FmtOptVec(&v.materialize()))
                 .finish(),
             Self::U32(v) => f
                 .debug_tuple("U32")
                 .field(&v.name)
-                .field(&FmtOptVec(&v.values))
+                .field(&FmtOptVec(&v.materialize()))
                 .finish(),
             Self::I64(v) => f
                 .debug_tuple("I64")
                 .field(&v.name)
-                .field(&FmtOptVec(&v.values))
+                .field(&FmtOptVec(&v.materialize()))
                 .finish(),
             Self::U64(v) => f
                 .debug_tuple("U64")
                 .field(&v.name)
-                .field(&FmtOptVec(&v.values))
+                .field(&FmtOptVec(&v.materialize()))
                 .finish(),
             Self::F32(v) => f
                 .debug_tuple("F32")
                 .field(&v.name)
-                .field(&FmtOptVec(&v.values))
+                .field(&FmtOptVec(&v.materialize()))
                 .finish(),
             Self::F64(v) => f
                 .debug_tuple("F64")
                 .field(&v.name)
-                .field(&FmtOptVec(&v.values))
+                .field(&FmtOptVec(&v.materialize()))
                 .finish(),
             Self::Str(v) => f
                 .debug_tuple("Str")

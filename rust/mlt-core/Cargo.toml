@@ -44,6 +44,7 @@ __private = []
 
 [dependencies]
 arbitrary = { workspace = true, optional = true }
+bitvec.workspace = true
 bytemuck.workspace = true
 enum_dispatch.workspace = true
 fastpfor.workspace = true

@@ -18,8 +18,8 @@ jobs:
       - run: just -v rust::ci-check
       - run: just -v rust::ci-lint
 
-  test:
-    name: Test
+  coverage:
+    name: Coverage
     permissions:
       id-token: write  # for OIDC Codecov
     runs-on: ubuntu-latest
@@ -175,11 +175,11 @@ jobs:
   # This approach also allows some jobs to be skipped if they are not needed.
   ci-passed-rust:
     needs:
-      - test
+      - lint
+      - coverage
       # re-enable once we have stability guarantees regarding MSRV
       # - test-msrv
       - test-wasm
-      - lint
       - build-release-binaries
       - test-publish
       - build-wasm-npm

@@ -18,6 +18,7 @@ rust-version = "1.92"
 [workspace.dependencies]
 anyhow = "1"
 arbitrary = { version = "1.4", features = ["derive"] }
+bitvec = "1"
 brotli = "8"
 bytemuck = "1.25.0"
 clap = { version = "4.6.0", features = ["derive"] }
@@ -28,7 +29,7 @@ fastpfor = { version = "0.9", features = ["rust"] }
 flate2 = "1"
 fsst-rs = "0.5"
 futures = "0.3"
-geo = { version = "0.33.0", default-features = false }
+geo = { version = "0.33.1", default-features = false }
 geo-types = "0.7.19"
 glob = "0.3"
 globset = "0.4"
@@ -39,8 +40,8 @@ indicatif = "0.18"
 insta = "1.47.2"
 integer-encoding = "4.0.2"
 js-sys = "0.3"
-martin-tile-utils = "0.6"
-mbtiles = { version = "0.15", default-features = false }
+martin-tile-utils = "0.7"
+mbtiles = { version = "0.16", default-features = false }
 mlt-core = { version = "0.8.0", path = "mlt-core" }
 mvt-reader = "2.3.0"
 num-traits = "0.2.19"

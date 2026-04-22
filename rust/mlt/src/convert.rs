@@ -9,7 +9,9 @@ use clap::{Args, ValueEnum};
 use futures::StreamExt as _;
 use indicatif::{HumanDuration, ProgressBar, ProgressStyle};
 use martin_tile_utils::{Encoding, Format, decode_brotli, decode_gzip, decode_zlib, decode_zstd};
-use mbtiles::{CopyDuplicateMode, MbtType, Mbtiles, TileCoord, init_mbtiles_schema};
+use mbtiles::{
+    CopyDuplicateMode, MbtType, Mbtiles, NormalizedSchema, TileCoord, init_mbtiles_schema,
+};
 use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig};
 use mlt_core::mvt::mvt_to_tile_layers;
 use mlt_core::{Decoder, Layer, Parser};
@@ -56,7 +58,11 @@ impl From<MbtFormat> for MbtType {
             MbtFormat::Flat => Self::Flat,
             MbtFormat::FlatWithHash => Self::FlatWithHash,
             // hash_view=false: skip the tiles_with_hash view (not needed for writes)
-            MbtFormat::Normalized => Self::Normalized { hash_view: false },
+            // schema=Hash: use the standard map+images normalized schema
+            MbtFormat::Normalized => Self::Normalized {
+                hash_view: false,
+                schema: NormalizedSchema::Hash,
+            },
         }
     }
 }
