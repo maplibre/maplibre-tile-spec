@@ -95,7 +95,3 @@ missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 multiple_crate_versions = "allow"
 too_many_lines = "allow"
-
-[patch.crates-io]
-mbtiles = { git = "https://github.com/CommanderStorm/martin.git", branch = "transcoder" }
-martin-tile-utils = { git = "https://github.com/CommanderStorm/martin.git", branch = "transcoder" }
