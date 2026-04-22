@@ -40,7 +40,7 @@ pub async fn convert_mbtiles(
     eprintln!("{} → {} ({mbt_type}):", input.display(), output.display());
 
     let mut transcoder =
-        MbtilesTranscoder::new(input.to_path_buf(), output.to_path_buf(), move |data| {
+        MbtilesTranscoder::new(input, output, move |data| {
             encode_one(data, encoding, cfg)
                 .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { e.to_string().into() })
         })
