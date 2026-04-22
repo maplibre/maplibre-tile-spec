@@ -36,6 +36,9 @@ public:
         return result;
     }
 
+    /// Unsigned integers are encoded separately to avoid undefined behvior when casting unsigned values outside the
+    /// range of signed integers.
+
     static std::vector<std::uint8_t> encodeInt32Column(std::span<const std::optional<std::int32_t>> values,
                                                        PhysicalLevelTechnique physicalTechnique,
                                                        bool isSigned,
@@ -47,18 +50,42 @@ public:
     static std::vector<std::uint8_t> encodeUint32Column(std::span<const std::uint32_t> values,
                                                         PhysicalLevelTechnique physicalTechnique,
                                                         IntegerEncoder& intEncoder) {
-        std::vector<std::int32_t> signedValues(values.size());
-        std::ranges::transform(values, signedValues.begin(), [](auto v) { return static_cast<std::int32_t>(v); });
-        return intEncoder.encodeIntStream(
-            signedValues, physicalTechnique, false, metadata::stream::PhysicalStreamType::DATA, std::nullopt);
+        return intEncoder.encodeUint32Stream(
+            values, physicalTechnique, metadata::stream::PhysicalStreamType::DATA, std::nullopt);
+    }
+
+    static std::vector<std::uint8_t> encodeUint32Column(std::span<const std::optional<std::uint32_t>> values,
+                                                        PhysicalLevelTechnique physicalTechnique,
+                                                        IntegerEncoder& intEncoder,
+                                                        bool columnNullable = false) {
+        const auto [presentValues, dataValues, hasNull] = separateNulls<std::uint32_t>(values);
+
+        std::vector<std::uint8_t> result;
+        appendPresentStream(result, presentValues, hasNull, columnNullable);
+
+        const auto dataStream = intEncoder.encodeUint32Stream(
+            dataValues, physicalTechnique, metadata::stream::PhysicalStreamType::DATA, std::nullopt);
+        result.insert(result.end(), dataStream.begin(), dataStream.end());
+        return result;
     }
 
     static std::vector<std::uint8_t> encodeUint64Column(std::span<const std::uint64_t> values,
                                                         IntegerEncoder& intEncoder) {
-        std::vector<std::int64_t> signedValues(values.size());
-        std::ranges::transform(values, signedValues.begin(), [](auto v) { return static_cast<std::int64_t>(v); });
-        return intEncoder.encodeLongStream(
-            signedValues, false, metadata::stream::PhysicalStreamType::DATA, std::nullopt);
+        return intEncoder.encodeUint64Stream(values, metadata::stream::PhysicalStreamType::DATA, std::nullopt);
+    }
+
+    static std::vector<std::uint8_t> encodeUint64Column(std::span<const std::optional<std::uint64_t>> values,
+                                                        IntegerEncoder& intEncoder,
+                                                        bool columnNullable = false) {
+        const auto [presentValues, dataValues, hasNull] = separateNulls<std::uint64_t>(values);
+
+        std::vector<std::uint8_t> result;
+        appendPresentStream(result, presentValues, hasNull, columnNullable);
+
+        const auto dataStream = intEncoder.encodeUint64Stream(
+            dataValues, metadata::stream::PhysicalStreamType::DATA, std::nullopt);
+        result.insert(result.end(), dataStream.begin(), dataStream.end());
+        return result;
     }
 
     static std::vector<std::uint8_t> encodeInt64Column(std::span<const std::optional<std::int64_t>> values,

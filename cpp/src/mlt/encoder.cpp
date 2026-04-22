@@ -320,8 +320,11 @@ std::vector<Encoder::Feature> Encoder::Impl::sortFeatures(const std::vector<Enco
 
     std::vector<std::uint32_t> hilbertIds(features.size());
     for (std::size_t i = 0; i < features.size(); ++i) {
-        const auto& v = features[i].geometry.coordinates[0];
-        hilbertIds[i] = curve.encode({static_cast<float>(v.x), static_cast<float>(v.y)});
+        const auto& g = features[i].geometry;
+        if (!g.coordinates.empty()) {
+            const auto& v = features[i].geometry.coordinates[0];
+            hilbertIds[i] = curve.encode({static_cast<float>(v.x), static_cast<float>(v.y)});
+        }
     }
 
     std::vector<std::size_t> order(features.size());
@@ -415,11 +418,10 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
         const bool hasMissingId = std::ranges::any_of(features, [](const auto& f) { return !f.id.has_value(); });
 
         if (hasLongId) {
-            std::vector<std::optional<std::int64_t>> ids(features.size());
-            std::ranges::transform(features, ids.begin(), [](const auto& f) -> std::optional<std::int64_t> {
-                return f.id.has_value() ? std::optional<std::int64_t>{static_cast<std::int64_t>(*f.id)} : std::nullopt;
-            });
-            auto encoded = PropertyEncoder::encodeInt64Column(ids, false, intEncoder, hasMissingId);
+            std::vector<std::optional<std::uint64_t>> ids(features.size());
+            std::ranges::transform(
+                features, ids.begin(), [](const auto& f) -> std::optional<std::uint64_t> { return f.id; });
+            auto encoded = PropertyEncoder::encodeUint64Column(ids, intEncoder, hasMissingId);
             bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
         } else {
             std::vector<std::optional<std::int32_t>> ids(features.size());
@@ -592,14 +594,13 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                     column.nullable);
                 break;
             case ScalarType::UINT_32:
-                encoded = PropertyEncoder::encodeInt32Column(
-                    extractColumn.template operator()<std::int32_t>(util::overloaded{
-                        [](std::uint32_t v) -> std::int32_t { return static_cast<std::int32_t>(v); },
-                        [](std::int32_t v) -> std::int32_t { return v; },
-                        [](auto) -> std::int32_t { throwInvalidType(); }, // GCOVR_EXCL_LINE
+                encoded = PropertyEncoder::encodeUint32Column(
+                    extractColumn.template operator()<std::uint32_t>(util::overloaded{
+                        [](std::uint32_t v) -> std::uint32_t { return v; },
+                        [](std::int32_t v) -> std::uint32_t { return static_cast<std::uint32_t>(v); },
+                        [](auto) -> std::uint32_t { throwInvalidType(); }, // GCOVR_EXCL_LINE
                     }),
                     physicalTechnique,
-                    false,
                     intEncoder,
                     column.nullable);
                 break;
@@ -615,13 +616,12 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                     column.nullable);
                 break;
             case ScalarType::UINT_64:
-                encoded = PropertyEncoder::encodeInt64Column(
-                    extractColumn.template operator()<std::int64_t>(util::overloaded{
-                        [](std::uint64_t v) -> std::int64_t { return static_cast<std::int64_t>(v); },
-                        [](std::int64_t v) -> std::int64_t { return v; },
-                        [](auto) -> std::int64_t { throwInvalidType(); }, // GCOVR_EXCL_LINE
+                encoded = PropertyEncoder::encodeUint64Column(
+                    extractColumn.template operator()<std::uint64_t>(util::overloaded{
+                        [](std::uint64_t v) -> std::uint64_t { return v; },
+                        [](std::int64_t v) -> std::uint64_t { return static_cast<std::uint64_t>(v); },
+                        [](auto) -> std::uint64_t { throwInvalidType(); }, // GCOVR_EXCL_LINE
                     }),
-                    false,
                     intEncoder,
                     column.nullable);
                 break;

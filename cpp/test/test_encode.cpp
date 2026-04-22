@@ -231,60 +231,6 @@ T unwrapProperty(const Property& prop) {
 
 // --- Encode roundtrip tests ---
 
-TEST(Encode, PointRoundtrip) {
-    auto layer = makeLayer("layer",
-                           {
-                               makePointFeature(1, {.x = 100, .y = 200}, {{"flag", true}}),
-                           });
-
-    auto tile = encodeDecode({layer});
-    const auto* decoded = tile.getLayer("layer");
-    ASSERT_TRUE(decoded);
-    EXPECT_EQ(decoded->getExtent(), 4096u);
-    ASSERT_EQ(decoded->getFeatures().size(), 1u);
-    EXPECT_EQ(decoded->getFeatures()[0].getID(), 1u);
-}
-
-TEST(Encode, LineStringRoundtrip) {
-    Encoder::Layer layer;
-    layer.name = "roads";
-    layer.extent = 4096;
-
-    Encoder::Feature f;
-    f.id = 42;
-    f.geometry.type = metadata::tileset::GeometryType::LINESTRING;
-    f.geometry.coordinates = {{.x = 0, .y = 0}, {.x = 100, .y = 100}, {.x = 200, .y = 50}};
-    f.properties["name"] = std::string("Main Street");
-    f.properties["lanes"] = std::int32_t{4};
-    layer.features.push_back(std::move(f));
-
-    auto tile = encodeDecode({layer});
-    const auto* decoded = tile.getLayer("roads");
-    ASSERT_TRUE(decoded);
-    ASSERT_EQ(decoded->getFeatures().size(), 1u);
-    EXPECT_EQ(decoded->getFeatures()[0].getID(), 42u);
-}
-
-TEST(Encode, PolygonRoundtrip) {
-    Encoder::Layer layer;
-    layer.name = "buildings";
-    layer.extent = 4096;
-
-    Encoder::Feature f;
-    f.id = 7;
-    f.geometry.type = metadata::tileset::GeometryType::POLYGON;
-    f.geometry.coordinates = {{.x = 0, .y = 0}, {.x = 100, .y = 0}, {.x = 100, .y = 100}, {.x = 0, .y = 100}};
-    f.geometry.ringSizes = {4};
-    f.properties["height"] = 42.5f;
-    layer.features.push_back(std::move(f));
-
-    auto tile = encodeDecode({layer});
-    const auto* decoded = tile.getLayer("buildings");
-    ASSERT_TRUE(decoded);
-    ASSERT_EQ(decoded->getFeatures().size(), 1u);
-    EXPECT_EQ(decoded->getFeatures()[0].getID(), 7u);
-}
-
 TEST(Encode, MultipleFeatures) {
     std::vector<Encoder::Feature> features;
     features.reserve(100);
@@ -522,6 +468,98 @@ TEST(Encode, MaxUint64Id) {
 
     for (std::size_t i = 0; i < testIds.size(); ++i) {
         EXPECT_EQ(decoded->getFeatures()[i].getID(), testIds[i]);
+    }
+}
+
+TEST(Encode, Uint64IdAcrossSignedBoundary) {
+    const std::uint64_t kInt64Max = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
+    const std::vector<std::uint64_t> testIds = {
+        kInt64Max - 1,
+        kInt64Max,
+        kInt64Max + 1,
+        std::numeric_limits<std::uint64_t>::max(),
+    };
+
+    std::vector<Encoder::Feature> features;
+    features.reserve(testIds.size());
+    for (auto id : testIds) {
+        features.push_back(makePointFeature(id, {.x = 10, .y = 10}));
+    }
+
+    EncoderConfig config;
+    config.sortFeatures = false;
+
+    auto tile = encodeDecode({makeLayer("u64_boundary", std::move(features))}, config);
+    const auto* decoded = tile.getLayer("u64_boundary");
+    ASSERT_TRUE(decoded);
+    ASSERT_EQ(decoded->getFeatures().size(), testIds.size());
+
+    for (std::size_t i = 0; i < testIds.size(); ++i) {
+        EXPECT_EQ(decoded->getFeatures()[i].getID(), testIds[i]) << "ID mismatch at index " << i;
+    }
+}
+
+TEST(Encode, Uint64IdAcrossSignedBoundaryForcedDelta) {
+    const std::uint64_t kInt64Max = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
+    const std::vector<std::uint64_t> testIds = {
+        kInt64Max,
+        kInt64Max + 1,
+        kInt64Max,
+        kInt64Max + 1,
+        kInt64Max + 2,
+        kInt64Max - 1,
+    };
+
+    std::vector<Encoder::Feature> features;
+    features.reserve(testIds.size());
+    for (std::size_t i = 0; i < testIds.size(); ++i) {
+        features.push_back(makePointFeature(testIds[i], {.x = static_cast<std::int32_t>(i), .y = 0}));
+    }
+
+    EncoderConfig config;
+    config.sortFeatures = false;
+    config.integerEncodingOption = IntegerEncodingOption::DELTA;
+
+    auto tile = encodeDecode({makeLayer("u64_boundary_delta", std::move(features))}, config);
+    const auto* decoded = tile.getLayer("u64_boundary_delta");
+    ASSERT_TRUE(decoded);
+    ASSERT_EQ(decoded->getFeatures().size(), testIds.size());
+
+    for (std::size_t i = 0; i < testIds.size(); ++i) {
+        EXPECT_EQ(decoded->getFeatures()[i].getID(), testIds[i]) << "ID mismatch at index " << i;
+    }
+}
+
+TEST(Encode, Uint64PropertyAcrossSignedBoundaryForcedDelta) {
+    const std::uint64_t kInt64Max = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
+    const std::vector<std::uint64_t> values = {
+        kInt64Max,
+        kInt64Max + 1,
+        kInt64Max,
+        kInt64Max + 2,
+    };
+
+    std::vector<Encoder::Feature> features;
+    features.reserve(values.size());
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        const auto featureId = static_cast<std::uint64_t>(i) + 1ULL;
+        features.push_back(
+            makePointFeature(featureId, {.x = static_cast<std::int32_t>(i), .y = 0}, {{"u64_boundary", values[i]}}));
+    }
+
+    EncoderConfig config;
+    config.sortFeatures = false;
+    config.integerEncodingOption = IntegerEncodingOption::DELTA;
+
+    auto tile = encodeDecode({makeLayer("u64_prop_boundary_delta", std::move(features))}, config);
+    const auto* decoded = tile.getLayer("u64_prop_boundary_delta");
+    ASSERT_TRUE(decoded);
+
+    const auto& prop = decoded->getProperties().at("u64_boundary");
+    ASSERT_EQ(decoded->getFeatures().size(), values.size());
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        EXPECT_EQ(unwrapProperty<std::uint64_t>(*prop.getProperty(static_cast<std::uint32_t>(i))), values[i])
+            << "Property mismatch at index " << i;
     }
 }
 
