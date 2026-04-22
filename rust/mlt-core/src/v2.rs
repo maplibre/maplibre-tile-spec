@@ -35,6 +35,7 @@ use geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };
 use integer_encoding::{VarInt as _, VarIntWriter as _};
+use strum::FromRepr;
 use zigzag::ZigZag as _;
 
 use crate::codecs::fsst::compress_fsst;
@@ -52,26 +53,44 @@ use crate::{MltError, MltResult};
 /// before deciding whether to try spatial sort trials.  Mirrors v1's threshold.
 const SORT_TRIAL_THRESHOLD: usize = 512;
 
-// ── Encoding byte bit positions ───────────────────────────────────────────────
-// bit  7: has_explicit_count
-// bits 6-4: logical  (0=None, 1=Delta, 2=CwDelta, 3=Rle, 4=DeltaRle, 5=Morton)
-// bits 3-2: physical (0=None-noLen, 1=None-withLen, 2=VarInt, 3=FastPFor128)
+// ── Encoding byte bit layout ──────────────────────────────────────────────────
+// bit  7: has_explicit_count (1 = count varint precedes byte_length)
+// bits 6-4: logical encoding  (0=None, 1=Delta, 2=CwDelta, 3=Rle)
+// bits 3-2: physical encoding (0=None-noLen, 1=None-withLen, 2=VarInt, 3=FastPFor128)
 // bits 1-0: reserved (0)
 
-/// `logical=None, physical=VarInt, count from context`
-const ENC_VARINT: u8 = 0x08;
-/// `logical=None, physical=VarInt, explicit count follows`
-const ENC_VARINT_EXPL: u8 = 0x88;
-/// `logical=Delta, physical=VarInt, count from context`
-const ENC_DELTA_VARINT: u8 = 0x18;
-/// `logical=CwDelta, physical=VarInt, explicit count follows`
-const ENC_CWDELTA_VARINT_EXPL: u8 = 0xA8;
-/// `logical=CwDelta, physical=FastPFor128, explicit count follows`
-const ENC_CWDELTA_FP128_EXPL: u8 = 0xAC;
-/// `logical=Rle, physical=reserved (00), count from context; byte_length always follows`
-const ENC_RLE: u8 = 0x30;
-/// `logical=None, physical=None-noLen, explicit count follows`
-const ENC_RAW_EXPL: u8 = 0x80;
+/// Stream encoding byte for MLT v2 wire format.
+///
+/// Each variant name encodes the logical+physical combination and whether an
+/// explicit count varint precedes the byte-length varint.
+/// Variants ending in `Expl` carry `bit7=1` and are followed by a count field.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, FromRepr)]
+enum Enc {
+    /// logical=None, physical=VarInt, count from context (implicit)
+    VarInt = 0x08,
+    /// logical=None, physical=VarInt, explicit count follows
+    VarIntExpl = 0x88,
+    /// logical=Delta, physical=VarInt, count from context (implicit)
+    DeltaVarInt = 0x18,
+    /// logical=CwDelta, physical=VarInt, explicit count follows
+    CwDeltaVarInt = 0xA8,
+    /// logical=CwDelta, physical=FastPFor128, explicit count follows
+    CwDeltaFp128 = 0xAC,
+    /// logical=Rle, physical=reserved; byte_length always follows (no count field)
+    Rle = 0x30,
+    /// logical=None, physical=None-noLen, explicit count (= byte count) follows
+    RawExpl = 0x80,
+}
+
+impl TryFrom<u8> for Enc {
+    type Error = MltError;
+    fn try_from(v: u8) -> MltResult<Self> {
+        Self::from_repr(v).ok_or(MltError::NotImplemented(
+            "unsupported v2 stream encoding byte",
+        ))
+    }
+}
 
 // ── Geometry layout byte values ───────────────────────────────────────────────
 
@@ -80,7 +99,7 @@ const ENC_RAW_EXPL: u8 = 0x80;
 /// Encodes which geometry streams are present and in what order.
 /// Dict and tessellation variants are excluded from this initial implementation.
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, FromRepr)]
 pub enum GeoLayout {
     /// Types, Vertices
     Points = 0,
@@ -99,15 +118,7 @@ pub enum GeoLayout {
 impl TryFrom<u8> for GeoLayout {
     type Error = MltError;
     fn try_from(v: u8) -> MltResult<Self> {
-        match v {
-            0 => Ok(Self::Points),
-            2 => Ok(Self::MultiPoints),
-            4 => Ok(Self::Lines),
-            6 => Ok(Self::MultiLines),
-            8 => Ok(Self::Polygons),
-            10 => Ok(Self::MultiPolygons),
-            _ => Err(MltError::NotImplemented("unsupported v2 geometry layout")),
-        }
+        Self::from_repr(v).ok_or(MltError::NotImplemented("unsupported v2 geometry layout"))
     }
 }
 
@@ -120,7 +131,7 @@ impl TryFrom<u8> for GeoLayout {
 /// but are preceded by a packed presence bitfield (except `OptStrDict`, which
 /// uses index 0 to signal null).
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, FromRepr)]
 enum ColType {
     // IDs
     Id = 0,
@@ -162,37 +173,7 @@ enum ColType {
 impl TryFrom<u8> for ColType {
     type Error = MltError;
     fn try_from(v: u8) -> MltResult<Self> {
-        match v {
-            0 => Ok(Self::Id),
-            1 => Ok(Self::OptId),
-            10 => Ok(Self::Bool),
-            11 => Ok(Self::OptBool),
-            12 => Ok(Self::I8),
-            13 => Ok(Self::OptI8),
-            14 => Ok(Self::U8),
-            15 => Ok(Self::OptU8),
-            16 => Ok(Self::I32),
-            17 => Ok(Self::OptI32),
-            18 => Ok(Self::U32),
-            19 => Ok(Self::OptU32),
-            20 => Ok(Self::I64),
-            21 => Ok(Self::OptI64),
-            22 => Ok(Self::U64),
-            23 => Ok(Self::OptU64),
-            24 => Ok(Self::F32),
-            25 => Ok(Self::OptF32),
-            26 => Ok(Self::F64),
-            27 => Ok(Self::OptF64),
-            28 => Ok(Self::Str),
-            29 => Ok(Self::OptStr),
-            30 => Ok(Self::StrDict),
-            31 => Ok(Self::OptStrDict),
-            32 => Ok(Self::StrFsst),
-            33 => Ok(Self::OptStrFsst),
-            34 => Ok(Self::StrSharedDict),
-            35 => Ok(Self::StrSharedDictFsst),
-            _ => Err(MltError::NotImplemented("unsupported v2 column type")),
-        }
+        Self::from_repr(v).ok_or(MltError::NotImplemented("unsupported v2 column type"))
     }
 }
 
@@ -345,14 +326,13 @@ impl TileLayer01 {
         let mut body: Vec<u8> = Vec::new();
 
         // name
-        body.write_string(&self.name).map_err(MltError::from)?;
+        body.write_string(&self.name)?;
 
         // extent
-        body.write_varint(self.extent).map_err(MltError::from)?;
+        body.write_varint(self.extent)?;
 
         // feature_count  (v2 addition)
-        body.write_varint(feature_count as u32)
-            .map_err(MltError::from)?;
+        body.write_varint(feature_count as u32)?;
 
         // ── Geometry section ──────────────────────────────────────────────────
         body.push(geom.layout as u8);
@@ -368,8 +348,7 @@ impl TileLayer01 {
         )?;
 
         // ── Columns ───────────────────────────────────────────────────────────
-        body.write_varint(col_chunks.len() as u32)
-            .map_err(MltError::from)?;
+        body.write_varint(col_chunks.len() as u32)?;
         for chunk in col_chunks {
             body.extend_from_slice(&chunk);
         }
@@ -377,7 +356,7 @@ impl TileLayer01 {
         // ── Frame: [varint(body_len+1)][tag=2][body] ──────────────────────────
         let size = u32::try_from(body.len() + 1)?; // +1 for the tag byte
         let mut out = Vec::with_capacity(5 + 1 + body.len());
-        out.write_varint(size).map_err(MltError::from)?;
+        out.write_varint(size)?;
         out.push(2_u8); // tag = 2
         out.extend_from_slice(&body);
 
@@ -549,7 +528,7 @@ fn push_feature_geometry(
 fn build_varint_body_u32(values: &[u32]) -> MltResult<Vec<u8>> {
     let mut tmp = Vec::new();
     for &v in values {
-        tmp.write_varint(v).map_err(MltError::from)?;
+        tmp.write_varint(v)?;
     }
     Ok(tmp)
 }
@@ -564,8 +543,8 @@ fn build_rle_body_u32(values: &[u32]) -> MltResult<Vec<u8>> {
         while i + (run as usize) < values.len() && values[i + (run as usize)] == val {
             run += 1;
         }
-        tmp.write_varint(run).map_err(MltError::from)?;
-        tmp.write_varint(val).map_err(MltError::from)?;
+        tmp.write_varint(run)?;
+        tmp.write_varint(val)?;
         i += run as usize;
     }
     Ok(tmp)
@@ -578,7 +557,7 @@ fn build_delta_body_u64(values: &[u64]) -> MltResult<Vec<u8>> {
     let mut prev = 0u64;
     for &v in values {
         let delta = v.wrapping_sub(prev);
-        tmp.write_varint(delta).map_err(MltError::from)?;
+        tmp.write_varint(delta)?;
         prev = v;
     }
     Ok(tmp)
@@ -588,10 +567,9 @@ fn build_delta_body_u64(values: &[u64]) -> MltResult<Vec<u8>> {
 
 /// Write a VarInt-encoded `u32` stream with implicit count (= `feature_count`).
 fn write_u32_stream_implicit(buf: &mut Vec<u8>, values: &[u32]) -> MltResult<()> {
-    buf.push(ENC_VARINT);
+    buf.push(Enc::VarInt as u8);
     let body = build_varint_body_u32(values)?;
-    buf.write_varint(body.len() as u32)
-        .map_err(MltError::from)?;
+    buf.write_varint(body.len() as u32)?;
     buf.extend_from_slice(&body);
     Ok(())
 }
@@ -606,14 +584,12 @@ fn write_types_stream(buf: &mut Vec<u8>, values: &[u32]) -> MltResult<()> {
     // VarInt overhead: 1 (enc_byte) + varint(body_len) + body
     // RLE overhead:    1 (enc_byte) + varint(body_len) + body  (same shape)
     if rle_body.len() < varint_body.len() {
-        buf.push(ENC_RLE);
-        buf.write_varint(rle_body.len() as u32)
-            .map_err(MltError::from)?;
+        buf.push(Enc::Rle as u8);
+        buf.write_varint(rle_body.len() as u32)?;
         buf.extend_from_slice(&rle_body);
     } else {
-        buf.push(ENC_VARINT);
-        buf.write_varint(varint_body.len() as u32)
-            .map_err(MltError::from)?;
+        buf.push(Enc::VarInt as u8);
+        buf.write_varint(varint_body.len() as u32)?;
         buf.extend_from_slice(&varint_body);
     }
     Ok(())
@@ -621,12 +597,10 @@ fn write_types_stream(buf: &mut Vec<u8>, values: &[u32]) -> MltResult<()> {
 
 /// Write a VarInt-encoded `u32` stream with explicit count.
 fn write_u32_stream_explicit(buf: &mut Vec<u8>, values: &[u32]) -> MltResult<()> {
-    buf.push(ENC_VARINT_EXPL);
-    buf.write_varint(values.len() as u32)
-        .map_err(MltError::from)?;
+    buf.push(Enc::VarIntExpl as u8);
+    buf.write_varint(values.len() as u32)?;
     let body = build_varint_body_u32(values)?;
-    buf.write_varint(body.len() as u32)
-        .map_err(MltError::from)?;
+    buf.write_varint(body.len() as u32)?;
     buf.extend_from_slice(&body);
     Ok(())
 }
@@ -638,21 +612,19 @@ fn write_u64_stream_best(buf: &mut Vec<u8>, values: &[u64]) -> MltResult<()> {
     let plain_body = {
         let mut tmp = Vec::new();
         for &v in values {
-            tmp.write_varint(v).map_err(MltError::from)?;
+            tmp.write_varint(v)?;
         }
         tmp
     };
     let delta_body = build_delta_body_u64(values)?;
 
     if delta_body.len() < plain_body.len() {
-        buf.push(ENC_DELTA_VARINT);
-        buf.write_varint(delta_body.len() as u32)
-            .map_err(MltError::from)?;
+        buf.push(Enc::DeltaVarInt as u8);
+        buf.write_varint(delta_body.len() as u32)?;
         buf.extend_from_slice(&delta_body);
     } else {
-        buf.push(ENC_VARINT);
-        buf.write_varint(plain_body.len() as u32)
-            .map_err(MltError::from)?;
+        buf.push(Enc::VarInt as u8);
+        buf.write_varint(plain_body.len() as u32)?;
         buf.extend_from_slice(&plain_body);
     }
     Ok(())
@@ -660,45 +632,44 @@ fn write_u64_stream_best(buf: &mut Vec<u8>, values: &[u64]) -> MltResult<()> {
 
 /// Write a VarInt-encoded `u64` stream with implicit count.
 fn write_u64_stream_implicit(buf: &mut Vec<u8>, values: &[u64]) -> MltResult<()> {
-    buf.push(ENC_VARINT);
+    buf.push(Enc::VarInt as u8);
     let mut tmp = Vec::new();
     for &v in values {
-        tmp.write_varint(v).map_err(MltError::from)?;
+        tmp.write_varint(v)?;
     }
-    buf.write_varint(tmp.len() as u32).map_err(MltError::from)?;
+    buf.write_varint(tmp.len() as u32)?;
     buf.extend_from_slice(&tmp);
     Ok(())
 }
 
 /// Write a ZigZag+VarInt encoded `i32` stream with implicit count.
 fn write_i32_stream_implicit(buf: &mut Vec<u8>, values: &[i32]) -> MltResult<()> {
-    buf.push(ENC_VARINT);
+    buf.push(Enc::VarInt as u8);
     let mut tmp = Vec::new();
     for &v in values {
-        tmp.write_varint(i32::encode(v)).map_err(MltError::from)?;
+        tmp.write_varint(i32::encode(v))?;
     }
-    buf.write_varint(tmp.len() as u32).map_err(MltError::from)?;
+    buf.write_varint(tmp.len() as u32)?;
     buf.extend_from_slice(&tmp);
     Ok(())
 }
 
 /// Write a ZigZag+VarInt encoded `i64` stream with implicit count.
 fn write_i64_stream_implicit(buf: &mut Vec<u8>, values: &[i64]) -> MltResult<()> {
-    buf.push(ENC_VARINT);
+    buf.push(Enc::VarInt as u8);
     let mut tmp = Vec::new();
     for &v in values {
-        tmp.write_varint(i64::encode(v)).map_err(MltError::from)?;
+        tmp.write_varint(i64::encode(v))?;
     }
-    buf.write_varint(tmp.len() as u32).map_err(MltError::from)?;
+    buf.write_varint(tmp.len() as u32)?;
     buf.extend_from_slice(&tmp);
     Ok(())
 }
 
 /// Write a fixed-width raw byte stream with explicit count (number of data bytes).
 fn write_raw_bytes(buf: &mut Vec<u8>, data: &[u8]) -> MltResult<()> {
-    buf.push(ENC_RAW_EXPL);
-    buf.write_varint(data.len() as u32)
-        .map_err(MltError::from)?;
+    buf.push(Enc::RawExpl as u8);
+    buf.write_varint(data.len() as u32)?;
     buf.extend_from_slice(data);
     Ok(())
 }
@@ -706,13 +677,13 @@ fn write_raw_bytes(buf: &mut Vec<u8>, data: &[u8]) -> MltResult<()> {
 /// Write vertex data using ComponentwiseDelta + VarInt with explicit count (vertex pairs).
 fn write_cwdelta_vertices_varint(pair_count: u32, encoded: &[u32]) -> MltResult<Vec<u8>> {
     let mut out = Vec::new();
-    out.push(ENC_CWDELTA_VARINT_EXPL);
-    out.write_varint(pair_count).map_err(MltError::from)?;
+    out.push(Enc::CwDeltaVarInt as u8);
+    out.write_varint(pair_count)?;
     let mut tmp = Vec::new();
     for &v in encoded {
-        tmp.write_varint(v).map_err(MltError::from)?;
+        tmp.write_varint(v)?;
     }
-    out.write_varint(tmp.len() as u32).map_err(MltError::from)?;
+    out.write_varint(tmp.len() as u32)?;
     out.extend_from_slice(&tmp);
     Ok(out)
 }
@@ -736,10 +707,9 @@ fn write_cwdelta_vertices_fp128(pair_count: u32, encoded: &[u32]) -> MltResult<V
     let byte_data: Vec<u8> = scratch.iter().flat_map(|&w| w.to_le_bytes()).collect();
 
     let mut out = Vec::new();
-    out.push(ENC_CWDELTA_FP128_EXPL);
-    out.write_varint(pair_count).map_err(MltError::from)?;
-    out.write_varint(byte_data.len() as u32)
-        .map_err(MltError::from)?;
+    out.push(Enc::CwDeltaFp128 as u8);
+    out.write_varint(pair_count)?;
+    out.write_varint(byte_data.len() as u32)?;
     out.extend_from_slice(&byte_data);
     Ok(out)
 }
@@ -908,7 +878,7 @@ fn write_property_column(
             };
 
         buf.push(col_type as u8);
-        buf.write_string(name).map_err(MltError::from)?;
+        buf.write_string(name)?;
         if with_presence {
             let presence: Vec<bool> = strings.iter().map(|s| s.is_some()).collect();
             write_presence(buf, &presence);
@@ -919,7 +889,7 @@ fn write_property_column(
 
     let col_type = prop_column_type(values[0], any_null);
     buf.push(col_type as u8);
-    buf.write_string(name).map_err(MltError::from)?;
+    buf.write_string(name)?;
 
     if any_null {
         let presence: Vec<bool> = values.iter().map(|v| !is_null(v)).collect();
@@ -1198,9 +1168,8 @@ fn build_shared_dict_plain(
 ) -> MltResult<Vec<u8>> {
     let mut buf = Vec::new();
     buf.push(ColType::StrSharedDict as u8);
-    buf.write_string(prefix).map_err(MltError::from)?;
-    buf.write_varint(items.len() as u32)
-        .map_err(MltError::from)?;
+    buf.write_string(prefix)?;
+    buf.write_varint(items.len() as u32)?;
 
     let dict_lengths: Vec<u32> = dict_strings.iter().map(|s| s.len() as u32).collect();
     let dict_bytes: Vec<u8> = dict_strings
@@ -1214,7 +1183,7 @@ fn build_shared_dict_plain(
     for item in items {
         let optional = item.has_presence();
         buf.push(if optional { CHILD_OPTIONAL } else { 0 });
-        buf.write_string(&item.suffix).map_err(MltError::from)?;
+        buf.write_string(&item.suffix)?;
         let indices = build_item_indices(item, span_to_idx, optional);
         write_u32_stream_implicit(&mut buf, &indices)?;
     }
@@ -1240,9 +1209,8 @@ fn build_shared_dict_fsst(
 
     let mut buf = Vec::new();
     buf.push(ColType::StrSharedDictFsst as u8);
-    buf.write_string(prefix).map_err(MltError::from)?;
-    buf.write_varint(items.len() as u32)
-        .map_err(MltError::from)?;
+    buf.write_string(prefix)?;
+    buf.write_varint(items.len() as u32)?;
 
     write_u32_stream_explicit(&mut buf, &raw.symbol_lengths)?;
     write_raw_bytes(&mut buf, &raw.symbol_bytes)?;
@@ -1252,7 +1220,7 @@ fn build_shared_dict_fsst(
     for item in items {
         let optional = item.has_presence();
         buf.push(if optional { CHILD_OPTIONAL } else { 0 });
-        buf.write_string(&item.suffix).map_err(MltError::from)?;
+        buf.write_string(&item.suffix)?;
         let indices = build_item_indices(item, span_to_idx, optional);
         write_u32_stream_implicit(&mut buf, &indices)?;
     }
@@ -1766,16 +1734,12 @@ fn reconstruct_geometries(
 
 // ── Stream read helpers ───────────────────────────────────────────────────────
 
-/// Read one encoding byte, returning (remaining, has_explicit_count, logical, physical).
-fn read_enc_byte(data: &[u8]) -> MltResult<(&[u8], bool, u8, u8)> {
+/// Read one encoding byte and return the recognised `Enc` variant.
+fn read_enc(data: &[u8]) -> MltResult<(&[u8], Enc)> {
     if data.is_empty() {
         return Err(MltError::BufferUnderflow(1, 0));
     }
-    let b = data[0];
-    let has_explicit_count = (b & 0x80) != 0;
-    let logical = (b >> 4) & 0x07;
-    let physical = (b >> 2) & 0x03;
-    Ok((&data[1..], has_explicit_count, logical, physical))
+    Ok((&data[1..], Enc::try_from(data[0])?))
 }
 
 /// Read a VarInt (or RLE) u32 stream.
@@ -1789,10 +1753,10 @@ fn read_u32_stream(
     implicit_count: usize,
     explicit: bool,
 ) -> MltResult<(&[u8], Vec<u32>)> {
-    let (data, has_expl_count, logical, physical) = read_enc_byte(data)?;
+    let (data, enc) = read_enc(data)?;
 
-    // ── RLE: logical=3, physical bits reserved (00) ──────────────────────────
-    if logical == 3 {
+    // ── RLE ──────────────────────────────────────────────────────────────────
+    if enc == Enc::Rle {
         // byte_length always follows for RLE; no separate count field.
         let (data, byte_len) = parse_varint::<u32>(data)?;
         let byte_len = byte_len as usize;
@@ -1802,12 +1766,7 @@ fn read_u32_stream(
         let encoded = &data[..byte_len];
         let remaining = &data[byte_len..];
 
-        let capacity = if has_expl_count || explicit {
-            implicit_count
-        } else {
-            16
-        };
-        let mut values = Vec::with_capacity(capacity);
+        let mut values = Vec::with_capacity(if explicit { implicit_count } else { 16 });
         let mut pos = 0;
         while pos < byte_len {
             let (run_len, c1) = u32::decode_var(&encoded[pos..])
@@ -1823,14 +1782,14 @@ fn read_u32_stream(
         return Ok((remaining, values));
     }
 
-    // ── VarInt: logical=0, physical=2 ────────────────────────────────────────
-    if logical != 0 || physical != 2 {
+    // ── VarInt ───────────────────────────────────────────────────────────────
+    if !matches!(enc, Enc::VarInt | Enc::VarIntExpl) {
         return Err(MltError::NotImplemented(
             "v2 decoder: unsupported encoding for u32 stream",
         ));
     }
 
-    let (data, count) = if has_expl_count || explicit {
+    let (data, count) = if enc == Enc::VarIntExpl || explicit {
         let (d, c) = parse_varint::<u32>(data)?;
         (d, c as usize)
     } else {
@@ -1859,9 +1818,9 @@ fn read_u32_stream(
 
 /// Read a raw-bytes stream (physical=None-noLen, logical=None, explicit count = byte count).
 fn read_raw_bytes_stream(data: &[u8]) -> MltResult<(&[u8], Vec<u8>)> {
-    let (data, has_expl_count, logical, physical) = read_enc_byte(data)?;
+    let (data, enc) = read_enc(data)?;
 
-    if logical != 0 || physical != 0 || !has_expl_count {
+    if enc != Enc::RawExpl {
         return Err(MltError::NotImplemented(
             "v2 decoder: unexpected encoding byte for raw bytes stream",
         ));
@@ -1881,15 +1840,15 @@ fn read_i32_stream(
     implicit_count: usize,
     _has_any_null: bool,
 ) -> MltResult<(&[u8], Vec<i32>)> {
-    let (data, has_expl_count, logical, physical) = read_enc_byte(data)?;
+    let (data, enc) = read_enc(data)?;
 
-    if logical != 0 || physical != 2 {
+    if !matches!(enc, Enc::VarInt | Enc::VarIntExpl) {
         return Err(MltError::NotImplemented(
             "v2 decoder: only VarInt/ZigZag supported for i32 stream",
         ));
     }
 
-    let (data, count) = if has_expl_count {
+    let (data, count) = if enc == Enc::VarIntExpl {
         let (d, c) = parse_varint::<u32>(data)?;
         (d, c as usize)
     } else {
@@ -1918,9 +1877,9 @@ fn read_i32_stream(
 
 /// Read a ZigZag+VarInt i64 stream.
 fn read_i64_stream(data: &[u8], implicit_count: usize) -> MltResult<(&[u8], Vec<i64>)> {
-    let (data, _has_expl_count, logical, physical) = read_enc_byte(data)?;
+    let (data, enc) = read_enc(data)?;
 
-    if logical != 0 || physical != 2 {
+    if !matches!(enc, Enc::VarInt | Enc::VarIntExpl) {
         return Err(MltError::NotImplemented(
             "v2 decoder: only VarInt/ZigZag supported for i64 stream",
         ));
@@ -1952,9 +1911,9 @@ fn read_i64_stream(data: &[u8], implicit_count: usize) -> MltResult<(&[u8], Vec<
 /// - `logical=0` (None) + `physical=2` (VarInt): plain VarInt.
 /// - `logical=1` (Delta) + `physical=2` (VarInt): VarInt-encoded deltas, prefix-sum to recover.
 fn read_u64_stream(data: &[u8], implicit_count: usize) -> MltResult<(&[u8], Vec<u64>)> {
-    let (data, _has_expl_count, logical, physical) = read_enc_byte(data)?;
+    let (data, enc) = read_enc(data)?;
 
-    if physical != 2 || (logical != 0 && logical != 1) {
+    if !matches!(enc, Enc::VarInt | Enc::DeltaVarInt) {
         return Err(MltError::NotImplemented(
             "v2 decoder: only VarInt / Delta+VarInt supported for u64 stream",
         ));
@@ -1978,7 +1937,7 @@ fn read_u64_stream(data: &[u8], implicit_count: usize) -> MltResult<(&[u8], Vec<
     }
 
     // Apply prefix-sum to undo delta encoding.
-    if logical == 1 {
+    if enc == Enc::DeltaVarInt {
         let mut acc = 0u64;
         for v in &mut values {
             acc = acc.wrapping_add(*v);
@@ -1991,26 +1950,18 @@ fn read_u64_stream(data: &[u8], implicit_count: usize) -> MltResult<(&[u8], Vec<
 
 /// Read a ComponentwiseDelta + (VarInt or FastPFor128) vertex stream (explicit count = vertex pairs).
 fn read_cwdelta_stream(data: &[u8]) -> MltResult<(&[u8], Vec<i32>)> {
-    let (data, has_expl_count, logical, physical) = read_enc_byte(data)?;
+    let (data, enc) = read_enc(data)?;
 
-    if logical != 2 {
+    if !matches!(enc, Enc::CwDeltaVarInt | Enc::CwDeltaFp128) {
         return Err(MltError::NotImplemented(
-            "v2 decoder: only CwDelta logical encoding supported for vertex stream",
-        ));
-    }
-    if physical != 2 && physical != 3 {
-        return Err(MltError::NotImplemented(
-            "v2 decoder: only VarInt(2) or FastPFor128(3) physical encoding for vertex stream",
+            "v2 decoder: only CwDelta+VarInt or CwDelta+FastPFor128 supported for vertex stream",
         ));
     }
 
-    let (data, pair_count) = if has_expl_count {
+    // Both CwDelta variants carry an explicit pair count.
+    let (data, pair_count) = {
         let (d, c) = parse_varint::<u32>(data)?;
         (d, c as usize)
-    } else {
-        return Err(MltError::NotImplemented(
-            "v2 decoder: vertex stream must have explicit count",
-        ));
     };
 
     let (data, byte_len) = parse_varint::<u32>(data)?;
@@ -2023,7 +1974,7 @@ fn read_cwdelta_stream(data: &[u8]) -> MltResult<(&[u8], Vec<i32>)> {
 
     let coord_count = pair_count * 2;
 
-    let u32_vals: Vec<u32> = if physical == 3 {
+    let u32_vals: Vec<u32> = if enc == Enc::CwDeltaFp128 {
         // FastPFor128: bytes are LE u32 words
         if !byte_len.is_multiple_of(4) {
             return Err(MltError::NotImplemented(
@@ -2385,8 +2336,7 @@ fn fsst_decompress(
             output
                 .get(offset..end)
                 .ok_or(MltError::BufferUnderflow(len, output.len() - offset))?,
-        )
-        .map_err(MltError::from)?
+        )?
         .to_string();
         strings.push(s);
         offset = end;
@@ -2549,8 +2499,7 @@ fn build_strings_from_lengths(lengths: &[u32], bytes: &[u8]) -> MltResult<Vec<St
         let s = std::str::from_utf8(bytes.get(offset..end).ok_or(MltError::BufferUnderflow(
             len,
             bytes.len().saturating_sub(offset),
-        ))?)
-        .map_err(MltError::from)?
+        ))?)?
         .to_string();
         strings.push(s);
         offset = end;
