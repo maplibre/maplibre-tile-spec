@@ -256,7 +256,7 @@ where
 {
     #[inline]
     fn value_at(&self, feat_idx: usize) -> Option<PropValueRef<'a>> {
-        self.values[feat_idx].map(|v| PropValueRef::from(v))
+        self.get(feat_idx).map(PropValueRef::from)
     }
 
     #[inline]

@@ -1,5 +1,5 @@
 use crate::decoder::{ParsedProperty, ParsedScalar, RawPresence, RawProperty};
-use crate::utils::apply_present;
+use crate::utils::{Presence, decode_presence};
 use crate::{Decode, Decoder, MltResult};
 
 impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
@@ -9,10 +9,62 @@ impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
         values: Vec<T>,
         dec: &mut Decoder,
     ) -> MltResult<Self> {
+        let presence = decode_presence(presence, values.len(), dec)?;
         Ok(Self {
             name,
-            values: apply_present(presence, values, dec)?,
+            presence,
+            values,
         })
+    }
+
+    /// Returns the column name.
+    #[inline]
+    #[must_use]
+    pub fn name(&self) -> &'a str {
+        self.name
+    }
+
+    /// Total number of features (present and absent).
+    #[inline]
+    #[must_use]
+    pub fn feature_count(&self) -> usize {
+        self.presence.feature_count(self.values.len())
+    }
+
+    /// Returns the value for feature `idx`, or `None` if absent or out of bounds.
+    #[inline]
+    #[must_use]
+    pub fn get(&self, idx: usize) -> Option<T> {
+        match &self.presence {
+            Presence::AllPresent => self.values.get(idx).copied(),
+            Presence::Bits(bits) => {
+                if *bits.get(idx)? {
+                    Some(self.values[bits[..idx].count_ones()])
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    /// Expand into a `Vec<Option<T>>` with one entry per feature.
+    ///
+    /// Allocates a new vector; prefer [`ParsedScalar::get`] for single-feature access.
+    #[must_use]
+    pub fn materialize(&self) -> Vec<Option<T>> {
+        (0..self.feature_count()).map(|i| self.get(i)).collect()
+    }
+
+    /// Iterate over values as `Option<T>`, one per feature.
+    pub fn iter_optional(&self) -> impl Iterator<Item = Option<T>> + '_ {
+        (0..self.feature_count()).map(move |i| self.get(i))
+    }
+
+    /// Return the backing dense values slice (present entries only).
+    #[inline]
+    #[must_use]
+    pub fn dense_values(&self) -> &[T] {
+        &self.values
     }
 }
 
