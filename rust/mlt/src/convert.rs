@@ -245,7 +245,11 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig, v2: bool) -> AnyResult<
         match layer {
             Layer::Tag01(l) => {
                 let tile = l.into_tile(&mut dec)?;
-                let bytes = if v2 { tile.encode_v2(cfg)? } else { tile.encode(cfg)? };
+                let bytes = if v2 {
+                    tile.encode_v2(cfg)?
+                } else {
+                    tile.encode(cfg)?
+                };
                 out.extend_from_slice(&bytes);
             }
             Layer::Tag02(tile) if v2 => {
@@ -265,7 +269,11 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig, v2: bool) -> AnyResult<
 fn convert_mvt_buffer(buffer: Vec<u8>, cfg: EncoderConfig, v2: bool) -> AnyResult<Vec<u8>> {
     let mut out: Vec<u8> = Vec::new();
     for tile in mvt_to_tile_layers(buffer)? {
-        let bytes = if v2 { tile.encode_v2(cfg)? } else { tile.encode(cfg)? };
+        let bytes = if v2 {
+            tile.encode_v2(cfg)?
+        } else {
+            tile.encode(cfg)?
+        };
         out.extend_from_slice(&bytes);
     }
     Ok(out)

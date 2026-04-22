@@ -28,26 +28,25 @@
 //!   decoded layer may differ from the original when grouping is applied (shared-dict children
 //!   are emitted together before the next non-grouped column).
 
+use std::collections::HashMap;
+
+use fastpfor::{AnyLenCodec as _, FastPFor128};
 use geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };
 use integer_encoding::{VarInt as _, VarIntWriter as _};
 use zigzag::ZigZag as _;
 
-use fastpfor::{AnyLenCodec as _, FastPFor128};
-
-use crate::MltError;
-use crate::MltResult;
 use crate::codecs::fsst::compress_fsst;
 use crate::codecs::varint::parse_varint;
 use crate::codecs::zigzag::encode_componentwise_delta_vec2s;
 use crate::decoder::{GeometryType, PropValue, TileFeature, TileLayer01};
-use std::collections::HashMap;
-
 use crate::encoder::{
     EncoderConfig, SortStrategy, StagedSharedDict, StagedSharedDictItem, StringGroup,
     group_string_properties, spatial_sort_likely_to_help,
 };
+use crate::utils::{BinarySerializer as _, parse_string};
+use crate::{MltError, MltResult};
 
 /// Minimum feature count above which the bounding-box heuristic is applied
 /// before deciding whether to try spatial sort trials.  Mirrors v1's threshold.
@@ -114,41 +113,88 @@ impl TryFrom<u8> for GeoLayout {
 
 // ── Column type codes (reuse v1 codes for backward clarity) ──────────────────
 
-// IDs
-const COL_ID: u8 = 0;
-const COL_OPT_ID: u8 = 1;
-// Scalars (mirror v1 ColumnType values)
-const COL_BOOL: u8 = 10;
-const COL_OPT_BOOL: u8 = 11;
-const COL_I8: u8 = 12;
-const COL_OPT_I8: u8 = 13;
-const COL_U8: u8 = 14;
-const COL_OPT_U8: u8 = 15;
-const COL_I32: u8 = 16;
-const COL_OPT_I32: u8 = 17;
-const COL_U32: u8 = 18;
-const COL_OPT_U32: u8 = 19;
-const COL_I64: u8 = 20;
-const COL_OPT_I64: u8 = 21;
-const COL_U64: u8 = 22;
-const COL_OPT_U64: u8 = 23;
-const COL_F32: u8 = 24;
-const COL_OPT_F32: u8 = 25;
-const COL_F64: u8 = 26;
-const COL_OPT_F64: u8 = 27;
-// Strings: StrPlain / OptStrPlain
-const COL_STR: u8 = 28;
-const COL_OPT_STR: u8 = 29;
-// Strings: StrDict / OptStrDict  (no presence stream; for OptStrDict index 0 = null)
-const COL_STR_DICT: u8 = 30;
-const COL_OPT_STR_DICT: u8 = 31;
-// Strings: StrFsst / OptStrFsst  (FSST-compressed; presence bitfield when optional)
-const COL_STR_FSST: u8 = 32;
-const COL_OPT_STR_FSST: u8 = 33;
-// Strings: SharedDict (plain) / SharedDictFsst (FSST corpus) — cross-column shared dictionary.
-// One encoded column entry covers N child string columns that share similar string values.
-const COL_STR_SHARED_DICT: u8 = 34;
-const COL_STR_SHARED_DICT_FSST: u8 = 35;
+/// Wire column type byte for MLT v2 property columns.
+///
+/// Each variant maps to its discriminant value on the wire.
+/// Optional variants encode the same data as their non-optional counterpart
+/// but are preceded by a packed presence bitfield (except `OptStrDict`, which
+/// uses index 0 to signal null).
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum ColType {
+    // IDs
+    Id = 0,
+    OptId = 1,
+    // Scalars (mirror v1 ColumnType values)
+    Bool = 10,
+    OptBool = 11,
+    I8 = 12,
+    OptI8 = 13,
+    U8 = 14,
+    OptU8 = 15,
+    I32 = 16,
+    OptI32 = 17,
+    U32 = 18,
+    OptU32 = 19,
+    I64 = 20,
+    OptI64 = 21,
+    U64 = 22,
+    OptU64 = 23,
+    F32 = 24,
+    OptF32 = 25,
+    F64 = 26,
+    OptF64 = 27,
+    // Strings: plain lengths + raw bytes (presence bitfield when optional)
+    Str = 28,
+    OptStr = 29,
+    // Strings: deduplicated dictionary; index 0 = null for OptStrDict
+    StrDict = 30,
+    OptStrDict = 31,
+    // Strings: FSST-compressed corpus (presence bitfield when optional)
+    StrFsst = 32,
+    OptStrFsst = 33,
+    // Strings: cross-column shared dictionary (plain corpus)
+    StrSharedDict = 34,
+    // Strings: cross-column shared dictionary (FSST corpus)
+    StrSharedDictFsst = 35,
+}
+
+impl TryFrom<u8> for ColType {
+    type Error = MltError;
+    fn try_from(v: u8) -> MltResult<Self> {
+        match v {
+            0 => Ok(Self::Id),
+            1 => Ok(Self::OptId),
+            10 => Ok(Self::Bool),
+            11 => Ok(Self::OptBool),
+            12 => Ok(Self::I8),
+            13 => Ok(Self::OptI8),
+            14 => Ok(Self::U8),
+            15 => Ok(Self::OptU8),
+            16 => Ok(Self::I32),
+            17 => Ok(Self::OptI32),
+            18 => Ok(Self::U32),
+            19 => Ok(Self::OptU32),
+            20 => Ok(Self::I64),
+            21 => Ok(Self::OptI64),
+            22 => Ok(Self::U64),
+            23 => Ok(Self::OptU64),
+            24 => Ok(Self::F32),
+            25 => Ok(Self::OptF32),
+            26 => Ok(Self::F64),
+            27 => Ok(Self::OptF64),
+            28 => Ok(Self::Str),
+            29 => Ok(Self::OptStr),
+            30 => Ok(Self::StrDict),
+            31 => Ok(Self::OptStrDict),
+            32 => Ok(Self::StrFsst),
+            33 => Ok(Self::OptStrFsst),
+            34 => Ok(Self::StrSharedDict),
+            35 => Ok(Self::StrSharedDictFsst),
+            _ => Err(MltError::NotImplemented("unsupported v2 column type")),
+        }
+    }
+}
 
 /// Flag byte for each child within a shared-dict column: bit 0 = child has null values.
 const CHILD_OPTIONAL: u8 = 0x01;
@@ -177,8 +223,8 @@ impl TileLayer01 {
         let mut best = self.encode_v2_with_sort(cfg)?;
 
         // Apply the same spatial-sort heuristic as the v1 optimizer.
-        let try_spatial = self.features.len() < SORT_TRIAL_THRESHOLD
-            || spatial_sort_likely_to_help(self);
+        let try_spatial =
+            self.features.len() < SORT_TRIAL_THRESHOLD || spatial_sort_likely_to_help(self);
 
         if try_spatial {
             let strategies = [
@@ -259,11 +305,18 @@ impl TileLayer01 {
                     .iter()
                     .map(|(_, c_idx)| {
                         let full_name = &self.property_names[*c_idx];
-                        let vals: Vec<&PropValue> =
-                            self.features.iter().map(|f| &f.properties[*c_idx]).collect();
+                        let vals: Vec<&PropValue> = self
+                            .features
+                            .iter()
+                            .map(|f| &f.properties[*c_idx])
+                            .collect();
                         let mut chunk = Vec::new();
                         write_property_column(
-                            &mut chunk, full_name, &vals, feature_count, cfg.allow_fsst,
+                            &mut chunk,
+                            full_name,
+                            &vals,
+                            feature_count,
+                            cfg.allow_fsst,
                         )?;
                         Ok(chunk)
                     })
@@ -276,8 +329,11 @@ impl TileLayer01 {
                     col_chunks.extend(individual_chunks);
                 }
             } else if !col_to_group.contains_key(&col_idx) {
-                let vals: Vec<&PropValue> =
-                    self.features.iter().map(|f| &f.properties[col_idx]).collect();
+                let vals: Vec<&PropValue> = self
+                    .features
+                    .iter()
+                    .map(|f| &f.properties[col_idx])
+                    .collect();
                 let mut chunk = Vec::new();
                 write_property_column(&mut chunk, name, &vals, feature_count, cfg.allow_fsst)?;
                 col_chunks.push(chunk);
@@ -289,10 +345,7 @@ impl TileLayer01 {
         let mut body: Vec<u8> = Vec::new();
 
         // name
-        let name_bytes = self.name.as_bytes();
-        body.write_varint(name_bytes.len() as u32)
-            .map_err(MltError::from)?;
-        body.extend_from_slice(name_bytes);
+        body.write_string(&self.name).map_err(MltError::from)?;
 
         // extent
         body.write_varint(self.extent).map_err(MltError::from)?;
@@ -537,7 +590,8 @@ fn build_delta_body_u64(values: &[u64]) -> MltResult<Vec<u8>> {
 fn write_u32_stream_implicit(buf: &mut Vec<u8>, values: &[u32]) -> MltResult<()> {
     buf.push(ENC_VARINT);
     let body = build_varint_body_u32(values)?;
-    buf.write_varint(body.len() as u32).map_err(MltError::from)?;
+    buf.write_varint(body.len() as u32)
+        .map_err(MltError::from)?;
     buf.extend_from_slice(&body);
     Ok(())
 }
@@ -553,11 +607,13 @@ fn write_types_stream(buf: &mut Vec<u8>, values: &[u32]) -> MltResult<()> {
     // RLE overhead:    1 (enc_byte) + varint(body_len) + body  (same shape)
     if rle_body.len() < varint_body.len() {
         buf.push(ENC_RLE);
-        buf.write_varint(rle_body.len() as u32).map_err(MltError::from)?;
+        buf.write_varint(rle_body.len() as u32)
+            .map_err(MltError::from)?;
         buf.extend_from_slice(&rle_body);
     } else {
         buf.push(ENC_VARINT);
-        buf.write_varint(varint_body.len() as u32).map_err(MltError::from)?;
+        buf.write_varint(varint_body.len() as u32)
+            .map_err(MltError::from)?;
         buf.extend_from_slice(&varint_body);
     }
     Ok(())
@@ -569,7 +625,8 @@ fn write_u32_stream_explicit(buf: &mut Vec<u8>, values: &[u32]) -> MltResult<()>
     buf.write_varint(values.len() as u32)
         .map_err(MltError::from)?;
     let body = build_varint_body_u32(values)?;
-    buf.write_varint(body.len() as u32).map_err(MltError::from)?;
+    buf.write_varint(body.len() as u32)
+        .map_err(MltError::from)?;
     buf.extend_from_slice(&body);
     Ok(())
 }
@@ -589,11 +646,13 @@ fn write_u64_stream_best(buf: &mut Vec<u8>, values: &[u64]) -> MltResult<()> {
 
     if delta_body.len() < plain_body.len() {
         buf.push(ENC_DELTA_VARINT);
-        buf.write_varint(delta_body.len() as u32).map_err(MltError::from)?;
+        buf.write_varint(delta_body.len() as u32)
+            .map_err(MltError::from)?;
         buf.extend_from_slice(&delta_body);
     } else {
         buf.push(ENC_VARINT);
-        buf.write_varint(plain_body.len() as u32).map_err(MltError::from)?;
+        buf.write_varint(plain_body.len() as u32)
+            .map_err(MltError::from)?;
         buf.extend_from_slice(&plain_body);
     }
     Ok(())
@@ -674,15 +733,13 @@ fn write_cwdelta_vertices_fp128(pair_count: u32, encoded: &[u32]) -> MltResult<V
         .map_err(|_| MltError::NotImplemented("v2: FastPFor128 encode error"))?;
 
     // v2 wire format: little-endian u32 words (no byte swap on LE hosts).
-    let byte_data: Vec<u8> = scratch
-        .iter()
-        .flat_map(|&w| w.to_le_bytes())
-        .collect();
+    let byte_data: Vec<u8> = scratch.iter().flat_map(|&w| w.to_le_bytes()).collect();
 
     let mut out = Vec::new();
     out.push(ENC_CWDELTA_FP128_EXPL);
     out.write_varint(pair_count).map_err(MltError::from)?;
-    out.write_varint(byte_data.len() as u32).map_err(MltError::from)?;
+    out.write_varint(byte_data.len() as u32)
+        .map_err(MltError::from)?;
     out.extend_from_slice(&byte_data);
     Ok(out)
 }
@@ -760,14 +817,14 @@ fn write_id_column(buf: &mut Vec<u8>, ids: &[Option<u64>], _feature_count: usize
 
     if any_null {
         // OptId: presence bitfield + data for present values
-        buf.push(COL_OPT_ID);
+        buf.push(ColType::OptId as u8);
         let presence: Vec<bool> = ids.iter().map(|id| id.is_some()).collect();
         write_presence(buf, &presence);
         let values: Vec<u64> = ids.iter().filter_map(|id| *id).collect();
         write_u64_stream_best(buf, &values)?;
     } else {
         // Id: all values present; Delta+VarInt compresses sequential OSM IDs well.
-        buf.push(COL_ID);
+        buf.push(ColType::Id as u8);
         let values: Vec<u64> = ids.iter().map(|id| id.unwrap_or(0)).collect();
         write_u64_stream_best(buf, &values)?;
     }
@@ -806,52 +863,63 @@ fn write_property_column(
             Vec::new()
         };
 
-        let name_bytes = name.as_bytes();
-
-        // Choose whichever encoding yields the fewest bytes.
+        // Choose whichever encoding yields the fewest bytes, then write once.
+        // Dict encoding uses index 0 for null — no separate presence bitfield.
         let best_size = if fsst_bytes.is_empty() {
             plain_bytes.len().min(dict_bytes.len())
         } else {
-            plain_bytes.len().min(dict_bytes.len()).min(fsst_bytes.len())
+            plain_bytes
+                .len()
+                .min(dict_bytes.len())
+                .min(fsst_bytes.len())
         };
 
-        if !fsst_bytes.is_empty() && best_size == fsst_bytes.len() {
-            // FSST: presence bitfield (when optional) + 4 compressed streams.
-            buf.push(if any_null { COL_OPT_STR_FSST } else { COL_STR_FSST });
-            buf.write_varint(name_bytes.len() as u32).map_err(MltError::from)?;
-            buf.extend_from_slice(name_bytes);
-            if any_null {
-                let presence: Vec<bool> = strings.iter().map(|s| s.is_some()).collect();
-                write_presence(buf, &presence);
-            }
-            buf.extend_from_slice(&fsst_bytes);
-        } else if best_size == dict_bytes.len() {
-            // Dict: no separate presence (null = index 0 for OptStrDict).
-            buf.push(if any_null { COL_OPT_STR_DICT } else { COL_STR_DICT });
-            buf.write_varint(name_bytes.len() as u32).map_err(MltError::from)?;
-            buf.extend_from_slice(name_bytes);
-            buf.extend_from_slice(&dict_bytes);
-        } else {
-            // Plain: presence bitfield when optional.
-            buf.push(if any_null { COL_OPT_STR } else { COL_STR });
-            buf.write_varint(name_bytes.len() as u32).map_err(MltError::from)?;
-            buf.extend_from_slice(name_bytes);
-            if any_null {
-                let presence: Vec<bool> = strings.iter().map(|s| s.is_some()).collect();
-                write_presence(buf, &presence);
-            }
-            buf.extend_from_slice(&plain_bytes);
+        let (col_type, data, with_presence) =
+            if !fsst_bytes.is_empty() && best_size == fsst_bytes.len() {
+                (
+                    if any_null {
+                        ColType::OptStrFsst
+                    } else {
+                        ColType::StrFsst
+                    },
+                    &fsst_bytes,
+                    any_null,
+                )
+            } else if best_size == dict_bytes.len() {
+                (
+                    if any_null {
+                        ColType::OptStrDict
+                    } else {
+                        ColType::StrDict
+                    },
+                    &dict_bytes,
+                    false,
+                )
+            } else {
+                (
+                    if any_null {
+                        ColType::OptStr
+                    } else {
+                        ColType::Str
+                    },
+                    &plain_bytes,
+                    any_null,
+                )
+            };
+
+        buf.push(col_type as u8);
+        buf.write_string(name).map_err(MltError::from)?;
+        if with_presence {
+            let presence: Vec<bool> = strings.iter().map(|s| s.is_some()).collect();
+            write_presence(buf, &presence);
         }
+        buf.extend_from_slice(data);
         return Ok(());
     }
 
     let col_type = prop_column_type(values[0], any_null);
-    buf.push(col_type);
-
-    let name_bytes = name.as_bytes();
-    buf.write_varint(name_bytes.len() as u32)
-        .map_err(MltError::from)?;
-    buf.extend_from_slice(name_bytes);
+    buf.push(col_type as u8);
+    buf.write_string(name).map_err(MltError::from)?;
 
     if any_null {
         let presence: Vec<bool> = values.iter().map(|v| !is_null(v)).collect();
@@ -876,18 +944,18 @@ fn is_null(v: &PropValue) -> bool {
     }
 }
 
-fn prop_column_type(sample: &PropValue, any_null: bool) -> u8 {
+fn prop_column_type(sample: &PropValue, any_null: bool) -> ColType {
     let (non_opt, opt) = match sample {
-        PropValue::Bool(_) => (COL_BOOL, COL_OPT_BOOL),
-        PropValue::I8(_) => (COL_I8, COL_OPT_I8),
-        PropValue::U8(_) => (COL_U8, COL_OPT_U8),
-        PropValue::I32(_) => (COL_I32, COL_OPT_I32),
-        PropValue::U32(_) => (COL_U32, COL_OPT_U32),
-        PropValue::I64(_) => (COL_I64, COL_OPT_I64),
-        PropValue::U64(_) => (COL_U64, COL_OPT_U64),
-        PropValue::F32(_) => (COL_F32, COL_OPT_F32),
-        PropValue::F64(_) => (COL_F64, COL_OPT_F64),
-        PropValue::Str(_) => (COL_STR, COL_OPT_STR),
+        PropValue::Bool(_) => (ColType::Bool, ColType::OptBool),
+        PropValue::I8(_) => (ColType::I8, ColType::OptI8),
+        PropValue::U8(_) => (ColType::U8, ColType::OptU8),
+        PropValue::I32(_) => (ColType::I32, ColType::OptI32),
+        PropValue::U32(_) => (ColType::U32, ColType::OptU32),
+        PropValue::I64(_) => (ColType::I64, ColType::OptI64),
+        PropValue::U64(_) => (ColType::U64, ColType::OptU64),
+        PropValue::F32(_) => (ColType::F32, ColType::OptF32),
+        PropValue::F64(_) => (ColType::F64, ColType::OptF64),
+        PropValue::Str(_) => (ColType::Str, ColType::OptStr),
     };
     if any_null { opt } else { non_opt }
 }
@@ -1061,9 +1129,9 @@ fn build_string_fsst_data(strings: &[Option<&str>], _any_null: bool) -> MltResul
         // Fall back to an empty structure that the decoder can handle.
         let mut buf = Vec::new();
         write_u32_stream_explicit(&mut buf, &[])?; // 0 symbols
-        write_raw_bytes(&mut buf, &[])?;           // 0 symbol bytes
+        write_raw_bytes(&mut buf, &[])?; // 0 symbol bytes
         write_u32_stream_implicit(&mut buf, &[])?; // 0 lengths
-        write_raw_bytes(&mut buf, &[])?;           // 0 corpus bytes
+        write_raw_bytes(&mut buf, &[])?; // 0 corpus bytes
         return Ok(buf);
     }
 
@@ -1092,7 +1160,9 @@ fn build_item_indices(
     item.presence_bools()
         .map(|present| {
             if present {
-                let span = span_iter.next().expect("v2 SharedDict: presence/dense mismatch");
+                let span = span_iter
+                    .next()
+                    .expect("v2 SharedDict: presence/dense mismatch");
                 let dict_idx = *span_to_idx
                     .get(&span)
                     .expect("v2 SharedDict: span not in dict");
@@ -1127,13 +1197,10 @@ fn build_shared_dict_plain(
     span_to_idx: &HashMap<(u32, u32), u32>,
 ) -> MltResult<Vec<u8>> {
     let mut buf = Vec::new();
-    buf.push(COL_STR_SHARED_DICT);
-
-    let prefix_bytes = prefix.as_bytes();
-    buf.write_varint(prefix_bytes.len() as u32)
+    buf.push(ColType::StrSharedDict as u8);
+    buf.write_string(prefix).map_err(MltError::from)?;
+    buf.write_varint(items.len() as u32)
         .map_err(MltError::from)?;
-    buf.extend_from_slice(prefix_bytes);
-    buf.write_varint(items.len() as u32).map_err(MltError::from)?;
 
     let dict_lengths: Vec<u32> = dict_strings.iter().map(|s| s.len() as u32).collect();
     let dict_bytes: Vec<u8> = dict_strings
@@ -1147,10 +1214,7 @@ fn build_shared_dict_plain(
     for item in items {
         let optional = item.has_presence();
         buf.push(if optional { CHILD_OPTIONAL } else { 0 });
-        let suffix_bytes = item.suffix.as_bytes();
-        buf.write_varint(suffix_bytes.len() as u32)
-            .map_err(MltError::from)?;
-        buf.extend_from_slice(suffix_bytes);
+        buf.write_string(&item.suffix).map_err(MltError::from)?;
         let indices = build_item_indices(item, span_to_idx, optional);
         write_u32_stream_implicit(&mut buf, &indices)?;
     }
@@ -1175,13 +1239,10 @@ fn build_shared_dict_fsst(
     let raw = compress_fsst(dict_strings);
 
     let mut buf = Vec::new();
-    buf.push(COL_STR_SHARED_DICT_FSST);
-
-    let prefix_bytes = prefix.as_bytes();
-    buf.write_varint(prefix_bytes.len() as u32)
+    buf.push(ColType::StrSharedDictFsst as u8);
+    buf.write_string(prefix).map_err(MltError::from)?;
+    buf.write_varint(items.len() as u32)
         .map_err(MltError::from)?;
-    buf.extend_from_slice(prefix_bytes);
-    buf.write_varint(items.len() as u32).map_err(MltError::from)?;
 
     write_u32_stream_explicit(&mut buf, &raw.symbol_lengths)?;
     write_raw_bytes(&mut buf, &raw.symbol_bytes)?;
@@ -1191,10 +1252,7 @@ fn build_shared_dict_fsst(
     for item in items {
         let optional = item.has_presence();
         buf.push(if optional { CHILD_OPTIONAL } else { 0 });
-        let suffix_bytes = item.suffix.as_bytes();
-        buf.write_varint(suffix_bytes.len() as u32)
-            .map_err(MltError::from)?;
-        buf.extend_from_slice(suffix_bytes);
+        buf.write_string(&item.suffix).map_err(MltError::from)?;
         let indices = build_item_indices(item, span_to_idx, optional);
         write_u32_stream_implicit(&mut buf, &indices)?;
     }
@@ -1267,8 +1325,12 @@ fn encode_shared_dict_chunk(
         .map(|(i, span)| (span, i as u32))
         .collect();
 
-    let plain_buf =
-        build_shared_dict_plain(&group.prefix, &shared_dict.items, &dict_strings, &span_to_idx)?;
+    let plain_buf = build_shared_dict_plain(
+        &group.prefix,
+        &shared_dict.items,
+        &dict_strings,
+        &span_to_idx,
+    )?;
 
     if allow_fsst && !dict_strings.is_empty() {
         let fsst_buf = build_shared_dict_fsst(
@@ -1366,13 +1428,8 @@ fn prop_f64(v: &PropValue) -> f64 {
 /// Returns a [`TileLayer01`] that can be used by the rest of the MLT tooling.
 pub fn decode_v2_layer(data: &[u8]) -> MltResult<TileLayer01> {
     // ── Header ────────────────────────────────────────────────────────────────
-    let (data, name_len) = parse_varint::<u32>(data)?;
-    let name_len = name_len as usize;
-    if data.len() < name_len {
-        return Err(MltError::BufferUnderflow(name_len as u32, data.len()));
-    }
-    let name = std::str::from_utf8(&data[..name_len])?.to_string();
-    let data = &data[name_len..];
+    let (data, name) = parse_string(data)?;
+    let name = name.to_string();
 
     let (data, extent) = parse_varint::<u32>(data)?;
     let (data, feature_count) = parse_varint::<u32>(data)?;
@@ -1400,18 +1457,18 @@ pub fn decode_v2_layer(data: &[u8]) -> MltResult<TileLayer01> {
         if data.is_empty() {
             return Err(MltError::BufferUnderflow(1, 0));
         }
-        let col_type = data[0];
+        let col_type = ColType::try_from(data[0])?;
         data = &data[1..];
 
         match col_type {
-            COL_ID => {
-                let (new_data, ids) = decode_id_column(data, false, feature_count)?;
+            ColType::Id => {
+                let (new_data, ids) = decode_id_column(data, feature_count)?;
                 data = new_data;
                 for (i, id) in ids.into_iter().enumerate() {
                     feature_ids[i] = Some(id);
                 }
             }
-            COL_OPT_ID => {
+            ColType::OptId => {
                 let (new_data, presence, ids) = decode_opt_id_column(data, feature_count)?;
                 data = new_data;
                 presence_groups.push(presence.clone());
@@ -1422,41 +1479,53 @@ pub fn decode_v2_layer(data: &[u8]) -> MltResult<TileLayer01> {
                     }
                 }
             }
-            COL_BOOL | COL_OPT_BOOL | COL_I8 | COL_OPT_I8 | COL_U8 | COL_OPT_U8 | COL_I32
-            | COL_OPT_I32 | COL_U32 | COL_OPT_U32 | COL_I64 | COL_OPT_I64 | COL_U64
-            | COL_OPT_U64 | COL_F32 | COL_OPT_F32 | COL_F64 | COL_OPT_F64 | COL_STR
-            | COL_OPT_STR => {
+            ColType::Bool
+            | ColType::OptBool
+            | ColType::I8
+            | ColType::OptI8
+            | ColType::U8
+            | ColType::OptU8
+            | ColType::I32
+            | ColType::OptI32
+            | ColType::U32
+            | ColType::OptU32
+            | ColType::I64
+            | ColType::OptI64
+            | ColType::U64
+            | ColType::OptU64
+            | ColType::F32
+            | ColType::OptF32
+            | ColType::F64
+            | ColType::OptF64
+            | ColType::Str
+            | ColType::OptStr => {
                 let (new_data, col_name, col_values) =
                     decode_property_column(data, col_type, feature_count, &mut presence_groups)?;
                 data = new_data;
                 property_names.push(col_name);
                 property_columns.push(col_values);
             }
-            COL_STR_DICT | COL_OPT_STR_DICT => {
+            ColType::StrDict | ColType::OptStrDict => {
                 let (new_data, col_name, col_values) =
                     decode_string_dict_column(data, col_type, feature_count)?;
                 data = new_data;
                 property_names.push(col_name);
                 property_columns.push(col_values);
             }
-            COL_STR_FSST | COL_OPT_STR_FSST => {
+            ColType::StrFsst | ColType::OptStrFsst => {
                 let (new_data, col_name, col_values) =
                     decode_string_fsst_column(data, col_type, feature_count)?;
                 data = new_data;
                 property_names.push(col_name);
                 property_columns.push(col_values);
             }
-            COL_STR_SHARED_DICT | COL_STR_SHARED_DICT_FSST => {
-                let (new_data, columns) =
-                    decode_shared_dict_v2(data, col_type, feature_count)?;
+            ColType::StrSharedDict | ColType::StrSharedDictFsst => {
+                let (new_data, columns) = decode_shared_dict_v2(data, col_type, feature_count)?;
                 data = new_data;
                 for (col_name, col_values) in columns {
                     property_names.push(col_name);
                     property_columns.push(col_values);
                 }
-            }
-            _ => {
-                return Err(MltError::NotImplemented("unsupported v2 column type"));
             }
         }
     }
@@ -1733,7 +1802,11 @@ fn read_u32_stream(
         let encoded = &data[..byte_len];
         let remaining = &data[byte_len..];
 
-        let capacity = if has_expl_count || explicit { implicit_count } else { 16 };
+        let capacity = if has_expl_count || explicit {
+            implicit_count
+        } else {
+            16
+        };
         let mut values = Vec::with_capacity(capacity);
         let mut pos = 0;
         while pos < byte_len {
@@ -1953,7 +2026,9 @@ fn read_cwdelta_stream(data: &[u8]) -> MltResult<(&[u8], Vec<i32>)> {
     let u32_vals: Vec<u32> = if physical == 3 {
         // FastPFor128: bytes are LE u32 words
         if !byte_len.is_multiple_of(4) {
-            return Err(MltError::NotImplemented("v2 FP128: byte length not multiple of 4"));
+            return Err(MltError::NotImplemented(
+                "v2 FP128: byte length not multiple of 4",
+            ));
         }
         let words: Vec<u32> = encoded
             .chunks_exact(4)
@@ -2009,11 +2084,7 @@ fn read_presence(data: &[u8], feature_count: usize) -> MltResult<(&[u8], Vec<boo
 
 // ── ID column decoding ────────────────────────────────────────────────────────
 
-fn decode_id_column<'a>(
-    data: &'a [u8],
-    _optional: bool,
-    feature_count: usize,
-) -> MltResult<(&'a [u8], Vec<u64>)> {
+fn decode_id_column<'a>(data: &'a [u8], feature_count: usize) -> MltResult<(&'a [u8], Vec<u64>)> {
     read_u64_stream(data, feature_count)
 }
 
@@ -2031,31 +2102,25 @@ fn decode_opt_id_column<'a>(
 
 fn decode_property_column<'a>(
     data: &'a [u8],
-    col_type: u8,
+    col_type: ColType,
     feature_count: usize,
     presence_groups: &mut Vec<Vec<bool>>,
 ) -> MltResult<(&'a [u8], String, Vec<PropValue>)> {
-    // name
-    let (data, name_len) = parse_varint::<u32>(data)?;
-    let name_len = name_len as usize;
-    if data.len() < name_len {
-        return Err(MltError::BufferUnderflow(name_len as u32, data.len()));
-    }
-    let name = std::str::from_utf8(&data[..name_len])?.to_string();
-    let data = &data[name_len..];
+    let (data, name) = parse_string(data)?;
+    let name = name.to_string();
 
     let is_optional = matches!(
         col_type,
-        COL_OPT_BOOL
-            | COL_OPT_I8
-            | COL_OPT_U8
-            | COL_OPT_I32
-            | COL_OPT_U32
-            | COL_OPT_I64
-            | COL_OPT_U64
-            | COL_OPT_F32
-            | COL_OPT_F64
-            | COL_OPT_STR
+        ColType::OptBool
+            | ColType::OptI8
+            | ColType::OptU8
+            | ColType::OptI32
+            | ColType::OptU32
+            | ColType::OptI64
+            | ColType::OptU64
+            | ColType::OptF32
+            | ColType::OptF64
+            | ColType::OptStr
     );
 
     let (data, presence) = if is_optional {
@@ -2077,13 +2142,13 @@ fn decode_property_column<'a>(
 
 fn decode_column_data<'a>(
     data: &'a [u8],
-    col_type: u8,
+    col_type: ColType,
     feature_count: usize,
     popcount: usize,
     presence: &Option<Vec<bool>>,
 ) -> MltResult<(&'a [u8], Vec<PropValue>)> {
     match col_type {
-        COL_BOOL | COL_OPT_BOOL => {
+        ColType::Bool | ColType::OptBool => {
             let (data, bytes) = read_raw_bytes_stream(data)?;
             let values = expand_with_presence(
                 bytes.iter().map(|&b| PropValue::Bool(Some(b != 0))),
@@ -2093,7 +2158,7 @@ fn decode_column_data<'a>(
             );
             Ok((data, values))
         }
-        COL_I8 | COL_OPT_I8 => {
+        ColType::I8 | ColType::OptI8 => {
             let (data, bytes) = read_raw_bytes_stream(data)?;
             let values = expand_with_presence(
                 bytes
@@ -2105,7 +2170,7 @@ fn decode_column_data<'a>(
             );
             Ok((data, values))
         }
-        COL_U8 | COL_OPT_U8 => {
+        ColType::U8 | ColType::OptU8 => {
             let (data, bytes) = read_raw_bytes_stream(data)?;
             let values = expand_with_presence(
                 bytes.into_iter().map(|b| PropValue::U8(Some(b))),
@@ -2115,8 +2180,8 @@ fn decode_column_data<'a>(
             );
             Ok((data, values))
         }
-        COL_I32 | COL_OPT_I32 => {
-            let any_null = col_type == COL_OPT_I32;
+        ColType::I32 | ColType::OptI32 => {
+            let any_null = col_type == ColType::OptI32;
             let (data, ints) = read_i32_stream(data, popcount, any_null)?;
             let values = expand_with_presence(
                 ints.into_iter().map(|v| PropValue::I32(Some(v))),
@@ -2126,7 +2191,7 @@ fn decode_column_data<'a>(
             );
             Ok((data, values))
         }
-        COL_U32 | COL_OPT_U32 => {
+        ColType::U32 | ColType::OptU32 => {
             let (data, ints) = read_u32_stream(data, popcount, false)?;
             let values = expand_with_presence(
                 ints.into_iter().map(|v| PropValue::U32(Some(v))),
@@ -2136,7 +2201,7 @@ fn decode_column_data<'a>(
             );
             Ok((data, values))
         }
-        COL_I64 | COL_OPT_I64 => {
+        ColType::I64 | ColType::OptI64 => {
             let (data, ints) = read_i64_stream(data, popcount)?;
             let values = expand_with_presence(
                 ints.into_iter().map(|v| PropValue::I64(Some(v))),
@@ -2146,7 +2211,7 @@ fn decode_column_data<'a>(
             );
             Ok((data, values))
         }
-        COL_U64 | COL_OPT_U64 => {
+        ColType::U64 | ColType::OptU64 => {
             let (data, ints) = read_u64_stream(data, popcount)?;
             let values = expand_with_presence(
                 ints.into_iter().map(|v| PropValue::U64(Some(v))),
@@ -2156,7 +2221,7 @@ fn decode_column_data<'a>(
             );
             Ok((data, values))
         }
-        COL_F32 | COL_OPT_F32 => {
+        ColType::F32 | ColType::OptF32 => {
             let (data, bytes) = read_raw_bytes_stream(data)?;
             let floats: Vec<f32> = bytes
                 .chunks_exact(4)
@@ -2170,7 +2235,7 @@ fn decode_column_data<'a>(
             );
             Ok((data, values))
         }
-        COL_F64 | COL_OPT_F64 => {
+        ColType::F64 | ColType::OptF64 => {
             let (data, bytes) = read_raw_bytes_stream(data)?;
             let floats: Vec<f64> = bytes
                 .chunks_exact(8)
@@ -2184,8 +2249,20 @@ fn decode_column_data<'a>(
             );
             Ok((data, values))
         }
-        COL_STR | COL_OPT_STR => decode_string_column(data, popcount, presence, feature_count),
-        _ => Err(MltError::NotImplemented("v2 decoder: unknown column type")),
+        ColType::Str | ColType::OptStr => {
+            decode_string_column(data, popcount, presence, feature_count)
+        }
+        // These variants are dispatched before reaching this function.
+        ColType::Id
+        | ColType::OptId
+        | ColType::StrDict
+        | ColType::OptStrDict
+        | ColType::StrFsst
+        | ColType::OptStrFsst
+        | ColType::StrSharedDict
+        | ColType::StrSharedDictFsst => {
+            unreachable!("ColType::{col_type:?} is handled before decode_column_data")
+        }
     }
 }
 
@@ -2219,24 +2296,18 @@ fn decode_string_column<'a>(
     Ok((data, values))
 }
 
-/// Decode a StrFsst (col_type=32) or OptStrFsst (col_type=33) column.
+/// Decode a `StrFsst` or `OptStrFsst` column.
 ///
 /// Wire layout: `[presence?] | sym_lengths | sym_bytes | val_lengths | corpus`
 fn decode_string_fsst_column<'a>(
     data: &'a [u8],
-    col_type: u8,
+    col_type: ColType,
     feature_count: usize,
 ) -> MltResult<(&'a [u8], String, Vec<PropValue>)> {
-    let optional = col_type == COL_OPT_STR_FSST;
+    let optional = col_type == ColType::OptStrFsst;
 
-    // name
-    let (data, name_len) = parse_varint::<u32>(data)?;
-    let name_len = name_len as usize;
-    if data.len() < name_len {
-        return Err(MltError::BufferUnderflow(name_len as u32, data.len()));
-    }
-    let name = std::str::from_utf8(&data[..name_len])?.to_string();
-    let data = &data[name_len..];
+    let (data, name) = parse_string(data)?;
+    let name = name.to_string();
 
     // presence (only for optional)
     let (data, presence) = if optional {
@@ -2310,9 +2381,11 @@ fn fsst_decompress(
     let mut offset = 0usize;
     for &len in val_lengths {
         let end = offset + len as usize;
-        let s = std::str::from_utf8(output.get(offset..end).ok_or(
-            MltError::BufferUnderflow(len, output.len() - offset),
-        )?)
+        let s = std::str::from_utf8(
+            output
+                .get(offset..end)
+                .ok_or(MltError::BufferUnderflow(len, output.len() - offset))?,
+        )
         .map_err(MltError::from)?
         .to_string();
         strings.push(s);
@@ -2321,7 +2394,7 @@ fn fsst_decompress(
     Ok(strings)
 }
 
-/// Decode a StrDict (col_type=30) or OptStrDict (col_type=31) column.
+/// Decode a `StrDict` or `OptStrDict` column.
 ///
 /// Wire layout: `dict_lengths_stream | dict_data_stream | indices_stream`
 ///
@@ -2329,19 +2402,13 @@ fn fsst_decompress(
 /// - `OptStrDict`: index `0` = null; index `k` (k≥1) → dict entry `k-1`.
 fn decode_string_dict_column<'a>(
     data: &'a [u8],
-    col_type: u8,
+    col_type: ColType,
     feature_count: usize,
 ) -> MltResult<(&'a [u8], String, Vec<PropValue>)> {
-    let optional = col_type == COL_OPT_STR_DICT;
+    let optional = col_type == ColType::OptStrDict;
 
-    // name
-    let (data, name_len) = parse_varint::<u32>(data)?;
-    let name_len = name_len as usize;
-    if data.len() < name_len {
-        return Err(MltError::BufferUnderflow(name_len as u32, data.len()));
-    }
-    let name = std::str::from_utf8(&data[..name_len])?.to_string();
-    let data = &data[name_len..];
+    let (data, name) = parse_string(data)?;
+    let name = name.to_string();
 
     // dict_lengths: explicit count = number of dict entries
     let (data, dict_lengths) = read_u32_stream(data, 0, true)?;
@@ -2400,18 +2467,13 @@ fn decode_string_dict_column<'a>(
 /// ```
 fn decode_shared_dict_v2<'a>(
     data: &'a [u8],
-    col_type: u8,
+    col_type: ColType,
     feature_count: usize,
 ) -> MltResult<(&'a [u8], Vec<(String, Vec<PropValue>)>)> {
-    let use_fsst = col_type == COL_STR_SHARED_DICT_FSST;
+    let use_fsst = col_type == ColType::StrSharedDictFsst;
 
-    let (data, prefix_len) = parse_varint::<u32>(data)?;
-    let prefix_len = prefix_len as usize;
-    if data.len() < prefix_len {
-        return Err(MltError::BufferUnderflow(prefix_len as u32, data.len()));
-    }
-    let prefix = std::str::from_utf8(&data[..prefix_len])?.to_string();
-    let data = &data[prefix_len..];
+    let (data, prefix) = parse_string(data)?;
+    let prefix = prefix.to_string();
 
     let (data, child_count) = parse_varint::<u32>(data)?;
     let child_count = child_count as usize;
@@ -2423,7 +2485,10 @@ fn decode_shared_dict_v2<'a>(
     } else {
         let (data, dict_lengths) = read_u32_stream(data, 0, true)?;
         let (data, dict_bytes) = read_raw_bytes_stream(data)?;
-        (data, build_strings_from_lengths(&dict_lengths, &dict_bytes)?)
+        (
+            data,
+            build_strings_from_lengths(&dict_lengths, &dict_bytes)?,
+        )
     };
 
     let mut result = Vec::with_capacity(child_count);
@@ -2437,13 +2502,9 @@ fn decode_shared_dict_v2<'a>(
         data = &data[1..];
         let optional = (flags & CHILD_OPTIONAL) != 0;
 
-        let (d, suffix_len) = parse_varint::<u32>(data)?;
-        let suffix_len = suffix_len as usize;
-        if d.len() < suffix_len {
-            return Err(MltError::BufferUnderflow(suffix_len as u32, d.len()));
-        }
-        let suffix = std::str::from_utf8(&d[..suffix_len])?.to_string();
-        data = &d[suffix_len..];
+        let (d, suffix) = parse_string(data)?;
+        let suffix = suffix.to_string();
+        data = d;
 
         let col_name = format!("{prefix}{suffix}");
 
@@ -2457,10 +2518,16 @@ fn decode_shared_dict_v2<'a>(
                 if optional && idx == 0 {
                     Ok(PropValue::Str(None))
                 } else {
-                    let dict_idx = if optional { idx as usize - 1 } else { idx as usize };
+                    let dict_idx = if optional {
+                        idx as usize - 1
+                    } else {
+                        idx as usize
+                    };
                     let s = dict_strings
                         .get(dict_idx)
-                        .ok_or(MltError::NotImplemented("v2 SharedDict: index out of range"))?
+                        .ok_or(MltError::NotImplemented(
+                            "v2 SharedDict: index out of range",
+                        ))?
                         .clone();
                     Ok(PropValue::Str(Some(s)))
                 }
@@ -2479,11 +2546,10 @@ fn build_strings_from_lengths(lengths: &[u32], bytes: &[u8]) -> MltResult<Vec<St
     let mut offset = 0usize;
     for &len in lengths {
         let end = offset + len as usize;
-        let s = std::str::from_utf8(
-            bytes
-                .get(offset..end)
-                .ok_or(MltError::BufferUnderflow(len, bytes.len().saturating_sub(offset)))?,
-        )
+        let s = std::str::from_utf8(bytes.get(offset..end).ok_or(MltError::BufferUnderflow(
+            len,
+            bytes.len().saturating_sub(offset),
+        ))?)
         .map_err(MltError::from)?
         .to_string();
         strings.push(s);
