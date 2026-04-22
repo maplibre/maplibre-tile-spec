@@ -1,5 +1,5 @@
 use crate::decoder::{IdValues, RawId, RawIdValue};
-use crate::utils::apply_present;
+use crate::utils::{Presence, decode_presence};
 use crate::{Decode, Decoder, MltResult};
 
 impl Decode<IdValues> for RawId<'_> {
@@ -18,6 +18,22 @@ impl Decode<IdValues> for RawId<'_> {
             RawIdValue::Id64(stream) => stream.decode_u64s(dec)?,
         };
 
-        Ok(IdValues(apply_present(presence, ids_u64, dec)?))
+        let decoded_presence = decode_presence(presence, ids_u64.len(), dec)?;
+        let values = match decoded_presence {
+            Presence::AllPresent => {
+                dec.consume_items::<Option<u64>>(ids_u64.len())?;
+                ids_u64.into_iter().map(Some).collect()
+            }
+            Presence::Bits(bits) => {
+                dec.consume_items::<Option<u64>>(bits.len())?;
+                let mut result = Vec::with_capacity(bits.len());
+                let mut dense = ids_u64.into_iter();
+                for present in bits.iter().by_vals() {
+                    result.push(if present { dense.next() } else { None });
+                }
+                result
+            }
+        };
+        Ok(IdValues(values))
     }
 }

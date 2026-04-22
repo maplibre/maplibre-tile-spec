@@ -18,6 +18,7 @@ rust-version = "1.92"
 [workspace.dependencies]
 anyhow = "1"
 arbitrary = { version = "1.4", features = ["derive"] }
+bitvec = "1"
 brotli = "8"
 bytemuck = "1.25.0"
 clap = { version = "4.6.0", features = ["derive"] }
