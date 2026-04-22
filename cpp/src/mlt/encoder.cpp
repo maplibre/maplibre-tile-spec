@@ -143,7 +143,7 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
 
     struct ColumnInfo {
         ScalarType type;
-        bool nullable;
+        std::size_t presentCount;
     };
     std::map<std::string, ColumnInfo> scalarColumns;
     std::map<std::string, std::set<std::string>> structColumnsBySourceKey;
@@ -173,7 +173,8 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
                 },
                 value);
 
-            auto [it, inserted] = scalarColumns.try_emplace(key, ColumnInfo{.type = scalarType, .nullable = false});
+            auto [it, inserted] = scalarColumns.try_emplace(key, ColumnInfo{.type = scalarType, .presentCount = 0});
+            ++it->second.presentCount;
             if (!inserted) {
                 auto& existing = it->second;
                 if (existing.type != scalarType) {
@@ -190,16 +191,10 @@ FeatureTable Encoder::Impl::buildMetadata(const Layer& layer, const EncoderConfi
         }
     }
 
-    for (auto& [key, info] : scalarColumns) {
-        info.nullable = config.forceNullableColumns || std::ranges::any_of(layer.features, [&](const auto& feature) {
-                            return !feature.properties.contains(key);
-                        });
-    }
-
     for (const auto& [name, info] : scalarColumns) {
         Column col;
         col.name = name;
-        col.nullable = info.nullable;
+        col.nullable = config.forceNullableColumns || info.presentCount != layer.features.size();
         col.columnScope = ColumnScope::FEATURE;
         col.type = ScalarColumn{.type = info.type};
         table.columns.push_back(std::move(col));
