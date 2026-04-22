@@ -28,6 +28,8 @@ impl<'a> RawStream<'a> {
             && self.meta.encoding.physical == PhysicalEncoding::None
         {
             // Zero-copy: raw tile bytes are the packed bitvector.
+            let num_bytes = num_values.div_ceil(8);
+            fail_if_invalid_stream_size(self.data.len(), num_bytes)?;
             Ok(Cow::Borrowed(&self.data.view_bits::<Lsb0>()[..num_values]))
         } else {
             let num_bytes = num_values.div_ceil(8);

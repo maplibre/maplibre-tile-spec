@@ -112,7 +112,7 @@ pub enum ParsedProperty<'a> {
 ///
 /// For a non-optional column, `presence` is [`Presence::AllPresent`] and
 /// `values.len()` equals the feature count.  For an optional column, `presence`
-/// is [`Presence::Bits`] with `presence.count_ones() == values.len()`.
+/// is [`Presence::Bits(bits)`][`Presence::Bits`] with `bits.count_ones() == values.len()`.
 #[derive(Clone, PartialEq)]
 pub struct ParsedScalar<'a, T: Copy + PartialEq> {
     pub(crate) name: &'a str,

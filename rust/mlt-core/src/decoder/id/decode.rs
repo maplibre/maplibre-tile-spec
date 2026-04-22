@@ -1,6 +1,5 @@
 use crate::decoder::{IdValues, RawId, RawIdValue};
-use crate::utils::decode_presence;
-use crate::utils::presence::Presence;
+use crate::utils::{Presence, decode_presence};
 use crate::{Decode, Decoder, MltResult};
 
 impl Decode<IdValues> for RawId<'_> {

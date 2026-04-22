@@ -48,7 +48,16 @@ impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
     /// Allocates a new vector; prefer [`ParsedScalar::get`] for single-feature access.
     #[must_use]
     pub fn materialize(&self) -> Vec<Option<T>> {
-        (0..self.feature_count()).map(|i| self.get(i)).collect()
+        match &self.presence {
+            Presence::AllPresent => self.values.iter().copied().map(Some).collect(),
+            Presence::Bits(bits) => {
+                let mut dense = self.values.iter().copied();
+                bits.iter()
+                    .by_vals()
+                    .map(|present| if present { dense.next() } else { None })
+                    .collect()
+            }
+        }
     }
 
     /// Return the backing dense values slice (present entries only).
