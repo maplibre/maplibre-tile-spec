@@ -17,18 +17,14 @@ impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
         })
     }
 
-    /// Returns the column name.
-    #[inline]
-    #[must_use]
-    pub fn name(&self) -> &'a str {
-        self.name
-    }
-
     /// Total number of features (present and absent).
     #[inline]
     #[must_use]
     pub fn feature_count(&self) -> usize {
-        self.presence.feature_count(self.values.len())
+        match &self.presence {
+            Presence::AllPresent => self.values.len(),
+            Presence::Bits(bits) => bits.len(),
+        }
     }
 
     /// Returns the value for feature `idx`, or `None` if absent or out of bounds.
@@ -55,11 +51,6 @@ impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
         (0..self.feature_count()).map(|i| self.get(i)).collect()
     }
 
-    /// Iterate over values as `Option<T>`, one per feature.
-    pub fn iter_optional(&self) -> impl Iterator<Item = Option<T>> + '_ {
-        (0..self.feature_count()).map(move |i| self.get(i))
-    }
-
     /// Return the backing dense values slice (present entries only).
     #[inline]
     #[must_use]
@@ -76,7 +67,7 @@ impl<'a> Decode<ParsedProperty<'a>> for RawProperty<'a> {
     /// columns the exact decoded size depends on compression, so the budget is
     /// charged *after* decoding based on actual allocation sizes.
     fn decode(self, dec: &mut Decoder) -> MltResult<ParsedProperty<'a>> {
-        /// Charge for the final `Vec<Option<T>>`, then decode the dense stream.
+        /// Decode the dense value stream and wrap it with the presence bitmap.
         /// `$decode_method` is the typed `RawStream` method for element type `$ty`.
         macro_rules! scalar_decode {
             ($variant:ident, $ty:ty, $decode_method:ident, $v:expr, $dec:expr) => {{

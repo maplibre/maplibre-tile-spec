@@ -10,42 +10,32 @@ use crate::codecs::rle::decode_byte_rle;
 use crate::codecs::varint::parse_varint_vec;
 use crate::decoder::{LogicalEncoding, LogicalValue, PhysicalEncoding, RawStream};
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
-use crate::utils::{AsUsize as _, Presence};
+use crate::utils::AsUsize as _;
 use crate::{Decoder, MltError, MltResult};
 
 impl<'a> RawStream<'a> {
-    /// Decode a presence/nullability stream to a packed bitvector.
+    /// Decode a presence/nullability stream into a packed bitvector.
     ///
-    /// Returns [`Presence::Bits`] with a `Cow` that is:
-    /// - **Borrowed** directly from the tile bytes when neither logical nor physical
-    ///   compression is applied (both encodings are `None`), avoiding any copy.
-    /// - **Owned** (`BitVec`) after byte-RLE decompression in all other cases.
-    ///
-    /// The returned `Presence` is always truncated to exactly `num_values` bits.
-    ///
-    /// Note: currently all presence streams produced by this encoder use
-    /// `LogicalEncoding::Rle`, so the zero-copy path is reserved for future
-    /// uncompressed presence streams.
-    pub fn decode_presence(self, dec: &mut Decoder) -> MltResult<Presence<'a>> {
+    /// Borrows directly from tile bytes (zero-copy) when both logical and physical
+    /// encodings are `None`; otherwise decompresses byte-RLE into an owned `BitVec`.
+    /// The result is always truncated to exactly `num_values` bits.
+    pub(crate) fn decode_bitvec(self, dec: &mut Decoder) -> MltResult<Cow<'a, BitSlice<u8, Lsb0>>> {
         let num_values = self.meta.num_values.as_usize();
         if self.meta.encoding.physical == PhysicalEncoding::VarInt {
             return Err(MltError::NotImplemented("varint presence decoding"));
         }
-        let bits: Cow<'a, BitSlice<u8, Lsb0>> = if self.meta.encoding.logical
-            == LogicalEncoding::None
+        if self.meta.encoding.logical == LogicalEncoding::None
             && self.meta.encoding.physical == PhysicalEncoding::None
         {
-            // Zero-copy: the raw tile bytes ARE the packed bitvector — borrow directly.
-            Cow::Borrowed(&self.data.view_bits::<Lsb0>()[..num_values])
+            // Zero-copy: raw tile bytes are the packed bitvector.
+            Ok(Cow::Borrowed(&self.data.view_bits::<Lsb0>()[..num_values]))
         } else {
-            // Byte-RLE (or other encoding): decompress into Vec<u8>, wrap as BitVec.
             let num_bytes = num_values.div_ceil(8);
             let bytes = decode_byte_rle(self.data, num_bytes, dec)?;
             let mut bvec = BitVec::<u8, Lsb0>::from_vec(bytes);
             bvec.truncate(num_values);
-            Cow::Owned(bvec)
-        };
-        Ok(Presence::Bits(bits))
+            Ok(Cow::Owned(bvec))
+        }
     }
 
     /// Decode a boolean data stream: byte-RLE → packed bitmap → `Vec<bool>`, charging `dec`.
