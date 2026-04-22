@@ -16,69 +16,39 @@ namespace mlt::encoder {
 
 using namespace metadata::stream;
 
-struct IntegerEncoder::Impl {
-#if MLT_WITH_FASTPFOR
-    FastPForLib::CompositeCodec<FastPForLib::FastPFor<8>, FastPForLib::VariableByte> codec;
-#endif
-    IntegerEncodingOption encodingOption = IntegerEncodingOption::AUTO;
+namespace {
+
+struct Candidate {
+    LogicalLevelTechnique t1;
+    LogicalLevelTechnique t2;
+    std::vector<std::uint8_t>* data;
+    std::uint32_t numRuns;
+    std::uint32_t physicalLength;
 };
 
-IntegerEncoder::IntegerEncoder()
-    : impl(std::make_unique<Impl>()) {}
+template <typename TInt>
+std::vector<std::uint8_t> encodeVarintsIntegral(std::span<const TInt> values, bool zigZagForSigned = false) {
+    static_assert(std::is_integral_v<TInt>, "encodeVarintsIntegral requires integral type");
 
-IntegerEncoder::~IntegerEncoder() noexcept = default;
-
-void IntegerEncoder::setDefaultEncodingOption(IntegerEncodingOption option) {
-    impl->encodingOption = option;
-}
-
-std::vector<std::uint8_t> IntegerEncoder::encodeVarints32(std::span<const std::int32_t> values, bool zigZag) {
     std::vector<std::uint8_t> result;
-    result.reserve(values.size() * 2);
+    result.reserve(values.size() * (sizeof(TInt) <= sizeof(std::uint32_t) ? 2 : 3));
     for (const auto v : values) {
-        const auto encoded = zigZag ? util::encoding::encodeZigZag(v) : static_cast<std::uint32_t>(v);
-        util::encoding::encodeVarint(encoded, result);
+        if constexpr (std::is_signed_v<TInt>) {
+            const auto encoded = zigZagForSigned ? util::encoding::encodeZigZag(v)
+                                                 : static_cast<std::make_unsigned_t<TInt>>(v);
+            util::encoding::encodeVarint(encoded, result);
+        } else {
+            util::encoding::encodeVarint(v, result);
+        }
     }
     return result;
 }
 
-std::vector<std::uint8_t> IntegerEncoder::encodeVarints64(std::span<const std::int64_t> values, bool zigZag) {
-    std::vector<std::uint8_t> result;
-    result.reserve(values.size() * 3);
-    for (const auto v : values) {
-        const auto encoded = zigZag ? util::encoding::encodeZigZag(v) : static_cast<std::uint64_t>(v);
-        util::encoding::encodeVarint(encoded, result);
-    }
-    return result;
-}
-
-std::vector<std::uint8_t> IntegerEncoder::encodeVarintsUnsigned32(std::span<const std::uint32_t> values) {
-    std::vector<std::uint8_t> result;
-    result.reserve(values.size() * 2);
-    for (const auto v : values) {
-        util::encoding::encodeVarint(v, result);
-    }
-    return result;
-}
-
-std::vector<std::uint8_t> IntegerEncoder::encodeVarintsUnsigned64(std::span<const std::uint64_t> values) {
-    std::vector<std::uint8_t> result;
-    result.reserve(values.size() * 3);
-    for (const auto v : values) {
-        util::encoding::encodeVarint(v, result);
-    }
-    return result;
-}
-
-std::vector<std::uint8_t> IntegerEncoder::encodeFastPfor([[maybe_unused]] std::span<const std::int32_t> values,
-                                                         [[maybe_unused]] bool zigZag) {
 #if MLT_WITH_FASTPFOR
+template <typename TInput, typename Transform, typename TCodec>
+std::vector<std::uint8_t> encodeFastPforCore(std::span<const TInput> values, Transform transform, TCodec& codec) {
     std::vector<std::uint32_t> input(values.size());
-    if (zigZag) {
-        std::ranges::transform(values, input.begin(), [](auto v) { return util::encoding::encodeZigZag(v); });
-    } else {
-        std::ranges::transform(values, input.begin(), [](auto v) { return static_cast<std::uint32_t>(v); });
-    }
+    std::ranges::transform(values, input.begin(), transform);
 
     // FastPFor can throw NotEnoughStorage for incompressible/alignment-sensitive inputs.
     // Start with the common-case size and retry with larger buffers as needed.
@@ -88,7 +58,7 @@ std::vector<std::uint8_t> IntegerEncoder::encodeFastPfor([[maybe_unused]] std::s
     for (int attempt = 0; attempt < 4 && !encoded; ++attempt) {
         compressedSize = compressed.size();
         try {
-            impl->codec.encodeArray(input.data(), input.size(), compressed.data(), compressedSize);
+            codec.encodeArray(input.data(), input.size(), compressed.data(), compressedSize);
             encoded = true;
         } catch (const FastPForLib::NotEnoughStorage&) {
             compressed.resize(compressed.size() * 2);
@@ -105,74 +75,25 @@ std::vector<std::uint8_t> IntegerEncoder::encodeFastPfor([[maybe_unused]] std::s
         outWords[i] = std::byteswap(compressed[i]);
     }
     return result;
-#else
-    throw std::runtime_error("FastPFOR encoding is not enabled. Configure with MLT_WITH_FASTPFOR=ON");
-#endif
 }
-
-std::vector<std::uint8_t> IntegerEncoder::encodeFastPforUnsigned(
-    [[maybe_unused]] std::span<const std::uint32_t> values) {
-#if MLT_WITH_FASTPFOR
-    std::vector<std::uint32_t> input(values.size());
-    std::ranges::copy(values, input.begin());
-
-    // FastPFor can throw NotEnoughStorage for incompressible/alignment-sensitive inputs.
-    // Start with the common-case size and retry with larger buffers as needed.
-    std::vector<std::uint32_t> compressed(input.size() + 1024);
-    std::size_t compressedSize = 0;
-    bool encoded = false;
-    for (int attempt = 0; attempt < 4 && !encoded; ++attempt) {
-        compressedSize = compressed.size();
-        try {
-            impl->codec.encodeArray(input.data(), input.size(), compressed.data(), compressedSize);
-            encoded = true;
-        } catch (const FastPForLib::NotEnoughStorage&) {
-            compressed.resize(compressed.size() * 2);
-        }
-    }
-
-    if (!encoded) {
-        throw std::runtime_error("FastPFOR encoding failed: insufficient output buffer");
-    }
-
-    std::vector<std::uint8_t> result(compressedSize * sizeof(std::uint32_t));
-    auto* outWords = reinterpret_cast<std::uint32_t*>(result.data());
-    for (std::size_t i = 0; i < compressedSize; ++i) {
-        outWords[i] = std::byteswap(compressed[i]);
-    }
-    return result;
-#else
-    throw std::runtime_error("FastPFOR encoding is not enabled. Configure with MLT_WITH_FASTPFOR=ON");
-#endif
-}
-
-IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> values,
-                                                [[maybe_unused]] PhysicalLevelTechnique physicalTechnique,
-                                                bool isSigned) {
-    return encodeInt(values, physicalTechnique, isSigned, impl->encodingOption);
-}
-
-IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> values,
-                                                [[maybe_unused]] PhysicalLevelTechnique physicalTechnique,
-                                                bool isSigned,
-                                                IntegerEncodingOption option) {
-#if MLT_WITH_FASTPFOR
-    const auto encode = (physicalTechnique == PhysicalLevelTechnique::FAST_PFOR) ? &IntegerEncoder::encodeFastPfor
-                                                                                 : &IntegerEncoder::encodeVarints32;
-#else
-    const auto encode = &IntegerEncoder::encodeVarints32;
 #endif
 
-    auto plainEncoded = (this->*encode)(values, isSigned);
+template <typename TInt, typename EncodeFn>
+IntegerEncodingResult encodeSignedIntegral(std::span<const TInt> values,
+                                           bool isSigned,
+                                           IntegerEncodingOption option,
+                                           EncodeFn encode,
+                                           bool preferConstRleWhenSingleRun) {
+    auto plainEncoded = encode(values, isSigned);
 
-    std::vector<std::int32_t> deltaValues(values.size());
-    std::int32_t previousValue = 0;
-    std::int32_t previousDelta = 0;
+    std::vector<TInt> deltaValues(values.size());
+    TInt previousValue = 0;
+    TInt previousDelta = 0;
     std::uint32_t runs = 1;
     std::uint32_t deltaRuns = 1;
     for (std::size_t i = 0; i < values.size(); ++i) {
         const auto value = values[i];
-        const auto delta = value - previousValue;
+        const auto delta = static_cast<TInt>(value - previousValue);
         deltaValues[i] = delta;
 
         if (i != 0 && value != previousValue) {
@@ -185,15 +106,7 @@ IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> va
         previousDelta = delta;
     }
 
-    auto deltaEncoded = (this->*encode)(deltaValues, /*zigZag=*/true);
-
-    struct Candidate {
-        LogicalLevelTechnique t1;
-        LogicalLevelTechnique t2;
-        std::vector<std::uint8_t>* data;
-        std::uint32_t numRuns;
-        std::uint32_t physicalLength;
-    };
+    auto deltaEncoded = encode(deltaValues, /*zigZag=*/true);
 
     Candidate best{.t1 = LogicalLevelTechnique::NONE,
                    .t2 = LogicalLevelTechnique::NONE,
@@ -214,23 +127,23 @@ IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> va
     bool isConstStream = false;
     const bool shouldTryRle = option != IntegerEncodingOption::AUTO || values.size() / runs >= 2;
     if (shouldTryRle) {
-        auto rle = util::encoding::rle::encodeIntRle<std::int32_t>(values);
+        auto rle = util::encoding::rle::encodeIntRle<TInt>(values);
         isConstStream = (rle.runs.size() == 1);
 
-        std::vector<std::int32_t> flattened;
+        std::vector<TInt> flattened;
         flattened.reserve(rle.runs.size() + rle.values.size());
         flattened.insert(flattened.end(), rle.runs.begin(), rle.runs.end());
         if (isSigned) {
             for (auto v : rle.values) {
-                flattened.push_back(static_cast<std::int32_t>(util::encoding::encodeZigZag(v)));
+                flattened.push_back(static_cast<TInt>(util::encoding::encodeZigZag(v)));
             }
         } else {
             flattened.insert(flattened.end(), rle.values.begin(), rle.values.end());
         }
-        rleEncoded = (this->*encode)(flattened, /*zigZag=*/false);
+        rleEncoded = encode(flattened, /*zigZag=*/false);
 
         rlePhysicalLength = static_cast<std::uint32_t>(rle.runs.size() + rle.values.size());
-        if (isConstStream || rleEncoded.size() < best.data->size()) {
+        if ((preferConstRleWhenSingleRun && isConstStream) || rleEncoded.size() < best.data->size()) {
             best = {.t1 = LogicalLevelTechnique::RLE,
                     .t2 = LogicalLevelTechnique::NONE,
                     .data = &rleEncoded,
@@ -242,17 +155,18 @@ IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> va
     std::vector<std::uint8_t> deltaRleEncoded;
     std::uint32_t deltaRlePhysicalLength = 0;
     const bool shouldTryDeltaRle = option != IntegerEncodingOption::AUTO ||
-                                   (deltaValues.size() / deltaRuns >= 2 && !isConstStream);
+                                   (deltaValues.size() / deltaRuns >= 2 &&
+                                    (!preferConstRleWhenSingleRun || !isConstStream));
     if (shouldTryDeltaRle) {
-        auto deltaRle = util::encoding::rle::encodeIntRle<std::int32_t>(deltaValues);
+        const auto deltaRle = util::encoding::rle::encodeIntRle<TInt>(deltaValues);
 
-        std::vector<std::int32_t> flattened;
+        std::vector<TInt> flattened;
         flattened.reserve(deltaRle.runs.size() + deltaRle.values.size());
         flattened.insert(flattened.end(), deltaRle.runs.begin(), deltaRle.runs.end());
         for (auto v : deltaRle.values) {
-            flattened.push_back(static_cast<std::int32_t>(util::encoding::encodeZigZag(v)));
+            flattened.push_back(static_cast<TInt>(util::encoding::encodeZigZag(v)));
         }
-        deltaRleEncoded = (this->*encode)(flattened, /*zigZag=*/false);
+        deltaRleEncoded = encode(flattened, /*zigZag=*/false);
 
         deltaRlePhysicalLength = static_cast<std::uint32_t>(deltaRle.runs.size() + deltaRle.values.size());
         if (deltaRleEncoded.size() < best.data->size()) {
@@ -304,44 +218,11 @@ IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> va
             .physicalLevelEncodedValuesLength = best.physicalLength};
 }
 
-IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> values, bool isSigned) {
-    return encodeLong(values, isSigned, impl->encodingOption);
-}
-
-IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> values,
-                                                 bool isSigned,
-                                                 IntegerEncodingOption option) {
-    auto plainEncoded = encodeVarints64(values, isSigned);
-
-    std::vector<std::int64_t> deltaValues(values.size());
-    std::int64_t previousValue = 0;
-    std::int64_t previousDelta = 0;
-    std::uint32_t runs = 1;
-    std::uint32_t deltaRuns = 1;
-    for (std::size_t i = 0; i < values.size(); ++i) {
-        const auto value = values[i];
-        const auto delta = value - previousValue;
-        deltaValues[i] = delta;
-
-        if (i != 0 && value != previousValue) {
-            ++runs;
-        }
-        if (i != 0 && delta != previousDelta) {
-            ++deltaRuns;
-        }
-        previousValue = value;
-        previousDelta = delta;
-    }
-
-    auto deltaEncoded = encodeVarints64(deltaValues, /*zigZag=*/true);
-
-    struct Candidate {
-        LogicalLevelTechnique t1;
-        LogicalLevelTechnique t2;
-        std::vector<std::uint8_t>* data;
-        std::uint32_t numRuns;
-        std::uint32_t physicalLength;
-    };
+template <typename TUInt, typename EncodeFn>
+IntegerEncodingResult encodeUnsignedIntegralNoDelta(std::span<const TUInt> values,
+                                                    IntegerEncodingOption option,
+                                                    EncodeFn encode) {
+    auto plainEncoded = encode(values);
 
     Candidate best{.t1 = LogicalLevelTechnique::NONE,
                    .t2 = LogicalLevelTechnique::NONE,
@@ -349,33 +230,27 @@ IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> v
                    .numRuns = 0,
                    .physicalLength = static_cast<std::uint32_t>(values.size())};
 
-    if (deltaEncoded.size() < best.data->size()) {
-        best = {.t1 = LogicalLevelTechnique::DELTA,
-                .t2 = LogicalLevelTechnique::NONE,
-                .data = &deltaEncoded,
-                .numRuns = 0,
-                .physicalLength = static_cast<std::uint32_t>(values.size())};
+    std::uint32_t runs = 1;
+    TUInt previousValue = 0;
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        const auto value = values[i];
+        if (i != 0 && value != previousValue) {
+            ++runs;
+        }
+        previousValue = value;
     }
 
     std::vector<std::uint8_t> rleEncoded;
     std::uint32_t rlePhysicalLength = 0;
     const bool shouldTryRle = option != IntegerEncodingOption::AUTO || values.size() / runs >= 2;
     if (shouldTryRle) {
-        auto rle = util::encoding::rle::encodeIntRle<std::int64_t>(values);
+        auto rle = util::encoding::rle::encodeIntRle<TUInt>(values);
 
-        std::vector<std::int64_t> flattened;
+        std::vector<TUInt> flattened;
         flattened.reserve(rle.runs.size() + rle.values.size());
-        for (auto r : rle.runs) {
-            flattened.push_back(r);
-        }
-        if (isSigned) {
-            for (auto v : rle.values) {
-                flattened.push_back(static_cast<std::int64_t>(util::encoding::encodeZigZag(v)));
-            }
-        } else {
-            flattened.insert(flattened.end(), rle.values.begin(), rle.values.end());
-        }
-        rleEncoded = encodeVarints64(flattened, /*zigZag=*/false);
+        flattened.insert(flattened.end(), rle.runs.begin(), rle.runs.end());
+        flattened.insert(flattened.end(), rle.values.begin(), rle.values.end());
+        rleEncoded = encode(flattened);
 
         rlePhysicalLength = static_cast<std::uint32_t>(rle.runs.size() + rle.values.size());
         if (rleEncoded.size() < best.data->size()) {
@@ -387,62 +262,24 @@ IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> v
         }
     }
 
-    std::vector<std::uint8_t> deltaRleEncoded;
-    std::uint32_t deltaRlePhysicalLength = 0;
-    const bool shouldTryDeltaRle = option != IntegerEncodingOption::AUTO || deltaValues.size() / deltaRuns >= 2;
-    if (shouldTryDeltaRle) {
-        const auto deltaRle = util::encoding::rle::encodeIntRle<std::int64_t>(deltaValues);
-
-        std::vector<std::int64_t> flattened;
-        flattened.reserve(deltaRle.runs.size() + deltaRle.values.size());
-        for (auto r : deltaRle.runs) {
-            flattened.push_back(r);
-        }
-        for (auto v : deltaRle.values) {
-            flattened.push_back(static_cast<std::int64_t>(util::encoding::encodeZigZag(v)));
-        }
-        deltaRleEncoded = encodeVarints64(flattened, /*zigZag=*/false);
-
-        deltaRlePhysicalLength = static_cast<std::uint32_t>(deltaRle.runs.size() + deltaRle.values.size());
-        if (deltaRleEncoded.size() < best.data->size()) {
-            best = {.t1 = LogicalLevelTechnique::DELTA,
-                    .t2 = LogicalLevelTechnique::RLE,
-                    .data = &deltaRleEncoded,
-                    .numRuns = deltaRuns,
-                    .physicalLength = deltaRlePhysicalLength};
-        }
-    }
-
     switch (option) {
         case IntegerEncodingOption::AUTO:
             break;
         case IntegerEncodingOption::PLAIN:
+        case IntegerEncodingOption::DELTA:
             best = {.t1 = LogicalLevelTechnique::NONE,
                     .t2 = LogicalLevelTechnique::NONE,
                     .data = &plainEncoded,
                     .numRuns = 0,
                     .physicalLength = static_cast<std::uint32_t>(values.size())};
             break;
-        case IntegerEncodingOption::DELTA:
-            best = {.t1 = LogicalLevelTechnique::DELTA,
-                    .t2 = LogicalLevelTechnique::NONE,
-                    .data = &deltaEncoded,
-                    .numRuns = 0,
-                    .physicalLength = static_cast<std::uint32_t>(values.size())};
-            break;
         case IntegerEncodingOption::RLE:
+        case IntegerEncodingOption::DELTA_RLE:
             best = {.t1 = LogicalLevelTechnique::RLE,
                     .t2 = LogicalLevelTechnique::NONE,
                     .data = &rleEncoded,
                     .numRuns = runs,
                     .physicalLength = rlePhysicalLength};
-            break;
-        case IntegerEncodingOption::DELTA_RLE:
-            best = {.t1 = LogicalLevelTechnique::DELTA,
-                    .t2 = LogicalLevelTechnique::RLE,
-                    .data = &deltaRleEncoded,
-                    .numRuns = deltaRuns,
-                    .physicalLength = deltaRlePhysicalLength};
             break;
     }
 
@@ -451,6 +288,163 @@ IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> v
             .encodedValues = std::move(*best.data),
             .numRuns = best.numRuns,
             .physicalLevelEncodedValuesLength = best.physicalLength};
+}
+
+template <typename TUnsigned, typename TSigned, typename SignedEncodeFn>
+std::optional<IntegerEncodingResult> tryEncodeViaSignedPath(std::span<const TUnsigned> values,
+                                                            SignedEncodeFn&& encodeSigned) {
+    static_assert(std::is_unsigned_v<TUnsigned>, "TUnsigned must be unsigned");
+    static_assert(std::is_signed_v<TSigned>, "TSigned must be signed");
+
+    const bool canUseSignedPath = std::ranges::all_of(
+        values, [](TUnsigned v) { return v <= static_cast<TUnsigned>(std::numeric_limits<TSigned>::max()); });
+    if (!canUseSignedPath) {
+        return std::nullopt;
+    }
+
+    std::vector<TSigned> signedValues(values.size());
+    std::ranges::transform(values, signedValues.begin(), [](TUnsigned v) { return static_cast<TSigned>(v); });
+    return encodeSigned(signedValues);
+}
+
+template <typename T, typename VarintFn, typename FastPforFn>
+auto makeSignedPhysicalEncoder(PhysicalLevelTechnique physicalTechnique,
+                               VarintFn&& varintEncode,
+                               FastPforFn&& fastPforEncode) {
+    return [physicalTechnique,
+            varintEncode = std::forward<VarintFn>(varintEncode),
+            fastPforEncode = std::forward<FastPforFn>(fastPforEncode)](std::span<const T> input, bool zigZag) {
+#if MLT_WITH_FASTPFOR
+        if (physicalTechnique == PhysicalLevelTechnique::FAST_PFOR) {
+            return fastPforEncode(input, zigZag);
+        }
+#endif
+        return varintEncode(input, zigZag);
+    };
+}
+
+template <typename T, typename VarintFn, typename FastPforFn>
+auto makeUnsignedPhysicalEncoder(PhysicalLevelTechnique physicalTechnique,
+                                 VarintFn&& varintEncode,
+                                 FastPforFn&& fastPforEncode) {
+    return [physicalTechnique,
+            varintEncode = std::forward<VarintFn>(varintEncode),
+            fastPforEncode = std::forward<FastPforFn>(fastPforEncode)](std::span<const T> input) {
+#if MLT_WITH_FASTPFOR
+        if (physicalTechnique == PhysicalLevelTechnique::FAST_PFOR) {
+            return fastPforEncode(input);
+        }
+#endif
+        return varintEncode(input);
+    };
+}
+
+template <typename TValue, typename EncodeFn, typename BuildFn>
+std::vector<std::uint8_t> encodeStreamWithMetadata(std::span<const TValue> values,
+                                                   PhysicalLevelTechnique physicalTechnique,
+                                                   PhysicalStreamType streamType,
+                                                   std::optional<LogicalStreamType> logicalType,
+                                                   EncodeFn&& encodeValues,
+                                                   BuildFn&& buildStreamFn) {
+    const auto encoded = encodeValues(values);
+    return buildStreamFn(
+        encoded, static_cast<std::uint32_t>(values.size()), physicalTechnique, streamType, std::move(logicalType));
+}
+
+} // namespace
+
+struct IntegerEncoder::Impl {
+#if MLT_WITH_FASTPFOR
+    FastPForLib::CompositeCodec<FastPForLib::FastPFor<8>, FastPForLib::VariableByte> codec;
+#endif
+    IntegerEncodingOption encodingOption = IntegerEncodingOption::AUTO;
+};
+
+IntegerEncoder::IntegerEncoder()
+    : impl(std::make_unique<Impl>()) {}
+
+IntegerEncoder::~IntegerEncoder() noexcept = default;
+
+void IntegerEncoder::setDefaultEncodingOption(IntegerEncodingOption option) {
+    impl->encodingOption = option;
+}
+
+std::vector<std::uint8_t> IntegerEncoder::encodeVarints32(std::span<const std::int32_t> values, bool zigZag) {
+    return encodeVarintsIntegral(values, zigZag);
+}
+
+std::vector<std::uint8_t> IntegerEncoder::encodeVarints64(std::span<const std::int64_t> values, bool zigZag) {
+    return encodeVarintsIntegral(values, zigZag);
+}
+
+std::vector<std::uint8_t> IntegerEncoder::encodeVarintsUnsigned32(std::span<const std::uint32_t> values) {
+    return encodeVarintsIntegral(values);
+}
+
+std::vector<std::uint8_t> IntegerEncoder::encodeVarintsUnsigned64(std::span<const std::uint64_t> values) {
+    return encodeVarintsIntegral(values);
+}
+
+std::vector<std::uint8_t> IntegerEncoder::encodeFastPfor([[maybe_unused]] std::span<const std::int32_t> values,
+                                                         [[maybe_unused]] bool zigZag) {
+#if MLT_WITH_FASTPFOR
+    const auto transform = [zigZag](std::int32_t v) {
+        return zigZag ? util::encoding::encodeZigZag(v) : static_cast<std::uint32_t>(v);
+    };
+    return encodeFastPforCore(values, transform, impl->codec);
+#else
+    throw std::runtime_error("FastPFOR encoding is not enabled. Configure with MLT_WITH_FASTPFOR=ON");
+#endif
+}
+
+std::vector<std::uint8_t> IntegerEncoder::encodeFastPforUnsigned(
+    [[maybe_unused]] std::span<const std::uint32_t> values) {
+#if MLT_WITH_FASTPFOR
+    const auto transform = [](std::uint32_t v) {
+        return v;
+    };
+    return encodeFastPforCore(values, transform, impl->codec);
+#else
+    throw std::runtime_error("FastPFOR encoding is not enabled. Configure with MLT_WITH_FASTPFOR=ON");
+#endif
+}
+
+IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> values,
+                                                [[maybe_unused]] PhysicalLevelTechnique physicalTechnique,
+                                                bool isSigned) {
+    return encodeInt(values, physicalTechnique, isSigned, impl->encodingOption);
+}
+
+IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> values,
+                                                [[maybe_unused]] PhysicalLevelTechnique physicalTechnique,
+                                                bool isSigned,
+                                                IntegerEncodingOption option) {
+    const auto encode = makeSignedPhysicalEncoder<std::int32_t>(
+        physicalTechnique,
+        [this](std::span<const std::int32_t> input, bool zigZag) { return encodeVarints32(input, zigZag); },
+        [this](std::span<const std::int32_t> input, bool zigZag) { return encodeFastPfor(input, zigZag); });
+    return encodeSignedIntegral<std::int32_t>(values,
+                                              isSigned,
+                                              option,
+                                              encode,
+                                              /*preferConstRleWhenSingleRun=*/true);
+}
+
+IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> values, bool isSigned) {
+    return encodeLong(values, isSigned, impl->encodingOption);
+}
+
+IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> values,
+                                                 bool isSigned,
+                                                 IntegerEncodingOption option) {
+    const auto encode = [this](std::span<const std::int64_t> input, bool zigZag) {
+        return encodeVarints64(input, zigZag);
+    };
+    return encodeSignedIntegral<std::int64_t>(values,
+                                              isSigned,
+                                              option,
+                                              encode,
+                                              /*preferConstRleWhenSingleRun=*/false);
 }
 
 IntegerEncodingResult IntegerEncoder::encodeUint32(std::span<const std::uint32_t> values,
@@ -461,98 +455,18 @@ IntegerEncodingResult IntegerEncoder::encodeUint32(std::span<const std::uint32_t
 IntegerEncodingResult IntegerEncoder::encodeUint32(std::span<const std::uint32_t> values,
                                                    [[maybe_unused]] PhysicalLevelTechnique physicalTechnique,
                                                    IntegerEncodingOption option) {
-    const bool canUseSignedPath = std::ranges::all_of(values, [](std::uint32_t v) {
-        return v <= static_cast<std::uint32_t>(std::numeric_limits<std::int32_t>::max());
-    });
-    if (canUseSignedPath) {
-        std::vector<std::int32_t> signedValues(values.size());
-        std::ranges::transform(
-            values, signedValues.begin(), [](std::uint32_t v) { return static_cast<std::int32_t>(v); });
+    const auto signedEncoded = tryEncodeViaSignedPath<std::uint32_t, std::int32_t>(values, [&](auto& signedValues) {
         return encodeInt(signedValues, physicalTechnique, /*isSigned=*/false, option);
+    });
+    if (signedEncoded.has_value()) {
+        return std::move(*signedEncoded);
     }
 
-#if MLT_WITH_FASTPFOR
-    const auto encode = (physicalTechnique == PhysicalLevelTechnique::FAST_PFOR)
-                            ? &IntegerEncoder::encodeFastPforUnsigned
-                            : &IntegerEncoder::encodeVarintsUnsigned32;
-#else
-    const auto encode = &IntegerEncoder::encodeVarintsUnsigned32;
-#endif
-
-    auto plainEncoded = (this->*encode)(values);
-
-    struct Candidate {
-        LogicalLevelTechnique t1;
-        LogicalLevelTechnique t2;
-        std::vector<std::uint8_t>* data;
-        std::uint32_t numRuns;
-        std::uint32_t physicalLength;
-    };
-
-    Candidate best{.t1 = LogicalLevelTechnique::NONE,
-                   .t2 = LogicalLevelTechnique::NONE,
-                   .data = &plainEncoded,
-                   .numRuns = 0,
-                   .physicalLength = static_cast<std::uint32_t>(values.size())};
-
-    std::uint32_t runs = 1;
-    std::uint32_t previousValue = 0;
-    for (std::size_t i = 0; i < values.size(); ++i) {
-        const auto value = values[i];
-        if (i != 0 && value != previousValue) {
-            ++runs;
-        }
-        previousValue = value;
-    }
-
-    std::vector<std::uint8_t> rleEncoded;
-    std::uint32_t rlePhysicalLength = 0;
-    const bool shouldTryRle = option != IntegerEncodingOption::AUTO || values.size() / runs >= 2;
-    if (shouldTryRle) {
-        auto rle = util::encoding::rle::encodeIntRle<std::uint32_t>(values);
-
-        std::vector<std::uint32_t> flattened;
-        flattened.reserve(rle.runs.size() + rle.values.size());
-        flattened.insert(flattened.end(), rle.runs.begin(), rle.runs.end());
-        flattened.insert(flattened.end(), rle.values.begin(), rle.values.end());
-        rleEncoded = (this->*encode)(flattened);
-
-        rlePhysicalLength = static_cast<std::uint32_t>(rle.runs.size() + rle.values.size());
-        if (rleEncoded.size() < best.data->size()) {
-            best = {.t1 = LogicalLevelTechnique::RLE,
-                    .t2 = LogicalLevelTechnique::NONE,
-                    .data = &rleEncoded,
-                    .numRuns = runs,
-                    .physicalLength = rlePhysicalLength};
-        }
-    }
-
-    switch (option) {
-        case IntegerEncodingOption::AUTO:
-            break;
-        case IntegerEncodingOption::PLAIN:
-        case IntegerEncodingOption::DELTA:
-            best = {.t1 = LogicalLevelTechnique::NONE,
-                    .t2 = LogicalLevelTechnique::NONE,
-                    .data = &plainEncoded,
-                    .numRuns = 0,
-                    .physicalLength = static_cast<std::uint32_t>(values.size())};
-            break;
-        case IntegerEncodingOption::RLE:
-        case IntegerEncodingOption::DELTA_RLE:
-            best = {.t1 = LogicalLevelTechnique::RLE,
-                    .t2 = LogicalLevelTechnique::NONE,
-                    .data = &rleEncoded,
-                    .numRuns = runs,
-                    .physicalLength = rlePhysicalLength};
-            break;
-    }
-
-    return {.logicalLevelTechnique1 = best.t1,
-            .logicalLevelTechnique2 = best.t2,
-            .encodedValues = std::move(*best.data),
-            .numRuns = best.numRuns,
-            .physicalLevelEncodedValuesLength = best.physicalLength};
+    const auto encode = makeUnsignedPhysicalEncoder<std::uint32_t>(
+        physicalTechnique,
+        [this](std::span<const std::uint32_t> input) { return encodeVarintsUnsigned32(input); },
+        [this](std::span<const std::uint32_t> input) { return encodeFastPforUnsigned(input); });
+    return encodeUnsignedIntegralNoDelta<std::uint32_t>(values, option, encode);
 }
 
 IntegerEncodingResult IntegerEncoder::encodeUint64(std::span<const std::uint64_t> values) {
@@ -561,90 +475,16 @@ IntegerEncodingResult IntegerEncoder::encodeUint64(std::span<const std::uint64_t
 
 IntegerEncodingResult IntegerEncoder::encodeUint64(std::span<const std::uint64_t> values,
                                                    IntegerEncodingOption option) {
-    const bool canUseSignedPath = std::ranges::all_of(values, [](std::uint64_t v) {
-        return v <= static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
-    });
-    if (canUseSignedPath) {
-        std::vector<std::int64_t> signedValues(values.size());
-        std::ranges::transform(
-            values, signedValues.begin(), [](std::uint64_t v) { return static_cast<std::int64_t>(v); });
-        return encodeLong(signedValues, /*isSigned=*/false, option);
+    const auto signedEncoded = tryEncodeViaSignedPath<std::uint64_t, std::int64_t>(
+        values, [&](auto& signedValues) { return encodeLong(signedValues, /*isSigned=*/false, option); });
+    if (signedEncoded.has_value()) {
+        return std::move(*signedEncoded);
     }
 
-    auto plainEncoded = encodeVarintsUnsigned64(values);
-
-    struct Candidate {
-        LogicalLevelTechnique t1;
-        LogicalLevelTechnique t2;
-        std::vector<std::uint8_t>* data;
-        std::uint32_t numRuns;
-        std::uint32_t physicalLength;
+    const auto encode = [this](std::span<const std::uint64_t> input) {
+        return encodeVarintsUnsigned64(input);
     };
-
-    Candidate best{.t1 = LogicalLevelTechnique::NONE,
-                   .t2 = LogicalLevelTechnique::NONE,
-                   .data = &plainEncoded,
-                   .numRuns = 0,
-                   .physicalLength = static_cast<std::uint32_t>(values.size())};
-
-    std::uint32_t runs = 1;
-    std::uint64_t previousValue = 0;
-    for (std::size_t i = 0; i < values.size(); ++i) {
-        const auto value = values[i];
-        if (i != 0 && value != previousValue) {
-            ++runs;
-        }
-        previousValue = value;
-    }
-
-    std::vector<std::uint8_t> rleEncoded;
-    std::uint32_t rlePhysicalLength = 0;
-    const bool shouldTryRle = option != IntegerEncodingOption::AUTO || values.size() / runs >= 2;
-    if (shouldTryRle) {
-        auto rle = util::encoding::rle::encodeIntRle<std::uint64_t>(values);
-
-        std::vector<std::uint64_t> flattened;
-        flattened.reserve(rle.runs.size() + rle.values.size());
-        flattened.insert(flattened.end(), rle.runs.begin(), rle.runs.end());
-        flattened.insert(flattened.end(), rle.values.begin(), rle.values.end());
-        rleEncoded = encodeVarintsUnsigned64(flattened);
-
-        rlePhysicalLength = static_cast<std::uint32_t>(rle.runs.size() + rle.values.size());
-        if (rleEncoded.size() < best.data->size()) {
-            best = {.t1 = LogicalLevelTechnique::RLE,
-                    .t2 = LogicalLevelTechnique::NONE,
-                    .data = &rleEncoded,
-                    .numRuns = runs,
-                    .physicalLength = rlePhysicalLength};
-        }
-    }
-
-    switch (option) {
-        case IntegerEncodingOption::AUTO:
-            break;
-        case IntegerEncodingOption::PLAIN:
-        case IntegerEncodingOption::DELTA:
-            best = {.t1 = LogicalLevelTechnique::NONE,
-                    .t2 = LogicalLevelTechnique::NONE,
-                    .data = &plainEncoded,
-                    .numRuns = 0,
-                    .physicalLength = static_cast<std::uint32_t>(values.size())};
-            break;
-        case IntegerEncodingOption::RLE:
-        case IntegerEncodingOption::DELTA_RLE:
-            best = {.t1 = LogicalLevelTechnique::RLE,
-                    .t2 = LogicalLevelTechnique::NONE,
-                    .data = &rleEncoded,
-                    .numRuns = runs,
-                    .physicalLength = rlePhysicalLength};
-            break;
-    }
-
-    return {.logicalLevelTechnique1 = best.t1,
-            .logicalLevelTechnique2 = best.t2,
-            .encodedValues = std::move(*best.data),
-            .numRuns = best.numRuns,
-            .physicalLevelEncodedValuesLength = best.physicalLength};
+    return encodeUnsignedIntegralNoDelta<std::uint64_t>(values, option, encode);
 }
 
 std::vector<std::uint8_t> IntegerEncoder::buildStream(const IntegerEncodingResult& encoded,
@@ -689,9 +529,8 @@ std::vector<std::uint8_t> IntegerEncoder::encodeIntStream(std::span<const std::i
                                                           bool isSigned,
                                                           PhysicalStreamType streamType,
                                                           std::optional<LogicalStreamType> logicalType) {
-    const auto encoded = encodeInt(values, physicalTechnique, isSigned, impl->encodingOption);
-    return buildStream(
-        encoded, static_cast<std::uint32_t>(values.size()), physicalTechnique, streamType, std::move(logicalType));
+    return encodeIntStream(
+        values, physicalTechnique, isSigned, streamType, std::move(logicalType), impl->encodingOption);
 }
 
 std::vector<std::uint8_t> IntegerEncoder::encodeIntStream(std::span<const std::int32_t> values,
@@ -700,21 +539,22 @@ std::vector<std::uint8_t> IntegerEncoder::encodeIntStream(std::span<const std::i
                                                           PhysicalStreamType streamType,
                                                           std::optional<LogicalStreamType> logicalType,
                                                           IntegerEncodingOption option) {
-    const auto encoded = encodeInt(values, physicalTechnique, isSigned, option);
-    return buildStream(
-        encoded, static_cast<std::uint32_t>(values.size()), physicalTechnique, streamType, std::move(logicalType));
+    return encodeStreamWithMetadata<std::int32_t>(
+        values,
+        physicalTechnique,
+        streamType,
+        std::move(logicalType),
+        [this, physicalTechnique, isSigned, option](std::span<const std::int32_t> input) {
+            return encodeInt(input, physicalTechnique, isSigned, option);
+        },
+        &IntegerEncoder::buildStream);
 }
 
 std::vector<std::uint8_t> IntegerEncoder::encodeLongStream(std::span<const std::int64_t> values,
                                                            bool isSigned,
                                                            PhysicalStreamType streamType,
                                                            std::optional<LogicalStreamType> logicalType) {
-    const auto encoded = encodeLong(values, isSigned, impl->encodingOption);
-    return buildStream(encoded,
-                       static_cast<std::uint32_t>(values.size()),
-                       PhysicalLevelTechnique::VARINT,
-                       streamType,
-                       std::move(logicalType));
+    return encodeLongStream(values, isSigned, streamType, std::move(logicalType), impl->encodingOption);
 }
 
 std::vector<std::uint8_t> IntegerEncoder::encodeLongStream(std::span<const std::int64_t> values,
@@ -722,21 +562,20 @@ std::vector<std::uint8_t> IntegerEncoder::encodeLongStream(std::span<const std::
                                                            PhysicalStreamType streamType,
                                                            std::optional<LogicalStreamType> logicalType,
                                                            IntegerEncodingOption option) {
-    const auto encoded = encodeLong(values, isSigned, option);
-    return buildStream(encoded,
-                       static_cast<std::uint32_t>(values.size()),
-                       PhysicalLevelTechnique::VARINT,
-                       streamType,
-                       std::move(logicalType));
+    return encodeStreamWithMetadata<std::int64_t>(
+        values,
+        PhysicalLevelTechnique::VARINT,
+        streamType,
+        std::move(logicalType),
+        [this, isSigned, option](std::span<const std::int64_t> input) { return encodeLong(input, isSigned, option); },
+        &IntegerEncoder::buildStream);
 }
 
 std::vector<std::uint8_t> IntegerEncoder::encodeUint32Stream(std::span<const std::uint32_t> values,
                                                              PhysicalLevelTechnique physicalTechnique,
                                                              PhysicalStreamType streamType,
                                                              std::optional<LogicalStreamType> logicalType) {
-    const auto encoded = encodeUint32(values, physicalTechnique, impl->encodingOption);
-    return buildStream(
-        encoded, static_cast<std::uint32_t>(values.size()), physicalTechnique, streamType, std::move(logicalType));
+    return encodeUint32Stream(values, physicalTechnique, streamType, std::move(logicalType), impl->encodingOption);
 }
 
 std::vector<std::uint8_t> IntegerEncoder::encodeUint32Stream(std::span<const std::uint32_t> values,
@@ -744,32 +583,34 @@ std::vector<std::uint8_t> IntegerEncoder::encodeUint32Stream(std::span<const std
                                                              PhysicalStreamType streamType,
                                                              std::optional<LogicalStreamType> logicalType,
                                                              IntegerEncodingOption option) {
-    const auto encoded = encodeUint32(values, physicalTechnique, option);
-    return buildStream(
-        encoded, static_cast<std::uint32_t>(values.size()), physicalTechnique, streamType, std::move(logicalType));
+    return encodeStreamWithMetadata<std::uint32_t>(
+        values,
+        physicalTechnique,
+        streamType,
+        std::move(logicalType),
+        [this, physicalTechnique, option](std::span<const std::uint32_t> input) {
+            return encodeUint32(input, physicalTechnique, option);
+        },
+        &IntegerEncoder::buildStream);
 }
 
 std::vector<std::uint8_t> IntegerEncoder::encodeUint64Stream(std::span<const std::uint64_t> values,
                                                              PhysicalStreamType streamType,
                                                              std::optional<LogicalStreamType> logicalType) {
-    const auto encoded = encodeUint64(values, impl->encodingOption);
-    return buildStream(encoded,
-                       static_cast<std::uint32_t>(values.size()),
-                       PhysicalLevelTechnique::VARINT,
-                       streamType,
-                       std::move(logicalType));
+    return encodeUint64Stream(values, streamType, std::move(logicalType), impl->encodingOption);
 }
 
 std::vector<std::uint8_t> IntegerEncoder::encodeUint64Stream(std::span<const std::uint64_t> values,
                                                              PhysicalStreamType streamType,
                                                              std::optional<LogicalStreamType> logicalType,
                                                              IntegerEncodingOption option) {
-    const auto encoded = encodeUint64(values, option);
-    return buildStream(encoded,
-                       static_cast<std::uint32_t>(values.size()),
-                       PhysicalLevelTechnique::VARINT,
-                       streamType,
-                       std::move(logicalType));
+    return encodeStreamWithMetadata<std::uint64_t>(
+        values,
+        PhysicalLevelTechnique::VARINT,
+        streamType,
+        std::move(logicalType),
+        [this, option](std::span<const std::uint64_t> input) { return encodeUint64(input, option); },
+        &IntegerEncoder::buildStream);
 }
 
 } // namespace mlt::encoder

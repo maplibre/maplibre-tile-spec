@@ -410,6 +410,21 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
     const auto metadataBytes = encodeFeatureTable(featureTable);
 
     std::vector<std::uint8_t> bodyBytes;
+    const auto appendEncodedColumn = [&](const auto& encoded) {
+        bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
+    };
+    const auto appendEncodedStreamSet = [&](std::uint32_t numStreams, const auto& encodedValues) {
+        util::encoding::encodeVarint(numStreams, bodyBytes);
+        bodyBytes.insert(bodyBytes.end(), encodedValues.begin(), encodedValues.end());
+    };
+    const auto extractIds = [&]<typename TId>(auto&& convertId) {
+        std::vector<std::optional<TId>> ids;
+        ids.reserve(features.size());
+        for (const auto& feature : features) {
+            ids.push_back(convertId(feature));
+        }
+        return ids;
+    };
 
     if (config.includeIds) {
         const bool hasLongId = std::ranges::any_of(features, [](const auto& f) {
@@ -418,18 +433,17 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
         const bool hasMissingId = std::ranges::any_of(features, [](const auto& f) { return !f.id.has_value(); });
 
         if (hasLongId) {
-            std::vector<std::optional<std::uint64_t>> ids(features.size());
-            std::ranges::transform(
-                features, ids.begin(), [](const auto& f) -> std::optional<std::uint64_t> { return f.id; });
-            auto encoded = PropertyEncoder::encodeUint64Column(ids, intEncoder, hasMissingId);
-            bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
+            auto ids = extractIds.template operator()<std::uint64_t>(
+                [](const auto& feature) -> std::optional<std::uint64_t> { return feature.id; });
+            appendEncodedColumn(PropertyEncoder::encodeUint64Column(ids, intEncoder, hasMissingId));
         } else {
-            std::vector<std::optional<std::int32_t>> ids(features.size());
-            std::ranges::transform(features, ids.begin(), [](const auto& f) -> std::optional<std::int32_t> {
-                return f.id.has_value() ? std::optional<std::int32_t>{static_cast<std::int32_t>(*f.id)} : std::nullopt;
-            });
-            auto encoded = PropertyEncoder::encodeInt32Column(ids, physicalTechnique, false, intEncoder, hasMissingId);
-            bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
+            auto ids = extractIds.template operator()<std::int32_t>(
+                [](const auto& feature) -> std::optional<std::int32_t> {
+                    return feature.id.has_value() ? std::optional<std::int32_t>{static_cast<std::int32_t>(*feature.id)}
+                                                  : std::nullopt;
+                });
+            appendEncodedColumn(
+                PropertyEncoder::encodeInt32Column(ids, physicalTechnique, false, intEncoder, hasMissingId));
         }
     }
 
@@ -474,8 +488,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                                                      config.forceMortonGeometryLayout);
     }();
 
-    util::encoding::encodeVarint(encodedGeom.numStreams, bodyBytes);
-    bodyBytes.insert(bodyBytes.end(), encodedGeom.encodedValues.begin(), encodedGeom.encodedValues.end());
+    appendEncodedStreamSet(encodedGeom.numStreams, encodedGeom.encodedValues);
 
     for (const auto& column : featureTable.columns) {
         if (column.isID() || column.isGeometry()) {
@@ -487,6 +500,23 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
             const auto& rootName = column.name;
             const auto sourceKey = resolveStructSourceKey(features, column);
             const auto numChildren = complex.children.size();
+            const auto getStructValue = [&](const auto& feature) -> const Encoder::StructValue* {
+                auto it = sourceKey ? feature.properties.find(*sourceKey) : feature.properties.find(rootName);
+                if (it != feature.properties.end() && std::holds_alternative<Encoder::StructValue>(it->second)) {
+                    return &std::get<Encoder::StructValue>(it->second);
+                }
+                return nullptr;
+            };
+            const auto resolveStructChildValue = [&](const Encoder::StructValue& sv,
+                                                     const std::string& childName) -> const std::string* {
+                if (auto childIt = sv.find(childName); childIt != sv.end()) {
+                    return &childIt->second;
+                }
+                if (auto prefixedChildIt = sv.find(rootName + childName); prefixedChildIt != sv.end()) {
+                    return &prefixedChildIt->second;
+                }
+                return nullptr;
+            };
 
             std::vector<std::vector<std::string>> ownedStrings(numChildren);
             std::vector<std::vector<std::string_view>> viewStorage(numChildren);
@@ -497,20 +527,12 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
             }
 
             for (const auto& f : features) {
-                auto it = sourceKey ? f.properties.find(*sourceKey) : f.properties.find(rootName);
-                const Encoder::StructValue* sv = nullptr;
-                if (it != f.properties.end() && std::holds_alternative<Encoder::StructValue>(it->second)) {
-                    sv = &std::get<Encoder::StructValue>(it->second);
-                }
+                const auto* sv = getStructValue(f);
                 for (std::size_t c = 0; c < numChildren; ++c) {
                     if (sv) {
-                        const auto& childName = complex.children[c].name;
-                        if (auto childIt = sv->find(childName); childIt != sv->end()) {
-                            ownedStrings[c].push_back(childIt->second);
-                            continue;
-                        }
-                        if (auto prefixedChildIt = sv->find(rootName + childName); prefixedChildIt != sv->end()) {
-                            ownedStrings[c].push_back(prefixedChildIt->second);
+                        if (const auto* childValue = resolveStructChildValue(*sv, complex.children[c].name);
+                            childValue != nullptr) {
+                            ownedStrings[c].push_back(*childValue);
                             continue;
                         }
                     }
@@ -528,13 +550,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
             for (std::size_t c = 0; c < numChildren; ++c) {
                 sharedCols[c].reserve(features.size());
                 for (std::size_t fi = 0; fi < features.size(); ++fi) {
-                    auto it = sourceKey ? features[fi].properties.find(*sourceKey)
-                                        : features[fi].properties.find(rootName);
-                    const Encoder::StructValue* sv = nullptr;
-                    if (it != features[fi].properties.end() &&
-                        std::holds_alternative<Encoder::StructValue>(it->second)) {
-                        sv = &std::get<Encoder::StructValue>(it->second);
-                    }
+                    const auto* sv = getStructValue(features[fi]);
                     if (sv && structValueHasChild(*sv, rootName, complex.children[c].name)) {
                         sharedCols[c].push_back(&viewStorage[c][fi]);
                     } else {
@@ -546,8 +562,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
             auto result = StringEncoder::encodeSharedDictionary(
                 sharedCols, physicalTechnique, intEncoder, config.useFsst);
 
-            util::encoding::encodeVarint(result.numStreams, bodyBytes);
-            bodyBytes.insert(bodyBytes.end(), result.data.begin(), result.data.end());
+            appendEncodedStreamSet(result.numStreams, result.data);
             continue;
         }
 
@@ -569,79 +584,86 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
             return values;
         };
 
+        const auto encodeExtractedColumn = [&]<typename T>(auto&& visitor, auto&& encodeColumn) {
+            auto values = extractColumn.template operator()<T>(visitor);
+            return encodeColumn(values);
+        };
+
         std::vector<std::uint8_t> encoded;
         switch (scalarType) {
             case ScalarType::BOOLEAN:
-                encoded = PropertyEncoder::encodeBooleanColumn(
-                    extractColumn.template operator()<bool>(util::overloaded{
+                encoded = encodeExtractedColumn.template operator()<bool>(
+                    util::overloaded{
                         [](bool v) -> bool { return v; },
                         // the type is already determined by column metadata, so the catch-all arms are dead by
                         // construction
                         [](auto) -> bool { throwInvalidType(); }, // GCOVR_EXCL_LINE
-                    }),
-                    column.nullable);
+                    },
+                    [&](const auto& values) { return PropertyEncoder::encodeBooleanColumn(values, column.nullable); });
                 break;
             case ScalarType::INT_32:
-                encoded = PropertyEncoder::encodeInt32Column(
-                    extractColumn.template operator()<std::int32_t>(util::overloaded{
+                encoded = encodeExtractedColumn.template operator()<std::int32_t>(
+                    util::overloaded{
                         [](std::int32_t v) -> std::int32_t { return v; },
                         [](std::int64_t v) -> std::int32_t { return static_cast<std::int32_t>(v); },
                         [](auto) -> std::int32_t { throwInvalidType(); }, // GCOVR_EXCL_LINE
-                    }),
-                    physicalTechnique,
-                    true,
-                    intEncoder,
-                    column.nullable);
+                    },
+                    [&](const auto& values) {
+                        return PropertyEncoder::encodeInt32Column(
+                            values, physicalTechnique, true, intEncoder, column.nullable);
+                    });
                 break;
             case ScalarType::UINT_32:
-                encoded = PropertyEncoder::encodeUint32Column(
-                    extractColumn.template operator()<std::uint32_t>(util::overloaded{
+                encoded = encodeExtractedColumn.template operator()<std::uint32_t>(
+                    util::overloaded{
                         [](std::uint32_t v) -> std::uint32_t { return v; },
                         [](std::int32_t v) -> std::uint32_t { return static_cast<std::uint32_t>(v); },
                         [](auto) -> std::uint32_t { throwInvalidType(); }, // GCOVR_EXCL_LINE
-                    }),
-                    physicalTechnique,
-                    intEncoder,
-                    column.nullable);
+                    },
+                    [&](const auto& values) {
+                        return PropertyEncoder::encodeUint32Column(
+                            values, physicalTechnique, intEncoder, column.nullable);
+                    });
                 break;
             case ScalarType::INT_64:
-                encoded = PropertyEncoder::encodeInt64Column(
-                    extractColumn.template operator()<std::int64_t>(util::overloaded{
+                encoded = encodeExtractedColumn.template operator()<std::int64_t>(
+                    util::overloaded{
                         [](std::int64_t v) -> std::int64_t { return v; },
                         [](std::int32_t v) -> std::int64_t { return v; },
                         [](auto) -> std::int64_t { throwInvalidType(); }, // GCOVR_EXCL_LINE
-                    }),
-                    true,
-                    intEncoder,
-                    column.nullable);
+                    },
+                    [&](const auto& values) {
+                        return PropertyEncoder::encodeInt64Column(values, true, intEncoder, column.nullable);
+                    });
                 break;
             case ScalarType::UINT_64:
-                encoded = PropertyEncoder::encodeUint64Column(
-                    extractColumn.template operator()<std::uint64_t>(util::overloaded{
+                encoded = encodeExtractedColumn.template operator()<std::uint64_t>(
+                    util::overloaded{
                         [](std::uint64_t v) -> std::uint64_t { return v; },
                         [](std::int64_t v) -> std::uint64_t { return static_cast<std::uint64_t>(v); },
                         [](auto) -> std::uint64_t { throwInvalidType(); }, // GCOVR_EXCL_LINE
-                    }),
-                    intEncoder,
-                    column.nullable);
+                    },
+                    [&](const auto& values) {
+                        return PropertyEncoder::encodeUint64Column(values, intEncoder, column.nullable);
+                    });
                 break;
             case ScalarType::FLOAT:
-                encoded = PropertyEncoder::encodeFloatColumn(
-                    extractColumn.template operator()<float>(util::overloaded{
+                encoded = encodeExtractedColumn.template operator()<float>(
+                    util::overloaded{
                         [](float v) -> float { return v; },
                         [](double v) -> float { return static_cast<float>(v); },
                         [](auto) -> float { throwInvalidType(); }, // GCOVR_EXCL_LINE
-                    }),
-                    column.nullable);
+                    },
+                    [&](const auto& values) { return PropertyEncoder::encodeFloatColumn(values, column.nullable); });
                 break;
             case ScalarType::DOUBLE:
-                encoded = PropertyEncoder::encodeDoubleColumn(
-                    extractColumn.template operator()<double>(util::overloaded{
+                encoded = encodeExtractedColumn.template operator()<double>(
+                    util::overloaded{
                         [](double v) -> double { return v; },
                         [](float v) -> double { return static_cast<double>(v); },
                         [](auto) -> double { throwInvalidType(); }, // GCOVR_EXCL_LINE
-                    }),
-                    column.nullable);
+                    },
+                    [&](const auto& values) { return PropertyEncoder::encodeDoubleColumn(values, column.nullable); });
                 break;
             case ScalarType::STRING: {
                 std::vector<std::string> ownedStrings;
@@ -670,7 +692,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
             default:
                 throwInvalidType(); // GCOVR_EXCL_LINE
         }
-        bodyBytes.insert(bodyBytes.end(), encoded.begin(), encoded.end());
+        appendEncodedColumn(encoded);
     }
 
     std::vector<std::uint8_t> layerBytes;
