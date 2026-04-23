@@ -49,3 +49,6 @@ tokio.workspace = true
 
 [lints]
 workspace = true
+
+#[target.x86_64-unknown-linux-gnu]
+#rustflags = ["-Clink-arg=-Wl,--no-rosegment"]

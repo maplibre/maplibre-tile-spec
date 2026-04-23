@@ -184,6 +184,11 @@ _coverage: (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm
 profile *args:
     cargo run --release -p mlt --features='__hotpath,__hotpath-alloc,__hotpath-mcp' -- {{args}}
 
+# Profile the `mlt` binary with cargo-flamegraph
+[working-directory: '..']
+flamegraph *args: (just 'cargo-install' 'cargo-flamegraph' 'flamegraph')
+    CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph --manifest-path {{join(justfile_directory(), 'rust', 'Cargo.toml')}} --release -p mlt --bin mlt --open -- {{args}}
+
 # Download ~5k benchmark tiles (z0-z6) from Protomaps into outdir.
 # Skips if a previous complete download is detected (.complete sentinel).
 # ODbL-licensed OSM data; extraction explicitly permitted by Protomaps.

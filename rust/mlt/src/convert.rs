@@ -22,9 +22,6 @@ use tokio::task::spawn_blocking;
 
 use crate::ls::is_mlt_extension;
 
-/// How many raw tiles to collect before shipping a batch to the compute stage.
-const BATCH_SIZE: usize = 500;
-
 /// Raw MVT batch forwarded from the reader to the compute stage.
 type RawBatch = Vec<(TileCoord, Vec<u8>)>;
 /// Converted MLT batch forwarded from the compute stage to the writer.
@@ -36,6 +33,41 @@ const CHANNEL_BUFFER: usize = 4;
 const SAVE_EVERY: Duration = Duration::from_mins(1);
 /// Minimum interval between progress log lines in non-interactive (non-TTY) mode.
 const PROGRESS_REPORT_EVERY: Duration = Duration::from_secs(2);
+
+/// Which WAL checkpoint operation to run at the end of conversion.
+///
+/// This only applies when writing `.mbtiles` output.
+#[derive(Clone, Copy, Default)]
+enum CheckpointMode {
+    /// Checkpoint and truncate WAL (smallest output files, slower finalization).
+    #[default]
+    Truncate,
+    /// Run a passive checkpoint without truncating WAL.
+    Passive,
+}
+
+/// Pick an internal mbtiles batch size based on total tile count.
+///
+/// Larger datasets benefit from larger batches (fewer transactions), while
+/// smaller datasets keep memory usage lower with modest batch sizes.
+fn choose_batch_size(tile_count: u64) -> usize {
+    match tile_count {
+        0..=10_000 => 500,
+        10_001..=100_000 => 2_000,
+        _ => 5_000,
+    }
+}
+
+/// Pick an internal checkpoint strategy.
+///
+/// Large datasets prefer PASSIVE to avoid expensive final WAL truncation.
+fn choose_checkpoint_mode(tile_count: u64) -> CheckpointMode {
+    if tile_count > 100_000 {
+        CheckpointMode::Passive
+    } else {
+        CheckpointMode::Truncate
+    }
+}
 
 /// Output `.mbtiles` schema variant.
 ///
@@ -258,23 +290,24 @@ fn convert_mvt_buffer(buffer: Vec<u8>, cfg: EncoderConfig) -> AnyResult<Vec<u8>>
 }
 
 /// Stage 1 of the pipeline: stream raw MVT tiles from the source `.mbtiles` file in
-/// `BATCH_SIZE` chunks and forward each batch to the compute stage via `raw_tx`.
+/// `batch_size` chunks and forward each batch to the compute stage via `raw_tx`.
 ///
 /// Dropping `raw_tx` at function exit signals EOF to the compute stage.
 async fn mbtiles_reader(
     src: Mbtiles,
     mut src_conn: SqliteConnection,
     raw_tx: Sender<RawBatch>,
+    batch_size: usize,
 ) -> AnyResult<()> {
     let mut stream = src.stream_tiles(&mut src_conn);
-    let mut batch: RawBatch = Vec::with_capacity(BATCH_SIZE);
+    let mut batch: RawBatch = Vec::with_capacity(batch_size);
 
     while let Some(res) = stream.next().await {
         let (coord, data_opt) = res?;
         if let Some(data) = data_opt {
             batch.push((coord, data));
-            if batch.len() >= BATCH_SIZE {
-                let full = mem::replace(&mut batch, Vec::with_capacity(BATCH_SIZE));
+            if batch.len() >= batch_size {
+                let full = mem::replace(&mut batch, Vec::with_capacity(batch_size));
                 raw_tx
                     .send(full)
                     .await
@@ -368,7 +401,7 @@ async fn flush_pending(
 }
 
 /// Stage 3 of the pipeline: accumulate converted MLT tiles and flush them to the
-/// destination `.mbtiles` file whenever `BATCH_SIZE` tiles are pending or `SAVE_EVERY`
+/// destination `.mbtiles` file whenever `batch_size` tiles are pending or `SAVE_EVERY`
 /// seconds have elapsed (matches martin-cp's dual-trigger strategy).
 ///
 /// Each flush is wrapped in one `SQLite` transaction by `insert_tiles`.
@@ -379,6 +412,8 @@ async fn mbtiles_writer(
     mut mlt_rx: Receiver<MltBatch>,
     mbt_type: MbtType,
     bar: ProgressBar,
+    batch_size: usize,
+    checkpoint: CheckpointMode,
 ) -> AnyResult<usize> {
     // WAL mode: readers don't block writers; much better throughput for bulk inserts.
     // The writer checkpoints + truncates the WAL before closing so no sidecar files remain.
@@ -390,13 +425,13 @@ async fn mbtiles_writer(
         .await?;
 
     let mut total = 0usize;
-    let mut pending: MltBatch = Vec::with_capacity(BATCH_SIZE);
+    let mut pending: MltBatch = Vec::with_capacity(batch_size);
     let mut last_saved = Instant::now();
     let mut last_logged = Instant::now();
 
     while let Some(batch) = mlt_rx.recv().await {
         pending.extend(batch);
-        if pending.len() >= BATCH_SIZE || last_saved.elapsed() >= SAVE_EVERY {
+        if pending.len() >= batch_size || last_saved.elapsed() >= SAVE_EVERY {
             let flushed =
                 flush_pending(&dst, &mut dst_conn, &mut pending, &mut total, mbt_type).await?;
             if flushed > 0 {
@@ -416,10 +451,19 @@ async fn mbtiles_writer(
         bar.inc(flushed as u64);
     }
 
-    // Checkpoint + truncate WAL so no -wal/-shm sidecar files remain after close.
-    sqlx::query("PRAGMA wal_checkpoint(TRUNCATE)")
-        .execute(&mut dst_conn)
-        .await?;
+    match checkpoint {
+        CheckpointMode::Truncate => {
+            // Checkpoint + truncate WAL so no -wal/-shm sidecar files remain after close.
+            sqlx::query("PRAGMA wal_checkpoint(TRUNCATE)")
+                .execute(&mut dst_conn)
+                .await?;
+        }
+        CheckpointMode::Passive => {
+            sqlx::query("PRAGMA wal_checkpoint(PASSIVE)")
+                .execute(&mut dst_conn)
+                .await?;
+        }
+    }
     dst_conn.close().await?;
 
     Ok(total)
@@ -470,6 +514,8 @@ async fn convert_mbtiles_async(args: &ConvertArgs, cfg: EncoderConfig) -> AnyRes
         .unwrap_or(0)
         .try_into()
         .unwrap_or(0);
+    let batch_size = choose_batch_size(tile_count);
+    let checkpoint = choose_checkpoint_mode(tile_count);
 
     // ── destination ───────────────────────────────────────────────────────────
     let dst = Mbtiles::new(&args.output)?;
@@ -504,9 +550,17 @@ async fn convert_mbtiles_async(args: &ConvertArgs, cfg: EncoderConfig) -> AnyRes
         hotpath::channel!(channel::<MltBatch>(CHANNEL_BUFFER), label = "encoded_mlt");
 
     let ((), (), total) = tokio::try_join!(
-        mbtiles_reader(src, src_conn, raw_tx),
+        mbtiles_reader(src, src_conn, raw_tx, batch_size),
         mbtiles_compute(raw_rx, mlt_tx, tile_info.encoding, cfg),
-        mbtiles_writer(dst, dst_conn, mlt_rx, mbt_type, bar.clone()),
+        mbtiles_writer(
+            dst,
+            dst_conn,
+            mlt_rx,
+            mbt_type,
+            bar.clone(),
+            batch_size,
+            checkpoint,
+        ),
     )?;
 
     // In non-interactive mode the bar is hidden; print the summary line explicitly.
