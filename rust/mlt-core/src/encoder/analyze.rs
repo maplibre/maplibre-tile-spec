@@ -1,5 +1,6 @@
 use crate::decoder::{ParsedScalar, ParsedSharedDict, ParsedStrings, StreamMeta};
 use crate::encoder::EncodedStream;
+use crate::utils::Presence;
 use crate::{Analyze, StatType};
 
 impl Analyze for EncodedStream {
@@ -15,7 +16,11 @@ impl<T: Analyze + Copy + PartialEq> Analyze for ParsedScalar<'_, T> {
         } else {
             0
         };
-        meta + self.values.collect_statistic(stat)
+        let presence_bytes = match &self.presence {
+            Presence::AllPresent => 0,
+            Presence::Bits(bits) => bits.len().div_ceil(8),
+        };
+        meta + presence_bytes + self.values.collect_statistic(stat)
     }
 }
 

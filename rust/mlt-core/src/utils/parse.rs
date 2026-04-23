@@ -1,4 +1,5 @@
 use crate::codecs::varint::parse_varint;
+use crate::utils::Presence;
 use crate::{Decoder, MltError, MltRefResult, MltResult, RawPresence};
 
 #[inline]
@@ -26,37 +27,23 @@ pub fn parse_u8(input: &[u8]) -> MltRefResult<'_, u8> {
     }
 }
 
-/// Apply an optional present bitmap to a vector of values.
-/// If the presence stream is absent (non-optional column), all values are wrapped in Some.
-/// If present, values are interleaved with None according to the bitmap.
-pub fn apply_present<T>(
-    presence: RawPresence<'_>,
-    values: Vec<T>,
+/// Decode an optional presence stream, validating it against a dense value count.
+///
+/// Returns [`Presence::AllPresent`] when `presence.0` is `None` (non-optional column).
+/// Otherwise decodes the bitvector and checks that the number of set bits equals
+/// `dense_count` (the number of non-null values already decoded).
+pub fn decode_presence<'a>(
+    presence: RawPresence<'a>,
+    dense_count: usize,
     dec: &mut Decoder,
-) -> MltResult<Vec<Option<T>>> {
-    let present: Vec<bool> = if let Some(p) = presence.0 {
-        p.decode_bools(dec)?
-    } else {
-        let mut result = dec.alloc::<Option<T>>(values.len())?;
-        result.extend(values.into_iter().map(Some));
-        return Ok(result);
+) -> MltResult<Presence<'a>> {
+    let Some(raw) = presence.0 else {
+        return Ok(Presence::AllPresent);
     };
-    let present_bit_count = present.iter().filter(|&&b| b).count();
-    if present_bit_count != values.len() {
-        return Err(MltError::PresenceValueCountMismatch(
-            present_bit_count,
-            values.len(),
-        ));
+    let bits = raw.decode_bitvec(dec)?;
+    let set_count = bits.count_ones();
+    if set_count != dense_count {
+        return Err(MltError::PresenceValueCountMismatch(set_count, dense_count));
     }
-    debug_assert!(
-        values.len() <= present.len(),
-        "Since the number of present bits is an upper bound on the number of values and equals values.len(), there cannot be more values than entries in the present bitmap"
-    );
-
-    let mut result = dec.alloc::<Option<T>>(present.len())?;
-    let mut val_iter = values.into_iter();
-    for p in present {
-        result.push(if p { val_iter.next() } else { None });
-    }
-    Ok(result)
+    Ok(Presence::Bits(bits))
 }

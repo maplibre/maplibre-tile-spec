@@ -3,6 +3,7 @@ use std::borrow::Cow;
 use enum_dispatch::enum_dispatch;
 
 use crate::decoder::RawStream;
+use crate::utils::Presence;
 use crate::{DecodeState, Lazy};
 
 /// Property column representation, parameterized by decode state.
@@ -104,11 +105,20 @@ pub enum ParsedProperty<'a> {
     SharedDict(ParsedSharedDict<'a>),
 }
 
+/// Decoded scalar property column (bool, integer, or float).
+///
+/// `presence` indicates which features have a value; `values` holds only the
+/// non-null (present) entries in dense order.
+///
+/// For a non-optional column, `presence` is [`Presence::AllPresent`] and
+/// `values.len()` equals the feature count.  For an optional column, `presence`
+/// is [`Presence::Bits(bits)`][`Presence::Bits`] with `bits.count_ones() == values.len()`.
 #[derive(Clone, PartialEq)]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
 pub struct ParsedScalar<'a, T: Copy + PartialEq> {
     pub(crate) name: &'a str,
-    pub(crate) values: Vec<Option<T>>,
+    pub(crate) presence: Presence<'a>,
+    /// Dense values: only entries where the corresponding presence bit is set.
+    pub(crate) values: Vec<T>,
 }
 
 /// Per-feature byte range into a shared dictionary corpus.
