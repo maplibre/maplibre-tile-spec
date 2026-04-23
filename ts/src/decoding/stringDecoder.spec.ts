@@ -279,11 +279,7 @@ describe("decodeSharedDictionary", () => {
             const completeencodedStrings = concatenateBuffers(lengthStream, dataStream, fieldStreams);
             const columnMetaencodedStrings = createColumnMetadataForStruct("address:", [{ name: "street" }]);
 
-            const result = decodeSharedDictionary(
-                completeencodedStrings,
-                new IntWrapper(0),
-                columnMetaencodedStrings
-            );
+            const result = decodeSharedDictionary(completeencodedStrings, new IntWrapper(0), columnMetaencodedStrings);
 
             expect(result).toHaveLength(1);
             expect(result[0]).toBeInstanceOf(StringDictionaryVector);
@@ -302,11 +298,7 @@ describe("decodeSharedDictionary", () => {
 
             const columnMetaencodedStrings = createColumnMetadataForStruct("name", [{ name: "" }]);
 
-            const result = decodeSharedDictionary(
-                completeencodedStrings,
-                new IntWrapper(0),
-                columnMetaencodedStrings
-            );
+            const result = decodeSharedDictionary(completeencodedStrings, new IntWrapper(0), columnMetaencodedStrings);
 
             expect(result).toHaveLength(1);
             expect(result[0].name).toBe("name");
@@ -344,11 +336,7 @@ describe("decodeSharedDictionary", () => {
             const completeencodedStrings = concatenateBuffers(lengthStream, dataStream, fieldStreams);
             const columnMetaencodedStrings = createColumnMetadataForStruct("colors:", [{ name: "primary" }]);
 
-            const result = decodeSharedDictionary(
-                completeencodedStrings,
-                new IntWrapper(0),
-                columnMetaencodedStrings
-            );
+            const result = decodeSharedDictionary(completeencodedStrings, new IntWrapper(0), columnMetaencodedStrings);
 
             expect(result).toHaveLength(1);
             const expected = ["red", null, "blue", null];
@@ -366,11 +354,7 @@ describe("decodeSharedDictionary", () => {
             const completeencodedStrings = concatenateBuffers(lengthStream, dataStream, fieldStreams);
             const columnMetaencodedStrings = createColumnMetadataForStruct("greek:", [{ name: "letter" }]);
 
-            const result = decodeSharedDictionary(
-                completeencodedStrings,
-                new IntWrapper(0),
-                columnMetaencodedStrings
-            );
+            const result = decodeSharedDictionary(completeencodedStrings, new IntWrapper(0), columnMetaencodedStrings);
 
             expect(result).toHaveLength(1);
             const expected = ["alpha", null, null, "beta"];
@@ -398,11 +382,7 @@ describe("decodeSharedDictionary", () => {
             );
             const columnMetaencodedStrings = createColumnMetadataForStruct("encodedStrings:", [{ name: "value" }]);
 
-            const result = decodeSharedDictionary(
-                completeencodedStrings,
-                new IntWrapper(0),
-                columnMetaencodedStrings
-            );
+            const result = decodeSharedDictionary(completeencodedStrings, new IntWrapper(0), columnMetaencodedStrings);
 
             expect(result).toHaveLength(1);
             expect(result[0]).toBeInstanceOf(StringFsstDictionaryVector);
@@ -437,7 +417,7 @@ describe("decodeSharedDictionary", () => {
                 completeencodedStrings,
                 new IntWrapper(0),
                 columnMetaencodedStrings,
-                propertyColumnNames
+                propertyColumnNames,
             );
 
             expect(result).toHaveLength(2);
@@ -466,11 +446,7 @@ describe("decodeSharedDictionary", () => {
                 { name: "field3" },
             ]);
 
-            const result = decodeSharedDictionary(
-                completeencodedStrings,
-                new IntWrapper(0),
-                columnMetaencodedStrings
-            );
+            const result = decodeSharedDictionary(completeencodedStrings, new IntWrapper(0), columnMetaencodedStrings);
 
             expect(result).toHaveLength(2);
             expect(result[0].name).toBe("test:field1");
@@ -503,7 +479,7 @@ describe("decodeSharedDictionary", () => {
                 completeencodedStrings,
                 new IntWrapper(0),
                 columnMetaencodedStrings,
-                propertyColumnNames
+                propertyColumnNames,
             );
 
             expect(result).toHaveLength(1);
