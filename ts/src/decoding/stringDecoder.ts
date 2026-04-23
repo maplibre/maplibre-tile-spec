@@ -169,7 +169,7 @@ export function decodeSharedDictionary(
     data: Uint8Array,
     offset: IntWrapper,
     column: Column,
-    numFeatures: number,
+    _numFeatures: number,
     propertyColumnNames?: Set<string>,
 ): Vector[] {
     let dictionaryOffsetBuffer: Uint32Array = null;
