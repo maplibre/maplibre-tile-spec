@@ -2,7 +2,16 @@ use arbitrary::Error::IncorrectFormat;
 use arbitrary::{Arbitrary, Result, Unstructured};
 
 use crate::encoder::model::StagedLayer01;
-use crate::encoder::{StagedProperty, StagedSharedDict, StagedStrings};
+use crate::encoder::{StagedId, StagedProperty, StagedSharedDict, StagedStrings};
+
+impl Arbitrary<'_> for StagedId {
+    fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
+        // Bound ID count to prevent OOM from unbounded vector generation
+        let count = u.int_in_range(0..=64u8)? as usize;
+        let values: Vec<Option<u64>> = (0..count).map(|_| u.arbitrary()).collect::<Result<_>>()?;
+        Ok(Self::from_optional(values))
+    }
+}
 
 impl Arbitrary<'_> for StagedLayer01 {
     fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
@@ -25,7 +34,7 @@ impl Arbitrary<'_> for StagedLayer01 {
                     }
                 })
                 .collect::<Result<_>>()?;
-            Some(crate::decoder::IdValues(ids))
+            Some(StagedId::from_optional(ids))
         } else {
             None
         };

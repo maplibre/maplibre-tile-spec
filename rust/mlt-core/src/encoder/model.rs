@@ -1,8 +1,8 @@
 use std::fmt;
 
-use crate::decoder::{GeometryValues, IdValues, StreamType};
+use crate::decoder::{GeometryValues, StreamType};
 use crate::encoder::geometry::VertexBufferType;
-use crate::encoder::{IdWidth, IntEncoder, StagedProperty};
+use crate::encoder::{IdWidth, IntEncoder, StagedId, StagedProperty};
 
 /// Owned, pre-encoding variant of [`crate::Layer`] (stage 2 of the encoding pipeline).
 #[derive(Debug, PartialEq, Clone)]
@@ -38,7 +38,7 @@ pub struct CurveParams {
 pub struct StagedLayer01 {
     pub name: String,
     pub extent: u32,
-    pub id: Option<IdValues>,
+    pub id: Option<StagedId>,
     pub geometry: GeometryValues,
     pub properties: Vec<StagedProperty>,
 }

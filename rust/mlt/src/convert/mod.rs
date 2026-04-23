@@ -1,8 +1,7 @@
 mod files;
 mod tileset;
 
-use std::path::Path;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Result as AnyResult, bail};
 use bytes::Bytes;
