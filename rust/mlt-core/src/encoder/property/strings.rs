@@ -20,21 +20,20 @@ const FSST_SAMPLE_STRINGS: usize = 256;
 ///
 /// Returns `None` when the column is empty, too small for FSST overhead to pay off,
 /// or when trial compression shows no benefit.
+///
+/// Training always uses all values so the symbol table sees the full distribution.
+/// The viability probe (trial compression) is limited to [`FSST_PROBE_STRINGS`] to
+/// bound cost.
 #[hotpath::measure]
 pub(crate) fn fsst_try_train(strings: &[&str]) -> Option<Compressor> {
     if strings.is_empty() {
         return None;
     }
-    let sample = if strings.len() <= FSST_SAMPLE_STRINGS {
-        strings
-    } else {
-        &strings[..FSST_SAMPLE_STRINGS]
-    };
-    let plain_size: usize = sample.iter().map(|s| s.len()).sum();
-    if plain_size < FSST_OVERHEAD_THRESHOLD {
+    let total_plain_size: usize = strings.iter().map(|s| s.len()).sum();
+    if total_plain_size < FSST_OVERHEAD_THRESHOLD {
         return None;
     }
-    let byte_slices: Vec<&[u8]> = sample.iter().map(|s| s.as_bytes()).collect();
+    let byte_slices: Vec<&[u8]> = strings.iter().map(|s| s.as_bytes()).collect();
     let compressor = Compressor::train(&byte_slices);
     let symbols = compressor.symbol_table();
     let symbol_lengths = compressor.symbol_lengths();
@@ -43,6 +42,12 @@ pub(crate) fn fsst_try_train(strings: &[&str]) -> Option<Compressor> {
         .take(symbols.len())
         .map(|&l| usize::from(l))
         .sum();
+    let sample = if strings.len() <= FSST_SAMPLE_STRINGS {
+        strings
+    } else {
+        &strings[..FSST_SAMPLE_STRINGS]
+    };
+    let plain_size: usize = sample.iter().map(|s| s.len()).sum();
     let compressed_size: usize = sample
         .iter()
         .map(|s| compressor.compress(s.as_bytes()).len())
