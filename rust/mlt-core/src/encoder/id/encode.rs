@@ -1,9 +1,11 @@
-use super::model::IdWidth;
+use std::iter::repeat_n;
+
+use super::model::{IdWidth, StagedId};
 use crate::MltResult;
 use crate::codecs::bytes::encode_bools_to_bytes;
 use crate::codecs::rle::encode_byte_rle;
 use crate::decoder::{
-    ColumnType, DictionaryType, IdValues, IntEncoding, LogicalEncoding, PhysicalEncoding, RleMeta,
+    ColumnType, DictionaryType, IntEncoding, LogicalEncoding, PhysicalEncoding, RleMeta,
     StreamMeta, StreamType,
 };
 use crate::encoder::model::StreamCtx;
@@ -17,40 +19,28 @@ struct SequenceStats {
     id_width: IdWidth,
 }
 
-/// Collect `is_sequential`, `is_constant`, and [`IdWidth`] in a single pass.
+/// Collect `is_sequential`, `is_constant`, and [`IdWidth`] from the dense values in a single pass.
 ///
-/// Returns `None` for the empty or all-null case so callers can return early.
-fn calc_sequence_stats(ids: &[Option<u64>]) -> Option<SequenceStats> {
-    let mut has_nulls = false;
+/// Returns `None` for the empty or all-null case (no dense values) so callers can return early.
+fn calc_sequence_stats(ids: &StagedId) -> Option<SequenceStats> {
+    let values = ids.dense_values();
+    let &first = values.first()?; // None → empty or all-null: skip
+
+    let has_nulls = matches!(ids, StagedId::OptId { .. });
     let mut is_sequential = true;
     let mut is_constant = true;
+    let mut max_value = first;
+    let mut prev = first;
 
-    let mut ids_iter = ids.iter();
-    let first_non_null = loop {
-        match ids_iter.next() {
-            Some(Some(id)) => break *id,
-            Some(None) => has_nulls = true,
-            None => return None, // no ids or all are None
+    for &v in &values[1..] {
+        max_value = max_value.max(v);
+        if v != prev.wrapping_add(1) {
+            is_sequential = false;
         }
-    };
-
-    let mut max_value = first_non_null;
-    let mut prev_non_null = first_non_null;
-
-    for &id in ids_iter {
-        match id {
-            None => has_nulls = true,
-            Some(v) => {
-                max_value = max_value.max(v);
-                if v != prev_non_null.wrapping_add(1) {
-                    is_sequential = false;
-                }
-                if v != first_non_null {
-                    is_constant = false;
-                }
-                prev_non_null = v;
-            }
+        if v != first {
+            is_constant = false;
         }
+        prev = v;
     }
 
     let fits_u32 = u32::try_from(max_value).is_ok();
@@ -68,32 +58,21 @@ fn calc_sequence_stats(ids: &[Option<u64>]) -> Option<SequenceStats> {
     })
 }
 
-impl IdValues {
+impl StagedId {
     /// Encode and write the ID column to `enc`.
     ///
-    /// If `Encoder::get_int_encoder` returns
-    /// [`Some`] for `"id"` / `"value"`, uses that encoder and
-    /// `Encoder::override_id_width`.
-    /// Otherwise, selects among candidate encodings automatically.
-    ///
-    /// Writes column-type byte to [`enc.meta`](Encoder::meta) and the
-    /// presence + value streams to [`enc.data`](Encoder::data).
     /// Returns `false` when the ID list is empty or every value is `None`
     /// (nothing is written in that case).
     #[hotpath::measure]
     pub fn write_to(self, enc: &mut Encoder) -> MltResult<bool> {
-        let ids = &self.0;
-
-        let Some(stat) = calc_sequence_stats(ids) else {
+        let Some(stat) = calc_sequence_stats(&self) else {
             return Ok(false);
         };
 
         let id_width = enc.override_id_width(stat.id_width);
 
-        // Nullability comes from the actual data (stat.id_width pre-override) or an explicit
-        // override_presence request.  `override_id_width` only affects the bit width (32 vs 64);
-        // it must not suppress a presence stream when real nulls exist in the data.
-        let has_nulls = matches!(stat.id_width, IdWidth::OptId32 | IdWidth::OptId64)
+        // Nullability comes from the actual data or an explicit override_presence request.
+        let has_nulls = matches!(self, Self::OptId { .. })
             || enc.override_presence(&StreamCtx::id(StreamType::Present));
         let use_64bit = matches!(id_width, IdWidth::Id64 | IdWidth::OptId64);
         let col_type = match (has_nulls, use_64bit) {
@@ -106,18 +85,25 @@ impl IdValues {
 
         // Presence stream
         if has_nulls {
-            let num_values = u32::try_from(ids.len())?;
-            encode_bools_to_bytes(ids.iter().map(Option::is_some), &mut enc.tmp_u8);
+            let feature_count = self.feature_count();
+            let num_values = u32::try_from(feature_count)?;
+            match &self {
+                Self::OptId { presence, .. } => {
+                    encode_bools_to_bytes(presence.iter().copied(), &mut enc.tmp_u8);
+                }
+                Self::Id(_) => {
+                    // override_presence requested a stream for an all-present column
+                    encode_bools_to_bytes(repeat_n(true, feature_count), &mut enc.tmp_u8);
+                }
+            }
             encode_byte_rle(&enc.tmp_u8, &mut enc.tmp_u8_b);
             let runs = num_values.div_ceil(8);
             let num_rle_values = u32::try_from(enc.tmp_u8_b.len())?;
-            let int_enc = IntEncoding::new(
-                LogicalEncoding::Rle(RleMeta {
-                    runs,
-                    num_rle_values,
-                }),
-                PhysicalEncoding::None,
-            );
+            let rle = RleMeta {
+                runs,
+                num_rle_values,
+            };
+            let int_enc = IntEncoding::new(LogicalEncoding::Rle(rle), PhysicalEncoding::None);
             let presence = EncodedStream {
                 meta: StreamMeta::new(StreamType::Present, int_enc, num_values),
                 data: enc.tmp_u8_b.clone(),
@@ -126,13 +112,14 @@ impl IdValues {
         }
 
         // Fast-path for small or obviously structured sequences.
+        let values = self.dense_values();
         let single_enc = if let Some(int_enc) =
             enc.override_int_enc(&StreamCtx::id(StreamType::Data(DictionaryType::None)))
         {
             Some(int_enc)
-        } else if ids.len() <= 2 {
+        } else if values.len() <= 2 {
             Some(IntEncoder::varint_with(LogicalEncoder::None))
-        } else if stat.is_sequential && ids.len() > 4 {
+        } else if stat.is_sequential && values.len() > 4 {
             Some(IntEncoder::varint_with(LogicalEncoder::DeltaRle))
         } else if stat.is_constant {
             Some(IntEncoder::varint_with(LogicalEncoder::Rle))
@@ -149,13 +136,10 @@ impl IdValues {
                         clippy::cast_possible_truncation,
                         reason = "width was deduced as ≤ u32::MAX so truncation is safe"
                     )]
-                    let vals: Vec<u32> = ids.iter().flatten().map(|&v| v as u32).collect();
+                    let vals: Vec<u32> = values.iter().map(|&v| v as u32).collect();
                     DataProfile::prune_candidates::<i32>(&vals)
                 }
-                IdWidth::Id64 | IdWidth::OptId64 => {
-                    let vals: Vec<u64> = ids.iter().flatten().copied().collect();
-                    DataProfile::prune_candidates::<i64>(&vals)
-                }
+                IdWidth::Id64 | IdWidth::OptId64 => DataProfile::prune_candidates::<i64>(values),
             };
             let mut alt = enc.try_alternatives();
             for &cand in &candidates {
@@ -172,7 +156,7 @@ impl IdValues {
 /// auto-candidate paths in `write_to`.
 #[hotpath::measure]
 pub(crate) fn write_id_value_stream(
-    ids: &IdValues,
+    ids: &StagedId,
     id_width: IdWidth,
     int_enc: IntEncoder,
     enc: &mut Encoder,
@@ -180,10 +164,14 @@ pub(crate) fn write_id_value_stream(
     use IdWidth as CFG;
     if matches!(id_width, CFG::Id32 | CFG::OptId32) {
         #[expect(clippy::cast_possible_truncation, reason = "truncation was requested")]
-        let vals: Vec<u32> = ids.0.iter().flatten().map(|v| *v as u32).collect();
+        let vals: Vec<u32> = ids.dense_values().iter().map(|v| *v as u32).collect();
         do_write_u32(&vals, StreamType::Data(DictionaryType::None), int_enc, enc)
     } else {
-        let vals: Vec<u64> = ids.0.iter().flatten().copied().collect();
-        do_write_u64(&vals, StreamType::Data(DictionaryType::None), int_enc, enc)
+        do_write_u64(
+            ids.dense_values(),
+            StreamType::Data(DictionaryType::None),
+            int_enc,
+            enc,
+        )
     }
 }

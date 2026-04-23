@@ -23,6 +23,7 @@ pub use geometry::VertexBufferType;
 pub(crate) use id::IdWidth;
 #[cfg(feature = "__private")]
 pub use id::IdWidth;
+pub use id::StagedId;
 #[cfg(feature = "__private")]
 pub use model::{ColumnKind, ExplicitEncoder, StagedLayer, StagedLayer01, StrEncoding, StreamCtx};
 pub use model::{EncodedUnknown, EncoderConfig};

@@ -19,8 +19,8 @@ mod tile;
 // reaching into sub-module paths explicitly.
 pub(crate) use geometry::{Geometry, RawGeometry};
 pub use geometry::{GeometryType, GeometryValues};
+pub use id::ParsedId;
 // pub (not pub(crate)) so __private module can re-export it
-pub use id::IdValues;
 pub(crate) use id::{Id, RawId, RawIdValue};
 pub use iterators::{ColumnRef, FeatureRef, PropName, PropValueRef};
 pub(crate) use model::Column;

@@ -2,21 +2,22 @@ use geo_types::Point;
 use proptest::prelude::*;
 use rstest::rstest;
 
-use crate::decoder::{GeometryValues, IdValues, RawId, RawIdValue};
+use crate::decoder::{GeometryValues, RawId, RawIdValue};
 use crate::encoder::IdWidth::{Id32, Id64, OptId32, OptId64};
 use crate::encoder::stream::LogicalEncoder;
 use crate::encoder::{
-    Encoder, EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StagedLayer, StagedLayer01,
+    Encoder, EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StagedId, StagedLayer,
+    StagedLayer01,
 };
 use crate::test_helpers::{dec, into_layer01, parser};
 use crate::{Layer, LazyParsed, MltError, MltResult};
 
-/// Round-trip `IdValues` via full layer bytes using an explicit encoder.
-fn id_roundtrip_via_layer(decoded: &IdValues, id_width: IdWidth, int_enc: IntEncoder) -> IdValues {
-    if decoded.0.is_empty() {
-        return IdValues(vec![]);
+/// Round-trip `StagedId` via full layer bytes using an explicit encoder.
+fn id_roundtrip_via_layer(decoded: &StagedId, id_width: IdWidth, int_enc: IntEncoder) -> StagedId {
+    if decoded.feature_count() == 0 {
+        return StagedId::from_optional(vec![]);
     }
-    let n = decoded.0.len();
+    let n = decoded.feature_count();
     let mut geometry = GeometryValues::default();
     for _ in 0..n {
         geometry.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
@@ -37,18 +38,19 @@ fn id_roundtrip_via_layer(decoded: &IdValues, id_width: IdWidth, int_enc: IntEnc
     let mut p = parser();
     let (_, layer) = Layer::from_bytes(&buf, &mut p).expect("parse failed");
 
-    into_layer01(layer)
+    let parsed = into_layer01(layer)
         .id
         .expect("expected id column")
         .into_parsed(&mut dec())
-        .expect("decode failed")
+        .expect("decode failed");
+    StagedId::from_optional(parsed.materialize())
 }
 
-fn id_roundtrip_auto(decoded: &IdValues) -> IdValues {
-    if decoded.0.is_empty() {
-        return IdValues(vec![]);
+fn id_roundtrip_auto(decoded: &StagedId) -> StagedId {
+    if decoded.feature_count() == 0 {
+        return StagedId::from_optional(vec![]);
     }
-    let n = decoded.0.len();
+    let n = decoded.feature_count();
     let mut geometry = GeometryValues::default();
     for _ in 0..n {
         geometry.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
@@ -80,31 +82,31 @@ fn id_roundtrip_auto(decoded: &IdValues) -> IdValues {
         d.consumed() > 0,
         "decoder should consume bytes after decode"
     );
-    result
+    StagedId::from_optional(result.materialize())
 }
 
-fn create_u32_range_ids() -> IdValues {
-    IdValues((1u64..=100).map(Some).collect())
+fn create_u32_range_ids() -> StagedId {
+    StagedId::from_optional((1u64..=100).map(Some).collect())
 }
 
-fn create_u64_range_ids() -> IdValues {
+fn create_u64_range_ids() -> StagedId {
     let base = u64::from(u32::MAX) + 1;
-    IdValues((base..base + 50).map(Some).collect())
+    StagedId::from_optional((base..base + 50).map(Some).collect())
 }
 
-fn create_ids_with_nulls() -> IdValues {
-    IdValues(vec![Some(10), None, Some(20), None, Some(30)])
+fn create_ids_with_nulls() -> StagedId {
+    StagedId::from_optional(vec![Some(10), None, Some(20), None, Some(30)])
 }
 
-fn create_constant_ids() -> IdValues {
-    IdValues(vec![Some(42), Some(42), Some(42), Some(42), Some(42)])
+fn create_constant_ids() -> StagedId {
+    StagedId::from_optional(vec![Some(42), Some(42), Some(42), Some(42), Some(42)])
 }
 
 /// Verify that automatic encoding produces no column for empty or all-null ID lists.
 #[rstest]
-#[case::empty(IdValues(vec![]))]
-#[case::all_nulls(IdValues(vec![None, None]))]
-fn test_automatic_encoding_skipped(#[case] input: IdValues) {
+#[case::empty(StagedId::from_optional(vec![]))]
+#[case::all_nulls(StagedId::from_optional(vec![None, None]))]
+fn test_automatic_encoding_skipped(#[case] input: StagedId) {
     let mut enc = Encoder::default();
     let written = input.write_to(&mut enc).unwrap();
     assert!(!written, "empty or all-null ID list should write no column");
@@ -112,12 +114,12 @@ fn test_automatic_encoding_skipped(#[case] input: IdValues) {
 
 /// Verify that automatic encoding produces a column for non-trivial inputs.
 #[rstest]
-#[case::short_sequence(IdValues(vec![Some(1), Some(2)]))]
+#[case::short_sequence(StagedId::from_optional(vec![Some(1), Some(2)]))]
 #[case::sequential_u32(create_u32_range_ids())]
 #[case::sequential_u64(create_u64_range_ids())]
 #[case::constant(create_constant_ids())]
 #[case::with_nulls(create_ids_with_nulls())]
-fn test_automatic_encoding_produces_output(#[case] input: IdValues) {
+fn test_automatic_encoding_produces_output(#[case] input: StagedId) {
     let mut enc = Encoder::default();
     let written = input.write_to(&mut enc).unwrap();
     assert!(written, "non-trivial ID list should write a column");
@@ -125,7 +127,7 @@ fn test_automatic_encoding_produces_output(#[case] input: IdValues) {
 
 #[test]
 fn test_automatic_optimization_roundtrip_empty() {
-    let decoded = IdValues(vec![]);
+    let decoded = StagedId::from_optional(vec![]);
     let mut enc = Encoder::default();
     let written = decoded.write_to(&mut enc).unwrap();
     assert!(!written, "empty ID list should write no column");
@@ -136,7 +138,7 @@ fn test_automatic_optimization_roundtrip_empty() {
 #[case::sequential_u64(create_u64_range_ids())]
 #[case::constant(create_constant_ids())]
 #[case::with_nulls(create_ids_with_nulls())]
-fn test_automatic_optimization_roundtrip(#[case] decoded: IdValues) {
+fn test_automatic_optimization_roundtrip(#[case] decoded: StagedId) {
     let decoded_back = id_roundtrip_auto(&decoded);
     assert_eq!(decoded_back, decoded);
 }
@@ -155,17 +157,17 @@ fn test_manual_optimization_applies_encoder() {
 #[test]
 fn test_manual_optimization_truncation() {
     let large_value = u64::from(u32::MAX) + 42;
-    let ids = IdValues(vec![Some(large_value)]);
+    let ids = StagedId::from_optional(vec![Some(large_value)]);
     let decoded_back =
         id_roundtrip_via_layer(&ids, Id32, IntEncoder::varint_with(LogicalEncoder::None));
     // Manual encoding with a too-narrow `IdWidth` silently truncates values.
     // `u32::MAX + 42 == 4_294_967_337`; `4_294_967_337 % 2^32 == 41`
-    assert_eq!(decoded_back.0[0], Some(41));
+    assert_eq!(decoded_back.dense_values(), &[41]);
 }
 
 #[test]
 fn test_manual_fastpfor_roundtrip() {
-    let ids = IdValues((0u64..200).map(|i| Some(i * 7 + 3)).collect());
+    let ids = StagedId::from_optional((0u64..200).map(|i| Some(i * 7 + 3)).collect());
     let decoded_back = id_roundtrip_via_layer(&ids, Id32, IntEncoder::fastpfor());
     assert_eq!(decoded_back, ids);
 }
@@ -174,7 +176,7 @@ fn test_manual_fastpfor_roundtrip() {
 /// (confirming that delta+FastPFOR is being selected automatically).
 #[test]
 fn test_auto_fastpfor_beats_varint_for_large_u32_ids() {
-    let ids = IdValues((0u64..1000).map(|i| Some(i * 13 + 5)).collect());
+    let ids = StagedId::from_optional((0u64..1000).map(|i| Some(i * 13 + 5)).collect());
 
     let mut auto_enc = Encoder::default();
     ids.clone().write_to(&mut auto_enc).unwrap();
@@ -197,7 +199,7 @@ fn test_auto_fastpfor_beats_varint_for_large_u32_ids() {
 #[test]
 fn test_auto_roundtrip_large_u64_ids() {
     let base = u64::from(u32::MAX) + 1;
-    let ids = IdValues((0u64..1000).map(|i| Some(base + i * 13)).collect());
+    let ids = StagedId::from_optional((0u64..1000).map(|i| Some(base + i * 13)).collect());
     let decoded_back = id_roundtrip_auto(&ids);
     assert_eq!(decoded_back, ids);
 }
@@ -209,7 +211,7 @@ fn test_auto_roundtrip_large_u64_ids() {
 #[case::id64(Id64, vec![Some(1), Some(2), Some(3)])]
 #[case::opt_id64(OptId64, vec![Some(1), None, Some(3)])]
 fn test_config_produces_correct_variant(#[case] id_width: IdWidth, #[case] ids: Vec<Option<u64>>) {
-    let input = IdValues(ids);
+    let input = StagedId::from_optional(ids);
     let int_enc = IntEncoder::varint_with(LogicalEncoder::None);
     with_encoded_raw_id(&input, id_width, int_enc, |raw_id| {
         match id_width {
@@ -307,7 +309,7 @@ proptest! {
     }
 }
 
-/// Round-trip `IdValues` via full layer bytes (encode → bytes → parse → decode).
+/// Round-trip `StagedId` via full layer bytes (encode → bytes → parse → decode).
 fn assert_roundtrip(ids: &[Option<u64>], id_width: IdWidth, int_enc: IntEncoder) {
     prop_assert_roundtrip(ids, id_width, int_enc).expect("roundtrip failed");
 }
@@ -317,7 +319,7 @@ fn prop_assert_roundtrip(
     id_width: IdWidth,
     int_enc: IntEncoder,
 ) -> Result<(), TestCaseError> {
-    let ids = IdValues(ids.to_vec());
+    let ids = StagedId::from_optional(ids.to_vec());
     let res = roundtrip_id_values(&ids, id_width, int_enc)
         .map_err(|e| TestCaseError::Fail(format!("Roundtrip failed: {e:?}").into()))?;
     prop_assert_eq!(res, ids.clone());
@@ -325,14 +327,14 @@ fn prop_assert_roundtrip(
 }
 
 fn roundtrip_id_values(
-    decoded: &IdValues,
+    decoded: &StagedId,
     id_width: IdWidth,
     int_enc: IntEncoder,
-) -> MltResult<IdValues> {
-    if decoded.0.is_empty() {
-        return Ok(IdValues(vec![]));
+) -> MltResult<StagedId> {
+    if decoded.feature_count() == 0 {
+        return Ok(StagedId::from_optional(vec![]));
     }
-    let n = decoded.0.len();
+    let n = decoded.feature_count();
     let mut geometry = GeometryValues::default();
     for _ in 0..n {
         geometry.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
@@ -357,21 +359,24 @@ fn roundtrip_id_values(
     // When all source IDs were null, the encoder skips the ID column entirely.
     // On decode, the absent column is semantically identical to all-null IDs.
     match layer01.id {
-        Some(id) => id.into_parsed(&mut dec()),
-        None => Ok(IdValues(vec![None; n])),
+        Some(id) => {
+            let parsed = id.into_parsed(&mut dec())?;
+            Ok(StagedId::from_optional(parsed.materialize()))
+        }
+        None => Ok(StagedId::from_optional(vec![None; n])),
     }
 }
 
 /// Encode `ids` into a full layer, parse the raw ID, and pass it to `f`.
 fn with_encoded_raw_id<R>(
-    ids: &IdValues,
+    ids: &StagedId,
     id_width: IdWidth,
     int_enc: IntEncoder,
     f: impl FnOnce(&RawId<'_>) -> R,
 ) -> R {
     // Encode a full StagedLayer01, parse the layer back out, and inspect the raw ID field.
     // This exercises the ID encoding as it appears in a real layer payload.
-    let n = ids.0.len();
+    let n = ids.feature_count();
     let mut geometry = GeometryValues::default();
     for _ in 0..n {
         geometry.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
@@ -404,7 +409,7 @@ fn assert_produces_correct_variant(
     id_width: IdWidth,
     int_enc: IntEncoder,
 ) -> Result<(), TestCaseError> {
-    let input = IdValues(ids);
+    let input = StagedId::from_optional(ids);
     with_encoded_raw_id(&input, id_width, int_enc, |raw_id| {
         if matches!(id_width, Id32 | OptId32) {
             prop_assert!(
