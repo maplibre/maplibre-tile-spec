@@ -168,7 +168,7 @@ public:
             .sortFeatures = false,
             .preTessellate = false,
             .includeOutlines = true,
-            .useMortonEncoding = false,
+            .enableMortonEncoding = false,
             .useFsst = false,
             .geometryEncodingOption = IntegerEncodingOption::PLAIN,
         };
@@ -192,7 +192,7 @@ public:
 
     static EncoderConfig cfgWithMorton() {
         auto config = cfg();
-        config.useMortonEncoding = true;
+        config.enableMortonEncoding = true;
         return config;
     }
 
@@ -237,14 +237,14 @@ public:
         return {{
                     .name = "line_morton_curve_morton",
                     .bytes = encode(layer(defaultLayerName, {feat(line(line_coords))}, defaultExtent), cfg([](auto& c) {
-                                        c.useMortonEncoding = true;
-                                        c.forceMortonGeometryLayout = true;
+                                        c.enableMortonEncoding = true;
+                                        c.legacySizeComparison = true;
                                     })),
                 },
                 {
                     .name = "line_morton_curve_no_morton",
                     .bytes = encode(layer(defaultLayerName, {feat(line(line_coords))}, defaultExtent),
-                                    cfg([](auto& c) { c.useMortonEncoding = false; })),
+                                    cfg([](auto& c) { c.enableMortonEncoding = false; })),
                 }};
     }
 
@@ -331,14 +331,14 @@ public:
         Ring mortonRing = mortonCurve;
 
         const auto mortonCfg = cfg([](auto& c) {
-            c.useMortonEncoding = true;
-            c.forceMortonGeometryLayout = true;
+            c.enableMortonEncoding = true;
+            c.legacySizeComparison = true;
             c.geometryEncodingOption = IntegerEncodingOption::AUTO;
             c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
         });
 
         const auto nonMortonCfg = cfg([](auto& c) {
-            c.useMortonEncoding = false;
+            c.enableMortonEncoding = false;
             c.geometryEncodingOption = IntegerEncodingOption::AUTO;
             c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
         });
@@ -433,8 +433,8 @@ public:
         const std::size_t half = mortonCurve.size() / 2;
         Ring mortonPts(mortonCurve.begin(), mortonCurve.begin() + static_cast<std::ptrdiff_t>(half));
         const auto config = cfg([](auto& c) {
-            c.useMortonEncoding = true;
-            c.forceMortonGeometryLayout = true;
+            c.enableMortonEncoding = true;
+            c.legacySizeComparison = true;
         });
         return {{
             .name = "multipoint_morton",
@@ -448,8 +448,8 @@ public:
         Ring mortonLine1(mortonCurve.begin(), mortonCurve.begin() + static_cast<std::ptrdiff_t>(half));
         Ring mortonLine2(mortonCurve.begin() + static_cast<std::ptrdiff_t>(half), mortonCurve.end());
         const auto config = cfg([](auto& c) {
-            c.useMortonEncoding = true;
-            c.forceMortonGeometryLayout = true;
+            c.enableMortonEncoding = true;
+            c.legacySizeComparison = true;
             c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
         });
 

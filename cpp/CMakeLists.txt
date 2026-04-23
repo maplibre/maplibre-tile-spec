@@ -157,6 +157,7 @@ target_sources(mlt-cpp-encoder PRIVATE
     ${PROJECT_SOURCE_DIR}/src/mlt/encode/string.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/metadata/stream.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/metadata/tileset.cpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/buffer.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/fsst.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/rle.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/varint.hpp

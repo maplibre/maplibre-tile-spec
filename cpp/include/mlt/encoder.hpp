@@ -30,7 +30,7 @@ struct EncoderConfig {
     bool sortFeatures = true;
     bool preTessellate = false;
     bool includeOutlines = true;
-    bool useMortonEncoding = true;
+    bool enableMortonEncoding = true;
     bool useFsst = true;
 
     // The following options are primarily for testing, and not expected to be useful in production.
@@ -44,8 +44,8 @@ struct EncoderConfig {
     /// The strategy for encoding geometry topology integer streams (e.g. part sizes)
     /// `geometryEncodingOption` is used as a fallback if this is not set.
     std::optional<IntegerEncodingOption> geometryTopologyEncodingOption = std::nullopt;
-    /// Force the use of Morton encoding for geometry, even if it doesn't produce a smaller result.
-    bool forceMortonGeometryLayout = false;
+    /// Force selection of streams using the raw encoded bytes, not the final result
+    bool legacySizeComparison = false;
 
     EncoderConfig update(std::function<void(EncoderConfig&)> configurator) {
         EncoderConfig config = *this;

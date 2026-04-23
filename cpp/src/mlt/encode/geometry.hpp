@@ -8,6 +8,8 @@
 #include <mlt/util/encoding/zigzag.hpp>
 #include <mlt/util/hilbert_curve.hpp>
 #include <mlt/util/morton_curve.hpp>
+#include <mlt/util/encoding/buffer.hpp>
+#include <mlt/util/stl.hpp>
 
 #include <algorithm>
 #include <cstdint>
@@ -38,9 +40,11 @@ public:
     using RleEncodedStreamMetadata = metadata::stream::RleEncodedStreamMetadata;
     using MortonEncodedStreamMetadata = metadata::stream::MortonEncodedStreamMetadata;
 
+    using EncodedChunks = std::vector<std::vector<std::uint8_t>>;
+
     struct EncodedGeometryColumn {
         std::uint32_t numStreams;
-        std::vector<std::uint8_t> encodedValues;
+        EncodedChunks chunks;
         std::int32_t maxVertexValue;
     };
 
@@ -59,63 +63,55 @@ public:
                                                       IntegerEncoder& intEncoder,
                                                       IntegerEncodingOption integerEncodingOption,
                                                       IntegerEncodingOption topologyIntegerEncodingOption,
-                                                      bool useMortonEncoding = true,
-                                                      bool forceMortonLayout = false) {
-        const auto [numStreams, topologyStreams] = encodeTopologyStreams(geometryTypes,
-                                                                         numGeometries,
-                                                                         numParts,
-                                                                         numRings,
-                                                                         physicalTechnique,
-                                                                         intEncoder,
-                                                                         topologyIntegerEncodingOption);
+                                                      bool enableMortonEncoding = true,
+                                                      bool legacySizeComparison = false) {
+        auto [numStreams, topologyChunks] = encodeTopologyStreams(geometryTypes,
+                                                                  numGeometries,
+                                                                  numParts,
+                                                                  numRings,
+                                                                  physicalTechnique,
+                                                                  intEncoder,
+                                                                  topologyIntegerEncodingOption);
 
         const auto [minVal, maxVal] = vertexBounds(vertexBuffer);
 
-        const auto plainEncoded = encodeVertexBufferPlain(
-            vertexBuffer, physicalTechnique, intEncoder, integerEncodingOption);
+        auto plainEncoded = encodeVertexBufferPlain(vertexBuffer, physicalTechnique, intEncoder, integerEncodingOption);
 
-        if (integerEncodingOption != IntegerEncodingOption::AUTO && !useMortonEncoding) {
-            std::vector<std::uint8_t> result = std::move(topologyStreams);
-            result.insert(result.end(), plainEncoded.begin(), plainEncoded.end());
-            return {.numStreams = numStreams + 1, .encodedValues = std::move(result), .maxVertexValue = maxVal};
+        if (integerEncodingOption != IntegerEncodingOption::AUTO && !enableMortonEncoding) {
+            auto chunks = std::move(topologyChunks);
+            util::appendChunks(chunks, std::move(plainEncoded));
+            return {.numStreams = numStreams + 1, .chunks = std::move(chunks), .maxVertexValue = maxVal};
         }
 
-        if (useMortonEncoding && forceMortonLayout) {
-            const auto mortonDict = buildMortonDictionary(vertexBuffer, minVal, maxVal);
-            const auto mortonEncoded = encodeMortonDictionary(
+        MortonDictionary mortonDict;
+        EncodedChunks mortonChunks;
+        if (enableMortonEncoding) {
+            mortonDict = buildMortonDictionary(vertexBuffer, minVal, maxVal);
+            mortonChunks = encodeMortonDictionary(
                 mortonDict, vertexBuffer, minVal, maxVal, physicalTechnique, intEncoder);
-
-            std::vector<std::uint8_t> result = std::move(topologyStreams);
-            result.insert(result.end(), mortonEncoded.begin(), mortonEncoded.end());
-            return {.numStreams = numStreams + 2, .encodedValues = std::move(result), .maxVertexValue = maxVal};
         }
 
         const auto hilbertDict = buildHilbertDictionary(vertexBuffer, minVal, maxVal);
-        const auto hilbertEncoded = encodeHilbertDictionary(
+        auto hilbertChunks = encodeHilbertDictionary(
             hilbertDict, vertexBuffer, minVal, maxVal, physicalTechnique, intEncoder, integerEncodingOption);
 
-        std::optional<std::vector<std::uint8_t>> mortonEncoded;
-        if (useMortonEncoding) {
-            const auto mortonDict = buildMortonDictionary(vertexBuffer, minVal, maxVal);
-            mortonEncoded = encodeMortonDictionary(
-                mortonDict, vertexBuffer, minVal, maxVal, physicalTechnique, intEncoder);
-        }
+        const auto plainSize = legacySizeComparison ? plainEncoded[1].size() : chunksSize(plainEncoded);
+        const auto hilbertSize = legacySizeComparison ? hilbertChunks[1].size() + hilbertChunks[3].size()
+                                                      : chunksSize(hilbertChunks);
+        const auto mortonSize = legacySizeComparison ? mortonChunks[1].size() + mortonChunks[3].size()
+                                                     : chunksSize(mortonChunks);
 
-        const auto plainSize = plainEncoded.size();
-        const auto hilbertSize = hilbertEncoded.size();
-        const auto mortonSize = mortonEncoded ? mortonEncoded->size() : std::numeric_limits<std::size_t>::max();
+        auto result = std::move(topologyChunks);
 
-        std::vector<std::uint8_t> result = std::move(topologyStreams);
-
-        if (plainSize <= hilbertSize && plainSize <= mortonSize) {
-            result.insert(result.end(), plainEncoded.begin(), plainEncoded.end());
-            return {.numStreams = numStreams + 1, .encodedValues = std::move(result), .maxVertexValue = maxVal};
-        } else if (hilbertSize <= mortonSize) {
-            result.insert(result.end(), hilbertEncoded.begin(), hilbertEncoded.end());
-            return {.numStreams = numStreams + 2, .encodedValues = std::move(result), .maxVertexValue = maxVal};
+        if (plainSize <= hilbertSize && (!enableMortonEncoding || plainSize <= mortonSize)) {
+            util::appendChunks(result, std::move(plainEncoded));
+            return {.numStreams = numStreams + 1, .chunks = std::move(result), .maxVertexValue = maxVal};
+        } else if (!enableMortonEncoding || hilbertSize <= mortonSize) {
+            util::appendChunks(result, std::move(hilbertChunks));
+            return {.numStreams = numStreams + 2, .chunks = std::move(result), .maxVertexValue = maxVal};
         } else {
-            result.insert(result.end(), mortonEncoded->begin(), mortonEncoded->end());
-            return {.numStreams = numStreams + 2, .encodedValues = std::move(result), .maxVertexValue = maxVal};
+            util::appendChunks(result, std::move(mortonChunks));
+            return {.numStreams = numStreams + 2, .chunks = std::move(result), .maxVertexValue = maxVal};
         }
     }
 
@@ -131,7 +127,7 @@ public:
                                                                     IntegerEncodingOption integerEncodingOption,
                                                                     IntegerEncodingOption topologyIntegerEncodingOption,
                                                                     bool encodeOutlines) {
-        auto [numStreams, result] =
+        auto [numStreams, chunks] =
             encodeOutlines
                 ? encodeTopologyStreams(geometryTypes,
                                         numGeometries,
@@ -143,7 +139,7 @@ public:
                 : encodeTopologyStreams(
                       geometryTypes, {}, {}, {}, physicalTechnique, intEncoder, topologyIntegerEncodingOption);
 
-        appendUint32Stream(result,
+        appendUint32Stream(chunks,
                            numStreams,
                            numTriangles,
                            physicalTechnique,
@@ -152,7 +148,7 @@ public:
                            PhysicalStreamType::LENGTH,
                            LogicalStreamType{LengthType::TRIANGLES});
 
-        appendUint32Stream(result,
+        appendUint32Stream(chunks,
                            numStreams,
                            indexBuffer,
                            physicalTechnique,
@@ -161,21 +157,24 @@ public:
                            PhysicalStreamType::OFFSET,
                            LogicalStreamType{OffsetType::INDEX});
 
-        const auto encodedVertices = encodeVertexBufferPlain(
-            vertexBuffer, physicalTechnique, intEncoder, integerEncodingOption);
-        result.insert(result.end(), encodedVertices.begin(), encodedVertices.end());
+        util::appendChunks(chunks,
+                           encodeVertexBufferPlain(vertexBuffer, physicalTechnique, intEncoder, integerEncodingOption));
         ++numStreams;
 
         const auto maxVal = vertexBounds(vertexBuffer).second;
 
-        return {.numStreams = numStreams, .encodedValues = std::move(result), .maxVertexValue = maxVal};
+        return {.numStreams = numStreams, .chunks = std::move(chunks), .maxVertexValue = maxVal};
     }
 
 private:
     struct TopologyResult {
         std::uint32_t numStreams;
-        std::vector<std::uint8_t> data;
+        EncodedChunks chunks;
     };
+
+    static std::size_t chunksSize(const EncodedChunks& chunks) {
+        return util::sum(chunks, [](const auto& c) { return c.size(); });
+    }
 
     static TopologyResult encodeTopologyStreams(std::span<const GeometryType> geometryTypes,
                                                 std::span<const std::uint32_t> numGeometries,
@@ -188,14 +187,17 @@ private:
         std::ranges::transform(
             geometryTypes, geomTypeValues.begin(), [](auto t) { return static_cast<std::int32_t>(t); });
 
-        const auto encodedGeomTypes = intEncoder.encodeIntStream(
-            geomTypeValues, physicalTechnique, false, PhysicalStreamType::LENGTH, std::nullopt, integerEncodingOption);
-
-        std::vector<std::uint8_t> result;
-        result.insert(result.end(), encodedGeomTypes.begin(), encodedGeomTypes.end());
+        EncodedChunks chunks;
+        util::appendChunks(chunks,
+                           intEncoder.encodeIntStream(geomTypeValues,
+                                                      physicalTechnique,
+                                                      false,
+                                                      PhysicalStreamType::LENGTH,
+                                                      std::nullopt,
+                                                      integerEncodingOption));
         std::uint32_t numStreams = 1;
 
-        appendUint32Stream(result,
+        appendUint32Stream(chunks,
                            numStreams,
                            numGeometries,
                            physicalTechnique,
@@ -215,7 +217,7 @@ private:
             }
         }
 
-        appendUint32Stream(result,
+        appendUint32Stream(chunks,
                            numStreams,
                            numParts,
                            physicalTechnique,
@@ -223,7 +225,7 @@ private:
                            partsEncodingOption,
                            PhysicalStreamType::LENGTH,
                            LogicalStreamType{LengthType::PARTS});
-        appendUint32Stream(result,
+        appendUint32Stream(chunks,
                            numStreams,
                            numRings,
                            physicalTechnique,
@@ -232,10 +234,10 @@ private:
                            PhysicalStreamType::LENGTH,
                            LogicalStreamType{LengthType::RINGS});
 
-        return {.numStreams = numStreams, .data = std::move(result)};
+        return {.numStreams = numStreams, .chunks = std::move(chunks)};
     }
 
-    static void appendUint32Stream(std::vector<std::uint8_t>& result,
+    static void appendUint32Stream(EncodedChunks& chunks,
                                    std::uint32_t& numStreams,
                                    std::span<const std::uint32_t> values,
                                    PhysicalLevelTechnique physicalTechnique,
@@ -248,9 +250,10 @@ private:
         }
         std::vector<std::int32_t> signedValues(values.size());
         std::ranges::transform(values, signedValues.begin(), [](auto v) { return static_cast<std::int32_t>(v); });
-        const auto data = intEncoder.encodeIntStream(
-            signedValues, physicalTechnique, false, streamType, std::move(logicalType), integerEncodingOption);
-        result.insert(result.end(), data.begin(), data.end());
+        util::appendChunks(
+            chunks,
+            intEncoder.encodeIntStream(
+                signedValues, physicalTechnique, false, streamType, std::move(logicalType), integerEncodingOption));
         ++numStreams;
     }
 
@@ -275,10 +278,10 @@ private:
         return result;
     }
 
-    static std::vector<std::uint8_t> encodeVertexBufferPlain(std::span<const Vertex> vertices,
-                                                             PhysicalLevelTechnique physicalTechnique,
-                                                             IntegerEncoder& intEncoder,
-                                                             IntegerEncodingOption integerEncodingOption) {
+    static EncodedChunks encodeVertexBufferPlain(std::span<const Vertex> vertices,
+                                                 PhysicalLevelTechnique physicalTechnique,
+                                                 IntegerEncoder& intEncoder,
+                                                 IntegerEncodingOption integerEncodingOption) {
         return encodeVertexBufferRaw(zigZagDeltaEncode(vertices), physicalTechnique, intEncoder, integerEncodingOption);
     }
 
@@ -306,13 +309,13 @@ private:
         return result;
     }
 
-    static std::vector<std::uint8_t> encodeHilbertDictionary(const HilbertDictionary& dict,
-                                                             std::span<const Vertex> vertexBuffer,
-                                                             std::int32_t minVal,
-                                                             std::int32_t maxVal,
-                                                             PhysicalLevelTechnique physicalTechnique,
-                                                             IntegerEncoder& intEncoder,
-                                                             IntegerEncodingOption integerEncodingOption) {
+    static EncodedChunks encodeHilbertDictionary(const HilbertDictionary& dict,
+                                                 std::span<const Vertex> vertexBuffer,
+                                                 std::int32_t minVal,
+                                                 std::int32_t maxVal,
+                                                 PhysicalLevelTechnique physicalTechnique,
+                                                 IntegerEncoder& intEncoder,
+                                                 IntegerEncodingOption integerEncodingOption) {
         util::HilbertCurve curve(minVal, maxVal);
         const auto encodedDict = encodeVertexBufferRaw(
             zigZagDeltaEncode(dict.vertices), physicalTechnique, intEncoder, integerEncodingOption);
@@ -335,12 +338,12 @@ private:
         return {{codes.begin(), codes.end()}};
     }
 
-    static std::vector<std::uint8_t> encodeMortonDictionary(const MortonDictionary& dict,
-                                                            std::span<const Vertex> vertexBuffer,
-                                                            std::int32_t minVal,
-                                                            std::int32_t maxVal,
-                                                            PhysicalLevelTechnique physicalTechnique,
-                                                            IntegerEncoder& intEncoder) {
+    static EncodedChunks encodeMortonDictionary(const MortonDictionary& dict,
+                                                std::span<const Vertex> vertexBuffer,
+                                                std::int32_t minVal,
+                                                std::int32_t maxVal,
+                                                PhysicalLevelTechnique physicalTechnique,
+                                                IntegerEncoder& intEncoder) {
         util::MortonCurve curve(minVal, maxVal);
         const auto encodedDict = encodeMortonCodes(
             dict.mortonCodes, curve.getNumBits(), curve.getCoordinateShift(), physicalTechnique);
@@ -361,29 +364,27 @@ private:
         return offsets;
     }
 
-    static std::vector<std::uint8_t> encodeDictionaryWithOffsets(std::span<const Vertex> vertexBuffer,
-                                                                 std::span<const std::uint32_t> sortedIds,
-                                                                 const util::SpaceFillingCurve& curve,
-                                                                 const std::vector<std::uint8_t>& encodedDict,
-                                                                 PhysicalLevelTechnique physicalTechnique,
-                                                                 IntegerEncoder& intEncoder) {
+    static EncodedChunks encodeDictionaryWithOffsets(std::span<const Vertex> vertexBuffer,
+                                                     std::span<const std::uint32_t> sortedIds,
+                                                     const util::SpaceFillingCurve& curve,
+                                                     EncodedChunks encodedDict,
+                                                     PhysicalLevelTechnique physicalTechnique,
+                                                     IntegerEncoder& intEncoder) {
         const auto offsets = computeOffsets(vertexBuffer, sortedIds, curve);
-        const auto encodedOffsets = intEncoder.encodeIntStream(
-            offsets, physicalTechnique, false, PhysicalStreamType::OFFSET, LogicalStreamType{OffsetType::VERTEX});
-
-        std::vector<std::uint8_t> result;
-        result.reserve(encodedOffsets.size() + encodedDict.size());
-        result.insert(result.end(), encodedOffsets.begin(), encodedOffsets.end());
-        result.insert(result.end(), encodedDict.begin(), encodedDict.end());
+        EncodedChunks result;
+        util::appendChunks(
+            result,
+            intEncoder.encodeIntStream(
+                offsets, physicalTechnique, false, PhysicalStreamType::OFFSET, LogicalStreamType{OffsetType::VERTEX}));
+        util::appendChunks(result, std::move(encodedDict));
         return result;
     }
 
-    static std::vector<std::uint8_t> encodeVertexBufferRaw(std::span<const std::int32_t> zigZagDelta,
-                                                           PhysicalLevelTechnique physicalTechnique,
-                                                           IntegerEncoder& intEncoder,
-                                                           IntegerEncodingOption integerEncodingOption) {
-        const auto encoded = intEncoder.encodeInt(
-            zigZagDelta, physicalTechnique, /*isSigned=*/false, integerEncodingOption);
+    static EncodedChunks encodeVertexBufferRaw(std::span<const std::int32_t> zigZagDelta,
+                                               PhysicalLevelTechnique physicalTechnique,
+                                               IntegerEncoder& intEncoder,
+                                               IntegerEncodingOption integerEncodingOption) {
+        auto encoded = intEncoder.encodeInt(zigZagDelta, physicalTechnique, /*isSigned=*/false, integerEncodingOption);
 
         // Match Java vertex metadata for plain zigzag-delta streams while preserving
         // non-plain logical transforms when they are explicitly selected.
@@ -418,17 +419,13 @@ private:
                            .encode();
         }
 
-        std::vector<std::uint8_t> result;
-        result.reserve(metadata.size() + encoded.encodedValues.size());
-        result.insert(result.end(), metadata.begin(), metadata.end());
-        result.insert(result.end(), encoded.encodedValues.begin(), encoded.encodedValues.end());
-        return result;
+        return {std::move(metadata), std::move(encoded.encodedValues)};
     }
 
-    static std::vector<std::uint8_t> encodeMortonCodes(std::span<const std::uint32_t> mortonCodes,
-                                                       std::uint32_t numBits,
-                                                       std::int32_t coordinateShift,
-                                                       PhysicalLevelTechnique physicalTechnique) {
+    static EncodedChunks encodeMortonCodes(std::span<const std::uint32_t> mortonCodes,
+                                           std::uint32_t numBits,
+                                           std::int32_t coordinateShift,
+                                           PhysicalLevelTechnique physicalTechnique) {
         std::vector<std::int32_t> deltaValues(mortonCodes.size());
         std::int32_t prev = 0;
         for (std::size_t i = 0; i < mortonCodes.size(); ++i) {
@@ -442,22 +439,18 @@ private:
             util::encoding::encodeVarint(static_cast<std::uint32_t>(v), encodedData);
         }
 
-        const auto metadata = MortonEncodedStreamMetadata(PhysicalStreamType::DATA,
-                                                          LogicalStreamType{DictionaryType::MORTON},
-                                                          LogicalLevelTechnique::MORTON,
-                                                          LogicalLevelTechnique::DELTA,
-                                                          physicalTechnique,
-                                                          static_cast<std::uint32_t>(mortonCodes.size()),
-                                                          static_cast<std::uint32_t>(encodedData.size()),
-                                                          static_cast<int>(numBits),
-                                                          static_cast<int>(coordinateShift))
-                                  .encode();
+        auto metadata = MortonEncodedStreamMetadata(PhysicalStreamType::DATA,
+                                                    LogicalStreamType{DictionaryType::MORTON},
+                                                    LogicalLevelTechnique::MORTON,
+                                                    LogicalLevelTechnique::DELTA,
+                                                    physicalTechnique,
+                                                    static_cast<std::uint32_t>(mortonCodes.size()),
+                                                    static_cast<std::uint32_t>(encodedData.size()),
+                                                    static_cast<int>(numBits),
+                                                    static_cast<int>(coordinateShift))
+                            .encode();
 
-        std::vector<std::uint8_t> result;
-        result.reserve(metadata.size() + encodedData.size());
-        result.insert(result.end(), metadata.begin(), metadata.end());
-        result.insert(result.end(), encodedData.begin(), encodedData.end());
-        return result;
+        return {std::move(metadata), std::move(encodedData)};
     }
 };
 

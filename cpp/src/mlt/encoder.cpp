@@ -496,12 +496,6 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
             bodyChunks.push_back(std::move(chunk));
         }
     };
-    const auto appendEncodedStreamSet = [&](std::uint32_t numStreams, std::vector<std::uint8_t> encodedValues) {
-        std::vector<std::uint8_t> header;
-        util::encoding::encodeVarint(numStreams, header);
-        bodyChunks.push_back(std::move(header));
-        bodyChunks.push_back(std::move(encodedValues));
-    };
     const auto appendEncodedStreamSetChunks = [&](std::uint32_t numStreams, EncodedChunks encodedChunks) {
         std::vector<std::uint8_t> header;
         util::encoding::encodeVarint(numStreams, header);
@@ -526,7 +520,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
         if (hasLongId) {
             const auto ids = extractIds.template operator()<std::uint64_t>(
                 [](const auto& feature) -> std::optional<std::uint64_t> { return feature.id; });
-            appendEncodedColumnChunks(PropertyEncoder::encodeUint64ColumnChunked(ids, intEncoder, hasMissingId).chunks);
+            appendEncodedColumnChunks(PropertyEncoder::encodeUint64Column(ids, intEncoder, hasMissingId));
         } else {
             const auto ids = extractIds.template operator()<std::int32_t>(
                 [](const auto& feature) -> std::optional<std::int32_t> {
@@ -534,8 +528,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                                                   : std::nullopt;
                 });
             appendEncodedColumnChunks(
-                PropertyEncoder::encodeInt32ColumnChunked(ids, physicalTechnique, false, intEncoder, hasMissingId)
-                    .chunks);
+                PropertyEncoder::encodeInt32Column(ids, physicalTechnique, false, intEncoder, hasMissingId));
         }
     }
 
@@ -576,11 +569,11 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                                                      intEncoder,
                                                      geometryIntegerEncodingOption,
                                                      geometryTopologyIntegerEncodingOption,
-                                                     config.useMortonEncoding,
-                                                     config.forceMortonGeometryLayout);
+                                                     config.enableMortonEncoding,
+                                                     config.legacySizeComparison);
     }();
 
-    appendEncodedStreamSet(encodedGeom.numStreams, std::move(encodedGeom.encodedValues));
+    appendEncodedStreamSetChunks(encodedGeom.numStreams, std::move(encodedGeom.chunks));
 
     // Cache properties by column once to avoid repeated per-feature linear searches.
     const auto scalarPropertyCache = buildScalarPropertyCache(featureTable, features);
@@ -629,8 +622,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                 }
             }
 
-            auto result = StringEncoder::encodeSharedDictionaryChunked(
-                optCols, physicalTechnique, intEncoder, config.useFsst);
+            auto result = StringEncoder::encodeSharedDictionary(optCols, physicalTechnique, intEncoder, config.useFsst);
 
             appendEncodedStreamSetChunks(result.numStreams, std::move(result.chunks));
             continue;
@@ -683,16 +675,15 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                         [](auto) -> std::uint8_t { throwInvalidType(); }, // GCOVR_EXCL_LINE
                     },
                     [&](auto dataValues, const auto& presentValues, bool hasNull) {
-                        return PropertyEncoder::encodeSeparatedDataColumnChunked(
-                                   dataValues,
-                                   presentValues,
-                                   hasNull,
-                                   column.nullable,
-                                   [](std::span<const std::uint8_t> input) {
-                                       return BooleanEncoder::encodeBooleanStream(
-                                           input, metadata::stream::PhysicalStreamType::DATA);
-                                   })
-                            .chunks;
+                        return PropertyEncoder::encodeDataColumn(dataValues,
+                                                                 presentValues,
+                                                                 hasNull,
+                                                                 column.nullable,
+                                                                 [](std::span<const std::uint8_t> input) {
+                                                                     return BooleanEncoder::encodeBooleanStream(
+                                                                         input,
+                                                                         metadata::stream::PhysicalStreamType::DATA);
+                                                                 });
                     });
                 break;
             case ScalarType::INT_32:
@@ -703,19 +694,18 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                         [](auto) -> std::int32_t { throwInvalidType(); }, // GCOVR_EXCL_LINE
                     },
                     [&](auto dataValues, const auto& presentValues, bool hasNull) {
-                        return PropertyEncoder::encodeSeparatedDataColumnChunked(
-                                   dataValues,
-                                   presentValues,
-                                   hasNull,
-                                   column.nullable,
-                                   [&](std::span<const std::int32_t> input) {
-                                       return intEncoder.encodeIntStream(input,
+                        return PropertyEncoder::encodeDataColumn(dataValues,
+                                                                 presentValues,
+                                                                 hasNull,
+                                                                 column.nullable,
+                                                                 [&](std::span<const std::int32_t> input) {
+                                                                     return intEncoder.encodeIntStream(
+                                                                         input,
                                                                          physicalTechnique,
                                                                          true,
                                                                          metadata::stream::PhysicalStreamType::DATA,
                                                                          std::nullopt);
-                                   })
-                            .chunks;
+                                                                 });
                     });
                 break;
             case ScalarType::UINT_32:
@@ -726,18 +716,15 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                         [](auto) -> std::uint32_t { throwInvalidType(); }, // GCOVR_EXCL_LINE
                     },
                     [&](auto dataValues, const auto& presentValues, bool hasNull) {
-                        return PropertyEncoder::encodeSeparatedDataColumnChunked(
-                                   dataValues,
-                                   presentValues,
-                                   hasNull,
-                                   column.nullable,
-                                   [&](std::span<const std::uint32_t> input) {
-                                       return intEncoder.encodeUint32Stream(input,
-                                                                            physicalTechnique,
-                                                                            metadata::stream::PhysicalStreamType::DATA,
-                                                                            std::nullopt);
-                                   })
-                            .chunks;
+                        return PropertyEncoder::encodeDataColumn(
+                            dataValues,
+                            presentValues,
+                            hasNull,
+                            column.nullable,
+                            [&](std::span<const std::uint32_t> input) {
+                                return intEncoder.encodeUint32Stream(
+                                    input, physicalTechnique, metadata::stream::PhysicalStreamType::DATA, std::nullopt);
+                            });
                     });
                 break;
             case ScalarType::INT_64:
@@ -748,16 +735,15 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                         [](auto) -> std::int64_t { throwInvalidType(); }, // GCOVR_EXCL_LINE
                     },
                     [&](auto dataValues, const auto& presentValues, bool hasNull) {
-                        return PropertyEncoder::encodeSeparatedDataColumnChunked(
-                                   dataValues,
-                                   presentValues,
-                                   hasNull,
-                                   column.nullable,
-                                   [&](std::span<const std::int64_t> input) {
-                                       return intEncoder.encodeLongStream(
-                                           input, true, metadata::stream::PhysicalStreamType::DATA, std::nullopt);
-                                   })
-                            .chunks;
+                        return PropertyEncoder::encodeDataColumn(
+                            dataValues,
+                            presentValues,
+                            hasNull,
+                            column.nullable,
+                            [&](std::span<const std::int64_t> input) {
+                                return intEncoder.encodeLongStream(
+                                    input, true, metadata::stream::PhysicalStreamType::DATA, std::nullopt);
+                            });
                     });
                 break;
             case ScalarType::UINT_64:
@@ -768,16 +754,15 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                         [](auto) -> std::uint64_t { throwInvalidType(); }, // GCOVR_EXCL_LINE
                     },
                     [&](auto dataValues, const auto& presentValues, bool hasNull) {
-                        return PropertyEncoder::encodeSeparatedDataColumnChunked(
-                                   dataValues,
-                                   presentValues,
-                                   hasNull,
-                                   column.nullable,
-                                   [&](std::span<const std::uint64_t> input) {
-                                       return intEncoder.encodeUint64Stream(
-                                           input, metadata::stream::PhysicalStreamType::DATA, std::nullopt);
-                                   })
-                            .chunks;
+                        return PropertyEncoder::encodeDataColumn(
+                            dataValues,
+                            presentValues,
+                            hasNull,
+                            column.nullable,
+                            [&](std::span<const std::uint64_t> input) {
+                                return intEncoder.encodeUint64Stream(
+                                    input, metadata::stream::PhysicalStreamType::DATA, std::nullopt);
+                            });
                     });
                 break;
             case ScalarType::FLOAT:
@@ -788,13 +773,10 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                         [](auto) -> float { throwInvalidType(); }, // GCOVR_EXCL_LINE
                     },
                     [&](auto dataValues, const auto& presentValues, bool hasNull) {
-                        return PropertyEncoder::encodeSeparatedDataColumnChunked(
-                                   dataValues,
-                                   presentValues,
-                                   hasNull,
-                                   column.nullable,
-                                   [](std::span<const float> input) { return FloatEncoder::encodeStream(input); })
-                            .chunks;
+                        return PropertyEncoder::encodeDataColumn(
+                            dataValues, presentValues, hasNull, column.nullable, [](std::span<const float> input) {
+                                return FloatEncoder::encodeStream(input);
+                            });
                     });
                 break;
             case ScalarType::DOUBLE:
@@ -805,13 +787,10 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                         [](auto) -> double { throwInvalidType(); }, // GCOVR_EXCL_LINE
                     },
                     [&](auto dataValues, const auto& presentValues, bool hasNull) {
-                        return PropertyEncoder::encodeSeparatedDataColumnChunked(
-                                   dataValues,
-                                   presentValues,
-                                   hasNull,
-                                   column.nullable,
-                                   [](std::span<const double> input) { return FloatEncoder::encodeStream(input); })
-                            .chunks;
+                        return PropertyEncoder::encodeDataColumn(
+                            dataValues, presentValues, hasNull, column.nullable, [](std::span<const double> input) {
+                                return FloatEncoder::encodeStream(input);
+                            });
                     });
                 break;
             case ScalarType::STRING: {
@@ -838,10 +817,8 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                         presentValues.push_back(false);
                     }
                 }
-                encodedChunks =
-                    PropertyEncoder::encodeStringColumnChunkedFromSeparated(
-                        dataValues, presentValues, physicalTechnique, intEncoder, config.useFsst, column.nullable)
-                        .chunks;
+                encodedChunks = PropertyEncoder::encodeStringColumn(
+                    dataValues, presentValues, physicalTechnique, intEncoder, config.useFsst, column.nullable);
                 break;
             }
             default:

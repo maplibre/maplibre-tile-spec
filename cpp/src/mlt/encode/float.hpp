@@ -34,10 +34,6 @@ public:
         result.insert(result.end(), bytes, bytes + byteLength);
         return result;
     }
-
-    static std::vector<std::uint8_t> encodeFloatStream(std::span<const float> values) { return encodeStream(values); }
-
-    static std::vector<std::uint8_t> encodeDoubleStream(std::span<const double> values) { return encodeStream(values); }
 };
 
 } // namespace mlt::encoder

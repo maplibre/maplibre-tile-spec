@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <mlt/encoder.hpp>
 #include <mlt/encode/int.hpp>
+#include <mlt/util/encoding/buffer.hpp>
 
 #if MLT_WITH_FASTPFOR
 #include <compositecodec.h>
@@ -11,7 +12,6 @@
 
 #include <bit>
 #include <cassert>
-#include <iterator>
 
 namespace mlt::encoder {
 
@@ -346,12 +346,12 @@ auto makeUnsignedPhysicalEncoder(PhysicalLevelTechnique physicalTechnique,
 }
 
 template <typename TValue, typename EncodeFn, typename BuildFn>
-std::vector<std::uint8_t> encodeStreamWithMetadata(std::span<const TValue> values,
-                                                   PhysicalLevelTechnique physicalTechnique,
-                                                   PhysicalStreamType streamType,
-                                                   std::optional<LogicalStreamType> logicalType,
-                                                   EncodeFn&& encodeValues,
-                                                   BuildFn&& buildStreamFn) {
+util::EncodedChunks encodeStreamWithMetadata(std::span<const TValue> values,
+                                             PhysicalLevelTechnique physicalTechnique,
+                                             PhysicalStreamType streamType,
+                                             std::optional<LogicalStreamType> logicalType,
+                                             EncodeFn&& encodeValues,
+                                             BuildFn&& buildStreamFn) {
     auto encoded = encodeValues(values);
     return buildStreamFn(std::move(encoded),
                          static_cast<std::uint32_t>(values.size()),
@@ -496,11 +496,11 @@ IntegerEncodingResult IntegerEncoder::encodeUint64(std::span<const std::uint64_t
     return encodeUnsignedIntegralNoDelta<std::uint64_t>(values, option, encode);
 }
 
-std::vector<std::uint8_t> IntegerEncoder::buildStream(IntegerEncodingResult&& encoded,
-                                                      std::uint32_t totalValues,
-                                                      PhysicalLevelTechnique physicalTechnique,
-                                                      PhysicalStreamType streamType,
-                                                      std::optional<LogicalStreamType> logicalType) {
+util::EncodedChunks IntegerEncoder::buildStream(IntegerEncodingResult&& encoded,
+                                                std::uint32_t totalValues,
+                                                PhysicalLevelTechnique physicalTechnique,
+                                                PhysicalStreamType streamType,
+                                                std::optional<LogicalStreamType> logicalType) {
     const bool isRle = (encoded.logicalLevelTechnique1 == LogicalLevelTechnique::RLE ||
                         encoded.logicalLevelTechnique2 == LogicalLevelTechnique::RLE);
     std::vector<std::uint8_t> metadata;
@@ -526,30 +526,24 @@ std::vector<std::uint8_t> IntegerEncoder::buildStream(IntegerEncodingResult&& en
                        .encode();
     }
 
-    std::vector<std::uint8_t> result;
-    result.reserve(metadata.size() + encoded.encodedValues.size());
-    result.insert(result.end(), metadata.begin(), metadata.end());
-    result.insert(result.end(),
-                  std::make_move_iterator(encoded.encodedValues.begin()),
-                  std::make_move_iterator(encoded.encodedValues.end()));
-    return result;
+    return {std::move(metadata), std::move(encoded.encodedValues)};
 }
 
-std::vector<std::uint8_t> IntegerEncoder::encodeIntStream(std::span<const std::int32_t> values,
-                                                          PhysicalLevelTechnique physicalTechnique,
-                                                          bool isSigned,
-                                                          PhysicalStreamType streamType,
-                                                          std::optional<LogicalStreamType> logicalType) {
+util::EncodedChunks IntegerEncoder::encodeIntStream(std::span<const std::int32_t> values,
+                                                    PhysicalLevelTechnique physicalTechnique,
+                                                    bool isSigned,
+                                                    PhysicalStreamType streamType,
+                                                    std::optional<LogicalStreamType> logicalType) {
     return encodeIntStream(
         values, physicalTechnique, isSigned, streamType, std::move(logicalType), impl->encodingOption);
 }
 
-std::vector<std::uint8_t> IntegerEncoder::encodeIntStream(std::span<const std::int32_t> values,
-                                                          PhysicalLevelTechnique physicalTechnique,
-                                                          bool isSigned,
-                                                          PhysicalStreamType streamType,
-                                                          std::optional<LogicalStreamType> logicalType,
-                                                          IntegerEncodingOption option) {
+util::EncodedChunks IntegerEncoder::encodeIntStream(std::span<const std::int32_t> values,
+                                                    PhysicalLevelTechnique physicalTechnique,
+                                                    bool isSigned,
+                                                    PhysicalStreamType streamType,
+                                                    std::optional<LogicalStreamType> logicalType,
+                                                    IntegerEncodingOption option) {
     return encodeStreamWithMetadata<std::int32_t>(
         values,
         physicalTechnique,
@@ -561,18 +555,18 @@ std::vector<std::uint8_t> IntegerEncoder::encodeIntStream(std::span<const std::i
         &IntegerEncoder::buildStream);
 }
 
-std::vector<std::uint8_t> IntegerEncoder::encodeLongStream(std::span<const std::int64_t> values,
-                                                           bool isSigned,
-                                                           PhysicalStreamType streamType,
-                                                           std::optional<LogicalStreamType> logicalType) {
+util::EncodedChunks IntegerEncoder::encodeLongStream(std::span<const std::int64_t> values,
+                                                     bool isSigned,
+                                                     PhysicalStreamType streamType,
+                                                     std::optional<LogicalStreamType> logicalType) {
     return encodeLongStream(values, isSigned, streamType, std::move(logicalType), impl->encodingOption);
 }
 
-std::vector<std::uint8_t> IntegerEncoder::encodeLongStream(std::span<const std::int64_t> values,
-                                                           bool isSigned,
-                                                           PhysicalStreamType streamType,
-                                                           std::optional<LogicalStreamType> logicalType,
-                                                           IntegerEncodingOption option) {
+util::EncodedChunks IntegerEncoder::encodeLongStream(std::span<const std::int64_t> values,
+                                                     bool isSigned,
+                                                     PhysicalStreamType streamType,
+                                                     std::optional<LogicalStreamType> logicalType,
+                                                     IntegerEncodingOption option) {
     return encodeStreamWithMetadata<std::int64_t>(
         values,
         PhysicalLevelTechnique::VARINT,
@@ -582,18 +576,18 @@ std::vector<std::uint8_t> IntegerEncoder::encodeLongStream(std::span<const std::
         &IntegerEncoder::buildStream);
 }
 
-std::vector<std::uint8_t> IntegerEncoder::encodeUint32Stream(std::span<const std::uint32_t> values,
-                                                             PhysicalLevelTechnique physicalTechnique,
-                                                             PhysicalStreamType streamType,
-                                                             std::optional<LogicalStreamType> logicalType) {
+util::EncodedChunks IntegerEncoder::encodeUint32Stream(std::span<const std::uint32_t> values,
+                                                       PhysicalLevelTechnique physicalTechnique,
+                                                       PhysicalStreamType streamType,
+                                                       std::optional<LogicalStreamType> logicalType) {
     return encodeUint32Stream(values, physicalTechnique, streamType, std::move(logicalType), impl->encodingOption);
 }
 
-std::vector<std::uint8_t> IntegerEncoder::encodeUint32Stream(std::span<const std::uint32_t> values,
-                                                             PhysicalLevelTechnique physicalTechnique,
-                                                             PhysicalStreamType streamType,
-                                                             std::optional<LogicalStreamType> logicalType,
-                                                             IntegerEncodingOption option) {
+util::EncodedChunks IntegerEncoder::encodeUint32Stream(std::span<const std::uint32_t> values,
+                                                       PhysicalLevelTechnique physicalTechnique,
+                                                       PhysicalStreamType streamType,
+                                                       std::optional<LogicalStreamType> logicalType,
+                                                       IntegerEncodingOption option) {
     return encodeStreamWithMetadata<std::uint32_t>(
         values,
         physicalTechnique,
@@ -605,16 +599,16 @@ std::vector<std::uint8_t> IntegerEncoder::encodeUint32Stream(std::span<const std
         &IntegerEncoder::buildStream);
 }
 
-std::vector<std::uint8_t> IntegerEncoder::encodeUint64Stream(std::span<const std::uint64_t> values,
-                                                             PhysicalStreamType streamType,
-                                                             std::optional<LogicalStreamType> logicalType) {
+util::EncodedChunks IntegerEncoder::encodeUint64Stream(std::span<const std::uint64_t> values,
+                                                       PhysicalStreamType streamType,
+                                                       std::optional<LogicalStreamType> logicalType) {
     return encodeUint64Stream(values, streamType, std::move(logicalType), impl->encodingOption);
 }
 
-std::vector<std::uint8_t> IntegerEncoder::encodeUint64Stream(std::span<const std::uint64_t> values,
-                                                             PhysicalStreamType streamType,
-                                                             std::optional<LogicalStreamType> logicalType,
-                                                             IntegerEncodingOption option) {
+util::EncodedChunks IntegerEncoder::encodeUint64Stream(std::span<const std::uint64_t> values,
+                                                       PhysicalStreamType streamType,
+                                                       std::optional<LogicalStreamType> logicalType,
+                                                       IntegerEncodingOption option) {
     return encodeStreamWithMetadata<std::uint64_t>(
         values,
         PhysicalLevelTechnique::VARINT,

@@ -30,11 +30,6 @@ public:
 
     struct EncodeResult {
         std::uint32_t numStreams;
-        std::vector<std::uint8_t> data;
-    };
-
-    struct EncodeChunkedResult {
-        std::uint32_t numStreams;
         EncodedChunks chunks;
     };
 
@@ -47,43 +42,26 @@ public:
         auto dict = encodeDictionary(values, physicalTechnique, intEncoder);
 
         std::uint32_t bestStreams = 2;
-        std::vector<std::uint8_t>* best = &plain;
-        if (dict.size() < best->size()) {
+        EncodedChunks* best = &plain;
+        if (chunkSize(dict) < chunkSize(*best)) {
             bestStreams = 3;
             best = &dict;
         }
 
         if (useFsst) {
             auto fsstDict = encodeFsstDictionary(values, physicalTechnique, intEncoder, true, false);
-            if (fsstDict.size() < best->size()) {
-                return {.numStreams = 5, .data = std::move(fsstDict)};
+            if (chunkSize(fsstDict) < chunkSize(*best)) {
+                return {.numStreams = 5, .chunks = std::move(fsstDict)};
             }
         }
 
-        return {.numStreams = bestStreams, .data = std::move(*best)};
+        return {.numStreams = bestStreams, .chunks = std::move(*best)};
     }
 
     static EncodeResult encodeSharedDictionary(const std::vector<std::vector<std::optional<std::string_view>>>& columns,
                                                PhysicalLevelTechnique physicalTechnique,
                                                IntegerEncoder& intEncoder,
                                                bool useFsst = true) {
-        auto chunked = encodeSharedDictionaryChunked(columns, physicalTechnique, intEncoder, useFsst);
-        const auto totalSize = util::sum(chunked.chunks, [](const auto& chunk) { return chunk.size(); });
-
-        std::vector<std::uint8_t> data;
-        data.reserve(totalSize);
-        for (auto& chunk : chunked.chunks) {
-            data.insert(data.end(), chunk.begin(), chunk.end());
-        }
-
-        return {.numStreams = chunked.numStreams, .data = std::move(data)};
-    }
-
-    static EncodeChunkedResult encodeSharedDictionaryChunked(
-        const std::vector<std::vector<std::optional<std::string_view>>>& columns,
-        PhysicalLevelTechnique physicalTechnique,
-        IntegerEncoder& intEncoder,
-        bool useFsst = true) {
         std::vector<std::string_view> dictionary;
         std::unordered_map<std::string_view, std::uint32_t> dictIndex;
         std::vector<std::vector<std::int32_t>> dataStreams(columns.size());
@@ -115,7 +93,7 @@ public:
 
         if (useFsst) {
             auto fsstData = encodeFsst(dictionary, physicalTechnique, intEncoder, true);
-            if (fsstData.size() < dictData.size()) {
+            if (chunkSize(fsstData) < chunkSize(dictData)) {
                 dictData = std::move(fsstData);
                 // FSST shared dictionary emits LENGTH(symbol), DATA(symbol table),
                 // LENGTH(dictionary), DATA(compressed dictionary).
@@ -125,7 +103,7 @@ public:
 
         EncodedChunks chunks;
         chunks.reserve(1 + (columns.size() * 3));
-        chunks.push_back(std::move(dictData));
+        util::appendChunks(chunks, std::move(dictData));
 
         for (std::size_t col = 0; col < columns.size(); ++col) {
             if (dataStreams[col].empty()) {
@@ -142,12 +120,12 @@ public:
             auto presentData = BooleanEncoder::encodeBooleanStream(presentStreams[col], PhysicalStreamType::PRESENT);
             chunks.push_back(std::move(presentData));
 
-            auto offsetData = intEncoder.encodeIntStream(dataStreams[col],
-                                                         physicalTechnique,
-                                                         false,
-                                                         PhysicalStreamType::OFFSET,
-                                                         LogicalStreamType{OffsetType::STRING});
-            chunks.push_back(std::move(offsetData));
+            util::appendChunks(chunks,
+                               intEncoder.encodeIntStream(dataStreams[col],
+                                                          physicalTechnique,
+                                                          false,
+                                                          PhysicalStreamType::OFFSET,
+                                                          LogicalStreamType{OffsetType::STRING}));
         }
 
         const auto numStreams = dictStreams + (static_cast<std::uint32_t>(columns.size()) * 2);
@@ -156,8 +134,8 @@ public:
 
 private:
     struct EncodedStringStreams {
-        std::vector<std::uint8_t> firstStream;
-        std::vector<std::uint8_t> remainingStreams;
+        EncodedChunks firstStreamChunks;
+        EncodedChunks remainingStreamChunks;
     };
 
     struct DictionaryIndex {
@@ -180,37 +158,44 @@ private:
         return result;
     }
 
-    static std::vector<std::uint8_t> encodeOffsetsAndData(const std::vector<std::uint8_t>& firstStream,
-                                                          const std::vector<std::uint8_t>& remainingStreams,
-                                                          std::span<const std::int32_t> offsets,
-                                                          PhysicalLevelTechnique physicalTechnique,
-                                                          IntegerEncoder& intEncoder) {
-        const auto encodedOffsets = intEncoder.encodeIntStream(
-            offsets, physicalTechnique, false, PhysicalStreamType::OFFSET, LogicalStreamType{OffsetType::STRING});
+    static std::size_t chunkSize(const EncodedChunks& chunks) {
+        return util::sum(chunks, [](const auto& chunk) { return chunk.size(); });
+    }
 
-        std::vector<std::uint8_t> result;
-        result.reserve(firstStream.size() + encodedOffsets.size() + remainingStreams.size());
-        result.insert(result.end(), firstStream.begin(), firstStream.end());
-        result.insert(result.end(), encodedOffsets.begin(), encodedOffsets.end());
-        result.insert(result.end(), remainingStreams.begin(), remainingStreams.end());
+    static EncodedChunks encodeOffsetsAndData(EncodedChunks firstStreamChunks,
+                                              EncodedChunks remainingStreamChunks,
+                                              std::span<const std::int32_t> offsets,
+                                              PhysicalLevelTechnique physicalTechnique,
+                                              IntegerEncoder& intEncoder) {
+        EncodedChunks result;
+        result.reserve(firstStreamChunks.size() + remainingStreamChunks.size() + 2);
+        util::appendChunks(result, std::move(firstStreamChunks));
+        util::appendChunks(
+            result,
+            intEncoder.encodeIntStream(
+                offsets, physicalTechnique, false, PhysicalStreamType::OFFSET, LogicalStreamType{OffsetType::STRING}));
+        util::appendChunks(result, std::move(remainingStreamChunks));
         return result;
     }
 
-    static std::vector<std::uint8_t> encodeDictionary(std::span<const std::string_view> values,
-                                                      PhysicalLevelTechnique physicalTechnique,
-                                                      IntegerEncoder& intEncoder) {
+    static EncodedChunks encodeDictionary(std::span<const std::string_view> values,
+                                          PhysicalLevelTechnique physicalTechnique,
+                                          IntegerEncoder& intEncoder) {
         const auto [dictionary, offsets] = buildDictIndex(values);
         auto dictStreams = encodeStringStreams(
             dictionary, physicalTechnique, intEncoder, LengthType::DICTIONARY, DictionaryType::SINGLE);
-        return encodeOffsetsAndData(
-            dictStreams.firstStream, dictStreams.remainingStreams, offsets, physicalTechnique, intEncoder);
+        return encodeOffsetsAndData(std::move(dictStreams.firstStreamChunks),
+                                    std::move(dictStreams.remainingStreamChunks),
+                                    offsets,
+                                    physicalTechnique,
+                                    intEncoder);
     }
 
-    static std::vector<std::uint8_t> encodeFsstDictionary(std::span<const std::string_view> values,
-                                                          PhysicalLevelTechnique physicalTechnique,
-                                                          IntegerEncoder& intEncoder,
-                                                          bool encodeOffsets,
-                                                          bool isShared) {
+    static EncodedChunks encodeFsstDictionary(std::span<const std::string_view> values,
+                                              PhysicalLevelTechnique physicalTechnique,
+                                              IntegerEncoder& intEncoder,
+                                              bool encodeOffsets,
+                                              bool isShared) {
         const auto [dictionary, offsets] = buildDictIndex(values);
         auto fsstData = encodeFsst(dictionary, physicalTechnique, intEncoder, isShared);
 
@@ -219,20 +204,23 @@ private:
         }
 
         auto fsstStreams = encodeFsstStreams(dictionary, physicalTechnique, intEncoder, isShared);
-        return encodeOffsetsAndData(
-            fsstStreams.firstStream, fsstStreams.remainingStreams, offsets, physicalTechnique, intEncoder);
+        return encodeOffsetsAndData(std::move(fsstStreams.firstStreamChunks),
+                                    std::move(fsstStreams.remainingStreamChunks),
+                                    offsets,
+                                    physicalTechnique,
+                                    intEncoder);
     }
 
-    static std::vector<std::uint8_t> encodeFsst(std::span<const std::string_view> values,
-                                                PhysicalLevelTechnique physicalTechnique,
-                                                IntegerEncoder& intEncoder,
-                                                bool isShared) {
+    static EncodedChunks encodeFsst(std::span<const std::string_view> values,
+                                    PhysicalLevelTechnique physicalTechnique,
+                                    IntegerEncoder& intEncoder,
+                                    bool isShared) {
         auto streams = encodeFsstStreams(values, physicalTechnique, intEncoder, isShared);
-        std::vector<std::uint8_t> out;
-        out.reserve(streams.firstStream.size() + streams.remainingStreams.size());
-        out.insert(out.end(), streams.firstStream.begin(), streams.firstStream.end());
-        out.insert(out.end(), streams.remainingStreams.begin(), streams.remainingStreams.end());
-        return out;
+        EncodedChunks result;
+        result.reserve(streams.firstStreamChunks.size() + streams.remainingStreamChunks.size());
+        util::appendChunks(result, std::move(streams.firstStreamChunks));
+        util::appendChunks(result, std::move(streams.remainingStreamChunks));
+        return result;
     }
 
     static EncodedStringStreams encodeFsstStreams(std::span<const std::string_view> values,
@@ -257,7 +245,7 @@ private:
         const auto result = fsst::encode(joined);
 
         std::vector<std::int32_t> symLens(result.symbolLengths.begin(), result.symbolLengths.end());
-        const auto encodedSymbolLengths = intEncoder.encodeIntStream(
+        auto encodedSymbolLengths = intEncoder.encodeIntStream(
             symLens, physicalTechnique, false, PhysicalStreamType::LENGTH, LogicalStreamType{LengthType::SYMBOL});
 
         const auto symbolTableMetadata = StreamMetadata(PhysicalStreamType::DATA,
@@ -269,11 +257,11 @@ private:
                                                         static_cast<std::uint32_t>(result.symbols.size()))
                                              .encode();
 
-        const auto encodedDictLengths = intEncoder.encodeIntStream(valueLengths,
-                                                                   physicalTechnique,
-                                                                   false,
-                                                                   PhysicalStreamType::LENGTH,
-                                                                   LogicalStreamType{LengthType::DICTIONARY});
+        auto encodedDictLengths = intEncoder.encodeIntStream(valueLengths,
+                                                             physicalTechnique,
+                                                             false,
+                                                             PhysicalStreamType::LENGTH,
+                                                             LogicalStreamType{LengthType::DICTIONARY});
 
         const auto dictType = isShared ? DictionaryType::SHARED : DictionaryType::SINGLE;
         const auto corpusMetadata = StreamMetadata(PhysicalStreamType::DATA,
@@ -285,18 +273,17 @@ private:
                                                    static_cast<std::uint32_t>(result.compressedData.size()))
                                         .encode();
 
-        std::vector<std::uint8_t> remainder;
-        remainder.reserve(symbolTableMetadata.size() + result.symbols.size() + encodedDictLengths.size() +
-                          corpusMetadata.size() + result.compressedData.size());
-        remainder.insert(remainder.end(), symbolTableMetadata.begin(), symbolTableMetadata.end());
-        remainder.insert(remainder.end(), result.symbols.begin(), result.symbols.end());
-        remainder.insert(remainder.end(), encodedDictLengths.begin(), encodedDictLengths.end());
-        remainder.insert(remainder.end(), corpusMetadata.begin(), corpusMetadata.end());
-        remainder.insert(remainder.end(), result.compressedData.begin(), result.compressedData.end());
+        EncodedChunks remainder;
+        remainder.reserve(4 + encodedDictLengths.size());
+        remainder.push_back(std::move(symbolTableMetadata));
+        remainder.push_back(result.symbols);
+        util::appendChunks(remainder, std::move(encodedDictLengths));
+        remainder.push_back(std::move(corpusMetadata));
+        remainder.push_back(result.compressedData);
 
         return {
-            .firstStream = std::move(encodedSymbolLengths),
-            .remainingStreams = std::move(remainder),
+            .firstStreamChunks = std::move(encodedSymbolLengths),
+            .remainingStreamChunks = std::move(remainder),
         };
     }
 
@@ -317,7 +304,7 @@ private:
             rawData.insert(rawData.end(), sv.begin(), sv.end());
         }
 
-        const auto encodedLengths = intEncoder.encodeIntStream(
+        auto encodedLengths = intEncoder.encodeIntStream(
             lengths, physicalTechnique, false, PhysicalStreamType::LENGTH, LogicalStreamType{lengthType});
 
         const auto dataMetadata = StreamMetadata(PhysicalStreamType::DATA,
@@ -329,27 +316,27 @@ private:
                                                  static_cast<std::uint32_t>(rawData.size()))
                                       .encode();
 
-        std::vector<std::uint8_t> remaining;
-        remaining.reserve(dataMetadata.size() + rawData.size());
-        remaining.insert(remaining.end(), dataMetadata.begin(), dataMetadata.end());
-        remaining.insert(remaining.end(), rawData.begin(), rawData.end());
+        EncodedChunks remaining;
+        remaining.reserve(2);
+        remaining.push_back(std::move(dataMetadata));
+        remaining.push_back(std::move(rawData));
 
         return {
-            .firstStream = std::move(encodedLengths),
-            .remainingStreams = std::move(remaining),
+            .firstStreamChunks = std::move(encodedLengths),
+            .remainingStreamChunks = std::move(remaining),
         };
     }
 
-    static std::vector<std::uint8_t> encodeStringBytes(std::span<const std::string_view> values,
-                                                       PhysicalLevelTechnique physicalTechnique,
-                                                       IntegerEncoder& intEncoder,
-                                                       LengthType lengthType,
-                                                       DictionaryType dictType) {
+    static EncodedChunks encodeStringBytes(std::span<const std::string_view> values,
+                                           PhysicalLevelTechnique physicalTechnique,
+                                           IntegerEncoder& intEncoder,
+                                           LengthType lengthType,
+                                           DictionaryType dictType) {
         auto streams = encodeStringStreams(values, physicalTechnique, intEncoder, lengthType, dictType);
-        std::vector<std::uint8_t> result;
-        result.reserve(streams.firstStream.size() + streams.remainingStreams.size());
-        result.insert(result.end(), streams.firstStream.begin(), streams.firstStream.end());
-        result.insert(result.end(), streams.remainingStreams.begin(), streams.remainingStreams.end());
+        EncodedChunks result;
+        result.reserve(streams.firstStreamChunks.size() + streams.remainingStreamChunks.size());
+        util::appendChunks(result, std::move(streams.firstStreamChunks));
+        util::appendChunks(result, std::move(streams.remainingStreamChunks));
         return result;
     }
 };

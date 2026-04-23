@@ -2105,7 +2105,7 @@ TEST(Encode, MortonVertexDictionaryDisabled) {
     auto layer = makeLayer("no_morton", std::move(features));
 
     EncoderConfig config;
-    config.useMortonEncoding = false;
+    config.enableMortonEncoding = false;
     auto tile = encodeDecode({layer}, config);
     const auto* decoded = tile.getLayer("no_morton");
     ASSERT_TRUE(decoded);
