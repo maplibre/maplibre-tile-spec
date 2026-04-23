@@ -1,82 +1,53 @@
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 
 use hex::ToHex as _;
 
-pub struct ByteArrayDbg<'a>(pub &'a [u8]);
-impl Debug for ByteArrayDbg<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        fmt_byte_array(self.0, f)
-    }
+fn format_byte_array(data: &[u8]) -> String {
+    let vals = data.encode_hex_upper::<String>();
+    format!("[0x{vals}; {}]", data.len())
 }
 
-/// Wrapper type for optional slices to provide a custom Debug implementation
-pub struct OptSeq<'a, T>(pub Option<&'a [T]>);
-
-impl<T: Display + Debug> Debug for OptSeq<'_, T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write_seq(f, self.0, ToString::to_string)
-    }
+/// derive-debug formatter for `&[u8]` fields.
+pub fn bytes_dbg(data: &&[u8]) -> String {
+    format_byte_array(data)
 }
 
-pub struct OptSeqOpt<'a, T>(pub Option<&'a [Option<T>]>);
-
-impl<T: Display + Debug> Debug for OptSeqOpt<'_, T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write_seq(f, self.0, |opt| match opt {
-            Some(val) => val.to_string(),
-            None => "None".to_string(),
-        })
-    }
-}
-
-fn write_seq<T>(
-    f: &mut Formatter,
-    value: Option<&[T]>,
-    to_str: fn(&T) -> String,
-) -> std::fmt::Result {
-    if let Some(v) = value {
-        if f.alternate() {
-            let items = v.iter().map(to_str).collect::<Vec<_>>().join(",");
-            write!(f, "[{items}; {}]", v.len())
-        } else {
-            let items = v.iter().take(8).map(to_str).collect::<Vec<_>>().join(",");
-            write!(f, "[{items}")?;
-            if v.len() > 8 {
-                write!(f, ", ...; {}]", v.len())
-            } else {
-                write!(f, "]")
-            }
+fn format_opt_seq<T: Display>(v: Option<&[T]>) -> String {
+    match v {
+        None => "None".to_string(),
+        Some(v) => {
+            let items = v
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(",");
+            format!("[{items}; {}]", v.len())
         }
-    } else {
-        write!(f, "None")
     }
 }
 
-pub(crate) fn fmt_byte_array(data: &[u8], f: &mut Formatter<'_>) -> std::fmt::Result {
-    if f.alternate() {
-        let vals = data.encode_hex_upper::<String>();
-        write!(f, "[0x{vals}; {}]", data.len())
-    } else {
-        let vals = (&data[..8.min(data.len())]).encode_hex_upper::<String>();
-        write!(
-            f,
-            "[0x{vals}{}; {}]",
-            if data.len() <= 8 { "" } else { "..." },
-            data.len()
-        )
+/// derive-debug formatter for `Vec<T>` fields.
+pub fn vec_seq<T: Display>(v: &Vec<T>) -> String {
+    format_opt_seq(Some(v.as_slice()))
+}
+
+/// derive-debug formatter for `Option<Vec<T>>` fields.
+#[allow(clippy::ref_option, reason = "called by Dbg codegen")]
+pub fn opt_vec_seq<T: Display>(v: &Option<Vec<T>>) -> String {
+    format_opt_seq(v.as_deref())
+}
+
+/// Wraps any `Debug` value and formats it in compact (non-alternate) mode.
+/// Used to prevent inner types from expanding to multiple lines in `{:#?}` output.
+pub struct CompactDbg<T>(T);
+
+impl<T: Debug> Display for CompactDbg<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self.0)
     }
 }
 
-/// Format `Option` values on a single line each, even in alternate/pretty mode.
-pub(crate) struct FmtOptVec<'a, T>(pub &'a [Option<T>]);
-
-impl<T: Debug> Debug for FmtOptVec<'_, T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut list = f.debug_list();
-        for item in self.0 {
-            // Always format each element in compact (non-alternate) mode
-            list.entry(&format_args!("{item:?}"));
-        }
-        list.finish()
-    }
+/// derive-debug formatter that forces compact `{:?}` output regardless of alternate mode.
+pub fn compact_dbg<T: Debug>(t: &T) -> CompactDbg<&T> {
+    CompactDbg(t)
 }
