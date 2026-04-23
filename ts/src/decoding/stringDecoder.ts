@@ -226,7 +226,9 @@ export function decodeSharedDictionary(
             throw new Error("Currently only scalar string fields are implemented for a struct.");
         }
         if ((numStreams > 1 && !childField.nullable) || (numStreams === 1 && childField.nullable)) {
-            throw new Error(`The number of streams for the child field ${childField.name} does not match its nullability. nullibilty: ${childField.nullable}, numStreams: ${numStreams}`);
+            throw new Error(
+                `The number of streams for the child field ${childField.name} does not match its nullability. nullibilty: ${childField.nullable}, numStreams: ${numStreams}`,
+            );
         }
 
         let presentStreamBitVector: BitVector | undefined;
