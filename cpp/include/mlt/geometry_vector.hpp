@@ -5,6 +5,9 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstdint>
+#include <optional>
+#include <vector>
 
 namespace mlt::geometry {
 
@@ -54,7 +57,6 @@ struct GeometryVector : public util::noncopyable {
 protected:
     GeometryVector(std::uint32_t numGeometries_,
                    bool singleType_,
-
                    std::vector<std::uint32_t>&& indexBuffer_,
                    std::vector<std::int32_t>&& vertexBuffer_,
                    VertexBufferType vertexBufferType_,
@@ -113,7 +115,6 @@ private:
 
 struct ConstGpuVector : public GpuVector {
     ConstGpuVector(std::uint32_t numGeometries_,
-
                    GeometryType geometryType_,
                    std::vector<std::uint32_t>&& triangleCounts_,
                    std::vector<std::uint32_t>&& indexBuffer_,
