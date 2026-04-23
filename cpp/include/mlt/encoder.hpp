@@ -47,13 +47,13 @@ struct EncoderConfig {
     /// Force selection of streams using the raw encoded bytes, not the final result
     bool legacySizeComparison = false;
 
-    EncoderConfig update(std::function<void(EncoderConfig&)> configurator) {
+    EncoderConfig update(const std::function<void(EncoderConfig&)>& configurator) {
         EncoderConfig config = *this;
         configurator(config);
         return config;
     }
 
-    static EncoderConfig with(std::function<void(EncoderConfig&)> configurator) {
+    static EncoderConfig with(const std::function<void(EncoderConfig&)>& configurator) {
         return EncoderConfig().update(configurator);
     }
 };

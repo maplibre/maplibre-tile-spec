@@ -1,9 +1,24 @@
 #include <mlt/geometry_vector.hpp>
 
 #include <mlt/coordinate.hpp>
-#include <mlt/polyfill.hpp>
+#include <mlt/geometry.hpp>
+#include <mlt/metadata/tileset.hpp>
+#include <mlt/polyfill.hpp> // NOLINT(misc-include-cleaner)
 #include <mlt/util/morton_curve.hpp>
-#include <mlt/util/stl.hpp>
+
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <iterator>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+// NOLINTBEGIN(bugprone-unchecked-optional-access)
 
 namespace mlt::geometry {
 
@@ -13,7 +28,7 @@ constexpr void checkBuffer(std::size_t index, std::size_t size, std::string_view
         throw std::runtime_error(std::string(name) + " underflow");
     }
 }
-#define CHECK_BUFFER(I, B) checkBuffer(I, B.size(), #B)
+#define CHECK_BUFFER(I, B) checkBuffer(I, (B).size(), #B)
 
 inline Coordinate coord(std::int32_t x, std::int32_t y) {
     return {static_cast<float>(x), static_cast<float>(y)};
@@ -537,3 +552,5 @@ std::vector<std::unique_ptr<Geometry>> GeometryVector::getGeometries(const Geome
 }
 
 } // namespace mlt::geometry
+
+// NOLINTEND(bugprone-unchecked-optional-access)

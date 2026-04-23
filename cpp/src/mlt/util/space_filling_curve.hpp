@@ -36,7 +36,6 @@ protected:
         }
     }
 
-protected:
     const std::int32_t coordinateShift;
     const std::uint32_t tileExtent;
     const std::uint32_t numBits;

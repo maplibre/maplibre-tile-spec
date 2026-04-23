@@ -10,8 +10,8 @@
 #include <mlt/util/raw.hpp>
 #include <mlt/util/varint.hpp>
 
-#include <string>
 #include <stdexcept>
+#include <string>
 #include <string_view>
 
 namespace mlt::decoder {
@@ -37,8 +37,8 @@ public:
         std::vector<std::uint8_t> dictionaryStream;
         std::vector<std::uint8_t> symbolStream;
         std::vector<std::uint32_t> offsetStream;
-        std::vector<std::uint32_t> dictLengthStream;
-        std::vector<std::uint32_t> symbolLengthStream;
+        std::vector<std::uint32_t> dictLengthStream;   // NOLINT(misc-const-correctness)
+        std::vector<std::uint32_t> symbolLengthStream; // NOLINT(misc-const-correctness)
         std::vector<std::string_view> views;
         for (std::uint32_t i = 0; i < numStreams; ++i) {
             const auto streamMetadata = StreamMetadata::decode(tileData);
@@ -75,15 +75,16 @@ public:
             auto data = decodeFSST(symbolStream, symbolLengthStream, dictionaryStream, 2 * dictionaryStream.size());
             decodeDictionary(dictLengthStream, data, offsetStream, views);
             return {std::move(data), std::move(views)};
-        } else if (!offsetStream.empty() && !dictLengthStream.empty()) {
+        }
+        if (!offsetStream.empty() && !dictLengthStream.empty()) {
             decodeDictionary(dictLengthStream, dictionaryStream, offsetStream, views);
             return {std::move(dictionaryStream), std::move(views)};
-        } else if (!symbolLengthStream.empty()) {
+        }
+        if (!symbolLengthStream.empty()) {
             decodePlain(symbolLengthStream, symbolStream, views);
             return {std::move(symbolStream), std::move(views)};
-        } else {
-            throw std::runtime_error("Expected streams missing in string decoding");
         }
+        throw std::runtime_error("Expected streams missing in string decoding");
     }
 
     /// Multiple string columns sharing a dictionary
@@ -171,8 +172,7 @@ public:
             std::vector<std::string_view> propertyValues;
             propertyValues.reserve(dataReferenceStream.size());
 
-            for (std::uint32_t i = 0; i < dataReferenceStream.size(); ++i) {
-                const auto dictIndex = dataReferenceStream[i];
+            for (auto dictIndex : dataReferenceStream) {
                 if (dictIndex >= dictionaryViews.size()) {
                     throw std::runtime_error("StringDecoder: dictionaryViews index out of bounds");
                 }
@@ -182,7 +182,7 @@ public:
             results.emplace(column.name + child.name,
                             PresentProperties{child.getScalarType().getPhysicalType(),
                                               StringDictViews(dictionaryStream, propertyValues),
-                                              std::move(presentStream)});
+                                              presentStream});
         }
 
         return results;
@@ -304,8 +304,8 @@ private:
         }
 
         out.reserve(offsets.size());
-        for (std::uint32_t i = 0; i < offsets.size(); ++i) {
-            out.push_back(dictionary[offsets[i]]);
+        for (const auto offset : offsets) {
+            out.push_back(dictionary[offset]);
         }
     }
 };

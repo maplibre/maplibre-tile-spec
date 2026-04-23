@@ -1,8 +1,8 @@
 #pragma once
 
 #include <mlt/metadata/tileset.hpp>
-#include <mlt/util/packed_bitset.hpp>
 #include <mlt/util/noncopyable.hpp>
+#include <mlt/util/packed_bitset.hpp>
 
 #include <cstdint>
 #include <memory>

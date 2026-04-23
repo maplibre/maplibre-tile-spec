@@ -5,7 +5,13 @@
 #include <mlt/util/stl.hpp>
 #include <mlt/util/varint.hpp>
 
+#include <cstdint>
+#include <optional>
+#include <stdexcept>
+#include <string>
 #include <utility>
+#include <variant>
+#include <vector>
 
 namespace mlt::metadata::tileset {
 using util::decoding::decodeVarint;

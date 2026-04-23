@@ -248,14 +248,14 @@ private:
         auto encodedSymbolLengths = intEncoder.encodeIntStream(
             symLens, physicalTechnique, false, PhysicalStreamType::LENGTH, LogicalStreamType{LengthType::SYMBOL});
 
-        const auto symbolTableMetadata = StreamMetadata(PhysicalStreamType::DATA,
-                                                        LogicalStreamType{DictionaryType::FSST},
-                                                        LogicalLevelTechnique::NONE,
-                                                        LogicalLevelTechnique::NONE,
-                                                        PhysicalLevelTechnique::NONE,
-                                                        static_cast<std::uint32_t>(result.symbolLengths.size()),
-                                                        static_cast<std::uint32_t>(result.symbols.size()))
-                                             .encode();
+        auto symbolTableMetadata = StreamMetadata(PhysicalStreamType::DATA,
+                                                  LogicalStreamType{DictionaryType::FSST},
+                                                  LogicalLevelTechnique::NONE,
+                                                  LogicalLevelTechnique::NONE,
+                                                  PhysicalLevelTechnique::NONE,
+                                                  static_cast<std::uint32_t>(result.symbolLengths.size()),
+                                                  static_cast<std::uint32_t>(result.symbols.size()))
+                                       .encode();
 
         auto encodedDictLengths = intEncoder.encodeIntStream(valueLengths,
                                                              physicalTechnique,
@@ -264,14 +264,14 @@ private:
                                                              LogicalStreamType{LengthType::DICTIONARY});
 
         const auto dictType = isShared ? DictionaryType::SHARED : DictionaryType::SINGLE;
-        const auto corpusMetadata = StreamMetadata(PhysicalStreamType::DATA,
-                                                   LogicalStreamType{dictType},
-                                                   LogicalLevelTechnique::NONE,
-                                                   LogicalLevelTechnique::NONE,
-                                                   PhysicalLevelTechnique::NONE,
-                                                   static_cast<std::uint32_t>(values.size()),
-                                                   static_cast<std::uint32_t>(result.compressedData.size()))
-                                        .encode();
+        auto corpusMetadata = StreamMetadata(PhysicalStreamType::DATA,
+                                             LogicalStreamType{dictType},
+                                             LogicalLevelTechnique::NONE,
+                                             LogicalLevelTechnique::NONE,
+                                             PhysicalLevelTechnique::NONE,
+                                             static_cast<std::uint32_t>(values.size()),
+                                             static_cast<std::uint32_t>(result.compressedData.size()))
+                                  .encode();
 
         EncodedChunks remainder;
         remainder.reserve(4 + encodedDictLengths.size());
@@ -307,14 +307,14 @@ private:
         auto encodedLengths = intEncoder.encodeIntStream(
             lengths, physicalTechnique, false, PhysicalStreamType::LENGTH, LogicalStreamType{lengthType});
 
-        const auto dataMetadata = StreamMetadata(PhysicalStreamType::DATA,
-                                                 LogicalStreamType{dictType},
-                                                 LogicalLevelTechnique::NONE,
-                                                 LogicalLevelTechnique::NONE,
-                                                 PhysicalLevelTechnique::NONE,
-                                                 static_cast<std::uint32_t>(values.size()),
-                                                 static_cast<std::uint32_t>(rawData.size()))
-                                      .encode();
+        auto dataMetadata = StreamMetadata(PhysicalStreamType::DATA,
+                                           LogicalStreamType{dictType},
+                                           LogicalLevelTechnique::NONE,
+                                           LogicalLevelTechnique::NONE,
+                                           PhysicalLevelTechnique::NONE,
+                                           static_cast<std::uint32_t>(values.size()),
+                                           static_cast<std::uint32_t>(rawData.size()))
+                                .encode();
 
         EncodedChunks remaining;
         remaining.reserve(2);

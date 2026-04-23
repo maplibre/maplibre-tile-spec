@@ -1,8 +1,11 @@
 cmake_minimum_required(VERSION 3.25)
 project(mlt-cpp LANGUAGES CXX)
 
+option(MLT_WITH_CLANG_TIDY "Build with clang-tidy checks enabled" OFF)
+
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 include(AddCXXCompilerFlag)
+include(clang-tidy)
 
 # generate compile_commands.json https://cmake.org/cmake/help/latest/variable/CMAKE_EXPORT_COMPILE_COMMANDS.html
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -37,6 +40,9 @@ foreach(_target mlt-cpp mlt-cpp-encoder)
         INTERFACE_MAPLIBRE_AUTHOR "MapLibre"
         INTERFACE_MAPLIBRE_LICENSE "${PROJECT_SOURCE_DIR}/../LICENSE-APACHE"
     )
+if (MLT_WITH_CLANG_TIDY)
+    set_target_properties(${_target} PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_COMMAND}")
+endif()
 endforeach()
 
 add_cxx_compiler_flag(-Wall)

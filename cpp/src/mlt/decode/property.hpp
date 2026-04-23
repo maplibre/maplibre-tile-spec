@@ -10,8 +10,8 @@
 #include <mlt/properties.hpp>
 #include <mlt/util/buffer_stream.hpp>
 #include <mlt/util/packed_bitset.hpp>
-#include <mlt/util/rle.hpp>
 #include <mlt/util/raw.hpp>
+#include <mlt/util/rle.hpp>
 
 #include <stdexcept>
 #include <string>
@@ -45,7 +45,7 @@ public:
     }
 
 protected:
-    void skipColumn(BufferStream& tileData, std::uint32_t numStreams) {
+    static void skipColumn(BufferStream& tileData, std::uint32_t numStreams) {
         using namespace metadata::stream;
         using namespace util::decoding;
 
@@ -145,7 +145,7 @@ protected:
                 }
 
                 checkBits(presentStream, result);
-                return {scalarType, std::move(result), std::move(presentStream)};
+                return {scalarType, std::move(result), presentStream};
             }
             case ScalarType::INT_64: {
                 std::vector<std::int64_t> longBuffer;
@@ -155,7 +155,7 @@ protected:
 
                 PropertyVec result{std::move(longBuffer)};
                 checkBits(presentStream, result);
-                return {scalarType, std::move(result), std::move(presentStream)};
+                return {scalarType, std::move(result), presentStream};
             }
             case ScalarType::UINT_64: {
                 std::vector<std::uint64_t> longBuffer;
@@ -165,7 +165,7 @@ protected:
 
                 PropertyVec result{std::move(longBuffer)};
                 checkBits(presentStream, result);
-                return {scalarType, std::move(result), std::move(presentStream)};
+                return {scalarType, std::move(result), presentStream};
             }
             case ScalarType::DOUBLE: {
                 std::vector<double> doubleBuffer;
@@ -183,7 +183,7 @@ protected:
 
                 PropertyVec result{std::move(doubleBuffer)};
                 checkBits(presentStream, result);
-                return {scalarType, std::move(result), std::move(presentStream)};
+                return {scalarType, std::move(result), presentStream};
             }
             case ScalarType::FLOAT: {
                 std::vector<float> floatBuffer;
@@ -191,7 +191,7 @@ protected:
 
                 PropertyVec result{std::move(floatBuffer)};
                 checkBits(presentStream, result);
-                return {scalarType, std::move(result), std::move(presentStream)};
+                return {scalarType, std::move(result), presentStream};
             }
             case ScalarType::STRING: {
                 auto strings = stringDecoder.decode(tileData, numStreams);
@@ -201,7 +201,7 @@ protected:
 
                 PropertyVec result{std::move(strings)};
                 checkBits(presentStream, result);
-                return {scalarType, PropertyVec{std::move(result)}, std::move(presentStream)};
+                return {scalarType, PropertyVec{std::move(result)}, presentStream};
             }
             default:
                 throw std::runtime_error("Unknown scalar type: " + std::to_string(std::to_underlying(scalarType)));

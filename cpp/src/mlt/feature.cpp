@@ -1,7 +1,14 @@
 #include <mlt/feature.hpp>
 
-#include <mlt/geometry.hpp>
+#include <mlt/geometry.hpp> // NOLINT(misc-include-cleaner)
 #include <mlt/layer.hpp>
+#include <mlt/properties.hpp>
+
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <string>
+#include <utility>
 
 namespace mlt {
 

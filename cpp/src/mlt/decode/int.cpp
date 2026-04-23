@@ -1,6 +1,6 @@
-#include <algorithm>
 #include <mlt/decode/int.hpp>
-#include <mlt/decode/int_template.hpp>
+#include <mlt/polyfill.hpp> // NOLINT(misc-include-cleaner)
+#include <mlt/util/buffer_stream.hpp>
 
 // from fastpfor/...
 #if MLT_WITH_FASTPFOR
@@ -9,13 +9,18 @@
 #include <variablebyte.h>
 #endif // MLT_WITH_FASTPFOR
 
-#include <cstdint>
-
 #ifdef _MSC_VER
 #include <array>
 #include <bitset>
 #include <intrin.h>
 #endif
+
+#include <algorithm>
+#include <bit>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <stdexcept>
 
 namespace mlt::decoder {
 
@@ -85,9 +90,8 @@ std::uint32_t IntegerDecoder::decodeFastPfor([[maybe_unused]] BufferStream& buff
         impl->codec.decodeArray(leBuffer, intLength, result, resultCount);
         buffer.consume(byteLength);
         return static_cast<std::uint32_t>(resultCount);
-    } else {
-        throw std::runtime_error("FastPFOR decoding is not enabled");
     }
+    throw std::runtime_error("FastPFOR decoding is not enabled");
 #else
     throw std::runtime_error("FastPFOR decoding is not enabled. Configure with MLT_WITH_FASTPFOR=ON");
 #endif // MLT_WITH_FASTPFOR

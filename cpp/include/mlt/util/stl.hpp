@@ -2,8 +2,8 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <numeric>
 #include <iterator>
+#include <numeric>
 #include <ranges>
 #include <type_traits>
 #include <utility>

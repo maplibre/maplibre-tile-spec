@@ -199,7 +199,7 @@ void IntegerDecoder::decodeStream(BufferStream& tileData,
     switch (metadata.getPhysicalLevelTechnique()) {
         case PhysicalLevelTechnique::FAST_PFOR: {
             std::uint32_t* outPtr = nullptr;
-            std::optional<BufWrapper<std::uint32_t>> tempBuffer;
+            std::optional<BufWrapper<std::uint32_t>> tempBuffer; // NOLINT(misc-const-correctness)
             if constexpr (sizeof(*out) == sizeof(std::uint32_t)) {
                 // Decode directly into the output buffer
                 outPtr = reinterpret_cast<std::uint32_t*>(out);

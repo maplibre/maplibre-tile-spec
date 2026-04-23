@@ -1,17 +1,29 @@
 #include <algorithm>
-#include <mlt/encoder.hpp>
 #include <mlt/encode/int.hpp>
+#include <mlt/encoder.hpp>
+#include <mlt/metadata/stream.hpp>
 #include <mlt/util/encoding/buffer.hpp>
+#include <mlt/util/encoding/zigzag.hpp>
 
 #if MLT_WITH_FASTPFOR
+#include <codecs.h>
 #include <compositecodec.h>
 #include <fastpfor.h>
-#include <variablebyte.h>
 #include <stdexcept>
+#include <variablebyte.h>
 #endif
 
 #include <bit>
 #include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <limits>
+#include <memory>
+#include <optional>
+#include <span>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
 namespace mlt::encoder {
 
@@ -430,7 +442,7 @@ IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> va
                                                 IntegerEncodingOption option) {
     const auto encode = makeSignedPhysicalEncoder<std::int32_t>(
         physicalTechnique,
-        [this](std::span<const std::int32_t> input, bool zigZag) { return encodeVarints32(input, zigZag); },
+        [](std::span<const std::int32_t> input, bool zigZag) { return encodeVarints32(input, zigZag); },
         [this](std::span<const std::int32_t> input, bool zigZag) { return encodeFastPfor(input, zigZag); });
     return encodeSignedIntegral<std::int32_t>(values,
                                               isSigned,
@@ -446,7 +458,7 @@ IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> v
 IntegerEncodingResult IntegerEncoder::encodeLong(std::span<const std::int64_t> values,
                                                  bool isSigned,
                                                  IntegerEncodingOption option) {
-    const auto encode = [this](std::span<const std::int64_t> input, bool zigZag) {
+    const auto encode = [](std::span<const std::int64_t> input, bool zigZag) {
         return encodeVarints64(input, zigZag);
     };
     return encodeSignedIntegral<std::int64_t>(values,
@@ -473,7 +485,7 @@ IntegerEncodingResult IntegerEncoder::encodeUint32(std::span<const std::uint32_t
 
     const auto encode = makeUnsignedPhysicalEncoder<std::uint32_t>(
         physicalTechnique,
-        [this](std::span<const std::uint32_t> input) { return encodeVarintsUnsigned32(input); },
+        [](std::span<const std::uint32_t> input) { return encodeVarintsUnsigned32(input); },
         [this](std::span<const std::uint32_t> input) { return encodeFastPforUnsigned(input); });
     return encodeUnsignedIntegralNoDelta<std::uint32_t>(values, option, encode);
 }
@@ -490,7 +502,7 @@ IntegerEncodingResult IntegerEncoder::encodeUint64(std::span<const std::uint64_t
         return *signedEncoded;
     }
 
-    const auto encode = [this](std::span<const std::uint64_t> input) {
+    const auto encode = [](std::span<const std::uint64_t> input) {
         return encodeVarintsUnsigned64(input);
     };
     return encodeUnsignedIntegralNoDelta<std::uint64_t>(values, option, encode);
@@ -572,7 +584,7 @@ util::EncodedChunks IntegerEncoder::encodeLongStream(std::span<const std::int64_
         PhysicalLevelTechnique::VARINT,
         streamType,
         std::move(logicalType),
-        [this, isSigned, option](std::span<const std::int64_t> input) { return encodeLong(input, isSigned, option); },
+        [isSigned, option](std::span<const std::int64_t> input) { return encodeLong(input, isSigned, option); },
         &IntegerEncoder::buildStream);
 }
 
@@ -614,7 +626,7 @@ util::EncodedChunks IntegerEncoder::encodeUint64Stream(std::span<const std::uint
         PhysicalLevelTechnique::VARINT,
         streamType,
         std::move(logicalType),
-        [this, option](std::span<const std::uint64_t> input) { return encodeUint64(input, option); },
+        [option](std::span<const std::uint64_t> input) { return encodeUint64(input, option); },
         &IntegerEncoder::buildStream);
 }
 

@@ -4,11 +4,11 @@
 #include <mlt/encoder.hpp>
 #include <mlt/metadata/stream.hpp>
 #include <mlt/metadata/tileset.hpp>
+#include <mlt/util/encoding/buffer.hpp>
 #include <mlt/util/encoding/varint.hpp>
 #include <mlt/util/encoding/zigzag.hpp>
 #include <mlt/util/hilbert_curve.hpp>
 #include <mlt/util/morton_curve.hpp>
-#include <mlt/util/encoding/buffer.hpp>
 #include <mlt/util/stl.hpp>
 
 #include <algorithm>
@@ -22,7 +22,7 @@
 
 namespace mlt {
 enum class IntegerEncodingOption : std::uint8_t;
-}
+} // namespace mlt
 
 namespace mlt::encoder {
 
@@ -106,13 +106,13 @@ public:
         if (plainSize <= hilbertSize && (!enableMortonEncoding || plainSize <= mortonSize)) {
             util::appendChunks(result, std::move(plainEncoded));
             return {.numStreams = numStreams + 1, .chunks = std::move(result), .maxVertexValue = maxVal};
-        } else if (!enableMortonEncoding || hilbertSize <= mortonSize) {
+        }
+        if (!enableMortonEncoding || hilbertSize <= mortonSize) {
             util::appendChunks(result, std::move(hilbertChunks));
             return {.numStreams = numStreams + 2, .chunks = std::move(result), .maxVertexValue = maxVal};
-        } else {
-            util::appendChunks(result, std::move(mortonChunks));
-            return {.numStreams = numStreams + 2, .chunks = std::move(result), .maxVertexValue = maxVal};
         }
+        util::appendChunks(result, std::move(mortonChunks));
+        return {.numStreams = numStreams + 2, .chunks = std::move(result), .maxVertexValue = maxVal};
     }
 
     static EncodedGeometryColumn encodePretessellatedGeometryColumn(std::span<const GeometryType> geometryTypes,
@@ -293,7 +293,7 @@ private:
     static HilbertDictionary buildHilbertDictionary(std::span<const Vertex> vertexBuffer,
                                                     std::int32_t minVal,
                                                     std::int32_t maxVal) {
-        util::HilbertCurve curve(minVal, maxVal);
+        const util::HilbertCurve curve(minVal, maxVal);
         std::map<std::uint32_t, Vertex> dict;
         for (const auto& v : vertexBuffer) {
             const auto id = curve.encode({static_cast<float>(v.x), static_cast<float>(v.y)});
@@ -316,7 +316,7 @@ private:
                                                  PhysicalLevelTechnique physicalTechnique,
                                                  IntegerEncoder& intEncoder,
                                                  IntegerEncodingOption integerEncodingOption) {
-        util::HilbertCurve curve(minVal, maxVal);
+        const util::HilbertCurve curve(minVal, maxVal);
         const auto encodedDict = encodeVertexBufferRaw(
             zigZagDeltaEncode(dict.vertices), physicalTechnique, intEncoder, integerEncodingOption);
         return encodeDictionaryWithOffsets(
@@ -330,7 +330,7 @@ private:
     static MortonDictionary buildMortonDictionary(std::span<const Vertex> vertexBuffer,
                                                   std::int32_t minVal,
                                                   std::int32_t maxVal) {
-        util::MortonCurve curve(minVal, maxVal);
+        const util::MortonCurve curve(minVal, maxVal);
         std::set<std::uint32_t> codes;
         for (const auto& v : vertexBuffer) {
             codes.insert(curve.encode({static_cast<float>(v.x), static_cast<float>(v.y)}));
@@ -344,7 +344,7 @@ private:
                                                 std::int32_t maxVal,
                                                 PhysicalLevelTechnique physicalTechnique,
                                                 IntegerEncoder& intEncoder) {
-        util::MortonCurve curve(minVal, maxVal);
+        const util::MortonCurve curve(minVal, maxVal);
         const auto encodedDict = encodeMortonCodes(
             dict.mortonCodes, curve.getNumBits(), curve.getCoordinateShift(), physicalTechnique);
         return encodeDictionaryWithOffsets(
