@@ -282,8 +282,7 @@ describe("decodeSharedDictionary", () => {
             const result = decodeSharedDictionary(
                 completeencodedStrings,
                 new IntWrapper(0),
-                columnMetaencodedStrings,
-                4,
+                columnMetaencodedStrings
             );
 
             expect(result).toHaveLength(1);
@@ -306,8 +305,7 @@ describe("decodeSharedDictionary", () => {
             const result = decodeSharedDictionary(
                 completeencodedStrings,
                 new IntWrapper(0),
-                columnMetaencodedStrings,
-                3,
+                columnMetaencodedStrings
             );
 
             expect(result).toHaveLength(1);
@@ -328,7 +326,7 @@ describe("decodeSharedDictionary", () => {
             const complete = concatenateBuffers(lengthStream, dataStream, field1, field2, field3);
             const metadata = createColumnMetadataForStruct("name", [{ name: "" }, { name: ":en" }, { name: ":de" }]);
 
-            const result = decodeSharedDictionary(complete, new IntWrapper(0), metadata, 1);
+            const result = decodeSharedDictionary(complete, new IntWrapper(0), metadata);
 
             expect(result).toHaveLength(3);
             expect(result[0].name).toBe("name");
@@ -349,8 +347,7 @@ describe("decodeSharedDictionary", () => {
             const result = decodeSharedDictionary(
                 completeencodedStrings,
                 new IntWrapper(0),
-                columnMetaencodedStrings,
-                4,
+                columnMetaencodedStrings
             );
 
             expect(result).toHaveLength(1);
@@ -372,8 +369,7 @@ describe("decodeSharedDictionary", () => {
             const result = decodeSharedDictionary(
                 completeencodedStrings,
                 new IntWrapper(0),
-                columnMetaencodedStrings,
-                4,
+                columnMetaencodedStrings
             );
 
             expect(result).toHaveLength(1);
@@ -405,8 +401,7 @@ describe("decodeSharedDictionary", () => {
             const result = decodeSharedDictionary(
                 completeencodedStrings,
                 new IntWrapper(0),
-                columnMetaencodedStrings,
-                2,
+                columnMetaencodedStrings
             );
 
             expect(result).toHaveLength(1);
@@ -442,8 +437,7 @@ describe("decodeSharedDictionary", () => {
                 completeencodedStrings,
                 new IntWrapper(0),
                 columnMetaencodedStrings,
-                1,
-                propertyColumnNames,
+                propertyColumnNames
             );
 
             expect(result).toHaveLength(2);
@@ -475,8 +469,7 @@ describe("decodeSharedDictionary", () => {
             const result = decodeSharedDictionary(
                 completeencodedStrings,
                 new IntWrapper(0),
-                columnMetaencodedStrings,
-                1,
+                columnMetaencodedStrings
             );
 
             expect(result).toHaveLength(2);
@@ -510,8 +503,7 @@ describe("decodeSharedDictionary", () => {
                 completeencodedStrings,
                 new IntWrapper(0),
                 columnMetaencodedStrings,
-                1,
-                propertyColumnNames,
+                propertyColumnNames
             );
 
             expect(result).toHaveLength(1);
@@ -531,7 +523,7 @@ describe("decodeSharedDictionary", () => {
             ]);
 
             expect(() => {
-                decodeSharedDictionary(completeEncodedStrings, new IntWrapper(0), columnMetaencodedStrings, 1);
+                decodeSharedDictionary(completeEncodedStrings, new IntWrapper(0), columnMetaencodedStrings);
             }).toThrow("Currently only scalar string fields are implemented for a struct.");
         });
 
@@ -546,7 +538,7 @@ describe("decodeSharedDictionary", () => {
             ]);
 
             expect(() => {
-                decodeSharedDictionary(completeEncodedStrings, new IntWrapper(0), columnMetaencodedStrings, 1);
+                decodeSharedDictionary(completeEncodedStrings, new IntWrapper(0), columnMetaencodedStrings);
             }).toThrow(
                 "The number of streams for the child field field1 does not match its nullability. nullibilty: false, numStreams: 2",
             );
@@ -569,7 +561,7 @@ describe("decodeSharedDictionary", () => {
 
             const offset = new IntWrapper(0);
             const initialOffset = offset.get();
-            const result = decodeSharedDictionary(completeencodedStrings, offset, columnMetaencodedStrings, 2);
+            const result = decodeSharedDictionary(completeencodedStrings, offset, columnMetaencodedStrings);
 
             expect(result).toHaveLength(2);
             expect(offset.get()).toBeGreaterThan(initialOffset);
