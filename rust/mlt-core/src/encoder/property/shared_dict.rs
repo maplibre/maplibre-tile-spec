@@ -354,11 +354,11 @@ pub(crate) fn write_shared_dict(
             // Since the grouping is done only once, the order inside the items is deterministic, so we can just take the first suffix for the cache key.
             let first_suffix = shared_dict.items.first().map_or("", |i| &i.suffix);
             enc.fsst_cache
-                .entry(shared_dict.prefix.clone())
                 .entry(format!(
                     "{prefix}{first_suffix}",
                     prefix = shared_dict.prefix
                 ))
+                .or_insert_with(|| fsst_try_train(&dict))
                 .as_ref()
                 .map(|c| compress_fsst_with(&dict, c))
         }
