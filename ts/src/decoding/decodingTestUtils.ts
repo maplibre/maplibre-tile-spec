@@ -59,11 +59,11 @@ export function createRleMetadata(
  */
 export function createColumnMetadataForStruct(
     columnName: string,
-    childFields: Array<{ name: string; type?: number }>,
+    childFields: Array<{ name: string; type?: number, nullable?: boolean }>,
 ): Column {
     const children: Field[] = childFields.map((fieldConfig) => ({
         name: fieldConfig.name,
-        nullable: true,
+        nullable: fieldConfig.nullable ?? true,
         scalarField: {
             physicalType: fieldConfig.type ?? ScalarType.STRING,
             type: "physicalType" as const,

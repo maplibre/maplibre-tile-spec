@@ -524,15 +524,32 @@ describe("decodeSharedDictionary", () => {
             const dictionaryStrings = ["value"];
             const { lengthStream, dataStream } = encodeSharedDictionary(dictionaryStrings);
             const fieldStreams = encodeStructField([0], [true]);
-            const completeencodedStrings = concatenateBuffers(lengthStream, dataStream, fieldStreams);
+            const completeEncodedStrings = concatenateBuffers(lengthStream, dataStream, fieldStreams);
 
             const columnMetaencodedStrings = createColumnMetadataForStruct("invalid", [
                 { name: "field1", type: ScalarType.INT_32 },
             ]);
 
             expect(() => {
-                decodeSharedDictionary(completeencodedStrings, new IntWrapper(0), columnMetaencodedStrings, 1);
-            }).toThrow("Currently only optional string fields are implemented for a struct.");
+                decodeSharedDictionary(completeEncodedStrings, new IntWrapper(0), columnMetaencodedStrings, 1);
+            }).toThrow("Currently only scalar string fields are implemented for a struct.");
+        });
+
+        it("should throw error for mismatched nullability and numStreams", () => {
+            const dictionaryStrings = ["value"];
+            const { lengthStream, dataStream } = encodeSharedDictionary(dictionaryStrings);
+            const fieldStreams = encodeStructField([0], [true]);
+            const completeEncodedStrings = concatenateBuffers(lengthStream, dataStream, fieldStreams);
+
+            const columnMetaencodedStrings = createColumnMetadataForStruct("invalidNullability", [
+                { name: "field1", type: ScalarType.STRING, nullable: false },
+            ]);
+
+            expect(() => {
+                decodeSharedDictionary(completeEncodedStrings, new IntWrapper(0), columnMetaencodedStrings, 1);
+            }).toThrow(
+                "The number of streams for the child field field1 does not match its nullability. nullibilty: false, numStreams: 2",
+            );
         });
     });
 
