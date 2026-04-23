@@ -21,7 +21,7 @@ pub enum Presence<'a, T: Copy> {
     },
 }
 
-impl<'a, T: Copy> Presence<'a, T> {
+impl<T: Copy> Presence<'_, T> {
     /// Returns `true` if feature `idx` is present.
     ///
     /// Always `true` for [`Presence::AllPresent`]; `false` when out of bounds.
@@ -49,8 +49,7 @@ impl<'a, T: Copy> Presence<'a, T> {
     #[must_use]
     pub fn dense_values(&self) -> &[T] {
         match self {
-            Self::AllPresent(values) => values,
-            Self::Bits { values, .. } => values,
+            Self::AllPresent(values) | Self::Bits { values, .. } => values,
         }
     }
 
