@@ -355,7 +355,10 @@ pub(crate) fn write_shared_dict(
             let first_suffix = shared_dict.items.first().map_or("", |i| &i.suffix);
             enc.fsst_cache
                 .entry(shared_dict.prefix.clone())
-                .entry(format!("{prefix}{first_suffix}", prefix=shared_dict.prefix))
+                .entry(format!(
+                    "{prefix}{first_suffix}",
+                    prefix = shared_dict.prefix
+                ))
                 .as_ref()
                 .map(|c| compress_fsst_with(&dict, c))
         }
