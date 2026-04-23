@@ -22,7 +22,7 @@ const FSST_SAMPLE_STRINGS: usize = 256;
 /// or when trial compression shows no benefit.
 ///
 /// Training always uses all values so the symbol table sees the full distribution.
-/// The viability probe (trial compression) is limited to [`FSST_PROBE_STRINGS`] to
+/// The viability probe (trial compression) is limited to [`FSST_SAMPLE_STRINGS`] to
 /// bound cost.
 #[hotpath::measure]
 pub(crate) fn fsst_try_train(strings: &[&str]) -> Option<Compressor> {

@@ -28,9 +28,16 @@ impl<'a> Layer01<'a, Lazy> {
 impl<'a> ParsedLayer01<'a> {
     /// Iterate over all features in this fully-decoded layer.
     ///
-    /// Yields one [`FeatureRef`] per feature. Construction is infallible; individual
-    /// `next()` calls return `MltResult<FeatureRef>` because geometry decoding can fail.
-    /// The iterator implements [`ExactSizeIterator`], so `.len()` is available.
+    /// Yields one [`FeatureRef`] per feature. Individual `next()` calls return
+    /// `MltResult<FeatureRef>` because geometry decoding can fail. The iterator
+    /// implements [`ExactSizeIterator`], so `.len()` is available.
+    ///
+    /// ```ignore
+    /// for feat in parsed.iter_features() {
+    ///     let feat = feat?;
+    ///     for col in feat.iter_properties() { /* non-null columns */ }
+    /// }
+    /// ```
     #[must_use]
     pub fn iter_features(&self) -> impl ExactSizeIterator<Item = MltResult<FeatureRef<'_>>> + '_ {
         Layer01FeatureIter::new(self)
@@ -249,22 +256,6 @@ impl_from_for_prop_value_ref!(
     f32 => F32, f64 => F64,
 );
 
-impl<'a, T> ParsedScalar<'a, T>
-where
-    T: Copy + PartialEq,
-    PropValueRef<'a>: From<T>,
-{
-    #[inline]
-    fn value_at(&self, feat_idx: usize) -> Option<PropValueRef<'a>> {
-        self.get(feat_idx).map(PropValueRef::from)
-    }
-
-    #[inline]
-    fn column_at(&self, idx: usize) -> Option<ColumnRef<'a>> {
-        self.value_at(idx).map(|v| ColumnRef::new(self.name, v))
-    }
-}
-
 /// A single non-null property value for one feature, yielded by [`FeatureRef::iter_properties`].
 ///
 /// `name` is a [`PropName`] that displays as `"{prefix}{suffix}"`.
@@ -275,35 +266,18 @@ pub struct ColumnRef<'a> {
     pub value: PropValueRef<'a>,
 }
 
-impl<'a> ColumnRef<'a> {
-    #[inline]
-    pub(crate) fn new(name: &'a str, value: PropValueRef<'a>) -> Self {
-        Self {
-            name: PropName(name, ""),
-            value,
-        }
-    }
-    #[inline]
-    pub(crate) fn new_sub(prefix: &'a str, suffix: &'a str, value: PropValueRef<'a>) -> Self {
-        Self {
-            name: PropName(prefix, suffix),
-            value,
-        }
-    }
-}
-
 /// A single map feature returned by [`ParsedLayer01::iter_features`].
-///
-/// The internal columnar layout is private; use [`iter_properties`](Self::iter_properties)
-/// and [`get_property`](Self::get_property) to access property values.
 #[derive(Debug)]
 pub struct FeatureRef<'a> {
     /// Optional feature ID.
     pub id: Option<u64>,
-    /// Geometry in [`Geometry<i32>`] form (owned, computed on demand by the iterator).
+    /// Geometry in [`Geometry<i32>`] form (owned, decoded on demand by the iterator).
     pub geometry: Geometry<i32>,
+    /// Borrowed slice of column descriptors from the layer; used to yield column names.
     columns: &'a [ParsedProperty<'a>],
-    index: usize,
+    /// Per-feature values in column order, one per slot (scalar, string, or `SharedDict`
+    /// sub-item). Built in O(1) per step from the iterator's per-column cursors.
+    values: Vec<Option<PropValueRef<'a>>>,
 }
 
 impl<'a> FeatureRef<'a> {
@@ -313,29 +287,19 @@ impl<'a> FeatureRef<'a> {
     /// - `Some(value)` — the slot contains a non-null value.
     /// - `None` — the slot is null / absent.
     ///
-    /// The outer `Option` from [`Iterator::next`] signals end-of-iteration as usual.
-    ///
     /// Use [`Layer01::iterate_prop_names`] to pair values with their column names.
-    pub fn iter_all_properties(&self) -> impl Iterator<Item = Option<PropValueRef<'a>>> {
-        FeatValuesIter {
-            columns: self.columns,
-            feat_idx: self.index,
-            col_idx: 0,
-            dict_idx: 0,
-        }
+    pub fn iter_all_properties(&self) -> impl Iterator<Item = Option<PropValueRef<'a>>> + '_ {
+        self.values.iter().copied()
     }
 
     /// Iterate over all non-null properties for this feature.
     ///
     /// `SharedDict` columns are transparently expanded into one [`ColumnRef`] per sub-item.
     /// Null / absent values are skipped entirely. The iterator is infallible.
-    pub fn iter_properties(&self) -> impl Iterator<Item = ColumnRef<'a>> {
-        FeatPropertyIter {
-            columns: self.columns,
-            feat_idx: self.index,
-            col_idx: 0,
-            dict_idx: 0,
-        }
+    pub fn iter_properties(&self) -> impl Iterator<Item = ColumnRef<'a>> + '_ {
+        Layer01PropNamesIter::parsed(self.columns)
+            .zip(self.values.iter().copied())
+            .filter_map(|(name, opt_val)| opt_val.map(|value| ColumnRef { name, value }))
     }
 
     /// Look up a property by name, returning its value if present and non-null.
@@ -351,121 +315,101 @@ impl<'a> FeatureRef<'a> {
     }
 }
 
-// ── Per-feature property iterators ───────────────────────────────────────────
-
-/// Iterates every property slot of a feature as `Option<`[`PropValueRef`]`>`.
+/// A boxed per-column-slot value iterator yielding one `Option<`[`PropValueRef`]`>` per feature.
 ///
-/// Returned by [`FeatureRef::iter_all_properties`].
+/// The inner `Option` is `None` for a null / absent slot and `Some(v)` for a present value.
+/// The outer `Option` from [`Iterator::next`] signals exhaustion.
+type ColValIter<'l> = Box<dyn Iterator<Item = Option<PropValueRef<'l>>> + 'l>;
+
+/// Build one [`ColValIter`] per property column "slot" from a decoded column slice.
 ///
-/// The [`Iterator::Item`] is `Option<PropValueRef>`:
-/// - `Some(v)` — non-null value.
-/// - `None` — null / absent slot.
-///
-/// Pair with [`Layer01::iterate_prop_names`] to associate values with column names.
-pub(crate) struct FeatValuesIter<'a> {
-    columns: &'a [ParsedProperty<'a>],
-    feat_idx: usize,
-    col_idx: usize,
-    dict_idx: usize,
-}
-
-impl<'a> Iterator for FeatValuesIter<'a> {
-    type Item = Option<PropValueRef<'a>>;
-
-    fn next(&mut self) -> Option<Option<PropValueRef<'a>>> {
-        use ParsedProperty as PP;
-
-        loop {
-            let prop = self.columns.get(self.col_idx)?;
-            self.col_idx += 1;
-            let idx = self.feat_idx;
-            return Some(match prop {
-                PP::Bool(s) => s.value_at(idx),
-                PP::I8(s) => s.value_at(idx),
-                PP::U8(s) => s.value_at(idx),
-                PP::I32(s) => s.value_at(idx),
-                PP::U32(s) => s.value_at(idx),
-                PP::I64(s) => s.value_at(idx),
-                PP::U64(s) => s.value_at(idx),
-                PP::F32(s) => s.value_at(idx),
-                PP::F64(s) => s.value_at(idx),
-                PP::Str(s) => s.value_at(idx),
-                PP::SharedDict(s) => {
-                    let result = s.value_at(idx, &mut self.dict_idx);
-                    if self.dict_idx != 0 {
-                        // Not exhausted (null sub-item or more items remain): stay on this column.
-                        self.col_idx -= 1;
-                        return Some(result.map(|(_, v)| v));
+/// - Scalar and string columns contribute one slot each.
+/// - `SharedDict` columns contribute one slot per sub-item.
+fn build_col_iters<'p>(columns: &'p [ParsedProperty<'p>]) -> Vec<ColValIter<'p>> {
+    use ParsedProperty as PP;
+    let mut iters: Vec<ColValIter<'p>> = Vec::new();
+    for col in columns {
+        match col {
+            PP::Bool(s) => iters.push(scalar_col_iter(s)),
+            PP::I8(s) => iters.push(scalar_col_iter(s)),
+            PP::U8(s) => iters.push(scalar_col_iter(s)),
+            PP::I32(s) => iters.push(scalar_col_iter(s)),
+            PP::U32(s) => iters.push(scalar_col_iter(s)),
+            PP::I64(s) => iters.push(scalar_col_iter(s)),
+            PP::U64(s) => iters.push(scalar_col_iter(s)),
+            PP::F32(s) => iters.push(scalar_col_iter(s)),
+            PP::F64(s) => iters.push(scalar_col_iter(s)),
+            PP::Str(strings) => {
+                let data: &'p str = strings.data.as_ref();
+                let lengths: &'p [i32] = &strings.lengths;
+                let mut curr_end: u32 = 0;
+                let mut feat_idx = 0usize;
+                iters.push(Box::new(std::iter::from_fn(move || {
+                    let &end_i32 = lengths.get(feat_idx)?;
+                    feat_idx += 1;
+                    if end_i32 >= 0 {
+                        let start = curr_end as usize;
+                        curr_end = end_i32.cast_unsigned();
+                        Some(data.get(start..curr_end as usize).map(PropValueRef::Str))
+                    } else {
+                        // Null slot: curr_end unchanged (null encodes the current byte offset).
+                        Some(None)
                     }
-                    continue; // exhausted all sub-items
+                })));
+            }
+            PP::SharedDict(dict) => {
+                for item in &dict.items {
+                    let dict_ref: &'p _ = dict;
+                    let item_ref: &'p _ = item;
+                    let mut feat_idx = 0usize;
+                    iters.push(Box::new(std::iter::from_fn(move || {
+                        if feat_idx >= item_ref.ranges.len() {
+                            return None;
+                        }
+                        let idx = feat_idx;
+                        feat_idx += 1;
+                        Some(item_ref.get(dict_ref, idx).map(PropValueRef::Str))
+                    })));
                 }
-            });
-        }
-    }
-}
-
-/// Iterates the non-null properties of a feature as [`ColumnRef`] (name + value).
-///
-/// Returned by [`FeatureRef::iter_properties`]. `SharedDict` columns are expanded
-/// in-place without any heap allocation.
-pub(crate) struct FeatPropertyIter<'a> {
-    columns: &'a [ParsedProperty<'a>],
-    feat_idx: usize,
-    col_idx: usize,
-    dict_idx: usize,
-}
-
-impl<'a> Iterator for FeatPropertyIter<'a> {
-    type Item = ColumnRef<'a>;
-
-    fn next(&mut self) -> Option<ColumnRef<'a>> {
-        use ParsedProperty as PP;
-
-        loop {
-            let prop = self.columns.get(self.col_idx)?;
-            self.col_idx += 1;
-            let idx = self.feat_idx;
-            if let Some(col) = match &prop {
-                PP::Bool(s) => s.column_at(idx),
-                PP::I8(s) => s.column_at(idx),
-                PP::U8(s) => s.column_at(idx),
-                PP::I32(s) => s.column_at(idx),
-                PP::U32(s) => s.column_at(idx),
-                PP::I64(s) => s.column_at(idx),
-                PP::U64(s) => s.column_at(idx),
-                PP::F32(s) => s.column_at(idx),
-                PP::F64(s) => s.column_at(idx),
-                PP::Str(s) => s.column_at(idx),
-                PP::SharedDict(s) => {
-                    let result = s.column_at(idx, &mut self.dict_idx);
-                    if self.dict_idx != 0 {
-                        // Not exhausted (null sub-item or more items remain): stay on this column.
-                        self.col_idx -= 1;
-                    }
-                    if result.is_none() {
-                        continue;
-                    }
-                    result
-                }
-            } {
-                return Some(col);
             }
         }
     }
+    iters
+}
+
+/// Build a boxed value iterator for a single scalar property column.
+fn scalar_col_iter<'p, T>(scalar: &'p ParsedScalar<'p, T>) -> ColValIter<'p>
+where
+    T: Copy + PartialEq,
+    PropValueRef<'p>: From<T>,
+{
+    Box::new(scalar.iter_optional().map(|o| o.map(PropValueRef::from)))
 }
 
 /// Iterator over the features of a fully-decoded [`Layer01<Parsed>`].
 ///
-/// Returned by [`ParsedLayer01::iter_features`].
-/// Geometry construction is the only fallible step; all property access is infallible.
-pub(crate) struct Layer01FeatureIter<'layer, 'data> {
+/// Returned by [`ParsedLayer01::iter_features`]. Holds one O(1)-per-step cursor per
+/// property column slot and advances them lazily on each [`next`](Iterator::next) call,
+/// collecting M values into a small per-feature [`Vec`] (where M = number of column slots).
+pub(crate) struct Layer01FeatureIter<'layer, 'data: 'layer> {
     layer: &'layer Layer01<'data, Parsed>,
     index: usize,
+    feature_count: usize,
+    /// ID iterator, `None` when the layer has no ID column.
+    id_iter: Option<crate::utils::PresenceOptIter<'layer, u64>>,
+    /// One boxed value iterator per column slot (scalar, string, or `SharedDict` sub-item).
+    col_iters: Vec<ColValIter<'layer>>,
 }
 
-impl<'layer, 'data> Layer01FeatureIter<'layer, 'data> {
+impl<'layer, 'data: 'layer> Layer01FeatureIter<'layer, 'data> {
     fn new(layer: &'layer Layer01<'data, Parsed>) -> Self {
-        Self { layer, index: 0 }
+        Self {
+            layer,
+            index: 0,
+            feature_count: layer.feature_count(),
+            id_iter: layer.id.as_ref().map(|id| id.iter_optional()),
+            col_iters: build_col_iters(&layer.properties),
+        }
     }
 }
 
@@ -473,30 +417,28 @@ impl<'layer> Iterator for Layer01FeatureIter<'layer, '_> {
     type Item = MltResult<FeatureRef<'layer>>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= self.layer.feature_count() {
+        let index = self.index;
+        if index >= self.feature_count {
             return None;
         }
-        let index = self.index;
         self.index += 1;
 
-        Some(Ok(FeatureRef {
-            id: self.layer.id.as_ref().and_then(|ids| ids.get(index)),
-            geometry: match self.layer.geometry.to_geojson(index) {
-                Ok(g) => g,
-                Err(e) => return Some(Err(e)),
-            },
-            columns: &self.layer.properties,
-            index,
+        Some(self.layer.geometry.to_geojson(index).map(|geometry| {
+            FeatureRef {
+                id: self.id_iter.as_mut().and_then(Iterator::next).flatten(),
+                geometry,
+                columns: &self.layer.properties,
+                values: self
+                    .col_iters
+                    .iter_mut()
+                    .map(|it| it.next().flatten())
+                    .collect(),
+            }
         }))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self
-            .layer
-            .geometry
-            .vector_types
-            .len()
-            .saturating_sub(self.index);
+        let remaining = self.feature_count - self.index;
         (remaining, Some(remaining))
     }
 }
@@ -641,9 +583,10 @@ mod tests {
         };
         let parsed = lazy.decode_all(&mut dec()).unwrap();
 
+        let iter = parsed.iter_features();
+        assert_eq!(iter.len(), 0);
+        assert_eq!(iter.size_hint(), (0, Some(0)));
         assert_eq!(parsed.iter_features().count(), 0);
-        assert_eq!(parsed.iter_features().len(), 0);
-        assert_eq!(parsed.iter_features().size_hint(), (0, Some(0)));
     }
 
     #[test]
@@ -742,7 +685,6 @@ mod tests {
         let all2: Vec<_> = feats[2].iter_all_properties().collect();
         assert_eq!(all2, [Some(PropValueRef::U32(3))]);
 
-        // iterate_prop_names yields names from the layer
         let names: Vec<_> = parsed.iterate_prop_names().map(|n| n.to_string()).collect();
         assert_eq!(names, ["n"]);
     }
@@ -886,7 +828,6 @@ mod tests {
         let all: Vec<_> = feats[1].iter_all_properties().collect();
         assert_eq!(all, [Some(PropValueRef::Str("Rome")), None]);
 
-        // iterate_prop_names: names from the layer, in order
         let names: Vec<_> = parsed.iterate_prop_names().map(|n| n.to_string()).collect();
         assert_eq!(names, ["addr:city", "addr:zip"]);
     }
