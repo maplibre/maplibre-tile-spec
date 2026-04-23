@@ -243,14 +243,12 @@ export function decodeSharedDictionary(
             presentStreamBitVector = new BitVector(presentStream, presentStreamMetadata.numValues);
         }
         const offsetStreamMetadata = decodeStreamMetadata(data, offset);
-        const offsetCount = offsetStreamMetadata.decompressedCount;
-        const isNullable = offsetCount !== numFeatures;
         const offsetStream = decodeUnsignedInt32Stream(
             data,
             offset,
             offsetStreamMetadata,
             undefined,
-            isNullable ? presentStreamBitVector : undefined,
+            presentStreamBitVector,
         );
 
         stringDictionaryVectors[i++] = symbolTableBuffer
