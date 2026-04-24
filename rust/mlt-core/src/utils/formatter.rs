@@ -27,8 +27,8 @@ fn format_opt_seq<T: Display>(v: Option<&[T]>) -> String {
 }
 
 /// derive-debug formatter for `Vec<T>` fields.
-pub fn vec_seq<T: Display>(v: &Vec<T>) -> String {
-    format_opt_seq(Some(v.as_slice()))
+pub fn vec_seq<T: Display>(v: &[T]) -> String {
+    format_opt_seq(Some(v))
 }
 
 /// derive-debug formatter for `Option<Vec<T>>` fields.
