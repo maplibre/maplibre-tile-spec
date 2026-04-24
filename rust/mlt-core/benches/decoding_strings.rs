@@ -7,7 +7,7 @@ use mlt_core::encoder::{
     StagedLayer01, StagedProperty, StagedSharedDict, StrEncoding,
 };
 use mlt_core::test_helpers::{dec, parser};
-use mlt_core::{GeometryValues, ParsedLayer01, PropValueRef};
+use mlt_core::{GeometryValues, LendingIterator, ParsedLayer01, PropValueRef};
 use strum::IntoEnumIterator as _;
 
 // This code runs in CI because of --all-targets, so make it run really fast.
@@ -100,22 +100,22 @@ fn encode_layer(n: usize, props: Vec<StagedProperty>, cfg: ExplicitEncoder) -> V
 /// Used as the benchmark measurement: the return value prevents the compiler from
 /// optimizing away the iteration, and its magnitude is proportional to work done.
 fn sum_str_lens(parsed: &ParsedLayer01<'_>) -> usize {
-    parsed
-        .iter_features()
-        .map(|feat_res| {
-            feat_res
-                .unwrap()
-                .iter_all_properties()
-                .map(|v| {
-                    if let Some(PropValueRef::Str(s)) = v {
-                        s.len()
-                    } else {
-                        0
-                    }
-                })
-                .sum::<usize>()
-        })
-        .sum()
+    let mut total = 0;
+    let mut iter = parsed.iter_features();
+    while let Some(feat_res) = iter.next() {
+        total += feat_res
+            .unwrap()
+            .iter_all_properties()
+            .map(|v| {
+                if let Some(PropValueRef::Str(s)) = v {
+                    s.len()
+                } else {
+                    0
+                }
+            })
+            .sum::<usize>();
+    }
+    total
 }
 
 /// plain strings: vary the `IntEncoder` used for the length stream
