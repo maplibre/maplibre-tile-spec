@@ -1,11 +1,15 @@
 #include <gtest/gtest.h>
 
-#include <mlt/decoder.hpp>
 #include <mlt/decode/string.hpp>
+#include <mlt/decoder.hpp>
 #include <mlt/encoder.hpp>
+#include <mlt/feature.hpp>
 #include <mlt/geometry.hpp>
+#include <mlt/layer.hpp>
 #include <mlt/metadata/stream.hpp>
 #include <mlt/metadata/tileset.hpp>
+#include <mlt/properties.hpp>
+#include <mlt/tile.hpp>
 #include <mlt/util/buffer_stream.hpp>
 #include <mlt/util/encoding/fsst.hpp>
 #include <mlt/util/encoding/varint.hpp>
@@ -15,10 +19,24 @@
 #include <mlt/util/zigzag.hpp>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <ios>
+#include <limits>
+#include <map>
 #include <numbers>
+#include <optional>
+#include <ostream>
+#include <set>
+#include <stdexcept>
+#include <string>
+#include <system_error>
+#include <type_traits>
+#include <utility>
+#include <variant>
 #include <vector>
 
 using namespace mlt;
@@ -33,25 +51,24 @@ template <typename T>
 static std::ostream& operator<<(std::ostream& os, const std::optional<T>& opt) {
     if (opt.has_value()) {
         return os << *opt;
-    } else {
-        return os << "(none)";
     }
+    return os << "(none)";
 }
 } // namespace std
 
 namespace {
 Decoder makeDecoder(bool enableFastPFOR = true) {
-    return Decoder(enableFastPFOR);
+    return {enableFastPFOR};
 }
 } // namespace
 
 TEST(EncodePrimitives, ZigZagRoundtrip) {
-    for (std::int32_t v : {0, 1, -1, 42, -42, 127, -128, 65535, -65536, 2147483647, -2147483647}) {
+    for (const std::int32_t v : {0, 1, -1, 42, -42, 127, -128, 65535, -65536, 2147483647, -2147483647}) {
         auto encoded = util::encoding::encodeZigZag(v);
         auto decoded = util::decoding::decodeZigZag(encoded);
         EXPECT_EQ(v, decoded) << "Failed for value " << v;
     }
-    for (std::int64_t v : {0L, 1L, -1L, 42L, -42L, 4294967296L, -4294967296L}) {
+    for (const std::int64_t v : {0L, 1L, -1L, 42L, -42L, 4294967296L, -4294967296L}) {
         auto encoded = util::encoding::encodeZigZag(v);
         auto decoded = util::decoding::decodeZigZag(encoded);
         EXPECT_EQ(v, decoded) << "Failed for value " << v;
@@ -59,7 +76,7 @@ TEST(EncodePrimitives, ZigZagRoundtrip) {
 }
 
 TEST(EncodePrimitives, VarintRoundtrip) {
-    for (std::uint32_t v : {0u, 1u, 127u, 128u, 16384u, 2097152u, 268435456u, 4294967295u}) {
+    for (const std::uint32_t v : {0u, 1u, 127u, 128u, 16384u, 2097152u, 268435456u, 4294967295u}) {
         std::vector<std::uint8_t> buf;
         util::encoding::encodeVarint(v, buf);
 
@@ -68,7 +85,7 @@ TEST(EncodePrimitives, VarintRoundtrip) {
         EXPECT_EQ(v, decoded) << "Failed for value " << v;
         EXPECT_EQ(stream.getRemaining(), 0u);
     }
-    for (std::uint64_t v : {0ULL, 1ULL, 127ULL, 128ULL, 0xFFFFFFFFULL, 0xFFFFFFFFFFFFFFFFULL}) {
+    for (const std::uint64_t v : {0ULL, 1ULL, 127ULL, 128ULL, 0xFFFFFFFFULL, 0xFFFFFFFFFFFFFFFFULL}) {
         std::vector<std::uint8_t> buf;
         util::encoding::encodeVarint(v, buf);
 
@@ -82,13 +99,13 @@ TEST(EncodePrimitives, VarintRoundtrip) {
 TEST(EncodeMetadata, StreamMetadataRoundtrip) {
     using namespace metadata::stream;
 
-    StreamMetadata original(PhysicalStreamType::DATA,
-                            LogicalStreamType{DictionaryType::SINGLE},
-                            LogicalLevelTechnique::DELTA,
-                            LogicalLevelTechnique::NONE,
-                            PhysicalLevelTechnique::VARINT,
-                            42,
-                            100);
+    const StreamMetadata original(PhysicalStreamType::DATA,
+                                  LogicalStreamType{DictionaryType::SINGLE},
+                                  LogicalLevelTechnique::DELTA,
+                                  LogicalLevelTechnique::NONE,
+                                  PhysicalLevelTechnique::VARINT,
+                                  42,
+                                  100);
 
     auto encoded = original.encode();
     BufferStream stream({reinterpret_cast<const char*>(encoded.data()), encoded.size()});
@@ -106,15 +123,15 @@ TEST(EncodeMetadata, StreamMetadataRoundtrip) {
 TEST(EncodeMetadata, RleStreamMetadataRoundtrip) {
     using namespace metadata::stream;
 
-    RleEncodedStreamMetadata original(PhysicalStreamType::DATA,
-                                      std::nullopt,
-                                      LogicalLevelTechnique::RLE,
-                                      LogicalLevelTechnique::NONE,
-                                      PhysicalLevelTechnique::VARINT,
-                                      10,
-                                      50,
-                                      3,
-                                      100);
+    const RleEncodedStreamMetadata original(PhysicalStreamType::DATA,
+                                            std::nullopt,
+                                            LogicalLevelTechnique::RLE,
+                                            LogicalLevelTechnique::NONE,
+                                            PhysicalLevelTechnique::VARINT,
+                                            10,
+                                            50,
+                                            3,
+                                            100);
 
     auto encoded = original.encode();
     BufferStream stream({reinterpret_cast<const char*>(encoded.data()), encoded.size()});
@@ -186,7 +203,7 @@ namespace {
 MapLibreTile encodeDecode(const std::vector<Encoder::Layer>& layers,
                           EncoderConfig config = {},
                           bool enableFastPFOR = true) {
-    Encoder encoder;
+    const Encoder encoder;
     auto bytes = encoder.encode(layers, config);
     EXPECT_FALSE(bytes.empty());
     return Decoder(enableFastPFOR).decode({reinterpret_cast<const char*>(bytes.data()), bytes.size()});
@@ -322,12 +339,12 @@ TEST(Encode, AllPropertyTypes) {
                                             {.x = i * 100, .y = i * 100},
                                             {
                                                 {"bool_val", (i % 2 == 0)},
-                                                {"int32_val", std::int32_t{-100 + (i * 20)}},
-                                                {"int64_val", std::int64_t{-9999999999LL + i}},
-                                                {"uint32_val", std::uint32_t(3000000000u + i)},
-                                                {"uint64_val", std::uint64_t(18000000000000000000ULL + i)},
-                                                {"float_val", float(i) * 0.5f},
-                                                {"double_val", double(i) * 0.5},
+                                                {"int32_val", static_cast<std::int32_t>(-100 + (i * 20))},
+                                                {"int64_val", static_cast<std::int64_t>(-9999999999LL + i)},
+                                                {"uint32_val", static_cast<std::uint32_t>(3000000000u + i)},
+                                                {"uint64_val", static_cast<std::uint64_t>(18000000000000000000ULL + i)},
+                                                {"float_val", static_cast<float>(i) * 0.5f},
+                                                {"double_val", static_cast<double>(i) * 0.5},
                                                 {"string_val", std::string("str_") + std::to_string(i)},
                                             }));
     }
@@ -358,12 +375,12 @@ TEST(Encode, NullableAllTypes) {
         std::map<std::string, Encoder::PropertyValue> props;
         if (i % 2 == 0) {
             props = {
-                {"int32_val", std::int32_t{i}},
-                {"int64_val", std::int64_t{i}},
-                {"uint32_val", std::uint32_t(i)},
-                {"uint64_val", std::uint64_t(i)},
-                {"float_val", float(i)},
-                {"double_val", double(i)},
+                {"int32_val", static_cast<std::int32_t>(i)},
+                {"int64_val", static_cast<std::int64_t>(i)},
+                {"uint32_val", static_cast<std::uint32_t>(i)},
+                {"uint64_val", static_cast<std::uint64_t>(i)},
+                {"float_val", static_cast<float>(i)},
+                {"double_val", static_cast<double>(i)},
                 {"bool_val", true},
             };
         }
@@ -472,7 +489,7 @@ TEST(Encode, MaxUint64Id) {
 }
 
 TEST(Encode, Uint64IdAcrossSignedBoundary) {
-    const std::uint64_t kInt64Max = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
+    const auto kInt64Max = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
     const std::vector<std::uint64_t> testIds = {
         kInt64Max - 1,
         kInt64Max,
@@ -500,7 +517,7 @@ TEST(Encode, Uint64IdAcrossSignedBoundary) {
 }
 
 TEST(Encode, Uint64IdAcrossSignedBoundaryForcedDelta) {
-    const std::uint64_t kInt64Max = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
+    const auto kInt64Max = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
     const std::vector<std::uint64_t> testIds = {
         kInt64Max,
         kInt64Max + 1,
@@ -531,7 +548,7 @@ TEST(Encode, Uint64IdAcrossSignedBoundaryForcedDelta) {
 }
 
 TEST(Encode, Uint64PropertyAcrossSignedBoundaryForcedDelta) {
-    const std::uint64_t kInt64Max = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
+    const auto kInt64Max = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
     const std::vector<std::uint64_t> values = {
         kInt64Max,
         kInt64Max + 1,
@@ -806,7 +823,7 @@ TEST(FSST, EncodeDecodeRoundtrip) {
     auto decoded = mlt::decoder::StringDecoder::decodeFSST(
         result.symbols, result.symbolLengths, result.compressedData, data.size());
     EXPECT_EQ(decoded.size(), data.size());
-    EXPECT_EQ(0, memcmp(data.data(), decoded.data(), data.size()));
+    EXPECT_EQ(0, std::memcmp(data.data(), decoded.data(), data.size()));
 }
 
 TEST(FSST, EncodeDecodeRealisticStrings) {
@@ -930,7 +947,7 @@ TEST(HilbertCurve, JavaCrossValidation) {
 }
 
 TEST(HilbertCurve, RoundtripThroughSpaceFillingCurve) {
-    HilbertCurve curve(0, 4095);
+    const HilbertCurve curve(0, 4095);
 
     for (int x = 0; x < 4096; x += 512) {
         for (int y = 0; y < 4096; y += 512) {
@@ -1011,8 +1028,8 @@ TEST(Encode, FeatureSortingPoints) {
     };
 
     std::vector<Encoder::Feature> features;
-    features.reserve(static_cast<int>(positions.size()));
-    for (int i = 0; i < static_cast<int>(positions.size()); ++i) {
+    features.reserve(positions.size());
+    for (std::size_t i = 0; i < positions.size(); ++i) {
         features.push_back(makePointFeature(i + 1,
                                             positions[i],
                                             {
@@ -1033,7 +1050,7 @@ TEST(Encode, FeatureSortingPoints) {
         }
     }
 
-    for (int i = 0; i < static_cast<int>(positions.size()); ++i) {
+    for (std::size_t i = 0; i < positions.size(); ++i) {
         const auto& pt = dynamic_cast<const geometry::Point&>(byId.at(i + 1)->getGeometry());
         EXPECT_EQ(static_cast<int>(pt.getCoordinate().x), positions[i].x);
         EXPECT_EQ(static_cast<int>(pt.getCoordinate().y), positions[i].y);
@@ -1044,9 +1061,9 @@ TEST(Encode, FeatureSortingPoints) {
         minV = std::min({minV, p.x, p.y});
         maxV = std::max({maxV, p.x, p.y});
     }
-    HilbertCurve curve(minV, maxV);
-    std::uint32_t prevHilbert = 0;
-    std::uint32_t index = 0;
+    const HilbertCurve curve(minV, maxV);
+    std::uint32_t prevHilbert = 0; // NOLINT(misc-const-correctness)
+    std::uint32_t index = 0;       // NOLINT(misc-const-correctness)
     for (const auto& f : decoded->getFeatures()) {
         const auto& pt = dynamic_cast<const geometry::Point&>(f.getGeometry());
         const auto h = curve.encode({pt.getCoordinate().x, pt.getCoordinate().y});
@@ -1065,7 +1082,7 @@ TEST(Encode, FeatureSortingLineStrings) {
     };
 
     std::vector<Encoder::Feature> features;
-    for (int i = 0; i < static_cast<int>(segments.size()); ++i) {
+    for (std::size_t i = 0; i < segments.size(); ++i) {
         Encoder::Feature f;
         f.id = i + 1;
         f.geometry.type = metadata::tileset::GeometryType::LINESTRING;
@@ -1085,7 +1102,7 @@ TEST(Encode, FeatureSortingLineStrings) {
         }
     }
 
-    for (int i = 0; i < static_cast<int>(segments.size()); ++i) {
+    for (std::size_t i = 0; i < segments.size(); ++i) {
         const auto& ls = dynamic_cast<const geometry::LineString&>(byId.at(i + 1)->getGeometry());
         EXPECT_EQ(static_cast<int>(ls.getCoordinates()[0].x), segments[i].first.x);
         EXPECT_EQ(static_cast<int>(ls.getCoordinates()[0].y), segments[i].first.y);
@@ -1096,7 +1113,7 @@ TEST(Encode, FeatureSortingLineStrings) {
         minV = std::min({minV, a.x, a.y, b.x, b.y});
         maxV = std::max({maxV, a.x, a.y, b.x, b.y});
     }
-    HilbertCurve curve(minV, maxV);
+    const HilbertCurve curve(minV, maxV);
     std::uint32_t prevHilbert = 0;
     for (const auto& f : decoded->getFeatures()) {
         const auto& ls = dynamic_cast<const geometry::LineString&>(f.getGeometry());
@@ -1138,8 +1155,12 @@ TEST(Encode, StructColumnRoundtrip) {
 
         Encoder::StructValue names;
         names["default"] = "Road " + std::to_string(i);
-        if (i % 3 == 0) names["en"] = "Road " + std::to_string(i);
-        if (i % 5 == 0) names["de"] = "Strasse " + std::to_string(i);
+        if (i % 3 == 0) {
+            names["en"] = "Road " + std::to_string(i);
+        }
+        if (i % 5 == 0) {
+            names["de"] = "Strasse " + std::to_string(i);
+        }
         f.properties["name"] = std::move(names);
         f.properties["class"] = std::string(i % 2 == 0 ? "primary" : "secondary");
         features.push_back(std::move(f));
@@ -1228,11 +1249,15 @@ TEST(Encode, PretessellatedPolygonRoundtrip) {
 
     // Simple quad → 2 triangles = 6 indices
     EXPECT_EQ(decoded->getFeatures()[0].getGeometry().getTriangles().size(), 6u);
-    for (auto idx : decoded->getFeatures()[0].getGeometry().getTriangles()) EXPECT_LT(idx, 4u);
+    for (auto idx : decoded->getFeatures()[0].getGeometry().getTriangles()) {
+        EXPECT_LT(idx, 4u);
+    }
 
     // Quad with hole → 8 triangles = 24 indices
     EXPECT_EQ(decoded->getFeatures()[1].getGeometry().getTriangles().size(), 24u);
-    for (auto idx : decoded->getFeatures()[1].getGeometry().getTriangles()) EXPECT_LT(idx, 8u);
+    for (auto idx : decoded->getFeatures()[1].getGeometry().getTriangles()) {
+        EXPECT_LT(idx, 8u);
+    }
 }
 
 TEST(Encode, PretessellatedMultiPolygonCrossValidation) {
@@ -1259,7 +1284,9 @@ TEST(Encode, PretessellatedMultiPolygonCrossValidation) {
     // 4 triangles = 12 indices (Java expected: [3,0,1, 1,2,3, 7,4,5, 5,6,7])
     auto triangles = tile.getLayer("landuse")->getFeatures()[0].getGeometry().getTriangles();
     EXPECT_EQ(triangles.size(), 12u);
-    for (auto idx : triangles) EXPECT_LT(idx, 8u);
+    for (auto idx : triangles) {
+        EXPECT_LT(idx, 8u);
+    }
 }
 
 TEST(Encode, PretessellatedMultiPolygonWithHoles) {
@@ -1325,7 +1352,9 @@ namespace {
 
 std::vector<char> loadFile(const std::filesystem::path& path) {
     std::ifstream file(path, std::ios::binary | std::ios::ate);
-    if (!file.is_open()) return {};
+    if (!file.is_open()) {
+        return {};
+    }
     const auto size = file.tellg();
     file.seekg(0);
     std::vector<char> buffer(size);
@@ -1338,29 +1367,30 @@ std::filesystem::path fixtureBasePath() {
                              "../../test/expected/tag0x01/",
                              "../../../test/expected/tag0x01/",
                              "test/expected/tag0x01/"}) {
-        if (std::filesystem::exists(base)) return base;
+        if (std::filesystem::exists(base)) {
+            return base;
+        }
     }
     return {};
 }
 
 std::vector<char> loadFixture(const std::string& relativePath) {
-    auto base = fixtureBasePath();
-    if (base.empty()) return {};
-    return loadFile(base / relativePath);
+    const auto base = fixtureBasePath();
+    return base.empty() ? std::vector<char>{} : loadFile(base / relativePath);
 }
 
 std::vector<std::string> discoverFixtures(const std::string& subdir) {
     std::vector<std::string> result;
-    auto base = fixtureBasePath();
-    if (base.empty()) return result;
-
-    std::error_code ec;
-    for (const auto& entry : std::filesystem::directory_iterator(base / subdir, ec)) {
-        if (!ec && entry.path().extension() == ".mlt") {
-            result.push_back(entry.path().filename().string());
+    const auto base = fixtureBasePath();
+    if (!base.empty()) {
+        std::error_code ec;
+        for (const auto& entry : std::filesystem::directory_iterator(base / subdir, ec)) {
+            if (!ec && entry.path().extension() == ".mlt") {
+                result.push_back(entry.path().filename().string());
+            }
         }
+        std::ranges::sort(result);
     }
-    std::ranges::sort(result);
     return result;
 }
 
@@ -1397,22 +1427,30 @@ Encoder::Layer decodedToEncoderLayer(const Layer& decoded) {
             }
             case metadata::tileset::GeometryType::LINESTRING: {
                 const auto& ls = dynamic_cast<const geometry::LineString&>(geom);
-                for (const auto& c : ls.getCoordinates()) ef.geometry.coordinates.push_back(toEncVertex(c));
+                for (const auto& c : ls.getCoordinates()) {
+                    ef.geometry.coordinates.push_back(toEncVertex(c));
+                }
                 break;
             }
             case metadata::tileset::GeometryType::POLYGON: {
                 const auto& poly = dynamic_cast<const geometry::Polygon&>(geom);
                 for (const auto& ring : poly.getRings()) {
                     auto count = ring.size();
-                    if (count > 1 && ring.front() == ring.back()) --count;
+                    if (count > 1 && ring.front() == ring.back()) {
+                        --count;
+                    }
                     ef.geometry.ringSizes.push_back(static_cast<std::uint32_t>(count));
-                    for (std::size_t j = 0; j < count; ++j) ef.geometry.coordinates.push_back(toEncVertex(ring[j]));
+                    for (std::size_t j = 0; j < count; ++j) {
+                        ef.geometry.coordinates.push_back(toEncVertex(ring[j]));
+                    }
                 }
                 break;
             }
             case metadata::tileset::GeometryType::MULTIPOINT: {
                 const auto& mp = dynamic_cast<const geometry::MultiPoint&>(geom);
-                for (const auto& c : mp.getCoordinates()) ef.geometry.coordinates.push_back(toEncVertex(c));
+                for (const auto& c : mp.getCoordinates()) {
+                    ef.geometry.coordinates.push_back(toEncVertex(c));
+                }
                 break;
             }
             case metadata::tileset::GeometryType::MULTILINESTRING: {
@@ -1434,9 +1472,13 @@ Encoder::Layer decodedToEncoderLayer(const Layer& decoded) {
                     std::vector<std::uint32_t> ringSizes;
                     for (const auto& ring : polygon) {
                         auto count = ring.size();
-                        if (count > 1 && ring.front() == ring.back()) --count;
+                        if (count > 1 && ring.front() == ring.back()) {
+                            --count;
+                        }
                         ringSizes.push_back(static_cast<std::uint32_t>(count));
-                        for (std::size_t j = 0; j < count; ++j) partVerts.push_back(toEncVertex(ring[j]));
+                        for (std::size_t j = 0; j < count; ++j) {
+                            partVerts.push_back(toEncVertex(ring[j]));
+                        }
                     }
                     ef.geometry.parts.push_back(std::move(partVerts));
                     ef.geometry.partRingSizes.push_back(std::move(ringSizes));
@@ -1448,7 +1490,10 @@ Encoder::Layer decodedToEncoderLayer(const Layer& decoded) {
         for (const auto& name : propNames) {
             const auto& pp = props.at(name);
             auto val = pp.getProperty(static_cast<std::uint32_t>(fi));
-            if (!val.has_value()) continue;
+            if (!val.has_value()) {
+                continue;
+            }
+            // NOLINTBEGIN(bugprone-branch-clone)
             std::visit(
                 [&](const auto& v) {
                     using T = std::decay_t<decltype(v)>;
@@ -1456,24 +1501,39 @@ Encoder::Layer decodedToEncoderLayer(const Layer& decoded) {
                     } else if constexpr (std::is_same_v<T, std::string_view>) {
                         ef.properties[name] = std::string(v);
                     } else if constexpr (std::is_same_v<T, std::optional<bool>>) {
-                        if (v) ef.properties[name] = *v;
+                        if (v) {
+                            ef.properties[name] = *v;
+                        }
                     } else if constexpr (std::is_same_v<T, std::optional<std::int32_t>>) {
-                        if (v) ef.properties[name] = *v;
+                        if (v) {
+                            ef.properties[name] = *v;
+                        }
                     } else if constexpr (std::is_same_v<T, std::optional<std::int64_t>>) {
-                        if (v) ef.properties[name] = *v;
+                        if (v) {
+                            ef.properties[name] = *v;
+                        }
                     } else if constexpr (std::is_same_v<T, std::optional<std::uint32_t>>) {
-                        if (v) ef.properties[name] = *v;
+                        if (v) {
+                            ef.properties[name] = *v;
+                        }
                     } else if constexpr (std::is_same_v<T, std::optional<std::uint64_t>>) {
-                        if (v) ef.properties[name] = *v;
+                        if (v) {
+                            ef.properties[name] = *v;
+                        }
                     } else if constexpr (std::is_same_v<T, std::optional<float>>) {
-                        if (v) ef.properties[name] = *v;
+                        if (v) {
+                            ef.properties[name] = *v;
+                        }
                     } else if constexpr (std::is_same_v<T, std::optional<double>>) {
-                        if (v) ef.properties[name] = *v;
+                        if (v) {
+                            ef.properties[name] = *v;
+                        }
                     } else {
                         ef.properties[name] = v;
                     }
                 },
                 *val);
+            // NOLINTEND(bugprone-branch-clone)
         }
 
         layer.features.push_back(std::move(ef));
@@ -1503,7 +1563,7 @@ void compareDecodedTiles(const Layer& a, const Layer& b, bool sortedByEncoder) {
 
     for (std::size_t ai = 0; ai < a.getFeatures().size(); ++ai) {
         const auto& fa = a.getFeatures()[ai];
-        std::size_t bi = (!hasIds || hasDuplicateIds || sortedByEncoder) ? ai : bById.at(*fa.getID());
+        const std::size_t bi = (!hasIds || hasDuplicateIds || sortedByEncoder) ? ai : bById.at(*fa.getID());
 
         const auto& fb = b.getFeatures()[bi];
 
@@ -1534,7 +1594,9 @@ void compareDecodedTiles(const Layer& a, const Layer& b, bool sortedByEncoder) {
                 for (std::size_t r = 0; r < pa.getRings().size(); ++r) {
                     ASSERT_EQ(pa.getRings()[r].size(), pb.getRings()[r].size());
                     auto count = pa.getRings()[r].size();
-                    if (count > 1 && pa.getRings()[r].front() == pa.getRings()[r].back()) --count;
+                    if (count > 1 && pa.getRings()[r].front() == pa.getRings()[r].back()) {
+                        --count;
+                    }
                     for (std::size_t j = 0; j < count; ++j) {
                         EXPECT_FLOAT_EQ(pa.getRings()[r][j].x, pb.getRings()[r][j].x);
                         EXPECT_FLOAT_EQ(pa.getRings()[r][j].y, pb.getRings()[r][j].y);
@@ -1619,7 +1681,9 @@ void byteCompareFixtureTest(const std::string& fixturePath) {
     auto javaTile = makeDecoder().decode({fixture.data(), fixture.size()});
 
     std::vector<Encoder::Layer> encoderLayers;
-    for (const auto& layer : javaTile.getLayers()) encoderLayers.push_back(decodedToEncoderLayer(layer));
+    for (const auto& layer : javaTile.getLayers()) {
+        encoderLayers.push_back(decodedToEncoderLayer(layer));
+    }
 
     EncoderConfig config;
     config.sortFeatures = false;
@@ -1670,7 +1734,9 @@ TEST(CrossValidate, StructColumnOMTRoundtrip) {
 
     std::set<std::string> structChildNames;
     for (const auto& [name, _] : javaProps) {
-        if (name.starts_with("name")) structChildNames.insert(name.substr(4));
+        if (name.starts_with("name")) {
+            structChildNames.insert(name.substr(4));
+        }
     }
     ASSERT_GT(structChildNames.size(), 5u);
 
@@ -1707,21 +1773,34 @@ TEST(CrossValidate, StructColumnOMTRoundtrip) {
         Encoder::StructValue nameStruct;
         for (const auto& childName : structChildNames) {
             auto it = javaProps.find("name" + childName);
-            if (it == javaProps.end()) continue;
+            if (it == javaProps.end()) {
+                continue;
+            }
             auto val = it->second.getProperty(static_cast<std::uint32_t>(fi));
-            if (!val.has_value()) continue;
-            if (auto* sv = std::get_if<std::string_view>(&*val)) nameStruct[childName] = std::string(*sv);
+            if (!val.has_value()) {
+                continue;
+            }
+            if (auto* sv = std::get_if<std::string_view>(&*val)) {
+                nameStruct[childName] = std::string(*sv);
+            }
         }
-        if (!nameStruct.empty()) ef.properties["name"] = std::move(nameStruct);
+        if (!nameStruct.empty()) {
+            ef.properties["name"] = std::move(nameStruct);
+        }
 
         for (const auto& propName : {"class", "intermittent"}) {
-            if (!javaProps.contains(propName)) continue;
+            if (!javaProps.contains(propName)) {
+                continue;
+            }
             auto val = javaProps.at(propName).getProperty(static_cast<std::uint32_t>(fi));
-            if (!val.has_value()) continue;
-            if (auto* sv = std::get_if<std::string_view>(&*val))
+            if (!val.has_value()) {
+                continue;
+            }
+            if (auto* sv = std::get_if<std::string_view>(&*val)) {
                 ef.properties[propName] = std::string(*sv);
-            else if (auto* bv = std::get_if<bool>(&*val))
+            } else if (auto* bv = std::get_if<bool>(&*val)) {
                 ef.properties[propName] = *bv;
+            }
         }
 
         encLayer.features.push_back(std::move(ef));
@@ -1759,8 +1838,8 @@ TEST(CrossValidate, StructColumnOMTRoundtrip) {
             auto cppVal = cppPP.getProperty(static_cast<std::uint32_t>(cppIdx));
             EXPECT_EQ(javaVal.has_value(), cppVal.has_value()) << propName << " id=" << javaId;
             if (javaVal.has_value() && cppVal.has_value()) {
-                auto jSV = std::get_if<std::string_view>(&*javaVal);
-                auto cSV = std::get_if<std::string_view>(&*cppVal);
+                auto* jSV = std::get_if<std::string_view>(&*javaVal);
+                auto* cSV = std::get_if<std::string_view>(&*cppVal);
                 ASSERT_TRUE(jSV && cSV) << propName << " id=" << javaId;
                 EXPECT_EQ(*jSV, *cSV) << propName << " id=" << javaId;
             }
@@ -1779,7 +1858,9 @@ void reencodeRoundtrip(const std::string& subdir, const std::string& filename) {
     auto javaTile = makeDecoder().decode({fixture.data(), fixture.size()});
 
     std::vector<Encoder::Layer> encoderLayers;
-    for (const auto& layer : javaTile.getLayers()) encoderLayers.push_back(decodedToEncoderLayer(layer));
+    for (const auto& layer : javaTile.getLayers()) {
+        encoderLayers.push_back(decodedToEncoderLayer(layer));
+    }
     ASSERT_FALSE(encoderLayers.empty());
 
     EncoderConfig config;
@@ -1806,12 +1887,14 @@ std::string sanitizeFixtureName(const ::testing::TestParamInfo<std::string>& inf
 
 } // namespace
 
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define REENCODE_CORPUS_SUITE(SuiteName, subdir)                       \
     class SuiteName : public ::testing::TestWithParam<std::string> {}; \
     TEST_P(SuiteName, Roundtrip) {                                     \
         reencodeRoundtrip(subdir, GetParam());                         \
     }                                                                  \
     INSTANTIATE_TEST_SUITE_P(All, SuiteName, ::testing::ValuesIn(discoverFixtures(subdir)), sanitizeFixtureName)
+// NOLINTEND(bugprone-macro-parentheses)
 
 REENCODE_CORPUS_SUITE(ReencodeOMT, "omt");
 REENCODE_CORPUS_SUITE(ReencodeBing, "bing");
@@ -1825,7 +1908,9 @@ namespace {
 std::string featureFingerprint(const Encoder::Feature& f) {
     const auto idValue = f.id.value_or(0);
     std::string fp = std::to_string(idValue) + "|" + std::to_string(static_cast<int>(f.geometry.type));
-    for (const auto& v : f.geometry.coordinates) fp += "|" + std::to_string(v.x) + "," + std::to_string(v.y);
+    for (const auto& v : f.geometry.coordinates) {
+        fp += "|" + std::to_string(v.x) + "," + std::to_string(v.y);
+    }
     return fp;
 }
 
@@ -1836,7 +1921,9 @@ void reencodeRoundtripSorted(const std::string& subdir, const std::string& filen
     auto javaTile = makeDecoder().decode({fixture.data(), fixture.size()});
 
     std::vector<Encoder::Layer> originalLayers;
-    for (const auto& layer : javaTile.getLayers()) originalLayers.push_back(decodedToEncoderLayer(layer));
+    for (const auto& layer : javaTile.getLayers()) {
+        originalLayers.push_back(decodedToEncoderLayer(layer));
+    }
     ASSERT_FALSE(originalLayers.empty());
 
     EncoderConfig config;
@@ -1854,8 +1941,12 @@ void reencodeRoundtripSorted(const std::string& subdir, const std::string& filen
         ASSERT_EQ(origLayer.features.size(), reEncoderLayer.features.size());
 
         std::multimap<std::string, const Encoder::Feature*> origByFp, reByFp;
-        for (const auto& f : origLayer.features) origByFp.emplace(featureFingerprint(f), &f);
-        for (const auto& f : reEncoderLayer.features) reByFp.emplace(featureFingerprint(f), &f);
+        for (const auto& f : origLayer.features) {
+            origByFp.emplace(featureFingerprint(f), &f);
+        }
+        for (const auto& f : reEncoderLayer.features) {
+            reByFp.emplace(featureFingerprint(f), &f);
+        }
 
         for (auto itA = origByFp.begin(), itB = reByFp.begin(); itA != origByFp.end(); ++itA, ++itB) {
             ASSERT_EQ(itA->first, itB->first);
@@ -1883,7 +1974,9 @@ void reencodeTessellated(const std::string& subdir, const std::string& filename)
     auto javaTile = makeDecoder().decode({fixture.data(), fixture.size()});
 
     std::vector<Encoder::Layer> encoderLayers;
-    for (const auto& layer : javaTile.getLayers()) encoderLayers.push_back(decodedToEncoderLayer(layer));
+    for (const auto& layer : javaTile.getLayers()) {
+        encoderLayers.push_back(decodedToEncoderLayer(layer));
+    }
     ASSERT_FALSE(encoderLayers.empty());
 
     EncoderConfig config;
@@ -1999,8 +2092,7 @@ TEST(Encode, Uint64RleEncoding) {
     std::vector<Encoder::Feature> features;
     features.reserve(100);
     for (int i = 0; i < 100; ++i) {
-        features.push_back(
-            makePointFeature(i, {.x = i * 10, .y = i * 10}, {{"big", std::uint64_t(18000000000000000000ULL)}}));
+        features.push_back(makePointFeature(i, {.x = i * 10, .y = i * 10}, {{"big", 18000000000000000000ULL}}));
     }
     auto layer = makeLayer("u64rle", std::move(features));
 
@@ -2070,7 +2162,7 @@ TEST(Encode, PretessellatedWithoutOutlinesProducesValidBinary) {
     config.includeOutlines = false;
     config.sortFeatures = false;
 
-    Encoder encoder;
+    const Encoder encoder;
     auto bytes = encoder.encode({layer}, config);
     EXPECT_FALSE(bytes.empty());
 
@@ -2184,15 +2276,15 @@ TEST(Encode, StructColumnAllChildrenAbsent) {
 TEST(EncodeMetadata, MortonStreamMetadataRoundtrip) {
     using namespace metadata::stream;
 
-    MortonEncodedStreamMetadata original(PhysicalStreamType::DATA,
-                                         LogicalStreamType{DictionaryType::MORTON},
-                                         LogicalLevelTechnique::MORTON,
-                                         LogicalLevelTechnique::DELTA,
-                                         PhysicalLevelTechnique::VARINT,
-                                         100,
-                                         200,
-                                         13,
-                                         0);
+    const MortonEncodedStreamMetadata original(PhysicalStreamType::DATA,
+                                               LogicalStreamType{DictionaryType::MORTON},
+                                               LogicalLevelTechnique::MORTON,
+                                               LogicalLevelTechnique::DELTA,
+                                               PhysicalLevelTechnique::VARINT,
+                                               100,
+                                               200,
+                                               13,
+                                               0);
 
     auto encoded = original.encode();
     BufferStream stream({reinterpret_cast<const char*>(encoded.data()), encoded.size()});
@@ -2269,7 +2361,7 @@ TEST(Encode, Uint32PropertyColumn) {
     features.reserve(20);
     for (int i = 0; i < 20; ++i) {
         features.push_back(
-            makePointFeature(i, {.x = i * 100, .y = i * 100}, {{"val", std::uint32_t(3000000000u + i)}}));
+            makePointFeature(i, {.x = i * 100, .y = i * 100}, {{"val", static_cast<std::uint32_t>(3000000000u + i)}}));
     }
 
     EncoderConfig config;
@@ -2353,12 +2445,13 @@ TEST(Encode, NullableBoolProperty) {
 }
 
 TEST(Encode, NullableUint64Property) {
-    auto layer = makeLayer("nullable_u64",
-                           {
-                               makePointFeature(1, {.x = 10, .y = 20}, {{"val", std::uint64_t(12345678901234ULL)}}),
-                               makePointFeature(2, {.x = 30, .y = 40}),
-                               makePointFeature(3, {.x = 50, .y = 60}, {{"val", std::uint64_t(98765432109876ULL)}}),
-                           });
+    auto layer = makeLayer(
+        "nullable_u64",
+        {
+            makePointFeature(1, {.x = 10, .y = 20}, {{"val", static_cast<std::uint64_t>(12345678901234ULL)}}),
+            makePointFeature(2, {.x = 30, .y = 40}),
+            makePointFeature(3, {.x = 50, .y = 60}, {{"val", static_cast<std::uint64_t>(98765432109876ULL)}}),
+        });
 
     auto tile = encodeDecode({layer});
     const auto* decoded = tile.getLayer("nullable_u64");

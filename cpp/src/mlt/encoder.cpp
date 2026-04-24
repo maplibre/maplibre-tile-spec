@@ -849,7 +849,7 @@ Encoder::Encoder()
 
 Encoder::~Encoder() noexcept = default;
 
-std::vector<std::uint8_t> Encoder::encode(const std::vector<Layer>& layers, const EncoderConfig& config) {
+std::vector<std::uint8_t> Encoder::encode(const std::vector<Layer>& layers, const EncoderConfig& config) const {
     // Accumulate (size-varint, layer-bytes) pairs, then concatenate once.
     struct LayerChunk {
         std::vector<std::uint8_t> sizeVarint;

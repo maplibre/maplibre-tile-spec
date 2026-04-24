@@ -6,17 +6,20 @@
 #include <mlt/polyfill.hpp> // NOLINT(misc-include-cleaner)
 #include <mlt/util/morton_curve.hpp>
 
-#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <iterator>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
+
+#ifndef NDEBUG
+#include <algorithm>
+#include <iterator>
+#endif
 
 // NOLINTBEGIN(bugprone-unchecked-optional-access)
 
@@ -91,7 +94,6 @@ std::vector<Coordinate> getMortonEncodedLineStringCoords(const std::vector<std::
     }
     return coords;
 }
-
 } // namespace
 
 void GeometryVector::applyTriangles(Geometry& geom,
@@ -110,13 +112,6 @@ void GeometryVector::applyTriangles(Geometry& geom,
         assert(std::all_of(std::next(indexBuffer.cbegin(), indexBufferOffset),
                            std::next(indexBuffer.cbegin(), indexBufferOffset + (3 * numTriangles)),
                            [=](auto i) { return i < totalVertices; }));
-#if !defined(NDEBUG) && false
-        // Expect the tessellated indexes to reference the entire range of vertices.
-        // The Java implementation of Earcut makes this fail, so it's disabled for now.
-        const auto limits = std::ranges::minmax_element(&indexBuffer[indexBufferOffset],
-                                                        &indexBuffer[indexBufferOffset + (3 * numTriangles)]);
-        assert(*limits.min == 0 && *limits.max == totalVertices - 1);
-#endif
         geom.setTriangles({&indexBuffer[indexBufferOffset], 3 * numTriangles});
         indexBufferOffset += 3 * numTriangles;
     }

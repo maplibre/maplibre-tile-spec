@@ -2,7 +2,11 @@
 
 #include <mlt/util/buffer_stream.hpp>
 #include <mlt/util/varint.hpp>
-#include <mlt/util/vectorized.hpp>
+
+#include <cstddef>
+#include <cstdint>
+#include <stdexcept>
+#include <vector>
 
 using namespace mlt;
 

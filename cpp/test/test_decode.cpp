@@ -3,15 +3,19 @@
 #include <mlt/decoder.hpp>
 #include <mlt/geometry.hpp>
 #include <mlt/metadata/tileset.hpp>
-#include <mlt/util/buffer_stream.hpp>
-#include <mlt/projection.hpp>
+#include <mlt/tile.hpp>
 
 #include <cstdlib>
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <regex>
 #include <string>
+#include <system_error>
+#include <utility>
+#include <vector>
 
 using namespace std::string_literals;
 using namespace std::string_view_literals;
@@ -19,6 +23,8 @@ using namespace std::string_view_literals;
 #if MLT_WITH_JSON
 #include <mlt/json.hpp>
 #include <mlt/util/json_diff.hpp>
+
+#include <nlohmann/json_fwd.hpp>
 #endif
 
 namespace {

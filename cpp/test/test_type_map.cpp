@@ -1,6 +1,11 @@
 #include <gtest/gtest.h>
 
+#include <mlt/metadata/tileset.hpp>
 #include <mlt/metadata/type_map.hpp>
+
+#include <cstdint>
+#include <stdexcept>
+#include <vector>
 
 using namespace mlt::metadata;
 using namespace mlt::metadata::tileset;
@@ -372,6 +377,7 @@ TEST_F(Tag0x01TypeMapTest, EncodeNothingReturnsNullopt) {
 
 TEST_F(Tag0x01TypeMapTest, EncodeInvalidPhysicalScalarTypeThrows) {
     // Drives Tag0x01::mapScalarType(ScalarType, bool) default throw path.
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
     EXPECT_THROW((void)Tag0x01::encodeColumnType(static_cast<ScalarType>(999), {}, {}, {}, false, false, false),
                  std::runtime_error);
 }
@@ -446,88 +452,91 @@ TEST_F(Tag0x01TypeMapTest, ColumnTypeHasChildrenOnlyForStruct) {
 // --- hasStreamCount Tests ---
 
 TEST_F(Tag0x01TypeMapTest, HasStreamCountForString) {
-    Column stringCol{.name = "test",
-                     .nullable = false,
-                     .columnScope = ColumnScope::FEATURE,
-                     .type = ScalarColumn{.type = ScalarType::STRING, .hasLongID = false}};
+    const Column stringCol{.name = "test",
+                           .nullable = false,
+                           .columnScope = ColumnScope::FEATURE,
+                           .type = ScalarColumn{.type = ScalarType::STRING, .hasLongID = false}};
     EXPECT_TRUE(Tag0x01::hasStreamCount(stringCol));
 }
 
 TEST_F(Tag0x01TypeMapTest, NoStreamCountForNumericTypes) {
-    std::vector<ScalarType> numericTypes = {ScalarType::BOOLEAN,
-                                            ScalarType::INT_8,
-                                            ScalarType::UINT_8,
-                                            ScalarType::INT_32,
-                                            ScalarType::UINT_32,
-                                            ScalarType::INT_64,
-                                            ScalarType::UINT_64,
-                                            ScalarType::FLOAT,
-                                            ScalarType::DOUBLE};
+    const std::vector<ScalarType> numericTypes = {ScalarType::BOOLEAN,
+                                                  ScalarType::INT_8,
+                                                  ScalarType::UINT_8,
+                                                  ScalarType::INT_32,
+                                                  ScalarType::UINT_32,
+                                                  ScalarType::INT_64,
+                                                  ScalarType::UINT_64,
+                                                  ScalarType::FLOAT,
+                                                  ScalarType::DOUBLE};
 
     for (const auto& type : numericTypes) {
-        Column col{.name = "test",
-                   .nullable = false,
-                   .columnScope = ColumnScope::FEATURE,
-                   .type = ScalarColumn{.type = type, .hasLongID = false}};
+        const Column col{.name = "test",
+                         .nullable = false,
+                         .columnScope = ColumnScope::FEATURE,
+                         .type = ScalarColumn{.type = type, .hasLongID = false}};
         EXPECT_FALSE(Tag0x01::hasStreamCount(col)) << "Type should not have stream count";
     }
 }
 
 TEST_F(Tag0x01TypeMapTest, NoStreamCountForIDType) {
-    Column idCol{.name = "test",
-                 .nullable = false,
-                 .columnScope = ColumnScope::FEATURE,
-                 .type = ScalarColumn{.type = LogicalScalarType::ID, .hasLongID = false}};
+    const Column idCol{.name = "test",
+                       .nullable = false,
+                       .columnScope = ColumnScope::FEATURE,
+                       .type = ScalarColumn{.type = LogicalScalarType::ID, .hasLongID = false}};
     EXPECT_FALSE(Tag0x01::hasStreamCount(idCol));
 }
 
 TEST_F(Tag0x01TypeMapTest, HasStreamCountForGeometry) {
-    Column geomCol{.name = "test",
-                   .nullable = false,
-                   .columnScope = ColumnScope::FEATURE,
-                   .type = ComplexColumn{.type = ComplexType::GEOMETRY, .children = {}}};
+    const Column geomCol{.name = "test",
+                         .nullable = false,
+                         .columnScope = ColumnScope::FEATURE,
+                         .type = ComplexColumn{.type = ComplexType::GEOMETRY, .children = {}}};
     EXPECT_TRUE(Tag0x01::hasStreamCount(geomCol));
 }
 
 TEST_F(Tag0x01TypeMapTest, HasStreamCountForStruct) {
-    Column structCol{.name = "test",
-                     .nullable = false,
-                     .columnScope = ColumnScope::FEATURE,
-                     .type = ComplexColumn{.type = ComplexType::STRUCT, .children = {}}};
+    const Column structCol{.name = "test",
+                           .nullable = false,
+                           .columnScope = ColumnScope::FEATURE,
+                           .type = ComplexColumn{.type = ComplexType::STRUCT, .children = {}}};
     EXPECT_TRUE(Tag0x01::hasStreamCount(structCol));
 }
 
 TEST_F(Tag0x01TypeMapTest, HasStreamCountInvalidComplexPhysicalTypeThrows) {
     // Drives switch default: break in complex physical type handling, then fallback throw.
-    Column invalidComplexCol{.name = "test",
-                             .nullable = false,
-                             .columnScope = ColumnScope::FEATURE,
-                             .type = ComplexColumn{.type = static_cast<ComplexType>(999), .children = {}}};
+    const Column invalidComplexCol{
+        .name = "test",
+        .nullable = false,
+        .columnScope = ColumnScope::FEATURE,
+        .type = ComplexColumn{
+            .type = static_cast<ComplexType>(999), // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
+            .children = {}}};                      // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
     EXPECT_THROW((void)Tag0x01::hasStreamCount(invalidComplexCol), std::runtime_error);
 }
 
 TEST_F(Tag0x01TypeMapTest, HasStreamCountLogicalComplexTypeThrows) {
     // Drives fallback throw when complex column is not a physical complex type.
-    Column logicalComplexCol{.name = "test",
-                             .nullable = false,
-                             .columnScope = ColumnScope::FEATURE,
-                             .type = ComplexColumn{.type = static_cast<LogicalComplexType>(0), .children = {}}};
+    const Column logicalComplexCol{.name = "test",
+                                   .nullable = false,
+                                   .columnScope = ColumnScope::FEATURE,
+                                   .type = ComplexColumn{.type = static_cast<LogicalComplexType>(0), .children = {}}};
     EXPECT_THROW((void)Tag0x01::hasStreamCount(logicalComplexCol), std::runtime_error);
 }
 
 // --- Comprehensive Nullability Tests ---
 
 TEST_F(Tag0x01TypeMapTest, AllScalarTypesRespectNullability) {
-    std::vector<ScalarType> scalarTypes = {ScalarType::BOOLEAN,
-                                           ScalarType::INT_8,
-                                           ScalarType::UINT_8,
-                                           ScalarType::INT_32,
-                                           ScalarType::UINT_32,
-                                           ScalarType::INT_64,
-                                           ScalarType::UINT_64,
-                                           ScalarType::FLOAT,
-                                           ScalarType::DOUBLE,
-                                           ScalarType::STRING};
+    const std::vector<ScalarType> scalarTypes = {ScalarType::BOOLEAN,
+                                                 ScalarType::INT_8,
+                                                 ScalarType::UINT_8,
+                                                 ScalarType::INT_32,
+                                                 ScalarType::UINT_32,
+                                                 ScalarType::INT_64,
+                                                 ScalarType::UINT_64,
+                                                 ScalarType::FLOAT,
+                                                 ScalarType::DOUBLE,
+                                                 ScalarType::STRING};
 
     for (const auto& scalarType : scalarTypes) {
         // Test non-nullable

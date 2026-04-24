@@ -161,7 +161,7 @@ public:
         };
     }
 
-    static EncoderConfig cfg(std::function<void(EncoderConfig&)> customizer = {}) {
+    static EncoderConfig cfg(const std::function<void(EncoderConfig&)>& customizer = {}) {
         EncoderConfig config = {
             .useFastPfor = false,
             .includeIds = false,
@@ -207,7 +207,7 @@ public:
     }
 
     // Helper to create a ring from vertex coordinates
-    static Ring ring(const Vertex* vertices, std::size_t count) { return Ring(vertices, vertices + count); }
+    static Ring ring(const Vertex* vertices, std::size_t count) { return {vertices, vertices + count}; }
 
     static GeneratedTile generatePoints() {
         return {
@@ -217,7 +217,7 @@ public:
     }
 
     static GeneratedTile generateLine() {
-        Ring line_coords{c1, c2, c3};
+        const Ring line_coords{c1, c2, c3};
         return {
             .name = "line",
             .bytes = encode(layer(defaultLayerName, {feat(line(line_coords))}, defaultExtent), cfg()),
@@ -225,7 +225,7 @@ public:
     }
 
     static GeneratedTile generateLineZeroLength() {
-        Ring line_coords{c(6, 6), c(6, 6)};
+        const Ring line_coords{c(6, 6), c(6, 6)};
         return {
             .name = "line_zero_length",
             .bytes = encode(layer(defaultLayerName, {feat(line(line_coords))}, defaultExtent), cfg()),
@@ -233,7 +233,7 @@ public:
     }
 
     static std::vector<GeneratedTile> generateLineMorton() {
-        Ring line_coords = buildMortonCurve(16, 8, 4);
+        const Ring line_coords = buildMortonCurve(16, 8, 4);
         return {{
                     .name = "line_morton_curve_morton",
                     .bytes = encode(layer(defaultLayerName, {feat(line(line_coords))}, defaultExtent), cfg([](auto& c) {
@@ -406,7 +406,7 @@ public:
     }
 
     static GeneratedTile generateMultiPoint() {
-        Ring points{c1, c2, c3};
+        const Ring points{c1, c2, c3};
         return {
             .name = "multipoint",
             .bytes = encode(layer(defaultLayerName, {feat(multiPoint(points))}, defaultExtent), cfg()),
@@ -416,9 +416,9 @@ public:
     static GeneratedTileVec generateMultiPoints() { return {generateMultiPoint()}; }
 
     static GeneratedTile generateMultiLine() {
-        Ring line1_coords{c1, c2, c3};
-        Ring line2_coords{c21, c22, c23};
-        PartVec lines{line1_coords, line2_coords};
+        const Ring line1_coords{c1, c2, c3};
+        const Ring line2_coords{c21, c22, c23};
+        const PartVec lines{line1_coords, line2_coords};
         const auto config = cfg([](auto& c) { c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO; });
         return {
             .name = "multiline",
@@ -748,15 +748,17 @@ public:
 
     static GeneratedTile generatePropsStrFsst() {
         // Java writes 6 features at p1,p2,p3,ph1,ph2,ph3 with these exact values.
-        Feature f1 = feat(point(c1),
-                          PropertyMap{{"val", PropertyValue{std::string("residential_zone_north_sector_1")}}});
-        Feature f2 = feat(point(c2),
-                          PropertyMap{{"val", PropertyValue{std::string("commercial_zone_south_sector_2")}}});
-        Feature f3 = feat(point(c3), PropertyMap{{"val", PropertyValue{std::string("industrial_zone_east_sector_3")}}});
-        Feature f4 = feat(point(h1), PropertyMap{{"val", PropertyValue{std::string("park_zone_west_sector_4")}}});
-        Feature f5 = feat(point(h2), PropertyMap{{"val", PropertyValue{std::string("water_zone_north_sector_5")}}});
-        Feature f6 = feat(point(h3),
-                          PropertyMap{{"val", PropertyValue{std::string("residential_zone_south_sector_6")}}});
+        const Feature f1 = feat(point(c1),
+                                PropertyMap{{"val", PropertyValue{std::string("residential_zone_north_sector_1")}}});
+        const Feature f2 = feat(point(c2),
+                                PropertyMap{{"val", PropertyValue{std::string("commercial_zone_south_sector_2")}}});
+        const Feature f3 = feat(point(c3),
+                                PropertyMap{{"val", PropertyValue{std::string("industrial_zone_east_sector_3")}}});
+        const Feature f4 = feat(point(h1), PropertyMap{{"val", PropertyValue{std::string("park_zone_west_sector_4")}}});
+        const Feature f5 = feat(point(h2),
+                                PropertyMap{{"val", PropertyValue{std::string("water_zone_north_sector_5")}}});
+        const Feature f6 = feat(point(h3),
+                                PropertyMap{{"val", PropertyValue{std::string("residential_zone_south_sector_6")}}});
         return {
             .name = "props_str_fsst",
             .bytes = encode(layer(defaultLayerName, {f1, f2, f3, f4, f5, f6}, defaultExtent), cfgWithFsst()),
@@ -803,15 +805,17 @@ public:
     }
 
     static GeneratedTile generatePropsStr() {
-        Feature f1 = feat(point(c1),
-                          PropertyMap{{"val", PropertyValue{std::string("residential_zone_north_sector_1")}}});
-        Feature f2 = feat(point(c2),
-                          PropertyMap{{"val", PropertyValue{std::string("commercial_zone_south_sector_2")}}});
-        Feature f3 = feat(point(c3), PropertyMap{{"val", PropertyValue{std::string("industrial_zone_east_sector_3")}}});
-        Feature f4 = feat(point(h1), PropertyMap{{"val", PropertyValue{std::string("park_zone_west_sector_4")}}});
-        Feature f5 = feat(point(h2), PropertyMap{{"val", PropertyValue{std::string("water_zone_north_sector_5")}}});
-        Feature f6 = feat(point(h3),
-                          PropertyMap{{"val", PropertyValue{std::string("residential_zone_south_sector_6")}}});
+        const Feature f1 = feat(point(c1),
+                                PropertyMap{{"val", PropertyValue{std::string("residential_zone_north_sector_1")}}});
+        const Feature f2 = feat(point(c2),
+                                PropertyMap{{"val", PropertyValue{std::string("commercial_zone_south_sector_2")}}});
+        const Feature f3 = feat(point(c3),
+                                PropertyMap{{"val", PropertyValue{std::string("industrial_zone_east_sector_3")}}});
+        const Feature f4 = feat(point(h1), PropertyMap{{"val", PropertyValue{std::string("park_zone_west_sector_4")}}});
+        const Feature f5 = feat(point(h2),
+                                PropertyMap{{"val", PropertyValue{std::string("water_zone_north_sector_5")}}});
+        const Feature f6 = feat(point(h3),
+                                PropertyMap{{"val", PropertyValue{std::string("residential_zone_south_sector_6")}}});
         return {
             .name = "props_str",
             .bytes = encode(layer(defaultLayerName, {f1, f2, f3, f4, f5, f6}, defaultExtent), cfg([](auto& c) {
@@ -824,7 +828,7 @@ public:
 
     static GeneratedTile generatePropsOffsetStr(bool useFsst) {
         const auto val = std::string(30, 'A');
-        auto config = cfg([&](auto& c) {
+        const auto config = cfg([&](auto& c) {
             c.useFsst = useFsst;
             c.forceNullableColumns = true;
             c.geometryEncodingOption = IntegerEncodingOption::AUTO;
@@ -949,36 +953,36 @@ public:
     static Feature mixPt() { return feat(point(c(38, 29))); }
 
     static Feature mixLine() {
-        Ring coords{c(5, 38), c(12, 45), c(9, 70)};
+        const Ring coords{c(5, 38), c(12, 45), c(9, 70)};
         return feat(line(coords));
     }
 
     static Feature mixPoly() {
-        Ring coords{c(55, 5), c(58, 28), c(75, 22)};
+        const Ring coords{c(55, 5), c(58, 28), c(75, 22)};
         return feat(poly(coords));
     }
 
     static Feature mixPolyh() {
-        Ring shell{c(52, 35), c(14, 55), c(60, 72)};
-        Ring hole{c(32, 50), c(36, 60), c(24, 54)};
+        const Ring shell{c(52, 35), c(14, 55), c(60, 72)};
+        const Ring hole{c(32, 50), c(36, 60), c(24, 54)};
         return feat(poly(RingVec{shell, hole}));
     }
 
     static Feature mixMpt() {
-        Ring coords{c(6, 25), c(21, 41), c(23, 69)};
+        const Ring coords{c(6, 25), c(21, 41), c(23, 69)};
         return feat(multiPoint(coords));
     }
 
     static Feature mixMline() {
-        Ring line1{c(24, 10), c(42, 18)};
-        Ring line2{c(30, 36), c(48, 52), c(35, 62)};
+        const Ring line1{c(24, 10), c(42, 18)};
+        const Ring line2{c(30, 36), c(48, 52), c(35, 62)};
         return feat(multiLine(PartVec{line1, line2}));
     }
 
     static Feature mixMpoly() {
-        Ring poly1_shell{c(7, 20), c(21, 31), c(26, 9)};
-        Ring poly1_hole{c(15, 20), c(20, 15), c(18, 25)};
-        Ring poly2{c(69, 57), c(71, 66), c(73, 64)};
+        const Ring poly1_shell{c(7, 20), c(21, 31), c(26, 9)};
+        const Ring poly1_hole{c(15, 20), c(20, 15), c(18, 25)};
+        const Ring poly2{c(69, 57), c(71, 66), c(73, 64)};
         return feat(multiPoly(PolygonVec{RingVec{poly1_shell, poly1_hole}, RingVec{poly2}}));
     }
 
@@ -1003,13 +1007,11 @@ public:
 
     // Check if all geometries in a type list are polygons
     static bool allPolygonTypes(const std::vector<std::size_t>& typeIndices) {
-        for (std::size_t idx : typeIndices) {
-            if (mixGeomTypes[idx].geomType != metadata::tileset::GeometryType::POLYGON &&
-                mixGeomTypes[idx].geomType != metadata::tileset::GeometryType::MULTIPOLYGON) {
-                return false;
-            }
-        }
-        return true;
+        return std::ranges::all_of(typeIndices, [](const std::size_t idx) {
+            const auto type = mixGeomTypes[idx].geomType;
+            return type == metadata::tileset::GeometryType::POLYGON ||
+                   type == metadata::tileset::GeometryType::MULTIPOLYGON;
+        });
     }
 
     // Generate a single mix combination
@@ -1017,7 +1019,7 @@ public:
         std::vector<Feature> features;
         std::string name = "mix_" + std::to_string(typeIndices.size());
 
-        for (std::size_t idx : typeIndices) {
+        for (const std::size_t idx : typeIndices) {
             name += "_";
             name += mixGeomTypes[idx].sym;
             features.push_back(mixGeomTypes[idx].getFeature());
@@ -1041,7 +1043,7 @@ public:
         std::vector<Feature> features;
         std::string name = "mix_" + std::to_string(typeIndices.size());
 
-        for (std::size_t idx : typeIndices) {
+        for (const std::size_t idx : typeIndices) {
             name += "_";
             name += mixGeomTypes[idx].sym;
             features.push_back(mixGeomTypes[idx].getFeature());
@@ -1097,7 +1099,7 @@ public:
         std::vector<GeneratedTile> tiles;
 
         // Generate all k-combinations from k=2 to k=7
-        std::vector<std::size_t> typeIndices{0, 1, 2, 3, 4, 5, 6}; // Indices for all 7 types
+        const std::vector<std::size_t> typeIndices{0, 1, 2, 3, 4, 5, 6}; // Indices for all 7 types
         for (std::size_t k = 2; k <= mixGeomTypeCount; ++k) {
             std::vector<std::size_t> current;
             generateMixedCombinations(tiles, typeIndices, current, k, 0);
@@ -1105,7 +1107,7 @@ public:
 
         // Generate A-A variants (same geometry twice)
         for (std::size_t i = 0; i < mixGeomTypeCount; ++i) {
-            std::vector<std::size_t> combo{i, i};
+            const std::vector<std::size_t> combo{i, i};
             tiles.push_back(generateMixCombination(combo));
             // Add tessellated variant if all types are polygons
             if (allPolygonTypes(combo)) {
@@ -1117,7 +1119,7 @@ public:
         for (std::size_t a = 0; a < mixGeomTypeCount; ++a) {
             for (std::size_t b = 0; b < mixGeomTypeCount; ++b) {
                 if (a != b) {
-                    std::vector<std::size_t> combo{a, b, a};
+                    const std::vector<std::size_t> combo{a, b, a};
                     tiles.push_back(generateMixCombination(combo));
                     if (allPolygonTypes(combo)) {
                         tiles.push_back(generateMixCombinationTessellated(combo));

@@ -3,8 +3,12 @@
 #include <mlt/util/string.hpp>
 #include <mlt/util/vectorized.hpp>
 
+#include <cstddef>
+#include <cstdint>
 #include <set>
+#include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 TEST(Util, ComponentwiseDeltaVec2) {
@@ -54,8 +58,7 @@ TEST(Util, ComponentwiseDeltaVec2) {
          }}};
 
     using namespace mlt::util::decoding::vectorized;
-    for (std::size_t i = 0; i < componentwiseDeltaVec2Cases.size(); ++i) {
-        const auto& [input, expected] = componentwiseDeltaVec2Cases[i];
+    for (const auto& [input, expected] : componentwiseDeltaVec2Cases) {
         auto output = input;
         decodeComponentwiseDeltaVec2(output.data(), output.size());
         EXPECT_EQ(output, expected);

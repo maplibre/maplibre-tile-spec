@@ -2,25 +2,28 @@
 
 #include <mlt/util/morton_curve.hpp>
 
+#include <cstdint>
+#include <stdexcept>
+
 using MortonCurve = mlt::util::MortonCurve;
 
 // --- Basic Encoding/Decoding Tests ---
 
 TEST(MortonCurve, EncodeOrigin) {
-    MortonCurve curve(0, 255);
+    const MortonCurve curve(0, 255);
     auto encoded = curve.encode({0.0f, 0.0f});
     EXPECT_EQ(encoded, 0u);
 }
 
 TEST(MortonCurve, EncodeMaxBounds) {
-    MortonCurve curve(0, 255);
+    const MortonCurve curve(0, 255);
     // Max bounds should encode to a value with all bits set (within numBits)
     auto encoded = curve.encode({255.0f, 255.0f});
     EXPECT_GT(encoded, 0u);
 }
 
 TEST(MortonCurve, EncodeSimpleCoordinates) {
-    MortonCurve curve(0, 15);
+    const MortonCurve curve(0, 15);
     // (1, 0) should have only x bit set, interleaved: bit pattern 01 from x, 00 from y = 001
     auto encoded1 = curve.encode({1.0f, 0.0f});
     EXPECT_EQ(encoded1, 1u);
@@ -41,7 +44,7 @@ TEST(MortonCurve, EncodeSimpleCoordinates) {
 // --- Roundtrip Tests ---
 
 TEST(MortonCurve, RoundtripSmallRange) {
-    MortonCurve curve(0, 15);
+    const MortonCurve curve(0, 15);
 
     for (int x = 0; x <= 15; ++x) {
         for (int y = 0; y <= 15; ++y) {
@@ -54,7 +57,7 @@ TEST(MortonCurve, RoundtripSmallRange) {
 }
 
 TEST(MortonCurve, RoundtripMediumRange) {
-    MortonCurve curve(0, 255);
+    const MortonCurve curve(0, 255);
 
     for (int x = 0; x < 256; x += 16) {
         for (int y = 0; y < 256; y += 16) {
@@ -67,7 +70,7 @@ TEST(MortonCurve, RoundtripMediumRange) {
 }
 
 TEST(MortonCurve, RoundtripLargeRange) {
-    MortonCurve curve(0, 4095);
+    const MortonCurve curve(0, 4095);
 
     for (int x = 0; x < 4096; x += 512) {
         for (int y = 0; y < 4096; y += 512) {
@@ -82,7 +85,7 @@ TEST(MortonCurve, RoundtripLargeRange) {
 // --- Negative Coordinate Tests (with coordinate shifting) ---
 
 TEST(MortonCurve, RoundtripNegativeBounds) {
-    MortonCurve curve(-128, 127);
+    const MortonCurve curve(-128, 127);
 
     for (int x = -128; x < 128; x += 32) {
         for (int y = -128; y < 128; y += 32) {
@@ -95,7 +98,7 @@ TEST(MortonCurve, RoundtripNegativeBounds) {
 }
 
 TEST(MortonCurve, RoundtripMixedBounds) {
-    MortonCurve curve(-256, 255);
+    const MortonCurve curve(-256, 255);
 
     for (int x = -256; x < 256; x += 64) {
         for (int y = -256; y < 256; y += 64) {
@@ -110,7 +113,7 @@ TEST(MortonCurve, RoundtripMixedBounds) {
 // --- Boundary Tests ---
 
 TEST(MortonCurve, BoundaryMin) {
-    MortonCurve curve(0, 255);
+    const MortonCurve curve(0, 255);
     auto encoded = curve.encode({0.0f, 0.0f});
     auto decoded = curve.decode(encoded);
     EXPECT_EQ(decoded.x, 0.0f);
@@ -118,7 +121,7 @@ TEST(MortonCurve, BoundaryMin) {
 }
 
 TEST(MortonCurve, BoundaryMax) {
-    MortonCurve curve(0, 255);
+    const MortonCurve curve(0, 255);
     auto encoded = curve.encode({255.0f, 255.0f});
     auto decoded = curve.decode(encoded);
     EXPECT_EQ(static_cast<int>(decoded.x), 255);
@@ -126,7 +129,7 @@ TEST(MortonCurve, BoundaryMax) {
 }
 
 TEST(MortonCurve, BoundaryNegativeMin) {
-    MortonCurve curve(-128, 127);
+    const MortonCurve curve(-128, 127);
     auto encoded = curve.encode({-128.0f, -128.0f});
     auto decoded = curve.decode(encoded);
     EXPECT_EQ(static_cast<int>(decoded.x), -128);
@@ -134,7 +137,7 @@ TEST(MortonCurve, BoundaryNegativeMin) {
 }
 
 TEST(MortonCurve, BoundaryNegativeMax) {
-    MortonCurve curve(-128, 127);
+    const MortonCurve curve(-128, 127);
     auto encoded = curve.encode({127.0f, 127.0f});
     auto decoded = curve.decode(encoded);
     EXPECT_EQ(static_cast<int>(decoded.x), 127);
@@ -144,7 +147,7 @@ TEST(MortonCurve, BoundaryNegativeMax) {
 // --- Independent X and Y Tests ---
 
 TEST(MortonCurve, OnlyXVaries) {
-    MortonCurve curve(0, 31);
+    const MortonCurve curve(0, 31);
 
     for (int x = 0; x <= 31; ++x) {
         auto encoded = curve.encode({static_cast<float>(x), 0.0f});
@@ -155,7 +158,7 @@ TEST(MortonCurve, OnlyXVaries) {
 }
 
 TEST(MortonCurve, OnlyYVaries) {
-    MortonCurve curve(0, 31);
+    const MortonCurve curve(0, 31);
 
     for (int y = 0; y <= 31; ++y) {
         auto encoded = curve.encode({0.0f, static_cast<float>(y)});
@@ -168,7 +171,7 @@ TEST(MortonCurve, OnlyYVaries) {
 // --- Monotonicity Tests ---
 
 TEST(MortonCurve, IncreasingXIncreasesMortonCode) {
-    MortonCurve curve(0, 255);
+    const MortonCurve curve(0, 255);
     std::uint32_t prevCode = 0;
 
     for (int x = 0; x <= 255; ++x) {
@@ -180,7 +183,7 @@ TEST(MortonCurve, IncreasingXIncreasesMortonCode) {
 }
 
 TEST(MortonCurve, IncreasingYIncreasesMortonCode) {
-    MortonCurve curve(0, 255);
+    const MortonCurve curve(0, 255);
     std::uint32_t prevCode = 0;
 
     for (int y = 0; y <= 255; ++y) {
@@ -193,7 +196,7 @@ TEST(MortonCurve, IncreasingYIncreasesMortonCode) {
 // --- Symmetry Tests ---
 
 TEST(MortonCurve, XYSymmetry) {
-    MortonCurve curve(0, 255);
+    const MortonCurve curve(0, 255);
 
     // Test that swapping x and y produces different codes (Morton order is not symmetric like Hilbert)
     auto code1 = curve.encode({10.0f, 20.0f});
@@ -205,16 +208,16 @@ TEST(MortonCurve, XYSymmetry) {
 
 TEST(MortonCurve, StaticDecode) {
     // Test static decode method directly
-    auto pt = MortonCurve::decode(0u, 8, 0);
+    const auto pt = MortonCurve::decode(0u, 8, 0);
     EXPECT_EQ(pt.x, 0.0f);
     EXPECT_EQ(pt.y, 0.0f);
 
     // Test with shifted coordinates
-    auto pt2 = MortonCurve::decode(1u, 8, 0);
+    const auto pt2 = MortonCurve::decode(1u, 8, 0);
     EXPECT_EQ(static_cast<int>(pt2.x), 1);
     EXPECT_EQ(static_cast<int>(pt2.y), 0);
 
-    auto pt3 = MortonCurve::decode(2u, 8, 0);
+    const auto pt3 = MortonCurve::decode(2u, 8, 0);
     EXPECT_EQ(static_cast<int>(pt3.x), 0);
     EXPECT_EQ(static_cast<int>(pt3.y), 1);
 }
@@ -233,7 +236,7 @@ TEST(MortonCurve, StaticComponentDecode) {
 
 TEST(MortonCurve, MinBitWidth) {
     // With a small range, we should have minimal bits
-    MortonCurve curve(0, 1);
+    const MortonCurve curve(0, 1);
     EXPECT_EQ(curve.getNumBits(), 1u);
 
     auto encoded = curve.encode({1.0f, 0.0f});
@@ -244,7 +247,7 @@ TEST(MortonCurve, MinBitWidth) {
 
 TEST(MortonCurve, LargeBitWidth) {
     // With a large range, we should have many bits
-    MortonCurve curve(0, 65535);
+    const MortonCurve curve(0, 65535);
     EXPECT_EQ(curve.getNumBits(), 16u);
 
     auto encoded = curve.encode({12345.0f, 54321.0f});
@@ -256,7 +259,7 @@ TEST(MortonCurve, LargeBitWidth) {
 // --- Validation Tests ---
 
 TEST(MortonCurve, OutOfBoundsThrows) {
-    MortonCurve curve(0, 255);
+    const MortonCurve curve(0, 255);
 
     EXPECT_THROW(curve.encode({256.0f, 0.0f}), std::runtime_error);
     EXPECT_THROW(curve.encode({-1.0f, 0.0f}), std::runtime_error);
@@ -265,7 +268,7 @@ TEST(MortonCurve, OutOfBoundsThrows) {
 }
 
 TEST(MortonCurve, OutOfBoundsNegativeThrows) {
-    MortonCurve curve(-128, 127);
+    const MortonCurve curve(-128, 127);
 
     EXPECT_THROW(curve.encode({128.0f, 0.0f}), std::runtime_error);
     EXPECT_THROW(curve.encode({-129.0f, 0.0f}), std::runtime_error);
@@ -274,31 +277,31 @@ TEST(MortonCurve, OutOfBoundsNegativeThrows) {
 // --- Getters ---
 
 TEST(MortonCurve, GetNumBits) {
-    MortonCurve curve1(0, 255);
+    const MortonCurve curve1(0, 255);
     EXPECT_EQ(curve1.getNumBits(), 8u);
 
-    MortonCurve curve2(0, 4095);
+    const MortonCurve curve2(0, 4095);
     EXPECT_EQ(curve2.getNumBits(), 12u);
 
-    MortonCurve curve3(-128, 127);
+    const MortonCurve curve3(-128, 127);
     EXPECT_EQ(curve3.getNumBits(), 8u);
 }
 
 TEST(MortonCurve, GetCoordinateShift) {
-    MortonCurve curve1(0, 255);
+    const MortonCurve curve1(0, 255);
     EXPECT_EQ(curve1.getCoordinateShift(), 0);
 
-    MortonCurve curve2(-128, 127);
+    const MortonCurve curve2(-128, 127);
     EXPECT_EQ(curve2.getCoordinateShift(), 128);
 
-    MortonCurve curve3(-256, 255);
+    const MortonCurve curve3(-256, 255);
     EXPECT_EQ(curve3.getCoordinateShift(), 256);
 }
 
 // --- Consistency Tests ---
 
 TEST(MortonCurve, IdenticalCoordinatesReturnIdenticalCodes) {
-    MortonCurve curve(0, 255);
+    const MortonCurve curve(0, 255);
 
     auto code1 = curve.encode({100.0f, 200.0f});
     auto code2 = curve.encode({100.0f, 200.0f});
@@ -306,7 +309,7 @@ TEST(MortonCurve, IdenticalCoordinatesReturnIdenticalCodes) {
 }
 
 TEST(MortonCurve, DifferentCoordinatesReturnDifferentCodes) {
-    MortonCurve curve(0, 255);
+    const MortonCurve curve(0, 255);
 
     auto code1 = curve.encode({100.0f, 200.0f});
     auto code2 = curve.encode({100.0f, 201.0f});
@@ -321,7 +324,7 @@ TEST(MortonCurve, DifferentCoordinatesReturnDifferentCodes) {
 // for coordinates in range [0, 2^n):
 // (0,0)=0, (1,0)=1, (0,1)=2, (1,1)=3, (2,0)=4, (3,0)=5, (2,1)=6, (3,1)=7, etc.
 TEST(MortonCurve, ReferenceValues) {
-    MortonCurve curve(0, 255);
+    const MortonCurve curve(0, 255);
 
     // First 2x2 block (indices 0-3)
     EXPECT_EQ(curve.encode({0.0f, 0.0f}), 0u);

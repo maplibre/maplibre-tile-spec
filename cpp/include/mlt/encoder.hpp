@@ -105,7 +105,7 @@ public:
     Encoder(Encoder&&) = delete;
     Encoder& operator=(Encoder&&) = delete;
 
-    std::vector<std::uint8_t> encode(const std::vector<Layer>& layers, const EncoderConfig& config = {});
+    std::vector<std::uint8_t> encode(const std::vector<Layer>& layers, const EncoderConfig& config = {}) const;
 
 private:
     struct Impl;

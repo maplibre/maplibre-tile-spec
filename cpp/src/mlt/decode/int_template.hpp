@@ -265,7 +265,7 @@ template <typename T, typename TTarget>
 void IntegerDecoder::decodeZigZagDelta(const T* values,
                                        const std::size_t count,
                                        TTarget* const out,
-                                       const std::size_t outCount) noexcept {
+                                       [[maybe_unused]] const std::size_t outCount) noexcept {
     using namespace util::decoding;
     assert(count == outCount);
     std::uint32_t pos = 0;
@@ -282,7 +282,7 @@ template <typename TDecode, typename TTarget, bool delta>
 void IntegerDecoder::decodeMortonCodes(const TDecode* const data,
                                        const std::size_t count,
                                        TTarget* const out,
-                                       std::size_t outCount,
+                                       [[maybe_unused]] std::size_t outCount,
                                        int numBits,
                                        int coordinateShift) noexcept {
     using namespace util::decoding;

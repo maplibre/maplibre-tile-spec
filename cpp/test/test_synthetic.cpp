@@ -2,8 +2,8 @@
 
 #include <mlt/coordinate.hpp>
 #include <mlt/decoder.hpp>
-#include <mlt/geometry.hpp>
-#include <mlt/metadata/tileset.hpp>
+#include <mlt/tile.hpp>
+
 #if MLT_WITH_JSON
 #include <mlt/json.hpp>
 #include <mlt/util/json_diff.hpp>
@@ -12,13 +12,21 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <ios>
+#include <iterator>
 #include <map>
 #include <regex>
 #include <set>
 #include <sstream>
+#include <stdexcept>
+#include <string>
+#include <system_error>
+#include <utility>
+#include <vector>
 
 using namespace mlt::test;
 
@@ -40,19 +48,17 @@ const std::string basePath = []() {
 std::vector<uint8_t> readBinaryFile(const std::string& filePath) {
     std::ifstream file(filePath, std::ios::binary);
     if (file.is_open()) {
-        return std::vector<uint8_t>((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-    } else {
-        throw std::runtime_error("Unable to open file: " + filePath);
+        return {(std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>()};
     }
+    throw std::runtime_error("Unable to open file: " + filePath);
 }
 
 void writeBinaryFile(const std::string& filePath, const std::vector<uint8_t>& data) {
     std::ofstream file(filePath, std::ios::binary);
     if (file.is_open()) {
         file.write(reinterpret_cast<const char*>(data.data()), data.size());
-    } else {
-        throw std::runtime_error("Unable to open file for writing: " + filePath);
     }
+    throw std::runtime_error("Unable to open file for writing: " + filePath);
 }
 
 mlt::MapLibreTile decodeTile(const std::vector<std::uint8_t>& bytes) {
@@ -280,11 +286,9 @@ TEST(SyntheticFixtureCoverage, AllFixturesHaveGenerators) {
     // If there are unchecked cases, it's skipped, so that the list of cases is printed.
     if (!missing.empty()) {
         FAIL() << stream.str();
-    } else if (unchecked.empty()) {
-        SUCCEED() << stream.str();
-    } else {
-        GTEST_SKIP() << stream.str();
     }
+    // Succeeded doesn't print anything, so always skip
+    GTEST_SKIP() << stream.str();
 }
 
 } // namespace
