@@ -1,9 +1,8 @@
-use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 
 use crate::decoder::{RawPresence, RawStream};
+use crate::utils::Presence;
 use crate::utils::analyze::AnalyzeViaDeref;
-use crate::utils::{OptSeqOpt, Presence};
 use crate::{DecodeState, Lazy};
 
 /// ID column representation, parameterized by decode state.
@@ -36,7 +35,7 @@ pub enum RawIdValue<'a> {
 /// from the source bytes. When the presence stream is RLE-decompressed, the inner
 /// `Cow` becomes owned and no longer borrows from the input.
 // TODO: consider converting ParsedId to an enum with u32 vs u64 for performance
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ParsedId<'a>(pub(crate) Presence<'a, u64>);
 
 impl<'a> Deref for ParsedId<'a> {
@@ -49,9 +48,3 @@ impl<'a> Deref for ParsedId<'a> {
 }
 
 impl AnalyzeViaDeref for ParsedId<'_> {}
-
-impl Debug for ParsedId<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ParsedId({:?})", &OptSeqOpt(Some(&self.materialize())))
-    }
-}

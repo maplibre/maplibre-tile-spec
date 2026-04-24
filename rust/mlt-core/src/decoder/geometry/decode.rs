@@ -1,12 +1,10 @@
-use std::fmt::Debug;
-
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
     DictionaryType, GeometryType, GeometryValues, IntEncoding, LengthType, OffsetType, RawGeometry,
     RawStream, StreamMeta, StreamType,
 };
 use crate::errors::AsMltError as _;
-use crate::utils::{AsUsize as _, OptSeq, SetOptionOnce as _};
+use crate::utils::{AsUsize as _, SetOptionOnce as _};
 use crate::{Decode, Decoder, MltError, MltResult, Parser};
 
 /// Advance `offset` by `count` and extend `buffer` with the consecutive values
@@ -405,28 +403,5 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             triangles,
             vertices,
         })
-    }
-}
-
-impl Debug for GeometryValues {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let Self {
-            vector_types,
-            geometry_offsets,
-            part_offsets,
-            ring_offsets,
-            index_buffer,
-            triangles,
-            vertices,
-        } = self;
-        f.debug_struct("GeometryValues")
-            .field("vector_types", &OptSeq(Some(vector_types)))
-            .field("geometry_offsets", &OptSeq(geometry_offsets.as_deref()))
-            .field("part_offsets", &OptSeq(part_offsets.as_deref()))
-            .field("ring_offsets", &OptSeq(ring_offsets.as_deref()))
-            .field("index_buffer", &OptSeq(index_buffer.as_deref()))
-            .field("triangles", &OptSeq(triangles.as_deref()))
-            .field("vertices", &OptSeq(vertices.as_deref()))
-            .finish()
     }
 }

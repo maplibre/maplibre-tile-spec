@@ -25,6 +25,7 @@ bytes = "1"
 clap = { version = "4.6.0", features = ["derive"] }
 criterion = { version = "0.8", features = ["html_reports"] }
 crossterm = "0.29.0"
+derive-debug = "0.1.2"
 enum_dispatch = "0.3"
 fastpfor = { version = "0.9", features = ["rust"] }
 flate2 = "1"
