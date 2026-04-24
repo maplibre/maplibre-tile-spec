@@ -3,7 +3,6 @@ package org.maplibre.mlt.converter.encodings;
 import static org.maplibre.mlt.converter.encodings.IntegerEncoder.encodeFastPfor;
 import static org.maplibre.mlt.converter.encodings.IntegerEncoder.encodeVarint;
 
-import com.carrotsearch.hppc.IntArrayList;
 import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.net.URI;
@@ -16,6 +15,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.locationtech.jts.geom.Geometry;
@@ -209,49 +212,41 @@ public class GeometryEncoder {
       numStreams++;
     }
 
+    @NotNull final ArrayList<byte[]> selectedVertexStream;
+    @Nullable final int[] selectedVertexOffsets;
     if (plainVertexBufferSize <= dictionaryEncodedSize
         && (!useMortonEncoding || plainVertexBufferSize <= mortonDictionaryEncodedSize)) {
-      result.addAll(encodedVertexBufferStream);
-      return new EncodedGeometryColumn(
-          numStreams + 1, result, vertexLimits.max, geometryColumnSorted);
+      selectedVertexStream = encodedVertexBufferStream;
+      selectedVertexOffsets = null;
     } else if (!useMortonEncoding || dictionaryEncodedSize <= mortonDictionaryEncodedSize) {
-      final var encodedVertexOffsetStream =
-          IntegerEncoder.encodeIntStream(
-              vertexDictionaryOffsets,
-              physicalLevelTechnique,
-              false,
-              PhysicalStreamType.OFFSET,
-              new LogicalStreamType(OffsetType.VERTEX),
-              encodingOption);
-
-      final var encodedVertexDictionaryStream =
+      selectedVertexOffsets = vertexDictionaryOffsets;
+      selectedVertexStream =
           encodeVertexBuffer(zigZagDeltaVertexDictionary, physicalLevelTechnique);
-
-      result.addAll(encodedVertexOffsetStream);
-      result.addAll(encodedVertexDictionaryStream);
-      return new EncodedGeometryColumn(numStreams + 2, result, vertexLimits.max, false);
+      geometryColumnSorted = false;
     } else {
-      final var encodedMortonVertexOffsetStream =
-          IntegerEncoder.encodeIntStream(
-              mortonEncodedDictionaryOffsets,
-              physicalLevelTechnique,
-              false,
-              PhysicalStreamType.OFFSET,
-              new LogicalStreamType(OffsetType.VERTEX),
-              encodingOption);
-
-      final var encodedMortonEncodedVertexDictionaryStream =
+      selectedVertexOffsets = mortonEncodedDictionaryOffsets;
+      selectedVertexStream =
           IntegerEncoder.encodeMortonStream(
               mortonEncodedDictionary,
               zOrderCurve.numBits(),
               zOrderCurve.coordinateShift(),
               physicalLevelTechnique);
-
-      result.addAll(encodedMortonVertexOffsetStream);
-      result.addAll(encodedMortonEncodedVertexDictionaryStream);
-      return new EncodedGeometryColumn(
-          numStreams + 2, result, vertexLimits.max, geometryColumnSorted);
     }
+
+    if (selectedVertexOffsets != null && selectedVertexOffsets.length > 0) {
+      result.addAll(
+          IntegerEncoder.encodeIntStream(
+              selectedVertexOffsets,
+              physicalLevelTechnique,
+              false,
+              PhysicalStreamType.OFFSET,
+              new LogicalStreamType(OffsetType.VERTEX),
+              encodingOption));
+      numStreams++;
+    }
+    result.addAll(selectedVertexStream);
+    return new EncodedGeometryColumn(
+        numStreams + 1, result, vertexLimits.max, geometryColumnSorted);
   }
 
   private static record MinMax<T>(T min, T max) {}
@@ -486,22 +481,30 @@ public class GeometryEncoder {
     }
   }
 
-  public static int[] zigZagDeltaEncodeVertices(Collection<Vertex> vertices) {
-    Vertex previousVertex = new Vertex(0, 0);
-    var deltaValues = new int[vertices.size() * 2];
-    var j = 0;
-    for (var vertex : vertices) {
-      var delta = vertex.x() - previousVertex.x();
-      var zigZagDelta = EncodingUtils.encodeZigZag(delta);
-      deltaValues[j++] = zigZagDelta;
+  public static int[] zigZagDeltaEncodeVertices(@NotNull final Collection<Vertex> vertices) {
+    return zigZagDeltaEncodeVertices(vertices.stream(), vertices.size());
+  }
 
-      delta = vertex.y() - previousVertex.y();
-      zigZagDelta = EncodingUtils.encodeZigZag(delta);
-      deltaValues[j++] = zigZagDelta;
+  public static int[] zigZagDeltaEncodeVertices(@NotNull final Vertex[] vertices) {
+    return zigZagDeltaEncodeVertices(
+        StreamSupport.stream(Arrays.spliterator(vertices), false), vertices.length);
+  }
 
-      previousVertex = vertex;
+  private static int[] zigZagDeltaEncodeVertices(
+      @NotNull final Stream<Vertex> vertices, final int size) {
+    int prevX = 0;
+    int prevY = 0;
+    int j = 0;
+    final var deltaValues = new int[size * 2];
+    for (var iter = vertices.iterator(); iter.hasNext(); ) {
+      final var vertex = iter.next();
+      final var x = vertex.x();
+      final var y = vertex.y();
+      deltaValues[j++] = EncodingUtils.encodeZigZag(x - prevX);
+      deltaValues[j++] = EncodingUtils.encodeZigZag(y - prevY);
+      prevX = x;
+      prevY = y;
     }
-
     return deltaValues;
   }
 
@@ -517,61 +520,73 @@ public class GeometryEncoder {
     return result;
   }
 
-  private static Map<Integer, Integer> reverseMap(Collection<Integer> mortonEncodedDictionary) {
-    Map<Integer, Integer> morton = HashMap.newHashMap(mortonEncodedDictionary.size());
+  private static Map<Integer, Integer> reverseMap(IntStream mortonEncodedDictionary, int size) {
+    Map<Integer, Integer> morton = HashMap.newHashMap(size);
     int i = 0;
-    for (var item : mortonEncodedDictionary) {
-      morton.put(item, i++);
+    for (var iter = mortonEncodedDictionary.iterator(); iter.hasNext(); ) {
+      morton.put(iter.nextInt(), i++);
     }
     return morton;
+  }
+
+  private static Map<Integer, Integer> reverseMap(Collection<Integer> mortonEncodedDictionary) {
+    return reverseMap(
+        mortonEncodedDictionary.stream().mapToInt(Integer::intValue),
+        mortonEncodedDictionary.size());
   }
 
   private static Map<Integer, Integer> reverseMap(int[] mortonEncodedDictionary) {
-    Map<Integer, Integer> morton = HashMap.newHashMap(mortonEncodedDictionary.length);
-    int i = 0;
-    for (var item : mortonEncodedDictionary) {
-      morton.put(item, i++);
-    }
-    return morton;
+    return reverseMap(IntStream.of(mortonEncodedDictionary), mortonEncodedDictionary.length);
   }
 
-  record Indexed(int hilbert, Vertex vertex) implements Comparable<Indexed> {
+  /// An entry in the vertex dictionary, used for sorting and filtering duplicates
+  record Indexed(int hilbert, int index) implements Comparable<Indexed> {
     @Override
     public int compareTo(@NotNull GeometryEncoder.Indexed o) {
       return Integer.compare(hilbert, o.hilbert);
     }
   }
 
-  private static Pair<List<Integer>, List<Vertex>> addVerticesToDictionary(
-      List<Vertex> vertices, HilbertCurve hilbertCurve) {
-    ArrayList<Indexed> vertexDictionary = new ArrayList<>(vertices.size());
-    for (var vertex : vertices) {
-      var hilbertId = hilbertCurve.encode(vertex);
-      vertexDictionary.add(new Indexed(hilbertId, vertex));
-    }
-    vertexDictionary.sort(Comparator.naturalOrder());
-    List<Integer> a = new ArrayList<>(vertexDictionary.size());
-    List<Vertex> b = new ArrayList<>(vertexDictionary.size());
-    int last = Integer.MIN_VALUE;
-    for (var item : vertexDictionary) {
-      if (item.hilbert != last) {
-        a.add(item.hilbert);
-        b.add(item.vertex);
+  /// A predicate for filtering consecutive duplicates from streams of `Indexed`
+  private static Predicate<Indexed> distinctByHilbertId() {
+    return new Predicate<Indexed>() {
+      private boolean first = true;
+      private int lastSeen;
+
+      @Override
+      public boolean test(Indexed indexed) {
+        if (first || indexed.hilbert != lastSeen) {
+          lastSeen = indexed.hilbert;
+          first = false;
+          return true;
+        }
+        return false;
       }
-    }
-    return Pair.of(a, b);
+    };
+  }
+
+  private static Pair<int[], Vertex[]> addVerticesToDictionary(
+      @NotNull final ArrayList<Vertex> vertices, @NotNull final HilbertCurve hilbertCurve) {
+    // 1. Convert to (hilbertId, vertex) pairs
+    // 2. Sort by hilbertId
+    // 3. Filter consecutive duplicates
+    // 4. Convert back to separate arrays for hilbertIds and vertices
+    // Can we do this without materializing the intermediate list?
+    final var vertexDictionary =
+        IntStream.range(0, vertices.size())
+            .mapToObj(i -> new Indexed(hilbertCurve.encode(vertices.get(i)), i))
+            .sorted(Comparator.naturalOrder())
+            // TODO: we currently don't filter duplicates in the vertex dictionary!
+            // .filter(distinctByHilbertId())
+            .toList();
+    return Pair.of(
+        vertexDictionary.stream().mapToInt(Indexed::hilbert).toArray(),
+        vertexDictionary.stream().map(i -> vertices.get(i.index)).toArray(Vertex[]::new));
   }
 
   private static int[] addVerticesToMortonDictionary(
-      List<Vertex> vertices, ZOrderCurve zOrderCurve) {
-    IntArrayList result = new IntArrayList(vertices.size());
-    for (var vertex : vertices) {
-      var mortonCode = zOrderCurve.encode(vertex);
-      result.add(mortonCode);
-    }
-    int[] resultArray = result.toArray();
-    Arrays.sort(resultArray);
-    return resultArray;
+      @NotNull final Collection<Vertex> vertices, @NotNull final ZOrderCurve zOrderCurve) {
+    return vertices.stream().mapToInt(zOrderCurve::encode).sorted().toArray();
   }
 
   private static List<Vertex> flatLineString(LineString lineString) {
