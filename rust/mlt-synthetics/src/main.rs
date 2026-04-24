@@ -1178,8 +1178,6 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
     )
     .write(w, "props_shared_dict_2_same_prefix");
 
-    // ── Presence variants ─────────────────────────────────────────────────────
-
     let mixed = || [Some(long_string()), None, Some(long_string())];
     let all = || [long_string(), long_string(), long_string()];
     let all_opt = || all().map(Some);

@@ -11,7 +11,7 @@ use crate::decoder::{
     TileLayer01,
 };
 use crate::errors::AsMltError as _;
-use crate::{Decoder, MltResult};
+use crate::{Decoder, LendingIterator, MltResult};
 
 impl ParsedLayer01<'_> {
     /// Returns the decoded geometry buffer for this layer.
@@ -34,7 +34,8 @@ impl ParsedLayer01<'_> {
         let names: Vec<String> = self.iterate_prop_names().map(|n| n.to_string()).collect();
         let col_nulls = typed_nulls(&self.properties);
         let mut features = dec.alloc::<TileFeature>(self.feature_count())?;
-        for feat in self.iter_features() {
+        let mut feat_iter = self.iter_features();
+        while let Some(feat) = feat_iter.next() {
             let feat = feat?;
             let mut values = dec.alloc::<PropValue>(names.len())?;
             for (col_idx, value) in feat.iter_all_properties().enumerate() {
