@@ -377,4 +377,4 @@ val totalUncompressedTiles = AtomicLong(0L)
 val loggedColumnMappingId = AtomicLong(0L)
 val loggedColumnMappings = ConcurrentHashMap<String, Long>()
 
-const val MBTILES_METADATA_MIME_TYPE = "application/vnd.maplibre-vector-tile"
+const val MBTILES_METADATA_MIME_TYPE = "application/vnd.maplibre-tile"
