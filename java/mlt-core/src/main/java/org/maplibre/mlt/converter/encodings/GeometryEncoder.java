@@ -14,6 +14,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
@@ -179,29 +180,20 @@ public class GeometryEncoder {
     /* Currently use pre-tessellation only if all geometries in a FeatureTable are Polygons or MultiPolygons */
     if (enableTessellation && containsOnlyPolygons(geometryTypes)) {
       // TODO: also support Vertex Dictionary and Morton Encoded Vertex Dictionary encoding?
-      if (encodePolygonOutlines) {
-        final var encodedPretessellationStreams =
-            encodePolygonPretessellationStreamsWithOutlines(
-                physicalLevelTechnique,
-                encodingOption,
-                numGeometries,
-                numParts,
-                numRings,
-                numTriangles,
-                indexBuffer);
-        result.addAll(encodedPretessellationStreams);
-        result.addAll(encodedVertexBufferStream);
-        return new EncodedGeometryColumn(
-            numStreams + 6, result, vertexLimits.max, geometryColumnSorted);
-      }
-
-      var encodedPretessellationStreams =
+      numStreams +=
           encodePolygonPretessellationStreams(
-              physicalLevelTechnique, encodingOption, numTriangles, indexBuffer);
-      result.addAll(encodedPretessellationStreams);
+              result,
+              physicalLevelTechnique,
+              encodingOption,
+              numGeometries,
+              numParts,
+              numRings,
+              numTriangles,
+              indexBuffer,
+              encodePolygonOutlines);
       result.addAll(encodedVertexBufferStream);
       return new EncodedGeometryColumn(
-          numStreams + 3, result, vertexLimits.max, geometryColumnSorted);
+          numStreams + 1, result, vertexLimits.max, geometryColumnSorted);
     }
 
     if (!numGeometries.isEmpty()) {
@@ -405,64 +397,50 @@ public class GeometryEncoder {
     }
   }
 
-  private static ArrayList<byte[]> encodePolygonPretessellationStreams(
-      PhysicalLevelTechnique physicalLevelTechnique,
-      @NotNull IntegerEncodingOption encodingOption,
-      ArrayList<Integer> numTriangles,
-      ArrayList<Integer> indexBuffer)
-      throws IOException {
-    final var result =
-        IntegerEncoder.encodeIntStream(
-            numTriangles,
-            physicalLevelTechnique,
-            false,
-            PhysicalStreamType.LENGTH,
-            new LogicalStreamType(LengthType.TRIANGLES),
-            encodingOption);
-    result.addAll(
-        IntegerEncoder.encodeIntStream(
-            indexBuffer,
-            physicalLevelTechnique,
-            false,
-            PhysicalStreamType.OFFSET,
-            new LogicalStreamType(OffsetType.INDEX),
-            encodingOption));
-    return result;
-  }
-
-  private static ArrayList<byte[]> encodePolygonPretessellationStreamsWithOutlines(
+  private static int encodePolygonPretessellationStreams(
+      final ArrayList<byte[]> result,
       PhysicalLevelTechnique physicalLevelTechnique,
       @NotNull IntegerEncodingOption encodingOption,
       ArrayList<Integer> numGeometries,
       ArrayList<Integer> numParts,
       ArrayList<Integer> numRings,
       ArrayList<Integer> numTriangles,
-      ArrayList<Integer> indexBuffer)
+      ArrayList<Integer> indexBuffer,
+      boolean withOutlines)
       throws IOException {
-    final var result =
-        IntegerEncoder.encodeIntStream(
-            numGeometries,
-            physicalLevelTechnique,
-            false,
-            PhysicalStreamType.LENGTH,
-            new LogicalStreamType(LengthType.GEOMETRIES),
-            encodingOption);
-    result.addAll(
-        IntegerEncoder.encodeIntStream(
-            numParts,
-            physicalLevelTechnique,
-            false,
-            PhysicalStreamType.LENGTH,
-            new LogicalStreamType(LengthType.PARTS),
-            encodingOption));
-    result.addAll(
-        IntegerEncoder.encodeIntStream(
-            numRings,
-            physicalLevelTechnique,
-            false,
-            PhysicalStreamType.LENGTH,
-            new LogicalStreamType(LengthType.RINGS),
-            encodingOption));
+    if (withOutlines) {
+      Objects.requireNonNull(numGeometries);
+      Objects.requireNonNull(numParts);
+      Objects.requireNonNull(numRings);
+    }
+    int numStreams = 2;
+    if (withOutlines) {
+      result.addAll(
+          IntegerEncoder.encodeIntStream(
+              numGeometries,
+              physicalLevelTechnique,
+              false,
+              PhysicalStreamType.LENGTH,
+              new LogicalStreamType(LengthType.GEOMETRIES),
+              encodingOption));
+      result.addAll(
+          IntegerEncoder.encodeIntStream(
+              numParts,
+              physicalLevelTechnique,
+              false,
+              PhysicalStreamType.LENGTH,
+              new LogicalStreamType(LengthType.PARTS),
+              encodingOption));
+      result.addAll(
+          IntegerEncoder.encodeIntStream(
+              numRings,
+              physicalLevelTechnique,
+              false,
+              PhysicalStreamType.LENGTH,
+              new LogicalStreamType(LengthType.RINGS),
+              encodingOption));
+      numStreams += 3;
+    }
     result.addAll(
         IntegerEncoder.encodeIntStream(
             numTriangles,
@@ -479,8 +457,7 @@ public class GeometryEncoder {
             PhysicalStreamType.OFFSET,
             new LogicalStreamType(OffsetType.INDEX),
             encodingOption));
-
-    return result;
+    return numStreams;
   }
 
   private static boolean containsPolygon(List<Geometry> geometries) {
