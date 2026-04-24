@@ -87,35 +87,30 @@ public class GeometryEncoder {
       throw new IllegalArgumentException("The geometry column contains no vertices");
     }
 
+    /* Test if Plain, Vertex Dictionary or Morton Encoded Vertex Dictionary is the most efficient
+     * -> Plain -> convert VertexBuffer with Delta Encoding and specified Physical Level Technique
+     * -> Dictionary -> convert VertexOffsets with IntegerEncoder and VertexBuffer with Delta Encoding and specified Physical Level Technique
+     * -> Morton Encoded Dictionary -> convert VertexOffsets with Integer Encoder and VertexBuffer with IntegerEncoder
+     * */
+
     final var vertexLimits = getVertexLimits(vertexBuffer);
     final var hilbertCurve = new HilbertCurve(vertexLimits.min, vertexLimits.max);
     final var zOrderCurve = new ZOrderCurve(vertexLimits.min, vertexLimits.max);
 
     // TODO: if the ratio is lower than 2 dictionary encoding has not to be considered?
     final var vertexDictionary = addVerticesToDictionary(vertexBuffer, hilbertCurve);
-    final var mortonEncodedDictionary = addVerticesToMortonDictionary(vertexBuffer, zOrderCurve);
-
-    final var dictionaryOffsets =
-        getVertexOffsets(vertexBuffer, reverseMap(vertexDictionary.getLeft())::get, hilbertCurve);
-
+    final var vertexDictionaryHilbertIndexes = vertexDictionary.getLeft();
+    final var vertexDictionaryHilbertMap = reverseMap(vertexDictionaryHilbertIndexes);
+    final var vertexDictionaryVertices = vertexDictionary.getRight();
+    final var vertexDictionaryOffsets =
+        getVertexOffsets(vertexBuffer, vertexDictionaryHilbertMap::get, hilbertCurve);
+    final var zigZagDeltaVertexDictionary = zigZagDeltaEncodeVertices(vertexDictionaryVertices);
+    final var mortonEncodedDictionary =
+        useMortonEncoding ? addVerticesToMortonDictionary(vertexBuffer, zOrderCurve) : null;
     final var mortonEncodedDictionaryOffsets =
-        getVertexOffsets(vertexBuffer, reverseMap(mortonEncodedDictionary)::get, zOrderCurve);
-
-    /* Test if Plain, Vertex Dictionary or Morton Encoded Vertex Dictionary is the most efficient
-     * -> Plain -> convert VertexBuffer with Delta Encoding and specified Physical Level Technique
-     * -> Dictionary -> convert VertexOffsets with IntegerEncoder and VertexBuffer with Delta Encoding and specified Physical Level Technique
-     * -> Morton Encoded Dictionary -> convert VertexOffsets with Integer Encoder and VertexBuffer with IntegerEncoder
-     * */
-    final var zigZagDeltaVertexDictionary = zigZagDeltaEncodeVertices(vertexDictionary.getRight());
-
-    // TODO: should we do a potential recursive encoding again
-    final var encodedVertexDictionary =
-        IntegerEncoder.encodeInt(
-            zigZagDeltaVertexDictionary, physicalLevelTechnique, false, encodingOption);
-    final var encodedMortonVertexDictionary =
-        IntegerEncoder.encodeMortonCodes(mortonEncodedDictionary, physicalLevelTechnique);
-    final var encodedDictionaryOffsets =
-        IntegerEncoder.encodeInt(dictionaryOffsets, physicalLevelTechnique, false, encodingOption);
+        useMortonEncoding
+            ? getVertexOffsets(vertexBuffer, reverseMap(mortonEncodedDictionary)::get, zOrderCurve)
+            : null;
 
     // TODO: refactor this simple approach to also work with mixed geometries
     var geometryColumnSorted = false;
@@ -132,16 +127,44 @@ public class GeometryEncoder {
     }
 
     final var zigZagDeltaVertexBuffer = zigZagDeltaEncodeVertices(vertexBuffer);
-    final var encodedVertexBuffer =
-        IntegerEncoder.encodeInt(
-            zigZagDeltaVertexBuffer, physicalLevelTechnique, false, encodingOption);
+    final var encodedVertexBufferStream =
+        encodeVertexBuffer(zigZagDeltaVertexBuffer, physicalLevelTechnique);
 
-    IntegerEncoder.IntegerEncodingResult encodedMortonEncodedDictionaryOffsets = null;
-    if (useMortonEncoding) {
-      encodedMortonEncodedDictionaryOffsets =
-          IntegerEncoder.encodeInt(
-              mortonEncodedDictionaryOffsets, physicalLevelTechnique, false, encodingOption);
-    }
+    // TODO: All of these are done only to determine which encoding to use, the actual result is
+    //       discarded!  Additionally, it's only the size of the raw data, not including metadata.
+    //       Instead, we should select based on the size of what's actually written.
+    final var plainVertexBufferSize =
+        IntegerEncoder.encodeInt(
+                zigZagDeltaVertexBuffer, physicalLevelTechnique, false, encodingOption)
+            .encodedValues
+            .length;
+    final var encodedMortonEncodedDictionaryOffsetsSize =
+        useMortonEncoding
+            ? IntegerEncoder.encodeInt(
+                    mortonEncodedDictionaryOffsets, physicalLevelTechnique, false, encodingOption)
+                .encodedValues
+                .length
+            : 0;
+    final var encodedDictionaryOffsetsSize =
+        IntegerEncoder.encodeInt(
+                vertexDictionaryOffsets, physicalLevelTechnique, false, encodingOption)
+            .encodedValues
+            .length;
+    final var encodedVertexDictionarySize =
+        IntegerEncoder.encodeInt(
+                zigZagDeltaVertexDictionary, physicalLevelTechnique, false, encodingOption)
+            .encodedValues
+            .length;
+    final var encodedMortonVertexDictionarySize =
+        useMortonEncoding
+            ? IntegerEncoder.encodeMortonCodes(mortonEncodedDictionary, physicalLevelTechnique)
+                .encodedValues
+                .length
+            : 0;
+    final var dictionaryEncodedSize = encodedDictionaryOffsetsSize + encodedVertexDictionarySize;
+    final var mortonDictionaryEncodedSize =
+        encodedMortonEncodedDictionaryOffsetsSize + encodedMortonVertexDictionarySize;
+    // TODO: end
 
     final var result =
         IntegerEncoder.encodeIntStream(
@@ -156,9 +179,6 @@ public class GeometryEncoder {
     /* Currently use pre-tessellation only if all geometries in a FeatureTable are Polygons or MultiPolygons */
     if (enableTessellation && containsOnlyPolygons(geometryTypes)) {
       // TODO: also support Vertex Dictionary and Morton Encoded Vertex Dictionary encoding?
-      final var encodedVertexBufferStream =
-          encodeVertexBuffer(zigZagDeltaVertexBuffer, physicalLevelTechnique);
-
       if (encodePolygonOutlines) {
         final var encodedPretessellationStreams =
             encodePolygonPretessellationStreamsWithOutlines(
@@ -221,29 +241,15 @@ public class GeometryEncoder {
       numStreams++;
     }
 
-    final var plainVertexBufferSize = encodedVertexBuffer.encodedValues.length;
-    final var dictionaryEncodedSize =
-        encodedDictionaryOffsets.encodedValues.length
-            + encodedVertexDictionary.encodedValues.length;
-    final var mortonDictionaryEncodedSize =
-        useMortonEncoding
-            ? (encodedMortonEncodedDictionaryOffsets.encodedValues.length
-                + encodedMortonVertexDictionary.encodedValues.length)
-            : 0;
-
     if (plainVertexBufferSize <= dictionaryEncodedSize
         && (!useMortonEncoding || plainVertexBufferSize <= mortonDictionaryEncodedSize)) {
-      // TODO: get rid of extra conversion
-      final var encodedVertexBufferStream =
-          encodeVertexBuffer(zigZagDeltaVertexBuffer, physicalLevelTechnique);
-
       result.addAll(encodedVertexBufferStream);
       return new EncodedGeometryColumn(
           numStreams + 1, result, vertexLimits.max, geometryColumnSorted);
     } else if (!useMortonEncoding || dictionaryEncodedSize <= mortonDictionaryEncodedSize) {
       final var encodedVertexOffsetStream =
           IntegerEncoder.encodeIntStream(
-              dictionaryOffsets,
+              vertexDictionaryOffsets,
               physicalLevelTechnique,
               false,
               PhysicalStreamType.OFFSET,
