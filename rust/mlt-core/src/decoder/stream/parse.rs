@@ -1,4 +1,4 @@
-use std::{fmt, io};
+use std::io;
 
 use integer_encoding::VarIntWriter as _;
 
@@ -164,26 +164,6 @@ impl StreamMeta {
             LE::None | LE::Delta | LE::ComponentwiseDelta | LE::PseudoDecimal => {}
         }
         Ok(())
-    }
-}
-
-impl fmt::Debug for StreamMeta {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // ensure we process all fields, and format them without the alt field
-        let Self {
-            stream_type,
-            encoding,
-            num_values,
-        } = self;
-        f.debug_struct("StreamMeta")
-            .field("stream_type", &format_args!("{stream_type:?}"))
-            .field("logical_encoding", &format_args!("{:?}", encoding.logical))
-            .field(
-                "physical_encoding",
-                &format_args!("{:?}", encoding.physical),
-            )
-            .field("num_values", &format_args!("{num_values:?}"))
-            .finish()
     }
 }
 

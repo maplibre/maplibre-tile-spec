@@ -89,7 +89,7 @@ pub enum RawProperty<'a> {
 }
 
 /// Parsed property values in a typed enum form.
-#[derive(Clone, PartialEq, strum::IntoStaticStr)]
+#[derive(Clone, Debug, PartialEq, strum::IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
 #[enum_dispatch(Analyze)]
 pub enum ParsedProperty<'a> {
@@ -112,7 +112,7 @@ pub enum ParsedProperty<'a> {
 /// For a non-optional column, `presence` is [`Presence::AllPresent`] with all
 /// values inline. For an optional column, `presence` is [`Presence::Bits`] with
 /// `bits.count_ones() == values.len()`.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ParsedScalar<'a, T: Copy + PartialEq> {
     pub(crate) name: &'a str,
     pub(crate) presence: Presence<'a, T>,
