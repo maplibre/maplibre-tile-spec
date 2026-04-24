@@ -196,40 +196,16 @@ public class GeometryEncoder {
           numStreams + 1, result, vertexLimits.max, geometryColumnSorted);
     }
 
-    if (!numGeometries.isEmpty()) {
-      final var encodedNumGeometries =
-          IntegerEncoder.encodeIntStream(
-              numGeometries,
-              physicalLevelTechnique,
-              false,
-              PhysicalStreamType.LENGTH,
-              new LogicalStreamType(LengthType.GEOMETRIES),
-              encodingOption);
-      result.addAll(encodedNumGeometries);
+    if (appendLengthStream(
+        result, numGeometries, physicalLevelTechnique, LengthType.GEOMETRIES, encodingOption)) {
       numStreams++;
     }
-    if (!numParts.isEmpty()) {
-      final var encodedNumParts =
-          IntegerEncoder.encodeIntStream(
-              numParts,
-              physicalLevelTechnique,
-              false,
-              PhysicalStreamType.LENGTH,
-              new LogicalStreamType(LengthType.PARTS),
-              encodingOption);
-      result.addAll(encodedNumParts);
+    if (appendLengthStream(
+        result, numParts, physicalLevelTechnique, LengthType.PARTS, encodingOption)) {
       numStreams++;
     }
-    if (!numRings.isEmpty()) {
-      final var encodedNumRings =
-          IntegerEncoder.encodeIntStream(
-              numRings,
-              physicalLevelTechnique,
-              false,
-              PhysicalStreamType.LENGTH,
-              new LogicalStreamType(LengthType.RINGS),
-              encodingOption);
-      result.addAll(encodedNumRings);
+    if (appendLengthStream(
+        result, numRings, physicalLevelTechnique, LengthType.RINGS, encodingOption)) {
       numStreams++;
     }
 
@@ -413,42 +389,34 @@ public class GeometryEncoder {
       Objects.requireNonNull(numParts);
       Objects.requireNonNull(numRings);
     }
-    int numStreams = 2;
+    int numStreams = 1;
+
+    // TODO: Don't write empty streams
+    final boolean forceEmpty = true;
+
     if (withOutlines) {
-      result.addAll(
-          IntegerEncoder.encodeIntStream(
-              numGeometries,
-              physicalLevelTechnique,
-              false,
-              PhysicalStreamType.LENGTH,
-              new LogicalStreamType(LengthType.GEOMETRIES),
-              encodingOption));
-      result.addAll(
-          IntegerEncoder.encodeIntStream(
-              numParts,
-              physicalLevelTechnique,
-              false,
-              PhysicalStreamType.LENGTH,
-              new LogicalStreamType(LengthType.PARTS),
-              encodingOption));
-      result.addAll(
-          IntegerEncoder.encodeIntStream(
-              numRings,
-              physicalLevelTechnique,
-              false,
-              PhysicalStreamType.LENGTH,
-              new LogicalStreamType(LengthType.RINGS),
-              encodingOption));
-      numStreams += 3;
+      if (appendLengthStream(
+          result,
+          numGeometries,
+          physicalLevelTechnique,
+          LengthType.GEOMETRIES,
+          encodingOption,
+          forceEmpty)) {
+        numStreams++;
+      }
+      if (appendLengthStream(
+          result, numParts, physicalLevelTechnique, LengthType.PARTS, encodingOption, forceEmpty)) {
+        numStreams++;
+      }
+      if (appendLengthStream(
+          result, numRings, physicalLevelTechnique, LengthType.RINGS, encodingOption, forceEmpty)) {
+        numStreams++;
+      }
     }
-    result.addAll(
-        IntegerEncoder.encodeIntStream(
-            numTriangles,
-            physicalLevelTechnique,
-            false,
-            PhysicalStreamType.LENGTH,
-            new LogicalStreamType(LengthType.TRIANGLES),
-            encodingOption));
+    if (appendLengthStream(
+        result, numTriangles, physicalLevelTechnique, LengthType.TRIANGLES, encodingOption)) {
+      numStreams++;
+    }
     result.addAll(
         IntegerEncoder.encodeIntStream(
             indexBuffer,
@@ -458,6 +426,39 @@ public class GeometryEncoder {
             new LogicalStreamType(OffsetType.INDEX),
             encodingOption));
     return numStreams;
+  }
+
+  private static boolean appendLengthStream(
+      @NotNull ArrayList<byte[]> result,
+      @Nullable List<Integer> values,
+      @NotNull PhysicalLevelTechnique physicalLevelTechnique,
+      @NotNull LengthType lengthType,
+      @NotNull IntegerEncodingOption encodingOption)
+      throws IOException {
+    return appendLengthStream(
+        result, values, physicalLevelTechnique, lengthType, encodingOption, false);
+  }
+
+  private static boolean appendLengthStream(
+      @NotNull ArrayList<byte[]> result,
+      @Nullable List<Integer> values,
+      @NotNull PhysicalLevelTechnique physicalLevelTechnique,
+      @NotNull LengthType lengthType,
+      @NotNull IntegerEncodingOption encodingOption,
+      boolean forceWriteEmptyStream)
+      throws IOException {
+    if (values != null && !values.isEmpty() || forceWriteEmptyStream) {
+      result.addAll(
+          IntegerEncoder.encodeIntStream(
+              (values != null) ? values : List.of(),
+              physicalLevelTechnique,
+              false,
+              PhysicalStreamType.LENGTH,
+              new LogicalStreamType(lengthType),
+              encodingOption));
+      return true;
+    }
+    return false;
   }
 
   private static boolean containsPolygon(List<Geometry> geometries) {
