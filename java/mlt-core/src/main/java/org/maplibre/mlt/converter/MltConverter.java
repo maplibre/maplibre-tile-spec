@@ -696,28 +696,22 @@ public class MltConverter {
 
     /* Only sort geometries if ids can be reassigned since sorting the id column turned out
      * to be more efficient in the tests */
-    var sortSettings =
+    final var sortSettings =
         new GeometryEncoder.SortSettings(
             isColumnSortable && featureTableOptimizations.allowIdRegeneration(), ids);
     /* Morton Vertex Dictionary encoding is currently not supported in pre-tessellation */
-    var useMortonEncoding = false;
-    var geometryEncodingOption = config.geometryEncodingOption();
-    var encodedGeometryColumn =
-        config.preTessellatePolygons()
-            ? GeometryEncoder.encodePretessellatedGeometryColumn(
-                geometries,
-                physicalLevelTechnique,
-                sortSettings,
-                useMortonEncoding,
-                encodePolygonOutlines,
-                tessellateSource,
-                geometryEncodingOption)
-            : GeometryEncoder.encodeGeometryColumn(
-                geometries,
-                physicalLevelTechnique,
-                sortSettings,
-                config.useMortonEncoding(),
-                geometryEncodingOption);
+    final var useMortonEncoding = config.useMortonEncoding() && !config.preTessellatePolygons();
+    final var geometryEncodingOption = config.geometryEncodingOption();
+    final var encodedGeometryColumn =
+        GeometryEncoder.encodeGeometryColumn(
+            geometries,
+            physicalLevelTechnique,
+            sortSettings,
+            useMortonEncoding,
+            config.preTessellatePolygons(),
+            encodePolygonOutlines,
+            tessellateSource,
+            geometryEncodingOption);
 
     if (encodedGeometryColumn.geometryColumnSorted()) {
       sortedFeatures =
