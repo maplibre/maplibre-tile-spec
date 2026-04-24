@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::ops::Deref;
 
 use enum_dispatch::enum_dispatch;
 
@@ -88,7 +89,7 @@ pub enum RawProperty<'a> {
 }
 
 /// Parsed property values in a typed enum form.
-#[derive(Clone, PartialEq, strum::IntoStaticStr)]
+#[derive(Clone, Debug, PartialEq, strum::IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
 #[enum_dispatch(Analyze)]
 pub enum ParsedProperty<'a> {
@@ -107,18 +108,21 @@ pub enum ParsedProperty<'a> {
 
 /// Decoded scalar property column (bool, integer, or float).
 ///
-/// `presence` indicates which features have a value; `values` holds only the
-/// non-null (present) entries in dense order.
-///
-/// For a non-optional column, `presence` is [`Presence::AllPresent`] and
-/// `values.len()` equals the feature count.  For an optional column, `presence`
-/// is [`Presence::Bits(bits)`][`Presence::Bits`] with `bits.count_ones() == values.len()`.
-#[derive(Clone, PartialEq)]
+/// `presence` carries both the optional bitvector and the dense values.
+/// For a non-optional column, `presence` is [`Presence::AllPresent`] with all
+/// values inline. For an optional column, `presence` is [`Presence::Bits`] with
+/// `bits.count_ones() == values.len()`.
+#[derive(Clone, Debug, PartialEq)]
 pub struct ParsedScalar<'a, T: Copy + PartialEq> {
     pub(crate) name: &'a str,
-    pub(crate) presence: Presence<'a>,
-    /// Dense values: only entries where the corresponding presence bit is set.
-    pub(crate) values: Vec<T>,
+    pub(crate) presence: Presence<'a, T>,
+}
+impl<'a, T: Copy + PartialEq> Deref for ParsedScalar<'a, T> {
+    type Target = Presence<'a, T>;
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.presence
+    }
 }
 
 /// Per-feature byte range into a shared dictionary corpus.

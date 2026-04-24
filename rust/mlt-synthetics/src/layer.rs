@@ -3,11 +3,10 @@ use std::fs::{File, OpenOptions};
 use std::io;
 use std::path::Path;
 
-use mlt_core::__private::IdValues;
 use mlt_core::GeometryValues;
 use mlt_core::encoder::{
-    ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StagedLayer01,
-    StagedProperty, StagedSharedDict, StrEncoding, StreamCtx, VertexBufferType,
+    ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StagedId,
+    StagedLayer01, StagedProperty, StagedSharedDict, StrEncoding, StreamCtx, VertexBufferType,
 };
 use mlt_core::geo_types::{Coord, Geometry};
 use mlt_core::wire::{LengthType, OffsetType, StreamType};
@@ -443,7 +442,7 @@ impl Layer {
         StagedLayer01 {
             name: "layer1".to_string(),
             extent: extent.unwrap_or(80),
-            id: id_values.map(IdValues),
+            id: id_values.map(StagedId::from_optional),
             geometry,
             properties: props.into_iter().map(|(p, _)| p).collect(),
         }

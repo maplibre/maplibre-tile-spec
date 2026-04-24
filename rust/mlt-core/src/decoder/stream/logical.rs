@@ -1,4 +1,3 @@
-use std::fmt;
 use std::fmt::Debug;
 use std::iter::repeat_n;
 
@@ -45,22 +44,6 @@ impl RleMeta {
 impl LogicalTechnique {
     pub fn parse(value: u8) -> MltResult<Self> {
         Self::try_from(value).or(Err(ParsingLogicalTechnique(value)))
-    }
-}
-
-impl Debug for LogicalEncoding {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::None => write!(f, "None"),
-            Self::Delta => write!(f, "Delta"),
-            Self::ComponentwiseDelta => write!(f, "ComponentwiseDelta"),
-            Self::PseudoDecimal => write!(f, "PseudoDecimal"),
-            Self::DeltaRle(v) => write!(f, "DeltaRle({v:?})"),
-            Self::Rle(v) => write!(f, "Rle({v:?})"),
-            Self::Morton(v) => write!(f, "Morton({v:?})"),
-            Self::MortonDelta(v) => write!(f, "MortonDelta({v:?})"),
-            Self::MortonRle(v) => write!(f, "MortonRle({v:?})"),
-        }
     }
 }
 

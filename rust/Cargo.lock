@@ -934,6 +934,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive-debug"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e53ef7e1cf756fd5a8e74b9a0a9504ec446eddde86c3063a76ff26a13b7773b1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "derive_arbitrary"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2537,6 +2548,7 @@ version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "731c2d69df690e8ca888a8d73c7f87724b3aefe9a5b824c9b63a2560e8fb01e8"
 dependencies = [
+ "bytes",
  "enum-display",
  "flume 0.12.0",
  "futures",
@@ -2545,7 +2557,9 @@ dependencies = [
  "log",
  "martin-tile-utils",
  "md5",
+ "moka",
  "num_cpus",
+ "rayon",
  "serde",
  "serde_json",
  "serde_with",
@@ -2635,6 +2649,7 @@ name = "mlt"
 version = "0.1.10"
 dependencies = [
  "anyhow",
+ "bytes",
  "clap",
  "crossterm 0.29.0",
  "flate2",
@@ -2646,6 +2661,7 @@ dependencies = [
  "martin-tile-utils",
  "mbtiles",
  "mlt-core",
+ "moka",
  "ratatui 0.30.0",
  "rayon",
  "rstar",
@@ -2656,6 +2672,8 @@ dependencies = [
  "tabled",
  "thousands",
  "tokio",
+ "walkdir",
+ "xxhash-rust",
 ]
 
 [[package]]
@@ -2667,6 +2685,7 @@ dependencies = [
  "brotli",
  "bytemuck",
  "criterion",
+ "derive-debug",
  "enum_dispatch",
  "fastpfor",
  "flate2",
@@ -2724,6 +2743,23 @@ dependencies = [
  "js-sys",
  "mlt-core",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "moka"
+version = "0.12.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "957228ad12042ee839f93c8f257b62b4c0ab5eaae1d4fa60de53b27c9d7c5046"
+dependencies = [
+ "crossbeam-channel",
+ "crossbeam-epoch",
+ "crossbeam-utils",
+ "equivalent",
+ "parking_lot",
+ "portable-atomic",
+ "smallvec",
+ "tagptr",
+ "uuid",
 ]
 
 [[package]]
@@ -5141,6 +5177,12 @@ dependencies = [
  "quote",
  "syn 2.0.117",
 ]
+
+[[package]]
+name = "tagptr"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b2093cf4c8eb1e67749a6762251bc9cd836b6fc171623bd0a9d324d37af2417"
 
 [[package]]
 name = "tap"

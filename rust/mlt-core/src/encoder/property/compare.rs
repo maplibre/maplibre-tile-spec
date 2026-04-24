@@ -10,8 +10,8 @@ use crate::utils::Presence;
 impl<T: Copy + PartialEq> PartialEq<StagedScalar<T>> for ParsedScalar<'_, T> {
     fn eq(&self, other: &StagedScalar<T>) -> bool {
         self.name == other.name
-            && matches!(self.presence, Presence::AllPresent)
-            && self.values == other.values
+            && matches!(**self, Presence::AllPresent(_))
+            && self.dense_values() == other.values
     }
 }
 
@@ -28,18 +28,19 @@ impl<T: Copy + PartialEq> PartialEq<StagedOptScalar<T>> for ParsedScalar<'_, T> 
         if self.name != other.name {
             return false;
         }
-        let feat_count = self.feature_count();
-        if feat_count != other.presence.len() || self.values.len() != other.values.len() {
+        if self.feature_count() != other.presence.len()
+            || self.dense_values().len() != other.values.len()
+        {
             return false;
         }
         let mut dense_idx = 0usize;
         for (i, &staged_present) in other.presence.iter().enumerate() {
-            let parsed_present = self.presence.is_present(i);
+            let parsed_present = self.is_present(i);
             if parsed_present != staged_present {
                 return false;
             }
             if parsed_present {
-                if self.values[dense_idx] != other.values[dense_idx] {
+                if self.dense_values()[dense_idx] != other.values[dense_idx] {
                     return false;
                 }
                 dense_idx += 1;

@@ -57,7 +57,7 @@ export function decodePropertyColumn(
         return null;
     }
 
-    return decodeSharedDictionary(data, offset, columnMetadata, numFeatures, propertyColumnNames);
+    return decodeSharedDictionary(data, offset, columnMetadata, propertyColumnNames);
 }
 
 function decodeScalarPropertyColumn(

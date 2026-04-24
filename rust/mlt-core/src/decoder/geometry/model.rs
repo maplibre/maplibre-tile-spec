@@ -1,7 +1,9 @@
+use derive_debug::Dbg;
 use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 
 use crate::decoder::RawStream;
+use crate::utils::formatter::{opt_vec_seq, vec_seq};
 use crate::{DecodeState, Lazy};
 
 /// Geometry column representation, parameterized by decode state.
@@ -18,14 +20,21 @@ pub struct RawGeometry<'a> {
 }
 
 /// Parsed (decoded) geometry data
-#[derive(Clone, Default, PartialEq, Eq)]
+#[derive(Clone, Dbg, Default, PartialEq, Eq)]
 pub struct GeometryValues {
+    #[dbg(formatter = "vec_seq")]
     pub(crate) vector_types: Vec<GeometryType>,
+    #[dbg(formatter = "opt_vec_seq")]
     pub(crate) geometry_offsets: Option<Vec<u32>>,
+    #[dbg(formatter = "opt_vec_seq")]
     pub(crate) part_offsets: Option<Vec<u32>>,
+    #[dbg(formatter = "opt_vec_seq")]
     pub(crate) ring_offsets: Option<Vec<u32>>,
+    #[dbg(formatter = "opt_vec_seq")]
     pub(crate) index_buffer: Option<Vec<u32>>,
+    #[dbg(formatter = "opt_vec_seq")]
     pub(crate) triangles: Option<Vec<u32>>,
+    #[dbg(formatter = "opt_vec_seq")]
     pub(crate) vertices: Option<Vec<i32>>,
 }
 

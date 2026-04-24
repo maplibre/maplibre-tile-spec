@@ -480,11 +480,7 @@ impl<'layer> Iterator for Layer01FeatureIter<'layer, '_> {
         self.index += 1;
 
         Some(Ok(FeatureRef {
-            id: self
-                .layer
-                .id
-                .as_ref()
-                .and_then(|ids| ids.0.get(index).copied().flatten()),
+            id: self.layer.id.as_ref().and_then(|ids| ids.get(index)),
             geometry: match self.layer.geometry.to_geojson(index) {
                 Ok(g) => g,
                 Err(e) => return Some(Err(e)),
@@ -514,9 +510,9 @@ mod tests {
 
     use super::*;
     use crate::Layer;
-    use crate::decoder::{GeometryValues, IdValues};
+    use crate::decoder::GeometryValues;
     use crate::encoder::model::{StagedLayer, StagedLayer01};
-    use crate::encoder::{Encoder, StagedProperty, StagedSharedDict};
+    use crate::encoder::{Encoder, StagedId, StagedProperty, StagedSharedDict};
     use crate::test_helpers::{dec, parser};
 
     fn layer_buf(staged: StagedLayer01) -> Vec<u8> {
@@ -679,7 +675,7 @@ mod tests {
         let buf = layer_buf(StagedLayer01 {
             name: "test".into(),
             extent: 4096,
-            id: Some(IdValues(vec![Some(100), None, Some(200)])),
+            id: Some(StagedId::from_optional(vec![Some(100), None, Some(200)])),
             geometry: three_points(),
             properties: vec![],
         });
