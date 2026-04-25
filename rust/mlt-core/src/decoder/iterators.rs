@@ -4,6 +4,17 @@
 //! [`LendingIterator`].  [`FeatureRef::iter_properties`] exposes per-feature
 //! property values as flat [`ColumnRef`] items; `SharedDict` columns are
 //! transparently expanded and null values are skipped.
+//!
+//! # Iterator model
+//!
+//! Feature iteration uses [`LendingIterator`] rather than [`std::iter::Iterator`].
+//! This allows the iterator to reuse an internal buffer across steps — the
+//! [`FeatureRef`] borrows its property values from that buffer — eliminating a
+//! per-feature `Vec` allocation.
+//!
+//! The consequence is that each [`FeatureRef`] must be dropped before calling
+//! [`LendingIterator::next`] again, so standard adapters like `.map()` and
+//! `.collect()` are **not** available directly.  Use a `while let` loop instead:
 
 use std::fmt;
 
@@ -74,13 +85,19 @@ impl<'a> ParsedLayer01<'a> {
     /// Yields one `MltResult<`[`FeatureRef`]`>` per feature. Geometry decoding can
     /// fail, hence the `Result` wrapper.
     ///
-    /// ```ignore
+    /// ```text
     /// let mut iter = parsed.iter_features();
     /// while let Some(feat) = iter.next() {
     ///     let feat = feat?;
-    ///     for col in feat.iter_properties() { /* non-null columns */ }
+    ///     for col in feat.iter_properties() {
+    ///        // or use iter_all_properties() to include Nones
+    ///     }
     /// }
     /// ```
+    ///
+    /// All inner iterators — [`FeatureRef::iter_properties`],
+    /// [`FeatureRef::iter_all_properties`], and the name iterators — implement the
+    /// standard [`std::iter::Iterator`] trait and compose normally.
     #[must_use]
     pub fn iter_features(&self) -> Layer01FeatureIter<'_, 'a> {
         Layer01FeatureIter::new(self)
@@ -467,7 +484,9 @@ impl<'layer> LendingIterator for Layer01FeatureIter<'layer, '_> {
         }
         self.index += 1;
 
-        // Fill the reused buffer — no allocation after the first feature.
+        // Advance all per-feature cursors unconditionally, even if geometry decode fails,
+        // so that IDs and property values remain aligned with geometry indices.
+        let id = self.id_iter.as_mut().and_then(Iterator::next).flatten();
         self.values_buf.clear();
         self.values_buf
             .extend(self.col_iters.iter_mut().map(|it| it.next().flatten()));
@@ -477,7 +496,7 @@ impl<'layer> LendingIterator for Layer01FeatureIter<'layer, '_> {
                 .geometry
                 .to_geojson(index)
                 .map(|geometry| FeatureRef {
-                    id: self.id_iter.as_mut().and_then(Iterator::next).flatten(),
+                    id,
                     geometry,
                     columns: &self.layer.properties,
                     values: &self.values_buf,
@@ -811,6 +830,46 @@ mod tests {
             assert_eq!(feat.get_property("flag"), None);
             assert_eq!(feat.get_property("score"), Some(PropValueRef::I32(7)));
         }
+    }
+
+    #[test]
+    fn geometry_error_does_not_misalign_ids() {
+        use crate::decoder::GeometryType;
+
+        let buf = layer_buf(StagedLayer01 {
+            name: "test".into(),
+            extent: 4096,
+            id: Some(StagedId::from_optional(vec![Some(10), Some(20), Some(30)])),
+            geometry: three_points(),
+            properties: vec![],
+        });
+        let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
+        let Layer::Tag01(lazy) = layer else { panic!() };
+        let mut parsed = lazy.decode_all(&mut dec()).unwrap();
+
+        // Corrupt feature 1's geometry type: Point → LineString.
+        // A LineString requires part_offsets, which are absent here, so
+        // to_geojson(1) will return Err(NoPartOffsets).
+        parsed.geometry.vector_types[1] = GeometryType::LineString;
+
+        let mut iter = parsed.iter_features();
+
+        // Feature 0: valid Point, id = Some(10)
+        let feat0 = iter.next().unwrap().unwrap();
+        assert_eq!(feat0.id, Some(10));
+
+        // Feature 1: geometry error — iterator still advances ID cursor
+        assert!(iter.next().unwrap().is_err());
+
+        // Feature 2: valid Point, id must be Some(30), not Some(20)
+        let feat2 = iter.next().unwrap().unwrap();
+        assert_eq!(
+            feat2.id,
+            Some(30),
+            "id cursor was not advanced on geometry error"
+        );
+
+        assert!(iter.next().is_none());
     }
 
     #[test]
