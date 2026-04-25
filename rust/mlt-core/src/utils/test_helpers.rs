@@ -25,6 +25,7 @@ pub fn assert_empty<T>(result: MltRefResult<T>) -> T {
 pub fn into_layer01(layer: Layer) -> Layer01 {
     match layer {
         Layer::Tag01(layer01) => layer01,
-        Layer::Unknown(_) => panic!("expected Tag01 layer"),
+        Layer::Tag02(_) => panic!("expected Tag01 layer, got Tag02"),
+        Layer::Unknown(_) => panic!("expected Tag01 layer, got Unknown"),
     }
 }

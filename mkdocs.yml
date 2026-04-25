@@ -65,6 +65,7 @@ nav:
   - Encoding Algorithms: encodings.md
   - Specification: specification.md
   - Geometry Spec: geometry.md
+  - Migrating to v2: migrating-to-v2.md
 
 extra:
   social:
