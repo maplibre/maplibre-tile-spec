@@ -6,8 +6,7 @@ use crate::decoder::{GeometryValues, RawId, RawIdValue};
 use crate::encoder::IdWidth::{Id32, Id64, OptId32, OptId64};
 use crate::encoder::stream::LogicalEncoder;
 use crate::encoder::{
-    Encoder, EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StagedId, StagedLayer,
-    StagedLayer01,
+    Encoder, EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StagedId, StagedLayer01,
 };
 use crate::test_helpers::{dec, into_layer01, parser};
 use crate::{Layer, LazyParsed, MltError, MltResult};
@@ -62,7 +61,7 @@ fn id_roundtrip_auto(decoded: &StagedId) -> StagedId {
         geometry,
         properties: vec![],
     };
-    let buf = StagedLayer::Tag01(staged)
+    let buf = staged
         .encode_into(Encoder::default())
         .expect("encode failed")
         .into_layer_bytes()

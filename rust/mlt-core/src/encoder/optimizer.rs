@@ -1,21 +1,10 @@
 use crate::MltResult;
 use crate::decoder::TileLayer01;
-use crate::encoder::model::{StagedLayer, StagedLayer01};
+use crate::encoder::model::StagedLayer01;
 use crate::encoder::property::encode::write_properties;
 use crate::encoder::{
     Encoder, EncoderConfig, SortStrategy, group_string_properties, spatial_sort_likely_to_help,
 };
-
-impl StagedLayer {
-    /// Automatically encode and write `self` to `enc`.
-    #[hotpath::measure]
-    pub fn encode_into(self, enc: Encoder) -> MltResult<Encoder> {
-        match self {
-            Self::Tag01(t) => t.encode_into(enc),
-            Self::Unknown(u) => u.write_to(enc),
-        }
-    }
-}
 
 impl StagedLayer01 {
     /// Encode and serialize the layer directly into `enc`, without creating any

@@ -9,9 +9,7 @@ use strum::IntoEnumIterator as _;
 #[path = "bench_utils.rs"]
 mod bench_utils;
 use bench_utils::{BENCHMARKED_ZOOM_LEVELS, load_mlt_tiles};
-use mlt_core::encoder::{
-    Encoder, ExplicitEncoder, IntEncoder, PhysicalEncoder, StagedLayer, StagedLayer01,
-};
+use mlt_core::encoder::{Encoder, ExplicitEncoder, IntEncoder, PhysicalEncoder, StagedLayer01};
 
 fn limit<T>(values: impl Iterator<Item = T>) -> impl Iterator<Item = T> {
     if cfg!(debug_assertions) {
@@ -25,7 +23,7 @@ fn limit<T>(values: impl Iterator<Item = T>) -> impl Iterator<Item = T> {
 ///
 /// Goes through `Layer01 → TileLayer01 → StagedLayer01`, which is the correct
 /// encode-pipeline entry point per CONTRIBUTING.md.
-fn decode_to_owned(tiles: &[(String, Vec<u8>)], tessellate: bool) -> Vec<StagedLayer> {
+fn decode_to_owned(tiles: &[(String, Vec<u8>)], tessellate: bool) -> Vec<StagedLayer01> {
     tiles
         .iter()
         .flat_map(|(_, data)| {
@@ -38,12 +36,12 @@ fn decode_to_owned(tiles: &[(String, Vec<u8>)], tessellate: bool) -> Vec<StagedL
                         return None;
                     };
                     let tile = layer01.into_tile(&mut d).ok()?;
-                    Some(StagedLayer::Tag01(StagedLayer01::from_tile(
+                    Some(StagedLayer01::from_tile(
                         tile,
                         SortStrategy::Unsorted,
                         &[],
                         tessellate,
-                    )))
+                    ))
                 })
                 .collect::<Vec<_>>()
         })
@@ -75,13 +73,11 @@ fn bench_encode(c: &mut Criterion) {
                                 || decode_to_owned(tiles, enc_config.tessellate),
                                 |layers| {
                                     for layer in layers {
-                                        if let StagedLayer::Tag01(l) = layer {
-                                            let enc = Encoder::with_explicit(
-                                                enc_config,
-                                                ExplicitEncoder::all(int_enc),
-                                            );
-                                            black_box(l.encode_into(enc).expect("encode failed"));
-                                        }
+                                        let enc = Encoder::with_explicit(
+                                            enc_config,
+                                            ExplicitEncoder::all(int_enc),
+                                        );
+                                        black_box(layer.encode_into(enc).expect("encode failed"));
                                     }
                                 },
                                 BatchSize::SmallInput,
