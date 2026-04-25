@@ -27,7 +27,7 @@ pub use iterators::{
 };
 pub(crate) use model::Column;
 pub use model::{
-    ColumnType, Layer, Layer01, ParsedLayer, ParsedLayer01, PropValue, TileFeature, TileLayer01,
+    ColumnType, Layer, Layer01, ParsedLayer, ParsedLayer01, PropValue, TileFeature, TileLayer,
     Unknown,
 };
 // Re-export strings sub-module so encoder can use `crate::decoder::strings::*`

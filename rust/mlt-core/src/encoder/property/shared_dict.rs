@@ -11,7 +11,7 @@ use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 use crate::MltError::DictIndexOutOfBounds;
 use crate::codecs::fsst::compress_fsst_with;
 use crate::decoder::strings::{decode_shared_dict_range, encode_shared_dict_range};
-use crate::decoder::{PropValue, TileLayer01};
+use crate::decoder::{PropValue, TileLayer};
 use crate::encoder::model::{StrEncoding, StreamCtx};
 use crate::encoder::property::strings::{fsst_try_train, write_fsst_data, write_raw_str_data};
 use crate::encoder::{
@@ -44,11 +44,11 @@ struct StringProfile<'a> {
     trigram_hashes: Vec<u64>,
 }
 
-/// Analyze a [`TileLayer01`] and return one [`StringGroup`] per cluster of similar
+/// Analyze a [`TileLayer`] and return one [`StringGroup`] per cluster of similar
 /// string columns.
 #[must_use]
 #[hotpath::measure]
-pub fn group_string_properties(source: &TileLayer01) -> Vec<StringGroup> {
+pub fn group_string_properties(source: &TileLayer) -> Vec<StringGroup> {
     let exact_mh = MinHash::with_hashers(
         MINHASH_PERMUTATIONS,
         [

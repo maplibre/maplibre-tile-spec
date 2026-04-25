@@ -4,7 +4,7 @@ use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_m
 use geo_types::Point;
 use mlt_core::encoder::{
     Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, LogicalEncoder, PhysicalEncoder,
-    StagedLayer01, StagedProperty, StagedSharedDict, StrEncoding,
+    StagedLayer, StagedProperty, StagedSharedDict, StrEncoding,
 };
 use mlt_core::test_helpers::{dec, parser};
 use mlt_core::{GeometryValues, LendingIterator, ParsedLayer01, PropValueRef};
@@ -82,7 +82,7 @@ fn make_geometry(n: usize) -> GeometryValues {
 
 /// Encode `props` into a single-layer tile with `n` point features and return wire bytes.
 fn encode_layer(n: usize, props: Vec<StagedProperty>, cfg: ExplicitEncoder) -> Vec<u8> {
-    StagedLayer01 {
+    StagedLayer {
         name: "bench".into(),
         extent: 4096,
         id: None,

@@ -22,11 +22,11 @@ pub struct CurveParams {
 /// Columnar layer data being prepared for encoding (stage 2 of the encoding pipeline).
 ///
 /// Holds fully-owned columnar data. Constructed directly (synthetics, benches) or
-/// converted from [`TileLayer01`](crate::TileLayer01).
-/// Consumed by encoding via [`StagedLayer01::encode_into`] or `StagedLayer01::encode_explicit`
+/// converted from [`TileLayer`](crate::TileLayer).
+/// Consumed by encoding via [`StagedLayer::encode_into`] or `StagedLayer::encode_explicit`
 /// (with explicit encoding mode enabled).
 #[derive(Debug, PartialEq, Clone)]
-pub struct StagedLayer01 {
+pub struct StagedLayer {
     pub name: String,
     pub extent: u32,
     pub id: Option<StagedId>,

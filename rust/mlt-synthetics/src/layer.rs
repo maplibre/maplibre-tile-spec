@@ -6,7 +6,7 @@ use std::path::Path;
 use mlt_core::GeometryValues;
 use mlt_core::encoder::{
     ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StagedId,
-    StagedLayer01, StagedProperty, StagedSharedDict, StrEncoding, StreamCtx, VertexBufferType,
+    StagedLayer, StagedProperty, StagedSharedDict, StrEncoding, StreamCtx, VertexBufferType,
 };
 use mlt_core::geo_types::{Coord, Geometry};
 use mlt_core::wire::{LengthType, OffsetType, StreamType};
@@ -433,7 +433,7 @@ impl Layer {
             override_presence: Box::new(move |_| force_presence),
         };
 
-        StagedLayer01 {
+        StagedLayer {
             name: "layer1".to_string(),
             extent: extent.unwrap_or(80),
             id: id_values.map(StagedId::from_optional),

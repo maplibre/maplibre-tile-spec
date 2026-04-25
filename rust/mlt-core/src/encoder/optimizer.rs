@@ -1,16 +1,16 @@
 use crate::MltResult;
-use crate::decoder::TileLayer01;
-use crate::encoder::model::StagedLayer01;
+use crate::decoder::TileLayer;
+use crate::encoder::model::StagedLayer;
 use crate::encoder::property::encode::write_properties;
 use crate::encoder::{
     Encoder, EncoderConfig, SortStrategy, group_string_properties, spatial_sort_likely_to_help,
 };
 
-impl StagedLayer01 {
+impl StagedLayer {
     /// Encode and serialize the layer directly into `enc`, without creating any
     /// intermediate representation.
     ///
-    /// This is the hot path inside `TileLayer01::encode`: each sort-strategy
+    /// This is the hot path inside `TileLayer::encode`: each sort-strategy
     /// trial calls this method on its own fresh `Encoder`, and only the
     /// `Encoder` with the smallest `total_len()` is kept.
     #[hotpath::measure]
@@ -38,8 +38,8 @@ impl StagedLayer01 {
 /// bounding-box pruning heuristic.
 const SORT_TRIAL_THRESHOLD: usize = 512;
 
-impl TileLayer01 {
-    /// Encode a [`TileLayer01`] to bytes, automatically optimizing all encoding choices.
+impl TileLayer {
+    /// Encode a [`TileLayer`] to bytes, automatically optimizing all encoding choices.
     ///
     /// This is the primary encoding entry point. It:
     /// 1. Determines which sort strategies to try based on `cfg`
@@ -78,25 +78,25 @@ impl TileLayer01 {
 
         let (last, init) = sort_by.split_last().expect("at least one strategy");
         if init.is_empty() {
-            StagedLayer01::from_tile(self, *last, &groups, cfg.tessellate)
+            StagedLayer::from_tile(self, *last, &groups, cfg.tessellate)
                 .encode_into(Encoder::new(cfg))?
         } else {
             let mut enc: Encoder = {
                 let first = init[0];
-                StagedLayer01::from_tile(self.clone(), first, &groups, cfg.tessellate)
+                StagedLayer::from_tile(self.clone(), first, &groups, cfg.tessellate)
                     .encode_into(Encoder::new(cfg))?
             };
             let mut best = enc.preserve_results();
             // Clone for all-but-last strategies
             for &sort in &init[1..] {
-                let layer = StagedLayer01::from_tile(self.clone(), sort, &groups, cfg.tessellate);
+                let layer = StagedLayer::from_tile(self.clone(), sort, &groups, cfg.tessellate);
                 enc = layer.encode_into(enc)?;
                 if enc.total_len() < best.total_len() {
                     best = enc.preserve_results();
                 }
             }
             // Last strategy: consume self, no clone
-            let layer = StagedLayer01::from_tile(self, *last, &groups, cfg.tessellate);
+            let layer = StagedLayer::from_tile(self, *last, &groups, cfg.tessellate);
             enc = layer.encode_into(enc)?;
             if enc.total_len() < best.total_len() {
                 best = enc.preserve_results();
