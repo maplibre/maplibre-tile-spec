@@ -89,14 +89,10 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             write_i32_stream(&v.values, &ctx, enc)?;
         }
         D::U32(v) => {
-            enc.write_column_header(CT::U32, &v.name)?;
-            let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
-            write_u32_stream(&v.values, &ctx, enc)?;
+            write_u32_scalar_col(CT::U32, Some(&v.name), v, enc)?;
         }
         D::OptU32(v) => {
-            begin_opt_col(CT::OptU32, &v.name, v.presence.iter().copied(), enc)?;
-            let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
-            write_u32_stream(&v.values, &ctx, enc)?;
+            write_opt_u32_scalar_col(CT::OptU32, Some(&v.name), v, enc)?;
         }
         D::I64(v) => {
             enc.write_column_header(CT::I64, &v.name)?;
@@ -109,14 +105,10 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             write_i64_stream(&v.values, &ctx, enc)?;
         }
         D::U64(v) => {
-            enc.write_column_header(CT::U64, &v.name)?;
-            let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
-            write_u64_stream(&v.values, &ctx, enc)?;
+            write_u64_scalar_col(CT::U64, Some(&v.name), v, enc)?;
         }
         D::OptU64(v) => {
-            begin_opt_col(CT::OptU64, &v.name, v.presence.iter().copied(), enc)?;
-            let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
-            write_u64_stream(&v.values, &ctx, enc)?;
+            write_opt_u64_scalar_col(CT::OptU64, Some(&v.name), v, enc)?;
         }
         D::Str(v) => {
             enc.write_column_header(ColumnType::Str, &v.name)?;
@@ -146,6 +138,75 @@ fn begin_opt_col(
 ) -> MltResult<()> {
     enc.write_column_header(ct, name)?;
     enc.write_presence_section(presence_bools)
+}
+
+pub(crate) fn write_u32_scalar_col(
+    ct: ColumnType,
+    name: Option<&str>,
+    v: &StagedScalar<u32>,
+    enc: &mut Encoder,
+) -> MltResult<()> {
+    begin_scalar_col(ct, name, enc)?;
+    let ctx = scalar_ctx(name);
+    write_u32_stream(&v.values, &ctx, enc)
+}
+
+pub(crate) fn write_opt_u32_scalar_col(
+    ct: ColumnType,
+    name: Option<&str>,
+    v: &StagedOptScalar<u32>,
+    enc: &mut Encoder,
+) -> MltResult<()> {
+    begin_opt_scalar_col(ct, name, v.presence.iter().copied(), enc)?;
+    let ctx = scalar_ctx(name);
+    write_u32_stream(&v.values, &ctx, enc)
+}
+
+pub(crate) fn write_u64_scalar_col(
+    ct: ColumnType,
+    name: Option<&str>,
+    v: &StagedScalar<u64>,
+    enc: &mut Encoder,
+) -> MltResult<()> {
+    begin_scalar_col(ct, name, enc)?;
+    let ctx = scalar_ctx(name);
+    write_u64_stream(&v.values, &ctx, enc)
+}
+
+pub(crate) fn write_opt_u64_scalar_col(
+    ct: ColumnType,
+    name: Option<&str>,
+    v: &StagedOptScalar<u64>,
+    enc: &mut Encoder,
+) -> MltResult<()> {
+    begin_opt_scalar_col(ct, name, v.presence.iter().copied(), enc)?;
+    let ctx = scalar_ctx(name);
+    write_u64_stream(&v.values, &ctx, enc)
+}
+
+fn begin_scalar_col(ct: ColumnType, name: Option<&str>, enc: &mut Encoder) -> MltResult<()> {
+    if let Some(name) = name {
+        enc.write_column_header(ct, name)
+    } else {
+        enc.write_column_type(ct)
+    }
+}
+
+fn begin_opt_scalar_col(
+    ct: ColumnType,
+    name: Option<&str>,
+    presence_bools: impl ExactSizeIterator<Item = bool>,
+    enc: &mut Encoder,
+) -> MltResult<()> {
+    begin_scalar_col(ct, name, enc)?;
+    enc.write_presence_section(presence_bools)
+}
+
+fn scalar_ctx(name: Option<&str>) -> StreamCtx<'_> {
+    match name {
+        Some(name) => StreamCtx::prop(StreamType::Data(DictionaryType::None), name),
+        None => StreamCtx::id(StreamType::Data(DictionaryType::None)),
+    }
 }
 
 impl StagedProperty {
@@ -227,42 +288,45 @@ impl StagedProperty {
         Self::OptStr(StagedStrings::from_optional(name, values))
     }
 
-    // ── Optional constructors (Vec<Option<T>>) ────────────────────────────────
+    // ── Optional constructors ─────────────────────────────────────────────────
 
     #[must_use]
-    pub fn opt_bool(name: impl Into<String>, values: Vec<Option<bool>>) -> Self {
+    pub fn opt_bool(
+        name: impl Into<String>,
+        values: impl IntoIterator<Item = Option<bool>>,
+    ) -> Self {
         Self::OptBool(StagedOptScalar::from_optional(name, values))
     }
     #[must_use]
-    pub fn opt_i8(name: impl Into<String>, values: Vec<Option<i8>>) -> Self {
+    pub fn opt_i8(name: impl Into<String>, values: impl IntoIterator<Item = Option<i8>>) -> Self {
         Self::OptI8(StagedOptScalar::from_optional(name, values))
     }
     #[must_use]
-    pub fn opt_u8(name: impl Into<String>, values: Vec<Option<u8>>) -> Self {
+    pub fn opt_u8(name: impl Into<String>, values: impl IntoIterator<Item = Option<u8>>) -> Self {
         Self::OptU8(StagedOptScalar::from_optional(name, values))
     }
     #[must_use]
-    pub fn opt_i32(name: impl Into<String>, values: Vec<Option<i32>>) -> Self {
+    pub fn opt_i32(name: impl Into<String>, values: impl IntoIterator<Item = Option<i32>>) -> Self {
         Self::OptI32(StagedOptScalar::from_optional(name, values))
     }
     #[must_use]
-    pub fn opt_u32(name: impl Into<String>, values: Vec<Option<u32>>) -> Self {
+    pub fn opt_u32(name: impl Into<String>, values: impl IntoIterator<Item = Option<u32>>) -> Self {
         Self::OptU32(StagedOptScalar::from_optional(name, values))
     }
     #[must_use]
-    pub fn opt_i64(name: impl Into<String>, values: Vec<Option<i64>>) -> Self {
+    pub fn opt_i64(name: impl Into<String>, values: impl IntoIterator<Item = Option<i64>>) -> Self {
         Self::OptI64(StagedOptScalar::from_optional(name, values))
     }
     #[must_use]
-    pub fn opt_u64(name: impl Into<String>, values: Vec<Option<u64>>) -> Self {
+    pub fn opt_u64(name: impl Into<String>, values: impl IntoIterator<Item = Option<u64>>) -> Self {
         Self::OptU64(StagedOptScalar::from_optional(name, values))
     }
     #[must_use]
-    pub fn opt_f32(name: impl Into<String>, values: Vec<Option<f32>>) -> Self {
+    pub fn opt_f32(name: impl Into<String>, values: impl IntoIterator<Item = Option<f32>>) -> Self {
         Self::OptF32(StagedOptScalar::from_optional(name, values))
     }
     #[must_use]
-    pub fn opt_f64(name: impl Into<String>, values: Vec<Option<f64>>) -> Self {
+    pub fn opt_f64(name: impl Into<String>, values: impl IntoIterator<Item = Option<f64>>) -> Self {
         Self::OptF64(StagedOptScalar::from_optional(name, values))
     }
 
@@ -297,13 +361,30 @@ impl<T: Copy + PartialEq> StagedOptScalar<T> {
     /// Build from optional values: dense non-null entries in `values`,
     /// per-feature flags in `presence`.
     #[must_use]
-    pub fn from_optional(name: impl Into<String>, values: Vec<Option<T>>) -> Self {
-        let presence: Vec<bool> = values.iter().map(Option::is_some).collect();
-        let values: Vec<T> = values.into_iter().flatten().collect();
+    pub fn from_optional(
+        name: impl Into<String>,
+        values: impl IntoIterator<Item = Option<T>>,
+    ) -> Self {
+        let values = values.into_iter();
+        let (lower, upper) = values.size_hint();
+        let capacity = upper.unwrap_or(lower);
+        let mut presence = Vec::with_capacity(capacity);
+        let mut dense = Vec::with_capacity(capacity);
+        for value in values {
+            presence.push(value.is_some());
+            if let Some(value) = value {
+                dense.push(value);
+            }
+        }
+        Self::from_parts(name, presence, dense)
+    }
+
+    #[must_use]
+    pub(crate) fn from_parts(name: impl Into<String>, presence: Vec<bool>, values: Vec<T>) -> Self {
         Self {
             name: name.into(),
-            values,
             presence,
+            values,
         }
     }
 }

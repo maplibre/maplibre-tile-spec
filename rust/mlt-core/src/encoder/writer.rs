@@ -12,7 +12,7 @@ use crate::decoder::{
     StreamType,
 };
 use crate::encoder::model::{ExplicitEncoder, StrEncoding, StreamCtx};
-use crate::encoder::{EncoderConfig, IdWidth, IntEncoder, VertexBufferType};
+use crate::encoder::{EncoderConfig, IntEncoder, VertexBufferType};
 use crate::utils::BinarySerializer as _;
 use crate::{MltError, MltResult};
 
@@ -297,25 +297,6 @@ impl Encoder {
     #[inline]
     pub(crate) fn override_str_enc(&self, name: &str) -> Option<StrEncoding> {
         self.explicit.as_ref().map(|e| (e.get_str_encoding)(name))
-    }
-
-    /// Whether the explicit encoder forces a presence stream for an all-present column
-    /// (or similar), per [`ExplicitEncoder::override_presence`].
-    #[inline]
-    pub(crate) fn override_presence(&self, ctx: &StreamCtx<'_>) -> bool {
-        self.explicit
-            .as_ref()
-            .is_some_and(|e| (e.override_presence)(ctx))
-    }
-
-    /// Applies `ExplicitEncoder::override_id_width` when an explicit encoder is active;
-    /// otherwise returns `auto` unchanged.
-    #[inline]
-    #[allow(clippy::unused_self)]
-    pub(crate) fn override_id_width(&self, auto: IdWidth) -> IdWidth {
-        self.explicit
-            .as_ref()
-            .map_or(auto, |e| (e.override_id_width)(auto))
     }
 
     /// Pinned vertex layout when an explicit encoder is active.
