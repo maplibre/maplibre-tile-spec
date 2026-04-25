@@ -10,7 +10,6 @@ impl ExplicitEncoder {
             force_stream: Box::new(|_| false),
             get_int_encoder: Box::new(move |_| enc),
             get_str_encoding: Box::new(|_| crate::encoder::StrEncoding::Plain),
-            override_presence: Box::new(|_| false),
         }
     }
 

@@ -1214,8 +1214,7 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
         )
         .write(w, "props_shared_dict_presence_variants_np");
 
-    // canonical: all columns are optional (presence stream always written),
-    //            matching the force_presence behaviour from the old write_np helper.
+    // canonical: all columns are optional (presence stream always written).
     geo_varint_with_rle()
         .geos([P0, P0, P0])
         .add_shared_dict(

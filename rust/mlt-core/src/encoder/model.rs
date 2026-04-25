@@ -164,8 +164,4 @@ pub struct ExplicitEncoder {
     /// Return the string encoding strategy for a string property column.
     #[dbg(skip)]
     pub get_str_encoding: Box<dyn Fn(&str) -> StrEncoding>,
-    /// Override whether a presence stream is written for an all-present column,
-    /// or if the column is written at all if all values are null.
-    #[dbg(skip)]
-    pub override_presence: Box<dyn for<'a> Fn(&'a StreamCtx<'a>) -> bool>,
 }

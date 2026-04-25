@@ -119,8 +119,6 @@ pub struct Layer {
     geo_stream_overrides: HashMap<&'static str, IntEncoder>,
     vertex_buffer_type: VertexBufferType,
     tessellate: bool,
-    /// When `true`, emit a presence stream even for all-present columns.
-    force_presence: bool,
     /// Geometry stream names that must be written even when their data is empty.
     /// See [`ExplicitEncoder::force_stream`] for details.
     force_empty_streams: HashSet<&'static str>,
@@ -137,7 +135,6 @@ impl Layer {
             geo_stream_overrides: HashMap::new(),
             vertex_buffer_type: VertexBufferType::Vec2,
             tessellate: false,
-            force_presence: false,
             force_empty_streams: HashSet::new(),
             geometry_items: vec![],
             props: vec![],
@@ -365,7 +362,6 @@ impl Layer {
             geo_stream_overrides,
             vertex_buffer_type,
             tessellate,
-            force_presence,
             force_empty_streams,
             geometry_items,
             props,
@@ -423,7 +419,6 @@ impl Layer {
                         .map_or(StrEncoding::Plain, PropConfig::str_encoding)
                 })
             },
-            override_presence: Box::new(move |_| force_presence),
         };
 
         StagedLayer {
