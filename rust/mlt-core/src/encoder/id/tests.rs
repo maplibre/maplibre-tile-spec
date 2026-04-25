@@ -6,7 +6,7 @@ use crate::decoder::{GeometryValues, RawId, RawIdValue};
 use crate::encoder::IdWidth::{Id32, Id64, OptId32, OptId64};
 use crate::encoder::stream::LogicalEncoder;
 use crate::encoder::{
-    Encoder, EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StagedId, StagedLayer01,
+    Encoder, EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StagedId, StagedLayer,
 };
 use crate::test_helpers::{dec, into_layer01, parser};
 use crate::{Layer, LazyParsed, MltError, MltResult};
@@ -21,7 +21,7 @@ fn id_roundtrip_via_layer(decoded: &StagedId, id_width: IdWidth, int_enc: IntEnc
     for _ in 0..n {
         geometry.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
     }
-    let staged = StagedLayer01 {
+    let staged = StagedLayer {
         name: "id_roundtrip".to_string(),
         extent: 4096,
         id: Some(decoded.clone()),
@@ -54,7 +54,7 @@ fn id_roundtrip_auto(decoded: &StagedId) -> StagedId {
     for _ in 0..n {
         geometry.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
     }
-    let staged = StagedLayer01 {
+    let staged = StagedLayer {
         name: "id_roundtrip".to_string(),
         extent: 4096,
         id: Some(decoded.clone()),
@@ -338,7 +338,7 @@ fn roundtrip_id_values(
     for _ in 0..n {
         geometry.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
     }
-    let staged = StagedLayer01 {
+    let staged = StagedLayer {
         name: "id_roundtrip".to_string(),
         extent: 4096,
         id: Some(decoded.clone()),
@@ -373,14 +373,14 @@ fn with_encoded_raw_id<R>(
     int_enc: IntEncoder,
     f: impl FnOnce(&RawId<'_>) -> R,
 ) -> R {
-    // Encode a full StagedLayer01, parse the layer back out, and inspect the raw ID field.
+    // Encode a full StagedLayer, parse the layer back out, and inspect the raw ID field.
     // This exercises the ID encoding as it appears in a real layer payload.
     let n = ids.feature_count();
     let mut geometry = GeometryValues::default();
     for _ in 0..n {
         geometry.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
     }
-    let staged = StagedLayer01 {
+    let staged = StagedLayer {
         name: "id_test".to_string(),
         extent: 4096,
         id: Some(ids.clone()),

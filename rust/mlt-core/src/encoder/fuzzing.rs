@@ -1,7 +1,7 @@
 use arbitrary::Error::IncorrectFormat;
 use arbitrary::{Arbitrary, Result, Unstructured};
 
-use crate::encoder::model::StagedLayer01;
+use crate::encoder::model::StagedLayer;
 use crate::encoder::{StagedId, StagedProperty, StagedSharedDict, StagedStrings};
 
 impl Arbitrary<'_> for StagedId {
@@ -13,7 +13,7 @@ impl Arbitrary<'_> for StagedId {
     }
 }
 
-impl Arbitrary<'_> for StagedLayer01 {
+impl Arbitrary<'_> for StagedLayer {
     fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
         // Bound name length to prevent OOM from unbounded string generation
         let name_len = u.int_in_range(0..=32u8)? as usize;

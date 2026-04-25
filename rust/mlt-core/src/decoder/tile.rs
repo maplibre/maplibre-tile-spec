@@ -1,6 +1,6 @@
 //! Row-oriented "source form" for the optimizer.
 //!
-//! [`TileLayer01`] holds one [`TileFeature`] per map feature, each owning
+//! [`TileLayer`] holds one [`TileFeature`] per map feature, each owning
 //! its geometry as a [`geo_types::Geometry<i32>`] and its property values as a
 //! plain `Vec<PropValue>`.  This is the working form used throughout the
 //! optimizer and sorting pipeline: it is cheap to clone, trivially sortable,
@@ -8,7 +8,7 @@
 
 use crate::decoder::{
     GeometryValues, Layer01, ParsedLayer01, ParsedProperty, PropValue, PropValueRef, TileFeature,
-    TileLayer01,
+    TileLayer,
 };
 use crate::errors::AsMltError as _;
 use crate::{Decoder, LendingIterator, MltResult};
@@ -25,9 +25,9 @@ impl ParsedLayer01<'_> {
         &self.geometry
     }
 
-    /// Decode and convert into a row-oriented [`TileLayer01`], charging every
+    /// Decode and convert into a row-oriented [`TileLayer`], charging every
     /// heap allocation against `dec`.
-    pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer01> {
+    pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer> {
         // Extract owned/copied fields before borrowing self for the feature iterator.
         let name = self.name.to_string();
         let extent = self.extent;
@@ -54,7 +54,7 @@ impl ParsedLayer01<'_> {
             });
         }
 
-        Ok(TileLayer01 {
+        Ok(TileLayer {
             name,
             extent,
             property_names: names,
@@ -69,8 +69,8 @@ impl ParsedLayer01<'_> {
 }
 
 impl Layer01<'_> {
-    /// Decode and convert into a row-oriented [`TileLayer01`]
-    pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer01> {
+    /// Decode and convert into a row-oriented [`TileLayer`]
+    pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer> {
         self.decode_all(dec)?.into_tile(dec)
     }
 }

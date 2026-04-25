@@ -164,7 +164,7 @@ impl Encoder {
     }
 
     /// Like [`Self::new`] but with the explicit encoder set for deterministic encoding
-    /// (tests, synthetics). Use with `StagedLayer01::encode_explicit`.
+    /// (tests, synthetics). Use with `StagedLayer::encode_explicit`.
     #[inline]
     #[must_use]
     pub fn with_explicit(cfg: EncoderConfig, explicit: ExplicitEncoder) -> Self {
@@ -304,29 +304,28 @@ impl Encoder {
         out
     }
 
-    /// Assemble the complete Tag-01 layer record:
-    /// `[varint(body_len + 1)][tag = 1][hdr][meta][data]`.
-    ///
-    /// Consumes the encoder.  Call this on the winning sort-strategy trial.
-    pub fn into_layer_bytes(mut self) -> MltResult<Vec<u8>> {
+    /// Assemble the complete Tag-01 layer record.
+    pub fn into_layer_bytes(self) -> MltResult<Vec<u8>> {
+        self.into_layer_bytes_with_tag(1)
+    }
+
+    /// Assemble a complete layer record for the given `tag`:
+    /// `[varint(body_len + 1)][tag][hdr][meta][data]`.
+    fn into_layer_bytes_with_tag(mut self, tag: u8) -> MltResult<Vec<u8>> {
         debug_assert!(
             self.alt_stack.is_empty(),
-            "into_layer_bytes called with an open alternatives session"
+            "into_layer_bytes_with_tag called with an open alternatives session"
         );
         let body_len = self.hdr.len() + self.meta.len() + self.data.len();
         let size = u32::try_from(body_len + 1)?; // +1 for the tag byte
         let mut out = Vec::with_capacity(5 + 1 + body_len);
         out.write_varint(size).map_err(MltError::from)?;
-        out.push(1_u8); // tag = 1
+        out.push(tag);
         out.append(&mut self.hdr);
         out.append(&mut self.meta);
         out.append(&mut self.data);
         Ok(out)
     }
-
-    // -----------------------------------------------------------------------
-    // Stream-level alternatives
-    // -----------------------------------------------------------------------
 
     /// Begin a new encoding competition.
     ///

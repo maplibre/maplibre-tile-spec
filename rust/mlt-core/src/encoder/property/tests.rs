@@ -1,14 +1,14 @@
 use geo_types::Point;
 use proptest::prelude::*;
 
-use crate::encoder::model::{ExplicitEncoder, StagedLayer01, StrEncoding};
+use crate::encoder::model::{ExplicitEncoder, StagedLayer, StrEncoding};
 use crate::encoder::property::encode::write_properties;
 use crate::encoder::{
     Encoder, EncoderConfig, IntEncoder, LogicalEncoder, PhysicalEncoder, SortStrategy,
     StagedProperty, StagedSharedDict, group_string_properties,
 };
 use crate::test_helpers::{dec, parser};
-use crate::{DictRange, GeometryValues, Layer, PropValue, TileFeature, TileLayer01};
+use crate::{DictRange, GeometryValues, Layer, PropValue, TileFeature, TileLayer};
 // proptest_derive::Arbitrary is only derived for these types inside the crate
 // under #[cfg(test)], so we write the strategies by hand here.
 
@@ -128,7 +128,7 @@ fn n_point_geometry(n: usize) -> GeometryValues {
 /// Encode `props` as a layer with matching point geometry and return the raw bytes.
 fn encode_to_bytes(props: Vec<StagedProperty>) -> Vec<u8> {
     let n = props.iter().map(staged_len).max().unwrap_or(0);
-    let layer = StagedLayer01 {
+    let layer = StagedLayer {
         name: "test".into(),
         extent: 4096,
         id: None,
@@ -146,7 +146,7 @@ fn encode_to_bytes(props: Vec<StagedProperty>) -> Vec<u8> {
 /// Encode `props` with explicit encoder config and return the raw bytes.
 fn encode_to_bytes_explicit(props: Vec<StagedProperty>, cfg: ExplicitEncoder) -> Vec<u8> {
     let n = props.iter().map(staged_len).max().unwrap_or(0);
-    let layer = StagedLayer01 {
+    let layer = StagedLayer {
         name: "test".into(),
         extent: 4096,
         id: None,
@@ -158,8 +158,8 @@ fn encode_to_bytes_explicit(props: Vec<StagedProperty>, cfg: ExplicitEncoder) ->
     enc.into_layer_bytes().expect("into_layer_bytes failed")
 }
 
-/// Encode and immediately decode `props` into a [`TileLayer01`] using auto varint encoding.
-fn encode_and_tile(props: Vec<StagedProperty>) -> TileLayer01 {
+/// Encode and immediately decode `props` into a [`TileLayer`] using auto varint encoding.
+fn encode_and_tile(props: Vec<StagedProperty>) -> TileLayer {
     let bytes = encode_to_bytes(props);
     let (_, layer) = Layer::from_bytes(&bytes, &mut parser()).expect("layer parse failed");
     let Layer::Tag01(layer01) = layer else {
@@ -171,7 +171,7 @@ fn encode_and_tile(props: Vec<StagedProperty>) -> TileLayer01 {
 }
 
 /// Encode and decode with explicit encoder config.
-fn encode_and_tile_explicit(props: Vec<StagedProperty>, cfg: ExplicitEncoder) -> TileLayer01 {
+fn encode_and_tile_explicit(props: Vec<StagedProperty>, cfg: ExplicitEncoder) -> TileLayer {
     let bytes = encode_to_bytes_explicit(props, cfg);
     let (_, layer) = Layer::from_bytes(&bytes, &mut parser()).expect("layer parse failed");
     let Layer::Tag01(layer01) = layer else {
@@ -632,8 +632,8 @@ fn str_prop(name: &str, values: &[&str]) -> StagedProperty {
     StagedProperty::str(name, values.iter().copied())
 }
 
-/// Build a [`TileLayer01`] from heterogeneous column data (one `Vec<PropValue>` per column).
-fn tile_from_cols(cols: &[(&str, Vec<PropValue>)]) -> TileLayer01 {
+/// Build a [`TileLayer`] from heterogeneous column data (one `Vec<PropValue>` per column).
+fn tile_from_cols(cols: &[(&str, Vec<PropValue>)]) -> TileLayer {
     let n = cols.first().map_or(0, |(_, v)| v.len());
     let property_names = cols.iter().map(|(name, _)| (*name).to_string()).collect();
     let geom = geo_types::Geometry::<i32>::Point(Point::new(0, 0));
@@ -644,7 +644,7 @@ fn tile_from_cols(cols: &[(&str, Vec<PropValue>)]) -> TileLayer01 {
             properties: cols.iter().map(|(_, vals)| vals[i].clone()).collect(),
         })
         .collect();
-    TileLayer01 {
+    TileLayer {
         name: "test".to_string(),
         extent: 4096,
         property_names,
@@ -660,10 +660,10 @@ fn str_vals(values: &[&str]) -> Vec<PropValue> {
         .collect()
 }
 
-/// Stage a [`TileLayer01`] with `MinHash` grouping and return its properties.
-fn stage_props(tile: TileLayer01) -> Vec<StagedProperty> {
+/// Stage a [`TileLayer`] with `MinHash` grouping and return its properties.
+fn stage_props(tile: TileLayer) -> Vec<StagedProperty> {
     let groups = group_string_properties(&tile);
-    StagedLayer01::from_tile(tile, SortStrategy::Unsorted, &groups, false).properties
+    StagedLayer::from_tile(tile, SortStrategy::Unsorted, &groups, false).properties
 }
 
 #[test]

@@ -164,7 +164,7 @@ where
 /// a single `sort_by_cached_key` call.  The `property_names` vec is parallel
 /// to every `TileFeature::properties` slice in this layer.
 #[derive(Debug, Clone, PartialEq)]
-pub struct TileLayer01 {
+pub struct TileLayer {
     pub name: String,
     pub extent: u32,
     /// Column names, parallel to `TileFeature::properties`.
@@ -179,7 +179,7 @@ pub struct TileFeature {
     /// Geometry as a [`geo_types`] form
     pub geometry: geo_types::Geometry<i32>,
     /// One value per property column, in the same order as
-    /// [`TileLayer01::property_names`].
+    /// [`TileLayer::property_names`].
     pub properties: Vec<PropValue>,
 }
 
@@ -188,7 +188,7 @@ pub struct TileFeature {
 /// Mirrors the scalar variants of `ParsedProperty` at the per-feature
 /// level. `SharedDict` items are flattened: each sub-field becomes its own
 /// `PropValue::Str` entry in `TileFeature::properties`, with the
-/// corresponding entry in `TileLayer01::property_names` set to
+/// corresponding entry in `TileLayer::property_names` set to
 /// `"prefix:suffix"`.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PropValue {

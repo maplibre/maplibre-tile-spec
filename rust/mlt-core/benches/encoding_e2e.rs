@@ -9,7 +9,7 @@ use strum::IntoEnumIterator as _;
 #[path = "bench_utils.rs"]
 mod bench_utils;
 use bench_utils::{BENCHMARKED_ZOOM_LEVELS, load_mlt_tiles};
-use mlt_core::encoder::{Encoder, ExplicitEncoder, IntEncoder, PhysicalEncoder, StagedLayer01};
+use mlt_core::encoder::{Encoder, ExplicitEncoder, IntEncoder, PhysicalEncoder, StagedLayer};
 
 fn limit<T>(values: impl Iterator<Item = T>) -> impl Iterator<Item = T> {
     if cfg!(debug_assertions) {
@@ -19,11 +19,11 @@ fn limit<T>(values: impl Iterator<Item = T>) -> impl Iterator<Item = T> {
     }
 }
 
-/// Build `StagedLayer01` values from decoded tiles for encode benchmarks.
+/// Build `StagedLayer` values from decoded tiles for encode benchmarks.
 ///
-/// Goes through `Layer01 → TileLayer01 → StagedLayer01`, which is the correct
+/// Goes through `Layer01 → TileLayer → StagedLayer`, which is the correct
 /// encode-pipeline entry point per CONTRIBUTING.md.
-fn decode_to_owned(tiles: &[(String, Vec<u8>)], tessellate: bool) -> Vec<StagedLayer01> {
+fn decode_to_owned(tiles: &[(String, Vec<u8>)], tessellate: bool) -> Vec<StagedLayer> {
     tiles
         .iter()
         .flat_map(|(_, data)| {
@@ -36,7 +36,7 @@ fn decode_to_owned(tiles: &[(String, Vec<u8>)], tessellate: bool) -> Vec<StagedL
                         return None;
                     };
                     let tile = layer01.into_tile(&mut d).ok()?;
-                    Some(StagedLayer01::from_tile(
+                    Some(StagedLayer::from_tile(
                         tile,
                         SortStrategy::Unsorted,
                         &[],

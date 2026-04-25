@@ -1,30 +1,30 @@
-use mlt_core::encoder::{Encoder, SortStrategy, StagedLayer01};
-use mlt_core::{Decoder, Layer, Parser, TileLayer01};
+use mlt_core::encoder::{Encoder, SortStrategy, StagedLayer};
+use mlt_core::{Decoder, Layer, Parser, TileLayer};
 
 /// Fuzz input that starts from a staged layer and tests encode → decode roundtrip.
 ///
-/// Generates valid [`StagedLayer01`] values directly and verifies that the
+/// Generates valid [`StagedLayer`] values directly and verifies that the
 /// canonical roundtrip (`Tile -> Staged -> bytes -> Tile`) is idempotent.
 pub struct DecodedLayerInput {
-    pub layer: StagedLayer01,
+    pub layer: StagedLayer,
 }
 
 impl arbitrary::Arbitrary<'_> for DecodedLayerInput {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
-        let layer01: StagedLayer01 = u.arbitrary()?;
-        Ok(Self { layer: layer01 })
+        let layer: StagedLayer = u.arbitrary()?;
+        Ok(Self { layer })
     }
 }
 
 impl DecodedLayerInput {
     pub fn fuzz_roundtrip(self) {
-        // Normalize: encode the fuzzed StagedLayer01 and decode to TileLayer01.
+        // Normalize: encode the fuzzed StagedLayer and decode to TileLayer.
         // This drops all-null columns, etc. — expected encoder behavior.
         let tile1 = encode_decode(self.layer);
 
         // Canonical roundtrip per CONTRIBUTING.md:
         // Tile → Staged → bytes → Tile
-        let tile2 = encode_decode(StagedLayer01::from_tile(
+        let tile2 = encode_decode(StagedLayer::from_tile(
             tile1,
             SortStrategy::Unsorted,
             &[],
@@ -32,7 +32,7 @@ impl DecodedLayerInput {
         ));
 
         // Same roundtrip again — must be a fixpoint.
-        let tile3 = encode_decode(StagedLayer01::from_tile(
+        let tile3 = encode_decode(StagedLayer::from_tile(
             tile2.clone(),
             SortStrategy::Unsorted,
             &[],
@@ -43,9 +43,9 @@ impl DecodedLayerInput {
     }
 }
 
-/// Encode a [`StagedLayer01`] to bytes, then parse and decode back to a
-/// row-oriented [`TileLayer01`].
-fn encode_decode(staged: StagedLayer01) -> TileLayer01 {
+/// Encode a [`StagedLayer`] to bytes, then parse and decode back to a
+/// row-oriented [`TileLayer`].
+fn encode_decode(staged: StagedLayer) -> TileLayer {
     let buffer = staged
         .encode_into(Encoder::default())
         .expect("encode should not fail")

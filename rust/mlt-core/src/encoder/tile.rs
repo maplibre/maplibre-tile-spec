@@ -1,28 +1,28 @@
 //! Row-oriented "source form" for the optimizer.
 //!
-//! [`TileLayer01`] holds one [`TileFeature`] per map feature, each owning
+//! [`TileLayer`] holds one [`TileFeature`] per map feature, each owning
 //! its geometry as a [`geo_types::Geometry<i32>`] and its property values as a
 //! plain `Vec<PropValue>`.  This is the working form used throughout the
 //! optimizer and sorting pipeline: it is cheap to clone, trivially sortable,
 //! and free from any encoded/decoded duality.
 //!
-//! Conversion from [`TileLayer01`] to `StagedLayer01` is done via
-//! `StagedLayer01::from_tile` (pre-computed `StringGroup` pairings produced by
+//! Conversion from [`TileLayer`] to [`StagedLayer`] is done via
+//! [`StagedLayer::from_tile`] (pre-computed `StringGroup` pairings produced by
 //! `group_string_properties`) or the blanket [`From`] impl (no grouping).
 
 use std::collections::HashMap;
 
-use crate::decoder::{GeometryValues, PropValue, TileFeature, TileLayer01};
-use crate::encoder::model::StagedLayer01;
+use crate::decoder::{GeometryValues, PropValue, TileFeature, TileLayer};
+use crate::encoder::model::StagedLayer;
 use crate::encoder::{SortStrategy, StagedId, StagedProperty, StagedSharedDict, StringGroup};
 
-impl StagedLayer01 {
-    /// Construct a [`StagedLayer01`] from a row-oriented [`TileLayer01`], applying
+impl StagedLayer {
+    /// Construct a [`StagedLayer`] from a row-oriented [`TileLayer`], applying
     /// pre-computed `StringGroup` pairings to merge similar string columns into
     /// shared dictionaries.
     ///
     /// `groups` should be the output of `group_string_properties` called on the
-    /// same [`TileLayer01`] source.  Because unique-value membership is
+    /// same [`TileLayer`] source.  Because unique-value membership is
     /// row-order-independent, the same groups can be reused across sort trials.
     ///
     /// When `tessellate` is `true`, polygon and multi-polygon geometries have
@@ -30,7 +30,7 @@ impl StagedLayer01 {
     #[must_use]
     #[hotpath::measure]
     pub fn from_tile(
-        mut source: TileLayer01,
+        mut source: TileLayer,
         sort: SortStrategy,
         groups: &[StringGroup],
         tessellate: bool,
@@ -168,7 +168,7 @@ mod tests {
     use crate::encoder::Encoder;
     use crate::test_helpers::{dec, parser};
 
-    fn layer_tile(staged: StagedLayer01) -> TileLayer01 {
+    fn layer_tile(staged: StagedLayer) -> TileLayer {
         let buf = staged
             .encode_into(Encoder::default())
             .unwrap()
@@ -192,7 +192,7 @@ mod tests {
     /// feature is null.
     #[test]
     fn null_first_feature_preserves_later_typed_value() {
-        let tile = layer_tile(StagedLayer01 {
+        let tile = layer_tile(StagedLayer {
             name: "t".into(),
             extent: 4096,
             id: None,
@@ -223,7 +223,7 @@ mod tests {
             StagedProperty::opt_f64("f64", vec![None, Some(8.0)]),
             StagedProperty::opt_str("s", vec![None, Some("ok")]),
         ];
-        let tile = layer_tile(StagedLayer01 {
+        let tile = layer_tile(StagedLayer {
             name: "t".into(),
             extent: 4096,
             id: None,
