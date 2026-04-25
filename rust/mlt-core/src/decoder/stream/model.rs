@@ -1,8 +1,7 @@
-use std::fmt;
-
+use derive_debug::Dbg;
 use num_enum::TryFromPrimitive;
 
-use crate::utils::formatter::ByteArrayDbg;
+use crate::utils::formatter::{bytes_dbg, compact_dbg};
 
 /// Logical encoding technique used for a column, as stored in the tile
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
@@ -37,7 +36,7 @@ pub struct Morton {
 }
 
 /// How should the stream be interpreted at the logical level (second pass of decoding)
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum LogicalEncoding {
     None,
     Delta,
@@ -121,31 +120,26 @@ pub enum PhysicalEncoding {
 
 // RawStream types
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct IntEncoding {
     pub logical: LogicalEncoding,
     pub physical: PhysicalEncoding,
 }
 
 /// Metadata about an encoded stream
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Dbg, PartialEq)]
 pub struct StreamMeta {
+    #[dbg(formatter = "compact_dbg")]
     pub stream_type: StreamType,
+    #[dbg(formatter = "compact_dbg")]
     pub encoding: IntEncoding,
     pub(crate) num_values: u32,
 }
 
 /// Representation of an encoded stream
-#[derive(PartialEq, Clone)]
+#[derive(Clone, Dbg, PartialEq)]
 pub struct RawStream<'a> {
     pub meta: StreamMeta,
+    #[dbg(formatter = "bytes_dbg")]
     pub(crate) data: &'a [u8],
-}
-impl fmt::Debug for RawStream<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RawStream")
-            .field("meta", &self.meta)
-            .field("data", &ByteArrayDbg(self.data))
-            .finish()
-    }
 }

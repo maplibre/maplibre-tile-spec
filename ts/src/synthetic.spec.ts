@@ -10,18 +10,6 @@ import type FeatureTable from "./vector/featureTable";
 const EARCUT_MAX_RINGS = 500;
 
 const UNIMPLEMENTED_SYNTHETICS: string[] = [
-    "0x01-rust/props_offset_str_fsst_np",
-    "0x01-rust/props_shared_dict_2_same_prefix_np",
-    "0x01-rust/props_shared_dict_fsst_np",
-    "0x01-rust/props_shared_dict_no_child_name_fsst_np",
-    "0x01-rust/props_shared_dict_no_child_name_np",
-    "0x01-rust/props_shared_dict_no_struct_name_fsst_np",
-    "0x01-rust/props_shared_dict_no_struct_name_np",
-    "0x01-rust/props_shared_dict_np",
-    "0x01-rust/props_shared_dict_one_child_fsst_np",
-    "0x01-rust/props_shared_dict_one_child_np",
-    "0x01-rust/props_shared_dict_presence_variants_np",
-    "0x01-rust/props_str_fsst_np",
     "0x01/multipoint_morton",
     "0x01/poly_morton_hole_morton",
     "0x01/poly_multi_morton_hole_morton",

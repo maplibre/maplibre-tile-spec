@@ -12,9 +12,9 @@
 
 use std::collections::HashMap;
 
-use crate::decoder::{GeometryValues, IdValues, PropValue, TileFeature, TileLayer01};
+use crate::decoder::{GeometryValues, PropValue, TileFeature, TileLayer01};
 use crate::encoder::model::StagedLayer01;
-use crate::encoder::{SortStrategy, StagedProperty, StagedSharedDict, StringGroup};
+use crate::encoder::{SortStrategy, StagedId, StagedProperty, StagedSharedDict, StringGroup};
 
 impl StagedLayer01 {
     /// Construct a [`StagedLayer01`] from a row-oriented [`TileLayer01`], applying
@@ -47,7 +47,9 @@ impl StagedLayer01 {
         }
 
         let id = if source.features.iter().any(|f| f.id.is_some()) {
-            Some(IdValues(source.features.iter().map(|f| f.id).collect()))
+            Some(StagedId::from_optional(
+                source.features.iter().map(|f| f.id).collect(),
+            ))
         } else {
             None
         };

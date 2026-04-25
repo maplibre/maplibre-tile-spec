@@ -1,4 +1,8 @@
+use std::borrow::Cow;
 use std::mem;
+
+use bitvec::prelude::{BitSlice, BitVec, Lsb0};
+use bitvec::view::BitView as _;
 
 use crate::codecs::bytes::{decode_bytes_to_bools, decode_bytes_to_u32s, decode_bytes_to_u64s};
 use crate::codecs::fastpfor::decode_fastpfor;
@@ -9,8 +13,34 @@ use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
 use crate::utils::AsUsize as _;
 use crate::{Decoder, MltError, MltResult};
 
-impl RawStream<'_> {
-    /// Decode a boolean stream: byte-RLE → packed bitmap → `Vec<bool>`, charging `dec`.
+impl<'a> RawStream<'a> {
+    /// Decode a presence/nullability stream into a packed bitvector.
+    ///
+    /// Borrows directly from tile bytes (zero-copy) when both logical and physical
+    /// encodings are `None`; otherwise decompresses byte-RLE into an owned `BitVec`.
+    /// The result is always truncated to exactly `num_values` bits.
+    pub(crate) fn decode_bitvec(self, dec: &mut Decoder) -> MltResult<Cow<'a, BitSlice<u8, Lsb0>>> {
+        let num_values = self.meta.num_values.as_usize();
+        if self.meta.encoding.physical == PhysicalEncoding::VarInt {
+            return Err(MltError::NotImplemented("varint presence decoding"));
+        }
+        if self.meta.encoding.logical == LogicalEncoding::None
+            && self.meta.encoding.physical == PhysicalEncoding::None
+        {
+            // Zero-copy: raw tile bytes are the packed bitvector.
+            let num_bytes = num_values.div_ceil(8);
+            fail_if_invalid_stream_size(self.data.len(), num_bytes)?;
+            Ok(Cow::Borrowed(&self.data.view_bits::<Lsb0>()[..num_values]))
+        } else {
+            let num_bytes = num_values.div_ceil(8);
+            let bytes = decode_byte_rle(self.data, num_bytes, dec)?;
+            let mut bvec = BitVec::<u8, Lsb0>::from_vec(bytes);
+            bvec.truncate(num_values);
+            Ok(Cow::Owned(bvec))
+        }
+    }
+
+    /// Decode a boolean data stream: byte-RLE → packed bitmap → `Vec<bool>`, charging `dec`.
     pub fn decode_bools(self, dec: &mut Decoder) -> MltResult<Vec<bool>> {
         if self.meta.encoding.physical == PhysicalEncoding::VarInt {
             return Err(MltError::NotImplemented("varint bool decoding"));

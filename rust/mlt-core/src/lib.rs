@@ -27,8 +27,9 @@ pub mod v2;
 
 pub use convert::{geojson, mvt};
 pub use decoder::{
-    ColumnRef, Decoder, FeatureRef, GeometryType, GeometryValues, Layer, Layer01, ParsedLayer,
-    ParsedLayer01, Parser, PropName, PropValue, PropValueRef, TileFeature, TileLayer01, Unknown,
+    ColumnRef, Decoder, FeatureRef, GeometryType, GeometryValues, Layer, Layer01,
+    Layer01FeatureIter, LendingIterator, ParsedLayer, ParsedLayer01, Parser, PropName, PropValue,
+    PropValueRef, TileFeature, TileLayer01, Unknown,
 };
 // Crate-internal re-exports: allow internal modules to use `crate::Lazy` etc.
 // without exposing these implementation details to external users.

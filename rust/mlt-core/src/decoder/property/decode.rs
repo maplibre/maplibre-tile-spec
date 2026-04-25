@@ -1,5 +1,5 @@
 use crate::decoder::{ParsedProperty, ParsedScalar, RawPresence, RawProperty};
-use crate::utils::apply_present;
+use crate::utils::decode_presence;
 use crate::{Decode, Decoder, MltResult};
 
 impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
@@ -9,10 +9,8 @@ impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
         values: Vec<T>,
         dec: &mut Decoder,
     ) -> MltResult<Self> {
-        Ok(Self {
-            name,
-            values: apply_present(presence, values, dec)?,
-        })
+        let presence = decode_presence(presence, values, dec)?;
+        Ok(Self { name, presence })
     }
 }
 
@@ -24,7 +22,7 @@ impl<'a> Decode<ParsedProperty<'a>> for RawProperty<'a> {
     /// columns the exact decoded size depends on compression, so the budget is
     /// charged *after* decoding based on actual allocation sizes.
     fn decode(self, dec: &mut Decoder) -> MltResult<ParsedProperty<'a>> {
-        /// Charge for the final `Vec<Option<T>>`, then decode the dense stream.
+        /// Decode the dense value stream and wrap it with the presence bitmap.
         /// `$decode_method` is the typed `RawStream` method for element type `$ty`.
         macro_rules! scalar_decode {
             ($variant:ident, $ty:ty, $decode_method:ident, $v:expr, $dec:expr) => {{

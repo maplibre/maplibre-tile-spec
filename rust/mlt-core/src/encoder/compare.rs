@@ -1,25 +1,27 @@
-use crate::Layer;
-use crate::decoder::{Geometry, GeometryValues, Id, IdValues, Layer01, Property, Unknown};
-use crate::encoder::model::{StagedLayer, StagedLayer01};
-use crate::encoder::{EncodedUnknown, StagedProperty};
 /// Cross-type [`PartialEq`] between decode-side (`Parsed*` / `Layer01<'a>`) and
 /// encode-side (`Staged*`) types.
 ///
 /// These implementations allow round-trip tests to compare a decoded tile
 /// directly against a hand-crafted `Staged*` value without having to convert
 /// one side first.
+use crate::Layer;
+use crate::decoder::{Geometry, GeometryValues, Id, Layer01, Property, Unknown};
+use crate::encoder::model::{StagedLayer, StagedLayer01};
+use crate::encoder::{EncodedUnknown, StagedId, StagedProperty};
 use crate::{DecodeState, Lazy};
 
-impl PartialEq<IdValues> for Id<'_, Lazy> {
-    fn eq(&self, other: &IdValues) -> bool {
+/// Compare a decoded `Id<'_, Lazy>` against an encoder-side `StagedId`.
+/// Uses `materialize()` on both sides to sidestep the lifetime difference.
+impl PartialEq<StagedId> for Id<'_, Lazy> {
+    fn eq(&self, other: &StagedId) -> bool {
         match self {
-            Self::Parsed(parsed) => parsed == other,
+            Self::Parsed(parsed) => parsed.materialize() == other.materialize(),
             Self::Raw(_) | Self::ParsingFailed => false,
         }
     }
 }
 
-impl PartialEq<Id<'_, Lazy>> for IdValues {
+impl PartialEq<Id<'_, Lazy>> for StagedId {
     fn eq(&self, other: &Id<'_, Lazy>) -> bool {
         other == self
     }

@@ -25,6 +25,7 @@ __hotpath-mcp = ["__hotpath", "hotpath/hotpath-mcp", "hotpath/hotpath-mcp-meta"]
 
 [dependencies]
 anyhow.workspace = true
+bytes.workspace = true
 clap.workspace = true
 crossterm.workspace = true
 flate2.workspace = true
@@ -36,6 +37,7 @@ indicatif.workspace = true
 martin-tile-utils.workspace = true
 mbtiles.workspace = true
 mlt-core.workspace = true
+moka.workspace = true
 ratatui.workspace = true
 rayon.workspace = true
 rstar.workspace = true
@@ -46,6 +48,8 @@ sqlx.workspace = true
 tabled.workspace = true
 thousands.workspace = true
 tokio.workspace = true
+walkdir.workspace = true
+xxhash-rust.workspace = true
 
 [lints]
 workspace = true

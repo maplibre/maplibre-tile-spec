@@ -5,16 +5,13 @@ use crate::encoder::{
     StagedOptScalar, StagedProperty, StagedScalar, StagedSharedDict, StagedSharedDictItem,
     StagedStrings,
 };
+use crate::utils::Presence;
 
 impl<T: Copy + PartialEq> PartialEq<StagedScalar<T>> for ParsedScalar<'_, T> {
     fn eq(&self, other: &StagedScalar<T>) -> bool {
         self.name == other.name
-            && self.values.len() == other.values.len()
-            && self
-                .values
-                .iter()
-                .zip(&other.values)
-                .all(|(opt, &val)| *opt == Some(val))
+            && matches!(**self, Presence::AllPresent(_))
+            && self.dense_values() == other.values
     }
 }
 
@@ -24,27 +21,32 @@ impl<T: Copy + PartialEq> PartialEq<ParsedScalar<'_, T>> for StagedScalar<T> {
     }
 }
 
-// ── StagedOptScalar: expand dense values using presence ──────────────────────
+// ── StagedOptScalar: compare dense values using presence ─────────────────────
 
 impl<T: Copy + PartialEq> PartialEq<StagedOptScalar<T>> for ParsedScalar<'_, T> {
     fn eq(&self, other: &StagedOptScalar<T>) -> bool {
-        if self.name != other.name || self.values.len() != other.presence.len() {
+        if self.name != other.name {
+            return false;
+        }
+        if self.feature_count() != other.presence.len()
+            || self.dense_values().len() != other.values.len()
+        {
             return false;
         }
         let mut dense_idx = 0usize;
-        for (parsed_opt, &present) in self.values.iter().zip(&other.presence) {
-            match (parsed_opt, present) {
-                (None, false) => {}
-                (Some(v), true) => {
-                    if other.values.get(dense_idx) != Some(v) {
-                        return false;
-                    }
-                    dense_idx += 1;
+        for (i, &staged_present) in other.presence.iter().enumerate() {
+            let parsed_present = self.is_present(i);
+            if parsed_present != staged_present {
+                return false;
+            }
+            if parsed_present {
+                if self.dense_values()[dense_idx] != other.values[dense_idx] {
+                    return false;
                 }
-                _ => return false,
+                dense_idx += 1;
             }
         }
-        dense_idx == other.values.len()
+        true
     }
 }
 

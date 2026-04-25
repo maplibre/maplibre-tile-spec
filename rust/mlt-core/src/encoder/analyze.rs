@@ -15,7 +15,7 @@ impl<T: Analyze + Copy + PartialEq> Analyze for ParsedScalar<'_, T> {
         } else {
             0
         };
-        meta + self.values.collect_statistic(stat)
+        meta + self.presence.collect_statistic(stat)
     }
 }
 

@@ -1,16 +1,15 @@
-use crate::decoder::{IdValues, RawId, RawIdValue};
-use crate::utils::apply_present;
+use crate::decoder::{ParsedId, RawId, RawIdValue};
+use crate::utils::decode_presence;
 use crate::{Decode, Decoder, MltResult};
 
-impl Decode<IdValues> for RawId<'_> {
-    /// Decode into [`IdValues`], charging `dec` before each `Vec` allocation.
-    fn decode(self, dec: &mut Decoder) -> MltResult<IdValues> {
+impl<'a> Decode<ParsedId<'a>> for RawId<'a> {
+    /// Decode into a [`ParsedId`], charging `dec` before each allocation.
+    fn decode(self, dec: &mut Decoder) -> MltResult<ParsedId<'a>> {
         let RawId { presence, value } = self;
 
-        // Decode the raw integer stream, charging for it before allocation.
-        let ids_u64: Vec<u64> = match value {
+        let values: Vec<u64> = match value {
             RawIdValue::Id32(stream) => {
-                // FIXME: IdValues should be an enum of i32 or i64 values to avoid extra allocations
+                // FIXME: ParsedId should be an enum of u32 or u64 to avoid extra allocation
                 let ids = stream.decode_u32s(dec)?;
                 dec.consume_items::<u64>(ids.len())?;
                 ids.into_iter().map(u64::from).collect()
@@ -18,6 +17,6 @@ impl Decode<IdValues> for RawId<'_> {
             RawIdValue::Id64(stream) => stream.decode_u64s(dec)?,
         };
 
-        Ok(IdValues(apply_present(presence, ids_u64, dec)?))
+        Ok(ParsedId(decode_presence(presence, values, dec)?))
     }
 }

@@ -1,8 +1,8 @@
-use std::fmt;
+use derive_debug::Dbg;
 
-use crate::decoder::{GeometryValues, IdValues, StreamType};
+use crate::decoder::{GeometryValues, StreamType};
 use crate::encoder::geometry::VertexBufferType;
-use crate::encoder::{IdWidth, IntEncoder, StagedProperty};
+use crate::encoder::{IdWidth, IntEncoder, StagedId, StagedProperty};
 
 /// Owned, pre-encoding variant of [`crate::Layer`] (stage 2 of the encoding pipeline).
 #[derive(Debug, PartialEq, Clone)]
@@ -38,7 +38,7 @@ pub struct CurveParams {
 pub struct StagedLayer01 {
     pub name: String,
     pub extent: u32,
-    pub id: Option<IdValues>,
+    pub id: Option<StagedId>,
     pub geometry: GeometryValues,
     pub properties: Vec<StagedProperty>,
 }
@@ -160,25 +160,25 @@ impl<'a> StreamCtx<'a> {
 ///
 /// Always compiled; publicly visible only when the `__private` feature is enabled
 /// (re-exported from [`crate::encoder`]).
+#[derive(Dbg)]
 pub struct ExplicitEncoder {
     /// Vertex buffer layout for geometry streams.
     pub vertex_buffer_type: VertexBufferType,
     /// Per-stream override for the skip-empty-stream rule used by `write_geo_u32_stream`.
+    #[dbg(skip)]
     pub force_stream: Box<dyn for<'a> Fn(&'a StreamCtx<'a>) -> bool>,
     /// Return the [`IntEncoder`] for a stream identified by [`StreamCtx`].
+    #[dbg(skip)]
     pub get_int_encoder: Box<dyn for<'a> Fn(&'a StreamCtx<'a>) -> IntEncoder>,
     /// Return the string encoding strategy for a string property column.
+    #[dbg(skip)]
     pub get_str_encoding: Box<dyn Fn(&str) -> StrEncoding>,
     /// Override the auto-detected [`IdWidth`].
     /// Arguments: auto-detected `IdWidth`. Return the width to use.
+    #[dbg(skip)]
     pub override_id_width: Box<dyn Fn(IdWidth) -> IdWidth>,
     /// Override whether a presence stream is written for an all-present column,
     /// or if the column is written at all if all values are null.
+    #[dbg(skip)]
     pub override_presence: Box<dyn for<'a> Fn(&'a StreamCtx<'a>) -> bool>,
-}
-
-impl fmt::Debug for ExplicitEncoder {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ExplicitEncoder").finish_non_exhaustive()
-    }
 }

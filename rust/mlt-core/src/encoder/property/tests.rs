@@ -594,7 +594,6 @@ fn lazy_layer01_iterate_prop_names_returns_column_names() {
         panic!("expected Tag01 layer")
     };
 
-    // iterate_prop_names works on the lazy layer before any decoding.
     let names: Vec<String> = layer.iterate_prop_names().map(|n| n.to_string()).collect();
     assert_eq!(names, ["pop", "addr:city", "addr:zip"]);
 }
