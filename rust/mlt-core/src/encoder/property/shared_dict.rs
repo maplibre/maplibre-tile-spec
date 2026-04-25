@@ -384,8 +384,7 @@ pub(crate) fn write_shared_dict(
         write_raw_str_data(&dict, DictionaryType::Shared, enc)?;
     }
 
-    enc.write_column_type(ColumnType::SharedDict)?;
-    enc.write_column_name(&shared_dict.prefix)?;
+    enc.write_column_header(ColumnType::SharedDict, &shared_dict.prefix)?;
     enc.meta.write_varint(children_count)?;
 
     for item in &shared_dict.items {

@@ -29,8 +29,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
 
     match prop {
         D::Bool(v) => {
-            enc.write_column_type(CT::Bool)?;
-            enc.write_column_name(&v.name)?;
+            enc.write_column_header(CT::Bool, &v.name)?;
             let values = v.values.iter().copied();
             enc.write_boolean_stream(&EncodedStream::encode_bools(values)?)?;
         }
@@ -40,8 +39,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             enc.write_boolean_stream(&EncodedStream::encode_bools(values)?)?;
         }
         D::F32(v) => {
-            enc.write_column_type(CT::F32)?;
-            enc.write_column_name(&v.name)?;
+            enc.write_column_header(CT::F32, &v.name)?;
             enc.write_stream(&EncodedStream::encode_f32(&v.values)?)?;
         }
         D::OptF32(v) => {
@@ -49,8 +47,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             enc.write_stream(&EncodedStream::encode_f32(&v.values)?)?;
         }
         D::F64(v) => {
-            enc.write_column_type(CT::F64)?;
-            enc.write_column_name(&v.name)?;
+            enc.write_column_header(CT::F64, &v.name)?;
             enc.write_stream(&EncodedStream::encode_f64(&v.values)?)?;
         }
         D::OptF64(v) => {
@@ -58,8 +55,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             enc.write_stream(&EncodedStream::encode_f64(&v.values)?)?;
         }
         D::I8(v) => {
-            enc.write_column_type(CT::I8)?;
-            enc.write_column_name(&v.name)?;
+            enc.write_column_header(CT::I8, &v.name)?;
             let widened: Vec<i32> = v.values.iter().map(|&x| i32::from(x)).collect();
             let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
             write_i32_stream(&widened, &ctx, enc)?;
@@ -71,8 +67,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             write_i32_stream(&widened, &ctx, enc)?;
         }
         D::U8(v) => {
-            enc.write_column_type(CT::U8)?;
-            enc.write_column_name(&v.name)?;
+            enc.write_column_header(CT::U8, &v.name)?;
             let widened: Vec<u32> = v.values.iter().map(|&x| u32::from(x)).collect();
             let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
             write_u32_stream(&widened, &ctx, enc)?;
@@ -84,8 +79,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             write_u32_stream(&widened, &ctx, enc)?;
         }
         D::I32(v) => {
-            enc.write_column_type(CT::I32)?;
-            enc.write_column_name(&v.name)?;
+            enc.write_column_header(CT::I32, &v.name)?;
             let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
             write_i32_stream(&v.values, &ctx, enc)?;
         }
@@ -95,8 +89,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             write_i32_stream(&v.values, &ctx, enc)?;
         }
         D::U32(v) => {
-            enc.write_column_type(CT::U32)?;
-            enc.write_column_name(&v.name)?;
+            enc.write_column_header(CT::U32, &v.name)?;
             let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
             write_u32_stream(&v.values, &ctx, enc)?;
         }
@@ -106,8 +99,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             write_u32_stream(&v.values, &ctx, enc)?;
         }
         D::I64(v) => {
-            enc.write_column_type(CT::I64)?;
-            enc.write_column_name(&v.name)?;
+            enc.write_column_header(CT::I64, &v.name)?;
             let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
             write_i64_stream(&v.values, &ctx, enc)?;
         }
@@ -117,8 +109,7 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             write_i64_stream(&v.values, &ctx, enc)?;
         }
         D::U64(v) => {
-            enc.write_column_type(CT::U64)?;
-            enc.write_column_name(&v.name)?;
+            enc.write_column_header(CT::U64, &v.name)?;
             let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
             write_u64_stream(&v.values, &ctx, enc)?;
         }
@@ -128,13 +119,11 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder) -> MltResult<bool> {
             write_u64_stream(&v.values, &ctx, enc)?;
         }
         D::Str(v) => {
-            enc.write_column_type(ColumnType::Str)?;
-            enc.write_column_name(&v.name)?;
+            enc.write_column_header(ColumnType::Str, &v.name)?;
             write_str_col(v, None, enc)?;
         }
         D::OptStr(v) => {
-            enc.write_column_type(ColumnType::OptStr)?;
-            enc.write_column_name(&v.name)?;
+            enc.write_column_header(ColumnType::OptStr, &v.name)?;
             let presence = EncodedStream::encode_presence(v.presence_bools())?;
             write_str_col(v, Some(&presence), enc)?;
         }
@@ -155,8 +144,7 @@ fn begin_opt_col(
     presence_bools: impl ExactSizeIterator<Item = bool>,
     enc: &mut Encoder,
 ) -> MltResult<()> {
-    enc.write_column_type(ct)?;
-    enc.write_column_name(name)?;
+    enc.write_column_header(ct, name)?;
     enc.write_presence_section(presence_bools)
 }
 
