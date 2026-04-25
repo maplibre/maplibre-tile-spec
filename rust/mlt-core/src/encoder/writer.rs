@@ -147,6 +147,7 @@ pub struct Encoder {
     pub(crate) tmp_u32_b: Vec<u32>,
     pub(crate) tmp_u64: Vec<u64>,
     pub(crate) tmp_u8: Vec<u8>,
+    pub(crate) tmp_u8_b: Vec<u8>,
     pub(crate) fastpfor: FastPFor256,
 }
 
@@ -195,6 +196,7 @@ impl Encoder {
             tmp_u32_b: vec![],
             tmp_u64: vec![],
             tmp_u8: vec![],
+            tmp_u8_b: vec![],
             fastpfor: FastPFor256::default(),
         }
     }
@@ -220,7 +222,13 @@ impl Encoder {
         &mut self,
         presence_bools: impl ExactSizeIterator<Item = bool>,
     ) -> MltResult<()> {
-        self.write_boolean_stream(&EncodedStream::encode_presence(presence_bools)?)?;
+        let stream = EncodedStream::encode_presence_into(
+            presence_bools,
+            &mut self.tmp_u8,
+            &mut self.tmp_u8_b,
+        )?;
+        self.write_boolean_stream(&stream)?;
+        self.tmp_u8_b = stream.data;
         Ok(())
     }
 

@@ -43,6 +43,15 @@ impl EncodedStream {
         Self::encode_bools_with_type(values, StreamType::Present)
     }
 
+    /// Encode a presence/nullability stream into caller-provided scratch buffers.
+    pub fn encode_presence_into(
+        values: impl ExactSizeIterator<Item = bool>,
+        bools_bytes: &mut Vec<u8>,
+        data: &mut Vec<u8>,
+    ) -> MltResult<Self> {
+        Self::encode_bools_with_type_into(values, StreamType::Present, bools_bytes, data)
+    }
+
     /// Encode a boolean data stream: byte-RLE <- packed bitmap <- `Vec<bool>`
     #[hotpath::measure]
     fn encode_bools_with_type(
@@ -68,6 +77,36 @@ impl EncodedStream {
             num_values,
         );
         Ok(Self { meta, data })
+    }
+
+    fn encode_bools_with_type_into(
+        values: impl ExactSizeIterator<Item = bool>,
+        stream_type: StreamType,
+        bools_bytes: &mut Vec<u8>,
+        data: &mut Vec<u8>,
+    ) -> MltResult<Self> {
+        let num_values = u32::try_from(values.len())?;
+        bools_bytes.clear();
+        encode_bools_to_bytes(values, bools_bytes);
+        data.clear();
+        encode_byte_rle(bools_bytes, data);
+        let runs = num_values.div_ceil(8);
+        let num_rle_values = u32::try_from(data.len())?;
+        let meta = StreamMeta::new(
+            stream_type,
+            IntEncoding::new(
+                LogicalEncoding::Rle(RleMeta {
+                    runs,
+                    num_rle_values,
+                }),
+                PhysicalEncoding::None,
+            ),
+            num_values,
+        );
+        Ok(Self {
+            meta,
+            data: std::mem::take(data),
+        })
     }
 
     /// Encodes `f32`s into a stream
