@@ -200,8 +200,6 @@ impl Layer {
         self
     }
 
-    // ── Geometry ──────────────────────────────────────────────────────────────
-
     #[must_use]
     pub fn geo(mut self, geometry: impl Into<Geometry<i32>>) -> Self {
         self.geometry_items.push(geometry.into());
@@ -218,8 +216,6 @@ impl Layer {
         }
         self
     }
-
-    // ── Properties ────────────────────────────────────────────────────────────
 
     /// Add a bool, integer, or float property.
     ///
@@ -345,8 +341,6 @@ impl Layer {
         }
         w.write(self, name);
     }
-
-    // ── Layer config ──────────────────────────────────────────────────────────
 
     #[must_use]
     pub fn extent(mut self, extent: u32) -> Self {
