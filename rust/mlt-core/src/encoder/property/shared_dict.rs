@@ -14,11 +14,9 @@ use crate::decoder::strings::{decode_shared_dict_range, encode_shared_dict_range
 use crate::decoder::{PropValue, TileLayer};
 use crate::encoder::model::{StrEncoding, StreamCtx};
 use crate::encoder::property::strings::{fsst_try_train, write_fsst_data, write_raw_str_data};
-use crate::encoder::{
-    EncodedStream, Encoder, StagedSharedDict, StagedSharedDictItem, write_u32_stream,
-};
+use crate::encoder::{Encoder, StagedSharedDict, StagedSharedDictItem, write_u32_stream};
 use crate::errors::AsMltError as _;
-use crate::utils::{AsUsize as _, BinarySerializer as _, checked_sum3, strings_to_lengths};
+use crate::utils::{AsUsize as _, checked_sum3, strings_to_lengths};
 use crate::{ColumnType, DictRange, DictionaryType, LengthType, MltResult, OffsetType, StreamType};
 
 /// Number of [`MinHash`] permutations. 128 gives ~9 % error on Jaccard estimates.
@@ -386,21 +384,20 @@ pub(crate) fn write_shared_dict(
         write_raw_str_data(&dict, DictionaryType::Shared, enc)?;
     }
 
-    ColumnType::SharedDict.write_to(&mut enc.meta)?;
-    enc.meta.write_string(&shared_dict.prefix)?;
+    enc.write_column_type(ColumnType::SharedDict)?;
+    enc.write_column_name(&shared_dict.prefix)?;
     enc.meta.write_varint(children_count)?;
 
     for item in &shared_dict.items {
         if item.has_presence() {
             enc.write_varint(2u32)?;
-            ColumnType::OptStr.write_to(&mut enc.meta)?;
-            let presence = EncodedStream::encode_presence(item.presence_bools())?;
-            enc.write_boolean_stream(&presence)?;
+            enc.write_column_type(ColumnType::OptStr)?;
+            enc.write_presence_section(item.presence_bools())?;
         } else {
             enc.write_varint(1u32)?;
-            ColumnType::Str.write_to(&mut enc.meta)?;
+            enc.write_column_type(ColumnType::Str)?;
         }
-        enc.meta.write_string(&item.suffix)?;
+        enc.write_column_name(&item.suffix)?;
 
         let offsets: Vec<u32> = item
             .dense_spans()

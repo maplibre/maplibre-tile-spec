@@ -5,9 +5,10 @@ use fastpfor::FastPFor256;
 use fsst::Compressor;
 use integer_encoding::VarIntWriter as _;
 
-use crate::decoder::Morton;
+use crate::decoder::{ColumnType, Morton};
 use crate::encoder::model::{ExplicitEncoder, StrEncoding, StreamCtx};
-use crate::encoder::{EncoderConfig, IdWidth, IntEncoder, VertexBufferType};
+use crate::encoder::{EncodedStream, EncoderConfig, IdWidth, IntEncoder, VertexBufferType};
+use crate::utils::BinarySerializer as _;
 use crate::{MltError, MltResult};
 
 /// Stateful encoder that accumulates encoded layer bytes and provides
@@ -146,7 +147,6 @@ pub struct Encoder {
     pub(crate) tmp_u32_b: Vec<u32>,
     pub(crate) tmp_u64: Vec<u64>,
     pub(crate) tmp_u8: Vec<u8>,
-    pub(crate) tmp_u8_b: Vec<u8>,
     pub(crate) fastpfor: FastPFor256,
 }
 
@@ -195,7 +195,6 @@ impl Encoder {
             tmp_u32_b: vec![],
             tmp_u64: vec![],
             tmp_u8: vec![],
-            tmp_u8_b: vec![],
             fastpfor: FastPFor256::default(),
         }
     }
@@ -205,6 +204,24 @@ impl Encoder {
     #[inline]
     pub(crate) fn increment_column_count(&mut self) {
         self.layer_column_count = self.layer_column_count.saturating_add(1);
+    }
+
+    #[inline]
+    pub(crate) fn write_column_type(&mut self, column_type: ColumnType) -> MltResult<()> {
+        column_type.write_to(&mut self.meta).map_err(MltError::from)
+    }
+
+    #[inline]
+    pub(crate) fn write_column_name(&mut self, name: &str) -> MltResult<()> {
+        self.meta.write_string(name).map_err(MltError::from)
+    }
+
+    pub(crate) fn write_presence_section(
+        &mut self,
+        presence_bools: impl ExactSizeIterator<Item = bool>,
+    ) -> MltResult<()> {
+        self.write_boolean_stream(&EncodedStream::encode_presence(presence_bools)?)?;
+        Ok(())
     }
 
     /// Write the layer header (`name`, `extent`, `column_count`) to [`hdr`].

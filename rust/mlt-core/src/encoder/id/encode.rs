@@ -1,17 +1,9 @@
-use std::iter::repeat_n;
-
 use super::model::{IdWidth, StagedId};
 use crate::MltResult;
-use crate::codecs::bytes::encode_bools_to_bytes;
-use crate::codecs::rle::encode_byte_rle;
-use crate::decoder::{
-    ColumnType, DictionaryType, IntEncoding, LogicalEncoding, PhysicalEncoding, RleMeta,
-    StreamMeta, StreamType,
-};
+use crate::decoder::{ColumnType, DictionaryType, StreamType};
+use crate::encoder::Encoder;
 use crate::encoder::model::StreamCtx;
 use crate::encoder::stream::{DataProfile, IntEncoder, LogicalEncoder, do_write_u32, do_write_u64};
-use crate::encoder::{EncodedStream, Encoder};
-use crate::utils::BinarySerializer as _;
 
 struct SequenceStats {
     is_sequential: bool,
@@ -81,34 +73,20 @@ impl StagedId {
             (true, false) => ColumnType::OptId,
             (true, true) => ColumnType::OptLongId,
         };
-        col_type.write_to(&mut enc.meta)?;
+        enc.write_column_type(col_type)?;
 
         // Presence stream
         if has_nulls {
             let feature_count = self.feature_count();
-            let num_values = u32::try_from(feature_count)?;
             match &self {
                 Self::OptId { presence, .. } => {
-                    encode_bools_to_bytes(presence.iter().copied(), &mut enc.tmp_u8);
+                    enc.write_presence_section(presence.iter().copied())?;
                 }
                 Self::Id(_) => {
                     // override_presence requested a stream for an all-present column
-                    encode_bools_to_bytes(repeat_n(true, feature_count), &mut enc.tmp_u8);
+                    enc.write_presence_section(std::iter::repeat_n(true, feature_count))?;
                 }
             }
-            encode_byte_rle(&enc.tmp_u8, &mut enc.tmp_u8_b);
-            let runs = num_values.div_ceil(8);
-            let num_rle_values = u32::try_from(enc.tmp_u8_b.len())?;
-            let rle = RleMeta {
-                runs,
-                num_rle_values,
-            };
-            let int_enc = IntEncoding::new(LogicalEncoding::Rle(rle), PhysicalEncoding::None);
-            let presence = EncodedStream {
-                meta: StreamMeta::new(StreamType::Present, int_enc, num_values),
-                data: enc.tmp_u8_b.clone(),
-            };
-            enc.write_boolean_stream(&presence)?;
         }
 
         // Fast-path for small or obviously structured sequences.
