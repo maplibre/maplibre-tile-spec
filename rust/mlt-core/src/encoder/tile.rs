@@ -165,11 +165,11 @@ mod tests {
     use super::*;
     use crate::Layer;
     use crate::decoder::GeometryValues;
-    use crate::encoder::{Encoder, StagedLayer};
+    use crate::encoder::Encoder;
     use crate::test_helpers::{dec, parser};
 
     fn layer_tile(staged: StagedLayer01) -> TileLayer01 {
-        let buf = StagedLayer::Tag01(staged)
+        let buf = staged
             .encode_into(Encoder::default())
             .unwrap()
             .into_layer_bytes()

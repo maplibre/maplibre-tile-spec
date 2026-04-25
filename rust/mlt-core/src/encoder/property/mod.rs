@@ -1,4 +1,3 @@
-mod compare;
 pub(crate) mod encode;
 mod model;
 mod shared_dict;
@@ -7,7 +6,6 @@ mod strings;
 mod tests;
 
 pub use model::{
-    StagedOptScalar, StagedProperty, StagedScalar, StagedSharedDict, StagedSharedDictItem,
-    StagedStrings,
+    StagedProperty, StagedScalar, StagedSharedDict, StagedSharedDictItem, StagedStrings,
 };
 pub use shared_dict::{StringGroup, group_string_properties};
