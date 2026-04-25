@@ -5,9 +5,15 @@ use fastpfor::FastPFor256;
 use fsst::Compressor;
 use integer_encoding::VarIntWriter as _;
 
-use crate::decoder::Morton;
+use crate::codecs::bytes::encode_bools_to_bytes;
+use crate::codecs::rle::encode_byte_rle;
+use crate::decoder::{
+    ColumnType, IntEncoding, LogicalEncoding, Morton, PhysicalEncoding, RleMeta, StreamMeta,
+    StreamType,
+};
 use crate::encoder::model::{ExplicitEncoder, StrEncoding, StreamCtx};
 use crate::encoder::{EncoderConfig, IdWidth, IntEncoder, VertexBufferType};
+use crate::utils::BinarySerializer as _;
 use crate::{MltError, MltResult};
 
 /// Stateful encoder that accumulates encoded layer bytes and provides
@@ -205,6 +211,53 @@ impl Encoder {
     #[inline]
     pub(crate) fn increment_column_count(&mut self) {
         self.layer_column_count = self.layer_column_count.saturating_add(1);
+    }
+
+    #[inline]
+    pub(crate) fn write_column_type(&mut self, column_type: ColumnType) -> MltResult<()> {
+        column_type.write_to(&mut self.meta).map_err(MltError::from)
+    }
+
+    #[inline]
+    pub(crate) fn write_column_name(&mut self, name: &str) -> MltResult<()> {
+        self.meta.write_string(name).map_err(MltError::from)
+    }
+
+    #[inline]
+    pub(crate) fn write_column_header(
+        &mut self,
+        column_type: ColumnType,
+        name: &str,
+    ) -> MltResult<()> {
+        self.write_column_type(column_type)?;
+        self.write_column_name(name)
+    }
+
+    pub(crate) fn write_presence_section(
+        &mut self,
+        presence_bools: impl ExactSizeIterator<Item = bool>,
+    ) -> MltResult<()> {
+        let num_values = u32::try_from(presence_bools.len())?;
+        self.tmp_u8.clear();
+        encode_bools_to_bytes(presence_bools, &mut self.tmp_u8);
+        self.tmp_u8_b.clear();
+        encode_byte_rle(&self.tmp_u8, &mut self.tmp_u8_b);
+
+        let byte_length = u32::try_from(self.tmp_u8_b.len())?;
+        let meta = StreamMeta::new(
+            StreamType::Present,
+            IntEncoding::new(
+                LogicalEncoding::Rle(RleMeta {
+                    runs: num_values.div_ceil(8),
+                    num_rle_values: byte_length,
+                }),
+                PhysicalEncoding::None,
+            ),
+            num_values,
+        );
+        meta.write_to(&mut self.data, true, byte_length)?;
+        self.data.extend_from_slice(&self.tmp_u8_b);
+        Ok(())
     }
 
     /// Write the layer header (`name`, `extent`, `column_count`) to [`hdr`].

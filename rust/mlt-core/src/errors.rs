@@ -125,6 +125,8 @@ pub enum MltError {
         "Extent {extent} cannot be encoded to morton due to morton allowing max. 16 bits, but {required_bits} would be required"
     )]
     VertexMortonNotCompatibleWithExtent { extent: u32, required_bits: u32 },
+    #[error("Morton stream uses {0} bits, but at most 16 bits are supported")]
+    InvalidMortonBits(u32),
 
     // Geometry decode errors (field = variable name, geom_type for context)
     #[error("MVT error: {0}")]

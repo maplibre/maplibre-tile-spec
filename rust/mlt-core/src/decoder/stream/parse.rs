@@ -101,7 +101,7 @@ impl StreamMeta {
                 let shift;
                 (input, bits) = parse_varint::<u32>(input)?;
                 (input, shift) = parse_varint::<u32>(input)?;
-                let morton = Morton { bits, shift };
+                let morton = Morton::new(bits, shift)?;
                 match logical2 {
                     LT::Rle => LogicalEncoding::MortonRle(morton),
                     LT::Delta => LogicalEncoding::MortonDelta(morton),

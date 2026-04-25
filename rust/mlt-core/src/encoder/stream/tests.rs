@@ -3,6 +3,7 @@ use rstest::rstest;
 
 use super::write::{do_write_i32, do_write_i64};
 use super::{do_write_u32, do_write_u64};
+use crate::MltError;
 use crate::decoder::{
     DictionaryType, IntEncoding, LengthType, LogicalEncoding, LogicalValue, Morton, OffsetType,
     PhysicalEncoding, RawStream, RleMeta, StreamMeta, StreamType,
@@ -164,7 +165,7 @@ fn test_fastpfor_roundtrip(#[case] values: Vec<u32>) {
 #[case::varint(StreamType::Length(LengthType::VarBinary), 3, LogicalEncoding::Delta, PhysicalEncoding::VarInt, vec![0x00, 0x02, 0x02], false)]
 #[case::rle(StreamType::Data(DictionaryType::None), 6, LogicalEncoding::Rle(RleMeta { runs: 3, num_rle_values: 6 }), PhysicalEncoding::VarInt, vec![0x03, 0x02, 0x01, 0x0A, 0x14, 0x1E], false)]
 #[case::rle(StreamType::Data(DictionaryType::None), 5, LogicalEncoding::DeltaRle(RleMeta { runs: 2, num_rle_values: 5 }), PhysicalEncoding::VarInt, vec![0x03, 0x02, 0x00, 0x02], false)]
-#[case::morton(StreamType::Data(DictionaryType::Morton), 4, LogicalEncoding::Morton(Morton { bits: 32, shift: 0 }), PhysicalEncoding::VarInt, vec![0x01, 0x02, 0x03, 0x04], false)]
+#[case::morton(StreamType::Data(DictionaryType::Morton), 4, LogicalEncoding::Morton(Morton { bits: 16, shift: 0 }), PhysicalEncoding::VarInt, vec![0x01, 0x02, 0x03, 0x04], false)]
 #[case::boolean(StreamType::Present, 16, LogicalEncoding::Rle(RleMeta { runs: 2, num_rle_values: 2 }), PhysicalEncoding::VarInt, vec![0xFF, 0x00], true)]
 fn test_stream_roundtrip(
     #[case] stream_type: StreamType,
@@ -200,6 +201,26 @@ fn test_stream_roundtrip(
 
     assert_eq!(parsed.meta, stream.meta, "metadata mismatch");
     assert_eq!(stream.data.as_slice(), parsed.data, "data mismatch");
+}
+
+#[test]
+fn test_morton_parse_rejects_too_many_bits() {
+    let stream = EncodedStream {
+        meta: StreamMeta::new(
+            StreamType::Data(DictionaryType::Morton),
+            IntEncoding::new(
+                LogicalEncoding::Morton(Morton { bits: 17, shift: 0 }),
+                PhysicalEncoding::VarInt,
+            ),
+            1,
+        ),
+        data: vec![0],
+    };
+    let mut buffer = Vec::new();
+    buffer.write_stream(&stream).unwrap();
+
+    let err = RawStream::from_bytes(&buffer, &mut parser()).unwrap_err();
+    assert!(matches!(err, MltError::InvalidMortonBits(17)));
 }
 
 /// OOM regression: `VarInt` stream with huge `num_values` but `byte_length=0`.
