@@ -34,8 +34,11 @@ fn auto_mode_streams(decoded: &GeometryValues) -> Vec<StreamType> {
 
 #[test]
 fn automatic_optimization_distinct_points_picks_vec2() {
-    let decoded =
-        push_geoms(&(0i32..10).map(|i| point! { x: i, y: i }.into()).collect::<Vec<_>>());
+    let decoded = push_geoms(
+        &(0i32..10)
+            .map(|i| point! { x: i, y: i }.into())
+            .collect::<Vec<_>>(),
+    );
     insta::assert_debug_snapshot!(auto_mode_streams(&decoded), @r"
     [
         Data(
@@ -54,9 +57,8 @@ fn automatic_optimization_repeated_points_picks_dict() {
     // Hilbert wins, so the encoded streams use `Data(Vertex)` + a vertex
     // offset stream. The snapshot pins that outcome; if the race tie-break
     // or the heuristic ever changes it should fail loudly.
-    let decoded = push_geoms(
-        &std::iter::repeat_n(point! { x: 5, y: 5 }.into(), 20).collect::<Vec<_>>(),
-    );
+    let decoded =
+        push_geoms(&std::iter::repeat_n(point! { x: 5, y: 5 }.into(), 20).collect::<Vec<_>>());
     insta::assert_debug_snapshot!(auto_mode_streams(&decoded), @r"
     [
         Data(
