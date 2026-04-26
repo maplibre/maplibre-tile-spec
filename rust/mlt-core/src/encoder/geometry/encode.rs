@@ -789,13 +789,7 @@ mod tests {
         let mut offsets = Vec::new();
         let mut indexed = Vec::new();
         let mut dict_xy = Vec::new();
-        build_hilbert_dict(
-            &vertices,
-            params,
-            &mut offsets,
-            &mut indexed,
-            &mut dict_xy,
-        );
+        build_hilbert_dict(&vertices, params, &mut offsets, &mut indexed, &mut dict_xy);
 
         assert_eq!(offsets.len(), 4, "offsets length == number of vertex pairs");
         assert_eq!(offsets[0], offsets[2], "duplicate (1,2) should share index");
@@ -834,13 +828,7 @@ mod tests {
         let mut offsets = Vec::new();
         let mut indexed = Vec::new();
         let mut dict_xy = Vec::new();
-        build_hilbert_dict(
-            &vertices,
-            params,
-            &mut offsets,
-            &mut indexed,
-            &mut dict_xy,
-        );
+        build_hilbert_dict(&vertices, params, &mut offsets, &mut indexed, &mut dict_xy);
 
         assert_eq!(offsets.len(), 4);
         assert_eq!(
