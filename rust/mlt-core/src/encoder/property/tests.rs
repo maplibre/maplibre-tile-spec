@@ -1,12 +1,13 @@
 use geo_types::Point;
 use proptest::prelude::*;
 
+use crate::encoder::SortStrategy::Unsorted;
 use crate::encoder::model::{ExplicitEncoder, StagedLayer, StrEncoding};
 use crate::encoder::optimizer::{Presence, PropertyTypedStats, SharedDictRole};
 use crate::encoder::property::encode::write_properties;
 use crate::encoder::{
-    Encoder, EncoderConfig, IntEncoder, LogicalEncoder, PhysicalEncoder, SortStrategy, StagedId,
-    StagedProperty, StagedSharedDict, analyze_layer,
+    Encoder, EncoderConfig, IntEncoder, LogicalEncoder, PhysicalEncoder, StagedId, StagedProperty,
+    StagedSharedDict, stage_tile,
 };
 use crate::test_helpers::{dec, parser};
 use crate::{DictRange, GeometryValues, Layer, PropValue, TileFeature, TileLayer};
@@ -686,39 +687,33 @@ fn str_vals(values: &[&str]) -> Vec<PropValue> {
         .collect()
 }
 
-/// Stage a [`TileLayer`] with `MinHash` grouping and return its properties.
-fn stage_props(tile: TileLayer) -> Vec<StagedProperty> {
-    let analysis = analyze_layer(&tile, true);
-    StagedLayer::from_tile(tile, SortStrategy::Unsorted, &analysis, false).properties
-}
-
 #[test]
 fn staging_uses_id_presence_analysis() {
     let all_present = tile_from_ids(&[Some(1), Some(2), Some(3)]);
-    let analysis = analyze_layer(&all_present, false);
+    let analysis = all_present.analyze(false);
     let id = analysis.id.as_ref().expect("ID analysis");
     assert!(id.stats.values_fit_u32());
-    let staged = StagedLayer::from_tile(all_present, SortStrategy::Unsorted, &analysis, false);
+    let staged = StagedLayer::from_tile(all_present, Unsorted, &analysis, false);
     assert!(matches!(staged.id, StagedId::U32(_)));
 
     let mixed = tile_from_ids(&[Some(1), None, Some(3)]);
-    let analysis = analyze_layer(&mixed, false);
+    let analysis = mixed.analyze(false);
     let id = analysis.id.as_ref().expect("ID analysis");
     assert!(id.stats.values_fit_u32());
-    let staged = StagedLayer::from_tile(mixed, SortStrategy::Unsorted, &analysis, false);
+    let staged = StagedLayer::from_tile(mixed, Unsorted, &analysis, false);
     assert!(matches!(staged.id, StagedId::OptU32(_)));
 
     let large = tile_from_ids(&[Some(u64::from(u32::MAX) + 1), None, Some(3)]);
-    let analysis = analyze_layer(&large, false);
+    let analysis = large.analyze(false);
     let id = analysis.id.as_ref().expect("ID analysis");
     assert!(!id.stats.values_fit_u32());
-    let staged = StagedLayer::from_tile(large, SortStrategy::Unsorted, &analysis, false);
+    let staged = StagedLayer::from_tile(large, Unsorted, &analysis, false);
     assert!(matches!(staged.id, StagedId::OptU64(_)));
 
     let all_null = tile_from_ids(&[None, None, None]);
-    let analysis = analyze_layer(&all_null, false);
+    let analysis = all_null.analyze(false);
     assert_eq!(analysis.id, None);
-    let staged = StagedLayer::from_tile(all_null, SortStrategy::Unsorted, &analysis, false);
+    let staged = StagedLayer::from_tile(all_null, Unsorted, &analysis, false);
     assert!(matches!(staged.id, StagedId::None));
 }
 
@@ -753,7 +748,7 @@ fn analyze_layer_classifies_id_and_property_presence() {
         ],
     );
 
-    let analysis = analyze_layer(&tile, true);
+    let analysis = tile.analyze(true);
 
     let id = analysis.id.as_ref().expect("ID analysis");
     assert_eq!(id.presence, Presence::Mixed);
@@ -799,7 +794,7 @@ fn analyze_layer_tracks_typed_property_stats() {
         ),
     ]);
 
-    let analysis = analyze_layer(&tile, false);
+    let analysis = tile.analyze(false);
 
     assert_eq!(
         analysis.properties[0].stats,
@@ -861,9 +856,8 @@ fn staging_uses_presence_analysis_for_scalar_variants_and_skips_all_null() {
             ],
         ),
     ]);
-    let analysis = analyze_layer(&tile, false);
 
-    let staged = StagedLayer::from_tile(tile, SortStrategy::Unsorted, &analysis, false);
+    let staged = stage_tile(tile, Unsorted, false, false);
 
     assert_eq!(staged.properties.len(), 2);
     assert!(matches!(staged.properties[0], StagedProperty::U32(_)));
@@ -875,7 +869,7 @@ fn analyze_layer_records_shared_dict_roles_by_property_index() {
     let vocab = &["Alice", "Bob", "Carol", "Dave"];
     let tile = tile_from_cols(&[("name:en", str_vals(vocab)), ("name:de", str_vals(vocab))]);
 
-    let analysis = analyze_layer(&tile, true);
+    let analysis = tile.analyze(true);
 
     assert_eq!(analysis.string_groups.len(), 1);
     assert_eq!(
@@ -927,7 +921,11 @@ fn similar_strings_grouped_into_shared_dict() {
     let vocab = &["Alice", "Bob", "Carol", "Dave"];
     let tile = tile_from_cols(&[("name:en", str_vals(vocab)), ("name:de", str_vals(vocab))]);
     let mut enc = Encoder::default();
-    write_properties(&stage_props(tile), &mut enc).unwrap();
+    write_properties(
+        &stage_tile(tile, Unsorted, true, false).properties,
+        &mut enc,
+    )
+    .unwrap();
 
     assert_eq!(
         enc.layer_column_count, 1,
@@ -944,7 +942,11 @@ fn multiple_similar_string_columns_grouped() {
         ("addr:zipcode", str_vals(vocab)),
     ]);
     let mut enc = Encoder::default();
-    write_properties(&stage_props(tile), &mut enc).unwrap();
+    write_properties(
+        &stage_tile(tile, Unsorted, true, false).properties,
+        &mut enc,
+    )
+    .unwrap();
 
     assert_eq!(
         enc.layer_column_count, 1,
@@ -982,7 +984,11 @@ fn mixed_scalars_and_grouped_strings() {
         ),
     ]);
     let mut enc = Encoder::default();
-    write_properties(&stage_props(tile), &mut enc).unwrap();
+    write_properties(
+        &stage_tile(tile, Unsorted, true, false).properties,
+        &mut enc,
+    )
+    .unwrap();
     assert_eq!(enc.layer_column_count, 3, "two scalar + one merged dict");
 }
 

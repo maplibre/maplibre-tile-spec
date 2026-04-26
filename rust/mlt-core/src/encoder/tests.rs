@@ -1,5 +1,6 @@
+use crate::TileLayer;
 use crate::encoder::model::ColumnKind;
-use crate::encoder::{ExplicitEncoder, IntEncoder, VertexBufferType};
+use crate::encoder::{ExplicitEncoder, IntEncoder, SortStrategy, StagedLayer, VertexBufferType};
 
 impl ExplicitEncoder {
     /// Use `enc` for all integer streams, plain string encoding, and `Vec2` vertex layout.
@@ -39,4 +40,15 @@ impl ExplicitEncoder {
             ..Self::all(IntEncoder::varint())
         }
     }
+}
+
+#[must_use]
+pub fn stage_tile(
+    tile: TileLayer,
+    sort: SortStrategy,
+    allow_shared_dict: bool,
+    tessellate: bool,
+) -> StagedLayer {
+    let analysis = tile.analyze(allow_shared_dict);
+    StagedLayer::from_tile(tile, sort, &analysis, tessellate)
 }

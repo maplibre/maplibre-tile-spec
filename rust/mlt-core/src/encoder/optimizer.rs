@@ -69,7 +69,7 @@ impl TileLayer {
             sort_by.push(SortStrategy::Id);
         }
 
-        let analysis = analyze_layer(&self, cfg.allow_shared_dict);
+        let analysis = self.analyze(cfg.allow_shared_dict);
 
         let (last, init) = sort_by.split_last().expect("at least one strategy");
         if init.is_empty() {
@@ -279,96 +279,99 @@ impl PropertyTypedStats {
     }
 }
 
-/// Analyze a [`TileLayer`] and return reusable ID/property facts for the optimizer.
-#[must_use]
-#[hotpath::measure]
-pub fn analyze_layer(source: &TileLayer, allow_shared_dict: bool) -> LayerStats {
-    let id = analyze_ids(source);
-    let mut properties = profile_properties(source, allow_shared_dict);
-    let string_groups = if allow_shared_dict {
-        apply_string_groups(&source.property_names, &mut properties)
-    } else {
-        Vec::new()
-    };
+impl TileLayer {
+    /// Analyze a [`TileLayer`] and return reusable ID/property facts for the optimizer.
+    #[must_use]
+    #[hotpath::measure]
+    pub(crate) fn analyze(&self, allow_shared_dict: bool) -> LayerStats {
+        let id = self.analyze_ids();
+        let mut properties = self.profile_properties(allow_shared_dict);
+        let string_groups = if allow_shared_dict {
+            apply_string_groups(&self.property_names, &mut properties)
+        } else {
+            Vec::new()
+        };
 
-    LayerStats {
-        id,
-        properties,
-        string_groups,
-    }
-}
-
-fn analyze_ids(source: &TileLayer) -> Option<PropertyStats> {
-    let mut present = 0usize;
-    let mut min = u64::MAX;
-    let mut max = 0u64;
-    for feature in &source.features {
-        if let Some(id) = feature.id {
-            present += 1;
-            min = min.min(id);
-            max = max.max(id);
+        LayerStats {
+            id,
+            properties,
+            string_groups,
         }
     }
-    if present == 0 {
-        return None;
-    }
-    let presence = if present == source.features.len() {
-        Presence::AllPresent
-    } else {
-        Presence::Mixed
-    };
-    Some(PropertyStats {
-        presence,
-        stats: PropertyTypedStats::Unsigned { min, max },
-    })
-}
 
-fn profile_properties(source: &TileLayer, allow_shared_dict: bool) -> Vec<PropertyStats> {
-    let string_stats = allow_shared_dict.then(StringStatsBuilder::new);
-    source
-        .property_names
-        .iter()
-        .enumerate()
-        .map(|(col_idx, _name)| {
-            let mut present = 0usize;
-            let mut stats = PropertyTypedStats::default();
-            let mut string_values = Vec::new();
-            for feature in &source.features {
-                let prop = feature.properties.get(col_idx);
-                if prop_is_present(prop) {
-                    present += 1;
-                    let prop = prop.expect("present property exists");
-                    stats.push(prop);
-                    if let (Some(_), PropValue::Str(Some(s))) = (&string_stats, prop) {
-                        string_values.push(s.as_str());
+    fn analyze_ids(&self) -> Option<PropertyStats> {
+        let mut present = 0usize;
+        let mut min = u64::MAX;
+        let mut max = 0u64;
+        for feature in &self.features {
+            if let Some(id) = feature.id {
+                present += 1;
+                min = min.min(id);
+                max = max.max(id);
+            }
+        }
+        if present == 0 {
+            return None;
+        }
+        let presence = if present == self.features.len() {
+            Presence::AllPresent
+        } else {
+            Presence::Mixed
+        };
+        Some(PropertyStats {
+            presence,
+            stats: PropertyTypedStats::Unsigned { min, max },
+        })
+    }
+
+    fn profile_properties(&self, allow_shared_dict: bool) -> Vec<PropertyStats> {
+        let string_stats = allow_shared_dict.then(StringStatsBuilder::new);
+        self.property_names
+            .iter()
+            .enumerate()
+            .map(|(col_idx, _name)| {
+                let mut present = 0usize;
+                let mut stats = PropertyTypedStats::default();
+                let mut string_values = Vec::new();
+                for feature in &self.features {
+                    let prop = feature.properties.get(col_idx);
+                    if prop_is_present(prop) {
+                        present += 1;
+                        let prop = prop.expect("present property exists");
+                        stats.push(prop);
+                        if let (Some(_), PropValue::Str(Some(s))) = (&string_stats, prop) {
+                            string_values.push(s.as_str());
+                        }
                     }
                 }
-            }
 
-            let presence = if present == 0 {
-                Presence::AllNull
-            } else if present == source.features.len() {
-                Presence::AllPresent
-            } else {
-                Presence::Mixed
-            };
+                let presence = if present == 0 {
+                    Presence::AllNull
+                } else if present == self.features.len() {
+                    Presence::AllPresent
+                } else {
+                    Presence::Mixed
+                };
 
-            if let (Some(string_stats), false) = (string_stats.as_ref(), string_values.is_empty()) {
-                let (exact, trigram) = string_stats.hashes(&string_values);
-                if let PropertyTypedStats::String {
-                    exact_hashes,
-                    trigram_hashes,
-                    ..
-                } = &mut stats
+                if let (Some(string_stats), false) =
+                    (string_stats.as_ref(), string_values.is_empty())
                 {
-                    *exact_hashes = exact;
-                    *trigram_hashes = trigram;
+                    let (exact, trigram) = string_stats.hashes(&string_values);
+                    if let PropertyTypedStats::String {
+                        exact_hashes,
+                        trigram_hashes,
+                        ..
+                    } = &mut stats
+                    {
+                        *exact_hashes = exact;
+                        *trigram_hashes = trigram;
+                    }
                 }
-            }
 
-            PropertyStats { presence, stats }
-        })
-        .collect()
+                PropertyStats { presence, stats }
+            })
+            .collect()
+    }
 }
 
 fn prop_is_present(prop: Option<&PropValue>) -> bool {
