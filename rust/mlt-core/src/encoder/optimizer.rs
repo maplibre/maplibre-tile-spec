@@ -269,7 +269,7 @@ impl TileLayer {
         let id = self.analyze_ids();
         let mut properties = self.profile_properties()?;
         if allow_shared_dict {
-            self.apply_string_groups(&mut properties);
+            self.group_string_properties(&mut properties);
         }
 
         Ok(LayerStats { id, properties })

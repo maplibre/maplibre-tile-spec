@@ -37,90 +37,76 @@ struct StringProfile<'a> {
 }
 
 impl TileLayer {
-    pub(crate) fn apply_string_groups(&self, properties: &mut [PropertyStats]) {
-        for (prefix, owner_col, member_cols) in group_string_properties(self) {
-            debug_assert_ne!(properties[owner_col].presence, Presence::AllNull);
+    /// Compute which string columns can be merged into a shared dict.
+    #[hotpath::measure]
+    pub(crate) fn group_string_properties(&self, properties: &mut [PropertyStats]) {
+        let exact_mh = MinHash::with_hashers(
+            MINHASH_PERMUTATIONS,
+            [
+                SipHasherBuilder::from_seed(0, 0),
+                SipHasherBuilder::from_seed(1, 1),
+            ],
+        );
+        let trigram_mh = MinHash::with_hashers(
+            MINHASH_PERMUTATIONS,
+            [
+                SipHasherBuilder::from_seed(0, 0),
+                SipHasherBuilder::from_seed(1, 1),
+            ],
+        );
+
+        let profiles: Vec<StringProfile<'_>> = self
+            .property_names
+            .iter()
+            .enumerate()
+            .filter_map(|(col_idx, name)| {
+                let vals: Vec<&str> = self
+                    .features
+                    .iter()
+                    .filter_map(|f| match f.properties.get(col_idx) {
+                        Some(PropValue::Str(Some(s))) => Some(s.as_str()),
+                        _ => None,
+                    })
+                    .collect();
+                if vals.is_empty() {
+                    return None;
+                }
+                let exact_hashes = exact_mh.get_min_hashes(vals.iter().copied());
+                let trigrams: Vec<[u8; 3]> = vals
+                    .iter()
+                    .flat_map(|s| s.as_bytes().windows(3).map(|w| [w[0], w[1], w[2]]))
+                    .collect();
+                let trigram_hashes = if trigrams.is_empty() {
+                    Vec::new()
+                } else {
+                    trigram_mh.get_min_hashes(trigrams.into_iter())
+                };
+                Some(StringProfile {
+                    col_idx,
+                    name,
+                    exact_hashes,
+                    trigram_hashes,
+                })
+            })
+            .collect();
+
+        for group in cluster_by_similarity(profiles) {
+            debug_assert!(
+                group
+                    .iter()
+                    .all(|p| properties[p.col_idx].presence != Presence::AllNull)
+            );
+            let owner_col = group[0].col_idx;
             properties[owner_col]
                 .stats
-                .set_shared_dict(SharedDictRole::Owner(prefix));
-            for col_idx in member_cols {
-                debug_assert_ne!(properties[col_idx].presence, Presence::AllNull);
-                properties[col_idx]
+                .set_shared_dict(SharedDictRole::Owner(common_prefix_name(&group)));
+            for profile in group.iter().skip(1) {
+                properties[profile.col_idx]
                     .stats
                     .set_shared_dict(SharedDictRole::Member(owner_col));
             }
         }
     }
-}
-
-/// Analyze a [`TileLayer`] and return one `(prefix, owner, members)` entry per cluster of similar
-/// string columns.
-#[must_use]
-#[hotpath::measure]
-fn group_string_properties(source: &TileLayer) -> Vec<(String, usize, Vec<usize>)> {
-    let exact_mh = MinHash::with_hashers(
-        MINHASH_PERMUTATIONS,
-        [
-            SipHasherBuilder::from_seed(0, 0),
-            SipHasherBuilder::from_seed(1, 1),
-        ],
-    );
-    let trigram_mh = MinHash::with_hashers(
-        MINHASH_PERMUTATIONS,
-        [
-            SipHasherBuilder::from_seed(0, 0),
-            SipHasherBuilder::from_seed(1, 1),
-        ],
-    );
-
-    let profiles: Vec<StringProfile<'_>> = source
-        .property_names
-        .iter()
-        .enumerate()
-        .filter_map(|(col_idx, name)| {
-            let vals: Vec<&str> = source
-                .features
-                .iter()
-                .filter_map(|f| match f.properties.get(col_idx) {
-                    Some(PropValue::Str(Some(s))) => Some(s.as_str()),
-                    _ => None,
-                })
-                .collect();
-            if vals.is_empty() {
-                return None;
-            }
-            let exact_hashes = exact_mh.get_min_hashes(vals.iter().copied());
-            let trigrams: Vec<[u8; 3]> = vals
-                .iter()
-                .flat_map(|s| s.as_bytes().windows(3).map(|w| [w[0], w[1], w[2]]))
-                .collect();
-            let trigram_hashes = if trigrams.is_empty() {
-                Vec::new()
-            } else {
-                trigram_mh.get_min_hashes(trigrams.into_iter())
-            };
-            Some(StringProfile {
-                col_idx,
-                name,
-                exact_hashes,
-                trigram_hashes,
-            })
-        })
-        .collect();
-
-    if profiles.is_empty() {
-        return Vec::new();
-    }
-
-    cluster_by_similarity(profiles)
-        .into_iter()
-        .filter_map(|group| {
-            let prefix = common_prefix_name(&group);
-            let mut columns = group.into_iter().map(|p| p.col_idx);
-            let owner_col = columns.next()?;
-            Some((prefix, owner_col, columns.collect()))
-        })
-        .collect()
 }
 
 /// Estimate Jaccard similarity from two `MinHash` signature vectors.
@@ -134,6 +120,9 @@ fn minhash_similarity(a: &[u64], b: &[u64]) -> f64 {
 }
 
 fn cluster_by_similarity(profiles: Vec<StringProfile<'_>>) -> Vec<Vec<StringProfile<'_>>> {
+    if profiles.is_empty() {
+        return Vec::new();
+    }
     let n = profiles.len();
     let mut uf = QuickUnionUf::<UnionBySize>::new(n);
 
