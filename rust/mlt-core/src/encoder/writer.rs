@@ -128,10 +128,7 @@ pub struct Encoder {
     /// call so it never leaks across columns.
     pub(crate) morton_cache: Option<Morton>,
 
-    /// Cached Hilbert curve parameters for the geometry column currently
-    /// being encoded. Populated by spatial sort (which already scans all
-    /// vertices to compute bounds) so the dictionary builder doesn't repeat
-    /// the scan. Same lifecycle rules as [`morton_cache`](Self::morton_cache).
+    /// Cached Hilbert curve parameters for the geometry column currently being encoded.
     pub(crate) hilbert_cache: Option<CurveParams>,
 
     /// Cached FSST compressor per string column, keyed by column name.
