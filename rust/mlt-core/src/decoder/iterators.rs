@@ -514,7 +514,7 @@ mod tests {
     use crate::Layer;
     use crate::decoder::GeometryValues;
     use crate::encoder::model::StagedLayer;
-    use crate::encoder::{Encoder, StagedId, StagedProperty, StagedSharedDict};
+    use crate::encoder::{Encoder, Presence, StagedId, StagedProperty, StagedSharedDict};
     use crate::test_helpers::{dec, parser};
 
     fn layer_buf(staged: StagedLayer) -> Vec<u8> {
@@ -895,8 +895,16 @@ mod tests {
         let shared_dict = StagedSharedDict::new(
             "addr:",
             [
-                ("city", vec![Some("Paris"), Some("Rome"), None]),
-                ("zip", vec![Some("75001"), None, Some("00100")]),
+                (
+                    "city",
+                    vec![Some("Paris"), Some("Rome"), None],
+                    Presence::Mixed,
+                ),
+                (
+                    "zip",
+                    vec![Some("75001"), None, Some("00100")],
+                    Presence::Mixed,
+                ),
             ],
         )
         .unwrap();

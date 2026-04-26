@@ -229,13 +229,13 @@ impl StagedSharedDictItem {
 impl StagedSharedDict {
     /// Build a shared-dictionary column directly from raw per-column string data.
     ///
-    /// Each column is a `(suffix, values)` pair where `values` is an iterator of
-    /// optional strings (one per feature).  All unique non-null strings across every
+    /// Each column is a `(suffix, values, presence)` tuple where `values` is an iterator
+    /// of optional strings (one per feature).  All unique non-null strings across every
     /// column are deduplicated into a shared byte corpus; per-feature byte-range offsets
     /// into that corpus are recorded in each shared-dictionary item.
     pub fn new<S, I, T>(
         prefix: impl Into<String>,
-        columns: impl IntoIterator<Item = (S, I)>,
+        columns: impl IntoIterator<Item = (S, I, Presence)>,
     ) -> MltResult<Self>
     where
         S: Into<String>,
@@ -244,9 +244,9 @@ impl StagedSharedDict {
     {
         let prefix = prefix.into();
         // Collect all columns so we can make two passes (dedup then assign ranges).
-        let columns: Vec<(String, Vec<Option<T>>)> = columns
+        let columns: Vec<(String, Vec<Option<T>>, Presence)> = columns
             .into_iter()
-            .map(|(s, i)| (s.into(), i.into_iter().collect()))
+            .map(|(s, i, p)| (s.into(), i.into_iter().collect(), p))
             .collect();
 
         // First pass: build deduplicated corpus in insertion order.
@@ -254,7 +254,7 @@ impl StagedSharedDict {
         let mut dict_ranges = Vec::<(u32, u32)>::new();
         let mut data = String::new();
 
-        for (_, values) in &columns {
+        for (_, values, _) in &columns {
             for value in values.iter().filter_map(Option::as_ref) {
                 let s = value.as_ref();
                 if !dict_index.contains_key(s) {
@@ -273,29 +273,29 @@ impl StagedSharedDict {
         // Second pass: emit per-feature ranges for each column.
         let items = columns
             .into_iter()
-            .map(|(suffix, values)| -> MltResult<StagedSharedDictItem> {
-                let mut ranges = Vec::with_capacity(values.len());
-                let mut present_items = 0;
-                for opt_val in values {
-                    match opt_val {
-                        Some(value) => {
-                            let idx = *dict_index
-                                .get(value.as_ref())
-                                .expect("StagedSharedDict::new: value must be present");
-                            let (start, end) = dict_ranges[idx as usize];
-                            ranges.push(encode_shared_dict_range(start, end)?);
-                            present_items += 1;
+            .map(
+                |(suffix, values, presence)| -> MltResult<StagedSharedDictItem> {
+                    let mut ranges = Vec::with_capacity(values.len());
+                    for opt_val in values {
+                        match opt_val {
+                            Some(value) => {
+                                let idx = *dict_index
+                                    .get(value.as_ref())
+                                    .expect("StagedSharedDict::new: value must be present");
+                                let (start, end) = dict_ranges[idx as usize];
+                                ranges.push(encode_shared_dict_range(start, end)?);
+                            }
+                            None => ranges.push(DictRange::NULL),
                         }
-                        None => ranges.push(DictRange::NULL),
                     }
-                }
-                let has_presence = present_items < ranges.len();
-                Ok(StagedSharedDictItem {
-                    suffix,
-                    ranges,
-                    has_presence,
-                })
-            })
+                    let has_presence = presence != Presence::AllPresent;
+                    Ok(StagedSharedDictItem {
+                        suffix,
+                        ranges,
+                        has_presence,
+                    })
+                },
+            )
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Self {
@@ -303,27 +303,6 @@ impl StagedSharedDict {
             data,
             items,
         })
-    }
-
-    /// Build a shared-dictionary column with precomputed child presence facts.
-    pub(crate) fn new_with_presence<S, I, T>(
-        prefix: impl Into<String>,
-        columns: impl IntoIterator<Item = (S, I, Presence)>,
-    ) -> MltResult<Self>
-    where
-        S: Into<String>,
-        I: IntoIterator<Item = Option<T>>,
-        T: AsRef<str>,
-    {
-        let (columns, presences): (Vec<_>, Vec<_>) = columns
-            .into_iter()
-            .map(|(suffix, values, presence)| ((suffix, values), presence))
-            .unzip();
-        let mut shared_dict = Self::new(prefix, columns)?;
-        for (item, presence) in shared_dict.items.iter_mut().zip(presences) {
-            item.has_presence = presence != Presence::AllPresent;
-        }
-        Ok(shared_dict)
     }
 }
 

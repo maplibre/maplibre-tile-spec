@@ -81,7 +81,19 @@ fn opt_strs(vals: &[Option<&str>]) -> Vec<Option<String>> {
     vals.iter().map(|v| v.map(ToString::to_string)).collect()
 }
 
+fn presence<T>(values: &[Option<T>]) -> Presence {
+    if values.iter().all(Option::is_some) {
+        Presence::AllPresent
+    } else {
+        Presence::Mixed
+    }
+}
+
 fn shared_dict_prop(name: &str, children: Vec<(String, Vec<Option<String>>)>) -> StagedProperty {
+    let children = children.into_iter().map(|(suffix, values)| {
+        let presence = presence(&values);
+        (suffix, values, presence)
+    });
     StagedProperty::SharedDict(StagedSharedDict::new(name, children).expect("build shared dict"))
 }
 
@@ -441,8 +453,16 @@ fn struct_shared_dict_inline_ranges_track_nulls_and_empty_strings() {
     let dict = StagedSharedDict::new(
         "name",
         vec![
-            col(":de", opt_strs(&[Some(""), None, Some("Berlin")])),
-            col(":en", opt_strs(&[Some(""), Some("Berlin"), Some("")])),
+            (
+                ":de",
+                opt_strs(&[Some(""), None, Some("Berlin")]),
+                Presence::Mixed,
+            ),
+            (
+                ":en",
+                opt_strs(&[Some(""), Some("Berlin"), Some("")]),
+                Presence::AllPresent,
+            ),
         ],
     )
     .unwrap();
@@ -607,8 +627,12 @@ proptest! {
         input in arb_shared_dict_children(),
     ) {
         let (n, children) = input;
+        let staged_children = children.iter().map(|(suffix, values)| {
+            let presence = presence(values);
+            (suffix.clone(), values.clone(), presence)
+        });
         let staged = StagedProperty::SharedDict(
-            StagedSharedDict::new(&struct_name, children.clone()).expect("build shared dict"),
+            StagedSharedDict::new(&struct_name, staged_children).expect("build shared dict"),
         );
         let tile = encode_and_tile(vec![staged]);
 

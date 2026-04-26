@@ -192,8 +192,7 @@ fn build_shared_dict(
         });
 
     StagedProperty::SharedDict(
-        StagedSharedDict::new_with_presence(prefix.to_owned(), columns)
-            .expect("StagedSharedDict succeed"),
+        StagedSharedDict::new(prefix.to_owned(), columns).expect("StagedSharedDict succeed"),
     )
 }
 
