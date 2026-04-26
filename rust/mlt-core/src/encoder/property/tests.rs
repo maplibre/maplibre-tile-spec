@@ -1,5 +1,6 @@
 use geo_types::Point;
 use proptest::prelude::*;
+use rstest::rstest;
 
 use crate::encoder::SortStrategy::Unsorted;
 use crate::encoder::model::{ExplicitEncoder, StagedLayer, StrEncoding};
@@ -849,30 +850,82 @@ fn analyze_layer_tracks_typed_property_stats() {
     );
 }
 
-#[test]
-fn analyze_layer_rejects_mixed_property_types() {
-    let tile = tile_from_cols(&[(
-        "mixed",
-        vec![PropValue::F32(Some(1.0)), PropValue::F64(Some(2.0))],
-    )]);
-
+#[rstest]
+#[case(vec![PropValue::I8(Some(1)), PropValue::I32(Some(2))])]
+#[case(vec![PropValue::I8(Some(1)), PropValue::I64(Some(2))])]
+#[case(vec![PropValue::I32(Some(1)), PropValue::I64(Some(2))])]
+#[case(vec![PropValue::U8(Some(1)), PropValue::U32(Some(2))])]
+#[case(vec![PropValue::U8(Some(1)), PropValue::U64(Some(2))])]
+#[case(vec![PropValue::U32(Some(1)), PropValue::U64(Some(2))])]
+#[case(vec![PropValue::I8(None), PropValue::I32(Some(2))])]
+#[case(vec![PropValue::I8(Some(1)), PropValue::I64(None)])]
+#[case(vec![PropValue::I32(None), PropValue::I64(Some(2))])]
+#[case(vec![PropValue::U8(None), PropValue::U32(Some(2))])]
+#[case(vec![PropValue::U8(Some(1)), PropValue::U64(None)])]
+#[case(vec![PropValue::U32(None), PropValue::U64(Some(2))])]
+#[case(vec![PropValue::F32(Some(1.0)), PropValue::F64(Some(2.0))])]
+#[case(vec![PropValue::F32(None), PropValue::F64(Some(2.0))])]
+#[case(vec![PropValue::F32(Some(1.0)), PropValue::F64(None)])]
+#[case(vec![PropValue::U32(None), PropValue::Str(Some("x".into()))])]
+fn analyze_layer_rejects_property_type_coercions(#[case] values: Vec<PropValue>) {
+    let tile = tile_from_cols(&[("mixed", values)]);
     assert!(matches!(
         tile.analyze(false),
         Err(MltError::MixedPropertyTypes(0, property_name)) if property_name == "mixed"
     ));
 }
 
-#[test]
-fn analyze_layer_rejects_typed_null_mixed_with_other_type() {
-    let tile = tile_from_cols(&[(
-        "mixed",
-        vec![PropValue::U32(None), PropValue::Str(Some("x".into()))],
-    )]);
-
-    assert!(matches!(
-        tile.analyze(false),
-        Err(MltError::MixedPropertyTypes(0, property_name)) if property_name == "mixed"
-    ));
+#[rstest]
+#[case(
+    vec![PropValue::Bool(None), PropValue::Bool(Some(true))],
+    PropertyTypedStats::Bool
+)]
+#[case(
+    vec![PropValue::I8(None), PropValue::I8(Some(-1))],
+    PropertyTypedStats::Signed { min: -1, max: -1 }
+)]
+#[case(
+    vec![PropValue::U8(None), PropValue::U8(Some(1))],
+    PropertyTypedStats::Unsigned { min: 1, max: 1 }
+)]
+#[case(
+    vec![PropValue::I32(None), PropValue::I32(Some(-2))],
+    PropertyTypedStats::Signed { min: -2, max: -2 }
+)]
+#[case(
+    vec![PropValue::U32(None), PropValue::U32(Some(2))],
+    PropertyTypedStats::Unsigned { min: 2, max: 2 }
+)]
+#[case(
+    vec![PropValue::I64(None), PropValue::I64(Some(-3))],
+    PropertyTypedStats::Signed { min: -3, max: -3 }
+)]
+#[case(
+    vec![PropValue::U64(None), PropValue::U64(Some(3))],
+    PropertyTypedStats::Unsigned { min: 3, max: 3 }
+)]
+#[case(
+    vec![PropValue::F32(None), PropValue::F32(Some(1.0))],
+    PropertyTypedStats::F32
+)]
+#[case(
+    vec![PropValue::F64(None), PropValue::F64(Some(1.0))],
+    PropertyTypedStats::F64
+)]
+#[case(
+    vec![PropValue::Str(None), PropValue::Str(Some("x".into()))],
+    PropertyTypedStats::String {
+        shared_dict: SharedDictRole::None,
+    }
+)]
+fn analyze_layer_accepts_typed_nulls_matching_column_type(
+    #[case] values: Vec<PropValue>,
+    #[case] expected_stats: PropertyTypedStats,
+) {
+    let tile = tile_from_cols(&[("typed_null", values)]);
+    let analysis = tile.analyze(false).unwrap();
+    assert_eq!(analysis.properties[0].presence, Presence::Mixed);
+    assert_eq!(analysis.properties[0].stats, expected_stats);
 }
 
 #[test]

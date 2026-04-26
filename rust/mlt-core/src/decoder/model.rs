@@ -204,7 +204,8 @@ pub enum PropValue {
     Str(Option<String>),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::IntoStaticStr)]
+#[strum(serialize_all = "lowercase")]
 pub enum PropKind {
     Bool,
     I8,

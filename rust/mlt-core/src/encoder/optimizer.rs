@@ -216,10 +216,6 @@ impl PropertyTypedStats {
         Ok(())
     }
 
-    fn mixed_property_types(column_index: usize, property_name: &str) -> MltError {
-        MltError::MixedPropertyTypes(column_index, property_name.to_owned())
-    }
-
     fn merge_bool(&mut self, column_index: usize, property_name: &str) -> MltResult<()> {
         self.merge_same_kind(Self::Bool, column_index, property_name)
     }
@@ -241,7 +237,7 @@ impl PropertyTypedStats {
                 *min = (*min).min(value);
                 *max = (*max).max(value);
             }
-            _ => return Err(Self::mixed_property_types(column_index, property_name)),
+            _ => return mixed_prop_err(column_index, property_name),
         }
         Ok(())
     }
@@ -263,7 +259,7 @@ impl PropertyTypedStats {
                 *min = (*min).min(value);
                 *max = (*max).max(value);
             }
-            _ => return Err(Self::mixed_property_types(column_index, property_name)),
+            _ => return mixed_prop_err(column_index, property_name),
         }
         Ok(())
     }
@@ -276,7 +272,7 @@ impl PropertyTypedStats {
                 };
             }
             Self::String { .. } => {}
-            _ => return Err(Self::mixed_property_types(column_index, property_name)),
+            _ => return mixed_prop_err(column_index, property_name),
         }
         Ok(())
     }
@@ -292,7 +288,7 @@ impl PropertyTypedStats {
             Self::Bool if matches!(kind, Self::Bool) => {}
             Self::F32 if matches!(kind, Self::F32) => {}
             Self::F64 if matches!(kind, Self::F64) => {}
-            _ => return Err(Self::mixed_property_types(column_index, property_name)),
+            _ => return mixed_prop_err(column_index, property_name),
         }
         Ok(())
     }
@@ -346,14 +342,13 @@ impl TileLayer {
                 let mut stats = PropertyTypedStats::default();
                 for feature in &self.features {
                     let prop = feature.properties.get(col_idx);
-                    if let Some(prop) = prop {
-                        let prop_kind = PropKind::from(prop);
-                        if let Some(kind) = kind {
-                            if kind != prop_kind {
-                                return Err(MltError::MixedPropertyTypes(col_idx, name.clone()));
+                    if let Some(prop_kind) = prop.map(PropKind::from) {
+                        match kind {
+                            Some(kind) if kind != prop_kind => {
+                                return mixed_prop_err(col_idx, name.as_str());
                             }
-                        } else {
-                            kind = Some(prop_kind);
+                            None => kind = Some(prop_kind),
+                            _ => {}
                         }
                     }
                     if prop_is_present(prop) {
@@ -393,4 +388,12 @@ fn prop_is_present(prop: Option<&PropValue>) -> bool {
                 | PropValue::Str(Some(_)),
         )
     )
+}
+
+#[inline]
+fn mixed_prop_err<T>(column_index: usize, property_name: &str) -> MltResult<T> {
+    Err(MltError::MixedPropertyTypes(
+        column_index,
+        property_name.to_owned(),
+    ))
 }
