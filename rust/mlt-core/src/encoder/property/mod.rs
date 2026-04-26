@@ -13,4 +13,4 @@ pub use model::{
     StagedStrings,
 };
 pub use shared_dict::StringGroup;
-pub(crate) use shared_dict::{StringStatsBuilder, apply_string_groups};
+pub(crate) use shared_dict::apply_string_groups;

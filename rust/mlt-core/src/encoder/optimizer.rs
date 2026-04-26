@@ -1,11 +1,11 @@
 use crate::decoder::TileLayer;
 use crate::encoder::model::StagedLayer;
+use crate::encoder::property::apply_string_groups;
 use crate::encoder::property::encode::write_properties;
-use crate::encoder::property::{StringStatsBuilder, apply_string_groups};
 use crate::encoder::{
     Encoder, EncoderConfig, SortStrategy, StringGroup, spatial_sort_likely_to_help,
 };
-use crate::{MltResult, PropValue};
+use crate::{MltError, MltResult, PropValue};
 
 impl StagedLayer {
     /// Encode and serialize the layer directly into `enc`, without creating any
@@ -69,29 +69,29 @@ impl TileLayer {
             sort_by.push(SortStrategy::Id);
         }
 
-        let analysis = self.analyze(cfg.allow_shared_dict);
+        let stats = self.analyze(cfg.allow_shared_dict)?;
 
         let (last, init) = sort_by.split_last().expect("at least one strategy");
         if init.is_empty() {
-            StagedLayer::from_tile(self, *last, &analysis, cfg.tessellate)
+            StagedLayer::from_tile(self, *last, &stats, cfg.tessellate)
                 .encode_into(Encoder::new(cfg))?
         } else {
             let mut enc: Encoder = {
                 let first = init[0];
-                StagedLayer::from_tile(self.clone(), first, &analysis, cfg.tessellate)
+                StagedLayer::from_tile(self.clone(), first, &stats, cfg.tessellate)
                     .encode_into(Encoder::new(cfg))?
             };
             let mut best = enc.preserve_results();
             // Clone for all-but-last strategies
             for &sort in &init[1..] {
-                let layer = StagedLayer::from_tile(self.clone(), sort, &analysis, cfg.tessellate);
+                let layer = StagedLayer::from_tile(self.clone(), sort, &stats, cfg.tessellate);
                 enc = layer.encode_into(enc)?;
                 if enc.total_len() < best.total_len() {
                     best = enc.preserve_results();
                 }
             }
             // Last strategy: consume self, no clone
-            let layer = StagedLayer::from_tile(self, *last, &analysis, cfg.tessellate);
+            let layer = StagedLayer::from_tile(self, *last, &stats, cfg.tessellate);
             enc = layer.encode_into(enc)?;
             if enc.total_len() < best.total_len() {
                 best = enc.preserve_results();
@@ -154,12 +154,9 @@ pub enum PropertyTypedStats {
         min: u64,
         max: u64,
     },
-    Float,
+    F32,
+    F64,
     String {
-        total_bytes: usize,
-        max_bytes: usize,
-        exact_hashes: Vec<u64>,
-        trigram_hashes: Vec<u64>,
         shared_dict: SharedDictRole,
     },
 }
@@ -168,7 +165,7 @@ impl PropertyTypedStats {
     #[must_use]
     pub fn values_fit_u32(&self) -> bool {
         match self {
-            Self::None | Self::Bool | Self::Float | Self::String { .. } => false,
+            Self::None | Self::Bool | Self::F32 | Self::F64 | Self::String { .. } => false,
             Self::Signed { min, max } => *min >= 0 && u32::try_from(*max).is_ok(),
             Self::Unsigned { max, .. } => u32::try_from(*max).is_ok(),
         }
@@ -189,26 +186,28 @@ impl PropertyTypedStats {
         }
     }
 
-    pub(crate) fn push(&mut self, prop: &PropValue) {
+    pub(crate) fn push(&mut self, prop: &PropValue) -> MltResult<()> {
         match prop {
-            PropValue::Bool(Some(_)) => self.merge_bool(),
-            PropValue::I8(Some(v)) => self.merge_signed(i64::from(*v)),
-            PropValue::U8(Some(v)) => self.merge_unsigned(u64::from(*v)),
-            PropValue::I32(Some(v)) => self.merge_signed(i64::from(*v)),
-            PropValue::U32(Some(v)) => self.merge_unsigned(u64::from(*v)),
-            PropValue::I64(Some(v)) => self.merge_signed(*v),
-            PropValue::U64(Some(v)) => self.merge_unsigned(*v),
-            PropValue::F32(Some(_)) | PropValue::F64(Some(_)) => self.merge_float(),
-            PropValue::Str(Some(s)) => self.merge_string(s.len()),
+            PropValue::Bool(Some(_)) => self.merge_bool()?,
+            PropValue::I8(Some(v)) => self.merge_signed(i64::from(*v))?,
+            PropValue::U8(Some(v)) => self.merge_unsigned(u64::from(*v))?,
+            PropValue::I32(Some(v)) => self.merge_signed(i64::from(*v))?,
+            PropValue::U32(Some(v)) => self.merge_unsigned(u64::from(*v))?,
+            PropValue::I64(Some(v)) => self.merge_signed(*v)?,
+            PropValue::U64(Some(v)) => self.merge_unsigned(*v)?,
+            PropValue::F32(Some(_)) => self.merge_same_kind(Self::F32)?,
+            PropValue::F64(Some(_)) => self.merge_same_kind(Self::F64)?,
+            PropValue::Str(Some(_)) => self.merge_string()?,
             _ => {}
         }
+        Ok(())
     }
 
-    fn merge_bool(&mut self) {
-        self.merge_same_kind(Self::Bool);
+    fn merge_bool(&mut self) -> MltResult<()> {
+        self.merge_same_kind(Self::Bool)
     }
 
-    fn merge_signed(&mut self, value: i64) {
+    fn merge_signed(&mut self, value: i64) -> MltResult<()> {
         match self {
             Self::None => {
                 *self = Self::Signed {
@@ -220,11 +219,12 @@ impl PropertyTypedStats {
                 *min = (*min).min(value);
                 *max = (*max).max(value);
             }
-            _ => panic!("mixed property types are not allowed"),
+            _ => return Err(MltError::MixedPropertyTypes),
         }
+        Ok(())
     }
 
-    fn merge_unsigned(&mut self, value: u64) {
+    fn merge_unsigned(&mut self, value: u64) -> MltResult<()> {
         match self {
             Self::None => {
                 *self = Self::Unsigned {
@@ -236,67 +236,53 @@ impl PropertyTypedStats {
                 *min = (*min).min(value);
                 *max = (*max).max(value);
             }
-            _ => panic!("mixed property types are not allowed"),
+            _ => return Err(MltError::MixedPropertyTypes),
         }
+        Ok(())
     }
 
-    fn merge_float(&mut self) {
-        self.merge_same_kind(Self::Float);
-    }
-
-    fn merge_string(&mut self, len: usize) {
+    fn merge_string(&mut self) -> MltResult<()> {
         match self {
             Self::None => {
                 *self = Self::String {
-                    total_bytes: len,
-                    max_bytes: len,
-                    exact_hashes: Vec::new(),
-                    trigram_hashes: Vec::new(),
                     shared_dict: SharedDictRole::None,
                 };
             }
-            Self::String {
-                total_bytes,
-                max_bytes,
-                exact_hashes: _,
-                trigram_hashes: _,
-                shared_dict: _,
-            } => {
-                *total_bytes += len;
-                *max_bytes = (*max_bytes).max(len);
-            }
-            _ => panic!("mixed property types are not allowed"),
+            Self::String { .. } => {}
+            _ => return Err(MltError::MixedPropertyTypes),
         }
+        Ok(())
     }
 
-    fn merge_same_kind(&mut self, kind: Self) {
+    fn merge_same_kind(&mut self, kind: Self) -> MltResult<()> {
         match self {
             Self::None => *self = kind,
             Self::Bool if matches!(kind, Self::Bool) => {}
-            Self::Float if matches!(kind, Self::Float) => {}
-            _ => panic!("mixed property types are not allowed"),
+            Self::F32 if matches!(kind, Self::F32) => {}
+            Self::F64 if matches!(kind, Self::F64) => {}
+            _ => return Err(MltError::MixedPropertyTypes),
         }
+        Ok(())
     }
 }
 
 impl TileLayer {
     /// Analyze a [`TileLayer`] and return reusable ID/property facts for the optimizer.
-    #[must_use]
     #[hotpath::measure]
-    pub(crate) fn analyze(&self, allow_shared_dict: bool) -> LayerStats {
+    pub(crate) fn analyze(&self, allow_shared_dict: bool) -> MltResult<LayerStats> {
         let id = self.analyze_ids();
-        let mut properties = self.profile_properties(allow_shared_dict);
+        let mut properties = self.profile_properties()?;
         let string_groups = if allow_shared_dict {
-            apply_string_groups(&self.property_names, &mut properties)
+            self.apply_string_groups(&mut properties)
         } else {
             Vec::new()
         };
 
-        LayerStats {
+        Ok(LayerStats {
             id,
             properties,
             string_groups,
-        }
+        })
     }
 
     fn analyze_ids(&self) -> Option<PropertyStats> {
@@ -324,24 +310,19 @@ impl TileLayer {
         })
     }
 
-    fn profile_properties(&self, allow_shared_dict: bool) -> Vec<PropertyStats> {
-        let string_stats = allow_shared_dict.then(StringStatsBuilder::new);
+    fn profile_properties(&self) -> MltResult<Vec<PropertyStats>> {
         self.property_names
             .iter()
             .enumerate()
-            .map(|(col_idx, _name)| {
+            .map(|(col_idx, _name)| -> MltResult<PropertyStats> {
                 let mut present = 0usize;
                 let mut stats = PropertyTypedStats::default();
-                let mut string_values = Vec::new();
                 for feature in &self.features {
                     let prop = feature.properties.get(col_idx);
                     if prop_is_present(prop) {
                         present += 1;
                         let prop = prop.expect("present property exists");
-                        stats.push(prop);
-                        if let (Some(_), PropValue::Str(Some(s))) = (&string_stats, prop) {
-                            string_values.push(s.as_str());
-                        }
+                        stats.push(prop)?;
                     }
                 }
 
@@ -353,22 +334,7 @@ impl TileLayer {
                     Presence::Mixed
                 };
 
-                if let (Some(string_stats), false) =
-                    (string_stats.as_ref(), string_values.is_empty())
-                {
-                    let (exact, trigram) = string_stats.hashes(&string_values);
-                    if let PropertyTypedStats::String {
-                        exact_hashes,
-                        trigram_hashes,
-                        ..
-                    } = &mut stats
-                    {
-                        *exact_hashes = exact;
-                        *trigram_hashes = trigram;
-                    }
-                }
-
-                PropertyStats { presence, stats }
+                Ok(PropertyStats { presence, stats })
             })
             .collect()
     }

@@ -49,6 +49,6 @@ pub fn stage_tile(
     allow_shared_dict: bool,
     tessellate: bool,
 ) -> StagedLayer {
-    let analysis = tile.analyze(allow_shared_dict);
+    let analysis = tile.analyze(allow_shared_dict).expect("analyze tile");
     StagedLayer::from_tile(tile, sort, &analysis, tessellate)
 }

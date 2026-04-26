@@ -10,7 +10,7 @@ use crate::encoder::{
     StagedSharedDict, stage_tile,
 };
 use crate::test_helpers::{dec, parser};
-use crate::{DictRange, GeometryValues, Layer, PropValue, TileFeature, TileLayer};
+use crate::{DictRange, GeometryValues, Layer, MltError, PropValue, TileFeature, TileLayer};
 // proptest_derive::Arbitrary is only derived for these types inside the crate
 // under #[cfg(test)], so we write the strategies by hand here.
 
@@ -690,28 +690,28 @@ fn str_vals(values: &[&str]) -> Vec<PropValue> {
 #[test]
 fn staging_uses_id_presence_analysis() {
     let all_present = tile_from_ids(&[Some(1), Some(2), Some(3)]);
-    let analysis = all_present.analyze(false);
+    let analysis = all_present.analyze(false).unwrap();
     let id = analysis.id.as_ref().expect("ID analysis");
     assert!(id.stats.values_fit_u32());
     let staged = StagedLayer::from_tile(all_present, Unsorted, &analysis, false);
     assert!(matches!(staged.id, StagedId::U32(_)));
 
     let mixed = tile_from_ids(&[Some(1), None, Some(3)]);
-    let analysis = mixed.analyze(false);
+    let analysis = mixed.analyze(false).unwrap();
     let id = analysis.id.as_ref().expect("ID analysis");
     assert!(id.stats.values_fit_u32());
     let staged = StagedLayer::from_tile(mixed, Unsorted, &analysis, false);
     assert!(matches!(staged.id, StagedId::OptU32(_)));
 
     let large = tile_from_ids(&[Some(u64::from(u32::MAX) + 1), None, Some(3)]);
-    let analysis = large.analyze(false);
+    let analysis = large.analyze(false).unwrap();
     let id = analysis.id.as_ref().expect("ID analysis");
     assert!(!id.stats.values_fit_u32());
     let staged = StagedLayer::from_tile(large, Unsorted, &analysis, false);
     assert!(matches!(staged.id, StagedId::OptU64(_)));
 
     let all_null = tile_from_ids(&[None, None, None]);
-    let analysis = all_null.analyze(false);
+    let analysis = all_null.analyze(false).unwrap();
     assert_eq!(analysis.id, None);
     let staged = StagedLayer::from_tile(all_null, Unsorted, &analysis, false);
     assert!(matches!(staged.id, StagedId::None));
@@ -748,7 +748,7 @@ fn analyze_layer_classifies_id_and_property_presence() {
         ],
     );
 
-    let analysis = tile.analyze(true);
+    let analysis = tile.analyze(true).unwrap();
 
     let id = analysis.id.as_ref().expect("ID analysis");
     assert_eq!(id.presence, Presence::Mixed);
@@ -794,7 +794,7 @@ fn analyze_layer_tracks_typed_property_stats() {
         ),
     ]);
 
-    let analysis = tile.analyze(false);
+    let analysis = tile.analyze(false).unwrap();
 
     assert_eq!(
         analysis.properties[0].stats,
@@ -820,13 +820,22 @@ fn analyze_layer_tracks_typed_property_stats() {
     assert_eq!(
         analysis.properties[3].stats,
         PropertyTypedStats::String {
-            total_bytes: 5,
-            max_bytes: 4,
-            exact_hashes: Vec::new(),
-            trigram_hashes: Vec::new(),
             shared_dict: SharedDictRole::None
         }
     );
+}
+
+#[test]
+fn analyze_layer_rejects_mixed_property_types() {
+    let tile = tile_from_cols(&[(
+        "mixed",
+        vec![PropValue::F32(Some(1.0)), PropValue::F64(Some(2.0))],
+    )]);
+
+    assert!(matches!(
+        tile.analyze(false),
+        Err(MltError::MixedPropertyTypes)
+    ));
 }
 
 #[test]
@@ -869,7 +878,7 @@ fn analyze_layer_records_shared_dict_roles_by_property_index() {
     let vocab = &["Alice", "Bob", "Carol", "Dave"];
     let tile = tile_from_cols(&[("name:en", str_vals(vocab)), ("name:de", str_vals(vocab))]);
 
-    let analysis = tile.analyze(true);
+    let analysis = tile.analyze(true).unwrap();
 
     assert_eq!(analysis.string_groups.len(), 1);
     assert_eq!(
