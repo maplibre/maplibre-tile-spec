@@ -121,12 +121,6 @@ pub struct Encoder {
     pub layer_column_count: u32,
 
     /// Cached vertex layout choice for the current layer.
-    ///
-    /// Populated either by an explicit override (set up-front) or by the
-    /// auto-mode dict race (set after the first encode). On subsequent calls
-    /// the cached choice is encoded directly without re-running the race —
-    /// "forced" (override) and "cached" (race winner) take the same code
-    /// path because both already know the exact `VertexBufferType` to use.
     pub(crate) vertex_buffer_type_cache: Option<VertexBufferType>,
 
     /// Cached result of `z_order_params` for the geometry column currently
