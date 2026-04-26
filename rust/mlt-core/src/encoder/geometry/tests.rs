@@ -5,7 +5,8 @@ use pretty_assertions::assert_eq;
 use rstest::rstest;
 
 use crate::decoder::RawGeometry;
-use crate::encoder::Encoder;
+use crate::encoder::model::EncoderConfig;
+use crate::encoder::{Encoder, ExplicitEncoder, IntEncoder, VertexBufferType};
 use crate::test_helpers::{assert_empty, dec, parser};
 use crate::{Decode as _, DictionaryType, GeometryValues, LengthType, OffsetType, StreamType};
 
@@ -21,36 +22,49 @@ fn automatic_optimization_roundtrip(#[case] decoded: GeometryValues) {
 }
 
 #[rstest]
-#[case::single_point_vec2(
+#[case::distinct_points_vec2(
     push_geoms(&[(0i32..10).map(|i| point!{ x: i, y: i }.into()).collect::<Vec<_>>()].concat()),
-    DictionaryType::Vertex
+    false
 )]
-#[case::repeated_points_morton(
+#[case::repeated_points_dict(
     push_geoms(&std::iter::repeat_n(point!{ x: 5, y: 5 }.into(), 20).collect::<Vec<_>>()),
-    DictionaryType::Morton
+    true
 )]
 fn automatic_optimization_picks_correct_vertex_strategy(
     #[case] decoded: GeometryValues,
-    #[case] expected: DictionaryType,
+    #[case] expect_dict: bool,
 ) {
-    let unexpected = if expected == DictionaryType::Vertex {
-        DictionaryType::Morton
-    } else {
-        DictionaryType::Vertex
-    };
-
     let mut enc = Encoder::default();
     decoded.write_to(&mut enc).expect("encode failed");
     let types = encoded_stream_types(&enc.data);
 
-    assert!(
-        types.contains(&StreamType::Data(expected)),
-        "expected {expected:?} stream to be present"
-    );
-    assert!(
-        !types.contains(&StreamType::Data(unexpected)),
-        "expected {unexpected:?} stream to be absent"
-    );
+    let has_vertex_offsets = types.contains(&StreamType::Offset(OffsetType::Vertex));
+    let has_morton_dict = types.contains(&StreamType::Data(DictionaryType::Morton));
+    let has_vertex_dict = types.contains(&StreamType::Data(DictionaryType::Vertex));
+
+    if expect_dict {
+        assert!(
+            has_vertex_offsets,
+            "auto-dict path must emit a vertex offset stream"
+        );
+        assert!(
+            has_morton_dict || has_vertex_dict,
+            "auto-dict path must emit either a Morton or Hilbert (Vertex) dictionary stream"
+        );
+    } else {
+        assert!(
+            !has_vertex_offsets,
+            "Vec2 path must not emit a vertex offset stream"
+        );
+        assert!(
+            has_vertex_dict,
+            "Vec2 path must emit a Vertex (componentwise-delta) data stream"
+        );
+        assert!(
+            !has_morton_dict,
+            "Vec2 path must not emit a Morton dictionary stream"
+        );
+    }
 }
 
 #[test]
@@ -89,8 +103,11 @@ fn encoded_polygon_has_topology_streams() {
 }
 
 #[test]
-fn encoded_repeated_points_uses_morton_streams() {
-    // All vertices identical: uniqueness ratio = 1/3 < 0.5, so optimizer picks Morton.
+fn encoded_repeated_points_uses_dict_streams() {
+    // All vertices identical: uniqueness ratio is below the dictionary threshold
+    // so the optimizer picks a dictionary path. The Hilbert vs Morton race then
+    // chooses whichever serializes smaller — the test only asserts that the
+    // dictionary path was taken, not which curve won.
     let mut decoded = GeometryValues::default();
     decoded.push_geom(&wkt!(MULTIPOINT(5 5, 5 5, 5 5)).into());
     let mut enc = Encoder::default();
@@ -98,12 +115,13 @@ fn encoded_repeated_points_uses_morton_streams() {
 
     let stream_types = encoded_stream_types(&enc.data);
     assert!(
-        stream_types.contains(&StreamType::Data(DictionaryType::Morton)),
-        "repeated vertices must trigger Morton dictionary encoding"
+        stream_types.contains(&StreamType::Data(DictionaryType::Morton))
+            || stream_types.contains(&StreamType::Data(DictionaryType::Vertex)),
+        "repeated vertices must trigger a dictionary encoding (Morton or Hilbert/Vertex)"
     );
     assert!(
         stream_types.contains(&StreamType::Offset(OffsetType::Vertex)),
-        "Morton encoding must include a vertex offset stream"
+        "dictionary encoding must include a vertex offset stream"
     );
 
     let raw = assert_empty(RawGeometry::from_bytes(&enc.data, &mut parser()));
@@ -112,6 +130,43 @@ fn encoded_repeated_points_uses_morton_streams() {
         StreamType::Length(LengthType::VarBinary),
         "meta stream must always be present"
     );
+}
+
+#[rstest]
+#[case::vec2(VertexBufferType::Vec2)]
+#[case::morton(VertexBufferType::Morton)]
+#[case::hilbert(VertexBufferType::Hilbert)]
+fn forced_vertex_strategy_roundtrips(#[case] strategy: VertexBufferType) {
+    // Repeated coordinates so dict paths actually have collisions to dedup.
+    let mut decoded = GeometryValues::default();
+    decoded.push_geom(&wkt!(MULTIPOINT(5 5, 10 10, 5 5, 10 10, 0 0, 5 5)).into());
+
+    let explicit = ExplicitEncoder {
+        vertex_buffer_type: strategy,
+        ..ExplicitEncoder::all(IntEncoder::varint())
+    };
+    let mut enc = Encoder::with_explicit(EncoderConfig::default(), explicit);
+    decoded.clone().write_to(&mut enc).expect("encode failed");
+
+    let stream_types = encoded_stream_types(&enc.data);
+    match strategy {
+        VertexBufferType::Vec2 => {
+            assert!(stream_types.contains(&StreamType::Data(DictionaryType::Vertex)));
+            assert!(!stream_types.contains(&StreamType::Offset(OffsetType::Vertex)));
+        }
+        VertexBufferType::Morton => {
+            assert!(stream_types.contains(&StreamType::Data(DictionaryType::Morton)));
+            assert!(stream_types.contains(&StreamType::Offset(OffsetType::Vertex)));
+        }
+        VertexBufferType::Hilbert => {
+            assert!(stream_types.contains(&StreamType::Data(DictionaryType::Vertex)));
+            assert!(stream_types.contains(&StreamType::Offset(OffsetType::Vertex)));
+            // The Hilbert path also writes a vertex offset stream, distinguishing
+            // it from the Vec2 path which only emits the data stream.
+        }
+    }
+
+    assert_geometry_roundtrip(&enc.data, &decoded);
 }
 
 #[test]

@@ -10,4 +10,9 @@ pub enum VertexBufferType {
     /// Unique vertices are sorted by their Morton code and stored once.
     /// Each vertex position in the stream is replaced by its index into that dictionary.
     Morton,
+    /// Hilbert curve dictionary encoding:
+    /// Unique vertices are sorted by their Hilbert curve index and stored once,
+    /// componentwise-delta encoded. Each vertex position in the stream is replaced
+    /// by its index into that dictionary. Mirrors Java's `addVerticesToDictionary`.
+    Hilbert,
 }

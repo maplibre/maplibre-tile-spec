@@ -11,7 +11,7 @@ use crate::decoder::{
     ColumnType, IntEncoding, LogicalEncoding, Morton, PhysicalEncoding, RleMeta, StreamMeta,
     StreamType,
 };
-use crate::encoder::model::{ExplicitEncoder, StrEncoding, StreamCtx};
+use crate::encoder::model::{CurveParams, ExplicitEncoder, StrEncoding, StreamCtx};
 use crate::encoder::{EncoderConfig, IntEncoder, VertexBufferType};
 use crate::utils::BinarySerializer as _;
 use crate::{MltError, MltResult};
@@ -128,6 +128,12 @@ pub struct Encoder {
     /// call so it never leaks across columns.
     pub(crate) morton_cache: Option<Morton>,
 
+    /// Cached Hilbert curve parameters for the geometry column currently
+    /// being encoded. Populated by spatial sort (which already scans all
+    /// vertices to compute bounds) so the dictionary builder doesn't repeat
+    /// the scan. Same lifecycle rules as [`morton_cache`](Self::morton_cache).
+    pub(crate) hilbert_cache: Option<CurveParams>,
+
     /// Cached FSST compressor per string column, keyed by column name.
     /// `None` means training found FSST not viable for that column.
     /// Trained on deduplicated values on the first sort trial, reused on subsequent trials.
@@ -195,6 +201,7 @@ impl Encoder {
             layer_column_count: mem::take(&mut self.layer_column_count),
             vertex_buffer_type_cache: None,
             morton_cache: None,
+            hilbert_cache: None,
             fsst_cache: HashMap::new(),
             alt_stack: vec![],
             tmp_u32: vec![],

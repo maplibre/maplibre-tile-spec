@@ -7,6 +7,7 @@ use probabilistic_collections::hyperloglog::HyperLogLog;
 
 use super::model::VertexBufferType;
 use crate::MltResult;
+use crate::codecs::hilbert::{hilbert_curve_params_from_bounds, hilbert_sort_key};
 use crate::codecs::morton::morton_deltas;
 use crate::codecs::zigzag::encode_componentwise_delta_vec2s;
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
@@ -15,7 +16,7 @@ use crate::decoder::{
     OffsetType, StreamType,
 };
 use crate::encoder::Encoder;
-use crate::encoder::model::StreamCtx;
+use crate::encoder::model::{CurveParams, StreamCtx};
 use crate::encoder::stream::{write_precomputed_u32, write_u32_stream};
 use crate::utils::AsUsize as _;
 
@@ -49,6 +50,79 @@ fn build_morton_dict(vertices: &[i32], meta: Morton) -> MltResult<(Vec<u32>, Vec
     let offsets: Vec<u32> = codes.iter().map(|code| code_to_idx[code]).collect();
 
     Ok((dict, offsets))
+}
+
+/// Build a Hilbert-curve-sorted unique vertex dictionary and per-vertex offset
+/// indices from a flat `[x0, y0, x1, y1, …]` slice.
+///
+/// Returns `(dict_xy_flat, per_vertex_offsets)` where `dict_xy_flat` holds the
+/// kept vertices as `[x, y, …]` in Hilbert order, and `per_vertex_offsets[i]`
+/// is the dictionary slot of input vertex `i`.
+///
+/// Mirrors Java's `addVerticesToDictionary` exactly: dedup is keyed on the
+/// Hilbert curve index, not the `(x, y)` pair. At grid levels below 16 bits
+/// two distinct vertices can share a Hilbert ID and collapse into the same
+/// dictionary slot — this matches the Java implementation's lossy behavior.
+#[hotpath::measure]
+fn build_hilbert_dict(vertices: &[i32], params: CurveParams) -> (Vec<i32>, Vec<u32>) {
+    let coord_count = vertices.len() / 2;
+    if coord_count == 0 {
+        return (Vec::new(), Vec::new());
+    }
+
+    let keys: Vec<u32> = vertices
+        .chunks_exact(2)
+        .map(|c| hilbert_sort_key(Coord { x: c[0], y: c[1] }, params))
+        .collect();
+
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "coord_count <= isize::MAX which is < u32::MAX on 64-bit and == u32::MAX on 32-bit"
+    )]
+    let mut indexed: Vec<(u32, u32)> = keys
+        .iter()
+        .enumerate()
+        .map(|(i, &k)| (k, i as u32))
+        .collect();
+    indexed.sort_unstable_by_key(|&(k, _)| k);
+
+    let mut dict_xy: Vec<i32> = Vec::with_capacity(indexed.len() * 2);
+    let mut key_to_idx: HashMap<u32, u32> = HashMap::with_capacity(indexed.len());
+    let mut last_key: Option<u32> = None;
+    for &(key, src_idx) in &indexed {
+        if last_key != Some(key) {
+            #[expect(
+                clippy::cast_possible_truncation,
+                reason = "dict.len() <= coord_count <= u32::MAX"
+            )]
+            let slot = (dict_xy.len() / 2) as u32;
+            let base = src_idx.as_usize() * 2;
+            dict_xy.push(vertices[base]);
+            dict_xy.push(vertices[base + 1]);
+            key_to_idx.insert(key, slot);
+            last_key = Some(key);
+        }
+    }
+
+    let offsets: Vec<u32> = keys.iter().map(|k| key_to_idx[k]).collect();
+    (dict_xy, offsets)
+}
+
+/// Compute or return the cached Hilbert [`CurveParams`] for `vertices`.
+///
+/// Reuses [`Encoder::hilbert_cache`] populated by spatial sort; on a cache
+/// miss, scans `vertices` to derive global min/max and calls
+/// [`hilbert_curve_params_from_bounds`].
+fn get_hilbert_params(vertices: &[i32], enc: &mut Encoder) -> CurveParams {
+    if let Some(p) = enc.hilbert_cache {
+        return p;
+    }
+    let (min, max) = vertices
+        .iter()
+        .fold((i32::MAX, i32::MIN), |(mn, mx), &v| (mn.min(v), mx.max(v)));
+    let p = hilbert_curve_params_from_bounds(min, max);
+    enc.hilbert_cache = Some(p);
+    p
 }
 
 /// Push consecutive offset-differences from `offsets` onto `lengths`.
@@ -277,18 +351,63 @@ fn normalize_part_offsets_for_rings(
     normalized
 }
 
-/// Choose between Vec2 componentwise-delta and Morton dictionary encoding.
+/// Encode a Morton-keyed vertex dictionary: emits the per-vertex offset stream
+/// followed by the delta-encoded Morton-code dictionary. Returns the number of
+/// streams written (always 2).
+fn encode_morton_vertex_streams(vertices: &[i32], enc: &mut Encoder) -> MltResult<u8> {
+    let mut n: u8 = 0;
+    let morton = get_morton(vertices, enc)?;
+    let (dict, offsets) = build_morton_dict(vertices, morton)?;
+    let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex_offsets");
+    n += write_geo_u32_stream(&offsets, ctx, enc)?;
+
+    morton_deltas(&dict, &mut enc.tmp_u32);
+    let delta = mem::take(&mut enc.tmp_u32);
+    let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Morton), "vertex");
+    let logical = LogicalEncoding::MortonDelta(morton);
+    n += write_geo_precomputed_stream(&delta, ctx, logical, enc)?;
+    enc.tmp_u32 = delta;
+    Ok(n)
+}
+
+/// Encode a Hilbert-keyed vertex dictionary: emits the per-vertex offset stream
+/// followed by a componentwise-delta-encoded `[x0, y0, x1, y1, …]` dictionary
+/// in Hilbert-curve order. Returns the number of streams written (always 2).
+fn encode_hilbert_vertex_streams(vertices: &[i32], enc: &mut Encoder) -> MltResult<u8> {
+    let mut n: u8 = 0;
+    let params = get_hilbert_params(vertices, enc);
+    let (dict_xy, offsets) = build_hilbert_dict(vertices, params);
+    let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex_offsets");
+    n += write_geo_u32_stream(&offsets, ctx, enc)?;
+
+    encode_componentwise_delta_vec2s(&dict_xy, &mut enc.tmp_u32);
+    let delta = mem::take(&mut enc.tmp_u32);
+    let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
+    let logical = LogicalEncoding::ComponentwiseDelta;
+    n += write_geo_precomputed_stream(&delta, ctx, logical, enc)?;
+    enc.tmp_u32 = delta;
+    Ok(n)
+}
+
+/// Choose between Vec2 componentwise-delta and a dictionary encoding.
 ///
-/// Morton is only selected when:
+/// A dictionary path is selected when:
 /// - The coordinate range fits within 16 bits per axis (required by the spec), and
 /// - The uniqueness ratio is below the threshold, meaning enough vertices are
 ///   repeated that the dictionary overhead is worthwhile.
 ///
-/// Calls `get_z_order_params` so the [`Morton`] is cached on the encoder
-/// and can be retrieved again in the Morton encoding branch without a second vertex scan.
+/// In auto mode the dictionary path is reported as [`VertexBufferType::Hilbert`];
+/// the encoder branch then races a Hilbert dict against a Morton dict and keeps
+/// the smaller output. An explicit override via
+/// [`Encoder::override_vertex_buffer_type`] is honored verbatim and skips the
+/// race so test fixtures can pin a specific layout.
+///
+/// Calls `get_z_order_params` so the [`Morton`] is cached on the encoder and
+/// can be retrieved again in the Morton encoding branch without a second
+/// vertex scan.
 #[hotpath::measure]
 fn select_vertex_strategy(vertices: &[i32], enc: &mut Encoder) -> VertexBufferType {
-    const MORTON_UNIQUENESS_THRESHOLD: f64 = 0.66;
+    const DICT_UNIQUENESS_THRESHOLD: f64 = 0.66;
 
     if let Some(v) = enc.override_vertex_buffer_type() {
         return v;
@@ -312,8 +431,8 @@ fn select_vertex_strategy(vertices: &[i32], enc: &mut Encoder) -> VertexBufferTy
         #[expect(clippy::cast_precision_loss)]
         let uniqueness_ratio = estimated_unique / coord_count as f64;
 
-        if uniqueness_ratio < MORTON_UNIQUENESS_THRESHOLD {
-            VertexBufferType::Morton
+        if uniqueness_ratio < DICT_UNIQUENESS_THRESHOLD {
+            VertexBufferType::Hilbert
         } else {
             VertexBufferType::Vec2
         }
@@ -515,17 +634,33 @@ impl GeometryValues {
                 enc.tmp_u32 = delta; // restore allocation for future reuse
             }
             VertexBufferType::Morton => {
-                let morton = get_morton(&vertices, enc)?;
-                let (dict, offsets) = build_morton_dict(&vertices, morton)?;
-                let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex_offsets");
-                n += write_geo_u32_stream(&offsets, ctx, enc)?;
-
-                morton_deltas(&dict, &mut enc.tmp_u32);
-                let delta = mem::take(&mut enc.tmp_u32);
-                let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Morton), "vertex");
-                let logical = LogicalEncoding::MortonDelta(morton);
-                n += write_geo_precomputed_stream(&delta, ctx, logical, enc)?;
-                enc.tmp_u32 = delta;
+                n += encode_morton_vertex_streams(&vertices, enc)?;
+            }
+            VertexBufferType::Hilbert => {
+                // If the caller pinned Hilbert via an explicit override, encode Hilbert
+                // verbatim. Otherwise this is the auto-dict path: race Hilbert against
+                // Morton and keep whichever serializes smaller (mirrors Java's
+                // plain/dict/morton-dict comparison in `GeometryEncoder.java:193-237`).
+                let force_hilbert =
+                    enc.override_vertex_buffer_type() == Some(VertexBufferType::Hilbert);
+                if force_hilbert {
+                    n += encode_hilbert_vertex_streams(&vertices, enc)?;
+                } else {
+                    // Both candidates write exactly two streams (offset + dict data).
+                    let mut written: u8 = 0;
+                    {
+                        let mut alt = enc.try_alternatives();
+                        alt.with(|e| {
+                            written = encode_hilbert_vertex_streams(&vertices, e)?;
+                            Ok(())
+                        })?;
+                        alt.with(|e| {
+                            let _ = encode_morton_vertex_streams(&vertices, e)?;
+                            Ok(())
+                        })?;
+                    }
+                    n += written;
+                }
             }
         }
 
@@ -555,6 +690,58 @@ mod tests {
         assert_eq!(offsets.len(), 4, "offsets length == number of vertex pairs");
         assert_eq!(offsets[0], offsets[2], "duplicate (1,2) should share index");
         assert!(offsets.iter().all(|&o| (o as usize) < dict.len()));
+    }
+
+    #[test]
+    fn test_build_hilbert_dict_basic() {
+        let params = hilbert_curve_params_from_bounds(0, 4);
+        // [x0,y0, x1,y1, x2,y2, x3,y3] — repeat (1,2) to test dedup
+        let vertices = [1, 2, 3, 4, 1, 2, 0, 0];
+        let (dict_xy, offsets) = build_hilbert_dict(&vertices, params);
+
+        assert_eq!(offsets.len(), 4, "offsets length == number of vertex pairs");
+        assert_eq!(offsets[0], offsets[2], "duplicate (1,2) should share index");
+        assert!(offsets.iter().all(|&o| (o as usize) < dict_xy.len() / 2));
+        assert_eq!(
+            dict_xy.len() % 2,
+            0,
+            "dict_xy must contain whole (x,y) pairs"
+        );
+
+        // Reconstruct each input vertex from the dict via offsets and confirm
+        // the round-trip matches.
+        for (i, chunk) in vertices.chunks_exact(2).enumerate() {
+            let slot = offsets[i].as_usize();
+            assert_eq!(chunk[0], dict_xy[slot * 2], "vertex {i} x mismatch");
+            assert_eq!(chunk[1], dict_xy[slot * 2 + 1], "vertex {i} y mismatch");
+        }
+    }
+
+    #[test]
+    fn test_build_hilbert_dict_empty() {
+        let params = hilbert_curve_params_from_bounds(0, 0);
+        let (dict_xy, offsets) = build_hilbert_dict(&[], params);
+        assert!(dict_xy.is_empty());
+        assert!(offsets.is_empty());
+    }
+
+    #[test]
+    fn test_build_hilbert_dict_negative_coords() {
+        // Mix of negative and positive coords; params shift maps them into [0, 2^bits).
+        let params = hilbert_curve_params_from_bounds(-10, 10);
+        let vertices = [-10, -10, 10, 10, -10, -10, 0, 0];
+        let (dict_xy, offsets) = build_hilbert_dict(&vertices, params);
+
+        assert_eq!(offsets.len(), 4);
+        assert_eq!(
+            offsets[0], offsets[2],
+            "duplicate (-10,-10) should share index"
+        );
+        for (i, chunk) in vertices.chunks_exact(2).enumerate() {
+            let slot = offsets[i].as_usize();
+            assert_eq!(chunk[0], dict_xy[slot * 2], "vertex {i} x mismatch");
+            assert_eq!(chunk[1], dict_xy[slot * 2 + 1], "vertex {i} y mismatch");
+        }
     }
 
     #[test]
