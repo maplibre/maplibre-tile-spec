@@ -162,21 +162,11 @@ pub struct Encoder {
 
     pub(crate) tmp_u32: Vec<u32>,
     pub(crate) tmp_u32_b: Vec<u32>,
-    /// Vertex-dictionary scratch held across stream writes (offsets / delta output).
-    /// Distinct from [`tmp_u32`](Self::tmp_u32) and [`tmp_u32_b`](Self::tmp_u32_b),
-    /// which the stream writers themselves use for their internal logical/physical
-    /// scratch — so the dict path can keep data here while writers reuse their own
-    /// scratch capacity in place.
     pub(crate) tmp_u32_c: Vec<u32>,
-    /// Vertex-dictionary scratch held across stream writes (Morton-code dictionary).
-    /// Same rationale as [`tmp_u32_c`](Self::tmp_u32_c).
     pub(crate) tmp_u32_d: Vec<u32>,
     pub(crate) tmp_u64: Vec<u64>,
     pub(crate) tmp_u8: Vec<u8>,
     pub(crate) tmp_u8_b: Vec<u8>,
-    /// Vertex-dictionary scratch for the Hilbert path's `[x, y, …]` flat
-    /// dictionary. Stream writers never touch `i32` scratch, so this stays
-    /// undisturbed across writes.
     pub(crate) tmp_i32: Vec<i32>,
     pub(crate) fastpfor: FastPFor256,
 }
