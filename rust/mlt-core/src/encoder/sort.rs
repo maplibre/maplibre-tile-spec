@@ -141,7 +141,9 @@ mod tests {
     use geo_types::{Coord, Geometry as GeoGeom, Geometry, LineString, Point, Polygon};
 
     use crate::decoder::{GeometryType, GeometryValues, RawGeometry, TileFeature, TileLayer};
-    use crate::encoder::{Encoder, ExplicitEncoder, IntEncoder, SortStrategy, StagedLayer};
+    use crate::encoder::{
+        Encoder, ExplicitEncoder, IntEncoder, SortStrategy, StagedLayer, analyze_layer,
+    };
     use crate::test_helpers::{assert_empty, dec, into_layer01, parser};
     use crate::{Layer, LazyParsed};
 
@@ -378,7 +380,8 @@ mod tests {
     fn sort_encode_decode(tile: TileLayer, sort: SortStrategy) -> TileLayer {
         let enc_cfg = Encoder::default().cfg;
         let enc = Encoder::with_explicit(enc_cfg, ExplicitEncoder::for_id(IntEncoder::varint()));
-        let enc = StagedLayer::from_tile(tile, sort, &[], enc_cfg.tessellate)
+        let analysis = analyze_layer(&tile, false);
+        let enc = StagedLayer::from_tile(tile, sort, &analysis, enc_cfg.tessellate)
             .encode_into(enc)
             .expect("encode failed");
 

@@ -11,8 +11,8 @@ use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
 use crate::MltError::DictIndexOutOfBounds;
 use crate::codecs::fsst::compress_fsst_with;
 use crate::decoder::strings::{decode_shared_dict_range, encode_shared_dict_range};
-use crate::decoder::{PropValue, TileLayer};
 use crate::encoder::model::{StrEncoding, StreamCtx};
+use crate::encoder::optimizer::{Presence, PropertyStats, PropertyTypedStats, SharedDictRole};
 use crate::encoder::property::strings::{fsst_try_train, write_fsst_data, write_raw_str_data};
 use crate::encoder::{Encoder, StagedSharedDict, StagedSharedDictItem, write_u32_stream};
 use crate::errors::AsMltError as _;
@@ -27,76 +27,123 @@ const MINHASH_PERMUTATIONS: usize = 128;
 const MINHASH_SIMILARITY_THRESHOLD: f64 = 0.075;
 
 /// A group of string columns to be merged into a single [`crate::encoder::StagedProperty::SharedDict`].
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StringGroup {
     pub prefix: String,
     pub columns: Vec<(String, usize)>,
+}
+
+type ExactStringMinHash<'a> = MinHash<std::iter::Copied<std::slice::Iter<'a, &'a str>>, &'a str>;
+type TrigramMinHash = MinHash<std::vec::IntoIter<[u8; 3]>, [u8; 3]>;
+
+pub(crate) struct StringStatsBuilder<'a> {
+    exact_mh: ExactStringMinHash<'a>,
+    trigram_mh: TrigramMinHash,
+}
+
+impl<'a> StringStatsBuilder<'a> {
+    pub(crate) fn new() -> Self {
+        Self {
+            exact_mh: MinHash::with_hashers(
+                MINHASH_PERMUTATIONS,
+                [
+                    SipHasherBuilder::from_seed(0, 0),
+                    SipHasherBuilder::from_seed(1, 1),
+                ],
+            ),
+            trigram_mh: MinHash::with_hashers(
+                MINHASH_PERMUTATIONS,
+                [
+                    SipHasherBuilder::from_seed(0, 0),
+                    SipHasherBuilder::from_seed(1, 1),
+                ],
+            ),
+        }
+    }
+
+    pub(crate) fn stats(&self, values: &[&'a str]) -> PropertyTypedStats {
+        let exact_hashes = self.exact_mh.get_min_hashes(values.iter().copied());
+        let trigrams: Vec<[u8; 3]> = values
+            .iter()
+            .flat_map(|s| s.as_bytes().windows(3).map(|w| [w[0], w[1], w[2]]))
+            .collect();
+        let trigram_hashes = if trigrams.is_empty() {
+            Vec::new()
+        } else {
+            self.trigram_mh.get_min_hashes(trigrams.into_iter())
+        };
+        string_stats(values, exact_hashes, trigram_hashes)
+    }
+}
+
+pub(crate) fn string_stats_without_hashes(values: &[&str]) -> PropertyTypedStats {
+    string_stats(values, Vec::new(), Vec::new())
+}
+
+fn string_stats(
+    values: &[&str],
+    exact_hashes: Vec<u64>,
+    trigram_hashes: Vec<u64>,
+) -> PropertyTypedStats {
+    PropertyTypedStats::String {
+        total_bytes: values.iter().map(|s| s.len()).sum(),
+        max_bytes: values.iter().map(|s| s.len()).max().unwrap_or(0),
+        exact_hashes,
+        trigram_hashes,
+        shared_dict: SharedDictRole::None,
+    }
 }
 
 struct StringProfile<'a> {
     col_idx: usize,
     name: &'a str,
     /// `MinHash` over exact string values.
-    exact_hashes: Vec<u64>,
+    exact_hashes: &'a [u64],
     /// `MinHash` over byte trigrams (empty when all strings are shorter than 3 bytes).
-    trigram_hashes: Vec<u64>,
+    trigram_hashes: &'a [u64],
 }
 
-/// Analyze a [`TileLayer`] and return one [`StringGroup`] per cluster of similar
-/// string columns.
-#[must_use]
-#[hotpath::measure]
-pub fn group_string_properties(source: &TileLayer) -> Vec<StringGroup> {
-    let exact_mh = MinHash::with_hashers(
-        MINHASH_PERMUTATIONS,
-        [
-            SipHasherBuilder::from_seed(0, 0),
-            SipHasherBuilder::from_seed(1, 1),
-        ],
-    );
-    let trigram_mh = MinHash::with_hashers(
-        MINHASH_PERMUTATIONS,
-        [
-            SipHasherBuilder::from_seed(0, 0),
-            SipHasherBuilder::from_seed(1, 1),
-        ],
-    );
-
-    let profiles: Vec<StringProfile<'_>> = source
-        .property_names
+pub(crate) fn apply_string_groups(
+    property_names: &[String],
+    properties: &mut [PropertyStats],
+) -> Vec<StringGroup> {
+    let string_profiles = properties
         .iter()
         .enumerate()
-        .filter_map(|(col_idx, name)| {
-            let vals: Vec<&str> = source
-                .features
-                .iter()
-                .filter_map(|f| match f.properties.get(col_idx) {
-                    Some(PropValue::Str(Some(s))) => Some(s.as_str()),
-                    _ => None,
-                })
-                .collect();
-            if vals.is_empty() {
-                return None;
-            }
-            let exact_hashes = exact_mh.get_min_hashes(vals.iter().copied());
-            let trigrams: Vec<[u8; 3]> = vals
-                .iter()
-                .flat_map(|s| s.as_bytes().windows(3).map(|w| [w[0], w[1], w[2]]))
-                .collect();
-            let trigram_hashes = if trigrams.is_empty() {
-                Vec::new()
-            } else {
-                trigram_mh.get_min_hashes(trigrams.into_iter())
-            };
-            Some(StringProfile {
-                col_idx,
-                name,
+        .filter_map(|(col_idx, prop)| match &prop.stats {
+            PropertyTypedStats::String {
                 exact_hashes,
                 trigram_hashes,
-            })
+                ..
+            } if !exact_hashes.is_empty() => Some(StringProfile {
+                col_idx,
+                name: &property_names[col_idx],
+                exact_hashes,
+                trigram_hashes,
+            }),
+            _ => None,
         })
         .collect();
 
+    let string_groups = string_groups_from_profiles(string_profiles);
+    for (group_idx, group) in string_groups.iter().enumerate() {
+        let Some(owner_col) = group.columns.first().map(|(_, col_idx)| *col_idx) else {
+            continue;
+        };
+        for &(_, col_idx) in &group.columns {
+            debug_assert_ne!(properties[col_idx].presence, Presence::AllNull);
+            let role = if col_idx == owner_col {
+                SharedDictRole::Owner(group_idx)
+            } else {
+                SharedDictRole::Member(group_idx)
+            };
+            properties[col_idx].stats.set_shared_dict(role);
+        }
+    }
+    string_groups
+}
+
+fn string_groups_from_profiles(profiles: Vec<StringProfile<'_>>) -> Vec<StringGroup> {
     if profiles.is_empty() {
         return Vec::new();
     }
@@ -133,8 +180,8 @@ fn cluster_by_similarity(profiles: Vec<StringProfile<'_>>) -> Vec<Vec<StringProf
 
     for i in 0..n {
         for j in (i + 1)..n {
-            let exact = minhash_similarity(&profiles[i].exact_hashes, &profiles[j].exact_hashes);
-            let tri = minhash_similarity(&profiles[i].trigram_hashes, &profiles[j].trigram_hashes);
+            let exact = minhash_similarity(profiles[i].exact_hashes, profiles[j].exact_hashes);
+            let tri = minhash_similarity(profiles[i].trigram_hashes, profiles[j].trigram_hashes);
             if f64::max(exact, tri) > MINHASH_SIMILARITY_THRESHOLD {
                 uf.union(i, j);
             }
@@ -247,11 +294,46 @@ impl StagedSharedDict {
         I: IntoIterator<Item = Option<T>>,
         T: AsRef<str>,
     {
+        Self::new_inner(
+            prefix,
+            columns
+                .into_iter()
+                .map(|(suffix, values)| (suffix, values, None)),
+        )
+    }
+
+    /// Build a shared-dictionary column with precomputed child presence facts.
+    pub(crate) fn new_with_presence<S, I, T>(
+        prefix: impl Into<String>,
+        columns: impl IntoIterator<Item = (S, I, Presence)>,
+    ) -> MltResult<Self>
+    where
+        S: Into<String>,
+        I: IntoIterator<Item = Option<T>>,
+        T: AsRef<str>,
+    {
+        Self::new_inner(
+            prefix,
+            columns
+                .into_iter()
+                .map(|(suffix, values, presence)| (suffix, values, Some(presence))),
+        )
+    }
+
+    fn new_inner<S, I, T>(
+        prefix: impl Into<String>,
+        columns: impl IntoIterator<Item = (S, I, Option<Presence>)>,
+    ) -> MltResult<Self>
+    where
+        S: Into<String>,
+        I: IntoIterator<Item = Option<T>>,
+        T: AsRef<str>,
+    {
         let prefix = prefix.into();
         // Collect all columns so we can make two passes (dedup then assign ranges).
-        let columns: Vec<(String, Vec<Option<T>>)> = columns
+        let columns: Vec<(String, Vec<Option<T>>, Option<Presence>)> = columns
             .into_iter()
-            .map(|(s, i)| (s.into(), i.into_iter().collect()))
+            .map(|(s, i, p)| (s.into(), i.into_iter().collect(), p))
             .collect();
 
         // First pass: build deduplicated corpus in insertion order.
@@ -259,7 +341,7 @@ impl StagedSharedDict {
         let mut dict_ranges = Vec::<(u32, u32)>::new();
         let mut data = String::new();
 
-        for (_, values) in &columns {
+        for (_, values, _) in &columns {
             for value in values.iter().filter_map(Option::as_ref) {
                 let s = value.as_ref();
                 if !dict_index.contains_key(s) {
@@ -278,29 +360,32 @@ impl StagedSharedDict {
         // Second pass: emit per-feature ranges for each column.
         let items = columns
             .into_iter()
-            .map(|(suffix, values)| -> MltResult<StagedSharedDictItem> {
-                let mut ranges = Vec::with_capacity(values.len());
-                let mut present_items = 0;
-                for opt_val in values {
-                    match opt_val {
-                        Some(value) => {
-                            let idx = *dict_index
-                                .get(value.as_ref())
-                                .expect("StagedSharedDict::new: value must be present");
-                            let (start, end) = dict_ranges[idx as usize];
-                            ranges.push(encode_shared_dict_range(start, end)?);
-                            present_items += 1;
+            .map(
+                |(suffix, values, presence)| -> MltResult<StagedSharedDictItem> {
+                    let mut ranges = Vec::with_capacity(values.len());
+                    for opt_val in values {
+                        match opt_val {
+                            Some(value) => {
+                                let idx = *dict_index
+                                    .get(value.as_ref())
+                                    .expect("StagedSharedDict::new: value must be present");
+                                let (start, end) = dict_ranges[idx as usize];
+                                ranges.push(encode_shared_dict_range(start, end)?);
+                            }
+                            None => ranges.push(DictRange::NULL),
                         }
-                        None => ranges.push(DictRange::NULL),
                     }
-                }
-                let has_presence = present_items < ranges.len();
-                Ok(StagedSharedDictItem {
-                    suffix,
-                    ranges,
-                    has_presence,
-                })
-            })
+                    let has_presence = presence.map_or_else(
+                        || ranges.contains(&DictRange::NULL),
+                        |presence| matches!(presence, Presence::Mixed | Presence::AllNull),
+                    );
+                    Ok(StagedSharedDictItem {
+                        suffix,
+                        ranges,
+                        has_presence,
+                    })
+                },
+            )
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Self {

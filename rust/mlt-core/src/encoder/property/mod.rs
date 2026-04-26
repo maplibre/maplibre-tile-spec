@@ -12,4 +12,7 @@ pub use model::{
     StagedOptScalar, StagedProperty, StagedScalar, StagedSharedDict, StagedSharedDictItem,
     StagedStrings,
 };
-pub use shared_dict::{StringGroup, group_string_properties};
+pub use shared_dict::StringGroup;
+pub(crate) use shared_dict::{
+    StringStatsBuilder, apply_string_groups, string_stats_without_hashes,
+};

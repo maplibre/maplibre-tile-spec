@@ -7,23 +7,16 @@
 //! and free from any encoded/decoded duality.
 //!
 //! Conversion from [`TileLayer`] to [`StagedLayer`] is done via
-//! [`StagedLayer::from_tile`] (pre-computed `StringGroup` pairings produced by
-//! `group_string_properties`) or the blanket [`From`] impl (no grouping).
-
-use std::collections::HashMap;
+//! [`StagedLayer::from_tile`] with pre-computed layer statistics.
 
 use crate::decoder::{GeometryValues, PropValue, TileFeature, TileLayer};
 use crate::encoder::model::StagedLayer;
+use crate::encoder::optimizer::{LayerStats, Presence, SharedDictRole};
 use crate::encoder::{SortStrategy, StagedId, StagedProperty, StagedSharedDict, StringGroup};
 
 impl StagedLayer {
-    /// Construct a [`StagedLayer`] from a row-oriented [`TileLayer`], applying
-    /// pre-computed `StringGroup` pairings to merge similar string columns into
-    /// shared dictionaries.
-    ///
-    /// `groups` should be the output of `group_string_properties` called on the
-    /// same [`TileLayer`] source.  Because unique-value membership is
-    /// row-order-independent, the same groups can be reused across sort trials.
+    /// Construct a [`StagedLayer`] from a row-oriented [`TileLayer`] using
+    /// pre-computed layer statistics.
     ///
     /// When `tessellate` is `true`, polygon and multi-polygon geometries have
     /// their triangulation stored alongside the geometry.
@@ -32,7 +25,7 @@ impl StagedLayer {
     pub fn from_tile(
         mut source: TileLayer,
         sort: SortStrategy,
-        groups: &[StringGroup],
+        stats: &LayerStats,
         tessellate: bool,
     ) -> Self {
         assert!(!source.features.is_empty(), "empty tile");
@@ -46,23 +39,37 @@ impl StagedLayer {
             geometry.push_geom(&f.geometry);
         }
 
-        let id = StagedId::from_optional(source.features.iter().map(|f| f.id).collect());
-
-        let col_to_group: HashMap<_, _> = groups
-            .iter()
-            .flat_map(|g| g.columns.iter().map(move |(_, i)| (*i, g)))
-            .collect();
-
-        // first col_idx of each group → the group (emit the SharedDict here)
-        let mut group_start: HashMap<_, _> = groups.iter().map(|g| (g.columns[0].1, g)).collect();
+        let id = StagedId::from_optional_with_presence(
+            source.features.iter().map(|f| f.id),
+            stats.id.as_ref(),
+        );
 
         let mut properties = Vec::with_capacity(source.property_names.len());
         for (col_idx, name) in source.property_names.into_iter().enumerate() {
-            if let Some(g) = group_start.remove(&col_idx) {
-                properties.push(build_shared_dict(g, &mut source.features));
-            } else if !col_to_group.contains_key(&col_idx) {
-                properties.push(build_scalar_column(name, col_idx, &mut source.features));
-            } // else this column is part of a group we already consumed
+            let prop_analysis = stats
+                .properties
+                .get(col_idx)
+                .expect("analysis matches source property columns");
+            match prop_analysis.stats.shared_dict() {
+                SharedDictRole::Owner(group_idx) => {
+                    properties.push(build_shared_dict(
+                        &stats.string_groups[group_idx],
+                        stats,
+                        &mut source.features,
+                    ));
+                }
+                SharedDictRole::Member(_) => {}
+                SharedDictRole::None => {
+                    if let Some(prop) = build_scalar_column(
+                        name,
+                        col_idx,
+                        prop_analysis.presence,
+                        &mut source.features,
+                    ) {
+                        properties.push(prop);
+                    }
+                }
+            }
         }
 
         Self {
@@ -75,15 +82,24 @@ impl StagedLayer {
     }
 }
 
-fn build_scalar_column(name: String, col: usize, features: &mut [TileFeature]) -> StagedProperty {
+fn build_scalar_column(
+    name: String,
+    col: usize,
+    presence: Presence,
+    features: &mut [TileFeature],
+) -> Option<StagedProperty> {
+    if presence == Presence::AllNull {
+        return None;
+    }
+
     // Determine the variant by peeking at the first feature value.
     // Typed nulls (e.g. `PropValue::Bool(None)`) already carry the column type,
     // so no filtering is needed; only a fully-absent column returns `None` here.
     // Fall back to `Str` if every feature has no value for this column.
     let first_val = features.iter().find_map(|f| f.properties.get(col));
 
-    // Collect optional values and check whether any are null. When no nulls
-    // exist, use the non-optional staged variant (no presence stream written).
+    // Presence is precomputed before sort trials; this pass only gathers values
+    // in the selected row order.
     macro_rules! scalar_col {
         ($opt_ctor:ident, $non_opt_ctor:ident, $ty:ty, $sv:ident) => {{
             let opt_values: Vec<Option<$ty>> = features
@@ -96,11 +112,13 @@ fn build_scalar_column(name: String, col: usize, features: &mut [TileFeature]) -
                     }
                 })
                 .collect();
-            if opt_values.iter().any(Option::is_none) {
-                StagedProperty::$opt_ctor(name, opt_values)
-            } else {
-                StagedProperty::$non_opt_ctor(name, opt_values.into_iter().flatten().collect())
-            }
+            Some(match presence {
+                Presence::AllNull => unreachable!("handled before variant dispatch"),
+                Presence::AllPresent => {
+                    StagedProperty::$non_opt_ctor(name, opt_values.into_iter().flatten().collect())
+                }
+                Presence::Mixed => StagedProperty::$opt_ctor(name, opt_values),
+            })
         }};
     }
 
@@ -122,16 +140,20 @@ fn build_scalar_column(name: String, col: usize, features: &mut [TileFeature]) -
                     _ => None,
                 })
                 .collect();
-            if opt_values.iter().any(Option::is_none) {
-                StagedProperty::opt_str(name, opt_values)
-            } else {
-                StagedProperty::str(name, opt_values.into_iter().flatten())
-            }
+            Some(match presence {
+                Presence::AllNull => unreachable!("handled before variant dispatch"),
+                Presence::AllPresent => StagedProperty::str(name, opt_values.into_iter().flatten()),
+                Presence::Mixed => StagedProperty::opt_str(name, opt_values),
+            })
         }
     }
 }
 
-fn build_shared_dict(group: &StringGroup, features: &mut [TileFeature]) -> StagedProperty {
+fn build_shared_dict(
+    group: &StringGroup,
+    analysis: &LayerStats,
+    features: &mut [TileFeature],
+) -> StagedProperty {
     let mut order: Vec<usize> = (0..group.columns.len()).collect();
     order.sort_by_key(|&i| group.columns[i].1);
 
@@ -144,11 +166,13 @@ fn build_shared_dict(group: &StringGroup, features: &mut [TileFeature]) -> Stage
                 _ => None,
             })
             .collect();
-        (suffix.clone(), values)
+        let presence = analysis.properties[*col_idx].presence;
+        (suffix.clone(), values, presence)
     });
 
     StagedProperty::SharedDict(
-        StagedSharedDict::new(group.prefix.clone(), columns).expect("StagedSharedDict succeed"),
+        StagedSharedDict::new_with_presence(group.prefix.clone(), columns)
+            .expect("StagedSharedDict succeed"),
     )
 }
 

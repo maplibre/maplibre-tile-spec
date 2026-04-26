@@ -2,10 +2,11 @@ use geo_types::Point;
 use proptest::prelude::*;
 
 use crate::encoder::model::{ExplicitEncoder, StagedLayer, StrEncoding};
+use crate::encoder::optimizer::{Presence, PropertyTypedStats, SharedDictRole};
 use crate::encoder::property::encode::write_properties;
 use crate::encoder::{
     Encoder, EncoderConfig, IntEncoder, LogicalEncoder, PhysicalEncoder, SortStrategy, StagedId,
-    StagedProperty, StagedSharedDict, group_string_properties,
+    StagedProperty, StagedSharedDict, analyze_layer,
 };
 use crate::test_helpers::{dec, parser};
 use crate::{DictRange, GeometryValues, Layer, PropValue, TileFeature, TileLayer};
@@ -652,6 +653,31 @@ fn tile_from_cols(cols: &[(&str, Vec<PropValue>)]) -> TileLayer {
     }
 }
 
+fn tile_from_cols_with_ids(ids: &[Option<u64>], cols: &[(&str, Vec<PropValue>)]) -> TileLayer {
+    let mut tile = tile_from_cols(cols);
+    for (feature, id) in tile.features.iter_mut().zip(ids.iter().copied()) {
+        feature.id = id;
+    }
+    tile
+}
+
+fn tile_from_ids(ids: &[Option<u64>]) -> TileLayer {
+    let geom = geo_types::Geometry::<i32>::Point(Point::new(0, 0));
+    TileLayer {
+        name: "test".to_string(),
+        extent: 4096,
+        property_names: vec![],
+        features: ids
+            .iter()
+            .map(|&id| TileFeature {
+                id,
+                geometry: geom.clone(),
+                properties: vec![],
+            })
+            .collect(),
+    }
+}
+
 /// Convert a `&[&str]` slice into a column of `PropValue::Str` values.
 fn str_vals(values: &[&str]) -> Vec<PropValue> {
     values
@@ -662,8 +688,204 @@ fn str_vals(values: &[&str]) -> Vec<PropValue> {
 
 /// Stage a [`TileLayer`] with `MinHash` grouping and return its properties.
 fn stage_props(tile: TileLayer) -> Vec<StagedProperty> {
-    let groups = group_string_properties(&tile);
-    StagedLayer::from_tile(tile, SortStrategy::Unsorted, &groups, false).properties
+    let analysis = analyze_layer(&tile, true);
+    StagedLayer::from_tile(tile, SortStrategy::Unsorted, &analysis, false).properties
+}
+
+#[test]
+fn staging_uses_id_presence_analysis() {
+    let all_present = tile_from_ids(&[Some(1), Some(2), Some(3)]);
+    let analysis = analyze_layer(&all_present, false);
+    let id = analysis.id.as_ref().expect("ID analysis");
+    assert!(id.stats.values_fit_u32());
+    let staged = StagedLayer::from_tile(all_present, SortStrategy::Unsorted, &analysis, false);
+    assert!(matches!(staged.id, StagedId::U32(_)));
+
+    let mixed = tile_from_ids(&[Some(1), None, Some(3)]);
+    let analysis = analyze_layer(&mixed, false);
+    let id = analysis.id.as_ref().expect("ID analysis");
+    assert!(id.stats.values_fit_u32());
+    let staged = StagedLayer::from_tile(mixed, SortStrategy::Unsorted, &analysis, false);
+    assert!(matches!(staged.id, StagedId::OptU32(_)));
+
+    let large = tile_from_ids(&[Some(u64::from(u32::MAX) + 1), None, Some(3)]);
+    let analysis = analyze_layer(&large, false);
+    let id = analysis.id.as_ref().expect("ID analysis");
+    assert!(!id.stats.values_fit_u32());
+    let staged = StagedLayer::from_tile(large, SortStrategy::Unsorted, &analysis, false);
+    assert!(matches!(staged.id, StagedId::OptU64(_)));
+
+    let all_null = tile_from_ids(&[None, None, None]);
+    let analysis = analyze_layer(&all_null, false);
+    assert_eq!(analysis.id, None);
+    let staged = StagedLayer::from_tile(all_null, SortStrategy::Unsorted, &analysis, false);
+    assert!(matches!(staged.id, StagedId::None));
+}
+
+#[test]
+fn analyze_layer_classifies_id_and_property_presence() {
+    let tile = tile_from_cols_with_ids(
+        &[Some(1), None, Some(3)],
+        &[
+            (
+                "all_present",
+                [1u32, 2, 3]
+                    .iter()
+                    .map(|&v| PropValue::U32(Some(v)))
+                    .collect(),
+            ),
+            (
+                "mixed",
+                vec![
+                    PropValue::Bool(Some(true)),
+                    PropValue::Bool(None),
+                    PropValue::Bool(Some(false)),
+                ],
+            ),
+            (
+                "all_null",
+                vec![
+                    PropValue::Str(None),
+                    PropValue::Str(None),
+                    PropValue::Str(None),
+                ],
+            ),
+        ],
+    );
+
+    let analysis = analyze_layer(&tile, true);
+
+    let id = analysis.id.as_ref().expect("ID analysis");
+    assert_eq!(id.presence, Presence::Mixed);
+    assert_eq!(id.stats, PropertyTypedStats::Unsigned { min: 1, max: 3 });
+    assert_eq!(analysis.properties[0].presence, Presence::AllPresent);
+    assert_eq!(
+        analysis.properties[0].stats,
+        PropertyTypedStats::Unsigned { min: 1, max: 3 }
+    );
+    assert_eq!(analysis.properties[1].presence, Presence::Mixed);
+    assert_eq!(analysis.properties[1].stats, PropertyTypedStats::Bool);
+    assert_eq!(analysis.properties[2].presence, Presence::AllNull);
+    assert_eq!(analysis.properties[2].stats, PropertyTypedStats::None);
+}
+
+#[test]
+fn analyze_layer_tracks_typed_property_stats() {
+    let tile = tile_from_cols(&[
+        (
+            "small_u64",
+            vec![
+                PropValue::U64(Some(0)),
+                PropValue::U64(Some(u64::from(u32::MAX))),
+            ],
+        ),
+        (
+            "large_u64",
+            vec![
+                PropValue::U64(Some(0)),
+                PropValue::U64(Some(u64::from(u32::MAX) + 1)),
+            ],
+        ),
+        (
+            "negative_i64",
+            vec![PropValue::I64(Some(-1)), PropValue::I64(Some(2))],
+        ),
+        (
+            "names",
+            vec![
+                PropValue::Str(Some("a".to_string())),
+                PropValue::Str(Some("abcd".to_string())),
+            ],
+        ),
+    ]);
+
+    let analysis = analyze_layer(&tile, false);
+
+    assert_eq!(
+        analysis.properties[0].stats,
+        PropertyTypedStats::Unsigned {
+            min: 0,
+            max: u64::from(u32::MAX)
+        }
+    );
+    assert!(analysis.properties[0].stats.values_fit_u32());
+    assert_eq!(
+        analysis.properties[1].stats,
+        PropertyTypedStats::Unsigned {
+            min: 0,
+            max: u64::from(u32::MAX) + 1
+        }
+    );
+    assert!(!analysis.properties[1].stats.values_fit_u32());
+    assert_eq!(
+        analysis.properties[2].stats,
+        PropertyTypedStats::Signed { min: -1, max: 2 }
+    );
+    assert!(!analysis.properties[2].stats.values_fit_u32());
+    assert_eq!(
+        analysis.properties[3].stats,
+        PropertyTypedStats::String {
+            total_bytes: 5,
+            max_bytes: 4,
+            exact_hashes: Vec::new(),
+            trigram_hashes: Vec::new(),
+            shared_dict: SharedDictRole::None
+        }
+    );
+}
+
+#[test]
+fn staging_uses_presence_analysis_for_scalar_variants_and_skips_all_null() {
+    let tile = tile_from_cols(&[
+        (
+            "all_present",
+            [1u32, 2, 3]
+                .iter()
+                .map(|&v| PropValue::U32(Some(v)))
+                .collect(),
+        ),
+        (
+            "mixed",
+            vec![
+                PropValue::Bool(Some(true)),
+                PropValue::Bool(None),
+                PropValue::Bool(Some(false)),
+            ],
+        ),
+        (
+            "all_null",
+            vec![
+                PropValue::Str(None),
+                PropValue::Str(None),
+                PropValue::Str(None),
+            ],
+        ),
+    ]);
+    let analysis = analyze_layer(&tile, false);
+
+    let staged = StagedLayer::from_tile(tile, SortStrategy::Unsorted, &analysis, false);
+
+    assert_eq!(staged.properties.len(), 2);
+    assert!(matches!(staged.properties[0], StagedProperty::U32(_)));
+    assert!(matches!(staged.properties[1], StagedProperty::OptBool(_)));
+}
+
+#[test]
+fn analyze_layer_records_shared_dict_roles_by_property_index() {
+    let vocab = &["Alice", "Bob", "Carol", "Dave"];
+    let tile = tile_from_cols(&[("name:en", str_vals(vocab)), ("name:de", str_vals(vocab))]);
+
+    let analysis = analyze_layer(&tile, true);
+
+    assert_eq!(analysis.string_groups.len(), 1);
+    assert_eq!(
+        analysis.properties[0].stats.shared_dict(),
+        SharedDictRole::Owner(0)
+    );
+    assert_eq!(
+        analysis.properties[1].stats.shared_dict(),
+        SharedDictRole::Member(0)
+    );
 }
 
 #[test]

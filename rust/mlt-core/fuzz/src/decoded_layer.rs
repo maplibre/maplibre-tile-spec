@@ -1,4 +1,4 @@
-use mlt_core::encoder::{Encoder, SortStrategy, StagedLayer};
+use mlt_core::encoder::{Encoder, SortStrategy, StagedLayer, analyze_layer};
 use mlt_core::{Decoder, Layer, Parser, TileLayer};
 
 /// Fuzz input that starts from a staged layer and tests encode → decode roundtrip.
@@ -24,18 +24,20 @@ impl DecodedLayerInput {
 
         // Canonical roundtrip per CONTRIBUTING.md:
         // Tile → Staged → bytes → Tile
+        let analysis = analyze_layer(&tile1, false);
         let tile2 = encode_decode(StagedLayer::from_tile(
             tile1,
             SortStrategy::Unsorted,
-            &[],
+            &analysis,
             false,
         ));
 
         // Same roundtrip again — must be a fixpoint.
+        let analysis = analyze_layer(&tile2, false);
         let tile3 = encode_decode(StagedLayer::from_tile(
             tile2.clone(),
             SortStrategy::Unsorted,
-            &[],
+            &analysis,
             false,
         ));
 
