@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::mem;
 
 use geo_types::Coord;
+use probabilistic_collections::SipHasherBuilder;
+use probabilistic_collections::hyperloglog::HyperLogLog;
 
 use super::model::VertexBufferType;
 use crate::MltResult;
@@ -448,6 +450,39 @@ fn encode_hilbert_vertex_streams(vertices: &[i32], enc: &mut Encoder) -> MltResu
     Ok(n)
 }
 
+/// Decide whether racing a vertex dictionary against the plain Vec2 layout
+/// is worth the encoding cost.
+///
+/// Building Hilbert and Morton dictionaries is expensive (sorting, allocating a `HashMap`, and writes two streams).
+/// Profiling shows that running them unconditionally inside the alternatives race is ~2x slower overall
+/// because most layers have high vertex uniqueness, where Vec2 always wins.
+///
+/// Returns `true` when:
+/// - The coordinate range fits within 16 bits per axis (required by the spec
+///   for Morton; also the clamp applied by Hilbert), **and**
+/// - The estimated uniqueness ratio (via `HyperLogLog`) is below the threshold,
+///   meaning enough vertices repeat that the per-vertex offset stream + the
+///   deduplicated dictionary plausibly out-compress raw deltas.
+#[hotpath::measure]
+fn dict_may_be_beneficial(vertices: &[i32], enc: &mut Encoder) -> bool {
+    const MAXIUMUM_UNIQUENESS_THRESHOLD_FOR_DICT: f64 = 0.66;
+
+    let coord_count = vertices.len() / 2;
+    if coord_count == 0 || get_morton(vertices, enc).is_err() {
+        return false;
+    }
+
+    let mut hll = HyperLogLog::<Coord<i32>>::with_hasher(0.03, SipHasherBuilder::from_seed(0, 0));
+    for c in vertices.chunks_exact(2) {
+        hll.insert(&Coord::<i32> { x: c[0], y: c[1] });
+    }
+    #[expect(clippy::cast_precision_loss)]
+    let estimated_unique = hll.len().clamp(0.0, coord_count as f64);
+    #[expect(clippy::cast_precision_loss)]
+    let uniqueness_ratio = estimated_unique / coord_count as f64;
+    uniqueness_ratio < MAXIUMUM_UNIQUENESS_THRESHOLD_FOR_DICT
+}
+
 /// Encode the plain Vec2 vertex layout: componentwise-delta over the raw
 /// `[x0, y0, x1, y1, …]` vertex slice. Returns the number of streams written
 /// (always 1).
@@ -645,14 +680,6 @@ impl GeometryValues {
         let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Index), "triangles_indexes");
         n += write_geo_u32_stream(&index_buffer, ctx, enc)?;
 
-        // Vertex layout: an explicit override or a cached choice from a prior
-        // encode on this `Encoder` already pins a single `VertexBufferType` —
-        // both go through the same direct-encode branch. Otherwise race all
-        // three layouts (Vec2, Hilbert, Morton) inside one alternatives
-        // session, measure each candidate's appended `(data + meta)` bytes,
-        // and cache the winner. Morton requires 16-bit-per-axis bounds; if it
-        // doesn't fit, the candidate is simply skipped (Vec2 and Hilbert
-        // always succeed).
         let pinned = enc
             .override_vertex_buffer_type()
             .or(enc.vertex_buffer_type_cache);
@@ -662,52 +689,51 @@ impl GeometryValues {
                 VertexBufferType::Morton => encode_morton_vertex_streams(&vertices, enc)?,
                 VertexBufferType::Hilbert => encode_hilbert_vertex_streams(&vertices, enc)?,
             };
-        } else {
-            let morton_fits = get_morton(&vertices, enc).is_ok();
-            let mut vec2_size = usize::MAX;
-            let mut hilbert_size = usize::MAX;
-            let mut morton_size = usize::MAX;
-            let mut vec2_n: u8 = 0;
-            let mut hilbert_n: u8 = 0;
-            let mut morton_n: u8 = 0;
+        } else if dict_may_be_beneficial(&vertices, enc) {
+            // `dict_may_be_beneficial` guarantees Morton fits (it returns false
+            // otherwise), so all three candidates are always tried here.
+            let mut winner_size: usize = usize::MAX;
+            let mut winner_stream_cnt: u8 = 0;
+            let mut vertex_buffer_type_cache: VertexBufferType = VertexBufferType::Vec2;
             {
                 let mut alt = enc.try_alternatives();
                 alt.with(|e| {
                     let ds = e.data.len();
                     let ms = e.meta.len();
-                    vec2_n = encode_vec2_vertex_stream(&vertices, e)?;
-                    vec2_size = (e.data.len() - ds) + (e.meta.len() - ms);
+                    winner_stream_cnt = encode_vec2_vertex_stream(&vertices, e)?;
+                    winner_size = (e.data.len() - ds) + (e.meta.len() - ms);
                     Ok(())
                 })?;
                 alt.with(|e| {
                     let ds = e.data.len();
                     let ms = e.meta.len();
-                    hilbert_n = encode_hilbert_vertex_streams(&vertices, e)?;
-                    hilbert_size = (e.data.len() - ds) + (e.meta.len() - ms);
+                    let hilbert_n = encode_hilbert_vertex_streams(&vertices, e)?;
+                    let hilbert_size = (e.data.len() - ds) + (e.meta.len() - ms);
+                    if hilbert_size < winner_size {
+                        vertex_buffer_type_cache = VertexBufferType::Hilbert;
+                        winner_stream_cnt = hilbert_n;
+                        winner_size = hilbert_size;
+                    }
                     Ok(())
                 })?;
-                if morton_fits {
-                    alt.with(|e| {
-                        let ds = e.data.len();
-                        let ms = e.meta.len();
-                        morton_n = encode_morton_vertex_streams(&vertices, e)?;
-                        morton_size = (e.data.len() - ds) + (e.meta.len() - ms);
-                        Ok(())
-                    })?;
-                }
-            }
-            // Resolve winner externally so we know which layout was kept by
-            // the alt session. Tie-break order Vec2 → Hilbert → Morton matches
-            // `try_alternatives`'s "earlier candidate wins ties".
-            let (winner, winner_n) = if vec2_size <= hilbert_size && vec2_size <= morton_size {
-                (VertexBufferType::Vec2, vec2_n)
-            } else if hilbert_size <= morton_size {
-                (VertexBufferType::Hilbert, hilbert_n)
-            } else {
-                (VertexBufferType::Morton, morton_n)
+                alt.with(|e| {
+                    let ds = e.data.len();
+                    let ms = e.meta.len();
+                    let morton_n = encode_morton_vertex_streams(&vertices, e)?;
+                    let morton_size = (e.data.len() - ds) + (e.meta.len() - ms);
+                    if morton_size < winner_size {
+                        vertex_buffer_type_cache = VertexBufferType::Morton;
+                        winner_stream_cnt = morton_n;
+                        winner_size = morton_size;
+                    }
+                    Ok(())
+                })?;
             };
-            n += winner_n;
-            enc.vertex_buffer_type_cache = Some(winner);
+            enc.vertex_buffer_type_cache = Some(vertex_buffer_type_cache);
+            n += winner_stream_cnt;
+        } else {
+            n += encode_vec2_vertex_stream(&vertices, enc)?;
+            enc.vertex_buffer_type_cache = Some(VertexBufferType::Vec2);
         }
 
         // Patch the reserved stream-count byte.
