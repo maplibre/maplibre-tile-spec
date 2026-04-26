@@ -4,7 +4,7 @@ use proptest::prelude::*;
 use crate::encoder::model::{ExplicitEncoder, StagedLayer, StrEncoding};
 use crate::encoder::property::encode::write_properties;
 use crate::encoder::{
-    Encoder, EncoderConfig, IntEncoder, LogicalEncoder, PhysicalEncoder, SortStrategy,
+    Encoder, EncoderConfig, IntEncoder, LogicalEncoder, PhysicalEncoder, SortStrategy, StagedId,
     StagedProperty, StagedSharedDict, group_string_properties,
 };
 use crate::test_helpers::{dec, parser};
@@ -131,7 +131,7 @@ fn encode_to_bytes(props: Vec<StagedProperty>) -> Vec<u8> {
     let layer = StagedLayer {
         name: "test".into(),
         extent: 4096,
-        id: None,
+        id: StagedId::None,
         geometry: n_point_geometry(n),
         properties: props,
     };
@@ -149,7 +149,7 @@ fn encode_to_bytes_explicit(props: Vec<StagedProperty>, cfg: ExplicitEncoder) ->
     let layer = StagedLayer {
         name: "test".into(),
         extent: 4096,
-        id: None,
+        id: StagedId::None,
         geometry: n_point_geometry(n),
         properties: props,
     };

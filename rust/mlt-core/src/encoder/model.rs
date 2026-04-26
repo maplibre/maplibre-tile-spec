@@ -2,7 +2,7 @@ use derive_debug::Dbg;
 
 use crate::decoder::{GeometryValues, StreamType};
 use crate::encoder::geometry::VertexBufferType;
-use crate::encoder::{IdWidth, IntEncoder, StagedId, StagedProperty};
+use crate::encoder::{IntEncoder, StagedId, StagedProperty};
 
 /// Owned variant of `Unknown`.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -29,7 +29,7 @@ pub struct CurveParams {
 pub struct StagedLayer {
     pub name: String,
     pub extent: u32,
-    pub id: Option<StagedId>,
+    pub id: StagedId,
     pub geometry: GeometryValues,
     pub properties: Vec<StagedProperty>,
 }
@@ -164,12 +164,4 @@ pub struct ExplicitEncoder {
     /// Return the string encoding strategy for a string property column.
     #[dbg(skip)]
     pub get_str_encoding: Box<dyn Fn(&str) -> StrEncoding>,
-    /// Override the auto-detected [`IdWidth`].
-    /// Arguments: auto-detected `IdWidth`. Return the width to use.
-    #[dbg(skip)]
-    pub override_id_width: Box<dyn Fn(IdWidth) -> IdWidth>,
-    /// Override whether a presence stream is written for an all-present column,
-    /// or if the column is written at all if all values are null.
-    #[dbg(skip)]
-    pub override_presence: Box<dyn for<'a> Fn(&'a StreamCtx<'a>) -> bool>,
 }

@@ -3,7 +3,7 @@ use std::hint::black_box;
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use geo_types::Point;
 use mlt_core::encoder::{
-    Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, LogicalEncoder, PhysicalEncoder,
+    Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, LogicalEncoder, PhysicalEncoder, StagedId,
     StagedLayer, StagedProperty, StagedSharedDict, StrEncoding,
 };
 use mlt_core::test_helpers::{dec, parser};
@@ -85,7 +85,7 @@ fn encode_layer(n: usize, props: Vec<StagedProperty>, cfg: ExplicitEncoder) -> V
     StagedLayer {
         name: "bench".into(),
         extent: 4096,
-        id: None,
+        id: StagedId::None,
         geometry: make_geometry(n),
         properties: props,
     }

@@ -537,7 +537,7 @@ mod tests {
         StagedLayer {
             name: name.to_string(),
             extent: 4096,
-            id: None,
+            id: StagedId::None,
             geometry: GeometryValues::default(),
             properties: vec![],
         }
@@ -654,7 +654,7 @@ mod tests {
         let buf = layer_buf(StagedLayer {
             name: "test".into(),
             extent: 4096,
-            id: None,
+            id: StagedId::None,
             geometry: three_points(),
             properties: vec![],
         });
@@ -679,7 +679,7 @@ mod tests {
         let buf = layer_buf(StagedLayer {
             name: "test".into(),
             extent: 4096,
-            id: Some(StagedId::from_optional(vec![Some(100), None, Some(200)])),
+            id: StagedId::from_optional(vec![Some(100), None, Some(200)]),
             geometry: three_points(),
             properties: vec![],
         });
@@ -700,7 +700,7 @@ mod tests {
         let buf = layer_buf(StagedLayer {
             name: "test".into(),
             extent: 4096,
-            id: None,
+            id: StagedId::None,
             geometry: three_points(),
             properties: vec![],
         });
@@ -723,7 +723,7 @@ mod tests {
         let buf = layer_buf(StagedLayer {
             name: "test".into(),
             extent: 4096,
-            id: None,
+            id: StagedId::None,
             geometry: three_points(),
             properties: vec![StagedProperty::opt_u32("n", vec![Some(1), None, Some(3)])],
         });
@@ -765,7 +765,7 @@ mod tests {
         let buf = layer_buf(StagedLayer {
             name: "test".into(),
             extent: 4096,
-            id: None,
+            id: StagedId::None,
             geometry: three_points(),
             properties: vec![StagedProperty::opt_str(
                 "label",
@@ -796,7 +796,7 @@ mod tests {
         let buf = layer_buf(StagedLayer {
             name: "test".into(),
             extent: 4096,
-            id: None,
+            id: StagedId::None,
             geometry: three_points(),
             properties: vec![
                 StagedProperty::opt_bool("flag", vec![Some(true), Some(false), None]),
@@ -839,7 +839,7 @@ mod tests {
         let buf = layer_buf(StagedLayer {
             name: "test".into(),
             extent: 4096,
-            id: Some(StagedId::from_optional(vec![Some(10), Some(20), Some(30)])),
+            id: StagedId::from_optional(vec![Some(10), Some(20), Some(30)]),
             geometry: three_points(),
             properties: vec![],
         });
@@ -877,7 +877,7 @@ mod tests {
         let buf = layer_buf(StagedLayer {
             name: "test".into(),
             extent: 4096,
-            id: None,
+            id: StagedId::None,
             geometry: three_points(),
             properties: vec![StagedProperty::u32("x", vec![1, 2, 3])],
         });
@@ -904,7 +904,7 @@ mod tests {
         let buf = layer_buf(StagedLayer {
             name: "test".into(),
             extent: 4096,
-            id: None,
+            id: StagedId::None,
             geometry: three_points(),
             properties: vec![StagedProperty::SharedDict(shared_dict)],
         });

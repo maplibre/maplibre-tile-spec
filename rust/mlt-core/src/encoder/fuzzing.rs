@@ -34,9 +34,9 @@ impl Arbitrary<'_> for StagedLayer {
                     }
                 })
                 .collect::<Result<_>>()?;
-            Some(StagedId::from_optional(ids))
+            StagedId::from_optional(ids)
         } else {
-            None
+            StagedId::None
         };
         // Bound property count to prevent OOM from unbounded vector generation.
         // Each column must have exactly `fc` values to match the feature count.

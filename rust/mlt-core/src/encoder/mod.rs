@@ -18,10 +18,6 @@ mod writer;
 pub(crate) use geometry::VertexBufferType;
 #[cfg(feature = "__private")]
 pub use geometry::VertexBufferType;
-#[cfg(not(feature = "__private"))]
-pub(crate) use id::IdWidth;
-#[cfg(feature = "__private")]
-pub use id::IdWidth;
 pub use id::StagedId;
 #[cfg(feature = "__private")]
 pub use model::{ColumnKind, ExplicitEncoder, StagedLayer, StrEncoding, StreamCtx};

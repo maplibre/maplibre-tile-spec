@@ -23,9 +23,7 @@ impl StagedLayer {
             properties,
         } = self;
 
-        if let Some(ids) = id {
-            ids.write_to(&mut enc)?;
-        }
+        id.write_to(&mut enc)?;
         geometry.write_to(&mut enc)?;
         write_properties(&properties, &mut enc)?;
         enc.write_header(&name, extent)?;

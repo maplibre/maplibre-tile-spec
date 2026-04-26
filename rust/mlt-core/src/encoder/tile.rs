@@ -46,13 +46,7 @@ impl StagedLayer {
             geometry.push_geom(&f.geometry);
         }
 
-        let id = if source.features.iter().any(|f| f.id.is_some()) {
-            Some(StagedId::from_optional(
-                source.features.iter().map(|f| f.id).collect(),
-            ))
-        } else {
-            None
-        };
+        let id = StagedId::from_optional(source.features.iter().map(|f| f.id).collect());
 
         let col_to_group: HashMap<_, _> = groups
             .iter()
@@ -195,7 +189,7 @@ mod tests {
         let tile = layer_tile(StagedLayer {
             name: "t".into(),
             extent: 4096,
-            id: None,
+            id: StagedId::None,
             geometry: two_points(),
             properties: vec![StagedProperty::opt_bool("flag", vec![None, Some(false)])],
         });
@@ -226,7 +220,7 @@ mod tests {
         let tile = layer_tile(StagedLayer {
             name: "t".into(),
             extent: 4096,
-            id: None,
+            id: StagedId::None,
             geometry: two_points(),
             properties: props,
         });

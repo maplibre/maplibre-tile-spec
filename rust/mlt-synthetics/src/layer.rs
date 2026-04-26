@@ -5,8 +5,8 @@ use std::path::Path;
 
 use mlt_core::GeometryValues;
 use mlt_core::encoder::{
-    ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StagedId,
-    StagedLayer, StagedProperty, StagedSharedDict, StrEncoding, StreamCtx, VertexBufferType,
+    ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, StagedId, StagedLayer,
+    StagedProperty, StagedSharedDict, StrEncoding, StreamCtx, VertexBufferType,
 };
 use mlt_core::geo_types::{Coord, Geometry};
 use mlt_core::wire::{LengthType, OffsetType, StreamType};
@@ -119,15 +119,13 @@ pub struct Layer {
     geo_stream_overrides: HashMap<&'static str, IntEncoder>,
     vertex_buffer_type: VertexBufferType,
     tessellate: bool,
-    /// When `true`, emit a presence stream even for all-present columns.
-    force_presence: bool,
     /// Geometry stream names that must be written even when their data is empty.
     /// See [`ExplicitEncoder::force_stream`] for details.
     force_empty_streams: HashSet<&'static str>,
     geometry_items: Vec<Geometry<i32>>,
     props: Vec<(StagedProperty, PropConfig)>,
     extent: Option<u32>,
-    ids: Option<(Vec<Option<u64>>, IdWidth, IntEncoder)>,
+    ids: Option<(StagedId, IntEncoder)>,
 }
 
 impl Layer {
@@ -137,7 +135,6 @@ impl Layer {
             geo_stream_overrides: HashMap::new(),
             vertex_buffer_type: VertexBufferType::Vec2,
             tessellate: false,
-            force_presence: false,
             force_empty_streams: HashSet::new(),
             geometry_items: vec![],
             props: vec![],
@@ -350,8 +347,8 @@ impl Layer {
 
     /// Set feature IDs with explicit encoding.
     #[must_use]
-    pub fn ids(mut self, ids: Vec<Option<u64>>, id_width: IdWidth, int_enc: IntEncoder) -> Self {
-        self.ids = Some((ids, id_width, int_enc));
+    pub fn ids(mut self, ids: StagedId, int_enc: IntEncoder) -> Self {
+        self.ids = Some((ids, int_enc));
         self
     }
 
@@ -365,7 +362,6 @@ impl Layer {
             geo_stream_overrides,
             vertex_buffer_type,
             tessellate,
-            force_presence,
             force_empty_streams,
             geometry_items,
             props,
@@ -387,9 +383,9 @@ impl Layer {
             geometry.push_geom(geom);
         }
 
-        let (id_values, id_enc_spec) = match ids {
-            Some((v, id_width, int_enc)) => (Some(v), Some((id_width, int_enc))),
-            None => (None, None),
+        let (id, id_int_enc) = match ids {
+            Some((ids, int_enc)) => (ids, Some(int_enc)),
+            None => (StagedId::None, None),
         };
 
         // Build name→PropConfig map for the ExplicitEncoder callbacks.
@@ -398,14 +394,7 @@ impl Layer {
             .map(|(p, c)| (p.name().to_string(), c.clone()))
             .collect();
 
-        let id_width_spec = id_enc_spec.as_ref().map(|(w, _)| *w);
-        let id_int_enc = id_enc_spec.map(|(_, e)| e);
-
         let cfg = ExplicitEncoder {
-            override_id_width: match id_width_spec {
-                Some(w) => Box::new(move |_| w),
-                None => Box::new(|w| w),
-            },
             vertex_buffer_type,
             force_stream: Box::new(move |ctx: &StreamCtx<'_>| {
                 ctx.kind == ColumnKind::Geometry && force_empty_streams.contains(ctx.name)
@@ -430,13 +419,12 @@ impl Layer {
                         .map_or(StrEncoding::Plain, PropConfig::str_encoding)
                 })
             },
-            override_presence: Box::new(move |_| force_presence),
         };
 
         StagedLayer {
             name: "layer1".to_string(),
             extent: extent.unwrap_or(80),
-            id: id_values.map(StagedId::from_optional),
+            id,
             geometry,
             properties: props.into_iter().map(|(p, _)| p).collect(),
         }

@@ -24,7 +24,7 @@ use std::sync::LazyLock;
 
 use clap::Parser;
 use mlt_core::encoder::{
-    IdWidth, IntEncoder as E, LogicalEncoder as L, StagedProperty as P, StrEncoding,
+    IntEncoder as E, LogicalEncoder as L, StagedId as Id, StagedProperty as P, StrEncoding,
     VertexBufferType,
 };
 use mlt_core::geo_types::{
@@ -421,109 +421,96 @@ fn generate_extent(w: &mut SynthWriter) {
 }
 
 fn generate_ids(w: &mut SynthWriter) {
-    p0().ids(vec![Some(100)], IdWidth::Id32, E::varint_with(L::None))
+    p0().ids(Id::u32(vec![100]), E::varint_with(L::None))
         .write(w, "id");
-    p0().ids(
-        vec![Some(u64::from(u32::MIN))],
-        IdWidth::Id32,
-        E::varint_with(L::None),
-    )
-    .write(w, "id_min");
-    p0().ids(
-        vec![Some(u64::from(u32::MAX))],
-        IdWidth::Id32,
-        E::varint_with(L::None),
-    )
-    .write(w, "id_max");
-    p0().ids(
-        vec![Some(9_234_567_890)],
-        IdWidth::Id64,
-        E::varint_with(L::None),
-    )
-    .write(w, "id64");
-    p0().ids(vec![Some(u64::MAX)], IdWidth::Id64, E::varint_with(L::None))
+    p0().ids(Id::u32(vec![u32::MIN]), E::varint_with(L::None))
+        .write(w, "id_min");
+    p0().ids(Id::u32(vec![u32::MAX]), E::varint_with(L::None))
+        .write(w, "id_max");
+    p0().ids(Id::u64(vec![9_234_567_890]), E::varint_with(L::None))
+        .write(w, "id64");
+    p0().ids(Id::u64(vec![u64::MAX]), E::varint_with(L::None))
         .write(w, "id64_max");
 
     let four_p0 = || geo_varint_with_rle().geos([P0, P0, P0, P0]);
-    let dup_id = || vec![Some(103); 4];
-    let dup_u64_id = || vec![Some(9_234_567_890); 4];
+    let dup_id = || Id::u32(vec![103; 4]);
+    let dup_u64_id = || Id::u64(vec![9_234_567_890; 4]);
 
     four_p0()
-        .ids(dup_id(), IdWidth::Id32, E::varint_with(L::None))
+        .ids(dup_id(), E::varint_with(L::None))
         .write(w, "ids");
     four_p0()
-        .ids(dup_id(), IdWidth::Id32, E::varint_with(L::Delta))
+        .ids(dup_id(), E::varint_with(L::Delta))
         .write(w, "ids_delta");
     four_p0()
-        .ids(dup_id(), IdWidth::Id32, E::varint_with(L::Rle))
+        .ids(dup_id(), E::varint_with(L::Rle))
         .write(w, "ids_rle");
     four_p0()
-        .ids(dup_id(), IdWidth::Id32, E::varint_with(L::DeltaRle))
+        .ids(dup_id(), E::varint_with(L::DeltaRle))
         .write(w, "ids_delta_rle");
     four_p0()
-        .ids(dup_u64_id(), IdWidth::Id64, E::varint_with(L::None))
+        .ids(dup_u64_id(), E::varint_with(L::None))
         .write(w, "ids64");
     four_p0()
-        .ids(dup_u64_id(), IdWidth::Id64, E::varint_with(L::Delta))
+        .ids(dup_u64_id(), E::varint_with(L::Delta))
         .write(w, "ids64_delta");
     four_p0()
-        .ids(dup_u64_id(), IdWidth::Id64, E::varint_with(L::Rle))
+        .ids(dup_u64_id(), E::varint_with(L::Rle))
         .write(w, "ids64_rle");
     four_p0()
-        .ids(dup_u64_id(), IdWidth::Id64, E::varint_with(L::DeltaRle))
+        .ids(dup_u64_id(), E::varint_with(L::DeltaRle))
         .write(w, "ids64_delta_rle");
 
     let five_p0 = || geo_varint_with_rle().geos([P0, P0, P0, P0, P0]);
     five_p0()
         .ids(
-            vec![Some(100), Some(101), None, Some(105), Some(106)],
-            IdWidth::OptId32,
+            Id::opt_u32(vec![Some(100), Some(101), None, Some(105), Some(106)]),
             E::varint_with(L::None),
         )
         .write(w, "ids_opt");
     five_p0()
         .ids(
-            vec![Some(100), Some(101), None, Some(105), Some(106)],
-            IdWidth::OptId32,
+            Id::opt_u32(vec![Some(100), Some(101), None, Some(105), Some(106)]),
             E::varint_with(L::Delta),
         )
         .write(w, "ids_opt_delta");
     five_p0()
         .ids(
-            vec![None, Some(9_234_567_890), Some(101), Some(105), Some(106)],
-            IdWidth::OptId64,
+            Id::opt_u64(vec![
+                None,
+                Some(9_234_567_890),
+                Some(101),
+                Some(105),
+                Some(106),
+            ]),
             E::varint_with(L::None),
         )
         .write(w, "ids64_opt");
     five_p0()
         .ids(
-            vec![None, Some(9_234_567_890), Some(101), Some(105), Some(106)],
-            IdWidth::OptId64,
+            Id::opt_u64(vec![
+                None,
+                Some(9_234_567_890),
+                Some(101),
+                Some(105),
+                Some(106),
+            ]),
             E::varint_with(L::Delta),
         )
         .write(w, "ids64_opt_delta");
 
-    let min_max = || {
-        vec![
-            Some(u64::MIN),
-            Some(u64::MAX),
-            Some(u64::MIN),
-            Some(u64::MAX),
-        ]
-    };
+    let min_max = || Id::u64(vec![u64::MIN, u64::MAX, u64::MIN, u64::MAX]);
     four_p0()
-        .ids(min_max(), IdWidth::Id64, E::varint_with(L::None))
+        .ids(min_max(), E::varint_with(L::None))
         .write(w, "ids64_minmax");
     four_p0()
-        .ids(min_max(), IdWidth::Id64, E::varint_with(L::Delta))
+        .ids(min_max(), E::varint_with(L::Delta))
         .write(w, "ids64_minmax_delta");
 
     // FastPFOR physical encoding for u32 IDs (Rust-only: Java encoder does not support this)
+    four_p0().ids(dup_id(), E::fastpfor()).write(w, "ids_fpf");
     four_p0()
-        .ids(dup_id(), IdWidth::Id32, E::fastpfor())
-        .write(w, "ids_fpf");
-    four_p0()
-        .ids(dup_id(), IdWidth::Id32, E::delta_fastpfor())
+        .ids(dup_id(), E::delta_fastpfor())
         .write(w, "ids_delta_fpf");
 }
 
@@ -1227,8 +1214,7 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
         )
         .write(w, "props_shared_dict_presence_variants_np");
 
-    // canonical: all columns are optional (presence stream always written),
-    //            matching the force_presence behaviour from the old write_np helper.
+    // canonical: all columns are optional (presence stream always written).
     geo_varint_with_rle()
         .geos([P0, P0, P0])
         .add_shared_dict(
