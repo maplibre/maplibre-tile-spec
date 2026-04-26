@@ -44,8 +44,13 @@ impl StagedLayer {
             stats.id.as_ref(),
         );
 
+        let shared_dict_columns = shared_dict_columns(stats);
         let mut properties = Vec::with_capacity(source.property_names.len());
-        for col_idx in 0..source.property_names.len() {
+        for (col_idx, shared_cols) in shared_dict_columns
+            .iter()
+            .enumerate()
+            .take(source.property_names.len())
+        {
             let prop_analysis = stats
                 .properties
                 .get(col_idx)
@@ -55,6 +60,7 @@ impl StagedLayer {
                     properties.push(build_shared_dict(
                         col_idx,
                         &prefix,
+                        shared_cols,
                         &source.property_names,
                         stats,
                         &mut source.features,
@@ -82,6 +88,18 @@ impl StagedLayer {
             properties,
         }
     }
+}
+
+fn shared_dict_columns(stats: &LayerStats) -> Vec<Vec<usize>> {
+    let mut columns = vec![Vec::new(); stats.properties.len()];
+    for (col_idx, prop) in stats.properties.iter().enumerate() {
+        match prop.stats.shared_dict() {
+            SharedDictRole::Owner(_) => columns[col_idx].push(col_idx),
+            SharedDictRole::Member(owner_col) => columns[owner_col].push(col_idx),
+            SharedDictRole::None => {}
+        }
+    }
+    columns
 }
 
 fn build_scalar_column(
@@ -164,32 +182,25 @@ fn build_scalar_column(
 fn build_shared_dict(
     owner_col: usize,
     prefix: &str,
+    shared_dict_columns: &[usize],
     property_names: &[String],
     analysis: &LayerStats,
     features: &mut [TileFeature],
 ) -> StagedProperty {
-    let columns = analysis
-        .properties
-        .iter()
-        .enumerate()
-        .filter_map(|(col_idx, prop)| match prop.stats.shared_dict() {
-            SharedDictRole::Owner(_) if col_idx == owner_col => Some(col_idx),
-            SharedDictRole::Member(owner) if owner == owner_col => Some(col_idx),
-            _ => None,
-        })
-        .map(|col_idx| {
-            let name = &property_names[col_idx];
-            let suffix = name.strip_prefix(prefix).unwrap_or(name).to_owned();
-            let values: Vec<Option<String>> = features
-                .iter_mut()
-                .map(|f| match f.properties.get_mut(col_idx) {
-                    Some(PropValue::Str(s)) => s.take(),
-                    _ => None,
-                })
-                .collect();
-            let presence = analysis.properties[col_idx].presence;
-            (suffix, values, presence)
-        });
+    debug_assert_eq!(shared_dict_columns.first(), Some(&owner_col));
+    let columns = shared_dict_columns.iter().copied().map(|col_idx| {
+        let name = &property_names[col_idx];
+        let suffix = name.strip_prefix(prefix).unwrap_or(name).to_owned();
+        let values: Vec<Option<String>> = features
+            .iter_mut()
+            .map(|f| match f.properties.get_mut(col_idx) {
+                Some(PropValue::Str(s)) => s.take(),
+                _ => None,
+            })
+            .collect();
+        let presence = analysis.properties[col_idx].presence;
+        (suffix, values, presence)
+    });
 
     StagedProperty::SharedDict(
         StagedSharedDict::new(prefix.to_owned(), columns).expect("StagedSharedDict succeed"),

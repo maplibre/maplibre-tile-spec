@@ -858,7 +858,20 @@ fn analyze_layer_rejects_mixed_property_types() {
 
     assert!(matches!(
         tile.analyze(false),
-        Err(MltError::MixedPropertyTypes)
+        Err(MltError::MixedPropertyTypes(0, property_name)) if property_name == "mixed"
+    ));
+}
+
+#[test]
+fn analyze_layer_rejects_typed_null_mixed_with_other_type() {
+    let tile = tile_from_cols(&[(
+        "mixed",
+        vec![PropValue::U32(None), PropValue::Str(Some("x".into()))],
+    )]);
+
+    assert!(matches!(
+        tile.analyze(false),
+        Err(MltError::MixedPropertyTypes(0, property_name)) if property_name == "mixed"
     ));
 }
 

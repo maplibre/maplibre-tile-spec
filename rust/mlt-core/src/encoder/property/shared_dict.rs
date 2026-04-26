@@ -243,56 +243,40 @@ impl StagedSharedDict {
         T: AsRef<str>,
     {
         let prefix = prefix.into();
-        // Collect all columns so we can make two passes (dedup then assign ranges).
-        let columns: Vec<(String, Vec<Option<T>>, Presence)> = columns
-            .into_iter()
-            .map(|(s, i, p)| (s.into(), i.into_iter().collect(), p))
-            .collect();
-
-        // First pass: build deduplicated corpus in insertion order.
-        let mut dict_index = HashMap::<String, u32>::new();
-        let mut dict_ranges = Vec::<(u32, u32)>::new();
+        let mut dict_index = HashMap::<String, (u32, u32)>::new();
         let mut data = String::new();
 
-        for (_, values, _) in &columns {
-            for value in values.iter().filter_map(Option::as_ref) {
-                let s = value.as_ref();
-                if !dict_index.contains_key(s) {
-                    let idx = u32::try_from(dict_ranges.len()).or_overflow()?;
-                    let offset = u32::try_from(data.len()).or_overflow()?;
-                    let end = offset
-                        .checked_add(u32::try_from(s.len()).or_overflow()?)
-                        .or_overflow()?;
-                    dict_index.insert(s.to_owned(), idx);
-                    dict_ranges.push((offset, end));
-                    data.push_str(s);
-                }
-            }
-        }
-
-        // Second pass: emit per-feature ranges for each column.
         let items = columns
             .into_iter()
             .map(
                 |(suffix, values, presence)| -> MltResult<StagedSharedDictItem> {
-                    let mut ranges = Vec::with_capacity(values.len());
+                    let values = values.into_iter();
+                    let (lower, upper) = values.size_hint();
+                    let mut ranges = Vec::with_capacity(upper.unwrap_or(lower));
                     for opt_val in values {
                         match opt_val {
                             Some(value) => {
-                                let idx = *dict_index
-                                    .get(value.as_ref())
-                                    .expect("StagedSharedDict::new: value must be present");
-                                let (start, end) = dict_ranges[idx as usize];
+                                let s = value.as_ref();
+                                let (start, end) = if let Some(&span) = dict_index.get(s) {
+                                    span
+                                } else {
+                                    let start = u32::try_from(data.len()).or_overflow()?;
+                                    let end = start
+                                        .checked_add(u32::try_from(s.len()).or_overflow()?)
+                                        .or_overflow()?;
+                                    data.push_str(s);
+                                    dict_index.insert(s.to_owned(), (start, end));
+                                    (start, end)
+                                };
                                 ranges.push(encode_shared_dict_range(start, end)?);
                             }
                             None => ranges.push(DictRange::NULL),
                         }
                     }
-                    let has_presence = presence != Presence::AllPresent;
                     Ok(StagedSharedDictItem {
-                        suffix,
+                        suffix: suffix.into(),
                         ranges,
-                        has_presence,
+                        has_presence: presence != Presence::AllPresent,
                     })
                 },
             )

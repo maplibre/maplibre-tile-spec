@@ -203,3 +203,33 @@ pub enum PropValue {
     F64(Option<f64>),
     Str(Option<String>),
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PropKind {
+    Bool,
+    I8,
+    U8,
+    I32,
+    U32,
+    I64,
+    U64,
+    F32,
+    F64,
+    Str,
+}
+impl From<&PropValue> for PropKind {
+    fn from(prop: &PropValue) -> Self {
+        match prop {
+            PropValue::Bool(_) => Self::Bool,
+            PropValue::I8(_) => Self::I8,
+            PropValue::U8(_) => Self::U8,
+            PropValue::I32(_) => Self::I32,
+            PropValue::U32(_) => Self::U32,
+            PropValue::I64(_) => Self::I64,
+            PropValue::U64(_) => Self::U64,
+            PropValue::F32(_) => Self::F32,
+            PropValue::F64(_) => Self::F64,
+            PropValue::Str(_) => Self::Str,
+        }
+    }
+}

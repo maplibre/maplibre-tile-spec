@@ -1,4 +1,4 @@
-use crate::decoder::TileLayer;
+use crate::decoder::{PropKind, TileLayer};
 use crate::encoder::model::StagedLayer;
 use crate::encoder::property::encode::write_properties;
 use crate::encoder::{Encoder, EncoderConfig, SortStrategy, spatial_sort_likely_to_help};
@@ -182,28 +182,54 @@ impl PropertyTypedStats {
         }
     }
 
-    pub(crate) fn push(&mut self, prop: &PropValue) -> MltResult<()> {
+    pub(crate) fn push(
+        &mut self,
+        prop: &PropValue,
+        column_index: usize,
+        property_name: &str,
+    ) -> MltResult<()> {
         match prop {
-            PropValue::Bool(Some(_)) => self.merge_bool()?,
-            PropValue::I8(Some(v)) => self.merge_signed(i64::from(*v))?,
-            PropValue::U8(Some(v)) => self.merge_unsigned(u64::from(*v))?,
-            PropValue::I32(Some(v)) => self.merge_signed(i64::from(*v))?,
-            PropValue::U32(Some(v)) => self.merge_unsigned(u64::from(*v))?,
-            PropValue::I64(Some(v)) => self.merge_signed(*v)?,
-            PropValue::U64(Some(v)) => self.merge_unsigned(*v)?,
-            PropValue::F32(Some(_)) => self.merge_same_kind(Self::F32)?,
-            PropValue::F64(Some(_)) => self.merge_same_kind(Self::F64)?,
-            PropValue::Str(Some(_)) => self.merge_string()?,
+            PropValue::Bool(Some(_)) => self.merge_bool(column_index, property_name)?,
+            PropValue::I8(Some(v)) => {
+                self.merge_signed(i64::from(*v), column_index, property_name)?;
+            }
+            PropValue::U8(Some(v)) => {
+                self.merge_unsigned(u64::from(*v), column_index, property_name)?;
+            }
+            PropValue::I32(Some(v)) => {
+                self.merge_signed(i64::from(*v), column_index, property_name)?;
+            }
+            PropValue::U32(Some(v)) => {
+                self.merge_unsigned(u64::from(*v), column_index, property_name)?;
+            }
+            PropValue::I64(Some(v)) => self.merge_signed(*v, column_index, property_name)?,
+            PropValue::U64(Some(v)) => self.merge_unsigned(*v, column_index, property_name)?,
+            PropValue::F32(Some(_)) => {
+                self.merge_same_kind(Self::F32, column_index, property_name)?;
+            }
+            PropValue::F64(Some(_)) => {
+                self.merge_same_kind(Self::F64, column_index, property_name)?;
+            }
+            PropValue::Str(Some(_)) => self.merge_string(column_index, property_name)?,
             _ => {}
         }
         Ok(())
     }
 
-    fn merge_bool(&mut self) -> MltResult<()> {
-        self.merge_same_kind(Self::Bool)
+    fn mixed_property_types(column_index: usize, property_name: &str) -> MltError {
+        MltError::MixedPropertyTypes(column_index, property_name.to_owned())
     }
 
-    fn merge_signed(&mut self, value: i64) -> MltResult<()> {
+    fn merge_bool(&mut self, column_index: usize, property_name: &str) -> MltResult<()> {
+        self.merge_same_kind(Self::Bool, column_index, property_name)
+    }
+
+    fn merge_signed(
+        &mut self,
+        value: i64,
+        column_index: usize,
+        property_name: &str,
+    ) -> MltResult<()> {
         match self {
             Self::None => {
                 *self = Self::Signed {
@@ -215,12 +241,17 @@ impl PropertyTypedStats {
                 *min = (*min).min(value);
                 *max = (*max).max(value);
             }
-            _ => return Err(MltError::MixedPropertyTypes),
+            _ => return Err(Self::mixed_property_types(column_index, property_name)),
         }
         Ok(())
     }
 
-    fn merge_unsigned(&mut self, value: u64) -> MltResult<()> {
+    fn merge_unsigned(
+        &mut self,
+        value: u64,
+        column_index: usize,
+        property_name: &str,
+    ) -> MltResult<()> {
         match self {
             Self::None => {
                 *self = Self::Unsigned {
@@ -232,12 +263,12 @@ impl PropertyTypedStats {
                 *min = (*min).min(value);
                 *max = (*max).max(value);
             }
-            _ => return Err(MltError::MixedPropertyTypes),
+            _ => return Err(Self::mixed_property_types(column_index, property_name)),
         }
         Ok(())
     }
 
-    fn merge_string(&mut self) -> MltResult<()> {
+    fn merge_string(&mut self, column_index: usize, property_name: &str) -> MltResult<()> {
         match self {
             Self::None => {
                 *self = Self::String {
@@ -245,18 +276,23 @@ impl PropertyTypedStats {
                 };
             }
             Self::String { .. } => {}
-            _ => return Err(MltError::MixedPropertyTypes),
+            _ => return Err(Self::mixed_property_types(column_index, property_name)),
         }
         Ok(())
     }
 
-    fn merge_same_kind(&mut self, kind: Self) -> MltResult<()> {
+    fn merge_same_kind(
+        &mut self,
+        kind: Self,
+        column_index: usize,
+        property_name: &str,
+    ) -> MltResult<()> {
         match self {
             Self::None => *self = kind,
             Self::Bool if matches!(kind, Self::Bool) => {}
             Self::F32 if matches!(kind, Self::F32) => {}
             Self::F64 if matches!(kind, Self::F64) => {}
-            _ => return Err(MltError::MixedPropertyTypes),
+            _ => return Err(Self::mixed_property_types(column_index, property_name)),
         }
         Ok(())
     }
@@ -304,15 +340,26 @@ impl TileLayer {
         self.property_names
             .iter()
             .enumerate()
-            .map(|(col_idx, _name)| -> MltResult<PropertyStats> {
+            .map(|(col_idx, name)| -> MltResult<PropertyStats> {
                 let mut present = 0usize;
+                let mut kind = None;
                 let mut stats = PropertyTypedStats::default();
                 for feature in &self.features {
                     let prop = feature.properties.get(col_idx);
+                    if let Some(prop) = prop {
+                        let prop_kind = PropKind::from(prop);
+                        if let Some(kind) = kind {
+                            if kind != prop_kind {
+                                return Err(MltError::MixedPropertyTypes(col_idx, name.clone()));
+                            }
+                        } else {
+                            kind = Some(prop_kind);
+                        }
+                    }
                     if prop_is_present(prop) {
                         present += 1;
                         let prop = prop.expect("present property exists");
-                        stats.push(prop)?;
+                        stats.push(prop, col_idx, name)?;
                     }
                 }
 
