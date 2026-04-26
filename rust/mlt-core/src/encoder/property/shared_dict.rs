@@ -27,13 +27,6 @@ const MINHASH_PERMUTATIONS: usize = 128;
 /// grouped into a single shared dictionary.
 const MINHASH_SIMILARITY_THRESHOLD: f64 = 0.075;
 
-/// A group of string columns to be merged into a single [`crate::encoder::StagedProperty::SharedDict`].
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct StringGroup {
-    pub prefix: String,
-    pub columns: Vec<(String, usize)>,
-}
-
 struct StringProfile<'a> {
     col_idx: usize,
     name: &'a str,
@@ -44,31 +37,27 @@ struct StringProfile<'a> {
 }
 
 impl TileLayer {
-    pub(crate) fn apply_string_groups(&self, properties: &mut [PropertyStats]) -> Vec<StringGroup> {
-        let string_groups = group_string_properties(self);
-        for (group_idx, group) in string_groups.iter().enumerate() {
-            let Some(owner_col) = group.columns.first().map(|(_, col_idx)| *col_idx) else {
-                continue;
-            };
-            for &(_, col_idx) in &group.columns {
+    pub(crate) fn apply_string_groups(&self, properties: &mut [PropertyStats]) {
+        for (prefix, owner_col, member_cols) in group_string_properties(self) {
+            debug_assert_ne!(properties[owner_col].presence, Presence::AllNull);
+            properties[owner_col]
+                .stats
+                .set_shared_dict(SharedDictRole::Owner(prefix));
+            for col_idx in member_cols {
                 debug_assert_ne!(properties[col_idx].presence, Presence::AllNull);
-                let role = if col_idx == owner_col {
-                    SharedDictRole::Owner(group_idx)
-                } else {
-                    SharedDictRole::Member(group_idx)
-                };
-                properties[col_idx].stats.set_shared_dict(role);
+                properties[col_idx]
+                    .stats
+                    .set_shared_dict(SharedDictRole::Member(owner_col));
             }
         }
-        string_groups
     }
 }
 
-/// Analyze a [`TileLayer`] and return one [`StringGroup`] per cluster of similar
+/// Analyze a [`TileLayer`] and return one `(prefix, owner, members)` entry per cluster of similar
 /// string columns.
 #[must_use]
 #[hotpath::measure]
-pub fn group_string_properties(source: &TileLayer) -> Vec<StringGroup> {
+fn group_string_properties(source: &TileLayer) -> Vec<(String, usize, Vec<usize>)> {
     let exact_mh = MinHash::with_hashers(
         MINHASH_PERMUTATIONS,
         [
@@ -125,16 +114,11 @@ pub fn group_string_properties(source: &TileLayer) -> Vec<StringGroup> {
 
     cluster_by_similarity(profiles)
         .into_iter()
-        .map(|group| {
+        .filter_map(|group| {
             let prefix = common_prefix_name(&group);
-            let columns = group
-                .into_iter()
-                .map(|p| {
-                    let suffix = p.name.strip_prefix(&prefix).unwrap_or(p.name).to_owned();
-                    (suffix, p.col_idx)
-                })
-                .collect();
-            StringGroup { prefix, columns }
+            let mut columns = group.into_iter().map(|p| p.col_idx);
+            let owner_col = columns.next()?;
+            Some((prefix, owner_col, columns.collect()))
         })
         .collect()
 }

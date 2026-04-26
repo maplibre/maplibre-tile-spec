@@ -1,10 +1,7 @@
 use crate::decoder::TileLayer;
 use crate::encoder::model::StagedLayer;
-use crate::encoder::property::apply_string_groups;
 use crate::encoder::property::encode::write_properties;
-use crate::encoder::{
-    Encoder, EncoderConfig, SortStrategy, StringGroup, spatial_sort_likely_to_help,
-};
+use crate::encoder::{Encoder, EncoderConfig, SortStrategy, spatial_sort_likely_to_help};
 use crate::{MltError, MltResult, PropValue};
 
 impl StagedLayer {
@@ -114,13 +111,13 @@ pub enum Presence {
 }
 
 /// How a property participates in a shared dictionary group.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SharedDictRole {
     /// The property is encoded as a standalone column.
     None,
-    /// The property is the first column in this group and emits the shared dictionary.
-    Owner(usize),
-    /// The property is emitted by the group's owner column.
+    /// The property is the first column in this group and emits the shared dictionary with this prefix.
+    Owner(String),
+    /// The property is emitted by the group owner at this property index.
     Member(usize),
 }
 
@@ -136,7 +133,6 @@ pub struct PropertyStats {
 pub struct LayerStats {
     pub id: Option<PropertyStats>,
     pub properties: Vec<PropertyStats>,
-    pub string_groups: Vec<StringGroup>,
 }
 
 /// Row-order-independent value statistics for a property column.
@@ -174,7 +170,7 @@ impl PropertyTypedStats {
     #[must_use]
     pub fn shared_dict(&self) -> SharedDictRole {
         match self {
-            Self::String { shared_dict, .. } => *shared_dict,
+            Self::String { shared_dict, .. } => shared_dict.clone(),
             _ => SharedDictRole::None,
         }
     }
@@ -272,17 +268,11 @@ impl TileLayer {
     pub(crate) fn analyze(&self, allow_shared_dict: bool) -> MltResult<LayerStats> {
         let id = self.analyze_ids();
         let mut properties = self.profile_properties()?;
-        let string_groups = if allow_shared_dict {
-            self.apply_string_groups(&mut properties)
-        } else {
-            Vec::new()
-        };
+        if allow_shared_dict {
+            self.apply_string_groups(&mut properties);
+        }
 
-        Ok(LayerStats {
-            id,
-            properties,
-            string_groups,
-        })
+        Ok(LayerStats { id, properties })
     }
 
     fn analyze_ids(&self) -> Option<PropertyStats> {

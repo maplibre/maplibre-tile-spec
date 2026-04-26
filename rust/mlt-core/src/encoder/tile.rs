@@ -12,7 +12,7 @@
 use crate::decoder::{GeometryValues, PropValue, TileFeature, TileLayer};
 use crate::encoder::model::StagedLayer;
 use crate::encoder::optimizer::{LayerStats, Presence, SharedDictRole};
-use crate::encoder::{SortStrategy, StagedId, StagedProperty, StagedSharedDict, StringGroup};
+use crate::encoder::{SortStrategy, StagedId, StagedProperty, StagedSharedDict};
 
 impl StagedLayer {
     /// Construct a [`StagedLayer`] from a row-oriented [`TileLayer`] using
@@ -45,15 +45,17 @@ impl StagedLayer {
         );
 
         let mut properties = Vec::with_capacity(source.property_names.len());
-        for (col_idx, name) in source.property_names.into_iter().enumerate() {
+        for col_idx in 0..source.property_names.len() {
             let prop_analysis = stats
                 .properties
                 .get(col_idx)
                 .expect("analysis matches source property columns");
             match prop_analysis.stats.shared_dict() {
-                SharedDictRole::Owner(group_idx) => {
+                SharedDictRole::Owner(prefix) => {
                     properties.push(build_shared_dict(
-                        &stats.string_groups[group_idx],
+                        col_idx,
+                        &prefix,
+                        &source.property_names,
                         stats,
                         &mut source.features,
                     ));
@@ -61,7 +63,7 @@ impl StagedLayer {
                 SharedDictRole::Member(_) => {}
                 SharedDictRole::None => {
                     if let Some(prop) = build_scalar_column(
-                        name,
+                        std::mem::take(&mut source.property_names[col_idx]),
                         col_idx,
                         prop_analysis.presence,
                         &mut source.features,
@@ -160,28 +162,37 @@ fn build_scalar_column(
 }
 
 fn build_shared_dict(
-    group: &StringGroup,
+    owner_col: usize,
+    prefix: &str,
+    property_names: &[String],
     analysis: &LayerStats,
     features: &mut [TileFeature],
 ) -> StagedProperty {
-    let mut order: Vec<usize> = (0..group.columns.len()).collect();
-    order.sort_by_key(|&i| group.columns[i].1);
-
-    let columns = order.into_iter().map(|i| {
-        let (suffix, col_idx) = &group.columns[i];
-        let values: Vec<Option<String>> = features
-            .iter_mut()
-            .map(|f| match f.properties.get_mut(*col_idx) {
-                Some(PropValue::Str(s)) => s.take(),
-                _ => None,
-            })
-            .collect();
-        let presence = analysis.properties[*col_idx].presence;
-        (suffix.clone(), values, presence)
-    });
+    let columns = analysis
+        .properties
+        .iter()
+        .enumerate()
+        .filter_map(|(col_idx, prop)| match prop.stats.shared_dict() {
+            SharedDictRole::Owner(_) if col_idx == owner_col => Some(col_idx),
+            SharedDictRole::Member(owner) if owner == owner_col => Some(col_idx),
+            _ => None,
+        })
+        .map(|col_idx| {
+            let name = &property_names[col_idx];
+            let suffix = name.strip_prefix(prefix).unwrap_or(name).to_owned();
+            let values: Vec<Option<String>> = features
+                .iter_mut()
+                .map(|f| match f.properties.get_mut(col_idx) {
+                    Some(PropValue::Str(s)) => s.take(),
+                    _ => None,
+                })
+                .collect();
+            let presence = analysis.properties[col_idx].presence;
+            (suffix, values, presence)
+        });
 
     StagedProperty::SharedDict(
-        StagedSharedDict::new_with_presence(group.prefix.clone(), columns)
+        StagedSharedDict::new_with_presence(prefix.to_owned(), columns)
             .expect("StagedSharedDict succeed"),
     )
 }

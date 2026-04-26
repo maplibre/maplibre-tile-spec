@@ -880,11 +880,10 @@ fn analyze_layer_records_shared_dict_roles_by_property_index() {
 
     let analysis = tile.analyze(true).unwrap();
 
-    assert_eq!(analysis.string_groups.len(), 1);
-    assert_eq!(
-        analysis.properties[0].stats.shared_dict(),
-        SharedDictRole::Owner(0)
-    );
+    let SharedDictRole::Owner(prefix) = analysis.properties[0].stats.shared_dict() else {
+        panic!("first string column should own the shared dictionary");
+    };
+    assert_eq!(prefix, "name:");
     assert_eq!(
         analysis.properties[1].stats.shared_dict(),
         SharedDictRole::Member(0)
