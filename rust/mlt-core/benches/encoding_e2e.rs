@@ -3,12 +3,13 @@ use std::hint::black_box;
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::__private::{dec, parser};
 use mlt_core::Layer;
-use mlt_core::encoder::{EncoderConfig, LogicalEncoder, SortStrategy};
+use mlt_core::encoder::{EncoderConfig, LogicalEncoder, stage_tile};
 use strum::IntoEnumIterator as _;
 
 #[path = "bench_utils.rs"]
 mod bench_utils;
 use bench_utils::{BENCHMARKED_ZOOM_LEVELS, load_mlt_tiles};
+use mlt_core::encoder::SortStrategy::Unsorted;
 use mlt_core::encoder::{Encoder, ExplicitEncoder, IntEncoder, PhysicalEncoder, StagedLayer};
 
 fn limit<T>(values: impl Iterator<Item = T>) -> impl Iterator<Item = T> {
@@ -36,12 +37,7 @@ fn decode_to_owned(tiles: &[(String, Vec<u8>)], tessellate: bool) -> Vec<StagedL
                         return None;
                     };
                     let tile = layer01.into_tile(&mut d).ok()?;
-                    Some(StagedLayer::from_tile(
-                        tile,
-                        SortStrategy::Unsorted,
-                        &[],
-                        tessellate,
-                    ))
+                    Some(stage_tile(tile, Unsorted, false, tessellate))
                 })
                 .collect::<Vec<_>>()
         })

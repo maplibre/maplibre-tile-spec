@@ -102,6 +102,8 @@ pub enum MltError {
     NotImplemented(&'static str),
     #[error("unsupported property value and encoder combination: {0:?} + {1:?}")]
     UnsupportedPropertyEncoderCombination(&'static str, &'static str),
+    #[error("mixed property types are not allowed in column {0} ({1})")]
+    MixedPropertyTypes(usize, String),
     #[error("shared dictionary requires at least 2 streams, got {0}")]
     SharedDictRequiresStreams(usize),
     #[error("unsupported string stream count (expected between 2 and 5): {0}")]

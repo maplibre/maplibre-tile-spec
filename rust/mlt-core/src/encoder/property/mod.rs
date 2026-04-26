@@ -12,4 +12,3 @@ pub use model::{
     StagedOptScalar, StagedProperty, StagedScalar, StagedSharedDict, StagedSharedDictItem,
     StagedStrings,
 };
-pub use shared_dict::{StringGroup, group_string_properties};

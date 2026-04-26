@@ -1,5 +1,6 @@
 use crate::MltResult;
 use crate::decoder::ColumnType;
+use crate::encoder::optimizer::{Presence, PropertyStats};
 use crate::encoder::{
     Encoder, StagedOptScalar, StagedScalar, write_opt_u32_scalar_col, write_opt_u64_scalar_col,
     write_u32_scalar_col, write_u64_scalar_col,
@@ -75,6 +76,69 @@ impl StagedId {
             Self::u64(values64)
         } else {
             Self::u32(values)
+        }
+    }
+
+    /// Construct from sparse IDs using a precomputed presence classification.
+    #[must_use]
+    pub(crate) fn from_optional_with_presence(
+        ids: impl IntoIterator<Item = Option<u64>>,
+        analysis: Option<&PropertyStats>,
+    ) -> Self {
+        let Some(analysis) = analysis else {
+            return Self::None;
+        };
+        match analysis.presence {
+            Presence::AllNull => Self::None,
+            Presence::AllPresent => {
+                Self::from_dense(ids.into_iter().flatten(), analysis.stats.values_fit_u32())
+            }
+            Presence::Mixed => Self::from_optional_sparse(ids, analysis.stats.values_fit_u32()),
+        }
+    }
+
+    fn from_dense(ids: impl IntoIterator<Item = u64>, values_fit_u32: bool) -> Self {
+        if values_fit_u32 {
+            Self::u32(
+                ids.into_iter()
+                    .map(|id| {
+                        u32::try_from(id).expect("ID analysis guarantees u32-compatible values")
+                    })
+                    .collect(),
+            )
+        } else {
+            Self::u64(ids.into_iter().collect())
+        }
+    }
+
+    fn from_optional_sparse(
+        ids: impl IntoIterator<Item = Option<u64>>,
+        values_fit_u32: bool,
+    ) -> Self {
+        let ids = ids.into_iter();
+        let (lower, upper) = ids.size_hint();
+        let capacity = upper.unwrap_or(lower);
+        let mut presence = Vec::with_capacity(capacity);
+        if values_fit_u32 {
+            let mut values = Vec::with_capacity(capacity);
+            for id in ids {
+                presence.push(id.is_some());
+                if let Some(id) = id {
+                    values.push(
+                        u32::try_from(id).expect("ID analysis guarantees u32-compatible values"),
+                    );
+                }
+            }
+            Self::OptU32(StagedOptScalar::from_parts(String::new(), presence, values))
+        } else {
+            let mut values = Vec::with_capacity(capacity);
+            for id in ids {
+                presence.push(id.is_some());
+                if let Some(id) = id {
+                    values.push(id);
+                }
+            }
+            Self::OptU64(StagedOptScalar::from_parts(String::new(), presence, values))
         }
     }
 

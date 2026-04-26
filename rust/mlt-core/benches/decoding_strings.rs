@@ -3,8 +3,8 @@ use std::hint::black_box;
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use geo_types::Point;
 use mlt_core::encoder::{
-    Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, LogicalEncoder, PhysicalEncoder, StagedId,
-    StagedLayer, StagedProperty, StagedSharedDict, StrEncoding,
+    Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, LogicalEncoder, PhysicalEncoder, Presence,
+    StagedId, StagedLayer, StagedProperty, StagedSharedDict, StrEncoding,
 };
 use mlt_core::test_helpers::{dec, parser};
 use mlt_core::{GeometryValues, LendingIterator, ParsedLayer01, PropValueRef};
@@ -360,7 +360,10 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         let make_sd = || {
             StagedSharedDict::new(
                 "place:",
-                [("type", col_opt.clone()), ("subtype", col2.clone())],
+                [
+                    ("type", col_opt.clone(), Presence::AllPresent),
+                    ("subtype", col2.clone(), Presence::Mixed),
+                ],
             )
             .expect("StagedSharedDict::new failed")
         };

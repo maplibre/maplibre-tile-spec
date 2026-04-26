@@ -24,6 +24,8 @@ pub use model::{ColumnKind, ExplicitEncoder, StagedLayer, StrEncoding, StreamCtx
 pub use model::{EncodedUnknown, EncoderConfig};
 #[cfg(all(test, not(feature = "__private")))]
 pub(crate) use model::{ExplicitEncoder, StagedLayer, StrEncoding};
+#[cfg(any(test, feature = "__private"))]
+pub use optimizer::Presence;
 pub(crate) use property::*;
 #[cfg(feature = "__private")]
 pub use property::{StagedProperty, StagedSharedDict};
@@ -32,4 +34,6 @@ pub(crate) use sort::spatial_sort_likely_to_help;
 pub(crate) use stream::*;
 #[cfg(feature = "__private")]
 pub use stream::{IntEncoder, LogicalEncoder, PhysicalEncoder};
+#[cfg(any(test, feature = "__private"))]
+pub use tests::stage_tile;
 pub use writer::Encoder;

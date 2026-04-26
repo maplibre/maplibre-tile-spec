@@ -1,14 +1,17 @@
 use geo_types::Point;
 use proptest::prelude::*;
+use rstest::rstest;
 
+use crate::encoder::SortStrategy::Unsorted;
 use crate::encoder::model::{ExplicitEncoder, StagedLayer, StrEncoding};
+use crate::encoder::optimizer::{Presence, PropertyTypedStats, SharedDictRole};
 use crate::encoder::property::encode::write_properties;
 use crate::encoder::{
-    Encoder, EncoderConfig, IntEncoder, LogicalEncoder, PhysicalEncoder, SortStrategy, StagedId,
-    StagedProperty, StagedSharedDict, group_string_properties,
+    Encoder, EncoderConfig, IntEncoder, LogicalEncoder, PhysicalEncoder, StagedId, StagedProperty,
+    StagedSharedDict, stage_tile,
 };
 use crate::test_helpers::{dec, parser};
-use crate::{DictRange, GeometryValues, Layer, PropValue, TileFeature, TileLayer};
+use crate::{DictRange, GeometryValues, Layer, MltError, PropValue, TileFeature, TileLayer};
 // proptest_derive::Arbitrary is only derived for these types inside the crate
 // under #[cfg(test)], so we write the strategies by hand here.
 
@@ -79,7 +82,19 @@ fn opt_strs(vals: &[Option<&str>]) -> Vec<Option<String>> {
     vals.iter().map(|v| v.map(ToString::to_string)).collect()
 }
 
+fn presence<T>(values: &[Option<T>]) -> Presence {
+    if values.iter().all(Option::is_some) {
+        Presence::AllPresent
+    } else {
+        Presence::Mixed
+    }
+}
+
 fn shared_dict_prop(name: &str, children: Vec<(String, Vec<Option<String>>)>) -> StagedProperty {
+    let children = children.into_iter().map(|(suffix, values)| {
+        let presence = presence(&values);
+        (suffix, values, presence)
+    });
     StagedProperty::SharedDict(StagedSharedDict::new(name, children).expect("build shared dict"))
 }
 
@@ -439,8 +454,16 @@ fn struct_shared_dict_inline_ranges_track_nulls_and_empty_strings() {
     let dict = StagedSharedDict::new(
         "name",
         vec![
-            col(":de", opt_strs(&[Some(""), None, Some("Berlin")])),
-            col(":en", opt_strs(&[Some(""), Some("Berlin"), Some("")])),
+            (
+                ":de",
+                opt_strs(&[Some(""), None, Some("Berlin")]),
+                Presence::Mixed,
+            ),
+            (
+                ":en",
+                opt_strs(&[Some(""), Some("Berlin"), Some("")]),
+                Presence::AllPresent,
+            ),
         ],
     )
     .unwrap();
@@ -605,8 +628,12 @@ proptest! {
         input in arb_shared_dict_children(),
     ) {
         let (n, children) = input;
+        let staged_children = children.iter().map(|(suffix, values)| {
+            let presence = presence(values);
+            (suffix.clone(), values.clone(), presence)
+        });
         let staged = StagedProperty::SharedDict(
-            StagedSharedDict::new(&struct_name, children.clone()).expect("build shared dict"),
+            StagedSharedDict::new(&struct_name, staged_children).expect("build shared dict"),
         );
         let tile = encode_and_tile(vec![staged]);
 
@@ -652,6 +679,31 @@ fn tile_from_cols(cols: &[(&str, Vec<PropValue>)]) -> TileLayer {
     }
 }
 
+fn tile_from_cols_with_ids(ids: &[Option<u64>], cols: &[(&str, Vec<PropValue>)]) -> TileLayer {
+    let mut tile = tile_from_cols(cols);
+    for (feature, id) in tile.features.iter_mut().zip(ids.iter().copied()) {
+        feature.id = id;
+    }
+    tile
+}
+
+fn tile_from_ids(ids: &[Option<u64>]) -> TileLayer {
+    let geom = geo_types::Geometry::<i32>::Point(Point::new(0, 0));
+    TileLayer {
+        name: "test".to_string(),
+        extent: 4096,
+        property_names: vec![],
+        features: ids
+            .iter()
+            .map(|&id| TileFeature {
+                id,
+                geometry: geom.clone(),
+                properties: vec![],
+            })
+            .collect(),
+    }
+}
+
 /// Convert a `&[&str]` slice into a column of `PropValue::Str` values.
 fn str_vals(values: &[&str]) -> Vec<PropValue> {
     values
@@ -660,10 +712,272 @@ fn str_vals(values: &[&str]) -> Vec<PropValue> {
         .collect()
 }
 
-/// Stage a [`TileLayer`] with `MinHash` grouping and return its properties.
-fn stage_props(tile: TileLayer) -> Vec<StagedProperty> {
-    let groups = group_string_properties(&tile);
-    StagedLayer::from_tile(tile, SortStrategy::Unsorted, &groups, false).properties
+#[test]
+fn staging_uses_id_presence_analysis() {
+    let all_present = tile_from_ids(&[Some(1), Some(2), Some(3)]);
+    let analysis = all_present.analyze(false).unwrap();
+    let id = analysis.id.as_ref().expect("ID analysis");
+    assert!(id.stats.values_fit_u32());
+    let staged = StagedLayer::from_tile(all_present, Unsorted, &analysis, false);
+    assert!(matches!(staged.id, StagedId::U32(_)));
+
+    let mixed = tile_from_ids(&[Some(1), None, Some(3)]);
+    let analysis = mixed.analyze(false).unwrap();
+    let id = analysis.id.as_ref().expect("ID analysis");
+    assert!(id.stats.values_fit_u32());
+    let staged = StagedLayer::from_tile(mixed, Unsorted, &analysis, false);
+    assert!(matches!(staged.id, StagedId::OptU32(_)));
+
+    let large = tile_from_ids(&[Some(u64::from(u32::MAX) + 1), None, Some(3)]);
+    let analysis = large.analyze(false).unwrap();
+    let id = analysis.id.as_ref().expect("ID analysis");
+    assert!(!id.stats.values_fit_u32());
+    let staged = StagedLayer::from_tile(large, Unsorted, &analysis, false);
+    assert!(matches!(staged.id, StagedId::OptU64(_)));
+
+    let all_null = tile_from_ids(&[None, None, None]);
+    let analysis = all_null.analyze(false).unwrap();
+    assert_eq!(analysis.id, None);
+    let staged = StagedLayer::from_tile(all_null, Unsorted, &analysis, false);
+    assert!(matches!(staged.id, StagedId::None));
+}
+
+#[test]
+fn analyze_layer_classifies_id_and_property_presence() {
+    let tile = tile_from_cols_with_ids(
+        &[Some(1), None, Some(3)],
+        &[
+            (
+                "all_present",
+                [1u32, 2, 3]
+                    .iter()
+                    .map(|&v| PropValue::U32(Some(v)))
+                    .collect(),
+            ),
+            (
+                "mixed",
+                vec![
+                    PropValue::Bool(Some(true)),
+                    PropValue::Bool(None),
+                    PropValue::Bool(Some(false)),
+                ],
+            ),
+            (
+                "all_null",
+                vec![
+                    PropValue::Str(None),
+                    PropValue::Str(None),
+                    PropValue::Str(None),
+                ],
+            ),
+        ],
+    );
+
+    let analysis = tile.analyze(true).unwrap();
+
+    let id = analysis.id.as_ref().expect("ID analysis");
+    assert_eq!(id.presence, Presence::Mixed);
+    assert_eq!(id.stats, PropertyTypedStats::Unsigned { min: 1, max: 3 });
+    assert_eq!(analysis.properties[0].presence, Presence::AllPresent);
+    assert_eq!(
+        analysis.properties[0].stats,
+        PropertyTypedStats::Unsigned { min: 1, max: 3 }
+    );
+    assert_eq!(analysis.properties[1].presence, Presence::Mixed);
+    assert_eq!(analysis.properties[1].stats, PropertyTypedStats::Bool);
+    assert_eq!(analysis.properties[2].presence, Presence::AllNull);
+    assert_eq!(analysis.properties[2].stats, PropertyTypedStats::None);
+}
+
+#[test]
+fn analyze_layer_tracks_typed_property_stats() {
+    let tile = tile_from_cols(&[
+        (
+            "small_u64",
+            vec![
+                PropValue::U64(Some(0)),
+                PropValue::U64(Some(u64::from(u32::MAX))),
+            ],
+        ),
+        (
+            "large_u64",
+            vec![
+                PropValue::U64(Some(0)),
+                PropValue::U64(Some(u64::from(u32::MAX) + 1)),
+            ],
+        ),
+        (
+            "negative_i64",
+            vec![PropValue::I64(Some(-1)), PropValue::I64(Some(2))],
+        ),
+        (
+            "names",
+            vec![
+                PropValue::Str(Some("a".to_string())),
+                PropValue::Str(Some("abcd".to_string())),
+            ],
+        ),
+    ]);
+
+    let analysis = tile.analyze(false).unwrap();
+
+    assert_eq!(
+        analysis.properties[0].stats,
+        PropertyTypedStats::Unsigned {
+            min: 0,
+            max: u64::from(u32::MAX)
+        }
+    );
+    assert!(analysis.properties[0].stats.values_fit_u32());
+    assert_eq!(
+        analysis.properties[1].stats,
+        PropertyTypedStats::Unsigned {
+            min: 0,
+            max: u64::from(u32::MAX) + 1
+        }
+    );
+    assert!(!analysis.properties[1].stats.values_fit_u32());
+    assert_eq!(
+        analysis.properties[2].stats,
+        PropertyTypedStats::Signed { min: -1, max: 2 }
+    );
+    assert!(!analysis.properties[2].stats.values_fit_u32());
+    assert_eq!(
+        analysis.properties[3].stats,
+        PropertyTypedStats::String {
+            shared_dict: SharedDictRole::None
+        }
+    );
+}
+
+#[rstest]
+#[case(vec![PropValue::I8(Some(1)), PropValue::I32(Some(2))])]
+#[case(vec![PropValue::I8(Some(1)), PropValue::I64(Some(2))])]
+#[case(vec![PropValue::I32(Some(1)), PropValue::I64(Some(2))])]
+#[case(vec![PropValue::U8(Some(1)), PropValue::U32(Some(2))])]
+#[case(vec![PropValue::U8(Some(1)), PropValue::U64(Some(2))])]
+#[case(vec![PropValue::U32(Some(1)), PropValue::U64(Some(2))])]
+#[case(vec![PropValue::I8(None), PropValue::I32(Some(2))])]
+#[case(vec![PropValue::I8(Some(1)), PropValue::I64(None)])]
+#[case(vec![PropValue::I32(None), PropValue::I64(Some(2))])]
+#[case(vec![PropValue::U8(None), PropValue::U32(Some(2))])]
+#[case(vec![PropValue::U8(Some(1)), PropValue::U64(None)])]
+#[case(vec![PropValue::U32(None), PropValue::U64(Some(2))])]
+#[case(vec![PropValue::F32(Some(1.0)), PropValue::F64(Some(2.0))])]
+#[case(vec![PropValue::F32(None), PropValue::F64(Some(2.0))])]
+#[case(vec![PropValue::F32(Some(1.0)), PropValue::F64(None)])]
+#[case(vec![PropValue::U32(None), PropValue::Str(Some("x".into()))])]
+fn analyze_layer_rejects_property_type_coercions(#[case] values: Vec<PropValue>) {
+    let tile = tile_from_cols(&[("mixed", values)]);
+    assert!(matches!(
+        tile.analyze(false),
+        Err(MltError::MixedPropertyTypes(0, property_name)) if property_name == "mixed"
+    ));
+}
+
+#[rstest]
+#[case(
+    vec![PropValue::Bool(None), PropValue::Bool(Some(true))],
+    PropertyTypedStats::Bool
+)]
+#[case(
+    vec![PropValue::I8(None), PropValue::I8(Some(-1))],
+    PropertyTypedStats::Signed { min: -1, max: -1 }
+)]
+#[case(
+    vec![PropValue::U8(None), PropValue::U8(Some(1))],
+    PropertyTypedStats::Unsigned { min: 1, max: 1 }
+)]
+#[case(
+    vec![PropValue::I32(None), PropValue::I32(Some(-2))],
+    PropertyTypedStats::Signed { min: -2, max: -2 }
+)]
+#[case(
+    vec![PropValue::U32(None), PropValue::U32(Some(2))],
+    PropertyTypedStats::Unsigned { min: 2, max: 2 }
+)]
+#[case(
+    vec![PropValue::I64(None), PropValue::I64(Some(-3))],
+    PropertyTypedStats::Signed { min: -3, max: -3 }
+)]
+#[case(
+    vec![PropValue::U64(None), PropValue::U64(Some(3))],
+    PropertyTypedStats::Unsigned { min: 3, max: 3 }
+)]
+#[case(
+    vec![PropValue::F32(None), PropValue::F32(Some(1.0))],
+    PropertyTypedStats::F32
+)]
+#[case(
+    vec![PropValue::F64(None), PropValue::F64(Some(1.0))],
+    PropertyTypedStats::F64
+)]
+#[case(
+    vec![PropValue::Str(None), PropValue::Str(Some("x".into()))],
+    PropertyTypedStats::String {
+        shared_dict: SharedDictRole::None,
+    }
+)]
+fn analyze_layer_accepts_typed_nulls_matching_column_type(
+    #[case] values: Vec<PropValue>,
+    #[case] expected_stats: PropertyTypedStats,
+) {
+    let tile = tile_from_cols(&[("typed_null", values)]);
+    let analysis = tile.analyze(false).unwrap();
+    assert_eq!(analysis.properties[0].presence, Presence::Mixed);
+    assert_eq!(analysis.properties[0].stats, expected_stats);
+}
+
+#[test]
+fn staging_uses_presence_analysis_for_scalar_variants_and_skips_all_null() {
+    let tile = tile_from_cols(&[
+        (
+            "all_present",
+            [1u32, 2, 3]
+                .iter()
+                .map(|&v| PropValue::U32(Some(v)))
+                .collect(),
+        ),
+        (
+            "mixed",
+            vec![
+                PropValue::Bool(Some(true)),
+                PropValue::Bool(None),
+                PropValue::Bool(Some(false)),
+            ],
+        ),
+        (
+            "all_null",
+            vec![
+                PropValue::Str(None),
+                PropValue::Str(None),
+                PropValue::Str(None),
+            ],
+        ),
+    ]);
+
+    let staged = stage_tile(tile, Unsorted, false, false);
+
+    assert_eq!(staged.properties.len(), 2);
+    assert!(matches!(staged.properties[0], StagedProperty::U32(_)));
+    assert!(matches!(staged.properties[1], StagedProperty::OptBool(_)));
+}
+
+#[test]
+fn analyze_layer_records_shared_dict_roles_by_property_index() {
+    let vocab = &["Alice", "Bob", "Carol", "Dave"];
+    let tile = tile_from_cols(&[("name:en", str_vals(vocab)), ("name:de", str_vals(vocab))]);
+
+    let analysis = tile.analyze(true).unwrap();
+
+    let SharedDictRole::Owner(prefix) = analysis.properties[0].stats.shared_dict() else {
+        panic!("first string column should own the shared dictionary");
+    };
+    assert_eq!(prefix, "name:");
+    assert_eq!(
+        analysis.properties[1].stats.shared_dict(),
+        SharedDictRole::Member(0)
+    );
 }
 
 #[test]
@@ -705,7 +1019,11 @@ fn similar_strings_grouped_into_shared_dict() {
     let vocab = &["Alice", "Bob", "Carol", "Dave"];
     let tile = tile_from_cols(&[("name:en", str_vals(vocab)), ("name:de", str_vals(vocab))]);
     let mut enc = Encoder::default();
-    write_properties(&stage_props(tile), &mut enc).unwrap();
+    write_properties(
+        &stage_tile(tile, Unsorted, true, false).properties,
+        &mut enc,
+    )
+    .unwrap();
 
     assert_eq!(
         enc.layer_column_count, 1,
@@ -722,7 +1040,11 @@ fn multiple_similar_string_columns_grouped() {
         ("addr:zipcode", str_vals(vocab)),
     ]);
     let mut enc = Encoder::default();
-    write_properties(&stage_props(tile), &mut enc).unwrap();
+    write_properties(
+        &stage_tile(tile, Unsorted, true, false).properties,
+        &mut enc,
+    )
+    .unwrap();
 
     assert_eq!(
         enc.layer_column_count, 1,
@@ -760,7 +1082,11 @@ fn mixed_scalars_and_grouped_strings() {
         ),
     ]);
     let mut enc = Encoder::default();
-    write_properties(&stage_props(tile), &mut enc).unwrap();
+    write_properties(
+        &stage_tile(tile, Unsorted, true, false).properties,
+        &mut enc,
+    )
+    .unwrap();
     assert_eq!(enc.layer_column_count, 3, "two scalar + one merged dict");
 }
 

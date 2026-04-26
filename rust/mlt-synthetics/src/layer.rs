@@ -5,8 +5,8 @@ use std::path::Path;
 
 use mlt_core::GeometryValues;
 use mlt_core::encoder::{
-    ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, StagedId, StagedLayer,
-    StagedProperty, StagedSharedDict, StrEncoding, StreamCtx, VertexBufferType,
+    ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, Presence, StagedId,
+    StagedLayer, StagedProperty, StagedSharedDict, StrEncoding, StreamCtx, VertexBufferType,
 };
 use mlt_core::geo_types::{Coord, Geometry};
 use mlt_core::wire::{LengthType, OffsetType, StreamType};
@@ -288,21 +288,21 @@ impl Layer {
             .iter()
             .map(|(suffix, enc, _, _)| (suffix.clone(), *enc))
             .collect();
-        let is_optional_flags: Vec<bool> =
-            shared_dict.items.iter().map(|(_, _, _, f)| *f).collect();
-        let mut dict = StagedSharedDict::new(
+        let dict = StagedSharedDict::new(
             shared_dict.name,
             shared_dict
                 .items
                 .into_iter()
-                .map(|(suffix, _, vals, _)| (suffix, vals)),
+                .map(|(suffix, _, vals, is_optional)| {
+                    let presence = if is_optional {
+                        Presence::Mixed
+                    } else {
+                        Presence::AllPresent
+                    };
+                    (suffix, vals, presence)
+                }),
         )
         .expect("shared dict builder should be valid");
-        for (item, is_optional) in dict.items.iter_mut().zip(is_optional_flags) {
-            if is_optional {
-                item.set_presence(true);
-            }
-        }
         self.props.push((
             StagedProperty::SharedDict(dict),
             PropConfig::SharedDict {
