@@ -102,22 +102,25 @@ fn build_scalar_column(
     // in the selected row order.
     macro_rules! scalar_col {
         ($opt_ctor:ident, $non_opt_ctor:ident, $ty:ty, $sv:ident) => {{
-            let opt_values: Vec<Option<$ty>> = features
-                .iter()
-                .map(|f| {
-                    if let Some(PropValue::$sv(v)) = f.properties.get(col) {
-                        *v
-                    } else {
-                        None
-                    }
-                })
-                .collect();
             Some(match presence {
                 Presence::AllNull => unreachable!("handled before variant dispatch"),
-                Presence::AllPresent => {
-                    StagedProperty::$non_opt_ctor(name, opt_values.into_iter().flatten().collect())
-                }
-                Presence::Mixed => StagedProperty::$opt_ctor(name, opt_values),
+                Presence::AllPresent => StagedProperty::$non_opt_ctor(
+                    name,
+                    features
+                        .iter()
+                        .map(|f| match f.properties.get(col) {
+                            Some(PropValue::$sv(Some(v))) => *v,
+                            _ => unreachable!("analysis guarantees present typed values"),
+                        })
+                        .collect(),
+                ),
+                Presence::Mixed => StagedProperty::$opt_ctor(
+                    name,
+                    features.iter().map(|f| match f.properties.get(col) {
+                        Some(PropValue::$sv(v)) => *v,
+                        _ => None,
+                    }),
+                ),
             })
         }};
     }
@@ -132,20 +135,27 @@ fn build_scalar_column(
         Some(PropValue::U64(_)) => scalar_col!(opt_u64, u64, u64, U64),
         Some(PropValue::F32(_)) => scalar_col!(opt_f32, f32, f32, F32),
         Some(PropValue::F64(_)) => scalar_col!(opt_f64, f64, f64, F64),
-        Some(PropValue::Str(_)) | None => {
-            let opt_values: Vec<Option<String>> = features
-                .iter_mut()
-                .map(|f| match f.properties.get_mut(col) {
-                    Some(PropValue::Str(v)) => v.take(),
-                    _ => None,
-                })
-                .collect();
-            Some(match presence {
-                Presence::AllNull => unreachable!("handled before variant dispatch"),
-                Presence::AllPresent => StagedProperty::str(name, opt_values.into_iter().flatten()),
-                Presence::Mixed => StagedProperty::opt_str(name, opt_values),
-            })
-        }
+        Some(PropValue::Str(_)) | None => Some(match presence {
+            Presence::AllNull => unreachable!("handled before variant dispatch"),
+            Presence::AllPresent => StagedProperty::str(
+                name,
+                features
+                    .iter_mut()
+                    .map(|f| match f.properties.get_mut(col) {
+                        Some(PropValue::Str(Some(v))) => std::mem::take(v),
+                        _ => unreachable!("analysis guarantees present string values"),
+                    }),
+            ),
+            Presence::Mixed => StagedProperty::opt_str(
+                name,
+                features
+                    .iter_mut()
+                    .map(|f| match f.properties.get_mut(col) {
+                        Some(PropValue::Str(v)) => v.take(),
+                        _ => None,
+                    }),
+            ),
+        }),
     }
 }
 

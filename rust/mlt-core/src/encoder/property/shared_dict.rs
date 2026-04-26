@@ -61,7 +61,7 @@ impl<'a> StringStatsBuilder<'a> {
         }
     }
 
-    pub(crate) fn stats(&self, values: &[&'a str]) -> PropertyTypedStats {
+    pub(crate) fn hashes(&self, values: &[&'a str]) -> (Vec<u64>, Vec<u64>) {
         let exact_hashes = self.exact_mh.get_min_hashes(values.iter().copied());
         let trigrams: Vec<[u8; 3]> = values
             .iter()
@@ -72,25 +72,7 @@ impl<'a> StringStatsBuilder<'a> {
         } else {
             self.trigram_mh.get_min_hashes(trigrams.into_iter())
         };
-        string_stats(values, exact_hashes, trigram_hashes)
-    }
-}
-
-pub(crate) fn string_stats_without_hashes(values: &[&str]) -> PropertyTypedStats {
-    string_stats(values, Vec::new(), Vec::new())
-}
-
-fn string_stats(
-    values: &[&str],
-    exact_hashes: Vec<u64>,
-    trigram_hashes: Vec<u64>,
-) -> PropertyTypedStats {
-    PropertyTypedStats::String {
-        total_bytes: values.iter().map(|s| s.len()).sum(),
-        max_bytes: values.iter().map(|s| s.len()).max().unwrap_or(0),
-        exact_hashes,
-        trigram_hashes,
-        shared_dict: SharedDictRole::None,
+        (exact_hashes, trigram_hashes)
     }
 }
 
@@ -138,6 +120,17 @@ pub(crate) fn apply_string_groups(
                 SharedDictRole::Member(group_idx)
             };
             properties[col_idx].stats.set_shared_dict(role);
+        }
+    }
+    for prop in properties {
+        if let PropertyTypedStats::String {
+            exact_hashes,
+            trigram_hashes,
+            ..
+        } = &mut prop.stats
+        {
+            *exact_hashes = Vec::new();
+            *trigram_hashes = Vec::new();
         }
     }
     string_groups

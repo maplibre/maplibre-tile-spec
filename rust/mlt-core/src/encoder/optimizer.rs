@@ -1,9 +1,7 @@
 use crate::decoder::TileLayer;
 use crate::encoder::model::StagedLayer;
 use crate::encoder::property::encode::write_properties;
-use crate::encoder::property::{
-    StringStatsBuilder, apply_string_groups, string_stats_without_hashes,
-};
+use crate::encoder::property::{StringStatsBuilder, apply_string_groups};
 use crate::encoder::{
     Encoder, EncoderConfig, SortStrategy, StringGroup, spatial_sort_likely_to_help,
 };
@@ -287,7 +285,11 @@ impl PropertyTypedStats {
 pub fn analyze_layer(source: &TileLayer, allow_shared_dict: bool) -> LayerStats {
     let id = analyze_ids(source);
     let mut properties = profile_properties(source, allow_shared_dict);
-    let string_groups = apply_string_groups(&source.property_names, &mut properties);
+    let string_groups = if allow_shared_dict {
+        apply_string_groups(&source.property_names, &mut properties)
+    } else {
+        Vec::new()
+    };
 
     LayerStats {
         id,
@@ -335,9 +337,10 @@ fn profile_properties(source: &TileLayer, allow_shared_dict: bool) -> Vec<Proper
                 let prop = feature.properties.get(col_idx);
                 if prop_is_present(prop) {
                     present += 1;
-                    match prop.expect("present property exists") {
-                        PropValue::Str(Some(s)) => string_values.push(s.as_str()),
-                        prop => stats.push(prop),
+                    let prop = prop.expect("present property exists");
+                    stats.push(prop);
+                    if let (Some(_), PropValue::Str(Some(s))) = (&string_stats, prop) {
+                        string_values.push(s.as_str());
                     }
                 }
             }
@@ -350,15 +353,17 @@ fn profile_properties(source: &TileLayer, allow_shared_dict: bool) -> Vec<Proper
                 Presence::Mixed
             };
 
-            if !string_values.is_empty() {
-                assert!(
-                    matches!(stats, PropertyTypedStats::None),
-                    "mixed property types are not allowed"
-                );
-                stats = string_stats.as_ref().map_or_else(
-                    || string_stats_without_hashes(&string_values),
-                    |string_stats| string_stats.stats(&string_values),
-                );
+            if let (Some(string_stats), false) = (string_stats.as_ref(), string_values.is_empty()) {
+                let (exact, trigram) = string_stats.hashes(&string_values);
+                if let PropertyTypedStats::String {
+                    exact_hashes,
+                    trigram_hashes,
+                    ..
+                } = &mut stats
+                {
+                    *exact_hashes = exact;
+                    *trigram_hashes = trigram;
+                }
             }
 
             PropertyStats { presence, stats }
