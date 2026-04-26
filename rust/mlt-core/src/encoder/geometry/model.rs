@@ -13,6 +13,6 @@ pub enum VertexBufferType {
     /// Hilbert curve dictionary encoding:
     /// Unique vertices are sorted by their Hilbert curve index and stored once,
     /// componentwise-delta encoded. Each vertex position in the stream is replaced
-    /// by its index into that dictionary. Mirrors Java's `addVerticesToDictionary`.
+    /// by its index into that dictionary.
     Hilbert,
 }

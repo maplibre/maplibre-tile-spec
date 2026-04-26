@@ -120,7 +120,13 @@ pub struct Encoder {
     /// as the wire-format `column_count`.
     pub layer_column_count: u32,
 
-    /// Regardless of the sort, these values should be identical
+    /// Cached vertex layout choice for the current layer.
+    ///
+    /// Populated either by an explicit override (set up-front) or by the
+    /// auto-mode dict race (set after the first encode). On subsequent calls
+    /// the cached choice is encoded directly without re-running the race —
+    /// "forced" (override) and "cached" (race winner) take the same code
+    /// path because both already know the exact `VertexBufferType` to use.
     pub(crate) vertex_buffer_type_cache: Option<VertexBufferType>,
 
     /// Cached result of `z_order_params` for the geometry column currently
@@ -156,9 +162,22 @@ pub struct Encoder {
 
     pub(crate) tmp_u32: Vec<u32>,
     pub(crate) tmp_u32_b: Vec<u32>,
+    /// Vertex-dictionary scratch held across stream writes (offsets / delta output).
+    /// Distinct from [`tmp_u32`](Self::tmp_u32) and [`tmp_u32_b`](Self::tmp_u32_b),
+    /// which the stream writers themselves use for their internal logical/physical
+    /// scratch — so the dict path can keep data here while writers reuse their own
+    /// scratch capacity in place.
+    pub(crate) tmp_u32_c: Vec<u32>,
+    /// Vertex-dictionary scratch held across stream writes (Morton-code dictionary).
+    /// Same rationale as [`tmp_u32_c`](Self::tmp_u32_c).
+    pub(crate) tmp_u32_d: Vec<u32>,
     pub(crate) tmp_u64: Vec<u64>,
     pub(crate) tmp_u8: Vec<u8>,
     pub(crate) tmp_u8_b: Vec<u8>,
+    /// Vertex-dictionary scratch for the Hilbert path's `[x, y, …]` flat
+    /// dictionary. Stream writers never touch `i32` scratch, so this stays
+    /// undisturbed across writes.
+    pub(crate) tmp_i32: Vec<i32>,
     pub(crate) fastpfor: FastPFor256,
 }
 
@@ -206,9 +225,12 @@ impl Encoder {
             alt_stack: vec![],
             tmp_u32: vec![],
             tmp_u32_b: vec![],
+            tmp_u32_c: vec![],
+            tmp_u32_d: vec![],
             tmp_u64: vec![],
             tmp_u8: vec![],
             tmp_u8_b: vec![],
+            tmp_i32: vec![],
             fastpfor: FastPFor256::default(),
         }
     }
