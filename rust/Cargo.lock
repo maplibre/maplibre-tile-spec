@@ -2544,9 +2544,9 @@ dependencies = [
 
 [[package]]
 name = "mbtiles"
-version = "0.16.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "731c2d69df690e8ca888a8d73c7f87724b3aefe9a5b824c9b63a2560e8fb01e8"
+checksum = "16dff5f5a3ce273380353c9eac3bf43310f70d07ffaee50f4b7aa07e5555b2fa"
 dependencies = [
  "bytes",
  "enum-display",
