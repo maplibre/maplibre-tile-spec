@@ -121,9 +121,11 @@ public class GeometryEncoder {
     if (sortSettings.isSortable && numGeometries.isEmpty() && numRings.isEmpty()) {
       if (numParts.size() == sortSettings.featureIds.size()) {
         /* Currently the VertexOffsets are only sorted if all geometries in the geometry column are of type LineString */
-        GeometryUtils.sortVertexOffsets(
-            numParts, mortonEncodedDictionaryOffsets, sortSettings.featureIds());
-        geometryColumnSorted = true;
+        if (useMortonEncoding) {
+          GeometryUtils.sortVertexOffsets(
+              numParts, mortonEncodedDictionaryOffsets, sortSettings.featureIds());
+          geometryColumnSorted = true;
+        }
       } else if (numParts.isEmpty()) {
         GeometryUtils.sortPoints(vertexBuffer, hilbertCurve, sortSettings.featureIds);
         geometryColumnSorted = true;
@@ -223,7 +225,7 @@ public class GeometryEncoder {
       selectedVertexStream =
           encodeVertexBuffer(zigZagDeltaVertexDictionary, physicalLevelTechnique);
       geometryColumnSorted = false;
-    } else {
+    } else { // Morton
       selectedVertexOffsets = mortonEncodedDictionaryOffsets;
       selectedVertexStream =
           IntegerEncoder.encodeMortonStream(
