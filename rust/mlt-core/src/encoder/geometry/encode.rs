@@ -79,10 +79,12 @@ fn build_morton_dict(
 /// All three buffers are cleared and grown in place so callers can reuse
 /// encoder scratch slots without allocating new `Vec`s on the hot path.
 ///
-/// Dedup is keyed on the Hilbert curve index, not the `(x, y)` pair. At grid
-/// levels below 16 bits two distinct vertices can share a Hilbert ID and
-/// collapse into the same dictionary slot — this is intentional and lossy
-/// at coarse grids.
+/// Dedup is keyed on the Hilbert curve index rather than directly on the
+/// `(x, y)` pair. For valid shifted coordinates inside the Hilbert grid for
+/// `params.bits`, that mapping is one-to-one, so dedup-by-index is lossless
+/// and equivalent to dedup-by-`(x, y)`. Distinct vertices can only collapse
+/// if coordinates are truncated or wrapped before computing the Hilbert key
+/// (for example, by exceeding the supported bit width).
 #[hotpath::measure]
 fn build_hilbert_dict(
     vertices: &[i32],
