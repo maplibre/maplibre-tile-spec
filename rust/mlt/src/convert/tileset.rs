@@ -1,6 +1,6 @@
 use std::path::Path;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use anyhow::{Result as AnyResult, anyhow, bail};
@@ -51,10 +51,9 @@ pub async fn convert_mbtiles(
         None => "tiles",
     };
     #[expect(clippy::cast_sign_loss, reason = "COUNT(*) is always non-negative")]
-    let total: u64 =
-        sqlx::query_scalar::<_, i64>(&format!("SELECT COUNT(*) FROM {count_table}"))
-            .fetch_one(&mut src_conn)
-            .await? as u64;
+    let total: u64 = sqlx::query_scalar::<_, i64>(&format!("SELECT COUNT(*) FROM {count_table}"))
+        .fetch_one(&mut src_conn)
+        .await? as u64;
 
     // The transcoder opens its own connection.
     drop(src_conn);
@@ -65,9 +64,7 @@ pub async fn convert_mbtiles(
     let bar = ProgressBar::new(total);
     bar.set_style(
         ProgressStyle::default_bar()
-            .template(
-                "  {bar:40.cyan/blue} {pos}/{len} tiles [{rate}, eta {eta}]",
-            )
+            .template("  {bar:40.cyan/blue} {pos}/{len} tiles [{rate}, eta {eta}]")
             .expect("invalid bar template")
             .with_key("rate", whole_rate_per_sec),
     );
@@ -78,11 +75,15 @@ pub async fn convert_mbtiles(
     let sizes_ref = Arc::clone(&sizes);
 
     let mut transcoder = MbtilesTranscoder::new(input, output, move |data| {
-        sizes_ref.bytes_in.fetch_add(data.len() as u64, Ordering::Relaxed);
+        sizes_ref
+            .bytes_in
+            .fetch_add(data.len() as u64, Ordering::Relaxed);
         let result = encode_one(data, encoding, cfg)
             .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { e.to_string().into() });
         if let Ok(ref encoded) = result {
-            sizes_ref.bytes_out.fetch_add(encoded.len() as u64, Ordering::Relaxed);
+            sizes_ref
+                .bytes_out
+                .fetch_add(encoded.len() as u64, Ordering::Relaxed);
         }
         bar_ref.inc(1);
         result
