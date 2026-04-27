@@ -1,5 +1,4 @@
 mod analyze;
-mod compare;
 #[cfg(all(not(test), feature = "arbitrary"))]
 mod fuzzing;
 mod geometry;
@@ -19,16 +18,14 @@ mod writer;
 pub(crate) use geometry::VertexBufferType;
 #[cfg(feature = "__private")]
 pub use geometry::VertexBufferType;
-#[cfg(not(feature = "__private"))]
-pub(crate) use id::IdWidth;
-#[cfg(feature = "__private")]
-pub use id::IdWidth;
 pub use id::StagedId;
 #[cfg(feature = "__private")]
-pub use model::{ColumnKind, ExplicitEncoder, StagedLayer, StagedLayer01, StrEncoding, StreamCtx};
+pub use model::{ColumnKind, ExplicitEncoder, StagedLayer, StrEncoding, StreamCtx};
 pub use model::{EncodedUnknown, EncoderConfig};
 #[cfg(all(test, not(feature = "__private")))]
-pub(crate) use model::{ExplicitEncoder, StagedLayer, StagedLayer01, StrEncoding};
+pub(crate) use model::{ExplicitEncoder, StagedLayer, StrEncoding};
+#[cfg(any(test, feature = "__private"))]
+pub use optimizer::Presence;
 pub(crate) use property::*;
 #[cfg(feature = "__private")]
 pub use property::{StagedProperty, StagedSharedDict};
@@ -37,4 +34,6 @@ pub(crate) use sort::spatial_sort_likely_to_help;
 pub(crate) use stream::*;
 #[cfg(feature = "__private")]
 pub use stream::{IntEncoder, LogicalEncoder, PhysicalEncoder};
+#[cfg(any(test, feature = "__private"))]
+pub use tests::stage_tile;
 pub use writer::Encoder;

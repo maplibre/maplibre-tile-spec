@@ -3,11 +3,11 @@ use std::hint::black_box;
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use geo_types::Point;
 use mlt_core::encoder::{
-    Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, LogicalEncoder, PhysicalEncoder,
-    StagedLayer01, StagedProperty, StagedSharedDict, StrEncoding,
+    Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, LogicalEncoder, PhysicalEncoder, Presence,
+    StagedId, StagedLayer, StagedProperty, StagedSharedDict, StrEncoding,
 };
 use mlt_core::test_helpers::{dec, parser};
-use mlt_core::{GeometryValues, ParsedLayer01, PropValueRef};
+use mlt_core::{GeometryValues, LendingIterator, ParsedLayer01, PropValueRef};
 use strum::IntoEnumIterator as _;
 
 // This code runs in CI because of --all-targets, so make it run really fast.
@@ -82,10 +82,10 @@ fn make_geometry(n: usize) -> GeometryValues {
 
 /// Encode `props` into a single-layer tile with `n` point features and return wire bytes.
 fn encode_layer(n: usize, props: Vec<StagedProperty>, cfg: ExplicitEncoder) -> Vec<u8> {
-    StagedLayer01 {
+    StagedLayer {
         name: "bench".into(),
         extent: 4096,
-        id: None,
+        id: StagedId::None,
         geometry: make_geometry(n),
         properties: props,
     }
@@ -100,22 +100,22 @@ fn encode_layer(n: usize, props: Vec<StagedProperty>, cfg: ExplicitEncoder) -> V
 /// Used as the benchmark measurement: the return value prevents the compiler from
 /// optimizing away the iteration, and its magnitude is proportional to work done.
 fn sum_str_lens(parsed: &ParsedLayer01<'_>) -> usize {
-    parsed
-        .iter_features()
-        .map(|feat_res| {
-            feat_res
-                .unwrap()
-                .iter_all_properties()
-                .map(|v| {
-                    if let Some(PropValueRef::Str(s)) = v {
-                        s.len()
-                    } else {
-                        0
-                    }
-                })
-                .sum::<usize>()
-        })
-        .sum()
+    let mut total = 0;
+    let mut iter = parsed.iter_features();
+    while let Some(feat_res) = iter.next() {
+        total += feat_res
+            .unwrap()
+            .iter_all_properties()
+            .map(|v| {
+                if let Some(PropValueRef::Str(s)) = v {
+                    s.len()
+                } else {
+                    0
+                }
+            })
+            .sum::<usize>();
+    }
+    total
 }
 
 /// plain strings: vary the `IntEncoder` used for the length stream
@@ -360,7 +360,10 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
         let make_sd = || {
             StagedSharedDict::new(
                 "place:",
-                [("type", col_opt.clone()), ("subtype", col2.clone())],
+                [
+                    ("type", col_opt.clone(), Presence::AllPresent),
+                    ("subtype", col2.clone(), Presence::Mixed),
+                ],
             )
             .expect("StagedSharedDict::new failed")
         };

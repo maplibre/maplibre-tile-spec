@@ -164,7 +164,7 @@ where
 /// a single `sort_by_cached_key` call.  The `property_names` vec is parallel
 /// to every `TileFeature::properties` slice in this layer.
 #[derive(Debug, Clone, PartialEq)]
-pub struct TileLayer01 {
+pub struct TileLayer {
     pub name: String,
     pub extent: u32,
     /// Column names, parallel to `TileFeature::properties`.
@@ -179,7 +179,7 @@ pub struct TileFeature {
     /// Geometry as a [`geo_types`] form
     pub geometry: geo_types::Geometry<i32>,
     /// One value per property column, in the same order as
-    /// [`TileLayer01::property_names`].
+    /// [`TileLayer::property_names`].
     pub properties: Vec<PropValue>,
 }
 
@@ -188,7 +188,7 @@ pub struct TileFeature {
 /// Mirrors the scalar variants of `ParsedProperty` at the per-feature
 /// level. `SharedDict` items are flattened: each sub-field becomes its own
 /// `PropValue::Str` entry in `TileFeature::properties`, with the
-/// corresponding entry in `TileLayer01::property_names` set to
+/// corresponding entry in `TileLayer::property_names` set to
 /// `"prefix:suffix"`.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PropValue {
@@ -202,4 +202,35 @@ pub enum PropValue {
     F32(Option<f32>),
     F64(Option<f64>),
     Str(Option<String>),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::IntoStaticStr)]
+#[strum(serialize_all = "lowercase")]
+pub enum PropKind {
+    Bool,
+    I8,
+    U8,
+    I32,
+    U32,
+    I64,
+    U64,
+    F32,
+    F64,
+    Str,
+}
+impl From<&PropValue> for PropKind {
+    fn from(prop: &PropValue) -> Self {
+        match prop {
+            PropValue::Bool(_) => Self::Bool,
+            PropValue::I8(_) => Self::I8,
+            PropValue::U8(_) => Self::U8,
+            PropValue::I32(_) => Self::I32,
+            PropValue::U32(_) => Self::U32,
+            PropValue::I64(_) => Self::I64,
+            PropValue::U64(_) => Self::U64,
+            PropValue::F32(_) => Self::F32,
+            PropValue::F64(_) => Self::F64,
+            PropValue::Str(_) => Self::Str,
+        }
+    }
 }

@@ -31,8 +31,9 @@ pub enum RawIdValue<'a> {
 /// (`get`, `feature_count`, `dense_values`, `materialize`, `is_present`) are
 /// available via auto-deref.
 ///
-/// The lifetime `'a` ties the inner bitvector to the source bytes for zero-copy
-/// decoding; when the stream is RLE-decompressed the data is owned and `'a` is `'static`.
+/// The lifetime `'a` allows zero-copy decoding when the inner bitvector borrows
+/// from the source bytes. When the presence stream is RLE-decompressed, the inner
+/// `Cow` becomes owned and no longer borrows from the input.
 // TODO: consider converting ParsedId to an enum with u32 vs u64 for performance
 #[derive(Clone, Debug, PartialEq)]
 pub struct ParsedId<'a>(pub(crate) Presence<'a, u64>);

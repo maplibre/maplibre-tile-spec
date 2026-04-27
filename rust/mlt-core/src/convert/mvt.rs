@@ -1,4 +1,4 @@
-//! Convert MVT data to [`FeatureCollection`] or to [`TileLayer01`]
+//! Convert MVT data to [`FeatureCollection`] or to [`TileLayer`]
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -10,7 +10,7 @@ use mvt_reader::Reader;
 use mvt_reader::feature::{Feature as MvtFeature, Value as MvtValue};
 use serde_json::{Number, Value};
 
-use crate::decoder::{PropValue, TileFeature, TileLayer01};
+use crate::decoder::{PropValue, TileFeature, TileLayer};
 use crate::geojson::{Feature, FeatureCollection};
 use crate::{MltError, MltResult};
 
@@ -79,20 +79,20 @@ pub fn mvt_to_feature_collection(data: Vec<u8>) -> MltResult<FeatureCollection> 
     })
 }
 
-/// Parse MVT binary data and convert each layer to a row-oriented [`TileLayer01`].
+/// Parse MVT binary data and convert each layer to a row-oriented [`TileLayer`].
 ///
-/// Each MVT layer becomes one [`TileLayer01`].  Property column types are inferred
+/// Each MVT layer becomes one [`TileLayer`].  Property column types are inferred
 /// from all features in the layer: the first non-null value seen for each column
 /// determines its type, with `I64`+`U64` widened to `I64` and `F32`+`F64` widened
 /// to `F64`; all other type conflicts fall back to `Str`.
-pub fn mvt_to_tile_layers(data: Vec<u8>) -> MltResult<Vec<TileLayer01>> {
+pub fn mvt_to_tile_layers(data: Vec<u8>) -> MltResult<Vec<TileLayer>> {
     read_mvt_layers(data)?
         .into_iter()
         .map(mvt_layer_to_tile)
         .collect()
 }
 
-fn mvt_layer_to_tile(layer: MvtLayer) -> MltResult<TileLayer01> {
+fn mvt_layer_to_tile(layer: MvtLayer) -> MltResult<TileLayer> {
     // First pass: collect property names (insertion-ordered) and infer column types.
     let mut col_names: Vec<String> = Vec::new();
     let mut col_index: HashMap<String, usize> = HashMap::new();
@@ -142,7 +142,7 @@ fn mvt_layer_to_tile(layer: MvtLayer) -> MltResult<TileLayer01> {
         });
     }
 
-    Ok(TileLayer01 {
+    Ok(TileLayer {
         name: layer.name,
         extent: layer.extent,
         property_names: col_names,

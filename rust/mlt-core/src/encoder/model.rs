@@ -2,16 +2,7 @@ use derive_debug::Dbg;
 
 use crate::decoder::{GeometryValues, StreamType};
 use crate::encoder::geometry::VertexBufferType;
-use crate::encoder::{IdWidth, IntEncoder, StagedId, StagedProperty};
-
-/// Owned, pre-encoding variant of [`crate::Layer`] (stage 2 of the encoding pipeline).
-#[derive(Debug, PartialEq, Clone)]
-#[expect(clippy::large_enum_variant)]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub enum StagedLayer {
-    Tag01(StagedLayer01),
-    Unknown(EncodedUnknown),
-}
+use crate::encoder::{IntEncoder, StagedId, StagedProperty};
 
 /// Owned variant of `Unknown`.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -31,14 +22,14 @@ pub struct CurveParams {
 /// Columnar layer data being prepared for encoding (stage 2 of the encoding pipeline).
 ///
 /// Holds fully-owned columnar data. Constructed directly (synthetics, benches) or
-/// converted from [`TileLayer01`](crate::TileLayer01).
-/// Consumed by encoding via [`StagedLayer::encode_into`] or `StagedLayer01::encode_explicit`
+/// converted from [`TileLayer`](crate::TileLayer).
+/// Consumed by encoding via [`StagedLayer::encode_into`] or `StagedLayer::encode_explicit`
 /// (with explicit encoding mode enabled).
 #[derive(Debug, PartialEq, Clone)]
-pub struct StagedLayer01 {
+pub struct StagedLayer {
     pub name: String,
     pub extent: u32,
-    pub id: Option<StagedId>,
+    pub id: StagedId,
     pub geometry: GeometryValues,
     pub properties: Vec<StagedProperty>,
 }
@@ -173,12 +164,4 @@ pub struct ExplicitEncoder {
     /// Return the string encoding strategy for a string property column.
     #[dbg(skip)]
     pub get_str_encoding: Box<dyn Fn(&str) -> StrEncoding>,
-    /// Override the auto-detected [`IdWidth`].
-    /// Arguments: auto-detected `IdWidth`. Return the width to use.
-    #[dbg(skip)]
-    pub override_id_width: Box<dyn Fn(IdWidth) -> IdWidth>,
-    /// Override whether a presence stream is written for an all-present column,
-    /// or if the column is written at all if all values are null.
-    #[dbg(skip)]
-    pub override_presence: Box<dyn for<'a> Fn(&'a StreamCtx<'a>) -> bool>,
 }

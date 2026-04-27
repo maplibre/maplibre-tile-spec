@@ -3,7 +3,7 @@ use std::hint::black_box;
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::encoder::EncoderConfig;
 use mlt_core::mvt::mvt_to_tile_layers;
-use mlt_core::{MltResult, TileLayer01};
+use mlt_core::{MltResult, TileLayer};
 
 #[path = "bench_utils.rs"]
 mod bench_utils;
@@ -14,11 +14,11 @@ fn load_mvt_tiles(zoom: u8) -> Vec<(String, Vec<u8>)> {
     load_tiles(zoom, "fixtures/omt", ".mvt")
 }
 
-/// Parse MVT bytes into `TileLayer01` objects outside the benchmark loop.
+/// Parse MVT bytes into `TileLayer` objects outside the benchmark loop.
 ///
 /// Errors are silently skipped (some fixture tiles may use unsupported geometry
 /// types); the benchmark only exercises successfully parsed layers.
-fn parse_mvt_to_tile_layers(mvt_files: &[(String, Vec<u8>)]) -> Vec<TileLayer01> {
+fn parse_mvt_to_tile_layers(mvt_files: &[(String, Vec<u8>)]) -> Vec<TileLayer> {
     mvt_files
         .iter()
         .flat_map(|(path, data)| {
@@ -41,8 +41,8 @@ fn bench_encode_from_mvt(c: &mut Criterion) {
         let mvt_files = load_mvt_tiles(zoom);
         let total_bytes: usize = mvt_files.iter().map(|(_, d)| d.len()).sum();
 
-        // Parse all MVT files into TileLayer01 once, outside every benchmark iteration.
-        let tile_layers: Vec<TileLayer01> = parse_mvt_to_tile_layers(&mvt_files);
+        // Parse all MVT files into TileLayer once, outside every benchmark iteration.
+        let tile_layers: Vec<TileLayer> = parse_mvt_to_tile_layers(&mvt_files);
 
         group.throughput(Throughput::Bytes(total_bytes as u64));
 

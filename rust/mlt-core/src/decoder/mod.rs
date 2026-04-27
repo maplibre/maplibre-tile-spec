@@ -22,11 +22,13 @@ pub use geometry::{GeometryType, GeometryValues};
 pub use id::ParsedId;
 // pub (not pub(crate)) so __private module can re-export it
 pub(crate) use id::{Id, RawId, RawIdValue};
-pub use iterators::{ColumnRef, FeatureRef, PropName, PropValueRef};
+pub use iterators::{
+    ColumnRef, FeatureRef, Layer01FeatureIter, LendingIterator, PropName, PropValueRef,
+};
 pub(crate) use model::Column;
 pub use model::{
-    ColumnType, Layer, Layer01, ParsedLayer, ParsedLayer01, PropValue, TileFeature, TileLayer01,
-    Unknown,
+    ColumnType, Layer, Layer01, ParsedLayer, ParsedLayer01, PropKind, PropValue, TileFeature,
+    TileLayer, Unknown,
 };
 // Re-export strings sub-module so encoder can use `crate::decoder::strings::*`
 pub(crate) use property::strings;

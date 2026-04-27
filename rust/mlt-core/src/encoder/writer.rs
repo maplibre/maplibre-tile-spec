@@ -5,9 +5,15 @@ use fastpfor::FastPFor256;
 use fsst::Compressor;
 use integer_encoding::VarIntWriter as _;
 
-use crate::decoder::Morton;
+use crate::codecs::bytes::encode_bools_to_bytes;
+use crate::codecs::rle::encode_byte_rle;
+use crate::decoder::{
+    ColumnType, IntEncoding, LogicalEncoding, Morton, PhysicalEncoding, RleMeta, StreamMeta,
+    StreamType,
+};
 use crate::encoder::model::{ExplicitEncoder, StrEncoding, StreamCtx};
-use crate::encoder::{EncoderConfig, IdWidth, IntEncoder, VertexBufferType};
+use crate::encoder::{EncoderConfig, IntEncoder, VertexBufferType};
+use crate::utils::BinarySerializer as _;
 use crate::{MltError, MltResult};
 
 /// Stateful encoder that accumulates encoded layer bytes and provides
@@ -164,7 +170,7 @@ impl Encoder {
     }
 
     /// Like [`Self::new`] but with the explicit encoder set for deterministic encoding
-    /// (tests, synthetics). Use with `StagedLayer01::encode_explicit`.
+    /// (tests, synthetics). Use with `StagedLayer::encode_explicit`.
     #[inline]
     #[must_use]
     pub fn with_explicit(cfg: EncoderConfig, explicit: ExplicitEncoder) -> Self {
@@ -207,6 +213,53 @@ impl Encoder {
         self.layer_column_count = self.layer_column_count.saturating_add(1);
     }
 
+    #[inline]
+    pub(crate) fn write_column_type(&mut self, column_type: ColumnType) -> MltResult<()> {
+        column_type.write_to(&mut self.meta).map_err(MltError::from)
+    }
+
+    #[inline]
+    pub(crate) fn write_column_name(&mut self, name: &str) -> MltResult<()> {
+        self.meta.write_string(name).map_err(MltError::from)
+    }
+
+    #[inline]
+    pub(crate) fn write_column_header(
+        &mut self,
+        column_type: ColumnType,
+        name: &str,
+    ) -> MltResult<()> {
+        self.write_column_type(column_type)?;
+        self.write_column_name(name)
+    }
+
+    pub(crate) fn write_presence_section(
+        &mut self,
+        presence_bools: impl ExactSizeIterator<Item = bool>,
+    ) -> MltResult<()> {
+        let num_values = u32::try_from(presence_bools.len())?;
+        self.tmp_u8.clear();
+        encode_bools_to_bytes(presence_bools, &mut self.tmp_u8);
+        self.tmp_u8_b.clear();
+        encode_byte_rle(&self.tmp_u8, &mut self.tmp_u8_b);
+
+        let byte_length = u32::try_from(self.tmp_u8_b.len())?;
+        let meta = StreamMeta::new(
+            StreamType::Present,
+            IntEncoding::new(
+                LogicalEncoding::Rle(RleMeta {
+                    runs: num_values.div_ceil(8),
+                    num_rle_values: byte_length,
+                }),
+                PhysicalEncoding::None,
+            ),
+            num_values,
+        );
+        meta.write_to(&mut self.data, true, byte_length)?;
+        self.data.extend_from_slice(&self.tmp_u8_b);
+        Ok(())
+    }
+
     /// Write the layer header (`name`, `extent`, `column_count`) to [`hdr`].
     ///
     /// `column_count` is `layer_column_count` —
@@ -244,25 +297,6 @@ impl Encoder {
     #[inline]
     pub(crate) fn override_str_enc(&self, name: &str) -> Option<StrEncoding> {
         self.explicit.as_ref().map(|e| (e.get_str_encoding)(name))
-    }
-
-    /// Whether the explicit encoder forces a presence stream for an all-present column
-    /// (or similar), per [`ExplicitEncoder::override_presence`].
-    #[inline]
-    pub(crate) fn override_presence(&self, ctx: &StreamCtx<'_>) -> bool {
-        self.explicit
-            .as_ref()
-            .is_some_and(|e| (e.override_presence)(ctx))
-    }
-
-    /// Applies `ExplicitEncoder::override_id_width` when an explicit encoder is active;
-    /// otherwise returns `auto` unchanged.
-    #[inline]
-    #[allow(clippy::unused_self)]
-    pub(crate) fn override_id_width(&self, auto: IdWidth) -> IdWidth {
-        self.explicit
-            .as_ref()
-            .map_or(auto, |e| (e.override_id_width)(auto))
     }
 
     /// Pinned vertex layout when an explicit encoder is active.
@@ -304,29 +338,28 @@ impl Encoder {
         out
     }
 
-    /// Assemble the complete Tag-01 layer record:
-    /// `[varint(body_len + 1)][tag = 1][hdr][meta][data]`.
-    ///
-    /// Consumes the encoder.  Call this on the winning sort-strategy trial.
-    pub fn into_layer_bytes(mut self) -> MltResult<Vec<u8>> {
+    /// Assemble the complete Tag-01 layer record.
+    pub fn into_layer_bytes(self) -> MltResult<Vec<u8>> {
+        self.into_layer_bytes_with_tag(1)
+    }
+
+    /// Assemble a complete layer record for the given `tag`:
+    /// `[varint(body_len + 1)][tag][hdr][meta][data]`.
+    fn into_layer_bytes_with_tag(mut self, tag: u8) -> MltResult<Vec<u8>> {
         debug_assert!(
             self.alt_stack.is_empty(),
-            "into_layer_bytes called with an open alternatives session"
+            "into_layer_bytes_with_tag called with an open alternatives session"
         );
         let body_len = self.hdr.len() + self.meta.len() + self.data.len();
         let size = u32::try_from(body_len + 1)?; // +1 for the tag byte
         let mut out = Vec::with_capacity(5 + 1 + body_len);
         out.write_varint(size).map_err(MltError::from)?;
-        out.push(1_u8); // tag = 1
+        out.push(tag);
         out.append(&mut self.hdr);
         out.append(&mut self.meta);
         out.append(&mut self.data);
         Ok(out)
     }
-
-    // -----------------------------------------------------------------------
-    // Stream-level alternatives
-    // -----------------------------------------------------------------------
 
     /// Begin a new encoding competition.
     ///

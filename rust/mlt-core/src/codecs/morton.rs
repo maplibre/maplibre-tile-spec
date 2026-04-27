@@ -90,7 +90,7 @@ impl Morton {
         } else {
             0u32
         };
-        Ok(Self { bits, shift })
+        Self::new(bits, shift)
     }
 
     /// Encode a single `(x, y)` coordinate pair to its Z-order (Morton) code.
@@ -134,8 +134,8 @@ impl Morton {
             y |= ((morton_code >> 1) & bit_mask) >> i;
         }
         Coord::<i32> {
-            x: x.cast_signed() - self.shift.cast_signed(),
-            y: y.cast_signed() - self.shift.cast_signed(),
+            x: x.wrapping_sub(self.shift).cast_signed(),
+            y: y.wrapping_sub(self.shift).cast_signed(),
         }
     }
 

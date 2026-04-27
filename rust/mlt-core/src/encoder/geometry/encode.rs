@@ -406,7 +406,7 @@ impl GeometryValues {
 
         // Write column type to meta; reserve exactly 1 byte for stream count
         // (geometry never exceeds ~8 streams, always fits in a single varint byte).
-        ColumnType::Geometry.write_to(&mut enc.meta)?;
+        enc.write_column_type(ColumnType::Geometry)?;
         let stream_count_pos = enc.data.len();
         enc.data.push(0); // placeholder — patched below
         let mut n: u8 = 0;
