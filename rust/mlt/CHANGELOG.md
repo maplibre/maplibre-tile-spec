@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.11](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.10...rust-mlt-v0.1.11) - 2026-04-28
+
+### Other
+
+- *(rust)* IdValues→ParsedId+StagedId, simplify presence ([#1334](https://github.com/maplibre/maplibre-tile-spec/pull/1334))
+- *(rust)* Improve the performance of `mlt convert` by caching and special-casing ([#1286](https://github.com/maplibre/maplibre-tile-spec/pull/1286))
+
 ## [0.1.10](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.9...rust-mlt-v0.1.10) - 2026-04-18
 
 ### Added

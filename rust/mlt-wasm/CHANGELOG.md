@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.5...rust-mlt-wasm-v0.1.6) - 2026-04-28
+
+### Other
+
+- *(rust)* rm "01" from TileLayer01, StagedLayer01 ([#1345](https://github.com/maplibre/maplibre-tile-spec/pull/1345))
+
 ## [0.1.5](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.4...rust-mlt-wasm-v0.1.5) - 2026-04-18
 
 ### Fixed
