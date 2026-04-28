@@ -1,18 +1,17 @@
-use std::path::Path;
+use std::{fs::File, path::Path};
 
-use anyhow::{Result as AnyResult, anyhow, bail};
-use martin_tile_utils::Format;
-use mbtiles::{Mbtiles, MbtilesTranscoder};
+use anyhow::{Ok, Result as AnyResult, anyhow, bail};
+use futures::StreamExt;
+use martin_tile_utils::{Encoding, Format};
+use mbtiles::{MbtType, Mbtiles, MbtilesTranscoder};
 use mlt_core::encoder::EncoderConfig;
+use pmtiles::{PmTilesWriter, TileType};
+
+use crate::convert::{ConvertArgs, SortMode, TileFormat};
 
 use super::{MbtFormat, encode_one};
 
-pub async fn convert_mbtiles(
-    input: &Path,
-    output: &Path,
-    mbtiles_format: Option<MbtFormat>,
-    cfg: EncoderConfig,
-) -> AnyResult<()> {
+async fn get_encoding_type(input: &Path) -> AnyResult<(Encoding, MbtType)> {
     let src = Mbtiles::new(input)?;
     let mut src_conn = src.open_readonly().await?;
 
@@ -31,11 +30,41 @@ pub async fn convert_mbtiles(
     }
 
     let src_type = src.detect_type(&mut src_conn).await?;
-    let mbt_type = mbtiles_format.map_or(src_type, Into::into);
-    let encoding = tile_info.encoding;
+    Ok((tile_info.encoding, src_type))
+}
 
-    // The transcoder opens its own connection.
-    drop(src_conn);
+pub async fn convert_tiles(args: &ConvertArgs) -> AnyResult<()> {
+    let cfg = EncoderConfig {
+        tessellate: args.tessellate,
+        try_spatial_morton_sort: matches!(args.sort, SortMode::Auto | SortMode::Morton),
+        try_spatial_hilbert_sort: matches!(args.sort, SortMode::Auto | SortMode::Hilbert),
+        try_id_sort: matches!(args.sort, SortMode::Auto | SortMode::Id),
+        allow_shared_dict: !args.no_shared_dict,
+        ..Default::default()
+    };
+
+    match (args.input_format(), args.output_format()) {
+        (Some(TileFormat::Mbtiles), Some(TileFormat::Mbtiles)) => {
+            convert_mbtiles_to_mbtiles(&args.input, &args.output, args.mbtiles_format.clone(), cfg)
+                .await?;
+        }
+        (Some(TileFormat::Mbtiles), Some(TileFormat::Pmtiles)) => {
+            convert_mbtiles_to_pmtiles(&args.input, &args.output, cfg).await?;
+        }
+        _ => bail!("Conversion formats not supported yet"),
+    }
+
+    Ok(())
+}
+
+async fn convert_mbtiles_to_mbtiles(
+    input: &Path,
+    output: &Path,
+    mbtiles_format: Option<MbtFormat>,
+    cfg: EncoderConfig,
+) -> AnyResult<()> {
+    let (encoding, src_type) = get_encoding_type(input).await?;
+    let mbt_type = mbtiles_format.map_or(src_type, Into::into);
 
     eprintln!("{} → {} ({mbt_type}):", input.display(), output.display());
 
@@ -64,6 +93,32 @@ pub async fn convert_mbtiles(
         "  done: {} tiles ({} unique encoded, {} cache hits)",
         stats.tiles_written, stats.cache_encoded, stats.cache_hits,
     );
+
+    Ok(())
+}
+
+async fn convert_mbtiles_to_pmtiles(
+    input: &Path,
+    output: &Path,
+    cfg: EncoderConfig,
+) -> AnyResult<()> {
+    let (encoding, _) = get_encoding_type(input).await?;
+    let mbt = Mbtiles::new(input)?;
+    let mut conn: sqlx::SqliteConnection = mbt.open_readonly().await?;
+    let mut stream = mbt.stream_tiles(&mut conn);
+
+    let file = File::create(output)?;
+    let mut writer = PmTilesWriter::new(TileType::Mlt).create(file).unwrap();
+    while let Some(tile) = stream.next().await {
+        let (coord, data) = tile?;
+
+        if let Some(data) = data {
+            let coord = pmtiles::TileCoord::new(coord.z, coord.x, coord.y).unwrap();
+            let enc_data = encode_one(data, encoding, cfg)?;
+            writer.add_tile(coord, &enc_data[..])?;
+        }
+    }
+    writer.finalize()?;
 
     Ok(())
 }
