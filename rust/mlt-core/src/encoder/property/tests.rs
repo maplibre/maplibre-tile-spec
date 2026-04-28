@@ -7,8 +7,8 @@ use crate::encoder::model::{ExplicitEncoder, StagedLayer, StrEncoding};
 use crate::encoder::optimizer::{Presence, PropertyTypedStats, SharedDictRole};
 use crate::encoder::property::encode::write_properties;
 use crate::encoder::{
-    Encoder, EncoderConfig, IntEncoder, LogicalEncoder, PhysicalEncoder, StagedId, StagedProperty,
-    StagedSharedDict, stage_tile,
+    Codecs, Encoder, EncoderConfig, IntEncoder, LogicalEncoder, PhysicalEncoder, StagedId,
+    StagedProperty, StagedSharedDict, stage_tile,
 };
 use crate::test_helpers::{dec, parser};
 use crate::{DictRange, GeometryValues, Layer, MltError, PropValue, TileFeature, TileLayer};
@@ -154,7 +154,10 @@ fn encode_to_bytes(props: Vec<StagedProperty>) -> Vec<u8> {
         EncoderConfig::default(),
         ExplicitEncoder::all(IntEncoder::varint()),
     );
-    let enc = layer.encode_into(enc).expect("encoding failed");
+    let mut codecs = Codecs::default();
+    let enc = layer
+        .encode_into(enc, &mut codecs)
+        .expect("encoding failed");
     enc.into_layer_bytes().expect("into_layer_bytes failed")
 }
 
@@ -169,7 +172,10 @@ fn encode_to_bytes_explicit(props: Vec<StagedProperty>, cfg: ExplicitEncoder) ->
         properties: props,
     };
     let enc = Encoder::with_explicit(EncoderConfig::default(), cfg);
-    let enc = layer.encode_into(enc).expect("encoding failed");
+    let mut codecs = Codecs::default();
+    let enc = layer
+        .encode_into(enc, &mut codecs)
+        .expect("encoding failed");
     enc.into_layer_bytes().expect("into_layer_bytes failed")
 }
 
@@ -984,7 +990,8 @@ fn analyze_layer_records_shared_dict_roles_by_property_index() {
 fn no_nulls_produces_encoded_output() {
     let props = vec![StagedProperty::u32("pop", vec![1, 2, 3])];
     let mut enc = Encoder::default();
-    write_properties(&props, &mut enc).unwrap();
+    let mut codecs = Codecs::default();
+    write_properties(&props, &mut enc, &mut codecs).unwrap();
     assert_eq!(
         enc.layer_column_count, 1,
         "non-null column should write one column"
@@ -995,14 +1002,16 @@ fn no_nulls_produces_encoded_output() {
 fn all_nulls_encodes_without_error() {
     let props = vec![StagedProperty::opt_i32("x", vec![None, None, None])];
     let mut enc = Encoder::default();
-    write_properties(&props, &mut enc).unwrap();
+    let mut codecs = Codecs::default();
+    write_properties(&props, &mut enc, &mut codecs).unwrap();
 }
 
 #[test]
 fn sequential_u32_encodes_successfully() {
     let props = vec![StagedProperty::u32("id", (0u32..1_000).collect())];
     let mut enc = Encoder::default();
-    write_properties(&props, &mut enc).unwrap();
+    let mut codecs = Codecs::default();
+    write_properties(&props, &mut enc, &mut codecs).unwrap();
     assert_eq!(enc.layer_column_count, 1);
 }
 
@@ -1010,7 +1019,8 @@ fn sequential_u32_encodes_successfully() {
 fn constant_u32_encodes_successfully() {
     let props = vec![StagedProperty::u32("val", vec![42u32; 500])];
     let mut enc = Encoder::default();
-    write_properties(&props, &mut enc).unwrap();
+    let mut codecs = Codecs::default();
+    write_properties(&props, &mut enc, &mut codecs).unwrap();
     assert_eq!(enc.layer_column_count, 1);
 }
 
@@ -1019,9 +1029,11 @@ fn similar_strings_grouped_into_shared_dict() {
     let vocab = &["Alice", "Bob", "Carol", "Dave"];
     let tile = tile_from_cols(&[("name:en", str_vals(vocab)), ("name:de", str_vals(vocab))]);
     let mut enc = Encoder::default();
+    let mut codecs = Codecs::default();
     write_properties(
         &stage_tile(tile, Unsorted, true, false).properties,
         &mut enc,
+        &mut codecs,
     )
     .unwrap();
 
@@ -1040,9 +1052,11 @@ fn multiple_similar_string_columns_grouped() {
         ("addr:zipcode", str_vals(vocab)),
     ]);
     let mut enc = Encoder::default();
+    let mut codecs = Codecs::default();
     write_properties(
         &stage_tile(tile, Unsorted, true, false).properties,
         &mut enc,
+        &mut codecs,
     )
     .unwrap();
 
@@ -1059,7 +1073,8 @@ fn dissimilar_strings_stay_scalar() {
         str_prop("city:colourado", &["Black", "Red", "Gold"]),
     ];
     let mut enc = Encoder::default();
-    write_properties(&props, &mut enc).unwrap();
+    let mut codecs = Codecs::default();
+    write_properties(&props, &mut enc, &mut codecs).unwrap();
     assert_eq!(
         enc.layer_column_count, 2,
         "dissimilar strings should not be merged"
@@ -1082,9 +1097,11 @@ fn mixed_scalars_and_grouped_strings() {
         ),
     ]);
     let mut enc = Encoder::default();
+    let mut codecs = Codecs::default();
     write_properties(
         &stage_tile(tile, Unsorted, true, false).properties,
         &mut enc,
+        &mut codecs,
     )
     .unwrap();
     assert_eq!(enc.layer_column_count, 3, "two scalar + one merged dict");
@@ -1094,6 +1111,7 @@ fn mixed_scalars_and_grouped_strings() {
 fn encode_with_explicit_encoder_works() {
     let props = vec![StagedProperty::u32("id", (1_000u32..2_000).collect())];
     let mut enc = Encoder::default();
-    write_properties(&props, &mut enc).unwrap();
+    let mut codecs = Codecs::default();
+    write_properties(&props, &mut enc, &mut codecs).unwrap();
     assert_eq!(enc.layer_column_count, 1);
 }

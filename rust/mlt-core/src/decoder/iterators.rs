@@ -514,12 +514,12 @@ mod tests {
     use crate::Layer;
     use crate::decoder::GeometryValues;
     use crate::encoder::model::StagedLayer;
-    use crate::encoder::{Encoder, Presence, StagedId, StagedProperty, StagedSharedDict};
+    use crate::encoder::{Codecs, Encoder, Presence, StagedId, StagedProperty, StagedSharedDict};
     use crate::test_helpers::{dec, parser};
 
     fn layer_buf(staged: StagedLayer) -> Vec<u8> {
         staged
-            .encode_into(Encoder::default())
+            .encode_into(Encoder::default(), &mut Codecs::default())
             .unwrap()
             .into_layer_bytes()
             .unwrap()

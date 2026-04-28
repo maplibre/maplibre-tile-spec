@@ -1,27 +1,21 @@
 use std::collections::HashMap;
 use std::{io, mem};
 
-use fastpfor::FastPFor256;
 use fsst::Compressor;
 use integer_encoding::VarIntWriter as _;
 
-use crate::codecs::bytes::encode_bools_to_bytes;
-use crate::codecs::rle::encode_byte_rle;
-use crate::decoder::{
-    ColumnType, IntEncoding, LogicalEncoding, Morton, PhysicalEncoding, RleMeta, StreamMeta,
-    StreamType,
-};
+use crate::decoder::{ColumnType, Morton};
 use crate::encoder::model::{CurveParams, ExplicitEncoder, StrEncoding, StreamCtx};
 use crate::encoder::{EncoderConfig, IntEncoder, VertexBufferType};
 use crate::utils::BinarySerializer as _;
 use crate::{MltError, MltResult};
 
-/// Stateful encoder that accumulates encoded layer bytes and provides
-/// reusable scratch buffers to avoid repeated allocations during encoding.
+/// Stateful encoder that accumulates encoded layer bytes.
 ///
-/// Mirrors the [`Decoder`](crate::Decoder) pattern: the struct holds both the
-/// output buffers and reusable intermediate buffers that grow to the required
-/// size on first use and are then reused across streams without re-allocating.
+/// Logical temporary buffers live in `Codecs` and are passed alongside
+/// the encoder while a stream is being transformed and serialized. Physical
+/// encoders live here with their own scratch buffers, then copy complete
+/// payloads into [`data`](Encoder::data).
 ///
 /// # Buffer layout
 ///
@@ -47,10 +41,11 @@ use crate::{MltError, MltResult};
 /// and keep the one whose `total_len()` is smallest:
 ///
 /// ```rust,ignore
+/// let mut codecs = Codecs::default();
 /// let mut best: Option<Encoder> = None;
 /// for strategy in strategies {
 ///     let mut enc = Encoder::new(cfg);
-///     layer.write_to(&mut enc)?;
+///     layer.write_to(&mut enc, &mut codecs)?;
 ///     if best.as_ref().is_none_or(|b| enc.total_len() < b.total_len()) {
 ///         best = Some(enc);
 ///     }
@@ -147,16 +142,6 @@ pub struct Encoder {
     /// Empty while no [`Encoder::try_alternatives`] session
     /// is in progress.
     alt_stack: Vec<AltLevel>,
-
-    pub(crate) tmp_u32: Vec<u32>,
-    pub(crate) tmp_u32_b: Vec<u32>,
-    pub(crate) tmp_u32_c: Vec<u32>,
-    pub(crate) tmp_u32_d: Vec<u32>,
-    pub(crate) tmp_u64: Vec<u64>,
-    pub(crate) tmp_u8: Vec<u8>,
-    pub(crate) tmp_u8_b: Vec<u8>,
-    pub(crate) tmp_i32: Vec<i32>,
-    pub(crate) fastpfor: FastPFor256,
 }
 
 impl Encoder {
@@ -200,15 +185,6 @@ impl Encoder {
             hilbert_cache: None,
             fsst_cache: HashMap::new(),
             alt_stack: vec![],
-            tmp_u32: vec![],
-            tmp_u32_b: vec![],
-            tmp_u32_c: vec![],
-            tmp_u32_d: vec![],
-            tmp_u64: vec![],
-            tmp_u8: vec![],
-            tmp_u8_b: vec![],
-            tmp_i32: vec![],
-            fastpfor: FastPFor256::default(),
         }
     }
 
@@ -237,33 +213,6 @@ impl Encoder {
     ) -> MltResult<()> {
         self.write_column_type(column_type)?;
         self.write_column_name(name)
-    }
-
-    pub(crate) fn write_presence_section(
-        &mut self,
-        presence_bools: impl ExactSizeIterator<Item = bool>,
-    ) -> MltResult<()> {
-        let num_values = u32::try_from(presence_bools.len())?;
-        self.tmp_u8.clear();
-        encode_bools_to_bytes(presence_bools, &mut self.tmp_u8);
-        self.tmp_u8_b.clear();
-        encode_byte_rle(&self.tmp_u8, &mut self.tmp_u8_b);
-
-        let byte_length = u32::try_from(self.tmp_u8_b.len())?;
-        let meta = StreamMeta::new(
-            StreamType::Present,
-            IntEncoding::new(
-                LogicalEncoding::Rle(RleMeta {
-                    runs: num_values.div_ceil(8),
-                    num_rle_values: byte_length,
-                }),
-                PhysicalEncoding::None,
-            ),
-            num_values,
-        );
-        meta.write_to(&mut self.data, true, byte_length)?;
-        self.data.extend_from_slice(&self.tmp_u8_b);
-        Ok(())
     }
 
     /// Write the layer header (`name`, `extent`, `column_count`) to [`hdr`].

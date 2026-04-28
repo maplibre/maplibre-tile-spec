@@ -2,8 +2,8 @@ use crate::MltResult;
 use crate::decoder::ColumnType;
 use crate::encoder::optimizer::{Presence, PropertyStats};
 use crate::encoder::{
-    Encoder, StagedOptScalar, StagedScalar, write_opt_u32_scalar_col, write_opt_u64_scalar_col,
-    write_u32_scalar_col, write_u64_scalar_col,
+    Codecs, Encoder, StagedOptScalar, StagedScalar, write_opt_u32_scalar_col,
+    write_opt_u64_scalar_col, write_u32_scalar_col, write_u64_scalar_col,
 };
 
 /// Staged ID column (encode-side, fully owned).
@@ -170,13 +170,17 @@ impl StagedId {
 
     /// Encode and write the ID column to `enc`.
     #[hotpath::measure]
-    pub fn write_to(self, enc: &mut Encoder) -> MltResult<()> {
+    pub fn write_to(self, enc: &mut Encoder, codecs: &mut Codecs) -> MltResult<()> {
         match &self {
             Self::None => return Ok(()),
-            Self::U32(v) => write_u32_scalar_col(ColumnType::Id, None, v, enc)?,
-            Self::OptU32(v) => write_opt_u32_scalar_col(ColumnType::OptId, None, v, enc)?,
-            Self::U64(v) => write_u64_scalar_col(ColumnType::LongId, None, v, enc)?,
-            Self::OptU64(v) => write_opt_u64_scalar_col(ColumnType::OptLongId, None, v, enc)?,
+            Self::U32(v) => write_u32_scalar_col(ColumnType::Id, None, v, enc, codecs)?,
+            Self::OptU32(v) => {
+                write_opt_u32_scalar_col(ColumnType::OptId, None, v, enc, codecs)?;
+            }
+            Self::U64(v) => write_u64_scalar_col(ColumnType::LongId, None, v, enc, codecs)?,
+            Self::OptU64(v) => {
+                write_opt_u64_scalar_col(ColumnType::OptLongId, None, v, enc, codecs)?;
+            }
         }
 
         enc.increment_column_count();
@@ -193,7 +197,7 @@ mod tests {
     use crate::decoder::{ColumnType as CT, GeometryValues, RawId, RawIdValue};
     use crate::encoder::stream::LogicalEncoder;
     use crate::encoder::{
-        Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, StagedId, StagedLayer,
+        Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, StagedId, StagedLayer,
     };
     use crate::test_helpers::{dec, into_layer01, parser};
     use crate::{Layer, LazyParsed, MltError, MltResult};
@@ -216,7 +220,8 @@ mod tests {
             properties: vec![],
         };
         let enc = Encoder::with_explicit(Encoder::default().cfg, ExplicitEncoder::for_id(int_enc));
-        let enc = staged.encode_into(enc).expect("encode failed");
+        let mut codecs = Codecs::default();
+        let enc = staged.encode_into(enc, &mut codecs).expect("encode failed");
         let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");
         let mut p = parser();
         let (_, layer) = Layer::from_bytes(&buf, &mut p).expect("parse failed");
@@ -245,8 +250,9 @@ mod tests {
             geometry,
             properties: vec![],
         };
+        let mut codecs = Codecs::default();
         let buf = staged
-            .encode_into(Encoder::default())
+            .encode_into(Encoder::default(), &mut codecs)
             .expect("encode failed")
             .into_layer_bytes()
             .expect("into_layer_bytes failed");
@@ -323,7 +329,8 @@ mod tests {
     #[case::all_nulls(StagedId::from_optional(vec![None, None]))]
     fn test_automatic_encoding_skipped(#[case] input: StagedId) {
         let mut enc = Encoder::default();
-        input.write_to(&mut enc).unwrap();
+        let mut codecs = Codecs::default();
+        input.write_to(&mut enc, &mut codecs).unwrap();
         assert_eq!(
             enc.layer_column_count, 0,
             "empty or all-null ID list should write no column"
@@ -339,7 +346,8 @@ mod tests {
     #[case::with_nulls(create_ids_with_nulls())]
     fn test_automatic_encoding_produces_output(#[case] input: StagedId) {
         let mut enc = Encoder::default();
-        input.write_to(&mut enc).unwrap();
+        let mut codecs = Codecs::default();
+        input.write_to(&mut enc, &mut codecs).unwrap();
         assert_eq!(
             enc.layer_column_count, 1,
             "non-trivial ID list should write a column"
@@ -350,7 +358,8 @@ mod tests {
     fn test_automatic_optimization_roundtrip_empty() {
         let decoded = StagedId::from_optional(vec![]);
         let mut enc = Encoder::default();
-        decoded.write_to(&mut enc).unwrap();
+        let mut codecs = Codecs::default();
+        decoded.write_to(&mut enc, &mut codecs).unwrap();
         assert_eq!(
             enc.layer_column_count, 0,
             "empty ID list should write no column"
@@ -397,13 +406,14 @@ mod tests {
         let ids = StagedId::from_optional((0u64..1000).map(|i| Some(i * 13 + 5)).collect());
 
         let mut auto_enc = Encoder::default();
-        ids.clone().write_to(&mut auto_enc).unwrap();
+        let mut codecs = Codecs::default();
+        ids.clone().write_to(&mut auto_enc, &mut codecs).unwrap();
 
         let mut plain_enc = Encoder::with_explicit(
             Encoder::default().cfg,
             ExplicitEncoder::for_id(IntEncoder::varint()),
         );
-        ids.write_to(&mut plain_enc).unwrap();
+        ids.write_to(&mut plain_enc, &mut codecs).unwrap();
 
         assert!(
             auto_enc.total_len() <= plain_enc.total_len(),
@@ -562,7 +572,8 @@ mod tests {
         };
         let enc =
             Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::for_id(int_enc));
-        let enc = staged.encode_into(enc)?;
+        let mut codecs = Codecs::default();
+        let enc = staged.encode_into(enc, &mut codecs)?;
         let buf = enc.into_layer_bytes()?;
         let (_, layer) = Layer::from_bytes(&buf, &mut parser())?;
         let Layer::Tag01(layer01) = layer else {
@@ -601,7 +612,8 @@ mod tests {
         };
         let enc =
             Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::for_id(int_enc));
-        let enc = staged.encode_into(enc).expect("encode failed");
+        let mut codecs = Codecs::default();
+        let enc = staged.encode_into(enc, &mut codecs).expect("encode failed");
         let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).expect("parse failed");
         let Layer::Tag01(layer01) = layer else {

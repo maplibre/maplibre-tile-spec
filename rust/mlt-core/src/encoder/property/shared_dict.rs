@@ -15,7 +15,9 @@ use crate::decoder::{PropValue, TileLayer};
 use crate::encoder::model::{StrEncoding, StreamCtx};
 use crate::encoder::optimizer::{Presence, PropertyStats, SharedDictRole};
 use crate::encoder::property::strings::{fsst_try_train, write_fsst_data, write_raw_str_data};
-use crate::encoder::{Encoder, StagedSharedDict, StagedSharedDictItem, write_u32_stream};
+use crate::encoder::{
+    Codecs, Encoder, StagedSharedDict, StagedSharedDictItem, write_bool_stream, write_u32_stream,
+};
 use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, checked_sum3, strings_to_lengths};
 use crate::{ColumnType, DictRange, DictionaryType, LengthType, MltResult, OffsetType, StreamType};
@@ -302,6 +304,7 @@ impl StagedSharedDict {
 pub(crate) fn write_shared_dict(
     shared_dict: &StagedSharedDict,
     enc: &mut Encoder,
+    codecs: &mut Codecs,
 ) -> MltResult<bool> {
     let dict_spans = collect_staged_shared_dict_spans(&shared_dict.items);
     let dict: Vec<&str> = dict_spans
@@ -355,11 +358,22 @@ pub(crate) fn write_shared_dict(
     // Write stream data: total count, corpus streams, then per-child streams.
     enc.write_varint(stream_len)?;
     if let Some(ref raw) = fsst_raw {
-        write_fsst_data(raw, DictionaryType::Single, &shared_dict.prefix, enc)?;
+        write_fsst_data(
+            raw,
+            DictionaryType::Single,
+            &shared_dict.prefix,
+            enc,
+            codecs,
+        )?;
     } else {
         let lengths = strings_to_lengths(&dict)?;
         let typ = StreamType::Length(LengthType::Dictionary);
-        write_u32_stream(&lengths, &StreamCtx::prop(typ, &shared_dict.prefix), enc)?;
+        write_u32_stream(
+            &lengths,
+            &StreamCtx::prop(typ, &shared_dict.prefix),
+            enc,
+            codecs,
+        )?;
         write_raw_str_data(&dict, DictionaryType::Shared, enc)?;
     }
 
@@ -370,7 +384,7 @@ pub(crate) fn write_shared_dict(
         if item.has_presence() {
             enc.write_varint(2u32)?;
             enc.write_column_type(ColumnType::OptStr)?;
-            enc.write_presence_section(item.presence_bools())?;
+            write_bool_stream(item.presence_bools(), StreamType::Present, enc, codecs)?;
         } else {
             enc.write_varint(1u32)?;
             enc.write_column_type(ColumnType::Str)?;
@@ -388,7 +402,7 @@ pub(crate) fn write_shared_dict(
             .collect::<Result<_, _>>()?;
         let typ = StreamType::Offset(OffsetType::String);
         let ctx = StreamCtx::prop2(typ, &shared_dict.prefix, &item.suffix);
-        write_u32_stream(&offsets, &ctx, enc)?;
+        write_u32_stream(&offsets, &ctx, enc, codecs)?;
     }
 
     enc.increment_column_count();

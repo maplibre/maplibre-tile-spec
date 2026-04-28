@@ -205,7 +205,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(rust)* rename IntEncoder and add IntEncoding ([#1019](https://github.com/maplibre/maplibre-tile-spec/pull/1019))
 - *(rust)* move prop internals to "big enum" arch ([#1014](https://github.com/maplibre/maplibre-tile-spec/pull/1014))
 - clean up how FromDecoded interacts with strings ([#1011](https://github.com/maplibre/maplibre-tile-spec/pull/1011))
-- rename `Encoder` -> `IntegerEncoder` ([#1010](https://github.com/maplibre/maplibre-tile-spec/pull/1010))
+- rename `Encoder` -> `PhysicalCodecs` ([#1010](https://github.com/maplibre/maplibre-tile-spec/pull/1010))
 - *(rust)* start fixing rust synthetics ([#1002](https://github.com/maplibre/maplibre-tile-spec/pull/1002))
 - *(synthetic)* add Morton fixture synthetic test ([#960](https://github.com/maplibre/maplibre-tile-spec/pull/960))
 - More testing around geometry combinations ([#982](https://github.com/maplibre/maplibre-tile-spec/pull/982))

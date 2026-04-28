@@ -141,11 +141,9 @@ mod tests {
     use geo_types::{Coord, Geometry as GeoGeom, Geometry, LineString, Point, Polygon};
 
     use crate::decoder::{GeometryType, GeometryValues, RawGeometry, TileFeature, TileLayer};
-    use crate::encoder::{Encoder, ExplicitEncoder, IntEncoder, SortStrategy, stage_tile};
+    use crate::encoder::{Codecs, Encoder, ExplicitEncoder, IntEncoder, SortStrategy, stage_tile};
     use crate::test_helpers::{assert_empty, dec, into_layer01, parser};
     use crate::{Layer, LazyParsed};
-
-    // ── geometry test helpers ──────────────────────────────────────────────────
 
     fn pt(x: i32, y: i32) -> Geometry<i32> {
         GeoGeom::Point(Point::new(x, y))
@@ -180,7 +178,11 @@ mod tests {
     /// Encode + serialize + parse + decode a `GeometryValues` (round-trip).
     fn roundtrip_geom(decoded: &GeometryValues) -> GeometryValues {
         let mut enc = Encoder::default();
-        decoded.clone().write_to(&mut enc).expect("encode failed");
+        let mut codecs = Codecs::default();
+        decoded
+            .clone()
+            .write_to(&mut enc, &mut codecs)
+            .expect("encode failed");
         let buf = enc.data;
 
         let parsed = assert_empty(RawGeometry::from_bytes(&buf, &mut parser()));
@@ -378,8 +380,9 @@ mod tests {
     fn sort_encode_decode(tile: TileLayer, sort: SortStrategy) -> TileLayer {
         let enc_cfg = Encoder::default().cfg;
         let enc = Encoder::with_explicit(enc_cfg, ExplicitEncoder::for_id(IntEncoder::varint()));
+        let mut codecs = Codecs::default();
         let enc = stage_tile(tile, sort, false, enc_cfg.tessellate)
-            .encode_into(enc)
+            .encode_into(enc, &mut codecs)
             .expect("encode failed");
 
         // Serialize to bytes and reparse to get a `Layer01`.

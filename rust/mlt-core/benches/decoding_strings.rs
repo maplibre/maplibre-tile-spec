@@ -3,8 +3,8 @@ use std::hint::black_box;
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use geo_types::Point;
 use mlt_core::encoder::{
-    Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, LogicalEncoder, PhysicalEncoder, Presence,
-    StagedId, StagedLayer, StagedProperty, StagedSharedDict, StrEncoding,
+    Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, LogicalEncoder, PhysicalEncoder,
+    Presence, StagedId, StagedLayer, StagedProperty, StagedSharedDict, StrEncoding,
 };
 use mlt_core::test_helpers::{dec, parser};
 use mlt_core::{GeometryValues, LendingIterator, ParsedLayer01, PropValueRef};
@@ -82,6 +82,7 @@ fn make_geometry(n: usize) -> GeometryValues {
 
 /// Encode `props` into a single-layer tile with `n` point features and return wire bytes.
 fn encode_layer(n: usize, props: Vec<StagedProperty>, cfg: ExplicitEncoder) -> Vec<u8> {
+    let mut codecs = Codecs::default();
     StagedLayer {
         name: "bench".into(),
         extent: 4096,
@@ -89,7 +90,10 @@ fn encode_layer(n: usize, props: Vec<StagedProperty>, cfg: ExplicitEncoder) -> V
         geometry: make_geometry(n),
         properties: props,
     }
-    .encode_into(Encoder::with_explicit(EncoderConfig::default(), cfg))
+    .encode_into(
+        Encoder::with_explicit(EncoderConfig::default(), cfg),
+        &mut codecs,
+    )
     .expect("encode_layer failed")
     .into_layer_bytes()
     .expect("into_layer_bytes failed")

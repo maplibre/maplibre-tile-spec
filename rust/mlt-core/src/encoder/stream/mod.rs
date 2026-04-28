@@ -1,23 +1,32 @@
+mod codecs;
 mod encode_stream;
 pub(crate) use encode_stream::dedup_strings;
 mod encoder;
-mod logical;
+pub(crate) mod logical;
 mod model;
 mod optimizer;
 mod physical;
 #[cfg(test)]
 mod tests;
-mod write;
+pub(crate) mod write;
 
+#[cfg(feature = "__private")]
+pub use codecs::{Codecs, PhysicalCodecs};
+#[cfg(not(feature = "__private"))]
+pub(crate) use codecs::{Codecs, PhysicalCodecs};
 pub use encoder::IntEncoder;
-#[cfg(any(test, feature = "__private"))]
+#[cfg(feature = "__private")]
 pub use logical::LogicalEncoder;
+#[cfg(all(test, not(feature = "__private")))]
+pub(crate) use logical::LogicalEncoder;
 pub use model::*;
 pub use optimizer::DataProfile;
-#[cfg(any(test, feature = "__private"))]
+#[cfg(feature = "__private")]
 pub use physical::PhysicalEncoder;
+#[cfg(all(test, not(feature = "__private")))]
+pub(crate) use physical::PhysicalEncoder;
 #[cfg(test)]
-pub(crate) use write::{do_write_u32, do_write_u64};
+pub(crate) use write::write_u32_stream_as;
 pub(crate) use write::{
-    write_i32_stream, write_i64_stream, write_precomputed_u32, write_u32_stream, write_u64_stream,
+    write_bool_stream, write_i32_stream, write_stream_payload, write_u32_stream, write_u64_stream,
 };

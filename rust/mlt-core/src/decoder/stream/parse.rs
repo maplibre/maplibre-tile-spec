@@ -24,13 +24,30 @@ impl IntEncoding {
 }
 
 impl StreamMeta {
-    #[must_use]
+    #[inline]
     pub(crate) fn new(stream_type: StreamType, encoding: IntEncoding, num_values: u32) -> Self {
         Self {
             stream_type,
             encoding,
             num_values,
         }
+    }
+
+    #[inline]
+    pub(crate) fn new2(
+        stream_type: StreamType,
+        logical: LogicalEncoding,
+        physical: PhysicalEncoding,
+        num_values: usize,
+    ) -> MltResult<Self> {
+        let enc = IntEncoding::new(logical, physical);
+        Ok(Self::new(stream_type, enc, u32::try_from(num_values)?))
+    }
+
+    #[inline]
+    pub(crate) fn new_none(stream_type: StreamType, num_values: usize) -> MltResult<Self> {
+        let enc = IntEncoding::none();
+        Ok(Self::new(stream_type, enc, u32::try_from(num_values)?))
     }
 
     /// Parse stream from the input
