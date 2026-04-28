@@ -374,8 +374,9 @@ fn dict_may_be_beneficial(vertices: &[i32], enc: &Encoder) -> bool {
 /// callers must have gated on [`dict_may_be_beneficial`] which rejects layers
 /// whose extent does not fit Morton.
 fn get_morton(enc: &Encoder) -> Morton {
-    enc.morton_cache
-        .expect("morton_cache populated by StagedLayer::encode_into; gated by dict_may_be_beneficial")
+    enc.morton_cache.expect(
+        "morton_cache populated by StagedLayer::encode_into; gated by dict_may_be_beneficial",
+    )
 }
 
 /// Pre-populated by [`StagedLayer::encode_into`](crate::encoder::StagedLayer::encode_into).

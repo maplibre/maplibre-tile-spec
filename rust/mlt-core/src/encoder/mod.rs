@@ -20,12 +20,10 @@ pub(crate) use geometry::VertexBufferType;
 pub use geometry::VertexBufferType;
 pub use id::StagedId;
 #[cfg(feature = "__private")]
-pub use model::{
-    ColumnKind, CurveParams, ExplicitEncoder, StagedLayer, StrEncoding, StreamCtx,
-};
-pub use model::{EncodedUnknown, EncoderConfig};
+pub use model::{ColumnKind, CurveParams, ExplicitEncoder, StagedLayer, StrEncoding, StreamCtx};
 #[cfg(all(test, not(feature = "__private")))]
 pub(crate) use model::{CurveParams, ExplicitEncoder, StagedLayer, StrEncoding};
+pub use model::{EncodedUnknown, EncoderConfig};
 #[cfg(any(test, feature = "__private"))]
 pub use optimizer::Presence;
 pub(crate) use property::*;

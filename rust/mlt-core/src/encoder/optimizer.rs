@@ -94,8 +94,13 @@ impl TileLayer {
             let mut best = enc.preserve_results();
             // Clone for all-but-last strategies
             for &sort in &init[1..] {
-                let layer =
-                    StagedLayer::from_tile(self.clone(), sort, &stats, cfg.tessellate, curve_params);
+                let layer = StagedLayer::from_tile(
+                    self.clone(),
+                    sort,
+                    &stats,
+                    cfg.tessellate,
+                    curve_params,
+                );
                 enc = layer.encode_into(enc, &mut codecs)?;
                 if enc.total_len() < best.total_len() {
                     best = enc.preserve_results();

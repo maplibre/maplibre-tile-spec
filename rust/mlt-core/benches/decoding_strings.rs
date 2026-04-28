@@ -4,7 +4,8 @@ use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_m
 use geo_types::Point;
 use mlt_core::encoder::{
     Codecs, CurveParams, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, LogicalEncoder,
-    PhysicalEncoder, Presence, StagedId, StagedLayer, StagedProperty, StagedSharedDict, StrEncoding,
+    PhysicalEncoder, Presence, StagedId, StagedLayer, StagedProperty, StagedSharedDict,
+    StrEncoding,
 };
 use mlt_core::test_helpers::{dec, parser};
 use mlt_core::{GeometryValues, LendingIterator, ParsedLayer01, PropValueRef};

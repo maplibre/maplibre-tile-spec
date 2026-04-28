@@ -195,8 +195,8 @@ mod tests {
     use rstest::rstest;
 
     use crate::decoder::{ColumnType as CT, GeometryValues, RawId, RawIdValue};
-    use crate::encoder::stream::LogicalEncoder;
     use crate::encoder::model::CurveParams;
+    use crate::encoder::stream::LogicalEncoder;
     use crate::encoder::{
         Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, StagedId, StagedLayer,
     };
