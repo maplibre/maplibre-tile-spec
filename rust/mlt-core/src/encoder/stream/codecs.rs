@@ -53,6 +53,7 @@ impl LogicalCodecs {
         Ok((meta, &self.bool_rle))
     }
 
+    #[hotpath::measure]
     pub(crate) fn encode_u32<'a>(
         &'a mut self,
         values: &'a [u32],
@@ -82,6 +83,7 @@ impl LogicalCodecs {
         })
     }
 
+    #[hotpath::measure]
     pub(crate) fn encode_i32(
         &mut self,
         values: &[i32],
@@ -110,17 +112,14 @@ impl LogicalCodecs {
         Ok((e, &self.u32_values))
     }
 
+    #[hotpath::measure]
     pub(crate) fn encode_u64<'a>(
         &'a mut self,
         values: &'a [u64],
         logical: LogicalEncoder,
     ) -> MltResult<(LogicalEncoding, &'a [u64])> {
         Ok(match logical {
-            LogicalEncoder::None => {
-                self.u64_values.clear();
-                self.u64_values.extend_from_slice(values);
-                (LogicalEncoding::None, values)
-            }
+            LogicalEncoder::None => (LogicalEncoding::None, values),
             LogicalEncoder::Delta => {
                 encode_zigzag_delta(
                     bytemuck::cast_slice::<u64, i64>(values),
@@ -143,6 +142,7 @@ impl LogicalCodecs {
         })
     }
 
+    #[hotpath::measure]
     pub(crate) fn encode_i64(
         &mut self,
         values: &[i64],
