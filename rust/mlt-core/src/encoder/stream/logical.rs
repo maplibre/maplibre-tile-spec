@@ -43,21 +43,15 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
-    use crate::decoder::{
-        DictionaryType, LogicalEncoding, LogicalValue, PhysicalEncoding, StreamMeta, StreamType,
+    use crate::decoder::{DictionaryType, RawStream, StreamType};
+    use crate::encoder::model::StreamCtx;
+    use crate::encoder::{
+        Codecs, Encoder, ExplicitEncoder, IntEncoder, write_i32_stream, write_i64_stream,
+        write_u32_stream, write_u64_stream,
     };
-    use crate::encoder::Codecs;
-    use crate::test_helpers::dec;
+    use crate::test_helpers::{assert_empty, dec, parser};
 
-    pub fn make_meta(logical_encoding: LogicalEncoding, num_values: usize) -> StreamMeta {
-        StreamMeta::new2(
-            StreamType::Data(DictionaryType::None),
-            logical_encoding,
-            PhysicalEncoding::None,
-            num_values,
-        )
-        .expect("proptest to not generate that large of a vec")
-    }
+    const DATA_STREAM: StreamType = StreamType::Data(DictionaryType::None);
 
     proptest! {
         #[test]
@@ -65,10 +59,15 @@ mod tests {
             values in prop::collection::vec(any::<u32>(), 0..100),
             logical in any::<LogicalEncoder>(),
         ) {
+            let mut enc = Encoder::with_explicit(
+                Encoder::default().cfg,
+                ExplicitEncoder::all(IntEncoder::varint_with(logical)),
+            );
             let mut codecs = Codecs::default();
-            let (computed, encoded) = codecs.logical.encode_u32(&values, logical).unwrap();
-            let meta = make_meta(computed, values.len());
-            let decoded = LogicalValue::new(meta).decode_u32(encoded, &mut dec()).unwrap();
+            let ctx = StreamCtx::prop(DATA_STREAM, "test");
+            write_u32_stream(&values, &ctx, &mut enc, &mut codecs).unwrap();
+            let parsed = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
+            let decoded = parsed.decode_u32s(&mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
         }
 
@@ -77,10 +76,15 @@ mod tests {
             values in prop::collection::vec(any::<i32>(), 0..100),
             logical in any::<LogicalEncoder>(),
         ) {
+            let mut enc = Encoder::with_explicit(
+                Encoder::default().cfg,
+                ExplicitEncoder::all(IntEncoder::varint_with(logical)),
+            );
             let mut codecs = Codecs::default();
-            let (computed, encoded) = codecs.logical.encode_i32(&values, logical).unwrap();
-            let meta = make_meta(computed, values.len());
-            let decoded = LogicalValue::new(meta).decode_i32(encoded, &mut dec()).unwrap();
+            let ctx = StreamCtx::prop(DATA_STREAM, "test");
+            write_i32_stream(&values, &ctx, &mut enc, &mut codecs).unwrap();
+            let parsed = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
+            let decoded = parsed.decode_i32s(&mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
         }
 
@@ -89,10 +93,15 @@ mod tests {
             values in prop::collection::vec(any::<u64>(), 0..100),
             logical in any::<LogicalEncoder>(),
         ) {
+            let mut enc = Encoder::with_explicit(
+                Encoder::default().cfg,
+                ExplicitEncoder::all(IntEncoder::varint_with(logical)),
+            );
             let mut codecs = Codecs::default();
-            let (computed, encoded) = codecs.logical.encode_u64(&values, logical).unwrap();
-            let meta = make_meta(computed, values.len());
-            let decoded = LogicalValue::new(meta).decode_u64(encoded, &mut dec()).unwrap();
+            let ctx = StreamCtx::prop(DATA_STREAM, "test");
+            write_u64_stream(&values, &ctx, &mut enc, &mut codecs).unwrap();
+            let parsed = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
+            let decoded = parsed.decode_u64s(&mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
         }
 
@@ -101,10 +110,15 @@ mod tests {
             values in prop::collection::vec(any::<i64>(), 0..100),
             logical in any::<LogicalEncoder>(),
         ) {
+            let mut enc = Encoder::with_explicit(
+                Encoder::default().cfg,
+                ExplicitEncoder::all(IntEncoder::varint_with(logical)),
+            );
             let mut codecs = Codecs::default();
-            let (computed, encoded) = codecs.logical.encode_i64(&values, logical).unwrap();
-            let meta = make_meta(computed, values.len());
-            let decoded = LogicalValue::new(meta).decode_i64(encoded, &mut dec()).unwrap();
+            let ctx = StreamCtx::prop(DATA_STREAM, "test");
+            write_i64_stream(&values, &ctx, &mut enc, &mut codecs).unwrap();
+            let parsed = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
+            let decoded = parsed.decode_i64s(&mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
         }
     }

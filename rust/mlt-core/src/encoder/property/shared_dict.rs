@@ -368,12 +368,8 @@ pub(crate) fn write_shared_dict(
     } else {
         let lengths = strings_to_lengths(&dict)?;
         let typ = StreamType::Length(LengthType::Dictionary);
-        write_u32_stream(
-            &lengths,
-            &StreamCtx::prop(typ, &shared_dict.prefix),
-            enc,
-            codecs,
-        )?;
+        let ctx = StreamCtx::prop(typ, &shared_dict.prefix);
+        write_u32_stream(&lengths, &ctx, enc, codecs)?;
         write_raw_str_data(&dict, DictionaryType::Shared, enc)?;
     }
 
