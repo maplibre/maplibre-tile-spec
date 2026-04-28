@@ -643,9 +643,7 @@ impl GeometryValues {
             n += match forced {
                 VertexBufferType::Vec2 => encode_vec2_vertex_stream(&vertices, enc, codecs)?,
                 VertexBufferType::Morton => encode_morton_vertex_streams(&vertices, enc, codecs)?,
-                VertexBufferType::Hilbert => {
-                    encode_hilbert_vertex_streams(&vertices, enc, codecs)?
-                }
+                VertexBufferType::Hilbert => encode_hilbert_vertex_streams(&vertices, enc, codecs)?,
             };
         } else if dict_may_be_beneficial(&vertices, enc) {
             // `dict_may_be_beneficial` guarantees Morton fits (it returns false
