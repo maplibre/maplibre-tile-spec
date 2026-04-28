@@ -12,11 +12,14 @@ use crate::codecs::zigzag::encode_componentwise_delta_vec2s;
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
 use crate::decoder::{
     ColumnType, DictionaryType, GeometryType, GeometryValues, LengthType, LogicalEncoding, Morton,
-    OffsetType, StreamMeta, StreamType,
+    OffsetType, PhysicalEncoding, StreamMeta, StreamType,
 };
 use crate::encoder::model::{CurveParams, StreamCtx};
 use crate::encoder::stream::write_u32_stream;
-use crate::encoder::{Codecs, DataProfile, Encoder, PhysicalCodecs, write_stream_payload};
+use crate::encoder::{
+    Codecs, Encoder, PhysicalCodecs, PhysicalEncoder, PhysicalIntStreamKind, U32Physical,
+    write_stream_payload,
+};
 use crate::utils::AsUsize as _;
 
 /// Compute `ZOrderCurve` parameters from the vertex value range.
@@ -392,7 +395,7 @@ fn encode_vec2_vertex_stream(
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<u8> {
-    let delta = codecs.logical.encode_componentwise_delta_vec2s(vertices);
+    let delta = encode_componentwise_delta_vec2s(vertices, &mut codecs.logical.u32_tmp);
     let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
     let logical = LogicalEncoding::ComponentwiseDelta;
     write_geo_precomputed_stream(delta, ctx, logical, enc, &mut codecs.physical)
@@ -412,7 +415,7 @@ fn encode_morton_vertex_streams(
     let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex_offsets");
     n += write_geo_u32_stream(&offsets, ctx, enc, codecs)?;
 
-    let delta = codecs.logical.encode_morton_deltas(&dict);
+    let delta = encode_morton_deltas(&dict, &mut codecs.logical.u32_tmp);
     let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Morton), "vertex");
     let logical = LogicalEncoding::MortonDelta(morton);
     n += write_geo_precomputed_stream(delta, ctx, logical, enc, &mut codecs.physical)?;
@@ -500,15 +503,17 @@ fn write_geo_precomputed_stream(
     } else {
         if let Some(int_enc) = enc.override_int_enc(&ctx) {
             let stream_type = ctx.stream_type;
-            let (phys, vals) = physical.encode_u32(data, int_enc.physical)?;
+            let (phys, vals) = U32Physical::encode_physical(physical, data, int_enc.physical)?;
             let meta = StreamMeta::new2(stream_type, logical, phys, data.len())?;
             write_stream_payload(&mut enc.data, meta, false, vals)?;
+        } else if data.is_empty() {
+            let meta = StreamMeta::new2(ctx.stream_type, logical, PhysicalEncoding::None, 0)?;
+            write_stream_payload(&mut enc.data, meta, false, &[])?;
         } else {
-            let candidates = DataProfile::prune_candidates::<i32>(data);
             let mut alt = enc.try_alternatives();
-            for cand in candidates {
+            for physical_enc in [PhysicalEncoder::FastPFOR, PhysicalEncoder::VarInt] {
                 alt.with(|enc| {
-                    let (phys, vals) = physical.encode_u32(data, cand.physical)?;
+                    let (phys, vals) = U32Physical::encode_physical(physical, data, physical_enc)?;
                     let meta = StreamMeta::new2(ctx.stream_type, logical, phys, data.len())?;
                     write_stream_payload(&mut enc.data, meta, false, vals)
                 })?;
@@ -717,6 +722,15 @@ impl GeometryValues {
         enc.increment_column_count();
         Ok(())
     }
+}
+
+fn encode_morton_deltas<'a>(codes: &[u32], buffer: &'a mut Vec<u32>) -> &'a mut Vec<u32> {
+    buffer.clear();
+    if let Some(&first) = codes.first() {
+        buffer.reserve(codes.len());
+        buffer.extend(std::iter::once(first).chain(codes.windows(2).map(|w| w[1] - w[0])));
+    }
+    buffer
 }
 
 #[cfg(test)]

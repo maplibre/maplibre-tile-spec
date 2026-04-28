@@ -4,11 +4,10 @@ use crate::MltResult;
 use crate::decoder::{ColumnType, DictionaryType, StreamType};
 use crate::encoder::model::StreamCtx;
 use crate::encoder::property::shared_dict::write_shared_dict;
-use crate::encoder::stream::write::{write_alternatives, write_i64_stream_as};
 use crate::encoder::stream::{
-    write_bool_stream, write_i32_stream, write_u32_stream, write_u64_stream,
+    write_bool_stream, write_i32_stream, write_i64_stream, write_u32_stream, write_u64_stream,
 };
-use crate::encoder::{Codecs, DataProfile, EncodedStream, Encoder, StagedScalar, StagedStrings};
+use crate::encoder::{Codecs, EncodedStream, Encoder, StagedScalar, StagedStrings};
 use crate::utils::BinarySerializer as _;
 
 /// Encode all property columns and write them to `enc`.
@@ -164,29 +163,6 @@ pub(crate) fn write_opt_u32_scalar_col(
     begin_scalar_col(ct, name, enc)?;
     write_bool_stream(v.presence.iter().copied(), StreamType::Present, enc, codecs)?;
     write_u32_stream(&v.values, &scalar_ctx(name), enc, codecs)
-}
-
-/// Write an `i64` integer stream.
-///
-/// Zigzag-encodes the values for candidate pruning but encodes the original
-/// signed values via the logical encoder's `encode_i64s`.
-pub(crate) fn write_i64_stream(
-    values: &[i64],
-    ctx: &StreamCtx<'_>,
-    enc: &mut Encoder,
-    codecs: &mut Codecs,
-) -> MltResult<()> {
-    let stream_type = ctx.stream_type;
-    if let Some(int_enc) = enc.override_int_enc(ctx) {
-        write_i64_stream_as(values, stream_type, int_enc, enc, codecs)?;
-    } else {
-        let profiled = codecs.logical.encode_zigzag_i64(values);
-        let candidates = DataProfile::prune_candidates::<i64>(profiled);
-        write_alternatives(enc, codecs, candidates, |enc, codecs, cand| {
-            write_i64_stream_as(values, stream_type, cand, enc, codecs)
-        })?;
-    }
-    Ok(())
 }
 
 pub(crate) fn write_u64_scalar_col(

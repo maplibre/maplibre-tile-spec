@@ -139,7 +139,10 @@ mod tests {
 
     use super::*;
     use crate::decoder::{DictionaryType, LengthType, RawFsstData, RawStream, StreamType};
-    use crate::encoder::{Codecs, EncodedStream, Encoder, IntEncoder, write_u32_stream_as};
+    use crate::encoder::model::StreamCtx;
+    use crate::encoder::{
+        Codecs, EncodedStream, Encoder, ExplicitEncoder, IntEncoder, write_u32_stream,
+    };
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
 
@@ -149,15 +152,13 @@ mod tests {
         let raw = compress_fsst(values);
 
         let sym_len_bytes = {
-            let mut enc = Encoder::default();
-            write_u32_stream_as(
-                &raw.symbol_lengths,
-                StreamType::Length(LengthType::Symbol),
-                IntEncoder::varint(),
-                &mut enc,
-                &mut Codecs::default(),
-            )
-            .expect("symbol lengths stream");
+            let mut enc = Encoder::with_explicit(
+                Encoder::default().cfg,
+                ExplicitEncoder::all(IntEncoder::varint()),
+            );
+            let codecs = &mut Codecs::default();
+            let ctx = StreamCtx::prop(StreamType::Length(LengthType::Symbol), "symbol");
+            write_u32_stream(&raw.symbol_lengths, &ctx, &mut enc, codecs).unwrap();
             enc.data
         };
         let sym_table_stream = EncodedStream {
@@ -169,15 +170,13 @@ mod tests {
             data: raw.symbol_bytes.clone(),
         };
         let lengths_bytes = {
-            let mut enc = Encoder::default();
-            write_u32_stream_as(
-                &raw.value_lengths,
-                StreamType::Length(LengthType::Dictionary),
-                IntEncoder::varint(),
-                &mut enc,
-                &mut Codecs::default(),
-            )
-            .expect("dictionary lengths stream");
+            let mut enc = Encoder::with_explicit(
+                Encoder::default().cfg,
+                ExplicitEncoder::all(IntEncoder::varint()),
+            );
+            let codecs = &mut Codecs::default();
+            let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), "dictionary");
+            write_u32_stream(&raw.value_lengths, &ctx, &mut enc, codecs).unwrap();
             enc.data
         };
         let corpus_stream = EncodedStream {

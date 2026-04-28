@@ -287,8 +287,10 @@ mod tests {
         DictionaryType, IntEncoding, LengthType, LogicalEncoding, Morton, OffsetType, RawGeometry,
         StreamMeta, StreamType,
     };
-    use crate::encoder::stream::write::write_u32_stream_as;
-    use crate::encoder::{Codecs, EncodedStream, Encoder, IntEncoder};
+    use crate::encoder::model::StreamCtx;
+    use crate::encoder::{
+        Codecs, EncodedStream, Encoder, ExplicitEncoder, IntEncoder, write_u32_stream,
+    };
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
 
@@ -588,28 +590,28 @@ mod tests {
         // Assemble, serialize, parse, decode — same wire layout as geometry encoder:
         // stream count, then meta (geom type), parts, vertex offsets, Morton dict.
         let mut codecs = Codecs::default();
-        let mut enc = Encoder::default();
+        let mut enc = Encoder::with_explicit(
+            Encoder::default().cfg,
+            ExplicitEncoder::all(IntEncoder::varint()),
+        );
         enc.write_varint(4u32).unwrap();
-        write_u32_stream_as(
+        write_u32_stream(
             &[GeometryType::LineString as u32],
-            StreamType::Length(LengthType::VarBinary),
-            IntEncoder::varint(),
+            &StreamCtx::geom(StreamType::Length(LengthType::VarBinary), "meta"),
             &mut enc,
             &mut codecs,
         )
         .unwrap();
-        write_u32_stream_as(
+        write_u32_stream(
             &[4u32],
-            StreamType::Length(LengthType::Parts),
-            IntEncoder::varint(),
+            &StreamCtx::geom(StreamType::Length(LengthType::Parts), "parts"),
             &mut enc,
             &mut codecs,
         )
         .unwrap();
-        write_u32_stream_as(
+        write_u32_stream(
             &[0u32, 1, 2, 1],
-            StreamType::Offset(OffsetType::Vertex),
-            IntEncoder::varint(),
+            &StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex"),
             &mut enc,
             &mut codecs,
         )
