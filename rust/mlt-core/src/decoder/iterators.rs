@@ -513,7 +513,7 @@ mod tests {
     use super::*;
     use crate::Layer;
     use crate::decoder::GeometryValues;
-    use crate::encoder::model::{CurveParams, StagedLayer};
+    use crate::encoder::model::StagedLayer;
     use crate::encoder::{Codecs, Encoder, Presence, StagedId, StagedProperty, StagedSharedDict};
     use crate::test_helpers::{dec, parser};
 
@@ -540,7 +540,6 @@ mod tests {
             id: StagedId::None,
             geometry: GeometryValues::default(),
             properties: vec![],
-            curve_params: CurveParams::default(),
         }
     }
 
@@ -658,7 +657,6 @@ mod tests {
             id: StagedId::None,
             geometry: three_points(),
             properties: vec![],
-            curve_params: CurveParams::default(),
         });
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
         let Layer::Tag01(lazy) = layer else { panic!() };
@@ -684,7 +682,6 @@ mod tests {
             id: StagedId::from_optional(vec![Some(100), None, Some(200)]),
             geometry: three_points(),
             properties: vec![],
-            curve_params: CurveParams::default(),
         });
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
         let Layer::Tag01(lazy) = layer else { panic!() };
@@ -706,7 +703,6 @@ mod tests {
             id: StagedId::None,
             geometry: three_points(),
             properties: vec![],
-            curve_params: CurveParams::default(),
         });
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
         let Layer::Tag01(lazy) = layer else { panic!() };
@@ -730,7 +726,6 @@ mod tests {
             id: StagedId::None,
             geometry: three_points(),
             properties: vec![StagedProperty::opt_u32("n", vec![Some(1), None, Some(3)])],
-            curve_params: CurveParams::default(),
         });
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
         let Layer::Tag01(lazy) = layer else { panic!() };
@@ -776,7 +771,6 @@ mod tests {
                 "label",
                 vec![Some("foo"), None, Some("bar")],
             )],
-            curve_params: CurveParams::default(),
         });
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
         let Layer::Tag01(lazy) = layer else { panic!() };
@@ -808,7 +802,6 @@ mod tests {
                 StagedProperty::opt_bool("flag", vec![Some(true), Some(false), None]),
                 StagedProperty::opt_i32("score", vec![None, Some(-5), Some(7)]),
             ],
-            curve_params: CurveParams::default(),
         });
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
         let Layer::Tag01(lazy) = layer else { panic!() };
@@ -849,7 +842,6 @@ mod tests {
             id: StagedId::from_optional(vec![Some(10), Some(20), Some(30)]),
             geometry: three_points(),
             properties: vec![],
-            curve_params: CurveParams::default(),
         });
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
         let Layer::Tag01(lazy) = layer else { panic!() };
@@ -888,7 +880,6 @@ mod tests {
             id: StagedId::None,
             geometry: three_points(),
             properties: vec![StagedProperty::u32("x", vec![1, 2, 3])],
-            curve_params: CurveParams::default(),
         });
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
         let Layer::Tag01(lazy) = layer else { panic!() };
@@ -924,7 +915,6 @@ mod tests {
             id: StagedId::None,
             geometry: three_points(),
             properties: vec![StagedProperty::SharedDict(shared_dict)],
-            curve_params: CurveParams::default(),
         });
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
         let Layer::Tag01(lazy) = layer else { panic!() };

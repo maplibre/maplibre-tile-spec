@@ -52,9 +52,6 @@ pub struct StagedLayer {
     pub id: StagedId,
     pub geometry: GeometryValues,
     pub properties: Vec<StagedProperty>,
-    /// Carried through to the encoder so the Hilbert/Morton dictionary
-    /// builders skip an otherwise-redundant min/max vertex scan.
-    pub curve_params: CurveParams,
 }
 
 /// Global encoder settings controlling which optimization strategies are attempted.

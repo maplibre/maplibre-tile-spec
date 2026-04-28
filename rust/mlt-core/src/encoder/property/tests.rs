@@ -3,7 +3,7 @@ use proptest::prelude::*;
 use rstest::rstest;
 
 use crate::encoder::SortStrategy::Unsorted;
-use crate::encoder::model::{CurveParams, ExplicitEncoder, StagedLayer, StrEncoding};
+use crate::encoder::model::{ExplicitEncoder, StagedLayer, StrEncoding};
 use crate::encoder::optimizer::{Presence, PropertyTypedStats, SharedDictRole};
 use crate::encoder::property::encode::write_properties;
 use crate::encoder::{
@@ -149,7 +149,6 @@ fn encode_to_bytes(props: Vec<StagedProperty>) -> Vec<u8> {
         id: StagedId::None,
         geometry: n_point_geometry(n),
         properties: props,
-        curve_params: CurveParams::default(),
     };
     let enc = Encoder::with_explicit(
         EncoderConfig::default(),
@@ -171,7 +170,6 @@ fn encode_to_bytes_explicit(props: Vec<StagedProperty>, cfg: ExplicitEncoder) ->
         id: StagedId::None,
         geometry: n_point_geometry(n),
         properties: props,
-        curve_params: CurveParams::default(),
     };
     let enc = Encoder::with_explicit(EncoderConfig::default(), cfg);
     let mut codecs = Codecs::default();

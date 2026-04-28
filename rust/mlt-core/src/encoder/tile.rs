@@ -91,7 +91,6 @@ impl StagedLayer {
             id,
             geometry,
             properties,
-            curve_params,
         }
     }
 }
@@ -254,7 +253,6 @@ mod tests {
             id: StagedId::None,
             geometry: two_points(),
             properties: vec![StagedProperty::opt_bool("flag", vec![None, Some(false)])],
-            curve_params: CurveParams::default(),
         });
 
         assert_eq!(tile.property_names, vec!["flag"]);
@@ -286,7 +284,6 @@ mod tests {
             id: StagedId::None,
             geometry: two_points(),
             properties: props,
-            curve_params: CurveParams::default(),
         });
 
         // Feature 0: every column is null → typed null for each column

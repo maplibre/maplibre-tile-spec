@@ -3,9 +3,8 @@ use std::hint::black_box;
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use geo_types::Point;
 use mlt_core::encoder::{
-    Codecs, CurveParams, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, LogicalEncoder,
-    PhysicalEncoder, Presence, StagedId, StagedLayer, StagedProperty, StagedSharedDict,
-    StrEncoding,
+    Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, LogicalEncoder, PhysicalEncoder,
+    Presence, StagedId, StagedLayer, StagedProperty, StagedSharedDict, StrEncoding,
 };
 use mlt_core::test_helpers::{dec, parser};
 use mlt_core::{GeometryValues, LendingIterator, ParsedLayer01, PropValueRef};
@@ -90,7 +89,6 @@ fn encode_layer(n: usize, props: Vec<StagedProperty>, cfg: ExplicitEncoder) -> V
         id: StagedId::None,
         geometry: make_geometry(n),
         properties: props,
-        curve_params: CurveParams::default(),
     }
     .encode_into(
         Encoder::with_explicit(EncoderConfig::default(), cfg),

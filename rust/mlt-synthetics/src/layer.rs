@@ -5,9 +5,8 @@ use std::path::Path;
 
 use mlt_core::GeometryValues;
 use mlt_core::encoder::{
-    Codecs, ColumnKind, CurveParams, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, Presence,
-    StagedId, StagedLayer, StagedProperty, StagedSharedDict, StrEncoding, StreamCtx,
-    VertexBufferType,
+    Codecs, ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, Presence, StagedId,
+    StagedLayer, StagedProperty, StagedSharedDict, StrEncoding, StreamCtx, VertexBufferType,
 };
 use mlt_core::geo_types::{Coord, Geometry};
 use mlt_core::wire::{LengthType, OffsetType, StreamType};
@@ -423,14 +422,12 @@ impl Layer {
         };
 
         let mut codecs = Codecs::default();
-        let curve_params = CurveParams::from_vertices(geometry.vertices().unwrap_or(&[]));
         StagedLayer {
             name: "layer1".to_string(),
             extent: extent.unwrap_or(80),
             id,
             geometry,
             properties: props.into_iter().map(|(p, _)| p).collect(),
-            curve_params,
         }
         .encode_into(Encoder::with_explicit(enc_cfg, cfg), &mut codecs)?
         .into_layer_bytes()
