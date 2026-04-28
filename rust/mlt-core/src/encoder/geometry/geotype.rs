@@ -289,7 +289,7 @@ mod tests {
     };
     use crate::encoder::model::StreamCtx;
     use crate::encoder::{
-        Codecs, EncodedStream, Encoder, ExplicitEncoder, IntEncoder, write_u32_stream,
+        Codecs, EncodedStream, Encoder, ExplicitEncoder, IntEncoder, write_int_stream,
     };
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
@@ -595,21 +595,21 @@ mod tests {
             ExplicitEncoder::all(IntEncoder::varint()),
         );
         enc.write_varint(4u32).unwrap();
-        write_u32_stream(
+        write_int_stream::<[u32]>(
             &[GeometryType::LineString as u32],
             &StreamCtx::geom(StreamType::Length(LengthType::VarBinary), "meta"),
             &mut enc,
             &mut codecs,
         )
         .unwrap();
-        write_u32_stream(
+        write_int_stream::<[u32]>(
             &[4u32],
             &StreamCtx::geom(StreamType::Length(LengthType::Parts), "parts"),
             &mut enc,
             &mut codecs,
         )
         .unwrap();
-        write_u32_stream(
+        write_int_stream::<[u32]>(
             &[0u32, 1, 2, 1],
             &StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex"),
             &mut enc,

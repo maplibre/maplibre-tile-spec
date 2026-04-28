@@ -139,13 +139,6 @@ pub(crate) trait LogicalIntStreamKind {
         values: &'a Self,
     ) -> &'a [<Self::Profile as ZigZag>::UInt];
 
-    fn profile(logical: &mut LogicalCodecs, values: &Self) -> DataProfile
-    where
-        <Self::Profile as ZigZag>::UInt: WrappingSub,
-    {
-        DataProfile::from_values::<Self::Profile>(Self::profile_values(logical, values))
-    }
-
     fn encode_logical<'a>(
         logical: &'a mut LogicalCodecs,
         values: &'a Self,
@@ -343,7 +336,6 @@ where
     use LogicalEncoding as LE;
 
     let stream = ctx.stream_type;
-    let profile = L::profile(&mut codecs.logical, values);
 
     // FIXME: does StreamMeta encode values.len() or vals1.len()?
     if let Some(int_enc) = enc.override_int_enc(ctx) {
@@ -363,6 +355,11 @@ where
 
     let Codecs { logical, physical } = codecs;
     let mut alt = enc.try_alternatives();
+
+    // FIXME: we zigzag-encode everything, look at a section of it,
+    //        drop the rest, and repeat zigzag later
+    let vals = L::profile_values(logical, values);
+    let profile = DataProfile::from_values::<L::Profile>(vals);
 
     if profile.delta_is_beneficial() && (profile.rle_is_viable() || profile.delta_rle_is_viable()) {
         let (logical, values) = L::delta_rle(logical, values)?;
@@ -398,51 +395,4 @@ fn write_alternatives<P: PhysicalIntStreamKind>(
         let meta = StreamMeta::new2(stream_type, logical, PE::VarInt, values.len())?;
         write_stream_payload(&mut enc.data, meta, false, P::varint(physical, values))
     })
-}
-
-/// Write a `u32` integer stream: use the explicit encoder if configured,
-/// otherwise compete all pruned candidates and keep the shortest.
-pub(crate) fn write_u32_stream(
-    values: &[u32],
-    ctx: &StreamCtx<'_>,
-    enc: &mut Encoder,
-    codecs: &mut Codecs,
-) -> MltResult<()> {
-    write_int_stream(values, ctx, enc, codecs)
-}
-
-/// Write a `u64` integer stream.
-pub(crate) fn write_u64_stream(
-    values: &[u64],
-    ctx: &StreamCtx<'_>,
-    enc: &mut Encoder,
-    codecs: &mut Codecs,
-) -> MltResult<()> {
-    write_int_stream(values, ctx, enc, codecs)
-}
-
-/// Write an `i32` integer stream.
-///
-/// Zigzag-encodes the values for candidate pruning but encodes the original
-/// signed values via the logical encoder's `encode_i32s`.
-pub(crate) fn write_i32_stream(
-    values: &[i32],
-    ctx: &StreamCtx<'_>,
-    enc: &mut Encoder,
-    codecs: &mut Codecs,
-) -> MltResult<()> {
-    write_int_stream(values, ctx, enc, codecs)
-}
-
-/// Write an `i64` integer stream.
-///
-/// Zigzag-encodes the values for candidate pruning but encodes the original
-/// signed values via the logical encoder's `encode_i64s`.
-pub(crate) fn write_i64_stream(
-    values: &[i64],
-    ctx: &StreamCtx<'_>,
-    enc: &mut Encoder,
-    codecs: &mut Codecs,
-) -> MltResult<()> {
-    write_int_stream(values, ctx, enc, codecs)
 }

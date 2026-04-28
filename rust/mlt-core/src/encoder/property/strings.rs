@@ -7,10 +7,8 @@ use crate::codecs::fsst::{FsstRawData, compress_fsst, compress_fsst_with};
 use crate::decoder::strings::{checked_string_end, encode_null_end};
 use crate::decoder::{DictionaryType, LengthType, OffsetType, StreamMeta, StreamType};
 use crate::encoder::model::{StrEncoding, StreamCtx};
-use crate::encoder::stream::{
-    dedup_strings, write_bool_stream, write_stream_payload, write_u32_stream,
-};
-use crate::encoder::{Codecs, Encoder};
+use crate::encoder::stream::{dedup_strings, write_bool_stream, write_stream_payload};
+use crate::encoder::{Codecs, Encoder, write_int_stream};
 use crate::utils::{AsUsize as _, strings_to_lengths};
 
 /// Minimum total raw byte size of a column before attempting FSST compression.
@@ -119,7 +117,7 @@ pub(crate) fn write_str_col(
 /// Encode with plain (`VarBinary` lengths) layout.
 ///
 /// Stream count varint is written first, then presence, then the lengths stream
-/// (via [`write_u32_stream`] which handles the explicit/auto dispatch internally),
+/// (via [`write_int_stream`] which handles the explicit/auto dispatch internally),
 /// then the raw string bytes as a plain unencoded data stream.
 #[hotpath::measure]
 fn write_str_plain(
@@ -133,7 +131,7 @@ fn write_str_plain(
     enc.write_varint(2u32 + u32::from(presence.is_some()))?;
     write_presence_stream(presence, enc, codecs)?;
     let ctx = StreamCtx::prop(StreamType::Length(LengthType::VarBinary), name);
-    write_u32_stream(&lengths, &ctx, enc, codecs)?;
+    write_int_stream::<[u32]>(&lengths, &ctx, enc, codecs)?;
     write_raw_str_data(non_null, DictionaryType::None, enc)
 }
 
@@ -164,10 +162,10 @@ fn write_str_dict_raw(
     write_presence_stream(presence, enc, codecs)?;
 
     let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), name);
-    write_u32_stream(&lengths, &ctx, enc, codecs)?;
+    write_int_stream::<[u32]>(&lengths, &ctx, enc, codecs)?;
 
     let ctx = StreamCtx::prop(StreamType::Offset(OffsetType::String), name);
-    write_u32_stream(offset_indices, &ctx, enc, codecs)?;
+    write_int_stream::<[u32]>(offset_indices, &ctx, enc, codecs)?;
     write_raw_str_data(unique, DictionaryType::Single, enc)
 }
 
@@ -200,7 +198,7 @@ fn write_str_fsst_raw(
     write_presence_stream(presence, enc, codecs)?;
     write_fsst_data(raw, DictionaryType::Single, name, enc, codecs)?;
     let ctx = StreamCtx::prop(StreamType::Offset(OffsetType::String), name);
-    write_u32_stream(&offsets, &ctx, enc, codecs)
+    write_int_stream::<[u32]>(&offsets, &ctx, enc, codecs)
 }
 
 /// Encode with FSST + dictionary layout, training a fresh compressor.
@@ -232,7 +230,7 @@ fn write_str_fsst_dict_raw(
     write_presence_stream(presence, enc, codecs)?;
     write_fsst_data(raw, DictionaryType::Single, name, enc, codecs)?;
     let ctx = StreamCtx::prop(StreamType::Offset(OffsetType::String), name);
-    write_u32_stream(offset_indices, &ctx, enc, codecs)
+    write_int_stream::<[u32]>(offset_indices, &ctx, enc, codecs)
 }
 
 fn write_presence_stream(
@@ -248,7 +246,7 @@ fn write_presence_stream(
 
 /// Write 4 FSST sub-streams directly to `enc.data`.
 ///
-/// The two integer sub-streams (`symbol_lengths`, `value_lengths`) use [`write_u32_stream`]
+/// The two integer sub-streams (`symbol_lengths`, `value_lengths`) use [`write_int_stream`]
 /// so explicit encoder overrides are honored and all candidates are competed automatically.
 /// The two raw-byte sub-streams (`symbol_table`, `corpus`) are written without integer encoding.
 ///
@@ -262,12 +260,12 @@ pub fn write_fsst_data(
     codecs: &mut Codecs,
 ) -> MltResult<()> {
     let ctx = StreamCtx::prop(StreamType::Length(LengthType::Symbol), name);
-    write_u32_stream(&raw.symbol_lengths, &ctx, enc, codecs)?;
+    write_int_stream::<[u32]>(&raw.symbol_lengths, &ctx, enc, codecs)?;
     let typ = StreamType::Data(DictionaryType::Fsst);
     let meta = StreamMeta::new_none(typ, raw.symbol_lengths.len())?;
     write_stream_payload(&mut enc.data, meta, false, &raw.symbol_bytes)?;
     let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), name);
-    write_u32_stream(&raw.value_lengths, &ctx, enc, codecs)?;
+    write_int_stream::<[u32]>(&raw.value_lengths, &ctx, enc, codecs)?;
     let meta = StreamMeta::new_none(StreamType::Data(dict_type), raw.value_lengths.len())?;
     write_stream_payload(&mut enc.data, meta, false, &raw.corpus)?;
     Ok(())

@@ -141,7 +141,7 @@ mod tests {
     use crate::decoder::{DictionaryType, LengthType, RawFsstData, RawStream, StreamType};
     use crate::encoder::model::StreamCtx;
     use crate::encoder::{
-        Codecs, EncodedStream, Encoder, ExplicitEncoder, IntEncoder, write_u32_stream,
+        Codecs, EncodedStream, Encoder, ExplicitEncoder, IntEncoder, write_int_stream,
     };
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
@@ -158,7 +158,7 @@ mod tests {
             );
             let codecs = &mut Codecs::default();
             let ctx = StreamCtx::prop(StreamType::Length(LengthType::Symbol), "symbol");
-            write_u32_stream(&raw.symbol_lengths, &ctx, &mut enc, codecs).unwrap();
+            write_int_stream::<[u32]>(&raw.symbol_lengths, &ctx, &mut enc, codecs).unwrap();
             enc.data
         };
         let sym_table_stream = EncodedStream {
@@ -176,7 +176,7 @@ mod tests {
             );
             let codecs = &mut Codecs::default();
             let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), "dictionary");
-            write_u32_stream(&raw.value_lengths, &ctx, &mut enc, codecs).unwrap();
+            write_int_stream::<[u32]>(&raw.value_lengths, &ctx, &mut enc, codecs).unwrap();
             enc.data
         };
         let corpus_stream = EncodedStream {

@@ -15,10 +15,9 @@ use crate::decoder::{
     OffsetType, PhysicalEncoding, StreamMeta, StreamType,
 };
 use crate::encoder::model::{CurveParams, StreamCtx};
-use crate::encoder::stream::write_u32_stream;
 use crate::encoder::{
     Codecs, Encoder, PhysicalCodecs, PhysicalEncoder, PhysicalIntStreamKind, U32Physical,
-    write_stream_payload,
+    write_int_stream, write_stream_payload,
 };
 use crate::utils::AsUsize as _;
 
@@ -482,7 +481,7 @@ fn write_geo_u32_stream(
     Ok(if data.is_empty() && !enc.force_stream(&ctx) {
         0
     } else {
-        write_u32_stream(data, &ctx, enc, codecs)?;
+        write_int_stream::<[u32]>(data, &ctx, enc, codecs)?;
         1
     })
 }
@@ -581,7 +580,7 @@ impl GeometryValues {
 
         // Meta stream — always written, even for a zero-feature layer.
         let ctx = StreamCtx::geom(StreamType::Length(LengthType::VarBinary), "meta");
-        write_u32_stream(&meta, &ctx, enc, codecs)?;
+        write_int_stream::<[u32]>(&meta, &ctx, enc, codecs)?;
         n += 1;
 
         // Topology: compute each length stream and write it immediately.
