@@ -22,7 +22,7 @@ pub use id::StagedId;
 #[cfg(feature = "__private")]
 pub use model::{ColumnKind, CurveParams, ExplicitEncoder, StagedLayer, StrEncoding, StreamCtx};
 #[cfg(all(test, not(feature = "__private")))]
-pub(crate) use model::{CurveParams, ExplicitEncoder, StagedLayer, StrEncoding};
+pub(crate) use model::{ExplicitEncoder, StagedLayer, StrEncoding};
 pub use model::{EncodedUnknown, EncoderConfig};
 #[cfg(any(test, feature = "__private"))]
 pub use optimizer::Presence;
