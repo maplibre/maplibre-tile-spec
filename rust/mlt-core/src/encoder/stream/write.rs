@@ -1,7 +1,8 @@
 use bytemuck::{NoUninit, cast_slice};
 use fastpfor::AnyLenCodec as _;
 use integer_encoding::VarInt;
-use num_traits::PrimInt;
+use num_traits::{PrimInt, WrappingSub};
+use zigzag::ZigZag;
 
 use crate::MltError::UnsupportedPhysicalEncoding;
 use crate::MltResult;
@@ -91,7 +92,7 @@ pub(crate) trait PhysicalIntStreamKind {
 }
 
 pub(crate) struct U32Physical;
-struct U64Physical;
+pub(crate) struct U64Physical;
 
 impl PhysicalIntStreamKind for U32Physical {
     type Value = u32;
@@ -128,9 +129,22 @@ impl PhysicalIntStreamKind for U64Physical {
     }
 }
 
-trait LogicalIntStreamKind {
+pub(crate) trait LogicalIntStreamKind {
     type Input;
+    type Profile: ZigZag;
     type Physical: PhysicalIntStreamKind;
+
+    fn profile_values<'a>(
+        logical: &'a mut LogicalCodecs,
+        values: &'a Self,
+    ) -> &'a [<Self::Profile as ZigZag>::UInt];
+
+    fn profile(logical: &mut LogicalCodecs, values: &Self) -> DataProfile
+    where
+        <Self::Profile as ZigZag>::UInt: WrappingSub,
+    {
+        DataProfile::from_values::<Self::Profile>(Self::profile_values(logical, values))
+    }
 
     fn encode_logical<'a>(
         logical: &'a mut LogicalCodecs,
@@ -177,7 +191,12 @@ trait LogicalIntStreamKind {
 
 impl LogicalIntStreamKind for [u32] {
     type Input = u32;
+    type Profile = i32;
     type Physical = U32Physical;
+
+    fn profile_values<'a>(_logical: &'a mut LogicalCodecs, values: &'a Self) -> &'a [u32] {
+        values
+    }
 
     fn none<'a>(_logical: &'a mut LogicalCodecs, values: &'a Self) -> &'a [u32] {
         values
@@ -207,7 +226,12 @@ impl LogicalIntStreamKind for [u32] {
 
 impl LogicalIntStreamKind for [i32] {
     type Input = i32;
+    type Profile = i32;
     type Physical = U32Physical;
+
+    fn profile_values<'a>(logical: &'a mut LogicalCodecs, values: &'a Self) -> &'a [u32] {
+        encode_zigzag(values, &mut logical.u32_tmp)
+    }
 
     fn none<'a>(logical: &'a mut LogicalCodecs, values: &'a Self) -> &'a [u32] {
         encode_zigzag(values, &mut logical.u32_tmp)
@@ -238,7 +262,12 @@ impl LogicalIntStreamKind for [i32] {
 
 impl LogicalIntStreamKind for [u64] {
     type Input = u64;
+    type Profile = i64;
     type Physical = U64Physical;
+
+    fn profile_values<'a>(_logical: &'a mut LogicalCodecs, values: &'a Self) -> &'a [u64] {
+        values
+    }
 
     fn none<'a>(_logical: &'a mut LogicalCodecs, values: &'a Self) -> &'a [u64] {
         values
@@ -268,7 +297,12 @@ impl LogicalIntStreamKind for [u64] {
 
 impl LogicalIntStreamKind for [i64] {
     type Input = i64;
+    type Profile = i64;
     type Physical = U64Physical;
+
+    fn profile_values<'a>(logical: &'a mut LogicalCodecs, values: &'a Self) -> &'a [u64] {
+        encode_zigzag(values, &mut logical.u64_tmp)
+    }
 
     fn none<'a>(logical: &'a mut LogicalCodecs, values: &'a Self) -> &'a [u64] {
         encode_zigzag(values, &mut logical.u64_tmp)
@@ -297,15 +331,20 @@ impl LogicalIntStreamKind for [i64] {
     }
 }
 
-fn write_profiled_int_stream<L: AsRef<[L::Input]> + LogicalIntStreamKind + ?Sized>(
+pub(crate) fn write_int_stream<L: AsRef<[L::Input]> + LogicalIntStreamKind + ?Sized>(
     values: &L,
-    profile: &DataProfile,
     ctx: &StreamCtx<'_>,
     enc: &mut Encoder,
     codecs: &mut Codecs,
-) -> MltResult<()> {
+) -> MltResult<()>
+where
+    <L::Profile as ZigZag>::UInt: WrappingSub,
+{
     use LogicalEncoding as LE;
+
     let stream = ctx.stream_type;
+    let profile = L::profile(&mut codecs.logical, values);
+
     // FIXME: does StreamMeta encode values.len() or vals1.len()?
     if let Some(int_enc) = enc.override_int_enc(ctx) {
         let (logical, vals1) = L::encode_logical(&mut codecs.logical, values, int_enc.logical)?;
@@ -369,8 +408,7 @@ pub(crate) fn write_u32_stream(
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
-    let profile = DataProfile::from_values::<i32>(values);
-    write_profiled_int_stream(values, &profile, ctx, enc, codecs)
+    write_int_stream(values, ctx, enc, codecs)
 }
 
 /// Write a `u64` integer stream.
@@ -380,8 +418,7 @@ pub(crate) fn write_u64_stream(
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
-    let profile = DataProfile::from_values::<i64>(values);
-    write_profiled_int_stream(values, &profile, ctx, enc, codecs)
+    write_int_stream(values, ctx, enc, codecs)
 }
 
 /// Write an `i32` integer stream.
@@ -394,9 +431,7 @@ pub(crate) fn write_i32_stream(
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
-    let data = encode_zigzag(values, &mut codecs.logical.u32_tmp);
-    let profile = DataProfile::from_values::<i32>(data);
-    write_profiled_int_stream(values, &profile, ctx, enc, codecs)
+    write_int_stream(values, ctx, enc, codecs)
 }
 
 /// Write an `i64` integer stream.
@@ -409,7 +444,5 @@ pub(crate) fn write_i64_stream(
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
-    let data = encode_zigzag(values, &mut codecs.logical.u64_tmp);
-    let profile = DataProfile::from_values::<i64>(data);
-    write_profiled_int_stream(values, &profile, ctx, enc, codecs)
+    write_int_stream(values, ctx, enc, codecs)
 }
