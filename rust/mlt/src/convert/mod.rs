@@ -1,7 +1,7 @@
 mod files;
 mod tileset;
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use anyhow::{Result as AnyResult, bail};
 use bytes::Bytes;
@@ -20,6 +20,12 @@ use mlt_core::{Decoder, Layer, Parser};
 )]
 fn whole_rate_per_sec(state: &ProgressState, w: &mut dyn std::fmt::Write) {
     let _ = w.write_fmt(format_args!("{}/s", state.per_sec() as u64));
+}
+
+#[derive(ValueEnum, Clone, Debug, PartialEq)]
+pub enum TileFormat {
+    Mbtiles,
+    Pmtiles,
 }
 
 /// CLI-facing subset of [`MbtType`] (hides the `hash_view` detail).
@@ -65,9 +71,9 @@ enum SortMode {
 
 #[derive(Args)]
 pub struct ConvertArgs {
-    /// Input: a directory with .mlt/.mvt tiles, a single tile file, or an .mbtiles database
+    /// Input: a directory with .mlt/.mvt tiles, a single tile file, an .mbtiles database
     input: PathBuf,
-    /// Output: a directory for re-encoded .mlt files, or an .mbtiles database (required when input is .mbtiles)
+    /// Output: a directory for re-encoded .mlt files, an .mbtiles database or a .pmtiles file
     output: PathBuf,
     /// Add tessellation
     #[clap(short, long, default_value = "false")]
@@ -83,6 +89,23 @@ pub struct ConvertArgs {
     no_shared_dict: bool,
 }
 
+impl ConvertArgs {
+    pub fn input_format(&self) -> Option<TileFormat> {
+        match self.input.extension()?.to_str()? {
+            "mbtiles" => Some(TileFormat::Mbtiles),
+            "pmtiles" => Some(TileFormat::Pmtiles),
+            _ => None,
+        }
+    }
+    pub fn output_format(&self) -> Option<TileFormat> {
+        match self.output.extension()?.to_str()? {
+            "mbtiles" => Some(TileFormat::Mbtiles),
+            "pmtiles" => Some(TileFormat::Pmtiles),
+            _ => None,
+        }
+    }
+}
+
 pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     let cfg = EncoderConfig {
         tessellate: args.tessellate,
@@ -93,10 +116,12 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         ..Default::default()
     };
 
-    if is_mbtiles_extension(&args.input) {
-        if !is_mbtiles_extension(&args.output) {
+    if args.input_format() == Some(TileFormat::Mbtiles) {
+        if args.output_format() != Some(TileFormat::Mbtiles)
+            && args.output_format() != Some(TileFormat::Pmtiles)
+        {
             bail!(
-                "Output must be an .mbtiles file when input is an .mbtiles file, got: {}",
+                "Output must be either an .mbtiles or a .pmtiles file when input is an .mbtiles file, got: {}",
                 args.output.display()
             );
         }
@@ -107,26 +132,15 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
                 args.output.display()
             );
         }
+
         return tokio::runtime::Builder::new_current_thread()
             .enable_io()
             .enable_time()
             .build()?
-            .block_on(tileset::convert_mbtiles(
-                &args.input,
-                &args.output,
-                args.mbtiles_format.clone(),
-                cfg,
-            ));
+            .block_on(tileset::convert_tiles(&args));
     }
 
     files::convert_files(&args.input, &args.output, cfg)
-}
-
-fn is_mbtiles_extension(path: &Path) -> bool {
-    matches!(
-        path.extension().and_then(std::ffi::OsStr::to_str),
-        Some("mbtiles")
-    )
 }
 
 fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {

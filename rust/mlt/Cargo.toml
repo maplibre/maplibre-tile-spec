@@ -19,7 +19,12 @@ pkg-fmt = "tgz"
 pkg-fmt = "zip"
 
 [features]
-__hotpath = ["hotpath/hotpath", "hotpath/tokio", "hotpath/threads", "hotpath/tui"]
+__hotpath = [
+    "hotpath/hotpath",
+    "hotpath/tokio",
+    "hotpath/threads",
+    "hotpath/tui",
+]
 __hotpath-alloc = ["__hotpath", "hotpath/hotpath-alloc"]
 __hotpath-mcp = ["__hotpath", "hotpath/hotpath-mcp", "hotpath/hotpath-mcp-meta"]
 
@@ -38,6 +43,7 @@ martin-tile-utils.workspace = true
 mbtiles.workspace = true
 mlt-core.workspace = true
 moka.workspace = true
+pmtiles.workspace = true
 ratatui.workspace = true
 rayon.workspace = true
 rstar.workspace = true
