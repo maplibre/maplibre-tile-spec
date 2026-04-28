@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::mem;
 
 use geo_types::Coord;
 use probabilistic_collections::SipHasherBuilder;
@@ -7,6 +8,7 @@ use probabilistic_collections::hyperloglog::HyperLogLog;
 use super::model::VertexBufferType;
 use crate::MltResult;
 use crate::codecs::hilbert::{hilbert_curve_params_from_bounds, hilbert_sort_key};
+use crate::codecs::zigzag::encode_componentwise_delta_vec2s;
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
 use crate::decoder::{
     ColumnType, DictionaryType, GeometryType, GeometryValues, LengthType, LogicalEncoding, Morton,
@@ -50,29 +52,50 @@ fn build_morton_dict(vertices: &[i32], meta: Morton) -> MltResult<(Vec<u32>, Vec
 }
 
 /// Build a Hilbert-curve-sorted unique vertex dictionary and per-vertex offset
-/// indices from a flat `[x0, y0, x1, y1, …]` slice.
+/// indices from a flat `[x0, y0, x1, y1, …]` slice into caller-provided
+/// scratch buffers.
 ///
-/// Returns `(dict_xy, offsets)` where:
+/// On return:
 /// - `dict_xy` contains the kept vertices as `[x, y, …]` in Hilbert order
 ///   (componentwise), keyed for delta encoding.
 /// - `offsets` contains one `u32` per input vertex pair: its slot in `dict_xy`.
+/// - `indexed` and `remap` are left in an unspecified (but valid) state and
+///   should be treated as opaque scratch by callers.
+///
+/// All four buffers are cleared and grown in place so callers can reuse
+/// codec-owned scratch slots without allocating new collections on the hot path.
 ///
 /// Dedup is keyed on the Hilbert curve index rather than directly on the
 /// `(x, y)` pair. For valid shifted coordinates inside the Hilbert grid for
 /// `params.bits`, that mapping is one-to-one, so dedup-by-index is lossless
 /// and equivalent to dedup-by-`(x, y)`.
 #[hotpath::measure]
-fn build_hilbert_dict(vertices: &[i32], params: CurveParams) -> (Vec<i32>, Vec<u32>) {
+fn build_hilbert_dict(
+    vertices: &[i32],
+    params: CurveParams,
+    offsets: &mut Vec<u32>,
+    indexed: &mut Vec<u64>,
+    dict_xy: &mut Vec<i32>,
+    remap: &mut HashMap<u32, u32>,
+) {
+    offsets.clear();
+    indexed.clear();
+    dict_xy.clear();
+    remap.clear();
+
     let coord_count = vertices.len() / 2;
     if coord_count == 0 {
-        return (Vec::new(), Vec::new());
+        return;
     }
+    offsets.reserve(coord_count);
+    indexed.reserve(coord_count);
+    dict_xy.reserve(coord_count * 2);
+    remap.reserve(coord_count);
 
-    let mut indexed: Vec<u64> = Vec::with_capacity(coord_count);
-    let mut keys: Vec<u32> = Vec::with_capacity(coord_count);
     for (i, c) in vertices.chunks_exact(2).enumerate() {
         let k = hilbert_sort_key(Coord { x: c[0], y: c[1] }, params);
-        keys.push(k);
+        // Stash the key in `offsets` for now; remapped to slot indexes below.
+        offsets.push(k);
         // Pack (key, source index) into a u64: key in the upper 32 bits sorts
         // entries by Hilbert ID; the lower 32 bits recover the input position.
         let packed = (u64::from(k) << 32) | (i as u64);
@@ -80,10 +103,8 @@ fn build_hilbert_dict(vertices: &[i32], params: CurveParams) -> (Vec<i32>, Vec<u
     }
     indexed.sort_unstable();
 
-    let mut dict_xy: Vec<i32> = Vec::with_capacity(coord_count * 2);
-    let mut key_to_idx: HashMap<u32, u32> = HashMap::with_capacity(coord_count);
     let mut last_key: Option<u32> = None;
-    for &packed in &indexed {
+    for &packed in &*indexed {
         let key = (packed >> 32) as u32;
         let src_idx = (packed & 0xFFFF_FFFF) as usize;
         if last_key != Some(key) {
@@ -94,13 +115,15 @@ fn build_hilbert_dict(vertices: &[i32], params: CurveParams) -> (Vec<i32>, Vec<u
             let slot = (dict_xy.len() / 2) as u32;
             dict_xy.push(vertices[src_idx * 2]);
             dict_xy.push(vertices[src_idx * 2 + 1]);
-            key_to_idx.insert(key, slot);
+            remap.insert(key, slot);
             last_key = Some(key);
         }
     }
 
-    let offsets: Vec<u32> = keys.iter().map(|k| key_to_idx[k]).collect();
-    (dict_xy, offsets)
+    // Convert each input vertex's Hilbert key into its dictionary slot in place.
+    for k in offsets.iter_mut() {
+        *k = remap[k];
+    }
 }
 
 /// Push consecutive offset-differences from `offsets` onto `lengths`.
@@ -430,22 +453,53 @@ fn encode_morton_vertex_streams(
 /// Encode a Hilbert-keyed vertex dictionary: emits the per-vertex offset stream
 /// followed by a componentwise-delta-encoded `[x0, y0, x1, y1, …]` dictionary
 /// in Hilbert-curve order. Returns the number of streams written (always 2).
+///
+/// Reuses dedicated scratch held on [`Codecs::logical`]: `hilbert_offsets`,
+/// `hilbert_indexed`, `hilbert_dict_xy`, `hilbert_remap`. The buffers are
+/// `mem::take`n out of the codec for the duration of the call so that
+/// `write_geo_*_stream` (which requires `&mut Codecs`) cannot conflict with
+/// borrows into them; the (now-empty) Vecs/HashMap are restored at the end so
+/// the allocations amortise across geometry columns.
 fn encode_hilbert_vertex_streams(
     vertices: &[i32],
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<u8> {
     let params = get_hilbert_params(vertices, enc);
-    let (dict_xy, offsets) = build_hilbert_dict(vertices, params);
     let mut n: u8 = 0;
+
+    // Move scratch out of the codec so write_geo_* can take &mut Codecs freely.
+    let mut offsets = mem::take(&mut codecs.logical.hilbert_offsets);
+    let mut indexed = mem::take(&mut codecs.logical.hilbert_indexed);
+    let mut dict_xy = mem::take(&mut codecs.logical.hilbert_dict_xy);
+    let mut remap = mem::take(&mut codecs.logical.hilbert_remap);
+
+    build_hilbert_dict(
+        vertices,
+        params,
+        &mut offsets,
+        &mut indexed,
+        &mut dict_xy,
+        &mut remap,
+    );
+    // `indexed` and `remap` are dead from here on; restore early so future
+    // codec users find their allocation capacity intact.
+    codecs.logical.hilbert_indexed = indexed;
+    codecs.logical.hilbert_remap = remap;
 
     let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex_offsets");
     n += write_geo_u32_stream(&offsets, ctx, enc, codecs)?;
 
-    let delta = codecs.logical.encode_componentwise_delta_vec2s(&dict_xy);
+    // Reuse the now-dead `offsets` buffer as the componentwise-delta output —
+    // saves a transient allocation and keeps `codecs.logical.u32_values` free
+    // for the inner physical-encoding race.
+    encode_componentwise_delta_vec2s(&dict_xy, &mut offsets);
     let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
     let logical = LogicalEncoding::ComponentwiseDelta;
-    n += write_geo_precomputed_stream(delta, ctx, logical, enc, &mut codecs.physical)?;
+    n += write_geo_precomputed_stream(&offsets, ctx, logical, enc, &mut codecs.physical)?;
+
+    codecs.logical.hilbert_offsets = offsets;
+    codecs.logical.hilbert_dict_xy = dict_xy;
     Ok(n)
 }
 
