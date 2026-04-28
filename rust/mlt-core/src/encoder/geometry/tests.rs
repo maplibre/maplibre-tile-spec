@@ -5,9 +5,10 @@ use pretty_assertions::assert_eq;
 use rstest::rstest;
 
 use crate::decoder::RawGeometry;
-use crate::encoder::{Codecs, Encoder};
+use crate::encoder::model::EncoderConfig;
+use crate::encoder::{Codecs, Encoder, ExplicitEncoder, IntEncoder, VertexBufferType};
 use crate::test_helpers::{assert_empty, dec, parser};
-use crate::{Decode as _, DictionaryType, GeometryValues, LengthType, OffsetType, StreamType};
+use crate::{Decode as _, DictionaryType, GeometryValues, LengthType, StreamType};
 
 #[rstest]
 #[case::single_point(push_geoms(&[wkt!(POINT(10 20)).into()]))]
@@ -24,40 +25,61 @@ fn automatic_optimization_roundtrip(#[case] decoded: GeometryValues) {
     assert_geometry_roundtrip(&enc.data, &decoded);
 }
 
-#[rstest]
-#[case::single_point_vec2(
-    push_geoms(&[(0i32..10).map(|i| point!{ x: i, y: i }.into()).collect::<Vec<_>>()].concat()),
-    DictionaryType::Vertex
-)]
-#[case::repeated_points_morton(
-    push_geoms(&std::iter::repeat_n(point!{ x: 5, y: 5 }.into(), 20).collect::<Vec<_>>()),
-    DictionaryType::Morton
-)]
-fn automatic_optimization_picks_correct_vertex_strategy(
-    #[case] decoded: GeometryValues,
-    #[case] expected: DictionaryType,
-) {
-    let unexpected = if expected == DictionaryType::Vertex {
-        DictionaryType::Morton
-    } else {
-        DictionaryType::Vertex
-    };
-
+fn auto_mode_streams(decoded: &GeometryValues) -> Vec<StreamType> {
     let mut enc = Encoder::default();
     let mut codecs = Codecs::default();
     decoded
+        .clone()
         .write_to(&mut enc, &mut codecs)
         .expect("encode failed");
-    let types = encoded_stream_types(&enc.data);
 
-    assert!(
-        types.contains(&StreamType::Data(expected)),
-        "expected {expected:?} stream to be present"
+    let mut stream_types: Vec<StreamType> = encoded_stream_types(&enc.data).into_iter().collect();
+    stream_types.sort();
+
+    assert_geometry_roundtrip(&enc.data, decoded);
+    stream_types
+}
+
+#[test]
+fn automatic_optimization_distinct_points_picks_vec2() {
+    let decoded = push_geoms(
+        &(0i32..10)
+            .map(|i| point! { x: i, y: i }.into())
+            .collect::<Vec<_>>(),
     );
-    assert!(
-        !types.contains(&StreamType::Data(unexpected)),
-        "expected {unexpected:?} stream to be absent"
-    );
+    insta::assert_debug_snapshot!(auto_mode_streams(&decoded), @r"
+    [
+        Data(
+            Vertex,
+        ),
+        Length(
+            VarBinary,
+        ),
+    ]
+    ");
+}
+
+#[test]
+fn automatic_optimization_repeated_points_picks_dict() {
+    // The Hilbert vs. Morton race resolves deterministically for this input —
+    // Hilbert wins, so the encoded streams use `Data(Vertex)` + a vertex
+    // offset stream. The snapshot pins that outcome; if the race tie-break
+    // or the heuristic ever changes it should fail loudly.
+    let decoded =
+        push_geoms(&std::iter::repeat_n(point! { x: 5, y: 5 }.into(), 20).collect::<Vec<_>>());
+    insta::assert_debug_snapshot!(auto_mode_streams(&decoded), @r"
+    [
+        Data(
+            Vertex,
+        ),
+        Offset(
+            Vertex,
+        ),
+        Length(
+            VarBinary,
+        ),
+    ]
+    ");
 }
 
 #[test]
@@ -101,33 +123,96 @@ fn encoded_polygon_has_topology_streams() {
     );
 }
 
-#[test]
-fn encoded_repeated_points_uses_morton_streams() {
-    // All vertices identical: uniqueness ratio = 1/3 < 0.5, so optimizer picks Morton.
-    let mut decoded = GeometryValues::default();
-    decoded.push_geom(&wkt!(MULTIPOINT(5 5, 5 5, 5 5)).into());
-    let mut enc = Encoder::default();
+/// Encode `decoded` with the vertex layout pinned to `strategy`, return the
+/// (sorted) stream types in the wire output, and assert the bytes round-trip
+/// back to the same `GeometryValues`.
+fn forced_vertex_strategy_streams(
+    decoded: &GeometryValues,
+    strategy: VertexBufferType,
+) -> Vec<StreamType> {
+    let explicit = ExplicitEncoder {
+        vertex_buffer_type: strategy,
+        ..ExplicitEncoder::all(IntEncoder::varint())
+    };
+    let mut enc = Encoder::with_explicit(EncoderConfig::default(), explicit);
     let mut codecs = Codecs::default();
     decoded
+        .clone()
         .write_to(&mut enc, &mut codecs)
         .expect("encode failed");
 
-    let stream_types = encoded_stream_types(&enc.data);
-    assert!(
-        stream_types.contains(&StreamType::Data(DictionaryType::Morton)),
-        "repeated vertices must trigger Morton dictionary encoding"
-    );
-    assert!(
-        stream_types.contains(&StreamType::Offset(OffsetType::Vertex)),
-        "Morton encoding must include a vertex offset stream"
-    );
+    let mut stream_types: Vec<StreamType> = encoded_stream_types(&enc.data).into_iter().collect();
+    stream_types.sort();
 
-    let raw = assert_empty(RawGeometry::from_bytes(&enc.data, &mut parser()));
-    assert_eq!(
-        raw.meta.meta.stream_type,
-        StreamType::Length(LengthType::VarBinary),
-        "meta stream must always be present"
-    );
+    assert_geometry_roundtrip(&enc.data, decoded);
+    stream_types
+}
+
+/// Multipoint with repeated coordinates so dict paths actually dedup.
+fn repeated_multipoint() -> GeometryValues {
+    let mut g = GeometryValues::default();
+    g.push_geom(&wkt!(MULTIPOINT(5 5, 10 10, 5 5, 10 10, 0 0, 5 5)).into());
+    g
+}
+
+#[test]
+fn forced_vec2_streams() {
+    let streams = forced_vertex_strategy_streams(&repeated_multipoint(), VertexBufferType::Vec2);
+    insta::assert_debug_snapshot!(streams, @r"
+    [
+        Data(
+            Vertex,
+        ),
+        Length(
+            VarBinary,
+        ),
+        Length(
+            Geometries,
+        ),
+    ]
+    ");
+}
+
+#[test]
+fn forced_morton_streams() {
+    let streams = forced_vertex_strategy_streams(&repeated_multipoint(), VertexBufferType::Morton);
+    insta::assert_debug_snapshot!(streams, @r"
+    [
+        Data(
+            Morton,
+        ),
+        Offset(
+            Vertex,
+        ),
+        Length(
+            VarBinary,
+        ),
+        Length(
+            Geometries,
+        ),
+    ]
+    ");
+}
+
+#[test]
+fn forced_hilbert_streams() {
+    let streams = forced_vertex_strategy_streams(&repeated_multipoint(), VertexBufferType::Hilbert);
+    insta::assert_debug_snapshot!(streams, @r"
+    [
+        Data(
+            Vertex,
+        ),
+        Offset(
+            Vertex,
+        ),
+        Length(
+            VarBinary,
+        ),
+        Length(
+            Geometries,
+        ),
+    ]
+    ");
 }
 
 #[test]

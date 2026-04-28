@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::mem;
 
 use geo_types::Coord;
 use probabilistic_collections::SipHasherBuilder;
@@ -6,12 +7,14 @@ use probabilistic_collections::hyperloglog::HyperLogLog;
 
 use super::model::VertexBufferType;
 use crate::MltResult;
+use crate::codecs::hilbert::hilbert_sort_key;
+use crate::codecs::zigzag::encode_componentwise_delta_vec2s;
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
 use crate::decoder::{
     ColumnType, DictionaryType, GeometryType, GeometryValues, LengthType, LogicalEncoding, Morton,
     OffsetType, StreamMeta, StreamType,
 };
-use crate::encoder::model::StreamCtx;
+use crate::encoder::model::{CurveParams, StreamCtx};
 use crate::encoder::stream::write_u32_stream;
 use crate::encoder::{Codecs, DataProfile, Encoder, PhysicalCodecs, write_stream_payload};
 use crate::utils::AsUsize as _;
@@ -46,6 +49,71 @@ fn build_morton_dict(vertices: &[i32], meta: Morton) -> MltResult<(Vec<u32>, Vec
     let offsets: Vec<u32> = codes.iter().map(|code| code_to_idx[code]).collect();
 
     Ok((dict, offsets))
+}
+
+/// Build a Hilbert-curve-sorted unique vertex dictionary into caller-provided
+/// scratch.
+///
+/// On return, `dict_xy` holds the deduplicated `[x, y, …]` dictionary in
+/// Hilbert order and `offsets[i]` is the slot of input vertex `i`; `indexed`
+/// and `remap` are left as opaque scratch.
+///
+/// Dedup is keyed on the Hilbert curve index. Inside the `params.bits` grid
+/// the index ↔ `(x, y)` mapping is bijective, so dedup-by-index is equivalent
+/// to dedup-by-coordinate without the cost of hashing pairs.
+#[hotpath::measure]
+fn build_hilbert_dict(
+    vertices: &[i32],
+    params: CurveParams,
+    offsets: &mut Vec<u32>,
+    indexed: &mut Vec<u64>,
+    dict_xy: &mut Vec<i32>,
+    remap: &mut HashMap<u32, u32>,
+) {
+    offsets.clear();
+    indexed.clear();
+    dict_xy.clear();
+    remap.clear();
+
+    let coord_count = vertices.len() / 2;
+    if coord_count == 0 {
+        return;
+    }
+    offsets.reserve(coord_count);
+    indexed.reserve(coord_count);
+    dict_xy.reserve(coord_count * 2);
+    remap.reserve(coord_count);
+
+    for (i, c) in vertices.chunks_exact(2).enumerate() {
+        let k = hilbert_sort_key(Coord { x: c[0], y: c[1] }, params);
+        offsets.push(k);
+        // Key in the high 32 bits so a single u64 sort orders by Hilbert
+        // index while preserving the original position for tie-breaking.
+        let packed = (u64::from(k) << 32) | (i as u64);
+        indexed.push(packed);
+    }
+    indexed.sort_unstable();
+
+    let mut last_key: Option<u32> = None;
+    for &packed in &*indexed {
+        let key = (packed >> 32) as u32;
+        let src_idx = (packed & 0xFFFF_FFFF) as usize;
+        if last_key != Some(key) {
+            #[expect(
+                clippy::cast_possible_truncation,
+                reason = "dict.len() <= coord_count <= u32::MAX"
+            )]
+            let slot = (dict_xy.len() / 2) as u32;
+            dict_xy.push(vertices[src_idx * 2]);
+            dict_xy.push(vertices[src_idx * 2 + 1]);
+            remap.insert(key, slot);
+            last_key = Some(key);
+        }
+    }
+
+    for k in offsets.iter_mut() {
+        *k = remap[k];
+    }
 }
 
 /// Push consecutive offset-differences from `offsets` onto `lengths`.
@@ -274,61 +342,127 @@ fn normalize_part_offsets_for_rings(
     normalized
 }
 
-/// Choose between Vec2 componentwise-delta and Morton dictionary encoding.
+/// Whether to race dictionary-based vertex layouts (Hilbert, Morton) against
+/// the plain Vec2 layout for this geometry column.
 ///
-/// Morton is only selected when:
-/// - The coordinate range fits within 16 bits per axis (required by the spec), and
-/// - The uniqueness ratio is below the threshold, meaning enough vertices are
-///   repeated that the dictionary overhead is worthwhile.
-///
-/// Calls `get_z_order_params` so the [`Morton`] is cached on the encoder
-/// and can be retrieved again in the Morton encoding branch without a second vertex scan.
+/// Profiling showed unconditional racing is ~2× slower overall: most layers
+/// have high vertex uniqueness, where the dict layouts cannot win and the
+/// extra sort + `HashMap` build is wasted. Gate on Morton fitting in 16 bits
+/// per axis (required by the spec) and on a `HyperLogLog`-estimated
+/// uniqueness ratio below the threshold.
 #[hotpath::measure]
-fn select_vertex_strategy(vertices: &[i32], enc: &mut Encoder) -> VertexBufferType {
-    const MORTON_UNIQUENESS_THRESHOLD: f64 = 0.66;
-
-    if let Some(v) = enc.override_vertex_buffer_type() {
-        return v;
-    } else if let Some(v) = enc.vertex_buffer_type_cache {
-        return v;
-    }
+fn dict_may_be_beneficial(vertices: &[i32], enc: &Encoder) -> bool {
+    const MAXIMUM_UNIQUENESS_THRESHOLD_FOR_DICT: f64 = 0.66;
 
     let coord_count = vertices.len() / 2;
+    if coord_count == 0 || enc.morton_cache.is_none() {
+        return false;
+    }
 
-    let vertex_buffer_type = if coord_count == 0 || get_morton(vertices, enc).is_err() {
-        VertexBufferType::Vec2
-    } else {
-        let mut hll =
-            HyperLogLog::<Coord<i32>>::with_hasher(0.03, SipHasherBuilder::from_seed(0, 0));
-        for c in vertices.chunks_exact(2) {
-            hll.insert(&Coord::<i32> { x: c[0], y: c[1] });
-        }
-
-        #[expect(clippy::cast_precision_loss)]
-        let estimated_unique = hll.len().min(coord_count as f64);
-        #[expect(clippy::cast_precision_loss)]
-        let uniqueness_ratio = estimated_unique / coord_count as f64;
-
-        if uniqueness_ratio < MORTON_UNIQUENESS_THRESHOLD {
-            VertexBufferType::Morton
-        } else {
-            VertexBufferType::Vec2
-        }
-    };
-
-    enc.vertex_buffer_type_cache = Some(vertex_buffer_type);
-    vertex_buffer_type
+    let mut hll = HyperLogLog::<Coord<i32>>::with_hasher(0.03, SipHasherBuilder::from_seed(0, 0));
+    for c in vertices.chunks_exact(2) {
+        hll.insert(&Coord::<i32> { x: c[0], y: c[1] });
+    }
+    #[expect(clippy::cast_precision_loss)]
+    let estimated_unique = hll.len().clamp(0.0, coord_count as f64);
+    #[expect(clippy::cast_precision_loss)]
+    let uniqueness_ratio = estimated_unique / coord_count as f64;
+    uniqueness_ratio < MAXIMUM_UNIQUENESS_THRESHOLD_FOR_DICT
 }
 
-/// Compute or return the cached [`Morton`] for `vertices`.
-fn get_morton(vertices: &[i32], enc: &mut Encoder) -> MltResult<Morton> {
-    Ok(if let Some(morton) = enc.morton_cache {
-        morton
-    } else {
-        let morton = Morton::from_vertices(vertices)?;
-        enc.morton_cache = Some(morton);
-        morton
-    })
+/// Pre-populated by [`StagedLayer::encode_into`](crate::encoder::StagedLayer::encode_into);
+/// callers must have gated on [`dict_may_be_beneficial`] which rejects layers
+/// whose extent does not fit Morton.
+fn get_morton(enc: &Encoder) -> Morton {
+    enc.morton_cache.expect(
+        "morton_cache populated by StagedLayer::encode_into; gated by dict_may_be_beneficial",
+    )
+}
+
+/// Pre-populated by [`StagedLayer::encode_into`](crate::encoder::StagedLayer::encode_into).
+fn get_hilbert_params(enc: &Encoder) -> CurveParams {
+    enc.hilbert_cache
+        .expect("hilbert_cache populated by StagedLayer::encode_into")
+}
+
+/// Encode the plain Vec2 vertex layout: componentwise-delta over the raw
+/// `[x0, y0, x1, y1, …]` slice.
+fn encode_vec2_vertex_stream(
+    vertices: &[i32],
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<u8> {
+    let delta = codecs.logical.encode_componentwise_delta_vec2s(vertices);
+    let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
+    let logical = LogicalEncoding::ComponentwiseDelta;
+    write_geo_precomputed_stream(delta, ctx, logical, enc, &mut codecs.physical)
+}
+
+/// Encode a Morton-keyed vertex dictionary: per-vertex offsets stream
+/// followed by a delta-encoded Morton-code dictionary.
+fn encode_morton_vertex_streams(
+    vertices: &[i32],
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<u8> {
+    let morton = get_morton(enc);
+    let (dict, offsets) = build_morton_dict(vertices, morton)?;
+    let mut n: u8 = 0;
+
+    let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex_offsets");
+    n += write_geo_u32_stream(&offsets, ctx, enc, codecs)?;
+
+    let delta = codecs.logical.encode_morton_deltas(&dict);
+    let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Morton), "vertex");
+    let logical = LogicalEncoding::MortonDelta(morton);
+    n += write_geo_precomputed_stream(delta, ctx, logical, enc, &mut codecs.physical)?;
+    Ok(n)
+}
+
+/// Encode a Hilbert-keyed vertex dictionary: per-vertex offsets stream
+/// followed by a componentwise-delta-encoded `[x, y, …]` dictionary in
+/// Hilbert order.
+fn encode_hilbert_vertex_streams(
+    vertices: &[i32],
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<u8> {
+    let params = get_hilbert_params(enc);
+    let mut n: u8 = 0;
+
+    // Take scratch ownership locally: `write_geo_*_stream` needs `&mut Codecs`,
+    // which would otherwise conflict with our `&[..]` views into these slots.
+    let mut offsets = mem::take(&mut codecs.logical.hilbert_offsets);
+    let mut indexed = mem::take(&mut codecs.logical.hilbert_indexed);
+    let mut dict_xy = mem::take(&mut codecs.logical.hilbert_dict_xy);
+    let mut remap = mem::take(&mut codecs.logical.hilbert_remap);
+
+    build_hilbert_dict(
+        vertices,
+        params,
+        &mut offsets,
+        &mut indexed,
+        &mut dict_xy,
+        &mut remap,
+    );
+    // Done with these — restore so the physical-encoding race below can use
+    // them via the codec.
+    codecs.logical.hilbert_indexed = indexed;
+    codecs.logical.hilbert_remap = remap;
+
+    let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex_offsets");
+    n += write_geo_u32_stream(&offsets, ctx, enc, codecs)?;
+
+    // Reuse `offsets` as the delta output rather than allocating another Vec;
+    // also keeps `codecs.logical.u32_values` free for the inner race.
+    encode_componentwise_delta_vec2s(&dict_xy, &mut offsets);
+    let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
+    let logical = LogicalEncoding::ComponentwiseDelta;
+    n += write_geo_precomputed_stream(&offsets, ctx, logical, enc, &mut codecs.physical)?;
+
+    codecs.logical.hilbert_offsets = offsets;
+    codecs.logical.hilbert_dict_xy = dict_xy;
+    Ok(n)
 }
 
 /// Write a geometry `u32` stream: [`Encoder::override_int_enc`] when explicit mode is active,
@@ -408,6 +542,17 @@ impl GeometryValues {
         let index_buffer = index_buffer.unwrap_or_default();
         let triangles = triangles.unwrap_or_default();
         let vertices = vertices.unwrap_or_default();
+
+        // Direct callers (tests, custom drivers) skip `StagedLayer::encode_into`
+        // and arrive with empty caches; populate from `vertices` so the
+        // dictionary builders can rely on them unconditionally.
+        if enc.hilbert_cache.is_none() {
+            enc.hilbert_cache = Some(CurveParams::from_vertices(&vertices));
+        }
+        if enc.morton_cache.is_none() {
+            let p = enc.hilbert_cache.expect("populated above");
+            enc.morton_cache = Morton::new(p.bits, p.shift).ok();
+        }
 
         let meta: Vec<u32> = vector_types.iter().map(|t| *t as u32).collect();
 
@@ -521,24 +666,49 @@ impl GeometryValues {
         let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Index), "triangles_indexes");
         n += write_geo_u32_stream(&index_buffer, ctx, enc, codecs)?;
 
-        match select_vertex_strategy(&vertices, enc) {
-            VertexBufferType::Vec2 => {
-                let delta = codecs.logical.encode_componentwise_delta_vec2s(&vertices);
-                let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
-                let logical = LogicalEncoding::ComponentwiseDelta;
-                n += write_geo_precomputed_stream(delta, ctx, logical, enc, &mut codecs.physical)?;
-            }
-            VertexBufferType::Morton => {
-                let morton = get_morton(&vertices, enc)?;
-                let (dict, offsets) = build_morton_dict(&vertices, morton)?;
-                let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex_offsets");
-                n += write_geo_u32_stream(&offsets, ctx, enc, codecs)?;
-
-                let delta = codecs.logical.encode_morton_deltas(&dict);
-                let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Morton), "vertex");
-                let logical = LogicalEncoding::MortonDelta(morton);
-                n += write_geo_precomputed_stream(delta, ctx, logical, enc, &mut codecs.physical)?;
-            }
+        if let Some(forced) = enc.override_vertex_buffer_type() {
+            n += match forced {
+                VertexBufferType::Vec2 => encode_vec2_vertex_stream(&vertices, enc, codecs)?,
+                VertexBufferType::Morton => encode_morton_vertex_streams(&vertices, enc, codecs)?,
+                VertexBufferType::Hilbert => encode_hilbert_vertex_streams(&vertices, enc, codecs)?,
+            };
+        } else if dict_may_be_beneficial(&vertices, enc) {
+            // Morton fits (the gate above ensures it), so race all three.
+            let mut winner_size: usize = usize::MAX;
+            let mut winner_stream_cnt: u8 = 0;
+            let mut alt = enc.try_alternatives();
+            alt.with(|e| {
+                let ds = e.data.len();
+                let ms = e.meta.len();
+                winner_stream_cnt = encode_vec2_vertex_stream(&vertices, e, codecs)?;
+                winner_size = (e.data.len() - ds) + (e.meta.len() - ms);
+                Ok(())
+            })?;
+            alt.with(|e| {
+                let ds = e.data.len();
+                let ms = e.meta.len();
+                let cnt = encode_hilbert_vertex_streams(&vertices, e, codecs)?;
+                let size = (e.data.len() - ds) + (e.meta.len() - ms);
+                if size < winner_size {
+                    winner_stream_cnt = cnt;
+                    winner_size = size;
+                }
+                Ok(())
+            })?;
+            alt.with(|e| {
+                let ds = e.data.len();
+                let ms = e.meta.len();
+                let cnt = encode_morton_vertex_streams(&vertices, e, codecs)?;
+                let size = (e.data.len() - ds) + (e.meta.len() - ms);
+                if size < winner_size {
+                    winner_stream_cnt = cnt;
+                }
+                Ok(())
+            })?;
+            drop(alt);
+            n += winner_stream_cnt;
+        } else {
+            n += encode_vec2_vertex_stream(&vertices, enc, codecs)?;
         }
 
         // Patch the reserved stream-count byte.

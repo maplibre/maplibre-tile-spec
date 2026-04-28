@@ -10,13 +10,17 @@
 //! [`StagedLayer::from_tile`] with pre-computed layer statistics.
 
 use crate::decoder::{GeometryValues, PropValue, TileFeature, TileLayer};
-use crate::encoder::model::StagedLayer;
+use crate::encoder::model::{CurveParams, StagedLayer};
 use crate::encoder::optimizer::{LayerStats, Presence, SharedDictRole};
 use crate::encoder::{SortStrategy, StagedId, StagedProperty, StagedSharedDict};
 
 impl StagedLayer {
     /// Construct a [`StagedLayer`] from a row-oriented [`TileLayer`] using
-    /// pre-computed layer statistics.
+    /// pre-computed layer statistics and curve parameters.
+    ///
+    /// `curve_params` is taken as a parameter (rather than recomputed here)
+    /// so a single [`TileLayer::curve_params`] scan feeds every sort trial
+    /// and the encoder's dictionary builders.
     ///
     /// When `tessellate` is `true`, polygon and multi-polygon geometries have
     /// their triangulation stored alongside the geometry.
@@ -27,9 +31,10 @@ impl StagedLayer {
         sort: SortStrategy,
         stats: &LayerStats,
         tessellate: bool,
+        curve_params: CurveParams,
     ) -> Self {
         assert!(!source.features.is_empty(), "empty tile");
-        source.sort(sort);
+        source.sort(sort, curve_params);
         let mut geometry = if tessellate {
             GeometryValues::new_tessellated()
         } else {

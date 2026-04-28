@@ -724,27 +724,35 @@ fn staging_uses_id_presence_analysis() {
     let analysis = all_present.analyze(false).unwrap();
     let id = analysis.id.as_ref().expect("ID analysis");
     assert!(id.stats.values_fit_u32());
-    let staged = StagedLayer::from_tile(all_present, Unsorted, &analysis, false);
+    let curve_params = all_present.curve_params();
+
+    let staged = StagedLayer::from_tile(all_present, Unsorted, &analysis, false, curve_params);
     assert!(matches!(staged.id, StagedId::U32(_)));
 
     let mixed = tile_from_ids(&[Some(1), None, Some(3)]);
     let analysis = mixed.analyze(false).unwrap();
     let id = analysis.id.as_ref().expect("ID analysis");
     assert!(id.stats.values_fit_u32());
-    let staged = StagedLayer::from_tile(mixed, Unsorted, &analysis, false);
+    let curve_params = mixed.curve_params();
+
+    let staged = StagedLayer::from_tile(mixed, Unsorted, &analysis, false, curve_params);
     assert!(matches!(staged.id, StagedId::OptU32(_)));
 
     let large = tile_from_ids(&[Some(u64::from(u32::MAX) + 1), None, Some(3)]);
     let analysis = large.analyze(false).unwrap();
     let id = analysis.id.as_ref().expect("ID analysis");
     assert!(!id.stats.values_fit_u32());
-    let staged = StagedLayer::from_tile(large, Unsorted, &analysis, false);
+    let curve_params = large.curve_params();
+
+    let staged = StagedLayer::from_tile(large, Unsorted, &analysis, false, curve_params);
     assert!(matches!(staged.id, StagedId::OptU64(_)));
 
     let all_null = tile_from_ids(&[None, None, None]);
     let analysis = all_null.analyze(false).unwrap();
     assert_eq!(analysis.id, None);
-    let staged = StagedLayer::from_tile(all_null, Unsorted, &analysis, false);
+    let curve_params = all_null.curve_params();
+
+    let staged = StagedLayer::from_tile(all_null, Unsorted, &analysis, false, curve_params);
     assert!(matches!(staged.id, StagedId::None));
 }
 

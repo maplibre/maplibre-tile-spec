@@ -5,7 +5,7 @@ use fsst::Compressor;
 use integer_encoding::VarIntWriter as _;
 
 use crate::decoder::{ColumnType, Morton};
-use crate::encoder::model::{ExplicitEncoder, StrEncoding, StreamCtx};
+use crate::encoder::model::{CurveParams, ExplicitEncoder, StrEncoding, StreamCtx};
 use crate::encoder::{EncoderConfig, IntEncoder, VertexBufferType};
 use crate::utils::BinarySerializer as _;
 use crate::{MltError, MltResult};
@@ -115,13 +115,14 @@ pub struct Encoder {
     /// as the wire-format `column_count`.
     pub layer_column_count: u32,
 
-    /// Regardless of the sort, these values should be identical
-    pub(crate) vertex_buffer_type_cache: Option<VertexBufferType>,
-
-    /// Cached result of `z_order_params` for the geometry column currently
-    /// being encoded.  Cleared at the start of each [`GeometryValues::write_to`](crate::GeometryValues::write_to)
-    /// call so it never leaks across columns.
+    /// Morton parameters for this layer's vertex set; `None` if the extent
+    /// exceeds 16 bits per axis (Morton encoding is unusable in that case).
+    /// Pre-populated by [`StagedLayer::encode_into`](crate::encoder::StagedLayer::encode_into).
     pub(crate) morton_cache: Option<Morton>,
+
+    /// Hilbert curve parameters for this layer's vertex set. Pre-populated by
+    /// [`StagedLayer::encode_into`](crate::encoder::StagedLayer::encode_into).
+    pub(crate) hilbert_cache: Option<CurveParams>,
 
     /// Cached FSST compressor per string column, keyed by column name.
     /// `None` means training found FSST not viable for that column.
@@ -181,8 +182,8 @@ impl Encoder {
             meta: mem::take(&mut self.meta),
             data: mem::take(&mut self.data),
             layer_column_count: mem::take(&mut self.layer_column_count),
-            vertex_buffer_type_cache: None,
             morton_cache: None,
+            hilbert_cache: None,
             fsst_cache: HashMap::new(),
             alt_stack: vec![],
         }
