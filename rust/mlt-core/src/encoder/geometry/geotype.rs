@@ -275,18 +275,20 @@ fn push_linestrings<'a>(
 
 #[cfg(test)]
 mod tests {
-    use fastpfor::FastPFor256;
     use geo_types::{LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, wkt};
     use insta::assert_snapshot;
+    use integer_encoding::VarInt;
     use proptest::prelude::*;
 
     use super::*;
+    use crate::__private::PhysicalEncoding;
     use crate::LazyParsed;
     use crate::decoder::{
         DictionaryType, IntEncoding, LengthType, LogicalEncoding, Morton, OffsetType, RawGeometry,
         StreamMeta, StreamType,
     };
-    use crate::encoder::{EncodedStream, Encoder, IntEncoder, do_write_u32};
+    use crate::encoder::stream::write::write_u32_stream_as;
+    use crate::encoder::{Codecs, EncodedStream, Encoder, IntEncoder};
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
 
@@ -295,9 +297,10 @@ mod tests {
     /// produces (i.e. built via a previous `roundtrip` call, not via `push_*`).
     fn roundtrip(decoded: &GeometryValues) -> GeometryValues {
         let mut enc = Encoder::default();
+        let mut codecs = Codecs::default();
         decoded
             .clone()
-            .write_to(&mut enc)
+            .write_to(&mut enc, &mut codecs)
             .expect("Failed to encode");
 
         let parsed = assert_empty(RawGeometry::from_bytes(&enc.data, &mut parser()));
@@ -563,20 +566,19 @@ mod tests {
         // Raw codes [0, 16, 32] -> delta-encoded as [0, 16, 16].
         // The MortonDelta logical encoding means the decoder will undo the delta,
         // then decode each Morton code to an (x, y) pair.
-        let morton_deltas = vec![0u32, 16, 16];
-        let mut raw_bytes = Vec::new();
-        let mut scratch = Vec::new();
-        let mut codec = FastPFor256::default();
-        let physical_encoding = IntEncoder::varint()
-            .physical
-            .encode_u32s(&morton_deltas, &mut raw_bytes, &mut scratch, &mut codec)
-            .unwrap();
+        let mut raw_bytes = vec![];
+        let mut buf = [0u8; 10];
+        for &v in &[0_u64, 16, 16] {
+            let n = v.encode_var(&mut buf);
+            raw_bytes.extend_from_slice(&buf[..n]);
+        }
+
         let morton_dict = EncodedStream {
             meta: StreamMeta::new(
                 StreamType::Data(DictionaryType::Morton),
                 IntEncoding::new(
                     LogicalEncoding::MortonDelta(Morton { bits: 3, shift: 0 }),
-                    physical_encoding,
+                    PhysicalEncoding::VarInt,
                 ),
                 3, // 3 dictionary entries -> 3 physical u32 values
             ),
@@ -587,25 +589,37 @@ mod tests {
         // stream count, then meta (geom type), parts, vertex offsets, Morton dict.
         let mut enc = Encoder::default();
         enc.write_varint(4u32).unwrap();
-        do_write_u32(
-            &[GeometryType::LineString as u32],
-            StreamType::Length(LengthType::VarBinary),
-            IntEncoder::varint(),
+        let values = &[GeometryType::LineString as u32];
+        let stream_type = StreamType::Length(LengthType::VarBinary);
+        let enc_type = IntEncoder::varint();
+        write_u32_stream_as(
+            values,
+            stream_type,
+            enc_type,
             &mut enc,
+            &mut Codecs::default(),
         )
         .unwrap();
-        do_write_u32(
-            &[4u32],
-            StreamType::Length(LengthType::Parts),
-            IntEncoder::varint(),
+        let values = &[4u32];
+        let stream_type = StreamType::Length(LengthType::Parts);
+        let enc_type = IntEncoder::varint();
+        write_u32_stream_as(
+            values,
+            stream_type,
+            enc_type,
             &mut enc,
+            &mut Codecs::default(),
         )
         .unwrap();
-        do_write_u32(
-            &[0u32, 1, 2, 1],
-            StreamType::Offset(OffsetType::Vertex),
-            IntEncoder::varint(),
+        let values = &[0u32, 1, 2, 1];
+        let stream_type = StreamType::Offset(OffsetType::Vertex);
+        let enc_type = IntEncoder::varint();
+        write_u32_stream_as(
+            values,
+            stream_type,
+            enc_type,
             &mut enc,
+            &mut Codecs::default(),
         )
         .unwrap();
         enc.write_stream(&morton_dict).unwrap();

@@ -5,7 +5,7 @@ use std::path::Path;
 
 use mlt_core::GeometryValues;
 use mlt_core::encoder::{
-    ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, Presence, StagedId,
+    Codecs, ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, Presence, StagedId,
     StagedLayer, StagedProperty, StagedSharedDict, StrEncoding, StreamCtx, VertexBufferType,
 };
 use mlt_core::geo_types::{Coord, Geometry};
@@ -421,6 +421,7 @@ impl Layer {
             },
         };
 
+        let mut codecs = Codecs::default();
         StagedLayer {
             name: "layer1".to_string(),
             extent: extent.unwrap_or(80),
@@ -428,7 +429,7 @@ impl Layer {
             geometry,
             properties: props.into_iter().map(|(p, _)| p).collect(),
         }
-        .encode_into(Encoder::with_explicit(enc_cfg, cfg))?
+        .encode_into(Encoder::with_explicit(enc_cfg, cfg), &mut codecs)?
         .into_layer_bytes()
         .map_err(SynthErr::Mlt)
     }

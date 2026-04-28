@@ -5,7 +5,7 @@ use pretty_assertions::assert_eq;
 use rstest::rstest;
 
 use crate::decoder::RawGeometry;
-use crate::encoder::Encoder;
+use crate::encoder::{Codecs, Encoder};
 use crate::test_helpers::{assert_empty, dec, parser};
 use crate::{Decode as _, DictionaryType, GeometryValues, LengthType, OffsetType, StreamType};
 
@@ -16,7 +16,11 @@ use crate::{Decode as _, DictionaryType, GeometryValues, LengthType, OffsetType,
 #[case::multi_polygon(push_geoms(&[wkt!(MULTIPOLYGON(((0 0, 10 0, 10 10, 0 0),(5 5, 15 5, 15 15, 5 15)))).into()]))]
 fn automatic_optimization_roundtrip(#[case] decoded: GeometryValues) {
     let mut enc = Encoder::default();
-    decoded.clone().write_to(&mut enc).expect("optimize failed");
+    let mut codecs = Codecs::default();
+    decoded
+        .clone()
+        .write_to(&mut enc, &mut codecs)
+        .expect("optimize failed");
     assert_geometry_roundtrip(&enc.data, &decoded);
 }
 
@@ -40,7 +44,10 @@ fn automatic_optimization_picks_correct_vertex_strategy(
     };
 
     let mut enc = Encoder::default();
-    decoded.write_to(&mut enc).expect("encode failed");
+    let mut codecs = Codecs::default();
+    decoded
+        .write_to(&mut enc, &mut codecs)
+        .expect("encode failed");
     let types = encoded_stream_types(&enc.data);
 
     assert!(
@@ -57,7 +64,10 @@ fn automatic_optimization_picks_correct_vertex_strategy(
 fn encoded_output_always_has_meta_stream() {
     let decoded = push_geoms(&[Geometry::<i32>::Point(Point(Coord::<i32> { x: 1, y: 1 }))]);
     let mut enc = Encoder::default();
-    decoded.write_to(&mut enc).expect("encode failed");
+    let mut codecs = Codecs::default();
+    decoded
+        .write_to(&mut enc, &mut codecs)
+        .expect("encode failed");
     let raw = assert_empty(RawGeometry::from_bytes(&enc.data, &mut parser()));
 
     assert_eq!(
@@ -78,7 +88,10 @@ fn encoded_polygon_has_topology_streams() {
         vec![],
     ))]);
     let mut enc = Encoder::default();
-    decoded.write_to(&mut enc).expect("encode failed");
+    let mut codecs = Codecs::default();
+    decoded
+        .write_to(&mut enc, &mut codecs)
+        .expect("encode failed");
 
     let stream_types = encoded_stream_types(&enc.data);
     assert!(
@@ -94,7 +107,10 @@ fn encoded_repeated_points_uses_morton_streams() {
     let mut decoded = GeometryValues::default();
     decoded.push_geom(&wkt!(MULTIPOINT(5 5, 5 5, 5 5)).into());
     let mut enc = Encoder::default();
-    decoded.write_to(&mut enc).expect("encode failed");
+    let mut codecs = Codecs::default();
+    decoded
+        .write_to(&mut enc, &mut codecs)
+        .expect("encode failed");
 
     let stream_types = encoded_stream_types(&enc.data);
     assert!(
@@ -119,7 +135,11 @@ fn manual_encode_works() {
     let decoded = push_geoms(&[wkt!(POINT(10 20)).into()]);
 
     let mut enc = Encoder::default();
-    decoded.clone().write_to(&mut enc).expect("encode failed");
+    let mut codecs = Codecs::default();
+    decoded
+        .clone()
+        .write_to(&mut enc, &mut codecs)
+        .expect("encode failed");
     let types = encoded_stream_types(&enc.data);
     assert!(types.contains(&StreamType::Data(DictionaryType::Vertex)));
 

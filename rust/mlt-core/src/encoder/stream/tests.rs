@@ -1,14 +1,15 @@
 use proptest::prelude::*;
 use rstest::rstest;
 
-use super::write::{do_write_i32, do_write_i64};
-use super::{do_write_u32, do_write_u64};
+use super::write::{
+    write_i32_stream_as, write_i64_stream_as, write_u32_stream_as, write_u64_stream_as,
+};
 use crate::MltError;
 use crate::decoder::{
     DictionaryType, IntEncoding, LengthType, LogicalEncoding, LogicalValue, Morton, OffsetType,
     PhysicalEncoding, RawStream, RleMeta, StreamMeta, StreamType,
 };
-use crate::encoder::{EncodedStream, Encoder, IntEncoder, PhysicalEncoder};
+use crate::encoder::{Codecs, EncodedStream, Encoder, IntEncoder, PhysicalEncoder};
 use crate::test_helpers::{assert_empty, dec, parser};
 use crate::utils::BinarySerializer as _;
 
@@ -35,11 +36,15 @@ fn roundtrip_stream_u32s(wire: &[u8]) -> Vec<u32> {
 }
 
 fn make_logical_val(logical_encoding: LogicalEncoding, num_values: usize) -> LogicalValue {
-    LogicalValue::new(StreamMeta::new(
-        StreamType::Data(DictionaryType::None),
-        IntEncoding::new(logical_encoding, PhysicalEncoding::VarInt),
-        u32::try_from(num_values).expect("input_data length fits in u32"),
-    ))
+    LogicalValue::new(
+        StreamMeta::new2(
+            StreamType::Data(DictionaryType::None),
+            logical_encoding,
+            PhysicalEncoding::VarInt,
+            num_values,
+        )
+        .unwrap(),
+    )
 }
 
 /// Test case for stream decoding tests
@@ -149,7 +154,14 @@ fn test_decode_u32(
 fn test_fastpfor_roundtrip(#[case] values: Vec<u32>) {
     let encoder = IntEncoder::fastpfor();
     let mut enc = Encoder::default();
-    do_write_u32(&values, DATA_STREAM, encoder, &mut enc).unwrap();
+    write_u32_stream_as(
+        &values,
+        DATA_STREAM,
+        encoder,
+        &mut enc,
+        &mut Codecs::default(),
+    )
+    .unwrap();
     let decoded_values = roundtrip_stream_u32s(&enc.data);
     assert_eq!(decoded_values, values);
 }
@@ -298,7 +310,7 @@ proptest! {
     ) {
         let widened: Vec<i32> = values.iter().map(|&v| i32::from(v)).collect();
         let mut enc = Encoder::default();
-        do_write_i32(&widened, DATA_STREAM, encoding, &mut enc).unwrap();
+        write_i32_stream_as(&widened, DATA_STREAM, encoding, &mut enc, &mut Codecs::default()).unwrap();
         let parsed_stream = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
         let decoded_values = parsed_stream.decode_i8s(&mut dec()).unwrap();
 
@@ -312,7 +324,7 @@ proptest! {
     ) {
         let widened: Vec<u32> = values.iter().map(|&v| u32::from(v)).collect();
         let mut enc = Encoder::default();
-        do_write_u32(&widened, DATA_STREAM, encoding, &mut enc).unwrap();
+        write_u32_stream_as(&widened, DATA_STREAM, encoding, &mut enc, &mut Codecs::default()).unwrap();
         let parsed_stream = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
         let decoded_values = parsed_stream.decode_u8s(&mut dec()).unwrap();
 
@@ -325,7 +337,7 @@ proptest! {
         encoding in any::<IntEncoder>()
     ) {
         let mut enc = Encoder::default();
-        do_write_u32(&values, DATA_STREAM, encoding, &mut enc).unwrap();
+        write_u32_stream_as(&values, DATA_STREAM, encoding, &mut enc, &mut Codecs::default()).unwrap();
         let decoded_values = roundtrip_stream_u32s(&enc.data);
         assert_eq!(decoded_values, values);
     }
@@ -336,7 +348,7 @@ proptest! {
         encoding in any::<IntEncoder>(),
     ) {
         let mut enc = Encoder::default();
-        do_write_i32(&values, DATA_STREAM, encoding, &mut enc).unwrap();
+        write_i32_stream_as(&values, DATA_STREAM, encoding, &mut enc, &mut Codecs::default()).unwrap();
         let parsed_stream = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
         let decoded_values = parsed_stream.decode_i32s(&mut dec()).unwrap();
 
@@ -349,7 +361,7 @@ proptest! {
         encoding in encoding_no_fastpfor()
     ) {
         let mut enc = Encoder::default();
-        do_write_u64(&values, DATA_STREAM, encoding, &mut enc).unwrap();
+        write_u64_stream_as(&values, DATA_STREAM, encoding, &mut enc, &mut Codecs::default()).unwrap();
         let parsed_stream = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
         let decoded_values = parsed_stream.decode_u64s(&mut dec()).unwrap();
 
@@ -362,7 +374,7 @@ proptest! {
         encoding in encoding_no_fastpfor()
     ) {
         let mut enc = Encoder::default();
-        do_write_i64(&values, DATA_STREAM, encoding, &mut enc).unwrap();
+        write_i64_stream_as(&values, DATA_STREAM, encoding, &mut enc, &mut Codecs::default()).unwrap();
         let parsed_stream = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
         let decoded_values = parsed_stream.decode_i64s(&mut dec()).unwrap();
 

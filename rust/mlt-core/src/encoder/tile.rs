@@ -214,12 +214,13 @@ mod tests {
     use super::*;
     use crate::Layer;
     use crate::decoder::GeometryValues;
-    use crate::encoder::Encoder;
+    use crate::encoder::{Codecs, Encoder};
     use crate::test_helpers::{dec, parser};
 
     fn layer_tile(staged: StagedLayer) -> TileLayer {
+        let mut codecs = Codecs::default();
         let buf = staged
-            .encode_into(Encoder::default())
+            .encode_into(Encoder::default(), &mut codecs)
             .unwrap()
             .into_layer_bytes()
             .unwrap();

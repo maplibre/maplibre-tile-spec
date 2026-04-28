@@ -138,10 +138,8 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::decoder::{
-        DictionaryType, IntEncoding, LengthType, RawFsstData, RawStream, StreamType,
-    };
-    use crate::encoder::{EncodedStream, Encoder, IntEncoder, do_write_u32};
+    use crate::decoder::{DictionaryType, LengthType, RawFsstData, RawStream, StreamType};
+    use crate::encoder::{Codecs, EncodedStream, Encoder, IntEncoder, write_u32_stream_as};
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
 
@@ -152,40 +150,39 @@ mod tests {
 
         let sym_len_bytes = {
             let mut enc = Encoder::default();
-            do_write_u32(
+            write_u32_stream_as(
                 &raw.symbol_lengths,
                 StreamType::Length(LengthType::Symbol),
                 IntEncoder::varint(),
                 &mut enc,
+                &mut Codecs::default(),
             )
             .expect("symbol lengths stream");
             enc.data
         };
         let sym_table_stream = EncodedStream {
-            meta: StreamMeta::new(
+            meta: StreamMeta::new_none(
                 StreamType::Data(DictionaryType::Fsst),
-                IntEncoding::none(),
-                u32::try_from(raw.symbol_lengths.len()).unwrap(),
-            ),
+                raw.symbol_lengths.len(),
+            )
+            .unwrap(),
             data: raw.symbol_bytes.clone(),
         };
         let lengths_bytes = {
             let mut enc = Encoder::default();
-            do_write_u32(
+            write_u32_stream_as(
                 &raw.value_lengths,
                 StreamType::Length(LengthType::Dictionary),
                 IntEncoder::varint(),
                 &mut enc,
+                &mut Codecs::default(),
             )
             .expect("dictionary lengths stream");
             enc.data
         };
         let corpus_stream = EncodedStream {
-            meta: StreamMeta::new(
-                StreamType::Data(DictionaryType::Single),
-                IntEncoding::none(),
-                u32::try_from(values.len()).unwrap(),
-            ),
+            meta: StreamMeta::new_none(StreamType::Data(DictionaryType::Single), values.len())
+                .unwrap(),
             data: raw.corpus.clone(),
         };
 
