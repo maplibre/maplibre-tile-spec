@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.8.0...rust-mlt-core-v0.9.0) - 2026-04-28
+
+### Fixed
+
+- *(rust)* terrible fsst compression ratio due to reusing compressor results for unrelated shared dicts ([#1333](https://github.com/maplibre/maplibre-tile-spec/pull/1333))
+
+### Other
+
+- *(rust)* consolidate encoders with common buffers ([#1352](https://github.com/maplibre/maplibre-tile-spec/pull/1352))
+- *(rust)* compute more stats before sort to enable deduplicating presence in v2 ([#1348](https://github.com/maplibre/maplibre-tile-spec/pull/1348))
+- *(rust)* simplify StagingId ([#1347](https://github.com/maplibre/maplibre-tile-spec/pull/1347))
+- *(rust)* new encoding methods ([#1346](https://github.com/maplibre/maplibre-tile-spec/pull/1346))
+- *(rust)* rm "01" from TileLayer01, StagedLayer01 ([#1345](https://github.com/maplibre/maplibre-tile-spec/pull/1345))
+- *(rust)* remove unused staging code and eq impl ([#1344](https://github.com/maplibre/maplibre-tile-spec/pull/1344))
+- *(rust)* follow up to Presence cleanup ([#1337](https://github.com/maplibre/maplibre-tile-spec/pull/1337))
+- *(rust)* simplify debug formatting ([#1336](https://github.com/maplibre/maplibre-tile-spec/pull/1336))
+- *(rust)* IdValues→ParsedId+StagedId, simplify presence ([#1334](https://github.com/maplibre/maplibre-tile-spec/pull/1334))
+- *(rust)* push fsst training up one level to not gain false statistics ([#1335](https://github.com/maplibre/maplibre-tile-spec/pull/1335))
+- *(rust)* rework presence to use bitvec ([#1329](https://github.com/maplibre/maplibre-tile-spec/pull/1329))
+
 ## [0.8.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.7.0...rust-mlt-core-v0.8.0) - 2026-04-18
 
 ### Fixed
