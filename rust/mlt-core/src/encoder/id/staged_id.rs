@@ -196,6 +196,7 @@ mod tests {
 
     use crate::decoder::{ColumnType as CT, GeometryValues, RawId, RawIdValue};
     use crate::encoder::stream::LogicalEncoder;
+    use crate::encoder::model::CurveParams;
     use crate::encoder::{
         Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, StagedId, StagedLayer,
     };
@@ -218,6 +219,7 @@ mod tests {
             id: decoded.clone(),
             geometry,
             properties: vec![],
+            curve_params: CurveParams::default(),
         };
         let enc = Encoder::with_explicit(Encoder::default().cfg, ExplicitEncoder::for_id(int_enc));
         let mut codecs = Codecs::default();
@@ -249,6 +251,7 @@ mod tests {
             id: decoded.clone(),
             geometry,
             properties: vec![],
+            curve_params: CurveParams::default(),
         };
         let mut codecs = Codecs::default();
         let buf = staged
@@ -569,6 +572,7 @@ mod tests {
             id: decoded.clone(),
             geometry,
             properties: vec![],
+            curve_params: CurveParams::default(),
         };
         let enc =
             Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::for_id(int_enc));
@@ -609,6 +613,7 @@ mod tests {
             id: ids.clone(),
             geometry,
             properties: vec![],
+            curve_params: CurveParams::default(),
         };
         let enc =
             Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::for_id(int_enc));

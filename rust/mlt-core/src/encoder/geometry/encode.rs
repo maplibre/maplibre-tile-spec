@@ -7,7 +7,7 @@ use probabilistic_collections::hyperloglog::HyperLogLog;
 
 use super::model::VertexBufferType;
 use crate::MltResult;
-use crate::codecs::hilbert::{hilbert_curve_params_from_bounds, hilbert_sort_key};
+use crate::codecs::hilbert::hilbert_sort_key;
 use crate::codecs::zigzag::encode_componentwise_delta_vec2s;
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
 use crate::decoder::{
@@ -51,24 +51,16 @@ fn build_morton_dict(vertices: &[i32], meta: Morton) -> MltResult<(Vec<u32>, Vec
     Ok((dict, offsets))
 }
 
-/// Build a Hilbert-curve-sorted unique vertex dictionary and per-vertex offset
-/// indices from a flat `[x0, y0, x1, y1, …]` slice into caller-provided
-/// scratch buffers.
+/// Build a Hilbert-curve-sorted unique vertex dictionary into caller-provided
+/// scratch.
 ///
-/// On return:
-/// - `dict_xy` contains the kept vertices as `[x, y, …]` in Hilbert order
-///   (componentwise), keyed for delta encoding.
-/// - `offsets` contains one `u32` per input vertex pair: its slot in `dict_xy`.
-/// - `indexed` and `remap` are left in an unspecified (but valid) state and
-///   should be treated as opaque scratch by callers.
+/// On return, `dict_xy` holds the deduplicated `[x, y, …]` dictionary in
+/// Hilbert order and `offsets[i]` is the slot of input vertex `i`; `indexed`
+/// and `remap` are left as opaque scratch.
 ///
-/// All four buffers are cleared and grown in place so callers can reuse
-/// codec-owned scratch slots without allocating new collections on the hot path.
-///
-/// Dedup is keyed on the Hilbert curve index rather than directly on the
-/// `(x, y)` pair. For valid shifted coordinates inside the Hilbert grid for
-/// `params.bits`, that mapping is one-to-one, so dedup-by-index is lossless
-/// and equivalent to dedup-by-`(x, y)`.
+/// Dedup is keyed on the Hilbert curve index. Inside the `params.bits` grid
+/// the index ↔ `(x, y)` mapping is bijective, so dedup-by-index is equivalent
+/// to dedup-by-coordinate without the cost of hashing pairs.
 #[hotpath::measure]
 fn build_hilbert_dict(
     vertices: &[i32],
@@ -94,10 +86,9 @@ fn build_hilbert_dict(
 
     for (i, c) in vertices.chunks_exact(2).enumerate() {
         let k = hilbert_sort_key(Coord { x: c[0], y: c[1] }, params);
-        // Stash the key in `offsets` for now; remapped to slot indexes below.
         offsets.push(k);
-        // Pack (key, source index) into a u64: key in the upper 32 bits sorts
-        // entries by Hilbert ID; the lower 32 bits recover the input position.
+        // Key in the high 32 bits so a single u64 sort orders by Hilbert
+        // index while preserving the original position for tie-breaking.
         let packed = (u64::from(k) << 32) | (i as u64);
         indexed.push(packed);
     }
@@ -120,7 +111,6 @@ fn build_hilbert_dict(
         }
     }
 
-    // Convert each input vertex's Hilbert key into its dictionary slot in place.
     for k in offsets.iter_mut() {
         *k = remap[k];
     }
@@ -352,30 +342,20 @@ fn normalize_part_offsets_for_rings(
     normalized
 }
 
-/// Decide whether racing dictionary-based vertex layouts (Hilbert, Morton)
-/// against the plain Vec2 layout is worth the encoding cost.
+/// Whether to race dictionary-based vertex layouts (Hilbert, Morton) against
+/// the plain Vec2 layout for this geometry column.
 ///
-/// Building Hilbert and Morton dictionaries is expensive (sorting, allocating a
-/// `HashMap`, and writing two streams instead of one). Profiling shows that
-/// running them unconditionally inside the alternatives race is ~2× slower
-/// overall because most layers have high vertex uniqueness, where Vec2 always
-/// wins.
-///
-/// Returns `true` when:
-/// - The coordinate range fits within 16 bits per axis (required by the spec
-///   for Morton; also the clamp applied by Hilbert), **and**
-/// - The estimated uniqueness ratio (via `HyperLogLog`) is below the threshold,
-///   meaning enough vertices repeat that the per-vertex offset stream + the
-///   deduplicated dictionary plausibly out-compress raw deltas.
-///
-/// Calls [`get_morton`] so the [`Morton`] is cached on the encoder and can be
-/// retrieved again in the Morton encoding branch without a second vertex scan.
+/// Profiling showed unconditional racing is ~2× slower overall: most layers
+/// have high vertex uniqueness, where the dict layouts cannot win and the
+/// extra sort + `HashMap` build is wasted. Gate on Morton fitting in 16 bits
+/// per axis (required by the spec) and on a `HyperLogLog`-estimated
+/// uniqueness ratio below the threshold.
 #[hotpath::measure]
-fn dict_may_be_beneficial(vertices: &[i32], enc: &mut Encoder) -> bool {
+fn dict_may_be_beneficial(vertices: &[i32], enc: &Encoder) -> bool {
     const MAXIMUM_UNIQUENESS_THRESHOLD_FOR_DICT: f64 = 0.66;
 
     let coord_count = vertices.len() / 2;
-    if coord_count == 0 || get_morton(vertices, enc).is_err() {
+    if coord_count == 0 || enc.morton_cache.is_none() {
         return false;
     }
 
@@ -390,33 +370,22 @@ fn dict_may_be_beneficial(vertices: &[i32], enc: &mut Encoder) -> bool {
     uniqueness_ratio < MAXIMUM_UNIQUENESS_THRESHOLD_FOR_DICT
 }
 
-/// Compute or return the cached [`Morton`] for `vertices`.
-fn get_morton(vertices: &[i32], enc: &mut Encoder) -> MltResult<Morton> {
-    Ok(if let Some(morton) = enc.morton_cache {
-        morton
-    } else {
-        let morton = Morton::from_vertices(vertices)?;
-        enc.morton_cache = Some(morton);
-        morton
-    })
+/// Pre-populated by [`StagedLayer::encode_into`](crate::encoder::StagedLayer::encode_into);
+/// callers must have gated on [`dict_may_be_beneficial`] which rejects layers
+/// whose extent does not fit Morton.
+fn get_morton(enc: &Encoder) -> Morton {
+    enc.morton_cache
+        .expect("morton_cache populated by StagedLayer::encode_into; gated by dict_may_be_beneficial")
 }
 
-/// Compute or return the cached Hilbert [`CurveParams`] for `vertices`.
-fn get_hilbert_params(vertices: &[i32], enc: &mut Encoder) -> CurveParams {
-    if let Some(p) = enc.hilbert_cache {
-        return p;
-    }
-    let (min, max) = vertices
-        .iter()
-        .fold((i32::MAX, i32::MIN), |(mn, mx), &v| (mn.min(v), mx.max(v)));
-    let p = hilbert_curve_params_from_bounds(min, max);
-    enc.hilbert_cache = Some(p);
-    p
+/// Pre-populated by [`StagedLayer::encode_into`](crate::encoder::StagedLayer::encode_into).
+fn get_hilbert_params(enc: &Encoder) -> CurveParams {
+    enc.hilbert_cache
+        .expect("hilbert_cache populated by StagedLayer::encode_into")
 }
 
 /// Encode the plain Vec2 vertex layout: componentwise-delta over the raw
-/// `[x0, y0, x1, y1, …]` vertex slice. Returns the number of streams written
-/// (always 1).
+/// `[x0, y0, x1, y1, …]` slice.
 fn encode_vec2_vertex_stream(
     vertices: &[i32],
     enc: &mut Encoder,
@@ -428,15 +397,14 @@ fn encode_vec2_vertex_stream(
     write_geo_precomputed_stream(delta, ctx, logical, enc, &mut codecs.physical)
 }
 
-/// Encode a Morton-keyed vertex dictionary: emits the per-vertex offset stream
-/// followed by a delta-encoded Morton-code dictionary. Returns the number of
-/// streams written (always 2).
+/// Encode a Morton-keyed vertex dictionary: per-vertex offsets stream
+/// followed by a delta-encoded Morton-code dictionary.
 fn encode_morton_vertex_streams(
     vertices: &[i32],
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<u8> {
-    let morton = get_morton(vertices, enc)?;
+    let morton = get_morton(enc);
     let (dict, offsets) = build_morton_dict(vertices, morton)?;
     let mut n: u8 = 0;
 
@@ -450,25 +418,19 @@ fn encode_morton_vertex_streams(
     Ok(n)
 }
 
-/// Encode a Hilbert-keyed vertex dictionary: emits the per-vertex offset stream
-/// followed by a componentwise-delta-encoded `[x0, y0, x1, y1, …]` dictionary
-/// in Hilbert-curve order. Returns the number of streams written (always 2).
-///
-/// Reuses dedicated scratch held on [`Codecs::logical`]: `hilbert_offsets`,
-/// `hilbert_indexed`, `hilbert_dict_xy`, `hilbert_remap`. The buffers are
-/// `mem::take`n out of the codec for the duration of the call so that
-/// `write_geo_*_stream` (which requires `&mut Codecs`) cannot conflict with
-/// borrows into them; the (now-empty) Vecs/HashMap are restored at the end so
-/// the allocations amortise across geometry columns.
+/// Encode a Hilbert-keyed vertex dictionary: per-vertex offsets stream
+/// followed by a componentwise-delta-encoded `[x, y, …]` dictionary in
+/// Hilbert order.
 fn encode_hilbert_vertex_streams(
     vertices: &[i32],
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<u8> {
-    let params = get_hilbert_params(vertices, enc);
+    let params = get_hilbert_params(enc);
     let mut n: u8 = 0;
 
-    // Move scratch out of the codec so write_geo_* can take &mut Codecs freely.
+    // Take scratch ownership locally: `write_geo_*_stream` needs `&mut Codecs`,
+    // which would otherwise conflict with our `&[..]` views into these slots.
     let mut offsets = mem::take(&mut codecs.logical.hilbert_offsets);
     let mut indexed = mem::take(&mut codecs.logical.hilbert_indexed);
     let mut dict_xy = mem::take(&mut codecs.logical.hilbert_dict_xy);
@@ -482,17 +444,16 @@ fn encode_hilbert_vertex_streams(
         &mut dict_xy,
         &mut remap,
     );
-    // `indexed` and `remap` are dead from here on; restore early so future
-    // codec users find their allocation capacity intact.
+    // Done with these — restore so the physical-encoding race below can use
+    // them via the codec.
     codecs.logical.hilbert_indexed = indexed;
     codecs.logical.hilbert_remap = remap;
 
     let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex_offsets");
     n += write_geo_u32_stream(&offsets, ctx, enc, codecs)?;
 
-    // Reuse the now-dead `offsets` buffer as the componentwise-delta output —
-    // saves a transient allocation and keeps `codecs.logical.u32_values` free
-    // for the inner physical-encoding race.
+    // Reuse `offsets` as the delta output rather than allocating another Vec;
+    // also keeps `codecs.logical.u32_values` free for the inner race.
     encode_componentwise_delta_vec2s(&dict_xy, &mut offsets);
     let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
     let logical = LogicalEncoding::ComponentwiseDelta;
@@ -580,6 +541,17 @@ impl GeometryValues {
         let index_buffer = index_buffer.unwrap_or_default();
         let triangles = triangles.unwrap_or_default();
         let vertices = vertices.unwrap_or_default();
+
+        // Direct callers (tests, custom drivers) skip `StagedLayer::encode_into`
+        // and arrive with empty caches; populate from `vertices` so the
+        // dictionary builders can rely on them unconditionally.
+        if enc.hilbert_cache.is_none() {
+            enc.hilbert_cache = Some(CurveParams::from_vertices(&vertices));
+        }
+        if enc.morton_cache.is_none() {
+            let p = enc.hilbert_cache.expect("populated above");
+            enc.morton_cache = Morton::new(p.bits, p.shift).ok();
+        }
 
         let meta: Vec<u32> = vector_types.iter().map(|t| *t as u32).collect();
 
@@ -700,8 +672,7 @@ impl GeometryValues {
                 VertexBufferType::Hilbert => encode_hilbert_vertex_streams(&vertices, enc, codecs)?,
             };
         } else if dict_may_be_beneficial(&vertices, enc) {
-            // `dict_may_be_beneficial` guarantees Morton fits (it returns false
-            // otherwise), so all three candidates are always tried here.
+            // Morton fits (the gate above ensures it), so race all three.
             let mut winner_size: usize = usize::MAX;
             let mut winner_stream_cnt: u8 = 0;
             let mut alt = enc.try_alternatives();

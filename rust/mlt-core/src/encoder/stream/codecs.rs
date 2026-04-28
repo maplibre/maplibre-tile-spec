@@ -21,11 +21,10 @@ pub struct LogicalCodecs {
     bool_packed: Vec<u8>,
     bool_rle: Vec<u8>,
 
-    /// Reusable scratch for the Hilbert vertex-dictionary path. Held here so
-    /// allocations amortise across geometry columns. Owned-and-returned around
-    /// stream writes via `mem::take` because `write_geo_*_stream` requires
-    /// `&mut Codecs`, which conflicts with a borrowed `&[u32]` / `&[i32]`
-    /// view into these fields.
+    /// Reusable scratch for the Hilbert vertex-dictionary builder. The four
+    /// slots are taken out via `mem::take` for the duration of a build so the
+    /// caller can hold a `&[..]` view into one slot while passing `&mut Codecs`
+    /// to a stream writer; capacity is preserved across geometry columns.
     pub(crate) hilbert_offsets: Vec<u32>,
     pub(crate) hilbert_indexed: Vec<u64>,
     pub(crate) hilbert_dict_xy: Vec<i32>,

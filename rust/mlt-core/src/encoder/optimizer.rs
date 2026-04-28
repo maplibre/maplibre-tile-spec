@@ -1,4 +1,4 @@
-use crate::decoder::{PropKind, TileLayer};
+use crate::decoder::{Morton, PropKind, TileLayer};
 use crate::encoder::model::StagedLayer;
 use crate::encoder::property::encode::write_properties;
 use crate::encoder::{Codecs, Encoder, EncoderConfig, SortStrategy, spatial_sort_likely_to_help};
@@ -19,7 +19,15 @@ impl StagedLayer {
             id,
             geometry,
             properties,
+            curve_params,
         } = self;
+
+        // Seed the Hilbert/Morton caches so the dictionary builders skip
+        // their min/max scan. `Morton::new` returns `Err` when bits > 16,
+        // which `dict_may_be_beneficial` reads via `morton_cache.is_none()`
+        // to fall back to a Vec2-only path.
+        enc.hilbert_cache = Some(curve_params);
+        enc.morton_cache = Morton::new(curve_params.bits, curve_params.shift).ok();
 
         id.write_to(&mut enc, codecs)?;
         geometry.write_to(&mut enc, codecs)?;
@@ -67,30 +75,34 @@ impl TileLayer {
         }
 
         let stats = self.analyze(cfg.allow_shared_dict)?;
+        // Bounds are order-invariant, so this scan is shared across every
+        // sort trial and the encoder's Hilbert/Morton dictionary builders.
+        let curve_params = self.curve_params();
 
         let (last, init) = sort_by.split_last().expect("at least one strategy");
         if init.is_empty() {
             let mut codecs = Codecs::default();
-            StagedLayer::from_tile(self, *last, &stats, cfg.tessellate)
+            StagedLayer::from_tile(self, *last, &stats, cfg.tessellate, curve_params)
                 .encode_into(Encoder::new(cfg), &mut codecs)?
         } else {
             let mut codecs = Codecs::default();
             let mut enc: Encoder = {
                 let first = init[0];
-                StagedLayer::from_tile(self.clone(), first, &stats, cfg.tessellate)
+                StagedLayer::from_tile(self.clone(), first, &stats, cfg.tessellate, curve_params)
                     .encode_into(Encoder::new(cfg), &mut codecs)?
             };
             let mut best = enc.preserve_results();
             // Clone for all-but-last strategies
             for &sort in &init[1..] {
-                let layer = StagedLayer::from_tile(self.clone(), sort, &stats, cfg.tessellate);
+                let layer =
+                    StagedLayer::from_tile(self.clone(), sort, &stats, cfg.tessellate, curve_params);
                 enc = layer.encode_into(enc, &mut codecs)?;
                 if enc.total_len() < best.total_len() {
                     best = enc.preserve_results();
                 }
             }
             // Last strategy: consume self, no clone
-            let layer = StagedLayer::from_tile(self, *last, &stats, cfg.tessellate);
+            let layer = StagedLayer::from_tile(self, *last, &stats, cfg.tessellate, curve_params);
             enc = layer.encode_into(enc, &mut codecs)?;
             if enc.total_len() < best.total_len() {
                 best = enc.preserve_results();

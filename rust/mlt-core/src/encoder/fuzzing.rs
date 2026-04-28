@@ -1,7 +1,7 @@
 use arbitrary::Error::IncorrectFormat;
 use arbitrary::{Arbitrary, Result, Unstructured};
 
-use crate::encoder::model::StagedLayer;
+use crate::encoder::model::{CurveParams, StagedLayer};
 use crate::encoder::optimizer::Presence;
 use crate::encoder::{StagedId, StagedProperty, StagedSharedDict, StagedStrings};
 
@@ -50,12 +50,14 @@ impl Arbitrary<'_> for StagedLayer {
             })
             .collect::<Result<_>>()?;
 
+        let curve_params = CurveParams::from_vertices(geometry.vertices().unwrap_or(&[]));
         Ok(Self {
             name,
             extent,
             id,
             geometry,
             properties,
+            curve_params,
         })
     }
 }

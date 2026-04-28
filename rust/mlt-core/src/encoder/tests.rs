@@ -50,5 +50,6 @@ pub fn stage_tile(
     tessellate: bool,
 ) -> StagedLayer {
     let analysis = tile.analyze(allow_shared_dict).expect("analyze tile");
-    StagedLayer::from_tile(tile, sort, &analysis, tessellate)
+    let curve_params = tile.curve_params();
+    StagedLayer::from_tile(tile, sort, &analysis, tessellate, curve_params)
 }
