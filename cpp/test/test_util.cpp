@@ -1,6 +1,15 @@
 #include <gtest/gtest.h>
 
+#include <mlt/util/string.hpp>
 #include <mlt/util/vectorized.hpp>
+
+#include <cstddef>
+#include <cstdint>
+#include <set>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 TEST(Util, ComponentwiseDeltaVec2) {
     // input, expected output
@@ -49,10 +58,36 @@ TEST(Util, ComponentwiseDeltaVec2) {
          }}};
 
     using namespace mlt::util::decoding::vectorized;
-    for (std::size_t i = 0; i < componentwiseDeltaVec2Cases.size(); ++i) {
-        const auto& [input, expected] = componentwiseDeltaVec2Cases[i];
+    for (const auto& [input, expected] : componentwiseDeltaVec2Cases) {
         auto output = input;
         decodeComponentwiseDeltaVec2(output.data(), output.size());
         EXPECT_EQ(output, expected);
     }
+}
+
+TEST(Util, LongestCommonPrefixEmptySet) {
+    const std::set<std::string> values{};
+    EXPECT_EQ(mlt::util::longestCommonPrefix(values), "");
+}
+
+TEST(Util, LongestCommonPrefixSingleValue) {
+    const std::set<std::string_view> values{"name:de"};
+    const auto prefix = mlt::util::longestCommonPrefix(values);
+    EXPECT_EQ(prefix, "name:de");
+    EXPECT_EQ(prefix.data(), values.begin()->data());
+}
+
+TEST(Util, LongestCommonPrefixMultipleValues) {
+    const std::set<std::string> values{"name:de", "name:he", "name_en", "name_fr"};
+    EXPECT_EQ(mlt::util::longestCommonPrefix(values), "name");
+}
+
+TEST(Util, LongestCommonPrefixNoCommonPrefix) {
+    const std::set<std::string_view> values{"alpha", "beta", "gamma"};
+    EXPECT_EQ(mlt::util::longestCommonPrefix(values), "");
+}
+
+TEST(Util, LongestCommonPrefixVectorValues) {
+    const std::vector<std::string> values{"road:name", "road:type", "road:class"};
+    EXPECT_EQ(mlt::util::longestCommonPrefix(values), "road:");
 }

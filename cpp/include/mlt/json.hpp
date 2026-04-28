@@ -19,8 +19,7 @@
 #include <string>
 #include <utility>
 
-namespace mlt {
-namespace json {
+namespace mlt::json {
 
 using json = nlohmann::json;
 
@@ -40,10 +39,9 @@ template <typename TRange, typename TFunc>
     requires requires(TFunc f, typename std::ranges::range_rvalue_reference_t<TRange> v) {
         { f(v) } -> std::same_as<json>;
     }
-inline json append(TRange sourceRange, json&& array, TFunc transform) {
+inline json append(const TRange& sourceRange, json&& array, const TFunc& transform) {
     assert(array.is_array());
-    std::ranges::transform(
-        std::forward<TRange>(sourceRange), std::back_inserter(array), std::forward<TFunc>(transform));
+    std::ranges::transform(sourceRange, std::back_inserter(array), transform);
     return std::move(array);
 }
 
@@ -52,8 +50,8 @@ template <typename TRange, typename TFunc>
     requires requires(TFunc f, typename std::ranges::range_rvalue_reference_t<TRange> v) {
         { f(v) } -> std::same_as<json>;
     }
-inline json buildArray(TRange sourceRange, TFunc transform) {
-    return append(sourceRange, buildArray(std::ranges::size(sourceRange)), std::forward<TFunc>(transform));
+inline json buildArray(const TRange& sourceRange, const TFunc& transform) {
+    return append(sourceRange, buildArray(std::ranges::size(sourceRange)), transform);
 }
 #pragma endregion JSON utils
 
@@ -95,56 +93,52 @@ inline json buildGeometryElement(const geometry::Point& point, const Projection&
             {"type", "Point"},
             {"coordinates", buildCoordinateArray(point.getCoordinate(), projection)},
         };
-    } else {
-        std::ostringstream ss;
-        ss << "POINT (" << point.getCoordinate().x << " " << point.getCoordinate().y << ")";
-        return ss.str();
     }
+    std::ostringstream ss;
+    ss << "POINT (" << point.getCoordinate().x << " " << point.getCoordinate().y << ")";
+    return ss.str();
 }
 
 inline json buildGeometryElement(const geometry::LineString& line, const Projection& projection, bool geoJSON) {
     if (geoJSON) {
         return buildGeometryElement("LineString", buildCoordinatesArray(line.getCoordinates(), projection));
-    } else {
-        std::ostringstream ss;
-        ss << "LINESTRING (";
-        const auto& coords = line.getCoordinates();
-        for (std::size_t i = 0, n = coords.size(); i < n; ++i) {
-            ss << (i == 0 ? "" : ", ") << coords[i].x << " " << coords[i].y;
-        }
-        ss << ")";
-        return ss.str();
     }
+    std::ostringstream ss;
+    ss << "LINESTRING (";
+    const auto& coords = line.getCoordinates();
+    for (std::size_t i = 0, n = coords.size(); i < n; ++i) {
+        ss << (i == 0 ? "" : ", ") << coords[i].x << " " << coords[i].y;
+    }
+    ss << ")";
+    return ss.str();
 }
 
 inline json buildGeometryElement(const geometry::LinearRing& line, const Projection& projection, bool geoJSON) {
     if (geoJSON) {
         return buildGeometryElement("LineString", buildCoordinatesArray(line.getCoordinates(), projection));
-    } else {
-        std::ostringstream ss;
-        ss << "LINESTRING (";
-        const auto& coords = line.getCoordinates();
-        for (std::size_t i = 0; i < coords.size(); ++i) {
-            ss << (i == 0 ? "" : ", ") << coords[i].x << " " << coords[i].y;
-        }
-        ss << ")";
-        return ss.str();
     }
+    std::ostringstream ss;
+    ss << "LINESTRING (";
+    const auto& coords = line.getCoordinates();
+    for (std::size_t i = 0; i < coords.size(); ++i) {
+        ss << (i == 0 ? "" : ", ") << coords[i].x << " " << coords[i].y;
+    }
+    ss << ")";
+    return ss.str();
 }
 
 inline json buildGeometryElement(const geometry::MultiPoint& points, const Projection& projection, bool geoJSON) {
     if (geoJSON) {
         return buildGeometryElement("MultiPoint", buildCoordinatesArray(points.getCoordinates(), projection));
-    } else {
-        std::ostringstream ss;
-        ss << "MULTIPOINT (";
-        const auto& coords = points.getCoordinates();
-        for (std::size_t i = 0; i < coords.size(); ++i) {
-            ss << (i == 0 ? "" : ", ") << "(" << coords[i].x << " " << coords[i].y << ")";
-        }
-        ss << ")";
-        return ss.str();
     }
+    std::ostringstream ss;
+    ss << "MULTIPOINT (";
+    const auto& coords = points.getCoordinates();
+    for (std::size_t i = 0; i < coords.size(); ++i) {
+        ss << (i == 0 ? "" : ", ") << "(" << coords[i].x << " " << coords[i].y << ")";
+    }
+    ss << ")";
+    return ss.str();
 }
 
 inline json buildGeometryElement(const geometry::MultiLineString& mls, const Projection& projection, bool geoJSON) {
@@ -152,50 +146,48 @@ inline json buildGeometryElement(const geometry::MultiLineString& mls, const Pro
         return buildGeometryElement("MultiLineString", buildArray(mls.getLineStrings(), [&](const auto& lineString) {
                                         return buildCoordinatesArray(lineString, projection);
                                     }));
-    } else {
-        std::ostringstream ss;
-        ss << "MULTILINESTRING (";
-        const auto& lineStrings = mls.getLineStrings();
-        for (std::size_t i = 0, n = lineStrings.size(); i < n; ++i) {
-            if (i != 0) {
-                ss << ", ";
-            }
-            ss << "(";
-            const auto& coords = lineStrings[i];
-            for (std::size_t j = 0; j < coords.size(); ++j) {
-                ss << (j == 0 ? "" : ", ") << coords[j].x << " " << coords[j].y;
-            }
-            ss << ")";
+    }
+    std::ostringstream ss;
+    ss << "MULTILINESTRING (";
+    const auto& lineStrings = mls.getLineStrings();
+    for (std::size_t i = 0, n = lineStrings.size(); i < n; ++i) {
+        if (i != 0) {
+            ss << ", ";
+        }
+        ss << "(";
+        const auto& coords = lineStrings[i];
+        for (std::size_t j = 0; j < coords.size(); ++j) {
+            ss << (j == 0 ? "" : ", ") << coords[j].x << " " << coords[j].y;
         }
         ss << ")";
-        return ss.str();
     }
+    ss << ")";
+    return ss.str();
 }
 
 inline json buildGeometryElement(const geometry::Polygon& poly, const Projection& projection, bool geoJSON) {
     if (geoJSON) {
         return buildGeometryElement("Polygon", buildPolygonCoords(poly.getRings(), projection));
-    } else {
-        std::ostringstream ss;
-        ss << "POLYGON (";
-        const auto& rings = poly.getRings();
-        for (std::size_t i = 0, n = rings.size(); i < n; ++i) {
-            if (i != 0) {
-                ss << ", ";
-            }
-            ss << "(";
-            const auto& coords = rings[i];
-            for (std::size_t j = 0; j <= coords.size(); ++j) {
-                // Wrap around to the first coordinate to close the ring.
-                // See `getLineStringCoords`
-                const auto& coord = coords[j % coords.size()];
-                ss << (j == 0 ? "" : ", ") << coord.x << " " << coord.y;
-            }
-            ss << ")";
+    }
+    std::ostringstream ss;
+    ss << "POLYGON (";
+    const auto& rings = poly.getRings();
+    for (std::size_t i = 0, n = rings.size(); i < n; ++i) {
+        if (i != 0) {
+            ss << ", ";
+        }
+        ss << "(";
+        const auto& coords = rings[i];
+        for (std::size_t j = 0; j <= coords.size(); ++j) {
+            // Wrap around to the first coordinate to close the ring.
+            // See `getLineStringCoords`
+            const auto& coord = coords[j % coords.size()];
+            ss << (j == 0 ? "" : ", ") << coord.x << " " << coord.y;
         }
         ss << ")";
-        return ss.str();
     }
+    ss << ")";
+    return ss.str();
 }
 
 inline json buildGeometryElement(const geometry::MultiPolygon& poly, const Projection& projection, bool geoJSON) {
@@ -203,33 +195,32 @@ inline json buildGeometryElement(const geometry::MultiPolygon& poly, const Proje
         return buildGeometryElement("MultiPolygon", buildArray(poly.getPolygons(), [&](const auto& poly) {
                                         return buildPolygonCoords(poly, projection);
                                     }));
-    } else {
-        std::ostringstream ss;
-        ss << "MULTIPOLYGON (";
-        const auto& polygons = poly.getPolygons();
-        for (std::size_t i = 0; i < polygons.size(); ++i) {
-            if (i != 0) {
+    }
+    std::ostringstream ss;
+    ss << "MULTIPOLYGON (";
+    const auto& polygons = poly.getPolygons();
+    for (std::size_t i = 0; i < polygons.size(); ++i) {
+        if (i != 0) {
+            ss << ", ";
+        }
+        ss << "(";
+        const auto& rings = polygons[i];
+        for (std::size_t j = 0; j < rings.size(); ++j) {
+            if (j != 0) {
                 ss << ", ";
             }
             ss << "(";
-            const auto& rings = polygons[i];
-            for (std::size_t j = 0; j < rings.size(); ++j) {
-                if (j != 0) {
-                    ss << ", ";
-                }
-                ss << "(";
-                const auto& coords = rings[j];
-                for (std::size_t k = 0; k <= coords.size(); ++k) {
-                    const auto& coord = coords[k % coords.size()];
-                    ss << (k == 0 ? "" : ", ") << coord.x << " " << coord.y;
-                }
-                ss << ")";
+            const auto& coords = rings[j];
+            for (std::size_t k = 0; k <= coords.size(); ++k) {
+                const auto& coord = coords[k % coords.size()];
+                ss << (k == 0 ? "" : ", ") << coord.x << " " << coord.y;
             }
             ss << ")";
         }
         ss << ")";
-        return ss.str();
     }
+    ss << ")";
+    return ss.str();
 }
 
 inline json buildAnyGeometryElement(const geometry::Geometry& geometry, const Projection& projection, bool geoJSON) {
@@ -325,7 +316,6 @@ inline json toJSON(const MapLibreTile& tile, const TileCoordinate& tileCoord, bo
     };
 }
 
-} // namespace json
-} // namespace mlt
+} // namespace mlt::json
 
 #endif

@@ -44,7 +44,10 @@ _test-synthetic: _install_npm_deps
 # Run tests
 [working-directory: 'build']
 test: _clean_coverage_data cmake-build _test-synthetic
-    ctest
+    # Run most of the tests quietly, showing output only for failures
+    ctest -E AllFixturesHaveGenerators --parallel
+    # Run the summary verbosely, printing the status of fixture coverage
+    ctest -R AllFixturesHaveGenerators --verbose
 
 _clean_coverage_data:
     find . -name "*.gcda" -delete
@@ -52,11 +55,16 @@ _clean_coverage_data:
 # Generate coverage report
 [working-directory: 'build']
 coverage: _clean_coverage_data (_check-tool 'gcovr') test
-    gcovr --root ../.. \
-        --filter ../src --filter ../include \
+    gcovr -j 0 \
+        --root ../.. \
+        --filter ../src \
+        --filter ../include \
+        --merge-lines \
+        --exclude-noncode-lines \
         --txt coverage.txt \
         --merge-mode-functions=separate \
-        --cobertura-pretty --cobertura coverage.xml \
+        --cobertura-pretty \
+        --cobertura coverage.xml \
         --html-details coverage.html
     @echo "Coverage report at $PWD/coverage.html"
 

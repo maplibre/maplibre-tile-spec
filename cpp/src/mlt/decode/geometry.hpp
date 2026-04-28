@@ -1,6 +1,7 @@
 #pragma once
 
 #include <mlt/decode/int.hpp>
+#include <mlt/decode/int_template.hpp>
 #include <mlt/feature.hpp>
 #include <mlt/geometry.hpp>
 #include <mlt/geometry_vector.hpp>
@@ -8,6 +9,7 @@
 #include <mlt/metadata/tileset.hpp>
 #include <mlt/util/buffer_stream.hpp>
 #include <mlt/util/noncopyable.hpp>
+#include <mlt/util/vectorized.hpp>
 
 #include <stdexcept>
 #include <string>
@@ -24,7 +26,7 @@ public:
         : intDecoder(intDecoder) {}
 
 private:
-    enum class VectorType : std::uint32_t {
+    enum class VectorType : std::uint8_t {
         FLAT,
         CONST,
         SEQUENCE,
@@ -32,7 +34,7 @@ private:
         FSST_DICTIONARY,
     };
 
-    VectorType getVectorTypeIntStream(const metadata::stream::StreamMetadata& streamMetadata) {
+    static VectorType getVectorTypeIntStream(const metadata::stream::StreamMetadata& streamMetadata) {
         using namespace metadata::stream;
         const auto logicalLevelTechnique1 = streamMetadata.getLogicalLevelTechnique1();
         const auto logicalLevelTechnique2 = streamMetadata.getLogicalLevelTechnique2();
@@ -43,8 +45,10 @@ private:
         if (logicalLevelTechnique1 == LogicalLevelTechnique::RLE) {
             assert(metadataType == LogicalLevelTechnique::RLE);
             return (rleRuns == 1) ? VectorType::CONST : VectorType::FLAT;
-        } else if (logicalLevelTechnique1 == LogicalLevelTechnique::DELTA &&
-                   logicalLevelTechnique2 == LogicalLevelTechnique::RLE) {
+        }
+
+        if (logicalLevelTechnique1 == LogicalLevelTechnique::DELTA &&
+            logicalLevelTechnique2 == LogicalLevelTechnique::RLE) {
             assert(metadataType == LogicalLevelTechnique::RLE);
             // If base value equals delta value then one run else two runs
             if (rleRuns == 1 || rleRuns == 2) {
@@ -91,7 +95,7 @@ public:
         intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, GeometryType>(
             tileData, geometryTypes, *geomTypeMetadata);
 
-        std::optional<geometry::MortonSettings> mortonSettings;
+        const std::optional<geometry::MortonSettings> mortonSettings;
 
         for (std::uint32_t i = 1; i < numStreams; ++i) {
             const auto geomStreamMetadata = StreamMetadata::decode(tileData);
@@ -161,8 +165,16 @@ public:
                                 case PhysicalLevelTechnique::NONE:
                                 case PhysicalLevelTechnique::VARINT:
                                 case PhysicalLevelTechnique::FAST_PFOR:
-                                    intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::int32_t>(
-                                        tileData, vertices, *geomStreamMetadata, /*isSigned=*/true);
+                                    if (geomStreamMetadata->getLogicalLevelTechnique1() ==
+                                        LogicalLevelTechnique::COMPONENTWISE_DELTA) {
+                                        intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::int32_t>(
+                                            tileData, vertices, *geomStreamMetadata, /*isSigned=*/true);
+                                    } else {
+                                        intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::int32_t>(
+                                            tileData, vertices, *geomStreamMetadata, /*isSigned=*/false);
+                                        util::decoding::vectorized::decodeComponentwiseDeltaVec2(vertices.data(),
+                                                                                                 vertices.size());
+                                    }
                                     break;
                                 default:
                                     throw std::runtime_error("Unsupported encoding " +
@@ -263,10 +275,10 @@ public:
      * Handle the parsing of the different topology length buffers separate not generic to reduce the
      * branching and improve the performance
      */
-    void decodeRootLengthStream(const std::vector<metadata::tileset::GeometryType>& geometryTypes,
-                                const std::vector<std::uint32_t>& rootLengthStream,
-                                const metadata::tileset::GeometryType bufferId,
-                                std::vector<std::uint32_t>& rootBufferOffsets) {
+    static void decodeRootLengthStream(const std::vector<metadata::tileset::GeometryType>& geometryTypes,
+                                       const std::vector<std::uint32_t>& rootLengthStream,
+                                       const metadata::tileset::GeometryType bufferId,
+                                       std::vector<std::uint32_t>& rootBufferOffsets) {
         assert(&rootLengthStream != &rootBufferOffsets);
         rootBufferOffsets.resize(geometryTypes.size() + 1);
         std::uint32_t previousOffset = rootBufferOffsets[0] = 0;
@@ -283,11 +295,11 @@ public:
         }
     }
 
-    void decodeLevel1LengthStream(const std::vector<metadata::tileset::GeometryType>& geometryTypes,
-                                  const std::vector<std::uint32_t>& rootOffsetBuffer,
-                                  const std::vector<std::uint32_t>& level1LengthBuffer,
-                                  const bool isLineStringPresent,
-                                  std::vector<std::uint32_t>& level1BufferOffsets) {
+    static void decodeLevel1LengthStream(const std::vector<metadata::tileset::GeometryType>& geometryTypes,
+                                         const std::vector<std::uint32_t>& rootOffsetBuffer,
+                                         const std::vector<std::uint32_t>& level1LengthBuffer,
+                                         const bool isLineStringPresent,
+                                         std::vector<std::uint32_t>& level1BufferOffsets) {
         assert(&rootOffsetBuffer != &level1BufferOffsets);
         assert(&level1LengthBuffer != &level1BufferOffsets);
         using metadata::tileset::GeometryType;
@@ -321,10 +333,11 @@ public:
     /*
      * Case where no ring buffer exists so no MultiPolygon or Polygon geometry is part of the buffer
      */
-    void decodeLevel1WithoutRingBufferLengthStream(const std::vector<metadata::tileset::GeometryType>& geometryTypes,
-                                                   const std::vector<std::uint32_t>& rootOffsetBuffer,
-                                                   const std::vector<std::uint32_t>& level1LengthBuffer,
-                                                   std::vector<std::uint32_t>& level1BufferOffsets) {
+    static void decodeLevel1WithoutRingBufferLengthStream(
+        const std::vector<metadata::tileset::GeometryType>& geometryTypes,
+        const std::vector<std::uint32_t>& rootOffsetBuffer,
+        const std::vector<std::uint32_t>& level1LengthBuffer,
+        std::vector<std::uint32_t>& level1BufferOffsets) {
         assert(&rootOffsetBuffer != &level1BufferOffsets);
         assert(&level1LengthBuffer != &level1BufferOffsets);
         using metadata::tileset::GeometryType;
@@ -350,11 +363,11 @@ public:
         }
     }
 
-    void decodeLevel2LengthStream(const std::vector<metadata::tileset::GeometryType>& geometryTypes,
-                                  const std::vector<std::uint32_t>& rootOffsetBuffer,
-                                  const std::vector<std::uint32_t>& level1OffsetBuffer,
-                                  const std::vector<std::uint32_t>& level2LengthBuffer,
-                                  std::vector<std::uint32_t>& level2BufferOffsets) {
+    static void decodeLevel2LengthStream(const std::vector<metadata::tileset::GeometryType>& geometryTypes,
+                                         const std::vector<std::uint32_t>& rootOffsetBuffer,
+                                         const std::vector<std::uint32_t>& level1OffsetBuffer,
+                                         const std::vector<std::uint32_t>& level2LengthBuffer,
+                                         std::vector<std::uint32_t>& level2BufferOffsets) {
         assert(&rootOffsetBuffer != &level2BufferOffsets);
         assert(&level1OffsetBuffer != &level2BufferOffsets);
         assert(&level2LengthBuffer != &level2BufferOffsets);

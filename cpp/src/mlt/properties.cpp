@@ -4,9 +4,14 @@
 #include <mlt/util/stl.hpp>
 
 #include <cassert>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
+#include <optional>
 #include <stdexcept>
+#include <utility>
 #include <variant>
+#include <vector>
 
 namespace mlt {
 
@@ -52,9 +57,8 @@ auto getPropertyValue(const PropertyVec& layerProperties, std::size_t sourceInde
     const auto value = std::visit(ExtractPropertyVisitor(sourceIndex, isBoolean), layerProperties);
     if (value) {
         return *value;
-    } else {
-        throw std::runtime_error("Missing property value");
     }
+    throw std::runtime_error("Missing property value");
 };
 
 template <typename T>

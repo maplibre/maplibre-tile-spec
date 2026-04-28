@@ -14,6 +14,7 @@
 #endif // MLT_WITH_FASTPFOR_SIMD
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <ranges>
 #include <string>

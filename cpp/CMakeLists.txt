@@ -1,8 +1,11 @@
 cmake_minimum_required(VERSION 3.25)
 project(mlt-cpp LANGUAGES CXX)
 
+option(MLT_WITH_CLANG_TIDY "Build with clang-tidy checks enabled" OFF)
+
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 include(AddCXXCompilerFlag)
+include(clang-tidy)
 
 # generate compile_commands.json https://cmake.org/cmake/help/latest/variable/CMAKE_EXPORT_COMPILE_COMMANDS.html
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -20,6 +23,7 @@ if(PROJECT_IS_TOP_LEVEL AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 add_library(mlt-cpp STATIC)
+add_library(mlt-cpp-encoder STATIC)
 
 option(MLT_WITH_JSON "Include JSON support" ON)
 option(MLT_WITH_FASTPFOR "Include FastPFor support" ON)
@@ -27,14 +31,19 @@ option(MLT_WITH_FASTPFOR_SIMD "Include SIMD/NEON support in FastPFor decoding" O
 option(MLT_WITH_TESTS "Include Tests" ON)
 option(MLT_WITH_TOOLS "Include CLI tools" ON)
 
-set_target_properties(
-    mlt-cpp
-    PROPERTIES
-    INTERFACE_MAPLIBRE_NAME "MapLibre Tile Format"
-    INTERFACE_MAPLIBRE_URL "https://github.com/maplibre/maplibre-tile-spec"
-    INTERFACE_MAPLIBRE_AUTHOR "MapLibre"
-    INTERFACE_MAPLIBRE_LICENSE "${PROJECT_SOURCE_DIR}/../LICENSE-APACHE"
-)
+foreach(_target mlt-cpp mlt-cpp-encoder)
+    set_target_properties(
+        ${_target}
+        PROPERTIES
+        INTERFACE_MAPLIBRE_NAME "MapLibre Tile Format"
+        INTERFACE_MAPLIBRE_URL "https://github.com/maplibre/maplibre-tile-spec"
+        INTERFACE_MAPLIBRE_AUTHOR "MapLibre"
+        INTERFACE_MAPLIBRE_LICENSE "${PROJECT_SOURCE_DIR}/../LICENSE-APACHE"
+    )
+if (MLT_WITH_CLANG_TIDY)
+    set_target_properties(${_target} PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_COMMAND}")
+endif()
+endforeach()
 
 add_cxx_compiler_flag(-Wall)
 add_cxx_compiler_flag(-Werror)
@@ -79,18 +88,23 @@ add_cxx_compiler_flag(-Wparentheses)
 add_cxx_compiler_flag(-Wshorten-64-to-32)
 add_cxx_compiler_flag(-Wswitch)
 add_cxx_compiler_flag(-Wunused-value)
+add_cxx_compiler_flag(-Wunused-but-set-variable)
+add_cxx_compiler_flag(-Wredundant-move)
 add_cxx_compiler_flag(-fstrict-aliasing)
 add_cxx_compiler_flag(-wd4061) # MSVC: enum member not handled in switch
 add_cxx_compiler_flag(-wd4514) # MSVC: unreferenced inline function has been removed
 add_cxx_compiler_flag(-wd4710) # MSVC: function not inlined
 add_cxx_compiler_flag(-wd4820) # MSVC: padding added after data member
 
-target_include_directories(mlt-cpp
-    PUBLIC ${PROJECT_SOURCE_DIR}/include
-    PRIVATE ${PROJECT_SOURCE_DIR}/src
-)
+foreach(_target mlt-cpp mlt-cpp-encoder)
+    target_include_directories(${_target}
+        PUBLIC ${PROJECT_SOURCE_DIR}/include
+        PRIVATE ${PROJECT_SOURCE_DIR}/src
+    )
+endforeach()
 
-list(APPEND MLT_INCLUDE_FILES
+# --- Decoder (mlt-cpp) ---
+target_sources(mlt-cpp PRIVATE
     ${PROJECT_SOURCE_DIR}/include/mlt/common.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/decoder.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/feature.hpp
@@ -108,9 +122,6 @@ list(APPEND MLT_INCLUDE_FILES
     ${PROJECT_SOURCE_DIR}/include/mlt/util/noncopyable.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/util/stl.hpp
     ${PROJECT_SOURCE_DIR}/include/mlt/util/varint.hpp
-)
-
-list(APPEND MLT_SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/mlt/decoder.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/decode/geometry.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/decode/int.cpp
@@ -123,24 +134,46 @@ list(APPEND MLT_SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/mlt/metadata/stream.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/metadata/tileset.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/properties.cpp
-    ${PROJECT_SOURCE_DIR}/src/mlt/util/morton_curve.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/raw.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/rle.cpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/rle.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/util/morton_curve.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/space_filling_curve.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/vectorized.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/zigzag.hpp
 )
 
-if(MLT_WITH_JSON)
-    list(APPEND MLT_INCLUDE_FILES ${PROJECT_SOURCE_DIR}/include/mlt/json.hpp)
-endif(MLT_WITH_JSON)
-
-target_sources(mlt-cpp PRIVATE
-    ${MLT_INCLUDE_FILES}
-    ${MLT_SRC_FILES}
+# --- Encoder (mlt-cpp-encoder) ---
+target_sources(mlt-cpp-encoder PRIVATE
+    ${PROJECT_SOURCE_DIR}/include/mlt/common.hpp
+    ${PROJECT_SOURCE_DIR}/include/mlt/encoder.hpp
+    ${PROJECT_SOURCE_DIR}/include/mlt/metadata/stream.hpp
+    ${PROJECT_SOURCE_DIR}/include/mlt/metadata/tileset.hpp
+    ${PROJECT_SOURCE_DIR}/include/mlt/util/buffer_stream.hpp
+    ${PROJECT_SOURCE_DIR}/include/mlt/util/noncopyable.hpp
+    ${PROJECT_SOURCE_DIR}/include/mlt/util/stl.hpp
+    ${PROJECT_SOURCE_DIR}/include/mlt/util/varint.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/encoder.cpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/encode/boolean.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/encode/float.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/encode/geometry.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/encode/int.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/encode/int.cpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/encode/property.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/encode/string.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/metadata/stream.cpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/metadata/tileset.cpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/buffer.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/fsst.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/rle.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/varint.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/zigzag.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/util/hilbert_curve.hpp
+    ${PROJECT_SOURCE_DIR}/src/mlt/util/morton_curve.hpp
 )
 
+include("${PROJECT_SOURCE_DIR}/vendor/fsst.cmake")
+include("${PROJECT_SOURCE_DIR}/vendor/earcut.cmake")
 include("${PROJECT_SOURCE_DIR}/vendor/fastpfor.cmake")
 
 # json
@@ -158,11 +191,12 @@ endif(MLT_WITH_JSON)
 
 if(MLT_WITH_TESTS)
     include(CTest)
-    add_subdirectory(${PROJECT_SOURCE_DIR}/test EXCLUDE_FROM_ALL)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/test)
 endif(MLT_WITH_TESTS)
 
 if(MLT_WITH_TOOLS)
-    add_subdirectory(${PROJECT_SOURCE_DIR}/tool EXCLUDE_FROM_ALL)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/tool)
 endif(MLT_WITH_TOOLS)
 
+list(APPEND MLT_EXPORT_TARGETS mlt-cpp-encoder)
 export(TARGETS ${MLT_EXPORT_TARGETS} FILE MLTTargets.cmake)
