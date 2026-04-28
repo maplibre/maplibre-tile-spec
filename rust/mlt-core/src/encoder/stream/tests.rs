@@ -152,12 +152,11 @@ fn test_decode_u32(
 #[case::edge_values(vec![0, 1, 2, 4, 8, 16, 1024, 65535, 1_000_000_000, u32::MAX])]
 #[case::empty(vec![])]
 fn test_fastpfor_roundtrip(#[case] values: Vec<u32>) {
-    let encoder = IntEncoder::fastpfor();
     let mut enc = Encoder::default();
     write_u32_stream_as(
         &values,
         DATA_STREAM,
-        encoder,
+        IntEncoder::fastpfor(),
         &mut enc,
         &mut Codecs::default(),
     )

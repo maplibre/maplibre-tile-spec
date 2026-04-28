@@ -587,39 +587,31 @@ mod tests {
 
         // Assemble, serialize, parse, decode — same wire layout as geometry encoder:
         // stream count, then meta (geom type), parts, vertex offsets, Morton dict.
+        let mut codecs = Codecs::default();
         let mut enc = Encoder::default();
         enc.write_varint(4u32).unwrap();
-        let values = &[GeometryType::LineString as u32];
-        let stream_type = StreamType::Length(LengthType::VarBinary);
-        let enc_type = IntEncoder::varint();
         write_u32_stream_as(
-            values,
-            stream_type,
-            enc_type,
+            &[GeometryType::LineString as u32],
+            StreamType::Length(LengthType::VarBinary),
+            IntEncoder::varint(),
             &mut enc,
-            &mut Codecs::default(),
+            &mut codecs,
         )
         .unwrap();
-        let values = &[4u32];
-        let stream_type = StreamType::Length(LengthType::Parts);
-        let enc_type = IntEncoder::varint();
         write_u32_stream_as(
-            values,
-            stream_type,
-            enc_type,
+            &[4u32],
+            StreamType::Length(LengthType::Parts),
+            IntEncoder::varint(),
             &mut enc,
-            &mut Codecs::default(),
+            &mut codecs,
         )
         .unwrap();
-        let values = &[0u32, 1, 2, 1];
-        let stream_type = StreamType::Offset(OffsetType::Vertex);
-        let enc_type = IntEncoder::varint();
         write_u32_stream_as(
-            values,
-            stream_type,
-            enc_type,
+            &[0u32, 1, 2, 1],
+            StreamType::Offset(OffsetType::Vertex),
+            IntEncoder::varint(),
             &mut enc,
-            &mut Codecs::default(),
+            &mut codecs,
         )
         .unwrap();
         enc.write_stream(&morton_dict).unwrap();
