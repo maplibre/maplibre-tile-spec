@@ -5,11 +5,13 @@ use super::model::StagedStrings;
 use crate::MltResult;
 use crate::codecs::fsst::{FsstRawData, compress_fsst, compress_fsst_with};
 use crate::decoder::strings::{checked_string_end, encode_null_end};
-use crate::decoder::{DictionaryType, IntEncoding, LengthType, OffsetType, StreamMeta, StreamType};
+use crate::decoder::{DictionaryType, LengthType, OffsetType, StreamMeta, StreamType};
 use crate::encoder::model::{StrEncoding, StreamCtx};
-use crate::encoder::stream::{dedup_strings, write_u32_stream};
-use crate::encoder::{EncodedStream, Encoder};
-use crate::utils::{AsUsize as _, BinarySerializer as _, strings_to_lengths};
+use crate::encoder::stream::{
+    dedup_strings, write_bool_stream, write_stream_payload, write_u32_stream,
+};
+use crate::encoder::{Codecs, Encoder};
+use crate::utils::{AsUsize as _, strings_to_lengths};
 
 /// Minimum total raw byte size of a column before attempting FSST compression.
 const FSST_OVERHEAD_THRESHOLD: usize = 2_048;
@@ -67,17 +69,18 @@ pub(crate) fn fsst_try_train(strings: &[&str]) -> Option<Compressor> {
 #[hotpath::measure]
 pub(crate) fn write_str_col(
     v: &StagedStrings,
-    presence: Option<&EncodedStream>,
+    presence: Option<&StagedStrings>,
     enc: &mut Encoder,
+    codecs: &mut Codecs,
 ) -> MltResult<()> {
     let non_null = v.dense_values();
     let name = &v.name;
     if let Some(str_enc) = enc.override_str_enc(name) {
         match str_enc {
-            StrEncoding::Plain => write_str_plain(&non_null, presence, name, enc)?,
-            StrEncoding::Dict => write_str_dict(&non_null, presence, name, enc)?,
-            StrEncoding::Fsst => write_str_fsst(&non_null, presence, name, enc)?,
-            StrEncoding::FsstDict => write_str_fsst_dict(&non_null, presence, name, enc)?,
+            StrEncoding::Plain => write_str_plain(&non_null, presence, name, enc, codecs)?,
+            StrEncoding::Dict => write_str_dict(&non_null, presence, name, enc, codecs)?,
+            StrEncoding::Fsst => write_str_fsst(&non_null, presence, name, enc, codecs)?,
+            StrEncoding::FsstDict => write_str_fsst_dict(&non_null, presence, name, enc, codecs)?,
         }
     } else {
         // Dedup once; reused by Dict and FSST+Dict alternatives.
@@ -98,14 +101,16 @@ pub(crate) fn write_str_col(
         let dict_fsst = compressor.as_ref().map(|c| compress_fsst_with(&unique, c));
 
         let mut alt = enc.try_alternatives();
-        alt.with(|enc| write_str_plain(&non_null, presence, name, enc))?;
-        alt.with(|enc| write_str_dict_raw(&unique, &offset_indices, presence, name, enc))?;
+        alt.with(|enc| write_str_plain(&non_null, presence, name, enc, codecs))?;
+        alt.with(|enc| write_str_dict_raw(&unique, &offset_indices, presence, name, enc, codecs))?;
 
         if let Some(ref raw) = plain_fsst {
-            alt.with(|enc| write_str_fsst_raw(raw, count, presence, name, enc))?;
+            alt.with(|enc| write_str_fsst_raw(raw, count, presence, name, enc, codecs))?;
         }
         if let Some(ref raw) = dict_fsst {
-            alt.with(|enc| write_str_fsst_dict_raw(raw, &offset_indices, presence, name, enc))?;
+            alt.with(|enc| {
+                write_str_fsst_dict_raw(raw, &offset_indices, presence, name, enc, codecs)
+            })?;
         }
     }
     Ok(())
@@ -119,15 +124,16 @@ pub(crate) fn write_str_col(
 #[hotpath::measure]
 fn write_str_plain(
     non_null: &[&str],
-    presence: Option<&EncodedStream>,
+    presence: Option<&StagedStrings>,
     name: &str,
     enc: &mut Encoder,
+    codecs: &mut Codecs,
 ) -> MltResult<()> {
     let lengths = strings_to_lengths(non_null)?;
     enc.write_varint(2u32 + u32::from(presence.is_some()))?;
-    enc.write_optional_stream(presence)?;
+    write_presence_stream(presence, enc, codecs)?;
     let ctx = StreamCtx::prop(StreamType::Length(LengthType::VarBinary), name);
-    write_u32_stream(&lengths, &ctx, enc)?;
+    write_u32_stream(&lengths, &ctx, enc, codecs)?;
     write_raw_str_data(non_null, DictionaryType::None, enc)
 }
 
@@ -135,31 +141,33 @@ fn write_str_plain(
 #[hotpath::measure]
 fn write_str_dict(
     non_null: &[&str],
-    presence: Option<&EncodedStream>,
+    presence: Option<&StagedStrings>,
     name: &str,
     enc: &mut Encoder,
+    codecs: &mut Codecs,
 ) -> MltResult<()> {
     let (unique, offset_indices) = dedup_strings(non_null)?;
-    write_str_dict_raw(&unique, &offset_indices, presence, name, enc)
+    write_str_dict_raw(&unique, &offset_indices, presence, name, enc, codecs)
 }
 
 /// Write pre-deduped dictionary data.
 fn write_str_dict_raw(
     unique: &[&str],
     offset_indices: &[u32],
-    presence: Option<&EncodedStream>,
+    presence: Option<&StagedStrings>,
     name: &str,
     enc: &mut Encoder,
+    codecs: &mut Codecs,
 ) -> MltResult<()> {
     let lengths = strings_to_lengths(unique)?;
     enc.write_varint(3u32 + u32::from(presence.is_some()))?;
-    enc.write_optional_stream(presence)?;
+    write_presence_stream(presence, enc, codecs)?;
 
     let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), name);
-    write_u32_stream(&lengths, &ctx, enc)?;
+    write_u32_stream(&lengths, &ctx, enc, codecs)?;
 
     let ctx = StreamCtx::prop(StreamType::Offset(OffsetType::String), name);
-    write_u32_stream(offset_indices, &ctx, enc)?;
+    write_u32_stream(offset_indices, &ctx, enc, codecs)?;
     write_raw_str_data(unique, DictionaryType::Single, enc)
 }
 
@@ -169,28 +177,30 @@ fn write_str_dict_raw(
 #[hotpath::measure]
 fn write_str_fsst(
     non_null: &[&str],
-    presence: Option<&EncodedStream>,
+    presence: Option<&StagedStrings>,
     name: &str,
     enc: &mut Encoder,
+    codecs: &mut Codecs,
 ) -> MltResult<()> {
     let raw = compress_fsst(non_null);
-    write_str_fsst_raw(&raw, non_null.len(), presence, name, enc)
+    write_str_fsst_raw(&raw, non_null.len(), presence, name, enc, codecs)
 }
 
 /// Shared FSST write logic.
 fn write_str_fsst_raw(
     raw: &FsstRawData,
     count: usize,
-    presence: Option<&EncodedStream>,
+    presence: Option<&StagedStrings>,
     name: &str,
     enc: &mut Encoder,
+    codecs: &mut Codecs,
 ) -> MltResult<()> {
     let offsets: Vec<u32> = (0..u32::try_from(count)?).collect();
     enc.write_varint(5u32 + u32::from(presence.is_some()))?;
-    enc.write_optional_stream(presence)?;
-    write_fsst_data(raw, DictionaryType::Single, name, enc)?;
+    write_presence_stream(presence, enc, codecs)?;
+    write_fsst_data(raw, DictionaryType::Single, name, enc, codecs)?;
     let ctx = StreamCtx::prop(StreamType::Offset(OffsetType::String), name);
-    write_u32_stream(&offsets, &ctx, enc)
+    write_u32_stream(&offsets, &ctx, enc, codecs)
 }
 
 /// Encode with FSST + dictionary layout, training a fresh compressor.
@@ -199,28 +209,41 @@ fn write_str_fsst_raw(
 #[hotpath::measure]
 fn write_str_fsst_dict(
     non_null: &[&str],
-    presence: Option<&EncodedStream>,
+    presence: Option<&StagedStrings>,
     name: &str,
     enc: &mut Encoder,
+    codecs: &mut Codecs,
 ) -> MltResult<()> {
     let (unique, offset_indices) = dedup_strings(non_null)?;
     let raw = compress_fsst(&unique);
-    write_str_fsst_dict_raw(&raw, &offset_indices, presence, name, enc)
+    write_str_fsst_dict_raw(&raw, &offset_indices, presence, name, enc, codecs)
 }
 
 /// Shared FSST+dict write logic.
 fn write_str_fsst_dict_raw(
     raw: &FsstRawData,
     offset_indices: &[u32],
-    presence: Option<&EncodedStream>,
+    presence: Option<&StagedStrings>,
     name: &str,
     enc: &mut Encoder,
+    codecs: &mut Codecs,
 ) -> MltResult<()> {
     enc.write_varint(5u32 + u32::from(presence.is_some()))?;
-    enc.write_optional_stream(presence)?;
-    write_fsst_data(raw, DictionaryType::Single, name, enc)?;
+    write_presence_stream(presence, enc, codecs)?;
+    write_fsst_data(raw, DictionaryType::Single, name, enc, codecs)?;
     let ctx = StreamCtx::prop(StreamType::Offset(OffsetType::String), name);
-    write_u32_stream(offset_indices, &ctx, enc)
+    write_u32_stream(offset_indices, &ctx, enc, codecs)
+}
+
+fn write_presence_stream(
+    presence: Option<&StagedStrings>,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    if let Some(strings) = presence {
+        write_bool_stream(strings.presence_bools(), StreamType::Present, enc, codecs)?;
+    }
+    Ok(())
 }
 
 /// Write 4 FSST sub-streams directly to `enc.data`.
@@ -236,21 +259,17 @@ pub fn write_fsst_data(
     dict_type: DictionaryType,
     name: &str,
     enc: &mut Encoder,
+    codecs: &mut Codecs,
 ) -> MltResult<()> {
     let ctx = StreamCtx::prop(StreamType::Length(LengthType::Symbol), name);
-    write_u32_stream(&raw.symbol_lengths, &ctx, enc)?;
-    let num_syms = u32::try_from(raw.symbol_lengths.len())?;
-    let sym_bytes_len = u32::try_from(raw.symbol_bytes.len())?;
+    write_u32_stream(&raw.symbol_lengths, &ctx, enc, codecs)?;
     let typ = StreamType::Data(DictionaryType::Fsst);
-    StreamMeta::new(typ, IntEncoding::none(), num_syms).write_to(enc, false, sym_bytes_len)?;
-    enc.data.extend_from_slice(&raw.symbol_bytes);
+    let meta = StreamMeta::new_none(typ, raw.symbol_lengths.len())?;
+    write_stream_payload(&mut enc.data, meta, false, &raw.symbol_bytes)?;
     let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), name);
-    write_u32_stream(&raw.value_lengths, &ctx, enc)?;
-    let num_vals = u32::try_from(raw.value_lengths.len())?;
-    let corpus_len = u32::try_from(raw.corpus.len())?;
-    StreamMeta::new(StreamType::Data(dict_type), IntEncoding::none(), num_vals)
-        .write_to(enc, false, corpus_len)?;
-    enc.data.extend_from_slice(&raw.corpus);
+    write_u32_stream(&raw.value_lengths, &ctx, enc, codecs)?;
+    let meta = StreamMeta::new_none(StreamType::Data(dict_type), raw.value_lengths.len())?;
+    write_stream_payload(&mut enc.data, meta, false, &raw.corpus)?;
     Ok(())
 }
 
@@ -262,10 +281,9 @@ pub fn write_raw_str_data(
     enc: &mut Encoder,
 ) -> MltResult<()> {
     let total_len: usize = strings.iter().map(|s| s.len()).sum();
-    let num_values = u32::try_from(strings.len())?;
-    let byte_length = u32::try_from(total_len)?;
     let typ = StreamType::Data(dict_type);
-    StreamMeta::new(typ, IntEncoding::none(), num_values).write_to(enc, false, byte_length)?;
+    let meta = StreamMeta::new_none(typ, strings.len())?;
+    meta.write_to(enc, false, u32::try_from(total_len)?)?;
     enc.data.reserve(total_len);
     for s in strings {
         enc.data.extend_from_slice(s.as_bytes());

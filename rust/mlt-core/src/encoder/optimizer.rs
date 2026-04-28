@@ -1,7 +1,7 @@
 use crate::decoder::{PropKind, TileLayer};
 use crate::encoder::model::StagedLayer;
 use crate::encoder::property::encode::write_properties;
-use crate::encoder::{Encoder, EncoderConfig, SortStrategy, spatial_sort_likely_to_help};
+use crate::encoder::{Codecs, Encoder, EncoderConfig, SortStrategy, spatial_sort_likely_to_help};
 use crate::{MltError, MltResult, PropValue};
 
 impl StagedLayer {
@@ -12,7 +12,7 @@ impl StagedLayer {
     /// trial calls this method on its own fresh `Encoder`, and only the
     /// `Encoder` with the smallest `total_len()` is kept.
     #[hotpath::measure]
-    pub fn encode_into(self, mut enc: Encoder) -> MltResult<Encoder> {
+    pub fn encode_into(self, mut enc: Encoder, codecs: &mut Codecs) -> MltResult<Encoder> {
         let Self {
             name,
             extent,
@@ -21,9 +21,9 @@ impl StagedLayer {
             properties,
         } = self;
 
-        id.write_to(&mut enc)?;
-        geometry.write_to(&mut enc)?;
-        write_properties(&properties, &mut enc)?;
+        id.write_to(&mut enc, codecs)?;
+        geometry.write_to(&mut enc, codecs)?;
+        write_properties(&properties, &mut enc, codecs)?;
         enc.write_header(&name, extent)?;
 
         Ok(enc)
@@ -70,26 +70,28 @@ impl TileLayer {
 
         let (last, init) = sort_by.split_last().expect("at least one strategy");
         if init.is_empty() {
+            let mut codecs = Codecs::default();
             StagedLayer::from_tile(self, *last, &stats, cfg.tessellate)
-                .encode_into(Encoder::new(cfg))?
+                .encode_into(Encoder::new(cfg), &mut codecs)?
         } else {
+            let mut codecs = Codecs::default();
             let mut enc: Encoder = {
                 let first = init[0];
                 StagedLayer::from_tile(self.clone(), first, &stats, cfg.tessellate)
-                    .encode_into(Encoder::new(cfg))?
+                    .encode_into(Encoder::new(cfg), &mut codecs)?
             };
             let mut best = enc.preserve_results();
             // Clone for all-but-last strategies
             for &sort in &init[1..] {
                 let layer = StagedLayer::from_tile(self.clone(), sort, &stats, cfg.tessellate);
-                enc = layer.encode_into(enc)?;
+                enc = layer.encode_into(enc, &mut codecs)?;
                 if enc.total_len() < best.total_len() {
                     best = enc.preserve_results();
                 }
             }
             // Last strategy: consume self, no clone
             let layer = StagedLayer::from_tile(self, *last, &stats, cfg.tessellate);
-            enc = layer.encode_into(enc)?;
+            enc = layer.encode_into(enc, &mut codecs)?;
             if enc.total_len() < best.total_len() {
                 best = enc.preserve_results();
             }

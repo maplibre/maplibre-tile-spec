@@ -10,7 +10,9 @@ use strum::IntoEnumIterator as _;
 mod bench_utils;
 use bench_utils::{BENCHMARKED_ZOOM_LEVELS, load_mlt_tiles};
 use mlt_core::encoder::SortStrategy::Unsorted;
-use mlt_core::encoder::{Encoder, ExplicitEncoder, IntEncoder, PhysicalEncoder, StagedLayer};
+use mlt_core::encoder::{
+    Codecs, Encoder, ExplicitEncoder, IntEncoder, PhysicalEncoder, StagedLayer,
+};
 
 fn limit<T>(values: impl Iterator<Item = T>) -> impl Iterator<Item = T> {
     if cfg!(debug_assertions) {
@@ -68,12 +70,17 @@ fn bench_encode(c: &mut Criterion) {
                             b.iter_batched(
                                 || decode_to_owned(tiles, enc_config.tessellate),
                                 |layers| {
+                                    let mut codecs = Codecs::default();
                                     for layer in layers {
                                         let enc = Encoder::with_explicit(
                                             enc_config,
                                             ExplicitEncoder::all(int_enc),
                                         );
-                                        black_box(layer.encode_into(enc).expect("encode failed"));
+                                        black_box(
+                                            layer
+                                                .encode_into(enc, &mut codecs)
+                                                .expect("encode failed"),
+                                        );
                                     }
                                 },
                                 BatchSize::SmallInput,
