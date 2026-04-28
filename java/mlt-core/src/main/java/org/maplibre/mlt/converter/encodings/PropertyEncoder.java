@@ -33,7 +33,7 @@ public class PropertyEncoder {
       boolean useFastPFOR,
       boolean useFSST,
       boolean coercePropertyValues,
-      SequencedCollection<ColumnMapping> columnMappings,
+      @Nullable SequencedCollection<ColumnMapping> columnMappings,
       @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption)
       throws IOException {
     /*
@@ -46,7 +46,7 @@ public class PropertyEncoder {
     final var estimatedBuffers = propertyColumns.size() * 5;
     final var featureScopedPropertyColumns = new ArrayList<byte[]>(estimatedBuffers);
 
-    final var columnMappingsIterator = columnMappings.iterator();
+    final var columnMappingsIterator = (columnMappings != null) ? columnMappings.iterator() : null;
     for (var columnMetadata : propertyColumns) {
       final ArrayList<byte[]> encodedColumn;
       if (columnMetadata.isScalar()) {
@@ -59,7 +59,7 @@ public class PropertyEncoder {
                 physicalLevelTechnique,
                 integerEncodingOption);
       } else if (MltTypeMap.Tag0x01.isStruct(columnMetadata)) {
-        if (!columnMappingsIterator.hasNext()) {
+        if (columnMappingsIterator == null || !columnMappingsIterator.hasNext()) {
           throw new IllegalArgumentException(
               "Missing column mapping for nested property column " + columnMetadata.getName());
         }
