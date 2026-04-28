@@ -1,8 +1,6 @@
 use num_traits::{AsPrimitive as _, PrimInt as _, WrappingSub, Zero as _};
 use zigzag::ZigZag;
 
-use crate::encoder::IntEncoder;
-
 /// Minimum number of values to profile / compete on.
 ///
 /// Below this threshold the full slice is used regardless of its length.
@@ -103,65 +101,20 @@ impl DataProfile {
         }
     }
 
-    /// Profile a representative sample to prune unsuitable candidates.
+    /// Profile a representative sample.
     #[must_use]
-    pub fn prune_candidates<T>(values: &[T::UInt]) -> Vec<IntEncoder>
+    pub(crate) fn from_values<T>(values: &[T::UInt]) -> Self
     where
         T: ZigZag,
         <T as ZigZag>::UInt: WrappingSub,
     {
         if values.is_empty() {
-            return vec![IntEncoder::plain()];
+            return Self::default();
         }
 
         let target = sample_size(values.len());
         let sample = block_sample(values, target);
-        Self::profile::<T>(sample).candidates(size_of::<T>() == 4)
-    }
-
-    /// Return the list of `Encoder` variants worth trying for `u32` data given the
-    /// supplied profile.
-    ///
-    /// `FastPFOR` is always preferred over `VarInt`;
-    /// `VarInt` is included as a fallback and for compatibility with gzip-compressed output.
-    ///
-    /// The returned vec is ordered from most- to least-complex so the competition
-    /// loop breaks ties deterministically (first match wins on equal sizes).
-    #[must_use]
-    fn candidates(&self, fastpfor_is_allowed: bool) -> Vec<IntEncoder> {
-        let mut out = Vec::with_capacity(8);
-
-        // DeltaRle – when delta pays off AND either raw or delta-transformed values have runs.
-        if self.delta_is_beneficial() && (self.rle_is_viable() || self.delta_rle_is_viable()) {
-            if fastpfor_is_allowed {
-                out.push(IntEncoder::delta_rle_fastpfor());
-            }
-            out.push(IntEncoder::delta_rle_varint());
-        }
-
-        // Delta-only.
-        if self.delta_is_beneficial() {
-            if fastpfor_is_allowed {
-                out.push(IntEncoder::delta_fastpfor());
-            }
-            out.push(IntEncoder::delta_varint());
-        }
-
-        // RLE-only (no delta).
-        if self.rle_is_viable() {
-            if fastpfor_is_allowed {
-                out.push(IntEncoder::rle_fastpfor());
-            }
-            out.push(IntEncoder::rle_varint());
-        }
-
-        // Plain FastPFOR / VarInt are always candidates.
-        if fastpfor_is_allowed {
-            out.push(IntEncoder::fastpfor());
-        }
-        out.push(IntEncoder::varint());
-
-        out
+        Self::profile::<T>(sample)
     }
 
     /// Returns `true` if RLE is a sensible candidate based on this profile.
@@ -169,7 +122,7 @@ impl DataProfile {
     /// An average run length above the threshold means values repeat frequently
     /// enough that the run-length and unique-value arrays will be compact.
     #[must_use]
-    fn rle_is_viable(&self) -> bool {
+    pub(crate) fn rle_is_viable(&self) -> bool {
         self.avg_run_length >= RLE_MIN_AVG_RUN_LENGTH
     }
 
@@ -178,13 +131,13 @@ impl DataProfile {
     /// For sequential or constant-delta data the raw values are all distinct
     /// but the zigzag-delta values are identical, making `DeltaRle` optimal.
     #[must_use]
-    fn delta_rle_is_viable(&self) -> bool {
+    pub(crate) fn delta_rle_is_viable(&self) -> bool {
         self.delta_avg_run_length >= RLE_MIN_AVG_RUN_LENGTH
     }
 
     /// Returns `true` if Delta encoding is expected to be beneficial.
     #[must_use]
-    fn delta_is_beneficial(&self) -> bool {
+    pub(crate) fn delta_is_beneficial(&self) -> bool {
         self.is_sorted || self.delta_total_bits < self.total_bits
     }
 }
@@ -216,182 +169,43 @@ fn sample_size(len: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::encoder::PhysicalEncoder;
+
+    fn assert_profile_flags(profile: &DataProfile, delta: bool, rle: bool, delta_rle: bool) {
+        assert_eq!(profile.delta_is_beneficial(), delta, "delta");
+        assert_eq!(profile.rle_is_viable(), rle, "rle");
+        assert_eq!(profile.delta_rle_is_viable(), delta_rle, "delta_rle");
+    }
 
     #[test]
-    fn candidates_rle_excluded_when_short_runs() {
+    fn profile_sequential_u32_uses_delta_rle_without_raw_rle() {
         // All-distinct stream -> avg_run_length == 1 -> no raw-RLE candidate.
-        // But sequential data has constant deltas -> DeltaRle IS included.
+        // But sequential data has constant deltas -> delta-RLE is viable.
         let data: Vec<u32> = (0..100).collect();
-        let candidates = DataProfile::prune_candidates::<i32>(&data);
-        insta::assert_debug_snapshot!(candidates, @"
-        [
-            IntEncoder {
-                logical: DeltaRle,
-                physical: FastPFOR,
-            },
-            IntEncoder {
-                logical: DeltaRle,
-                physical: VarInt,
-            },
-            IntEncoder {
-                logical: Delta,
-                physical: FastPFOR,
-            },
-            IntEncoder {
-                logical: Delta,
-                physical: VarInt,
-            },
-            IntEncoder {
-                logical: None,
-                physical: FastPFOR,
-            },
-            IntEncoder {
-                logical: None,
-                physical: VarInt,
-            },
-        ]
-        ");
+        let profile = DataProfile::from_values::<i32>(&data);
+        assert!(profile.is_sorted);
+        assert_profile_flags(&profile, true, false, true);
     }
 
     #[test]
-    fn candidates_u64_never_includes_fastpfor() {
-        // FastPFOR is a 32-bit-only codec and must never appear for u64 streams.
-        let data: Vec<u64> = (0..200).collect();
-        let candidates = DataProfile::prune_candidates::<i64>(&data);
-        for enc in &candidates {
-            assert_ne!(
-                enc.physical,
-                PhysicalEncoder::FastPFOR,
-                "FastPFOR invalid for u64"
-            );
-        }
-
-        insta::assert_debug_snapshot!(candidates, @"
-        [
-            IntEncoder {
-                logical: DeltaRle,
-                physical: VarInt,
-            },
-            IntEncoder {
-                logical: Delta,
-                physical: VarInt,
-            },
-            IntEncoder {
-                logical: None,
-                physical: VarInt,
-            },
-        ]
-        ");
-    }
-
-    #[test]
-    fn select_u32_sequential_picks_delta_rle() {
-        let data: Vec<u32> = (0..1_000).collect();
-        let candidates = DataProfile::prune_candidates::<i32>(&data);
-        insta::assert_debug_snapshot!(candidates, @"
-        [
-            IntEncoder {
-                logical: DeltaRle,
-                physical: FastPFOR,
-            },
-            IntEncoder {
-                logical: DeltaRle,
-                physical: VarInt,
-            },
-            IntEncoder {
-                logical: Delta,
-                physical: FastPFOR,
-            },
-            IntEncoder {
-                logical: Delta,
-                physical: VarInt,
-            },
-            IntEncoder {
-                logical: None,
-                physical: FastPFOR,
-            },
-            IntEncoder {
-                logical: None,
-                physical: VarInt,
-            },
-        ]
-        ");
-    }
-
-    #[test]
-    fn select_u32_constant_picks_rle() {
+    fn profile_constant_u32_uses_raw_and_delta_rle() {
         let data = vec![1234u32; 500];
-        let enc = DataProfile::prune_candidates::<i32>(&data);
-        insta::assert_debug_snapshot!(enc, @"
-        [
-            IntEncoder {
-                logical: DeltaRle,
-                physical: FastPFOR,
-            },
-            IntEncoder {
-                logical: DeltaRle,
-                physical: VarInt,
-            },
-            IntEncoder {
-                logical: Delta,
-                physical: FastPFOR,
-            },
-            IntEncoder {
-                logical: Delta,
-                physical: VarInt,
-            },
-            IntEncoder {
-                logical: Rle,
-                physical: FastPFOR,
-            },
-            IntEncoder {
-                logical: Rle,
-                physical: VarInt,
-            },
-            IntEncoder {
-                logical: None,
-                physical: FastPFOR,
-            },
-            IntEncoder {
-                logical: None,
-                physical: VarInt,
-            },
-        ]
-        ");
+        let profile = DataProfile::from_values::<i32>(&data);
+        assert!(profile.is_sorted);
+        assert_profile_flags(&profile, true, true, true);
     }
 
     #[test]
-    fn select_u64_sequential_picks_delta_rle() {
+    fn profile_sequential_u64_uses_delta_rle_without_raw_rle() {
         let data: Vec<u64> = (0u64..500).collect();
-        let candidates = DataProfile::prune_candidates::<i64>(&data);
-        insta::assert_debug_snapshot!(candidates, @"
-        [
-            IntEncoder {
-                logical: DeltaRle,
-                physical: VarInt,
-            },
-            IntEncoder {
-                logical: Delta,
-                physical: VarInt,
-            },
-            IntEncoder {
-                logical: None,
-                physical: VarInt,
-            },
-        ]
-        ");
+        let profile = DataProfile::from_values::<i64>(&data);
+        assert!(profile.is_sorted);
+        assert_profile_flags(&profile, true, false, true);
     }
 
     #[test]
-    fn select_u32_empty_fallback() {
-        let enc = DataProfile::prune_candidates::<i32>(&[]);
-        assert_eq!(enc, vec![IntEncoder::plain()]);
-    }
-
-    #[test]
-    fn select_u64_empty_fallback() {
-        let enc = DataProfile::prune_candidates::<i64>(&[]);
-        assert_eq!(enc, vec![IntEncoder::plain()]);
+    fn profile_empty_has_no_optimizing_flags() {
+        let profile = DataProfile::from_values::<i32>(&[]);
+        assert!(!profile.is_sorted);
+        assert_profile_flags(&profile, false, false, false);
     }
 }

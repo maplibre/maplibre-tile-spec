@@ -16,7 +16,7 @@ use crate::encoder::model::{StrEncoding, StreamCtx};
 use crate::encoder::optimizer::{Presence, PropertyStats, SharedDictRole};
 use crate::encoder::property::strings::{fsst_try_train, write_fsst_data, write_raw_str_data};
 use crate::encoder::{
-    Codecs, Encoder, StagedSharedDict, StagedSharedDictItem, write_bool_stream, write_u32_stream,
+    Codecs, Encoder, StagedSharedDict, StagedSharedDictItem, write_bool_stream, write_int_stream,
 };
 use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, checked_sum3, strings_to_lengths};
@@ -368,12 +368,8 @@ pub(crate) fn write_shared_dict(
     } else {
         let lengths = strings_to_lengths(&dict)?;
         let typ = StreamType::Length(LengthType::Dictionary);
-        write_u32_stream(
-            &lengths,
-            &StreamCtx::prop(typ, &shared_dict.prefix),
-            enc,
-            codecs,
-        )?;
+        let ctx = StreamCtx::prop(typ, &shared_dict.prefix);
+        write_int_stream::<[u32]>(&lengths, &ctx, enc, codecs)?;
         write_raw_str_data(&dict, DictionaryType::Shared, enc)?;
     }
 
@@ -402,7 +398,7 @@ pub(crate) fn write_shared_dict(
             .collect::<Result<_, _>>()?;
         let typ = StreamType::Offset(OffsetType::String);
         let ctx = StreamCtx::prop2(typ, &shared_dict.prefix, &item.suffix);
-        write_u32_stream(&offsets, &ctx, enc, codecs)?;
+        write_int_stream::<[u32]>(&offsets, &ctx, enc, codecs)?;
     }
 
     enc.increment_column_count();
