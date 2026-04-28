@@ -682,10 +682,7 @@ impl GeometryValues {
         let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Index), "triangles_indexes");
         n += write_geo_u32_stream(&index_buffer, ctx, enc)?;
 
-        let pinned = enc
-            .override_vertex_buffer_type()
-            .or(enc.vertex_buffer_type_cache);
-        if let Some(forced) = pinned {
+        if let Some(forced) = enc.override_vertex_buffer_type() {
             n += match forced {
                 VertexBufferType::Vec2 => encode_vec2_vertex_stream(&vertices, enc)?,
                 VertexBufferType::Morton => encode_morton_vertex_streams(&vertices, enc)?,
@@ -696,46 +693,38 @@ impl GeometryValues {
             // otherwise), so all three candidates are always tried here.
             let mut winner_size: usize = usize::MAX;
             let mut winner_stream_cnt: u8 = 0;
-            let mut vertex_buffer_type_cache: VertexBufferType = VertexBufferType::Vec2;
-            {
-                let mut alt = enc.try_alternatives();
-                alt.with(|e| {
-                    let ds = e.data.len();
-                    let ms = e.meta.len();
-                    winner_stream_cnt = encode_vec2_vertex_stream(&vertices, e)?;
-                    winner_size = (e.data.len() - ds) + (e.meta.len() - ms);
-                    Ok(())
-                })?;
-                alt.with(|e| {
-                    let ds = e.data.len();
-                    let ms = e.meta.len();
-                    let hilbert_n = encode_hilbert_vertex_streams(&vertices, e)?;
-                    let hilbert_size = (e.data.len() - ds) + (e.meta.len() - ms);
-                    if hilbert_size < winner_size {
-                        vertex_buffer_type_cache = VertexBufferType::Hilbert;
-                        winner_stream_cnt = hilbert_n;
-                        winner_size = hilbert_size;
-                    }
-                    Ok(())
-                })?;
-                alt.with(|e| {
-                    let ds = e.data.len();
-                    let ms = e.meta.len();
-                    let morton_n = encode_morton_vertex_streams(&vertices, e)?;
-                    let morton_size = (e.data.len() - ds) + (e.meta.len() - ms);
-                    if morton_size < winner_size {
-                        vertex_buffer_type_cache = VertexBufferType::Morton;
-                        winner_stream_cnt = morton_n;
-                        winner_size = morton_size;
-                    }
-                    Ok(())
-                })?;
-            };
-            enc.vertex_buffer_type_cache = Some(vertex_buffer_type_cache);
+            let mut alt = enc.try_alternatives();
+            alt.with(|e| {
+                let ds = e.data.len();
+                let ms = e.meta.len();
+                winner_stream_cnt = encode_vec2_vertex_stream(&vertices, e)?;
+                winner_size = (e.data.len() - ds) + (e.meta.len() - ms);
+                Ok(())
+            })?;
+            alt.with(|e| {
+                let ds = e.data.len();
+                let ms = e.meta.len();
+                let hilbert_n = encode_hilbert_vertex_streams(&vertices, e)?;
+                let hilbert_size = (e.data.len() - ds) + (e.meta.len() - ms);
+                if hilbert_size < winner_size {
+                    winner_stream_cnt = hilbert_n;
+                    winner_size = hilbert_size;
+                }
+                Ok(())
+            })?;
+            alt.with(|e| {
+                let ds = e.data.len();
+                let ms = e.meta.len();
+                let morton_n = encode_morton_vertex_streams(&vertices, e)?;
+                let morton_size = (e.data.len() - ds) + (e.meta.len() - ms);
+                if morton_size < winner_size {
+                    winner_stream_cnt = morton_n;
+                }
+                Ok(())
+            })?;
             n += winner_stream_cnt;
         } else {
             n += encode_vec2_vertex_stream(&vertices, enc)?;
-            enc.vertex_buffer_type_cache = Some(VertexBufferType::Vec2);
         }
 
         // Patch the reserved stream-count byte.

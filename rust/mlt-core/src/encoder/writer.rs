@@ -120,9 +120,6 @@ pub struct Encoder {
     /// as the wire-format `column_count`.
     pub layer_column_count: u32,
 
-    /// Cached vertex layout choice for the current layer.
-    pub(crate) vertex_buffer_type_cache: Option<VertexBufferType>,
-
     /// Cached result of `z_order_params` for the geometry column currently
     /// being encoded.  Cleared at the start of each [`GeometryValues::write_to`](crate::GeometryValues::write_to)
     /// call so it never leaks across columns.
@@ -199,7 +196,6 @@ impl Encoder {
             meta: mem::take(&mut self.meta),
             data: mem::take(&mut self.data),
             layer_column_count: mem::take(&mut self.layer_column_count),
-            vertex_buffer_type_cache: None,
             morton_cache: None,
             hilbert_cache: None,
             fsst_cache: HashMap::new(),
