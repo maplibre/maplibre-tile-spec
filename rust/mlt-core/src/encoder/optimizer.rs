@@ -148,7 +148,7 @@ pub enum Presence {
 impl Presence {
     /// Create presence value
     #[must_use]
-    pub fn from_bits(bits: &BitVec<u8>, existing: &[(BitVec<u8>, usize)]) -> Presence {
+    pub fn from_bits(bits: &BitVec<u8>, existing: &[(BitVec<u8>, usize)]) -> Self {
         if bits.not_any() {
             Self::AllNull
         } else if bits.all() {
