@@ -20,11 +20,8 @@ pub use logical::LogicalEncoder;
 #[cfg(all(test, not(feature = "__private")))]
 pub(crate) use logical::LogicalEncoder;
 pub use model::*;
-pub use optimizer::DataProfile;
 #[cfg(feature = "__private")]
 pub use physical::PhysicalEncoder;
-#[cfg(not(feature = "__private"))]
+#[cfg(all(test, not(feature = "__private")))]
 pub(crate) use physical::PhysicalEncoder;
-pub(crate) use write::{
-    PhysicalIntStreamKind, U32Physical, write_bool_stream, write_int_stream, write_stream_payload,
-};
+pub(crate) use write::write_stream_payload;

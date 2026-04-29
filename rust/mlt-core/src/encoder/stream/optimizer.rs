@@ -49,7 +49,7 @@ impl DataProfile {
     /// Profile a `u32` sample in a single pass.
     #[must_use]
     #[expect(clippy::cast_precision_loss)]
-    fn profile<T>(sample: &[T::UInt]) -> Self
+    pub(crate) fn profile<T>(sample: &[T::UInt]) -> Self
     where
         T: ZigZag,
         <T as ZigZag>::UInt: WrappingSub,
@@ -101,20 +101,14 @@ impl DataProfile {
         }
     }
 
-    /// Profile a representative sample.
-    #[must_use]
-    pub(crate) fn from_values<T>(values: &[T::UInt]) -> Self
-    where
-        T: ZigZag,
-        <T as ZigZag>::UInt: WrappingSub,
-    {
-        if values.is_empty() {
-            return Self::default();
+    pub(crate) fn take_sample<T>(values: &[T]) -> &[T] {
+        let len = (values.len() / 100).clamp(MIN_SAMPLE, MAX_SAMPLE);
+        if values.len() <= len {
+            values
+        } else {
+            let start = (values.len() / 2).saturating_sub(len / 2);
+            &values[start..start + len]
         }
-
-        let target = sample_size(values.len());
-        let sample = block_sample(values, target);
-        Self::profile::<T>(sample)
     }
 
     /// Returns `true` if RLE is a sensible candidate based on this profile.
@@ -142,30 +136,6 @@ impl DataProfile {
     }
 }
 
-fn block_sample<T: Clone + Copy>(values: &[T], target: usize) -> &[T] {
-    if values.len() <= target {
-        return values;
-    }
-    // Pick a starting point (could be middle or random)
-    // and take a contiguous chunk to preserve RLE/Delta patterns.
-    let start = (values.len() / 2).saturating_sub(target / 2);
-    &values[start..start + target]
-}
-
-/// Compute the target sample size from the full stream length.
-///
-/// - Streams shorter than `MIN_SAMPLE` are sampled fully.
-/// - Larger streams are sampled at ~1 % of their length, clamped to
-///   `[MIN_SAMPLE, MAX_SAMPLE]`.
-#[inline]
-fn sample_size(len: usize) -> usize {
-    if len <= MIN_SAMPLE {
-        len
-    } else {
-        (len / 100).clamp(MIN_SAMPLE, MAX_SAMPLE)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -181,7 +151,7 @@ mod tests {
         // All-distinct stream -> avg_run_length == 1 -> no raw-RLE candidate.
         // But sequential data has constant deltas -> delta-RLE is viable.
         let data: Vec<u32> = (0..100).collect();
-        let profile = DataProfile::from_values::<i32>(&data);
+        let profile = DataProfile::profile::<i32>(DataProfile::take_sample(&data));
         assert!(profile.is_sorted);
         assert_profile_flags(&profile, true, false, true);
     }
@@ -189,7 +159,7 @@ mod tests {
     #[test]
     fn profile_constant_u32_uses_raw_and_delta_rle() {
         let data = vec![1234u32; 500];
-        let profile = DataProfile::from_values::<i32>(&data);
+        let profile = DataProfile::profile::<i32>(DataProfile::take_sample(&data));
         assert!(profile.is_sorted);
         assert_profile_flags(&profile, true, true, true);
     }
@@ -197,14 +167,15 @@ mod tests {
     #[test]
     fn profile_sequential_u64_uses_delta_rle_without_raw_rle() {
         let data: Vec<u64> = (0u64..500).collect();
-        let profile = DataProfile::from_values::<i64>(&data);
+        let profile = DataProfile::profile::<i64>(DataProfile::take_sample(&data));
         assert!(profile.is_sorted);
         assert_profile_flags(&profile, true, false, true);
     }
 
     #[test]
     fn profile_empty_has_no_optimizing_flags() {
-        let profile = DataProfile::from_values::<i32>(&[]);
+        let values: &[u32] = &[];
+        let profile = DataProfile::profile::<i32>(DataProfile::take_sample(values));
         assert!(!profile.is_sorted);
         assert_profile_flags(&profile, false, false, false);
     }
