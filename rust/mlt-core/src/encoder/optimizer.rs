@@ -1,7 +1,11 @@
+use bitvec::vec::BitVec;
+
 use crate::decoder::{Morton, PropKind, TileLayer};
 use crate::encoder::model::{CurveParams, StagedLayer};
 use crate::encoder::property::encode::write_properties;
-use crate::encoder::{Codecs, Encoder, EncoderConfig, SortStrategy, spatial_sort_likely_to_help};
+use crate::encoder::{
+    Codecs, Encoder, EncoderConfig, SortStrategy, StagedId, spatial_sort_likely_to_help,
+};
 use crate::{MltError, MltResult, PropValue};
 
 impl StagedLayer {
@@ -13,6 +17,10 @@ impl StagedLayer {
     /// `Encoder` with the smallest `total_len()` is kept.
     #[hotpath::measure]
     pub fn encode_into(self, mut enc: Encoder, codecs: &mut Codecs) -> MltResult<Encoder> {
+        let column_count = usize::from(!matches!(&self.id, StagedId::None))
+            + 1 // geometry
+            + self.properties.len();
+
         let Self {
             name,
             extent,
@@ -24,7 +32,7 @@ impl StagedLayer {
         id.write_to(&mut enc, codecs)?;
         geometry.write_to(&mut enc, codecs)?;
         write_properties(&properties, &mut enc, codecs)?;
-        enc.write_header(&name, extent)?;
+        enc.write_header(&name, extent, column_count)?;
 
         Ok(enc)
     }
@@ -134,6 +142,23 @@ pub enum Presence {
     AllPresent,
     /// Some, but not all, features have a value for this logical column.
     Mixed,
+    /// Mixed presence with the same per-feature mask as an earlier property column.
+    SameAsProp(usize),
+}
+impl Presence {
+    /// Create presence value
+    #[must_use]
+    pub fn from_bits(bits: &BitVec<u8>, existing: &[(BitVec<u8>, usize)]) -> Self {
+        if bits.not_any() {
+            Self::AllNull
+        } else if bits.all() {
+            Self::AllPresent
+        } else if let Some((_, idx)) = existing.iter().find(|(v, _)| v == bits) {
+            Self::SameAsProp(*idx)
+        } else {
+            Self::Mixed
+        }
+    }
 }
 
 /// How a property participates in a shared dictionary group.
@@ -211,45 +236,43 @@ impl PropertyTypedStats {
     pub(crate) fn push(
         &mut self,
         prop: &PropValue,
-        column_index: usize,
+        column_idx: usize,
         property_name: &str,
-    ) -> MltResult<()> {
+    ) -> MltResult<bool> {
         match prop {
-            PropValue::Bool(Some(_)) => self.merge_bool(column_index, property_name)?,
+            PropValue::Bool(Some(_)) => {
+                self.merge_same_kind(Self::Bool, column_idx, property_name)?;
+            }
             PropValue::I8(Some(v)) => {
-                self.merge_signed(i64::from(*v), column_index, property_name)?;
+                self.merge_signed(i64::from(*v), column_idx, property_name)?;
             }
             PropValue::U8(Some(v)) => {
-                self.merge_unsigned(u64::from(*v), column_index, property_name)?;
+                self.merge_unsigned(u64::from(*v), column_idx, property_name)?;
             }
             PropValue::I32(Some(v)) => {
-                self.merge_signed(i64::from(*v), column_index, property_name)?;
+                self.merge_signed(i64::from(*v), column_idx, property_name)?;
             }
             PropValue::U32(Some(v)) => {
-                self.merge_unsigned(u64::from(*v), column_index, property_name)?;
+                self.merge_unsigned(u64::from(*v), column_idx, property_name)?;
             }
-            PropValue::I64(Some(v)) => self.merge_signed(*v, column_index, property_name)?,
-            PropValue::U64(Some(v)) => self.merge_unsigned(*v, column_index, property_name)?,
+            PropValue::I64(Some(v)) => self.merge_signed(*v, column_idx, property_name)?,
+            PropValue::U64(Some(v)) => self.merge_unsigned(*v, column_idx, property_name)?,
             PropValue::F32(Some(_)) => {
-                self.merge_same_kind(Self::F32, column_index, property_name)?;
+                self.merge_same_kind(Self::F32, column_idx, property_name)?;
             }
             PropValue::F64(Some(_)) => {
-                self.merge_same_kind(Self::F64, column_index, property_name)?;
+                self.merge_same_kind(Self::F64, column_idx, property_name)?;
             }
-            PropValue::Str(Some(_)) => self.merge_string(column_index, property_name)?,
-            _ => {}
+            PropValue::Str(Some(_)) => self.merge_string(column_idx, property_name)?,
+            _ => return Ok(false),
         }
-        Ok(())
-    }
-
-    fn merge_bool(&mut self, column_index: usize, property_name: &str) -> MltResult<()> {
-        self.merge_same_kind(Self::Bool, column_index, property_name)
+        Ok(true)
     }
 
     fn merge_signed(
         &mut self,
         value: i64,
-        column_index: usize,
+        column_idx: usize,
         property_name: &str,
     ) -> MltResult<()> {
         match self {
@@ -263,7 +286,7 @@ impl PropertyTypedStats {
                 *min = (*min).min(value);
                 *max = (*max).max(value);
             }
-            _ => return mixed_prop_err(column_index, property_name),
+            _ => return mixed_prop_err(column_idx, property_name),
         }
         Ok(())
     }
@@ -271,7 +294,7 @@ impl PropertyTypedStats {
     fn merge_unsigned(
         &mut self,
         value: u64,
-        column_index: usize,
+        column_idx: usize,
         property_name: &str,
     ) -> MltResult<()> {
         match self {
@@ -285,12 +308,12 @@ impl PropertyTypedStats {
                 *min = (*min).min(value);
                 *max = (*max).max(value);
             }
-            _ => return mixed_prop_err(column_index, property_name),
+            _ => return mixed_prop_err(column_idx, property_name),
         }
         Ok(())
     }
 
-    fn merge_string(&mut self, column_index: usize, property_name: &str) -> MltResult<()> {
+    fn merge_string(&mut self, column_idx: usize, property_name: &str) -> MltResult<()> {
         match self {
             Self::None => {
                 *self = Self::String {
@@ -298,7 +321,7 @@ impl PropertyTypedStats {
                 };
             }
             Self::String { .. } => {}
-            _ => return mixed_prop_err(column_index, property_name),
+            _ => return mixed_prop_err(column_idx, property_name),
         }
         Ok(())
     }
@@ -306,7 +329,7 @@ impl PropertyTypedStats {
     fn merge_same_kind(
         &mut self,
         kind: Self,
-        column_index: usize,
+        column_idx: usize,
         property_name: &str,
     ) -> MltResult<()> {
         match self {
@@ -314,7 +337,7 @@ impl PropertyTypedStats {
             Self::Bool if matches!(kind, Self::Bool) => {}
             Self::F32 if matches!(kind, Self::F32) => {}
             Self::F64 if matches!(kind, Self::F64) => {}
-            _ => return mixed_prop_err(column_index, property_name),
+            _ => return mixed_prop_err(column_idx, property_name),
         }
         Ok(())
     }
@@ -324,48 +347,50 @@ impl TileLayer {
     /// Analyze a [`TileLayer`] and return reusable ID/property facts for the optimizer.
     #[hotpath::measure]
     pub(crate) fn analyze(&self, allow_shared_dict: bool) -> MltResult<LayerStats> {
-        let id = self.analyze_ids();
-        let mut properties = self.profile_properties()?;
+        let mut property_bits = Vec::with_capacity(self.property_names.len());
+        let mut properties = self.analyze_properties(&mut property_bits)?;
+        let id = self.analyze_ids(&property_bits);
         if allow_shared_dict {
             self.group_string_properties(&mut properties);
         }
-
         Ok(LayerStats { id, properties })
     }
 
-    fn analyze_ids(&self) -> Option<PropertyStats> {
-        let mut present = 0usize;
+    fn analyze_ids(&self, property_bits: &[(BitVec<u8>, usize)]) -> Option<PropertyStats> {
         let mut min = u64::MAX;
         let mut max = 0u64;
+        let mut bits = BitVec::<u8>::with_capacity(self.features.len());
         for feature in &self.features {
             if let Some(id) = feature.id {
-                present += 1;
                 min = min.min(id);
                 max = max.max(id);
+                bits.push(true);
+            } else {
+                bits.push(false);
             }
         }
-        if present == 0 {
-            return None;
-        }
-        let presence = if present == self.features.len() {
-            Presence::AllPresent
+        let presence = Presence::from_bits(&bits, property_bits);
+        if presence == Presence::AllNull {
+            None
         } else {
-            Presence::Mixed
-        };
-        Some(PropertyStats {
-            presence,
-            stats: PropertyTypedStats::Unsigned { min, max },
-        })
+            Some(PropertyStats {
+                presence,
+                stats: PropertyTypedStats::Unsigned { min, max },
+            })
+        }
     }
 
-    fn profile_properties(&self) -> MltResult<Vec<PropertyStats>> {
+    fn analyze_properties(
+        &self,
+        property_bits: &mut Vec<(BitVec<u8>, usize)>,
+    ) -> MltResult<Vec<PropertyStats>> {
         self.property_names
             .iter()
             .enumerate()
             .map(|(col_idx, name)| -> MltResult<PropertyStats> {
-                let mut present = 0usize;
                 let mut kind = None;
                 let mut stats = PropertyTypedStats::default();
+                let mut bits = BitVec::<u8>::with_capacity(self.features.len());
                 for feature in &self.features {
                     let prop = feature.properties.get(col_idx);
                     if let Some(prop_kind) = prop.map(PropKind::from) {
@@ -377,49 +402,29 @@ impl TileLayer {
                             _ => {}
                         }
                     }
-                    if prop_is_present(prop) {
-                        present += 1;
-                        let prop = prop.expect("present property exists");
-                        stats.push(prop, col_idx, name)?;
+                    if let Some(prop) = prop
+                        && stats.push(prop, col_idx, name)?
+                    {
+                        bits.push(true);
+                    } else {
+                        bits.push(false);
                     }
                 }
 
-                let presence = if present == 0 {
-                    Presence::AllNull
-                } else if present == self.features.len() {
-                    Presence::AllPresent
-                } else {
-                    Presence::Mixed
-                };
-
+                let presence = Presence::from_bits(&bits, property_bits);
+                if presence == Presence::Mixed {
+                    property_bits.push((bits, col_idx));
+                }
                 Ok(PropertyStats { presence, stats })
             })
             .collect()
     }
 }
 
-fn prop_is_present(prop: Option<&PropValue>) -> bool {
-    matches!(
-        prop,
-        Some(
-            PropValue::Bool(Some(_))
-                | PropValue::I8(Some(_))
-                | PropValue::U8(Some(_))
-                | PropValue::I32(Some(_))
-                | PropValue::U32(Some(_))
-                | PropValue::I64(Some(_))
-                | PropValue::U64(Some(_))
-                | PropValue::F32(Some(_))
-                | PropValue::F64(Some(_))
-                | PropValue::Str(Some(_)),
-        )
-    )
-}
-
 #[inline]
-fn mixed_prop_err<T>(column_index: usize, property_name: &str) -> MltResult<T> {
+fn mixed_prop_err<T>(column_idx: usize, property_name: &str) -> MltResult<T> {
     Err(MltError::MixedPropertyTypes(
-        column_index,
+        column_idx,
         property_name.to_owned(),
     ))
 }

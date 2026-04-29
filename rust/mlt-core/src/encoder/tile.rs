@@ -139,7 +139,7 @@ fn build_scalar_column(
                         })
                         .collect(),
                 ),
-                Presence::Mixed => StagedProperty::$opt_ctor(
+                Presence::Mixed | Presence::SameAsProp(_) => StagedProperty::$opt_ctor(
                     name,
                     features.iter().map(|f| match f.properties.get(col) {
                         Some(PropValue::$sv(v)) => *v,
@@ -171,7 +171,7 @@ fn build_scalar_column(
                         _ => unreachable!("analysis guarantees present string values"),
                     }),
             ),
-            Presence::Mixed => StagedProperty::opt_str(
+            Presence::Mixed | Presence::SameAsProp(_) => StagedProperty::opt_str(
                 name,
                 features
                     .iter_mut()

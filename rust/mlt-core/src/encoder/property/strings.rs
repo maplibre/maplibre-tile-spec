@@ -59,59 +59,63 @@ pub(crate) fn fsst_try_train(strings: &[&str]) -> Option<Compressor> {
     }
 }
 
-/// Encode a string column, following the same explicit-or-auto pattern as numeric columns.
-///
-/// If [`Encoder::override_str_enc`] returns `Some`, only that type is encoded.
-/// Otherwise Plain, Dict, and (when viable) FSST variants are competed via the alternatives
-/// machinery, mirroring the `write_int_prop_*` pattern one level up.
-#[hotpath::measure]
-pub(crate) fn write_str_col(
-    v: &StagedStrings,
-    presence: Option<&StagedStrings>,
-    enc: &mut Encoder,
-    codecs: &mut Codecs,
-) -> MltResult<()> {
-    let non_null = v.dense_values();
-    let name = &v.name;
-    if let Some(str_enc) = enc.override_str_enc(name) {
-        match str_enc {
-            StrEncoding::Plain => write_str_plain(&non_null, presence, name, enc, codecs)?,
-            StrEncoding::Dict => write_str_dict(&non_null, presence, name, enc, codecs)?,
-            StrEncoding::Fsst => write_str_fsst(&non_null, presence, name, enc, codecs)?,
-            StrEncoding::FsstDict => write_str_fsst_dict(&non_null, presence, name, enc, codecs)?,
-        }
-    } else {
-        // Dedup once; reused by Dict and FSST+Dict alternatives.
-        let (unique, offset_indices) = dedup_strings(&non_null)?;
+impl Codecs {
+    /// Encode a string column, following the same explicit-or-auto pattern as numeric columns.
+    ///
+    /// If [`Encoder::override_str_enc`] returns `Some`, only that type is encoded.
+    /// Otherwise Plain, Dict, and (when viable) FSST variants are competed via the alternatives
+    /// machinery, mirroring the `write_int_prop_*` pattern one level up.
+    #[hotpath::measure]
+    pub(crate) fn write_str_col(
+        &mut self,
+        v: &StagedStrings,
+        presence: Option<&StagedStrings>,
+        enc: &mut Encoder,
+    ) -> MltResult<()> {
+        let non_null = v.dense_values();
+        let name = &v.name;
+        if let Some(str_enc) = enc.override_str_enc(name) {
+            match str_enc {
+                StrEncoding::Plain => write_str_plain(&non_null, presence, name, enc, self)?,
+                StrEncoding::Dict => write_str_dict(&non_null, presence, name, enc, self)?,
+                StrEncoding::Fsst => write_str_fsst(&non_null, presence, name, enc, self)?,
+                StrEncoding::FsstDict => write_str_fsst_dict(&non_null, presence, name, enc, self)?,
+            }
+        } else {
+            // Dedup once; reused by Dict and FSST+Dict alternatives.
+            let (unique, offset_indices) = dedup_strings(&non_null)?;
 
-        // Train on deduplicated values once; cached across sort trials.
-        let compressor = enc
-            .fsst_cache
-            .entry(name.clone())
-            .or_insert_with(|| fsst_try_train(&unique));
+            // Train on deduplicated values once; cached across sort trials.
+            let compressor = enc
+                .fsst_cache
+                .entry(name.clone())
+                .or_insert_with(|| fsst_try_train(&unique));
 
-        // Pre-compute compressed data while cache is accessible (before try_alternatives
-        // borrows enc). The FsstRawData is owned, so the cache borrow ends here.
-        let count = non_null.len();
-        let plain_fsst = compressor
-            .as_ref()
-            .map(|c| compress_fsst_with(&non_null, c));
-        let dict_fsst = compressor.as_ref().map(|c| compress_fsst_with(&unique, c));
+            // Pre-compute compressed data while cache is accessible (before try_alternatives
+            // borrows enc). The FsstRawData is owned, so the cache borrow ends here.
+            let count = non_null.len();
+            let plain_fsst = compressor
+                .as_ref()
+                .map(|c| compress_fsst_with(&non_null, c));
+            let dict_fsst = compressor.as_ref().map(|c| compress_fsst_with(&unique, c));
 
-        let mut alt = enc.try_alternatives();
-        alt.with(|enc| write_str_plain(&non_null, presence, name, enc, codecs))?;
-        alt.with(|enc| write_str_dict_raw(&unique, &offset_indices, presence, name, enc, codecs))?;
-
-        if let Some(ref raw) = plain_fsst {
-            alt.with(|enc| write_str_fsst_raw(raw, count, presence, name, enc, codecs))?;
-        }
-        if let Some(ref raw) = dict_fsst {
+            let mut alt = enc.try_alternatives();
+            alt.with(|enc| write_str_plain(&non_null, presence, name, enc, self))?;
             alt.with(|enc| {
-                write_str_fsst_dict_raw(raw, &offset_indices, presence, name, enc, codecs)
+                write_str_dict_raw(&unique, &offset_indices, presence, name, enc, self)
             })?;
+
+            if let Some(ref raw) = plain_fsst {
+                alt.with(|enc| write_str_fsst_raw(raw, count, presence, name, enc, self))?;
+            }
+            if let Some(ref raw) = dict_fsst {
+                alt.with(|enc| {
+                    write_str_fsst_dict_raw(raw, &offset_indices, presence, name, enc, self)
+                })?;
+            }
         }
+        Ok(())
     }
-    Ok(())
 }
 
 /// Encode with plain (`VarBinary` lengths) layout.
