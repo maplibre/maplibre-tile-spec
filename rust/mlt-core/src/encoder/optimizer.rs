@@ -1,4 +1,4 @@
-use bitvec::prelude::{BitSlice, BitVec};
+use bitvec::vec::BitVec;
 
 use crate::decoder::{Morton, PropKind, TileLayer};
 use crate::encoder::model::{CurveParams, StagedLayer};
@@ -142,10 +142,23 @@ pub enum Presence {
     AllPresent,
     /// Some, but not all, features have a value for this logical column.
     Mixed,
-    /// Mixed presence with the same per-feature mask as the ID column.
-    SameAsId,
     /// Mixed presence with the same per-feature mask as an earlier property column.
     SameAsProp(usize),
+}
+impl Presence {
+    /// Create presence value
+    #[must_use]
+    pub fn from_bits(bits: &BitVec<u8>, existing: &[(BitVec<u8>, usize)]) -> Presence {
+        if bits.not_any() {
+            Self::AllNull
+        } else if bits.all() {
+            Self::AllPresent
+        } else if let Some((_, idx)) = existing.iter().find(|(v, _)| v == bits) {
+            Self::SameAsProp(*idx)
+        } else {
+            Self::Mixed
+        }
+    }
 }
 
 /// How a property participates in a shared dictionary group.
@@ -334,57 +347,50 @@ impl TileLayer {
     /// Analyze a [`TileLayer`] and return reusable ID/property facts for the optimizer.
     #[hotpath::measure]
     pub(crate) fn analyze(&self, allow_shared_dict: bool) -> MltResult<LayerStats> {
-        let id_profile = self.analyze_ids();
-        let id_bits = id_profile.as_ref().map(|(_, bits)| bits.as_bitslice());
-        let mut properties = self.profile_properties(id_bits)?;
+        let mut property_bits = Vec::with_capacity(self.property_names.len());
+        let mut properties = self.analyze_properties(&mut property_bits)?;
+        let id = self.analyze_ids(&property_bits);
         if allow_shared_dict {
             self.group_string_properties(&mut properties);
         }
-        let id = id_profile.map(|(stats, _)| stats);
-
         Ok(LayerStats { id, properties })
     }
 
-    fn analyze_ids(&self) -> Option<(PropertyStats, BitVec<u8>)> {
+    fn analyze_ids(&self, property_bits: &[(BitVec<u8>, usize)]) -> Option<PropertyStats> {
         let mut min = u64::MAX;
         let mut max = 0u64;
-        let mut presence_bits = BitVec::<u8>::with_capacity(self.features.len());
+        let mut bits = BitVec::<u8>::with_capacity(self.features.len());
         for feature in &self.features {
             if let Some(id) = feature.id {
                 min = min.min(id);
                 max = max.max(id);
-                presence_bits.push(true);
+                bits.push(true);
             } else {
-                presence_bits.push(false);
+                bits.push(false);
             }
         }
-        if presence_bits.not_any() {
-            return None;
-        }
-        Some((
-            PropertyStats {
-                presence: if presence_bits.all() {
-                    Presence::AllPresent
-                } else {
-                    Presence::Mixed
-                },
+        let presence = Presence::from_bits(&bits, property_bits);
+        if presence == Presence::AllNull {
+            None
+        } else {
+            Some(PropertyStats {
+                presence,
                 stats: PropertyTypedStats::Unsigned { min, max },
-            },
-            presence_bits,
-        ))
+            })
+        }
     }
 
-    fn profile_properties(&self, id_bits: Option<&BitSlice<u8>>) -> MltResult<Vec<PropertyStats>> {
-        // Unique presence and property index
-        let mut property_bits: Vec<(BitVec<u8>, usize)> =
-            Vec::with_capacity(self.property_names.len());
+    fn analyze_properties(
+        &self,
+        property_bits: &mut Vec<(BitVec<u8>, usize)>,
+    ) -> MltResult<Vec<PropertyStats>> {
         self.property_names
             .iter()
             .enumerate()
             .map(|(col_idx, name)| -> MltResult<PropertyStats> {
                 let mut kind = None;
                 let mut stats = PropertyTypedStats::default();
-                let mut presence_bits = BitVec::<u8>::with_capacity(self.features.len());
+                let mut bits = BitVec::<u8>::with_capacity(self.features.len());
                 for feature in &self.features {
                     let prop = feature.properties.get(col_idx);
                     if let Some(prop_kind) = prop.map(PropKind::from) {
@@ -399,28 +405,16 @@ impl TileLayer {
                     if let Some(prop) = prop
                         && stats.push(prop, col_idx, name)?
                     {
-                        presence_bits.push(true);
+                        bits.push(true);
                     } else {
-                        presence_bits.push(false);
+                        bits.push(false);
                     }
                 }
 
-                let presence = if presence_bits.not_any() {
-                    Presence::AllNull
-                } else if presence_bits.all() {
-                    Presence::AllPresent
-                } else if id_bits.is_some_and(|bits| bits == presence_bits) {
-                    Presence::SameAsId
-                } else if let Some((_, idx)) = property_bits
-                    .iter()
-                    .find(|(bits, _)| bits.as_bitslice() == presence_bits)
-                {
-                    Presence::SameAsProp(*idx)
-                } else {
-                    property_bits.push((presence_bits, col_idx));
-                    Presence::Mixed
-                };
-
+                let presence = Presence::from_bits(&bits, property_bits);
+                if presence == Presence::Mixed {
+                    property_bits.push((bits, col_idx));
+                }
                 Ok(PropertyStats { presence, stats })
             })
             .collect()

@@ -90,8 +90,9 @@ impl StagedId {
             Presence::AllPresent => {
                 Self::from_dense(ids.into_iter().flatten(), analysis.stats.values_fit_u32())
             }
-            Presence::Mixed => Self::from_optional_sparse(ids, analysis.stats.values_fit_u32()),
-            Presence::SameAsId | Presence::SameAsProp(_) => unreachable!("ID"),
+            Presence::Mixed | Presence::SameAsProp(_) => {
+                Self::from_optional_sparse(ids, analysis.stats.values_fit_u32())
+            }
         }
     }
 

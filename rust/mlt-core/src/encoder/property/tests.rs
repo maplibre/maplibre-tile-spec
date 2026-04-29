@@ -763,14 +763,14 @@ fn analyze_layer_classifies_id_and_property_presence() {
     let analysis = tile.analyze(true).unwrap();
 
     let id = analysis.id.as_ref().expect("ID analysis");
-    assert_eq!(id.presence, Presence::Mixed);
+    assert_eq!(id.presence, Presence::SameAsProp(1));
     assert_eq!(id.stats, PropertyTypedStats::Unsigned { min: 1, max: 3 });
     assert_eq!(analysis.properties[0].presence, Presence::AllPresent);
     assert_eq!(
         analysis.properties[0].stats,
         PropertyTypedStats::Unsigned { min: 1, max: 3 }
     );
-    assert_eq!(analysis.properties[1].presence, Presence::SameAsId);
+    assert_eq!(analysis.properties[1].presence, Presence::Mixed);
     assert_eq!(analysis.properties[1].stats, PropertyTypedStats::Bool);
     assert_eq!(analysis.properties[2].presence, Presence::AllNull);
     assert_eq!(analysis.properties[2].stats, PropertyTypedStats::None);
@@ -840,8 +840,12 @@ fn analyze_layer_records_matching_property_presence_as_aliases() {
 
     let analysis = tile.analyze(false).unwrap();
 
-    assert_eq!(analysis.properties[0].presence, Presence::SameAsId);
-    assert_eq!(analysis.properties[1].presence, Presence::SameAsId);
+    assert_eq!(
+        analysis.id.as_ref().expect("ID analysis").presence,
+        Presence::SameAsProp(0)
+    );
+    assert_eq!(analysis.properties[0].presence, Presence::Mixed);
+    assert_eq!(analysis.properties[1].presence, Presence::SameAsProp(0));
     assert_eq!(analysis.properties[2].presence, Presence::Mixed);
     assert_eq!(analysis.properties[3].presence, Presence::AllPresent);
     assert_eq!(analysis.properties[4].presence, Presence::SameAsProp(2));
