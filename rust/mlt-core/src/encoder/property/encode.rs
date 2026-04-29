@@ -4,9 +4,7 @@ use crate::MltResult;
 use crate::decoder::{ColumnType, DictionaryType, StreamType};
 use crate::encoder::model::StreamCtx;
 use crate::encoder::property::shared_dict::write_shared_dict;
-use crate::encoder::stream::{write_bool_stream, write_int_stream};
-use crate::encoder::{Codecs, EncodedStream, Encoder, StagedScalar, StagedStrings};
-use crate::utils::BinarySerializer as _;
+use crate::encoder::{Codecs, Encoder, StagedScalar, StagedStrings};
 
 /// Encode all property columns and write them to `enc`.
 #[hotpath::measure]
@@ -33,80 +31,62 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder, codecs: &mut Codecs) -> 
         D::Bool(v) => {
             enc.write_column_header(CT::Bool, &v.name)?;
             let values = v.values.iter().copied();
-            write_bool_stream(values, StreamType::Data(DictionaryType::None), enc, codecs)?;
+            codecs.write_bool_stream(values, StreamType::Data(DictionaryType::None), enc)?;
         }
         D::OptBool(v) => {
-            begin_opt_col(
-                CT::OptBool,
-                &v.name,
-                v.presence.iter().copied(),
-                enc,
-                codecs,
-            )?;
+            begin_opt_col(CT::OptBool, &v.name, &v.presence, enc, codecs)?;
             let values = v.values.iter().copied();
-            write_bool_stream(values, StreamType::Data(DictionaryType::None), enc, codecs)?;
+            codecs.write_bool_stream(values, StreamType::Data(DictionaryType::None), enc)?;
         }
         D::F32(v) => {
             enc.write_column_header(CT::F32, &v.name)?;
-            enc.write_stream(&EncodedStream::encode_f32(&v.values)?)?;
+            codecs.write_float_stream(&v.values, StreamType::Data(DictionaryType::None), enc)?;
         }
         D::OptF32(v) => {
-            begin_opt_col(CT::OptF32, &v.name, v.presence.iter().copied(), enc, codecs)?;
-            enc.write_stream(&EncodedStream::encode_f32(&v.values)?)?;
+            begin_opt_col(CT::OptF32, &v.name, &v.presence, enc, codecs)?;
+            codecs.write_float_stream(&v.values, StreamType::Data(DictionaryType::None), enc)?;
         }
         D::F64(v) => {
             enc.write_column_header(CT::F64, &v.name)?;
-            enc.write_stream(&EncodedStream::encode_f64(&v.values)?)?;
+            codecs.write_float_stream(&v.values, StreamType::Data(DictionaryType::None), enc)?;
         }
         D::OptF64(v) => {
-            begin_opt_col(CT::OptF64, &v.name, v.presence.iter().copied(), enc, codecs)?;
-            enc.write_stream(&EncodedStream::encode_f64(&v.values)?)?;
+            begin_opt_col(CT::OptF64, &v.name, &v.presence, enc, codecs)?;
+            codecs.write_float_stream(&v.values, StreamType::Data(DictionaryType::None), enc)?;
         }
         D::I8(v) => {
             enc.write_column_header(CT::I8, &v.name)?;
-            let widened: Vec<i32> = v.values.iter().map(|&x| i32::from(x)).collect();
-            let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
-            write_int_stream::<[i32]>(&widened, &ctx, enc, codecs)?;
+            codecs.write_int_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)?;
         }
         D::OptI8(v) => {
-            begin_opt_col(CT::OptI8, &v.name, v.presence.iter().copied(), enc, codecs)?;
-            let widened: Vec<i32> = v.values.iter().map(|&x| i32::from(x)).collect();
-            let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
-            write_int_stream::<[i32]>(&widened, &ctx, enc, codecs)?;
+            begin_opt_col(CT::OptI8, &v.name, &v.presence, enc, codecs)?;
+            codecs.write_int_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)?;
         }
         D::U8(v) => {
             enc.write_column_header(CT::U8, &v.name)?;
-            let widened: Vec<u32> = v.values.iter().map(|&x| u32::from(x)).collect();
-            let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
-            write_int_stream::<[u32]>(&widened, &ctx, enc, codecs)?;
+            codecs.write_int_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)?;
         }
         D::OptU8(v) => {
-            begin_opt_col(CT::OptU8, &v.name, v.presence.iter().copied(), enc, codecs)?;
-            let widened: Vec<u32> = v.values.iter().map(|&x| u32::from(x)).collect();
-            let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
-            write_int_stream::<[u32]>(&widened, &ctx, enc, codecs)?;
+            begin_opt_col(CT::OptU8, &v.name, &v.presence, enc, codecs)?;
+            codecs.write_int_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)?;
         }
         D::I32(v) => {
             enc.write_column_header(CT::I32, &v.name)?;
-            let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
-            write_int_stream::<[i32]>(&v.values, &ctx, enc, codecs)?;
+            codecs.write_int_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)?;
         }
         D::OptI32(v) => {
-            begin_opt_col(CT::OptI32, &v.name, v.presence.iter().copied(), enc, codecs)?;
-            let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
-            write_int_stream::<[i32]>(&v.values, &ctx, enc, codecs)?;
+            begin_opt_col(CT::OptI32, &v.name, &v.presence, enc, codecs)?;
+            codecs.write_int_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)?;
         }
         D::U32(v) => write_u32_scalar_col(CT::U32, Some(&v.name), v, enc, codecs)?,
         D::OptU32(v) => write_opt_u32_scalar_col(CT::OptU32, Some(&v.name), v, enc, codecs)?,
         D::I64(v) => {
             enc.write_column_header(CT::I64, &v.name)?;
-            let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
-            write_int_stream::<[i64]>(&v.values, &ctx, enc, codecs)?;
+            codecs.write_int_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)?;
         }
         D::OptI64(v) => {
-            begin_opt_col(CT::OptI64, &v.name, v.presence.iter().copied(), enc, codecs)?;
-            let ctx = StreamCtx::prop(StreamType::Data(DictionaryType::None), &v.name);
-            write_int_stream::<[i64]>(&v.values, &ctx, enc, codecs)?;
+            begin_opt_col(CT::OptI64, &v.name, &v.presence, enc, codecs)?;
+            codecs.write_int_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)?;
         }
         D::U64(v) => write_u64_scalar_col(CT::U64, Some(&v.name), v, enc, codecs)?,
         D::OptU64(v) => write_opt_u64_scalar_col(CT::OptU64, Some(&v.name), v, enc, codecs)?,
@@ -132,12 +112,12 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder, codecs: &mut Codecs) -> 
 fn begin_opt_col(
     ct: ColumnType,
     name: &str,
-    presence_bools: impl ExactSizeIterator<Item = bool>,
+    presence: &[bool],
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
     enc.write_column_header(ct, name)?;
-    write_bool_stream(presence_bools, StreamType::Present, enc, codecs)
+    codecs.write_presence_stream(presence.iter().copied(), enc)
 }
 
 pub(crate) fn write_u32_scalar_col(
@@ -148,7 +128,7 @@ pub(crate) fn write_u32_scalar_col(
     codecs: &mut Codecs,
 ) -> MltResult<()> {
     begin_scalar_col(ct, name, enc)?;
-    write_int_stream::<[u32]>(&v.values, &scalar_ctx(name), enc, codecs)
+    codecs.write_int_stream(&v.values, &scalar_ctx(name), enc)
 }
 
 pub(crate) fn write_opt_u32_scalar_col(
@@ -159,8 +139,8 @@ pub(crate) fn write_opt_u32_scalar_col(
     codecs: &mut Codecs,
 ) -> MltResult<()> {
     begin_scalar_col(ct, name, enc)?;
-    write_bool_stream(v.presence.iter().copied(), StreamType::Present, enc, codecs)?;
-    write_int_stream::<[u32]>(&v.values, &scalar_ctx(name), enc, codecs)
+    codecs.write_presence_stream(v.presence.iter().copied(), enc)?;
+    codecs.write_int_stream(&v.values, &scalar_ctx(name), enc)
 }
 
 pub(crate) fn write_u64_scalar_col(
@@ -171,7 +151,7 @@ pub(crate) fn write_u64_scalar_col(
     codecs: &mut Codecs,
 ) -> MltResult<()> {
     begin_scalar_col(ct, name, enc)?;
-    write_int_stream::<[u64]>(&v.values, &scalar_ctx(name), enc, codecs)
+    codecs.write_int_stream(&v.values, &scalar_ctx(name), enc)
 }
 
 pub(crate) fn write_opt_u64_scalar_col(
@@ -183,8 +163,8 @@ pub(crate) fn write_opt_u64_scalar_col(
 ) -> MltResult<()> {
     let presence_bools = v.presence.iter().copied();
     begin_scalar_col(ct, name, enc)?;
-    write_bool_stream(presence_bools, StreamType::Present, enc, codecs)?;
-    write_int_stream::<[u64]>(&v.values, &scalar_ctx(name), enc, codecs)
+    codecs.write_presence_stream(presence_bools, enc)?;
+    codecs.write_int_stream(&v.values, &scalar_ctx(name), enc)
 }
 
 fn begin_scalar_col(ct: ColumnType, name: Option<&str>, enc: &mut Encoder) -> MltResult<()> {
@@ -197,7 +177,7 @@ fn begin_scalar_col(ct: ColumnType, name: Option<&str>, enc: &mut Encoder) -> Ml
 
 fn scalar_ctx(name: Option<&str>) -> StreamCtx<'_> {
     match name {
-        Some(name) => StreamCtx::prop(StreamType::Data(DictionaryType::None), name),
+        Some(name) => StreamCtx::prop_data(name),
         None => StreamCtx::id(StreamType::Data(DictionaryType::None)),
     }
 }

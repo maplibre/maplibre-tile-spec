@@ -3,6 +3,7 @@ use std::io::Write;
 
 use integer_encoding::VarIntWriter;
 
+#[cfg(any(test, feature = "__private"))]
 use crate::encoder::EncodedStream;
 use crate::{MltError, MltResult};
 
@@ -17,6 +18,7 @@ pub trait BinarySerializer: Write + VarIntWriter + Sized {
     }
 
     /// Reverses `RawStream::from_bytes` — writes a stream header then the stream data bytes.
+    #[cfg(any(test, feature = "__private"))]
     fn write_stream(&mut self, stream: &EncodedStream) -> io::Result<()> {
         let byte_length = u32::try_from(stream.data.len()).map_err(MltError::from)?;
         stream.meta.write_to(self, false, byte_length)?;

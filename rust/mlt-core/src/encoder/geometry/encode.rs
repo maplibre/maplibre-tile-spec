@@ -15,10 +15,7 @@ use crate::decoder::{
     OffsetType, PhysicalEncoding, StreamMeta, StreamType,
 };
 use crate::encoder::model::{CurveParams, StreamCtx};
-use crate::encoder::{
-    Codecs, Encoder, PhysicalCodecs, PhysicalEncoder, PhysicalIntStreamKind, U32Physical,
-    write_int_stream, write_stream_payload,
-};
+use crate::encoder::{Codecs, Encoder, PhysicalCodecs, write_stream_payload};
 use crate::utils::AsUsize as _;
 
 /// Compute `ZOrderCurve` parameters from the vertex value range.
@@ -481,7 +478,7 @@ fn write_geo_u32_stream(
     Ok(if data.is_empty() && !enc.force_stream(&ctx) {
         0
     } else {
-        write_int_stream::<[u32]>(data, &ctx, enc, codecs)?;
+        codecs.write_int_stream(data, &ctx, enc)?;
         1
     })
 }
@@ -497,26 +494,28 @@ fn write_geo_precomputed_stream(
     enc: &mut Encoder,
     physical: &mut PhysicalCodecs,
 ) -> MltResult<u8> {
+    use PhysicalEncoding as PE;
+
     Ok(if data.is_empty() && !enc.force_stream(&ctx) {
         0
     } else {
         if let Some(int_enc) = enc.override_int_enc(&ctx) {
-            let stream_type = ctx.stream_type;
-            let (phys, vals) = U32Physical::encode_physical(physical, data, int_enc.physical)?;
-            let meta = StreamMeta::new2(stream_type, logical, phys, data.len())?;
-            write_stream_payload(&mut enc.data, meta, false, vals)?;
+            physical.write_encoded_as::<[u32]>(&ctx, enc, logical, data, int_enc.physical)?;
         } else if data.is_empty() {
-            let meta = StreamMeta::new2(ctx.stream_type, logical, PhysicalEncoding::None, 0)?;
+            let meta = StreamMeta::new2(ctx.stream_type, logical, PE::None, 0)?;
             write_stream_payload(&mut enc.data, meta, false, &[])?;
         } else {
             let mut alt = enc.try_alternatives();
-            for physical_enc in [PhysicalEncoder::FastPFOR, PhysicalEncoder::VarInt] {
-                alt.with(|enc| {
-                    let (phys, vals) = U32Physical::encode_physical(physical, data, physical_enc)?;
-                    let meta = StreamMeta::new2(ctx.stream_type, logical, phys, data.len())?;
-                    write_stream_payload(&mut enc.data, meta, false, vals)
-                })?;
-            }
+            alt.with(|enc| {
+                let vals = physical.fastpfor(data)?;
+                let meta = StreamMeta::new2(ctx.stream_type, logical, PE::FastPFor256, data.len())?;
+                write_stream_payload(&mut enc.data, meta, false, vals)
+            })?;
+            alt.with(|enc| {
+                let vals = physical.varint(data);
+                let meta = StreamMeta::new2(ctx.stream_type, logical, PE::VarInt, data.len())?;
+                write_stream_payload(&mut enc.data, meta, false, vals)
+            })?;
         }
         1
     })
@@ -580,7 +579,7 @@ impl GeometryValues {
 
         // Meta stream — always written, even for a zero-feature layer.
         let ctx = StreamCtx::geom(StreamType::Length(LengthType::VarBinary), "meta");
-        write_int_stream::<[u32]>(&meta, &ctx, enc, codecs)?;
+        codecs.write_int_stream(&meta, &ctx, enc)?;
         n += 1;
 
         // Topology: compute each length stream and write it immediately.

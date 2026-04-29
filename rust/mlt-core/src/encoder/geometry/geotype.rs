@@ -288,9 +288,7 @@ mod tests {
         StreamMeta, StreamType,
     };
     use crate::encoder::model::StreamCtx;
-    use crate::encoder::{
-        Codecs, EncodedStream, Encoder, ExplicitEncoder, IntEncoder, write_int_stream,
-    };
+    use crate::encoder::{Codecs, EncodedStream, Encoder, ExplicitEncoder, IntEncoder};
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
 
@@ -595,27 +593,27 @@ mod tests {
             ExplicitEncoder::all(IntEncoder::varint()),
         );
         enc.write_varint(4u32).unwrap();
-        write_int_stream::<[u32]>(
-            &[GeometryType::LineString as u32],
-            &StreamCtx::geom(StreamType::Length(LengthType::VarBinary), "meta"),
-            &mut enc,
-            &mut codecs,
-        )
-        .unwrap();
-        write_int_stream::<[u32]>(
-            &[4u32],
-            &StreamCtx::geom(StreamType::Length(LengthType::Parts), "parts"),
-            &mut enc,
-            &mut codecs,
-        )
-        .unwrap();
-        write_int_stream::<[u32]>(
-            &[0u32, 1, 2, 1],
-            &StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex"),
-            &mut enc,
-            &mut codecs,
-        )
-        .unwrap();
+        codecs
+            .write_int_stream(
+                &[GeometryType::LineString as u32],
+                &StreamCtx::geom(StreamType::Length(LengthType::VarBinary), "meta"),
+                &mut enc,
+            )
+            .unwrap();
+        codecs
+            .write_int_stream(
+                &[4u32],
+                &StreamCtx::geom(StreamType::Length(LengthType::Parts), "parts"),
+                &mut enc,
+            )
+            .unwrap();
+        codecs
+            .write_int_stream(
+                &[0u32, 1, 2, 1],
+                &StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex"),
+                &mut enc,
+            )
+            .unwrap();
         enc.write_stream(&morton_dict).unwrap();
         let buffer = enc.data;
 

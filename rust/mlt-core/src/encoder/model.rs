@@ -1,6 +1,6 @@
 use derive_debug::Dbg;
 
-use crate::decoder::{GeometryValues, StreamType};
+use crate::decoder::{DictionaryType, GeometryValues, StreamType};
 use crate::encoder::geometry::VertexBufferType;
 use crate::encoder::{IntEncoder, StagedId, StagedProperty};
 
@@ -154,6 +154,13 @@ impl<'a> StreamCtx<'a> {
     #[inline]
     #[must_use]
     pub const fn prop(stream_type: StreamType, name: &'a str) -> Self {
+        Self::new(ColumnKind::Property, stream_type, name, "")
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn prop_data(name: &'a str) -> Self {
+        let stream_type = StreamType::Data(DictionaryType::None);
         Self::new(ColumnKind::Property, stream_type, name, "")
     }
 
