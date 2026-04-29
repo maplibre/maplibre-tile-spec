@@ -3,13 +3,17 @@ use crate::utils::{AsUsize as _, take};
 use crate::{Decoder, MltRefResult, MltResult};
 
 /// Pack bools into bytes where each byte represents 8 booleans.
-pub fn encode_bools_to_bytes(bools: impl ExactSizeIterator<Item = bool>, target: &mut Vec<u8>) {
+pub fn encode_bools_to_bytes(
+    bools: impl ExactSizeIterator<Item = bool>,
+    target: &mut Vec<u8>,
+) -> &[u8] {
     let num_bytes = bools.len().div_ceil(8);
     target.clear();
     target.resize(num_bytes, 0u8);
     for i in bools.enumerate().filter_map(|(i, bit)| bit.then_some(i)) {
         target[i / 8] |= 1 << (i % 8);
     }
+    target
 }
 
 /// Decode a slice of bytes into a vector of u64 values assuming little-endian encoding
@@ -111,8 +115,8 @@ mod tests {
         #[test]
         fn encode_bools_to_bytes_roundtrip(bools: Vec<bool>) {
             let mut bytes = Vec::new();
-            encode_bools_to_bytes(bools.iter().copied(), &mut bytes);
-            let bools_rountrip = decode_bytes_to_bools(&bytes, bools.len(), &mut dec()).unwrap();
+            let data = encode_bools_to_bytes(bools.iter().copied(), &mut bytes);
+            let bools_rountrip = decode_bytes_to_bools(data, bools.len(), &mut dec()).unwrap();
             prop_assert_eq!(bools_rountrip, bools);
         }
 

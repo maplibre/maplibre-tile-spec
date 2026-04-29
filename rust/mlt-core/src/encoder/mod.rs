@@ -20,7 +20,7 @@ pub(crate) use geometry::VertexBufferType;
 pub use geometry::VertexBufferType;
 pub use id::StagedId;
 #[cfg(feature = "__private")]
-pub use model::{ColumnKind, ExplicitEncoder, StagedLayer, StrEncoding, StreamCtx};
+pub use model::{ColumnKind, CurveParams, ExplicitEncoder, StagedLayer, StrEncoding, StreamCtx};
 pub use model::{EncodedUnknown, EncoderConfig};
 #[cfg(all(test, not(feature = "__private")))]
 pub(crate) use model::{ExplicitEncoder, StagedLayer, StrEncoding};
@@ -33,7 +33,7 @@ pub use sort::SortStrategy;
 pub(crate) use sort::spatial_sort_likely_to_help;
 pub(crate) use stream::*;
 #[cfg(feature = "__private")]
-pub use stream::{IntEncoder, LogicalEncoder, PhysicalEncoder};
+pub use stream::{Codecs, IntEncoder, LogicalEncoder, PhysicalEncoder};
 #[cfg(any(test, feature = "__private"))]
 pub use tests::stage_tile;
 pub use writer::Encoder;

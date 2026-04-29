@@ -33,6 +33,8 @@ jobs:
 
       - name: Download benchmark tiles
         if: steps.cache-tiles.outputs.cache-hit != 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: just rust::download-benchmark-tiles
 
       - name: Head benchmark (timing + alloc)

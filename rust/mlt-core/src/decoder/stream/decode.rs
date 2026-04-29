@@ -165,17 +165,17 @@ impl<'a> RawStream<'a> {
     pub fn decode_bits_u32(self, buf: &mut Vec<u32>, dec: &mut Decoder) -> MltResult<()> {
         buf.clear();
         match self.meta.encoding.physical {
-            PhysicalEncoding::VarInt => {
-                let (_, values) =
-                    parse_varint_vec::<u32, u32>(self.data, self.meta.num_values, dec)?;
-                *buf = values;
-            }
             PhysicalEncoding::None => {
                 let (_, values) = decode_bytes_to_u32s(self.data, self.meta.num_values, dec)?;
                 *buf = values;
             }
             PhysicalEncoding::FastPFor256 => {
                 *buf = decode_fastpfor(self.data, self.meta.num_values, dec)?;
+            }
+            PhysicalEncoding::VarInt => {
+                let (_, values) =
+                    parse_varint_vec::<u32, u32>(self.data, self.meta.num_values, dec)?;
+                *buf = values;
             }
         }
         Ok(())
@@ -189,11 +189,6 @@ impl<'a> RawStream<'a> {
     pub fn decode_bits_u64(self, buf: &mut Vec<u64>, dec: &mut Decoder) -> MltResult<()> {
         buf.clear();
         match self.meta.encoding.physical {
-            PhysicalEncoding::VarInt => {
-                let (_, values) =
-                    parse_varint_vec::<u64, u64>(self.data, self.meta.num_values, dec)?;
-                *buf = values;
-            }
             PhysicalEncoding::None => {
                 let (_, values) = decode_bytes_to_u64s(self.data, self.meta.num_values, dec)?;
                 *buf = values;
@@ -202,6 +197,11 @@ impl<'a> RawStream<'a> {
                 return Err(MltError::UnsupportedPhysicalEncoding(
                     "FastPFOR decoding u64",
                 ));
+            }
+            PhysicalEncoding::VarInt => {
+                let (_, values) =
+                    parse_varint_vec::<u64, u64>(self.data, self.meta.num_values, dec)?;
+                *buf = values;
             }
         }
         Ok(())

@@ -1,5 +1,5 @@
 use mlt_core::encoder::SortStrategy::Unsorted;
-use mlt_core::encoder::{Encoder, StagedLayer, stage_tile};
+use mlt_core::encoder::{Codecs, Encoder, StagedLayer, stage_tile};
 use mlt_core::{Decoder, Layer, Parser, TileLayer};
 
 /// Fuzz input that starts from a staged layer and tests encode → decode roundtrip.
@@ -33,8 +33,9 @@ impl DecodedLayerInput {
 /// Encode a [`StagedLayer`] to bytes, then parse and decode back to a
 /// row-oriented [`TileLayer`].
 fn encode_decode(staged: StagedLayer) -> TileLayer {
+    let mut codecs = Codecs::default();
     let buffer = staged
-        .encode_into(Encoder::default())
+        .encode_into(Encoder::default(), &mut codecs)
         .expect("encode should not fail")
         .into_layer_bytes()
         .expect("into_layer_bytes should not fail");

@@ -43,7 +43,7 @@ insta = "1.47.2"
 integer-encoding = "4.0.2"
 js-sys = "0.3"
 martin-tile-utils = "0.7"
-mbtiles = { version = "0.16", default-features = false, features = ["transcode"] }
+mbtiles = { version = "0.17", default-features = false, features = ["transcode"] }
 mlt-core = { version = "0.8.0", path = "mlt-core" }
 moka = { version = "0.12", features = ["sync"] }
 mvt-reader = "2.3.0"

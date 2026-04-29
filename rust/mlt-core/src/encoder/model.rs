@@ -1,6 +1,6 @@
 use derive_debug::Dbg;
 
-use crate::decoder::{GeometryValues, StreamType};
+use crate::decoder::{DictionaryType, GeometryValues, StreamType};
 use crate::encoder::geometry::VertexBufferType;
 use crate::encoder::{IntEncoder, StagedId, StagedProperty};
 
@@ -17,6 +17,26 @@ pub struct EncodedUnknown {
 pub struct CurveParams {
     pub shift: u32,
     pub bits: u32,
+}
+
+impl Default for CurveParams {
+    fn default() -> Self {
+        Self { shift: 0, bits: 1 }
+    }
+}
+
+impl CurveParams {
+    /// Compute params from a flat `[x0, y0, x1, y1, …]` vertex slice.
+    #[must_use]
+    pub fn from_vertices(vertices: &[i32]) -> Self {
+        if vertices.is_empty() {
+            return Self::default();
+        }
+        let (min, max) = vertices
+            .iter()
+            .fold((i32::MAX, i32::MIN), |(mn, mx), &v| (mn.min(v), mx.max(v)));
+        crate::codecs::hilbert::hilbert_curve_params_from_bounds(min, max)
+    }
 }
 
 /// Columnar layer data being prepared for encoding (stage 2 of the encoding pipeline).
@@ -134,6 +154,13 @@ impl<'a> StreamCtx<'a> {
     #[inline]
     #[must_use]
     pub const fn prop(stream_type: StreamType, name: &'a str) -> Self {
+        Self::new(ColumnKind::Property, stream_type, name, "")
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn prop_data(name: &'a str) -> Self {
+        let stream_type = StreamType::Data(DictionaryType::None);
         Self::new(ColumnKind::Property, stream_type, name, "")
     }
 
