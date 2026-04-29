@@ -17,7 +17,7 @@ impl StagedLayer {
     /// `Encoder` with the smallest `total_len()` is kept.
     #[hotpath::measure]
     pub fn encode_into(self, mut enc: Encoder, codecs: &mut Codecs) -> MltResult<Encoder> {
-        let column_count = usize::from(!matches!(self.id, StagedId::None))
+        let column_count = usize::from(!matches!(&self.id, StagedId::None))
             + 1 // geometry
             + self.properties.len();
 

@@ -638,10 +638,6 @@ proptest! {
     }
 }
 
-fn str_prop(name: &str, values: &[&str]) -> StagedProperty {
-    StagedProperty::str(name, values.iter().copied())
-}
-
 /// Build a [`TileLayer`] from heterogeneous column data (one `Vec<PropValue>` per column).
 fn tile_from_cols(cols: &[(&str, Vec<PropValue>)]) -> TileLayer {
     let n = cols.first().map_or(0, |(_, v)| v.len());
@@ -1085,15 +1081,17 @@ fn constant_u32_encodes_successfully() {
 fn similar_strings_grouped_into_shared_dict() {
     let vocab = &["Alice", "Bob", "Carol", "Dave"];
     let tile = tile_from_cols(&[("name:en", str_vals(vocab)), ("name:de", str_vals(vocab))]);
-    let staged = stage_tile(tile, Unsorted, true, false);
+
+    let res = tile.analyze(true).unwrap();
     assert_eq!(
-        staged.properties.len(),
-        1,
-        "two similar string columns should be merged into one SharedDict"
+        res.properties[0].stats.shared_dict(),
+        SharedDictRole::Owner("name:".to_string())
     );
-    let mut enc = Encoder::default();
-    let mut codecs = Codecs::default();
-    write_properties(&staged.properties, &mut enc, &mut codecs).unwrap();
+    assert_eq!(
+        res.properties[1].stats.shared_dict(),
+        SharedDictRole::Member(0),
+        "second similar string column should join the first column's SharedDict"
+    );
 }
 
 #[test]
@@ -1104,27 +1102,34 @@ fn multiple_similar_string_columns_grouped() {
         ("addr:street", str_vals(vocab)),
         ("addr:zipcode", str_vals(vocab)),
     ]);
-    let staged = stage_tile(tile, Unsorted, true, false);
+
+    let res = tile.analyze(true).unwrap();
     assert_eq!(
-        staged.properties.len(),
-        1,
-        "three similar string columns should be merged"
+        res.properties[0].stats.shared_dict(),
+        SharedDictRole::Owner("addr:".to_string())
     );
-    let mut enc = Encoder::default();
-    let mut codecs = Codecs::default();
-    write_properties(&staged.properties, &mut enc, &mut codecs).unwrap();
+    assert_eq!(
+        res.properties[1].stats.shared_dict(),
+        SharedDictRole::Member(0)
+    );
+    assert_eq!(
+        res.properties[2].stats.shared_dict(),
+        SharedDictRole::Member(0),
+        "all similar string columns should join the first column's SharedDict"
+    );
 }
 
 #[test]
 fn dissimilar_strings_stay_scalar() {
-    let props = vec![
-        str_prop("city:de", &["Munich", "Manheim", "Garching"]),
-        str_prop("city:colourado", &["Black", "Red", "Gold"]),
-    ];
-    let mut enc = Encoder::default();
-    let mut codecs = Codecs::default();
-    write_properties(&props, &mut enc, &mut codecs).unwrap();
-    assert_eq!(props.len(), 2, "dissimilar strings should not be merged");
+    let tile = tile_from_cols(&[
+        ("city:de", str_vals(&["Munich", "Manheim", "Garching"])),
+        ("city:colourado", str_vals(&["Black", "Red", "Gold"])),
+    ]);
+
+    let res = tile.analyze(true).unwrap();
+
+    assert_eq!(res.properties[0].stats.shared_dict(), SharedDictRole::None);
+    assert_eq!(res.properties[1].stats.shared_dict(), SharedDictRole::None);
 }
 
 #[test]
@@ -1142,11 +1147,19 @@ fn mixed_scalars_and_grouped_strings() {
                 .collect(),
         ),
     ]);
-    let staged = stage_tile(tile, Unsorted, true, false);
-    assert_eq!(staged.properties.len(), 3, "two scalar + one merged dict");
-    let mut enc = Encoder::default();
-    let mut codecs = Codecs::default();
-    write_properties(&staged.properties, &mut enc, &mut codecs).unwrap();
+
+    let res = tile.analyze(true).unwrap();
+
+    assert_eq!(res.properties[0].stats.shared_dict(), SharedDictRole::None);
+    assert_eq!(
+        res.properties[1].stats.shared_dict(),
+        SharedDictRole::Owner("name:".to_string())
+    );
+    assert_eq!(
+        res.properties[2].stats.shared_dict(),
+        SharedDictRole::Member(1)
+    );
+    assert_eq!(res.properties[3].stats.shared_dict(), SharedDictRole::None);
 }
 
 #[test]
