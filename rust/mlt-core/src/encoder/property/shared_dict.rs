@@ -298,7 +298,6 @@ impl Codecs {
     /// When [`Some`], uses the caller-specified encoding and [`Encoder::override_int_enc`] for offsets.
     ///
     /// The caller (staging) is responsible for not creating empty `StagedSharedDict` instances.
-    /// Always returns `true`.
     #[hotpath::measure]
     pub(crate) fn write_shared_dict(
         &mut self,
