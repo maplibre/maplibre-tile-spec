@@ -717,7 +717,6 @@ impl GeometryValues {
         // Patch the reserved stream-count byte.
         debug_assert!(n <= 127, "geometry stream count must fit in one byte");
         enc.data[stream_count_pos] = n;
-        enc.increment_column_count();
         Ok(())
     }
 }

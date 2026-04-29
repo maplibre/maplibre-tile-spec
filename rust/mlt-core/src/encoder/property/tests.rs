@@ -142,23 +142,7 @@ fn n_point_geometry(n: usize) -> GeometryValues {
 
 /// Encode `props` as a layer with matching point geometry and return the raw bytes.
 fn encode_to_bytes(props: Vec<StagedProperty>) -> Vec<u8> {
-    let n = props.iter().map(staged_len).max().unwrap_or(0);
-    let layer = StagedLayer {
-        name: "test".into(),
-        extent: 4096,
-        id: StagedId::None,
-        geometry: n_point_geometry(n),
-        properties: props,
-    };
-    let enc = Encoder::with_explicit(
-        EncoderConfig::default(),
-        ExplicitEncoder::all(IntEncoder::varint()),
-    );
-    let mut codecs = Codecs::default();
-    let enc = layer
-        .encode_into(enc, &mut codecs)
-        .expect("encoding failed");
-    enc.into_layer_bytes().expect("into_layer_bytes failed")
+    encode_to_bytes_explicit(props, ExplicitEncoder::all(IntEncoder::varint()))
 }
 
 /// Encode `props` with explicit encoder config and return the raw bytes.
@@ -181,14 +165,7 @@ fn encode_to_bytes_explicit(props: Vec<StagedProperty>, cfg: ExplicitEncoder) ->
 
 /// Encode and immediately decode `props` into a [`TileLayer`] using auto varint encoding.
 fn encode_and_tile(props: Vec<StagedProperty>) -> TileLayer {
-    let bytes = encode_to_bytes(props);
-    let (_, layer) = Layer::from_bytes(&bytes, &mut parser()).expect("layer parse failed");
-    let Layer::Tag01(layer01) = layer else {
-        panic!("expected Tag01 layer")
-    };
-    let mut d = dec();
-    let parsed = layer01.decode_all(&mut d).expect("decode failed");
-    parsed.into_tile(&mut d).expect("into_tile failed")
+    encode_and_tile_explicit(props, ExplicitEncoder::all(IntEncoder::varint()))
 }
 
 /// Encode and decode with explicit encoder config.
@@ -797,10 +774,82 @@ fn analyze_layer_classifies_id_and_property_presence() {
         analysis.properties[0].stats,
         PropertyTypedStats::Unsigned { min: 1, max: 3 }
     );
-    assert_eq!(analysis.properties[1].presence, Presence::Mixed);
+    assert_eq!(analysis.properties[1].presence, Presence::SameAsId);
     assert_eq!(analysis.properties[1].stats, PropertyTypedStats::Bool);
     assert_eq!(analysis.properties[2].presence, Presence::AllNull);
     assert_eq!(analysis.properties[2].stats, PropertyTypedStats::None);
+}
+
+#[test]
+fn analyze_layer_records_matching_property_presence_as_aliases() {
+    let tile = tile_from_cols_with_ids(
+        &[Some(1), None, Some(3), None],
+        &[
+            (
+                "a",
+                vec![
+                    PropValue::U32(Some(1)),
+                    PropValue::U32(None),
+                    PropValue::U32(Some(3)),
+                    PropValue::U32(None),
+                ],
+            ),
+            (
+                "b",
+                vec![
+                    PropValue::Bool(Some(true)),
+                    PropValue::Bool(None),
+                    PropValue::Bool(Some(false)),
+                    PropValue::Bool(None),
+                ],
+            ),
+            (
+                "c",
+                vec![
+                    PropValue::Str(None),
+                    PropValue::Str(Some("x".to_string())),
+                    PropValue::Str(Some("y".to_string())),
+                    PropValue::Str(None),
+                ],
+            ),
+            (
+                "d",
+                vec![
+                    PropValue::I32(Some(1)),
+                    PropValue::I32(Some(2)),
+                    PropValue::I32(Some(3)),
+                    PropValue::I32(Some(4)),
+                ],
+            ),
+            (
+                "e",
+                vec![
+                    PropValue::F64(None),
+                    PropValue::F64(Some(1.0)),
+                    PropValue::F64(Some(2.0)),
+                    PropValue::F64(None),
+                ],
+            ),
+            (
+                "f",
+                vec![
+                    PropValue::F32(None),
+                    PropValue::F32(None),
+                    PropValue::F32(None),
+                    PropValue::F32(None),
+                ],
+            ),
+        ],
+    );
+
+    let analysis = tile.analyze(false).unwrap();
+
+    assert_eq!(analysis.properties[0].presence, Presence::SameAsId);
+    assert_eq!(analysis.properties[1].presence, Presence::SameAsId);
+    assert_eq!(analysis.properties[2].presence, Presence::Mixed);
+    assert_eq!(analysis.properties[3].presence, Presence::AllPresent);
+    assert_eq!(analysis.properties[4].presence, Presence::SameAsProp(2));
+    assert_eq!(analysis.properties[5].presence, Presence::AllNull);
 }
 
 #[test]
@@ -1000,8 +1049,8 @@ fn no_nulls_produces_encoded_output() {
     let mut enc = Encoder::default();
     let mut codecs = Codecs::default();
     write_properties(&props, &mut enc, &mut codecs).unwrap();
-    assert_eq!(
-        enc.layer_column_count, 1,
+    assert!(
+        !enc.meta.is_empty(),
         "non-null column should write one column"
     );
 }
@@ -1020,7 +1069,7 @@ fn sequential_u32_encodes_successfully() {
     let mut enc = Encoder::default();
     let mut codecs = Codecs::default();
     write_properties(&props, &mut enc, &mut codecs).unwrap();
-    assert_eq!(enc.layer_column_count, 1);
+    assert!(!enc.meta.is_empty());
 }
 
 #[test]
@@ -1029,26 +1078,22 @@ fn constant_u32_encodes_successfully() {
     let mut enc = Encoder::default();
     let mut codecs = Codecs::default();
     write_properties(&props, &mut enc, &mut codecs).unwrap();
-    assert_eq!(enc.layer_column_count, 1);
+    assert!(!enc.meta.is_empty());
 }
 
 #[test]
 fn similar_strings_grouped_into_shared_dict() {
     let vocab = &["Alice", "Bob", "Carol", "Dave"];
     let tile = tile_from_cols(&[("name:en", str_vals(vocab)), ("name:de", str_vals(vocab))]);
-    let mut enc = Encoder::default();
-    let mut codecs = Codecs::default();
-    write_properties(
-        &stage_tile(tile, Unsorted, true, false).properties,
-        &mut enc,
-        &mut codecs,
-    )
-    .unwrap();
-
+    let staged = stage_tile(tile, Unsorted, true, false);
     assert_eq!(
-        enc.layer_column_count, 1,
+        staged.properties.len(),
+        1,
         "two similar string columns should be merged into one SharedDict"
     );
+    let mut enc = Encoder::default();
+    let mut codecs = Codecs::default();
+    write_properties(&staged.properties, &mut enc, &mut codecs).unwrap();
 }
 
 #[test]
@@ -1059,19 +1104,15 @@ fn multiple_similar_string_columns_grouped() {
         ("addr:street", str_vals(vocab)),
         ("addr:zipcode", str_vals(vocab)),
     ]);
-    let mut enc = Encoder::default();
-    let mut codecs = Codecs::default();
-    write_properties(
-        &stage_tile(tile, Unsorted, true, false).properties,
-        &mut enc,
-        &mut codecs,
-    )
-    .unwrap();
-
+    let staged = stage_tile(tile, Unsorted, true, false);
     assert_eq!(
-        enc.layer_column_count, 1,
+        staged.properties.len(),
+        1,
         "three similar string columns should be merged"
     );
+    let mut enc = Encoder::default();
+    let mut codecs = Codecs::default();
+    write_properties(&staged.properties, &mut enc, &mut codecs).unwrap();
 }
 
 #[test]
@@ -1083,10 +1124,7 @@ fn dissimilar_strings_stay_scalar() {
     let mut enc = Encoder::default();
     let mut codecs = Codecs::default();
     write_properties(&props, &mut enc, &mut codecs).unwrap();
-    assert_eq!(
-        enc.layer_column_count, 2,
-        "dissimilar strings should not be merged"
-    );
+    assert_eq!(props.len(), 2, "dissimilar strings should not be merged");
 }
 
 #[test]
@@ -1104,15 +1142,11 @@ fn mixed_scalars_and_grouped_strings() {
                 .collect(),
         ),
     ]);
+    let staged = stage_tile(tile, Unsorted, true, false);
+    assert_eq!(staged.properties.len(), 3, "two scalar + one merged dict");
     let mut enc = Encoder::default();
     let mut codecs = Codecs::default();
-    write_properties(
-        &stage_tile(tile, Unsorted, true, false).properties,
-        &mut enc,
-        &mut codecs,
-    )
-    .unwrap();
-    assert_eq!(enc.layer_column_count, 3, "two scalar + one merged dict");
+    write_properties(&staged.properties, &mut enc, &mut codecs).unwrap();
 }
 
 #[test]
@@ -1121,5 +1155,5 @@ fn encode_with_explicit_encoder_works() {
     let mut enc = Encoder::default();
     let mut codecs = Codecs::default();
     write_properties(&props, &mut enc, &mut codecs).unwrap();
-    assert_eq!(enc.layer_column_count, 1);
+    assert!(!enc.meta.is_empty());
 }

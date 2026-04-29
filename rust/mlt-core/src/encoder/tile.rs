@@ -139,13 +139,15 @@ fn build_scalar_column(
                         })
                         .collect(),
                 ),
-                Presence::Mixed => StagedProperty::$opt_ctor(
-                    name,
-                    features.iter().map(|f| match f.properties.get(col) {
-                        Some(PropValue::$sv(v)) => *v,
-                        _ => None,
-                    }),
-                ),
+                Presence::Mixed | Presence::SameAsId | Presence::SameAsProp(_) => {
+                    StagedProperty::$opt_ctor(
+                        name,
+                        features.iter().map(|f| match f.properties.get(col) {
+                            Some(PropValue::$sv(v)) => *v,
+                            _ => None,
+                        }),
+                    )
+                }
             })
         }};
     }
@@ -171,15 +173,17 @@ fn build_scalar_column(
                         _ => unreachable!("analysis guarantees present string values"),
                     }),
             ),
-            Presence::Mixed => StagedProperty::opt_str(
-                name,
-                features
-                    .iter_mut()
-                    .map(|f| match f.properties.get_mut(col) {
-                        Some(PropValue::Str(v)) => v.take(),
-                        _ => None,
-                    }),
-            ),
+            Presence::Mixed | Presence::SameAsId | Presence::SameAsProp(_) => {
+                StagedProperty::opt_str(
+                    name,
+                    features
+                        .iter_mut()
+                        .map(|f| match f.properties.get_mut(col) {
+                            Some(PropValue::Str(v)) => v.take(),
+                            _ => None,
+                        }),
+                )
+            }
         }),
     }
 }
