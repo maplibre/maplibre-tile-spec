@@ -4,8 +4,7 @@ use crate::MltResult;
 use crate::decoder::{ColumnType, DictionaryType, StreamType};
 use crate::encoder::model::StreamCtx;
 use crate::encoder::property::shared_dict::write_shared_dict;
-use crate::encoder::{Codecs, EncodedStream, Encoder, StagedScalar, StagedStrings};
-use crate::utils::BinarySerializer as _;
+use crate::encoder::{Codecs, Encoder, StagedScalar, StagedStrings};
 
 /// Encode all property columns and write them to `enc`.
 #[hotpath::measure]
@@ -41,19 +40,19 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder, codecs: &mut Codecs) -> 
         }
         D::F32(v) => {
             enc.write_column_header(CT::F32, &v.name)?;
-            enc.write_stream(&EncodedStream::encode_f32(&v.values)?)?;
+            codecs.write_float_stream(&v.values, StreamType::Data(DictionaryType::None), enc)?;
         }
         D::OptF32(v) => {
             begin_opt_col(CT::OptF32, &v.name, &v.presence, enc, codecs)?;
-            enc.write_stream(&EncodedStream::encode_f32(&v.values)?)?;
+            codecs.write_float_stream(&v.values, StreamType::Data(DictionaryType::None), enc)?;
         }
         D::F64(v) => {
             enc.write_column_header(CT::F64, &v.name)?;
-            enc.write_stream(&EncodedStream::encode_f64(&v.values)?)?;
+            codecs.write_float_stream(&v.values, StreamType::Data(DictionaryType::None), enc)?;
         }
         D::OptF64(v) => {
             begin_opt_col(CT::OptF64, &v.name, &v.presence, enc, codecs)?;
-            enc.write_stream(&EncodedStream::encode_f64(&v.values)?)?;
+            codecs.write_float_stream(&v.values, StreamType::Data(DictionaryType::None), enc)?;
         }
         D::I8(v) => {
             enc.write_column_header(CT::I8, &v.name)?;

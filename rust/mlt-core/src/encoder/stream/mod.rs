@@ -19,6 +19,7 @@ pub use encoder::IntEncoder;
 pub use logical::LogicalEncoder;
 #[cfg(all(test, not(feature = "__private")))]
 pub(crate) use logical::LogicalEncoder;
+#[cfg(any(test, feature = "__private"))]
 pub use model::*;
 #[cfg(feature = "__private")]
 pub use physical::PhysicalEncoder;

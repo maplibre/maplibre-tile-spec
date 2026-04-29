@@ -1,7 +1,11 @@
-use crate::decoder::{ParsedScalar, ParsedSharedDict, ParsedStrings, StreamMeta};
+#[cfg(any(test, feature = "__private"))]
+use crate::decoder::StreamMeta;
+use crate::decoder::{ParsedScalar, ParsedSharedDict, ParsedStrings};
+#[cfg(any(test, feature = "__private"))]
 use crate::encoder::EncodedStream;
 use crate::{Analyze, StatType};
 
+#[cfg(any(test, feature = "__private"))]
 impl Analyze for EncodedStream {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         cb(self.meta);

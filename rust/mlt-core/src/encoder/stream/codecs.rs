@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use bytemuck::{NoUninit, cast_slice};
 use fastpfor::FastPFor256;
 use num_traits::WrappingSub;
 use zigzag::ZigZag;
@@ -83,6 +84,23 @@ impl Codecs {
         enc: &mut Encoder,
     ) -> MltResult<()> {
         self.write_bool_stream(values, StreamType::Present, enc)
+    }
+
+    #[expect(
+        clippy::unused_self,
+        reason = "kept as a Codecs method to match the other stream writers"
+    )]
+    pub(crate) fn write_float_stream<T: NoUninit>(
+        &mut self,
+        values: &[T],
+        stream_type: StreamType,
+        enc: &mut Encoder,
+    ) -> MltResult<()> {
+        #[cfg(not(target_endian = "little"))]
+        compile_error!("not implemented for non-little-endian targets");
+
+        let meta = StreamMeta::new_none(stream_type, values.len())?;
+        encoder::write_stream_payload(&mut enc.data, meta, false, cast_slice(values))
     }
 
     pub(crate) fn write_int_stream<T>(
