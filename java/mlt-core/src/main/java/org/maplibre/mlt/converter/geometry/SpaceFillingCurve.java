@@ -7,18 +7,29 @@ public abstract class SpaceFillingCurve {
   private final int minBound;
   private final int maxBound;
 
+  public static final int MAX_SUPPORTED_BITS = 16;
+  public static final int MAX_SUPPORTED_RANGE = (1 << MAX_SUPPORTED_BITS) - 1;
+
+  public static boolean isRangeSupported(int minVertexValue, int maxVertexValue) {
+    return (maxVertexValue + getCoordinateShift(minVertexValue)) <= MAX_SUPPORTED_RANGE;
+  }
+
   public SpaceFillingCurve(int minVertexValue, int maxVertexValue) {
     // TODO: fix tile buffer problem
     /* Each tile can have a buffer around, which means the coordinate values are extended beyond the specified tileExtent.
      * Currently we are extending size tile size be half of to the size into each direction, which works well for the test tilesets.
      * But this leads to problems if the tile coordinates are not within this boundaries.
      * */
-    coordinateShift = minVertexValue < 0 ? Math.abs(minVertexValue) : 0;
+    this.coordinateShift = getCoordinateShift(minVertexValue);
     this.tileExtent = maxVertexValue + coordinateShift;
     this.numBits = (int) Math.ceil((Math.log(this.tileExtent + 1) / Math.log(2)));
-    ;
-    minBound = minVertexValue;
-    maxBound = maxVertexValue;
+    this.minBound = minVertexValue;
+    this.maxBound = maxVertexValue;
+
+    if (numBits > 16) {
+      throw new IllegalArgumentException(
+          "The specified tile buffer size is not supported");
+    }
   }
 
   protected void validateCoordinates(Vertex vertex) {
@@ -30,6 +41,10 @@ public abstract class SpaceFillingCurve {
       throw new IllegalArgumentException(
           "The specified tile buffer size is currently not supported.");
     }
+  }
+
+  private static int getCoordinateShift(int minVertexValue) {
+    return (minVertexValue < 0) ? Math.abs(minVertexValue) : 0;
   }
 
   public abstract int encode(Vertex vertex);
