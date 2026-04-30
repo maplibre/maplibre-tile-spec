@@ -34,7 +34,6 @@ import org.locationtech.jts.geom.Polygon;
 import org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption;
 import org.maplibre.mlt.converter.geometry.GeometryType;
 import org.maplibre.mlt.converter.geometry.GeometryUtils;
-import org.maplibre.mlt.converter.geometry.Hilbert;
 import org.maplibre.mlt.converter.geometry.HilbertCurve;
 import org.maplibre.mlt.converter.geometry.SpaceFillingCurve;
 import org.maplibre.mlt.converter.geometry.Vertex;
@@ -101,23 +100,38 @@ public class GeometryEncoder {
      * */
 
     final var vertexLimits = getVertexLimits(vertexBuffer);
-    final var tryHilbertEncoding = HilbertCurve.isRangeSupported(vertexLimits.min, vertexLimits.max);
-    final var tryMortonEncoding = enableMortonEncoding && ZOrderCurve.isRangeSupported(vertexLimits.min, vertexLimits.max);
-    final Optional<HilbertCurve> hilbertCurve = tryHilbertEncoding ? Optional.of(new HilbertCurve(vertexLimits.min, vertexLimits.max)) : Optional.empty();
-    final Optional<ZOrderCurve> zOrderCurve = tryMortonEncoding ? Optional.of(new ZOrderCurve(vertexLimits.min, vertexLimits.max)) : Optional.empty();
+    final var tryHilbertEncoding =
+        HilbertCurve.isRangeSupported(vertexLimits.min, vertexLimits.max);
+    final var tryMortonEncoding =
+        enableMortonEncoding && ZOrderCurve.isRangeSupported(vertexLimits.min, vertexLimits.max);
+    final Optional<HilbertCurve> hilbertCurve =
+        tryHilbertEncoding
+            ? Optional.of(new HilbertCurve(vertexLimits.min, vertexLimits.max))
+            : Optional.empty();
+    final Optional<ZOrderCurve> zOrderCurve =
+        tryMortonEncoding
+            ? Optional.of(new ZOrderCurve(vertexLimits.min, vertexLimits.max))
+            : Optional.empty();
 
     // TODO: if the ratio is lower than 2 dictionary encoding has not to be considered?
 
     final var vertexDictionary = hilbertCurve.map(c -> addVerticesToDictionary(vertexBuffer, c));
     final var vertexDictionaryHilbertIndexes = vertexDictionary.map(Pair::getLeft);
-    final var vertexDictionaryHilbertMap = vertexDictionaryHilbertIndexes.map(GeometryEncoder::reverseMap);
+    final var vertexDictionaryHilbertMap =
+        vertexDictionaryHilbertIndexes.map(GeometryEncoder::reverseMap);
     final var vertexDictionaryVertices = vertexDictionary.map(Pair::getRight);
-    final var vertexDictionaryOffsets = hilbertCurve.flatMap(c -> vertexDictionaryHilbertMap.map(m -> getVertexOffsets(vertexBuffer, m::get, c)));
-    final var zigZagDeltaVertexDictionary = vertexDictionaryVertices.map(GeometryEncoder::zigZagDeltaEncodeVertices);
-    final var mortonEncodedDictionary = zOrderCurve.map(c -> addVerticesToMortonDictionary(vertexBuffer, c));
-    final var mortonEncodedDictionaryOffsets = zOrderCurve.flatMap(c ->  mortonEncodedDictionary.map(d -> 
-      getVertexOffsets(vertexBuffer, reverseMap(d)::get, c)
-    ));
+    final var vertexDictionaryOffsets =
+        hilbertCurve.flatMap(
+            c -> vertexDictionaryHilbertMap.map(m -> getVertexOffsets(vertexBuffer, m::get, c)));
+    final var zigZagDeltaVertexDictionary =
+        vertexDictionaryVertices.map(GeometryEncoder::zigZagDeltaEncodeVertices);
+    final var mortonEncodedDictionary =
+        zOrderCurve.map(c -> addVerticesToMortonDictionary(vertexBuffer, c));
+    final var mortonEncodedDictionaryOffsets =
+        zOrderCurve.flatMap(
+            c ->
+                mortonEncodedDictionary.map(
+                    d -> getVertexOffsets(vertexBuffer, reverseMap(d)::get, c)));
 
     // TODO: refactor this simple approach to also work with mixed geometries
     var geometryColumnSorted = false;
@@ -148,27 +162,35 @@ public class GeometryEncoder {
             .encodedValues
             .length;
     final var encodedMortonEncodedDictionaryOffsetsSize =
-    mortonEncodedDictionaryOffsets.map(o -> IntegerEncoder.encodeInt(o, physicalLevelTechnique, false, encodingOption)
-                .encodedValues
-                .length);
+        mortonEncodedDictionaryOffsets.map(
+            o ->
+                IntegerEncoder.encodeInt(o, physicalLevelTechnique, false, encodingOption)
+                    .encodedValues
+                    .length);
     final var encodedDictionaryOffsetsSize =
-        vertexDictionaryOffsets.map(o -> IntegerEncoder.encodeInt(
-                o, physicalLevelTechnique, false, encodingOption)
-            .encodedValues
-            .length);
+        vertexDictionaryOffsets.map(
+            o ->
+                IntegerEncoder.encodeInt(o, physicalLevelTechnique, false, encodingOption)
+                    .encodedValues
+                    .length);
     final var encodedVertexDictionarySize =
-        zigZagDeltaVertexDictionary.map(d -> IntegerEncoder.encodeInt(
-                d, physicalLevelTechnique, false, encodingOption)
-            .encodedValues
-            .length);
+        zigZagDeltaVertexDictionary.map(
+            d ->
+                IntegerEncoder.encodeInt(d, physicalLevelTechnique, false, encodingOption)
+                    .encodedValues
+                    .length);
     final var encodedMortonVertexDictionarySize =
-        mortonEncodedDictionary.map(ExceptionUtil.unchecked(d ->
-            IntegerEncoder.encodeMortonCodes(d, physicalLevelTechnique)
-                .encodedValues
-                .length));
-    final var dictionaryEncodedSize = encodedDictionaryOffsetsSize.flatMap(a -> encodedVertexDictionarySize.map(b -> a + b));
+        mortonEncodedDictionary.map(
+            ExceptionUtil.unchecked(
+                d ->
+                    IntegerEncoder.encodeMortonCodes(d, physicalLevelTechnique)
+                        .encodedValues
+                        .length));
+    final var dictionaryEncodedSize =
+        encodedDictionaryOffsetsSize.flatMap(a -> encodedVertexDictionarySize.map(b -> a + b));
     final var mortonDictionaryEncodedSize =
-        encodedMortonEncodedDictionaryOffsetsSize.flatMap(a -> encodedMortonVertexDictionarySize.map(b -> a + b));
+        encodedMortonEncodedDictionaryOffsetsSize.flatMap(
+            a -> encodedMortonVertexDictionarySize.map(b -> a + b));
     // TODO: end
 
     final var result =
@@ -216,16 +238,19 @@ public class GeometryEncoder {
     @NotNull final ArrayList<byte[]> selectedVertexStream;
     @Nullable final int[] selectedVertexOffsets;
 
-    if (dictionaryEncodedSize.map(s -> plainVertexBufferSize <= s).orElse(true)
-        && mortonDictionaryEncodedSize.map(s -> plainVertexBufferSize <= s).orElse(true)) {
-      selectedVertexStream = encodedVertexBufferStream;
-      selectedVertexOffsets = null;
-    } else if (dictionaryEncodedSize.map(dictSize -> mortonDictionaryEncodedSize.map(mortonSize -> dictSize <= mortonSize).orElse(true)).orElse(false)) {
+    final var dictBeatsPlain =
+        dictionaryEncodedSize.map(s -> s < plainVertexBufferSize).orElse(false);
+    final var dictBeatsMorton = isLessThan(dictionaryEncodedSize, mortonDictionaryEncodedSize);
+    final var mortonBeatsPlain =
+        mortonDictionaryEncodedSize.map(s -> s < plainVertexBufferSize).orElse(false);
+    final var mortonBeatsDict = isLessThan(mortonDictionaryEncodedSize, dictionaryEncodedSize);
+
+    if (dictBeatsPlain && dictBeatsMorton) {
       selectedVertexOffsets = vertexDictionaryOffsets.get();
       selectedVertexStream =
           encodeVertexBuffer(zigZagDeltaVertexDictionary.get(), physicalLevelTechnique);
       geometryColumnSorted = false;
-    } else { // Morton
+    } else if (mortonBeatsPlain && mortonBeatsDict) {
       selectedVertexOffsets = mortonEncodedDictionaryOffsets.get();
       selectedVertexStream =
           IntegerEncoder.encodeMortonStream(
@@ -233,6 +258,9 @@ public class GeometryEncoder {
               zOrderCurve.get().numBits(),
               zOrderCurve.get().coordinateShift(),
               physicalLevelTechnique);
+    } else {
+      selectedVertexStream = encodedVertexBufferStream;
+      selectedVertexOffsets = null;
     }
 
     if (selectedVertexOffsets != null && selectedVertexOffsets.length > 0) {
@@ -249,6 +277,21 @@ public class GeometryEncoder {
     result.addAll(selectedVertexStream);
     return new EncodedGeometryColumn(
         numStreams + 1, result, vertexLimits.max, geometryColumnSorted);
+  }
+
+  private static <T extends Comparable<T>> boolean isLessThan(Optional<T> a, Optional<T> b) {
+    return isLessThan(a, b, Comparator.<T>naturalOrder());
+  }
+
+  /// Compare two Optional values, treating empty as greater than any present value
+  private static <T> boolean isLessThan(Optional<T> a, Optional<T> b, Comparator<T> comparator) {
+    if (a.isEmpty()) {
+      return false;
+    } else if (b.isEmpty()) {
+      return true;
+    } else {
+      return comparator.compare(a.get(), b.get()) < 0;
+    }
   }
 
   private static record MinMax<T>(T min, T max) {}

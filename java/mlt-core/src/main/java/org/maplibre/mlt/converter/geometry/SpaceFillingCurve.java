@@ -27,8 +27,7 @@ public abstract class SpaceFillingCurve {
     this.maxBound = maxVertexValue;
 
     if (numBits > 16) {
-      throw new IllegalArgumentException(
-          "The specified tile buffer size is not supported");
+      throw new IllegalArgumentException("The specified tile buffer size is not supported");
     }
   }
 

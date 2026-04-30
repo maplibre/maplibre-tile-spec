@@ -70,6 +70,7 @@ public class ZOrderCurveTest {
   private static void assertRoundTrip(ZOrderCurve curve, int x, int y) {
     final int index = curve.encode(new Vertex(x, y));
     final int[] decoded = curve.decode(index);
-    assertArrayEquals(new int[] {x, y}, decoded, "Coordinate should round-trip through encode/decode");
+    assertArrayEquals(
+        new int[] {x, y}, decoded, "Coordinate should round-trip through encode/decode");
   }
 }

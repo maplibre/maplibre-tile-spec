@@ -66,6 +66,7 @@ public class HilbertCurveTest {
   private static void assertRoundTrip(HilbertCurve curve, int x, int y) {
     final int index = curve.encode(new Vertex(x, y));
     final int[] decoded = curve.decode(index);
-    assertArrayEquals(new int[] {x, y}, decoded, "Coordinate should round-trip through encode/decode");
+    assertArrayEquals(
+        new int[] {x, y}, decoded, "Coordinate should round-trip through encode/decode");
   }
 }
