@@ -48,6 +48,7 @@ import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.stream.PhysicalStreamType;
 import org.maplibre.mlt.metadata.stream.StreamMetadata;
 import org.maplibre.mlt.util.ExceptionUtil;
+import org.maplibre.mlt.util.OptionalUtil;
 
 public class GeometryEncoder {
 
@@ -240,10 +241,12 @@ public class GeometryEncoder {
 
     final var dictBeatsPlain =
         dictionaryEncodedSize.map(s -> s < plainVertexBufferSize).orElse(false);
-    final var dictBeatsMorton = isLessThan(dictionaryEncodedSize, mortonDictionaryEncodedSize);
+    final var dictBeatsMorton =
+        OptionalUtil.isLessThan(dictionaryEncodedSize, mortonDictionaryEncodedSize);
     final var mortonBeatsPlain =
         mortonDictionaryEncodedSize.map(s -> s < plainVertexBufferSize).orElse(false);
-    final var mortonBeatsDict = isLessThan(mortonDictionaryEncodedSize, dictionaryEncodedSize);
+    final var mortonBeatsDict =
+        OptionalUtil.isLessThan(mortonDictionaryEncodedSize, dictionaryEncodedSize);
 
     if (dictBeatsPlain && dictBeatsMorton) {
       selectedVertexOffsets = vertexDictionaryOffsets.get();
@@ -277,21 +280,6 @@ public class GeometryEncoder {
     result.addAll(selectedVertexStream);
     return new EncodedGeometryColumn(
         numStreams + 1, result, vertexLimits.max, geometryColumnSorted);
-  }
-
-  private static <T extends Comparable<T>> boolean isLessThan(Optional<T> a, Optional<T> b) {
-    return isLessThan(a, b, Comparator.<T>naturalOrder());
-  }
-
-  /// Compare two Optional values, treating empty as greater than any present value
-  private static <T> boolean isLessThan(Optional<T> a, Optional<T> b, Comparator<T> comparator) {
-    if (a.isEmpty()) {
-      return false;
-    } else if (b.isEmpty()) {
-      return true;
-    } else {
-      return comparator.compare(a.get(), b.get()) < 0;
-    }
   }
 
   private static record MinMax<T>(T min, T max) {}
