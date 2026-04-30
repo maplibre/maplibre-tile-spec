@@ -1,8 +1,7 @@
 package org.maplibre.mlt.util;
 
-import org.apache.commons.lang3.exception.UncheckedException;
-
 import java.util.function.Function;
+import org.apache.commons.lang3.exception.UncheckedException;
 
 public class ExceptionUtil {
   @FunctionalInterface

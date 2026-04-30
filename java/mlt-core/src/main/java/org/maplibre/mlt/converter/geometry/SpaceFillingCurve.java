@@ -27,7 +27,8 @@ public abstract class SpaceFillingCurve {
     this.maxBound = maxVertexValue;
 
     if (numBits > MAX_SUPPORTED_BITS) {
-      throw new IllegalArgumentException("Tile coordinate span " + this.tileExtent + " is too large");
+      throw new IllegalArgumentException(
+          "Tile coordinate span " + this.tileExtent + " is too large");
     }
   }
 
