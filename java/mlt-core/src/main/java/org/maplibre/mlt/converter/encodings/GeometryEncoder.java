@@ -118,9 +118,6 @@ public class GeometryEncoder {
     final var mortonEncodedDictionaryOffsets = zOrderCurve.flatMap(c ->  mortonEncodedDictionary.map(d -> 
       getVertexOffsets(vertexBuffer, reverseMap(d)::get, c)
     ));
-    if (tryHilbertEncoding && vertexDictionaryOffsets.isEmpty()) {
-      int x = 0;
-    }
 
     // TODO: refactor this simple approach to also work with mixed geometries
     var geometryColumnSorted = false;
