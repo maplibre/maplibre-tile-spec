@@ -1,5 +1,7 @@
 package org.maplibre.mlt.util;
 
+import org.apache.commons.lang3.exception.UncheckedException;
+
 import java.util.function.Function;
 
 public class ExceptionUtil {
@@ -14,8 +16,10 @@ public class ExceptionUtil {
     return t -> {
       try {
         return f.apply(t);
+      } catch (RuntimeException e) {
+        throw e;
       } catch (Exception e) {
-        throw new RuntimeException(e);
+        throw new UncheckedException(e);
       }
     };
   }

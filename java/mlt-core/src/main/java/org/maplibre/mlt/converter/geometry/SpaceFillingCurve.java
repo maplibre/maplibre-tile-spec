@@ -26,8 +26,8 @@ public abstract class SpaceFillingCurve {
     this.minBound = minVertexValue;
     this.maxBound = maxVertexValue;
 
-    if (numBits > 16) {
-      throw new IllegalArgumentException("The specified tile buffer size is not supported");
+    if (numBits > MAX_SUPPORTED_BITS) {
+      throw new IllegalArgumentException("Tile coordinate span " + this.tileExtent + " is too large");
     }
   }
 
@@ -43,6 +43,9 @@ public abstract class SpaceFillingCurve {
   }
 
   private static int getCoordinateShift(int minVertexValue) {
+    if (minVertexValue == Integer.MIN_VALUE) {
+      return Integer.MAX_VALUE;
+    }
     return (minVertexValue < 0) ? Math.abs(minVertexValue) : 0;
   }
 

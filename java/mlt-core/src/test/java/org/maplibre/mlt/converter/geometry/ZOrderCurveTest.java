@@ -54,15 +54,15 @@ public class ZOrderCurveTest {
   }
 
   private static void assertStaticDecodeMatchesInstanceDecode(int level) {
-    int maxCoordinate = (1 << level) - 1;
+    final int maxCoordinate = (1 << level) - 1;
     final var curve = new ZOrderCurve(0, maxCoordinate);
-
-    int maxIndexExclusive = 1 << (2 * level);
-    int step = Math.max(1, maxIndexExclusive / 32);
-    for (int index = 0; index < maxIndexExclusive; index += step) {
+    final long maxIndexExclusive = 1L << (2L * level);
+    final long step = Math.max(1L, maxIndexExclusive / 32L);
+    for (long index = 0; index < maxIndexExclusive; index += step) {
+      final int sampledIndex = (int) index;
       assertArrayEquals(
-          curve.decode(index),
-          ZOrderCurve.decode(index, curve.numBits(), curve.coordinateShift()),
+          curve.decode(sampledIndex),
+          ZOrderCurve.decode(sampledIndex, curve.numBits(), curve.coordinateShift()),
           "Static decode should match instance decode");
     }
   }

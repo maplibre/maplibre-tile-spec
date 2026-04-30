@@ -27,14 +27,16 @@ public class HilbertCurveTest {
 
   @Test
   public void consecutiveIndices_areAxisAdjacentAtLevel6() {
-    int level = 6;
-    int maxCoordinate = (1 << level) - 1;
+    final int level = 6;
+    final int maxCoordinate = (1 << level) - 1;
     final var curve = new HilbertCurve(0, maxCoordinate);
-
-    int maxIndexExclusive = 1 << (2 * level);
-    for (int index = 0; index < maxIndexExclusive - 1; index++) {
-      final var a = curve.decode(index);
-      final var b = curve.decode(index + 1);
+    final long maxIndexExclusive = 1L << (2L * level);
+    final long step = Math.max(1L, maxIndexExclusive / 4096L);
+    for (long index = 0; index < maxIndexExclusive - 1; index += step) {
+      final int currentIndex = (int) index;
+      final int nextIndex = (int) (index + 1);
+      final var a = curve.decode(currentIndex);
+      final var b = curve.decode(nextIndex);
       final int manhattan = Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
       assertEquals(1, manhattan, "Hilbert curve should move one grid step per index increment");
     }
@@ -46,7 +48,7 @@ public class HilbertCurveTest {
   }
 
   private static void assertRoundTripForLevel(int level) {
-    int maxCoordinate = (1 << level) - 1;
+    final int maxCoordinate = (1 << level) - 1;
     final var curve = new HilbertCurve(0, maxCoordinate);
 
     assertRoundTrip(curve, 0, 0);
