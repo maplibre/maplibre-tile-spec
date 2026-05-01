@@ -198,7 +198,7 @@ compress-db-statistics tile_dir db:
 
 # Diff two compressed sizes DBs (produced by `compress-db-statistics`).
 size-diff prev curr:
-    sqlite3 {{curr}} ".attach '{{current_head}}' as current_head" < scripts/diff.sql
+    sqlite3 {{prev}} ".attach '{{curr}}' as current_head" < scripts/diff.sql
 
 # Download ~5k benchmark tiles (z0-z6) from Protomaps into outdir.
 # Skips if a previous complete download is detected (.complete sentinel).
