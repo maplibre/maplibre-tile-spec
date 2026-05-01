@@ -71,8 +71,8 @@ jobs:
             --jq ".[] | select(.body | contains(\"$COMMENT_MARKER\")) | .id" | head -n1)
           if [ -n "$existing" ]; then
             gh api -X PATCH "repos/$REPO/issues/comments/$existing" \
-              -f body=@/tmp/comment.md
+              -F body=@/tmp/comment.md
           else
             gh api -X POST "repos/$REPO/issues/$PR_NUMBER/comments" \
-              -f body=@/tmp/comment.md
+              -F body=@/tmp/comment.md
           fi
