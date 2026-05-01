@@ -46,6 +46,9 @@ jobs:
           cargo run --release -p mlt --features='__hotpath,__hotpath-alloc' -- \
             convert /tmp/benchmark-tiles/ /tmp/mlt-head-out/
 
+      - name: Head per-tile sizes
+        run: just rust::compress-db-statistics /tmp/mlt-head-out /tmp/metrics/head_sizes.db
+
       - name: Checkout base
         run: git checkout ${{ github.event.pull_request.base.sha }}
 
@@ -57,6 +60,9 @@ jobs:
         run: |
           cargo run --release -p mlt --features='__hotpath,__hotpath-alloc' -- \
             convert /tmp/benchmark-tiles/ /tmp/mlt-base-out/
+
+      - name: Base per-tile sizes
+        run: just rust::compress-db-statistics /tmp/mlt-base-out /tmp/metrics/base_sizes.db
 
       - name: Save PR metadata
         env:
