@@ -409,13 +409,13 @@ public class GeometryEncoder {
     }
     if (!indexBuffer.isEmpty()) {
       result.addAll(
-              IntegerEncoder.encodeIntStream(
-                      indexBuffer,
-                      physicalLevelTechnique,
-                      false,
-                      PhysicalStreamType.OFFSET,
-                      new LogicalStreamType(OffsetType.INDEX),
-                      encodingOption));
+          IntegerEncoder.encodeIntStream(
+              indexBuffer,
+              physicalLevelTechnique,
+              false,
+              PhysicalStreamType.OFFSET,
+              new LogicalStreamType(OffsetType.INDEX),
+              encodingOption));
       numStreams++;
     }
     return numStreams;
