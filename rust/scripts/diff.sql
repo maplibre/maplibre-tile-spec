@@ -1,13 +1,10 @@
-ATTACH '{{prev}}' AS prev;
-ATTACH '{{curr}}' AS curr;
-
 CREATE TEMP VIEW changes AS
   SELECT z, x, y,
          p.size AS prev_size,
          c.size AS curr_size,
          c.size - p.size AS delta
-  FROM prev.sizes p
-  JOIN curr.sizes c USING (z, x, y);
+  FROM main.sizes p
+  JOIN current_head.sizes c USING (z, x, y);
 
 CREATE TEMP VIEW agg AS
   SELECT z,
