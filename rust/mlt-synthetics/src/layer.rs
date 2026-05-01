@@ -192,7 +192,10 @@ impl Layer {
     /// Useful for producing byte-for-byte output that matches Java's encoder when a
     /// normally-empty stream must still appear in the wire format.
     #[must_use]
-    #[expect(dead_code, reason = "needs PR to impl that empty (but still present) property, gemetry and id streams don't cause issues")]
+    #[expect(
+        dead_code,
+        reason = "needs PR to impl that empty (but still present) property, gemetry and id streams don't cause issues"
+    )]
     pub fn force_empty_stream(mut self, name: &'static str) -> Self {
         self.force_empty_streams.insert(name);
         self
