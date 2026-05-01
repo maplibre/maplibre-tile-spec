@@ -271,14 +271,6 @@ size-diff prev curr:
     LEFT JOIN extremes wi ON wi.partition_z = agg.z AND wi.delta = agg.worst_delta
     ORDER BY (agg.z = -1), agg.z;
     .print
-    .mode list
-    .headers off
-    SELECT '_added: '||(SELECT COUNT(*) FROM curr.sizes WHERE (z,x,y) NOT IN (SELECT z,x,y FROM prev.sizes))
-        || ' · removed: '||(SELECT COUNT(*) FROM prev.sizes WHERE (z,x,y) NOT IN (SELECT z,x,y FROM curr.sizes))
-        || ' · unchanged: '||(SELECT COUNT(*) FROM changes WHERE delta = 0)||'_';
-    .mode markdown
-    .headers on
-    .print
     .print '### Top 3 improvements (most negative delta)'
     .print
     SELECT printf('%d/%d/%d', z, x, y) AS tile, prev_sz AS prev_bytes, curr_sz AS curr_bytes,
