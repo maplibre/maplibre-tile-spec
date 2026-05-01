@@ -1,5 +1,5 @@
 use crate::decoder::{ParsedProperty, ParsedScalar, RawPresence, RawProperty};
-use crate::utils::{Presence, decode_presence};
+use crate::utils::decode_presence;
 use crate::{Decode, Decoder, MltResult};
 
 impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
@@ -9,62 +9,8 @@ impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
         values: Vec<T>,
         dec: &mut Decoder,
     ) -> MltResult<Self> {
-        let presence = decode_presence(presence, values.len(), dec)?;
-        Ok(Self {
-            name,
-            presence,
-            values,
-        })
-    }
-
-    /// Total number of features (present and absent).
-    #[inline]
-    #[must_use]
-    pub fn feature_count(&self) -> usize {
-        match &self.presence {
-            Presence::AllPresent => self.values.len(),
-            Presence::Bits(bits) => bits.len(),
-        }
-    }
-
-    /// Returns the value for feature `idx`, or `None` if absent or out of bounds.
-    #[inline]
-    #[must_use]
-    pub fn get(&self, idx: usize) -> Option<T> {
-        match &self.presence {
-            Presence::AllPresent => self.values.get(idx).copied(),
-            Presence::Bits(bits) => {
-                if *bits.get(idx)? {
-                    Some(self.values[bits[..idx].count_ones()])
-                } else {
-                    None
-                }
-            }
-        }
-    }
-
-    /// Expand into a `Vec<Option<T>>` with one entry per feature.
-    ///
-    /// Allocates a new vector; prefer [`ParsedScalar::get`] for single-feature access.
-    #[must_use]
-    pub fn materialize(&self) -> Vec<Option<T>> {
-        match &self.presence {
-            Presence::AllPresent => self.values.iter().copied().map(Some).collect(),
-            Presence::Bits(bits) => {
-                let mut dense = self.values.iter().copied();
-                bits.iter()
-                    .by_vals()
-                    .map(|present| if present { dense.next() } else { None })
-                    .collect()
-            }
-        }
-    }
-
-    /// Return the backing dense values slice (present entries only).
-    #[inline]
-    #[must_use]
-    pub fn dense_values(&self) -> &[T] {
-        &self.values
+        let presence = decode_presence(presence, values, dec)?;
+        Ok(Self { name, presence })
     }
 }
 

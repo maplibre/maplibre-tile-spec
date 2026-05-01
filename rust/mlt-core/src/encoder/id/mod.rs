@@ -1,6 +1,3 @@
-mod encode;
-mod model;
-#[cfg(test)]
-mod tests;
+mod staged_id;
 
-pub use model::*;
+pub use staged_id::StagedId;

@@ -1,8 +1,8 @@
-use std::fmt;
-
+use derive_debug::Dbg;
 use num_enum::TryFromPrimitive;
 
-use crate::utils::formatter::ByteArrayDbg;
+use crate::utils::formatter::{bytes_dbg, compact_dbg};
+use crate::{MltError, MltResult};
 
 /// Logical encoding technique used for a column, as stored in the tile
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
@@ -31,13 +31,23 @@ pub struct RleMeta {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Morton {
     /// Number of bits used
-    pub bits: u32,
+    pub(crate) bits: u32,
     /// Coordinate shift
-    pub shift: u32,
+    pub(crate) shift: u32,
+}
+
+impl Morton {
+    pub fn new(bits: u32, shift: u32) -> MltResult<Self> {
+        if bits <= 16 {
+            Ok(Self { bits, shift })
+        } else {
+            Err(MltError::InvalidMortonBits(bits))
+        }
+    }
 }
 
 /// How should the stream be interpreted at the logical level (second pass of decoding)
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum LogicalEncoding {
     None,
     Delta,
@@ -121,31 +131,26 @@ pub enum PhysicalEncoding {
 
 // RawStream types
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct IntEncoding {
     pub logical: LogicalEncoding,
     pub physical: PhysicalEncoding,
 }
 
 /// Metadata about an encoded stream
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Dbg, PartialEq)]
 pub struct StreamMeta {
+    #[dbg(formatter = "compact_dbg")]
     pub stream_type: StreamType,
+    #[dbg(formatter = "compact_dbg")]
     pub encoding: IntEncoding,
     pub(crate) num_values: u32,
 }
 
 /// Representation of an encoded stream
-#[derive(PartialEq, Clone)]
+#[derive(Clone, Dbg, PartialEq)]
 pub struct RawStream<'a> {
     pub meta: StreamMeta,
+    #[dbg(formatter = "bytes_dbg")]
     pub(crate) data: &'a [u8],
-}
-impl fmt::Debug for RawStream<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RawStream")
-            .field("meta", &self.meta)
-            .field("data", &ByteArrayDbg(self.data))
-            .finish()
-    }
 }

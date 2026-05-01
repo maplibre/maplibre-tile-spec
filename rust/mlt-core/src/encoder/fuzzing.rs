@@ -1,10 +1,20 @@
 use arbitrary::Error::IncorrectFormat;
 use arbitrary::{Arbitrary, Result, Unstructured};
 
-use crate::encoder::model::StagedLayer01;
-use crate::encoder::{StagedProperty, StagedSharedDict, StagedStrings};
+use crate::encoder::model::StagedLayer;
+use crate::encoder::optimizer::Presence;
+use crate::encoder::{StagedId, StagedProperty, StagedSharedDict, StagedStrings};
 
-impl Arbitrary<'_> for StagedLayer01 {
+impl Arbitrary<'_> for StagedId {
+    fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
+        // Bound ID count to prevent OOM from unbounded vector generation
+        let count = u.int_in_range(0..=64u8)? as usize;
+        let values: Vec<Option<u64>> = (0..count).map(|_| u.arbitrary()).collect::<Result<_>>()?;
+        Ok(Self::from_optional(values))
+    }
+}
+
+impl Arbitrary<'_> for StagedLayer {
     fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
         // Bound name length to prevent OOM from unbounded string generation
         let name_len = u.int_in_range(0..=32u8)? as usize;
@@ -25,9 +35,9 @@ impl Arbitrary<'_> for StagedLayer01 {
                     }
                 })
                 .collect::<Result<_>>()?;
-            Some(crate::decoder::IdValues(ids))
+            StagedId::from_optional(ids)
         } else {
-            None
+            StagedId::None
         };
         // Bound property count to prevent OOM from unbounded vector generation.
         // Each column must have exactly `fc` values to match the feature count.
@@ -54,8 +64,16 @@ impl<'a> Arbitrary<'a> for StagedSharedDict {
     fn arbitrary(u: &mut Unstructured<'a>) -> Result<Self> {
         // Bound item count and string sizes to prevent OOM
         let item_count = u.int_in_range(0..=8u8)? as usize;
-        let items_raw: Vec<(String, Vec<Option<String>>)> = (0..item_count)
-            .map(|_| Ok((bounded_string(u, 32)?, generate_strings(u)?)))
+        let items_raw: Vec<(String, Vec<Option<String>>, Presence)> = (0..item_count)
+            .map(|_| {
+                let values = generate_strings(u)?;
+                let presence = if values.iter().all(Option::is_some) {
+                    Presence::AllPresent
+                } else {
+                    Presence::Mixed
+                };
+                Ok((bounded_string(u, 32)?, values, presence))
+            })
             .collect::<Result<_>>()?;
         if items_raw.is_empty() {
             return Ok(Self {

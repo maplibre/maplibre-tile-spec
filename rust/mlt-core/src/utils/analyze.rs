@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use enum_dispatch::enum_dispatch;
 
 use crate::LazyParsed;
@@ -77,6 +79,22 @@ impl<T: Analyze> Analyze for Vec<T> {
     }
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         self.as_slice().for_each_stream(cb);
+    }
+}
+
+/// Opt-in marker for blanket `Analyze` delegation via `Deref`.
+///
+/// A type that implements both `Deref<Target = T>` (with `T: Analyze`) and this
+/// marker trait automatically receives an `Analyze` impl that delegates every call
+/// to the dereferenced value.
+pub(crate) trait AnalyzeViaDeref {}
+
+impl<T: Analyze, R: Deref<Target = T> + AnalyzeViaDeref> Analyze for R {
+    fn collect_statistic(&self, stat: StatType) -> usize {
+        (**self).collect_statistic(stat)
+    }
+    fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
+        (**self).for_each_stream(cb);
     }
 }
 

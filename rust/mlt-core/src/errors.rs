@@ -60,7 +60,7 @@ pub enum MltError {
     ZeroLayerSize,
     #[error("The encoder used to optimise data is incompatible")]
     BadEncoderDataCombination,
-    #[error("StagedLayer01::encode_explicit requires Encoder.explicit to be Some(_)")]
+    #[error("StagedLayer::encode_explicit requires Encoder.explicit to be Some(_)")]
     MissingExplicitEncoder,
 
     // Wire/codec decoding (bytes → primitives)
@@ -102,6 +102,8 @@ pub enum MltError {
     NotImplemented(&'static str),
     #[error("unsupported property value and encoder combination: {0:?} + {1:?}")]
     UnsupportedPropertyEncoderCombination(&'static str, &'static str),
+    #[error("mixed property types are not allowed in column {0} ({1})")]
+    MixedPropertyTypes(usize, String),
     #[error("shared dictionary requires at least 2 streams, got {0}")]
     SharedDictRequiresStreams(usize),
     #[error("unsupported string stream count (expected between 2 and 5): {0}")]
@@ -125,6 +127,8 @@ pub enum MltError {
         "Extent {extent} cannot be encoded to morton due to morton allowing max. 16 bits, but {required_bits} would be required"
     )]
     VertexMortonNotCompatibleWithExtent { extent: u32, required_bits: u32 },
+    #[error("Morton stream uses {0} bits, but at most 16 bits are supported")]
+    InvalidMortonBits(u32),
 
     // Geometry decode errors (field = variable name, geom_type for context)
     #[error("MVT error: {0}")]

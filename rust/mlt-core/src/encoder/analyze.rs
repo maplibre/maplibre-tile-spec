@@ -1,8 +1,11 @@
-use crate::decoder::{ParsedScalar, ParsedSharedDict, ParsedStrings, StreamMeta};
+#[cfg(any(test, feature = "__private"))]
+use crate::decoder::StreamMeta;
+use crate::decoder::{ParsedScalar, ParsedSharedDict, ParsedStrings};
+#[cfg(any(test, feature = "__private"))]
 use crate::encoder::EncodedStream;
-use crate::utils::Presence;
 use crate::{Analyze, StatType};
 
+#[cfg(any(test, feature = "__private"))]
 impl Analyze for EncodedStream {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         cb(self.meta);
@@ -16,11 +19,7 @@ impl<T: Analyze + Copy + PartialEq> Analyze for ParsedScalar<'_, T> {
         } else {
             0
         };
-        let presence_bytes = match &self.presence {
-            Presence::AllPresent => 0,
-            Presence::Bits(bits) => bits.len().div_ceil(8),
-        };
-        meta + presence_bytes + self.values.collect_statistic(stat)
+        meta + self.presence.collect_statistic(stat)
     }
 }
 

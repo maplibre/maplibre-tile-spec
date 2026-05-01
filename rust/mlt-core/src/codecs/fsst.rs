@@ -138,10 +138,9 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::decoder::{
-        DictionaryType, IntEncoding, LengthType, RawFsstData, RawStream, StreamType,
-    };
-    use crate::encoder::{EncodedStream, Encoder, IntEncoder, do_write_u32};
+    use crate::decoder::{DictionaryType, LengthType, RawFsstData, RawStream, StreamType};
+    use crate::encoder::model::StreamCtx;
+    use crate::encoder::{Codecs, EncodedStream, Encoder, ExplicitEncoder, IntEncoder};
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
 
@@ -151,41 +150,40 @@ mod tests {
         let raw = compress_fsst(values);
 
         let sym_len_bytes = {
-            let mut enc = Encoder::default();
-            do_write_u32(
-                &raw.symbol_lengths,
-                StreamType::Length(LengthType::Symbol),
-                IntEncoder::varint(),
-                &mut enc,
-            )
-            .expect("symbol lengths stream");
+            let mut enc = Encoder::with_explicit(
+                Encoder::default().cfg,
+                ExplicitEncoder::all(IntEncoder::varint()),
+            );
+            let mut codecs = Codecs::default();
+            let ctx = StreamCtx::prop(StreamType::Length(LengthType::Symbol), "symbol");
+            codecs
+                .write_int_stream(&raw.symbol_lengths, &ctx, &mut enc)
+                .unwrap();
             enc.data
         };
         let sym_table_stream = EncodedStream {
-            meta: StreamMeta::new(
+            meta: StreamMeta::new_none(
                 StreamType::Data(DictionaryType::Fsst),
-                IntEncoding::none(),
-                u32::try_from(raw.symbol_lengths.len()).unwrap(),
-            ),
+                raw.symbol_lengths.len(),
+            )
+            .unwrap(),
             data: raw.symbol_bytes.clone(),
         };
         let lengths_bytes = {
-            let mut enc = Encoder::default();
-            do_write_u32(
-                &raw.value_lengths,
-                StreamType::Length(LengthType::Dictionary),
-                IntEncoder::varint(),
-                &mut enc,
-            )
-            .expect("dictionary lengths stream");
+            let mut enc = Encoder::with_explicit(
+                Encoder::default().cfg,
+                ExplicitEncoder::all(IntEncoder::varint()),
+            );
+            let mut codecs = Codecs::default();
+            let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), "dictionary");
+            codecs
+                .write_int_stream(&raw.value_lengths, &ctx, &mut enc)
+                .unwrap();
             enc.data
         };
         let corpus_stream = EncodedStream {
-            meta: StreamMeta::new(
-                StreamType::Data(DictionaryType::Single),
-                IntEncoding::none(),
-                u32::try_from(values.len()).unwrap(),
-            ),
+            meta: StreamMeta::new_none(StreamType::Data(DictionaryType::Single), values.len())
+                .unwrap(),
             data: raw.corpus.clone(),
         };
 
