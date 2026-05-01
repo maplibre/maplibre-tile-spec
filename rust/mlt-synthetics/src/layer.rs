@@ -191,11 +191,12 @@ impl Layer {
     ///
     /// Useful for producing byte-for-byte output that matches Java's encoder when a
     /// normally-empty stream must still appear in the wire format.
-    //#[must_use]
-    //pub fn force_empty_stream(mut self, name: &'static str) -> Self {
-    //    self.force_empty_streams.insert(name);
-    //    self
-    //}
+    #[must_use]
+    #[allow(dead_code)]
+    pub fn force_empty_stream(mut self, name: &'static str) -> Self {
+        self.force_empty_streams.insert(name);
+        self
+    }
 
     #[must_use]
     pub fn geo(mut self, geometry: impl Into<Geometry<i32>>) -> Self {
