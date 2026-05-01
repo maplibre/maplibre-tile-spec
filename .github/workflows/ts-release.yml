@@ -82,9 +82,9 @@ jobs:
           prerelease: ${{ env.prerelease }}
           draft: true
 
-      - name: Publish npm package
-        run: |
-          npm publish --access=public
+      - if: github.repository_owner == 'maplibre'
+        name: Publish npm package
+        run: npm publish --access=public
 
       - name: Publish GitHub release (remove draft)
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
@@ -93,4 +93,4 @@ jobs:
           name: js-v${{ env.version }}
           draft: false
 
-      - run: cd .. && just -v assert-git-is-clean
+      - run: just -v assert-git-is-clean

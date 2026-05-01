@@ -3,9 +3,9 @@ use std::borrow::Cow;
 use crate::MltError::{BufferUnderflow, DictIndexOutOfBounds};
 use crate::codecs::fsst::decode_fsst;
 use crate::decoder::{
-    ColumnRef, DictionaryType, LengthType, OffsetType, ParsedSharedDict, ParsedSharedDictItem,
-    ParsedStrings, PropValueRef, RawFsstData, RawPlainData, RawPresence, RawSharedDictEncoding,
-    RawStream, RawStrings, RawStringsEncoding, StreamType,
+    DictionaryType, LengthType, OffsetType, ParsedSharedDict, ParsedSharedDictItem, ParsedStrings,
+    RawFsstData, RawPlainData, RawPresence, RawSharedDictEncoding, RawStream, RawStrings,
+    RawStringsEncoding, StreamType,
 };
 use crate::errors::AsMltError as _;
 use crate::utils::AsUsize as _;
@@ -73,17 +73,6 @@ impl<'a> ParsedStrings<'a> {
         (0..u32::try_from(self.feature_count()).unwrap_or(u32::MAX))
             .map(|i| self.get(i).map(str::to_string))
             .collect()
-    }
-
-    #[inline]
-    pub(crate) fn value_at(&'a self, feat_idx: usize) -> Option<PropValueRef<'a>> {
-        let idx = u32::try_from(feat_idx).expect("feat_idx fits u32");
-        self.get(idx).map(PropValueRef::Str)
-    }
-
-    #[inline]
-    pub(crate) fn column_at(&'a self, idx: usize) -> Option<ColumnRef<'a>> {
-        self.value_at(idx).map(|v| ColumnRef::new(self.name, v))
     }
 }
 
@@ -163,7 +152,7 @@ fn dict_span_str(dict_data: &str, span: (u32, u32)) -> MltResult<&str> {
     Ok(str::from_utf8(value)?)
 }
 
-impl<'a> ParsedSharedDict<'a> {
+impl ParsedSharedDict<'_> {
     #[must_use]
     pub fn corpus(&self) -> &str {
         &self.data
@@ -175,42 +164,9 @@ impl<'a> ParsedSharedDict<'a> {
         let end = span.1.as_usize();
         self.corpus().get(start..end)
     }
-
-    #[inline]
-    pub(crate) fn value_at(
-        &'a self,
-        feat_idx: usize,
-        dict_idx: &mut usize,
-    ) -> Option<(&'a str, PropValueRef<'a>)> {
-        if *dict_idx < self.items.len() {
-            let idx = *dict_idx;
-            *dict_idx += 1;
-            let item = &self.items[idx];
-            item.get(self, feat_idx)
-                .map(|v| (item.suffix, PropValueRef::Str(v)))
-        } else {
-            *dict_idx = 0;
-            None
-        }
-    }
-
-    #[inline]
-    pub(crate) fn column_at(
-        &'a self,
-        feat_idx: usize,
-        dict_idx: &mut usize,
-    ) -> Option<ColumnRef<'a>> {
-        self.value_at(feat_idx, dict_idx)
-            .map(|v| ColumnRef::new_sub(self.prefix, v.0, v.1))
-    }
 }
 
 impl ParsedSharedDictItem<'_> {
-    #[must_use]
-    pub fn feature_count(&self) -> usize {
-        self.ranges.len()
-    }
-
     #[must_use]
     pub fn get<'a>(&self, shared_dict: &'a ParsedSharedDict<'_>, i: usize) -> Option<&'a str> {
         self.ranges

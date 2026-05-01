@@ -14,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.SequencedCollection;
 import java.util.TreeMap;
 import java.util.function.Function;
@@ -92,7 +93,7 @@ public class MltConverter {
   /// Create tileset metadata from source data
   /// See {@link #createTilesetMetadata(LayerSource, ColumnMappingConfig, boolean)}
   /// @param layerSource The input tile to create metadata from
-  /// @param config Optional configuration
+  /// @param typeMismatchPolicy Policy for handling type mismatches
   /// @param columnMappingConfig Optional column mapping configuration to be applied to all layers
   /// @param includeIdIfPresent Whether to include an ID column
   public static MltMetadata.TileSetMetadata createTilesetMetadata(
@@ -560,8 +561,8 @@ public class MltConverter {
         continue;
       }
 
-      final var featureTableOptimizations =
-          config.optimizations() == null ? null : config.optimizations().get(featureTableName);
+      final var optimizations = Optional.ofNullable(config.optimizations());
+      final var featureTableOptimizations = optimizations.map(opt -> opt.get(featureTableName));
 
       final var createPolygonOutline =
           config.outlineFeatureTableNames().contains(featureTableName)
@@ -634,17 +635,17 @@ public class MltConverter {
     return ByteArrayUtil.concat(targetStream, tileBuffers);
   }
 
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   private static ArrayList<byte[]> encodePropertyColumns(
       ConversionConfig config,
       MltMetadata.FeatureTable featureTableMetadata,
       SequencedCollection<Feature> sortedFeatures,
-      FeatureTableOptimizations featureTableOptimizations)
+      @NotNull Optional<FeatureTableOptimizations> featureTableOptimizations)
       throws IOException {
     final var propertyColumns = filterPropertyColumns(featureTableMetadata);
-    final List<ColumnMapping> columnMappings =
-        (featureTableOptimizations != null)
-            ? featureTableOptimizations.columnMappings()
-            : List.of();
+    @NotNull
+    final var columnMappings =
+        featureTableOptimizations.map(FeatureTableOptimizations::columnMappings).orElse(List.of());
     return PropertyEncoder.encodePropertyColumns(
         propertyColumns,
         sortedFeatures,
@@ -655,10 +656,11 @@ public class MltConverter {
         config.integerEncodingOption());
   }
 
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   private static Pair<SequencedCollection<Feature>, GeometryEncoder.EncodedGeometryColumn>
       sortFeaturesAndEncodeGeometryColumn(
           ConversionConfig config,
-          FeatureTableOptimizations featureTableOptimizations,
+          Optional<FeatureTableOptimizations> featureTableOptimizations,
           SequencedCollection<Feature> sortedFeatures,
           SequencedCollection<Feature> sourceFeatures,
           PhysicalLevelTechnique physicalLevelTechnique,
@@ -679,11 +681,12 @@ public class MltConverter {
       throw new IllegalArgumentException("No features to encode");
     }
 
-    var isColumnSortable =
+    final var isColumnSortable =
         config.includeIds()
-            && featureTableOptimizations != null
-            && featureTableOptimizations.allowSorting();
-    if (isColumnSortable && !featureTableOptimizations.allowIdRegeneration()) {
+            && featureTableOptimizations.map(FeatureTableOptimizations::allowSorting).orElse(false);
+    final var allowIdRegeneration =
+        featureTableOptimizations.map(FeatureTableOptimizations::allowIdRegeneration).orElse(false);
+    if (isColumnSortable && !allowIdRegeneration) {
       sortedFeatures = sortFeaturesById(sourceFeatures).toList();
     }
 
@@ -696,28 +699,21 @@ public class MltConverter {
 
     /* Only sort geometries if ids can be reassigned since sorting the id column turned out
      * to be more efficient in the tests */
-    var sortSettings =
-        new GeometryEncoder.SortSettings(
-            isColumnSortable && featureTableOptimizations.allowIdRegeneration(), ids);
+    final var sortSettings =
+        new GeometryEncoder.SortSettings(isColumnSortable && allowIdRegeneration, ids);
     /* Morton Vertex Dictionary encoding is currently not supported in pre-tessellation */
-    var useMortonEncoding = false;
-    var geometryEncodingOption = config.geometryEncodingOption();
-    var encodedGeometryColumn =
-        config.preTessellatePolygons()
-            ? GeometryEncoder.encodePretessellatedGeometryColumn(
-                geometries,
-                physicalLevelTechnique,
-                sortSettings,
-                useMortonEncoding,
-                encodePolygonOutlines,
-                tessellateSource,
-                geometryEncodingOption)
-            : GeometryEncoder.encodeGeometryColumn(
-                geometries,
-                physicalLevelTechnique,
-                sortSettings,
-                config.useMortonEncoding(),
-                geometryEncodingOption);
+    final var useMortonEncoding = config.useMortonEncoding() && !config.preTessellatePolygons();
+    final var geometryEncodingOption = config.geometryEncodingOption();
+    final var encodedGeometryColumn =
+        GeometryEncoder.encodeGeometryColumn(
+            geometries,
+            physicalLevelTechnique,
+            sortSettings,
+            useMortonEncoding,
+            config.preTessellatePolygons(),
+            encodePolygonOutlines,
+            tessellateSource,
+            geometryEncodingOption);
 
     if (encodedGeometryColumn.geometryColumnSorted()) {
       sortedFeatures =
@@ -731,9 +727,7 @@ public class MltConverter {
               .collect(Collectors.toList());
     }
 
-    if (config.includeIds()
-        && featureTableOptimizations != null
-        && featureTableOptimizations.allowIdRegeneration()) {
+    if (config.includeIds() && allowIdRegeneration) {
       sortedFeatures = generateSequenceIds(sortedFeatures).toList();
     }
 
