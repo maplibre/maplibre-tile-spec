@@ -908,11 +908,15 @@ fn generate_props_u32(w: &mut SynthWriter) {
             let opt_vals: Vec<Option<u32>> = vals.iter().map(|&v| Some(v)).collect();
             geo_fastpfor()
                 .meta(E::rle_fastpfor())
+                .vertex_buffer_type(VertexBufferType::Hilbert)
+                .vertex_offsets(E::rle_fastpfor())
                 .geos(vec![P0; count])
                 .add_prop(E::fastpfor(), P::u32("val", vals))
                 .write(w, format!("props_u32_fpf_{count}_np"));
             geo_fastpfor()
                 .meta(E::rle_fastpfor())
+                .vertex_buffer_type(VertexBufferType::Hilbert)
+                .vertex_offsets(E::rle_fastpfor())
                 .geos(vec![P0; count])
                 .add_prop(E::fastpfor(), P::opt_u32("val", opt_vals))
                 .write(w, format!("props_u32_fpf_{count}"));
