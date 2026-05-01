@@ -76,12 +76,9 @@ jobs:
         run: |
           set -euo pipefail
           PR_NUMBER=$(cat /tmp/metrics/pr_number.txt)
-          existing=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate \
-            --jq ".[] | select(.body | contains(\"$COMMENT_MARKER\")) | .id" | head -n1)
-          if [ -n "$existing" ]; then
-            gh api -X PATCH "repos/$REPO/issues/comments/$existing" \
-              -F body=@/tmp/comment.md
+          EXISTING_PR=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate --jq ".[] | select(.body | contains(\"$COMMENT_MARKER\")) | .id" | head -n1)
+          if [ -n "$EXISTING_PR" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$EXISTING_PR" -F body=@/tmp/comment.md
           else
-            gh api -X POST "repos/$REPO/issues/$PR_NUMBER/comments" \
-              -F body=@/tmp/comment.md
+            gh api -X POST "repos/$REPO/issues/$PR_NUMBER/comments" -F body=@/tmp/comment.md
           fi
