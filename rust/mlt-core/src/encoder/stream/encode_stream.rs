@@ -2,7 +2,9 @@ use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 
 use crate::MltResult;
+#[cfg(any(test, feature = "__private"))]
 use crate::decoder::{DictionaryType, StreamMeta, StreamType};
+#[cfg(any(test, feature = "__private"))]
 use crate::encoder::EncodedStream;
 use crate::errors::AsMltError as _;
 
@@ -28,6 +30,7 @@ pub(crate) fn dedup_strings<S: AsRef<str>>(values: &[S]) -> MltResult<(Vec<&str>
     Ok((unique, indices))
 }
 
+#[cfg(any(test, feature = "__private"))]
 impl EncodedStream {
     /// Encodes `f32`s into a stream
     #[hotpath::measure]

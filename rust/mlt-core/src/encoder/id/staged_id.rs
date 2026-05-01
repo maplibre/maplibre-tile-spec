@@ -1,10 +1,7 @@
 use crate::MltResult;
 use crate::decoder::ColumnType;
 use crate::encoder::optimizer::{Presence, PropertyStats};
-use crate::encoder::{
-    Codecs, Encoder, StagedOptScalar, StagedScalar, write_opt_u32_scalar_col,
-    write_opt_u64_scalar_col, write_u32_scalar_col, write_u64_scalar_col,
-};
+use crate::encoder::{Codecs, Encoder, StagedOptScalar, StagedScalar};
 
 /// Staged ID column (encode-side, fully owned).
 ///
@@ -93,7 +90,9 @@ impl StagedId {
             Presence::AllPresent => {
                 Self::from_dense(ids.into_iter().flatten(), analysis.stats.values_fit_u32())
             }
-            Presence::Mixed => Self::from_optional_sparse(ids, analysis.stats.values_fit_u32()),
+            Presence::Mixed | Presence::SameAsProp(_) => {
+                Self::from_optional_sparse(ids, analysis.stats.values_fit_u32())
+            }
         }
     }
 
@@ -172,19 +171,12 @@ impl StagedId {
     #[hotpath::measure]
     pub fn write_to(self, enc: &mut Encoder, codecs: &mut Codecs) -> MltResult<()> {
         match &self {
-            Self::None => return Ok(()),
-            Self::U32(v) => write_u32_scalar_col(ColumnType::Id, None, v, enc, codecs)?,
-            Self::OptU32(v) => {
-                write_opt_u32_scalar_col(ColumnType::OptId, None, v, enc, codecs)?;
-            }
-            Self::U64(v) => write_u64_scalar_col(ColumnType::LongId, None, v, enc, codecs)?,
-            Self::OptU64(v) => {
-                write_opt_u64_scalar_col(ColumnType::OptLongId, None, v, enc, codecs)?;
-            }
+            Self::None => Ok(()),
+            Self::U32(v) => codecs.write_u32_scalar_col(ColumnType::Id, None, v, enc),
+            Self::OptU32(v) => codecs.write_opt_u32_scalar_col(ColumnType::OptId, None, v, enc),
+            Self::U64(v) => codecs.write_u64_scalar_col(ColumnType::LongId, None, v, enc),
+            Self::OptU64(v) => codecs.write_opt_u64_scalar_col(ColumnType::OptLongId, None, v, enc),
         }
-
-        enc.increment_column_count();
-        Ok(())
     }
 }
 
@@ -332,7 +324,8 @@ mod tests {
         let mut codecs = Codecs::default();
         input.write_to(&mut enc, &mut codecs).unwrap();
         assert_eq!(
-            enc.layer_column_count, 0,
+            enc.meta.len(),
+            0,
             "empty or all-null ID list should write no column"
         );
     }
@@ -348,8 +341,8 @@ mod tests {
         let mut enc = Encoder::default();
         let mut codecs = Codecs::default();
         input.write_to(&mut enc, &mut codecs).unwrap();
-        assert_eq!(
-            enc.layer_column_count, 1,
+        assert!(
+            !enc.meta.is_empty(),
             "non-trivial ID list should write a column"
         );
     }
@@ -360,10 +353,7 @@ mod tests {
         let mut enc = Encoder::default();
         let mut codecs = Codecs::default();
         decoded.write_to(&mut enc, &mut codecs).unwrap();
-        assert_eq!(
-            enc.layer_column_count, 0,
-            "empty ID list should write no column"
-        );
+        assert_eq!(enc.meta.len(), 0, "empty ID list should write no column");
     }
 
     #[rstest]

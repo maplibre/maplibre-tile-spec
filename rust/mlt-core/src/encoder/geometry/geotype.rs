@@ -287,8 +287,8 @@ mod tests {
         DictionaryType, IntEncoding, LengthType, LogicalEncoding, Morton, OffsetType, RawGeometry,
         StreamMeta, StreamType,
     };
-    use crate::encoder::stream::write::write_u32_stream_as;
-    use crate::encoder::{Codecs, EncodedStream, Encoder, IntEncoder};
+    use crate::encoder::model::StreamCtx;
+    use crate::encoder::{Codecs, EncodedStream, Encoder, ExplicitEncoder, IntEncoder};
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
 
@@ -588,32 +588,32 @@ mod tests {
         // Assemble, serialize, parse, decode — same wire layout as geometry encoder:
         // stream count, then meta (geom type), parts, vertex offsets, Morton dict.
         let mut codecs = Codecs::default();
-        let mut enc = Encoder::default();
+        let mut enc = Encoder::with_explicit(
+            Encoder::default().cfg,
+            ExplicitEncoder::all(IntEncoder::varint()),
+        );
         enc.write_varint(4u32).unwrap();
-        write_u32_stream_as(
-            &[GeometryType::LineString as u32],
-            StreamType::Length(LengthType::VarBinary),
-            IntEncoder::varint(),
-            &mut enc,
-            &mut codecs,
-        )
-        .unwrap();
-        write_u32_stream_as(
-            &[4u32],
-            StreamType::Length(LengthType::Parts),
-            IntEncoder::varint(),
-            &mut enc,
-            &mut codecs,
-        )
-        .unwrap();
-        write_u32_stream_as(
-            &[0u32, 1, 2, 1],
-            StreamType::Offset(OffsetType::Vertex),
-            IntEncoder::varint(),
-            &mut enc,
-            &mut codecs,
-        )
-        .unwrap();
+        codecs
+            .write_int_stream(
+                &[GeometryType::LineString as u32],
+                &StreamCtx::geom(StreamType::Length(LengthType::VarBinary), "meta"),
+                &mut enc,
+            )
+            .unwrap();
+        codecs
+            .write_int_stream(
+                &[4u32],
+                &StreamCtx::geom(StreamType::Length(LengthType::Parts), "parts"),
+                &mut enc,
+            )
+            .unwrap();
+        codecs
+            .write_int_stream(
+                &[0u32, 1, 2, 1],
+                &StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex"),
+                &mut enc,
+            )
+            .unwrap();
         enc.write_stream(&morton_dict).unwrap();
         let buffer = enc.data;
 

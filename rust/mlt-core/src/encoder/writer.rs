@@ -5,7 +5,7 @@ use fsst::Compressor;
 use integer_encoding::VarIntWriter as _;
 
 use crate::decoder::{ColumnType, Morton};
-use crate::encoder::model::{ExplicitEncoder, StrEncoding, StreamCtx};
+use crate::encoder::model::{CurveParams, ExplicitEncoder, StrEncoding, StreamCtx};
 use crate::encoder::{EncoderConfig, IntEncoder, VertexBufferType};
 use crate::utils::BinarySerializer as _;
 use crate::{MltError, MltResult};
@@ -108,20 +108,14 @@ pub struct Encoder {
     /// [`impl Write`]: Encoder#impl-Write
     pub data: Vec<u8>,
 
-    /// Layer columns written so far (geometry, optional ID, property columns).
-    ///
-    /// Incremented by each column encoder when it writes its column-type byte to
-    /// [`meta`](Encoder::meta). [`write_header`](Encoder::write_header) uses this
-    /// as the wire-format `column_count`.
-    pub layer_column_count: u32,
-
-    /// Regardless of the sort, these values should be identical
-    pub(crate) vertex_buffer_type_cache: Option<VertexBufferType>,
-
-    /// Cached result of `z_order_params` for the geometry column currently
-    /// being encoded.  Cleared at the start of each [`GeometryValues::write_to`](crate::GeometryValues::write_to)
-    /// call so it never leaks across columns.
+    /// Morton parameters for this layer's vertex set; `None` if the extent
+    /// exceeds 16 bits per axis (Morton encoding is unusable in that case).
+    /// Pre-populated by [`StagedLayer::encode_into`](crate::encoder::StagedLayer::encode_into).
     pub(crate) morton_cache: Option<Morton>,
+
+    /// Hilbert curve parameters for this layer's vertex set. Pre-populated by
+    /// [`StagedLayer::encode_into`](crate::encoder::StagedLayer::encode_into).
+    pub(crate) hilbert_cache: Option<CurveParams>,
 
     /// Cached FSST compressor per string column, keyed by column name.
     /// `None` means training found FSST not viable for that column.
@@ -180,19 +174,11 @@ impl Encoder {
             hdr: mem::take(&mut self.hdr),
             meta: mem::take(&mut self.meta),
             data: mem::take(&mut self.data),
-            layer_column_count: mem::take(&mut self.layer_column_count),
-            vertex_buffer_type_cache: None,
             morton_cache: None,
+            hilbert_cache: None,
             fsst_cache: HashMap::new(),
             alt_stack: vec![],
         }
-    }
-
-    /// Record one layer column (geometry, ID, or property) after writing its
-    /// column-type metadata to [`meta`](Encoder::meta).
-    #[inline]
-    pub(crate) fn increment_column_count(&mut self) {
-        self.layer_column_count = self.layer_column_count.saturating_add(1);
     }
 
     #[inline]
@@ -217,25 +203,22 @@ impl Encoder {
 
     /// Write the layer header (`name`, `extent`, `column_count`) to [`hdr`].
     ///
-    /// `column_count` is `layer_column_count` —
-    /// each column encoder must call `push_layer_column`
-    /// when it commits a column to the wire format.
-    ///
     /// Must be called exactly once per layer, after all column meta and data.
     ///
     /// [`hdr`]: Encoder::hdr
     #[hotpath::measure]
-    pub fn write_header(&mut self, name: &str, extent: u32) -> MltResult<()> {
+    pub fn write_header(&mut self, name: &str, extent: u32, column_count: usize) -> MltResult<()> {
         debug_assert!(
             self.alt_stack.is_empty(),
             "write_header called with an open alternatives session"
         );
         let name_len = u32::try_from(name.len())?;
+        let column_count = u32::try_from(column_count)?;
         self.hdr.write_varint(name_len).map_err(MltError::from)?;
         self.hdr.extend_from_slice(name.as_bytes());
         self.hdr.write_varint(extent).map_err(MltError::from)?;
         self.hdr
-            .write_varint(self.layer_column_count)
+            .write_varint(column_count)
             .map_err(MltError::from)?;
         Ok(())
     }

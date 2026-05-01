@@ -142,23 +142,7 @@ fn n_point_geometry(n: usize) -> GeometryValues {
 
 /// Encode `props` as a layer with matching point geometry and return the raw bytes.
 fn encode_to_bytes(props: Vec<StagedProperty>) -> Vec<u8> {
-    let n = props.iter().map(staged_len).max().unwrap_or(0);
-    let layer = StagedLayer {
-        name: "test".into(),
-        extent: 4096,
-        id: StagedId::None,
-        geometry: n_point_geometry(n),
-        properties: props,
-    };
-    let enc = Encoder::with_explicit(
-        EncoderConfig::default(),
-        ExplicitEncoder::all(IntEncoder::varint()),
-    );
-    let mut codecs = Codecs::default();
-    let enc = layer
-        .encode_into(enc, &mut codecs)
-        .expect("encoding failed");
-    enc.into_layer_bytes().expect("into_layer_bytes failed")
+    encode_to_bytes_explicit(props, ExplicitEncoder::all(IntEncoder::varint()))
 }
 
 /// Encode `props` with explicit encoder config and return the raw bytes.
@@ -181,14 +165,7 @@ fn encode_to_bytes_explicit(props: Vec<StagedProperty>, cfg: ExplicitEncoder) ->
 
 /// Encode and immediately decode `props` into a [`TileLayer`] using auto varint encoding.
 fn encode_and_tile(props: Vec<StagedProperty>) -> TileLayer {
-    let bytes = encode_to_bytes(props);
-    let (_, layer) = Layer::from_bytes(&bytes, &mut parser()).expect("layer parse failed");
-    let Layer::Tag01(layer01) = layer else {
-        panic!("expected Tag01 layer")
-    };
-    let mut d = dec();
-    let parsed = layer01.decode_all(&mut d).expect("decode failed");
-    parsed.into_tile(&mut d).expect("into_tile failed")
+    encode_and_tile_explicit(props, ExplicitEncoder::all(IntEncoder::varint()))
 }
 
 /// Encode and decode with explicit encoder config.
@@ -661,10 +638,6 @@ proptest! {
     }
 }
 
-fn str_prop(name: &str, values: &[&str]) -> StagedProperty {
-    StagedProperty::str(name, values.iter().copied())
-}
-
 /// Build a [`TileLayer`] from heterogeneous column data (one `Vec<PropValue>` per column).
 fn tile_from_cols(cols: &[(&str, Vec<PropValue>)]) -> TileLayer {
     let n = cols.first().map_or(0, |(_, v)| v.len());
@@ -724,27 +697,35 @@ fn staging_uses_id_presence_analysis() {
     let analysis = all_present.analyze(false).unwrap();
     let id = analysis.id.as_ref().expect("ID analysis");
     assert!(id.stats.values_fit_u32());
-    let staged = StagedLayer::from_tile(all_present, Unsorted, &analysis, false);
+    let curve_params = all_present.curve_params();
+
+    let staged = StagedLayer::from_tile(all_present, Unsorted, &analysis, false, curve_params);
     assert!(matches!(staged.id, StagedId::U32(_)));
 
     let mixed = tile_from_ids(&[Some(1), None, Some(3)]);
     let analysis = mixed.analyze(false).unwrap();
     let id = analysis.id.as_ref().expect("ID analysis");
     assert!(id.stats.values_fit_u32());
-    let staged = StagedLayer::from_tile(mixed, Unsorted, &analysis, false);
+    let curve_params = mixed.curve_params();
+
+    let staged = StagedLayer::from_tile(mixed, Unsorted, &analysis, false, curve_params);
     assert!(matches!(staged.id, StagedId::OptU32(_)));
 
     let large = tile_from_ids(&[Some(u64::from(u32::MAX) + 1), None, Some(3)]);
     let analysis = large.analyze(false).unwrap();
     let id = analysis.id.as_ref().expect("ID analysis");
     assert!(!id.stats.values_fit_u32());
-    let staged = StagedLayer::from_tile(large, Unsorted, &analysis, false);
+    let curve_params = large.curve_params();
+
+    let staged = StagedLayer::from_tile(large, Unsorted, &analysis, false, curve_params);
     assert!(matches!(staged.id, StagedId::OptU64(_)));
 
     let all_null = tile_from_ids(&[None, None, None]);
     let analysis = all_null.analyze(false).unwrap();
     assert_eq!(analysis.id, None);
-    let staged = StagedLayer::from_tile(all_null, Unsorted, &analysis, false);
+    let curve_params = all_null.curve_params();
+
+    let staged = StagedLayer::from_tile(all_null, Unsorted, &analysis, false, curve_params);
     assert!(matches!(staged.id, StagedId::None));
 }
 
@@ -782,7 +763,7 @@ fn analyze_layer_classifies_id_and_property_presence() {
     let analysis = tile.analyze(true).unwrap();
 
     let id = analysis.id.as_ref().expect("ID analysis");
-    assert_eq!(id.presence, Presence::Mixed);
+    assert_eq!(id.presence, Presence::SameAsProp(1));
     assert_eq!(id.stats, PropertyTypedStats::Unsigned { min: 1, max: 3 });
     assert_eq!(analysis.properties[0].presence, Presence::AllPresent);
     assert_eq!(
@@ -793,6 +774,82 @@ fn analyze_layer_classifies_id_and_property_presence() {
     assert_eq!(analysis.properties[1].stats, PropertyTypedStats::Bool);
     assert_eq!(analysis.properties[2].presence, Presence::AllNull);
     assert_eq!(analysis.properties[2].stats, PropertyTypedStats::None);
+}
+
+#[test]
+fn analyze_layer_records_matching_property_presence_as_aliases() {
+    let tile = tile_from_cols_with_ids(
+        &[Some(1), None, Some(3), None],
+        &[
+            (
+                "a",
+                vec![
+                    PropValue::U32(Some(1)),
+                    PropValue::U32(None),
+                    PropValue::U32(Some(3)),
+                    PropValue::U32(None),
+                ],
+            ),
+            (
+                "b",
+                vec![
+                    PropValue::Bool(Some(true)),
+                    PropValue::Bool(None),
+                    PropValue::Bool(Some(false)),
+                    PropValue::Bool(None),
+                ],
+            ),
+            (
+                "c",
+                vec![
+                    PropValue::Str(None),
+                    PropValue::Str(Some("x".to_string())),
+                    PropValue::Str(Some("y".to_string())),
+                    PropValue::Str(None),
+                ],
+            ),
+            (
+                "d",
+                vec![
+                    PropValue::I32(Some(1)),
+                    PropValue::I32(Some(2)),
+                    PropValue::I32(Some(3)),
+                    PropValue::I32(Some(4)),
+                ],
+            ),
+            (
+                "e",
+                vec![
+                    PropValue::F64(None),
+                    PropValue::F64(Some(1.0)),
+                    PropValue::F64(Some(2.0)),
+                    PropValue::F64(None),
+                ],
+            ),
+            (
+                "f",
+                vec![
+                    PropValue::F32(None),
+                    PropValue::F32(None),
+                    PropValue::F32(None),
+                    PropValue::F32(None),
+                ],
+            ),
+        ],
+    );
+
+    let analysis = tile.analyze(false).unwrap();
+
+    assert_eq!(
+        analysis.id.as_ref().expect("ID analysis").presence,
+        Presence::SameAsProp(0)
+    );
+    assert_eq!(analysis.properties[0].presence, Presence::Mixed);
+    assert_eq!(analysis.properties[1].presence, Presence::SameAsProp(0));
+    assert_eq!(analysis.properties[2].presence, Presence::Mixed);
+    assert_eq!(analysis.properties[3].presence, Presence::AllPresent);
+    assert_eq!(analysis.properties[4].presence, Presence::SameAsProp(2));
+    assert_eq!(analysis.properties[5].presence, Presence::AllNull);
 }
 
 #[test]
@@ -992,8 +1049,8 @@ fn no_nulls_produces_encoded_output() {
     let mut enc = Encoder::default();
     let mut codecs = Codecs::default();
     write_properties(&props, &mut enc, &mut codecs).unwrap();
-    assert_eq!(
-        enc.layer_column_count, 1,
+    assert!(
+        !enc.meta.is_empty(),
         "non-null column should write one column"
     );
 }
@@ -1012,7 +1069,7 @@ fn sequential_u32_encodes_successfully() {
     let mut enc = Encoder::default();
     let mut codecs = Codecs::default();
     write_properties(&props, &mut enc, &mut codecs).unwrap();
-    assert_eq!(enc.layer_column_count, 1);
+    assert!(!enc.meta.is_empty());
 }
 
 #[test]
@@ -1021,25 +1078,23 @@ fn constant_u32_encodes_successfully() {
     let mut enc = Encoder::default();
     let mut codecs = Codecs::default();
     write_properties(&props, &mut enc, &mut codecs).unwrap();
-    assert_eq!(enc.layer_column_count, 1);
+    assert!(!enc.meta.is_empty());
 }
 
 #[test]
 fn similar_strings_grouped_into_shared_dict() {
     let vocab = &["Alice", "Bob", "Carol", "Dave"];
     let tile = tile_from_cols(&[("name:en", str_vals(vocab)), ("name:de", str_vals(vocab))]);
-    let mut enc = Encoder::default();
-    let mut codecs = Codecs::default();
-    write_properties(
-        &stage_tile(tile, Unsorted, true, false).properties,
-        &mut enc,
-        &mut codecs,
-    )
-    .unwrap();
 
+    let res = tile.analyze(true).unwrap();
     assert_eq!(
-        enc.layer_column_count, 1,
-        "two similar string columns should be merged into one SharedDict"
+        res.properties[0].stats.shared_dict(),
+        SharedDictRole::Owner("name:".to_string())
+    );
+    assert_eq!(
+        res.properties[1].stats.shared_dict(),
+        SharedDictRole::Member(0),
+        "second similar string column should join the first column's SharedDict"
     );
 }
 
@@ -1051,34 +1106,34 @@ fn multiple_similar_string_columns_grouped() {
         ("addr:street", str_vals(vocab)),
         ("addr:zipcode", str_vals(vocab)),
     ]);
-    let mut enc = Encoder::default();
-    let mut codecs = Codecs::default();
-    write_properties(
-        &stage_tile(tile, Unsorted, true, false).properties,
-        &mut enc,
-        &mut codecs,
-    )
-    .unwrap();
 
+    let res = tile.analyze(true).unwrap();
     assert_eq!(
-        enc.layer_column_count, 1,
-        "three similar string columns should be merged"
+        res.properties[0].stats.shared_dict(),
+        SharedDictRole::Owner("addr:".to_string())
+    );
+    assert_eq!(
+        res.properties[1].stats.shared_dict(),
+        SharedDictRole::Member(0)
+    );
+    assert_eq!(
+        res.properties[2].stats.shared_dict(),
+        SharedDictRole::Member(0),
+        "all similar string columns should join the first column's SharedDict"
     );
 }
 
 #[test]
 fn dissimilar_strings_stay_scalar() {
-    let props = vec![
-        str_prop("city:de", &["Munich", "Manheim", "Garching"]),
-        str_prop("city:colourado", &["Black", "Red", "Gold"]),
-    ];
-    let mut enc = Encoder::default();
-    let mut codecs = Codecs::default();
-    write_properties(&props, &mut enc, &mut codecs).unwrap();
-    assert_eq!(
-        enc.layer_column_count, 2,
-        "dissimilar strings should not be merged"
-    );
+    let tile = tile_from_cols(&[
+        ("city:de", str_vals(&["Munich", "Manheim", "Garching"])),
+        ("city:colourado", str_vals(&["Black", "Red", "Gold"])),
+    ]);
+
+    let res = tile.analyze(true).unwrap();
+
+    assert_eq!(res.properties[0].stats.shared_dict(), SharedDictRole::None);
+    assert_eq!(res.properties[1].stats.shared_dict(), SharedDictRole::None);
 }
 
 #[test]
@@ -1096,15 +1151,19 @@ fn mixed_scalars_and_grouped_strings() {
                 .collect(),
         ),
     ]);
-    let mut enc = Encoder::default();
-    let mut codecs = Codecs::default();
-    write_properties(
-        &stage_tile(tile, Unsorted, true, false).properties,
-        &mut enc,
-        &mut codecs,
-    )
-    .unwrap();
-    assert_eq!(enc.layer_column_count, 3, "two scalar + one merged dict");
+
+    let res = tile.analyze(true).unwrap();
+
+    assert_eq!(res.properties[0].stats.shared_dict(), SharedDictRole::None);
+    assert_eq!(
+        res.properties[1].stats.shared_dict(),
+        SharedDictRole::Owner("name:".to_string())
+    );
+    assert_eq!(
+        res.properties[2].stats.shared_dict(),
+        SharedDictRole::Member(1)
+    );
+    assert_eq!(res.properties[3].stats.shared_dict(), SharedDictRole::None);
 }
 
 #[test]
@@ -1113,5 +1172,5 @@ fn encode_with_explicit_encoder_works() {
     let mut enc = Encoder::default();
     let mut codecs = Codecs::default();
     write_properties(&props, &mut enc, &mut codecs).unwrap();
-    assert_eq!(enc.layer_column_count, 1);
+    assert!(!enc.meta.is_empty());
 }

@@ -104,20 +104,36 @@ public class MltTypeMap {
     }
 
     public static boolean isID(MltMetadata.Column column) {
-      return column.is(MltMetadata.LogicalScalarType.ID);
+      return isID(column.field().type());
+    }
+
+    public static boolean isID(MltMetadata.FieldType type) {
+      return type.is(MltMetadata.LogicalScalarType.ID);
     }
 
     public static boolean isGeometry(MltMetadata.Column column) {
-      return column.is(MltMetadata.ComplexType.GEOMETRY);
+      return isGeometry(column.field().type());
     }
 
-    static boolean isStruct(MltMetadata.Column column) {
-      return column.is(MltMetadata.ComplexType.STRUCT);
+    public static boolean isGeometry(MltMetadata.FieldType type) {
+      return type.is(MltMetadata.ComplexType.GEOMETRY);
+    }
+
+    public static boolean isStruct(MltMetadata.Column column) {
+      return isStruct(column.field().type());
+    }
+
+    public static boolean isStruct(MltMetadata.FieldType type) {
+      return type.is(MltMetadata.ComplexType.STRUCT);
     }
 
     public static boolean hasStreamCount(MltMetadata.Column column) {
-      if (column.isScalar()) {
-        final var scalar = column.field().type().scalarType();
+      return hasStreamCount(column.field().type());
+    }
+
+    public static boolean hasStreamCount(MltMetadata.FieldType type) {
+      if (type.scalarType() != null) {
+        final var scalar = type.scalarType();
         if (scalar.physicalType() != null) {
           switch (scalar.physicalType()) {
             case BOOLEAN:
@@ -139,8 +155,8 @@ public class MltTypeMap {
             return false;
           }
         }
-      } else if (column.isComplex()) {
-        final var complex = column.field().type().complexType();
+      } else if (type.complexType() != null) {
+        final var complex = type.complexType();
         if (complex.physicalType() != null) {
           switch (complex.physicalType()) {
             case GEOMETRY:

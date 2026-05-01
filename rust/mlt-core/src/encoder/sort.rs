@@ -5,7 +5,7 @@ use geo_types::{Coord, Geometry};
 
 use crate::codecs::hilbert::{hilbert_curve_params_from_bounds, hilbert_sort_key};
 use crate::codecs::morton::morton_sort_key;
-use crate::decoder::{TileFeature, TileLayer};
+use crate::decoder::TileLayer;
 use crate::encoder::model::CurveParams;
 
 /// Controls how features inside a layer are reordered before encoding.
@@ -39,15 +39,19 @@ pub enum SortStrategy {
 }
 
 impl TileLayer {
-    /// Reorder all features of `layer` according to `strategy`.
+    /// Reorder features by `strategy`, using `params` as the curve normalization
+    /// for [`SortStrategy::SpatialMorton`] / [`SortStrategy::SpatialHilbert`].
     ///
-    /// [`SortStrategy::Unsorted`] is a no-op.
-    /// Layers with zero or one features are trivially unchanged by any sort.
+    /// `params` is taken as a parameter (rather than recomputed here) so the
+    /// same scan feeds the encoder's dictionary builders, see
+    /// [`TileLayer::curve_params`].
+    ///
+    /// [`SortStrategy::Unsorted`] is a no-op; layers with ≤1 feature are
+    /// trivially unchanged.
     #[hotpath::measure]
-    pub fn sort(&mut self, strategy: SortStrategy) {
+    pub fn sort(&mut self, strategy: SortStrategy, params: CurveParams) {
         match strategy {
             SortStrategy::SpatialMorton | SortStrategy::SpatialHilbert => {
-                let params = curve_params_from_features(&self.features);
                 let curve_key = if let SortStrategy::SpatialMorton = strategy {
                     morton_sort_key
                 } else {
@@ -66,18 +70,24 @@ impl TileLayer {
             }
         }
     }
-}
 
-/// Compute the Hilbert/Morton curve parameters from all vertex coordinates
-/// in `features` without allocating a temporary vertex buffer.
-fn curve_params_from_features(features: &[TileFeature]) -> CurveParams {
-    let (min_val, max_val) = features
-        .iter()
-        .flat_map(|f| f.geometry.coords_iter())
-        .fold((i32::MAX, i32::MIN), |(min, max), c| {
-            (min.min(c.x).min(c.y), max.max(c.x).max(c.y))
-        });
-    hilbert_curve_params_from_bounds(min_val, max_val)
+    /// Compute Hilbert/Morton [`CurveParams`] for this layer.
+    ///
+    /// The bounds are order-invariant, so the optimizer calls this once per
+    /// layer and reuses the result across every sort trial and the encoder's
+    /// dictionary builders.
+    #[hotpath::measure]
+    #[must_use]
+    pub fn curve_params(&self) -> CurveParams {
+        let (min_val, max_val) = self
+            .features
+            .iter()
+            .flat_map(|f| f.geometry.coords_iter())
+            .fold((i32::MAX, i32::MIN), |(min, max), c| {
+                (min.min(c.x).min(c.y), max.max(c.x).max(c.y))
+            });
+        hilbert_curve_params_from_bounds(min_val, max_val)
+    }
 }
 
 /// Extract the coordinate of the first vertex of a geometry.
@@ -226,7 +236,8 @@ mod tests {
             features,
         };
 
-        layer.sort(strategy);
+        let params = layer.curve_params();
+        layer.sort(strategy, params);
         layer
     }
 

@@ -15,9 +15,7 @@ use crate::decoder::{PropValue, TileLayer};
 use crate::encoder::model::{StrEncoding, StreamCtx};
 use crate::encoder::optimizer::{Presence, PropertyStats, SharedDictRole};
 use crate::encoder::property::strings::{fsst_try_train, write_fsst_data, write_raw_str_data};
-use crate::encoder::{
-    Codecs, Encoder, StagedSharedDict, StagedSharedDictItem, write_bool_stream, write_u32_stream,
-};
+use crate::encoder::{Codecs, Encoder, StagedSharedDict, StagedSharedDictItem};
 use crate::errors::AsMltError as _;
 use crate::utils::{AsUsize as _, checked_sum3, strings_to_lengths};
 use crate::{ColumnType, DictRange, DictionaryType, LengthType, MltResult, OffsetType, StreamType};
@@ -292,119 +290,110 @@ impl StagedSharedDict {
     }
 }
 
-/// Encode a shared-dictionary property and write it to `enc`.
-///
-/// When [`Encoder::override_str_enc`] returns [`None`], auto-selects the corpus encoding (FSST if viable, else plain)
-/// and uses automatic offset encoders.
-/// When [`Some`], uses the caller-specified encoding and [`Encoder::override_int_enc`] for offsets.
-///
-/// The caller (staging) is responsible for not creating empty `StagedSharedDict` instances.
-/// Always returns `true`.
-#[hotpath::measure]
-pub(crate) fn write_shared_dict(
-    shared_dict: &StagedSharedDict,
-    enc: &mut Encoder,
-    codecs: &mut Codecs,
-) -> MltResult<bool> {
-    let dict_spans = collect_staged_shared_dict_spans(&shared_dict.items);
-    let dict: Vec<&str> = dict_spans
-        .iter()
-        .map(|&span| {
-            shared_dict
-                .get(span)
-                .ok_or(DictIndexOutOfBounds(span.0, dict_spans.len()))
-        })
-        .collect::<Result<_, _>>()?;
-    let dict_index: HashMap<(u32, u32), u32> = dict_spans.iter().copied().zip(0_u32..).collect();
-
-    // Decide corpus encoding upfront to determine the stream count for the varint header.
-    // FSST uses 4 streams; plain uses 2.
-    let str_enc_override = enc.override_str_enc(&shared_dict.prefix);
-    let fsst_raw = match str_enc_override {
-        Some(StrEncoding::Fsst | StrEncoding::FsstDict) => {
-            let byte_slices: Vec<&[u8]> = dict.iter().map(|s| s.as_bytes()).collect();
-            let compressor = fsst::Compressor::train(&byte_slices);
-            Some(compress_fsst_with(&dict, &compressor))
-        }
-        Some(StrEncoding::Plain | StrEncoding::Dict) => None,
-        None => {
-            // Populate cache on first sort trial, reuse on subsequent.
-            // Key includes the suffix as otherwise multiple groups could share the same prefix
-            // (e.g. two "name:" groups for Arabic vs Cyrillic scripts).
-            // Since the grouping is done only once, the order inside the items is deterministic, so we can just take the first suffix for the cache key.
-            let first_suffix = shared_dict.items.first().map_or("", |i| &i.suffix);
-            enc.fsst_cache
-                .entry(format!(
-                    "{prefix}{first_suffix}",
-                    prefix = shared_dict.prefix
-                ))
-                .or_insert_with(|| fsst_try_train(&dict))
-                .as_ref()
-                .map(|c| compress_fsst_with(&dict, c))
-        }
-    };
-    let dict_stream_count = if fsst_raw.is_some() { 4u32 } else { 2u32 };
-
-    let children_count = u32::try_from(shared_dict.items.len())?;
-    let optional_count = u32::try_from(
-        shared_dict
-            .items
+impl Codecs {
+    /// Encode a shared-dictionary property and write it to `enc`.
+    ///
+    /// When [`Encoder::override_str_enc`] returns [`None`], auto-selects the corpus encoding (FSST if viable, else plain)
+    /// and uses automatic offset encoders.
+    /// When [`Some`], uses the caller-specified encoding and [`Encoder::override_int_enc`] for offsets.
+    ///
+    /// The caller (staging) is responsible for not creating empty `StagedSharedDict` instances.
+    #[hotpath::measure]
+    pub(crate) fn write_shared_dict(
+        &mut self,
+        shared_dict: &StagedSharedDict,
+        enc: &mut Encoder,
+    ) -> MltResult<()> {
+        let dict_spans = collect_staged_shared_dict_spans(&shared_dict.items);
+        let dict: Vec<&str> = dict_spans
             .iter()
-            .filter(|p| p.has_presence())
-            .count(),
-    )?;
-    let stream_len = checked_sum3(dict_stream_count, children_count, optional_count)?;
-
-    // Write stream data: total count, corpus streams, then per-child streams.
-    enc.write_varint(stream_len)?;
-    if let Some(ref raw) = fsst_raw {
-        write_fsst_data(
-            raw,
-            DictionaryType::Single,
-            &shared_dict.prefix,
-            enc,
-            codecs,
-        )?;
-    } else {
-        let lengths = strings_to_lengths(&dict)?;
-        let typ = StreamType::Length(LengthType::Dictionary);
-        write_u32_stream(
-            &lengths,
-            &StreamCtx::prop(typ, &shared_dict.prefix),
-            enc,
-            codecs,
-        )?;
-        write_raw_str_data(&dict, DictionaryType::Shared, enc)?;
-    }
-
-    enc.write_column_header(ColumnType::SharedDict, &shared_dict.prefix)?;
-    enc.meta.write_varint(children_count)?;
-
-    for item in &shared_dict.items {
-        if item.has_presence() {
-            enc.write_varint(2u32)?;
-            enc.write_column_type(ColumnType::OptStr)?;
-            write_bool_stream(item.presence_bools(), StreamType::Present, enc, codecs)?;
-        } else {
-            enc.write_varint(1u32)?;
-            enc.write_column_type(ColumnType::Str)?;
-        }
-        enc.write_column_name(&item.suffix)?;
-
-        let offsets: Vec<u32> = item
-            .dense_spans()
-            .map(|span| {
-                dict_index
-                    .get(&span)
-                    .copied()
+            .map(|&span| {
+                shared_dict
+                    .get(span)
                     .ok_or(DictIndexOutOfBounds(span.0, dict_spans.len()))
             })
             .collect::<Result<_, _>>()?;
-        let typ = StreamType::Offset(OffsetType::String);
-        let ctx = StreamCtx::prop2(typ, &shared_dict.prefix, &item.suffix);
-        write_u32_stream(&offsets, &ctx, enc, codecs)?;
-    }
+        let dict_index: HashMap<(u32, u32), u32> =
+            dict_spans.iter().copied().zip(0_u32..).collect();
 
-    enc.increment_column_count();
-    Ok(true)
+        // Decide corpus encoding upfront to determine the stream count for the varint header.
+        // FSST uses 4 streams; plain uses 2.
+        let str_enc_override = enc.override_str_enc(&shared_dict.prefix);
+        let fsst_raw = match str_enc_override {
+            Some(StrEncoding::Fsst | StrEncoding::FsstDict) => {
+                let byte_slices: Vec<&[u8]> = dict.iter().map(|s| s.as_bytes()).collect();
+                let compressor = fsst::Compressor::train(&byte_slices);
+                Some(compress_fsst_with(&dict, &compressor))
+            }
+            Some(StrEncoding::Plain | StrEncoding::Dict) => None,
+            None => {
+                // Populate cache on first sort trial, reuse on subsequent.
+                // Key includes the suffix as otherwise multiple groups could share the same prefix
+                // (e.g. two "name:" groups for Arabic vs Cyrillic scripts).
+                // Since the grouping is done only once, the order inside the items is deterministic, so we can just take the first suffix for the cache key.
+                let first_suffix = shared_dict.items.first().map_or("", |i| &i.suffix);
+                enc.fsst_cache
+                    .entry(format!(
+                        "{prefix}{first_suffix}",
+                        prefix = shared_dict.prefix
+                    ))
+                    .or_insert_with(|| fsst_try_train(&dict))
+                    .as_ref()
+                    .map(|c| compress_fsst_with(&dict, c))
+            }
+        };
+        let dict_stream_count = if fsst_raw.is_some() { 4u32 } else { 2u32 };
+
+        let children_count = u32::try_from(shared_dict.items.len())?;
+        let optional_count = u32::try_from(
+            shared_dict
+                .items
+                .iter()
+                .filter(|p| p.has_presence())
+                .count(),
+        )?;
+        let stream_len = checked_sum3(dict_stream_count, children_count, optional_count)?;
+
+        // Write stream data: total count, corpus streams, then per-child streams.
+        enc.write_varint(stream_len)?;
+        if let Some(ref raw) = fsst_raw {
+            write_fsst_data(raw, DictionaryType::Single, &shared_dict.prefix, enc, self)?;
+        } else {
+            let lengths = strings_to_lengths(&dict)?;
+            let typ = StreamType::Length(LengthType::Dictionary);
+            let ctx = StreamCtx::prop(typ, &shared_dict.prefix);
+            self.write_int_stream(&lengths, &ctx, enc)?;
+            write_raw_str_data(&dict, DictionaryType::Shared, enc)?;
+        }
+
+        enc.write_column_header(ColumnType::SharedDict, &shared_dict.prefix)?;
+        enc.meta.write_varint(children_count)?;
+
+        for item in &shared_dict.items {
+            if item.has_presence() {
+                enc.write_varint(2u32)?;
+                enc.write_column_type(ColumnType::OptStr)?;
+                self.write_presence_stream(item.presence_bools(), enc)?;
+            } else {
+                enc.write_varint(1u32)?;
+                enc.write_column_type(ColumnType::Str)?;
+            }
+            enc.write_column_name(&item.suffix)?;
+
+            let offsets: Vec<u32> = item
+                .dense_spans()
+                .map(|span| {
+                    dict_index
+                        .get(&span)
+                        .copied()
+                        .ok_or(DictIndexOutOfBounds(span.0, dict_spans.len()))
+                })
+                .collect::<Result<_, _>>()?;
+            let typ = StreamType::Offset(OffsetType::String);
+            let ctx = StreamCtx::prop2(typ, &shared_dict.prefix, &item.suffix);
+            self.write_int_stream(&offsets, &ctx, enc)?;
+        }
+
+        Ok(())
+    }
 }

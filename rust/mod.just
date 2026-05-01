@@ -184,6 +184,22 @@ _coverage: (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm
 profile *args:
     cargo run --release -p mlt --features='__hotpath,__hotpath-alloc,__hotpath-mcp' -- {{args}}
 
+# Compress the tiles into `sizes(z, x, y, size)` SQLite DB
+compress-db-statistics tile_dir db:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {
+      echo "CREATE TABLE sizes (z INTEGER NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, size INTEGER NOT NULL, PRIMARY KEY (z, x, y)) WITHOUT ROWID;"
+      echo "BEGIN;"
+      find {{quote(tile_dir)}} -type f -name '*.mlt' -printf '%f\t%s\n' \
+        | awk -F'\t' '{ sub(/\.mlt$/, "", $1); split($1, c, "_"); printf "INSERT INTO sizes VALUES(%s,%s,%s,%s);\n", c[1], c[2], c[3], $2 }'
+      echo "COMMIT;"
+    } | sqlite3 {{quote(db)}}
+
+# Diff two compressed sizes DBs (produced by `compress-db-statistics`).
+size-diff prev curr:
+    sqlite3 {{prev}} -cmd "ATTACH DATABASE '{{curr}}' AS current_head;" < scripts/diff.sql
+
 # Download ~5k benchmark tiles (z0-z6) from Protomaps into outdir.
 # Skips if a previous complete download is detected (.complete sentinel).
 # ODbL-licensed OSM data; extraction explicitly permitted by Protomaps.

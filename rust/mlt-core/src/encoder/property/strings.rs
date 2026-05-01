@@ -7,9 +7,7 @@ use crate::codecs::fsst::{FsstRawData, compress_fsst, compress_fsst_with};
 use crate::decoder::strings::{checked_string_end, encode_null_end};
 use crate::decoder::{DictionaryType, LengthType, OffsetType, StreamMeta, StreamType};
 use crate::encoder::model::{StrEncoding, StreamCtx};
-use crate::encoder::stream::{
-    dedup_strings, write_bool_stream, write_stream_payload, write_u32_stream,
-};
+use crate::encoder::stream::{dedup_strings, write_stream_payload};
 use crate::encoder::{Codecs, Encoder};
 use crate::utils::{AsUsize as _, strings_to_lengths};
 
@@ -61,65 +59,69 @@ pub(crate) fn fsst_try_train(strings: &[&str]) -> Option<Compressor> {
     }
 }
 
-/// Encode a string column, following the same explicit-or-auto pattern as numeric columns.
-///
-/// If [`Encoder::override_str_enc`] returns `Some`, only that type is encoded.
-/// Otherwise Plain, Dict, and (when viable) FSST variants are competed via the alternatives
-/// machinery, mirroring the `write_int_prop_*` pattern one level up.
-#[hotpath::measure]
-pub(crate) fn write_str_col(
-    v: &StagedStrings,
-    presence: Option<&StagedStrings>,
-    enc: &mut Encoder,
-    codecs: &mut Codecs,
-) -> MltResult<()> {
-    let non_null = v.dense_values();
-    let name = &v.name;
-    if let Some(str_enc) = enc.override_str_enc(name) {
-        match str_enc {
-            StrEncoding::Plain => write_str_plain(&non_null, presence, name, enc, codecs)?,
-            StrEncoding::Dict => write_str_dict(&non_null, presence, name, enc, codecs)?,
-            StrEncoding::Fsst => write_str_fsst(&non_null, presence, name, enc, codecs)?,
-            StrEncoding::FsstDict => write_str_fsst_dict(&non_null, presence, name, enc, codecs)?,
-        }
-    } else {
-        // Dedup once; reused by Dict and FSST+Dict alternatives.
-        let (unique, offset_indices) = dedup_strings(&non_null)?;
+impl Codecs {
+    /// Encode a string column, following the same explicit-or-auto pattern as numeric columns.
+    ///
+    /// If [`Encoder::override_str_enc`] returns `Some`, only that type is encoded.
+    /// Otherwise Plain, Dict, and (when viable) FSST variants are competed via the alternatives
+    /// machinery, mirroring the `write_int_prop_*` pattern one level up.
+    #[hotpath::measure]
+    pub(crate) fn write_str_col(
+        &mut self,
+        v: &StagedStrings,
+        presence: Option<&StagedStrings>,
+        enc: &mut Encoder,
+    ) -> MltResult<()> {
+        let non_null = v.dense_values();
+        let name = &v.name;
+        if let Some(str_enc) = enc.override_str_enc(name) {
+            match str_enc {
+                StrEncoding::Plain => write_str_plain(&non_null, presence, name, enc, self)?,
+                StrEncoding::Dict => write_str_dict(&non_null, presence, name, enc, self)?,
+                StrEncoding::Fsst => write_str_fsst(&non_null, presence, name, enc, self)?,
+                StrEncoding::FsstDict => write_str_fsst_dict(&non_null, presence, name, enc, self)?,
+            }
+        } else {
+            // Dedup once; reused by Dict and FSST+Dict alternatives.
+            let (unique, offset_indices) = dedup_strings(&non_null)?;
 
-        // Train on deduplicated values once; cached across sort trials.
-        let compressor = enc
-            .fsst_cache
-            .entry(name.clone())
-            .or_insert_with(|| fsst_try_train(&unique));
+            // Train on deduplicated values once; cached across sort trials.
+            let compressor = enc
+                .fsst_cache
+                .entry(name.clone())
+                .or_insert_with(|| fsst_try_train(&unique));
 
-        // Pre-compute compressed data while cache is accessible (before try_alternatives
-        // borrows enc). The FsstRawData is owned, so the cache borrow ends here.
-        let count = non_null.len();
-        let plain_fsst = compressor
-            .as_ref()
-            .map(|c| compress_fsst_with(&non_null, c));
-        let dict_fsst = compressor.as_ref().map(|c| compress_fsst_with(&unique, c));
+            // Pre-compute compressed data while cache is accessible (before try_alternatives
+            // borrows enc). The FsstRawData is owned, so the cache borrow ends here.
+            let count = non_null.len();
+            let plain_fsst = compressor
+                .as_ref()
+                .map(|c| compress_fsst_with(&non_null, c));
+            let dict_fsst = compressor.as_ref().map(|c| compress_fsst_with(&unique, c));
 
-        let mut alt = enc.try_alternatives();
-        alt.with(|enc| write_str_plain(&non_null, presence, name, enc, codecs))?;
-        alt.with(|enc| write_str_dict_raw(&unique, &offset_indices, presence, name, enc, codecs))?;
-
-        if let Some(ref raw) = plain_fsst {
-            alt.with(|enc| write_str_fsst_raw(raw, count, presence, name, enc, codecs))?;
-        }
-        if let Some(ref raw) = dict_fsst {
+            let mut alt = enc.try_alternatives();
+            alt.with(|enc| write_str_plain(&non_null, presence, name, enc, self))?;
             alt.with(|enc| {
-                write_str_fsst_dict_raw(raw, &offset_indices, presence, name, enc, codecs)
+                write_str_dict_raw(&unique, &offset_indices, presence, name, enc, self)
             })?;
+
+            if let Some(ref raw) = plain_fsst {
+                alt.with(|enc| write_str_fsst_raw(raw, count, presence, name, enc, self))?;
+            }
+            if let Some(ref raw) = dict_fsst {
+                alt.with(|enc| {
+                    write_str_fsst_dict_raw(raw, &offset_indices, presence, name, enc, self)
+                })?;
+            }
         }
+        Ok(())
     }
-    Ok(())
 }
 
 /// Encode with plain (`VarBinary` lengths) layout.
 ///
 /// Stream count varint is written first, then presence, then the lengths stream
-/// (via [`write_u32_stream`] which handles the explicit/auto dispatch internally),
+/// (via [`Codecs::write_int_stream`] which handles the explicit/auto dispatch internally),
 /// then the raw string bytes as a plain unencoded data stream.
 #[hotpath::measure]
 fn write_str_plain(
@@ -133,7 +135,7 @@ fn write_str_plain(
     enc.write_varint(2u32 + u32::from(presence.is_some()))?;
     write_presence_stream(presence, enc, codecs)?;
     let ctx = StreamCtx::prop(StreamType::Length(LengthType::VarBinary), name);
-    write_u32_stream(&lengths, &ctx, enc, codecs)?;
+    codecs.write_int_stream(&lengths, &ctx, enc)?;
     write_raw_str_data(non_null, DictionaryType::None, enc)
 }
 
@@ -164,10 +166,10 @@ fn write_str_dict_raw(
     write_presence_stream(presence, enc, codecs)?;
 
     let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), name);
-    write_u32_stream(&lengths, &ctx, enc, codecs)?;
+    codecs.write_int_stream(&lengths, &ctx, enc)?;
 
     let ctx = StreamCtx::prop(StreamType::Offset(OffsetType::String), name);
-    write_u32_stream(offset_indices, &ctx, enc, codecs)?;
+    codecs.write_int_stream(offset_indices, &ctx, enc)?;
     write_raw_str_data(unique, DictionaryType::Single, enc)
 }
 
@@ -200,7 +202,7 @@ fn write_str_fsst_raw(
     write_presence_stream(presence, enc, codecs)?;
     write_fsst_data(raw, DictionaryType::Single, name, enc, codecs)?;
     let ctx = StreamCtx::prop(StreamType::Offset(OffsetType::String), name);
-    write_u32_stream(&offsets, &ctx, enc, codecs)
+    codecs.write_int_stream(&offsets, &ctx, enc)
 }
 
 /// Encode with FSST + dictionary layout, training a fresh compressor.
@@ -232,7 +234,7 @@ fn write_str_fsst_dict_raw(
     write_presence_stream(presence, enc, codecs)?;
     write_fsst_data(raw, DictionaryType::Single, name, enc, codecs)?;
     let ctx = StreamCtx::prop(StreamType::Offset(OffsetType::String), name);
-    write_u32_stream(offset_indices, &ctx, enc, codecs)
+    codecs.write_int_stream(offset_indices, &ctx, enc)
 }
 
 fn write_presence_stream(
@@ -241,14 +243,14 @@ fn write_presence_stream(
     codecs: &mut Codecs,
 ) -> MltResult<()> {
     if let Some(strings) = presence {
-        write_bool_stream(strings.presence_bools(), StreamType::Present, enc, codecs)?;
+        codecs.write_presence_stream(strings.presence_bools(), enc)?;
     }
     Ok(())
 }
 
 /// Write 4 FSST sub-streams directly to `enc.data`.
 ///
-/// The two integer sub-streams (`symbol_lengths`, `value_lengths`) use [`write_u32_stream`]
+/// The two integer sub-streams (`symbol_lengths`, `value_lengths`) use [`Codecs::write_int_stream`]
 /// so explicit encoder overrides are honored and all candidates are competed automatically.
 /// The two raw-byte sub-streams (`symbol_table`, `corpus`) are written without integer encoding.
 ///
@@ -262,12 +264,12 @@ pub fn write_fsst_data(
     codecs: &mut Codecs,
 ) -> MltResult<()> {
     let ctx = StreamCtx::prop(StreamType::Length(LengthType::Symbol), name);
-    write_u32_stream(&raw.symbol_lengths, &ctx, enc, codecs)?;
+    codecs.write_int_stream(&raw.symbol_lengths, &ctx, enc)?;
     let typ = StreamType::Data(DictionaryType::Fsst);
     let meta = StreamMeta::new_none(typ, raw.symbol_lengths.len())?;
     write_stream_payload(&mut enc.data, meta, false, &raw.symbol_bytes)?;
     let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), name);
-    write_u32_stream(&raw.value_lengths, &ctx, enc, codecs)?;
+    codecs.write_int_stream(&raw.value_lengths, &ctx, enc)?;
     let meta = StreamMeta::new_none(StreamType::Data(dict_type), raw.value_lengths.len())?;
     write_stream_payload(&mut enc.data, meta, false, &raw.corpus)?;
     Ok(())

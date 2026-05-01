@@ -20,7 +20,7 @@ pub(crate) use geometry::VertexBufferType;
 pub use geometry::VertexBufferType;
 pub use id::StagedId;
 #[cfg(feature = "__private")]
-pub use model::{ColumnKind, ExplicitEncoder, StagedLayer, StrEncoding, StreamCtx};
+pub use model::{ColumnKind, CurveParams, ExplicitEncoder, StagedLayer, StrEncoding, StreamCtx};
 pub use model::{EncodedUnknown, EncoderConfig};
 #[cfg(all(test, not(feature = "__private")))]
 pub(crate) use model::{ExplicitEncoder, StagedLayer, StrEncoding};

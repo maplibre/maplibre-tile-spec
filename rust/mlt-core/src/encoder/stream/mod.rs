@@ -19,14 +19,10 @@ pub use encoder::IntEncoder;
 pub use logical::LogicalEncoder;
 #[cfg(all(test, not(feature = "__private")))]
 pub(crate) use logical::LogicalEncoder;
+#[cfg(any(test, feature = "__private"))]
 pub use model::*;
-pub use optimizer::DataProfile;
 #[cfg(feature = "__private")]
 pub use physical::PhysicalEncoder;
 #[cfg(all(test, not(feature = "__private")))]
 pub(crate) use physical::PhysicalEncoder;
-#[cfg(test)]
-pub(crate) use write::write_u32_stream_as;
-pub(crate) use write::{
-    write_bool_stream, write_i32_stream, write_stream_payload, write_u32_stream, write_u64_stream,
-};
+pub(crate) use write::write_stream_payload;
