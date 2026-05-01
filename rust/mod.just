@@ -205,7 +205,10 @@ size-diff prev curr:
     set -euo pipefail
     # Pass DB paths into sqlite as host parameters so a `'` in a path can't
     # break out of the SQL string literal.
-    sqlite3 <<SQL
+    # Quoted heredoc delimiter so backticks inside the SQL comments don't
+    # trigger bash command substitution. Just-level interpolation runs
+    # before bash sees the body, so it is unaffected.
+    sqlite3 <<'SQL'
     .mode markdown
     .headers on
     .parameter set @prev '{{replace(prev, "'", "''")}}'
@@ -215,13 +218,25 @@ size-diff prev curr:
     CREATE TEMP VIEW changes AS
       SELECT p.z, p.x, p.y, p.sz AS prev_sz, c.sz AS curr_sz, (c.sz - p.sz) AS delta
       FROM prev.sizes p JOIN curr.sizes c USING (z, x, y);
-    -- Deterministically pick one (x,y) per (z, delta) so ties between tiles
-    -- at the same delta don't fan-out into a Cartesian product below.
+    -- Deterministically pick one (x, y) per (partition, delta) so ties between
+    -- tiles at the same delta don't fan-out into a Cartesian product below.
+    -- `partition_z = -1` is a synthetic global partition used by the ALL row;
+    -- `tile_z` is always the picked tile's real zoom.
     CREATE TEMP VIEW extremes AS
-      SELECT z, delta, x, y FROM (
-        SELECT z, delta, x, y,
+      SELECT partition_z, delta, tile_z, x, y FROM (
+        SELECT z AS partition_z, delta, z AS tile_z, x, y,
                ROW_NUMBER() OVER (PARTITION BY z, delta ORDER BY x, y) AS rn
         FROM changes
+        UNION ALL
+        SELECT -1 AS partition_z, delta, z AS tile_z, x, y,
+               ROW_NUMBER() OVER (ORDER BY delta, z, x, y) AS rn
+        FROM changes
+        WHERE delta = (SELECT MIN(delta) FROM changes)
+        UNION ALL
+        SELECT -1 AS partition_z, delta, z AS tile_z, x, y,
+               ROW_NUMBER() OVER (ORDER BY delta DESC, z, x, y) AS rn
+        FROM changes
+        WHERE delta = (SELECT MAX(delta) FROM changes)
       ) WHERE rn = 1;
     .print
     .print '### Per-zoom diff'
@@ -232,27 +247,37 @@ size-diff prev curr:
              CAST(SUM(delta) AS REAL) / COUNT(*) AS avg_delta,
              CASE WHEN SUM(prev_sz)=0 THEN 0.0 ELSE 100.0*SUM(delta)/SUM(prev_sz) END AS pct,
              MIN(delta) AS best_delta, MAX(delta) AS worst_delta
-      FROM changes GROUP BY z)
-    SELECT agg.z AS zoom, agg.tiles, agg.prev_total AS prev_bytes, agg.curr_total AS curr_bytes,
+      FROM changes GROUP BY z
+      UNION ALL
+      SELECT -1 AS z, COUNT(*) AS tiles, SUM(prev_sz), SUM(curr_sz),
+             SUM(delta),
+             CAST(SUM(delta) AS REAL) / COUNT(*),
+             CASE WHEN SUM(prev_sz)=0 THEN 0.0 ELSE 100.0*SUM(delta)/SUM(prev_sz) END,
+             MIN(delta), MAX(delta)
+      FROM changes)
+    SELECT CASE WHEN agg.z = -1 THEN 'ALL' ELSE CAST(agg.z AS TEXT) END AS zoom,
+           agg.tiles, agg.prev_total AS prev_bytes, agg.curr_total AS curr_bytes,
            printf('%+d', agg.delta_total) AS delta_bytes,
            printf('%+.0f', agg.avg_delta) AS avg_delta,
            printf('%+.2f%%', agg.pct) AS pct,
-           printf('%+d @ %d/%d/%d', agg.best_delta,  bi.z, bi.x, bi.y) AS best_improv,
-           printf('%+d @ %d/%d/%d', agg.worst_delta, wi.z, wi.x, wi.y) AS worst_degrad
+           CASE WHEN agg.best_delta < 0
+                THEN printf('%+d @ %d/%d/%d', agg.best_delta, bi.tile_z, bi.x, bi.y)
+                ELSE '—' END AS best_improv,
+           CASE WHEN agg.worst_delta > 0
+                THEN printf('%+d @ %d/%d/%d', agg.worst_delta, wi.tile_z, wi.x, wi.y)
+                ELSE '—' END AS worst_degrad
     FROM agg
-    LEFT JOIN extremes bi ON bi.z = agg.z AND bi.delta = agg.best_delta
-    LEFT JOIN extremes wi ON wi.z = agg.z AND wi.delta = agg.worst_delta
-    ORDER BY agg.z;
+    LEFT JOIN extremes bi ON bi.partition_z = agg.z AND bi.delta = agg.best_delta
+    LEFT JOIN extremes wi ON wi.partition_z = agg.z AND wi.delta = agg.worst_delta
+    ORDER BY (agg.z = -1), agg.z;
     .print
-    .print '### Overall'
-    .print
-    SELECT COUNT(*) AS tiles, SUM(prev_sz) AS prev_bytes, SUM(curr_sz) AS curr_bytes,
-           printf('%+d', SUM(delta)) AS delta_bytes,
-           printf('%+.2f%%', CASE WHEN SUM(prev_sz)=0 THEN 0.0 ELSE 100.0*SUM(delta)/SUM(prev_sz) END) AS pct,
-           (SELECT COUNT(*) FROM curr.sizes WHERE (z,x,y) NOT IN (SELECT z,x,y FROM prev.sizes)) AS added,
-           (SELECT COUNT(*) FROM prev.sizes WHERE (z,x,y) NOT IN (SELECT z,x,y FROM curr.sizes)) AS removed,
-           (SELECT COUNT(*) FROM changes WHERE delta = 0) AS unchanged
-    FROM changes;
+    .mode list
+    .headers off
+    SELECT '_added: '||(SELECT COUNT(*) FROM curr.sizes WHERE (z,x,y) NOT IN (SELECT z,x,y FROM prev.sizes))
+        || ' · removed: '||(SELECT COUNT(*) FROM prev.sizes WHERE (z,x,y) NOT IN (SELECT z,x,y FROM curr.sizes))
+        || ' · unchanged: '||(SELECT COUNT(*) FROM changes WHERE delta = 0)||'_';
+    .mode markdown
+    .headers on
     .print
     .print '### Top 3 improvements (most negative delta)'
     .print

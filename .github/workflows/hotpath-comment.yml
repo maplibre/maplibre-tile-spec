@@ -45,7 +45,12 @@ jobs:
           GITHUB_HEAD_REF=$(cat /tmp/metrics/head_ref.txt)
           export GITHUB_HEAD_REF
 
+          # Both sections are wrapped in <details> so the PR comment stays
+          # collapsed by default. GitHub requires a blank line after
+          # <details> / <summary> for the markdown body to render.
           {
+            echo "<details><summary>Performance Comparison</summary>"
+            echo
             hotpath-utils profile-pr \
               --head-metrics /tmp/metrics/head_timing.json \
               --base-metrics /tmp/metrics/base_timing.json \
@@ -53,9 +58,13 @@ jobs:
               --benchmark-id "mlt-convert" \
               --dry-run
             echo
-            echo "## Per-tile encoded size diff"
+            echo "</details>"
+            echo
+            echo "<details><summary>Per-tile encoded size diff</summary>"
             echo
             just rust::size-diff /tmp/metrics/base_sizes.db /tmp/metrics/head_sizes.db
+            echo
+            echo "</details>"
             echo
             echo "$COMMENT_MARKER"
           } > /tmp/comment.md
