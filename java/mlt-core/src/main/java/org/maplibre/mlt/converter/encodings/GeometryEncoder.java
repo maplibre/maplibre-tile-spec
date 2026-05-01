@@ -255,7 +255,6 @@ public class GeometryEncoder {
     if (dictBeatsPlain && dictBeatsMorton) {
       encodedDictOffsets.map(result::addAll);
       encodedDictVertexStream.map(result::addAll);
-      geometryColumnSorted = false;
       numStreams += 2;
     } else if (mortonBeatsPlain && mortonBeatsDict) {
       encodedMortonOffsetStream.map(result::addAll);
