@@ -166,12 +166,10 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_fastpfor().geo(poly1()).write(w, "poly_fpf");
     geo_varint()
         .tessellate()
-        .force_empty_stream("geometries")
         .geo(poly1())
         .write(w, "poly_tes");
     geo_fastpfor()
         .tessellate()
-        .force_empty_stream("geometries")
         .geo(poly1())
         .write(w, "poly_fpf_tes");
 
@@ -183,14 +181,10 @@ fn generate_geometry(w: &mut SynthWriter) {
         .write(w, "poly_collinear_fpf");
     geo_varint()
         .tessellate()
-        .force_empty_stream("geometries")
-        .force_empty_stream("triangles_indexes")
         .geo(poly_collinear())
         .write(w, "poly_collinear_tes");
     geo_fastpfor()
         .tessellate()
-        .force_empty_stream("geometries")
-        .force_empty_stream("triangles_indexes")
         .geo(poly_collinear())
         .write(w, "poly_collinear_fpf_tes");
 
@@ -202,12 +196,10 @@ fn generate_geometry(w: &mut SynthWriter) {
         .write(w, "poly_self_intersect_fpf");
     geo_varint()
         .tessellate()
-        .force_empty_stream("geometries")
         .geo(poly_self_intersect())
         .write(w, "poly_self_intersect_tes");
     geo_fastpfor()
         .tessellate()
-        .force_empty_stream("geometries")
         .geo(poly_self_intersect())
         .write(w, "poly_self_intersect_fpf_tes");
 
@@ -222,13 +214,11 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .parts_ring(E::rle_varint())
         .tessellate()
-        .force_empty_stream("geometries")
         .geo(poly1h())
         .write(w, "poly_hole_tes");
     geo_fastpfor()
         .parts_ring(E::rle_fastpfor())
         .tessellate()
-        .force_empty_stream("geometries")
         .geo(poly1h())
         .write(w, "poly_hole_fpf_tes");
 
@@ -243,13 +233,11 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .parts_ring(E::varint())
         .tessellate()
-        .force_empty_stream("geometries")
         .geo(poly_hole_touching())
         .write(w, "poly_hole_touching_tes");
     geo_fastpfor()
         .parts_ring(E::fastpfor())
         .tessellate()
-        .force_empty_stream("geometries")
         .geo(poly_hole_touching())
         .write(w, "poly_hole_touching_fpf_tes");
 
@@ -373,8 +361,7 @@ fn write_mix(w: &mut SynthWriter, current: &[usize]) {
     if let Some(bldr) = builder_t {
         // let suffix = if ["..."].contains(name) { "" } else { "-rust" };
         let suffix = "";
-        bldr.force_empty_stream("geometries")
-            .write(w, format!("{name}_tes{suffix}"));
+        bldr.write(w, format!("{name}_tes{suffix}"));
     }
     builder.write(w, &name);
 }

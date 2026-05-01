@@ -387,27 +387,19 @@ public class GeometryEncoder {
       Objects.requireNonNull(numParts);
       Objects.requireNonNull(numRings);
     }
-    int numStreams = 1;
-
-    // TODO: Don't write empty streams
-    final boolean forceEmpty = true;
+    int numStreams = 0;
 
     if (withOutlines) {
       if (appendLengthStream(
-          result,
-          numGeometries,
-          physicalLevelTechnique,
-          LengthType.GEOMETRIES,
-          encodingOption,
-          forceEmpty)) {
+          result, numGeometries, physicalLevelTechnique, LengthType.GEOMETRIES, encodingOption)) {
         numStreams++;
       }
       if (appendLengthStream(
-          result, numParts, physicalLevelTechnique, LengthType.PARTS, encodingOption, forceEmpty)) {
+          result, numParts, physicalLevelTechnique, LengthType.PARTS, encodingOption)) {
         numStreams++;
       }
       if (appendLengthStream(
-          result, numRings, physicalLevelTechnique, LengthType.RINGS, encodingOption, forceEmpty)) {
+          result, numRings, physicalLevelTechnique, LengthType.RINGS, encodingOption)) {
         numStreams++;
       }
     }
@@ -415,14 +407,17 @@ public class GeometryEncoder {
         result, numTriangles, physicalLevelTechnique, LengthType.TRIANGLES, encodingOption)) {
       numStreams++;
     }
-    result.addAll(
-        IntegerEncoder.encodeIntStream(
-            indexBuffer,
-            physicalLevelTechnique,
-            false,
-            PhysicalStreamType.OFFSET,
-            new LogicalStreamType(OffsetType.INDEX),
-            encodingOption));
+    if (!indexBuffer.isEmpty()) {
+      result.addAll(
+              IntegerEncoder.encodeIntStream(
+                      indexBuffer,
+                      physicalLevelTechnique,
+                      false,
+                      PhysicalStreamType.OFFSET,
+                      new LogicalStreamType(OffsetType.INDEX),
+                      encodingOption));
+      numStreams++;
+    }
     return numStreams;
   }
 
@@ -433,22 +428,10 @@ public class GeometryEncoder {
       @NotNull LengthType lengthType,
       @NotNull IntegerEncodingOption encodingOption)
       throws IOException {
-    return appendLengthStream(
-        result, values, physicalLevelTechnique, lengthType, encodingOption, false);
-  }
-
-  private static boolean appendLengthStream(
-      @NotNull ArrayList<byte[]> result,
-      @Nullable List<Integer> values,
-      @NotNull PhysicalLevelTechnique physicalLevelTechnique,
-      @NotNull LengthType lengthType,
-      @NotNull IntegerEncodingOption encodingOption,
-      boolean forceWriteEmptyStream)
-      throws IOException {
-    if (values != null && !values.isEmpty() || forceWriteEmptyStream) {
+    if (values != null && !values.isEmpty()) {
       result.addAll(
           IntegerEncoder.encodeIntStream(
-              (values != null) ? values : List.of(),
+              values,
               physicalLevelTechnique,
               false,
               PhysicalStreamType.LENGTH,
