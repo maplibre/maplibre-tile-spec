@@ -2,6 +2,7 @@ package org.maplibre.mlt.util;
 
 import java.util.Comparator;
 import java.util.Optional;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import org.jetbrains.annotations.NotNull;
 
@@ -19,20 +20,29 @@ public class OptionalUtil {
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   private static <T> boolean isLessThan(
       @NotNull Optional<T> a, @NotNull Optional<T> b, @NotNull Comparator<T> comparator) {
-    if (a.isEmpty()) {
-      return false;
-    }
-    if (b.isEmpty()) {
-      return true;
-    }
-    return comparator.compare(a.get(), b.get()) < 0;
+    return a.map(value -> b.map(t -> comparator.compare(value, t) < 0).orElse(true)).orElse(false);
   }
 
   /// Map two Optional values to a single Optional value using the specified function.
   /// The result is empty if either input is empty.
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   public static <T, U, V> Optional<V> map(
-      Optional<T> a, Optional<U> b, BiFunction<? super T, ? super U, ? extends V> f) {
+      @NotNull Optional<T> a,
+      @NotNull Optional<U> b,
+      @NotNull BiFunction<? super T, ? super U, ? extends V> f) {
     return a.flatMap(av -> b.map(bv -> f.apply(av, bv)));
+  }
+
+  /// Apply a function to two Optional values if both are present.
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  public static <T, U> void apply(
+      @NotNull Optional<T> a, @NotNull Optional<U> b, @NotNull BiConsumer<? super T, ? super U> f) {
+    a.flatMap(
+        av ->
+            b.map(
+                bv -> {
+                  f.accept(av, bv);
+                  return 0;
+                }));
   }
 }

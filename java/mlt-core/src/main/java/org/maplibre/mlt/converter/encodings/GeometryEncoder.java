@@ -253,12 +253,12 @@ public class GeometryEncoder {
         OptionalUtil.isLessThan(mortonDictionaryEncodedSize, dictionaryEncodedSize);
 
     if (dictBeatsPlain && dictBeatsMorton) {
-      encodedDictOffsets.map(result::addAll);
-      encodedDictVertexStream.map(result::addAll);
+      encodedDictOffsets.ifPresent(result::addAll);
+      encodedDictVertexStream.ifPresent(result::addAll);
       numStreams += 2;
     } else if (mortonBeatsPlain && mortonBeatsDict) {
-      encodedMortonOffsetStream.map(result::addAll);
-      encodedMortonVertexStream.map(result::addAll);
+      encodedMortonOffsetStream.ifPresent(result::addAll);
+      encodedMortonVertexStream.ifPresent(result::addAll);
       numStreams += 2;
     } else {
       result.addAll(encodedVertexBufferStream);
