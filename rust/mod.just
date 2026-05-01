@@ -184,15 +184,12 @@ _coverage: (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm
 profile *args:
     cargo run --release -p mlt --features='__hotpath,__hotpath-alloc,__hotpath-mcp' -- {{args}}
 
-# Build a tiny `sizes(z, x, y, sz)` SQLite DB from `tile_dir`, expecting files
-# named "<z>_<x>_<y>.mlt" (the layout `mlt convert <dir> <dir>` produces).
-# Used between bench runs so we keep only per-tile byte sizes, not tile blobs.
+# Compress the tiles into `sizes(z, x, y, size)` SQLite DB
 compress-db-statistics tile_dir db:
     #!/usr/bin/env bash
     set -euo pipefail
-    rm -f -- {{quote(db)}}
     {
-      echo "CREATE TABLE sizes (z INTEGER NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, sz INTEGER NOT NULL, PRIMARY KEY (z, x, y)) WITHOUT ROWID;"
+      echo "CREATE TABLE sizes (z INTEGER NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, size INTEGER NOT NULL, PRIMARY KEY (z, x, y)) WITHOUT ROWID;"
       echo "BEGIN;"
       find {{quote(tile_dir)}} -type f -name '*.mlt' -printf '%f\t%s\n' \
         | awk -F'\t' '{ sub(/\.mlt$/, "", $1); split($1, c, "_"); printf "INSERT INTO sizes VALUES(%s,%s,%s,%s);\n", c[1], c[2], c[3], $2 }'
@@ -203,87 +200,130 @@ compress-db-statistics tile_dir db:
 size-diff prev curr:
     #!/usr/bin/env bash
     set -euo pipefail
-    # Pass DB paths into sqlite as host parameters so a `'` in a path can't
-    # break out of the SQL string literal.
-    # Quoted heredoc delimiter so backticks inside the SQL comments don't
-    # trigger bash command substitution. Just-level interpolation runs
-    # before bash sees the body, so it is unaffected.
-    sqlite3 <<'SQL'
+
+    sqlite3 <<SQL
+    ATTACH '{{prev}}' AS prev;
+    ATTACH '{{curr}}' AS curr;
+
+    -- Base data
+    CREATE TEMP VIEW changes AS
+      SELECT z, x, y,
+             p.size AS prev_size,
+             c.size AS curr_size,
+             c.size - p.size AS delta
+      FROM prev.sizes p
+      JOIN curr.sizes c USING (z, x, y);
+
+    -- Aggregation
+    CREATE TEMP VIEW agg AS
+      SELECT z,
+             COUNT(*) AS tiles,
+             SUM(prev_size) AS prev_total,
+             SUM(curr_size) AS curr_total,
+             SUM(delta) AS delta_total,
+             AVG(delta) AS avg_delta,
+             MIN(delta) AS best_delta,
+             MAX(delta) AS worst_delta
+      FROM changes
+      GROUP BY z
+
+      UNION ALL
+
+      SELECT -1,
+             COUNT(*),
+             SUM(prev_size),
+             SUM(curr_size),
+             SUM(delta),
+             AVG(delta),
+             MIN(delta),
+             MAX(delta)
+      FROM changes;
+    SQL
+
+    echo
+    echo "### Per-zoom diff"
+    echo
+
+    sqlite3 <<SQL
     .mode markdown
     .headers on
-    .parameter set @prev '{{replace(prev, "'", "''")}}'
-    .parameter set @curr '{{replace(curr, "'", "''")}}'
-    ATTACH DATABASE @prev AS prev;
-    ATTACH DATABASE @curr AS curr;
-    CREATE TEMP VIEW changes AS
-      SELECT p.z, p.x, p.y, p.sz AS prev_sz, c.sz AS curr_sz, (c.sz - p.sz) AS delta
-      FROM prev.sizes p JOIN curr.sizes c USING (z, x, y);
-    -- Deterministically pick one (x, y) per (partition, delta) so ties between
-    -- tiles at the same delta don't fan-out into a Cartesian product below.
-    -- `partition_z = -1` is a synthetic global partition used by the ALL row;
-    -- `tile_z` is always the picked tile's real zoom.
-    CREATE TEMP VIEW extremes AS
-      SELECT partition_z, delta, tile_z, x, y FROM (
-        SELECT z AS partition_z, delta, z AS tile_z, x, y,
-               ROW_NUMBER() OVER (PARTITION BY z, delta ORDER BY x, y) AS rn
-        FROM changes
-        UNION ALL
-        SELECT -1 AS partition_z, delta, z AS tile_z, x, y,
-               ROW_NUMBER() OVER (ORDER BY delta, z, x, y) AS rn
-        FROM changes
-        WHERE delta = (SELECT MIN(delta) FROM changes)
-        UNION ALL
-        SELECT -1 AS partition_z, delta, z AS tile_z, x, y,
-               ROW_NUMBER() OVER (ORDER BY delta DESC, z, x, y) AS rn
-        FROM changes
-        WHERE delta = (SELECT MAX(delta) FROM changes)
-      ) WHERE rn = 1;
-    .print
-    .print '### Per-zoom diff'
-    .print
-    WITH agg AS (
-      SELECT z, COUNT(*) AS tiles, SUM(prev_sz) AS prev_total, SUM(curr_sz) AS curr_total,
-             SUM(delta) AS delta_total,
-             CAST(SUM(delta) AS REAL) / COUNT(*) AS avg_delta,
-             CASE WHEN SUM(prev_sz)=0 THEN 0.0 ELSE 100.0*SUM(delta)/SUM(prev_sz) END AS pct,
-             MIN(delta) AS best_delta, MAX(delta) AS worst_delta
-      FROM changes GROUP BY z
-      UNION ALL
-      SELECT -1 AS z, COUNT(*) AS tiles, SUM(prev_sz), SUM(curr_sz),
-             SUM(delta),
-             CAST(SUM(delta) AS REAL) / COUNT(*),
-             CASE WHEN SUM(prev_sz)=0 THEN 0.0 ELSE 100.0*SUM(delta)/SUM(prev_sz) END,
-             MIN(delta), MAX(delta)
-      FROM changes)
-    SELECT CASE WHEN agg.z = -1 THEN 'ALL' ELSE CAST(agg.z AS TEXT) END AS zoom,
-           agg.tiles, agg.prev_total AS prev_bytes, agg.curr_total AS curr_bytes,
-           printf('%+d', agg.delta_total) AS delta_bytes,
-           printf('%+.0f', agg.avg_delta) AS avg_delta,
-           printf('%+.2f%%', agg.pct) AS pct,
-           CASE WHEN agg.best_delta < 0
-                THEN printf('%+d @ %d/%d/%d', agg.best_delta, bi.tile_z, bi.x, bi.y)
-                ELSE '—' END AS best_improv,
-           CASE WHEN agg.worst_delta > 0
-                THEN printf('%+d @ %d/%d/%d', agg.worst_delta, wi.tile_z, wi.x, wi.y)
-                ELSE '—' END AS worst_degrad
+
+    SELECT
+      CASE WHEN z = -1 THEN 'ALL' ELSE z END AS zoom,
+      tiles,
+      prev_total,
+      curr_total,
+      delta_total,
+      ROUND(avg_delta, 0) AS avg_delta,
+      ROUND(
+        CASE WHEN prev_total=0 THEN 0 ELSE 100.0*delta_total/prev_total END,
+        2
+      ) AS pct,
+
+      -- deterministic best
+      CASE WHEN best_delta < 0 THEN (
+        SELECT printf('%d/%d/%d (%+d)', z, x, y, delta)
+        FROM (
+          SELECT *, ROW_NUMBER() OVER (ORDER BY x, y) rn
+          FROM changes c2
+          WHERE (agg.z = -1 OR c2.z = agg.z)
+            AND delta = best_delta
+        ) WHERE rn = 1
+      ) END AS best,
+
+      -- deterministic worst
+      CASE WHEN worst_delta > 0 THEN (
+        SELECT printf('%d/%d/%d (%+d)', z, x, y, delta)
+        FROM (
+          SELECT *, ROW_NUMBER() OVER (ORDER BY x, y) rn
+          FROM changes c2
+          WHERE (agg.z = -1 OR c2.z = agg.z)
+            AND delta = worst_delta
+        ) WHERE rn = 1
+      ) END AS worst
+
     FROM agg
-    LEFT JOIN extremes bi ON bi.partition_z = agg.z AND bi.delta = agg.best_delta
-    LEFT JOIN extremes wi ON wi.partition_z = agg.z AND wi.delta = agg.worst_delta
-    ORDER BY (agg.z = -1), agg.z;
-    .print
-    .print '### Top 3 improvements (most negative delta)'
-    .print
-    SELECT printf('%d/%d/%d', z, x, y) AS tile, prev_sz AS prev_bytes, curr_sz AS curr_bytes,
-           printf('%+d', delta) AS delta_bytes,
-           printf('%+.2f%%', CASE WHEN prev_sz=0 THEN 0.0 ELSE 100.0*delta/prev_sz END) AS pct
-    FROM changes WHERE delta < 0 ORDER BY delta ASC LIMIT 3;
-    .print
-    .print '### Top 3 degradations (most positive delta)'
-    .print
-    SELECT printf('%d/%d/%d', z, x, y) AS tile, prev_sz AS prev_bytes, curr_sz AS curr_bytes,
-           printf('%+d', delta) AS delta_bytes,
-           printf('%+.2f%%', CASE WHEN prev_sz=0 THEN 0.0 ELSE 100.0*delta/prev_sz END) AS pct
-    FROM changes WHERE delta > 0 ORDER BY delta DESC LIMIT 3;
+    ORDER BY (z = -1), z;
+    SQL
+
+    echo
+    echo "### Top 3 improvements"
+    echo
+
+    sqlite3 <<SQL
+    .mode markdown
+    .headers on
+
+    SELECT
+      printf('%d/%d/%d', z, x, y) AS tile,
+      prev_size,
+      curr_size,
+      delta,
+      ROUND(CASE WHEN prev_size=0 THEN 0 ELSE 100.0*delta/prev_size END, 2) AS pct
+    FROM changes
+    WHERE delta < 0
+    ORDER BY delta ASC, z, x, y
+    LIMIT 3;
+    SQL
+
+    echo
+    echo "### Top 3 degradations"
+    echo
+
+    sqlite3 <<SQL
+    .mode markdown
+    .headers on
+
+    SELECT
+      printf('%d/%d/%d', z, x, y) AS tile,
+      prev_size,
+      curr_size,
+      delta,
+      ROUND(CASE WHEN prev_size=0 THEN 0 ELSE 100.0*delta/prev_size END, 2) AS pct
+    FROM changes
+    WHERE delta > 0
+    ORDER BY delta DESC, z, x, y
+    LIMIT 3;
     SQL
 
 # Download ~5k benchmark tiles (z0-z6) from Protomaps into outdir.
