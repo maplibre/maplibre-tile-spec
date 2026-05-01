@@ -50,11 +50,7 @@ jobs:
         run: just rust::compress-db-statistics /tmp/mlt-head-out /tmp/metrics/head_sizes.db
 
       - name: Checkout base
-        # Keep `rust/mod.just` from head so the post-bench size-extraction
-        # recipe is available even when base predates this PR.
-        run: |
-          git checkout ${{ github.event.pull_request.base.sha }}
-          git checkout ${{ github.event.pull_request.head.sha }} -- rust/mod.just
+        run: git checkout ${{ github.event.pull_request.base.sha }}
 
       - name: Base benchmark (timing + alloc)
         working-directory: rust
