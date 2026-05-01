@@ -1,8 +1,8 @@
+use std::path::Path;
 use std::sync::Arc;
-use std::sync::atomic::AtomicU64;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
-use std::{path::Path, sync::atomic::Ordering};
 
 use anyhow::{Result as AnyResult, anyhow, bail};
 use bytes::Bytes;
@@ -16,6 +16,21 @@ use size_format::SizeFormatterSI;
 
 use super::{MbtFormat, encode_one};
 use crate::convert::{TileFormat, whole_rate_per_sec};
+
+const PROGRESS_BAR_TEMPLATE: &str =
+    "  {bar:40.cyan/blue} {pos}/{len} tiles [{rate}, eta {eta}]";
+
+fn make_progress_bar(total: u64) -> ProgressBar {
+    let bar = ProgressBar::new(total);
+    bar.set_style(
+        ProgressStyle::default_bar()
+            .template(PROGRESS_BAR_TEMPLATE)
+            .expect("invalid bar template")
+            .with_key("rate", whole_rate_per_sec),
+    );
+    bar.enable_steady_tick(Duration::from_millis(200));
+    bar
+}
 
 #[derive(Default)]
 struct EncodeSizes {
@@ -62,10 +77,10 @@ pub async fn convert_tiles(
 ) -> AnyResult<()> {
     match (input, output) {
         ((input, TileFormat::Mbtiles), (output, TileFormat::Mbtiles)) => {
-            convert_mbtiles_to_mbtiles(&input, &output, mbtiles_format, cfg).await?;
+            convert_mbtiles_to_mbtiles(input, output, mbtiles_format, cfg).await?;
         }
         ((input, TileFormat::Mbtiles), (output, TileFormat::Pmtiles)) => {
-            convert_mbtiles_to_pmtiles(&input, &output, cfg).await?;
+            convert_mbtiles_to_pmtiles(input, output, cfg).await?;
         }
         ((_, from), (_, to)) => bail!("Converting from {from:?} to {to:?} not supported yet"),
     }
@@ -85,14 +100,7 @@ async fn convert_mbtiles_to_mbtiles(
     eprintln!("{} → {} ({mbt_type}):", input.display(), output.display());
 
     let start = Instant::now();
-    let bar = ProgressBar::new(total);
-    bar.set_style(
-        ProgressStyle::default_bar()
-            .template("  {bar:40.cyan/blue} {pos}/{len} tiles [{rate}, eta {eta}]")
-            .expect("invalid bar template")
-            .with_key("rate", whole_rate_per_sec),
-    );
-    bar.enable_steady_tick(Duration::from_millis(200));
+    let bar = make_progress_bar(total);
 
     let bar_ref = bar.clone();
     let sizes = Arc::new(EncodeSizes::default());
@@ -151,57 +159,13 @@ async fn convert_mbtiles_to_pmtiles(
     output: &Path,
     cfg: EncoderConfig,
 ) -> AnyResult<()> {
-    let (raw_tx, raw_rx) = tokio::sync::mpsc::channel::<(TileCoord, Vec<u8>)>(500);
-    let (final_tx, mut final_rx) = tokio::sync::mpsc::channel::<(TileCoord, Bytes)>(500);
+    let (encoding, _, mut metadata, total) = get_metadata(input).await?;
 
-    // Read from .mbtiles
-    let mbt = Mbtiles::new(input)?;
-    let mut conn = mbt.open_readonly().await?;
-    tokio::spawn(async move {
-        // FIXME: If the input is a normalised tile, we can gain a lot of performance by exploiting this fact as this tile then needs only be converted once
-        let mut stream = mbt.stream_tiles(&mut conn);
-        while let Some(tile_result) = stream.next().await {
-            match tile_result {
-                Ok((coord, Some(data))) => {
-                    if let Ok(c) = TileCoord::new(coord.z, coord.x, coord.y) {
-                        if raw_tx.send((c, data)).await.is_err() {
-                            break;
-                        }
-                    }
-                }
-                Ok((_, None)) => continue,
-                Err(e) => {
-                    eprintln!("Database stream error: {}", e);
-                    break;
-                }
-            }
-        }
-    });
+    eprintln!("{} → {} (pmtiles):", input.display(), output.display());
 
-    // Encode to mlt
-    let (encoding, _, mut metadata, _) = get_metadata(input).await?;
-    let raw_rx = Arc::new(tokio::sync::Mutex::new(raw_rx));
-    let num_cpus = thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(1);
-    for _ in 0..num_cpus {
-        let input = raw_rx.clone();
-        let output = final_tx.clone();
+    let start = Instant::now();
+    let bar = make_progress_bar(total);
 
-        tokio::spawn(async move {
-            while let Some((coord, data)) = {
-                let mut lock = input.lock().await;
-                lock.recv().await
-            } {
-                if let Ok(enc_data) = encode_one(data, encoding, cfg) {
-                    output.send((coord, enc_data)).await.ok();
-                }
-            }
-        });
-    }
-    drop(final_tx);
-
-    // Write to .pmtiles
     metadata.tilejson.other.insert(
         "format".into(),
         serde_json::Value::String(Format::Mlt.metadata_format_value().into()),
@@ -211,11 +175,61 @@ async fn convert_mbtiles_to_pmtiles(
     let mut stream_writer = PmTilesWriter::new(TileType::Mlt)
         .metadata(&metadata_str)
         .create(file)?;
-    while let Some((coord, data)) = final_rx.recv().await {
+
+    let parallelism = thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
+
+    let mbt = Mbtiles::new(input)?;
+    let mut conn = mbt.open_readonly().await?;
+    // FIXME: If the input is a normalised .mbtiles, we can save work by encoding
+    // each unique blob only once (use the `images` table directly).
+    let encoded = mbt
+        .stream_tiles(&mut conn)
+        .filter_map(|r| async move {
+            match r {
+                Ok((coord, Some(data))) => TileCoord::new(coord.z, coord.x, coord.y)
+                    .ok()
+                    .map(|c| (c, data)),
+                Ok((_, None)) => None,
+                Err(e) => {
+                    eprintln!("Database stream error: {e}");
+                    None
+                }
+            }
+        })
+        .map(|(coord, data)| {
+            // Encoding is CPU-bound; offload so the single-threaded runtime
+            // can actually run multiple encodes in parallel.
+            tokio::task::spawn_blocking(move || -> AnyResult<(TileCoord, Bytes, u64)> {
+                let bytes_in = data.len() as u64;
+                let encoded = encode_one(data, encoding, cfg)?;
+                Ok((coord, encoded, bytes_in))
+            })
+        })
+        .buffer_unordered(parallelism);
+    tokio::pin!(encoded);
+
+    let mut written: u64 = 0;
+    let mut bytes_in: u64 = 0;
+    let mut bytes_out: u64 = 0;
+    while let Some(joined) = encoded.next().await {
+        let (coord, data, in_size) = joined??;
+        bytes_in += in_size;
+        bytes_out += data.len() as u64;
         stream_writer.add_tile(coord, &data)?;
+        written += 1;
+        bar.inc(1);
     }
 
     stream_writer.finalize()?;
+    bar.finish_and_clear();
+
+    eprintln!(
+        "  converted {} tiles ({:.1}B → {:.1}B) in {:.1?}",
+        written,
+        SizeFormatterSI::new(bytes_in),
+        SizeFormatterSI::new(bytes_out),
+        start.elapsed(),
+    );
 
     Ok(())
 }
