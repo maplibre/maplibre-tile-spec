@@ -22,14 +22,15 @@ fn whole_rate_per_sec(state: &ProgressState, w: &mut dyn std::fmt::Write) {
     let _ = w.write_fmt(format_args!("{}/s", state.per_sec() as u64));
 }
 
-#[derive(ValueEnum, Clone, Debug, PartialEq)]
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq)]
 pub enum TileFormat {
     Mbtiles,
     Pmtiles,
+    Files,
 }
 
 /// CLI-facing subset of [`MbtType`] (hides the `hash_view` detail).
-#[derive(Clone, Default, ValueEnum)]
+#[derive(Clone, Copy, Default, ValueEnum, Debug, PartialEq)]
 enum MbtFormat {
     /// Single table with all tiles; no deduplication (smallest overhead)
     #[default]
@@ -90,18 +91,32 @@ pub struct ConvertArgs {
 }
 
 impl ConvertArgs {
-    pub fn input_format(&self) -> Option<TileFormat> {
-        match self.input.extension()?.to_str()? {
-            "mbtiles" => Some(TileFormat::Mbtiles),
-            "pmtiles" => Some(TileFormat::Pmtiles),
-            _ => None,
+    pub fn input_format(&self) -> TileFormat {
+        match self
+            .input
+            .extension()
+            .as_deref()
+            .unwrap_or_default()
+            .to_str()
+            .unwrap_or_default()
+        {
+            "mbtiles" => TileFormat::Mbtiles,
+            "pmtiles" => TileFormat::Pmtiles,
+            _ => TileFormat::Files,
         }
     }
-    pub fn output_format(&self) -> Option<TileFormat> {
-        match self.output.extension()?.to_str()? {
-            "mbtiles" => Some(TileFormat::Mbtiles),
-            "pmtiles" => Some(TileFormat::Pmtiles),
-            _ => None,
+    pub fn output_format(&self) -> TileFormat {
+        match self
+            .output
+            .extension()
+            .as_deref()
+            .unwrap_or_default()
+            .to_str()
+            .unwrap_or_default()
+        {
+            "mbtiles" => TileFormat::Mbtiles,
+            "pmtiles" => TileFormat::Pmtiles,
+            _ => TileFormat::Files,
         }
     }
 }
@@ -116,10 +131,8 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         ..Default::default()
     };
 
-    if args.input_format() == Some(TileFormat::Mbtiles) {
-        if args.output_format() != Some(TileFormat::Mbtiles)
-            && args.output_format() != Some(TileFormat::Pmtiles)
-        {
+    if args.input_format() == TileFormat::Mbtiles {
+        if args.output_format() == TileFormat::Files {
             bail!(
                 "Output must be either an .mbtiles or a .pmtiles file when input is an .mbtiles file, got: {}",
                 args.output.display()
@@ -137,7 +150,12 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
             .enable_io()
             .enable_time()
             .build()?
-            .block_on(tileset::convert_tiles(&args));
+            .block_on(tileset::convert_tiles(
+                (&args.input, args.input_format()),
+                (&args.output, args.output_format()),
+                cfg,
+                args.mbtiles_format,
+            ));
     }
 
     files::convert_files(&args.input, &args.output, cfg)

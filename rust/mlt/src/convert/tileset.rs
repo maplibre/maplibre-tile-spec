@@ -1,4 +1,6 @@
-use std::{path::Path, sync::Arc, thread};
+use std::path::Path;
+use std::sync::Arc;
+use std::thread;
 
 use anyhow::{Result as AnyResult, anyhow, bail};
 use bytes::Bytes;
@@ -8,9 +10,8 @@ use mbtiles::{MbtType, Mbtiles, MbtilesTranscoder, Metadata};
 use mlt_core::encoder::EncoderConfig;
 use pmtiles::{PmTilesWriter, TileCoord, TileType};
 
-use crate::convert::{ConvertArgs, SortMode, TileFormat};
-
 use super::{MbtFormat, encode_one};
+use crate::convert::TileFormat;
 
 async fn get_metadata(input: &Path) -> AnyResult<(Encoding, MbtType, Metadata)> {
     let src = Mbtiles::new(input)?;
@@ -34,25 +35,20 @@ async fn get_metadata(input: &Path) -> AnyResult<(Encoding, MbtType, Metadata)> 
     Ok((tile_info.encoding, src_type, meta))
 }
 
-pub async fn convert_tiles(args: &ConvertArgs) -> AnyResult<()> {
-    let cfg = EncoderConfig {
-        tessellate: args.tessellate,
-        try_spatial_morton_sort: matches!(args.sort, SortMode::Auto | SortMode::Morton),
-        try_spatial_hilbert_sort: matches!(args.sort, SortMode::Auto | SortMode::Hilbert),
-        try_id_sort: matches!(args.sort, SortMode::Auto | SortMode::Id),
-        allow_shared_dict: !args.no_shared_dict,
-        ..Default::default()
-    };
-
-    match (args.input_format(), args.output_format()) {
-        (Some(TileFormat::Mbtiles), Some(TileFormat::Mbtiles)) => {
-            convert_mbtiles_to_mbtiles(&args.input, &args.output, args.mbtiles_format.clone(), cfg)
-                .await?;
+pub async fn convert_tiles(
+    input: (&Path, TileFormat),
+    output: (&Path, TileFormat),
+    cfg: EncoderConfig,
+    mbtiles_format: Option<MbtFormat>,
+) -> AnyResult<()> {
+    match (input, output) {
+        ((input, TileFormat::Mbtiles), (output, TileFormat::Mbtiles)) => {
+            convert_mbtiles_to_mbtiles(&input, &output, mbtiles_format, cfg).await?;
         }
-        (Some(TileFormat::Mbtiles), Some(TileFormat::Pmtiles)) => {
-            convert_mbtiles_to_pmtiles(&args.input, &args.output, cfg).await?;
+        ((input, TileFormat::Mbtiles), (output, TileFormat::Pmtiles)) => {
+            convert_mbtiles_to_pmtiles(&input, &output, cfg).await?;
         }
-        _ => bail!("Conversion formats not supported yet"),
+        ((_, from), (_, to)) => bail!("Converting from {from:?} to {to:?} not supported yet"),
     }
 
     Ok(())
@@ -110,6 +106,7 @@ async fn convert_mbtiles_to_pmtiles(
     let mbt = Mbtiles::new(input)?;
     let mut conn = mbt.open_readonly().await?;
     tokio::spawn(async move {
+        // FIXME: If the input is a normalised tile, we can gain a lot of performance by exploiting this fact as this tile then needs only be converted once
         let mut stream = mbt.stream_tiles(&mut conn);
         while let Some(tile_result) = stream.next().await {
             match tile_result {
