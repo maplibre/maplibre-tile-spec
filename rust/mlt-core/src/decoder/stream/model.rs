@@ -2,6 +2,7 @@ use derive_debug::Dbg;
 use num_enum::TryFromPrimitive;
 
 use crate::utils::formatter::{bytes_dbg, compact_dbg};
+use crate::{MltError, MltResult};
 
 /// Logical encoding technique used for a column, as stored in the tile
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
@@ -30,9 +31,19 @@ pub struct RleMeta {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Morton {
     /// Number of bits used
-    pub bits: u32,
+    pub(crate) bits: u32,
     /// Coordinate shift
-    pub shift: u32,
+    pub(crate) shift: u32,
+}
+
+impl Morton {
+    pub fn new(bits: u32, shift: u32) -> MltResult<Self> {
+        if bits <= 16 {
+            Ok(Self { bits, shift })
+        } else {
+            Err(MltError::InvalidMortonBits(bits))
+        }
+    }
 }
 
 /// How should the stream be interpreted at the logical level (second pass of decoding)

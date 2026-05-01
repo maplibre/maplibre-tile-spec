@@ -136,7 +136,7 @@ public class EncodingUtils {
    * @param v the int value to write to sink
    * @param sink the sink buffer to write to
    */
-  static ByteBuffer putVarInt(int v, ByteBuffer sink) throws IOException {
+  public static ByteBuffer putVarInt(int v, ByteBuffer sink) throws IOException {
     do {
       // Encode next 7 bits + terminator bit
       final int bits = v & 0x7F;

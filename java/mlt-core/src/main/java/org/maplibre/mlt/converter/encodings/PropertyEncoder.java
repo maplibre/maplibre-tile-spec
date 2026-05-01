@@ -33,7 +33,7 @@ public class PropertyEncoder {
       boolean useFastPFOR,
       boolean useFSST,
       boolean coercePropertyValues,
-      SequencedCollection<ColumnMapping> columnMappings,
+      @Nullable SequencedCollection<ColumnMapping> columnMappings,
       @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption)
       throws IOException {
     /*

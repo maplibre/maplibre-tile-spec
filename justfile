@@ -107,7 +107,11 @@ install-pmtiles:
             darwin-arm64)   SUFFIX="Darwin_arm64"    ;;
             *) echo "Unsupported platform: $OS-$ARCH"; exit 1 ;;
         esac
-        ASSET_URL=$(curl -sSf https://api.github.com/repos/protomaps/go-pmtiles/releases/latest | \
+        AUTH=()
+        if [ -n "${GITHUB_TOKEN:-}" ]; then
+            AUTH=(-H "Authorization: Bearer ${GITHUB_TOKEN}")
+        fi
+        ASSET_URL=$(curl -sSf "${AUTH[@]}" https://api.github.com/repos/protomaps/go-pmtiles/releases/latest | \
             jq -r ".assets[] | select(.name | test(\"${SUFFIX}\")) | .browser_download_url")
         if [ -z "$ASSET_URL" ] || [ "$ASSET_URL" = "null" ]; then
             echo "Could not find pmtiles release for $SUFFIX"; exit 1

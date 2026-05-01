@@ -1,5 +1,6 @@
 package org.maplibre.mlt.converter;
 
+import jakarta.annotation.Nullable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -79,7 +80,7 @@ public class ColumnMapping {
   }
 
   /// Find a matching column mapping among a collection of mappings grouped by layer name patterns
-  public static ColumnMapping findMapping(
+  public static @Nullable ColumnMapping findMapping(
       ColumnMappingConfig patternMappings, String layerName, String propertyName) {
     return patternMappings.entrySet().stream()
         .filter(entry -> entry.getKey().matcher(layerName).matches())
@@ -90,7 +91,7 @@ public class ColumnMapping {
   }
 
   /// Find a matching column mapping among a collection of mappings
-  public static ColumnMapping findMapping(
+  public static @Nullable ColumnMapping findMapping(
       Collection<ColumnMapping> columnMappings, String propertyName) {
     return columnMappings.stream().filter(m -> m.isMatch(propertyName)).findFirst().orElse(null);
   }
