@@ -184,6 +184,82 @@ _coverage: (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm
 profile *args:
     cargo run --release -p mlt --features='__hotpath,__hotpath-alloc,__hotpath-mcp' -- {{args}}
 
+# Build a tiny `sizes(z, x, y, sz)` SQLite DB from `tile_dir`, expecting files
+# named "<z>_<x>_<y>.mlt" (the layout `mlt convert <dir> <dir>` produces from
+# `download-benchmark-tiles`). PK is (z, x, y); no other tables are created,
+# so the result is the smallest possible record of per-tile byte sizes.
+compress-db-statistics tile_dir db:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -f -- {{quote(db)}}
+    {
+      echo "CREATE TABLE sizes (z INTEGER NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, sz INTEGER NOT NULL, PRIMARY KEY (z, x, y)) WITHOUT ROWID;"
+      echo "BEGIN;"
+      find {{quote(tile_dir)}} -type f -name '*.mlt' -printf '%f\t%s\n' \
+        | awk -F'\t' '{ sub(/\.mlt$/, "", $1); split($1, c, "_"); printf "INSERT INTO sizes VALUES(%s,%s,%s,%s);\n", c[1], c[2], c[3], $2 }'
+      echo "COMMIT;"
+    } | sqlite3 {{quote(db)}}
+
+# Diff two compressed sizes DBs (produced by `compress-db-statistics`).
+# Reports per-zoom (count, totals, avg-diff, percent, max improvement,
+# max degradation) and the top 3 improvements / degradations overall.
+size-diff prev curr:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    sqlite3 <<SQL
+    .mode markdown
+    .headers on
+    ATTACH DATABASE '{{prev}}' AS prev;
+    ATTACH DATABASE '{{curr}}' AS curr;
+    CREATE TEMP VIEW changes AS
+      SELECT p.z, p.x, p.y, p.sz AS prev_sz, c.sz AS curr_sz, (c.sz - p.sz) AS delta
+      FROM prev.sizes p JOIN curr.sizes c USING (z, x, y);
+    .print
+    .print '### Per-zoom diff'
+    .print
+    WITH agg AS (
+      SELECT z, COUNT(*) AS tiles, SUM(prev_sz) AS prev_total, SUM(curr_sz) AS curr_total,
+             SUM(delta) AS delta_total,
+             CAST(SUM(delta) AS REAL) / COUNT(*) AS avg_delta,
+             CASE WHEN SUM(prev_sz)=0 THEN 0.0 ELSE 100.0*SUM(delta)/SUM(prev_sz) END AS pct,
+             MIN(delta) AS best_delta, MAX(delta) AS worst_delta
+      FROM changes GROUP BY z)
+    SELECT agg.z AS zoom, agg.tiles, agg.prev_total AS prev_bytes, agg.curr_total AS curr_bytes,
+           printf('%+d', agg.delta_total) AS delta_bytes,
+           printf('%+.0f', agg.avg_delta) AS avg_delta,
+           printf('%+.2f%%', agg.pct) AS pct,
+           printf('%+d @ %d/%d/%d', agg.best_delta,  bi.z, bi.x, bi.y) AS best_improv,
+           printf('%+d @ %d/%d/%d', agg.worst_delta, wi.z, wi.x, wi.y) AS worst_degrad
+    FROM agg
+    LEFT JOIN changes bi ON bi.z = agg.z AND bi.delta = agg.best_delta
+    LEFT JOIN changes wi ON wi.z = agg.z AND wi.delta = agg.worst_delta
+    GROUP BY agg.z ORDER BY agg.z;
+    .print
+    .print '### Overall'
+    .print
+    SELECT COUNT(*) AS tiles, SUM(prev_sz) AS prev_bytes, SUM(curr_sz) AS curr_bytes,
+           printf('%+d', SUM(delta)) AS delta_bytes,
+           printf('%+.2f%%', CASE WHEN SUM(prev_sz)=0 THEN 0.0 ELSE 100.0*SUM(delta)/SUM(prev_sz) END) AS pct,
+           (SELECT COUNT(*) FROM curr.sizes WHERE (z,x,y) NOT IN (SELECT z,x,y FROM prev.sizes)) AS added,
+           (SELECT COUNT(*) FROM prev.sizes WHERE (z,x,y) NOT IN (SELECT z,x,y FROM curr.sizes)) AS removed,
+           (SELECT COUNT(*) FROM changes WHERE delta = 0) AS unchanged
+    FROM changes;
+    .print
+    .print '### Top 3 improvements (most negative delta)'
+    .print
+    SELECT printf('%d/%d/%d', z, x, y) AS tile, prev_sz AS prev_bytes, curr_sz AS curr_bytes,
+           printf('%+d', delta) AS delta_bytes,
+           printf('%+.2f%%', CASE WHEN prev_sz=0 THEN 0.0 ELSE 100.0*delta/prev_sz END) AS pct
+    FROM changes WHERE delta < 0 ORDER BY delta ASC LIMIT 3;
+    .print
+    .print '### Top 3 degradations (most positive delta)'
+    .print
+    SELECT printf('%d/%d/%d', z, x, y) AS tile, prev_sz AS prev_bytes, curr_sz AS curr_bytes,
+           printf('%+d', delta) AS delta_bytes,
+           printf('%+.2f%%', CASE WHEN prev_sz=0 THEN 0.0 ELSE 100.0*delta/prev_sz END) AS pct
+    FROM changes WHERE delta > 0 ORDER BY delta DESC LIMIT 3;
+    SQL
+
 # Download ~5k benchmark tiles (z0-z6) from Protomaps into outdir.
 # Skips if a previous complete download is detected (.complete sentinel).
 # ODbL-licensed OSM data; extraction explicitly permitted by Protomaps.

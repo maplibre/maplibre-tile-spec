@@ -19,6 +19,8 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with: { tool: 'just' }
 
       - uses: actions/download-artifact@v8
         with:
@@ -30,7 +32,7 @@ jobs:
       - name: Install hotpath-utils CLI
         run: cargo install hotpath --bin hotpath-utils --features=utils
 
-      - name: Post PR comment
+      - name: Compose comment (hotpath + per-tile size diff)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -39,9 +41,36 @@ jobs:
           export GITHUB_BASE_REF
           GITHUB_HEAD_REF=$(cat /tmp/metrics/head_ref.txt)
           export GITHUB_HEAD_REF
-          hotpath-utils profile-pr \
-            --head-metrics /tmp/metrics/head_timing.json \
-            --base-metrics /tmp/metrics/base_timing.json \
-            --github-token "$GH_TOKEN" \
-            --pr-number "$(cat /tmp/metrics/pr_number.txt)" \
-            --benchmark-id "mlt-convert"
+
+          {
+            hotpath-utils profile-pr \
+              --head-metrics /tmp/metrics/head_timing.json \
+              --base-metrics /tmp/metrics/base_timing.json \
+              --pr-number "$(cat /tmp/metrics/pr_number.txt)" \
+              --benchmark-id "mlt-convert" \
+              --dry-run
+            echo
+            echo "## Per-tile encoded size diff"
+            echo
+            just rust::size-diff /tmp/metrics/base_sizes.db /tmp/metrics/head_sizes.db
+            echo
+            echo "<!-- bench-comment:mlt-convert -->"
+          } > /tmp/comment.md
+
+      - name: Post or update PR comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.event.workflow_run.repository.full_name }}
+        run: |
+          set -euo pipefail
+          PR_NUMBER=$(cat /tmp/metrics/pr_number.txt)
+          MARKER='<!-- bench-comment:mlt-convert -->'
+          existing=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate \
+            --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" | head -n1)
+          if [ -n "$existing" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$existing" \
+              -f body=@/tmp/comment.md
+          else
+            gh api -X POST "repos/$REPO/issues/$PR_NUMBER/comments" \
+              -f body=@/tmp/comment.md
+          fi
