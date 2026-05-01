@@ -185,9 +185,8 @@ profile *args:
     cargo run --release -p mlt --features='__hotpath,__hotpath-alloc,__hotpath-mcp' -- {{args}}
 
 # Build a tiny `sizes(z, x, y, sz)` SQLite DB from `tile_dir`, expecting files
-# named "<z>_<x>_<y>.mlt" (the layout `mlt convert <dir> <dir>` produces from
-# `download-benchmark-tiles`). PK is (z, x, y); no other tables are created,
-# so the result is the smallest possible record of per-tile byte sizes.
+# named "<z>_<x>_<y>.mlt" (the layout `mlt convert <dir> <dir>` produces).
+# Used between bench runs so we keep only per-tile byte sizes, not tile blobs.
 compress-db-statistics tile_dir db:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -201,19 +200,29 @@ compress-db-statistics tile_dir db:
     } | sqlite3 {{quote(db)}}
 
 # Diff two compressed sizes DBs (produced by `compress-db-statistics`).
-# Reports per-zoom (count, totals, avg-diff, percent, max improvement,
-# max degradation) and the top 3 improvements / degradations overall.
 size-diff prev curr:
     #!/usr/bin/env bash
     set -euo pipefail
+    # Pass DB paths into sqlite as host parameters so a `'` in a path can't
+    # break out of the SQL string literal.
     sqlite3 <<SQL
     .mode markdown
     .headers on
-    ATTACH DATABASE '{{prev}}' AS prev;
-    ATTACH DATABASE '{{curr}}' AS curr;
+    .parameter set @prev '{{replace(prev, "'", "''")}}'
+    .parameter set @curr '{{replace(curr, "'", "''")}}'
+    ATTACH DATABASE @prev AS prev;
+    ATTACH DATABASE @curr AS curr;
     CREATE TEMP VIEW changes AS
       SELECT p.z, p.x, p.y, p.sz AS prev_sz, c.sz AS curr_sz, (c.sz - p.sz) AS delta
       FROM prev.sizes p JOIN curr.sizes c USING (z, x, y);
+    -- Deterministically pick one (x,y) per (z, delta) so ties between tiles
+    -- at the same delta don't fan-out into a Cartesian product below.
+    CREATE TEMP VIEW extremes AS
+      SELECT z, delta, x, y FROM (
+        SELECT z, delta, x, y,
+               ROW_NUMBER() OVER (PARTITION BY z, delta ORDER BY x, y) AS rn
+        FROM changes
+      ) WHERE rn = 1;
     .print
     .print '### Per-zoom diff'
     .print
@@ -231,9 +240,9 @@ size-diff prev curr:
            printf('%+d @ %d/%d/%d', agg.best_delta,  bi.z, bi.x, bi.y) AS best_improv,
            printf('%+d @ %d/%d/%d', agg.worst_delta, wi.z, wi.x, wi.y) AS worst_degrad
     FROM agg
-    LEFT JOIN changes bi ON bi.z = agg.z AND bi.delta = agg.best_delta
-    LEFT JOIN changes wi ON wi.z = agg.z AND wi.delta = agg.worst_delta
-    GROUP BY agg.z ORDER BY agg.z;
+    LEFT JOIN extremes bi ON bi.z = agg.z AND bi.delta = agg.best_delta
+    LEFT JOIN extremes wi ON wi.z = agg.z AND wi.delta = agg.worst_delta
+    ORDER BY agg.z;
     .print
     .print '### Overall'
     .print

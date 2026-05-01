@@ -10,6 +10,9 @@ permissions:
   contents: read
   pull-requests: write
 
+env:
+  COMMENT_MARKER: '<!-- bench-comment:mlt-convert -->'
+
 jobs:
   comment:
     runs-on: ubuntu-latest
@@ -54,7 +57,7 @@ jobs:
             echo
             just rust::size-diff /tmp/metrics/base_sizes.db /tmp/metrics/head_sizes.db
             echo
-            echo "<!-- bench-comment:mlt-convert -->"
+            echo "$COMMENT_MARKER"
           } > /tmp/comment.md
 
       - name: Post or update PR comment
@@ -64,9 +67,8 @@ jobs:
         run: |
           set -euo pipefail
           PR_NUMBER=$(cat /tmp/metrics/pr_number.txt)
-          MARKER='<!-- bench-comment:mlt-convert -->'
           existing=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate \
-            --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" | head -n1)
+            --jq ".[] | select(.body | contains(\"$COMMENT_MARKER\")) | .id" | head -n1)
           if [ -n "$existing" ]; then
             gh api -X PATCH "repos/$REPO/issues/comments/$existing" \
               -f body=@/tmp/comment.md
