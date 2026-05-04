@@ -164,7 +164,7 @@ async fn convert_mbtiles_to_pmtiles(
     output: &Path,
     cfg: EncoderConfig,
 ) -> AnyResult<()> {
-  // FIXME: add a fastpath for normalised schemas. We don't need to cache them
+    // FIXME: add a fastpath for normalised schemas. We don't need to cache them
     let (encoding, _, mut metadata, total) = get_metadata(input).await?;
 
     eprintln!("{} -> {} (pmtiles):", input.display(), output.display());
