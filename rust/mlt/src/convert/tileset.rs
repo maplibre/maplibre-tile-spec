@@ -11,14 +11,19 @@ use indicatif::{ProgressBar, ProgressStyle};
 use martin_tile_utils::{Encoding, Format};
 use mbtiles::{MbtType, Mbtiles, MbtilesTranscoder, Metadata};
 use mlt_core::encoder::EncoderConfig;
+use moka::sync::Cache;
 use pmtiles::{PmTilesWriter, TileCoord, TileType};
 use size_format::SizeFormatterSI;
+use xxhash_rust::xxh3::xxh3_64;
 
 use super::{MbtFormat, encode_one};
 use crate::convert::{TileFormat, whole_rate_per_sec};
 
-const PROGRESS_BAR_TEMPLATE: &str =
-    "  {bar:40.cyan/blue} {pos}/{len} tiles [{rate}, eta {eta}]";
+/// Cap on the encoding cache (which encoded `Bytes` to keep around).
+const ENCODE_CACHE_BYTES: u64 = 512 * 1024 * 1024;
+/// Cap on the tile cache track size (in bytes).
+const MAX_TILE_CACHE_TRACK_SIZE_BYTES: usize = 1024;
+const PROGRESS_BAR_TEMPLATE: &str = "  {bar:40.cyan/blue} {pos}/{len} tiles [{rate}, eta {eta}]";
 
 fn make_progress_bar(total: u64) -> ProgressBar {
     let bar = ProgressBar::new(total);
@@ -97,7 +102,7 @@ async fn convert_mbtiles_to_mbtiles(
     let (encoding, src_type, _, total) = get_metadata(input).await?;
     let mbt_type = mbtiles_format.map_or(src_type, Into::into);
 
-    eprintln!("{} → {} ({mbt_type}):", input.display(), output.display());
+    eprintln!("{} -> {} ({mbt_type}):", input.display(), output.display());
 
     let start = Instant::now();
     let bar = make_progress_bar(total);
@@ -121,8 +126,8 @@ async fn convert_mbtiles_to_mbtiles(
         result
     })
     .batch_size(500)
-    .cache_max_bytes(512 * 1024 * 1024)
-    .max_tile_track_size(1024)
+    .cache_max_bytes(ENCODE_CACHE_BYTES)
+    .max_tile_track_size(MAX_TILE_CACHE_TRACK_SIZE_BYTES)
     .copy_metadata(true)
     .channel_buffer(4);
     if mbt_type != src_type {
@@ -142,7 +147,7 @@ async fn convert_mbtiles_to_mbtiles(
     let in_bytes = sizes.bytes_in.load(Ordering::Relaxed);
     let out_bytes = sizes.bytes_out.load(Ordering::Relaxed);
     eprintln!(
-        "  converted {} tiles ({} unique encoded, {} cache hits, {:.1}B → {:.1}B) in {:.1?}",
+        "  converted {} tiles ({} unique encoded, {} cache hits, {:.1}B -> {:.1}B) in {:.1?}",
         stats.tiles_written,
         stats.cache_encoded,
         stats.cache_hits,
@@ -159,9 +164,10 @@ async fn convert_mbtiles_to_pmtiles(
     output: &Path,
     cfg: EncoderConfig,
 ) -> AnyResult<()> {
+  // FIXME: add a fastpath for normalised schemas. We don't need to cache them
     let (encoding, _, mut metadata, total) = get_metadata(input).await?;
 
-    eprintln!("{} → {} (pmtiles):", input.display(), output.display());
+    eprintln!("{} -> {} (pmtiles):", input.display(), output.display());
 
     let start = Instant::now();
     let bar = make_progress_bar(total);
@@ -178,10 +184,13 @@ async fn convert_mbtiles_to_pmtiles(
 
     let parallelism = thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
 
+    let cache: Cache<u64, Bytes> = Cache::builder()
+        .max_capacity(ENCODE_CACHE_BYTES)
+        .weigher(|_, v: &Bytes| u32::try_from(v.len()).unwrap_or(u32::MAX))
+        .build();
+
     let mbt = Mbtiles::new(input)?;
     let mut conn = mbt.open_readonly().await?;
-    // FIXME: If the input is a normalised .mbtiles, we can save work by encoding
-    // each unique blob only once (use the `images` table directly).
     let encoded = mbt
         .stream_tiles(&mut conn)
         .filter_map(|r| async move {
@@ -197,24 +206,37 @@ async fn convert_mbtiles_to_pmtiles(
             }
         })
         .map(|(coord, data)| {
-            // Encoding is CPU-bound; offload so the single-threaded runtime
-            // can actually run multiple encodes in parallel.
-            tokio::task::spawn_blocking(move || -> AnyResult<(TileCoord, Bytes, u64)> {
+            let cache = cache.clone();
+            tokio::task::spawn_blocking(move || -> AnyResult<(TileCoord, Bytes, u64, bool)> {
                 let bytes_in = data.len() as u64;
-                let encoded = encode_one(data, encoding, cfg)?;
-                Ok((coord, encoded, bytes_in))
+                let mut hit = true;
+                let key = xxh3_64(&data);
+                let encoded = cache
+                    .try_get_with(key, || -> AnyResult<Bytes> {
+                        hit = false;
+                        encode_one(data, encoding, cfg)
+                    })
+                    .map_err(|e| anyhow!("{e}"))?;
+                Ok((coord, encoded, bytes_in, hit))
             })
         })
-        .buffer_unordered(parallelism);
+        .buffer_unordered((parallelism - 1).max(1));
     tokio::pin!(encoded);
 
     let mut written: u64 = 0;
+    let mut cache_hits: u64 = 0;
+    let mut cache_encoded: u64 = 0;
     let mut bytes_in: u64 = 0;
     let mut bytes_out: u64 = 0;
     while let Some(joined) = encoded.next().await {
-        let (coord, data, in_size) = joined??;
-        bytes_in += in_size;
-        bytes_out += data.len() as u64;
+        let (coord, data, in_size, hit) = joined??;
+        if hit {
+            cache_hits += 1;
+        } else {
+            cache_encoded += 1;
+            bytes_in += in_size;
+            bytes_out += data.len() as u64;
+        }
         stream_writer.add_tile(coord, &data)?;
         written += 1;
         bar.inc(1);
@@ -224,8 +246,10 @@ async fn convert_mbtiles_to_pmtiles(
     bar.finish_and_clear();
 
     eprintln!(
-        "  converted {} tiles ({:.1}B → {:.1}B) in {:.1?}",
+        "  converted {} tiles ({} unique encoded, {} cache hits, {:.1}B -> {:.1}B) in {:.1?}",
         written,
+        cache_encoded,
+        cache_hits,
         SizeFormatterSI::new(bytes_in),
         SizeFormatterSI::new(bytes_out),
         start.elapsed(),
