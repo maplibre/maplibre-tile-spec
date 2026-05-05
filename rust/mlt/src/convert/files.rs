@@ -171,7 +171,13 @@ fn convert_file(
 
     let buffer = fs::read(file).with_context(|| format!("reading {}", file.display()))?;
     let from = TileFormat::from_path(file);
-    let ctx = || format!("converting {} {}", from.extension().to_uppercase(), file.display());
+    let ctx = || {
+        format!(
+            "converting {} {}",
+            from.extension().to_uppercase(),
+            file.display()
+        )
+    };
 
     if buffer.len() > MAX_TILE_TRACK_SIZE {
         let out_bytes = convert_buffer(buffer, from, to, cfg).with_context(ctx)?;
