@@ -1,6 +1,6 @@
 {
   "name": "@maplibre/mlt-wasm",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "WebAssembly-backed MapLibre Tile (MLT) decoder",
   "type": "module",
   "main": "dist/index.js",
