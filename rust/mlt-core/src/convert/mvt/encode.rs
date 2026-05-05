@@ -277,10 +277,9 @@ fn encode_polygon(buf: &mut GeomBuf, poly: &Polygon<i32>) -> MltResult<()> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::decoder::TileFeature;
     use crate::mvt::mvt_to_tile_layers;
-
-    use super::*;
 
     #[test]
     fn empty_input_yields_empty_output() {

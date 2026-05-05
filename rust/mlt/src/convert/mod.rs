@@ -194,8 +194,8 @@ fn convert_mvt_buffer(buffer: Vec<u8>, cfg: EncoderConfig) -> AnyResult<Vec<u8>>
     Ok(out)
 }
 
-/// Decode an MLT buffer to row-oriented [`TileLayer`]s. Unknown layer tags are
-/// dropped (MVT has no equivalent).
+/// Decode an MLT buffer to row-oriented [`mlt_core::TileLayer`]s. Unknown
+/// layer tags are dropped (MVT has no equivalent).
 fn mlt_buffer_to_tile_layers(buffer: &[u8]) -> AnyResult<Vec<mlt_core::TileLayer>> {
     let layers = Parser::default().parse_layers(buffer)?;
     let mut dec = Decoder::default();
