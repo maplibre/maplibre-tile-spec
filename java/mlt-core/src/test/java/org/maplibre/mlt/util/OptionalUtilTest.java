@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 class OptionalUtilTest {
@@ -15,12 +16,12 @@ class OptionalUtilTest {
   }
 
   @Test
-  void isLessThan_whenLeftEmptyAndRightPresent_returnsFalse() {
+  void isLessThanLeftEmptyAndRightPresent() {
     assertFalse(OptionalUtil.isLessThan(Optional.<Integer>empty(), Optional.of(10)));
   }
 
   @Test
-  void isLessThan_whenLeftPresentAndRightEmpty_returnsTrue() {
+  void isLessThanLeftPresentAndRightEmpty() {
     assertTrue(OptionalUtil.isLessThan(Optional.of(10), Optional.<Integer>empty()));
   }
 
@@ -96,5 +97,54 @@ class OptionalUtilTest {
   void mapThrowsWhenFunctionNull() {
     assertThrows(
         NullPointerException.class, () -> OptionalUtil.map(Optional.of(1), Optional.of(2), null));
+  }
+
+  @Test
+  void applyBothPresent() {
+    final var result = new AtomicInteger(0);
+    OptionalUtil.apply(Optional.of(2), Optional.of(3), (a, b) -> result.set(a + b));
+    assertEquals(5, result.get());
+  }
+
+  @Test
+  void applyOptional1Empty() {
+    final var calls = new AtomicInteger(0);
+    OptionalUtil.apply(
+        Optional.<Integer>empty(), Optional.of(3), (a, b) -> calls.incrementAndGet());
+    assertEquals(0, calls.get());
+  }
+
+  @Test
+  void applyOptional2Empty() {
+    final var calls = new AtomicInteger(0);
+    OptionalUtil.apply(
+        Optional.of(2), Optional.<Integer>empty(), (a, b) -> calls.incrementAndGet());
+    assertEquals(0, calls.get());
+  }
+
+  @Test
+  void applyBothEmpty() {
+    final var calls = new AtomicInteger(0);
+    OptionalUtil.apply(
+        Optional.<Integer>empty(), Optional.<Integer>empty(), (a, b) -> calls.incrementAndGet());
+    assertEquals(0, calls.get());
+  }
+
+  @Test
+  void applyOptional1Null() {
+    assertThrows(
+        NullPointerException.class, () -> OptionalUtil.apply(null, Optional.of(1), (a, b) -> {}));
+  }
+
+  @Test
+  void applyOptional2Null() {
+    assertThrows(
+        NullPointerException.class, () -> OptionalUtil.apply(Optional.of(1), null, (a, b) -> {}));
+  }
+
+  @Test
+  void applyFunctionNull() {
+    assertThrows(
+        NullPointerException.class, () -> OptionalUtil.apply(Optional.of(1), Optional.of(2), null));
   }
 }

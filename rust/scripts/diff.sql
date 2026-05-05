@@ -75,8 +75,10 @@ ORDER BY (z = -1), z;
 
 SELECT
   printf('%d/%d/%d', z, x, y),
-  prev_size, curr_size, delta,
-  ROUND(CASE WHEN prev_size=0 THEN 0 ELSE 100.0*delta/prev_size END, 2)
+  prev_size,
+  curr_size,
+  delta,
+  ROUND(CASE WHEN prev_size=0 THEN 0 ELSE 100.0*delta/prev_size END, 2) as pct
 FROM changes
 WHERE delta < 0
 ORDER BY delta ASC, z, x, y
@@ -88,8 +90,10 @@ LIMIT 3;
 
 SELECT
   printf('%d/%d/%d', z, x, y),
-  prev_size, curr_size, delta,
-  ROUND(CASE WHEN prev_size=0 THEN 0 ELSE 100.0*delta/prev_size END, 2)
+  prev_size,
+  curr_size,
+  delta,
+  ROUND(CASE WHEN prev_size=0 THEN 0 ELSE 100.0*delta/prev_size END, 2) as pct
 FROM changes
 WHERE delta > 0
 ORDER BY delta DESC, z, x, y
