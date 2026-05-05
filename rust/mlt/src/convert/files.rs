@@ -181,7 +181,7 @@ fn convert_file(file: &Path, ctx: &WalkCtx<'_>) -> AnyResult<()> {
 
     let buffer = fs::read(file).with_context(|| format!("reading {}", file.display()))?;
     let from = TileFormat::from_path(file);
-    let ctx = || {
+    let err_ctx = || {
         format!(
             "converting {} {}",
             from.extension().to_uppercase(),
@@ -190,7 +190,7 @@ fn convert_file(file: &Path, ctx: &WalkCtx<'_>) -> AnyResult<()> {
     };
 
     if buffer.len() > MAX_TILE_TRACK_SIZE {
-        let out_bytes = convert_buffer(buffer, from, ctx.to, ctx.cfg).with_context(convert_ctx)?;
+        let out_bytes = convert_buffer(buffer, from, ctx.to, ctx.cfg).with_context(err_ctx)?;
         ctx.stats.record_encode();
         fs::write(&out_path, &out_bytes)
             .with_context(|| format!("writing {}", out_path.display()))?;
@@ -202,8 +202,7 @@ fn convert_file(file: &Path, ctx: &WalkCtx<'_>) -> AnyResult<()> {
         .cache
         .entry(key)
         .or_try_insert_with(|| -> AnyResult<Arc<Vec<u8>>> {
-            let out_bytes =
-                convert_buffer(buffer, from, ctx.to, ctx.cfg).with_context(convert_ctx)?;
+            let out_bytes = convert_buffer(buffer, from, ctx.to, ctx.cfg).with_context(err_ctx)?;
             Ok(Arc::new(out_bytes))
         })
         .map_err(|e: Arc<anyhow::Error>| anyhow!("{e:#}"))?;
