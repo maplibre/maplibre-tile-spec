@@ -64,6 +64,7 @@ jobs:
         include:
           - target: layer
           - target: decoded_layer
+          - target: mvt_roundtrip
     steps:
       - uses: actions/checkout@v6.0.2
       - uses: ./.github/actions/mlt-setup-rust
