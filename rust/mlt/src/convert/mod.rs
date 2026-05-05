@@ -10,7 +10,7 @@ use indicatif::ProgressState;
 use martin_tile_utils::{Encoding, decode_brotli, decode_gzip, decode_zlib, decode_zstd};
 use mbtiles::{MbtType, NormalizedSchema};
 use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig};
-use mlt_core::mvt::mvt_to_tile_layers;
+use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::{Decoder, Layer, Parser};
 
 #[expect(
@@ -48,6 +48,34 @@ impl From<MbtFormat> for MbtType {
     }
 }
 
+#[derive(Clone, Copy, Default, ValueEnum, PartialEq, Eq)]
+pub enum TileFormat {
+    /// `MapLibre Tile` format (default)
+    #[default]
+    Mlt,
+    /// `Mapbox Vector Tile` format
+    Mvt,
+}
+
+impl TileFormat {
+    #[must_use]
+    pub fn extension(self) -> &'static str {
+        match self {
+            Self::Mlt => "mlt",
+            Self::Mvt => "mvt",
+        }
+    }
+
+    /// Detect format from a path's extension; defaults to MLT for unknown.
+    #[must_use]
+    pub fn from_path(path: &Path) -> Self {
+        match path.extension().and_then(std::ffi::OsStr::to_str) {
+            Some("mvt") => Self::Mvt,
+            _ => Self::Mlt,
+        }
+    }
+}
+
 #[derive(Clone, Default, ValueEnum)]
 enum SortMode {
     /// Try all sort strategies and keep the smallest result
@@ -81,6 +109,9 @@ pub struct ConvertArgs {
     /// Disable grouping of similar string columns into shared dictionaries
     #[clap(long, default_value = "false")]
     no_shared_dict: bool,
+    /// Output tile format (`mlt` re-encodes; `mvt` decodes MLT inputs back to MVT)
+    #[clap(long, default_value = "mlt")]
+    to: TileFormat,
 }
 
 pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
@@ -94,6 +125,11 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     };
 
     if is_mbtiles_extension(&args.input) {
+        if args.to == TileFormat::Mvt {
+            bail!(
+                "--to mvt is not supported for .mbtiles input/output yet; convert to a directory instead"
+            );
+        }
         if !is_mbtiles_extension(&args.output) {
             bail!(
                 "Output must be an .mbtiles file when input is an .mbtiles file, got: {}",
@@ -119,7 +155,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
             ));
     }
 
-    files::convert_files(&args.input, &args.output, cfg)
+    files::convert_files(&args.input, &args.output, cfg, args.to)
 }
 
 fn is_mbtiles_extension(path: &Path) -> bool {
@@ -158,6 +194,20 @@ fn convert_mvt_buffer(buffer: Vec<u8>, cfg: EncoderConfig) -> AnyResult<Vec<u8>>
     Ok(out)
 }
 
+/// Decode an MLT buffer to row-oriented [`TileLayer`]s. Unknown layer tags are
+/// dropped (MVT has no equivalent).
+fn mlt_buffer_to_tile_layers(buffer: &[u8]) -> AnyResult<Vec<mlt_core::TileLayer>> {
+    let layers = Parser::default().parse_layers(buffer)?;
+    let mut dec = Decoder::default();
+    let mut tiles = Vec::new();
+    for layer in layers {
+        if let Layer::Tag01(l) = layer {
+            tiles.push(l.into_tile(&mut dec)?);
+        }
+    }
+    Ok(tiles)
+}
+
 fn encode_one(data: Vec<u8>, encoding: Encoding, cfg: EncoderConfig) -> AnyResult<Bytes> {
     let mvt = match encoding {
         Encoding::Gzip => decode_gzip(&data)?,
@@ -167,4 +217,23 @@ fn encode_one(data: Vec<u8>, encoding: Encoding, cfg: EncoderConfig) -> AnyResul
         Encoding::Uncompressed | Encoding::Internal => data,
     };
     convert_mvt_buffer(mvt, cfg).map(Bytes::from_owner)
+}
+
+/// Convert one input buffer to the requested target format.
+fn convert_buffer(
+    buffer: Vec<u8>,
+    from: TileFormat,
+    to: TileFormat,
+    cfg: EncoderConfig,
+) -> AnyResult<Vec<u8>> {
+    match (from, to) {
+        (TileFormat::Mlt, TileFormat::Mlt) => convert_mlt_buffer(&buffer, cfg),
+        (TileFormat::Mvt, TileFormat::Mlt) => convert_mvt_buffer(buffer, cfg),
+        (TileFormat::Mlt, TileFormat::Mvt) => {
+            Ok(tile_layers_to_mvt(mlt_buffer_to_tile_layers(&buffer)?)?)
+        }
+        // Re-encoding through TileLayer is lossy (e.g. SInt vs Int wire choice)
+        // and offers no benefit.
+        (TileFormat::Mvt, TileFormat::Mvt) => Ok(buffer),
+    }
 }

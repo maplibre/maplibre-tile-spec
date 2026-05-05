@@ -13,8 +13,7 @@ use size_format::SizeFormatterSI;
 use walkdir::WalkDir;
 use xxhash_rust::xxh3::xxh3_128;
 
-use super::{EncoderConfig, convert_mlt_buffer, convert_mvt_buffer, whole_rate_per_sec};
-use crate::ls::is_mlt_extension;
+use super::{EncoderConfig, TileFormat, convert_buffer, whole_rate_per_sec};
 
 /// Only tiles below this size are tracked in the dedup cache, because
 /// larger tiles almost never repeat across a tileset.
@@ -78,7 +77,12 @@ fn is_convert_extension(path: &Path) -> bool {
     )
 }
 
-pub fn convert_files(input: &Path, output: &Path, cfg: EncoderConfig) -> AnyResult<()> {
+pub fn convert_files(
+    input: &Path,
+    output: &Path,
+    cfg: EncoderConfig,
+    to: TileFormat,
+) -> AnyResult<()> {
     // For a single file, use the parent so `strip_prefix` yields just the filename.
     let base = if input.is_dir() {
         input
@@ -122,7 +126,7 @@ pub fn convert_files(input: &Path, output: &Path, cfg: EncoderConfig) -> AnyResu
         .par_bridge()
         .for_each(|entry| {
             let in_path = entry.into_path();
-            let result = convert_file(&in_path, base, output, cfg, &cache, &stats);
+            let result = convert_file(&in_path, base, output, cfg, to, &cache, &stats);
             bar.inc(1);
             if let Err(e) = result {
                 emit(format!("error: {}: {e:#}", in_path.display()));
@@ -151,13 +155,14 @@ fn convert_file(
     base: &Path,
     output: &Path,
     cfg: EncoderConfig,
+    to: TileFormat,
     cache: &EncodedCache,
     stats: &DedupStats,
 ) -> AnyResult<()> {
     let rel = file
         .strip_prefix(base)
         .with_context(|| format!("stripping prefix from {}", file.display()))?;
-    let out_path = output.join(rel).with_extension("mlt");
+    let out_path = output.join(rel).with_extension(to.extension());
 
     if let Some(parent) = out_path.parent() {
         fs::create_dir_all(parent)
@@ -165,17 +170,11 @@ fn convert_file(
     }
 
     let buffer = fs::read(file).with_context(|| format!("reading {}", file.display()))?;
-    let is_mlt = is_mlt_extension(file);
-    let file_display = file.display().to_string();
+    let from = TileFormat::from_path(file);
+    let ctx = || format!("converting {} {}", from.extension().to_uppercase(), file.display());
 
     if buffer.len() > MAX_TILE_TRACK_SIZE {
-        let out_bytes = if is_mlt {
-            convert_mlt_buffer(&buffer, cfg)
-                .with_context(|| format!("converting MLT {file_display}"))?
-        } else {
-            convert_mvt_buffer(buffer, cfg)
-                .with_context(|| format!("converting MVT {file_display}"))?
-        };
+        let out_bytes = convert_buffer(buffer, from, to, cfg).with_context(ctx)?;
         stats.record_encode();
         fs::write(&out_path, &out_bytes)
             .with_context(|| format!("writing {}", out_path.display()))?;
@@ -186,13 +185,7 @@ fn convert_file(
     let entry = cache
         .entry(key)
         .or_try_insert_with(|| -> AnyResult<Arc<Vec<u8>>> {
-            let out_bytes = if is_mlt {
-                convert_mlt_buffer(&buffer, cfg)
-                    .with_context(|| format!("converting MLT {file_display}"))?
-            } else {
-                convert_mvt_buffer(buffer, cfg)
-                    .with_context(|| format!("converting MVT {file_display}"))?
-            };
+            let out_bytes = convert_buffer(buffer, from, to, cfg).with_context(ctx)?;
             Ok(Arc::new(out_bytes))
         })
         .map_err(|e: Arc<anyhow::Error>| anyhow!("{e:#}"))?;

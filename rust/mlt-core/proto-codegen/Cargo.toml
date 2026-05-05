@@ -1,0 +1,23 @@
+# Standalone (workspace-excluded) crate that regenerates
+# `mlt-core/src/convert/mvt/vector_tile.rs` from `mlt-core/proto/vector_tile.proto`.
+#
+# Run via `just rust::gen-mvt-proto`; CI re-runs it and commits the diff via
+# the `autofix.ci` workflow.
+
+[workspace]
+
+[package]
+name = "mlt-mvt-proto-codegen"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "gen-mvt-proto"
+path = "src/main.rs"
+
+[dependencies]
+# `format` enables prettyplease pretty-printing, which produces output that
+# matches our `cargo fmt --check` style.
+prost-build = { version = "0.13", default-features = false, features = ["format"] }
+protox = "0.7"

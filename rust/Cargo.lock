@@ -2688,6 +2688,7 @@ dependencies = [
  "probabilistic-collections",
  "proptest",
  "proptest-derive",
+ "prost",
  "rstest",
  "serde",
  "serde_json",
