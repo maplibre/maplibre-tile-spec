@@ -335,12 +335,6 @@ semver *args: (just 'cargo-install' 'cargo-semver-checks') (just 'cargo-install'
         --package mlt-core --exclude-no-default-features --exclude-all-features \
         {{args}}
 
-# Regenerate `mlt-core/src/convert/mvt/vector_tile.rs` from the .proto file.
-# The generator lives in a workspace-excluded crate so its prost-build / protox
-# build deps don't propagate to mlt-core consumers.
-gen-mvt-proto:
-    cargo run --manifest-path mlt-core/proto-codegen/Cargo.toml --quiet
-
 # Regenerate the Python type stub for mlt-py
 sync-pyo3-stubs:
     cargo run -p mlt-py --bin stub_gen --features abi3

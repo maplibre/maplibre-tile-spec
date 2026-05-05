@@ -1,5 +1,7 @@
-//! Round-trip every MVT fixture in `test/fixtures/**/*.mvt`:
-//! `MVT bytes → TileLayer → MVT bytes → TileLayer` must yield equal data.
+//! Round-trip every MVT fixture in `test/fixtures/**/*.mvt`. The first
+//! encode normalizes spec-permissible quirks (consecutive duplicate vertices,
+//! axis-aligned collinear polygon points); subsequent re-encodes must be a
+//! fixpoint, so we compare the once- and twice-normalized layers.
 
 use std::fs;
 use std::path::Path;
@@ -43,11 +45,16 @@ fn round_trip_fixture([path]: [&Path; 1]) {
             return;
         }
     };
-    let re_encoded = tile_layers_to_mvt(original.clone()).expect("encode mvt");
-    let again = mvt_to_tile_layers(re_encoded).expect("decode re-encoded mvt");
+    let normalized = re_encode(original);
+    let again = re_encode(normalized.clone());
 
-    assert_eq!(original.len(), again.len(), "layer count");
-    for (a, b) in original.iter().zip(again.iter()) {
+    assert_eq!(normalized.len(), again.len(), "layer count");
+    for (a, b) in normalized.iter().zip(again.iter()) {
         assert_mvt_equivalent_layers(a, b);
     }
+}
+
+fn re_encode(layers: Vec<mlt_core::TileLayer>) -> Vec<mlt_core::TileLayer> {
+    let bytes = tile_layers_to_mvt(layers).expect("encode mvt");
+    mvt_to_tile_layers(bytes).expect("decode re-encoded mvt")
 }

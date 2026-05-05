@@ -4,10 +4,7 @@ members = ["mlt", "mlt-core", "mlt-py", "mlt-synthetics", "mlt-wasm"]
 default-members = ["mlt", "mlt-core", "mlt-synthetics"]
 # Exclusions:
 #  - mlt-core/fuzz: cargo-fuzz does not have workspace support
-#  - mlt-core/proto-codegen: standalone codegen for `vector_tile.rs` (run via
-#    `just rust::gen-mvt-proto`); kept out of the workspace so its
-#    `prost-build`/`protox` deps don't propagate to mlt-core
-exclude = ["mlt-core/fuzz", "mlt-core/proto-codegen"]
+exclude = ["mlt-core/fuzz"]
 
 [workspace.package]
 authors = ["Maplibre Contributors"]
@@ -50,6 +47,7 @@ martin-tile-utils = "0.7"
 mbtiles = { version = "0.17", default-features = false, features = ["transcode"] }
 mlt-core = { version = "0.9.0", path = "mlt-core" }
 moka = { version = "0.12", features = ["sync"] }
+mvt = "0.13.0"
 mvt-reader = "2.3.0"
 num-traits = "0.2.19"
 num_enum = "0.7.6"
@@ -57,7 +55,6 @@ pretty_assertions = "1.4"
 probabilistic-collections = "0.7"
 proptest = "1.11"
 proptest-derive = "0.8"
-prost = "0.13"
 pyo3 = "0.28.3"
 pyo3-stub-gen = "0.22.2"
 ratatui = "0.30.0"
