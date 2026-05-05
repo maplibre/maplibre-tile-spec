@@ -18,13 +18,9 @@ pub fn tile_layers_to_mvt(layers: Vec<TileLayer>) -> MltResult<Vec<u8>> {
     let mut tile = Tile::new(extent);
     for layer in layers {
         let built = build_layer(&tile, layer)?;
-        tile.add_layer(built).map_err(|e| mvt_err(&e))?;
+        tile.add_layer(built)?;
     }
-    tile.to_bytes().map_err(|e| mvt_err(&e))
-}
-
-fn mvt_err(e: &mvt::Error) -> MltError {
-    MltError::MvtParse(e.to_string())
+    Ok(tile.to_bytes()?)
 }
 
 fn build_layer(tile: &Tile, layer: TileLayer) -> MltResult<mvt::Layer> {
@@ -90,7 +86,7 @@ fn encode_geometry(g: &Geometry<i32>) -> MltResult<mvt::GeomData> {
             for (i, ls) in mls.0.iter().enumerate() {
                 add_ring(&mut enc, &ls.0, false)?;
                 if i + 1 < mls.0.len() {
-                    enc.complete_geom().map_err(|e| mvt_err(&e))?;
+                    enc.complete_geom()?;
                 }
             }
         }
@@ -99,18 +95,18 @@ fn encode_geometry(g: &Geometry<i32>) -> MltResult<mvt::GeomData> {
             for (i, poly) in mp.0.iter().enumerate() {
                 add_polygon(&mut enc, poly)?;
                 if i + 1 < mp.0.len() {
-                    enc.complete_geom().map_err(|e| mvt_err(&e))?;
+                    enc.complete_geom()?;
                 }
             }
         }
         _ => unreachable!("validated above"),
     }
-    enc.encode().map_err(|e| mvt_err(&e))
+    Ok(enc.encode()?)
 }
 
 fn add_point(enc: &mut GeomEncoder<f64>, c: Coord<i32>) -> MltResult<()> {
-    enc.add_point(c.x.into(), c.y.into())
-        .map_err(|e| mvt_err(&e))
+    enc.add_point(c.x.into(), c.y.into())?;
+    Ok(())
 }
 
 /// Add a single ring's vertices, dropping the trailing closing duplicate so the
@@ -130,7 +126,7 @@ fn add_polygon(enc: &mut GeomEncoder<f64>, poly: &Polygon<i32>) -> MltResult<()>
     for (i, ring) in rings.iter().enumerate() {
         add_ring(enc, ring, true)?;
         if i + 1 < rings.len() {
-            enc.complete_geom().map_err(|e| mvt_err(&e))?;
+            enc.complete_geom()?;
         }
     }
     Ok(())
