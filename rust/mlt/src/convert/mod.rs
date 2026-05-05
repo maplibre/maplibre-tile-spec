@@ -194,15 +194,23 @@ fn convert_mvt_buffer(buffer: Vec<u8>, cfg: EncoderConfig) -> AnyResult<Vec<u8>>
     Ok(out)
 }
 
-/// Decode an MLT buffer to row-oriented [`mlt_core::TileLayer`]s. Unknown
-/// layer tags are dropped (MVT has no equivalent).
+/// Decode an MLT buffer to row-oriented [`mlt_core::TileLayer`]s.
+///
+/// MVT has no equivalent for unknown/extension MLT layer tags, so conversion
+/// is rejected instead of silently dropping data.
 fn mlt_buffer_to_tile_layers(buffer: &[u8]) -> AnyResult<Vec<mlt_core::TileLayer>> {
     let layers = Parser::default().parse_layers(buffer)?;
     let mut dec = Decoder::default();
     let mut tiles = Vec::new();
     for layer in layers {
-        if let Layer::Tag01(l) = layer {
-            tiles.push(l.into_tile(&mut dec)?);
+        match layer {
+            Layer::Tag01(l) => {
+                tiles.push(l.into_tile(&mut dec)?);
+            }
+            Layer::Unknown(_) => {
+                bail!("cannot convert MLT tile to MVT: tile contains unknown/extension layers that MVT cannot represent");
+            }
+            _ => {}
         }
     }
     Ok(tiles)
