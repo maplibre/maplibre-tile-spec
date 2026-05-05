@@ -208,7 +208,9 @@ fn mlt_buffer_to_tile_layers(buffer: &[u8]) -> AnyResult<Vec<mlt_core::TileLayer
                 tiles.push(l.into_tile(&mut dec)?);
             }
             Layer::Unknown(_) => {
-                bail!("cannot convert MLT tile to MVT: tile contains unknown/extension layers that MVT cannot represent");
+                bail!(
+                    "cannot convert MLT tile to MVT: tile contains unknown/extension layers that MVT cannot represent"
+                );
             }
             _ => {}
         }
