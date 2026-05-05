@@ -109,7 +109,8 @@ fn encode_geometry(g: &Geometry<i32>) -> MltResult<mvt::GeomData> {
 }
 
 fn add_point(enc: &mut GeomEncoder<f64>, c: Coord<i32>) -> MltResult<()> {
-    enc.add_point(c.x.into(), c.y.into()).map_err(|e| mvt_err(&e))
+    enc.add_point(c.x.into(), c.y.into())
+        .map_err(|e| mvt_err(&e))
 }
 
 /// Add a single ring's vertices, dropping the trailing closing duplicate so the
