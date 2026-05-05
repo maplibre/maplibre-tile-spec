@@ -11,8 +11,9 @@ use std::process::Command;
 
 const HEADER: &str = "//! Prost-derived Rust types for the MVT (Mapbox Vector Tile) wire format.
 //!
-//! Regenerated from `proto/vector_tile.proto` by `just rust::gen-mvt-proto`.
-//! Do not edit by hand - CI's `autofix.ci` workflow regenerates and commits this file when the .proto changes.
+//! Regenerated from `proto-codegen/proto/vector_tile.proto` by
+//! `just rust::gen-mvt-proto`. Do not edit by hand - CI's `autofix.ci`
+//! workflow regenerates and commits this file when the .proto changes.
 #![allow(
     clippy::doc_markdown,
     clippy::struct_field_names,
@@ -29,9 +30,9 @@ fn main() {
     let manifest_dir =
         PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
     let mlt_core = manifest_dir.parent().expect("crate has parent");
-    let proto = mlt_core.join("proto/vector_tile.proto");
+    let proto_dir = manifest_dir.join("proto");
+    let proto = proto_dir.join("vector_tile.proto");
     let out_path = mlt_core.join("src/convert/mvt/vector_tile.rs");
-    let proto_dir = mlt_core.join("proto");
 
     let fds =
         protox::compile([&proto], [&proto_dir]).expect("compile vector_tile.proto with protox");

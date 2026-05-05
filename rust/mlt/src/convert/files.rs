@@ -77,6 +77,16 @@ fn is_convert_extension(path: &Path) -> bool {
     )
 }
 
+/// Per-walk shared state passed to [`convert_file`].
+struct WalkCtx<'a> {
+    base: &'a Path,
+    output: &'a Path,
+    cfg: EncoderConfig,
+    to: TileFormat,
+    cache: &'a EncodedCache,
+    stats: &'a DedupStats,
+}
+
 pub fn convert_files(
     input: &Path,
     output: &Path,
@@ -93,6 +103,14 @@ pub fn convert_files(
     let cache: EncodedCache = make_cache(CACHE_MAX_BYTES);
     let stats = DedupStats::default();
     let failed = AtomicUsize::new(0);
+    let ctx = WalkCtx {
+        base,
+        output,
+        cfg,
+        to,
+        cache: &cache,
+        stats: &stats,
+    };
 
     let bar = ProgressBar::new_spinner();
     bar.set_style(
@@ -126,7 +144,7 @@ pub fn convert_files(
         .par_bridge()
         .for_each(|entry| {
             let in_path = entry.into_path();
-            let result = convert_file(&in_path, base, output, cfg, to, &cache, &stats);
+            let result = convert_file(&in_path, &ctx);
             bar.inc(1);
             if let Err(e) = result {
                 emit(format!("error: {}: {e:#}", in_path.display()));
@@ -150,19 +168,11 @@ pub fn convert_files(
     Ok(())
 }
 
-fn convert_file(
-    file: &Path,
-    base: &Path,
-    output: &Path,
-    cfg: EncoderConfig,
-    to: TileFormat,
-    cache: &EncodedCache,
-    stats: &DedupStats,
-) -> AnyResult<()> {
+fn convert_file(file: &Path, ctx: &WalkCtx<'_>) -> AnyResult<()> {
     let rel = file
-        .strip_prefix(base)
+        .strip_prefix(ctx.base)
         .with_context(|| format!("stripping prefix from {}", file.display()))?;
-    let out_path = output.join(rel).with_extension(to.extension());
+    let out_path = ctx.output.join(rel).with_extension(ctx.to.extension());
 
     if let Some(parent) = out_path.parent() {
         fs::create_dir_all(parent)
@@ -180,18 +190,20 @@ fn convert_file(
     };
 
     if buffer.len() > MAX_TILE_TRACK_SIZE {
-        let out_bytes = convert_buffer(buffer, from, to, cfg).with_context(ctx)?;
-        stats.record_encode();
+        let out_bytes = convert_buffer(buffer, from, ctx.to, ctx.cfg).with_context(convert_ctx)?;
+        ctx.stats.record_encode();
         fs::write(&out_path, &out_bytes)
             .with_context(|| format!("writing {}", out_path.display()))?;
         return Ok(());
     }
 
     let key = xxh3_128(&buffer);
-    let entry = cache
+    let entry = ctx
+        .cache
         .entry(key)
         .or_try_insert_with(|| -> AnyResult<Arc<Vec<u8>>> {
-            let out_bytes = convert_buffer(buffer, from, to, cfg).with_context(ctx)?;
+            let out_bytes =
+                convert_buffer(buffer, from, ctx.to, ctx.cfg).with_context(convert_ctx)?;
             Ok(Arc::new(out_bytes))
         })
         .map_err(|e: Arc<anyhow::Error>| anyhow!("{e:#}"))?;
@@ -199,9 +211,9 @@ fn convert_file(
     let is_fresh = entry.is_fresh();
     let out_arc = entry.into_value();
     if is_fresh {
-        stats.record_encode();
+        ctx.stats.record_encode();
     } else {
-        stats.record_hit(out_arc.len());
+        ctx.stats.record_hit(out_arc.len());
     }
 
     fs::write(&out_path, out_arc.as_slice())

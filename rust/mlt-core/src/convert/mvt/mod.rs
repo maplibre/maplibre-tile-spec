@@ -322,12 +322,8 @@ pub fn tile_layers_to_mvt(layers: Vec<TileLayer>) -> MltResult<Vec<u8>> {
 }
 
 fn encode_layer(layer: TileLayer) -> MltResult<vt::tile::Layer> {
-    // `keys` mirrors `property_names` 1:1 so decoders observe the same property
-    // order as the source tile (round-trips with mvt-reader's HashMap-based
-    // feature properties would otherwise be unstable).
-    let keys = layer.property_names;
     let mut values: Vec<vt::tile::Value> = Vec::new();
-    let mut value_index: HashMap<ValueKey, u32> = HashMap::new();
+    let mut value_index = ValueIndex::default();
 
     let mut features = Vec::with_capacity(layer.features.len());
     for feat in layer.features {
@@ -357,16 +353,24 @@ fn encode_layer(layer: TileLayer) -> MltResult<vt::tile::Layer> {
         version: 2,
         name: layer.name,
         features,
-        keys,
+        keys: layer.property_names,
         values,
         extent: Some(layer.extent),
     })
 }
 
-/// Hashable / comparable form of [`vt::tile::Value`] for per-layer dedup.
-#[derive(Clone, PartialEq, Eq, Hash)]
-enum ValueKey {
-    String(String),
+/// Per-layer dedup table for [`vt::tile::Value`]. Strings are interned in a
+/// separate map keyed by `&str` so the hit path doesn't clone the candidate
+/// string just to hash it.
+#[derive(Default)]
+struct ValueIndex {
+    strings: HashMap<String, u32>,
+    scalars: HashMap<ScalarKey, u32>,
+}
+
+/// Hashable / comparable form of every non-string [`vt::tile::Value`] field.
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+enum ScalarKey {
     Float(u32),
     Double(u64),
     Int(i64),
@@ -375,35 +379,22 @@ enum ValueKey {
     Bool(bool),
 }
 
-impl ValueKey {
-    fn from(v: &vt::tile::Value) -> Self {
-        if let Some(s) = &v.string_value {
-            Self::String(s.clone())
-        } else if let Some(f) = v.float_value {
-            Self::Float(f.to_bits())
-        } else if let Some(d) = v.double_value {
-            Self::Double(d.to_bits())
-        } else if let Some(i) = v.int_value {
-            Self::Int(i)
-        } else if let Some(u) = v.uint_value {
-            Self::UInt(u)
-        } else if let Some(s) = v.sint_value {
-            Self::SInt(s)
-        } else if let Some(b) = v.bool_value {
-            Self::Bool(b)
-        } else {
-            // `prop_to_mvt_value` always sets exactly one field.
-            unreachable!("vt::tile::Value with no field set")
-        }
-    }
-}
-
 fn intern_value(
     values: &mut Vec<vt::tile::Value>,
-    index: &mut HashMap<ValueKey, u32>,
+    index: &mut ValueIndex,
     value: vt::tile::Value,
 ) -> MltResult<u32> {
-    match index.entry(ValueKey::from(&value)) {
+    if let Some(s) = &value.string_value {
+        if let Some(&idx) = index.strings.get(s.as_str()) {
+            return Ok(idx);
+        }
+        let idx = u32::try_from(values.len())?;
+        let key = s.clone();
+        values.push(value);
+        index.strings.insert(key, idx);
+        return Ok(idx);
+    }
+    match index.scalars.entry(scalar_key(&value)) {
         Entry::Occupied(o) => Ok(*o.get()),
         Entry::Vacant(v) => {
             let idx = u32::try_from(values.len())?;
@@ -411,6 +402,26 @@ fn intern_value(
             v.insert(idx);
             Ok(idx)
         }
+    }
+}
+
+/// `prop_to_mvt_value` always sets exactly one field, and strings are handled
+/// upstream of this call.
+fn scalar_key(v: &vt::tile::Value) -> ScalarKey {
+    if let Some(f) = v.float_value {
+        ScalarKey::Float(f.to_bits())
+    } else if let Some(d) = v.double_value {
+        ScalarKey::Double(d.to_bits())
+    } else if let Some(i) = v.int_value {
+        ScalarKey::Int(i)
+    } else if let Some(u) = v.uint_value {
+        ScalarKey::UInt(u)
+    } else if let Some(s) = v.sint_value {
+        ScalarKey::SInt(s)
+    } else if let Some(b) = v.bool_value {
+        ScalarKey::Bool(b)
+    } else {
+        unreachable!("vt::tile::Value with no field set")
     }
 }
 

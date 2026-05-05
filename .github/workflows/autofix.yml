@@ -68,12 +68,8 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with: { persist-credentials: false }
-      - name: Setup Rust
-        run: rustup update stable && rustup default stable
-      - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
-        with: { tool: 'just' }
+      - uses: ./.github/actions/mlt-setup-rust
       - name: Regenerate vector_tile.rs
-        working-directory: rust
         run: just rust::gen-mvt-proto
 
       - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a # v1.3.4

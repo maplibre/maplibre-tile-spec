@@ -1,9 +1,8 @@
 //! Prost-derived Rust types for the MVT (Mapbox Vector Tile) wire format.
 //!
-//! Regenerated from `proto/vector_tile.proto` by
-//! `cargo run -p mlt-mvt-proto-codegen` (wrapped by `just rust::gen-mvt-proto`).
-//! Do not edit by hand — CI's `autofix.ci` workflow regenerates and commits
-//! this file when the .proto changes.
+//! Regenerated from `proto-codegen/proto/vector_tile.proto` by
+//! `just rust::gen-mvt-proto`. Do not edit by hand - CI's `autofix.ci`
+//! workflow regenerates and commits this file when the .proto changes.
 #![allow(
     clippy::doc_markdown,
     clippy::struct_field_names,
