@@ -1,7 +1,7 @@
 mod files;
 mod tileset;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Result as AnyResult, bail};
 use bytes::Bytes;
@@ -22,11 +22,23 @@ fn whole_rate_per_sec(state: &ProgressState, w: &mut dyn std::fmt::Write) {
     let _ = w.write_fmt(format_args!("{}/s", state.per_sec() as u64));
 }
 
+/// Storage container shape inferred from a path's extension.
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq)]
-pub enum TileFormat {
+pub enum ContainerFormat {
     Mbtiles,
     Pmtiles,
     Files,
+}
+
+impl ContainerFormat {
+    #[must_use]
+    pub fn from_path(path: &Path) -> Self {
+        match path.extension().and_then(std::ffi::OsStr::to_str) {
+            Some("mbtiles") => Self::Mbtiles,
+            Some("pmtiles") => Self::Pmtiles,
+            _ => Self::Files,
+        }
+    }
 }
 
 /// CLI-facing subset of [`MbtType`] (hides the `hash_view` detail).
@@ -122,33 +134,13 @@ pub struct ConvertArgs {
 }
 
 impl ConvertArgs {
-    pub fn input_format(&self) -> TileFormat {
-        match self
-            .input
-            .extension()
-            .as_deref()
-            .unwrap_or_default()
-            .to_str()
-            .unwrap_or_default()
-        {
-            "mbtiles" => TileFormat::Mbtiles,
-            "pmtiles" => TileFormat::Pmtiles,
-            _ => TileFormat::Files,
-        }
+    #[must_use]
+    pub fn input_container(&self) -> ContainerFormat {
+        ContainerFormat::from_path(&self.input)
     }
-    pub fn output_format(&self) -> TileFormat {
-        match self
-            .output
-            .extension()
-            .as_deref()
-            .unwrap_or_default()
-            .to_str()
-            .unwrap_or_default()
-        {
-            "mbtiles" => TileFormat::Mbtiles,
-            "pmtiles" => TileFormat::Pmtiles,
-            _ => TileFormat::Files,
-        }
+    #[must_use]
+    pub fn output_container(&self) -> ContainerFormat {
+        ContainerFormat::from_path(&self.output)
     }
 }
 
@@ -162,13 +154,13 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         ..Default::default()
     };
 
-    if args.input_format() == TileFormat::Mbtiles {
+    if args.input_container() == ContainerFormat::Mbtiles {
         if args.to == TileFormat::Mvt {
             bail!(
                 "--to mvt is not supported for .mbtiles input/output yet; convert to a directory instead"
             );
         }
-        if args.output_format() == TileFormat::Files {
+        if args.output_container() == ContainerFormat::Files {
             bail!(
                 "Output must be either an .mbtiles or a .pmtiles file when input is an .mbtiles file, got: {}",
                 args.output.display()
@@ -187,8 +179,8 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
             .enable_time()
             .build()?
             .block_on(tileset::convert_tiles(
-                (&args.input, args.input_format()),
-                (&args.output, args.output_format()),
+                (&args.input, args.input_container()),
+                (&args.output, args.output_container()),
                 cfg,
                 args.mbtiles_format,
             ));

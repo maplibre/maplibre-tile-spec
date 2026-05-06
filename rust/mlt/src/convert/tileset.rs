@@ -17,7 +17,7 @@ use size_format::SizeFormatterSI;
 use xxhash_rust::xxh3::xxh3_64;
 
 use super::{MbtFormat, encode_one};
-use crate::convert::{TileFormat, whole_rate_per_sec};
+use crate::convert::{ContainerFormat, whole_rate_per_sec};
 
 /// Cap on the encoding cache (which encoded `Bytes` to keep around).
 const ENCODE_CACHE_BYTES: u64 = 512 * 1024 * 1024;
@@ -75,16 +75,16 @@ async fn get_metadata(input: &Path) -> AnyResult<(Encoding, MbtType, Metadata, u
 }
 
 pub async fn convert_tiles(
-    input: (&Path, TileFormat),
-    output: (&Path, TileFormat),
+    input: (&Path, ContainerFormat),
+    output: (&Path, ContainerFormat),
     cfg: EncoderConfig,
     mbtiles_format: Option<MbtFormat>,
 ) -> AnyResult<()> {
     match (input, output) {
-        ((input, TileFormat::Mbtiles), (output, TileFormat::Mbtiles)) => {
+        ((input, ContainerFormat::Mbtiles), (output, ContainerFormat::Mbtiles)) => {
             convert_mbtiles_to_mbtiles(input, output, mbtiles_format, cfg).await?;
         }
-        ((input, TileFormat::Mbtiles), (output, TileFormat::Pmtiles)) => {
+        ((input, ContainerFormat::Mbtiles), (output, ContainerFormat::Pmtiles)) => {
             convert_mbtiles_to_pmtiles(input, output, cfg).await?;
         }
         ((_, from), (_, to)) => bail!("Converting from {from:?} to {to:?} not supported yet"),
