@@ -169,7 +169,7 @@ pub enum MltError {
     Utf8(#[from] std::str::Utf8Error),
     #[error("UTF-8 decode error: {0}")]
     FromUtf8(#[from] std::string::FromUtf8Error),
-    // below is only mvt_reader::error::ParserError 
+    // below is only mvt_reader::error::ParserError
     #[error("MVT parse error: {0}")]
     MvtParse(String),
     #[error("MVT write error: {0}")]
