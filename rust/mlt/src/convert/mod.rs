@@ -22,8 +22,27 @@ fn whole_rate_per_sec(state: &ProgressState, w: &mut dyn std::fmt::Write) {
     let _ = w.write_fmt(format_args!("{}/s", state.per_sec() as u64));
 }
 
+/// Storage container shape inferred from a path's extension.
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq)]
+pub enum ContainerFormat {
+    Mbtiles,
+    Pmtiles,
+    Files,
+}
+
+impl ContainerFormat {
+    #[must_use]
+    pub fn from_path(path: &Path) -> Self {
+        match path.extension().and_then(std::ffi::OsStr::to_str) {
+            Some("mbtiles") => Self::Mbtiles,
+            Some("pmtiles") => Self::Pmtiles,
+            _ => Self::Files,
+        }
+    }
+}
+
 /// CLI-facing subset of [`MbtType`] (hides the `hash_view` detail).
-#[derive(Clone, Default, ValueEnum)]
+#[derive(Clone, Copy, Default, ValueEnum, Debug, PartialEq)]
 enum MbtFormat {
     /// Single table with all tiles; no deduplication (smallest overhead)
     #[default]
@@ -93,9 +112,9 @@ enum SortMode {
 
 #[derive(Args)]
 pub struct ConvertArgs {
-    /// Input: a directory with .mlt/.mvt tiles, a single tile file, or an .mbtiles database
+    /// Input: a directory with .mlt/.mvt tiles, a single tile file, an .mbtiles database
     input: PathBuf,
-    /// Output: a directory for re-encoded .mlt files, or an .mbtiles database (required when input is .mbtiles)
+    /// Output: a directory for re-encoded .mlt files, an .mbtiles database or a .pmtiles file
     output: PathBuf,
     /// Add tessellation
     #[clap(short, long, default_value = "false")]
@@ -114,6 +133,17 @@ pub struct ConvertArgs {
     to: TileFormat,
 }
 
+impl ConvertArgs {
+    #[must_use]
+    pub fn input_container(&self) -> ContainerFormat {
+        ContainerFormat::from_path(&self.input)
+    }
+    #[must_use]
+    pub fn output_container(&self) -> ContainerFormat {
+        ContainerFormat::from_path(&self.output)
+    }
+}
+
 pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     let cfg = EncoderConfig {
         tessellate: args.tessellate,
@@ -124,15 +154,15 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         ..Default::default()
     };
 
-    if is_mbtiles_extension(&args.input) {
+    if args.input_container() == ContainerFormat::Mbtiles {
         if args.to == TileFormat::Mvt {
             bail!(
                 "--to mvt is not supported for .mbtiles input/output yet; convert to a directory instead"
             );
         }
-        if !is_mbtiles_extension(&args.output) {
+        if args.output_container() == ContainerFormat::Files {
             bail!(
-                "Output must be an .mbtiles file when input is an .mbtiles file, got: {}",
+                "Output must be either an .mbtiles or a .pmtiles file when input is an .mbtiles file, got: {}",
                 args.output.display()
             );
         }
@@ -143,26 +173,20 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
                 args.output.display()
             );
         }
+
         return tokio::runtime::Builder::new_current_thread()
             .enable_io()
             .enable_time()
             .build()?
-            .block_on(tileset::convert_mbtiles(
-                &args.input,
-                &args.output,
-                args.mbtiles_format.clone(),
+            .block_on(tileset::convert_tiles(
+                (&args.input, args.input_container()),
+                (&args.output, args.output_container()),
                 cfg,
+                args.mbtiles_format,
             ));
     }
 
     files::convert_files(&args.input, &args.output, cfg, args.to)
-}
-
-fn is_mbtiles_extension(path: &Path) -> bool {
-    matches!(
-        path.extension().and_then(std::ffi::OsStr::to_str),
-        Some("mbtiles")
-    )
 }
 
 fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
