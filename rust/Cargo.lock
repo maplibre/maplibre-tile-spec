@@ -3213,7 +3213,7 @@ dependencies = [
  "bitflags 2.11.1",
  "libc",
  "plain",
- "redox_syscall 0.7.4",
+ "redox_syscall 0.7.5",
 ]
 
 [[package]]
@@ -3484,7 +3484,7 @@ dependencies = [
 
 [[package]]
 name = "mlt"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "anyhow",
  "bytes",
@@ -3517,7 +3517,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-core"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "arbitrary",
  "bitvec",
@@ -3536,6 +3536,7 @@ dependencies = [
  "hotpath",
  "insta",
  "integer-encoding",
+ "mvt",
  "mvt-reader",
  "num-traits",
  "num_enum",
@@ -3557,7 +3558,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-py"
-version = "0.1.12"
+version = "0.1.13"
 dependencies = [
  "mlt-core",
  "pyo3",
@@ -3577,7 +3578,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-wasm"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "js-sys",
  "mlt-core",
@@ -3605,6 +3606,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "mvt"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d7366256c268a8333bbc0951831f4706ae927f5c2db073ab38c491e7515c1b9"
+dependencies = [
+ "log",
+ "num-traits",
+ "pointy",
+ "prost 0.14.3",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "mvt-reader"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3612,7 +3626,7 @@ checksum = "5057362d82a08bc3c84e420c42939463aff5c3e21a91a41d8b7af94c8f061189"
 dependencies = [
  "geo-types",
  "num-traits",
- "prost",
+ "prost 0.13.5",
 ]
 
 [[package]]
@@ -4149,7 +4163,7 @@ version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67eabc2ef2a60eb7faa00097bd1ffdb5bd28e62bf39990626a582201b7a754e5"
 dependencies = [
- "siphasher 1.0.2",
+ "siphasher 1.0.3",
 ]
 
 [[package]]
@@ -4263,6 +4277,15 @@ dependencies = [
  "twox-hash",
  "varint-rs",
  "zstd",
+]
+
+[[package]]
+name = "pointy"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7319aff932c05d448afab77f22ae717fa30d5b289ff397e249d91bb654156413"
+dependencies = [
+ "num-traits",
 ]
 
 [[package]]
@@ -4427,7 +4450,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2796faa41db3ec313a31f7624d9286acf277b52de526150b7e69f3debf891ee5"
 dependencies = [
  "bytes",
- "prost-derive",
+ "prost-derive 0.13.5",
+]
+
+[[package]]
+name = "prost"
+version = "0.14.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2ea70524a2f82d518bce41317d0fae74151505651af45faf1ffbd6fd33f0568"
+dependencies = [
+ "bytes",
+ "prost-derive 0.14.3",
 ]
 
 [[package]]
@@ -4435,6 +4468,19 @@ name = "prost-derive"
 version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a56d757972c98b346a9b766e3f02746cde6dd1cd1d1d563472929fdd74bec4d"
+dependencies = [
+ "anyhow",
+ "itertools 0.14.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
+name = "prost-derive"
+version = "0.14.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "27c6023962132f4b30eb4c172c91ce92d933da334c59c23cddee82358ddafb0b"
 dependencies = [
  "anyhow",
  "itertools 0.14.0",
@@ -4959,9 +5005,9 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
-version = "0.7.4"
+version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f450ad9c3b1da563fb6948a8e0fb0fb9269711c9c73d9ea1de5058c79c8d643a"
+checksum = "4666a1a60d8412eab19d94f6d13dcc9cea0a5ef4fdf6a5db306537413c661b1b"
 dependencies = [
  "bitflags 2.11.1",
 ]
@@ -5758,9 +5804,9 @@ dependencies = [
 
 [[package]]
 name = "serde_with"
-version = "3.18.0"
+version = "3.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd5414fad8e6907dbdd5bc441a50ae8d6e26151a03b1de04d89a5576de61d01f"
+checksum = "f05839ce67618e14a09b286535c0d9c94e85ef25469b0e13cb4f844e5593eb19"
 dependencies = [
  "serde_core",
  "serde_with_macros",
@@ -5768,9 +5814,9 @@ dependencies = [
 
 [[package]]
 name = "serde_with_macros"
-version = "3.18.0"
+version = "3.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3db8978e608f1fe7357e211969fd9abdcae80bac1ba7a3369bb7eb6b404eb65"
+checksum = "cf2ebbe86054f9b45bc3881e865683ccfaccce97b9b4cb53f3039d67f355a334"
 dependencies = [
  "darling",
  "proc-macro2",
@@ -5919,9 +5965,9 @@ checksum = "38b58827f4464d87d377d175e90bf58eb00fd8716ff0a62f80356b5e61555d0d"
 
 [[package]]
 name = "siphasher"
-version = "1.0.2"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2aa850e253778c88a04c3d7323b043aeda9d3e30d5971937c1855769763678e"
+checksum = "8ee5873ec9cce0195efcb7a4e9507a04cd49aec9c83d0389df45b1ef7ba2e649"
 
 [[package]]
 name = "size_format"
@@ -6513,7 +6559,7 @@ dependencies = [
  "phf",
  "sha2 0.10.9",
  "signal-hook",
- "siphasher 1.0.2",
+ "siphasher 1.0.3",
  "terminfo",
  "termios",
  "thiserror 1.0.69",
@@ -6707,9 +6753,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.52.1"
+version = "1.52.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b67dee974fe86fd92cc45b7a95fdd2f99a36a6d7b0d431a231178d3d670bbcc6"
+checksum = "110a78583f19d5cdb2c5ccf321d1290344e71313c6c37d43520d386027d18386"
 dependencies = [
  "bytes",
  "libc",

@@ -2,7 +2,8 @@
 resolver = "3"
 members = ["mlt", "mlt-core", "mlt-py", "mlt-synthetics", "mlt-wasm"]
 default-members = ["mlt", "mlt-core", "mlt-synthetics"]
-# Excluding mlt-core/fuzz because cargo-fuzz does not have workspace support
+# Exclusions:
+#  - mlt-core/fuzz: cargo-fuzz does not have workspace support
 exclude = ["mlt-core/fuzz"]
 
 [workspace.package]
@@ -44,8 +45,9 @@ integer-encoding = "4.0.2"
 js-sys = "0.3"
 martin-tile-utils = "0.7"
 mbtiles = { version = "0.17", default-features = false, features = ["transcode"] }
-mlt-core = { version = "0.9.0", path = "mlt-core" }
+mlt-core = { version = "0.9.1", path = "mlt-core" }
 moka = { version = "0.12", features = ["sync"] }
+mvt = "0.13.0"
 mvt-reader = "2.3.0"
 num-traits = "0.2.19"
 num_enum = "0.7.6"

@@ -1,4 +1,4 @@
-//! Convert MVT data to [`FeatureCollection`] or to [`TileLayer`]
+//! Decode MVT bytes into [`FeatureCollection`] or row-oriented [`TileLayer`]s.
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -13,8 +13,6 @@ use serde_json::{Number, Value};
 use crate::decoder::{PropValue, TileFeature, TileLayer};
 use crate::geojson::{Feature, FeatureCollection};
 use crate::{MltError, MltResult};
-
-// ── Common MVT parsing ────────────────────────────────────────────────────────
 
 /// Parsed representation of a single MVT layer: metadata plus raw features.
 struct MvtLayer {
