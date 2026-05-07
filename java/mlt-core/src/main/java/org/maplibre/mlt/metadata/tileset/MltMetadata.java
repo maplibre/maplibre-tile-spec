@@ -23,6 +23,10 @@ public final class MltMetadata {
     return new FieldType(new ComplexField(ComplexType.STRUCT, children), false);
   }
 
+  public static FieldType mapFieldType() {
+    return new FieldType(new ComplexField(ComplexType.MAP), true);
+  }
+
   public static FieldType geometryFieldType() {
     return new FieldType(new ComplexField(ComplexType.GEOMETRY), false);
   }
@@ -220,7 +224,7 @@ public final class MltMetadata {
   /// Column are top-level types in the schema
   /// @param field The field associated with this column.  Must be non-null.
   /// @param columnScope The column scope, which must be either FEATURE or VERTEX
-  public static final record Column(@NotNull Field field, @NotNull ColumnScope columnScope) {
+  public record Column(@NotNull Field field, @NotNull ColumnScope columnScope) {
 
     /// Create a column with the given field and column scope
     /// @param field the field associated with this column

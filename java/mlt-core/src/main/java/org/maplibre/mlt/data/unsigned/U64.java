@@ -38,4 +38,9 @@ public record U64(long value) implements Unsigned {
   public String toString() {
     return "u64(" + Long.toUnsignedString(value) + ")";
   }
+
+  @Override
+  public int compareTo(Unsigned other) {
+    return Unsigned.super.compareTo(other);
+  }
 }

@@ -137,8 +137,12 @@ public class PropertyDecoder {
     }
 
     /* Handle struct which currently only supports strings as nested fields for supporting shared dictionary encoding */
-    if (numStreams > 1) {
-      return StringDecoder.decodeSharedDictionary(data, offset, column).getRight();
+    if (column.is(MltMetadata.ComplexType.STRUCT)) {
+      if (numStreams > 1) {
+        return StringDecoder.decodeSharedDictionary(data, offset, column).getRight();
+      }
+    } else if (column.is(MltMetadata.ComplexType.MAP)) {
+      throw new IllegalArgumentException("Map type is currently not supported.");
     }
 
     // var presentStreamMetadata = StreamMetadata.decode(data, offset);

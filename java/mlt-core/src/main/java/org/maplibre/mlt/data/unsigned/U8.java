@@ -28,4 +28,9 @@ public record U8(byte value) implements Unsigned {
   public String toString() {
     return "u8(" + Byte.toUnsignedInt(value) + ")";
   }
+
+  @Override
+  public int compareTo(Unsigned other) {
+    return Unsigned.super.compareTo(other);
+  }
 }

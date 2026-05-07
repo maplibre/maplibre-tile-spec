@@ -32,4 +32,9 @@ public record U32(int value) implements Unsigned {
   public String toString() {
     return "u32(" + Integer.toUnsignedLong(value) + ")";
   }
+
+  @Override
+  public int compareTo(Unsigned other) {
+    return Unsigned.super.compareTo(other);
+  }
 }

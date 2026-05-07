@@ -53,6 +53,8 @@ public class MltTypeMap {
           if (!isNullable && hasChildren) {
             return Optional.of(30);
           }
+        } else if (physicalComplexType == MltMetadata.ComplexType.MAP) {
+          return Optional.of(31);
         }
       }
       return Optional.empty();
@@ -73,7 +75,9 @@ public class MltTypeMap {
       } else if (4 == typeCode) {
         return MltMetadata.geometryFieldType();
       } else if (30 == typeCode) {
-        return MltMetadata.structFieldType((List<MltMetadata.Field>) null);
+        return MltMetadata.structFieldType(null);
+      } else if (31 == typeCode) {
+        return MltMetadata.mapFieldType();
       } else {
         throw new IllegalStateException("Unsupported Type " + typeCode);
       }
