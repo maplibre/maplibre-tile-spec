@@ -332,11 +332,11 @@ public class IntegerEncoder {
       final var delta = value - previousValue;
       deltaValues[i] = delta;
 
-      if (value != previousValue && i != 1) {
+      if (value != previousValue && i != 0) {
         runs++;
       }
 
-      if (delta != previousDelta && i != 1) {
+      if (delta != previousDelta && i != 0) {
         deltaRuns++;
       }
 
