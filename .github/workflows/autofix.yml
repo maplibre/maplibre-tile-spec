@@ -56,6 +56,40 @@ jobs:
       - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a # v1.3.4
         with: {commit-message: "chore: sync secondary version indicators"}
 
+  rust-gen-ffi-bindings:
+    name: Regenerate diplomat FFI bindings
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    if: |
+      github.event.action == 'opened' ||
+      github.event.action == 'synchronize' ||
+      github.event.action == 'reopened'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with: { persist-credentials: false }
+      - name: Setup Rust
+        run: rustup update stable && rustup default stable
+      - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
+        with: { tool: 'just,cargo-binstall' }
+      - run: sudo apt-get update && sudo apt-get install -y clang-format
+      - name: Install ktlint
+        run: |
+          curl -sSL https://github.com/pinterest/ktlint/releases/latest/download/ktlint -o /usr/local/bin/ktlint
+          chmod +x /usr/local/bin/ktlint
+      - name: Regenerate FFI bindings
+        working-directory: rust
+        run: just rust::sync-ffi-bindings
+
+      # run pre-commit as a formatting tiebreaker
+      - name: Install uv
+        uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867 # v7.1.6
+      - run: uvx pre-commit run --all-files
+        continue-on-error: true
+
+      - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a # v1.3.4
+        with: { commit-message: "chore: regenerate diplomat FFI bindings" }
+
   rust-gen-pyo3-stubs:
     name: Regenerate maplibre_tiles.pyi stub
     runs-on: ubuntu-latest

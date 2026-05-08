@@ -93,6 +93,29 @@ jobs:
   #        with: { toolchain: msrv }
   #      - run: just -v rust::ci-test-msrv
 
+  test-ffi:
+    name: FFI ${{ matrix.backend }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - backend: c
+            recipe: test-ffi-c
+          - backend: cpp
+            recipe: test-ffi-cpp
+          - backend: kotlin
+            recipe: test-ffi-kotlin
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/mlt-setup-rust
+      - if: matrix.backend == 'kotlin'
+        run: |
+          sudo apt-get update && sudo apt-get install -y libjna-java
+          curl -sSL https://github.com/JetBrains/kotlin/releases/download/v2.1.21/kotlin-compiler-2.1.21.zip -o /tmp/kotlin.zip
+          sudo unzip -q /tmp/kotlin.zip -d /opt && echo "/opt/kotlinc/bin" >> "$GITHUB_PATH"
+      - run: just -v rust::${{ matrix.recipe }}
+
   test-publish:
     name: Test workspace publishing using --dry-run
     runs-on: ubuntu-latest
@@ -180,6 +203,7 @@ jobs:
       - coverage
       # re-enable once we have stability guarantees regarding MSRV
       # - test-msrv
+      - test-ffi
       - test-wasm
       - build-release-binaries
       - test-publish

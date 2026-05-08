@@ -335,6 +335,64 @@ semver *args: (just 'cargo-install' 'cargo-semver-checks') (just 'cargo-install'
         --package mlt-core --exclude-no-default-features --exclude-all-features \
         {{args}}
 
+# Regenerate diplomat FFI bindings
+sync-ffi-bindings: (just 'cargo-install' 'diplomat-tool') (just 'assert-cmd' 'clang-format') (just 'assert-cmd' 'ktlint')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd mlt-ffi
+    diplomat-tool c       bindings/c      -e src/lib.rs
+    diplomat-tool cpp     bindings/cpp    -e src/lib.rs
+    diplomat-tool kotlin  bindings/kotlin -e src/lib.rs
+    clang-format -style=WebKit -i tests/c/*.c tests/cpp/*.cpp
+    ktlint --format tests/kotlin/*.kt
+
+# Run the C FFI round-trip test (builds cdylib, compiles + runs test)
+test-ffi-c:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo build --release -p mlt-ffi
+    LIB_DIR="$(pwd)/target/release"
+    gcc mlt-ffi/tests/c/test_round_trip.c \
+        -I mlt-ffi/bindings/c \
+        -L "$LIB_DIR" -lmlt_ffi \
+        -o target/test_ffi_c
+    LD_LIBRARY_PATH="$LIB_DIR" target/test_ffi_c
+
+# Run the C++ FFI round-trip test (builds cdylib, compiles + runs test)
+test-ffi-cpp:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo build --release -p mlt-ffi
+    LIB_DIR="$(pwd)/target/release"
+    g++ -std=c++20 mlt-ffi/tests/cpp/test_round_trip.cpp \
+        -I mlt-ffi/bindings/cpp \
+        -L "$LIB_DIR" -lmlt_ffi \
+        -o target/test_ffi_cpp
+    LD_LIBRARY_PATH="$LIB_DIR" target/test_ffi_cpp
+
+# Run the Kotlin FFI round-trip test (builds cdylib, compiles + runs test)
+test-ffi-kotlin: (just 'assert-cmd' 'kotlinc')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo build --release -p mlt-ffi
+    LIB_DIR="$(pwd)/target/release"
+    KOTLIN_SRC="$(find mlt-ffi/bindings/kotlin -type f -name '*.kt' -printf '%h\n' | head -1)"
+    JNA_DIRS=()
+    for d in mlt-ffi/tests/kotlin/lib /usr/share/java ~/.gradle; do
+        [ -d "$d" ] && JNA_DIRS+=("$d")
+    done
+    JNA_JAR="$(find "${JNA_DIRS[@]}" -name 'jna*.jar' 2>/dev/null | head -1)"
+    if [ -z "$JNA_JAR" ]; then
+        echo "::error::JNA jar not found — install libjna-java or download jna.jar"
+        exit 1
+    fi
+    kotlinc -cp "$JNA_JAR" \
+        "$KOTLIN_SRC"/*.kt mlt-ffi/tests/kotlin/TestRoundTrip.kt \
+        -include-runtime -d target/test_ffi_kotlin.jar 2>&1
+    LD_LIBRARY_PATH="$LIB_DIR" \
+    java -cp "target/test_ffi_kotlin.jar:$JNA_JAR" -Djna.library.path="$LIB_DIR" \
+        --enable-native-access=ALL-UNNAMED TestRoundTripKt
+
 # Regenerate the Python type stub for mlt-py
 sync-pyo3-stubs:
     cargo run -p mlt-py --bin stub_gen --features abi3

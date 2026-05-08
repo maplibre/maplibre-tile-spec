@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
-members = ["mlt", "mlt-core", "mlt-py", "mlt-synthetics", "mlt-wasm"]
-default-members = ["mlt", "mlt-core", "mlt-synthetics"]
+members = ["mlt", "mlt-core", "mlt-ffi", "mlt-py", "mlt-synthetics", "mlt-wasm"]
+default-members = ["mlt", "mlt-core", "mlt-ffi", "mlt-synthetics"]
 # Exclusions:
 #  - mlt-core/fuzz: cargo-fuzz does not have workspace support
 exclude = ["mlt-core/fuzz"]
@@ -27,6 +27,8 @@ clap = { version = "4.6.0", features = ["derive"] }
 criterion = { version = "0.8", features = ["html_reports"] }
 crossterm = "0.29.0"
 derive-debug = "0.1.2"
+diplomat = "0.15.0"
+diplomat-runtime = "0.15.1"
 enum_dispatch = "0.3"
 fastpfor = { version = "0.9", features = ["rust"] }
 flate2 = "1"
