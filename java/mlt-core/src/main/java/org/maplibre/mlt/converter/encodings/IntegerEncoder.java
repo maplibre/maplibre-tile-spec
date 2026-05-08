@@ -360,7 +360,6 @@ public class IntegerEncoder {
 
     BiFunction<int[], Boolean, byte[]> encoder =
         physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR
-            // TODO: continue eliminating boxing into FastPFOR
             ? IntegerEncoder::encodeFastPfor
             : (v, s) -> {
               try {

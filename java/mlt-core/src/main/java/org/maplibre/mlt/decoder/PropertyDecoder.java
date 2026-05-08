@@ -154,10 +154,12 @@ public class PropertyDecoder {
     List<Double> doubleValues = List.of();
 
     if ((dictionaryMask & PropertyEncoder.MASK_STRING) != 0) {
-      // Is it worth writing another stream count so we don't have to infer it in string decoding?
-      final var decodedStrings = StringDecoder.decode(data, offset, numStreams, null, 0);
+      final var stringStreamCount = data[offset.get()];
+      offset.increment();
+
+      final var decodedStrings = StringDecoder.decode(data, offset, stringStreamCount, null, 0);
       stringValues = decodedStrings.strings();
-      numStreams -= decodedStrings.streamsDecoded();
+      numStreams -= stringStreamCount;
     }
     if ((dictionaryMask & PropertyEncoder.MASK_INT32) != 0) {
       final var streamMetadata = StreamMetadataDecoder.decode(data, offset);

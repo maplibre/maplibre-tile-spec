@@ -149,8 +149,7 @@ public final class StringDecoder {
     return dictionary;
   }
 
-  public record StringDecodingResult(
-      BitSet presentStream, List<String> strings, int streamsDecoded) {}
+  public record StringDecodingResult(BitSet presentStream, List<String> strings) {}
 
   public static StringDecodingResult decode(
       final byte[] data,
@@ -171,10 +170,8 @@ public final class StringDecoder {
     byte[] dictionaryStream = null;
     List<Integer> symbolLengthStream = null;
     byte[] symbolTableStream = null;
-    int streamsDecoded = 0;
     for (var i = 0; i < numStreams; i++) {
       final var streamMetadata = StreamMetadataDecoder.decode(data, offset);
-      streamsDecoded++;
       switch (streamMetadata.physicalStreamType()) {
         case OFFSET:
           {
@@ -209,37 +206,30 @@ public final class StringDecoder {
               "Unexpected stream type in string column decoding: "
                   + streamMetadata.physicalStreamType());
       }
-
-      if (symbolTableStream != null
-          && symbolLengthStream != null
-          && dictionaryLengthStream != null) {
-        final var decompressedLength = dictionaryLengthStream.stream().mapToInt(x -> x).sum();
-        final var utf8Values =
-            FsstEncoder.decode(
-                symbolTableStream,
-                symbolLengthStream.stream().mapToInt(x -> x).toArray(),
-                dictionaryStream,
-                decompressedLength);
-        final var strings =
-            decodeDictionary(
-                presentStream, dictionaryLengthStream, utf8Values, offsetStream, presentCount);
-        return new StringDecodingResult(presentStream, strings, streamsDecoded);
-      } else if (dictionaryStream != null && dictionaryLengthStream != null) {
-        final var strings =
-            decodeDictionary(
-                presentStream,
-                dictionaryLengthStream,
-                dictionaryStream,
-                offsetStream,
-                presentCount);
-        return new StringDecodingResult(presentStream, strings, streamsDecoded);
-      } else if (symbolLengthStream != null && symbolTableStream != null) {
-        final var strings =
-            decodePlain(presentStream, symbolLengthStream, symbolTableStream, presentCount);
-        return new StringDecodingResult(presentStream, strings, streamsDecoded);
-      }
     }
-    throw new IllegalArgumentException("Did not find expected streams for string column decoding");
+
+    if (symbolTableStream != null && symbolLengthStream != null && dictionaryLengthStream != null) {
+      final var decompressedLength = dictionaryLengthStream.stream().mapToInt(x -> x).sum();
+      final var utf8Values =
+          FsstEncoder.decode(
+              symbolTableStream,
+              symbolLengthStream.stream().mapToInt(x -> x).toArray(),
+              dictionaryStream,
+              decompressedLength);
+      final var strings =
+          decodeDictionary(
+              presentStream, dictionaryLengthStream, utf8Values, offsetStream, presentCount);
+      return new StringDecodingResult(presentStream, strings);
+    } else if (dictionaryStream != null && dictionaryLengthStream != null) {
+      final var strings =
+          decodeDictionary(
+              presentStream, dictionaryLengthStream, dictionaryStream, offsetStream, presentCount);
+      return new StringDecodingResult(presentStream, strings);
+    } else {
+      final var strings =
+          decodePlain(presentStream, symbolLengthStream, symbolTableStream, presentCount);
+      return new StringDecodingResult(presentStream, strings);
+    }
   }
 
   private static List<String> decodePlain(

@@ -52,7 +52,7 @@ public class EncodingUtils {
 
   /** Convert the floats to IEEE754 floating point numbers in Little Endian byte order. */
   public static byte[] encodeFloatsLE(final float[] values) {
-    var buffer = ByteBuffer.allocate(values.length * 4).order(ByteOrder.LITTLE_ENDIAN);
+    var buffer = ByteBuffer.allocate(values.length * Float.BYTES).order(ByteOrder.LITTLE_ENDIAN);
     for (var value : values) {
       buffer.putFloat(value);
     }
@@ -60,14 +60,14 @@ public class EncodingUtils {
   }
 
   public static byte[] encodeFloatsLE(@NotNull final Collection<Float> values) {
-    var buffer = ByteBuffer.allocate(values.size() * 8).order(ByteOrder.LITTLE_ENDIAN);
+    var buffer = ByteBuffer.allocate(values.size() * Float.BYTES).order(ByteOrder.LITTLE_ENDIAN);
     values.forEach(buffer::putFloat);
     return buffer.array();
   }
 
   /** Convert the doubles to IEEE754 floating point numbers in Little Endian byte order. */
   public static byte[] encodeDoublesLE(final double[] values) {
-    var buffer = ByteBuffer.allocate(values.length * 8).order(ByteOrder.LITTLE_ENDIAN);
+    var buffer = ByteBuffer.allocate(values.length * Double.BYTES).order(ByteOrder.LITTLE_ENDIAN);
     for (var value : values) {
       buffer.putDouble(value);
     }
@@ -75,7 +75,7 @@ public class EncodingUtils {
   }
 
   public static byte[] encodeDoublesLE(@NotNull final Collection<Double> values) {
-    var buffer = ByteBuffer.allocate(values.size() * 8).order(ByteOrder.LITTLE_ENDIAN);
+    var buffer = ByteBuffer.allocate(values.size() * Double.BYTES).order(ByteOrder.LITTLE_ENDIAN);
     values.forEach(buffer::putDouble);
     return buffer.array();
   }

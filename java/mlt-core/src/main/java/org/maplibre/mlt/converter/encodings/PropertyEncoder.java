@@ -659,6 +659,7 @@ public class PropertyEncoder {
               physicalLevelTechnique,
               useFSST /*encodingOption?*/);
       numStreams += encoded.getLeft();
+      encodedStreams.add(new byte[] {encoded.getLeft().byteValue()});
       encodedStreams.addAll(encoded.getRight());
     }
     if (!uniqueValues.uniqueInt32Values().isEmpty()) {
@@ -765,7 +766,7 @@ public class PropertyEncoder {
   public static final int MASK_UINT64 = 1 << 4;
   public static final int MASK_FLOAT = 1 << 5;
   public static final int MASK_DOUBLE = 1 << 6;
-  public static final int MASK_PRESENCE = 1 << 6;
+  public static final int MASK_PRESENCE = 1 << 7;
 
   /// Holds the sorted unique values for each encodable type for a map property column and their
   // corresponding indexes
