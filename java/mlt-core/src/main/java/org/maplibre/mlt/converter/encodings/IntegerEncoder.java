@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
-
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.CollectionUtils;
 import org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption;
@@ -49,24 +48,23 @@ public class IntegerEncoder {
     DELTA_RLE
   }
 
-  private IntegerEncoder() {
-  }
+  private IntegerEncoder() {}
 
   public static ArrayList<byte[]> encodeMortonStream(
-          int[] values, int numBits, int coordinateShift, PhysicalLevelTechnique physicalLevelTechnique)
-          throws IOException {
+      int[] values, int numBits, int coordinateShift, PhysicalLevelTechnique physicalLevelTechnique)
+      throws IOException {
     final var encodedValueStream = encodeMortonCodes(values, physicalLevelTechnique);
     final var valuesMetadata =
-            new MortonEncodedStreamMetadata(
-                    PhysicalStreamType.DATA,
-                    new LogicalStreamType(DictionaryType.MORTON),
-                    encodedValueStream.logicalLevelTechnique1,
-                    encodedValueStream.logicalLevelTechnique2,
-                    physicalLevelTechnique,
-                    encodedValueStream.physicalLevelEncodedValuesLength,
-                    encodedValueStream.encodedValues.length,
-                    numBits,
-                    coordinateShift);
+        new MortonEncodedStreamMetadata(
+            PhysicalStreamType.DATA,
+            new LogicalStreamType(DictionaryType.MORTON),
+            encodedValueStream.logicalLevelTechnique1,
+            encodedValueStream.logicalLevelTechnique2,
+            physicalLevelTechnique,
+            encodedValueStream.physicalLevelEncodedValuesLength,
+            encodedValueStream.encodedValues.length,
+            numBits,
+            coordinateShift);
 
     final var result = valuesMetadata.encode();
     result.add(encodedValueStream.encodedValues);
@@ -75,121 +73,133 @@ public class IntegerEncoder {
 
   // Encodes integer stream with AUTO encoding option (backward compatibility).
   public static ArrayList<byte[]> encodeIntStream(
-          Collection<Integer> values,
-          PhysicalLevelTechnique physicalLevelTechnique,
-          boolean isSigned,
-          PhysicalStreamType streamType,
-          LogicalStreamType logicalStreamType)
-          throws IOException {
+      Collection<Integer> values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean isSigned,
+      PhysicalStreamType streamType,
+      LogicalStreamType logicalStreamType)
+      throws IOException {
     return encodeIntStream(
-            CollectionUtils.unboxInts(values),
-            physicalLevelTechnique,
-            isSigned,
-            streamType,
-            logicalStreamType);
+        CollectionUtils.unboxInts(values),
+        physicalLevelTechnique,
+        isSigned,
+        streamType,
+        logicalStreamType);
   }
 
   // Encodes integer stream with AUTO encoding option (backward compatibility).
   public static ArrayList<byte[]> encodeIntStream(
-          int[] values,
-          PhysicalLevelTechnique physicalLevelTechnique,
-          boolean isSigned,
-          PhysicalStreamType streamType,
-          LogicalStreamType logicalStreamType)
-          throws IOException {
+      int[] values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean isSigned,
+      PhysicalStreamType streamType,
+      LogicalStreamType logicalStreamType)
+      throws IOException {
     return encodeIntStream(
-            values,
-            physicalLevelTechnique,
-            isSigned,
-            streamType,
-            logicalStreamType,
-            IntegerEncodingOption.AUTO);
+        values,
+        physicalLevelTechnique,
+        isSigned,
+        streamType,
+        logicalStreamType,
+        IntegerEncodingOption.AUTO);
   }
 
   public static ArrayList<byte[]> encodeIntStream(
-          List<Integer> values,
-          PhysicalLevelTechnique physicalLevelTechnique,
-          boolean isSigned,
-          PhysicalStreamType streamType,
-          LogicalStreamType logicalStreamType,
-          @NotNull IntegerEncodingOption encodingOption)
-          throws IOException {
+      List<Integer> values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean isSigned,
+      PhysicalStreamType streamType,
+      LogicalStreamType logicalStreamType,
+      @NotNull IntegerEncodingOption encodingOption)
+      throws IOException {
     return encodeIntStream(
-            CollectionUtils.unboxInts(values),
-            physicalLevelTechnique,
-            isSigned,
-            streamType,
-            logicalStreamType,
-            encodingOption);
+        CollectionUtils.unboxInts(values),
+        physicalLevelTechnique,
+        isSigned,
+        streamType,
+        logicalStreamType,
+        encodingOption);
   }
 
   public static ArrayList<byte[]> encodeIntStream(
-          Collection<Integer> values,
-          PhysicalLevelTechnique physicalLevelTechnique,
-          boolean isSigned,
-          PhysicalStreamType streamType,
-          LogicalStreamType logicalStreamType,
-          @NotNull IntegerEncodingOption encodingOption)
-          throws IOException {
-    return encodeIntStream(values.stream().mapToInt(Integer::intValue).toArray(), physicalLevelTechnique, isSigned, streamType, logicalStreamType, encodingOption);
+      Collection<Integer> values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean isSigned,
+      PhysicalStreamType streamType,
+      LogicalStreamType logicalStreamType,
+      @NotNull IntegerEncodingOption encodingOption)
+      throws IOException {
+    return encodeIntStream(
+        values.stream().mapToInt(Integer::intValue).toArray(),
+        physicalLevelTechnique,
+        isSigned,
+        streamType,
+        logicalStreamType,
+        encodingOption);
   }
 
   public static ArrayList<byte[]> encodeIntStream(
-          final int[] values,
-          PhysicalLevelTechnique physicalLevelTechnique,
-          boolean isSigned,
-          PhysicalStreamType streamType,
-          LogicalStreamType logicalStreamType,
-          @NotNull IntegerEncodingOption encodingOption)
-          throws IOException {
+      final int[] values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean isSigned,
+      PhysicalStreamType streamType,
+      LogicalStreamType logicalStreamType,
+      @NotNull IntegerEncodingOption encodingOption)
+      throws IOException {
     final var encodedValueStream =
-            IntegerEncoder.encodeInt(values, physicalLevelTechnique, isSigned, encodingOption);
-    return encodeIntStream(values.length, encodedValueStream, physicalLevelTechnique, streamType, logicalStreamType);
+        IntegerEncoder.encodeInt(values, physicalLevelTechnique, isSigned, encodingOption);
+    return encodeIntStream(
+        values.length, encodedValueStream, physicalLevelTechnique, streamType, logicalStreamType);
   }
 
   public static ArrayList<byte[]> encodeIntStream(
-          @NotNull final IntStream values,
-          PhysicalLevelTechnique physicalLevelTechnique,
-          boolean isSigned,
-          PhysicalStreamType streamType,
-          LogicalStreamType logicalStreamType,
-          @NotNull IntegerEncodingOption encodingOption)
-          throws IOException {
+      @NotNull final IntStream values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean isSigned,
+      PhysicalStreamType streamType,
+      LogicalStreamType logicalStreamType,
+      @NotNull IntegerEncodingOption encodingOption)
+      throws IOException {
     final var valueArray = values.toArray();
     final var encodedValueStream =
-            IntegerEncoder.encodeInt(valueArray, physicalLevelTechnique, isSigned, encodingOption);
-    return encodeIntStream(valueArray.length, encodedValueStream, physicalLevelTechnique, streamType, logicalStreamType);
+        IntegerEncoder.encodeInt(valueArray, physicalLevelTechnique, isSigned, encodingOption);
+    return encodeIntStream(
+        valueArray.length,
+        encodedValueStream,
+        physicalLevelTechnique,
+        streamType,
+        logicalStreamType);
   }
 
   public static ArrayList<byte[]> encodeIntStream(
-          int count,
-          @NotNull final IntegerEncodingResult encodedValueStream,
-          PhysicalLevelTechnique physicalLevelTechnique,
-          PhysicalStreamType streamType,
-          LogicalStreamType logicalStreamType)
-          throws IOException {
+      int count,
+      @NotNull final IntegerEncodingResult encodedValueStream,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      PhysicalStreamType streamType,
+      LogicalStreamType logicalStreamType)
+      throws IOException {
     // TODO: refactor -> also allow the use of none null suppression techniques
     final var streamMetadata =
-            (encodedValueStream.logicalLevelTechnique1 == LogicalLevelTechnique.RLE
-                    || encodedValueStream.logicalLevelTechnique2 == LogicalLevelTechnique.RLE)
-                    ? new RleEncodedStreamMetadata(
-                    streamType,
-                    logicalStreamType,
-                    encodedValueStream.logicalLevelTechnique1,
-                    encodedValueStream.logicalLevelTechnique2,
-                    physicalLevelTechnique,
-                    encodedValueStream.physicalLevelEncodedValuesLength,
-                    encodedValueStream.encodedValues.length,
-                    encodedValueStream.numRuns,
-                    count)
-                    : new StreamMetadata(
-                    streamType,
-                    logicalStreamType,
-                    encodedValueStream.logicalLevelTechnique1,
-                    encodedValueStream.logicalLevelTechnique2,
-                    physicalLevelTechnique,
-                    encodedValueStream.physicalLevelEncodedValuesLength,
-                    encodedValueStream.encodedValues.length);
+        (encodedValueStream.logicalLevelTechnique1 == LogicalLevelTechnique.RLE
+                || encodedValueStream.logicalLevelTechnique2 == LogicalLevelTechnique.RLE)
+            ? new RleEncodedStreamMetadata(
+                streamType,
+                logicalStreamType,
+                encodedValueStream.logicalLevelTechnique1,
+                encodedValueStream.logicalLevelTechnique2,
+                physicalLevelTechnique,
+                encodedValueStream.physicalLevelEncodedValuesLength,
+                encodedValueStream.encodedValues.length,
+                encodedValueStream.numRuns,
+                count)
+            : new StreamMetadata(
+                streamType,
+                logicalStreamType,
+                encodedValueStream.logicalLevelTechnique1,
+                encodedValueStream.logicalLevelTechnique2,
+                physicalLevelTechnique,
+                encodedValueStream.physicalLevelEncodedValuesLength,
+                encodedValueStream.encodedValues.length);
     final var result = streamMetadata.encode();
     result.add(encodedValueStream.encodedValues);
     return result;
@@ -197,77 +207,77 @@ public class IntegerEncoder {
 
   // Encodes long stream with AUTO encoding option (backward compatibility).
   public static ArrayList<byte[]> encodeLongStream(
-          long[] values,
-          boolean isSigned,
-          PhysicalStreamType streamType,
-          LogicalStreamType logicalStreamType)
-          throws IOException {
+      long[] values,
+      boolean isSigned,
+      PhysicalStreamType streamType,
+      LogicalStreamType logicalStreamType)
+      throws IOException {
     return encodeLongStream(
-            values, isSigned, streamType, logicalStreamType, IntegerEncodingOption.AUTO);
+        values, isSigned, streamType, logicalStreamType, IntegerEncodingOption.AUTO);
   }
 
   public static ArrayList<byte[]> encodeLongStream(
-          long[] values,
-          boolean isSigned,
-          PhysicalStreamType streamType,
-          LogicalStreamType logicalStreamType,
-          @NotNull IntegerEncodingOption encodingOption)
-          throws IOException {
+      long[] values,
+      boolean isSigned,
+      PhysicalStreamType streamType,
+      LogicalStreamType logicalStreamType,
+      @NotNull IntegerEncodingOption encodingOption)
+      throws IOException {
     final var encodedValueStream = IntegerEncoder.encodeLong(values, isSigned, encodingOption);
     return encodeLongStream(values.length, encodedValueStream, streamType, logicalStreamType);
   }
 
   public static ArrayList<byte[]> encodeLongStream(
-          @NotNull final Collection<Long> values,
-          boolean isSigned,
-          PhysicalStreamType streamType,
-          LogicalStreamType logicalStreamType,
-          @NotNull IntegerEncodingOption encodingOption)
-          throws IOException {
+      @NotNull final Collection<Long> values,
+      boolean isSigned,
+      PhysicalStreamType streamType,
+      LogicalStreamType logicalStreamType,
+      @NotNull IntegerEncodingOption encodingOption)
+      throws IOException {
     final var encodedValueStream = IntegerEncoder.encodeLong(values, isSigned, encodingOption);
     return encodeLongStream(values.size(), encodedValueStream, streamType, logicalStreamType);
   }
 
   public static ArrayList<byte[]> encodeLongStream(
-          @NotNull final LongStream values,
-          boolean isSigned,
-          PhysicalStreamType streamType,
-          LogicalStreamType logicalStreamType,
-          @NotNull IntegerEncodingOption encodingOption)
-          throws IOException {
+      @NotNull final LongStream values,
+      boolean isSigned,
+      PhysicalStreamType streamType,
+      LogicalStreamType logicalStreamType,
+      @NotNull IntegerEncodingOption encodingOption)
+      throws IOException {
     final var valueArray = values.toArray();
     final var encodedValueStream = IntegerEncoder.encodeLong(valueArray, isSigned, encodingOption);
     return encodeLongStream(valueArray.length, encodedValueStream, streamType, logicalStreamType);
   }
 
   public static ArrayList<byte[]> encodeLongStream(
-          int count,
-          @NotNull final IntegerEncodingResult encodedValueStream,
-          PhysicalStreamType streamType,
-          LogicalStreamType logicalStreamType)
-          throws IOException {
+      int count,
+      @NotNull final IntegerEncodingResult encodedValueStream,
+      PhysicalStreamType streamType,
+      LogicalStreamType logicalStreamType)
+      throws IOException {
     /* Currently FastPfor is only supported with 32 bit so for long we always have to fallback to Varint encoding */
     final var streamMetadata =
-            (encodedValueStream.logicalLevelTechnique1 == LogicalLevelTechnique.RLE
-                    || encodedValueStream.logicalLevelTechnique2 == LogicalLevelTechnique.RLE)
-                    ? new RleEncodedStreamMetadata(
-                    streamType,
-                    logicalStreamType,
-                    encodedValueStream.logicalLevelTechnique1,
-                    encodedValueStream.logicalLevelTechnique2,
-                    PhysicalLevelTechnique.VARINT,
-                    encodedValueStream.physicalLevelEncodedValuesLength,
-                    encodedValueStream.encodedValues.length,
-                    encodedValueStream.numRuns,
-                    count)
-                    : new StreamMetadata(
-                    streamType,
-                    logicalStreamType,
-                    encodedValueStream.logicalLevelTechnique1,
-                    encodedValueStream.logicalLevelTechnique2,
-                    PhysicalLevelTechnique.VARINT,
-                    encodedValueStream.physicalLevelEncodedValuesLength,
-                    encodedValueStream.encodedValues.length);
+        (encodedValueStream.logicalLevelTechnique1 == LogicalLevelTechnique.RLE
+                || encodedValueStream.logicalLevelTechnique2 == LogicalLevelTechnique.RLE)
+            ? new RleEncodedStreamMetadata(
+                streamType,
+                logicalStreamType,
+                encodedValueStream.logicalLevelTechnique1,
+                encodedValueStream.logicalLevelTechnique2,
+                PhysicalLevelTechnique.VARINT,
+                encodedValueStream.physicalLevelEncodedValuesLength,
+                encodedValueStream.encodedValues.length,
+                encodedValueStream.numRuns,
+                count)
+            : new StreamMetadata(
+                streamType,
+                logicalStreamType,
+                encodedValueStream.logicalLevelTechnique1,
+                encodedValueStream.logicalLevelTechnique2,
+                PhysicalLevelTechnique.VARINT,
+                encodedValueStream.physicalLevelEncodedValuesLength,
+                encodedValueStream.encodedValues.length);
     final var result = streamMetadata.encode();
     result.add(encodedValueStream.encodedValues);
     return result;
@@ -275,7 +285,7 @@ public class IntegerEncoder {
 
   // TODO: make dependent on specified LogicalLevelTechnique
   public static IntegerEncodingResult encodeMortonCodes(
-          int[] values, PhysicalLevelTechnique physicalLevelTechnique) throws IOException {
+      int[] values, PhysicalLevelTechnique physicalLevelTechnique) throws IOException {
     var previousValue = 0;
     int[] deltaValues = new int[values.length];
     for (var i = 0; i < values.length; i++) {
@@ -286,9 +296,9 @@ public class IntegerEncoder {
     }
 
     var encodedValues =
-            physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR
-                    ? encodeFastPfor(deltaValues, false)
-                    : EncodingUtils.encodeVarints(deltaValues, false, false);
+        physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR
+            ? encodeFastPfor(deltaValues, false)
+            : EncodingUtils.encodeVarints(deltaValues, false, false);
 
     var result = new IntegerEncodingResult();
     result.logicalLevelTechnique1 = LogicalLevelTechnique.MORTON;
@@ -301,7 +311,7 @@ public class IntegerEncoder {
 
   // Encodes integers with AUTO encoding option (backward compatibility).
   public static IntegerEncodingResult encodeInt(
-          int[] values, PhysicalLevelTechnique physicalLevelTechnique, boolean isSigned) {
+      int[] values, PhysicalLevelTechnique physicalLevelTechnique, boolean isSigned) {
     return encodeInt(values, physicalLevelTechnique, isSigned, IntegerEncodingOption.AUTO);
   }
 
@@ -310,18 +320,22 @@ public class IntegerEncoder {
    * as a combination of both schemes called delta-rle.
    * */
   public static IntegerEncodingResult encodeInt(
-          Collection<Integer> values,
-          PhysicalLevelTechnique physicalLevelTechnique,
-          boolean isSigned,
-          @NotNull IntegerEncodingOption encodingOption) {
-    return encodeInt(values.stream().mapToInt(Integer::intValue).toArray(), physicalLevelTechnique, isSigned, encodingOption);
+      Collection<Integer> values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean isSigned,
+      @NotNull IntegerEncodingOption encodingOption) {
+    return encodeInt(
+        values.stream().mapToInt(Integer::intValue).toArray(),
+        physicalLevelTechnique,
+        isSigned,
+        encodingOption);
   }
 
   public static IntegerEncodingResult encodeInt(
-          int[] values,
-          PhysicalLevelTechnique physicalLevelTechnique,
-          boolean isSigned,
-          @NotNull IntegerEncodingOption encodingOption) {
+      int[] values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean isSigned,
+      @NotNull IntegerEncodingOption encodingOption) {
     var previousValue = 0;
     var previousDelta = 0;
     var runs = 1;
@@ -345,10 +359,10 @@ public class IntegerEncoder {
     }
 
     BiFunction<int[], Boolean, byte[]> encoder =
-            physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR
-                    // TODO: continue eliminating boxing into FastPFOR
-                    ? IntegerEncoder::encodeFastPfor
-                    : (v, s) -> {
+        physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR
+            // TODO: continue eliminating boxing into FastPFOR
+            ? IntegerEncoder::encodeFastPfor
+            : (v, s) -> {
               try {
                 return EncodingUtils.encodeVarints(v, s, false);
               } catch (IOException e) {
@@ -392,19 +406,19 @@ public class IntegerEncoder {
      */
     var isConstStream = false;
     if (values.length / runs >= 2
-            && (encodingOption == IntegerEncodingOption.AUTO
+        && (encodingOption == IntegerEncodingOption.AUTO
             || encodingOption == IntegerEncodingOption.RLE)) {
       var rleValues = EncodingUtils.encodeRle(values);
       rlePhysicalLevelEncodedValuesLength =
-              rleValues.getLeft().length + rleValues.getRight().length;
+          rleValues.getLeft().length + rleValues.getRight().length;
       rleEncodedValues =
-              encoder.apply(
-                      Ints.concat(
-                              rleValues.getLeft(),
-                              isSigned
-                                      ? EncodingUtils.encodeZigZag(rleValues.getRight())
-                                      : rleValues.getRight()),
-                      false);
+          encoder.apply(
+              Ints.concat(
+                  rleValues.getLeft(),
+                  isSigned
+                      ? EncodingUtils.encodeZigZag(rleValues.getRight())
+                      : rleValues.getRight()),
+              false);
       isConstStream = rleValues.getLeft().length == 1;
 
       // Early return for forced RLE encoding
@@ -423,11 +437,11 @@ public class IntegerEncoder {
       // TODO: get rid of conversion
       var deltaRleValues = EncodingUtils.encodeRle(deltaValues);
       deltaRlePhysicalLevelEncodedValuesLength =
-              deltaRleValues.getLeft().length + deltaRleValues.getRight().length;
+          deltaRleValues.getLeft().length + deltaRleValues.getRight().length;
       var zigZagDelta = EncodingUtils.encodeZigZag(deltaRleValues.getRight());
       // TODO: encode runs and length separate?
       deltaRleEncodedValues =
-              encoder.apply(Ints.concat(deltaRleValues.getLeft(), zigZagDelta), false);
+          encoder.apply(Ints.concat(deltaRleValues.getLeft(), zigZagDelta), false);
 
       // Early return for forced DELTA_RLE encoding
       if (encodingOption == IntegerEncodingOption.DELTA_RLE) {
@@ -446,11 +460,11 @@ public class IntegerEncoder {
 
     // TODO: refactor -> find proper solution
     final var encodedValuesSizes =
-            encodedValues.stream().map(v -> v == null ? Integer.MAX_VALUE : v.length).toList();
+        encodedValues.stream().map(v -> v == null ? Integer.MAX_VALUE : v.length).toList();
     final var index =
-            isConstStream
-                    ? LogicalLevelIntegerTechnique.RLE.ordinal()
-                    : encodedValuesSizes.indexOf(Collections.min(encodedValuesSizes));
+        isConstStream
+            ? LogicalLevelIntegerTechnique.RLE.ordinal()
+            : encodedValuesSizes.indexOf(Collections.min(encodedValuesSizes));
     final var encoding = LogicalLevelIntegerTechnique.values()[index];
 
     final var result = new IntegerEncodingResult();
@@ -478,13 +492,15 @@ public class IntegerEncoder {
   }
 
   public static IntegerEncodingResult encodeLong(
-          @NotNull final Collection<Long> values, boolean isSigned, @NotNull IntegerEncodingOption encodingOption) {
-    return encodeLong(values.stream().mapToLong(Long::longValue).toArray(), isSigned, encodingOption);
+      @NotNull final Collection<Long> values,
+      boolean isSigned,
+      @NotNull IntegerEncodingOption encodingOption) {
+    return encodeLong(
+        values.stream().mapToLong(Long::longValue).toArray(), isSigned, encodingOption);
   }
 
   public static IntegerEncodingResult encodeLong(
-          final long[] values,
-      boolean isSigned, @NotNull IntegerEncodingOption encodingOption) {
+      final long[] values, boolean isSigned, @NotNull IntegerEncodingOption encodingOption) {
     var previousValue = 0L;
     var previousDelta = 0L;
     var runs = 1;

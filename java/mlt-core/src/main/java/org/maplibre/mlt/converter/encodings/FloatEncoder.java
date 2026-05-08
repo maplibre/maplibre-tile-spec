@@ -3,8 +3,6 @@ package org.maplibre.mlt.converter.encodings;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
-
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.metadata.stream.LogicalLevelTechnique;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
@@ -19,11 +17,13 @@ public class FloatEncoder {
     return encodeFloatStream(values.length, EncodingUtils.encodeFloatsLE(values));
   }
 
-  public static ArrayList<byte[]> encodeFloatStream(@NotNull final Collection<Float> values) throws IOException {
+  public static ArrayList<byte[]> encodeFloatStream(@NotNull final Collection<Float> values)
+      throws IOException {
     return encodeFloatStream(values.size(), EncodingUtils.encodeFloatsLE(values));
   }
 
-  private static ArrayList<byte[]> encodeFloatStream(final int size, final byte[] encoded) throws IOException {
+  private static ArrayList<byte[]> encodeFloatStream(final int size, final byte[] encoded)
+      throws IOException {
     // TODO: add encodings -> RLE, Dictionary, PDE
     final var result =
         new StreamMetadata(

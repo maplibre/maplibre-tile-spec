@@ -21,7 +21,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
@@ -214,22 +213,22 @@ public class MltConverter {
     final var sourcePropertyName = property.getName();
 
     if (property.isNested()) {
-      columnSchemas.compute(sourcePropertyName, (k, existingType) -> {
-        if (existingType != null) {
-          // We can't handle mixing nested and other types for the same property.
-          // Maybe store scalars as a default/blank entry?
-          if (existingType.field().type().is(MltMetadata.ComplexType.MAP)) {
-            throw new RuntimeException(
-                String.format(
-                    "Layer '%s' feature %d property '%s' has inconsistent nesting",
-                    layerName,
-                    featureIndex,
-                    property.getName()));
-          }
-          return existingType;
-        }
-        return new MltMetadata.Column(new MltMetadata.Field(property.getType(), k));
-      });
+      columnSchemas.compute(
+          sourcePropertyName,
+          (k, existingType) -> {
+            if (existingType != null) {
+              // We can't handle mixing nested and other types for the same property.
+              // Maybe store scalars as a default/blank entry?
+              if (existingType.field().type().is(MltMetadata.ComplexType.MAP)) {
+                throw new RuntimeException(
+                    String.format(
+                        "Layer '%s' feature %d property '%s' has inconsistent nesting",
+                        layerName, featureIndex, property.getName()));
+              }
+              return existingType;
+            }
+            return new MltMetadata.Column(new MltMetadata.Field(property.getType(), k));
+          });
       return;
     }
 

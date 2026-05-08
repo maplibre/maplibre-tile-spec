@@ -1,7 +1,6 @@
 package org.maplibre.mlt.converter.encodings;
 
 import jakarta.annotation.Nullable;
-import java.util.List;
 import java.util.Optional;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 

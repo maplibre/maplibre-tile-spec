@@ -5,13 +5,17 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import me.lemire.integercompression.IntWrapper;
+import org.maplibre.mlt.converter.encodings.PropertyEncoder;
+import org.maplibre.mlt.data.unsigned.U32;
+import org.maplibre.mlt.data.unsigned.U64;
+import org.maplibre.mlt.metadata.stream.PhysicalStreamType;
 import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class PropertyDecoder {
-
   private PropertyDecoder() {}
 
   /// Use present bits to reconstitute the original list with null values, if appropriate
@@ -96,7 +100,7 @@ public class PropertyDecoder {
         final var values =
             signed
                 ? dataStream
-                : dataStream.stream().map(i -> i == null ? null : toUnsignedBigInteger(i)).toList();
+                : dataStream.stream().map(i -> i == null ? null : toU64(i)).toList();
 
         yield unpack(values, presentStream, presentStreamSize);
       }
@@ -113,7 +117,7 @@ public class PropertyDecoder {
       case STRING -> {
         final var strValues =
             StringDecoder.decode(data, offset, numStreams, presentStream, presentStreamSize);
-        yield strValues.getRight();
+        yield strValues.strings();
       }
       case UINT_8, UNRECOGNIZED, INT_8 ->
           throw new IllegalArgumentException(
@@ -121,12 +125,300 @@ public class PropertyDecoder {
     };
   }
 
-  private static BigInteger toUnsignedBigInteger(Long value) {
-    if (value >= 0) {
-      return BigInteger.valueOf(value);
+  private static Object decodeMapPropertyColumn(
+      byte[] data, IntWrapper offset, MltMetadata.Column column, int numStreams)
+      throws IOException {
+    if (!column.is(MltMetadata.ComplexType.MAP)) {
+      throw new IllegalArgumentException("Expected MAP column but found: " + column);
     }
-    return BigInteger.valueOf(value).add(BigInteger.ONE.shiftLeft(64));
+    if (numStreams == 0) {
+      return new ArrayList<>();
+    }
+
+    final var dictionaryMask = data[offset.get()] & 0xFF;
+    offset.increment();
+
+    // Decode the mandatory lengths stream
+    final var lengthStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+    final var nonEmptyFeatureValueCounts =
+        IntegerDecoder.decodeIntStream(data, offset, lengthStreamMetadata, false);
+    numStreams--;
+
+    // Decode the optional dictionary streams, based on the mask
+    List<String> stringValues = List.of();
+    List<Integer> int32Values = List.of();
+    List<U32> uint32Values = List.of();
+    List<Long> int64Values = List.of();
+    List<U64> uint64Values = List.of();
+    List<Float> floatValues = List.of();
+    List<Double> doubleValues = List.of();
+
+    if ((dictionaryMask & PropertyEncoder.MASK_STRING) != 0) {
+      // Is it worth writing another stream count so we don't have to infer it in string decoding?
+      final var decodedStrings = StringDecoder.decode(data, offset, numStreams, null, 0);
+      stringValues = decodedStrings.strings();
+      numStreams -= decodedStrings.streamsDecoded();
+    }
+    if ((dictionaryMask & PropertyEncoder.MASK_INT32) != 0) {
+      final var streamMetadata = StreamMetadataDecoder.decode(data, offset);
+      int32Values = IntegerDecoder.decodeIntStream(data, offset, streamMetadata, true);
+      numStreams--;
+    }
+    if ((dictionaryMask & PropertyEncoder.MASK_UINT32) != 0) {
+      final var streamMetadata = StreamMetadataDecoder.decode(data, offset);
+      uint32Values =
+          IntegerDecoder.decodeIntStream(data, offset, streamMetadata, false).stream()
+              .map(Integer::toUnsignedLong)
+              .map(U32::of)
+              .toList();
+      numStreams--;
+    }
+    if ((dictionaryMask & PropertyEncoder.MASK_INT64) != 0) {
+      final var streamMetadata = StreamMetadataDecoder.decode(data, offset);
+      int64Values = IntegerDecoder.decodeLongStream(data, offset, streamMetadata, true);
+      numStreams--;
+    }
+    if ((dictionaryMask & PropertyEncoder.MASK_UINT64) != 0) {
+      final var streamMetadata = StreamMetadataDecoder.decode(data, offset);
+      uint64Values =
+          IntegerDecoder.decodeLongStream(data, offset, streamMetadata, false).stream()
+              .map(PropertyDecoder::toU64)
+              .toList();
+      numStreams--;
+    }
+    if ((dictionaryMask & PropertyEncoder.MASK_FLOAT) != 0) {
+      final var streamMetadata = StreamMetadataDecoder.decode(data, offset);
+      floatValues = FloatDecoder.decodeFloatStream(data, offset, streamMetadata);
+      numStreams--;
+    }
+    if ((dictionaryMask & PropertyEncoder.MASK_DOUBLE) != 0) {
+      final var streamMetadata = StreamMetadataDecoder.decode(data, offset);
+      doubleValues = DoubleDecoder.decodeDoubleStream(data, offset, streamMetadata);
+      numStreams--;
+    }
+
+    BitSet presentStream = null;
+    int presentCount = 0;
+    if ((dictionaryMask & PropertyEncoder.MASK_PRESENCE) != 0) {
+      final var metadata = StreamMetadataDecoder.decode(data, offset);
+      if (metadata.physicalStreamType() != PhysicalStreamType.PRESENT) {
+        throw new IllegalArgumentException(
+            "Expected PRESENT stream for map column but found: " + metadata.physicalStreamType());
+      }
+      presentCount = metadata.numValues();
+      presentStream =
+          DecodingUtils.decodeBooleanRle(data, presentCount, metadata.byteLength(), offset);
+      numStreams--;
+    }
+
+    final List<Integer> flattenedValues;
+    if (numStreams > 0) {
+      final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+      flattenedValues = IntegerDecoder.decodeIntStream(data, offset, dataStreamMetadata, false);
+      numStreams--;
+    } else {
+      flattenedValues = List.of();
+    }
+
+    if (numStreams != 0) {
+      throw new IllegalArgumentException(
+          "Unexpected number of remaining streams while decoding map column: " + numStreams);
+    }
+
+    final var dictionaries =
+        new MapDictionaries(
+            stringValues,
+            int32Values,
+            uint32Values,
+            int64Values,
+            uint64Values,
+            floatValues,
+            doubleValues);
+
+    final int featureCount =
+        (presentStream != null) ? presentCount : nonEmptyFeatureValueCounts.size();
+    final var decodedMaps = new ArrayList<Object>(featureCount);
+    var countIndex = 0;
+    var flattenedIndex = 0;
+    for (var featureIndex = 0; featureIndex < featureCount; featureIndex++) {
+      final var present = (presentStream == null) || presentStream.get(featureIndex);
+      if (!present) {
+        decodedMaps.add(null);
+        continue;
+      }
+
+      if (countIndex >= nonEmptyFeatureValueCounts.size()) {
+        throw new IllegalArgumentException(
+            "Map count stream underflow while decoding feature values");
+      }
+
+      final var featureValueCount = nonEmptyFeatureValueCounts.get(countIndex++);
+      final var endIndex = flattenedIndex + featureValueCount;
+      if (endIndex > flattenedValues.size()) {
+        throw new IllegalArgumentException(
+            "Map value stream underflow while decoding feature payload");
+      }
+
+      final var decodedMap =
+          decodeMapEntries(flattenedValues, flattenedIndex, endIndex, dictionaries);
+      decodedMaps.add(decodedMap.value());
+      flattenedIndex = decodedMap.nextIndex();
+    }
+
+    if (countIndex != nonEmptyFeatureValueCounts.size()) {
+      throw new IllegalArgumentException("Unused map feature counts remain after decode");
+    }
+    if (flattenedIndex != flattenedValues.size()) {
+      throw new IllegalArgumentException("Unused flattened map values remain after decode");
+    }
+
+    return decodedMaps;
   }
+
+  private static U64 toU64(Long value) {
+    return (value >= 0)
+        ? U64.of(BigInteger.valueOf(value))
+        : U64.of(BigInteger.valueOf(value).add(BigInteger.ONE.shiftLeft(64)));
+  }
+
+  private static DecodedMap decodeMapEntries(
+      List<Integer> flattenedValues, int startIndex, int endIndex, MapDictionaries dictionaries) {
+    final var result = new LinkedHashMap<String, Object>();
+    var index = startIndex;
+    while (index < endIndex) {
+      final var key = decodeMapKey(flattenedValues.get(index++), dictionaries);
+      final var valueResult = decodeValue(flattenedValues, index, endIndex, dictionaries);
+      result.put(key, valueResult.value());
+      index = valueResult.nextIndex();
+    }
+
+    if (index != endIndex) {
+      throw new IllegalArgumentException("Map payload did not end on a value boundary");
+    }
+    return new DecodedMap(result, index);
+  }
+
+  private static DecodedValue decodeValue(
+      List<Integer> flattenedValues, int startIndex, int endIndex, MapDictionaries dictionaries) {
+    if (startIndex >= endIndex) {
+      throw new IllegalArgumentException("Unexpected end of map value stream");
+    }
+
+    final var token = flattenedValues.get(startIndex);
+    if (token == PropertyEncoder.MapControlValue.NULL.value) {
+      return new DecodedValue(null, startIndex + 1);
+    }
+    if (token == PropertyEncoder.MapControlValue.FALSE.value) {
+      return new DecodedValue(false, startIndex + 1);
+    }
+    if (token == PropertyEncoder.MapControlValue.TRUE.value) {
+      return new DecodedValue(true, startIndex + 1);
+    }
+
+    if (token == PropertyEncoder.MapControlValue.START_MAP.value
+        || token == PropertyEncoder.MapControlValue.START_LIST.value) {
+      if (startIndex + 1 >= endIndex) {
+        throw new IllegalArgumentException("Missing length for nested map/list payload");
+      }
+
+      final var encodedLength = flattenedValues.get(startIndex + 1);
+      if (encodedLength < 2) {
+        throw new IllegalArgumentException("Invalid nested payload length: " + encodedLength);
+      }
+      final var valueEndIndex = startIndex + encodedLength;
+      if (valueEndIndex > endIndex) {
+        throw new IllegalArgumentException("Nested payload exceeds containing payload bounds");
+      }
+
+      final var payloadStart = startIndex + 2;
+      if (token == PropertyEncoder.MapControlValue.START_MAP.value) {
+        final var nestedMap =
+            decodeMapEntries(flattenedValues, payloadStart, valueEndIndex, dictionaries);
+        return new DecodedValue(nestedMap.value(), valueEndIndex);
+      }
+
+      final var listValues = new ArrayList<Object>();
+      var index = payloadStart;
+      while (index < valueEndIndex) {
+        final var nestedValue = decodeValue(flattenedValues, index, valueEndIndex, dictionaries);
+        listValues.add(nestedValue.value());
+        index = nestedValue.nextIndex();
+      }
+      if (index != valueEndIndex) {
+        throw new IllegalArgumentException("List payload did not end on a value boundary");
+      }
+      return new DecodedValue(listValues, valueEndIndex);
+    }
+
+    return new DecodedValue(decodeScalarByIndex(token, dictionaries), startIndex + 1);
+  }
+
+  private static String decodeMapKey(int dictionaryIndex, MapDictionaries dictionaries) {
+    final var value = decodeScalarByIndex(dictionaryIndex, dictionaries);
+    if (value instanceof String s) {
+      return s;
+    }
+    throw new IllegalArgumentException(
+        "Map key dictionary index does not resolve to a string: " + dictionaryIndex);
+  }
+
+  private static Object decodeScalarByIndex(int dictionaryIndex, MapDictionaries dictionaries) {
+    final var scalarBase = PropertyEncoder.MapControlValue.COUNT.value;
+    if (dictionaryIndex < scalarBase) {
+      throw new IllegalArgumentException("Invalid scalar dictionary index: " + dictionaryIndex);
+    }
+
+    var index = dictionaryIndex - scalarBase;
+
+    if (index < dictionaries.strings().size()) {
+      return dictionaries.strings().get(index);
+    }
+    index -= dictionaries.strings().size();
+
+    if (index < dictionaries.int32s().size()) {
+      return dictionaries.int32s().get(index);
+    }
+    index -= dictionaries.int32s().size();
+
+    if (index < dictionaries.uint32s().size()) {
+      return dictionaries.uint32s().get(index);
+    }
+    index -= dictionaries.uint32s().size();
+
+    if (index < dictionaries.int64s().size()) {
+      return dictionaries.int64s().get(index);
+    }
+    index -= dictionaries.int64s().size();
+
+    if (index < dictionaries.uint64s().size()) {
+      return dictionaries.uint64s().get(index);
+    }
+    index -= dictionaries.uint64s().size();
+
+    if (index < dictionaries.floats().size()) {
+      return dictionaries.floats().get(index);
+    }
+    index -= dictionaries.floats().size();
+
+    if (index < dictionaries.doubles().size()) {
+      return dictionaries.doubles().get(index);
+    }
+
+    throw new IllegalArgumentException("Scalar dictionary index out of range: " + dictionaryIndex);
+  }
+
+  private record MapDictionaries(
+      List<String> strings,
+      List<Integer> int32s,
+      List<U32> uint32s,
+      List<Long> int64s,
+      List<U64> uint64s,
+      List<Float> floats,
+      List<Double> doubles) {}
+
+  private record DecodedMap(LinkedHashMap<String, Object> value, int nextIndex) {}
+
+  private record DecodedValue(Object value, int nextIndex) {}
 
   public static Object decodePropertyColumn(
       byte[] data, IntWrapper offset, MltMetadata.Column column, int numStreams)
@@ -142,7 +434,7 @@ public class PropertyDecoder {
         return StringDecoder.decodeSharedDictionary(data, offset, column).getRight();
       }
     } else if (column.is(MltMetadata.ComplexType.MAP)) {
-      throw new IllegalArgumentException("Map type is currently not supported.");
+      return PropertyDecoder.decodeMapPropertyColumn(data, offset, column, numStreams);
     }
 
     // var presentStreamMetadata = StreamMetadata.decode(data, offset);
