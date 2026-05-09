@@ -42,21 +42,21 @@ class MltBuffer internal constructor (
         internal val libClass: Class<MltBufferLib> = MltBufferLib::class.java
         internal val lib: MltBufferLib = Native.load("mlt_ffi", libClass)
     }
-    
+
     /** Borrow the contents as a byte slice.
     */
     fun asBytes(): UByteArray {
         // This lifetime edge depends on lifetimes: 'a
         val aEdges: MutableList<Any> = mutableListOf(this);
-        
+
         val returnVal = lib.MltBuffer_as_bytes(handle);
             return PrimitiveArrayTools.getUByteArray(returnVal)
     }
-    
+
     /** Number of bytes in the buffer.
     */
     fun len(): ULong {
-        
+
         val returnVal = lib.MltBuffer_len(handle);
         return (returnVal.toULong())
     }
