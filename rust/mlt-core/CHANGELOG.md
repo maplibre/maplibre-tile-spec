@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.9.0...rust-mlt-core-v0.9.1) - 2026-05-05
+
+### Added
+
+- *(rust)* MLT -> MVT write support ([#1369](https://github.com/maplibre/maplibre-tile-spec/pull/1369))
+
 ## [0.9.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.8.0...rust-mlt-core-v0.9.0) - 2026-04-29
 
 ### Added
