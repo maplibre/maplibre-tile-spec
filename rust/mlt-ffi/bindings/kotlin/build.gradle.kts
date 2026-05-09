@@ -44,6 +44,10 @@ mavenPublishing {
 
         licenses {
             license {
+                name.set("MIT License")
+                url.set("https://opensource.org/licenses/MIT")
+            }
+            license {
                 name.set("The Apache License, Version 2.0")
                 url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
             }
