@@ -1,0 +1,107 @@
+name: mlt-java - Release
+
+on:
+  push:
+    tags:
+      - 'mlt-ffi-v*.*.*'
+  workflow_dispatch:
+
+jobs:
+  build-native:
+    name: Build mlt-ffi for ${{ matrix.classifier }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            classifier: linux-x86_64
+            lib_name: libmlt_ffi.so
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            classifier: linux-x86_64-musl
+            lib_name: libmlt_ffi.so
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            classifier: linux-aarch64
+            lib_name: libmlt_ffi.so
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            classifier: macos-aarch64
+            lib_name: libmlt_ffi.dylib
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            classifier: windows-x86_64
+            lib_name: mlt_ffi.dll
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: ./.github/actions/mlt-setup-rust
+      - name: Install musl tools
+        if: contains(matrix.target, 'musl')
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - name: Build mlt-ffi
+        working-directory: rust
+        run: |
+          rustup target add ${{ matrix.target }}
+          cargo build --release --target ${{ matrix.target }} -p mlt-ffi
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-${{ matrix.classifier }}
+          path: rust/target/${{ matrix.target }}/release/${{ matrix.lib_name }}
+
+  publish:
+    needs: build-native
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - uses: taiki-e/install-action@v2
+        with: { tool: 'just' }
+
+      - name: Get version from tag
+        run: |
+          version="$(just ci-extract-version mlt-java ${{ github.ref_name }})"
+          echo version="$version" >> "$GITHUB_ENV"
+
+      - name: Download all native artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: rust/mlt-java/build/natives
+
+      - name: Organize native libraries
+        run: |
+          cd rust/mlt-java/build/natives
+          for dir in native-*; do
+            classifier="${dir#native-}"
+            mkdir -p "$classifier"
+            mv "$dir"/* "$classifier"/
+            rmdir "$dir"
+          done
+          find . -type f
+
+      - name: Publish to Maven Central
+        working-directory: rust/mlt-java
+        run: ./gradlew publishToMavenCentral -Pversion=${{ env.version }}
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_PRIVATE_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
+        with:
+          tag_name: mlt-java-v${{ env.version }}
+          name: mlt-java-v${{ env.version }}
