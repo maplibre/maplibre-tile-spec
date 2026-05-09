@@ -2,7 +2,6 @@
 import org.maplibre.mlt_ffi.MltConverter
 import org.maplibre.mlt_ffi.MltEncoderOptions
 
-
 // test/fixtures/simple/point-boolean.mvt (35 bytes)
 @OptIn(ExperimentalUnsignedTypes::class)
 val MVT_FIXTURE =
