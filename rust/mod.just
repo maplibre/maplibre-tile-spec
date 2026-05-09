@@ -393,6 +393,23 @@ test-ffi-kotlin: (just 'assert-cmd' 'kotlinc')
     java -cp "target/test_ffi_kotlin.jar:$JNA_JAR" -Djna.library.path="$LIB_DIR" \
         --enable-native-access=ALL-UNNAMED TestRoundTripKt
 
+# Run the Java FFI round-trip test (builds cdylib, compiles + runs test)
+test-ffi-java: (just 'assert-cmd' 'javac')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo build --release -p mlt-ffi
+    LIB_DIR="$(pwd)/target/release"
+    JAVA_SRC_DIR="mlt-ffi/bindings/java/src/main/java"
+    OUT_DIR="target/test_ffi_java_classes"
+    mkdir -p "$OUT_DIR"
+    javac -d "$OUT_DIR" \
+        $(find "$JAVA_SRC_DIR" -name '*.java') \
+        mlt-ffi/tests/java/TestRoundTrip.java
+    LD_LIBRARY_PATH="$LIB_DIR" \
+    java -ea --enable-native-access=ALL-UNNAMED \
+        -Djava.library.path="$LIB_DIR" \
+        -cp "$OUT_DIR" TestRoundTrip
+
 # Regenerate the Python type stub for mlt-py
 sync-pyo3-stubs:
     cargo run -p mlt-py --bin stub_gen --features abi3

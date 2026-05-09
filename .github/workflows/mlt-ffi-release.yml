@@ -1,4 +1,4 @@
-name: mlt-java - Release
+name: mlt-ffi - Release
 
 on:
   push:
@@ -6,9 +6,13 @@ on:
       - 'mlt-ffi-v*.*.*'
   workflow_dispatch:
 
+permissions: {}
+
 jobs:
   build-native:
     name: Build mlt-ffi for ${{ matrix.classifier }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: true
       matrix:
@@ -35,7 +39,9 @@ jobs:
             lib_name: mlt_ffi.dll
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/mlt-setup-rust
       - name: Install musl tools
         if: contains(matrix.target, 'musl')
@@ -45,44 +51,59 @@ jobs:
         run: |
           rustup target add ${{ matrix.target }}
           cargo build --release --target ${{ matrix.target }} -p mlt-ffi
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: native-${{ matrix.classifier }}
           path: rust/target/${{ matrix.target }}/release/${{ matrix.lib_name }}
 
   publish:
+    name: Publish ${{ matrix.artifact }}
     needs: build-native
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - project: kotlin
+            artifact: mlt-ffi-kotlin
+            java-version: '21'
+          - project: java
+            artifact: mlt-ffi-java
+            java-version: '22'
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
           distribution: 'temurin'
-          java-version: '25'
+          java-version: ${{ matrix.java-version }}
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
 
-      - uses: taiki-e/install-action@v2
+      - uses: taiki-e/install-action@3fa6878dc4ae603f73960271565a082bf196ab96 # v2.77.2
         with: { tool: 'just' }
 
       - name: Get version from tag
+        env:
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          version="$(just ci-extract-version mlt-java ${{ github.ref_name }})"
+          version="$(just ci-extract-version mlt-ffi "$REF_NAME")"
           echo version="$version" >> "$GITHUB_ENV"
 
       - name: Download all native artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          path: rust/mlt-java/build/natives
+          path: rust/mlt-ffi/bindings/${{ matrix.project }}/build/natives
 
       - name: Organize native libraries
         run: |
-          cd rust/mlt-java/build/natives
+          cd rust/mlt-ffi/bindings/${{ matrix.project }}/build/natives
           for dir in native-*; do
             classifier="${dir#native-}"
             mkdir -p "$classifier"
@@ -92,16 +113,26 @@ jobs:
           find . -type f
 
       - name: Publish to Maven Central
-        working-directory: rust/mlt-java
-        run: ./gradlew publishToMavenCentral -Pversion=${{ env.version }}
+        working-directory: rust/mlt-ffi/bindings/${{ matrix.project }}
         env:
+          MLT_VERSION: ${{ env.version }}
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_PRIVATE_KEY }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
+        run: gradle publishToMavenCentral -Pversion="$MLT_VERSION"
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
+  release:
+    name: Create GitHub Release
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          tag_name: mlt-java-v${{ env.version }}
-          name: mlt-java-v${{ env.version }}
+          persist-credentials: false
+      - uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
