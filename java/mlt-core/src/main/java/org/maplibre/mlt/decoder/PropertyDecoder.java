@@ -261,10 +261,19 @@ public class PropertyDecoder {
             "Map value stream underflow while decoding feature payload");
       }
 
-      final var decodedMap =
-          decodeMapEntries(flattenedValues, flattenedIndex, endIndex, dictionaries);
-      decodedMaps.add(decodedMap.value());
-      flattenedIndex = decodedMap.nextIndex();
+      // Check if this is a list value (for properties that are lists of maps)
+      if (flattenedIndex < endIndex && flattenedValues.get(flattenedIndex) == PropertyEncoder.MapControlValue.START_LIST.value) {
+        // Decode as a list value instead of map entries
+        final var decodedValue = decodeValue(flattenedValues, flattenedIndex, endIndex, dictionaries);
+        decodedMaps.add(decodedValue.value());
+        flattenedIndex = decodedValue.nextIndex();
+      } else {
+        // Decode as map entries
+        final var decodedMap =
+            decodeMapEntries(flattenedValues, flattenedIndex, endIndex, dictionaries);
+        decodedMaps.add(decodedMap.value());
+        flattenedIndex = decodedMap.nextIndex();
+      }
     }
 
     if (countIndex != nonEmptyFeatureValueCounts.size()) {
