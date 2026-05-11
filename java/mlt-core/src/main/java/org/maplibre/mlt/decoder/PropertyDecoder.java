@@ -7,7 +7,10 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.SequencedCollection;
 import me.lemire.integercompression.IntWrapper;
+import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.encodings.PropertyEncoder;
 import org.maplibre.mlt.data.unsigned.U32;
 import org.maplibre.mlt.data.unsigned.U64;
@@ -17,6 +20,31 @@ import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class PropertyDecoder {
   private PropertyDecoder() {}
+
+  public static Object decodePropertyColumn(
+      byte[] data, IntWrapper offset, MltMetadata.Column column, int numStreams)
+      throws IOException {
+    if (column.isScalar()) {
+      return decodeScalarPropertyColumn(
+          data, offset, column.field().type().scalarType(), column.isNullable(), numStreams);
+    }
+
+    /* Handle struct which currently only supports strings as nested fields for supporting shared dictionary encoding */
+    if (column.is(MltMetadata.ComplexType.STRUCT)) {
+      if (numStreams > 1) {
+        return StringDecoder.decodeSharedDictionary(data, offset, column).getRight();
+      }
+    } else if (column.is(MltMetadata.ComplexType.MAP)) {
+      return PropertyDecoder.decodeMapPropertyColumn(data, offset, column, numStreams);
+    }
+
+    // var presentStreamMetadata = StreamMetadata.decode(data, offset);
+    // var presentStream = DecodingUtils.decodeBooleanRle(data, presentStreamMetadata.numValues(),
+    // presentStreamMetadata.byteLength(), offset);
+    // TODO: process present stream
+    // var values = StringDecoder.decodeSharedDictionary(data, offset, fieldMetadata);
+    throw new IllegalArgumentException("Present stream currently not supported for Structs.");
+  }
 
   /// Use present bits to reconstitute the original list with null values, if appropriate
   private static <T> List<T> unpack(
@@ -46,10 +74,10 @@ public class PropertyDecoder {
   }
 
   private static Object decodeScalarPropertyColumn(
-      byte[] data,
-      IntWrapper offset,
-      MltMetadata.ScalarField scalarType,
-      boolean nullable,
+      final byte[] data,
+      @NotNull final IntWrapper offset,
+      @NotNull final MltMetadata.ScalarField scalarType,
+      final boolean nullable,
       int numStreams)
       throws IOException {
     final BitSet presentStream;
@@ -67,6 +95,7 @@ public class PropertyDecoder {
     }
 
     return switch (scalarType.physicalType()) {
+      case null -> throw new IllegalArgumentException("Invalid scalar type metadata for column");
       case BOOLEAN -> {
         final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
         final var dataStream =
@@ -125,8 +154,11 @@ public class PropertyDecoder {
     };
   }
 
-  private static Object decodeMapPropertyColumn(
-      byte[] data, IntWrapper offset, MltMetadata.Column column, int numStreams)
+  private static @NotNull Object decodeMapPropertyColumn(
+      final byte[] data,
+      @NotNull final IntWrapper offset,
+      @NotNull final MltMetadata.Column column,
+      int numStreams)
       throws IOException {
     if (!column.is(MltMetadata.ComplexType.MAP)) {
       throw new IllegalArgumentException("Expected MAP column but found: " + column);
@@ -145,28 +177,34 @@ public class PropertyDecoder {
     numStreams--;
 
     // Decode the optional dictionary streams, based on the mask
-    List<String> stringValues = List.of();
-    List<Integer> int32Values = List.of();
-    List<U32> uint32Values = List.of();
-    List<Long> int64Values = List.of();
-    List<U64> uint64Values = List.of();
-    List<Float> floatValues = List.of();
-    List<Double> doubleValues = List.of();
+    final SequencedCollection<String> stringValues;
+    final SequencedCollection<Integer> int32Values;
+    final SequencedCollection<U32> uint32Values;
+    final SequencedCollection<Long> int64Values;
+    final SequencedCollection<U64> uint64Values;
+    final SequencedCollection<Float> floatValues;
+    final SequencedCollection<Double> doubleValues;
 
-    if ((dictionaryMask & PropertyEncoder.MASK_STRING) != 0) {
+    if ((dictionaryMask & PropertyEncoder.MapMask.STRING) != 0) {
       final var stringStreamCount = data[offset.get()];
       offset.increment();
 
       final var decodedStrings = StringDecoder.decode(data, offset, stringStreamCount, null, 0);
       stringValues = decodedStrings.strings();
       numStreams -= stringStreamCount;
+    } else {
+      stringValues = List.of();
     }
-    if ((dictionaryMask & PropertyEncoder.MASK_INT32) != 0) {
+
+    if ((dictionaryMask & PropertyEncoder.MapMask.INT32) != 0) {
       final var streamMetadata = StreamMetadataDecoder.decode(data, offset);
       int32Values = IntegerDecoder.decodeIntStream(data, offset, streamMetadata, true);
       numStreams--;
+    } else {
+      int32Values = List.of();
     }
-    if ((dictionaryMask & PropertyEncoder.MASK_UINT32) != 0) {
+
+    if ((dictionaryMask & PropertyEncoder.MapMask.UINT32) != 0) {
       final var streamMetadata = StreamMetadataDecoder.decode(data, offset);
       uint32Values =
           IntegerDecoder.decodeIntStream(data, offset, streamMetadata, false).stream()
@@ -174,34 +212,48 @@ public class PropertyDecoder {
               .map(U32::of)
               .toList();
       numStreams--;
+    } else {
+      uint32Values = List.of();
     }
-    if ((dictionaryMask & PropertyEncoder.MASK_INT64) != 0) {
+
+    if ((dictionaryMask & PropertyEncoder.MapMask.INT64) != 0) {
       final var streamMetadata = StreamMetadataDecoder.decode(data, offset);
       int64Values = IntegerDecoder.decodeLongStream(data, offset, streamMetadata, true);
       numStreams--;
+    } else {
+      int64Values = List.of();
     }
-    if ((dictionaryMask & PropertyEncoder.MASK_UINT64) != 0) {
+
+    if ((dictionaryMask & PropertyEncoder.MapMask.UINT64) != 0) {
       final var streamMetadata = StreamMetadataDecoder.decode(data, offset);
       uint64Values =
           IntegerDecoder.decodeLongStream(data, offset, streamMetadata, false).stream()
               .map(PropertyDecoder::toU64)
               .toList();
       numStreams--;
+    } else {
+      uint64Values = List.of();
     }
-    if ((dictionaryMask & PropertyEncoder.MASK_FLOAT) != 0) {
+
+    if ((dictionaryMask & PropertyEncoder.MapMask.FLOAT) != 0) {
       final var streamMetadata = StreamMetadataDecoder.decode(data, offset);
       floatValues = FloatDecoder.decodeFloatStream(data, offset, streamMetadata);
       numStreams--;
+    } else {
+      floatValues = List.of();
     }
-    if ((dictionaryMask & PropertyEncoder.MASK_DOUBLE) != 0) {
+
+    if ((dictionaryMask & PropertyEncoder.MapMask.DOUBLE) != 0) {
       final var streamMetadata = StreamMetadataDecoder.decode(data, offset);
       doubleValues = DoubleDecoder.decodeDoubleStream(data, offset, streamMetadata);
       numStreams--;
+    } else {
+      doubleValues = List.of();
     }
 
     BitSet presentStream = null;
     int presentCount = 0;
-    if ((dictionaryMask & PropertyEncoder.MASK_PRESENCE) != 0) {
+    if ((dictionaryMask & PropertyEncoder.MapMask.PRESENCE) != 0) {
       final var metadata = StreamMetadataDecoder.decode(data, offset);
       if (metadata.physicalStreamType() != PhysicalStreamType.PRESENT) {
         throw new IllegalArgumentException(
@@ -228,7 +280,7 @@ public class PropertyDecoder {
     }
 
     final var dictionaries =
-        new MapDictionaries(
+        new MapValueDictionary(
             stringValues,
             int32Values,
             uint32Values,
@@ -237,8 +289,7 @@ public class PropertyDecoder {
             floatValues,
             doubleValues);
 
-    final int featureCount =
-        (presentStream != null) ? presentCount : lengthStream.size();
+    final int featureCount = (presentStream != null) ? presentCount : lengthStream.size();
     final var decodedMaps = new ArrayList<>(featureCount);
     var countIndex = 0;
     var flattenedIndex = 0;
@@ -261,9 +312,11 @@ public class PropertyDecoder {
             "Map value stream underflow while decoding feature payload");
       }
 
-      // Check if this is a list value
-      if (flattenedIndex < endIndex && flattenedValues.get(flattenedIndex) == PropertyEncoder.MapControlValue.START_LIST.value) {
-        final var decodedValue = decodeValue(flattenedValues, flattenedIndex, endIndex, dictionaries);
+      if (flattenedIndex < endIndex
+          && flattenedValues.get(flattenedIndex) == PropertyEncoder.MapControlValue.START_LIST) {
+        // Decode as a list
+        final var decodedValue =
+            decodeValue(flattenedValues, flattenedIndex, endIndex, dictionaries);
         decodedMaps.add(decodedValue.value());
         flattenedIndex = decodedValue.nextIndex();
       } else {
@@ -285,14 +338,17 @@ public class PropertyDecoder {
     return decodedMaps;
   }
 
-  private static U64 toU64(Long value) {
+  private static U64 toU64(final long value) {
     return (value >= 0)
         ? U64.of(BigInteger.valueOf(value))
         : U64.of(BigInteger.valueOf(value).add(BigInteger.ONE.shiftLeft(64)));
   }
 
   private static DecodedMap decodeMapEntries(
-      List<Integer> flattenedValues, int startIndex, int endIndex, MapDictionaries dictionaries) {
+      @NotNull final List<Integer> flattenedValues,
+      final int startIndex,
+      final int endIndex,
+      @NotNull final MapValueDictionary dictionaries) {
     final var result = new LinkedHashMap<String, Object>();
     var index = startIndex;
     while (index < endIndex) {
@@ -309,47 +365,48 @@ public class PropertyDecoder {
   }
 
   private static DecodedValue decodeValue(
-      List<Integer> flattenedValues, int startIndex, int endIndex, MapDictionaries dictionaries) {
+      @NotNull final List<Integer> flattenedValues,
+      final int startIndex,
+      final int endIndex,
+      @NotNull final PropertyDecoder.MapValueDictionary dictionaries) {
     if (startIndex >= endIndex) {
       throw new IllegalArgumentException("Unexpected end of map value stream");
     }
 
     final var token = flattenedValues.get(startIndex);
-    if (token == PropertyEncoder.MapControlValue.NULL.value) {
-      return new DecodedValue(null, startIndex + 1);
-    }
-    if (token == PropertyEncoder.MapControlValue.FALSE.value) {
-      return new DecodedValue(false, startIndex + 1);
-    }
-    if (token == PropertyEncoder.MapControlValue.TRUE.value) {
-      return new DecodedValue(true, startIndex + 1);
-    }
+    return switch (token) {
+      case PropertyEncoder.MapControlValue.NULL -> new DecodedValue(null, startIndex + 1);
+      case PropertyEncoder.MapControlValue.FALSE -> new DecodedValue(false, startIndex + 1);
+      case PropertyEncoder.MapControlValue.TRUE -> new DecodedValue(true, startIndex + 1);
+      case PropertyEncoder.MapControlValue.START_MAP,
+          PropertyEncoder.MapControlValue.START_LIST -> {
+        final var valueEndIndex = getValueEndIndex(flattenedValues, startIndex, endIndex);
+        final var payloadStart = startIndex + 2;
 
-    if (token == PropertyEncoder.MapControlValue.START_MAP.value
-        || token == PropertyEncoder.MapControlValue.START_LIST.value) {
-      final var valueEndIndex = getValueEndIndex(flattenedValues, startIndex, endIndex);
+        if (token == PropertyEncoder.MapControlValue.START_MAP) {
+          final var nestedMap =
+              decodeMapEntries(flattenedValues, payloadStart, valueEndIndex, dictionaries);
+          if (nestedMap.nextIndex() != valueEndIndex) {
+            throw new IllegalArgumentException(
+                "Nested map payload did not end on a value boundary");
+          }
+          yield new DecodedValue(nestedMap.value(), valueEndIndex);
+        }
 
-      final var payloadStart = startIndex + 2;
-      if (token == PropertyEncoder.MapControlValue.START_MAP.value) {
-        final var nestedMap =
-            decodeMapEntries(flattenedValues, payloadStart, valueEndIndex, dictionaries);
-        return new DecodedValue(nestedMap.value(), valueEndIndex);
+        final var listValues = new ArrayList<>(valueEndIndex - payloadStart);
+        var index = payloadStart;
+        while (index < valueEndIndex) {
+          final var nestedValue = decodeValue(flattenedValues, index, valueEndIndex, dictionaries);
+          listValues.add(nestedValue.value());
+          index = nestedValue.nextIndex();
+        }
+        if (index != valueEndIndex) {
+          throw new IllegalArgumentException("List payload did not end on a value boundary");
+        }
+        yield new DecodedValue(listValues, valueEndIndex);
       }
-
-      final var listValues = new ArrayList<>();
-      var index = payloadStart;
-      while (index < valueEndIndex) {
-        final var nestedValue = decodeValue(flattenedValues, index, valueEndIndex, dictionaries);
-        listValues.add(nestedValue.value());
-        index = nestedValue.nextIndex();
-      }
-      if (index != valueEndIndex) {
-        throw new IllegalArgumentException("List payload did not end on a value boundary");
-      }
-      return new DecodedValue(listValues, valueEndIndex);
-    }
-
-    return new DecodedValue(decodeScalarByIndex(token, dictionaries), startIndex + 1);
+      default -> new DecodedValue(decodeScalarByIndex(token, dictionaries), startIndex + 1);
+    };
   }
 
   private static int getValueEndIndex(List<Integer> flattenedValues, int startIndex, int endIndex) {
@@ -368,7 +425,8 @@ public class PropertyDecoder {
     return valueEndIndex;
   }
 
-  private static String decodeMapKey(int dictionaryIndex, MapDictionaries dictionaries) {
+  private static String decodeMapKey(
+      final int dictionaryIndex, @NotNull final MapValueDictionary dictionaries) {
     final var value = decodeScalarByIndex(dictionaryIndex, dictionaries);
     if (value instanceof String s) {
       return s;
@@ -377,86 +435,58 @@ public class PropertyDecoder {
         "Map key dictionary index does not resolve to a string: " + dictionaryIndex);
   }
 
-  private static Object decodeScalarByIndex(int dictionaryIndex, MapDictionaries dictionaries) {
-    final var scalarBase = PropertyEncoder.MapControlValue.COUNT.value;
+  private static Object decodeScalarByIndex(
+      final int dictionaryIndex, @NotNull final MapValueDictionary dictionaries) {
+    final var scalarBase = PropertyEncoder.MapControlValue.COUNT;
     if (dictionaryIndex < scalarBase) {
       throw new IllegalArgumentException("Invalid scalar dictionary index: " + dictionaryIndex);
     }
 
-    var index = dictionaryIndex - scalarBase;
-
-    if (index < dictionaries.strings().size()) {
-      return dictionaries.strings().get(index);
-    }
-    index -= dictionaries.strings().size();
-
-    if (index < dictionaries.int32s().size()) {
-      return dictionaries.int32s().get(index);
-    }
-    index -= dictionaries.int32s().size();
-
-    if (index < dictionaries.uint32s().size()) {
-      return dictionaries.uint32s().get(index);
-    }
-    index -= dictionaries.uint32s().size();
-
-    if (index < dictionaries.int64s().size()) {
-      return dictionaries.int64s().get(index);
-    }
-    index -= dictionaries.int64s().size();
-
-    if (index < dictionaries.uint64s().size()) {
-      return dictionaries.uint64s().get(index);
-    }
-    index -= dictionaries.uint64s().size();
-
-    if (index < dictionaries.floats().size()) {
-      return dictionaries.floats().get(index);
-    }
-    index -= dictionaries.floats().size();
-
-    if (index < dictionaries.doubles().size()) {
-      return dictionaries.doubles().get(index);
+    final var value = dictionaries.valueByIndex(dictionaryIndex);
+    if (value != null) {
+      return value;
     }
 
     throw new IllegalArgumentException("Scalar dictionary index out of range: " + dictionaryIndex);
   }
 
-  private record MapDictionaries(
-      List<String> strings,
-      List<Integer> int32s,
-      List<U32> uint32s,
-      List<Long> int64s,
-      List<U64> uint64s,
-      List<Float> floats,
-      List<Double> doubles) {}
+  private static final class MapValueDictionary {
+    private final List<Object> values;
 
-  private record DecodedMap(LinkedHashMap<String, Object> value, int nextIndex) {}
-
-  private record DecodedValue(Object value, int nextIndex) {}
-
-  public static Object decodePropertyColumn(
-      byte[] data, IntWrapper offset, MltMetadata.Column column, int numStreams)
-      throws IOException {
-    if (column.isScalar()) {
-      return decodeScalarPropertyColumn(
-          data, offset, column.field().type().scalarType(), column.isNullable(), numStreams);
+    private MapValueDictionary(
+        @NotNull final SequencedCollection<String> strings,
+        @NotNull final SequencedCollection<Integer> int32s,
+        @NotNull final SequencedCollection<U32> uint32s,
+        @NotNull final SequencedCollection<Long> int64s,
+        @NotNull final SequencedCollection<U64> uint64s,
+        @NotNull final SequencedCollection<Float> floats,
+        @NotNull final SequencedCollection<Double> doubles) {
+      final var totalValues =
+          strings.size()
+              + int32s.size()
+              + uint32s.size()
+              + int64s.size()
+              + uint64s.size()
+              + floats.size()
+              + doubles.size();
+      values = new ArrayList<>(totalValues);
+      values.addAll(strings);
+      values.addAll(int32s);
+      values.addAll(uint32s);
+      values.addAll(int64s);
+      values.addAll(uint64s);
+      values.addAll(floats);
+      values.addAll(doubles);
     }
 
-    /* Handle struct which currently only supports strings as nested fields for supporting shared dictionary encoding */
-    if (column.is(MltMetadata.ComplexType.STRUCT)) {
-      if (numStreams > 1) {
-        return StringDecoder.decodeSharedDictionary(data, offset, column).getRight();
-      }
-    } else if (column.is(MltMetadata.ComplexType.MAP)) {
-      return PropertyDecoder.decodeMapPropertyColumn(data, offset, column, numStreams);
+    @Nullable
+    private Object valueByIndex(final int dictionaryIndex) {
+      final var offset = dictionaryIndex - PropertyEncoder.MapControlValue.COUNT;
+      return (offset >= 0 && offset < values.size()) ? values.get(offset) : null;
     }
-
-    // var presentStreamMetadata = StreamMetadata.decode(data, offset);
-    // var presentStream = DecodingUtils.decodeBooleanRle(data, presentStreamMetadata.numValues(),
-    // presentStreamMetadata.byteLength(), offset);
-    // TODO: process present stream
-    // var values = StringDecoder.decodeSharedDictionary(data, offset, fieldMetadata);
-    throw new IllegalArgumentException("Present stream currently not supported for Structs.");
   }
+
+  private record DecodedMap(@NotNull Map<String, Object> value, int nextIndex) {}
+
+  private record DecodedValue(@Nullable Object value, int nextIndex) {}
 }

@@ -16,7 +16,6 @@ import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.CollectionUtils;
 import org.maplibre.mlt.converter.ColumnMapping;
 import org.maplibre.mlt.converter.ConversionConfig;
-import org.maplibre.mlt.converter.encodings.PropertyEncoder.MapControlValue;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.unsigned.U32;
 import org.maplibre.mlt.data.unsigned.U64;
@@ -635,7 +634,7 @@ public class PropertyEncoder {
 
     // Establish the stream mask so the decoder knows which of the optional streams are present
     final var mask =
-        uniqueValues.dictionaryPresenceMask() | (writePresenceStream ? MASK_PRESENCE : 0);
+        uniqueValues.dictionaryPresenceMask() | (writePresenceStream ? MapMask.PRESENCE : 0);
 
     final var maxNumStreams = 15;
     final var encodedStreams = new ArrayList<byte[]>(maxNumStreams);
@@ -658,11 +657,9 @@ public class PropertyEncoder {
     if (!uniqueValues.uniqueStringValues().isEmpty()) {
       final var encoded =
           StringEncoder.encode(
-              uniqueValues.uniqueStringValues().keySet(),
-              physicalLevelTechnique,
-              useFSST);
+              uniqueValues.uniqueStringValues().keySet(), physicalLevelTechnique, useFSST);
       numStreams += encoded.numStreams();
-      encodedStreams.add(new byte[] { (byte)encoded.numStreams() });
+      encodedStreams.add(new byte[] {(byte) encoded.numStreams()});
       encodedStreams.addAll(encoded.encodedData());
     }
 
@@ -750,33 +747,33 @@ public class PropertyEncoder {
     return encodedStreams;
   }
 
-  public enum MapControlValue {
-    NULL(0),
-    FALSE(1),
-    TRUE(2),
-    START_MAP(
-        3), /// indicates the value is a nested map rather than a scalar, followed by nested payload
-    // length and payload values
-    START_LIST(
-        4), /// indicates the value is a list rather than a scalar, followed by payload length and
-    // payload values
-    COUNT(5);
+  public static final class MapControlValue {
+    private MapControlValue() {}
 
-    MapControlValue(int value) {
-      this.value = value;
-    }
-
-    public final int value;
+    public static final int NULL = 0;
+    public static final int FALSE = 1;
+    public static final int TRUE = 2;
+    // Indicates the value is a nested map rather than a scalar,
+    // followed by nested payload length and payload values.
+    public static final int START_MAP = 3;
+    // Indicates the value is a list rather than a scalar,
+    // followed by payload length and payload values.
+    public static final int START_LIST = 4;
+    public static final int COUNT = 5;
   }
 
-  public static final int MASK_STRING = 1;
-  public static final int MASK_INT32 = 1 << 1;
-  public static final int MASK_UINT32 = 1 << 2;
-  public static final int MASK_INT64 = 1 << 3;
-  public static final int MASK_UINT64 = 1 << 4;
-  public static final int MASK_FLOAT = 1 << 5;
-  public static final int MASK_DOUBLE = 1 << 6;
-  public static final int MASK_PRESENCE = 1 << 7;
+  public static final class MapMask {
+    private MapMask() {}
+
+    public static final int STRING = 1;
+    public static final int INT32 = 1 << 1;
+    public static final int UINT32 = 1 << 2;
+    public static final int INT64 = 1 << 3;
+    public static final int UINT64 = 1 << 4;
+    public static final int FLOAT = 1 << 5;
+    public static final int DOUBLE = 1 << 6;
+    public static final int PRESENCE = 1 << 7;
+  }
 
   /// Holds the sorted unique values for each encodable type for a map property column and their
   // corresponding indexes
@@ -803,7 +800,7 @@ public class PropertyEncoder {
 
     /// Once all values are collected, assign an index to each.
     void assignIndexes() {
-      var start = MapControlValue.COUNT.value;
+      var start = MapControlValue.COUNT;
       start = assignIndexes(uniqueStringValues, start);
       start = assignIndexes(uniqueInt32Values, start);
       start = assignIndexes(uniqueUInt32Values, start);
@@ -822,13 +819,13 @@ public class PropertyEncoder {
 
     /// Calculate the mask indicating which value streams are written
     int dictionaryPresenceMask() {
-      return ((!uniqueStringValues.isEmpty() ? MASK_STRING : 0)
-          | (!uniqueInt32Values.isEmpty() ? MASK_INT32 : 0)
-          | (!uniqueUInt32Values.isEmpty() ? MASK_UINT32 : 0)
-          | (!uniqueInt64Values.isEmpty() ? MASK_INT64 : 0)
-          | (!uniqueUInt64Values.isEmpty() ? MASK_UINT64 : 0)
-          | (!uniqueFloatValues.isEmpty() ? MASK_FLOAT : 0)
-          | (!uniqueDoubleValues.isEmpty() ? MASK_DOUBLE : 0));
+      return ((!uniqueStringValues.isEmpty() ? MapMask.STRING : 0)
+          | (!uniqueInt32Values.isEmpty() ? MapMask.INT32 : 0)
+          | (!uniqueUInt32Values.isEmpty() ? MapMask.UINT32 : 0)
+          | (!uniqueInt64Values.isEmpty() ? MapMask.INT64 : 0)
+          | (!uniqueUInt64Values.isEmpty() ? MapMask.UINT64 : 0)
+          | (!uniqueFloatValues.isEmpty() ? MapMask.FLOAT : 0)
+          | (!uniqueDoubleValues.isEmpty() ? MapMask.DOUBLE : 0));
     }
   }
 
@@ -880,11 +877,12 @@ public class PropertyEncoder {
       for (final var entry : mapValue.entrySet()) {
         if (entry.getKey() == null) {
           throw new IllegalArgumentException(
-                  "Nested map entry has null key in column '" + columnName + "'");
+              "Nested map entry has null key in column '" + columnName + "'");
         }
 
         flattenedValues.add(
-                getScalarIndex(uniqueValues.uniqueStringValues(), entry.getKey().toString(), columnName));
+            getScalarIndex(
+                uniqueValues.uniqueStringValues(), entry.getKey().toString(), columnName));
         appendMapEntryValue(entry.getValue(), flattenedValues, uniqueValues, columnName);
       }
     } else if (value instanceof Iterable<?> iterable) {
@@ -904,7 +902,7 @@ public class PropertyEncoder {
       @NotNull final UniqueMapValues uniqueValues,
       @NotNull final String columnName) {
     switch (value) {
-      case null -> flattenedValues.add(MapControlValue.NULL.value);
+      case null -> flattenedValues.add(MapControlValue.NULL);
       case Map<?, ?> nestedMap -> {
         appendMapValue(nestedMap, flattenedValues, uniqueValues, columnName);
       }
@@ -920,7 +918,7 @@ public class PropertyEncoder {
       @NotNull final UniqueMapValues uniqueValues,
       @NotNull final String columnName) {
     final var startIndex = flattenedValues.size();
-    flattenedValues.add(MapControlValue.START_MAP.value);
+    flattenedValues.add(MapControlValue.START_MAP);
     flattenedValues.add(0); // size not known yet, will be updated after payload is added
     appendMapEntries(mapValue, flattenedValues, uniqueValues, columnName);
     flattenedValues.set(startIndex + 1, flattenedValues.size() - startIndex);
@@ -932,7 +930,7 @@ public class PropertyEncoder {
       @NotNull final UniqueMapValues uniqueValues,
       @NotNull final String columnName) {
     final var startIndex = flattenedValues.size();
-    flattenedValues.add(MapControlValue.START_LIST.value);
+    flattenedValues.add(MapControlValue.START_LIST);
     flattenedValues.add(0); // size not known yet, will be updated after payload is added
     iterable.forEach(item -> appendListItemValue(item, flattenedValues, uniqueValues, columnName));
     flattenedValues.set(startIndex + 1, flattenedValues.size() - startIndex);
@@ -944,7 +942,7 @@ public class PropertyEncoder {
       @NotNull final UniqueMapValues uniqueValues,
       @NotNull final String columnName) {
     switch (item) {
-      case null -> listValueIndexes.add(MapControlValue.NULL.value);
+      case null -> listValueIndexes.add(MapControlValue.NULL);
       case Map<?, ?> nestedMap ->
           appendMapValue(nestedMap, listValueIndexes, uniqueValues, columnName);
       case Iterable<?> nestedList ->
@@ -959,8 +957,7 @@ public class PropertyEncoder {
       @NotNull final UniqueMapValues uniqueValues,
       @NotNull final String columnName) {
     return switch (value) {
-      case Boolean boolValue ->
-          boolValue ? MapControlValue.TRUE.value : MapControlValue.FALSE.value;
+      case Boolean boolValue -> boolValue ? MapControlValue.TRUE : MapControlValue.FALSE;
       case U8 u8Value ->
           getScalarIndex(uniqueValues.uniqueUInt32Values(), U32.of(u8Value.intValue()), columnName);
       case Integer intValue ->

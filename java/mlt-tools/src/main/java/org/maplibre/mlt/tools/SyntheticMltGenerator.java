@@ -43,6 +43,7 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.MultiPolygon;
@@ -519,7 +520,7 @@ public class SyntheticMltGenerator {
 
     // If there are many identical strings in the same column,
     // an offset directory is used to share them
-    // Because the directory we are indexing into has lengths assosciated with it and the offsets
+    // Because the directory we are indexing into has lengths associated with it and the offsets
     // are indexes,
     // we cannot do overlap-optimization where one ABBA contains BB -> only ABBA would be in the
     // dict.
@@ -527,6 +528,27 @@ public class SyntheticMltGenerator {
     var feat_two_str_eq = array(feat(p1, prop("val", val)), feat(p2, prop("val", val)));
     write(layer("props_offset_str", feat_two_str_eq), cfg());
     write(layer("props_offset_str_fsst", feat_two_str_eq), cfg().fsst());
+
+    // Nested/MAP properties
+    write("prop_nested", feat(p0, prop("a", Map.of("b", Map.of("c", "d")))), cfg());
+    write(
+        "prop_nested_list", feat(p0, prop("a", List.of(Map.of("b", 1), Map.of("d", 1.0)))), cfg());
+    write("prop_nested_list_root", feat(p0, prop("a", List.of(1, Map.of("a", "b")))), cfg());
+    write(
+        "prop_nested_types",
+        feat(
+            p0,
+            prop(
+                "a",
+                List.of(
+                    1,
+                    2L,
+                    U32.of(Integer.MAX_VALUE + 3L),
+                    U64.of(BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(4L))),
+                    "5",
+                    6.0f,
+                    7.0))),
+        cfg());
   }
 
   /**
