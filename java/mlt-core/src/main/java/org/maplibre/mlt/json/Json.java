@@ -111,18 +111,18 @@ public final class Json {
   }
 
   /** Recursively replace Float/Double NaN and +/-Infinity with GeoJSON string tokens. */
-  private static Object floatsAsStrings(Object obj) {
+  private static Object propertyValues(Object obj) {
     return switch (obj) {
       case Float value -> floatToken(value);
       case Double value -> doubleToken(value);
       case Iterable<?> iterable ->
-          StreamSupport.stream(iterable.spliterator(), false).map(Json::floatsAsStrings).toList();
+          StreamSupport.stream(iterable.spliterator(), false).map(Json::propertyValues).toList();
       case Map<?, ?> map ->
           map.entrySet().stream()
               .collect(
                   Collectors.toMap(
                       Map.Entry::getKey,
-                      entry -> floatsAsStrings(entry.getValue()),
+                      entry -> propertyValues(entry.getValue()),
                       Json::failOnDuplicate,
                       LinkedHashMap::new));
       case U8 u -> u.intValue();
@@ -192,7 +192,7 @@ public final class Json {
     final var props = getSortedNonNullProperties(feature);
     props.put("_layer", layer.name());
     props.put("_extent", layer.tileExtent());
-    featureMap.put("properties", floatsAsStrings(props));
+    featureMap.put("properties", propertyValues(props));
 
     final var geom = feature.getGeometry();
     featureMap.put("geometry", geom == null ? null : geometryToGeoJson(geom, gson));

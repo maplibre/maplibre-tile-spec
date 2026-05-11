@@ -292,19 +292,28 @@ class SyntheticMltUtil {
       throws IOException {
     try {
       System.out.println("Generating: " + fileName);
-      var config = cfg.build();
-      var tile = new MapboxVectorTile(layers);
+      final var config = cfg.build();
+      final var tile = new MapboxVectorTile(layers);
       final var columnMappings = buildColumnMappings(config);
-      var metadata = MltConverter.createTilesetMetadata(tile, columnMappings, config.includeIds());
-      var mlt = MltConverter.encode(tile, metadata, config, null);
-      Files.write(SYNTHETICS_DIR.resolve(fileName + ".mlt"), mlt, StandardOpenOption.CREATE_NEW);
-      final String expected = Json.toGeoJson(new MapLibreTile(layers), true) + "\n";
-      final String json = Json.toGeoJson(MltDecoder.decodeMlTile(mlt), true) + "\n";
-      if (!expected.equals(json)) {
-        throw new RuntimeException("MLT round-trip failed for " + fileName);
+      final var metadata =
+          MltConverter.createTilesetMetadata(tile, columnMappings, config.includeIds());
+      final var mlt = MltConverter.encode(tile, metadata, config, null);
+      final var unEncodedJSON = Json.toGeoJson(new MapLibreTile(layers), true) + "\n";
+      final var decodedJSON = Json.toGeoJson(MltDecoder.decodeMlTile(mlt), true) + "\n";
+      if (!unEncodedJSON.equals(decodedJSON)) {
+        throw new RuntimeException(
+            "MLT round-trip failed for "
+                + fileName
+                + " \nUn-encoded:\n"
+                + unEncodedJSON
+                + "\nDecoded:\n"
+                + decodedJSON);
       }
+      Files.write(SYNTHETICS_DIR.resolve(fileName + ".mlt"), mlt, StandardOpenOption.CREATE_NEW);
       Files.writeString(
-          SYNTHETICS_DIR.resolve(fileName + ".json"), json, StandardOpenOption.CREATE_NEW);
+          SYNTHETICS_DIR.resolve(fileName + ".json"), decodedJSON, StandardOpenOption.CREATE_NEW);
+    } catch (RuntimeException e) {
+      throw e;
     } catch (Exception e) {
       throw new IOException("Error writing MLT file " + fileName, e);
     }

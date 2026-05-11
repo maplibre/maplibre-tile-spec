@@ -78,6 +78,12 @@ class UnsignedTest {
   }
 
   @Test
+  void testU8BigIntValue() {
+    assertEquals(BigInteger.ZERO, U8.of(0).bigIntValue());
+    assertEquals(BigInteger.valueOf(255), U8.of(255).bigIntValue());
+  }
+
+  @Test
   void testU32OfValidValues() {
     // Test boundary values
     final var u32Zero = U32.of(0);
@@ -140,6 +146,12 @@ class UnsignedTest {
     assertTrue(u32 instanceof Unsigned, "U32 should implement Unsigned");
     assertNotNull(u32.intValue());
     assertNotNull(u32.longValue());
+  }
+
+  @Test
+  void testU32BigIntValue() {
+    assertEquals(BigInteger.ZERO, U32.of(0).bigIntValue());
+    assertEquals(BigInteger.valueOf(0xFFFFFFFFL), U32.of(0xFFFFFFFFL).bigIntValue());
   }
 
   @Test
@@ -221,6 +233,17 @@ class UnsignedTest {
     final var u64 = U64.of(BigInteger.valueOf(1000000L));
     assertTrue(u64 instanceof Unsigned, "U64 should implement Unsigned");
     assertNotNull(u64.longValue());
+  }
+
+  @Test
+  void testU64BigIntValue() {
+    assertEquals(BigInteger.ZERO, U64.of(BigInteger.ZERO).bigIntValue());
+    assertEquals(
+        new BigInteger("9223372036854775808"),
+        U64.of(new BigInteger("9223372036854775808")).bigIntValue());
+    assertEquals(
+        new BigInteger("18446744073709551615"),
+        U64.of(new BigInteger("18446744073709551615")).bigIntValue());
   }
 
   @Test
