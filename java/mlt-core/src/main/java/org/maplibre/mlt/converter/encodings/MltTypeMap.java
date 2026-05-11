@@ -164,6 +164,7 @@ public class MltTypeMap {
           switch (complex.physicalType()) {
             case GEOMETRY:
             case STRUCT:
+            case MAP:
               return true;
             default:
           }
