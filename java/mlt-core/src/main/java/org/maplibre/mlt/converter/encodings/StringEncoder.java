@@ -133,7 +133,9 @@ public class StringEncoder {
     return Pair.of(numStreams, result);
   }
 
-  public static Pair<Integer, ArrayList<byte[]>> encode(
+  public record EncodingResult(int numStreams, ArrayList<byte[]> encodedData) {}
+
+  public static EncodingResult encode(
       Collection<String> values,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean useFsstEncoding)
@@ -162,11 +164,11 @@ public class StringEncoder {
     }
 
     return Stream.of(
-            Pair.of(2, plainEncodedColumn),
-            Pair.of(3, dictionaryEncodedColumn),
-            Pair.of(5, fsstEncodedDictionary))
-        .filter(p -> p.getRight() != null)
-        .min(Comparator.comparingInt(a -> ByteArrayUtil.totalLength(a.getRight())))
+            new EncodingResult(2, plainEncodedColumn),
+            new EncodingResult(3, dictionaryEncodedColumn),
+            new EncodingResult(5, fsstEncodedDictionary))
+        .filter(p -> p.encodedData != null)
+        .min(Comparator.comparingInt(a -> ByteArrayUtil.totalLength(a.encodedData)))
         .orElseThrow();
   }
 

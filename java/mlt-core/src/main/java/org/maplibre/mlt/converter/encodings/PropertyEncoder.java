@@ -389,14 +389,14 @@ public class PropertyEncoder {
 
     /* Plus 1 for present stream */
     final var hasPresentStream = ByteArrayUtil.totalLength(presentStream) > 0;
-    final var streamCount = stringColumn.getLeft() + (hasPresentStream ? 1 : 0);
+    final var streamCount = stringColumn.numStreams() + (hasPresentStream ? 1 : 0);
     final var encodedFieldMetadata = EncodingUtils.encodeVarint(streamCount, false);
 
     final var result =
-        new ArrayList<byte[]>(presentStream.size() + stringColumn.getRight().size() + 1);
+        new ArrayList<byte[]>(presentStream.size() + stringColumn.encodedData().size() + 1);
     result.add(encodedFieldMetadata);
     result.addAll(presentStream);
-    result.addAll(stringColumn.getRight());
+    result.addAll(stringColumn.encodedData());
     return result;
   }
 
@@ -607,7 +607,7 @@ public class PropertyEncoder {
     final var columnName = columnMetadata.getName();
     final var uniqueValues = new UniqueMapValues();
 
-    // Recursively gather all unique leaf values from nested fields,
+    // Recursively gather all unique keys and values from nested fields,
     // grouped by type, with one list of values for each encodable type.
     for (var feature : features) {
       feature
@@ -616,8 +616,8 @@ public class PropertyEncoder {
           .ifPresent(value -> collectUniqueMapValues(value, uniqueValues, columnName));
     }
 
-    // Now that all the values are collected and their final order established, assign indexes for
-    // encoding
+    // Now that all the values are collected and their final
+    // order is established, assign indexes for encoding
     uniqueValues.assignIndexes();
 
     // Flatten each property into a list of integers
@@ -630,7 +630,10 @@ public class PropertyEncoder {
       return new ArrayList<>(List.of(new byte[] {0}));
     }
 
+    // If any values are empty/null (which we conflate), write a presence stream
     final var writePresenceStream = flattenedMapData.anyEmpty();
+
+    // Establish the stream mask so the decoder knows which of the optional streams are present
     final var mask =
         uniqueValues.dictionaryPresenceMask() | (writePresenceStream ? MASK_PRESENCE : 0);
 
@@ -657,11 +660,12 @@ public class PropertyEncoder {
           StringEncoder.encode(
               uniqueValues.uniqueStringValues().keySet(),
               physicalLevelTechnique,
-              useFSST /*encodingOption?*/);
-      numStreams += encoded.getLeft();
-      encodedStreams.add(new byte[] {encoded.getLeft().byteValue()});
-      encodedStreams.addAll(encoded.getRight());
+              useFSST);
+      numStreams += encoded.numStreams();
+      encodedStreams.add(new byte[] { (byte)encoded.numStreams() });
+      encodedStreams.addAll(encoded.encodedData());
     }
+
     if (!uniqueValues.uniqueInt32Values().isEmpty()) {
       encodedStreams.addAll(
           IntegerEncoder.encodeIntStream(
@@ -685,6 +689,7 @@ public class PropertyEncoder {
               encodingOption));
       numStreams++;
     }
+
     if (!uniqueValues.uniqueInt64Values().isEmpty()) {
       encodedStreams.addAll(
           IntegerEncoder.encodeLongStream(
@@ -695,6 +700,7 @@ public class PropertyEncoder {
               encodingOption));
       numStreams++;
     }
+
     if (!uniqueValues.uniqueUInt64Values().isEmpty()) {
       encodedStreams.addAll(
           IntegerEncoder.encodeLongStream(
@@ -705,11 +711,13 @@ public class PropertyEncoder {
               encodingOption));
       numStreams++;
     }
+
     if (!uniqueValues.uniqueFloatValues().isEmpty()) {
       encodedStreams.addAll(
           FloatEncoder.encodeFloatStream(uniqueValues.uniqueFloatValues().keySet()));
       numStreams++;
     }
+
     if (!uniqueValues.uniqueDoubleValues().isEmpty()) {
       encodedStreams.addAll(
           DoubleEncoder.encodeDoubleStream(uniqueValues.uniqueDoubleValues().keySet()));
@@ -736,7 +744,9 @@ public class PropertyEncoder {
       numStreams++;
     }
 
+    // Fill in the stream count
     encodedStreams.set(0, EncodingUtils.encodeVarint(numStreams, false));
+
     return encodedStreams;
   }
 
@@ -770,8 +780,7 @@ public class PropertyEncoder {
 
   /// Holds the sorted unique values for each encodable type for a map property column and their
   // corresponding indexes
-  // TODO: Better to combine [u]int32/64 values and encode everything as 64-bit if anything needs
-  // it?
+  // TODO: Better to combine [u]int32/64 values and encode everything as 64-bit if any need it?
   record UniqueMapValues(
       @NotNull TreeMap<String, Integer> uniqueStringValues,
       @NotNull TreeMap<Integer, Integer> uniqueInt32Values,
@@ -867,26 +876,25 @@ public class PropertyEncoder {
       @NotNull final ArrayList<Integer> flattenedValues,
       @NotNull final UniqueMapValues uniqueValues,
       @NotNull final String columnName) {
-    if (value == null) {
-      return;
-    }
-    if (!(value instanceof Map<?, ?> mapValue)) {
+    if (value instanceof Map<?, ?> mapValue) {
+      for (final var entry : mapValue.entrySet()) {
+        if (entry.getKey() == null) {
+          throw new IllegalArgumentException(
+                  "Nested map entry has null key in column '" + columnName + "'");
+        }
+
+        flattenedValues.add(
+                getScalarIndex(uniqueValues.uniqueStringValues(), entry.getKey().toString(), columnName));
+        appendMapEntryValue(entry.getValue(), flattenedValues, uniqueValues, columnName);
+      }
+    } else if (value instanceof Iterable<?> iterable) {
+      appendListValue(iterable, flattenedValues, uniqueValues, columnName);
+    } else if (value != null) {
       throw new IllegalArgumentException(
           "Expected top-level map property value in column '"
               + columnName
               + "' but found "
               + value.getClass().getName());
-    }
-
-    for (final var entry : mapValue.entrySet()) {
-      if (entry.getKey() == null) {
-        throw new IllegalArgumentException(
-            "Nested map entry has null key in column '" + columnName + "'");
-      }
-
-      flattenedValues.add(
-          getScalarIndex(uniqueValues.uniqueStringValues(), entry.getKey().toString(), columnName));
-      appendMapEntryValue(entry.getValue(), flattenedValues, uniqueValues, columnName);
     }
   }
 

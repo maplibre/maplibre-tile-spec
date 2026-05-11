@@ -140,7 +140,7 @@ public class PropertyDecoder {
 
     // Decode the mandatory lengths stream
     final var lengthStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-    final var nonEmptyFeatureValueCounts =
+    final var lengthStream =
         IntegerDecoder.decodeIntStream(data, offset, lengthStreamMetadata, false);
     numStreams--;
 
@@ -238,8 +238,8 @@ public class PropertyDecoder {
             doubleValues);
 
     final int featureCount =
-        (presentStream != null) ? presentCount : nonEmptyFeatureValueCounts.size();
-    final var decodedMaps = new ArrayList<Object>(featureCount);
+        (presentStream != null) ? presentCount : lengthStream.size();
+    final var decodedMaps = new ArrayList<>(featureCount);
     var countIndex = 0;
     var flattenedIndex = 0;
     for (var featureIndex = 0; featureIndex < featureCount; featureIndex++) {
@@ -249,21 +249,20 @@ public class PropertyDecoder {
         continue;
       }
 
-      if (countIndex >= nonEmptyFeatureValueCounts.size()) {
+      if (countIndex >= lengthStream.size()) {
         throw new IllegalArgumentException(
             "Map count stream underflow while decoding feature values");
       }
 
-      final var featureValueCount = nonEmptyFeatureValueCounts.get(countIndex++);
+      final var featureValueCount = lengthStream.get(countIndex++);
       final var endIndex = flattenedIndex + featureValueCount;
       if (endIndex > flattenedValues.size()) {
         throw new IllegalArgumentException(
             "Map value stream underflow while decoding feature payload");
       }
 
-      // Check if this is a list value (for properties that are lists of maps)
+      // Check if this is a list value
       if (flattenedIndex < endIndex && flattenedValues.get(flattenedIndex) == PropertyEncoder.MapControlValue.START_LIST.value) {
-        // Decode as a list value instead of map entries
         final var decodedValue = decodeValue(flattenedValues, flattenedIndex, endIndex, dictionaries);
         decodedMaps.add(decodedValue.value());
         flattenedIndex = decodedValue.nextIndex();
@@ -276,7 +275,7 @@ public class PropertyDecoder {
       }
     }
 
-    if (countIndex != nonEmptyFeatureValueCounts.size()) {
+    if (countIndex != lengthStream.size()) {
       throw new IllegalArgumentException("Unused map feature counts remain after decode");
     }
     if (flattenedIndex != flattenedValues.size()) {
@@ -328,18 +327,7 @@ public class PropertyDecoder {
 
     if (token == PropertyEncoder.MapControlValue.START_MAP.value
         || token == PropertyEncoder.MapControlValue.START_LIST.value) {
-      if (startIndex + 1 >= endIndex) {
-        throw new IllegalArgumentException("Missing length for nested map/list payload");
-      }
-
-      final var encodedLength = flattenedValues.get(startIndex + 1);
-      if (encodedLength < 2) {
-        throw new IllegalArgumentException("Invalid nested payload length: " + encodedLength);
-      }
-      final var valueEndIndex = startIndex + encodedLength;
-      if (valueEndIndex > endIndex) {
-        throw new IllegalArgumentException("Nested payload exceeds containing payload bounds");
-      }
+      final var valueEndIndex = getValueEndIndex(flattenedValues, startIndex, endIndex);
 
       final var payloadStart = startIndex + 2;
       if (token == PropertyEncoder.MapControlValue.START_MAP.value) {
@@ -348,7 +336,7 @@ public class PropertyDecoder {
         return new DecodedValue(nestedMap.value(), valueEndIndex);
       }
 
-      final var listValues = new ArrayList<Object>();
+      final var listValues = new ArrayList<>();
       var index = payloadStart;
       while (index < valueEndIndex) {
         final var nestedValue = decodeValue(flattenedValues, index, valueEndIndex, dictionaries);
@@ -362,6 +350,22 @@ public class PropertyDecoder {
     }
 
     return new DecodedValue(decodeScalarByIndex(token, dictionaries), startIndex + 1);
+  }
+
+  private static int getValueEndIndex(List<Integer> flattenedValues, int startIndex, int endIndex) {
+    if (startIndex + 1 >= endIndex) {
+      throw new IllegalArgumentException("Missing length for nested map/list payload");
+    }
+
+    final var encodedLength = flattenedValues.get(startIndex + 1);
+    if (encodedLength < 2) {
+      throw new IllegalArgumentException("Invalid nested payload length: " + encodedLength);
+    }
+    final var valueEndIndex = startIndex + encodedLength;
+    if (valueEndIndex > endIndex) {
+      throw new IllegalArgumentException("Nested payload exceeds containing payload bounds");
+    }
+    return valueEndIndex;
   }
 
   private static String decodeMapKey(int dictionaryIndex, MapDictionaries dictionaries) {
