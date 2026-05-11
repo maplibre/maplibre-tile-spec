@@ -32,6 +32,7 @@ import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MLTFeature;
+import org.maplibre.mlt.data.MapLibreTile;
 import org.maplibre.mlt.data.MapboxVectorTile;
 import org.maplibre.mlt.decoder.MltDecoder;
 import org.maplibre.mlt.json.Json;
@@ -297,7 +298,11 @@ class SyntheticMltUtil {
       var metadata = MltConverter.createTilesetMetadata(tile, columnMappings, config.includeIds());
       var mlt = MltConverter.encode(tile, metadata, config, null);
       Files.write(SYNTHETICS_DIR.resolve(fileName + ".mlt"), mlt, StandardOpenOption.CREATE_NEW);
+      final String expected = Json.toGeoJson(new MapLibreTile(layers), true) + "\n";
       final String json = Json.toGeoJson(MltDecoder.decodeMlTile(mlt), true) + "\n";
+      if (!expected.equals(json)) {
+        throw new RuntimeException("MLT round-trip failed for " + fileName);
+      }
       Files.writeString(
           SYNTHETICS_DIR.resolve(fileName + ".json"), json, StandardOpenOption.CREATE_NEW);
     } catch (Exception e) {

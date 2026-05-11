@@ -1,5 +1,6 @@
 package org.maplibre.mlt.data.unsigned;
 
+import java.math.BigInteger;
 import java.util.Objects;
 
 /**
@@ -13,6 +14,8 @@ public sealed interface Unsigned extends Comparable<Unsigned> permits U8, U32, U
   Byte byteValue();
 
   Integer intValue();
+
+  BigInteger bigIntValue();
 
   Long longValue();
 

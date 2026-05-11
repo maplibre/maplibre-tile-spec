@@ -18,6 +18,8 @@ import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MapLibreTile;
 import org.maplibre.mlt.data.MapboxVectorTile;
 import org.maplibre.mlt.data.Property;
+import org.maplibre.mlt.data.unsigned.U32;
+import org.maplibre.mlt.data.unsigned.U64;
 
 /** Utility for converting MVT and MLT tiles to JSON and GeoJSON. */
 public final class Json {
@@ -122,6 +124,8 @@ public final class Json {
                       entry -> floatsAsStrings(entry.getValue()),
                       Json::failOnDuplicate,
                       LinkedHashMap::new));
+      case U32 u -> u.longValue();
+      case U64 u -> u.bigIntValue();
       default -> obj;
     };
   }

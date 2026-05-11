@@ -30,6 +30,12 @@ public record U64(long value) implements Unsigned {
   }
 
   @Override
+  public BigInteger bigIntValue() {
+    final var bigInt = BigInteger.valueOf(value);
+    return (value < 0) ? bigInt.add(BigInteger.ONE.shiftLeft(64)) : bigInt;
+  }
+
+  @Override
   public Long longValue() {
     return value;
   }
