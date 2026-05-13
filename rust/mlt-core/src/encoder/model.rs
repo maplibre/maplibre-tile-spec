@@ -1,17 +1,8 @@
 use derive_debug::Dbg;
 
-use crate::decoder::{GeometryValues, StreamType};
+use crate::decoder::{DictionaryType, GeometryValues, StreamType};
 use crate::encoder::geometry::VertexBufferType;
-use crate::encoder::{IdWidth, IntEncoder, StagedId, StagedProperty};
-
-/// Owned, pre-encoding variant of [`crate::Layer`] (stage 2 of the encoding pipeline).
-#[derive(Debug, PartialEq, Clone)]
-#[expect(clippy::large_enum_variant)]
-#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
-pub enum StagedLayer {
-    Tag01(StagedLayer01),
-    Unknown(EncodedUnknown),
-}
+use crate::encoder::{IntEncoder, StagedId, StagedProperty};
 
 /// Owned variant of `Unknown`.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -28,17 +19,37 @@ pub struct CurveParams {
     pub bits: u32,
 }
 
+impl Default for CurveParams {
+    fn default() -> Self {
+        Self { shift: 0, bits: 1 }
+    }
+}
+
+impl CurveParams {
+    /// Compute params from a flat `[x0, y0, x1, y1, …]` vertex slice.
+    #[must_use]
+    pub fn from_vertices(vertices: &[i32]) -> Self {
+        if vertices.is_empty() {
+            return Self::default();
+        }
+        let (min, max) = vertices
+            .iter()
+            .fold((i32::MAX, i32::MIN), |(mn, mx), &v| (mn.min(v), mx.max(v)));
+        crate::codecs::hilbert::hilbert_curve_params_from_bounds(min, max)
+    }
+}
+
 /// Columnar layer data being prepared for encoding (stage 2 of the encoding pipeline).
 ///
 /// Holds fully-owned columnar data. Constructed directly (synthetics, benches) or
-/// converted from [`TileLayer01`](crate::TileLayer01).
-/// Consumed by encoding via [`StagedLayer::encode_into`] or `StagedLayer01::encode_explicit`
+/// converted from [`TileLayer`](crate::TileLayer).
+/// Consumed by encoding via [`StagedLayer::encode_into`] or `StagedLayer::encode_explicit`
 /// (with explicit encoding mode enabled).
 #[derive(Debug, PartialEq, Clone)]
-pub struct StagedLayer01 {
+pub struct StagedLayer {
     pub name: String,
     pub extent: u32,
-    pub id: Option<StagedId>,
+    pub id: StagedId,
     pub geometry: GeometryValues,
     pub properties: Vec<StagedProperty>,
 }
@@ -148,6 +159,13 @@ impl<'a> StreamCtx<'a> {
 
     #[inline]
     #[must_use]
+    pub const fn prop_data(name: &'a str) -> Self {
+        let stream_type = StreamType::Data(DictionaryType::None);
+        Self::new(ColumnKind::Property, stream_type, name, "")
+    }
+
+    #[inline]
+    #[must_use]
     pub const fn prop2(stream_type: StreamType, prefix: &'a str, suffix: &'a str) -> Self {
         Self::new(ColumnKind::Property, stream_type, prefix, suffix)
     }
@@ -173,12 +191,4 @@ pub struct ExplicitEncoder {
     /// Return the string encoding strategy for a string property column.
     #[dbg(skip)]
     pub get_str_encoding: Box<dyn Fn(&str) -> StrEncoding>,
-    /// Override the auto-detected [`IdWidth`].
-    /// Arguments: auto-detected `IdWidth`. Return the width to use.
-    #[dbg(skip)]
-    pub override_id_width: Box<dyn Fn(IdWidth) -> IdWidth>,
-    /// Override whether a presence stream is written for an all-present column,
-    /// or if the column is written at all if all values are null.
-    #[dbg(skip)]
-    pub override_presence: Box<dyn for<'a> Fn(&'a StreamCtx<'a>) -> bool>,
 }

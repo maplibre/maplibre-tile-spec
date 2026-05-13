@@ -168,11 +168,6 @@ impl ParsedSharedDict<'_> {
 
 impl ParsedSharedDictItem<'_> {
     #[must_use]
-    pub fn feature_count(&self) -> usize {
-        self.ranges.len()
-    }
-
-    #[must_use]
     pub fn get<'a>(&self, shared_dict: &'a ParsedSharedDict<'_>, i: usize) -> Option<&'a str> {
         self.ranges
             .get(i)

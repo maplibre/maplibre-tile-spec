@@ -5,8 +5,8 @@ use std::path::Path;
 
 use mlt_core::GeometryValues;
 use mlt_core::encoder::{
-    ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, IdWidth, IntEncoder, StagedId,
-    StagedLayer01, StagedProperty, StagedSharedDict, StrEncoding, StreamCtx, VertexBufferType,
+    Codecs, ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, Presence, StagedId,
+    StagedLayer, StagedProperty, StagedSharedDict, StrEncoding, StreamCtx, VertexBufferType,
 };
 use mlt_core::geo_types::{Coord, Geometry};
 use mlt_core::wire::{LengthType, OffsetType, StreamType};
@@ -119,15 +119,13 @@ pub struct Layer {
     geo_stream_overrides: HashMap<&'static str, IntEncoder>,
     vertex_buffer_type: VertexBufferType,
     tessellate: bool,
-    /// When `true`, emit a presence stream even for all-present columns.
-    force_presence: bool,
     /// Geometry stream names that must be written even when their data is empty.
     /// See [`ExplicitEncoder::force_stream`] for details.
     force_empty_streams: HashSet<&'static str>,
     geometry_items: Vec<Geometry<i32>>,
     props: Vec<(StagedProperty, PropConfig)>,
     extent: Option<u32>,
-    ids: Option<(Vec<Option<u64>>, IdWidth, IntEncoder)>,
+    ids: Option<(StagedId, IntEncoder)>,
 }
 
 impl Layer {
@@ -137,7 +135,6 @@ impl Layer {
             geo_stream_overrides: HashMap::new(),
             vertex_buffer_type: VertexBufferType::Vec2,
             tessellate: false,
-            force_presence: false,
             force_empty_streams: HashSet::new(),
             geometry_items: vec![],
             props: vec![],
@@ -195,6 +192,10 @@ impl Layer {
     /// Useful for producing byte-for-byte output that matches Java's encoder when a
     /// normally-empty stream must still appear in the wire format.
     #[must_use]
+    #[expect(
+        dead_code,
+        reason = "needs PR to impl that empty (but still present) property, gemetry and id streams don't cause issues"
+    )]
     pub fn force_empty_stream(mut self, name: &'static str) -> Self {
         self.force_empty_streams.insert(name);
         self
@@ -291,21 +292,21 @@ impl Layer {
             .iter()
             .map(|(suffix, enc, _, _)| (suffix.clone(), *enc))
             .collect();
-        let is_optional_flags: Vec<bool> =
-            shared_dict.items.iter().map(|(_, _, _, f)| *f).collect();
-        let mut dict = StagedSharedDict::new(
+        let dict = StagedSharedDict::new(
             shared_dict.name,
             shared_dict
                 .items
                 .into_iter()
-                .map(|(suffix, _, vals, _)| (suffix, vals)),
+                .map(|(suffix, _, vals, is_optional)| {
+                    let presence = if is_optional {
+                        Presence::Mixed
+                    } else {
+                        Presence::AllPresent
+                    };
+                    (suffix, vals, presence)
+                }),
         )
         .expect("shared dict builder should be valid");
-        for (item, is_optional) in dict.items.iter_mut().zip(is_optional_flags) {
-            if is_optional {
-                item.set_presence(true);
-            }
-        }
         self.props.push((
             StagedProperty::SharedDict(dict),
             PropConfig::SharedDict {
@@ -350,8 +351,8 @@ impl Layer {
 
     /// Set feature IDs with explicit encoding.
     #[must_use]
-    pub fn ids(mut self, ids: Vec<Option<u64>>, id_width: IdWidth, int_enc: IntEncoder) -> Self {
-        self.ids = Some((ids, id_width, int_enc));
+    pub fn ids(mut self, ids: StagedId, int_enc: IntEncoder) -> Self {
+        self.ids = Some((ids, int_enc));
         self
     }
 
@@ -365,7 +366,6 @@ impl Layer {
             geo_stream_overrides,
             vertex_buffer_type,
             tessellate,
-            force_presence,
             force_empty_streams,
             geometry_items,
             props,
@@ -387,9 +387,9 @@ impl Layer {
             geometry.push_geom(geom);
         }
 
-        let (id_values, id_enc_spec) = match ids {
-            Some((v, id_width, int_enc)) => (Some(v), Some((id_width, int_enc))),
-            None => (None, None),
+        let (id, id_int_enc) = match ids {
+            Some((ids, int_enc)) => (ids, Some(int_enc)),
+            None => (StagedId::None, None),
         };
 
         // Build name→PropConfig map for the ExplicitEncoder callbacks.
@@ -398,14 +398,7 @@ impl Layer {
             .map(|(p, c)| (p.name().to_string(), c.clone()))
             .collect();
 
-        let id_width_spec = id_enc_spec.as_ref().map(|(w, _)| *w);
-        let id_int_enc = id_enc_spec.map(|(_, e)| e);
-
         let cfg = ExplicitEncoder {
-            override_id_width: match id_width_spec {
-                Some(w) => Box::new(move |_| w),
-                None => Box::new(|w| w),
-            },
             vertex_buffer_type,
             force_stream: Box::new(move |ctx: &StreamCtx<'_>| {
                 ctx.kind == ColumnKind::Geometry && force_empty_streams.contains(ctx.name)
@@ -430,17 +423,17 @@ impl Layer {
                         .map_or(StrEncoding::Plain, PropConfig::str_encoding)
                 })
             },
-            override_presence: Box::new(move |_| force_presence),
         };
 
-        StagedLayer01 {
+        let mut codecs = Codecs::default();
+        StagedLayer {
             name: "layer1".to_string(),
             extent: extent.unwrap_or(80),
-            id: id_values.map(StagedId::from_optional),
+            id,
             geometry,
             properties: props.into_iter().map(|(p, _)| p).collect(),
         }
-        .encode_into(Encoder::with_explicit(enc_cfg, cfg))?
+        .encode_into(Encoder::with_explicit(enc_cfg, cfg), &mut codecs)?
         .into_layer_bytes()
         .map_err(SynthErr::Mlt)
     }

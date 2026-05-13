@@ -10,7 +10,7 @@ use crate::properties::{build_prop_cache, prop_value_to_js};
 /// Construct one via [`crate::decode_tile`], then use the index-based accessors
 /// to read layer metadata and per-feature data.
 ///
-/// All decoding is done eagerly at construction time via [`TileLayer01`](mlt_core::TileLayer01).
+/// All decoding is done eagerly at construction time via [`TileLayer`](mlt_core::TileLayer).
 #[wasm_bindgen]
 pub struct MltTile {
     pub(crate) layers: Vec<DecodedLayer>,

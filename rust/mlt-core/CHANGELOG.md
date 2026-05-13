@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.9.0...rust-mlt-core-v0.9.1) - 2026-05-05
+
+### Added
+
+- *(rust)* MLT -> MVT write support ([#1369](https://github.com/maplibre/maplibre-tile-spec/pull/1369))
+
+## [0.9.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.8.0...rust-mlt-core-v0.9.0) - 2026-04-29
+
+### Added
+
+- *(rust)* add secondary Hilbert dictionary sorting on select tiles ([#1349](https://github.com/maplibre/maplibre-tile-spec/pull/1349))
+
+### Fixed
+
+- *(rust)* terrible fsst compression ratio due to reusing compressor results for unrelated shared dicts ([#1333](https://github.com/maplibre/maplibre-tile-spec/pull/1333))
+
+### Other
+
+- *(rust)* presence detection ([#1359](https://github.com/maplibre/maplibre-tile-spec/pull/1359))
+- *(rust)* simplify encoding ([#1358](https://github.com/maplibre/maplibre-tile-spec/pull/1358))
+- *(rust)* refactor low level encoding ([#1355](https://github.com/maplibre/maplibre-tile-spec/pull/1355))
+- *(rust)* consolidate encoders with common buffers ([#1352](https://github.com/maplibre/maplibre-tile-spec/pull/1352))
+- *(rust)* compute more stats before sort to enable deduplicating presence in v2 ([#1348](https://github.com/maplibre/maplibre-tile-spec/pull/1348))
+- *(rust)* simplify StagingId ([#1347](https://github.com/maplibre/maplibre-tile-spec/pull/1347))
+- *(rust)* new encoding methods ([#1346](https://github.com/maplibre/maplibre-tile-spec/pull/1346))
+- *(rust)* rm "01" from TileLayer01, StagedLayer01 ([#1345](https://github.com/maplibre/maplibre-tile-spec/pull/1345))
+- *(rust)* remove unused staging code and eq impl ([#1344](https://github.com/maplibre/maplibre-tile-spec/pull/1344))
+- *(rust)* follow up to Presence cleanup ([#1337](https://github.com/maplibre/maplibre-tile-spec/pull/1337))
+- *(rust)* simplify debug formatting ([#1336](https://github.com/maplibre/maplibre-tile-spec/pull/1336))
+- *(rust)* IdValues→ParsedId+StagedId, simplify presence ([#1334](https://github.com/maplibre/maplibre-tile-spec/pull/1334))
+- *(rust)* push fsst training up one level to not gain false statistics ([#1335](https://github.com/maplibre/maplibre-tile-spec/pull/1335))
+- *(rust)* rework presence to use bitvec ([#1329](https://github.com/maplibre/maplibre-tile-spec/pull/1329))
+
 ## [0.8.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.7.0...rust-mlt-core-v0.8.0) - 2026-04-18
 
 ### Fixed
@@ -112,7 +145,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(rust)* rename to IdValues and GeometryValues ([#1159](https://github.com/maplibre/maplibre-tile-spec/pull/1159))
 - *(rust)* mv impls out of models, use full wire round-trips ([#1158](https://github.com/maplibre/maplibre-tile-spec/pull/1158))
 - *(chore)* remove into_static, test fixes ([#1154](https://github.com/maplibre/maplibre-tile-spec/pull/1154))
-- *(rust)* rework WASM code to use TileLayer01 ([#1153](https://github.com/maplibre/maplibre-tile-spec/pull/1153))
+- *(rust)* rework WASM code to use TileLayer ([#1153](https://github.com/maplibre/maplibre-tile-spec/pull/1153))
 - *(rust)* remove unnecessary to_owned calls ([#1151](https://github.com/maplibre/maplibre-tile-spec/pull/1151))
 - *(rust)* introduce staging types in Rust layer implementation ([#1149](https://github.com/maplibre/maplibre-tile-spec/pull/1149))
 - *(rust)* introduce staging types ([#1148](https://github.com/maplibre/maplibre-tile-spec/pull/1148))
@@ -205,7 +238,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(rust)* rename IntEncoder and add IntEncoding ([#1019](https://github.com/maplibre/maplibre-tile-spec/pull/1019))
 - *(rust)* move prop internals to "big enum" arch ([#1014](https://github.com/maplibre/maplibre-tile-spec/pull/1014))
 - clean up how FromDecoded interacts with strings ([#1011](https://github.com/maplibre/maplibre-tile-spec/pull/1011))
-- rename `Encoder` -> `IntegerEncoder` ([#1010](https://github.com/maplibre/maplibre-tile-spec/pull/1010))
+- rename `Encoder` -> `PhysicalCodecs` ([#1010](https://github.com/maplibre/maplibre-tile-spec/pull/1010))
 - *(rust)* start fixing rust synthetics ([#1002](https://github.com/maplibre/maplibre-tile-spec/pull/1002))
 - *(synthetic)* add Morton fixture synthetic test ([#960](https://github.com/maplibre/maplibre-tile-spec/pull/960))
 - More testing around geometry combinations ([#982](https://github.com/maplibre/maplibre-tile-spec/pull/982))

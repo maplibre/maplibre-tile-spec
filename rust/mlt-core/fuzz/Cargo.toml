@@ -27,6 +27,13 @@ test = false
 doc = false
 bench = false
 
+[[bin]]
+name = "mvt_roundtrip"
+path = "fuzz_targets/mvt_roundtrip.rs"
+test = false
+doc = false
+bench = false
+
 [dependencies]
 arbitrary = { version = "1.4.2", features = ["derive"] }
 hex = "0.4.3"

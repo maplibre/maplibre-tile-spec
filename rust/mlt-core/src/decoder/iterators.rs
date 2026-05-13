@@ -513,13 +513,13 @@ mod tests {
     use super::*;
     use crate::Layer;
     use crate::decoder::GeometryValues;
-    use crate::encoder::model::{StagedLayer, StagedLayer01};
-    use crate::encoder::{Encoder, StagedId, StagedProperty, StagedSharedDict};
+    use crate::encoder::model::StagedLayer;
+    use crate::encoder::{Codecs, Encoder, Presence, StagedId, StagedProperty, StagedSharedDict};
     use crate::test_helpers::{dec, parser};
 
-    fn layer_buf(staged: StagedLayer01) -> Vec<u8> {
-        StagedLayer::Tag01(staged)
-            .encode_into(Encoder::default())
+    fn layer_buf(staged: StagedLayer) -> Vec<u8> {
+        staged
+            .encode_into(Encoder::default(), &mut Codecs::default())
             .unwrap()
             .into_layer_bytes()
             .unwrap()
@@ -533,11 +533,11 @@ mod tests {
         g
     }
 
-    fn empty_layer(name: &str) -> StagedLayer01 {
-        StagedLayer01 {
+    fn empty_layer(name: &str) -> StagedLayer {
+        StagedLayer {
             name: name.to_string(),
             extent: 4096,
-            id: None,
+            id: StagedId::None,
             geometry: GeometryValues::default(),
             properties: vec![],
         }
@@ -651,10 +651,10 @@ mod tests {
 
     #[test]
     fn len_decreases_with_each_next() {
-        let buf = layer_buf(StagedLayer01 {
+        let buf = layer_buf(StagedLayer {
             name: "test".into(),
             extent: 4096,
-            id: None,
+            id: StagedId::None,
             geometry: three_points(),
             properties: vec![],
         });
@@ -676,10 +676,10 @@ mod tests {
 
     #[test]
     fn feature_ids_are_preserved() {
-        let buf = layer_buf(StagedLayer01 {
+        let buf = layer_buf(StagedLayer {
             name: "test".into(),
             extent: 4096,
-            id: Some(StagedId::from_optional(vec![Some(100), None, Some(200)])),
+            id: StagedId::from_optional(vec![Some(100), None, Some(200)]),
             geometry: three_points(),
             properties: vec![],
         });
@@ -697,10 +697,10 @@ mod tests {
 
     #[test]
     fn geometry_values_match_input() {
-        let buf = layer_buf(StagedLayer01 {
+        let buf = layer_buf(StagedLayer {
             name: "test".into(),
             extent: 4096,
-            id: None,
+            id: StagedId::None,
             geometry: three_points(),
             properties: vec![],
         });
@@ -720,10 +720,10 @@ mod tests {
 
     #[test]
     fn null_scalar_values_are_skipped() {
-        let buf = layer_buf(StagedLayer01 {
+        let buf = layer_buf(StagedLayer {
             name: "test".into(),
             extent: 4096,
-            id: None,
+            id: StagedId::None,
             geometry: three_points(),
             properties: vec![StagedProperty::opt_u32("n", vec![Some(1), None, Some(3)])],
         });
@@ -762,10 +762,10 @@ mod tests {
 
     #[test]
     fn null_string_values_are_skipped() {
-        let buf = layer_buf(StagedLayer01 {
+        let buf = layer_buf(StagedLayer {
             name: "test".into(),
             extent: 4096,
-            id: None,
+            id: StagedId::None,
             geometry: three_points(),
             properties: vec![StagedProperty::opt_str(
                 "label",
@@ -793,10 +793,10 @@ mod tests {
 
     #[test]
     fn multiple_columns_independently_nullable() {
-        let buf = layer_buf(StagedLayer01 {
+        let buf = layer_buf(StagedLayer {
             name: "test".into(),
             extent: 4096,
-            id: None,
+            id: StagedId::None,
             geometry: three_points(),
             properties: vec![
                 StagedProperty::opt_bool("flag", vec![Some(true), Some(false), None]),
@@ -836,10 +836,10 @@ mod tests {
     fn geometry_error_does_not_misalign_ids() {
         use crate::decoder::GeometryType;
 
-        let buf = layer_buf(StagedLayer01 {
+        let buf = layer_buf(StagedLayer {
             name: "test".into(),
             extent: 4096,
-            id: Some(StagedId::from_optional(vec![Some(10), Some(20), Some(30)])),
+            id: StagedId::from_optional(vec![Some(10), Some(20), Some(30)]),
             geometry: three_points(),
             properties: vec![],
         });
@@ -874,10 +874,10 @@ mod tests {
 
     #[test]
     fn get_property_absent_column_returns_none() {
-        let buf = layer_buf(StagedLayer01 {
+        let buf = layer_buf(StagedLayer {
             name: "test".into(),
             extent: 4096,
-            id: None,
+            id: StagedId::None,
             geometry: three_points(),
             properties: vec![StagedProperty::u32("x", vec![1, 2, 3])],
         });
@@ -895,16 +895,24 @@ mod tests {
         let shared_dict = StagedSharedDict::new(
             "addr:",
             [
-                ("city", vec![Some("Paris"), Some("Rome"), None]),
-                ("zip", vec![Some("75001"), None, Some("00100")]),
+                (
+                    "city",
+                    vec![Some("Paris"), Some("Rome"), None],
+                    Presence::Mixed,
+                ),
+                (
+                    "zip",
+                    vec![Some("75001"), None, Some("00100")],
+                    Presence::Mixed,
+                ),
             ],
         )
         .unwrap();
 
-        let buf = layer_buf(StagedLayer01 {
+        let buf = layer_buf(StagedLayer {
             name: "test".into(),
             extent: 4096,
-            id: None,
+            id: StagedId::None,
             geometry: three_points(),
             properties: vec![StagedProperty::SharedDict(shared_dict)],
         });

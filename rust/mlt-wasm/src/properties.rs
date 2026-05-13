@@ -1,5 +1,5 @@
 use js_sys::{Array, Float64Array, Int8Array, Int32Array, Uint8Array, Uint32Array};
-use mlt_core::{PropValue, TileLayer01};
+use mlt_core::{PropValue, TileLayer};
 use wasm_bindgen::prelude::*;
 
 /// Cached bulk-property data for a single layer.
@@ -12,8 +12,8 @@ pub(crate) struct PropCache {
     pub(crate) columns: Array,
 }
 
-/// Build a [`PropCache`] from a fully decoded [`TileLayer01`].
-pub(crate) fn build_prop_cache(tile: &TileLayer01) -> PropCache {
+/// Build a [`PropCache`] from a fully decoded [`TileLayer`].
+pub(crate) fn build_prop_cache(tile: &TileLayer) -> PropCache {
     let n = tile.features.len();
     let keys = Array::new();
     let columns = Array::new();
@@ -35,7 +35,7 @@ fn idx_u32(i: usize) -> u32 {
 }
 
 #[allow(clippy::cast_precision_loss)]
-fn build_column(tile: &TileLayer01, col_idx: usize, n: usize) -> JsValue {
+fn build_column(tile: &TileLayer, col_idx: usize, n: usize) -> JsValue {
     // Peek at the first feature to determine the column variant.
     let first = tile
         .features
