@@ -30,6 +30,7 @@ const UNIMPLEMENTED_SYNTHETICS = new Map([
   ["0x01/prop_nested_null", "not implemented yet"],
   ["0x01/prop_nested_empty", "not implemented yet"],
   ["0x01/prop_nested_list_root", "not implemented yet"],
+  ["0x01/prop_nested_mixed_root", "not implemented yet"],
   ["0x01/prop_nested_types", "not implemented yet"],
 ]);
 

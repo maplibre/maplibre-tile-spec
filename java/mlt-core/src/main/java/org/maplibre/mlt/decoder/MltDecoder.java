@@ -70,11 +70,11 @@ public class MltDecoder {
     final var properties = new ArrayList<Map<String, Property>>();
     for (var columnMetadata : layerMetadata.columns()) {
       final var columnName = columnMetadata.getName();
-      final var hasStreamCount = MltTypeMap.Tag0x01.hasStreamCount(columnMetadata);
+      final var hasStreamCount = MltTypeMap.Tag0x02.hasStreamCount(columnMetadata);
       final var numStreams = hasStreamCount ? DecodingUtils.decodeVarints(tile, offset, 1)[0] : 0;
       // TODO: add decoding of vector type to be compliant with the spec
       // TODO: compare based on ids
-      if (MltTypeMap.Tag0x01.isID(columnMetadata)) {
+      if (MltTypeMap.Tag0x02.isID(columnMetadata)) {
         BitSet presentStream = null;
         int presentStreamSize = 0;
         if (columnMetadata.isNullable()) {
@@ -114,7 +114,7 @@ public class MltDecoder {
         } else {
           ids = denseIds;
         }
-      } else if (MltTypeMap.Tag0x01.isGeometry(columnMetadata)) {
+      } else if (MltTypeMap.Tag0x02.isGeometry(columnMetadata)) {
         assert hasStreamCount;
         final var geometryColumn = GeometryDecoder.decodeGeometryColumn(tile, numStreams, offset);
         geometries = GeometryDecoder.decodeGeometry(geometryColumn);
@@ -202,18 +202,18 @@ public class MltDecoder {
 
   private static MltMetadata.Column decodeColumn(InputStream stream) throws IOException {
     final var typeCode = DecodingUtils.decodeVarint(stream);
-    var type = MltTypeMap.Tag0x01.decodeColumnType(typeCode);
+    var type = MltTypeMap.Tag0x02.decodeColumnType(typeCode);
 
     String name = null;
-    if (MltTypeMap.Tag0x01.columnTypeHasName(typeCode)) {
+    if (MltTypeMap.Tag0x02.columnTypeHasName(typeCode)) {
       name = DecodingUtils.decodeString(stream);
     }
 
     ArrayList<MltMetadata.Field> children = null;
-    if (MltTypeMap.Tag0x01.columnTypeHasChildren(typeCode)) {
+    if (MltTypeMap.Tag0x02.columnTypeHasChildren(typeCode)) {
       final var childCount = DecodingUtils.decodeVarint(stream);
       if (childCount > 0) {
-        children = new ArrayList<MltMetadata.Field>(childCount);
+        children = new ArrayList<>(childCount);
         for (var i = 0; i < childCount; ++i) {
           children.add(decodeColumn(stream).field());
         }

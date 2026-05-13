@@ -5,7 +5,49 @@ import java.util.Optional;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class MltTypeMap {
-  public static class Tag0x01 {
+  public static final class Tag0x02 extends Tag0x01 {
+    public static Optional<Integer> encodeColumnType(
+        @Nullable MltMetadata.ScalarType physicalScalarType,
+        @Nullable MltMetadata.LogicalScalarType logicalScalarType,
+        @Nullable MltMetadata.ComplexType physicalComplexType,
+        @Nullable MltMetadata.LogicalComplexType ignoredLogicalComplexType,
+        boolean isNullable,
+        boolean hasChildren,
+        boolean hasLongIDs) {
+      if (physicalComplexType == MltMetadata.ComplexType.MAP) {
+        return Optional.of(31);
+      }
+      return Tag0x01.encodeColumnType(
+          physicalScalarType,
+          logicalScalarType,
+          physicalComplexType,
+          ignoredLogicalComplexType,
+          isNullable,
+          hasChildren,
+          hasLongIDs);
+    }
+
+    public static MltMetadata.FieldType decodeColumnType(int typeCode) {
+      if (31 == typeCode) {
+        return MltMetadata.mapFieldType();
+      }
+      return Tag0x01.decodeColumnType(typeCode);
+    }
+
+    public static boolean hasStreamCount(MltMetadata.FieldType type) {
+      if (type.complexType() != null) {
+        final var complex = type.complexType();
+        if (complex.physicalType() != null) {
+          if (complex.physicalType() == MltMetadata.ComplexType.MAP) {
+            return true;
+          }
+        }
+      }
+      return Tag0x01.hasStreamCount(type);
+    }
+  }
+
+  public static sealed class Tag0x01 permits Tag0x02 {
     /// Produces the unique type encoding for a `Column` or `Field`
     /// @param physicalScalarType The physical scalar type, if applicable
     /// @param logicalScalarType The logical scalar type, if applicable
@@ -52,8 +94,6 @@ public class MltTypeMap {
           if (!isNullable && hasChildren) {
             return Optional.of(30);
           }
-        } else if (physicalComplexType == MltMetadata.ComplexType.MAP) {
-          return Optional.of(31);
         }
       }
       return Optional.empty();
@@ -75,8 +115,6 @@ public class MltTypeMap {
         return MltMetadata.geometryFieldType();
       } else if (30 == typeCode) {
         return MltMetadata.structFieldType(null);
-      } else if (31 == typeCode) {
-        return MltMetadata.mapFieldType();
       } else {
         throw new IllegalStateException("Unsupported Type " + typeCode);
       }

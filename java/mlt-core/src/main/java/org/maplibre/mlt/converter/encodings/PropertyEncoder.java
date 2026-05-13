@@ -65,7 +65,7 @@ public class PropertyEncoder {
         encodedColumn =
             encodeMapPropertyColumn(
                 features, useFSST, columnMetadata, physicalLevelTechnique, integerEncodingOption);
-      } else if (MltTypeMap.Tag0x01.isStruct(columnMetadata)) {
+      } else if (MltTypeMap.Tag0x02.isStruct(columnMetadata)) {
         if (columnMappingsIterator == null && columnMappings != null) {
           columnMappingsIterator = columnMappings.iterator();
         }
@@ -161,7 +161,7 @@ public class PropertyEncoder {
       PhysicalLevelTechnique physicalLevelTechnique,
       @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption)
       throws IOException {
-    if (MltTypeMap.Tag0x01.hasStreamCount(columnMetadata)
+    if (MltTypeMap.Tag0x02.hasStreamCount(columnMetadata)
         && features.stream().noneMatch(f -> f.findProperty(columnMetadata.getName()).isPresent())) {
       // Indicate a missing property column in the tile with a zero for the number of streams
       // TODO: Can we skip the column entirely in this case?
@@ -887,11 +887,8 @@ public class PropertyEncoder {
     } else if (value instanceof Iterable<?> iterable) {
       appendListValue(iterable, flattenedValues, uniqueValues, columnName);
     } else if (value != null) {
-      throw new IllegalArgumentException(
-          "Expected top-level map property value in column '"
-              + columnName
-              + "' but found "
-              + value.getClass().getName());
+      // Root-level scalar map values are encoded as a single scalar/control token.
+      flattenedValues.add(getScalarIndex(value, uniqueValues, columnName));
     }
   }
 

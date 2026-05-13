@@ -18,6 +18,7 @@ const UNIMPLEMENTED_SYNTHETICS: string[] = [
     "0x01/prop_nested_null",
     "0x01/prop_nested_empty",
     "0x01/prop_nested_list_root",
+    "0x01/prop_nested_mixed_root",
     "0x01/prop_nested_types",
 ];
 

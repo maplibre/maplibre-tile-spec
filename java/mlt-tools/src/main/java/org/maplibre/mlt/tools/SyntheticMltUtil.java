@@ -302,11 +302,12 @@ class SyntheticMltUtil {
       throws IOException {
     try {
       System.out.println("Generating: " + fileName);
-      var config = cfg.build();
-      var tile = new MapboxVectorTile(layers);
+      final var config = cfg.build();
+      final var tile = new MapboxVectorTile(layers);
       final var columnMappings = buildColumnMappings(config);
-      var metadata = MltConverter.createTilesetMetadata(tile, columnMappings, config.includeIds());
-      var mlt = MltConverter.encode(tile, metadata, config, null);
+      final var metadata =
+          MltConverter.createTilesetMetadata(tile, columnMappings, config.includeIds());
+      final var mlt = MltConverter.encode(tile, metadata, config, null);
       Files.write(SYNTHETICS_DIR.resolve(fileName + ".mlt"), mlt, StandardOpenOption.CREATE);
       final String unencodedJson = Json.toGeoJson(new MapLibreTile(layers), true) + "\n";
       final String decodedJson = Json.toGeoJson(MltDecoder.decodeMlTile(mlt), true) + "\n";

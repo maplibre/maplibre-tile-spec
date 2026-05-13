@@ -175,7 +175,7 @@ public class MltConverter {
     final var featureTableSchema = new MltMetadata.FeatureTable(layer.name(), estimatedColumns);
 
     // If present, `id` must be the first column
-    if (columnSchemas.values().stream().anyMatch(MltTypeMap.Tag0x01::isID)) {
+    if (columnSchemas.values().stream().anyMatch(MltTypeMap.Tag0x02::isID)) {
       throw new RuntimeException("Unexpected ID Column");
     }
     if (hasId) {
@@ -238,6 +238,9 @@ public class MltConverter {
     // If this property already has a column...
     final var previousSchema = columnSchemas.get(sourcePropertyName);
     if (previousSchema != null) {
+      if (previousSchema.is(MltMetadata.ComplexType.MAP)) {
+        return;
+      }
       // Make sure the types match.
       // If not, coercion or nullification must be enabled, and replace
       // the column with a string column, if it isn't already.
@@ -431,8 +434,8 @@ public class MltConverter {
     }
 
     final boolean hasChildren = (children != null && !children.isEmpty());
-    final var typeCode =
-        MltTypeMap.Tag0x01.encodeColumnType(
+    final int typeCode =
+        MltTypeMap.Tag0x02.encodeColumnType(
                 physicalScalarType,
                 logicalScalarType,
                 physicalComplexType,
@@ -443,7 +446,7 @@ public class MltConverter {
             .orElseThrow(() -> new RuntimeException("Unsupported Type"));
     EncodingUtils.putVarInt(stream, typeCode);
 
-    if (MltTypeMap.Tag0x01.columnTypeHasName(typeCode)) {
+    if (MltTypeMap.Tag0x02.columnTypeHasName(typeCode)) {
       EncodingUtils.putString(stream, name);
     }
 
@@ -604,7 +607,7 @@ public class MltConverter {
       if (config.includeIds()) {
         final var idMetadata =
             layerMetadata.columns().stream()
-                .filter(MltTypeMap.Tag0x01::isID)
+                .filter(MltTypeMap.Tag0x02::isID)
                 .findFirst()
                 .orElseThrow();
 
@@ -753,7 +756,7 @@ public class MltConverter {
   private static List<MltMetadata.Column> filterPropertyColumns(
       MltMetadata.FeatureTable featureTableMetadata) {
     return featureTableMetadata.columns().stream()
-        .filter(f -> !MltTypeMap.Tag0x01.isID(f) && !MltTypeMap.Tag0x01.isGeometry(f))
+        .filter(f -> !MltTypeMap.Tag0x02.isID(f) && !MltTypeMap.Tag0x02.isGeometry(f))
         .collect(Collectors.toList());
   }
 

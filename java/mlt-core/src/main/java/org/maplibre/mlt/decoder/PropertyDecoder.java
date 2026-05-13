@@ -312,7 +312,17 @@ public class PropertyDecoder {
             "Map value stream underflow while decoding feature payload");
       }
 
-      if (flattenedIndex < endIndex
+      if (featureValueCount == 1) {
+        // Special case: root-level scalar value encoded as a single scalar/control token.
+        final var decodedValue =
+            decodeValue(flattenedValues, flattenedIndex, endIndex, dictionaries);
+        if (decodedValue.nextIndex() != endIndex) {
+          throw new IllegalArgumentException(
+              "Root scalar payload did not consume exactly one value");
+        }
+        decodedMaps.add(decodedValue.value());
+        flattenedIndex = decodedValue.nextIndex();
+      } else if (flattenedIndex < endIndex
           && flattenedValues.get(flattenedIndex) == PropertyEncoder.MapControlValue.START_LIST) {
         // Decode as a list
         final var decodedValue =
