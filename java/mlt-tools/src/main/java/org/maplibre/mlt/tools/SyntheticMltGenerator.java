@@ -530,9 +530,14 @@ public class SyntheticMltGenerator {
     write(layer("props_offset_str_fsst", feat_two_str_eq), cfg().fsst());
 
     // Nested/MAP properties
-    write("prop_nested", feat(p0, prop("a", Map.of("b", Map.of("c", "d")))), cfg());
+    write("prop_nested_empty", feat(p0, prop("a", prop("b", Map.of()))), cfg());
     write(
-        "prop_nested_list", feat(p0, prop("a", List.of(Map.of("b", 1), Map.of("d", 1.0)))), cfg());
+        "prop_nested_null",
+        layer(
+            SyntheticMltUtil.DEFAULT_LAYER_NAME,
+            feat(p0, prop("a", prop("b", Map.of()))),
+            feat(p0, Map.of())),
+        cfg());
     write("prop_nested_list_root", feat(p0, prop("a", List.of(1, Map.of("a", "b")))), cfg());
     write(
         "prop_nested_types",
@@ -540,14 +545,16 @@ public class SyntheticMltGenerator {
             p0,
             prop(
                 "a",
-                List.of(
-                    1,
-                    2L,
-                    U32.of(Integer.MAX_VALUE + 3L),
-                    U64.of(BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(4L))),
-                    "5",
-                    6.0f,
-                    7.0))),
+                Map.of(
+                    "b",
+                    List.of(
+                        1,
+                        2L,
+                        U32.of(Integer.MAX_VALUE + 3L),
+                        U64.of(BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(4L))),
+                        "5",
+                        6.0f,
+                        7.0)))),
         cfg());
   }
 

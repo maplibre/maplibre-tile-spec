@@ -625,12 +625,12 @@ public class PropertyEncoder {
     assert flattenedMapData.flattenedValues().stream().allMatch(Objects::nonNull);
 
     // If all maps are empty, we can skip writing data streams and just write a zero stream count
-    if (flattenedMapData.allEmpty()) {
+    if (flattenedMapData.allNull()) {
       return new ArrayList<>(List.of(new byte[] {0}));
     }
 
     // If any values are empty/null (which we conflate), write a presence stream
-    final var writePresenceStream = flattenedMapData.anyEmpty();
+    final var writePresenceStream = flattenedMapData.anyNull();
 
     // Establish the stream mask so the decoder knows which of the optional streams are present
     final var mask =
@@ -833,8 +833,8 @@ public class PropertyEncoder {
       @NotNull ArrayList<Integer> flattenedValues,
       @NotNull ArrayList<Integer> featureValueCounts,
       @NotNull ArrayList<Boolean> featurePresentValues,
-      boolean anyEmpty,
-      boolean allEmpty) {}
+      boolean anyNull,
+      boolean allNull) {}
 
   /// Walk the values for each feature, building a flattened list of value indexes for all features
   private static FlattenedMapData flattenMapValues(
@@ -845,27 +845,26 @@ public class PropertyEncoder {
     final var flattenedValues = new ArrayList<Integer>(estimatedValuesPerFeature * features.size());
     final var featureValueCounts = new ArrayList<Integer>(features.size());
     final var featurePresentValues = new ArrayList<Boolean>(features.size());
-    boolean anyEmpty = false;
-    boolean allEmpty = true;
+    boolean anyNull = false;
+    boolean allNull = true;
 
     for (final var feature : features) {
       final var startIndex = flattenedValues.size();
-      feature
-          .findProperty(columnName)
-          .map(property -> property.getValue(feature.getIndex()))
-          .ifPresent(value -> appendMapEntries(value, flattenedValues, uniqueValues, columnName));
+      final var value =
+          feature.findProperty(columnName).map(property -> property.getValue(feature.getIndex()));
+      value.ifPresent(v -> appendMapEntries(v, flattenedValues, uniqueValues, columnName));
       final var featureValueCount = flattenedValues.size() - startIndex;
-      if (featureValueCount > 0) {
+      if (value.isPresent()) {
         featureValueCounts.add(featureValueCount);
-        allEmpty = false;
+        allNull = false;
       } else {
-        anyEmpty = true;
+        anyNull = true;
       }
-      featurePresentValues.add(featureValueCount > 0);
+      featurePresentValues.add(value.isPresent());
     }
 
     return new FlattenedMapData(
-        flattenedValues, featureValueCounts, featurePresentValues, anyEmpty, allEmpty);
+        flattenedValues, featureValueCounts, featurePresentValues, anyNull, allNull);
   }
 
   private static void appendMapEntries(

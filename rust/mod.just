@@ -12,6 +12,9 @@ export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'
 # Features excluded from cargo-hack --each-feature iterations (heavy optional instrumentation)
 hack_skip := '--exclude-features __hotpath,__hotpath-alloc,__hotpath-mcp'
 
+# Files excluded from `mlt ls --validate-to-json ...`
+validate_excludes := "--exclude '../test/synthetic/0x01/prop_nested*'"
+
 _default: (just '--list' 'rust')
 
 [private]
@@ -176,7 +179,7 @@ _coverage: (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm
         --workspace --exclude-no-default-features --exclude-all-features
     rm -rf ../test/synthetic/0x01-rust
     cargo llvm-cov run --no-report -p mlt-synthetics
-    cargo llvm-cov run --no-report -p mlt -- ls --validate-to-json --details basic ../test/synthetic/
+    cargo llvm-cov run --no-report -p mlt -- ls --validate-to-json {{validate_excludes}} --details basic ../test/synthetic/
     rustup toolchain install nightly --profile minimal --component llvm-tools
     cargo +nightly llvm-cov --no-report --doctests --workspace
 
@@ -435,7 +438,7 @@ wasm-test: wasm-build
 
 # Validate every .mlt in test/synthetic against corresponding .json (GeoJSON)
 validate-synthetic:
-    {{just}} mlt ls --validate-to-json --exclude '../test/synthetic/0x01/prop_nested*' --details basic ../test/synthetic/
+    {{just}} mlt ls --validate-to-json {{validate_excludes}} --details basic ../test/synthetic/
 
 [private]
 [working-directory: 'mlt-core']
