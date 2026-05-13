@@ -10,7 +10,7 @@ use indicatif::ProgressState;
 use martin_tile_utils::{Encoding, decode_brotli, decode_gzip, decode_zlib, decode_zstd};
 use mbtiles::{MbtType, NormalizedSchema};
 use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig};
-use mlt_core::mvt::mvt_to_tile_layers;
+use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::{Decoder, Layer, Parser};
 
 #[expect(
@@ -22,8 +22,27 @@ fn whole_rate_per_sec(state: &ProgressState, w: &mut dyn std::fmt::Write) {
     let _ = w.write_fmt(format_args!("{}/s", state.per_sec() as u64));
 }
 
+/// Storage container shape inferred from a path's extension.
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq)]
+pub enum ContainerFormat {
+    Mbtiles,
+    Pmtiles,
+    Files,
+}
+
+impl ContainerFormat {
+    #[must_use]
+    pub fn from_path(path: &Path) -> Self {
+        match path.extension().and_then(std::ffi::OsStr::to_str) {
+            Some("mbtiles") => Self::Mbtiles,
+            Some("pmtiles") => Self::Pmtiles,
+            _ => Self::Files,
+        }
+    }
+}
+
 /// CLI-facing subset of [`MbtType`] (hides the `hash_view` detail).
-#[derive(Clone, Default, ValueEnum)]
+#[derive(Clone, Copy, Default, ValueEnum, Debug, PartialEq)]
 enum MbtFormat {
     /// Single table with all tiles; no deduplication (smallest overhead)
     #[default]
@@ -48,6 +67,34 @@ impl From<MbtFormat> for MbtType {
     }
 }
 
+#[derive(Clone, Copy, Default, ValueEnum, PartialEq, Eq)]
+pub enum TileFormat {
+    /// `MapLibre Tile` format (default)
+    #[default]
+    Mlt,
+    /// `Mapbox Vector Tile` format
+    Mvt,
+}
+
+impl TileFormat {
+    #[must_use]
+    pub fn extension(self) -> &'static str {
+        match self {
+            Self::Mlt => "mlt",
+            Self::Mvt => "mvt",
+        }
+    }
+
+    /// Detect format from a path's extension; defaults to MLT for unknown.
+    #[must_use]
+    pub fn from_path(path: &Path) -> Self {
+        match path.extension().and_then(std::ffi::OsStr::to_str) {
+            Some("mvt") => Self::Mvt,
+            _ => Self::Mlt,
+        }
+    }
+}
+
 #[derive(Clone, Default, ValueEnum)]
 enum SortMode {
     /// Try all sort strategies and keep the smallest result
@@ -65,9 +112,9 @@ enum SortMode {
 
 #[derive(Args)]
 pub struct ConvertArgs {
-    /// Input: a directory with .mlt/.mvt tiles, a single tile file, or an .mbtiles database
+    /// Input: a directory with .mlt/.mvt tiles, a single tile file, an .mbtiles database
     input: PathBuf,
-    /// Output: a directory for re-encoded .mlt files, or an .mbtiles database (required when input is .mbtiles)
+    /// Output: a directory for re-encoded .mlt files, an .mbtiles database or a .pmtiles file
     output: PathBuf,
     /// Add tessellation
     #[clap(short, long, default_value = "false")]
@@ -81,6 +128,20 @@ pub struct ConvertArgs {
     /// Disable grouping of similar string columns into shared dictionaries
     #[clap(long, default_value = "false")]
     no_shared_dict: bool,
+    /// Output tile format (`mlt` re-encodes; `mvt` decodes MLT inputs back to MVT)
+    #[clap(long, default_value = "mlt")]
+    to: TileFormat,
+}
+
+impl ConvertArgs {
+    #[must_use]
+    pub fn input_container(&self) -> ContainerFormat {
+        ContainerFormat::from_path(&self.input)
+    }
+    #[must_use]
+    pub fn output_container(&self) -> ContainerFormat {
+        ContainerFormat::from_path(&self.output)
+    }
 }
 
 pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
@@ -93,10 +154,15 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         ..Default::default()
     };
 
-    if is_mbtiles_extension(&args.input) {
-        if !is_mbtiles_extension(&args.output) {
+    if args.input_container() == ContainerFormat::Mbtiles {
+        if args.to == TileFormat::Mvt {
             bail!(
-                "Output must be an .mbtiles file when input is an .mbtiles file, got: {}",
+                "--to mvt is not supported for .mbtiles input/output yet; convert to a directory instead"
+            );
+        }
+        if args.output_container() == ContainerFormat::Files {
+            bail!(
+                "Output must be either an .mbtiles or a .pmtiles file when input is an .mbtiles file, got: {}",
                 args.output.display()
             );
         }
@@ -107,26 +173,20 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
                 args.output.display()
             );
         }
+
         return tokio::runtime::Builder::new_current_thread()
             .enable_io()
             .enable_time()
             .build()?
-            .block_on(tileset::convert_mbtiles(
-                &args.input,
-                &args.output,
-                args.mbtiles_format.clone(),
+            .block_on(tileset::convert_tiles(
+                (&args.input, args.input_container()),
+                (&args.output, args.output_container()),
                 cfg,
+                args.mbtiles_format,
             ));
     }
 
-    files::convert_files(&args.input, &args.output, cfg)
-}
-
-fn is_mbtiles_extension(path: &Path) -> bool {
-    matches!(
-        path.extension().and_then(std::ffi::OsStr::to_str),
-        Some("mbtiles")
-    )
+    files::convert_files(&args.input, &args.output, cfg, args.to)
 }
 
 fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
@@ -158,6 +218,30 @@ fn convert_mvt_buffer(buffer: Vec<u8>, cfg: EncoderConfig) -> AnyResult<Vec<u8>>
     Ok(out)
 }
 
+/// Decode an MLT buffer to row-oriented [`mlt_core::TileLayer`]s.
+///
+/// MVT has no equivalent for unknown/extension MLT layer tags, so conversion
+/// is rejected instead of silently dropping data.
+fn mlt_buffer_to_tile_layers(buffer: &[u8]) -> AnyResult<Vec<mlt_core::TileLayer>> {
+    let layers = Parser::default().parse_layers(buffer)?;
+    let mut dec = Decoder::default();
+    let mut tiles = Vec::new();
+    for layer in layers {
+        match layer {
+            Layer::Tag01(l) => {
+                tiles.push(l.into_tile(&mut dec)?);
+            }
+            Layer::Unknown(_) => {
+                bail!(
+                    "cannot convert MLT tile to MVT: tile contains unknown/extension layers that MVT cannot represent"
+                );
+            }
+            _ => {}
+        }
+    }
+    Ok(tiles)
+}
+
 fn encode_one(data: Vec<u8>, encoding: Encoding, cfg: EncoderConfig) -> AnyResult<Bytes> {
     let mvt = match encoding {
         Encoding::Gzip => decode_gzip(&data)?,
@@ -167,4 +251,23 @@ fn encode_one(data: Vec<u8>, encoding: Encoding, cfg: EncoderConfig) -> AnyResul
         Encoding::Uncompressed | Encoding::Internal => data,
     };
     convert_mvt_buffer(mvt, cfg).map(Bytes::from_owner)
+}
+
+/// Convert one input buffer to the requested target format.
+fn convert_buffer(
+    buffer: Vec<u8>,
+    from: TileFormat,
+    to: TileFormat,
+    cfg: EncoderConfig,
+) -> AnyResult<Vec<u8>> {
+    match (from, to) {
+        (TileFormat::Mlt, TileFormat::Mlt) => convert_mlt_buffer(&buffer, cfg),
+        (TileFormat::Mvt, TileFormat::Mlt) => convert_mvt_buffer(buffer, cfg),
+        (TileFormat::Mlt, TileFormat::Mvt) => {
+            Ok(tile_layers_to_mvt(mlt_buffer_to_tile_layers(&buffer)?)?)
+        }
+        // Re-encoding through TileLayer is lossy (e.g. SInt vs Int wire choice)
+        // and offers no benefit.
+        (TileFormat::Mvt, TileFormat::Mvt) => Ok(buffer),
+    }
 }
