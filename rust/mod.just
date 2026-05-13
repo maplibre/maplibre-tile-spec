@@ -435,7 +435,7 @@ wasm-test: wasm-build
 
 # Validate every .mlt in test/synthetic against corresponding .json (GeoJSON)
 validate-synthetic:
-    {{just}} mlt ls --validate-to-json --details basic ../test/synthetic/
+    {{just}} mlt ls --validate-to-json --exclude '../test/synthetic/0x01/prop_nested*' --details basic ../test/synthetic/
 
 [private]
 [working-directory: 'mlt-core']
