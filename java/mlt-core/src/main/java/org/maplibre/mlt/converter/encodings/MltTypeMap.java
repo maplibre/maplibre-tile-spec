@@ -6,6 +6,8 @@ import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class MltTypeMap {
   public static final class Tag0x02 extends Tag0x01 {
+    public static final int TAG = 0x02;
+
     public static Optional<Integer> encodeColumnType(
         @Nullable MltMetadata.ScalarType physicalScalarType,
         @Nullable MltMetadata.LogicalScalarType logicalScalarType,
@@ -48,6 +50,8 @@ public class MltTypeMap {
   }
 
   public static sealed class Tag0x01 permits Tag0x02 {
+    public static final int TAG = 0x01;
+
     /// Produces the unique type encoding for a `Column` or `Field`
     /// @param physicalScalarType The physical scalar type, if applicable
     /// @param logicalScalarType The logical scalar type, if applicable

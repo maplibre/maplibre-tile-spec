@@ -636,7 +636,7 @@ public class MltConverter {
 
       final var metadataBuffer = createEmbeddedMetadata(layerMetadata, sourceLayer.tileExtent());
 
-      final var tag = 1;
+      final var tag = tilesetMetadata.getSupportedVersion();
       final var tagBuffer = EncodingUtils.encodeVarint(tag, false);
       final var tagLength =
           tagBuffer.length

@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.SequencedCollection;
 import org.jetbrains.annotations.NotNull;
+import org.maplibre.mlt.converter.encodings.MltTypeMap;
 
 public final class MltMetadata {
   private MltMetadata() {}
@@ -95,6 +96,14 @@ public final class MltMetadata {
 
     public List<Double> bounds = new ArrayList<>();
     public List<Double> center = new ArrayList<>();
+
+    public int getSupportedVersion() {
+      return featureTables.stream()
+              .flatMap(t -> t.columns().stream())
+              .anyMatch(c -> c.is(ComplexType.MAP))
+          ? MltTypeMap.Tag0x02.TAG
+          : MltTypeMap.Tag0x01.TAG;
+    }
   }
 
   public static final record FeatureTable(

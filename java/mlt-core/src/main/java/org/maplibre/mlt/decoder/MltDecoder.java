@@ -28,14 +28,14 @@ public class MltDecoder {
 
   private MltDecoder() {}
 
-  private static Layer parseBasicMVTEquivalent(int layerSize, InputStream stream)
+  private static Layer parseBasicMVTEquivalent(int layerSize, InputStream stream, int tag)
       throws IOException {
     try (var countStream = new CountingInputStream(stream)) {
       final var metadataExtent = parseEmbeddedMetadata(countStream);
       final var metadata = metadataExtent.getLeft();
       final var tileExtent = metadataExtent.getRight();
       final var bodySize = layerSize - countStream.getCount();
-      return decodeMltLayer(countStream.readNBytes((int) bodySize), metadata, tileExtent);
+      return decodeMltLayer(countStream.readNBytes((int) bodySize), metadata, tileExtent, tag);
     }
   }
 
@@ -45,16 +45,17 @@ public class MltDecoder {
     try (final var stream = new ByteArrayInputStream(tileData)) {
       while (stream.available() > 0) {
         final var length = DecodingUtils.decodeVarint(stream);
-        final var tag = DecodingUtils.decodeVarintWithLength(stream);
-        final var bodySize = length - tag.getRight();
-        if (tag.getLeft() == 1) {
-          final var layer = parseBasicMVTEquivalent(bodySize, stream);
+        final var result = DecodingUtils.decodeVarintWithLength(stream);
+        final var tag = result.getLeft();
+        final var bodySize = length - result.getRight();
+        if (tag == MltTypeMap.Tag0x01.TAG || tag == MltTypeMap.Tag0x02.TAG) {
+          final var layer = parseBasicMVTEquivalent(bodySize, stream, tag);
           if (layer != null) {
             layers.add(layer);
           }
         } else {
           // Skip the remainder of this one
-          stream.skip(length - tag.getRight());
+          stream.skip(length - result.getRight());
         }
       }
     }
@@ -63,7 +64,8 @@ public class MltDecoder {
 
   /** Decodes an MLT tile in a similar in-memory representation then MVT is using */
   public static Layer decodeMltLayer(
-      byte[] tile, MltMetadata.FeatureTable layerMetadata, int tileExtent) throws IOException {
+      byte[] tile, MltMetadata.FeatureTable layerMetadata, int tileExtent, int tag)
+      throws IOException {
     final var offset = new IntWrapper(0);
     List<Long> ids = null;
     Geometry[] geometries = null;
