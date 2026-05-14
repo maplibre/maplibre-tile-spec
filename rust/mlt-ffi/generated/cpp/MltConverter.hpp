@@ -3,18 +3,18 @@
 
 #include "MltConverter.d.hpp"
 
-#include <stdio.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <stdbool.h>
-#include <memory>
-#include <functional>
-#include <optional>
-#include <cstdlib>
 #include "ConvertError.hpp"
 #include "MltBuffer.hpp"
 #include "MltEncoderOptions.hpp"
 #include "diplomat_runtime.hpp"
+#include <cstdlib>
+#include <functional>
+#include <memory>
+#include <optional>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
 
 namespace diplomat {
 namespace capi {

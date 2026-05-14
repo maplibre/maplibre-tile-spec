@@ -1,11 +1,11 @@
 #ifndef MltEncoderOptions_H
 #define MltEncoderOptions_H
 
-#include <stdio.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <stdbool.h>
 #include "diplomat_runtime.h"
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
 
 #include "MltEncoderOptions.d.h"
 

@@ -1,15 +1,15 @@
 #ifndef DIPLOMAT_RUNTIME_CPP_H
 #define DIPLOMAT_RUNTIME_CPP_H
 
+#include <cstdint>
+#include <functional>
+#include <limits>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
 #include <variant>
-#include <cstdint>
-#include <functional>
-#include <memory>
-#include <limits>
 
 #if __cplusplus >= 202002L
 #include <span>
