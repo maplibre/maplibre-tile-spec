@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.13](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.12...rust-mlt-v0.1.13) - 2026-05-14
+
+### Added
+
+- *(rust)* add .pmtiles output format to convert ([#1354](https://github.com/maplibre/maplibre-tile-spec/pull/1354))
+
 ## [0.1.12](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.11...rust-mlt-v0.1.12) - 2026-05-05
 
 ### Added
