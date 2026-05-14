@@ -88,8 +88,6 @@ pub enum MltError {
     PriorParseFailure,
     #[error("presence stream has {0} bits set but {1} values provided")]
     PresenceValueCountMismatch(usize, usize),
-    #[error("MVT parse error: {0}")]
-    MvtParse(String),
     #[error("need to encode before being able to write")]
     NeedsEncodingBeforeWriting,
     #[error("memory limit exceeded: limit={limit}, used={used}, requested={requested}")]
@@ -171,11 +169,24 @@ pub enum MltError {
     Utf8(#[from] std::str::Utf8Error),
     #[error("UTF-8 decode error: {0}")]
     FromUtf8(#[from] std::string::FromUtf8Error),
+    #[error("MVT parse error: {0}")]
+    MvtParse(String),
+    #[error("MVT write error: {0}")]
+    MvtWrite(#[from] mvt::Error),
 }
 
 impl From<Infallible> for MltError {
     fn from(_: Infallible) -> Self {
         unreachable!()
+    }
+}
+
+// `mvt_reader::error::ParserError` carries `Box<dyn Error>` (no `Send + Sync`),
+// which would make `MltError` non-Send/Sync via `#[from]`. Stringify at the
+// boundary so the rest of `MltError` stays auto-trait-clean.
+impl From<mvt_reader::error::ParserError> for MltError {
+    fn from(e: mvt_reader::error::ParserError) -> Self {
+        Self::MvtParse(e.to_string())
     }
 }
 

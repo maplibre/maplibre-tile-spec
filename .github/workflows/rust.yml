@@ -244,14 +244,14 @@ jobs:
         with: { fetch-depth: 0, persist-credentials: false }
       - uses: ./.github/actions/mlt-setup-rust
       - name: Publish to crates.io if crate's version is newer
-        uses: release-plz/action@1528104d2ca23787631a1c1f022abb64b34c1e11 # v0.5.128
+        uses: release-plz/action@064f4d1e36c843611ddf013be726beaa4ad804db # v0.5.129
         id: release
         with: { command: release, manifest_path: ./rust/Cargo.toml }
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: If version is the same, create a PR proposing new version and changelog for the next release
-        uses: release-plz/action@1528104d2ca23787631a1c1f022abb64b34c1e11 # v0.5.128
+        uses: release-plz/action@064f4d1e36c843611ddf013be726beaa4ad804db # v0.5.129
         with: { command: release-pr, manifest_path: ./rust/Cargo.toml }
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
