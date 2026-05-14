@@ -1,5 +1,5 @@
 * text=auto eol=lf
-rust/mlt-ffi/generated/c/ linguist-generated
-rust/mlt-ffi/generated/cpp/ linguist-generated
-rust/mlt-ffi/generated/java/ linguist-generated
-rust/mlt-ffi/generated/kotlin/ linguist-generated
+rust/mlt-ffi/generated/c/* linguist-generated
+rust/mlt-ffi/generated/cpp/* linguist-generated
+rust/mlt-ffi/generated/java/* linguist-generated
+rust/mlt-ffi/generated/kotlin/* linguist-generated
