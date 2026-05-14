@@ -336,15 +336,16 @@ semver *args: (just 'cargo-install' 'cargo-semver-checks') (just 'cargo-install'
         {{args}}
 
 # Regenerate diplomat FFI bindings
+[working-directory: 'mlt-ffi']
 sync-ffi-bindings: (just 'cargo-install' 'diplomat-tool') (just 'assert-cmd' 'clang-format') (just 'assert-cmd' 'ktlint')
     #!/usr/bin/env bash
     set -euo pipefail
-    cd mlt-ffi
-    diplomat-tool c       bindings/c      -e src/lib.rs
-    diplomat-tool cpp     bindings/cpp    -e src/lib.rs
-    diplomat-tool kotlin  bindings/kotlin -e src/lib.rs
-    clang-format -style=WebKit -i tests/c/*.c tests/cpp/*.cpp
-    ktlint --format tests/kotlin/*.kt
+    
+    diplomat-tool c      generated/c      -e src/lib.rs
+    diplomat-tool cpp    generated/cpp    -e src/lib.rs
+    diplomat-tool kotlin generated/kotlin -e src/lib.rs
+    clang-format -style=WebKit -i tests/c/*.c tests/cpp/*.cpp generated/c/* generated/cpp/*
+    ktlint --format **.kt
 
 # Run the C FFI round-trip test (builds cdylib, compiles + runs test)
 test-ffi-c:

@@ -1,7 +1,7 @@
 // Round-trip test: MVT -> MLT -> MVT via the C diplomat bindings.
-#include "../../bindings/c/MltBuffer.h"
-#include "../../bindings/c/MltConverter.h"
-#include "../../bindings/c/MltEncoderOptions.h"
+#include "../../generated/c/MltBuffer.h"
+#include "../../generated/c/MltConverter.h"
+#include "../../generated/c/MltEncoderOptions.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

@@ -1,7 +1,7 @@
 // Round-trip test: MVT -> MLT -> MVT via the C++ diplomat bindings.
-#include "../../bindings/cpp/MltBuffer.hpp"
-#include "../../bindings/cpp/MltConverter.hpp"
-#include "../../bindings/cpp/MltEncoderOptions.hpp"
+#include "../../generated/cpp/MltBuffer.hpp"
+#include "../../generated/cpp/MltConverter.hpp"
+#include "../../generated/cpp/MltEncoderOptions.hpp"
 #include <cassert>
 #include <cstdint>
 #include <cstdio>
