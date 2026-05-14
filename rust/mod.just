@@ -345,7 +345,7 @@ sync-ffi-bindings: (just 'cargo-install' 'diplomat-tool') (just 'assert-cmd' 'cl
     diplomat-tool cpp    generated/cpp    -e src/lib.rs
     diplomat-tool kotlin generated/kotlin -e src/lib.rs
     clang-format -style=WebKit -i tests/c/*.c tests/cpp/*.cpp generated/c/* generated/cpp/*
-    ktlint --format **.kt
+    ktlint --format ./**/*.kt
 
 # Run the C FFI round-trip test (builds cdylib, compiles + runs test)
 test-ffi-c:

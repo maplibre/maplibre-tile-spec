@@ -1,21 +1,51 @@
-package org.maplibre.mlt_ffi;
+package org.maplibre.mlt_ffi
 import com.sun.jna.Callback
 import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.Structure
 
-internal interface MltEncoderOptionsLib: Library {
+internal interface MltEncoderOptionsLib : Library {
     fun MltEncoderOptions_destroy(handle: Pointer)
+
     fun MltEncoderOptions_new(): Pointer
-    fun MltEncoderOptions_set_tessellate(handle: Pointer, enabled: Boolean): Unit
-    fun MltEncoderOptions_set_try_spatial_morton_sort(handle: Pointer, enabled: Boolean): Unit
-    fun MltEncoderOptions_set_try_spatial_hilbert_sort(handle: Pointer, enabled: Boolean): Unit
-    fun MltEncoderOptions_set_try_id_sort(handle: Pointer, enabled: Boolean): Unit
-    fun MltEncoderOptions_set_allow_fsst(handle: Pointer, enabled: Boolean): Unit
-    fun MltEncoderOptions_set_allow_fpf(handle: Pointer, enabled: Boolean): Unit
-    fun MltEncoderOptions_set_allow_shared_dict(handle: Pointer, enabled: Boolean): Unit
+
+    fun MltEncoderOptions_set_tessellate(
+        handle: Pointer,
+        enabled: Boolean,
+    ): Unit
+
+    fun MltEncoderOptions_set_try_spatial_morton_sort(
+        handle: Pointer,
+        enabled: Boolean,
+    ): Unit
+
+    fun MltEncoderOptions_set_try_spatial_hilbert_sort(
+        handle: Pointer,
+        enabled: Boolean,
+    ): Unit
+
+    fun MltEncoderOptions_set_try_id_sort(
+        handle: Pointer,
+        enabled: Boolean,
+    ): Unit
+
+    fun MltEncoderOptions_set_allow_fsst(
+        handle: Pointer,
+        enabled: Boolean,
+    ): Unit
+
+    fun MltEncoderOptions_set_allow_fpf(
+        handle: Pointer,
+        enabled: Boolean,
+    ): Unit
+
+    fun MltEncoderOptions_set_allow_shared_dict(
+        handle: Pointer,
+        enabled: Boolean,
+    ): Unit
 }
+
 /** Encoder options controlling which optimisations are attempted for
 *MVT → MLT conversion.
 *
@@ -23,40 +53,42 @@ internal interface MltEncoderOptionsLib: Library {
 *enabled except tessellation) and toggle individual flags with the
 *setter methods.
 */
-class MltEncoderOptions internal constructor (
+class MltEncoderOptions internal constructor(
     internal val handle: Pointer,
     // These ensure that anything that is borrowed is kept alive and not cleaned
     // up by the garbage collector.
     internal val selfEdges: List<Any>,
     internal var owned: Boolean,
-)  {
-
+) {
     init {
         if (this.owned) {
             this.registerCleaner()
         }
     }
 
-    private class MltEncoderOptionsCleaner(val handle: Pointer, val lib: MltEncoderOptionsLib) : Runnable {
+    private class MltEncoderOptionsCleaner(
+        val handle: Pointer,
+        val lib: MltEncoderOptionsLib,
+    ) : Runnable {
         override fun run() {
             lib.MltEncoderOptions_destroy(handle)
         }
     }
+
     private fun registerCleaner() {
-        CLEANER.register(this, MltEncoderOptions.MltEncoderOptionsCleaner(handle, MltEncoderOptions.lib));
+        CLEANER.register(this, MltEncoderOptions.MltEncoderOptionsCleaner(handle, MltEncoderOptions.lib))
     }
 
     companion object {
         internal val libClass: Class<MltEncoderOptionsLib> = MltEncoderOptionsLib::class.java
         internal val lib: MltEncoderOptionsLib = Native.load("mlt_ffi", libClass)
-        @JvmStatic
 
         /** Create encoder options with the default configuration (all
-        *optimisations enabled except tessellation).
-        */
+         *optimisations enabled except tessellation).
+         */
+        @JvmStatic
         fun new_(): MltEncoderOptions {
-
-            val returnVal = lib.MltEncoderOptions_new();
+            val returnVal = lib.MltEncoderOptions_new()
             val selfEdges: List<Any> = listOf()
             val handle = returnVal
             val returnOpaque = MltEncoderOptions(handle, selfEdges, true)
@@ -65,59 +97,44 @@ class MltEncoderOptions internal constructor (
     }
 
     /** Generate tessellation data for polygons and multi-polygons.
-    */
-    fun setTessellate(enabled: Boolean): Unit {
-
-        val returnVal = lib.MltEncoderOptions_set_tessellate(handle, enabled);
-
+     */
+    fun setTessellate(enabled: Boolean) {
+        val returnVal = lib.MltEncoderOptions_set_tessellate(handle, enabled)
     }
 
     /** Try sorting features by the Z-order (Morton) curve index.
-    */
-    fun setTrySpatialMortonSort(enabled: Boolean): Unit {
-
-        val returnVal = lib.MltEncoderOptions_set_try_spatial_morton_sort(handle, enabled);
-
+     */
+    fun setTrySpatialMortonSort(enabled: Boolean) {
+        val returnVal = lib.MltEncoderOptions_set_try_spatial_morton_sort(handle, enabled)
     }
 
     /** Try sorting features by the Hilbert curve index.
-    */
-    fun setTrySpatialHilbertSort(enabled: Boolean): Unit {
-
-        val returnVal = lib.MltEncoderOptions_set_try_spatial_hilbert_sort(handle, enabled);
-
+     */
+    fun setTrySpatialHilbertSort(enabled: Boolean) {
+        val returnVal = lib.MltEncoderOptions_set_try_spatial_hilbert_sort(handle, enabled)
     }
 
     /** Try sorting features by their feature ID in ascending order.
-    */
-    fun setTryIdSort(enabled: Boolean): Unit {
-
-        val returnVal = lib.MltEncoderOptions_set_try_id_sort(handle, enabled);
-
+     */
+    fun setTryIdSort(enabled: Boolean) {
+        val returnVal = lib.MltEncoderOptions_set_try_id_sort(handle, enabled)
     }
 
     /** Allow FSST string compression.
-    */
-    fun setAllowFsst(enabled: Boolean): Unit {
-
-        val returnVal = lib.MltEncoderOptions_set_allow_fsst(handle, enabled);
-
+     */
+    fun setAllowFsst(enabled: Boolean) {
+        val returnVal = lib.MltEncoderOptions_set_allow_fsst(handle, enabled)
     }
 
     /** Allow `FastPFOR` integer compression.
-    */
-    fun setAllowFpf(enabled: Boolean): Unit {
-
-        val returnVal = lib.MltEncoderOptions_set_allow_fpf(handle, enabled);
-
+     */
+    fun setAllowFpf(enabled: Boolean) {
+        val returnVal = lib.MltEncoderOptions_set_allow_fpf(handle, enabled)
     }
 
     /** Allow string grouping into shared dictionaries.
-    */
-    fun setAllowSharedDict(enabled: Boolean): Unit {
-
-        val returnVal = lib.MltEncoderOptions_set_allow_shared_dict(handle, enabled);
-
+     */
+    fun setAllowSharedDict(enabled: Boolean) {
+        val returnVal = lib.MltEncoderOptions_set_allow_shared_dict(handle, enabled)
     }
-
 }
