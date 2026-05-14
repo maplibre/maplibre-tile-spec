@@ -35,10 +35,6 @@ name = "mlt-core"
 name = "mlt-ffi"
 
 [[package]]
-name = "mlt-core"
-
-
-[[package]]
 name = "mlt-py"
 git_tag_name = "python-mlt-v{{ version }}"
 git_release_name = "python-mlt-v{{ version }}"
