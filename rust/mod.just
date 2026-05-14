@@ -340,7 +340,7 @@ semver *args: (just 'cargo-install' 'cargo-semver-checks') (just 'cargo-install'
 sync-ffi-bindings: (just 'cargo-install' 'diplomat-tool') (just 'assert-cmd' 'clang-format') (just 'assert-cmd' 'ktlint')
     #!/usr/bin/env bash
     set -euo pipefail
-    
+
     diplomat-tool c      generated/c      -e src/lib.rs
     diplomat-tool cpp    generated/cpp    -e src/lib.rs
     diplomat-tool kotlin generated/kotlin -e src/lib.rs
