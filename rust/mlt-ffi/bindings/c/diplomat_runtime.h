@@ -32,26 +32,46 @@ typedef struct DiplomatWrite {
 
 bool diplomat_is_str(const char* buf, size_t len);
 
-#define MAKE_SLICES(name, c_ty) \
-    typedef struct Diplomat##name##View { \
-        const c_ty* data; \
-        size_t len; \
-    } Diplomat##name##View; \
+#define MAKE_SLICES(name, c_ty)              \
+    typedef struct Diplomat##name##View {    \
+        const c_ty* data;                    \
+        size_t len;                          \
+    } Diplomat##name##View;                  \
     typedef struct Diplomat##name##ViewMut { \
-        c_ty* data; \
-        size_t len; \
-    } Diplomat##name##ViewMut; \
-    typedef struct Diplomat##name##Array { \
-        const c_ty* data; \
-        size_t len; \
+        c_ty* data;                          \
+        size_t len;                          \
+    } Diplomat##name##ViewMut;               \
+    typedef struct Diplomat##name##Array {   \
+        const c_ty* data;                    \
+        size_t len;                          \
     } Diplomat##name##Array;
 
 #define MAKE_SLICES_AND_OPTIONS(name, c_ty) \
-    MAKE_SLICES(name, c_ty) \
-    typedef struct Option##name {union { c_ty ok; }; bool is_ok; } Option##name; \
-    typedef struct Option##name##View {union { Diplomat##name##View ok; }; bool is_ok; } Option##name##View; \
-    typedef struct Option##name##ViewMut {union { Diplomat##name##ViewMut ok; }; bool is_ok; } Option##name##ViewMut; \
-    typedef struct Option##name##Array {union { Diplomat##name##Array ok; }; bool is_ok; } Option##name##Array; \
+    MAKE_SLICES(name, c_ty)                 \
+    typedef struct Option##name {           \
+        union {                             \
+            c_ty ok;                        \
+        };                                  \
+        bool is_ok;                         \
+    } Option##name;                         \
+    typedef struct Option##name##View {     \
+        union {                             \
+            Diplomat##name##View ok;        \
+        };                                  \
+        bool is_ok;                         \
+    } Option##name##View;                   \
+    typedef struct Option##name##ViewMut {  \
+        union {                             \
+            Diplomat##name##ViewMut ok;     \
+        };                                  \
+        bool is_ok;                         \
+    } Option##name##ViewMut;                \
+    typedef struct Option##name##Array {    \
+        union {                             \
+            Diplomat##name##Array ok;       \
+        };                                  \
+        bool is_ok;                         \
+    } Option##name##Array;
 
 MAKE_SLICES_AND_OPTIONS(I8, int8_t)
 MAKE_SLICES_AND_OPTIONS(U8, uint8_t)

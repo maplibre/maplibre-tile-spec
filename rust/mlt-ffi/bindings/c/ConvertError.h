@@ -7,16 +7,8 @@
 #include <stdbool.h>
 #include "diplomat_runtime.h"
 
-
 #include "ConvertError.d.h"
 
-
-
-
 // No Content
-
-
-
-
 
 #endif // ConvertError_H

@@ -7,13 +7,6 @@
 #include <stdbool.h>
 #include "diplomat_runtime.h"
 
-
-
-
-
 typedef struct MltEncoderOptions MltEncoderOptions;
-
-
-
 
 #endif // MltEncoderOptions_D_H

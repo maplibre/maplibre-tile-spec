@@ -11,17 +11,21 @@
 #include <cstdlib>
 #include "diplomat_runtime.hpp"
 
-
 namespace diplomat {
 namespace capi {
-    enum ConvertError {
-      ConvertError_InvalidInput = 0,
-      ConvertError_EncodingFailed = 1,
-    };
+enum ConvertError {
+    ConvertError_InvalidInput = 0,
+    ConvertError_EncodingFailed = 1,
+};
 
-    typedef struct ConvertError_option {union { ConvertError ok; }; bool is_ok; } ConvertError_option;
+typedef struct ConvertError_option {
+    union {
+        ConvertError ok;
+    };
+    bool is_ok;
+} ConvertError_option;
 } // namespace capi
-} // namespace
+} // namespace diplomat
 
 /**
  * Error type returned by FFI conversion functions.
@@ -39,19 +43,21 @@ public:
         EncodingFailed = 1,
     };
 
-    ConvertError(): value(Value::InvalidInput) {}
+    ConvertError()
+        : value(Value::InvalidInput) {}
 
     // Implicit conversions between enum and ::Value
-    constexpr ConvertError(Value v) : value(v) {}
+    constexpr ConvertError(Value v)
+        : value(v) {}
     constexpr operator Value() const { return value; }
     // Prevent usage as boolean value
     explicit operator bool() const = delete;
 
     inline diplomat::capi::ConvertError AsFFI() const;
     inline static ConvertError FromFFI(diplomat::capi::ConvertError c_enum);
+
 private:
     Value value;
 };
-
 
 #endif // ConvertError_D_HPP

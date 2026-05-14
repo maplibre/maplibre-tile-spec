@@ -13,12 +13,9 @@
 #include <cstdlib>
 #include "diplomat_runtime.hpp"
 
-
 namespace diplomat {
-namespace capi {
-
-} // namespace capi
-} // namespace
+namespace capi {} // namespace capi
+} // namespace diplomat
 
 inline diplomat::capi::ConvertError ConvertError::AsFFI() const {
     return static_cast<diplomat::capi::ConvertError>(value);

@@ -21,7 +21,7 @@ enum class ConvertError {
 
     companion object {
         internal val libClass: Class<ConvertErrorLib> = ConvertErrorLib::class.java
-        internal val lib: ConvertErrorLib = Native.load("mlt_ffi", libClass) 
+        internal val lib: ConvertErrorLib = Native.load("mlt_ffi", libClass)
         fun fromNative(native: Int): ConvertError {
             return ConvertError.entries[native]
         }

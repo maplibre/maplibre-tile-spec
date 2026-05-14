@@ -13,7 +13,7 @@ import java.util.Collections
 val CLEANER = java.lang.ref.Cleaner.create()
 
 interface DiplomatWriteLib: Library {
-    fun diplomat_buffer_write_create(size: Long): Pointer 
+    fun diplomat_buffer_write_create(size: Long): Pointer
     fun diplomat_buffer_write_get_bytes(diplomatWrite: Pointer): Pointer
     fun diplomat_buffer_write_len(diplomatWrite: Pointer): Long
     fun diplomat_buffer_write_destroy(diplomatWrite: Pointer)
@@ -1264,4 +1264,3 @@ internal class OptionSlice constructor(): Structure(), Structure.ByValue {
     }
 
 }
-

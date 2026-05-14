@@ -7,13 +7,7 @@
 #include <stdbool.h>
 #include "diplomat_runtime.h"
 
-
 #include "MltEncoderOptions.d.h"
-
-
-
-
-
 
 MltEncoderOptions* MltEncoderOptions_new(void);
 
@@ -32,9 +26,5 @@ void MltEncoderOptions_set_allow_fpf(MltEncoderOptions* self, bool enabled);
 void MltEncoderOptions_set_allow_shared_dict(MltEncoderOptions* self, bool enabled);
 
 void MltEncoderOptions_destroy(MltEncoderOptions* self);
-
-
-
-
 
 #endif // MltEncoderOptions_H

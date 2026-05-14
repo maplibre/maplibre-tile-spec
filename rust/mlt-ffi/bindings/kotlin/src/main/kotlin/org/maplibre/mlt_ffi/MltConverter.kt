@@ -39,18 +39,18 @@ class MltConverter internal constructor (
         internal val libClass: Class<MltConverterLib> = MltConverterLib::class.java
         internal val lib: MltConverterLib = Native.load("mlt_ffi", libClass)
         @JvmStatic
-        
+
         /** Decode MLT bytes into MVT bytes.
         */
         fun mltToMvt(mlt: UByteArray): Result<MltBuffer> {
             val mltSliceMemory = PrimitiveArrayTools.borrow(mlt)
-            
+
             val returnVal = lib.MltConverter_mlt_to_mvt(mltSliceMemory.slice);
             try {
                 val nativeOkVal = returnVal.getNativeOk();
                 if (nativeOkVal != null) {
                     val selfEdges: List<Any> = listOf()
-                    val handle = nativeOkVal 
+                    val handle = nativeOkVal
                     val returnOpaque = MltBuffer(handle, selfEdges, true)
                     return returnOpaque.ok()
                 } else {
@@ -61,18 +61,18 @@ class MltConverter internal constructor (
             }
         }
         @JvmStatic
-        
+
         /** Encode MVT bytes into MLT bytes using the given encoder options.
         */
         fun mvtToMlt(mvt: UByteArray, options: MltEncoderOptions): Result<MltBuffer> {
             val mvtSliceMemory = PrimitiveArrayTools.borrow(mvt)
-            
+
             val returnVal = lib.MltConverter_mvt_to_mlt(mvtSliceMemory.slice, options.handle);
             try {
                 val nativeOkVal = returnVal.getNativeOk();
                 if (nativeOkVal != null) {
                     val selfEdges: List<Any> = listOf()
-                    val handle = nativeOkVal 
+                    val handle = nativeOkVal
                     val returnOpaque = MltBuffer(handle, selfEdges, true)
                     return returnOpaque.ok()
                 } else {

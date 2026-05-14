@@ -50,74 +50,74 @@ class MltEncoderOptions internal constructor (
         internal val libClass: Class<MltEncoderOptionsLib> = MltEncoderOptionsLib::class.java
         internal val lib: MltEncoderOptionsLib = Native.load("mlt_ffi", libClass)
         @JvmStatic
-        
+
         /** Create encoder options with the default configuration (all
         *optimisations enabled except tessellation).
         */
         fun new_(): MltEncoderOptions {
-            
+
             val returnVal = lib.MltEncoderOptions_new();
             val selfEdges: List<Any> = listOf()
-            val handle = returnVal 
+            val handle = returnVal
             val returnOpaque = MltEncoderOptions(handle, selfEdges, true)
             return returnOpaque
         }
     }
-    
+
     /** Generate tessellation data for polygons and multi-polygons.
     */
     fun setTessellate(enabled: Boolean): Unit {
-        
+
         val returnVal = lib.MltEncoderOptions_set_tessellate(handle, enabled);
-        
+
     }
-    
+
     /** Try sorting features by the Z-order (Morton) curve index.
     */
     fun setTrySpatialMortonSort(enabled: Boolean): Unit {
-        
+
         val returnVal = lib.MltEncoderOptions_set_try_spatial_morton_sort(handle, enabled);
-        
+
     }
-    
+
     /** Try sorting features by the Hilbert curve index.
     */
     fun setTrySpatialHilbertSort(enabled: Boolean): Unit {
-        
+
         val returnVal = lib.MltEncoderOptions_set_try_spatial_hilbert_sort(handle, enabled);
-        
+
     }
-    
+
     /** Try sorting features by their feature ID in ascending order.
     */
     fun setTryIdSort(enabled: Boolean): Unit {
-        
+
         val returnVal = lib.MltEncoderOptions_set_try_id_sort(handle, enabled);
-        
+
     }
-    
+
     /** Allow FSST string compression.
     */
     fun setAllowFsst(enabled: Boolean): Unit {
-        
+
         val returnVal = lib.MltEncoderOptions_set_allow_fsst(handle, enabled);
-        
+
     }
-    
+
     /** Allow `FastPFOR` integer compression.
     */
     fun setAllowFpf(enabled: Boolean): Unit {
-        
+
         val returnVal = lib.MltEncoderOptions_set_allow_fpf(handle, enabled);
-        
+
     }
-    
+
     /** Allow string grouping into shared dictionaries.
     */
     fun setAllowSharedDict(enabled: Boolean): Unit {
-        
+
         val returnVal = lib.MltEncoderOptions_set_allow_shared_dict(handle, enabled);
-        
+
     }
 
 }

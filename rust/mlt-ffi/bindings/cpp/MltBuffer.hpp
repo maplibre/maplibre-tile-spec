@@ -13,20 +13,19 @@
 #include <cstdlib>
 #include "diplomat_runtime.hpp"
 
-
 namespace diplomat {
 namespace capi {
-    extern "C" {
+extern "C" {
 
-    diplomat::capi::DiplomatU8View MltBuffer_as_bytes(const diplomat::capi::MltBuffer* self);
+diplomat::capi::DiplomatU8View MltBuffer_as_bytes(const diplomat::capi::MltBuffer* self);
 
-    size_t MltBuffer_len(const diplomat::capi::MltBuffer* self);
+size_t MltBuffer_len(const diplomat::capi::MltBuffer* self);
 
-    void MltBuffer_destroy(MltBuffer* self);
+void MltBuffer_destroy(MltBuffer* self);
 
-    } // extern "C"
+} // extern "C"
 } // namespace capi
-} // namespace
+} // namespace diplomat
 
 inline diplomat::span<const uint8_t> MltBuffer::as_bytes() const {
     auto result = diplomat::capi::MltBuffer_as_bytes(this->AsFFI());
@@ -57,6 +56,5 @@ inline MltBuffer* MltBuffer::FromFFI(diplomat::capi::MltBuffer* ptr) {
 inline void MltBuffer::operator delete(void* ptr) {
     diplomat::capi::MltBuffer_destroy(reinterpret_cast<diplomat::capi::MltBuffer*>(ptr));
 }
-
 
 #endif // MltBuffer_HPP

@@ -13,32 +13,31 @@
 #include <cstdlib>
 #include "diplomat_runtime.hpp"
 
-
 namespace diplomat {
 namespace capi {
-    extern "C" {
+extern "C" {
 
-    diplomat::capi::MltEncoderOptions* MltEncoderOptions_new(void);
+diplomat::capi::MltEncoderOptions* MltEncoderOptions_new(void);
 
-    void MltEncoderOptions_set_tessellate(diplomat::capi::MltEncoderOptions* self, bool enabled);
+void MltEncoderOptions_set_tessellate(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
-    void MltEncoderOptions_set_try_spatial_morton_sort(diplomat::capi::MltEncoderOptions* self, bool enabled);
+void MltEncoderOptions_set_try_spatial_morton_sort(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
-    void MltEncoderOptions_set_try_spatial_hilbert_sort(diplomat::capi::MltEncoderOptions* self, bool enabled);
+void MltEncoderOptions_set_try_spatial_hilbert_sort(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
-    void MltEncoderOptions_set_try_id_sort(diplomat::capi::MltEncoderOptions* self, bool enabled);
+void MltEncoderOptions_set_try_id_sort(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
-    void MltEncoderOptions_set_allow_fsst(diplomat::capi::MltEncoderOptions* self, bool enabled);
+void MltEncoderOptions_set_allow_fsst(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
-    void MltEncoderOptions_set_allow_fpf(diplomat::capi::MltEncoderOptions* self, bool enabled);
+void MltEncoderOptions_set_allow_fpf(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
-    void MltEncoderOptions_set_allow_shared_dict(diplomat::capi::MltEncoderOptions* self, bool enabled);
+void MltEncoderOptions_set_allow_shared_dict(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
-    void MltEncoderOptions_destroy(MltEncoderOptions* self);
+void MltEncoderOptions_destroy(MltEncoderOptions* self);
 
-    } // extern "C"
+} // extern "C"
 } // namespace capi
-} // namespace
+} // namespace diplomat
 
 inline std::unique_ptr<MltEncoderOptions> MltEncoderOptions::new_() {
     auto result = diplomat::capi::MltEncoderOptions_new();
@@ -46,38 +45,31 @@ inline std::unique_ptr<MltEncoderOptions> MltEncoderOptions::new_() {
 }
 
 inline void MltEncoderOptions::set_tessellate(bool enabled) {
-    diplomat::capi::MltEncoderOptions_set_tessellate(this->AsFFI(),
-        enabled);
+    diplomat::capi::MltEncoderOptions_set_tessellate(this->AsFFI(), enabled);
 }
 
 inline void MltEncoderOptions::set_try_spatial_morton_sort(bool enabled) {
-    diplomat::capi::MltEncoderOptions_set_try_spatial_morton_sort(this->AsFFI(),
-        enabled);
+    diplomat::capi::MltEncoderOptions_set_try_spatial_morton_sort(this->AsFFI(), enabled);
 }
 
 inline void MltEncoderOptions::set_try_spatial_hilbert_sort(bool enabled) {
-    diplomat::capi::MltEncoderOptions_set_try_spatial_hilbert_sort(this->AsFFI(),
-        enabled);
+    diplomat::capi::MltEncoderOptions_set_try_spatial_hilbert_sort(this->AsFFI(), enabled);
 }
 
 inline void MltEncoderOptions::set_try_id_sort(bool enabled) {
-    diplomat::capi::MltEncoderOptions_set_try_id_sort(this->AsFFI(),
-        enabled);
+    diplomat::capi::MltEncoderOptions_set_try_id_sort(this->AsFFI(), enabled);
 }
 
 inline void MltEncoderOptions::set_allow_fsst(bool enabled) {
-    diplomat::capi::MltEncoderOptions_set_allow_fsst(this->AsFFI(),
-        enabled);
+    diplomat::capi::MltEncoderOptions_set_allow_fsst(this->AsFFI(), enabled);
 }
 
 inline void MltEncoderOptions::set_allow_fpf(bool enabled) {
-    diplomat::capi::MltEncoderOptions_set_allow_fpf(this->AsFFI(),
-        enabled);
+    diplomat::capi::MltEncoderOptions_set_allow_fpf(this->AsFFI(), enabled);
 }
 
 inline void MltEncoderOptions::set_allow_shared_dict(bool enabled) {
-    diplomat::capi::MltEncoderOptions_set_allow_shared_dict(this->AsFFI(),
-        enabled);
+    diplomat::capi::MltEncoderOptions_set_allow_shared_dict(this->AsFFI(), enabled);
 }
 
 inline const diplomat::capi::MltEncoderOptions* MltEncoderOptions::AsFFI() const {
@@ -99,6 +91,5 @@ inline MltEncoderOptions* MltEncoderOptions::FromFFI(diplomat::capi::MltEncoderO
 inline void MltEncoderOptions::operator delete(void* ptr) {
     diplomat::capi::MltEncoderOptions_destroy(reinterpret_cast<diplomat::capi::MltEncoderOptions*>(ptr));
 }
-
 
 #endif // MltEncoderOptions_HPP

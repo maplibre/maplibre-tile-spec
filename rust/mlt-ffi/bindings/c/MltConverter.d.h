@@ -7,13 +7,6 @@
 #include <stdbool.h>
 #include "diplomat_runtime.h"
 
-
-
-
-
 typedef struct MltConverter MltConverter;
-
-
-
 
 #endif // MltConverter_D_H
