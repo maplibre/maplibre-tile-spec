@@ -26,16 +26,12 @@ struct MvtLayer {
 /// This is the single place where the `mvt_reader` API is called; both
 /// [`mvt_to_feature_collection`] and [`mvt_to_tile_layers`] build on top of it.
 fn read_mvt_layers(data: Vec<u8>) -> MltResult<Vec<MvtLayer>> {
-    let reader = Reader::new(data).map_err(|e| MltError::MvtParse(e.to_string()))?;
-    let metas = reader
-        .get_layer_metadata()
-        .map_err(|e| MltError::MvtParse(e.to_string()))?;
+    let reader = Reader::new(data)?;
+    let metas = reader.get_layer_metadata()?;
     metas
         .iter()
         .map(|meta| {
-            let features = reader
-                .get_features(meta.layer_index)
-                .map_err(|e| MltError::MvtParse(e.to_string()))?;
+            let features = reader.get_features(meta.layer_index)?;
             Ok(MvtLayer {
                 name: meta.name.clone(),
                 extent: meta.extent,
