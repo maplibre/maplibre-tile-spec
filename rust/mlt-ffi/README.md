@@ -1,7 +1,7 @@
 # mlt-ffi
 
 [Diplomat](https://github.com/rust-diplomat/diplomat)-based FFI bindings for
-`mlt-core`, providing MLT <-> MVT conversion from C, C++, Kotlin, and Java.
+`mlt-core`, providing MLT <-> MVT conversion from C, C++, and Kotlin.
 
 ## API
 
@@ -19,7 +19,6 @@ The round-trip tests are the primary documentation for each language:
 - **C** — [`tests/c/test_round_trip.c`](tests/c/test_round_trip.c)
 - **C++** — [`tests/cpp/test_round_trip.cpp`](tests/cpp/test_round_trip.cpp)
 - **Kotlin** — [`tests/kotlin/TestRoundTrip.kt`](tests/kotlin/TestRoundTrip.kt)
-- **Java** — [`tests/java/TestRoundTrip.java`](tests/java/TestRoundTrip.java)
 
 ## Building
 
@@ -41,5 +40,4 @@ Requires `diplomat-tool`, `clang-format`, and `ktlint`.
 just rust::test-ffi-c
 just rust::test-ffi-cpp
 just rust::test-ffi-kotlin
-just rust::test-ffi-java
 ```
