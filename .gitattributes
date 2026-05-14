@@ -1,2 +1,2 @@
 * text=auto eol=lf
-rust/mlt-ffi/generated linguist-generated
+rust/mlt-ffi/generated/**/* linguist-generated
