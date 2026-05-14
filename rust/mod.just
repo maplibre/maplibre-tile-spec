@@ -353,7 +353,7 @@ test-ffi-c:
     cargo build --release -p mlt-ffi
     LIB_DIR="$(pwd)/target/release"
     gcc mlt-ffi/tests/c/test_round_trip.c \
-        -I mlt-ffi/bindings/c \
+        -I mlt-ffi/generated/c \
         -L "$LIB_DIR" -lmlt_ffi \
         -o target/test_ffi_c
     LD_LIBRARY_PATH="$LIB_DIR" target/test_ffi_c
@@ -365,7 +365,7 @@ test-ffi-cpp:
     cargo build --release -p mlt-ffi
     LIB_DIR="$(pwd)/target/release"
     g++ -std=c++20 mlt-ffi/tests/cpp/test_round_trip.cpp \
-        -I mlt-ffi/bindings/cpp \
+        -I mlt-ffi/generated/cpp \
         -L "$LIB_DIR" -lmlt_ffi \
         -o target/test_ffi_cpp
     LD_LIBRARY_PATH="$LIB_DIR" target/test_ffi_cpp
@@ -376,7 +376,7 @@ test-ffi-kotlin: (just 'assert-cmd' 'kotlinc')
     set -euo pipefail
     cargo build --release -p mlt-ffi
     LIB_DIR="$(pwd)/target/release"
-    KOTLIN_SRC="$(find mlt-ffi/bindings/kotlin -type f -name '*.kt' -printf '%h\n' | head -1)"
+    KOTLIN_SRC="$(find mlt-ffi/generated/kotlin -type f -name '*.kt' -printf '%h\n' | head -1)"
     JNA_DIRS=()
     for d in mlt-ffi/tests/kotlin/lib /usr/share/java ~/.gradle; do
         [ -d "$d" ] && JNA_DIRS+=("$d")
@@ -399,7 +399,7 @@ test-ffi-java: (just 'assert-cmd' 'javac')
     set -euo pipefail
     cargo build --release -p mlt-ffi
     LIB_DIR="$(pwd)/target/release"
-    JAVA_SRC_DIR="mlt-ffi/bindings/java/src/main/java"
+    JAVA_SRC_DIR="mlt-ffi/generated/java/src/main/java"
     OUT_DIR="target/test_ffi_java_classes"
     mkdir -p "$OUT_DIR"
     javac -d "$OUT_DIR" \

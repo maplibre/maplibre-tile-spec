@@ -99,11 +99,11 @@ jobs:
       - name: Download all native artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          path: rust/mlt-ffi/bindings/${{ matrix.project }}/build/natives
+          path: rust/mlt-ffi/generated/${{ matrix.project }}/build/natives
 
       - name: Organize native libraries
         run: |
-          cd rust/mlt-ffi/bindings/${{ matrix.project }}/build/natives
+          cd rust/mlt-ffi/generated/${{ matrix.project }}/build/natives
           for dir in native-*; do
             classifier="${dir#native-}"
             mkdir -p "$classifier"
@@ -113,7 +113,7 @@ jobs:
           find . -type f
 
       - name: Publish to Maven Central
-        working-directory: rust/mlt-ffi/bindings/${{ matrix.project }}
+        working-directory: rust/mlt-ffi/generated/${{ matrix.project }}
         env:
           MLT_VERSION: ${{ env.version }}
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
