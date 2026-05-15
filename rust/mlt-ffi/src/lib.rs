@@ -1,7 +1,3 @@
-use mlt_core::encoder::EncoderConfig;
-use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
-use mlt_core::{Decoder, Layer, MltError, Parser};
-
 #[expect(
     clippy::unnecessary_box_returns,
     reason = "Diplomat requires `Box<T>` returns for opaque constructors"
@@ -13,6 +9,8 @@ use mlt_core::{Decoder, Layer, MltError, Parser};
 #[diplomat::bridge]
 mod ffi {
     use mlt_core::encoder::EncoderConfig;
+    use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
+    use mlt_core::{Decoder, Layer, MltError, Parser};
 
     /// Error type returned by FFI conversion functions.
     #[diplomat::attr(auto, error)]
