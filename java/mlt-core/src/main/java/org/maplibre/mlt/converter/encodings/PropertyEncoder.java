@@ -102,13 +102,15 @@ public class PropertyEncoder {
 
     if (!columnMapping.getUseSharedDictionaryEncoding()) {
       throw new IllegalArgumentException(
-          "Only shared dictionary encoding is currently supported for nested property columns");
+          "Only shared dictionary encoding is currently supported for struct property columns");
     }
 
     /* Plan -> when there is a struct field and the useSharedDictionaryFlag is enabled
      *  share the dictionary for all string columns which are located one after
      * the other in the sequence */
     final var complexType = columnMetadata.field().type().complexType();
+    assert complexType != null; // precondition, was checked previously
+
     final var sharedDictionary =
         new ArrayList<List<String>>(features.size() * complexType.children().size());
     for (var nestedFieldMetadata : complexType.children()) {
@@ -119,7 +121,7 @@ public class PropertyEncoder {
       final var scalarType = nestedFieldMetadata.type().scalarType().physicalType();
       if (scalarType != MltMetadata.ScalarType.STRING) {
         throw new IllegalArgumentException(
-            "Only fields of type String are currently supported as nested property columns");
+            "Only fields of type String are currently supported as struct property columns");
       }
 
       final var propertyName = rootName + nestedFieldMetadata.name();
@@ -188,11 +190,12 @@ public class PropertyEncoder {
   }
 
   private static Integer strictIntOrNull(@Nullable Long value) {
-    return (value != null && value.intValue() == value.longValue()) ? value.intValue() : null;
+    return (value != null && value.intValue() == value) ? value.intValue() : null;
   }
 
   private static Integer strictIntOrNull(@Nullable U64 value) {
-    return (value != null && value.intValue().longValue() == value.longValue())
+    return (value != null
+            && Objects.requireNonNull(value.intValue()).longValue() == value.longValue())
         ? value.intValue()
         : null;
   }
@@ -232,7 +235,7 @@ public class PropertyEncoder {
                   case UINT_64 -> strictIntOrNull((U64) p.getValue(index));
                   case FLOAT -> strictIntOrNull((Float) p.getValue(index));
                   case DOUBLE -> strictIntOrNull((Double) p.getValue(index));
-                  default -> null;
+                  case null, default -> null;
                 })
         .orElse(null);
   }
@@ -251,7 +254,7 @@ public class PropertyEncoder {
                   case UINT_64 -> ((U64) p.getValue(index)).longValue();
                   case FLOAT -> strictLongOrNull((Float) p.getValue(index));
                   case DOUBLE -> strictLongOrNull((Double) p.getValue(index));
-                  default -> null;
+                  case null, default -> null;
                 })
         .orElse(null);
   }
@@ -270,7 +273,7 @@ public class PropertyEncoder {
                   case UINT_64 -> ((U64) p.getValue(index)).longValue().floatValue();
                   case INT_8, INT_32, INT_64, FLOAT -> ((Number) p.getValue(index)).floatValue();
                   case DOUBLE -> strictFloatOrNull((Double) p.getValue(index));
-                  default -> null;
+                  case null, default -> null;
                 })
         .orElse(null);
   }
@@ -289,7 +292,7 @@ public class PropertyEncoder {
                   case UINT_64 -> ((U64) p.getValue(index)).longValue().doubleValue();
                   case INT_8, INT_32, INT_64, FLOAT, DOUBLE ->
                       ((Number) p.getValue(index)).doubleValue();
-                  default -> null;
+                  case null, default -> null;
                 })
         .orElse(null);
   }
@@ -303,7 +306,7 @@ public class PropertyEncoder {
             p ->
                 switch (p.getType().getScalarType().orElse(null)) {
                   case STRING -> (String) p.getValue(index);
-                  default -> coercePropertyValues ? p.getValue(index).toString() : null;
+                  case null, default -> coercePropertyValues ? p.getValue(index).toString() : null;
                 })
         .orElse(null);
   }
@@ -606,8 +609,8 @@ public class PropertyEncoder {
     final var columnName = columnMetadata.getName();
     final var uniqueValues = new UniqueMapValues();
 
-    // Recursively gather all unique keys and values from nested fields,
-    // grouped by type, with one list of values for each encodable type.
+    // Recursively gather all unique keys and values, grouped
+    // by type, with one list of values for each encodable type.
     for (var feature : features) {
       feature
           .findProperty(columnName)
@@ -615,21 +618,21 @@ public class PropertyEncoder {
           .ifPresent(value -> collectUniqueMapValues(value, uniqueValues, columnName));
     }
 
-    // Now that all the values are collected and their final
-    // order is established, assign indexes for encoding
+    // Now that all the values are collected and their final order is established, assign indexes
+    // for encoding.  These indexes can be inferred by the decoder and so are not encoded.
     uniqueValues.assignIndexes();
 
     // Flatten each property into a list of integers
     final var flattenedMapData = flattenMapValues(features, columnName, uniqueValues);
     assert flattenedMapData.featureValueCounts().size() == features.size();
-    assert flattenedMapData.flattenedValues().stream().allMatch(Objects::nonNull);
+    assert flattenedMapData.flattenedValues().stream().noneMatch(Objects::isNull);
 
-    // If all maps are empty, we can skip writing data streams and just write a zero stream count
+    // If all entries are null, we can skip writing data streams and just write a zero stream count
     if (flattenedMapData.allNull()) {
       return new ArrayList<>(List.of(new byte[] {0}));
     }
 
-    // If any values are empty/null (which we conflate), write a presence stream
+    // If any values are null, write a presence stream
     final var writePresenceStream = flattenedMapData.anyNull();
 
     // Establish the stream mask so the decoder knows which of the optional streams are present
@@ -736,7 +739,7 @@ public class PropertyEncoder {
               flattenedMapData.flattenedValues(),
               physicalLevelTechnique,
               false,
-              PhysicalStreamType.DATA,
+              PhysicalStreamType.OFFSET,
               null));
       numStreams++;
     }
@@ -747,21 +750,24 @@ public class PropertyEncoder {
     return encodedStreams;
   }
 
+  /// Special data values indicating structure in the flattened map value stream
   public static final class MapControlValue {
     private MapControlValue() {}
 
-    public static final int NULL = 0;
-    public static final int FALSE = 1;
-    public static final int TRUE = 2;
-    // Indicates the value is a nested map rather than a scalar,
-    // followed by nested payload length and payload values.
-    public static final int START_MAP = 3;
-    // Indicates the value is a list rather than a scalar,
-    // followed by payload length and payload values.
-    public static final int START_LIST = 4;
-    public static final int COUNT = 5;
+    /// Boolean values are not stored in a dictionary, but encoded directly
+    public static final int FALSE = 0;
+    public static final int TRUE = 1;
+    /// Indicates the value is a nested map rather than a scalar,
+    /// followed by nested payload length and payload values.
+    public static final int START_MAP = 2;
+    /// Indicates the value is a list rather than a scalar,
+    /// followed by payload length and payload values.
+    public static final int START_LIST = 3;
+    /// Number of reserved control values, i.e. the starting index for dictionary values
+    public static final int COUNT = 4;
   }
 
+  /// Bitmask values used to indicate which dictionary streams follow
   public static final class MapMask {
     private MapMask() {}
 
@@ -776,7 +782,7 @@ public class PropertyEncoder {
   }
 
   /// Holds the sorted unique values for each encodable type for a map property column and their
-  // corresponding indexes
+  /// corresponding indexes
   // TODO: Better to combine [u]int32/64 values and encode everything as 64-bit if any need it?
   record UniqueMapValues(
       @NotNull TreeMap<String, Integer> uniqueStringValues,
@@ -898,7 +904,9 @@ public class PropertyEncoder {
       @NotNull final UniqueMapValues uniqueValues,
       @NotNull final String columnName) {
     switch (value) {
-      case null -> flattenedValues.add(MapControlValue.NULL);
+      case null -> {
+        // Null values are elided
+      }
       case Map<?, ?> nestedMap -> {
         appendMapValue(nestedMap, flattenedValues, uniqueValues, columnName);
       }
@@ -938,7 +946,9 @@ public class PropertyEncoder {
       @NotNull final UniqueMapValues uniqueValues,
       @NotNull final String columnName) {
     switch (item) {
-      case null -> listValueIndexes.add(MapControlValue.NULL);
+      case null -> {
+        // Null entries are elided
+      }
       case Map<?, ?> nestedMap ->
           appendMapValue(nestedMap, listValueIndexes, uniqueValues, columnName);
       case Iterable<?> nestedList ->
@@ -990,7 +1000,7 @@ public class PropertyEncoder {
   }
 
   /// Recursively walk a nested map property value, collecting all the unique scalars used as key
-  // and leaf values.
+  /// and leaf values.
   /// Indexes cannot be established yet, so all are set to zero.
   private static void collectUniqueMapValues(
       @Nullable final Object value,
@@ -998,7 +1008,7 @@ public class PropertyEncoder {
       @NotNull final String columnName) {
     switch (value) {
       case null -> {
-        // nulls are encoded as control markers, not dictionary values
+        // nulls values are elided
       }
       case Map<?, ?> map -> {
         for (final var entry : map.entrySet()) {

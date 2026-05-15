@@ -306,7 +306,8 @@ class SyntheticMltUtil {
       final var tile = new MapboxVectorTile(layers);
       final var columnMappings = buildColumnMappings(config);
       final var metadata =
-          MltConverter.createTilesetMetadata(tile, columnMappings, config.includeIds());
+          MltConverter.createTilesetMetadata(
+              tile, config.typeMismatchPolicy(), columnMappings, config.includeIds());
       final var mlt = MltConverter.encode(tile, metadata, config, null);
       final var unEncodedJSON = Json.toGeoJson(new MapLibreTile(layers), true) + "\n";
       final var decodedJSON = Json.toGeoJson(MltDecoder.decodeMlTile(mlt), true) + "\n";

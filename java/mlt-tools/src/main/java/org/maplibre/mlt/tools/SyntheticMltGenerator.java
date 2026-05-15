@@ -556,14 +556,16 @@ public class SyntheticMltGenerator {
                         6.0f,
                         7.0)))),
         cfg());
+
+    // Mixed scalar types in the same column as a nested value are supported
     write(
         "prop_nested_mixed_root",
         layer(
             SyntheticMltUtil.DEFAULT_LAYER_NAME,
-            feat(p0, prop("a", prop("b", "c"))),
             feat(p0, prop("a", "b")),
+            feat(p0, prop("a", prop("b", "c"))),
             feat(p0, prop("a", Math.PI))),
-        cfg());
+        cfg().coercePropValues());
   }
 
   /**

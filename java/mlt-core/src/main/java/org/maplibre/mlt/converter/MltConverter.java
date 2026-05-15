@@ -217,15 +217,15 @@ public class MltConverter {
           sourcePropertyName,
           (k, existingType) -> {
             if (existingType != null) {
-              // We can't handle mixing nested and other types for the same property.
-              // Maybe store scalars as a default/blank entry?
               if (existingType.field().type().is(MltMetadata.ComplexType.MAP)) {
+                return existingType;
+              }
+              if (typeMismatchPolicy == ConversionConfig.TypeMismatchPolicy.FAIL) {
                 throw new RuntimeException(
                     String.format(
-                        "Layer '%s' feature %d property '%s' has inconsistent nesting",
-                        layerName, featureIndex, property.getName()));
+                        "Layer '%s' Feature index %d Property '%s' has different type: MAP / %s",
+                        layerName, featureIndex, property.getName(), existingType.field().type()));
               }
-              return existingType;
             }
             return new MltMetadata.Column(new MltMetadata.Field(property.getType(), k));
           });

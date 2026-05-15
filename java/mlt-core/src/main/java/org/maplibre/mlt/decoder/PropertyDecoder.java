@@ -385,7 +385,6 @@ public class PropertyDecoder {
 
     final var token = flattenedValues.get(startIndex);
     return switch (token) {
-      case PropertyEncoder.MapControlValue.NULL -> new DecodedValue(null, startIndex + 1);
       case PropertyEncoder.MapControlValue.FALSE -> new DecodedValue(false, startIndex + 1);
       case PropertyEncoder.MapControlValue.TRUE -> new DecodedValue(true, startIndex + 1);
       case PropertyEncoder.MapControlValue.START_MAP,
