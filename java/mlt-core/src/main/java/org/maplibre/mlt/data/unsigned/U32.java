@@ -1,5 +1,7 @@
 package org.maplibre.mlt.data.unsigned;
 
+import java.math.BigInteger;
+
 public record U32(int value) implements Unsigned {
 
   public static U32 of(long value) {
@@ -21,6 +23,11 @@ public record U32(int value) implements Unsigned {
   @Override
   public Integer intValue() {
     return value;
+  }
+
+  @Override
+  public BigInteger bigIntValue() {
+    return BigInteger.valueOf(longValue());
   }
 
   @Override

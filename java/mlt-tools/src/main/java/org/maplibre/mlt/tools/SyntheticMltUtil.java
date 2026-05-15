@@ -32,6 +32,7 @@ import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MLTFeature;
+import org.maplibre.mlt.data.MapLibreTile;
 import org.maplibre.mlt.data.MapboxVectorTile;
 import org.maplibre.mlt.decoder.MltDecoder;
 import org.maplibre.mlt.json.Json;
@@ -291,15 +292,28 @@ class SyntheticMltUtil {
       throws IOException {
     try {
       System.out.println("Generating: " + fileName);
-      var config = cfg.build();
-      var tile = new MapboxVectorTile(layers);
+      final var config = cfg.build();
+      final var tile = new MapboxVectorTile(layers);
       final var columnMappings = buildColumnMappings(config);
-      var metadata = MltConverter.createTilesetMetadata(tile, columnMappings, config.includeIds());
-      var mlt = MltConverter.encode(tile, metadata, config, null);
+      final var metadata =
+          MltConverter.createTilesetMetadata(tile, columnMappings, config.includeIds());
+      final var mlt = MltConverter.encode(tile, metadata, config, null);
+      final var unEncodedJSON = Json.toGeoJson(new MapLibreTile(layers), true) + "\n";
+      final var decodedJSON = Json.toGeoJson(MltDecoder.decodeMlTile(mlt), true) + "\n";
+      if (!unEncodedJSON.equals(decodedJSON)) {
+        throw new RuntimeException(
+            "MLT round-trip failed for "
+                + fileName
+                + " \nUn-encoded:\n"
+                + unEncodedJSON
+                + "\nDecoded:\n"
+                + decodedJSON);
+      }
       Files.write(SYNTHETICS_DIR.resolve(fileName + ".mlt"), mlt, StandardOpenOption.CREATE_NEW);
-      final String json = Json.toGeoJson(MltDecoder.decodeMlTile(mlt), true) + "\n";
       Files.writeString(
-          SYNTHETICS_DIR.resolve(fileName + ".json"), json, StandardOpenOption.CREATE_NEW);
+          SYNTHETICS_DIR.resolve(fileName + ".json"), decodedJSON, StandardOpenOption.CREATE_NEW);
+    } catch (RuntimeException e) {
+      throw e;
     } catch (Exception e) {
       throw new IOException("Error writing MLT file " + fileName, e);
     }
