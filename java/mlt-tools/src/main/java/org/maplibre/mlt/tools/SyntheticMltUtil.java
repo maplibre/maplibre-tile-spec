@@ -308,20 +308,22 @@ class SyntheticMltUtil {
       final var metadata =
           MltConverter.createTilesetMetadata(tile, columnMappings, config.includeIds());
       final var mlt = MltConverter.encode(tile, metadata, config, null);
-      Files.write(SYNTHETICS_DIR.resolve(fileName + ".mlt"), mlt, StandardOpenOption.CREATE);
-      final String unencodedJson = Json.toGeoJson(new MapLibreTile(layers), true) + "\n";
-      final String decodedJson = Json.toGeoJson(MltDecoder.decodeMlTile(mlt), true) + "\n";
-      if (!unencodedJson.equals(decodedJson)) {
+      final var unEncodedJSON = Json.toGeoJson(new MapLibreTile(layers), true) + "\n";
+      final var decodedJSON = Json.toGeoJson(MltDecoder.decodeMlTile(mlt), true) + "\n";
+      if (!unEncodedJSON.equals(decodedJSON)) {
         throw new RuntimeException(
             "MLT round-trip failed for "
                 + fileName
-                + "\nUn-encoded:\n"
-                + unencodedJson
+                + " \nUn-encoded:\n"
+                + unEncodedJSON
                 + "\nDecoded:\n"
-                + decodedJson);
+                + decodedJSON);
       }
+      Files.write(SYNTHETICS_DIR.resolve(fileName + ".mlt"), mlt, StandardOpenOption.CREATE_NEW);
       Files.writeString(
-          SYNTHETICS_DIR.resolve(fileName + ".json"), decodedJson, StandardOpenOption.CREATE);
+          SYNTHETICS_DIR.resolve(fileName + ".json"), decodedJSON, StandardOpenOption.CREATE_NEW);
+    } catch (RuntimeException e) {
+      throw e;
     } catch (Exception e) {
       throw new IOException("Error writing MLT file " + fileName, e);
     }

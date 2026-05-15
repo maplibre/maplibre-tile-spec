@@ -1,0 +1,24 @@
+[package]
+name = "mlt-ffi"
+description = "Diplomat FFI bindings for mlt-core"
+version = "0.1.0"
+authors.workspace = true
+categories.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+diplomat.workspace = true
+diplomat-runtime.workspace = true
+mlt-core.workspace = true
+
+[lints]
+workspace = true
