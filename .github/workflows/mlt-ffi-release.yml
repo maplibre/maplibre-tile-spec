@@ -117,7 +117,7 @@ jobs:
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_PRIVATE_KEY }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
-        run: gradle publishToMavenCentral -Pversion="$MLT_VERSION"
+        run: ./gradlew publishToMavenCentral -Pversion="$MLT_VERSION"
 
   release:
     name: Create GitHub Release

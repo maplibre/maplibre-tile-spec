@@ -1,0 +1,130 @@
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '2.3.21'
+    id 'com.vanniktech.maven.publish' version '0.36.0'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    api 'net.java.dev.jna:jna:5.18.1'
+
+    testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:6.0.3'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+kotlin {
+    jvmToolchain(21)
+}
+
+// Round-trip test lives alongside the other language tests; pull it in as the
+// test source set instead of duplicating it under generated/kotlin.
+sourceSets {
+    test {
+        kotlin {
+            srcDirs = ['../../tests/kotlin']
+        }
+    }
+}
+
+test {
+    useJUnitPlatform()
+    // Native libraries are packed into build/resources/main at JNA-compatible
+    // resource paths by processResources; JNA finds and extracts them from the
+    // classpath, exercising the same path that real consumers will hit.
+    jvmArgs '--enable-native-access=ALL-UNNAMED'
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        exceptionFormat = 'full'
+        showStandardStreams = true
+    }
+}
+
+// The mlt-ffi-release workflow downloads per-platform native libraries into
+// build/natives/<ci-classifier>/<libname>. JNA looks them up on the classpath
+// under its own RESOURCE_PREFIX naming, so rename as we pack them into the JAR.
+def jnaResourcePrefix(String classifier) {
+    switch (classifier) {
+        case 'linux-x86_64':      return 'linux-x86-64'
+        case 'linux-x86_64-musl': return 'linux-x86-64-musl'
+        case 'linux-aarch64':     return 'linux-aarch64'
+        case 'macos-aarch64':     return 'darwin-aarch64'
+        case 'windows-x86_64':    return 'win32-x86-64'
+        default: throw new GradleException("Unknown native classifier: ${classifier}")
+    }
+}
+
+processResources {
+    from(layout.buildDirectory.dir('natives')) {
+        eachFile { details ->
+            def segments = details.relativePath.segments
+            if (segments.length < 2) {
+                details.exclude()
+                return
+            }
+            details.path = jnaResourcePrefix(segments[0]) + '/' + segments[-1]
+        }
+        includeEmptyDirs = false
+    }
+}
+
+tasks.register('validateSemver') {
+    doLast {
+        def v = project.version?.toString()
+        if (v == null || v == 'unspecified') {
+            throw new GradleException("Version is not set. Provide one with -Pversion=<major.minor.patch>")
+        }
+        if (!v.matches(/^\d+\.\d+\.\d+$/)) {
+            throw new GradleException("Version '${v}' is not a valid semantic version. Expected major.minor.patch")
+        }
+    }
+}
+
+mavenPublishing {
+    publishToMavenCentral(true)
+    signAllPublications()
+
+    coordinates('org.maplibre', 'mlt-ffi-kotlin', version)
+
+    publishToMavenCentral.dependsOn validateSemver
+
+    pom {
+        name = 'MapLibre Tile FFI (Kotlin)'
+        description = 'Kotlin bindings for the MapLibre Tile (MLT) FFI'
+        url = 'https://github.com/maplibre/maplibre-tile-spec'
+
+        licenses {
+            license {
+                name = 'The Apache License, Version 2.0'
+                url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
+            }
+        }
+
+        developers {
+            developer {
+                id = 'maplibre'
+                name = 'MapLibre contributors'
+                url = 'https://github.com/maplibre'
+            }
+        }
+
+        scm {
+            connection = 'scm:git:git://github.com/maplibre/maplibre-tile-spec.git'
+            developerConnection = 'scm:git:ssh://github.com:maplibre/maplibre-tile-spec.git'
+            url = 'https://github.com/maplibre/maplibre-tile-spec'
+        }
+    }
+}
+
+// Only sign when a signing key is supplied. This skips signing for local installs
+// (mavenLocal), while CI provides the key via ORG_GRADLE_PROJECT_signingInMemoryKey.
+tasks.withType(Sign).configureEach {
+    onlyIf { project.hasProperty('signingInMemoryKey') }
+}
