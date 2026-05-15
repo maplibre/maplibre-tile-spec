@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.14](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.13...rust-mlt-v0.1.14) - 2026-05-15
+
+### Other
+
+- *(deps)* bump hotpath from 0.15.1 to 0.16.0 in /rust in the all-cargo-version-updates group across 1 directory ([#1380](https://github.com/maplibre/maplibre-tile-spec/pull/1380))
+
 ## [0.1.13](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.12...rust-mlt-v0.1.13) - 2026-05-14
 
 ### Added
