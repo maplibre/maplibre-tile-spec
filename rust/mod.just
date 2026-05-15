@@ -372,7 +372,7 @@ test-ffi-cpp:
     LD_LIBRARY_PATH="$LIB_DIR" target/test_ffi_cpp
 
 # Run the Kotlin FFI round-trip test (builds cdylib, compiles + runs test)
-test-ffi-kotlin: (just 'assert-cmd' 'gradle')
+test-ffi-kotlin: (just 'assert-cmd' 'java')
     #!/usr/bin/env bash
     set -euo pipefail
     cargo build --release -p mlt-ffi
@@ -390,7 +390,7 @@ test-ffi-kotlin: (just 'assert-cmd' 'gradle')
     cp "target/release/$LIB" "$NATIVES/$LIB"
 
     cd mlt-ffi/generated/kotlin
-    gradle --console=plain --no-daemon test -Pversion=0.0.0-test
+    ./gradlew --console=plain --no-daemon test -Pversion=0.0.0-test
 
 # Regenerate the Python type stub for mlt-py
 sync-pyo3-stubs:
