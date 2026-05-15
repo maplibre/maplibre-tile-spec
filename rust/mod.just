@@ -10,7 +10,7 @@ export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} els
 export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'})
 
 # Features excluded from cargo-hack --each-feature iterations (heavy optional instrumentation)
-hack_skip := '--exclude-features __hotpath,__hotpath-alloc,__hotpath-mcp'
+hack_skip := '--exclude-features hotpath,hotpath-alloc,hotpath-mcp'
 
 _default: (just '--list' 'rust')
 
@@ -182,7 +182,7 @@ _coverage: (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm
 
 # Run the encoder with hotpath profiling (timing + allocation tracking)
 profile *args:
-    cargo run --release -p mlt --features='__hotpath,__hotpath-alloc,__hotpath-mcp' -- {{args}}
+    cargo run --release -p mlt --features='hotpath,hotpath-alloc,hotpath-mcp' -- {{args}}
 
 # Compress the tiles into `sizes(z, x, y, size)` SQLite DB
 compress-db-statistics tile_dir db:
