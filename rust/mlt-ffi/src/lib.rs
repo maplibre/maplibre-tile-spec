@@ -2,26 +2,6 @@ use mlt_core::encoder::EncoderConfig;
 use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::{Decoder, Layer, MltError, Parser};
 
-fn mlt_to_mvt_inner(mlt: &[u8]) -> Result<Vec<u8>, MltError> {
-    let layers = Parser::default().parse_layers(mlt)?;
-    let mut dec = Decoder::default();
-    let mut tiles = Vec::new();
-    for layer in layers {
-        if let Layer::Tag01(l) = layer {
-            tiles.push(l.into_tile(&mut dec)?);
-        }
-    }
-    tile_layers_to_mvt(tiles)
-}
-
-fn mvt_to_mlt_inner(mvt: &[u8], cfg: EncoderConfig) -> Result<Vec<u8>, MltError> {
-    let mut out = Vec::new();
-    for tile in mvt_to_tile_layers(mvt.to_vec())? {
-        out.extend_from_slice(&tile.encode(cfg)?);
-    }
-    Ok(out)
-}
-
 #[expect(
     clippy::unnecessary_box_returns,
     reason = "Diplomat requires `Box<T>` returns for opaque constructors"
@@ -32,7 +12,6 @@ fn mvt_to_mlt_inner(mvt: &[u8], cfg: EncoderConfig) -> Result<Vec<u8>, MltError>
 )]
 #[diplomat::bridge]
 mod ffi {
-    use super::{mlt_to_mvt_inner, mvt_to_mlt_inner};
     use mlt_core::encoder::EncoderConfig;
 
     /// Error type returned by FFI conversion functions.
@@ -70,7 +49,7 @@ mod ffi {
     }
 
     /// Encoder options controlling which optimisations are attempted for
-    /// MVT → MLT conversion.
+    /// MVT -> MLT conversion.
     ///
     /// Construct with [`new`](MltEncoderOptions::new) (all optimisations
     /// enabled except tessellation) and toggle individual flags with the
@@ -129,9 +108,17 @@ mod ffi {
     impl MltConverter {
         /// Decode MLT bytes into MVT bytes.
         pub fn mlt_to_mvt(mlt: &[u8]) -> Result<Box<MltBuffer>, ConvertError> {
-            mlt_to_mvt_inner(mlt)
-                .map(|v| Box::new(MltBuffer(v)))
-                .map_err(|_| ConvertError::InvalidInput)
+            let layers = Parser::default().parse_layers(mlt).map_err(|_| ConvertError::InvalidInput)?;
+            let mut dec = Decoder::default();
+            let mut tiles = Vec::new();
+            for layer in layers {
+                if let Layer::Tag01(l) = layer {
+                    let tile = l.into_tile(&mut dec).map_err(|_| ConvertError::InvalidInput)?;
+                    tiles.push(tile);
+                }
+            }
+            let out = tile_layers_to_mvt(tiles).map_err(|_| ConvertError::InvalidInput)?;
+            Ok(Box::new(MltBuffer(out)))
         }
 
         /// Encode MVT bytes into MLT bytes using the given encoder options.
@@ -139,9 +126,13 @@ mod ffi {
             mvt: &[u8],
             options: &MltEncoderOptions,
         ) -> Result<Box<MltBuffer>, ConvertError> {
-            mvt_to_mlt_inner(mvt, options.0)
-                .map(|v| Box::new(MltBuffer(v)))
-                .map_err(|_| ConvertError::EncodingFailed)
+            let mut out = Vec::new();
+            let layers = mvt_to_tile_layers(mvt.to_vec()).map_err(|_| ConvertError::EncodingFailed)?;
+            for tile in layers {
+                let encoded_tile = tile.encode(options.0).map_err(|_| ConvertError::EncodingFailed)?;
+                out.extend_from_slice(&encoded_tile);
+            }
+            Ok(Box::new(MltBuffer(out)))
         }
     }
 }
