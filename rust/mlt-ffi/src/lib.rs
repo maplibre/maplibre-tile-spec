@@ -10,7 +10,7 @@
 mod ffi {
     use mlt_core::encoder::EncoderConfig;
     use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
-    use mlt_core::{Decoder, Layer, MltError, Parser};
+    use mlt_core::{Decoder, Layer, Parser};
 
     /// Error type returned by FFI conversion functions.
     #[diplomat::attr(auto, error)]
