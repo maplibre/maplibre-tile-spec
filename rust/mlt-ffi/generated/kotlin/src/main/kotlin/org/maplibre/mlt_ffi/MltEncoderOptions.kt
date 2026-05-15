@@ -47,7 +47,7 @@ internal interface MltEncoderOptionsLib : Library {
 }
 
 /** Encoder options controlling which optimisations are attempted for
-*MVT → MLT conversion.
+*MVT -> MLT conversion.
 *
 *Construct with [new](MltEncoderOptions::new) (all optimisations
 *enabled except tessellation) and toggle individual flags with the

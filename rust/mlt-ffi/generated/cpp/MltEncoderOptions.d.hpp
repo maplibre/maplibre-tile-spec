@@ -19,7 +19,7 @@ struct MltEncoderOptions;
 
 /**
  * Encoder options controlling which optimisations are attempted for
- * MVT → MLT conversion.
+ * MVT -> MLT conversion.
  *
  * Construct with {@link new}(MltEncoderOptions::new) (all optimisations
  * enabled except tessellation) and toggle individual flags with the
