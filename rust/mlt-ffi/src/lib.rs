@@ -108,12 +108,16 @@ mod ffi {
     impl MltConverter {
         /// Decode MLT bytes into MVT bytes.
         pub fn mlt_to_mvt(mlt: &[u8]) -> Result<Box<MltBuffer>, ConvertError> {
-            let layers = Parser::default().parse_layers(mlt).map_err(|_| ConvertError::InvalidInput)?;
+            let layers = Parser::default()
+                .parse_layers(mlt)
+                .map_err(|_| ConvertError::InvalidInput)?;
             let mut dec = Decoder::default();
             let mut tiles = Vec::new();
             for layer in layers {
                 if let Layer::Tag01(l) = layer {
-                    let tile = l.into_tile(&mut dec).map_err(|_| ConvertError::InvalidInput)?;
+                    let tile = l
+                        .into_tile(&mut dec)
+                        .map_err(|_| ConvertError::InvalidInput)?;
                     tiles.push(tile);
                 }
             }
@@ -127,9 +131,12 @@ mod ffi {
             options: &MltEncoderOptions,
         ) -> Result<Box<MltBuffer>, ConvertError> {
             let mut out = Vec::new();
-            let layers = mvt_to_tile_layers(mvt.to_vec()).map_err(|_| ConvertError::EncodingFailed)?;
+            let layers =
+                mvt_to_tile_layers(mvt.to_vec()).map_err(|_| ConvertError::EncodingFailed)?;
             for tile in layers {
-                let encoded_tile = tile.encode(options.0).map_err(|_| ConvertError::EncodingFailed)?;
+                let encoded_tile = tile
+                    .encode(options.0)
+                    .map_err(|_| ConvertError::EncodingFailed)?;
                 out.extend_from_slice(&encoded_tile);
             }
             Ok(Box::new(MltBuffer(out)))
