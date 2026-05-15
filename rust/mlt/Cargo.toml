@@ -20,8 +20,8 @@ pkg-fmt = "zip"
 
 [features]
 hotpath = ["hotpath/hotpath", "hotpath/tokio", "hotpath/threads", "hotpath/tui"]
-hotpath-alloc = ["__hotpath", "hotpath/hotpath-alloc"]
-hotpath-mcp = ["__hotpath", "hotpath/hotpath-mcp", "hotpath/hotpath-mcp-meta"]
+hotpath-alloc = ["hotpath", "hotpath/hotpath-alloc"]
+hotpath-mcp = ["hotpath", "hotpath/hotpath-mcp", "hotpath/hotpath-mcp-meta"]
 
 [dependencies]
 anyhow.workspace = true
