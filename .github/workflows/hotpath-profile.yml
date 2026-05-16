@@ -43,7 +43,7 @@ jobs:
           HOTPATH_OUTPUT_FORMAT: json
           HOTPATH_OUTPUT_PATH: /tmp/metrics/head_timing.json
         run: |
-          cargo run --release -p mlt --features='__hotpath,__hotpath-alloc' -- \
+          cargo run --release -p mlt --features='hotpath,hotpath-alloc' -- \
             convert /tmp/benchmark-tiles/ /tmp/mlt-head-out/
 
       - name: Head per-tile sizes
@@ -58,7 +58,7 @@ jobs:
           HOTPATH_OUTPUT_FORMAT: json
           HOTPATH_OUTPUT_PATH: /tmp/metrics/base_timing.json
         run: |
-          cargo run --release -p mlt --features='__hotpath,__hotpath-alloc' -- \
+          cargo run --release -p mlt --features='hotpath,hotpath-alloc' -- \
             convert /tmp/benchmark-tiles/ /tmp/mlt-base-out/
 
       - name: Base per-tile sizes

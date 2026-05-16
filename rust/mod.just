@@ -10,7 +10,7 @@ export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} els
 export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'})
 
 # Features excluded from cargo-hack --each-feature iterations (heavy optional instrumentation)
-hack_skip := '--exclude-features __hotpath,__hotpath-alloc,__hotpath-mcp'
+hack_skip := '--exclude-features hotpath,hotpath-alloc,hotpath-mcp'
 
 # Files excluded from `mlt ls --validate-to-json ...`
 validate_excludes := "--exclude '../test/synthetic/0x01/prop_nested*'"
@@ -185,7 +185,7 @@ _coverage: (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm
 
 # Run the encoder with hotpath profiling (timing + allocation tracking)
 profile *args:
-    cargo run --release -p mlt --features='__hotpath,__hotpath-alloc,__hotpath-mcp' -- {{args}}
+    cargo run --release -p mlt --features='hotpath,hotpath-alloc,hotpath-mcp' -- {{args}}
 
 # Compress the tiles into `sizes(z, x, y, size)` SQLite DB
 compress-db-statistics tile_dir db:
@@ -375,27 +375,25 @@ test-ffi-cpp:
     LD_LIBRARY_PATH="$LIB_DIR" target/test_ffi_cpp
 
 # Run the Kotlin FFI round-trip test (builds cdylib, compiles + runs test)
-test-ffi-kotlin: (just 'assert-cmd' 'kotlinc')
+test-ffi-kotlin: (just 'assert-cmd' 'java')
     #!/usr/bin/env bash
     set -euo pipefail
     cargo build --release -p mlt-ffi
-    LIB_DIR="$(pwd)/target/release"
-    KOTLIN_SRC="$(find mlt-ffi/generated/kotlin -type f -name '*.kt' -printf '%h\n' | head -1)"
-    JNA_DIRS=()
-    for d in mlt-ffi/tests/kotlin/lib /usr/share/java ~/.gradle; do
-        [ -d "$d" ] && JNA_DIRS+=("$d")
-    done
-    JNA_JAR="$(find "${JNA_DIRS[@]}" -name 'jna*.jar' 2>/dev/null | head -1)"
-    if [ -z "$JNA_JAR" ]; then
-        echo "::error::JNA jar not found — install libjna-java or download jna.jar"
-        exit 1
-    fi
-    kotlinc -cp "$JNA_JAR" \
-        "$KOTLIN_SRC"/*.kt mlt-ffi/tests/kotlin/TestRoundTrip.kt \
-        -include-runtime -d target/test_ffi_kotlin.jar 2>&1
-    LD_LIBRARY_PATH="$LIB_DIR" \
-    java -cp "target/test_ffi_kotlin.jar:$JNA_JAR" -Djna.library.path="$LIB_DIR" \
-        --enable-native-access=ALL-UNNAMED TestRoundTripKt
+
+    case "$(uname -s)-$(uname -m)" in
+        Linux-x86_64)        CLASSIFIER=linux-x86_64;   LIB=libmlt_ffi.so    ;;
+        Linux-aarch64)       CLASSIFIER=linux-aarch64;  LIB=libmlt_ffi.so    ;;
+        Darwin-arm64)        CLASSIFIER=macos-aarch64;  LIB=libmlt_ffi.dylib ;;
+        MINGW*-*|MSYS*-*|CYGWIN*-*) CLASSIFIER=windows-x86_64; LIB=mlt_ffi.dll ;;
+        *) echo "::error::Unsupported host $(uname -s)-$(uname -m)"; exit 1 ;;
+    esac
+
+    NATIVES="mlt-ffi/generated/kotlin/build/natives/$CLASSIFIER"
+    mkdir -p "$NATIVES"
+    cp "target/release/$LIB" "$NATIVES/$LIB"
+
+    cd mlt-ffi/generated/kotlin
+    ./gradlew --console=plain --no-daemon test -Pversion=0.0.0-test
 
 # Regenerate the Python type stub for mlt-py
 sync-pyo3-stubs:

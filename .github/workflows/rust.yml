@@ -110,10 +110,12 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/mlt-setup-rust
       - if: matrix.backend == 'kotlin'
-        run: |
-          sudo apt-get update && sudo apt-get install -y libjna-java
-          curl -sSL https://github.com/JetBrains/kotlin/releases/download/v2.1.21/kotlin-compiler-2.1.21.zip -o /tmp/kotlin.zip
-          sudo unzip -q /tmp/kotlin.zip -d /opt && echo "/opt/kotlinc/bin" >> "$GITHUB_PATH"
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - if: matrix.backend == 'kotlin'
+        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
       - run: just -v rust::${{ matrix.recipe }}
 
   test-publish:
