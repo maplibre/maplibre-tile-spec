@@ -90,7 +90,7 @@ jobs:
         env:
           REF_NAME: ${{ github.ref_name }}
         run: |
-          version="$(just ci-extract-version mlt-ffi "$REF_NAME")"
+          version="$(just ci-extract-version rust-mlt-ffi "$REF_NAME")"
           echo version="$version" >> "$GITHUB_ENV"
 
       - name: Download all native artifacts
