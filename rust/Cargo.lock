@@ -3568,7 +3568,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-py"
-version = "0.1.15"
+version = "0.1.16"
 dependencies = [
  "mlt-core",
  "pyo3",
