@@ -3,7 +3,7 @@ name: mlt-ffi - Release
 on:
   push:
     tags:
-      - 'mlt-ffi-v*.*.*'
+      - 'rust-mlt-ffi-v*.*.*'
   workflow_dispatch:
 
 permissions: {}
