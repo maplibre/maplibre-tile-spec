@@ -77,7 +77,7 @@ public final class Json {
     return gson.toJson(toGeoJsonObjects(tile, gson));
   }
 
-  private static Gson createGson(boolean pretty) {
+  public static Gson createGson(boolean pretty) {
     final var builder =
         new GsonBuilder()
             .disableJdkUnsafe()

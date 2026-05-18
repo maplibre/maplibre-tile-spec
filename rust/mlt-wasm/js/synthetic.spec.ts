@@ -27,11 +27,14 @@ const UNIMPLEMENTED_SYNTHETICS = new Map([
   ["poly_self_intersect_fpf", "FastPFor not supported"],
   ["poly_self_intersect_fpf_tes", "FastPFor not supported"],
   ["poly_multi_morton_hole_morton", "Pending investigation"],
-  ["0x01/prop_nested_null", "not implemented yet"],
-  ["0x01/prop_nested_empty", "not implemented yet"],
+  ["prop_nested_big", "not implemented yet"],
+  ["0x01/prop_nested_json", "not implemented yet"],
   ["0x01/prop_nested_list_root", "not implemented yet"],
+  ["0x01/prop_nested_list", "not implemented yet"],
   ["0x01/prop_nested_mixed_root", "not implemented yet"],
-  ["0x01/prop_nested_types", "not implemented yet"],
+  ["0x01/prop_nested_null", "not implemented yet"],
+  ["0x01/prop_nested_shared", "not implemented yet"],
+  ["0x01/prop_nested_specials", "not implemented yet"],
 ]);
 
 describe("MLT WASM Decoder - Synthetic tests", () => {

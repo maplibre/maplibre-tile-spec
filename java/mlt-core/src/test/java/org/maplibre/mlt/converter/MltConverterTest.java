@@ -10,7 +10,9 @@ import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.maplibre.mlt.data.Layer;
+import org.maplibre.mlt.data.MLTFeature;
 import org.maplibre.mlt.data.MVTFeature;
+import org.maplibre.mlt.data.MapLibreTile;
 import org.maplibre.mlt.data.MapboxVectorTile;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
@@ -100,6 +102,38 @@ class MltConverterTest {
     metadata.featureTables = List.of();
 
     MltConverter.createTilesetMetadataJSON(metadata);
+  }
+
+  @Test
+  void mergeMapColumnsIntoSingleSchema() {
+    final var tile =
+        new MapLibreTile(
+            List.of(
+                new Layer(
+                    "layer",
+                    List.of(
+                        MLTFeature.builder()
+                            .index(0)
+                            .geometry(emptyGeometry)
+                            .rawProperties(
+                                Map.of("meta_a", Map.of("k1", 1), "meta_b", Map.of("k2", 2)))
+                            .build()),
+                    4096)));
+
+    final var metadata = MltConverter.createTilesetMetadata(tile, new ColumnMappingConfig(), false);
+    final var mapColumns =
+        metadata.featureTables.stream()
+            .flatMap(table -> table.columns().stream())
+            .filter(column -> column.is(MltMetadata.ComplexType.MAP))
+            .toList();
+
+    assertEquals(1, mapColumns.size());
+    final var mapColumn = mapColumns.getFirst();
+    assertEquals("meta_", mapColumn.getName());
+
+    final var childNames =
+        mapColumn.getChildren().orElseThrow().stream().map(MltMetadata.Field::name).toList();
+    assertEquals(List.of("a", "b"), childNames);
   }
 
   private static final GeometryFactory factory = new GeometryFactory();

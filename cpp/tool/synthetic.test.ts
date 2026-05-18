@@ -12,11 +12,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const binary = resolve(__dirname, "../build/tool/mlt-cpp-json");
 
 const SKIPPED_TESTS = [
-  "0x01/prop_nested_null",
-  "0x01/prop_nested_empty",
+  "0x01/prop_nested_big",
+  "0x01/prop_nested_json",
   "0x01/prop_nested_list_root",
+  "0x01/prop_nested_list",
   "0x01/prop_nested_mixed_root",
-  "0x01/prop_nested_types",
+  "0x01/prop_nested_null",
+  "0x01/prop_nested_shared",
+  "0x01/prop_nested_specials",
 ];
 
 describe("MLT Decoder - Synthetic tests", () => {

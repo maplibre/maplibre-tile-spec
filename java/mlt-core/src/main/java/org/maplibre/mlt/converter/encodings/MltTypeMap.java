@@ -36,6 +36,10 @@ public class MltTypeMap {
       return Tag0x01.decodeColumnType(typeCode);
     }
 
+    public static boolean columnTypeHasChildren(int typeCode) {
+      return (typeCode == 31) || Tag0x01.columnTypeHasChildren(typeCode);
+    }
+
     public static boolean hasStreamCount(MltMetadata.FieldType type) {
       if (type.complexType() != null) {
         final var complex = type.complexType();

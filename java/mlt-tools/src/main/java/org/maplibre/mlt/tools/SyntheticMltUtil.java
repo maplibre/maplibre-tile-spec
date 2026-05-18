@@ -279,26 +279,29 @@ class SyntheticMltUtil {
     return new Layer(name, Arrays.asList(features), extent);
   }
 
-  static void write(String name, Feature feat, ConversionConfig.ConfigBuilder cfg)
+  public record WriteResult(
+      String fileName, byte[] mltData, MapLibreTile decodedMlt, String decodedJson) {}
+
+  static WriteResult write(String name, Feature feat, ConversionConfig.ConfigBuilder cfg)
       throws IOException {
-    write(layer(name, feat), cfg);
+    return write(layer(name, feat), cfg);
   }
 
-  static void write(Layer layer, ConversionConfig.ConfigBuilder cfg) throws IOException {
+  static WriteResult write(Layer layer, ConversionConfig.ConfigBuilder cfg) throws IOException {
     // layer names should be identical to reduce variability in generated MLT files
     // and ensure we observe differences in encoding rather than layer name variations
-    write(
+    return write(
         layer.name(),
         List.of(new Layer(DEFAULT_LAYER_NAME, layer.features(), layer.tileExtent())),
         cfg);
   }
 
-  static void write(String fileName, Layer layers, ConversionConfig.ConfigBuilder cfg)
+  static WriteResult write(String fileName, Layer layers, ConversionConfig.ConfigBuilder cfg)
       throws IOException {
-    write(fileName, List.of(layers), cfg);
+    return write(fileName, List.of(layers), cfg);
   }
 
-  static void write(String fileName, List<Layer> layers, ConversionConfig.ConfigBuilder cfg)
+  static WriteResult write(String fileName, List<Layer> layers, ConversionConfig.ConfigBuilder cfg)
       throws IOException {
     try {
       System.out.println("Generating: " + fileName);
@@ -310,7 +313,8 @@ class SyntheticMltUtil {
               tile, config.typeMismatchPolicy(), columnMappings, config.includeIds());
       final var mlt = MltConverter.encode(tile, metadata, config, null);
       final var unEncodedJSON = Json.toGeoJson(new MapLibreTile(layers), true) + "\n";
-      final var decodedJSON = Json.toGeoJson(MltDecoder.decodeMlTile(mlt), true) + "\n";
+      final var decodedMlt = MltDecoder.decodeMlTile(mlt);
+      final var decodedJSON = Json.toGeoJson(decodedMlt, true) + "\n";
       if (!unEncodedJSON.equals(decodedJSON)) {
         throw new RuntimeException(
             "MLT round-trip failed for "
@@ -323,6 +327,7 @@ class SyntheticMltUtil {
       Files.write(SYNTHETICS_DIR.resolve(fileName + ".mlt"), mlt, StandardOpenOption.CREATE_NEW);
       Files.writeString(
           SYNTHETICS_DIR.resolve(fileName + ".json"), decodedJSON, StandardOpenOption.CREATE_NEW);
+      return new WriteResult(fileName, mlt, decodedMlt, decodedJSON);
     } catch (RuntimeException e) {
       throw e;
     } catch (Exception e) {
@@ -332,7 +337,7 @@ class SyntheticMltUtil {
 
   private static ColumnMappingConfig buildColumnMappings(ConversionConfig config) {
     final var columnMappings = new ColumnMappingConfig();
-    if (config.optimizations() != null && !config.optimizations().isEmpty()) {
+    if (!config.optimizations().isEmpty()) {
       var allColumnMappings =
           config.optimizations().values().stream()
               .flatMap(opt -> opt.columnMappings().stream())

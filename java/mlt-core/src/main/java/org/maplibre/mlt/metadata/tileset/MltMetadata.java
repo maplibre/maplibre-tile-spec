@@ -213,7 +213,7 @@ public final class MltMetadata {
     /// Get the child fields of this field, if applicable (e.g., for STRUCT or MAP types)
     /// @return an Optional containing a SequencedCollection of child fields, or an empty Optional
     public Optional<SequencedCollection<Field>> getChildren() {
-      return (complexType != null) ? Optional.ofNullable(complexType.children) : Optional.empty();
+      return (complexType != null) ? Optional.of(complexType.children) : Optional.empty();
     }
   }
 

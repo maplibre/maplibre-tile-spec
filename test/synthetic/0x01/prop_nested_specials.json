@@ -6,9 +6,14 @@
       "properties": {
         "_extent": 80,
         "_layer": "layer1",
-        "a": {
-          "b": {}
-        }
+        "a": [
+          "f32::NAN",
+          "f64::NAN",
+          "f32::INFINITY",
+          "f32::NEG_INFINITY",
+          "f64::INFINITY",
+          "f64::NEG_INFINITY"
+        ]
       },
       "geometry": {
         "type": "Point",

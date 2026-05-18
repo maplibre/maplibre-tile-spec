@@ -2,6 +2,8 @@ package org.maplibre.mlt.converter.encodings;
 
 import jakarta.annotation.Nullable;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -12,7 +14,9 @@ import java.util.Objects;
 import java.util.SequencedCollection;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
 import org.maplibre.mlt.converter.CollectionUtils;
 import org.maplibre.mlt.converter.ColumnMapping;
 import org.maplibre.mlt.converter.ConversionConfig;
@@ -606,26 +610,30 @@ public class PropertyEncoder {
       @NotNull final ConversionConfig.IntegerEncodingOption encodingOption)
       throws IOException {
 
-    final var columnName = columnMetadata.getName();
     final var uniqueValues = new UniqueMapValues();
+    final var columnNames = getMapColumnNames(columnMetadata);
 
     // Recursively gather all unique keys and values, grouped
     // by type, with one list of values for each encodable type.
     for (var feature : features) {
-      feature
-          .findProperty(columnName)
-          .map(property -> property.getValue(feature.getIndex()))
-          .ifPresent(value -> collectUniqueMapValues(value, uniqueValues, columnName));
+      for (var columnName : columnNames) {
+        feature
+            .findProperty(columnName)
+            .map(property -> property.getValue(feature.getIndex()))
+            .ifPresent(value -> collectUniqueMapValues(value, uniqueValues, columnName));
+      }
     }
 
     // Now that all the values are collected and their final order is established, assign indexes
     // for encoding.  These indexes can be inferred by the decoder and so are not encoded.
     uniqueValues.assignIndexes();
 
-    // Flatten each property into a list of integers
-    final var flattenedMapData = flattenMapValues(features, columnName, uniqueValues);
-    assert flattenedMapData.featureValueCounts().size() == features.size();
-    assert flattenedMapData.flattenedValues().stream().noneMatch(Objects::isNull);
+    // Flatten each property into a list of integers.
+    final var flattenedMapData =
+        combineFlattenedMapData(
+            columnNames.stream()
+                .map(columnName -> flattenMapValues(features, columnName, uniqueValues))
+                .toList());
 
     // If all entries are null, we can skip writing data streams and just write a zero stream count
     if (flattenedMapData.allNull()) {
@@ -639,7 +647,9 @@ public class PropertyEncoder {
     final var mask =
         uniqueValues.dictionaryPresenceMask() | (writePresenceStream ? MapMask.PRESENCE : 0);
 
-    final var maxNumStreams = 15;
+    final var maxDictionaryStreams =
+        11; // one for each encodable type, but strings can write 5 streams
+    final var maxNumStreams = maxDictionaryStreams + 3; // length, values, presence
     final var encodedStreams = new ArrayList<byte[]>(maxNumStreams);
 
     encodedStreams.add(null); // placeholder for stream count
@@ -750,6 +760,19 @@ public class PropertyEncoder {
     return encodedStreams;
   }
 
+  public static @NonNull List<String> getMapColumnNames(
+      final MltMetadata.@NonNull Column columnMetadata) {
+    // Gather column names.  If this is a single column, the name is just the type name.
+    // If it's a shared column, each name is the parent name plus the child name.
+    final var parentName = columnMetadata.getName();
+    return columnMetadata
+        .getChildren()
+        .filter(children -> !children.isEmpty())
+        .map(children -> children.stream().map(col -> parentName + col.name()))
+        .orElse(Stream.of(parentName))
+        .toList();
+  }
+
   /// Special data values indicating structure in the flattened map value stream
   public static final class MapControlValue {
     private MapControlValue() {}
@@ -841,6 +864,39 @@ public class PropertyEncoder {
       @NotNull ArrayList<Boolean> featurePresentValues,
       boolean anyNull,
       boolean allNull) {}
+
+  private static FlattenedMapData combineFlattenedMapData(
+      @NotNull final List<FlattenedMapData> flattenedMapData) {
+    if (flattenedMapData.isEmpty()) {
+      return new FlattenedMapData(
+          new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), false, true);
+    }
+
+    if (flattenedMapData.size() == 1) {
+      return flattenedMapData.getFirst();
+    }
+
+    final var combinedFlattenedValues = new ArrayList<Integer>();
+    final var combinedFeatureValueCounts = new ArrayList<Integer>();
+    final var combinedFeaturePresentValues = new ArrayList<Boolean>();
+    var anyNull = false;
+    var allNull = true;
+
+    for (final var entry : flattenedMapData) {
+      combinedFlattenedValues.addAll(entry.flattenedValues());
+      combinedFeatureValueCounts.addAll(entry.featureValueCounts());
+      combinedFeaturePresentValues.addAll(entry.featurePresentValues());
+      anyNull |= entry.anyNull();
+      allNull &= entry.allNull();
+    }
+
+    return new FlattenedMapData(
+        combinedFlattenedValues,
+        combinedFeatureValueCounts,
+        combinedFeaturePresentValues,
+        anyNull,
+        allNull);
+  }
 
   /// Walk the values for each feature, building a flattened list of value indexes for all features
   private static FlattenedMapData flattenMapValues(
@@ -978,6 +1034,45 @@ public class PropertyEncoder {
           getScalarIndex(uniqueValues.uniqueDoubleValues(), doubleValue, columnName);
       case String stringValue ->
           getScalarIndex(uniqueValues.uniqueStringValues(), stringValue, columnName);
+      case BigInteger bigIntValue -> {
+        if (bigIntValue.bitLength() < 32) {
+          yield getScalarIndex(
+              uniqueValues.uniqueInt32Values(), bigIntValue.intValueExact(), columnName);
+        } else if (bigIntValue.signum() >= 0 && bigIntValue.bitLength() <= 32) {
+          yield getScalarIndex(
+              uniqueValues.uniqueUInt32Values(), U32.of(bigIntValue.longValueExact()), columnName);
+        } else if (bigIntValue.bitLength() < 64) {
+          yield getScalarIndex(
+              uniqueValues.uniqueInt64Values(), bigIntValue.longValueExact(), columnName);
+        } else if (bigIntValue.signum() >= 0 && bigIntValue.bitLength() <= 64) {
+          yield getScalarIndex(uniqueValues.uniqueUInt64Values(), U64.of(bigIntValue), columnName);
+        } else {
+          throw new IllegalArgumentException(
+              "BigInteger value out of uint64 range in column '"
+                  + columnName
+                  + "': "
+                  + bigIntValue);
+        }
+      }
+      case BigDecimal bigDecValue -> {
+        final float f = bigDecValue.floatValue();
+        if (!Float.isInfinite(f)
+            && !Float.isNaN(f)
+            && BigDecimal.valueOf(f).compareTo(bigDecValue) == 0) {
+          yield getScalarIndex(uniqueValues.uniqueFloatValues(), f, columnName);
+        }
+        final double d = bigDecValue.doubleValue();
+        if (Double.isInfinite(d)
+            || Double.isNaN(d)
+            || BigDecimal.valueOf(d).compareTo(bigDecValue) == 0) {
+          yield getScalarIndex(uniqueValues.uniqueDoubleValues(), d, columnName);
+        }
+        throw new IllegalArgumentException(
+            "BigDecimal not exactly representable as float or double in column '"
+                + columnName
+                + "': "
+                + bigDecValue);
+      }
       default ->
           throw new IllegalArgumentException(
               "Unsupported nested map property value type in column '"
@@ -1032,6 +1127,44 @@ public class PropertyEncoder {
       case Float floatValue -> uniqueValues.uniqueFloatValues().putIfAbsent(floatValue, 0);
       case Double doubleValue -> uniqueValues.uniqueDoubleValues().putIfAbsent(doubleValue, 0);
       case String stringValue -> uniqueValues.uniqueStringValues().putIfAbsent(stringValue, 0);
+      case BigInteger bigIntValue -> {
+        if (bigIntValue.bitLength() < 32) {
+          uniqueValues.uniqueInt32Values().putIfAbsent(bigIntValue.intValueExact(), 0);
+        } else if (bigIntValue.signum() >= 0 && bigIntValue.bitLength() <= 32) {
+          uniqueValues.uniqueUInt32Values().putIfAbsent(U32.of(bigIntValue.longValueExact()), 0);
+        } else if (bigIntValue.bitLength() < 64) {
+          uniqueValues.uniqueInt64Values().putIfAbsent(bigIntValue.longValueExact(), 0);
+        } else if (bigIntValue.signum() >= 0 && bigIntValue.bitLength() <= 64) {
+          uniqueValues.uniqueUInt64Values().putIfAbsent(U64.of(bigIntValue), 0);
+        } else {
+          throw new IllegalArgumentException(
+              "BigInteger value out of uint64 range in column '"
+                  + columnName
+                  + "': "
+                  + bigIntValue);
+        }
+      }
+      case BigDecimal bigDecValue -> {
+        final float f = bigDecValue.floatValue();
+        if (!Float.isInfinite(f)
+            && !Float.isNaN(f)
+            && BigDecimal.valueOf(f).compareTo(bigDecValue) == 0) {
+          uniqueValues.uniqueFloatValues().putIfAbsent(f, 0);
+        } else {
+          final double d = bigDecValue.doubleValue();
+          if (Double.isInfinite(d)
+              || Double.isNaN(d)
+              || BigDecimal.valueOf(d).compareTo(bigDecValue) == 0) {
+            uniqueValues.uniqueDoubleValues().putIfAbsent(d, 0);
+          } else {
+            throw new IllegalArgumentException(
+                "BigDecimal not exactly representable as float or double in column '"
+                    + columnName
+                    + "': "
+                    + bigDecValue);
+          }
+        }
+      }
       default ->
           throw new IllegalArgumentException(
               "Unsupported nested map property value type in column '"

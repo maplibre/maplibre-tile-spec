@@ -38,6 +38,7 @@ import static org.maplibre.mlt.tools.SyntheticMltUtil.ring;
 import static org.maplibre.mlt.tools.SyntheticMltUtil.write;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -52,6 +53,7 @@ import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.unsigned.U32;
 import org.maplibre.mlt.data.unsigned.U64;
+import org.maplibre.mlt.json.Json;
 
 public class SyntheticMltGenerator {
 
@@ -530,7 +532,7 @@ public class SyntheticMltGenerator {
     write(layer("props_offset_str_fsst", feat_two_str_eq), cfg().fsst());
 
     // Nested/MAP properties
-    write("prop_nested_empty", feat(p0, prop("a", prop("b", Map.of()))), cfg());
+    // empty is distinct from null
     write(
         "prop_nested_null",
         layer(
@@ -538,23 +540,64 @@ public class SyntheticMltGenerator {
             feat(p0, prop("a", prop("b", Map.of()))),
             feat(p0, Map.of())),
         cfg());
-    write("prop_nested_list_root", feat(p0, prop("a", List.of(1, Map.of("a", "b")))), cfg());
+    // can contain lists of mixed types
+    write("prop_nested_list", feat(p0, prop("a", prop("b", List.of(1, "2", 3.0)))), cfg());
+    // the root item can be a list, include each supported type
+    final var typesResult =
+        write(
+            "prop_nested_list_root",
+            feat(
+                p0,
+                prop(
+                    "a",
+                    List.of(
+                        1,
+                        (long) Integer.MAX_VALUE + 2,
+                        U32.of(Integer.MAX_VALUE + 3L),
+                        U64.of(BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(4L))),
+                        "5",
+                        6.0,
+                        (double) Float.MAX_VALUE + 7))),
+            cfg());
+
+    // Embed the entire JSON representation of the above as a property value
+    final var jsonObjects = Json.toGeoJsonObjects(typesResult.decodedMlt(), Json.createGson(true));
+    write("prop_nested_json", feat(p0, prop("a", prop("b", jsonObjects))), cfg());
+
+    // BigInteger and BigDecimal support.
+    // Note that we can't include some BigDecimal values, e.g., Float.MAX_VALUE because
+    // they print differently to JSON than the decoded float value.
+    // TODO: update JSON serialization to match?
     write(
-        "prop_nested_types",
+        "prop_nested_big",
         feat(
             p0,
             prop(
                 "a",
-                Map.of(
-                    "b",
-                    List.of(
-                        1,
-                        2L,
-                        U32.of(Integer.MAX_VALUE + 3L),
-                        U64.of(BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(4L))),
-                        "5",
-                        6.0f,
-                        7.0)))),
+                List.of(
+                    BigInteger.valueOf(1),
+                    BigInteger.valueOf(-2),
+                    BigInteger.valueOf(Integer.MAX_VALUE + 3L),
+                    BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(5L)),
+                    BigDecimal.valueOf(6.0f),
+                    BigDecimal.valueOf(7.0),
+                    BigDecimal.valueOf(Math.nextUp(8.0))))),
+        cfg());
+
+    // Make sure special float values are supported in nested properties
+    write(
+        "prop_nested_specials",
+        feat(
+            p0,
+            prop(
+                "a",
+                List.of(
+                    Float.NaN,
+                    Double.NaN,
+                    Float.POSITIVE_INFINITY,
+                    Float.NEGATIVE_INFINITY,
+                    Double.POSITIVE_INFINITY,
+                    Double.NEGATIVE_INFINITY))),
         cfg());
 
     // Mixed scalar types in the same column as a nested value are supported
@@ -565,6 +608,19 @@ public class SyntheticMltGenerator {
             feat(p0, prop("a", "b")),
             feat(p0, prop("a", prop("b", "c"))),
             feat(p0, prop("a", Math.PI))),
+        cfg().coercePropValues());
+
+    // Multiple nested columns share dictionaries
+    write(
+        "prop_nested_shared",
+        layer(
+            SyntheticMltUtil.DEFAULT_LAYER_NAME,
+            feat(p0, prop("name:a", "b")),
+            feat(p0, prop("name:a", prop("b", "c"))),
+            feat(p0, prop("name:b", prop("c", List.of("b")))),
+            feat(p0, prop("name:b", "b")),
+            feat(p0, prop("name:c", prop("b", Math.PI))),
+            feat(p0, prop("name:c", Math.PI))),
         cfg().coercePropValues());
   }
 

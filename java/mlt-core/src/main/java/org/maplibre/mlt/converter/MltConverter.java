@@ -156,6 +156,13 @@ public class MltConverter {
       featureIndex++;
     }
 
+    // Update `columnSchemas` to merge any MAP columns into a single one with a child entry for
+    // each.  As with struct columns, the name of the root entry is the longest common prefix of all
+    // the child entries and the name of each child is the remainder after removing that prefix.
+    // TODO: This should eventually be optional.
+    //  The benefit would be in cases where we can decode just one map column and ignore the rest.
+    mergeMapColumnSchemas(columnSchemas);
+
     for (var complexPropertyColumnScheme : complexPropertyColumnSchemas.entrySet()) {
       final var schema = complexPropertyColumnScheme.getValue();
       final var result = resolveComplexColumnMapping(schema);
@@ -414,6 +421,7 @@ public class MltConverter {
   /// Write the header block for a field or column.
   /// Takes the values individually because, despite having mostly
   /// the same information, the field and column are separate types.
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   private static void writeColumnOrFieldType(
       DataOutputStream stream,
       String name,
@@ -423,7 +431,7 @@ public class MltConverter {
       @Nullable MltMetadata.LogicalScalarType logicalScalarType,
       @Nullable MltMetadata.ComplexType physicalComplexType,
       @Nullable MltMetadata.LogicalComplexType logicalComplexType,
-      @Nullable SequencedCollection<MltMetadata.Field> children)
+      @NotNull Optional<SequencedCollection<MltMetadata.Field>> children)
       throws IOException {
     // We expect exactly one of these
     if (Stream.of(physicalScalarType, logicalScalarType, physicalComplexType, logicalComplexType)
@@ -433,7 +441,7 @@ public class MltConverter {
       throw new RuntimeException("Invalid Type");
     }
 
-    final boolean hasChildren = (children != null && !children.isEmpty());
+    final boolean hasChildren = children.map(Collection::size).filter(s -> s > 0).isPresent();
     final int typeCode =
         MltTypeMap.Tag0x02.encodeColumnType(
                 physicalScalarType,
@@ -450,24 +458,26 @@ public class MltConverter {
       EncodingUtils.putString(stream, name);
     }
 
-    if (hasChildren) {
-      EncodingUtils.putVarInt(stream, children.size());
-      for (var child : children) {
-        final boolean complex = child.type().complexType() != null;
-        final boolean logical =
-            (complex && child.type().complexType().logicalType() != null)
-                || (!complex && child.type().scalarType().logicalType() != null);
+    if (MltTypeMap.Tag0x02.columnTypeHasChildren(typeCode)) {
+      EncodingUtils.putVarInt(stream, children.map(Collection::size).orElse(0));
+      if (children.isPresent()) {
+        for (var child : children.get()) {
+          final boolean complex = child.type().complexType() != null;
+          final boolean logical =
+              (complex && child.type().complexType().logicalType() != null)
+                  || (!complex && child.type().scalarType().logicalType() != null);
 
-        writeColumnOrFieldType(
-            stream,
-            child.name(),
-            child.type().isNullable(),
-            /* hasLongIDs= */ false,
-            (!complex && !logical) ? child.type().scalarType().physicalType() : null,
-            (!complex && logical) ? child.type().scalarType().logicalType() : null,
-            (complex && !logical) ? child.type().complexType().physicalType() : null,
-            (complex && logical) ? child.type().complexType().logicalType() : null,
-            complex ? child.type().complexType().children() : null);
+          writeColumnOrFieldType(
+              stream,
+              child.name(),
+              child.type().isNullable(),
+              /* hasLongIDs= */ false,
+              (!complex && !logical) ? child.type().scalarType().physicalType() : null,
+              (!complex && logical) ? child.type().scalarType().logicalType() : null,
+              (complex && !logical) ? child.type().complexType().physicalType() : null,
+              (complex && logical) ? child.type().complexType().logicalType() : null,
+              Optional.ofNullable(complex ? child.type().complexType().children() : null));
+        }
       }
     }
   }
@@ -476,7 +486,6 @@ public class MltConverter {
   /// @param table The metadata to be embedded in the tile
   /// @param extent The extent of tile coordinates
   /// @return The binary header to be embedded in the tile
-  /// @throws IOException
   public static byte[] createEmbeddedMetadata(MltMetadata.FeatureTable table, int extent)
       throws IOException {
     try (var byteStream = new ByteArrayOutputStream()) {
@@ -497,7 +506,7 @@ public class MltConverter {
               column.getLogicalScalarType().orElse(null),
               column.getComplexType().orElse(null),
               column.getLogicalComplexType().orElse(null),
-              column.getChildren().orElse(null));
+              column.getChildren());
         }
       }
       return byteStream.toByteArray();
@@ -803,5 +812,43 @@ public class MltConverter {
     final var isNullable = false; // See `PropertyDecoder.decodePropertyColumn()`
     return new MltMetadata.Column(
         new MltMetadata.Field(new MltMetadata.FieldType(complexField, isNullable), columnName));
+  }
+
+  private static void mergeMapColumnSchemas(
+      @NotNull final LinkedHashMap<String, MltMetadata.Column> columnSchemas) {
+    final var mapColumns =
+        columnSchemas.entrySet().stream()
+            .filter(entry -> entry.getValue().is(MltMetadata.ComplexType.MAP))
+            .toList();
+
+    if (mapColumns.size() < 2) {
+      return;
+    }
+
+    // Merge all map columns into a single column with child entries for each original column.
+    final var children =
+        mapColumns.stream()
+            .map(entry -> new MltMetadata.Field(entry.getValue().field().type(), entry.getKey()))
+            .toList();
+    final var resolved =
+        resolveComplexColumnMapping(
+            new MltMetadata.ComplexField(MltMetadata.ComplexType.MAP, children));
+    final var mapColumn = createMapColumn(resolved.getLeft(), resolved.getRight());
+
+    // Remove the original columns that are now merged into the map column.
+    mapColumns.forEach(entry -> columnSchemas.remove(entry.getKey()));
+
+    // Insert the merged column with a unique name.  The name is not encoded.
+    IntStream.iterate(0, i -> i + 1)
+        .mapToObj(i -> resolved.getLeft() + i)
+        .filter(name -> !columnSchemas.containsKey(name))
+        .findFirst()
+        .ifPresent(name -> columnSchemas.put(name, mapColumn));
+  }
+
+  private static MltMetadata.Column createMapColumn(
+      @NotNull String columnName, @NotNull MltMetadata.ComplexField complexField) {
+    return new MltMetadata.Column(
+        new MltMetadata.Field(new MltMetadata.FieldType(complexField, true), columnName));
   }
 }

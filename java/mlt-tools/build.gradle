@@ -22,6 +22,7 @@ repositories {
 dependencies {
     implementation project(':mlt-core')
     implementation(libs.jts.core)
+    implementation(libs.gson)
 }
 
 java {

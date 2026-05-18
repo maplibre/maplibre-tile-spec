@@ -1,13 +1,17 @@
 package org.maplibre.mlt.decoder;
 
+import static org.maplibre.mlt.converter.encodings.PropertyEncoder.MapControlValue;
+
 import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.SequencedCollection;
 import me.lemire.integercompression.IntWrapper;
 import org.jetbrains.annotations.NotNull;
@@ -167,6 +171,7 @@ public class PropertyDecoder {
       return new ArrayList<>();
     }
 
+    // Get the mask indicating which optional dictionary streams are present
     final var dictionaryMask = data[offset.get()] & 0xFF;
     offset.increment();
 
@@ -265,13 +270,14 @@ public class PropertyDecoder {
       numStreams--;
     }
 
-    final List<Integer> flattenedValues;
+    final List<Integer> mergedFlattenedValues;
     if (numStreams > 0) {
       final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-      flattenedValues = IntegerDecoder.decodeIntStream(data, offset, dataStreamMetadata, false);
+      mergedFlattenedValues =
+          IntegerDecoder.decodeIntStream(data, offset, dataStreamMetadata, false);
       numStreams--;
     } else {
-      flattenedValues = List.of();
+      mergedFlattenedValues = List.of();
     }
 
     if (numStreams != 0) {
@@ -289,63 +295,105 @@ public class PropertyDecoder {
             floatValues,
             doubleValues);
 
-    final int featureCount = (presentStream != null) ? presentCount : lengthStream.size();
-    final var decodedMaps = new ArrayList<>(featureCount);
-    var countIndex = 0;
-    var flattenedIndex = 0;
-    for (var featureIndex = 0; featureIndex < featureCount; featureIndex++) {
-      final var present = (presentStream == null) || presentStream.get(featureIndex);
-      if (!present) {
-        decodedMaps.add(null);
-        continue;
-      }
+    final var columnNames = PropertyEncoder.getMapColumnNames(column);
+    final var featureCount =
+        ((presentStream != null) ? presentCount : lengthStream.size()) / columnNames.size();
 
-      if (countIndex >= lengthStream.size()) {
-        throw new IllegalArgumentException(
-            "Map count stream underflow while decoding feature values");
-      }
-
-      final var featureValueCount = lengthStream.get(countIndex++);
-      final var endIndex = flattenedIndex + featureValueCount;
-      if (endIndex > flattenedValues.size()) {
-        throw new IllegalArgumentException(
-            "Map value stream underflow while decoding feature payload");
-      }
-
-      if (featureValueCount == 1) {
-        // Special case: root-level scalar value encoded as a single scalar/control token.
-        final var decodedValue =
-            decodeValue(flattenedValues, flattenedIndex, endIndex, dictionaries);
-        if (decodedValue.nextIndex() != endIndex) {
-          throw new IllegalArgumentException(
-              "Root scalar payload did not consume exactly one value");
+    final var decodedColumns = new HashMap<String, Object>(columnNames.size());
+    var countsCursor = 0;
+    var valuesCursor = 0;
+    for (var childIndex = 0; childIndex < columnNames.size(); childIndex++) {
+      final var columnName = columnNames.get(childIndex);
+      final Optional<BitSet> childFeaturePresentValues;
+      var childPresentCount = 0;
+      if (presentStream != null) {
+        final var childBits = new BitSet(featureCount);
+        final var childPresentOffset = childIndex * featureCount;
+        for (var featureIndex = 0; featureIndex < featureCount; featureIndex++) {
+          final var present = presentStream.get(childPresentOffset + featureIndex);
+          childBits.set(featureIndex, present);
+          if (present) {
+            childPresentCount++;
+          }
         }
-        decodedMaps.add(decodedValue.value());
-        flattenedIndex = decodedValue.nextIndex();
-      } else if (flattenedIndex < endIndex
-          && flattenedValues.get(flattenedIndex) == PropertyEncoder.MapControlValue.START_LIST) {
-        // Decode as a list
-        final var decodedValue =
-            decodeValue(flattenedValues, flattenedIndex, endIndex, dictionaries);
-        decodedMaps.add(decodedValue.value());
-        flattenedIndex = decodedValue.nextIndex();
+        childFeaturePresentValues = Optional.of(childBits);
       } else {
-        // Decode as map entries
-        final var decodedMap =
-            decodeMapEntries(flattenedValues, flattenedIndex, endIndex, dictionaries);
-        decodedMaps.add(decodedMap.value());
-        flattenedIndex = decodedMap.nextIndex();
+        childFeaturePresentValues = Optional.empty();
+        childPresentCount = featureCount;
       }
+
+      final var childCountsEnd = countsCursor + childPresentCount;
+      if (childCountsEnd > lengthStream.size()) {
+        throw new IllegalArgumentException(
+            "Merged map counts underflow while decoding child streams");
+      }
+
+      final var decodedProperties = new ArrayList<>(featureCount);
+      decodedColumns.put(columnName, decodedProperties);
+
+      var flattenedIndex = valuesCursor;
+      var countCursor = countsCursor;
+      for (var featureIndex = 0; featureIndex < featureCount; featureIndex++) {
+        final var fi = featureIndex;
+        final var present = childFeaturePresentValues.map(bs -> bs.get(fi)).orElse(true);
+        if (!present) {
+          decodedProperties.add(null);
+          continue;
+        }
+
+        if (countCursor >= childCountsEnd) {
+          throw new IllegalArgumentException(
+              "Map count stream underflow while decoding feature values");
+        }
+
+        final var featureValueCount = lengthStream.get(countCursor++);
+        final var endIndex = flattenedIndex + featureValueCount;
+        if (endIndex > mergedFlattenedValues.size()) {
+          throw new IllegalArgumentException(
+              "Map value stream underflow while decoding feature payload");
+        }
+
+        if (featureValueCount == 1) {
+          // Special case: root-level scalar value encoded as a single scalar/control token.
+          final var decodedValue =
+              decodeValue(mergedFlattenedValues, flattenedIndex, endIndex, dictionaries);
+          if (decodedValue.nextIndex() != endIndex) {
+            throw new IllegalArgumentException(
+                "Root scalar payload did not consume exactly one value");
+          }
+          decodedProperties.add(decodedValue.value());
+          flattenedIndex = decodedValue.nextIndex();
+        } else if (flattenedIndex < endIndex
+            && mergedFlattenedValues.get(flattenedIndex) == MapControlValue.START_LIST) {
+          // Decode as a list
+          final var decodedValue =
+              decodeValue(mergedFlattenedValues, flattenedIndex, endIndex, dictionaries);
+          decodedProperties.add(decodedValue.value());
+          flattenedIndex = decodedValue.nextIndex();
+        } else {
+          // Decode as map entries
+          final var decodedMap =
+              decodeMapEntries(mergedFlattenedValues, flattenedIndex, endIndex, dictionaries);
+          decodedProperties.add(decodedMap.value());
+          flattenedIndex = decodedMap.nextIndex();
+        }
+      }
+      if (countCursor != childCountsEnd) {
+        throw new IllegalArgumentException("Unused map feature counts remain after decode");
+      }
+      final var childValueCount =
+          lengthStream.subList(countsCursor, childCountsEnd).stream()
+              .mapToInt(Integer::intValue)
+              .sum();
+      final var childValuesEnd = valuesCursor + childValueCount;
+      if (flattenedIndex != childValuesEnd) {
+        throw new IllegalArgumentException("Unused flattened map values remain after decode");
+      }
+      valuesCursor = childValuesEnd;
+      countsCursor = childCountsEnd;
     }
 
-    if (countIndex != lengthStream.size()) {
-      throw new IllegalArgumentException("Unused map feature counts remain after decode");
-    }
-    if (flattenedIndex != flattenedValues.size()) {
-      throw new IllegalArgumentException("Unused flattened map values remain after decode");
-    }
-
-    return decodedMaps;
+    return decodedColumns;
   }
 
   private static U64 toU64(final long value) {
@@ -385,14 +433,13 @@ public class PropertyDecoder {
 
     final var token = flattenedValues.get(startIndex);
     return switch (token) {
-      case PropertyEncoder.MapControlValue.FALSE -> new DecodedValue(false, startIndex + 1);
-      case PropertyEncoder.MapControlValue.TRUE -> new DecodedValue(true, startIndex + 1);
-      case PropertyEncoder.MapControlValue.START_MAP,
-          PropertyEncoder.MapControlValue.START_LIST -> {
+      case MapControlValue.FALSE -> new DecodedValue(false, startIndex + 1);
+      case MapControlValue.TRUE -> new DecodedValue(true, startIndex + 1);
+      case MapControlValue.START_MAP, MapControlValue.START_LIST -> {
         final var valueEndIndex = getValueEndIndex(flattenedValues, startIndex, endIndex);
         final var payloadStart = startIndex + 2;
 
-        if (token == PropertyEncoder.MapControlValue.START_MAP) {
+        if (token == MapControlValue.START_MAP) {
           final var nestedMap =
               decodeMapEntries(flattenedValues, payloadStart, valueEndIndex, dictionaries);
           if (nestedMap.nextIndex() != valueEndIndex) {
@@ -446,7 +493,7 @@ public class PropertyDecoder {
 
   private static Object decodeScalarByIndex(
       final int dictionaryIndex, @NotNull final MapValueDictionary dictionaries) {
-    final var scalarBase = PropertyEncoder.MapControlValue.COUNT;
+    final var scalarBase = MapControlValue.COUNT;
     if (dictionaryIndex < scalarBase) {
       throw new IllegalArgumentException("Invalid scalar dictionary index: " + dictionaryIndex);
     }
@@ -490,7 +537,7 @@ public class PropertyDecoder {
 
     @Nullable
     private Object valueByIndex(final int dictionaryIndex) {
-      final var offset = dictionaryIndex - PropertyEncoder.MapControlValue.COUNT;
+      final var offset = dictionaryIndex - MapControlValue.COUNT;
       return (offset >= 0 && offset < values.size()) ? values.get(offset) : null;
     }
   }
