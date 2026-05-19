@@ -2,7 +2,7 @@
 
 To verify encoder and decoder implementations across languages, this directory
 contains interesting `.mlt` tiles along with their expected logical
-representation as json.
+representation as JSON.
 
 ## Encoding
 
