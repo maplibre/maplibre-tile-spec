@@ -551,6 +551,8 @@ public class SyntheticMltGenerator {
                 prop(
                     "a",
                     List.of(
+                        true,
+                        false,
                         1,
                         (long) Integer.MAX_VALUE + 2,
                         U32.of(Integer.MAX_VALUE + 3L),

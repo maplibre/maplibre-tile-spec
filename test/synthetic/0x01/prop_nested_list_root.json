@@ -7,6 +7,8 @@
         "_extent": 80,
         "_layer": "layer1",
         "a": [
+          true,
+          false,
           1,
           2147483649,
           2147483650,
