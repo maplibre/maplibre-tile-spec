@@ -614,7 +614,7 @@ describe("Error handling", () => {
             containsPolygonGeometry: () => false,
         } as unknown as GeometryVector;
 
-        expect(() => convertGeometryVector(gv)).toThrowError("The specified geometry type is currently not supported.");
+        expect(() => convertGeometryVector(gv)).toThrow("The specified geometry type (999) is currently not supported.");
     });
 });
 

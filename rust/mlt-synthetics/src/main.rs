@@ -325,6 +325,16 @@ fn generate_geometry(w: &mut SynthWriter) {
         .geo(MultiLineString(vec![line1(), line2()]))
         .write(w, "multiline");
 
+    // Same geometry, but the meta (geometry-type) stream uses Delta (ZigZag) encoding.
+    // This replicates what Martin's Rust encoder produces: geometry type 4 (MultiLineString)
+    // is stored as zigzag_delta(4) = 8, triggering a TS-decoder bug where
+    // decodeUnsignedConstInt32Stream reads 8 instead of zigzag-decoding it back to 4.
+    geo_varint()
+        .meta(E::delta_varint())
+        .no_rings(E::rle_varint())
+        .geo(MultiLineString(vec![line1(), line2()]))
+        .write(w, "multiline_meta_delta-rust");
+
     // Split the Morton curve into two halves to form a MultiLineString with Morton encoding.
     let mline1 = LineString::new(mc[..half].to_vec());
     let mline2 = LineString::new(mc[half..].to_vec());
