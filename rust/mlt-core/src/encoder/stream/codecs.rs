@@ -143,6 +143,13 @@ impl Codecs {
         let Self { logical, physical } = self;
         let mut alt = enc.try_alternatives();
 
+        physical.write_alternatives::<Output<T>>(
+            &mut alt,
+            logical.none(values),
+            LE::None,
+            ctx.stream_type,
+        )?;
+
         let sample = logical.none(DataProfile::take_sample(values));
         let profile = DataProfile::profile::<<[T] as LogicalIntStreamKind>::Profile>(sample);
 
@@ -175,7 +182,32 @@ impl Codecs {
                 ctx.stream_type,
             )?;
         }
-        let values = logical.none(values);
-        physical.write_alternatives::<Output<T>>(&mut alt, values, LE::None, ctx.stream_type)
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::decoder::{LogicalEncoding, RawStream};
+    use crate::encoder::Encoder;
+    use crate::encoder::model::StreamCtx;
+    use crate::test_helpers::{assert_empty, parser};
+
+    #[test]
+    fn single_value_uses_none_encoding() {
+        // A single constant integer should be encoded with LogicalEncoding::None,
+        // not Delta — there is nothing to delta-encode, and None is simpler and
+        // produces a value the decoder can read directly without any transform.
+        let mut enc = Encoder::default();
+        let mut codecs = Codecs::default();
+        let ctx = StreamCtx::prop_data("test");
+        codecs.write_int_stream(&[4u32], &ctx, &mut enc).unwrap();
+        let stream = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
+        assert_eq!(
+            stream.meta.encoding.logical,
+            LogicalEncoding::None,
+            "single-value stream should use None, not Delta"
+        );
     }
 }
