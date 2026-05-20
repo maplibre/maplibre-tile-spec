@@ -189,9 +189,7 @@ impl Codecs {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::decoder::{LogicalEncoding, RawStream};
-    use crate::encoder::Encoder;
-    use crate::encoder::model::StreamCtx;
+    use crate::decoder::RawStream;
     use crate::test_helpers::{assert_empty, parser};
 
     #[test]
