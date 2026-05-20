@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.maplibre.mlt.data.unsigned.U32;
 import org.maplibre.mlt.data.unsigned.U64;
 
-/** Unit tests for MAP property decoder with nested list properties. */
+/// Unit tests for MAP property encoder/decoder
 class MapDecoderTest {
 
   @Test

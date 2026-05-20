@@ -11,7 +11,6 @@ import java.util.SequencedCollection;
 import java.util.TreeMap;
 import java.util.stream.Stream;
 import org.jetbrains.annotations.NotNull;
-import org.jspecify.annotations.NonNull;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.unsigned.U32;
@@ -182,8 +181,8 @@ public class MapPropertyEncoder {
     return encodedStreams;
   }
 
-  public static @NonNull List<String> getMapColumnNames(
-      final MltMetadata.@NonNull Column columnMetadata) {
+  public static @NotNull List<String> getMapColumnNames(
+      final MltMetadata.@NotNull Column columnMetadata) {
     // Gather column names.  If this is a single column, the name is just the type name.
     // If it's a shared column, each name is the parent name plus the child name.
     final var parentName = columnMetadata.getName();

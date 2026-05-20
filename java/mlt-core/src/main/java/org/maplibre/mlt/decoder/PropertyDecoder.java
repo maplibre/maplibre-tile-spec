@@ -30,11 +30,6 @@ public class PropertyDecoder {
       return MapPropertyDecoder.decodeMapPropertyColumn(data, offset, column, numStreams);
     }
 
-    // var presentStreamMetadata = StreamMetadata.decode(data, offset);
-    // var presentStream = DecodingUtils.decodeBooleanRle(data, presentStreamMetadata.numValues(),
-    // presentStreamMetadata.byteLength(), offset);
-    // TODO: process present stream
-    // var values = StringDecoder.decodeSharedDictionary(data, offset, fieldMetadata);
     throw new IllegalArgumentException("Present stream currently not supported for Structs.");
   }
 

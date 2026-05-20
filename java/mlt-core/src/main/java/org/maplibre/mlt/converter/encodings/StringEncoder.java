@@ -167,8 +167,8 @@ public class StringEncoder {
             new EncodingResult(2, plainEncodedColumn),
             new EncodingResult(3, dictionaryEncodedColumn),
             new EncodingResult(5, fsstEncodedDictionary))
-        .filter(p -> p.encodedData != null)
-        .min(Comparator.comparingInt(a -> ByteArrayUtil.totalLength(a.encodedData)))
+        .filter(p -> p.encodedData() != null)
+        .min(Comparator.comparingInt(a -> ByteArrayUtil.totalLength(a.encodedData())))
         .orElseThrow();
   }
 

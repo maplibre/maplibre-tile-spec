@@ -350,10 +350,11 @@ public class MltConverter {
       MltMetadata.ComplexField column) {
     final var prefix =
         StringUtils.getCommonPrefix(
-            column.children().stream().map(c -> c.name()).toArray(String[]::new));
+            column.children().stream().map(MltMetadata.Field::name).toArray(String[]::new));
     if (!prefix.isEmpty()) {
       var children =
           column.children().stream()
+              .filter(child -> child.name() != null)
               .map(
                   child -> {
                     final var name = child.name();
@@ -363,7 +364,7 @@ public class MltConverter {
                     }
                     return new MltMetadata.Field(child.type(), name.substring(prefix.length()));
                   })
-              .sorted(Comparator.comparing(f -> f.name()))
+              .sorted(Comparator.comparing(MltMetadata.Field::name))
               .toList();
       return Pair.of(
           prefix,
@@ -838,7 +839,7 @@ public class MltConverter {
     // Remove the original columns that are now merged into the map column.
     mapColumns.forEach(entry -> columnSchemas.remove(entry.getKey()));
 
-    // Insert the merged column with a unique name.  The name is not encoded.
+    // Insert the merged column with a unique name.  The map key in `columnSchemas` is not encoded.
     IntStream.iterate(0, i -> i + 1)
         .mapToObj(i -> resolved.getLeft() + i)
         .filter(name -> !columnSchemas.containsKey(name))

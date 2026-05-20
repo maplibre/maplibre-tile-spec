@@ -55,7 +55,7 @@ public class MltDecoder {
           }
         } else {
           // Skip the remainder of this one
-          stream.skip(length - result.getRight());
+          stream.skipNBytes(length - result.getRight());
         }
       }
     }
