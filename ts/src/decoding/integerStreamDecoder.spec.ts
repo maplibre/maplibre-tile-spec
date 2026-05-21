@@ -303,6 +303,25 @@ describe("decodeUnsignedConstInt32Stream", () => {
         expect(result).toBe(0xffffffff);
     });
 
+    it("should ZigZag-decode a single DELTA-encoded value", () => {
+        const metadata = createStreamMetadata( LogicalLevelTechnique.DELTA, LogicalLevelTechnique.NONE, 1);
+        const data = encodeUnsignedInt32Stream(new Uint32Array([4]), metadata);
+
+        const result = decodeUnsignedConstInt32Stream(data, new IntWrapper(0), metadata);
+
+        expect(result).toBe(4);
+    });
+
+    it("decodes negative value, though I'm not sure the current behavior makes sense", () => {
+        const metadata = createStreamMetadata( LogicalLevelTechnique.DELTA, LogicalLevelTechnique.NONE, 1);
+        // This is documenting existing behavior - I'm not sure it makes sense to allow passing a negative value through the unsigned decoding path.
+        const data = encodeUnsignedInt32Stream(new Uint32Array([-4]), metadata);
+
+        const result = decodeUnsignedConstInt32Stream(data, new IntWrapper(0), metadata);
+
+        expect(result).toBe(-4);
+    });
+
     it("should throw for unsupported technique", () => {
         const metadata = createStreamMetadata(LogicalLevelTechnique.PDE, LogicalLevelTechnique.NONE, 3);
         const offset = new IntWrapper(0);
