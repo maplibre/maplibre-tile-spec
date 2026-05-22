@@ -251,7 +251,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                 }
                 break;
             default:
-                throw new Error("The specified geometry type is currently not supported.");
+                throw new Error(`The specified geometry type (${geometryType}) is currently not supported.`);
         }
     }
 
