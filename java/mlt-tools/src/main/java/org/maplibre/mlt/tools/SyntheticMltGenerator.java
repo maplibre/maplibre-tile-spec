@@ -53,6 +53,7 @@ import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.unsigned.U32;
 import org.maplibre.mlt.data.unsigned.U64;
+import org.maplibre.mlt.data.unsigned.U8;
 import org.maplibre.mlt.json.Json;
 
 public class SyntheticMltGenerator {
@@ -540,8 +541,11 @@ public class SyntheticMltGenerator {
             feat(p0, prop("a", prop("b", Map.of()))),
             feat(p0, Map.of())),
         cfg());
-    // can contain lists of mixed types
-    write("prop_nested_list", feat(p0, prop("a", prop("b", List.of(1, "2", 3.0)))), cfg());
+    // can contain lists of mixed types, list-within-map, map-within-list, list-within-list
+    write(
+        "prop_nested_list",
+        feat(p0, prop("a", prop("b", List.of(1, "2", prop("c", List.of(3.0, 4, List.of(5, 6))))))),
+        cfg());
     // the root item can be a list, include each supported type
     final var typesResult =
         write(
@@ -555,11 +559,12 @@ public class SyntheticMltGenerator {
                         false,
                         1,
                         (long) Integer.MAX_VALUE + 2,
+                        U8.MAX_VALUE,
                         U32.of(Integer.MAX_VALUE + 3L),
                         U64.of(BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(4L))),
                         "5",
                         6.0,
-                        (double) Float.MAX_VALUE + 7))),
+                        Math.nextUp(Double.valueOf(Float.MAX_VALUE))))),
             cfg());
 
     // Embed the entire JSON representation of the above as a property value
@@ -584,6 +589,12 @@ public class SyntheticMltGenerator {
                     BigDecimal.valueOf(6.0f),
                     BigDecimal.valueOf(7.0),
                     BigDecimal.valueOf(Math.nextUp(8.0))))),
+        cfg());
+
+    // signed and unsigned without the need for 64-bit streams
+    write(
+        "prop_nested_ints",
+        feat(p0, prop("a", List.of(Integer.MAX_VALUE, Integer.MIN_VALUE, U32.MAX_VALUE))),
         cfg());
 
     // Make sure special float values are supported in nested properties

@@ -16,6 +16,7 @@ const UNIMPLEMENTED_SYNTHETICS: string[] = [
     "0x01/poly_multi_morton_ring_morton",
     "0x01/poly_multi_morton_ring_no_morton",
     "0x01/prop_nested_big",
+    "0x01/prop_nested_ints",
     "0x01/prop_nested_json",
     "0x01/prop_nested_list_root",
     "0x01/prop_nested_list",

@@ -11,6 +11,8 @@ public record U32(int value) implements Unsigned {
     return new U32((int) value);
   }
 
+  public static U32 MAX_VALUE = new U32(0xFFFFFFFF);
+
   @Override
   public Byte byteValue() {
     final var v = value;

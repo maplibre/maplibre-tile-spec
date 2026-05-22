@@ -186,6 +186,30 @@ class UnsignedTest {
   }
 
   @Test
+  void testU64OfLong() {
+    final var u64Zero = U64.of(0L);
+    assertEquals(0L, u64Zero.longValue());
+    assertEquals(BigInteger.ZERO, u64Zero.bigIntValue());
+
+    final var u64MaxLong = U64.of(Long.MAX_VALUE);
+    assertEquals(Long.MAX_VALUE, u64MaxLong.longValue());
+    assertEquals(BigInteger.valueOf(Long.MAX_VALUE), u64MaxLong.bigIntValue());
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> U64.of(-1L),
+        "U64.of(long) should reject negative values");
+  }
+
+  @Test
+  void testU64OfU32() {
+    final var u32Max = U32.of(0xFFFFFFFFL);
+    final var u64FromU32Max = U64.of(u32Max);
+    assertEquals(0xFFFFFFFFL, u64FromU32Max.longValue());
+    assertEquals(BigInteger.valueOf(0xFFFFFFFFL), u64FromU32Max.bigIntValue());
+  }
+
+  @Test
   void testU64OfNegativeValue() {
     assertThrows(
         IllegalArgumentException.class,

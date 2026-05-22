@@ -65,16 +65,19 @@ public class MapPropertyEncoder {
     final var writePresenceStream = flattenedMapData.anyNull();
 
     // Establish the stream mask so the decoder knows which of the optional streams are present
-    final var mask =
-        uniqueValues.dictionaryPresenceMask() | (writePresenceStream ? MapMask.PRESENCE : 0);
+    var mask =
+        ((!uniqueValues.strings.isEmpty() ? MapMask.STRING : 0)
+                | (!uniqueValues.floats.isEmpty() ? MapMask.FLOAT : 0)
+                | (!uniqueValues.doubles.isEmpty() ? MapMask.DOUBLE : 0))
+            | (writePresenceStream ? MapMask.PRESENCE : 0);
 
     final var maxDictionaryStreams =
         11; // one for each encodable type, but strings can write 5 streams
     final var maxNumStreams = maxDictionaryStreams + 3; // length, values, presence
     final var encodedStreams = new ArrayList<byte[]>(maxNumStreams);
 
-    encodedStreams.add(null); // placeholder for stream count
-    encodedStreams.add(new byte[] {(byte) mask});
+    encodedStreams.add(null); // placeholders for stream count and mask
+    encodedStreams.add(null);
 
     // Encode the length stream, the only mandatory one
     var numStreams = 1;
@@ -88,70 +91,65 @@ public class MapPropertyEncoder {
             encodingOption));
 
     // Encode the non-empty unique dictionaries and the flattened/count streams
-    if (!uniqueValues.uniqueStringValues().isEmpty()) {
+    if (!uniqueValues.strings().isEmpty()) {
       final var encoded =
-          StringEncoder.encode(
-              uniqueValues.uniqueStringValues().keySet(), physicalLevelTechnique, useFSST);
+          StringEncoder.encode(uniqueValues.strings().keySet(), physicalLevelTechnique, useFSST);
       numStreams += encoded.numStreams();
       encodedStreams.add(new byte[] {(byte) encoded.numStreams()});
       encodedStreams.addAll(encoded.encodedData());
     }
 
-    if (!uniqueValues.uniqueInt32Values().isEmpty()) {
-      encodedStreams.addAll(
-          IntegerEncoder.encodeIntStream(
-              uniqueValues.uniqueInt32Values().keySet(),
-              physicalLevelTechnique,
-              true,
-              PhysicalStreamType.DATA,
-              null,
-              encodingOption));
+    if (!uniqueValues.ints().isEmpty()) {
+      if (uniqueValues.ints.keySet().stream().allMatch(x -> x < Integer.MAX_VALUE)) {
+        mask |= MapMask.INT32;
+        encodedStreams.addAll(
+            IntegerEncoder.encodeIntStream(
+                uniqueValues.ints().keySet().stream().mapToInt(Long::intValue),
+                physicalLevelTechnique,
+                true,
+                PhysicalStreamType.DATA,
+                null,
+                encodingOption));
+      } else {
+        mask |= MapMask.INT64;
+        encodedStreams.addAll(
+            IntegerEncoder.encodeLongStream(
+                uniqueValues.ints().keySet(), true, PhysicalStreamType.DATA, null, encodingOption));
+      }
       numStreams++;
     }
 
-    if (!uniqueValues.uniqueUInt32Values().isEmpty()) {
-      encodedStreams.addAll(
-          IntegerEncoder.encodeIntStream(
-              uniqueValues.uniqueUInt32Values().keySet().stream().mapToInt(U32::intValue),
-              physicalLevelTechnique,
-              false,
-              PhysicalStreamType.DATA,
-              null,
-              encodingOption));
+    if (!uniqueValues.uints().isEmpty()) {
+      if (uniqueValues.uints.keySet().stream().allMatch(x -> x.bigIntValue().bitLength() <= 32)) {
+        mask |= MapMask.UINT32;
+        encodedStreams.addAll(
+            IntegerEncoder.encodeIntStream(
+                uniqueValues.uints().keySet().stream().mapToInt(x -> x.longValue().intValue()),
+                physicalLevelTechnique,
+                false,
+                PhysicalStreamType.DATA,
+                null,
+                encodingOption));
+      } else {
+        mask |= MapMask.UINT64;
+        encodedStreams.addAll(
+            IntegerEncoder.encodeLongStream(
+                uniqueValues.uints().keySet().stream().mapToLong(U64::longValue),
+                false,
+                PhysicalStreamType.DATA,
+                null,
+                encodingOption));
+      }
       numStreams++;
     }
 
-    if (!uniqueValues.uniqueInt64Values().isEmpty()) {
-      encodedStreams.addAll(
-          IntegerEncoder.encodeLongStream(
-              uniqueValues.uniqueInt64Values().keySet(),
-              true,
-              PhysicalStreamType.DATA,
-              null,
-              encodingOption));
+    if (!uniqueValues.floats().isEmpty()) {
+      encodedStreams.addAll(FloatEncoder.encodeFloatStream(uniqueValues.floats().keySet()));
       numStreams++;
     }
 
-    if (!uniqueValues.uniqueUInt64Values().isEmpty()) {
-      encodedStreams.addAll(
-          IntegerEncoder.encodeLongStream(
-              uniqueValues.uniqueUInt64Values().keySet().stream().mapToLong(U64::longValue),
-              false,
-              PhysicalStreamType.DATA,
-              null,
-              encodingOption));
-      numStreams++;
-    }
-
-    if (!uniqueValues.uniqueFloatValues().isEmpty()) {
-      encodedStreams.addAll(
-          FloatEncoder.encodeFloatStream(uniqueValues.uniqueFloatValues().keySet()));
-      numStreams++;
-    }
-
-    if (!uniqueValues.uniqueDoubleValues().isEmpty()) {
-      encodedStreams.addAll(
-          DoubleEncoder.encodeDoubleStream(uniqueValues.uniqueDoubleValues().keySet()));
+    if (!uniqueValues.doubles().isEmpty()) {
+      encodedStreams.addAll(DoubleEncoder.encodeDoubleStream(uniqueValues.doubles().keySet()));
       numStreams++;
     }
 
@@ -175,8 +173,9 @@ public class MapPropertyEncoder {
       numStreams++;
     }
 
-    // Fill in the stream count
+    // Fill in the placeholder
     encodedStreams.set(0, EncodingUtils.encodeVarint(numStreams, false));
+    encodedStreams.set(1, new byte[] {(byte) mask});
 
     return encodedStreams;
   }
@@ -271,8 +270,7 @@ public class MapPropertyEncoder {
         }
 
         flattenedValues.add(
-            getScalarIndex(
-                uniqueValues.uniqueStringValues(), entry.getKey().toString(), columnName));
+            getScalarIndex(uniqueValues.strings(), entry.getKey().toString(), columnName));
         appendMapEntryValue(entry.getValue(), flattenedValues, uniqueValues, columnName);
       }
     } else if (value instanceof Iterable<?> iterable) {
@@ -350,31 +348,20 @@ public class MapPropertyEncoder {
     return switch (value) {
       case Boolean boolValue -> boolValue ? MapControlValue.TRUE : MapControlValue.FALSE;
       case U8 u8Value ->
-          getScalarIndex(uniqueValues.uniqueUInt32Values(), U32.of(u8Value.intValue()), columnName);
+          getScalarIndex(uniqueValues.uints(), U64.of(u8Value.longValue()), columnName);
       case Integer intValue ->
-          getScalarIndex(uniqueValues.uniqueInt32Values(), intValue, columnName);
-      case U32 u32Value -> getScalarIndex(uniqueValues.uniqueUInt32Values(), u32Value, columnName);
-      case Long longValue ->
-          getScalarIndex(uniqueValues.uniqueInt64Values(), longValue, columnName);
-      case U64 u64Value -> getScalarIndex(uniqueValues.uniqueUInt64Values(), u64Value, columnName);
-      case Float floatValue ->
-          getScalarIndex(uniqueValues.uniqueFloatValues(), floatValue, columnName);
-      case Double doubleValue ->
-          getScalarIndex(uniqueValues.uniqueDoubleValues(), doubleValue, columnName);
-      case String stringValue ->
-          getScalarIndex(uniqueValues.uniqueStringValues(), stringValue, columnName);
+          getScalarIndex(uniqueValues.ints(), intValue.longValue(), columnName);
+      case U32 u32Value -> getScalarIndex(uniqueValues.uints(), U64.of(u32Value), columnName);
+      case Long longValue -> getScalarIndex(uniqueValues.ints(), longValue, columnName);
+      case U64 u64Value -> getScalarIndex(uniqueValues.uints(), u64Value, columnName);
+      case Float floatValue -> getScalarIndex(uniqueValues.floats(), floatValue, columnName);
+      case Double doubleValue -> getScalarIndex(uniqueValues.doubles(), doubleValue, columnName);
+      case String stringValue -> getScalarIndex(uniqueValues.strings(), stringValue, columnName);
       case BigInteger bigIntValue -> {
-        if (bigIntValue.bitLength() < 32) {
-          yield getScalarIndex(
-              uniqueValues.uniqueInt32Values(), bigIntValue.intValueExact(), columnName);
-        } else if (bigIntValue.signum() >= 0 && bigIntValue.bitLength() <= 32) {
-          yield getScalarIndex(
-              uniqueValues.uniqueUInt32Values(), U32.of(bigIntValue.longValueExact()), columnName);
-        } else if (bigIntValue.bitLength() < 64) {
-          yield getScalarIndex(
-              uniqueValues.uniqueInt64Values(), bigIntValue.longValueExact(), columnName);
-        } else if (bigIntValue.signum() >= 0 && bigIntValue.bitLength() <= 64) {
-          yield getScalarIndex(uniqueValues.uniqueUInt64Values(), U64.of(bigIntValue), columnName);
+        if (bigIntValue.bitLength() < 64) {
+          yield getScalarIndex(uniqueValues.ints(), bigIntValue.longValueExact(), columnName);
+        } else if (bigIntValue.signum() >= 0 && bigIntValue.bitLength() == 64) {
+          yield getScalarIndex(uniqueValues.uints(), U64.of(bigIntValue), columnName);
         } else {
           throw new IllegalArgumentException(
               "BigInteger value out of uint64 range in column '"
@@ -385,16 +372,12 @@ public class MapPropertyEncoder {
       }
       case BigDecimal bigDecValue -> {
         final float f = bigDecValue.floatValue();
-        if (!Float.isInfinite(f)
-            && !Float.isNaN(f)
-            && BigDecimal.valueOf(f).compareTo(bigDecValue) == 0) {
-          yield getScalarIndex(uniqueValues.uniqueFloatValues(), f, columnName);
+        if (!Float.isInfinite(f) && BigDecimal.valueOf(f).compareTo(bigDecValue) == 0) {
+          yield getScalarIndex(uniqueValues.floats(), f, columnName);
         }
         final double d = bigDecValue.doubleValue();
-        if (Double.isInfinite(d)
-            || Double.isNaN(d)
-            || BigDecimal.valueOf(d).compareTo(bigDecValue) == 0) {
-          yield getScalarIndex(uniqueValues.uniqueDoubleValues(), d, columnName);
+        if (Double.isInfinite(d) || BigDecimal.valueOf(d).compareTo(bigDecValue) == 0) {
+          yield getScalarIndex(uniqueValues.doubles(), d, columnName);
         }
         throw new IllegalArgumentException(
             "BigDecimal not exactly representable as float or double in column '"
@@ -437,7 +420,7 @@ public class MapPropertyEncoder {
       case Map<?, ?> map -> {
         for (final var entry : map.entrySet()) {
           if (entry.getKey() != null) {
-            uniqueValues.uniqueStringValues().putIfAbsent(entry.getKey().toString(), 0);
+            uniqueValues.strings().putIfAbsent(entry.getKey().toString(), 0);
           }
           collectUniqueMapValues(entry.getValue(), uniqueValues, columnName);
         }
@@ -448,23 +431,20 @@ public class MapPropertyEncoder {
         // booleans are encoded as control values, not dictionary entries
       }
       case U8 u8Value ->
-          uniqueValues.uniqueUInt32Values().putIfAbsent(U32.of(u8Value.intValue()), 0);
-      case Integer intValue -> uniqueValues.uniqueInt32Values().putIfAbsent(intValue, 0);
-      case U32 u32Value -> uniqueValues.uniqueUInt32Values().putIfAbsent(u32Value, 0);
-      case Long longValue -> uniqueValues.uniqueInt64Values().putIfAbsent(longValue, 0);
-      case U64 u64Value -> uniqueValues.uniqueUInt64Values().putIfAbsent(u64Value, 0);
-      case Float floatValue -> uniqueValues.uniqueFloatValues().putIfAbsent(floatValue, 0);
-      case Double doubleValue -> uniqueValues.uniqueDoubleValues().putIfAbsent(doubleValue, 0);
-      case String stringValue -> uniqueValues.uniqueStringValues().putIfAbsent(stringValue, 0);
+          uniqueValues.uints().putIfAbsent(U64.of(BigInteger.valueOf(u8Value.longValue())), 0);
+      case Integer intValue -> uniqueValues.ints().putIfAbsent(intValue.longValue(), 0);
+      case U32 u32Value ->
+          uniqueValues.uints().putIfAbsent(U64.of(BigInteger.valueOf(u32Value.longValue())), 0);
+      case Long longValue -> uniqueValues.ints().putIfAbsent(longValue, 0);
+      case U64 u64Value -> uniqueValues.uints().putIfAbsent(u64Value, 0);
+      case Float floatValue -> uniqueValues.floats().putIfAbsent(floatValue, 0);
+      case Double doubleValue -> uniqueValues.doubles().putIfAbsent(doubleValue, 0);
+      case String stringValue -> uniqueValues.strings().putIfAbsent(stringValue, 0);
       case BigInteger bigIntValue -> {
-        if (bigIntValue.bitLength() < 32) {
-          uniqueValues.uniqueInt32Values().putIfAbsent(bigIntValue.intValueExact(), 0);
-        } else if (bigIntValue.signum() >= 0 && bigIntValue.bitLength() <= 32) {
-          uniqueValues.uniqueUInt32Values().putIfAbsent(U32.of(bigIntValue.longValueExact()), 0);
-        } else if (bigIntValue.bitLength() < 64) {
-          uniqueValues.uniqueInt64Values().putIfAbsent(bigIntValue.longValueExact(), 0);
+        if (bigIntValue.bitLength() < 64) {
+          uniqueValues.ints().putIfAbsent(bigIntValue.longValueExact(), 0);
         } else if (bigIntValue.signum() >= 0 && bigIntValue.bitLength() <= 64) {
-          uniqueValues.uniqueUInt64Values().putIfAbsent(U64.of(bigIntValue), 0);
+          uniqueValues.uints().putIfAbsent(U64.of(bigIntValue), 0);
         } else {
           throw new IllegalArgumentException(
               "BigInteger value out of uint64 range in column '"
@@ -478,13 +458,13 @@ public class MapPropertyEncoder {
         if (!Float.isInfinite(f)
             && !Float.isNaN(f)
             && BigDecimal.valueOf(f).compareTo(bigDecValue) == 0) {
-          uniqueValues.uniqueFloatValues().putIfAbsent(f, 0);
+          uniqueValues.floats().putIfAbsent(f, 0);
         } else {
           final double d = bigDecValue.doubleValue();
           if (Double.isInfinite(d)
               || Double.isNaN(d)
               || BigDecimal.valueOf(d).compareTo(bigDecValue) == 0) {
-            uniqueValues.uniqueDoubleValues().putIfAbsent(d, 0);
+            uniqueValues.doubles().putIfAbsent(d, 0);
           } else {
             throw new IllegalArgumentException(
                 "BigDecimal not exactly representable as float or double in column '"
@@ -534,39 +514,27 @@ public class MapPropertyEncoder {
     public static final int PRESENCE = 1 << 7;
   }
 
-  /// Holds the sorted unique values for each encodable type for a map property column and their
-  /// corresponding indexes
-  // TODO: Better to combine [u]int32/64 values and encode everything as 64-bit if any need it?
+  /// Holds the sorted unique values for each encodable type for
+  /// a map property column and their corresponding indexes
   record UniqueMapValues(
-      @NotNull TreeMap<String, Integer> uniqueStringValues,
-      @NotNull TreeMap<Integer, Integer> uniqueInt32Values,
-      @NotNull TreeMap<U32, Integer> uniqueUInt32Values,
-      @NotNull TreeMap<Long, Integer> uniqueInt64Values,
-      @NotNull TreeMap<U64, Integer> uniqueUInt64Values,
-      @NotNull TreeMap<Float, Integer> uniqueFloatValues,
-      @NotNull TreeMap<Double, Integer> uniqueDoubleValues) {
+      @NotNull TreeMap<String, Integer> strings,
+      @NotNull TreeMap<Long, Integer> ints,
+      @NotNull TreeMap<U64, Integer> uints,
+      @NotNull TreeMap<Float, Integer> floats,
+      @NotNull TreeMap<Double, Integer> doubles) {
 
     UniqueMapValues() {
-      this(
-          new TreeMap<>(),
-          new TreeMap<>(),
-          new TreeMap<>(),
-          new TreeMap<>(),
-          new TreeMap<>(),
-          new TreeMap<>(),
-          new TreeMap<>());
+      this(new TreeMap<>(), new TreeMap<>(), new TreeMap<>(), new TreeMap<>(), new TreeMap<>());
     }
 
     /// Once all values are collected, assign an index to each.
     void assignIndexes() {
       var start = MapControlValue.COUNT;
-      start = assignIndexes(uniqueStringValues, start);
-      start = assignIndexes(uniqueInt32Values, start);
-      start = assignIndexes(uniqueUInt32Values, start);
-      start = assignIndexes(uniqueInt64Values, start);
-      start = assignIndexes(uniqueUInt64Values, start);
-      start = assignIndexes(uniqueFloatValues, start);
-      assignIndexes(uniqueDoubleValues, start);
+      start = assignIndexes(strings, start);
+      start = assignIndexes(ints, start);
+      start = assignIndexes(uints, start);
+      start = assignIndexes(floats, start);
+      assignIndexes(doubles, start);
     }
 
     private static <T> int assignIndexes(@NotNull TreeMap<T, Integer> values, int startIndex) {
@@ -574,17 +542,6 @@ public class MapPropertyEncoder {
         entry.setValue(startIndex++);
       }
       return startIndex;
-    }
-
-    /// Calculate the mask indicating which value streams are written
-    int dictionaryPresenceMask() {
-      return ((!uniqueStringValues.isEmpty() ? MapMask.STRING : 0)
-          | (!uniqueInt32Values.isEmpty() ? MapMask.INT32 : 0)
-          | (!uniqueUInt32Values.isEmpty() ? MapMask.UINT32 : 0)
-          | (!uniqueInt64Values.isEmpty() ? MapMask.INT64 : 0)
-          | (!uniqueUInt64Values.isEmpty() ? MapMask.UINT64 : 0)
-          | (!uniqueFloatValues.isEmpty() ? MapMask.FLOAT : 0)
-          | (!uniqueDoubleValues.isEmpty() ? MapMask.DOUBLE : 0));
     }
   }
 

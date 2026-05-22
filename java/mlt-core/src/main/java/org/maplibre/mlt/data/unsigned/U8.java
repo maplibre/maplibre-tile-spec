@@ -11,6 +11,8 @@ public record U8(byte value) implements Unsigned {
     return new U8((byte) value);
   }
 
+  public static final U8 MAX_VALUE = U8.of(0xFF);
+
   @Override
   public Byte byteValue() {
     return value;

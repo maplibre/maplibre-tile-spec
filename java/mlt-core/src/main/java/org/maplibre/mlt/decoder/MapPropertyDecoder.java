@@ -14,13 +14,14 @@ import java.util.SequencedCollection;
 import me.lemire.integercompression.IntWrapper;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.encodings.MapPropertyEncoder;
-import org.maplibre.mlt.data.unsigned.U32;
 import org.maplibre.mlt.data.unsigned.U64;
 import org.maplibre.mlt.metadata.stream.PhysicalStreamType;
 import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class MapPropertyDecoder {
+  private MapPropertyDecoder() {}
+
   static @NotNull Object decodeMapPropertyColumn(
       final byte[] data,
       @NotNull final IntWrapper offset,
@@ -46,8 +47,6 @@ public class MapPropertyDecoder {
 
     // Decode the optional dictionary streams, based on the mask
     final SequencedCollection<String> stringValues;
-    final SequencedCollection<Integer> int32Values;
-    final SequencedCollection<U32> uint32Values;
     final SequencedCollection<Long> int64Values;
     final SequencedCollection<U64> uint64Values;
     final SequencedCollection<Float> floatValues;
@@ -66,25 +65,13 @@ public class MapPropertyDecoder {
 
     if ((dictionaryMask & MapPropertyEncoder.MapMask.INT32) != 0) {
       final var streamMetadata = StreamMetadataDecoder.decode(data, offset);
-      int32Values = IntegerDecoder.decodeIntStream(data, offset, streamMetadata, true);
-      numStreams--;
-    } else {
-      int32Values = List.of();
-    }
-
-    if ((dictionaryMask & MapPropertyEncoder.MapMask.UINT32) != 0) {
-      final var streamMetadata = StreamMetadataDecoder.decode(data, offset);
-      uint32Values =
-          IntegerDecoder.decodeIntStream(data, offset, streamMetadata, false).stream()
-              .map(Integer::toUnsignedLong)
-              .map(U32::of)
+      int64Values =
+          IntegerDecoder.decodeIntStream(data, offset, streamMetadata, true).stream()
+              .mapToLong(Integer::longValue)
+              .boxed()
               .toList();
       numStreams--;
-    } else {
-      uint32Values = List.of();
-    }
-
-    if ((dictionaryMask & MapPropertyEncoder.MapMask.INT64) != 0) {
+    } else if ((dictionaryMask & MapPropertyEncoder.MapMask.INT64) != 0) {
       final var streamMetadata = StreamMetadataDecoder.decode(data, offset);
       int64Values = IntegerDecoder.decodeLongStream(data, offset, streamMetadata, true);
       numStreams--;
@@ -92,7 +79,15 @@ public class MapPropertyDecoder {
       int64Values = List.of();
     }
 
-    if ((dictionaryMask & MapPropertyEncoder.MapMask.UINT64) != 0) {
+    if ((dictionaryMask & MapPropertyEncoder.MapMask.UINT32) != 0) {
+      final var streamMetadata = StreamMetadataDecoder.decode(data, offset);
+      uint64Values =
+          IntegerDecoder.decodeIntStream(data, offset, streamMetadata, false).stream()
+              .map(Integer::toUnsignedLong)
+              .map(U64::of)
+              .toList();
+      numStreams--;
+    } else if ((dictionaryMask & MapPropertyEncoder.MapMask.UINT64) != 0) {
       final var streamMetadata = StreamMetadataDecoder.decode(data, offset);
       uint64Values =
           IntegerDecoder.decodeLongStream(data, offset, streamMetadata, false).stream()
@@ -149,14 +144,7 @@ public class MapPropertyDecoder {
     }
 
     final var dictionaries =
-        new MapValueDictionary(
-            stringValues,
-            int32Values,
-            uint32Values,
-            int64Values,
-            uint64Values,
-            floatValues,
-            doubleValues);
+        new MapValueDictionary(stringValues, int64Values, uint64Values, floatValues, doubleValues);
 
     final var columnNames = MapPropertyEncoder.getMapColumnNames(column);
     final var featureCount =
@@ -376,26 +364,16 @@ public class MapPropertyDecoder {
 
     private MapValueDictionary(
         @NotNull final SequencedCollection<String> strings,
-        @NotNull final SequencedCollection<Integer> int32s,
-        @NotNull final SequencedCollection<U32> uint32s,
-        @NotNull final SequencedCollection<Long> int64s,
-        @NotNull final SequencedCollection<U64> uint64s,
+        @NotNull final SequencedCollection<Long> ints,
+        @NotNull final SequencedCollection<U64> uints,
         @NotNull final SequencedCollection<Float> floats,
         @NotNull final SequencedCollection<Double> doubles) {
       final var totalValues =
-          strings.size()
-              + int32s.size()
-              + uint32s.size()
-              + int64s.size()
-              + uint64s.size()
-              + floats.size()
-              + doubles.size();
+          strings.size() + ints.size() + uints.size() + floats.size() + doubles.size();
       values = new ArrayList<>(totalValues);
       values.addAll(strings);
-      values.addAll(int32s);
-      values.addAll(uint32s);
-      values.addAll(int64s);
-      values.addAll(uint64s);
+      values.addAll(ints);
+      values.addAll(uints);
       values.addAll(floats);
       values.addAll(doubles);
     }

@@ -28,6 +28,7 @@ const UNIMPLEMENTED_SYNTHETICS = new Map([
   ["poly_self_intersect_fpf_tes", "FastPFor not supported"],
   ["poly_multi_morton_hole_morton", "Pending investigation"],
   ["0x01/prop_nested_big", "not implemented yet"],
+  ["0x01/prop_nested_ints", "not implemented yet"],
   ["0x01/prop_nested_json", "not implemented yet"],
   ["0x01/prop_nested_list_root", "not implemented yet"],
   ["0x01/prop_nested_list", "not implemented yet"],
