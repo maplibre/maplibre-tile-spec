@@ -83,21 +83,15 @@ const LENGTH_TYPE_BY_ID: readonly LengthType[] = [
 ];
 
 const DEFAULT_LOGICAL_STREAM_TYPE: LogicalStreamType = {};
-const DATA_LOGICAL_STREAM_TYPES: readonly LogicalStreamType[] = DICTIONARY_TYPE_BY_ID.map((dictionaryType) =>
-    ({
-        dictionaryType,
-    }),
-);
-const OFFSET_LOGICAL_STREAM_TYPES: readonly LogicalStreamType[] = OFFSET_TYPE_BY_ID.map((offsetType) =>
-    ({
-        offsetType,
-    }),
-);
-const LENGTH_LOGICAL_STREAM_TYPES: readonly LogicalStreamType[] = LENGTH_TYPE_BY_ID.map((lengthType) =>
-    ({
-        lengthType,
-    }),
-);
+const DATA_LOGICAL_STREAM_TYPES: readonly LogicalStreamType[] = DICTIONARY_TYPE_BY_ID.map((dictionaryType) => ({
+    dictionaryType,
+}));
+const OFFSET_LOGICAL_STREAM_TYPES: readonly LogicalStreamType[] = OFFSET_TYPE_BY_ID.map((offsetType) => ({
+    offsetType,
+}));
+const LENGTH_LOGICAL_STREAM_TYPES: readonly LogicalStreamType[] = LENGTH_TYPE_BY_ID.map((lengthType) => ({
+    lengthType,
+}));
 
 export function decodeStreamMetadata(tile: Uint8Array, offset: IntWrapper): StreamMetadata {
     const streamMetadata = decodeStreamMetadataInternal(tile, offset);
