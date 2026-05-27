@@ -82,17 +82,6 @@ const LENGTH_TYPE_BY_ID: readonly LengthType[] = [
     LengthType.DICTIONARY,
 ];
 
-const DEFAULT_LOGICAL_STREAM_TYPE: LogicalStreamType = {};
-const DATA_LOGICAL_STREAM_TYPES: readonly LogicalStreamType[] = DICTIONARY_TYPE_BY_ID.map((dictionaryType) => ({
-    dictionaryType,
-}));
-const OFFSET_LOGICAL_STREAM_TYPES: readonly LogicalStreamType[] = OFFSET_TYPE_BY_ID.map((offsetType) => ({
-    offsetType,
-}));
-const LENGTH_LOGICAL_STREAM_TYPES: readonly LogicalStreamType[] = LENGTH_TYPE_BY_ID.map((lengthType) => ({
-    lengthType,
-}));
-
 export function decodeStreamMetadata(tile: Uint8Array, offset: IntWrapper): StreamMetadata {
     const streamMetadata = decodeStreamMetadataInternal(tile, offset);
     if (streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.MORTON) {
@@ -153,17 +142,23 @@ function decodePartialRleEncodedStreamMetadata(
 function decodeStreamMetadataInternal(tile: Uint8Array, offset: IntWrapper): StreamMetadata {
     const stream_type = tile[offset.get()];
     const physicalStreamType = PHYSICAL_STREAM_TYPE_BY_ID[stream_type >> 4];
-    let logicalStreamType = DEFAULT_LOGICAL_STREAM_TYPE;
+    let logicalStreamType: LogicalStreamType = {};
 
     switch (physicalStreamType) {
         case PhysicalStreamType.DATA:
-            logicalStreamType = DATA_LOGICAL_STREAM_TYPES[stream_type & 0xf] ?? DEFAULT_LOGICAL_STREAM_TYPE;
+            logicalStreamType = {
+                dictionaryType: DICTIONARY_TYPE_BY_ID[stream_type & 0xf],
+            };
             break;
         case PhysicalStreamType.OFFSET:
-            logicalStreamType = OFFSET_LOGICAL_STREAM_TYPES[stream_type & 0xf] ?? DEFAULT_LOGICAL_STREAM_TYPE;
+            logicalStreamType = {
+                offsetType: OFFSET_TYPE_BY_ID[stream_type & 0xf],
+            };
             break;
         case PhysicalStreamType.LENGTH:
-            logicalStreamType = LENGTH_LOGICAL_STREAM_TYPES[stream_type & 0xf] ?? DEFAULT_LOGICAL_STREAM_TYPE;
+            logicalStreamType = {
+                lengthType: LENGTH_TYPE_BY_ID[stream_type & 0xf],
+            };
             break;
     }
     offset.increment();
