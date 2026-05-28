@@ -2181,7 +2181,7 @@ dependencies = [
  "rand 0.10.1",
  "rand_pcg",
  "robust",
- "rstar",
+ "rstar 0.12.2",
  "sif-itree",
 ]
 
@@ -2194,7 +2194,7 @@ dependencies = [
  "approx",
  "arbitrary",
  "num-traits",
- "rstar",
+ "rstar 0.12.2",
  "serde",
 ]
 
@@ -3505,7 +3505,7 @@ dependencies = [
  "pmtiles",
  "ratatui 0.30.0",
  "rayon",
- "rstar",
+ "rstar 0.13.0",
  "serde",
  "serde_json",
  "size_format",
@@ -5267,6 +5267,17 @@ name = "rstar"
 version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "421400d13ccfd26dfa5858199c30a5d76f9c54e0dba7575273025b43c5175dbb"
+dependencies = [
+ "heapless",
+ "num-traits",
+ "smallvec",
+]
+
+[[package]]
+name = "rstar"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5912b862fa5ffb462607bfd1e35036c458c537921f508c8235a83d5f3987edfe"
 dependencies = [
  "heapless",
  "num-traits",
