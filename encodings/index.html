@@ -533,9 +533,11 @@ For implementation details, refer to <a href="https://protobuf.dev/programming-g
 <h3 id="simd-fastpfor">SIMD-FastPFOR<a class="headerlink" href="#simd-fastpfor" title="Link to this section">&para;</a></h3>
 <p>A bit-aligned null suppression technique that compresses integers using a minimal number of bits.
 Uses a patched approach to store exceptions (outliers) separately, keeping the overall bit width small.</p>
-<p>Refer to:
-- <a href="https://arxiv.org/pdf/1209.2137.pdf">https://arxiv.org/pdf/1209.2137.pdf</a>
-- <a href="https://ayende.com/blog/199524-C/integer-compression-the-fastpfor-code">https://ayende.com/blog/199524-C/integer-compression-the-fastpfor-code</a></p>
+<p>Refer to:</p>
+<ul>
+<li><a href="https://arxiv.org/pdf/1209.2137.pdf">https://arxiv.org/pdf/1209.2137.pdf</a></li>
+<li><a href="https://ayende.com/blog/199524-C/integer-compression-the-fastpfor-code">https://ayende.com/blog/199524-C/integer-compression-the-fastpfor-code</a></li>
+</ul>
 <p><strong>Available implementations</strong>:</p>
 <ul>
 <li><strong>C++</strong>: <a href="https://github.com/fast-pack/FastPFOR">https://github.com/fast-pack/FastPFOR</a></li>

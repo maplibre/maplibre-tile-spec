@@ -459,10 +459,12 @@ A <code>FeatureTable</code> can contain up to <code>2^31 - 1</code> (2,147,483,6
 <p>Features within a single FeatureTable share a common set of attribute columns (properties) and typically share the same geometry type (though this is not strictly required).</p>
 <p>Each <code>FeatureTable</code> is preceded by a <code>FeatureTableMetadata</code> that describes <code>FeatureTable</code>'s structure.</p>
 <p>The visual appearance of a tile is usually defined by a <a href="https://maplibre.org/maplibre-style-spec/">MapLibre Style</a>, which specifies how features are rendered.</p>
-<p>Each feature must have
-- a <code>geometry</code> column (type based on the OGC's Simple Feature Access Model (SFA), excluding support for <code>GeometryCollection</code> types)
-- an optional <code>id</code> column
-- optional property columns</p>
+<p>Each feature must have</p>
+<ul>
+<li>a <code>geometry</code> column (type based on the OGC's Simple Feature Access Model (SFA), excluding support for <code>GeometryCollection</code> types)</li>
+<li>an optional <code>id</code> column</li>
+<li>optional property columns</li>
+</ul>
 <p>While geometries are not restricted to a single type, using one type per table is recommended for efficiency.
 As in MVT, geometry coordinates are encoded as integers within vector tile grid coordinates.</p>
 <div class="admonition note">
@@ -478,10 +480,12 @@ The absence of a single header at the beginning of the tile allows <code>Feature
 These streams are stored contiguously.
 A stream is a sequence of values of a known length in a continuous memory chunk, all sharing the same type.
 Streams include additional metadata, such as their size and encoding type.</p>
-<p>For example, a nullable string property column might have:
-- A <strong><code>present</code> stream</strong> (a bit flag indicating the presence of a value).
-- A <strong><code>length</code> stream</strong> (describing the number of characters for each string).
-- A <strong><code>data</code> stream</strong> (containing the actual UTF-8 encoded string values).</p>
+<p>For example, a nullable string property column might have:</p>
+<ul>
+<li>A <strong><code>present</code> stream</strong> (a bit flag indicating the presence of a value).</li>
+<li>A <strong><code>length</code> stream</strong> (describing the number of characters for each string).</li>
+<li>A <strong><code>data</code> stream</strong> (containing the actual UTF-8 encoded string values).</li>
+</ul>
 <p>MLT defines the following stream types:</p>
 <ul>
 <li><strong>Present</strong>:
@@ -543,11 +547,13 @@ By defining this information once per tileset, we avoid redundant metadata in ea
 Why any number?
 Should the size of the upcoming metadata and table be part of that structure?</p>
 </div>
-<p>A FeatureTable consists of any number of the following sequences:
-- The size of the upcoming <code>FeatureTableMetadata</code> (varint-encoded).
-- The size of the upcoming <code>FeatureTable</code> (varint-encoded).
-- One <code>FeatureTableMetadata</code> section.
-- One <code>FeatureTable</code> section.</p>
+<p>A FeatureTable consists of any number of the following sequences:</p>
+<ul>
+<li>The size of the upcoming <code>FeatureTableMetadata</code> (varint-encoded).</li>
+<li>The size of the upcoming <code>FeatureTable</code> (varint-encoded).</li>
+<li>One <code>FeatureTableMetadata</code> section.</li>
+<li>One <code>FeatureTable</code> section.</li>
+</ul>
 <p>This structure allows a tile to be built by simply concatenating separate results.
 The <code>FeatureTableMetadata</code> is described in detail below.</p>
 <p>Within a <code>FeatureTable</code>, additional metadata describes the structure of each part:</p>
@@ -1044,9 +1050,11 @@ Pre-tessellated polygon meshes can also be stored directly to avoid runtime tria
 <p>An additional <code>VertexOffsets</code> stream is present when using Dictionary or Morton-Dictionary encoding.
 If geometries (mainly polygons) are pre-tessellated for direct GPU use, <code>NumTriangles</code> and <code>IndexBuffer</code> streams must be provided.</p>
 <h3 id="property-columns">Property Columns<a class="headerlink" href="#property-columns" title="Link to this section">&para;</a></h3>
-<p>Feature properties are divided into <code>feature-scoped</code> and <code>vertex-scoped</code> properties.
-- <strong>Feature-scoped</strong>: One value per feature.
-- <strong>Vertex-scoped</strong>: One value per vertex in the VertexBuffer per feature (modeling M-coordinates from GIS).</p>
+<p>Feature properties are divided into <code>feature-scoped</code> and <code>vertex-scoped</code> properties.</p>
+<ul>
+<li><strong>Feature-scoped</strong>: One value per feature.</li>
+<li><strong>Vertex-scoped</strong>: One value per vertex in the VertexBuffer per feature (modeling M-coordinates from GIS).</li>
+</ul>
 <div class="admonition todo">
 <p class="admonition-title">Todo</p>
 <p>Would it make sense to place vertex-scoped properties AFTER feature scoped ones?
@@ -1056,14 +1064,16 @@ I suspect some implementations may act of feature-scoped properties first, and p
 A property's scope is defined in the tileset metadata using the <code>ColumnScope</code> enum.</p>
 <p>A property column can use any data type from the <a href="#type-system">type system</a>.</p>
 <h1 id="example-layouts">Example Layouts<a class="headerlink" href="#example-layouts" title="Link to this section">&para;</a></h1>
-<p>The following examples illustrate the layout of a <code>FeatureTable</code> in storage. The color scheme is:
-- <strong>Blue boxes</strong>:
+<p>The following examples illustrate the layout of a <code>FeatureTable</code> in storage. The color scheme is:</p>
+<ul>
+<li><strong>Blue boxes</strong>:
   Logical constructs, not persisted.
-  Fields are reconstructed from streams based on TileSet metadata.
-- <strong>White boxes</strong>:
-  Metadata describing data structure (FeatureTable, Stream (SM), Feature (FM) metadata).
-- <strong>Yellow boxes</strong>:
-  Streams containing the actual data.</p>
+  Fields are reconstructed from streams based on TileSet metadata.</li>
+<li><strong>White boxes</strong>:
+  Metadata describing data structure (FeatureTable, Stream (SM), Feature (FM) metadata).</li>
+<li><strong>Yellow boxes</strong>:
+  Streams containing the actual data.</li>
+</ul>
 <h2 id="place-layer">Place Layer<a class="headerlink" href="#place-layer" title="Link to this section">&para;</a></h2>
 <p>Given a place <a href="../assets/spec/place_feature.json">layer</a> with the following JSON schema structure:
 <img alt="" src="../assets/spec/place_feature.png" /></p>
@@ -1103,12 +1113,14 @@ This includes creating many small objects (increasing memory allocation load) an
 This approach improves cache utilization for subsequent data access and enables the use of fast SIMD instructions.
 The MLT in-memory format incorporates ideas from analytical in-memory formats like Apache Arrow, Velox, and the DuckDB execution format, tailored for visualization use cases.
 It is also designed for future parallel processing on the GPU within compute shaders.</p>
-<p>The main design goals for the MLT in-memory format are:
-- Define a platform-agnostic representation to avoid expensive materialization costs, especially for strings.
-- Maximize CPU throughput by optimizing memory layout for cache locality and SIMD instructions.
-- Allow random (preferably constant-time) access to all data for parallel processing on GPUs (compute shaders).
-- Provide compressed data structures that can be processed directly without full decoding.
-- Provide tile geometries in a representation that can be loaded into GPU buffers with minimal additional processing.</p>
+<p>The main design goals for the MLT in-memory format are:</p>
+<ul>
+<li>Define a platform-agnostic representation to avoid expensive materialization costs, especially for strings.</li>
+<li>Maximize CPU throughput by optimizing memory layout for cache locality and SIMD instructions.</li>
+<li>Allow random (preferably constant-time) access to all data for parallel processing on GPUs (compute shaders).</li>
+<li>Provide compressed data structures that can be processed directly without full decoding.</li>
+<li>Provide tile geometries in a representation that can be loaded into GPU buffers with minimal additional processing.</li>
+</ul>
 <p>Data is stored in contiguous memory buffers called <strong>vectors</strong>, accompanied by metadata and an optional null bitmap.
 The storage format includes a <code>VectorType</code> field in the metadata to instruct the decoder which vector type to use for a specific field.
 An auxiliary offset buffer enables random access to variable-sized data types like strings or lists.</p>
