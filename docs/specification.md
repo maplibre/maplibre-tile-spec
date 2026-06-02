@@ -21,6 +21,7 @@ Each `FeatureTable` is preceded by a `FeatureTableMetadata` that describes `Feat
 The visual appearance of a tile is usually defined by a [MapLibre Style](https://maplibre.org/maplibre-style-spec/), which specifies how features are rendered.
 
 Each feature must have
+
 - a `geometry` column (type based on the OGC's Simple Feature Access Model (SFA), excluding support for `GeometryCollection` types)
 - an optional `id` column
 - optional property columns
@@ -45,6 +46,7 @@ A stream is a sequence of values of a known length in a continuous memory chunk,
 Streams include additional metadata, such as their size and encoding type.
 
 For example, a nullable string property column might have:
+
 - A **`present` stream** (a bit flag indicating the presence of a value).
 - A **`length` stream** (describing the number of characters for each string).
 - A **`data` stream** (containing the actual UTF-8 encoded string values).
@@ -495,6 +497,7 @@ If geometries (mainly polygons) are pre-tessellated for direct GPU use, `NumTria
 ### Property Columns
 
 Feature properties are divided into `feature-scoped` and `vertex-scoped` properties.
+
 - **Feature-scoped**: One value per feature.
 - **Vertex-scoped**: One value per vertex in the VertexBuffer per feature (modeling M-coordinates from GIS).
 
@@ -510,6 +513,7 @@ A property column can use any data type from the [type system](#type-system).
 # Example Layouts
 
 The following examples illustrate the layout of a `FeatureTable` in storage. The color scheme is:
+
 - **Blue boxes**:
   Logical constructs, not persisted.
   Fields are reconstructed from streams based on TileSet metadata.
@@ -572,6 +576,7 @@ The MLT in-memory format incorporates ideas from analytical in-memory formats li
 It is also designed for future parallel processing on the GPU within compute shaders.
 
 The main design goals for the MLT in-memory format are:
+
 - Define a platform-agnostic representation to avoid expensive materialization costs, especially for strings.
 - Maximize CPU throughput by optimizing memory layout for cache locality and SIMD instructions.
 - Allow random (preferably constant-time) access to all data for parallel processing on GPUs (compute shaders).

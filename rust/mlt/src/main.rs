@@ -32,6 +32,7 @@ fn main() -> AnyResult<()> {
 
 #[derive(Parser)]
 #[command(name = "mlt", about = "MapLibre Tile format utilities")]
+#[command(version = env!("CARGO_PKG_VERSION"))]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
