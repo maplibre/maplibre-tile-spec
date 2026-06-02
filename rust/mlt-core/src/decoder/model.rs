@@ -122,6 +122,8 @@ pub struct Layer01<'a, S: DecodeState = Lazy> {
     pub(crate) layer_order: Vec<crate::decoder::fuzzing::LayerOrdering>,
 }
 
+impl StrParse for Layer{}
+
 pub type ParsedLayer01<'a> = Layer01<'a, Parsed>;
 
 impl<'a, S> fmt::Debug for Layer01<'a, S>

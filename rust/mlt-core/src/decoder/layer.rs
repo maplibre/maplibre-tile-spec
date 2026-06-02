@@ -10,7 +10,7 @@ impl<'a, S: DecodeState> Layer<'a, S> {
     pub fn as_layer01(&self) -> Option<&Layer01<'a, S>> {
         match self {
             Self::Tag01(l) => Some(l),
-            Self::Tag02(_) | Self::Unknown(_) => None,
+            _ => None,
         }
     }
 
@@ -19,7 +19,7 @@ impl<'a, S: DecodeState> Layer<'a, S> {
     pub fn into_layer01(self) -> Option<Layer01<'a, S>> {
         match self {
             Self::Tag01(l) => Some(l),
-            Self::Tag02(_) | Self::Unknown(_) => None,
+            _ => None,
         }
     }
 }
@@ -52,8 +52,8 @@ impl<'a> Layer<'a> {
     /// `Layer::Tag01(lazy)` and call the individual methods on [`Layer01`].
     pub fn decode_all(self, dec: &mut Decoder) -> MltResult<ParsedLayer<'a>> {
         match self {
-            Layer::Tag01(lazy) => Ok(Layer::Tag01(lazy.decode_all(dec)?)),
-            Layer::Tag02(t) => Ok(Layer::Tag02(t)),
+            Layer::Tag01(v) => Ok(Layer::Tag01(v.decode_all(dec)?)),
+            Layer::Tag02(v) => Ok(Layer::Tag02(v)),
             Layer::Unknown(u) => Ok(Layer::Unknown(u)),
         }
     }

@@ -86,12 +86,12 @@ fn multiple_layers_mixed_unknown_and_tag01() {
     let Layer::Unknown(u0) = &layers[0] else {
         panic!("expected Unknown at index 0");
     };
-    assert_eq!(u0.tag(), 10u32);
+    assert_eq!(u0.tag(), 10);
     assert_eq!(u0.data(), b"hello");
 
     let Layer::Unknown(u1) = &layers[1] else {
         panic!("expected Unknown at index 1");
     };
-    assert_eq!(u1.tag(), 11u32);
+    assert_eq!(u1.tag(), 11);
     assert_eq!(u1.data(), b"world");
 }
