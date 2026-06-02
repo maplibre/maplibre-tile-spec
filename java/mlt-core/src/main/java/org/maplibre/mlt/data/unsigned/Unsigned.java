@@ -1,5 +1,7 @@
 package org.maplibre.mlt.data.unsigned;
 
+import java.math.BigInteger;
+
 /**
  * Represents an unsigned integer of a fixed bit width (8, 32, or 64 bits).
  *
@@ -11,6 +13,8 @@ public sealed interface Unsigned permits U8, U32, U64 {
   Byte byteValue();
 
   Integer intValue();
+
+  BigInteger bigIntValue();
 
   Long longValue();
 
