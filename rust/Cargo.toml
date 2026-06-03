@@ -62,7 +62,7 @@ pyo3 = "0.28.3"
 pyo3-stub-gen = "0.22.3"
 ratatui = "0.30.0"
 rayon = "1"
-rstar = "0.12"
+rstar = "0.13"
 rstest = "0.26.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.150"
@@ -72,7 +72,7 @@ sqlx = { version = "0.8", default-features = false, features = [
     "runtime-tokio",
 ] }
 strum = { version = "0.28.0", default-features = false, features = ["derive"] }
-tabled = "0.20"
+tabled = "0.21"
 test_each_file = "0.3.5"
 thiserror = "2.0.11"
 thousands = "0.2"
