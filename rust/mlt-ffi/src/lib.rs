@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 #[expect(
     clippy::unnecessary_box_returns,
     reason = "Diplomat requires `Box<T>` returns for opaque constructors"

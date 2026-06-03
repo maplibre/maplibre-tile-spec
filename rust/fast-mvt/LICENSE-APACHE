@@ -1,0 +1,13 @@
+Apache License, Version 2.0
+
+This crate is licensed under the Apache License, Version 2.0, at your option
+under the workspace's dual-license terms. See the repository root
+`LICENSE-APACHE` file for the full license text.
+
+Portions adapted from:
+- mvt, Copyright (c) 2019-2026 Minnesota Department of Transportation,
+  licensed MIT OR Apache-2.0.
+- geozero, Copyright (c) 2020 Pirmin Kalberer, licensed MIT OR Apache-2.0.
+
+The `mvt-reader` portions credited in `README.md` are MIT licensed; see
+`LICENSE-MIT` for the compatible MIT notice.

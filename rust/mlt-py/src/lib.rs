@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 mod feature;
 mod tile_transform;
 

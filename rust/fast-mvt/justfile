@@ -1,0 +1,101 @@
+#!/usr/bin/env just --justfile
+
+main_crate := "fast-mvt"
+manifest := "../Cargo.toml"
+just := quote(just_executable())
+
+# if running in CI, treat warnings as errors by setting RUSTFLAGS and RUSTDOCFLAGS to '-D warnings' unless they are already set
+# Use `CI=true just ci-test` to run the same tests as in GitHub CI.
+# Use `just ci-env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
+ci_mode := if env('CI', '') != '' {'1'} else {''}
+export RUSTFLAGS := env('RUSTFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
+export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
+export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'})
+
+# Show available commands
+@_default:
+    {{just}} --list
+
+# Run the fast local CI set
+ci: codegen-check fmt-check clippy test bench-quick
+
+# Format all code with rustfmt
+fmt:
+    cargo fmt
+
+# Check formatting without changing files
+fmt-check:
+    cargo fmt --manifest-path {{manifest}} --all -- --check
+
+# Compile all fast-mvt targets with all features
+check:
+    cargo check --manifest-path {{manifest}} -p {{main_crate}} --all-targets --all-features
+
+# Run clippy for all fast-mvt targets
+clippy:
+    cargo clippy --manifest-path {{manifest}} -p {{main_crate}} --all-targets --all-features -- -D warnings
+
+# Run the default test suite
+test:
+    cargo test --manifest-path {{manifest}} -p {{main_crate}}
+
+# Run tests with every supported feature combination
+test-feature-matrix: test-all-features check-requires-feature test-reader test-writer
+
+# Run tests with all features enabled
+test-all-features:
+    cargo test --manifest-path {{manifest}} -p {{main_crate}} --all-features
+
+# Verify no reader/writer feature is rejected by lib.rs
+check-requires-feature:
+    ! cargo check --manifest-path {{manifest}} -p {{main_crate}} --no-default-features
+
+# Run reader-only tests
+test-reader:
+    cargo test --manifest-path {{manifest}} -p {{main_crate}} --no-default-features --features reader
+
+# Run writer-only tests
+test-writer:
+    cargo test --manifest-path {{manifest}} -p {{main_crate}} --no-default-features --features writer
+
+# Build documentation for fast-mvt
+docs:
+    cargo doc --manifest-path {{manifest}} -p {{main_crate}} --all-features --no-deps
+
+# Generate and open an HTML coverage report (requires cargo-llvm-cov)
+coverage:
+    cargo llvm-cov --manifest-path {{manifest}} -p {{main_crate}} --all-features --open
+
+# Generate LCOV coverage at ../target/llvm-cov/fast-mvt.lcov (requires cargo-llvm-cov)
+coverage-lcov:
+    mkdir -p ../target/llvm-cov
+    cargo llvm-cov --manifest-path {{manifest}} -p {{main_crate}} --all-features --lcov --output-path ../target/llvm-cov/fast-mvt.lcov
+
+# Run full Criterion benchmarks
+bench: bench-decode bench-encode
+
+# Compile and smoke-test benchmarks quickly, suitable for CI
+bench-quick: bench-decode-quick bench-encode-quick
+
+# Compare decoding speed between fast-mvt and mvt-reader
+bench-decode:
+    cargo bench --manifest-path {{manifest}} -p {{main_crate}} --bench decoder --features reader
+
+# Compare encoding speed between fast-mvt and mvt
+bench-encode:
+    cargo bench --manifest-path {{manifest}} -p {{main_crate}} --bench encoder --all-features
+
+# Compile and smoke-test the decode benchmark quickly, suitable for CI
+bench-decode-quick:
+    cargo bench --manifest-path {{manifest}} -p {{main_crate}} --bench decoder --features reader -- --test
+
+# Compile and smoke-test the encode benchmark quickly, suitable for CI
+bench-encode-quick:
+    cargo bench --manifest-path {{manifest}} -p {{main_crate}} --bench encoder --all-features -- --test
+
+# Alias for benchmark targets comparing the supported MVT crates
+bench-compare: bench
+
+# Regenerate protobuf bindings into src/generated to validate codegen setup
+codegen-check:
+    tmp="$(mktemp -d)" && cargo fmt --manifest-path {{manifest}} --all && cp -a src/generated/. "$tmp/" && cargo check --manifest-path {{manifest}} -p {{main_crate}} --no-default-features --features reader,codegen; status=$?; if [ $status -eq 0 ]; then cargo fmt --manifest-path {{manifest}} --all; status=$?; fi; if [ $status -eq 0 ]; then if [ -n "${CI:-}" ]; then git diff --exit-code; status=$?; elif ! diff -ru "$tmp" src/generated; then echo "generated files are out of date; rerun codegen"; git diff -- src/generated; status=1; fi; fi; rm -rf "$tmp"; exit $status

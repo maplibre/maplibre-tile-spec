@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod convert;
 pub mod dump;
 pub mod ls;

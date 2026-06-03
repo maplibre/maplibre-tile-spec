@@ -27,6 +27,8 @@
 //! any feature's property with a single array index — zero WASM calls during
 //! traversal.
 
+#![forbid(unsafe_code)]
+
 mod geometry;
 mod layer;
 mod properties;

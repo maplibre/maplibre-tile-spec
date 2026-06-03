@@ -1,0 +1,50 @@
+[package]
+name = "fast-mvt"
+description = "Fast integer-only Mapbox Vector Tile reader and writer"
+version = "0.1.0"
+authors.workspace = true
+categories.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[[bench]]
+name = "decoder"
+harness = false
+required-features = ["reader"]
+
+[[bench]]
+name = "encoder"
+harness = false
+required-features = ["reader", "writer"]
+
+[features]
+default = ["reader", "writer", "json"]
+reader = ["views"]
+writer = ["dep:dup-indexer"]
+json = ["dep:serde", "buffa/json"]
+views = []
+codegen = ["dep:buffa-build"]
+
+[dependencies]
+buffa.workspace = true
+dup-indexer = { workspace = true, optional = true }
+geo-types.workspace = true
+serde = { workspace = true, optional = true }
+thiserror.workspace = true
+
+[build-dependencies]
+buffa-build = { workspace = true, optional = true }
+
+[dev-dependencies]
+criterion.workspace = true
+mvt.workspace = true
+mvt-reader.workspace = true
+serde_json.workspace = true
+test_each_file.workspace = true
+
+[lints]
+workspace = true

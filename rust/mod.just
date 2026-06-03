@@ -9,8 +9,9 @@ export RUSTFLAGS := env('RUSTFLAGS', if ci_mode == '1' {'-D warnings'} else {''}
 export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
 export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'})
 
-# Features excluded from cargo-hack --each-feature iterations (heavy optional instrumentation)
-hack_skip := '--exclude-features hotpath,hotpath-alloc,hotpath-mcp'
+# Features excluded from cargo-hack --each-feature iterations.
+# `codegen` requires protoc and is covered by the checked-in generated file.
+hack_skip := '--exclude-features hotpath,hotpath-alloc,hotpath-mcp,codegen'
 
 _default: (just '--list' 'rust')
 
@@ -174,6 +175,7 @@ _coverage: (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm
     cargo llvm-cov clean --workspace
     cargo hack llvm-cov --no-report --all-targets --each-feature {{hack_skip}} \
         --workspace --exclude-no-default-features --exclude-all-features
+    {{just}} rust::coverage-fast-mvt
     rm -rf ../test/synthetic/0x01-rust
     cargo llvm-cov run --no-report -p mlt-synthetics
     cargo llvm-cov run --no-report -p mlt -- ls --validate-to-json --details basic ../test/synthetic/
@@ -422,10 +424,21 @@ sync-wasm-version:
 alias t := test
 # Run all tests
 test: (just 'cargo-install' 'cargo-hack')
-    cargo hack test --all-targets --each-feature {{hack_skip}} \
-        --workspace --exclude-no-default-features --exclude-all-features
+    cargo test --all-targets --workspace --exclude fast-mvt
+    {{just}} rust::test-fast-mvt
     {{just}} rust::generate-synthetic-mlts
     {{just}} rust::test-doc
+
+# Run fast-mvt's explicit feature
+test-fast-mvt:
+    cargo check -p fast-mvt --all-targets
+    cargo check -p fast-mvt --all-targets --no-default-features --features reader
+    cargo check -p fast-mvt --all-targets --no-default-features --features writer
+    cargo test -p fast-mvt --all-features
+
+# Add fast-mvt all-features coverage to the workspace coverage run.
+coverage-fast-mvt:
+    cargo llvm-cov --no-report -p fast-mvt --all-features
 
 # Test documentation generation
 test-doc: (docs '--document-private-items')

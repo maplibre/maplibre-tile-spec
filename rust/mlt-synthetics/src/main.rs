@@ -15,6 +15,8 @@
 //! * `tes` - includes tessellation triangles stream
 //! * `ns` - unlike Java encoder, empty streams are not forced to be created
 
+#![forbid(unsafe_code)]
+
 mod layer;
 mod writer;
 
