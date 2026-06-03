@@ -9,17 +9,28 @@ on:
   workflow_dispatch:
 
 jobs:
-  lint:
-    name: Lint
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/mlt-setup-rust
       - run: just -v rust::ci-check
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/mlt-setup-rust
       - run: just -v rust::ci-lint
 
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/mlt-setup-rust
+      - run: just -v rust::ci-test
+
   coverage:
-    name: Coverage
     permissions:
       id-token: write  # for OIDC Codecov
     runs-on: ubuntu-latest
@@ -201,7 +212,9 @@ jobs:
   # This approach also allows some jobs to be skipped if they are not needed.
   ci-passed-rust:
     needs:
+      - check
       - lint
+      - test
       - coverage
       # re-enable once we have stability guarantees regarding MSRV
       # - test-msrv
