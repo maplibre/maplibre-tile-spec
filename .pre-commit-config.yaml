@@ -7,7 +7,6 @@ exclude: |
       test/expected/.*
       |java/gradlew(\.bat)?
       |\.cursor/rules/.*
-      |test/fixtures/real-world
   )$
 
 ci:
