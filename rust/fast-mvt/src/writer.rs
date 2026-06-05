@@ -6,7 +6,7 @@ use usize_cast::IntoUsize;
 
 use crate::generated::vector_tile::Tile;
 use crate::generated::vector_tile::tile::{Feature, Layer, Value};
-use crate::geometry::encode_geometry;
+use crate::geom_writer::encode_geometry;
 use crate::{MvtError, MvtFeature, MvtLayer, MvtResult, MvtTile, MvtValue};
 
 pub fn encode_to_vec(tile: &MvtTile) -> MvtResult<Vec<u8>> {

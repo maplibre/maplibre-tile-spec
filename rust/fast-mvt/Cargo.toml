@@ -1,6 +1,6 @@
 [package]
 name = "fast-mvt"
-description = "Fast integer-only Mapbox Vector Tile reader and writer"
+description = "Fast Mapbox Vector Tile (MVT) reader and writer"
 version = "0.1.0"
 authors.workspace = true
 categories.workspace = true
@@ -10,16 +10,6 @@ keywords.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-
-[[bench]]
-name = "decoder"
-harness = false
-required-features = ["reader"]
-
-[[bench]]
-name = "encoder"
-harness = false
-required-features = ["reader", "writer"]
 
 [features]
 default = ["reader", "writer", "json"]
@@ -51,3 +41,13 @@ test_each_file.workspace = true
 
 [lints]
 workspace = true
+
+[[bench]]
+name = "decoder"
+harness = false
+required-features = ["reader"]
+
+[[bench]]
+name = "encoder"
+harness = false
+required-features = ["reader", "writer"]

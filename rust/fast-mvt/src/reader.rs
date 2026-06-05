@@ -5,7 +5,7 @@ use buffa::{Enumeration as _, MessageView as _};
 use usize_cast::IntoUsize;
 
 use crate::generated::vector_tile::{TileView, tile as proto_tile};
-use crate::geometry::decode_geometry;
+use crate::geom_reader::decode_geometry;
 use crate::types::{DEFAULT_EXTENT, MvtFeature, MvtLayer, MvtTile, MvtValue};
 use crate::{MvtError, MvtGeometry, MvtResult};
 

@@ -6,7 +6,11 @@ compile_error!("fast-mvt requires at least one of the `reader` or `writer` featu
 mod error;
 pub use error::{MvtError, MvtResult};
 
-mod geometry;
+mod geom;
+#[cfg(feature = "reader")]
+mod geom_reader;
+#[cfg(feature = "writer")]
+mod geom_writer;
 
 #[rustfmt::skip]
 #[allow(
@@ -35,5 +39,6 @@ pub use types::{
 
 #[cfg(feature = "writer")]
 mod writer;
+
 #[cfg(feature = "writer")]
 pub use writer::{encode, encode_to_vec};

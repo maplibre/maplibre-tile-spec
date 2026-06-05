@@ -7,16 +7,14 @@ receive tile-space integers.
 
 ## Features
 
-The default feature set is `reader`, `writer`, and `json`.
-
 | Feature     | Purpose                                                                 |
 |-------------|-------------------------------------------------------------------------|
-| `reader`    | Decode MVT bytes and inspect layers, features, geometries, and tags.    |
-| `writer`    | Encode owned tile values, using `dup-indexer` for key/value dictionaries. |
+| `reader`    | MVT tile decoding from bytes.                                           |
+| `writer`    | MVT tile encoding into bytes.                                           |
 | `json`      | Enable serde JSON support for the generated protobuf bindings.          |
-| `views`     | Enable generated zero-copy protobuf views used by `reader`.             |
 | `codegen`   | Regenerate checked-in protobuf bindings from `src/vector_tile.proto`.   |
 | `arbitrary` | Derive `arbitrary::Arbitrary` for generated protobuf types for fuzzing. |
+| `views`     | Internal feature, do not use. Must be here due to buffa limitations.    |
 
 The generated protobuf files are checked in, so normal builds do not require
 `protoc`. Run `just autofix` in this directory to refresh generated code after
@@ -48,7 +46,7 @@ fn read_tile(bytes: &[u8]) -> MvtResult<()> {
 }
 ```
 
-## Benchmarks
+### Benchmarks
 
 Decoder benchmark decodes all supported fixture tiles and iterate over all
 elements. Run the benchmarks with `just bench-decode`.
@@ -61,23 +59,31 @@ elements. Run the benchmarks with `just bench-decode`.
 | Encoder    |     Time |      Compare |
 |------------|---------:|-------------:|
 | `fast-mvt` |   685 ms |            - |
-| `mvt`      | 12.54 s  | 1731% slower |
+| `mvt`      | 12540 ms | 1731% slower |
 
-## Credits
+### Development
 
-This crate is derived from and informed by several open source MVT
-implementations:
+* This project is easier to develop with [just](https://just.systems/man/en/), a modern alternative to `make`.
+* To get a list of available commands, run `just`.
+* To run tests, use `just test`.
+
+## License
+
+* All code is dual licensed under [Apache License v2.0](http://www.apache.org/licenses/LICENSE-2.0) and [MIT license](http://opensource.org/licenses/MIT), at your option.
+
+### Credits
+
+This crate took some ideas from several open source MVT implementations:
 
 - `mvt` by the Minnesota Department of Transportation provided the encode-side
   tile/layer/feature structure and MVT geometry command conformance tests.
 - `mvt-reader` by Paul Lange provided the checked-in codegen pattern,
   layer metadata behavior, tag parsing validation, and decode-side geometry
   structure.
-- `geozero` by Pirmin Kalberer and contributors provided the `dup-indexer`
-  dictionary pattern, integer command helpers, and integer polygon area
-  orientation approach.
-- `maplibre-tile-spec` `mlt-core` MVT tests provided fixture round-trip
-  coverage and ring-close behavior.
 
-The implementation here has been adapted for this crate's integer-only and
-low-allocation API goals.
+### Contribution
+
+Unless you explicitly state otherwise, any code contribution intentionally
+submitted for inclusion in the work by you, as defined in the
+Apache-2.0 license, shall be dual licensed as above, without any
+additional terms or conditions.
