@@ -9,6 +9,10 @@ use fast_mvt::{
 };
 use geo_types::Geometry;
 use mvt::{GeomEncoder, GeomType};
+use prost::Message as _;
+use tinymvt::geometry::GeometryEncoder as TinyGeometryEncoder;
+use tinymvt::tag::{TagsEncoder as TinyTagsEncoder, Value as TinyValue};
+use tinymvt::vector_tile::{Tile as TinyTile, tile as tiny_tile};
 use usize_cast::FromUsize;
 
 mod common;
@@ -38,6 +42,9 @@ fn bench_encode(c: &mut Criterion) {
     });
     bench_owned(&mut group, "mvt encode", &tiles, |tile| {
         encode_with_mvt(tile).expect("mvt encode")
+    });
+    bench_owned(&mut group, "tinymvt encode", &tiles, |tile| {
+        encode_with_tinymvt(tile).expect("tinymvt encode")
     });
     group.finish();
 }
@@ -69,6 +76,119 @@ fn bench_owned<R>(
 
 fn total_owned_bytes(tiles: &[BenchTile]) -> usize {
     tiles.iter().map(|tile| tile.bytes).sum()
+}
+
+fn encode_with_tinymvt(tile: &MvtTile) -> Result<Vec<u8>, String> {
+    let mut out = TinyTile {
+        layers: Vec::with_capacity(tile.layers.len()),
+    };
+    for layer in &tile.layers {
+        let mut tags = TinyTagsEncoder::new();
+        let mut features = Vec::with_capacity(layer.features.len());
+        for feature in &layer.features {
+            for (key, value) in &feature.properties {
+                if let Some(value) = tiny_value(value) {
+                    tags.add(key, value);
+                }
+            }
+            let (geom_type, geometry) = tiny_geometry(&feature.geometry)?;
+            features.push(tiny_tile::Feature {
+                id: feature.id,
+                tags: tags.take_tags(),
+                r#type: Some(geom_type as i32),
+                geometry,
+            });
+        }
+        let (keys, values) = tags.into_keys_and_values();
+        out.layers.push(tiny_tile::Layer {
+            version: 2,
+            name: layer.name.clone(),
+            features,
+            keys,
+            values,
+            extent: Some(layer.extent.get()),
+        });
+    }
+    Ok(out.encode_to_vec())
+}
+
+fn tiny_value(value: &MvtValue) -> Option<TinyValue> {
+    match value {
+        MvtValue::String(value) => Some(TinyValue::String(value.clone())),
+        MvtValue::Float(value) => Some(TinyValue::Float(value.to_ne_bytes())),
+        MvtValue::Double(value) => Some(TinyValue::Double(value.to_ne_bytes())),
+        MvtValue::Int(value) => Some(TinyValue::Int(*value)),
+        MvtValue::UInt(value) => Some(TinyValue::Uint(*value)),
+        MvtValue::SInt(value) => Some(TinyValue::SInt(*value)),
+        MvtValue::Bool(value) => Some(TinyValue::Bool(*value)),
+        MvtValue::Null => None,
+    }
+}
+
+fn tiny_geometry(geometry: &MvtGeometry) -> Result<(tiny_tile::GeomType, Vec<u32>), String> {
+    let mut encoder = TinyGeometryEncoder::new();
+    let geom_type = match geometry {
+        Geometry::Point(point) => {
+            encoder.add_points([coord_array(point.0)]);
+            tiny_tile::GeomType::Point
+        }
+        Geometry::MultiPoint(points) => {
+            encoder.add_points(points.0.iter().map(|point| coord_array(point.0)));
+            tiny_tile::GeomType::Point
+        }
+        Geometry::LineString(line) => {
+            encoder.add_linestring(
+                without_trailing_duplicate(&line.0)
+                    .iter()
+                    .map(|&coord| coord_array(coord)),
+            );
+            tiny_tile::GeomType::Linestring
+        }
+        Geometry::MultiLineString(lines) => {
+            for line in &lines.0 {
+                encoder.add_linestring(
+                    without_trailing_duplicate(&line.0)
+                        .iter()
+                        .map(|&coord| coord_array(coord)),
+                );
+            }
+            tiny_tile::GeomType::Linestring
+        }
+        Geometry::Polygon(polygon) => {
+            add_tiny_polygon(&mut encoder, polygon);
+            tiny_tile::GeomType::Polygon
+        }
+        Geometry::MultiPolygon(polygons) => {
+            for polygon in &polygons.0 {
+                add_tiny_polygon(&mut encoder, polygon);
+            }
+            tiny_tile::GeomType::Polygon
+        }
+        Geometry::GeometryCollection(collection) if collection.0.len() == 1 => {
+            return tiny_geometry(&collection.0[0]);
+        }
+        _ => return Err("unsupported geometry".into()),
+    };
+    Ok((geom_type, encoder.into_vec()))
+}
+
+fn add_tiny_polygon(encoder: &mut TinyGeometryEncoder, polygon: &MvtPolygon) {
+    encoder.add_ring(
+        without_trailing_duplicate(&polygon.exterior().0)
+            .iter()
+            .map(|&coord| coord_array(coord)),
+    );
+    for ring in polygon.interiors() {
+        encoder.add_ring(
+            without_trailing_duplicate(&ring.0)
+                .iter()
+                .map(|&coord| coord_array(coord)),
+        );
+    }
+}
+
+fn coord_array(coord: MvtCoord) -> [i32; 2] {
+    [coord.x, coord.y]
 }
 
 fn encode_with_mvt(tile: &MvtTile) -> Result<Vec<u8>, mvt::Error> {

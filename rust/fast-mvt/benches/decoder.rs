@@ -4,6 +4,10 @@ use std::time::Duration;
 use criterion::measurement::WallTime;
 use criterion::{BenchmarkGroup, Criterion, Throughput, criterion_group, criterion_main};
 use fast_mvt::MvtReaderRef;
+use prost::Message as _;
+use tinymvt::geometry::GeometryDecoder as TinyGeometryDecoder;
+use tinymvt::tag::TagsDecoder as TinyTagsDecoder;
+use tinymvt::vector_tile::{Tile as TinyTile, tile as tiny_tile};
 use usize_cast::FromUsize;
 
 mod common;
@@ -23,6 +27,7 @@ fn bench_decode(c: &mut Criterion) {
         &tiles,
         traverse_mvt_reader,
     );
+    bench_tiles(&mut group, "tinymvt traverse", &tiles, traverse_tinymvt);
     group.finish();
 }
 
@@ -88,6 +93,38 @@ fn traverse_mvt_reader(data: &[u8]) {
             }
         }
     }
+}
+
+fn traverse_tinymvt(data: &[u8]) {
+    let tile = TinyTile::decode(data).expect("tinymvt parse");
+    for layer in &tile.layers {
+        let tags = TinyTagsDecoder::new(&layer.keys, &layer.values);
+        for feature in &layer.features {
+            black_box(feature.id);
+            black_box(tags.decode(&feature.tags).expect("tinymvt tags"));
+            decode_tiny_geometry(feature).expect("tinymvt geometry");
+        }
+    }
+}
+
+fn decode_tiny_geometry(feature: &tiny_tile::Feature) -> Result<(), String> {
+    let mut geometry = TinyGeometryDecoder::new(&feature.geometry);
+    match feature
+        .r#type
+        .and_then(|value| tiny_tile::GeomType::try_from(value).ok())
+    {
+        Some(tiny_tile::GeomType::Point) => {
+            black_box(geometry.decode_points()?);
+        }
+        Some(tiny_tile::GeomType::Linestring) => {
+            black_box(geometry.decode_linestrings()?);
+        }
+        Some(tiny_tile::GeomType::Polygon) => {
+            black_box(geometry.decode_polygons()?);
+        }
+        Some(tiny_tile::GeomType::Unknown) | None => {}
+    }
+    Ok(())
 }
 
 criterion_group!(benches, bench_decode);

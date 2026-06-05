@@ -33,11 +33,14 @@ usize_cast.workspace = true
 buffa-build = { workspace = true, optional = true }
 
 [dev-dependencies]
+anyhow.workspace = true
 criterion.workspace = true
 mvt.workspace = true
 mvt-reader.workspace = true
+prost.workspace = true
 serde_json.workspace = true
 test_each_file.workspace = true
+tinymvt = "0.3.0"
 
 [lints]
 workspace = true

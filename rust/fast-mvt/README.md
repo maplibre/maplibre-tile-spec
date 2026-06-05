@@ -80,6 +80,7 @@ elements. Run the benchmarks with `just bench-decode`.
 | Decoder      |    Time |     Compare |
 |--------------|--------:|------------:|
 | `fast-mvt`   |  453 ms |           - |
+| `tinymvt`    |  638 ms |  41% slower |
 | `mvt-reader` | 1165 ms | 157% slower |
 
 | Encoder    |     Time |      Compare |
