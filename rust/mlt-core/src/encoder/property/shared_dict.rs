@@ -7,6 +7,7 @@ use integer_encoding::VarIntWriter as _;
 use probabilistic_collections::SipHasherBuilder;
 use probabilistic_collections::similarity::MinHash;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
+use usize_cast::IntoUsize as _;
 
 use crate::MltError::DictIndexOutOfBounds;
 use crate::codecs::fsst::compress_fsst_with;
@@ -17,7 +18,7 @@ use crate::encoder::optimizer::{Presence, PropertyStats, SharedDictRole};
 use crate::encoder::property::strings::{fsst_try_train, write_fsst_data, write_raw_str_data};
 use crate::encoder::{Codecs, Encoder, StagedSharedDict, StagedSharedDictItem};
 use crate::errors::AsMltError as _;
-use crate::utils::{AsUsize as _, checked_sum3, strings_to_lengths};
+use crate::utils::{checked_sum3, strings_to_lengths};
 use crate::{ColumnType, DictRange, DictionaryType, LengthType, MltResult, OffsetType, StreamType};
 
 /// Number of [`MinHash`] permutations. 128 gives ~9 % error on Jaccard estimates.
@@ -185,7 +186,7 @@ impl StagedSharedDict {
 
     #[must_use]
     pub fn get(&self, span: (u32, u32)) -> Option<&str> {
-        self.corpus().get(span.0.as_usize()..span.1.as_usize())
+        self.corpus().get(span.0.into_usize()..span.1.into_usize())
     }
 }
 

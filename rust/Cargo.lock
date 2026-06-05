@@ -3635,6 +3635,7 @@ dependencies = [
  "test_each_file",
  "thiserror 2.0.18",
  "union-find",
+ "usize_cast",
  "wide",
  "zigzag",
  "zstd",

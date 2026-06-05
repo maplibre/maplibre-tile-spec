@@ -1,6 +1,6 @@
 use integer_encoding::VarInt;
+use usize_cast::IntoUsize as _;
 
-use crate::utils::AsUsize as _;
 use crate::{Decoder, MltError, MltRefResult};
 
 /// Parse a single varint (variable-length integer) from the input, returning
@@ -40,7 +40,7 @@ where
     U: TryFrom<T>,
     MltError: From<<U as TryFrom<T>>::Error>,
 {
-    let mut values = dec.alloc::<U>(size.as_usize())?;
+    let mut values = dec.alloc::<U>(size.into_usize())?;
     let mut val;
     for _ in 0..size {
         (input, val) = parse_varint::<T>(input)?;

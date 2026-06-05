@@ -4,6 +4,7 @@ use std::mem;
 use geo_types::Coord;
 use probabilistic_collections::SipHasherBuilder;
 use probabilistic_collections::hyperloglog::HyperLogLog;
+use usize_cast::IntoUsize as _;
 
 use super::model::VertexBufferType;
 use crate::MltResult;
@@ -16,7 +17,6 @@ use crate::decoder::{
 };
 use crate::encoder::model::{CurveParams, StreamCtx};
 use crate::encoder::{Codecs, Encoder, PhysicalCodecs, write_stream_payload};
-use crate::utils::AsUsize as _;
 
 /// Compute `ZOrderCurve` parameters from the vertex value range.
 ///
@@ -170,7 +170,7 @@ fn encode_level1_length_stream(
 
     for (i, &geom_type) in geom_types.iter().enumerate() {
         if geom_type.is_polygon() || (is_line_string_present && geom_type.is_linestring()) {
-            let n = (geom_offsets[i + 1] - geom_offsets[i]).as_usize();
+            let n = (geom_offsets[i + 1] - geom_offsets[i]).into_usize();
             part_idx += extend_offsets(&mut lengths, &part_offsets[part_idx..=part_idx + n]);
         }
         // Note: Point/MultiPoint don't have entries in the sparse part_offsets used
@@ -196,8 +196,8 @@ fn encode_ring_lengths_for_mixed(
     let mut lengths = Vec::new();
     for (i, &geom_type) in geom_types.iter().enumerate() {
         if geom_type.is_polygon() || (has_line_string && geom_type.is_linestring()) {
-            let s = part_offsets[i].as_usize();
-            let e = part_offsets[i + 1].as_usize();
+            let s = part_offsets[i].into_usize();
+            let e = part_offsets[i + 1].into_usize();
             extend_offsets(&mut lengths, &ring_offsets[s..=e]);
         }
     }
@@ -220,7 +220,7 @@ fn encode_level2_length_stream(
     let mut ring_idx = 0;
 
     for (i, &geom_type) in geom_types.iter().enumerate() {
-        let count = (geom_offsets[i + 1] - geom_offsets[i]).as_usize();
+        let count = (geom_offsets[i + 1] - geom_offsets[i]).into_usize();
 
         // Only Polygon and MultiPolygon have ring data in level 2
         // LineStrings with Polygon present add their vertex counts directly to ring_offsets,
@@ -228,7 +228,7 @@ fn encode_level2_length_stream(
         if geom_type.is_polygon() {
             // Polygon/MultiPolygon: iterate through sub-polygons, each has parts (ring counts)
             for _ in 0..count {
-                let n = (part_offsets[part_idx + 1] - part_offsets[part_idx]).as_usize();
+                let n = (part_offsets[part_idx + 1] - part_offsets[part_idx]).into_usize();
                 ring_idx += extend_offsets(&mut lengths, &ring_offsets[ring_idx..=ring_idx + n]);
                 part_idx += 1;
             }
@@ -258,7 +258,7 @@ fn encode_level1_without_ring_buffer_length_stream(
 
     for (i, &geom_type) in geom_types.iter().enumerate() {
         if geom_type.is_linestring() {
-            let n = (geom_offsets[i + 1] - geom_offsets[i]).as_usize();
+            let n = (geom_offsets[i + 1] - geom_offsets[i]).into_usize();
             part_idx += extend_offsets(&mut lengths, &part_offsets[part_idx..=part_idx + n]);
         }
         // Point/MultiPoint don't contribute to part_offsets; part_idx must not advance.

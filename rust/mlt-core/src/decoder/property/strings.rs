@@ -1,5 +1,7 @@
 use std::borrow::Cow;
 
+use usize_cast::IntoUsize as _;
+
 use crate::MltError::{BufferUnderflow, DictIndexOutOfBounds};
 use crate::codecs::fsst::decode_fsst;
 use crate::decoder::{
@@ -8,7 +10,6 @@ use crate::decoder::{
     RawStringsEncoding, StreamType,
 };
 use crate::errors::AsMltError as _;
-use crate::utils::AsUsize as _;
 use crate::{Decoder, DictRange, MltError, MltResult, RawSharedDict, RawSharedDictItem};
 
 impl<'a> ParsedStrings<'a> {
@@ -33,19 +34,19 @@ impl<'a> ParsedStrings<'a> {
 
     #[must_use]
     pub fn get(&self, idx: u32) -> Option<&str> {
-        let idx = idx.as_usize();
+        let idx = idx.into_usize();
 
         let end = *self.lengths.get(idx)?;
         if end < 0 {
             return None;
         }
-        let end = decode_end(end).as_usize();
+        let end = decode_end(end).into_usize();
 
         let start = idx
             .checked_sub(1)
             .and_then(|prev| self.lengths.get(prev).copied())
             .map_or(0, decode_end)
-            .as_usize();
+            .into_usize();
 
         self.data.get(start..end)
     }
@@ -56,8 +57,8 @@ impl<'a> ParsedStrings<'a> {
         let mut start = 0_u32;
         for &end in &self.lengths {
             let end_u32 = decode_end(end);
-            let start_idx = start.as_usize();
-            let end_idx = end_u32.as_usize();
+            let start_idx = start.into_usize();
+            let end_idx = end_u32.into_usize();
             if end >= 0
                 && let Some(value) = self.data.get(start_idx..end_idx)
             {
@@ -142,8 +143,8 @@ pub(crate) fn resolve_dict_spans(
 }
 
 fn dict_span_str(dict_data: &str, span: (u32, u32)) -> MltResult<&str> {
-    let start = span.0.as_usize();
-    let end = span.1.as_usize();
+    let start = span.0.into_usize();
+    let end = span.1.into_usize();
     let bytes = dict_data.as_bytes();
     let Some(value) = bytes.get(start..end) else {
         let len = span.1.saturating_sub(span.0);
@@ -160,8 +161,8 @@ impl ParsedSharedDict<'_> {
 
     #[must_use]
     pub fn get(&self, span: (u32, u32)) -> Option<&str> {
-        let start = span.0.as_usize();
-        let end = span.1.as_usize();
+        let start = span.0.into_usize();
+        let end = span.1.into_usize();
         self.corpus().get(start..end)
     }
 }

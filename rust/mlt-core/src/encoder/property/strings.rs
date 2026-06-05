@@ -1,5 +1,6 @@
 use fsst::Compressor;
 use integer_encoding::VarIntWriter as _;
+use usize_cast::IntoUsize as _;
 
 use super::model::StagedStrings;
 use crate::MltResult;
@@ -9,7 +10,7 @@ use crate::decoder::{DictionaryType, LengthType, OffsetType, StreamMeta, StreamT
 use crate::encoder::model::{StrEncoding, StreamCtx};
 use crate::encoder::stream::{dedup_strings, write_stream_payload};
 use crate::encoder::{Codecs, Encoder};
-use crate::utils::{AsUsize as _, strings_to_lengths};
+use crate::utils::strings_to_lengths;
 
 /// Minimum total raw byte size of a column before attempting FSST compression.
 const FSST_OVERHEAD_THRESHOLD: usize = 2_048;
@@ -377,7 +378,7 @@ impl StagedStrings {
         for &end in &self.lengths {
             if end >= 0 {
                 let end = end.cast_unsigned();
-                values.push(&self.data[start.as_usize()..end.as_usize()]);
+                values.push(&self.data[start.into_usize()..end.into_usize()]);
                 start = end;
             } else {
                 start = (!end).cast_unsigned();

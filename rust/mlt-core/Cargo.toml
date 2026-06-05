@@ -65,6 +65,7 @@ serde_json.workspace = true
 strum.workspace = true
 thiserror.workspace = true
 union-find.workspace = true
+usize_cast.workspace = true
 wide.workspace = true
 zigzag.workspace = true
 
