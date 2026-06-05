@@ -423,7 +423,7 @@ sync-wasm-version:
 
 alias t := test
 # Run all tests
-test: (just 'cargo-install' 'cargo-hack')
+test:
     cargo test --all-targets --workspace --exclude fast-mvt
     {{just}} rust::test-fast-mvt
     {{just}} rust::generate-synthetic-mlts
@@ -436,9 +436,18 @@ test-fast-mvt:
     cargo check -p fast-mvt --all-targets --no-default-features --features writer
     cargo test -p fast-mvt --all-features
 
+# Regenerate fast-mvt protobuf bindings and fail if checked-in output changes.
+codegen-check-fast-mvt:
+    tmp="$(mktemp -d)" && cargo fmt --all && cp -a fast-mvt/src/generated/. "$tmp/" && cargo check -p fast-mvt --no-default-features --features reader,codegen; status=$?; if [ $status -eq 0 ]; then cargo fmt --all; status=$?; fi; if [ $status -eq 0 ]; then if [ -n "${CI:-}" ]; then git diff --exit-code; status=$?; elif ! diff -ru "$tmp" fast-mvt/src/generated; then echo "generated files are out of date; rerun codegen"; git diff -- fast-mvt/src/generated; status=1; fi; fi; rm -rf "$tmp"; exit $status
+
+# Refresh generated fast-mvt code and formatting after dependency updates.
+autofix-fast-mvt:
+    cargo check -p fast-mvt --features codegen
+    {{just}} rust::fmt
+
 # Add fast-mvt all-features coverage to the workspace coverage run.
 coverage-fast-mvt:
-    cargo llvm-cov --no-report -p fast-mvt --all-features
+    cargo llvm-cov --no-report -p fast-mvt
 
 # Test documentation generation
 test-doc: (docs '--document-private-items')

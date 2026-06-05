@@ -2,8 +2,9 @@
 // source: vector_tile.proto
 
 #[derive(Clone, PartialEq, Default)]
-#[cfg_attr(feature = "json", derive(::serde::Serialize))]
+#[cfg_attr(feature = "json", derive(::serde::Serialize, ::serde::Deserialize))]
 #[cfg_attr(feature = "json", serde(default))]
+#[cfg_attr(feature = "arbitrary", derive(::arbitrary::Arbitrary))]
 pub struct Tile {
     /// Field 3: `layers`
     #[cfg_attr(
@@ -15,9 +16,6 @@ pub struct Tile {
         )
     )]
     pub layers: ::buffa::alloc::vec::Vec<tile::Layer>,
-    #[cfg_attr(feature = "json", serde(flatten))]
-    #[doc(hidden)]
-    pub __buffa_unknown_fields: __TileExtJson,
 }
 impl ::core::fmt::Debug for Tile {
     fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
@@ -62,7 +60,6 @@ impl ::buffa::Message for Tile {
                 += 1u32 + ::buffa::encoding::varint_len(inner_size as u64) as u32
                     + inner_size;
         }
-        size += self.__buffa_unknown_fields.encoded_len() as u32;
         size
     }
     fn write_to(
@@ -81,7 +78,6 @@ impl ::buffa::Message for Tile {
             ::buffa::encoding::encode_varint(__cache.consume_next() as u64, buf);
             v.write_to(__cache, buf);
         }
-        self.__buffa_unknown_fields.write_to(buf);
     }
     fn merge_field(
         &mut self,
@@ -107,106 +103,13 @@ impl ::buffa::Message for Tile {
                 self.layers.push(elem);
             }
             _ => {
-                self.__buffa_unknown_fields
-                    .push(::buffa::encoding::decode_unknown_field(tag, buf, depth)?);
+                ::buffa::encoding::skip_field_depth(tag, buf, depth)?;
             }
         }
         ::core::result::Result::Ok(())
     }
     fn clear(&mut self) {
         self.layers.clear();
-        self.__buffa_unknown_fields.clear();
-    }
-}
-impl ::buffa::ExtensionSet for Tile {
-    const PROTO_FQN: &'static str = "vector_tile.Tile";
-    fn unknown_fields(&self) -> &::buffa::UnknownFields {
-        &self.__buffa_unknown_fields
-    }
-    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
-        &mut self.__buffa_unknown_fields
-    }
-}
-#[cfg(feature = "json")]
-impl<'de> serde::Deserialize<'de> for Tile {
-    fn deserialize<D: serde::Deserializer<'de>>(
-        d: D,
-    ) -> ::core::result::Result<Self, D::Error> {
-        struct _V;
-        impl<'de> serde::de::Visitor<'de> for _V {
-            type Value = Tile;
-            fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                f.write_str("struct Tile")
-            }
-            #[allow(clippy::field_reassign_with_default)]
-            fn visit_map<A: serde::de::MapAccess<'de>>(
-                self,
-                mut map: A,
-            ) -> ::core::result::Result<Tile, A::Error> {
-                let mut __f_layers: ::core::option::Option<
-                    ::buffa::alloc::vec::Vec<tile::Layer>,
-                > = None;
-                let mut __ext_records: ::buffa::alloc::vec::Vec<::buffa::UnknownField> = ::buffa::alloc::vec::Vec::new();
-                while let Some(key) = map.next_key::<::buffa::alloc::string::String>()? {
-                    match key.as_str() {
-                        "layers" => {
-                            __f_layers = Some({
-                                struct _S;
-                                impl<'de> serde::de::DeserializeSeed<'de> for _S {
-                                    type Value = ::buffa::alloc::vec::Vec<tile::Layer>;
-                                    fn deserialize<D: serde::Deserializer<'de>>(
-                                        self,
-                                        d: D,
-                                    ) -> ::core::result::Result<
-                                        ::buffa::alloc::vec::Vec<tile::Layer>,
-                                        D::Error,
-                                    > {
-                                        ::buffa::json_helpers::null_as_default(d)
-                                    }
-                                }
-                                map.next_value_seed(_S)?
-                            });
-                        }
-                        __k if __k.starts_with('[') => {
-                            let __v: ::buffa::serde_json::Value = map.next_value()?;
-                            match ::buffa::extension_registry::deserialize_extension_key(
-                                "vector_tile.Tile",
-                                __k,
-                                __v,
-                            ) {
-                                ::core::option::Option::Some(
-                                    ::core::result::Result::Ok(__recs),
-                                ) => {
-                                    for __rec in __recs {
-                                        __ext_records.push(__rec);
-                                    }
-                                }
-                                ::core::option::Option::Some(
-                                    ::core::result::Result::Err(__e),
-                                ) => {
-                                    return ::core::result::Result::Err(
-                                        <A::Error as ::serde::de::Error>::custom(__e),
-                                    );
-                                }
-                                ::core::option::Option::None => {}
-                            }
-                        }
-                        _ => {
-                            map.next_value::<serde::de::IgnoredAny>()?;
-                        }
-                    }
-                }
-                let mut __r = <Tile as ::core::default::Default>::default();
-                if let ::core::option::Option::Some(v) = __f_layers {
-                    __r.layers = v;
-                }
-                for __rec in __ext_records {
-                    __r.__buffa_unknown_fields.push(__rec);
-                }
-                Ok(__r)
-            }
-        }
-        d.deserialize_map(_V)
     }
 }
 #[cfg(feature = "json")]
@@ -223,44 +126,6 @@ impl ::buffa::json_helpers::ProtoElemJson for Tile {
         <Self as ::serde::Deserialize>::deserialize(d)
     }
 }
-#[doc(hidden)]
-#[derive(Clone, Debug, Default, PartialEq)]
-#[repr(transparent)]
-pub struct __TileExtJson(pub ::buffa::UnknownFields);
-impl ::core::ops::Deref for __TileExtJson {
-    type Target = ::buffa::UnknownFields;
-    fn deref(&self) -> &::buffa::UnknownFields {
-        &self.0
-    }
-}
-impl ::core::ops::DerefMut for __TileExtJson {
-    fn deref_mut(&mut self) -> &mut ::buffa::UnknownFields {
-        &mut self.0
-    }
-}
-impl ::core::convert::From<::buffa::UnknownFields> for __TileExtJson {
-    fn from(u: ::buffa::UnknownFields) -> Self {
-        Self(u)
-    }
-}
-#[cfg(feature = "json")]
-impl ::serde::Serialize for __TileExtJson {
-    fn serialize<S: ::serde::Serializer>(
-        &self,
-        s: S,
-    ) -> ::core::result::Result<S::Ok, S::Error> {
-        ::buffa::extension_registry::serialize_extensions("vector_tile.Tile", &self.0, s)
-    }
-}
-#[cfg(feature = "json")]
-impl<'de> ::serde::Deserialize<'de> for __TileExtJson {
-    fn deserialize<D: ::serde::Deserializer<'de>>(
-        d: D,
-    ) -> ::core::result::Result<Self, D::Error> {
-        ::buffa::extension_registry::deserialize_extensions("vector_tile.Tile", d)
-            .map(Self)
-    }
-}
 #[cfg(feature = "json")]
 #[doc(hidden)]
 pub const __TILE_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
@@ -274,6 +139,7 @@ pub mod tile {
     use super::*;
     /// GeomType is described in section 4.3.4 of the specification
     #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+    #[cfg_attr(feature = "arbitrary", derive(::arbitrary::Arbitrary))]
     #[repr(i32)]
     pub enum GeomType {
         UNKNOWN = 0i32,
@@ -430,8 +296,9 @@ pub mod tile {
     /// Variant type encoding
     /// The use of values is described in section 4.1 of the specification
     #[derive(Clone, PartialEq, Default)]
-    #[cfg_attr(feature = "json", derive(::serde::Serialize))]
+    #[cfg_attr(feature = "json", derive(::serde::Serialize, ::serde::Deserialize))]
     #[cfg_attr(feature = "json", serde(default))]
+    #[cfg_attr(feature = "arbitrary", derive(::arbitrary::Arbitrary))]
     pub struct Value {
         /// Exactly one of these values must be present in a valid message
         ///
@@ -510,9 +377,6 @@ pub mod tile {
             )
         )]
         pub bool_value: ::core::option::Option<bool>,
-        #[cfg_attr(feature = "json", serde(flatten))]
-        #[doc(hidden)]
-        pub __buffa_unknown_fields: __ValueExtJson,
     }
     impl ::core::fmt::Debug for Value {
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
@@ -632,7 +496,6 @@ pub mod tile {
             if self.bool_value.is_some() {
                 size += 1u32 + ::buffa::types::BOOL_ENCODED_LEN as u32;
             }
-            size += self.__buffa_unknown_fields.encoded_len() as u32;
             size
         }
         fn write_to(
@@ -680,7 +543,6 @@ pub mod tile {
                     .encode(buf);
                 ::buffa::types::encode_bool(v, buf);
             }
-            self.__buffa_unknown_fields.write_to(buf);
         }
         fn merge_field(
             &mut self,
@@ -781,8 +643,7 @@ pub mod tile {
                     );
                 }
                 _ => {
-                    self.__buffa_unknown_fields
-                        .push(::buffa::encoding::decode_unknown_field(tag, buf, depth)?);
+                    ::buffa::encoding::skip_field_depth(tag, buf, depth)?;
                 }
             }
             ::core::result::Result::Ok(())
@@ -795,226 +656,6 @@ pub mod tile {
             self.uint_value = ::core::option::Option::None;
             self.sint_value = ::core::option::Option::None;
             self.bool_value = ::core::option::Option::None;
-            self.__buffa_unknown_fields.clear();
-        }
-    }
-    impl ::buffa::ExtensionSet for Value {
-        const PROTO_FQN: &'static str = "vector_tile.Tile.Value";
-        fn unknown_fields(&self) -> &::buffa::UnknownFields {
-            &self.__buffa_unknown_fields
-        }
-        fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
-            &mut self.__buffa_unknown_fields
-        }
-    }
-    #[cfg(feature = "json")]
-    impl<'de> serde::Deserialize<'de> for Value {
-        fn deserialize<D: serde::Deserializer<'de>>(
-            d: D,
-        ) -> ::core::result::Result<Self, D::Error> {
-            struct _V;
-            impl<'de> serde::de::Visitor<'de> for _V {
-                type Value = Value;
-                fn expecting(
-                    &self,
-                    f: &mut core::fmt::Formatter<'_>,
-                ) -> core::fmt::Result {
-                    f.write_str("struct Value")
-                }
-                #[allow(clippy::field_reassign_with_default)]
-                fn visit_map<A: serde::de::MapAccess<'de>>(
-                    self,
-                    mut map: A,
-                ) -> ::core::result::Result<Value, A::Error> {
-                    let mut __f_string_value: ::core::option::Option<
-                        ::core::option::Option<::buffa::alloc::string::String>,
-                    > = None;
-                    let mut __f_float_value: ::core::option::Option<
-                        ::core::option::Option<f32>,
-                    > = None;
-                    let mut __f_double_value: ::core::option::Option<
-                        ::core::option::Option<f64>,
-                    > = None;
-                    let mut __f_int_value: ::core::option::Option<
-                        ::core::option::Option<i64>,
-                    > = None;
-                    let mut __f_uint_value: ::core::option::Option<
-                        ::core::option::Option<u64>,
-                    > = None;
-                    let mut __f_sint_value: ::core::option::Option<
-                        ::core::option::Option<i64>,
-                    > = None;
-                    let mut __f_bool_value: ::core::option::Option<
-                        ::core::option::Option<bool>,
-                    > = None;
-                    let mut __ext_records: ::buffa::alloc::vec::Vec<
-                        ::buffa::UnknownField,
-                    > = ::buffa::alloc::vec::Vec::new();
-                    while let Some(key) = map
-                        .next_key::<::buffa::alloc::string::String>()?
-                    {
-                        match key.as_str() {
-                            "stringValue" | "string_value" => {
-                                __f_string_value = Some(
-                                    map
-                                        .next_value::<
-                                            ::core::option::Option<::buffa::alloc::string::String>,
-                                        >()?,
-                                );
-                            }
-                            "floatValue" | "float_value" => {
-                                __f_float_value = Some({
-                                    struct _S;
-                                    impl<'de> serde::de::DeserializeSeed<'de> for _S {
-                                        type Value = ::core::option::Option<f32>;
-                                        fn deserialize<D: serde::Deserializer<'de>>(
-                                            self,
-                                            d: D,
-                                        ) -> ::core::result::Result<
-                                            ::core::option::Option<f32>,
-                                            D::Error,
-                                        > {
-                                            ::buffa::json_helpers::opt_float::deserialize(d)
-                                        }
-                                    }
-                                    map.next_value_seed(_S)?
-                                });
-                            }
-                            "doubleValue" | "double_value" => {
-                                __f_double_value = Some({
-                                    struct _S;
-                                    impl<'de> serde::de::DeserializeSeed<'de> for _S {
-                                        type Value = ::core::option::Option<f64>;
-                                        fn deserialize<D: serde::Deserializer<'de>>(
-                                            self,
-                                            d: D,
-                                        ) -> ::core::result::Result<
-                                            ::core::option::Option<f64>,
-                                            D::Error,
-                                        > {
-                                            ::buffa::json_helpers::opt_double::deserialize(d)
-                                        }
-                                    }
-                                    map.next_value_seed(_S)?
-                                });
-                            }
-                            "intValue" | "int_value" => {
-                                __f_int_value = Some({
-                                    struct _S;
-                                    impl<'de> serde::de::DeserializeSeed<'de> for _S {
-                                        type Value = ::core::option::Option<i64>;
-                                        fn deserialize<D: serde::Deserializer<'de>>(
-                                            self,
-                                            d: D,
-                                        ) -> ::core::result::Result<
-                                            ::core::option::Option<i64>,
-                                            D::Error,
-                                        > {
-                                            ::buffa::json_helpers::opt_int64::deserialize(d)
-                                        }
-                                    }
-                                    map.next_value_seed(_S)?
-                                });
-                            }
-                            "uintValue" | "uint_value" => {
-                                __f_uint_value = Some({
-                                    struct _S;
-                                    impl<'de> serde::de::DeserializeSeed<'de> for _S {
-                                        type Value = ::core::option::Option<u64>;
-                                        fn deserialize<D: serde::Deserializer<'de>>(
-                                            self,
-                                            d: D,
-                                        ) -> ::core::result::Result<
-                                            ::core::option::Option<u64>,
-                                            D::Error,
-                                        > {
-                                            ::buffa::json_helpers::opt_uint64::deserialize(d)
-                                        }
-                                    }
-                                    map.next_value_seed(_S)?
-                                });
-                            }
-                            "sintValue" | "sint_value" => {
-                                __f_sint_value = Some({
-                                    struct _S;
-                                    impl<'de> serde::de::DeserializeSeed<'de> for _S {
-                                        type Value = ::core::option::Option<i64>;
-                                        fn deserialize<D: serde::Deserializer<'de>>(
-                                            self,
-                                            d: D,
-                                        ) -> ::core::result::Result<
-                                            ::core::option::Option<i64>,
-                                            D::Error,
-                                        > {
-                                            ::buffa::json_helpers::opt_int64::deserialize(d)
-                                        }
-                                    }
-                                    map.next_value_seed(_S)?
-                                });
-                            }
-                            "boolValue" | "bool_value" => {
-                                __f_bool_value = Some(
-                                    map.next_value::<::core::option::Option<bool>>()?,
-                                );
-                            }
-                            __k if __k.starts_with('[') => {
-                                let __v: ::buffa::serde_json::Value = map.next_value()?;
-                                match ::buffa::extension_registry::deserialize_extension_key(
-                                    "vector_tile.Tile.Value",
-                                    __k,
-                                    __v,
-                                ) {
-                                    ::core::option::Option::Some(
-                                        ::core::result::Result::Ok(__recs),
-                                    ) => {
-                                        for __rec in __recs {
-                                            __ext_records.push(__rec);
-                                        }
-                                    }
-                                    ::core::option::Option::Some(
-                                        ::core::result::Result::Err(__e),
-                                    ) => {
-                                        return ::core::result::Result::Err(
-                                            <A::Error as ::serde::de::Error>::custom(__e),
-                                        );
-                                    }
-                                    ::core::option::Option::None => {}
-                                }
-                            }
-                            _ => {
-                                map.next_value::<serde::de::IgnoredAny>()?;
-                            }
-                        }
-                    }
-                    let mut __r = <Value as ::core::default::Default>::default();
-                    if let ::core::option::Option::Some(v) = __f_string_value {
-                        __r.string_value = v;
-                    }
-                    if let ::core::option::Option::Some(v) = __f_float_value {
-                        __r.float_value = v;
-                    }
-                    if let ::core::option::Option::Some(v) = __f_double_value {
-                        __r.double_value = v;
-                    }
-                    if let ::core::option::Option::Some(v) = __f_int_value {
-                        __r.int_value = v;
-                    }
-                    if let ::core::option::Option::Some(v) = __f_uint_value {
-                        __r.uint_value = v;
-                    }
-                    if let ::core::option::Option::Some(v) = __f_sint_value {
-                        __r.sint_value = v;
-                    }
-                    if let ::core::option::Option::Some(v) = __f_bool_value {
-                        __r.bool_value = v;
-                    }
-                    for __rec in __ext_records {
-                        __r.__buffa_unknown_fields.push(__rec);
-                    }
-                    Ok(__r)
-                }
-            }
-            d.deserialize_map(_V)
         }
     }
     #[cfg(feature = "json")]
@@ -1031,51 +672,6 @@ pub mod tile {
             <Self as ::serde::Deserialize>::deserialize(d)
         }
     }
-    #[doc(hidden)]
-    #[derive(Clone, Debug, Default, PartialEq)]
-    #[repr(transparent)]
-    pub struct __ValueExtJson(pub ::buffa::UnknownFields);
-    impl ::core::ops::Deref for __ValueExtJson {
-        type Target = ::buffa::UnknownFields;
-        fn deref(&self) -> &::buffa::UnknownFields {
-            &self.0
-        }
-    }
-    impl ::core::ops::DerefMut for __ValueExtJson {
-        fn deref_mut(&mut self) -> &mut ::buffa::UnknownFields {
-            &mut self.0
-        }
-    }
-    impl ::core::convert::From<::buffa::UnknownFields> for __ValueExtJson {
-        fn from(u: ::buffa::UnknownFields) -> Self {
-            Self(u)
-        }
-    }
-    #[cfg(feature = "json")]
-    impl ::serde::Serialize for __ValueExtJson {
-        fn serialize<S: ::serde::Serializer>(
-            &self,
-            s: S,
-        ) -> ::core::result::Result<S::Ok, S::Error> {
-            ::buffa::extension_registry::serialize_extensions(
-                "vector_tile.Tile.Value",
-                &self.0,
-                s,
-            )
-        }
-    }
-    #[cfg(feature = "json")]
-    impl<'de> ::serde::Deserialize<'de> for __ValueExtJson {
-        fn deserialize<D: ::serde::Deserializer<'de>>(
-            d: D,
-        ) -> ::core::result::Result<Self, D::Error> {
-            ::buffa::extension_registry::deserialize_extensions(
-                    "vector_tile.Tile.Value",
-                    d,
-                )
-                .map(Self)
-        }
-    }
     #[cfg(feature = "json")]
     #[doc(hidden)]
     pub const __VALUE_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
@@ -1088,6 +684,7 @@ pub mod tile {
     #[derive(Clone, PartialEq, Default)]
     #[cfg_attr(feature = "json", derive(::serde::Serialize, ::serde::Deserialize))]
     #[cfg_attr(feature = "json", serde(default))]
+    #[cfg_attr(feature = "arbitrary", derive(::arbitrary::Arbitrary))]
     pub struct Feature {
         /// Field 1: `id`
         #[cfg_attr(
@@ -1140,9 +737,6 @@ pub mod tile {
             )
         )]
         pub geometry: ::buffa::alloc::vec::Vec<u32>,
-        #[cfg_attr(feature = "json", serde(skip))]
-        #[doc(hidden)]
-        pub __buffa_unknown_fields: ::buffa::UnknownFields,
     }
     impl ::core::fmt::Debug for Feature {
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
@@ -1226,7 +820,6 @@ pub mod tile {
                     += 1u32 + ::buffa::encoding::varint_len(payload as u64) as u32
                         + payload;
             }
-            size += self.__buffa_unknown_fields.encoded_len() as u32;
             size
         }
         fn write_to(
@@ -1278,7 +871,6 @@ pub mod tile {
                     ::buffa::types::encode_uint32(v, buf);
                 }
             }
-            self.__buffa_unknown_fields.write_to(buf);
         }
         fn merge_field(
             &mut self,
@@ -1345,13 +937,7 @@ pub mod tile {
                         __raw,
                     ) {
                         self.r#type = ::core::option::Option::Some(__v);
-                    } else {
-                        self.__buffa_unknown_fields
-                            .push(::buffa::UnknownField {
-                                number: 3u32,
-                                data: ::buffa::UnknownFieldData::Varint(__raw as u64),
-                            });
-                    }
+                    } else {}
                 }
                 4u32 => {
                     if tag.wire_type() == ::buffa::encoding::WireType::LengthDelimited {
@@ -1384,8 +970,7 @@ pub mod tile {
                     }
                 }
                 _ => {
-                    self.__buffa_unknown_fields
-                        .push(::buffa::encoding::decode_unknown_field(tag, buf, depth)?);
+                    ::buffa::encoding::skip_field_depth(tag, buf, depth)?;
                 }
             }
             ::core::result::Result::Ok(())
@@ -1395,16 +980,6 @@ pub mod tile {
             self.tags.clear();
             self.r#type = ::core::option::Option::None;
             self.geometry.clear();
-            self.__buffa_unknown_fields.clear();
-        }
-    }
-    impl ::buffa::ExtensionSet for Feature {
-        const PROTO_FQN: &'static str = "vector_tile.Tile.Feature";
-        fn unknown_fields(&self) -> &::buffa::UnknownFields {
-            &self.__buffa_unknown_fields
-        }
-        fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
-            &mut self.__buffa_unknown_fields
         }
     }
     #[cfg(feature = "json")]
@@ -1431,8 +1006,9 @@ pub mod tile {
     };
     /// Layers are described in section 4.1 of the specification
     #[derive(Clone, PartialEq)]
-    #[cfg_attr(feature = "json", derive(::serde::Serialize))]
+    #[cfg_attr(feature = "json", derive(::serde::Serialize, ::serde::Deserialize))]
     #[cfg_attr(feature = "json", serde(default))]
+    #[cfg_attr(feature = "arbitrary", derive(::arbitrary::Arbitrary))]
     pub struct Layer {
         /// Any compliant implementation must first read the version
         /// number encoded in this message and choose the correct
@@ -1500,9 +1076,6 @@ pub mod tile {
             )
         )]
         pub extent: ::core::option::Option<u32>,
-        #[cfg_attr(feature = "json", serde(flatten))]
-        #[doc(hidden)]
-        pub __buffa_unknown_fields: __LayerExtJson,
     }
     impl ::core::fmt::Debug for Layer {
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
@@ -1525,7 +1098,6 @@ pub mod tile {
                 keys: ::core::default::Default::default(),
                 values: ::core::default::Default::default(),
                 extent: ::core::default::Default::default(),
-                __buffa_unknown_fields: ::core::default::Default::default(),
             }
         }
     }
@@ -1592,7 +1164,6 @@ pub mod tile {
                 size += 1u32 + ::buffa::types::uint32_encoded_len(v) as u32;
             }
             size += 1u32 + ::buffa::types::uint32_encoded_len(self.version) as u32;
-            size += self.__buffa_unknown_fields.encoded_len() as u32;
             size
         }
         fn write_to(
@@ -1642,7 +1213,6 @@ pub mod tile {
             ::buffa::encoding::Tag::new(15u32, ::buffa::encoding::WireType::Varint)
                 .encode(buf);
             ::buffa::types::encode_uint32(self.version, buf);
-            self.__buffa_unknown_fields.write_to(buf);
         }
         fn merge_field(
             &mut self,
@@ -1722,8 +1292,7 @@ pub mod tile {
                     self.version = ::buffa::types::decode_uint32(buf)?;
                 }
                 _ => {
-                    self.__buffa_unknown_fields
-                        .push(::buffa::encoding::decode_unknown_field(tag, buf, depth)?);
+                    ::buffa::encoding::skip_field_depth(tag, buf, depth)?;
                 }
             }
             ::core::result::Result::Ok(())
@@ -1735,222 +1304,6 @@ pub mod tile {
             self.values.clear();
             self.extent = ::core::option::Option::None;
             self.version = 1u32;
-            self.__buffa_unknown_fields.clear();
-        }
-    }
-    impl ::buffa::ExtensionSet for Layer {
-        const PROTO_FQN: &'static str = "vector_tile.Tile.Layer";
-        fn unknown_fields(&self) -> &::buffa::UnknownFields {
-            &self.__buffa_unknown_fields
-        }
-        fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
-            &mut self.__buffa_unknown_fields
-        }
-    }
-    #[cfg(feature = "json")]
-    impl<'de> serde::Deserialize<'de> for Layer {
-        fn deserialize<D: serde::Deserializer<'de>>(
-            d: D,
-        ) -> ::core::result::Result<Self, D::Error> {
-            struct _V;
-            impl<'de> serde::de::Visitor<'de> for _V {
-                type Value = Layer;
-                fn expecting(
-                    &self,
-                    f: &mut core::fmt::Formatter<'_>,
-                ) -> core::fmt::Result {
-                    f.write_str("struct Layer")
-                }
-                #[allow(clippy::field_reassign_with_default)]
-                fn visit_map<A: serde::de::MapAccess<'de>>(
-                    self,
-                    mut map: A,
-                ) -> ::core::result::Result<Layer, A::Error> {
-                    let mut __f_version: ::core::option::Option<u32> = None;
-                    let mut __f_name: ::core::option::Option<
-                        ::buffa::alloc::string::String,
-                    > = None;
-                    let mut __f_features: ::core::option::Option<
-                        ::buffa::alloc::vec::Vec<super::tile::Feature>,
-                    > = None;
-                    let mut __f_keys: ::core::option::Option<
-                        ::buffa::alloc::vec::Vec<::buffa::alloc::string::String>,
-                    > = None;
-                    let mut __f_values: ::core::option::Option<
-                        ::buffa::alloc::vec::Vec<super::tile::Value>,
-                    > = None;
-                    let mut __f_extent: ::core::option::Option<
-                        ::core::option::Option<u32>,
-                    > = None;
-                    let mut __ext_records: ::buffa::alloc::vec::Vec<
-                        ::buffa::UnknownField,
-                    > = ::buffa::alloc::vec::Vec::new();
-                    while let Some(key) = map
-                        .next_key::<::buffa::alloc::string::String>()?
-                    {
-                        match key.as_str() {
-                            "version" => {
-                                __f_version = Some({
-                                    struct _S;
-                                    impl<'de> serde::de::DeserializeSeed<'de> for _S {
-                                        type Value = u32;
-                                        fn deserialize<D: serde::Deserializer<'de>>(
-                                            self,
-                                            d: D,
-                                        ) -> ::core::result::Result<u32, D::Error> {
-                                            ::buffa::json_helpers::uint32::deserialize(d)
-                                        }
-                                    }
-                                    map.next_value_seed(_S)?
-                                });
-                            }
-                            "name" => {
-                                __f_name = Some({
-                                    struct _S;
-                                    impl<'de> serde::de::DeserializeSeed<'de> for _S {
-                                        type Value = ::buffa::alloc::string::String;
-                                        fn deserialize<D: serde::Deserializer<'de>>(
-                                            self,
-                                            d: D,
-                                        ) -> ::core::result::Result<
-                                            ::buffa::alloc::string::String,
-                                            D::Error,
-                                        > {
-                                            ::buffa::json_helpers::proto_string::deserialize(d)
-                                        }
-                                    }
-                                    map.next_value_seed(_S)?
-                                });
-                            }
-                            "features" => {
-                                __f_features = Some({
-                                    struct _S;
-                                    impl<'de> serde::de::DeserializeSeed<'de> for _S {
-                                        type Value = ::buffa::alloc::vec::Vec<super::tile::Feature>;
-                                        fn deserialize<D: serde::Deserializer<'de>>(
-                                            self,
-                                            d: D,
-                                        ) -> ::core::result::Result<
-                                            ::buffa::alloc::vec::Vec<super::tile::Feature>,
-                                            D::Error,
-                                        > {
-                                            ::buffa::json_helpers::null_as_default(d)
-                                        }
-                                    }
-                                    map.next_value_seed(_S)?
-                                });
-                            }
-                            "keys" => {
-                                __f_keys = Some({
-                                    struct _S;
-                                    impl<'de> serde::de::DeserializeSeed<'de> for _S {
-                                        type Value = ::buffa::alloc::vec::Vec<
-                                            ::buffa::alloc::string::String,
-                                        >;
-                                        fn deserialize<D: serde::Deserializer<'de>>(
-                                            self,
-                                            d: D,
-                                        ) -> ::core::result::Result<
-                                            ::buffa::alloc::vec::Vec<::buffa::alloc::string::String>,
-                                            D::Error,
-                                        > {
-                                            ::buffa::json_helpers::null_as_default(d)
-                                        }
-                                    }
-                                    map.next_value_seed(_S)?
-                                });
-                            }
-                            "values" => {
-                                __f_values = Some({
-                                    struct _S;
-                                    impl<'de> serde::de::DeserializeSeed<'de> for _S {
-                                        type Value = ::buffa::alloc::vec::Vec<super::tile::Value>;
-                                        fn deserialize<D: serde::Deserializer<'de>>(
-                                            self,
-                                            d: D,
-                                        ) -> ::core::result::Result<
-                                            ::buffa::alloc::vec::Vec<super::tile::Value>,
-                                            D::Error,
-                                        > {
-                                            ::buffa::json_helpers::null_as_default(d)
-                                        }
-                                    }
-                                    map.next_value_seed(_S)?
-                                });
-                            }
-                            "extent" => {
-                                __f_extent = Some({
-                                    struct _S;
-                                    impl<'de> serde::de::DeserializeSeed<'de> for _S {
-                                        type Value = ::core::option::Option<u32>;
-                                        fn deserialize<D: serde::Deserializer<'de>>(
-                                            self,
-                                            d: D,
-                                        ) -> ::core::result::Result<
-                                            ::core::option::Option<u32>,
-                                            D::Error,
-                                        > {
-                                            ::buffa::json_helpers::opt_uint32::deserialize(d)
-                                        }
-                                    }
-                                    map.next_value_seed(_S)?
-                                });
-                            }
-                            __k if __k.starts_with('[') => {
-                                let __v: ::buffa::serde_json::Value = map.next_value()?;
-                                match ::buffa::extension_registry::deserialize_extension_key(
-                                    "vector_tile.Tile.Layer",
-                                    __k,
-                                    __v,
-                                ) {
-                                    ::core::option::Option::Some(
-                                        ::core::result::Result::Ok(__recs),
-                                    ) => {
-                                        for __rec in __recs {
-                                            __ext_records.push(__rec);
-                                        }
-                                    }
-                                    ::core::option::Option::Some(
-                                        ::core::result::Result::Err(__e),
-                                    ) => {
-                                        return ::core::result::Result::Err(
-                                            <A::Error as ::serde::de::Error>::custom(__e),
-                                        );
-                                    }
-                                    ::core::option::Option::None => {}
-                                }
-                            }
-                            _ => {
-                                map.next_value::<serde::de::IgnoredAny>()?;
-                            }
-                        }
-                    }
-                    let mut __r = <Layer as ::core::default::Default>::default();
-                    if let ::core::option::Option::Some(v) = __f_version {
-                        __r.version = v;
-                    }
-                    if let ::core::option::Option::Some(v) = __f_name {
-                        __r.name = v;
-                    }
-                    if let ::core::option::Option::Some(v) = __f_features {
-                        __r.features = v;
-                    }
-                    if let ::core::option::Option::Some(v) = __f_keys {
-                        __r.keys = v;
-                    }
-                    if let ::core::option::Option::Some(v) = __f_values {
-                        __r.values = v;
-                    }
-                    if let ::core::option::Option::Some(v) = __f_extent {
-                        __r.extent = v;
-                    }
-                    for __rec in __ext_records {
-                        __r.__buffa_unknown_fields.push(__rec);
-                    }
-                    Ok(__r)
-                }
-            }
-            d.deserialize_map(_V)
         }
     }
     #[cfg(feature = "json")]
@@ -1965,51 +1318,6 @@ pub mod tile {
             d: D,
         ) -> ::core::result::Result<Self, D::Error> {
             <Self as ::serde::Deserialize>::deserialize(d)
-        }
-    }
-    #[doc(hidden)]
-    #[derive(Clone, Debug, Default, PartialEq)]
-    #[repr(transparent)]
-    pub struct __LayerExtJson(pub ::buffa::UnknownFields);
-    impl ::core::ops::Deref for __LayerExtJson {
-        type Target = ::buffa::UnknownFields;
-        fn deref(&self) -> &::buffa::UnknownFields {
-            &self.0
-        }
-    }
-    impl ::core::ops::DerefMut for __LayerExtJson {
-        fn deref_mut(&mut self) -> &mut ::buffa::UnknownFields {
-            &mut self.0
-        }
-    }
-    impl ::core::convert::From<::buffa::UnknownFields> for __LayerExtJson {
-        fn from(u: ::buffa::UnknownFields) -> Self {
-            Self(u)
-        }
-    }
-    #[cfg(feature = "json")]
-    impl ::serde::Serialize for __LayerExtJson {
-        fn serialize<S: ::serde::Serializer>(
-            &self,
-            s: S,
-        ) -> ::core::result::Result<S::Ok, S::Error> {
-            ::buffa::extension_registry::serialize_extensions(
-                "vector_tile.Tile.Layer",
-                &self.0,
-                s,
-            )
-        }
-    }
-    #[cfg(feature = "json")]
-    impl<'de> ::serde::Deserialize<'de> for __LayerExtJson {
-        fn deserialize<D: ::serde::Deserializer<'de>>(
-            d: D,
-        ) -> ::core::result::Result<Self, D::Error> {
-            ::buffa::extension_registry::deserialize_extensions(
-                    "vector_tile.Tile.Layer",
-                    d,
-                )
-                .map(Self)
         }
     }
     #[cfg(feature = "json")]

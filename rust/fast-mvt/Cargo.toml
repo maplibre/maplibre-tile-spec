@@ -28,13 +28,16 @@ writer = ["dep:dup-indexer"]
 json = ["dep:serde", "buffa/json"]
 views = []
 codegen = ["dep:buffa-build"]
+arbitrary = ["dep:arbitrary", "buffa/arbitrary"]
 
 [dependencies]
+arbitrary = { workspace = true, optional = true }
 buffa.workspace = true
 dup-indexer = { workspace = true, optional = true }
 geo-types.workspace = true
 serde = { workspace = true, optional = true }
 thiserror.workspace = true
+usize_cast.workspace = true
 
 [build-dependencies]
 buffa-build = { workspace = true, optional = true }

@@ -4,6 +4,7 @@ use std::time::Duration;
 use criterion::measurement::WallTime;
 use criterion::{BenchmarkGroup, Criterion, Throughput, criterion_group, criterion_main};
 use fast_mvt::MvtReaderRef;
+use usize_cast::FromUsize;
 
 mod common;
 
@@ -26,18 +27,14 @@ fn bench_decode(c: &mut Criterion) {
 }
 
 fn read_sample_data() -> Vec<Vec<u8>> {
-    let fixtures = load_repo_mvt_files();
-
-    let tiles = fixtures
+    load_repo_mvt_files()
         .into_iter()
         .filter(|v| {
             mvt_reader::Reader::new(v.clone())
                 .and_then(|vv| vv.get_layer_metadata().map(|_| ()))
                 .is_ok()
         })
-        .collect::<Vec<_>>();
-
-    tiles
+        .collect::<Vec<_>>()
 }
 
 fn bench_tiles<R>(
@@ -50,7 +47,7 @@ fn bench_tiles<R>(
         return;
     }
     let bytes: usize = tiles.iter().map(Vec::len).sum();
-    group.throughput(Throughput::Bytes(bytes as u64));
+    group.throughput(Throughput::Bytes(u64::from_usize(bytes)));
     group.bench_function(format!("{name} ({} tiles)", tiles.len()), |bench| {
         bench.iter(|| {
             for data in tiles {

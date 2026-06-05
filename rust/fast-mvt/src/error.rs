@@ -9,6 +9,9 @@ pub enum MvtError {
     #[error("protobuf encode error: {0}")]
     Encode(#[from] buffa::EncodeError),
 
+    #[error("{0}")]
+    Io(#[from] std::io::Error),
+
     #[error("duplicate layer name: {0}")]
     DuplicateLayer(String),
 
@@ -29,9 +32,6 @@ pub enum MvtError {
 
     #[error("invalid value index {0}")]
     InvalidValueIndex(u32),
-
-    #[error("invalid value field {0}")]
-    InvalidValueField(u32),
 
     #[error("invalid geometry command stream")]
     InvalidGeometry,

@@ -868,6 +868,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6bfcf26f959599a1501e632486d1d5d9db5ecb18905c01b83061019b473e115"
 dependencies = [
+ "arbitrary",
  "base64",
  "bytes",
  "compact_str 0.9.0",
@@ -1140,6 +1141,7 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fdb1325a1cece981e8a296ab8f0f9b63ae357bd0784a9faaf548cc7b480707a"
 dependencies = [
+ "arbitrary",
  "castaway",
  "cfg-if",
  "itoa",
@@ -1947,6 +1949,7 @@ dependencies = [
 name = "fast-mvt"
 version = "0.1.0"
 dependencies = [
+ "arbitrary",
  "buffa",
  "buffa-build",
  "criterion",
@@ -1958,6 +1961,7 @@ dependencies = [
  "serde_json",
  "test_each_file",
  "thiserror 2.0.18",
+ "usize_cast",
 ]
 
 [[package]]
@@ -6094,6 +6098,7 @@ version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9676b89cd56310a87b93dec47b11af744f34d5fc9f367b829474eec0a891350d"
 dependencies = [
+ "arbitrary",
  "borsh",
  "serde",
 ]
@@ -7260,6 +7265,12 @@ dependencies = [
  "percent-encoding",
  "serde",
 ]
+
+[[package]]
+name = "usize_cast"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "810f3a98a85147e3ad2a1331aa6dac66490e802d65fa0ab283c383058e3f9751"
 
 [[package]]
 name = "utf8_iter"

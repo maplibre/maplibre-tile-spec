@@ -8,7 +8,6 @@ pub struct TileView<'a> {
         'a,
         super::super::__buffa::view::tile::LayerView<'a>,
     >,
-    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
 }
 impl<'a> TileView<'a> {
     /// Decode from `buf`, enforcing a recursion depth limit for nested messages.
@@ -45,7 +44,6 @@ impl<'a> TileView<'a> {
         let view = self;
         let mut cur: &'a [u8] = buf;
         while !cur.is_empty() {
-            let before_tag = cur;
             let tag = ::buffa::encoding::Tag::decode(&mut cur)?;
             match tag.field_number() {
                 3u32 => {
@@ -70,8 +68,6 @@ impl<'a> TileView<'a> {
                 }
                 _ => {
                     ::buffa::encoding::skip_field_depth(tag, &mut cur, depth)?;
-                    let span_len = before_tag.len() - cur.len();
-                    view.__buffa_unknown_fields.push_raw(&before_tag[..span_len]);
                 }
             }
         }
@@ -106,11 +102,6 @@ impl<'a> ::buffa::MessageView<'a> for TileView<'a> {
                 .iter()
                 .map(|v| v.to_owned_from_source(__buffa_src))
                 .collect(),
-            __buffa_unknown_fields: self
-                .__buffa_unknown_fields
-                .to_owned()
-                .unwrap_or_default()
-                .into(),
             ..::core::default::Default::default()
         }
     }
@@ -129,7 +120,6 @@ impl<'a> ::buffa::ViewEncode<'a> for TileView<'a> {
                 += 1u32 + ::buffa::encoding::varint_len(inner_size as u64) as u32
                     + inner_size;
         }
-        size += self.__buffa_unknown_fields.encoded_len() as u32;
         size
     }
     #[allow(clippy::needless_borrow)]
@@ -149,7 +139,6 @@ impl<'a> ::buffa::ViewEncode<'a> for TileView<'a> {
             ::buffa::encoding::encode_varint(__cache.consume_next() as u64, buf);
             v.write_to(__cache, buf);
         }
-        self.__buffa_unknown_fields.write_to(buf);
     }
 }
 #[cfg(feature = "json")]
@@ -328,7 +317,6 @@ pub mod tile {
         pub sint_value: ::core::option::Option<i64>,
         /// Field 7: `bool_value`
         pub bool_value: ::core::option::Option<bool>,
-        pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
     }
     impl<'a> ValueView<'a> {
         /// Decode from `buf`, enforcing a recursion depth limit for nested messages.
@@ -365,7 +353,6 @@ pub mod tile {
             let view = self;
             let mut cur: &'a [u8] = buf;
             while !cur.is_empty() {
-                let before_tag = cur;
                 let tag = ::buffa::encoding::Tag::decode(&mut cur)?;
                 match tag.field_number() {
                     1u32 => {
@@ -444,8 +431,6 @@ pub mod tile {
                     }
                     _ => {
                         ::buffa::encoding::skip_field_depth(tag, &mut cur, depth)?;
-                        let span_len = before_tag.len() - cur.len();
-                        view.__buffa_unknown_fields.push_raw(&before_tag[..span_len]);
                     }
                 }
             }
@@ -484,11 +469,6 @@ pub mod tile {
                 uint_value: self.uint_value,
                 sint_value: self.sint_value,
                 bool_value: self.bool_value,
-                __buffa_unknown_fields: self
-                    .__buffa_unknown_fields
-                    .to_owned()
-                    .unwrap_or_default()
-                    .into(),
                 ..::core::default::Default::default()
             }
         }
@@ -520,7 +500,6 @@ pub mod tile {
             if self.bool_value.is_some() {
                 size += 1u32 + ::buffa::types::BOOL_ENCODED_LEN as u32;
             }
-            size += self.__buffa_unknown_fields.encoded_len() as u32;
             size
         }
         #[allow(clippy::needless_borrow)]
@@ -569,7 +548,6 @@ pub mod tile {
                     .encode(buf);
                 ::buffa::types::encode_bool(v, buf);
             }
-            self.__buffa_unknown_fields.write_to(buf);
         }
     }
     #[cfg(feature = "json")]
@@ -847,7 +825,6 @@ pub mod tile {
         ///
         /// Field 4: `geometry`
         pub geometry: ::buffa::RepeatedView<'a, u32>,
-        pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
     }
     impl<'a> FeatureView<'a> {
         /// Decode from `buf`, enforcing a recursion depth limit for nested messages.
@@ -884,7 +861,6 @@ pub mod tile {
             let view = self;
             let mut cur: &'a [u8] = buf;
             while !cur.is_empty() {
-                let before_tag = cur;
                 let tag = ::buffa::encoding::Tag::decode(&mut cur)?;
                 match tag.field_number() {
                     1u32 => {
@@ -910,11 +886,7 @@ pub mod tile {
                             __raw,
                         ) {
                             view.r#type = Some(__v);
-                        } else {
-                            let __span_len = before_tag.len() - cur.len();
-                            view.__buffa_unknown_fields
-                                .push_raw(&before_tag[..__span_len]);
-                        }
+                        } else {}
                     }
                     2u32 => {
                         if tag.wire_type()
@@ -959,8 +931,6 @@ pub mod tile {
                     }
                     _ => {
                         ::buffa::encoding::skip_field_depth(tag, &mut cur, depth)?;
-                        let span_len = before_tag.len() - cur.len();
-                        view.__buffa_unknown_fields.push_raw(&before_tag[..span_len]);
                     }
                 }
             }
@@ -996,11 +966,6 @@ pub mod tile {
                 tags: self.tags.to_vec(),
                 r#type: self.r#type,
                 geometry: self.geometry.to_vec(),
-                __buffa_unknown_fields: self
-                    .__buffa_unknown_fields
-                    .to_owned()
-                    .unwrap_or_default()
-                    .into(),
                 ..::core::default::Default::default()
             }
         }
@@ -1037,7 +1002,6 @@ pub mod tile {
                     += 1u32 + ::buffa::encoding::varint_len(payload as u64) as u32
                         + payload;
             }
-            size += self.__buffa_unknown_fields.encoded_len() as u32;
             size
         }
         #[allow(clippy::needless_borrow)]
@@ -1090,7 +1054,6 @@ pub mod tile {
                     ::buffa::types::encode_uint32(v, buf);
                 }
             }
-            self.__buffa_unknown_fields.write_to(buf);
         }
     }
     #[cfg(feature = "json")]
@@ -1359,7 +1322,6 @@ pub mod tile {
         ///
         /// Field 5: `extent`
         pub extent: ::core::option::Option<u32>,
-        pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
     }
     impl<'a> LayerView<'a> {
         /// Decode from `buf`, enforcing a recursion depth limit for nested messages.
@@ -1396,7 +1358,6 @@ pub mod tile {
             let view = self;
             let mut cur: &'a [u8] = buf;
             while !cur.is_empty() {
-                let before_tag = cur;
                 let tag = ::buffa::encoding::Tag::decode(&mut cur)?;
                 match tag.field_number() {
                     15u32 => {
@@ -1489,8 +1450,6 @@ pub mod tile {
                     }
                     _ => {
                         ::buffa::encoding::skip_field_depth(tag, &mut cur, depth)?;
-                        let span_len = before_tag.len() - cur.len();
-                        view.__buffa_unknown_fields.push_raw(&before_tag[..span_len]);
                     }
                 }
             }
@@ -1536,11 +1495,6 @@ pub mod tile {
                     .map(|v| v.to_owned_from_source(__buffa_src))
                     .collect(),
                 extent: self.extent,
-                __buffa_unknown_fields: self
-                    .__buffa_unknown_fields
-                    .to_owned()
-                    .unwrap_or_default()
-                    .into(),
                 ..::core::default::Default::default()
             }
         }
@@ -1575,7 +1529,6 @@ pub mod tile {
                 size += 1u32 + ::buffa::types::uint32_encoded_len(v) as u32;
             }
             size += 1u32 + ::buffa::types::uint32_encoded_len(self.version) as u32;
-            size += self.__buffa_unknown_fields.encoded_len() as u32;
             size
         }
         #[allow(clippy::needless_borrow)]
@@ -1626,7 +1579,6 @@ pub mod tile {
             ::buffa::encoding::Tag::new(15u32, ::buffa::encoding::WireType::Varint)
                 .encode(buf);
             ::buffa::types::encode_uint32(self.version, buf);
-            self.__buffa_unknown_fields.write_to(buf);
         }
     }
     #[cfg(feature = "json")]

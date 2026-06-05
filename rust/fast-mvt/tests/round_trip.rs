@@ -37,6 +37,38 @@ fn empty_tile_round_trips() {
 }
 
 #[test]
+fn owned_builder_api_encodes_like_mvt_crate_surface() {
+    let mut tile = MvtTile::new();
+    let mut layer = MvtLayer::new("layer", DEFAULT_EXTENT);
+    let mut feature = MvtFeature::new(Geometry::Point((1, 2).into()));
+    feature.set_id(7);
+    feature.add_tag_string("name", "place");
+    feature.add_tag_double("score", 1.5);
+    feature.add_tag_float("rank", 2.5);
+    feature.add_tag_int("i", -3);
+    feature.add_tag_uint("u", 4);
+    feature.add_tag_sint("s", -5);
+    feature.add_tag_bool("visible", true);
+    assert_eq!(feature.num_tags(), 7);
+    layer.add_feature(feature);
+    assert_eq!(layer.name(), "layer");
+    assert_eq!(layer.num_features(), 1);
+
+    tile.add_layer(layer).unwrap();
+    assert_eq!(tile.num_layers(), 1);
+    assert!(matches!(
+        tile.add_layer(MvtLayer::new("layer", DEFAULT_EXTENT)),
+        Err(fast_mvt::MvtError::DuplicateLayer(name)) if name == "layer"
+    ));
+
+    let bytes = tile.to_bytes().unwrap();
+    assert_eq!(tile.compute_size().unwrap(), bytes.len());
+    let mut out = Vec::new();
+    tile.write_to(&mut out).unwrap();
+    assert_eq!(out, bytes);
+}
+
+#[test]
 fn ring_is_implicitly_closed() {
     let tile = MvtTile {
         layers: vec![MvtLayer {

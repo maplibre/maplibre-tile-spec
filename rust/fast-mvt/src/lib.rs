@@ -8,15 +8,16 @@ pub use error::{MvtError, MvtResult};
 
 mod geometry;
 
+#[rustfmt::skip]
 #[allow(
     clippy::derivable_impls,
+    clippy::needless_else,
     clippy::pedantic,
     clippy::upper_case_acronyms,
     clippy::use_self,
     dead_code,
-    unused_qualifications
+    unused_qualifications,
 )]
-#[rustfmt::skip]
 mod generated;
 
 pub mod proto;
@@ -28,8 +29,8 @@ pub use reader::{MvtFeatureRef, MvtLayerRef, MvtPropertyIter, MvtReaderRef, MvtV
 
 mod types;
 pub use types::{
-    DEFAULT_EXTENT, MvtCoord, MvtFeature, MvtGeometry, MvtLayer, MvtLineString, MvtMultiLineString,
-    MvtMultiPoint, MvtMultiPolygon, MvtPoint, MvtPolygon, MvtTile, MvtValue,
+    DEFAULT_EXTENT, MvtCoord, MvtExtent, MvtFeature, MvtGeometry, MvtLayer, MvtLineString,
+    MvtMultiLineString, MvtMultiPoint, MvtMultiPolygon, MvtPoint, MvtPolygon, MvtTile, MvtValue,
 };
 
 #[cfg(feature = "writer")]

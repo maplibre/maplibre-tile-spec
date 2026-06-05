@@ -1,3 +1,4 @@
+#[cfg(feature = "reader")]
 use crate::DEFAULT_EXTENT;
 pub use crate::generated::vector_tile::Tile;
 pub use crate::generated::vector_tile::tile::{Feature, GeomType, Layer, Value};
@@ -8,13 +9,13 @@ impl Tile {
     pub fn from_reader(reader: &crate::MvtReaderRef<'_>) -> Self {
         let mut tile = reader.to_proto();
         for layer in &mut tile.layers {
-            layer.extent.get_or_insert(DEFAULT_EXTENT);
+            layer.extent.get_or_insert(DEFAULT_EXTENT.get());
         }
         tile
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "json"))]
 mod tests {
     use super::Tile;
 

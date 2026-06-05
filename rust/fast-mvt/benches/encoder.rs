@@ -10,6 +10,7 @@ use fast_mvt::{
 };
 use geo_types::Geometry;
 use mvt::{GeomEncoder, GeomType};
+use usize_cast::FromUsize;
 
 mod common;
 
@@ -39,7 +40,7 @@ fn bench_encode(c: &mut Criterion) {
     });
 
     let total_bytes = total_owned_bytes(&tiles);
-    group.throughput(Throughput::Bytes(total_bytes as u64));
+    group.throughput(Throughput::Bytes(u64::from_usize(total_bytes)));
     group.bench_function(
         format!("fast-mvt encode into reused vec ({} tiles)", tiles.len()),
         |bench| {
@@ -75,7 +76,7 @@ fn bench_owned<R>(
     tiles: &[BenchTile],
     mut bench_fn: impl FnMut(&MvtTile) -> R,
 ) {
-    group.throughput(Throughput::Bytes(total_owned_bytes(tiles) as u64));
+    group.throughput(Throughput::Bytes(u64::from_usize(total_owned_bytes(tiles))));
     group.bench_function(format!("{name} ({} tiles)", tiles.len()), |bench| {
         bench.iter(|| {
             for tile in tiles {
@@ -90,7 +91,11 @@ fn total_owned_bytes(tiles: &[BenchTile]) -> usize {
 }
 
 fn encode_with_mvt(tile: &MvtTile) -> Result<Vec<u8>, mvt::Error> {
-    let extent = tile.layers.first().map_or(DEFAULT_EXTENT, |v| v.extent);
+    let extent = tile
+        .layers
+        .first()
+        .map_or(DEFAULT_EXTENT, |v| v.extent)
+        .get();
     let mut out = mvt::Tile::new(extent);
     for layer in &tile.layers {
         let mut mvt_layer = out.create_layer(&layer.name);

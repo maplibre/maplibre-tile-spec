@@ -1,7 +1,10 @@
+use std::num::NonZeroU32;
+
 use geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };
 
+pub type MvtExtent = NonZeroU32;
 pub type MvtCoord = Coord<i32>;
 pub type MvtPoint = Point<i32>;
 pub type MvtLineString = LineString<i32>;
@@ -11,7 +14,7 @@ pub type MvtMultiLineString = MultiLineString<i32>;
 pub type MvtMultiPolygon = MultiPolygon<i32>;
 pub type MvtGeometry = Geometry<i32>;
 
-pub const DEFAULT_EXTENT: u32 = 4096;
+pub const DEFAULT_EXTENT: MvtExtent = MvtExtent::new(4096).unwrap();
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct MvtTile {
@@ -21,7 +24,7 @@ pub struct MvtTile {
 #[derive(Debug, Clone, PartialEq)]
 pub struct MvtLayer {
     pub name: String,
-    pub extent: u32,
+    pub extent: NonZeroU32,
     pub features: Vec<MvtFeature>,
 }
 
@@ -30,6 +33,123 @@ pub struct MvtFeature {
     pub id: Option<u64>,
     pub geometry: MvtGeometry,
     pub properties: Vec<(String, MvtValue)>,
+}
+
+impl MvtTile {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    #[must_use]
+    pub fn num_layers(&self) -> usize {
+        self.layers.len()
+    }
+
+    pub fn add_layer(&mut self, layer: MvtLayer) -> crate::MvtResult<()> {
+        if self
+            .layers
+            .iter()
+            .any(|existing| existing.name == layer.name)
+        {
+            return Err(crate::MvtError::DuplicateLayer(layer.name));
+        }
+        self.layers.push(layer);
+        Ok(())
+    }
+
+    #[cfg(feature = "writer")]
+    pub fn write_to(&self, out: &mut dyn std::io::Write) -> crate::MvtResult<()> {
+        out.write_all(&crate::encode_to_vec(self)?)?;
+        Ok(())
+    }
+
+    #[cfg(feature = "writer")]
+    pub fn to_bytes(&self) -> crate::MvtResult<Vec<u8>> {
+        crate::encode_to_vec(self)
+    }
+
+    #[cfg(feature = "writer")]
+    pub fn compute_size(&self) -> crate::MvtResult<usize> {
+        crate::writer::encoded_len(self)
+    }
+}
+
+impl MvtLayer {
+    #[must_use]
+    pub fn new(name: impl Into<String>, extent: MvtExtent) -> Self {
+        Self {
+            name: name.into(),
+            extent,
+            features: Vec::new(),
+        }
+    }
+
+    #[must_use]
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    #[must_use]
+    pub fn num_features(&self) -> usize {
+        self.features.len()
+    }
+
+    pub fn add_feature(&mut self, feature: MvtFeature) {
+        self.features.push(feature);
+    }
+}
+
+impl MvtFeature {
+    #[must_use]
+    pub fn new(geometry: MvtGeometry) -> Self {
+        Self {
+            id: None,
+            geometry,
+            properties: Vec::new(),
+        }
+    }
+
+    pub fn set_id(&mut self, id: u64) {
+        self.id = Some(id);
+    }
+
+    #[must_use]
+    pub fn num_tags(&self) -> usize {
+        self.properties.len()
+    }
+
+    pub fn add_tag(&mut self, key: impl Into<String>, value: MvtValue) {
+        self.properties.push((key.into(), value));
+    }
+
+    pub fn add_tag_string(&mut self, key: impl Into<String>, value: impl Into<String>) {
+        self.add_tag(key, MvtValue::String(value.into()));
+    }
+
+    pub fn add_tag_float(&mut self, key: impl Into<String>, value: f32) {
+        self.add_tag(key, MvtValue::Float(value));
+    }
+
+    pub fn add_tag_double(&mut self, key: impl Into<String>, value: f64) {
+        self.add_tag(key, MvtValue::Double(value));
+    }
+
+    pub fn add_tag_int(&mut self, key: impl Into<String>, value: i64) {
+        self.add_tag(key, MvtValue::Int(value));
+    }
+
+    pub fn add_tag_uint(&mut self, key: impl Into<String>, value: u64) {
+        self.add_tag(key, MvtValue::UInt(value));
+    }
+
+    pub fn add_tag_sint(&mut self, key: impl Into<String>, value: i64) {
+        self.add_tag(key, MvtValue::SInt(value));
+    }
+
+    pub fn add_tag_bool(&mut self, key: impl Into<String>, value: bool) {
+        self.add_tag(key, MvtValue::Bool(value));
+    }
 }
 
 #[derive(Debug, Clone)]

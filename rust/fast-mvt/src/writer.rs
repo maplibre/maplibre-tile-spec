@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use buffa::Message as _;
 use dup_indexer::{DupIndexer, DupIndexerRefs, PtrRead};
+use usize_cast::IntoUsize;
 
 use crate::generated::vector_tile::Tile;
 use crate::generated::vector_tile::tile::{Feature, Layer, Value};
@@ -17,6 +18,10 @@ pub fn encode(tile: &MvtTile, out: &mut Vec<u8>) -> MvtResult<()> {
     Ok(())
 }
 
+pub(crate) fn encoded_len(tile: &MvtTile) -> MvtResult<usize> {
+    Ok(tile_to_proto(tile)?.encoded_len().into_usize())
+}
+
 fn tile_to_proto(tile: &MvtTile) -> MvtResult<Tile> {
     let mut names = HashSet::with_capacity(tile.layers.len());
     let mut layers = Vec::with_capacity(tile.layers.len());
@@ -26,16 +31,10 @@ fn tile_to_proto(tile: &MvtTile) -> MvtResult<Tile> {
         }
         layers.push(layer_to_proto(layer)?);
     }
-    Ok(Tile {
-        layers,
-        ..Default::default()
-    })
+    Ok(Tile { layers })
 }
 
 fn layer_to_proto(layer: &MvtLayer) -> MvtResult<Layer> {
-    if layer.extent == 0 {
-        return Err(MvtError::InvalidExtent);
-    }
     let mut tags = TagsBuilder::new();
     let mut features = Vec::with_capacity(layer.features.len());
     for feature in &layer.features {
@@ -48,8 +47,7 @@ fn layer_to_proto(layer: &MvtLayer) -> MvtResult<Layer> {
         features,
         keys,
         values,
-        extent: Some(layer.extent),
-        ..Default::default()
+        extent: Some(layer.extent.get()),
     })
 }
 
@@ -60,7 +58,6 @@ fn feature_to_proto(feature: &MvtFeature, tags: &mut TagsBuilder) -> MvtResult<F
         tags: Vec::with_capacity(feature.properties.len().saturating_mul(2)),
         r#type: Some(geom_type),
         geometry,
-        ..Default::default()
     };
     for (key, value) in &feature.properties {
         if matches!(value, MvtValue::Null) {
@@ -90,6 +87,7 @@ impl TagsBuilder {
         }
     }
 
+    /// Inserts the KV pair into the key and value dictionary and returns the index where it was inserted.
     fn insert(&mut self, key: &str, value: MvtValue) -> MvtResult<(u32, u32)> {
         let key_idx = u32_index(self.keys.insert_ref(key))?;
         let value_idx = self.values.insert(value);
@@ -185,16 +183,6 @@ mod tests {
         assert!(matches!(
             tile_to_proto(&duplicate),
             Err(MvtError::DuplicateLayer(name)) if name == "same"
-        ));
-
-        let invalid_extent = MvtLayer {
-            name: "bad".into(),
-            extent: 0,
-            features: vec![],
-        };
-        assert!(matches!(
-            layer_to_proto(&invalid_extent),
-            Err(MvtError::InvalidExtent)
         ));
     }
 

@@ -7,15 +7,20 @@ receive tile-space integers.
 
 ## Features
 
-- `reader` (default): decode MVT bytes, inspect layers/features/tags values.
-  The reader API is view-backed: `MvtReaderRef<'a>` borrows from caller-provided
-  bytes, so the bytes must outlive the reader.
-- `writer` (default): encode owned `Tile`/`Layer`/`Feature` values and build
-  MVT key dictionaries with `dup-indexer`.
-- `json`: enable serde JSON support for the generated protobuf bindings.
-- `views`: internal features that should not be used by external callers.
-- `codegen`: regenerate protobuf bindings from `src/vector_tile.proto`.
-  The generated file is checked in, so normal builds do not require `protoc`.
+The default feature set is `reader`, `writer`, and `json`.
+
+| Feature     | Purpose                                                                 |
+|-------------|-------------------------------------------------------------------------|
+| `reader`    | Decode MVT bytes and inspect layers, features, geometries, and tags.    |
+| `writer`    | Encode owned tile values, using `dup-indexer` for key/value dictionaries. |
+| `json`      | Enable serde JSON support for the generated protobuf bindings.          |
+| `views`     | Enable generated zero-copy protobuf views used by `reader`.             |
+| `codegen`   | Regenerate checked-in protobuf bindings from `src/vector_tile.proto`.   |
+| `arbitrary` | Derive `arbitrary::Arbitrary` for generated protobuf types for fuzzing. |
+
+The generated protobuf files are checked in, so normal builds do not require
+`protoc`. Run `just autofix` in this directory to refresh generated code after
+`buffa` upgrades.
 
 ## Decode traversal
 
@@ -53,10 +58,10 @@ elements. Run the benchmarks with `just bench-decode`.
 | `fast-mvt`   |  453 ms |           - |
 | `mvt-reader` | 1165 ms | 157% slower |
 
-| Encoder    | Time | Compare |
-|------------|-----:|--------:|
-| `fast-mvt` |  TBD |         |
-| `mvt`      |  TBD |         |
+| Encoder    |     Time |      Compare |
+|------------|---------:|-------------:|
+| `fast-mvt` |   685 ms |            - |
+| `mvt`      | 12.54 s  | 1731% slower |
 
 ## Credits
 

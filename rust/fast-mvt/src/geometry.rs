@@ -1,7 +1,11 @@
+#[cfg(feature = "reader")]
 use geo_types::{Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
+use usize_cast::IntoUsize as _;
 
+#[cfg(feature = "writer")]
+use crate::MvtPolygon;
 use crate::generated::vector_tile::tile::GeomType;
-use crate::{MvtCoord, MvtError, MvtGeometry, MvtLineString, MvtPolygon, MvtResult};
+use crate::{MvtCoord, MvtError, MvtGeometry, MvtLineString, MvtResult};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(u32)]
@@ -12,31 +16,31 @@ enum Command {
 }
 
 impl Command {
-    fn decode(value: u32) -> MvtResult<Self> {
-        match value & 0x7 {
-            1 => Ok(Self::MoveTo),
-            2 => Ok(Self::LineTo),
-            7 => Ok(Self::ClosePath),
-            _ => Err(MvtError::InvalidGeometry),
-        }
+    #[cfg(feature = "reader")]
+    fn decode(value: u32) -> MvtResult<(Self, usize)> {
+        Ok((
+            match value & 0x7 {
+                1 => Self::MoveTo,
+                2 => Self::LineTo,
+                7 => Self::ClosePath,
+                _ => return Err(MvtError::InvalidGeometry),
+            },
+            (value >> 3).into_usize(),
+        ))
     }
-}
 
-#[cfg(any(feature = "writer", test))]
-fn encode_command(command: Command, count: u32) -> MvtResult<u32> {
-    if count > 0x1fff_ffff {
-        return Err(MvtError::CommandCount(count));
+    #[cfg(feature = "writer")]
+    fn encode(self, count: u32) -> MvtResult<u32> {
+        if count > 0x1fff_ffff {
+            return Err(MvtError::CommandCount(count));
+        }
+        Ok(((self as u32) & 0x7) | (count << 3))
     }
-    Ok(((command as u32) & 0x7) | (count << 3))
 }
 
 #[cfg(any(feature = "writer", test))]
 fn encode_parameter(value: i32) -> u32 {
     ((value << 1) ^ (value >> 31)).cast_unsigned()
-}
-
-fn decode_parameter(value: u32) -> i32 {
-    (value >> 1).cast_signed() ^ -(value & 1).cast_signed()
 }
 
 fn signed_area(coords: &[MvtCoord]) -> i64 {
@@ -78,11 +82,6 @@ pub(crate) fn decode_geometry(
     }
 }
 
-#[cfg(any(feature = "reader", test))]
-fn parse_command(value: u32) -> MvtResult<(Command, usize)> {
-    Ok((Command::decode(value)?, (value >> 3) as usize))
-}
-
 #[cfg(feature = "reader")]
 fn decode_coord(cursor: &mut MvtCoord, values: &[u32]) -> MvtResult<MvtCoord> {
     let [dx, dy] = values else {
@@ -95,7 +94,8 @@ fn decode_coord(cursor: &mut MvtCoord, values: &[u32]) -> MvtResult<MvtCoord> {
 
 #[cfg(feature = "reader")]
 fn saturating_add_delta(value: i32, delta: u32) -> i32 {
-    value.saturating_add(decode_parameter(delta))
+    let v = (delta >> 1).cast_signed() ^ -(delta & 1).cast_signed();
+    value.saturating_add(v)
 }
 
 #[cfg(feature = "reader")]
@@ -104,7 +104,7 @@ fn parse_points(data: &[u32]) -> MvtResult<MvtGeometry> {
     let mut points = Vec::new();
     let mut offset = 0;
     while offset < data.len() {
-        let (command, count) = parse_command(data[offset])?;
+        let (command, count) = Command::decode(data[offset])?;
         if command != Command::MoveTo {
             return Err(MvtError::InvalidGeometry);
         }
@@ -142,7 +142,7 @@ fn line_info(data: &[u32]) -> MvtResult<LineInfo> {
     if data.len() < 3 {
         return Err(MvtError::InvalidGeometry);
     }
-    let (move_to, move_count) = parse_command(data[0])?;
+    let (move_to, move_count) = Command::decode(data[0])?;
     if move_to != Command::MoveTo || move_count == 0 {
         return Err(MvtError::InvalidGeometry);
     }
@@ -153,7 +153,7 @@ fn line_info(data: &[u32]) -> MvtResult<LineInfo> {
     let mut len = move_len;
     let mut line_count = 0;
     if data.len() > move_len {
-        let (line_to, count) = parse_command(data[move_len])?;
+        let (line_to, count) = Command::decode(data[move_len])?;
         if line_to == Command::LineTo {
             line_count = count;
             len = move_len + 1 + line_count.saturating_mul(2);
@@ -175,7 +175,7 @@ fn parse_line_slice(
     data: &[u32],
     info: LineInfo,
 ) -> MvtResult<MvtLineString> {
-    let (_, move_count) = parse_command(data[0])?;
+    let (_, move_count) = Command::decode(data[0])?;
     let mut coords = Vec::with_capacity(info.coord_count);
     for move_idx in 0..move_count {
         let offset = 1 + move_idx * 2;
@@ -224,7 +224,7 @@ fn ring_info(data: &[u32]) -> MvtResult<(LineInfo, usize)> {
     if data.len() < len {
         return Err(MvtError::InvalidGeometry);
     }
-    let (close, close_count) = parse_command(data[len - 1])?;
+    let (close, close_count) = Command::decode(data[len - 1])?;
     if close != Command::ClosePath || close_count != 1 {
         return Err(MvtError::InvalidGeometry);
     }
@@ -376,7 +376,7 @@ impl GeometryEncoder {
         if count == 0 {
             return Err(MvtError::InvalidGeometry);
         }
-        self.data[start] = encode_command(Command::MoveTo, count)?;
+        self.data[start] = Command::MoveTo.encode(count)?;
         Ok(())
     }
 
@@ -385,13 +385,11 @@ impl GeometryEncoder {
         if coords.is_empty() {
             return Err(MvtError::InvalidGeometry);
         }
-        self.data.push(encode_command(Command::MoveTo, 1)?);
+        self.data.push(Command::MoveTo.encode(1)?);
         self.push_delta(coords[0]);
         if coords.len() > 1 {
-            self.data.push(encode_command(
-                Command::LineTo,
-                u32_index(coords.len() - 1)?,
-            )?);
+            self.data
+                .push(Command::LineTo.encode(u32_index(coords.len() - 1)?)?);
             for &coord in &coords[1..] {
                 self.push_delta(coord);
             }
@@ -414,19 +412,17 @@ impl GeometryEncoder {
         }
         let area = signed_area(coords);
         let reverse = area != 0 && (area > 0) != exterior;
-        self.data.push(encode_command(Command::MoveTo, 1)?);
+        self.data.push(Command::MoveTo.encode(1)?);
         let first = ring_coord(coords, 0, reverse);
         self.push_delta(first);
         if coords.len() > 1 {
-            self.data.push(encode_command(
-                Command::LineTo,
-                u32_index(coords.len() - 1)?,
-            )?);
+            self.data
+                .push(Command::LineTo.encode(u32_index(coords.len() - 1)?)?);
             for idx in 1..coords.len() {
                 self.push_delta(ring_coord(coords, idx, reverse));
             }
         }
-        self.data.push(encode_command(Command::ClosePath, 1)?);
+        self.data.push(Command::ClosePath.encode(1)?);
         Ok(())
     }
 
@@ -464,22 +460,17 @@ fn u32_index(value: usize) -> MvtResult<u32> {
 
 #[cfg(test)]
 mod tests {
-    use geo_types::{
-        Geometry, GeometryCollection, Line, LineString, MultiLineString, MultiPoint, MultiPolygon,
-        Rect, Triangle,
-    };
-
     use super::*;
 
     #[test]
     fn command_values_round_trip() {
-        let move_to = encode_command(Command::MoveTo, 1).unwrap();
+        let move_to = Command::MoveTo.encode(1).unwrap();
         assert_eq!(move_to, 9);
-        assert_eq!(parse_command(move_to).unwrap(), (Command::MoveTo, 1));
-        assert_eq!(encode_command(Command::LineTo, 3).unwrap(), 26);
-        assert_eq!(encode_command(Command::ClosePath, 1).unwrap(), 15);
+        assert_eq!(Command::decode(move_to).unwrap(), (Command::MoveTo, 1));
+        assert_eq!(Command::LineTo.encode(3).unwrap(), 26);
+        assert_eq!(Command::ClosePath.encode(1).unwrap(), 15);
         assert!(matches!(
-            encode_command(Command::MoveTo, 0x2000_0000),
+            Command::MoveTo.encode(0x2000_0000),
             Err(MvtError::CommandCount(0x2000_0000))
         ));
     }
@@ -487,12 +478,30 @@ mod tests {
     #[test]
     fn parameter_values_round_trip() {
         assert_eq!(encode_parameter(25), 50);
-        assert_eq!(decode_parameter(50), 25);
+        assert_eq!(saturating_add_delta(0, 50), 25);
         assert_eq!(encode_parameter(-5), 9);
-        assert_eq!(decode_parameter(9), -5);
+        assert_eq!(saturating_add_delta(0, 9), -5);
     }
 
-    #[cfg(feature = "reader")]
+    #[test]
+    fn coordinate_overflow_saturates_at_i32_bounds() {
+        assert_eq!(
+            saturating_add_delta(i32::MAX, encode_parameter(1)),
+            i32::MAX
+        );
+        assert_eq!(
+            saturating_add_delta(i32::MIN, encode_parameter(-1)),
+            i32::MIN
+        );
+    }
+}
+
+#[cfg(all(test, feature = "reader"))]
+mod tests_reader {
+    use geo_types::{Coord, Geometry};
+
+    use super::*;
+
     #[test]
     fn parses_move_only_lines_and_polygons() {
         let Geometry::LineString(line) = parse_linestrings(&[9, 4, 6]).unwrap() else {
@@ -512,7 +521,6 @@ mod tests {
         assert_eq!(poly.exterior().0, vec![(0, 0).into(), (0, 0).into()]);
     }
 
-    #[cfg(feature = "reader")]
     #[test]
     fn direct_helper_edge_paths_are_covered() {
         let mut cursor = Coord { x: 0, y: 0 };
@@ -545,7 +553,6 @@ mod tests {
         assert_eq!(poly.exterior().0.len(), 3);
     }
 
-    #[cfg(feature = "reader")]
     #[test]
     fn invalid_geometry_streams_are_rejected() {
         assert!(matches!(
@@ -553,7 +560,7 @@ mod tests {
             Err(MvtError::InvalidGeometry)
         ));
         assert!(matches!(
-            parse_points(&[encode_command(Command::MoveTo, 0x1fff_ffff).unwrap(), 0, 0]),
+            parse_points(&[Command::MoveTo.encode(0x1fff_ffff).unwrap(), 0, 0]),
             Err(MvtError::InvalidGeometry)
         ));
         assert!(matches!(parse_points(&[]), Err(MvtError::InvalidGeometry)));
@@ -586,21 +593,17 @@ mod tests {
             Err(MvtError::InvalidGeometry)
         ));
     }
+}
 
-    #[cfg(feature = "reader")]
-    #[test]
-    fn coordinate_overflow_saturates_at_i32_bounds() {
-        assert_eq!(
-            saturating_add_delta(i32::MAX, encode_parameter(1)),
-            i32::MAX
-        );
-        assert_eq!(
-            saturating_add_delta(i32::MIN, encode_parameter(-1)),
-            i32::MIN
-        );
-    }
+#[cfg(all(test, feature = "writer"))]
+mod tests_writer {
+    use geo_types::{
+        GeometryCollection, Line, LineString, MultiLineString, MultiPoint, MultiPolygon, Rect,
+        Triangle,
+    };
 
-    #[cfg(feature = "writer")]
+    use super::*;
+
     #[test]
     fn encodes_spec_point() {
         let geometry = MvtGeometry::Point((25, 17).into());
@@ -608,7 +611,6 @@ mod tests {
         assert_eq!(data, vec![9, 50, 34]);
     }
 
-    #[cfg(feature = "writer")]
     #[test]
     fn encodes_spec_linestring() {
         let geometry = MvtGeometry::LineString(LineString(vec![
@@ -620,7 +622,6 @@ mod tests {
         assert_eq!(data, vec![9, 4, 4, 18, 0, 16, 16, 0]);
     }
 
-    #[cfg(feature = "writer")]
     #[test]
     fn encodes_spec_polygon() {
         let geometry = MvtGeometry::Polygon(MvtPolygon::new(
@@ -631,7 +632,6 @@ mod tests {
         assert_eq!(data, vec![9, 6, 12, 18, 10, 12, 24, 44, 15]);
     }
 
-    #[cfg(feature = "writer")]
     #[test]
     fn encodes_empty_collections_and_geometry_collection_delegate() {
         assert_eq!(
@@ -654,7 +654,6 @@ mod tests {
         assert_eq!(encode_geometry(&collection).unwrap(), direct);
     }
 
-    #[cfg(feature = "writer")]
     #[test]
     fn unsupported_and_invalid_geometries_are_errors() {
         let collection = MvtGeometry::GeometryCollection(GeometryCollection(vec![

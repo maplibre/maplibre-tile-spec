@@ -1,6 +1,8 @@
 use std::collections::HashSet;
+use std::num::NonZeroU32;
 
 use buffa::{Enumeration as _, MessageView as _};
+use usize_cast::IntoUsize;
 
 use crate::generated::vector_tile::{TileView, tile as proto_tile};
 use crate::geometry::decode_geometry;
@@ -76,7 +78,7 @@ impl<'a> MvtLayerRef<'a> {
 
     #[must_use]
     pub fn extent(self) -> u32 {
-        self.0.extent.unwrap_or(DEFAULT_EXTENT)
+        self.0.extent.unwrap_or(DEFAULT_EXTENT.get())
     }
 
     #[must_use]
@@ -108,18 +110,16 @@ impl<'a> MvtLayerRef<'a> {
     }
 
     pub fn to_layer(self) -> MvtResult<MvtLayer> {
-        for value in &self.0.values {
-            let unknown_fields = value.__buffa_unknown_fields.to_owned()?;
-            if let Some(field) = unknown_fields.iter().next() {
-                return Err(MvtError::InvalidValueField(field.number));
-            }
-        }
+        let extent = match self.0.extent {
+            Some(extent) => NonZeroU32::new(extent).ok_or(MvtError::InvalidExtent)?,
+            None => DEFAULT_EXTENT,
+        };
         self.features()
             .map(MvtFeatureRef::to_feature)
             .collect::<MvtResult<Vec<_>>>()
             .map(|features| MvtLayer {
                 name: self.0.name.to_string(),
-                extent: self.extent(),
+                extent,
                 features,
             })
     }
@@ -230,11 +230,11 @@ impl<'a> Iterator for MvtPropertyIter<'a> {
         let [key_idx, value_idx] = pair else {
             return Some(Err(MvtError::InvalidTagsLength(pair.len())));
         };
-        let key = match self.keys.get(*key_idx as usize) {
+        let key = match self.keys.get((*key_idx).into_usize()) {
             Some(key) => *key,
             None => return Some(Err(MvtError::InvalidKeyIndex(*key_idx))),
         };
-        let value = match self.values.get(*value_idx as usize) {
+        let value = match self.values.get((*value_idx).into_usize()) {
             Some(value) => value_ref(value),
             None => return Some(Err(MvtError::InvalidValueIndex(*value_idx))),
         };
@@ -273,7 +273,6 @@ mod tests {
     fn reader_from_layer(layer: proto_tile::Layer) -> MvtReaderRef<'static> {
         let bytes = crate::generated::vector_tile::Tile {
             layers: vec![layer],
-            ..Default::default()
         }
         .encode_to_vec();
         let bytes = Box::leak(bytes.into_boxed_slice());
@@ -331,7 +330,6 @@ mod tests {
                 tags: (0_u32..8).flat_map(|idx| [idx, idx]).collect(),
                 r#type: Some(proto_tile::GeomType::Point),
                 geometry: vec![9, 2, 4, 9, 6, 8],
-                ..Default::default()
             }],
             ..Default::default()
         };
@@ -341,13 +339,26 @@ mod tests {
         assert_eq!(reader.layer_count(), 1);
         assert_eq!(layer.name(), "places");
         assert_eq!(layer.version(), 3);
-        assert_eq!(layer.extent(), DEFAULT_EXTENT);
+        assert_eq!(layer.extent(), DEFAULT_EXTENT.get());
         assert_eq!(layer.feature_count(), 1);
         assert!(!layer.is_empty());
+        assert_eq!(
+            layer.keys(),
+            [
+                "string", "float", "double", "int", "uint", "sint", "bool", "null"
+            ]
+        );
+        assert_eq!(layer.values().len(), 8);
 
         let feature = layer.features().next().unwrap();
         assert_eq!(feature.id(), Some(7));
+        assert_eq!(
+            feature.tags(),
+            [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7]
+        );
         assert_eq!(feature.geometry_commands(), [9, 2, 4, 9, 6, 8]);
+        assert_eq!(feature.geom_type(), Some(proto_tile::GeomType::Point));
+        assert_eq!(feature.geom_type_value(), Some(1));
 
         let properties = feature.properties_vec().unwrap();
         assert_eq!(properties[0].1, MvtValueRef::String("name"));
@@ -362,6 +373,7 @@ mod tests {
             properties[0].1.into_owned(),
             MvtValue::String("name".into())
         );
+        assert_eq!(properties[7].1.into_owned(), MvtValue::Null);
 
         let Geometry::MultiPoint(points) = feature.geometry().unwrap() else {
             panic!("expected multipoint");
@@ -406,7 +418,7 @@ mod tests {
         let layer = proto_tile::Layer {
             version: 2,
             name: "empty".into(),
-            extent: Some(DEFAULT_EXTENT),
+            extent: Some(DEFAULT_EXTENT.get()),
             features: vec![],
             ..Default::default()
         };
@@ -457,7 +469,6 @@ mod tests {
         };
         let bytes = crate::generated::vector_tile::Tile {
             layers: vec![layer.clone()],
-            ..Default::default()
         }
         .encode_to_vec();
         assert!(matches!(
