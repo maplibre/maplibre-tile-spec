@@ -4,7 +4,7 @@ use std::mem;
 use geo_types::Coord;
 use probabilistic_collections::SipHasherBuilder;
 use probabilistic_collections::hyperloglog::HyperLogLog;
-use usize_cast::IntoUsize as _;
+use usize_cast::{FromUsize as _, IntoUsize as _};
 
 use super::model::VertexBufferType;
 use crate::MltResult;
@@ -88,7 +88,7 @@ fn build_hilbert_dict(
         offsets.push(k);
         // Key in the high 32 bits so a single u64 sort orders by Hilbert
         // index while preserving the original position for tie-breaking.
-        let packed = (u64::from(k) << 32) | (i as u64);
+        let packed = (u64::from(k) << 32) | u64::from_usize(i);
         indexed.push(packed);
     }
     indexed.sort_unstable();
@@ -96,7 +96,7 @@ fn build_hilbert_dict(
     let mut last_key: Option<u32> = None;
     for &packed in &*indexed {
         let key = (packed >> 32) as u32;
-        let src_idx = (packed & 0xFFFF_FFFF) as usize;
+        let src_idx = (packed & 0xFFFF_FFFF).into_usize();
         if last_key != Some(key) {
             #[expect(
                 clippy::cast_possible_truncation,
@@ -333,7 +333,7 @@ fn normalize_part_offsets_for_rings(
 
     // ring_idx must equal ring_offsets.len() - 1 for well-formed data.
     debug_assert_eq!(
-        ring_idx as usize,
+        ring_idx.into_usize(),
         ring_offsets.len().saturating_sub(1),
         "ring index mismatch after normalization"
     );
@@ -747,7 +747,7 @@ mod tests {
         );
         assert_eq!(offsets.len(), 4, "offsets length == number of vertex pairs");
         assert_eq!(offsets[0], offsets[2], "duplicate (1,2) should share index");
-        assert!(offsets.iter().all(|&o| (o as usize) < dict.len()));
+        assert!(offsets.iter().all(|&o| o.into_usize() < dict.len()));
     }
 
     #[test]

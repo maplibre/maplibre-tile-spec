@@ -14,6 +14,7 @@ use mlt_core::encoder::EncoderConfig;
 use moka::sync::Cache;
 use pmtiles::{PmTilesWriter, TileCoord, TileType};
 use size_format::SizeFormatterSI;
+use usize_cast::FromUsize as _;
 use xxhash_rust::xxh3::xxh3_64;
 
 use super::{MbtFormat, encode_one};
@@ -114,13 +115,13 @@ async fn convert_mbtiles_to_mbtiles(
     let mut transcoder = MbtilesTranscoder::new(input, output, move |data| {
         sizes_ref
             .bytes_in
-            .fetch_add(data.len() as u64, Ordering::Relaxed);
+            .fetch_add(u64::from_usize(data.len()), Ordering::Relaxed);
         let result = encode_one(data, encoding, cfg)
             .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { e.to_string().into() });
         if let Ok(ref encoded) = result {
             sizes_ref
                 .bytes_out
-                .fetch_add(encoded.len() as u64, Ordering::Relaxed);
+                .fetch_add(u64::from_usize(encoded.len()), Ordering::Relaxed);
         }
         bar_ref.inc(1);
         result
@@ -208,7 +209,7 @@ async fn convert_mbtiles_to_pmtiles(
         .map(|(coord, data)| {
             let cache = cache.clone();
             tokio::task::spawn_blocking(move || -> AnyResult<(TileCoord, Bytes, u64, bool)> {
-                let bytes_in = data.len() as u64;
+                let bytes_in = u64::from_usize(data.len());
                 let mut hit = true;
                 let key = xxh3_64(&data);
                 let encoded = cache
@@ -235,7 +236,7 @@ async fn convert_mbtiles_to_pmtiles(
         } else {
             cache_encoded += 1;
             bytes_in += in_size;
-            bytes_out += data.len() as u64;
+            bytes_out += u64::from_usize(data.len());
         }
         stream_writer.add_tile(coord, &data)?;
         written += 1;

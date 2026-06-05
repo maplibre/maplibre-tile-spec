@@ -120,7 +120,7 @@ pub(crate) fn resolve_dict_spans(
             }
             let idx = next.next().ok_or_else(fail)?;
             let span = dict_spans
-                .get(idx as usize)
+                .get(idx.into_usize())
                 .copied()
                 .ok_or(DictIndexOutOfBounds(idx, dict_spans.len()))?;
             resolved.push(Some(span));
@@ -132,7 +132,7 @@ pub(crate) fn resolve_dict_spans(
     } else {
         for &idx in offsets {
             let span = dict_spans
-                .get(idx as usize)
+                .get(idx.into_usize())
                 .copied()
                 .ok_or(DictIndexOutOfBounds(idx, dict_spans.len()))?;
             resolved.push(Some(span));

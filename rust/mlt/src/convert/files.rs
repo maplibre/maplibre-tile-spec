@@ -10,6 +10,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use moka::sync::Cache;
 use rayon::iter::{ParallelBridge as _, ParallelIterator as _};
 use size_format::SizeFormatterSI;
+use usize_cast::FromUsize as _;
 use walkdir::WalkDir;
 use xxhash_rust::xxh3::xxh3_128;
 
@@ -40,7 +41,8 @@ struct DedupStats {
 impl DedupStats {
     fn record_hit(&self, size: usize) {
         self.hits.fetch_add(1, Ordering::Relaxed);
-        self.bytes_saved.fetch_add(size as u64, Ordering::Relaxed);
+        self.bytes_saved
+            .fetch_add(u64::from_usize(size), Ordering::Relaxed);
     }
     fn record_encode(&self) {
         self.encoded.fetch_add(1, Ordering::Relaxed);

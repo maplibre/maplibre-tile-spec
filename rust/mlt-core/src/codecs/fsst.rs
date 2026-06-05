@@ -220,7 +220,7 @@ mod tests {
         let (corpus, lengths) = roundtrip(values);
         let mut offset = 0;
         for (s, &len) in values.iter().zip(&lengths) {
-            let len = len as usize;
+            let len = len.into_usize();
             assert_eq!(&corpus[offset..offset + len], *s);
             offset += len;
         }

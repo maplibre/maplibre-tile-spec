@@ -3596,6 +3596,7 @@ dependencies = [
  "tabled",
  "thousands",
  "tokio",
+ "usize_cast",
  "walkdir",
  "xxhash-rust",
 ]

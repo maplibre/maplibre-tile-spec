@@ -5,6 +5,7 @@ use mlt_core::__private::{dec, parser};
 use mlt_core::Layer;
 use mlt_core::encoder::{EncoderConfig, LogicalEncoder, stage_tile};
 use strum::IntoEnumIterator as _;
+use usize_cast::FromUsize as _;
 
 #[path = "bench_utils.rs"]
 mod bench_utils;
@@ -51,7 +52,7 @@ fn bench_encode(c: &mut Criterion) {
     for zoom in BENCHMARKED_ZOOM_LEVELS {
         let tiles = load_mlt_tiles(zoom);
         let total_bytes: usize = tiles.iter().map(|(_, d)| d.len()).sum();
-        group.throughput(Throughput::Bytes(total_bytes as u64));
+        group.throughput(Throughput::Bytes(u64::from_usize(total_bytes)));
         for tessellate in [true, false] {
             let enc_config = EncoderConfig {
                 tessellate,
