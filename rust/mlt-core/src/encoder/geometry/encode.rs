@@ -96,7 +96,7 @@ fn build_hilbert_dict(
     let mut last_key: Option<u32> = None;
     for &packed in &*indexed {
         let key = (packed >> 32) as u32;
-        let src_idx = (packed & 0xFFFF_FFFF).into_usize();
+        let src_idx = ((packed & 0xFFFF_FFFF) as u32).into_usize();
         if last_key != Some(key) {
             #[expect(
                 clippy::cast_possible_truncation,
