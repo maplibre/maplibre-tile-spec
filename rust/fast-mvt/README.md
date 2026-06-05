@@ -46,6 +46,32 @@ fn read_tile(bytes: &[u8]) -> MvtResult<()> {
 }
 ```
 
+## Encode builder
+
+```rust
+use fast_mvt::{MvtGeometry, MvtResult, MvtTileBuilder};
+
+fn write_tile() -> MvtResult<Vec<u8>> {
+    let tile = MvtTileBuilder::new();
+    let layer = tile.layer("places");
+
+    let mut feature = layer.feature(MvtGeometry::Point((1, 2).into()))?;
+    feature.id(7);
+    feature.tag("name", "Example")?;
+    feature.tag("visible", true)?;
+    let layer = feature.finish();
+
+    let tile = layer.finish();
+    Ok(tile.finish())
+}
+```
+
+Opening a layer consumes the tile builder, and opening a feature consumes the
+layer builder. Finishing returns the parent builder with the child committed, so
+there is no reachable partially committed layer or tile while a child is in
+progress. A single-layer tile byte buffer is also a framed layer chunk, so
+multiple independently built layer buffers can be concatenated to form a tile.
+
 ### Benchmarks
 
 Decoder benchmark decodes all supported fixture tiles and iterate over all
@@ -58,8 +84,8 @@ elements. Run the benchmarks with `just bench-decode`.
 
 | Encoder    |     Time |      Compare |
 |------------|---------:|-------------:|
-| `fast-mvt` |   685 ms |            - |
-| `mvt`      | 12540 ms | 1731% slower |
+| `fast-mvt` |   987 ms |            - |
+| `mvt`      | 11549 ms | 1070% slower |
 
 ### Development
 

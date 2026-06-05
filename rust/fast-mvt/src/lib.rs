@@ -41,4 +41,4 @@ pub use types::{
 mod writer;
 
 #[cfg(feature = "writer")]
-pub use writer::{encode, encode_to_vec};
+pub use writer::{MvtFeatureBuilder, MvtLayerBuilder, MvtTileBuilder};

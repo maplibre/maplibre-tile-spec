@@ -47,9 +47,9 @@ impl Command {
             return Err(MvtError::CommandCount(count));
         }
         let value = match self {
-            Command::MoveTo => 1,
-            Command::LineTo => 2,
-            Command::ClosePath => 7,
+            Self::MoveTo => 1,
+            Self::LineTo => 2,
+            Self::ClosePath => 7,
         };
         Ok(value | (count << 3))
     }

@@ -1,9 +1,8 @@
 use std::hint::black_box;
+use std::time::Duration;
 
 use criterion::measurement::WallTime;
-use criterion::{
-    BatchSize, BenchmarkGroup, Criterion, Throughput, criterion_group, criterion_main,
-};
+use criterion::{BenchmarkGroup, Criterion, Throughput, criterion_group, criterion_main};
 use fast_mvt::{
     DEFAULT_EXTENT, MvtCoord, MvtGeometry, MvtLineString, MvtPolygon, MvtReaderRef, MvtTile,
     MvtValue,
@@ -32,32 +31,14 @@ fn bench_encode(c: &mut Criterion) {
         .collect::<Vec<_>>();
 
     let mut group = c.benchmark_group("mvt encode");
+    group.sample_size(10);
+    group.measurement_time(Duration::from_secs(10));
     bench_owned(&mut group, "fast-mvt encode", &tiles, |tile| {
-        fast_mvt::encode_to_vec(tile).expect("fast-mvt encode")
+        tile.clone().encode().expect("fast-mvt encode")
     });
     bench_owned(&mut group, "mvt encode", &tiles, |tile| {
         encode_with_mvt(tile).expect("mvt encode")
     });
-
-    let total_bytes = total_owned_bytes(&tiles);
-    group.throughput(Throughput::Bytes(u64::from_usize(total_bytes)));
-    group.bench_function(
-        format!("fast-mvt encode into reused vec ({} tiles)", tiles.len()),
-        |bench| {
-            bench.iter_batched(
-                Vec::new,
-                |mut out| {
-                    for tile in &tiles {
-                        out.clear();
-                        fast_mvt::encode(black_box(&tile.tile), black_box(&mut out))
-                            .expect("fast-mvt encode reused");
-                        black_box(&out);
-                    }
-                },
-                BatchSize::SmallInput,
-            );
-        },
-    );
     group.finish();
 }
 

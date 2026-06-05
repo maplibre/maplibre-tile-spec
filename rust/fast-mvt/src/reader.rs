@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::num::NonZeroU32;
 
 use buffa::{Enumeration as _, MessageView as _};
@@ -30,12 +29,8 @@ impl<'a> MvtReaderRef<'a> {
     }
 
     pub fn to_tile(&self) -> MvtResult<MvtTile> {
-        let mut names = HashSet::with_capacity(self.0.layers.len());
         let mut layers = Vec::with_capacity(self.0.layers.len());
         for layer in self.layers() {
-            if !names.insert(layer.name()) {
-                return Err(MvtError::DuplicateLayer(layer.name().to_string()));
-            }
             layers.push(layer.to_layer()?);
         }
         Ok(MvtTile { layers })

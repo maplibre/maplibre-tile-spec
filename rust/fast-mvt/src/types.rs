@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::num::NonZeroU32;
 
 use geo_types::{
@@ -41,37 +42,13 @@ impl MvtTile {
         Self::default()
     }
 
-    #[must_use]
-    pub fn num_layers(&self) -> usize {
-        self.layers.len()
-    }
-
-    pub fn add_layer(&mut self, layer: MvtLayer) -> crate::MvtResult<()> {
-        if self
-            .layers
-            .iter()
-            .any(|existing| existing.name == layer.name)
-        {
-            return Err(crate::MvtError::DuplicateLayer(layer.name));
-        }
+    pub fn add_layer(&mut self, layer: MvtLayer) {
         self.layers.push(layer);
-        Ok(())
     }
 
     #[cfg(feature = "writer")]
-    pub fn write_to(&self, out: &mut dyn std::io::Write) -> crate::MvtResult<()> {
-        out.write_all(&crate::encode_to_vec(self)?)?;
-        Ok(())
-    }
-
-    #[cfg(feature = "writer")]
-    pub fn to_bytes(&self) -> crate::MvtResult<Vec<u8>> {
-        crate::encode_to_vec(self)
-    }
-
-    #[cfg(feature = "writer")]
-    pub fn compute_size(&self) -> crate::MvtResult<usize> {
-        crate::writer::encoded_len(self)
+    pub fn encode(self) -> crate::MvtResult<Vec<u8>> {
+        crate::writer::encode_tile(self)
     }
 }
 
@@ -162,6 +139,90 @@ pub enum MvtValue {
     SInt(i64),
     Bool(bool),
     Null,
+}
+
+impl From<String> for MvtValue {
+    fn from(value: String) -> Self {
+        Self::String(value)
+    }
+}
+
+impl From<&str> for MvtValue {
+    fn from(value: &str) -> Self {
+        Self::String(value.to_string())
+    }
+}
+
+impl From<Cow<'_, str>> for MvtValue {
+    fn from(value: Cow<'_, str>) -> Self {
+        Self::String(value.into_owned())
+    }
+}
+
+impl From<f32> for MvtValue {
+    fn from(value: f32) -> Self {
+        Self::Float(value)
+    }
+}
+
+impl From<f64> for MvtValue {
+    fn from(value: f64) -> Self {
+        Self::Double(value)
+    }
+}
+
+impl From<i64> for MvtValue {
+    fn from(value: i64) -> Self {
+        Self::Int(value)
+    }
+}
+
+impl From<i32> for MvtValue {
+    fn from(value: i32) -> Self {
+        Self::Int(i64::from(value))
+    }
+}
+
+impl From<i16> for MvtValue {
+    fn from(value: i16) -> Self {
+        Self::Int(i64::from(value))
+    }
+}
+
+impl From<i8> for MvtValue {
+    fn from(value: i8) -> Self {
+        Self::Int(i64::from(value))
+    }
+}
+
+impl From<u64> for MvtValue {
+    fn from(value: u64) -> Self {
+        Self::UInt(value)
+    }
+}
+
+impl From<u32> for MvtValue {
+    fn from(value: u32) -> Self {
+        Self::UInt(u64::from(value))
+    }
+}
+
+impl From<u16> for MvtValue {
+    fn from(value: u16) -> Self {
+        Self::UInt(u64::from(value))
+    }
+}
+
+impl From<u8> for MvtValue {
+    fn from(value: u8) -> Self {
+        Self::UInt(u64::from(value))
+    }
+}
+
+impl From<bool> for MvtValue {
+    fn from(value: bool) -> Self {
+        Self::Bool(value)
+    }
 }
 
 impl PartialEq for MvtValue {
