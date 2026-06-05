@@ -11,6 +11,16 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[[bench]]
+name = "decoder"
+harness = false
+required-features = ["reader"]
+
+[[bench]]
+name = "encoder"
+harness = false
+required-features = ["reader", "writer"]
+
 [features]
 default = ["reader", "writer", "json"]
 reader = ["views"]
@@ -44,13 +54,3 @@ tinymvt = "0.3.0"
 
 [lints]
 workspace = true
-
-[[bench]]
-name = "decoder"
-harness = false
-required-features = ["reader"]
-
-[[bench]]
-name = "encoder"
-harness = false
-required-features = ["reader", "writer"]
