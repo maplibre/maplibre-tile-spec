@@ -11,9 +11,8 @@ pub fn tile_layers_to_mvt(layers: Vec<TileLayer>) -> MltResult<Vec<u8>> {
     let mut tile = MvtTileBuilder::with_capacity(layers.len());
     for layer in layers {
         let extent = MvtExtent::new(layer.extent).unwrap_or(DEFAULT_EXTENT);
-        let mut mvt_layer = tile.layer(layer.name);
+        let mut mvt_layer = tile.layer_with_capacity(layer.name, layer.features.len())?;
         mvt_layer.extent(extent);
-        mvt_layer.reserve_features(layer.features.len());
         let names = layer.property_names;
         for feat in layer.features {
             let mut feature = mvt_layer.feature(feat.geometry)?;
