@@ -21,6 +21,46 @@ use pyo3::types::PyBytes;
 use pyo3_stub_gen::derive::gen_stub_pyfunction;
 use serde_json::Value;
 
+
+
+/// Encode a GeoJSON `FeatureCollection` into MLT bytes.
+///
+/// `geojson` is an RFC 7946 `FeatureCollection`.
+/// `name` and `extent` set the MLT layer metadata, since a `FeatureCollection` has no slot for them.
+/// Geometry is in tile-local coordinate space (no projection).
+/// See the module docs.
+#[gen_stub_pyfunction]
+#[pyfunction]
+#[pyo3(signature = (geojson, name, extent=4096))]
+pub fn encode(
+    py: Python<'_>,
+    #[gen_stub(override_type(type_repr = "typing.Mapping[builtins.str, builtins.object]"))]
+    geojson: &Bound<'_, PyAny>,
+    name: String,
+    extent: u32,
+) -> PyResult<Py<PyBytes>> {
+    if name.is_empty() {
+        return Err(val_err("'name' must be non-empty"));
+    }
+
+    let fc: FeatureCollection = pythonize::depythonize(geojson)
+        .map_err(|e| val_err(format!("input must be a GeoJSON FeatureCollection: {e}")))?;
+    if fc.ty != "FeatureCollection" {
+        return Err(val_err(
+            "input must be a GeoJSON FeatureCollection (\"type\": \"FeatureCollection\")",
+        ));
+    }
+    if fc.features.is_empty() {
+        return Err(val_err("FeatureCollection has no features"));
+    }
+
+    let tile = build_layer(fc, name, extent)?;
+    let bytes = tile
+        .encode(EncoderConfig::default())
+        .map_err(|e| val_err(format!("MLT encode error: {e}")))?;
+    Ok(PyBytes::new(py, &bytes).unbind())
+}
+
 fn val_err(msg: impl Into<String>) -> PyErr {
     PyValueError::new_err(msg.into())
 }
@@ -182,42 +222,4 @@ fn build_layer(fc: FeatureCollection, name: String, extent: u32) -> PyResult<Til
         property_names: names,
         features,
     })
-}
-
-/// Encode a GeoJSON `FeatureCollection` into MLT bytes.
-///
-/// `geojson` is an RFC 7946 `FeatureCollection`.
-/// `name` and `extent` set the MLT layer metadata, since a `FeatureCollection` has no slot for them.
-/// Geometry is in tile-local coordinate space (no projection).
-/// See the module docs.
-#[gen_stub_pyfunction]
-#[pyfunction]
-#[pyo3(signature = (geojson, name, extent=4096))]
-pub fn encode(
-    py: Python<'_>,
-    #[gen_stub(override_type(type_repr = "typing.Mapping[builtins.str, builtins.object]"))]
-    geojson: &Bound<'_, PyAny>,
-    name: String,
-    extent: u32,
-) -> PyResult<Py<PyBytes>> {
-    if name.is_empty() {
-        return Err(val_err("'name' must be non-empty"));
-    }
-
-    let fc: FeatureCollection = pythonize::depythonize(geojson)
-        .map_err(|e| val_err(format!("input must be a GeoJSON FeatureCollection: {e}")))?;
-    if fc.ty != "FeatureCollection" {
-        return Err(val_err(
-            "input must be a GeoJSON FeatureCollection (\"type\": \"FeatureCollection\")",
-        ));
-    }
-    if fc.features.is_empty() {
-        return Err(val_err("FeatureCollection has no features"));
-    }
-
-    let tile = build_layer(fc, name, extent)?;
-    let bytes = tile
-        .encode(EncoderConfig::default())
-        .map_err(|e| val_err(format!("MLT encode error: {e}")))?;
-    Ok(PyBytes::new(py, &bytes).unbind())
 }
