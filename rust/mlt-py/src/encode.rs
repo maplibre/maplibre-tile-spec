@@ -21,8 +21,6 @@ use pyo3::types::PyBytes;
 use pyo3_stub_gen::derive::gen_stub_pyfunction;
 use serde_json::Value;
 
-
-
 /// Encode a GeoJSON `FeatureCollection` into MLT bytes.
 ///
 /// `geojson` is an RFC 7946 `FeatureCollection`.
