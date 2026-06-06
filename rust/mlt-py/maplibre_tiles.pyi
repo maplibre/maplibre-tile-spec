@@ -58,13 +58,12 @@ def decode_mlt_to_geojson(data: bytes) -> builtins.str:
     Decode an MLT binary blob and return GeoJSON as a string.
     """
 
-def encode(layer: typing.Mapping[builtins.str, builtins.object], options: typing.Optional[typing.Mapping[builtins.str, builtins.object]] = None) -> bytes:
+def encode(layer: typing.Mapping[builtins.str, builtins.object]) -> bytes:
     r"""
     Encode a single layer into MLT bytes.
     
-    `layer` is either a GeoJSON `FeatureCollection` (its layer `name`/`extent`
-    come from `options`) or a layer dict `{name, extent?, features}`. Geometry
-    is in tile-local coordinate space (no projection); see the module docs.
+    `layer` is a layer dict `{name, extent?, features}`. Geometry is in
+    tile-local coordinate space (no projection); see the module docs.
     """
 
 def list_layers(data: bytes) -> builtins.list[builtins.str]:

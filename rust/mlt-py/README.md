@@ -27,13 +27,12 @@ names = maplibre_tiles.list_layers(data)
 
 ## Encoding
 
-`encode(layer, options=None) -> bytes` encodes a single layer to an MLT blob.
+`encode(layer) -> bytes` encodes a single layer to an MLT blob.
 Geometry is in **tile-local coordinate space** (no projection), matching
 `tilezen/mapbox-vector-tile`'s default. Coordinates must be integer-valued and 2D.
 
-`layer` is either a layer dict (`{name, extent?, features}`) or a GeoJSON
-`FeatureCollection` (its `name`/`extent` come from `options`). Each feature's
-`geometry` may be a GeoJSON geometry dict, a WKT string, or WKB bytes.
+`layer` is a layer dict (`{name, extent?, features}`). Each feature's `geometry`
+is a GeoJSON geometry dict. `extent` defaults to `4096` if omitted.
 
 ```python
 import maplibre_tiles
@@ -43,20 +42,11 @@ blob = maplibre_tiles.encode(
         "name": "roads",
         "extent": 4096,
         "features": [
-            # GeoJSON geometry dict
             {"id": 1, "geometry": {"type": "Point", "coordinates": [2048, 1024]},
              "properties": {"name": "main", "lanes": 3}},
-            # WKT string
-            {"id": 2, "geometry": "LINESTRING (0 0, 10 0, 10 10)"},
-            # WKB bytes
-            {"id": 3, "geometry": b"\x01\x01\x00\x00\x00..."},
         ],
     },
-    {"sort": "auto", "tessellate": False},  # options (all optional)
 )
-
-# A GeoJSON FeatureCollection works too; name/extent come from options
-blob = maplibre_tiles.encode(feature_collection, {"name": "roads", "extent": 4096})
 
 # Multi-layer tiles: encode each layer and concatenate the bytes
 tile = b"".join([
@@ -64,18 +54,6 @@ tile = b"".join([
     maplibre_tiles.encode(water_layer),
 ])
 ```
-
-Options (all optional):
-
-| Option | Type | Default | Description |
-| --- | --- | --- | --- |
-| `extent` | `int` | `4096` | Tile extent (coordinate space is `[0, extent)`). |
-| `name` | `str` | — | Layer name. Required when `layer` is a `FeatureCollection`; ignored if the layer dict already has a `name`. |
-| `tessellate` | `bool` | `False` | Generate polygon tessellation data. |
-| `sort` | `"auto"` \| `"morton"` \| `"hilbert"` \| `"id"` \| `"none"` | `"auto"` | Feature sort strategy. `"auto"` tries all and keeps the smallest; `"none"` preserves input order. |
-| `allow_fsst` | `bool` | `True` | Allow FSST string compression. |
-| `allow_fpf` | `bool` | `True` | Allow FastPFOR integer compression. |
-| `allow_shared_dict` | `bool` | `True` | Allow grouping strings into shared dictionaries. |
 
 Input is validated strictly: non-integer or 3D coordinates, null/empty geometry,
 nested/non-scalar property values, non-`u64` ids, and empty layers all raise

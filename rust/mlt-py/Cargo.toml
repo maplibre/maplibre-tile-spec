@@ -24,13 +24,10 @@ abi3 = ["pyo3/abi3-py310", "generate-import-lib"]
 generate-import-lib = ["pyo3/generate-import-lib"]
 
 [dependencies]
-geo-traits.workspace = true
 mlt-core.workspace = true
 pyo3.workspace = true
 pyo3-stub-gen.workspace = true
 serde_json.workspace = true
-wkb.workspace = true
-wkt.workspace = true
 
 [dev-dependencies]
 pyo3 = { workspace = true, features = ["auto-initialize"] }

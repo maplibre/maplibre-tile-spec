@@ -119,82 +119,6 @@ fn parse_geojson_geometry(geom: &Bound<'_, PyDict>) -> PyResult<Geometry<i32>> {
     })
 }
 
-fn coord_f64_to_i32(c: Coord<f64>) -> PyResult<Coord<i32>> {
-    Ok(Coord {
-        x: f64_to_tile_i32(c.x)?,
-        y: f64_to_tile_i32(c.y)?,
-    })
-}
-
-fn line_f64_to_i32(l: &LineString<f64>) -> PyResult<LineString<i32>> {
-    Ok(LineString(
-        l.0.iter()
-            .map(|c| coord_f64_to_i32(*c))
-            .collect::<PyResult<_>>()?,
-    ))
-}
-
-fn poly_f64_to_i32(p: &Polygon<f64>) -> PyResult<Polygon<i32>> {
-    let exterior = line_f64_to_i32(p.exterior())?;
-    let interiors = p
-        .interiors()
-        .iter()
-        .map(line_f64_to_i32)
-        .collect::<PyResult<_>>()?;
-    Ok(Polygon::new(exterior, interiors))
-}
-
-fn geom_f64_to_i32(g: Geometry<f64>) -> PyResult<Geometry<i32>> {
-    Ok(match g {
-        Geometry::Point(p) => Geometry::Point(Point(coord_f64_to_i32(p.0)?)),
-        Geometry::MultiPoint(mp) => Geometry::MultiPoint(MultiPoint(
-            mp.0.iter()
-                .map(|p| Ok(Point(coord_f64_to_i32(p.0)?)))
-                .collect::<PyResult<_>>()?,
-        )),
-        Geometry::LineString(l) => Geometry::LineString(line_f64_to_i32(&l)?),
-        Geometry::MultiLineString(ml) => Geometry::MultiLineString(MultiLineString(
-            ml.0.iter().map(line_f64_to_i32).collect::<PyResult<_>>()?,
-        )),
-        Geometry::Polygon(p) => Geometry::Polygon(poly_f64_to_i32(&p)?),
-        Geometry::MultiPolygon(mp) => Geometry::MultiPolygon(MultiPolygon(
-            mp.0.iter().map(poly_f64_to_i32).collect::<PyResult<_>>()?,
-        )),
-        _ => return Err(val_err("unsupported geometry type")),
-    })
-}
-
-fn geom_trait_to_tile(g: &impl geo_traits::GeometryTrait<T = f64>) -> PyResult<Geometry<i32>> {
-    use geo_traits::to_geo::ToGeoGeometry as _;
-    use geo_traits::{Dimensions, GeometryType, MultiPointTrait as _, PointTrait as _};
-    if !matches!(g.dim(), Dimensions::Xy) {
-        return Err(val_err(
-            "3D/measured geometry is not supported; geometry must be 2D",
-        ));
-    }
-    // `to_geometry` panics on an empty point or a MultiPoint containing one.
-    let has_empty_point = match g.as_type() {
-        GeometryType::Point(p) => p.coord().is_none(),
-        GeometryType::MultiPoint(mp) => mp.points().any(|p| p.coord().is_none()),
-        _ => false,
-    };
-    if has_empty_point {
-        return Err(val_err("empty geometry is not supported"));
-    }
-    geom_f64_to_i32(g.to_geometry())
-}
-
-fn parse_wkt_geometry(s: &str) -> PyResult<Geometry<i32>> {
-    use std::str::FromStr as _;
-    let w = wkt::Wkt::<f64>::from_str(s).map_err(|e| val_err(format!("invalid WKT: {e}")))?;
-    geom_trait_to_tile(&w)
-}
-
-fn parse_wkb_geometry(bytes: &[u8]) -> PyResult<Geometry<i32>> {
-    let wkb = wkb::reader::read_wkb(bytes).map_err(|e| val_err(format!("invalid WKB: {e}")))?;
-    geom_trait_to_tile(&wkb)
-}
-
 fn validate_non_empty(g: &Geometry<i32>) -> PyResult<()> {
     let non_empty = match g {
         Geometry::Point(_) => true,
@@ -215,17 +139,10 @@ fn validate_non_empty(g: &Geometry<i32>) -> PyResult<()> {
 }
 
 fn parse_geometry(obj: &Bound<'_, PyAny>) -> PyResult<Geometry<i32>> {
-    let geometry = if let Ok(d) = obj.cast::<PyDict>() {
-        parse_geojson_geometry(d)?
-    } else if let Ok(b) = obj.cast::<PyBytes>() {
-        parse_wkb_geometry(b.as_bytes())?
-    } else if let Ok(s) = obj.extract::<String>() {
-        parse_wkt_geometry(&s)?
-    } else {
-        return Err(val_err(
-            "geometry must be a GeoJSON dict, WKT string, or WKB bytes",
-        ));
-    };
+    let dict = obj
+        .cast::<PyDict>()
+        .map_err(|_| val_err("geometry must be a GeoJSON dict"))?;
+    let geometry = parse_geojson_geometry(dict)?;
     validate_non_empty(&geometry)?;
     Ok(geometry)
 }
@@ -454,140 +371,36 @@ fn build_tile_features(
         .collect()
 }
 
-fn options_dict<'py>(options: Option<&Bound<'py, PyAny>>) -> PyResult<Option<Bound<'py, PyDict>>> {
-    match options {
-        None => Ok(None),
-        Some(o) if o.is_none() => Ok(None),
-        Some(o) => Ok(Some(
-            o.cast::<PyDict>()
-                .map_err(|_| val_err("options must be a dict"))?
-                .clone(),
-        )),
-    }
-}
-
-fn opt_item<'py>(
-    opts: Option<&Bound<'py, PyDict>>,
-    key: &str,
-) -> PyResult<Option<Bound<'py, PyAny>>> {
-    match opts {
-        Some(d) => d.get_item(key),
-        None => Ok(None),
-    }
-}
-
-/// A layer dict's own `name`/`extent` win; a `FeatureCollection` takes both from
-/// options (`name` required), otherwise falling back to the 4096 default.
-fn resolve_name_extent(
-    dict: &Bound<'_, PyDict>,
-    opts: Option<&Bound<'_, PyDict>>,
-    is_fc: bool,
-) -> PyResult<(String, u32)> {
-    let opt_name: Option<String> = opt_item(opts, "name")?.map(|n| n.extract()).transpose()?;
-    let opt_extent: Option<u32> = opt_item(opts, "extent")?.map(|e| e.extract()).transpose()?;
-
-    let name = if is_fc {
-        opt_name.ok_or_else(|| val_err("FeatureCollection input requires 'name' in options"))?
-    } else {
-        match dict.get_item("name")? {
-            Some(n) => n.extract()?,
-            None => opt_name.ok_or_else(|| val_err("layer missing 'name'"))?,
-        }
-    };
-    if name.is_empty() {
-        return Err(val_err("layer 'name' must be non-empty"));
-    }
-
-    let extent = if is_fc {
-        opt_extent.unwrap_or(4096)
-    } else {
-        match dict.get_item("extent")? {
-            Some(e) => e.extract()?,
-            None => opt_extent.unwrap_or(4096),
-        }
-    };
-
-    Ok((name, extent))
-}
-
-fn opt_bool(opts: Option<&Bound<'_, PyDict>>, key: &str) -> PyResult<Option<bool>> {
-    match opt_item(opts, key)? {
-        Some(v) => {
-            Ok(Some(v.extract().map_err(|_| {
-                val_err(format!("option '{key}' must be a bool"))
-            })?))
-        }
-        None => Ok(None),
-    }
-}
-
-fn build_config(opts: Option<&Bound<'_, PyDict>>) -> PyResult<EncoderConfig> {
-    let mut cfg = EncoderConfig::default();
-
-    if let Some(s) = opt_item(opts, "sort")? {
-        let s: String = s
-            .extract()
-            .map_err(|_| val_err("option 'sort' must be a string"))?;
-        let (morton, hilbert, id) = match s.as_str() {
-            "auto" => (true, true, true),
-            "morton" => (true, false, false),
-            "hilbert" => (false, true, false),
-            "id" => (false, false, true),
-            "none" => (false, false, false),
-            other => {
-                return Err(val_err(format!(
-                    "invalid sort '{other}'; expected one of auto/morton/hilbert/id/none"
-                )));
-            }
-        };
-        cfg.try_spatial_morton_sort = morton;
-        cfg.try_spatial_hilbert_sort = hilbert;
-        cfg.try_id_sort = id;
-    }
-
-    if let Some(v) = opt_bool(opts, "tessellate")? {
-        cfg.tessellate = v;
-    }
-    if let Some(v) = opt_bool(opts, "allow_fsst")? {
-        cfg.allow_fsst = v;
-    }
-    if let Some(v) = opt_bool(opts, "allow_fpf")? {
-        cfg.allow_fpf = v;
-    }
-    if let Some(v) = opt_bool(opts, "allow_shared_dict")? {
-        cfg.allow_shared_dict = v;
-    }
-
-    Ok(cfg)
-}
-
 /// Encode a single layer into MLT bytes.
 ///
-/// `layer` is either a GeoJSON `FeatureCollection` (its layer `name`/`extent`
-/// come from `options`) or a layer dict `{name, extent?, features}`. Geometry
-/// is in tile-local coordinate space (no projection); see the module docs.
+/// `layer` is a layer dict `{name, extent?, features}`. Geometry is in
+/// tile-local coordinate space (no projection); see the module docs.
 #[gen_stub_pyfunction]
 #[pyfunction]
-#[pyo3(signature = (layer, options=None))]
 pub fn encode(
     py: Python<'_>,
     #[gen_stub(override_type(type_repr = "typing.Mapping[builtins.str, builtins.object]"))]
     layer: &Bound<'_, PyAny>,
-    #[gen_stub(override_type(
-        type_repr = "typing.Optional[typing.Mapping[builtins.str, builtins.object]]"
-    ))]
-    options: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<Py<PyBytes>> {
     let dict = layer
         .cast::<PyDict>()
-        .map_err(|_| val_err("layer must be a FeatureCollection or layer dict"))?;
-    let opts = options_dict(options)?;
+        .map_err(|_| val_err("layer must be a layer dict"))?;
 
-    let is_fc = matches!(
-        dict.get_item("type")?.and_then(|t| t.extract::<String>().ok()),
-        Some(t) if t == "FeatureCollection"
-    );
-    let (name, extent) = resolve_name_extent(dict, opts.as_ref(), is_fc)?;
+    let name: String = dict
+        .get_item("name")?
+        .ok_or_else(|| val_err("layer missing 'name'"))?
+        .extract()
+        .map_err(|_| val_err("layer 'name' must be a string"))?;
+    if name.is_empty() {
+        return Err(val_err("layer 'name' must be non-empty"));
+    }
+
+    let extent: u32 = match dict.get_item("extent")? {
+        Some(e) => e
+            .extract()
+            .map_err(|_| val_err("layer 'extent' must be a non-negative integer"))?,
+        None => 4096,
+    };
 
     let features_obj = dict
         .get_item("features")?
@@ -613,9 +426,8 @@ pub fn encode(
         property_names,
         features,
     };
-    let cfg = build_config(opts.as_ref())?;
     let bytes = tile
-        .encode(cfg)
+        .encode(EncoderConfig::default())
         .map_err(|e| val_err(format!("MLT encode error: {e}")))?;
     Ok(PyBytes::new(py, &bytes).unbind())
 }
