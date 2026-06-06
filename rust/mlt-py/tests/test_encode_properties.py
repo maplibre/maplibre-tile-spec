@@ -1,15 +1,3 @@
-"""Property-based round-trip tests for maplibre_tiles.encode().
-
-These exercise the universally-quantified invariants that the example tests in test_encode.py only sample.
-For any valid input, encode() followed by a decode preserves the geometry, id, and property values.
-
-Generator constraints (each reflects a real precondition of the encoder):
-  * Coordinates are confined to [0, EXTENT) — tile-local space.
-    Arbitrary i32 values are not in scope, since spatial sorts assume in-tile coordinates.
-  * Features get a unique id (their index) so they can be matched back after the encoder reorders them under spatial/id sorting.
-  * Within one feature each property key is distinct, so no cross-feature type widening is involved.
-"""
-
 import json
 
 from hypothesis import given, settings
