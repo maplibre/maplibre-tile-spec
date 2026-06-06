@@ -1,10 +1,3 @@
-"""Behavior tests for maplibre_tiles.encode().
-
-encode() takes a GeoJSON FeatureCollection plus the MLT layer name/extent.
-Each test round-trips through the public interface: encode() -> decode_mlt() and/or decode_mlt_to_geojson().
-The suite is a specification of observable behavior, not the encoder's internals.
-"""
-
 import json
 
 import pytest
