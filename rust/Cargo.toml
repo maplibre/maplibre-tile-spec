@@ -35,7 +35,10 @@ flate2 = "1"
 fsst-rs = "0.5"
 futures = "0.3"
 geo = { version = "0.33.1", default-features = false }
+geo-traits = "0.3.0"
 geo-types = "0.7.19"
+wkb = "0.9.2"
+wkt = { version = "0.14.0", features = ["geo-types"] }
 glob = "0.3"
 globset = "0.4"
 hex = "0.4.3"

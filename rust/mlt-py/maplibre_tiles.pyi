@@ -8,6 +8,7 @@ __all__ = [
     "MltLayer",
     "decode_mlt",
     "decode_mlt_to_geojson",
+    "encode",
     "list_layers",
 ]
 
@@ -42,11 +43,11 @@ class MltLayer:
 def decode_mlt(data: bytes, z: typing.Optional[builtins.int] = None, x: typing.Optional[builtins.int] = None, y: typing.Optional[builtins.int] = None, tms: builtins.bool = True) -> builtins.list[MltLayer]:
     r"""
     Decode an MLT binary blob into a list of `MltLayer` objects.
-
+    
     If `z`, `x`, `y` are provided, tile-local coordinates are transformed
     to EPSG:3857 (Web Mercator) meters. Without them, raw tile coordinates
     are preserved.
-
+    
     `tms`: when True (the default), treat `y` as TMS convention (y=0 at south,
     used by OpenMapTiles / MBTiles). Set to False for XYZ / slippy-map tiles
     (y=0 at north, e.g. OSM raster tiles).
@@ -57,7 +58,17 @@ def decode_mlt_to_geojson(data: bytes) -> builtins.str:
     Decode an MLT binary blob and return GeoJSON as a string.
     """
 
+def encode(layer: typing.Mapping[builtins.str, builtins.object], options: typing.Optional[typing.Mapping[builtins.str, builtins.object]] = None) -> bytes:
+    r"""
+    Encode a single layer into MLT bytes.
+    
+    `layer` is either a GeoJSON `FeatureCollection` (its layer `name`/`extent`
+    come from `options`) or a layer dict `{name, extent?, features}`. Geometry
+    is in tile-local coordinate space (no projection); see the module docs.
+    """
+
 def list_layers(data: bytes) -> builtins.list[builtins.str]:
     r"""
     Return a list of layer names without fully decoding.
     """
+
