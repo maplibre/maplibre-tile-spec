@@ -8,7 +8,7 @@ __all__ = [
     "MltLayer",
     "decode_mlt",
     "decode_mlt_to_geojson",
-    "encode",
+    "encode_geojson",
     "list_layers",
 ]
 
@@ -58,7 +58,7 @@ def decode_mlt_to_geojson(data: bytes) -> builtins.str:
     Decode an MLT binary blob and return GeoJSON as a string.
     """
 
-def encode(geojson: typing.Mapping[builtins.str, builtins.object], name: builtins.str, extent: builtins.int = 4096) -> bytes:
+def encode_geojson(geojson: typing.Mapping[builtins.str, builtins.object], name: builtins.str, extent: builtins.int = 4096) -> bytes:
     r"""
     Encode a GeoJSON `FeatureCollection` into MLT bytes.
 
