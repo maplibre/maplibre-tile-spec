@@ -32,9 +32,8 @@ pub fn into_layer01(layer: Layer) -> Layer01 {
 }
 
 /// Map a feature's properties by name. Property column order in [`TileLayer`]
-/// is unstable when sourced from MVT (mvt-reader exposes properties as a
-/// `HashMap`), so callers comparing two layers must compare per-feature maps
-/// rather than parallel `Vec`s.
+/// can change after MVT normalization, so callers comparing two layers must
+/// compare per-feature maps rather than parallel `Vec`s.
 #[must_use]
 pub fn feature_property_map(layer: &TileLayer, feat_idx: usize) -> BTreeMap<&str, &PropValue> {
     layer

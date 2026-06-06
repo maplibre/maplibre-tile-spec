@@ -10,10 +10,10 @@ use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::test_helpers::assert_mvt_equivalent_layers;
 use test_each_file::test_each_path;
 
-/// Fixtures the upstream `mvt-reader` cannot decode (MVT spec v3). Listed
-/// explicitly so a regression that breaks *more* fixtures still trips the
-/// test instead of silently passing.
-const UNSUPPORTED_PARENT_DIRS: &[&str] = &["bing"];
+/// Fixtures the current MVT path cannot decode. Listed explicitly so a
+/// regression that breaks *more* fixtures still trips the test instead of
+/// silently passing.
+const UNSUPPORTED_PARENT_DIRS: &[&str] = &[];
 
 test_each_path! { for ["mvt"] in "../test/fixtures" as mvt_round_trip => round_trip_fixture }
 

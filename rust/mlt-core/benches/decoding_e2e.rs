@@ -64,20 +64,19 @@ fn compress_tiles(
 }
 
 fn mvt_parse(data: Vec<u8>) {
-    let reader = mvt_reader::Reader::new(black_box(data)).expect("mvt reader construction failed");
+    let reader =
+        fast_mvt::MvtReaderRef::new(black_box(&data)).expect("mvt reader construction failed");
     let _ = black_box(reader);
 }
 
 fn mvt_decode(data: Vec<u8>) {
-    let reader = mvt_reader::Reader::new(black_box(data)).expect("mvt reader construction failed");
-    let layers = reader
-        .get_layer_metadata()
-        .expect("mvt layer metadata failed");
-    for layer in &layers {
-        let features = reader
-            .get_features(layer.layer_index)
-            .expect("mvt get_features failed");
-        let _ = black_box(features);
+    let reader =
+        fast_mvt::MvtReaderRef::new(black_box(&data)).expect("mvt reader construction failed");
+    for layer in reader.layers() {
+        for feature in layer.features() {
+            let _ = black_box(feature.properties_vec().expect("mvt properties failed"));
+            let _ = black_box(feature.geometry().expect("mvt geometry failed"));
+        }
     }
     let _ = black_box(reader);
 }
