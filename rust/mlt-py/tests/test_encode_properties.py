@@ -51,7 +51,7 @@ def test_geometry_roundtrips_for_any_input(geometries):
     features = [
         {"type": "Feature", "id": i, "geometry": g} for i, g in enumerate(geometries)
     ]
-    blob = mlt.encode(_fc(features), name="l", extent=EXTENT)
+    blob = mlt.encode_geojson(_fc(features), name="l", extent=EXTENT)
 
     fc = json.loads(mlt.decode_mlt_to_geojson(blob))
     by_id = {f["id"]: f["geometry"] for f in fc["features"]}
@@ -64,7 +64,7 @@ def test_geometry_roundtrips_for_any_input(geometries):
 @given(feature_id=st.integers(min_value=0, max_value=2**64 - 1))
 @settings(max_examples=200)
 def test_id_roundtrips_for_any_u64(feature_id):
-    blob = mlt.encode(
+    blob = mlt.encode_geojson(
         _fc(
             [
                 {
@@ -83,7 +83,7 @@ def test_id_roundtrips_for_any_u64(feature_id):
 @given(props=st.dictionaries(_key, _scalar, max_size=8))
 @settings(max_examples=300)
 def test_scalar_properties_roundtrip_for_any_dict(props):
-    blob = mlt.encode(
+    blob = mlt.encode_geojson(
         _fc(
             [
                 {

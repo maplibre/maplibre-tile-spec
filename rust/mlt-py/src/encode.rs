@@ -30,7 +30,7 @@ use serde_json::Value;
 #[gen_stub_pyfunction]
 #[pyfunction]
 #[pyo3(signature = (geojson, name, extent=4096))]
-pub fn encode(
+pub fn encode_geojson(
     py: Python<'_>,
     #[gen_stub(override_type(type_repr = "typing.Mapping[builtins.str, builtins.object]"))]
     geojson: &Bound<'_, PyAny>,

@@ -17,7 +17,7 @@ def _feature(geometry, **members):
 
 
 def test_point_feature_collection_roundtrips():
-    blob = mlt.encode(_fc([_feature(POINT)]), "roads", extent=4096)
+    blob = mlt.encode_geojson(_fc([_feature(POINT)]), "roads", extent=4096)
     assert isinstance(blob, bytes)
 
     layers = mlt.decode_mlt(blob)
@@ -33,12 +33,12 @@ def test_point_feature_collection_roundtrips():
 
 
 def test_extent_defaults_to_4096():
-    blob = mlt.encode(_fc([_feature(POINT)]), "roads")
+    blob = mlt.encode_geojson(_fc([_feature(POINT)]), "roads")
     assert mlt.decode_mlt(blob)[0].extent == 4096
 
 
 def test_scalar_properties_roundtrip():
-    blob = mlt.encode(
+    blob = mlt.encode_geojson(
         _fc(
             [
                 _feature(
@@ -62,7 +62,7 @@ def test_scalar_properties_roundtrip():
 
 
 def test_feature_id_roundtrips():
-    blob = mlt.encode(
+    blob = mlt.encode_geojson(
         _fc(
             [
                 _feature(POINT, id=42),
@@ -104,17 +104,17 @@ def test_feature_id_roundtrips():
     ids=lambda g: g["type"],
 )
 def test_geometry_kinds_roundtrip(geometry):
-    blob = mlt.encode(_fc([_feature(geometry)]), "l")
+    blob = mlt.encode_geojson(_fc([_feature(geometry)]), "l")
     fc = json.loads(mlt.decode_mlt_to_geojson(blob))
     assert fc["features"][0]["geometry"] == geometry
 
 
 def test_multi_layer_tile_via_concatenation():
-    roads = mlt.encode(
+    roads = mlt.encode_geojson(
         _fc([_feature(POINT, id=1)]),
         "roads",
     )
-    water = mlt.encode(
+    water = mlt.encode_geojson(
         _fc([_feature(LINE, id=2)]),
         "water",
     )
@@ -153,15 +153,15 @@ def test_multi_layer_tile_via_concatenation():
 )
 def test_strict_feature_errors(feature):
     with pytest.raises(ValueError):
-        mlt.encode(_fc([feature]), "r")
+        mlt.encode_geojson(_fc([feature]), "r")
 
 
 def test_non_feature_collection_input_errors():
     # A bare Feature (not wrapped in a FeatureCollection) is rejected.
     with pytest.raises(ValueError):
-        mlt.encode(_feature(POINT), "r")
+        mlt.encode_geojson(_feature(POINT), "r")
 
 
 def test_empty_layer_errors():
     with pytest.raises(ValueError):
-        mlt.encode(_fc([]), "r")
+        mlt.encode_geojson(_fc([]), "r")
