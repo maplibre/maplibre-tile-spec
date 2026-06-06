@@ -4,7 +4,8 @@ import pytest
 
 import maplibre_tiles as mlt
 
-POINT = {"type": "Point", "coordinates": [2048, 1024]}
+POINT = {"type": "Point", "coordinates": [1, 2]}
+LINE = {"type": "LineString", "coordinates": [[0, 0], [5, 5]]}
 
 
 def _fc(features):
@@ -16,7 +17,7 @@ def _feature(geometry, **members):
 
 
 def test_point_feature_collection_roundtrips():
-    blob = mlt.encode(_fc([_feature(POINT)]), name="roads", extent=4096)
+    blob = mlt.encode(_fc([_feature(POINT)]), "roads", extent=4096)
     assert isinstance(blob, bytes)
 
     layers = mlt.decode_mlt(blob)
@@ -32,7 +33,7 @@ def test_point_feature_collection_roundtrips():
 
 
 def test_extent_defaults_to_4096():
-    blob = mlt.encode(_fc([_feature(POINT)]), name="roads")
+    blob = mlt.encode(_fc([_feature(POINT)]), "roads")
     assert mlt.decode_mlt(blob)[0].extent == 4096
 
 
@@ -41,7 +42,7 @@ def test_scalar_properties_roundtrip():
         _fc(
             [
                 _feature(
-                    {"type": "Point", "coordinates": [1, 2]},
+                    POINT,
                     properties={
                         "name": "main",
                         "lanes": 3,
@@ -51,7 +52,7 @@ def test_scalar_properties_roundtrip():
                 )
             ]
         ),
-        name="roads",
+        "roads",
     )
     props = mlt.decode_mlt(blob)[0].features[0].properties
     assert props["name"] == "main"
@@ -64,11 +65,11 @@ def test_feature_id_roundtrips():
     blob = mlt.encode(
         _fc(
             [
-                _feature({"type": "Point", "coordinates": [1, 2]}, id=42),
+                _feature(POINT, id=42),
                 _feature({"type": "Point", "coordinates": [3, 4]}),
             ]
         ),
-        name="roads",
+        "roads",
     )
     feats = mlt.decode_mlt(blob)[0].features
     assert feats[0].id == 42
@@ -103,19 +104,19 @@ def test_feature_id_roundtrips():
     ids=lambda g: g["type"],
 )
 def test_geometry_kinds_roundtrip(geometry):
-    blob = mlt.encode(_fc([_feature(geometry)]), name="l")
+    blob = mlt.encode(_fc([_feature(geometry)]), "l")
     fc = json.loads(mlt.decode_mlt_to_geojson(blob))
     assert fc["features"][0]["geometry"] == geometry
 
 
 def test_multi_layer_tile_via_concatenation():
     roads = mlt.encode(
-        _fc([_feature({"type": "Point", "coordinates": [1, 2]}, id=1)]),
-        name="roads",
+        _fc([_feature(POINT, id=1)]),
+        "roads",
     )
     water = mlt.encode(
-        _fc([_feature({"type": "LineString", "coordinates": [[0, 0], [5, 5]]}, id=2)]),
-        name="water",
+        _fc([_feature(LINE, id=2)]),
+        "water",
     )
     tile = b"".join([roads, water])
     layers = mlt.decode_mlt(tile)
@@ -126,16 +127,16 @@ def test_multi_layer_tile_via_concatenation():
 @pytest.mark.parametrize(
     "feature",
     [
-        _feature({"type": "Point", "coordinates": [1, 2]}, properties={"tags": {"a": 1}}),
-        _feature({"type": "Point", "coordinates": [1, 2]}, properties={"tags": [1, 2]}),
-        _feature({"type": "Point", "coordinates": [1, 2]}, id="way/1"),
-        _feature({"type": "Point", "coordinates": [1, 2]}, id=-1),
-        _feature({"type": "Point", "coordinates": [1, 2]}, id=3.5),
+        _feature(POINT, properties={"tags": {"a": 1}}),
+        _feature(POINT, properties={"tags": [1, 2]}),
+        _feature(POINT, id="way/1"),
+        _feature(POINT, id=-1),
+        _feature(POINT, id=3.5),
         _feature(None),
         _feature({"type": "LineString", "coordinates": []}),
-        _feature({"type": "Point", "coordinates": [2048.5, 1024]}),
+        _feature({"type": "Point", "coordinates": [1.2, 3.4]}),
         _feature({"type": "Point", "coordinates": [1, 2, 3]}),
-        {"geometry": {"type": "Point", "coordinates": [1, 2]}},  # missing "type": "Feature"
+        {"geometry": POINT},  # missing "type": "Feature"
     ],
     ids=[
         "nested_dict_prop",
@@ -152,15 +153,15 @@ def test_multi_layer_tile_via_concatenation():
 )
 def test_strict_feature_errors(feature):
     with pytest.raises(ValueError):
-        mlt.encode(_fc([feature]), name="r")
+        mlt.encode(_fc([feature]), "r")
 
 
 def test_non_feature_collection_input_errors():
     # A bare Feature (not wrapped in a FeatureCollection) is rejected.
     with pytest.raises(ValueError):
-        mlt.encode(_feature({"type": "Point", "coordinates": [1, 2]}), name="r")
+        mlt.encode(_feature(POINT), "r")
 
 
 def test_empty_layer_errors():
     with pytest.raises(ValueError):
-        mlt.encode(_fc([]), name="r")
+        mlt.encode(_fc([]), "r")
