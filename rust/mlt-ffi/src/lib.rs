@@ -129,8 +129,7 @@ mod ffi {
             options: &MltEncoderOptions,
         ) -> Result<Box<MltBuffer>, ConvertError> {
             let mut out = Vec::new();
-            let layers =
-                mvt_to_tile_layers(mvt.to_vec()).map_err(|_| ConvertError::EncodingFailed)?;
+            let layers = mvt_to_tile_layers(mvt).map_err(|_| ConvertError::EncodingFailed)?;
             for tile in layers {
                 let encoded_tile = tile
                     .encode(options.0)

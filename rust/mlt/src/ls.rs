@@ -620,7 +620,7 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
 }
 
 fn analyze_mvt_buffer(buffer: &[u8]) -> AnyResult<MltFileInfo> {
-    let fc = mvt_to_feature_collection(buffer.to_vec())?;
+    let fc = mvt_to_feature_collection(buffer)?;
 
     let mut layer_names = HashSet::new();
     let mut geometries = HashSet::new();

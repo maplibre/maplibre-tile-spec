@@ -1,6 +1,7 @@
 //! Decode MVT bytes into [`FeatureCollection`] or row-oriented [`TileLayer`]s.
 
 use std::collections::{BTreeMap, HashMap};
+use std::convert::Infallible;
 
 use fast_mvt::{MvtLayer, MvtReaderRef, MvtValue};
 use serde_json::Value;
@@ -13,15 +14,15 @@ use crate::geojson::{Feature, FeatureCollection};
 ///
 /// This is the single place where the `fast-mvt` API is called; both
 /// [`mvt_to_feature_collection`] and [`mvt_to_tile_layers`] build on top of it.
-fn read_mvt_layers(data: Vec<u8>) -> MltResult<Vec<MvtLayer>> {
-    Ok(MvtReaderRef::new(&data)?.to_tile()?.layers)
+fn read_mvt_layers(data: &[u8]) -> MltResult<Vec<MvtLayer>> {
+    Ok(MvtReaderRef::new(data)?.to_tile()?.layers)
 }
 
 /// Parse MVT binary data and convert to a [`FeatureCollection`].
-pub fn mvt_to_feature_collection(data: Vec<u8>) -> MltResult<FeatureCollection> {
+pub fn mvt_to_feature_collection(data: impl AsRef<[u8]>) -> MltResult<FeatureCollection> {
     let mut features = Vec::new();
 
-    for layer in read_mvt_layers(data)? {
+    for layer in read_mvt_layers(data.as_ref())? {
         for feat in layer.features {
             let mut properties = feat
                 .properties
@@ -51,63 +52,71 @@ pub fn mvt_to_feature_collection(data: Vec<u8>) -> MltResult<FeatureCollection> 
 /// from all features in the layer: the first non-null value seen for each column
 /// determines its type, with `I64`+`U64` widened to `I64` and `F32`+`F64` widened
 /// to `F64`; all other type conflicts fall back to `Str`.
-pub fn mvt_to_tile_layers(data: Vec<u8>) -> MltResult<Vec<TileLayer>> {
-    read_mvt_layers(data)?
+pub fn mvt_to_tile_layers(data: impl AsRef<[u8]>) -> MltResult<Vec<TileLayer>> {
+    Ok(read_mvt_layers(data.as_ref())?
         .into_iter()
-        .map(mvt_layer_to_tile)
-        .collect()
+        .map(TileLayer::try_from)
+        .collect::<Result<Vec<_>, _>>()?)
 }
 
-fn mvt_layer_to_tile(layer: MvtLayer) -> MltResult<TileLayer> {
-    // First pass: collect property names (insertion-ordered) and infer column types.
-    let mut col_names: Vec<String> = Vec::new();
-    let mut col_index: HashMap<String, usize> = HashMap::new();
-    let mut col_types: Vec<InferredType> = Vec::new();
+#[expect(
+    clippy::infallible_try_from,
+    reason = "keep MVT model conversion symmetric with other TryFrom-based conversions"
+)]
+impl TryFrom<MvtLayer> for TileLayer {
+    type Error = Infallible;
 
-    for feat in &layer.features {
-        for (key, val) in &feat.properties {
-            let idx = *col_index.entry(key.clone()).or_insert_with(|| {
-                let i = col_names.len();
-                col_names.push(key.clone());
-                col_types.push(InferredType::Unknown);
-                i
-            });
-            col_types[idx] = col_types[idx].merge(InferredType::from_mvt(val));
-        }
-    }
+    fn try_from(layer: MvtLayer) -> Result<Self, Self::Error> {
+        // First pass: collect property names (insertion-ordered) and infer column types.
+        let mut col_names: Vec<String> = Vec::new();
+        let mut col_index: HashMap<String, usize> = HashMap::new();
+        let mut col_types: Vec<InferredType> = Vec::new();
 
-    // Columns that were only ever null fall back to Str.
-    for t in &mut col_types {
-        if *t == InferredType::Unknown {
-            *t = InferredType::Str;
-        }
-    }
-
-    // Second pass: build TileFeature objects.
-    let mut tile_features = Vec::with_capacity(layer.features.len());
-    for feat in layer.features {
-        // Start every slot with a typed null; fill in present values below.
-        let mut properties: Vec<PropValue> = col_types.iter().map(|t| t.typed_null()).collect();
-        for (key, val) in feat.properties {
-            if let Some(&idx) = col_index.get(&key)
-                && !matches!(val, MvtValue::Null)
-            {
-                properties[idx] = col_types[idx].convert(val);
+        for feat in &layer.features {
+            for (key, val) in &feat.properties {
+                let idx = *col_index.entry(key.clone()).or_insert_with(|| {
+                    let i = col_names.len();
+                    col_names.push(key.clone());
+                    col_types.push(InferredType::Unknown);
+                    i
+                });
+                col_types[idx] = col_types[idx].merge(InferredType::from_mvt(val));
             }
         }
-        tile_features.push(TileFeature {
-            id: feat.id,
-            geometry: feat.geometry,
-            properties,
-        });
-    }
 
-    Ok(TileLayer {
-        name: layer.name,
-        extent: layer.extent.get(),
-        property_names: col_names,
-        features: tile_features,
-    })
+        // Columns that were only ever null fall back to Str.
+        for t in &mut col_types {
+            if *t == InferredType::Unknown {
+                *t = InferredType::Str;
+            }
+        }
+
+        // Second pass: build TileFeature objects.
+        let mut tile_features = Vec::with_capacity(layer.features.len());
+        for feat in layer.features {
+            // Start every slot with a typed null; fill in present values below.
+            let mut properties: Vec<PropValue> = col_types.iter().map(|t| t.typed_null()).collect();
+            for (key, val) in feat.properties {
+                if let Some(&idx) = col_index.get(&key)
+                    && !matches!(val, MvtValue::Null)
+                {
+                    properties[idx] = col_types[idx].convert(val);
+                }
+            }
+            tile_features.push(TileFeature {
+                id: feat.id,
+                geometry: feat.geometry,
+                properties,
+            });
+        }
+
+        Ok(Self {
+            name: layer.name,
+            extent: layer.extent.get(),
+            property_names: col_names,
+            features: tile_features,
+        })
+    }
 }
 
 /// Column type inferred from MVT property values across all features in a layer.
