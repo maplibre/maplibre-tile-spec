@@ -31,7 +31,8 @@ names = maplibre_tiles.list_layers(data)
 `geojson` is a GeoJSON [`FeatureCollection`](https://datatracker.ietf.org/doc/html/rfc7946#section-3.3).
 `name` and `extent` set the MLT layer metadata, since a `FeatureCollection` has no slot for them.
 Geometry is in **tile-local coordinate space** (no projection), matching `tilezen/mapbox-vector-tile`'s default.
-Coordinates must be integer-valued and 2D.
+Coordinates must be integers and 2D.
+They must be JSON integers (`2048`), not floats: a float-typed value such as `2048.0` raises `ValueError`.
 `extent` defaults to `4096`.
 
 ```python
@@ -61,4 +62,4 @@ tile = b"".join([
 ```
 
 Input is validated strictly.
-A non-`FeatureCollection` input, a non-`Feature` member, non-integer or 3D coordinates, null or empty geometry, nested or non-scalar property values, a non-`u64` id, and an empty collection all raise `ValueError`.
+A non-`FeatureCollection` input, a non-`Feature` member, float-typed or 3D coordinates, null or empty geometry, nested or non-scalar property values, a non-`u64` id, and an empty collection all raise `ValueError`.
