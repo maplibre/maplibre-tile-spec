@@ -27,34 +27,38 @@ names = maplibre_tiles.list_layers(data)
 
 ## Encoding
 
-`encode(layer) -> bytes` encodes a single layer to an MLT blob.
-Geometry is in **tile-local coordinate space** (no projection), matching
-`tilezen/mapbox-vector-tile`'s default. Coordinates must be integer-valued and 2D.
-
-`layer` is a layer dict (`{name, extent?, features}`). Each feature's `geometry`
-is a GeoJSON geometry dict. `extent` defaults to `4096` if omitted.
+`encode(geojson, name, extent=4096) -> bytes` encodes a single layer to an MLT blob.
+`geojson` is a GeoJSON [`FeatureCollection`](https://datatracker.ietf.org/doc/html/rfc7946#section-3.3).
+`name` and `extent` set the MLT layer metadata, since a `FeatureCollection` has no slot for them.
+Geometry is in **tile-local coordinate space** (no projection), matching `tilezen/mapbox-vector-tile`'s default.
+Coordinates must be integer-valued and 2D.
+`extent` defaults to `4096`.
 
 ```python
 import maplibre_tiles
 
 blob = maplibre_tiles.encode(
     {
-        "name": "roads",
-        "extent": 4096,
+        "type": "FeatureCollection",
         "features": [
-            {"id": 1, "geometry": {"type": "Point", "coordinates": [2048, 1024]},
-             "properties": {"name": "main", "lanes": 3}},
+            {
+                "type": "Feature",
+                "id": 1,
+                "geometry": {"type": "Point", "coordinates": [2048, 1024]},
+                "properties": {"name": "main", "lanes": 3},
+            },
         ],
     },
+    name="roads",
+    extent=4096,
 )
 
 # Multi-layer tiles: encode each layer and concatenate the bytes
 tile = b"".join([
-    maplibre_tiles.encode(roads_layer),
-    maplibre_tiles.encode(water_layer),
+    maplibre_tiles.encode(roads, name="roads"),
+    maplibre_tiles.encode(water, name="water"),
 ])
 ```
 
-Input is validated strictly: non-integer or 3D coordinates, null/empty geometry,
-nested/non-scalar property values, non-`u64` ids, and empty layers all raise
-`ValueError`.
+Input is validated strictly.
+A non-`FeatureCollection` input, a non-`Feature` member, non-integer or 3D coordinates, null or empty geometry, nested or non-scalar property values, a non-`u64` id, and an empty collection all raise `ValueError`.

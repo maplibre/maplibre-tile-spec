@@ -1,7 +1,8 @@
-//! Encode Python GeoJSON-like input into MLT bytes.
+//! Encode a GeoJSON `FeatureCollection` into MLT bytes.
 //!
-//! Input geometry is in tile-local coordinate space (no projection), mirroring
-//! `mapbox_vector_tile`'s default. Coordinates must be integer-valued and 2D.
+//! Input is an RFC 7946 `FeatureCollection`.
+//! Geometry is in tile-local coordinate space (no projection), mirroring `mapbox_vector_tile`'s default.
+//! Coordinates must be integer-valued and 2D.
 
 use mlt_core::encoder::EncoderConfig;
 use mlt_core::geo_types::{
@@ -167,7 +168,8 @@ impl PyScalar {
     }
 }
 
-/// `Ok(None)` is a Python `None` (typed null); nested/unsupported values error.
+/// `Ok(None)` is a Python `None` (typed null).
+/// Nested or unsupported values error.
 fn extract_scalar(key: &str, obj: &Bound<'_, PyAny>) -> PyResult<Option<PyScalar>> {
     if obj.is_none() {
         return Ok(None);
@@ -289,13 +291,21 @@ fn parse_id(feat: &Bound<'_, PyDict>) -> PyResult<Option<u64>> {
 fn parse_raw_feature(feat: &Bound<'_, PyAny>) -> PyResult<RawFeature> {
     let feat = feat
         .cast::<PyDict>()
-        .map_err(|_| val_err("feature must be a dict"))?;
+        .map_err(|_| val_err("feature must be a GeoJSON Feature object"))?;
+    let ty: Option<String> = feat.get_item("type")?.and_then(|t| t.extract().ok());
+    if ty.as_deref() != Some("Feature") {
+        return Err(val_err(
+            "feature must be a GeoJSON Feature (\"type\": \"Feature\")",
+        ));
+    }
     let id = parse_id(feat)?;
-    let geometry = parse_geometry(
-        &feat
-            .get_item("geometry")?
-            .ok_or_else(|| val_err("feature missing 'geometry'"))?,
-    )?;
+    let geom_obj = feat
+        .get_item("geometry")?
+        .ok_or_else(|| val_err("feature missing 'geometry'"))?;
+    if geom_obj.is_none() {
+        return Err(val_err("feature 'geometry' must not be null"));
+    }
+    let geometry = parse_geometry(&geom_obj)?;
 
     let mut props = Vec::new();
     if let Some(p) = feat.get_item("properties")? {
@@ -371,40 +381,39 @@ fn build_tile_features(
         .collect()
 }
 
-/// Encode a single layer into MLT bytes.
+/// Encode a GeoJSON `FeatureCollection` into MLT bytes.
 ///
-/// `layer` is a layer dict `{name, extent?, features}`. Geometry is in
-/// tile-local coordinate space (no projection); see the module docs.
+/// `geojson` is an RFC 7946 `FeatureCollection`.
+/// `name` and `extent` set the MLT layer metadata, since a `FeatureCollection` has no slot for them.
+/// Geometry is in tile-local coordinate space (no projection).
+/// See the module docs.
 #[gen_stub_pyfunction]
 #[pyfunction]
+#[pyo3(signature = (geojson, name, extent=4096))]
 pub fn encode(
     py: Python<'_>,
     #[gen_stub(override_type(type_repr = "typing.Mapping[builtins.str, builtins.object]"))]
-    layer: &Bound<'_, PyAny>,
+    geojson: &Bound<'_, PyAny>,
+    name: String,
+    extent: u32,
 ) -> PyResult<Py<PyBytes>> {
-    let dict = layer
-        .cast::<PyDict>()
-        .map_err(|_| val_err("layer must be a layer dict"))?;
-
-    let name: String = dict
-        .get_item("name")?
-        .ok_or_else(|| val_err("layer missing 'name'"))?
-        .extract()
-        .map_err(|_| val_err("layer 'name' must be a string"))?;
     if name.is_empty() {
-        return Err(val_err("layer 'name' must be non-empty"));
+        return Err(val_err("'name' must be non-empty"));
     }
 
-    let extent: u32 = match dict.get_item("extent")? {
-        Some(e) => e
-            .extract()
-            .map_err(|_| val_err("layer 'extent' must be a non-negative integer"))?,
-        None => 4096,
-    };
+    let fc = geojson
+        .cast::<PyDict>()
+        .map_err(|_| val_err("input must be a GeoJSON FeatureCollection"))?;
+    let ty: Option<String> = fc.get_item("type")?.and_then(|t| t.extract().ok());
+    if ty.as_deref() != Some("FeatureCollection") {
+        return Err(val_err(
+            "input must be a GeoJSON FeatureCollection (\"type\": \"FeatureCollection\")",
+        ));
+    }
 
-    let features_obj = dict
+    let features_obj = fc
         .get_item("features")?
-        .ok_or_else(|| val_err("layer missing 'features'"))?;
+        .ok_or_else(|| val_err("FeatureCollection missing 'features'"))?;
     let features_list = features_obj
         .cast::<PyList>()
         .map_err(|_| val_err("'features' must be a list"))?;
@@ -414,7 +423,7 @@ pub fn encode(
         raw.push(parse_raw_feature(&feat)?);
     }
     if raw.is_empty() {
-        return Err(val_err("layer has no features"));
+        return Err(val_err("FeatureCollection has no features"));
     }
 
     let (property_names, kinds) = infer_columns(&raw);

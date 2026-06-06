@@ -1,16 +1,13 @@
 """Property-based round-trip tests for maplibre_tiles.encode().
 
-These exercise the universally-quantified invariants that the example tests in
-test_encode.py only sample: for any valid input, encode() followed by a decode
-preserves the geometry, id, and property values.
+These exercise the universally-quantified invariants that the example tests in test_encode.py only sample.
+For any valid input, encode() followed by a decode preserves the geometry, id, and property values.
 
 Generator constraints (each reflects a real precondition of the encoder):
-  * Coordinates are confined to [0, EXTENT) — tile-local space. Arbitrary i32
-    values are not in scope; spatial sorts assume in-tile coordinates.
-  * Features get a unique id (their index) so they can be matched back after the
-    encoder reorders them under spatial/id sorting.
-  * Within one feature each property key is distinct, so no cross-feature type
-    widening is involved.
+  * Coordinates are confined to [0, EXTENT) — tile-local space.
+    Arbitrary i32 values are not in scope, since spatial sorts assume in-tile coordinates.
+  * Features get a unique id (their index) so they can be matched back after the encoder reorders them under spatial/id sorting.
+  * Within one feature each property key is distinct, so no cross-feature type widening is involved.
 """
 
 import json
@@ -42,8 +39,7 @@ _multipolygon = st.lists(st.lists(_ring, min_size=1, max_size=2), min_size=1, ma
 )
 _geometry = st.one_of(_point, _linestring, _multipoint, _polygon, _multipolygon)
 
-# Scalar property values spanning every supported column type and the
-# i64/u64 width boundary.
+# Scalar property values spanning every supported column type and the i64/u64 width boundary.
 _scalar = st.one_of(
     st.booleans(),
     st.integers(min_value=-(2**63), max_value=2**64 - 1),
@@ -57,11 +53,17 @@ _key = st.text(
 )
 
 
+def _fc(features):
+    return {"type": "FeatureCollection", "features": features}
+
+
 @given(geometries=st.lists(_geometry, min_size=1, max_size=10))
 @settings(max_examples=300)
 def test_geometry_roundtrips_for_any_input(geometries):
-    features = [{"id": i, "geometry": g} for i, g in enumerate(geometries)]
-    blob = mlt.encode({"name": "l", "extent": EXTENT, "features": features})
+    features = [
+        {"type": "Feature", "id": i, "geometry": g} for i, g in enumerate(geometries)
+    ]
+    blob = mlt.encode(_fc(features), name="l", extent=EXTENT)
 
     fc = json.loads(mlt.decode_mlt_to_geojson(blob))
     by_id = {f["id"]: f["geometry"] for f in fc["features"]}
@@ -75,11 +77,17 @@ def test_geometry_roundtrips_for_any_input(geometries):
 @settings(max_examples=200)
 def test_id_roundtrips_for_any_u64(feature_id):
     blob = mlt.encode(
-        {
-            "name": "l",
-            "extent": EXTENT,
-            "features": [{"id": feature_id, "geometry": {"type": "Point", "coordinates": [1, 2]}}],
-        }
+        _fc(
+            [
+                {
+                    "type": "Feature",
+                    "id": feature_id,
+                    "geometry": {"type": "Point", "coordinates": [1, 2]},
+                }
+            ]
+        ),
+        name="l",
+        extent=EXTENT,
     )
     assert mlt.decode_mlt(blob)[0].features[0].id == feature_id
 
@@ -88,11 +96,17 @@ def test_id_roundtrips_for_any_u64(feature_id):
 @settings(max_examples=300)
 def test_scalar_properties_roundtrip_for_any_dict(props):
     blob = mlt.encode(
-        {
-            "name": "l",
-            "extent": EXTENT,
-            "features": [{"geometry": {"type": "Point", "coordinates": [1, 2]}, "properties": props}],
-        }
+        _fc(
+            [
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [1, 2]},
+                    "properties": props,
+                }
+            ]
+        ),
+        name="l",
+        extent=EXTENT,
     )
     got = mlt.decode_mlt(blob)[0].features[0].properties
     for key, value in props.items():
