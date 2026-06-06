@@ -5,9 +5,9 @@ use std::collections::{BTreeMap, HashMap};
 use fast_mvt::{MvtLayer, MvtReaderRef, MvtValue};
 use serde_json::Value;
 
+use crate::MltResult;
 use crate::decoder::{PropValue, TileFeature, TileLayer};
 use crate::geojson::{Feature, FeatureCollection};
-use crate::MltResult;
 
 /// Parse MVT bytes into a list of layers, each holding its raw features.
 ///
