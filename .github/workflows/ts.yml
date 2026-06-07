@@ -22,7 +22,7 @@ jobs:
       - run: just -v ts::build
       - name: Codecov upload
         if: "github.repository_owner == 'maplibre' && !cancelled()"
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           files: ts/coverage/coverage-final.json
       - run: just -v assert-git-is-clean

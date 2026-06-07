@@ -732,7 +732,7 @@ impl App {
 
         let best = if let Some(ref tree) = self.geometry_index {
             let mut best: Option<(f64, usize, usize, Option<usize>)> = None;
-            for e in tree.nearest_neighbor_iter(&pt) {
+            for e in tree.nearest_neighbor_iter(pt) {
                 let d = e.distance_2(&pt);
                 if d > thresh_sq {
                     break;
