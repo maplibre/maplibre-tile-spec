@@ -258,7 +258,7 @@ fn maplibre_tiles(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(decode_mlt, m)?)?;
     m.add_function(wrap_pyfunction!(decode_mlt_to_geojson, m)?)?;
     m.add_function(wrap_pyfunction!(list_layers, m)?)?;
-    m.add_function(wrap_pyfunction!(encode::encode_geojson, m)?)?;
+    m.add_function(wrap_pyfunction!(encode::geojson::encode_geojson, m)?)?;
     m.add_class::<MltLayer>()?;
     m.add_class::<MltFeature>()?;
     Ok(())
