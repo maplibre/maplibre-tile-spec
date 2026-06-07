@@ -57,6 +57,7 @@ pub fn stage_tile(
 #[cfg(test)]
 mod invariant_tests {
     use geo_types::{Geometry, Point};
+    use rstest::rstest;
 
     use crate::decoder::{GeometryValues, TileFeature};
     use crate::encoder::{Codecs, Encoder, EncoderConfig, StagedId, StagedLayer};
@@ -79,17 +80,14 @@ mod invariant_tests {
         }
     }
 
-    #[test]
-    fn tile_layer_encode_rejects_empty_name() {
-        for tile in [
-            empty_named_tile(vec![]),
-            empty_named_tile(vec![point_feature()]),
-        ] {
-            assert!(matches!(
-                tile.encode(EncoderConfig::default()),
-                Err(MltError::MissingLayerName)
-            ));
-        }
+    #[rstest]
+    #[case::empty(empty_named_tile(vec![]))]
+    #[case::with_feature(empty_named_tile(vec![point_feature()]))]
+    fn tile_layer_encode_rejects_empty_name(#[case] tile: TileLayer) {
+        assert!(matches!(
+            tile.encode(EncoderConfig::default()),
+            Err(MltError::MissingLayerName)
+        ));
     }
 
     #[test]
