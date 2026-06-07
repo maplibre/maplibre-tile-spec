@@ -53,3 +53,58 @@ pub fn stage_tile(
     let curve_params = tile.curve_params();
     StagedLayer::from_tile(tile, sort, &analysis, tessellate, curve_params)
 }
+
+#[cfg(test)]
+mod invariant_tests {
+    use geo_types::{Geometry, Point};
+
+    use crate::decoder::{GeometryValues, TileFeature};
+    use crate::encoder::{Codecs, Encoder, EncoderConfig, StagedId, StagedLayer};
+    use crate::{MltError, TileLayer};
+
+    fn empty_named_tile(features: Vec<TileFeature>) -> TileLayer {
+        TileLayer {
+            name: String::new(),
+            extent: 4096,
+            property_names: vec![],
+            features,
+        }
+    }
+
+    fn point_feature() -> TileFeature {
+        TileFeature {
+            id: None,
+            geometry: Geometry::Point(Point::new(0, 0)),
+            properties: vec![],
+        }
+    }
+
+    #[test]
+    fn tile_layer_encode_rejects_empty_name() {
+        for tile in [
+            empty_named_tile(vec![]),
+            empty_named_tile(vec![point_feature()]),
+        ] {
+            assert!(matches!(
+                tile.encode(EncoderConfig::default()),
+                Err(MltError::MissingLayerName)
+            ));
+        }
+    }
+
+    #[test]
+    fn staged_layer_encode_rejects_empty_name() {
+        let staged = StagedLayer {
+            name: String::new(),
+            extent: 4096,
+            id: StagedId::None,
+            geometry: GeometryValues::default(),
+            properties: vec![],
+        };
+
+        assert!(matches!(
+            staged.encode_into(Encoder::default(), &mut Codecs::default()),
+            Err(MltError::MissingLayerName)
+        ));
+    }
+}

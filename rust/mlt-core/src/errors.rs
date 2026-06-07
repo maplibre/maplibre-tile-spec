@@ -24,6 +24,8 @@ pub enum MltError {
     IntegerOverflow,
     #[error("missing geometry column in feature table")]
     MissingGeometry,
+    #[error("missing layer name")]
+    MissingLayerName,
     #[error("missing string stream: {0}")]
     MissingStringStream(&'static str),
     #[error("multiple geometry columns found (only one allowed)")]
