@@ -40,7 +40,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Convert .mlt and .mvt tiles in a directory tree to re-encoded .mlt files
+    /// Convert .mlt, .mvt, and .pbf tiles in a directory tree to re-encoded .mlt files
     Convert(ConvertArgs),
     /// Parse a tile file (.mlt, .mvt, .pbf) and dump raw layer data without decoding
     Dump(DumpArgs),
