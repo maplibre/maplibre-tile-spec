@@ -17,8 +17,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v6.0.2
-      - uses: taiki-e/install-action@v2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: taiki-e/install-action@56545b37b57562edd73171cb6c62cc509db4c34e # v2.81.7
         with: { tool: 'just,cargo-binstall' }
       - uses: ./.github/actions/mlt-setup-java
       - run: just -v java::env-info
@@ -41,7 +41,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: github.repository_owner == 'maplibre'
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           use_oidc: true
           directory: java
