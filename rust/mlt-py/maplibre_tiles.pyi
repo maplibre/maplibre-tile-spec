@@ -58,13 +58,19 @@ def decode_mlt_to_geojson(data: bytes) -> builtins.str:
     Decode an MLT binary blob and return GeoJSON as a string.
     """
 
-def encode_geojson(geojson: typing.Mapping[builtins.str, builtins.object], name: builtins.str, extent: builtins.int = 4096) -> bytes:
+def encode_geojson(geojson: typing.Mapping[builtins.str, builtins.object], name: builtins.str, extent: builtins.int = 4096, *, tessellate: builtins.bool = False, sort: typing.Literal['auto', 'morton', 'hilbert', 'id', 'none'] = "auto", shared_dict: builtins.bool = True, fsst: builtins.bool = True, fpf: builtins.bool = True) -> bytes:
     r"""
     Encode a GeoJSON `FeatureCollection` into MLT bytes.
 
     `geojson` is an RFC 7946 `FeatureCollection`.
     `name` and `extent` set the MLT layer metadata, since a `FeatureCollection` has no slot for them.
     Geometry is in tile-local coordinate space (no projection).
+
+    `tessellate` generates triangulation data for polygons and multi-polygons.
+    `sort` chooses which feature ordering(s) the encoder trials: `auto` tries all, a named curve (`morton`/`hilbert`/`id`) tries just that one, and `none` keeps the input order.
+    `shared_dict` allows grouping strings into shared dictionaries.
+    `fsst` allows FSST string compression.
+    `fpf` allows FastPFOR integer compression.
     See the module docs.
     """
 
