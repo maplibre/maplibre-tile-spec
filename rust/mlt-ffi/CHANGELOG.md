@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.3...rust-mlt-ffi-v0.1.4) - 2026-06-08
+
+### Other
+
+- *(rust)* migrate to fast-mvt crate ([#1415](https://github.com/maplibre/maplibre-tile-spec/pull/1415))
+
 ## [0.1.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.0...rust-mlt-ffi-v0.1.1) - 2026-05-15
 
 ### Other

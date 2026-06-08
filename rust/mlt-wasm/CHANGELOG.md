@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.10](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.9...rust-mlt-wasm-v0.1.10) - 2026-06-08
+
+### Other
+
+- *(deps-dev)* bump vitest, @vitest/coverage-v8 and @vitest/ui in /rust/mlt-wasm ([#1426](https://github.com/maplibre/maplibre-tile-spec/pull/1426))
+
 ## [0.1.9](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.8...rust-mlt-wasm-v0.1.9) - 2026-05-15
 
 ### Other
