@@ -74,9 +74,6 @@ def encode_mvt(data: bytes) -> bytes:
     Encode an entire MVT tile to MLT using default encoding options.
 
     `data` is a raw Mapbox Vector Tile (protobuf).
-    Each layer is encoded with `EncoderConfig::default()` and the per-layer MLT
-    blobs are concatenated.
-    See the module docs.
     """
 
 def list_layers(data: bytes) -> builtins.list[builtins.str]:
