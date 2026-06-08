@@ -10,41 +10,12 @@ use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::test_helpers::assert_mvt_equivalent_layers;
 use test_each_file::test_each_path;
 
-/// Fixtures the current MVT path cannot decode. Listed explicitly so a
-/// regression that breaks *more* fixtures still trips the test instead of
-/// silently passing.
-const UNSUPPORTED_PARENT_DIRS: &[&str] = &[];
-
 test_each_path! { for ["mvt"] in "../test/fixtures" as mvt_round_trip => round_trip_fixture }
 
 fn round_trip_fixture([path]: [&Path; 1]) {
     let mvt_bytes = fs::read(path).expect("read fixture");
-    let parent_name = path
-        .parent()
-        .and_then(Path::file_name)
-        .and_then(|s| s.to_str())
-        .unwrap_or_default();
-    let expected_unsupported = UNSUPPORTED_PARENT_DIRS.contains(&parent_name);
-
-    let original = match mvt_to_tile_layers(mvt_bytes) {
-        Ok(layers) => {
-            assert!(
-                !expected_unsupported,
-                "{} unexpectedly decoded — remove its parent dir from \
-                 UNSUPPORTED_PARENT_DIRS so it gets full round-trip coverage",
-                path.display()
-            );
-            layers
-        }
-        Err(e) => {
-            assert!(
-                expected_unsupported,
-                "{}: unexpected decode failure: {e}",
-                path.display()
-            );
-            return;
-        }
-    };
+    let original = mvt_to_tile_layers(mvt_bytes)
+        .unwrap_or_else(|e| panic!("{}: unexpected decode failure: {e}", path.display()));
     let normalized = re_encode(original);
     let again = re_encode(normalized.clone());
 
