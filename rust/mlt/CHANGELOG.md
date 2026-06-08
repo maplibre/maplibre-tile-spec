@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.15](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.14...rust-mlt-v0.1.15) - 2026-06-08
+
+### Fixed
+
+- *(rust)* accept .pbf in convert ([#1417](https://github.com/maplibre/maplibre-tile-spec/pull/1417))
+
+### Other
+
+- *(rust)* use `usize_cast` for casting ([#1414](https://github.com/maplibre/maplibre-tile-spec/pull/1414))
+- *(rust)* migrate to fast-mvt crate ([#1415](https://github.com/maplibre/maplibre-tile-spec/pull/1415))
+- *(deps)* bump the all-cargo-version-updates group across 1 directory with 7 updates ([#1419](https://github.com/maplibre/maplibre-tile-spec/pull/1419))
+- Provide mlt cli version ([#1406](https://github.com/maplibre/maplibre-tile-spec/pull/1406))
+
 ## [0.1.14](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.13...rust-mlt-v0.1.14) - 2026-05-15
 
 ### Other
