@@ -1,4 +1,3 @@
-use std::convert::Infallible;
 use std::num::TryFromIntError;
 
 use num_enum::TryFromPrimitiveError;
@@ -174,12 +173,6 @@ pub enum MltError {
     Mvt(#[from] fast_mvt::MvtError),
     #[error("MVT JSON value error: {0}")]
     MvtJsonValue(#[from] fast_mvt::MvtJsonValueError),
-}
-
-impl From<Infallible> for MltError {
-    fn from(_: Infallible) -> Self {
-        unreachable!()
-    }
 }
 
 impl From<MltError> for std::io::Error {

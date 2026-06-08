@@ -1,7 +1,6 @@
 //! Decode MVT bytes into [`FeatureCollection`] or row-oriented [`TileLayer`]s.
 
 use std::collections::{BTreeMap, HashMap};
-use std::convert::Infallible;
 
 use fast_mvt::{MvtLayer, MvtReaderRef, MvtValue};
 use serde_json::Value;
@@ -55,18 +54,12 @@ pub fn mvt_to_feature_collection(data: impl AsRef<[u8]>) -> MltResult<FeatureCol
 pub fn mvt_to_tile_layers(data: impl AsRef<[u8]>) -> MltResult<Vec<TileLayer>> {
     Ok(read_mvt_layers(data.as_ref())?
         .into_iter()
-        .map(TileLayer::try_from)
-        .collect::<Result<Vec<_>, _>>()?)
+        .map(TileLayer::from)
+        .collect())
 }
 
-#[expect(
-    clippy::infallible_try_from,
-    reason = "keep MVT model conversion symmetric with other TryFrom-based conversions"
-)]
-impl TryFrom<MvtLayer> for TileLayer {
-    type Error = Infallible;
-
-    fn try_from(layer: MvtLayer) -> Result<Self, Self::Error> {
+impl From<MvtLayer> for TileLayer {
+    fn from(layer: MvtLayer) -> Self {
         // First pass: collect property names (insertion-ordered) and infer column types.
         let mut col_names: Vec<String> = Vec::new();
         let mut col_index: HashMap<String, usize> = HashMap::new();
@@ -110,12 +103,12 @@ impl TryFrom<MvtLayer> for TileLayer {
             });
         }
 
-        Ok(Self {
+        Self {
             name: layer.name,
             extent: layer.extent.get(),
             property_names: col_names,
             features: tile_features,
-        })
+        }
     }
 }
 
