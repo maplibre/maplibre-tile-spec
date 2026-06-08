@@ -415,6 +415,7 @@
 <div class="toc">
 <ul>
 <li><a href="#basics">Basics</a></li>
+<li><a href="#mvt-compatibility-notes">MVT Compatibility Notes</a></li>
 <li><a href="#tile-layout">Tile Layout</a><ul>
 <li><a href="#metadata">Metadata</a><ul>
 <li><a href="#tileset-metadata">Tileset Metadata</a></li>
@@ -471,6 +472,30 @@ As in MVT, geometry coordinates are encoded as integers within vector tile grid 
 <p class="admonition-title">Note</p>
 <p>The terms <code>column</code>, <code>field</code>, and <code>property</code> are used interchangeably in this document.</p>
 </div>
+<h1 id="mvt-compatibility-notes">MVT Compatibility Notes<a class="headerlink" href="#mvt-compatibility-notes" title="Link to this section">&para;</a></h1>
+<p>MLTv1 is inspired by MVT and can represent the same common vector tile content, but it is not a byte-for-byte or schema-free replacement.
+The main differences come from MVT's per-feature tag/value model versus MLT's per-layer column model:</p>
+<ul>
+<li><strong>Property types are fixed per FeatureTable.</strong>
+  In MVT, the same key can technically reference values of different data types on different features in a layer.
+  In MLT, one property name corresponds to one column, and that column has one declared type for the whole layer (<code>FeatureTable</code>).
+  MVT data with mixed types must therefore be normalized before or during conversion, for example by lossless numeric widening, coercing values to strings, dropping mismatched values, or rejecting the tile.</li>
+<li><strong>Missing properties become typed nulls.</strong>
+  MVT normally represents a missing property by omitting the key/value tag from that feature; the MVT value union has no dedicated null type.
+  MLT represents the union of layer properties as columns, so a feature that lacks a property stores a null in that column and the column is marked nullable.
+  When converting MLT back to MVT, null property values should be omitted from the feature tags.</li>
+<li><strong>A feature has at most one value per property column.</strong>
+  MVT tag streams can encode the same key more than once for a single feature, even though most MVT APIs expose properties as a map and collapse such duplicates.
+  MLT has one cell per feature per column, so duplicate keys on one feature must be rejected, collapsed deterministically, or renamed before encoding.</li>
+<li><strong>Feature order is not necessarily a stable round-trip property.</strong>
+  MVT stores features in wire order.
+  MLT encoders may preserve order, but they may also sort features by id or spatial locality to improve compression when that optimization is enabled.
+  Applications that rely on source feature order should disable feature sorting or carry an explicit ordering property.</li>
+<li><strong>Layer names must be non-empty.</strong>
+  The MVT protobuf schema marks the layer <code>name</code> field as required, but some Mapbox-authored tooling validates that it is present as well as non-empty.
+  The written MVT specification does not explicitly say that the required name cannot be an empty string.
+  MLT treats that omission as an oversight: an empty layer name is invalid and must be rejected.</li>
+</ul>
 <h1 id="tile-layout">Tile Layout<a class="headerlink" href="#tile-layout" title="Link to this section">&para;</a></h1>
 <p>A <code>FeatureTable</code> in the MLT specification uses a tabular, column-oriented layout.
 It employs various lightweight compression schemes to encode column values efficiently.</p>
