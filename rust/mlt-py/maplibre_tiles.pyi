@@ -8,6 +8,7 @@ __all__ = [
     "MltLayer",
     "decode_mlt",
     "decode_mlt_to_geojson",
+    "encode_geojson",
     "list_layers",
 ]
 
@@ -55,6 +56,16 @@ def decode_mlt(data: bytes, z: typing.Optional[builtins.int] = None, x: typing.O
 def decode_mlt_to_geojson(data: bytes) -> builtins.str:
     r"""
     Decode an MLT binary blob and return GeoJSON as a string.
+    """
+
+def encode_geojson(geojson: typing.Mapping[builtins.str, builtins.object], name: builtins.str, extent: builtins.int = 4096) -> bytes:
+    r"""
+    Encode a GeoJSON `FeatureCollection` into MLT bytes.
+
+    `geojson` is an RFC 7946 `FeatureCollection`.
+    `name` and `extent` set the MLT layer metadata, since a `FeatureCollection` has no slot for them.
+    Geometry is in tile-local coordinate space (no projection).
+    See the module docs.
     """
 
 def list_layers(data: bytes) -> builtins.list[builtins.str]:

@@ -24,3 +24,42 @@ geojson_str = maplibre_tiles.decode_mlt_to_geojson(data)
 # Fast layer listing (no full decode)
 names = maplibre_tiles.list_layers(data)
 ```
+
+## Encoding
+
+`encode_geojson(geojson, name, extent=4096) -> bytes` encodes a single layer to an MLT blob:
+- `geojson` is a GeoJSON [`FeatureCollection`](https://datatracker.ietf.org/doc/html/rfc7946#section-3.3).
+  Geometry is in **tile-local coordinate space** (no projection), matching `tilezen/mapbox-vector-tile`'s default.
+  Coordinates must be integers and 2D.
+  They must be JSON integers (`2048`), not floats: a float-typed value such as `2048.0` raises `ValueError`.
+- `name` and `extent` set the MLT layer metadata, since a `FeatureCollection` has no slot for them.
+  extent` defaults to `4096`.
+
+```python
+import maplibre_tiles
+
+blob = maplibre_tiles.encode_geojson(
+    {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "id": 1,
+                "geometry": {"type": "Point", "coordinates": [2048, 1024]},
+                "properties": {"name": "main", "lanes": 3},
+            },
+        ],
+    },
+    name="roads",
+    extent=4096,
+)
+
+# Multi-layer tiles -> encode each layer and concatenate the bytes
+tile = b"".join([
+    maplibre_tiles.encode_geojson(roads, name="roads"),
+    maplibre_tiles.encode_geojson(water, name="water"),
+])
+```
+
+Input is validated strictly.
+A non-`FeatureCollection` input, a non-`Feature` member, float-typed or 3D coordinates, null or empty geometry, nested or non-scalar property values, a non-`u64` id, and an empty collection all raise `ValueError`.

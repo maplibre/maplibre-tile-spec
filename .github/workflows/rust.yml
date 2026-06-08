@@ -30,6 +30,16 @@ jobs:
       - uses: ./.github/actions/mlt-setup-rust
       - run: just -v rust::ci-test
 
+  test-python:
+    name: Test mlt-py
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/mlt-setup-rust
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.13" }
+      - run: just -v rust::py-test
+
   coverage:
     permissions:
       id-token: write  # for OIDC Codecov
@@ -216,6 +226,7 @@ jobs:
       - check
       - lint
       - test
+      - test-python
       - coverage
       # re-enable once we have stability guarantees regarding MSRV
       # - test-msrv
