@@ -17,7 +17,7 @@ impl Arbitrary<'_> for StagedId {
 impl Arbitrary<'_> for StagedLayer {
     fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
         // Bound name length to prevent OOM from unbounded string generation
-        let len = u.int_in_range(1..=32)? as usize;
+        let len = u.int_in_range(1..=32)?;
         let name = (0..len)
             .map(|_| u.arbitrary::<char>())
             .collect::<Result<_>>()?;
