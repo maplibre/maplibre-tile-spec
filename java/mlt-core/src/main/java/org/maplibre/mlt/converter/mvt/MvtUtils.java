@@ -4,19 +4,21 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import no.ecc.vectortile.VectorTileDecoder;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
+import org.maplibre.mlt.data.MVTFeature;
+import org.maplibre.mlt.data.MapboxVectorTile;
 import org.springmeyer.Pbf;
 import org.springmeyer.VectorTile;
 import org.springmeyer.VectorTileLayer;
 
 public class MvtUtils {
-  private static final String ID_KEY = "id";
-
   /* Uses the java-vector-tile library for decoding the MVT tile */
   public static MapboxVectorTile decodeMvt(Path mvtFilePath) throws IOException {
     var mvt = Files.readAllBytes(mvtFilePath);
@@ -41,7 +43,7 @@ public class MvtUtils {
     for (var layer : vectorTile.layers.values()) {
       for (int i = 0; i < layer.length; i++) {
         var feature = layer.feature(i);
-        var geometry = feature.loadGeometry();
+        var ignored = feature.loadGeometry();
       }
     }
 
@@ -52,24 +54,30 @@ public class MvtUtils {
     VectorTileDecoder mvtDecoder = new VectorTileDecoder();
     mvtDecoder.setAutoScale(false);
 
-    var tile = mvtDecoder.decode(mvtTile);
-    var mvtFeatures = tile.asList();
-    var layers = new ArrayList<Layer>();
-    for (var layerName : tile.getLayerNames()) {
-      var layerFeatures =
-          mvtFeatures.stream().filter(f -> f.getLayerName().equals(layerName)).toList();
+    final var mvtFeatures = mvtDecoder.decode(mvtTile);
+    final var featuresByLayer =
+        StreamSupport.stream(mvtFeatures.spliterator(), false)
+            .collect(
+                Collectors.groupingBy(
+                    f -> f.getLayerName(), LinkedHashMap::new, Collectors.toList()));
 
-      var features = new ArrayList<Feature>();
+    var layers = new ArrayList<Layer>(featuresByLayer.size());
+    for (var layerGroup : featuresByLayer.entrySet()) {
+      final var layerName = layerGroup.getKey();
+      final var layerFeatures = layerGroup.getValue();
+
       var tileExtent = 0;
+      final var features = new ArrayList<Feature>(layerFeatures.size());
+      final var builder = MVTFeature.builder();
       for (var mvtFeature : layerFeatures) {
-        var properties = new HashMap<>(mvtFeature.getAttributes());
-        var feature = new Feature(mvtFeature.getId(), mvtFeature.getGeometry(), properties);
-        features.add(feature);
-
-        var featureTileExtent = mvtFeature.getExtent();
-        if (featureTileExtent > tileExtent) {
-          tileExtent = featureTileExtent;
-        }
+        features.add(
+            builder
+                .index(features.size())
+                .id(mvtFeature.getId())
+                .geometry(mvtFeature.getGeometry())
+                .properties(mvtFeature.getAttributes())
+                .build());
+        tileExtent = Math.max(tileExtent, mvtFeature.getExtent());
       }
 
       layers.add(new Layer(layerName, features, tileExtent));

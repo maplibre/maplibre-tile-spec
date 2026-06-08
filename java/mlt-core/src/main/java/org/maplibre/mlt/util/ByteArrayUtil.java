@@ -2,6 +2,7 @@ package org.maplibre.mlt.util;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.Collection;
 
 public final class ByteArrayUtil {
@@ -11,12 +12,17 @@ public final class ByteArrayUtil {
     return buffers.stream().mapToInt(x -> x.length).sum();
   }
 
-  public static byte[] concat(Collection<byte[]> buffers) throws IOException {
-    final var size = buffers.stream().map(b -> b.length).reduce(0, Integer::sum);
-    final var stream = new ByteArrayOutputStream(size);
+  public static <T extends OutputStream> T concat(T stream, Collection<byte[]> buffers)
+      throws IOException {
     for (var buffer : buffers) {
       stream.write(buffer);
     }
-    return stream.toByteArray();
+    return stream;
+  }
+
+  public static byte[] concat(Collection<byte[]> buffers) throws IOException {
+    try (final var stream = new ByteArrayOutputStream(totalLength(buffers))) {
+      return concat(stream, buffers).toByteArray();
+    }
   }
 }

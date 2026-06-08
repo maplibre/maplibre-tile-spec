@@ -39,9 +39,7 @@ enum class PhysicalLevelTechnique : std::uint32_t {
     /// Can produce better results in combination with a heavyweight compression scheme like Gzip.
     /// Simple compression scheme where the decoder are easier to implement compared to FastPfor.
     VARINT = 2,
-    /// Adaptive Lossless floating-Point Compression
-    ALP = 3,
-    VALUE_COUNT = 4,
+    VALUE_COUNT = 3,
 };
 
 enum class LogicalLevelTechnique : std::uint32_t {

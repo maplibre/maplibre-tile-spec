@@ -7,6 +7,86 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.14](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.13...rust-mlt-v0.1.14) - 2026-05-15
+
+### Other
+
+- *(deps)* bump hotpath from 0.15.1 to 0.16.0 in /rust in the all-cargo-version-updates group across 1 directory ([#1380](https://github.com/maplibre/maplibre-tile-spec/pull/1380))
+
+## [0.1.13](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.12...rust-mlt-v0.1.13) - 2026-05-14
+
+### Added
+
+- *(rust)* add .pmtiles output format to convert ([#1354](https://github.com/maplibre/maplibre-tile-spec/pull/1354))
+
+## [0.1.12](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.11...rust-mlt-v0.1.12) - 2026-05-05
+
+### Added
+
+- *(rust)* MLT -> MVT write support ([#1369](https://github.com/maplibre/maplibre-tile-spec/pull/1369))
+
+## [0.1.11](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.10...rust-mlt-v0.1.11) - 2026-04-29
+
+### Added
+
+- *(rust)* add secondary Hilbert dictionary sorting on select tiles ([#1349](https://github.com/maplibre/maplibre-tile-spec/pull/1349))
+
+### Other
+
+- *(rust)* IdValues→ParsedId+StagedId, simplify presence ([#1334](https://github.com/maplibre/maplibre-tile-spec/pull/1334))
+- *(rust)* Improve the performance of `mlt convert` by caching and special-casing ([#1286](https://github.com/maplibre/maplibre-tile-spec/pull/1286))
+
+## [0.1.10](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.9...rust-mlt-v0.1.10) - 2026-04-18
+
+### Added
+
+- *(rust)* mlt UI to browse .mbtiles ([#1306](https://github.com/maplibre/maplibre-tile-spec/pull/1306))
+
+### Other
+
+- remove ALP everywhere - it was never implemented ([#1128](https://github.com/maplibre/maplibre-tile-spec/pull/1128))
+- *(rust)* rm RawStreamData and EncodedStreamData ([#1309](https://github.com/maplibre/maplibre-tile-spec/pull/1309))
+- *(rust)* Coord32 cleanup, dep update ([#1304](https://github.com/maplibre/maplibre-tile-spec/pull/1304))
+- Add offline docs.rs-style workspace docs check to Rust CI and fix surfaced rustdoc links ([#1295](https://github.com/maplibre/maplibre-tile-spec/pull/1295))
+
+## [0.1.9](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.8...rust-mlt-v0.1.9) - 2026-04-13
+
+### Added
+
+- *(rust)* mlt convert support for full mbtiles conversion ([#1259](https://github.com/maplibre/maplibre-tile-spec/pull/1259))
+- *(rust)* mlt convert, encoder ([#1240](https://github.com/maplibre/maplibre-tile-spec/pull/1240))
+
+### Other
+
+- *(rust)* remove a few bad performance choices (+6% encoder gain) ([#1287](https://github.com/maplibre/maplibre-tile-spec/pull/1287))
+- benchmark and fix various performance issues in the encoder ([#1273](https://github.com/maplibre/maplibre-tile-spec/pull/1273))
+- *(rust)* Hotpath based profiling ([#1269](https://github.com/maplibre/maplibre-tile-spec/pull/1269))
+- *(rust)* massive rewrite of the encoder ([#1254](https://github.com/maplibre/maplibre-tile-spec/pull/1254))
+- *(rust)* consolidate utils ([#1248](https://github.com/maplibre/maplibre-tile-spec/pull/1248))
+- *(rust)* move frames/v01 -> decoder, adj use ([#1246](https://github.com/maplibre/maplibre-tile-spec/pull/1246))
+- *(rust)* move more code to encoder ([#1245](https://github.com/maplibre/maplibre-tile-spec/pull/1245))
+- *(rust)* mv tessellation to core ([#1220](https://github.com/maplibre/maplibre-tile-spec/pull/1220))
+- *(rust)* improve synthetics, geojson ([#1210](https://github.com/maplibre/maplibre-tile-spec/pull/1210))
+- add large FastPFOR synthetics ([#1205](https://github.com/maplibre/maplibre-tile-spec/pull/1205))
+- *(rust)* implement feature/property iterator and more type state ([#1198](https://github.com/maplibre/maplibre-tile-spec/pull/1198))
+- *(rust)* type state to represent fully-decoded layers ([#1171](https://github.com/maplibre/maplibre-tile-spec/pull/1171))
+
+## [0.1.8](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.7...rust-mlt-v0.1.8) - 2026-03-23
+
+### Other
+
+- *(rust)* migrate to Rust fastpfor ([#1190](https://github.com/maplibre/maplibre-tile-spec/pull/1190))
+
+## [0.1.7](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.6...rust-mlt-v0.1.7) - 2026-03-17
+
+### Other
+
+- *(rust)* memory budgeting, codecs  ([#1168](https://github.com/maplibre/maplibre-tile-spec/pull/1168))
+- *(rust)* minor noop cleanup ([#1167](https://github.com/maplibre/maplibre-tile-spec/pull/1167))
+- *(rust)* rename EncDec variants ([#1165](https://github.com/maplibre/maplibre-tile-spec/pull/1165))
+- *(rust)* add stateful decoder ([#1163](https://github.com/maplibre/maplibre-tile-spec/pull/1163))
+- *(rust)* get rid of borrowme, add EncDec enum ([#1141](https://github.com/maplibre/maplibre-tile-spec/pull/1141))
+
 ## [0.1.6](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.5...rust-mlt-v0.1.6) - 2026-03-10
 
 ### Fixed

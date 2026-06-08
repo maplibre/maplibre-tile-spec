@@ -1,0 +1,84 @@
+name: Rust Hotpath Comment
+
+on:
+  workflow_run:
+    workflows: ["Rust Hotpath Profile"]
+    types:
+      - completed
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  COMMENT_MARKER: '<!-- bench-comment:mlt-convert -->'
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - uses: taiki-e/install-action@56545b37b57562edd73171cb6c62cc509db4c34e # v2.81.7
+        with: { tool: 'just' }
+
+      - uses: actions/download-artifact@ad191675b41f6a5b46da9a048cb6893812da158b # v3.1.0-node20
+        with:
+          name: profile-metrics
+          path: /tmp/metrics/
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Install hotpath-utils CLI
+        run: cargo install hotpath --bin hotpath-utils --features=utils
+
+      - name: Compose comment (hotpath + per-tile size diff)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          GITHUB_BASE_REF=$(cat /tmp/metrics/base_ref.txt)
+          export GITHUB_BASE_REF
+          GITHUB_HEAD_REF=$(cat /tmp/metrics/head_ref.txt)
+          export GITHUB_HEAD_REF
+
+          # Both sections are wrapped in <details> so the PR comment stays
+          # collapsed by default. GitHub requires a blank line after
+          # <details> / <summary> for the markdown body to render.
+          {
+            echo "<details><summary>Performance Comparison</summary>"
+            echo
+            hotpath-utils profile-pr \
+              --head-metrics /tmp/metrics/head_timing.json \
+              --base-metrics /tmp/metrics/base_timing.json \
+              --pr-number "$(cat /tmp/metrics/pr_number.txt)" \
+              --benchmark-id "mlt-convert" \
+              --dry-run
+            echo
+            echo "</details>"
+            echo
+            echo "<details><summary>Per-tile encoded size diff</summary>"
+            echo
+            just rust::size-diff /tmp/metrics/base_sizes.db /tmp/metrics/head_sizes.db
+            echo
+            echo "</details>"
+            echo
+            echo "$COMMENT_MARKER"
+          } > /tmp/comment.md
+
+      - name: Post or update PR comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.event.workflow_run.repository.full_name }}
+        run: |
+          set -euo pipefail
+          PR_NUMBER=$(cat /tmp/metrics/pr_number.txt)
+          EXISTING_PR=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate --jq ".[] | select(.body | contains(\"$COMMENT_MARKER\")) | .id" | head -n1)
+          if [ -n "$EXISTING_PR" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$EXISTING_PR" -F body=@/tmp/comment.md
+          else
+            gh api -X POST "repos/$REPO/issues/$PR_NUMBER/comments" -F body=@/tmp/comment.md
+          fi

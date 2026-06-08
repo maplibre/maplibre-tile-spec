@@ -1,6 +1,7 @@
 use num_traits::PrimInt;
+use usize_cast::IntoUsize as _;
 
-use crate::{Decoder, MltError};
+use crate::{Decoder, MltError, MltResult};
 
 /// Generic run-length encode: returns `(run_lengths, values)`.
 #[must_use]
@@ -36,9 +37,8 @@ pub fn encode_rle<T: PrimInt>(data: &[T]) -> (Vec<T>, Vec<T>) {
 /// Format: control byte determines the run type:
 /// - `control >= 128`: literal run of `(256 - control)` bytes follow
 /// - `control < 128`: repeating run of `(control + 3)` copies of the next byte
-#[must_use]
-pub fn encode_byte_rle(data: &[u8]) -> Vec<u8> {
-    let mut output = Vec::new();
+pub fn encode_byte_rle<'a>(data: &[u8], target: &'a mut Vec<u8>) -> &'a [u8] {
+    target.clear();
     let mut pos = 0;
 
     while pos < data.len() {
@@ -55,8 +55,8 @@ pub fn encode_byte_rle(data: &[u8]) -> Vec<u8> {
             // Encode repeating run
             #[expect(clippy::cast_possible_truncation, reason = "3 <= repeat_count < 130")]
             let control = (repeat_count - 3) as u8;
-            output.push(control);
-            output.push(data[pos]);
+            target.push(control);
+            target.push(data[pos]);
             pos += repeat_count;
         } else {
             // Encode literal run
@@ -83,12 +83,12 @@ pub fn encode_byte_rle(data: &[u8]) -> Vec<u8> {
                 reason = "literal_count is always smaller than 128"
             )]
             let control = (256 - literal_count) as u8;
-            output.push(control);
-            output.extend_from_slice(&data[pos..pos + literal_count]);
+            target.push(control);
+            target.extend_from_slice(&data[pos..pos + literal_count]);
             pos += literal_count;
         }
     }
-    output
+    target
 }
 
 /// Decode byte-level RLE as used in ORC for boolean and present streams.
@@ -96,28 +96,29 @@ pub fn encode_byte_rle(data: &[u8]) -> Vec<u8> {
 /// Format: control byte determines the run type:
 /// - `control >= 128`: literal run of `(256 - control)` bytes follow
 /// - `control < 128`: repeating run of `(control + 3)` copies of the next byte
-pub fn decode_byte_rle(
-    input: &[u8],
-    num_bytes: usize,
-    dec: &mut Decoder,
-) -> Result<Vec<u8>, MltError> {
+pub fn decode_byte_rle(input: &[u8], num_bytes: usize, dec: &mut Decoder) -> MltResult<Vec<u8>> {
     let mut output = dec.alloc(num_bytes)?;
     let mut pos = 0;
     while output.len() < num_bytes && pos < input.len() {
         let control = input[pos];
         pos += 1;
         if control >= 128 {
-            let count = usize::from(control ^ 0xFF) + 1;
-            output.extend_from_slice(&input[pos..pos + count]);
-            pos += count;
+            let count = u32::from(control ^ 0xFF) + 1;
+            let end = pos + count.into_usize();
+            let slice = input.get(pos..end).ok_or(MltError::BufferUnderflow(
+                count,
+                input.len().saturating_sub(pos),
+            ))?;
+            output.extend_from_slice(slice);
+            pos = end;
         } else {
             let count = usize::from(control) + 3;
-            let value = input[pos];
+            let &value = input.get(pos).ok_or(MltError::BufferUnderflow(1, 0))?;
             pos += 1;
             output.extend(std::iter::repeat_n(value, count));
         }
     }
-    dec.adjust_alloc(&output, num_bytes);
+    dec.adjust_alloc(&output, num_bytes)?;
     Ok(output)
 }
 
@@ -126,8 +127,8 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
+    use crate::decoder::RleMeta;
     use crate::test_helpers::dec;
-    use crate::v01::RleMeta;
 
     proptest! {
         #[test]
@@ -144,8 +145,9 @@ mod tests {
 
         #[test]
         fn test_byte_rle_roundtrip(data: Vec<u8>) {
-            let encoded = encode_byte_rle(&data);
-            let decoded = decode_byte_rle(&encoded, data.len(), &mut dec()).unwrap();
+            let mut encoded = Vec::new();
+            let buf = encode_byte_rle(&data, &mut encoded);
+            let decoded = decode_byte_rle(buf, data.len(), &mut dec()).unwrap();
             prop_assert_eq!(data, decoded);
         }
     }
@@ -159,7 +161,8 @@ mod tests {
 
     #[test]
     fn test_encode_byte_rle_empty() {
-        assert!(encode_byte_rle(&[]).is_empty());
+        let mut buf = Vec::new();
+        assert!(encode_byte_rle(&[], &mut buf).is_empty());
     }
 
     #[test]

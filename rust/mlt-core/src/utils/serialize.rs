@@ -3,8 +3,9 @@ use std::io::Write;
 
 use integer_encoding::VarIntWriter;
 
-use crate::MltError;
-use crate::v01::{EncodedStream, EncodedStreamData};
+#[cfg(any(test, feature = "__private"))]
+use crate::encoder::EncodedStream;
+use crate::{MltError, MltResult};
 
 pub trait BinarySerializer: Write + VarIntWriter + Sized {
     fn write_u8(&mut self, value: u8) -> io::Result<()> {
@@ -16,36 +17,30 @@ pub trait BinarySerializer: Write + VarIntWriter + Sized {
         self.write_all(value.as_bytes())
     }
 
-    /// Reverses [`RawStream::parse`](crate::v01::stream::RawStream::from_bytes)
+    /// Reverses `RawStream::from_bytes` — writes a stream header then the stream data bytes.
+    #[cfg(any(test, feature = "__private"))]
     fn write_stream(&mut self, stream: &EncodedStream) -> io::Result<()> {
-        let byte_length = match &stream.data {
-            EncodedStreamData::VarInt(v) | EncodedStreamData::Encoded(v) => v.len(),
-        };
-        let byte_length = u32::try_from(byte_length).map_err(MltError::from)?;
+        let byte_length = u32::try_from(stream.data.len()).map_err(MltError::from)?;
         stream.meta.write_to(self, false, byte_length)?;
-        stream.data.write_to(self)?;
+        stream.write_to(self)?;
         Ok(())
     }
 
-    /// Serializes an optional stream, which is a stream with boolean values indicating presence of values in another stream.
-    fn write_optional_stream(&mut self, stream: Option<&EncodedStream>) -> io::Result<()> {
-        if let Some(s) = stream {
-            self.write_boolean_stream(s)
-        } else {
-            Ok(())
-        }
-    }
-
-    /// Reverses [`RawStream::parse_bool`](crate::v01::stream::RawStream::parse_bool)
+    /// Reverses `RawStream::parse_bool` — writes a boolean stream header then the stream data bytes.
+    #[cfg(test)]
     fn write_boolean_stream(&mut self, stream: &EncodedStream) -> io::Result<()> {
-        let byte_length = match &stream.data {
-            EncodedStreamData::VarInt(v) | EncodedStreamData::Encoded(v) => v.len(),
-        };
-        let byte_length = u32::try_from(byte_length).map_err(MltError::from)?;
+        let byte_length = u32::try_from(stream.data.len()).map_err(MltError::from)?;
         stream.meta.write_to(self, true, byte_length)?;
-        stream.data.write_to(self)?;
+        stream.write_to(self)?;
         Ok(())
     }
 }
 
 impl<T> BinarySerializer for T where T: Write + VarIntWriter {}
+
+pub fn strings_to_lengths<S: AsRef<str>>(values: &[S]) -> MltResult<Vec<u32>> {
+    Ok(values
+        .iter()
+        .map(|s| u32::try_from(s.as_ref().len()))
+        .collect::<Result<Vec<_>, _>>()?)
+}

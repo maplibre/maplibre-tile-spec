@@ -126,7 +126,7 @@ void IntegerDecoder::decodeIntStream(BufferStream& tileData,
                                      std::vector<TTarget>& out,
                                      const StreamMetadata& metadata,
                                      const bool isSigned) {
-    auto* tempBuffer = getTempBuffer<TInt>(metadata.getNumValues());
+    auto tempBuffer = getTempBuffer<TInt>(metadata.getNumValues());
     decodeIntStream<TDecode, TInt, TTarget>(tileData, tempBuffer, metadata.getNumValues(), out, metadata, isSigned);
 }
 
@@ -163,7 +163,7 @@ template <typename TDecode, typename TInt, typename TTarget, bool Delta>
 void IntegerDecoder::decodeMortonStream(BufferStream& tileData,
                                         std::vector<TTarget>& out,
                                         const MortonEncodedStreamMetadata& metadata) {
-    auto* tempBuffer = getTempBuffer<TInt>(metadata.getNumValues());
+    auto tempBuffer = getTempBuffer<TInt>(metadata.getNumValues());
     out.resize(2 * metadata.getNumValues());
     decodeMortonStream<TDecode, TInt, TTarget, Delta>(
         tileData, tempBuffer, metadata.getNumValues(), out.data(), out.size(), metadata);
@@ -199,20 +199,18 @@ void IntegerDecoder::decodeStream(BufferStream& tileData,
     switch (metadata.getPhysicalLevelTechnique()) {
         case PhysicalLevelTechnique::FAST_PFOR: {
             std::uint32_t* outPtr = nullptr;
+            std::optional<BufWrapper<std::uint32_t>> tempBuffer;
             if constexpr (sizeof(*out) == sizeof(std::uint32_t)) {
                 // Decode directly into the output buffer
                 outPtr = reinterpret_cast<std::uint32_t*>(out);
             } else {
-                // Decode into a 32-bit temprary buffer
-                outPtr = getTempBuffer<std::uint32_t>(metadata.getNumValues());
+                // Decode into a 32-bit temprary buffer ...
+                tempBuffer.emplace(getTempBuffer<std::uint32_t>(metadata.getNumValues()));
+                outPtr = tempBuffer->get();
             }
 
             const auto resultLength = decodeFastPfor(
                 tileData, outPtr, metadata.getNumValues(), metadata.getByteLength());
-            if (resultLength != outSize) {
-                throw std::runtime_error("Unexpected decode result (" + std::to_string(resultLength) + "," +
-                                         std::to_string(outSize) + ")");
-            }
 
             if constexpr (sizeof(*out) != sizeof(std::uint32_t)) {
                 // ... then extend to 64-bit output (`.mapToLong(i -> i)` in Java)

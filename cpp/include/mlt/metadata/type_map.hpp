@@ -61,12 +61,12 @@ struct Tag0x01 {
                 return Column{.name = {},
                               .nullable = false,
                               .columnScope = ColumnScope::FEATURE,
-                              .type = ComplexColumn{.type = ComplexType::GEOMETRY}};
+                              .type = ComplexColumn{.type = ComplexType::GEOMETRY, .children = {}}};
             case 30:
                 return Column{.name = {},
                               .nullable = false,
                               .columnScope = ColumnScope::FEATURE,
-                              .type = ComplexColumn{.type = ComplexType::STRUCT}};
+                              .type = ComplexColumn{.type = ComplexType::STRUCT, .children = {}}};
             default:
                 if (const auto type = mapScalarType(typeCode); type) {
                     return Column{.name = {},

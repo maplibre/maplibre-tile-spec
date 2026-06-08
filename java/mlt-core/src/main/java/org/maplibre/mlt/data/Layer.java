@@ -1,5 +1,7 @@
 package org.maplibre.mlt.data;
 
-import java.util.List;
+import java.util.SequencedCollection;
+import org.jetbrains.annotations.NotNull;
 
-public record Layer(String name, List<Feature> features, int tileExtent) {}
+public record Layer(
+    @NotNull String name, @NotNull SequencedCollection<Feature> features, int tileExtent) {}

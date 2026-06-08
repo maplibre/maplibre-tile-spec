@@ -56,12 +56,13 @@ public class PropertyDecoder {
           DecodingUtils.decodeBooleanRle(
               data, presentStreamMetadata.numValues(), presentStreamMetadata.byteLength(), offset);
       presentStreamSize = presentStreamMetadata.numValues();
+      numStreams -= 1;
     } else {
       presentStream = null;
       presentStreamSize = 0;
     }
 
-    return switch (scalarType.physicalType) {
+    return switch (scalarType.physicalType()) {
       case BOOLEAN -> {
         final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
         final var dataStream =
@@ -71,7 +72,7 @@ public class PropertyDecoder {
       }
       case UINT_32, INT_32 -> {
         final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-        final var signed = (scalarType.physicalType == MltMetadata.ScalarType.INT_32);
+        final var signed = (scalarType.physicalType() == MltMetadata.ScalarType.INT_32);
         final var dataStream =
             IntegerDecoder.decodeIntStream(data, offset, dataStreamMetadata, signed);
 
@@ -87,7 +88,7 @@ public class PropertyDecoder {
       }
       case UINT_64, INT_64 -> {
         final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
-        final var signed = (scalarType.physicalType == MltMetadata.ScalarType.INT_64);
+        final var signed = (scalarType.physicalType() == MltMetadata.ScalarType.INT_64);
         final var dataStream =
             IntegerDecoder.decodeLongStream(data, offset, dataStreamMetadata, signed);
 
@@ -110,13 +111,8 @@ public class PropertyDecoder {
         yield unpack(dataStream, presentStream, presentStreamSize);
       }
       case STRING -> {
-        if (presentStream == null) {
-          throw new RuntimeException("Non-nullable string columns not currently supported");
-        }
-
-        // The present stream has already been decoded
         final var strValues =
-            StringDecoder.decode(data, offset, numStreams - 1, presentStream, presentStreamSize);
+            StringDecoder.decode(data, offset, numStreams, presentStream, presentStreamSize);
         yield strValues.getRight();
       }
       case UINT_8, UNRECOGNIZED, INT_8 ->
@@ -135,9 +131,9 @@ public class PropertyDecoder {
   public static Object decodePropertyColumn(
       byte[] data, IntWrapper offset, MltMetadata.Column column, int numStreams)
       throws IOException {
-    if (column.scalarType != null) {
+    if (column.isScalar()) {
       return decodeScalarPropertyColumn(
-          data, offset, column.scalarType, column.isNullable, numStreams);
+          data, offset, column.field().type().scalarType(), column.isNullable(), numStreams);
     }
 
     /* Handle struct which currently only supports strings as nested fields for supporting shared dictionary encoding */

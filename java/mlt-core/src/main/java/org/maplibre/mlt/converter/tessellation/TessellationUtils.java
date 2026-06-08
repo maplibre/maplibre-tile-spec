@@ -12,15 +12,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.jetbrains.annotations.NotNull;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Polygon;
 import org.maplibre.earcut4j.Earcut;
-import org.maplibre.mlt.converter.geometry.Vertex;
 
 public class TessellationUtils {
   private TessellationUtils() {}
@@ -130,76 +126,4 @@ public class TessellationUtils {
         .flatMapToDouble(c -> Arrays.stream(new double[] {c.x, c.y}))
         .toArray();
   }
-
-  private static double[] flatCoordinates(Polygon polygon) {
-    var shell = polygon.getExteriorRing();
-    var shellCoordinates = shell.getCoordinates();
-    var coordinates =
-        new ArrayList<>(Arrays.asList(shellCoordinates).subList(0, shellCoordinates.length));
-
-    for (var i = 0; i < polygon.getNumInteriorRing(); ++i) {
-      var hole = polygon.getInteriorRingN(i);
-      var childCoordinates = hole.getCoordinates();
-      coordinates.addAll(Arrays.asList(childCoordinates).subList(0, childCoordinates.length));
-    }
-
-    return coordinates.stream()
-        .flatMapToDouble(c -> Arrays.stream(new double[] {c.x, c.y}))
-        .toArray();
-  }
-
-  private static double[] flatPolygonWithClosingPoint(Polygon polygon) {
-    var numRings = polygon.getNumInteriorRing() + 1;
-
-    var exteriorRing = polygon.getExteriorRing();
-    var shell =
-        new GeometryFactory()
-            .createLineString(
-                Arrays.copyOf(exteriorRing.getCoordinates(), exteriorRing.getCoordinates().length));
-    var shellVertices = flatLineString(shell);
-    var vertexBuffer = new ArrayList<>(shellVertices);
-
-    for (var i = 0; i < polygon.getNumInteriorRing(); i++) {
-      var interiorRing = polygon.getInteriorRingN(i);
-      var ring =
-          new GeometryFactory()
-              .createLineString(
-                  Arrays.copyOf(
-                      interiorRing.getCoordinates(), interiorRing.getCoordinates().length));
-
-      var ringVertices = flatLineString(ring);
-      vertexBuffer.addAll(ringVertices);
-    }
-
-    return vertexBuffer.stream()
-        .flatMapToDouble(v -> Arrays.stream(new double[] {v.x(), v.y()}))
-        .toArray();
-  }
-
-  private static List<Vertex> flatLineString(LineString lineString) {
-    return Arrays.stream(lineString.getCoordinates())
-        .map(v -> new Vertex((int) v.x, (int) v.y))
-        .collect(Collectors.toList());
-  }
-
-  /*public static TessellatedPolygon tessellatePolygon(Polygon polygon, int indexOffset) {
-    //var flattenedCoordinates = flatCoordinatesWithoutClosingPoint(polygon);
-    var flattenedCoordinates = flatPolygonWithClosingPoint(polygon);
-
-    var holeIndices = new ArrayList<Integer>();
-    //var numVertices = polygon.getExteriorRing().getCoordinates().length - 1;
-    var numVertices = polygon.getExteriorRing().getCoordinates().length;
-    for(int i = 0; i < polygon.getNumInteriorRing(); i++) {
-        holeIndices.add(numVertices);
-        //numVertices += polygon.getInteriorRingN(i).getCoordinates().length - 1;
-        numVertices += polygon.getInteriorRingN(i).getCoordinates().length;
-    }
-
-    var holeIndicesArray = !holeIndices.isEmpty() ? holeIndices.stream().mapToInt(i -> i).toArray() : null;
-    var indices = Earcut.earcut(flattenedCoordinates, holeIndicesArray, 2);
-    indices = indices.stream().map(index -> index + indexOffset).toList();
-    var numTriangles = indices.size() / 3;
-    return new TessellatedPolygon(indices, numTriangles);
-  }*/
-
 }

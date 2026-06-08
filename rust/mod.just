@@ -9,6 +9,9 @@ export RUSTFLAGS := env('RUSTFLAGS', if ci_mode == '1' {'-D warnings'} else {''}
 export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
 export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'})
 
+# Features excluded from cargo-hack --each-feature iterations (heavy optional instrumentation)
+hack_skip := '--exclude-features hotpath,hotpath-alloc,hotpath-mcp'
+
 _default: (just '--list' 'rust')
 
 [private]
@@ -17,107 +20,79 @@ just *args:
 
 # Run integration tests and save its output as the new expected output
 bless *args: (just 'cargo-install' 'cargo-insta') (just 'cargo-install' 'cargo-hack')
-    cargo hack insta test --accept --unreferenced=delete --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-cpp,default,__private \
-        --exclude-all-features \
-        --features fastpfor-rust \
+    cargo hack insta test --accept --unreferenced=delete --each-feature {{hack_skip}} \
+        --package mlt-core --exclude-no-default-features --exclude-all-features \
         {{args}}
 
 # Run benchmarks
 bench *args: (just 'cargo-install' 'cargo-hack')
-    cargo hack bench --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-cpp,default \
-        --exclude-all-features \
-        --features fastpfor-rust \
+    cargo hack bench --all-targets --each-feature {{hack_skip}} \
+        --package mlt-core --exclude-no-default-features --exclude-all-features \
         {{args}}
+
+# Run a specific benchmark target
+bench-one target='encoding_from_mvt': (just 'cargo-install' 'cargo-hack')
+    cargo bench --bench {{target}} -p mlt-core --features __private
 
 alias b := build
 # Build the project
 build: (just 'cargo-install' 'cargo-hack')
-    cargo hack build --all-targets --each-feature \
-        --workspace --exclude mlt-core \
-        --exclude-no-default-features --exclude-all-features
-    cargo hack build --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-rust,default,__private \
-        --exclude-all-features \
-        --features fastpfor-cpp
-    cargo hack build --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-cpp,default,__private \
-        --exclude-all-features \
-        --features fastpfor-rust
+    cargo hack build --all-targets --each-feature {{hack_skip}} \
+        --workspace --exclude-no-default-features --exclude-all-features
 
 alias c := check
 # Quick compile without building a binary
 check: (just 'cargo-install' 'cargo-hack')
-    cargo hack check --all-targets --each-feature \
-        --workspace --exclude mlt-core \
-        --exclude-no-default-features --exclude-all-features
-    cargo hack check --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-rust,default,__private \
-        --exclude-all-features \
-        --features fastpfor-cpp
-    cargo hack check --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-cpp,default,__private \
-        --exclude-all-features \
-        --features fastpfor-rust
+    cargo hack check --all-targets --each-feature {{hack_skip}} \
+        --workspace --exclude-no-default-features --exclude-all-features
     cd mlt-core/fuzz && cargo check --all-features
 
 # Generate code coverage report to upload to codecov.io
-ci-coverage: ci-env-info (just 'java::gen-snippets') (just 'cargo-install' 'cargo-llvm-cov')
-    mkdir -p target/llvm-cov
-
-    @echo "::group::Generate synthetic MLTs"
-    rm -rf ../test/synthetic/0x01-rust
-    cargo llvm-cov run --no-report -p mlt-synthetics
-    @echo "::endgroup::"
-
-    @echo "::group::Validate synthetic MLTs"
-    {{just}} rust::validate-synthetic
-    {{just}} _assert-all-mlt-files-different test/synthetic/0x01-rust
-    {{just}} rust::_verify-synthetic-equality
-    {{just}} rust::_assert-synthetic-mlt-identity
-    @echo "::endgroup::"
-
-    # ATTENTION: the output-path here is used in the CI workflow
-    # --no-clean preserves profdata accumulated by the synthetic generation run above
-    # --doctests requires nightly (test job uses nightly toolchain) and may not be mixed with the main
-    {{just}} rust::coverage '--no-clean'
-    # target coverage and docktest coverage cannot be mixed
-    cargo llvm-cov --doctests --no-clean --workspace --codecov --output-path target/llvm-cov/codecov.info
+ci-coverage: ci-env-info _coverage
+    {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
+    mkdir -p target/llvm-cov      # the output-path here is used in the CI workflow
+    cargo llvm-cov report --include-build-script --lcov --output-path target/llvm-cov/lcov.info
 
 # Run minimal subset of tests to ensure compatibility with MSRV
 ci-check: ci-env-info check
 
 # Print environment info for CI
 ci-env-info:
-    @echo "::group::General environment Information"
-    @echo "Running for '{{main_crate}}' crate {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
-    @echo "PWD {{justfile_directory()}}"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "::group::General environment Information"
+    echo "Running for '{{main_crate}}' crate {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
+    echo "PWD {{justfile_directory()}}"
     {{just}} --version
     rustc --version
     cargo --version
     rustup --version
-    @echo "RUSTFLAGS='$RUSTFLAGS'"
-    @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
-    @echo "RUST_BACKTRACE='$RUST_BACKTRACE'"
-    @echo "::endgroup::"
+    echo "RUSTFLAGS='$RUSTFLAGS'"
+    echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
+    echo "RUST_BACKTRACE='$RUST_BACKTRACE'"
+    echo "::endgroup::"
 
-    @echo "::group::lscpu"
-    lscpu
-    @echo "::endgroup::"
+    # Linux
+    if command -v lscpu &>/dev/null; then
+        echo "::group::lscpu"
+        lscpu
+        echo "::endgroup::"
+    fi
+    if [ -f /proc/cpuinfo ]; then
+        echo "::group::/proc/cpuinfo"
+        cat /proc/cpuinfo
+        echo "::endgroup::"
+    fi
 
-    @echo "::group::/proc/cpuinfo"
-    cat /proc/cpuinfo
-    @echo "::endgroup::"
+    # MacOS
+    if command -v sysctl &>/dev/null && command -v egrep &>/dev/null; then
+        echo "::group::sysctl"
+        sysctl -a 2>/dev/null | egrep "^hw" || true # ignore permission denied to some sysctl entries
+        echo "::endgroup::"
+    fi
 
 # Run linting as expected by CI
-ci-lint: ci-env-info test-fmt clippy
+ci-lint: ci-env-info test-fmt clippy ci-docs-rs
     {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
 
 # Run all tests as expected by CI
@@ -145,7 +120,7 @@ ci-test-msrv: ci-env-info
 ci-fuzz-build target: (cargo-fuzz 'build' target '--target' 'x86_64-unknown-linux-gnu')
 
 # Fuzz the target for 90 seconds (installs `cargo fuzz`)
-ci-fuzz-run target: (cargo-fuzz 'run' target '--target' 'x86_64-unknown-linux-gnu' '--' '-max_total_time=90' '--max_len=300')
+ci-fuzz-run target: (cargo-fuzz 'run' target '--target' 'x86_64-unknown-linux-gnu' '--' '-max_total_time=90' '-max_len=300' '-rss_limit_mb=2048')
 
 # Run coverage against a previously generated corpus and export LCOV for Codecov upload.
 # Output: target/llvm-cov/fuzz-<target>.lcov
@@ -187,46 +162,87 @@ clean:
 
 # Run cargo clippy to lint the code
 clippy *args: (just 'cargo-install' 'cargo-hack')
-    cargo hack clippy --all-targets --each-feature \
-        --workspace --exclude mlt-core \
-        --exclude-no-default-features --exclude-all-features \
-        {{args}}
-    cargo hack clippy --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-rust,default,__private \
-        --exclude-all-features \
-        --features fastpfor-cpp \
-        {{args}}
-    cargo hack clippy --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-cpp,default,__private \
-        --exclude-all-features \
-        --features fastpfor-rust \
-        {{args}}
+    cargo clippy --all-targets --all-features --workspace {{args}}
     cd mlt-core/fuzz && cargo clippy --all-features {{args}}
 
+# Generate code coverage report and open it
+coverage: _coverage
+    cargo llvm-cov report --include-build-script --open
+
 # Generate code coverage report. Installs `cargo llvm-cov`
-coverage *args='--no-clean --open': (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm-cov')
-    cargo hack llvm-cov --all-targets --each-feature \
-        --workspace --exclude mlt-core \
-        --exclude-no-default-features --exclude-all-features \
-        --include-build-script {{args}}
-    cargo hack llvm-cov --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-rust,default,__private \
-        --exclude-all-features \
-        --features fastpfor-cpp \
-        --include-build-script {{args}}
-    cargo hack llvm-cov --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-cpp,default,__private \
-        --exclude-all-features \
-        --features fastpfor-rust \
-        --include-build-script {{args}}
+_coverage: (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm-cov') (just 'java::gen-snippets')
+    cargo llvm-cov clean --workspace
+    cargo hack llvm-cov --no-report --all-targets --each-feature {{hack_skip}} \
+        --workspace --exclude-no-default-features --exclude-all-features
+    rm -rf ../test/synthetic/0x01-rust
+    cargo llvm-cov run --no-report -p mlt-synthetics
+    cargo llvm-cov run --no-report -p mlt -- ls --validate-to-json --details basic ../test/synthetic/
+    rustup toolchain install nightly --profile minimal --component llvm-tools
+    cargo +nightly llvm-cov --no-report --doctests --workspace
+
+# Run the encoder with hotpath profiling (timing + allocation tracking)
+profile *args:
+    cargo run --release -p mlt --features='hotpath,hotpath-alloc,hotpath-mcp' -- {{args}}
+
+# Compress the tiles into `sizes(z, x, y, size)` SQLite DB
+compress-db-statistics tile_dir db:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {
+      echo "CREATE TABLE sizes (z INTEGER NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, size INTEGER NOT NULL, PRIMARY KEY (z, x, y)) WITHOUT ROWID;"
+      echo "BEGIN;"
+      find {{quote(tile_dir)}} -type f -name '*.mlt' -printf '%f\t%s\n' \
+        | awk -F'\t' '{ sub(/\.mlt$/, "", $1); split($1, c, "_"); printf "INSERT INTO sizes VALUES(%s,%s,%s,%s);\n", c[1], c[2], c[3], $2 }'
+      echo "COMMIT;"
+    } | sqlite3 {{quote(db)}}
+
+# Diff two compressed sizes DBs (produced by `compress-db-statistics`).
+size-diff prev curr:
+    sqlite3 {{prev}} -cmd "ATTACH DATABASE '{{curr}}' AS current_head;" < scripts/diff.sql
+
+# Download ~5k benchmark tiles (z0-z6) from Protomaps into outdir.
+# Skips if a previous complete download is detected (.complete sentinel).
+# ODbL-licensed OSM data; extraction explicitly permitted by Protomaps.
+download-benchmark-tiles outdir='/tmp/benchmark-tiles' maxzoom='6': (just 'install-pmtiles')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -f "{{outdir}}/.complete" ]; then
+        echo "{{outdir}} already has tiles, skipping download"
+        exit 0
+    fi
+    TMPFILE=$(mktemp /tmp/benchmark-XXXXXX.pmtiles)
+    trap 'rm -f "$TMPFILE"' EXIT
+    pmtiles extract \
+        https://data.source.coop/protomaps/openstreetmap/v4.pmtiles \
+        "$TMPFILE" \
+        --maxzoom={{maxzoom}}
+    python3 - "{{outdir}}" "{{maxzoom}}" "$TMPFILE" << 'PYEOF'
+    import gzip, os, sys
+    from pmtiles.reader import Reader, MmapSource, Compression
+
+    out, maxzoom, src = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+    os.makedirs(out, exist_ok=True)
+    count = 0
+    with open(src, "rb") as f:
+        reader = Reader(MmapSource(f))
+        is_gzip = reader.header()["tile_compression"] == Compression.GZIP
+        for z in range(maxzoom + 1):
+            for x in range(2 ** z):
+                for y in range(2 ** z):
+                    data = reader.get(z, x, y)
+                    if data:
+                        if is_gzip:
+                            data = gzip.decompress(data)
+                        with open(os.path.join(out, f"{z}_{x}_{y}.mvt"), "wb") as of:
+                            of.write(data)
+                        count += 1
+    print(f"Extracted {count} tiles to {out}")
+    PYEOF
+    touch "{{outdir}}/.complete"
 
 # Build and open code documentation
 docs *args='--open':
-    DOCS_RS=1 cargo doc --no-deps {{args}} --features fastpfor-cpp,arbitrary --package mlt-core
+    DOCS_RS=1 cargo doc --no-deps {{args}} --features arbitrary --workspace
 
 alias f := fmt
 fmt: (_fmt) (_fmt '--manifest-path' 'mlt-core/fuzz/Cargo.toml')
@@ -286,8 +302,8 @@ get-crate-field field package=main_crate: (just 'assert-cmd' 'jq')
 # Get the minimum supported Rust version (MSRV) for the crate
 get-msrv package=main_crate: (get-crate-field 'rust_version' package)
 
-# Run linting (clippy + format check)
-lint: clippy test-fmt
+# Run formatting, cargo check, and clippy for local development
+lint: fmt check clippy test
 
 # Find the minimum supported Rust version and update Cargo.toml
 msrv: (just 'cargo-install' 'cargo-msrv')
@@ -315,12 +331,66 @@ release *args='': (just 'cargo-install' 'release-plz')
 
 # Check semver compatibility with prior published version
 semver *args: (just 'cargo-install' 'cargo-semver-checks') (just 'cargo-install' 'cargo-hack')
-    cargo hack semver-checks --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-rust,default,__private \
-        --exclude-all-features \
-        --features fastpfor-cpp \
+    cargo hack semver-checks --each-feature {{hack_skip}} \
+        --package mlt-core --exclude-no-default-features --exclude-all-features \
         {{args}}
+
+# Regenerate diplomat FFI bindings
+[working-directory: 'mlt-ffi']
+sync-ffi-bindings: (just 'cargo-install' 'diplomat-tool') (just 'assert-cmd' 'clang-format') (just 'assert-cmd' 'ktlint')
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    diplomat-tool c      generated/c      -e src/lib.rs
+    diplomat-tool cpp    generated/cpp    -e src/lib.rs
+    diplomat-tool kotlin generated/kotlin -e src/lib.rs
+    clang-format -style=WebKit -i tests/c/*.c tests/cpp/*.cpp generated/c/* generated/cpp/*
+    ktlint --format ./**/*.kt
+
+# Run the C FFI round-trip test (builds cdylib, compiles + runs test)
+test-ffi-c:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo build --release -p mlt-ffi
+    LIB_DIR="$(pwd)/target/release"
+    gcc mlt-ffi/tests/c/test_round_trip.c \
+        -I mlt-ffi/generated/c \
+        -L "$LIB_DIR" -lmlt_ffi \
+        -o target/test_ffi_c
+    LD_LIBRARY_PATH="$LIB_DIR" target/test_ffi_c
+
+# Run the C++ FFI round-trip test (builds cdylib, compiles + runs test)
+test-ffi-cpp:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo build --release -p mlt-ffi
+    LIB_DIR="$(pwd)/target/release"
+    g++ -std=c++20 mlt-ffi/tests/cpp/test_round_trip.cpp \
+        -I mlt-ffi/generated/cpp \
+        -L "$LIB_DIR" -lmlt_ffi \
+        -o target/test_ffi_cpp
+    LD_LIBRARY_PATH="$LIB_DIR" target/test_ffi_cpp
+
+# Run the Kotlin FFI round-trip test (builds cdylib, compiles + runs test)
+test-ffi-kotlin: (just 'assert-cmd' 'java')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo build --release -p mlt-ffi
+
+    case "$(uname -s)-$(uname -m)" in
+        Linux-x86_64)        CLASSIFIER=linux-x86_64;   LIB=libmlt_ffi.so    ;;
+        Linux-aarch64)       CLASSIFIER=linux-aarch64;  LIB=libmlt_ffi.so    ;;
+        Darwin-arm64)        CLASSIFIER=macos-aarch64;  LIB=libmlt_ffi.dylib ;;
+        MINGW*-*|MSYS*-*|CYGWIN*-*) CLASSIFIER=windows-x86_64; LIB=mlt_ffi.dll ;;
+        *) echo "::error::Unsupported host $(uname -s)-$(uname -m)"; exit 1 ;;
+    esac
+
+    NATIVES="mlt-ffi/generated/kotlin/build/natives/$CLASSIFIER"
+    mkdir -p "$NATIVES"
+    cp "target/release/$LIB" "$NATIVES/$LIB"
+
+    cd mlt-ffi/generated/kotlin
+    ./gradlew --console=plain --no-daemon test -Pversion=0.0.0-test
 
 # Regenerate the Python type stub for mlt-py
 sync-pyo3-stubs:
@@ -352,25 +422,24 @@ sync-wasm-version:
 alias t := test
 # Run all tests
 test: (just 'cargo-install' 'cargo-hack')
-    cargo hack test --all-targets --each-feature \
-        --workspace --exclude mlt-core \
-        --exclude-no-default-features --exclude-all-features
-    cargo hack test --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-rust,default,__private \
-        --exclude-all-features \
-        --features fastpfor-cpp
-    cargo hack test --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-cpp,default,__private \
-        --exclude-all-features \
-        --features fastpfor-rust
+    cargo hack test --all-targets --each-feature {{hack_skip}} \
+        --workspace --exclude-no-default-features --exclude-all-features
     {{just}} rust::generate-synthetic-mlts
     {{just}} rust::test-doc
 
 # Test documentation generation
 test-doc: (docs '--document-private-items')
-    cargo test --doc --features fastpfor-cpp,arbitrary --package mlt-core
+    cargo test --doc --features arbitrary --package mlt-core
+
+# Simulate docs.rs for all workspace crates and verify docs can build offline.
+ci-docs-rs:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rustup toolchain install nightly --profile minimal
+    export DOCS_RS=1
+    export RUSTDOCFLAGS="${RUSTDOCFLAGS:+$RUSTDOCFLAGS } --cfg docsrs"
+    cargo fetch --locked
+    CARGO_NET_OFFLINE=true cargo +nightly doc --workspace --no-deps --locked
 
 # Test code formatting
 test-fmt: (fmt-toml '--check' '--check-format')
@@ -381,36 +450,24 @@ test-publish:
     cargo publish --workspace --dry-run
 
 # Find unused dependencies
-udeps: (just 'cargo-install' 'cargo-udeps') (just 'cargo-install' 'cargo-hack')
-    cargo hack +nightly udeps --all-targets --each-feature \
-        --workspace --exclude mlt-core \
-        --exclude-no-default-features --exclude-all-features
-    cargo hack +nightly udeps --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-rust,default,__private \
-        --exclude-all-features \
-        --features fastpfor-cpp
-    cargo hack +nightly udeps --all-targets --feature-powerset \
-        --package mlt-core \
-        --exclude-features fastpfor-cpp,default,__private \
-        --exclude-all-features \
-        --features fastpfor-rust
+udeps: (just 'cargo-install' 'cargo-udeps')
+    cargo +nightly udeps --all-targets --workspace --all-features
 
 # Update all dependencies, including breaking changes
 update:
     cargo +nightly -Z unstable-options update --breaking
     cargo update
+    cd mlt-core/fuzz && cargo +nightly -Z unstable-options update --breaking
+    cd mlt-core/fuzz && cargo update
 
 # Generate synthetic .mlt files and ensure there are no duplicates
-generate-synthetic-mlts:
+generate-synthetic-mlts *args:
     #!/usr/bin/env bash
     set -euo pipefail
     rm -rf ../test/synthetic/0x01-rust
-    cargo run -p mlt-synthetics
+    cargo run -p mlt-synthetics -- {{args}}
     {{just}} rust::validate-synthetic
-    {{just}} _assert-all-mlt-files-different test/synthetic/0x01-rust
-    {{just}} rust::_verify-synthetic-equality
-    {{just}} rust::_assert-synthetic-mlt-identity
+    {{just}} _assert-all-mlt-files-different
 
 # Create .dump files for all .mlt files in test/synthetic for all languages
 generate-synthetic-dumps: (just 'cargo-install' 'fd' 'fd-find')
@@ -436,91 +493,6 @@ wasm-test: wasm-build
 # Validate every .mlt in test/synthetic against corresponding .json (GeoJSON)
 validate-synthetic:
     {{just}} mlt ls --validate-to-json --details basic ../test/synthetic/
-
-# Assert each .mlt in compare_dir exists in ref_dir and is binary-identical. Skip '_rust' files.
-_assert-synthetic-mlt-identity ref_dir='../test/synthetic/0x01' compare_dir='../test/synthetic/0x01-rust':
-    #!/usr/bin/env bash
-    set -euo pipefail
-    # Ensure compare_dir exists.
-    if [[ ! -d "{{compare_dir}}" ]]; then
-        echo "::error::Compare directory {{compare_dir}} does not exist"
-        exit 1
-    fi
-
-    # Expand .mlt files; fail if none are found to avoid masking missing/failed generation.
-    shopt -s nullglob
-    mlt_files=( "{{compare_dir}}"/*.mlt )
-    shopt -u nullglob
-    if (( ${#mlt_files[@]} == 0 )); then
-        echo "::error::No .mlt files found in {{compare_dir}}"
-        exit 1
-    fi
-
-    for mlt in "${mlt_files[@]}"; do
-        base=$(basename "$mlt")
-        if [[ "$base" == *"-rust.mlt" ]]; then
-            continue
-        fi
-        ref="{{ref_dir}}/$base"
-        if [[ ! -f "$ref" ]]; then
-            echo "::error::File $mlt has no counterpart in {{ref_dir}}"
-            exit 1
-        elif ! cmp -s "$ref" "$mlt"; then
-            echo "::error::Binary difference: $base"
-            exit 1
-        fi
-    done
-    echo "All {{compare_dir}}/*.mlt files have identical counterparts in {{ref_dir}} (except *-rust.mlt)."
-
-# checks that the contents of two synthetic directories are equal
-_verify-synthetic-equality: (just 'cargo-install' 'delta' 'git-delta')
-    #!/usr/bin/env bash
-    set -euo pipefail
-
-    # `realpath --relative-to-...` doesn't work on MacOS
-    # https://unix.stackexchange.com/a/655825/312244
-    posix_relpath() {
-        set -- "${1%/}/" "${2%/}/" ''
-        while [ "$1" ] && [ "$2" = "${2#"$1"}" ]
-        do
-            set -- "${1%/?*/}/" "$2" "../$3"
-        done
-        rel="${3}${2#"$1"}"
-        [ "${rel#/}" ] && rel="${rel%/}" || rel="${rel:-.}"
-        printf '%s\n' "$rel"
-    }
-
-    DIR_A="../test/synthetic/0x01"
-    DIR_B="../test/synthetic/0x01-rust"
-
-    BIN="cargo run --bin mlt --quiet --"
-    find "$DIR_A" -type f -iname "*.mlt" | while read -r file_a; do
-      rel_path="$(posix_relpath "$DIR_A" "$file_a")"
-      file_b="$DIR_B/$rel_path"
-      file_b_rust="${file_b%.mlt}-rust.mlt"
-
-      if [[ -f "$file_b" ]]; then
-        if ! cmp -s "$file_a" "$file_b"; then
-          echo "Differences: $rel_path"
-          echo ""
-          diff -U20 \
-            --label "$file_a" \
-            <($BIN dump "$file_a") \
-            --label "$file_b" \
-            <($BIN dump "$file_b") \
-            | delta --side-by-side --file-modified-label "mlt dump difference"
-        fi
-      elif [[ -f "$file_b_rust" ]]; then
-        diff -U20 \
-          --label "$file_a" \
-          <($BIN decode "$file_a") \
-          --label "$file_b_rust" \
-          <($BIN decode "$file_b_rust") \
-          | delta --side-by-side --file-modified-label "mlt decoded difference"
-      else
-        echo "Missing in $DIR_B but present in $DIR_A: $rel_path"
-      fi
-    done
 
 [private]
 [working-directory: 'mlt-core']

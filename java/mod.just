@@ -64,7 +64,7 @@ generate-synthetic-mlts:
     set -euo pipefail
     rm -rf ../test/synthetic/0x01
     ./gradlew :mlt-tools:generateSyntheticMlt
-    {{just}} _assert-all-mlt-files-different test/synthetic/0x01
+    {{just}} _assert-all-mlt-files-different
 
 # Run linting (format check)
 lint:

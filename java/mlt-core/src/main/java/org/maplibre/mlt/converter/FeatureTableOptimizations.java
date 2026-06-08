@@ -1,7 +1,6 @@
 package org.maplibre.mlt.converter;
 
 import java.util.List;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
 
 /**
  * Configure optimizations for a Layer

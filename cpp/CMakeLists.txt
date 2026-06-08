@@ -23,6 +23,7 @@ add_library(mlt-cpp STATIC)
 
 option(MLT_WITH_JSON "Include JSON support" ON)
 option(MLT_WITH_FASTPFOR "Include FastPFor support" ON)
+option(MLT_WITH_FASTPFOR_SIMD "Include SIMD/NEON support in FastPFor decoding" ON)
 option(MLT_WITH_TESTS "Include Tests" ON)
 option(MLT_WITH_TOOLS "Include CLI tools" ON)
 
@@ -139,9 +140,6 @@ target_sources(mlt-cpp PRIVATE
     ${MLT_INCLUDE_FILES}
     ${MLT_SRC_FILES}
 )
-
-# SIMD Everywhere (needed on ARM)
-target_include_directories(mlt-cpp PRIVATE "${PROJECT_SOURCE_DIR}/vendor/simde")
 
 include("${PROJECT_SOURCE_DIR}/vendor/fastpfor.cmake")
 

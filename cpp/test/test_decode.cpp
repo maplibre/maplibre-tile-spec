@@ -71,7 +71,8 @@ std::pair<std::optional<mlt::MapLibreTile>, std::string> loadTile(const std::str
         return {std::nullopt, "Failed to read tile data"};
     }
 
-    auto tile = mlt::Decoder().decode({(tileData.data()), tileData.size()});
+    constexpr bool supportFastPFOR = true;
+    auto tile = mlt::Decoder(supportFastPFOR).decode({(tileData.data()), tileData.size()});
 
 #if MLT_WITH_JSON
     // Load the GeoJSON file, if present

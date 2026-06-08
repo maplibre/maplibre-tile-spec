@@ -21,6 +21,7 @@ Each `FeatureTable` is preceded by a `FeatureTableMetadata` that describes `Feat
 The visual appearance of a tile is usually defined by a [MapLibre Style](https://maplibre.org/maplibre-style-spec/), which specifies how features are rendered.
 
 Each feature must have
+
 - a `geometry` column (type based on the OGC's Simple Feature Access Model (SFA), excluding support for `GeometryCollection` types)
 - an optional `id` column
 - optional property columns
@@ -45,6 +46,7 @@ A stream is a sequence of values of a known length in a continuous memory chunk,
 Streams include additional metadata, such as their size and encoding type.
 
 For example, a nullable string property column might have:
+
 - A **`present` stream** (a bit flag indicating the presence of a value).
 - A **`length` stream** (describing the number of characters for each string).
 - A **`data` stream** (containing the actual UTF-8 encoded string values).
@@ -120,6 +122,7 @@ Each `FeatureTable` is preceded by a `FeatureTableMetadata` section describing i
     Should the size of the upcoming metadata and table be part of that structure?
 
 A FeatureTable consists of any number of the following sequences:
+
 - The size of the upcoming `FeatureTableMetadata` (varint-encoded).
 - The size of the upcoming `FeatureTable` (varint-encoded).
 - One `FeatureTableMetadata` section.
@@ -432,12 +435,12 @@ The following encoding pool was selected based on analysis of compression ratio 
 | --------- | ---------------------------- | ----------------------------------- | ----------- |
 | Boolean   | [Boolean RLE](https://orc.apache.org/specification/ORCv1/#boolean-run-length-encoding) | | |
 | Integer   | Plain, RLE, Delta, Delta-RLE | [SIMD-FastPFOR](https://arxiv.org/pdf/1209.2137.pdf), [Varint](https://protobuf.dev/programming-guides/encoding/#varints) | |
-| Float     | Plain, RLE, Dictionary, [ALP](https://dl.acm.org/doi/pdf/10.1145/3626717) | | |
+| Float     | Plain, RLE, Dictionary | | |
 | String    | Plain, Dictionary, [FSST](https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf) Dictionary | | |
 | Geometry  | Plain, Dictionary, Morton-Dictionary | | |
 
 !!! NOTE
-    `ALP`, `FSST`, and `FastPFOR` encodings are <span class="experimental"></span>.
+    `FSST`, and `FastPFOR` encodings are <span class="experimental"></span>.
 
 SIMD-FastPFOR is generally preferred over Varint encoding due to its smaller output and faster decoding speed.
 Varint encoding is included mainly for compatibility and simplicity, and it can be more efficient when combined with heavyweight compression like GZip.
@@ -494,6 +497,7 @@ If geometries (mainly polygons) are pre-tessellated for direct GPU use, `NumTria
 ### Property Columns
 
 Feature properties are divided into `feature-scoped` and `vertex-scoped` properties.
+
 - **Feature-scoped**: One value per feature.
 - **Vertex-scoped**: One value per vertex in the VertexBuffer per feature (modeling M-coordinates from GIS).
 
@@ -509,6 +513,7 @@ A property column can use any data type from the [type system](#type-system).
 # Example Layouts
 
 The following examples illustrate the layout of a `FeatureTable` in storage. The color scheme is:
+
 - **Blue boxes**:
   Logical constructs, not persisted.
   Fields are reconstructed from streams based on TileSet metadata.
@@ -571,6 +576,7 @@ The MLT in-memory format incorporates ideas from analytical in-memory formats li
 It is also designed for future parallel processing on the GPU within compute shaders.
 
 The main design goals for the MLT in-memory format are:
+
 - Define a platform-agnostic representation to avoid expensive materialization costs, especially for strings.
 - Maximize CPU throughput by optimizing memory layout for cache locality and SIMD instructions.
 - Allow random (preferably constant-time) access to all data for parallel processing on GPUs (compute shaders).

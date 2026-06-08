@@ -7,7 +7,5 @@ public enum PhysicalLevelTechnique {
   FAST_PFOR,
   /* Can produce better results in combination with a heavyweight compression scheme like Gzip.
    *  Simple compression scheme where the decoder are easier to implement compared to FastPfor.*/
-  VARINT,
-  /* Adaptive Lossless floating-Point Compression */
-  ALP
+  VARINT
 }

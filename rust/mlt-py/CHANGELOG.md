@@ -7,6 +7,82 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.16](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.15...python-mlt-v0.1.16) - 2026-05-16
+
+### Other
+
+- update Cargo.toml dependencies
+
+## [0.1.15](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.14...python-mlt-v0.1.15) - 2026-05-15
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.14](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.13...python-mlt-v0.1.14) - 2026-05-14
+
+### Other
+
+- update Cargo.lock dependencies
+
+## [0.1.13](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.12...python-mlt-v0.1.13) - 2026-05-05
+
+### Other
+
+- update Cargo.toml dependencies
+
+## [0.1.12](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.11...python-mlt-v0.1.12) - 2026-04-29
+
+### Other
+
+- *(rust)* follow up to Presence cleanup ([#1337](https://github.com/maplibre/maplibre-tile-spec/pull/1337))
+
+## [0.1.11](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.10...python-mlt-v0.1.11) - 2026-04-18
+
+### Other
+
+- *(rust)* Coord32 cleanup, dep update ([#1304](https://github.com/maplibre/maplibre-tile-spec/pull/1304))
+
+## [0.1.10](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.9...python-mlt-v0.1.10) - 2026-04-13
+
+### Other
+
+- update Cargo.toml dependencies
+
+## [0.1.9](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.8...python-mlt-v0.1.9) - 2026-04-13
+
+### Added
+
+- *(rust)* enhance property iteration ([#1225](https://github.com/maplibre/maplibre-tile-spec/pull/1225))
+
+### Other
+
+- *(rust)* move frames/v01 -> decoder, adj use ([#1246](https://github.com/maplibre/maplibre-tile-spec/pull/1246))
+- *(rust)* mv tessellation to core ([#1220](https://github.com/maplibre/maplibre-tile-spec/pull/1220))
+- *(rust)* implement feature/property iterator and more type state ([#1198](https://github.com/maplibre/maplibre-tile-spec/pull/1198))
+- *(rust)* type state to represent fully-decoded layers ([#1171](https://github.com/maplibre/maplibre-tile-spec/pull/1171))
+- *(rust)* cleanup Results, minor styling ([#1192](https://github.com/maplibre/maplibre-tile-spec/pull/1192))
+
+## [0.1.8](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.7...python-mlt-v0.1.8) - 2026-03-23
+
+### Other
+
+- *(rust)* migrate to Rust fastpfor ([#1190](https://github.com/maplibre/maplibre-tile-spec/pull/1190))
+
+## [0.1.7](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.6...python-mlt-v0.1.7) - 2026-03-17
+
+### Other
+
+- *(rust)* memory budgeting, codecs  ([#1168](https://github.com/maplibre/maplibre-tile-spec/pull/1168))
+- *(rust)* introduce EncDec decode states ([#1166](https://github.com/maplibre/maplibre-tile-spec/pull/1166))
+- *(rust)* rename EncDec variants ([#1165](https://github.com/maplibre/maplibre-tile-spec/pull/1165))
+- *(rust)* add stateful decoder ([#1163](https://github.com/maplibre/maplibre-tile-spec/pull/1163))
+- *(rust)* rename to IdValues and GeometryValues ([#1159](https://github.com/maplibre/maplibre-tile-spec/pull/1159))
+- *(chore)* remove into_static, test fixes ([#1154](https://github.com/maplibre/maplibre-tile-spec/pull/1154))
+- *(rust)* refactor parsing and encoding code ([#1144](https://github.com/maplibre/maplibre-tile-spec/pull/1144))
+- *(rust)* simplify ID model ([#1139](https://github.com/maplibre/maplibre-tile-spec/pull/1139))
+- *(rust)* move name into DecodedStrings ([#1108](https://github.com/maplibre/maplibre-tile-spec/pull/1108))
+
 ## [0.1.6](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.5...python-mlt-v0.1.6) - 2026-03-10
 
 ### Other

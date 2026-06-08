@@ -12,7 +12,7 @@ repositories {
         url = 'https://maven.ecc.no/releases'
     }
     maven {
-        url = 'https://nexus.terrestris.de/repository/public/'
+        url = 'https://repo.osgeo.org/repository/release/'
         content {
             includeGroup 'org.geotools'
             includeGroup 'org.geotools.ogc'

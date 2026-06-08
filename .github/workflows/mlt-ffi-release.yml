@@ -1,0 +1,135 @@
+name: mlt-ffi - Release
+
+on:
+  push:
+    tags:
+      - 'rust-mlt-ffi-v*.*.*'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  build-native:
+    name: Build mlt-ffi for ${{ matrix.classifier }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            classifier: linux-x86_64
+            lib_name: libmlt_ffi.so
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            classifier: linux-x86_64-musl
+            lib_name: libmlt_ffi.so
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            classifier: linux-aarch64
+            lib_name: libmlt_ffi.so
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            classifier: macos-aarch64
+            lib_name: libmlt_ffi.dylib
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            classifier: windows-x86_64
+            lib_name: mlt_ffi.dll
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/mlt-setup-rust
+      - name: Install musl tools
+        if: contains(matrix.target, 'musl')
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - name: Build mlt-ffi
+        working-directory: rust
+        run: |
+          rustup target add ${{ matrix.target }}
+          cargo build --release --target ${{ matrix.target }} -p mlt-ffi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-${{ matrix.classifier }}
+          path: rust/target/${{ matrix.target }}/release/${{ matrix.lib_name }}
+
+  publish:
+    name: Publish ${{ matrix.artifact }}
+    needs: build-native
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - project: kotlin
+            artifact: mlt-ffi-kotlin
+            java-version: '21'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Setup Java
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          distribution: 'temurin'
+          java-version: ${{ matrix.java-version }}
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
+
+      - uses: taiki-e/install-action@56545b37b57562edd73171cb6c62cc509db4c34e # v2.81.7
+        with: { tool: 'just' }
+
+      - name: Get version from tag
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          version="$(just ci-extract-version rust-mlt-ffi "$REF_NAME")"
+          echo version="$version" >> "$GITHUB_ENV"
+
+      - name: Download all native artifacts
+        uses: actions/download-artifact@ad191675b41f6a5b46da9a048cb6893812da158b # v3.1.0-node20
+        with:
+          path: rust/mlt-ffi/generated/${{ matrix.project }}/build/natives
+
+      - name: Organize native libraries
+        run: |
+          cd rust/mlt-ffi/generated/${{ matrix.project }}/build/natives
+          for dir in native-*; do
+            classifier="${dir#native-}"
+            mkdir -p "$classifier"
+            mv "$dir"/* "$classifier"/
+            rmdir "$dir"
+          done
+          find . -type f
+
+      - name: Publish to Maven Central
+        working-directory: rust/mlt-ffi/generated/${{ matrix.project }}
+        env:
+          MLT_VERSION: ${{ env.version }}
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_PRIVATE_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
+        run: ./gradlew publishToMavenCentral -Pversion="$MLT_VERSION"
+
+  release:
+    name: Create GitHub Release
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}

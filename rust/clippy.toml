@@ -1,2 +1,7 @@
 allow-unwrap-in-tests = true
 avoid-breaking-exported-api = false
+
+disallowed-methods = [
+    "alloc::boxed::Box::leak",
+    "alloc::vec::Vec::leak",
+]

@@ -18,11 +18,11 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.locationtech.jts.util.Assert;
 import org.maplibre.mlt.TestSettings;
+import org.maplibre.mlt.converter.ColumnMapping;
+import org.maplibre.mlt.converter.ColumnMappingConfig;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
-import org.maplibre.mlt.converter.mvt.ColumnMapping;
-import org.maplibre.mlt.converter.mvt.ColumnMappingConfig;
 import org.maplibre.mlt.converter.mvt.MvtUtils;
 import org.maplibre.mlt.decoder.MltDecoder;
 
@@ -139,7 +139,7 @@ public class CompressionBenchmarksTest {
             .preTessellatePolygons(tessellate)
             .optimizations(optimizations)
             .build();
-    final var mlTile = MltConverter.convertMvt(mvTile, tileMetadata, config, null);
+    final var mlTile = MltConverter.encode(mvTile, tileMetadata, config, null);
 
     if (reassignableLayers.isEmpty()) {
       /* Only test when the ids are not reassigned since it is verified based on the other tests */

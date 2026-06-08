@@ -1,0 +1,97 @@
+//! Encode row-oriented [`TileLayer`]s as MVT (Mapbox Vector Tile) bytes,
+//! delegating wire-format details to the [`fast_mvt`] crate.
+
+use fast_mvt::{DEFAULT_EXTENT, MvtExtent, MvtTileBuilder, MvtValue};
+
+use crate::MltResult;
+use crate::decoder::{PropValue, TileLayer};
+
+/// Encode row-oriented [`TileLayer`]s as MVT (Mapbox Vector Tile) bytes.
+pub fn tile_layers_to_mvt(layers: Vec<TileLayer>) -> MltResult<Vec<u8>> {
+    let mut tile = MvtTileBuilder::with_capacity(layers.len());
+    for layer in layers {
+        let extent = MvtExtent::new(layer.extent).unwrap_or(DEFAULT_EXTENT);
+        let mut mvt_layer = tile.layer_with_capacity(layer.name, layer.features.len())?;
+        mvt_layer.extent(extent);
+        let names = layer.property_names;
+        for feat in layer.features {
+            let mut feature = mvt_layer.feature(feat.geometry)?;
+            feature.id(feat.id);
+            for (col_idx, prop) in feat.properties.into_iter().enumerate() {
+                if let Some(name) = names.get(col_idx)
+                    && let Ok(value) = MvtValue::try_from(prop)
+                {
+                    feature.tag(name, value)?;
+                }
+            }
+            mvt_layer = feature.finish();
+        }
+        tile = mvt_layer.finish();
+    }
+    Ok(tile.finish())
+}
+
+impl TryFrom<PropValue> for MvtValue {
+    type Error = ();
+
+    fn try_from(prop: PropValue) -> Result<Self, Self::Error> {
+        Ok(match prop {
+            PropValue::Bool(Some(b)) => Self::Bool(b),
+            PropValue::I8(Some(i)) => Self::SInt(i.into()),
+            PropValue::U8(Some(u)) => Self::UInt(u.into()),
+            PropValue::I32(Some(i)) => Self::SInt(i.into()),
+            PropValue::U32(Some(u)) => Self::UInt(u.into()),
+            PropValue::I64(Some(i)) => Self::SInt(i),
+            PropValue::U64(Some(u)) => Self::UInt(u),
+            PropValue::F32(Some(f)) => Self::Float(f),
+            PropValue::F64(Some(f)) => Self::Double(f),
+            PropValue::Str(Some(s)) => Self::String(s),
+            _ => Err(())?,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::decoder::TileFeature;
+    use crate::mvt::mvt_to_tile_layers;
+
+    #[test]
+    fn empty_input_yields_empty_output() {
+        let bytes = tile_layers_to_mvt(Vec::new()).unwrap();
+        let decoded = mvt_to_tile_layers(bytes).unwrap();
+        assert!(decoded.is_empty());
+    }
+
+    /// `ClosePath` repeats the first vertex; an input with the closing
+    /// duplicate must therefore round-trip without growing extra vertices.
+    #[test]
+    fn ring_is_implicitly_closed() {
+        use geo_types::{Geometry, LineString, Polygon};
+        let ring = vec![
+            (0_i32, 0_i32).into(),
+            (10, 0).into(),
+            (10, 10).into(),
+            (0, 10).into(),
+            (0, 0).into(),
+        ];
+        let layer = TileLayer {
+            name: "L".into(),
+            extent: 4096,
+            property_names: vec![],
+            features: vec![TileFeature {
+                id: Some(1),
+                geometry: Geometry::Polygon(Polygon::new(LineString(ring), vec![])),
+                properties: vec![],
+            }],
+        };
+        let bytes = tile_layers_to_mvt(vec![layer]).unwrap();
+        let back = mvt_to_tile_layers(bytes).unwrap();
+        let Geometry::Polygon(p) = &back[0].features[0].geometry else {
+            panic!("expected polygon, got {:?}", back[0].features[0].geometry);
+        };
+        assert_eq!(p.exterior().0.len(), 5);
+        assert_eq!(p.exterior().0.first(), p.exterior().0.last());
+    }
+}

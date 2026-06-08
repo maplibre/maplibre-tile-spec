@@ -15,6 +15,7 @@ import org.maplibre.mlt.converter.mvt.MvtUtils
 import org.maplibre.mlt.decoder.MltDecoder
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.IOException
 import java.net.URI
@@ -62,8 +63,6 @@ object Encode {
         val tessellateURI = cmd.tessellateSource?.let { URI(it) }
         val tessellatePolygons = cmd.tessellatePolygons
         val compressionType = cmd.compressionType
-        val enableCoerce = cmd.enableCoerceOnTypeMismatch
-        val enableElide = cmd.enableElideOnTypeMismatch
         val filterPattern = cmd.filterPattern
         val filterInvert = cmd.filterInvert
         val minZoom = cmd.minZoom
@@ -103,20 +102,29 @@ object Encode {
             useFSST = true
         }
 
+        val typeMismatchPolicy =
+            if (cmd.enableCoerceOnTypeMismatch) {
+                ConversionConfig.TypeMismatchPolicy.COERCE
+            } else if (cmd.enableElideOnTypeMismatch) {
+                ConversionConfig.TypeMismatchPolicy.ELIDE
+            } else {
+                ConversionConfig.TypeMismatchPolicy.FAIL
+            }
+
         val conversionConfig =
             ConversionConfig
                 .builder()
                 .includeIds(!cmd.hasOption(EncodeCommandLine.EXCLUDE_IDS_OPTION))
                 .useFastPFOR(cmd.hasOption(EncodeCommandLine.FASTPFOR_ENCODING_OPTION))
                 .useFSST(useFSST)
-                .mismatchPolicy(enableCoerce, enableElide)
+                .typeMismatchPolicy(typeMismatchPolicy)
                 .preTessellatePolygons(tessellatePolygons)
                 .useMortonEncoding(!cmd.hasOption(EncodeCommandLine.NO_MORTON_OPTION))
                 .outlineFeatureTableNames(
                     if (outlineFeatureTables != null) outlineFeatureTables.toList() else listOf<String>(),
                 ).layerFilterPattern(filterPattern)
                 .layerFilterInvert(filterInvert)
-                .integerEncoding(ConversionConfig.IntegerEncodingOption.AUTO)
+                .integerEncodingOption(ConversionConfig.IntegerEncodingOption.AUTO)
                 .build()
         if (outlineFeatureTables != null && outlineFeatureTables.size > 0) {
             logger.debug(
@@ -237,7 +245,17 @@ object Encode {
     ) {
         val willCompare = config.compareMode != CompareMode.None
         val inputTilePath = Paths.get(tileFileName)
-        val decodedMvTile = MvtUtils.decodeMvt(inputTilePath)
+        val tileData =
+            Files.readAllBytes(inputTilePath).let {
+                try {
+                    decompress(ByteArrayInputStream(it))
+                } catch (ex: IOException) {
+                    logger.error("Failed to decompress tile {}", tileFileName, ex)
+                    return
+                }
+            }
+
+        val decodedMvTile = MvtUtils.decodeMvt(tileData)
 
         val willTime = config.willTime
         val timer = if (willTime) Timer() else null
@@ -256,7 +274,7 @@ object Encode {
         val targetConfig = applyColumnMappingsToConversionConfig(config, metadata)
 
         val mlTile =
-            MltConverter.convertMvt(
+            MltConverter.encode(
                 decodedMvTile,
                 metadata,
                 targetConfig,
@@ -292,8 +310,8 @@ object Encode {
                         decodedTile,
                         decodedMvTile,
                         config.compareMode,
-                        targetConfig.layerFilterPattern,
-                        targetConfig.layerFilterInvert,
+                        targetConfig.layerFilterPattern(),
+                        targetConfig.layerFilterInvert(),
                     )
                 if (difference.isPresent) {
                     logger.warn("Tiles do not match: {}", difference)

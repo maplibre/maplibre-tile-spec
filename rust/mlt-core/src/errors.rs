@@ -3,10 +3,12 @@ use std::num::TryFromIntError;
 
 use num_enum::TryFromPrimitiveError;
 
-use crate::utils::AsUsize;
-use crate::v01::{GeometryType, LogicalEncoding, LogicalTechnique, PhysicalEncoding, StreamType};
+use crate::decoder::{
+    GeometryType, LogicalEncoding, LogicalTechnique, PhysicalEncoding, StreamType,
+};
 
-pub type MltRefResult<'a, T> = Result<(&'a [u8], T), MltError>;
+pub type MltResult<T> = Result<T, MltError>;
+pub(crate) type MltRefResult<'a, T> = Result<(&'a [u8], T), MltError>;
 
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
@@ -21,6 +23,8 @@ pub enum MltError {
     IntegerOverflow,
     #[error("missing geometry column in feature table")]
     MissingGeometry,
+    #[error("missing layer name")]
+    MissingLayerName,
     #[error("missing string stream: {0}")]
     MissingStringStream(&'static str),
     #[error("multiple geometry columns found (only one allowed)")]
@@ -55,16 +59,16 @@ pub enum MltError {
     InvalidLogicalEncodings(LogicalTechnique, LogicalTechnique),
     #[error("layer has zero size")]
     ZeroLayerSize,
-    #[error("The profile used to optimise data is incompatible")]
-    BadProfileDataCombination,
     #[error("The encoder used to optimise data is incompatible")]
     BadEncoderDataCombination,
+    #[error("StagedLayer::encode_explicit requires Encoder.explicit to be Some(_)")]
+    MissingExplicitEncoder,
 
     // Wire/codec decoding (bytes → primitives)
     #[error("buffer underflow: needed {0} bytes, but only {1} remain")]
     BufferUnderflow(u32, usize),
     #[error("FastPFor decode failed: expected={0} got={1}")]
-    FastPforDecode(usize, usize),
+    FastPforDecode(u32, usize),
     #[error("invalid RLE run length (cannot convert to usize): value={0}")]
     RleRunLenInvalid(i128),
 
@@ -77,8 +81,6 @@ pub enum MltError {
     InvalidPairStreamSize(usize),
     #[error("decodable stream size expected {1}, got {0}")]
     InvalidDecodingStreamSize(usize, usize),
-    #[error("stream data mismatch: expected {0}, got {1}")]
-    StreamDataMismatch(&'static str, &'static str),
     #[error("IDs missing for encoding (expected Some IDs, got None)")]
     IdsMissingForEncoding,
     #[error("missing struct encoder for struct")]
@@ -87,8 +89,6 @@ pub enum MltError {
     PriorParseFailure,
     #[error("presence stream has {0} bits set but {1} values provided")]
     PresenceValueCountMismatch(usize, usize),
-    #[error("MVT parse error: {0}")]
-    MvtParse(String),
     #[error("need to encode before being able to write")]
     NeedsEncodingBeforeWriting,
     #[error("memory limit exceeded: limit={limit}, used={used}, requested={requested}")]
@@ -101,6 +101,8 @@ pub enum MltError {
     NotImplemented(&'static str),
     #[error("unsupported property value and encoder combination: {0:?} + {1:?}")]
     UnsupportedPropertyEncoderCombination(&'static str, &'static str),
+    #[error("mixed property types are not allowed in column {0} ({1})")]
+    MixedPropertyTypes(usize, String),
     #[error("shared dictionary requires at least 2 streams, got {0}")]
     SharedDictRequiresStreams(usize),
     #[error("unsupported string stream count (expected between 2 and 5): {0}")]
@@ -113,6 +115,9 @@ pub enum MltError {
     EncodingInstructionCountMismatch { input_len: usize, config_len: usize },
     #[error("struct child data streams expected exactly 1 value, got {0}")]
     UnexpectedStructChildCount(u32),
+    // Note that {expected}+1 is allowed for the legacy Java encoder bug
+    #[error("SharedDict stream count is {actual}, expected {expected}")]
+    InvalidSharedDictStreamCount { actual: u32, expected: u32 },
     #[error("unsupported physical encoding: {0}")]
     UnsupportedPhysicalEncoding(&'static str),
     #[error("unsupported physical encoding: {0:?} for {1}")]
@@ -121,6 +126,8 @@ pub enum MltError {
         "Extent {extent} cannot be encoded to morton due to morton allowing max. 16 bits, but {required_bits} would be required"
     )]
     VertexMortonNotCompatibleWithExtent { extent: u32, required_bits: u32 },
+    #[error("Morton stream uses {0} bits, but at most 16 bits are supported")]
+    InvalidMortonBits(u32),
 
     // Geometry decode errors (field = variable name, geom_type for context)
     #[error("MVT error: {0}")]
@@ -149,13 +156,8 @@ pub enum MltError {
     #[error("geometry[{0}]: unexpected offset combination for {1}")]
     UnexpectedOffsetCombination(usize, GeometryType),
 
-    // Wrapper errors, using `#[from]` to auto-convert from underlying error types
-    #[cfg(all(feature = "fastpfor-rust", not(feature = "fastpfor-cpp")))]
     #[error("FastPFor error: {0}")]
-    FastPforRust(#[from] fastpfor::rust::FastPForError),
-    #[cfg(feature = "fastpfor-cpp")]
-    #[error("FastPFor error: {0}")]
-    FastPforCpp(#[from] fastpfor::cpp::Exception),
+    FastPfor(#[from] fastpfor::FastPForError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error("Serde JSON error: {0}")]
@@ -168,6 +170,10 @@ pub enum MltError {
     Utf8(#[from] std::str::Utf8Error),
     #[error("UTF-8 decode error: {0}")]
     FromUtf8(#[from] std::string::FromUtf8Error),
+    #[error("MVT error: {0}")]
+    Mvt(#[from] fast_mvt::MvtError),
+    #[error("MVT JSON value error: {0}")]
+    MvtJsonValue(#[from] fast_mvt::MvtJsonValueError),
 }
 
 impl From<Infallible> for MltError {
@@ -180,37 +186,34 @@ impl From<MltError> for std::io::Error {
     fn from(value: MltError) -> Self {
         match value {
             MltError::Io(e) => e,
-            other => std::io::Error::other(other),
+            other => Self::other(other),
         }
     }
 }
 
-pub trait AsMltError<T> {
-    fn or_overflow(&self) -> Result<T, MltError>;
+pub(crate) trait AsMltError<T> {
+    fn or_overflow(&self) -> MltResult<T>;
 }
 
 impl<T: Copy> AsMltError<T> for Option<T> {
     #[inline]
-    fn or_overflow(&self) -> Result<T, MltError> {
+    fn or_overflow(&self) -> MltResult<T> {
         self.ok_or(MltError::IntegerOverflow)
     }
 }
 
 impl AsMltError<u32> for Result<u32, TryFromIntError> {
     #[inline]
-    fn or_overflow(&self) -> Result<u32, MltError> {
+    fn or_overflow(&self) -> MltResult<u32> {
         self.map_err(|_| MltError::IntegerOverflow)
     }
 }
 
 #[inline]
-pub fn fail_if_invalid_stream_size<T: AsUsize>(actual: T, expected: T) -> Result<(), MltError> {
+pub(crate) fn fail_if_invalid_stream_size(actual: usize, expected: usize) -> MltResult<()> {
     if actual == expected {
         Ok(())
     } else {
-        Err(MltError::InvalidDecodingStreamSize(
-            actual.as_usize(),
-            expected.as_usize(),
-        ))
+        Err(MltError::InvalidDecodingStreamSize(actual, expected))
     }
 }

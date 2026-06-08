@@ -13,7 +13,7 @@ public class FloatEncoder {
   private FloatEncoder() {}
 
   public static ArrayList<byte[]> encodeFloatStream(List<Float> values) throws IOException {
-    // TODO: add encodings -> RLE, Dictionary, PDE, ALP
+    // TODO: add encodings -> RLE, Dictionary, PDE
     final float[] floatArray = new float[values.size()];
     for (int i = 0; i < values.size(); i++) {
       floatArray[i] = values.get(i);

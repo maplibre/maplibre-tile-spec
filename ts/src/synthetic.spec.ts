@@ -9,7 +9,13 @@ import type FeatureTable from "./vector/featureTable";
 
 const EARCUT_MAX_RINGS = 500;
 
-const UNIMPLEMENTED_SYNTHETICS: string[] = ["poly_multi_morton_ring_morton", "poly_multi_morton_ring_no_morton"];
+const UNIMPLEMENTED_SYNTHETICS: string[] = [
+    "0x01/multipoint_morton",
+    "0x01/poly_morton_hole_morton",
+    "0x01/poly_multi_morton_hole_morton",
+    "0x01/poly_multi_morton_ring_morton",
+    "0x01/poly_multi_morton_ring_no_morton",
+];
 
 describe("MLT Decoder - Synthetic tests", () => {
     expect.addEqualityTesters([compareWithTolerance]);

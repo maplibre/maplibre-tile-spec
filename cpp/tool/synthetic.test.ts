@@ -11,26 +11,7 @@ import { describe, expect, it } from "vitest";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const binary = resolve(__dirname, "../build/tool/mlt-cpp-json");
 
-// FastPFOR-encoded tiles (requires MLT_WITH_FASTPFOR=ON at build time)
-const SKIPPED_TESTS = [
-  "polygon_fpf",
-  "polygon_hole_fpf",
-  "polygon_morton_tes",
-  "polygon_multi_fpf",
-  "polygon_fpf_tes",
-  "poly_colinear_fpf",
-  "poly_colinear_fpf_tes",
-  "poly_fpf",
-  "poly_fpf_tes",
-  "poly_hole_fpf",
-  "poly_hole_fpf_tes",
-  "poly_hole_touching_fpf",
-  "poly_hole_touching_fpf_tes",
-  "poly_multi_fpf",
-  "poly_multi_fpf_tes",
-  "poly_self_intersect_fpf",
-  "poly_self_intersect_fpf_tes",
-];
+const SKIPPED_TESTS = [];
 
 describe("MLT Decoder - Synthetic tests", () => {
   expect.addEqualityTesters([compareWithTolerance]);

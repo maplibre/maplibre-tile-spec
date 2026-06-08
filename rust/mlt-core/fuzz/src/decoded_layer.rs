@@ -1,52 +1,54 @@
-use mlt_core::v01::EncodedLayer01;
-use mlt_core::{Decoder, EncodedLayer, Layer, Parser};
+use mlt_core::encoder::SortStrategy::Unsorted;
+use mlt_core::encoder::{Codecs, Encoder, StagedLayer, stage_tile};
+use mlt_core::{Decoder, Layer, Parser, TileLayer};
 
-/// Fuzz input that starts from an already-encoded layer and tests encode → decode roundtrip.
+/// Fuzz input that starts from a staged layer and tests encode → decode roundtrip.
 ///
-/// Unlike [`LayerInput`] (which starts from raw bytes), this drives the fuzzer to generate
-/// valid [`EncodedLayer`] values directly and verifies that writing and re-parsing them yields
-/// an identical layer.
+/// Generates valid [`StagedLayer`] values directly and verifies that the
+/// canonical roundtrip (`Tile -> Staged -> bytes -> Tile`) is idempotent.
 pub struct DecodedLayerInput {
-    pub layer: EncodedLayer,
+    pub layer: StagedLayer,
 }
 
 impl arbitrary::Arbitrary<'_> for DecodedLayerInput {
     fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
-        let layer01: EncodedLayer01 = u.arbitrary()?;
-        Ok(Self {
-            layer: EncodedLayer::Tag01(layer01),
-        })
+        let layer: StagedLayer = u.arbitrary()?;
+        Ok(Self { layer })
     }
 }
 
 impl DecodedLayerInput {
     pub fn fuzz_roundtrip(self) {
-        // Write the arbitrary layer to a buffer.
-        let mut buffer = Vec::<u8>::new();
-        self.layer
-            .write_to(&mut buffer)
-            .expect("write_to cannot fail for a fully-Encoded layer");
+        // Normalize: encode the fuzzed StagedLayer and decode to TileLayer.
+        // This drops all-null columns, etc. — expected encoder behavior.
+        let tile1 = encode_decode(self.layer);
+        let tile2 = encode_decode(stage_tile(tile1, Unsorted, false, false));
 
-        // Parse the written bytes back — must not fail.
-        let mut parser = Parser::default();
-        let Ok((remaining, mut parsed_back)) = Layer::from_bytes(&buffer, &mut parser) else {
-            panic!(
-                "Written layer cannot be re-parsed\nOriginal layer:\n{:#?}",
-                self.layer
-            );
-        };
-        assert!(
-            remaining.is_empty(),
-            "Re-parsing written layer left {} trailing bytes\nOriginal layer:\n{:#?}",
-            remaining.len(),
-            self.layer
-        );
-
-        // Fully decode the layer — must not fail.
-        parsed_back
-            .decode_all(&mut Decoder::default())
-            .expect("decode_all after roundtrip should not fail");
+        // Same roundtrip again — must be a fixpoint.
+        let tile3 = encode_decode(stage_tile(tile2.clone(), Unsorted, false, false));
+        assert_eq!(tile2, tile3, "canonical roundtrip is not idempotent");
     }
+}
+
+/// Encode a [`StagedLayer`] to bytes, then parse and decode back to a
+/// row-oriented [`TileLayer`].
+fn encode_decode(staged: StagedLayer) -> TileLayer {
+    let mut codecs = Codecs::default();
+    let buffer = staged
+        .encode_into(Encoder::default(), &mut codecs)
+        .expect("encode should not fail")
+        .into_layer_bytes()
+        .expect("into_layer_bytes should not fail");
+
+    let mut layers = Parser::default()
+        .parse_layers(&buffer)
+        .expect("layer must re-parse");
+    assert_eq!(layers.len(), 1, "expected exactly one layer");
+    let Layer::Tag01(lazy) = layers.remove(0) else {
+        panic!("expected Tag01 layer");
+    };
+    lazy.into_tile(&mut Decoder::default())
+        .expect("into_tile should not fail")
 }
 
 impl std::fmt::Debug for DecodedLayerInput {

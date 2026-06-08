@@ -1,56 +1,7 @@
-use crate::{Decoder, MltError};
+use fastpfor::{AnyLenCodec as _, FastPFor256};
+use usize_cast::IntoUsize as _;
 
-/// Encode a `u32` sequence using `FastPFOR256` (composite codec).
-///
-/// This is the inverse of `decode_fastpfor_composite`
-pub fn encode_fastpfor(values: &[u32]) -> Result<Vec<u8>, MltError> {
-    if values.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    #[cfg(feature = "fastpfor-cpp")]
-    {
-        use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
-        let codec = FastPFor256Codec::new();
-        // Over-allocate: FastPFOR may write a header and padding beyond the input length.
-        let mut compressed = vec![0u32; values.len() + 1024];
-        let out = codec.encode32(values, &mut compressed)?;
-
-        // Convert u32 words to big-endian bytes to match the wire format.
-        let mut data = Vec::with_capacity(out.len() * 4);
-        for word in out.iter() {
-            data.extend_from_slice(&word.to_be_bytes());
-        }
-        Ok(data)
-    }
-    #[cfg(all(feature = "fastpfor-rust", not(feature = "fastpfor-cpp")))]
-    {
-        use fastpfor::rust::{Composition, FastPFOR, Integer as _, VariableByte};
-
-        // Over-allocate: FastPFOR may write a header and padding beyond the input length.
-        let mut compressed = vec![0u32; values.len() + 1024];
-        let mut comp = Composition::new(FastPFOR::default(), VariableByte::new());
-        let mut output_offset = std::io::Cursor::new(0u32);
-
-        comp.compress(
-            values,
-            u32::try_from(values.len())?,
-            &mut std::io::Cursor::new(0u32),
-            &mut compressed,
-            &mut output_offset,
-        )?;
-
-        // FIXME: handle usize casting to be within u32?
-        let written = usize::try_from(output_offset.position())?;
-
-        // Convert u32 words to big-endian bytes to match the wire format.
-        let mut data = Vec::with_capacity(written * 4);
-        for word in &compressed[..written] {
-            data.extend_from_slice(&word.to_be_bytes());
-        }
-        Ok(data)
-    }
-}
+use crate::{Decoder, MltError, MltResult};
 
 /// Decode `FastPFOR`-compressed data using the composite codec protocol.
 ///
@@ -62,13 +13,14 @@ pub fn encode_fastpfor(values: &[u32]) -> Result<Vec<u8>, MltError> {
 /// 3. Remaining u32 words = secondary codec (`VByte`) compressed data
 ///
 /// The compressed bytes are stored as big-endian u32 values by the Java encoder.
-pub fn decode_fastpfor_composite(
-    data: &[u8],
-    num_values: usize,
-    dec: &mut Decoder,
-) -> Result<Vec<u32>, MltError> {
+pub fn decode_fastpfor(data: &[u8], num_values: u32, dec: &mut Decoder) -> MltResult<Vec<u32>> {
     if num_values == 0 {
-        return Ok(vec![]);
+        // FIXME: eventually there should not be a header anywhere at all
+        return if data.is_empty() {
+            Ok(vec![])
+        } else {
+            Err(MltError::InvalidFastPforByteLength(0))
+        };
     }
 
     // Convert big-endian bytes to u32 values
@@ -87,48 +39,19 @@ pub fn decode_fastpfor_composite(
         })
         .collect();
 
-    if input.is_empty() {
-        return Err(MltError::FastPforDecode(num_values, 0));
-    }
+    let mut result = Vec::new();
+    FastPFor256::default().decode(&input, &mut result, Some(num_values))?;
 
-    // Over-allocate output buffer — the codec may decode padding beyond num_values.
-    let buf_size = num_values + 1024;
-    let mut result = vec![0u32; buf_size];
-
-    #[cfg(feature = "fastpfor-cpp")]
-    let decoded_len = {
-        use fastpfor::cpp::{Codec32 as _, FastPFor256Codec};
-        // The fastpfor crate's FastPFor256Codec is already a CompositeCodec<FastPFor<8>, VariableByte>.
-        // It handles the full Composition protocol internally (FastPFor header + VByte remainder).
-        FastPFor256Codec::new().decode32(&input, &mut result)?.len()
-    };
-    #[cfg(all(feature = "fastpfor-rust", not(feature = "fastpfor-cpp")))]
-    let decoded_len = {
-        use fastpfor::rust::{Composition, FastPFOR, Integer as _, VariableByte};
-
-        let mut comp = Composition::new(FastPFOR::default(), VariableByte::new());
-        let mut output_offset = std::io::Cursor::new(0u32);
-
-        comp.uncompress(
-            &input,
-            u32::try_from(input.len())?,
-            &mut std::io::Cursor::new(0u32),
-            &mut result,
-            &mut output_offset,
-        )?;
-
-        usize::try_from(output_offset.position())?
-    };
-
-    let Some(adjustment) = decoded_len
-        .checked_sub(num_values)
+    let Some(adjustment) = result
+        .len()
+        .checked_sub(num_values.into_usize())
         .and_then(|v| u32::try_from(v).ok())
     else {
-        return Err(MltError::FastPforDecode(num_values, decoded_len));
+        return Err(MltError::FastPforDecode(num_values, result.len()));
     };
 
     dec.adjust(adjustment);
-    result.truncate(num_values);
+    result.truncate(num_values.into_usize());
 
     Ok(result)
 }
@@ -143,21 +66,25 @@ mod tests {
     proptest! {
         #[test]
         fn test_fastpfor_roundtrip(data: Vec<u32>) {
-            let encoded = encode_fastpfor(&data).unwrap();
-            let decoded = decode_fastpfor_composite(&encoded, data.len(), &mut dec()).unwrap();
+            // FastPFor256 produces a non-empty output (VByte header) even for empty input,
+            // but decode_fastpfor requires zero bytes when num_values == 0 — consistent
+            // with how PhysicalEncoder guards `if !values.is_empty()`.
+            prop_assume!(!data.is_empty());
+            let mut encoded = Vec::new();
+            FastPFor256::default().encode(&data, &mut encoded).unwrap();
+            // Convert u32 words to big-endian bytes to match the wire format.
+            let mut encoded2 = Vec::with_capacity(encoded.len() * 4);
+            for word in &encoded {
+                encoded2.extend_from_slice(&word.to_be_bytes());
+            }
+            let decoded = decode_fastpfor(&encoded2, data.len().try_into().unwrap(), &mut dec()).unwrap();
             prop_assert_eq!(data, decoded);
         }
     }
 
     #[test]
-    fn test_encode_fastpfor_empty() {
-        let encoded = encode_fastpfor(&[]).unwrap();
-        assert!(encoded.is_empty());
-    }
-
-    #[test]
     fn test_decode_fastpfor_empty() {
-        let decoded = decode_fastpfor_composite(&[], 0, &mut dec()).unwrap();
+        let decoded = decode_fastpfor(&[], 0, &mut dec()).unwrap();
         assert!(decoded.is_empty());
     }
 }

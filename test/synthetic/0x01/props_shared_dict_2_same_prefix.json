@@ -1,0 +1,23 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "name:de": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "name:he": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "name_en": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "name_fr": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ]
+      }
+    }
+  ]
+}

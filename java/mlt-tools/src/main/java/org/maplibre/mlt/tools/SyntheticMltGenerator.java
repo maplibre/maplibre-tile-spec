@@ -44,7 +44,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.MultiPolygon;
+import org.locationtech.jts.geom.Polygon;
 import org.maplibre.mlt.data.Feature;
+import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.unsigned.U32;
 import org.maplibre.mlt.data.unsigned.U64;
 
@@ -68,6 +72,7 @@ public class SyntheticMltGenerator {
     generateIds();
     generateProperties();
     generateSharedDictionaries();
+    generateFpfAlignments();
   }
 
   private static void generatePoints() throws IOException {
@@ -90,11 +95,11 @@ public class SyntheticMltGenerator {
     write("poly_tes", pol, cfg().tessellate());
     write("poly_fpf_tes", pol, cfg().fastPFOR().tessellate());
 
-    var polColinear = feat(poly(c(0, 0), c(10, 0), c(20, 0), c(0, 0)));
-    write("poly_colinear", polColinear, cfg());
-    write("poly_colinear_fpf", polColinear, cfg().fastPFOR());
-    write("poly_colinear_tes", polColinear, cfg().tessellate());
-    write("poly_colinear_fpf_tes", polColinear, cfg().fastPFOR().tessellate());
+    var polCollinear = feat(poly(c(0, 0), c(10, 0), c(20, 0), c(0, 0)));
+    write("poly_collinear", polCollinear, cfg());
+    write("poly_collinear_fpf", polCollinear, cfg().fastPFOR());
+    write("poly_collinear_tes", polCollinear, cfg().tessellate());
+    write("poly_collinear_fpf_tes", polCollinear, cfg().fastPFOR().tessellate());
 
     var polSelfIntersect = feat(poly(c(0, 0), c(10, 10), c(0, 10), c(10, 0), c(0, 0)));
     write("poly_self_intersect", polSelfIntersect, cfg());
@@ -148,10 +153,32 @@ public class SyntheticMltGenerator {
         "poly_multi_morton_ring_morton",
         feat(multi(poly(mortonRing1), poly(mortonRing2))),
         cfg().morton());
+
+    // Split the Morton curve at a different place so that the rings are different lengths,
+    // use one as the shell and one as the hole of a single and multi-polygon.
+    final var quarter = mortonCurve.length / 4;
+    mortonRing1 = Arrays.copyOf(mortonCurve, quarter + 1);
+    mortonRing1[quarter] = mortonRing1[0];
+    mortonRing2src = Arrays.copyOfRange(mortonCurve, quarter, mortonCurve.length);
+    mortonRing2 = Arrays.copyOf(mortonRing2src, mortonRing2src.length + 1);
+    mortonRing2[mortonRing2src.length] = mortonRing2[0];
+    write(
+        "poly_morton_hole_morton",
+        feat(poly(ring(mortonRing1), ring(mortonRing2))),
+        cfg().morton());
+    write(
+        "poly_multi_morton_hole_morton",
+        feat(multi(poly(ring(mortonRing1), ring(mortonRing2)))),
+        cfg().morton());
   }
 
   private static void generateMultiPoints() throws IOException {
     write("multipoint", feat(multi(c1, c2, c3)), cfg());
+
+    // Morton-encoded multipoint: same curve used by multiline_morton and poly_morton tests.
+    var half = mortonCurve.length / 2;
+    var mortonPts1 = Arrays.copyOf(mortonCurve, half);
+    write("multipoint_morton", feat(multi(mortonPts1)), cfg().morton());
   }
 
   private static void generateMultiLineStrings() throws IOException {
@@ -173,6 +200,16 @@ public class SyntheticMltGenerator {
             + current.stream().map(GeomType::sym).collect(Collectors.joining("_"));
     var feats = current.stream().map(t -> t.feat).toArray(Feature[]::new);
     write(layer(name, feats), cfg().geomEnc(PLAIN));
+
+    // if all geometries are of polygon type, add tessellated variant
+    if (current.stream()
+        .allMatch(
+            t -> {
+              Geometry geo = t.feat.getGeometry();
+              return geo instanceof Polygon || geo instanceof MultiPolygon;
+            })) {
+      write(layer(name + "_tes", feats), cfg().geomEnc(PLAIN).tessellate());
+    }
   }
 
   private static void generateMixedCombine(GeomType[] arr, int k, int start, List<GeomType> current)
@@ -430,6 +467,18 @@ public class SyntheticMltGenerator {
     write(layer("props_u32_rle", feat_u32s), cfg(RLE));
     write(layer("props_u32_delta_rle", feat_u32s), cfg(DELTA_RLE));
 
+    // The actual frame size is 256, so cover multiples of its half
+    for (var multiplier : new int[] {1, 2, 3, 4}) {
+      for (var offset : new int[] {-1, 0, 1}) {
+        var features = new Feature[128 * multiplier + offset];
+        for (var i = 0; i < features.length; i++) {
+          // Sequence 0,1,2, 0,1,2, 0,1,2, 0,1,2, ...
+          features[i] = feat(p0, prop("val", U32.of(i % 3)));
+        }
+        write(layer("props_u32_fpf_" + features.length, features), cfg().fastPFOR());
+      }
+    }
+
     var feat_u64s =
         array(
             feat(p0, prop("val", U64.of(BigInteger.valueOf(9_000L)))),
@@ -440,6 +489,19 @@ public class SyntheticMltGenerator {
     write(layer("props_u64_delta", feat_u64s), cfg(DELTA));
     write(layer("props_u64_rle", feat_u64s), cfg(RLE));
     write(layer("props_u64_delta_rle", feat_u64s), cfg(DELTA_RLE));
+
+    // i64 multi-feature: exercises NONE/DELTA/RLE/DELTA_RLE logical techniques for signed 64-bit.
+    // The value must exceed U32::MAX so the encoder uses a 64-bit column.
+    var feat_i64s =
+        array(
+            feat(p0, prop("val", 9_876_543_210L)),
+            feat(p1, prop("val", 9_876_543_210L)),
+            feat(p2, prop("val", 9_876_543_210L)),
+            feat(p3, prop("val", 9_876_543_210L)));
+    write(layer("props_i64", feat_i64s), cfg());
+    write(layer("props_i64_delta", feat_i64s), cfg(DELTA));
+    write(layer("props_i64_rle", feat_i64s), cfg(RLE));
+    write(layer("props_i64_delta_rle", feat_i64s), cfg(DELTA_RLE));
 
     var feat_str =
         array(
@@ -465,6 +527,23 @@ public class SyntheticMltGenerator {
     var feat_two_str_eq = array(feat(p1, prop("val", val)), feat(p2, prop("val", val)));
     write(layer("props_offset_str", feat_two_str_eq), cfg());
     write(layer("props_offset_str_fsst", feat_two_str_eq), cfg().fsst());
+  }
+
+  /**
+   * Generates FastPFOR tile in 8 variants, with the layer name padded by 0-7 extra bytes, so that
+   * the FPF stream starts at every possible byte offset mod 8.
+   */
+  private static void generateFpfAlignments() throws IOException {
+    var features = new Feature[128];
+    for (var i = 0; i < features.length; i++) {
+      features[i] = feat(p0, prop("v", U32.of(i % 3)));
+    }
+    for (var pad = 0; pad < 8; pad++) {
+      write(
+          "fpf_align_" + (pad + 1),
+          List.of(new Layer("a".repeat(pad + 1), Arrays.asList(features), 80)),
+          cfg().fastPFOR());
+    }
   }
 
   private static void generateSharedDictionaries() throws IOException {
@@ -498,5 +577,21 @@ public class SyntheticMltGenerator {
     write(
         layer("props_shared_dict_no_child_name_fsst", feat_names_eq_val_eq),
         cfg().sharedDictPrefix("a", "").fsst());
+
+    // Two separate shared dicts with the same "name" prefix, split by explicit column groups
+    var feat_names_4 =
+        array(
+            feat(
+                p0,
+                props(
+                    kv("name:de", val),
+                    kv("name_en", val),
+                    kv("name_fr", val),
+                    kv("name:he", val))));
+    write(
+        layer("props_shared_dict_2_same_prefix", feat_names_4),
+        cfg()
+            .sharedDictColumnGroups(
+                List.of(List.of("name:de", "name_en"), List.of("name_fr", "name:he"))));
   }
 }

@@ -1,5 +1,5 @@
 use js_sys::{Int32Array, Uint32Array};
-use mlt_core::v01::GeometryValues;
+use mlt_core::GeometryValues;
 use wasm_bindgen::prelude::*;
 
 /// All decoded geometry arrays for a single layer, fetched in one WASM call.
@@ -64,28 +64,24 @@ impl LayerGeometry {
 
 impl LayerGeometry {
     /// Build a [`LayerGeometry`] from a decoded [`GeometryValues`].
-    pub(crate) fn from_values(geom: &GeometryValues) -> LayerGeometry {
+    pub(crate) fn from_values(geom: &GeometryValues) -> Self {
         let geometry_offsets = geom
-            .geometry_offsets
-            .as_deref()
+            .geometry_offsets()
             .map_or_else(|| Uint32Array::new_with_length(0), Uint32Array::from);
 
         let part_offsets = geom
-            .part_offsets
-            .as_deref()
+            .part_offsets()
             .map_or_else(|| Uint32Array::new_with_length(0), Uint32Array::from);
 
         let ring_offsets = geom
-            .ring_offsets
-            .as_deref()
+            .ring_offsets()
             .map_or_else(|| Uint32Array::new_with_length(0), Uint32Array::from);
 
         let vertices = geom
-            .vertices
-            .as_deref()
+            .vertices()
             .map_or_else(|| Int32Array::new_with_length(0), Int32Array::from);
 
-        LayerGeometry {
+        Self {
             geometry_offsets,
             part_offsets,
             ring_offsets,

@@ -11,6 +11,7 @@ import me.lemire.integercompression.VariableByte;
 
 /* the redundant implementations in this class are mainly to avoid branching and therefore speed up the decoding */
 public class VectorizedDecodingUtils {
+  private VectorizedDecodingUtils() {}
 
   private static IntegerCODEC ic;
 

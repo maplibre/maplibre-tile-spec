@@ -9,7 +9,6 @@
 No compression is applied to the data.
 Depending on the data type, values are stored in the following formats:
 
-- **Boolean**: Least-significant bit ordering within bytes
 - **Integer**: Little-Endian byte order
 - **Long**: Little-Endian byte order
 - **Float**: IEEE754 floating-point numbers in Little-Endian byte order
@@ -131,6 +130,7 @@ A bit-aligned null suppression technique that compresses integers using a minima
 Uses a patched approach to store exceptions (outliers) separately, keeping the overall bit width small.
 
 Refer to:
+
 - <https://arxiv.org/pdf/1209.2137.pdf>
 - <https://ayende.com/blog/199524-C/integer-compression-the-fastpfor-code>
 
@@ -140,16 +140,3 @@ Refer to:
 - **Java**: <https://github.com/fast-pack/JavaFastPFOR>
 - **C#**: <https://github.com/Genbox/CSharpFastPFOR>
 - **JS/WebAssembly**: Work in progress (higher implementation complexity)
-
-# Float Encodings
-
-## Adaptive Lossless Floating-Point Compression (ALP)
-
-A lossless floating-point compression technique used in MLT.
-For a detailed explanation, refer to [this paper](https://dl.acm.org/doi/pdf/10.1145/3626717).
-
-**Available implementations**:
-
-- **C++**: <https://github.com/duckdb/duckdb/tree/16830ded9b4882b90f35c2d7e2d740547ae7d3fc/src/include/duckdb/storage/compression/alp>
-- **Java**: Work in progress
-- **JS/WebAssembly**: Work in progress

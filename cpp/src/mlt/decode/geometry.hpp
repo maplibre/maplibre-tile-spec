@@ -20,6 +20,9 @@ class GeometryDecoder {
 public:
     using GeometryVector = geometry::GeometryVector;
 
+    GeometryDecoder(IntegerDecoder& intDecoder)
+        : intDecoder(intDecoder) {}
+
 private:
     enum class VectorType : std::uint32_t {
         FLAT,
@@ -78,6 +81,11 @@ public:
 
         // If all geometries in the column have the same geometry type, we could decode them
         // somewhat more efficiently, and return the geometry in a more GPU-friendly form.
+        //
+        // FIXME: Before enabling this, fix decodeConstIntStream: it does not check logicalLevelTechnique1,
+        // so for a DELTA-encoded single-value stream it returns the raw ZigZag value instead of
+        // decoding it (e.g. geometry type 4 encodes as ZigZag delta 8, not 4). The TS decoder
+        // received the equivalent fix in decodeUnsignedConstInt32Stream.
         // if (geometryTypesVectorType == VectorType::CONST) {
         //     const auto geomType = intDecoder.decodeConstIntStream<std::uint32_t, std::uint32_t, GeometryType>(
         //         tileData, *geomTypeMetadata);
@@ -155,17 +163,17 @@ public:
                     switch (type) {
                         case DictionaryType::VERTEX:
                             switch (geomStreamMetadata->getPhysicalLevelTechnique()) {
-                                case PhysicalLevelTechnique::FAST_PFOR:
-                                    throw std::runtime_error("FastPfor encoding for geometries is not yet supported.");
                                 case PhysicalLevelTechnique::NONE:
-                                case PhysicalLevelTechnique::ALP:
-                                    // TODO: other implementations are not clear on whether these are valid
                                 case PhysicalLevelTechnique::VARINT:
+                                case PhysicalLevelTechnique::FAST_PFOR:
                                     intDecoder.decodeIntStream<std::uint32_t, std::uint32_t, std::int32_t>(
                                         tileData, vertices, *geomStreamMetadata, /*isSigned=*/true);
                                     break;
                                 default:
-                                    throw std::runtime_error("Unsupported encoding for geometries: " + column.name);
+                                    throw std::runtime_error("Unsupported encoding " +
+                                                             std::to_string(std::to_underlying(
+                                                                 geomStreamMetadata->getPhysicalLevelTechnique())) +
+                                                             " for geometries: " + column.name);
                             };
                             break;
                         case DictionaryType::MORTON: {
@@ -387,7 +395,7 @@ public:
     }
 
 private:
-    IntegerDecoder intDecoder;
+    IntegerDecoder& intDecoder;
 };
 
 } // namespace mlt::decoder

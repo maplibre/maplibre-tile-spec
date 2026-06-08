@@ -1,5 +1,7 @@
 //! TUI visualizer for MLT files using ratatui
+use usize_cast::IntoUsize as _;
 
+pub(crate) mod mbt;
 mod rendering;
 mod state;
 
@@ -15,14 +17,13 @@ use anyhow::bail;
 use clap::Args;
 use crossterm::event::{
     self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers,
-    MouseEventKind,
+    MouseButton, MouseEventKind,
 };
 use crossterm::execute;
-use geo_types::Polygon;
-use mlt_core::geojson::{Coord32, FeatureCollection, Geom32};
+use mlt_core::geo_types::{Coord, Geometry, Polygon};
+use mlt_core::geojson::FeatureCollection;
 use mlt_core::mvt::mvt_to_feature_collection;
-use mlt_core::v01::GeometryType;
-use mlt_core::{Decoder, Parser};
+use mlt_core::{Decoder, GeometryType, Parser};
 use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -30,16 +31,19 @@ use ratatui::widgets::{Block, Borders};
 use rstar::{AABB, PointDistance, RTreeObject};
 
 use crate::ls::{
-    FileAlgorithm, FileSortColumn, LsFlags, LsRow, analyze_tile_files, is_mlt_extension,
-    is_tile_extension,
+    FileAlgorithm, FileSortColumn, LsFlags, LsRow, analyze_tile_files, is_mbt_extension,
+    is_mlt_extension, is_tile_extension,
 };
+use crate::ui::mbt::MbtilesState;
 use crate::ui::rendering::files::{
     render_file_browser, render_file_filter_panel, render_file_info_panel,
     render_tile_preview_panel,
 };
 use crate::ui::rendering::help::{render_error_popup, render_help_overlay};
-use crate::ui::rendering::layers::{render_properties_panel, render_tree_panel};
-use crate::ui::rendering::map::render_map_panel;
+use crate::ui::rendering::layers::{
+    render_mbtiles_hover_panel, render_properties_panel, render_tree_panel,
+};
+use crate::ui::rendering::map::{render_map_panel, render_mbtiles_map_panel};
 use crate::ui::state::{App, HoveredInfo, LayerGroup, ResizeHandle, TreeItem, ViewMode};
 
 pub const CLR_POINT: Color = Color::Magenta;
@@ -68,12 +72,26 @@ const HOVER_REDRAW_THROTTLE: Duration = Duration::from_millis(32);
 
 #[derive(Args)]
 pub struct UiArgs {
-    /// Path to a tile file (.mlt, .mvt, .pbf) or directory
+    /// Path to a tile file (`.mlt`, `.mvt`, `.pbf`, `.mbtiles`) or directory
     path: PathBuf,
+    /// Start `MBTiles` map centered on this XYZ tile (`z/x/y`, e.g. `6/32/21`). `MBTiles` only.
+    #[arg(long = "center-tile", value_name = "Z/X/Y")]
+    center_tile: Option<String>,
 }
 
 pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
-    let app = if args.path.is_dir() {
+    if args.center_tile.is_some() && !is_mbt_extension(&args.path) {
+        bail!("--center-tile is only supported when opening an .mbtiles file");
+    }
+    let app = if is_mbt_extension(&args.path) {
+        let mut mbt = MbtilesState::new(args.path.clone());
+        if let Some(ref s) = args.center_tile {
+            let (z, x, y) = parse_center_tile_xyz(s)?;
+            mbt.set_viewport_to_tile(z, x, y)
+                .map_err(|e| anyhow::anyhow!(e))?;
+        }
+        App::new_mbtiles(mbt, args.path.clone())
+    } else if args.path.is_dir() {
         let paths = find_tile_files(&args.path)?;
         if paths.is_empty() {
             bail!(
@@ -107,16 +125,43 @@ pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
     run_app(app)
 }
 
+fn parse_center_tile_xyz(spec: &str) -> anyhow::Result<(u8, u32, u32)> {
+    let parts: Vec<&str> = spec
+        .split('/')
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .collect();
+    if parts.len() != 3 {
+        bail!("--center-tile must be z/x/y (three integers), got {spec:?}");
+    }
+    let zoom: u8 = parts[0]
+        .parse()
+        .map_err(|_| anyhow::anyhow!("invalid zoom z in --center-tile: {:?}", parts[0]))?;
+    let tile_x: u32 = parts[1]
+        .parse()
+        .map_err(|_| anyhow::anyhow!("invalid tile x in --center-tile: {:?}", parts[1]))?;
+    let tile_y: u32 = parts[2]
+        .parse()
+        .map_err(|_| anyhow::anyhow!("invalid tile y in --center-tile: {:?}", parts[2]))?;
+    let grid_n = 1u32
+        .checked_shl(u32::from(zoom))
+        .ok_or_else(|| anyhow::anyhow!("zoom z={zoom} is too large"))?;
+    if tile_x >= grid_n || tile_y >= grid_n {
+        bail!(
+            "tile x/y must be < 2^z for z={zoom} (max index {})",
+            grid_n.saturating_sub(1)
+        );
+    }
+    Ok((zoom, tile_x, tile_y))
+}
+
 // --- Data loading ---
 
 fn load_fc(path: &Path) -> anyhow::Result<FeatureCollection> {
     let buf = fs::read(path)?;
     if is_mlt_extension(path) {
-        let mut parser = Parser::default();
-        Ok(FeatureCollection::from_layers(
-            &mut parser.parse_layers(&buf)?,
-            &mut Decoder::default(),
-        )?)
+        let layers = Decoder::default().decode_all(Parser::default().parse_layers(&buf)?)?;
+        Ok(FeatureCollection::from_layers(layers)?)
     } else {
         Ok(mvt_to_feature_collection(buf)?)
     }
@@ -209,7 +254,7 @@ fn click_row_in_area(col: u16, row: u16, area: Rect, scroll: usize) -> Option<us
     let top = area.y + 1;
     let bot = area.y + area.height.saturating_sub(1);
     (col >= area.x && col < area.x + area.width && row >= top && row < bot)
-        .then(|| (row - top) as usize + scroll)
+        .then(|| (row - top).into_usize() + scroll)
 }
 
 const HIGHLIGHT_SYMBOL_WIDTH: u16 = 3;
@@ -271,6 +316,13 @@ fn file_header_click_column(
 
 fn block_with_title(title: impl Into<Line<'static>>) -> Block<'static> {
     Block::default().borders(Borders::ALL).title(title)
+}
+
+/// Area where the map canvas actually draws (inside borders + title).
+/// Must stay in sync with `render_map_panel` and `render_mbtiles_map_panel`, which both use
+/// `block_with_title`.
+fn map_canvas_area(outer: Rect) -> Rect {
+    block_with_title(" ").inner(outer)
 }
 
 /// Helper to build `Span::styled(format!("{name}: "), STYLE_LABEL)` + raw value.
@@ -386,6 +438,28 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
     let mut last_hover_redraw: Option<Instant> = None;
 
     loop {
+        // Process incoming mbtiles tile results and request visible tiles.
+        if app.mode == ViewMode::MbtilesMap
+            && let Some(ref mut mbt) = app.mbt_state
+        {
+            if mbt.process_results() {
+                app.needs_redraw = true;
+            }
+            if let Some(msg) = mbt.take_loader_fatal() {
+                let title = app
+                    .current_file
+                    .as_ref()
+                    .map_or_else(|| "MBTiles".to_string(), |p| p.display().to_string());
+                app.error_popup = Some((title, msg));
+                app.needs_redraw = true;
+            }
+            let visible = mbt.visible_tiles();
+            for (z, x, y) in visible {
+                mbt.request_tile_with_ancestors(z, x, y);
+            }
+            mbt.prune_tile_cache_if_needed();
+        }
+
         if let Some(rows) = app.analysis_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
             if rows.len() == app.files.len() {
                 for (i, row) in rows.into_iter().enumerate() {
@@ -500,7 +574,20 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                         props_area = Some(left[1]);
                         geom_area = Some(ga);
                         left_area = Some(cols[0]);
-                        map_area = Some(cols[1]);
+                        map_area = Some(map_canvas_area(cols[1]));
+                    }
+                    ViewMode::MbtilesMap => {
+                        let cols = Layout::default()
+                            .direction(Direction::Horizontal)
+                            .constraints([
+                                Constraint::Percentage(app.left_pct),
+                                Constraint::Percentage(100u16.saturating_sub(app.left_pct)),
+                            ])
+                            .split(f.area());
+                        render_mbtiles_hover_panel(f, cols[0], app);
+                        render_mbtiles_map_panel(f, cols[1], app);
+                        left_area = Some(cols[0]);
+                        map_area = Some(map_canvas_area(cols[1]));
                     }
                 }
                 if app.error_popup.is_some() {
@@ -604,8 +691,13 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                     _ => {}
                 },
                 Event::Mouse(mouse) => match mouse.kind {
-                    MouseEventKind::Up(_) if app.resizing.take().is_some() => {
-                        app.invalidate();
+                    MouseEventKind::Up(_) => {
+                        if let Some(ref mut mbt) = app.mbt_state {
+                            mbt.map_drag_last = None;
+                        }
+                        if app.resizing.take().is_some() {
+                            app.invalidate();
+                        }
                     }
                     MouseEventKind::Moved | MouseEventKind::Drag(_) => {
                         if let Some(handle) = app.resizing {
@@ -647,6 +739,20 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             app.invalidate();
                             continue;
                         }
+                        if app.mode == ViewMode::MbtilesMap
+                            && let MouseEventKind::Drag(MouseButton::Left) = mouse.kind
+                            && let (Some(area), Some(ref mut mbt)) =
+                                (map_area, app.mbt_state.as_mut())
+                            && let Some((lc, lr)) = mbt.map_drag_last
+                        {
+                            let dc = i32::from(mouse.column) - i32::from(lc);
+                            let dr = i32::from(mouse.row) - i32::from(lr);
+                            if dc != 0 || dr != 0 {
+                                mbt.pan_by_pixels(area.width, area.height, dc, dr);
+                                mbt.map_drag_last = Some((mouse.column, mouse.row));
+                                app.needs_redraw = true;
+                            }
+                        }
                         let prev = app.hovered.clone();
                         app.hovered = None;
 
@@ -662,7 +768,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     mouse.column,
                                     mouse.row,
                                     area,
-                                    app.tree_scroll as usize,
+                                    app.tree_scroll.into_usize(),
                                 )
                                 && let Some((l, f, p)) =
                                     app.tree_items.get(row).and_then(TreeItem::layer_feat_part)
@@ -689,11 +795,55 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 app.invalidate();
                             }
                         }
+
+                        // MbtilesMap: update hover on mouse move over the map.
+                        if app.mode == ViewMode::MbtilesMap
+                            && let Some(area) = map_area
+                            && point_in_rect(mouse.column, mouse.row, area)
+                            && let Some(ref mut mbt) = app.mbt_state
+                        {
+                            let rx = f64::from(mouse.column - area.x) / f64::from(area.width);
+                            let ry = f64::from(mouse.row - area.y) / f64::from(area.height);
+                            let (wx, wy) = mbt.viewport_world_at_fracs(rx, ry);
+                            let prev_hov = mbt.hovered.clone();
+                            mbt.find_hovered(wx, wy);
+                            if mbt.hovered != prev_hov {
+                                let allow = last_hover_redraw
+                                    .is_none_or(|t| t.elapsed() >= HOVER_REDRAW_THROTTLE);
+                                if allow {
+                                    last_hover_redraw = Some(Instant::now());
+                                    app.invalidate();
+                                }
+                            }
+                        }
                     }
                     MouseEventKind::ScrollUp | MouseEventKind::ScrollDown => {
                         let up = matches!(mouse.kind, MouseEventKind::ScrollUp);
                         let s = app.scroll_step();
                         let step = u16::try_from(s)?;
+
+                        // MbtilesMap: scroll zooms in/out centred on the cursor.
+                        if app.mode == ViewMode::MbtilesMap
+                            && let (Some(area), Some(ref mut mbt)) =
+                                (map_area, app.mbt_state.as_mut())
+                        {
+                            if point_in_rect(mouse.column, mouse.row, area) {
+                                let rx = f64::from(mouse.column - area.x) / f64::from(area.width);
+                                let ry = f64::from(mouse.row - area.y) / f64::from(area.height);
+                                let (wx, wy) = mbt.viewport_world_at_fracs(rx, ry);
+                                mbt.zoom_wheel_at(wx, wy, up);
+                                app.needs_redraw = true;
+                                continue;
+                            }
+                            // Properties panel scroll
+                            if left_area.is_some_and(|a| point_in_rect(mouse.column, mouse.row, a))
+                            {
+                                app.properties_scroll = scroll_by(app.properties_scroll, step, up);
+                                app.invalidate();
+                                continue;
+                            }
+                        }
+
                         if app.mode == ViewMode::FileBrowser {
                             if filter_area
                                 .is_some_and(|a| point_in_rect(mouse.column, mouse.row, a))
@@ -722,7 +872,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 if up {
                                     app.tree_scroll = app.tree_scroll.saturating_sub(step);
                                 } else {
-                                    let inner = area.height.saturating_sub(2) as usize;
+                                    let inner = area.height.saturating_sub(2).into_usize();
                                     let max =
                                         u16::try_from(app.tree_items.len().saturating_sub(inner))?;
                                     app.tree_scroll = app.tree_scroll.saturating_add(step).min(max);
@@ -740,7 +890,16 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             app.move_down_by(s);
                         }
                     }
-                    MouseEventKind::Down(_) => {
+                    MouseEventKind::Down(btn) => {
+                        if app.mode == ViewMode::MbtilesMap
+                            && btn == MouseButton::Left
+                            && let (Some(area), Some(ref mut mbt)) =
+                                (map_area, app.mbt_state.as_mut())
+                            && point_in_rect(mouse.column, mouse.row, area)
+                        {
+                            mbt.map_drag_last = Some((mouse.column, mouse.row));
+                            continue;
+                        }
                         if app.mode == ViewMode::FileBrowser {
                             if let Some(fl) = file_left {
                                 let dx = fl.x + fl.width;
@@ -782,8 +941,8 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             if let Some(fa) = filter_area
                                 && point_in_rect(mouse.column, mouse.row, fa)
                             {
-                                let row = mouse.row.saturating_sub(fa.y + 1) as usize
-                                    + app.filter_scroll as usize;
+                                let row = mouse.row.saturating_sub(fa.y + 1).into_usize()
+                                    + app.filter_scroll.into_usize();
                                 handle_filter_click(app, row);
                                 continue;
                             }
@@ -792,7 +951,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 && app.filtered_file_indices.is_empty()
                                 && !app.files.is_empty()
                             {
-                                let row = mouse.row.saturating_sub(ia.y + 1) as usize;
+                                let row = mouse.row.saturating_sub(ia.y + 1).into_usize();
                                 if row == 2 {
                                     app.ext_filters.clear();
                                     app.geom_filters.clear();
@@ -847,7 +1006,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     mouse.column,
                                     mouse.row,
                                     area,
-                                    app.tree_scroll as usize,
+                                    app.tree_scroll.into_usize(),
                                 )
                                 && row < app.tree_items.len()
                             {
@@ -862,7 +1021,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 } else {
                                     app.selected_index = row;
                                     app.scroll_selected_into_view(
-                                        area.height.saturating_sub(2) as usize
+                                        area.height.saturating_sub(2).into_usize(),
                                     );
                                 }
                                 app.invalidate_bounds();
@@ -981,42 +1140,33 @@ fn collect_extensions(files: &[LsRow]) -> Vec<String> {
 
 // --- Geometry helpers ---
 
-fn geometry_type_name(geom: &Geom32) -> &'static str {
+fn geometry_type_name(geom: &Geometry<i32>) -> &'static str {
+    GeometryType::try_from(geom).map_or("Unknown", Into::into)
+}
+
+fn geometry_color(geom: &Geometry<i32>) -> Color {
     match geom {
-        Geom32::Point(_) => "Point",
-        Geom32::Line(_) => "Line",
-        Geom32::LineString(_) => "LineString",
-        Geom32::Polygon(_) => "Polygon",
-        Geom32::MultiPoint(_) => "MultiPoint",
-        Geom32::MultiLineString(_) => "MultiLineString",
-        Geom32::MultiPolygon(_) => "MultiPolygon",
-        Geom32::GeometryCollection(_) => "GeometryCollection",
-        Geom32::Rect(_) => "Rect",
-        Geom32::Triangle(_) => "Triangle",
+        Geometry::<i32>::MultiPoint(_) => CLR_MULTI_POINT,
+        Geometry::<i32>::LineString(_) => CLR_LINE,
+        Geometry::<i32>::MultiLineString(_) => CLR_MULTI_LINE,
+        Geometry::<i32>::Polygon(_) | Geometry::<i32>::MultiPolygon(_) if has_bad_winding(geom) => {
+            CLR_BAD_WINDING
+        }
+        Geometry::<i32>::Polygon(_) => CLR_POLYGON,
+        Geometry::<i32>::MultiPolygon(_) => CLR_MULTI_POLYGON,
+        Geometry::<i32>::Point(_)
+        | Geometry::<i32>::Line(_)
+        | Geometry::<i32>::GeometryCollection(_)
+        | Geometry::<i32>::Rect(_)
+        | Geometry::<i32>::Triangle(_) => CLR_POINT,
     }
 }
 
-fn geometry_color(geom: &Geom32) -> Color {
+fn multi_part_count(geom: &Geometry<i32>) -> usize {
     match geom {
-        Geom32::MultiPoint(_) => CLR_MULTI_POINT,
-        Geom32::LineString(_) => CLR_LINE,
-        Geom32::MultiLineString(_) => CLR_MULTI_LINE,
-        Geom32::Polygon(_) | Geom32::MultiPolygon(_) if has_bad_winding(geom) => CLR_BAD_WINDING,
-        Geom32::Polygon(_) => CLR_POLYGON,
-        Geom32::MultiPolygon(_) => CLR_MULTI_POLYGON,
-        Geom32::Point(_)
-        | Geom32::Line(_)
-        | Geom32::GeometryCollection(_)
-        | Geom32::Rect(_)
-        | Geom32::Triangle(_) => CLR_POINT,
-    }
-}
-
-fn multi_part_count(geom: &Geom32) -> usize {
-    match geom {
-        Geom32::MultiPoint(mp) => mp.0.len(),
-        Geom32::MultiLineString(mls) => mls.0.len(),
-        Geom32::MultiPolygon(mpoly) => mpoly.0.len(),
+        Geometry::<i32>::MultiPoint(mp) => mp.0.len(),
+        Geometry::<i32>::MultiLineString(mls) => mls.0.len(),
+        Geometry::<i32>::MultiPolygon(mpoly) => mpoly.0.len(),
         _ => 0,
     }
 }
@@ -1028,14 +1178,14 @@ fn poly_ring_stats(poly: &Polygon<i32>) -> (usize, usize) {
     (total_verts, ring_count)
 }
 
-fn feature_suffix(geom: &Geom32) -> String {
+fn feature_suffix(geom: &Geometry<i32>) -> String {
     let n = multi_part_count(geom);
     if n > 0 {
         return format!(" ({n} parts)");
     }
     match geom {
-        Geom32::LineString(ls) => format!(" ({}v)", ls.0.len()),
-        Geom32::Polygon(poly) => {
+        Geometry::<i32>::LineString(ls) => format!(" ({}v)", ls.0.len()),
+        Geometry::<i32>::Polygon(poly) => {
             let (total, ring_count) = poly_ring_stats(poly);
             if ring_count > 1 {
                 format!(" ({total}v, {ring_count} rings)")
@@ -1047,13 +1197,13 @@ fn feature_suffix(geom: &Geom32) -> String {
     }
 }
 
-fn sub_feature_suffix(geom: &Geom32, part: usize) -> String {
+fn sub_feature_suffix(geom: &Geometry<i32>, part: usize) -> String {
     match geom {
-        Geom32::MultiLineString(mls) => mls
+        Geometry::<i32>::MultiLineString(mls) => mls
             .0
             .get(part)
             .map_or(String::new(), |ls| format!(" ({}v)", ls.0.len())),
-        Geom32::MultiPolygon(mpoly) => mpoly.0.get(part).map_or(String::new(), |poly| {
+        Geometry::<i32>::MultiPolygon(mpoly) => mpoly.0.get(part).map_or(String::new(), |poly| {
             let (total, ring_count) = poly_ring_stats(poly);
             if ring_count > 1 {
                 format!(" ({total}v, {ring_count} rings)")
@@ -1090,7 +1240,7 @@ fn part_color(sel: Option<usize>, hov: Option<usize>, idx: usize, base: Color) -
 
 // --- Winding ---
 
-fn ring_signed_area(ring: &[Coord32]) -> f64 {
+fn ring_signed_area(ring: &[Coord<i32>]) -> f64 {
     let mut area = 0.0;
     for w in ring.windows(2) {
         let [x1, y1] = coord_f64(w[0]);
@@ -1105,17 +1255,17 @@ fn ring_signed_area(ring: &[Coord32]) -> f64 {
     area
 }
 
-pub(crate) fn is_ring_ccw(ring: &[Coord32]) -> bool {
+pub(crate) fn is_ring_ccw(ring: &[Coord<i32>]) -> bool {
     ring_signed_area(ring) < 0.0
 }
 
-fn has_bad_winding(geom: &Geom32) -> bool {
+fn has_bad_winding(geom: &Geometry<i32>) -> bool {
     let check = |poly: &Polygon<i32>| {
         !is_ring_ccw(&poly.exterior().0) || poly.interiors().iter().any(|r| is_ring_ccw(&r.0))
     };
     match geom {
-        Geom32::Polygon(poly) => check(poly),
-        Geom32::MultiPolygon(mpoly) => mpoly.iter().any(check),
+        Geometry::<i32>::Polygon(poly) => check(poly),
+        Geometry::<i32>::MultiPolygon(mpoly) => mpoly.iter().any(check),
         _ => false,
     }
 }
@@ -1163,6 +1313,6 @@ impl PointDistance for GeometryIndexEntry {
 }
 
 #[must_use]
-pub fn coord_f64(c: Coord32) -> [f64; 2] {
+pub fn coord_f64(c: Coord<i32>) -> [f64; 2] {
     [f64::from(c.x), f64::from(c.y)]
 }

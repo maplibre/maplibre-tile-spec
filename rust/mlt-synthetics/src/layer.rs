@@ -1,355 +1,450 @@
-#![expect(dead_code)]
-
+use std::collections::{HashMap, HashSet};
 use std::fs::{File, OpenOptions};
-use std::io::Write as _;
-use std::path::{Path, PathBuf};
-use std::{fs, io};
+use std::io;
+use std::path::Path;
 
-use geo::{Convert as _, TriangulateEarcut as _};
-use geo_types::{LineString, Polygon};
-use mlt_core::geojson::{FeatureCollection, Geom32};
-use mlt_core::v01::{
-    EncodeProperties as _, EncodedLayer01, GeometryEncoder, GeometryValues, IdEncoder, IdValues,
-    IntEncoder, PresenceStream, PropertyEncoder, ScalarEncoder, SharedDictEncoder,
-    SharedDictItemEncoder, StagedProperty, StagedStrings, StrEncoder, VertexBufferType,
-    build_staged_shared_dict,
+use mlt_core::GeometryValues;
+use mlt_core::encoder::{
+    Codecs, ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, Presence, StagedId,
+    StagedLayer, StagedProperty, StagedSharedDict, StrEncoding, StreamCtx, VertexBufferType,
 };
-use mlt_core::{Decoder, EncodedLayer, Parser};
+use mlt_core::geo_types::{Coord, Geometry};
+use mlt_core::wire::{LengthType, OffsetType, StreamType};
 
-/// Tessellate a polygon using the geo crate's earcut algorithm.
-///
-/// Geo's earcut includes the closing vertex in each ring; MLT (and Java's `earcut4j`) omit it.
-/// We remap triangle indices so that any index referring to a ring's closing vertex is replaced
-/// by that ring's start index, producing identical index buffers to Java.
-fn tessellate_polygon(polygon: &Polygon<i32>) -> (Vec<u32>, u32) {
-    // Convert i32 polygon to f64 for tessellation (geo's TriangulateEarcut requires CoordFloat)
-    let polygon_f64: Polygon<f64> = polygon.convert();
-    let raw = polygon_f64.earcut_triangles_raw();
-    let num_triangles = u32::try_from(raw.triangle_indices.len() / 3).expect("too many triangles");
+use crate::writer::{SynthErr, SynthResult, SynthWriter};
 
-    // Build remap: geo index -> MLT index (closing vertex of each ring -> ring start).
-    let mut geo_to_mlt = Vec::with_capacity(raw.vertices.len() / 2);
-    let mut mlt_offset = 0;
+/// Create a layer with all geometry encoders set to `VarInt`.
+pub fn geo_varint() -> Layer {
+    Layer::new(IntEncoder::varint())
+}
 
-    let mut push_ring = |ring: &LineString<i32>| {
-        let len = ring.0.len();
-        let mlt_len = if len > 1 && ring.0.first() == ring.0.last() {
-            len - 1
-        } else {
-            len
-        };
-        for i in 0..len {
-            geo_to_mlt.push(if i == len - 1 && mlt_len < len {
-                mlt_offset
-            } else {
-                mlt_offset + i
-            });
+/// Create a layer with geometry encoders set to `VarInt` and RLE for the meta stream.
+pub fn geo_varint_with_rle() -> Layer {
+    Layer::new(IntEncoder::varint()).meta(IntEncoder::rle_varint())
+}
+
+/// Create a layer with all geometry encoders set to `FastPFOR`.
+pub fn geo_fastpfor() -> Layer {
+    Layer::new(IntEncoder::fastpfor())
+}
+
+/// Per-property encoding specification.
+#[derive(Clone)]
+enum PropConfig {
+    /// Int/Bool/Float: `enc` is used for integer streams; Bool/Float auto-detect from type.
+    Scalar(IntEncoder),
+    /// String FSST encoding.
+    StrFsst {
+        sym_lengths: IntEncoder,
+        dict_lengths: IntEncoder,
+    },
+    /// String FSST+Dictionary encoding.
+    StrFsstDict {
+        sym_lengths: IntEncoder,
+        dict_lengths: IntEncoder,
+        offsets: IntEncoder,
+    },
+    /// String Dictionary (plain dict) encoding.
+    StrDict {
+        string_lengths: IntEncoder,
+        offsets: IntEncoder,
+    },
+    /// Shared dictionary: `StrEncoding` for the corpus, per-suffix `IntEncoder` for offsets.
+    SharedDict {
+        dict_encoding: StrEncoding,
+        item_encs: Vec<(String, IntEncoder)>,
+    },
+}
+
+impl PropConfig {
+    fn str_encoding(&self) -> StrEncoding {
+        match self {
+            Self::Scalar(_) => StrEncoding::Plain,
+            Self::StrFsst { .. } => StrEncoding::Fsst,
+            Self::StrFsstDict { .. } => StrEncoding::FsstDict,
+            Self::StrDict { .. } => StrEncoding::Dict,
+            Self::SharedDict { dict_encoding, .. } => *dict_encoding,
         }
-        mlt_offset += mlt_len;
-    };
-
-    push_ring(polygon.exterior());
-    for interior in polygon.interiors() {
-        push_ring(interior);
     }
 
-    let indices_u32: Vec<u32> = raw
-        .triangle_indices
-        .into_iter()
-        .map(|i| {
-            let mlt_idx = geo_to_mlt.get(i).copied().unwrap_or(i);
-            u32::try_from(mlt_idx).expect("index overflow")
-        })
-        .collect();
-
-    (indices_u32, num_triangles)
-}
-
-pub struct SynthWriter {
-    dir: PathBuf,
-}
-
-impl SynthWriter {
-    pub fn new(dir: PathBuf) -> Self {
-        Self { dir }
-    }
-
-    #[must_use]
-    pub fn geo(&self, encoder: IntEncoder) -> Layer {
-        Layer::new(self.dir.clone(), encoder)
-    }
-
-    /// Create a layer with all geometry encoders set to `VarInt`.
-    #[must_use]
-    pub fn geo_varint(&self) -> Layer {
-        Layer::new(self.dir.clone(), IntEncoder::varint())
-    }
-
-    /// Create a layer with all geometry encoders set to `FastPFOR`.
-    #[must_use]
-    pub fn geo_fastpfor(&self) -> Layer {
-        Layer::new(self.dir.clone(), IntEncoder::fastpfor())
+    /// Resolve the integer encoder for a property stream using wire `StreamType`.
+    fn int_enc_for_stream_ctx(&self, ctx: &StreamCtx<'_>) -> IntEncoder {
+        use LengthType as LT;
+        use OffsetType as OT;
+        use StreamType as ST;
+        match self {
+            Self::Scalar(e) => *e,
+            Self::StrFsst {
+                sym_lengths,
+                dict_lengths,
+            } => match ctx.stream_type {
+                ST::Length(LT::Symbol) => *sym_lengths,
+                _ => *dict_lengths,
+            },
+            Self::StrFsstDict {
+                sym_lengths,
+                dict_lengths,
+                offsets,
+            } => match ctx.stream_type {
+                ST::Length(LT::Symbol) => *sym_lengths,
+                ST::Offset(OT::String) => *offsets,
+                _ => *dict_lengths,
+            },
+            Self::StrDict {
+                string_lengths,
+                offsets,
+            } => match ctx.stream_type {
+                ST::Offset(OT::String) => *offsets,
+                _ => *string_lengths,
+            },
+            Self::SharedDict { item_encs, .. } => {
+                // sub is the item suffix
+                item_encs
+                    .iter()
+                    .find(|(k, _)| k == ctx.subname)
+                    .map(|(_, e)| *e)
+                    .or_else(|| item_encs.first().map(|(_, e)| *e))
+                    .unwrap_or_else(IntEncoder::varint)
+            }
+        }
     }
 }
 
-/// Layer builder: holds geometry encoder, geometry list, properties, extent, and IDs.
+/// Layer builder for synthetic tile generation.
+#[derive(Clone)]
 pub struct Layer {
-    pub path: PathBuf,
-    pub geometry_encoder: GeometryEncoder,
-    pub geometry_items: Vec<Geom32>,
-    /// Polygons that are also tessellated; triangle data is merged when building decoded geometry.
-    pub tessellated_polygons: Vec<Option<Polygon<i32>>>,
-    pub properties: Vec<StagedProperty>,
-    pub prop_encoders: Vec<PropertyEncoder>,
-    pub extent: Option<u32>,
-    pub ids: Option<(Vec<Option<u64>>, IdEncoder)>,
+    /// Default encoder for all geometry streams.
+    default_geo_enc: IntEncoder,
+    /// Per-stream overrides; key is the stream name (e.g. `"meta"`, `"rings"`).
+    geo_stream_overrides: HashMap<&'static str, IntEncoder>,
+    vertex_buffer_type: VertexBufferType,
+    tessellate: bool,
+    /// Geometry stream names that must be written even when their data is empty.
+    /// See [`ExplicitEncoder::force_stream`] for details.
+    force_empty_streams: HashSet<&'static str>,
+    geometry_items: Vec<Geometry<i32>>,
+    props: Vec<(StagedProperty, PropConfig)>,
+    extent: Option<u32>,
+    ids: Option<(StagedId, IntEncoder)>,
 }
 
 impl Layer {
-    #[must_use]
-    pub fn new(path: PathBuf, default_geom_enc: IntEncoder) -> Layer {
-        Layer {
-            path,
-            geometry_encoder: GeometryEncoder::all(default_geom_enc),
+    fn new(default_enc: IntEncoder) -> Self {
+        Self {
+            default_geo_enc: default_enc,
+            geo_stream_overrides: HashMap::new(),
+            vertex_buffer_type: VertexBufferType::Vec2,
+            tessellate: false,
+            force_empty_streams: HashSet::new(),
             geometry_items: vec![],
-            tessellated_polygons: vec![],
-            properties: vec![],
-            prop_encoders: vec![],
+            props: vec![],
             extent: None,
             ids: None,
         }
     }
 
-    /// Set encoding for parts length stream when rings are present.
-    #[must_use]
-    pub fn rings(mut self, e: IntEncoder) -> Self {
-        self.geometry_encoder.rings(e);
-        self
-    }
-
-    /// Set encoding for ring vertex-count stream.
-    #[must_use]
-    pub fn rings2(mut self, e: IntEncoder) -> Self {
-        self.geometry_encoder.rings2(e);
-        self
-    }
-
-    /// Set encoding for the vertex data stream.
-    #[must_use]
-    pub fn vertex(mut self, e: IntEncoder) -> Self {
-        self.geometry_encoder.vertex(e);
-        self
-    }
-
-    /// Set encoding for the geometry types (meta) stream.
     #[must_use]
     pub fn meta(mut self, e: IntEncoder) -> Self {
-        self.geometry_encoder.meta(e);
+        self.geo_stream_overrides.insert("meta", e);
         self
     }
-
-    /// Set encoding for the geometry length stream.
     #[must_use]
-    pub fn geometries(mut self, e: IntEncoder) -> Self {
-        self.geometry_encoder.geometries(e);
+    pub fn rings(mut self, e: IntEncoder) -> Self {
+        self.geo_stream_overrides.insert("rings", e);
         self
     }
-
-    /// Set encoding for parts length stream when rings are not present.
+    #[must_use]
+    pub fn rings2(mut self, e: IntEncoder) -> Self {
+        self.geo_stream_overrides.insert("rings2", e);
+        self
+    }
     #[must_use]
     pub fn no_rings(mut self, e: IntEncoder) -> Self {
-        self.geometry_encoder.no_rings(e);
+        self.geo_stream_overrides.insert("no_rings", e);
         self
     }
-
-    /// Set encoding for parts length stream (with rings) when `geometry_offsets` absent.
-    #[must_use]
-    pub fn parts(mut self, e: IntEncoder) -> Self {
-        self.geometry_encoder.parts(e);
-        self
-    }
-
-    /// Set encoding for ring lengths when `geometry_offsets` absent.
     #[must_use]
     pub fn parts_ring(mut self, e: IntEncoder) -> Self {
-        self.geometry_encoder.parts_ring(e);
+        self.geo_stream_overrides.insert("parts_ring", e);
         self
     }
-
-    /// Set encoding for parts-only stream.
-    #[must_use]
-    pub fn only_parts(mut self, e: IntEncoder) -> Self {
-        self.geometry_encoder.only_parts(e);
-        self
-    }
-
-    /// Set encoding for triangles and triangle index buffer.
-    #[must_use]
-    pub fn triangles(mut self, e: IntEncoder) -> Self {
-        self.geometry_encoder.triangles(e);
-        self.geometry_encoder.triangles_indexes(e);
-        self
-    }
-
-    /// Set encoding for vertex offsets.
     #[must_use]
     pub fn vertex_offsets(mut self, e: IntEncoder) -> Self {
-        self.geometry_encoder.vertex_offsets(e);
+        self.geo_stream_overrides.insert("vertex_offsets", e);
         self
     }
-
-    /// Set encoding of the vertex buffer.
     #[must_use]
     pub fn vertex_buffer_type(mut self, v: VertexBufferType) -> Self {
-        self.geometry_encoder.vertex_buffer_type(v);
+        self.vertex_buffer_type = v;
+        self
+    }
+    #[must_use]
+    pub fn tessellate(mut self) -> Self {
+        self.tessellate = true;
         self
     }
 
-    /// Add a geometry (uses [`geo_types::Geometry`] `From` impls: `Point`, `LineString`, etc.).
+    /// Force a geometry stream to be written even when its data is empty.
+    ///
+    /// `name` is the geometry stream name as used internally by the encoder
+    /// (e.g. `"triangles_indexes"`, `"geometries"`, `"rings"`, …).
+    ///
+    /// Useful for producing byte-for-byte output that matches Java's encoder when a
+    /// normally-empty stream must still appear in the wire format.
     #[must_use]
-    pub fn geo(mut self, geometry: impl Into<Geom32>) -> Self {
+    #[expect(
+        dead_code,
+        reason = "needs PR to impl that empty (but still present) property, gemetry and id streams don't cause issues"
+    )]
+    pub fn force_empty_stream(mut self, name: &'static str) -> Self {
+        self.force_empty_streams.insert(name);
+        self
+    }
+
+    #[must_use]
+    pub fn geo(mut self, geometry: impl Into<Geometry<i32>>) -> Self {
         self.geometry_items.push(geometry.into());
-        self.tessellated_polygons.push(None);
         self
     }
 
-    /// Add multiple geometries
     #[must_use]
-    pub fn geos<T: Into<Geom32>, I: IntoIterator<Item = T>>(mut self, geometries: I) -> Self {
+    pub fn geos<T: Into<Geometry<i32>>, I: IntoIterator<Item = T>>(
+        mut self,
+        geometries: I,
+    ) -> Self {
         for g in geometries {
             self = self.geo(g.into());
         }
         self
     }
 
-    /// Add a tessellated polygon (polygon + triangle mesh).
-    #[must_use]
-    pub fn tessellated(mut self, polygon: Polygon<i32>) -> Self {
-        self.geometry_items.push(Geom32::Polygon(polygon.clone()));
-        self.tessellated_polygons.push(Some(polygon));
-        self
-    }
-
-    /// Add a scalar property.
-    #[must_use]
-    pub fn add_prop(mut self, encoder: ScalarEncoder, prop: StagedProperty) -> Self {
-        self.properties.push(prop);
-        self.prop_encoders.push(PropertyEncoder::Scalar(encoder));
-        self
-    }
-
-    /// Add a shared dictionary with its child columns.
+    /// Add a bool, integer, or float property.
     ///
-    /// Use [`SharedDict::new`] to create the builder, then add columns with
-    /// [`SharedDict::column`], and pass it to this method.
+    /// `enc` is used for integer stream encoding; Bool and Float columns ignore it.
+    #[must_use]
+    pub fn add_prop(mut self, enc: IntEncoder, prop: StagedProperty) -> Self {
+        self.props.push((prop, PropConfig::Scalar(enc)));
+        self
+    }
+
+    /// Add an FSST-compressed string property.
+    #[must_use]
+    pub fn add_prop_str_fsst(
+        mut self,
+        sym_lengths: IntEncoder,
+        dict_lengths: IntEncoder,
+        prop: StagedProperty,
+    ) -> Self {
+        self.props.push((
+            prop,
+            PropConfig::StrFsst {
+                sym_lengths,
+                dict_lengths,
+            },
+        ));
+        self
+    }
+
+    /// Add a Dictionary (plain dict) string property.
+    #[must_use]
+    pub fn add_prop_str_dict(
+        mut self,
+        string_lengths: IntEncoder,
+        offsets: IntEncoder,
+        prop: StagedProperty,
+    ) -> Self {
+        self.props.push((
+            prop,
+            PropConfig::StrDict {
+                string_lengths,
+                offsets,
+            },
+        ));
+        self
+    }
+
+    /// Add an FSST+Dictionary string property.
+    #[must_use]
+    pub fn add_prop_str_fsst_dict(
+        mut self,
+        sym_lengths: IntEncoder,
+        dict_lengths: IntEncoder,
+        offsets: IntEncoder,
+        prop: StagedProperty,
+    ) -> Self {
+        self.props.push((
+            prop,
+            PropConfig::StrFsstDict {
+                sym_lengths,
+                dict_lengths,
+                offsets,
+            },
+        ));
+        self
+    }
+
+    /// Add a shared dictionary column.
     #[must_use]
     pub fn add_shared_dict(mut self, shared_dict: SharedDict) -> Self {
-        let name = shared_dict.name;
-        let encoder = shared_dict.encoder;
-        let dict = build_staged_shared_dict(name, shared_dict.items)
-            .expect("shared dict builder should be valid");
-        self.properties.push(StagedProperty::SharedDict(dict));
-        self.prop_encoders.push(encoder.into());
+        let dict_encoding = shared_dict.dict_encoding;
+        let item_encs: Vec<(String, IntEncoder)> = shared_dict
+            .items
+            .iter()
+            .map(|(suffix, enc, _, _)| (suffix.clone(), *enc))
+            .collect();
+        let dict = StagedSharedDict::new(
+            shared_dict.name,
+            shared_dict
+                .items
+                .into_iter()
+                .map(|(suffix, _, vals, is_optional)| {
+                    let presence = if is_optional {
+                        Presence::Mixed
+                    } else {
+                        Presence::AllPresent
+                    };
+                    (suffix, vals, presence)
+                }),
+        )
+        .expect("shared dict builder should be valid");
+        self.props.push((
+            StagedProperty::SharedDict(dict),
+            PropConfig::SharedDict {
+                dict_encoding,
+                item_encs,
+            },
+        ));
         self
     }
 
-    /// Set the tile extent.
+    /// Encode and then either verify against the reference dir (non-rust files) or write to the
+    /// output dir (`-rust`-suffixed files). Delegates to [`SynthWriter::write`].
+    ///
+    /// When `force_empty_streams` is non-empty, also emits a `_ns` ("no forced stream")
+    /// sibling — but only when removing the forced-empty-stream flag **actually changes the
+    /// encoded output**.  For some geometry configurations (e.g. Multi* types where the
+    /// GEOMETRIES stream is already non-empty) the flag is a no-op; emitting the sibling in
+    /// those cases would produce duplicate MLT files and fail the uniqueness check.
+    pub fn write(self, w: &mut SynthWriter, name: impl AsRef<str>) {
+        if !self.force_empty_streams.is_empty() {
+            let forced_bytes = self.clone().encode_to_bytes().ok();
+            let mut ns_layer = self.clone();
+            ns_layer.force_empty_streams.clear();
+            let ns_bytes = ns_layer.clone().encode_to_bytes().ok();
+            if forced_bytes != ns_bytes {
+                let name = if let Some(prefix) = name.as_ref().strip_suffix("-rust") {
+                    format!("{prefix}_ns-rust")
+                } else {
+                    format!("{}_ns", name.as_ref())
+                };
+                w.write(ns_layer, name);
+            }
+        }
+        w.write(self, name);
+    }
+
     #[must_use]
     pub fn extent(mut self, extent: u32) -> Self {
         self.extent = Some(extent);
         self
     }
 
-    /// Set feature IDs.
+    /// Set feature IDs with explicit encoding.
     #[must_use]
-    pub fn ids(mut self, ids: Vec<Option<u64>>, encoder: IdEncoder) -> Self {
-        self.ids = Some((ids, encoder));
+    pub fn ids(mut self, ids: StagedId, int_enc: IntEncoder) -> Self {
+        self.ids = Some((ids, int_enc));
         self
     }
 
-    fn build_decoded_geometry(&self) -> GeometryValues {
-        let mut geom = GeometryValues::default();
-        for g in &self.geometry_items {
-            geom.push_geom(g);
-        }
-        for poly in &self.tessellated_polygons {
-            let Some(poly) = poly else { continue };
-            let (indices, num_triangles) = tessellate_polygon(poly);
-            geom.triangles
-                .get_or_insert_with(Vec::new)
-                .push(num_triangles);
-            geom.index_buffer
-                .get_or_insert_with(Vec::new)
-                .extend(indices);
-        }
-        geom
-    }
-
-    fn open_new(path: &Path) -> io::Result<File> {
+    pub fn open_new(path: &Path) -> io::Result<File> {
         OpenOptions::new().write(true).create_new(true).open(path)
     }
 
-    /// Write the layer to an MLT file and a corresponding JSON file (consumes self).
-    pub fn write(self, name: impl AsRef<str>) {
-        let name = name.as_ref();
-        let dir = self.path.clone();
-        let path = dir.join(format!("{name}.mlt"));
-        self.write_mlt(&path);
+    pub fn encode_to_bytes(self) -> SynthResult<Vec<u8>> {
+        let Self {
+            default_geo_enc,
+            geo_stream_overrides,
+            vertex_buffer_type,
+            tessellate,
+            force_empty_streams,
+            geometry_items,
+            props,
+            extent,
+            ids,
+        } = self;
 
-        let buffer = fs::read(&path).unwrap();
-        let mut parser = Parser::default();
-        let mut data = parser.parse_layers(&buffer).unwrap();
-        let mut dec = Decoder::default();
-        let fc = FeatureCollection::from_layers(&mut data, &mut dec).unwrap();
-        let mut json = serde_json::to_string_pretty(&fc).unwrap();
-        json.push('\n');
-        let mut out_file = Self::open_new(&dir.join(format!("{name}.json"))).unwrap();
-        out_file.write_all(json.as_bytes()).unwrap();
-    }
-
-    fn write_mlt(self, path: &Path) {
-        let geometry = self.build_decoded_geometry();
-        let encoded_geometry = geometry
-            .encode(self.geometry_encoder)
-            .unwrap_or_else(|e| panic!("cannot encode geometry: {e}"));
-
-        let id = if let Some((ids, ids_encoder)) = self.ids {
-            IdValues(ids)
-                .encode(ids_encoder)
-                .unwrap_or_else(|e| panic!("cannot encode id: {e}"))
-        } else {
-            None
+        let enc_cfg = EncoderConfig {
+            tessellate,
+            ..EncoderConfig::default()
         };
 
-        let encoded_properties = self
-            .properties
-            .encode(self.prop_encoders)
-            .unwrap_or_else(|e| panic!("cannot encode properties: {e}"));
+        let mut geometry = if enc_cfg.tessellate {
+            GeometryValues::new_tessellated()
+        } else {
+            GeometryValues::default()
+        };
+        for geom in &geometry_items {
+            geometry.push_geom(geom);
+        }
 
-        let layer = EncodedLayer::Tag01(EncodedLayer01 {
+        let (id, id_int_enc) = match ids {
+            Some((ids, int_enc)) => (ids, Some(int_enc)),
+            None => (StagedId::None, None),
+        };
+
+        // Build name→PropConfig map for the ExplicitEncoder callbacks.
+        let prop_map: HashMap<String, PropConfig> = props
+            .iter()
+            .map(|(p, c)| (p.name().to_string(), c.clone()))
+            .collect();
+
+        let cfg = ExplicitEncoder {
+            vertex_buffer_type,
+            force_stream: Box::new(move |ctx: &StreamCtx<'_>| {
+                ctx.kind == ColumnKind::Geometry && force_empty_streams.contains(ctx.name)
+            }),
+            get_int_encoder: {
+                let prop_map = prop_map.clone();
+                Box::new(move |ctx: &StreamCtx<'_>| match ctx.kind {
+                    ColumnKind::Id => id_int_enc.unwrap_or_else(IntEncoder::varint),
+                    ColumnKind::Geometry => geo_stream_overrides
+                        .get(ctx.name)
+                        .copied()
+                        .unwrap_or(default_geo_enc),
+                    ColumnKind::Property => prop_map
+                        .get(ctx.name)
+                        .map_or_else(IntEncoder::varint, |c| c.int_enc_for_stream_ctx(ctx)),
+                })
+            },
+            get_str_encoding: {
+                Box::new(move |name: &str| {
+                    prop_map
+                        .get(name)
+                        .map_or(StrEncoding::Plain, PropConfig::str_encoding)
+                })
+            },
+        };
+
+        let mut codecs = Codecs::default();
+        StagedLayer {
             name: "layer1".to_string(),
-            extent: self.extent.unwrap_or(80),
+            extent: extent.unwrap_or(80),
             id,
-            geometry: encoded_geometry,
-            properties: encoded_properties,
-        });
-
-        let mut file = Self::open_new(path)
-            .unwrap_or_else(|e| panic!("cannot create {}: {e}", path.display()));
-        layer
-            .write_to(&mut file)
-            .unwrap_or_else(|e| panic!("cannot encode {}: {e}", path.display()));
+            geometry,
+            properties: props.into_iter().map(|(p, _)| p).collect(),
+        }
+        .encode_into(Encoder::with_explicit(enc_cfg, cfg), &mut codecs)?
+        .into_layer_bytes()
+        .map_err(SynthErr::Mlt)
     }
 }
 
 /// Builder for a shared dictionary struct column with multiple string sub-properties.
-///
-/// Use [`SharedDict::new`] to create the builder, add columns with [`SharedDict::column`],
-/// then pass it to [`Layer::add_shared_dict`].
 pub struct SharedDict {
     name: String,
-    encoder: SharedDictEncoder,
-    items: Vec<(String, StagedStrings)>,
+    dict_encoding: StrEncoding,
+    /// `(suffix, encoder, values, is_optional)`
+    items: Vec<(String, IntEncoder, Vec<Option<String>>, bool)>,
 }
 
 impl SharedDict {
@@ -357,39 +452,63 @@ impl SharedDict {
     ///
     /// # Arguments
     /// * `name` - The name for the property (e.g., `"name:"` for `"name:de"`, `"name:en"`).
-    /// * `dict_encoder` - The string encoder for the shared dictionary (plain or FSST).
+    /// * `dict_encoding` - The string encoding for the shared dictionary corpus (plain or FSST).
     #[must_use]
-    pub fn new(name: impl Into<String>, dict_encoder: StrEncoder) -> Self {
+    pub fn new(name: impl Into<String>, dict_encoding: StrEncoding) -> Self {
         Self {
             name: name.into(),
-            encoder: SharedDictEncoder {
-                dict_encoder,
-                items: vec![],
-            },
+            dict_encoding,
             items: vec![],
         }
     }
 
-    /// Add a child column to the shared dictionary.
-    ///
-    /// # Arguments
-    /// * `suffix` - The suffix name for this child (e.g., `"de"` for `"name:de"`).
-    /// * `optional` - Whether to include a presence stream for null values.
-    /// * `offset` - The integer encoder for the offset-index stream.
-    /// * `values` - The string values for each feature.
+    /// Add a non-optional child column (no presence stream will be written).
     #[must_use]
-    pub fn column(
+    pub fn col<S: Into<String>>(
         mut self,
         suffix: impl Into<String>,
-        presence: PresenceStream,
+        offsets: IntEncoder,
+        values: impl IntoIterator<Item = S>,
+    ) -> Self {
+        self.items.push((
+            suffix.into(),
+            offsets,
+            values.into_iter().map(|v| Some(v.into())).collect(),
+            false,
+        ));
+        self
+    }
+
+    /// Add an optional child column (a presence stream is always written).
+    #[must_use]
+    pub fn opt(
+        mut self,
+        suffix: impl Into<String>,
         offsets: IntEncoder,
         values: impl IntoIterator<Item = Option<String>>,
     ) -> Self {
-        let enc = SharedDictItemEncoder { presence, offsets };
-        self.encoder.items.push(enc);
-        let suffix = suffix.into();
-        let values: Vec<Option<String>> = values.into_iter().collect();
-        self.items.push((suffix, StagedStrings::from(values)));
+        self.items
+            .push((suffix.into(), offsets, values.into_iter().collect(), true));
         self
     }
+}
+
+/// Morton (Z-order) curve: de-interleave index bits into x/y (even/odd bits).
+/// Produces a 4×4 complete Morton block (16 points, scale 8).
+pub fn morton_curve() -> Vec<Coord<i32>> {
+    let num_points = 16usize;
+    let scale = 8_i32;
+    let morton_bits = 4u32;
+    let mut curve = Vec::with_capacity(num_points);
+    for i in 0..num_points {
+        let i = i32::try_from(i).unwrap();
+        let mut x = 0_i32;
+        let mut y = 0_i32;
+        for b in 0..morton_bits {
+            x |= ((i >> (2 * b)) & 1) << b;
+            y |= ((i >> (2 * b + 1)) & 1) << b;
+        }
+        curve.push(crate::c(x * scale, y * scale));
+    }
+    curve
 }

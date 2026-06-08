@@ -169,7 +169,6 @@ export function decodeSharedDictionary(
     data: Uint8Array,
     offset: IntWrapper,
     column: Column,
-    numFeatures: number,
     propertyColumnNames?: Set<string>,
 ): Vector[] {
     let dictionaryOffsetBuffer: Uint32Array = null;
@@ -222,30 +221,33 @@ export function decodeSharedDictionary(
             }
         }
 
-        if (
-            numStreams !== 2 ||
-            childField.type !== "scalarField" ||
-            childField.scalarField.physicalType !== ScalarType.STRING
-        ) {
-            throw new Error("Currently only optional string fields are implemented for a struct.");
+        if (childField.type !== "scalarField" || childField.scalarField.physicalType !== ScalarType.STRING) {
+            throw new Error("Currently only scalar string fields are implemented for a struct.");
+        }
+        if ((numStreams > 1 && !childField.nullable) || (numStreams === 1 && childField.nullable)) {
+            throw new Error(
+                `The number of streams for the child field ${childField.name} does not match its nullability. nullibilty: ${childField.nullable}, numStreams: ${numStreams}`,
+            );
         }
 
-        const presentStreamMetadata = decodeStreamMetadata(data, offset);
-        const presentStream = decodeBooleanRle(
-            data,
-            presentStreamMetadata.numValues,
-            presentStreamMetadata.byteLength,
-            offset,
-        );
+        let presentStreamBitVector: BitVector | undefined;
+        if (childField.nullable) {
+            const presentStreamMetadata = decodeStreamMetadata(data, offset);
+            const presentStream = decodeBooleanRle(
+                data,
+                presentStreamMetadata.numValues,
+                presentStreamMetadata.byteLength,
+                offset,
+            );
+            presentStreamBitVector = new BitVector(presentStream, presentStreamMetadata.numValues);
+        }
         const offsetStreamMetadata = decodeStreamMetadata(data, offset);
-        const offsetCount = offsetStreamMetadata.decompressedCount;
-        const isNullable = offsetCount !== numFeatures;
         const offsetStream = decodeUnsignedInt32Stream(
             data,
             offset,
             offsetStreamMetadata,
             undefined,
-            isNullable ? new BitVector(presentStream, presentStreamMetadata.numValues) : undefined,
+            presentStreamBitVector,
         );
 
         stringDictionaryVectors[i++] = symbolTableBuffer
@@ -256,14 +258,14 @@ export function decodeSharedDictionary(
                   dictionaryBuffer,
                   symbolOffsetBuffer,
                   symbolTableBuffer,
-                  new BitVector(presentStream, presentStreamMetadata.numValues),
+                  presentStreamBitVector,
               )
             : new StringDictionaryVector(
                   columnName,
                   offsetStream,
                   dictionaryOffsetBuffer,
                   dictionaryBuffer,
-                  new BitVector(presentStream, presentStreamMetadata.numValues),
+                  presentStreamBitVector,
               );
     }
 

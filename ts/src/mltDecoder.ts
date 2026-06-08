@@ -173,11 +173,7 @@ function decodeIdColumn(
     idWithinMaxSafeInteger = false,
 ): IdVector {
     const scalarTypeMetadata = columnMetadata.scalarType;
-    if (
-        !scalarTypeMetadata ||
-        scalarTypeMetadata.type !== "logicalType" ||
-        scalarTypeMetadata.logicalType !== LogicalScalarType.ID
-    ) {
+    if (scalarTypeMetadata?.type !== "logicalType" || scalarTypeMetadata.logicalType !== LogicalScalarType.ID) {
         throw new Error(`ID column must be a logical ID scalar type: ${columnName}`);
     }
 
