@@ -23,9 +23,6 @@ impl arbitrary::Arbitrary<'_> for MvtRoundtripInput {
 impl MvtRoundtripInput {
     pub fn fuzz_roundtrip(self) {
         let canonical = mlt_encode_decode(self.layer);
-        if canonical.name.is_empty() {
-            return;
-        }
         let normalized = mvt_roundtrip(canonical);
         let again = mvt_roundtrip(normalized.clone());
         assert_mvt_equivalent_layers(&normalized, &again);
