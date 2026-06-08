@@ -3,6 +3,7 @@ use std::mem;
 
 use bitvec::prelude::{BitSlice, BitVec, Lsb0};
 use bitvec::view::BitView as _;
+use usize_cast::IntoUsize as _;
 
 use crate::codecs::bytes::{decode_bytes_to_bools, decode_bytes_to_u32s, decode_bytes_to_u64s};
 use crate::codecs::fastpfor::decode_fastpfor;
@@ -10,7 +11,6 @@ use crate::codecs::rle::decode_byte_rle;
 use crate::codecs::varint::parse_varint_vec;
 use crate::decoder::{LogicalEncoding, LogicalValue, PhysicalEncoding, RawStream};
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
-use crate::utils::AsUsize as _;
 use crate::{Decoder, MltError, MltResult};
 
 impl<'a> RawStream<'a> {
@@ -20,7 +20,7 @@ impl<'a> RawStream<'a> {
     /// encodings are `None`; otherwise decompresses byte-RLE into an owned `BitVec`.
     /// The result is always truncated to exactly `num_values` bits.
     pub(crate) fn decode_bitvec(self, dec: &mut Decoder) -> MltResult<Cow<'a, BitSlice<u8, Lsb0>>> {
-        let num_values = self.meta.num_values.as_usize();
+        let num_values = self.meta.num_values.into_usize();
         if self.meta.encoding.physical == PhysicalEncoding::VarInt {
             return Err(MltError::NotImplemented("varint presence decoding"));
         }
@@ -45,7 +45,7 @@ impl<'a> RawStream<'a> {
         if self.meta.encoding.physical == PhysicalEncoding::VarInt {
             return Err(MltError::NotImplemented("varint bool decoding"));
         }
-        let num_values = self.meta.num_values.as_usize();
+        let num_values = self.meta.num_values.into_usize();
         let num_bytes = num_values.div_ceil(8);
         let decoded = decode_byte_rle(self.data, num_bytes, dec)?;
         decode_bytes_to_bools(&decoded, num_values, dec)
@@ -130,7 +130,7 @@ impl<'a> RawStream<'a> {
         if self.meta.encoding.physical == PhysicalEncoding::VarInt {
             return Err(MltError::NotImplemented("varint f32 decoding"));
         }
-        let num = self.meta.num_values.as_usize();
+        let num = self.meta.num_values.into_usize();
         dec.consume_items::<f32>(num)?;
         fail_if_invalid_stream_size(self.data.len(), num.checked_mul(4).or_overflow()?)?;
 
@@ -146,7 +146,7 @@ impl<'a> RawStream<'a> {
         if self.meta.encoding.physical == PhysicalEncoding::VarInt {
             return Err(MltError::NotImplemented("varint f64 decoding"));
         }
-        let num = self.meta.num_values.as_usize();
+        let num = self.meta.num_values.into_usize();
         fail_if_invalid_stream_size(self.data.len(), num.checked_mul(8).or_overflow()?)?;
 
         dec.consume_items::<f64>(num)?;

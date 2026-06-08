@@ -1,5 +1,6 @@
+use usize_cast::IntoUsize as _;
+
 use crate::decoder::RawFsstData;
-use crate::utils::AsUsize as _;
 use crate::{Decoder, MltResult};
 
 /// Decode an FSST-compressed byte sequence into the original bytes and value lengths,
@@ -42,8 +43,8 @@ pub fn decode_fsst(raw: RawFsstData<'_>, dec: &mut Decoder) -> MltResult<(String
             i += 1;
             output.push(compressed[i]);
         } else if sym_idx < sym_lens.len() {
-            let len = sym_lens[sym_idx].as_usize();
-            let off = symbol_offsets[sym_idx].as_usize();
+            let len = sym_lens[sym_idx].into_usize();
+            let off = symbol_offsets[sym_idx].into_usize();
             output.extend_from_slice(&symbols[off..off + len]);
         }
         i += 1;
@@ -219,7 +220,7 @@ mod tests {
         let (corpus, lengths) = roundtrip(values);
         let mut offset = 0;
         for (s, &len) in values.iter().zip(&lengths) {
-            let len = len as usize;
+            let len = len.into_usize();
             assert_eq!(&corpus[offset..offset + len], *s);
             offset += len;
         }

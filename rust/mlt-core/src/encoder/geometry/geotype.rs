@@ -632,6 +632,7 @@ mod tests {
 
     mod tessellation_tests {
         use geo_types::{Geometry, LineString, MultiPolygon, Polygon};
+        use usize_cast::IntoUsize as _;
 
         use crate::decoder::GeometryValues;
 
@@ -645,7 +646,7 @@ mod tests {
             let n = tris[0];
             assert!(n > 0, "expected at least one triangle");
             let ib = g.index_buffer().expect("index buffer");
-            assert_eq!(ib.len(), usize::try_from(n).unwrap() * 3);
+            assert_eq!(ib.len(), n.into_usize() * 3);
             // 4 unique (non-closing) vertices → indices in 0..4
             assert!(ib.iter().all(|&i| i < 4));
         }
@@ -663,7 +664,7 @@ mod tests {
             let ib = g.index_buffer().expect("index buffer");
             let tris = g.triangles().expect("triangles");
             assert_eq!(tris.len(), 1);
-            let total = usize::try_from(tris[0]).unwrap();
+            let total = tris[0].into_usize();
             assert_eq!(ib.len(), total * 3);
             // First quad: 4 verts → 2 triangles, 6 indices
             let split = 6;

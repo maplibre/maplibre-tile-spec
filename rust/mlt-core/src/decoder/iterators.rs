@@ -19,6 +19,7 @@
 use std::fmt;
 
 use geo_types::Geometry;
+use usize_cast::IntoUsize as _;
 
 use crate::decoder::{Layer01, ParsedLayer01, ParsedProperty, ParsedScalar, RawProperty};
 use crate::{Lazy, LazyParsed, MltResult, Parsed};
@@ -379,15 +380,15 @@ fn build_col_iters<'p>(columns: &'p [ParsedProperty<'p>]) -> Vec<ColValIter<'p>>
             PP::Str(strings) => {
                 let data: &'p str = strings.data.as_ref();
                 let lengths: &'p [i32] = &strings.lengths;
-                let mut curr_end: u32 = 0;
+                let mut curr_end: usize = 0;
                 let mut feat_idx = 0usize;
                 iters.push(Box::new(std::iter::from_fn(move || {
                     let &end_i32 = lengths.get(feat_idx)?;
                     feat_idx += 1;
                     if end_i32 >= 0 {
-                        let start = curr_end as usize;
-                        curr_end = end_i32.cast_unsigned();
-                        Some(data.get(start..curr_end as usize).map(PropValueRef::Str))
+                        let start = curr_end;
+                        curr_end = end_i32.cast_unsigned().into_usize();
+                        Some(data.get(start..curr_end).map(PropValueRef::Str))
                     } else {
                         // Null slot: curr_end unchanged (null encodes the current byte offset).
                         Some(None)

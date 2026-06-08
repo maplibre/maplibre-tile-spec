@@ -3,6 +3,7 @@ use std::io::{Read as _, Write as _};
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::__private::{dec, parser};
+use usize_cast::FromUsize as _;
 
 #[path = "bench_utils.rs"]
 mod bench_utils;
@@ -102,7 +103,7 @@ fn bench_parse(c: &mut Criterion) {
         let proto_tiles = load_proto_tiles(zoom);
 
         // mlt parse
-        group.throughput(Throughput::Bytes(total_bytes(&mlt_tiles) as u64));
+        group.throughput(Throughput::Bytes(u64::from_usize(total_bytes(&mlt_tiles))));
         group.bench_with_input(BenchmarkId::new("mlt", zoom), &mlt_tiles, |b, tiles| {
             b.iter(|| {
                 for (_, data) in tiles {
@@ -118,7 +119,7 @@ fn bench_parse(c: &mut Criterion) {
         // mvt parse (per codec)
         for &(codec_name, compress, decompress) in CODECS {
             let compressed = compress_tiles(&proto_tiles, compress);
-            group.throughput(Throughput::Bytes(total_bytes(&compressed) as u64));
+            group.throughput(Throughput::Bytes(u64::from_usize(total_bytes(&compressed))));
             group.bench_with_input(
                 BenchmarkId::new(format!("mvt+{codec_name}"), zoom),
                 &compressed,
@@ -148,7 +149,7 @@ fn bench_decode_all(c: &mut Criterion) {
         let proto_tiles = load_proto_tiles(zoom);
 
         // mlt decode_all
-        group.throughput(Throughput::Bytes(total_bytes(&mlt_tiles) as u64));
+        group.throughput(Throughput::Bytes(u64::from_usize(total_bytes(&mlt_tiles))));
         group.bench_with_input(BenchmarkId::new("mlt", zoom), &mlt_tiles, |b, tiles| {
             b.iter_batched(
                 || {
@@ -180,7 +181,7 @@ fn bench_decode_all(c: &mut Criterion) {
         // mvt decode_all (per codec)
         for &(codec_name, compress, decompress) in CODECS {
             let compressed = compress_tiles(&proto_tiles, compress);
-            group.throughput(Throughput::Bytes(total_bytes(&compressed) as u64));
+            group.throughput(Throughput::Bytes(u64::from_usize(total_bytes(&compressed))));
             group.bench_with_input(
                 BenchmarkId::new(format!("mvt+{codec_name}"), zoom),
                 &compressed,

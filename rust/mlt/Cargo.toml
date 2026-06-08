@@ -49,6 +49,7 @@ sqlx.workspace = true
 tabled.workspace = true
 thousands.workspace = true
 tokio.workspace = true
+usize_cast.workspace = true
 walkdir.workspace = true
 xxhash-rust.workspace = true
 

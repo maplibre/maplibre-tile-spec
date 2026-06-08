@@ -6,7 +6,6 @@ use num_enum::TryFromPrimitiveError;
 use crate::decoder::{
     GeometryType, LogicalEncoding, LogicalTechnique, PhysicalEncoding, StreamType,
 };
-use crate::utils::AsUsize;
 
 pub type MltResult<T> = Result<T, MltError>;
 pub(crate) type MltRefResult<'a, T> = Result<(&'a [u8], T), MltError>;
@@ -211,13 +210,10 @@ impl AsMltError<u32> for Result<u32, TryFromIntError> {
 }
 
 #[inline]
-pub(crate) fn fail_if_invalid_stream_size<T: AsUsize>(actual: T, expected: T) -> MltResult<()> {
+pub(crate) fn fail_if_invalid_stream_size(actual: usize, expected: usize) -> MltResult<()> {
     if actual == expected {
         Ok(())
     } else {
-        Err(MltError::InvalidDecodingStreamSize(
-            actual.as_usize(),
-            expected.as_usize(),
-        ))
+        Err(MltError::InvalidDecodingStreamSize(actual, expected))
     }
 }
