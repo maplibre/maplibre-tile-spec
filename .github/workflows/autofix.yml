@@ -21,7 +21,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@56545b37b57562edd73171cb6c62cc509db4c34e # v2.81.7
+      - uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
         with: { tool: 'just,cargo-sort' }
       - name: Format Cargo.toml
         run: just rust::fmt-toml
@@ -43,7 +43,7 @@ jobs:
         with: { persist-credentials: false }
       - name: Setup Rust
         run: rustup update stable && rustup default stable
-      - uses: taiki-e/install-action@56545b37b57562edd73171cb6c62cc509db4c34e # v2.81.7
+      - uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
         with: { tool: 'just' }
       - run: sudo apt update && sudo apt install -y jq
       - name: Sync package.json version from Cargo.toml
@@ -70,7 +70,7 @@ jobs:
         with: { persist-credentials: false }
       - name: Setup Rust
         run: rustup update stable && rustup default stable
-      - uses: taiki-e/install-action@56545b37b57562edd73171cb6c62cc509db4c34e # v2.81.7
+      - uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
         with: { tool: 'just,cargo-binstall' }
       - run: sudo apt-get update && sudo apt-get install -y clang-format
       - name: Install ktlint
@@ -102,7 +102,7 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@56545b37b57562edd73171cb6c62cc509db4c34e # v2.81.7
+      - uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
         with: { tool: 'just' }
       - uses: ./.github/actions/mlt-setup-rust
       - name: Regenerate stub
@@ -144,7 +144,7 @@ jobs:
         run: rustup update stable && rustup default stable
 
       - name: Install just
-        uses: taiki-e/install-action@56545b37b57562edd73171cb6c62cc509db4c34e # v2.81.7
+        uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
         with:
           tool: just,cargo-binstall
 
