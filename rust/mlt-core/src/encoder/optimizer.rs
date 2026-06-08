@@ -17,6 +17,9 @@ impl StagedLayer {
     /// `Encoder` with the smallest `total_len()` is kept.
     #[hotpath::measure]
     pub fn encode_into(self, mut enc: Encoder, codecs: &mut Codecs) -> MltResult<Encoder> {
+        if self.name.is_empty() {
+            return Err(MltError::MissingLayerName);
+        }
         let column_count = usize::from(!matches!(&self.id, StagedId::None))
             + 1 // geometry
             + self.properties.len();
@@ -63,6 +66,9 @@ impl TileLayer {
     /// vertex buffer layout — are selected automatically to minimize output size.
     #[hotpath::measure]
     pub fn encode(self, cfg: EncoderConfig) -> MltResult<Vec<u8>> {
+        if self.name.is_empty() {
+            return Err(MltError::MissingLayerName);
+        }
         if self.features.is_empty() {
             return Ok(Vec::new());
         }

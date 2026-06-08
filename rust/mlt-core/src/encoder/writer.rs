@@ -208,6 +208,9 @@ impl Encoder {
     /// [`hdr`]: Encoder::hdr
     #[hotpath::measure]
     pub fn write_header(&mut self, name: &str, extent: u32, column_count: usize) -> MltResult<()> {
+        if name.is_empty() {
+            return Err(MltError::MissingLayerName);
+        }
         debug_assert!(
             self.alt_stack.is_empty(),
             "write_header called with an open alternatives session"

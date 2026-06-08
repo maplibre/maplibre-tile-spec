@@ -1,65 +1,38 @@
 //! Decode MVT bytes into [`FeatureCollection`] or row-oriented [`TileLayer`]s.
 
 use std::collections::{BTreeMap, HashMap};
+use std::convert::Infallible;
 
-use geo_types::{
-    Coord, Geometry as Geom, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon,
-    Point, Polygon,
-};
-use mvt_reader::Reader;
-use mvt_reader::feature::{Feature as MvtFeature, Value as MvtValue};
-use serde_json::{Number, Value};
+use fast_mvt::{MvtLayer, MvtReaderRef, MvtValue};
+use serde_json::Value;
 
+use crate::MltResult;
 use crate::decoder::{PropValue, TileFeature, TileLayer};
 use crate::geojson::{Feature, FeatureCollection};
-use crate::{MltError, MltResult};
-
-/// Parsed representation of a single MVT layer: metadata plus raw features.
-struct MvtLayer {
-    name: String,
-    extent: u32,
-    features: Vec<MvtFeature<f32>>,
-}
 
 /// Parse MVT bytes into a list of layers, each holding its raw features.
 ///
-/// This is the single place where the `mvt_reader` API is called; both
+/// This is the single place where the `fast-mvt` API is called; both
 /// [`mvt_to_feature_collection`] and [`mvt_to_tile_layers`] build on top of it.
-fn read_mvt_layers(data: Vec<u8>) -> MltResult<Vec<MvtLayer>> {
-    let reader = Reader::new(data)?;
-    let metas = reader.get_layer_metadata()?;
-    metas
-        .iter()
-        .map(|meta| {
-            let features = reader.get_features(meta.layer_index)?;
-            Ok(MvtLayer {
-                name: meta.name.clone(),
-                extent: meta.extent,
-                features,
-            })
-        })
-        .collect()
+fn read_mvt_layers(data: &[u8]) -> MltResult<Vec<MvtLayer>> {
+    Ok(MvtReaderRef::new(data)?.to_tile()?.layers)
 }
 
 /// Parse MVT binary data and convert to a [`FeatureCollection`].
-pub fn mvt_to_feature_collection(data: Vec<u8>) -> MltResult<FeatureCollection> {
+pub fn mvt_to_feature_collection(data: impl AsRef<[u8]>) -> MltResult<FeatureCollection> {
     let mut features = Vec::new();
 
-    for layer in read_mvt_layers(data)? {
+    for layer in read_mvt_layers(data.as_ref())? {
         for feat in layer.features {
-            let geometry = convert_geometry(&feat.geometry)?;
             let mut properties = feat
                 .properties
-                .map(|p| {
-                    p.into_iter()
-                        .map(|(k, v)| (k, convert_value(&v)))
-                        .collect::<BTreeMap<_, _>>()
-                })
-                .unwrap_or_default();
+                .into_iter()
+                .map(|(k, v)| Ok((k, Value::try_from(v)?)))
+                .collect::<MltResult<BTreeMap<_, _>>>()?;
             properties.insert("_layer".into(), Value::String(layer.name.clone()));
-            properties.insert("_extent".into(), Value::Number(layer.extent.into()));
+            properties.insert("_extent".into(), Value::Number(layer.extent.get().into()));
             features.push(Feature {
-                geometry,
+                geometry: feat.geometry,
                 id: feat.id,
                 properties,
                 ty: "Feature".into(),
@@ -79,132 +52,70 @@ pub fn mvt_to_feature_collection(data: Vec<u8>) -> MltResult<FeatureCollection> 
 /// from all features in the layer: the first non-null value seen for each column
 /// determines its type, with `I64`+`U64` widened to `I64` and `F32`+`F64` widened
 /// to `F64`; all other type conflicts fall back to `Str`.
-pub fn mvt_to_tile_layers(data: Vec<u8>) -> MltResult<Vec<TileLayer>> {
-    read_mvt_layers(data)?
+pub fn mvt_to_tile_layers(data: impl AsRef<[u8]>) -> MltResult<Vec<TileLayer>> {
+    Ok(read_mvt_layers(data.as_ref())?
         .into_iter()
-        .map(mvt_layer_to_tile)
-        .collect()
+        .map(TileLayer::try_from)
+        .collect::<Result<Vec<_>, _>>()?)
 }
 
-fn mvt_layer_to_tile(layer: MvtLayer) -> MltResult<TileLayer> {
-    // First pass: collect property names (insertion-ordered) and infer column types.
-    let mut col_names: Vec<String> = Vec::new();
-    let mut col_index: HashMap<String, usize> = HashMap::new();
-    let mut col_types: Vec<InferredType> = Vec::new();
+#[expect(
+    clippy::infallible_try_from,
+    reason = "keep MVT model conversion symmetric with other TryFrom-based conversions"
+)]
+impl TryFrom<MvtLayer> for TileLayer {
+    type Error = Infallible;
 
-    for feat in &layer.features {
-        let Some(props) = &feat.properties else {
-            continue;
-        };
-        for (key, val) in props {
-            let idx = *col_index.entry(key.clone()).or_insert_with(|| {
-                let i = col_names.len();
-                col_names.push(key.clone());
-                col_types.push(InferredType::Unknown);
-                i
-            });
-            col_types[idx] = col_types[idx].merge(InferredType::from_mvt(val));
+    fn try_from(layer: MvtLayer) -> Result<Self, Self::Error> {
+        // First pass: collect property names (insertion-ordered) and infer column types.
+        let mut col_names: Vec<String> = Vec::new();
+        let mut col_index: HashMap<String, usize> = HashMap::new();
+        let mut col_types: Vec<InferredType> = Vec::new();
+
+        for feat in &layer.features {
+            for (key, val) in &feat.properties {
+                let idx = *col_index.entry(key.clone()).or_insert_with(|| {
+                    let i = col_names.len();
+                    col_names.push(key.clone());
+                    col_types.push(InferredType::Unknown);
+                    i
+                });
+                col_types[idx] = col_types[idx].merge(InferredType::from_mvt(val));
+            }
         }
-    }
 
-    // Columns that were only ever null fall back to Str.
-    for t in &mut col_types {
-        if *t == InferredType::Unknown {
-            *t = InferredType::Str;
+        // Columns that were only ever null fall back to Str.
+        for t in &mut col_types {
+            if *t == InferredType::Unknown {
+                *t = InferredType::Str;
+            }
         }
-    }
 
-    // Second pass: build TileFeature objects.
-    let mut tile_features = Vec::with_capacity(layer.features.len());
-    for feat in layer.features {
-        let geometry = convert_geometry(&feat.geometry)?;
-        // Start every slot with a typed null; fill in present values below.
-        let mut properties: Vec<PropValue> = col_types.iter().map(|t| t.typed_null()).collect();
-        if let Some(props) = feat.properties {
-            for (key, val) in props {
+        // Second pass: build TileFeature objects.
+        let mut tile_features = Vec::with_capacity(layer.features.len());
+        for feat in layer.features {
+            // Start every slot with a typed null; fill in present values below.
+            let mut properties: Vec<PropValue> = col_types.iter().map(|t| t.typed_null()).collect();
+            for (key, val) in feat.properties {
                 if let Some(&idx) = col_index.get(&key)
                     && !matches!(val, MvtValue::Null)
                 {
                     properties[idx] = col_types[idx].convert(val);
                 }
             }
+            tile_features.push(TileFeature {
+                id: feat.id,
+                geometry: feat.geometry,
+                properties,
+            });
         }
-        tile_features.push(TileFeature {
-            id: feat.id,
-            geometry,
-            properties,
-        });
-    }
 
-    Ok(TileLayer {
-        name: layer.name,
-        extent: layer.extent,
-        property_names: col_names,
-        features: tile_features,
-    })
-}
-
-fn coord(c: impl AsRef<Coord<f32>>) -> Coord<i32> {
-    let c = c.as_ref();
-    #[expect(clippy::cast_possible_truncation)]
-    Coord {
-        x: c.x.round() as i32,
-        y: c.y.round() as i32,
-    }
-}
-
-fn convert_geometry(geom: &Geom<f32>) -> MltResult<Geometry<i32>> {
-    Ok(match geom {
-        Geom::Point(v) => Geometry::<i32>::Point(Point(coord(v))),
-        Geom::MultiPoint(v) => {
-            Geometry::<i32>::MultiPoint(MultiPoint(v.iter().map(|p| Point(coord(p))).collect()))
-        }
-        Geom::LineString(v) => {
-            Geometry::<i32>::LineString(LineString(v.coords().map(coord).collect()))
-        }
-        Geom::MultiLineString(v) => Geometry::<i32>::MultiLineString(MultiLineString(
-            v.iter()
-                .map(|ls| LineString(ls.coords().map(coord).collect()))
-                .collect(),
-        )),
-        Geom::Polygon(v) => Geometry::<i32>::Polygon(convert_polygon(v)),
-        Geom::MultiPolygon(v) => {
-            Geometry::<i32>::MultiPolygon(MultiPolygon(v.iter().map(convert_polygon).collect()))
-        }
-        Geom::GeometryCollection(v) => {
-            return if v.len() == 1 {
-                convert_geometry(&v[0])
-            } else {
-                Err(MltError::BadMvtGeometry(
-                    "multiple geometries in a collection are not supported",
-                ))
-            };
-        }
-        Geom::Line(_) => Err(MltError::BadMvtGeometry("Unsupported Line geo type"))?,
-        Geom::Rect(_) => Err(MltError::BadMvtGeometry("Unsupported Rect geo type"))?,
-        Geom::Triangle(_) => Err(MltError::BadMvtGeometry("Unsupported Triangle geo type"))?,
-    })
-}
-
-fn convert_polygon(poly: &Polygon<f32>) -> Polygon<i32> {
-    let exterior = LineString(poly.exterior().coords().map(coord).collect());
-    let interiors = poly
-        .interiors()
-        .iter()
-        .map(|r| LineString(r.coords().map(coord).collect()))
-        .collect();
-    Polygon::new(exterior, interiors)
-}
-
-fn convert_value(val: &MvtValue) -> Value {
-    match val {
-        MvtValue::String(s) => Value::String(s.clone()),
-        MvtValue::Float(f) => Number::from_f64(f64::from(*f)).map_or(Value::Null, Value::Number),
-        MvtValue::Double(f) => Number::from_f64(*f).map_or(Value::Null, Value::Number),
-        MvtValue::Int(i) | MvtValue::SInt(i) => Value::Number((*i).into()),
-        MvtValue::UInt(u) => Value::Number((*u).into()),
-        MvtValue::Bool(b) => Value::Bool(*b),
-        MvtValue::Null => Value::Null,
+        Ok(Self {
+            name: layer.name,
+            extent: layer.extent.get(),
+            property_names: col_names,
+            features: tile_features,
+        })
     }
 }
 

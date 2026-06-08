@@ -47,6 +47,7 @@ jobs:
         with:
           use_oidc: true
           fail_ci_if_error: true
+          skip_validation: true
           disable_search: true
           files: rust/target/llvm-cov/lcov.info
       - run: just -v assert-git-is-clean
