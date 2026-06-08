@@ -89,7 +89,7 @@ impl TileFormat {
     #[must_use]
     pub fn from_path(path: &Path) -> Self {
         match path.extension().and_then(std::ffi::OsStr::to_str) {
-            Some("mvt") => Self::Mvt,
+            Some("mvt" | "pbf") => Self::Mvt,
             _ => Self::Mlt,
         }
     }
@@ -112,7 +112,7 @@ enum SortMode {
 
 #[derive(Args)]
 pub struct ConvertArgs {
-    /// Input: a directory with .mlt/.mvt tiles, a single tile file, an .mbtiles database
+    /// Input: a directory with .mlt/.mvt/.pbf tiles, a single tile file, an .mbtiles database
     input: PathBuf,
     /// Output: a directory for re-encoded .mlt files, an .mbtiles database or a .pmtiles file
     output: PathBuf,

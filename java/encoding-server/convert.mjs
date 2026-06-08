@@ -76,7 +76,7 @@ function convertStyleResponse(req, data, res) {
 
         const source = json.sources[key];
 
-        if (!source || source.type !== "vector") {
+        if (source?.type !== "vector") {
           continue;
         }
 

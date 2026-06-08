@@ -73,7 +73,7 @@ fn format_dedup_line(stats: &DedupStats, cache: &EncodedCache) -> String {
 fn is_convert_extension(path: &Path) -> bool {
     matches!(
         path.extension().and_then(OsStr::to_str),
-        Some("mlt" | "mvt")
+        Some("mlt" | "mvt" | "pbf")
     )
 }
 
@@ -161,7 +161,7 @@ pub fn convert_files(
 
     let processed = stats.hits.load(Ordering::Relaxed) + stats.encoded.load(Ordering::Relaxed);
     if processed == 0 {
-        eprintln!("No .mlt or .mvt files found in {}", input.display());
+        eprintln!("No .mlt, .mvt, or .pbf files found in {}", input.display());
         return Ok(());
     }
     eprintln!("{}", format_dedup_line(&stats, &cache));
