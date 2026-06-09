@@ -65,37 +65,37 @@ mod ffi {
 
         /// Generate tessellation data for polygons and multi-polygons.
         pub fn set_tessellate(&mut self, enabled: bool) {
-            self.0.tessellate = enabled;
+            self.0 = self.0.with_tessellation(enabled);
         }
 
         /// Try sorting features by the Z-order (Morton) curve index.
         pub fn set_try_spatial_morton_sort(&mut self, enabled: bool) {
-            self.0.try_spatial_morton_sort = enabled;
+            self.0 = self.0.with_spatial_morton_sort(enabled);
         }
 
         /// Try sorting features by the Hilbert curve index.
         pub fn set_try_spatial_hilbert_sort(&mut self, enabled: bool) {
-            self.0.try_spatial_hilbert_sort = enabled;
+            self.0 = self.0.with_spatial_hilbert_sort(enabled);
         }
 
         /// Try sorting features by their feature ID in ascending order.
         pub fn set_try_id_sort(&mut self, enabled: bool) {
-            self.0.try_id_sort = enabled;
+            self.0 = self.0.with_id_sort(enabled);
         }
 
         /// Allow FSST string compression.
         pub fn set_allow_fsst(&mut self, enabled: bool) {
-            self.0.allow_fsst = enabled;
+            self.0 = self.0.with_fsst(enabled);
         }
 
         /// Allow `FastPFOR` integer compression.
         pub fn set_allow_fpf(&mut self, enabled: bool) {
-            self.0.allow_fpf = enabled;
+            self.0 = self.0.with_fastpfor(enabled);
         }
 
         /// Allow string grouping into shared dictionaries.
         pub fn set_allow_shared_dict(&mut self, enabled: bool) {
-            self.0.allow_shared_dict = enabled;
+            self.0 = self.0.with_shared_dict(enabled);
         }
     }
 

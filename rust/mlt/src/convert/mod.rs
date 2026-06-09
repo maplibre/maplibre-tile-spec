@@ -145,14 +145,12 @@ impl ConvertArgs {
 }
 
 pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
-    let cfg = EncoderConfig {
-        tessellate: args.tessellate,
-        try_spatial_morton_sort: matches!(args.sort, SortMode::Auto | SortMode::Morton),
-        try_spatial_hilbert_sort: matches!(args.sort, SortMode::Auto | SortMode::Hilbert),
-        try_id_sort: matches!(args.sort, SortMode::Auto | SortMode::Id),
-        allow_shared_dict: !args.no_shared_dict,
-        ..Default::default()
-    };
+    let cfg = EncoderConfig::default()
+        .with_tessellation(args.tessellate)
+        .with_spatial_morton_sort(matches!(args.sort, SortMode::Auto | SortMode::Morton))
+        .with_spatial_hilbert_sort(matches!(args.sort, SortMode::Auto | SortMode::Hilbert))
+        .with_id_sort(matches!(args.sort, SortMode::Auto | SortMode::Id))
+        .with_shared_dict(!args.no_shared_dict);
 
     if args.input_container() == ContainerFormat::Mbtiles {
         if args.to == TileFormat::Mvt {
@@ -201,7 +199,11 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
                 out.extend_from_slice(&tile.encode(cfg)?);
             }
             Layer::Unknown(u) => {
-                out.extend(EncodedUnknown::from(u).write_to(Encoder::default())?.data);
+                out.extend(
+                    EncodedUnknown::from(u)
+                        .write_to(Encoder::default())?
+                        .into_raw_bytes(),
+                );
             }
             _ => {}
         }

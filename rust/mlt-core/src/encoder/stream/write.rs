@@ -92,7 +92,7 @@ impl PhysicalCodecs {
             PhysicalEncoder::FastPFOR => (PE::FastPFor256, P::fastpfor(self, values)?),
         };
         let meta = StreamMeta::new2(ctx.stream_type, le, pe, values.len())?;
-        write_stream_payload(&mut enc.data, meta, false, vals)
+        write_stream_payload(enc.data_mut(), meta, false, vals)
     }
 
     pub(crate) fn write_alternatives<P: PhysicalIntStreamKind + ?Sized>(
@@ -106,12 +106,12 @@ impl PhysicalCodecs {
         if P::FASTPFOR_ALLOWED {
             alt.with(|enc| {
                 let meta = StreamMeta::new2(stream_type, logical, PE::FastPFor256, values.len())?;
-                write_stream_payload(&mut enc.data, meta, false, P::fastpfor(self, values)?)
+                write_stream_payload(enc.data_mut(), meta, false, P::fastpfor(self, values)?)
             })?;
         }
         alt.with(|enc| {
             let meta = StreamMeta::new2(stream_type, logical, PE::VarInt, values.len())?;
-            write_stream_payload(&mut enc.data, meta, false, self.varint(values))
+            write_stream_payload(enc.data_mut(), meta, false, self.varint(values))
         })
     }
 }

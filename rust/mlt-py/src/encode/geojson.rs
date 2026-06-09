@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use mlt_core::encoder::EncoderConfig;
 use mlt_core::geo_types::Geometry;
 use mlt_core::geojson::FeatureCollection;
-use mlt_core::{PropValue, TileFeature, TileLayer};
+use mlt_core::{PropKind, PropValue, TileLayer};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
@@ -139,13 +139,13 @@ impl ColKind {
         }
     }
 
-    fn typed_null(self) -> PropValue {
+    fn prop_kind(self) -> PropKind {
         match self {
-            Self::Unknown | Self::Str => PropValue::Str(None),
-            Self::Bool => PropValue::Bool(None),
-            Self::I64 => PropValue::I64(None),
-            Self::U64 => PropValue::U64(None),
-            Self::F64 => PropValue::F64(None),
+            Self::Unknown | Self::Str => PropKind::Str,
+            Self::Bool => PropKind::Bool,
+            Self::I64 => PropKind::I64,
+            Self::U64 => PropKind::U64,
+            Self::F64 => PropKind::F64,
         }
     }
 
@@ -193,31 +193,32 @@ fn build_layer(fc: FeatureCollection, name: String, extent: u32) -> PyResult<Til
         }
     }
 
-    let features = fc
-        .features
+    let mut builder =
+        TileLayer::builder(name, extent).map_err(|err| PyValueError::new_err(err.to_string()))?;
+    let keys = names
         .into_iter()
-        .map(|feat| {
-            let mut properties: Vec<PropValue> = kinds.iter().map(|k| k.typed_null()).collect();
-            for (key, val) in feat.properties {
-                if val.is_null() {
-                    continue;
-                }
-                if let Some(&idx) = index.get(&key) {
-                    properties[idx] = kinds[idx].convert(val);
-                }
-            }
-            TileFeature {
-                id: feat.id,
-                geometry: feat.geometry,
-                properties,
-            }
-        })
-        .collect();
+        .zip(kinds.iter().copied())
+        .map(|(name, kind)| builder.add_property(name, kind.prop_kind()))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|err| PyValueError::new_err(err.to_string()))?;
 
-    Ok(TileLayer {
-        name,
-        extent,
-        property_names: names,
-        features,
-    })
+    for feat in fc.features {
+        let mut feature = builder.feature(feat.geometry);
+        feature.id(feat.id);
+        for (key, val) in feat.properties {
+            if val.is_null() {
+                continue;
+            }
+            if let Some(&idx) = index.get(&key) {
+                feature
+                    .property(keys[idx], kinds[idx].convert(val))
+                    .map_err(|err| PyValueError::new_err(err.to_string()))?;
+            }
+        }
+        feature
+            .finish()
+            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+    }
+
+    Ok(builder.finish())
 }

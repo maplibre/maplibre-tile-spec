@@ -288,7 +288,9 @@ mod tests {
         StreamMeta, StreamType,
     };
     use crate::encoder::model::StreamCtx;
-    use crate::encoder::{Codecs, EncodedStream, Encoder, ExplicitEncoder, IntEncoder};
+    use crate::encoder::{
+        Codecs, EncodedStream, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder,
+    };
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
 
@@ -303,7 +305,7 @@ mod tests {
             .write_to(&mut enc, &mut codecs)
             .expect("Failed to encode");
 
-        let parsed = assert_empty(RawGeometry::from_bytes(&enc.data, &mut parser()));
+        let parsed = assert_empty(RawGeometry::from_bytes(enc.data(), &mut parser()));
 
         LazyParsed::Raw(parsed)
             .into_parsed(&mut dec())
@@ -589,7 +591,7 @@ mod tests {
         // stream count, then meta (geom type), parts, vertex offsets, Morton dict.
         let mut codecs = Codecs::default();
         let mut enc = Encoder::with_explicit(
-            Encoder::default().cfg,
+            EncoderConfig::default(),
             ExplicitEncoder::all(IntEncoder::varint()),
         );
         enc.write_varint(4u32).unwrap();
@@ -615,7 +617,7 @@ mod tests {
             )
             .unwrap();
         enc.write_stream(&morton_dict).unwrap();
-        let buffer = enc.data;
+        let buffer = enc.data().to_vec();
 
         let mut p = parser();
         let parsed = assert_empty(RawGeometry::from_bytes(&buffer, &mut p));

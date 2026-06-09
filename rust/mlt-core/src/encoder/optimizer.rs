@@ -20,11 +20,11 @@ impl StagedLayer {
         if self.name.is_empty() {
             return Err(MltError::MissingLayerName);
         }
-        let column_count = usize::from(!matches!(&self.id, StagedId::None))
+        let column_count = usize::from(!matches!(self.id, StagedId::None))
             + 1 // geometry
             + self.properties.len();
 
-        let Self {
+        let StagedLayer {
             name,
             extent,
             id,
@@ -35,7 +35,7 @@ impl StagedLayer {
         id.write_to(&mut enc, codecs)?;
         geometry.write_to(&mut enc, codecs)?;
         write_properties(&properties, &mut enc, codecs)?;
-        enc.write_header(&name, extent, column_count)?;
+        enc.write_header(&name, extent.get(), column_count)?;
 
         Ok(enc)
     }
@@ -66,30 +66,30 @@ impl TileLayer {
     /// vertex buffer layout — are selected automatically to minimize output size.
     #[hotpath::measure]
     pub fn encode(self, cfg: EncoderConfig) -> MltResult<Vec<u8>> {
-        if self.name.is_empty() {
+        if self.name().is_empty() {
             return Err(MltError::MissingLayerName);
         }
-        if self.features.is_empty() {
+        if self.features().is_empty() {
             return Ok(Vec::new());
         }
 
         let mut sort_by = vec![SortStrategy::Unsorted];
-        let try_spatial_sort = cfg.try_spatial_morton_sort || cfg.try_spatial_hilbert_sort;
+        let try_spatial_sort = cfg.try_spatial_morton_sort() || cfg.try_spatial_hilbert_sort();
         if try_spatial_sort
-            && (self.features.len() < SORT_TRIAL_THRESHOLD || spatial_sort_likely_to_help(&self))
+            && (self.feature_count() < SORT_TRIAL_THRESHOLD || spatial_sort_likely_to_help(&self))
         {
-            if cfg.try_spatial_morton_sort {
+            if cfg.try_spatial_morton_sort() {
                 sort_by.push(SortStrategy::SpatialMorton);
             }
-            if cfg.try_spatial_hilbert_sort {
+            if cfg.try_spatial_hilbert_sort() {
                 sort_by.push(SortStrategy::SpatialHilbert);
             }
         }
-        if cfg.try_id_sort {
+        if cfg.try_id_sort() {
             sort_by.push(SortStrategy::Id);
         }
 
-        let stats = self.analyze(cfg.allow_shared_dict)?;
+        let stats = self.analyze(cfg.allow_shared_dict())?;
         // Bounds are order-invariant, so this scan is shared across every
         // sort trial and the encoder's Hilbert/Morton dictionary builders.
         let curve_params = self.curve_params();
@@ -103,13 +103,13 @@ impl TileLayer {
         let (last, init) = sort_by.split_last().expect("at least one strategy");
         if init.is_empty() {
             let mut codecs = Codecs::default();
-            StagedLayer::from_tile(self, *last, &stats, cfg.tessellate, curve_params)
+            StagedLayer::from_tile(self, *last, &stats, cfg.tessellate(), curve_params)
                 .encode_into(enc, &mut codecs)?
         } else {
             let mut codecs = Codecs::default();
             enc = {
                 let first = init[0];
-                StagedLayer::from_tile(self.clone(), first, &stats, cfg.tessellate, curve_params)
+                StagedLayer::from_tile(self.clone(), first, &stats, cfg.tessellate(), curve_params)
                     .encode_into(enc, &mut codecs)?
             };
             let mut best = enc.preserve_results();
@@ -119,7 +119,7 @@ impl TileLayer {
                     self.clone(),
                     sort,
                     &stats,
-                    cfg.tessellate,
+                    cfg.tessellate(),
                     curve_params,
                 );
                 enc = layer.encode_into(enc, &mut codecs)?;
@@ -128,7 +128,7 @@ impl TileLayer {
                 }
             }
             // Last strategy: consume self, no clone
-            let layer = StagedLayer::from_tile(self, *last, &stats, cfg.tessellate, curve_params);
+            let layer = StagedLayer::from_tile(self, *last, &stats, cfg.tessellate(), curve_params);
             enc = layer.encode_into(enc, &mut codecs)?;
             if enc.total_len() < best.total_len() {
                 best = enc.preserve_results();
@@ -353,7 +353,7 @@ impl TileLayer {
     /// Analyze a [`TileLayer`] and return reusable ID/property facts for the optimizer.
     #[hotpath::measure]
     pub(crate) fn analyze(&self, allow_shared_dict: bool) -> MltResult<LayerStats> {
-        let mut property_bits = Vec::with_capacity(self.property_names.len());
+        let mut property_bits = Vec::with_capacity(self.property_names().len());
         let mut properties = self.analyze_properties(&mut property_bits)?;
         let id = self.analyze_ids(&property_bits);
         if allow_shared_dict {
@@ -365,9 +365,9 @@ impl TileLayer {
     fn analyze_ids(&self, property_bits: &[(BitVec<u8>, usize)]) -> Option<PropertyStats> {
         let mut min = u64::MAX;
         let mut max = 0u64;
-        let mut bits = BitVec::<u8>::with_capacity(self.features.len());
-        for feature in &self.features {
-            if let Some(id) = feature.id {
+        let mut bits = BitVec::<u8>::with_capacity(self.feature_count());
+        for feature in self.features() {
+            if let Some(id) = feature.id() {
                 min = min.min(id);
                 max = max.max(id);
                 bits.push(true);
@@ -390,15 +390,15 @@ impl TileLayer {
         &self,
         property_bits: &mut Vec<(BitVec<u8>, usize)>,
     ) -> MltResult<Vec<PropertyStats>> {
-        self.property_names
+        self.property_names()
             .iter()
             .enumerate()
             .map(|(col_idx, name)| -> MltResult<PropertyStats> {
                 let mut kind = None;
                 let mut stats = PropertyTypedStats::default();
-                let mut bits = BitVec::<u8>::with_capacity(self.features.len());
-                for feature in &self.features {
-                    let prop = feature.properties.get(col_idx);
+                let mut bits = BitVec::<u8>::with_capacity(self.feature_count());
+                for feature in self.features() {
+                    let prop = feature.properties().get(col_idx);
                     if let Some(prop_kind) = prop.map(PropKind::from) {
                         match kind {
                             Some(kind) if kind != prop_kind => {

@@ -37,10 +37,10 @@ pub fn into_layer01(layer: Layer) -> Layer01 {
 #[must_use]
 pub fn feature_property_map(layer: &TileLayer, feat_idx: usize) -> BTreeMap<&str, &PropValue> {
     layer
-        .property_names
+        .property_names()
         .iter()
         .map(String::as_str)
-        .zip(layer.features[feat_idx].properties.iter())
+        .zip(layer.features()[feat_idx].properties().iter())
         .collect()
 }
 
@@ -48,15 +48,15 @@ pub fn feature_property_map(layer: &TileLayer, feat_idx: usize) -> BTreeMap<&str
 /// same name, extent, feature count, ids, geometries, and per-feature property
 /// maps (compared by name, not column index).
 pub fn assert_mvt_equivalent_layers(a: &TileLayer, b: &TileLayer) {
-    assert_eq!(a.name, b.name, "layer name");
-    assert_eq!(a.extent, b.extent, "layer extent");
-    let names_a: BTreeSet<&str> = a.property_names.iter().map(String::as_str).collect();
-    let names_b: BTreeSet<&str> = b.property_names.iter().map(String::as_str).collect();
+    assert_eq!(a.name(), b.name(), "layer name");
+    assert_eq!(a.extent(), b.extent(), "layer extent");
+    let names_a: BTreeSet<&str> = a.property_names().iter().map(String::as_str).collect();
+    let names_b: BTreeSet<&str> = b.property_names().iter().map(String::as_str).collect();
     assert_eq!(names_a, names_b, "property name set");
-    assert_eq!(a.features.len(), b.features.len(), "feature count");
-    for (i, (af, bf)) in a.features.iter().zip(b.features.iter()).enumerate() {
-        assert_eq!(af.id, bf.id, "feature id (index {i})");
-        assert_eq!(af.geometry, bf.geometry, "feature geometry (index {i})");
+    assert_eq!(a.features().len(), b.features().len(), "feature count");
+    for (i, (af, bf)) in a.features().iter().zip(b.features().iter()).enumerate() {
+        assert_eq!(af.id(), bf.id(), "feature id (index {i})");
+        assert_eq!(af.geometry(), bf.geometry(), "feature geometry (index {i})");
         assert_eq!(
             feature_property_map(a, i),
             feature_property_map(b, i),

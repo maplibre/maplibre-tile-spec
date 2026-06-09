@@ -1,14 +1,34 @@
 use derive_debug::Dbg;
 
-use crate::decoder::{DictionaryType, GeometryValues, StreamType};
+use crate::decoder::{DictionaryType, Extent, GeometryValues, StreamType};
 use crate::encoder::geometry::VertexBufferType;
 use crate::encoder::{IntEncoder, StagedId, StagedProperty};
+use crate::{MltError, MltResult};
 
 /// Owned variant of `Unknown`.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct EncodedUnknown {
     pub(crate) tag: u8,
     pub(crate) value: Vec<u8>,
+}
+
+impl EncodedUnknown {
+    pub fn new(tag: u8, value: Vec<u8>) -> MltResult<Self> {
+        if tag == 1 {
+            return Err(MltError::ParsingColumnType(tag));
+        }
+        Ok(Self { tag, value })
+    }
+
+    #[must_use]
+    pub fn tag(&self) -> u32 {
+        u32::from(self.tag)
+    }
+
+    #[must_use]
+    pub fn data(&self) -> &[u8] {
+        &self.value
+    }
 }
 
 /// Parameters derived from the vertex set of a feature collection, used to
@@ -47,11 +67,80 @@ impl CurveParams {
 /// (with explicit encoding mode enabled).
 #[derive(Debug, PartialEq, Clone)]
 pub struct StagedLayer {
-    pub name: String,
-    pub extent: u32,
-    pub id: StagedId,
-    pub geometry: GeometryValues,
-    pub properties: Vec<StagedProperty>,
+    pub(crate) name: String,
+    pub(crate) extent: Extent,
+    pub(crate) id: StagedId,
+    pub(crate) geometry: GeometryValues,
+    pub(crate) properties: Vec<StagedProperty>,
+}
+
+#[cfg_attr(not(feature = "__private"), allow(dead_code))]
+impl StagedLayer {
+    pub fn new(
+        name: impl Into<String>,
+        extent: u32,
+        id: StagedId,
+        geometry: GeometryValues,
+        properties: Vec<StagedProperty>,
+    ) -> MltResult<Self> {
+        let name = name.into();
+        if name.is_empty() {
+            return Err(MltError::MissingLayerName);
+        }
+        let extent = Extent::new(extent)?;
+        let feature_count = geometry.feature_count();
+        if let Some(actual) = id.feature_count()
+            && actual != feature_count
+        {
+            return Err(MltError::StagedFeatureCountMismatch {
+                column: "id".into(),
+                expected: feature_count,
+                actual,
+            });
+        }
+        for property in &properties {
+            let actual = property.feature_count();
+            if actual != feature_count {
+                return Err(MltError::StagedFeatureCountMismatch {
+                    column: property.name().to_string(),
+                    expected: feature_count,
+                    actual,
+                });
+            }
+        }
+        Ok(Self {
+            name,
+            extent,
+            id,
+            geometry,
+            properties,
+        })
+    }
+
+    #[must_use]
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    #[must_use]
+    pub fn extent(&self) -> Extent {
+        self.extent
+    }
+
+    #[must_use]
+    pub fn id(&self) -> &StagedId {
+        &self.id
+    }
+
+    #[must_use]
+    pub fn geometry(&self) -> &GeometryValues {
+        &self.geometry
+    }
+
+    #[must_use]
+    pub fn properties(&self) -> &[StagedProperty] {
+        &self.properties
+    }
 }
 
 /// Global encoder settings controlling which optimization strategies are attempted.
@@ -62,19 +151,19 @@ pub struct StagedLayer {
 )]
 pub struct EncoderConfig {
     /// Generate tessellation data for polygons and multi-polygons.
-    pub tessellate: bool,
+    tessellate: bool,
     /// Try sorting features by the Z-order (Morton) curve index of their first vertex.
-    pub try_spatial_morton_sort: bool,
+    try_spatial_morton_sort: bool,
     /// Try sorting features by the Hilbert curve index of their first vertex.
-    pub try_spatial_hilbert_sort: bool,
+    try_spatial_hilbert_sort: bool,
     /// Try sorting features by their feature ID in ascending order.
-    pub try_id_sort: bool,
+    try_id_sort: bool,
     /// Allow `FSST` string compression
-    pub allow_fsst: bool,
+    allow_fsst: bool,
     /// Allow `FastPFOR` integer compression
-    pub allow_fpf: bool,
+    allow_fpf: bool,
     /// Allow string grouping into shared dictionaries
-    pub allow_shared_dict: bool,
+    allow_shared_dict: bool,
 }
 impl Default for EncoderConfig {
     fn default() -> Self {
@@ -87,6 +176,85 @@ impl Default for EncoderConfig {
             allow_fpf: true,
             allow_shared_dict: true,
         }
+    }
+}
+
+impl EncoderConfig {
+    #[must_use]
+    pub fn tessellate(self) -> bool {
+        self.tessellate
+    }
+
+    #[must_use]
+    pub fn try_spatial_morton_sort(self) -> bool {
+        self.try_spatial_morton_sort
+    }
+
+    #[must_use]
+    pub fn try_spatial_hilbert_sort(self) -> bool {
+        self.try_spatial_hilbert_sort
+    }
+
+    #[must_use]
+    pub fn try_id_sort(self) -> bool {
+        self.try_id_sort
+    }
+
+    #[must_use]
+    pub fn allow_fsst(self) -> bool {
+        self.allow_fsst
+    }
+
+    #[must_use]
+    pub fn allow_fpf(self) -> bool {
+        self.allow_fpf
+    }
+
+    #[must_use]
+    pub fn allow_shared_dict(self) -> bool {
+        self.allow_shared_dict
+    }
+
+    #[must_use]
+    pub fn with_tessellation(mut self, enabled: bool) -> Self {
+        self.tessellate = enabled;
+        self
+    }
+
+    #[must_use]
+    pub fn with_spatial_morton_sort(mut self, enabled: bool) -> Self {
+        self.try_spatial_morton_sort = enabled;
+        self
+    }
+
+    #[must_use]
+    pub fn with_spatial_hilbert_sort(mut self, enabled: bool) -> Self {
+        self.try_spatial_hilbert_sort = enabled;
+        self
+    }
+
+    #[must_use]
+    pub fn with_id_sort(mut self, enabled: bool) -> Self {
+        self.try_id_sort = enabled;
+        self
+    }
+
+    #[must_use]
+    pub fn with_fsst(mut self, enabled: bool) -> Self {
+        self.allow_fsst = enabled;
+        self
+    }
+
+    #[must_use]
+    pub fn with_fastpfor(mut self, enabled: bool) -> Self {
+        self.allow_fpf = enabled;
+        self
+    }
+
+    #[must_use]
+    pub fn with_shared_dict(mut self, enabled: bool) -> Self {
+        self.allow_shared_dict = enabled;
+        self
     }
 }
 

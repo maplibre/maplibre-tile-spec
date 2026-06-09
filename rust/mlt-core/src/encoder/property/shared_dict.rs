@@ -57,14 +57,14 @@ impl TileLayer {
         );
 
         let profiles: Vec<StringProfile<'_>> = self
-            .property_names
+            .property_names()
             .iter()
             .enumerate()
             .filter_map(|(col_idx, name)| {
                 let vals: Vec<&str> = self
-                    .features
+                    .features()
                     .iter()
-                    .filter_map(|f| match f.properties.get(col_idx) {
+                    .filter_map(|f| match f.properties().get(col_idx) {
                         Some(PropValue::Str(Some(s))) => Some(s.as_str()),
                         _ => None,
                     })
@@ -228,6 +228,15 @@ impl StagedSharedDictItem {
 }
 
 impl StagedSharedDict {
+    #[must_use]
+    pub fn feature_count(&self) -> usize {
+        self.items
+            .first()
+            .map_or(0, StagedSharedDictItem::feature_count)
+    }
+}
+
+impl StagedSharedDict {
     /// Build a shared-dictionary column directly from raw per-column string data.
     ///
     /// Each column is a `(suffix, values, presence)` tuple where `values` is an iterator
@@ -368,7 +377,7 @@ impl Codecs {
         }
 
         enc.write_column_header(ColumnType::SharedDict, &shared_dict.prefix)?;
-        enc.meta.write_varint(children_count)?;
+        enc.meta_mut().write_varint(children_count)?;
 
         for item in &shared_dict.items {
             if item.has_presence() {

@@ -18,7 +18,7 @@ impl Arbitrary<'_> for StagedLayer {
     fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
         // Bound name length to prevent OOM from unbounded string generation
         let len = u.int_in_range(1..=32)?;
-        let name = (0..len)
+        let name: String = (0..len)
             .map(|_| u.arbitrary::<char>())
             .collect::<Result<_>>()?;
         let extent: u32 = u.arbitrary()?;
@@ -50,13 +50,7 @@ impl Arbitrary<'_> for StagedLayer {
             })
             .collect::<Result<_>>()?;
 
-        Ok(Self {
-            name,
-            extent,
-            id,
-            geometry,
-            properties,
-        })
+        Self::new(name, extent, id, geometry, properties).map_err(|_| IncorrectFormat)
     }
 }
 

@@ -166,16 +166,16 @@ fn build_features(
     let mut feat_iter = layer.iter_features();
     while let Some(feat_result) = feat_iter.next() {
         let feat = feat_result.map_err(mlt_err)?;
-        let geometry_type = GeometryType::try_from(&feat.geometry)
+        let geometry_type = GeometryType::try_from(feat.geometry())
             .map(|gt| gt.to_string())
             .unwrap_or_else(|_| "Unknown".to_string());
-        let wkb_bytes = geom32_to_wkb(&feat.geometry, xf).map_err(mlt_err)?;
+        let wkb_bytes = geom32_to_wkb(feat.geometry(), xf).map_err(mlt_err)?;
         let wkb = PyBytes::new(py, &wkb_bytes).unbind();
         let prop_dict = PyDict::new(py);
         for p in feat.iter_properties() {
-            prop_dict.set_item(p.name.to_string(), prop_value_to_py(py, p.value))?;
+            prop_dict.set_item(p.name().to_string(), prop_value_to_py(py, p.value()))?;
         }
-        let feature = MltFeature::new(feat.id, geometry_type, wkb, prop_dict.unbind());
+        let feature = MltFeature::new(feat.id(), geometry_type, wkb, prop_dict.unbind());
         features.push(Py::new(py, feature)?);
     }
     Ok(features)
@@ -212,13 +212,13 @@ fn decode_mlt(
         let decoded = layer01.decode_all(&mut dec).map_err(mlt_err)?;
         let xf = match (z, x, y) {
             (Some(z), Some(x), Some(y)) => {
-                Some(TileTransform::from_zxy(z, x, y, decoded.extent, tms)?)
+                Some(TileTransform::from_zxy(z, x, y, decoded.extent(), tms)?)
             }
             _ => None,
         };
         result.push(MltLayer {
-            name: decoded.name.to_string(),
-            extent: decoded.extent,
+            name: decoded.name().to_string(),
+            extent: decoded.extent(),
             features: build_features(py, &decoded, xf)?,
         });
     }
@@ -249,7 +249,7 @@ fn list_layers(
     let layers = Parser::default().parse_layers(data).map_err(mlt_err)?;
     Ok(layers
         .iter()
-        .filter_map(|l| l.as_layer01().map(|l| l.name.to_string()))
+        .filter_map(|l| l.as_layer01().map(|l| l.name().to_string()))
         .collect())
 }
 
@@ -378,7 +378,7 @@ mod tests {
 
         assert!(!decoded.is_empty(), "should parse at least one layer");
         let l = decoded[0].as_layer01().expect("first layer should be v0.1");
-        assert!(!l.name.is_empty(), "layer name should be non-empty");
+        assert!(!l.name().is_empty(), "layer name should be non-empty");
 
         let fc = FeatureCollection::from_layers(decoded).expect("FeatureCollection should succeed");
         assert!(
@@ -430,7 +430,7 @@ mod tests {
         let l = decoded[0].as_layer01().expect("first layer should be v0.1");
         let geom = l.geometry_values();
 
-        let xf = TileTransform::from_zxy(0, 0, 0, l.extent, false).unwrap();
+        let xf = TileTransform::from_zxy(0, 0, 0, l.extent(), false).unwrap();
 
         let wkb_raw = geom_to_wkb(geom, 0, None).expect("raw wkb should succeed");
         let wkb_xf = geom_to_wkb(geom, 0, Some(xf)).expect("transformed wkb should succeed");

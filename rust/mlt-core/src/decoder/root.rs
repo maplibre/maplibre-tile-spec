@@ -372,15 +372,15 @@ impl<'a> Layer01<'a, Lazy> {
             }
         }
         if input.is_empty() {
-            Ok(Layer01 {
-                name: layer_name,
+            Ok(Layer01::from_parts(
+                layer_name,
                 extent,
-                id: id_column,
-                geometry: geometry.ok_or(MissingGeometry)?,
+                id_column,
+                geometry.ok_or(MissingGeometry)?,
                 properties,
                 #[cfg(fuzzing)]
                 layer_order,
-            })
+            ))
         } else {
             Err(TrailingLayerData(input.len()))
         }
@@ -391,19 +391,18 @@ impl<'a> Layer01<'a, Lazy> {
     /// Consumes `self` (a `Layer01<Lazy>`) and returns a `Layer01<Parsed>` where every
     /// column field holds its parsed value directly, enabling infallible readonly access.
     pub fn decode_all(self, dec: &mut Decoder) -> MltResult<ParsedLayer01<'a>> {
-        Ok(Layer01 {
-            name: self.name,
-            extent: self.extent,
-            id: self.id.map(|id| id.into_parsed(dec)).transpose()?,
-            geometry: self.geometry.into_parsed(dec)?,
-            properties: self
-                .properties
+        Ok(Layer01::from_parts(
+            self.name(),
+            self.extent(),
+            self.id.map(|id| id.into_parsed(dec)).transpose()?,
+            self.geometry.into_parsed(dec)?,
+            self.properties
                 .into_iter()
                 .map(|p| p.into_parsed(dec))
                 .collect::<MltResult<Vec<_>>>()?,
             #[cfg(fuzzing)]
-            layer_order: self.layer_order,
-        })
+            self.layer_order,
+        ))
     }
 }
 

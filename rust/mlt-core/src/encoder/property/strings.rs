@@ -268,11 +268,11 @@ pub fn write_fsst_data(
     codecs.write_int_stream(&raw.symbol_lengths, &ctx, enc)?;
     let typ = StreamType::Data(DictionaryType::Fsst);
     let meta = StreamMeta::new_none(typ, raw.symbol_lengths.len())?;
-    write_stream_payload(&mut enc.data, meta, false, &raw.symbol_bytes)?;
+    write_stream_payload(enc.data_mut(), meta, false, &raw.symbol_bytes)?;
     let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), name);
     codecs.write_int_stream(&raw.value_lengths, &ctx, enc)?;
     let meta = StreamMeta::new_none(StreamType::Data(dict_type), raw.value_lengths.len())?;
-    write_stream_payload(&mut enc.data, meta, false, &raw.corpus)?;
+    write_stream_payload(enc.data_mut(), meta, false, &raw.corpus)?;
     Ok(())
 }
 
@@ -287,9 +287,9 @@ pub fn write_raw_str_data(
     let typ = StreamType::Data(dict_type);
     let meta = StreamMeta::new_none(typ, strings.len())?;
     meta.write_to(enc, false, u32::try_from(total_len)?)?;
-    enc.data.reserve(total_len);
+    enc.data_mut().reserve(total_len);
     for s in strings {
-        enc.data.extend_from_slice(s.as_bytes());
+        enc.data_mut().extend_from_slice(s.as_bytes());
     }
     Ok(())
 }

@@ -29,8 +29,8 @@ impl ParsedLayer01<'_> {
     /// heap allocation against `dec`.
     pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer> {
         // Extract owned/copied fields before borrowing self for the feature iterator.
-        let name = self.name.to_string();
-        let extent = self.extent;
+        let name = self.name().to_string();
+        let extent = self.extent();
         let names: Vec<String> = self.iterate_prop_names().map(|n| n.to_string()).collect();
         let col_nulls = typed_nulls(&self.properties);
         let mut features = dec.alloc::<TileFeature>(self.feature_count())?;
@@ -48,18 +48,13 @@ impl ParsedLayer01<'_> {
             charge_str_props(dec, &values)?;
 
             features.push(TileFeature {
-                id: feat.id,
-                geometry: feat.geometry,
+                id: feat.id(),
+                geometry: feat.geometry().clone(),
                 properties: values,
             });
         }
 
-        Ok(TileLayer {
-            name,
-            extent,
-            property_names: names,
-            features,
-        })
+        TileLayer::from_parts(name, extent, names, features)
     }
 
     #[must_use]

@@ -28,20 +28,20 @@ impl FeatureCollection {
             let Layer::Tag01(parsed) = layer else {
                 continue;
             };
-            let layer_name = parsed.name;
-            let extent = parsed.extent;
+            let layer_name = parsed.name();
+            let extent = parsed.extent();
             let mut feat_iter = parsed.iter_features();
             while let Some(feat) = feat_iter.next() {
                 let feat = feat?;
                 let mut properties = BTreeMap::new();
                 for p in feat.iter_properties() {
-                    properties.insert(p.name.to_string(), p.value.into());
+                    properties.insert(p.name().to_string(), p.value().into());
                 }
                 properties.insert("_layer".into(), Value::String(layer_name.to_string()));
                 properties.insert("_extent".into(), Value::Number(extent.into()));
                 features.push(Feature {
-                    geometry: feat.geometry,
-                    id: feat.id,
+                    geometry: feat.geometry().clone(),
+                    id: feat.id(),
                     properties,
                     ty: "Feature".into(),
                 });

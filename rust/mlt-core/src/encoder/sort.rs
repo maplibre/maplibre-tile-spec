@@ -57,13 +57,13 @@ impl TileLayer {
                 } else {
                     hilbert_sort_key
                 };
-                self.features.sort_by_cached_key(|f| {
-                    first_vertex(&f.geometry).map_or(u64::MAX, |c| u64::from(curve_key(c, params)))
+                self.features_mut().sort_by_cached_key(|f| {
+                    first_vertex(f.geometry()).map_or(u64::MAX, |c| u64::from(curve_key(c, params)))
                 });
             }
             SortStrategy::Id => {
-                self.features
-                    .sort_by_cached_key(|f| f.id.map_or(0, |v| v.saturating_add(1)));
+                self.features_mut()
+                    .sort_by_cached_key(|f| f.id().map_or(0, |v| v.saturating_add(1)));
             }
             SortStrategy::Unsorted => {
                 // do nothing
@@ -80,9 +80,9 @@ impl TileLayer {
     #[must_use]
     pub fn curve_params(&self) -> CurveParams {
         let (min_val, max_val) = self
-            .features
+            .features()
             .iter()
-            .flat_map(|f| f.geometry.coords_iter())
+            .flat_map(|f| f.geometry().coords_iter())
             .fold((i32::MAX, i32::MIN), |(min, max), c| {
                 (min.min(c.x).min(c.y), max.max(c.x).max(c.y))
             });
@@ -117,15 +117,15 @@ fn first_vertex(geom: &Geometry<i32>) -> Option<Coord<i32>> {
 pub(crate) fn spatial_sort_likely_to_help(layer: &TileLayer) -> bool {
     const SPATIAL_HELP_COVERAGE: f64 = 0.8;
 
-    let extent = f64::from(layer.extent);
-    if extent <= 0.0 || layer.features.is_empty() {
+    let extent = f64::from(layer.extent().get());
+    if extent <= 0.0 || layer.features().is_empty() {
         return true;
     }
 
     let (min_x, max_x, min_y, max_y) = layer
-        .features
+        .features()
         .iter()
-        .filter_map(|f| first_vertex(&f.geometry))
+        .filter_map(|f| first_vertex(f.geometry()))
         .fold(
             (i32::MAX, i32::MIN, i32::MAX, i32::MIN),
             |(min_x, max_x, min_y, max_y), Coord::<i32> { x, y }| {
@@ -151,7 +151,9 @@ mod tests {
     use geo_types::{Coord, Geometry as GeoGeom, Geometry, LineString, Point, Polygon};
 
     use crate::decoder::{GeometryType, GeometryValues, RawGeometry, TileFeature, TileLayer};
-    use crate::encoder::{Codecs, Encoder, ExplicitEncoder, IntEncoder, SortStrategy, stage_tile};
+    use crate::encoder::{
+        Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, SortStrategy, stage_tile,
+    };
     use crate::test_helpers::{assert_empty, dec, into_layer01, parser};
     use crate::{Layer, LazyParsed};
 
@@ -193,7 +195,7 @@ mod tests {
             .clone()
             .write_to(&mut enc, &mut codecs)
             .expect("encode failed");
-        let buf = enc.data;
+        let buf = enc.data().to_vec();
 
         let parsed = assert_empty(RawGeometry::from_bytes(&buf, &mut parser()));
         let mut d = dec();
@@ -229,12 +231,7 @@ mod tests {
             })
             .collect();
 
-        let mut layer = TileLayer {
-            name: "test".to_string(),
-            extent: 4096,
-            property_names: vec![],
-            features,
-        };
+        let mut layer = TileLayer::from_parts("test", 4096, vec![], features).unwrap();
 
         let params = layer.curve_params();
         layer.sort(strategy, params);
@@ -251,8 +248,8 @@ mod tests {
         let layer = layer_after_sort(geoms, ids, strategy);
 
         let mut sorted_decoded = GeometryValues::default();
-        for f in &layer.features {
-            sorted_decoded.push_geom(&f.geometry);
+        for f in layer.features() {
+            sorted_decoded.push_geom(f.geometry());
         }
 
         let after_roundtrip = roundtrip_geom(&sorted_decoded);
@@ -355,14 +352,14 @@ mod tests {
             SortStrategy::Id,
         );
 
-        let ids: Vec<Option<u64>> = layer.features.iter().map(|f| f.id).collect();
+        let ids: Vec<Option<u64>> = layer.features().iter().map(TileFeature::id).collect();
         assert_eq!(ids, vec![Some(1u64), Some(2), Some(3)]);
 
         // Verify geometry types match expected order
         let geom_types: Vec<&str> = layer
-            .features
+            .features()
             .iter()
-            .map(|f| GeometryType::try_from(&f.geometry).unwrap().into())
+            .map(|f| GeometryType::try_from(f.geometry()).unwrap().into())
             .collect();
         assert_eq!(geom_types, vec!["LineString", "Point", "Point"]);
     }
@@ -370,11 +367,11 @@ mod tests {
     /// Build row-oriented tile layer from geometries and IDs (one feature per geometry).
     fn build_tile_layer(geoms: &[Geometry<i32>], ids: &[Option<u64>]) -> TileLayer {
         assert_eq!(geoms.len(), ids.len());
-        TileLayer {
-            name: "test".to_string(),
-            extent: 4096,
-            property_names: vec![],
-            features: geoms
+        TileLayer::from_parts(
+            "test",
+            4096,
+            vec![],
+            geoms
                 .iter()
                 .zip(ids.iter())
                 .map(|(g, &id)| TileFeature {
@@ -383,16 +380,17 @@ mod tests {
                     properties: vec![],
                 })
                 .collect(),
-        }
+        )
+        .unwrap()
     }
 
     /// Encode the layer with a given sort strategy, decode it back, and return the `TileLayer`.
     /// This tests the full encode→decode roundtrip, verifying that sorting was applied.
     fn sort_encode_decode(tile: TileLayer, sort: SortStrategy) -> TileLayer {
-        let enc_cfg = Encoder::default().cfg;
+        let enc_cfg = EncoderConfig::default();
         let enc = Encoder::with_explicit(enc_cfg, ExplicitEncoder::for_id(IntEncoder::varint()));
         let mut codecs = Codecs::default();
-        let enc = stage_tile(tile, sort, false, enc_cfg.tessellate)
+        let enc = stage_tile(tile, sort, false, enc_cfg.tessellate())
             .encode_into(enc, &mut codecs)
             .expect("encode failed");
 
@@ -417,8 +415,8 @@ mod tests {
     /// Rebuild a flat vertex buffer from the feature geometries in source order.
     fn vertices_from_source(source: &TileLayer) -> Vec<i32> {
         let mut geom = GeometryValues::default();
-        for f in &source.features {
-            geom.push_geom(&f.geometry);
+        for f in source.features() {
+            geom.push_geom(f.geometry());
         }
         geom.vertices().unwrap_or_default().to_vec()
     }
@@ -443,7 +441,7 @@ mod tests {
         let tile = build_tile_layer(&[pt(2, 2), pt(1, 1), pt(0, 0)], &[Some(10), None, Some(5)]);
         let source = sort_encode_decode(tile, SortStrategy::Id);
 
-        let ids: Vec<Option<u64>> = source.features.iter().map(|f| f.id).collect();
+        let ids: Vec<Option<u64>> = source.features().iter().map(TileFeature::id).collect();
         // Expected order: [None, Some(5), Some(10)]
         assert_eq!(ids, vec![None, Some(5), Some(10)]);
 
@@ -468,9 +466,9 @@ mod tests {
         let source = sort_encode_decode(tile, SortStrategy::SpatialMorton);
 
         let types: Vec<_> = source
-            .features
+            .features()
             .iter()
-            .map(|f| GeometryType::try_from(&f.geometry).unwrap())
+            .map(|f| GeometryType::try_from(f.geometry()).unwrap())
             .collect();
 
         assert_eq!(
