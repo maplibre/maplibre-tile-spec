@@ -30,7 +30,7 @@ impl ParsedLayer01<'_> {
     pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer> {
         // Extract owned/copied fields before borrowing self for the feature iterator.
         let name = self.name().to_string();
-        let extent = self.extent();
+        let extent = self.extent().get();
         let names: Vec<String> = self.iterate_prop_names().map(|n| n.to_string()).collect();
         let col_nulls = typed_nulls(&self.properties);
         let mut features = dec.alloc::<TileFeature>(self.feature_count())?;

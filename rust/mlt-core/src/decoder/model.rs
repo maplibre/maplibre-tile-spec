@@ -135,8 +135,8 @@ pub enum ColumnType {
 ///   `properties` hold the parsed types directly, allowing infallible readonly access.
 ///   There is a `ParsedLayer01<'a>` type alias for this.
 pub struct Layer01<'a, S: DecodeState = Lazy> {
-    name: &'a str,
-    extent: u32,
+    pub(crate) name: &'a str,
+    pub(crate) extent: Extent,
     pub(crate) id: Option<Id<'a, S>>,
     pub(crate) geometry: Geometry<'a, S>,
     pub(crate) properties: Vec<Property<'a, S>>,
@@ -147,33 +147,13 @@ pub struct Layer01<'a, S: DecodeState = Lazy> {
 pub type ParsedLayer01<'a> = Layer01<'a, Parsed>;
 
 impl<'a, S: DecodeState> Layer01<'a, S> {
-    #[cfg_attr(not(fuzzing), allow(clippy::too_many_arguments))]
-    pub(crate) fn from_parts(
-        name: &'a str,
-        extent: u32,
-        id: Option<Id<'a, S>>,
-        geometry: Geometry<'a, S>,
-        properties: Vec<Property<'a, S>>,
-        #[cfg(fuzzing)] layer_order: Vec<crate::decoder::fuzzing::LayerOrdering>,
-    ) -> Self {
-        Self {
-            name,
-            extent,
-            id,
-            geometry,
-            properties,
-            #[cfg(fuzzing)]
-            layer_order,
-        }
-    }
-
     #[must_use]
     pub fn name(&self) -> &'a str {
         self.name
     }
 
     #[must_use]
-    pub fn extent(&self) -> u32 {
+    pub fn extent(&self) -> Extent {
         self.extent
     }
 }

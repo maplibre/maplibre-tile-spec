@@ -29,7 +29,7 @@ impl FeatureCollection {
                 continue;
             };
             let layer_name = parsed.name();
-            let extent = parsed.extent();
+            let extent = parsed.extent().get();
             let mut feat_iter = parsed.iter_features();
             while let Some(feat) = feat_iter.next() {
                 let feat = feat?;

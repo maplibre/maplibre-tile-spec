@@ -210,15 +210,14 @@ fn decode_mlt(
             ));
         };
         let decoded = layer01.decode_all(&mut dec).map_err(mlt_err)?;
+        let extent = decoded.extent().get();
         let xf = match (z, x, y) {
-            (Some(z), Some(x), Some(y)) => {
-                Some(TileTransform::from_zxy(z, x, y, decoded.extent(), tms)?)
-            }
+            (Some(z), Some(x), Some(y)) => Some(TileTransform::from_zxy(z, x, y, extent, tms)?),
             _ => None,
         };
         result.push(MltLayer {
             name: decoded.name().to_string(),
-            extent: decoded.extent(),
+            extent,
             features: build_features(py, &decoded, xf)?,
         });
     }
@@ -430,7 +429,7 @@ mod tests {
         let l = decoded[0].as_layer01().expect("first layer should be v0.1");
         let geom = l.geometry_values();
 
-        let xf = TileTransform::from_zxy(0, 0, 0, l.extent(), false).unwrap();
+        let xf = TileTransform::from_zxy(0, 0, 0, l.extent().get(), false).unwrap();
 
         let wkb_raw = geom_to_wkb(geom, 0, None).expect("raw wkb should succeed");
         let wkb_xf = geom_to_wkb(geom, 0, Some(xf)).expect("transformed wkb should succeed");
