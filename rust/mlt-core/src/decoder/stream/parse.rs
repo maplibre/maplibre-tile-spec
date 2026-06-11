@@ -1,6 +1,7 @@
 use std::io;
 
 use integer_encoding::VarIntWriter as _;
+use usize_cast::IntoUsize as _;
 
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
@@ -8,7 +9,7 @@ use crate::decoder::{
     StreamMeta, StreamType,
 };
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
-use crate::utils::{AsUsize as _, BinarySerializer as _, parse_u8, take};
+use crate::utils::{BinarySerializer as _, parse_u8, take};
 use crate::{MltError, MltRefResult, MltResult, Parser};
 
 impl IntEncoding {
@@ -24,13 +25,30 @@ impl IntEncoding {
 }
 
 impl StreamMeta {
-    #[must_use]
+    #[inline]
     pub(crate) fn new(stream_type: StreamType, encoding: IntEncoding, num_values: u32) -> Self {
         Self {
             stream_type,
             encoding,
             num_values,
         }
+    }
+
+    #[inline]
+    pub(crate) fn new2(
+        stream_type: StreamType,
+        logical: LogicalEncoding,
+        physical: PhysicalEncoding,
+        num_values: usize,
+    ) -> MltResult<Self> {
+        let enc = IntEncoding::new(logical, physical);
+        Ok(Self::new(stream_type, enc, u32::try_from(num_values)?))
+    }
+
+    #[inline]
+    pub(crate) fn new_none(stream_type: StreamType, num_values: usize) -> MltResult<Self> {
+        let enc = IntEncoding::none();
+        Ok(Self::new(stream_type, enc, u32::try_from(num_values)?))
     }
 
     /// Parse stream from the input
@@ -101,7 +119,7 @@ impl StreamMeta {
                 let shift;
                 (input, bits) = parse_varint::<u32>(input)?;
                 (input, shift) = parse_varint::<u32>(input)?;
-                let morton = Morton { bits, shift };
+                let morton = Morton::new(bits, shift)?;
                 match logical2 {
                     LT::Rle => LogicalEncoding::MortonRle(morton),
                     LT::Delta => LogicalEncoding::MortonDelta(morton),
@@ -233,7 +251,7 @@ fn validate_rle_varint_stream(data: &[u8], runs: u32, num_rle_values: u32) -> Ml
     }
     if sum != u64::from(num_rle_values) {
         let sum_usize = usize::try_from(sum).map_err(|_| MltError::IntegerOverflow)?;
-        fail_if_invalid_stream_size(sum_usize, num_rle_values.as_usize())?;
+        fail_if_invalid_stream_size(sum_usize, num_rle_values.into_usize())?;
     }
     Ok(())
 }

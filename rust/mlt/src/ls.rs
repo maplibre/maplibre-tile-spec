@@ -29,6 +29,7 @@ use tabled::settings::span::ColumnSpan;
 use tabled::settings::style::HorizontalLine;
 use tabled::settings::{Alignment, Style};
 use thousands::Separable as _;
+use usize_cast::FromUsize as _;
 
 #[derive(Debug, Args)]
 pub struct LsArgs {
@@ -376,7 +377,7 @@ pub fn analyze_tile_files(paths: &[PathBuf], base_path: &Path, flags: LsFlags) -
 /// Return cells for UI table display: [File, Size, Enc%, Layers, Features].
 #[must_use]
 pub fn row_cells(row: &LsRow) -> [String; 5] {
-    let fmt_size = |n: usize| format!("{:.1}B", SizeFormatterSI::new(n as u64));
+    let fmt_size = |n: usize| format!("{:.1}B", SizeFormatterSI::new(u64::from_usize(n)));
     match row {
         LsRow::Info { info, .. } => [
             info.path.clone(),
@@ -392,7 +393,10 @@ pub fn row_cells(row: &LsRow) -> [String; 5] {
         } => [
             path.display().to_string(),
             size.map_or_else(String::new, |n| {
-                format!("{:>8}", format!("{:.1}B", SizeFormatterSI::new(n as u64)))
+                format!(
+                    "{:>8}",
+                    format!("{:.1}B", SizeFormatterSI::new(u64::from_usize(n)))
+                )
             }),
             String::new(),
             String::new(),
@@ -620,7 +624,7 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
 }
 
 fn analyze_mvt_buffer(buffer: &[u8]) -> AnyResult<MltFileInfo> {
-    let fc = mvt_to_feature_collection(buffer.to_vec())?;
+    let fc = mvt_to_feature_collection(buffer)?;
 
     let mut layer_names = HashSet::new();
     let mut geometries = HashSet::new();
@@ -712,7 +716,7 @@ fn algorithms_display(algorithms: &HashSet<FileAlgorithm>) -> String {
 }
 
 fn print_table(rows: &[LsRow], flags: LsFlags) {
-    let fmt_size = |n: usize| format!("{:.1}B", SizeFormatterSI::new(n as u64));
+    let fmt_size = |n: usize| format!("{:.1}B", SizeFormatterSI::new(u64::from_usize(n)));
 
     let infos: Vec<&MltFileInfo> = rows
         .iter()

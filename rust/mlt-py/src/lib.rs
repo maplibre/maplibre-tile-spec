@@ -1,3 +1,4 @@
+mod encode;
 mod feature;
 mod tile_transform;
 
@@ -7,7 +8,8 @@ use std::ops::Deref;
 use mlt_core::geo_types::{Geometry, LineString, Polygon};
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::{
-    Decoder, GeometryType, Layer, MltError, MltResult, ParsedLayer01, Parser, PropValueRef,
+    Decoder, GeometryType, Layer, LendingIterator, MltError, MltResult, ParsedLayer01, Parser,
+    PropValueRef,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -161,7 +163,8 @@ fn build_features(
     xf: Option<TileTransform>,
 ) -> PyResult<Vec<Py<MltFeature>>> {
     let mut features = Vec::new();
-    for feat_result in layer.iter_features() {
+    let mut feat_iter = layer.iter_features();
+    while let Some(feat_result) = feat_iter.next() {
         let feat = feat_result.map_err(mlt_err)?;
         let geometry_type = GeometryType::try_from(&feat.geometry)
             .map(|gt| gt.to_string())
@@ -255,6 +258,7 @@ fn maplibre_tiles(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(decode_mlt, m)?)?;
     m.add_function(wrap_pyfunction!(decode_mlt_to_geojson, m)?)?;
     m.add_function(wrap_pyfunction!(list_layers, m)?)?;
+    m.add_function(wrap_pyfunction!(encode::geojson::encode_geojson, m)?)?;
     m.add_class::<MltLayer>()?;
     m.add_class::<MltFeature>()?;
     Ok(())

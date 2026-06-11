@@ -9,4 +9,8 @@ target/
 temp/
 tmp/
 venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
 rustc-ice-*.txt

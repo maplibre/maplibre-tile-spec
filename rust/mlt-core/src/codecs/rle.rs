@@ -1,6 +1,6 @@
 use num_traits::PrimInt;
+use usize_cast::IntoUsize as _;
 
-use crate::utils::AsUsize as _;
 use crate::{Decoder, MltError, MltResult};
 
 /// Generic run-length encode: returns `(run_lengths, values)`.
@@ -37,7 +37,7 @@ pub fn encode_rle<T: PrimInt>(data: &[T]) -> (Vec<T>, Vec<T>) {
 /// Format: control byte determines the run type:
 /// - `control >= 128`: literal run of `(256 - control)` bytes follow
 /// - `control < 128`: repeating run of `(control + 3)` copies of the next byte
-pub fn encode_byte_rle(data: &[u8], target: &mut Vec<u8>) {
+pub fn encode_byte_rle<'a>(data: &[u8], target: &'a mut Vec<u8>) -> &'a [u8] {
     target.clear();
     let mut pos = 0;
 
@@ -88,6 +88,7 @@ pub fn encode_byte_rle(data: &[u8], target: &mut Vec<u8>) {
             pos += literal_count;
         }
     }
+    target
 }
 
 /// Decode byte-level RLE as used in ORC for boolean and present streams.
@@ -103,7 +104,7 @@ pub fn decode_byte_rle(input: &[u8], num_bytes: usize, dec: &mut Decoder) -> Mlt
         pos += 1;
         if control >= 128 {
             let count = u32::from(control ^ 0xFF) + 1;
-            let end = pos + count.as_usize();
+            let end = pos + count.into_usize();
             let slice = input.get(pos..end).ok_or(MltError::BufferUnderflow(
                 count,
                 input.len().saturating_sub(pos),
@@ -145,8 +146,8 @@ mod tests {
         #[test]
         fn test_byte_rle_roundtrip(data: Vec<u8>) {
             let mut encoded = Vec::new();
-            encode_byte_rle(&data, &mut encoded);
-            let decoded = decode_byte_rle(&encoded, data.len(), &mut dec()).unwrap();
+            let buf = encode_byte_rle(&data, &mut encoded);
+            let decoded = decode_byte_rle(buf, data.len(), &mut dec()).unwrap();
             prop_assert_eq!(data, decoded);
         }
     }
@@ -161,8 +162,7 @@ mod tests {
     #[test]
     fn test_encode_byte_rle_empty() {
         let mut buf = Vec::new();
-        encode_byte_rle(&[], &mut buf);
-        assert!(buf.is_empty());
+        assert!(encode_byte_rle(&[], &mut buf).is_empty());
     }
 
     #[test]

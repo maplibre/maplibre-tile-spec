@@ -13,10 +13,11 @@
 ///     bytes = [0x04, 0x2A, 0x01, 0x02, 0x03]
 /// ```
 use mlt_core::{Layer, Parser};
+use usize_cast::FromUsize as _;
 
 fn unknown_layer_bytes(tag: u8, body: &[u8]) -> Vec<u8> {
     // size varint = 1 (tag byte) + body.len()
-    let size = (1 + body.len()) as u64;
+    let size = u64::from_usize(1 + body.len());
 
     let mut buf = Vec::new();
     // encode size as varint

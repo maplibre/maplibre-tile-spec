@@ -1,21 +1,21 @@
 use std::collections::HashMap;
 use std::{io, mem};
 
-use fastpfor::FastPFor256;
 use fsst::Compressor;
 use integer_encoding::VarIntWriter as _;
 
-use crate::decoder::Morton;
-use crate::encoder::model::{ExplicitEncoder, StrEncoding, StreamCtx};
-use crate::encoder::{EncoderConfig, IdWidth, IntEncoder, VertexBufferType};
+use crate::decoder::{ColumnType, Morton};
+use crate::encoder::model::{CurveParams, ExplicitEncoder, StrEncoding, StreamCtx};
+use crate::encoder::{EncoderConfig, IntEncoder, VertexBufferType};
+use crate::utils::BinarySerializer as _;
 use crate::{MltError, MltResult};
 
-/// Stateful encoder that accumulates encoded layer bytes and provides
-/// reusable scratch buffers to avoid repeated allocations during encoding.
+/// Stateful encoder that accumulates encoded layer bytes.
 ///
-/// Mirrors the [`Decoder`](crate::Decoder) pattern: the struct holds both the
-/// output buffers and reusable intermediate buffers that grow to the required
-/// size on first use and are then reused across streams without re-allocating.
+/// Logical temporary buffers live in `Codecs` and are passed alongside
+/// the encoder while a stream is being transformed and serialized. Physical
+/// encoders live here with their own scratch buffers, then copy complete
+/// payloads into [`data`](Encoder::data).
 ///
 /// # Buffer layout
 ///
@@ -41,10 +41,11 @@ use crate::{MltError, MltResult};
 /// and keep the one whose `total_len()` is smallest:
 ///
 /// ```rust,ignore
+/// let mut codecs = Codecs::default();
 /// let mut best: Option<Encoder> = None;
 /// for strategy in strategies {
 ///     let mut enc = Encoder::new(cfg);
-///     layer.write_to(&mut enc)?;
+///     layer.write_to(&mut enc, &mut codecs)?;
 ///     if best.as_ref().is_none_or(|b| enc.total_len() < b.total_len()) {
 ///         best = Some(enc);
 ///     }
@@ -107,20 +108,14 @@ pub struct Encoder {
     /// [`impl Write`]: Encoder#impl-Write
     pub data: Vec<u8>,
 
-    /// Layer columns written so far (geometry, optional ID, property columns).
-    ///
-    /// Incremented by each column encoder when it writes its column-type byte to
-    /// [`meta`](Encoder::meta). [`write_header`](Encoder::write_header) uses this
-    /// as the wire-format `column_count`.
-    pub layer_column_count: u32,
-
-    /// Regardless of the sort, these values should be identical
-    pub(crate) vertex_buffer_type_cache: Option<VertexBufferType>,
-
-    /// Cached result of `z_order_params` for the geometry column currently
-    /// being encoded.  Cleared at the start of each [`GeometryValues::write_to`](crate::GeometryValues::write_to)
-    /// call so it never leaks across columns.
+    /// Morton parameters for this layer's vertex set; `None` if the extent
+    /// exceeds 16 bits per axis (Morton encoding is unusable in that case).
+    /// Pre-populated by [`StagedLayer::encode_into`](crate::encoder::StagedLayer::encode_into).
     pub(crate) morton_cache: Option<Morton>,
+
+    /// Hilbert curve parameters for this layer's vertex set. Pre-populated by
+    /// [`StagedLayer::encode_into`](crate::encoder::StagedLayer::encode_into).
+    pub(crate) hilbert_cache: Option<CurveParams>,
 
     /// Cached FSST compressor per string column, keyed by column name.
     /// `None` means training found FSST not viable for that column.
@@ -141,13 +136,6 @@ pub struct Encoder {
     /// Empty while no [`Encoder::try_alternatives`] session
     /// is in progress.
     alt_stack: Vec<AltLevel>,
-
-    pub(crate) tmp_u32: Vec<u32>,
-    pub(crate) tmp_u32_b: Vec<u32>,
-    pub(crate) tmp_u64: Vec<u64>,
-    pub(crate) tmp_u8: Vec<u8>,
-    pub(crate) tmp_u8_b: Vec<u8>,
-    pub(crate) fastpfor: FastPFor256,
 }
 
 impl Encoder {
@@ -164,7 +152,7 @@ impl Encoder {
     }
 
     /// Like [`Self::new`] but with the explicit encoder set for deterministic encoding
-    /// (tests, synthetics). Use with `StagedLayer01::encode_explicit`.
+    /// (tests, synthetics). Use with `StagedLayer::encode_explicit`.
     #[inline]
     #[must_use]
     pub fn with_explicit(cfg: EncoderConfig, explicit: ExplicitEncoder) -> Self {
@@ -186,48 +174,54 @@ impl Encoder {
             hdr: mem::take(&mut self.hdr),
             meta: mem::take(&mut self.meta),
             data: mem::take(&mut self.data),
-            layer_column_count: mem::take(&mut self.layer_column_count),
-            vertex_buffer_type_cache: None,
             morton_cache: None,
+            hilbert_cache: None,
             fsst_cache: HashMap::new(),
             alt_stack: vec![],
-            tmp_u32: vec![],
-            tmp_u32_b: vec![],
-            tmp_u64: vec![],
-            tmp_u8: vec![],
-            tmp_u8_b: vec![],
-            fastpfor: FastPFor256::default(),
         }
     }
 
-    /// Record one layer column (geometry, ID, or property) after writing its
-    /// column-type metadata to [`meta`](Encoder::meta).
     #[inline]
-    pub(crate) fn increment_column_count(&mut self) {
-        self.layer_column_count = self.layer_column_count.saturating_add(1);
+    pub(crate) fn write_column_type(&mut self, column_type: ColumnType) -> MltResult<()> {
+        column_type.write_to(&mut self.meta).map_err(MltError::from)
+    }
+
+    #[inline]
+    pub(crate) fn write_column_name(&mut self, name: &str) -> MltResult<()> {
+        self.meta.write_string(name).map_err(MltError::from)
+    }
+
+    #[inline]
+    pub(crate) fn write_column_header(
+        &mut self,
+        column_type: ColumnType,
+        name: &str,
+    ) -> MltResult<()> {
+        self.write_column_type(column_type)?;
+        self.write_column_name(name)
     }
 
     /// Write the layer header (`name`, `extent`, `column_count`) to [`hdr`].
-    ///
-    /// `column_count` is `layer_column_count` —
-    /// each column encoder must call `push_layer_column`
-    /// when it commits a column to the wire format.
     ///
     /// Must be called exactly once per layer, after all column meta and data.
     ///
     /// [`hdr`]: Encoder::hdr
     #[hotpath::measure]
-    pub fn write_header(&mut self, name: &str, extent: u32) -> MltResult<()> {
+    pub fn write_header(&mut self, name: &str, extent: u32, column_count: usize) -> MltResult<()> {
+        if name.is_empty() {
+            return Err(MltError::MissingLayerName);
+        }
         debug_assert!(
             self.alt_stack.is_empty(),
             "write_header called with an open alternatives session"
         );
         let name_len = u32::try_from(name.len())?;
+        let column_count = u32::try_from(column_count)?;
         self.hdr.write_varint(name_len).map_err(MltError::from)?;
         self.hdr.extend_from_slice(name.as_bytes());
         self.hdr.write_varint(extent).map_err(MltError::from)?;
         self.hdr
-            .write_varint(self.layer_column_count)
+            .write_varint(column_count)
             .map_err(MltError::from)?;
         Ok(())
     }
@@ -244,25 +238,6 @@ impl Encoder {
     #[inline]
     pub(crate) fn override_str_enc(&self, name: &str) -> Option<StrEncoding> {
         self.explicit.as_ref().map(|e| (e.get_str_encoding)(name))
-    }
-
-    /// Whether the explicit encoder forces a presence stream for an all-present column
-    /// (or similar), per [`ExplicitEncoder::override_presence`].
-    #[inline]
-    pub(crate) fn override_presence(&self, ctx: &StreamCtx<'_>) -> bool {
-        self.explicit
-            .as_ref()
-            .is_some_and(|e| (e.override_presence)(ctx))
-    }
-
-    /// Applies `ExplicitEncoder::override_id_width` when an explicit encoder is active;
-    /// otherwise returns `auto` unchanged.
-    #[inline]
-    #[allow(clippy::unused_self)]
-    pub(crate) fn override_id_width(&self, auto: IdWidth) -> IdWidth {
-        self.explicit
-            .as_ref()
-            .map_or(auto, |e| (e.override_id_width)(auto))
     }
 
     /// Pinned vertex layout when an explicit encoder is active.
@@ -304,29 +279,28 @@ impl Encoder {
         out
     }
 
-    /// Assemble the complete Tag-01 layer record:
-    /// `[varint(body_len + 1)][tag = 1][hdr][meta][data]`.
-    ///
-    /// Consumes the encoder.  Call this on the winning sort-strategy trial.
-    pub fn into_layer_bytes(mut self) -> MltResult<Vec<u8>> {
+    /// Assemble the complete Tag-01 layer record.
+    pub fn into_layer_bytes(self) -> MltResult<Vec<u8>> {
+        self.into_layer_bytes_with_tag(1)
+    }
+
+    /// Assemble a complete layer record for the given `tag`:
+    /// `[varint(body_len + 1)][tag][hdr][meta][data]`.
+    fn into_layer_bytes_with_tag(mut self, tag: u8) -> MltResult<Vec<u8>> {
         debug_assert!(
             self.alt_stack.is_empty(),
-            "into_layer_bytes called with an open alternatives session"
+            "into_layer_bytes_with_tag called with an open alternatives session"
         );
         let body_len = self.hdr.len() + self.meta.len() + self.data.len();
         let size = u32::try_from(body_len + 1)?; // +1 for the tag byte
         let mut out = Vec::with_capacity(5 + 1 + body_len);
         out.write_varint(size).map_err(MltError::from)?;
-        out.push(1_u8); // tag = 1
+        out.push(tag);
         out.append(&mut self.hdr);
         out.append(&mut self.meta);
         out.append(&mut self.data);
         Ok(out)
     }
-
-    // -----------------------------------------------------------------------
-    // Stream-level alternatives
-    // -----------------------------------------------------------------------
 
     /// Begin a new encoding competition.
     ///

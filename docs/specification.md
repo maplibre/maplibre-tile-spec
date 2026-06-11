@@ -21,6 +21,7 @@ Each `FeatureTable` is preceded by a `FeatureTableMetadata` that describes `Feat
 The visual appearance of a tile is usually defined by a [MapLibre Style](https://maplibre.org/maplibre-style-spec/), which specifies how features are rendered.
 
 Each feature must have
+
 - a `geometry` column (type based on the OGC's Simple Feature Access Model (SFA), excluding support for `GeometryCollection` types)
 - an optional `id` column
 - optional property columns
@@ -30,6 +31,31 @@ As in MVT, geometry coordinates are encoded as integers within vector tile grid 
 
 !!! NOTE
     The terms `column`, `field`, and `property` are used interchangeably in this document.
+
+# MVT Compatibility Notes
+
+MLTv1 is inspired by MVT and can represent the same common vector tile content, but it is not a byte-for-byte or schema-free replacement.
+The main differences come from MVT's per-feature tag/value model versus MLT's per-layer column model:
+
+- **Property types are fixed per FeatureTable.**
+  In MVT, the same key can technically reference values of different data types on different features in a layer.
+  In MLT, one property name corresponds to one column, and that column has one declared type for the whole layer (`FeatureTable`).
+  MVT data with mixed types must therefore be normalized before or during conversion, for example by lossless numeric widening, coercing values to strings, dropping mismatched values, or rejecting the tile.
+- **Missing properties become typed nulls.**
+  MVT normally represents a missing property by omitting the key/value tag from that feature; the MVT value union has no dedicated null type.
+  MLT represents the union of layer properties as columns, so a feature that lacks a property stores a null in that column and the column is marked nullable.
+  When converting MLT back to MVT, null property values should be omitted from the feature tags.
+- **A feature has at most one value per property column.**
+  MVT tag streams can encode the same key more than once for a single feature, even though most MVT APIs expose properties as a map and collapse such duplicates.
+  MLT has one cell per feature per column, so duplicate keys on one feature must be rejected, collapsed deterministically, or renamed before encoding.
+- **Feature order is not necessarily a stable round-trip property.**
+  MVT stores features in wire order.
+  MLT encoders may preserve order, but they may also sort features by id or spatial locality to improve compression when that optimization is enabled.
+  Applications that rely on source feature order should disable feature sorting or carry an explicit ordering property.
+- **Layer names must be non-empty.**
+  The MVT protobuf schema marks the layer `name` field as required, but some Mapbox-authored tooling validates that it is present as well as non-empty.
+  The written MVT specification does not explicitly say that the required name cannot be an empty string.
+  MLT treats that omission as an oversight: an empty layer name is invalid and must be rejected.
 
 # Tile Layout
 
@@ -45,6 +71,7 @@ A stream is a sequence of values of a known length in a continuous memory chunk,
 Streams include additional metadata, such as their size and encoding type.
 
 For example, a nullable string property column might have:
+
 - A **`present` stream** (a bit flag indicating the presence of a value).
 - A **`length` stream** (describing the number of characters for each string).
 - A **`data` stream** (containing the actual UTF-8 encoded string values).
@@ -120,6 +147,7 @@ Each `FeatureTable` is preceded by a `FeatureTableMetadata` section describing i
     Should the size of the upcoming metadata and table be part of that structure?
 
 A FeatureTable consists of any number of the following sequences:
+
 - The size of the upcoming `FeatureTableMetadata` (varint-encoded).
 - The size of the upcoming `FeatureTable` (varint-encoded).
 - One `FeatureTableMetadata` section.
@@ -494,6 +522,7 @@ If geometries (mainly polygons) are pre-tessellated for direct GPU use, `NumTria
 ### Property Columns
 
 Feature properties are divided into `feature-scoped` and `vertex-scoped` properties.
+
 - **Feature-scoped**: One value per feature.
 - **Vertex-scoped**: One value per vertex in the VertexBuffer per feature (modeling M-coordinates from GIS).
 
@@ -509,6 +538,7 @@ A property column can use any data type from the [type system](#type-system).
 # Example Layouts
 
 The following examples illustrate the layout of a `FeatureTable` in storage. The color scheme is:
+
 - **Blue boxes**:
   Logical constructs, not persisted.
   Fields are reconstructed from streams based on TileSet metadata.
@@ -571,6 +601,7 @@ The MLT in-memory format incorporates ideas from analytical in-memory formats li
 It is also designed for future parallel processing on the GPU within compute shaders.
 
 The main design goals for the MLT in-memory format are:
+
 - Define a platform-agnostic representation to avoid expensive materialization costs, especially for strings.
 - Maximize CPU throughput by optimizing memory layout for cache locality and SIMD instructions.
 - Allow random (preferably constant-time) access to all data for parallel processing on GPUs (compute shaders).

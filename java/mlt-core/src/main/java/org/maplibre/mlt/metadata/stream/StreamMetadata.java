@@ -1,6 +1,7 @@
 package org.maplibre.mlt.metadata.stream;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import me.lemire.integercompression.IntWrapper;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
@@ -51,17 +52,27 @@ public class StreamMetadata {
   }
 
   public ArrayList<byte[]> encode() throws IOException {
+    return encode(5);
+  }
+
+  public ArrayList<byte[]> encode(int estimatedAdditionalStreams) throws IOException {
     final var encodedStreamType = (byte) ((physicalStreamType.ordinal()) << 4 | getLogicalType());
     final var encodedEncodingScheme =
         (byte)
             (logicalLevelTechnique1.ordinal() << 5
                 | logicalLevelTechnique2.ordinal() << 2
                 | physicalLevelTechnique.ordinal());
-    final var encodedLengthInfo =
-        EncodingUtils.encodeVarints(new int[] {numValues, byteLength}, false, false);
-    final var result = new ArrayList<byte[]>(2);
-    result.add(new byte[] {encodedStreamType, encodedEncodingScheme});
-    result.add(encodedLengthInfo);
+
+    final var size =
+        2 + EncodingUtils.getVarIntSize(numValues) + EncodingUtils.getVarIntSize(byteLength);
+    final var varintBuffer = ByteBuffer.wrap(new byte[size]);
+    varintBuffer.put(encodedStreamType);
+    varintBuffer.put(encodedEncodingScheme);
+    EncodingUtils.putVarInt(numValues, varintBuffer);
+    EncodingUtils.putVarInt(byteLength, varintBuffer);
+
+    final var result = new ArrayList<byte[]>(1 + estimatedAdditionalStreams);
+    result.add(varintBuffer.array());
     return result;
   }
 

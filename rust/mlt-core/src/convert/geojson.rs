@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Number, Value};
 
 use crate::decoder::{Layer, PropValueRef};
-use crate::{MltResult, ParsedLayer};
+use crate::{LendingIterator, MltResult, ParsedLayer};
 
 /// `GeoJSON` [`FeatureCollection`]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -30,7 +30,8 @@ impl FeatureCollection {
             };
             let layer_name = parsed.name;
             let extent = parsed.extent;
-            for feat in parsed.iter_features() {
+            let mut feat_iter = parsed.iter_features();
+            while let Some(feat) = feat_iter.next() {
                 let feat = feat?;
                 let mut properties = BTreeMap::new();
                 for p in feat.iter_properties() {
@@ -72,8 +73,9 @@ impl FromStr for FeatureCollection {
 pub struct Feature {
     #[serde(with = "geom_serde")]
     pub geometry: Geometry<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<u64>,
+    #[serde(default)]
     pub properties: BTreeMap<String, Value>,
     #[serde(rename = "type")]
     pub ty: String,

@@ -1,8 +1,9 @@
 [workspace]
 resolver = "3"
-members = ["mlt", "mlt-core", "mlt-py", "mlt-synthetics", "mlt-wasm"]
-default-members = ["mlt", "mlt-core", "mlt-synthetics"]
-# Excluding mlt-core/fuzz because cargo-fuzz does not have workspace support
+members = ["mlt", "mlt-core", "mlt-ffi", "mlt-py", "mlt-synthetics", "mlt-wasm"]
+default-members = ["mlt", "mlt-core", "mlt-ffi", "mlt-synthetics"]
+# Exclusions:
+#  - mlt-core/fuzz: cargo-fuzz does not have workspace support
 exclude = ["mlt-core/fuzz"]
 
 [workspace.package]
@@ -26,7 +27,10 @@ clap = { version = "4.6.0", features = ["derive"] }
 criterion = { version = "0.8", features = ["html_reports"] }
 crossterm = "0.29.0"
 derive-debug = "0.1.2"
+diplomat = "0.15.0"
+diplomat-runtime = "0.15.1"
 enum_dispatch = "0.3"
+fast-mvt = "0.3.0"
 fastpfor = { version = "0.9", features = ["rust"] }
 flate2 = "1"
 fsst-rs = "0.5"
@@ -37,42 +41,47 @@ glob = "0.3"
 globset = "0.4"
 hex = "0.4.3"
 hilbert_2d = "1.1.0"
-hotpath = "0.15"
+hotpath = "0.16"
 indicatif = "0.18"
 insta = "1.47.2"
 integer-encoding = "4.0.2"
 js-sys = "0.3"
 martin-tile-utils = "0.7"
-mbtiles = { version = "0.16", default-features = false, features = ["transcode"] }
-mlt-core = { version = "0.8.0", path = "mlt-core" }
+mbtiles = { version = "0.17", default-features = false, features = ["transcode"] }
+mlt-core = { version = "0.10.0", path = "mlt-core" }
 moka = { version = "0.12", features = ["sync"] }
-mvt-reader = "2.3.0"
 num-traits = "0.2.19"
 num_enum = "0.7.6"
+pmtiles = "0.23.0"
 pretty_assertions = "1.4"
 probabilistic-collections = "0.7"
 proptest = "1.11"
 proptest-derive = "0.8"
 pyo3 = "0.28.3"
-pyo3-stub-gen = "0.22.0"
-ratatui = "0.30.0"
+pyo3-stub-gen = "0.22.3"
+pythonize = "0.28"
+ratatui = "0.30.1"
 rayon = "1"
-rstar = "0.12"
+rstar = "0.13"
 rstest = "0.26.1"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1.0.149"
+serde_json = "1.0.150"
 size_format = "1"
-sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runtime-tokio"] }
+sqlx = { version = "0.8", default-features = false, features = [
+    "sqlite",
+    "runtime-tokio",
+] }
 strum = { version = "0.28.0", default-features = false, features = ["derive"] }
-tabled = "0.20"
+tabled = "0.21"
 test_each_file = "0.3.5"
 thiserror = "2.0.11"
 thousands = "0.2"
 tokio = { version = "1", features = ["macros", "rt", "sync", "time"] }
 union-find = "0.4.4"
+usize_cast = "1.1.0"
 walkdir = "2"
 wasm-bindgen = "0.2"
-wide = "1.1.1"
+wide = "1.5.0"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 zigzag = "0.1.0"
 zstd = "0.13"

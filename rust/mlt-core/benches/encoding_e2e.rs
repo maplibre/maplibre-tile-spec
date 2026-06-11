@@ -3,14 +3,16 @@ use std::hint::black_box;
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::__private::{dec, parser};
 use mlt_core::Layer;
-use mlt_core::encoder::{EncoderConfig, LogicalEncoder, SortStrategy};
+use mlt_core::encoder::{EncoderConfig, LogicalEncoder, stage_tile};
 use strum::IntoEnumIterator as _;
+use usize_cast::FromUsize as _;
 
 #[path = "bench_utils.rs"]
 mod bench_utils;
 use bench_utils::{BENCHMARKED_ZOOM_LEVELS, load_mlt_tiles};
+use mlt_core::encoder::SortStrategy::Unsorted;
 use mlt_core::encoder::{
-    Encoder, ExplicitEncoder, IntEncoder, PhysicalEncoder, StagedLayer, StagedLayer01,
+    Codecs, Encoder, ExplicitEncoder, IntEncoder, PhysicalEncoder, StagedLayer,
 };
 
 fn limit<T>(values: impl Iterator<Item = T>) -> impl Iterator<Item = T> {
@@ -21,9 +23,9 @@ fn limit<T>(values: impl Iterator<Item = T>) -> impl Iterator<Item = T> {
     }
 }
 
-/// Build `StagedLayer01` values from decoded tiles for encode benchmarks.
+/// Build `StagedLayer` values from decoded tiles for encode benchmarks.
 ///
-/// Goes through `Layer01 → TileLayer01 → StagedLayer01`, which is the correct
+/// Goes through `Layer01 → TileLayer → StagedLayer`, which is the correct
 /// encode-pipeline entry point per CONTRIBUTING.md.
 fn decode_to_owned(tiles: &[(String, Vec<u8>)], tessellate: bool) -> Vec<StagedLayer> {
     tiles
@@ -38,12 +40,7 @@ fn decode_to_owned(tiles: &[(String, Vec<u8>)], tessellate: bool) -> Vec<StagedL
                         return None;
                     };
                     let tile = layer01.into_tile(&mut d).ok()?;
-                    Some(StagedLayer::Tag01(StagedLayer01::from_tile(
-                        tile,
-                        SortStrategy::Unsorted,
-                        &[],
-                        tessellate,
-                    )))
+                    Some(stage_tile(tile, Unsorted, false, tessellate))
                 })
                 .collect::<Vec<_>>()
         })
@@ -55,7 +52,7 @@ fn bench_encode(c: &mut Criterion) {
     for zoom in BENCHMARKED_ZOOM_LEVELS {
         let tiles = load_mlt_tiles(zoom);
         let total_bytes: usize = tiles.iter().map(|(_, d)| d.len()).sum();
-        group.throughput(Throughput::Bytes(total_bytes as u64));
+        group.throughput(Throughput::Bytes(u64::from_usize(total_bytes)));
         for tessellate in [true, false] {
             let enc_config = EncoderConfig {
                 tessellate,
@@ -74,14 +71,17 @@ fn bench_encode(c: &mut Criterion) {
                             b.iter_batched(
                                 || decode_to_owned(tiles, enc_config.tessellate),
                                 |layers| {
+                                    let mut codecs = Codecs::default();
                                     for layer in layers {
-                                        if let StagedLayer::Tag01(l) = layer {
-                                            let enc = Encoder::with_explicit(
-                                                enc_config,
-                                                ExplicitEncoder::all(int_enc),
-                                            );
-                                            black_box(l.encode_into(enc).expect("encode failed"));
-                                        }
+                                        let enc = Encoder::with_explicit(
+                                            enc_config,
+                                            ExplicitEncoder::all(int_enc),
+                                        );
+                                        black_box(
+                                            layer
+                                                .encode_into(enc, &mut codecs)
+                                                .expect("encode failed"),
+                                        );
                                     }
                                 },
                                 BatchSize::SmallInput,

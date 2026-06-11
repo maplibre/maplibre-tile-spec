@@ -1,5 +1,6 @@
+use usize_cast::IntoUsize as _;
+
 use crate::decoder::RawFsstData;
-use crate::utils::AsUsize as _;
 use crate::{Decoder, MltResult};
 
 /// Decode an FSST-compressed byte sequence into the original bytes and value lengths,
@@ -42,8 +43,8 @@ pub fn decode_fsst(raw: RawFsstData<'_>, dec: &mut Decoder) -> MltResult<(String
             i += 1;
             output.push(compressed[i]);
         } else if sym_idx < sym_lens.len() {
-            let len = sym_lens[sym_idx].as_usize();
-            let off = symbol_offsets[sym_idx].as_usize();
+            let len = sym_lens[sym_idx].into_usize();
+            let off = symbol_offsets[sym_idx].into_usize();
             output.extend_from_slice(&symbols[off..off + len]);
         }
         i += 1;
@@ -138,10 +139,9 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::decoder::{
-        DictionaryType, IntEncoding, LengthType, RawFsstData, RawStream, StreamType,
-    };
-    use crate::encoder::{EncodedStream, Encoder, IntEncoder, do_write_u32};
+    use crate::decoder::{DictionaryType, LengthType, RawFsstData, RawStream, StreamType};
+    use crate::encoder::model::StreamCtx;
+    use crate::encoder::{Codecs, EncodedStream, Encoder, ExplicitEncoder, IntEncoder};
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
 
@@ -151,41 +151,40 @@ mod tests {
         let raw = compress_fsst(values);
 
         let sym_len_bytes = {
-            let mut enc = Encoder::default();
-            do_write_u32(
-                &raw.symbol_lengths,
-                StreamType::Length(LengthType::Symbol),
-                IntEncoder::varint(),
-                &mut enc,
-            )
-            .expect("symbol lengths stream");
+            let mut enc = Encoder::with_explicit(
+                Encoder::default().cfg,
+                ExplicitEncoder::all(IntEncoder::varint()),
+            );
+            let mut codecs = Codecs::default();
+            let ctx = StreamCtx::prop(StreamType::Length(LengthType::Symbol), "symbol");
+            codecs
+                .write_int_stream(&raw.symbol_lengths, &ctx, &mut enc)
+                .unwrap();
             enc.data
         };
         let sym_table_stream = EncodedStream {
-            meta: StreamMeta::new(
+            meta: StreamMeta::new_none(
                 StreamType::Data(DictionaryType::Fsst),
-                IntEncoding::none(),
-                u32::try_from(raw.symbol_lengths.len()).unwrap(),
-            ),
+                raw.symbol_lengths.len(),
+            )
+            .unwrap(),
             data: raw.symbol_bytes.clone(),
         };
         let lengths_bytes = {
-            let mut enc = Encoder::default();
-            do_write_u32(
-                &raw.value_lengths,
-                StreamType::Length(LengthType::Dictionary),
-                IntEncoder::varint(),
-                &mut enc,
-            )
-            .expect("dictionary lengths stream");
+            let mut enc = Encoder::with_explicit(
+                Encoder::default().cfg,
+                ExplicitEncoder::all(IntEncoder::varint()),
+            );
+            let mut codecs = Codecs::default();
+            let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), "dictionary");
+            codecs
+                .write_int_stream(&raw.value_lengths, &ctx, &mut enc)
+                .unwrap();
             enc.data
         };
         let corpus_stream = EncodedStream {
-            meta: StreamMeta::new(
-                StreamType::Data(DictionaryType::Single),
-                IntEncoding::none(),
-                u32::try_from(values.len()).unwrap(),
-            ),
+            meta: StreamMeta::new_none(StreamType::Data(DictionaryType::Single), values.len())
+                .unwrap(),
             data: raw.corpus.clone(),
         };
 
@@ -221,7 +220,7 @@ mod tests {
         let (corpus, lengths) = roundtrip(values);
         let mut offset = 0;
         for (s, &len) in values.iter().zip(&lengths) {
-            let len = len as usize;
+            let len = len.into_usize();
             assert_eq!(&corpus[offset..offset + len], *s);
             offset += len;
         }

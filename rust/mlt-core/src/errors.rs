@@ -6,7 +6,6 @@ use num_enum::TryFromPrimitiveError;
 use crate::decoder::{
     GeometryType, LogicalEncoding, LogicalTechnique, PhysicalEncoding, StreamType,
 };
-use crate::utils::AsUsize;
 
 pub type MltResult<T> = Result<T, MltError>;
 pub(crate) type MltRefResult<'a, T> = Result<(&'a [u8], T), MltError>;
@@ -24,6 +23,8 @@ pub enum MltError {
     IntegerOverflow,
     #[error("missing geometry column in feature table")]
     MissingGeometry,
+    #[error("missing layer name")]
+    MissingLayerName,
     #[error("missing string stream: {0}")]
     MissingStringStream(&'static str),
     #[error("multiple geometry columns found (only one allowed)")]
@@ -60,7 +61,7 @@ pub enum MltError {
     ZeroLayerSize,
     #[error("The encoder used to optimise data is incompatible")]
     BadEncoderDataCombination,
-    #[error("StagedLayer01::encode_explicit requires Encoder.explicit to be Some(_)")]
+    #[error("StagedLayer::encode_explicit requires Encoder.explicit to be Some(_)")]
     MissingExplicitEncoder,
 
     // Wire/codec decoding (bytes → primitives)
@@ -88,8 +89,6 @@ pub enum MltError {
     PriorParseFailure,
     #[error("presence stream has {0} bits set but {1} values provided")]
     PresenceValueCountMismatch(usize, usize),
-    #[error("MVT parse error: {0}")]
-    MvtParse(String),
     #[error("need to encode before being able to write")]
     NeedsEncodingBeforeWriting,
     #[error("memory limit exceeded: limit={limit}, used={used}, requested={requested}")]
@@ -102,6 +101,8 @@ pub enum MltError {
     NotImplemented(&'static str),
     #[error("unsupported property value and encoder combination: {0:?} + {1:?}")]
     UnsupportedPropertyEncoderCombination(&'static str, &'static str),
+    #[error("mixed property types are not allowed in column {0} ({1})")]
+    MixedPropertyTypes(usize, String),
     #[error("shared dictionary requires at least 2 streams, got {0}")]
     SharedDictRequiresStreams(usize),
     #[error("unsupported string stream count (expected between 2 and 5): {0}")]
@@ -125,6 +126,8 @@ pub enum MltError {
         "Extent {extent} cannot be encoded to morton due to morton allowing max. 16 bits, but {required_bits} would be required"
     )]
     VertexMortonNotCompatibleWithExtent { extent: u32, required_bits: u32 },
+    #[error("Morton stream uses {0} bits, but at most 16 bits are supported")]
+    InvalidMortonBits(u32),
 
     // Geometry decode errors (field = variable name, geom_type for context)
     #[error("MVT error: {0}")]
@@ -167,6 +170,10 @@ pub enum MltError {
     Utf8(#[from] std::str::Utf8Error),
     #[error("UTF-8 decode error: {0}")]
     FromUtf8(#[from] std::string::FromUtf8Error),
+    #[error("MVT error: {0}")]
+    Mvt(#[from] fast_mvt::MvtError),
+    #[error("MVT JSON value error: {0}")]
+    MvtJsonValue(#[from] fast_mvt::MvtJsonValueError),
 }
 
 impl From<Infallible> for MltError {
@@ -203,13 +210,10 @@ impl AsMltError<u32> for Result<u32, TryFromIntError> {
 }
 
 #[inline]
-pub(crate) fn fail_if_invalid_stream_size<T: AsUsize>(actual: T, expected: T) -> MltResult<()> {
+pub(crate) fn fail_if_invalid_stream_size(actual: usize, expected: usize) -> MltResult<()> {
     if actual == expected {
         Ok(())
     } else {
-        Err(MltError::InvalidDecodingStreamSize(
-            actual.as_usize(),
-            expected.as_usize(),
-        ))
+        Err(MltError::InvalidDecodingStreamSize(actual, expected))
     }
 }

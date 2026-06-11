@@ -24,7 +24,7 @@ use std::sync::LazyLock;
 
 use clap::Parser;
 use mlt_core::encoder::{
-    IdWidth, IntEncoder as E, LogicalEncoder as L, StagedProperty as P, StrEncoding,
+    IntEncoder as E, LogicalEncoder as L, StagedId as Id, StagedProperty as P, StrEncoding,
     VertexBufferType,
 };
 use mlt_core::geo_types::{
@@ -164,14 +164,9 @@ fn generate_geometry(w: &mut SynthWriter) {
 
     geo_varint().geo(poly1()).write(w, "poly");
     geo_fastpfor().geo(poly1()).write(w, "poly_fpf");
-    geo_varint()
-        .tessellate()
-        .force_empty_stream("geometries")
-        .geo(poly1())
-        .write(w, "poly_tes");
+    geo_varint().tessellate().geo(poly1()).write(w, "poly_tes");
     geo_fastpfor()
         .tessellate()
-        .force_empty_stream("geometries")
         .geo(poly1())
         .write(w, "poly_fpf_tes");
 
@@ -183,14 +178,10 @@ fn generate_geometry(w: &mut SynthWriter) {
         .write(w, "poly_collinear_fpf");
     geo_varint()
         .tessellate()
-        .force_empty_stream("geometries")
-        .force_empty_stream("triangles_indexes")
         .geo(poly_collinear())
         .write(w, "poly_collinear_tes");
     geo_fastpfor()
         .tessellate()
-        .force_empty_stream("geometries")
-        .force_empty_stream("triangles_indexes")
         .geo(poly_collinear())
         .write(w, "poly_collinear_fpf_tes");
 
@@ -202,12 +193,10 @@ fn generate_geometry(w: &mut SynthWriter) {
         .write(w, "poly_self_intersect_fpf");
     geo_varint()
         .tessellate()
-        .force_empty_stream("geometries")
         .geo(poly_self_intersect())
         .write(w, "poly_self_intersect_tes");
     geo_fastpfor()
         .tessellate()
-        .force_empty_stream("geometries")
         .geo(poly_self_intersect())
         .write(w, "poly_self_intersect_fpf_tes");
 
@@ -222,13 +211,11 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .parts_ring(E::rle_varint())
         .tessellate()
-        .force_empty_stream("geometries")
         .geo(poly1h())
         .write(w, "poly_hole_tes");
     geo_fastpfor()
         .parts_ring(E::rle_fastpfor())
         .tessellate()
-        .force_empty_stream("geometries")
         .geo(poly1h())
         .write(w, "poly_hole_fpf_tes");
 
@@ -243,13 +230,11 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .parts_ring(E::varint())
         .tessellate()
-        .force_empty_stream("geometries")
         .geo(poly_hole_touching())
         .write(w, "poly_hole_touching_tes");
     geo_fastpfor()
         .parts_ring(E::fastpfor())
         .tessellate()
-        .force_empty_stream("geometries")
         .geo(poly_hole_touching())
         .write(w, "poly_hole_touching_fpf_tes");
 
@@ -340,6 +325,16 @@ fn generate_geometry(w: &mut SynthWriter) {
         .geo(MultiLineString(vec![line1(), line2()]))
         .write(w, "multiline");
 
+    // See https://github.com/maplibre/maplibre-gl-js/issues/7659
+    //
+    // There was a mismatch between what rust encoded and what ts decoded
+    // in the case of single element geometry streams.
+    geo_varint()
+        .meta(E::delta_varint())
+        .no_rings(E::rle_varint())
+        .geo(MultiLineString(vec![line1(), line2()]))
+        .write(w, "multiline_meta_delta-rust");
+
     // Split the Morton curve into two halves to form a MultiLineString with Morton encoding.
     let mline1 = LineString::new(mc[..half].to_vec());
     let mline2 = LineString::new(mc[half..].to_vec());
@@ -373,8 +368,7 @@ fn write_mix(w: &mut SynthWriter, current: &[usize]) {
     if let Some(bldr) = builder_t {
         // let suffix = if ["..."].contains(name) { "" } else { "-rust" };
         let suffix = "";
-        bldr.force_empty_stream("geometries")
-            .write(w, format!("{name}_tes{suffix}"));
+        bldr.write(w, format!("{name}_tes{suffix}"));
     }
     builder.write(w, &name);
 }
@@ -421,109 +415,96 @@ fn generate_extent(w: &mut SynthWriter) {
 }
 
 fn generate_ids(w: &mut SynthWriter) {
-    p0().ids(vec![Some(100)], IdWidth::Id32, E::varint_with(L::None))
+    p0().ids(Id::u32(vec![100]), E::varint_with(L::None))
         .write(w, "id");
-    p0().ids(
-        vec![Some(u64::from(u32::MIN))],
-        IdWidth::Id32,
-        E::varint_with(L::None),
-    )
-    .write(w, "id_min");
-    p0().ids(
-        vec![Some(u64::from(u32::MAX))],
-        IdWidth::Id32,
-        E::varint_with(L::None),
-    )
-    .write(w, "id_max");
-    p0().ids(
-        vec![Some(9_234_567_890)],
-        IdWidth::Id64,
-        E::varint_with(L::None),
-    )
-    .write(w, "id64");
-    p0().ids(vec![Some(u64::MAX)], IdWidth::Id64, E::varint_with(L::None))
+    p0().ids(Id::u32(vec![u32::MIN]), E::varint_with(L::None))
+        .write(w, "id_min");
+    p0().ids(Id::u32(vec![u32::MAX]), E::varint_with(L::None))
+        .write(w, "id_max");
+    p0().ids(Id::u64(vec![9_234_567_890]), E::varint_with(L::None))
+        .write(w, "id64");
+    p0().ids(Id::u64(vec![u64::MAX]), E::varint_with(L::None))
         .write(w, "id64_max");
 
     let four_p0 = || geo_varint_with_rle().geos([P0, P0, P0, P0]);
-    let dup_id = || vec![Some(103); 4];
-    let dup_u64_id = || vec![Some(9_234_567_890); 4];
+    let dup_id = || Id::u32(vec![103; 4]);
+    let dup_u64_id = || Id::u64(vec![9_234_567_890; 4]);
 
     four_p0()
-        .ids(dup_id(), IdWidth::Id32, E::varint_with(L::None))
+        .ids(dup_id(), E::varint_with(L::None))
         .write(w, "ids");
     four_p0()
-        .ids(dup_id(), IdWidth::Id32, E::varint_with(L::Delta))
+        .ids(dup_id(), E::varint_with(L::Delta))
         .write(w, "ids_delta");
     four_p0()
-        .ids(dup_id(), IdWidth::Id32, E::varint_with(L::Rle))
+        .ids(dup_id(), E::varint_with(L::Rle))
         .write(w, "ids_rle");
     four_p0()
-        .ids(dup_id(), IdWidth::Id32, E::varint_with(L::DeltaRle))
+        .ids(dup_id(), E::varint_with(L::DeltaRle))
         .write(w, "ids_delta_rle");
     four_p0()
-        .ids(dup_u64_id(), IdWidth::Id64, E::varint_with(L::None))
+        .ids(dup_u64_id(), E::varint_with(L::None))
         .write(w, "ids64");
     four_p0()
-        .ids(dup_u64_id(), IdWidth::Id64, E::varint_with(L::Delta))
+        .ids(dup_u64_id(), E::varint_with(L::Delta))
         .write(w, "ids64_delta");
     four_p0()
-        .ids(dup_u64_id(), IdWidth::Id64, E::varint_with(L::Rle))
+        .ids(dup_u64_id(), E::varint_with(L::Rle))
         .write(w, "ids64_rle");
     four_p0()
-        .ids(dup_u64_id(), IdWidth::Id64, E::varint_with(L::DeltaRle))
+        .ids(dup_u64_id(), E::varint_with(L::DeltaRle))
         .write(w, "ids64_delta_rle");
 
     let five_p0 = || geo_varint_with_rle().geos([P0, P0, P0, P0, P0]);
     five_p0()
         .ids(
-            vec![Some(100), Some(101), None, Some(105), Some(106)],
-            IdWidth::OptId32,
+            Id::opt_u32(vec![Some(100), Some(101), None, Some(105), Some(106)]),
             E::varint_with(L::None),
         )
         .write(w, "ids_opt");
     five_p0()
         .ids(
-            vec![Some(100), Some(101), None, Some(105), Some(106)],
-            IdWidth::OptId32,
+            Id::opt_u32(vec![Some(100), Some(101), None, Some(105), Some(106)]),
             E::varint_with(L::Delta),
         )
         .write(w, "ids_opt_delta");
     five_p0()
         .ids(
-            vec![None, Some(9_234_567_890), Some(101), Some(105), Some(106)],
-            IdWidth::OptId64,
+            Id::opt_u64(vec![
+                None,
+                Some(9_234_567_890),
+                Some(101),
+                Some(105),
+                Some(106),
+            ]),
             E::varint_with(L::None),
         )
         .write(w, "ids64_opt");
     five_p0()
         .ids(
-            vec![None, Some(9_234_567_890), Some(101), Some(105), Some(106)],
-            IdWidth::OptId64,
+            Id::opt_u64(vec![
+                None,
+                Some(9_234_567_890),
+                Some(101),
+                Some(105),
+                Some(106),
+            ]),
             E::varint_with(L::Delta),
         )
         .write(w, "ids64_opt_delta");
 
-    let min_max = || {
-        vec![
-            Some(u64::MIN),
-            Some(u64::MAX),
-            Some(u64::MIN),
-            Some(u64::MAX),
-        ]
-    };
+    let min_max = || Id::u64(vec![u64::MIN, u64::MAX, u64::MIN, u64::MAX]);
     four_p0()
-        .ids(min_max(), IdWidth::Id64, E::varint_with(L::None))
+        .ids(min_max(), E::varint_with(L::None))
         .write(w, "ids64_minmax");
     four_p0()
-        .ids(min_max(), IdWidth::Id64, E::varint_with(L::Delta))
+        .ids(min_max(), E::varint_with(L::Delta))
         .write(w, "ids64_minmax_delta");
 
     // FastPFOR physical encoding for u32 IDs (Rust-only: Java encoder does not support this)
+    four_p0().ids(dup_id(), E::fastpfor()).write(w, "ids_fpf");
     four_p0()
-        .ids(dup_id(), IdWidth::Id32, E::fastpfor())
-        .write(w, "ids_fpf");
-    four_p0()
-        .ids(dup_id(), IdWidth::Id32, E::delta_fastpfor())
+        .ids(dup_id(), E::delta_fastpfor())
         .write(w, "ids_delta_fpf");
 }
 
@@ -921,11 +902,15 @@ fn generate_props_u32(w: &mut SynthWriter) {
             let opt_vals: Vec<Option<u32>> = vals.iter().map(|&v| Some(v)).collect();
             geo_fastpfor()
                 .meta(E::rle_fastpfor())
+                .vertex_buffer_type(VertexBufferType::Hilbert)
+                .vertex_offsets(E::rle_fastpfor())
                 .geos(vec![P0; count])
                 .add_prop(E::fastpfor(), P::u32("val", vals))
                 .write(w, format!("props_u32_fpf_{count}_np"));
             geo_fastpfor()
                 .meta(E::rle_fastpfor())
+                .vertex_buffer_type(VertexBufferType::Hilbert)
+                .vertex_offsets(E::rle_fastpfor())
                 .geos(vec![P0; count])
                 .add_prop(E::fastpfor(), P::opt_u32("val", opt_vals))
                 .write(w, format!("props_u32_fpf_{count}"));
@@ -1178,8 +1163,6 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
     )
     .write(w, "props_shared_dict_2_same_prefix");
 
-    // ── Presence variants ─────────────────────────────────────────────────────
-
     let mixed = || [Some(long_string()), None, Some(long_string())];
     let all = || [long_string(), long_string(), long_string()];
     let all_opt = || all().map(Some);
@@ -1229,8 +1212,7 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
         )
         .write(w, "props_shared_dict_presence_variants_np");
 
-    // canonical: all columns are optional (presence stream always written),
-    //            matching the force_presence behaviour from the old write_np helper.
+    // canonical: all columns are optional (presence stream always written).
     geo_varint_with_rle()
         .geos([P0, P0, P0])
         .add_shared_dict(
