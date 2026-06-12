@@ -6,7 +6,6 @@ use num_enum::TryFromPrimitiveError;
 use crate::decoder::{
     GeometryType, LogicalEncoding, LogicalTechnique, PhysicalEncoding, StreamType,
 };
-use crate::utils::AsUsize;
 
 pub type MltResult<T> = Result<T, MltError>;
 pub(crate) type MltRefResult<'a, T> = Result<(&'a [u8], T), MltError>;
@@ -24,6 +23,8 @@ pub enum MltError {
     IntegerOverflow,
     #[error("missing geometry column in feature table")]
     MissingGeometry,
+    #[error("missing layer name")]
+    MissingLayerName,
     #[error("missing string stream: {0}")]
     MissingStringStream(&'static str),
     #[error("multiple geometry columns found (only one allowed)")]
@@ -88,8 +89,6 @@ pub enum MltError {
     PriorParseFailure,
     #[error("presence stream has {0} bits set but {1} values provided")]
     PresenceValueCountMismatch(usize, usize),
-    #[error("MVT parse error: {0}")]
-    MvtParse(String),
     #[error("need to encode before being able to write")]
     NeedsEncodingBeforeWriting,
     #[error("memory limit exceeded: limit={limit}, used={used}, requested={requested}")]
@@ -171,6 +170,10 @@ pub enum MltError {
     Utf8(#[from] std::str::Utf8Error),
     #[error("UTF-8 decode error: {0}")]
     FromUtf8(#[from] std::string::FromUtf8Error),
+    #[error("MVT error: {0}")]
+    Mvt(#[from] fast_mvt::MvtError),
+    #[error("MVT JSON value error: {0}")]
+    MvtJsonValue(#[from] fast_mvt::MvtJsonValueError),
 }
 
 impl From<Infallible> for MltError {
@@ -207,13 +210,10 @@ impl AsMltError<u32> for Result<u32, TryFromIntError> {
 }
 
 #[inline]
-pub(crate) fn fail_if_invalid_stream_size<T: AsUsize>(actual: T, expected: T) -> MltResult<()> {
+pub(crate) fn fail_if_invalid_stream_size(actual: usize, expected: usize) -> MltResult<()> {
     if actual == expected {
         Ok(())
     } else {
-        Err(MltError::InvalidDecodingStreamSize(
-            actual.as_usize(),
-            expected.as_usize(),
-        ))
+        Err(MltError::InvalidDecodingStreamSize(actual, expected))
     }
 }

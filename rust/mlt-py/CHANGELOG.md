@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.17](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.16...python-mlt-v0.1.17) - 2026-06-08
+
+### Added
+
+- *(py)* simple, geojson based encoding ([#1416](https://github.com/maplibre/maplibre-tile-spec/pull/1416))
+
+## [0.1.16](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.15...python-mlt-v0.1.16) - 2026-05-16
+
+### Other
+
+- update Cargo.toml dependencies
+
+## [0.1.15](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.14...python-mlt-v0.1.15) - 2026-05-15
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.14](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.13...python-mlt-v0.1.14) - 2026-05-14
+
+### Other
+
+- update Cargo.lock dependencies
+
+## [0.1.13](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.12...python-mlt-v0.1.13) - 2026-05-05
+
+### Other
+
+- update Cargo.toml dependencies
+
 ## [0.1.12](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.11...python-mlt-v0.1.12) - 2026-04-29
 
 ### Other

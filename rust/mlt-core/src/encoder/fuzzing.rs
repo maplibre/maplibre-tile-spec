@@ -8,7 +8,7 @@ use crate::encoder::{StagedId, StagedProperty, StagedSharedDict, StagedStrings};
 impl Arbitrary<'_> for StagedId {
     fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
         // Bound ID count to prevent OOM from unbounded vector generation
-        let count = u.int_in_range(0..=64u8)? as usize;
+        let count = usize::from(u.int_in_range(0..=64u8)?);
         let values: Vec<Option<u64>> = (0..count).map(|_| u.arbitrary()).collect::<Result<_>>()?;
         Ok(Self::from_optional(values))
     }
@@ -17,8 +17,8 @@ impl Arbitrary<'_> for StagedId {
 impl Arbitrary<'_> for StagedLayer {
     fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
         // Bound name length to prevent OOM from unbounded string generation
-        let name_len = u.int_in_range(0..=32u8)? as usize;
-        let name: String = (0..name_len)
+        let len = u.int_in_range(1..=32)?;
+        let name = (0..len)
             .map(|_| u.arbitrary::<char>())
             .collect::<Result<_>>()?;
         let extent: u32 = u.arbitrary()?;
@@ -41,7 +41,7 @@ impl Arbitrary<'_> for StagedLayer {
         };
         // Bound property count to prevent OOM from unbounded vector generation.
         // Each column must have exactly `fc` values to match the feature count.
-        let prop_count = u.int_in_range(0..=4u8)? as usize;
+        let prop_count = usize::from(u.int_in_range(0..=4u8)?);
         let properties: Vec<StagedProperty> = (0..prop_count)
             .map(|_| {
                 let values: Vec<Option<u32>> =
@@ -63,7 +63,7 @@ impl Arbitrary<'_> for StagedLayer {
 impl<'a> Arbitrary<'a> for StagedSharedDict {
     fn arbitrary(u: &mut Unstructured<'a>) -> Result<Self> {
         // Bound item count and string sizes to prevent OOM
-        let item_count = u.int_in_range(0..=8u8)? as usize;
+        let item_count = usize::from(u.int_in_range(0..=8u8)?);
         let items_raw: Vec<(String, Vec<Option<String>>, Presence)> = (0..item_count)
             .map(|_| {
                 let values = generate_strings(u)?;
@@ -90,7 +90,7 @@ impl<'a> Arbitrary<'a> for StagedSharedDict {
 impl Arbitrary<'_> for StagedProperty {
     fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
         // Bound value count to prevent OOM from unbounded vector generation
-        let count = u.int_in_range(0..=64u8)? as usize;
+        let count = usize::from(u.int_in_range(0..=64u8)?);
         let values: Vec<Option<u32>> = (0..count).map(|_| u.arbitrary()).collect::<Result<_>>()?;
         Ok(Self::opt_u32("prop", values))
     }
@@ -107,7 +107,7 @@ impl Arbitrary<'_> for StagedStrings {
 
 /// Generate a string with bounded length to prevent OOM from unbounded string generation.
 pub fn bounded_string(u: &mut Unstructured<'_>, max_len: u8) -> Result<String> {
-    let len = u.int_in_range(0..=max_len)? as usize;
+    let len = usize::from(u.int_in_range(0..=max_len)?);
     (0..len)
         .map(|_| u.arbitrary::<char>())
         .collect::<Result<_>>()
@@ -115,7 +115,7 @@ pub fn bounded_string(u: &mut Unstructured<'_>, max_len: u8) -> Result<String> {
 
 fn generate_strings(u: &mut Unstructured) -> Result<Vec<Option<String>>> {
     // Bound string count and individual string lengths to prevent OOM
-    let val_count = u.int_in_range(0..=16u8)? as usize;
+    let val_count = usize::from(u.int_in_range(0..=16u8)?);
     let values: Vec<Option<String>> = (0..val_count)
         .map(|_| -> Result<_> {
             if u.arbitrary()? {

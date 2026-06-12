@@ -32,6 +32,7 @@ fn main() -> AnyResult<()> {
 
 #[derive(Parser)]
 #[command(name = "mlt", about = "MapLibre Tile format utilities")]
+#[command(version = env!("CARGO_PKG_VERSION"))]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -39,7 +40,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Convert .mlt and .mvt tiles in a directory tree to re-encoded .mlt files
+    /// Convert .mlt, .mvt, and .pbf tiles in a directory tree to re-encoded .mlt files
     Convert(ConvertArgs),
     /// Parse a tile file (.mlt, .mvt, .pbf) and dump raw layer data without decoding
     Dump(DumpArgs),

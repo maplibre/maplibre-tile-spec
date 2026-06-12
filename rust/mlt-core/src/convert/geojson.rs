@@ -73,8 +73,9 @@ impl FromStr for FeatureCollection {
 pub struct Feature {
     #[serde(with = "geom_serde")]
     pub geometry: Geometry<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<u64>,
+    #[serde(default)]
     pub properties: BTreeMap<String, Value>,
     #[serde(rename = "type")]
     pub ty: String,

@@ -1,5 +1,7 @@
+use usize_cast::IntoUsize as _;
+
 use crate::MltError::BufferUnderflow;
-use crate::utils::{AsUsize as _, take};
+use crate::utils::take;
 use crate::{Decoder, MltRefResult, MltResult};
 
 /// Pack bools into bytes where each byte represents 8 booleans.
@@ -26,11 +28,11 @@ pub fn decode_bytes_to_u64s<'a>(
     let Some(expected_bytes) = num_values.checked_mul(8) else {
         return Err(BufferUnderflow(u32::MAX, input.len()));
     };
-    if input.len() < expected_bytes.as_usize() {
+    if input.len() < expected_bytes.into_usize() {
         return Err(BufferUnderflow(expected_bytes, input.len()));
     }
 
-    let alloc_size = num_values.as_usize();
+    let alloc_size = num_values.into_usize();
     let mut values = dec.alloc(alloc_size)?;
 
     for _ in 0..num_values {
@@ -56,11 +58,11 @@ pub fn decode_bytes_to_u32s<'a>(
     let Some(expected_bytes) = num_values.checked_mul(4) else {
         return Err(BufferUnderflow(u32::MAX, input.len()));
     };
-    if input.len() < expected_bytes.as_usize() {
+    if input.len() < expected_bytes.into_usize() {
         return Err(BufferUnderflow(expected_bytes, input.len()));
     }
 
-    let alloc_size = num_values.as_usize();
+    let alloc_size = num_values.into_usize();
     let mut values = dec.alloc(alloc_size)?;
 
     for _ in 0..num_values {

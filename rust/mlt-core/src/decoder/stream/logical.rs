@@ -2,25 +2,28 @@ use std::fmt::Debug;
 use std::iter::repeat_n;
 
 use num_traits::{PrimInt, ToPrimitive as _};
+use usize_cast::IntoUsize as _;
 
 use crate::MltError::{ParsingLogicalTechnique, RleRunLenInvalid, UnsupportedLogicalEncoding};
 use crate::codecs::zigzag::{decode_componentwise_delta_vec2s, decode_zigzag, decode_zigzag_delta};
 use crate::decoder::{LogicalEncoding, LogicalTechnique, LogicalValue, RleMeta, StreamMeta};
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
-use crate::utils::AsUsize as _;
 use crate::{Decoder, MltResult};
 
 impl RleMeta {
     /// Decode RLE (Run-Length Encoding) data.
     /// Charges the decoder for the expanded output allocation.
     pub fn decode<T: PrimInt + Debug>(self, data: &[T], dec: &mut Decoder) -> MltResult<Vec<T>> {
-        let expected_len = self.runs.as_usize().checked_mul(2).or_overflow()?;
+        let expected_len = self.runs.into_usize().checked_mul(2).or_overflow()?;
         fail_if_invalid_stream_size(data.len(), expected_len)?;
 
-        let (run_lens, values) = data.split_at(self.runs.as_usize());
-        fail_if_invalid_stream_size(self.num_rle_values, Self::calc_size(run_lens)?)?;
+        let (run_lens, values) = data.split_at(self.runs.into_usize());
+        fail_if_invalid_stream_size(
+            self.num_rle_values.into_usize(),
+            Self::calc_size(run_lens)?.into_usize(),
+        )?;
 
-        let alloc_size = self.num_rle_values.as_usize();
+        let alloc_size = self.num_rle_values.into_usize();
         let mut result = dec.alloc(alloc_size)?;
         for (&run_len, &val) in run_lens.iter().zip(values.iter()) {
             let run = run_len
@@ -85,7 +88,7 @@ impl LogicalValue {
     /// Not called for `LogicalEncoding::None` — that case is handled entirely
     /// in the bridge (physical buffer decoded directly into the output Vec).
     pub fn decode_u32(self, data: &[u32], dec: &mut Decoder) -> MltResult<Vec<u32>> {
-        let num = self.meta.num_values.as_usize();
+        let num = self.meta.num_values.into_usize();
         match self.meta.encoding.logical {
             LogicalEncoding::None => {
                 // Caller should have used the direct-output path; this is a fallback.
@@ -133,7 +136,7 @@ impl LogicalValue {
     /// Not called for `LogicalEncoding::None` — that case is handled entirely
     /// in the bridge (physical buffer decoded directly into the output Vec).
     pub fn decode_u64(self, data: &[u64], dec: &mut Decoder) -> MltResult<Vec<u64>> {
-        let num = self.meta.num_values.as_usize();
+        let num = self.meta.num_values.into_usize();
         match self.meta.encoding.logical {
             LogicalEncoding::None => {
                 // Caller should have used the direct-output path; this is a fallback.

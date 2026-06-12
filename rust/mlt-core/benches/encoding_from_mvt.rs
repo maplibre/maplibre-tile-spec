@@ -4,6 +4,7 @@ use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, 
 use mlt_core::encoder::EncoderConfig;
 use mlt_core::mvt::mvt_to_tile_layers;
 use mlt_core::{MltResult, TileLayer};
+use usize_cast::FromUsize as _;
 
 #[path = "bench_utils.rs"]
 mod bench_utils;
@@ -44,7 +45,7 @@ fn bench_encode_from_mvt(c: &mut Criterion) {
         // Parse all MVT files into TileLayer once, outside every benchmark iteration.
         let tile_layers: Vec<TileLayer> = parse_mvt_to_tile_layers(&mvt_files);
 
-        group.throughput(Throughput::Bytes(total_bytes as u64));
+        group.throughput(Throughput::Bytes(u64::from_usize(total_bytes)));
 
         group.bench_with_input(BenchmarkId::new("zoom", zoom), &tile_layers, |b, layers| {
             b.iter_batched(

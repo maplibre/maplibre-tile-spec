@@ -10,11 +10,11 @@ use indicatif::{ProgressBar, ProgressStyle};
 use moka::sync::Cache;
 use rayon::iter::{ParallelBridge as _, ParallelIterator as _};
 use size_format::SizeFormatterSI;
+use usize_cast::FromUsize as _;
 use walkdir::WalkDir;
 use xxhash_rust::xxh3::xxh3_128;
 
-use super::{EncoderConfig, convert_mlt_buffer, convert_mvt_buffer, whole_rate_per_sec};
-use crate::ls::is_mlt_extension;
+use super::{EncoderConfig, TileFormat, convert_buffer, whole_rate_per_sec};
 
 /// Only tiles below this size are tracked in the dedup cache, because
 /// larger tiles almost never repeat across a tileset.
@@ -41,7 +41,8 @@ struct DedupStats {
 impl DedupStats {
     fn record_hit(&self, size: usize) {
         self.hits.fetch_add(1, Ordering::Relaxed);
-        self.bytes_saved.fetch_add(size as u64, Ordering::Relaxed);
+        self.bytes_saved
+            .fetch_add(u64::from_usize(size), Ordering::Relaxed);
     }
     fn record_encode(&self) {
         self.encoded.fetch_add(1, Ordering::Relaxed);
@@ -74,11 +75,26 @@ fn format_dedup_line(stats: &DedupStats, cache: &EncodedCache) -> String {
 fn is_convert_extension(path: &Path) -> bool {
     matches!(
         path.extension().and_then(OsStr::to_str),
-        Some("mlt" | "mvt")
+        Some("mlt" | "mvt" | "pbf")
     )
 }
 
-pub fn convert_files(input: &Path, output: &Path, cfg: EncoderConfig) -> AnyResult<()> {
+/// Per-walk shared state passed to [`convert_file`].
+struct WalkCtx<'a> {
+    base: &'a Path,
+    output: &'a Path,
+    cfg: EncoderConfig,
+    to: TileFormat,
+    cache: &'a EncodedCache,
+    stats: &'a DedupStats,
+}
+
+pub fn convert_files(
+    input: &Path,
+    output: &Path,
+    cfg: EncoderConfig,
+    to: TileFormat,
+) -> AnyResult<()> {
     // For a single file, use the parent so `strip_prefix` yields just the filename.
     let base = if input.is_dir() {
         input
@@ -89,6 +105,14 @@ pub fn convert_files(input: &Path, output: &Path, cfg: EncoderConfig) -> AnyResu
     let cache: EncodedCache = make_cache(CACHE_MAX_BYTES);
     let stats = DedupStats::default();
     let failed = AtomicUsize::new(0);
+    let ctx = WalkCtx {
+        base,
+        output,
+        cfg,
+        to,
+        cache: &cache,
+        stats: &stats,
+    };
 
     let bar = ProgressBar::new_spinner();
     bar.set_style(
@@ -122,7 +146,7 @@ pub fn convert_files(input: &Path, output: &Path, cfg: EncoderConfig) -> AnyResu
         .par_bridge()
         .for_each(|entry| {
             let in_path = entry.into_path();
-            let result = convert_file(&in_path, base, output, cfg, &cache, &stats);
+            let result = convert_file(&in_path, &ctx);
             bar.inc(1);
             if let Err(e) = result {
                 emit(format!("error: {}: {e:#}", in_path.display()));
@@ -139,25 +163,18 @@ pub fn convert_files(input: &Path, output: &Path, cfg: EncoderConfig) -> AnyResu
 
     let processed = stats.hits.load(Ordering::Relaxed) + stats.encoded.load(Ordering::Relaxed);
     if processed == 0 {
-        eprintln!("No .mlt or .mvt files found in {}", input.display());
+        eprintln!("No .mlt, .mvt, or .pbf files found in {}", input.display());
         return Ok(());
     }
     eprintln!("{}", format_dedup_line(&stats, &cache));
     Ok(())
 }
 
-fn convert_file(
-    file: &Path,
-    base: &Path,
-    output: &Path,
-    cfg: EncoderConfig,
-    cache: &EncodedCache,
-    stats: &DedupStats,
-) -> AnyResult<()> {
+fn convert_file(file: &Path, ctx: &WalkCtx<'_>) -> AnyResult<()> {
     let rel = file
-        .strip_prefix(base)
+        .strip_prefix(ctx.base)
         .with_context(|| format!("stripping prefix from {}", file.display()))?;
-    let out_path = output.join(rel).with_extension("mlt");
+    let out_path = ctx.output.join(rel).with_extension(ctx.to.extension());
 
     if let Some(parent) = out_path.parent() {
         fs::create_dir_all(parent)
@@ -165,34 +182,29 @@ fn convert_file(
     }
 
     let buffer = fs::read(file).with_context(|| format!("reading {}", file.display()))?;
-    let is_mlt = is_mlt_extension(file);
-    let file_display = file.display().to_string();
+    let from = TileFormat::from_path(file);
+    let err_ctx = || {
+        format!(
+            "converting {} {}",
+            from.extension().to_uppercase(),
+            file.display()
+        )
+    };
 
     if buffer.len() > MAX_TILE_TRACK_SIZE {
-        let out_bytes = if is_mlt {
-            convert_mlt_buffer(&buffer, cfg)
-                .with_context(|| format!("converting MLT {file_display}"))?
-        } else {
-            convert_mvt_buffer(buffer, cfg)
-                .with_context(|| format!("converting MVT {file_display}"))?
-        };
-        stats.record_encode();
+        let out_bytes = convert_buffer(buffer, from, ctx.to, ctx.cfg).with_context(err_ctx)?;
+        ctx.stats.record_encode();
         fs::write(&out_path, &out_bytes)
             .with_context(|| format!("writing {}", out_path.display()))?;
         return Ok(());
     }
 
     let key = xxh3_128(&buffer);
-    let entry = cache
+    let entry = ctx
+        .cache
         .entry(key)
         .or_try_insert_with(|| -> AnyResult<Arc<Vec<u8>>> {
-            let out_bytes = if is_mlt {
-                convert_mlt_buffer(&buffer, cfg)
-                    .with_context(|| format!("converting MLT {file_display}"))?
-            } else {
-                convert_mvt_buffer(buffer, cfg)
-                    .with_context(|| format!("converting MVT {file_display}"))?
-            };
+            let out_bytes = convert_buffer(buffer, from, ctx.to, ctx.cfg).with_context(err_ctx)?;
             Ok(Arc::new(out_bytes))
         })
         .map_err(|e: Arc<anyhow::Error>| anyhow!("{e:#}"))?;
@@ -200,9 +212,9 @@ fn convert_file(
     let is_fresh = entry.is_fresh();
     let out_arc = entry.into_value();
     if is_fresh {
-        stats.record_encode();
+        ctx.stats.record_encode();
     } else {
-        stats.record_hit(out_arc.len());
+        ctx.stats.record_hit(out_arc.len());
     }
 
     fs::write(&out_path, out_arc.as_slice())
