@@ -44,8 +44,6 @@ struct EncoderConfig {
     /// The strategy for encoding geometry topology integer streams (e.g. part sizes)
     /// `geometryEncodingOption` is used as a fallback if this is not set.
     std::optional<IntegerEncodingOption> geometryTopologyEncodingOption = std::nullopt;
-    /// Force selection of streams using the raw encoded bytes, not the final result
-    bool legacySizeComparison = false;
 
     EncoderConfig update(const std::function<void(EncoderConfig&)>& configurator) {
         EncoderConfig config = *this;

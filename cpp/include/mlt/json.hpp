@@ -36,7 +36,7 @@ inline json buildArray(std::size_t reservedSize) {
 
 /// Add to a json array the result of a function applied to each element in a range
 template <typename TRange, typename TFunc>
-    requires requires(TFunc f, typename std::ranges::range_rvalue_reference_t<TRange> v) {
+    requires requires(TFunc f, std::ranges::range_rvalue_reference_t<TRange> v) {
         { f(v) } -> std::same_as<json>;
     }
 inline json append(const TRange& sourceRange, json&& array, const TFunc& transform) {
@@ -47,7 +47,7 @@ inline json append(const TRange& sourceRange, json&& array, const TFunc& transfo
 
 /// Convert a collection range into a json array by applying the given function to each element
 template <typename TRange, typename TFunc>
-    requires requires(TFunc f, typename std::ranges::range_rvalue_reference_t<TRange> v) {
+    requires requires(TFunc f, std::ranges::range_rvalue_reference_t<TRange> v) {
         { f(v) } -> std::same_as<json>;
     }
 inline json buildArray(const TRange& sourceRange, const TFunc& transform) {

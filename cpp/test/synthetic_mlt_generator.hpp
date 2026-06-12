@@ -61,7 +61,7 @@ public:
 
             for (std::uint32_t b = 0; b < mortonBits; ++b) {
                 x |= static_cast<std::int32_t>(((i >> (2 * b)) & 1ULL) << b);
-                y |= static_cast<std::int32_t>(((i >> (2 * b + 1)) & 1ULL) << b);
+                y |= static_cast<std::int32_t>(((i >> ((2 * b) + 1)) & 1ULL) << b);
             }
 
             curve.push_back(c(x * scale, y * scale));
@@ -170,7 +170,6 @@ public:
             .includeOutlines = true,
             .enableMortonEncoding = false,
             .useFsst = false,
-            .geometryEncodingOption = IntegerEncodingOption::PLAIN,
         };
         if (customizer) {
             customizer(config);
@@ -236,10 +235,8 @@ public:
         const Ring line_coords = buildMortonCurve(16, 8, 4);
         return {{
                     .name = "line_morton_curve_morton",
-                    .bytes = encode(layer(defaultLayerName, {feat(line(line_coords))}, defaultExtent), cfg([](auto& c) {
-                                        c.enableMortonEncoding = true;
-                                        c.legacySizeComparison = true;
-                                    })),
+                    .bytes = encode(layer(defaultLayerName, {feat(line(line_coords))}, defaultExtent),
+                                    cfg([](auto& c) { c.enableMortonEncoding = true; })),
                 },
                 {
                     .name = "line_morton_curve_no_morton",
@@ -332,7 +329,6 @@ public:
 
         const auto mortonCfg = cfg([](auto& c) {
             c.enableMortonEncoding = true;
-            c.legacySizeComparison = true;
             c.geometryEncodingOption = IntegerEncodingOption::AUTO;
             c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
         });
@@ -432,10 +428,7 @@ public:
         Ring mortonCurve = buildMortonCurve(16, 8, 4);
         const std::size_t half = mortonCurve.size() / 2;
         Ring mortonPts(mortonCurve.begin(), mortonCurve.begin() + static_cast<std::ptrdiff_t>(half));
-        const auto config = cfg([](auto& c) {
-            c.enableMortonEncoding = true;
-            c.legacySizeComparison = true;
-        });
+        const auto config = cfg([](auto& c) { c.enableMortonEncoding = true; });
         return {{
             .name = "multipoint_morton",
             .bytes = encode(layer(defaultLayerName, {feat(multiPoint(std::move(mortonPts)))}, defaultExtent), config),
@@ -449,7 +442,6 @@ public:
         Ring mortonLine2(mortonCurve.begin() + static_cast<std::ptrdiff_t>(half), mortonCurve.end());
         const auto config = cfg([](auto& c) {
             c.enableMortonEncoding = true;
-            c.legacySizeComparison = true;
             c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
         });
 
@@ -465,18 +457,20 @@ public:
     static GeneratedTile generateExtent(std::uint32_t extent) {
         const Ring line_coords{c(0, 0),
                                c(static_cast<std::int32_t>(extent - 1), static_cast<std::int32_t>(extent - 1))};
+        const auto config = cfg([](auto& c) { c.geometryEncodingOption = IntegerEncodingOption::PLAIN; });
         return {
             .name = "extent_" + std::to_string(extent),
-            .bytes = encode(layer(defaultLayerName, {feat(line(line_coords))}, extent), cfg()),
+            .bytes = encode(layer(defaultLayerName, {feat(line(line_coords))}, extent), config),
         };
     }
 
     static GeneratedTile generateExtentBuf(std::uint32_t extent) {
         const Ring line_coords{c(-42, -42),
                                c(static_cast<std::int32_t>(extent + 42), static_cast<std::int32_t>(extent + 42))};
+        const auto config = cfg([](auto& c) { c.geometryEncodingOption = IntegerEncodingOption::PLAIN; });
         return {
             .name = "extent_buf_" + std::to_string(extent),
-            .bytes = encode(layer(defaultLayerName, {feat(line(line_coords))}, extent), cfg()),
+            .bytes = encode(layer(defaultLayerName, {feat(line(line_coords))}, extent), config),
         };
     }
 
@@ -856,13 +850,7 @@ public:
                         feat(point(c0), PropertyMap{{"val", PropertyValue{static_cast<std::uint32_t>(i % 3)}}}));
                 }
 
-                const auto config = cfg([](auto& c) {
-                    c.useFastPfor = true;
-                    c.forceNullableColumns = true;
-                    c.integerEncodingOption = IntegerEncodingOption::PLAIN;
-                    c.geometryEncodingOption = IntegerEncodingOption::PLAIN;
-                    c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
-                });
+                const auto config = cfg([](auto& c) { c.useFastPfor = true; });
 
                 tiles.push_back({
                     .name = "props_u32_fpf_" + std::to_string(len),
@@ -934,11 +922,7 @@ public:
         for (std::uint32_t pad = 0; pad < 8; ++pad) {
             const auto config = cfg([](auto& c) {
                 // Match Java synthetic generation: cfg().fastPFOR()
-                c.integerEncodingOption = IntegerEncodingOption::PLAIN;
-                c.geometryEncodingOption = IntegerEncodingOption::PLAIN;
-                c.geometryTopologyEncodingOption = IntegerEncodingOption::AUTO;
                 c.useFastPfor = true;
-                c.forceNullableColumns = true;
             });
             tiles.push_back({
                 .name = "fpf_align_" + std::to_string(pad + 1),

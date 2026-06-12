@@ -36,7 +36,7 @@ auto sum(const Range& values, Proj proj) {
 // Helper for using lambdas with `std::variant`
 // See https://en.cppreference.com/w/cpp/utility/variant/visit
 template <class... Ts>
-struct overloaded : Ts... {
+struct overloaded : Ts... { // NOLINT(misc-multiple-inheritance)
     using Ts::operator()...;
 };
 

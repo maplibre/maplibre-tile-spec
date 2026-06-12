@@ -294,7 +294,7 @@ void Encoder::Impl::collectGeometry(const std::vector<Feature>& features,
 
     const auto pushVertices = [&](const std::vector<Vertex>& coords) {
         for (const auto& v : coords) {
-            vertexBuffer.push_back({v.x, v.y});
+            vertexBuffer.push_back({.x = v.x, .y = v.y});
         }
     };
 
@@ -583,8 +583,7 @@ std::vector<std::uint8_t> Encoder::Impl::encodeLayer(const Layer& layer, const E
                                                      intEncoder,
                                                      geometryIntegerEncodingOption,
                                                      geometryTopologyIntegerEncodingOption,
-                                                     config.enableMortonEncoding,
-                                                     config.legacySizeComparison);
+                                                     config.enableMortonEncoding);
     }();
 
     appendEncodedStreamSetChunks(encodedGeom.numStreams, std::move(encodedGeom.chunks));

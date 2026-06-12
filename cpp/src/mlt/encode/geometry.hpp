@@ -63,8 +63,7 @@ public:
                                                       IntegerEncoder& intEncoder,
                                                       IntegerEncodingOption integerEncodingOption,
                                                       IntegerEncodingOption topologyIntegerEncodingOption,
-                                                      bool enableMortonEncoding = true,
-                                                      bool legacySizeComparison = false) {
+                                                      bool enableMortonEncoding = true) {
         auto [numStreams, topologyChunks] = encodeTopologyStreams(geometryTypes,
                                                                   numGeometries,
                                                                   numParts,
@@ -77,42 +76,48 @@ public:
 
         auto plainEncoded = encodeVertexBufferPlain(vertexBuffer, physicalTechnique, intEncoder, integerEncodingOption);
 
+        const auto enableHilbertEncoding = util::HilbertCurve::validCoordinateRange(minVal, maxVal);
+        if (enableMortonEncoding && !util::MortonCurve::validCoordinateRange(minVal, maxVal)) {
+            enableMortonEncoding = false;
+        }
+
         if (integerEncodingOption != IntegerEncodingOption::AUTO && !enableMortonEncoding) {
             auto chunks = std::move(topologyChunks);
             util::appendChunks(chunks, std::move(plainEncoded));
             return {.numStreams = numStreams + 1, .chunks = std::move(chunks), .maxVertexValue = maxVal};
         }
 
-        MortonDictionary mortonDict;
-        EncodedChunks mortonChunks;
-        if (enableMortonEncoding) {
-            mortonDict = buildMortonDictionary(vertexBuffer, minVal, maxVal);
-            mortonChunks = encodeMortonDictionary(
-                mortonDict, vertexBuffer, minVal, maxVal, physicalTechnique, intEncoder);
-        }
+        const MortonDictionary mortonDict = enableMortonEncoding ? buildMortonDictionary(vertexBuffer, minVal, maxVal)
+                                                                 : MortonDictionary{};
+        EncodedChunks mortonChunks = enableMortonEncoding
+                                         ? encodeMortonDictionary(
+                                               mortonDict, vertexBuffer, minVal, maxVal, physicalTechnique, intEncoder)
+                                         : EncodedChunks{};
+        const HilbertDictionary hilbertDict = enableHilbertEncoding
+                                                  ? buildHilbertDictionary(vertexBuffer, minVal, maxVal)
+                                                  : HilbertDictionary{};
+        auto hilbertChunks =
+            enableHilbertEncoding
+                ? encodeHilbertDictionary(
+                      hilbertDict, vertexBuffer, minVal, maxVal, physicalTechnique, intEncoder, integerEncodingOption)
+                : EncodedChunks{};
 
-        const auto hilbertDict = buildHilbertDictionary(vertexBuffer, minVal, maxVal);
-        auto hilbertChunks = encodeHilbertDictionary(
-            hilbertDict, vertexBuffer, minVal, maxVal, physicalTechnique, intEncoder, integerEncodingOption);
-
-        const auto plainSize = legacySizeComparison ? plainEncoded[1].size() : chunksSize(plainEncoded);
-        const auto hilbertSize = legacySizeComparison ? hilbertChunks[1].size() + hilbertChunks[3].size()
-                                                      : chunksSize(hilbertChunks);
-        const auto mortonSize = legacySizeComparison ? mortonChunks[1].size() + mortonChunks[3].size()
-                                                     : chunksSize(mortonChunks);
+        const auto plainSize = chunksSize(plainEncoded);
+        const auto hilbertSize = chunksSize(hilbertChunks);
+        const auto mortonSize = chunksSize(mortonChunks);
 
         auto result = std::move(topologyChunks);
 
-        if (plainSize <= hilbertSize && (!enableMortonEncoding || plainSize <= mortonSize)) {
-            util::appendChunks(result, std::move(plainEncoded));
-            return {.numStreams = numStreams + 1, .chunks = std::move(result), .maxVertexValue = maxVal};
+        if (enableMortonEncoding && mortonSize < plainSize && mortonSize < hilbertSize) {
+            util::appendChunks(result, std::move(mortonChunks));
+            return {.numStreams = numStreams + 2, .chunks = std::move(result), .maxVertexValue = maxVal};
         }
-        if (!enableMortonEncoding || hilbertSize <= mortonSize) {
+        if (enableHilbertEncoding && hilbertSize < plainSize) {
             util::appendChunks(result, std::move(hilbertChunks));
             return {.numStreams = numStreams + 2, .chunks = std::move(result), .maxVertexValue = maxVal};
         }
-        util::appendChunks(result, std::move(mortonChunks));
-        return {.numStreams = numStreams + 2, .chunks = std::move(result), .maxVertexValue = maxVal};
+        util::appendChunks(result, std::move(plainEncoded));
+        return {.numStreams = numStreams + 1, .chunks = std::move(result), .maxVertexValue = maxVal};
     }
 
     static EncodedGeometryColumn encodePretessellatedGeometryColumn(std::span<const GeometryType> geometryTypes,

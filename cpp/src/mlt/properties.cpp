@@ -76,7 +76,7 @@ std::vector<T> buildIndexVector(const PackedBitset& present) {
 }
 } // namespace
 
-PresentProperties::PresentProperties(ScalarType type_, PropertyVec properties_, const PackedBitset& present) noexcept
+PresentProperties::PresentProperties(ScalarType type_, PropertyVec properties_, const PackedBitset& present)
     : type(type_),
       properties(std::move(properties_)) {
     if (!present.empty()) {

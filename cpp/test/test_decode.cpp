@@ -63,6 +63,7 @@ bool writeFile(const std::filesystem::path& path, const std::string& data) {
     return false;
 }
 
+// NOLINTNEXTLINE(bugprone-throwing-static-initialization)
 const auto basePath = std::filesystem::path("../test/expected/tag0x01");
 
 #if MLT_WITH_JSON

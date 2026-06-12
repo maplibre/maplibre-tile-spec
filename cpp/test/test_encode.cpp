@@ -47,7 +47,7 @@ using HilbertCurve = mlt::util::HilbertCurve;
 namespace std {
 /// Allow optional IDs to be printed in test failure messages.
 template <typename T>
-// NOLINTNEXTLINE(misc-use-anonymous-namespace) - doesn't work, clang-tidy bug?
+// NOLINTNEXTLINE(misc-use-anonymous-namespace,bugprone-std-namespace-modification)
 static std::ostream& operator<<(std::ostream& os, const std::optional<T>& opt) {
     if (opt.has_value()) {
         return os << *opt;
@@ -60,7 +60,6 @@ namespace {
 Decoder makeDecoder(bool enableFastPFOR = true) {
     return {enableFastPFOR};
 }
-} // namespace
 
 TEST(EncodePrimitives, ZigZagRoundtrip) {
     for (const std::int32_t v : {0, 1, -1, 42, -42, 127, -128, 65535, -65536, 2147483647, -2147483647}) {
@@ -198,8 +197,6 @@ TEST(EncodeMetadata, FeatureTableRoundtrip) {
 
 // --- Helpers ---
 
-namespace {
-
 MapLibreTile encodeDecode(const std::vector<Encoder::Layer>& layers,
                           EncoderConfig config = {},
                           bool enableFastPFOR = true) {
@@ -243,8 +240,6 @@ T unwrapProperty(const Property& prop) {
         },
         prop);
 }
-
-} // namespace
 
 // --- Encode roundtrip tests ---
 
@@ -1348,8 +1343,6 @@ TEST(Encode, PretessellatedSkippedForMixedGeometry) {
 
 // --- Fixture helpers ---
 
-namespace {
-
 std::vector<char> loadFile(const std::filesystem::path& path) {
     std::ifstream file(path, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
@@ -1623,8 +1616,6 @@ void compareDecodedTiles(const Layer& a, const Layer& b, bool sortedByEncoder) {
     }
 }
 
-} // namespace
-
 // --- Cross-validation: decode Java fixture → re-encode → decode → compare ---
 
 struct SimpleFixtureParams {
@@ -1673,7 +1664,6 @@ INSTANTIATE_TEST_SUITE_P(
 
 // --- Byte-level cross-validation ---
 
-namespace {
 void byteCompareFixtureTest(const std::string& fixturePath) {
     auto fixture = loadFixture(fixturePath);
     ASSERT_FALSE(fixture.empty()) << "Fixture not found: " << fixturePath;
@@ -1698,7 +1688,6 @@ void byteCompareFixtureTest(const std::string& fixturePath) {
         compareDecodedTiles(javaLayer, *cppLayer, true);
     }
 }
-} // namespace
 
 TEST(ByteCompare, PointBoolean) {
     byteCompareFixtureTest("simple/point-boolean.mlt");
@@ -1849,8 +1838,6 @@ TEST(CrossValidate, StructColumnOMTRoundtrip) {
 
 // --- Parameterized corpus re-encode tests ---
 
-namespace {
-
 void reencodeRoundtrip(const std::string& subdir, const std::string& filename) {
     auto fixture = loadFixture(subdir + "/" + filename);
     ASSERT_FALSE(fixture.empty()) << "Fixture not found: " << filename;
@@ -1885,8 +1872,6 @@ std::string sanitizeFixtureName(const ::testing::TestParamInfo<std::string>& inf
     return name;
 }
 
-} // namespace
-
 // NOLINTBEGIN(bugprone-macro-parentheses)
 #define REENCODE_CORPUS_SUITE(SuiteName, subdir)                       \
     class SuiteName : public ::testing::TestWithParam<std::string> {}; \
@@ -1902,8 +1887,6 @@ REENCODE_CORPUS_SUITE(ReencodeAmazon, "amazon");
 REENCODE_CORPUS_SUITE(ReencodeAmazonHere, "amazon_here");
 
 // --- Sorted re-encode ---
-
-namespace {
 
 std::string featureFingerprint(const Encoder::Feature& f) {
     const auto idValue = f.id.value_or(0);
@@ -1955,8 +1938,6 @@ void reencodeRoundtripSorted(const std::string& subdir, const std::string& filen
     }
 }
 
-} // namespace
-
 class ReencodeOMTSorted : public ::testing::TestWithParam<std::string> {};
 TEST_P(ReencodeOMTSorted, Roundtrip) {
     reencodeRoundtripSorted("omt", GetParam());
@@ -1964,8 +1945,6 @@ TEST_P(ReencodeOMTSorted, Roundtrip) {
 INSTANTIATE_TEST_SUITE_P(All, ReencodeOMTSorted, ::testing::ValuesIn(discoverFixtures("omt")), sanitizeFixtureName);
 
 // --- Tessellated re-encode ---
-
-namespace {
 
 void reencodeTessellated(const std::string& subdir, const std::string& filename) {
     auto fixture = loadFixture(subdir + "/" + filename);
@@ -2006,8 +1985,6 @@ void reencodeTessellated(const std::string& subdir, const std::string& filename)
         compareDecodedTiles(*javaTile.getLayer(origLayer.name), *reLayer, false);
     }
 }
-
-} // namespace
 
 class ReencodeOMTTessellated : public ::testing::TestWithParam<std::string> {};
 TEST_P(ReencodeOMTTessellated, Roundtrip) {
@@ -2460,3 +2437,5 @@ TEST(Encode, NullableUint64Property) {
     EXPECT_FALSE(decoded->getProperties().at("val").getProperty(1).has_value());
     EXPECT_TRUE(decoded->getProperties().at("val").getProperty(2).has_value());
 }
+
+} // namespace
