@@ -101,9 +101,12 @@ impl PhysicalCodecs {
         values: &[P::Value],
         logical: LogicalEncoding,
         stream_type: StreamType,
+        allow_fpf: bool,
     ) -> MltResult<()> {
         use PhysicalEncoding as PE;
-        if P::FASTPFOR_ALLOWED {
+        // `FASTPFOR_ALLOWED` is the type-level capability (FastPFOR only supports u32);
+        // `allow_fpf` is the caller's runtime `EncoderConfig` preference. Both must hold.
+        if P::FASTPFOR_ALLOWED && allow_fpf {
             alt.with(|enc| {
                 let meta = StreamMeta::new2(stream_type, logical, PE::FastPFor256, values.len())?;
                 write_stream_payload(&mut enc.data, meta, false, P::fastpfor(self, values)?)

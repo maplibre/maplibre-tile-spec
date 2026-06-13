@@ -164,6 +164,46 @@ fn test_fastpfor_roundtrip(#[case] values: Vec<u32>) {
     assert_eq!(decoded_values, values);
 }
 
+/// Auto-encode `values` (no explicit override) under `cfg` and return the
+/// physical encoding the competition selected.
+fn auto_physical(values: &[u32], cfg: crate::encoder::EncoderConfig) -> PhysicalEncoding {
+    let mut enc = Encoder::new(cfg);
+    let codecs = &mut Codecs::default();
+    let ctx = StreamCtx::prop_data("test");
+    codecs.write_int_stream(values, &ctx, &mut enc).unwrap();
+    let parsed = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
+    parsed.meta.encoding.physical
+}
+
+/// Regression: `EncoderConfig::allow_fpf` must actually gate `FastPFOR` selection
+/// in the auto path. Previously the flag was dead — `FastPFOR` was always tried.
+#[test]
+fn allow_fpf_gates_fastpfor_selection() {
+    // 12-bit pseudo-random values: not sequential, not run-heavy, so FastPFOR
+    // bit-packing beats VarInt and is the competition winner when allowed.
+    let values: Vec<u32> = (0..2000u32).map(|i| i.wrapping_mul(2_654_435_761) % 4096).collect();
+
+    let on = crate::encoder::EncoderConfig {
+        allow_fpf: true,
+        ..Default::default()
+    };
+    let off = crate::encoder::EncoderConfig {
+        allow_fpf: false,
+        ..Default::default()
+    };
+
+    assert_eq!(
+        auto_physical(&values, on),
+        PhysicalEncoding::FastPFor256,
+        "FastPFOR should win for this data when allow_fpf = true"
+    );
+    assert_ne!(
+        auto_physical(&values, off),
+        PhysicalEncoding::FastPFor256,
+        "allow_fpf = false must prevent FastPFOR from being selected"
+    );
+}
+
 /// Test roundtrip: write -> parse -> equality for stream serialization
 #[rstest]
 #[case::new_encoded(StreamType::Data(DictionaryType::None), 2, LogicalEncoding::None, PhysicalEncoding::None, vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08], false

@@ -111,6 +111,10 @@ enum SortMode {
 }
 
 #[derive(Args)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each bool is an independent CLI on/off flag, not a state machine"
+)]
 pub struct ConvertArgs {
     /// Input: a directory with .mlt/.mvt/.pbf tiles, a single tile file, an .mbtiles database
     input: PathBuf,
@@ -128,6 +132,12 @@ pub struct ConvertArgs {
     /// Disable grouping of similar string columns into shared dictionaries
     #[clap(long, default_value = "false")]
     no_shared_dict: bool,
+    /// Disable `FastPFOR` integer compression (only `VarInt` physical encodings compete)
+    #[clap(long, default_value = "false")]
+    no_fastpfor: bool,
+    /// Disable `FSST` string compression
+    #[clap(long, default_value = "false")]
+    no_fsst: bool,
     /// Output tile format (`mlt` re-encodes; `mvt` decodes MLT inputs back to MVT)
     #[clap(long, default_value = "mlt")]
     to: TileFormat,
@@ -151,7 +161,8 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         try_spatial_hilbert_sort: matches!(args.sort, SortMode::Auto | SortMode::Hilbert),
         try_id_sort: matches!(args.sort, SortMode::Auto | SortMode::Id),
         allow_shared_dict: !args.no_shared_dict,
-        ..Default::default()
+        allow_fpf: !args.no_fastpfor,
+        allow_fsst: !args.no_fsst,
     };
 
     if args.input_container() == ContainerFormat::Mbtiles {
