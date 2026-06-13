@@ -456,13 +456,11 @@ public class MapPropertyEncoder {
       case BigDecimal bigDecValue -> {
         final float f = bigDecValue.floatValue();
         if (!Float.isInfinite(f)
-            && !Float.isNaN(f)
             && BigDecimal.valueOf(f).compareTo(bigDecValue) == 0) {
           uniqueValues.floats().putIfAbsent(f, 0);
         } else {
           final double d = bigDecValue.doubleValue();
           if (Double.isInfinite(d)
-              || Double.isNaN(d)
               || BigDecimal.valueOf(d).compareTo(bigDecValue) == 0) {
             uniqueValues.doubles().putIfAbsent(d, 0);
           } else {
