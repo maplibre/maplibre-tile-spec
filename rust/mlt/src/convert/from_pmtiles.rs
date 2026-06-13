@@ -5,6 +5,8 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Instant;
 
+use super::ContainerFormat;
+use super::common::{EncodedTile, TileStats, encode_tile, make_encode_cache, make_progress_bar};
 use anyhow::{Result as AnyResult, bail};
 use bytes::Bytes;
 use futures::TryStreamExt;
@@ -15,8 +17,6 @@ use pmtiles::{
     AsyncPmTilesReader, Compression, HashMapCache, MmapBackend, PmTilesWriter, TileCoord, TileId,
     TileType,
 };
-use super::ContainerFormat;
-use super::common::{EncodedTile, TileStats, encode_tile, make_encode_cache, make_progress_bar};
 
 /// Re-encode a `.pmtiles` input (MVT) into the requested container.
 pub async fn convert(
