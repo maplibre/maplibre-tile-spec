@@ -181,7 +181,9 @@ fn auto_physical(values: &[u32], cfg: crate::encoder::EncoderConfig) -> Physical
 fn allow_fpf_gates_fastpfor_selection() {
     // 12-bit pseudo-random values: not sequential and not run-heavy.
     // FastPFOR bit-packing beats VarInt here, so it wins the competition when allowed.
-    let values: Vec<u32> = (0..2000u32).map(|i| i.wrapping_mul(2_654_435_761) % 4096).collect();
+    let values: Vec<u32> = (0..2000u32)
+        .map(|i| i.wrapping_mul(2_654_435_761) % 4096)
+        .collect();
 
     let on = crate::encoder::EncoderConfig {
         allow_fpf: true,

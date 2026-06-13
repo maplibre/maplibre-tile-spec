@@ -414,9 +414,7 @@ fn allow_fsst_gates_fsst_selection() {
     let values: Vec<String> = (0..400u32)
         .map(|i| format!("highway_segment_identifier_{i:08}"))
         .collect();
-    let col = || {
-        StagedProperty::str("name", values.iter().map(String::as_str))
-    };
+    let col = || StagedProperty::str("name", values.iter().map(String::as_str));
 
     let on = EncoderConfig {
         allow_fsst: true,
