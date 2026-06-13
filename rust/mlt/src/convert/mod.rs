@@ -133,10 +133,10 @@ pub struct ConvertArgs {
     #[clap(long, default_value = "false")]
     no_shared_dict: bool,
     /// Disable `FastPFOR` integer compression (only `VarInt` physical encodings compete)
-    #[clap(long, default_value = "false")]
+    #[clap(long)]
     no_fastpfor: bool,
     /// Disable `FSST` string compression
-    #[clap(long, default_value = "false")]
+    #[clap(long)]
     no_fsst: bool,
     /// Output tile format (`mlt` re-encodes; `mvt` decodes MLT inputs back to MVT)
     #[clap(long, default_value = "mlt")]
