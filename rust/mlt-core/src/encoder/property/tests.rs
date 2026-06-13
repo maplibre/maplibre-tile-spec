@@ -404,13 +404,13 @@ fn encode_to_bytes_auto(props: Vec<StagedProperty>, cfg: EncoderConfig) -> Vec<u
     enc.into_layer_bytes().expect("into_layer_bytes failed")
 }
 
-/// Regression: `EncoderConfig::allow_fsst` must actually gate `FSST` selection in
-/// the auto path. Previously the flag was dead — `FSST` was always competed, so
-/// toggling it changed nothing.
+/// Regression: `EncoderConfig::allow_fsst` must actually gate `FSST` selection in the auto path.
+/// Previously the flag was dead — `FSST` was always competed, so toggling it changed nothing.
 #[test]
 fn allow_fsst_gates_fsst_selection() {
-    // High-cardinality strings with a shared prefix: dictionary dedup can't help
-    // (all distinct), but FSST exploits the redundancy, so it wins when allowed.
+    // High-cardinality strings with a shared prefix.
+    // Dictionary dedup can't help since all are distinct.
+    // FSST exploits the shared redundancy, so it wins when allowed.
     let values: Vec<String> = (0..400u32)
         .map(|i| format!("highway_segment_identifier_{i:08}"))
         .collect();

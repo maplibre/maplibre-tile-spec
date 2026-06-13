@@ -175,12 +175,12 @@ fn auto_physical(values: &[u32], cfg: crate::encoder::EncoderConfig) -> Physical
     parsed.meta.encoding.physical
 }
 
-/// Regression: `EncoderConfig::allow_fpf` must actually gate `FastPFOR` selection
-/// in the auto path. Previously the flag was dead — `FastPFOR` was always tried.
+/// Regression: `EncoderConfig::allow_fpf` must actually gate `FastPFOR` selection in the auto path.
+/// Previously the flag was dead — `FastPFOR` was always tried.
 #[test]
 fn allow_fpf_gates_fastpfor_selection() {
-    // 12-bit pseudo-random values: not sequential, not run-heavy, so FastPFOR
-    // bit-packing beats VarInt and is the competition winner when allowed.
+    // 12-bit pseudo-random values: not sequential and not run-heavy.
+    // FastPFOR bit-packing beats VarInt here, so it wins the competition when allowed.
     let values: Vec<u32> = (0..2000u32).map(|i| i.wrapping_mul(2_654_435_761) % 4096).collect();
 
     let on = crate::encoder::EncoderConfig {

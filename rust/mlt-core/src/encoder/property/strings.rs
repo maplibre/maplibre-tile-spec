@@ -61,12 +61,13 @@ pub(crate) fn fsst_try_train(strings: &[&str]) -> Option<Compressor> {
 }
 
 impl Encoder {
-    /// The FSST compressor for a column corpus, trained and cached (keyed by
-    /// `key`) on first use across sort trials.
+    /// The FSST compressor for a column corpus.
+    /// Trained and cached under `key` on first use, then reused across sort trials.
     ///
-    /// Returns `None` when FSST is disabled via [`EncoderConfig::allow_fsst`], or
-    /// when [`fsst_try_train`] finds it not worthwhile for `corpus`. This is the
-    /// single gate for FSST in the auto path; explicit encodings bypass it.
+    /// Returns `None` when FSST is disabled via [`EncoderConfig::allow_fsst`].
+    /// Also returns `None` when [`fsst_try_train`] finds it not worthwhile for `corpus`.
+    /// This is the single gate for FSST in the auto path.
+    /// Explicit encodings bypass it.
     ///
     /// [`EncoderConfig::allow_fsst`]: crate::encoder::EncoderConfig::allow_fsst
     pub(crate) fn fsst_compressor(&mut self, key: &str, corpus: &[&str]) -> Option<&Compressor> {
@@ -106,8 +107,8 @@ impl Codecs {
             // Dedup once; reused by Dict and FSST+Dict alternatives.
             let (unique, offset_indices) = dedup_strings(&non_null)?;
 
-            // Train (or reuse the cached) FSST compressor for this column; `None`
-            // when FSST is disabled or not worthwhile, leaving Plain/Dict to compete.
+            // Train or reuse the cached FSST compressor for this column.
+            // `None` when FSST is disabled or not worthwhile, so only Plain and Dict compete.
             let compressor = enc.fsst_compressor(name, &unique);
 
             // Pre-compute compressed data while cache is accessible (before try_alternatives
