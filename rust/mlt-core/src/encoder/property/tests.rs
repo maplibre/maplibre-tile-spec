@@ -386,6 +386,56 @@ fn fsst_scalar_string_roundtrip() {
     }
 }
 
+/// Encode `props` through the auto path (no explicit encoder) under `cfg`.
+fn encode_to_bytes_auto(props: Vec<StagedProperty>, cfg: EncoderConfig) -> Vec<u8> {
+    let n = props.iter().map(staged_len).max().unwrap_or(0);
+    let layer = StagedLayer {
+        name: "test".into(),
+        extent: 4096,
+        id: StagedId::None,
+        geometry: n_point_geometry(n),
+        properties: props,
+    };
+    let enc = Encoder::new(cfg);
+    let mut codecs = Codecs::default();
+    let enc = layer
+        .encode_into(enc, &mut codecs)
+        .expect("encoding failed");
+    enc.into_layer_bytes().expect("into_layer_bytes failed")
+}
+
+/// Regression: `EncoderConfig::allow_fsst` must actually gate `FSST` selection in the auto path.
+/// Previously the flag was dead — `FSST` was always competed, so toggling it changed nothing.
+#[test]
+fn allow_fsst_gates_fsst_selection() {
+    // High-cardinality strings with a shared prefix.
+    // Dictionary dedup can't help since all are distinct.
+    // FSST exploits the shared redundancy, so it wins when allowed.
+    let values: Vec<String> = (0..400u32)
+        .map(|i| format!("highway_segment_identifier_{i:08}"))
+        .collect();
+    let col = || StagedProperty::str("name", values.iter().map(String::as_str));
+
+    let on = EncoderConfig {
+        allow_fsst: true,
+        ..Default::default()
+    };
+    let off = EncoderConfig {
+        allow_fsst: false,
+        ..Default::default()
+    };
+
+    let bytes_on = encode_to_bytes_auto(vec![col()], on);
+    let bytes_off = encode_to_bytes_auto(vec![col()], off);
+
+    assert!(
+        bytes_on.len() < bytes_off.len(),
+        "FSST should shrink output when allowed: on={} off={}",
+        bytes_on.len(),
+        bytes_off.len()
+    );
+}
+
 /// Round-trip a two-column `SharedDict` with auto encoders and check all feature values.
 fn check_two_col_dict(
     name: &str,

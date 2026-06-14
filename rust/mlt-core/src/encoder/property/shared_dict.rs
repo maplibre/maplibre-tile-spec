@@ -15,7 +15,7 @@ use crate::decoder::strings::{decode_shared_dict_range, encode_shared_dict_range
 use crate::decoder::{PropValue, TileLayer};
 use crate::encoder::model::{StrEncoding, StreamCtx};
 use crate::encoder::optimizer::{Presence, PropertyStats, SharedDictRole};
-use crate::encoder::property::strings::{fsst_try_train, write_fsst_data, write_raw_str_data};
+use crate::encoder::property::strings::{write_fsst_data, write_raw_str_data};
 use crate::encoder::{Codecs, Encoder, StagedSharedDict, StagedSharedDictItem};
 use crate::errors::AsMltError as _;
 use crate::utils::{checked_sum3, strings_to_lengths};
@@ -328,18 +328,13 @@ impl Codecs {
             }
             Some(StrEncoding::Plain | StrEncoding::Dict) => None,
             None => {
-                // Populate cache on first sort trial, reuse on subsequent.
-                // Key includes the suffix as otherwise multiple groups could share the same prefix
-                // (e.g. two "name:" groups for Arabic vs Cyrillic scripts).
-                // Since the grouping is done only once, the order inside the items is deterministic, so we can just take the first suffix for the cache key.
+                // The cache key includes the suffix.
+                // Otherwise two groups could share a prefix (e.g. "name:" for Arabic vs Cyrillic scripts).
+                // Grouping happens once and item order is deterministic, so the first suffix is a stable key.
                 let first_suffix = shared_dict.items.first().map_or("", |i| &i.suffix);
-                enc.fsst_cache
-                    .entry(format!(
-                        "{prefix}{first_suffix}",
-                        prefix = shared_dict.prefix
-                    ))
-                    .or_insert_with(|| fsst_try_train(&dict))
-                    .as_ref()
+                let key = format!("{prefix}{first_suffix}", prefix = shared_dict.prefix);
+                // `fsst_compressor` honors `allow_fsst` and caches across sort trials.
+                enc.fsst_compressor(&key, &dict)
                     .map(|c| compress_fsst_with(&dict, c))
             }
         };

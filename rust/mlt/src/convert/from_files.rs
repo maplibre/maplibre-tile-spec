@@ -89,12 +89,7 @@ struct WalkCtx<'a> {
     stats: &'a DedupStats,
 }
 
-pub fn convert_files(
-    input: &Path,
-    output: &Path,
-    cfg: EncoderConfig,
-    to: TileFormat,
-) -> AnyResult<()> {
+pub fn convert(input: &Path, output: &Path, cfg: EncoderConfig, to: TileFormat) -> AnyResult<()> {
     // For a single file, use the parent so `strip_prefix` yields just the filename.
     let base = if input.is_dir() {
         input

@@ -142,7 +142,7 @@ function convertTileResponse(filePath, res) {
     mltPath +
     (config.noids ? " --noids" : "") +
     (config.fsst ? " --fsst" : "") +
-    (config.fastpfor ? " --fastpfor" : "") +
+    (config.fastpfor ? " --enable-fastpfor" : "") +
     (config.nomorton ? " --nomorton" : "") +
     (config.outlines ? ` --outlines ${config.outlines}` : "") +
     (config.tessellate ? " --tessellate" : "") +
