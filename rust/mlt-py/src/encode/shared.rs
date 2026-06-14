@@ -19,7 +19,7 @@ pub(crate) fn encoder_config(
     fpf: bool,
 ) -> PyResult<EncoderConfig> {
     let (morton, hilbert, id) = match sort {
-        "auto" => (true, true, true),
+        "auto" => (true, false, false),
         "morton" => (true, false, false),
         "hilbert" => (false, true, false),
         "id" => (false, false, true),
