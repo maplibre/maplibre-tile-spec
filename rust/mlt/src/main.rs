@@ -8,6 +8,12 @@ use std::process::exit;
 use anyhow::Result as AnyResult;
 use clap::{Parser, Subcommand, ValueEnum};
 
+// hotpath-alloc installs its own global allocator to track allocations, so it
+// can't coexist with ours.
+#[cfg(not(feature = "hotpath-alloc"))]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 use crate::convert::{ConvertArgs, convert};
 use crate::dump::{AfterDump, DumpArgs, dump};
 use crate::ls::{LsArgs, ls};
