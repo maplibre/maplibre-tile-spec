@@ -125,6 +125,13 @@ impl TileLayer {
                 enc = layer.encode_into(enc, &mut codecs)?;
                 if enc.total_len() < best.total_len() {
                     best = enc.preserve_results();
+                } else {
+                    // The losing trial's bytes must be dropped so the next trial
+                    // encodes into a clean buffer. `preserve_results` only empties
+                    // `enc` when a trial wins; without this, the next `encode_into`
+                    // would append to the loser's bytes and overcount its
+                    // `total_len`, so later trials could never win.
+                    enc.clear_results();
                 }
             }
             // Last strategy: consume self, no clone
