@@ -28,7 +28,7 @@ use super::shared::{encoder_config, val_err};
 /// Geometry is in tile-local coordinate space (no projection).
 ///
 /// `tessellate` generates triangulation data for polygons and multi-polygons.
-/// `sort` chooses which feature ordering(s) the encoder trials: `auto` tries all, a named curve (`morton`/`hilbert`/`id`) tries just that one, and `none` keeps the input order.
+/// `sort` chooses which feature ordering(s) the encoder trials: `all` tries all orderings, `auto` tries a subset with a good speed-size tradeoff, a named curve (`morton`/`hilbert`/`id`) tries just that one, and `none` keeps the input order.
 /// `shared_dict` allows grouping strings into shared dictionaries.
 /// `fsst` allows FSST string compression.
 /// `fpf` allows FastPFOR integer compression.
