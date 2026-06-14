@@ -48,7 +48,7 @@ pub fn encode_geojson(
     extent: u32,
     tessellate: bool,
     #[gen_stub(override_type(
-        type_repr = "typing.Literal['auto', 'morton', 'hilbert', 'id', 'none']"
+        type_repr = "typing.Literal['all', 'auto', 'morton', 'hilbert', 'id', 'none']"
     ))]
     sort: &str,
     shared_dict: bool,
