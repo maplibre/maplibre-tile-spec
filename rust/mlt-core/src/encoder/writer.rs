@@ -299,6 +299,21 @@ impl Encoder {
         self.hdr.len() + self.meta.len() + self.data.len()
     }
 
+    /// Empty the output buffers (`hdr`/`meta`/`data`) so this encoder can be
+    /// reused for the next sort trial, keeping their allocated capacity and the
+    /// seeded curve/FSST caches.
+    ///
+    /// Unlike [`Self::preserve_results`] (which moves the buffers out into the
+    /// kept "best" result), this is used when a trial loses: its bytes must be
+    /// discarded, otherwise the next trial's `encode_into` would append to them
+    /// and over-count its `total_len`.
+    pub(crate) fn clear_results(&mut self) {
+        debug_assert!(self.alt_stack.is_empty(), "Alternatives stack is not empty");
+        self.hdr.clear();
+        self.meta.clear();
+        self.data.clear();
+    }
+
     /// Concatenate `hdr + meta + data` into a single buffer **without** a
     /// tag/size prefix.
     ///

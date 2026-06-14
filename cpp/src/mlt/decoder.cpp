@@ -1,16 +1,16 @@
 #include <mlt/decoder.hpp>
 
+#include <mlt/common.hpp>
 #include <mlt/decode/geometry.hpp>
 #include <mlt/decode/int.hpp>
-#include <mlt/decode/int_template.hpp>
 #include <mlt/decode/property.hpp>
 #include <mlt/decode/string.hpp>
-#include <mlt/geometry.hpp>
+#include <mlt/feature.hpp>
 #include <mlt/geometry_vector.hpp>
 #include <mlt/layer.hpp>
-#include <mlt/metadata/type_map.hpp>
 #include <mlt/metadata/stream.hpp>
 #include <mlt/metadata/tileset.hpp>
+#include <mlt/metadata/type_map.hpp>
 #include <mlt/properties.hpp>
 #include <mlt/tile.hpp>
 #include <mlt/util/buffer_stream.hpp>
@@ -19,9 +19,16 @@
 #include <mlt/util/stl.hpp>
 #include <mlt/util/varint.hpp>
 
+#include <algorithm>
 #include <cstddef>
+#include <cstdint>
+#include <iterator>
+#include <memory>
 #include <optional>
 #include <stdexcept>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace mlt {
 
@@ -35,8 +42,8 @@ struct Decoder::Impl {
           geometryFactory(std::move(geometryFactory_)) {}
 
     Layer parseBasicMVTEquivalent(BufferStream&);
-    std::vector<Feature> makeFeatures(const std::vector<std::optional<Feature::id_t>>&,
-                                      std::vector<std::unique_ptr<Geometry>>&&);
+    static std::vector<Feature> makeFeatures(const std::vector<std::optional<Feature::id_t>>&,
+                                             std::vector<std::unique_ptr<Geometry>>&&);
 
     IntegerDecoder integerDecoder;
     StringDecoder stringDecoder{integerDecoder};
@@ -46,8 +53,8 @@ struct Decoder::Impl {
 };
 
 Layer Decoder::Impl::parseBasicMVTEquivalent(BufferStream& tileData) {
-    using metadata::stream::StreamMetadata;
-    using metadata::type_map::Tag0x01;
+    using mlt::metadata::stream::StreamMetadata;
+    using mlt::metadata::type_map::Tag0x01;
 
     const auto layerMetadata = mlt::metadata::tileset::decodeFeatureTable(tileData);
 

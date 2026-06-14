@@ -6,6 +6,8 @@
 
 #include <nlohmann/detail/string_concat.hpp>
 
+#include <string>
+
 namespace mlt::util {
 using json = nlohmann::json;
 
@@ -46,7 +48,7 @@ private:
                 return v.get<double>();
             case nlohmann::json_abi_v3_11_3::detail::value_t::string: {
                 const auto s = v.get<std::string>();
-                char* end = nullptr;
+                char* end = nullptr; // NOLINT(misc-const-correctness)
                 const auto d = std::strtof(s.c_str(), &end);
                 if (end - s.c_str() == static_cast<std::ptrdiff_t>(s.size())) {
                     return d;
@@ -63,7 +65,7 @@ private:
 static json diff(const json& source,
                  const json& target,
                  const std::string& path = {},
-                 std::function<bool(const json&, const json&)> compare = JSONComparer()) {
+                 const std::function<bool(const json&, const json&)>& compare = JSONComparer()) {
     using namespace nlohmann;
     using nlohmann::detail::concat;
     using nlohmann::detail::escape;
@@ -123,7 +125,7 @@ static json diff(const json& source,
                 // escape the key name to be used in a JSON patch
                 const auto path_key = concat(path, '/', escape(it.key()));
 
-                if (target.find(it.key()) != target.end()) {
+                if (target.contains(it.key())) {
                     // recursive call to compare object values at key it
                     auto temp_diff = diff(it.value(), target[it.key()], path_key);
                     result.insert(result.end(), temp_diff.begin(), temp_diff.end());
@@ -139,7 +141,7 @@ static json diff(const json& source,
 
             // second pass: traverse other object's elements
             for (auto it = target.cbegin(); it != target.cend(); ++it) {
-                if (source.find(it.key()) == source.end()) {
+                if (source.contains(it.key())) {
                     // found a key that is not in this
                     // If the value is equivalent to nothing, that's not a difference.
                     if (!compare(json(), *it)) {

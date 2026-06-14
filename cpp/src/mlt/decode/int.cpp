@@ -1,6 +1,6 @@
-#include <algorithm>
 #include <mlt/decode/int.hpp>
-#include <mlt/decode/int_template.hpp>
+#include <mlt/polyfill.hpp> // NOLINT(misc-include-cleaner)
+#include <mlt/util/buffer_stream.hpp>
 
 // from fastpfor/...
 #if MLT_WITH_FASTPFOR
@@ -9,13 +9,18 @@
 #include <variablebyte.h>
 #endif // MLT_WITH_FASTPFOR
 
-#include <cstdint>
-
 #ifdef _MSC_VER
 #include <array>
 #include <bitset>
 #include <intrin.h>
 #endif
+
+#include <algorithm>
+#include <bit>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <stdexcept>
 
 namespace mlt::decoder {
 
@@ -43,6 +48,9 @@ std::uint32_t IntegerDecoder::decodeFastPfor([[maybe_unused]] BufferStream& buff
                                              [[maybe_unused]] const std::size_t byteLength) {
 #if MLT_WITH_FASTPFOR
     if (enableFastPFOR) {
+        // If SIMD is enabled, check that the CPU supports the necessary instruction set before
+        // attempting to decode in order to provide a clear error message when it does not.
+#if MLT_WITH_FASTPFOR_SIMD
 #if (defined(_M_IX86) || defined(_M_X64) || defined(_M_IA64) || defined(_M_AMD64))
 #if defined(__GNUC__) || defined(__clang__)
         // https://gcc.gnu.org/onlinedocs/gcc/x86-Built-in-Functions.html
@@ -65,8 +73,9 @@ std::uint32_t IntegerDecoder::decodeFastPfor([[maybe_unused]] BufferStream& buff
                 throw std::runtime_error("FastPFOR decoding requires SSE4.1 on x86 platforms");
             }
         }
-#endif
-#endif
+#endif // __GNUC__ ...
+#endif // _M_IX86 ...
+#endif // MLT_WITH_FASTPFOR_SIMD
 
         const auto* inputValues = reinterpret_cast<const std::uint32_t*>(buffer.getReadPosition());
 
@@ -81,9 +90,8 @@ std::uint32_t IntegerDecoder::decodeFastPfor([[maybe_unused]] BufferStream& buff
         impl->codec.decodeArray(leBuffer, intLength, result, resultCount);
         buffer.consume(byteLength);
         return static_cast<std::uint32_t>(resultCount);
-    } else {
-        throw std::runtime_error("FastPFOR decoding is not enabled");
     }
+    throw std::runtime_error("FastPFOR decoding is not enabled");
 #else
     throw std::runtime_error("FastPFOR decoding is not enabled. Configure with MLT_WITH_FASTPFOR=ON");
 #endif // MLT_WITH_FASTPFOR

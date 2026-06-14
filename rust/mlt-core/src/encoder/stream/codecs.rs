@@ -140,6 +140,7 @@ impl Codecs {
             return encoder::write_stream_payload(enc.data_mut(), meta, false, vals2);
         }
 
+        let allow_fpf = enc.cfg.allow_fpf;
         let Self { logical, physical } = self;
         let mut alt = enc.try_alternatives();
 
@@ -155,6 +156,7 @@ impl Codecs {
                 values,
                 logical_enc,
                 ctx.stream_type,
+                allow_fpf,
             )?;
         }
         if profile.delta_is_beneficial() {
@@ -164,6 +166,7 @@ impl Codecs {
                 values,
                 LE::Delta,
                 ctx.stream_type,
+                allow_fpf,
             )?;
         }
         if profile.rle_is_viable() {
@@ -173,9 +176,16 @@ impl Codecs {
                 values,
                 logical_enc,
                 ctx.stream_type,
+                allow_fpf,
             )?;
         }
         let values = logical.none(values);
-        physical.write_alternatives::<Output<T>>(&mut alt, values, LE::None, ctx.stream_type)
+        physical.write_alternatives::<Output<T>>(
+            &mut alt,
+            values,
+            LE::None,
+            ctx.stream_type,
+            allow_fpf,
+        )
     }
 }
