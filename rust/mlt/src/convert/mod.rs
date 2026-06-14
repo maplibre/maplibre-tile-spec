@@ -1,5 +1,6 @@
-mod files;
-mod tileset;
+mod common;
+mod from_files;
+mod from_mbtiles;
 
 use std::path::{Path, PathBuf};
 
@@ -97,9 +98,17 @@ impl TileFormat {
 
 #[derive(Clone, Default, ValueEnum)]
 enum SortMode {
-    /// Try all sort strategies and keep the smallest result
+    /// Try no-sort and Z-order (Morton) sort, keep the smaller (default).
+    ///
+    /// Morton wins ~8% of layers and captures nearly all of the spatial gain;
+    /// Hilbert and feature-ID sort each win <1% of layers while each doubling
+    /// the per-layer encode work, so they are excluded here and only tried
+    /// under `all`.
     #[default]
     Auto,
+    /// Try every sort strategy (no-sort, Morton, Hilbert, feature-ID) and keep
+    /// the smallest. Slowest, for marginally smaller output.
+    All,
     /// Do not reorder features (original order only)
     None,
     /// Only try Z-order (Morton) curve sort
@@ -157,9 +166,12 @@ impl ConvertArgs {
 pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     let cfg = EncoderConfig {
         tessellate: args.tessellate,
-        try_spatial_morton_sort: matches!(args.sort, SortMode::Auto | SortMode::Morton),
-        try_spatial_hilbert_sort: matches!(args.sort, SortMode::Auto | SortMode::Hilbert),
-        try_id_sort: matches!(args.sort, SortMode::Auto | SortMode::Id),
+        try_spatial_morton_sort: matches!(
+            args.sort,
+            SortMode::Auto | SortMode::All | SortMode::Morton
+        ),
+        try_spatial_hilbert_sort: matches!(args.sort, SortMode::All | SortMode::Hilbert),
+        try_id_sort: matches!(args.sort, SortMode::All | SortMode::Id),
         allow_shared_dict: !args.no_shared_dict,
         allow_fpf: !args.no_fastpfor,
         allow_fsst: !args.no_fsst,
@@ -185,19 +197,20 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
             );
         }
 
+        let output = (args.output.as_path(), args.output_container());
         return tokio::runtime::Builder::new_current_thread()
             .enable_io()
             .enable_time()
             .build()?
-            .block_on(tileset::convert_tiles(
-                (&args.input, args.input_container()),
-                (&args.output, args.output_container()),
+            .block_on(from_mbtiles::convert(
+                &args.input,
+                output,
                 cfg,
                 args.mbtiles_format,
             ));
     }
 
-    files::convert_files(&args.input, &args.output, cfg, args.to)
+    from_files::convert(&args.input, &args.output, cfg, args.to)
 }
 
 fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
