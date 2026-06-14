@@ -27,7 +27,7 @@ add_library(mlt-cpp-encoder STATIC)
 
 option(MLT_WITH_JSON "Include JSON support" ON)
 option(MLT_WITH_FASTPFOR "Include FastPFor support" ON)
-option(MLT_WITH_FASTPFOR_SIMD "Include SIMD/NEON support in FastPFor decoding" ON)
+option(MLT_WITH_FASTPFOR_SIMD "Include SIMD/NEON support in FastPFor decoding" OFF)
 option(MLT_WITH_TESTS "Include Tests" ON)
 option(MLT_WITH_TOOLS "Include CLI tools" ON)
 
@@ -174,7 +174,18 @@ target_sources(mlt-cpp-encoder PRIVATE
 
 include("${PROJECT_SOURCE_DIR}/vendor/fsst.cmake")
 include("${PROJECT_SOURCE_DIR}/vendor/earcut.cmake")
-include("${PROJECT_SOURCE_DIR}/vendor/fastpfor.cmake")
+
+if(MLT_WITH_FASTPFOR)
+    if(MLT_WITH_FASTPFOR_SIMD)
+        set(FASTPFOR_SIMD_MODE "runtime" CACHE STRING "" FORCE)
+    else()
+        # SIMD currently not supported, so SIMDE/NEON isn't needed
+        set(SUPPORT_NEON OFF CACHE BOOL "" FORCE)
+        set(SUPPORT_SSE42 OFF CACHE BOOL "" FORCE)
+        set(FASTPFOR_SIMD_MODE "portable" CACHE STRING "" FORCE)
+    endif(MLT_WITH_FASTPFOR_SIMD)
+    include("${PROJECT_SOURCE_DIR}/vendor/fastpfor.cmake")
+endif(MLT_WITH_FASTPFOR)
 
 # json
 if(MLT_WITH_JSON)
