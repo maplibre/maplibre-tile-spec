@@ -121,13 +121,17 @@ enum SortMode {
 }
 
 #[derive(Args)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each bool is an independent CLI on/off flag, not a state machine"
+)]
 pub struct ConvertArgs {
     /// Input: a directory with .mlt/.mvt/.pbf tiles, a single tile file, an .mbtiles or .pmtiles archive
     input: PathBuf,
     /// Output: a directory for re-encoded .mlt files, an .mbtiles database or a .pmtiles file
     output: PathBuf,
     /// Add tessellation
-    #[clap(short, long, default_value = "false")]
+    #[clap(short, long)]
     tessellate: bool,
     /// Sort strategy to try when re-encoding (encoder keeps the smallest result)
     #[clap(long, default_value = "auto")]
@@ -136,8 +140,14 @@ pub struct ConvertArgs {
     #[clap(long)]
     mbtiles_format: Option<MbtFormat>,
     /// Disable grouping of similar string columns into shared dictionaries
-    #[clap(long, default_value = "false")]
+    #[clap(long)]
     no_shared_dict: bool,
+    /// Disable `FastPFOR` integer compression (only `VarInt` physical encodings compete)
+    #[clap(long)]
+    no_fastpfor: bool,
+    /// Disable `FSST` string compression
+    #[clap(long)]
+    no_fsst: bool,
     /// Output tile format (`mlt` re-encodes; `mvt` decodes MLT inputs back to MVT)
     #[clap(long, default_value = "mlt")]
     to: TileFormat,
@@ -164,7 +174,8 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         try_spatial_hilbert_sort: matches!(args.sort, SortMode::All | SortMode::Hilbert),
         try_id_sort: matches!(args.sort, SortMode::All | SortMode::Id),
         allow_shared_dict: !args.no_shared_dict,
-        ..Default::default()
+        allow_fpf: !args.no_fastpfor,
+        allow_fsst: !args.no_fsst,
     };
 
     let input_container = args.input_container();
