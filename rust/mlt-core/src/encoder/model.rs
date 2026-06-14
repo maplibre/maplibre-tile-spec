@@ -161,7 +161,7 @@ pub struct EncoderConfig {
     /// Allow `FSST` string compression
     allow_fsst: bool,
     /// Allow `FastPFOR` integer compression
-    allow_fpf: bool,
+    allow_fastpfor: bool,
     /// Allow string grouping into shared dictionaries
     allow_shared_dict: bool,
 }
@@ -173,7 +173,7 @@ impl Default for EncoderConfig {
             try_spatial_hilbert_sort: true,
             try_id_sort: true,
             allow_fsst: true,
-            allow_fpf: true,
+            allow_fastpfor: true,
             allow_shared_dict: true,
         }
     }
@@ -186,17 +186,17 @@ impl EncoderConfig {
     }
 
     #[must_use]
-    pub fn try_spatial_morton_sort(self) -> bool {
+    pub fn attempt_spatial_morton_sort(self) -> bool {
         self.try_spatial_morton_sort
     }
 
     #[must_use]
-    pub fn try_spatial_hilbert_sort(self) -> bool {
+    pub fn attempt_spatial_hilbert_sort(self) -> bool {
         self.try_spatial_hilbert_sort
     }
 
     #[must_use]
-    pub fn try_id_sort(self) -> bool {
+    pub fn attempt_id_sort(self) -> bool {
         self.try_id_sort
     }
 
@@ -206,8 +206,8 @@ impl EncoderConfig {
     }
 
     #[must_use]
-    pub fn allow_fpf(self) -> bool {
-        self.allow_fpf
+    pub fn allow_fastpfor(self) -> bool {
+        self.allow_fastpfor
     }
 
     #[must_use]
@@ -247,7 +247,7 @@ impl EncoderConfig {
 
     #[must_use]
     pub fn with_fastpfor(mut self, enabled: bool) -> Self {
-        self.allow_fpf = enabled;
+        self.allow_fastpfor = enabled;
         self
     }
 
