@@ -6,13 +6,14 @@ use std::thread;
 use std::time::Instant;
 
 use super::ContainerFormat;
-use super::common::{EncodedTile, TileStats, encode_tile, make_encode_cache, make_progress_bar};
+use super::common::{
+    EncodeCache, EncodedTile, TileStats, encode_tile, make_encode_cache, make_progress_bar,
+};
 use anyhow::{Result as AnyResult, bail};
 use bytes::Bytes;
 use futures::TryStreamExt;
 use martin_tile_utils::{Encoding, Format};
 use mlt_core::encoder::EncoderConfig;
-use moka::sync::Cache;
 use pmtiles::{
     AsyncPmTilesReader, Compression, HashMapCache, MmapBackend, PmTilesWriter, TileCoord, TileId,
     TileType,
@@ -128,7 +129,7 @@ fn spawn_encode_pipeline(
     ids: Vec<TileId>,
     encoding: Encoding,
     cfg: EncoderConfig,
-    cache: Cache<u64, Bytes>,
+    cache: EncodeCache,
 ) -> tokio::sync::mpsc::Receiver<AnyResult<EncodedTile>> {
     let parallelism = thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
     let cap = (parallelism * PIPELINE_DEPTH_PER_CORE).max(8);
