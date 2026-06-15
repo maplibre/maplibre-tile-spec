@@ -19,12 +19,6 @@ pub const MAX_TILE_CACHE_TRACK_SIZE_BYTES: usize = 1024;
 const PROGRESS_BAR_TEMPLATE: &str = "  {bar:40.cyan/blue} {pos}/{len} tiles [{rate}, eta {eta}]";
 
 /// The encode dedup cache, keyed on the raw (small) tile bytes.
-///
-/// The key is the tile content itself rather than a 64-bit digest of it, so two
-/// distinct tiles can never collide onto one cache slot.
-/// `xxh3` still does the bucket hashing, just over the bytes moka already holds.
-/// The owned key is a `Vec<u8>` because that is what `[u8]::to_owned` yields,
-/// which is what [`Cache::try_get_with_by_ref`] needs to build the key on a miss.
 pub type EncodeCache = Cache<Vec<u8>, Bytes, Xxh3Builder>;
 
 pub fn make_progress_bar(total: u64) -> ProgressBar {
@@ -51,11 +45,9 @@ pub fn make_encode_cache() -> EncodeCache {
 ///
 /// Only small tiles (ocean, empty land, ...) actually repeat across a tileset;
 /// big city tiles are essentially unique, so tiles over
-/// [`MAX_TILE_CACHE_TRACK_SIZE_BYTES`] skip the cache entirely (any rare repeat
-/// still dedups when the container is written). Small tiles look up by their raw
-/// bytes; `try_get_with_by_ref` only materializes the owned key on a miss, so
-/// cache hits never allocate. Returns the encoded bytes and whether they came
-/// from the cache. Mirrors `files.rs` and the mbtiles transcoder.
+/// [`MAX_TILE_CACHE_TRACK_SIZE_BYTES`] skip the cache (any rare repeat still
+/// dedups when the container is written). Returns the encoded bytes and whether
+/// they came from the cache. Mirrors `files.rs` and the mbtiles transcoder.
 pub fn encode_tile(
     cache: &EncodeCache,
     data: &[u8],
