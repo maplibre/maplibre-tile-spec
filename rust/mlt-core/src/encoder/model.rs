@@ -1,4 +1,4 @@
-allow_fastpfor:use derive_debug::Dbg;
+use derive_debug::Dbg;
 
 use crate::decoder::{DictionaryType, GeometryValues, StreamType};
 use crate::encoder::geometry::VertexBufferType;
@@ -72,7 +72,7 @@ pub struct EncoderConfig {
     /// Allow `FSST` string compression
     pub allow_fsst: bool,
     /// Allow `FastPFOR` integer compression
-    pub allow_fpf: bool,
+    pub allow_fastpfor: bool,
     /// Allow string grouping into shared dictionaries
     pub allow_shared_dict: bool,
 }
@@ -84,7 +84,7 @@ impl Default for EncoderConfig {
             try_spatial_hilbert_sort: true,
             try_id_sort: true,
             allow_fsst: true,
-            allow_fpf: true,
+            allow_fastpfor: true,
             allow_shared_dict: true,
         }
     }
