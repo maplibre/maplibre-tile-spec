@@ -1,7 +1,6 @@
 //! Encode an entire MVT tile to MLT bytes.
 
 use mlt_core::MltResult;
-use mlt_core::encoder::EncoderConfig;
 use mlt_core::mvt::mvt_to_tile_layers;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
