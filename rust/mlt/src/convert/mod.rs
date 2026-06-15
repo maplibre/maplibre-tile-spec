@@ -1,4 +1,4 @@
-allow_fastpfor:mod common;
+mod common;
 mod from_files;
 mod from_mbtiles;
 
@@ -173,7 +173,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         try_spatial_hilbert_sort: matches!(args.sort, SortMode::All | SortMode::Hilbert),
         try_id_sort: matches!(args.sort, SortMode::All | SortMode::Id),
         allow_shared_dict: !args.no_shared_dict,
-        allow_fpf: !args.no_fastpfor,
+        allow_fastpfor: !args.no_fastpfor,
         allow_fsst: !args.no_fsst,
     };
 
