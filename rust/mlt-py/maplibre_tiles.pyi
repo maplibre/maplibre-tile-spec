@@ -58,6 +58,7 @@ def decode_mlt_to_geojson(data: bytes) -> builtins.str:
     r"""
     Decode an MLT binary blob and return GeoJSON as a string.
     """
+
 def encode_geojson(geojson: typing.Mapping[builtins.str, builtins.object], name: builtins.str, extent: builtins.int = 4096, *, tessellate: builtins.bool = False, sort: typing.Literal['all', 'auto', 'morton', 'hilbert', 'id', 'none'] = "auto", shared_dict: builtins.bool = True, fsst: builtins.bool = True, fastpfor: builtins.bool = True) -> bytes:
     r"""
     Encode a GeoJSON `FeatureCollection` into MLT bytes.
