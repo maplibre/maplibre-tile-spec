@@ -8,15 +8,27 @@ use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use pyo3_stub_gen::derive::gen_stub_pyfunction;
 
+use super::shared::encoder_config;
+
 /// Encode an entire MVT tile to MLT using default encoding options.
 ///
 /// `data` is a raw Mapbox Vector Tile (protobuf).
 #[gen_stub_pyfunction]
 #[pyfunction]
+#[pyo3(signature = (data, *, tessellate=false, sort="auto", shared_dict=true, fsst=true, fastpfor=true))]
 pub fn encode_mvt(
     py: Python<'_>,
     #[gen_stub(override_type(type_repr = "bytes"))] data: &[u8],
+    tessellate: bool,
+    #[gen_stub(override_type(
+        type_repr = "typing.Literal['all', 'auto', 'morton', 'hilbert', 'id', 'none']"
+    ))]
+    sort: &str,
+    shared_dict: bool,
+    fsst: bool,
+    fastpfor: bool,
 ) -> PyResult<Py<PyBytes>> {
+    let cfg = encoder_config(tessellate, sort, shared_dict, fsst, fastpfor)?;
     let bytes = py
         .detach(|| -> MltResult<Vec<u8>> {
             let data = data.to_vec();

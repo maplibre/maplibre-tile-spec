@@ -31,11 +31,11 @@ use super::shared::{encoder_config, val_err};
 /// `sort` chooses which feature ordering(s) the encoder trials: `all` tries all orderings, `auto` tries a subset with a good speed-size tradeoff, a named curve (`morton`/`hilbert`/`id`) tries just that one, and `none` keeps the input order.
 /// `shared_dict` allows grouping strings into shared dictionaries.
 /// `fsst` allows FSST string compression.
-/// `fpf` allows FastPFOR integer compression.
+/// `fastpfor` allows FastPFOR integer compression.
 /// See the module docs.
 #[gen_stub_pyfunction]
 #[pyfunction]
-#[pyo3(signature = (geojson, name, extent=4096, *, tessellate=false, sort="auto", shared_dict=true, fsst=true, fpf=true))]
+#[pyo3(signature = (geojson, name, extent=4096, *, tessellate=false, sort="auto", shared_dict=true, fsst=true, fastpfor=true))]
 #[expect(
     clippy::too_many_arguments,
     reason = "argument list mirrors the intentional Python keyword-argument API"
@@ -53,7 +53,7 @@ pub fn encode_geojson(
     sort: &str,
     shared_dict: bool,
     fsst: bool,
-    fpf: bool,
+    fastpfor: bool,
 ) -> PyResult<Py<PyBytes>> {
     if name.is_empty() {
         return Err(val_err("'name' must be non-empty"));
@@ -71,7 +71,7 @@ pub fn encode_geojson(
     }
 
     let tile = build_layer(fc, name, extent)?;
-    let cfg = encoder_config(tessellate, sort, shared_dict, fsst, fpf)?;
+    let cfg = encoder_config(tessellate, sort, shared_dict, fsst, fastpfor)?;
     // Release the GIL for the pure-Rust encode. The steps above read Python input and keep it.
     let bytes = py
         .detach(|| tile.encode(cfg))
