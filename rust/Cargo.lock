@@ -3542,7 +3542,7 @@ dependencies = [
  "bytes",
  "clap",
  "crossbeam-channel",
- "crossterm 0.29.0",
+ "crossterm",
  "flate2",
  "futures",
  "glob",
