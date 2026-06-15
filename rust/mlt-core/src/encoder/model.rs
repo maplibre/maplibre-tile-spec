@@ -1,4 +1,4 @@
-allow_fastpforuse derive_debug::Dbg;
+use derive_debug::Dbg;
 
 use crate::decoder::{DictionaryType, GeometryValues, StreamType};
 use crate::encoder::geometry::VertexBufferType;
