@@ -1,6 +1,7 @@
 mod common;
 mod from_files;
 mod from_mbtiles;
+mod from_pmtiles;
 
 use std::path::{Path, PathBuf};
 
@@ -125,7 +126,7 @@ enum SortMode {
     reason = "each bool is an independent CLI on/off flag, not a state machine"
 )]
 pub struct ConvertArgs {
-    /// Input: a directory with .mlt/.mvt/.pbf tiles, a single tile file, an .mbtiles database
+    /// Input: a directory with .mlt/.mvt/.pbf tiles, a single tile file, an .mbtiles or .pmtiles archive
     input: PathBuf,
     /// Output: a directory for re-encoded .mlt files, an .mbtiles database or a .pmtiles file
     output: PathBuf,
@@ -177,15 +178,16 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         allow_fsst: !args.no_fsst,
     };
 
-    if args.input_container() == ContainerFormat::Mbtiles {
+    let input_container = args.input_container();
+    if input_container == ContainerFormat::Mbtiles || input_container == ContainerFormat::Pmtiles {
         if args.to == TileFormat::Mvt {
             bail!(
-                "--to mvt is not supported for .mbtiles input/output yet; convert to a directory instead"
+                "--to mvt is not supported for .mbtiles/.pmtiles input/output yet; convert to a directory instead"
             );
         }
         if args.output_container() == ContainerFormat::Files {
             bail!(
-                "Output must be either an .mbtiles or a .pmtiles file when input is an .mbtiles file, got: {}",
+                "Output must be either an .mbtiles or a .pmtiles file when input is an .mbtiles/.pmtiles file, got: {}",
                 args.output.display()
             );
         }
@@ -197,17 +199,23 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
             );
         }
 
-        let output = (args.output.as_path(), args.output_container());
-        return tokio::runtime::Builder::new_current_thread()
+        let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_io()
             .enable_time()
-            .build()?
-            .block_on(from_mbtiles::convert(
+            .build()?;
+        let output = (args.output.as_path(), args.output_container());
+        return match input_container {
+            ContainerFormat::Pmtiles => {
+                runtime.block_on(from_pmtiles::convert(&args.input, output, cfg))
+            }
+            // mbtiles is the only other container possible here.
+            _ => runtime.block_on(from_mbtiles::convert(
                 &args.input,
                 output,
                 cfg,
                 args.mbtiles_format,
-            ));
+            )),
+        };
     }
 
     from_files::convert(&args.input, &args.output, cfg, args.to)
