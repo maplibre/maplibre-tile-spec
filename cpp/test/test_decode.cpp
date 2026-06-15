@@ -4,6 +4,7 @@
 #include <mlt/geometry.hpp>
 #include <mlt/metadata/tileset.hpp>
 #include <mlt/tile.hpp>
+#include <mlt/util/buffer_stream.hpp>
 
 #include <cstdlib>
 #include <exception>
