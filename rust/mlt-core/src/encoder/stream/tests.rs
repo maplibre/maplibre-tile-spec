@@ -175,10 +175,10 @@ fn auto_physical(values: &[u32], cfg: crate::encoder::EncoderConfig) -> Physical
     parsed.meta.encoding.physical
 }
 
-/// Regression: `EncoderConfig::allow_fpf` must actually gate `FastPFOR` selection in the auto path.
+/// Regression: `EncoderConfig::allow_fastpfor` must actually gate `FastPFOR` selection in the auto path.
 /// Previously the flag was dead — `FastPFOR` was always tried.
 #[test]
-fn allow_fpf_gates_fastpfor_selection() {
+fn allow_fastpfor_gates_fastpfor_selection() {
     // 12-bit pseudo-random values: not sequential and not run-heavy.
     // FastPFOR bit-packing beats VarInt here, so it wins the competition when allowed.
     let values: Vec<u32> = (0..2000u32)
@@ -186,23 +186,23 @@ fn allow_fpf_gates_fastpfor_selection() {
         .collect();
 
     let on = crate::encoder::EncoderConfig {
-        allow_fpf: true,
+        allow_fastpfor: true,
         ..Default::default()
     };
     let off = crate::encoder::EncoderConfig {
-        allow_fpf: false,
+        allow_fastpfor: false,
         ..Default::default()
     };
 
     assert_eq!(
         auto_physical(&values, on),
         PhysicalEncoding::FastPFor256,
-        "FastPFOR should win for this data when allow_fpf = true"
+        "FastPFOR should win for this data when allow_fastpfor = true"
     );
     assert_ne!(
         auto_physical(&values, off),
         PhysicalEncoding::FastPFor256,
-        "allow_fpf = false must prevent FastPFOR from being selected"
+        "allow_fastpfor = false must prevent FastPFOR from being selected"
     );
 }
 
