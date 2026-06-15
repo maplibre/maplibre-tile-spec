@@ -12,6 +12,13 @@ use super::shared::encoder_config;
 /// Encode an entire MVT tile to MLT using default encoding options.
 ///
 /// `data` is a raw Mapbox Vector Tile (protobuf).
+/// 
+/// Options:
+/// `tessellate` generates triangulation data for polygons and multi-polygons.
+/// `sort` chooses which feature ordering(s) the encoder trials: `all` tries all orderings, `auto` tries a subset with a good speed-size tradeoff, a named curve (`morton`/`hilbert`/`id`) tries just that one, and `none` keeps the input order.
+/// `shared_dict` allows grouping strings into shared dictionaries.
+/// `fsst` allows FSST string compression.
+/// `fastpfor` allows FastPFOR integer compression.
 #[gen_stub_pyfunction]
 #[pyfunction]
 #[pyo3(signature = (data, *, tessellate=false, sort="auto", shared_dict=true, fsst=true, fastpfor=true))]
