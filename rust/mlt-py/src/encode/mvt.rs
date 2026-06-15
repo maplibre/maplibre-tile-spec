@@ -34,7 +34,7 @@ pub fn encode_mvt(
             let data = data.to_vec();
             let mut out = Vec::new();
             for tile in mvt_to_tile_layers(data)? {
-                out.extend_from_slice(&tile.encode(EncoderConfig::default())?);
+                out.extend_from_slice(&tile.encode(cfg)?);
             }
             Ok(out)
         })
