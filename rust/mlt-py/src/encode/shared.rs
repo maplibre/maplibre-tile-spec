@@ -16,7 +16,7 @@ pub(crate) fn encoder_config(
     sort: &str,
     shared_dict: bool,
     fsst: bool,
-    fpf: bool,
+    fastpfor: bool,
 ) -> PyResult<EncoderConfig> {
     let (morton, hilbert, id) = match sort {
         "all" => (true, true, true),
@@ -37,6 +37,6 @@ pub(crate) fn encoder_config(
         try_id_sort: id,
         allow_shared_dict: shared_dict,
         allow_fsst: fsst,
-        allow_fpf: fpf,
+        allow_fastpfor: fastpfor,
     })
 }
