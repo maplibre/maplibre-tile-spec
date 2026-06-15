@@ -1,4 +1,4 @@
-allow_fastpforuse std::collections::HashMap;
+use std::collections::HashMap;
 
 use bytemuck::{NoUninit, cast_slice};
 use fastpfor::FastPFor256;
