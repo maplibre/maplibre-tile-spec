@@ -50,7 +50,7 @@ js-sys = "0.3"
 martin-tile-utils = "0.7"
 mbtiles = { version = "0.17", default-features = false, features = ["transcode"] }
 mimalloc = "0.1.52"
-mlt-core = { version = "0.10.1", path = "mlt-core" }
+mlt-core = { version = "0.11.0", path = "mlt-core" }
 moka = { version = "0.12", features = ["sync"] }
 num-traits = "0.2.19"
 num_enum = "0.7.6"

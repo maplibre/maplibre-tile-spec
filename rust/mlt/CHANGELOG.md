@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.17](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.16...rust-mlt-v0.1.17) - 2026-06-15
+
+### Added
+
+- *(rust)* pmtiles to pmtiles transcoding ([#1411](https://github.com/maplibre/maplibre-tile-spec/pull/1411))
+- *(py)* make `mlt.encode_geojson` configurable ([#1427](https://github.com/maplibre/maplibre-tile-spec/pull/1427))
+
+### Other
+
+- *(rust)* use mimalloc as the global allocator for the mlt CLI ([#1433](https://github.com/maplibre/maplibre-tile-spec/pull/1433))
+- *(rust)* split convert into from_files/from_mbtiles/common and add --sort all ([#1434](https://github.com/maplibre/maplibre-tile-spec/pull/1434))
+
 ## [0.1.16](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.15...rust-mlt-v0.1.16) - 2026-06-13
 
 ### Fixed
