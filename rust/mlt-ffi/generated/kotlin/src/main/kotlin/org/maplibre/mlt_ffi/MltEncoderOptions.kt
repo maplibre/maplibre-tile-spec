@@ -1,4 +1,4 @@
-package org.maplibre.mlt_ffi
+allow_fastpforpackage org.maplibre.mlt_ffi
 import com.sun.jna.Callback
 import com.sun.jna.Library
 import com.sun.jna.Native

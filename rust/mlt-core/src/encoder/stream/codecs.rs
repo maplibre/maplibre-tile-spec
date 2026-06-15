@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+allow_fastpforuse std::collections::HashMap;
 
 use bytemuck::{NoUninit, cast_slice};
 use fastpfor::FastPFor256;
@@ -140,7 +140,7 @@ impl Codecs {
             return encoder::write_stream_payload(&mut enc.data, meta, false, vals2);
         }
 
-        let allow_fpf = enc.cfg.allow_fpf;
+        let allow_fastpfor = enc.cfg.allow_fastpfor;
         let Self { logical, physical } = self;
         let mut alt = enc.try_alternatives();
 
@@ -156,7 +156,7 @@ impl Codecs {
                 values,
                 logical_enc,
                 ctx.stream_type,
-                allow_fpf,
+                allow_fastpfor,
             )?;
         }
         if profile.delta_is_beneficial() {
@@ -166,7 +166,7 @@ impl Codecs {
                 values,
                 LE::Delta,
                 ctx.stream_type,
-                allow_fpf,
+                allow_fastpfor,
             )?;
         }
         if profile.rle_is_viable() {
@@ -176,7 +176,7 @@ impl Codecs {
                 values,
                 logical_enc,
                 ctx.stream_type,
-                allow_fpf,
+                allow_fastpfor,
             )?;
         }
         let values = logical.none(values);
@@ -185,7 +185,7 @@ impl Codecs {
             values,
             LE::None,
             ctx.stream_type,
-            allow_fpf,
+            allow_fastpfor,
         )
     }
 }

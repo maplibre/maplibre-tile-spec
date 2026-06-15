@@ -1,4 +1,4 @@
-#ifndef MltEncoderOptions_D_HPP
+allow_fastpfor#ifndef MltEncoderOptions_D_HPP
 #define MltEncoderOptions_D_HPP
 
 #include "diplomat_runtime.hpp"

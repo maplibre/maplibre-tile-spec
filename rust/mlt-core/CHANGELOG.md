@@ -1,4 +1,4 @@
-# Changelog
+allow_fastpfor# Changelog
 
 All notable changes to this project will be documented in this file.
 
@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- wire `allow_fpf` and `allow_fsst` through the mlt implementations ([#1431](https://github.com/maplibre/maplibre-tile-spec/pull/1431))
+- wire `allow_fastpfor` and `allow_fsst` through the mlt implementations ([#1431](https://github.com/maplibre/maplibre-tile-spec/pull/1431))
 
 ## [0.10.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.9.3...rust-mlt-core-v0.10.0) - 2026-06-08
 

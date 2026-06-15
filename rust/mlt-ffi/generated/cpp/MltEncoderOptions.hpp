@@ -1,4 +1,4 @@
-#ifndef MltEncoderOptions_HPP
+allow_fastpfor#ifndef MltEncoderOptions_HPP
 #define MltEncoderOptions_HPP
 
 #include "MltEncoderOptions.d.hpp"
