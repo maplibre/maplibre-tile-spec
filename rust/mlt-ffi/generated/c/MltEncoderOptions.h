@@ -1,4 +1,4 @@
-allow_fastpfor #ifndef MltEncoderOptions_H
+#ifndef MltEncoderOptions_H
 #define MltEncoderOptions_H
 
 #include "diplomat_runtime.h"
@@ -9,7 +9,7 @@ allow_fastpfor #ifndef MltEncoderOptions_H
 
 #include "MltEncoderOptions.d.h"
 
-    MltEncoderOptions* MltEncoderOptions_new(void);
+MltEncoderOptions* MltEncoderOptions_new(void);
 
 void MltEncoderOptions_set_tessellate(MltEncoderOptions* self, bool enabled);
 

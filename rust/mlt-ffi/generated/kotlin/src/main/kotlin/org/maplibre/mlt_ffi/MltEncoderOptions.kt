@@ -1,4 +1,4 @@
-allow_fastpforpackage org.maplibre.mlt_ffi
+package org.maplibre.mlt_ffi
 import com.sun.jna.Callback
 import com.sun.jna.Library
 import com.sun.jna.Native
@@ -128,7 +128,7 @@ class MltEncoderOptions internal constructor(
 
     /** Allow `FastPFOR` integer compression.
      */
-    fun setAllowFpf(enabled: Boolean) {
+    fun setAllowFastpfor(enabled: Boolean) {
         val returnVal = lib.MltEncoderOptions_set_allow_fastpfor(handle, enabled)
     }
 

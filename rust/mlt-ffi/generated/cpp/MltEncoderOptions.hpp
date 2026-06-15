@@ -1,4 +1,4 @@
-allow_fastpfor #ifndef MltEncoderOptions_HPP
+#ifndef MltEncoderOptions_HPP
 #define MltEncoderOptions_HPP
 
 #include "MltEncoderOptions.d.hpp"
@@ -13,30 +13,30 @@ allow_fastpfor #ifndef MltEncoderOptions_HPP
 #include <stdint.h>
 #include <stdio.h>
 
-    namespace diplomat {
-    namespace capi {
-    extern "C" {
+namespace diplomat {
+namespace capi {
+extern "C" {
 
-    diplomat::capi::MltEncoderOptions* MltEncoderOptions_new(void);
+diplomat::capi::MltEncoderOptions* MltEncoderOptions_new(void);
 
-    void MltEncoderOptions_set_tessellate(diplomat::capi::MltEncoderOptions* self, bool enabled);
+void MltEncoderOptions_set_tessellate(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
-    void MltEncoderOptions_set_try_spatial_morton_sort(diplomat::capi::MltEncoderOptions* self, bool enabled);
+void MltEncoderOptions_set_try_spatial_morton_sort(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
-    void MltEncoderOptions_set_try_spatial_hilbert_sort(diplomat::capi::MltEncoderOptions* self, bool enabled);
+void MltEncoderOptions_set_try_spatial_hilbert_sort(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
-    void MltEncoderOptions_set_try_id_sort(diplomat::capi::MltEncoderOptions* self, bool enabled);
+void MltEncoderOptions_set_try_id_sort(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
-    void MltEncoderOptions_set_allow_fsst(diplomat::capi::MltEncoderOptions* self, bool enabled);
+void MltEncoderOptions_set_allow_fsst(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
-    void MltEncoderOptions_set_allow_fastpfor(diplomat::capi::MltEncoderOptions* self, bool enabled);
+void MltEncoderOptions_set_allow_fastpfor(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
-    void MltEncoderOptions_set_allow_shared_dict(diplomat::capi::MltEncoderOptions* self, bool enabled);
+void MltEncoderOptions_set_allow_shared_dict(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
-    void MltEncoderOptions_destroy(MltEncoderOptions* self);
+void MltEncoderOptions_destroy(MltEncoderOptions* self);
 
-    } // extern "C"
-    } // namespace capi
+} // extern "C"
+} // namespace capi
 } // namespace diplomat
 
 inline std::unique_ptr<MltEncoderOptions> MltEncoderOptions::new_() {
