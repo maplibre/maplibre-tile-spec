@@ -1,4 +1,4 @@
-allow_fastpforuse proptest::prelude::*;
+use proptest::prelude::*;
 use rstest::rstest;
 
 use crate::MltError;
