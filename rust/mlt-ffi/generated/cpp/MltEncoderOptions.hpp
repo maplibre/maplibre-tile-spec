@@ -29,7 +29,7 @@ void MltEncoderOptions_set_try_id_sort(diplomat::capi::MltEncoderOptions* self, 
 
 void MltEncoderOptions_set_allow_fsst(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
-void MltEncoderOptions_set_allow_fpf(diplomat::capi::MltEncoderOptions* self, bool enabled);
+void MltEncoderOptions_set_allow_fastpfor(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
 void MltEncoderOptions_set_allow_shared_dict(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
@@ -64,8 +64,8 @@ inline void MltEncoderOptions::set_allow_fsst(bool enabled) {
     diplomat::capi::MltEncoderOptions_set_allow_fsst(this->AsFFI(), enabled);
 }
 
-inline void MltEncoderOptions::set_allow_fpf(bool enabled) {
-    diplomat::capi::MltEncoderOptions_set_allow_fpf(this->AsFFI(), enabled);
+inline void MltEncoderOptions::set_allow_fastpfor(bool enabled) {
+    diplomat::capi::MltEncoderOptions_set_allow_fastpfor(this->AsFFI(), enabled);
 }
 
 inline void MltEncoderOptions::set_allow_shared_dict(bool enabled) {

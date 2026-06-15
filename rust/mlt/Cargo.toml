@@ -37,6 +37,7 @@ hotpath.workspace = true
 indicatif.workspace = true
 martin-tile-utils.workspace = true
 mbtiles.workspace = true
+mimalloc.workspace = true
 mlt-core.workspace = true
 moka.workspace = true
 pmtiles.workspace = true

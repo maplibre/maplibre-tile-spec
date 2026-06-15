@@ -22,7 +22,11 @@ export default class FeatureTable {
         private readonly _idVector?: IdVector,
         private readonly _propertyVectors?: Vector[],
         private readonly _extent = 4096,
-    ) {}
+    ) {
+        if (_name.length === 0) {
+            throw new Error("Missing layer name");
+        }
+    }
 
     get name(): string {
         return this._name;
