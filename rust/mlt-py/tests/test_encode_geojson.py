@@ -199,7 +199,7 @@ def test_shared_dict_returns_bytes(shared_dict):
     assert isinstance(blob, bytes)
 
 
-@pytest.mark.parametrize("flag", ["fsst", "fpf"])
+@pytest.mark.parametrize("flag", ["fsst", "fastpfor"])
 @pytest.mark.parametrize("value", [True, False])
 def test_compression_toggles_return_bytes(flag, value):
     blob = mlt.encode_geojson(
