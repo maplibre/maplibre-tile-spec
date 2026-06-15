@@ -80,6 +80,13 @@ def encode_mvt(data: bytes, *, tessellate: builtins.bool = False, sort: typing.L
     Encode an entire MVT tile to MLT using default encoding options.
 
     `data` is a raw Mapbox Vector Tile (protobuf).
+
+    Options:
+    `tessellate` generates triangulation data for polygons and multi-polygons.
+    `sort` chooses which feature ordering(s) the encoder trials: `all` tries all orderings, `auto` tries a subset with a good speed-size tradeoff, a named curve (`morton`/`hilbert`/`id`) tries just that one, and `none` keeps the input order.
+    `shared_dict` allows grouping strings into shared dictionaries.
+    `fsst` allows FSST string compression.
+    `fastpfor` allows FastPFOR integer compression.
     """
 
 def list_layers(data: bytes) -> builtins.list[builtins.str]:
