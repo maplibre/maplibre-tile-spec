@@ -34,7 +34,7 @@ jobs:
     name: Test mlt-py
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - uses: ./.github/actions/mlt-setup-rust
       - uses: actions/setup-python@v6
         with: { python-version: "3.13" }
@@ -48,7 +48,7 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - uses: ./.github/actions/mlt-setup-rust
         with: { toolchain: nightly } # because of covs --doctests
-      - uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
+      - uses: taiki-e/install-action@7a79fe8c3a13344501c80d99cae481c1c9085912 # v2.81.10
         with: { tool: "cargo-llvm-cov" }
       - run: just -v rust::ci-coverage
       - name: Upload coverage to Codecov
@@ -137,7 +137,7 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
       - if: matrix.backend == 'kotlin'
-        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
       - run: just -v rust::${{ matrix.recipe }}
 
   test-publish:
@@ -264,14 +264,14 @@ jobs:
         with: { fetch-depth: 0, persist-credentials: false }
       - uses: ./.github/actions/mlt-setup-rust
       - name: Publish to crates.io if crate's version is newer
-        uses: release-plz/action@064f4d1e36c843611ddf013be726beaa4ad804db # v0.5.129
+        uses: release-plz/action@e8792575c7f2366cf6ff3ccc33ead9ace5b691c7 # v0.5.130
         id: release
         with: { command: release, manifest_path: ./rust/Cargo.toml }
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: If version is the same, create a PR proposing new version and changelog for the next release
-        uses: release-plz/action@064f4d1e36c843611ddf013be726beaa4ad804db # v0.5.129
+        uses: release-plz/action@e8792575c7f2366cf6ff3ccc33ead9ace5b691c7 # v0.5.130
         with: { command: release-pr, manifest_path: ./rust/Cargo.toml }
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
@@ -288,7 +288,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      - uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
+      - uses: taiki-e/install-action@7a79fe8c3a13344501c80d99cae481c1c9085912 # v2.81.10
         with: { tool: "just" }
       - name: Get mlt version for release tag
         id: get_version

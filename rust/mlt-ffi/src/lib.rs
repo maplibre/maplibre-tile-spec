@@ -89,7 +89,7 @@ mod ffi {
         }
 
         /// Allow `FastPFOR` integer compression.
-        pub fn set_allow_fpf(&mut self, enabled: bool) {
+        pub fn set_allow_fastpfor(&mut self, enabled: bool) {
             self.0 = self.0.with_fastpfor(enabled);
         }
 

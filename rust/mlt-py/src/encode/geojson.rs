@@ -11,7 +11,6 @@
 
 use std::collections::HashMap;
 
-use mlt_core::encoder::EncoderConfig;
 use mlt_core::geo_types::Geometry;
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::{PropKind, PropValue, TileLayer};
@@ -21,21 +20,41 @@ use pyo3::types::PyBytes;
 use pyo3_stub_gen::derive::gen_stub_pyfunction;
 use serde_json::Value;
 
+use super::shared::{encoder_config, val_err};
+
 /// Encode a GeoJSON `FeatureCollection` into MLT bytes.
 ///
 /// `geojson` is an RFC 7946 `FeatureCollection`.
 /// `name` and `extent` set the MLT layer metadata, since a `FeatureCollection` has no slot for them.
 /// Geometry is in tile-local coordinate space (no projection).
+///
+/// `tessellate` generates triangulation data for polygons and multi-polygons.
+/// `sort` chooses which feature ordering(s) the encoder trials: `all` tries all orderings, `auto` tries a subset with a good speed-size tradeoff, a named curve (`morton`/`hilbert`/`id`) tries just that one, and `none` keeps the input order.
+/// `shared_dict` allows grouping strings into shared dictionaries.
+/// `fsst` allows FSST string compression.
+/// `fastpfor` allows FastPFOR integer compression.
 /// See the module docs.
 #[gen_stub_pyfunction]
 #[pyfunction]
-#[pyo3(signature = (geojson, name, extent=4096))]
+#[pyo3(signature = (geojson, name, extent=4096, *, tessellate=false, sort="auto", shared_dict=true, fsst=true, fastpfor=true))]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "argument list mirrors the intentional Python keyword-argument API"
+)]
 pub fn encode_geojson(
     py: Python<'_>,
     #[gen_stub(override_type(type_repr = "typing.Mapping[builtins.str, builtins.object]"))]
     geojson: &Bound<'_, PyAny>,
     name: String,
     extent: u32,
+    tessellate: bool,
+    #[gen_stub(override_type(
+        type_repr = "typing.Literal['all', 'auto', 'morton', 'hilbert', 'id', 'none']"
+    ))]
+    sort: &str,
+    shared_dict: bool,
+    fsst: bool,
+    fastpfor: bool,
 ) -> PyResult<Py<PyBytes>> {
     if name.is_empty() {
         return Err(val_err("'name' must be non-empty"));
@@ -53,15 +72,12 @@ pub fn encode_geojson(
     }
 
     let tile = build_layer(fc, name, extent)?;
+    let cfg = encoder_config(tessellate, sort, shared_dict, fsst, fastpfor)?;
     // Release the GIL for the pure-Rust encode. The steps above read Python input and keep it.
     let bytes = py
-        .detach(|| tile.encode(EncoderConfig::default()))
+        .detach(|| tile.encode(cfg))
         .map_err(|e| val_err(format!("MLT encode error: {e}")))?;
     Ok(PyBytes::new(py, &bytes).unbind())
-}
-
-fn val_err(msg: impl Into<String>) -> PyErr {
-    PyValueError::new_err(msg.into())
 }
 
 fn validate_non_empty(g: &Geometry<i32>) -> PyResult<()> {

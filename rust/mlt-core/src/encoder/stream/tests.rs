@@ -178,7 +178,7 @@ fn auto_physical(values: &[u32], cfg: EncoderConfig) -> PhysicalEncoding {
 /// Regression: `EncoderConfig::allow_fastpfor` must actually gate `FastPFOR` selection in the auto path.
 /// Previously the flag was dead — `FastPFOR` was always tried.
 #[test]
-fn allow_fpf_gates_fastpfor_selection() {
+fn allow_fastpfor_gates_fastpfor_selection() {
     // 12-bit pseudo-random values: not sequential and not run-heavy.
     // FastPFOR bit-packing beats VarInt here, so it wins the competition when allowed.
     let values: Vec<u32> = (0..2000u32)

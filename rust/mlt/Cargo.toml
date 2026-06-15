@@ -1,7 +1,7 @@
 [package]
 name = "mlt"
 description = "MapLibre Tile Tools"
-version = "0.1.16"
+version = "0.1.17"
 authors.workspace = true
 categories.workspace = true
 edition.workspace = true
@@ -27,6 +27,7 @@ hotpath-mcp = ["hotpath", "hotpath/hotpath-mcp", "hotpath/hotpath-mcp-meta"]
 anyhow.workspace = true
 bytes.workspace = true
 clap.workspace = true
+crossbeam-channel.workspace = true
 crossterm.workspace = true
 flate2.workspace = true
 futures.workspace = true

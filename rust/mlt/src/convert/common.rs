@@ -8,7 +8,7 @@ use mlt_core::encoder::EncoderConfig;
 use moka::sync::Cache;
 use pmtiles::TileCoord;
 use size_format::SizeFormatterSI;
-use xxhash_rust::xxh3::xxh3_64;
+use xxhash_rust::xxh3::Xxh3Builder;
 
 use super::{encode_one, whole_rate_per_sec};
 
@@ -17,6 +17,9 @@ pub const ENCODE_CACHE_BYTES: u64 = 512 * 1024 * 1024;
 /// Cap on the tile cache track size (in bytes).
 pub const MAX_TILE_CACHE_TRACK_SIZE_BYTES: usize = 1024;
 const PROGRESS_BAR_TEMPLATE: &str = "  {bar:40.cyan/blue} {pos}/{len} tiles [{rate}, eta {eta}]";
+
+/// The encode dedup cache, keyed on the raw (small) tile bytes.
+pub type EncodeCache = Cache<Vec<u8>, Bytes, Xxh3Builder>;
 
 pub fn make_progress_bar(total: u64) -> ProgressBar {
     let bar = ProgressBar::new(total);
@@ -31,23 +34,22 @@ pub fn make_progress_bar(total: u64) -> ProgressBar {
 }
 
 /// Build the bounded, byte-weighted cache used to dedup encoded tiles.
-pub fn make_encode_cache() -> Cache<u64, Bytes> {
+pub fn make_encode_cache() -> EncodeCache {
     Cache::builder()
         .max_capacity(ENCODE_CACHE_BYTES)
         .weigher(|_, v: &Bytes| u32::try_from(v.len()).unwrap_or(u32::MAX))
-        .build()
+        .build_with_hasher(Xxh3Builder::default())
 }
 
 /// Encode one source tile MVT → MLT, deduplicating through `cache`.
 ///
 /// Only small tiles (ocean, empty land, ...) actually repeat across a tileset;
 /// big city tiles are essentially unique, so tiles over
-/// [`MAX_TILE_CACHE_TRACK_SIZE_BYTES`] skip the hash + cache (any rare repeat
-/// still dedups when the container is written). Returns the encoded bytes and
-/// whether they came from the cache. Mirrors `files.rs` and the mbtiles
-/// transcoder.
+/// [`MAX_TILE_CACHE_TRACK_SIZE_BYTES`] skip the cache (any rare repeat still
+/// dedups when the container is written). Returns the encoded bytes and whether
+/// they came from the cache. Mirrors `files.rs` and the mbtiles transcoder.
 pub fn encode_tile(
-    cache: &Cache<u64, Bytes>,
+    cache: &EncodeCache,
     data: &[u8],
     encoding: Encoding,
     cfg: EncoderConfig,
@@ -57,7 +59,7 @@ pub fn encode_tile(
     }
     let mut hit = true;
     let encoded = cache
-        .try_get_with(xxh3_64(data), || {
+        .try_get_with_by_ref(data, || {
             hit = false;
             encode_one(data.to_vec(), encoding, cfg)
         })

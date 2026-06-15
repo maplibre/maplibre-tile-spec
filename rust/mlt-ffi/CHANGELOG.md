@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.5...rust-mlt-ffi-v0.1.6) - 2026-06-15
+
+### Added
+
+- *(py)* make `mlt.encode_geojson` configurable ([#1427](https://github.com/maplibre/maplibre-tile-spec/pull/1427))
+
 ## [0.1.5](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.4...rust-mlt-ffi-v0.1.5) - 2026-06-13
 
 ### Other

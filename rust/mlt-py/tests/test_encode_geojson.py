@@ -165,3 +165,46 @@ def test_non_feature_collection_input_errors():
 def test_empty_layer_errors():
     with pytest.raises(ValueError):
         mlt.encode_geojson(_fc([]), "r")
+
+
+POLYGON = {
+    "type": "Polygon",
+    "coordinates": [[[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]],
+}
+
+
+def test_tessellate_polygon_returns_bytes():
+    blob = mlt.encode_geojson(_fc([_feature(POLYGON)]), "l", tessellate=True)
+    assert isinstance(blob, bytes)
+
+
+@pytest.mark.parametrize("sort", ["auto", "morton", "hilbert", "id", "none"])
+def test_sort_modes_return_bytes(sort):
+    blob = mlt.encode_geojson(_fc([_feature(POLYGON, id=1)]), "l", sort=sort)
+    assert isinstance(blob, bytes)
+
+
+def test_invalid_sort_errors():
+    with pytest.raises(ValueError):
+        mlt.encode_geojson(_fc([_feature(POINT)]), "l", sort="bogus")
+
+
+@pytest.mark.parametrize("shared_dict", [True, False])
+def test_shared_dict_returns_bytes(shared_dict):
+    blob = mlt.encode_geojson(
+        _fc([_feature(POINT, properties={"name": "main"})]),
+        "l",
+        shared_dict=shared_dict,
+    )
+    assert isinstance(blob, bytes)
+
+
+@pytest.mark.parametrize("flag", ["fsst", "fastpfor"])
+@pytest.mark.parametrize("value", [True, False])
+def test_compression_toggles_return_bytes(flag, value):
+    blob = mlt.encode_geojson(
+        _fc([_feature(POINT, properties={"name": "main", "lanes": 3})]),
+        "l",
+        **{flag: value},
+    )
+    assert isinstance(blob, bytes)
