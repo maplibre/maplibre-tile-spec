@@ -53,8 +53,9 @@ pub fn encode_geojson(
     }
 
     let tile = build_layer(fc, name, extent)?;
-    let bytes = tile
-        .encode(EncoderConfig::default())
+    // Release the GIL for the pure-Rust encode. The steps above read Python input and keep it.
+    let bytes = py
+        .detach(|| tile.encode(EncoderConfig::default()))
         .map_err(|e| val_err(format!("MLT encode error: {e}")))?;
     Ok(PyBytes::new(py, &bytes).unbind())
 }

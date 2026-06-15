@@ -4,6 +4,7 @@
 #include <mlt/geometry.hpp>
 #include <mlt/metadata/tileset.hpp>
 #include <mlt/tile.hpp>
+#include <mlt/util/buffer_stream.hpp>
 
 #include <cstdlib>
 #include <exception>
@@ -123,6 +124,13 @@ TEST(Decode, SimplePointBoolean) {
 
     const auto& feature = mltLayer->getFeatures().front();
     EXPECT_EQ(feature.getID(), 1);
+}
+
+TEST(Decode, RejectsEmptyLayerName) {
+    const std::string metadata{"\0\x80\x20\0", 4};
+    auto stream = mlt::BufferStream({metadata.data(), metadata.size()});
+
+    EXPECT_THROW(mlt::metadata::tileset::decodeFeatureTable(stream), std::runtime_error);
 }
 
 TEST(Decode, SimpleLineBoolean) {

@@ -14,7 +14,8 @@ use crate::encoder::{
 };
 use crate::test_helpers::{dec, parser};
 use crate::{
-    DictRange, GeometryValues, Layer, MltError, MltResult, PropValue, TileFeature, TileLayer,
+    DictRange, Extent, GeometryValues, Layer, MltError, MltResult, PropValue, TileFeature,
+    TileLayer,
 };
 // proptest_derive::Arbitrary is only derived for these types inside the crate
 // under #[cfg(test)], so we write the strategies by hand here.
@@ -389,7 +390,7 @@ fn encode_to_bytes_auto(props: Vec<StagedProperty>, cfg: EncoderConfig) -> Vec<u
     let n = props.iter().map(staged_len).max().unwrap_or(0);
     let layer = StagedLayer {
         name: "test".into(),
-        extent: 4096,
+        extent: Extent::new(4096).unwrap(),
         id: StagedId::None,
         geometry: n_point_geometry(n),
         properties: props,
@@ -414,14 +415,8 @@ fn allow_fsst_gates_fsst_selection() {
         .collect();
     let col = || StagedProperty::str("name", values.iter().map(String::as_str));
 
-    let on = EncoderConfig {
-        allow_fsst: true,
-        ..Default::default()
-    };
-    let off = EncoderConfig {
-        allow_fsst: false,
-        ..Default::default()
-    };
+    let on = EncoderConfig::default().with_fsst(true);
+    let off = EncoderConfig::default().with_fsst(false);
 
     let bytes_on = encode_to_bytes_auto(vec![col()], on);
     let bytes_off = encode_to_bytes_auto(vec![col()], off);

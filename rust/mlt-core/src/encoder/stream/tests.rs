@@ -166,16 +166,16 @@ fn test_fastpfor_roundtrip(#[case] values: Vec<u32>) {
 
 /// Auto-encode `values` (no explicit override) under `cfg` and return the
 /// physical encoding the competition selected.
-fn auto_physical(values: &[u32], cfg: crate::encoder::EncoderConfig) -> PhysicalEncoding {
+fn auto_physical(values: &[u32], cfg: EncoderConfig) -> PhysicalEncoding {
     let mut enc = Encoder::new(cfg);
     let codecs = &mut Codecs::default();
     let ctx = StreamCtx::prop_data("test");
     codecs.write_int_stream(values, &ctx, &mut enc).unwrap();
-    let parsed = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
+    let parsed = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
     parsed.meta.encoding.physical
 }
 
-/// Regression: `EncoderConfig::allow_fpf` must actually gate `FastPFOR` selection in the auto path.
+/// Regression: `EncoderConfig::allow_fastpfor` must actually gate `FastPFOR` selection in the auto path.
 /// Previously the flag was dead — `FastPFOR` was always tried.
 #[test]
 fn allow_fpf_gates_fastpfor_selection() {
@@ -185,24 +185,18 @@ fn allow_fpf_gates_fastpfor_selection() {
         .map(|i| i.wrapping_mul(2_654_435_761) % 4096)
         .collect();
 
-    let on = crate::encoder::EncoderConfig {
-        allow_fpf: true,
-        ..Default::default()
-    };
-    let off = crate::encoder::EncoderConfig {
-        allow_fpf: false,
-        ..Default::default()
-    };
+    let on = EncoderConfig::default().with_fastpfor(true);
+    let off = EncoderConfig::default().with_fastpfor(false);
 
     assert_eq!(
         auto_physical(&values, on),
         PhysicalEncoding::FastPFor256,
-        "FastPFOR should win for this data when allow_fpf = true"
+        "FastPFOR should win for this data when allow_fastpfor = true"
     );
     assert_ne!(
         auto_physical(&values, off),
         PhysicalEncoding::FastPFor256,
-        "allow_fpf = false must prevent FastPFOR from being selected"
+        "allow_fastpfor = false must prevent FastPFOR from being selected"
     );
 }
 

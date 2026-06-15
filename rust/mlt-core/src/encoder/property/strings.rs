@@ -71,7 +71,7 @@ impl Encoder {
     ///
     /// [`EncoderConfig::allow_fsst`]: crate::encoder::EncoderConfig::allow_fsst
     pub(crate) fn fsst_compressor(&mut self, key: &str, corpus: &[&str]) -> Option<&Compressor> {
-        if !self.cfg.allow_fsst {
+        if !self.config().allow_fsst() {
             return None;
         }
         self.fsst_cache

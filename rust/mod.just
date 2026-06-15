@@ -329,7 +329,7 @@ py-test: (just 'cargo-install' 'maturin')
     set -euo pipefail
     if [[ ! -d ".venv" ]]; then python3 -m venv .venv; fi
     source .venv/bin/activate
-    python -m pip install --quiet --upgrade pip pytest hypothesis
+    python -m pip install --quiet --upgrade pip pytest hypothesis mapbox_vector_tile
     maturin develop
     python -m pytest tests/ -q
 

@@ -173,8 +173,7 @@ impl<'a> RawStream<'a> {
                 *buf = decode_fastpfor(self.data, self.meta.num_values, dec)?;
             }
             PhysicalEncoding::VarInt => {
-                let (_, values) =
-                    parse_varint_vec::<u32, u32>(self.data, self.meta.num_values, dec)?;
+                let (_, values) = parse_varint_vec::<u32>(self.data, self.meta.num_values, dec)?;
                 *buf = values;
             }
         }
@@ -199,8 +198,7 @@ impl<'a> RawStream<'a> {
                 ));
             }
             PhysicalEncoding::VarInt => {
-                let (_, values) =
-                    parse_varint_vec::<u64, u64>(self.data, self.meta.num_values, dec)?;
+                let (_, values) = parse_varint_vec::<u64>(self.data, self.meta.num_values, dec)?;
                 *buf = values;
             }
         }

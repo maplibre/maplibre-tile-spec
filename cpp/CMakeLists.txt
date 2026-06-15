@@ -94,6 +94,7 @@ add_cxx_compiler_flag(-fstrict-aliasing)
 add_cxx_compiler_flag(-wd4061) # MSVC: enum member not handled in switch
 add_cxx_compiler_flag(-wd4514) # MSVC: unreferenced inline function has been removed
 add_cxx_compiler_flag(-wd4710) # MSVC: function not inlined
+add_cxx_compiler_flag(-wd4711) # MSVC: function selected for inline expansion
 add_cxx_compiler_flag(-wd4820) # MSVC: padding added after data member
 
 foreach(_target mlt-cpp mlt-cpp-encoder)

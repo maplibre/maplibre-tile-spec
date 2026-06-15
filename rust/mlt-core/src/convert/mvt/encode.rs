@@ -3,13 +3,16 @@
 
 use fast_mvt::{MvtTileBuilder, MvtValue};
 
-use crate::MltResult;
 use crate::decoder::{PropValue, TileLayer};
+use crate::{MltError, MltResult};
 
 /// Encode row-oriented [`TileLayer`]s as MVT (Mapbox Vector Tile) bytes.
 pub fn tile_layers_to_mvt(layers: Vec<TileLayer>) -> MltResult<Vec<u8>> {
     let mut tile = MvtTileBuilder::with_capacity(layers.len());
     for layer in layers {
+        if layer.name.is_empty() {
+            return Err(MltError::MissingLayerName);
+        }
         let mut mvt_layer = tile.layer_with_capacity(layer.name, layer.features.len())?;
         mvt_layer.extent(layer.extent.into());
         for feat in layer.features {
@@ -52,7 +55,7 @@ impl TryFrom<PropValue> for MvtValue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::decoder::TileFeature;
+    use crate::decoder::{Extent, TileFeature};
     use crate::mvt::mvt_to_tile_layers;
 
     #[test]
@@ -60,6 +63,22 @@ mod tests {
         let bytes = tile_layers_to_mvt(Vec::new()).unwrap();
         let decoded = mvt_to_tile_layers(bytes).unwrap();
         assert!(decoded.is_empty());
+    }
+
+    #[test]
+    fn rejects_empty_layer_name() {
+        let layer = TileLayer {
+            name: String::new(),
+            extent: Extent::new(4096).unwrap(),
+            property_names: vec![],
+            property_kinds: vec![],
+            features: vec![],
+        };
+
+        assert!(matches!(
+            tile_layers_to_mvt(vec![layer]),
+            Err(MltError::MissingLayerName)
+        ));
     }
 
     /// `ClosePath` repeats the first vertex; an input with the closing
