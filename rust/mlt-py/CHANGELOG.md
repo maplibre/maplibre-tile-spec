@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.19](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.18...python-mlt-v0.1.19) - 2026-06-15
+
+### Added
+
+- *(py)* make `mlt.encode_geojson` configurable ([#1427](https://github.com/maplibre/maplibre-tile-spec/pull/1427))
+- *(py)* add encode_mvt to encode a whole MVT tile to MLT ([#1425](https://github.com/maplibre/maplibre-tile-spec/pull/1425))
+
 ## [0.1.18](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.17...python-mlt-v0.1.18) - 2026-06-13
 
 ### Other
