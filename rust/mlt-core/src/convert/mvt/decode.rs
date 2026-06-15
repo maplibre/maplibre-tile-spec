@@ -5,16 +5,20 @@ use std::collections::{BTreeMap, HashMap};
 use fast_mvt::{MvtLayer, MvtReaderRef, MvtValue};
 use serde_json::Value;
 
-use crate::MltResult;
 use crate::decoder::{PropValue, TileFeature, TileLayer};
 use crate::geojson::{Feature, FeatureCollection};
+use crate::{MltError, MltResult};
 
 /// Parse MVT bytes into a list of layers, each holding its raw features.
 ///
 /// This is the single place where the `fast-mvt` API is called; both
 /// [`mvt_to_feature_collection`] and [`mvt_to_tile_layers`] build on top of it.
 fn read_mvt_layers(data: &[u8]) -> MltResult<Vec<MvtLayer>> {
-    Ok(MvtReaderRef::new(data)?.to_tile()?.layers)
+    let layers = MvtReaderRef::new(data)?.to_tile()?.layers;
+    if layers.iter().any(|layer| layer.name.is_empty()) {
+        return Err(MltError::MissingLayerName);
+    }
+    Ok(layers)
 }
 
 /// Parse MVT binary data and convert to a [`FeatureCollection`].
@@ -52,14 +56,20 @@ pub fn mvt_to_feature_collection(data: impl AsRef<[u8]>) -> MltResult<FeatureCol
 /// determines its type, with `I64`+`U64` widened to `I64` and `F32`+`F64` widened
 /// to `F64`; all other type conflicts fall back to `Str`.
 pub fn mvt_to_tile_layers(data: impl AsRef<[u8]>) -> MltResult<Vec<TileLayer>> {
-    Ok(read_mvt_layers(data.as_ref())?
+    read_mvt_layers(data.as_ref())?
         .into_iter()
-        .map(TileLayer::from)
-        .collect())
+        .map(TileLayer::try_from)
+        .collect::<Result<Vec<_>, _>>()
 }
 
-impl From<MvtLayer> for TileLayer {
-    fn from(layer: MvtLayer) -> Self {
+impl TryFrom<MvtLayer> for TileLayer {
+    type Error = MltError;
+
+    fn try_from(layer: MvtLayer) -> Result<Self, Self::Error> {
+        if layer.name.is_empty() {
+            return Err(MltError::MissingLayerName);
+        }
+
         // First pass: collect property names (insertion-ordered) and infer column types.
         let mut col_names: Vec<String> = Vec::new();
         let mut col_index: HashMap<String, usize> = HashMap::new();
@@ -103,12 +113,12 @@ impl From<MvtLayer> for TileLayer {
             });
         }
 
-        Self {
+        Ok(Self {
             name: layer.name,
             extent: layer.extent.get(),
             property_names: col_names,
             features: tile_features,
-        }
+        })
     }
 }
 

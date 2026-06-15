@@ -3,8 +3,8 @@ use usize_cast::IntoUsize as _;
 use crate::LazyParsed::Raw;
 use crate::MltError::{
     BufferUnderflow, GeometryWithoutStreams, InvalidSharedDictStreamCount, MissingGeometry,
-    MultipleGeometryColumns, MultipleIdColumns, SharedDictRequiresStreams, TrailingLayerData,
-    UnexpectedStructChildCount, UnsupportedStringStreamCount,
+    MissingLayerName, MultipleGeometryColumns, MultipleIdColumns, SharedDictRequiresStreams,
+    TrailingLayerData, UnexpectedStructChildCount, UnsupportedStringStreamCount,
 };
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
@@ -265,6 +265,9 @@ impl<'a> Layer01<'a, Lazy> {
     /// Parse `v01::Layer` metadata, reserving decoded memory against the parser's budget.
     pub(crate) fn from_bytes(input: &'a [u8], parser: &mut Parser) -> MltResult<Self> {
         let (input, layer_name) = parse_string(input)?;
+        if layer_name.is_empty() {
+            return Err(MissingLayerName);
+        }
         let (input, extent) = parse_varint::<u32>(input)?;
         let (input, column_count) = parse_varint::<u32>(input)?;
 
@@ -642,5 +645,26 @@ fn scalar<'a>(name: &'a str, opt: Option<RawStream<'a>>, value: RawStream<'a>) -
         name,
         presence: RawPresence(opt),
         data: value,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{MltError, Parser};
+
+    #[test]
+    fn parse_layers_rejects_empty_layer_name() {
+        let bytes = [
+            5, // layer size: tag byte + 4-byte body
+            1, // tag 0x01
+            0, // empty layer name
+            0x80, 0x20, // extent 4096
+            0,    // column count
+        ];
+
+        assert!(matches!(
+            Parser::default().parse_layers(&bytes),
+            Err(MltError::MissingLayerName)
+        ));
     }
 }

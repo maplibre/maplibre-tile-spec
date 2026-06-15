@@ -98,6 +98,9 @@ public final class MltMetadata {
 
     public FeatureTable {
       Objects.requireNonNull(name);
+      if (name.isEmpty()) {
+        throw new IllegalArgumentException("Missing layer name");
+      }
       columns = (columns != null) ? columns : new ArrayList<>();
     }
 
