@@ -125,6 +125,13 @@ TEST(Decode, SimplePointBoolean) {
     EXPECT_EQ(feature.getID(), 1);
 }
 
+TEST(Decode, RejectsEmptyLayerName) {
+    const std::string metadata{"\0\x80\x20\0", 4};
+    auto stream = mlt::BufferStream({metadata.data(), metadata.size()});
+
+    EXPECT_THROW(mlt::metadata::tileset::decodeFeatureTable(stream), std::runtime_error);
+}
+
 TEST(Decode, SimpleLineBoolean) {
     const auto tile = loadTile(basePath / "simple/line-boolean.mlt");
     // TODO: check properties, geometry, etc.

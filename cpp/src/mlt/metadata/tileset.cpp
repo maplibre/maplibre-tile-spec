@@ -55,6 +55,9 @@ Column decodeColumn(BufferStream& tileData) {
 
 FeatureTable decodeFeatureTable(BufferStream& tileData) {
     auto name = decodeString(tileData);
+    if (name.empty()) {
+        throw std::runtime_error("Missing layer name");
+    }
     const auto extent = decodeVarint<std::uint32_t>(tileData);
     const auto columnCount = decodeVarint<std::uint32_t>(tileData);
     auto columns = util::generateVector<Column>(columnCount, [&](auto) { return decodeColumn(tileData); });
