@@ -1,4 +1,4 @@
-allow_fastpforuse bytemuck::{NoUninit, cast_slice};
+use bytemuck::{NoUninit, cast_slice};
 use fastpfor::AnyLenCodec as _;
 use integer_encoding::VarInt;
 use num_traits::PrimInt;
