@@ -61,7 +61,7 @@ public:
     /**
      * Allow `FastPFOR` integer compression.
      */
-    inline void set_allow_fpf(bool enabled);
+    inline void set_allow_fastpfor(bool enabled);
 
     /**
      * Allow string grouping into shared dictionaries.

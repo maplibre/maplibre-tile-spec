@@ -21,7 +21,7 @@ void MltEncoderOptions_set_try_id_sort(MltEncoderOptions* self, bool enabled);
 
 void MltEncoderOptions_set_allow_fsst(MltEncoderOptions* self, bool enabled);
 
-void MltEncoderOptions_set_allow_fpf(MltEncoderOptions* self, bool enabled);
+void MltEncoderOptions_set_allow_fastpfor(MltEncoderOptions* self, bool enabled);
 
 void MltEncoderOptions_set_allow_shared_dict(MltEncoderOptions* self, bool enabled);
 

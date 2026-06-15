@@ -35,7 +35,7 @@ internal interface MltEncoderOptionsLib : Library {
         enabled: Boolean,
     ): Unit
 
-    fun MltEncoderOptions_set_allow_fpf(
+    fun MltEncoderOptions_set_allow_fastpfor(
         handle: Pointer,
         enabled: Boolean,
     ): Unit
@@ -129,7 +129,7 @@ class MltEncoderOptions internal constructor(
     /** Allow `FastPFOR` integer compression.
      */
     fun setAllowFpf(enabled: Boolean) {
-        val returnVal = lib.MltEncoderOptions_set_allow_fpf(handle, enabled)
+        val returnVal = lib.MltEncoderOptions_set_allow_fastpfor(handle, enabled)
     }
 
     /** Allow string grouping into shared dictionaries.

@@ -1,4 +1,4 @@
-allow_fastpformod common;
+mod common;
 mod from_files;
 mod from_mbtiles;
 
