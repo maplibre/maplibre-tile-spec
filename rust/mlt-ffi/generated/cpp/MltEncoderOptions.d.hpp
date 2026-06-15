@@ -1,4 +1,4 @@
-allow_fastpfor#ifndef MltEncoderOptions_D_HPP
+allow_fastpfor #ifndef MltEncoderOptions_D_HPP
 #define MltEncoderOptions_D_HPP
 
 #include "diplomat_runtime.hpp"
@@ -11,10 +11,10 @@ allow_fastpfor#ifndef MltEncoderOptions_D_HPP
 #include <stdint.h>
 #include <stdio.h>
 
-namespace diplomat {
-namespace capi {
-struct MltEncoderOptions;
-} // namespace capi
+    namespace diplomat {
+    namespace capi {
+    struct MltEncoderOptions;
+    } // namespace capi
 } // namespace diplomat
 
 /**
