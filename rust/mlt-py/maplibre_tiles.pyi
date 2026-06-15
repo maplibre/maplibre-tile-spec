@@ -9,6 +9,7 @@ __all__ = [
     "decode_mlt",
     "decode_mlt_to_geojson",
     "encode_geojson",
+    "encode_mvt",
     "list_layers",
 ]
 
@@ -72,6 +73,13 @@ def encode_geojson(geojson: typing.Mapping[builtins.str, builtins.object], name:
     `fsst` allows FSST string compression.
     `fpf` allows FastPFOR integer compression.
     See the module docs.
+    """
+
+def encode_mvt(data: bytes) -> bytes:
+    r"""
+    Encode an entire MVT tile to MLT using default encoding options.
+
+    `data` is a raw Mapbox Vector Tile (protobuf).
     """
 
 def list_layers(data: bytes) -> builtins.list[builtins.str]:
