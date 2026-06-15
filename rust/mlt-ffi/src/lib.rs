@@ -1,4 +1,4 @@
-allow_fastpfor#[expect(
+#[expect(
     clippy::unnecessary_box_returns,
     reason = "Diplomat requires `Box<T>` returns for opaque constructors"
 )]
@@ -89,8 +89,8 @@ mod ffi {
         }
 
         /// Allow `FastPFOR` integer compression.
-        pub fn set_allow_fpf(&mut self, enabled: bool) {
-            self.0.allow_fpf = enabled;
+        pub fn set_allow_fastpfor(&mut self, enabled: bool) {
+            self.0.allow_fastpfor = enabled;
         }
 
         /// Allow string grouping into shared dictionaries.
