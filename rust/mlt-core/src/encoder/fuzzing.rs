@@ -43,10 +43,10 @@ impl Arbitrary<'_> for StagedLayer {
         // Each column must have exactly `fc` values to match the feature count.
         let prop_count = usize::from(u.int_in_range(0..=4u8)?);
         let properties: Vec<StagedProperty> = (0..prop_count)
-            .map(|_| {
+            .map(|i| {
                 let values: Vec<Option<u32>> =
                     (0..fc).map(|_| u.arbitrary()).collect::<Result<_>>()?;
-                Ok(StagedProperty::opt_u32("prop", values))
+                Ok(StagedProperty::opt_u32(format!("prop{i}"), values))
             })
             .collect::<Result<_>>()?;
 

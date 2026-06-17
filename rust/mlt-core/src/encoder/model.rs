@@ -98,6 +98,7 @@ impl StagedLayer {
                 actual,
             });
         }
+        let mut seen = std::collections::HashSet::with_capacity(properties.len());
         for property in &properties {
             let actual = property.feature_count();
             if actual != feature_count {
@@ -106,6 +107,9 @@ impl StagedLayer {
                     expected: feature_count,
                     actual,
                 });
+            }
+            if !seen.insert(property.name()) {
+                return Err(MltError::DuplicatePropertyName(property.name().to_string()));
             }
         }
         Ok(Self {
