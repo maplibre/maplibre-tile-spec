@@ -140,7 +140,7 @@ impl Codecs {
             return encoder::write_stream_payload(enc.data_mut(), meta, false, vals2);
         }
 
-        let allow_fastpfor = enc.cfg.allow_fastpfor;
+        let allow_fastpfor = enc.config().allow_fastpfor();
         let Self { logical, physical } = self;
         let mut alt = enc.try_alternatives();
 
