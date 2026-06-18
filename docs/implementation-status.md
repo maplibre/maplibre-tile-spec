@@ -30,4 +30,3 @@
 | Tool | Language | Type | Notes |
 |---|---|---|---|
 | [maplibre-tile-spec/rust/mlt](https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt/README.md) | Rust | Decoder / Encoder | `mlt` CLI, TUI, and conversion tooling. |
-
