@@ -559,8 +559,8 @@ fn validate_layer_name(name: &str) -> MltResult<()> {
 }
 
 fn validate_property_names(names: &[String]) -> MltResult<()> {
-    // Column counts are small, so a linear scan avoids the per-layer HashSet allocation.
-    // Empty names are permitted: real-world MVT tiles carry empty property keys.
+    // Linear scan, not a HashSet: column counts are small, so this skips a per-layer alloc.
+    // Empty names are allowed; real MVT tiles contain them.
     for (i, name) in names.iter().enumerate() {
         if names[..i].iter().any(|n| n == name) {
             return Err(MltError::DuplicatePropertyName(name.clone()));
@@ -656,7 +656,7 @@ mod tests {
 
     #[test]
     fn from_parts_allows_empty_property_name() {
-        // Real-world MVT tiles carry empty property keys; decoding must preserve them.
+        // Real MVT tiles contain empty keys.
         assert!(TileLayer::from_parts("layer", 4096, vec![String::new()], vec![]).is_ok());
     }
 
