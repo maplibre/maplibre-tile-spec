@@ -357,10 +357,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#supporting-tooling" class="md-nav__link">
+  <a href="#ongoing-work-tools-adding-mlt-support" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Supporting tooling
+        Ongoing work — tools adding MLT support
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#existingupcoming-mlt-datasets" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Existing/Upcoming MLT datasets
       </span>
     </span>
   </a>
@@ -495,11 +506,11 @@
 <td>Supported since version 5.12.0. PR: <a href="https://github.com/maplibre/maplibre-gl-js/pull/6570">#6570</a>.</td>
 </tr>
 <tr>
-<td>Planetiler</td>
+<td><a href="https://github.com/onthegomap/planetiler">Planetiler</a></td>
 <td>Can generate tiles in MLT since version <a href="https://github.com/onthegomap/planetiler/releases/tag/v0.10.0">0.10.0</a>.</td>
 </tr>
 <tr>
-<td>PMTiles</td>
+<td><a href="https://github.com/protomaps/pmtiles">PMTiles</a></td>
 <td>Can store MLT, see <a href="https://github.com/protomaps/PMTiles/blob/main/spec/v3/spec.md#tile-type-tt">PMTiles v3 spec - Tile Type</a>.</td>
 </tr>
 <tr>
@@ -509,6 +520,10 @@
 <tr>
 <td><a href="https://github.com/maplibre/maplibre-tile-spec/tree/main/qgis">QGIS plugin</a></td>
 <td>Opens MLT files in QGIS via the Rust <code>mlt</code> parser. See <a href="https://github.com/maplibre/maplibre-tile-spec/blob/main/qgis/README.md">qgis/README.md</a>.</td>
+</tr>
+<tr>
+<td><a href="https://loaders.gl/docs/modules/mlt/formats/mlt">visgl/loaders.gl</a> and <a href="https://loaders.gl/docs/modules/mlt">module</a></td>
+<td>Decodes MLT tilesets, supported since version 4.4 via pre-bundled mlt-decoder.cjs</td>
 </tr>
 </tbody>
 </table>
@@ -548,12 +563,6 @@
 <td>Includes bundled <code>mlt</code> CLI, TUI, and conversion tooling.</td>
 </tr>
 <tr>
-<td><a href="https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-wasm">maplibre-tile-spec/rust/mlt-wasm</a></td>
-<td>Rust / WASM</td>
-<td>Decoder</td>
-<td></td>
-</tr>
-<tr>
 <td><a href="https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt-core/README.md">maplibre-tile-spec/rust/mlt-core</a></td>
 <td>Rust</td>
 <td>Decoder / Encoder</td>
@@ -579,22 +588,90 @@
 </tr>
 </tbody>
 </table>
-<h2 id="supporting-tooling">Supporting tooling<a class="headerlink" href="#supporting-tooling" title="Link to this section">&para;</a></h2>
+<h2 id="ongoing-work-tools-adding-mlt-support">Ongoing work — tools adding MLT support<a class="headerlink" href="#ongoing-work-tools-adding-mlt-support" title="Link to this section">&para;</a></h2>
 <table>
 <thead>
 <tr>
 <th>Tool</th>
-<th>Language</th>
-<th>Type</th>
+<th>Status</th>
+<th>Tracking issue</th>
+<th>Dependency / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/felt/tippecanoe">felt/tippecanoe</a></td>
+<td>Landing soon?</td>
+<td>https://github.com/felt/tippecanoe/issues/380</td>
+<td>Via C++ encoder</td>
+</tr>
+<tr>
+<td><a href="https://github.com/systemed/tilemaker">systemed/tilemaker</a></td>
+<td>Landing soon?</td>
+<td>https://github.com/systemed/tilemaker/issues/856</td>
+<td>Via C++ encoder</td>
+</tr>
+<tr>
+<td><a href="https://github.com/georust/geozero">georust/geozero</a></td>
+<td>Tracking</td>
+<td>https://github.com/georust/geozero/issues/227</td>
+<td>Awaiting Rust encoder</td>
+</tr>
+<tr>
+<td><a href="https://github.com/developmentseed/tipg">developmentseed/tipg</a></td>
+<td>Tracking</td>
+<td>https://github.com/developmentseed/tipg/issues/248</td>
+<td>Awaiting hypothetical <code>ST_AsMLT</code> in PostGIS</td>
+</tr>
+<tr>
+<td><a href="https://github.com/versatiles-org/versatiles-rs">versatiles-org/versatiles-rs</a></td>
+<td>Tracking</td>
+<td>https://github.com/versatiles-org/versatiles-rs/issues/111 and https://github.com/versatiles-org/versatiles-spec/issues/11</td>
+<td>Rust tiler</td>
+</tr>
+<tr>
+<td><a href="https://github.com/maptiler/tileserver-gl">maptiler/tileserver-gl</a></td>
+<td>Tracking</td>
+<td>https://github.com/maptiler/tileserver-gl/issues/2194</td>
+<td>js + Go codebase</td>
+</tr>
+<tr>
+<td>NASA/CesiumGS renderers</td>
+<td>Mention</td>
+<td>https://github.com/NASA-AMMOS/3DTilesRendererJS/issues/982#issuecomment-4467367202 and https://github.com/CesiumGS/cesium/issues/2132</td>
+<td>Minor feature requests in MVT threads</td>
+</tr>
+</tbody>
+</table>
+<h2 id="existingupcoming-mlt-datasets">Existing/Upcoming MLT datasets<a class="headerlink" href="#existingupcoming-mlt-datasets" title="Link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Dataset</th>
+<th>Endpoint / Link</th>
 <th>Notes</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a href="https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt/README.md">maplibre-tile-spec/rust/mlt</a></td>
-<td>Rust</td>
-<td>Decoder / Encoder</td>
-<td><code>mlt</code> CLI, TUI, and conversion tooling.</td>
+<td><a href="https://github.com/maplibre/demotiles">maplibre/demotiles</a></td>
+<td><code>demotiles.maplibre.org/tiles-mlt/plain/{z}/{x}/{y}.mlt</code></td>
+<td>Also available as TileJSON</td>
+</tr>
+<tr>
+<td><a href="https://github.com/OvertureMaps/overture-tiles/">Overture Maps</a></td>
+<td>https://github.com/OvertureMaps/overture-tiles/issues/50</td>
+<td>Consideration for switching to MLT</td>
+</tr>
+<tr>
+<td><a href="https://ted-piotrowski.github.io/mapbox-gl-shadow-simulator/examples/maplibre.html">Shademap</a></td>
+<td><code>cfw.shademap.app/planet/{z}/{x}/{y}.mlt</code> and <code>cfw.shademap.app/buildings/{z}/{x}/{y}.mlt</code></td>
+<td>Buildings and planet layers</td>
+</tr>
+<tr>
+<td><a href="https://github.com/hiddewie/OpenRailwayMap-vector">OpenRailwayMap-vector</a></td>
+<td>https://github.com/hiddewie/OpenRailwayMap-vector/issues/919</td>
+<td>MLT support tracking issue</td>
 </tr>
 </tbody>
 </table>
