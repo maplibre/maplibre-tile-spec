@@ -356,6 +356,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#supporting-tooling" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Supporting tooling
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -493,7 +504,11 @@
 </tr>
 <tr>
 <td><a href="https://maplibre.org/martin/">Martin tile server</a></td>
-<td>Can detect and serve MLT since version <a href="https://github.com/maplibre/martin/releases/tag/martin-v1.3.0">1.3.0</a>. PR: <a href="https://github.com/maplibre/martin/pull/2512">#2512</a>.</td>
+<td>Can detect and serve MLT since version <a href="https://github.com/maplibre/martin/releases/tag/martin-v1.3.0">1.3.0</a>. PR: <a href="https://github.com/maplibre/martin/pull/2512">#2512</a>.<br>Can automatically convert between MLT and MVT depending on headers since <a href="https://github.com/maplibre/martin/releases/tag/martin-v1.9.0">1.9.0</a>. <a href="https://maplibre.org/martin/using-guides/mlt/">docs</a></td>
+</tr>
+<tr>
+<td><a href="https://github.com/maplibre/maplibre-tile-spec/tree/main/qgis">QGIS plugin</a></td>
+<td>Opens MLT files in QGIS via the Rust <code>mlt</code> parser. See <a href="https://github.com/maplibre/maplibre-tile-spec/blob/main/qgis/README.md">qgis/README.md</a>.</td>
 </tr>
 </tbody>
 </table>
@@ -527,10 +542,59 @@
 <td></td>
 </tr>
 <tr>
-<td><a href="https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt">maplibre-tile-spec/rust/mlt</a></td>
+<td><a href="https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt/README.md">maplibre-tile-spec/rust/mlt</a></td>
 <td>Rust</td>
 <td>Decoder / Encoder</td>
+<td>Includes bundled <code>mlt</code> CLI, TUI, and conversion tooling.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-wasm">maplibre-tile-spec/rust/mlt-wasm</a></td>
+<td>Rust / WASM</td>
+<td>Decoder</td>
 <td></td>
+</tr>
+<tr>
+<td><a href="https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt-core/README.md">maplibre-tile-spec/rust/mlt-core</a></td>
+<td>Rust</td>
+<td>Decoder / Encoder</td>
+<td>Used in Martin. Includes bundled <code>mlt</code> CLI, TUI, and conversion tooling.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-wasm">maplibre-tile-spec/rust/mlt-wasm</a></td>
+<td>Rust / WASM</td>
+<td>Decoder</td>
+<td>Uses <code>mlt-core</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-py">maplibre-tile-spec/rust/mlt-py</a></td>
+<td>Rust / <a href="https://pyo3.rs/">PyO3</a>.</td>
+<td>Decoder / Encoder</td>
+<td>Exposes <code>mlt-core</code> to the python communtiy via <a href="https://pyo3.rs/">PyO3</a>.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-ffi">maplibre-tile-spec/rust/mlt-ffi</a></td>
+<td>Rust / FFI</td>
+<td>Decoder / Encoder</td>
+<td>Foreign-function bindings for <code>mlt-core</code> to the java/kotlin, cpp and c community</td>
+</tr>
+</tbody>
+</table>
+<h2 id="supporting-tooling">Supporting tooling<a class="headerlink" href="#supporting-tooling" title="Link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Language</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt/README.md">maplibre-tile-spec/rust/mlt</a></td>
+<td>Rust</td>
+<td>Decoder / Encoder</td>
+<td><code>mlt</code> CLI, TUI, and conversion tooling.</td>
 </tr>
 </tbody>
 </table>
