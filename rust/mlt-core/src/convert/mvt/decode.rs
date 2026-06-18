@@ -113,10 +113,7 @@ impl TryFrom<MvtLayer> for TileLayer {
             });
         }
 
-        Ok(
-            Self::from_parts(layer.name, layer.extent.get(), col_names, tile_features)
-                .expect("fast-mvt validates layer names and non-zero extents"),
-        )
+        Self::from_parts(layer.name, layer.extent.get(), col_names, tile_features)
     }
 }
 
