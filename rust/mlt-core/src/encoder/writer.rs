@@ -31,7 +31,7 @@ use crate::{MltError, MltResult};
 /// The three sections are accumulated into separate buffers so they can be
 /// combined at the end *without* any in-place insertion or extra copies:
 ///
-/// * [`hdr`] – layer header (name, extent, `column_count`).
+/// * `hdr` – layer header (name, extent, `column_count`).
 /// * [`meta`] – column-type bytes (one byte + optional name per column).
 /// * [`data`] – encoded stream data; also the target of [`impl Write`].
 ///
@@ -66,7 +66,6 @@ use crate::{MltError, MltResult};
 /// // alt drops → keeps whichever was shorter
 /// ```
 ///
-/// [`hdr`]: Encoder::hdr
 /// [`meta`]: Encoder::meta
 /// [`data`]: Encoder::data
 /// [`impl Write`]: Encoder#impl-Write
@@ -235,11 +234,9 @@ impl Encoder {
         self.write_column_name(name)
     }
 
-    /// Write the layer header (`name`, `extent`, `column_count`) to [`hdr`].
+    /// Write the layer header (`name`, `extent`, `column_count`) to `hdr`.
     ///
     /// Must be called exactly once per layer, after all column meta and data.
-    ///
-    /// [`hdr`]: Encoder::hdr
     #[hotpath::measure]
     pub fn write_header(&mut self, name: &str, extent: u32, column_count: usize) -> MltResult<()> {
         if name.is_empty() {

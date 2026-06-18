@@ -127,7 +127,7 @@ pub enum ColumnType {
 ///
 /// The type parameter `S` controls how columns are stored:
 ///
-/// - `Layer01<'a>` / `Layer01<'a, Lazy>` (default) — columns are [`LazyParsed`](crate::LazyParsed) enums
+/// - `Layer01<'a>` / `Layer01<'a, Lazy>` (default) — columns are `LazyParsed` enums
 ///   that may be raw or decoded. Use [`Layer01::decode_all`] to transition to `Layer01<Parsed>`.
 ///
 /// - `Layer01<'a, Parsed>` — all columns are fully decoded. The fields `id`, `geometry`, and

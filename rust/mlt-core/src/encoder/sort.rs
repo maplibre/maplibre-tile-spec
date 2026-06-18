@@ -71,7 +71,7 @@ impl TileLayer {
         }
     }
 
-    /// Compute Hilbert/Morton [`CurveParams`] for this layer.
+    /// Compute Hilbert/Morton `CurveParams` for this layer.
     ///
     /// The bounds are order-invariant, so the optimizer calls this once per
     /// layer and reuses the result across every sort trial and the encoder's
