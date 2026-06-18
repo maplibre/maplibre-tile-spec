@@ -1,3 +1,6 @@
+use std::borrow::Cow;
+use std::collections::HashSet;
+
 use derive_debug::Dbg;
 
 use crate::decoder::{DictionaryType, Extent, GeometryValues, StreamType};
@@ -98,18 +101,37 @@ impl StagedLayer {
                 actual,
             });
         }
-        let mut seen = std::collections::HashSet::with_capacity(properties.len());
-        for property in &properties {
-            let actual = property.feature_count();
-            if actual != feature_count {
-                return Err(MltError::StagedFeatureCountMismatch {
-                    column: property.name().to_string(),
-                    expected: feature_count,
-                    actual,
-                });
-            }
-            if !seen.insert(property.name()) {
-                return Err(MltError::DuplicatePropertyName(property.name().to_string()));
+        // Column names must be unique within a layer. A shared dictionary's `name()` is
+        // only its prefix (which may repeat); its real columns are `{prefix}{suffix}`.
+        // Scoped so `seen` releases its borrow of `properties` before the move below.
+        {
+            let mut seen: HashSet<Cow<str>> = HashSet::new();
+            for property in &properties {
+                let actual = property.feature_count();
+                if actual != feature_count {
+                    return Err(MltError::StagedFeatureCountMismatch {
+                        column: property.name().to_string(),
+                        expected: feature_count,
+                        actual,
+                    });
+                }
+                match property {
+                    StagedProperty::SharedDict(sd) => {
+                        for item in &sd.items {
+                            if !seen.insert(Cow::Owned(format!("{}{}", sd.prefix, item.suffix))) {
+                                return Err(MltError::DuplicatePropertyName(format!(
+                                    "{}{}",
+                                    sd.prefix, item.suffix
+                                )));
+                            }
+                        }
+                    }
+                    _ => {
+                        if !seen.insert(Cow::Borrowed(property.name())) {
+                            return Err(MltError::DuplicatePropertyName(property.name().to_string()));
+                        }
+                    }
+                }
             }
         }
         Ok(Self {

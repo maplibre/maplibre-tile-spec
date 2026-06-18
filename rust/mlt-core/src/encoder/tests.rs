@@ -57,7 +57,7 @@ pub fn stage_tile(
 #[cfg(test)]
 mod invariant_tests {
     use crate::decoder::GeometryValues;
-    use crate::encoder::{StagedId, StagedLayer};
+    use crate::encoder::{StagedId, StagedLayer, StagedProperty};
     use crate::{MltError, TileLayer};
 
     #[test]
@@ -87,6 +87,18 @@ mod invariant_tests {
                 vec![]
             ),
             Err(MltError::InvalidExtent(0))
+        ));
+    }
+
+    #[test]
+    fn staged_layer_constructor_rejects_duplicate_property_names() {
+        let props = vec![
+            StagedProperty::opt_u32("dup", Vec::<Option<u32>>::new()),
+            StagedProperty::opt_u32("dup", Vec::<Option<u32>>::new()),
+        ];
+        assert!(matches!(
+            StagedLayer::new("layer", 4096, StagedId::None, GeometryValues::default(), props),
+            Err(MltError::DuplicatePropertyName(name)) if name == "dup"
         ));
     }
 }
