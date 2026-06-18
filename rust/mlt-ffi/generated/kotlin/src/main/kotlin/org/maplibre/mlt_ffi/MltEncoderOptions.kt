@@ -104,19 +104,19 @@ class MltEncoderOptions internal constructor(
 
     /** Try sorting features by the Z-order (Morton) curve index.
      */
-    fun setTrySpatialMortonSort(enabled: Boolean) {
+    fun setAttemptSpatialMortonSort(enabled: Boolean) {
         val returnVal = lib.MltEncoderOptions_set_attempt_spatial_morton_sort(handle, enabled)
     }
 
     /** Try sorting features by the Hilbert curve index.
      */
-    fun setTrySpatialHilbertSort(enabled: Boolean) {
+    fun setAttemptSpatialHilbertSort(enabled: Boolean) {
         val returnVal = lib.MltEncoderOptions_set_attempt_spatial_hilbert_sort(handle, enabled)
     }
 
     /** Try sorting features by their feature ID in ascending order.
      */
-    fun setTryIdSort(enabled: Boolean) {
+    fun setAttemptIdSort(enabled: Boolean) {
         val returnVal = lib.MltEncoderOptions_set_attempt_id_sort(handle, enabled)
     }
 
