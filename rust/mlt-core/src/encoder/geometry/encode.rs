@@ -510,7 +510,8 @@ fn write_geo_precomputed_stream(
             if allow_fastpfor {
                 alt.with(|enc| {
                     let vals = physical.fastpfor(data)?;
-                    let meta = StreamMeta::new2(ctx.stream_type, logical, PE::FastPFor256, data.len())?;
+                    let meta =
+                        StreamMeta::new2(ctx.stream_type, logical, PE::FastPFor256, data.len())?;
                     write_stream_payload(enc.data_mut(), meta, false, vals)
                 })?;
             }

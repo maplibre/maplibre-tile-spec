@@ -128,7 +128,9 @@ impl StagedLayer {
                     }
                     _ => {
                         if !seen.insert(Cow::Borrowed(property.name())) {
-                            return Err(MltError::DuplicatePropertyName(property.name().to_string()));
+                            return Err(MltError::DuplicatePropertyName(
+                                property.name().to_string(),
+                            ));
                         }
                     }
                 }
