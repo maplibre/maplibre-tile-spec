@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.20](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.19...python-mlt-v0.1.20) - 2026-06-18
+
+### Other
+
+- *(deps-dev)* bump flatted from 3.3.3 to 3.4.2 in /ts in the all-npm-security-updates group across 1 directory ([#1184](https://github.com/maplibre/maplibre-tile-spec/pull/1184))
+
 ## [0.1.19](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.18...python-mlt-v0.1.19) - 2026-06-15
 
 ### Added
