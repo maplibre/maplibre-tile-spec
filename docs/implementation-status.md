@@ -9,6 +9,7 @@
 | Planetiler | Can generate tiles in MLT since version [0.10.0](https://github.com/onthegomap/planetiler/releases/tag/v0.10.0). |
 | PMTiles | Can store MLT, see [PMTiles v3 spec - Tile Type](https://github.com/protomaps/PMTiles/blob/main/spec/v3/spec.md#tile-type-tt). |
 | [Martin tile server](https://maplibre.org/martin/) | Can detect and serve MLT since version [1.3.0](https://github.com/maplibre/martin/releases/tag/martin-v1.3.0). PR: [#2512](https://github.com/maplibre/martin/pull/2512). |
+| [QGIS plugin](https://github.com/maplibre/maplibre-tile-spec/tree/main/qgis) | Opens MLT files in QGIS via the Rust `mlt` parser. See [qgis/README.md](https://github.com/maplibre/maplibre-tile-spec/blob/main/qgis/README.md). |
 
 ## Implementations
 
@@ -17,4 +18,6 @@
 | [maplibre-tile-spec/cpp](https://github.com/maplibre/maplibre-tile-spec/tree/main/cpp) | C++ | Decoder | Used by MapLibre Native |
 | [maplibre-tile-spec/js](https://github.com/maplibre/maplibre-tile-spec/tree/main/js) | TypeScript | Decoder | Used by MapLibre GL JS |
 | [maplibre-tile-spec/java](https://github.com/maplibre/maplibre-tile-spec/tree/main/java) | Java | Encoder | |
-| [maplibre-tile-spec/rust/mlt](https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt) | Rust | Decoder / Encoder | |
+| [maplibre-tile-spec/rust/mlt](https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt/README.md) | Rust | Decoder / Encoder | Includes bundled `mlt` CLI, TUI, and conversion tooling. |
+| [maplibre-tile-spec/rust/mlt-wasm](https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-wasm) | Rust / WASM | Decoder | |
+| [maplibre-tile-spec/rust/mlt-ffi](https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-ffi) | Rust / FFI | Decoder / Encoder | Foreign-function bindings exposing MLT/MVT conversion. |
