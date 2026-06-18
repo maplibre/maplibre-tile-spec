@@ -309,9 +309,6 @@ impl TileLayer {
         kind: PropKind,
     ) -> MltResult<PropertyKey> {
         let name = name.into();
-        if name.is_empty() {
-            return Err(MltError::MissingPropertyName);
-        }
         if self.property_names.contains(&name) {
             return Err(MltError::DuplicatePropertyName(name));
         }
@@ -563,10 +560,8 @@ fn validate_layer_name(name: &str) -> MltResult<()> {
 
 fn validate_property_names(names: &[String]) -> MltResult<()> {
     // Column counts are small, so a linear scan avoids the per-layer HashSet allocation.
+    // Empty names are permitted: real-world MVT tiles carry empty property keys.
     for (i, name) in names.iter().enumerate() {
-        if name.is_empty() {
-            return Err(MltError::MissingPropertyName);
-        }
         if names[..i].iter().any(|n| n == name) {
             return Err(MltError::DuplicatePropertyName(name.clone()));
         }
@@ -660,20 +655,9 @@ mod tests {
     }
 
     #[test]
-    fn add_property_rejects_empty_name() {
-        let mut layer = TileLayer::new("layer", 4096).unwrap();
-        assert!(matches!(
-            layer.add_property("", PropKind::Str),
-            Err(MltError::MissingPropertyName)
-        ));
-    }
-
-    #[test]
-    fn from_parts_rejects_empty_property_name() {
-        assert!(matches!(
-            TileLayer::from_parts("layer", 4096, vec![String::new()], vec![]),
-            Err(MltError::MissingPropertyName)
-        ));
+    fn from_parts_allows_empty_property_name() {
+        // Real-world MVT tiles carry empty property keys; decoding must preserve them.
+        assert!(TileLayer::from_parts("layer", 4096, vec![String::new()], vec![]).is_ok());
     }
 
     #[test]
