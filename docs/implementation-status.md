@@ -20,4 +20,14 @@
 | [maplibre-tile-spec/java](https://github.com/maplibre/maplibre-tile-spec/tree/main/java) | Java | Encoder | |
 | [maplibre-tile-spec/rust/mlt](https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt/README.md) | Rust | Decoder / Encoder | Includes bundled `mlt` CLI, TUI, and conversion tooling. |
 | [maplibre-tile-spec/rust/mlt-wasm](https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-wasm) | Rust / WASM | Decoder | |
-| [maplibre-tile-spec/rust/mlt-ffi](https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-ffi) | Rust / FFI | Decoder / Encoder | Foreign-function bindings exposing MLT/MVT conversion. |
+| [maplibre-tile-spec/rust/mlt-core](https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt-core/README.md) | Rust | Decoder / Encoder | Used in Martin. Includes bundled `mlt` CLI, TUI, and conversion tooling. |
+| [maplibre-tile-spec/rust/mlt-wasm](https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-wasm) | Rust / WASM | Decoder | Uses `mlt-core` |
+| [maplibre-tile-spec/rust/mlt-py](https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-py) | Rust / [PyO3](https://pyo3.rs/). | Decoder / Encoder | Exposes `mlt-core` to the python communtiy via [PyO3](https://pyo3.rs/). |
+| [maplibre-tile-spec/rust/mlt-ffi](https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-ffi) | Rust / FFI | Decoder / Encoder | Foreign-function bindings for `mlt-core` to the java/kotlin, cpp and c community |
+
+## Supporting tooling
+
+| Tool | Language | Type | Notes |
+|---|---|---|---|
+| [maplibre-tile-spec/rust/mlt](https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt/README.md) | Rust | Decoder / Encoder | `mlt` CLI, TUI, and conversion tooling. |
+
