@@ -15,17 +15,17 @@ internal interface MltEncoderOptionsLib : Library {
         enabled: Boolean,
     ): Unit
 
-    fun MltEncoderOptions_set_try_spatial_morton_sort(
+    fun MltEncoderOptions_set_attempt_spatial_morton_sort(
         handle: Pointer,
         enabled: Boolean,
     ): Unit
 
-    fun MltEncoderOptions_set_try_spatial_hilbert_sort(
+    fun MltEncoderOptions_set_attempt_spatial_hilbert_sort(
         handle: Pointer,
         enabled: Boolean,
     ): Unit
 
-    fun MltEncoderOptions_set_try_id_sort(
+    fun MltEncoderOptions_set_attempt_id_sort(
         handle: Pointer,
         enabled: Boolean,
     ): Unit
@@ -105,19 +105,19 @@ class MltEncoderOptions internal constructor(
     /** Try sorting features by the Z-order (Morton) curve index.
      */
     fun setTrySpatialMortonSort(enabled: Boolean) {
-        val returnVal = lib.MltEncoderOptions_set_try_spatial_morton_sort(handle, enabled)
+        val returnVal = lib.MltEncoderOptions_set_attempt_spatial_morton_sort(handle, enabled)
     }
 
     /** Try sorting features by the Hilbert curve index.
      */
     fun setTrySpatialHilbertSort(enabled: Boolean) {
-        val returnVal = lib.MltEncoderOptions_set_try_spatial_hilbert_sort(handle, enabled)
+        val returnVal = lib.MltEncoderOptions_set_attempt_spatial_hilbert_sort(handle, enabled)
     }
 
     /** Try sorting features by their feature ID in ascending order.
      */
     fun setTryIdSort(enabled: Boolean) {
-        val returnVal = lib.MltEncoderOptions_set_try_id_sort(handle, enabled)
+        val returnVal = lib.MltEncoderOptions_set_attempt_id_sort(handle, enabled)
     }
 
     /** Allow FSST string compression.

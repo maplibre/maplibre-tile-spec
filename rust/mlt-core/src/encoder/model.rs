@@ -181,11 +181,11 @@ pub struct EncoderConfig {
     /// Generate tessellation data for polygons and multi-polygons.
     tessellate: bool,
     /// Try sorting features by the Z-order (Morton) curve index of their first vertex.
-    try_spatial_morton_sort: bool,
+    attempt_spatial_morton_sort: bool,
     /// Try sorting features by the Hilbert curve index of their first vertex.
-    try_spatial_hilbert_sort: bool,
+    attempt_spatial_hilbert_sort: bool,
     /// Try sorting features by their feature ID in ascending order.
-    try_id_sort: bool,
+    attempt_id_sort: bool,
     /// Allow `FSST` string compression
     allow_fsst: bool,
     /// Allow `FastPFOR` integer compression
@@ -197,9 +197,9 @@ impl Default for EncoderConfig {
     fn default() -> Self {
         Self {
             tessellate: false,
-            try_spatial_morton_sort: true,
-            try_spatial_hilbert_sort: true,
-            try_id_sort: true,
+            attempt_spatial_morton_sort: true,
+            attempt_spatial_hilbert_sort: true,
+            attempt_id_sort: true,
             allow_fsst: true,
             allow_fastpfor: true,
             allow_shared_dict: true,
@@ -215,17 +215,17 @@ impl EncoderConfig {
 
     #[must_use]
     pub fn attempt_spatial_morton_sort(self) -> bool {
-        self.try_spatial_morton_sort
+        self.attempt_spatial_morton_sort
     }
 
     #[must_use]
     pub fn attempt_spatial_hilbert_sort(self) -> bool {
-        self.try_spatial_hilbert_sort
+        self.attempt_spatial_hilbert_sort
     }
 
     #[must_use]
     pub fn attempt_id_sort(self) -> bool {
-        self.try_id_sort
+        self.attempt_id_sort
     }
 
     #[must_use]
@@ -251,19 +251,19 @@ impl EncoderConfig {
 
     #[must_use]
     pub fn with_spatial_morton_sort(mut self, enabled: bool) -> Self {
-        self.try_spatial_morton_sort = enabled;
+        self.attempt_spatial_morton_sort = enabled;
         self
     }
 
     #[must_use]
     pub fn with_spatial_hilbert_sort(mut self, enabled: bool) -> Self {
-        self.try_spatial_hilbert_sort = enabled;
+        self.attempt_spatial_hilbert_sort = enabled;
         self
     }
 
     #[must_use]
     pub fn with_id_sort(mut self, enabled: bool) -> Self {
-        self.try_id_sort = enabled;
+        self.attempt_id_sort = enabled;
         self
     }
 

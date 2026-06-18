@@ -69,17 +69,17 @@ mod ffi {
         }
 
         /// Try sorting features by the Z-order (Morton) curve index.
-        pub fn set_try_spatial_morton_sort(&mut self, enabled: bool) {
+        pub fn set_attempt_spatial_morton_sort(&mut self, enabled: bool) {
             self.0 = self.0.with_spatial_morton_sort(enabled);
         }
 
         /// Try sorting features by the Hilbert curve index.
-        pub fn set_try_spatial_hilbert_sort(&mut self, enabled: bool) {
+        pub fn set_attempt_spatial_hilbert_sort(&mut self, enabled: bool) {
             self.0 = self.0.with_spatial_hilbert_sort(enabled);
         }
 
         /// Try sorting features by their feature ID in ascending order.
-        pub fn set_try_id_sort(&mut self, enabled: bool) {
+        pub fn set_attempt_id_sort(&mut self, enabled: bool) {
             self.0 = self.0.with_id_sort(enabled);
         }
 
