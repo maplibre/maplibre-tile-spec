@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.11.0...rust-mlt-core-v0.11.1) - 2026-06-18
+
+### Fixed
+
+- *(rust)* `allow_fastpfor` not consulted for precomputed geometry stream ([#1446](https://github.com/maplibre/maplibre-tile-spec/pull/1446))
+
 ## [0.11.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.10.1...rust-mlt-core-v0.11.0) - 2026-06-15
 
 ### Added
