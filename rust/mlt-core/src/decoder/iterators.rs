@@ -18,7 +18,6 @@
 
 use std::fmt;
 
-use geo_types::Geometry;
 use usize_cast::IntoUsize as _;
 
 use crate::decoder::{Layer01, ParsedLayer01, ParsedProperty, ParsedScalar, RawProperty};
@@ -229,8 +228,9 @@ impl<'a> ColumnRef<'a> {
 pub struct FeatureRef<'feat, 'layer: 'feat> {
     /// Optional feature ID.
     id: Option<u64>,
-    /// Geometry in [`Geometry<i32>`] form (owned, decoded on demand by the iterator).
-    geometry: Geometry<i32>,
+    /// Decoded geometry as a dimension-aware [`wkt::Wkt`] (owned, decoded on demand by the
+    /// iterator). Currently always 2D.
+    geometry: wkt::Wkt<i32>,
     /// Borrowed slice of column descriptors from the layer; used to yield column names.
     columns: &'layer [ParsedProperty<'layer>],
     /// Per-feature values in column order, one per slot (scalar, string, or `SharedDict`
@@ -245,7 +245,7 @@ impl<'feat, 'layer: 'feat> FeatureRef<'feat, 'layer> {
     }
 
     #[must_use]
-    pub fn geometry(&self) -> &Geometry<i32> {
+    pub fn geometry(&self) -> &wkt::Wkt<i32> {
         &self.geometry
     }
 
@@ -530,7 +530,7 @@ impl<'layer> LendingIterator for Layer01FeatureIter<'layer, '_> {
 
 #[cfg(test)]
 mod tests {
-    use geo_types::Point;
+    use geo_types::{Geometry, Point};
     use serde_json::Value;
 
     use super::*;
@@ -726,9 +726,10 @@ mod tests {
         while let Some(r) = iter.next() {
             geoms.push(r.unwrap().geometry);
         }
-        assert_eq!(geoms[0], Geometry::<i32>::Point(Point::new(1, 2)));
-        assert_eq!(geoms[1], Geometry::<i32>::Point(Point::new(3, 4)));
-        assert_eq!(geoms[2], Geometry::<i32>::Point(Point::new(5, 6)));
+        let expect = |x, y| crate::convert::geom::to_wkt(&Geometry::<i32>::Point(Point::new(x, y)));
+        assert_eq!(geoms[0], expect(1, 2));
+        assert_eq!(geoms[1], expect(3, 4));
+        assert_eq!(geoms[2], expect(5, 6));
     }
 
     #[test]

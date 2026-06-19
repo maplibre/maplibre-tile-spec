@@ -11,8 +11,8 @@
 
 use std::collections::HashMap;
 
-use mlt_core::geo_types::Geometry;
 use mlt_core::geojson::FeatureCollection;
+use mlt_core::wkt::Wkt;
 use mlt_core::{PropKind, PropValue, TileLayer};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -80,17 +80,25 @@ pub fn encode_geojson(
     Ok(PyBytes::new(py, &bytes).unbind())
 }
 
-fn validate_non_empty(g: &Geometry<i32>) -> PyResult<()> {
+fn validate_non_empty(g: &Wkt<i32>) -> PyResult<()> {
+    let ring_non_empty = |p: &mlt_core::wkt::types::Polygon<i32>| {
+        p.rings()
+            .first()
+            .is_some_and(|ext| !ext.coords().is_empty())
+    };
     let non_empty = match g {
-        Geometry::Point(_) => true,
-        Geometry::MultiPoint(mp) => !mp.0.is_empty(),
-        Geometry::LineString(l) => !l.0.is_empty(),
-        Geometry::MultiLineString(ml) => !ml.0.is_empty() && ml.0.iter().all(|l| !l.0.is_empty()),
-        Geometry::Polygon(p) => !p.exterior().0.is_empty(),
-        Geometry::MultiPolygon(mp) => {
-            !mp.0.is_empty() && mp.0.iter().all(|p| !p.exterior().0.is_empty())
+        Wkt::Point(p) => p.coord().is_some(),
+        Wkt::MultiPoint(mp) => !mp.points().is_empty(),
+        Wkt::LineString(l) => !l.coords().is_empty(),
+        Wkt::MultiLineString(ml) => {
+            !ml.line_strings().is_empty()
+                && ml.line_strings().iter().all(|l| !l.coords().is_empty())
         }
-        _ => false,
+        Wkt::Polygon(p) => ring_non_empty(p),
+        Wkt::MultiPolygon(mp) => {
+            !mp.polygons().is_empty() && mp.polygons().iter().all(ring_non_empty)
+        }
+        Wkt::GeometryCollection(_) => false,
     };
     if non_empty {
         Ok(())
@@ -220,7 +228,7 @@ fn build_layer(fc: FeatureCollection, name: String, extent: u32) -> PyResult<Til
         .map_err(|err| PyValueError::new_err(err.to_string()))?;
 
     for feat in fc.features {
-        let mut feature = builder.feature(feat.geometry);
+        let mut feature = builder.feature(&feat.geometry);
         feature.id(feat.id);
         for (key, val) in feat.properties {
             if val.is_null() {

@@ -151,7 +151,7 @@ fn forced_vertex_strategy_streams(
 /// Multipoint with repeated coordinates so dict paths actually dedup.
 fn repeated_multipoint() -> GeometryValues {
     let mut g = GeometryValues::default();
-    g.push_geom(&wkt!(MULTIPOINT(5 5, 10 10, 5 5, 10 10, 0 0, 5 5)).into());
+    g.push_geom(&wkt!(MULTIPOINT(5 5, 10 10, 5 5, 10 10, 0 0, 5 5)));
     g
 }
 

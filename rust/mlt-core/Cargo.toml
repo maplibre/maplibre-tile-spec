@@ -52,6 +52,7 @@ fast-mvt.workspace = true
 fastpfor.workspace = true
 fsst-rs.workspace = true
 geo = { workspace = true, features = ["earcut"] }
+geo-traits.workspace = true
 geo-types.workspace = true
 hex.workspace = true
 hilbert_2d.workspace = true
@@ -67,6 +68,7 @@ thiserror.workspace = true
 union-find.workspace = true
 usize_cast.workspace = true
 wide.workspace = true
+wkt.workspace = true
 zigzag.workspace = true
 
 [dev-dependencies]

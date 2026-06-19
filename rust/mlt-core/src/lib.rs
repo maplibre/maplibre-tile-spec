@@ -14,8 +14,11 @@ macro_rules! validate_stream {
     };
 }
 
-// re-export geo types
-pub use geo_types;
+// re-export geo crates.
+// `geo_types` is still accepted as encoder input (it implements `geo_traits::GeometryTrait`)
+// and used at the MVT boundary. `wkt` provides the dimension-aware geometry types used as the
+// decoder output (`wkt::Wkt<i32>`), which can represent an optional Z coordinate.
+pub use {geo_traits, geo_types, wkt};
 
 pub(crate) mod codecs;
 pub(crate) mod convert;

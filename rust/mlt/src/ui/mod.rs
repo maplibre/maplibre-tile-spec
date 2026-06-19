@@ -20,9 +20,10 @@ use crossterm::event::{
     MouseButton, MouseEventKind,
 };
 use crossterm::execute;
-use mlt_core::geo_types::{Coord, Geometry, Polygon};
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::mvt::mvt_to_feature_collection;
+use mlt_core::wkt::Wkt;
+use mlt_core::wkt::types::{Coord, Polygon};
 use mlt_core::{Decoder, GeometryType, Parser};
 use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -1140,52 +1141,47 @@ fn collect_extensions(files: &[LsRow]) -> Vec<String> {
 
 // --- Geometry helpers ---
 
-fn geometry_type_name(geom: &Geometry<i32>) -> &'static str {
+fn geometry_type_name(geom: &Wkt<i32>) -> &'static str {
     GeometryType::try_from(geom).map_or("Unknown", Into::into)
 }
 
-fn geometry_color(geom: &Geometry<i32>) -> Color {
+fn geometry_color(geom: &Wkt<i32>) -> Color {
     match geom {
-        Geometry::<i32>::MultiPoint(_) => CLR_MULTI_POINT,
-        Geometry::<i32>::LineString(_) => CLR_LINE,
-        Geometry::<i32>::MultiLineString(_) => CLR_MULTI_LINE,
-        Geometry::<i32>::Polygon(_) | Geometry::<i32>::MultiPolygon(_) if has_bad_winding(geom) => {
-            CLR_BAD_WINDING
-        }
-        Geometry::<i32>::Polygon(_) => CLR_POLYGON,
-        Geometry::<i32>::MultiPolygon(_) => CLR_MULTI_POLYGON,
-        Geometry::<i32>::Point(_)
-        | Geometry::<i32>::Line(_)
-        | Geometry::<i32>::GeometryCollection(_)
-        | Geometry::<i32>::Rect(_)
-        | Geometry::<i32>::Triangle(_) => CLR_POINT,
+        Wkt::MultiPoint(_) => CLR_MULTI_POINT,
+        Wkt::LineString(_) => CLR_LINE,
+        Wkt::MultiLineString(_) => CLR_MULTI_LINE,
+        Wkt::Polygon(_) | Wkt::MultiPolygon(_) if has_bad_winding(geom) => CLR_BAD_WINDING,
+        Wkt::Polygon(_) => CLR_POLYGON,
+        Wkt::MultiPolygon(_) => CLR_MULTI_POLYGON,
+        Wkt::Point(_) | Wkt::GeometryCollection(_) => CLR_POINT,
     }
 }
 
-fn multi_part_count(geom: &Geometry<i32>) -> usize {
+fn multi_part_count(geom: &Wkt<i32>) -> usize {
     match geom {
-        Geometry::<i32>::MultiPoint(mp) => mp.0.len(),
-        Geometry::<i32>::MultiLineString(mls) => mls.0.len(),
-        Geometry::<i32>::MultiPolygon(mpoly) => mpoly.0.len(),
+        Wkt::MultiPoint(mp) => mp.points().len(),
+        Wkt::MultiLineString(mls) => mls.line_strings().len(),
+        Wkt::MultiPolygon(mpoly) => mpoly.polygons().len(),
         _ => 0,
     }
 }
 
+/// `(total vertices, ring count)`; first ring is exterior, the rest interiors.
 fn poly_ring_stats(poly: &Polygon<i32>) -> (usize, usize) {
-    let ring_count = 1 + poly.interiors().len();
-    let total_verts =
-        poly.exterior().0.len() + poly.interiors().iter().map(|r| r.0.len()).sum::<usize>();
+    let rings = poly.rings();
+    let ring_count = rings.len();
+    let total_verts = rings.iter().map(|r| r.coords().len()).sum::<usize>();
     (total_verts, ring_count)
 }
 
-fn feature_suffix(geom: &Geometry<i32>) -> String {
+fn feature_suffix(geom: &Wkt<i32>) -> String {
     let n = multi_part_count(geom);
     if n > 0 {
         return format!(" ({n} parts)");
     }
     match geom {
-        Geometry::<i32>::LineString(ls) => format!(" ({}v)", ls.0.len()),
-        Geometry::<i32>::Polygon(poly) => {
+        Wkt::LineString(ls) => format!(" ({}v)", ls.coords().len()),
+        Wkt::Polygon(poly) => {
             let (total, ring_count) = poly_ring_stats(poly);
             if ring_count > 1 {
                 format!(" ({total}v, {ring_count} rings)")
@@ -1197,13 +1193,13 @@ fn feature_suffix(geom: &Geometry<i32>) -> String {
     }
 }
 
-fn sub_feature_suffix(geom: &Geometry<i32>, part: usize) -> String {
+fn sub_feature_suffix(geom: &Wkt<i32>, part: usize) -> String {
     match geom {
-        Geometry::<i32>::MultiLineString(mls) => mls
-            .0
+        Wkt::MultiLineString(mls) => mls
+            .line_strings()
             .get(part)
-            .map_or(String::new(), |ls| format!(" ({}v)", ls.0.len())),
-        Geometry::<i32>::MultiPolygon(mpoly) => mpoly.0.get(part).map_or(String::new(), |poly| {
+            .map_or(String::new(), |ls| format!(" ({}v)", ls.coords().len())),
+        Wkt::MultiPolygon(mpoly) => mpoly.polygons().get(part).map_or(String::new(), |poly| {
             let (total, ring_count) = poly_ring_stats(poly);
             if ring_count > 1 {
                 format!(" ({total}v, {ring_count} rings)")
@@ -1259,13 +1255,16 @@ pub(crate) fn is_ring_ccw(ring: &[Coord<i32>]) -> bool {
     ring_signed_area(ring) < 0.0
 }
 
-fn has_bad_winding(geom: &Geometry<i32>) -> bool {
+fn has_bad_winding(geom: &Wkt<i32>) -> bool {
     let check = |poly: &Polygon<i32>| {
-        !is_ring_ccw(&poly.exterior().0) || poly.interiors().iter().any(|r| is_ring_ccw(&r.0))
+        let rings = poly.rings();
+        let exterior_bad = rings.first().is_some_and(|r| !is_ring_ccw(r.coords()));
+        let interior_bad = rings.iter().skip(1).any(|r| is_ring_ccw(r.coords()));
+        exterior_bad || interior_bad
     };
     match geom {
-        Geometry::<i32>::Polygon(poly) => check(poly),
-        Geometry::<i32>::MultiPolygon(mpoly) => mpoly.iter().any(check),
+        Wkt::Polygon(poly) => check(poly),
+        Wkt::MultiPolygon(mpoly) => mpoly.polygons().iter().any(check),
         _ => false,
     }
 }

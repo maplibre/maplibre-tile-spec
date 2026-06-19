@@ -35,7 +35,7 @@ pub fn mvt_to_feature_collection(data: impl AsRef<[u8]>) -> MltResult<FeatureCol
             properties.insert("_layer".into(), Value::String(layer.name.clone()));
             properties.insert("_extent".into(), Value::Number(layer.extent.get().into()));
             features.push(Feature {
-                geometry: feat.geometry,
+                geometry: crate::convert::geom::to_wkt(&feat.geometry),
                 id: feat.id,
                 properties,
                 ty: "Feature".into(),
@@ -108,7 +108,7 @@ impl TryFrom<MvtLayer> for TileLayer {
             }
             tile_features.push(TileFeature {
                 id: feat.id,
-                geometry: feat.geometry,
+                geometry: crate::convert::geom::to_wkt(&feat.geometry),
                 properties,
             });
         }

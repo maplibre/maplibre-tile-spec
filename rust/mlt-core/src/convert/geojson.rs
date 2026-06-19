@@ -3,7 +3,6 @@
 use std::collections::BTreeMap;
 use std::str::FromStr;
 
-use geo_types::Geometry;
 use serde::ser::SerializeMap as _;
 use serde::{Deserialize, Serialize};
 use serde_json::{Number, Value};
@@ -72,7 +71,7 @@ impl FromStr for FeatureCollection {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct Feature {
     #[serde(with = "geom_serde")]
-    pub geometry: Geometry<i32>,
+    pub geometry: wkt::Wkt<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<u64>,
     #[serde(default)]
@@ -81,7 +80,7 @@ pub struct Feature {
     pub ty: String,
 }
 
-struct Geom32Wire<'a>(&'a Geometry<i32>);
+struct Geom32Wire<'a>(&'a wkt::Wkt<i32>);
 impl Serialize for Geom32Wire<'_> {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         geom_serde::serialize(self.0, s)
@@ -103,67 +102,89 @@ impl Serialize for Feature {
     }
 }
 
-/// Serialize/deserialize [`Geometry<i32>`](geo_types::Geometry) in `GeoJSON` wire format:
+/// Serialize/deserialize [`wkt::Wkt<i32>`] in `GeoJSON` wire format:
 /// `{"type":"…","coordinates":…}` with `[x, y]` integer arrays.
+///
+/// Only the 2D X/Y coordinates are written/read; any Z is ignored (3D not yet wired).
 mod geom_serde {
-    use geo_types::{
-        Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
-    };
     use serde::de::Error as _;
     use serde::ser::{Error, SerializeMap as _};
     use serde::{Deserialize, Deserializer, Serializer};
     use serde_json::Value;
+    use wkt::Wkt;
+    use wkt::types::{
+        Coord, Dimension, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
+    };
 
     type Arr = [i32; 2];
 
+    fn coord_arr(c: &Coord<i32>) -> Arr {
+        [c.x, c.y]
+    }
+
+    fn point_arr(p: &Point<i32>) -> Option<Arr> {
+        p.coord().map(coord_arr)
+    }
+
     fn ls_arr(ls: &LineString<i32>) -> Vec<Arr> {
-        ls.0.iter().copied().map(Into::into).collect()
+        ls.coords().iter().map(coord_arr).collect()
     }
 
     fn poly_arr(poly: &Polygon<i32>) -> Vec<Vec<Arr>> {
-        std::iter::once(poly.exterior())
-            .chain(poly.interiors())
-            .map(ls_arr)
-            .collect()
+        poly.rings().iter().map(ls_arr).collect()
+    }
+
+    fn arr_coord(a: Arr) -> Coord<i32> {
+        Coord {
+            x: a[0],
+            y: a[1],
+            z: None,
+            m: None,
+        }
     }
 
     fn arr_ls(v: Vec<Arr>) -> LineString<i32> {
-        LineString::from(v)
+        LineString::new(v.into_iter().map(arr_coord).collect(), Dimension::XY)
     }
 
     fn arr_poly(rings: Vec<Vec<Arr>>) -> Polygon<i32> {
-        let mut it = rings.into_iter();
-        let ext = it.next().map_or_else(|| LineString(vec![]), arr_ls);
-        Polygon::new(ext, it.map(arr_ls).collect())
+        Polygon::new(rings.into_iter().map(arr_ls).collect(), Dimension::XY)
     }
 
-    pub fn serialize<S: Serializer>(g: &Geometry<i32>, s: S) -> Result<S::Ok, S::Error> {
+    pub fn serialize<S: Serializer>(g: &Wkt<i32>, s: S) -> Result<S::Ok, S::Error> {
         let mut m = s.serialize_map(Some(2))?;
         let (ty, coords): (&str, Value) = match g {
-            Geometry::Point(p) => ("Point", serde_json::to_value(Arr::from(*p)).unwrap()),
-            Geometry::LineString(ls) => ("LineString", serde_json::to_value(ls_arr(ls)).unwrap()),
-            Geometry::Polygon(poly) => ("Polygon", serde_json::to_value(poly_arr(poly)).unwrap()),
-            Geometry::MultiPoint(mp) => (
+            Wkt::Point(p) => (
+                "Point",
+                serde_json::to_value(point_arr(p).unwrap_or_default()).unwrap(),
+            ),
+            Wkt::LineString(ls) => ("LineString", serde_json::to_value(ls_arr(ls)).unwrap()),
+            Wkt::Polygon(poly) => ("Polygon", serde_json::to_value(poly_arr(poly)).unwrap()),
+            Wkt::MultiPoint(mp) => (
                 "MultiPoint",
-                serde_json::to_value(mp.0.iter().copied().map(Arr::from).collect::<Vec<_>>())
+                serde_json::to_value(mp.points().iter().filter_map(point_arr).collect::<Vec<_>>())
                     .unwrap(),
             ),
-            Geometry::MultiLineString(mls) => (
+            Wkt::MultiLineString(mls) => (
                 "MultiLineString",
-                serde_json::to_value(mls.iter().map(ls_arr).collect::<Vec<_>>()).unwrap(),
+                serde_json::to_value(mls.line_strings().iter().map(ls_arr).collect::<Vec<_>>())
+                    .unwrap(),
             ),
-            Geometry::MultiPolygon(mpoly) => (
+            Wkt::MultiPolygon(mpoly) => (
                 "MultiPolygon",
-                serde_json::to_value(mpoly.iter().map(poly_arr).collect::<Vec<_>>()).unwrap(),
+                serde_json::to_value(mpoly.polygons().iter().map(poly_arr).collect::<Vec<_>>())
+                    .unwrap(),
             ),
-            _ => return Err(Error::custom("unsupported geometry variant")),
+            Wkt::GeometryCollection(_) => {
+                return Err(Error::custom("unsupported geometry variant"));
+            }
         };
         m.serialize_entry("type", ty)?;
         m.serialize_entry("coordinates", &coords)?;
         m.end()
     }
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Geometry<i32>, D::Error> {
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Wkt<i32>, D::Error> {
         fn parse<T: serde::de::DeserializeOwned, E: serde::de::Error>(v: Value) -> Result<T, E> {
             serde_json::from_value(v).map_err(E::custom)
         }
@@ -177,20 +198,30 @@ mod geom_serde {
 
         let Wire { ty, coordinates: c } = Wire::deserialize(d)?;
         Ok(match ty.as_str() {
-            "Point" => Geometry::Point(Point::from(parse::<Arr, _>(c)?)),
-            "LineString" => Geometry::LineString(arr_ls(parse(c)?)),
-            "Polygon" => Geometry::Polygon(arr_poly(parse(c)?)),
+            "Point" => Wkt::Point(Point::from_coord(arr_coord(parse::<Arr, _>(c)?))),
+            "LineString" => Wkt::LineString(arr_ls(parse(c)?)),
+            "Polygon" => Wkt::Polygon(arr_poly(parse(c)?)),
             "MultiPoint" => {
                 let v: Vec<Arr> = parse(c)?;
-                Geometry::MultiPoint(MultiPoint(v.into_iter().map(Point::from).collect()))
+                let points = v
+                    .into_iter()
+                    .map(|a| Point::from_coord(arr_coord(a)))
+                    .collect();
+                Wkt::MultiPoint(MultiPoint::new(points, Dimension::XY))
             }
             "MultiLineString" => {
                 let v: Vec<Vec<Arr>> = parse(c)?;
-                Geometry::MultiLineString(MultiLineString(v.into_iter().map(arr_ls).collect()))
+                Wkt::MultiLineString(MultiLineString::new(
+                    v.into_iter().map(arr_ls).collect(),
+                    Dimension::XY,
+                ))
             }
             "MultiPolygon" => {
                 let v: Vec<Vec<Vec<Arr>>> = parse(c)?;
-                Geometry::MultiPolygon(MultiPolygon(v.into_iter().map(arr_poly).collect()))
+                Wkt::MultiPolygon(MultiPolygon::new(
+                    v.into_iter().map(arr_poly).collect(),
+                    Dimension::XY,
+                ))
             }
             _ => {
                 return Err(D::Error::unknown_variant(

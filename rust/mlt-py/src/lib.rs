@@ -5,6 +5,7 @@ mod tile_transform;
 use std::iter::once;
 use std::ops::Deref;
 
+use mlt_core::geo_traits::to_geo::ToGeoGeometry as _;
 use mlt_core::geo_types::{Geometry, LineString, Polygon};
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::{
@@ -169,7 +170,7 @@ fn build_features(
         let geometry_type = GeometryType::try_from(feat.geometry())
             .map(|gt| gt.to_string())
             .unwrap_or_else(|_| "Unknown".to_string());
-        let wkb_bytes = geom32_to_wkb(feat.geometry(), xf).map_err(mlt_err)?;
+        let wkb_bytes = geom32_to_wkb(&feat.geometry().to_geometry(), xf).map_err(mlt_err)?;
         let wkb = PyBytes::new(py, &wkb_bytes).unbind();
         let prop_dict = PyDict::new(py);
         for p in feat.iter_properties() {
@@ -280,7 +281,7 @@ mod tests {
         index: usize,
         xf: Option<TileTransform>,
     ) -> MltResult<Vec<u8>> {
-        geom32_to_wkb(&geom.to_geojson(index)?, xf)
+        geom32_to_wkb(&geom.to_geojson(index)?.to_geometry(), xf)
     }
 
     #[test]

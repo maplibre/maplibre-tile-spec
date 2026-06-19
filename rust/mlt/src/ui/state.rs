@@ -4,8 +4,9 @@ use std::sync::mpsc;
 use std::time::Instant;
 
 use mlt_core::GeometryType;
-use mlt_core::geo_types::{Geometry, Polygon};
 use mlt_core::geojson::{Feature, FeatureCollection};
+use mlt_core::wkt::Wkt;
+use mlt_core::wkt::types::Polygon;
 use ratatui::layout::{Constraint, Rect};
 use ratatui::widgets::TableState;
 use rstar::{PointDistance as _, RTree};
@@ -698,7 +699,7 @@ impl App {
             y1 = y1.max(v[1]);
         };
 
-        let geoms: Vec<&Geometry<i32>> = match sel {
+        let geoms: Vec<&Wkt<i32>> = match sel {
             TreeItem::All => self.fc.features.iter().map(|f| &f.geometry).collect(),
             TreeItem::Layer(l) => self.layer_groups[*l]
                 .feature_indices
@@ -890,38 +891,41 @@ fn file_cmp(a: &LsRow, b: &LsRow, col: FileSortColumn, asc: bool) -> std::cmp::O
 }
 
 fn poly_verts(poly: &Polygon<i32>) -> Vec<[f64; 2]> {
-    poly.exterior()
-        .0
+    poly.rings()
         .iter()
-        .copied()
-        .chain(poly.interiors().iter().flat_map(|r| r.0.iter().copied()))
+        .flat_map(|r| r.coords().iter().copied())
         .map(coord_f64)
         .collect()
 }
 
-fn geometry_vertices(geom: &Geometry<i32>, part: Option<usize>) -> Vec<[f64; 2]> {
+fn geometry_vertices(geom: &Wkt<i32>, part: Option<usize>) -> Vec<[f64; 2]> {
     match (geom, part) {
-        (Geometry::<i32>::Point(p), None) => vec![coord_f64(p.0)],
-        (Geometry::<i32>::LineString(ls), None) => ls.0.iter().copied().map(coord_f64).collect(),
-        (Geometry::<i32>::MultiPoint(mp), None) => mp.iter().map(|p| coord_f64(p.0)).collect(),
-        (Geometry::<i32>::Polygon(poly), None) => poly_verts(poly),
-        (Geometry::<i32>::MultiLineString(mls), None) => mls
+        (Wkt::Point(p), None) => p.coord().map(|c| vec![coord_f64(*c)]).unwrap_or_default(),
+        (Wkt::LineString(ls), None) => ls.coords().iter().copied().map(coord_f64).collect(),
+        (Wkt::MultiPoint(mp), None) => mp
+            .points()
             .iter()
-            .flat_map(|ls| ls.0.iter().copied().map(coord_f64))
+            .filter_map(|p| p.coord().map(|c| coord_f64(*c)))
             .collect(),
-        (Geometry::<i32>::MultiPolygon(mpoly), None) => mpoly.iter().flat_map(poly_verts).collect(),
-        (Geometry::<i32>::MultiPoint(mp), Some(p)) => {
-            mp.0.get(p)
-                .map(|pt| vec![coord_f64(pt.0)])
-                .unwrap_or_default()
-        }
-        (Geometry::<i32>::MultiLineString(mls), Some(p)) => mls
-            .0
+        (Wkt::Polygon(poly), None) => poly_verts(poly),
+        (Wkt::MultiLineString(mls), None) => mls
+            .line_strings()
+            .iter()
+            .flat_map(|ls| ls.coords().iter().copied().map(coord_f64))
+            .collect(),
+        (Wkt::MultiPolygon(mpoly), None) => mpoly.polygons().iter().flat_map(poly_verts).collect(),
+        (Wkt::MultiPoint(mp), Some(p)) => mp
+            .points()
             .get(p)
-            .map(|ls| ls.0.iter().copied().map(coord_f64).collect())
+            .and_then(|pt| pt.coord().map(|c| vec![coord_f64(*c)]))
             .unwrap_or_default(),
-        (Geometry::<i32>::MultiPolygon(mpoly), Some(p)) => {
-            mpoly.0.get(p).map(poly_verts).unwrap_or_default()
+        (Wkt::MultiLineString(mls), Some(p)) => mls
+            .line_strings()
+            .get(p)
+            .map(|ls| ls.coords().iter().copied().map(coord_f64).collect())
+            .unwrap_or_default(),
+        (Wkt::MultiPolygon(mpoly), Some(p)) => {
+            mpoly.polygons().get(p).map(poly_verts).unwrap_or_default()
         }
         _ => Vec::new(),
     }
