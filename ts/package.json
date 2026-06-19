@@ -17,8 +17,8 @@
     "build": "tsc",
     "test": "vitest run --coverage --coverage.reportOnFailure",
     "lint": "eslint",
-    "format": "biome check --write --unsafe ./src",
-    "format:check": "biome check ./src"
+    "format": "biome format --write ./src",
+    "format:check": "biome format ./src"
   },
   "repository": {
     "type": "git",
