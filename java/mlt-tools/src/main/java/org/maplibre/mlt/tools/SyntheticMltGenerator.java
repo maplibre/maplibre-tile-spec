@@ -351,6 +351,11 @@ public class SyntheticMltGenerator {
     // write(layer("prop_i16_null_val", feat(p0), feat(p0, prop("val", (short) 42))), cfg());
 
     write("prop_i32", feat(p0, prop("val", (int) 42)), cfg());
+    // Single-value DELTA hits the CONST path the multi-feature props_* miss.
+    // This is the case that hid the const un-ZigZag bug.
+    // RLE/DELTA_RLE collapse to plain NONE for one value, so Java can't emit them distinctly.
+    // They live only in the Rust generator.
+    write("prop_i32_delta", feat(p0, prop("val", (int) 42)), cfg(DELTA));
     write("prop_i32_neg", feat(p0, prop("val", (int) -42)), cfg());
     write("prop_i32_min", feat(p0, prop("val", Integer.MIN_VALUE)), cfg());
     write("prop_i32_max", feat(p0, prop("val", Integer.MAX_VALUE)), cfg());
@@ -358,6 +363,7 @@ public class SyntheticMltGenerator {
     write(layer("prop_i32_null_val", feat(p0), feat(p0, prop("val", (int) 42))), cfg());
 
     write("prop_u32", feat(p0, prop("val", U32.of(42L))), cfg());
+    write("prop_u32_delta", feat(p0, prop("val", U32.of(42L))), cfg(DELTA));
     write("prop_u32_min", feat(p0, prop("val", U32.of(0L))), cfg());
     write("prop_u32_max", feat(p0, prop("val", U32.of(0xFFFFFFFFL))), cfg());
     write(layer("prop_u32_val_null", feat(p0, prop("val", U32.of(42L))), feat(p0)), cfg());
@@ -365,6 +371,7 @@ public class SyntheticMltGenerator {
 
     long i64_value = 9_876_543_210L;
     write("prop_i64", feat(p0, prop("val", i64_value)), cfg());
+    write("prop_i64_delta", feat(p0, prop("val", i64_value)), cfg(DELTA));
     write("prop_i64_neg", feat(p0, prop("val", (long) -9_876_543_210L)), cfg());
     write("prop_i64_min", feat(p0, prop("val", Long.MIN_VALUE)), cfg());
     write("prop_i64_max", feat(p0, prop("val", Long.MAX_VALUE)), cfg());
@@ -374,6 +381,8 @@ public class SyntheticMltGenerator {
     U64 u64_value = U64.of(BigInteger.valueOf(1234567890123456789L));
     U64 u64_max = U64.of(new BigInteger("18446744073709551615"));
     write("prop_u64", feat(p0, prop("bignum", u64_value)), cfg());
+    // The exact shape that hid the const un-ZigZag bug, from real ev.mlt tiles.
+    write("prop_u64_delta", feat(p0, prop("bignum", u64_value)), cfg(DELTA));
     write("prop_u64_min", feat(p0, prop("bignum", U64.of(BigInteger.ZERO))), cfg());
     write("prop_u64_max", feat(p0, prop("bignum", u64_max)), cfg());
     write(layer("prop_u64_val_null", feat(p0, prop("val", u64_value)), feat(p0)), cfg());
