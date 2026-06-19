@@ -16,7 +16,7 @@ pub fn tile_layers_to_mvt(layers: Vec<TileLayer>) -> MltResult<Vec<u8>> {
         let mut mvt_layer = tile.layer_with_capacity(layer.name, layer.features.len())?;
         mvt_layer.extent(layer.extent.into());
         for feat in layer.features {
-            let mut feature = mvt_layer.feature(feat.geometry)?;
+            let mut feature = mvt_layer.feature(&feat.geometry)?;
             feature.id(feat.id);
             for (col_idx, prop) in feat.properties.into_iter().enumerate() {
                 if let Some(name) = layer.property_names.get(col_idx)
