@@ -33,6 +33,7 @@ install:
 # Run linting
 lint: install
     npm run lint
+    npm run format:check
 
 # Run tests
 test: install

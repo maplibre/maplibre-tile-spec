@@ -16,7 +16,9 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest run --coverage --coverage.reportOnFailure",
-    "lint": "eslint"
+    "lint": "eslint",
+    "format": "biome check --write --unsafe ./src",
+    "format:check": "biome check ./src"
   },
   "repository": {
     "type": "git",
@@ -26,6 +28,7 @@
     "url": "https://github.com/maplibre/maplibre-tile-spec/issues"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.16",
     "@eslint/js": "^10.0.1",
     "@mapbox/vector-tile": "^2.0.4",
     "@maplibre/maplibre-gl-style-spec": "^24.7.0",
