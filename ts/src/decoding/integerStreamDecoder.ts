@@ -209,6 +209,9 @@ export function decodeUnsignedConstInt64Stream(
     const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
 
     if (values.length === 1) {
+        if (streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.DELTA) {
+            return decodeZigZagInt64Value(values[0]);
+        }
         return values[0];
     }
 

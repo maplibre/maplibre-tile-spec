@@ -26,6 +26,9 @@ public:
     // We could create new ones, if really necessary.
     IntegerDecoder& operator=(IntegerDecoder&&) = delete;
 
+    /// Number of decoded values a stream yields (the buffer size for `decodeIntArray`).
+    static std::size_t getIntArrayBufferSize(std::size_t count, const StreamMetadata&);
+
     /// Decode a buffer of integers into another, according to the encoding scheme specified by the metadata
     /// @param values Input values
     /// @param out Output values (should be sized according to `getIntArrayBufferSize`)
@@ -131,9 +134,6 @@ private:
         buffer[bufferIndex].resize(std::max(buffer[bufferIndex].size(), minSize * sizeof(T)));
         return {*this, buffer[bufferIndex].data()};
     }
-
-    /// Get the size of the buffer necessary for `decodeIntArray`
-    static std::size_t getIntArrayBufferSize(std::size_t count, const StreamMetadata&);
 
     template <typename TDecode, typename TTarget = TDecode>
         requires(std::is_integral_v<TDecode> && (std::is_integral_v<TTarget> || std::is_enum_v<TTarget>))
