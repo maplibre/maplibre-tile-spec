@@ -19,97 +19,96 @@ namespace FastPForLib {
  * Computes the greatest common divisor
  */
 constexpr __attribute__((const)) uint32_t gcd(uint32_t x, uint32_t y) {
-  return (x % y) == 0 ? y : gcd(y, x % y);
-}
-
-template <class T> __attribute__((const)) T *padTo32bits(T *inbyte) {
-  return reinterpret_cast<T *>((reinterpret_cast<uintptr_t>(inbyte) + 3) & ~3);
+    return (x % y) == 0 ? y : gcd(y, x % y);
 }
 
 template <class T>
-__attribute__((const)) const T *padTo32bits(const T *inbyte) {
-  return reinterpret_cast<const T *>((reinterpret_cast<uintptr_t>(inbyte) + 3) &
-                                     ~3);
-}
-
-template <class T> __attribute__((const)) T *padTo64bits(T *inbyte) {
-  return reinterpret_cast<T *>((reinterpret_cast<uintptr_t>(inbyte) + 7) & ~7);
+__attribute__((const)) T* padTo32bits(T* inbyte) {
+    return reinterpret_cast<T*>((reinterpret_cast<uintptr_t>(inbyte) + 3) & ~3);
 }
 
 template <class T>
-__attribute__((const)) const T *padTo64bits(const T *inbyte) {
-  return reinterpret_cast<const T *>((reinterpret_cast<uintptr_t>(inbyte) + 7) &
-                                     ~7);
+__attribute__((const)) const T* padTo32bits(const T* inbyte) {
+    return reinterpret_cast<const T*>((reinterpret_cast<uintptr_t>(inbyte) + 3) & ~3);
 }
 
 template <class T>
-__attribute__((const)) const T *padTo128bits(const T *inbyte) {
-  return reinterpret_cast<const T *>(
-      (reinterpret_cast<uintptr_t>(inbyte) + 15) & ~15);
-}
-
-template <class T> __attribute__((const)) T *padTo64bytes(T *inbyte) {
-  return reinterpret_cast<T *>((reinterpret_cast<uintptr_t>(inbyte) + 63) &
-                               ~63);
+__attribute__((const)) T* padTo64bits(T* inbyte) {
+    return reinterpret_cast<T*>((reinterpret_cast<uintptr_t>(inbyte) + 7) & ~7);
 }
 
 template <class T>
-__attribute__((const)) const T *padTo64bytes(const T *inbyte) {
-  return reinterpret_cast<T *>((reinterpret_cast<uintptr_t>(inbyte) + 63) &
-                               ~63);
+__attribute__((const)) const T* padTo64bits(const T* inbyte) {
+    return reinterpret_cast<const T*>((reinterpret_cast<uintptr_t>(inbyte) + 7) & ~7);
 }
 
 template <class T>
-__attribute__((const)) bool needPaddingTo32Bits(const T *inbyte) {
-  return (reinterpret_cast<uintptr_t>(inbyte) & 3) != 0;
+__attribute__((const)) const T* padTo128bits(const T* inbyte) {
+    return reinterpret_cast<const T*>((reinterpret_cast<uintptr_t>(inbyte) + 15) & ~15);
 }
 
 template <class T>
-__attribute__((const)) bool needPaddingTo64Bits(const T *inbyte) {
-  return (reinterpret_cast<uintptr_t>(inbyte) & 7) != 0;
+__attribute__((const)) T* padTo64bytes(T* inbyte) {
+    return reinterpret_cast<T*>((reinterpret_cast<uintptr_t>(inbyte) + 63) & ~63);
 }
 
-template <class T> bool needPaddingTo64bytes(const T *inbyte) {
-  return (reinterpret_cast<uintptr_t>(inbyte) & 63) != 0;
+template <class T>
+__attribute__((const)) const T* padTo64bytes(const T* inbyte) {
+    return reinterpret_cast<T*>((reinterpret_cast<uintptr_t>(inbyte) + 63) & ~63);
+}
+
+template <class T>
+__attribute__((const)) bool needPaddingTo32Bits(const T* inbyte) {
+    return (reinterpret_cast<uintptr_t>(inbyte) & 3) != 0;
+}
+
+template <class T>
+__attribute__((const)) bool needPaddingTo64Bits(const T* inbyte) {
+    return (reinterpret_cast<uintptr_t>(inbyte) & 7) != 0;
+}
+
+template <class T>
+bool needPaddingTo64bytes(const T* inbyte) {
+    return (reinterpret_cast<uintptr_t>(inbyte) & 63) != 0;
 }
 
 __attribute__((const)) inline uint32_t gccbits(const uint32_t v) {
 #ifdef _MSC_VER
-  if (v == 0) {
-    return 0;
-  }
-  unsigned long answer;
-  _BitScanReverse(&answer, v);
-  return answer + 1;
+    if (v == 0) {
+        return 0;
+    }
+    unsigned long answer;
+    _BitScanReverse(&answer, v);
+    return answer + 1;
 #else
-  return v == 0 ? 0 : 32 - __builtin_clz(v);
+    return v == 0 ? 0 : 32 - __builtin_clz(v);
 #endif
 }
 
 __attribute__((const)) inline uint32_t gccbits(const uint64_t v) {
-  if (v == 0) {
-    return 0;
-  }
+    if (v == 0) {
+        return 0;
+    }
 #ifdef _MSC_VER
-  unsigned long index;
-  #ifdef _WIN64
+    unsigned long index;
+#ifdef _WIN64
     _BitScanReverse64(&index, v);
     return static_cast<uint32_t>(index + 1);
-  #else
+#else
     if (v >> 32 == 0) {
-      _BitScanReverse(&index, (uint32_t)v);
-      return static_cast<uint32_t>(index + 1);
+        _BitScanReverse(&index, (uint32_t)v);
+        return static_cast<uint32_t>(index + 1);
     } else {
-      _BitScanReverse(&index, (uint32_t)(v >> 32));
-      return static_cast<uint32_t>(index + 32 + 1);
+        _BitScanReverse(&index, (uint32_t)(v >> 32));
+        return static_cast<uint32_t>(index + 32 + 1);
     }
-  #endif
+#endif
 #elif defined(__arm__) || defined(__aarch64__)
     return 64 - __builtin_clzll(v);
 #else
-  uint32_t answer;
-  __asm__("bsr %1, %0;" : "=r"(answer) : "r"(v));
-  return answer + 1;
+    uint32_t answer;
+    __asm__("bsr %1, %0;" : "=r"(answer) : "r"(v));
+    return answer + 1;
 #endif
 }
 
@@ -117,15 +116,15 @@ __attribute__((const)) inline uint32_t gccbits(const uint64_t v) {
 // taken from
 // http://stackoverflow.com/questions/355967/how-to-use-msvc-intrinsics-to-get-the-equivalent-of-this-gcc-code
 inline uint32_t __builtin_clz(uint32_t x) {
-  unsigned long r = 0;
-  _BitScanReverse(&r, x);
-  return (31 - r);
+    unsigned long r = 0;
+    _BitScanReverse(&r, x);
+    return (31 - r);
 }
 
 #endif
 
 __attribute__((const)) inline bool divisibleby(size_t a, uint32_t x) {
-  return (a % x == 0);
+    return (a % x == 0);
 }
 
 /**
@@ -133,88 +132,86 @@ __attribute__((const)) inline bool divisibleby(size_t a, uint32_t x) {
  * function if speed matters. This is only for convenience.
  */
 template <class container>
-container diffs(const container &in, const bool aredistinct) {
-  container out;
-  if (in.empty()) {
-      return out;
-  }
-  out.resize(in.size() - 1);
-  for (size_t k = 0; k < in.size() - 1; ++k) {
-      if (aredistinct) {
-          out.push_back(in[k + 1] - in[k] - 1);
-      } else {
-          out.push_back(in[k + 1] - in[k]);
-      }
-  }
-  return out;
+container diffs(const container& in, const bool aredistinct) {
+    container out;
+    if (in.empty()) {
+        return out;
+    }
+    out.resize(in.size() - 1);
+    for (size_t k = 0; k < in.size() - 1; ++k) {
+        if (aredistinct) {
+            out.push_back(in[k + 1] - in[k] - 1);
+        } else {
+            out.push_back(in[k + 1] - in[k]);
+        }
+    }
+    return out;
 }
 
 inline void checkifdivisibleby(size_t a, uint32_t x) {
-  if (!divisibleby(a, x)) {
-    std::string msg = std::to_string(a) + " not divisible by "
-                    + std::to_string(x);
-    throw std::logic_error(msg);
-  }
+    if (!divisibleby(a, x)) {
+        std::string msg = std::to_string(a) + " not divisible by " + std::to_string(x);
+        throw std::logic_error(msg);
+    }
 }
 
 __attribute__((const)) inline uint32_t asmbits(const uint32_t v) {
 #ifdef _MSC_VER
-  return gccbits(v);
+    return gccbits(v);
 #elif defined(__arm__) || defined(__aarch64__)
-  return gccbits(v);
+    return gccbits(v);
 #else
-  if (v == 0)
-    return 0;
-  uint32_t answer;
-  __asm__("bsr %1, %0;" : "=r"(answer) : "r"(v));
-  return answer + 1;
+    if (v == 0) return 0;
+    uint32_t answer;
+    __asm__("bsr %1, %0;" : "=r"(answer) : "r"(v));
+    return answer + 1;
 #endif
 }
 
 __attribute__((const)) inline uint32_t asmbits(const uint64_t v) {
 #ifdef _MSC_VER
-  return gccbits(v);
+    return gccbits(v);
 #elif defined(__arm__) || defined(__aarch64__)
     return gccbits(v);
 #else
-  if (v == 0) return 0;
-  uint64_t answer;
-  __asm__("bsr %1, %0;" : "=r"(answer) : "r"(v));
-  return static_cast<uint32_t>(answer + 1);
+    if (v == 0) return 0;
+    uint64_t answer;
+    __asm__("bsr %1, %0;" : "=r"(answer) : "r"(v));
+    return static_cast<uint32_t>(answer + 1);
 #endif
 }
 
 __attribute__((const)) inline uint32_t slowbits(uint32_t v) {
-  uint32_t r = 0;
-  while (v) {
-    r++;
-    v = v >> 1;
-  }
-  return r;
+    uint32_t r = 0;
+    while (v) {
+        r++;
+        v = v >> 1;
+    }
+    return r;
 }
 
 __attribute__((const)) inline uint32_t bits(uint32_t v) {
-  uint32_t r(0);
-  if (v >= (1U << 15)) {
-    v >>= 16;
-    r += 16;
-  }
-  if (v >= (1U << 7)) {
-    v >>= 8;
-    r += 8;
-  }
-  if (v >= (1U << 3)) {
-    v >>= 4;
-    r += 4;
-  }
-  if (v >= (1U << 1)) {
-    v >>= 2;
-    r += 2;
-  }
-  if (v >= 1U) {
-    r += 1;
-  }
-  return r;
+    uint32_t r(0);
+    if (v >= (1U << 15)) {
+        v >>= 16;
+        r += 16;
+    }
+    if (v >= (1U << 7)) {
+        v >>= 8;
+        r += 8;
+    }
+    if (v >= (1U << 3)) {
+        v >>= 4;
+        r += 4;
+    }
+    if (v >= (1U << 1)) {
+        v >>= 2;
+        r += 2;
+    }
+    if (v >= 1U) {
+        r += 1;
+    }
+    return r;
 }
 
 #ifndef _MSC_VER
@@ -230,12 +227,18 @@ __attribute__((const)) constexpr uint32_t constexprbits(uint32_t v) {
 }
 #else
 
-template <int N> struct exprbits {
-  enum { value = 1 + exprbits<(N >> 1)>::value };
+template <int N>
+struct exprbits {
+    enum {
+        value = 1 + exprbits<(N >> 1)>::value
+    };
 };
 
-template <> struct exprbits<0> {
-  enum { value = 0 };
+template <>
+struct exprbits<0> {
+    enum {
+        value = 0
+    };
 };
 
 #define constexprbits(n) exprbits<n>::value
@@ -243,27 +246,26 @@ template <> struct exprbits<0> {
 #endif
 
 constexpr uint32_t div_roundup(uint32_t v, uint32_t divisor) {
-  return (v + (divisor - 1)) / divisor;
+    return (v + (divisor - 1)) / divisor;
 }
 
 template <class iterator>
-__attribute__((pure)) uint32_t maxbits(const iterator &begin,
-                                       const iterator &end) {
-  uint32_t accumulator = 0;
-  for (iterator k = begin; k != end; ++k) {
-    accumulator |= *k;
-  }
-  return gccbits(accumulator);
+__attribute__((pure)) uint32_t maxbits(const iterator& begin, const iterator& end) {
+    uint32_t accumulator = 0;
+    for (iterator k = begin; k != end; ++k) {
+        accumulator |= *k;
+    }
+    return gccbits(accumulator);
 }
 
 template <class iterator>
-uint32_t slowmaxbits(const iterator &begin, const iterator &end) {
-  uint32_t accumulator = 0;
-  for (iterator k = begin; k != end; ++k) {
-    const uint32_t tb = gccbits(*k);
-    accumulator = std::max(tb, accumulator);
-  }
-  return accumulator;
+uint32_t slowmaxbits(const iterator& begin, const iterator& end) {
+    uint32_t accumulator = 0;
+    for (iterator k = begin; k != end; ++k) {
+        const uint32_t tb = gccbits(*k);
+        accumulator = std::max(tb, accumulator);
+    }
+    return accumulator;
 }
 
 // basically, we can sometimes memoize the maxbits computation
@@ -287,26 +289,28 @@ uint32_t slowmaxbits(const iterator &begin, const iterator &end) {
 
 //
 template <int b, class t, class iterator>
-int greedy_bit_size_lookahead(const iterator &begin, const iterator &end) {
-  //  assert(end- begin <= b);
-  std::vector<t> prefixOrBuffer(end -
-                                begin); // consider a  preallocated buffer...
+int greedy_bit_size_lookahead(const iterator& begin, const iterator& end) {
+    //  assert(end- begin <= b);
+    std::vector<t> prefixOrBuffer(end - begin); // consider a  preallocated buffer...
 
-  partial_sum(begin, end, prefixOrBuffer.begin(),
-              [](t x, t y) { return x | y; } // change dl's + to |
-              // bitwise_or<t>()
-              );
-  // do the bitwise or-ing once only.
-  if (end - begin ==
-      b) { // expected case, to help out compiler.  Should be unrolled
-      for (int i = 1; i < 31; ++i) {
-          if (prefixOrBuffer[(b / i) - 1] < (static_cast<t>(1) << i)) {
-              return i;
-          }
-      }
-    // assert(false); // cannot get here unless 32+ bits required
-    return -1;
-  } // general case, maybe less data than we could pack with 1-bit fields
+    partial_sum(begin,
+                end,
+                prefixOrBuffer.begin(),
+                [](t x, t y) {
+                    return x | y;
+                } // change dl's + to |
+                // bitwise_or<t>()
+    );
+    // do the bitwise or-ing once only.
+    if (end - begin == b) { // expected case, to help out compiler.  Should be unrolled
+        for (int i = 1; i < 31; ++i) {
+            if (prefixOrBuffer[(b / i) - 1] < (static_cast<t>(1) << i)) {
+                return i;
+            }
+        }
+        // assert(false); // cannot get here unless 32+ bits required
+        return -1;
+    } // general case, maybe less data than we could pack with 1-bit fields
     for (int i = 1; i < 31; ++i) {
         uint64_t indexToCheck = (b / i) - 1;
         if (indexToCheck >= prefixOrBuffer.size()) {
@@ -323,49 +327,47 @@ int greedy_bit_size_lookahead(const iterator &begin, const iterator &end) {
 
 // assume the previous bit size is close to the required bit size
 template <int b, class t, class iterator>
-int greedy_bit_size_lookahead(const iterator &begin, const iterator &end,
-                              uint32_t previous_size) {
-
-  uint32_t span_length = end - begin;
-  if (span_length == b) { // work on the specialization later...
-    // try previous size
-    if (maxbits(begin, begin + (b / previous_size)) > previous_size) {
-      // previous_size is too small; go until you find something bigger that
-      // works
-      for (uint32_t i = previous_size + 1; i < previous_size + 32 /* was nothing */;
-           ++i) { // upper bound is only to encourage compiler to unroll
-          if (maxbits(begin, begin + (b / i)) <= i) {
-              return i;
-          }
-      }
-      return -1; // impossible
-    } // previous_size works, but perhaps we can find something smaller
-    // that also works
-    uint32_t i;
-    for (i = previous_size - 1; i /* > 0 */ != previous_size - 32; --i) {
-        if (i == 0) {
-            break; // This funkiness is to encourage unrolling.
+int greedy_bit_size_lookahead(const iterator& begin, const iterator& end, uint32_t previous_size) {
+    uint32_t span_length = end - begin;
+    if (span_length == b) { // work on the specialization later...
+        // try previous size
+        if (maxbits(begin, begin + (b / previous_size)) > previous_size) {
+            // previous_size is too small; go until you find something bigger that
+            // works
+            for (uint32_t i = previous_size + 1; i < previous_size + 32 /* was nothing */;
+                 ++i) { // upper bound is only to encourage compiler to unroll
+                if (maxbits(begin, begin + (b / i)) <= i) {
+                    return i;
+                }
+            }
+            return -1; // impossible
+        } // previous_size works, but perhaps we can find something smaller
+        // that also works
+        uint32_t i;
+        for (i = previous_size - 1; i /* > 0 */ != previous_size - 32; --i) {
+            if (i == 0) {
+                break; // This funkiness is to encourage unrolling.
+            }
+            if (maxbits(begin, begin + (b / i)) > i) {
+                break;
+            }
         }
-        if (maxbits(begin, begin + (b / i)) > i) {
-            break;
-        }
-    }
-      return i + 1; // either i=0 and we return 1....or i is the first too-small
-                    // size
+        return i + 1; // either i=0 and we return 1....or i is the first too-small
+                      // size
 
-  } // same thing with careful checks to avoid reading past end of buffer
+    } // same thing with careful checks to avoid reading past end of buffer
     uint32_t endIdx = b / previous_size;
     endIdx = std::min(endIdx, span_length);
 
     if (maxbits(begin, begin + endIdx) > previous_size) {
-      for (uint32_t i = previous_size + 1;; ++i) {
-        endIdx = b / i;
-        endIdx = std::min(endIdx, span_length);
-        if (maxbits(begin, begin + endIdx) <= i) {
-            return i;
+        for (uint32_t i = previous_size + 1;; ++i) {
+            endIdx = b / i;
+            endIdx = std::min(endIdx, span_length);
+            if (maxbits(begin, begin + endIdx) <= i) {
+                return i;
+            }
         }
-      }
-      return -1; // impossible
+        return -1; // impossible
     }
     uint32_t i;
     for (i = previous_size - 1; i > 0; --i) {
@@ -380,38 +382,41 @@ int greedy_bit_size_lookahead(const iterator &begin, const iterator &end,
 
 class BitWidthHistoGram {
 public:
-  std::vector<double> histo;
-  BitWidthHistoGram() : histo(33, 0) {}
+    std::vector<double> histo;
+    BitWidthHistoGram()
+        : histo(33, 0) {}
 
-  void display(const std::string& prefix = {}) {
-      double sum = 0;
-      for (double k : histo) {
-          sum += k;
-      }
-      if (sum == 0) {
-          return;
-      }
-      for (size_t k = 0; k < histo.size(); ++k) {
-          printf("%s%zu %f\n", prefix.c_str(), k, histo[k] / sum);
-      }
-  }
-  template <class container> void eatIntegers(const container &rawdata) {
-    for (uint32_t i = 0; i < rawdata.size(); ++i) {
-      histo[asmbits(rawdata[i])] += 1;
+    void display(const std::string& prefix = {}) {
+        double sum = 0;
+        for (double k : histo) {
+            sum += k;
+        }
+        if (sum == 0) {
+            return;
+        }
+        for (size_t k = 0; k < histo.size(); ++k) {
+            printf("%s%zu %f\n", prefix.c_str(), k, histo[k] / sum);
+        }
     }
-  }
+    template <class container>
+    void eatIntegers(const container& rawdata) {
+        for (uint32_t i = 0; i < rawdata.size(); ++i) {
+            histo[asmbits(rawdata[i])] += 1;
+        }
+    }
 
-  template <class container> void eatDGaps(const container &rawdata) {
-      if (rawdata.size() <= 1) {
-          return;
-      }
-    for (uint32_t i = 0; i < rawdata.size() - 1; ++i) {
-      assert(rawdata[i + 1] > rawdata[i]);
-      uint32_t gap = rawdata[i + 1] - rawdata[i] - 1;
-      assert(gap < rawdata[i + 1]);
-      histo[asmbits(gap)] += 1;
+    template <class container>
+    void eatDGaps(const container& rawdata) {
+        if (rawdata.size() <= 1) {
+            return;
+        }
+        for (uint32_t i = 0; i < rawdata.size() - 1; ++i) {
+            assert(rawdata[i + 1] > rawdata[i]);
+            uint32_t gap = rawdata[i + 1] - rawdata[i] - 1;
+            assert(gap < rawdata[i + 1]);
+            histo[asmbits(gap)] += 1;
+        }
     }
-  }
 };
 
 } // namespace FastPForLib

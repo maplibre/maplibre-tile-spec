@@ -372,70 +372,85 @@ void Simple8b<MarkLength>::encodeArray(const uint32_t* in, const size_t length, 
                 bit_writer(out64, *in++, 7);
             }
             out64[0] <<= 64 - SIMPLE8B_LOGDESC - (7 * NumberOfValuesCoded);
-            if (becareful) { assert(which(out64) == 8);
-}
+            if (becareful) {
+                assert(which(out64) == 8);
+            }
         } else if (tryme<7, 8>(in, ValuesRemaining)) {
             out64[0] = 9;
             NumberOfValuesCoded = (ValuesRemaining < 7) ? static_cast<uint32_t>(ValuesRemaining) : 7;
-            for (uint32_t i = 0; i < NumberOfValuesCoded; i++) { bit_writer(out64, *in++, 8);
-}
+            for (uint32_t i = 0; i < NumberOfValuesCoded; i++) {
+                bit_writer(out64, *in++, 8);
+            }
             out64[0] <<= 64 - SIMPLE8B_LOGDESC - (8 * NumberOfValuesCoded);
-            if (becareful) { assert(which(out64) == 9);
-}
+            if (becareful) {
+                assert(which(out64) == 9);
+            }
         } else if (tryme<6, 10>(in, ValuesRemaining)) {
             out64[0] = 10;
             NumberOfValuesCoded = (ValuesRemaining < 6) ? static_cast<uint32_t>(ValuesRemaining) : 6;
-            for (uint32_t i = 0; i < NumberOfValuesCoded; i++) { bit_writer(out64, *in++, 10);
-}
+            for (uint32_t i = 0; i < NumberOfValuesCoded; i++) {
+                bit_writer(out64, *in++, 10);
+            }
             out64[0] <<= 64 - SIMPLE8B_LOGDESC - (10 * NumberOfValuesCoded);
-            if (becareful) { assert(which(out64) == 10);
-}
+            if (becareful) {
+                assert(which(out64) == 10);
+            }
         } else if (tryme<5, 12>(in, ValuesRemaining)) {
             out64[0] = 11;
             NumberOfValuesCoded = (ValuesRemaining < 5) ? static_cast<uint32_t>(ValuesRemaining) : 5;
-            for (uint32_t i = 0; i < NumberOfValuesCoded; i++) { bit_writer(out64, *in++, 12);
-}
+            for (uint32_t i = 0; i < NumberOfValuesCoded; i++) {
+                bit_writer(out64, *in++, 12);
+            }
             out64[0] <<= 64 - SIMPLE8B_LOGDESC - (12 * NumberOfValuesCoded);
-            if (becareful) { assert(which(out64) == 11);
-}
+            if (becareful) {
+                assert(which(out64) == 11);
+            }
         } else if (tryme<4, 15>(in, ValuesRemaining)) {
             out64[0] = 12;
             NumberOfValuesCoded = (ValuesRemaining < 4) ? static_cast<uint32_t>(ValuesRemaining) : 4;
-            for (uint32_t i = 0; i < NumberOfValuesCoded; i++) { bit_writer(out64, *in++, 15);
-}
+            for (uint32_t i = 0; i < NumberOfValuesCoded; i++) {
+                bit_writer(out64, *in++, 15);
+            }
             out64[0] <<= 64 - SIMPLE8B_LOGDESC - (15 * NumberOfValuesCoded);
-            if (becareful) { assert(which(out64) == 12);
-}
+            if (becareful) {
+                assert(which(out64) == 12);
+            }
         } else if (tryme<3, 20>(in, ValuesRemaining)) {
             out64[0] = 13;
             NumberOfValuesCoded = (ValuesRemaining < 3) ? static_cast<uint32_t>(ValuesRemaining) : 3;
-            for (uint32_t i = 0; i < NumberOfValuesCoded; i++) { bit_writer(out64, *in++, 20);
-}
+            for (uint32_t i = 0; i < NumberOfValuesCoded; i++) {
+                bit_writer(out64, *in++, 20);
+            }
             out64[0] <<= 64 - SIMPLE8B_LOGDESC - (20 * NumberOfValuesCoded);
-            if (becareful) { assert(which(out64) == 13);
-}
+            if (becareful) {
+                assert(which(out64) == 13);
+            }
         } else if (tryme<2, 30>(in, ValuesRemaining)) {
             out64[0] = 14;
             NumberOfValuesCoded = (ValuesRemaining < 2) ? static_cast<uint32_t>(ValuesRemaining) : 2;
-            for (uint32_t i = 0; i < NumberOfValuesCoded; i++) { bit_writer(out64, *in++, 30);
-}
+            for (uint32_t i = 0; i < NumberOfValuesCoded; i++) {
+                bit_writer(out64, *in++, 30);
+            }
             out64[0] <<= 64 - SIMPLE8B_LOGDESC - (30 * NumberOfValuesCoded);
-            if (becareful) { assert(which(out64) == 14);
-}
+            if (becareful) {
+                assert(which(out64) == 14);
+            }
         } else if (tryme<1, 60>(in, ValuesRemaining)) {
             out64[0] = 15;
             NumberOfValuesCoded = (ValuesRemaining < 1) ? static_cast<uint32_t>(ValuesRemaining) : 1;
-            for (uint32_t i = 0; i < NumberOfValuesCoded; i++) { bit_writer(out64, *in++, 60);
-}
+            for (uint32_t i = 0; i < NumberOfValuesCoded; i++) {
+                bit_writer(out64, *in++, 60);
+            }
             out64[0] <<= 64 - SIMPLE8B_LOGDESC - (60 * NumberOfValuesCoded);
-            if (becareful) { assert(which(out64) == 15);
-}
+            if (becareful) {
+                assert(which(out64) == 15);
+            }
         } else {
             throw std::logic_error("shouldn't happen");
         }
         if (becareful) {
             assert(initin + length - ValuesRemaining + NumberOfValuesCoded == in);
-}
+        }
         ++out64;
 
         ValuesRemaining -= NumberOfValuesCoded;
@@ -513,8 +528,9 @@ const uint32_t* Simple8b<MarkLength>::decodeArray(const uint32_t* in,
     uint32_t markednvalue;
     if (MarkLength) {
         markednvalue = *in++;
-        if (markednvalue > nvalue) { throw NotEnoughStorage(markednvalue);
-}
+        if (markednvalue > nvalue) {
+            throw NotEnoughStorage(markednvalue);
+        }
     }
     const size_t actualvalue = MarkLength ? markednvalue : nvalue;
     // this may lead to unaligned access. Performance may be affected.
@@ -524,8 +540,9 @@ const uint32_t* Simple8b<MarkLength>::decodeArray(const uint32_t* in,
     const auto* finalin64 = reinterpret_cast<const uint64_t*>(endin);
 #endif
 
-    if (nvalue < actualvalue) { fprintf(stderr, "possible overrun\n");
-}
+    if (nvalue < actualvalue) {
+        fprintf(stderr, "possible overrun\n");
+    }
     nvalue = actualvalue;
     const uint32_t* const end = out + nvalue;
     const uint32_t* const initout(out);

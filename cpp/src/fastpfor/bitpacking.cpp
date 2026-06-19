@@ -5,14 +5,16 @@
 namespace {
 
 template <uint8_t DELTA, uint8_t SHR>
-void unpack_single_out(const uint32_t* __restrict__ in,
-                                                                    uint32_t* __restrict__ out) requires ((DELTA + SHR) < 32) {
+void unpack_single_out(const uint32_t* __restrict__ in, uint32_t* __restrict__ out)
+    requires((DELTA + SHR) < 32)
+{
     *out = ((*in) >> SHR) % (1 << DELTA);
 }
 
 template <uint8_t DELTA, uint8_t SHR>
-void unpack_single_out(const uint32_t* __restrict__& in,
-                                                                     uint32_t* __restrict__ out) requires ((DELTA + SHR) >= 32) {
+void unpack_single_out(const uint32_t* __restrict__& in, uint32_t* __restrict__ out)
+    requires((DELTA + SHR) >= 32)
+{
     *out = (*in) >> SHR;
     ++in;
 
@@ -21,14 +23,16 @@ void unpack_single_out(const uint32_t* __restrict__& in,
 }
 
 template <uint8_t DELTA, uint8_t SHR>
-void unpack_single_out(const uint32_t* __restrict__ in,
-                                                                    uint64_t* __restrict__ out) requires ((DELTA + SHR) < 32) {
+void unpack_single_out(const uint32_t* __restrict__ in, uint64_t* __restrict__ out)
+    requires((DELTA + SHR) < 32)
+{
     *out = ((static_cast<uint64_t>(*in)) >> SHR) % (1ULL << DELTA);
 }
 
 template <uint8_t DELTA, uint8_t SHR>
-void unpack_single_out(
-    const uint32_t* __restrict__& in, uint64_t* __restrict__ out) requires ((DELTA + SHR) >= 32 && (DELTA + SHR) < 64) {
+void unpack_single_out(const uint32_t* __restrict__& in, uint64_t* __restrict__ out)
+    requires((DELTA + SHR) >= 32 && (DELTA + SHR) < 64)
+{
     *out = static_cast<uint64_t>(*in) >> SHR;
     ++in;
     if (DELTA + SHR > 32) {
@@ -38,8 +42,9 @@ void unpack_single_out(
 }
 
 template <uint8_t DELTA, uint8_t SHR>
-void unpack_single_out(const uint32_t* __restrict__& in,
-                                                                     uint64_t* __restrict__ out) requires ((DELTA + SHR) >= 64) {
+void unpack_single_out(const uint32_t* __restrict__& in, uint64_t* __restrict__ out)
+    requires((DELTA + SHR) >= 64)
+{
     *out = static_cast<uint64_t>(*in) >> SHR;
     ++in;
 
@@ -53,7 +58,9 @@ void unpack_single_out(const uint32_t* __restrict__& in,
 }
 
 template <uint16_t DELTA, uint16_t SHL, uint32_t MASK>
-    void pack_single_in(const uint32_t in, uint32_t* __restrict__ out) requires (DELTA + SHL<32) {
+void pack_single_in(const uint32_t in, uint32_t* __restrict__ out)
+    requires(DELTA + SHL < 32)
+{
     if (SHL == 0) {
         *out = in & MASK;
     } else {
@@ -62,7 +69,9 @@ template <uint16_t DELTA, uint16_t SHL, uint32_t MASK>
 }
 
 template <uint16_t DELTA, uint16_t SHL, uint32_t MASK>
-void pack_single_in(const uint32_t in, uint32_t* __restrict__& out) requires (DELTA + SHL >= 32) {
+void pack_single_in(const uint32_t in, uint32_t* __restrict__& out)
+    requires(DELTA + SHL >= 32)
+{
     *out |= in << SHL;
     ++out;
 
@@ -72,7 +81,9 @@ void pack_single_in(const uint32_t in, uint32_t* __restrict__& out) requires (DE
 }
 
 template <uint16_t DELTA, uint16_t SHL, uint64_t MASK>
-    void pack_single_in64(const uint64_t in, uint32_t* __restrict__ out) requires (DELTA + SHL<32) {
+void pack_single_in64(const uint64_t in, uint32_t* __restrict__ out)
+    requires(DELTA + SHL < 32)
+{
     if (SHL == 0) {
         *out = static_cast<uint32_t>(in & MASK);
     } else {
@@ -81,8 +92,9 @@ template <uint16_t DELTA, uint16_t SHL, uint64_t MASK>
 }
 
 template <uint16_t DELTA, uint16_t SHL, uint64_t MASK>
-        void pack_single_in64(const uint64_t in, uint32_t* __restrict__& out) requires (DELTA + SHL >= 32 &&
-    DELTA + SHL<64) {
+void pack_single_in64(const uint64_t in, uint32_t* __restrict__& out)
+    requires(DELTA + SHL >= 32 && DELTA + SHL < 64)
+{
     if (SHL == 0) {
         *out = static_cast<uint32_t>(in & MASK);
     } else {
@@ -97,7 +109,9 @@ template <uint16_t DELTA, uint16_t SHL, uint64_t MASK>
 }
 
 template <uint16_t DELTA, uint16_t SHL, uint64_t MASK>
-void pack_single_in64(const uint64_t in, uint32_t* __restrict__& out) requires (DELTA + SHL >= 64) {
+void pack_single_in64(const uint64_t in, uint32_t* __restrict__& out)
+    requires(DELTA + SHL >= 64)
+{
     *out |= in << SHL;
     ++out;
 
@@ -150,7 +164,7 @@ struct Unroller {
 
 template <uint16_t DELTA>
 struct Unroller<DELTA, 31> {
-    enum : std::uint8_t{
+    enum : std::uint8_t {
         SHIFT = (DELTA * 31) % 32
     };
 
@@ -188,13 +202,15 @@ struct Unroller<DELTA, 31> {
 
 // Special cases
 void __fastunpack0(const uint32_t* __restrict__, uint32_t* __restrict__ out) {
-    for (uint32_t i = 0; i < 32; ++i) { *(out++) = 0;
-}
+    for (uint32_t i = 0; i < 32; ++i) {
+        *(out++) = 0;
+    }
 }
 
 void __fastunpack0(const uint32_t* __restrict__, uint64_t* __restrict__ out) {
-    for (uint32_t i = 0; i < 32; ++i) { *(out++) = 0;
-}
+    for (uint32_t i = 0; i < 32; ++i) {
+        *(out++) = 0;
+    }
 }
 
 void __fastpack0(const uint32_t* __restrict__, uint32_t* __restrict__) {}
@@ -220,7 +236,7 @@ void __fastunpack4(const uint32_t* __restrict__ in, uint32_t* __restrict__ out) 
     for (uint32_t outer = 0; outer < 4; ++outer) {
         for (uint32_t inwordpointer = 0; inwordpointer < 32; inwordpointer += 4) {
             *(out++) = ((*in) >> inwordpointer) % (1U << 4);
-}
+        }
         ++in;
     }
 }
@@ -241,7 +257,7 @@ void __fastunpack8(const uint32_t* __restrict__ in, uint32_t* __restrict__ out) 
     for (uint32_t outer = 0; outer < 8; ++outer) {
         for (uint32_t inwordpointer = 0; inwordpointer < 32; inwordpointer += 8) {
             *(out++) = ((*in) >> inwordpointer) % (1U << 8);
-}
+        }
         ++in;
     }
 }
@@ -278,7 +294,7 @@ void __fastunpack16(const uint32_t* __restrict__ in, uint32_t* __restrict__ out)
     for (uint32_t outer = 0; outer < 16; ++outer) {
         for (uint32_t inwordpointer = 0; inwordpointer < 32; inwordpointer += 16) {
             *(out++) = ((*in) >> inwordpointer) % (1U << 16);
-}
+        }
         ++in;
     }
 }
@@ -344,8 +360,9 @@ void __fastunpack31(const uint32_t* __restrict__ in, uint32_t* __restrict__ out)
 }
 
 void __fastunpack32(const uint32_t* __restrict__ in, uint32_t* __restrict__ out) {
-    for (int k = 0; k < 32; ++k) { out[k] = in[k];
-}
+    for (int k = 0; k < 32; ++k) {
+        out[k] = in[k];
+    }
 }
 
 // fastupack for 64 bits
@@ -365,7 +382,7 @@ void __fastunpack4(const uint32_t* __restrict__ in, uint64_t* __restrict__ out) 
     for (uint32_t outer = 0; outer < 4; ++outer) {
         for (uint32_t inwordpointer = 0; inwordpointer < 32; inwordpointer += 4) {
             *(out++) = ((*in) >> inwordpointer) % (1U << 4);
-}
+        }
         ++in;
     }
 }
@@ -423,7 +440,7 @@ void __fastunpack16(const uint32_t* __restrict__ in, uint64_t* __restrict__ out)
     for (uint32_t outer = 0; outer < 16; ++outer) {
         for (uint32_t inwordpointer = 0; inwordpointer < 32; inwordpointer += 16) {
             *(out++) = ((*in) >> inwordpointer) % (1U << 16);
-}
+        }
         ++in;
     }
 }
@@ -489,8 +506,9 @@ void __fastunpack31(const uint32_t* __restrict__ in, uint64_t* __restrict__ out)
 }
 
 void __fastunpack32(const uint32_t* __restrict__ in, uint64_t* __restrict__ out) {
-    for (int k = 0; k < 32; ++k) { out[k] = in[k];
-}
+    for (int k = 0; k < 32; ++k) {
+        out[k] = in[k];
+    }
 }
 
 void __fastunpack33(const uint32_t* __restrict__ in, uint64_t* __restrict__ out) {
@@ -751,8 +769,9 @@ void __fastpack31(const uint32_t* __restrict__ in, uint32_t* __restrict__ out) {
 }
 
 void __fastpack32(const uint32_t* __restrict__ in, uint32_t* __restrict__ out) {
-    for (int k = 0; k < 32; ++k) { out[k] = in[k];
-}
+    for (int k = 0; k < 32; ++k) {
+        out[k] = in[k];
+    }
 }
 
 // fastpack for 64 bits
@@ -1175,8 +1194,9 @@ void __fastpackwithoutmask31(const uint32_t* __restrict__ in, uint32_t* __restri
 }
 
 void __fastpackwithoutmask32(const uint32_t* __restrict__ in, uint32_t* __restrict__ out) {
-    for (int k = 0; k < 32; ++k) { out[k] = in[k];
-}
+    for (int k = 0; k < 32; ++k) {
+        out[k] = in[k];
+    }
 }
 
 // fastpackwithoutmask for 64 bits
