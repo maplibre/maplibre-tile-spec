@@ -100,6 +100,10 @@ pub enum ColumnType {
     LongId = 2,
     OptLongId = 3,
     Geometry = 4,
+    /// 3D geometry column (interleaved `x, y, z` vertices). The in-tile analog of the spec's
+    /// `ComplexType::GEOMETRY_Z`. Value `6` is even so the odd-LSB "optional" convention
+    /// (see [`Self::is_optional`]) correctly reports it as non-optional.
+    GeometryZ = 6,
     Bool = 10,
     OptBool = 11,
     I8 = 12,

@@ -4,6 +4,10 @@ use zigzag::ZigZag;
 use crate::MltError::InvalidPairStreamSize;
 use crate::{Decoder, MltResult};
 
+/// Upper bound on vertex components for the componentwise-delta codecs (X, Y, Z, M). Lets the
+/// per-component running state live in a small stack array instead of a per-call heap `Vec`.
+const MAX_COMPONENTS: usize = 4;
+
 /// ZigZag-encode `data` into `target`.
 ///
 /// `target` is treated as a scratch buffer: cleared before writing.
@@ -31,15 +35,17 @@ pub fn encode_zigzag_delta<'a, T: Copy + ZigZag + WrappingSub<Output = T>>(
     target
 }
 
-/// Encode signed integer vec2 values using componentwise delta + zigzag into `target`.
+/// Encode interleaved `n_dims`-component vertices using componentwise delta + zigzag into `target`.
 ///
-/// Input: `[x0, y0, x1, y1, ...]`
+/// Input (`n_dims = 2`): `[x0, y0, x1, y1, ...]`
 /// Output: `[zigzag(x0-0), zigzag(y0-0), zigzag(x1-x0), zigzag(y1-y0), ...]`
 ///
-/// `target` is treated as a scratch buffer: cleared before writing.
-/// This is the inverse of `decode_componentwise_delta_vec2s`.
-pub fn encode_componentwise_delta_vec2s<'a, T>(
+/// The delta runs independently per component position, so `n_dims` must match the value used
+/// when decoding. `target` is treated as a scratch buffer: cleared before writing.
+/// This is the inverse of `decode_componentwise_delta`.
+pub fn encode_componentwise_delta<'a, T>(
     data: &[T],
+    n_dims: usize,
     target: &'a mut Vec<T::UInt>,
 ) -> &'a [T::UInt]
 where
@@ -47,13 +53,13 @@ where
 {
     target.clear();
     target.reserve(data.len());
-    let mut prev_x = T::zero();
-    let mut prev_y = T::zero();
-    for chunk in data.chunks_exact(2) {
-        let (x, y) = (chunk[0], chunk[1]);
-        target.push(T::encode(x.wrapping_sub(&prev_x)));
-        target.push(T::encode(y.wrapping_sub(&prev_y)));
-        (prev_x, prev_y) = (x, y);
+    debug_assert!(n_dims <= MAX_COMPONENTS);
+    let mut prev = [T::zero(); MAX_COMPONENTS];
+    for chunk in data.chunks_exact(n_dims) {
+        for (j, &v) in chunk.iter().enumerate() {
+            target.push(T::encode(v.wrapping_sub(&prev[j])));
+            prev[j] = v;
+        }
     }
     target
 }
@@ -79,26 +85,28 @@ pub fn decode_zigzag_delta<T: Copy + ZigZag + WrappingAdd + AsPrimitive<U>, U: '
         .collect())
 }
 
-/// Decode ([`ZigZag`] + delta) for Vec2s, charging `dec` for the output allocation.
-// TODO: The encoded process is (delta + ZigZag) for each component
-pub fn decode_componentwise_delta_vec2s<T: ZigZag + WrappingAdd>(
+/// Decode ([`ZigZag`] + delta) for interleaved `n_dims`-component vertices, charging `dec` for
+/// the output allocation. The delta is reconstructed independently per component position, so
+/// `n_dims` must match the value used when encoding. Inverse of [`encode_componentwise_delta`].
+pub fn decode_componentwise_delta<T: ZigZag + WrappingAdd>(
     data: &[T::UInt],
+    n_dims: usize,
     dec: &mut Decoder,
 ) -> MltResult<Vec<T>> {
-    if data.is_empty() || !data.len().is_multiple_of(2) {
+    if data.is_empty() || n_dims == 0 || !data.len().is_multiple_of(n_dims) {
         return Err(InvalidPairStreamSize(data.len()));
     }
 
     let alloc_size = data.len();
     let mut result = dec.alloc(alloc_size)?;
-    let mut last1 = T::zero();
-    let mut last2 = T::zero();
+    debug_assert!(n_dims <= MAX_COMPONENTS);
+    let mut last = [T::zero(); MAX_COMPONENTS];
 
-    for i in (0..data.len()).step_by(2) {
-        last1 = last1.wrapping_add(&T::decode(data[i]));
-        last2 = last2.wrapping_add(&T::decode(data[i + 1]));
-        result.push(last1);
-        result.push(last2);
+    for chunk in data.chunks_exact(n_dims) {
+        for (j, &v) in chunk.iter().enumerate() {
+            last[j] = last[j].wrapping_add(&T::decode(v));
+            result.push(last[j]);
+        }
     }
 
     dec.adjust_alloc(&result, alloc_size)?;
@@ -141,8 +149,8 @@ mod tests {
                 &data[..data.len() - 1]
             };
             let mut encoded = Vec::new();
-            let data = encode_componentwise_delta_vec2s(data_slice, &mut encoded);
-            let decoded = decode_componentwise_delta_vec2s::<i32>(data, &mut dec()).unwrap();
+            let data = encode_componentwise_delta(data_slice, 2, &mut encoded);
+            let decoded = decode_componentwise_delta::<i32>(data, 2, &mut dec()).unwrap();
             prop_assert_eq!(data_slice, &decoded);
         }
     }
@@ -193,7 +201,16 @@ mod tests {
     #[test]
     fn test_decode_componentwise_delta_vec2s() {
         let values = &[1_u32, 2, 3, 4];
-        let decoded = decode_componentwise_delta_vec2s::<i32>(values, &mut dec()).unwrap();
+        let decoded = decode_componentwise_delta::<i32>(values, 2, &mut dec()).unwrap();
         assert_eq!(&decoded, &[-1_i32, 1, -3, 3]);
+    }
+
+    #[test]
+    fn test_componentwise_delta_vec3_roundtrip() {
+        let data = [10_i32, 20, 30, 11, 19, 35, 5, 5, 5];
+        let mut encoded = Vec::new();
+        let enc = encode_componentwise_delta(&data, 3, &mut encoded);
+        let decoded = decode_componentwise_delta::<i32>(enc, 3, &mut dec()).unwrap();
+        assert_eq!(&data[..], &decoded);
     }
 }

@@ -1,13 +1,13 @@
 use geo::{Convert as _, TriangulateEarcut as _};
 use geo_traits::to_geo::{ToGeoCoord as _, ToGeoPolygon as _, ToGeoRect as _, ToGeoTriangle as _};
 use geo_traits::{
-    CoordTrait as _, GeometryCollectionTrait as _, GeometryTrait, GeometryType as GeoType,
+    CoordTrait, Dimensions, GeometryCollectionTrait as _, GeometryTrait, GeometryType as GeoType,
     LineStringTrait, LineTrait as _, MultiLineStringTrait, MultiPointTrait, MultiPolygonTrait,
     PointTrait, PolygonTrait,
 };
 use geo_types::{LineString, Polygon};
 
-use crate::decoder::{GeometryType, GeometryValues};
+use crate::decoder::{CoordDim, GeometryType, GeometryValues};
 
 /// Map any [`geo_traits::GeometryTrait`] geometry to its MLT [`GeometryType`].
 /// `Line`, `Rect`, `Triangle` and `GeometryCollection` have no direct MLT geometry type.
@@ -108,7 +108,7 @@ impl GeometryValues {
     /// This is the reverse of `to_geojson` - it converts any [`geo_traits::GeometryTrait`]
     /// geometry into the internal MLT representation with offset arrays.
     ///
-    /// Only the X and Y coordinates are read; any Z is currently ignored (3D not yet wired).
+    /// X and Y are always read; Z is read when the column is 3D (see [`Self::push_geom`]).
     #[must_use]
     pub fn with_geom(mut self, geom: &impl GeometryTrait<T = i32>) -> Self {
         self.push_geom(geom);
@@ -116,7 +116,18 @@ impl GeometryValues {
     }
 
     /// Add a geometry to this decoded geometry collection (mutable version).
+    ///
+    /// The column's dimensionality is taken from the first geometry pushed: a geometry whose
+    /// `dim()` is `Xyz` makes this a 3D (`GeometryZ`) column and subsequent vertices store Z.
+    /// Mixing 2D and 3D geometries in one column is unsupported.
     pub fn push_geom(&mut self, geom: &impl GeometryTrait<T = i32>) {
+        if self.vector_types.is_empty() {
+            self.dim = if matches!(geom.dim(), Dimensions::Xyz) {
+                CoordDim::Xyz
+            } else {
+                CoordDim::Xy
+            };
+        }
         match geom.as_type() {
             GeoType::Point(p) => self.push_point(p),
             GeoType::Line(l) => {
@@ -140,16 +151,16 @@ impl GeometryValues {
 
     fn push_point(&mut self, point: &impl PointTrait<T = i32>) {
         self.vector_types.push(GeometryType::Point);
+        let n_dims = self.dim.size();
         if let Some(c) = point.coord() {
-            self.vertices
-                .get_or_insert_with(Vec::new)
-                .extend([c.x(), c.y()]);
+            push_vertex(self.vertices.get_or_insert_with(Vec::new), &c, n_dims);
         }
     }
 
     fn push_linestring(&mut self, ls: &impl LineStringTrait<T = i32>) {
         self.vector_types.push(GeometryType::LineString);
 
+        let n_dims = self.dim.size();
         let verts = self.vertices.get_or_insert_with(Vec::new);
         // If ring_offsets exists (i.e., there's a Polygon in the layer),
         // add LineString vertex count to ring_offsets instead of part_offsets.
@@ -160,7 +171,7 @@ impl GeometryValues {
             .unwrap_or_else(|| self.part_offsets.get_or_insert_with(Vec::new));
 
         init_offsets(offsets);
-        push_linestring_coords(ls, verts, offsets);
+        push_linestring_coords(ls, verts, offsets, n_dims);
     }
 
     fn push_polygon(&mut self, poly: &impl PolygonTrait<T = i32>) {
@@ -172,11 +183,12 @@ impl GeometryValues {
         self.vector_types.push(GeometryType::Polygon);
         self.init_polygon_offsets();
 
+        let n_dims = self.dim.size();
         let verts = self.vertices.get_or_insert_with(Vec::new);
         let rings = self.ring_offsets.as_mut().unwrap();
         let parts = self.part_offsets.as_mut().unwrap();
 
-        push_polygon_rings(poly, verts, rings, parts);
+        push_polygon_rings(poly, verts, rings, parts, n_dims);
         self.tessellate_polygon(poly);
     }
 
@@ -195,10 +207,11 @@ impl GeometryValues {
     fn push_multi_point(&mut self, mp: &impl MultiPointTrait<T = i32>) {
         self.vector_types.push(GeometryType::MultiPoint);
 
+        let n_dims = self.dim.size();
         let verts = self.vertices.get_or_insert_with(Vec::new);
         for point in mp.points() {
             if let Some(c) = point.coord() {
-                verts.extend([c.x(), c.y()]);
+                push_vertex(verts, &c, n_dims);
             }
         }
 
@@ -208,6 +221,7 @@ impl GeometryValues {
     fn push_multi_linestring(&mut self, mls: &impl MultiLineStringTrait<T = i32>) {
         self.vector_types.push(GeometryType::MultiLineString);
 
+        let n_dims = self.dim.size();
         let verts = self.vertices.get_or_insert_with(Vec::new);
         // When a Polygon is present (ring_offsets exists), LineString vertex counts
         // go to ring_offsets instead of part_offsets. This matches Java's behavior.
@@ -218,7 +232,7 @@ impl GeometryValues {
 
         init_offsets(offsets);
         for ls in mls.line_strings() {
-            push_linestring_coords(&ls, verts, offsets);
+            push_linestring_coords(&ls, verts, offsets, n_dims);
         }
 
         self.push_geometry_count(
@@ -230,12 +244,13 @@ impl GeometryValues {
         self.vector_types.push(GeometryType::MultiPolygon);
         self.init_polygon_offsets();
 
+        let n_dims = self.dim.size();
         let verts = self.vertices.get_or_insert_with(Vec::new);
         let rings = self.ring_offsets.as_mut().unwrap();
         let parts = self.part_offsets.as_mut().unwrap();
 
         for poly in mp.polygons() {
-            push_polygon_rings(&poly, verts, rings, parts);
+            push_polygon_rings(&poly, verts, rings, parts, n_dims);
         }
 
         self.push_geometry_count(u32::try_from(mp.num_polygons()).expect("polygon count overflow"));
@@ -257,6 +272,16 @@ fn init_offsets(v: &mut Vec<u32>) {
     }
 }
 
+/// Append one vertex to the interleaved buffer: `x, y` and, when `n_dims >= 3`, `z`
+/// (`coord.nth(2)`, defaulting to 0 when absent).
+fn push_vertex(verts: &mut Vec<i32>, c: &impl CoordTrait<T = i32>, n_dims: usize) {
+    verts.push(c.x());
+    verts.push(c.y());
+    if n_dims >= 3 {
+        verts.push(c.nth(2).unwrap_or(0));
+    }
+}
+
 /// Push a single polygon's rings (exterior + interiors) to the offset arrays.
 /// MLT omits closing vertices, so we strip them if present.
 fn push_polygon_rings(
@@ -264,17 +289,23 @@ fn push_polygon_rings(
     verts: &mut Vec<i32>,
     rings: &mut Vec<u32>,
     parts: &mut Vec<u32>,
+    n_dims: usize,
 ) {
     let mut ring_count = *parts.last().unwrap();
     for ring in poly.exterior().into_iter().chain(poly.interiors()) {
-        push_ring(&ring, verts, rings);
+        push_ring(&ring, verts, rings, n_dims);
         ring_count += 1;
     }
     parts.push(ring_count);
 }
 
 /// Push a ring's coordinates (stripping closing vertex) to verts and update rings offset.
-fn push_ring(ring: &impl LineStringTrait<T = i32>, verts: &mut Vec<i32>, rings: &mut Vec<u32>) {
+fn push_ring(
+    ring: &impl LineStringTrait<T = i32>,
+    verts: &mut Vec<i32>,
+    rings: &mut Vec<u32>,
+    n_dims: usize,
+) {
     let n = ring.num_coords();
     // Strip the closing vertex if the ring repeats its first coordinate at the end.
     let closed = n > 1
@@ -284,7 +315,7 @@ fn push_ring(ring: &impl LineStringTrait<T = i32>, verts: &mut Vec<i32>, rings: 
             .is_some_and(|(f, l)| f.x() == l.x() && f.y() == l.y());
     let len = if closed { n - 1 } else { n };
     for c in ring.coords().take(len) {
-        verts.extend([c.x(), c.y()]);
+        push_vertex(verts, &c, n_dims);
     }
     let prev = *rings.last().unwrap();
     rings.push(prev + u32::try_from(len).expect("vertex count overflow"));
@@ -296,9 +327,10 @@ fn push_linestring_coords(
     ls: &impl LineStringTrait<T = i32>,
     verts: &mut Vec<i32>,
     offsets: &mut Vec<u32>,
+    n_dims: usize,
 ) {
     for c in ls.coords() {
-        verts.extend([c.x(), c.y()]);
+        push_vertex(verts, &c, n_dims);
     }
     let prev = *offsets.last().unwrap();
     offsets.push(prev + u32::try_from(ls.num_coords()).expect("vertex count overflow"));
@@ -338,7 +370,11 @@ mod tests {
             .write_to(&mut enc, &mut codecs)
             .expect("Failed to encode");
 
-        let parsed = assert_empty(RawGeometry::from_bytes(enc.data(), &mut parser()));
+        let parsed = assert_empty(RawGeometry::from_bytes(
+            enc.data(),
+            CoordDim::Xy,
+            &mut parser(),
+        ));
 
         LazyParsed::Raw(parsed)
             .into_parsed(&mut dec())
@@ -653,7 +689,7 @@ mod tests {
         let buffer = enc.data().to_vec();
 
         let mut p = parser();
-        let parsed = assert_empty(RawGeometry::from_bytes(&buffer, &mut p));
+        let parsed = assert_empty(RawGeometry::from_bytes(&buffer, CoordDim::Xy, &mut p));
         assert_snapshot!(p.reserved(), @"72");
 
         let mut d = dec();

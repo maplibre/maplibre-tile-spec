@@ -51,7 +51,12 @@ impl ColumnType {
     pub(crate) fn has_name(self) -> bool {
         !matches!(
             self,
-            Self::Id | Self::OptId | Self::LongId | Self::OptLongId | Self::Geometry
+            Self::Id
+                | Self::OptId
+                | Self::LongId
+                | Self::OptLongId
+                | Self::Geometry
+                | Self::GeometryZ
         )
     }
 

@@ -236,7 +236,9 @@ pub(crate) fn spatial_sort_likely_to_help(layer: &TileLayer) -> bool {
 mod tests {
     use geo_types::{Coord, Geometry as GeoGeom, Geometry, LineString, Point, Polygon};
 
-    use crate::decoder::{GeometryType, GeometryValues, RawGeometry, TileFeature, TileLayer};
+    use crate::decoder::{
+        CoordDim, GeometryType, GeometryValues, RawGeometry, TileFeature, TileLayer,
+    };
     use crate::encoder::{
         Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, SortStrategy, stage_tile,
     };
@@ -283,7 +285,7 @@ mod tests {
             .expect("encode failed");
         let buf = enc.data().to_vec();
 
-        let parsed = assert_empty(RawGeometry::from_bytes(&buf, &mut parser()));
+        let parsed = assert_empty(RawGeometry::from_bytes(&buf, CoordDim::Xy, &mut parser()));
         let mut d = dec();
         let result = LazyParsed::Raw(parsed)
             .into_parsed(&mut d)

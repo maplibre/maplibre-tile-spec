@@ -103,9 +103,10 @@ impl Serialize for Feature {
 }
 
 /// Serialize/deserialize [`wkt::Wkt<i32>`] in `GeoJSON` wire format:
-/// `{"type":"…","coordinates":…}` with `[x, y]` integer arrays.
+/// `{"type":"…","coordinates":…}`.
 ///
-/// Only the 2D X/Y coordinates are written/read; any Z is ignored (3D not yet wired).
+/// Each coordinate is a `[x, y]` array, or `[x, y, z]` when the geometry carries a Z (3D).
+/// The container [`Dimension`] is inferred from the first coordinate on deserialize.
 mod geom_serde {
     use serde::de::Error as _;
     use serde::ser::{Error, SerializeMap as _};
@@ -116,10 +117,14 @@ mod geom_serde {
         Coord, Dimension, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
     };
 
-    type Arr = [i32; 2];
+    /// A coordinate as a 2- or 3-element array (`[x, y]` or `[x, y, z]`).
+    type Arr = Vec<i32>;
 
     fn coord_arr(c: &Coord<i32>) -> Arr {
-        [c.x, c.y]
+        match c.z {
+            Some(z) => vec![c.x, c.y, z],
+            None => vec![c.x, c.y],
+        }
     }
 
     fn point_arr(p: &Point<i32>) -> Option<Arr> {
@@ -134,21 +139,30 @@ mod geom_serde {
         poly.rings().iter().map(ls_arr).collect()
     }
 
-    fn arr_coord(a: Arr) -> Coord<i32> {
+    fn arr_coord(a: &Arr) -> Coord<i32> {
         Coord {
             x: a[0],
             y: a[1],
-            z: None,
+            z: a.get(2).copied(),
             m: None,
         }
     }
 
+    /// Infer the [`Dimension`] of a coordinate sequence from its first coordinate.
+    fn dim_of(coords: &[Coord<i32>]) -> Dimension {
+        coords.first().map_or(Dimension::XY, Coord::dimension)
+    }
+
     fn arr_ls(v: Vec<Arr>) -> LineString<i32> {
-        LineString::new(v.into_iter().map(arr_coord).collect(), Dimension::XY)
+        let coords: Vec<Coord<i32>> = v.into_iter().map(|a| arr_coord(&a)).collect();
+        let dim = dim_of(&coords);
+        LineString::new(coords, dim)
     }
 
     fn arr_poly(rings: Vec<Vec<Arr>>) -> Polygon<i32> {
-        Polygon::new(rings.into_iter().map(arr_ls).collect(), Dimension::XY)
+        let rings: Vec<LineString<i32>> = rings.into_iter().map(arr_ls).collect();
+        let dim = rings.first().map_or(Dimension::XY, LineString::dimension);
+        Polygon::new(rings, dim)
     }
 
     pub fn serialize<S: Serializer>(g: &Wkt<i32>, s: S) -> Result<S::Ok, S::Error> {
@@ -198,30 +212,27 @@ mod geom_serde {
 
         let Wire { ty, coordinates: c } = Wire::deserialize(d)?;
         Ok(match ty.as_str() {
-            "Point" => Wkt::Point(Point::from_coord(arr_coord(parse::<Arr, _>(c)?))),
+            "Point" => Wkt::Point(Point::from_coord(arr_coord(&parse::<Arr, _>(c)?))),
             "LineString" => Wkt::LineString(arr_ls(parse(c)?)),
             "Polygon" => Wkt::Polygon(arr_poly(parse(c)?)),
             "MultiPoint" => {
                 let v: Vec<Arr> = parse(c)?;
-                let points = v
-                    .into_iter()
-                    .map(|a| Point::from_coord(arr_coord(a)))
-                    .collect();
-                Wkt::MultiPoint(MultiPoint::new(points, Dimension::XY))
+                let points: Vec<Point<i32>> =
+                    v.iter().map(|a| Point::from_coord(arr_coord(a))).collect();
+                let dim = points.first().map_or(Dimension::XY, Point::dimension);
+                Wkt::MultiPoint(MultiPoint::new(points, dim))
             }
             "MultiLineString" => {
                 let v: Vec<Vec<Arr>> = parse(c)?;
-                Wkt::MultiLineString(MultiLineString::new(
-                    v.into_iter().map(arr_ls).collect(),
-                    Dimension::XY,
-                ))
+                let lines: Vec<LineString<i32>> = v.into_iter().map(arr_ls).collect();
+                let dim = lines.first().map_or(Dimension::XY, LineString::dimension);
+                Wkt::MultiLineString(MultiLineString::new(lines, dim))
             }
             "MultiPolygon" => {
                 let v: Vec<Vec<Vec<Arr>>> = parse(c)?;
-                Wkt::MultiPolygon(MultiPolygon::new(
-                    v.into_iter().map(arr_poly).collect(),
-                    Dimension::XY,
-                ))
+                let polys: Vec<Polygon<i32>> = v.into_iter().map(arr_poly).collect();
+                let dim = polys.first().map_or(Dimension::XY, Polygon::dimension);
+                Wkt::MultiPolygon(MultiPolygon::new(polys, dim))
             }
             _ => {
                 return Err(D::Error::unknown_variant(
@@ -339,5 +350,61 @@ fn json_values_equal(a: &Value, b: &Value) -> bool {
                     .all(|(k, v)| bo.get(k).is_some_and(|w| json_values_equal(v, w)))
         }
         _ => a == b,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use wkt::Wkt;
+    use wkt::types::{Coord, Dimension, LineString, Point};
+
+    use super::*;
+
+    fn feature(geometry: Wkt<i32>) -> Feature {
+        Feature {
+            geometry,
+            id: None,
+            properties: BTreeMap::new(),
+            ty: "Feature".into(),
+        }
+    }
+
+    #[test]
+    fn linestring_3d_serde_roundtrip() {
+        let geom = Wkt::LineString(LineString::new(
+            vec![
+                Coord {
+                    x: 1,
+                    y: 2,
+                    z: Some(3),
+                    m: None,
+                },
+                Coord {
+                    x: 4,
+                    y: 5,
+                    z: Some(6),
+                    m: None,
+                },
+            ],
+            Dimension::XYZ,
+        ));
+        let json = serde_json::to_string(&feature(geom.clone())).unwrap();
+        assert!(json.contains("[1,2,3]"), "expected 3D coords in {json}");
+        let back: Feature = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.geometry, geom);
+    }
+
+    #[test]
+    fn point_2d_serde_has_no_z() {
+        let geom = Wkt::Point(Point::from_coord(Coord {
+            x: 1,
+            y: 2,
+            z: None,
+            m: None,
+        }));
+        let json = serde_json::to_string(&feature(geom.clone())).unwrap();
+        assert!(json.contains("[1,2]"), "expected 2D coords in {json}");
+        let back: Feature = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.geometry, geom);
     }
 }

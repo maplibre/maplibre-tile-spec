@@ -2,8 +2,8 @@ use usize_cast::IntoUsize as _;
 
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
-    DictionaryType, GeometryType, GeometryValues, IntEncoding, LengthType, OffsetType, RawGeometry,
-    RawStream, StreamMeta, StreamType,
+    CoordDim, DictionaryType, GeometryType, GeometryValues, IntEncoding, LengthType, OffsetType,
+    RawGeometry, RawStream, StreamMeta, StreamType,
 };
 use crate::errors::AsMltError as _;
 use crate::utils::SetOptionOnce as _;
@@ -219,7 +219,14 @@ pub fn decode_level2_length_stream(
 impl<'a> RawGeometry<'a> {
     /// Parse encoded geometry from bytes (expects varint stream count + streams).
     /// Reserves decoded memory against the parser's budget.
-    pub fn from_bytes(input: &'a [u8], parser: &mut Parser) -> crate::MltRefResult<'a, Self> {
+    ///
+    /// `dim` is the coordinate dimensionality (from the column type); it is not part of the stream
+    /// data itself and must be supplied by the caller.
+    pub fn from_bytes(
+        input: &'a [u8],
+        dim: CoordDim,
+        parser: &mut Parser,
+    ) -> crate::MltRefResult<'a, Self> {
         let (input, stream_count) = parse_varint::<u32>(input)?;
         let stream_count = stream_count.into_usize();
         if stream_count == 0 {
@@ -235,6 +242,7 @@ impl<'a> RawGeometry<'a> {
                         &[],
                     ),
                     items: Vec::new(),
+                    dim,
                 },
             ));
         }
@@ -243,7 +251,7 @@ impl<'a> RawGeometry<'a> {
         // Safety: stream_count is validated != 0
         let (input, items) = RawStream::parse_multiple(input, stream_count - 1, parser)?;
 
-        Ok((input, Self { meta, items }))
+        Ok((input, Self { meta, items, dim }))
     }
 }
 
@@ -252,7 +260,8 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
     /// allocation.  All streams carry `num_values` in their metadata so every
     /// charge is pre-hoc.
     fn decode(self, dec: &mut Decoder) -> MltResult<GeometryValues> {
-        let RawGeometry { meta, items } = self;
+        let RawGeometry { meta, items, dim } = self;
+        let n_dims = dim.size();
         let vector_types = decode_geometry_types(meta, dec)?;
         let mut geometry_offsets: Option<Vec<u32>> = None;
         let mut part_offsets: Option<Vec<u32>> = None;
@@ -266,7 +275,14 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             match stream.meta.stream_type {
                 StreamType::Present => {}
                 StreamType::Data(v) => match v {
-                    DictionaryType::Vertex | DictionaryType::Morton => {
+                    // The plain vertex buffer uses componentwise delta at the column's `n_dims`
+                    // stride.
+                    DictionaryType::Vertex => {
+                        vertices.set_once(stream.decode_i32s_strided(n_dims, dec)?)?;
+                    }
+                    // The Morton dictionary is always 2D (the space-filling curve is 2D-only), so
+                    // it decodes with the default stride regardless of the column dimensionality.
+                    DictionaryType::Morton => {
                         vertices.set_once(stream.decode_i32s(dec)?)?;
                     }
                     _ => Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?,
@@ -404,6 +420,7 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             index_buffer,
             triangles,
             vertices,
+            dim,
         })
     }
 }

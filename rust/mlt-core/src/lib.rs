@@ -29,7 +29,7 @@ pub(crate) mod utils;
 
 pub use convert::{geojson, mvt};
 pub use decoder::{
-    ColumnRef, Decoder, Extent, FeatureRef, GeometryType, GeometryValues, Layer, Layer01,
+    ColumnRef, CoordDim, Decoder, Extent, FeatureRef, GeometryType, GeometryValues, Layer, Layer01,
     Layer01FeatureIter, LendingIterator, ParsedLayer, ParsedLayer01, Parser, PropKind, PropName,
     PropValue, PropValueRef, PropertyKey, TileFeature, TileFeatureBuilder, TileLayer,
     TileLayerBuilder, Unknown,
