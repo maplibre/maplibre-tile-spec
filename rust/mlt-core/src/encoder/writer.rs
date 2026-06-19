@@ -31,7 +31,7 @@ use crate::{MltError, MltResult};
 /// The three sections are accumulated into separate buffers so they can be
 /// combined at the end *without* any in-place insertion or extra copies:
 ///
-/// * [`hdr`] – layer header (name, extent, `column_count`).
+/// * `hdr` – layer header (name, extent, `column_count`).
 /// * [`meta`] – column-type bytes (one byte + optional name per column).
 /// * [`data`] – encoded stream data; also the target of [`impl Write`].
 ///
@@ -66,7 +66,6 @@ use crate::{MltError, MltResult};
 /// // alt drops → keeps whichever was shorter
 /// ```
 ///
-/// [`hdr`]: Encoder::hdr
 /// [`meta`]: Encoder::meta
 /// [`data`]: Encoder::data
 /// [`impl Write`]: Encoder#impl-Write
@@ -78,7 +77,7 @@ pub struct Encoder {
     /// Set once at construction time via [`Encoder::new`]; propagated
     /// automatically to all sub-encoders so individual encode methods do not
     /// need a separate `cfg` argument.
-    pub cfg: EncoderConfig,
+    cfg: EncoderConfig,
 
     /// When [`Some`], property / ID / geometry encoders use `ExplicitEncoder`
     /// callbacks instead of trying candidate encodings. When [`None`], the
@@ -89,7 +88,7 @@ pub struct Encoder {
     ///
     /// Written to `hdr` via [`Encoder::write_header`].  This section comes
     /// first in the wire format and is never subject to alternatives.
-    pub hdr: Vec<u8>,
+    hdr: Vec<u8>,
 
     /// Column-type metadata bytes.
     ///
@@ -97,7 +96,7 @@ pub struct Encoder {
     /// columns).  Written by the `write_columns_meta_to` methods, which write
     /// directly to `enc.meta`.  This section comes second in the wire format
     /// and is never subject to alternatives (column types are fixed).
-    pub meta: Vec<u8>,
+    meta: Vec<u8>,
 
     /// Encoded stream data.
     ///
@@ -106,7 +105,7 @@ pub struct Encoder {
     /// the wire format and is where stream-level alternatives compete.
     ///
     /// [`impl Write`]: Encoder#impl-Write
-    pub data: Vec<u8>,
+    data: Vec<u8>,
 
     /// Morton parameters for this layer's vertex set; `None` if the extent
     /// exceeds 16 bits per axis (Morton encoding is unusable in that case).
@@ -192,6 +191,40 @@ impl Encoder {
     }
 
     #[inline]
+    #[must_use]
+    pub fn config(&self) -> EncoderConfig {
+        self.cfg
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn data(&self) -> &[u8] {
+        &self.data
+    }
+
+    #[inline]
+    pub(crate) fn data_mut(&mut self) -> &mut Vec<u8> {
+        &mut self.data
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn meta(&self) -> &[u8] {
+        &self.meta
+    }
+
+    #[inline]
+    pub(crate) fn meta_mut(&mut self) -> &mut Vec<u8> {
+        &mut self.meta
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn section_lens(&self) -> (usize, usize, usize) {
+        (self.hdr.len(), self.meta.len(), self.data.len())
+    }
+
+    #[inline]
     pub(crate) fn write_column_header(
         &mut self,
         column_type: ColumnType,
@@ -201,11 +234,9 @@ impl Encoder {
         self.write_column_name(name)
     }
 
-    /// Write the layer header (`name`, `extent`, `column_count`) to [`hdr`].
+    /// Write the layer header (`name`, `extent`, `column_count`) to `hdr`.
     ///
     /// Must be called exactly once per layer, after all column meta and data.
-    ///
-    /// [`hdr`]: Encoder::hdr
     #[hotpath::measure]
     pub fn write_header(&mut self, name: &str, extent: u32, column_count: usize) -> MltResult<()> {
         if name.is_empty() {
@@ -287,6 +318,9 @@ impl Encoder {
     /// rather than a complete framed wire record — see [`Self::into_layer_bytes`] for the framed form.
     #[must_use]
     pub fn into_raw_bytes(mut self) -> Vec<u8> {
+        if self.hdr.is_empty() && self.meta.is_empty() {
+            return self.data;
+        }
         let mut out = Vec::with_capacity(self.hdr.len() + self.meta.len() + self.data.len());
         out.append(&mut self.hdr);
         out.append(&mut self.meta);

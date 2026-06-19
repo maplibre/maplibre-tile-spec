@@ -56,53 +56,49 @@ pub fn stage_tile(
 
 #[cfg(test)]
 mod invariant_tests {
-    use geo_types::{Geometry, Point};
-    use rstest::rstest;
-
-    use crate::decoder::{GeometryValues, TileFeature};
-    use crate::encoder::{Codecs, Encoder, EncoderConfig, StagedId, StagedLayer};
+    use crate::decoder::GeometryValues;
+    use crate::encoder::{StagedId, StagedLayer, StagedProperty};
     use crate::{MltError, TileLayer};
 
-    fn empty_named_tile(features: Vec<TileFeature>) -> TileLayer {
-        TileLayer {
-            name: String::new(),
-            extent: 4096,
-            property_names: vec![],
-            features,
-        }
-    }
-
-    fn point_feature() -> TileFeature {
-        TileFeature {
-            id: None,
-            geometry: Geometry::Point(Point::new(0, 0)),
-            properties: vec![],
-        }
-    }
-
-    #[rstest]
-    #[case::empty(empty_named_tile(vec![]))]
-    #[case::with_feature(empty_named_tile(vec![point_feature()]))]
-    fn tile_layer_encode_rejects_empty_name(#[case] tile: TileLayer) {
+    #[test]
+    fn tile_layer_constructor_rejects_empty_name() {
         assert!(matches!(
-            tile.encode(EncoderConfig::default()),
+            TileLayer::new("", 4096),
             Err(MltError::MissingLayerName)
         ));
     }
 
     #[test]
-    fn staged_layer_encode_rejects_empty_name() {
-        let staged = StagedLayer {
-            name: String::new(),
-            extent: 4096,
-            id: StagedId::None,
-            geometry: GeometryValues::default(),
-            properties: vec![],
-        };
-
+    fn staged_layer_constructor_rejects_empty_name() {
         assert!(matches!(
-            staged.encode_into(Encoder::default(), &mut Codecs::default()),
+            StagedLayer::new("", 4096, StagedId::None, GeometryValues::default(), vec![]),
             Err(MltError::MissingLayerName)
+        ));
+    }
+
+    #[test]
+    fn staged_layer_constructor_rejects_zero_extent() {
+        assert!(matches!(
+            StagedLayer::new(
+                "layer",
+                0,
+                StagedId::None,
+                GeometryValues::default(),
+                vec![]
+            ),
+            Err(MltError::InvalidExtent(0))
+        ));
+    }
+
+    #[test]
+    fn staged_layer_constructor_rejects_duplicate_property_names() {
+        let props = vec![
+            StagedProperty::opt_u32("dup", Vec::<Option<u32>>::new()),
+            StagedProperty::opt_u32("dup", Vec::<Option<u32>>::new()),
+        ];
+        assert!(matches!(
+            StagedLayer::new("layer", 4096, StagedId::None, GeometryValues::default(), props),
+            Err(MltError::DuplicatePropertyName(name)) if name == "dup"
         ));
     }
 }

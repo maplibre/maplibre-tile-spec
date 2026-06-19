@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.8](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.7...rust-mlt-ffi-v0.1.8) - 2026-06-19
+
+### Other
+
+- *(rust)* rm pub fields, builder pattern ([#1428](https://github.com/maplibre/maplibre-tile-spec/pull/1428))
+
+## [0.1.7](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.6...rust-mlt-ffi-v0.1.7) - 2026-06-18
+
+### Other
+
+- updated the following local packages: mlt-core
+
 ## [0.1.6](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.5...rust-mlt-ffi-v0.1.6) - 2026-06-15
 
 ### Added

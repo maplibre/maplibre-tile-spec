@@ -1,14 +1,9 @@
 use std::collections::BTreeMap;
 use std::path::Path;
-use std::sync::Arc;
-use std::sync::mpsc;
+use std::sync::{Arc, mpsc};
 use std::thread;
 use std::time::Instant;
 
-use super::ContainerFormat;
-use super::common::{
-    EncodeCache, EncodedTile, TileStats, encode_tile, make_encode_cache, make_progress_bar,
-};
 use anyhow::{Result as AnyResult, bail};
 use bytes::Bytes;
 use futures::TryStreamExt;
@@ -17,6 +12,11 @@ use mlt_core::encoder::EncoderConfig;
 use pmtiles::{
     AsyncPmTilesReader, Compression, HashMapCache, MmapBackend, PmTilesWriter, TileCoord, TileId,
     TileType,
+};
+
+use super::ContainerFormat;
+use super::common::{
+    EncodeCache, EncodedTile, TileStats, encode_tile, make_encode_cache, make_progress_bar,
 };
 
 /// Re-encode a `.pmtiles` input (MVT) into the requested container.

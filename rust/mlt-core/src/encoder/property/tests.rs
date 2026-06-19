@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use geo_types::Point;
 use proptest::prelude::*;
 use rstest::rstest;
@@ -11,7 +13,10 @@ use crate::encoder::{
     StagedProperty, StagedSharedDict, stage_tile,
 };
 use crate::test_helpers::{dec, parser};
-use crate::{DictRange, GeometryValues, Layer, MltError, PropValue, TileFeature, TileLayer};
+use crate::{
+    DictRange, Extent, GeometryValues, Layer, MltError, MltResult, PropValue, TileFeature,
+    TileLayer,
+};
 // proptest_derive::Arbitrary is only derived for these types inside the crate
 // under #[cfg(test)], so we write the strategies by hand here.
 
@@ -148,13 +153,7 @@ fn encode_to_bytes(props: Vec<StagedProperty>) -> Vec<u8> {
 /// Encode `props` with explicit encoder config and return the raw bytes.
 fn encode_to_bytes_explicit(props: Vec<StagedProperty>, cfg: ExplicitEncoder) -> Vec<u8> {
     let n = props.iter().map(staged_len).max().unwrap_or(0);
-    let layer = StagedLayer {
-        name: "test".into(),
-        extent: 4096,
-        id: StagedId::None,
-        geometry: n_point_geometry(n),
-        properties: props,
-    };
+    let layer = StagedLayer::new("test", 4096, StagedId::None, n_point_geometry(n), props).unwrap();
     let enc = Encoder::with_explicit(EncoderConfig::default(), cfg);
     let mut codecs = Codecs::default();
     let enc = layer
@@ -197,9 +196,9 @@ macro_rules! integer_roundtrip_proptests {
                     vec![StagedProperty::$opt_fn("x", values.clone())],
                     ExplicitEncoder::all(enc),
                 );
-                prop_assert_eq!(&tile.property_names, &["x"]);
+                prop_assert_eq!(tile.property_names(), &["x"]);
                 for (i, ov) in values.into_iter().enumerate() {
-                    prop_assert_eq!(&tile.features[i].properties[0], &PropValue::$variant(ov));
+                    prop_assert_eq!(&tile.features()[i].properties()[0], &PropValue::$variant(ov));
                 }
             }
 
@@ -212,9 +211,9 @@ macro_rules! integer_roundtrip_proptests {
                     vec![StagedProperty::$non_opt_fn("x", values.clone())],
                     ExplicitEncoder::all(enc),
                 );
-                prop_assert_eq!(&tile.property_names, &["x"]);
+                prop_assert_eq!(tile.property_names(), &["x"]);
                 for (i, &v) in values.iter().enumerate() {
-                    prop_assert_eq!(&tile.features[i].properties[0], &PropValue::$variant(Some(v)));
+                    prop_assert_eq!(&tile.features()[i].properties()[0], &PropValue::$variant(Some(v)));
                 }
             }
         }
@@ -266,9 +265,9 @@ integer_roundtrip_proptests!(
 fn bool_specific_values() {
     let values = vec![Some(true), None, Some(false), Some(true), None];
     let tile = encode_and_tile(vec![StagedProperty::opt_bool("active", values.clone())]);
-    assert_eq!(tile.property_names, vec!["active"]);
+    assert_eq!(tile.property_names(), &["active"]);
     for (i, ov) in values.into_iter().enumerate() {
-        assert_eq!(&tile.features[i].properties[0], &PropValue::Bool(ov));
+        assert_eq!(&tile.features()[i].properties()[0], &PropValue::Bool(ov));
     }
 }
 
@@ -280,9 +279,9 @@ proptest! {
         // All-null columns are skipped; only test when at least one value is present.
         prop_assume!(values.iter().any(Option::is_some));
         let tile = encode_and_tile(vec![StagedProperty::opt_bool("flag", values.clone())]);
-        prop_assert_eq!(&tile.property_names, &["flag"]);
+        prop_assert_eq!(tile.property_names(), &["flag"]);
         for (i, ov) in values.into_iter().enumerate() {
-            prop_assert_eq!(&tile.features[i].properties[0], &PropValue::Bool(ov));
+            prop_assert_eq!(&tile.features()[i].properties()[0], &PropValue::Bool(ov));
         }
     }
 }
@@ -299,9 +298,9 @@ proptest! {
         // All-null columns are skipped; only test when at least one value is present.
         prop_assume!(values.iter().any(Option::is_some));
         let tile = encode_and_tile(vec![StagedProperty::opt_f32("score", values.clone())]);
-        prop_assert_eq!(&tile.property_names, &["score"]);
+        prop_assert_eq!(tile.property_names(), &["score"]);
         for (i, ov) in values.into_iter().enumerate() {
-            prop_assert_eq!(&tile.features[i].properties[0], &PropValue::F32(ov));
+            prop_assert_eq!(&tile.features()[i].properties()[0], &PropValue::F32(ov));
         }
     }
 
@@ -315,9 +314,9 @@ proptest! {
         // All-null columns are skipped; only test when at least one value is present.
         prop_assume!(values.iter().any(Option::is_some));
         let tile = encode_and_tile(vec![StagedProperty::opt_f64("score", values.clone())]);
-        prop_assert_eq!(&tile.property_names, &["score"]);
+        prop_assert_eq!(tile.property_names(), &["score"]);
         for (i, ov) in values.into_iter().enumerate() {
-            prop_assert_eq!(&tile.features[i].properties[0], &PropValue::F64(ov));
+            prop_assert_eq!(&tile.features()[i].properties()[0], &PropValue::F64(ov));
         }
     }
 }
@@ -326,9 +325,9 @@ proptest! {
 fn str_scalar_with_nulls() {
     let values = opt_strs(&[Some("Berlin"), None, Some("Hamburg"), None]);
     let tile = encode_and_tile(vec![StagedProperty::opt_str("city", values.clone())]);
-    assert_eq!(tile.property_names, vec!["city"]);
+    assert_eq!(tile.property_names(), &["city"]);
     for (i, ov) in values.into_iter().enumerate() {
-        assert_eq!(&tile.features[i].properties[0], &PropValue::Str(ov));
+        assert_eq!(&tile.features()[i].properties()[0], &PropValue::Str(ov));
     }
 }
 
@@ -342,7 +341,7 @@ fn str_scalar_empty() {
         std::iter::empty::<&str>(),
     )]);
     // Zero features → zero properties should be visible after decoding
-    assert!(tile.features.is_empty());
+    assert!(tile.features().is_empty());
 }
 
 proptest! {
@@ -351,9 +350,9 @@ proptest! {
         values in prop::collection::vec("[a-zA-Z0-9 ]{0,30}", 1..50),
     ) {
         let tile = encode_and_tile(vec![StagedProperty::str("name", values.clone())]);
-        prop_assert_eq!(&tile.property_names, &["name"]);
+        prop_assert_eq!(tile.property_names(), &["name"]);
         for (i, v) in values.into_iter().enumerate() {
-            prop_assert_eq!(&tile.features[i].properties[0], &PropValue::Str(Some(v)));
+            prop_assert_eq!(&tile.features()[i].properties()[0], &PropValue::Str(Some(v)));
         }
     }
 
@@ -363,9 +362,9 @@ proptest! {
     ) {
         prop_assume!(values.iter().any(Option::is_some));
         let tile = encode_and_tile(vec![StagedProperty::opt_str("name", values.clone())]);
-        prop_assert_eq!(&tile.property_names, &["name"]);
+        prop_assert_eq!(tile.property_names(), &["name"]);
         for (i, ov) in values.into_iter().enumerate() {
-            prop_assert_eq!(&tile.features[i].properties[0], &PropValue::Str(ov));
+            prop_assert_eq!(&tile.features()[i].properties()[0], &PropValue::Str(ov));
         }
     }
 }
@@ -377,10 +376,10 @@ fn fsst_scalar_string_roundtrip() {
         vec![StagedProperty::str("name", values)],
         ExplicitEncoder::all_with_str(IntEncoder::plain(), StrEncoding::Fsst),
     );
-    assert_eq!(tile.property_names, vec!["name"]);
+    assert_eq!(tile.property_names(), &["name"]);
     for (i, s) in values.iter().enumerate() {
         assert_eq!(
-            &tile.features[i].properties[0],
+            &tile.features()[i].properties()[0],
             &PropValue::Str(Some(s.to_string()))
         );
     }
@@ -391,7 +390,7 @@ fn encode_to_bytes_auto(props: Vec<StagedProperty>, cfg: EncoderConfig) -> Vec<u
     let n = props.iter().map(staged_len).max().unwrap_or(0);
     let layer = StagedLayer {
         name: "test".into(),
-        extent: 4096,
+        extent: Extent::new(4096).unwrap(),
         id: StagedId::None,
         geometry: n_point_geometry(n),
         properties: props,
@@ -416,14 +415,8 @@ fn allow_fsst_gates_fsst_selection() {
         .collect();
     let col = || StagedProperty::str("name", values.iter().map(String::as_str));
 
-    let on = EncoderConfig {
-        allow_fsst: true,
-        ..Default::default()
-    };
-    let off = EncoderConfig {
-        allow_fsst: false,
-        ..Default::default()
-    };
+    let on = EncoderConfig::default().with_fsst(true);
+    let off = EncoderConfig::default().with_fsst(false);
 
     let bytes_on = encode_to_bytes_auto(vec![col()], on);
     let bytes_off = encode_to_bytes_auto(vec![col()], off);
@@ -449,12 +442,12 @@ fn check_two_col_dict(
         vec![col(s1, vals1.clone()), col(s2, vals2.clone())],
     )]);
     assert_eq!(
-        tile.property_names,
+        tile.property_names(),
         vec![format!("{name}{s1}"), format!("{name}{s2}")]
     );
     for (i, (v1, v2)) in vals1.into_iter().zip(vals2).enumerate() {
-        assert_eq!(&tile.features[i].properties[0], &PropValue::Str(v1));
-        assert_eq!(&tile.features[i].properties[1], &PropValue::Str(v2));
+        assert_eq!(&tile.features()[i].properties()[0], &PropValue::Str(v1));
+        assert_eq!(&tile.features()[i].properties()[1], &PropValue::Str(v2));
     }
 }
 
@@ -559,12 +552,12 @@ fn struct_mixed_with_scalars() {
     ]);
 
     assert_eq!(
-        tile.property_names,
+        tile.property_names(),
         vec!["population", "name:de", "name:en", "rank"]
     );
-    assert_eq!(tile.features.len(), 2);
+    assert_eq!(tile.features().len(), 2);
     assert_eq!(
-        tile.features[0].properties,
+        tile.features()[0].properties(),
         vec![
             PropValue::U32(Some(3_748_000)),
             ps("Berlin"),
@@ -573,7 +566,7 @@ fn struct_mixed_with_scalars() {
         ]
     );
     assert_eq!(
-        tile.features[1].properties,
+        tile.features()[1].properties(),
         vec![
             PropValue::U32(Some(1_787_000)),
             ps("Hamburg"),
@@ -604,12 +597,12 @@ fn two_struct_groups_with_scalar_between() {
     ]);
 
     assert_eq!(
-        tile.property_names,
+        tile.property_names(),
         vec!["name:de", "name:en", "population", "label:de", "label:en"]
     );
-    assert_eq!(tile.features.len(), 2);
+    assert_eq!(tile.features().len(), 2);
     assert_eq!(
-        tile.features[0].properties,
+        tile.features()[0].properties(),
         vec![
             ps("Berlin"),
             ps("Berlin"),
@@ -619,7 +612,7 @@ fn two_struct_groups_with_scalar_between() {
         ]
     );
     assert_eq!(
-        tile.features[1].properties,
+        tile.features()[1].properties(),
         vec![
             ps("Hamburg"),
             ps("Hamburg"),
@@ -661,6 +654,10 @@ proptest! {
         input in arb_shared_dict_children(),
     ) {
         let (n, children) = input;
+        let mut seen_names = HashSet::new();
+        prop_assume!(children
+            .iter()
+            .all(|(suffix, _)| seen_names.insert(format!("{struct_name}{suffix}"))));
         let staged_children = children.iter().map(|(suffix, values)| {
             let presence = presence(values);
             (suffix.clone(), values.clone(), presence)
@@ -674,13 +671,13 @@ proptest! {
             .iter()
             .map(|(suffix, _)| format!("{struct_name}{suffix}"))
             .collect();
-        prop_assert_eq!(&tile.property_names, &expected_names);
-        prop_assert_eq!(tile.features.len(), n);
+        prop_assert_eq!(tile.property_names(), &expected_names);
+        prop_assert_eq!(tile.features().len(), n);
 
-        for (feat_idx, feat) in tile.features.iter().enumerate() {
+        for (feat_idx, feat) in tile.features().iter().enumerate() {
             for (col_idx, (_, values)) in children.iter().enumerate() {
                 prop_assert_eq!(
-                    &feat.properties[col_idx],
+                    &feat.properties()[col_idx],
                     &PropValue::Str(values[feat_idx].clone())
                 );
             }
@@ -690,6 +687,11 @@ proptest! {
 
 /// Build a [`TileLayer`] from heterogeneous column data (one `Vec<PropValue>` per column).
 fn tile_from_cols(cols: &[(&str, Vec<PropValue>)]) -> TileLayer {
+    try_tile_from_cols(cols).unwrap()
+}
+
+/// Fallible variant of [`tile_from_cols`] for tests that exercise layer validation.
+fn try_tile_from_cols(cols: &[(&str, Vec<PropValue>)]) -> MltResult<TileLayer> {
     let n = cols.first().map_or(0, |(_, v)| v.len());
     let property_names = cols.iter().map(|(name, _)| (*name).to_string()).collect();
     let geom = geo_types::Geometry::<i32>::Point(Point::new(0, 0));
@@ -700,37 +702,35 @@ fn tile_from_cols(cols: &[(&str, Vec<PropValue>)]) -> TileLayer {
             properties: cols.iter().map(|(_, vals)| vals[i].clone()).collect(),
         })
         .collect();
-    TileLayer {
-        name: "test".to_string(),
-        extent: 4096,
-        property_names,
-        features,
-    }
+    TileLayer::from_parts("test", 4096, property_names, features)
 }
 
 fn tile_from_cols_with_ids(ids: &[Option<u64>], cols: &[(&str, Vec<PropValue>)]) -> TileLayer {
-    let mut tile = tile_from_cols(cols);
-    for (feature, id) in tile.features.iter_mut().zip(ids.iter().copied()) {
-        feature.id = id;
-    }
-    tile
+    let layer = tile_from_cols(cols);
+    let features = layer
+        .features
+        .into_iter()
+        .zip(ids.iter().copied())
+        .map(|(feature, id)| TileFeature { id, ..feature })
+        .collect();
+    TileLayer::from_parts("test", 4096, layer.property_names, features).unwrap()
 }
 
 fn tile_from_ids(ids: &[Option<u64>]) -> TileLayer {
     let geom = geo_types::Geometry::<i32>::Point(Point::new(0, 0));
-    TileLayer {
-        name: "test".to_string(),
-        extent: 4096,
-        property_names: vec![],
-        features: ids
-            .iter()
+    TileLayer::from_parts(
+        "test",
+        4096,
+        vec![],
+        ids.iter()
             .map(|&id| TileFeature {
                 id,
                 geometry: geom.clone(),
                 properties: vec![],
             })
             .collect(),
-    }
+    )
+    .unwrap()
 }
 
 /// Convert a `&[&str]` slice into a column of `PropValue::Str` values.
@@ -750,7 +750,7 @@ fn staging_uses_id_presence_analysis() {
     let curve_params = all_present.curve_params();
 
     let staged = StagedLayer::from_tile(all_present, Unsorted, &analysis, false, curve_params);
-    assert!(matches!(staged.id, StagedId::U32(_)));
+    assert!(matches!(staged.id(), StagedId::U32(_)));
 
     let mixed = tile_from_ids(&[Some(1), None, Some(3)]);
     let analysis = mixed.analyze(false).unwrap();
@@ -759,7 +759,7 @@ fn staging_uses_id_presence_analysis() {
     let curve_params = mixed.curve_params();
 
     let staged = StagedLayer::from_tile(mixed, Unsorted, &analysis, false, curve_params);
-    assert!(matches!(staged.id, StagedId::OptU32(_)));
+    assert!(matches!(staged.id(), StagedId::OptU32(_)));
 
     let large = tile_from_ids(&[Some(u64::from(u32::MAX) + 1), None, Some(3)]);
     let analysis = large.analyze(false).unwrap();
@@ -768,7 +768,7 @@ fn staging_uses_id_presence_analysis() {
     let curve_params = large.curve_params();
 
     let staged = StagedLayer::from_tile(large, Unsorted, &analysis, false, curve_params);
-    assert!(matches!(staged.id, StagedId::OptU64(_)));
+    assert!(matches!(staged.id(), StagedId::OptU64(_)));
 
     let all_null = tile_from_ids(&[None, None, None]);
     let analysis = all_null.analyze(false).unwrap();
@@ -776,7 +776,7 @@ fn staging_uses_id_presence_analysis() {
     let curve_params = all_null.curve_params();
 
     let staged = StagedLayer::from_tile(all_null, Unsorted, &analysis, false, curve_params);
-    assert!(matches!(staged.id, StagedId::None));
+    assert!(matches!(staged.id(), StagedId::None));
 }
 
 #[test]
@@ -980,11 +980,10 @@ fn analyze_layer_tracks_typed_property_stats() {
 #[case(vec![PropValue::F32(None), PropValue::F64(Some(2.0))])]
 #[case(vec![PropValue::F32(Some(1.0)), PropValue::F64(None)])]
 #[case(vec![PropValue::U32(None), PropValue::Str(Some("x".into()))])]
-fn analyze_layer_rejects_property_type_coercions(#[case] values: Vec<PropValue>) {
-    let tile = tile_from_cols(&[("mixed", values)]);
+fn tile_layer_rejects_property_type_coercions(#[case] values: Vec<PropValue>) {
     assert!(matches!(
-        tile.analyze(false),
-        Err(MltError::MixedPropertyTypes(0, property_name)) if property_name == "mixed"
+        try_tile_from_cols(&[("mixed", values)]),
+        Err(MltError::PropertyKindMismatch { index: 0, .. })
     ));
 }
 
@@ -1071,9 +1070,9 @@ fn staging_uses_presence_analysis_for_scalar_variants_and_skips_all_null() {
 
     let staged = stage_tile(tile, Unsorted, false, false);
 
-    assert_eq!(staged.properties.len(), 2);
-    assert!(matches!(staged.properties[0], StagedProperty::U32(_)));
-    assert!(matches!(staged.properties[1], StagedProperty::OptBool(_)));
+    assert_eq!(staged.properties().len(), 2);
+    assert!(matches!(staged.properties()[0], StagedProperty::U32(_)));
+    assert!(matches!(staged.properties()[1], StagedProperty::OptBool(_)));
 }
 
 #[test]
@@ -1100,7 +1099,7 @@ fn no_nulls_produces_encoded_output() {
     let mut codecs = Codecs::default();
     write_properties(&props, &mut enc, &mut codecs).unwrap();
     assert!(
-        !enc.meta.is_empty(),
+        !enc.meta().is_empty(),
         "non-null column should write one column"
     );
 }
@@ -1119,7 +1118,7 @@ fn sequential_u32_encodes_successfully() {
     let mut enc = Encoder::default();
     let mut codecs = Codecs::default();
     write_properties(&props, &mut enc, &mut codecs).unwrap();
-    assert!(!enc.meta.is_empty());
+    assert!(!enc.meta().is_empty());
 }
 
 #[test]
@@ -1128,7 +1127,7 @@ fn constant_u32_encodes_successfully() {
     let mut enc = Encoder::default();
     let mut codecs = Codecs::default();
     write_properties(&props, &mut enc, &mut codecs).unwrap();
-    assert!(!enc.meta.is_empty());
+    assert!(!enc.meta().is_empty());
 }
 
 #[test]
@@ -1222,5 +1221,5 @@ fn encode_with_explicit_encoder_works() {
     let mut enc = Encoder::default();
     let mut codecs = Codecs::default();
     write_properties(&props, &mut enc, &mut codecs).unwrap();
-    assert!(!enc.meta.is_empty());
+    assert!(!enc.meta().is_empty());
 }

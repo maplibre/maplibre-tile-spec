@@ -50,7 +50,7 @@ js-sys = "0.3"
 martin-tile-utils = "0.7"
 mbtiles = { version = "0.17", default-features = false, features = ["transcode"] }
 mimalloc = "0.1.52"
-mlt-core = { version = "0.11.0", path = "mlt-core" }
+mlt-core = { version = "0.12.0", path = "mlt-core" }
 moka = { version = "0.12", features = ["sync"] }
 num-traits = "0.2.19"
 num_enum = "0.7.6"
@@ -60,7 +60,7 @@ probabilistic-collections = "0.7"
 proptest = "1.11"
 proptest-derive = "0.8"
 pyo3 = "0.28.3"
-pyo3-stub-gen = "0.22.3"
+pyo3-stub-gen = "0.23.0"
 pythonize = "0.28"
 ratatui = "0.30.1"
 rayon = "1"

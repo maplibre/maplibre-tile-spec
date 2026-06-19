@@ -30,13 +30,12 @@ pub(crate) fn encoder_config(
             )));
         }
     };
-    Ok(EncoderConfig {
-        tessellate,
-        try_spatial_morton_sort: morton,
-        try_spatial_hilbert_sort: hilbert,
-        try_id_sort: id,
-        allow_shared_dict: shared_dict,
-        allow_fsst: fsst,
-        allow_fastpfor: fastpfor,
-    })
+    Ok(EncoderConfig::default()
+        .with_tessellation(tessellate)
+        .with_spatial_morton_sort(morton)
+        .with_spatial_hilbert_sort(hilbert)
+        .with_id_sort(id)
+        .with_shared_dict(shared_dict)
+        .with_fsst(fsst)
+        .with_fastpfor(fastpfor))
 }
