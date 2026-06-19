@@ -21,7 +21,7 @@ export class FlatSelectionVector implements SelectionVector {
 
     /** @inheritdoc */
     getIndex(index: number): number {
-        if (index >= this._limit || index < 0) {
+        if (index >= (this._limit as number) || index < 0) {
             throw new RangeError("Index out of bounds");
         }
 
@@ -30,7 +30,7 @@ export class FlatSelectionVector implements SelectionVector {
 
     /** @inheritdoc */
     setIndex(index: number, value: number): void {
-        if (index >= this._limit || index < 0) {
+        if (index >= (this._limit as number) || index < 0) {
             throw new RangeError("Index out of bounds");
         }
 
@@ -51,12 +51,12 @@ export class FlatSelectionVector implements SelectionVector {
     }
 
     /** @inheritdoc */
-    get capacity() {
+    get capacity(): number {
         return this._selectionVector.length;
     }
 
     /** @inheritdoc */
-    get limit() {
-        return this._limit;
+    get limit(): number {
+        return this._limit as number;
     }
 }

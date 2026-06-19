@@ -14,7 +14,7 @@ export interface Feature {
 }
 
 export default class FeatureTable {
-    private propertyVectorsMap: Map<string, Vector>;
+    private propertyVectorsMap?: Map<string, Vector>;
 
     constructor(
         private readonly _name: string,
@@ -32,7 +32,7 @@ export default class FeatureTable {
         return this._name;
     }
 
-    get idVector(): IdVector {
+    get idVector(): IdVector | undefined {
         return this._idVector;
     }
 
@@ -41,12 +41,12 @@ export default class FeatureTable {
     }
 
     get propertyVectors(): Vector[] {
-        return this._propertyVectors;
+        return this._propertyVectors ?? [];
     }
 
-    getPropertyVector(name: string): Vector {
+    getPropertyVector(name: string): Vector | undefined {
         if (!this.propertyVectorsMap) {
-            this.propertyVectorsMap = new Map(this._propertyVectors.map((vector) => [vector.name, vector]));
+            this.propertyVectorsMap = new Map(this.propertyVectors.map((vector) => [vector.name, vector]));
         }
 
         return this.propertyVectorsMap.get(name);
@@ -68,10 +68,13 @@ export default class FeatureTable {
         const geometries = this.geometryVector.getGeometries();
 
         for (let i = 0; i < this.numFeatures; i++) {
-            let id;
+            let id: number | bigint | undefined;
             if (this.idVector) {
                 const idValue = this.idVector.getValue(i);
-                id = this.containsMaxSafeIntegerValues(this.idVector) && idValue !== null ? Number(idValue) : idValue;
+                id =
+                    this.containsMaxSafeIntegerValues(this.idVector) && idValue !== null
+                        ? Number(idValue)
+                        : (idValue as number | bigint);
             }
             const geometry = {
                 coordinates: geometries[i],
@@ -88,7 +91,7 @@ export default class FeatureTable {
                 }
             }
 
-            features.push({ id, geometry, properties });
+            features.push({ id: id as number | bigint, geometry, properties });
         }
         return features;
     }

@@ -13,11 +13,12 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
     let vertexBufferOffset = 0;
     let vertexOffsetsOffset = 0;
 
-    const mortonSettings = geometryVector.mortonSettings;
+    // The encoder always sets these for the geometry types handled below.
+    const mortonSettings = geometryVector.mortonSettings as MortonSettings;
     const topologyVector = geometryVector.topologyVector;
-    const geometryOffsets = topologyVector.geometryOffsets;
-    const partOffsets = topologyVector.partOffsets;
-    const ringOffsets = topologyVector.ringOffsets;
+    const geometryOffsets = topologyVector.geometryOffsets as Uint32Array;
+    const partOffsets = topologyVector.partOffsets as Uint32Array;
+    const ringOffsets = topologyVector.ringOffsets as Uint32Array;
     const vertexOffsets = geometryVector.vertexOffsets;
     const nonOffset = !vertexOffsets || vertexOffsets.length === 0;
 

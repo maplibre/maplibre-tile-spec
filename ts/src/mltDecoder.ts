@@ -100,7 +100,7 @@ export default function decodeTile(
                     tile,
                     columnMetadata,
                     offset,
-                    columnName,
+                    columnName as string,
                     idDataStreamMetadata,
                     nullabilityBuffer ?? numFeatures,
                     idWithinMaxSafeInteger,
@@ -150,9 +150,9 @@ export default function decodeTile(
         }
 
         const featureTable = new FeatureTable(
-            featureTableMetadata.name,
-            geometryVector,
-            idVector,
+            featureTableMetadata.name as string,
+            geometryVector as GeometryVector | GpuVector,
+            idVector ?? undefined,
             propertyVectors,
             extent,
         );

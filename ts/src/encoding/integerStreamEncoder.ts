@@ -87,7 +87,7 @@ function encodeSignedInt32(
             return { data };
         case LogicalLevelTechnique.COMPONENTWISE_DELTA:
             if (scalingData && !bitVector) {
-                const data = encodeComponentwiseDeltaVec2Scaled(values, scalingData.scale);
+                const data = encodeComponentwiseDeltaVec2Scaled(values, scalingData.scale as number);
                 return { data };
             }
             data = encodeComponentwiseDeltaVec2(values);
@@ -128,7 +128,7 @@ function encodeUnsignedInt32(
             return { data };
         case LogicalLevelTechnique.COMPONENTWISE_DELTA:
             if (scalingData && !bitVector) {
-                const data = encodeComponentwiseDeltaVec2Scaled(new Int32Array(values), scalingData.scale);
+                const data = encodeComponentwiseDeltaVec2Scaled(new Int32Array(values), scalingData.scale as number);
                 return { data };
             }
             data = encodeComponentwiseDeltaVec2(new Int32Array(values));

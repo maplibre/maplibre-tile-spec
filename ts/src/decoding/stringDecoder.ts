@@ -8,7 +8,7 @@ import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
 import { DictionaryType } from "../metadata/tile/dictionaryType";
 import { LengthType } from "../metadata/tile/lengthType";
 import { decodeUnsignedInt32Stream, decodeLengthStreamToOffsetBuffer } from "./integerStreamDecoder";
-import { type Column, ScalarType } from "../metadata/tileset/tilesetMetadata";
+import { type Column, type ComplexColumn, type ScalarField, ScalarType } from "../metadata/tileset/tilesetMetadata";
 import { decodeVarintInt32 } from "./integerDecodingUtils";
 import { decodeBooleanRle, skipColumn } from "./decodingUtils";
 import { StringFsstDictionaryVector } from "../vector/fsst-dictionary/stringFsstDictionaryVector";
@@ -20,14 +20,14 @@ export function decodeString(
     numStreams: number,
     bitVector?: BitVector,
 ): Vector {
-    let dictionaryLengthStream: Uint32Array = null;
-    let offsetStream: Uint32Array = null;
-    let dictionaryStream: Uint8Array = null;
-    let symbolLengthStream: Uint32Array = null;
-    let symbolTableStream: Uint8Array = null;
-    let nullabilityBuffer: BitVector = bitVector ?? null;
-    let plainLengthStream: Uint32Array = null;
-    let plainDataStream: Uint8Array = null;
+    let dictionaryLengthStream: Uint32Array | null = null;
+    let offsetStream: Uint32Array | null = null;
+    let dictionaryStream: Uint8Array | null = null;
+    let symbolLengthStream: Uint32Array | null = null;
+    let symbolTableStream: Uint8Array | null = null;
+    let nullabilityBuffer: BitVector | null = bitVector ?? null;
+    let plainLengthStream: Uint32Array | null = null;
+    let plainDataStream: Uint8Array | null = null;
 
     for (let i = 0; i < numStreams; i++) {
         const streamMetadata = decodeStreamMetadata(data, offset);
@@ -40,7 +40,13 @@ export function decodeString(
                 break;
             }
             case PhysicalStreamType.OFFSET: {
-                offsetStream = decodeUnsignedInt32Stream(data, offset, streamMetadata, undefined, nullabilityBuffer);
+                offsetStream = decodeUnsignedInt32Stream(
+                    data,
+                    offset,
+                    streamMetadata,
+                    undefined,
+                    nullabilityBuffer ?? undefined,
+                );
                 break;
             }
             case PhysicalStreamType.LENGTH: {
@@ -82,7 +88,7 @@ export function decodeString(
             nullabilityBuffer,
         ) ??
         decodeDictionaryVector(name, dictionaryStream, offsetStream, dictionaryLengthStream, nullabilityBuffer) ??
-        decodePlainStringVector(name, plainLengthStream, plainDataStream, offsetStream, nullabilityBuffer)
+        (decodePlainStringVector(name, plainLengthStream, plainDataStream, offsetStream, nullabilityBuffer) as Vector)
     );
 }
 
@@ -100,12 +106,12 @@ function decodeFsstDictionaryVector(
     }
     return new StringFsstDictionaryVector(
         name,
-        offsetStream,
-        dictionaryLengthStream,
-        dictionaryStream,
-        symbolLengthStream,
+        offsetStream as Uint32Array,
+        dictionaryLengthStream as Uint32Array,
+        dictionaryStream as Uint8Array,
+        symbolLengthStream as Uint32Array,
         symbolTableStream,
-        nullabilityBuffer,
+        nullabilityBuffer as BitVector,
     );
 }
 
@@ -120,8 +126,8 @@ function decodeDictionaryVector(
         return null;
     }
     return nullabilityBuffer
-        ? new StringDictionaryVector(name, offsetStream, dictionaryLengthStream, dictionaryStream, nullabilityBuffer)
-        : new StringDictionaryVector(name, offsetStream, dictionaryLengthStream, dictionaryStream);
+        ? new StringDictionaryVector(name, offsetStream as Uint32Array, dictionaryLengthStream as Uint32Array, dictionaryStream, nullabilityBuffer)
+        : new StringDictionaryVector(name, offsetStream as Uint32Array, dictionaryLengthStream as Uint32Array, dictionaryStream);
 }
 
 function decodePlainStringVector(
@@ -171,10 +177,10 @@ export function decodeSharedDictionary(
     column: Column,
     propertyColumnNames?: Set<string>,
 ): Vector[] {
-    let dictionaryOffsetBuffer: Uint32Array = null;
-    let dictionaryBuffer: Uint8Array = null;
-    let symbolOffsetBuffer: Uint32Array = null;
-    let symbolTableBuffer: Uint8Array = null;
+    let dictionaryOffsetBuffer: Uint32Array | null = null;
+    let dictionaryBuffer: Uint8Array | null = null;
+    let symbolOffsetBuffer: Uint32Array | null = null;
+    let symbolTableBuffer: Uint8Array | null = null;
 
     let dictionaryStreamDecoded = false;
     while (!dictionaryStreamDecoded) {
@@ -202,7 +208,7 @@ export function decodeSharedDictionary(
         }
     }
 
-    const childFields = column.complexType.children;
+    const childFields = (column.complexType as ComplexColumn).children;
     const stringDictionaryVectors = [];
     let i = 0;
     for (const childField of childFields) {
@@ -212,7 +218,7 @@ export function decodeSharedDictionary(
             continue;
         }
 
-        const columnName = childField.name ? `${column.name}${childField.name}` : column.name;
+        const columnName = childField.name ? `${column.name ?? ""}${childField.name}` : (column.name ?? "");
         if (propertyColumnNames) {
             if (!propertyColumnNames.has(columnName)) {
                 //TODO: add size of sub column to Mlt for faster skipping
@@ -221,7 +227,7 @@ export function decodeSharedDictionary(
             }
         }
 
-        if (childField.type !== "scalarField" || childField.scalarField.physicalType !== ScalarType.STRING) {
+        if (childField.type !== "scalarField" || (childField.scalarField as ScalarField).physicalType !== ScalarType.STRING) {
             throw new Error("Currently only scalar string fields are implemented for a struct.");
         }
         if ((numStreams > 1 && !childField.nullable) || (numStreams === 1 && childField.nullable)) {
@@ -254,17 +260,17 @@ export function decodeSharedDictionary(
             ? new StringFsstDictionaryVector(
                   columnName,
                   offsetStream,
-                  dictionaryOffsetBuffer,
-                  dictionaryBuffer,
-                  symbolOffsetBuffer,
+                  dictionaryOffsetBuffer as Uint32Array,
+                  dictionaryBuffer as Uint8Array,
+                  symbolOffsetBuffer as Uint32Array,
                   symbolTableBuffer,
-                  presentStreamBitVector,
+                  presentStreamBitVector as BitVector,
               )
             : new StringDictionaryVector(
                   columnName,
                   offsetStream,
-                  dictionaryOffsetBuffer,
-                  dictionaryBuffer,
+                  dictionaryOffsetBuffer as Uint32Array,
+                  dictionaryBuffer as Uint8Array,
                   presentStreamBitVector,
               );
     }
