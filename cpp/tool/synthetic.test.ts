@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   compareWithTolerance,
+  expectUnsupported,
   getTestCases,
   writeActualOutput,
 } from "synthetic-test-utils";
@@ -11,7 +12,7 @@ import { describe, expect, it } from "vitest";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const binary = resolve(__dirname, "../build/tool/mlt-cpp-json");
 
-const SKIPPED_TESTS = [];
+const SKIPPED_TESTS: string[] = [];
 
 describe("MLT Decoder - Synthetic tests", () => {
   expect.addEqualityTesters([compareWithTolerance]);
@@ -28,10 +29,9 @@ describe("MLT Decoder - Synthetic tests", () => {
     });
   }
 
-  for (const skippedTest of testCases.skipped) {
-    it.skip(skippedTest, () => {
-      // Test is skipped since it is not supported yet
-    });
+  for (const { name, content, fileName } of testCases.skipped) {
+    it(`${name} (unsupported)`, () =>
+      expectUnsupported(() => decodeMLT(fileName), content));
   }
 });
 
