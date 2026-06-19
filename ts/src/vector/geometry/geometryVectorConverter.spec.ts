@@ -72,7 +72,7 @@ describe("POINT – Morton dictionary encoded", () => {
     it("decodes a point with a non-zero coordinateShift", () => {
         const x = 50;
         const y = 80;
-        const settings: MortonSettings = { numBits: 16, coordinateShift: 100 } as MortonSettings;
+        const settings: MortonSettings = { numBits: 16, coordinateShift: 100 };
         const code = encodeZOrderCurve(x, y, settings.numBits, settings.coordinateShift);
 
         const gv = new ConstGeometryVector(
