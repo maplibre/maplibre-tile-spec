@@ -21,11 +21,11 @@ diplomat::capi::MltEncoderOptions* MltEncoderOptions_new(void);
 
 void MltEncoderOptions_set_tessellate(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
-void MltEncoderOptions_set_try_spatial_morton_sort(diplomat::capi::MltEncoderOptions* self, bool enabled);
+void MltEncoderOptions_set_attempt_spatial_morton_sort(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
-void MltEncoderOptions_set_try_spatial_hilbert_sort(diplomat::capi::MltEncoderOptions* self, bool enabled);
+void MltEncoderOptions_set_attempt_spatial_hilbert_sort(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
-void MltEncoderOptions_set_try_id_sort(diplomat::capi::MltEncoderOptions* self, bool enabled);
+void MltEncoderOptions_set_attempt_id_sort(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
 void MltEncoderOptions_set_allow_fsst(diplomat::capi::MltEncoderOptions* self, bool enabled);
 
@@ -48,16 +48,16 @@ inline void MltEncoderOptions::set_tessellate(bool enabled) {
     diplomat::capi::MltEncoderOptions_set_tessellate(this->AsFFI(), enabled);
 }
 
-inline void MltEncoderOptions::set_try_spatial_morton_sort(bool enabled) {
-    diplomat::capi::MltEncoderOptions_set_try_spatial_morton_sort(this->AsFFI(), enabled);
+inline void MltEncoderOptions::set_attempt_spatial_morton_sort(bool enabled) {
+    diplomat::capi::MltEncoderOptions_set_attempt_spatial_morton_sort(this->AsFFI(), enabled);
 }
 
-inline void MltEncoderOptions::set_try_spatial_hilbert_sort(bool enabled) {
-    diplomat::capi::MltEncoderOptions_set_try_spatial_hilbert_sort(this->AsFFI(), enabled);
+inline void MltEncoderOptions::set_attempt_spatial_hilbert_sort(bool enabled) {
+    diplomat::capi::MltEncoderOptions_set_attempt_spatial_hilbert_sort(this->AsFFI(), enabled);
 }
 
-inline void MltEncoderOptions::set_try_id_sort(bool enabled) {
-    diplomat::capi::MltEncoderOptions_set_try_id_sort(this->AsFFI(), enabled);
+inline void MltEncoderOptions::set_attempt_id_sort(bool enabled) {
+    diplomat::capi::MltEncoderOptions_set_attempt_id_sort(this->AsFFI(), enabled);
 }
 
 inline void MltEncoderOptions::set_allow_fsst(bool enabled) {

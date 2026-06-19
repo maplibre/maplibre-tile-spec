@@ -141,7 +141,9 @@ mod tests {
     use super::*;
     use crate::decoder::{DictionaryType, LengthType, RawFsstData, RawStream, StreamType};
     use crate::encoder::model::StreamCtx;
-    use crate::encoder::{Codecs, EncodedStream, Encoder, ExplicitEncoder, IntEncoder};
+    use crate::encoder::{
+        Codecs, EncodedStream, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder,
+    };
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
 
@@ -152,7 +154,7 @@ mod tests {
 
         let sym_len_bytes = {
             let mut enc = Encoder::with_explicit(
-                Encoder::default().cfg,
+                EncoderConfig::default(),
                 ExplicitEncoder::all(IntEncoder::varint()),
             );
             let mut codecs = Codecs::default();
@@ -160,7 +162,7 @@ mod tests {
             codecs
                 .write_int_stream(&raw.symbol_lengths, &ctx, &mut enc)
                 .unwrap();
-            enc.data
+            enc.data().to_vec()
         };
         let sym_table_stream = EncodedStream {
             meta: StreamMeta::new_none(
@@ -172,7 +174,7 @@ mod tests {
         };
         let lengths_bytes = {
             let mut enc = Encoder::with_explicit(
-                Encoder::default().cfg,
+                EncoderConfig::default(),
                 ExplicitEncoder::all(IntEncoder::varint()),
             );
             let mut codecs = Codecs::default();
@@ -180,7 +182,7 @@ mod tests {
             codecs
                 .write_int_stream(&raw.value_lengths, &ctx, &mut enc)
                 .unwrap();
-            enc.data
+            enc.data().to_vec()
         };
         let corpus_stream = EncodedStream {
             meta: StreamMeta::new_none(StreamType::Data(DictionaryType::Single), values.len())

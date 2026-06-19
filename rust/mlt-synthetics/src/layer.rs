@@ -373,12 +373,9 @@ impl Layer {
             ids,
         } = self;
 
-        let enc_cfg = EncoderConfig {
-            tessellate,
-            ..EncoderConfig::default()
-        };
+        let enc_cfg = EncoderConfig::default().with_tessellation(tessellate);
 
-        let mut geometry = if enc_cfg.tessellate {
+        let mut geometry = if enc_cfg.tessellate() {
             GeometryValues::new_tessellated()
         } else {
             GeometryValues::default()
@@ -426,13 +423,13 @@ impl Layer {
         };
 
         let mut codecs = Codecs::default();
-        StagedLayer {
-            name: "layer1".to_string(),
-            extent: extent.unwrap_or(80),
+        StagedLayer::new(
+            "layer1",
+            extent.unwrap_or(80),
             id,
             geometry,
-            properties: props.into_iter().map(|(p, _)| p).collect(),
-        }
+            props.into_iter().map(|(p, _)| p).collect(),
+        )?
         .encode_into(Encoder::with_explicit(enc_cfg, cfg), &mut codecs)?
         .into_layer_bytes()
         .map_err(SynthErr::Mlt)

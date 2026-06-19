@@ -503,22 +503,22 @@ fn write_geo_precomputed_stream(
             physical.write_encoded_as::<[u32]>(&ctx, enc, logical, data, int_enc.physical)?;
         } else if data.is_empty() {
             let meta = StreamMeta::new2(ctx.stream_type, logical, PE::None, 0)?;
-            write_stream_payload(&mut enc.data, meta, false, &[])?;
+            write_stream_payload(enc.data_mut(), meta, false, &[])?;
         } else {
-            let allow_fastpfor = enc.cfg.allow_fastpfor;
+            let allow_fastpfor = enc.config().allow_fastpfor();
             let mut alt = enc.try_alternatives();
             if allow_fastpfor {
                 alt.with(|enc| {
                     let vals = physical.fastpfor(data)?;
                     let meta =
                         StreamMeta::new2(ctx.stream_type, logical, PE::FastPFor256, data.len())?;
-                    write_stream_payload(&mut enc.data, meta, false, vals)
+                    write_stream_payload(enc.data_mut(), meta, false, vals)
                 })?;
             }
             alt.with(|enc| {
                 let vals = physical.varint(data);
                 let meta = StreamMeta::new2(ctx.stream_type, logical, PE::VarInt, data.len())?;
-                write_stream_payload(&mut enc.data, meta, false, vals)
+                write_stream_payload(enc.data_mut(), meta, false, vals)
             })?;
         }
         1
@@ -577,8 +577,8 @@ impl GeometryValues {
         // Write column type to meta; reserve exactly 1 byte for stream count
         // (geometry never exceeds ~8 streams, always fits in a single varint byte).
         enc.write_column_type(ColumnType::Geometry)?;
-        let stream_count_pos = enc.data.len();
-        enc.data.push(0); // placeholder — patched below
+        let stream_count_pos = enc.data().len();
+        enc.data_mut().push(0); // placeholder — patched below
         let mut n: u8 = 0;
 
         // Meta stream — always written, even for a zero-feature layer.
@@ -685,17 +685,17 @@ impl GeometryValues {
             let mut winner_stream_cnt: u8 = 0;
             let mut alt = enc.try_alternatives();
             alt.with(|e| {
-                let ds = e.data.len();
-                let ms = e.meta.len();
+                let ds = e.data().len();
+                let ms = e.meta().len();
                 winner_stream_cnt = encode_vec2_vertex_stream(&vertices, e, codecs)?;
-                winner_size = (e.data.len() - ds) + (e.meta.len() - ms);
+                winner_size = (e.data().len() - ds) + (e.meta().len() - ms);
                 Ok(())
             })?;
             alt.with(|e| {
-                let ds = e.data.len();
-                let ms = e.meta.len();
+                let ds = e.data().len();
+                let ms = e.meta().len();
                 let cnt = encode_hilbert_vertex_streams(&vertices, e, codecs)?;
-                let size = (e.data.len() - ds) + (e.meta.len() - ms);
+                let size = (e.data().len() - ds) + (e.meta().len() - ms);
                 if size < winner_size {
                     winner_stream_cnt = cnt;
                     winner_size = size;
@@ -703,10 +703,10 @@ impl GeometryValues {
                 Ok(())
             })?;
             alt.with(|e| {
-                let ds = e.data.len();
-                let ms = e.meta.len();
+                let ds = e.data().len();
+                let ms = e.meta().len();
                 let cnt = encode_morton_vertex_streams(&vertices, e, codecs)?;
-                let size = (e.data.len() - ds) + (e.meta.len() - ms);
+                let size = (e.data().len() - ds) + (e.meta().len() - ms);
                 if size < winner_size {
                     winner_stream_cnt = cnt;
                 }
@@ -720,7 +720,7 @@ impl GeometryValues {
 
         // Patch the reserved stream-count byte.
         debug_assert!(n <= 127, "geometry stream count must fit in one byte");
-        enc.data[stream_count_pos] = n;
+        enc.data_mut()[stream_count_pos] = n;
         Ok(())
     }
 }

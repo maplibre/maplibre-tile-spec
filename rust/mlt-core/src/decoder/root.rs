@@ -8,7 +8,7 @@ use crate::MltError::{
 };
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
-    Column, ColumnType, DictionaryType, Geometry, Id, Layer01, ParsedLayer01, RawFsstData,
+    Column, ColumnType, DictionaryType, Extent, Geometry, Id, Layer01, ParsedLayer01, RawFsstData,
     RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar,
     RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings,
     RawStringsEncoding, StreamType,
@@ -269,6 +269,7 @@ impl<'a> Layer01<'a, Lazy> {
             return Err(MissingLayerName);
         }
         let (input, extent) = parse_varint::<u32>(input)?;
+        let extent = Extent::new(extent)?;
         let (input, column_count) = parse_varint::<u32>(input)?;
 
         // Each column requires at least 1 byte (column type)

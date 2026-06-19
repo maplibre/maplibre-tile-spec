@@ -113,12 +113,7 @@ impl TryFrom<MvtLayer> for TileLayer {
             });
         }
 
-        Ok(Self {
-            name: layer.name,
-            extent: layer.extent.get(),
-            property_names: col_names,
-            features: tile_features,
-        })
+        Self::from_parts(layer.name, layer.extent.get(), col_names, tile_features)
     }
 }
 
