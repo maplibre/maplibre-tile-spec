@@ -1656,9 +1656,12 @@ checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
 
 [[package]]
 name = "dup-indexer"
-version = "0.4.5"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c882fa8d131819ebc485e3c98abf54c8324b526345ea0fa5031b7fa7a27c9069"
+checksum = "1a253a963acd43cb7ace3e7afe09bb4787b007e412b8158aa1f870a275f5a2e3"
+dependencies = [
+ "foldhash 0.2.0",
+]
 
 [[package]]
 name = "dyn-clone"
@@ -1858,9 +1861,9 @@ dependencies = [
 
 [[package]]
 name = "fast-mvt"
-version = "0.3.2"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "075da97a9d841b90a396a2c5b26808fce818ca21989bc8398d2d2122c8eae197"
+checksum = "42da86ae212cff4e913e2131812069cb9172a1de185804357b6f50afc9a174f9"
 dependencies = [
  "buffa",
  "dup-indexer",
