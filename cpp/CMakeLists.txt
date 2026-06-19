@@ -26,8 +26,6 @@ add_library(mlt-cpp STATIC)
 add_library(mlt-cpp-encoder STATIC)
 
 option(MLT_WITH_JSON "Include JSON support" ON)
-option(MLT_WITH_FASTPFOR "Include FastPFor support" ON)
-option(MLT_WITH_FASTPFOR_SIMD "Include SIMD/NEON support in FastPFor decoding" OFF)
 option(MLT_WITH_TESTS "Include Tests" ON)
 option(MLT_WITH_TOOLS "Include CLI tools" ON)
 
@@ -104,6 +102,11 @@ foreach(_target mlt-cpp mlt-cpp-encoder)
     )
 endforeach()
 
+# FastPFOR sources
+set(FASTPFOR_SOURCES
+    ${PROJECT_SOURCE_DIR}/src/fastpfor/bitpacking.cpp
+)
+
 # --- Decoder (mlt-cpp) ---
 target_sources(mlt-cpp PRIVATE
     ${PROJECT_SOURCE_DIR}/include/mlt/common.hpp
@@ -142,6 +145,7 @@ target_sources(mlt-cpp PRIVATE
     ${PROJECT_SOURCE_DIR}/src/mlt/util/space_filling_curve.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/vectorized.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/zigzag.hpp
+    ${FASTPFOR_SOURCES}
 )
 
 # --- Encoder (mlt-cpp-encoder) ---
@@ -171,22 +175,11 @@ target_sources(mlt-cpp-encoder PRIVATE
     ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/zigzag.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/hilbert_curve.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/morton_curve.hpp
+    ${FASTPFOR_SOURCES}
 )
 
 include("${PROJECT_SOURCE_DIR}/vendor/fsst.cmake")
 include("${PROJECT_SOURCE_DIR}/vendor/earcut.cmake")
-
-if(MLT_WITH_FASTPFOR)
-    if(MLT_WITH_FASTPFOR_SIMD)
-        set(FASTPFOR_SIMD_MODE "runtime" CACHE STRING "" FORCE)
-    else()
-        # SIMD currently not supported, so SIMDE/NEON isn't needed
-        set(SUPPORT_NEON OFF CACHE BOOL "" FORCE)
-        set(SUPPORT_SSE42 OFF CACHE BOOL "" FORCE)
-        set(FASTPFOR_SIMD_MODE "portable" CACHE STRING "" FORCE)
-    endif(MLT_WITH_FASTPFOR_SIMD)
-    include("${PROJECT_SOURCE_DIR}/vendor/fastpfor.cmake")
-endif(MLT_WITH_FASTPFOR)
 
 # json
 if(MLT_WITH_JSON)

@@ -36,7 +36,6 @@ cc_library(
     }),
     defines = [
         "MLT_WITH_JSON=0",
-        "MLT_WITH_FASTPFOR=0",
     ],
     implementation_deps = [":mlt_internal_headers"],
     include_prefix = "",

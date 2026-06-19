@@ -1,6 +1,7 @@
 set(TEST_SOURCES
     test_decode.cpp
     test_encode.cpp
+    test_fastpfor.cpp
     test_fsst.cpp
     test_hilbert_curve.cpp
     test_morton_curve.cpp
@@ -10,10 +11,6 @@ set(TEST_SOURCES
     test_util.cpp
     test_varint.cpp
 )
-
-if (MLT_WITH_FASTPFOR)
-    list(APPEND TEST_SOURCES test_fastpfor.cpp)
-endif()
 
 add_executable(mlt-cpp-test ${TEST_SOURCES})
 set_property(TARGET mlt-cpp-test PROPERTY CXX_STANDARD 20)
@@ -27,9 +24,6 @@ if(MLT_WITH_JSON)
     target_include_directories(mlt-cpp-test PUBLIC "${json_SOURCE_DIR}/include")
     target_compile_definitions(mlt-cpp-test PUBLIC MLT_WITH_JSON=1)
 endif(MLT_WITH_JSON)
-if(MLT_WITH_FASTPFOR)
-    target_include_directories(mlt-cpp-test PRIVATE SYSTEM "${PROJECT_SOURCE_DIR}/vendor/fastpfor/headers")
-endif(MLT_WITH_FASTPFOR)
 
 if (MLT_WITH_CLANG_TIDY)
     set_target_properties(mlt-cpp-test PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_COMMAND}")
