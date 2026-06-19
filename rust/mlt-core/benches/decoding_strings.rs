@@ -84,20 +84,15 @@ fn make_geometry(n: usize) -> GeometryValues {
 /// Encode `props` into a single-layer tile with `n` point features and return wire bytes.
 fn encode_layer(n: usize, props: Vec<StagedProperty>, cfg: ExplicitEncoder) -> Vec<u8> {
     let mut codecs = Codecs::default();
-    StagedLayer {
-        name: "bench".into(),
-        extent: 4096,
-        id: StagedId::None,
-        geometry: make_geometry(n),
-        properties: props,
-    }
-    .encode_into(
-        Encoder::with_explicit(EncoderConfig::default(), cfg),
-        &mut codecs,
-    )
-    .expect("encode_layer failed")
-    .into_layer_bytes()
-    .expect("into_layer_bytes failed")
+    StagedLayer::new("bench", 4096, StagedId::None, make_geometry(n), props)
+        .expect("valid bench layer")
+        .encode_into(
+            Encoder::with_explicit(EncoderConfig::default(), cfg),
+            &mut codecs,
+        )
+        .expect("encode_layer failed")
+        .into_layer_bytes()
+        .expect("into_layer_bytes failed")
 }
 
 /// Sum the byte lengths of all non-null string property values across all features.

@@ -33,28 +33,35 @@ impl StagedLayer {
         tessellate: bool,
         curve_params: CurveParams,
     ) -> Self {
-        assert!(!source.features.is_empty(), "empty tile");
+        assert!(source.feature_count() != 0, "empty tile");
         source.sort(sort, curve_params);
+        let TileLayer {
+            name,
+            extent,
+            mut property_names,
+            property_kinds: _,
+            mut features,
+        } = source;
         let mut geometry = if tessellate {
             GeometryValues::new_tessellated()
         } else {
             GeometryValues::default()
         };
-        for f in &source.features {
-            geometry.push_geom(&f.geometry);
+        for f in &features {
+            geometry.push_geom(f.geometry());
         }
 
         let id = StagedId::from_optional_with_presence(
-            source.features.iter().map(|f| f.id),
+            features.iter().map(TileFeature::id),
             stats.id.as_ref(),
         );
 
         let shared_dict_columns = shared_dict_columns(stats);
-        let mut properties = Vec::with_capacity(source.property_names.len());
+        let mut properties = Vec::with_capacity(property_names.len());
         for (col_idx, shared_cols) in shared_dict_columns
             .iter()
             .enumerate()
-            .take(source.property_names.len())
+            .take(property_names.len())
         {
             let prop_analysis = stats
                 .properties
@@ -66,18 +73,18 @@ impl StagedLayer {
                         col_idx,
                         &prefix,
                         shared_cols,
-                        &source.property_names,
+                        &property_names,
                         stats,
-                        &mut source.features,
+                        &mut features,
                     ));
                 }
                 SharedDictRole::Member(_) => {}
                 SharedDictRole::None => {
                     if let Some(prop) = build_scalar_column(
-                        std::mem::take(&mut source.property_names[col_idx]),
+                        std::mem::take(&mut property_names[col_idx]),
                         col_idx,
                         prop_analysis.presence,
-                        &mut source.features,
+                        &mut features,
                     ) {
                         properties.push(prop);
                     }
@@ -86,8 +93,8 @@ impl StagedLayer {
         }
 
         Self {
-            name: source.name,
-            extent: source.extent,
+            name,
+            extent,
             id,
             geometry,
             properties,
@@ -121,7 +128,7 @@ fn build_scalar_column(
     // Typed nulls (e.g. `PropValue::Bool(None)`) already carry the column type,
     // so no filtering is needed; only a fully-absent column returns `None` here.
     // Fall back to `Str` if every feature has no value for this column.
-    let first_val = features.iter().find_map(|f| f.properties.get(col));
+    let first_val = features.iter().find_map(|f| f.properties().get(col));
 
     // Presence is precomputed before sort trials; this pass only gathers values
     // in the selected row order.
@@ -133,7 +140,7 @@ fn build_scalar_column(
                     name,
                     features
                         .iter()
-                        .map(|f| match f.properties.get(col) {
+                        .map(|f| match f.properties().get(col) {
                             Some(PropValue::$sv(Some(v))) => *v,
                             _ => unreachable!("analysis guarantees present typed values"),
                         })
@@ -141,7 +148,7 @@ fn build_scalar_column(
                 ),
                 Presence::Mixed | Presence::SameAsProp(_) => StagedProperty::$opt_ctor(
                     name,
-                    features.iter().map(|f| match f.properties.get(col) {
+                    features.iter().map(|f| match f.properties().get(col) {
                         Some(PropValue::$sv(v)) => *v,
                         _ => None,
                     }),
@@ -166,7 +173,7 @@ fn build_scalar_column(
                 name,
                 features
                     .iter_mut()
-                    .map(|f| match f.properties.get_mut(col) {
+                    .map(|f| match f.properties_mut().get_mut(col) {
                         Some(PropValue::Str(Some(v))) => std::mem::take(v),
                         _ => unreachable!("analysis guarantees present string values"),
                     }),
@@ -175,7 +182,7 @@ fn build_scalar_column(
                 name,
                 features
                     .iter_mut()
-                    .map(|f| match f.properties.get_mut(col) {
+                    .map(|f| match f.properties_mut().get_mut(col) {
                         Some(PropValue::Str(v)) => v.take(),
                         _ => None,
                     }),
@@ -198,7 +205,7 @@ fn build_shared_dict(
         let suffix = name.strip_prefix(prefix).unwrap_or(name).to_owned();
         let values: Vec<Option<String>> = features
             .iter_mut()
-            .map(|f| match f.properties.get_mut(col_idx) {
+            .map(|f| match f.properties_mut().get_mut(col_idx) {
                 Some(PropValue::Str(s)) => s.take(),
                 _ => None,
             })
@@ -247,19 +254,25 @@ mod tests {
     /// feature is null.
     #[test]
     fn null_first_feature_preserves_later_typed_value() {
-        let tile = layer_tile(StagedLayer {
-            name: "t".into(),
-            extent: 4096,
-            id: StagedId::None,
-            geometry: two_points(),
-            properties: vec![StagedProperty::opt_bool("flag", vec![None, Some(false)])],
-        });
+        let tile = layer_tile(
+            StagedLayer::new(
+                "t",
+                4096,
+                StagedId::None,
+                two_points(),
+                vec![StagedProperty::opt_bool("flag", vec![None, Some(false)])],
+            )
+            .unwrap(),
+        );
 
-        assert_eq!(tile.property_names, vec!["flag"]);
+        assert_eq!(tile.property_names(), &["flag"]);
         // Null slot → typed null matching the column type
-        assert_eq!(tile.features[0].properties[0], PropValue::Bool(None));
+        assert_eq!(tile.features()[0].properties()[0], PropValue::Bool(None));
         // Non-null value after the null must not be dropped
-        assert_eq!(tile.features[1].properties[0], PropValue::Bool(Some(false)));
+        assert_eq!(
+            tile.features()[1].properties()[0],
+            PropValue::Bool(Some(false))
+        );
     }
 
     /// Every scalar type must produce a typed null for null slots and a typed
@@ -278,16 +291,11 @@ mod tests {
             StagedProperty::opt_f64("f64", vec![None, Some(8.0)]),
             StagedProperty::opt_str("s", vec![None, Some("ok")]),
         ];
-        let tile = layer_tile(StagedLayer {
-            name: "t".into(),
-            extent: 4096,
-            id: StagedId::None,
-            geometry: two_points(),
-            properties: props,
-        });
+        let tile =
+            layer_tile(StagedLayer::new("t", 4096, StagedId::None, two_points(), props).unwrap());
 
         // Feature 0: every column is null → typed null for each column
-        let n = &tile.features[0].properties;
+        let n = tile.features()[0].properties();
         assert_eq!(n[0], PropValue::Bool(None));
         assert_eq!(n[1], PropValue::I8(None));
         assert_eq!(n[2], PropValue::U8(None));
@@ -300,7 +308,7 @@ mod tests {
         assert_eq!(n[9], PropValue::Str(None));
 
         // Feature 1: every column has its typed non-null value
-        let p = &tile.features[1].properties;
+        let p = tile.features()[1].properties();
         assert_eq!(p[0], PropValue::Bool(Some(true)));
         assert_eq!(p[1], PropValue::I8(Some(-1)));
         assert_eq!(p[2], PropValue::U8(Some(2)));

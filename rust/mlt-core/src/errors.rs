@@ -1,4 +1,3 @@
-use std::convert::Infallible;
 use std::num::TryFromIntError;
 
 use num_enum::TryFromPrimitiveError;
@@ -25,6 +24,26 @@ pub enum MltError {
     MissingGeometry,
     #[error("missing layer name")]
     MissingLayerName,
+    #[error("invalid extent: {0}")]
+    InvalidExtent(u32),
+    #[error("missing property name")]
+    MissingPropertyName,
+    #[error("duplicate property name: {0}")]
+    DuplicatePropertyName(String),
+    #[error("feature property count mismatch: expected {expected}, got {actual}")]
+    PropertyLengthMismatch { expected: usize, actual: usize },
+    #[error("property {index} kind mismatch: expected {expected:?}, got {actual:?}")]
+    PropertyKindMismatch {
+        index: usize,
+        expected: crate::decoder::PropKind,
+        actual: crate::decoder::PropKind,
+    },
+    #[error("staged column {column} feature count mismatch: expected {expected}, got {actual}")]
+    StagedFeatureCountMismatch {
+        column: String,
+        expected: usize,
+        actual: usize,
+    },
     #[error("missing string stream: {0}")]
     MissingStringStream(&'static str),
     #[error("multiple geometry columns found (only one allowed)")]
@@ -174,12 +193,6 @@ pub enum MltError {
     Mvt(#[from] fast_mvt::MvtError),
     #[error("MVT JSON value error: {0}")]
     MvtJsonValue(#[from] fast_mvt::MvtJsonValueError),
-}
-
-impl From<Infallible> for MltError {
-    fn from(_: Infallible) -> Self {
-        unreachable!()
-    }
 }
 
 impl From<MltError> for std::io::Error {

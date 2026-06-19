@@ -9,6 +9,7 @@ __all__ = [
     "decode_mlt",
     "decode_mlt_to_geojson",
     "encode_geojson",
+    "encode_mvt",
     "list_layers",
 ]
 
@@ -58,14 +59,34 @@ def decode_mlt_to_geojson(data: bytes) -> builtins.str:
     Decode an MLT binary blob and return GeoJSON as a string.
     """
 
-def encode_geojson(geojson: typing.Mapping[builtins.str, builtins.object], name: builtins.str, extent: builtins.int = 4096) -> bytes:
+def encode_geojson(geojson: typing.Mapping[builtins.str, builtins.object], name: builtins.str, extent: builtins.int = 4096, *, tessellate: builtins.bool = False, sort: typing.Literal['all', 'auto', 'morton', 'hilbert', 'id', 'none'] = "auto", shared_dict: builtins.bool = True, fsst: builtins.bool = True, fastpfor: builtins.bool = True) -> bytes:
     r"""
     Encode a GeoJSON `FeatureCollection` into MLT bytes.
 
     `geojson` is an RFC 7946 `FeatureCollection`.
     `name` and `extent` set the MLT layer metadata, since a `FeatureCollection` has no slot for them.
     Geometry is in tile-local coordinate space (no projection).
+
+    `tessellate` generates triangulation data for polygons and multi-polygons.
+    `sort` chooses which feature ordering(s) the encoder trials: `all` tries all orderings, `auto` tries a subset with a good speed-size tradeoff, a named curve (`morton`/`hilbert`/`id`) tries just that one, and `none` keeps the input order.
+    `shared_dict` allows grouping strings into shared dictionaries.
+    `fsst` allows FSST string compression.
+    `fastpfor` allows FastPFOR integer compression.
     See the module docs.
+    """
+
+def encode_mvt(data: bytes, *, tessellate: builtins.bool = False, sort: typing.Literal['all', 'auto', 'morton', 'hilbert', 'id', 'none'] = "auto", shared_dict: builtins.bool = True, fsst: builtins.bool = True, fastpfor: builtins.bool = True) -> bytes:
+    r"""
+    Encode an entire MVT tile to MLT using default encoding options.
+
+    `data` is a raw Mapbox Vector Tile (protobuf).
+
+    Options:
+    `tessellate` generates triangulation data for polygons and multi-polygons.
+    `sort` chooses which feature ordering(s) the encoder trials: `all` tries all orderings, `auto` tries a subset with a good speed-size tradeoff, a named curve (`morton`/`hilbert`/`id`) tries just that one, and `none` keeps the input order.
+    `shared_dict` allows grouping strings into shared dictionaries.
+    `fsst` allows FSST string compression.
+    `fastpfor` allows FastPFOR integer compression.
     """
 
 def list_layers(data: bytes) -> builtins.list[builtins.str]:

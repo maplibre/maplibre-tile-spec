@@ -10,7 +10,8 @@ namespace mlt {
 
 namespace geometry {
 class Geometry;
-}
+} // namespace geometry
+
 class Layer;
 class Feature : public util::noncopyable {
 public:

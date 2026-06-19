@@ -30,6 +30,34 @@ pub enum StagedProperty {
     SharedDict(StagedSharedDict),
 }
 
+impl StagedProperty {
+    #[must_use]
+    pub fn feature_count(&self) -> usize {
+        match self {
+            Self::Bool(s) => s.values.len(),
+            Self::I8(s) => s.values.len(),
+            Self::U8(s) => s.values.len(),
+            Self::I32(s) => s.values.len(),
+            Self::U32(s) => s.values.len(),
+            Self::I64(s) => s.values.len(),
+            Self::U64(s) => s.values.len(),
+            Self::F32(s) => s.values.len(),
+            Self::F64(s) => s.values.len(),
+            Self::Str(s) | Self::OptStr(s) => s.feature_count(),
+            Self::OptBool(s) => s.presence.len(),
+            Self::OptI8(s) => s.presence.len(),
+            Self::OptU8(s) => s.presence.len(),
+            Self::OptI32(s) => s.presence.len(),
+            Self::OptU32(s) => s.presence.len(),
+            Self::OptI64(s) => s.presence.len(),
+            Self::OptU64(s) => s.presence.len(),
+            Self::OptF32(s) => s.presence.len(),
+            Self::OptF64(s) => s.presence.len(),
+            Self::SharedDict(s) => s.feature_count(),
+        }
+    }
+}
+
 /// Owned non-optional scalar column prepared for encoding (bool, integer, or float).
 ///
 /// Every feature in this column has a value; there are no nulls.

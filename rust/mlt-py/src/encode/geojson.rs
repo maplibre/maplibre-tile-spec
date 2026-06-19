@@ -11,31 +11,50 @@
 
 use std::collections::HashMap;
 
-use mlt_core::encoder::EncoderConfig;
 use mlt_core::geo_types::Geometry;
 use mlt_core::geojson::FeatureCollection;
-use mlt_core::{PropValue, TileFeature, TileLayer};
+use mlt_core::{PropKind, PropValue, TileLayer};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use pyo3_stub_gen::derive::gen_stub_pyfunction;
 use serde_json::Value;
 
+use super::shared::{encoder_config, val_err};
+
 /// Encode a GeoJSON `FeatureCollection` into MLT bytes.
 ///
 /// `geojson` is an RFC 7946 `FeatureCollection`.
 /// `name` and `extent` set the MLT layer metadata, since a `FeatureCollection` has no slot for them.
 /// Geometry is in tile-local coordinate space (no projection).
+///
+/// `tessellate` generates triangulation data for polygons and multi-polygons.
+/// `sort` chooses which feature ordering(s) the encoder trials: `all` tries all orderings, `auto` tries a subset with a good speed-size tradeoff, a named curve (`morton`/`hilbert`/`id`) tries just that one, and `none` keeps the input order.
+/// `shared_dict` allows grouping strings into shared dictionaries.
+/// `fsst` allows FSST string compression.
+/// `fastpfor` allows FastPFOR integer compression.
 /// See the module docs.
 #[gen_stub_pyfunction]
 #[pyfunction]
-#[pyo3(signature = (geojson, name, extent=4096))]
+#[pyo3(signature = (geojson, name, extent=4096, *, tessellate=false, sort="auto", shared_dict=true, fsst=true, fastpfor=true))]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "argument list mirrors the intentional Python keyword-argument API"
+)]
 pub fn encode_geojson(
     py: Python<'_>,
     #[gen_stub(override_type(type_repr = "typing.Mapping[builtins.str, builtins.object]"))]
     geojson: &Bound<'_, PyAny>,
     name: String,
     extent: u32,
+    tessellate: bool,
+    #[gen_stub(override_type(
+        type_repr = "typing.Literal['all', 'auto', 'morton', 'hilbert', 'id', 'none']"
+    ))]
+    sort: &str,
+    shared_dict: bool,
+    fsst: bool,
+    fastpfor: bool,
 ) -> PyResult<Py<PyBytes>> {
     if name.is_empty() {
         return Err(val_err("'name' must be non-empty"));
@@ -53,14 +72,12 @@ pub fn encode_geojson(
     }
 
     let tile = build_layer(fc, name, extent)?;
-    let bytes = tile
-        .encode(EncoderConfig::default())
+    let cfg = encoder_config(tessellate, sort, shared_dict, fsst, fastpfor)?;
+    // Release the GIL for the pure-Rust encode. The steps above read Python input and keep it.
+    let bytes = py
+        .detach(|| tile.encode(cfg))
         .map_err(|e| val_err(format!("MLT encode error: {e}")))?;
     Ok(PyBytes::new(py, &bytes).unbind())
-}
-
-fn val_err(msg: impl Into<String>) -> PyErr {
-    PyValueError::new_err(msg.into())
 }
 
 fn validate_non_empty(g: &Geometry<i32>) -> PyResult<()> {
@@ -139,13 +156,13 @@ impl ColKind {
         }
     }
 
-    fn typed_null(self) -> PropValue {
+    fn prop_kind(self) -> PropKind {
         match self {
-            Self::Unknown | Self::Str => PropValue::Str(None),
-            Self::Bool => PropValue::Bool(None),
-            Self::I64 => PropValue::I64(None),
-            Self::U64 => PropValue::U64(None),
-            Self::F64 => PropValue::F64(None),
+            Self::Unknown | Self::Str => PropKind::Str,
+            Self::Bool => PropKind::Bool,
+            Self::I64 => PropKind::I64,
+            Self::U64 => PropKind::U64,
+            Self::F64 => PropKind::F64,
         }
     }
 
@@ -193,31 +210,32 @@ fn build_layer(fc: FeatureCollection, name: String, extent: u32) -> PyResult<Til
         }
     }
 
-    let features = fc
-        .features
+    let mut builder =
+        TileLayer::builder(name, extent).map_err(|err| PyValueError::new_err(err.to_string()))?;
+    let keys = names
         .into_iter()
-        .map(|feat| {
-            let mut properties: Vec<PropValue> = kinds.iter().map(|k| k.typed_null()).collect();
-            for (key, val) in feat.properties {
-                if val.is_null() {
-                    continue;
-                }
-                if let Some(&idx) = index.get(&key) {
-                    properties[idx] = kinds[idx].convert(val);
-                }
-            }
-            TileFeature {
-                id: feat.id,
-                geometry: feat.geometry,
-                properties,
-            }
-        })
-        .collect();
+        .zip(kinds.iter().copied())
+        .map(|(name, kind)| builder.add_property(name, kind.prop_kind()))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|err| PyValueError::new_err(err.to_string()))?;
 
-    Ok(TileLayer {
-        name,
-        extent,
-        property_names: names,
-        features,
-    })
+    for feat in fc.features {
+        let mut feature = builder.feature(feat.geometry);
+        feature.id(feat.id);
+        for (key, val) in feat.properties {
+            if val.is_null() {
+                continue;
+            }
+            if let Some(&idx) = index.get(&key) {
+                feature
+                    .property(keys[idx], kinds[idx].convert(val))
+                    .map_err(|err| PyValueError::new_err(err.to_string()))?;
+            }
+        }
+        feature
+            .finish()
+            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+    }
+
+    Ok(builder.finish())
 }

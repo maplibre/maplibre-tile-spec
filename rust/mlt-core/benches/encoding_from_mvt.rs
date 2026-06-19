@@ -33,10 +33,7 @@ fn parse_mvt_to_tile_layers(mvt_files: &[(String, Vec<u8>)]) -> Vec<TileLayer> {
 
 fn bench_encode_from_mvt(c: &mut Criterion) {
     let mut group = c.benchmark_group("mlt encode from mvt");
-    let cfg = EncoderConfig {
-        tessellate: true,
-        ..Default::default()
-    };
+    let cfg = EncoderConfig::default().with_tessellation(true);
 
     for zoom in BENCHMARKED_ZOOM_LEVELS {
         let mvt_files = load_mvt_tiles(zoom);
