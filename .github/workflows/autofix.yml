@@ -8,6 +8,28 @@ on:
 permissions: {}
 
 jobs:
+  ts-fmt:
+    name: Format TypeScript
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    if: |
+      github.event.action == 'opened' ||
+      github.event.action == 'synchronize' ||
+      github.event.action == 'reopened'
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with: { persist-credentials: false }
+      - uses: taiki-e/install-action@7a79fe8c3a13344501c80d99cae481c1c9085912 # v2.81.10
+        with: { tool: 'just' }
+      - uses: ./.github/actions/mlt-setup-node
+      - name: Format TypeScript
+        run: just ts::fmt
+
+      - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a # v1.3.4
+        with: { commit-message: "chore: format TypeScript" }
+
   rust-fmt-toml:
     name: Format Cargo.toml
     runs-on: ubuntu-latest
