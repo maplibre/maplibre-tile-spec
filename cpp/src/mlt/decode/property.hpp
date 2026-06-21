@@ -93,7 +93,11 @@ protected:
             streamMetadata = StreamMetadata::decode(tileData);
         }
 
-        if (column.nullable && streamMetadata && presentValueCount < streamMetadata->getNumValues()) {
+        // A single-value RLE run encodes as more ints than it decodes to.
+        // Compare the logical (decoded) count, not the raw stream length, to avoid a spurious throw.
+        if (column.nullable && streamMetadata &&
+            presentValueCount <
+                IntegerDecoder::getIntArrayBufferSize(streamMetadata->getNumValues(), *streamMetadata)) {
             throw std::runtime_error("Unexpected present value column");
         }
 
