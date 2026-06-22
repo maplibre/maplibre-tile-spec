@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.22](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.21...python-mlt-v0.1.22) - 2026-06-20
+
+### Other
+
+- *(deps)* bump fast-mvt from 0.3.2 to 0.4.0 in /rust in the all-cargo-version-updates group ([#1452](https://github.com/maplibre/maplibre-tile-spec/pull/1452))
+
 ## [0.1.21](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.20...python-mlt-v0.1.21) - 2026-06-19
 
 ### Other

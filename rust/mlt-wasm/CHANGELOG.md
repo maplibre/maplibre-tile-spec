@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.15](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.14...rust-mlt-wasm-v0.1.15) - 2026-06-20
+
+### Other
+
+- make sure that marked-failing synthetics actually fail ([#1451](https://github.com/maplibre/maplibre-tile-spec/pull/1451))
+- *(deps)* bump fast-mvt from 0.3.2 to 0.4.0 in /rust in the all-cargo-version-updates group ([#1452](https://github.com/maplibre/maplibre-tile-spec/pull/1452))
+
 ## [0.1.14](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.13...rust-mlt-wasm-v0.1.14) - 2026-06-19
 
 ### Other

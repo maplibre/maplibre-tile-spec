@@ -3,6 +3,7 @@ import type { VectorTileLike } from "@maplibre/vt-pbf";
 import { describe, expect, it } from "vitest";
 import {
   compareWithTolerance,
+  expectUnsupported,
   getTestCases,
   writeActualOutput,
 } from "../../../test/synthetic/synthetic-test-utils";
@@ -13,21 +14,7 @@ import {
   type MltLayer,
 } from "./vectorTile";
 
-const UNIMPLEMENTED_SYNTHETICS = new Map([
-  ["poly_collinear_fpf", "FastPFor not supported"],
-  ["poly_collinear_fpf_tes", "FastPFor not supported"],
-  ["poly_fpf", "FastPFor not supported"],
-  ["poly_fpf_tes", "FastPFor not supported"],
-  ["poly_hole_fpf", "FastPFor not supported"],
-  ["poly_hole_fpf_tes", "FastPFor not supported"],
-  ["poly_hole_touching_fpf", "FastPFor not supported"],
-  ["poly_hole_touching_fpf_tes", "FastPFor not supported"],
-  ["poly_multi_fpf", "FastPFor not supported"],
-  ["poly_multi_fpf_tes", "FastPFor not supported"],
-  ["poly_self_intersect_fpf", "FastPFor not supported"],
-  ["poly_self_intersect_fpf_tes", "FastPFor not supported"],
-  ["poly_multi_morton_hole_morton", "Pending investigation"],
-]);
+const UNIMPLEMENTED_SYNTHETICS = new Map<string, string>([]);
 
 describe("MLT WASM Decoder - Synthetic tests", () => {
   expect.addEqualityTesters([compareWithTolerance]);
@@ -41,10 +28,9 @@ describe("MLT WASM Decoder - Synthetic tests", () => {
     });
   }
 
-  for (const skippedTest of testCases.skipped) {
-    it.skip(skippedTest, () => {
-      // Test is skipped since it is not supported yet
-    });
+  for (const { name, content, fileName } of testCases.skipped) {
+    it(`${name} (unsupported: ${UNIMPLEMENTED_SYNTHETICS.get(name)})`, () =>
+      expectUnsupported(() => decodeMLT(fileName), content));
   }
 });
 
