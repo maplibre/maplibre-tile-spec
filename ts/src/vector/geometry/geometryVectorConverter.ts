@@ -13,8 +13,9 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
     let vertexBufferOffset = 0;
     let vertexOffsetsOffset = 0;
 
+    // mortonSettings is only present for MORTON-encoded vectors; it is asserted at the morton-only use-sites below.
+    const mortonSettings = geometryVector.mortonSettings;
     // The encoder always sets these for the geometry types handled below.
-    const mortonSettings = geometryVector.mortonSettings as MortonSettings;
     const topologyVector = geometryVector.topologyVector;
     const geometryOffsets = topologyVector.geometryOffsets as Uint32Array;
     const partOffsets = topologyVector.partOffsets as Uint32Array;
@@ -38,6 +39,9 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                     } else if (geometryVector.vertexBufferType === VertexBufferType.MORTON) {
                         const offset = vertexOffsets[vertexOffsetsOffset++];
                         const mortonCode = vertexBuffer[offset];
+                        if (!mortonSettings) {
+                            throw new Error("Morton-encoded geometry vector is missing morton settings.");
+                        }
                         const vertex = decodeZOrderCurve(
                             mortonCode,
                             mortonSettings.numBits,
@@ -266,9 +270,12 @@ function decodeDictionaryEncodedLineStringOrRing(
     vertexOffset: number,
     numVertices: number,
     closeLineString: boolean,
-    mortonSettings: MortonSettings,
+    mortonSettings: MortonSettings | undefined,
 ): Point[] {
     if (vertexBufferType === VertexBufferType.MORTON) {
+        if (!mortonSettings) {
+            throw new Error("Morton-encoded geometry vector is missing morton settings.");
+        }
         return decodeMortonDictionaryEncodedLineString(
             vertexBuffer,
             vertexOffsets,

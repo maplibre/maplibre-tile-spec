@@ -20,14 +20,14 @@ export function decodeString(
     numStreams: number,
     bitVector?: BitVector,
 ): Vector {
-    let dictionaryLengthStream: Uint32Array | null = null;
-    let offsetStream: Uint32Array | null = null;
-    let dictionaryStream: Uint8Array | null = null;
-    let symbolLengthStream: Uint32Array | null = null;
-    let symbolTableStream: Uint8Array | null = null;
-    let nullabilityBuffer: BitVector | null = bitVector ?? null;
-    let plainLengthStream: Uint32Array | null = null;
-    let plainDataStream: Uint8Array | null = null;
+    let dictionaryLengthStream: Uint32Array | undefined;
+    let offsetStream: Uint32Array | undefined;
+    let dictionaryStream: Uint8Array | undefined;
+    let symbolLengthStream: Uint32Array | undefined;
+    let symbolTableStream: Uint8Array | undefined;
+    let nullabilityBuffer: BitVector | undefined = bitVector;
+    let plainLengthStream: Uint32Array | undefined;
+    let plainDataStream: Uint8Array | undefined;
 
     for (let i = 0; i < numStreams; i++) {
         const streamMetadata = decodeStreamMetadata(data, offset);
@@ -40,13 +40,7 @@ export function decodeString(
                 break;
             }
             case PhysicalStreamType.OFFSET: {
-                offsetStream = decodeUnsignedInt32Stream(
-                    data,
-                    offset,
-                    streamMetadata,
-                    undefined,
-                    nullabilityBuffer ?? undefined,
-                );
+                offsetStream = decodeUnsignedInt32Stream(data, offset, streamMetadata, undefined, nullabilityBuffer);
                 break;
             }
             case PhysicalStreamType.LENGTH: {
@@ -94,15 +88,15 @@ export function decodeString(
 
 function decodeFsstDictionaryVector(
     name: string,
-    symbolTableStream: Uint8Array | null,
-    offsetStream: Uint32Array | null,
-    dictionaryLengthStream: Uint32Array | null,
-    dictionaryStream: Uint8Array | null,
-    symbolLengthStream: Uint32Array | null,
-    nullabilityBuffer: BitVector | null,
-): Vector | null {
+    symbolTableStream: Uint8Array | undefined,
+    offsetStream: Uint32Array | undefined,
+    dictionaryLengthStream: Uint32Array | undefined,
+    dictionaryStream: Uint8Array | undefined,
+    symbolLengthStream: Uint32Array | undefined,
+    nullabilityBuffer: BitVector | undefined,
+): Vector | undefined {
     if (!symbolTableStream) {
-        return null;
+        return undefined;
     }
     return new StringFsstDictionaryVector(
         name,
@@ -111,19 +105,19 @@ function decodeFsstDictionaryVector(
         dictionaryStream as Uint8Array,
         symbolLengthStream as Uint32Array,
         symbolTableStream,
-        nullabilityBuffer as BitVector,
+        nullabilityBuffer,
     );
 }
 
 function decodeDictionaryVector(
     name: string,
-    dictionaryStream: Uint8Array | null,
-    offsetStream: Uint32Array | null,
-    dictionaryLengthStream: Uint32Array | null,
-    nullabilityBuffer: BitVector | null,
-): Vector | null {
+    dictionaryStream: Uint8Array | undefined,
+    offsetStream: Uint32Array | undefined,
+    dictionaryLengthStream: Uint32Array | undefined,
+    nullabilityBuffer: BitVector | undefined,
+): Vector | undefined {
     if (!dictionaryStream) {
-        return null;
+        return undefined;
     }
     return nullabilityBuffer
         ? new StringDictionaryVector(
@@ -143,13 +137,13 @@ function decodeDictionaryVector(
 
 function decodePlainStringVector(
     name: string,
-    plainLengthStream: Uint32Array | null,
-    plainDataStream: Uint8Array | null,
-    offsetStream: Uint32Array | null,
-    nullabilityBuffer: BitVector | null,
-): Vector | null {
+    plainLengthStream: Uint32Array | undefined,
+    plainDataStream: Uint8Array | undefined,
+    offsetStream: Uint32Array | undefined,
+    nullabilityBuffer: BitVector | undefined,
+): Vector | undefined {
     if (!plainLengthStream || !plainDataStream) {
-        return null;
+        return undefined;
     }
 
     if (offsetStream) {
@@ -188,10 +182,10 @@ export function decodeSharedDictionary(
     column: Column,
     propertyColumnNames?: Set<string>,
 ): Vector[] {
-    let dictionaryOffsetBuffer: Uint32Array | null = null;
-    let dictionaryBuffer: Uint8Array | null = null;
-    let symbolOffsetBuffer: Uint32Array | null = null;
-    let symbolTableBuffer: Uint8Array | null = null;
+    let dictionaryOffsetBuffer: Uint32Array | undefined;
+    let dictionaryBuffer: Uint8Array | undefined;
+    let symbolOffsetBuffer: Uint32Array | undefined;
+    let symbolTableBuffer: Uint8Array | undefined;
 
     let dictionaryStreamDecoded = false;
     while (!dictionaryStreamDecoded) {
@@ -278,7 +272,7 @@ export function decodeSharedDictionary(
                   dictionaryBuffer as Uint8Array,
                   symbolOffsetBuffer as Uint32Array,
                   symbolTableBuffer,
-                  presentStreamBitVector as BitVector,
+                  presentStreamBitVector,
               )
             : new StringDictionaryVector(
                   columnName,

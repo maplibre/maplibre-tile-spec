@@ -140,8 +140,6 @@ export abstract class GpuVector implements Iterable<CoordinatesArray> {
             yield geometries[index++];
         }*/
 
-        //throw new Error("Iterator on a GpuVector is not implemented yet.");
-        // Iterator is not implemented yet; this returns null at runtime.
-        return null as unknown as Iterator<CoordinatesArray>;
+        throw new Error("Iterator on a GpuVector is not implemented yet.");
     }
 }

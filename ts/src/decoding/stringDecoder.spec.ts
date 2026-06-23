@@ -175,20 +175,20 @@ describe("decodeString - FSST Dictionary Decoder (Basic Coverage)", () => {
 });
 
 describe("decodeString - Empty Column Edge Cases", () => {
-    it("should handle empty column with numStreams = 0 (returns null)", () => {
+    it("should handle empty column with numStreams = 0 (returns undefined)", () => {
         const fullStream = new Uint8Array([]);
         const offset = new IntWrapper(0);
         const result = decodeString("testColumn", fullStream, offset, 0);
-        expect(result).toBeNull();
+        expect(result).toBeUndefined();
     });
 
-    it("should handle column with all zero-length streams (returns null)", () => {
+    it("should handle column with all zero-length streams (returns undefined)", () => {
         const emptyStream = createStream(PhysicalStreamType.LENGTH, new Uint8Array([]), {
             logical: { lengthType: LengthType.VAR_BINARY },
         });
         const offset = new IntWrapper(0);
         const result = decodeString("testColumn", emptyStream, offset, 1);
-        expect(result).toBeNull();
+        expect(result).toBeUndefined();
     });
 
     it("should handle single value plain string column", () => {

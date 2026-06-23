@@ -15,7 +15,7 @@ export class StringFsstDictionaryVector extends VariableSizeVector<Uint8Array, s
         dictionaryBuffer: Uint8Array,
         private readonly symbolOffsetBuffer: Uint32Array,
         private readonly symbolTableBuffer: Uint8Array,
-        nullabilityBuffer: BitVector,
+        nullabilityBuffer?: BitVector,
     ) {
         super(name, offsetBuffer, dictionaryBuffer, nullabilityBuffer ?? indexBuffer.length);
     }
