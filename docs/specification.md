@@ -212,9 +212,11 @@ direction TB
     FeatureTable --> Column : columns
 ```
 
-The `extent` field defines the coordinate space size for the tile's geometry.
-Geometry coordinates in MapLibre Tiles are encoded as integers in the range `[0, extent)`.
-The default value is `4096`, matching the Mapbox Vector Tile convention.
+The required `extent` field defines the coordinate space size for the tile's geometry.
+Geometry coordinates in MapLibre Tiles are encoded as signed integers in vector-tile grid coordinates (typically near the `0..=extent` range, but not restricted to it).
+Values MAY be negative or exceed extent for geometry that crosses tile boundaries.
+Encoders MAY default to `4096` when a user does not specify the extent.
+Decoders MUST require it to diferente `extent` and `columnCount`.
 
 Strings are encoded as UTF-8 sequences of characters with a length header:
 
