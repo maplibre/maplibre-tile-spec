@@ -5,23 +5,23 @@ import type { SelectionVector } from "./selectionVector";
  * Stores indices explicitly, suitable for irregular patterns and frequent modifications.
  */
 export class FlatSelectionVector implements SelectionVector {
+    private _limit: number;
+
     /**
      * @param _selectionVector
-     * @param _limit In write mode the limit of a Buffer is the limit of how much data you can write into the buffer.
+     * @param limit In write mode the limit of a Buffer is the limit of how much data you can write into the buffer.
      * In write mode the limit is equal to the capacity of the Buffer.
      */
     constructor(
         private _selectionVector: number[],
-        private _limit?: number,
+        limit?: number,
     ) {
-        if (!this._limit) {
-            this._limit = this._selectionVector.length;
-        }
+        this._limit = limit || this._selectionVector.length;
     }
 
     /** @inheritdoc */
     getIndex(index: number): number {
-        if (index >= (this._limit as number) || index < 0) {
+        if (index >= this._limit || index < 0) {
             throw new RangeError("Index out of bounds");
         }
 
@@ -30,7 +30,7 @@ export class FlatSelectionVector implements SelectionVector {
 
     /** @inheritdoc */
     setIndex(index: number, value: number): void {
-        if (index >= (this._limit as number) || index < 0) {
+        if (index >= this._limit || index < 0) {
             throw new RangeError("Index out of bounds");
         }
 
@@ -57,6 +57,6 @@ export class FlatSelectionVector implements SelectionVector {
 
     /** @inheritdoc */
     get limit(): number {
-        return this._limit as number;
+        return this._limit;
     }
 }
