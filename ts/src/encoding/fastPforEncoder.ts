@@ -215,7 +215,7 @@ function recordBlockExceptions(
         if (value >>> bitWidth !== 0) {
             byteContainerPos = writeByte(workspace, byteContainerPos, k);
             if (exceptionBitWidth !== 1) {
-                const exceptionValues = dataToBePacked[exceptionBitWidth];
+                const exceptionValues = dataToBePacked[exceptionBitWidth] as Uint32Array;
                 exceptionValues[dataPointers[exceptionBitWidth]++] = (value >>> bitWidth) | 0;
             }
         }
@@ -290,7 +290,7 @@ function writeExceptionStreams(workspace: FastPforEncoderWorkspace, state: Encod
 
             let j = 0;
             for (; j < size; j += 32) {
-                const exceptionValues = dataToBePacked[k];
+                const exceptionValues = dataToBePacked[k] as Uint32Array;
                 state.out = ensureInt32Capacity(state.out, state.outPos + k);
                 fastPack32(exceptionValues, j, state.out, state.outPos, k);
                 state.outPos += k;

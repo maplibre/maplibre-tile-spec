@@ -262,7 +262,12 @@ function decodeSignedInt32(
             break;
         case LogicalLevelTechnique.COMPONENTWISE_DELTA:
             if (scalingData && !nullabilityBuffer) {
-                return decodeComponentwiseDeltaVec2Scaled(values, scalingData.scale, scalingData.min, scalingData.max);
+                return decodeComponentwiseDeltaVec2Scaled(
+                    values,
+                    scalingData.scale as number,
+                    scalingData.min,
+                    scalingData.max,
+                );
             }
             decodedValues = decodeComponentwiseDeltaVec2(values);
             break;
@@ -313,7 +318,7 @@ function decodeUnsignedInt32(
             if (scalingData && !nullabilityBuffer) {
                 decodedValues = decodeUnsignedComponentwiseDeltaVec2Scaled(
                     values,
-                    scalingData.scale,
+                    scalingData.scale as number,
                     scalingData.min,
                     scalingData.max,
                 );

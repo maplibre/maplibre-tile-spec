@@ -96,7 +96,8 @@ export function columnTypeHasChildren(typeCode: number): boolean {
  */
 export function hasStreamCount(column: Column): boolean {
     if (column.type === "scalarType") {
-        const scalarCol = column.scalarType;
+        // The scalarType oneof is set when type is "scalarType".
+        const scalarCol = column.scalarType as ScalarColumn;
 
         if (scalarCol.type === "physicalType") {
             const physicalType = scalarCol.physicalType;
@@ -121,7 +122,8 @@ export function hasStreamCount(column: Column): boolean {
             return false;
         }
     } else if (column.type === "complexType") {
-        const complexCol = column.complexType;
+        // The complexType oneof is set when type is "complexType".
+        const complexCol = column.complexType as ComplexColumn;
 
         if (complexCol.type === "physicalType") {
             const physicalType = complexCol.physicalType;

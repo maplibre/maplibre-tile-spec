@@ -1,6 +1,6 @@
 import type IntWrapper from "../../decoding/intWrapper";
 import { decodeVarintInt32 } from "../../decoding/integerDecodingUtils";
-import type { Column, FeatureTableSchema, Field, TileSetMetadata } from "./tilesetMetadata";
+import type { Column, ComplexColumn, FeatureTableSchema, Field, TileSetMetadata } from "./tilesetMetadata";
 import { columnTypeHasChildren, columnTypeHasName, decodeColumnType } from "./typeMap";
 
 const textDecoder = new TextDecoder();
@@ -48,17 +48,20 @@ export function decodeField(src: Uint8Array, offset: IntWrapper): Field {
         throw new Error(`Unsupported field type code ${typeCode}. Supported: ${SUPPORTED_FIELD_TYPES}`);
     }
 
-    const column = decodeColumnType(typeCode);
+    // The typeCode is validated to be 10-30 above, so decodeColumnType is non-null.
+    const column = decodeColumnType(typeCode) as Column;
 
     if (columnTypeHasName(typeCode)) {
         column.name = decodeString(src, offset);
     }
 
     if (columnTypeHasChildren(typeCode)) {
+        // Only STRUCT (typeCode 30) has children, so complexType is set.
+        const complexCol = column.complexType as ComplexColumn;
         const childCount = decodeVarintInt32(src, offset, 1)[0] >>> 0;
-        column.complexType.children = new Array(childCount);
+        complexCol.children = new Array(childCount);
         for (let i = 0; i < childCount; i++) {
-            column.complexType.children[i] = decodeField(src, offset);
+            complexCol.children[i] = decodeField(src, offset);
         }
     }
 
@@ -90,7 +93,8 @@ function decodeColumn(src: Uint8Array, offset: IntWrapper): Column {
     if (columnTypeHasChildren(typeCode)) {
         // Only STRUCT (typeCode 30) has children
         const childCount = decodeVarintInt32(src, offset, 1)[0] >>> 0;
-        const complexCol = column.complexType;
+        // STRUCT columns have their complexType oneof set.
+        const complexCol = column.complexType as ComplexColumn;
         complexCol.children = new Array(childCount);
         for (let i = 0; i < childCount; i++) {
             complexCol.children[i] = decodeField(src, offset);

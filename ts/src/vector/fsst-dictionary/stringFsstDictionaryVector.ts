@@ -5,8 +5,8 @@ import { decodeString } from "../../decoding/decodingUtils";
 
 export class StringFsstDictionaryVector extends VariableSizeVector<Uint8Array, string> {
     // TODO: extend from StringVector
-    private symbolLengthBuffer: Uint32Array;
-    private decodedDictionary: Uint8Array;
+    private symbolLengthBuffer?: Uint32Array;
+    private decodedDictionary?: Uint8Array;
 
     constructor(
         name: string,

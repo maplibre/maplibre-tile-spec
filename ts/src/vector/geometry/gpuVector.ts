@@ -44,9 +44,10 @@ export abstract class GpuVector implements Iterable<CoordinatesArray> {
 
         const geometries: CoordinatesArray[] = new Array(this.numGeometries);
         const topology = this._topologyVector;
-        const partOffsets = topology.partOffsets;
-        const ringOffsets = topology.ringOffsets;
-        const geometryOffsets = topology.geometryOffsets;
+        // The encoder always sets these for the geometry types handled below.
+        const partOffsets = topology.partOffsets as Uint32Array;
+        const ringOffsets = topology.ringOffsets as Uint32Array;
+        const geometryOffsets = topology.geometryOffsets as Uint32Array;
 
         // Use counters to track position in offset arrays (like Java implementation)
         let vertexBufferOffset = 0;
@@ -140,6 +141,7 @@ export abstract class GpuVector implements Iterable<CoordinatesArray> {
         }*/
 
         //throw new Error("Iterator on a GpuVector is not implemented yet.");
-        return null;
+        // Iterator is not implemented yet; this returns null at runtime.
+        return null as unknown as Iterator<CoordinatesArray>;
     }
 }

@@ -118,7 +118,7 @@ function decodeVarintFloat64Value(buf: Uint8Array, offset: IntWrapper): number {
     return decodeVarintRemainder(val, buf, offset);
 }
 
-function decodeVarintRemainder(l, buf, offset) {
+function decodeVarintRemainder(l: number, buf: Uint8Array, offset: IntWrapper): number {
     let h;
     let b;
     b = buf[offset.get()];
