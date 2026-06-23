@@ -8,7 +8,7 @@ import { Int32ConstVector } from "./constant/int32ConstVector";
 import type { GpuVector } from "./geometry/gpuVector";
 
 export interface Feature {
-    id: number | bigint;
+    id: number | bigint | undefined;
     geometry: Geometry;
     properties: { [key: string]: unknown };
 }
@@ -71,10 +71,9 @@ export default class FeatureTable {
             let id: number | bigint | undefined;
             if (this.idVector) {
                 const idValue = this.idVector.getValue(i);
-                id =
-                    this.containsMaxSafeIntegerValues(this.idVector) && idValue !== null
-                        ? Number(idValue)
-                        : (idValue as number | bigint);
+                if (idValue !== null) {
+                    id = this.containsMaxSafeIntegerValues(this.idVector) ? Number(idValue) : idValue;
+                }
             }
             const geometry = {
                 coordinates: geometries[i],
@@ -91,7 +90,7 @@ export default class FeatureTable {
                 }
             }
 
-            features.push({ id: id as number | bigint, geometry, properties });
+            features.push({ id, geometry, properties });
         }
         return features;
     }
