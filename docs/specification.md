@@ -194,6 +194,7 @@ direction TB
 
     class FeatureTable {
       +String name
+      +VarInt extent
       +VarInt columnCount
       +Column[] columns
     }
@@ -210,6 +211,10 @@ direction TB
     TileMetadata --> FeatureTable : featureTables
     FeatureTable --> Column : columns
 ```
+
+The `extent` field defines the coordinate space size for the tile's geometry.
+Geometry coordinates in MapLibre Tiles are encoded as integers in the range `[0, extent)`.
+The default value is `4096`, matching the Mapbox Vector Tile convention.
 
 Strings are encoded as UTF-8 sequences of characters with a length header:
 
