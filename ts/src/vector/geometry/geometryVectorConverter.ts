@@ -13,9 +13,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
     let vertexBufferOffset = 0;
     let vertexOffsetsOffset = 0;
 
-    // mortonSettings is only present for MORTON-encoded vectors; it is asserted at the morton-only use-sites below.
     const mortonSettings = geometryVector.mortonSettings;
-    // The encoder always sets these for the geometry types handled below.
     const topologyVector = geometryVector.topologyVector;
     const geometryOffsets = topologyVector.geometryOffsets as Uint32Array;
     const partOffsets = topologyVector.partOffsets as Uint32Array;

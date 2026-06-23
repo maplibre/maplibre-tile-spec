@@ -44,7 +44,6 @@ export abstract class GpuVector implements Iterable<CoordinatesArray> {
 
         const geometries: CoordinatesArray[] = new Array(this.numGeometries);
         const topology = this._topologyVector;
-        // The encoder always sets these for the geometry types handled below.
         const partOffsets = topology.partOffsets as Uint32Array;
         const ringOffsets = topology.ringOffsets as Uint32Array;
         const geometryOffsets = topology.geometryOffsets as Uint32Array;

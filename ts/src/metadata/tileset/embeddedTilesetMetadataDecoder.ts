@@ -48,7 +48,6 @@ export function decodeField(src: Uint8Array, offset: IntWrapper): Field {
         throw new Error(`Unsupported field type code ${typeCode}. Supported: ${SUPPORTED_FIELD_TYPES}`);
     }
 
-    // The typeCode is validated to be 10-30 above, so decodeColumnType is non-null.
     const column = decodeColumnType(typeCode) as Column;
 
     if (columnTypeHasName(typeCode)) {
@@ -56,7 +55,6 @@ export function decodeField(src: Uint8Array, offset: IntWrapper): Field {
     }
 
     if (columnTypeHasChildren(typeCode)) {
-        // Only STRUCT (typeCode 30) has children, so complexType is set.
         const complexCol = column.complexType as ComplexColumn;
         const childCount = decodeVarintInt32(src, offset, 1)[0] >>> 0;
         complexCol.children = new Array(childCount);
@@ -93,7 +91,6 @@ function decodeColumn(src: Uint8Array, offset: IntWrapper): Column {
     if (columnTypeHasChildren(typeCode)) {
         // Only STRUCT (typeCode 30) has children
         const childCount = decodeVarintInt32(src, offset, 1)[0] >>> 0;
-        // STRUCT columns have their complexType oneof set.
         const complexCol = column.complexType as ComplexColumn;
         complexCol.children = new Array(childCount);
         for (let i = 0; i < childCount; i++) {
