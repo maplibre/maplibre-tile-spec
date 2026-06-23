@@ -223,7 +223,7 @@ export function decodeSharedDictionary(
             continue;
         }
 
-        const columnName = childField.name ? `${column.name ?? ""}${childField.name}` : (column.name ?? "");
+        const columnName = childField.name ? `${column.name}${childField.name}` : column.name;
         if (propertyColumnNames) {
             if (!propertyColumnNames.has(columnName)) {
                 //TODO: add size of sub column to Mlt for faster skipping

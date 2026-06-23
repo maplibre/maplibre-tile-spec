@@ -44,12 +44,12 @@ export interface TileSetMetadata {
 }
 
 export interface FeatureTableSchema {
-    name?: string | null;
+    name: string;
     columns: Column[];
 }
 
 export interface Column {
-    name?: string | null;
+    name: string;
     nullable?: boolean | null;
     columnScope?: number | null;
     scalarType?: ScalarColumn | null;
