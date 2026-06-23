@@ -617,6 +617,7 @@ direction TB
 
     class FeatureTable {
       +String name
+      +VarInt extent
       +VarInt columnCount
       +Column[] columns
     }
@@ -632,6 +633,11 @@ direction TB
     LayerGroup --&gt; TileMetadata : metadata
     TileMetadata --&gt; FeatureTable : featureTables
     FeatureTable --&gt; Column : columns</code></pre>
+<p>The required <code>extent</code> field defines the coordinate space size for the tile's geometry.
+Geometry coordinates in MapLibre Tiles are encoded as signed integers in vector-tile grid coordinates (typically near the <code>0..=extent</code> range, but not restricted to it).
+Values MAY be negative or exceed extent for geometry that crosses tile boundaries.
+Encoders MAY default to <code>4096</code> when a user does not specify the extent.
+Decoders MUST require it to diferente <code>extent</code> and <code>columnCount</code>.</p>
 <p>Strings are encoded as UTF-8 sequences of characters with a length header:</p>
 <pre class="mermaid"><code>---
 config:
