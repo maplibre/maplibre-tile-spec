@@ -48,11 +48,13 @@ export function decodeField(src: Uint8Array, offset: IntWrapper): Field {
         throw new Error(`Unsupported field type code ${typeCode}. Supported: ${SUPPORTED_FIELD_TYPES}`);
     }
 
-    const column = decodeColumnType(typeCode) as Column;
-
-    if (columnTypeHasName(typeCode)) {
-        column.name = decodeString(src, offset);
+    const base = decodeColumnType(typeCode);
+    if (!base) {
+        throw new Error(`Unsupported field type code ${typeCode}. Supported: ${SUPPORTED_FIELD_TYPES}`);
     }
+
+    // Field type codes (10-30) always carry an explicit name.
+    const column: Column = { ...base, name: decodeString(src, offset) };
 
     if (columnTypeHasChildren(typeCode)) {
         const complexCol = column.complexType as ComplexColumn;
@@ -71,22 +73,23 @@ export function decodeField(src: Uint8Array, offset: IntWrapper): Field {
  */
 function decodeColumn(src: Uint8Array, offset: IntWrapper): Column {
     const typeCode = decodeVarintInt32(src, offset, 1)[0] >>> 0;
-    const column = decodeColumnType(typeCode);
+    const base = decodeColumnType(typeCode);
 
-    if (!column) {
+    if (!base) {
         throw new Error(`Unsupported column type code ${typeCode}. Supported: ${SUPPORTED_COLUMN_TYPES}`);
     }
 
+    let name: string;
     if (columnTypeHasName(typeCode)) {
-        column.name = decodeString(src, offset);
-    } else {
+        name = decodeString(src, offset);
+    } else if (typeCode <= 3) {
         // ID and GEOMETRY columns have implicit names
-        if (typeCode >= 0 && typeCode <= 3) {
-            column.name = "id";
-        } else if (typeCode === 4) {
-            column.name = "geometry";
-        }
+        name = "id";
+    } else {
+        name = "geometry";
     }
+
+    const column: Column = { ...base, name };
 
     if (columnTypeHasChildren(typeCode)) {
         // Only STRUCT (typeCode 30) has children
