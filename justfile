@@ -69,6 +69,12 @@ ci-extract-version language tag:
 mlt *args:
     cargo run --manifest-path {{join(justfile_directory(), 'rust', 'Cargo.toml')}} --package mlt -- "$@"
 
+# Run the mlt CLI tool with the given arguments from current dir.
+[no-cd]
+[positional-arguments]  # avoids shell expansions
+mlt-rel *args:
+    cargo run --release --manifest-path {{join(justfile_directory(), 'rust', 'Cargo.toml')}} --package mlt -- "$@"
+
 # Ensure a command is available
 assert-cmd command:
     #!/usr/bin/env bash

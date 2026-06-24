@@ -41,6 +41,11 @@ impl From<Extent> for NonZeroU32 {
 pub enum Layer<'a, S: DecodeState = Lazy> {
     /// MVT-compatible layer (tag = 1)
     Tag01(Layer01<'a, S>),
+    /// Experimental v2 layer (tag = 2), decoded eagerly to owned row-oriented form.
+    ///
+    /// Unlike `Tag01`, this variant is always fully decoded when parsed: the
+    /// `S` type parameter is ignored and the data is stored as a [`TileLayer01`].
+    Tag02(TileLayer01),
     /// Unknown layer with tag, size, and value
     Unknown(Unknown<'a>),
 }
@@ -53,6 +58,7 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Tag01(l) => f.debug_tuple("Tag01").field(l).finish(),
+            Self::Tag02(t) => f.debug_tuple("Tag02").field(t).finish(),
             Self::Unknown(u) => f.debug_tuple("Unknown").field(u).finish(),
         }
     }
@@ -142,6 +148,8 @@ pub struct Layer01<'a, S: DecodeState = Lazy> {
     #[cfg(fuzzing)]
     pub(crate) layer_order: Vec<crate::decoder::fuzzing::LayerOrdering>,
 }
+
+impl StrParse for Layer {}
 
 pub type ParsedLayer01<'a> = Layer01<'a, Parsed>;
 
