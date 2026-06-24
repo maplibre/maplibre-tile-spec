@@ -12,8 +12,8 @@ jobs:
   test-js:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
-      - uses: taiki-e/install-action@v2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: taiki-e/install-action@9e1e5806d4a4822de933115878265be9aaa786d9 # v2.82.2
         with: { tool: 'just,cargo-binstall' }
       - uses: ./.github/actions/mlt-setup-node
       - name: Lint JS code. If fails, run `just ts::fmt` to reformat, and `just ts::lint` to see issues locally
@@ -22,7 +22,7 @@ jobs:
       - run: just -v ts::build
       - name: Codecov upload
         if: "github.repository_owner == 'maplibre' && !cancelled()"
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           files: ts/coverage/coverage-final.json
       - run: just -v assert-git-is-clean

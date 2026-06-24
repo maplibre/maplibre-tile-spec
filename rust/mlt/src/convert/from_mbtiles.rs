@@ -2,39 +2,40 @@ use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use anyhow::{Result as AnyResult, anyhow, bail};
-use bytes::Bytes;
 use futures::StreamExt;
-use indicatif::{ProgressBar, ProgressStyle};
 use martin_tile_utils::{Encoding, Format};
 use mbtiles::{MbtType, Mbtiles, MbtilesTranscoder, Metadata};
 use mlt_core::encoder::EncoderConfig;
-use moka::sync::Cache;
 use pmtiles::{PmTilesWriter, TileCoord, TileType};
 use size_format::SizeFormatterSI;
-use xxhash_rust::xxh3::xxh3_64;
+use usize_cast::FromUsize as _;
 
-use super::{MbtFormat, encode_one};
-use crate::convert::{ContainerFormat, whole_rate_per_sec};
+use super::common::{
+    ENCODE_CACHE_BYTES, EncodedTile, MAX_TILE_CACHE_TRACK_SIZE_BYTES, TileStats, encode_tile,
+    make_encode_cache, make_progress_bar,
+};
+use super::{ContainerFormat, MbtFormat, encode_one};
 
-/// Cap on the encoding cache (which encoded `Bytes` to keep around).
-const ENCODE_CACHE_BYTES: u64 = 512 * 1024 * 1024;
-/// Cap on the tile cache track size (in bytes).
-const MAX_TILE_CACHE_TRACK_SIZE_BYTES: usize = 1024;
-const PROGRESS_BAR_TEMPLATE: &str = "  {bar:40.cyan/blue} {pos}/{len} tiles [{rate}, eta {eta}]";
-
-fn make_progress_bar(total: u64) -> ProgressBar {
-    let bar = ProgressBar::new(total);
-    bar.set_style(
-        ProgressStyle::default_bar()
-            .template(PROGRESS_BAR_TEMPLATE)
-            .expect("invalid bar template")
-            .with_key("rate", whole_rate_per_sec),
-    );
-    bar.enable_steady_tick(Duration::from_millis(200));
-    bar
+/// Re-encode an `.mbtiles` input (MVT) into the requested container.
+pub async fn convert(
+    input: &Path,
+    output: (&Path, ContainerFormat),
+    cfg: EncoderConfig,
+    mbtiles_format: Option<MbtFormat>,
+) -> AnyResult<()> {
+    match output {
+        (output, ContainerFormat::Mbtiles) => {
+            convert_mbtiles_to_mbtiles(input, output, mbtiles_format, cfg).await
+        }
+        (output, ContainerFormat::Pmtiles) => convert_mbtiles_to_pmtiles(input, output, cfg).await,
+        (output, ContainerFormat::Files) => bail!(
+            "Output must be either an .mbtiles or a .pmtiles file when input is an .mbtiles file, got: {}",
+            output.display()
+        ),
+    }
 }
 
 #[derive(Default)]
@@ -74,25 +75,6 @@ async fn get_metadata(input: &Path) -> AnyResult<(Encoding, MbtType, Metadata, u
     Ok((tile_info.encoding, src_type, meta, total))
 }
 
-pub async fn convert_tiles(
-    input: (&Path, ContainerFormat),
-    output: (&Path, ContainerFormat),
-    cfg: EncoderConfig,
-    mbtiles_format: Option<MbtFormat>,
-) -> AnyResult<()> {
-    match (input, output) {
-        ((input, ContainerFormat::Mbtiles), (output, ContainerFormat::Mbtiles)) => {
-            convert_mbtiles_to_mbtiles(input, output, mbtiles_format, cfg).await?;
-        }
-        ((input, ContainerFormat::Mbtiles), (output, ContainerFormat::Pmtiles)) => {
-            convert_mbtiles_to_pmtiles(input, output, cfg).await?;
-        }
-        ((_, from), (_, to)) => bail!("Converting from {from:?} to {to:?} not supported yet"),
-    }
-
-    Ok(())
-}
-
 async fn convert_mbtiles_to_mbtiles(
     input: &Path,
     output: &Path,
@@ -114,13 +96,13 @@ async fn convert_mbtiles_to_mbtiles(
     let mut transcoder = MbtilesTranscoder::new(input, output, move |data| {
         sizes_ref
             .bytes_in
-            .fetch_add(data.len() as u64, Ordering::Relaxed);
+            .fetch_add(u64::from_usize(data.len()), Ordering::Relaxed);
         let result = encode_one(data, encoding, cfg)
             .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { e.to_string().into() });
         if let Ok(ref encoded) = result {
             sizes_ref
                 .bytes_out
-                .fetch_add(encoded.len() as u64, Ordering::Relaxed);
+                .fetch_add(u64::from_usize(encoded.len()), Ordering::Relaxed);
         }
         bar_ref.inc(1);
         result
@@ -184,10 +166,7 @@ async fn convert_mbtiles_to_pmtiles(
 
     let parallelism = thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
 
-    let cache: Cache<u64, Bytes> = Cache::builder()
-        .max_capacity(ENCODE_CACHE_BYTES)
-        .weigher(|_, v: &Bytes| u32::try_from(v.len()).unwrap_or(u32::MAX))
-        .build();
+    let cache = make_encode_cache();
 
     let mbt = Mbtiles::new(input)?;
     let mut conn = mbt.open_readonly().await?;
@@ -207,53 +186,36 @@ async fn convert_mbtiles_to_pmtiles(
         })
         .map(|(coord, data)| {
             let cache = cache.clone();
-            tokio::task::spawn_blocking(move || -> AnyResult<(TileCoord, Bytes, u64, bool)> {
+            tokio::task::spawn_blocking(move || -> AnyResult<EncodedTile> {
                 let bytes_in = data.len() as u64;
-                let mut hit = true;
-                let key = xxh3_64(&data);
-                let encoded = cache
-                    .try_get_with(key, || -> AnyResult<Bytes> {
-                        hit = false;
-                        encode_one(data, encoding, cfg)
-                    })
-                    .map_err(|e| anyhow!("{e}"))?;
-                Ok((coord, encoded, bytes_in, hit))
+                let (data, hit) = encode_tile(&cache, &data, encoding, cfg)?;
+                Ok(EncodedTile {
+                    coord,
+                    data,
+                    bytes_in,
+                    hit,
+                })
             })
         })
         .buffer_unordered((parallelism - 1).max(1));
     tokio::pin!(encoded);
 
-    let mut written: u64 = 0;
-    let mut cache_hits: u64 = 0;
-    let mut cache_encoded: u64 = 0;
-    let mut bytes_in: u64 = 0;
-    let mut bytes_out: u64 = 0;
+    let mut stats = TileStats::default();
     while let Some(joined) = encoded.next().await {
-        let (coord, data, in_size, hit) = joined??;
-        if hit {
-            cache_hits += 1;
-        } else {
-            cache_encoded += 1;
-            bytes_in += in_size;
-            bytes_out += data.len() as u64;
-        }
+        let EncodedTile {
+            coord,
+            data,
+            bytes_in,
+            hit,
+        } = joined??;
         stream_writer.add_tile(coord, &data)?;
-        written += 1;
+        stats.record(data.len() as u64, bytes_in, hit);
         bar.inc(1);
     }
 
     stream_writer.finalize()?;
     bar.finish_and_clear();
-
-    eprintln!(
-        "  converted {} tiles ({} unique encoded, {} cache hits, {:.1}B -> {:.1}B) in {:.1?}",
-        written,
-        cache_encoded,
-        cache_hits,
-        SizeFormatterSI::new(bytes_in),
-        SizeFormatterSI::new(bytes_out),
-        start.elapsed(),
-    );
+    stats.print_summary(start);
 
     Ok(())
 }

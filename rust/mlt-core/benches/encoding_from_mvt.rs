@@ -4,6 +4,7 @@ use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, 
 use mlt_core::encoder::EncoderConfig;
 use mlt_core::mvt::mvt_to_tile_layers;
 use mlt_core::{MltResult, TileLayer};
+use usize_cast::FromUsize as _;
 
 #[path = "bench_utils.rs"]
 mod bench_utils;
@@ -32,10 +33,7 @@ fn parse_mvt_to_tile_layers(mvt_files: &[(String, Vec<u8>)]) -> Vec<TileLayer> {
 
 fn bench_encode_from_mvt(c: &mut Criterion) {
     let mut group = c.benchmark_group("mlt encode from mvt");
-    let cfg = EncoderConfig {
-        tessellate: true,
-        ..Default::default()
-    };
+    let cfg = EncoderConfig::default().with_tessellation(true);
 
     for zoom in BENCHMARKED_ZOOM_LEVELS {
         let mvt_files = load_mvt_tiles(zoom);
@@ -44,7 +42,7 @@ fn bench_encode_from_mvt(c: &mut Criterion) {
         // Parse all MVT files into TileLayer once, outside every benchmark iteration.
         let tile_layers: Vec<TileLayer> = parse_mvt_to_tile_layers(&mvt_files);
 
-        group.throughput(Throughput::Bytes(total_bytes as u64));
+        group.throughput(Throughput::Bytes(u64::from_usize(total_bytes)));
 
         group.bench_with_input(BenchmarkId::new("zoom", zoom), &tile_layers, |b, layers| {
             b.iter_batched(

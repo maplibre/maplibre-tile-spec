@@ -5,6 +5,7 @@ use ratatui::layout::{Alignment, Constraint, Rect};
 use ratatui::prelude::{Line, Span, Style};
 use ratatui::widgets::{Cell, HighlightSpacing, Paragraph, Row, Table, Wrap};
 use size_format::SizeFormatterSI;
+use usize_cast::{FromUsize as _, IntoUsize as _};
 
 use crate::ls::{LsRow, NA, na, path_display, row_cells_6};
 use crate::ui::rendering::map;
@@ -40,7 +41,7 @@ pub fn render_tile_preview_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
 
 pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     app.file_table_area = Some(area);
-    app.file_table_inner_height = area.height.saturating_sub(3) as usize;
+    app.file_table_inner_height = area.height.saturating_sub(3).into_usize();
 
     let base = app.file_browser_base.as_deref();
     let file_w = app
@@ -172,7 +173,7 @@ pub fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     }
 
     let inner = area.height.saturating_sub(2);
-    let max = u16::try_from(lines.len().saturating_sub(inner as usize)).unwrap_or(0);
+    let max = u16::try_from(lines.len().saturating_sub(inner.into_usize())).unwrap_or(0);
     app.filter_scroll = app.filter_scroll.min(max);
     let para = Paragraph::new(lines)
         .block(block_with_title("Filter (click to toggle)"))
@@ -187,7 +188,7 @@ pub fn render_file_info_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     });
 
     let lines: Vec<Line<'static>> = if let Some(info) = info {
-        let sz = |n: usize| format!("{:.1}B", SizeFormatterSI::new(n as u64));
+        let sz = |n: usize| format!("{:.1}B", SizeFormatterSI::new(u64::from_usize(n)));
         let row = |name: &str, val: String, desc: &str| -> Line<'static> {
             let mut spans = vec![
                 Span::styled(format!("{name}: "), STYLE_LABEL),
@@ -250,7 +251,7 @@ pub fn render_file_info_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         vec![Line::from("Select a file to view details")]
     };
 
-    let inner = area.height.saturating_sub(2) as usize;
+    let inner = area.height.saturating_sub(2).into_usize();
     let max = u16::try_from(lines.len().saturating_sub(inner)).unwrap_or(0);
     app.file_info_scroll = app.file_info_scroll.min(max);
 

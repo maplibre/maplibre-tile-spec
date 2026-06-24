@@ -45,7 +45,7 @@ mod tests {
     use super::*;
     use crate::decoder::RawStream;
     use crate::encoder::model::StreamCtx;
-    use crate::encoder::{Codecs, Encoder, ExplicitEncoder, IntEncoder};
+    use crate::encoder::{Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder};
     use crate::test_helpers::{assert_empty, dec, parser};
 
     proptest! {
@@ -55,13 +55,13 @@ mod tests {
             logical in any::<LogicalEncoder>(),
         ) {
             let mut enc = Encoder::with_explicit(
-                Encoder::default().cfg,
+                EncoderConfig::default(),
                 ExplicitEncoder::all(IntEncoder::varint_with(logical)),
             );
             let mut codecs = Codecs::default();
             let ctx = StreamCtx::prop_data("test");
             codecs.write_int_stream(&values, &ctx, &mut enc).unwrap();
-            let parsed = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
+            let parsed = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
             let decoded = parsed.decode_u32s(&mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
         }
@@ -72,13 +72,13 @@ mod tests {
             logical in any::<LogicalEncoder>(),
         ) {
             let mut enc = Encoder::with_explicit(
-                Encoder::default().cfg,
+                EncoderConfig::default(),
                 ExplicitEncoder::all(IntEncoder::varint_with(logical)),
             );
             let mut codecs = Codecs::default();
             let ctx = StreamCtx::prop_data("test");
             codecs.write_int_stream(&values, &ctx, &mut enc).unwrap();
-            let parsed = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
+            let parsed = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
             let decoded = parsed.decode_i32s(&mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
         }
@@ -89,13 +89,13 @@ mod tests {
             logical in any::<LogicalEncoder>(),
         ) {
             let mut enc = Encoder::with_explicit(
-                Encoder::default().cfg,
+                EncoderConfig::default(),
                 ExplicitEncoder::all(IntEncoder::varint_with(logical)),
             );
             let mut codecs = Codecs::default();
             let ctx = StreamCtx::prop_data("test");
             codecs.write_int_stream(&values, &ctx, &mut enc).unwrap();
-            let parsed = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
+            let parsed = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
             let decoded = parsed.decode_u64s(&mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
         }
@@ -106,13 +106,13 @@ mod tests {
             logical in any::<LogicalEncoder>(),
         ) {
             let mut enc = Encoder::with_explicit(
-                Encoder::default().cfg,
+                EncoderConfig::default(),
                 ExplicitEncoder::all(IntEncoder::varint_with(logical)),
             );
             let mut codecs = Codecs::default();
             let ctx = StreamCtx::prop_data("test");
             codecs.write_int_stream(&values, &ctx, &mut enc).unwrap();
-            let parsed = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
+            let parsed = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
             let decoded = parsed.decode_i64s(&mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
         }

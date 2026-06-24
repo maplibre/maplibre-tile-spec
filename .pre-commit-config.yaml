@@ -37,7 +37,7 @@ repos:
       - id: trailing-whitespace
 
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v22.1.4
+    rev: v22.1.5
     hooks:
       - id: clang-format
         types: [ c++ ]
@@ -65,7 +65,7 @@ repos:
       - id: buildifier
 
   - repo: https://github.com/biomejs/pre-commit
-    rev: v2.4.14
+    rev: v2.4.16
     hooks:
       - id: biome-check
         args: [--unsafe]

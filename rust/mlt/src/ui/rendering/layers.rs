@@ -6,6 +6,7 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Line, Modifier, Span, Style};
 use ratatui::widgets::{Paragraph, Wrap};
+use usize_cast::IntoUsize as _;
 
 use crate::ui::mbt::MbtTileData;
 use crate::ui::state::{App, TreeItem, ViewMode};
@@ -103,7 +104,7 @@ pub fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         }
         ViewMode::FileBrowser | ViewMode::MbtilesMap => "Features".into(),
     };
-    let inner = area.height.saturating_sub(2) as usize;
+    let inner = area.height.saturating_sub(2).into_usize();
     app.tree_inner_height = inner;
     let max = u16::try_from(app.tree_items.len().saturating_sub(inner)).unwrap_or(0);
     app.tree_scroll = app.tree_scroll.min(max);
@@ -187,7 +188,7 @@ fn render_properties_top(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         }
     };
     let inner = area.height.saturating_sub(2);
-    let max = u16::try_from(lines.len().saturating_sub(inner as usize)).unwrap_or(0);
+    let max = u16::try_from(lines.len().saturating_sub(inner.into_usize())).unwrap_or(0);
     app.properties_scroll = app.properties_scroll.min(max);
     let para = Paragraph::new(lines)
         .block(block_with_title(title))
@@ -295,7 +296,7 @@ fn subpart_stats_lines(geom: &Geometry<i32>, part: usize) -> Vec<Line<'static>> 
 /// Renders the left panel for `MbtilesMap` mode: shows hovered feature properties only.
 pub fn render_mbtiles_hover_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     let (title, lines) = mbt_hover_title_and_lines(app);
-    let inner = area.height.saturating_sub(2) as usize;
+    let inner = area.height.saturating_sub(2).into_usize();
     let max = u16::try_from(lines.len().saturating_sub(inner)).unwrap_or(0);
     app.properties_scroll = app.properties_scroll.min(max);
     let para = Paragraph::new(lines)

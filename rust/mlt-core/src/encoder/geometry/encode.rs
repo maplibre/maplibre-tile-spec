@@ -4,6 +4,7 @@ use std::mem;
 use geo_types::Coord;
 use probabilistic_collections::SipHasherBuilder;
 use probabilistic_collections::hyperloglog::HyperLogLog;
+use usize_cast::{FromUsize as _, IntoUsize as _};
 
 use super::model::VertexBufferType;
 use crate::MltResult;
@@ -16,7 +17,6 @@ use crate::decoder::{
 };
 use crate::encoder::model::{CurveParams, StreamCtx};
 use crate::encoder::{Codecs, Encoder, PhysicalCodecs, write_stream_payload};
-use crate::utils::AsUsize as _;
 
 /// Compute `ZOrderCurve` parameters from the vertex value range.
 ///
@@ -88,7 +88,7 @@ fn build_hilbert_dict(
         offsets.push(k);
         // Key in the high 32 bits so a single u64 sort orders by Hilbert
         // index while preserving the original position for tie-breaking.
-        let packed = (u64::from(k) << 32) | (i as u64);
+        let packed = (u64::from(k) << 32) | u64::from_usize(i);
         indexed.push(packed);
     }
     indexed.sort_unstable();
@@ -96,7 +96,7 @@ fn build_hilbert_dict(
     let mut last_key: Option<u32> = None;
     for &packed in &*indexed {
         let key = (packed >> 32) as u32;
-        let src_idx = (packed & 0xFFFF_FFFF) as usize;
+        let src_idx = ((packed & 0xFFFF_FFFF) as u32).into_usize();
         if last_key != Some(key) {
             #[expect(
                 clippy::cast_possible_truncation,
@@ -170,7 +170,7 @@ fn encode_level1_length_stream(
 
     for (i, &geom_type) in geom_types.iter().enumerate() {
         if geom_type.is_polygon() || (is_line_string_present && geom_type.is_linestring()) {
-            let n = (geom_offsets[i + 1] - geom_offsets[i]).as_usize();
+            let n = (geom_offsets[i + 1] - geom_offsets[i]).into_usize();
             part_idx += extend_offsets(&mut lengths, &part_offsets[part_idx..=part_idx + n]);
         }
         // Note: Point/MultiPoint don't have entries in the sparse part_offsets used
@@ -196,8 +196,8 @@ fn encode_ring_lengths_for_mixed(
     let mut lengths = Vec::new();
     for (i, &geom_type) in geom_types.iter().enumerate() {
         if geom_type.is_polygon() || (has_line_string && geom_type.is_linestring()) {
-            let s = part_offsets[i].as_usize();
-            let e = part_offsets[i + 1].as_usize();
+            let s = part_offsets[i].into_usize();
+            let e = part_offsets[i + 1].into_usize();
             extend_offsets(&mut lengths, &ring_offsets[s..=e]);
         }
     }
@@ -220,7 +220,7 @@ fn encode_level2_length_stream(
     let mut ring_idx = 0;
 
     for (i, &geom_type) in geom_types.iter().enumerate() {
-        let count = (geom_offsets[i + 1] - geom_offsets[i]).as_usize();
+        let count = (geom_offsets[i + 1] - geom_offsets[i]).into_usize();
 
         // Only Polygon and MultiPolygon have ring data in level 2
         // LineStrings with Polygon present add their vertex counts directly to ring_offsets,
@@ -228,7 +228,7 @@ fn encode_level2_length_stream(
         if geom_type.is_polygon() {
             // Polygon/MultiPolygon: iterate through sub-polygons, each has parts (ring counts)
             for _ in 0..count {
-                let n = (part_offsets[part_idx + 1] - part_offsets[part_idx]).as_usize();
+                let n = (part_offsets[part_idx + 1] - part_offsets[part_idx]).into_usize();
                 ring_idx += extend_offsets(&mut lengths, &ring_offsets[ring_idx..=ring_idx + n]);
                 part_idx += 1;
             }
@@ -258,7 +258,7 @@ fn encode_level1_without_ring_buffer_length_stream(
 
     for (i, &geom_type) in geom_types.iter().enumerate() {
         if geom_type.is_linestring() {
-            let n = (geom_offsets[i + 1] - geom_offsets[i]).as_usize();
+            let n = (geom_offsets[i + 1] - geom_offsets[i]).into_usize();
             part_idx += extend_offsets(&mut lengths, &part_offsets[part_idx..=part_idx + n]);
         }
         // Point/MultiPoint don't contribute to part_offsets; part_idx must not advance.
@@ -333,7 +333,7 @@ fn normalize_part_offsets_for_rings(
 
     // ring_idx must equal ring_offsets.len() - 1 for well-formed data.
     debug_assert_eq!(
-        ring_idx as usize,
+        ring_idx.into_usize(),
         ring_offsets.len().saturating_sub(1),
         "ring index mismatch after normalization"
     );
@@ -503,18 +503,22 @@ fn write_geo_precomputed_stream(
             physical.write_encoded_as::<[u32]>(&ctx, enc, logical, data, int_enc.physical)?;
         } else if data.is_empty() {
             let meta = StreamMeta::new2(ctx.stream_type, logical, PE::None, 0)?;
-            write_stream_payload(&mut enc.data, meta, false, &[])?;
+            write_stream_payload(enc.data_mut(), meta, false, &[])?;
         } else {
+            let allow_fastpfor = enc.config().allow_fastpfor();
             let mut alt = enc.try_alternatives();
-            alt.with(|enc| {
-                let vals = physical.fastpfor(data)?;
-                let meta = StreamMeta::new2(ctx.stream_type, logical, PE::FastPFor256, data.len())?;
-                write_stream_payload(&mut enc.data, meta, false, vals)
-            })?;
+            if allow_fastpfor {
+                alt.with(|enc| {
+                    let vals = physical.fastpfor(data)?;
+                    let meta =
+                        StreamMeta::new2(ctx.stream_type, logical, PE::FastPFor256, data.len())?;
+                    write_stream_payload(enc.data_mut(), meta, false, vals)
+                })?;
+            }
             alt.with(|enc| {
                 let vals = physical.varint(data);
                 let meta = StreamMeta::new2(ctx.stream_type, logical, PE::VarInt, data.len())?;
-                write_stream_payload(&mut enc.data, meta, false, vals)
+                write_stream_payload(enc.data_mut(), meta, false, vals)
             })?;
         }
         1
@@ -573,8 +577,8 @@ impl GeometryValues {
         // Write column type to meta; reserve exactly 1 byte for stream count
         // (geometry never exceeds ~8 streams, always fits in a single varint byte).
         enc.write_column_type(ColumnType::Geometry)?;
-        let stream_count_pos = enc.data.len();
-        enc.data.push(0); // placeholder — patched below
+        let stream_count_pos = enc.data().len();
+        enc.data_mut().push(0); // placeholder — patched below
         let mut n: u8 = 0;
 
         // Meta stream — always written, even for a zero-feature layer.
@@ -681,17 +685,17 @@ impl GeometryValues {
             let mut winner_stream_cnt: u8 = 0;
             let mut alt = enc.try_alternatives();
             alt.with(|e| {
-                let ds = e.data.len();
-                let ms = e.meta.len();
+                let ds = e.data().len();
+                let ms = e.meta().len();
                 winner_stream_cnt = encode_vec2_vertex_stream(&vertices, e, codecs)?;
-                winner_size = (e.data.len() - ds) + (e.meta.len() - ms);
+                winner_size = (e.data().len() - ds) + (e.meta().len() - ms);
                 Ok(())
             })?;
             alt.with(|e| {
-                let ds = e.data.len();
-                let ms = e.meta.len();
+                let ds = e.data().len();
+                let ms = e.meta().len();
                 let cnt = encode_hilbert_vertex_streams(&vertices, e, codecs)?;
-                let size = (e.data.len() - ds) + (e.meta.len() - ms);
+                let size = (e.data().len() - ds) + (e.meta().len() - ms);
                 if size < winner_size {
                     winner_stream_cnt = cnt;
                     winner_size = size;
@@ -699,10 +703,10 @@ impl GeometryValues {
                 Ok(())
             })?;
             alt.with(|e| {
-                let ds = e.data.len();
-                let ms = e.meta.len();
+                let ds = e.data().len();
+                let ms = e.meta().len();
                 let cnt = encode_morton_vertex_streams(&vertices, e, codecs)?;
-                let size = (e.data.len() - ds) + (e.meta.len() - ms);
+                let size = (e.data().len() - ds) + (e.meta().len() - ms);
                 if size < winner_size {
                     winner_stream_cnt = cnt;
                 }
@@ -716,7 +720,7 @@ impl GeometryValues {
 
         // Patch the reserved stream-count byte.
         debug_assert!(n <= 127, "geometry stream count must fit in one byte");
-        enc.data[stream_count_pos] = n;
+        enc.data_mut()[stream_count_pos] = n;
         Ok(())
     }
 }
@@ -747,7 +751,7 @@ mod tests {
         );
         assert_eq!(offsets.len(), 4, "offsets length == number of vertex pairs");
         assert_eq!(offsets[0], offsets[2], "duplicate (1,2) should share index");
-        assert!(offsets.iter().all(|&o| (o as usize) < dict.len()));
+        assert!(offsets.iter().all(|&o| o.into_usize() < dict.len()));
     }
 
     #[test]

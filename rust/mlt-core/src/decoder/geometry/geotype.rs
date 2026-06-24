@@ -3,6 +3,7 @@ use std::ops::Range;
 use geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };
+use usize_cast::IntoUsize as _;
 
 use crate::MltError::{
     GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds, NoGeometryOffsets,
@@ -10,7 +11,6 @@ use crate::MltError::{
 };
 use crate::MltResult;
 use crate::decoder::{GeometryType, GeometryValues};
-use crate::utils::AsUsize as _;
 
 impl GeometryType {
     #[must_use]
@@ -31,6 +31,11 @@ impl GeometryType {
 }
 
 impl GeometryValues {
+    #[must_use]
+    pub fn feature_count(&self) -> usize {
+        self.vector_types.len()
+    }
+
     /// Geometry types for each feature, in insertion order.
     #[must_use]
     pub fn vector_types(&self) -> &[GeometryType] {
@@ -90,7 +95,7 @@ impl GeometryValues {
 
         let off = |s: &[u32], idx: usize, field: &'static str| -> MltResult<usize> {
             s.get(idx)
-                .map(|&v| v.as_usize())
+                .map(|&v| v.into_usize())
                 .ok_or(GeometryOutOfBounds {
                     index,
                     field,

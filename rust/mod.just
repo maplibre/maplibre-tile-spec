@@ -325,6 +325,17 @@ py: (just 'cargo-install' 'maturin')
     maturin develop
     python3 -i -c "import maplibre_tiles; print('maplibre_tiles ready — try: maplibre_tiles.decode_mlt(data)')"
 
+# Build mlt-py and run its Python test suite (pytest)
+[working-directory: 'mlt-py']
+py-test: (just 'cargo-install' 'maturin')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ ! -d ".venv" ]]; then python3 -m venv .venv; fi
+    source .venv/bin/activate
+    python -m pip install --quiet --upgrade pip pytest hypothesis mapbox_vector_tile
+    maturin develop
+    python -m pytest tests/ -q
+
 py-publish:
     docker run --rm -v $(pwd):/io ghcr.io/pyo3/maturin build --release
 

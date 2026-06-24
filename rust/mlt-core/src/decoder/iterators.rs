@@ -19,6 +19,7 @@
 use std::fmt;
 
 use geo_types::Geometry;
+use usize_cast::IntoUsize as _;
 
 use crate::decoder::{Layer01, ParsedLayer01, ParsedProperty, ParsedScalar, RawProperty};
 use crate::{Lazy, LazyParsed, MltResult, Parsed};
@@ -204,8 +205,20 @@ impl_from_for_prop_value_ref!(
 /// All borrows are zero-copy from the layer data.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ColumnRef<'a> {
-    pub name: PropName<'a>,
-    pub value: PropValueRef<'a>,
+    name: PropName<'a>,
+    value: PropValueRef<'a>,
+}
+
+impl<'a> ColumnRef<'a> {
+    #[must_use]
+    pub fn name(&self) -> PropName<'a> {
+        self.name
+    }
+
+    #[must_use]
+    pub fn value(&self) -> PropValueRef<'a> {
+        self.value
+    }
 }
 
 /// A single map feature returned by [`ParsedLayer01::iter_features`].
@@ -215,9 +228,9 @@ pub struct ColumnRef<'a> {
 #[derive(Debug)]
 pub struct FeatureRef<'feat, 'layer: 'feat> {
     /// Optional feature ID.
-    pub id: Option<u64>,
+    id: Option<u64>,
     /// Geometry in [`Geometry<i32>`] form (owned, decoded on demand by the iterator).
-    pub geometry: Geometry<i32>,
+    geometry: Geometry<i32>,
     /// Borrowed slice of column descriptors from the layer; used to yield column names.
     columns: &'layer [ParsedProperty<'layer>],
     /// Per-feature values in column order, one per slot (scalar, string, or `SharedDict`
@@ -226,6 +239,16 @@ pub struct FeatureRef<'feat, 'layer: 'feat> {
 }
 
 impl<'feat, 'layer: 'feat> FeatureRef<'feat, 'layer> {
+    #[must_use]
+    pub fn id(&self) -> Option<u64> {
+        self.id
+    }
+
+    #[must_use]
+    pub fn geometry(&self) -> &Geometry<i32> {
+        &self.geometry
+    }
+
     /// Iterate over every property slot for this feature, **values only**, in column order.
     ///
     /// Yields `Option<PropValueRef>`:
@@ -254,8 +277,8 @@ impl<'feat, 'layer: 'feat> FeatureRef<'feat, 'layer> {
     #[must_use]
     pub fn get_property(&self, name: &str) -> Option<PropValueRef<'layer>> {
         self.iter_properties()
-            .find(|col| col.name == name)
-            .map(|col| col.value)
+            .find(|col| col.name() == name)
+            .map(|col| col.value())
     }
 }
 
@@ -379,15 +402,15 @@ fn build_col_iters<'p>(columns: &'p [ParsedProperty<'p>]) -> Vec<ColValIter<'p>>
             PP::Str(strings) => {
                 let data: &'p str = strings.data.as_ref();
                 let lengths: &'p [i32] = &strings.lengths;
-                let mut curr_end: u32 = 0;
+                let mut curr_end: usize = 0;
                 let mut feat_idx = 0usize;
                 iters.push(Box::new(std::iter::from_fn(move || {
                     let &end_i32 = lengths.get(feat_idx)?;
                     feat_idx += 1;
                     if end_i32 >= 0 {
-                        let start = curr_end as usize;
-                        curr_end = end_i32.cast_unsigned();
-                        Some(data.get(start..curr_end as usize).map(PropValueRef::Str))
+                        let start = curr_end;
+                        curr_end = end_i32.cast_unsigned().into_usize();
+                        Some(data.get(start..curr_end).map(PropValueRef::Str))
                     } else {
                         // Null slot: curr_end unchanged (null encodes the current byte offset).
                         Some(None)
@@ -534,13 +557,16 @@ mod tests {
     }
 
     fn empty_layer(name: &str) -> StagedLayer {
-        StagedLayer {
-            name: name.to_string(),
-            extent: 4096,
-            id: StagedId::None,
-            geometry: GeometryValues::default(),
-            properties: vec![],
-        }
+        staged_layer(name, StagedId::None, GeometryValues::default(), vec![])
+    }
+
+    fn staged_layer(
+        name: &str,
+        id: StagedId,
+        geometry: GeometryValues,
+        properties: Vec<StagedProperty>,
+    ) -> StagedLayer {
+        StagedLayer::new(name, 4096, id, geometry, properties).unwrap()
     }
 
     #[test]
@@ -651,13 +677,7 @@ mod tests {
 
     #[test]
     fn len_decreases_with_each_next() {
-        let buf = layer_buf(StagedLayer {
-            name: "test".into(),
-            extent: 4096,
-            id: StagedId::None,
-            geometry: three_points(),
-            properties: vec![],
-        });
+        let buf = layer_buf(staged_layer("test", StagedId::None, three_points(), vec![]));
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
         let Layer::Tag01(lazy) = layer else { panic!() };
         let parsed = lazy.decode_all(&mut dec()).unwrap();
@@ -676,13 +696,12 @@ mod tests {
 
     #[test]
     fn feature_ids_are_preserved() {
-        let buf = layer_buf(StagedLayer {
-            name: "test".into(),
-            extent: 4096,
-            id: StagedId::from_optional(vec![Some(100), None, Some(200)]),
-            geometry: three_points(),
-            properties: vec![],
-        });
+        let buf = layer_buf(staged_layer(
+            "test",
+            StagedId::from_optional(vec![Some(100), None, Some(200)]),
+            three_points(),
+            vec![],
+        ));
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
         let Layer::Tag01(lazy) = layer else { panic!() };
         let parsed = lazy.decode_all(&mut dec()).unwrap();
@@ -697,13 +716,7 @@ mod tests {
 
     #[test]
     fn geometry_values_match_input() {
-        let buf = layer_buf(StagedLayer {
-            name: "test".into(),
-            extent: 4096,
-            id: StagedId::None,
-            geometry: three_points(),
-            properties: vec![],
-        });
+        let buf = layer_buf(staged_layer("test", StagedId::None, three_points(), vec![]));
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
         let Layer::Tag01(lazy) = layer else { panic!() };
         let parsed = lazy.decode_all(&mut dec()).unwrap();
@@ -720,13 +733,12 @@ mod tests {
 
     #[test]
     fn null_scalar_values_are_skipped() {
-        let buf = layer_buf(StagedLayer {
-            name: "test".into(),
-            extent: 4096,
-            id: StagedId::None,
-            geometry: three_points(),
-            properties: vec![StagedProperty::opt_u32("n", vec![Some(1), None, Some(3)])],
-        });
+        let buf = layer_buf(staged_layer(
+            "test",
+            StagedId::None,
+            three_points(),
+            vec![StagedProperty::opt_u32("n", vec![Some(1), None, Some(3)])],
+        ));
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
         let Layer::Tag01(lazy) = layer else { panic!() };
         let parsed = lazy.decode_all(&mut dec()).unwrap();
@@ -762,16 +774,15 @@ mod tests {
 
     #[test]
     fn null_string_values_are_skipped() {
-        let buf = layer_buf(StagedLayer {
-            name: "test".into(),
-            extent: 4096,
-            id: StagedId::None,
-            geometry: three_points(),
-            properties: vec![StagedProperty::opt_str(
+        let buf = layer_buf(staged_layer(
+            "test",
+            StagedId::None,
+            three_points(),
+            vec![StagedProperty::opt_str(
                 "label",
                 vec![Some("foo"), None, Some("bar")],
             )],
-        });
+        ));
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
         let Layer::Tag01(lazy) = layer else { panic!() };
         let parsed = lazy.decode_all(&mut dec()).unwrap();
@@ -793,16 +804,15 @@ mod tests {
 
     #[test]
     fn multiple_columns_independently_nullable() {
-        let buf = layer_buf(StagedLayer {
-            name: "test".into(),
-            extent: 4096,
-            id: StagedId::None,
-            geometry: three_points(),
-            properties: vec![
+        let buf = layer_buf(staged_layer(
+            "test",
+            StagedId::None,
+            three_points(),
+            vec![
                 StagedProperty::opt_bool("flag", vec![Some(true), Some(false), None]),
                 StagedProperty::opt_i32("score", vec![None, Some(-5), Some(7)]),
             ],
-        });
+        ));
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
         let Layer::Tag01(lazy) = layer else { panic!() };
         let parsed = lazy.decode_all(&mut dec()).unwrap();
@@ -836,13 +846,12 @@ mod tests {
     fn geometry_error_does_not_misalign_ids() {
         use crate::decoder::GeometryType;
 
-        let buf = layer_buf(StagedLayer {
-            name: "test".into(),
-            extent: 4096,
-            id: StagedId::from_optional(vec![Some(10), Some(20), Some(30)]),
-            geometry: three_points(),
-            properties: vec![],
-        });
+        let buf = layer_buf(staged_layer(
+            "test",
+            StagedId::from_optional(vec![Some(10), Some(20), Some(30)]),
+            three_points(),
+            vec![],
+        ));
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
         let Layer::Tag01(lazy) = layer else { panic!() };
         let mut parsed = lazy.decode_all(&mut dec()).unwrap();
@@ -874,13 +883,12 @@ mod tests {
 
     #[test]
     fn get_property_absent_column_returns_none() {
-        let buf = layer_buf(StagedLayer {
-            name: "test".into(),
-            extent: 4096,
-            id: StagedId::None,
-            geometry: three_points(),
-            properties: vec![StagedProperty::u32("x", vec![1, 2, 3])],
-        });
+        let buf = layer_buf(staged_layer(
+            "test",
+            StagedId::None,
+            three_points(),
+            vec![StagedProperty::u32("x", vec![1, 2, 3])],
+        ));
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
         let Layer::Tag01(lazy) = layer else { panic!() };
         let parsed = lazy.decode_all(&mut dec()).unwrap();
@@ -909,13 +917,12 @@ mod tests {
         )
         .unwrap();
 
-        let buf = layer_buf(StagedLayer {
-            name: "test".into(),
-            extent: 4096,
-            id: StagedId::None,
-            geometry: three_points(),
-            properties: vec![StagedProperty::SharedDict(shared_dict)],
-        });
+        let buf = layer_buf(staged_layer(
+            "test",
+            StagedId::None,
+            three_points(),
+            vec![StagedProperty::SharedDict(shared_dict)],
+        ));
         let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
         let Layer::Tag01(lazy) = layer else { panic!() };
         let parsed = lazy.decode_all(&mut dec()).unwrap();

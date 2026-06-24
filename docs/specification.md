@@ -32,6 +32,31 @@ As in MVT, geometry coordinates are encoded as integers within vector tile grid 
 !!! NOTE
     The terms `column`, `field`, and `property` are used interchangeably in this document.
 
+# MVT Compatibility Notes
+
+MLTv1 is inspired by MVT and can represent the same common vector tile content, but it is not a byte-for-byte or schema-free replacement.
+The main differences come from MVT's per-feature tag/value model versus MLT's per-layer column model:
+
+- **Property types are fixed per FeatureTable.**
+  In MVT, the same key can technically reference values of different data types on different features in a layer.
+  In MLT, one property name corresponds to one column, and that column has one declared type for the whole layer (`FeatureTable`).
+  MVT data with mixed types must therefore be normalized before or during conversion, for example by lossless numeric widening, coercing values to strings, dropping mismatched values, or rejecting the tile.
+- **Missing properties become typed nulls.**
+  MVT normally represents a missing property by omitting the key/value tag from that feature; the MVT value union has no dedicated null type.
+  MLT represents the union of layer properties as columns, so a feature that lacks a property stores a null in that column and the column is marked nullable.
+  When converting MLT back to MVT, null property values should be omitted from the feature tags.
+- **A feature has at most one value per property column.**
+  MVT tag streams can encode the same key more than once for a single feature, even though most MVT APIs expose properties as a map and collapse such duplicates.
+  MLT has one cell per feature per column, so duplicate keys on one feature must be rejected, collapsed deterministically, or renamed before encoding.
+- **Feature order is not necessarily a stable round-trip property.**
+  MVT stores features in wire order.
+  MLT encoders may preserve order, but they may also sort features by id or spatial locality to improve compression when that optimization is enabled.
+  Applications that rely on source feature order should disable feature sorting or carry an explicit ordering property.
+- **Layer names must be non-empty.**
+  The MVT protobuf schema marks the layer `name` field as required, but some Mapbox-authored tooling validates that it is present as well as non-empty.
+  The written MVT specification does not explicitly say that the required name cannot be an empty string.
+  MLT treats that omission as an oversight: an empty layer name is invalid and must be rejected.
+
 # Tile Layout
 
 A `FeatureTable` in the MLT specification uses a tabular, column-oriented layout.
@@ -154,6 +179,7 @@ direction TB
 
     class FeatureTable {
       +String name
+      +VarInt extent
       +VarInt columnCount
       +Column[] columns
     }
@@ -170,6 +196,12 @@ direction TB
     TileMetadata --> FeatureTable : featureTables
     FeatureTable --> Column : columns
 ```
+
+The required `extent` field defines the coordinate space size for the tile's geometry.
+Geometry coordinates in MapLibre Tiles are encoded as signed integers in vector-tile grid coordinates (typically near the `0..=extent` range, but not restricted to it).
+Values MAY be negative or exceed extent for geometry that crosses tile boundaries.
+Encoders MAY default to `4096` when a user does not specify the extent.
+Decoders MUST require it to diferente `extent` and `columnCount`.
 
 Strings are encoded as UTF-8 sequences of characters with a length header:
 

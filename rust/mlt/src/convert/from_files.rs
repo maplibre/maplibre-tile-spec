@@ -10,6 +10,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use moka::sync::Cache;
 use rayon::iter::{ParallelBridge as _, ParallelIterator as _};
 use size_format::SizeFormatterSI;
+use usize_cast::FromUsize as _;
 use walkdir::WalkDir;
 use xxhash_rust::xxh3::xxh3_128;
 
@@ -40,7 +41,8 @@ struct DedupStats {
 impl DedupStats {
     fn record_hit(&self, size: usize) {
         self.hits.fetch_add(1, Ordering::Relaxed);
-        self.bytes_saved.fetch_add(size as u64, Ordering::Relaxed);
+        self.bytes_saved
+            .fetch_add(u64::from_usize(size), Ordering::Relaxed);
     }
     fn record_encode(&self) {
         self.encoded.fetch_add(1, Ordering::Relaxed);
@@ -73,7 +75,7 @@ fn format_dedup_line(stats: &DedupStats, cache: &EncodedCache) -> String {
 fn is_convert_extension(path: &Path) -> bool {
     matches!(
         path.extension().and_then(OsStr::to_str),
-        Some("mlt" | "mvt")
+        Some("mlt" | "mvt" | "pbf")
     )
 }
 
@@ -87,12 +89,7 @@ struct WalkCtx<'a> {
     stats: &'a DedupStats,
 }
 
-pub fn convert_files(
-    input: &Path,
-    output: &Path,
-    cfg: EncoderConfig,
-    to: TileFormat,
-) -> AnyResult<()> {
+pub fn convert(input: &Path, output: &Path, cfg: EncoderConfig, to: TileFormat) -> AnyResult<()> {
     // For a single file, use the parent so `strip_prefix` yields just the filename.
     let base = if input.is_dir() {
         input
@@ -161,7 +158,7 @@ pub fn convert_files(
 
     let processed = stats.hits.load(Ordering::Relaxed) + stats.encoded.load(Ordering::Relaxed);
     if processed == 0 {
-        eprintln!("No .mlt or .mvt files found in {}", input.display());
+        eprintln!("No .mlt, .mvt, or .pbf files found in {}", input.display());
         return Ok(());
     }
     eprintln!("{}", format_dedup_line(&stats, &cache));

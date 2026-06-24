@@ -198,7 +198,7 @@ describe("embeddedTilesetMetadataDecoder", () => {
     describe("decodeEmbeddedTileSetMetadata", () => {
         it("should decode tileset with STRUCT column", () => {
             const buffer = concatenateBuffers(
-                encodeFieldName(""),
+                encodeFieldName("layer"),
                 encodeTypeCode(4096),
                 encodeChildCount(1),
                 encodeTypeCode(STRUCT_TYPE_CODE),
@@ -211,8 +211,21 @@ describe("embeddedTilesetMetadataDecoder", () => {
             const [metadata, extent] = decodeEmbeddedTileSetMetadata(buffer, new IntWrapper(0));
 
             expect(extent).toBe(4096);
-            expect(metadata.featureTables[0].name).toBe("");
+            expect(metadata.featureTables[0].name).toBe("layer");
             expect(metadata.featureTables[0].columns[0].complexType.children).toHaveLength(1);
+        });
+
+        it("should throw error for empty layer name", () => {
+            const buffer = concatenateBuffers(
+                encodeFieldName(""),
+                encodeTypeCode(4096),
+                encodeChildCount(1),
+                encodeTypeCode(4),
+            );
+
+            expect(() => {
+                decodeEmbeddedTileSetMetadata(buffer, new IntWrapper(0));
+            }).toThrow("Missing layer name");
         });
 
         it("should decode logical ID metadata with implicit id column name", () => {

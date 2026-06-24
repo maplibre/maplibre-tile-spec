@@ -1,5 +1,6 @@
+use usize_cast::IntoUsize as _;
+
 use crate::decoder::RawFsstData;
-use crate::utils::AsUsize as _;
 use crate::{Decoder, MltResult};
 
 /// Decode an FSST-compressed byte sequence into the original bytes and value lengths,
@@ -42,8 +43,8 @@ pub fn decode_fsst(raw: RawFsstData<'_>, dec: &mut Decoder) -> MltResult<(String
             i += 1;
             output.push(compressed[i]);
         } else if sym_idx < sym_lens.len() {
-            let len = sym_lens[sym_idx].as_usize();
-            let off = symbol_offsets[sym_idx].as_usize();
+            let len = sym_lens[sym_idx].into_usize();
+            let off = symbol_offsets[sym_idx].into_usize();
             output.extend_from_slice(&symbols[off..off + len]);
         }
         i += 1;
@@ -140,7 +141,9 @@ mod tests {
     use super::*;
     use crate::decoder::{DictionaryType, LengthType, RawFsstData, RawStream, StreamType};
     use crate::encoder::model::StreamCtx;
-    use crate::encoder::{Codecs, EncodedStream, Encoder, ExplicitEncoder, IntEncoder};
+    use crate::encoder::{
+        Codecs, EncodedStream, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder,
+    };
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
 
@@ -151,7 +154,7 @@ mod tests {
 
         let sym_len_bytes = {
             let mut enc = Encoder::with_explicit(
-                Encoder::default().cfg,
+                EncoderConfig::default(),
                 ExplicitEncoder::all(IntEncoder::varint()),
             );
             let mut codecs = Codecs::default();
@@ -159,7 +162,7 @@ mod tests {
             codecs
                 .write_int_stream(&raw.symbol_lengths, &ctx, &mut enc)
                 .unwrap();
-            enc.data
+            enc.data().to_vec()
         };
         let sym_table_stream = EncodedStream {
             meta: StreamMeta::new_none(
@@ -171,7 +174,7 @@ mod tests {
         };
         let lengths_bytes = {
             let mut enc = Encoder::with_explicit(
-                Encoder::default().cfg,
+                EncoderConfig::default(),
                 ExplicitEncoder::all(IntEncoder::varint()),
             );
             let mut codecs = Codecs::default();
@@ -179,7 +182,7 @@ mod tests {
             codecs
                 .write_int_stream(&raw.value_lengths, &ctx, &mut enc)
                 .unwrap();
-            enc.data
+            enc.data().to_vec()
         };
         let corpus_stream = EncodedStream {
             meta: StreamMeta::new_none(StreamType::Data(DictionaryType::Single), values.len())
@@ -219,7 +222,7 @@ mod tests {
         let (corpus, lengths) = roundtrip(values);
         let mut offset = 0;
         for (s, &len) in values.iter().zip(&lengths) {
-            let len = len as usize;
+            let len = len.into_usize();
             assert_eq!(&corpus[offset..offset + len], *s);
             offset += len;
         }

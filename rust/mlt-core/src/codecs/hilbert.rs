@@ -1,7 +1,6 @@
 use geo_types::Coord;
 
 use crate::encoder::model::CurveParams;
-
 /// Return the 1-D Hilbert curve index for `(x, y)` at the given `level`.
 ///
 /// The grid has side `2^level`; both `x` and `y` must be in `[0, 2^level)`,
@@ -81,6 +80,7 @@ pub fn hilbert_curve_params_from_bounds(min_val: i32, max_val: i32) -> CurvePara
 
 #[cfg(test)]
 mod tests {
+    use usize_cast::IntoUsize as _;
 
     use super::*;
     use crate::codecs::morton::interleave_bits;
@@ -155,7 +155,7 @@ mod tests {
         let mut seen = [false; 16];
         for x in 0u32..4 {
             for y in 0u32..4 {
-                let idx = hilbert_xy_to_index(2, (x, y).into()) as usize;
+                let idx = hilbert_xy_to_index(2, (x, y).into()).into_usize();
                 assert!(!seen[idx], "duplicate index {idx} at ({x},{y})");
                 seen[idx] = true;
             }
@@ -168,7 +168,7 @@ mod tests {
         let mut seen = vec![false; 256];
         for x in 0u32..16 {
             for y in 0u32..16 {
-                let idx = hilbert_xy_to_index(4, (x, y).into()) as usize;
+                let idx = hilbert_xy_to_index(4, (x, y).into()).into_usize();
                 assert!(!seen[idx], "duplicate index {idx} at ({x},{y})");
                 seen[idx] = true;
             }

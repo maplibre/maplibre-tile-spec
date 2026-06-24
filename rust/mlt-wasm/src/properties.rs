@@ -14,11 +14,11 @@ pub(crate) struct PropCache {
 
 /// Build a [`PropCache`] from a fully decoded [`TileLayer`].
 pub(crate) fn build_prop_cache(tile: &TileLayer) -> PropCache {
-    let n = tile.features.len();
+    let n = tile.features().len();
     let keys = Array::new();
     let columns = Array::new();
 
-    for (col_idx, name) in tile.property_names.iter().enumerate() {
+    for (col_idx, name) in tile.property_names().iter().enumerate() {
         keys.push(&JsValue::from_str(name));
         columns.push(&build_column(tile, col_idx, n));
     }
@@ -38,15 +38,15 @@ fn idx_u32(i: usize) -> u32 {
 fn build_column(tile: &TileLayer, col_idx: usize, n: usize) -> JsValue {
     // Peek at the first feature to determine the column variant.
     let first = tile
-        .features
+        .features()
         .first()
-        .and_then(|f| f.properties.get(col_idx));
+        .and_then(|f| f.properties().get(col_idx));
 
     match first {
         Some(PropValue::Bool(_)) => {
             let arr = Array::new_with_length(feature_count_u32(n));
-            for (i, f) in tile.features.iter().enumerate() {
-                if let Some(PropValue::Bool(Some(b))) = f.properties.get(col_idx) {
+            for (i, f) in tile.features().iter().enumerate() {
+                if let Some(PropValue::Bool(Some(b))) = f.properties().get(col_idx) {
                     arr.set(idx_u32(i), JsValue::from_bool(*b));
                 }
             }
@@ -54,23 +54,23 @@ fn build_column(tile: &TileLayer, col_idx: usize, n: usize) -> JsValue {
         }
         Some(PropValue::I8(_)) => {
             let any_none = tile
-                .features
+                .features()
                 .iter()
-                .any(|f| matches!(f.properties.get(col_idx), Some(PropValue::I8(None))));
+                .any(|f| matches!(f.properties().get(col_idx), Some(PropValue::I8(None))));
             if any_none {
                 let arr = Array::new_with_length(feature_count_u32(n));
-                for (i, f) in tile.features.iter().enumerate() {
-                    if let Some(PropValue::I8(Some(v))) = f.properties.get(col_idx) {
+                for (i, f) in tile.features().iter().enumerate() {
+                    if let Some(PropValue::I8(Some(v))) = f.properties().get(col_idx) {
                         arr.set(idx_u32(i), JsValue::from_f64(f64::from(*v)));
                     }
                 }
                 arr.into()
             } else {
                 let buf: Vec<i8> = tile
-                    .features
+                    .features()
                     .iter()
                     .filter_map(|f| {
-                        if let Some(PropValue::I8(v)) = f.properties.get(col_idx) {
+                        if let Some(PropValue::I8(v)) = f.properties().get(col_idx) {
                             *v
                         } else {
                             None
@@ -82,23 +82,23 @@ fn build_column(tile: &TileLayer, col_idx: usize, n: usize) -> JsValue {
         }
         Some(PropValue::U8(_)) => {
             let any_none = tile
-                .features
+                .features()
                 .iter()
-                .any(|f| matches!(f.properties.get(col_idx), Some(PropValue::U8(None))));
+                .any(|f| matches!(f.properties().get(col_idx), Some(PropValue::U8(None))));
             if any_none {
                 let arr = Array::new_with_length(feature_count_u32(n));
-                for (i, f) in tile.features.iter().enumerate() {
-                    if let Some(PropValue::U8(Some(v))) = f.properties.get(col_idx) {
+                for (i, f) in tile.features().iter().enumerate() {
+                    if let Some(PropValue::U8(Some(v))) = f.properties().get(col_idx) {
                         arr.set(idx_u32(i), JsValue::from_f64(f64::from(*v)));
                     }
                 }
                 arr.into()
             } else {
                 let buf: Vec<u8> = tile
-                    .features
+                    .features()
                     .iter()
                     .filter_map(|f| {
-                        if let Some(PropValue::U8(v)) = f.properties.get(col_idx) {
+                        if let Some(PropValue::U8(v)) = f.properties().get(col_idx) {
                             *v
                         } else {
                             None
@@ -110,23 +110,23 @@ fn build_column(tile: &TileLayer, col_idx: usize, n: usize) -> JsValue {
         }
         Some(PropValue::I32(_)) => {
             let any_none = tile
-                .features
+                .features()
                 .iter()
-                .any(|f| matches!(f.properties.get(col_idx), Some(PropValue::I32(None))));
+                .any(|f| matches!(f.properties().get(col_idx), Some(PropValue::I32(None))));
             if any_none {
                 let arr = Array::new_with_length(feature_count_u32(n));
-                for (i, f) in tile.features.iter().enumerate() {
-                    if let Some(PropValue::I32(Some(v))) = f.properties.get(col_idx) {
+                for (i, f) in tile.features().iter().enumerate() {
+                    if let Some(PropValue::I32(Some(v))) = f.properties().get(col_idx) {
                         arr.set(idx_u32(i), JsValue::from_f64(f64::from(*v)));
                     }
                 }
                 arr.into()
             } else {
                 let buf: Vec<i32> = tile
-                    .features
+                    .features()
                     .iter()
                     .filter_map(|f| {
-                        if let Some(PropValue::I32(v)) = f.properties.get(col_idx) {
+                        if let Some(PropValue::I32(v)) = f.properties().get(col_idx) {
                             *v
                         } else {
                             None
@@ -138,23 +138,23 @@ fn build_column(tile: &TileLayer, col_idx: usize, n: usize) -> JsValue {
         }
         Some(PropValue::U32(_)) => {
             let any_none = tile
-                .features
+                .features()
                 .iter()
-                .any(|f| matches!(f.properties.get(col_idx), Some(PropValue::U32(None))));
+                .any(|f| matches!(f.properties().get(col_idx), Some(PropValue::U32(None))));
             if any_none {
                 let arr = Array::new_with_length(feature_count_u32(n));
-                for (i, f) in tile.features.iter().enumerate() {
-                    if let Some(PropValue::U32(Some(v))) = f.properties.get(col_idx) {
+                for (i, f) in tile.features().iter().enumerate() {
+                    if let Some(PropValue::U32(Some(v))) = f.properties().get(col_idx) {
                         arr.set(idx_u32(i), JsValue::from_f64(f64::from(*v)));
                     }
                 }
                 arr.into()
             } else {
                 let buf: Vec<u32> = tile
-                    .features
+                    .features()
                     .iter()
                     .filter_map(|f| {
-                        if let Some(PropValue::U32(v)) = f.properties.get(col_idx) {
+                        if let Some(PropValue::U32(v)) = f.properties().get(col_idx) {
                             *v
                         } else {
                             None
@@ -166,23 +166,23 @@ fn build_column(tile: &TileLayer, col_idx: usize, n: usize) -> JsValue {
         }
         Some(PropValue::I64(_)) => {
             let any_none = tile
-                .features
+                .features()
                 .iter()
-                .any(|f| matches!(f.properties.get(col_idx), Some(PropValue::I64(None))));
+                .any(|f| matches!(f.properties().get(col_idx), Some(PropValue::I64(None))));
             if any_none {
                 let arr = Array::new_with_length(feature_count_u32(n));
-                for (i, f) in tile.features.iter().enumerate() {
-                    if let Some(PropValue::I64(Some(v))) = f.properties.get(col_idx) {
+                for (i, f) in tile.features().iter().enumerate() {
+                    if let Some(PropValue::I64(Some(v))) = f.properties().get(col_idx) {
                         arr.set(idx_u32(i), JsValue::from_f64(*v as f64));
                     }
                 }
                 arr.into()
             } else {
                 let buf: Vec<f64> = tile
-                    .features
+                    .features()
                     .iter()
                     .filter_map(|f| {
-                        if let Some(PropValue::I64(v)) = f.properties.get(col_idx) {
+                        if let Some(PropValue::I64(v)) = f.properties().get(col_idx) {
                             v.map(|n| n as f64)
                         } else {
                             None
@@ -194,23 +194,23 @@ fn build_column(tile: &TileLayer, col_idx: usize, n: usize) -> JsValue {
         }
         Some(PropValue::U64(_)) => {
             let any_none = tile
-                .features
+                .features()
                 .iter()
-                .any(|f| matches!(f.properties.get(col_idx), Some(PropValue::U64(None))));
+                .any(|f| matches!(f.properties().get(col_idx), Some(PropValue::U64(None))));
             if any_none {
                 let arr = Array::new_with_length(feature_count_u32(n));
-                for (i, f) in tile.features.iter().enumerate() {
-                    if let Some(PropValue::U64(Some(v))) = f.properties.get(col_idx) {
+                for (i, f) in tile.features().iter().enumerate() {
+                    if let Some(PropValue::U64(Some(v))) = f.properties().get(col_idx) {
                         arr.set(idx_u32(i), JsValue::from_f64(*v as f64));
                     }
                 }
                 arr.into()
             } else {
                 let buf: Vec<f64> = tile
-                    .features
+                    .features()
                     .iter()
                     .filter_map(|f| {
-                        if let Some(PropValue::U64(v)) = f.properties.get(col_idx) {
+                        if let Some(PropValue::U64(v)) = f.properties().get(col_idx) {
                             v.map(|n| n as f64)
                         } else {
                             None
@@ -222,23 +222,23 @@ fn build_column(tile: &TileLayer, col_idx: usize, n: usize) -> JsValue {
         }
         Some(PropValue::F32(_)) => {
             let any_none = tile
-                .features
+                .features()
                 .iter()
-                .any(|f| matches!(f.properties.get(col_idx), Some(PropValue::F32(None))));
+                .any(|f| matches!(f.properties().get(col_idx), Some(PropValue::F32(None))));
             if any_none {
                 let arr = Array::new_with_length(feature_count_u32(n));
-                for (i, f) in tile.features.iter().enumerate() {
-                    if let Some(PropValue::F32(Some(v))) = f.properties.get(col_idx) {
+                for (i, f) in tile.features().iter().enumerate() {
+                    if let Some(PropValue::F32(Some(v))) = f.properties().get(col_idx) {
                         arr.set(idx_u32(i), JsValue::from_f64(f64::from(*v)));
                     }
                 }
                 arr.into()
             } else {
                 let buf: Vec<f32> = tile
-                    .features
+                    .features()
                     .iter()
                     .filter_map(|f| {
-                        if let Some(PropValue::F32(v)) = f.properties.get(col_idx) {
+                        if let Some(PropValue::F32(v)) = f.properties().get(col_idx) {
                             *v
                         } else {
                             None
@@ -250,23 +250,23 @@ fn build_column(tile: &TileLayer, col_idx: usize, n: usize) -> JsValue {
         }
         Some(PropValue::F64(_)) => {
             let any_none = tile
-                .features
+                .features()
                 .iter()
-                .any(|f| matches!(f.properties.get(col_idx), Some(PropValue::F64(None))));
+                .any(|f| matches!(f.properties().get(col_idx), Some(PropValue::F64(None))));
             if any_none {
                 let arr = Array::new_with_length(feature_count_u32(n));
-                for (i, f) in tile.features.iter().enumerate() {
-                    if let Some(PropValue::F64(Some(v))) = f.properties.get(col_idx) {
+                for (i, f) in tile.features().iter().enumerate() {
+                    if let Some(PropValue::F64(Some(v))) = f.properties().get(col_idx) {
                         arr.set(idx_u32(i), JsValue::from_f64(*v));
                     }
                 }
                 arr.into()
             } else {
                 let buf: Vec<f64> = tile
-                    .features
+                    .features()
                     .iter()
                     .filter_map(|f| {
-                        if let Some(PropValue::F64(v)) = f.properties.get(col_idx) {
+                        if let Some(PropValue::F64(v)) = f.properties().get(col_idx) {
                             *v
                         } else {
                             None
@@ -278,8 +278,8 @@ fn build_column(tile: &TileLayer, col_idx: usize, n: usize) -> JsValue {
         }
         Some(PropValue::Str(_)) | None => {
             let arr = Array::new_with_length(feature_count_u32(n));
-            for (i, f) in tile.features.iter().enumerate() {
-                if let Some(PropValue::Str(Some(s))) = f.properties.get(col_idx) {
+            for (i, f) in tile.features().iter().enumerate() {
+                if let Some(PropValue::Str(Some(s))) = f.properties().get(col_idx) {
                     arr.set(idx_u32(i), JsValue::from_str(s));
                 }
             }

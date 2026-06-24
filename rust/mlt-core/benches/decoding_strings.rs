@@ -9,6 +9,7 @@ use mlt_core::encoder::{
 use mlt_core::test_helpers::{dec, parser};
 use mlt_core::{GeometryValues, LendingIterator, ParsedLayer01, PropValueRef};
 use strum::IntoEnumIterator as _;
+use usize_cast::FromUsize as _;
 
 // This code runs in CI because of --all-targets, so make it run really fast.
 #[cfg(debug_assertions)]
@@ -83,20 +84,15 @@ fn make_geometry(n: usize) -> GeometryValues {
 /// Encode `props` into a single-layer tile with `n` point features and return wire bytes.
 fn encode_layer(n: usize, props: Vec<StagedProperty>, cfg: ExplicitEncoder) -> Vec<u8> {
     let mut codecs = Codecs::default();
-    StagedLayer {
-        name: "bench".into(),
-        extent: 4096,
-        id: StagedId::None,
-        geometry: make_geometry(n),
-        properties: props,
-    }
-    .encode_into(
-        Encoder::with_explicit(EncoderConfig::default(), cfg),
-        &mut codecs,
-    )
-    .expect("encode_layer failed")
-    .into_layer_bytes()
-    .expect("into_layer_bytes failed")
+    StagedLayer::new("bench", 4096, StagedId::None, make_geometry(n), props)
+        .expect("valid bench layer")
+        .encode_into(
+            Encoder::with_explicit(EncoderConfig::default(), cfg),
+            &mut codecs,
+        )
+        .expect("encode_layer failed")
+        .into_layer_bytes()
+        .expect("into_layer_bytes failed")
 }
 
 /// Sum the byte lengths of all non-null string property values across all features.
@@ -128,7 +124,7 @@ fn bench_plain_length_encoding(c: &mut Criterion) {
 
     for n in BENCHMARKED_LENGTHS {
         let col = make_strings(n);
-        group.throughput(Throughput::Elements(n as u64));
+        group.throughput(Throughput::Elements(u64::from_usize(n)));
 
         for logical in limit(LogicalEncoder::iter()) {
             for physical in limit(PhysicalEncoder::iter()) {
@@ -168,7 +164,7 @@ fn bench_fsst_length_encoding(c: &mut Criterion) {
 
     for n in BENCHMARKED_LENGTHS {
         let col = make_strings(n);
-        group.throughput(Throughput::Elements(n as u64));
+        group.throughput(Throughput::Elements(u64::from_usize(n)));
 
         for logical in limit(LogicalEncoder::iter()) {
             for physical in limit(PhysicalEncoder::iter()) {
@@ -209,7 +205,7 @@ fn bench_encoding_type(c: &mut Criterion) {
 
     for n in BENCHMARKED_LENGTHS {
         let col = make_strings(n);
-        group.throughput(Throughput::Elements(n as u64));
+        group.throughput(Throughput::Elements(u64::from_usize(n)));
 
         let plain_bytes = encode_layer(
             n,
@@ -257,7 +253,7 @@ fn bench_presence(c: &mut Criterion) {
     let int_enc = IntEncoder::plain();
 
     for n in BENCHMARKED_LENGTHS {
-        group.throughput(Throughput::Elements(n as u64));
+        group.throughput(Throughput::Elements(u64::from_usize(n)));
 
         // Non-nullable: no presence stream emitted.
         let no_null_bytes = encode_layer(
@@ -321,7 +317,7 @@ fn bench_vs_shared_dict(c: &mut Criterion) {
 
     for n in BENCHMARKED_LENGTHS {
         let total_entries = n * 2;
-        group.throughput(Throughput::Elements(total_entries as u64));
+        group.throughput(Throughput::Elements(u64::from_usize(total_entries)));
 
         let col = make_strings(n);
         let col_opt: Vec<Option<String>> = col.iter().map(|s| Some(s.clone())).collect();

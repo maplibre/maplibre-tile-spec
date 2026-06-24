@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.20](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.19...rust-mlt-v0.1.20) - 2026-06-20
+
+### Other
+
+- update Cargo.lock dependencies
+
+## [0.1.19](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.18...rust-mlt-v0.1.19) - 2026-06-19
+
+### Other
+
+- *(rust)* rm pub fields, builder pattern ([#1428](https://github.com/maplibre/maplibre-tile-spec/pull/1428))
+
+## [0.1.18](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.17...rust-mlt-v0.1.18) - 2026-06-18
+
+### Other
+
+- update Cargo.lock dependencies
+
+## [0.1.17](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.16...rust-mlt-v0.1.17) - 2026-06-15
+
+### Added
+
+- *(rust)* pmtiles to pmtiles transcoding ([#1411](https://github.com/maplibre/maplibre-tile-spec/pull/1411))
+- *(py)* make `mlt.encode_geojson` configurable ([#1427](https://github.com/maplibre/maplibre-tile-spec/pull/1427))
+
+### Other
+
+- *(rust)* use mimalloc as the global allocator for the mlt CLI ([#1433](https://github.com/maplibre/maplibre-tile-spec/pull/1433))
+- *(rust)* split convert into from_files/from_mbtiles/common and add --sort all ([#1434](https://github.com/maplibre/maplibre-tile-spec/pull/1434))
+
+## [0.1.16](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.15...rust-mlt-v0.1.16) - 2026-06-13
+
+### Fixed
+
+- wire `allow_fastpfor` and `allow_fsst` through the mlt implementations ([#1431](https://github.com/maplibre/maplibre-tile-spec/pull/1431))
+
+## [0.1.15](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.14...rust-mlt-v0.1.15) - 2026-06-08
+
+### Fixed
+
+- *(rust)* accept .pbf in convert ([#1417](https://github.com/maplibre/maplibre-tile-spec/pull/1417))
+
+### Other
+
+- *(rust)* use `usize_cast` for casting ([#1414](https://github.com/maplibre/maplibre-tile-spec/pull/1414))
+- *(rust)* migrate to fast-mvt crate ([#1415](https://github.com/maplibre/maplibre-tile-spec/pull/1415))
+- *(deps)* bump the all-cargo-version-updates group across 1 directory with 7 updates ([#1419](https://github.com/maplibre/maplibre-tile-spec/pull/1419))
+- Provide mlt cli version ([#1406](https://github.com/maplibre/maplibre-tile-spec/pull/1406))
+
 ## [0.1.14](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.13...rust-mlt-v0.1.14) - 2026-05-15
 
 ### Other

@@ -288,7 +288,9 @@ mod tests {
         StreamMeta, StreamType,
     };
     use crate::encoder::model::StreamCtx;
-    use crate::encoder::{Codecs, EncodedStream, Encoder, ExplicitEncoder, IntEncoder};
+    use crate::encoder::{
+        Codecs, EncodedStream, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder,
+    };
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
 
@@ -303,7 +305,7 @@ mod tests {
             .write_to(&mut enc, &mut codecs)
             .expect("Failed to encode");
 
-        let parsed = assert_empty(RawGeometry::from_bytes(&enc.data, &mut parser()));
+        let parsed = assert_empty(RawGeometry::from_bytes(enc.data(), &mut parser()));
 
         LazyParsed::Raw(parsed)
             .into_parsed(&mut dec())
@@ -589,7 +591,7 @@ mod tests {
         // stream count, then meta (geom type), parts, vertex offsets, Morton dict.
         let mut codecs = Codecs::default();
         let mut enc = Encoder::with_explicit(
-            Encoder::default().cfg,
+            EncoderConfig::default(),
             ExplicitEncoder::all(IntEncoder::varint()),
         );
         enc.write_varint(4u32).unwrap();
@@ -615,7 +617,7 @@ mod tests {
             )
             .unwrap();
         enc.write_stream(&morton_dict).unwrap();
-        let buffer = enc.data;
+        let buffer = enc.data().to_vec();
 
         let mut p = parser();
         let parsed = assert_empty(RawGeometry::from_bytes(&buffer, &mut p));
@@ -632,6 +634,7 @@ mod tests {
 
     mod tessellation_tests {
         use geo_types::{Geometry, LineString, MultiPolygon, Polygon};
+        use usize_cast::IntoUsize as _;
 
         use crate::decoder::GeometryValues;
 
@@ -645,7 +648,7 @@ mod tests {
             let n = tris[0];
             assert!(n > 0, "expected at least one triangle");
             let ib = g.index_buffer().expect("index buffer");
-            assert_eq!(ib.len(), usize::try_from(n).unwrap() * 3);
+            assert_eq!(ib.len(), n.into_usize() * 3);
             // 4 unique (non-closing) vertices → indices in 0..4
             assert!(ib.iter().all(|&i| i < 4));
         }
@@ -663,7 +666,7 @@ mod tests {
             let ib = g.index_buffer().expect("index buffer");
             let tris = g.triangles().expect("triangles");
             assert_eq!(tris.len(), 1);
-            let total = usize::try_from(tris[0]).unwrap();
+            let total = tris[0].into_usize();
             assert_eq!(ib.len(), total * 3);
             // First quad: 4 verts → 2 triangles, 6 indices
             let split = 6;

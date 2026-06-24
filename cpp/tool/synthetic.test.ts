@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   compareWithTolerance,
+  expectUnsupported,
   getTestCases,
   writeActualOutput,
 } from "synthetic-test-utils";
@@ -38,10 +39,9 @@ describe("MLT Decoder - Synthetic tests", () => {
     });
   }
 
-  for (const skippedTest of testCases.skipped) {
-    it.skip(skippedTest, () => {
-      // Test is skipped since it is not supported yet
-    });
+  for (const { name, content, fileName } of testCases.skipped) {
+    it(`${name} (unsupported)`, () =>
+      expectUnsupported(() => decodeMLT(fileName), content));
   }
 });
 

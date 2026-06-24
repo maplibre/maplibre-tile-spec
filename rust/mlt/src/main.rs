@@ -8,6 +8,12 @@ use std::process::exit;
 use anyhow::Result as AnyResult;
 use clap::{Parser, Subcommand, ValueEnum};
 
+// hotpath-alloc installs its own global allocator to track allocations, so it
+// can't coexist with ours.
+#[cfg(not(feature = "hotpath-alloc"))]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 use crate::convert::{ConvertArgs, convert};
 use crate::dump::{AfterDump, DumpArgs, dump};
 use crate::ls::{LsArgs, ls};
@@ -40,7 +46,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Convert .mlt and .mvt tiles in a directory tree to re-encoded .mlt files
+    /// Convert .mlt, .mvt, and .pbf tiles in a directory tree to re-encoded .mlt files
     Convert(ConvertArgs),
     /// Parse a tile file (.mlt, .mvt, .pbf) and dump raw layer data without decoding
     Dump(DumpArgs),

@@ -1,6 +1,7 @@
 use std::io;
 
 use integer_encoding::VarIntWriter as _;
+use usize_cast::IntoUsize as _;
 
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
@@ -8,7 +9,7 @@ use crate::decoder::{
     StreamMeta, StreamType,
 };
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
-use crate::utils::{AsUsize as _, BinarySerializer as _, parse_u8, take};
+use crate::utils::{BinarySerializer as _, parse_u8, take};
 use crate::{MltError, MltRefResult, MltResult, Parser};
 
 impl IntEncoding {
@@ -250,7 +251,7 @@ fn validate_rle_varint_stream(data: &[u8], runs: u32, num_rle_values: u32) -> Ml
     }
     if sum != u64::from(num_rle_values) {
         let sum_usize = usize::try_from(sum).map_err(|_| MltError::IntegerOverflow)?;
-        fail_if_invalid_stream_size(sum_usize, num_rle_values.as_usize())?;
+        fail_if_invalid_stream_size(sum_usize, num_rle_values.into_usize())?;
     }
     Ok(())
 }
