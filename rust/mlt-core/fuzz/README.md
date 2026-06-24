@@ -82,9 +82,9 @@ The target:
 3. decodes the same bytes with the C++ `mlt-cpp-json` tool, run as a subprocess.
 
 The two JSON outputs must match.
-A mismatch is a crash.
-The C++ tool failing on bytes the Rust decoder accepted is also a crash.
-The crash report prints both outputs and the input bytes as hex.
+A mismatch is a crash, and the report prints both outputs and the input bytes as hex.
+If the C++ tool fails to decode the bytes (e.g. an unsupported encoding), the
+input is skipped rather than treated as a failure.
 
 The target runs the prebuilt `mlt-cpp-json` binary, so no C++ code or build changes are needed.
 That binary is part of the cpp CMake project.
