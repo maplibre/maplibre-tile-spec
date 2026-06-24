@@ -19,7 +19,7 @@ export function decodeString(
     offset: IntWrapper,
     numStreams: number,
     bitVector?: BitVector,
-): Vector {
+): Vector | undefined {
     let dictionaryLengthStream: Uint32Array | undefined;
     let offsetStream: Uint32Array | undefined;
     let dictionaryStream: Uint8Array | undefined;
@@ -71,7 +71,7 @@ export function decodeString(
         }
     }
 
-    const vector =
+    return (
         decodeFsstDictionaryVector(
             name,
             symbolTableStream,
@@ -82,11 +82,8 @@ export function decodeString(
             nullabilityBuffer,
         ) ??
         decodeDictionaryVector(name, dictionaryStream, offsetStream, dictionaryLengthStream, nullabilityBuffer) ??
-        decodePlainStringVector(name, plainLengthStream, plainDataStream, offsetStream, nullabilityBuffer);
-    if (!vector) {
-        throw new Error(`Could not decode string column "${name}": no recognized string encoding present.`);
-    }
-    return vector;
+        decodePlainStringVector(name, plainLengthStream, plainDataStream, offsetStream, nullabilityBuffer)
+    );
 }
 
 function decodeFsstDictionaryVector(

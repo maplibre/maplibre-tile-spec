@@ -91,7 +91,7 @@ function decodeScalarPropertyColumn(
         case ScalarType.STRING: {
             // In embedded format: numStreams includes nullability stream if column is nullable
             const stringDataStreams = columnMetadata.nullable ? numStreams - 1 : numStreams;
-            return decodeString(columnMetadata.name, data, offset, stringDataStreams, nullabilityBuffer);
+            return decodeString(columnMetadata.name, data, offset, stringDataStreams, nullabilityBuffer) ?? null;
         }
         case ScalarType.BOOLEAN:
             return decodeBooleanColumn(data, offset, columnMetadata, numFeatures, sizeOrNullabilityBuffer);
