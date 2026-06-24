@@ -29,10 +29,11 @@ function decodeString(src: Uint8Array, offset: IntWrapper): string {
  * Used when decoding Field metadata which has the same format as Column.
  */
 function columnToField(column: Column): Field {
-    const base = { name: column.name, nullable: column.nullable };
+    const name = column.name;
+    const nullable = column.nullable;
     return column.type === "scalarType"
-        ? { ...base, type: "scalarField", scalarField: column.scalarType }
-        : { ...base, type: "complexField", complexField: column.complexType };
+        ? { type: "scalarField", scalarField: column.scalarType, name, nullable }
+        : { type: "complexField", complexField: column.complexType, name, nullable };
 }
 
 /**
