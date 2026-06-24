@@ -69,6 +69,41 @@ Tests the `Layer` parser and serializer by generating arbitrary `LayerInput` val
 
 If a mismatch is found, the fuzzer panics with a detailed error message showing both the input and output in hexadecimal format.
 
+### `differential`
+
+**Location:** `fuzz_targets/differential.rs`
+
+Compares the Rust decoder against the C++ decoder.
+Each input is an arbitrary `StagedLayer`.
+The target:
+
+1. encodes it to MLT bytes with the Rust encoder,
+2. decodes those bytes with the Rust decoder to a `FeatureCollection` JSON, and
+3. decodes the same bytes with the C++ `mlt-cpp-json` tool, run as a subprocess.
+
+The two JSON outputs must match.
+A mismatch is a crash.
+The C++ tool failing on bytes the Rust decoder accepted is also a crash.
+The crash report prints both outputs and the input bytes as hex.
+
+The target runs the prebuilt `mlt-cpp-json` binary, so no C++ code or build changes are needed.
+That binary is part of the cpp CMake project.
+Build it once, then set `$MLT_CPP_JSON_BIN` to its path:
+
+```bash
+# Build the C++ tool (from the cpp/ directory)
+cmake -S cpp -B cpp/build -DMLT_WITH_TESTS=OFF
+cmake --build cpp/build --target mlt-cpp-json
+
+# Run the fuzzer (from rust/mlt-core/fuzz)
+export MLT_CPP_JSON_BIN="$PWD/../../../cpp/build/tool/mlt-cpp-json"
+cargo +nightly fuzz run differential
+```
+
+Coverage comes from the instrumented Rust encode and decode path.
+The C++ decoder is a black-box oracle.
+Numbers are compared by value, so `0` and `0.0` count as equal.
+
 ## Corpus
 
 The `corpus/layer` directory contains input files that have been discovered during fuzzing. These serve as:
