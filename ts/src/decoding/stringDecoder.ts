@@ -236,10 +236,7 @@ export function decodeSharedDictionary(
             }
         }
 
-        if (
-            childField.type !== "scalarField" ||
-            childField.scalarField.physicalType !== ScalarType.STRING
-        ) {
+        if (childField.type !== "scalarField" || childField.scalarField.physicalType !== ScalarType.STRING) {
             throw new Error("Currently only scalar string fields are implemented for a struct.");
         }
         if ((numStreams > 1 && !childField.nullable) || (numStreams === 1 && childField.nullable)) {

@@ -90,7 +90,9 @@ export abstract class GpuVector implements Iterable<CoordinatesArray> {
                 case GEOMETRY_TYPE.MULTIPOLYGON:
                     {
                         if (!geometryOffsets) {
-                            throw new Error("Cannot convert MultiPolygon GpuVector to coordinates without geometry offsets");
+                            throw new Error(
+                                "Cannot convert MultiPolygon GpuVector to coordinates without geometry offsets",
+                            );
                         }
                         // Get number of polygons in this multipolygon
                         const numPolygons =
