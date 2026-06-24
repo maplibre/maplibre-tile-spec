@@ -5,6 +5,7 @@ import { GEOMETRY_TYPE } from "./geometryType";
 import { VertexBufferType } from "./vertexBufferType";
 import { encodeZOrderCurve } from "../../encoding/zOrderCurveEncoder";
 import type { GeometryVector, MortonSettings } from "./geometryVector";
+import type { TopologyVector } from "./topologyVector";
 import {
     encodeLineStringGeometryVector,
     encodeLineStringGeometryVectorWithMortonEncoding,
@@ -646,5 +647,107 @@ describe("Edge cases", () => {
 
         const result = convertGeometryVector(gv);
         expect(result[0]).toEqual([[new Point(3, 9)]]);
+    });
+});
+
+describe("missing topology offsets and morton settings throw", () => {
+    // Build a minimal GeometryVector stand-in so we can omit individual topology
+    // arrays / morton settings and exercise the invariant guards in convertGeometryVector.
+    function fakeVector(opts: {
+        geometryType: number;
+        containsPolygon?: boolean;
+        topologyVector?: TopologyVector;
+        vertexBufferType?: VertexBufferType;
+        vertexOffsets?: Uint32Array;
+        vertexBuffer?: Int32Array;
+        mortonSettings?: MortonSettings;
+    }): GeometryVector {
+        return {
+            numGeometries: 1,
+            topologyVector: opts.topologyVector ?? {},
+            vertexBufferType: opts.vertexBufferType ?? VertexBufferType.VEC_2,
+            vertexOffsets: opts.vertexOffsets,
+            vertexBuffer: opts.vertexBuffer ?? new Int32Array([0, 0]),
+            mortonSettings: opts.mortonSettings,
+            geometryType: () => opts.geometryType,
+            containsPolygonGeometry: () => opts.containsPolygon ?? false,
+        } as unknown as GeometryVector;
+    }
+
+    it("throws for a Morton-encoded Point without morton settings", () => {
+        const gv = fakeVector({
+            geometryType: GEOMETRY_TYPE.POINT,
+            vertexBufferType: VertexBufferType.MORTON,
+            vertexOffsets: new Uint32Array([0]),
+            vertexBuffer: new Int32Array([0]),
+        });
+        expect(() => convertGeometryVector(gv)).toThrow("Morton-encoded geometry vector is missing morton settings.");
+    });
+
+    it("throws for a MultiPoint without geometry offsets", () => {
+        const gv = fakeVector({ geometryType: GEOMETRY_TYPE.MULTIPOINT });
+        expect(() => convertGeometryVector(gv)).toThrow("MultiPoint geometry is missing its geometry offsets.");
+    });
+
+    it("throws for a polygon-outline LineString without ring offsets", () => {
+        const gv = fakeVector({
+            geometryType: GEOMETRY_TYPE.LINESTRING,
+            containsPolygon: true,
+            topologyVector: { partOffsets: new Uint32Array([0, 2]) },
+        });
+        expect(() => convertGeometryVector(gv)).toThrow("LineString geometry is missing its ring offsets.");
+    });
+
+    it("throws for a LineString without part offsets", () => {
+        const gv = fakeVector({ geometryType: GEOMETRY_TYPE.LINESTRING });
+        expect(() => convertGeometryVector(gv)).toThrow("LineString geometry is missing its part offsets.");
+    });
+
+    it("throws for a Polygon without part or ring offsets", () => {
+        const gv = fakeVector({
+            geometryType: GEOMETRY_TYPE.POLYGON,
+            topologyVector: { ringOffsets: new Uint32Array([0, 4]) },
+        });
+        expect(() => convertGeometryVector(gv)).toThrow("Polygon geometry is missing its part or ring offsets.");
+    });
+
+    it("throws for a MultiLineString without geometry offsets", () => {
+        const gv = fakeVector({ geometryType: GEOMETRY_TYPE.MULTILINESTRING });
+        expect(() => convertGeometryVector(gv)).toThrow("MultiLineString geometry is missing its geometry offsets.");
+    });
+
+    it("throws for a polygon-outline MultiLineString without ring offsets", () => {
+        const gv = fakeVector({
+            geometryType: GEOMETRY_TYPE.MULTILINESTRING,
+            containsPolygon: true,
+            topologyVector: { geometryOffsets: new Uint32Array([0, 1]) },
+        });
+        expect(() => convertGeometryVector(gv)).toThrow("MultiLineString geometry is missing its ring offsets.");
+    });
+
+    it("throws for a MultiLineString without part offsets", () => {
+        const gv = fakeVector({
+            geometryType: GEOMETRY_TYPE.MULTILINESTRING,
+            topologyVector: { geometryOffsets: new Uint32Array([0, 1]) },
+        });
+        expect(() => convertGeometryVector(gv)).toThrow("MultiLineString geometry is missing its part offsets.");
+    });
+
+    it("throws for a MultiPolygon without geometry, part, or ring offsets", () => {
+        const gv = fakeVector({ geometryType: GEOMETRY_TYPE.MULTIPOLYGON });
+        expect(() => convertGeometryVector(gv)).toThrow(
+            "MultiPolygon geometry is missing its geometry, part, or ring offsets.",
+        );
+    });
+
+    it("throws for a Morton dictionary-encoded LineString without morton settings", () => {
+        const gv = fakeVector({
+            geometryType: GEOMETRY_TYPE.LINESTRING,
+            vertexBufferType: VertexBufferType.MORTON,
+            topologyVector: { partOffsets: new Uint32Array([0, 1]) },
+            vertexOffsets: new Uint32Array([0]),
+            vertexBuffer: new Int32Array([0]),
+        });
+        expect(() => convertGeometryVector(gv)).toThrow("Morton-encoded geometry vector is missing morton settings.");
     });
 });

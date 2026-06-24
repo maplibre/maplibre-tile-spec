@@ -13,9 +13,10 @@ import {
 import { StringFlatVector } from "../vector/flat/stringFlatVector";
 import { StringDictionaryVector } from "../vector/dictionary/stringDictionaryVector";
 import { StringFsstDictionaryVector } from "../vector/fsst-dictionary/stringFsstDictionaryVector";
-import { ScalarType } from "../metadata/tileset/tilesetMetadata";
+import { type Column, ColumnScope, ScalarType } from "../metadata/tileset/tilesetMetadata";
 import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
 import { LengthType } from "../metadata/tile/lengthType";
+import { DictionaryType } from "../metadata/tile/dictionaryType";
 
 describe("decodeString - Plain String Decoder", () => {
     it("should decode plain strings with simple ASCII values", () => {
@@ -207,6 +208,28 @@ describe("decodeString - Empty Column Edge Cases", () => {
         const offset = new IntWrapper(0);
         const result = decodeString("testColumn", encodedStrings, offset, 3);
         expect((result as StringFlatVector).getValue(0)).toBeNull();
+    });
+});
+
+describe("decodeString - incomplete column streams throw", () => {
+    it("throws when an FSST symbol table is present but its companion streams are missing", () => {
+        const symbolTableOnly = createStream(PhysicalStreamType.DATA, new Uint8Array([1, 2, 3]), {
+            logical: { dictionaryType: DictionaryType.FSST },
+        });
+        const offset = new IntWrapper(0);
+        expect(() => decodeString("fsstColumn", symbolTableOnly, offset, 1)).toThrow(
+            'Incomplete FSST dictionary string column "fsstColumn"',
+        );
+    });
+
+    it("throws when a dictionary stream is present but offsets/lengths are missing", () => {
+        const dictionaryDataOnly = createStream(PhysicalStreamType.DATA, new Uint8Array([1, 2, 3]), {
+            logical: { dictionaryType: DictionaryType.SINGLE },
+        });
+        const offset = new IntWrapper(0);
+        expect(() => decodeString("dictColumn", dictionaryDataOnly, offset, 1)).toThrow(
+            'Incomplete dictionary string column "dictColumn"',
+        );
     });
 });
 
@@ -501,6 +524,46 @@ describe("decodeSharedDictionary", () => {
             expect(() => {
                 decodeSharedDictionary(completeEncodedStrings, new IntWrapper(0), columnMetaencodedStrings);
             }).toThrow("Currently only scalar string fields are implemented for a struct.");
+        });
+
+        it("should throw when the column is not a complex (struct) column", () => {
+            const { lengthStream, dataStream } = encodeSharedDictionary(["value"]);
+            const complete = concatenateBuffers(lengthStream, dataStream);
+            const scalarColumn: Column = {
+                name: "notAStruct",
+                nullable: false,
+                columnScope: ColumnScope.FEATURE,
+                type: "scalarType",
+                scalarType: { longID: false, type: "physicalType", physicalType: ScalarType.STRING },
+            };
+
+            expect(() => {
+                decodeSharedDictionary(complete, new IntWrapper(0), scalarColumn);
+            }).toThrow("Shared dictionary column notAStruct must be a complex (struct) column.");
+        });
+
+        it("should throw when the shared dictionary offsets are missing", () => {
+            // Only the dictionary data stream is present, so the dictionary offset buffer is never decoded.
+            const { dataStream } = encodeSharedDictionary(["value"]);
+            const columnMetadata = createColumnMetadataForStruct("incomplete:", [{ name: "field1" }]);
+
+            expect(() => {
+                decodeSharedDictionary(dataStream, new IntWrapper(0), columnMetadata);
+            }).toThrow('Incomplete shared dictionary for column "incomplete:"');
+        });
+
+        it("should throw when an FSST shared dictionary is missing its symbol offsets", () => {
+            // Provide the dictionary length + data and the FSST symbol table, but omit the symbol length stream
+            // so the symbol offset buffer is never decoded.
+            const { lengthStream, dataStream, symbolDataStream } = encodeSharedDictionary(["value"], { useFsst: true });
+            if (!symbolDataStream) throw new Error("test setup: expected an FSST symbol data stream");
+            const fieldStreams = encodeStructField([0], [true]);
+            const complete = concatenateBuffers(lengthStream, symbolDataStream, dataStream, fieldStreams);
+            const columnMetadata = createColumnMetadataForStruct("fsst:", [{ name: "value" }]);
+
+            expect(() => {
+                decodeSharedDictionary(complete, new IntWrapper(0), columnMetadata);
+            }).toThrow('Incomplete shared FSST dictionary for column "fsst:value"');
         });
 
         it("should throw error for mismatched nullability and numStreams", () => {
