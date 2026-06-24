@@ -195,6 +195,7 @@ function decodeIdColumn(
                     id[0],
                     id[1],
                     (idDataStreamMetadata as RleEncodedStreamMetadata).numRleValues,
+                    false,
                 );
             }
             case VectorType.CONST: {
@@ -219,6 +220,7 @@ function decodeIdColumn(
                 id[0],
                 id[1],
                 (idDataStreamMetadata as RleEncodedStreamMetadata).numRleValues,
+                false,
             );
         }
         case VectorType.CONST: {
