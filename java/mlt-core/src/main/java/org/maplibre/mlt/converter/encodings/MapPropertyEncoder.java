@@ -100,7 +100,8 @@ public class MapPropertyEncoder {
     }
 
     if (!uniqueValues.ints().isEmpty()) {
-      if (uniqueValues.ints.keySet().stream().allMatch(x -> x < Integer.MAX_VALUE)) {
+      if (uniqueValues.ints.keySet().stream()
+          .allMatch(x -> Integer.MIN_VALUE <= x && x <= Integer.MAX_VALUE)) {
         mask |= MapMask.INT32;
         encodedStreams.addAll(
             IntegerEncoder.encodeIntStream(

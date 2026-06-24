@@ -12,7 +12,9 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Pattern;
+import org.apache.commons.lang3.mutable.MutableInt;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -40,7 +42,7 @@ import org.maplibre.mlt.json.Json;
 /** Utility helpers for synthetic MLT generation. */
 class SyntheticMltUtil {
 
-  static final Path SYNTHETICS_DIR = Paths.get("../test/synthetic/0x01");
+  static final Path SYNTHETICS_DIR = Paths.get("../test/synthetic");
 
   static final String DEFAULT_LAYER_NAME = "layer1";
 
@@ -311,7 +313,8 @@ class SyntheticMltUtil {
       final var metadata =
           MltConverter.createTilesetMetadata(
               tile, config.typeMismatchPolicy(), columnMappings, config.includeIds());
-      final var mlt = MltConverter.encode(tile, metadata, config, null);
+      final var mltVersion = new MutableInt(0);
+      final var mlt = MltConverter.encode(tile, metadata, config, null, Optional.of(mltVersion));
       final var unEncodedJSON = Json.toGeoJson(new MapLibreTile(layers), true) + "\n";
       final var decodedMlt = MltDecoder.decodeMlTile(mlt);
       final var decodedJSON = Json.toGeoJson(decodedMlt, true) + "\n";
@@ -324,9 +327,11 @@ class SyntheticMltUtil {
                 + "\nDecoded:\n"
                 + decodedJSON);
       }
-      Files.write(SYNTHETICS_DIR.resolve(fileName + ".mlt"), mlt, StandardOpenOption.CREATE_NEW);
+      final var baseDir =
+          SYNTHETICS_DIR.resolve(String.format("0x%02x", mltVersion.get().intValue()));
+      Files.write(baseDir.resolve(fileName + ".mlt"), mlt, StandardOpenOption.CREATE_NEW);
       Files.writeString(
-          SYNTHETICS_DIR.resolve(fileName + ".json"), decodedJSON, StandardOpenOption.CREATE_NEW);
+          baseDir.resolve(fileName + ".json"), decodedJSON, StandardOpenOption.CREATE_NEW);
       return new WriteResult(fileName, mlt, decodedMlt, decodedJSON);
     } catch (RuntimeException e) {
       throw e;

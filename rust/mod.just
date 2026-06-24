@@ -13,7 +13,7 @@ export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'
 hack_skip := '--exclude-features hotpath,hotpath-alloc,hotpath-mcp'
 
 # Files excluded from `mlt ls --validate-to-json ...`
-validate_excludes := "--exclude '../test/synthetic/0x01/prop_nested*'"
+validate_excludes := "--exclude '../test/synthetic/0x02/prop_nested*'"
 
 _default: (just '--list' 'rust')
 

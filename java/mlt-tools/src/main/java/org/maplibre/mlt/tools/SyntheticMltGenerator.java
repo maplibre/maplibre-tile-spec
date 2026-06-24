@@ -49,6 +49,7 @@ import java.util.stream.Collectors;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Polygon;
+import org.maplibre.mlt.converter.encodings.MltTypeMap;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.unsigned.U32;
@@ -59,12 +60,17 @@ import org.maplibre.mlt.json.Json;
 public class SyntheticMltGenerator {
 
   public static void main(String[] args) throws IOException {
-    if (Files.exists(SYNTHETICS_DIR)) {
-      throw new IOException(
-          "Synthetics dir must be deleted before running `:mlt-tools:generateSyntheticMlt`: "
-              + SYNTHETICS_DIR.toAbsolutePath());
+    final int minVersion = MltTypeMap.Tag0x01.TAG;
+    final int maxVersion = MltTypeMap.Tag0x02.TAG;
+    for (int i = minVersion; i <= maxVersion; ++i) {
+      final var path = SYNTHETICS_DIR.resolve(String.format("0x%02x", i));
+      if (Files.exists(path)) {
+        throw new IOException(
+            "Synthetics dir must be deleted before running `:mlt-tools:generateSyntheticMlt`: "
+                + path.toAbsolutePath());
+      }
+      Files.createDirectories(path);
     }
-    Files.createDirectories(SYNTHETICS_DIR);
 
     generatePoints();
     generateLines();

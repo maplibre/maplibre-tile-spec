@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
@@ -531,7 +532,41 @@ public class MltConverter {
       @Nullable URI tessellateSource)
       throws IOException {
     return encode(
-            sourceLayers, tilesetMetadata, config, tessellateSource, ByteArrayOutputStream::new)
+            sourceLayers,
+            tilesetMetadata,
+            config,
+            tessellateSource,
+            ByteArrayOutputStream::new,
+            Optional.empty())
+        .toByteArray();
+  }
+
+  /*
+   * Converts a collection of layers into an MLT tile
+   *
+   * @param sourceLayers The input layers
+   * @param tilesetMetadata Metadata of the tile
+   * @param config Settings for the conversion
+   * @param tessellateSource Optional URI of a tessellation service to use if polygon pre-tessellation is enabled
+   * @param versionOut Optional output parameter to receive the version of the tile format used
+   * @return Converted MapLibreTile as a byte array
+   * @throws IOException
+   */
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  public static byte[] encode(
+      LayerSource sourceLayers,
+      MltMetadata.TileSetMetadata tilesetMetadata,
+      ConversionConfig config,
+      @Nullable URI tessellateSource,
+      @NotNull Optional<MutableInt> versionOut)
+      throws IOException {
+    return encode(
+            sourceLayers,
+            tilesetMetadata,
+            config,
+            tessellateSource,
+            ByteArrayOutputStream::new,
+            versionOut)
         .toByteArray();
   }
 
@@ -546,12 +581,14 @@ public class MltConverter {
    * @return The output stream to which the data was written
    * @throws IOException
    */
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   public static <T extends OutputStream> T encode(
       @NotNull LayerSource sourceLayers,
       @NotNull MltMetadata.TileSetMetadata tilesetMetadata,
       @NotNull ConversionConfig config,
       @Nullable URI tessellateSource,
-      @NotNull Function<Integer, T> outputStreamSupplier)
+      @NotNull Function<Integer, T> outputStreamSupplier,
+      @NotNull Optional<MutableInt> versionOut)
       throws IOException {
     // Convert the list of metadatas (one per layer) into a lookup by the first and only layer name
     // We assume that the names are unique.
@@ -559,7 +596,7 @@ public class MltConverter {
         tilesetMetadata.featureTables.stream()
             .collect(
                 Collectors.toMap(
-                    t -> t.name(),
+                    MltMetadata.FeatureTable::name,
                     table -> table,
                     (existing, replacement) -> {
                       throw new RuntimeException("duplicate key");
@@ -568,6 +605,7 @@ public class MltConverter {
     final var physicalLevelTechnique =
         config.useFastPFOR() ? PhysicalLevelTechnique.FAST_PFOR : PhysicalLevelTechnique.VARINT;
 
+    int maxTag = 0;
     final var tileBuffers = new ArrayList<byte[]>((int) sourceLayers.getLayerCount() * 10);
     for (var sourceLayer : sourceLayers.getLayers()) {
       final var featureTableName = sourceLayer.name();
@@ -590,7 +628,7 @@ public class MltConverter {
         continue;
       }
 
-      final var optimizations = Optional.ofNullable(config.optimizations());
+      final var optimizations = Optional.of(config.optimizations());
       final var featureTableOptimizations = optimizations.map(opt -> opt.get(featureTableName));
 
       final var createPolygonOutline =
@@ -657,6 +695,12 @@ public class MltConverter {
       tileBuffers.add(tagBuffer);
       tileBuffers.add(metadataBuffer);
       tileBuffers.addAll(featureTableBodyBuffer);
+
+      maxTag = Math.max(maxTag, tag);
+    }
+
+    if (versionOut.isPresent()) {
+      versionOut.get().setValue(maxTag);
     }
 
     final var targetStream = outputStreamSupplier.apply(ByteArrayUtil.totalLength(tileBuffers));

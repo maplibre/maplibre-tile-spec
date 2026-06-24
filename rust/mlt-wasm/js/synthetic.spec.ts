@@ -15,15 +15,6 @@ import {
 } from "./vectorTile";
 
 const UNIMPLEMENTED_SYNTHETICS = new Map([
-  ["0x01/prop_nested_big", "not implemented yet"],
-  ["0x01/prop_nested_ints", "not implemented yet"],
-  ["0x01/prop_nested_json", "not implemented yet"],
-  ["0x01/prop_nested_list_root", "not implemented yet"],
-  ["0x01/prop_nested_list", "not implemented yet"],
-  ["0x01/prop_nested_mixed_root", "not implemented yet"],
-  ["0x01/prop_nested_null", "not implemented yet"],
-  ["0x01/prop_nested_shared", "not implemented yet"],
-  ["0x01/prop_nested_specials", "not implemented yet"],
 ]);
 
 describe("MLT WASM Decoder - Synthetic tests", () => {
