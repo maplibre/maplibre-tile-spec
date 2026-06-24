@@ -228,6 +228,19 @@ describe("embeddedTilesetMetadataDecoder", () => {
             }).toThrow("Missing layer name");
         });
 
+        it("should throw for an unsupported column type code", () => {
+            const buffer = concatenateBuffers(
+                encodeFieldName("layer"),
+                encodeTypeCode(4096),
+                encodeChildCount(1),
+                encodeTypeCode(5), // 5 is not a valid column type code
+            );
+
+            expect(() => {
+                decodeEmbeddedTileSetMetadata(buffer, new IntWrapper(0));
+            }).toThrow("Unsupported column type code 5");
+        });
+
         it("should decode logical ID metadata with implicit id column name", () => {
             const typeCode = 3;
             const buffer = concatenateBuffers(

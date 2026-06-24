@@ -32,62 +32,65 @@ export const LogicalComplexType = {
 } as const;
 
 export interface TileSetMetadata {
-    version?: number | null;
+    version?: number;
     featureTables: FeatureTableSchema[];
-    name?: string | null;
-    description?: string | null;
-    attribution?: string | null;
-    minZoom?: number | null;
-    maxZoom?: number | null;
+    name?: string;
+    description?: string;
+    attribution?: string;
+    minZoom?: number;
+    maxZoom?: number;
     bounds: number[];
     center: number[];
 }
 
 export interface FeatureTableSchema {
-    name?: string | null;
+    name: string;
     columns: Column[];
 }
 
-export interface Column {
-    name?: string | null;
-    nullable?: boolean | null;
-    columnScope?: number | null;
-    scalarType?: ScalarColumn | null;
-    complexType?: ComplexColumn | null;
-    type?: "scalarType" | "complexType";
-}
+export type Column = {
+    name: string;
+    nullable: boolean;
+    columnScope: number;
+} & (
+    | { type: "scalarType"; scalarType: ScalarColumn; complexType?: undefined }
+    | { type: "complexType"; complexType: ComplexColumn; scalarType?: undefined }
+);
+
+/** `Omit` that distributes over the union members of {@link Column}, preserving the `type` discriminant. */
+export type ColumnWithoutName = Column extends infer C ? (C extends Column ? Omit<C, "name"> : never) : never;
 
 export interface ScalarColumn {
-    longID?: boolean | null;
-    physicalType?: number | null;
-    logicalType?: number | null;
+    longID: boolean;
+    physicalType?: number;
+    logicalType?: number;
     type?: "physicalType" | "logicalType";
 }
 
 export interface ComplexColumn {
-    physicalType?: number | null;
-    logicalType?: number | null;
+    physicalType?: number;
+    logicalType?: number;
     children: Field[];
     type?: "physicalType" | "logicalType";
 }
 
-export interface Field {
-    name?: string | null;
-    nullable?: boolean | null;
-    scalarField?: ScalarField | null;
-    complexField?: ComplexField | null;
-    type?: "scalarField" | "complexField";
-}
+export type Field = {
+    name?: string;
+    nullable?: boolean;
+} & (
+    | { type: "scalarField"; scalarField: ScalarField; complexField?: undefined }
+    | { type: "complexField"; complexField: ComplexField; scalarField?: undefined }
+);
 
 export interface ScalarField {
-    physicalType?: number | null;
-    logicalType?: number | null;
+    physicalType?: number;
+    logicalType?: number;
     type?: "physicalType" | "logicalType";
 }
 
 export interface ComplexField {
-    physicalType?: number | null;
-    logicalType?: number | null;
+    physicalType?: number;
+    logicalType?: number;
     children: Field[];
     type?: "physicalType" | "logicalType";
 }
