@@ -14,8 +14,7 @@ import {
   type MltLayer,
 } from "./vectorTile";
 
-const UNIMPLEMENTED_SYNTHETICS = new Map([
-]);
+const UNIMPLEMENTED_SYNTHETICS = new Map([]);
 
 describe("MLT WASM Decoder - Synthetic tests", () => {
   expect.addEqualityTesters([compareWithTolerance]);
