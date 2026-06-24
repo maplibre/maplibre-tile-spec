@@ -140,6 +140,25 @@ impl Codecs {
             return encoder::write_stream_payload(enc.data_mut(), meta, false, vals2);
         }
 
+        // One value has no deltas and no runs, and FastPFOR framing always
+        // costs more here. Only the physical layout varies: VarInt is shorter
+        // until the value needs all its bytes (>= 2^28 for u32, >= 2^56 for u64,
+        // post-zigzag for signed), where plain avoids VarInt's continuation
+        // byte. Pick the smaller; no competition needed.
+        if values.len() == 1 {
+            let Self { logical, physical } = self;
+            let vals1 = logical.none(values);
+            let plain: &[u8] = cast_slice(vals1);
+            let varint = physical.varint(vals1);
+            let (pe, payload) = if varint.len() <= plain.len() {
+                (PE::VarInt, varint)
+            } else {
+                (PE::None, plain)
+            };
+            let meta = StreamMeta::new2(ctx.stream_type, LE::None, pe, vals1.len())?;
+            return encoder::write_stream_payload(enc.data_mut(), meta, false, payload);
+        }
+
         let allow_fastpfor = enc.config().allow_fastpfor();
         let Self { logical, physical } = self;
         let mut alt = enc.try_alternatives();
