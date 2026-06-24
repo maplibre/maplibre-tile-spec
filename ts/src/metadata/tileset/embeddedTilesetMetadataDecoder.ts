@@ -41,8 +41,6 @@ function columnToField(column: Column): Field {
 export function decodeField(src: Uint8Array, offset: IntWrapper): Field {
     const typeCode = decodeVarintInt32(src, offset, 1)[0] >>> 0;
 
-    // Fields are only scalars (10-29) and STRUCT (30); ID/GEOMETRY codes (0-4) never appear as fields.
-    // The lower bound rejects 0-9; decodeColumnType returns null for everything above 30.
     const base = typeCode >= 10 ? decodeColumnType(typeCode) : null;
     if (!base) {
         throw new Error(`Unsupported field type code ${typeCode}. Supported: ${SUPPORTED_FIELD_TYPES}`);
