@@ -175,11 +175,7 @@ fn auto_physical(values: &[u32], cfg: EncoderConfig) -> PhysicalEncoding {
     parsed.meta.encoding.physical
 }
 
-/// A single value picks logical `None` and the smaller physical layout:
-/// `VarInt` for small values, plain `None` once `VarInt` needs an extra
-/// continuation byte (>= 2^28 for u32).
 #[rstest]
-// u32: small values -> VarInt; >= 2^28 -> plain wins by one byte.
 #[case::u32_zero(0u32, PhysicalEncoding::VarInt)]
 #[case::u32_small(5u32, PhysicalEncoding::VarInt)]
 #[case::u32_two_bytes(1000u32, PhysicalEncoding::VarInt)]
@@ -202,8 +198,6 @@ fn single_value_u32_picks_smaller_physical(
     assert_eq!(roundtrip_stream_u32s(enc.data()), vec![v]);
 }
 
-/// Same for signed values, where `none()` zigzags first: large-magnitude values
-/// cross into the plain layout, small ones stay `VarInt`.
 #[rstest]
 #[case::i32_zero(0i32, PhysicalEncoding::VarInt)]
 #[case::i32_neg_one(-1i32, PhysicalEncoding::VarInt)]
