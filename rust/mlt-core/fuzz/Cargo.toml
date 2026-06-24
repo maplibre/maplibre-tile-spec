@@ -34,8 +34,6 @@ test = false
 doc = false
 bench = false
 
-# Differential fuzzer comparing the Rust decoder and the C++ `mlt-cpp-json`
-# tool. Set $MLT_CPP_JSON_BIN to the built binary before running.
 [[bin]]
 name = "differential"
 path = "fuzz_targets/differential.rs"
