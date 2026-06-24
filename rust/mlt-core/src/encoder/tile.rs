@@ -11,7 +11,7 @@
 
 use crate::decoder::{GeometryValues, PropValue, TileFeature, TileLayer};
 use crate::encoder::model::{CurveParams, StagedLayer};
-use crate::encoder::optimizer::{LayerStats, Presence, SharedDictRole};
+use crate::encoder::optimizer::{LayerStats, Presence, PropertyTypedStats, SharedDictRole};
 use crate::encoder::{SortStrategy, StagedId, StagedProperty, StagedSharedDict};
 
 impl StagedLayer {
@@ -84,6 +84,7 @@ impl StagedLayer {
                         std::mem::take(&mut property_names[col_idx]),
                         col_idx,
                         prop_analysis.presence,
+                        &prop_analysis.stats,
                         &mut features,
                     ) {
                         properties.push(prop);
@@ -118,6 +119,7 @@ fn build_scalar_column(
     name: String,
     col: usize,
     presence: Presence,
+    stats: &PropertyTypedStats,
     features: &mut [TileFeature],
 ) -> Option<StagedProperty> {
     if presence == Presence::AllNull {
@@ -157,13 +159,48 @@ fn build_scalar_column(
         }};
     }
 
+    // Narrows a 64-bit source column to a 32-bit destination, so the
+    // `FastPFOR` codec (32-bit only) becomes eligible.
+    macro_rules! narrow_col {
+        ($opt_ctor:ident, $non_opt_ctor:ident, $dst:ty, $sv:ident) => {{
+            Some(match presence {
+                Presence::AllNull => unreachable!("handled before variant dispatch"),
+                Presence::AllPresent => StagedProperty::$non_opt_ctor(
+                    name,
+                    features
+                        .iter()
+                        .map(|f| match f.properties().get(col) {
+                            Some(PropValue::$sv(Some(v))) => <$dst>::try_from(*v)
+                                .expect("analyzed range guarantees value fits narrowed type"),
+                            _ => unreachable!("analysis guarantees present typed values"),
+                        })
+                        .collect(),
+                ),
+                Presence::Mixed | Presence::SameAsProp(_) => StagedProperty::$opt_ctor(
+                    name,
+                    features.iter().map(|f| match f.properties().get(col) {
+                        Some(PropValue::$sv(Some(v))) => Some(
+                            <$dst>::try_from(*v)
+                                .expect("analyzed range guarantees value fits narrowed type"),
+                        ),
+                        _ => None,
+                    }),
+                ),
+            })
+        }};
+    }
+
     match first_val {
         Some(PropValue::Bool(_)) => scalar_col!(opt_bool, bool, bool, Bool),
         Some(PropValue::I8(_)) => scalar_col!(opt_i8, i8, i8, I8),
         Some(PropValue::U8(_)) => scalar_col!(opt_u8, u8, u8, U8),
         Some(PropValue::I32(_)) => scalar_col!(opt_i32, i32, i32, I32),
         Some(PropValue::U32(_)) => scalar_col!(opt_u32, u32, u32, U32),
+        // `u32` is tried before `i32` since `values_fit_u32` requires `min >= 0`.
+        Some(PropValue::I64(_)) if stats.values_fit_u32() => narrow_col!(opt_u32, u32, u32, I64),
+        Some(PropValue::I64(_)) if stats.values_fit_i32() => narrow_col!(opt_i32, i32, i32, I64),
         Some(PropValue::I64(_)) => scalar_col!(opt_i64, i64, i64, I64),
+        Some(PropValue::U64(_)) if stats.values_fit_u32() => narrow_col!(opt_u32, u32, u32, U64),
         Some(PropValue::U64(_)) => scalar_col!(opt_u64, u64, u64, U64),
         Some(PropValue::F32(_)) => scalar_col!(opt_f32, f32, f32, F32),
         Some(PropValue::F64(_)) => scalar_col!(opt_f64, f64, f64, F64),
