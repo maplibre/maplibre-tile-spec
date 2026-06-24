@@ -43,10 +43,10 @@ export abstract class GpuVector implements Iterable<CoordinatesArray> {
         }
 
         const geometries: CoordinatesArray[] = new Array(this.numGeometries);
-        const topology = this._topologyVector;
-        const partOffsets = topology.partOffsets as Uint32Array;
-        const ringOffsets = topology.ringOffsets as Uint32Array;
-        const geometryOffsets = topology.geometryOffsets as Uint32Array;
+        const { partOffsets, ringOffsets, geometryOffsets } = this._topologyVector;
+        if (!partOffsets || !ringOffsets) {
+            throw new Error("Cannot convert GpuVector to coordinates without part and ring offsets");
+        }
 
         // Use counters to track position in offset arrays (like Java implementation)
         let vertexBufferOffset = 0;
@@ -89,6 +89,9 @@ export abstract class GpuVector implements Iterable<CoordinatesArray> {
                     break;
                 case GEOMETRY_TYPE.MULTIPOLYGON:
                     {
+                        if (!geometryOffsets) {
+                            throw new Error("Cannot convert MultiPolygon GpuVector to coordinates without geometry offsets");
+                        }
                         // Get number of polygons in this multipolygon
                         const numPolygons =
                             geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];

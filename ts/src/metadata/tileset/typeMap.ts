@@ -1,10 +1,9 @@
 import {
     type Column,
+    type ColumnWithoutName,
     ColumnScope,
-    type ComplexColumn,
     ComplexType,
     LogicalScalarType,
-    type ScalarColumn,
     ScalarType,
 } from "./tilesetMetadata";
 
@@ -27,7 +26,7 @@ import {
  * ID columns are kept as logical types so they remain distinguishable
  * from feature properties that may also be named "id".
  */
-export function decodeColumnType(typeCode: number): Omit<Column, "name"> | null {
+export function decodeColumnType(typeCode: number): ColumnWithoutName | null {
     switch (typeCode) {
         case 0:
         case 1:
@@ -95,7 +94,7 @@ export function columnTypeHasChildren(typeCode: number): boolean {
  */
 export function hasStreamCount(column: Column): boolean {
     if (column.type === "scalarType") {
-        const scalarCol = column.scalarType as ScalarColumn;
+        const scalarCol = column.scalarType;
 
         if (scalarCol.type === "physicalType") {
             const physicalType = scalarCol.physicalType;
@@ -120,7 +119,7 @@ export function hasStreamCount(column: Column): boolean {
             return false;
         }
     } else if (column.type === "complexType") {
-        const complexCol = column.complexType as ComplexColumn;
+        const complexCol = column.complexType;
 
         if (complexCol.type === "physicalType") {
             const physicalType = complexCol.physicalType;
@@ -159,7 +158,7 @@ export function isGeometryColumn(column: Column): boolean {
  * Type codes 10-29 encode scalar types with nullable flag.
  * Even codes are non-nullable, odd codes are nullable.
  */
-function mapScalarType(typeCode: number): Omit<Column, "name"> | null {
+function mapScalarType(typeCode: number): ColumnWithoutName | null {
     let physicalType: number;
 
     switch (typeCode) {

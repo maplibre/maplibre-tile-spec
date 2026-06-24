@@ -96,28 +96,29 @@ export function decodeGeometryColumn(
             }
         }
 
+        if (vertexBuffer === undefined) {
+            throw new Error("Geometry column is missing its vertex buffer.");
+        }
+
         if (indexBuffer) {
+            if (triangleOffsets === undefined) {
+                throw new Error("Tessellated geometry is missing its triangle offsets.");
+            }
             if (geometryOffsets !== undefined || partOffsets !== undefined) {
                 /* Case when the indices of a Polygon outline are encoded in the tile */
                 const topologyVector = { geometryOffsets, partOffsets, ringOffsets };
                 return createConstGpuVector(
                     numFeatures,
                     geometryType,
-                    triangleOffsets as Uint32Array,
+                    triangleOffsets,
                     indexBuffer,
-                    vertexBuffer as Int32Array | Uint32Array,
+                    vertexBuffer,
                     topologyVector,
                 );
             }
 
             /* Case when the no Polygon outlines are encoded in the tile */
-            return createConstGpuVector(
-                numFeatures,
-                geometryType,
-                triangleOffsets as Uint32Array,
-                indexBuffer,
-                vertexBuffer as Int32Array | Uint32Array,
-            );
+            return createConstGpuVector(numFeatures, geometryType, triangleOffsets, indexBuffer, vertexBuffer);
         }
 
         return mortonSettings === undefined
@@ -127,14 +128,14 @@ export function decodeGeometryColumn(
                   geometryType,
                   { geometryOffsets, partOffsets, ringOffsets },
                   vertexOffsets,
-                  vertexBuffer as Int32Array | Uint32Array,
+                  vertexBuffer,
               )
             : createMortonEncodedConstGeometryVector(
                   numFeatures,
                   geometryType,
                   { geometryOffsets, partOffsets, ringOffsets },
                   vertexOffsets,
-                  vertexBuffer as Int32Array | Uint32Array,
+                  vertexBuffer,
                   mortonSettings,
               );
     }
@@ -214,30 +215,25 @@ export function decodeGeometryColumn(
         partOffsets = decodeRootLengthStream(geometryTypeVector, partLengths, 0);
     }
 
-    if (indexBuffer && !partOffsets) {
-        /* Case when the indices of a Polygon outline are not encoded in the data so no
-         *  topology data are present in the tile */
-        return createFlatGpuVector(
-            geometryTypeVector,
-            triangleOffsets as Uint32Array,
-            indexBuffer,
-            vertexBuffer as Int32Array | Uint32Array,
-        );
+    if (vertexBuffer === undefined) {
+        throw new Error("Geometry column is missing its vertex buffer.");
     }
 
     if (indexBuffer) {
+        if (triangleOffsets === undefined) {
+            throw new Error("Tessellated geometry is missing its triangle offsets.");
+        }
+        if (!partOffsets) {
+            /* Case when the indices of a Polygon outline are not encoded in the data so no
+             *  topology data are present in the tile */
+            return createFlatGpuVector(geometryTypeVector, triangleOffsets, indexBuffer, vertexBuffer);
+        }
         /* Case when the indices of a Polygon outline are encoded in the tile */
-        return createFlatGpuVector(
-            geometryTypeVector,
-            triangleOffsets as Uint32Array,
-            indexBuffer,
-            vertexBuffer as Int32Array | Uint32Array,
-            {
-                geometryOffsets,
-                partOffsets,
-                ringOffsets,
-            },
-        );
+        return createFlatGpuVector(geometryTypeVector, triangleOffsets, indexBuffer, vertexBuffer, {
+            geometryOffsets,
+            partOffsets,
+            ringOffsets,
+        });
     }
 
     return mortonSettings === undefined /* Currently only 2D coordinates (Vec2) are implemented in the encoder  */
@@ -245,13 +241,13 @@ export function decodeGeometryColumn(
               geometryTypeVector,
               { geometryOffsets, partOffsets, ringOffsets },
               vertexOffsets,
-              vertexBuffer as Int32Array | Uint32Array,
+              vertexBuffer,
           )
         : createFlatGeometryVectorMortonEncoded(
               geometryTypeVector,
               { geometryOffsets, partOffsets, ringOffsets },
               vertexOffsets,
-              vertexBuffer as Int32Array | Uint32Array,
+              vertexBuffer,
               mortonSettings,
           );
 }

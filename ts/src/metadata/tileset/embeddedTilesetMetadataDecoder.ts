@@ -1,6 +1,6 @@
 import type IntWrapper from "../../decoding/intWrapper";
 import { decodeVarintInt32 } from "../../decoding/integerDecodingUtils";
-import type { Column, ComplexColumn, FeatureTableSchema, Field, TileSetMetadata } from "./tilesetMetadata";
+import type { Column, FeatureTableSchema, Field, TileSetMetadata } from "./tilesetMetadata";
 import { columnTypeHasChildren, columnTypeHasName, decodeColumnType } from "./typeMap";
 
 const textDecoder = new TextDecoder();
@@ -29,13 +29,10 @@ function decodeString(src: Uint8Array, offset: IntWrapper): string {
  * Used when decoding Field metadata which has the same format as Column.
  */
 function columnToField(column: Column): Field {
-    return {
-        name: column.name,
-        nullable: column.nullable,
-        scalarField: column.scalarType,
-        complexField: column.complexType,
-        type: column.type === "scalarType" ? "scalarField" : "complexField",
-    };
+    const base = { name: column.name, nullable: column.nullable };
+    return column.type === "scalarType"
+        ? { ...base, type: "scalarField", scalarField: column.scalarType }
+        : { ...base, type: "complexField", complexField: column.complexType };
 }
 
 /**
@@ -56,8 +53,8 @@ export function decodeField(src: Uint8Array, offset: IntWrapper): Field {
     // Field type codes (10-30) always carry an explicit name.
     const column: Column = { ...base, name: decodeString(src, offset) };
 
-    if (columnTypeHasChildren(typeCode)) {
-        const complexCol = column.complexType as ComplexColumn;
+    if (column.type === "complexType" && columnTypeHasChildren(typeCode)) {
+        const complexCol = column.complexType;
         const childCount = decodeVarintInt32(src, offset, 1)[0] >>> 0;
         complexCol.children = new Array(childCount);
         for (let i = 0; i < childCount; i++) {
@@ -91,10 +88,10 @@ function decodeColumn(src: Uint8Array, offset: IntWrapper): Column {
 
     const column: Column = { ...base, name };
 
-    if (columnTypeHasChildren(typeCode)) {
+    if (column.type === "complexType" && columnTypeHasChildren(typeCode)) {
         // Only STRUCT (typeCode 30) has children
         const childCount = decodeVarintInt32(src, offset, 1)[0] >>> 0;
-        const complexCol = column.complexType as ComplexColumn;
+        const complexCol = column.complexType;
         complexCol.children = new Array(childCount);
         for (let i = 0; i < childCount; i++) {
             complexCol.children[i] = decodeField(src, offset);

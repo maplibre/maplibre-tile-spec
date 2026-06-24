@@ -8,7 +8,7 @@ import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
 import { DictionaryType } from "../metadata/tile/dictionaryType";
 import { LengthType } from "../metadata/tile/lengthType";
 import { decodeUnsignedInt32Stream, decodeLengthStreamToOffsetBuffer } from "./integerStreamDecoder";
-import { type Column, type ComplexColumn, type ScalarField, ScalarType } from "../metadata/tileset/tilesetMetadata";
+import { type Column, ScalarType } from "../metadata/tileset/tilesetMetadata";
 import { decodeVarintInt32 } from "./integerDecodingUtils";
 import { decodeBooleanRle, skipColumn } from "./decodingUtils";
 import { StringFsstDictionaryVector } from "../vector/fsst-dictionary/stringFsstDictionaryVector";
@@ -71,7 +71,7 @@ export function decodeString(
         }
     }
 
-    return (
+    const vector =
         decodeFsstDictionaryVector(
             name,
             symbolTableStream,
@@ -82,8 +82,11 @@ export function decodeString(
             nullabilityBuffer,
         ) ??
         decodeDictionaryVector(name, dictionaryStream, offsetStream, dictionaryLengthStream, nullabilityBuffer) ??
-        (decodePlainStringVector(name, plainLengthStream, plainDataStream, offsetStream, nullabilityBuffer) as Vector)
-    );
+        decodePlainStringVector(name, plainLengthStream, plainDataStream, offsetStream, nullabilityBuffer);
+    if (!vector) {
+        throw new Error(`Could not decode string column "${name}": no recognized string encoding present.`);
+    }
+    return vector;
 }
 
 function decodeFsstDictionaryVector(
@@ -98,12 +101,15 @@ function decodeFsstDictionaryVector(
     if (!symbolTableStream) {
         return undefined;
     }
+    if (!offsetStream || !dictionaryLengthStream || !dictionaryStream || !symbolLengthStream) {
+        throw new Error(`Incomplete FSST dictionary string column "${name}"`);
+    }
     return new StringFsstDictionaryVector(
         name,
-        offsetStream as Uint32Array,
-        dictionaryLengthStream as Uint32Array,
-        dictionaryStream as Uint8Array,
-        symbolLengthStream as Uint32Array,
+        offsetStream,
+        dictionaryLengthStream,
+        dictionaryStream,
+        symbolLengthStream,
         symbolTableStream,
         nullabilityBuffer,
     );
@@ -119,20 +125,12 @@ function decodeDictionaryVector(
     if (!dictionaryStream) {
         return undefined;
     }
+    if (!offsetStream || !dictionaryLengthStream) {
+        throw new Error(`Incomplete dictionary string column "${name}"`);
+    }
     return nullabilityBuffer
-        ? new StringDictionaryVector(
-              name,
-              offsetStream as Uint32Array,
-              dictionaryLengthStream as Uint32Array,
-              dictionaryStream,
-              nullabilityBuffer,
-          )
-        : new StringDictionaryVector(
-              name,
-              offsetStream as Uint32Array,
-              dictionaryLengthStream as Uint32Array,
-              dictionaryStream,
-          );
+        ? new StringDictionaryVector(name, offsetStream, dictionaryLengthStream, dictionaryStream, nullabilityBuffer)
+        : new StringDictionaryVector(name, offsetStream, dictionaryLengthStream, dictionaryStream);
 }
 
 function decodePlainStringVector(
@@ -213,7 +211,13 @@ export function decodeSharedDictionary(
         }
     }
 
-    const childFields = (column.complexType as ComplexColumn).children;
+    if (column.type !== "complexType") {
+        throw new Error(`Shared dictionary column ${column.name} must be a complex (struct) column.`);
+    }
+    if (!dictionaryOffsetBuffer || !dictionaryBuffer) {
+        throw new Error(`Incomplete shared dictionary for column "${column.name}"`);
+    }
+    const childFields = column.complexType.children;
     const stringDictionaryVectors = [];
     let i = 0;
     for (const childField of childFields) {
@@ -234,7 +238,7 @@ export function decodeSharedDictionary(
 
         if (
             childField.type !== "scalarField" ||
-            (childField.scalarField as ScalarField).physicalType !== ScalarType.STRING
+            childField.scalarField.physicalType !== ScalarType.STRING
         ) {
             throw new Error("Currently only scalar string fields are implemented for a struct.");
         }
@@ -264,23 +268,28 @@ export function decodeSharedDictionary(
             presentStreamBitVector,
         );
 
-        stringDictionaryVectors[i++] = symbolTableBuffer
-            ? new StringFsstDictionaryVector(
-                  columnName,
-                  offsetStream,
-                  dictionaryOffsetBuffer as Uint32Array,
-                  dictionaryBuffer as Uint8Array,
-                  symbolOffsetBuffer as Uint32Array,
-                  symbolTableBuffer,
-                  presentStreamBitVector,
-              )
-            : new StringDictionaryVector(
-                  columnName,
-                  offsetStream,
-                  dictionaryOffsetBuffer as Uint32Array,
-                  dictionaryBuffer as Uint8Array,
-                  presentStreamBitVector,
-              );
+        if (symbolTableBuffer) {
+            if (!symbolOffsetBuffer) {
+                throw new Error(`Incomplete shared FSST dictionary for column "${columnName}"`);
+            }
+            stringDictionaryVectors[i++] = new StringFsstDictionaryVector(
+                columnName,
+                offsetStream,
+                dictionaryOffsetBuffer,
+                dictionaryBuffer,
+                symbolOffsetBuffer,
+                symbolTableBuffer,
+                presentStreamBitVector,
+            );
+        } else {
+            stringDictionaryVectors[i++] = new StringDictionaryVector(
+                columnName,
+                offsetStream,
+                dictionaryOffsetBuffer,
+                dictionaryBuffer,
+                presentStreamBitVector,
+            );
+        }
     }
 
     return stringDictionaryVectors;

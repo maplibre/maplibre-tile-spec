@@ -48,7 +48,7 @@ export function decodePropertyColumn(
             data,
             offset,
             numFeatures,
-            columnMetadata.scalarType as ScalarColumn,
+            columnMetadata.scalarType,
             columnMetadata,
         );
     }

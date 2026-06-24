@@ -48,14 +48,17 @@ export interface FeatureTableSchema {
     columns: Column[];
 }
 
-export interface Column {
+export type Column = {
     name: string;
     nullable: boolean;
     columnScope: number;
-    scalarType?: ScalarColumn;
-    complexType?: ComplexColumn;
-    type?: "scalarType" | "complexType";
-}
+} & (
+    | { type: "scalarType"; scalarType: ScalarColumn; complexType?: undefined }
+    | { type: "complexType"; complexType: ComplexColumn; scalarType?: undefined }
+);
+
+/** `Omit` that distributes over the union members of {@link Column}, preserving the `type` discriminant. */
+export type ColumnWithoutName = Column extends infer C ? (C extends Column ? Omit<C, "name"> : never) : never;
 
 export interface ScalarColumn {
     longID: boolean;
@@ -71,13 +74,13 @@ export interface ComplexColumn {
     type?: "physicalType" | "logicalType";
 }
 
-export interface Field {
+export type Field = {
     name?: string;
     nullable?: boolean;
-    scalarField?: ScalarField;
-    complexField?: ComplexField;
-    type?: "scalarField" | "complexField";
-}
+} & (
+    | { type: "scalarField"; scalarField: ScalarField; complexField?: undefined }
+    | { type: "complexField"; complexField: ComplexField; scalarField?: undefined }
+);
 
 export interface ScalarField {
     physicalType?: number;
