@@ -1861,9 +1861,9 @@ dependencies = [
 
 [[package]]
 name = "fast-mvt"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42da86ae212cff4e913e2131812069cb9172a1de185804357b6f50afc9a174f9"
+checksum = "1cd0e8bb4203a699823188fea296c1a6349cf1b94ce3bc8fa4de60c5a2d744f9"
 dependencies = [
  "buffa",
  "dup-indexer",
