@@ -14,7 +14,17 @@ import {
   type MltLayer,
 } from "./vectorTile";
 
-const UNIMPLEMENTED_SYNTHETICS = new Map<string, string>([]);
+const UNIMPLEMENTED_SYNTHETICS = new Map([
+  ["0x02/prop_nested_big", "not supported"],
+  ["0x02/prop_nested_ints", "not supported"],
+  ["0x02/prop_nested_json", "not supported"],
+  ["0x02/prop_nested_list_root", "not supported"],
+  ["0x02/prop_nested_list", "not supported"],
+  ["0x02/prop_nested_mixed_root", "not supported"],
+  ["0x02/prop_nested_null", "not supported"],
+  ["0x02/prop_nested_shared", "not supported"],
+  ["0x02/prop_nested_specials", "not supported"],
+]);
 
 describe("MLT WASM Decoder - Synthetic tests", () => {
   expect.addEqualityTesters([compareWithTolerance]);

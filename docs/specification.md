@@ -139,21 +139,6 @@ There is no global tile header.  Each `FeatureTable` has its own metadata.
 
 ### FeatureTable Metadata
 
-Each `FeatureTable` is preceded by a `FeatureTableMetadata` section describing it.
-
-!!! CAUTION
-    This is not clear, and possibly incorrect.
-    Why any number?
-    Should the size of the upcoming metadata and table be part of that structure?
-
-A FeatureTable consists of any number of the following sequences:
-
-- The size of the upcoming `FeatureTableMetadata` (varint-encoded).
-- The size of the upcoming `FeatureTable` (varint-encoded).
-- One `FeatureTableMetadata` section.
-- One `FeatureTable` section.
-
-This structure allows a tile to be built by simply concatenating separate results.
 The `FeatureTableMetadata` is described in detail below.
 
 Within a `FeatureTable`, additional metadata describes the structure of each part:
@@ -439,16 +424,31 @@ Logical types add semantics on top of physical types, enabling code reuse and si
 | Geometry     | vec2<Int32>        |                                  |
 | GeometryZ    | vec3<Int32>        |                                  |
 
-### Nested Fields Encoding
+### Nested Fields Encoding <span class="experimental"></span>
 
-For nested properties (e.g., structs, lists), a [present/length](https://arxiv.org/pdf/2304.05028.pdf) pair encoding is chosen over the Dremel encoding for its simpler implementation and faster decoding into the in-memory format.
+This property type is analogous to JSON in that it contains key-value maps and lists which can
+be nested.  Property keys are always strings.
 
-Every nullable field has an additional `present` stream.
-Every collection type field (e.g., a list) has an additional `length` stream specifying its length.
-As in ORC, nested fields are flattened based on a pre-order traversal.
+The encoding consists of:
+- A length stream
+- Dictionary streams
+- A presence stream
+- A data stream
 
-Nested fields can also use shared dictionary encoding to share a common dictionary (e.g., for localized `name:*` columns in an OSM dataset).
-Fields using a shared dictionary must be grouped sequentially in the file and prefixed by the dictionary.
+The length stream indicates how many data values are written for each feature.
+This is the only stream which is always written.
+
+A dictionary stream is emitted for each unique data type present, containing all the values of
+that type.  Values are referenced by their index within the combined set of these dictionaries.
+
+A presence stream is emitted if the property is null for any feature.  This distinguishes between
+empty (`{}`) and a null value when the length is zero.
+
+The data stream encodes the index of values within the dictionary set along with control values
+describing the structure of the data.  Maps and lists are encoded with a control value and the
+number of values to follow which are within that collection.
+
+Sharing the dictionaries by grouping columns is not yet supported.
 
 ### RangeMap <span class="experimental"></span>
 

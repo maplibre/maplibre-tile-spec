@@ -38,29 +38,39 @@ import static org.maplibre.mlt.tools.SyntheticMltUtil.ring;
 import static org.maplibre.mlt.tools.SyntheticMltUtil.write;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Polygon;
+import org.maplibre.mlt.converter.encodings.MltTypeMap;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.unsigned.U32;
 import org.maplibre.mlt.data.unsigned.U64;
+import org.maplibre.mlt.data.unsigned.U8;
+import org.maplibre.mlt.json.Json;
 
 public class SyntheticMltGenerator {
 
   public static void main(String[] args) throws IOException {
-    if (Files.exists(SYNTHETICS_DIR)) {
-      throw new IOException(
-          "Synthetics dir must be deleted before running `:mlt-tools:generateSyntheticMlt`: "
-              + SYNTHETICS_DIR.toAbsolutePath());
+    final int minVersion = MltTypeMap.Tag0x01.TAG;
+    final int maxVersion = MltTypeMap.Tag0x02.TAG;
+    for (int i = minVersion; i <= maxVersion; ++i) {
+      final var path = SYNTHETICS_DIR.resolve(String.format("0x%02x", i));
+      if (Files.exists(path)) {
+        throw new IOException(
+            "Synthetics dir must be deleted before running `:mlt-tools:generateSyntheticMlt`: "
+                + path.toAbsolutePath());
+      }
+      Files.createDirectories(path);
     }
-    Files.createDirectories(SYNTHETICS_DIR);
 
     generatePoints();
     generateLines();
@@ -528,7 +538,7 @@ public class SyntheticMltGenerator {
 
     // If there are many identical strings in the same column,
     // an offset directory is used to share them
-    // Because the directory we are indexing into has lengths assosciated with it and the offsets
+    // Because the directory we are indexing into has lengths associated with it and the offsets
     // are indexes,
     // we cannot do overlap-optimization where one ABBA contains BB -> only ABBA would be in the
     // dict.
@@ -536,6 +546,110 @@ public class SyntheticMltGenerator {
     var feat_two_str_eq = array(feat(p1, prop("val", val)), feat(p2, prop("val", val)));
     write(layer("props_offset_str", feat_two_str_eq), cfg());
     write(layer("props_offset_str_fsst", feat_two_str_eq), cfg().fsst());
+
+    // Nested/MAP properties
+    // empty is distinct from null
+    write(
+        "prop_nested_null",
+        layer(
+            SyntheticMltUtil.DEFAULT_LAYER_NAME,
+            feat(p0, prop("a", prop("b", Map.of()))),
+            feat(p0, Map.of())),
+        cfg());
+    // can contain lists of mixed types, list-within-map, map-within-list, list-within-list
+    write(
+        "prop_nested_list",
+        feat(p0, prop("a", prop("b", List.of(1, "2", prop("c", List.of(3.0, 4, List.of(5, 6))))))),
+        cfg());
+    // the root item can be a list, include each supported type
+    final var typesResult =
+        write(
+            "prop_nested_list_root",
+            feat(
+                p0,
+                prop(
+                    "a",
+                    List.of(
+                        true,
+                        false,
+                        1,
+                        (long) Integer.MAX_VALUE + 2,
+                        U8.MAX_VALUE,
+                        U32.of(Integer.MAX_VALUE + 3L),
+                        U64.of(BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(4L))),
+                        "5",
+                        6.0,
+                        Math.nextUp(Double.valueOf(Float.MAX_VALUE))))),
+            cfg());
+
+    // Embed the entire JSON representation of the above as a property value
+    final var jsonObjects = Json.toGeoJsonObjects(typesResult.decodedMlt(), Json.createGson(true));
+    write("prop_nested_json", feat(p0, prop("a", prop("b", jsonObjects))), cfg());
+
+    // BigInteger and BigDecimal support.
+    // Note that we can't include some BigDecimal values, e.g., Float.MAX_VALUE because
+    // they print differently to JSON than the decoded float value.
+    // TODO: update JSON serialization to match?
+    write(
+        "prop_nested_big",
+        feat(
+            p0,
+            prop(
+                "a",
+                List.of(
+                    BigInteger.valueOf(1),
+                    BigInteger.valueOf(-2),
+                    BigInteger.valueOf(Integer.MAX_VALUE + 3L),
+                    BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(5L)),
+                    BigDecimal.valueOf(6.0f),
+                    BigDecimal.valueOf(7.0),
+                    BigDecimal.valueOf(Math.nextUp(8.0))))),
+        cfg());
+
+    // signed and unsigned without the need for 64-bit streams
+    write(
+        "prop_nested_ints",
+        feat(p0, prop("a", List.of(Integer.MAX_VALUE, Integer.MIN_VALUE, U32.MAX_VALUE))),
+        cfg());
+
+    // Make sure special float values are supported in nested properties
+    write(
+        "prop_nested_specials",
+        feat(
+            p0,
+            prop(
+                "a",
+                List.of(
+                    Float.NaN,
+                    Double.NaN,
+                    Float.POSITIVE_INFINITY,
+                    Float.NEGATIVE_INFINITY,
+                    Double.POSITIVE_INFINITY,
+                    Double.NEGATIVE_INFINITY))),
+        cfg());
+
+    // Mixed scalar types in the same column as a nested value are supported
+    write(
+        "prop_nested_mixed_root",
+        layer(
+            SyntheticMltUtil.DEFAULT_LAYER_NAME,
+            feat(p0, prop("a", "b")),
+            feat(p0, prop("a", prop("b", "c"))),
+            feat(p0, prop("a", Math.PI))),
+        cfg().coercePropValues());
+
+    // Multiple nested columns share dictionaries
+    write(
+        "prop_nested_shared",
+        layer(
+            SyntheticMltUtil.DEFAULT_LAYER_NAME,
+            feat(p0, prop("name:a", "b")),
+            feat(p0, prop("name:a", prop("b", "c"))),
+            feat(p0, prop("name:b", prop("c", List.of("b")))),
+            feat(p0, prop("name:b", "b")),
+            feat(p0, prop("name:c", prop("b", Math.PI))),
+            feat(p0, prop("name:c", Math.PI))),
+        cfg().coercePropValues());
   }
 
   /**

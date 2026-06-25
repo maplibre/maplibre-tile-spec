@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.SequencedCollection;
@@ -46,7 +47,7 @@ public class PropertyEncoder {
     final var estimatedBuffers = propertyColumns.size() * 5;
     final var featureScopedPropertyColumns = new ArrayList<byte[]>(estimatedBuffers);
 
-    final var columnMappingsIterator = columnMappings.iterator();
+    Iterator<ColumnMapping> columnMappingsIterator = null;
     for (var columnMetadata : propertyColumns) {
       final ArrayList<byte[]> encodedColumn;
       if (columnMetadata.isScalar()) {
@@ -58,8 +59,15 @@ public class PropertyEncoder {
                 columnMetadata,
                 physicalLevelTechnique,
                 integerEncodingOption);
-      } else if (MltTypeMap.Tag0x01.isStruct(columnMetadata)) {
-        if (!columnMappingsIterator.hasNext()) {
+      } else if (columnMetadata.is(MltMetadata.ComplexType.MAP)) {
+        encodedColumn =
+            MapPropertyEncoder.encodeMapPropertyColumn(
+                features, useFSST, columnMetadata, physicalLevelTechnique, integerEncodingOption);
+      } else if (MltTypeMap.Tag0x02.isStruct(columnMetadata)) {
+        if (columnMappingsIterator == null && columnMappings != null) {
+          columnMappingsIterator = columnMappings.iterator();
+        }
+        if (columnMappingsIterator == null || !columnMappingsIterator.hasNext()) {
           throw new IllegalArgumentException(
               "Missing column mapping for nested property column " + columnMetadata.getName());
         }
@@ -92,13 +100,15 @@ public class PropertyEncoder {
 
     if (!columnMapping.getUseSharedDictionaryEncoding()) {
       throw new IllegalArgumentException(
-          "Only shared dictionary encoding is currently supported for nested property columns");
+          "Only shared dictionary encoding is currently supported for struct property columns");
     }
 
     /* Plan -> when there is a struct field and the useSharedDictionaryFlag is enabled
      *  share the dictionary for all string columns which are located one after
      * the other in the sequence */
     final var complexType = columnMetadata.field().type().complexType();
+    assert complexType != null; // precondition, was checked previously
+
     final var sharedDictionary =
         new ArrayList<List<String>>(features.size() * complexType.children().size());
     for (var nestedFieldMetadata : complexType.children()) {
@@ -109,7 +119,7 @@ public class PropertyEncoder {
       final var scalarType = nestedFieldMetadata.type().scalarType().physicalType();
       if (scalarType != MltMetadata.ScalarType.STRING) {
         throw new IllegalArgumentException(
-            "Only fields of type String are currently supported as nested property columns");
+            "Only fields of type String are currently supported as struct property columns");
       }
 
       final var propertyName = rootName + nestedFieldMetadata.name();
@@ -129,7 +139,7 @@ public class PropertyEncoder {
     if (sharedDictionary.stream().allMatch(List::isEmpty)) {
       // Set number of streams to zero if no property values are present in this tile
       // TODO: Can we skip the column entirely in this case?
-      return new ArrayList<>(Arrays.asList(new byte[] {0}));
+      return new ArrayList<>(List.of(new byte[] {0}));
     }
     final var nestedColumns =
         StringEncoder.encodeSharedDictionary(sharedDictionary, physicalLevelTechnique, useFSST);
@@ -151,11 +161,11 @@ public class PropertyEncoder {
       PhysicalLevelTechnique physicalLevelTechnique,
       @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption)
       throws IOException {
-    if (MltTypeMap.Tag0x01.hasStreamCount(columnMetadata)
+    if (MltTypeMap.Tag0x02.hasStreamCount(columnMetadata)
         && features.stream().noneMatch(f -> f.findProperty(columnMetadata.getName()).isPresent())) {
       // Indicate a missing property column in the tile with a zero for the number of streams
       // TODO: Can we skip the column entirely in this case?
-      return new ArrayList<>(Arrays.asList(new byte[] {0}));
+      return new ArrayList<>(List.of(new byte[] {0}));
     }
 
     return encodeScalarPropertyColumn(
@@ -168,7 +178,8 @@ public class PropertyEncoder {
         integerEncodingOption);
   }
 
-  private static Boolean getBooleanPropertyValue(@NotNull Feature feature, @NotNull String name) {
+  private static @Nullable Boolean getBooleanPropertyValue(
+      @NotNull Feature feature, @NotNull String name) {
     return feature
         .findProperty(name)
         .filter(p -> p.getType().is(MltMetadata.ScalarType.BOOLEAN))
@@ -177,11 +188,12 @@ public class PropertyEncoder {
   }
 
   private static Integer strictIntOrNull(@Nullable Long value) {
-    return (value != null && value.intValue() == value.longValue()) ? value.intValue() : null;
+    return (value != null && value.intValue() == value) ? value.intValue() : null;
   }
 
   private static Integer strictIntOrNull(@Nullable U64 value) {
-    return (value != null && value.intValue().longValue() == value.longValue())
+    return (value != null
+            && Objects.requireNonNull(value.intValue()).longValue() == value.longValue())
         ? value.intValue()
         : null;
   }
@@ -221,7 +233,7 @@ public class PropertyEncoder {
                   case UINT_64 -> strictIntOrNull((U64) p.getValue(index));
                   case FLOAT -> strictIntOrNull((Float) p.getValue(index));
                   case DOUBLE -> strictIntOrNull((Double) p.getValue(index));
-                  default -> null;
+                  case null, default -> null;
                 })
         .orElse(null);
   }
@@ -240,12 +252,13 @@ public class PropertyEncoder {
                   case UINT_64 -> ((U64) p.getValue(index)).longValue();
                   case FLOAT -> strictLongOrNull((Float) p.getValue(index));
                   case DOUBLE -> strictLongOrNull((Double) p.getValue(index));
-                  default -> null;
+                  case null, default -> null;
                 })
         .orElse(null);
   }
 
-  private static Float getFloatPropertyValue(@NotNull Feature feature, @NotNull String name) {
+  private static @Nullable Float getFloatPropertyValue(
+      @NotNull Feature feature, @NotNull String name) {
     final var index = feature.getIndex();
     return feature
         .findProperty(name)
@@ -258,12 +271,13 @@ public class PropertyEncoder {
                   case UINT_64 -> ((U64) p.getValue(index)).longValue().floatValue();
                   case INT_8, INT_32, INT_64, FLOAT -> ((Number) p.getValue(index)).floatValue();
                   case DOUBLE -> strictFloatOrNull((Double) p.getValue(index));
-                  default -> null;
+                  case null, default -> null;
                 })
         .orElse(null);
   }
 
-  private static Double getDoublePropertyValue(@NotNull Feature feature, @NotNull String name) {
+  private static @Nullable Double getDoublePropertyValue(
+      @NotNull Feature feature, @NotNull String name) {
     final var index = feature.getIndex();
     return feature
         .findProperty(name)
@@ -276,7 +290,7 @@ public class PropertyEncoder {
                   case UINT_64 -> ((U64) p.getValue(index)).longValue().doubleValue();
                   case INT_8, INT_32, INT_64, FLOAT, DOUBLE ->
                       ((Number) p.getValue(index)).doubleValue();
-                  default -> null;
+                  case null, default -> null;
                 })
         .orElse(null);
   }
@@ -290,7 +304,7 @@ public class PropertyEncoder {
             p ->
                 switch (p.getType().getScalarType().orElse(null)) {
                   case STRING -> (String) p.getValue(index);
-                  default -> coercePropertyValues ? p.getValue(index).toString() : null;
+                  case null, default -> coercePropertyValues ? p.getValue(index).toString() : null;
                 })
         .orElse(null);
   }
@@ -363,9 +377,10 @@ public class PropertyEncoder {
 
     final ArrayList<byte[]> presentStream;
     if (columnMetadata.isNullable()) {
-      final var presentValues =
-          Arrays.stream(rawStringValues).map(Objects::nonNull).toArray(Boolean[]::new);
-      presentStream = BooleanEncoder.encodeBooleanStream(presentValues, PhysicalStreamType.PRESENT);
+      final var presentValues = Arrays.stream(rawStringValues).map(Objects::nonNull);
+      presentStream =
+          BooleanEncoder.encodeBooleanStream(
+              rawStringValues.length, presentValues::iterator, PhysicalStreamType.PRESENT);
     } else {
       presentStream = new ArrayList<>();
     }
@@ -374,14 +389,14 @@ public class PropertyEncoder {
 
     /* Plus 1 for present stream */
     final var hasPresentStream = ByteArrayUtil.totalLength(presentStream) > 0;
-    final var streamCount = stringColumn.getLeft() + (hasPresentStream ? 1 : 0);
+    final var streamCount = stringColumn.numStreams() + (hasPresentStream ? 1 : 0);
     final var encodedFieldMetadata = EncodingUtils.encodeVarint(streamCount, false);
 
     final var result =
-        new ArrayList<byte[]>(presentStream.size() + stringColumn.getRight().size() + 1);
+        new ArrayList<byte[]>(presentStream.size() + stringColumn.encodedData().size() + 1);
     result.add(encodedFieldMetadata);
     result.addAll(presentStream);
-    result.addAll(stringColumn.getRight());
+    result.addAll(stringColumn.encodedData());
     return result;
   }
 
@@ -440,7 +455,7 @@ public class PropertyEncoder {
   private static ArrayList<byte[]> encodeFloatColumn(
       SequencedCollection<Feature> features, MltMetadata.Column metadata) throws IOException {
     final var values = new ArrayList<Float>(features.size());
-    final var presentValues = metadata.isNullable() ? new Boolean[features.size()] : null;
+    final var presentValues = metadata.isNullable() ? new boolean[features.size()] : null;
     var presentIndex = 0;
     for (var feature : features) {
       final var propertyValue = getFloatPropertyValue(feature, metadata.getName());
@@ -467,7 +482,7 @@ public class PropertyEncoder {
   private static ArrayList<byte[]> encodeDoubleColumn(
       SequencedCollection<Feature> features, MltMetadata.Column metadata) throws IOException {
     final var values = new ArrayList<Double>(features.size());
-    final var presentValues = metadata.isNullable() ? new Boolean[features.size()] : null;
+    final var presentValues = metadata.isNullable() ? new boolean[features.size()] : null;
     var presentIndex = 0;
     for (var feature : features) {
       final var propertyValue = getDoublePropertyValue(feature, metadata.getName());
@@ -500,14 +515,14 @@ public class PropertyEncoder {
       @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption)
       throws IOException {
     final var values = new ArrayList<Integer>(features.size());
-    final var presentValues = metadata.isNullable() ? new Boolean[features.size()] : null;
+    final var presentValues = metadata.isNullable() ? new boolean[features.size()] : null;
     var presentIndex = 0;
     for (var feature : features) {
       // Force ID values to integer for this column.
       // If long were required, `encodeInt64Column` would have been called instead.
       final var propertyValue =
           isID
-              ? (feature.hasId() ? Integer.valueOf(Math.toIntExact(feature.getId())) : null)
+              ? (feature.hasId() ? Math.toIntExact(feature.getId()) : null)
               : getIntPropertyValue(feature, metadata.getName());
       final var present = (propertyValue != null);
       if (present) {
@@ -549,7 +564,7 @@ public class PropertyEncoder {
       @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption)
       throws IOException {
     final var values = new ArrayList<Long>(features.size());
-    final var presentValues = metadata.isNullable() ? new Boolean[features.size()] : null;
+    final var presentValues = metadata.isNullable() ? new boolean[features.size()] : null;
     var presentIndex = 0;
     for (var feature : features) {
       final var propertyValue =
