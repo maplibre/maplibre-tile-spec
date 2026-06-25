@@ -565,22 +565,7 @@ By defining this information once per tileset, we avoid redundant metadata in ea
 <h3 id="tile-metadata">Tile Metadata<a class="headerlink" href="#tile-metadata" title="Link to this section">&para;</a></h3>
 <p>There is no global tile header.  Each <code>FeatureTable</code> has its own metadata.</p>
 <h3 id="featuretable-metadata">FeatureTable Metadata<a class="headerlink" href="#featuretable-metadata" title="Link to this section">&para;</a></h3>
-<p>Each <code>FeatureTable</code> is preceded by a <code>FeatureTableMetadata</code> section describing it.</p>
-<div class="admonition caution">
-<p class="admonition-title">Caution</p>
-<p>This is not clear, and possibly incorrect.
-Why any number?
-Should the size of the upcoming metadata and table be part of that structure?</p>
-</div>
-<p>A FeatureTable consists of any number of the following sequences:</p>
-<ul>
-<li>The size of the upcoming <code>FeatureTableMetadata</code> (varint-encoded).</li>
-<li>The size of the upcoming <code>FeatureTable</code> (varint-encoded).</li>
-<li>One <code>FeatureTableMetadata</code> section.</li>
-<li>One <code>FeatureTable</code> section.</li>
-</ul>
-<p>This structure allows a tile to be built by simply concatenating separate results.
-The <code>FeatureTableMetadata</code> is described in detail below.</p>
+<p>The <code>FeatureTableMetadata</code> is described in detail below.</p>
 <p>Within a <code>FeatureTable</code>, additional metadata describes the structure of each part:</p>
 <ul>
 <li><strong>FieldMetadata</strong>:
@@ -928,13 +913,24 @@ What is "encodings" in this context?</p>
 </tr>
 </tbody>
 </table>
-<h3 id="nested-fields-encoding">Nested Fields Encoding<a class="headerlink" href="#nested-fields-encoding" title="Link to this section">&para;</a></h3>
-<p>For nested properties (e.g., structs, lists), a <a href="https://arxiv.org/pdf/2304.05028.pdf">present/length</a> pair encoding is chosen over the Dremel encoding for its simpler implementation and faster decoding into the in-memory format.</p>
-<p>Every nullable field has an additional <code>present</code> stream.
-Every collection type field (e.g., a list) has an additional <code>length</code> stream specifying its length.
-As in ORC, nested fields are flattened based on a pre-order traversal.</p>
-<p>Nested fields can also use shared dictionary encoding to share a common dictionary (e.g., for localized <code>name:*</code> columns in an OSM dataset).
-Fields using a shared dictionary must be grouped sequentially in the file and prefixed by the dictionary.</p>
+<h3 id="nested-fields-encoding">Nested Fields Encoding <span class="experimental"></span><a class="headerlink" href="#nested-fields-encoding" title="Link to this section">&para;</a></h3>
+<p>This property type is analogous to JSON in that it contains key-value maps and lists which can
+be nested.  Property keys are always strings.</p>
+<p>The encoding consists of:
+- A length stream
+- Dictionary streams
+- A presence stream
+- A data stream</p>
+<p>The length stream indicates how many data values are written for each feature.
+This is the only stream which is always written.</p>
+<p>A dictionary stream is emitted for each unique data type present, containing all the values of
+that type.  Values are referenced by their index within the combined set of these dictionaries.</p>
+<p>A presence stream is emitted if the property is null for any feature.  This distinguishes between
+empty (<code>{}</code>) and a null value when the length is zero.</p>
+<p>The data stream encodes the index of values within the dictionary set along with control values
+describing the structure of the data.  Maps and lists are encoded with a control value and the
+number of values to follow which are within that collection.</p>
+<p>Sharing the dictionaries by grouping columns is not yet supported.</p>
 <h3 id="rangemap">RangeMap <span class="experimental"></span><a class="headerlink" href="#rangemap" title="Link to this section">&para;</a></h3>
 <p><code>RangeMaps</code> efficiently encode linear referencing information, as used in <a href="https://docs.overturemaps.org/overview/feature-model/scoping-rules#geometric-scoping-linear-referencing">Overture Maps</a>.
 <code>RangeSets</code> store range values and data values in two separate streams. The min and max values for the ranges are stored as interleaved double values in a separate range stream.</p>
