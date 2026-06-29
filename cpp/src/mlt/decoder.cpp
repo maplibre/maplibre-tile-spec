@@ -79,7 +79,8 @@ Layer Decoder::Impl::parseBasicMVTEquivalent(BufferStream& tileData) {
             if (columnMetadata.getScalarType().hasLongID) {
                 integerDecoder.decodeIntStream<std::uint64_t>(tileData, denseIds, *idDataStreamMetadata);
             } else {
-                integerDecoder.decodeIntStream<std::uint32_t, std::uint64_t>(tileData, denseIds, *idDataStreamMetadata);
+                // Decode 32-bit ids at 32-bit width so delta math wraps there, then widen to id_t.
+                integerDecoder.decodeIntStream<std::uint32_t, std::uint32_t>(tileData, denseIds, *idDataStreamMetadata);
             }
 
             if (!idPresentBits.empty()) {
