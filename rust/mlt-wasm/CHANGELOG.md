@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.16](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.15...rust-mlt-wasm-v0.1.16) - 2026-06-29
+
+### Added
+
+- *(java)* Nested property values ([#1379](https://github.com/maplibre/maplibre-tile-spec/pull/1379))
+
+### Other
+
+- *(deps-dev)* bump protocol-buffers-schema from 3.6.0 to 3.6.1 in /rust/mlt-wasm ([#1478](https://github.com/maplibre/maplibre-tile-spec/pull/1478))
+- *(deps-dev)* bump postcss from 8.5.8 to 8.5.16 in /rust/mlt-wasm ([#1477](https://github.com/maplibre/maplibre-tile-spec/pull/1477))
+
 ## [0.1.15](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.14...rust-mlt-wasm-v0.1.15) - 2026-06-20
 
 ### Other
