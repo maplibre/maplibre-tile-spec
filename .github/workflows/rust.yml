@@ -87,10 +87,18 @@ jobs:
           - target: layer
           - target: decoded_layer
           - target: mvt_roundtrip
+          - target: differential
+    env:
+      MLT_CPP_JSON_BIN: ${{ github.workspace }}/cpp/build/tool/mlt-cpp-json
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          submodules: ${{ matrix.target == 'differential' && 'recursive' || '' }}
       - uses: ./.github/actions/mlt-setup-rust
         with: { toolchain: nightly }
+      - if: matrix.target == 'differential'
+        name: Build mlt-cpp-json oracle
+        run: just -v cpp::build-json
       - run: just -v rust::ci-fuzz-build ${{ matrix.target }}
       - if: matrix.target == 'layer'
         run: just -v rust::fuzz-seed ${{ matrix.target }}
