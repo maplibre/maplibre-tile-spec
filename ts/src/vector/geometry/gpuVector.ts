@@ -132,18 +132,4 @@ export abstract class GpuVector implements Iterable<CoordinatesArray> {
         }
         return geometries;
     }
-
-    [Symbol.iterator](): Iterator<CoordinatesArray> {
-        /*for(let i = 1; i < this.triangleOffsets.length; i++) {
-           const numTriangles = this.triangleOffsets[i] - this.triangleOffsets[i-1];
-           const startIndex = this.triangleOffsets[i-1] * 3;
-           const endIndex = this.triangleOffsets[i] * 3;
-       }
-
-        while (index < this.numGeometries) {
-            yield geometries[index++];
-        }*/
-
-        throw new Error("Iterator on a GpuVector is not implemented yet.");
-    }
 }
