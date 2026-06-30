@@ -59,9 +59,3 @@ describe("GpuVector accessors", () => {
         expect(vector.topologyVector).toBe(topology);
     });
 });
-
-describe("GpuVector iterator", () => {
-    it("throws because it is not implemented yet", () => {
-        expect(() => [...gpuVector(GEOMETRY_TYPE.POLYGON)]).toThrow("Iterator on a GpuVector is not implemented yet.");
-    });
-});
