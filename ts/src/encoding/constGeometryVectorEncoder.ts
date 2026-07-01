@@ -4,7 +4,7 @@ import { VertexBufferType } from "../vector/geometry/vertexBufferType";
 import { encodeZOrderCurve } from "./zOrderCurveEncoder";
 import type { GeometryVector, MortonSettings } from "../vector/geometry/geometryVector";
 
-export const DEFAULT_MORTON_SETTINGS: MortonSettings = { numBits: 16, coordinateShift: 0 } as MortonSettings;
+export const DEFAULT_MORTON_SETTINGS: MortonSettings = { numBits: 16, coordinateShift: 0 };
 
 export function encode(x: number, y: number): number {
     return encodeZOrderCurve(x, y, DEFAULT_MORTON_SETTINGS.numBits, DEFAULT_MORTON_SETTINGS.coordinateShift);

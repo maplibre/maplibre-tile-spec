@@ -261,7 +261,7 @@ function decodeSignedInt32(
             decodedValues = new Int32Array(values);
             break;
         case LogicalLevelTechnique.COMPONENTWISE_DELTA:
-            if (scalingData && !nullabilityBuffer) {
+            if (scalingData?.scale !== undefined && !nullabilityBuffer) {
                 return decodeComponentwiseDeltaVec2Scaled(values, scalingData.scale, scalingData.min, scalingData.max);
             }
             decodedValues = decodeComponentwiseDeltaVec2(values);
@@ -310,7 +310,7 @@ function decodeUnsignedInt32(
             decodedValues = values;
             break;
         case LogicalLevelTechnique.COMPONENTWISE_DELTA:
-            if (scalingData && !nullabilityBuffer) {
+            if (scalingData?.scale !== undefined && !nullabilityBuffer) {
                 decodedValues = decodeUnsignedComponentwiseDeltaVec2Scaled(
                     values,
                     scalingData.scale,
