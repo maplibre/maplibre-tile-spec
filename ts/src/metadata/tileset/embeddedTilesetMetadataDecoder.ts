@@ -77,10 +77,11 @@ function decodeColumn(src: Uint8Array, offset: IntWrapper): Column {
     if (columnTypeHasName(typeCode)) {
         name = decodeString(src, offset);
     } else if (typeCode <= 3) {
-        // ID and GEOMETRY columns have implicit names
         name = "id";
-    } else {
+    } else if (typeCode === 4) {
         name = "geometry";
+    } else {
+        throw new Error(`Unsupported column type code ${typeCode}. Supported: ${SUPPORTED_COLUMN_TYPES}`);
     }
 
     const column: Column = { ...base, name };
