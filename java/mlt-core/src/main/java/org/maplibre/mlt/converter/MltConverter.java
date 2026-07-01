@@ -146,8 +146,7 @@ public class MltConverter {
       if (includeIdIfPresent) {
         if (feature.hasId()) {
           hasId = true;
-          if ((!hasLongId && feature.getId() > Integer.MAX_VALUE)
-              || feature.getId() < Integer.MIN_VALUE) {
+          if (!hasLongId && Long.compareUnsigned(feature.getId(), 0xFFFFFFFFL) > 0) {
             hasLongId = true;
           }
         } else {

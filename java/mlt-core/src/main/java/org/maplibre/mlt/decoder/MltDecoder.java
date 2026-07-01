@@ -97,7 +97,7 @@ public class MltDecoder {
         } else {
           denseIds =
               IntegerDecoder.decodeIntStream(tile, offset, idDataStreamMetadata, false).stream()
-                  .mapToLong(i -> i)
+                  .mapToLong(Integer::toUnsignedLong)
                   .boxed()
                   .collect(Collectors.toList());
         }

@@ -522,7 +522,7 @@ public class PropertyEncoder {
       // If long were required, `encodeInt64Column` would have been called instead.
       final var propertyValue =
           isID
-              ? (feature.hasId() ? Math.toIntExact(feature.getId()) : null)
+              ? (feature.hasId() ? (int) feature.getId() : null)
               : getIntPropertyValue(feature, metadata.getName());
       final var present = (propertyValue != null);
       if (present) {
