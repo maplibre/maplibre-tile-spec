@@ -15,8 +15,6 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
 
     const mortonSettings = geometryVector.mortonSettings;
     const topologyVector = geometryVector.topologyVector;
-    // These topology arrays are present only for the geometry types that need them (e.g. multi-geometries
-    // carry geometryOffsets, polygons carry part/ring offsets); each branch below guards what it indexes.
     const { geometryOffsets, partOffsets, ringOffsets } = topologyVector;
     const vertexOffsets = geometryVector.vertexOffsets;
     const nonOffset = !vertexOffsets || vertexOffsets.length === 0;
