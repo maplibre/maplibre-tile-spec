@@ -12,6 +12,7 @@ import java.util.Map;
 import me.lemire.integercompression.IntWrapper;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.tuple.Triple;
+import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
 import org.maplibre.mlt.metadata.stream.DictionaryType;
 import org.maplibre.mlt.metadata.stream.LengthType;
@@ -148,12 +149,14 @@ public final class StringDecoder {
     return dictionary;
   }
 
-  public static Triple<Integer, BitSet, List<String>> decode(
-      byte[] data,
-      IntWrapper offset,
-      int numStreams,
-      @Nullable BitSet presentStream,
-      int presentCount)
+  public record StringDecodingResult(BitSet presentStream, List<String> strings) {}
+
+  public static StringDecodingResult decode(
+      final byte[] data,
+      @NotNull final IntWrapper offset,
+      final int numStreams,
+      @Nullable final BitSet presentStream,
+      final int presentCount)
       throws IOException {
     /*
      * String column layouts:
@@ -198,30 +201,34 @@ public final class StringDecoder {
             }
             break;
           }
+        default:
+          throw new IllegalArgumentException(
+              "Unexpected stream type in string column decoding: "
+                  + streamMetadata.physicalStreamType());
       }
     }
 
     if (symbolTableStream != null && symbolLengthStream != null && dictionaryLengthStream != null) {
-      final var decompressedLength = dictionaryLengthStream.stream().mapToInt(i -> i).sum();
+      final var decompressedLength = dictionaryLengthStream.stream().mapToInt(x -> x).sum();
       final var utf8Values =
           FsstEncoder.decode(
               symbolTableStream,
-              symbolLengthStream.stream().mapToInt(i -> i).toArray(),
+              symbolLengthStream.stream().mapToInt(x -> x).toArray(),
               dictionaryStream,
               decompressedLength);
       final var strings =
           decodeDictionary(
               presentStream, dictionaryLengthStream, utf8Values, offsetStream, presentCount);
-      return Triple.of(strings.size(), presentStream, strings);
+      return new StringDecodingResult(presentStream, strings);
     } else if (dictionaryStream != null && dictionaryLengthStream != null) {
       final var strings =
           decodeDictionary(
               presentStream, dictionaryLengthStream, dictionaryStream, offsetStream, presentCount);
-      return Triple.of(strings.size(), presentStream, strings);
+      return new StringDecodingResult(presentStream, strings);
     } else {
       final var strings =
           decodePlain(presentStream, symbolLengthStream, symbolTableStream, presentCount);
-      return Triple.of(strings.size(), presentStream, strings);
+      return new StringDecodingResult(presentStream, strings);
     }
   }
 

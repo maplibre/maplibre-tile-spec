@@ -421,10 +421,22 @@ fn generate_ids(w: &mut SynthWriter) {
         .write(w, "id_min");
     p0().ids(Id::u32(vec![u32::MAX]), E::varint_with(L::None))
         .write(w, "id_max");
+    p0().ids(Id::u32(vec![u32::MAX]), E::varint_with(L::Delta))
+        .write(w, "id_max_delta");
+    p0().ids(Id::u32(vec![u32::MAX]), E::varint_with(L::Rle))
+        .write(w, "id_max_rle");
+    p0().ids(Id::u32(vec![u32::MAX]), E::varint_with(L::DeltaRle))
+        .write(w, "id_max_delta_rle");
     p0().ids(Id::u64(vec![9_234_567_890]), E::varint_with(L::None))
         .write(w, "id64");
     p0().ids(Id::u64(vec![u64::MAX]), E::varint_with(L::None))
         .write(w, "id64_max");
+    p0().ids(Id::u64(vec![u64::MAX]), E::varint_with(L::Delta))
+        .write(w, "id64_max_delta");
+    p0().ids(Id::u64(vec![u64::MAX]), E::varint_with(L::Rle))
+        .write(w, "id64_max_rle");
+    p0().ids(Id::u64(vec![u64::MAX]), E::varint_with(L::DeltaRle))
+        .write(w, "id64_max_delta_rle");
 
     let four_p0 = || geo_varint_with_rle().geos([P0, P0, P0, P0]);
     let dup_id = || Id::u32(vec![103; 4]);

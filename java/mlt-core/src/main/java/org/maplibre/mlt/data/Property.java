@@ -26,7 +26,7 @@ public class Property {
 
     if (!isNested(type) && value != null) {
       if (type.scalarType() == null
-          || type.scalarType().physicalType().ordinal() < MltMetadata.ScalarType.BOOLEAN.ordinal()
+          || type.scalarType().physicalType() == null
           || type.scalarType().physicalType().ordinal() > MltMetadata.ScalarType.STRING.ordinal()) {
         throw new IllegalArgumentException(
             "FieldType must have either a valid scalarType or a complexType of MAP");

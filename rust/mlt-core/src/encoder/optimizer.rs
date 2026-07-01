@@ -232,6 +232,18 @@ impl PropertyTypedStats {
         }
     }
 
+    /// Returns `true` if every value fits in an `i32`.
+    ///
+    /// Unlike [`Self::values_fit_u32`] this admits negative values.
+    #[must_use]
+    pub fn values_fit_i32(&self) -> bool {
+        match self {
+            Self::None | Self::Bool | Self::F32 | Self::F64 | Self::String { .. } => false,
+            Self::Signed { min, max } => i32::try_from(*min).is_ok() && i32::try_from(*max).is_ok(),
+            Self::Unsigned { max, .. } => i32::try_from(*max).is_ok(),
+        }
+    }
+
     #[must_use]
     pub fn shared_dict(&self) -> SharedDictRole {
         match self {

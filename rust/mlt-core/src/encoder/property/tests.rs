@@ -779,6 +779,86 @@ fn staging_uses_id_presence_analysis() {
     assert!(matches!(staged.id(), StagedId::None));
 }
 
+fn stage_single_prop(name: &str, values: Vec<PropValue>) -> StagedProperty {
+    let tile = tile_from_cols(&[(name, values)]);
+    let analysis = tile.analyze(false).unwrap();
+    let curve_params = tile.curve_params();
+    let mut staged = StagedLayer::from_tile(tile, Unsorted, &analysis, false, curve_params)
+        .properties()
+        .to_vec();
+    assert_eq!(staged.len(), 1, "expected exactly one staged property");
+    staged.pop().unwrap()
+}
+
+fn staged_kind(p: &StagedProperty) -> &'static str {
+    match p {
+        StagedProperty::U32(_) => "U32",
+        StagedProperty::OptU32(_) => "OptU32",
+        StagedProperty::I32(_) => "I32",
+        StagedProperty::OptI32(_) => "OptI32",
+        StagedProperty::U64(_) => "U64",
+        StagedProperty::OptU64(_) => "OptU64",
+        StagedProperty::I64(_) => "I64",
+        StagedProperty::OptI64(_) => "OptI64",
+        _ => panic!("unexpected staged kind"),
+    }
+}
+
+#[rstest]
+#[case(vec![PropValue::I64(Some(1_782_397_800)), PropValue::I64(Some(0))], "U32")]
+#[case(vec![PropValue::U64(Some(0)), PropValue::U64(Some(u64::from(u32::MAX)))], "U32")]
+#[case(vec![PropValue::I64(Some(-5)), PropValue::I64(Some(2))], "I32")]
+#[case(vec![PropValue::I64(None), PropValue::I64(Some(1_782_397_800))], "OptU32")]
+#[case(vec![PropValue::I64(None), PropValue::I64(Some(-5))], "OptI32")]
+#[case(vec![PropValue::U64(Some(0)), PropValue::U64(Some(u64::from(u32::MAX) + 1))], "U64")]
+#[case(vec![PropValue::I64(Some(i64::from(i32::MIN) - 1)), PropValue::I64(Some(0))], "I64")]
+#[case(vec![PropValue::I64(Some(i64::from(u32::MAX) + 1)), PropValue::I64(Some(0))], "I64")]
+fn staging_narrows_64bit_columns_to_smallest_fitting_type(
+    #[case] values: Vec<PropValue>,
+    #[case] expected: &str,
+) {
+    assert_eq!(staged_kind(&stage_single_prop("c", values)), expected);
+}
+
+#[test]
+fn narrowed_property_column_round_trips_values() {
+    let ts = 1_782_397_800_i64;
+    let tile = tile_from_cols(&[(
+        "ts",
+        vec![
+            PropValue::I64(Some(ts)),
+            PropValue::I64(Some(ts + 60)),
+            PropValue::I64(Some(0)),
+        ],
+    )]);
+    let bytes = tile.encode(EncoderConfig::default()).unwrap();
+
+    let (_, layer) = Layer::from_bytes(&bytes, &mut parser()).expect("layer parse failed");
+    let Layer::Tag01(layer01) = layer else {
+        panic!("expected Tag01 layer")
+    };
+    let mut d = dec();
+    let decoded = layer01
+        .decode_all(&mut d)
+        .expect("decode failed")
+        .into_tile(&mut d)
+        .expect("into_tile failed");
+
+    assert_eq!(decoded.property_names(), &["ts"]);
+    assert_eq!(
+        decoded.features()[0].properties()[0],
+        PropValue::U32(Some(u32::try_from(ts).unwrap()))
+    );
+    assert_eq!(
+        decoded.features()[1].properties()[0],
+        PropValue::U32(Some(u32::try_from(ts + 60).unwrap()))
+    );
+    assert_eq!(
+        decoded.features()[2].properties()[0],
+        PropValue::U32(Some(0))
+    );
+}
+
 #[test]
 fn analyze_layer_classifies_id_and_property_presence() {
     let tile = tile_from_cols_with_ids(

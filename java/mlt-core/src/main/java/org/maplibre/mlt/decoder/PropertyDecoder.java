@@ -2,17 +2,36 @@ package org.maplibre.mlt.decoder;
 
 import jakarta.annotation.Nullable;
 import java.io.IOException;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
 import me.lemire.integercompression.IntWrapper;
+import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
 import org.maplibre.mlt.metadata.tileset.MltMetadata;
 
 public class PropertyDecoder {
-
   private PropertyDecoder() {}
+
+  public static Object decodePropertyColumn(
+      byte[] data, IntWrapper offset, MltMetadata.Column column, int numStreams)
+      throws IOException {
+    if (column.isScalar()) {
+      return decodeScalarPropertyColumn(
+          data, offset, column.field().type().scalarType(), column.isNullable(), numStreams);
+    }
+
+    /* Handle struct which currently only supports strings as nested fields for supporting shared dictionary encoding */
+    if (column.is(MltMetadata.ComplexType.STRUCT)) {
+      if (numStreams > 1) {
+        return StringDecoder.decodeSharedDictionary(data, offset, column).getRight();
+      }
+    } else if (column.is(MltMetadata.ComplexType.MAP)) {
+      return MapPropertyDecoder.decodeMapPropertyColumn(data, offset, column, numStreams);
+    }
+
+    throw new IllegalArgumentException("Present stream currently not supported for Structs.");
+  }
 
   /// Use present bits to reconstitute the original list with null values, if appropriate
   private static <T> List<T> unpack(
@@ -42,10 +61,10 @@ public class PropertyDecoder {
   }
 
   private static Object decodeScalarPropertyColumn(
-      byte[] data,
-      IntWrapper offset,
-      MltMetadata.ScalarField scalarType,
-      boolean nullable,
+      final byte[] data,
+      @NotNull final IntWrapper offset,
+      @NotNull final MltMetadata.ScalarField scalarType,
+      final boolean nullable,
       int numStreams)
       throws IOException {
     final BitSet presentStream;
@@ -63,6 +82,7 @@ public class PropertyDecoder {
     }
 
     return switch (scalarType.physicalType()) {
+      case null -> throw new IllegalArgumentException("Invalid scalar type metadata for column");
       case BOOLEAN -> {
         final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
         final var dataStream =
@@ -96,7 +116,9 @@ public class PropertyDecoder {
         final var values =
             signed
                 ? dataStream
-                : dataStream.stream().map(i -> i == null ? null : toUnsignedBigInteger(i)).toList();
+                : dataStream.stream()
+                    .map(i -> i == null ? null : MapPropertyDecoder.toU64(i))
+                    .toList();
 
         yield unpack(values, presentStream, presentStreamSize);
       }
@@ -113,39 +135,11 @@ public class PropertyDecoder {
       case STRING -> {
         final var strValues =
             StringDecoder.decode(data, offset, numStreams, presentStream, presentStreamSize);
-        yield strValues.getRight();
+        yield strValues.strings();
       }
       case UINT_8, UNRECOGNIZED, INT_8 ->
           throw new IllegalArgumentException(
               "The specified data type for the field is currently not supported: " + scalarType);
     };
-  }
-
-  private static BigInteger toUnsignedBigInteger(Long value) {
-    if (value >= 0) {
-      return BigInteger.valueOf(value);
-    }
-    return BigInteger.valueOf(value).add(BigInteger.ONE.shiftLeft(64));
-  }
-
-  public static Object decodePropertyColumn(
-      byte[] data, IntWrapper offset, MltMetadata.Column column, int numStreams)
-      throws IOException {
-    if (column.isScalar()) {
-      return decodeScalarPropertyColumn(
-          data, offset, column.field().type().scalarType(), column.isNullable(), numStreams);
-    }
-
-    /* Handle struct which currently only supports strings as nested fields for supporting shared dictionary encoding */
-    if (numStreams > 1) {
-      return StringDecoder.decodeSharedDictionary(data, offset, column).getRight();
-    }
-
-    // var presentStreamMetadata = StreamMetadata.decode(data, offset);
-    // var presentStream = DecodingUtils.decodeBooleanRle(data, presentStreamMetadata.numValues(),
-    // presentStreamMetadata.byteLength(), offset);
-    // TODO: process present stream
-    // var values = StringDecoder.decodeSharedDictionary(data, offset, fieldMetadata);
-    throw new IllegalArgumentException("Present stream currently not supported for Structs.");
   }
 }

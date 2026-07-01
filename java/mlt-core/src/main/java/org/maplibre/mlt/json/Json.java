@@ -77,7 +77,7 @@ public final class Json {
     return gson.toJson(toGeoJsonObjects(tile, gson));
   }
 
-  private static Gson createGson(boolean pretty) {
+  public static Gson createGson(boolean pretty) {
     final var builder =
         new GsonBuilder()
             .disableJdkUnsafe()
@@ -144,10 +144,14 @@ public final class Json {
     return map;
   }
 
+  private static Object featureIdForJson(long id) {
+    return id >= 0 ? id : new U64(id).bigIntValue();
+  }
+
   private static Map<String, Object> toJson(Feature feature) {
     final var featureMap = new LinkedHashMap<String, Object>();
     if (feature.hasId()) {
-      featureMap.put("id", feature.getId());
+      featureMap.put("id", featureIdForJson(feature.getId()));
     }
     featureMap.put("geometry", feature.getGeometry().toString());
 
@@ -186,7 +190,7 @@ public final class Json {
     final var featureMap = new LinkedHashMap<String, Object>();
     featureMap.put("type", "Feature");
     if (feature.hasId()) {
-      featureMap.put("id", feature.getId());
+      featureMap.put("id", featureIdForJson(feature.getId()));
     }
 
     final var props = getSortedNonNullProperties(feature);
