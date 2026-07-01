@@ -172,6 +172,7 @@ function decodeInt64Column(
             id[0],
             id[1],
             (dataStreamMetadata as RleEncodedStreamMetadata).numRleValues,
+            isSigned,
         );
     }
     const constValue = isSigned
@@ -205,6 +206,7 @@ function decodeInt32Column(
             id[0],
             id[1],
             (dataStreamMetadata as RleEncodedStreamMetadata).numRleValues,
+            isSigned,
         );
     }
     const constValue = isSigned

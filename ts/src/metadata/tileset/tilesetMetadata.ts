@@ -31,7 +31,7 @@ export const LogicalComplexType = {
     RANGE_MAP: 1,
 } as const;
 
-export interface TileSetMetadata {
+export type TileSetMetadata = {
     version?: number;
     featureTables: FeatureTableSchema[];
     name?: string;
@@ -41,12 +41,12 @@ export interface TileSetMetadata {
     maxZoom?: number;
     bounds: number[];
     center: number[];
-}
+};
 
-export interface FeatureTableSchema {
+export type FeatureTableSchema = {
     name: string;
     columns: Column[];
-}
+};
 
 export type Column = {
     name: string;
@@ -60,19 +60,19 @@ export type Column = {
 /** `Omit` that distributes over the union members of {@link Column}, preserving the `type` discriminant. */
 export type ColumnWithoutName = Column extends infer C ? (C extends Column ? Omit<C, "name"> : never) : never;
 
-export interface ScalarColumn {
+export type ScalarColumn = {
     longID: boolean;
     physicalType?: number;
     logicalType?: number;
     type?: "physicalType" | "logicalType";
-}
+};
 
-export interface ComplexColumn {
+export type ComplexColumn = {
     physicalType?: number;
     logicalType?: number;
     children: Field[];
     type?: "physicalType" | "logicalType";
-}
+};
 
 export type Field = {
     name?: string;
@@ -82,15 +82,15 @@ export type Field = {
     | { type: "complexField"; complexField: ComplexField; scalarField?: undefined }
 );
 
-export interface ScalarField {
+export type ScalarField = {
     physicalType?: number;
     logicalType?: number;
     type?: "physicalType" | "logicalType";
-}
+};
 
-export interface ComplexField {
+export type ComplexField = {
     physicalType?: number;
     logicalType?: number;
     children: Field[];
     type?: "physicalType" | "logicalType";
-}
+};

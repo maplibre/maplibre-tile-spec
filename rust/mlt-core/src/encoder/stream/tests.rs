@@ -175,6 +175,49 @@ fn auto_physical(values: &[u32], cfg: EncoderConfig) -> PhysicalEncoding {
     parsed.meta.encoding.physical
 }
 
+#[rstest]
+#[case::u32_zero(0u32, PhysicalEncoding::VarInt)]
+#[case::u32_small(5u32, PhysicalEncoding::VarInt)]
+#[case::u32_two_bytes(1000u32, PhysicalEncoding::VarInt)]
+#[case::u32_boundary_lo((1u32 << 28) - 1, PhysicalEncoding::VarInt)]
+#[case::u32_boundary_hi(1u32 << 28, PhysicalEncoding::None)]
+#[case::u32_max(u32::MAX, PhysicalEncoding::None)]
+fn single_value_u32_picks_smaller_physical(
+    #[case] v: u32,
+    #[case] expected_physical: PhysicalEncoding,
+) {
+    let mut enc = Encoder::new(EncoderConfig::default());
+    let codecs = &mut Codecs::default();
+    let ctx = StreamCtx::prop_data("test");
+    codecs.write_int_stream(&[v], &ctx, &mut enc).unwrap();
+
+    let parsed = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
+    assert_eq!(parsed.meta.encoding.logical, LogicalEncoding::None);
+    assert_eq!(parsed.meta.encoding.physical, expected_physical);
+    assert_eq!(parsed.meta.num_values, 1);
+    assert_eq!(roundtrip_stream_u32s(enc.data()), vec![v]);
+}
+
+#[rstest]
+#[case::i32_zero(0i32, PhysicalEncoding::VarInt)]
+#[case::i32_neg_one(-1i32, PhysicalEncoding::VarInt)]
+#[case::i32_small_neg(-1000i32, PhysicalEncoding::VarInt)]
+#[case::i32_large_pos(i32::MAX, PhysicalEncoding::None)]
+#[case::i32_large_neg(i32::MIN, PhysicalEncoding::None)]
+fn single_value_i32_picks_smaller_physical(
+    #[case] v: i32,
+    #[case] expected_physical: PhysicalEncoding,
+) {
+    let mut enc = Encoder::new(EncoderConfig::default());
+    let codecs = &mut Codecs::default();
+    let ctx = StreamCtx::prop_data("test");
+    codecs.write_int_stream(&[v], &ctx, &mut enc).unwrap();
+
+    let parsed = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
+    assert_eq!(parsed.meta.encoding.logical, LogicalEncoding::None);
+    assert_eq!(parsed.meta.encoding.physical, expected_physical);
+}
+
 /// Regression: `EncoderConfig::allow_fastpfor` must actually gate `FastPFOR` selection in the auto path.
 /// Previously the flag was dead — `FastPFOR` was always tried.
 #[test]

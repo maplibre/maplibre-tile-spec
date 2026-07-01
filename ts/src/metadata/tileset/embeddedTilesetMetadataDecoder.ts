@@ -29,10 +29,11 @@ function decodeString(src: Uint8Array, offset: IntWrapper): string {
  * Used when decoding Field metadata which has the same format as Column.
  */
 function columnToField(column: Column): Field {
-    const base = { name: column.name, nullable: column.nullable };
+    const name = column.name;
+    const nullable = column.nullable;
     return column.type === "scalarType"
-        ? { ...base, type: "scalarField", scalarField: column.scalarType }
-        : { ...base, type: "complexField", complexField: column.complexType };
+        ? { type: "scalarField", scalarField: column.scalarType, name, nullable }
+        : { type: "complexField", complexField: column.complexType, name, nullable };
 }
 
 /**
@@ -76,10 +77,11 @@ function decodeColumn(src: Uint8Array, offset: IntWrapper): Column {
     if (columnTypeHasName(typeCode)) {
         name = decodeString(src, offset);
     } else if (typeCode <= 3) {
-        // ID and GEOMETRY columns have implicit names
         name = "id";
-    } else {
+    } else if (typeCode === 4) {
         name = "geometry";
+    } else {
+        throw new Error(`Unsupported column type code ${typeCode}. Supported: ${SUPPORTED_COLUMN_TYPES}`);
     }
 
     const column: Column = { ...base, name };

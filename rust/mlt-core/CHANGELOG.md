@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.3](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.2...rust-mlt-core-v0.12.3) - 2026-07-01
+
+### Other
+
+- update Cargo.toml dependencies
+
+## [0.12.2](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.1...rust-mlt-core-v0.12.2) - 2026-06-29
+
+### Added
+
+- *(rust)* narrow 64-bit property columns to 32-bit when values fit ([#1465](https://github.com/maplibre/maplibre-tile-spec/pull/1465))
+
+### Fixed
+
+- *(rust)* Skip encoding competition for single-value int streams; pick smaller of VarInt/plain ([#1466](https://github.com/maplibre/maplibre-tile-spec/pull/1466))
+
+### Other
+
+- *(rust)* Add Rust <-> C++ differential decoder fuzzer ([#1471](https://github.com/maplibre/maplibre-tile-spec/pull/1471))
+
 ## [0.12.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.0...rust-mlt-core-v0.12.1) - 2026-06-20
 
 ### Other
