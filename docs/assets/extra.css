@@ -50,8 +50,8 @@
   overflow: visible;
 }
 .mermaid foreignObject {
-  overflow: visible !important;
+  overflow: visible;
 }
 .mermaid foreignObject body {
-  overflow: visible !important;
+  overflow: visible;
 }
