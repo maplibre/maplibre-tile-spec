@@ -16,8 +16,6 @@
         <link rel="prev" href="../encodings/">
       
       
-        <link rel="next" href="../geometry.md">
-      
       
         
       
@@ -357,32 +355,6 @@
   
 
     
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../geometry.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Geometry Spec
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
   </ul>
 </nav>
                   </div>
@@ -433,7 +405,39 @@
 <li><a href="#encoding-schemes">Encoding Schemes</a></li>
 <li><a href="#featuretable-layout">FeatureTable Layout</a><ul>
 <li><a href="#id-column">ID Column</a></li>
-<li><a href="#geometry-column">Geometry Column</a></li>
+<li><a href="#geometry-column">Geometry Column</a><ul>
+<li><a href="#geometry-types">Geometry Types</a></li>
+<li><a href="#binary-structure">Binary Structure</a><ul>
+<li><a href="#stream-types">Stream Types</a></li>
+</ul>
+</li>
+<li><a href="#topology-encoding">Topology Encoding</a><ul>
+<li><a href="#conceptual-hierarchy">Conceptual Hierarchy</a></li>
+<li><a href="#which-streams-are-present">Which Streams Are Present</a></li>
+<li><a href="#length-stream-encoding-rules">Length Stream Encoding Rules</a></li>
+</ul>
+</li>
+<li><a href="#vertex-encoding">Vertex Encoding</a><ul>
+<li><a href="#componentwise-delta-encoding">Componentwise Delta Encoding</a></li>
+<li><a href="#dictionary-encoding-optional">Dictionary Encoding (Optional)</a></li>
+<li><a href="#morton-encoding-optional">Morton Encoding (Optional)</a></li>
+</ul>
+</li>
+<li><a href="#integer-stream-encoding">Integer Stream Encoding</a><ul>
+<li><a href="#rle-format">RLE Format</a></li>
+</ul>
+</li>
+<li><a href="#tessellation-data-optional">Tessellation Data (Optional)</a></li>
+<li><a href="#decoding-examples">Decoding Examples</a><ul>
+<li><a href="#point">Point</a></li>
+<li><a href="#linestring">LineString</a></li>
+<li><a href="#polygon-with-hole">Polygon with Hole</a></li>
+<li><a href="#multipolygon">MultiPolygon</a></li>
+</ul>
+</li>
+<li><a href="#mixed-geometry-columns">Mixed Geometry Columns</a></li>
+</ul>
+</li>
 <li><a href="#property-columns">Property Columns</a></li>
 </ul>
 </li>
@@ -1074,8 +1078,444 @@ Pre-tessellated polygon meshes can also be stored directly to avoid runtime tria
 - <strong>MultiPoint</strong>: NumGeometries, VertexBuffer
 - <strong>MultiLineString</strong>: NumGeometries, NumParts (LineString), VertexBuffer
 - <strong>MultiPolygon</strong>: NumGeometries, NumParts (Polygon), NumRings (LinearRing), VertexBuffer</p>
+<p>When LineString and Polygon types are mixed in the same column, LineString vertex counts are stored in the NumRings stream (see <a href="#length-stream-encoding-rules">Length Stream Encoding Rules</a> below).</p>
 <p>An additional <code>VertexOffsets</code> stream is present when using Dictionary or Morton-Dictionary encoding.
 If geometries (mainly polygons) are pre-tessellated for direct GPU use, <code>NumTriangles</code> and <code>IndexBuffer</code> streams must be provided.</p>
+<p>The remainder of this section describes the binary format and decoding rules in detail.
+The format is designed for efficient storage and GPU-friendly random access patterns.</p>
+<h4 id="geometry-types">Geometry Types<a class="headerlink" href="#geometry-types" title="Link to this section">&para;</a></h4>
+<p>Six geometry types are supported, encoded as unsigned integers:</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>Point</td>
+<td>Single coordinate</td>
+</tr>
+<tr>
+<td>1</td>
+<td>LineString</td>
+<td>Sequence of coordinates forming a line</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Polygon</td>
+<td>Closed rings (exterior + optional interior holes)</td>
+</tr>
+<tr>
+<td>3</td>
+<td>MultiPoint</td>
+<td>Collection of points</td>
+</tr>
+<tr>
+<td>4</td>
+<td>MultiLineString</td>
+<td>Collection of line strings</td>
+</tr>
+<tr>
+<td>5</td>
+<td>MultiPolygon</td>
+<td>Collection of polygons</td>
+</tr>
+</tbody>
+</table>
+<h4 id="binary-structure">Binary Structure<a class="headerlink" href="#binary-structure" title="Link to this section">&para;</a></h4>
+<p>A geometry column is stored as a sequence of streams, prefixed by a stream count:</p>
+<pre class="mermaid"><code>graph LR
+    subgraph "Stream Count"
+        SC[varint]
+    end
+
+    subgraph "Meta Stream"
+        MS[geometry types]
+    end
+
+    subgraph "Topology Streams"
+        TS[lengths/offsets]
+    end
+
+    subgraph "Vertex Stream"
+        VS[coordinates]
+    end
+
+    SC --&gt; MS --&gt; TS --&gt; VS</code></pre>
+<p>Each stream contains:</p>
+<ol>
+<li><strong>Stream metadata</strong> - encoding parameters (physical type, logical type, codec, value count, byte length)</li>
+<li><strong>Encoded data</strong> - the actual values</li>
+</ol>
+<h5 id="stream-types">Stream Types<a class="headerlink" href="#stream-types" title="Link to this section">&para;</a></h5>
+<p>The streams listed above map to the following physical and logical stream types:</p>
+<table>
+<thead>
+<tr>
+<th>Physical Type</th>
+<th>Logical Type</th>
+<th>Specification Name</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DATA</code></td>
+<td><code>NONE</code></td>
+<td>GeometryType</td>
+<td>Geometry type per feature (see <a href="#geometry-types">Geometry Types</a>)</td>
+</tr>
+<tr>
+<td><code>LENGTH</code></td>
+<td><code>GEOMETRIES</code></td>
+<td>NumGeometries</td>
+<td>Number of sub-geometries in Multi* types</td>
+</tr>
+<tr>
+<td><code>LENGTH</code></td>
+<td><code>PARTS</code></td>
+<td>NumParts</td>
+<td>Number of rings per polygon or lines per multi-linestring</td>
+</tr>
+<tr>
+<td><code>LENGTH</code></td>
+<td><code>RINGS</code></td>
+<td>NumRings</td>
+<td>Number of vertices per ring or per linestring segment</td>
+</tr>
+<tr>
+<td><code>LENGTH</code></td>
+<td><code>TRIANGLES</code></td>
+<td>NumTriangles</td>
+<td>Number of triangles per polygon (tessellated)</td>
+</tr>
+<tr>
+<td><code>OFFSET</code></td>
+<td><code>INDEX</code></td>
+<td>IndexBuffer</td>
+<td>Triangle vertex indices (tessellated)</td>
+</tr>
+<tr>
+<td><code>OFFSET</code></td>
+<td><code>VERTEX</code></td>
+<td>VertexOffsets</td>
+<td>Indices into vertex dictionary</td>
+</tr>
+<tr>
+<td><code>DATA</code></td>
+<td><code>VERTEX</code></td>
+<td>VertexBuffer</td>
+<td>Vertex coordinates (x, y pairs)</td>
+</tr>
+<tr>
+<td><code>DATA</code></td>
+<td><code>MORTON</code></td>
+<td>VertexBuffer</td>
+<td>Morton-encoded vertex coordinates</td>
+</tr>
+</tbody>
+</table>
+<h4 id="topology-encoding">Topology Encoding<a class="headerlink" href="#topology-encoding" title="Link to this section">&para;</a></h4>
+<p>MLT uses a <strong>length-based</strong> encoding for geometry topology rather than explicit drawing commands. This enables efficient random access to individual features.</p>
+<h5 id="conceptual-hierarchy">Conceptual Hierarchy<a class="headerlink" href="#conceptual-hierarchy" title="Link to this section">&para;</a></h5>
+<pre class="mermaid"><code>graph TD
+    subgraph "Feature Table"
+        GT["Geometry Types Stream&lt;br/&gt;[Point, Polygon, MultiPolygon, ...]"]
+    end
+
+    subgraph "Level 1: Geometries"
+        GL["Geometries Length Stream&lt;br/&gt;sub-geometry counts&lt;br/&gt;for Multi* types"]
+    end
+
+    subgraph "Level 2: Parts"
+        PL["Parts Length Stream&lt;br/&gt;ring counts per polygon"]
+    end
+
+    subgraph "Level 3: Rings"
+        RL["Rings Length Stream&lt;br/&gt;vertex counts per ring"]
+    end
+
+    subgraph "Vertex Data"
+        VB["Vertex Buffer&lt;br/&gt;[x₀,y₀, x₁,y₁, ...]"]
+    end
+
+    GT --&gt; GL --&gt; PL --&gt; RL --&gt; VB</code></pre>
+<h5 id="which-streams-are-present">Which Streams Are Present<a class="headerlink" href="#which-streams-are-present" title="Link to this section">&para;</a></h5>
+<p>The streams included depend on the geometry types in the column:</p>
+<table>
+<thead>
+<tr>
+<th>Geometry Type</th>
+<th style="text-align: center;">Geometries</th>
+<th style="text-align: center;">Parts</th>
+<th style="text-align: center;">Rings</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Point</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">-</td>
+</tr>
+<tr>
+<td>MultiPoint</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">-</td>
+</tr>
+<tr>
+<td>LineString</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">✓*</td>
+<td style="text-align: center;">-</td>
+</tr>
+<tr>
+<td>MultiLineString</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓*</td>
+<td style="text-align: center;">-</td>
+</tr>
+<tr>
+<td>Polygon</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td>MultiPolygon</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+</tr>
+</tbody>
+</table>
+<p>*LineString and MultiLineString parts are stored in the Rings stream when Polygons are also present in the same column.</p>
+<h5 id="length-stream-encoding-rules">Length Stream Encoding Rules<a class="headerlink" href="#length-stream-encoding-rules" title="Link to this section">&para;</a></h5>
+<p>Length values are stored only for geometry types that need them. The key insight is that <strong>simple types have an implicit count of 1</strong>, while <strong>Multi* types store their sub-geometry counts explicitly</strong>.</p>
+<p>The encoding uses a <strong>type threshold</strong> to determine which geometries need explicit lengths:</p>
+<table>
+<thead>
+<tr>
+<th>Stream</th>
+<th>Threshold</th>
+<th>Types Needing Explicit Length</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>geometry_offsets</code></td>
+<td>Polygon</td>
+<td>MultiPoint, MultiLineString, MultiPolygon</td>
+</tr>
+<tr>
+<td><code>part_offsets</code> (Rings stream present)</td>
+<td>LineString</td>
+<td>Polygon, MultiPoint, MultiLineString, MultiPolygon</td>
+</tr>
+<tr>
+<td><code>part_offsets</code> (no Rings stream)</td>
+<td>Point</td>
+<td>LineString</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Rule</strong>: If a geometry type's value is greater than the threshold type's value (see <a href="#geometry-types">Geometry Types</a> table), store its length explicitly. Otherwise, the length is implicitly 1.</p>
+<p><strong>Example</strong>: A column with <code>[Point, MultiPolygon, Polygon]</code> geometry types:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Encoded geometries lengths: [3]     // Only MultiPolygon needs explicit count
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>                                    // (MultiPolygon=5 &gt; Polygon=2)
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>Decoding to offsets:
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>  Point:        implicit 1  → offset 0→1   (Point=0, not greater than Polygon=2)
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>  MultiPolygon: explicit 3  → offset 1→4   (MultiPolygon=5 &gt; Polygon=2, read from stream)
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>  Polygon:      implicit 1  → offset 4→5   (Polygon=2, not greater than Polygon=2)
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>Result: geometry_offsets = [0, 1, 4, 5]
+</span></code></pre></div>
+<h4 id="vertex-encoding">Vertex Encoding<a class="headerlink" href="#vertex-encoding" title="Link to this section">&para;</a></h4>
+<h5 id="componentwise-delta-encoding">Componentwise Delta Encoding<a class="headerlink" href="#componentwise-delta-encoding" title="Link to this section">&para;</a></h5>
+<p>Vertices are stored as interleaved (x, y) coordinate pairs using <strong>componentwise delta encoding</strong>:</p>
+<pre class="mermaid"><code>graph LR
+    subgraph "Original Coordinates"
+        C["(100,200), (105,210), (102,215)"]
+    end
+
+    subgraph "Delta per Component"
+        D["ΔX: 100, 5, -3&lt;br/&gt;ΔY: 200, 10, 5"]
+    end
+
+    subgraph "Zigzag Encoded"
+        Z["X: 200, 10, 5&lt;br/&gt;Y: 400, 20, 10"]
+    end
+
+    subgraph "Interleaved Output"
+        O["200, 400, 10, 20, 5, 10"]
+    end
+
+    C --&gt; D --&gt; Z --&gt; O</code></pre>
+<p><strong>Encoding steps:</strong>
+1. Track previous X and previous Y separately (both start at 0)
+2. For each vertex, compute <code>delta_x = x - prev_x</code> and <code>delta_y = y - prev_y</code>
+3. Apply <a href="https://en.wikipedia.org/wiki/Variable-length_quantity#Zigzag_encoding">zigzag encoding</a>: <code>zigzag(n) = (n &lt;&lt; 1) ^ (n &gt;&gt; 31)</code> (maps negatives to positives)
+4. Output as <a href="https://en.wikipedia.org/wiki/Variable-length_quantity">varint</a>: <code>[zigzag(Δx₀), zigzag(Δy₀), zigzag(Δx₁), zigzag(Δy₁), ...]</code></p>
+<p><strong>Decoding steps:</strong>
+1. Read varints in pairs
+2. Apply zigzag decoding: <code>n = (zigzag &gt;&gt; 1) ^ -(zigzag &amp; 1)</code>
+3. Accumulate: <code>x = prev_x + delta_x</code>, <code>y = prev_y + delta_y</code></p>
+<h5 id="dictionary-encoding-optional">Dictionary Encoding (Optional)<a class="headerlink" href="#dictionary-encoding-optional" title="Link to this section">&para;</a></h5>
+<p>When vertices repeat frequently, a dictionary encoding may be used:</p>
+<pre class="mermaid"><code>graph TD
+    subgraph "With Dictionary"
+        VO["Vertex Offsets&lt;br/&gt;[0, 1, 2, 1, 0, 2]"]
+        VD["Vertex Dictionary&lt;br/&gt;[(0,0), (10,10), (20,20)]"]
+    end
+
+    subgraph "Resolved Vertices"
+        RV["(0,0), (10,10), (20,20), (10,10), (0,0), (20,20)"]
+    end
+
+    VO --&gt; RV
+    VD --&gt; RV</code></pre>
+<p>The vertex dictionary is sorted by <a href="https://en.wikipedia.org/wiki/Hilbert_curve">Hilbert curve</a> index for spatial locality. The <code>OFFSET/VERTEX</code> stream contains indices into this dictionary.</p>
+<h5 id="morton-encoding-optional">Morton Encoding (Optional)<a class="headerlink" href="#morton-encoding-optional" title="Link to this section">&para;</a></h5>
+<p>For spatial optimization, vertices can be <a href="https://en.wikipedia.org/wiki/Z-order_curve">Morton-encoded</a> (Z-order curve):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Coordinate (5, 3):
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  X bits: 1 0 1
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  Y bits: 0 1 1
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  Interleaved: 01 10 11 = 011011₂ = 27
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>Stored as: Morton code + metadata (numBits, coordinateShift)
+</span></code></pre></div>
+<p>Morton encoding enables efficient spatial clustering and range queries.</p>
+<h4 id="integer-stream-encoding">Integer Stream Encoding<a class="headerlink" href="#integer-stream-encoding" title="Link to this section">&para;</a></h4>
+<p>Topology streams (lengths, offsets) use adaptive encoding selected for minimal size. All integer encodings use <a href="https://en.wikipedia.org/wiki/Variable-length_quantity">variable-length quantity (varint)</a> as the base encoding:</p>
+<table>
+<thead>
+<tr>
+<th>Logical Encoding</th>
+<th>Format</th>
+<th>Best For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>None</td>
+<td>Plain varints</td>
+<td>Random values</td>
+</tr>
+<tr>
+<td>Delta</td>
+<td>Delta + zigzag + varint</td>
+<td>Monotonic sequences</td>
+</tr>
+<tr>
+<td>RLE</td>
+<td>Run-length encoded</td>
+<td>Repeated values</td>
+</tr>
+<tr>
+<td>DeltaRLE</td>
+<td>Delta + RLE</td>
+<td>Constant increments</td>
+</tr>
+</tbody>
+</table>
+<h5 id="rle-format">RLE Format<a class="headerlink" href="#rle-format" title="Link to this section">&para;</a></h5>
+<p><a href="https://en.wikipedia.org/wiki/Run-length_encoding">Run-length encoding</a> stores runs followed by values:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Input:  [5, 5, 5, 3, 3, 3, 3]
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>Runs:   [3, 4]        // 3 fives, 4 threes
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>Values: [5, 3]
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>Output: [3, 4, 5, 3]  // runs concatenated with values
+</span></code></pre></div>
+<p>Stream metadata includes <code>runs</code> and <code>num_rle_values</code> counts for decoding.</p>
+<h4 id="tessellation-data-optional">Tessellation Data (Optional)<a class="headerlink" href="#tessellation-data-optional" title="Link to this section">&para;</a></h4>
+<p>Pre-tessellated polygons include additional streams for direct GPU rendering:</p>
+<pre class="mermaid"><code>graph TD
+    subgraph "Tessellated Polygon Data"
+        TRI["Triangles Stream&lt;br/&gt;(LENGTH/TRIANGLES)"]
+        IDX["Index Buffer&lt;br/&gt;(OFFSET/INDEX)"]
+        VTX["Vertices&lt;br/&gt;polygon vertices"]
+    end
+
+    TRI --&gt; |"how many"| GPU[GPU Rendering]
+    IDX --&gt; |"which vertices"| GPU
+    VTX --&gt; |"coordinates"| GPU</code></pre>
+<p><strong>Example</strong> - A square polygon tessellated into 2 triangles:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>Vertices: [(0,0), (100,0), (100,100), (0,100)]
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>Triangles: [2]                    // This polygon has 2 triangles
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>Index buffer: [0, 1, 2, 0, 2, 3]  // Triangle 1: v0,v1,v2; Triangle 2: v0,v2,v3
+</span></code></pre></div>
+<h4 id="decoding-examples">Decoding Examples<a class="headerlink" href="#decoding-examples" title="Link to this section">&para;</a></h4>
+<h5 id="point">Point<a class="headerlink" href="#point" title="Link to this section">&para;</a></h5>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Streams:
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>  META: types = [0]          // Point
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>  DATA/VERTEX: [200, 400]    // zigzag-encoded deltas
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>Decode:
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>  zigzag(200) = 100, zigzag(400) = 200
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>  Result: Point(100, 200)
+</span></code></pre></div>
+<h5 id="linestring">LineString<a class="headerlink" href="#linestring" title="Link to this section">&para;</a></h5>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>Streams:
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>  META: types = [1]                 // LineString
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>  LENGTH/PARTS: [3]                 // 3 vertices
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>  DATA/VERTEX: [0,0, 200,0, 0,200]  // encoded deltas
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>Decode:
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>  part_offsets = [0, 3]                   // from lengths
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>  vertices = [(0,0), (100,0), (100,100)]  // delta-decoded
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>  Result: LineString with 3 vertices
+</span></code></pre></div>
+<h5 id="polygon-with-hole">Polygon with Hole<a class="headerlink" href="#polygon-with-hole" title="Link to this section">&para;</a></h5>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>Streams:
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>  META: types = [2]          // Polygon
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>  LENGTH/PARTS: [2]          // 2 rings (exterior + 1 hole)
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>  LENGTH/RINGS: [4, 4]       // 4 vertices each ring
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>  DATA/VERTEX: [...]         // 8 vertices total
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>Decode:
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>  part_offsets = [0, 2]      // 1 polygon with 2 rings
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>  ring_offsets = [0, 4, 8]   // ring boundaries
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>  Result: Polygon with exterior ring (4 verts) and hole (4 verts)
+</span></code></pre></div>
+<h5 id="multipolygon">MultiPolygon<a class="headerlink" href="#multipolygon" title="Link to this section">&para;</a></h5>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>Streams:
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>  META: types = [5]          // MultiPolygon
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>  LENGTH/GEOMETRIES: [2]     // 2 polygons
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>  LENGTH/PARTS: [1, 1]       // 1 ring each
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>  LENGTH/RINGS: [4, 4]       // 4 vertices each
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>  DATA/VERTEX: [...]         // 8 vertices total
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>Decode:
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>  geometry_offsets = [0, 2]  // spans indices 0-1 in parts
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>  part_offsets = [0, 1, 2]   // each polygon has 1 ring
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>  ring_offsets = [0, 4, 8]   // vertex boundaries
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>  Result: MultiPolygon with 2 simple polygons
+</span></code></pre></div>
+<h4 id="mixed-geometry-columns">Mixed Geometry Columns<a class="headerlink" href="#mixed-geometry-columns" title="Link to this section">&para;</a></h4>
+<p>A single column can contain mixed geometry types. The decoding logic handles this by:</p>
+<ol>
+<li>Reading geometry types to determine which length streams to expect</li>
+<li>Iterating through features, applying type-specific offset rules</li>
+<li>Using implicit length=1 for simple types (Point, LineString, Polygon) and reading explicit lengths for Multi* types</li>
+</ol>
+<p><strong>Example</strong>: <code>[Point, LineString, Polygon]</code> in one column:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>Streams:
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>  META: types = [0, 1, 2]
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>  LENGTH/PARTS: [1]          // Polygon: 1 ring
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>  LENGTH/RINGS: [3, 4]       // LineString: 3 verts, Polygon ring: 4 verts
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>  DATA/VERTEX: [...]         // 1 + 3 + 4 = 8 vertices
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>Decode:
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>  Point: vertices[0]
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>  LineString: vertices[1..4] // from ring_offsets (Polygon present)
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>  Polygon: vertices[4..8]    // from ring_offsets
+</span></code></pre></div>
+<p>The integer and vertex encodings referenced above are specified in detail in the <a href="../encodings/">Encoding Definitions</a> document.</p>
 <h3 id="property-columns">Property Columns<a class="headerlink" href="#property-columns" title="Link to this section">&para;</a></h3>
 <p>Feature properties are divided into <code>feature-scoped</code> and <code>vertex-scoped</code> properties.</p>
 <ul>
