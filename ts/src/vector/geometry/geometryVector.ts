@@ -30,6 +30,11 @@ export abstract class GeometryVector {
         return this._vertexBufferType;
     }
 
+    /**
+     * The topology arrays are present only for the geometry types that need them.
+     * Multi-geometries carry geometryOffsets, polygons carry part/ring offsets.
+     * Consumers must guard which arrays they index based on the geometry type.
+     */
     get topologyVector(): TopologyVector {
         return this._topologyVector;
     }
