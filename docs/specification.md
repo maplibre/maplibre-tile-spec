@@ -634,7 +634,7 @@ The streams included depend on the geometry types in the column:
 | Polygon         |     -      |   ✓   |   ✓   |
 | MultiPolygon    |     ✓      |   ✓   |   ✓   |
 
-*LineString parts are stored in the Rings stream when Polygons are also present in the same column.
+*LineString and MultiLineString parts are stored in the Rings stream when Polygons are also present in the same column.
 
 ##### Length Stream Encoding Rules
 
@@ -870,14 +870,7 @@ Decode:
   Polygon: vertices[4..8]    // from ring_offsets
 ```
 
-#### Geometry Encoding References
-
-- [Variable-length quantity (varint)](https://en.wikipedia.org/wiki/Variable-length_quantity) - base integer encoding
-- [Zigzag encoding](https://en.wikipedia.org/wiki/Variable-length_quantity#Zigzag_encoding) - signed-to-unsigned mapping
-- [Run-length encoding](https://en.wikipedia.org/wiki/Run-length_encoding) - compression for repeated values
-- [Morton code (Z-order curve)](https://en.wikipedia.org/wiki/Z-order_curve) - spatial indexing
-- [Hilbert curve](https://en.wikipedia.org/wiki/Hilbert_curve) - spatial indexing with better locality
-- [Delta encoding](https://en.wikipedia.org/wiki/Delta_encoding) - storing differences between values
+The integer and vertex encodings referenced above are specified in detail in the [Encoding Definitions](encodings.md) document.
 
 ### Property Columns
 
