@@ -3,7 +3,7 @@ import { GEOMETRY_TYPE } from "./geometryType";
 import type { CoordinatesArray } from "./geometryVector";
 import type { TopologyVector } from "./topologyVector";
 
-export abstract class GpuVector implements Iterable<CoordinatesArray> {
+export abstract class GpuVector {
     protected constructor(
         private readonly _triangleOffsets: Uint32Array,
         private readonly _indexBuffer: Uint32Array,
