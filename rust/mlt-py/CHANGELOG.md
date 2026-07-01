@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.24](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.23...python-mlt-v0.1.24) - 2026-07-01
+
+### Other
+
+- update Cargo.lock dependencies
+
 ## [0.1.23](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.22...python-mlt-v0.1.23) - 2026-06-29
 
 ### Other
