@@ -1,0 +1,81 @@
+name: Rust Hotpath Profile
+
+on:
+  pull_request:
+    paths:
+      - "rust/**"
+
+permissions:
+  contents: read
+
+jobs:
+  profile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/mlt-setup-rust
+
+      - name: Create metrics directory
+        run: mkdir -p /tmp/metrics
+
+      # ── Download benchmark tiles (cached) ──────────────────────────────
+      # 95 fixture tiles are too few for stable hotpath numbers.
+      # See `just rust::download-benchmark-tiles` for details.
+      - name: Cache benchmark tiles
+        id: cache-tiles
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/benchmark-tiles
+          key: hotpath-tiles-protomaps-z6-v1
+
+      - name: Download benchmark tiles
+        if: steps.cache-tiles.outputs.cache-hit != 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: just rust::download-benchmark-tiles
+
+      - name: Head benchmark (timing + alloc)
+        working-directory: rust
+        env:
+          HOTPATH_OUTPUT_FORMAT: json
+          HOTPATH_OUTPUT_PATH: /tmp/metrics/head_timing.json
+        run: |
+          cargo run --release -p mlt --features='hotpath,hotpath-alloc' -- \
+            convert /tmp/benchmark-tiles/ /tmp/mlt-head-out/
+
+      - name: Head per-tile sizes
+        run: just rust::compress-db-statistics /tmp/mlt-head-out /tmp/metrics/head_sizes.db
+
+      - name: Checkout base
+        run: git checkout ${{ github.event.pull_request.base.sha }}
+
+      - name: Base benchmark (timing + alloc)
+        working-directory: rust
+        env:
+          HOTPATH_OUTPUT_FORMAT: json
+          HOTPATH_OUTPUT_PATH: /tmp/metrics/base_timing.json
+        run: |
+          cargo run --release -p mlt --features='hotpath,hotpath-alloc' -- \
+            convert /tmp/benchmark-tiles/ /tmp/mlt-base-out/
+
+      - name: Base per-tile sizes
+        run: just rust::compress-db-statistics /tmp/mlt-base-out /tmp/metrics/base_sizes.db
+
+      - name: Save PR metadata
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          echo "$PR_NUMBER" > /tmp/metrics/pr_number.txt
+          echo "$BASE_REF" > /tmp/metrics/base_ref.txt
+          echo "$HEAD_REF" > /tmp/metrics/head_ref.txt
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: profile-metrics
+          path: /tmp/metrics/
+          retention-days: 1

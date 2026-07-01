@@ -1,5 +1,5 @@
 export enum VertexBufferType {
-    MORTON,
-    VEC_2,
-    VEC_3,
+    MORTON = 0,
+    VEC_2 = 1,
+    VEC_3 = 2,
 }

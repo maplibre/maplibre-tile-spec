@@ -1,7 +1,7 @@
 [package]
 name = "mlt"
 description = "MapLibre Tile Tools"
-version = "0.1.0"
+version = "0.1.21"
 authors.workspace = true
 categories.workspace = true
 edition.workspace = true
@@ -11,21 +11,49 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/rust-{ name }-v{ version }/{ name }-{ target }{ archive-suffix }"
+pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides.'cfg(target_os = "windows")']
+pkg-fmt = "zip"
+
+[features]
+hotpath = ["hotpath/hotpath", "hotpath/tokio", "hotpath/threads", "hotpath/tui"]
+hotpath-alloc = ["hotpath", "hotpath/hotpath-alloc"]
+hotpath-mcp = ["hotpath", "hotpath/hotpath-mcp", "hotpath/hotpath-mcp-meta"]
+
 [dependencies]
 anyhow.workspace = true
+bytes.workspace = true
 clap.workspace = true
+crossbeam-channel.workspace = true
 crossterm.workspace = true
 flate2.workspace = true
-geo-types.workspace = true
+futures.workspace = true
+glob.workspace = true
+globset.workspace = true
+hotpath.workspace = true
+indicatif.workspace = true
+martin-tile-utils.workspace = true
+mbtiles.workspace = true
+mimalloc.workspace = true
 mlt-core.workspace = true
+moka.workspace = true
+pmtiles.workspace = true
 ratatui.workspace = true
 rayon.workspace = true
 rstar.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 size_format.workspace = true
+sqlx.workspace = true
 tabled.workspace = true
 thousands.workspace = true
+tokio.workspace = true
+usize_cast.workspace = true
+walkdir.workspace = true
+xxhash-rust.workspace = true
 
 [lints]
 workspace = true

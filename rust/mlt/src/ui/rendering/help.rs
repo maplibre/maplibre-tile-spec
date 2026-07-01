@@ -3,6 +3,7 @@ use ratatui::layout::{Alignment, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
+use usize_cast::IntoUsize as _;
 
 use crate::ui::state::{App, ViewMode};
 use crate::ui::{
@@ -60,6 +61,7 @@ pub fn render_help_overlay(f: &mut Frame<'_>, app: &mut App) {
     let lines = match app.mode {
         ViewMode::FileBrowser => help_file_browser(),
         ViewMode::LayerOverview => help_layer_overview(),
+        ViewMode::MbtilesMap => help_mbtiles_map(),
     };
     let height = u16::try_from(lines.len())
         .unwrap_or(u16::MAX)
@@ -73,7 +75,7 @@ pub fn render_help_overlay(f: &mut Frame<'_>, app: &mut App) {
         height,
     );
     let inner = height.saturating_sub(2);
-    let max = u16::try_from(lines.len().saturating_sub(inner as usize)).unwrap_or(0);
+    let max = u16::try_from(lines.len().saturating_sub(inner.into_usize())).unwrap_or(0);
     app.help_scroll = app.help_scroll.min(max);
     f.render_widget(ratatui::widgets::Clear, popup);
     let para = Paragraph::new(lines)
@@ -124,6 +126,26 @@ fn help_file_browser() -> Vec<Line<'static>> {
         heading("Filter Panel"),
         key("Click checkbox", "Toggle geometry/algorithm filter"),
         key("Click [Reset]", "Clear all filters"),
+    ]
+}
+
+fn help_mbtiles_map() -> Vec<Line<'static>> {
+    vec![
+        heading("Keyboard"),
+        key("?  h  F1", "Toggle this help"),
+        key("q  Ctrl+c  Esc", "Quit"),
+        Line::from(""),
+        heading("Mouse"),
+        key("Scroll on map", "Zoom ±0.5 levels (centred on cursor)"),
+        key("Left-drag on map", "Pan"),
+        key("Hover over map", "Inspect feature properties in left panel"),
+        Line::from(""),
+        heading("Map Colors"),
+        color(CLR_POINT, "Magenta", "Point"),
+        color(CLR_LINE, "Cyan", "LineString"),
+        color(CLR_POLYGON, "Blue", "Polygon"),
+        color(CLR_EXTENT, "Dark gray", "Tile boundaries"),
+        color(CLR_HOVERED, "White", "Hovered feature"),
     ]
 }
 

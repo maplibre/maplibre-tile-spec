@@ -3,12 +3,16 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::time::Instant;
 
-use mlt_core::geojson::{Feature, FeatureCollection, Geom32};
+use mlt_core::GeometryType;
+use mlt_core::geo_types::{Geometry, Polygon};
+use mlt_core::geojson::{Feature, FeatureCollection};
 use ratatui::layout::{Constraint, Rect};
 use ratatui::widgets::TableState;
 use rstar::{PointDistance as _, RTree};
+use usize_cast::IntoUsize as _;
 
-use crate::ls::{FileSortColumn, LsRow, MltFileInfo};
+use crate::ls::{FileAlgorithm, FileSortColumn, LsRow};
+use crate::ui::mbt::MbtilesState;
 use crate::ui::{
     GeometryIndexEntry, auto_expand, coord_f64, group_by_layer, is_entry_visible, load_fc,
     multi_part_count,
@@ -18,13 +22,18 @@ use crate::ui::{
 pub enum ViewMode {
     FileBrowser,
     LayerOverview,
+    /// Interactive world map viewer for .mbtiles files.
+    MbtilesMap,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResizeHandle {
     LeftRight,
     FeaturesProperties,
+    PropertiesGeometry,
     FileBrowserLeftRight,
+    FileBrowserPreviewFilter,
+    FileBrowserFilterInfo,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -73,12 +82,12 @@ impl HoveredInfo {
 
 pub struct LayerGroup {
     pub(crate) name: String,
-    pub(crate) extent: f64,
+    pub(crate) extent: u32,
     pub(crate) feature_indices: Vec<usize>,
 }
 
 impl LayerGroup {
-    pub fn new(name: String, extent: f64, feature_indices: Vec<usize>) -> Self {
+    pub fn new(name: String, extent: u32, feature_indices: Vec<usize>) -> Self {
         Self {
             name,
             extent,
@@ -87,15 +96,19 @@ impl LayerGroup {
     }
 }
 
+pub type PreviewValue = (PathBuf, Result<(FeatureCollection, u32), ()>);
+
 pub struct App {
     pub(crate) mode: ViewMode,
-    pub(crate) mlt_files: Vec<(PathBuf, LsRow)>,
+    pub(crate) files: Vec<LsRow>,
     pub(crate) selected_file_index: usize,
     pub(crate) file_list_state: TableState,
     pub(crate) analysis_rx: Option<mpsc::Receiver<Vec<LsRow>>>,
+    /// Base path for file browser; used when drawing to show relative paths.
+    pub(crate) file_browser_base: Option<PathBuf>,
     file_sort: Option<(FileSortColumn, bool)>,
     pub(crate) file_table_area: Option<Rect>,
-    pub(crate) file_table_widths: Option<[Constraint; 5]>,
+    pub(crate) file_table_widths: Option<[Constraint; 6]>,
     pub(crate) current_file: Option<PathBuf>,
     pub(crate) fc: FeatureCollection,
     pub(crate) layer_groups: Vec<LayerGroup>,
@@ -116,27 +129,39 @@ pub struct App {
     pub(crate) tree_scroll: u16,
     pub(crate) tree_inner_height: usize,
     pub(crate) last_properties_key: Option<(usize, usize)>,
+    pub(crate) properties_pct: u16,
     geometry_index: Option<RTree<GeometryIndexEntry>>,
     pub(crate) file_left_pct: u16,
+    pub(crate) file_preview_pct: u16,
+    pub(crate) file_filter_pct: u16,
     pub(crate) ext_filters: HashSet<String>,
-    pub(crate) geom_filters: HashSet<String>,
-    pub(crate) algo_filters: HashSet<String>,
+    pub(crate) geom_filters: HashSet<GeometryType>,
+    pub(crate) algo_filters: HashSet<FileAlgorithm>,
     pub(crate) filter_scroll: u16,
     pub(crate) filtered_file_indices: Vec<usize>,
     pub(crate) file_table_inner_height: usize,
     pub(crate) show_help: bool,
     pub(crate) help_scroll: u16,
     pub(crate) error_popup: Option<(String, String)>,
+    pub(crate) file_info_scroll: u16,
+    pub(crate) preview_tile_path: Option<PathBuf>,
+    pub(crate) preview_fc: Option<FeatureCollection>,
+    pub(crate) preview_extent: u32,
+    pub(crate) preview_rx: Option<mpsc::Receiver<PreviewValue>>,
+    pub(crate) preview_load_requested: Option<PathBuf>,
+    /// State for the `MbtilesMap` mode (Some only when mode == `MbtilesMap`).
+    pub(crate) mbt_state: Option<Box<MbtilesState>>,
 }
 
 impl Default for App {
     fn default() -> Self {
         Self {
             mode: ViewMode::FileBrowser,
-            mlt_files: Vec::new(),
+            files: Vec::new(),
             selected_file_index: 0,
             file_list_state: TableState::default(),
             analysis_rx: None,
+            file_browser_base: None,
             file_sort: None,
             file_table_area: None,
             file_table_widths: None,
@@ -163,8 +188,11 @@ impl Default for App {
             last_properties_key: None,
             tree_scroll: 0,
             tree_inner_height: 0,
+            properties_pct: 50,
             geometry_index: None,
             file_left_pct: 70,
+            file_preview_pct: 33,
+            file_filter_pct: 33,
             ext_filters: HashSet::new(),
             geom_filters: HashSet::new(),
             algo_filters: HashSet::new(),
@@ -174,23 +202,41 @@ impl Default for App {
             show_help: false,
             help_scroll: 0,
             error_popup: None,
+            file_info_scroll: 0,
+            preview_tile_path: None,
+            preview_fc: None,
+            preview_extent: 4096,
+            preview_rx: None,
+            preview_load_requested: None,
+            mbt_state: None,
         }
     }
 }
 
 impl App {
     pub(crate) fn new_file_browser(
-        mlt_files: Vec<(PathBuf, LsRow)>,
+        files: Vec<LsRow>,
         analysis_rx: Option<mpsc::Receiver<Vec<LsRow>>>,
+        base_path: PathBuf,
     ) -> Self {
         let mut file_list_state = TableState::default();
         file_list_state.select(Some(0));
-        let filtered_file_indices = (0..mlt_files.len()).collect();
+        let filtered_file_indices = (0..files.len()).collect();
         Self {
-            mlt_files,
+            files,
             file_list_state,
             analysis_rx,
+            file_browser_base: Some(base_path),
             filtered_file_indices,
+            ..Self::default()
+        }
+    }
+
+    pub(crate) fn new_mbtiles(mbt_state: MbtilesState, path: PathBuf) -> Self {
+        Self {
+            mode: ViewMode::MbtilesMap,
+            current_file: Some(path),
+            mbt_state: Some(Box::new(mbt_state)),
             ..Self::default()
         }
     }
@@ -214,9 +260,9 @@ impl App {
     pub(crate) fn data_loaded(&self) -> bool {
         self.analysis_rx.is_none()
             && !self
-                .mlt_files
+                .files
                 .iter()
-                .any(|(_, r)| matches!(r, LsRow::Loading { .. }))
+                .any(|r| matches!(r, LsRow::Loading { .. }))
     }
 
     pub(crate) fn open_help(&mut self) {
@@ -229,19 +275,16 @@ impl App {
         if !self.data_loaded() {
             return;
         }
-        let prev = self
-            .selected_file_real_index()
-            .and_then(|i| self.mlt_files.get(i))
-            .map(|(p, _)| p.clone());
+        let prev = self.get_selected_file().map(|r| r.path().to_path_buf());
         let asc = !matches!(self.file_sort, Some((c, a)) if c == col && a);
         self.file_sort = Some((col, asc));
-        self.mlt_files.sort_by(|a, b| file_cmp(a, b, col, asc));
+        self.files.sort_by(|a, b| file_cmp(a, b, col, asc));
         self.rebuild_filtered_files();
         if let Some(path) = prev
             && let Some(pos) = self
                 .filtered_file_indices
                 .iter()
-                .position(|&i| self.mlt_files[i].0 == path)
+                .position(|&i| self.files[i].path() == path.as_path())
         {
             self.selected_file_index = pos;
             self.file_list_state.select(Some(pos));
@@ -270,8 +313,8 @@ impl App {
         &self.fc.features[self.global_idx(layer, feat)]
     }
 
-    pub(crate) fn extent(&self) -> f64 {
-        self.layer_groups.first().map_or(4096.0, |g| g.extent)
+    pub(crate) fn extent(&self) -> u32 {
+        self.layer_groups.first().map_or(4096, |g| g.extent)
     }
 
     pub(crate) fn selected_item(&self) -> &TreeItem {
@@ -379,6 +422,7 @@ impl App {
                     self.invalidate_bounds();
                 }
             }
+            ViewMode::MbtilesMap => {}
         }
     }
 
@@ -393,24 +437,27 @@ impl App {
     pub(crate) fn page_size(&self) -> usize {
         match self.mode {
             ViewMode::FileBrowser => self.file_table_inner_height,
-            ViewMode::LayerOverview => self.tree_inner_height,
+            ViewMode::LayerOverview | ViewMode::MbtilesMap => self.tree_inner_height,
         }
     }
 
     pub(crate) fn handle_enter(&mut self) {
         match self.mode {
             ViewMode::FileBrowser => {
-                if let Some((path, row)) = self
-                    .selected_file_real_index()
-                    .and_then(|i| self.mlt_files.get(i))
-                    .map(|(p, r)| (p.clone(), r))
-                {
-                    let path_str = match row {
-                        LsRow::Info(info) => info.path().to_string(),
-                        LsRow::Error { path: p, .. } | LsRow::Loading { path: p } => p.clone(),
-                    };
-                    if let LsRow::Error { error, .. } = row {
-                        self.error_popup = Some((path_str, error.clone()));
+                let path = self.get_selected_file().map(|r| r.path().to_path_buf());
+                let (path_str, is_error, error_msg) = self
+                    .get_selected_file()
+                    .map(|r| {
+                        let s = r.path().display().to_string();
+                        match r {
+                            LsRow::Error { error, .. } => (s, true, error.clone()),
+                            _ => (s, false, String::new()),
+                        }
+                    })
+                    .unwrap_or_default();
+                if let Some(path) = path {
+                    if is_error {
+                        self.error_popup = Some((path_str, error_msg));
                         self.invalidate();
                     } else if let Err(e) = self.load_file(&path) {
                         self.error_popup = Some((path_str, e.to_string()));
@@ -439,6 +486,7 @@ impl App {
                 }
                 _ => {}
             },
+            ViewMode::MbtilesMap => {}
         }
     }
 
@@ -474,11 +522,11 @@ impl App {
             return;
         }
         match self.tree_items.get(self.selected_index).cloned() {
-            Some(TreeItem::Layer(li)) => {
-                if li < self.expanded_layers.len() && self.expanded_layers[li] {
-                    self.expanded_layers[li] = false;
-                    self.rebuild_and_clamp();
-                }
+            Some(TreeItem::Layer(li))
+                if li < self.expanded_layers.len() && self.expanded_layers[li] =>
+            {
+                self.expanded_layers[li] = false;
+                self.rebuild_and_clamp();
             }
             Some(TreeItem::Feature { layer, feat }) => {
                 if self.expanded_features.remove(&(layer, feat)) {
@@ -509,8 +557,8 @@ impl App {
 
     pub(crate) fn handle_escape(&mut self) -> bool {
         match self.mode {
-            ViewMode::FileBrowser => true,
-            ViewMode::LayerOverview if self.mlt_files.is_empty() => true,
+            ViewMode::FileBrowser | ViewMode::MbtilesMap => true,
+            ViewMode::LayerOverview if self.files.is_empty() => true,
             ViewMode::LayerOverview => {
                 self.mode = ViewMode::FileBrowser;
                 self.invalidate_bounds();
@@ -536,7 +584,7 @@ impl App {
                 .position(|t| matches!(t, TreeItem::Layer(l) if *l == layer)),
             TreeItem::Layer(_) => Some(0),
             TreeItem::All => {
-                if !self.mlt_files.is_empty() {
+                if !self.files.is_empty() {
                     self.mode = ViewMode::FileBrowser;
                 }
                 return;
@@ -581,30 +629,41 @@ impl App {
             .copied()
     }
 
+    pub(crate) fn get_selected_file(&self) -> Option<&LsRow> {
+        self.selected_file_real_index()
+            .and_then(|i| self.files.get(i))
+    }
+
     pub(crate) fn rebuild_filtered_files(&mut self) {
         let prev = self.selected_file_real_index();
         let has_filters = !self.ext_filters.is_empty()
             || !self.geom_filters.is_empty()
             || !self.algo_filters.is_empty();
-        self.filtered_file_indices = (0..self.mlt_files.len())
+        self.filtered_file_indices = (0..self.files.len())
             .filter(|&i| {
                 if !has_filters {
                     return true;
                 }
-                let path = &self.mlt_files[i].0;
-                let ext = path
+                let ext = self.files[i]
+                    .path()
                     .extension()
                     .and_then(|e| e.to_str())
                     .map(str::to_lowercase)
                     .unwrap_or_default();
-                let ext_match = self.ext_filters.is_empty()
-                    || self.ext_filters.iter().any(|f| f.as_str() == ext);
-                if !ext_match {
+                if !self.ext_filters.is_empty()
+                    && !self.ext_filters.iter().any(|f| f.as_str() == ext)
+                {
                     return false;
                 }
-                match &self.mlt_files[i].1 {
-                    LsRow::Info(info) => {
-                        file_matches_filters(info, &self.geom_filters, &self.algo_filters)
+                match &self.files[i] {
+                    LsRow::Info { info, .. } => {
+                        self.geom_filters
+                            .iter()
+                            .all(|g| info.geometries.contains(g))
+                            && self
+                                .algo_filters
+                                .iter()
+                                .all(|a| info.algorithms.contains(a))
                     }
                     _ => true,
                 }
@@ -639,7 +698,7 @@ impl App {
             y1 = y1.max(v[1]);
         };
 
-        let geoms: Vec<&Geom32> = match sel {
+        let geoms: Vec<&Geometry<i32>> = match sel {
             TreeItem::All => self.fc.features.iter().map(|f| &f.geometry).collect(),
             TreeItem::Layer(l) => self.layer_groups[*l]
                 .feature_indices
@@ -658,8 +717,8 @@ impl App {
 
         x0 = x0.min(0.0);
         y0 = y0.min(0.0);
-        x1 = x1.max(ext);
-        y1 = y1.max(ext);
+        x1 = x1.max(f64::from(ext));
+        y1 = y1.max(f64::from(ext));
         let px = (x1 - x0) * 0.1;
         let py = (y1 - y0) * 0.1;
         (x0 - px, y0 - py, x1 + px, y1 + py)
@@ -674,7 +733,7 @@ impl App {
 
         let best = if let Some(ref tree) = self.geometry_index {
             let mut best: Option<(f64, usize, usize, Option<usize>)> = None;
-            for e in tree.nearest_neighbor_iter(&pt) {
+            for e in tree.nearest_neighbor_iter(pt) {
                 let d = e.distance_2(&pt);
                 if d > thresh_sq {
                     break;
@@ -708,15 +767,18 @@ impl App {
     ) -> Option<usize> {
         for (idx, item) in self.tree_items.iter().enumerate() {
             match item {
-                TreeItem::Layer(li) if *li == layer => {
-                    if !self.expanded_layers.get(layer).copied().unwrap_or(false) {
-                        return Some(idx);
-                    }
+                TreeItem::Layer(li)
+                    if *li == layer
+                        && !self.expanded_layers.get(layer).copied().unwrap_or(false) =>
+                {
+                    return Some(idx);
                 }
-                TreeItem::Feature { layer: l, feat: f } if *l == layer && *f == feat => {
-                    if part.is_none() || !self.expanded_features.contains(&(layer, feat)) {
-                        return Some(idx);
-                    }
+                TreeItem::Feature { layer: l, feat: f }
+                    if *l == layer
+                        && *f == feat
+                        && (part.is_none() || !self.expanded_features.contains(&(layer, feat))) =>
+                {
+                    return Some(idx);
                 }
                 TreeItem::SubFeature {
                     layer: l,
@@ -745,7 +807,7 @@ impl App {
         part: Option<usize>,
         tree_height: u16,
     ) {
-        let inner = tree_height.saturating_sub(2) as usize;
+        let inner = tree_height.saturating_sub(2).into_usize();
         self.ensure_layer_expanded(layer);
         if let Some(f) = feat {
             if multi_part_count(&self.feature(layer, f).geometry) > 0 {
@@ -769,9 +831,9 @@ impl App {
 
     pub(crate) fn scroll_selected_into_view(&mut self, inner_height: usize) {
         let idx = self.selected_index;
-        if idx < self.tree_scroll as usize {
+        if idx < self.tree_scroll.into_usize() {
             self.tree_scroll = u16::try_from(idx).unwrap_or(0);
-        } else if inner_height > 0 && idx >= self.tree_scroll as usize + inner_height {
+        } else if inner_height > 0 && idx >= self.tree_scroll.into_usize() + inner_height {
             self.tree_scroll =
                 u16::try_from(idx.saturating_sub(inner_height.saturating_sub(1))).unwrap_or(0);
         }
@@ -794,40 +856,40 @@ impl App {
     }
 }
 
-fn file_cmp(
-    a: &(PathBuf, LsRow),
-    b: &(PathBuf, LsRow),
-    col: FileSortColumn,
-    asc: bool,
-) -> std::cmp::Ordering {
+fn error_size(row: &LsRow) -> usize {
+    match row {
+        LsRow::Error { size: Some(s), .. } => *s,
+        _ => 0,
+    }
+}
+
+fn file_cmp(a: &LsRow, b: &LsRow, col: FileSortColumn, asc: bool) -> std::cmp::Ordering {
     use std::cmp::Ordering;
-    let ord = match (&a.1, &b.1) {
-        (LsRow::Info(ai), LsRow::Info(bi)) => match col {
-            FileSortColumn::File => ai.path().cmp(bi.path()),
-            FileSortColumn::Size => ai.size().cmp(&bi.size()),
-            FileSortColumn::EncPct => ai.encoding_pct().total_cmp(&bi.encoding_pct()),
-            FileSortColumn::Layers => ai.layers().cmp(&bi.layers()),
-            FileSortColumn::Features => ai.features().cmp(&bi.features()),
+    let ord = match (a, b) {
+        (LsRow::Info { info: ai, .. }, LsRow::Info { info: bi, .. }) => match col {
+            FileSortColumn::File => ai.path.cmp(&bi.path),
+            FileSortColumn::Size => ai.size.cmp(&bi.size),
+            FileSortColumn::EncPct => match (ai.encoding_pct, bi.encoding_pct) {
+                (Some(a), Some(b)) => a.total_cmp(&b),
+                (None, None) => Ordering::Equal,
+                (None, Some(_)) => Ordering::Greater,
+                (Some(_), None) => Ordering::Less,
+            },
+            FileSortColumn::Layers => ai.layers.cmp(&bi.layers),
+            FileSortColumn::Features => ai.features.cmp(&bi.features),
         },
-        (LsRow::Info(_), _) => Ordering::Less,
-        (_, LsRow::Info(_)) => Ordering::Greater,
-        _ => a.0.cmp(&b.0),
+        (LsRow::Info { .. }, _) => Ordering::Less,
+        (_, LsRow::Info { .. }) => Ordering::Greater,
+        (LsRow::Error { .. }, LsRow::Error { .. }) => match col {
+            FileSortColumn::Size => error_size(a).cmp(&error_size(b)),
+            _ => a.path().cmp(b.path()),
+        },
+        _ => a.path().cmp(b.path()),
     };
     if asc { ord } else { ord.reverse() }
 }
 
-fn file_matches_filters(
-    info: &MltFileInfo,
-    geom_filters: &HashSet<String>,
-    algo_filters: &HashSet<String>,
-) -> bool {
-    let file_geoms: HashSet<&str> = info.geometries().split(',').map(str::trim).collect();
-    let file_algos: HashSet<&str> = info.algorithms().split(',').map(str::trim).collect();
-    (geom_filters.is_empty() || geom_filters.iter().all(|g| file_geoms.contains(g.as_str())))
-        && (algo_filters.is_empty() || algo_filters.iter().all(|a| file_algos.contains(a.as_str())))
-}
-
-fn poly_verts(poly: &geo_types::Polygon<i32>) -> Vec<[f64; 2]> {
+fn poly_verts(poly: &Polygon<i32>) -> Vec<[f64; 2]> {
     poly.exterior()
         .0
         .iter()
@@ -837,28 +899,28 @@ fn poly_verts(poly: &geo_types::Polygon<i32>) -> Vec<[f64; 2]> {
         .collect()
 }
 
-fn geometry_vertices(geom: &Geom32, part: Option<usize>) -> Vec<[f64; 2]> {
+fn geometry_vertices(geom: &Geometry<i32>, part: Option<usize>) -> Vec<[f64; 2]> {
     match (geom, part) {
-        (Geom32::Point(p), None) => vec![coord_f64(p.0)],
-        (Geom32::LineString(ls), None) => ls.0.iter().copied().map(coord_f64).collect(),
-        (Geom32::MultiPoint(mp), None) => mp.iter().map(|p| coord_f64(p.0)).collect(),
-        (Geom32::Polygon(poly), None) => poly_verts(poly),
-        (Geom32::MultiLineString(mls), None) => mls
+        (Geometry::<i32>::Point(p), None) => vec![coord_f64(p.0)],
+        (Geometry::<i32>::LineString(ls), None) => ls.0.iter().copied().map(coord_f64).collect(),
+        (Geometry::<i32>::MultiPoint(mp), None) => mp.iter().map(|p| coord_f64(p.0)).collect(),
+        (Geometry::<i32>::Polygon(poly), None) => poly_verts(poly),
+        (Geometry::<i32>::MultiLineString(mls), None) => mls
             .iter()
             .flat_map(|ls| ls.0.iter().copied().map(coord_f64))
             .collect(),
-        (Geom32::MultiPolygon(mpoly), None) => mpoly.iter().flat_map(poly_verts).collect(),
-        (Geom32::MultiPoint(mp), Some(p)) => {
+        (Geometry::<i32>::MultiPolygon(mpoly), None) => mpoly.iter().flat_map(poly_verts).collect(),
+        (Geometry::<i32>::MultiPoint(mp), Some(p)) => {
             mp.0.get(p)
                 .map(|pt| vec![coord_f64(pt.0)])
                 .unwrap_or_default()
         }
-        (Geom32::MultiLineString(mls), Some(p)) => mls
+        (Geometry::<i32>::MultiLineString(mls), Some(p)) => mls
             .0
             .get(p)
             .map(|ls| ls.0.iter().copied().map(coord_f64).collect())
             .unwrap_or_default(),
-        (Geom32::MultiPolygon(mpoly), Some(p)) => {
+        (Geometry::<i32>::MultiPolygon(mpoly), Some(p)) => {
             mpoly.0.get(p).map(poly_verts).unwrap_or_default()
         }
         _ => Vec::new(),

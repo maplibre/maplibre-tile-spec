@@ -5,11 +5,19 @@ import BitVector from "../vector/flat/bitVector.js";
  */
 export type TypedArrayConstructor =
     | Int32ArrayConstructor
+    | Uint32ArrayConstructor
     | BigInt64ArrayConstructor
+    | BigUint64ArrayConstructor
     | Float32ArrayConstructor
     | Float64ArrayConstructor;
 
-export type TypedArrayInstance = Int32Array | BigInt64Array | Float32Array | Float64Array;
+export type TypedArrayInstance =
+    | Int32Array
+    | Uint32Array
+    | BigInt64Array
+    | BigUint64Array
+    | Float32Array
+    | Float64Array;
 
 /**
  * Generic unpacking function.

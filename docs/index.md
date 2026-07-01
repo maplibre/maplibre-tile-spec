@@ -2,6 +2,8 @@
 
 --8<-- "live-spec-note"
 
+MLT is natively supported by [MapLibre GL JS](https://maplibre.org/maplibre-gl-js/) and [MapLibre Native](https://maplibre.org/maplibre-native/), and tiles can be served using the [Martin tile server](https://maplibre.org/martin/).
+
 The MLT format is mainly inspired by the [MVT format](https://github.com/mapbox/vector-tile-spec), but has been redesigned from the ground up to improve the following areas:
 
 - **Improved compression ratio** - up to 6x on large tiles, based on a column oriented layout with (custom) lightweight encodings

@@ -18,13 +18,13 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v6
-      - uses: taiki-e/install-action@v2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6 # v2.82.6
         with: { tool: 'just,cargo-binstall' }
 
       - name: Check if version has been updated
         id: check
-        uses: EndBug/version-check@5102328418c0130d66ca712d755c303e93368ce2
+        uses: EndBug/version-check@095362f3cd50f690c8fa0e6afeea81834bd8d320
         with:
           file-name: ts/package.json
 
@@ -42,8 +42,8 @@ jobs:
       run:
         working-directory: ts
     steps:
-      - uses: actions/checkout@v6
-      - uses: taiki-e/install-action@v2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6 # v2.82.6
         with: { tool: 'just,cargo-binstall' }
 
       - uses: ./.github/actions/mlt-setup-node
@@ -75,22 +75,22 @@ jobs:
           } > LICENSE.txt
 
       - name: Release (GitHub) - Create Draft
-        uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
+        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
         with:
           name: js-v${{ env.version }}
           tag_name: js-v${{ env.version }}
           prerelease: ${{ env.prerelease }}
           draft: true
 
-      - name: Publish npm package
-        run: |
-          npm publish --access=public
+      - if: github.repository_owner == 'maplibre'
+        name: Publish npm package
+        run: npm publish --access=public
 
       - name: Publish GitHub release (remove draft)
-        uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
+        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
         with:
           tag_name: js-v${{ env.version }}
           name: js-v${{ env.version }}
           draft: false
 
-      - run: cd .. && just -v assert-git-is-clean
+      - run: just -v assert-git-is-clean

@@ -27,24 +27,44 @@ clean:
 
 # Reformat code
 fmt:
-    echo "TODO: Add C++ formatting command"
+    pre-commit run --all-files clang-format
 
 # Run linting
 lint:
     echo "TODO: Add C++ linting command"
 
+_install_npm_deps:
+    cd ../test/synthetic/synthetic-test-utils && npm ci
+    npm ci
+
+_test-synthetic: _install_npm_deps
+    {{just}} ts install
+    npx vitest run tool/synthetic.test.ts
+
 # Run tests
 [working-directory: 'build']
-test: cmake-build
-    ctest
+test: _clean_coverage_data cmake-build _test-synthetic
+    # Run most of the tests quietly, showing output only for failures
+    ctest -E AllFixturesHaveGenerators --parallel --output-on-failure
+    # Run the summary verbosely, printing the status of fixture coverage
+    ctest -R AllFixturesHaveGenerators --verbose
+
+_clean_coverage_data:
+    find . -name "*.gcda" -delete
 
 # Generate coverage report
 [working-directory: 'build']
-coverage: (_check-tool 'gcovr') test
-    gcovr --root ../.. \
-        --filter ../src --filter ../include \
+coverage: _clean_coverage_data (_check-tool 'gcovr') test
+    gcovr -j 0 \
+        --root ../.. \
+        --filter ../src \
+        --filter ../include \
+        --merge-lines \
+        --exclude-noncode-lines \
         --txt coverage.txt \
-        --cobertura-pretty --cobertura coverage.xml \
+        --merge-mode-functions=separate \
+        --cobertura-pretty \
+        --cobertura coverage.xml \
         --html-details coverage.html
     @echo "Coverage report at $PWD/coverage.html"
 
@@ -54,7 +74,12 @@ bazel-build:
 
 # Sanity test for mlt-cpp-json tool
 test-json:
-    build/tool/mlt-cpp-json ../test/expected/tag0x01/bing/4-12-6.mlt | jq .
+    build/tool/mlt-cpp-json ../test/expected/tag0x01/bing/4-12-6.mlt | jq . >/dev/null
+
+# Build just the mlt-cpp-json tool in Release (oracle for the Rust differential fuzzer)
+build-json:
+    cmake -B build -S . -DMLT_WITH_TESTS=OFF -DCMAKE_BUILD_TYPE=Release
+    cmake --build build --target mlt-cpp-json
 
 _check-tool command:
     @which {{command}} > /dev/null || (echo "Error: {{command}} is not installed. Please install it using: brew install {{command}} (macOS) or pip3 install {{command}} (Linux)" && exit 1)

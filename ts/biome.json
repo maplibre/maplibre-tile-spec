@@ -1,0 +1,30 @@
+{
+  "root": false,
+  "$schema": "https://biomejs.dev/schemas/2.0.5/schema.json",
+  "javascript": {
+    "formatter": {
+      "indentWidth": 4,
+      "indentStyle": "space",
+      "lineWidth": 120
+    }
+  },
+  "linter": {
+    "rules": {
+      "suspicious": {
+        "noExplicitAny": "off",
+        "noImplicitAnyLet": "off",
+        "noShadowRestrictedNames": "off"
+      },
+      "style": {
+        "noParameterAssign": "off"
+      }
+    }
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "off"
+      }
+    }
+  }
+}

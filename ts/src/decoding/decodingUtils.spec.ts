@@ -1,21 +1,14 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-    decodeFloatsLE,
-    decodeDoublesLE,
-    decodeBooleanRle,
-    decodeString,
-    decodeByteRle,
-    getVectorTypeBooleanStream,
-} from "./decodingUtils";
-import IntWrapper from "./intWrapper";
-import BitVector from "../vector/flat/bitVector";
-import {
-    encodeFloatsLE,
-    encodeDoubleLE,
     encodeBooleanRle,
     encodeByteRle,
+    encodeDoubleLE,
+    encodeFloatsLE,
     encodeStrings,
 } from "../encoding/encodingUtils";
+import BitVector from "../vector/flat/bitVector";
+import { decodeBooleanRle, decodeByteRle, decodeDoublesLE, decodeFloatsLE, decodeString } from "./decodingUtils";
+import IntWrapper from "./intWrapper";
 
 describe("decodingUtils", () => {
     describe("decodeFloatsLE", () => {
@@ -32,14 +25,14 @@ describe("decodingUtils", () => {
 
     describe("decodeDoublesLE", () => {
         it("should decode double values from little-endian bytes", () => {
-            const data = new Float32Array([3.14159, 2.71828]);
+            const data = new Float64Array([Math.PI, Math.E]);
             const encoded = encodeDoubleLE(data);
             const offset = new IntWrapper(0);
             const result = decodeDoublesLE(encoded, offset, 2);
 
-            expect(result[0]).toBeCloseTo(3.14159);
-            expect(result[1]).toBeCloseTo(2.71828);
-            expect(offset.get()).toBe(16);
+            expect(result[0]).toBeCloseTo(Math.PI);
+            expect(result[1]).toBeCloseTo(Math.E);
+            expect(offset.get()).toBe(Float64Array.BYTES_PER_ELEMENT * 2);
         });
     });
 
@@ -62,7 +55,7 @@ describe("decodingUtils", () => {
 
     describe("decodeDoublesLE with nullability", () => {
         it("should decode nullable double values with nullability buffer", () => {
-            const data = new Float32Array([3.14159, 2.71828]);
+            const data = new Float32Array([Math.PI, Math.E]);
             const encoded = encodeDoubleLE(data);
             const offset = new IntWrapper(0);
             const bitVectorData = new Uint8Array([0b00000011]);
@@ -71,8 +64,8 @@ describe("decodingUtils", () => {
             const result = decodeDoublesLE(encoded, offset, 2, nullabilityBuffer);
 
             expect(result.length).toBe(2);
-            expect(result[0]).toBeCloseTo(3.14159);
-            expect(result[1]).toBeCloseTo(2.71828);
+            expect(result[0]).toBeCloseTo(Math.PI);
+            expect(result[1]).toBeCloseTo(Math.E);
         });
     });
 

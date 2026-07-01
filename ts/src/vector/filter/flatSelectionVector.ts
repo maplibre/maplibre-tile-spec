@@ -1,4 +1,4 @@
-import { type SelectionVector } from "./selectionVector";
+import type { SelectionVector } from "./selectionVector";
 
 /**
  * Array-based SelectionVector for non-sequential selections.

@@ -12,6 +12,8 @@ An MLT (MapLibre Tile) contains information about a specific geographic region, 
 Each tile is a collection of `FeatureTables`, which are equivalent to `Layers` in the [MVT specification](https://github.com/mapbox/vector-tile-spec).
 
 A `FeatureTable` contains thematically grouped vector data, known as `Features`.
+A `FeatureTable` can contain up to `2^31 - 1` (2,147,483,647) features; this limit is chosen so the feature count fits in signed 32-bit integer fields used by decoders.
+
 Features within a single FeatureTable share a common set of attribute columns (properties) and typically share the same geometry type (though this is not strictly required).
 
 Each `FeatureTable` is preceded by a `FeatureTableMetadata` that describes `FeatureTable`'s structure.
@@ -19,6 +21,7 @@ Each `FeatureTable` is preceded by a `FeatureTableMetadata` that describes `Feat
 The visual appearance of a tile is usually defined by a [MapLibre Style](https://maplibre.org/maplibre-style-spec/), which specifies how features are rendered.
 
 Each feature must have
+
 - a `geometry` column (type based on the OGC's Simple Feature Access Model (SFA), excluding support for `GeometryCollection` types)
 - an optional `id` column
 - optional property columns
@@ -28,6 +31,31 @@ As in MVT, geometry coordinates are encoded as integers within vector tile grid 
 
 !!! NOTE
     The terms `column`, `field`, and `property` are used interchangeably in this document.
+
+# MVT Compatibility Notes
+
+MLTv1 is inspired by MVT and can represent the same common vector tile content, but it is not a byte-for-byte or schema-free replacement.
+The main differences come from MVT's per-feature tag/value model versus MLT's per-layer column model:
+
+- **Property types are fixed per FeatureTable.**
+  In MVT, the same key can technically reference values of different data types on different features in a layer.
+  In MLT, one property name corresponds to one column, and that column has one declared type for the whole layer (`FeatureTable`).
+  MVT data with mixed types must therefore be normalized before or during conversion, for example by lossless numeric widening, coercing values to strings, dropping mismatched values, or rejecting the tile.
+- **Missing properties become typed nulls.**
+  MVT normally represents a missing property by omitting the key/value tag from that feature; the MVT value union has no dedicated null type.
+  MLT represents the union of layer properties as columns, so a feature that lacks a property stores a null in that column and the column is marked nullable.
+  When converting MLT back to MVT, null property values should be omitted from the feature tags.
+- **A feature has at most one value per property column.**
+  MVT tag streams can encode the same key more than once for a single feature, even though most MVT APIs expose properties as a map and collapse such duplicates.
+  MLT has one cell per feature per column, so duplicate keys on one feature must be rejected, collapsed deterministically, or renamed before encoding.
+- **Feature order is not necessarily a stable round-trip property.**
+  MVT stores features in wire order.
+  MLT encoders may preserve order, but they may also sort features by id or spatial locality to improve compression when that optimization is enabled.
+  Applications that rely on source feature order should disable feature sorting or carry an explicit ordering property.
+- **Layer names must be non-empty.**
+  The MVT protobuf schema marks the layer `name` field as required, but some Mapbox-authored tooling validates that it is present as well as non-empty.
+  The written MVT specification does not explicitly say that the required name cannot be an empty string.
+  MLT treats that omission as an oversight: an empty layer name is invalid and must be rejected.
 
 # Tile Layout
 
@@ -43,6 +71,7 @@ A stream is a sequence of values of a known length in a continuous memory chunk,
 Streams include additional metadata, such as their size and encoding type.
 
 For example, a nullable string property column might have:
+
 - A **`present` stream** (a bit flag indicating the presence of a value).
 - A **`length` stream** (describing the number of characters for each string).
 - A **`data` stream** (containing the actual UTF-8 encoded string values).
@@ -110,20 +139,6 @@ There is no global tile header.  Each `FeatureTable` has its own metadata.
 
 ### FeatureTable Metadata
 
-Each `FeatureTable` is preceded by a `FeatureTableMetadata` section describing it.
-
-!!! CAUTION
-    This is not clear, and possibly incorrect.
-    Why any number?
-    Should the size of the upcoming metadata and table be part of that structure?
-
-A FeatureTable consists of any number of the following sequences:
-- The size of the upcoming `FeatureTableMetadata` (varint-encoded).
-- The size of the upcoming `FeatureTable` (varint-encoded).
-- One `FeatureTableMetadata` section.
-- One `FeatureTable` section.
-
-This structure allows a tile to be built by simply concatenating separate results.
 The `FeatureTableMetadata` is described in detail below.
 
 Within a `FeatureTable`, additional metadata describes the structure of each part:
@@ -164,6 +179,7 @@ direction TB
 
     class FeatureTable {
       +String name
+      +VarInt extent
       +VarInt columnCount
       +Column[] columns
     }
@@ -180,6 +196,12 @@ direction TB
     TileMetadata --> FeatureTable : featureTables
     FeatureTable --> Column : columns
 ```
+
+The required `extent` field defines the coordinate space size for the tile's geometry.
+Geometry coordinates in MapLibre Tiles are encoded as signed integers in vector-tile grid coordinates (typically near the `0..=extent` range, but not restricted to it).
+Values MAY be negative or exceed extent for geometry that crosses tile boundaries.
+Encoders MAY default to `4096` when a user does not specify the extent.
+Decoders MUST require it to diferente `extent` and `columnCount`.
 
 Strings are encoded as UTF-8 sequences of characters with a length header:
 
@@ -402,16 +424,31 @@ Logical types add semantics on top of physical types, enabling code reuse and si
 | Geometry     | vec2<Int32>        |                                  |
 | GeometryZ    | vec3<Int32>        |                                  |
 
-### Nested Fields Encoding
+### Nested Fields Encoding <span class="experimental"></span>
 
-For nested properties (e.g., structs, lists), a [present/length](https://arxiv.org/pdf/2304.05028.pdf) pair encoding is chosen over the Dremel encoding for its simpler implementation and faster decoding into the in-memory format.
+This property type is analogous to JSON in that it contains key-value maps and lists which can
+be nested.  Property keys are always strings.
 
-Every nullable field has an additional `present` stream.
-Every collection type field (e.g., a list) has an additional `length` stream specifying its length.
-As in ORC, nested fields are flattened based on a pre-order traversal.
+The encoding consists of:
+- A length stream
+- Dictionary streams
+- A presence stream
+- A data stream
 
-Nested fields can also use shared dictionary encoding to share a common dictionary (e.g., for localized `name:*` columns in an OSM dataset).
-Fields using a shared dictionary must be grouped sequentially in the file and prefixed by the dictionary.
+The length stream indicates how many data values are written for each feature.
+This is the only stream which is always written.
+
+A dictionary stream is emitted for each unique data type present, containing all the values of
+that type.  Values are referenced by their index within the combined set of these dictionaries.
+
+A presence stream is emitted if the property is null for any feature.  This distinguishes between
+empty (`{}`) and a null value when the length is zero.
+
+The data stream encodes the index of values within the dictionary set along with control values
+describing the structure of the data.  Maps and lists are encoded with a control value and the
+number of values to follow which are within that collection.
+
+Sharing the dictionaries by grouping columns is not yet supported.
 
 ### RangeMap <span class="experimental"></span>
 
@@ -430,12 +467,12 @@ The following encoding pool was selected based on analysis of compression ratio 
 | --------- | ---------------------------- | ----------------------------------- | ----------- |
 | Boolean   | [Boolean RLE](https://orc.apache.org/specification/ORCv1/#boolean-run-length-encoding) | | |
 | Integer   | Plain, RLE, Delta, Delta-RLE | [SIMD-FastPFOR](https://arxiv.org/pdf/1209.2137.pdf), [Varint](https://protobuf.dev/programming-guides/encoding/#varints) | |
-| Float     | Plain, RLE, Dictionary, [ALP](https://dl.acm.org/doi/pdf/10.1145/3626717) | | |
+| Float     | Plain, RLE, Dictionary | | |
 | String    | Plain, Dictionary, [FSST](https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf) Dictionary | | |
 | Geometry  | Plain, Dictionary, Morton-Dictionary | | |
 
 !!! NOTE
-    `ALP`, `FSST`, and `FastPFOR` encodings are <span class="experimental"></span>.
+    `FSST`, and `FastPFOR` encodings are <span class="experimental"></span>.
 
 SIMD-FastPFOR is generally preferred over Varint encoding due to its smaller output and faster decoding speed.
 Varint encoding is included mainly for compatibility and simplicity, and it can be more efficient when combined with heavyweight compression like GZip.
@@ -496,6 +533,7 @@ If geometries (mainly polygons) are pre-tessellated for direct GPU use, `NumTria
 ### Property Columns
 
 Feature properties are divided into `feature-scoped` and `vertex-scoped` properties.
+
 - **Feature-scoped**: One value per feature.
 - **Vertex-scoped**: One value per vertex in the VertexBuffer per feature (modeling M-coordinates from GIS).
 
@@ -511,6 +549,7 @@ A property column can use any data type from the [type system](#type-system).
 # Example Layouts
 
 The following examples illustrate the layout of a `FeatureTable` in storage. The color scheme is:
+
 - **Blue boxes**:
   Logical constructs, not persisted.
   Fields are reconstructed from streams based on TileSet metadata.
@@ -573,6 +612,7 @@ The MLT in-memory format incorporates ideas from analytical in-memory formats li
 It is also designed for future parallel processing on the GPU within compute shaders.
 
 The main design goals for the MLT in-memory format are:
+
 - Define a platform-agnostic representation to avoid expensive materialization costs, especially for strings.
 - Maximize CPU throughput by optimizing memory layout for cache locality and SIMD instructions.
 - Allow random (preferably constant-time) access to all data for parallel processing on GPUs (compute shaders).

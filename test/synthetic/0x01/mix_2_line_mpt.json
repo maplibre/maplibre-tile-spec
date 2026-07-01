@@ -1,0 +1,53 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            5,
+            38
+          ],
+          [
+            12,
+            45
+          ],
+          [
+            9,
+            70
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1"
+      },
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            6,
+            25
+          ],
+          [
+            21,
+            41
+          ],
+          [
+            23,
+            69
+          ]
+        ]
+      }
+    }
+  ]
+}

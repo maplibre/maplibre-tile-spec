@@ -1,109 +1,118 @@
 //! `GeoJSON` -like data to represent decoded MLT data with i32 coordinates
 
 use std::collections::BTreeMap;
+use std::str::FromStr;
 
+use geo_types::Geometry;
+use serde::ser::SerializeMap as _;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Number, Value};
 
-use crate::MltError;
-use crate::layer::Layer;
-use crate::v01::{DecodedId, DecodedProperty, Geometry as MltGeometry, Id, Property};
-
-/// `GeoJSON` geometry with `i32` tile coordinates
-pub type Geom32 = geo_types::Geometry<i32>;
-
-/// A single `i32` coordinate (x, y)
-pub type Coord32 = geo_types::Coord<i32>;
-
-/// `GeoJSON` geometry with `i16` tile coordinates
-pub type Geom16 = geo_types::Geometry<i16>;
-
-/// A single `i16` coordinate (x, y)
-pub type Coord16 = geo_types::Coord<i16>;
+use crate::decoder::{Layer, PropValueRef};
+use crate::{LendingIterator, MltResult, ParsedLayer};
 
 /// `GeoJSON` [`FeatureCollection`]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FeatureCollection {
-    pub features: Vec<Feature>,
     #[serde(rename = "type")]
     pub ty: String,
+    pub features: Vec<Feature>,
 }
 
 impl FeatureCollection {
-    /// Convert decoded layers to a `GeoJSON` [`FeatureCollection`]
-    pub fn from_layers(layers: &[Layer<'_>]) -> Result<FeatureCollection, MltError> {
+    /// Convert already-decoded layers to a `GeoJSON` [`FeatureCollection`], consuming them.
+    /// Make sure to call `decode_all` on Layer before calling this (won't compile otherwise)
+    pub fn from_layers<'a>(layers: impl IntoIterator<Item = ParsedLayer<'a>>) -> MltResult<Self> {
         let mut features = Vec::new();
         for layer in layers {
-            let l = layer
-                .as_layer01()
-                .ok_or(MltError::NotDecoded("expected Tag01 layer"))?;
-            let geom = match &l.geometry {
-                MltGeometry::Decoded(g) => g,
-                MltGeometry::Encoded(_) => {
-                    return Err(MltError::NotDecoded("geometry"));
-                }
+            let Layer::Tag01(parsed) = layer else {
+                continue;
             };
-            let ids = match &l.id {
-                Id::Decoded(DecodedId(Some(v))) => Some(v.as_slice()),
-                Id::Decoded(DecodedId(None)) | Id::None => None,
-                Id::Encoded(_) => return Err(MltError::NotDecoded("id")),
-            };
-            let props: Vec<&DecodedProperty> = l
-                .properties
-                .iter()
-                .map(|p| match p {
-                    Property::Decoded(d) => Ok(d),
-                    Property::Encoded(_) => Err(MltError::NotDecoded("property")),
-                })
-                .collect::<Result<_, _>>()?;
-
-            for i in 0..geom.vector_types.len() {
-                let geometry = geom.to_geojson(i)?;
+            let layer_name = parsed.name();
+            let extent = parsed.extent().get();
+            let mut feat_iter = parsed.iter_features();
+            while let Some(feat) = feat_iter.next() {
+                let feat = feat?;
                 let mut properties = BTreeMap::new();
-                for prop in &props {
-                    if let Some(val) = prop.values.to_geojson(i) {
-                        properties.insert(prop.name.clone(), val);
-                    }
+                for p in feat.iter_properties() {
+                    properties.insert(p.name().to_string(), p.value().into());
                 }
-                properties.insert("_layer".into(), Value::String(l.name.to_string()));
-                properties.insert("_extent".into(), Value::Number(l.extent.into()));
+                properties.insert("_layer".into(), Value::String(layer_name.to_string()));
+                properties.insert("_extent".into(), Value::Number(extent.into()));
                 features.push(Feature {
-                    geometry,
-                    id: ids.and_then(|v| v.get(i).copied().flatten()),
+                    geometry: feat.geometry().clone(),
+                    id: feat.id(),
                     properties,
                     ty: "Feature".into(),
                 });
             }
         }
-        Ok(FeatureCollection {
+        Ok(Self {
             features,
             ty: "FeatureCollection".into(),
         })
     }
+
+    pub fn equals(&self, other: &Self) -> Result<bool, serde_json::Error> {
+        let self_val = normalize_tiny_floats(serde_json::to_value(self)?);
+        let other_val = normalize_tiny_floats(serde_json::to_value(other)?);
+        Ok(json_values_equal(&self_val, &other_val))
+    }
+}
+
+impl FromStr for FeatureCollection {
+    type Err = serde_json::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str(s)
+    }
 }
 
 /// `GeoJSON` [`Feature`]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct Feature {
     #[serde(with = "geom_serde")]
-    pub geometry: Geom32,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub geometry: Geometry<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<u64>,
+    #[serde(default)]
     pub properties: BTreeMap<String, Value>,
     #[serde(rename = "type")]
     pub ty: String,
 }
 
-/// Serialize/deserialize [`Geom32`] in `GeoJSON` wire format:
+struct Geom32Wire<'a>(&'a Geometry<i32>);
+impl Serialize for Geom32Wire<'_> {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        geom_serde::serialize(self.0, s)
+    }
+}
+
+/// Serialize with the preferred order of the keys
+impl Serialize for Feature {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let len = 3 + usize::from(self.id.is_some());
+        let mut map = serializer.serialize_map(Some(len))?;
+        map.serialize_entry("type", &self.ty)?;
+        if let Some(id) = self.id {
+            map.serialize_entry("id", &id)?;
+        }
+        map.serialize_entry("properties", &self.properties)?;
+        map.serialize_entry("geometry", &Geom32Wire(&self.geometry))?;
+        map.end()
+    }
+}
+
+/// Serialize/deserialize [`Geometry<i32>`](geo_types::Geometry) in `GeoJSON` wire format:
 /// `{"type":"…","coordinates":…}` with `[x, y]` integer arrays.
 mod geom_serde {
     use geo_types::{
         Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
     };
+    use serde::de::Error as _;
+    use serde::ser::{Error, SerializeMap as _};
     use serde::{Deserialize, Deserializer, Serializer};
     use serde_json::Value;
-
-    use crate::geojson::Geom32;
 
     type Arr = [i32; 2];
 
@@ -128,9 +137,7 @@ mod geom_serde {
         Polygon::new(ext, it.map(arr_ls).collect())
     }
 
-    pub fn serialize<S: Serializer>(g: &Geom32, s: S) -> Result<S::Ok, S::Error> {
-        use serde::ser::{Error, SerializeMap as _};
-
+    pub fn serialize<S: Serializer>(g: &Geometry<i32>, s: S) -> Result<S::Ok, S::Error> {
         let mut m = s.serialize_map(Some(2))?;
         let (ty, coords): (&str, Value) = match g {
             Geometry::Point(p) => ("Point", serde_json::to_value(Arr::from(*p)).unwrap()),
@@ -156,9 +163,7 @@ mod geom_serde {
         m.end()
     }
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Geom32, D::Error> {
-        use serde::de::Error as _;
-
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Geometry<i32>, D::Error> {
         fn parse<T: serde::de::DeserializeOwned, E: serde::de::Error>(v: Value) -> Result<T, E> {
             serde_json::from_value(v).map_err(E::custom)
         }
@@ -201,5 +206,107 @@ mod geom_serde {
                 ));
             }
         })
+    }
+}
+
+/// Convert f32 to `GeoJSON` value: finite as number, non-finite as string per issue #978.
+#[must_use]
+pub fn f32_to_json(f: f32) -> Value {
+    if f.is_nan() {
+        Value::String("f32::NAN".to_owned())
+    } else if f == f32::INFINITY {
+        Value::String("f32::INFINITY".to_owned())
+    } else if f == f32::NEG_INFINITY {
+        Value::String("f32::NEG_INFINITY".to_owned())
+    } else {
+        Number::from_f64(f64::from(f)).expect("finite f32").into()
+    }
+}
+
+/// Convert f64 to `GeoJSON` value: finite as number, non-finite as string per issue #978.
+#[must_use]
+pub fn f64_to_json(f: f64) -> Value {
+    if f.is_nan() {
+        Value::String("f64::NAN".to_owned())
+    } else if f == f64::INFINITY {
+        Value::String("f64::INFINITY".to_owned())
+    } else if f == f64::NEG_INFINITY {
+        Value::String("f64::NEG_INFINITY".to_owned())
+    } else {
+        Number::from_f64(f).expect("finite f64").into()
+    }
+}
+
+impl From<PropValueRef<'_>> for Value {
+    fn from(v: PropValueRef<'_>) -> Self {
+        match v {
+            PropValueRef::Bool(v) => Self::Bool(v),
+            PropValueRef::I8(v) => Self::from(v),
+            PropValueRef::U8(v) => Self::from(v),
+            PropValueRef::I32(v) => Self::from(v),
+            PropValueRef::U32(v) => Self::from(v),
+            PropValueRef::I64(v) => Self::from(v),
+            PropValueRef::U64(v) => Self::from(v),
+            PropValueRef::F32(v) => f32_to_json(v),
+            PropValueRef::F64(v) => f64_to_json(v),
+            PropValueRef::Str(s) => Self::String(s.to_string()),
+        }
+    }
+}
+
+/// Replace tiny float values (e.g. `1e-40`) with `0.0` to handle codec precision issues.
+fn normalize_tiny_floats(value: Value) -> Value {
+    match value {
+        Value::Number(ref n) => {
+            let eps = f64::from(f32::EPSILON);
+            if let Some(f) = n.as_f64()
+                && f.is_finite()
+                && f.abs() < eps
+            {
+                Value::from(0.0)
+            } else {
+                value
+            }
+        }
+        Value::Array(arr) => Value::Array(arr.into_iter().map(normalize_tiny_floats).collect()),
+        Value::Object(obj) => Value::Object(
+            obj.into_iter()
+                .map(|(k, v)| (k, normalize_tiny_floats(v)))
+                .collect(),
+        ),
+        v => v,
+    }
+}
+
+/// Compare two JSON values for equality. Numbers are compared with float tolerance so that
+/// f32 round-trip (e.g. 3.14 vs 3.140000104904175) and Java minimal decimal (e.g. 3.4028235e+38)
+/// match the Rust decoder output.
+fn json_values_equal(a: &Value, b: &Value) -> bool {
+    match (a, b) {
+        (Value::Number(na), Value::Number(nb)) if na.is_f64() && nb.is_f64() => {
+            let na = na.as_f64().expect("f64");
+            let nb = nb.as_f64().expect("f64");
+            assert!(
+                !na.is_nan() && !nb.is_nan(),
+                "unexpected non-finite numbers"
+            );
+            let abs_diff = (na - nb).abs();
+            let max_abs = na.abs().max(nb.abs()).max(1.0);
+            abs_diff <= f64::from(f32::EPSILON) * max_abs * 2.0
+        }
+        (Value::Array(aa), Value::Array(ab)) => {
+            aa.len() == ab.len()
+                && aa
+                    .iter()
+                    .zip(ab.iter())
+                    .all(|(x, y)| json_values_equal(x, y))
+        }
+        (Value::Object(ao), Value::Object(bo)) => {
+            ao.len() == bo.len()
+                && ao
+                    .iter()
+                    .all(|(k, v)| bo.get(k).is_some_and(|w| json_values_equal(v, w)))
+        }
+        _ => a == b,
     }
 }

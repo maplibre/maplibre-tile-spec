@@ -26,7 +26,11 @@ dependencies {
     implementation(libs.jts.core)
     implementation(libs.mapbox.vector.tile.java)
     implementation(libs.protobuf.java)
-    implementation(libs.slf4j.simple)
+
+    compileOnly(libs.lombok)
+    annotationProcessor(libs.lombok)
+    testCompileOnly(libs.lombok)
+    testAnnotationProcessor(libs.lombok)
 
     testImplementation(libs.jmh.core)
     testImplementation(libs.jmh.generator.annprocess)
@@ -62,6 +66,14 @@ jacocoTestReport {
 }
 
 java {
+    // Optional feature for GeoJSON support, which adds a dependency on JTS IO Common.
+    // This allows users to opt in to GeoJSON support without forcing the dependency on all users.
+    registerFeature('geojson') {
+        usingSourceSet(sourceSets.create('geojson'))
+        dependencies {
+            implementation(libs.jts.io.common)
+        }
+    }
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
     }

@@ -1,44 +1,41 @@
 package org.maplibre.mlt.converter.encodings;
 
-import jakarta.annotation.Nullable;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
-import org.apache.commons.lang3.ArrayUtils;
+import java.util.ArrayList;
+import java.util.Collection;
 import org.jetbrains.annotations.NotNull;
-import org.maplibre.mlt.converter.MLTStreamObserver;
-import org.maplibre.mlt.metadata.stream.*;
+import org.maplibre.mlt.metadata.stream.LogicalLevelTechnique;
+import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
+import org.maplibre.mlt.metadata.stream.PhysicalStreamType;
+import org.maplibre.mlt.metadata.stream.StreamMetadata;
 
 public class FloatEncoder {
 
   private FloatEncoder() {}
 
-  public static byte[] encodeFloatStream(
-      List<Float> values, @NotNull MLTStreamObserver streamObserver, @Nullable String streamName)
-      throws IOException {
-    // TODO: add encodings -> RLE, Dictionary, PDE, ALP
-    float[] floatArray = new float[values.size()];
-    for (int i = 0; i < values.size(); i++) {
-      floatArray[i] = values.get(i);
-    }
-    var encodedValueStream = EncodingUtils.encodeFloatsLE(floatArray);
+  public static ArrayList<byte[]> encodeFloatStream(final float[] values) throws IOException {
+    return encodeFloatStream(values.length, EncodingUtils.encodeFloatsLE(values));
+  }
 
-    var valuesMetadata =
+  public static ArrayList<byte[]> encodeFloatStream(@NotNull final Collection<Float> values)
+      throws IOException {
+    return encodeFloatStream(values.size(), EncodingUtils.encodeFloatsLE(values));
+  }
+
+  private static ArrayList<byte[]> encodeFloatStream(final int size, final byte[] encoded)
+      throws IOException {
+    // TODO: add encodings -> RLE, Dictionary, PDE
+    final var result =
         new StreamMetadata(
                 PhysicalStreamType.DATA,
                 null,
                 LogicalLevelTechnique.NONE,
                 LogicalLevelTechnique.NONE,
                 PhysicalLevelTechnique.NONE,
-                values.size(),
-                encodedValueStream.length)
+                size,
+                encoded.length)
             .encode();
-
-    streamObserver.observeStream(
-        streamName,
-        Arrays.asList(ArrayUtils.toObject(floatArray)),
-        valuesMetadata,
-        encodedValueStream);
-    return ArrayUtils.addAll(valuesMetadata, encodedValueStream);
+    result.add(encoded);
+    return result;
   }
 }

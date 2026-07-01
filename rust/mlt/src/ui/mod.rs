@@ -1,5 +1,7 @@
 //! TUI visualizer for MLT files using ratatui
+use usize_cast::IntoUsize as _;
 
+pub(crate) mod mbt;
 mod rendering;
 mod state;
 
@@ -8,20 +10,20 @@ use std::fs::canonicalize;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use std::{fs, thread};
 
 use anyhow::bail;
 use clap::Args;
 use crossterm::event::{
     self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers,
-    MouseEventKind,
+    MouseButton, MouseEventKind,
 };
 use crossterm::execute;
-use geo_types::Polygon;
-use mlt_core::geojson::{Coord32, FeatureCollection, Geom32};
+use mlt_core::geo_types::{Coord, Geometry, Polygon};
+use mlt_core::geojson::FeatureCollection;
 use mlt_core::mvt::mvt_to_feature_collection;
-use mlt_core::parse_layers;
+use mlt_core::{Decoder, GeometryType, Parser};
 use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -29,14 +31,19 @@ use ratatui::widgets::{Block, Borders};
 use rstar::{AABB, PointDistance, RTreeObject};
 
 use crate::ls::{
-    FileSortColumn, LsRow, MltFileInfo, analyze_tile_files, is_mvt_extension, is_tile_extension,
+    FileAlgorithm, FileSortColumn, LsFlags, LsRow, analyze_tile_files, is_mbt_extension,
+    is_mlt_extension, is_tile_extension,
 };
+use crate::ui::mbt::MbtilesState;
 use crate::ui::rendering::files::{
     render_file_browser, render_file_filter_panel, render_file_info_panel,
+    render_tile_preview_panel,
 };
 use crate::ui::rendering::help::{render_error_popup, render_help_overlay};
-use crate::ui::rendering::layers::{render_properties_panel, render_tree_panel};
-use crate::ui::rendering::map::render_map_panel;
+use crate::ui::rendering::layers::{
+    render_mbtiles_hover_panel, render_properties_panel, render_tree_panel,
+};
+use crate::ui::rendering::map::{render_map_panel, render_mbtiles_map_panel};
 use crate::ui::state::{App, HoveredInfo, LayerGroup, ResizeHandle, TreeItem, ViewMode};
 
 pub const CLR_POINT: Color = Color::Magenta;
@@ -60,14 +67,31 @@ pub const STYLE_SELECTED: Style = Style::new().fg(CLR_SELECTED).add_modifier(Mod
 pub const STYLE_LABEL: Style = Style::new().fg(CLR_LABEL);
 pub const STYLE_BOLD: Style = Style::new().add_modifier(Modifier::BOLD);
 
+/// Throttle hover-driven redraws so mouse move over map doesn't flood the loop
+const HOVER_REDRAW_THROTTLE: Duration = Duration::from_millis(32);
+
 #[derive(Args)]
 pub struct UiArgs {
-    /// Path to a tile file (.mlt, .mvt, .pbf) or directory
+    /// Path to a tile file (`.mlt`, `.mvt`, `.pbf`, `.mbtiles`) or directory
     path: PathBuf,
+    /// Start `MBTiles` map centered on this XYZ tile (`z/x/y`, e.g. `6/32/21`). `MBTiles` only.
+    #[arg(long = "center-tile", value_name = "Z/X/Y")]
+    center_tile: Option<String>,
 }
 
 pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
-    let app = if args.path.is_dir() {
+    if args.center_tile.is_some() && !is_mbt_extension(&args.path) {
+        bail!("--center-tile is only supported when opening an .mbtiles file");
+    }
+    let app = if is_mbt_extension(&args.path) {
+        let mut mbt = MbtilesState::new(args.path.clone());
+        if let Some(ref s) = args.center_tile {
+            let (z, x, y) = parse_center_tile_xyz(s)?;
+            mbt.set_viewport_to_tile(z, x, y)
+                .map_err(|e| anyhow::anyhow!(e))?;
+        }
+        App::new_mbtiles(mbt, args.path.clone())
+    } else if args.path.is_dir() {
         let paths = find_tile_files(&args.path)?;
         if paths.is_empty() {
             bail!(
@@ -76,22 +100,23 @@ pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
             );
         }
         let base = args.path.clone();
-        let files: Vec<_> = paths
+        let files: Vec<LsRow> = paths
             .iter()
-            .map(|p| {
-                (
-                    p.clone(),
-                    LsRow::Loading {
-                        path: crate::ls::relative_path(p, &base),
-                    },
-                )
-            })
+            .map(|p| LsRow::Loading { path: p.clone() })
             .collect();
         let (tx, rx) = mpsc::channel();
         thread::spawn(move || {
-            let _ = tx.send(analyze_tile_files(&paths, &base, true));
+            let _ = tx.send(analyze_tile_files(
+                &paths,
+                &base,
+                LsFlags {
+                    gzip: true,
+                    algorithms: true,
+                    validate: false,
+                },
+            ));
         });
-        App::new_file_browser(files, Some(rx))
+        App::new_file_browser(files, Some(rx), args.path.clone())
     } else if args.path.is_file() {
         App::new_single_file(load_fc(&args.path)?, Some(args.path.clone()))
     } else {
@@ -100,18 +125,72 @@ pub fn ui(args: &UiArgs) -> anyhow::Result<()> {
     run_app(app)
 }
 
+fn parse_center_tile_xyz(spec: &str) -> anyhow::Result<(u8, u32, u32)> {
+    let parts: Vec<&str> = spec
+        .split('/')
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .collect();
+    if parts.len() != 3 {
+        bail!("--center-tile must be z/x/y (three integers), got {spec:?}");
+    }
+    let zoom: u8 = parts[0]
+        .parse()
+        .map_err(|_| anyhow::anyhow!("invalid zoom z in --center-tile: {:?}", parts[0]))?;
+    let tile_x: u32 = parts[1]
+        .parse()
+        .map_err(|_| anyhow::anyhow!("invalid tile x in --center-tile: {:?}", parts[1]))?;
+    let tile_y: u32 = parts[2]
+        .parse()
+        .map_err(|_| anyhow::anyhow!("invalid tile y in --center-tile: {:?}", parts[2]))?;
+    let grid_n = 1u32
+        .checked_shl(u32::from(zoom))
+        .ok_or_else(|| anyhow::anyhow!("zoom z={zoom} is too large"))?;
+    if tile_x >= grid_n || tile_y >= grid_n {
+        bail!(
+            "tile x/y must be < 2^z for z={zoom} (max index {})",
+            grid_n.saturating_sub(1)
+        );
+    }
+    Ok((zoom, tile_x, tile_y))
+}
+
 // --- Data loading ---
 
 fn load_fc(path: &Path) -> anyhow::Result<FeatureCollection> {
     let buf = fs::read(path)?;
-    if is_mvt_extension(path) {
-        Ok(mvt_to_feature_collection(buf)?)
+    if is_mlt_extension(path) {
+        let layers = Decoder::default().decode_all(Parser::default().parse_layers(&buf)?)?;
+        Ok(FeatureCollection::from_layers(layers)?)
     } else {
-        let mut layers = parse_layers(&buf)?;
-        for layer in &mut layers {
-            layer.decode_all()?;
-        }
-        Ok(FeatureCollection::from_layers(&layers)?)
+        Ok(mvt_to_feature_collection(buf)?)
+    }
+}
+
+fn extent_from_fc(fc: &FeatureCollection) -> u32 {
+    fc.features
+        .first()
+        .and_then(|f| {
+            f.properties
+                .get("_extent")
+                .and_then(serde_json::Value::as_u64)
+        })
+        .map_or(4096, |v| u32::try_from(v).expect("_extent is valid u32"))
+}
+
+fn refresh_tile_preview(app: &mut App) {
+    let path = if let Some(r) = app.get_selected_file() {
+        r.path().to_path_buf()
+    } else {
+        app.preview_tile_path = None;
+        app.preview_fc = None;
+        app.preview_load_requested = None;
+        return;
+    };
+    if !is_tile_extension(&path) {
+        app.preview_tile_path = None;
+        app.preview_fc = None;
+        app.preview_load_requested = None;
     }
 }
 
@@ -126,8 +205,8 @@ fn group_by_layer(fc: &FeatureCollection) -> Vec<LayerGroup> {
         let extent = f
             .properties
             .get("_extent")
-            .and_then(serde_json::Value::as_f64)
-            .unwrap_or(4096.0);
+            .and_then(serde_json::Value::as_u64)
+            .map_or(4096, |v| u32::try_from(v).expect("_extent is valid u32"));
         if let Some(g) = groups.iter_mut().find(|g| g.name == name) {
             g.feature_indices.push(i);
         } else {
@@ -161,7 +240,7 @@ fn find_tile_files(dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
     }
     let mut files = Vec::new();
     visit(dir, &mut files)?;
-    files.sort();
+    files.sort_unstable();
     Ok(files)
 }
 
@@ -175,15 +254,16 @@ fn click_row_in_area(col: u16, row: u16, area: Rect, scroll: usize) -> Option<us
     let top = area.y + 1;
     let bot = area.y + area.height.saturating_sub(1);
     (col >= area.x && col < area.x + area.width && row >= top && row < bot)
-        .then(|| (row - top) as usize + scroll)
+        .then(|| (row - top).into_usize() + scroll)
 }
 
 const HIGHLIGHT_SYMBOL_WIDTH: u16 = 3;
 const COLUMN_SPACING: u16 = 1;
 
+/// Table has 6 columns: File, Size, Enc %, Layers, Features, Notes. Notes is not sortable.
 fn file_header_click_column(
     area: Rect,
-    widths: &[Constraint; 5],
+    widths: &[Constraint; 6],
     col: u16,
     row: u16,
 ) -> Option<FileSortColumn> {
@@ -194,14 +274,24 @@ fn file_header_click_column(
         vertical: 1,
         horizontal: 1,
     });
-    let resolved: Vec<u16> = widths
+    let fixed: u16 = widths
         .iter()
         .map(|c| match c {
-            Constraint::Length(l) | Constraint::Min(l) => *l,
+            Constraint::Length(l) => *l,
             _ => 0,
         })
-        .collect();
-    let mut x = inner.x + HIGHLIGHT_SYMBOL_WIDTH;
+        .sum();
+    let remaining = inner
+        .width
+        .saturating_sub(HIGHLIGHT_SYMBOL_WIDTH + fixed + 5 * COLUMN_SPACING);
+    let mut resolved = [0u16; 6];
+    for (i, c) in widths.iter().enumerate() {
+        resolved[i] = match c {
+            Constraint::Length(l) => *l,
+            Constraint::Min(_) => remaining,
+            _ => 0,
+        };
+    }
     let cols = [
         FileSortColumn::File,
         FileSortColumn::Size,
@@ -209,6 +299,7 @@ fn file_header_click_column(
         FileSortColumn::Layers,
         FileSortColumn::Features,
     ];
+    let mut x = inner.x + HIGHLIGHT_SYMBOL_WIDTH;
     for (i, &w) in resolved.iter().enumerate() {
         let end = if i == resolved.len() - 1 {
             inner.x + inner.width
@@ -216,7 +307,7 @@ fn file_header_click_column(
             x + w
         };
         if col >= x && col < end {
-            return Some(cols[i]);
+            return cols.get(i).copied();
         }
         x = end + COLUMN_SPACING;
     }
@@ -225,6 +316,13 @@ fn file_header_click_column(
 
 fn block_with_title(title: impl Into<Line<'static>>) -> Block<'static> {
     Block::default().borders(Borders::ALL).title(title)
+}
+
+/// Area where the map canvas actually draws (inside borders + title).
+/// Must stay in sync with `render_map_panel` and `render_mbtiles_map_panel`, which both use
+/// `block_with_title`.
+fn map_canvas_area(outer: Rect) -> Rect {
+    block_with_title(" ").inner(outer)
 }
 
 /// Helper to build `Span::styled(format!("{name}: "), STYLE_LABEL)` + raw value.
@@ -237,7 +335,29 @@ fn stat_line(name: &str, val: &dyn std::fmt::Display) -> Line<'static> {
 
 const DIVIDER_GRAB: u16 = 2;
 
-fn divider_hit(col: u16, row: u16, left: Rect, tree: Rect) -> Option<ResizeHandle> {
+fn divider_hit(
+    col: u16,
+    row: u16,
+    left: Rect,
+    tree: Rect,
+    geom: Option<Rect>,
+) -> Option<ResizeHandle> {
+    let horiz_hit = |dy: u16| {
+        row >= dy.saturating_sub(DIVIDER_GRAB)
+            && row < dy.saturating_add(DIVIDER_GRAB)
+            && col >= left.x
+            && col < left.x + left.width
+    };
+
+    // Check horizontal dividers (most specific first)
+    if geom.is_some_and(|g| horiz_hit(g.y)) {
+        return Some(ResizeHandle::PropertiesGeometry);
+    }
+    if horiz_hit(tree.y + tree.height) {
+        return Some(ResizeHandle::FeaturesProperties);
+    }
+
+    // Check vertical divider (between left panel and map)
     let dx = left.x + left.width;
     if col >= dx.saturating_sub(DIVIDER_GRAB)
         && col < dx.saturating_add(DIVIDER_GRAB)
@@ -246,14 +366,7 @@ fn divider_hit(col: u16, row: u16, left: Rect, tree: Rect) -> Option<ResizeHandl
     {
         return Some(ResizeHandle::LeftRight);
     }
-    let dy = tree.y + tree.height;
-    if row >= dy.saturating_sub(DIVIDER_GRAB)
-        && row < dy.saturating_add(DIVIDER_GRAB)
-        && col >= left.x
-        && col < left.x + left.width
-    {
-        return Some(ResizeHandle::FeaturesProperties);
-    }
+
     None
 }
 
@@ -291,23 +404,67 @@ fn pct_at(pos: u16, origin: u16, span: u16) -> u16 {
     pct.clamp(10, 90)
 }
 
+const FILE_RIGHT_PANEL_MIN: u16 = 20;
+fn file_browser_preview_pct_clamped(pct: u16, filter_pct: u16) -> u16 {
+    pct.clamp(
+        FILE_RIGHT_PANEL_MIN,
+        100u16
+            .saturating_sub(FILE_RIGHT_PANEL_MIN)
+            .saturating_sub(filter_pct),
+    )
+}
+fn file_browser_filter_pct_clamped(pct: u16, preview_pct: u16) -> u16 {
+    pct.clamp(
+        FILE_RIGHT_PANEL_MIN,
+        100u16
+            .saturating_sub(FILE_RIGHT_PANEL_MIN)
+            .saturating_sub(preview_pct),
+    )
+}
+
 fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyhow::Result<()> {
     let mut map_area: Option<Rect> = None;
     let mut tree_area: Option<Rect> = None;
     let mut props_area: Option<Rect> = None;
+    let mut geom_area: Option<Rect> = None;
     let mut left_area: Option<Rect> = None;
     let mut filter_area: Option<Rect> = None;
     let mut info_area: Option<Rect> = None;
+    let mut preview_area: Option<Rect> = None;
+    let mut right_col: Option<Rect> = None;
     let mut file_left: Option<Rect> = None;
     let mut last_tree_click: Option<(Instant, usize)> = None;
     let mut last_file_click: Option<(Instant, usize)> = None;
+    let mut last_hover_redraw: Option<Instant> = None;
 
     loop {
+        // Process incoming mbtiles tile results and request visible tiles.
+        if app.mode == ViewMode::MbtilesMap
+            && let Some(ref mut mbt) = app.mbt_state
+        {
+            if mbt.process_results() {
+                app.needs_redraw = true;
+            }
+            if let Some(msg) = mbt.take_loader_fatal() {
+                let title = app
+                    .current_file
+                    .as_ref()
+                    .map_or_else(|| "MBTiles".to_string(), |p| p.display().to_string());
+                app.error_popup = Some((title, msg));
+                app.needs_redraw = true;
+            }
+            let visible = mbt.visible_tiles();
+            for (z, x, y) in visible {
+                mbt.request_tile_with_ancestors(z, x, y);
+            }
+            mbt.prune_tile_cache_if_needed();
+        }
+
         if let Some(rows) = app.analysis_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
-            if rows.len() == app.mlt_files.len() {
+            if rows.len() == app.files.len() {
                 for (i, row) in rows.into_iter().enumerate() {
-                    if let Some(e) = app.mlt_files.get_mut(i) {
-                        e.1 = row;
+                    if let Some(e) = app.files.get_mut(i) {
+                        *e = row;
                     }
                 }
             }
@@ -315,11 +472,51 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
             app.rebuild_filtered_files();
         }
 
+        if let Some((path, result)) = app.preview_rx.as_mut().and_then(|rx| rx.try_recv().ok()) {
+            app.preview_rx = None;
+            app.preview_load_requested = None;
+            if app.get_selected_file().map(LsRow::path) == Some(path.as_path()) {
+                if let Ok((fc, ext)) = result {
+                    app.preview_tile_path = Some(path);
+                    app.preview_fc = Some(fc);
+                    app.preview_extent = ext;
+                } else {
+                    app.preview_tile_path = Some(path);
+                    app.preview_fc = None;
+                }
+            }
+            app.invalidate();
+        }
+        if app.mode == ViewMode::FileBrowser
+            && let Some(selected) = app.get_selected_file()
+        {
+            let path = selected.path().to_path_buf();
+            if is_tile_extension(&path)
+                && (app.preview_tile_path.as_ref() != Some(&path) || app.preview_fc.is_none())
+                && app.preview_load_requested.as_ref() != Some(&path)
+            {
+                let (tx, rx) = mpsc::channel();
+                app.preview_rx = Some(rx);
+                app.preview_load_requested = Some(path.clone());
+                let path_spawn = path.clone();
+                thread::spawn(move || {
+                    let result = load_fc(&path_spawn)
+                        .map(|fc| {
+                            let ext = extent_from_fc(&fc);
+                            (fc, ext)
+                        })
+                        .map_err(|_| ());
+                    let _ = tx.send((path_spawn, result));
+                });
+            }
+        }
+
         if app.needs_redraw {
             app.needs_redraw = false;
             terminal.draw(|f| {
                 match app.mode {
                     ViewMode::FileBrowser => {
+                        refresh_tile_preview(app);
                         let cols = Layout::default()
                             .direction(Direction::Horizontal)
                             .constraints([
@@ -327,16 +524,33 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 Constraint::Percentage(100u16.saturating_sub(app.file_left_pct)),
                             ])
                             .split(f.area());
+                        let right_pct = file_browser_preview_pct_clamped(
+                            app.file_preview_pct,
+                            app.file_filter_pct,
+                        );
+                        let filter_pct =
+                            file_browser_filter_pct_clamped(app.file_filter_pct, right_pct);
+                        app.file_preview_pct = right_pct;
+                        app.file_filter_pct = filter_pct;
                         let right = Layout::default()
                             .direction(Direction::Vertical)
-                            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+                            .constraints([
+                                Constraint::Percentage(right_pct),
+                                Constraint::Percentage(filter_pct),
+                                Constraint::Percentage(
+                                    100u16.saturating_sub(right_pct).saturating_sub(filter_pct),
+                                ),
+                            ])
                             .split(cols[1]);
                         render_file_browser(f, cols[0], app);
-                        render_file_filter_panel(f, right[0], app);
-                        render_file_info_panel(f, right[1], app);
+                        render_tile_preview_panel(f, right[0], app);
+                        render_file_filter_panel(f, right[1], app);
+                        render_file_info_panel(f, right[2], app);
                         file_left = Some(cols[0]);
-                        filter_area = Some(right[0]);
-                        info_area = Some(right[1]);
+                        right_col = Some(cols[1]);
+                        preview_area = Some(right[0]);
+                        filter_area = Some(right[1]);
+                        info_area = Some(right[2]);
                     }
                     ViewMode::LayerOverview => {
                         let cols = Layout::default()
@@ -354,12 +568,26 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             ])
                             .split(cols[0]);
                         render_tree_panel(f, left[0], app);
-                        render_properties_panel(f, left[1], app);
+                        let ga = render_properties_panel(f, left[1], app);
                         render_map_panel(f, cols[1], app);
                         tree_area = Some(left[0]);
                         props_area = Some(left[1]);
+                        geom_area = Some(ga);
                         left_area = Some(cols[0]);
-                        map_area = Some(cols[1]);
+                        map_area = Some(map_canvas_area(cols[1]));
+                    }
+                    ViewMode::MbtilesMap => {
+                        let cols = Layout::default()
+                            .direction(Direction::Horizontal)
+                            .constraints([
+                                Constraint::Percentage(app.left_pct),
+                                Constraint::Percentage(100u16.saturating_sub(app.left_pct)),
+                            ])
+                            .split(f.area());
+                        render_mbtiles_hover_panel(f, cols[0], app);
+                        render_mbtiles_map_panel(f, cols[1], app);
+                        left_area = Some(cols[0]);
+                        map_area = Some(map_canvas_area(cols[1]));
                     }
                 }
                 if app.error_popup.is_some() {
@@ -370,7 +598,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
             })?;
         }
 
-        if event::poll(std::time::Duration::from_millis(16))? {
+        if event::poll(Duration::from_millis(16))? {
             match event::read()? {
                 Event::Key(key) if key.kind == KeyEventKind::Press => {
                     if key.modifiers.contains(KeyModifiers::CONTROL)
@@ -464,6 +692,9 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                 },
                 Event::Mouse(mouse) => match mouse.kind {
                     MouseEventKind::Up(_) => {
+                        if let Some(ref mut mbt) = app.mbt_state {
+                            mbt.map_drag_last = None;
+                        }
                         if app.resizing.take().is_some() {
                             app.invalidate();
                         }
@@ -479,12 +710,48 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 ResizeHandle::FeaturesProperties => {
                                     app.features_pct = pct_at(mouse.row, la.y, la.height);
                                 }
+                                ResizeHandle::PropertiesGeometry => {
+                                    if let Some(pa) = props_area {
+                                        app.properties_pct = pct_at(mouse.row, pa.y, pa.height);
+                                    }
+                                }
                                 ResizeHandle::FileBrowserLeftRight => {
                                     app.file_left_pct = pct_at(mouse.column, area.x, area.width);
+                                }
+                                ResizeHandle::FileBrowserPreviewFilter => {
+                                    if let Some(rc) = right_col {
+                                        app.file_preview_pct = file_browser_preview_pct_clamped(
+                                            pct_at(mouse.row, rc.y, rc.height),
+                                            app.file_filter_pct,
+                                        );
+                                    }
+                                }
+                                ResizeHandle::FileBrowserFilterInfo => {
+                                    if let Some(rc) = right_col {
+                                        app.file_filter_pct = file_browser_filter_pct_clamped(
+                                            pct_at(mouse.row, rc.y, rc.height)
+                                                .saturating_sub(app.file_preview_pct),
+                                            app.file_preview_pct,
+                                        );
+                                    }
                                 }
                             }
                             app.invalidate();
                             continue;
+                        }
+                        if app.mode == ViewMode::MbtilesMap
+                            && let MouseEventKind::Drag(MouseButton::Left) = mouse.kind
+                            && let (Some(area), Some(ref mut mbt)) =
+                                (map_area, app.mbt_state.as_mut())
+                            && let Some((lc, lr)) = mbt.map_drag_last
+                        {
+                            let dc = i32::from(mouse.column) - i32::from(lc);
+                            let dr = i32::from(mouse.row) - i32::from(lr);
+                            if dc != 0 || dr != 0 {
+                                mbt.pan_by_pixels(area.width, area.height, dc, dr);
+                                mbt.map_drag_last = Some((mouse.column, mouse.row));
+                                app.needs_redraw = true;
+                            }
                         }
                         let prev = app.hovered.clone();
                         app.hovered = None;
@@ -501,7 +768,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     mouse.column,
                                     mouse.row,
                                     area,
-                                    app.tree_scroll as usize,
+                                    app.tree_scroll.into_usize(),
                                 )
                                 && let Some((l, f, p)) =
                                     app.tree_items.get(row).and_then(TreeItem::layer_feat_part)
@@ -521,13 +788,62 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             }
                         }
                         if app.hovered != prev {
-                            app.invalidate();
+                            let allow = last_hover_redraw
+                                .is_none_or(|t| t.elapsed() >= HOVER_REDRAW_THROTTLE);
+                            if allow {
+                                last_hover_redraw = Some(Instant::now());
+                                app.invalidate();
+                            }
+                        }
+
+                        // MbtilesMap: update hover on mouse move over the map.
+                        if app.mode == ViewMode::MbtilesMap
+                            && let Some(area) = map_area
+                            && point_in_rect(mouse.column, mouse.row, area)
+                            && let Some(ref mut mbt) = app.mbt_state
+                        {
+                            let rx = f64::from(mouse.column - area.x) / f64::from(area.width);
+                            let ry = f64::from(mouse.row - area.y) / f64::from(area.height);
+                            let (wx, wy) = mbt.viewport_world_at_fracs(rx, ry);
+                            let prev_hov = mbt.hovered.clone();
+                            mbt.find_hovered(wx, wy);
+                            if mbt.hovered != prev_hov {
+                                let allow = last_hover_redraw
+                                    .is_none_or(|t| t.elapsed() >= HOVER_REDRAW_THROTTLE);
+                                if allow {
+                                    last_hover_redraw = Some(Instant::now());
+                                    app.invalidate();
+                                }
+                            }
                         }
                     }
                     MouseEventKind::ScrollUp | MouseEventKind::ScrollDown => {
                         let up = matches!(mouse.kind, MouseEventKind::ScrollUp);
                         let s = app.scroll_step();
                         let step = u16::try_from(s)?;
+
+                        // MbtilesMap: scroll zooms in/out centred on the cursor.
+                        if app.mode == ViewMode::MbtilesMap
+                            && let (Some(area), Some(ref mut mbt)) =
+                                (map_area, app.mbt_state.as_mut())
+                        {
+                            if point_in_rect(mouse.column, mouse.row, area) {
+                                let rx = f64::from(mouse.column - area.x) / f64::from(area.width);
+                                let ry = f64::from(mouse.row - area.y) / f64::from(area.height);
+                                let (wx, wy) = mbt.viewport_world_at_fracs(rx, ry);
+                                mbt.zoom_wheel_at(wx, wy, up);
+                                app.needs_redraw = true;
+                                continue;
+                            }
+                            // Properties panel scroll
+                            if left_area.is_some_and(|a| point_in_rect(mouse.column, mouse.row, a))
+                            {
+                                app.properties_scroll = scroll_by(app.properties_scroll, step, up);
+                                app.invalidate();
+                                continue;
+                            }
+                        }
+
                         if app.mode == ViewMode::FileBrowser {
                             if filter_area
                                 .is_some_and(|a| point_in_rect(mouse.column, mouse.row, a))
@@ -538,6 +854,8 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             }
                             if info_area.is_some_and(|a| point_in_rect(mouse.column, mouse.row, a))
                             {
+                                app.file_info_scroll = scroll_by(app.file_info_scroll, step, up);
+                                app.invalidate();
                                 continue;
                             }
                         }
@@ -554,7 +872,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 if up {
                                     app.tree_scroll = app.tree_scroll.saturating_sub(step);
                                 } else {
-                                    let inner = area.height.saturating_sub(2) as usize;
+                                    let inner = area.height.saturating_sub(2).into_usize();
                                     let max =
                                         u16::try_from(app.tree_items.len().saturating_sub(inner))?;
                                     app.tree_scroll = app.tree_scroll.saturating_add(step).min(max);
@@ -572,7 +890,16 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             app.move_down_by(s);
                         }
                     }
-                    MouseEventKind::Down(_) => {
+                    MouseEventKind::Down(btn) => {
+                        if app.mode == ViewMode::MbtilesMap
+                            && btn == MouseButton::Left
+                            && let (Some(area), Some(ref mut mbt)) =
+                                (map_area, app.mbt_state.as_mut())
+                            && point_in_rect(mouse.column, mouse.row, area)
+                        {
+                            mbt.map_drag_last = Some((mouse.column, mouse.row));
+                            continue;
+                        }
                         if app.mode == ViewMode::FileBrowser {
                             if let Some(fl) = file_left {
                                 let dx = fl.x + fl.width;
@@ -586,20 +913,45 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     continue;
                                 }
                             }
+                            if let (Some(pa), Some(fa)) = (preview_area, filter_area) {
+                                let mut invalidate = |value: u16, resizer: ResizeHandle| {
+                                    if mouse.row >= value.saturating_sub(DIVIDER_GRAB)
+                                        && mouse.row < value.saturating_add(DIVIDER_GRAB)
+                                        && right_col.is_some_and(|rc| {
+                                            point_in_rect(mouse.column, mouse.row, rc)
+                                        })
+                                    {
+                                        app.resizing = Some(resizer);
+                                        app.invalidate();
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                };
+
+                                let dy_preview = pa.y + pa.height;
+                                if invalidate(dy_preview, ResizeHandle::FileBrowserPreviewFilter) {
+                                    continue;
+                                }
+                                let dy_filter = fa.y + fa.height;
+                                if invalidate(dy_filter, ResizeHandle::FileBrowserFilterInfo) {
+                                    continue;
+                                }
+                            }
                             if let Some(fa) = filter_area
                                 && point_in_rect(mouse.column, mouse.row, fa)
                             {
-                                let row = (mouse.row.saturating_sub(fa.y + 1)) as usize
-                                    + app.filter_scroll as usize;
+                                let row = mouse.row.saturating_sub(fa.y + 1).into_usize()
+                                    + app.filter_scroll.into_usize();
                                 handle_filter_click(app, row);
                                 continue;
                             }
                             if let Some(ia) = info_area
                                 && point_in_rect(mouse.column, mouse.row, ia)
                                 && app.filtered_file_indices.is_empty()
-                                && !app.mlt_files.is_empty()
+                                && !app.files.is_empty()
                             {
-                                let row = (mouse.row.saturating_sub(ia.y + 1)) as usize;
+                                let row = mouse.row.saturating_sub(ia.y + 1).into_usize();
                                 if row == 2 {
                                     app.ext_filters.clear();
                                     app.geom_filters.clear();
@@ -626,16 +978,14 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     mouse.row,
                                     area,
                                     app.file_list_state.offset(),
-                                ) && row > 0
-                                    && row <= app.filtered_file_indices.len()
+                                ) && row < app.filtered_file_indices.len()
                                 {
-                                    let r = row - 1;
                                     let dbl = last_file_click.is_some_and(|(t, prev)| {
-                                        prev == r && t.elapsed().as_millis() < 400
+                                        prev == row && t.elapsed().as_millis() < 400
                                     });
-                                    last_file_click = Some((Instant::now(), r));
-                                    app.selected_file_index = r;
-                                    app.file_list_state.select(Some(r));
+                                    last_file_click = Some((Instant::now(), row));
+                                    app.selected_file_index = row;
+                                    app.file_list_state.select(Some(row));
                                     app.invalidate_bounds();
                                     if dbl {
                                         app.handle_enter();
@@ -644,7 +994,8 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             }
                         } else if app.mode == ViewMode::LayerOverview {
                             if let (Some(la), Some(ta)) = (left_area, tree_area)
-                                && let Some(h) = divider_hit(mouse.column, mouse.row, la, ta)
+                                && let Some(h) =
+                                    divider_hit(mouse.column, mouse.row, la, ta, geom_area)
                             {
                                 app.resizing = Some(h);
                                 app.invalidate();
@@ -655,7 +1006,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     mouse.column,
                                     mouse.row,
                                     area,
-                                    app.tree_scroll as usize,
+                                    app.tree_scroll.into_usize(),
                                 )
                                 && row < app.tree_items.len()
                             {
@@ -670,7 +1021,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 } else {
                                     app.selected_index = row;
                                     app.scroll_selected_into_view(
-                                        area.height.saturating_sub(2) as usize
+                                        area.height.saturating_sub(2).into_usize(),
                                     );
                                 }
                                 app.invalidate_bounds();
@@ -710,9 +1061,9 @@ fn scroll_by(val: u16, step: u16, up: bool) -> u16 {
 // --- Filtering ---
 
 fn handle_filter_click(app: &mut App, row: usize) {
-    let exts = collect_extensions(&app.mlt_files);
-    let geoms = collect_file_values(&app.mlt_files, MltFileInfo::geometries);
-    let algos = collect_file_values(&app.mlt_files, MltFileInfo::algorithms);
+    let exts = collect_extensions(&app.files);
+    let geoms = collect_file_geometries(&app.files);
+    let algos = collect_file_algorithms(&app.files);
 
     let ext_start = 3;
     let ext_end = ext_start + exts.len();
@@ -726,101 +1077,96 @@ fn handle_filter_click(app: &mut App, row: usize) {
         app.geom_filters.clear();
         app.algo_filters.clear();
     } else if row >= ext_start && row < ext_end {
-        toggle_set(&mut app.ext_filters, &exts[row - ext_start]);
+        toggle_set_string(&mut app.ext_filters, &exts[row - ext_start]);
     } else if row >= geom_start && row < geom_end {
-        toggle_set(&mut app.geom_filters, &geoms[row - geom_start]);
+        toggle_set(&mut app.geom_filters, geoms[row - geom_start]);
     } else if row >= algo_start && row < algo_end {
-        toggle_set(&mut app.algo_filters, &algos[row - algo_start]);
+        toggle_set(&mut app.algo_filters, algos[row - algo_start]);
     }
     app.rebuild_filtered_files();
 }
 
-fn toggle_set(set: &mut HashSet<String>, val: &str) {
+fn toggle_set<T: Eq + std::hash::Hash>(set: &mut HashSet<T>, val: T) {
+    if !set.remove(&val) {
+        set.insert(val);
+    }
+}
+
+fn toggle_set_string(set: &mut HashSet<String>, val: &str) {
     if !set.remove(val) {
         set.insert(val.to_string());
     }
 }
 
-fn geom_abbrev_to_full(abbrev: &str) -> &str {
-    match abbrev {
-        "Pt" => "Point",
-        "Line" => "LineString",
-        "Poly" => "Polygon",
-        "MPt" => "MultiPoint",
-        "MLine" => "MultiLineString",
-        "MPoly" => "MultiPolygon",
-        other => other,
-    }
-}
-
-fn collect_file_values(files: &[(PathBuf, LsRow)], field: fn(&MltFileInfo) -> &str) -> Vec<String> {
+pub(crate) fn collect_file_geometries(files: &[LsRow]) -> Vec<GeometryType> {
     let mut set = HashSet::new();
-    for (_, row) in files {
-        if let LsRow::Info(info) = row {
-            for v in field(info)
-                .split(',')
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-            {
-                set.insert(v.to_string());
+    for row in files {
+        if let LsRow::Info { info, .. } = row {
+            for g in &info.geometries {
+                set.insert(*g);
             }
         }
     }
     let mut v: Vec<_> = set.into_iter().collect();
-    v.sort();
+    v.sort_unstable();
     v
 }
 
-fn collect_extensions(files: &[(PathBuf, LsRow)]) -> Vec<String> {
+pub(crate) fn collect_file_algorithms(files: &[LsRow]) -> Vec<FileAlgorithm> {
     let mut set = HashSet::new();
-    for (path, _) in files {
-        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+    for row in files {
+        if let LsRow::Info { info, .. } = row {
+            for a in &info.algorithms {
+                set.insert(*a);
+            }
+        }
+    }
+    let mut v: Vec<_> = set.into_iter().collect();
+    v.sort_by_key(FileAlgorithm::to_string);
+    v
+}
+
+fn collect_extensions(files: &[LsRow]) -> Vec<String> {
+    let mut set = HashSet::new();
+    for row in files {
+        if let Some(ext) = row.path().extension().and_then(|e| e.to_str()) {
             set.insert(ext.to_lowercase());
         }
     }
     let mut v: Vec<_> = set.into_iter().collect();
-    v.sort();
+    v.sort_unstable();
     v
 }
 
 // --- Geometry helpers ---
 
-fn geometry_type_name(geom: &Geom32) -> &'static str {
+fn geometry_type_name(geom: &Geometry<i32>) -> &'static str {
+    GeometryType::try_from(geom).map_or("Unknown", Into::into)
+}
+
+fn geometry_color(geom: &Geometry<i32>) -> Color {
     match geom {
-        Geom32::Point(_) => "Point",
-        Geom32::Line(_) => "Line",
-        Geom32::LineString(_) => "LineString",
-        Geom32::Polygon(_) => "Polygon",
-        Geom32::MultiPoint(_) => "MultiPoint",
-        Geom32::MultiLineString(_) => "MultiLineString",
-        Geom32::MultiPolygon(_) => "MultiPolygon",
-        Geom32::GeometryCollection(_) => "GeometryCollection",
-        Geom32::Rect(_) => "Rect",
-        Geom32::Triangle(_) => "Triangle",
+        Geometry::<i32>::MultiPoint(_) => CLR_MULTI_POINT,
+        Geometry::<i32>::LineString(_) => CLR_LINE,
+        Geometry::<i32>::MultiLineString(_) => CLR_MULTI_LINE,
+        Geometry::<i32>::Polygon(_) | Geometry::<i32>::MultiPolygon(_) if has_bad_winding(geom) => {
+            CLR_BAD_WINDING
+        }
+        Geometry::<i32>::Polygon(_) => CLR_POLYGON,
+        Geometry::<i32>::MultiPolygon(_) => CLR_MULTI_POLYGON,
+        Geometry::<i32>::Point(_)
+        | Geometry::<i32>::Line(_)
+        | Geometry::<i32>::GeometryCollection(_)
+        | Geometry::<i32>::Rect(_)
+        | Geometry::<i32>::Triangle(_) => CLR_POINT,
     }
 }
 
-fn geometry_color(geom: &Geom32) -> Color {
+fn multi_part_count(geom: &Geometry<i32>) -> usize {
     match geom {
-        Geom32::MultiPoint(_) => CLR_MULTI_POINT,
-        Geom32::LineString(_) => CLR_LINE,
-        Geom32::MultiLineString(_) => CLR_MULTI_LINE,
-        Geom32::Polygon(_) | Geom32::MultiPolygon(_) if has_bad_winding(geom) => CLR_BAD_WINDING,
-        Geom32::Polygon(_) => CLR_POLYGON,
-        Geom32::MultiPolygon(_) => CLR_MULTI_POLYGON,
-        Geom32::Point(_)
-        | Geom32::Line(_)
-        | Geom32::GeometryCollection(_)
-        | Geom32::Rect(_)
-        | Geom32::Triangle(_) => CLR_POINT,
-    }
-}
-
-fn multi_part_count(geom: &Geom32) -> usize {
-    match geom {
-        Geom32::MultiPoint(mp) => mp.0.len(),
-        Geom32::MultiLineString(mls) => mls.0.len(),
-        Geom32::MultiPolygon(mpoly) => mpoly.0.len(),
+        Geometry::<i32>::MultiPoint(mp) => mp.0.len(),
+        Geometry::<i32>::MultiLineString(mls) => mls.0.len(),
+        Geometry::<i32>::MultiPolygon(mpoly) => mpoly.0.len(),
         _ => 0,
     }
 }
@@ -832,14 +1178,14 @@ fn poly_ring_stats(poly: &Polygon<i32>) -> (usize, usize) {
     (total_verts, ring_count)
 }
 
-fn feature_suffix(geom: &Geom32) -> String {
+fn feature_suffix(geom: &Geometry<i32>) -> String {
     let n = multi_part_count(geom);
     if n > 0 {
         return format!(" ({n} parts)");
     }
     match geom {
-        Geom32::LineString(ls) => format!(" ({}v)", ls.0.len()),
-        Geom32::Polygon(poly) => {
+        Geometry::<i32>::LineString(ls) => format!(" ({}v)", ls.0.len()),
+        Geometry::<i32>::Polygon(poly) => {
             let (total, ring_count) = poly_ring_stats(poly);
             if ring_count > 1 {
                 format!(" ({total}v, {ring_count} rings)")
@@ -851,13 +1197,13 @@ fn feature_suffix(geom: &Geom32) -> String {
     }
 }
 
-fn sub_feature_suffix(geom: &Geom32, part: usize) -> String {
+fn sub_feature_suffix(geom: &Geometry<i32>, part: usize) -> String {
     match geom {
-        Geom32::MultiLineString(mls) => mls
+        Geometry::<i32>::MultiLineString(mls) => mls
             .0
             .get(part)
             .map_or(String::new(), |ls| format!(" ({}v)", ls.0.len())),
-        Geom32::MultiPolygon(mpoly) => mpoly.0.get(part).map_or(String::new(), |poly| {
+        Geometry::<i32>::MultiPolygon(mpoly) => mpoly.0.get(part).map_or(String::new(), |poly| {
             let (total, ring_count) = poly_ring_stats(poly);
             if ring_count > 1 {
                 format!(" ({total}v, {ring_count} rings)")
@@ -894,7 +1240,7 @@ fn part_color(sel: Option<usize>, hov: Option<usize>, idx: usize, base: Color) -
 
 // --- Winding ---
 
-fn ring_signed_area(ring: &[Coord32]) -> f64 {
+fn ring_signed_area(ring: &[Coord<i32>]) -> f64 {
     let mut area = 0.0;
     for w in ring.windows(2) {
         let [x1, y1] = coord_f64(w[0]);
@@ -909,17 +1255,17 @@ fn ring_signed_area(ring: &[Coord32]) -> f64 {
     area
 }
 
-pub(crate) fn is_ring_ccw(ring: &[Coord32]) -> bool {
+pub(crate) fn is_ring_ccw(ring: &[Coord<i32>]) -> bool {
     ring_signed_area(ring) < 0.0
 }
 
-fn has_bad_winding(geom: &Geom32) -> bool {
+fn has_bad_winding(geom: &Geometry<i32>) -> bool {
     let check = |poly: &Polygon<i32>| {
         !is_ring_ccw(&poly.exterior().0) || poly.interiors().iter().any(|r| is_ring_ccw(&r.0))
     };
     match geom {
-        Geom32::Polygon(poly) => check(poly),
-        Geom32::MultiPolygon(mpoly) => mpoly.iter().any(check),
+        Geometry::<i32>::Polygon(poly) => check(poly),
+        Geometry::<i32>::MultiPolygon(mpoly) => mpoly.iter().any(check),
         _ => false,
     }
 }
@@ -967,6 +1313,6 @@ impl PointDistance for GeometryIndexEntry {
 }
 
 #[must_use]
-pub fn coord_f64(c: Coord32) -> [f64; 2] {
+pub fn coord_f64(c: Coord<i32>) -> [f64; 2] {
     [f64::from(c.x), f64::from(c.y)]
 }

@@ -1,0 +1,49 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1"
+      },
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            0,
+            0
+          ],
+          [
+            8,
+            0
+          ],
+          [
+            0,
+            8
+          ],
+          [
+            8,
+            8
+          ],
+          [
+            16,
+            0
+          ],
+          [
+            24,
+            0
+          ],
+          [
+            16,
+            8
+          ],
+          [
+            24,
+            8
+          ]
+        ]
+      }
+    }
+  ]
+}

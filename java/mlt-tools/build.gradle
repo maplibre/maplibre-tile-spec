@@ -8,12 +8,22 @@ repositories {
     maven {
         url = 'https://maven.ecc.no/releases'
     }
+    maven {
+        url = 'https://repo.osgeo.org/repository/release/'
+        content {
+            includeGroup 'org.geotools'
+            includeGroup 'org.geotools.ogc'
+            includeGroup 'org.eclipse.imagen'
+            includeGroup 'it.geosolutions.jgridshift'
+        }
+    }
 }
 
 dependencies {
-    implementation project(':mlt-cli')
     implementation project(':mlt-core')
     implementation(libs.jts.core)
+    implementation(libs.gson)
+    implementation(libs.commons.lang3)
 }
 
 java {

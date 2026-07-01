@@ -1,0 +1,183 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              52,
+              35
+            ],
+            [
+              14,
+              55
+            ],
+            [
+              60,
+              72
+            ],
+            [
+              52,
+              35
+            ]
+          ],
+          [
+            [
+              32,
+              50
+            ],
+            [
+              36,
+              60
+            ],
+            [
+              24,
+              54
+            ],
+            [
+              32,
+              50
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1"
+      },
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            6,
+            25
+          ],
+          [
+            21,
+            41
+          ],
+          [
+            23,
+            69
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1"
+      },
+      "geometry": {
+        "type": "MultiLineString",
+        "coordinates": [
+          [
+            [
+              24,
+              10
+            ],
+            [
+              42,
+              18
+            ]
+          ],
+          [
+            [
+              30,
+              36
+            ],
+            [
+              48,
+              52
+            ],
+            [
+              35,
+              62
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1"
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [
+                7,
+                20
+              ],
+              [
+                21,
+                31
+              ],
+              [
+                26,
+                9
+              ],
+              [
+                7,
+                20
+              ]
+            ],
+            [
+              [
+                15,
+                20
+              ],
+              [
+                20,
+                15
+              ],
+              [
+                18,
+                25
+              ],
+              [
+                15,
+                20
+              ]
+            ]
+          ],
+          [
+            [
+              [
+                69,
+                57
+              ],
+              [
+                71,
+                66
+              ],
+              [
+                73,
+                64
+              ],
+              [
+                69,
+                57
+              ]
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

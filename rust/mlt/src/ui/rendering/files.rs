@@ -3,39 +3,51 @@ use std::collections::HashSet;
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Rect};
 use ratatui::prelude::{Line, Span, Style};
-use ratatui::widgets::{Cell, Paragraph, Row, Table, Wrap};
+use ratatui::widgets::{Cell, HighlightSpacing, Paragraph, Row, Table, Wrap};
 use size_format::SizeFormatterSI;
+use usize_cast::{FromUsize as _, IntoUsize as _};
 
-use crate::ls::{LsRow, MltFileInfo, row_cells};
+use crate::ls::{LsRow, NA, na, path_display, row_cells_6};
+use crate::ui::rendering::map;
 use crate::ui::state::App;
 use crate::ui::{
     CLR_DIMMED, CLR_HINT, CLR_HOVERED, STYLE_BOLD, STYLE_LABEL, STYLE_SELECTED, block_with_title,
-    collect_extensions, collect_file_values, geom_abbrev_to_full,
+    collect_extensions, collect_file_algorithms, collect_file_geometries,
 };
+
+pub fn render_tile_preview_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
+    if let Some(ref fc) = app.preview_fc {
+        map::render_tile_preview(f, area, fc, app.preview_extent);
+    } else {
+        let msg = if app
+            .get_selected_file()
+            .and_then(|r| {
+                app.preview_load_requested
+                    .as_ref()
+                    .filter(|p| p.as_path() == r.path())
+            })
+            .is_some()
+        {
+            "Loading…"
+        } else {
+            "Select a tile file (.mlt / .mvt) to preview"
+        };
+        f.render_widget(
+            Paragraph::new(Line::from(msg)).block(block_with_title("Tile Preview")),
+            area,
+        );
+    }
+}
 
 pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     app.file_table_area = Some(area);
-    app.file_table_inner_height = area.height.saturating_sub(3) as usize;
+    app.file_table_inner_height = area.height.saturating_sub(3).into_usize();
 
-    let header = Row::new(vec![
-        Cell::from("File"),
-        Cell::from(Line::from("Size").alignment(Alignment::Right)),
-        Cell::from(Line::from("Enc %").alignment(Alignment::Right)),
-        Cell::from(Line::from("Layers").alignment(Alignment::Right)),
-        Cell::from(Line::from("Features").alignment(Alignment::Right)),
-    ])
-    .style(STYLE_BOLD);
-
-    let rows: Vec<Row> = app
-        .filtered_file_indices
-        .iter()
-        .map(|&i| Row::new(row_cells(&app.mlt_files[i].1).map(Cell::from)))
-        .collect();
-
+    let base = app.file_browser_base.as_deref();
     let file_w = app
-        .mlt_files
+        .files
         .iter()
-        .map(|(_, r)| row_cells(r)[0].len())
+        .map(|r| path_display(r.path(), base).len())
         .max()
         .unwrap_or(4)
         .max(4);
@@ -46,8 +58,25 @@ pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         Constraint::Length(7),
         Constraint::Length(6),
         Constraint::Length(10),
+        Constraint::Min(0),
     ];
     app.file_table_widths = Some(widths);
+
+    let header = Row::new(vec![
+        Cell::from("File"),
+        Cell::from(Line::from("Size").alignment(Alignment::Right)),
+        Cell::from(Line::from("Enc %").alignment(Alignment::Right)),
+        Cell::from(Line::from("Layers").alignment(Alignment::Right)),
+        Cell::from(Line::from("Features").alignment(Alignment::Right)),
+        Cell::from("Notes"),
+    ])
+    .style(STYLE_BOLD);
+
+    let rows: Vec<Row> = app
+        .filtered_file_indices
+        .iter()
+        .map(|&i| Row::new(row_cells_6(&app.files[i], base).map(Cell::from)))
+        .collect();
 
     let sort_hint = if app.data_loaded() {
         " Click header to sort"
@@ -55,7 +84,7 @@ pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         ""
     };
     let filtered = app.filtered_file_indices.len();
-    let total = app.mlt_files.len();
+    let total = app.files.len();
     let count = if filtered < total {
         format!("{filtered}/{total}")
     } else {
@@ -68,35 +97,26 @@ pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         .column_spacing(1)
         .block(block_with_title(title))
         .row_highlight_style(STYLE_SELECTED)
-        .highlight_symbol(">> ");
+        .highlight_symbol(">> ")
+        .highlight_spacing(HighlightSpacing::Always);
     f.render_stateful_widget(table, area, &mut app.file_list_state);
 }
 
 pub fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
-    let exts = collect_extensions(&app.mlt_files);
-    let geoms = collect_file_values(&app.mlt_files, MltFileInfo::geometries);
-    let algos = collect_file_values(&app.mlt_files, MltFileInfo::algorithms);
+    let exts = collect_extensions(&app.files);
+    let geoms = collect_file_geometries(&app.files);
+    let algos = collect_file_algorithms(&app.files);
     let has_any =
         !app.ext_filters.is_empty() || !app.geom_filters.is_empty() || !app.algo_filters.is_empty();
 
-    let sel_ext: Option<String> = app
-        .selected_file_real_index()
-        .and_then(|i| app.mlt_files.get(i))
-        .and_then(|(p, _)| p.extension().and_then(|e| e.to_str()))
+    let selected_mlt = app.get_selected_file();
+    let sel_ext: Option<String> = selected_mlt
+        .and_then(|r| r.path().extension().and_then(|e| e.to_str()))
         .map(str::to_lowercase);
-    let sel_info = app
-        .selected_file_real_index()
-        .and_then(|i| app.mlt_files.get(i))
-        .and_then(|(_, r)| match r {
-            LsRow::Info(i) => Some(i),
-            _ => None,
-        });
-    let sel_geoms: HashSet<&str> = sel_info
-        .map(|i| i.geometries().split(',').map(str::trim).collect())
-        .unwrap_or_default();
-    let sel_algos: HashSet<&str> = sel_info
-        .map(|i| i.algorithms().split(',').map(str::trim).collect())
-        .unwrap_or_default();
+    let sel_info = selected_mlt.and_then(|r| match r {
+        LsRow::Info { info, .. } => Some(info),
+        _ => None,
+    });
 
     let mut lines: Vec<Line<'static>> = Vec::new();
     let reset_style = if has_any {
@@ -123,24 +143,28 @@ pub fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     if !geoms.is_empty() {
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled("Geometry Types:", STYLE_BOLD)));
+
+        let sel_geoms: HashSet<_> = sel_info
+            .map(|i| i.geometries.iter().copied().collect())
+            .unwrap_or_default();
         for g in &geoms {
             lines.push(Line::from(Span::styled(
-                format!(
-                    "  {}{}",
-                    check(app.geom_filters.contains(g)),
-                    geom_abbrev_to_full(g)
-                ),
-                present_style(sel_geoms.contains(g.as_str())),
+                format!("  {}{g}", check(app.geom_filters.contains(g))),
+                present_style(sel_geoms.contains(g)),
             )));
         }
     }
     if !algos.is_empty() {
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled("Algorithms:", STYLE_BOLD)));
+
+        let sel_algos: HashSet<_> = sel_info
+            .map(|i| i.algorithms.iter().copied().collect())
+            .unwrap_or_default();
         for a in &algos {
             lines.push(Line::from(Span::styled(
                 format!("  {}{a}", check(app.algo_filters.contains(a))),
-                present_style(sel_algos.contains(a.as_str())),
+                present_style(sel_algos.contains(a)),
             )));
         }
     }
@@ -149,26 +173,22 @@ pub fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     }
 
     let inner = area.height.saturating_sub(2);
-    let max = u16::try_from(lines.len().saturating_sub(inner as usize)).unwrap_or(0);
+    let max = u16::try_from(lines.len().saturating_sub(inner.into_usize())).unwrap_or(0);
     app.filter_scroll = app.filter_scroll.min(max);
-
     let para = Paragraph::new(lines)
         .block(block_with_title("Filter (click to toggle)"))
         .scroll((app.filter_scroll, 0));
     f.render_widget(para, area);
 }
 
-pub fn render_file_info_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
-    let info = app
-        .selected_file_real_index()
-        .and_then(|i| app.mlt_files.get(i))
-        .and_then(|(_, r)| match r {
-            LsRow::Info(i) => Some(i),
-            _ => None,
-        });
+pub fn render_file_info_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
+    let info = app.get_selected_file().and_then(|r| match r {
+        LsRow::Info { info, .. } => Some(info),
+        _ => None,
+    });
 
     let lines: Vec<Line<'static>> = if let Some(info) = info {
-        let sz = |n: usize| format!("{:.1}B", SizeFormatterSI::new(n as u64));
+        let sz = |n: usize| format!("{:.1}B", SizeFormatterSI::new(u64::from_usize(n)));
         let row = |name: &str, val: String, desc: &str| -> Line<'static> {
             let mut spans = vec![
                 Span::styled(format!("{name}: "), STYLE_LABEL),
@@ -183,42 +203,45 @@ pub fn render_file_info_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
             Line::from(spans)
         };
         vec![
-            row("File", info.path().to_string(), ""),
-            row("Size", sz(info.size()), "raw MLT file size"),
+            row("File", info.path.clone(), ""),
+            row("Size", sz(info.size), "raw MLT file size"),
             row(
                 "Encoding",
-                format!("{:.1}%", info.encoding_pct()),
+                na(info.encoding_pct.map(|p| format!("{p:.1}%"))),
                 "MLT / (data + metadata)",
             ),
-            row("Data", sz(info.data_size()), "decoded payload size"),
+            row("Data", na(info.data_size.map(&sz)), "decoded payload size"),
             row(
                 "Metadata",
-                format!("{} ({:.1}% of data)", sz(info.meta_size()), info.meta_pct()),
+                match (info.meta_size, info.meta_pct) {
+                    (Some(m), Some(p)) => format!("{} ({:.1}% of data)", sz(m), p),
+                    _ => NA.to_string(),
+                },
                 "encoding overhead",
             ),
-            row("Layers", info.layers().to_string(), "tile layer count"),
+            row("Layers", info.layers.to_string(), "tile layer count"),
             row(
                 "Features",
-                info.features().to_string(),
+                info.features.to_string(),
                 "total across all layers",
             ),
             row(
                 "Streams",
-                info.streams().to_string(),
+                na(info.streams.map(|n| n.to_string())),
                 "encoded data streams",
             ),
             row(
                 "Geometries",
-                info.geometries().to_string(),
+                info.geometries_display(),
                 "geometry types present",
             ),
             row(
                 "Algorithms",
-                info.algorithms().to_string(),
+                info.algorithms_display(),
                 "compression methods",
             ),
         ]
-    } else if app.filtered_file_indices.is_empty() && !app.mlt_files.is_empty() {
+    } else if app.filtered_file_indices.is_empty() && !app.files.is_empty() {
         vec![
             Line::from("No files match the current filters."),
             Line::from(""),
@@ -228,8 +251,13 @@ pub fn render_file_info_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
         vec![Line::from("Select a file to view details")]
     };
 
+    let inner = area.height.saturating_sub(2).into_usize();
+    let max = u16::try_from(lines.len().saturating_sub(inner)).unwrap_or(0);
+    app.file_info_scroll = app.file_info_scroll.min(max);
+
     let para = Paragraph::new(lines)
         .block(block_with_title("File Info"))
-        .wrap(Wrap { trim: false });
+        .wrap(Wrap { trim: false })
+        .scroll((app.file_info_scroll, 0));
     f.render_widget(para, area);
 }

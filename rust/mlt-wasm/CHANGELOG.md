@@ -1,0 +1,135 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.1.16](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.15...rust-mlt-wasm-v0.1.16) - 2026-06-29
+
+### Added
+
+- *(java)* Nested property values ([#1379](https://github.com/maplibre/maplibre-tile-spec/pull/1379))
+
+### Other
+
+- *(deps-dev)* bump protocol-buffers-schema from 3.6.0 to 3.6.1 in /rust/mlt-wasm ([#1478](https://github.com/maplibre/maplibre-tile-spec/pull/1478))
+- *(deps-dev)* bump postcss from 8.5.8 to 8.5.16 in /rust/mlt-wasm ([#1477](https://github.com/maplibre/maplibre-tile-spec/pull/1477))
+
+## [0.1.15](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.14...rust-mlt-wasm-v0.1.15) - 2026-06-20
+
+### Other
+
+- make sure that marked-failing synthetics actually fail ([#1451](https://github.com/maplibre/maplibre-tile-spec/pull/1451))
+- *(deps)* bump fast-mvt from 0.3.2 to 0.4.0 in /rust in the all-cargo-version-updates group ([#1452](https://github.com/maplibre/maplibre-tile-spec/pull/1452))
+
+## [0.1.14](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.13...rust-mlt-wasm-v0.1.14) - 2026-06-19
+
+### Other
+
+- *(rust)* rm pub fields, builder pattern ([#1428](https://github.com/maplibre/maplibre-tile-spec/pull/1428))
+
+## [0.1.13](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.12...rust-mlt-wasm-v0.1.13) - 2026-06-18
+
+### Other
+
+- *(deps-dev)* bump flatted from 3.3.3 to 3.4.2 in /ts in the all-npm-security-updates group across 1 directory ([#1184](https://github.com/maplibre/maplibre-tile-spec/pull/1184))
+- *(deps-dev)* bump vite from 7.3.1 to 7.3.5 in /rust/mlt-wasm ([#1441](https://github.com/maplibre/maplibre-tile-spec/pull/1441))
+
+## [0.1.12](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.11...rust-mlt-wasm-v0.1.12) - 2026-06-15
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.11](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.10...rust-mlt-wasm-v0.1.11) - 2026-06-13
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.10](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.9...rust-mlt-wasm-v0.1.10) - 2026-06-08
+
+### Other
+
+- *(deps-dev)* bump vitest, @vitest/coverage-v8 and @vitest/ui in /rust/mlt-wasm ([#1426](https://github.com/maplibre/maplibre-tile-spec/pull/1426))
+
+## [0.1.9](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.8...rust-mlt-wasm-v0.1.9) - 2026-05-15
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.8](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.7...rust-mlt-wasm-v0.1.8) - 2026-05-14
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.7](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.6...rust-mlt-wasm-v0.1.7) - 2026-05-05
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.6](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.5...rust-mlt-wasm-v0.1.6) - 2026-04-29
+
+### Other
+
+- *(rust)* rm "01" from TileLayer01, StagedLayer01 ([#1345](https://github.com/maplibre/maplibre-tile-spec/pull/1345))
+
+## [0.1.5](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.4...rust-mlt-wasm-v0.1.5) - 2026-04-18
+
+### Fixed
+
+- *(rust)* geo builds on wasm, remove unnecessary feature gates ([#1297](https://github.com/maplibre/maplibre-tile-spec/pull/1297))
+
+### Other
+
+- *(rust)* rm RawStreamData and EncodedStreamData ([#1309](https://github.com/maplibre/maplibre-tile-spec/pull/1309))
+- *(rust)* Coord32 cleanup, dep update ([#1304](https://github.com/maplibre/maplibre-tile-spec/pull/1304))
+- *(rust)* update geo, simplify tessellation ([#1305](https://github.com/maplibre/maplibre-tile-spec/pull/1305))
+- *(java)* Extend synthetic tests to include rings ([#1292](https://github.com/maplibre/maplibre-tile-spec/pull/1292))
+- Add offline docs.rs-style workspace docs check to Rust CI and fix surfaced rustdoc links ([#1295](https://github.com/maplibre/maplibre-tile-spec/pull/1295))
+
+## [0.1.4](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.3...rust-mlt-wasm-v0.1.4) - 2026-04-13
+
+### Other
+
+- *(rust)* move frames/v01 -> decoder, adj use ([#1246](https://github.com/maplibre/maplibre-tile-spec/pull/1246))
+- *(rust)* mv tessellation to core ([#1220](https://github.com/maplibre/maplibre-tile-spec/pull/1220))
+- more tessellated synthetics ([#1218](https://github.com/maplibre/maplibre-tile-spec/pull/1218))
+- *(rust)* implement feature/property iterator and more type state ([#1198](https://github.com/maplibre/maplibre-tile-spec/pull/1198))
+
+## [0.1.3](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.2...rust-mlt-wasm-v0.1.3) - 2026-03-23
+
+### Other
+
+- *(rust)* migrate to Rust fastpfor ([#1190](https://github.com/maplibre/maplibre-tile-spec/pull/1190))
+
+## [0.1.2](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.1...rust-mlt-wasm-v0.1.2) - 2026-03-17
+
+### Other
+
+- *(rust)* memory budgeting, codecs  ([#1168](https://github.com/maplibre/maplibre-tile-spec/pull/1168))
+- *(rust)* introduce EncDec decode states ([#1166](https://github.com/maplibre/maplibre-tile-spec/pull/1166))
+- *(rust)* add stateful decoder ([#1163](https://github.com/maplibre/maplibre-tile-spec/pull/1163))
+- *(rust)* rename to IdValues and GeometryValues ([#1159](https://github.com/maplibre/maplibre-tile-spec/pull/1159))
+- *(rust)* mv impls out of models, use full wire round-trips ([#1158](https://github.com/maplibre/maplibre-tile-spec/pull/1158))
+- *(rust)* rework WASM code to use TileLayer ([#1153](https://github.com/maplibre/maplibre-tile-spec/pull/1153))
+- *(rust)* remove unnecessary to_owned calls ([#1151](https://github.com/maplibre/maplibre-tile-spec/pull/1151))
+- *(rust)* introduce staging types in Rust layer implementation ([#1149](https://github.com/maplibre/maplibre-tile-spec/pull/1149))
+- *(rust)* introduce staging types ([#1148](https://github.com/maplibre/maplibre-tile-spec/pull/1148))
+- *(rust)* refactor parsing and encoding code ([#1144](https://github.com/maplibre/maplibre-tile-spec/pull/1144))
+- *(rust)* get rid of borrowme, add EncDec enum ([#1141](https://github.com/maplibre/maplibre-tile-spec/pull/1141))
+- *(rust)* simplify ID model ([#1139](https://github.com/maplibre/maplibre-tile-spec/pull/1139))
+- *(rust)* make wasm bench more stable ([#1120](https://github.com/maplibre/maplibre-tile-spec/pull/1120))
+- *(rust)* move name into DecodedStrings ([#1108](https://github.com/maplibre/maplibre-tile-spec/pull/1108))
+
+## [0.1.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.0...rust-mlt-wasm-v0.1.1) - 2026-03-10
+
+### Other
+
+- updated the following local packages: mlt-core

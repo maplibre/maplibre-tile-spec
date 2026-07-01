@@ -1,6 +1,6 @@
 import type IntWrapper from "../../decoding/intWrapper";
 import { decodeVarintInt32 } from "../../decoding/integerDecodingUtils";
-import { type Column, type FeatureTableSchema, type Field, type TileSetMetadata } from "./tilesetMetadata";
+import type { Column, FeatureTableSchema, Field, TileSetMetadata } from "./tilesetMetadata";
 import { columnTypeHasChildren, columnTypeHasName, decodeColumnType } from "./typeMap";
 
 const textDecoder = new TextDecoder();
@@ -113,6 +113,9 @@ export function decodeEmbeddedTileSetMetadata(bytes: Uint8Array, offset: IntWrap
 
     const table = {} as FeatureTableSchema;
     table.name = decodeString(bytes, offset);
+    if (table.name.length === 0) {
+        throw new Error("Missing layer name");
+    }
     const extent = decodeVarintInt32(bytes, offset, 1)[0] >>> 0;
 
     const columnCount = decodeVarintInt32(bytes, offset, 1)[0] >>> 0;

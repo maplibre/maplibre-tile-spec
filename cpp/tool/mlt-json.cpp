@@ -10,6 +10,7 @@ using namespace std::string_literals;
 using namespace std::string_view_literals;
 
 #include <mlt/json.hpp>
+#include "synthetic-geojson.hpp"
 
 namespace {
 
@@ -54,9 +55,15 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    mlt::Decoder decoder;
+    mlt::Decoder decoder(/*supportFastPFOR=*/true);
     const auto tileData = decoder.decode({buffer.data(), buffer.size()});
-    const auto tileJSON = mlt::json::toJSON(tileData, {.x = x, .y = y, .z = z}, geoJSON);
+
+    nlohmann::json tileJSON;
+    if (geoJSON) {
+        tileJSON = mlt::json::toJSON(tileData, {.x = x, .y = y, .z = z}, true);
+    } else {
+        tileJSON = mlt::test::toFeatureCollection(tileData);
+    }
     std::cout << tileJSON.dump(2, ' ', false, nlohmann::json::error_handler_t::replace);
 
     return 0;

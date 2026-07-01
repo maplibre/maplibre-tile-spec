@@ -19,6 +19,7 @@ bench:
 
 # Run integration tests, and override what we expect the output to be with the actual output
 bless: _clean-int-test _test-run-int
+    {{just}} rust::bless
     rm -rf test/expected && mv test/output test/expected
 
 # Delete all build files for multiple languages
@@ -59,8 +60,14 @@ docs-build:
     docker run --rm -v ${PWD}:/docs zensical/zensical:latest build
 
 # Extract version from a tag by removing language prefix and 'v' prefix
-extract-version language tag:
+ci-extract-version language tag:
     @echo "{{replace(replace(tag, language + '-', ''), 'v', '')}}"
+
+# Run the mlt CLI tool with the given arguments from current dir.
+[no-cd]
+[positional-arguments]  # avoids shell expansions
+mlt *args:
+    cargo run --manifest-path {{join(justfile_directory(), 'rust', 'Cargo.toml')}} --package mlt -- "$@"
 
 # Ensure a command is available
 assert-cmd command:
@@ -86,6 +93,35 @@ cargo-install $COMMAND $INSTALL_CMD='' *args='':
         fi
     fi
 
+# Install the pmtiles CLI and Python pmtiles library (needed by download-benchmark-tiles)
+install-pmtiles:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! command -v pmtiles > /dev/null; then
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        ARCH=$(uname -m)
+        case "$OS-$ARCH" in
+            linux-x86_64)   SUFFIX="Linux_x86_64"   ;;
+            linux-aarch64)  SUFFIX="Linux_arm64"     ;;
+            darwin-x86_64)  SUFFIX="Darwin_x86_64"   ;;
+            darwin-arm64)   SUFFIX="Darwin_arm64"    ;;
+            *) echo "Unsupported platform: $OS-$ARCH"; exit 1 ;;
+        esac
+        AUTH=()
+        if [ -n "${GITHUB_TOKEN:-}" ]; then
+            AUTH=(-H "Authorization: Bearer ${GITHUB_TOKEN}")
+        fi
+        ASSET_URL=$(curl -sSf "${AUTH[@]}" https://api.github.com/repos/protomaps/go-pmtiles/releases/latest | \
+            jq -r ".assets[] | select(.name | test(\"${SUFFIX}\")) | .browser_download_url")
+        if [ -z "$ASSET_URL" ] || [ "$ASSET_URL" = "null" ]; then
+            echo "Could not find pmtiles release for $SUFFIX"; exit 1
+        fi
+        curl -sSfL "$ASSET_URL" | sudo tar -xz -C /usr/local/bin pmtiles
+    fi
+    echo "pmtiles: $(pmtiles version)"
+    pip install --break-system-packages pmtiles 2>/dev/null \
+        || pip install pmtiles
+
 # Make sure the git repo has no uncommitted changes. Fails only if CI envvar is set.
 assert-git-is-clean:
     #!/usr/bin/env bash
@@ -93,9 +129,13 @@ assert-git-is-clean:
     if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
         >&2 echo "::error::git repo is not clean. Make sure compilation and tests artifacts are in the .gitignore, and no repo files are modified."
         if [[ "{{ci_mode}}" == "1" ]]; then
-            >&2 echo "######### git status ##########"
+            >&2 echo "::group::git status"
             git status
+            >&2 echo "::endgroup::"
+            >&2 echo "::group::git diff (tracked changes)"
+            git add . --intent-to-add
             git --no-pager diff
+            >&2 echo "::endgroup::"
             exit 1
         else
             >&2 echo "git repo is not clean, but not failing because CI mode is not enabled."
@@ -122,3 +162,18 @@ _test-run-int:
     echo "fake output by copying expected into output so that the rest of the script works"
     # TODO: REMOVE THIS, and replace it with a real integration test run
     cp -r test/expected/* test/output
+
+# Ensure there are no duplicate synthetic MLT files by comparing their hashes.
+_assert-all-mlt-files-different dir='test/synthetic':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    all_hashes=$(find {{quote(dir)}} -name '*.mlt' -exec sha256sum {} \; | sort)
+    duplicates=$(echo "$all_hashes" | awk '{print $1}' | uniq -d)
+    if [ -n "$duplicates" ]; then
+        echo "::error::Duplicate synthetic MLT files found"
+        while IFS= read -r hash; do
+            echo ""
+            echo "$all_hashes" | grep "^$hash " | awk '{print "  - " $2}'
+        done <<< "$duplicates"
+        exit 1
+    fi

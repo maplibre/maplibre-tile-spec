@@ -1,9 +1,16 @@
 **/*.rs.bk
 *.pdb
+*.proptest-regressions
 .idea/
 .vscode/
 debug/
+proptest-regressions/
 target/
 temp/
 tmp/
 venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+rustc-ice-*.txt

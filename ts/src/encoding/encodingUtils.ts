@@ -9,12 +9,12 @@ export function encodeFloatsLE(values: Float32Array): Uint8Array {
     return buffer;
 }
 
-export function encodeDoubleLE(values: Float32Array): Uint8Array {
-    const buffer = new Uint8Array(values.length * 8);
+export function encodeDoubleLE(values: Float64Array): Uint8Array {
+    const buffer = new Uint8Array(values.length * Float64Array.BYTES_PER_ELEMENT);
     const view = new DataView(buffer.buffer);
 
     for (let i = 0; i < values.length; i++) {
-        view.setFloat64(i * 8, values[i], true);
+        view.setFloat64(i * Float64Array.BYTES_PER_ELEMENT, values[i], true);
     }
 
     return buffer;
@@ -106,8 +106,8 @@ export function encodeStrings(strings: string[]): Uint8Array {
     return result;
 }
 
-export function createStringLengths(strings: string[]): Int32Array {
-    const lengths = new Int32Array(strings.length);
+export function createStringLengths(strings: string[]): Uint32Array {
+    const lengths = new Uint32Array(strings.length);
     const encoder = new TextEncoder();
     for (let i = 0; i < strings.length; i++) {
         lengths[i] = encoder.encode(strings[i]).length;

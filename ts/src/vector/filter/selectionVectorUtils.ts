@@ -1,4 +1,4 @@
-import { type SelectionVector } from "./selectionVector";
+import type { SelectionVector } from "./selectionVector";
 import { FlatSelectionVector } from "./flatSelectionVector";
 import type BitVector from "../flat/bitVector";
 import { SequenceSelectionVector } from "./sequenceSelectionVector";

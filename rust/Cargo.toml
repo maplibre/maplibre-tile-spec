@@ -1,10 +1,10 @@
 [workspace]
 resolver = "3"
-members = ["mlt", "mlt-core"]
-default-members = ["mlt", "mlt-core"]
-# Excluding mlt-core/fuzz because cargo-fuzz does not have workspace support
-# Excluding mlt-legacy due to buildscript issues
-exclude = ["mlt-core/fuzz", "mlt-legacy"]
+members = ["mlt", "mlt-core", "mlt-ffi", "mlt-py", "mlt-synthetics", "mlt-wasm"]
+default-members = ["mlt", "mlt-core", "mlt-ffi", "mlt-synthetics"]
+# Exclusions:
+#  - mlt-core/fuzz: cargo-fuzz does not have workspace support
+exclude = ["mlt-core/fuzz"]
 
 [workspace.package]
 authors = ["Maplibre Contributors"]
@@ -14,41 +14,79 @@ homepage = "https://maplibre.org"
 keywords = ["maplibre", "tile", "mlt", "mvt", "map"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/maplibre/maplibre-tile-spec"
-rust-version = "1.88.0"
+rust-version = "1.92"
 
 [workspace.dependencies]
 anyhow = "1"
-borrowme = "0.0.15"
-clap = { version = "4.5.58", features = ["derive"] }
+arbitrary = { version = "1.4", features = ["derive"] }
+bitvec = "1"
+brotli = "8"
+bytemuck = "1.25.0"
+bytes = "1"
+clap = { version = "4.6.0", features = ["derive"] }
 criterion = { version = "0.8", features = ["html_reports"] }
+crossbeam-channel = "0.5"
 crossterm = "0.29.0"
-derive_builder = "0.20"
-fastpfor = "0.6"
+derive-debug = "0.1.2"
+diplomat = "0.15.0"
+diplomat-runtime = "0.15.1"
+enum_dispatch = "0.3"
+fast-mvt = "0.4.0"
+fastpfor = { version = "0.9", features = ["rust"] }
 flate2 = "1"
-geo-types = "0.7.18"
+fsst-rs = "0.5"
+futures = "0.3"
+geo = { version = "0.33.1", default-features = false }
+geo-types = "0.7.19"
+glob = "0.3"
+globset = "0.4"
 hex = "0.4.3"
-insta = "1.43.2"
+hilbert_2d = "1.1.0"
+hotpath = "0.19"
+indicatif = "0.18"
+insta = "1.47.2"
 integer-encoding = "4.0.2"
-json5 = "1.3"
-mlt-core = { version = "0.1.0", path = "mlt-core" }
-mvt-reader = "2.2.0"
+js-sys = "0.3"
+martin-tile-utils = "0.7"
+mbtiles = { version = "0.17", default-features = false, features = ["transcode"] }
+mimalloc = "0.1.52"
+mlt-core = { version = "0.12.2", path = "mlt-core" }
+moka = { version = "0.12", features = ["sync"] }
 num-traits = "0.2.19"
-num_enum = "0.7.4"
+num_enum = "0.7.6"
+pmtiles = "0.23.0"
 pretty_assertions = "1.4"
-proptest = "1.6"
-ratatui = "0.30.0"
+probabilistic-collections = "0.7"
+proptest = "1.11"
+proptest-derive = "0.8"
+pyo3 = "0.28.3"
+pyo3-stub-gen = "0.23.0"
+pythonize = "0.28"
+ratatui = "0.30.1"
 rayon = "1"
-rstar = "0.12"
+rstar = "0.13"
 rstest = "0.26.1"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1.0.149"
+serde_json = "1.0.150"
 size_format = "1"
-strum = { version = "0.27.0", default-features = false, features = ["derive"] }
-tabled = "0.20"
+sqlx = { version = "0.8", default-features = false, features = [
+    "sqlite",
+    "runtime-tokio",
+] }
+strum = { version = "0.28.0", default-features = false, features = ["derive"] }
+tabled = "0.21"
 test_each_file = "0.3.5"
 thiserror = "2.0.11"
 thousands = "0.2"
+tokio = { version = "1", features = ["macros", "rt", "sync", "time"] }
+union-find = "0.4.4"
+usize_cast = "1.1.0"
+walkdir = "2"
+wasm-bindgen = "0.2"
+wide = "1.5.0"
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
 zigzag = "0.1.0"
+zstd = "0.13"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
@@ -63,7 +101,7 @@ pedantic = { level = "warn", priority = -1 }
 panic_in_result_fn = "warn"
 todo = "warn"
 unimplemented = "warn"
-unused_trait_names = "warn"
+use_self = "warn"
 
 # Too noisy
 missing_errors_doc = "allow"

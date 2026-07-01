@@ -1,0 +1,51 @@
+{
+  "Configuration": {
+    "status": "warn",
+    "Appenders": {
+      "Console": {
+        "name": "Console",
+         "target": "system_err",
+        "PatternLayout": {
+          "noConsoleNoAnsi": true,
+          "LevelPatternSelector": {
+            "PatternMatch": [
+              {
+                "key": "FATAL",
+                "pattern": "%highlight{FATAL: %msg%n%throwable}{FATAL=bright red}"
+              },
+              {
+                "key": "ERROR",
+                "pattern": "%highlight{ERROR: %msg%n%throwable}{ERROR=red}"
+              },
+              {
+                "key": "WARN",
+                "pattern": "%highlight{WARNING: %msg%n%throwable}{WARN=yellow}"
+              },
+              {
+                "key": "INFO",
+                "pattern": "%msg%n%throwable"
+              },
+              {
+                "key": "DEBUG",
+                "pattern": "%highlight{%msg%n%throwable}{DEBUG=dim white}"
+              },
+              {
+                "key": "TRACE",
+                "pattern": "%highlight{%msg%n%throwable}{TRACE=bright black}"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "Loggers": {
+      "Root": {
+        "AppenderRef": [
+          {
+            "ref": "Console"
+          }
+        ]
+      }
+    }
+  }
+}

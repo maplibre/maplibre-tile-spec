@@ -1,0 +1,6 @@
+# Diplomat-generated Kotlin bindings mirror native C symbol names
+# Disable those rules for everything under this directory.
+[*.kt]
+ktlint_standard_function-naming = disabled
+ktlint_standard_package-name = disabled
+ktlint_standard_property-naming = disabled
