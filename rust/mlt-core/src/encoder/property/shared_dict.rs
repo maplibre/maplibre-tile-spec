@@ -362,7 +362,7 @@ impl Codecs {
         // Write stream data: total count, corpus streams, then per-child streams.
         enc.write_varint(stream_len)?;
         if let Some(ref raw) = fsst_raw {
-            write_fsst_data(raw, DictionaryType::Single, &shared_dict.prefix, enc, self)?;
+            write_fsst_data(raw, DictionaryType::Shared, &shared_dict.prefix, enc, self)?;
         } else {
             let lengths = strings_to_lengths(&dict)?;
             let typ = StreamType::Length(LengthType::Dictionary);
