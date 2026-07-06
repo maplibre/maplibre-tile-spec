@@ -2537,9 +2537,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath"
-version = "0.19.1"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "467479f30ae7262ad93eff1f6653a58ecfca4b44dd9ff82ef4b469ba1ad00017"
+checksum = "8e0674287dffa1a67dc780f021c31cb0c249585b7281fe37507a20e62d9c3f50"
 dependencies = [
  "arc-swap",
  "axum",
@@ -2550,7 +2550,7 @@ dependencies = [
  "eyre",
  "futures-util",
  "hdrhistogram",
- "hotpath-macros 0.19.1",
+ "hotpath-macros 0.20.0",
  "hotpath-meta",
  "libc",
  "pin-project-lite",
@@ -2576,9 +2576,9 @@ checksum = "51066092dc750f8cbcac4afa04592377bf7463a911d1beca430ddd788deb0757"
 
 [[package]]
 name = "hotpath-macros"
-version = "0.19.1"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7edb8da2a00454786fbb75ab24c4f72380afeb9b5136776caa7737df9895bfa7"
+checksum = "7e870a5675bcbeb61d8d4ee330bbad2240020e6cebc4cf36a163450110dcb480"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2587,9 +2587,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath-macros-meta"
-version = "0.19.1"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e804ccbbd13922ff16b752ab72043d15ea38411a03a82917b8ea5b36b6b45655"
+checksum = "582606b125824218b0eabd8213f305f7015844ce57d302bd42e343e7653c07bf"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2598,9 +2598,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath-meta"
-version = "0.19.1"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f76b1b9a176e5677878243b0c9052d2e0a62405359bd6990bbd85b59cafa2aa"
+checksum = "375f1440993dbe1de3b7c412ea803c02a0e6b3887b13bc50fa5f2cd1ec07db25"
 dependencies = [
  "arc-swap",
  "axum",
@@ -3546,7 +3546,7 @@ dependencies = [
  "futures",
  "glob",
  "globset",
- "hotpath 0.19.1",
+ "hotpath 0.20.0",
  "indicatif",
  "martin-tile-utils",
  "mbtiles",
@@ -3588,7 +3588,7 @@ dependencies = [
  "geo-types",
  "hex",
  "hilbert_2d",
- "hotpath 0.19.1",
+ "hotpath 0.20.0",
  "insta",
  "integer-encoding",
  "num-traits",
