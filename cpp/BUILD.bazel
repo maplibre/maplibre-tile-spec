@@ -20,8 +20,8 @@ cc_library(
             "vendor/fastpfor/fastpfor/*.h",
         ],
     ),
-    include_prefix = "",
-    strip_include_prefix = "vendor/fastpfor",
+    include_prefix = "fastpfor",
+    strip_include_prefix = "vendor/fastpfor/fastpfor",
     visibility = ["//visibility:private"],
 )
 
