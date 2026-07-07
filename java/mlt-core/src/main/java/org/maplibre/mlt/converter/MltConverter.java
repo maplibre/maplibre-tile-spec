@@ -21,8 +21,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.encodings.EncodingUtils;
@@ -146,8 +146,7 @@ public class MltConverter {
       if (includeIdIfPresent) {
         if (feature.hasId()) {
           hasId = true;
-          if ((!hasLongId && feature.getId() > Integer.MAX_VALUE)
-              || feature.getId() < Integer.MIN_VALUE) {
+          if (!hasLongId && Long.compareUnsigned(feature.getId(), 0xFFFFFFFFL) > 0) {
             hasLongId = true;
           }
         } else {
@@ -156,6 +155,13 @@ public class MltConverter {
       }
       featureIndex++;
     }
+
+    // Update `columnSchemas` to merge any MAP columns into a single one with a child entry for
+    // each.  As with struct columns, the name of the root entry is the longest common prefix of all
+    // the child entries and the name of each child is the remainder after removing that prefix.
+    // TODO: This should eventually be optional.
+    //  The benefit would be in cases where we can decode just one map column and ignore the rest.
+    mergeMapColumnSchemas(columnSchemas);
 
     for (var complexPropertyColumnScheme : complexPropertyColumnSchemas.entrySet()) {
       final var schema = complexPropertyColumnScheme.getValue();
@@ -176,7 +182,7 @@ public class MltConverter {
     final var featureTableSchema = new MltMetadata.FeatureTable(layer.name(), estimatedColumns);
 
     // If present, `id` must be the first column
-    if (columnSchemas.values().stream().anyMatch(MltTypeMap.Tag0x01::isID)) {
+    if (columnSchemas.values().stream().anyMatch(MltTypeMap.Tag0x02::isID)) {
       throw new RuntimeException("Unexpected ID Column");
     }
     if (hasId) {
@@ -214,14 +220,34 @@ public class MltConverter {
     final var sourcePropertyName = property.getName();
 
     if (property.isNested()) {
-      throw new NotImplementedException("Nested property types are not yet supported");
+      columnSchemas.compute(
+          sourcePropertyName,
+          (k, existingType) -> {
+            if (existingType != null) {
+              if (existingType.field().type().is(MltMetadata.ComplexType.MAP)) {
+                return existingType;
+              }
+              if (typeMismatchPolicy == ConversionConfig.TypeMismatchPolicy.FAIL) {
+                throw new RuntimeException(
+                    String.format(
+                        "Layer '%s' Feature index %d Property '%s' has different type: MAP / %s",
+                        layerName, featureIndex, property.getName(), existingType.field().type()));
+              }
+            }
+            return new MltMetadata.Column(new MltMetadata.Field(property.getType(), k));
+          });
+      return;
     }
+
     final var scalarField = property.getType().scalarType();
     final var scalarType = (scalarField != null) ? scalarField.physicalType() : null;
 
     // If this property already has a column...
     final var previousSchema = columnSchemas.get(sourcePropertyName);
     if (previousSchema != null) {
+      if (previousSchema.is(MltMetadata.ComplexType.MAP)) {
+        return;
+      }
       // Make sure the types match.
       // If not, coercion or nullification must be enabled, and replace
       // the column with a string column, if it isn't already.
@@ -324,10 +350,11 @@ public class MltConverter {
       MltMetadata.ComplexField column) {
     final var prefix =
         StringUtils.getCommonPrefix(
-            column.children().stream().map(c -> c.name()).toArray(String[]::new));
+            column.children().stream().map(MltMetadata.Field::name).toArray(String[]::new));
     if (!prefix.isEmpty()) {
       var children =
           column.children().stream()
+              .filter(child -> child.name() != null)
               .map(
                   child -> {
                     final var name = child.name();
@@ -337,7 +364,7 @@ public class MltConverter {
                     }
                     return new MltMetadata.Field(child.type(), name.substring(prefix.length()));
                   })
-              .sorted(Comparator.comparing(f -> f.name()))
+              .sorted(Comparator.comparing(MltMetadata.Field::name))
               .toList();
       return Pair.of(
           prefix,
@@ -395,6 +422,7 @@ public class MltConverter {
   /// Write the header block for a field or column.
   /// Takes the values individually because, despite having mostly
   /// the same information, the field and column are separate types.
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   private static void writeColumnOrFieldType(
       DataOutputStream stream,
       String name,
@@ -404,7 +432,7 @@ public class MltConverter {
       @Nullable MltMetadata.LogicalScalarType logicalScalarType,
       @Nullable MltMetadata.ComplexType physicalComplexType,
       @Nullable MltMetadata.LogicalComplexType logicalComplexType,
-      @Nullable SequencedCollection<MltMetadata.Field> children)
+      @NotNull Optional<SequencedCollection<MltMetadata.Field>> children)
       throws IOException {
     // We expect exactly one of these
     if (Stream.of(physicalScalarType, logicalScalarType, physicalComplexType, logicalComplexType)
@@ -414,9 +442,9 @@ public class MltConverter {
       throw new RuntimeException("Invalid Type");
     }
 
-    final boolean hasChildren = (children != null && !children.isEmpty());
-    final var typeCode =
-        MltTypeMap.Tag0x01.encodeColumnType(
+    final boolean hasChildren = children.map(Collection::size).filter(s -> s > 0).isPresent();
+    final int typeCode =
+        MltTypeMap.Tag0x02.encodeColumnType(
                 physicalScalarType,
                 logicalScalarType,
                 physicalComplexType,
@@ -427,28 +455,30 @@ public class MltConverter {
             .orElseThrow(() -> new RuntimeException("Unsupported Type"));
     EncodingUtils.putVarInt(stream, typeCode);
 
-    if (MltTypeMap.Tag0x01.columnTypeHasName(typeCode)) {
+    if (MltTypeMap.Tag0x02.columnTypeHasName(typeCode)) {
       EncodingUtils.putString(stream, name);
     }
 
-    if (hasChildren) {
-      EncodingUtils.putVarInt(stream, children.size());
-      for (var child : children) {
-        final boolean complex = child.type().complexType() != null;
-        final boolean logical =
-            (complex && child.type().complexType().logicalType() != null)
-                || (!complex && child.type().scalarType().logicalType() != null);
+    if (MltTypeMap.Tag0x02.columnTypeHasChildren(typeCode)) {
+      EncodingUtils.putVarInt(stream, children.map(Collection::size).orElse(0));
+      if (children.isPresent()) {
+        for (var child : children.get()) {
+          final boolean complex = child.type().complexType() != null;
+          final boolean logical =
+              (complex && child.type().complexType().logicalType() != null)
+                  || (!complex && child.type().scalarType().logicalType() != null);
 
-        writeColumnOrFieldType(
-            stream,
-            child.name(),
-            child.type().isNullable(),
-            /* hasLongIDs= */ false,
-            (!complex && !logical) ? child.type().scalarType().physicalType() : null,
-            (!complex && logical) ? child.type().scalarType().logicalType() : null,
-            (complex && !logical) ? child.type().complexType().physicalType() : null,
-            (complex && logical) ? child.type().complexType().logicalType() : null,
-            complex ? child.type().complexType().children() : null);
+          writeColumnOrFieldType(
+              stream,
+              child.name(),
+              child.type().isNullable(),
+              /* hasLongIDs= */ false,
+              (!complex && !logical) ? child.type().scalarType().physicalType() : null,
+              (!complex && logical) ? child.type().scalarType().logicalType() : null,
+              (complex && !logical) ? child.type().complexType().physicalType() : null,
+              (complex && logical) ? child.type().complexType().logicalType() : null,
+              Optional.ofNullable(complex ? child.type().complexType().children() : null));
+        }
       }
     }
   }
@@ -457,7 +487,6 @@ public class MltConverter {
   /// @param table The metadata to be embedded in the tile
   /// @param extent The extent of tile coordinates
   /// @return The binary header to be embedded in the tile
-  /// @throws IOException
   public static byte[] createEmbeddedMetadata(MltMetadata.FeatureTable table, int extent)
       throws IOException {
     try (var byteStream = new ByteArrayOutputStream()) {
@@ -478,7 +507,7 @@ public class MltConverter {
               column.getLogicalScalarType().orElse(null),
               column.getComplexType().orElse(null),
               column.getLogicalComplexType().orElse(null),
-              column.getChildren().orElse(null));
+              column.getChildren());
         }
       }
       return byteStream.toByteArray();
@@ -502,7 +531,41 @@ public class MltConverter {
       @Nullable URI tessellateSource)
       throws IOException {
     return encode(
-            sourceLayers, tilesetMetadata, config, tessellateSource, ByteArrayOutputStream::new)
+            sourceLayers,
+            tilesetMetadata,
+            config,
+            tessellateSource,
+            ByteArrayOutputStream::new,
+            Optional.empty())
+        .toByteArray();
+  }
+
+  /*
+   * Converts a collection of layers into an MLT tile
+   *
+   * @param sourceLayers The input layers
+   * @param tilesetMetadata Metadata of the tile
+   * @param config Settings for the conversion
+   * @param tessellateSource Optional URI of a tessellation service to use if polygon pre-tessellation is enabled
+   * @param versionOut Optional output parameter to receive the version of the tile format used
+   * @return Converted MapLibreTile as a byte array
+   * @throws IOException
+   */
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  public static byte[] encode(
+      LayerSource sourceLayers,
+      MltMetadata.TileSetMetadata tilesetMetadata,
+      ConversionConfig config,
+      @Nullable URI tessellateSource,
+      @NotNull Optional<MutableInt> versionOut)
+      throws IOException {
+    return encode(
+            sourceLayers,
+            tilesetMetadata,
+            config,
+            tessellateSource,
+            ByteArrayOutputStream::new,
+            versionOut)
         .toByteArray();
   }
 
@@ -517,12 +580,14 @@ public class MltConverter {
    * @return The output stream to which the data was written
    * @throws IOException
    */
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   public static <T extends OutputStream> T encode(
       @NotNull LayerSource sourceLayers,
       @NotNull MltMetadata.TileSetMetadata tilesetMetadata,
       @NotNull ConversionConfig config,
       @Nullable URI tessellateSource,
-      @NotNull Function<Integer, T> outputStreamSupplier)
+      @NotNull Function<Integer, T> outputStreamSupplier,
+      @NotNull Optional<MutableInt> versionOut)
       throws IOException {
     // Convert the list of metadatas (one per layer) into a lookup by the first and only layer name
     // We assume that the names are unique.
@@ -530,7 +595,7 @@ public class MltConverter {
         tilesetMetadata.featureTables.stream()
             .collect(
                 Collectors.toMap(
-                    t -> t.name(),
+                    MltMetadata.FeatureTable::name,
                     table -> table,
                     (existing, replacement) -> {
                       throw new RuntimeException("duplicate key");
@@ -539,6 +604,7 @@ public class MltConverter {
     final var physicalLevelTechnique =
         config.useFastPFOR() ? PhysicalLevelTechnique.FAST_PFOR : PhysicalLevelTechnique.VARINT;
 
+    int maxTag = 0;
     final var tileBuffers = new ArrayList<byte[]>((int) sourceLayers.getLayerCount() * 10);
     for (var sourceLayer : sourceLayers.getLayers()) {
       final var featureTableName = sourceLayer.name();
@@ -561,7 +627,7 @@ public class MltConverter {
         continue;
       }
 
-      final var optimizations = Optional.ofNullable(config.optimizations());
+      final var optimizations = Optional.of(config.optimizations());
       final var featureTableOptimizations = optimizations.map(opt -> opt.get(featureTableName));
 
       final var createPolygonOutline =
@@ -588,7 +654,7 @@ public class MltConverter {
       if (config.includeIds()) {
         final var idMetadata =
             layerMetadata.columns().stream()
-                .filter(MltTypeMap.Tag0x01::isID)
+                .filter(MltTypeMap.Tag0x02::isID)
                 .findFirst()
                 .orElseThrow();
 
@@ -617,7 +683,7 @@ public class MltConverter {
 
       final var metadataBuffer = createEmbeddedMetadata(layerMetadata, sourceLayer.tileExtent());
 
-      final var tag = 1;
+      final var tag = tilesetMetadata.getSupportedVersion();
       final var tagBuffer = EncodingUtils.encodeVarint(tag, false);
       final var tagLength =
           tagBuffer.length
@@ -628,6 +694,12 @@ public class MltConverter {
       tileBuffers.add(tagBuffer);
       tileBuffers.add(metadataBuffer);
       tileBuffers.addAll(featureTableBodyBuffer);
+
+      maxTag = Math.max(maxTag, tag);
+    }
+
+    if (versionOut.isPresent()) {
+      versionOut.get().setValue(maxTag);
     }
 
     final var targetStream = outputStreamSupplier.apply(ByteArrayUtil.totalLength(tileBuffers));
@@ -737,7 +809,7 @@ public class MltConverter {
   private static List<MltMetadata.Column> filterPropertyColumns(
       MltMetadata.FeatureTable featureTableMetadata) {
     return featureTableMetadata.columns().stream()
-        .filter(f -> !MltTypeMap.Tag0x01.isID(f) && !MltTypeMap.Tag0x01.isGeometry(f))
+        .filter(f -> !MltTypeMap.Tag0x02.isID(f) && !MltTypeMap.Tag0x02.isGeometry(f))
         .collect(Collectors.toList());
   }
 
@@ -784,5 +856,43 @@ public class MltConverter {
     final var isNullable = false; // See `PropertyDecoder.decodePropertyColumn()`
     return new MltMetadata.Column(
         new MltMetadata.Field(new MltMetadata.FieldType(complexField, isNullable), columnName));
+  }
+
+  private static void mergeMapColumnSchemas(
+      @NotNull final LinkedHashMap<String, MltMetadata.Column> columnSchemas) {
+    final var mapColumns =
+        columnSchemas.entrySet().stream()
+            .filter(entry -> entry.getValue().is(MltMetadata.ComplexType.MAP))
+            .toList();
+
+    if (mapColumns.size() < 2) {
+      return;
+    }
+
+    // Merge all map columns into a single column with child entries for each original column.
+    final var children =
+        mapColumns.stream()
+            .map(entry -> new MltMetadata.Field(entry.getValue().field().type(), entry.getKey()))
+            .toList();
+    final var resolved =
+        resolveComplexColumnMapping(
+            new MltMetadata.ComplexField(MltMetadata.ComplexType.MAP, children));
+    final var mapColumn = createMapColumn(resolved.getLeft(), resolved.getRight());
+
+    // Remove the original columns that are now merged into the map column.
+    mapColumns.forEach(entry -> columnSchemas.remove(entry.getKey()));
+
+    // Insert the merged column with a unique name.  The map key in `columnSchemas` is not encoded.
+    IntStream.iterate(0, i -> i + 1)
+        .mapToObj(i -> resolved.getLeft() + i)
+        .filter(name -> !columnSchemas.containsKey(name))
+        .findFirst()
+        .ifPresent(name -> columnSchemas.put(name, mapColumn));
+  }
+
+  private static MltMetadata.Column createMapColumn(
+      @NotNull String columnName, @NotNull MltMetadata.ComplexField complexField) {
+    return new MltMetadata.Column(
+        new MltMetadata.Field(new MltMetadata.FieldType(complexField, true), columnName));
   }
 }

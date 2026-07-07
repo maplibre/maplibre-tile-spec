@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.SequencedCollection;
 import org.jetbrains.annotations.NotNull;
+import org.maplibre.mlt.converter.encodings.MltTypeMap;
 
 public final class MltMetadata {
   private MltMetadata() {}
@@ -21,6 +22,10 @@ public final class MltMetadata {
 
   public static FieldType structFieldType(@Nullable SequencedCollection<Field> children) {
     return new FieldType(new ComplexField(ComplexType.STRUCT, children), false);
+  }
+
+  public static FieldType mapFieldType() {
+    return new FieldType(new ComplexField(ComplexType.MAP), true);
   }
 
   public static FieldType geometryFieldType() {
@@ -91,6 +96,14 @@ public final class MltMetadata {
 
     public List<Double> bounds = new ArrayList<>();
     public List<Double> center = new ArrayList<>();
+
+    public int getSupportedVersion() {
+      return featureTables.stream()
+              .flatMap(t -> t.columns().stream())
+              .anyMatch(c -> c.is(ComplexType.MAP))
+          ? MltTypeMap.Tag0x02.TAG
+          : MltTypeMap.Tag0x01.TAG;
+    }
   }
 
   public static final record FeatureTable(
@@ -203,7 +216,7 @@ public final class MltMetadata {
     /// Get the child fields of this field, if applicable (e.g., for STRUCT or MAP types)
     /// @return an Optional containing a SequencedCollection of child fields, or an empty Optional
     public Optional<SequencedCollection<Field>> getChildren() {
-      return (complexType != null) ? Optional.ofNullable(complexType.children) : Optional.empty();
+      return (complexType != null) ? Optional.of(complexType.children) : Optional.empty();
     }
   }
 
@@ -223,7 +236,7 @@ public final class MltMetadata {
   /// Column are top-level types in the schema
   /// @param field The field associated with this column.  Must be non-null.
   /// @param columnScope The column scope, which must be either FEATURE or VERTEX
-  public static final record Column(@NotNull Field field, @NotNull ColumnScope columnScope) {
+  public record Column(@NotNull Field field, @NotNull ColumnScope columnScope) {
 
     /// Create a column with the given field and column scope
     /// @param field the field associated with this column

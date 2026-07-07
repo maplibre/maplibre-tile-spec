@@ -5,7 +5,6 @@ cc_library(
     hdrs = glob(
         [
             "src/mlt/**/*.hpp",
-            "src/fastpfor/*.h",
         ],
         exclude = ["src/mlt/encode/**"],
     ),
@@ -15,11 +14,23 @@ cc_library(
 )
 
 cc_library(
+    name = "mlt_fastpfor_headers",
+    hdrs = glob(
+        [
+            "vendor/fastpfor/fastpfor/*.h",
+        ],
+    ),
+    include_prefix = "",
+    strip_include_prefix = "vendor/fastpfor",
+    visibility = ["//visibility:private"],
+)
+
+cc_library(
     name = "mlt_cpp",
     srcs = glob(
         [
             "src/mlt/**/*.cpp",
-            "src/fastpfor/*.cpp",
+            "vendor/fastpfor/fastpfor/*.cpp",
         ],
         exclude = [
             "src/mlt/encode/**",
@@ -43,7 +54,7 @@ cc_library(
     defines = [
         "MLT_WITH_JSON=0",
     ],
-    implementation_deps = [":mlt_internal_headers"],
+    implementation_deps = [":mlt_internal_headers", "mlt_fastpfor_headers"],
     include_prefix = "",
     strip_include_prefix = "include",
     visibility = ["//visibility:public"],

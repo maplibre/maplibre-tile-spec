@@ -16,7 +16,11 @@ add_executable(mlt-cpp-test ${TEST_SOURCES})
 set_property(TARGET mlt-cpp-test PROPERTY CXX_STANDARD 20)
 
 # Tests have access to private headers
-target_include_directories(mlt-cpp-test PUBLIC "${PROJECT_SOURCE_DIR}/src")
+target_include_directories(mlt-cpp-test
+    PUBLIC "${PROJECT_SOURCE_DIR}/include"
+    PRIVATE "${PROJECT_SOURCE_DIR}/src"
+    PRIVATE "${PROJECT_SOURCE_DIR}/vendor/fastpfor"
+)
 
 option(MLT_WITH_JSON "Include JSON support" ON)
 

@@ -48,7 +48,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: ./.github/actions/mlt-setup-rust
         with: { toolchain: nightly } # because of covs --doctests
-      - uses: taiki-e/install-action@9e1e5806d4a4822de933115878265be9aaa786d9 # v2.82.2
+      - uses: taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6 # v2.82.6
         with: { tool: "cargo-llvm-cov" }
       - run: just -v rust::ci-coverage
       - name: Upload coverage to Codecov
@@ -87,10 +87,18 @@ jobs:
           - target: layer
           - target: decoded_layer
           - target: mvt_roundtrip
+          - target: differential
+    env:
+      MLT_CPP_JSON_BIN: ${{ github.workspace }}/cpp/build/tool/mlt-cpp-json
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          submodules: ${{ matrix.target == 'differential' && 'recursive' || '' }}
       - uses: ./.github/actions/mlt-setup-rust
         with: { toolchain: nightly }
+      - if: matrix.target == 'differential'
+        name: Build mlt-cpp-json oracle
+        run: just -v cpp::build-json
       - run: just -v rust::ci-fuzz-build ${{ matrix.target }}
       - if: matrix.target == 'layer'
         run: just -v rust::fuzz-seed ${{ matrix.target }}
@@ -132,7 +140,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: ./.github/actions/mlt-setup-rust
       - if: matrix.backend == 'kotlin'
-        uses: actions/setup-java@ad2b38190b15e4d6bdf0c97fb4fca8412226d287 # v5.3.0
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
         with:
           distribution: 'temurin'
           java-version: '21'
@@ -288,7 +296,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - uses: taiki-e/install-action@9e1e5806d4a4822de933115878265be9aaa786d9 # v2.82.2
+      - uses: taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6 # v2.82.6
         with: { tool: "just" }
       - name: Get mlt version for release tag
         id: get_version

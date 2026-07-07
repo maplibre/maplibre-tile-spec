@@ -18,6 +18,15 @@ const UNIMPLEMENTED_SYNTHETICS: string[] = [
     "0x01/poly_multi_morton_hole_morton",
     "0x01/poly_multi_morton_ring_morton",
     "0x01/poly_multi_morton_ring_no_morton",
+    "0x02/prop_nested_big",
+    "0x02/prop_nested_ints",
+    "0x02/prop_nested_json",
+    "0x02/prop_nested_list_root",
+    "0x02/prop_nested_list",
+    "0x02/prop_nested_mixed_root",
+    "0x02/prop_nested_null",
+    "0x02/prop_nested_shared",
+    "0x02/prop_nested_specials",
 ];
 
 describe("MLT Decoder - Synthetic tests", () => {

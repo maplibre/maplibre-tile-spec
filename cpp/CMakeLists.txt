@@ -99,12 +99,13 @@ foreach(_target mlt-cpp mlt-cpp-encoder)
     target_include_directories(${_target}
         PUBLIC ${PROJECT_SOURCE_DIR}/include
         PRIVATE ${PROJECT_SOURCE_DIR}/src
+        PRIVATE ${PROJECT_SOURCE_DIR}/vendor/fastpfor
     )
 endforeach()
 
 # FastPFOR sources
 set(FASTPFOR_SOURCES
-    ${PROJECT_SOURCE_DIR}/src/fastpfor/bitpacking.cpp
+    ${PROJECT_SOURCE_DIR}/vendor/fastpfor/fastpfor/bitpacking.cpp
 )
 
 # --- Decoder (mlt-cpp) ---

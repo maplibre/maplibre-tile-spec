@@ -77,5 +77,10 @@ bazel-build:
 test-json:
     build/tool/mlt-cpp-json ../test/expected/tag0x01/bing/4-12-6.mlt | jq . >/dev/null
 
+# Build just the mlt-cpp-json tool in Release (oracle for the Rust differential fuzzer)
+build-json:
+    cmake -B build -S . -DMLT_WITH_TESTS=OFF -DCMAKE_BUILD_TYPE=Release
+    cmake --build build --target mlt-cpp-json
+
 _check-tool command:
     @which {{command}} > /dev/null || (echo "Error: {{command}} is not installed. Please install it using: brew install {{command}} (macOS) or pip3 install {{command}} (Linux)" && exit 1)

@@ -3,7 +3,21 @@ use arbitrary::{Arbitrary, Result, Unstructured};
 
 use crate::encoder::model::StagedLayer;
 use crate::encoder::optimizer::Presence;
-use crate::encoder::{StagedId, StagedProperty, StagedSharedDict, StagedStrings};
+use crate::encoder::{EncoderConfig, StagedId, StagedProperty, StagedSharedDict, StagedStrings};
+
+impl Arbitrary<'_> for EncoderConfig {
+    fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
+        // Each optimization toggle is fuzzed independently via the public builder.
+        Ok(Self::default()
+            .with_tessellation(u.arbitrary()?)
+            .with_spatial_morton_sort(u.arbitrary()?)
+            .with_spatial_hilbert_sort(u.arbitrary()?)
+            .with_id_sort(u.arbitrary()?)
+            .with_fsst(u.arbitrary()?)
+            .with_fastpfor(u.arbitrary()?)
+            .with_shared_dict(u.arbitrary()?))
+    }
+}
 
 impl Arbitrary<'_> for StagedId {
     fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {

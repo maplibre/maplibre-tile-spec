@@ -101,7 +101,7 @@ public class MltDecoderTest {
       @SuppressWarnings("SameParameterValue") boolean useFastPFOR,
       @SuppressWarnings("SameParameterValue") boolean useFSST,
       @SuppressWarnings("SameParameterValue") boolean tessellate)
-      throws IOException, URISyntaxException {
+      throws IOException {
     var mvtFilePath = Paths.get(tileDirectory, tileId + ".mvt");
     var mvTile = MvtUtils.decodeMvt(mvtFilePath);
 
