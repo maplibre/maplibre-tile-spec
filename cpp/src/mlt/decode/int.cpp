@@ -6,12 +6,6 @@
 #include <fastpfor/fastpfor.h>
 #include <fastpfor/variablebyte.h>
 
-#ifdef _MSC_VER
-#include <array>
-#include <bitset>
-#include <intrin.h>
-#endif
-
 #include <algorithm>
 #include <bit>
 #include <cstddef>
@@ -22,7 +16,6 @@
 namespace mlt::decoder {
 
 struct IntegerDecoder::Impl {
-    // Impl pattern to prevent FastPFOR from being an API dependency
     FastPForLib::CompositeCodec<FastPForLib::FastPFor<8>, FastPForLib::VariableByte> codec;
 };
 
@@ -37,9 +30,6 @@ std::uint32_t IntegerDecoder::decodeFastPfor([[maybe_unused]] BufferStream& buff
                                              [[maybe_unused]] const std::size_t numValues,
                                              [[maybe_unused]] const std::size_t byteLength) {
     if (enableFastPFOR) {
-        // If SIMD is enabled, check that the CPU supports the necessary instruction set before
-        // attempting to decode in order to provide a clear error message when it does not.
-
         const auto* inputValues = reinterpret_cast<const std::uint32_t*>(buffer.getReadPosition());
 
         // TODO: change to little endian in the encoder?
