@@ -54,7 +54,10 @@ cc_library(
     defines = [
         "MLT_WITH_JSON=0",
     ],
-    implementation_deps = [":mlt_internal_headers", "mlt_fastpfor_headers"],
+    implementation_deps = [
+        "mlt_fastpfor_headers",
+        ":mlt_internal_headers",
+    ],
     include_prefix = "",
     strip_include_prefix = "include",
     visibility = ["//visibility:public"],
