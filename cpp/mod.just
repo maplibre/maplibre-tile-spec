@@ -59,7 +59,6 @@ coverage: _clean_coverage_data (_check-tool 'gcovr') test
         --root ../.. \
         --filter ../src \
         --filter ../include \
-        --exclude ../src/fastpfor \
         --merge-lines \
         --exclude-noncode-lines \
         --txt coverage.txt \
