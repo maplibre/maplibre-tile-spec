@@ -46,6 +46,7 @@
 
 #if (defined(_M_IX86) || defined(_M_AMD64))
 #include <intrin.h>
+#endif
 
 #define __attribute__(n)
 #define __restrict__ __restrict
