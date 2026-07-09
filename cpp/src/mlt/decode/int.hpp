@@ -92,9 +92,7 @@ private:
     std::vector<std::vector<std::uint8_t>> buffer;
     std::size_t bufferIndex = 0;
 
-#if MLT_WITH_FASTPFOR
     bool enableFastPFOR;
-#endif
 
     // Very simple RAII wrapper for temporary buffers.
     // Buffers must be used only within a current method invocation.

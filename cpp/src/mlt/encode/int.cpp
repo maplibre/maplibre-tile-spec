@@ -5,13 +5,10 @@
 #include <mlt/util/encoding/buffer.hpp>
 #include <mlt/util/encoding/zigzag.hpp>
 
-#if MLT_WITH_FASTPFOR
-#include <codecs.h>
-#include <compositecodec.h>
-#include <fastpfor.h>
-#include <stdexcept>
-#include <variablebyte.h>
-#endif
+#include <fastpfor/codecs.h>
+#include <fastpfor/compositecodec.h>
+#include <fastpfor/fastpfor.h>
+#include <fastpfor/variablebyte.h>
 
 #include <bit>
 #include <cassert>
@@ -21,6 +18,7 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -62,7 +60,6 @@ std::vector<std::uint8_t> encodeVarintsIntegral(std::span<const TInt> values, bo
     return result;
 }
 
-#if MLT_WITH_FASTPFOR
 template <typename TInput, typename Transform, typename TCodec>
 std::vector<std::uint8_t> encodeFastPforCore(std::span<const TInput> values, Transform transform, TCodec& codec) {
     std::vector<std::uint32_t> input(values.size());
@@ -94,7 +91,6 @@ std::vector<std::uint8_t> encodeFastPforCore(std::span<const TInput> values, Tra
     }
     return result;
 }
-#endif
 
 template <typename TInt, typename EncodeFn>
 IntegerEncodingResult encodeSignedIntegral(std::span<const TInt> values,
@@ -332,11 +328,9 @@ auto makeSignedPhysicalEncoder(PhysicalLevelTechnique physicalTechnique,
     return [physicalTechnique,
             varintEncode = std::forward<VarintFn>(varintEncode),
             fastPforEncode = std::forward<FastPforFn>(fastPforEncode)](std::span<const T> input, bool zigZag) {
-#if MLT_WITH_FASTPFOR
         if (physicalTechnique == PhysicalLevelTechnique::FAST_PFOR) {
             return fastPforEncode(input, zigZag);
         }
-#endif
         return varintEncode(input, zigZag);
     };
 }
@@ -348,11 +342,9 @@ auto makeUnsignedPhysicalEncoder(PhysicalLevelTechnique physicalTechnique,
     return [physicalTechnique,
             varintEncode = std::forward<VarintFn>(varintEncode),
             fastPforEncode = std::forward<FastPforFn>(fastPforEncode)](std::span<const T> input) {
-#if MLT_WITH_FASTPFOR
         if (physicalTechnique == PhysicalLevelTechnique::FAST_PFOR) {
             return fastPforEncode(input);
         }
-#endif
         return varintEncode(input);
     };
 }
@@ -375,9 +367,7 @@ util::EncodedChunks encodeStreamWithMetadata(std::span<const TValue> values,
 } // namespace
 
 struct IntegerEncoder::Impl {
-#if MLT_WITH_FASTPFOR
     FastPForLib::CompositeCodec<FastPForLib::FastPFor<8>, FastPForLib::VariableByte> codec;
-#endif
     IntegerEncodingOption encodingOption = IntegerEncodingOption::AUTO;
 };
 
@@ -408,26 +398,18 @@ std::vector<std::uint8_t> IntegerEncoder::encodeVarintsUnsigned64(std::span<cons
 
 std::vector<std::uint8_t> IntegerEncoder::encodeFastPfor([[maybe_unused]] std::span<const std::int32_t> values,
                                                          [[maybe_unused]] bool zigZag) {
-#if MLT_WITH_FASTPFOR
     const auto transform = [zigZag](std::int32_t v) {
         return zigZag ? util::encoding::encodeZigZag(v) : static_cast<std::uint32_t>(v);
     };
     return encodeFastPforCore(values, transform, impl->codec);
-#else
-    throw std::runtime_error("FastPFOR encoding is not enabled. Configure with MLT_WITH_FASTPFOR=ON");
-#endif
 }
 
 std::vector<std::uint8_t> IntegerEncoder::encodeFastPforUnsigned(
     [[maybe_unused]] std::span<const std::uint32_t> values) {
-#if MLT_WITH_FASTPFOR
     const auto transform = [](std::uint32_t v) {
         return v;
     };
     return encodeFastPforCore(values, transform, impl->codec);
-#else
-    throw std::runtime_error("FastPFOR encoding is not enabled. Configure with MLT_WITH_FASTPFOR=ON");
-#endif
 }
 
 IntegerEncodingResult IntegerEncoder::encodeInt(std::span<const std::int32_t> values,
