@@ -42,8 +42,8 @@ cc_library(
         "MLT_WITH_JSON=0",
     ],
     implementation_deps = [
-        "//cpp/vendor/fastpfor:fastpfor",
         ":mlt_internal_headers",
+        "//cpp/vendor/fastpfor",
     ],
     include_prefix = "",
     strip_include_prefix = "include",
