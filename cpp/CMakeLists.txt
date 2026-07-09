@@ -99,14 +99,8 @@ foreach(_target mlt-cpp mlt-cpp-encoder)
     target_include_directories(${_target}
         PUBLIC ${PROJECT_SOURCE_DIR}/include
         PRIVATE ${PROJECT_SOURCE_DIR}/src
-        PRIVATE ${PROJECT_SOURCE_DIR}/vendor/fastpfor
     )
 endforeach()
-
-# FastPFOR sources
-set(FASTPFOR_SOURCES
-    ${PROJECT_SOURCE_DIR}/vendor/fastpfor/fastpfor/bitpacking.cpp
-)
 
 # --- Decoder (mlt-cpp) ---
 target_sources(mlt-cpp PRIVATE
@@ -146,7 +140,6 @@ target_sources(mlt-cpp PRIVATE
     ${PROJECT_SOURCE_DIR}/src/mlt/util/space_filling_curve.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/vectorized.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/zigzag.hpp
-    ${FASTPFOR_SOURCES}
 )
 
 # --- Encoder (mlt-cpp-encoder) ---
@@ -176,8 +169,12 @@ target_sources(mlt-cpp-encoder PRIVATE
     ${PROJECT_SOURCE_DIR}/src/mlt/util/encoding/zigzag.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/hilbert_curve.hpp
     ${PROJECT_SOURCE_DIR}/src/mlt/util/morton_curve.hpp
-    ${FASTPFOR_SOURCES}
 )
+
+include("${PROJECT_SOURCE_DIR}/vendor/fastpfor.cmake")
+target_link_libraries(mlt-cpp fastpfor-lib)
+target_link_libraries(mlt-cpp-encoder fastpfor-lib)
+list(APPEND MLT_EXPORT_TARGETS fastpfor-lib)
 
 include("${PROJECT_SOURCE_DIR}/vendor/fsst.cmake")
 include("${PROJECT_SOURCE_DIR}/vendor/earcut.cmake")

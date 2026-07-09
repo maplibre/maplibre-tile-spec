@@ -14,23 +14,10 @@ cc_library(
 )
 
 cc_library(
-    name = "mlt_fastpfor_headers",
-    hdrs = glob(
-        [
-            "vendor/fastpfor/fastpfor/*.h",
-        ],
-    ),
-    include_prefix = "fastpfor",
-    strip_include_prefix = "vendor/fastpfor/fastpfor",
-    visibility = ["//visibility:private"],
-)
-
-cc_library(
     name = "mlt_cpp",
     srcs = glob(
         [
             "src/mlt/**/*.cpp",
-            "vendor/fastpfor/fastpfor/*.cpp",
         ],
         exclude = [
             "src/mlt/encode/**",
@@ -55,7 +42,7 @@ cc_library(
         "MLT_WITH_JSON=0",
     ],
     implementation_deps = [
-        "mlt_fastpfor_headers",
+        "//cpp/vendor/fastpfor:fastpfor",
         ":mlt_internal_headers",
     ],
     include_prefix = "",

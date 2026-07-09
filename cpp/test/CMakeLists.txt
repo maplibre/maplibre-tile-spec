@@ -19,7 +19,6 @@ set_property(TARGET mlt-cpp-test PROPERTY CXX_STANDARD 20)
 target_include_directories(mlt-cpp-test
     PUBLIC "${PROJECT_SOURCE_DIR}/include"
     PRIVATE "${PROJECT_SOURCE_DIR}/src"
-    PRIVATE "${PROJECT_SOURCE_DIR}/vendor/fastpfor"
 )
 
 option(MLT_WITH_JSON "Include JSON support" ON)
@@ -41,7 +40,7 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
 add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/googletest" "${CMAKE_CURRENT_BINARY_DIR}/googletest" EXCLUDE_FROM_ALL SYSTEM)
 
-target_link_libraries(mlt-cpp-test mlt-cpp mlt-cpp-encoder gtest_main)
+target_link_libraries(mlt-cpp-test mlt-cpp mlt-cpp-encoder fastpfor-lib gtest_main)
 
 include(GoogleTest)
 
