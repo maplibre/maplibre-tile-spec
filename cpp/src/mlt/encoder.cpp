@@ -60,7 +60,7 @@ namespace {
 // by column metadata, so the catch-all arms are dead by construction.
 // This is used in cases that should be impossible to reach.
 // GCOVR_EXCL_START
-void throwInvalidType() {
+[[noreturn]] void throwInvalidType() {
     throw std::runtime_error("Invalid type");
 };
 // GCOVR_EXCL_STOP
