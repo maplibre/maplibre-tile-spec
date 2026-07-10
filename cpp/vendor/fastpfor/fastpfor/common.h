@@ -22,7 +22,7 @@
 #include <sys/time.h>
 #endif
 #include <sys/types.h>
-#include <time.h>
+#include <ctime>
 
 // C++ headers (sorted)
 #include <algorithm>
@@ -46,8 +46,6 @@
 
 #if (defined(_M_IX86) || defined(_M_AMD64))
 #include <intrin.h>
-#elif defined(_M_ARM64)
-#include "fastpfor_neon.h"
 #endif
 
 #define __attribute__(n)
