@@ -6,7 +6,7 @@
 #include <concepts>
 #include <ranges> // IWYU pragma: keep - Needed by MSVC
 #include <type_traits>
-#include <utility
+#include <utility>
 
 namespace std {
 #if !__has_cpp_attribute(__cpp_lib_to_underlying)
