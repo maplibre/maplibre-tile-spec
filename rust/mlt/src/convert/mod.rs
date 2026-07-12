@@ -349,7 +349,7 @@ fn mlt_buffer_to_tile_layers(buffer: &[u8]) -> AnyResult<Vec<mlt_core::TileLayer
     Ok(tiles)
 }
 
-fn encode_one(data: Vec<u8>, encoding: Encoding, cfg: EncoderConfig) -> AnyResult<Bytes> {
+fn encode_one(data: Vec<u8>, encoding: Encoding, cfg: EncoderConfig) -> AnyResult<(Bytes, u64)> {
     let mvt = match encoding {
         Encoding::Gzip => decode_gzip(&data)?,
         Encoding::Zlib => decode_zlib(&data)?,
@@ -357,7 +357,8 @@ fn encode_one(data: Vec<u8>, encoding: Encoding, cfg: EncoderConfig) -> AnyResul
         Encoding::Zstd => decode_zstd(&data)?,
         Encoding::Uncompressed | Encoding::Internal => data,
     };
-    convert_mvt_buffer(mvt, cfg).map(Bytes::from_owner)
+    let raw_mvt_size = mvt.len() as u64;
+    convert_mvt_buffer(mvt, cfg).map(|data| (Bytes::from_owner(data), raw_mvt_size))
 }
 
 /// Convert one input buffer to the requested target format.

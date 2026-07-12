@@ -24,6 +24,15 @@ Zstandard, and uncompressed input. PMTiles does not support zlib compression,
 so zlib input requires an explicit `gzip` or `none` override. Non-auto values
 are only accepted when the output path has a `.pmtiles` extension.
 
+The conversion summary compares unique, decompressed tile payloads with the
+complete archive sizes. For example:
+
+```text
+input.mvt.pmtiles -> output.mlt.pmtiles (pmtiles):
+  converted 5 tiles (5 unique encoded, 0 cache hits) in 740.9ms
+  size raw/archive: MVT(gzip) 813.7kB/459.8kB -> MLT(gzip) 460.3kB/357.0kB
+```
+
 ### Visualizer
 
 The visualizer command provides an interactive terminal-based UI for exploring MLT files:

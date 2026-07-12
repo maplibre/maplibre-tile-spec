@@ -103,6 +103,7 @@ async fn convert_mbtiles_to_mbtiles(
             .bytes_in
             .fetch_add(u64::from_usize(data.len()), Ordering::Relaxed);
         let result = encode_one(data, encoding, cfg)
+            .map(|(data, _raw_mvt_size)| data)
             .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { e.to_string().into() });
         if let Ok(ref encoded) = result {
             sizes_ref
@@ -155,6 +156,7 @@ async fn convert_mbtiles_to_pmtiles(
     // FIXME: add a fastpath for normalised schemas. We don't need to cache them
     let (encoding, _, metadata, total) = get_metadata(input).await?;
     let tile_compression = tile_compression.resolve(encoding)?;
+    let input_archive_size = std::fs::metadata(input)?.len();
 
     eprintln!("{} -> {} (pmtiles):", input.display(), output.display());
 
@@ -196,12 +198,11 @@ async fn convert_mbtiles_to_pmtiles(
         .map(|(coord, data)| {
             let cache = cache.clone();
             tokio::task::spawn_blocking(move || -> AnyResult<EncodedTile> {
-                let bytes_in = data.len() as u64;
-                let (data, hit) = encode_tile(&cache, &data, encoding, cfg)?;
+                let (data, raw_mvt_size, hit) = encode_tile(&cache, &data, encoding, cfg)?;
                 Ok(EncodedTile {
                     coord,
                     data,
-                    bytes_in,
+                    raw_mvt_size,
                     hit,
                 })
             })
@@ -214,17 +215,24 @@ async fn convert_mbtiles_to_pmtiles(
         let EncodedTile {
             coord,
             data,
-            bytes_in,
+            raw_mvt_size,
             hit,
         } = joined??;
         stream_writer.add_tile(coord, &data)?;
-        stats.record(data.len() as u64, bytes_in, hit);
+        stats.record(data.len() as u64, raw_mvt_size, hit);
         bar.inc(1);
     }
 
     stream_writer.finalize()?;
+    let output_archive_size = std::fs::metadata(output)?.len();
     bar.finish_and_clear();
-    stats.print_summary(start);
+    stats.print_summary(
+        start,
+        input_archive_size,
+        output_archive_size,
+        encoding,
+        tile_compression,
+    );
 
     Ok(())
 }

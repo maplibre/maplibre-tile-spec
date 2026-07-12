@@ -203,19 +203,19 @@ fn spawn_encode_pipeline(
                 let cache = cache.clone();
                 thread::spawn(move || {
                     for (seq, coord, data) in raw_rx {
-                        let bytes_in = data.len() as u64;
-                        let result =
-                            encode_tile(&cache, &data, encoding, cfg).map(|(data, hit)| {
+                        let result = encode_tile(&cache, &data, encoding, cfg).map(
+                            |(data, raw_mvt_size, hit)| {
                                 (
                                     seq,
                                     EncodedTile {
                                         coord,
                                         data,
-                                        bytes_in,
+                                        raw_mvt_size,
                                         hit,
                                     },
                                 )
-                            });
+                            },
+                        );
                         if res_tx.send(result).is_err() {
                             break; // emitter gone
                         }
@@ -275,6 +275,7 @@ async fn convert_pmtiles_to_pmtiles(
     let (reader, encoding) = open_mvt_pmtiles(input).await?;
     let tile_compression = tile_compression.resolve(encoding)?;
     let ids = collect_pmtiles_ids(&reader).await?;
+    let input_archive_size = std::fs::metadata(input)?.len();
 
     eprintln!("{} -> {} (pmtiles):", input.display(), output.display());
     let start = Instant::now();
@@ -299,11 +300,11 @@ async fn convert_pmtiles_to_pmtiles(
         let EncodedTile {
             coord,
             data,
-            bytes_in,
+            raw_mvt_size,
             hit,
         } = tile?;
         writer.add_tile(coord, &data)?;
-        stats.record(data.len() as u64, bytes_in, hit);
+        stats.record(data.len() as u64, raw_mvt_size, hit);
         bar.inc(1);
         done += 1;
         if log_progress && done.is_multiple_of(PROGRESS_LOG_EVERY) {
@@ -311,8 +312,15 @@ async fn convert_pmtiles_to_pmtiles(
         }
     }
     writer.finalize()?;
+    let output_archive_size = std::fs::metadata(output)?.len();
     bar.finish_and_clear();
-    stats.print_summary(start);
+    stats.print_summary(
+        start,
+        input_archive_size,
+        output_archive_size,
+        encoding,
+        tile_compression,
+    );
 
     Ok(())
 }
