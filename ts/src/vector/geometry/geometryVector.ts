@@ -4,6 +4,7 @@ import type Point from "@mapbox/point-geometry";
 import type { GEOMETRY_TYPE } from "./geometryType";
 import type { VertexBufferType } from "./vertexBufferType";
 import type { TopologyVector } from "../../vector/geometry/topologyVector";
+import { PerFeatureGeometryReader } from "./perFeatureGeometryReader";
 
 export type CoordinatesArray = Array<Array<Point>>;
 
@@ -18,6 +19,8 @@ export interface MortonSettings {
 }
 
 export abstract class GeometryVector {
+    private geometryReader?: PerFeatureGeometryReader;
+
     protected constructor(
         private readonly _vertexBufferType: VertexBufferType,
         private readonly _topologyVector: TopologyVector,
@@ -45,7 +48,7 @@ export abstract class GeometryVector {
     /* Allows faster access to the vertices since morton encoding is currently not used in the POC. Morton encoding
        will be used after adapting the shader to decode the morton codes on the GPU. */
     getSimpleEncodedVertex(index: number): [number, number] {
-        const offset = this.vertexOffsets ? this.vertexOffsets[index] * 2 : index * 2;
+        const offset = this.vertexOffsets?.length ? this.vertexOffsets[index] * 2 : index * 2;
         const x = this.vertexBuffer[offset];
         const y = this.vertexBuffer[offset + 1];
         return [x, y];
@@ -53,7 +56,7 @@ export abstract class GeometryVector {
 
     //TODO: add scaling information to the constructor
     getVertex(index: number): [number, number] {
-        if (this.vertexOffsets && this.mortonSettings) {
+        if (this.vertexOffsets?.length && this.mortonSettings) {
             //TODO: move decoding of the morton codes on the GPU in the vertex shader
             const vertexOffset = this.vertexOffsets[index];
             const mortonEncodedVertex = this.vertexBuffer[vertexOffset];
@@ -66,7 +69,7 @@ export abstract class GeometryVector {
             return [vertex.x, vertex.y];
         }
 
-        const offset = this.vertexOffsets ? this.vertexOffsets[index] * 2 : index * 2;
+        const offset = this.vertexOffsets?.length ? this.vertexOffsets[index] * 2 : index * 2;
         const x = this.vertexBuffer[offset];
         const y = this.vertexBuffer[offset + 1];
         return [x, y];
@@ -74,6 +77,17 @@ export abstract class GeometryVector {
 
     getGeometries(): CoordinatesArray[] {
         return convertGeometryVector(this);
+    }
+
+    getGeometry(index: number): CoordinatesArray {
+        this.geometryReader ??= new PerFeatureGeometryReader({
+            numGeometries: this.numGeometries,
+            topologyVector: this.topologyVector,
+            containsPolygonGeometry: this.containsPolygonGeometry(),
+            geometryType: (geometryIndex) => this.geometryType(geometryIndex),
+            getVertex: (vertexIndex) => this.getVertex(vertexIndex),
+        });
+        return this.geometryReader.getGeometry(index);
     }
 
     get mortonSettings(): MortonSettings | undefined {

@@ -94,6 +94,7 @@ function comparePlainGeometryEncodedTile(mlt: FeatureTable[], mvt: VectorTile) {
 
         // Use getFeatures() instead of iterator (like C++ and Java implementations)
         const mltFeatures = featureTable.getFeatures();
+        const mltGeometries = featureTable.geometryVector.getGeometries();
 
         assert.equal(mltFeatures.length, layer.length);
 
@@ -103,9 +104,10 @@ function comparePlainGeometryEncodedTile(mlt: FeatureTable[], mvt: VectorTile) {
 
             compareId(mltFeature, mvtFeature, true);
 
-            const mltGeometry = mltFeature.geometry?.coordinates;
+            const mltGeometry = featureTable.geometryVector.getGeometry(j);
             const mvtGeometry = mvtFeature.loadGeometry();
             assert.deepEqual(mltGeometry, mvtGeometry);
+            assert.deepEqual(mltGeometries[j], mvtGeometry);
 
             const mltProperties = mltFeature.properties;
             const mvtProperties = mvtFeature.properties;

@@ -1,9 +1,12 @@
 import Point from "@mapbox/point-geometry";
-import { GEOMETRY_TYPE } from "./geometryType";
 import type { CoordinatesArray } from "./geometryVector";
+import { GEOMETRY_TYPE } from "./geometryType";
 import type { TopologyVector } from "./topologyVector";
+import { PerFeatureGeometryReader } from "./perFeatureGeometryReader";
 
 export abstract class GpuVector implements Iterable<CoordinatesArray> {
+    private geometryReader?: PerFeatureGeometryReader;
+
     protected constructor(
         private readonly _triangleOffsets: Uint32Array,
         private readonly _indexBuffer: Uint32Array,
@@ -33,97 +36,70 @@ export abstract class GpuVector implements Iterable<CoordinatesArray> {
         return this._topologyVector;
     }
 
+    getGeometry(index: number): CoordinatesArray {
+        if (!this.topologyVector) {
+            throw new Error("Cannot access GpuVector geometry without topology information");
+        }
+        this.geometryReader ??= new PerFeatureGeometryReader({
+            numGeometries: this.numGeometries,
+            topologyVector: this.topologyVector,
+            containsPolygonGeometry: true,
+            geometryType: (geometryIndex) => this.geometryType(geometryIndex),
+            getVertex: (vertexIndex) => {
+                const offset = vertexIndex * 2;
+                return [this.vertexBuffer[offset], this.vertexBuffer[offset + 1]];
+            },
+        });
+        return this.geometryReader.getGeometry(index);
+    }
+
     /**
      * Returns geometries as coordinate arrays by extracting polygon outlines from topology.
      * The vertexBuffer contains the outline vertices, separate from the tessellated triangles.
      */
     getGeometries(): CoordinatesArray[] {
-        if (!this._topologyVector) {
+        if (!this.topologyVector) {
             throw new Error("Cannot convert GpuVector to coordinates without topology information");
         }
 
-        const geometries: CoordinatesArray[] = new Array(this.numGeometries);
-        const topology = this._topologyVector;
-        const partOffsets = topology.partOffsets;
-        const ringOffsets = topology.ringOffsets;
-        const geometryOffsets = topology.geometryOffsets;
+        const { geometryOffsets, partOffsets, ringOffsets } = this.topologyVector;
+        const geometries = new Array<CoordinatesArray>(this.numGeometries);
+        let vertex = 0;
+        let geometry = 1;
+        let part = 1;
+        let ring = 1;
 
-        // Use counters to track position in offset arrays (like Java implementation)
-        let vertexBufferOffset = 0;
-        let partOffsetCounter = 1;
-        let ringOffsetsCounter = 1;
-        let geometryOffsetsCounter = 1;
+        const readRing = (): Point[] => {
+            const count = gpuOffsetLength(ringOffsets, ring++);
+            const points = new Array<Point>(count + (count > 0 ? 1 : 0));
+            for (let i = 0; i < count; i++) {
+                points[i] = new Point(this.vertexBuffer[vertex++], this.vertexBuffer[vertex++]);
+            }
+            if (count > 0) points[count] = points[0];
+            return points;
+        };
 
         for (let i = 0; i < this.numGeometries; i++) {
-            const geometryType = this.geometryType(i);
-
-            switch (geometryType) {
-                case GEOMETRY_TYPE.POLYGON:
-                    {
-                        // Get number of rings for this polygon
-                        const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
-                        partOffsetCounter++;
-                        const rings: Point[][] = [];
-
-                        for (let j = 0; j < numRings; j++) {
-                            // Get number of vertices in this ring
-                            const numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
-                            ringOffsetsCounter++;
-                            const ring: Point[] = [];
-
-                            for (let k = 0; k < numVertices; k++) {
-                                const x = this._vertexBuffer[vertexBufferOffset++];
-                                const y = this._vertexBuffer[vertexBufferOffset++];
-                                ring.push(new Point(x, y));
-                            }
-                            // Close the ring by duplicating the first vertex (MVT format requirement)
-                            if (ring.length > 0) {
-                                ring.push(ring[0]);
-                            }
-                            rings.push(ring);
-                        }
-
-                        geometries[i] = rings;
-                        if (geometryOffsets) geometryOffsetsCounter++;
+            const result: CoordinatesArray = [];
+            switch (this.geometryType(i)) {
+                case GEOMETRY_TYPE.POLYGON: {
+                    const ringCount = gpuOffsetLength(partOffsets, part++);
+                    for (let j = 0; j < ringCount; j++) result.push(readRing());
+                    if (geometryOffsets) geometry++;
+                    break;
+                }
+                case GEOMETRY_TYPE.MULTIPOLYGON: {
+                    const polygonCount = gpuOffsetLength(geometryOffsets, geometry++);
+                    for (let j = 0; j < polygonCount; j++) {
+                        const ringCount = gpuOffsetLength(partOffsets, part++);
+                        for (let k = 0; k < ringCount; k++) result.push(readRing());
                     }
                     break;
-                case GEOMETRY_TYPE.MULTIPOLYGON:
-                    {
-                        // Get number of polygons in this multipolygon
-                        const numPolygons =
-                            geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
-                        geometryOffsetsCounter++;
-                        const allRings: Point[][] = [];
-
-                        for (let p = 0; p < numPolygons; p++) {
-                            // Get number of rings in this polygon
-                            const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
-                            partOffsetCounter++;
-
-                            for (let j = 0; j < numRings; j++) {
-                                // Get number of vertices in this ring
-                                const numVertices =
-                                    ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
-                                ringOffsetsCounter++;
-                                const ring: Point[] = [];
-
-                                for (let k = 0; k < numVertices; k++) {
-                                    const x = this._vertexBuffer[vertexBufferOffset++];
-                                    const y = this._vertexBuffer[vertexBufferOffset++];
-                                    ring.push(new Point(x, y));
-                                }
-                                // Close the ring by duplicating the first vertex (MVT format requirement)
-                                if (ring.length > 0) {
-                                    ring.push(ring[0]);
-                                }
-                                allRings.push(ring);
-                            }
-                        }
-
-                        geometries[i] = allRings;
-                    }
-                    break;
+                }
+                default:
+                    throw new Error(`GPU geometry type ${this.geometryType(i)} is not supported`);
             }
+            geometries[i] = result;
         }
         return geometries;
     }
@@ -142,4 +118,9 @@ export abstract class GpuVector implements Iterable<CoordinatesArray> {
         //throw new Error("Iterator on a GpuVector is not implemented yet.");
         return null;
     }
+}
+
+function gpuOffsetLength(offsets: Uint32Array | undefined, index: number): number {
+    if (!offsets) throw new Error("Invalid GPU geometry topology");
+    return offsets[index] - offsets[index - 1];
 }
