@@ -6,7 +6,23 @@ The `mlt` binary provides several commands for working with MLT files:
 
 * **`dump`** - Parse an MLT file and dump raw layer data without decoding
 * **`decode`** - Parse an MLT file, decode all layers, and dump the result (supports text and `GeoJSON` output)
+* **`convert`** - Convert MVT or MLT tile files and MVT `.mbtiles`/`.pmtiles` archives to MLT
 * **`ui`** - Interactive terminal visualizer for MLT files
+
+### PMTiles conversion
+
+Convert an MVT PMTiles archive to MLT while gzip-compressing each output tile payload:
+
+```bash
+cargo run --release -p mlt -- \
+  convert input.mvt.pmtiles output.mlt.pmtiles \
+  --tile-compression gzip
+```
+
+The default is `--tile-compression auto`, which preserves gzip, Brotli,
+Zstandard, and uncompressed input. PMTiles does not support zlib compression,
+so zlib input requires an explicit `gzip` or `none` override. Non-auto values
+are only accepted when the output path has a `.pmtiles` extension.
 
 ### Visualizer
 

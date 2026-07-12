@@ -17,7 +17,9 @@ use super::common::{
     ENCODE_CACHE_BYTES, EncodedTile, MAX_TILE_CACHE_TRACK_SIZE_BYTES, TileStats, encode_tile,
     make_encode_cache, make_progress_bar,
 };
-use super::{ContainerFormat, MbtFormat, encode_one};
+use super::{
+    ContainerFormat, MbtFormat, PmtilesTileCompression, encode_one, update_mlt_pmtiles_metadata,
+};
 
 /// Re-encode an `.mbtiles` input (MVT) into the requested container.
 pub async fn convert(
@@ -25,12 +27,15 @@ pub async fn convert(
     output: (&Path, ContainerFormat),
     cfg: EncoderConfig,
     mbtiles_format: Option<MbtFormat>,
+    tile_compression: PmtilesTileCompression,
 ) -> AnyResult<()> {
     match output {
         (output, ContainerFormat::Mbtiles) => {
             convert_mbtiles_to_mbtiles(input, output, mbtiles_format, cfg).await
         }
-        (output, ContainerFormat::Pmtiles) => convert_mbtiles_to_pmtiles(input, output, cfg).await,
+        (output, ContainerFormat::Pmtiles) => {
+            convert_mbtiles_to_pmtiles(input, output, cfg, tile_compression).await
+        }
         (output, ContainerFormat::Files) => bail!(
             "Output must be either an .mbtiles or a .pmtiles file when input is an .mbtiles file, got: {}",
             output.display()
@@ -145,22 +150,26 @@ async fn convert_mbtiles_to_pmtiles(
     input: &Path,
     output: &Path,
     cfg: EncoderConfig,
+    tile_compression: PmtilesTileCompression,
 ) -> AnyResult<()> {
     // FIXME: add a fastpath for normalised schemas. We don't need to cache them
-    let (encoding, _, mut metadata, total) = get_metadata(input).await?;
+    let (encoding, _, metadata, total) = get_metadata(input).await?;
+    let tile_compression = tile_compression.resolve(encoding)?;
 
     eprintln!("{} -> {} (pmtiles):", input.display(), output.display());
 
     let start = Instant::now();
     let bar = make_progress_bar(total);
 
-    metadata.tilejson.other.insert(
-        "format".into(),
-        serde_json::Value::String(Format::Mlt.metadata_format_value().into()),
-    );
     let file = std::fs::File::create(output)?;
-    let metadata_str = serde_json::to_string(&metadata.tilejson)?;
+    let mut metadata_json = serde_json::to_value(&metadata.tilejson)?;
+    let metadata_obj = metadata_json
+        .as_object_mut()
+        .ok_or_else(|| anyhow!("MBTiles metadata must serialize to a JSON object"))?;
+    update_mlt_pmtiles_metadata(metadata_obj, tile_compression);
+    let metadata_str = serde_json::to_string(&metadata_json)?;
     let mut stream_writer = PmTilesWriter::new(TileType::Mlt)
+        .tile_compression(tile_compression)
         .metadata(&metadata_str)
         .create(file)?;
 
