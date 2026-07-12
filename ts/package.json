@@ -15,6 +15,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "bench:fsst": "vitest bench --run src/decoding/fsstDecoder.bench.ts",
     "test": "vitest run --coverage --coverage.reportOnFailure",
     "lint": "eslint",
     "format": "biome format --write ./src",
