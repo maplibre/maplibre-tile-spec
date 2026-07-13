@@ -2,6 +2,8 @@
 
 #include <mlt/decode/string.hpp>
 
+#include <cstdint>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -16,15 +18,15 @@ TEST(FSST, DecodeFromJava) {
         symbols, symbolLengths, javaCompressed, expected.size());
 
     EXPECT_EQ(decoded.size(), expected.size());
-    EXPECT_EQ(0, memcmp(expected.c_str(), decoded.data(), expected.size()));
+    EXPECT_EQ(0, std::memcmp(expected.c_str(), decoded.data(), expected.size()));
 
     // also make sure buffer growth works
     const auto decoded2 = mlt::decoder::StringDecoder::decodeFSST(symbols, symbolLengths, javaCompressed, 0);
     EXPECT_EQ(decoded2.size(), expected.size());
-    EXPECT_EQ(0, memcmp(expected.c_str(), decoded2.data(), expected.size()));
+    EXPECT_EQ(0, std::memcmp(expected.c_str(), decoded2.data(), expected.size()));
 
     const auto decoded3 = mlt::decoder::StringDecoder::decodeFSST(
         symbols, symbolLengths, javaCompressed, expected.size() / 2);
     EXPECT_EQ(decoded3.size(), expected.size());
-    EXPECT_EQ(0, memcmp(expected.c_str(), decoded3.data(), expected.size() / 2));
+    EXPECT_EQ(0, std::memcmp(expected.c_str(), decoded3.data(), expected.size() / 2));
 }

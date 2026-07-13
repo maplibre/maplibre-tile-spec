@@ -17,6 +17,17 @@ pub enum StagedId {
 }
 
 impl StagedId {
+    #[must_use]
+    pub fn feature_count(&self) -> Option<usize> {
+        match self {
+            Self::None => None,
+            Self::U32(s) => Some(s.values.len()),
+            Self::OptU32(s) => Some(s.presence.len()),
+            Self::U64(s) => Some(s.values.len()),
+            Self::OptU64(s) => Some(s.presence.len()),
+        }
+    }
+
     /// Construct from a sparse `Vec<Option<u64>>`.
     ///
     /// Width is selected from the maximum present value; any `None` produces an
@@ -204,14 +215,10 @@ mod tests {
         for _ in 0..n {
             geometry.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
         }
-        let staged = StagedLayer {
-            name: "id_roundtrip".to_string(),
-            extent: 4096,
-            id: decoded.clone(),
-            geometry,
-            properties: vec![],
-        };
-        let enc = Encoder::with_explicit(Encoder::default().cfg, ExplicitEncoder::for_id(int_enc));
+        let staged =
+            StagedLayer::new("id_roundtrip", 4096, decoded.clone(), geometry, vec![]).unwrap();
+        let enc =
+            Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::for_id(int_enc));
         let mut codecs = Codecs::default();
         let enc = staged.encode_into(enc, &mut codecs).expect("encode failed");
         let buf = enc.into_layer_bytes().expect("into_layer_bytes failed");
@@ -235,13 +242,8 @@ mod tests {
         for _ in 0..n {
             geometry.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
         }
-        let staged = StagedLayer {
-            name: "id_roundtrip".to_string(),
-            extent: 4096,
-            id: decoded.clone(),
-            geometry,
-            properties: vec![],
-        };
+        let staged =
+            StagedLayer::new("id_roundtrip", 4096, decoded.clone(), geometry, vec![]).unwrap();
         let mut codecs = Codecs::default();
         let buf = staged
             .encode_into(Encoder::default(), &mut codecs)
@@ -324,7 +326,7 @@ mod tests {
         let mut codecs = Codecs::default();
         input.write_to(&mut enc, &mut codecs).unwrap();
         assert_eq!(
-            enc.meta.len(),
+            enc.meta().len(),
             0,
             "empty or all-null ID list should write no column"
         );
@@ -342,7 +344,7 @@ mod tests {
         let mut codecs = Codecs::default();
         input.write_to(&mut enc, &mut codecs).unwrap();
         assert!(
-            !enc.meta.is_empty(),
+            !enc.meta().is_empty(),
             "non-trivial ID list should write a column"
         );
     }
@@ -353,7 +355,7 @@ mod tests {
         let mut enc = Encoder::default();
         let mut codecs = Codecs::default();
         decoded.write_to(&mut enc, &mut codecs).unwrap();
-        assert_eq!(enc.meta.len(), 0, "empty ID list should write no column");
+        assert_eq!(enc.meta().len(), 0, "empty ID list should write no column");
     }
 
     #[rstest]
@@ -400,7 +402,7 @@ mod tests {
         ids.clone().write_to(&mut auto_enc, &mut codecs).unwrap();
 
         let mut plain_enc = Encoder::with_explicit(
-            Encoder::default().cfg,
+            EncoderConfig::default(),
             ExplicitEncoder::for_id(IntEncoder::varint()),
         );
         ids.write_to(&mut plain_enc, &mut codecs).unwrap();
@@ -553,13 +555,7 @@ mod tests {
         for _ in 0..n {
             geometry.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
         }
-        let staged = StagedLayer {
-            name: "id_roundtrip".to_string(),
-            extent: 4096,
-            id: decoded.clone(),
-            geometry,
-            properties: vec![],
-        };
+        let staged = StagedLayer::new("id_roundtrip", 4096, decoded.clone(), geometry, vec![])?;
         let enc =
             Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::for_id(int_enc));
         let mut codecs = Codecs::default();
@@ -593,13 +589,7 @@ mod tests {
         for _ in 0..n {
             geometry.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
         }
-        let staged = StagedLayer {
-            name: "id_test".to_string(),
-            extent: 4096,
-            id: ids.clone(),
-            geometry,
-            properties: vec![],
-        };
+        let staged = StagedLayer::new("id_test", 4096, ids.clone(), geometry, vec![]).unwrap();
         let enc =
             Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::for_id(int_enc));
         let mut codecs = Codecs::default();

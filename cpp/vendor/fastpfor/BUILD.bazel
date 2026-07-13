@@ -1,0 +1,18 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+cc_library(
+    name = "fastpfor",
+    srcs = glob(["fastpfor/*.cpp"]),
+    hdrs = glob(["fastpfor/*.h"]),
+    copts = select({
+        "@platforms//os:windows": [
+            "/std:c++20",
+        ],
+        "//conditions:default": [
+            "-std=c++20",
+        ],
+    }),
+    include_prefix = "fastpfor",
+    strip_include_prefix = "fastpfor",
+    visibility = ["//cpp:__pkg__"],
+)

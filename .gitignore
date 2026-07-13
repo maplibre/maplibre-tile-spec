@@ -13,6 +13,7 @@
 MODULE.bazel.lock
 bazel-*
 bin/
+build/
 codecov*
 coverage/
 dist/

@@ -2,7 +2,12 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { classifyRings } from "@maplibre/maplibre-gl-style-spec";
 import { GEOMETRY_TYPE } from "./vector/geometry/geometryType";
-import { compareWithTolerance, getTestCases, writeActualOutput } from "../../test/synthetic/synthetic-test-utils";
+import {
+    compareWithTolerance,
+    expectUnsupported,
+    getTestCases,
+    writeActualOutput,
+} from "../../test/synthetic/synthetic-test-utils";
 import decodeTile from "./mltDecoder";
 import type { Geometry } from "./vector/geometry/geometryVector";
 import type FeatureTable from "./vector/featureTable";
@@ -10,11 +15,18 @@ import type FeatureTable from "./vector/featureTable";
 const EARCUT_MAX_RINGS = 500;
 
 const UNIMPLEMENTED_SYNTHETICS: string[] = [
-    "0x01/multipoint_morton",
-    "0x01/poly_morton_hole_morton",
     "0x01/poly_multi_morton_hole_morton",
     "0x01/poly_multi_morton_ring_morton",
     "0x01/poly_multi_morton_ring_no_morton",
+    "0x02/prop_nested_big",
+    "0x02/prop_nested_ints",
+    "0x02/prop_nested_json",
+    "0x02/prop_nested_list_root",
+    "0x02/prop_nested_list",
+    "0x02/prop_nested_mixed_root",
+    "0x02/prop_nested_null",
+    "0x02/prop_nested_shared",
+    "0x02/prop_nested_specials",
 ];
 
 describe("MLT Decoder - Synthetic tests", () => {
@@ -28,10 +40,8 @@ describe("MLT Decoder - Synthetic tests", () => {
         });
     }
 
-    for (const skippedTest of testCases.skipped) {
-        it.skip(skippedTest, () => {
-            // Test is skipped since it is not supported yet
-        });
+    for (const { name, content, fileName } of testCases.skipped) {
+        it(`${name} (unsupported)`, () => expectUnsupported(() => decodeMLT(fileName), content));
     }
 });
 

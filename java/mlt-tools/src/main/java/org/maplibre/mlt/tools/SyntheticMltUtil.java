@@ -12,7 +12,9 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Pattern;
+import org.apache.commons.lang3.mutable.MutableInt;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -32,6 +34,7 @@ import org.maplibre.mlt.converter.MltConverter;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MLTFeature;
+import org.maplibre.mlt.data.MapLibreTile;
 import org.maplibre.mlt.data.MapboxVectorTile;
 import org.maplibre.mlt.decoder.MltDecoder;
 import org.maplibre.mlt.json.Json;
@@ -39,7 +42,9 @@ import org.maplibre.mlt.json.Json;
 /** Utility helpers for synthetic MLT generation. */
 class SyntheticMltUtil {
 
-  static final Path SYNTHETICS_DIR = Paths.get("../test/synthetic/0x01");
+  static final Path SYNTHETICS_DIR = Paths.get("../test/synthetic");
+
+  static final String DEFAULT_LAYER_NAME = "layer1";
 
   // Using common coordinates everywhere to make sure generated MLT files are very similar,
   // ensuring we observe difference in encoding rather than geometry variations.
@@ -132,7 +137,7 @@ class SyntheticMltUtil {
       var layerOpt = new FeatureTableOptimizations(false, false, List.of(mapping));
 
       var optimizationsMap = new HashMap<String, FeatureTableOptimizations>();
-      optimizationsMap.put("layer1", layerOpt);
+      optimizationsMap.put(DEFAULT_LAYER_NAME, layerOpt);
       super.optimizations(optimizationsMap);
       return this;
     }
@@ -146,7 +151,7 @@ class SyntheticMltUtil {
       var layerOpt = new FeatureTableOptimizations(false, false, mappings);
 
       var optimizationsMap = new HashMap<String, FeatureTableOptimizations>();
-      optimizationsMap.put("layer1", layerOpt);
+      optimizationsMap.put(DEFAULT_LAYER_NAME, layerOpt);
       this.optimizations(optimizationsMap);
       return this;
     }
@@ -276,30 +281,60 @@ class SyntheticMltUtil {
     return new Layer(name, Arrays.asList(features), extent);
   }
 
-  static void write(String name, Feature feat, ConversionConfig.ConfigBuilder cfg)
+  public record WriteResult(
+      String fileName, byte[] mltData, MapLibreTile decodedMlt, String decodedJson) {}
+
+  static WriteResult write(String name, Feature feat, ConversionConfig.ConfigBuilder cfg)
       throws IOException {
-    write(layer(name, feat), cfg);
+    return write(layer(name, feat), cfg);
   }
 
-  static void write(Layer layer, ConversionConfig.ConfigBuilder cfg) throws IOException {
+  static WriteResult write(Layer layer, ConversionConfig.ConfigBuilder cfg) throws IOException {
     // layer names should be identical to reduce variability in generated MLT files
     // and ensure we observe differences in encoding rather than layer name variations
-    write(layer.name(), List.of(new Layer("layer1", layer.features(), layer.tileExtent())), cfg);
+    return write(
+        layer.name(),
+        List.of(new Layer(DEFAULT_LAYER_NAME, layer.features(), layer.tileExtent())),
+        cfg);
   }
 
-  static void write(String fileName, List<Layer> layers, ConversionConfig.ConfigBuilder cfg)
+  static WriteResult write(String fileName, Layer layers, ConversionConfig.ConfigBuilder cfg)
+      throws IOException {
+    return write(fileName, List.of(layers), cfg);
+  }
+
+  static WriteResult write(String fileName, List<Layer> layers, ConversionConfig.ConfigBuilder cfg)
       throws IOException {
     try {
       System.out.println("Generating: " + fileName);
-      var config = cfg.build();
-      var tile = new MapboxVectorTile(layers);
+      final var config = cfg.build();
+      final var tile = new MapboxVectorTile(layers);
       final var columnMappings = buildColumnMappings(config);
-      var metadata = MltConverter.createTilesetMetadata(tile, columnMappings, config.includeIds());
-      var mlt = MltConverter.encode(tile, metadata, config, null);
-      Files.write(SYNTHETICS_DIR.resolve(fileName + ".mlt"), mlt, StandardOpenOption.CREATE_NEW);
-      final String json = Json.toGeoJson(MltDecoder.decodeMlTile(mlt), true) + "\n";
+      final var metadata =
+          MltConverter.createTilesetMetadata(
+              tile, config.typeMismatchPolicy(), columnMappings, config.includeIds());
+      final var mltVersion = new MutableInt(0);
+      final var mlt = MltConverter.encode(tile, metadata, config, null, Optional.of(mltVersion));
+      final var unEncodedJSON = Json.toGeoJson(new MapLibreTile(layers), true) + "\n";
+      final var decodedMlt = MltDecoder.decodeMlTile(mlt);
+      final var decodedJSON = Json.toGeoJson(decodedMlt, true) + "\n";
+      if (!unEncodedJSON.equals(decodedJSON)) {
+        throw new RuntimeException(
+            "MLT round-trip failed for "
+                + fileName
+                + " \nUn-encoded:\n"
+                + unEncodedJSON
+                + "\nDecoded:\n"
+                + decodedJSON);
+      }
+      final var baseDir =
+          SYNTHETICS_DIR.resolve(String.format("0x%02x", mltVersion.get().intValue()));
+      Files.write(baseDir.resolve(fileName + ".mlt"), mlt, StandardOpenOption.CREATE_NEW);
       Files.writeString(
-          SYNTHETICS_DIR.resolve(fileName + ".json"), json, StandardOpenOption.CREATE_NEW);
+          baseDir.resolve(fileName + ".json"), decodedJSON, StandardOpenOption.CREATE_NEW);
+      return new WriteResult(fileName, mlt, decodedMlt, decodedJSON);
+    } catch (RuntimeException e) {
+      throw e;
     } catch (Exception e) {
       throw new IOException("Error writing MLT file " + fileName, e);
     }
@@ -307,7 +342,7 @@ class SyntheticMltUtil {
 
   private static ColumnMappingConfig buildColumnMappings(ConversionConfig config) {
     final var columnMappings = new ColumnMappingConfig();
-    if (config.optimizations() != null && !config.optimizations().isEmpty()) {
+    if (!config.optimizations().isEmpty()) {
       var allColumnMappings =
           config.optimizations().values().stream()
               .flatMap(opt -> opt.columnMappings().stream())

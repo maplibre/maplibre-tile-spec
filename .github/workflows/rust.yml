@@ -9,33 +9,55 @@ on:
   workflow_dispatch:
 
 jobs:
-  lint:
-    name: Lint
+  check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: ./.github/actions/mlt-setup-rust
       - run: just -v rust::ci-check
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/mlt-setup-rust
       - run: just -v rust::ci-lint
 
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/mlt-setup-rust
+      - run: just -v rust::ci-test
+
+  test-python:
+    name: Test mlt-py
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/mlt-setup-rust
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.13" }
+      - run: just -v rust::py-test
+
   coverage:
-    name: Coverage
     permissions:
       id-token: write  # for OIDC Codecov
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: ./.github/actions/mlt-setup-rust
         with: { toolchain: nightly } # because of covs --doctests
-      - uses: taiki-e/install-action@v2
+      - uses: taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6 # v2.82.6
         with: { tool: "cargo-llvm-cov" }
       - run: just -v rust::ci-coverage
       - name: Upload coverage to Codecov
         if: github.repository_owner == 'maplibre'
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           use_oidc: true
           fail_ci_if_error: true
+          skip_validation: true
           disable_search: true
           files: rust/target/llvm-cov/lcov.info
       - run: just -v assert-git-is-clean
@@ -44,11 +66,11 @@ jobs:
     name: Test wasm
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: ./.github/actions/mlt-setup-rust
       - run: rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version-file: "rust/mlt-wasm/.nvmrc"
           cache: "npm"
@@ -65,10 +87,18 @@ jobs:
           - target: layer
           - target: decoded_layer
           - target: mvt_roundtrip
+          - target: differential
+    env:
+      MLT_CPP_JSON_BIN: ${{ github.workspace }}/cpp/build/tool/mlt-cpp-json
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          submodules: ${{ matrix.target == 'differential' && 'recursive' || '' }}
       - uses: ./.github/actions/mlt-setup-rust
         with: { toolchain: nightly }
+      - if: matrix.target == 'differential'
+        name: Build mlt-cpp-json oracle
+        run: just -v cpp::build-json
       - run: just -v rust::ci-fuzz-build ${{ matrix.target }}
       - if: matrix.target == 'layer'
         run: just -v rust::fuzz-seed ${{ matrix.target }}
@@ -78,7 +108,7 @@ jobs:
         run: just -v rust::ci-fuzz-cov ${{ matrix.target }}
       - name: Upload fuzz coverage artifact
         if: github.repository_owner == 'maplibre'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: fuzz-coverage-${{ matrix.target }}
           path: rust/target/llvm-cov/fuzz-${{ matrix.target }}.lcov
@@ -93,11 +123,36 @@ jobs:
   #        with: { toolchain: msrv }
   #      - run: just -v rust::ci-test-msrv
 
+  test-ffi:
+    name: FFI ${{ matrix.backend }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - backend: c
+            recipe: test-ffi-c
+          - backend: cpp
+            recipe: test-ffi-cpp
+          - backend: kotlin
+            recipe: test-ffi-kotlin
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: ./.github/actions/mlt-setup-rust
+      - if: matrix.backend == 'kotlin'
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - if: matrix.backend == 'kotlin'
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+      - run: just -v rust::${{ matrix.recipe }}
+
   test-publish:
     name: Test workspace publishing using --dry-run
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: ./.github/actions/mlt-setup-rust
       - name: Test workspace publishing
         run: just -v rust::test-publish
@@ -123,11 +178,11 @@ jobs:
             artifact_name: mlt-x86_64-pc-windows-msvc.zip
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: ./.github/actions/mlt-setup-rust
       - run: just -v rust::ci-build-release ${{ matrix.target }} ${{ matrix.artifact_name }}
       - name: Upload artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_name }}
@@ -136,13 +191,13 @@ jobs:
     name: Build @maplibre/mlt-wasm npm package
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: ./.github/actions/mlt-setup-rust
         with: { toolchain: nightly }
       - run: rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version-file: "rust/mlt-wasm/.nvmrc"
           cache: "npm"
@@ -167,7 +222,7 @@ jobs:
         run: npm pack
 
       - name: Upload npm package artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: mlt-wasm-npm
           path: rust/mlt-wasm/maplibre-mlt-wasm-*.tgz
@@ -176,10 +231,14 @@ jobs:
   # This approach also allows some jobs to be skipped if they are not needed.
   ci-passed-rust:
     needs:
+      - check
       - lint
+      - test
+      - test-python
       - coverage
       # re-enable once we have stability guarantees regarding MSRV
       # - test-msrv
+      - test-ffi
       - test-wasm
       - build-release-binaries
       - test-publish
@@ -209,18 +268,18 @@ jobs:
       cancel-in-progress: false
     steps:
       - run: rustup update stable && rustup default stable
-      - uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with: { fetch-depth: 0, persist-credentials: false }
       - uses: ./.github/actions/mlt-setup-rust
       - name: Publish to crates.io if crate's version is newer
-        uses: release-plz/action@1528104d2ca23787631a1c1f022abb64b34c1e11 # v0.5.128
+        uses: release-plz/action@e8792575c7f2366cf6ff3ccc33ead9ace5b691c7 # v0.5.130
         id: release
         with: { command: release, manifest_path: ./rust/Cargo.toml }
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: If version is the same, create a PR proposing new version and changelog for the next release
-        uses: release-plz/action@1528104d2ca23787631a1c1f022abb64b34c1e11 # v0.5.128
+        uses: release-plz/action@e8792575c7f2366cf6ff3ccc33ead9ace5b691c7 # v0.5.130
         with: { command: release-pr, manifest_path: ./rust/Cargo.toml }
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
@@ -236,18 +295,18 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6.0.2
-      - uses: taiki-e/install-action@v2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6 # v2.82.6
         with: { tool: "just" }
       - name: Get mlt version for release tag
         id: get_version
         shell: bash
         run: just -v rust::ci-get-release-info mlt >> $GITHUB_OUTPUT
       - name: Download all artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v3.1.0-node20
         with: { path: artifacts }
       - name: Add binaries to GitHub release
-        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
         with:
           tag_name: ${{ steps.get_version.outputs.tag }}
           files: |
@@ -286,19 +345,19 @@ jobs:
           fi
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
       - name: Download npm package artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v3.1.0-node20
         with:
           name: mlt-wasm-npm
           path: mlt-wasm-pkg
 
       - name: Release (GitHub) - Create Draft
-        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
         with:
           name: mlt-wasm-js-v${{ env.version }}
           tag_name: mlt-wasm-js-v${{ env.version }}
@@ -312,7 +371,7 @@ jobs:
           npm publish "$package_tgz" --access=public
 
       - name: Publish GitHub release (remove draft)
-        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
         with:
           tag_name: mlt-wasm-js-v${{ env.version }}
           name: mlt-wasm-js-v${{ env.version }}

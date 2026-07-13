@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,6 +20,9 @@ import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MLTFeature;
 import org.maplibre.mlt.data.MapLibreTile;
 import org.maplibre.mlt.data.MapboxVectorTile;
+import org.maplibre.mlt.data.unsigned.U32;
+import org.maplibre.mlt.data.unsigned.U64;
+import org.maplibre.mlt.data.unsigned.U8;
 
 class JsonTest {
   private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
@@ -136,6 +140,45 @@ class JsonTest {
     assertEquals("f64::NAN", props.get("f64nan").getAsString());
     assertEquals("f64::INFINITY", props.get("f64inf").getAsString());
     assertEquals("f64::NEG_INFINITY", props.get("f64neg").getAsString());
+  }
+
+  @Test
+  void unsignedPropertValues() {
+    final var maxU64 = new BigInteger("18446744073709551615");
+
+    final var nested = new LinkedHashMap<String, Object>();
+    nested.put("u32", U32.of(0xFFFFFFFFL));
+    nested.put("list", List.of(U8.of(1), U64.of(maxU64)));
+
+    final var properties = new LinkedHashMap<String, Object>();
+    properties.put("u8", U8.of(255));
+    properties.put("u64", U64.of(maxU64));
+    properties.put("nested", nested);
+
+    final var props =
+        JsonParser.parseString(
+                Json.toGeoJson(
+                    mltOf(
+                        layer(
+                            "roads",
+                            4096,
+                            feature(
+                                1,
+                                GEOMETRY_FACTORY.createPoint(new Coordinate(0, 0)),
+                                properties))),
+                    false))
+            .getAsJsonObject()
+            .getAsJsonArray("features")
+            .get(0)
+            .getAsJsonObject()
+            .getAsJsonObject("properties");
+
+    assertEquals(255, props.get("u8").getAsInt());
+    assertEquals(maxU64, props.get("u64").getAsBigInteger());
+    assertEquals(0xFFFFFFFFL, props.getAsJsonObject("nested").get("u32").getAsLong());
+    assertEquals(1, props.getAsJsonObject("nested").getAsJsonArray("list").get(0).getAsInt());
+    assertEquals(
+        maxU64, props.getAsJsonObject("nested").getAsJsonArray("list").get(1).getAsBigInteger());
   }
 
   @Test

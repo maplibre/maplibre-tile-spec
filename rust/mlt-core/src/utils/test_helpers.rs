@@ -32,16 +32,15 @@ pub fn into_layer01(layer: Layer) -> Layer01 {
 }
 
 /// Map a feature's properties by name. Property column order in [`TileLayer`]
-/// is unstable when sourced from MVT (mvt-reader exposes properties as a
-/// `HashMap`), so callers comparing two layers must compare per-feature maps
-/// rather than parallel `Vec`s.
+/// can change after MVT normalization, so callers comparing two layers must
+/// compare per-feature maps rather than parallel `Vec`s.
 #[must_use]
 pub fn feature_property_map(layer: &TileLayer, feat_idx: usize) -> BTreeMap<&str, &PropValue> {
     layer
-        .property_names
+        .property_names()
         .iter()
         .map(String::as_str)
-        .zip(layer.features[feat_idx].properties.iter())
+        .zip(layer.features()[feat_idx].properties().iter())
         .collect()
 }
 
@@ -49,15 +48,15 @@ pub fn feature_property_map(layer: &TileLayer, feat_idx: usize) -> BTreeMap<&str
 /// same name, extent, feature count, ids, geometries, and per-feature property
 /// maps (compared by name, not column index).
 pub fn assert_mvt_equivalent_layers(a: &TileLayer, b: &TileLayer) {
-    assert_eq!(a.name, b.name, "layer name");
-    assert_eq!(a.extent, b.extent, "layer extent");
-    let names_a: BTreeSet<&str> = a.property_names.iter().map(String::as_str).collect();
-    let names_b: BTreeSet<&str> = b.property_names.iter().map(String::as_str).collect();
+    assert_eq!(a.name(), b.name(), "layer name");
+    assert_eq!(a.extent(), b.extent(), "layer extent");
+    let names_a: BTreeSet<&str> = a.property_names().iter().map(String::as_str).collect();
+    let names_b: BTreeSet<&str> = b.property_names().iter().map(String::as_str).collect();
     assert_eq!(names_a, names_b, "property name set");
-    assert_eq!(a.features.len(), b.features.len(), "feature count");
-    for (i, (af, bf)) in a.features.iter().zip(b.features.iter()).enumerate() {
-        assert_eq!(af.id, bf.id, "feature id (index {i})");
-        assert_eq!(af.geometry, bf.geometry, "feature geometry (index {i})");
+    assert_eq!(a.features().len(), b.features().len(), "feature count");
+    for (i, (af, bf)) in a.features().iter().zip(b.features().iter()).enumerate() {
+        assert_eq!(af.id(), bf.id(), "feature id (index {i})");
+        assert_eq!(af.geometry(), bf.geometry(), "feature geometry (index {i})");
         assert_eq!(
             feature_property_map(a, i),
             feature_property_map(b, i),

@@ -7,6 +7,88 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.3](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.2...rust-mlt-core-v0.12.3) - 2026-07-01
+
+### Other
+
+- update Cargo.toml dependencies
+
+## [0.12.2](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.1...rust-mlt-core-v0.12.2) - 2026-06-29
+
+### Added
+
+- *(rust)* narrow 64-bit property columns to 32-bit when values fit ([#1465](https://github.com/maplibre/maplibre-tile-spec/pull/1465))
+
+### Fixed
+
+- *(rust)* Skip encoding competition for single-value int streams; pick smaller of VarInt/plain ([#1466](https://github.com/maplibre/maplibre-tile-spec/pull/1466))
+
+### Other
+
+- *(rust)* Add Rust <-> C++ differential decoder fuzzer ([#1471](https://github.com/maplibre/maplibre-tile-spec/pull/1471))
+
+## [0.12.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.0...rust-mlt-core-v0.12.1) - 2026-06-20
+
+### Other
+
+- *(deps)* bump fast-mvt from 0.3.2 to 0.4.0 in /rust in the all-cargo-version-updates group ([#1452](https://github.com/maplibre/maplibre-tile-spec/pull/1452))
+
+## [0.12.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.11.1...rust-mlt-core-v0.12.0) - 2026-06-19
+
+### Other
+
+- *(rust)* rm pub fields, builder pattern ([#1428](https://github.com/maplibre/maplibre-tile-spec/pull/1428))
+
+## [0.11.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.11.0...rust-mlt-core-v0.11.1) - 2026-06-18
+
+### Fixed
+
+- *(rust)* `allow_fastpfor` not consulted for precomputed geometry stream ([#1446](https://github.com/maplibre/maplibre-tile-spec/pull/1446))
+
+## [0.11.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.10.1...rust-mlt-core-v0.11.0) - 2026-06-15
+
+### Added
+
+- *(py)* make `mlt.encode_geojson` configurable ([#1427](https://github.com/maplibre/maplibre-tile-spec/pull/1427))
+
+### Fixed
+
+- *(rust)* clear losing sort-trial buffers between encode trials ([#1432](https://github.com/maplibre/maplibre-tile-spec/pull/1432))
+
+### Other
+
+- *(rust)* enforce non-empty layer name ([#1423](https://github.com/maplibre/maplibre-tile-spec/pull/1423))
+- *(rust)* remove unnecessary conversions ([#1421](https://github.com/maplibre/maplibre-tile-spec/pull/1421))
+allow_fastpfor
+## [0.10.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.10.0...rust-mlt-core-v0.10.1) - 2026-06-13
+
+### Fixed
+
+- wire `allow_fastpfor` and `allow_fsst` through the mlt implementations ([#1431](https://github.com/maplibre/maplibre-tile-spec/pull/1431))
+
+## [0.10.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.9.3...rust-mlt-core-v0.10.0) - 2026-06-08
+
+### Added
+
+- *(py)* simple, geojson based encoding ([#1416](https://github.com/maplibre/maplibre-tile-spec/pull/1416))
+
+### Other
+
+- *(rust)* use `usize_cast` for casting ([#1414](https://github.com/maplibre/maplibre-tile-spec/pull/1414))
+- *(rust)* migrate to fast-mvt crate ([#1415](https://github.com/maplibre/maplibre-tile-spec/pull/1415))
+
+## [0.9.3](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.9.2...rust-mlt-core-v0.9.3) - 2026-05-15
+
+### Other
+
+- update Cargo.toml dependencies
+
+## [0.9.2](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.9.1...rust-mlt-core-v0.9.2) - 2026-05-14
+
+### Other
+
+- make errors more accurate ([#1370](https://github.com/maplibre/maplibre-tile-spec/pull/1370))
+
 ## [0.9.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.9.0...rust-mlt-core-v0.9.1) - 2026-05-05
 
 ### Added

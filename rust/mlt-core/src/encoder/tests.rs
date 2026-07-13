@@ -53,3 +53,52 @@ pub fn stage_tile(
     let curve_params = tile.curve_params();
     StagedLayer::from_tile(tile, sort, &analysis, tessellate, curve_params)
 }
+
+#[cfg(test)]
+mod invariant_tests {
+    use crate::decoder::GeometryValues;
+    use crate::encoder::{StagedId, StagedLayer, StagedProperty};
+    use crate::{MltError, TileLayer};
+
+    #[test]
+    fn tile_layer_constructor_rejects_empty_name() {
+        assert!(matches!(
+            TileLayer::new("", 4096),
+            Err(MltError::MissingLayerName)
+        ));
+    }
+
+    #[test]
+    fn staged_layer_constructor_rejects_empty_name() {
+        assert!(matches!(
+            StagedLayer::new("", 4096, StagedId::None, GeometryValues::default(), vec![]),
+            Err(MltError::MissingLayerName)
+        ));
+    }
+
+    #[test]
+    fn staged_layer_constructor_rejects_zero_extent() {
+        assert!(matches!(
+            StagedLayer::new(
+                "layer",
+                0,
+                StagedId::None,
+                GeometryValues::default(),
+                vec![]
+            ),
+            Err(MltError::InvalidExtent(0))
+        ));
+    }
+
+    #[test]
+    fn staged_layer_constructor_rejects_duplicate_property_names() {
+        let props = vec![
+            StagedProperty::opt_u32("dup", Vec::<Option<u32>>::new()),
+            StagedProperty::opt_u32("dup", Vec::<Option<u32>>::new()),
+        ];
+        assert!(matches!(
+            StagedLayer::new("layer", 4096, StagedId::None, GeometryValues::default(), props),
+            Err(MltError::DuplicatePropertyName(name)) if name == "dup"
+        ));
+    }
+}

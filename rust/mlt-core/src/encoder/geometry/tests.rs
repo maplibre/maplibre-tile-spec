@@ -22,7 +22,7 @@ fn automatic_optimization_roundtrip(#[case] decoded: GeometryValues) {
         .clone()
         .write_to(&mut enc, &mut codecs)
         .expect("optimize failed");
-    assert_geometry_roundtrip(&enc.data, &decoded);
+    assert_geometry_roundtrip(enc.data(), &decoded);
 }
 
 fn auto_mode_streams(decoded: &GeometryValues) -> Vec<StreamType> {
@@ -33,10 +33,10 @@ fn auto_mode_streams(decoded: &GeometryValues) -> Vec<StreamType> {
         .write_to(&mut enc, &mut codecs)
         .expect("encode failed");
 
-    let mut stream_types: Vec<StreamType> = encoded_stream_types(&enc.data).into_iter().collect();
+    let mut stream_types: Vec<StreamType> = encoded_stream_types(enc.data()).into_iter().collect();
     stream_types.sort();
 
-    assert_geometry_roundtrip(&enc.data, decoded);
+    assert_geometry_roundtrip(enc.data(), decoded);
     stream_types
 }
 
@@ -90,7 +90,7 @@ fn encoded_output_always_has_meta_stream() {
     decoded
         .write_to(&mut enc, &mut codecs)
         .expect("encode failed");
-    let raw = assert_empty(RawGeometry::from_bytes(&enc.data, &mut parser()));
+    let raw = assert_empty(RawGeometry::from_bytes(enc.data(), &mut parser()));
 
     assert_eq!(
         raw.meta.meta.stream_type,
@@ -115,7 +115,7 @@ fn encoded_polygon_has_topology_streams() {
         .write_to(&mut enc, &mut codecs)
         .expect("encode failed");
 
-    let stream_types = encoded_stream_types(&enc.data);
+    let stream_types = encoded_stream_types(enc.data());
     assert!(
         stream_types.contains(&StreamType::Length(LengthType::Rings))
             || stream_types.contains(&StreamType::Length(LengthType::Parts)),
@@ -141,10 +141,10 @@ fn forced_vertex_strategy_streams(
         .write_to(&mut enc, &mut codecs)
         .expect("encode failed");
 
-    let mut stream_types: Vec<StreamType> = encoded_stream_types(&enc.data).into_iter().collect();
+    let mut stream_types: Vec<StreamType> = encoded_stream_types(enc.data()).into_iter().collect();
     stream_types.sort();
 
-    assert_geometry_roundtrip(&enc.data, decoded);
+    assert_geometry_roundtrip(enc.data(), decoded);
     stream_types
 }
 
@@ -225,10 +225,10 @@ fn manual_encode_works() {
         .clone()
         .write_to(&mut enc, &mut codecs)
         .expect("encode failed");
-    let types = encoded_stream_types(&enc.data);
+    let types = encoded_stream_types(enc.data());
     assert!(types.contains(&StreamType::Data(DictionaryType::Vertex)));
 
-    assert_geometry_roundtrip(&enc.data, &decoded);
+    assert_geometry_roundtrip(enc.data(), &decoded);
 }
 
 /// Round-trip geometry bytes: parse then decode and compare.

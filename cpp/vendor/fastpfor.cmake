@@ -1,26 +1,7 @@
-if(NOT MLT_WITH_FASTPFOR)
-  message(STATUS "[MLT] No FastPFOR support")
-  return()
-endif(NOT MLT_WITH_FASTPFOR)
+add_library(fastpfor-lib STATIC
+    "${PROJECT_SOURCE_DIR}/vendor/fastpfor/fastpfor/bitpacking.cpp"
+)
 
-message(STATUS "[MLT] Including FastPFOR support")
-
-# The fastpfor gtest targets conflict with ours
-set(FASTPFOR_WITH_TEST OFF CACHE BOOL "Disable tests in FastPFor" FORCE)
-
-add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/fastpfor" "${CMAKE_CURRENT_BINARY_DIR}/fastpfor" EXCLUDE_FROM_ALL SYSTEM)
-
-# Disable all warnings for FastPFOR
-if(MSVC)
-    target_compile_options(FastPFOR PRIVATE /w)
-else()
-    target_compile_options(FastPFOR PRIVATE -w)
-endif()
-
-target_link_libraries(mlt-cpp FastPFOR)
-target_include_directories(mlt-cpp PRIVATE SYSTEM "${PROJECT_SOURCE_DIR}/vendor/fastpfor/headers")
-target_compile_definitions(mlt-cpp PUBLIC MLT_WITH_FASTPFOR=1)
-if(MLT_WITH_FASTPFOR_SIMD)
-    target_compile_definitions(mlt-cpp PUBLIC MLT_WITH_FASTPFOR_SIMD=1)
-endif(MLT_WITH_FASTPFOR_SIMD)
-list(APPEND MLT_EXPORT_TARGETS FastPFOR)
+target_include_directories(fastpfor-lib SYSTEM PUBLIC
+    "${PROJECT_SOURCE_DIR}/vendor/fastpfor"
+)

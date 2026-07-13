@@ -303,6 +303,15 @@ describe("decodeUnsignedConstInt32Stream", () => {
         expect(result).toBe(0xffffffff);
     });
 
+    it("should ZigZag-decode a single DELTA-encoded value", () => {
+        const metadata = createStreamMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.NONE, 1);
+        const data = encodeUnsignedInt32Stream(new Uint32Array([4]), metadata);
+
+        const result = decodeUnsignedConstInt32Stream(data, new IntWrapper(0), metadata);
+
+        expect(result).toBe(4);
+    });
+
     it("should throw for unsupported technique", () => {
         const metadata = createStreamMetadata(LogicalLevelTechnique.PDE, LogicalLevelTechnique.NONE, 3);
         const offset = new IntWrapper(0);
@@ -654,6 +663,15 @@ describe("decodeInt64Stream", () => {
             const result = decodeUnsignedConstInt64Stream(data, new IntWrapper(0), metadata);
 
             expect(result).toBe(0xffffffffffffffffn);
+        });
+
+        it("should ZigZag-decode a single DELTA-encoded unsigned const Int64", () => {
+            const metadata = createStreamMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.NONE, 1);
+            const data = encodeVarintInt64(new BigUint64Array([encodeZigZagInt64Value(4n)]));
+
+            const result = decodeUnsignedConstInt64Stream(data, new IntWrapper(0), metadata);
+
+            expect(result).toBe(4n);
         });
 
         it("should decode NONE signed with all non-null values", () => {

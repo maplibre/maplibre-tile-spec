@@ -1,5 +1,6 @@
 use fsst::Compressor;
 use integer_encoding::VarIntWriter as _;
+use usize_cast::IntoUsize as _;
 
 use super::model::StagedStrings;
 use crate::MltResult;
@@ -9,7 +10,7 @@ use crate::decoder::{DictionaryType, LengthType, OffsetType, StreamMeta, StreamT
 use crate::encoder::model::{StrEncoding, StreamCtx};
 use crate::encoder::stream::{dedup_strings, write_stream_payload};
 use crate::encoder::{Codecs, Encoder};
-use crate::utils::{AsUsize as _, strings_to_lengths};
+use crate::utils::strings_to_lengths;
 
 /// Minimum total raw byte size of a column before attempting FSST compression.
 const FSST_OVERHEAD_THRESHOLD: usize = 2_048;
@@ -59,6 +60,27 @@ pub(crate) fn fsst_try_train(strings: &[&str]) -> Option<Compressor> {
     }
 }
 
+impl Encoder {
+    /// The FSST compressor for a column corpus.
+    /// Trained and cached under `key` on first use, then reused across sort trials.
+    ///
+    /// Returns `None` when FSST is disabled via [`EncoderConfig::allow_fsst`].
+    /// Also returns `None` when [`fsst_try_train`] finds it not worthwhile for `corpus`.
+    /// This is the single gate for FSST in the auto path.
+    /// Explicit encodings bypass it.
+    ///
+    /// [`EncoderConfig::allow_fsst`]: crate::encoder::EncoderConfig::allow_fsst
+    pub(crate) fn fsst_compressor(&mut self, key: &str, corpus: &[&str]) -> Option<&Compressor> {
+        if !self.config().allow_fsst() {
+            return None;
+        }
+        self.fsst_cache
+            .entry(key.to_owned())
+            .or_insert_with(|| fsst_try_train(corpus))
+            .as_ref()
+    }
+}
+
 impl Codecs {
     /// Encode a string column, following the same explicit-or-auto pattern as numeric columns.
     ///
@@ -85,19 +107,15 @@ impl Codecs {
             // Dedup once; reused by Dict and FSST+Dict alternatives.
             let (unique, offset_indices) = dedup_strings(&non_null)?;
 
-            // Train on deduplicated values once; cached across sort trials.
-            let compressor = enc
-                .fsst_cache
-                .entry(name.clone())
-                .or_insert_with(|| fsst_try_train(&unique));
+            // Train or reuse the cached FSST compressor for this column.
+            // `None` when FSST is disabled or not worthwhile, so only Plain and Dict compete.
+            let compressor = enc.fsst_compressor(name, &unique);
 
             // Pre-compute compressed data while cache is accessible (before try_alternatives
             // borrows enc). The FsstRawData is owned, so the cache borrow ends here.
             let count = non_null.len();
-            let plain_fsst = compressor
-                .as_ref()
-                .map(|c| compress_fsst_with(&non_null, c));
-            let dict_fsst = compressor.as_ref().map(|c| compress_fsst_with(&unique, c));
+            let plain_fsst = compressor.map(|c| compress_fsst_with(&non_null, c));
+            let dict_fsst = compressor.map(|c| compress_fsst_with(&unique, c));
 
             let mut alt = enc.try_alternatives();
             alt.with(|enc| write_str_plain(&non_null, presence, name, enc, self))?;
@@ -267,11 +285,11 @@ pub fn write_fsst_data(
     codecs.write_int_stream(&raw.symbol_lengths, &ctx, enc)?;
     let typ = StreamType::Data(DictionaryType::Fsst);
     let meta = StreamMeta::new_none(typ, raw.symbol_lengths.len())?;
-    write_stream_payload(&mut enc.data, meta, false, &raw.symbol_bytes)?;
+    write_stream_payload(enc.data_mut(), meta, false, &raw.symbol_bytes)?;
     let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), name);
     codecs.write_int_stream(&raw.value_lengths, &ctx, enc)?;
     let meta = StreamMeta::new_none(StreamType::Data(dict_type), raw.value_lengths.len())?;
-    write_stream_payload(&mut enc.data, meta, false, &raw.corpus)?;
+    write_stream_payload(enc.data_mut(), meta, false, &raw.corpus)?;
     Ok(())
 }
 
@@ -286,9 +304,9 @@ pub fn write_raw_str_data(
     let typ = StreamType::Data(dict_type);
     let meta = StreamMeta::new_none(typ, strings.len())?;
     meta.write_to(enc, false, u32::try_from(total_len)?)?;
-    enc.data.reserve(total_len);
+    enc.data_mut().reserve(total_len);
     for s in strings {
-        enc.data.extend_from_slice(s.as_bytes());
+        enc.data_mut().extend_from_slice(s.as_bytes());
     }
     Ok(())
 }
@@ -377,7 +395,7 @@ impl StagedStrings {
         for &end in &self.lengths {
             if end >= 0 {
                 let end = end.cast_unsigned();
-                values.push(&self.data[start.as_usize()..end.as_usize()]);
+                values.push(&self.data[start.into_usize()..end.into_usize()]);
                 start = end;
             } else {
                 start = (!end).cast_unsigned();

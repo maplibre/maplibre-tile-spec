@@ -1,9 +1,9 @@
 #pragma once
 
 #include <mlt/common.hpp>
+#include <mlt/geometry.hpp>
 #include <mlt/tile.hpp>
 #include <mlt/util/noncopyable.hpp>
-#include <mlt/geometry.hpp>
 
 #include <memory>
 

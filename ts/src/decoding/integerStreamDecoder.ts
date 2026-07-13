@@ -122,6 +122,9 @@ export function decodeUnsignedConstInt32Stream(
     const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
 
     if (values.length === 1) {
+        if (streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.DELTA) {
+            return decodeZigZagInt32Value(values[0]);
+        }
         return values[0];
     }
 
@@ -206,6 +209,9 @@ export function decodeUnsignedConstInt64Stream(
     const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
 
     if (values.length === 1) {
+        if (streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.DELTA) {
+            return decodeZigZagInt64Value(values[0]);
+        }
         return values[0];
     }
 

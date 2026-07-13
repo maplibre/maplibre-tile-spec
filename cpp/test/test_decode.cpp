@@ -3,15 +3,20 @@
 #include <mlt/decoder.hpp>
 #include <mlt/geometry.hpp>
 #include <mlt/metadata/tileset.hpp>
+#include <mlt/tile.hpp>
 #include <mlt/util/buffer_stream.hpp>
-#include <mlt/projection.hpp>
 
 #include <cstdlib>
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <regex>
 #include <string>
+#include <system_error>
+#include <utility>
+#include <vector>
 
 using namespace std::string_literals;
 using namespace std::string_view_literals;
@@ -19,6 +24,8 @@ using namespace std::string_view_literals;
 #if MLT_WITH_JSON
 #include <mlt/json.hpp>
 #include <mlt/util/json_diff.hpp>
+
+#include <nlohmann/json_fwd.hpp>
 #endif
 
 namespace {
@@ -57,6 +64,7 @@ bool writeFile(const std::filesystem::path& path, const std::string& data) {
     return false;
 }
 
+// NOLINTNEXTLINE(bugprone-throwing-static-initialization)
 const auto basePath = std::filesystem::path("../test/expected/tag0x01");
 
 #if MLT_WITH_JSON
@@ -116,6 +124,13 @@ TEST(Decode, SimplePointBoolean) {
 
     const auto& feature = mltLayer->getFeatures().front();
     EXPECT_EQ(feature.getID(), 1);
+}
+
+TEST(Decode, RejectsEmptyLayerName) {
+    const std::string metadata{"\0\x80\x20\0", 4};
+    auto stream = mlt::BufferStream({metadata.data(), metadata.size()});
+
+    EXPECT_THROW(mlt::metadata::tileset::decodeFeatureTable(stream), std::runtime_error);
 }
 
 TEST(Decode, SimpleLineBoolean) {

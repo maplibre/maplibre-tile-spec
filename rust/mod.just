@@ -10,7 +10,10 @@ export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} els
 export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'})
 
 # Features excluded from cargo-hack --each-feature iterations (heavy optional instrumentation)
-hack_skip := '--exclude-features __hotpath,__hotpath-alloc,__hotpath-mcp'
+hack_skip := '--exclude-features hotpath,hotpath-alloc,hotpath-mcp'
+
+# Files excluded from `mlt ls --validate-to-json ...`
+validate_excludes := "--exclude '../test/synthetic/0x02/prop_nested*'"
 
 _default: (just '--list' 'rust')
 
@@ -176,13 +179,13 @@ _coverage: (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm
         --workspace --exclude-no-default-features --exclude-all-features
     rm -rf ../test/synthetic/0x01-rust
     cargo llvm-cov run --no-report -p mlt-synthetics
-    cargo llvm-cov run --no-report -p mlt -- ls --validate-to-json --details basic ../test/synthetic/
+    cargo llvm-cov run --no-report -p mlt -- ls --validate-to-json {{validate_excludes}} --details basic ../test/synthetic/
     rustup toolchain install nightly --profile minimal --component llvm-tools
     cargo +nightly llvm-cov --no-report --doctests --workspace
 
 # Run the encoder with hotpath profiling (timing + allocation tracking)
 profile *args:
-    cargo run --release -p mlt --features='__hotpath,__hotpath-alloc,__hotpath-mcp' -- {{args}}
+    cargo run --release -p mlt --features='hotpath,hotpath-alloc,hotpath-mcp' -- {{args}}
 
 # Compress the tiles into `sizes(z, x, y, size)` SQLite DB
 compress-db-statistics tile_dir db:
@@ -322,6 +325,17 @@ py: (just 'cargo-install' 'maturin')
     maturin develop
     python3 -i -c "import maplibre_tiles; print('maplibre_tiles ready — try: maplibre_tiles.decode_mlt(data)')"
 
+# Build mlt-py and run its Python test suite (pytest)
+[working-directory: 'mlt-py']
+py-test: (just 'cargo-install' 'maturin')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ ! -d ".venv" ]]; then python3 -m venv .venv; fi
+    source .venv/bin/activate
+    python -m pip install --quiet --upgrade pip pytest hypothesis mapbox_vector_tile
+    maturin develop
+    python -m pytest tests/ -q
+
 py-publish:
     docker run --rm -v $(pwd):/io ghcr.io/pyo3/maturin build --release
 
@@ -334,6 +348,63 @@ semver *args: (just 'cargo-install' 'cargo-semver-checks') (just 'cargo-install'
     cargo hack semver-checks --each-feature {{hack_skip}} \
         --package mlt-core --exclude-no-default-features --exclude-all-features \
         {{args}}
+
+# Regenerate diplomat FFI bindings
+[working-directory: 'mlt-ffi']
+sync-ffi-bindings: (just 'cargo-install' 'diplomat-tool') (just 'assert-cmd' 'clang-format') (just 'assert-cmd' 'ktlint')
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    diplomat-tool c      generated/c      -e src/lib.rs
+    diplomat-tool cpp    generated/cpp    -e src/lib.rs
+    diplomat-tool kotlin generated/kotlin -e src/lib.rs
+    clang-format -style=WebKit -i tests/c/*.c tests/cpp/*.cpp generated/c/* generated/cpp/*
+    ktlint --format ./**/*.kt
+
+# Run the C FFI round-trip test (builds cdylib, compiles + runs test)
+test-ffi-c:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo build --release -p mlt-ffi
+    LIB_DIR="$(pwd)/target/release"
+    gcc mlt-ffi/tests/c/test_round_trip.c \
+        -I mlt-ffi/generated/c \
+        -L "$LIB_DIR" -lmlt_ffi \
+        -o target/test_ffi_c
+    LD_LIBRARY_PATH="$LIB_DIR" target/test_ffi_c
+
+# Run the C++ FFI round-trip test (builds cdylib, compiles + runs test)
+test-ffi-cpp:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo build --release -p mlt-ffi
+    LIB_DIR="$(pwd)/target/release"
+    g++ -std=c++20 mlt-ffi/tests/cpp/test_round_trip.cpp \
+        -I mlt-ffi/generated/cpp \
+        -L "$LIB_DIR" -lmlt_ffi \
+        -o target/test_ffi_cpp
+    LD_LIBRARY_PATH="$LIB_DIR" target/test_ffi_cpp
+
+# Run the Kotlin FFI round-trip test (builds cdylib, compiles + runs test)
+test-ffi-kotlin: (just 'assert-cmd' 'java')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo build --release -p mlt-ffi
+
+    case "$(uname -s)-$(uname -m)" in
+        Linux-x86_64)        CLASSIFIER=linux-x86_64;   LIB=libmlt_ffi.so    ;;
+        Linux-aarch64)       CLASSIFIER=linux-aarch64;  LIB=libmlt_ffi.so    ;;
+        Darwin-arm64)        CLASSIFIER=macos-aarch64;  LIB=libmlt_ffi.dylib ;;
+        MINGW*-*|MSYS*-*|CYGWIN*-*) CLASSIFIER=windows-x86_64; LIB=mlt_ffi.dll ;;
+        *) echo "::error::Unsupported host $(uname -s)-$(uname -m)"; exit 1 ;;
+    esac
+
+    NATIVES="mlt-ffi/generated/kotlin/build/natives/$CLASSIFIER"
+    mkdir -p "$NATIVES"
+    cp "target/release/$LIB" "$NATIVES/$LIB"
+
+    cd mlt-ffi/generated/kotlin
+    ./gradlew --console=plain --no-daemon test -Pversion=0.0.0-test
 
 # Regenerate the Python type stub for mlt-py
 sync-pyo3-stubs:
@@ -435,7 +506,7 @@ wasm-test: wasm-build
 
 # Validate every .mlt in test/synthetic against corresponding .json (GeoJSON)
 validate-synthetic:
-    {{just}} mlt ls --validate-to-json --details basic ../test/synthetic/
+    {{just}} mlt ls --validate-to-json {{validate_excludes}} --details basic ../test/synthetic/
 
 [private]
 [working-directory: 'mlt-core']

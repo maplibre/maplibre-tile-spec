@@ -550,7 +550,7 @@ impl MbtilesState {
             let Some(MbtTileData::Loaded { geo_index, .. }) = self.tiles.get(&src_key) else {
                 continue;
             };
-            for e in geo_index.nearest_neighbor_iter(&pt) {
+            for e in geo_index.nearest_neighbor_iter(pt) {
                 let d = e.distance_2(&pt);
                 if d > thresh_sq {
                     break;

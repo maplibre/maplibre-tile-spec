@@ -3,6 +3,8 @@ package org.maplibre.mlt.data.unsigned;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -78,6 +80,12 @@ class UnsignedTest {
   }
 
   @Test
+  void testU8BigIntValue() {
+    assertEquals(BigInteger.ZERO, U8.of(0).bigIntValue());
+    assertEquals(BigInteger.valueOf(255), U8.of(255).bigIntValue());
+  }
+
+  @Test
   void testU32OfValidValues() {
     // Test boundary values
     final var u32Zero = U32.of(0);
@@ -143,6 +151,12 @@ class UnsignedTest {
   }
 
   @Test
+  void testU32BigIntValue() {
+    assertEquals(BigInteger.ZERO, U32.of(0).bigIntValue());
+    assertEquals(BigInteger.valueOf(0xFFFFFFFFL), U32.of(0xFFFFFFFFL).bigIntValue());
+  }
+
+  @Test
   void testU32ByteValueReturnsNullWhenOutOfRange() {
     final var u32InRange = U32.of(100);
     assertNotNull(u32InRange.byteValue(), "U32 with value in byte range should return non-null");
@@ -169,6 +183,30 @@ class UnsignedTest {
 
     final var u64Max = U64.of(new BigInteger("18446744073709551615")); // 2^64 - 1
     assertEquals(-1L, u64Max.longValue()); // -1 in signed long representation
+  }
+
+  @Test
+  void testU64OfLong() {
+    final var u64Zero = U64.of(0L);
+    assertEquals(0L, u64Zero.longValue());
+    assertEquals(BigInteger.ZERO, u64Zero.bigIntValue());
+
+    final var u64MaxLong = U64.of(Long.MAX_VALUE);
+    assertEquals(Long.MAX_VALUE, u64MaxLong.longValue());
+    assertEquals(BigInteger.valueOf(Long.MAX_VALUE), u64MaxLong.bigIntValue());
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> U64.of(-1L),
+        "U64.of(long) should reject negative values");
+  }
+
+  @Test
+  void testU64OfU32() {
+    final var u32Max = U32.of(0xFFFFFFFFL);
+    final var u64FromU32Max = U64.of(u32Max);
+    assertEquals(0xFFFFFFFFL, u64FromU32Max.longValue());
+    assertEquals(BigInteger.valueOf(0xFFFFFFFFL), u64FromU32Max.bigIntValue());
   }
 
   @Test
@@ -221,6 +259,17 @@ class UnsignedTest {
     final var u64 = U64.of(BigInteger.valueOf(1000000L));
     assertTrue(u64 instanceof Unsigned, "U64 should implement Unsigned");
     assertNotNull(u64.longValue());
+  }
+
+  @Test
+  void testU64BigIntValue() {
+    assertEquals(BigInteger.ZERO, U64.of(BigInteger.ZERO).bigIntValue());
+    assertEquals(
+        new BigInteger("9223372036854775808"),
+        U64.of(new BigInteger("9223372036854775808")).bigIntValue());
+    assertEquals(
+        new BigInteger("18446744073709551615"),
+        U64.of(new BigInteger("18446744073709551615")).bigIntValue());
   }
 
   @Test
@@ -281,5 +330,39 @@ class UnsignedTest {
     assertEquals((byte) -1, u8.byteValue()); // Signed byte representation
     assertEquals(255, u8.intValue()); // Unsigned int value
     assertEquals(255L, u8.longValue()); // Unsigned long value
+  }
+
+  @Test
+  void testUnsignedComparableOrdersByUnsignedMagnitude() {
+    final var values =
+        new ArrayList<Unsigned>(
+            List.of(
+                U64.of(new BigInteger("18446744073709551615")), // max u64
+                U8.of(255),
+                U32.of(1),
+                U8.of(1),
+                U64.of(BigInteger.ZERO),
+                U32.of(4294967295L)));
+
+    values.sort(null);
+
+    assertEquals(U64.of(BigInteger.ZERO), values.get(0));
+    assertEquals(U8.of(1), values.get(1));
+    assertEquals(U32.of(1), values.get(2));
+    assertEquals(U8.of(255), values.get(3));
+    assertEquals(U32.of(4294967295L), values.get(4));
+    assertEquals(U64.of(new BigInteger("18446744073709551615")), values.get(5));
+  }
+
+  @Test
+  void testUnsignedComparableUsesTypeTieBreakForEqualNumericValues() {
+    final var oneAsU8 = U8.of(1);
+    final var oneAsU32 = U32.of(1L);
+    final var oneAsU64 = U64.of(BigInteger.ONE);
+
+    assertTrue(oneAsU8.compareTo(oneAsU32) < 0);
+    assertTrue(oneAsU32.compareTo(oneAsU64) < 0);
+    assertTrue(oneAsU8.compareTo(oneAsU64) < 0);
+    assertNotEquals(0, oneAsU8.compareTo(oneAsU32));
   }
 }

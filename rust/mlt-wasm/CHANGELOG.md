@@ -7,6 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.17](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.16...rust-mlt-wasm-v0.1.17) - 2026-07-01
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.16](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.15...rust-mlt-wasm-v0.1.16) - 2026-06-29
+
+### Added
+
+- *(java)* Nested property values ([#1379](https://github.com/maplibre/maplibre-tile-spec/pull/1379))
+
+### Other
+
+- *(deps-dev)* bump protocol-buffers-schema from 3.6.0 to 3.6.1 in /rust/mlt-wasm ([#1478](https://github.com/maplibre/maplibre-tile-spec/pull/1478))
+- *(deps-dev)* bump postcss from 8.5.8 to 8.5.16 in /rust/mlt-wasm ([#1477](https://github.com/maplibre/maplibre-tile-spec/pull/1477))
+
+## [0.1.15](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.14...rust-mlt-wasm-v0.1.15) - 2026-06-20
+
+### Other
+
+- make sure that marked-failing synthetics actually fail ([#1451](https://github.com/maplibre/maplibre-tile-spec/pull/1451))
+- *(deps)* bump fast-mvt from 0.3.2 to 0.4.0 in /rust in the all-cargo-version-updates group ([#1452](https://github.com/maplibre/maplibre-tile-spec/pull/1452))
+
+## [0.1.14](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.13...rust-mlt-wasm-v0.1.14) - 2026-06-19
+
+### Other
+
+- *(rust)* rm pub fields, builder pattern ([#1428](https://github.com/maplibre/maplibre-tile-spec/pull/1428))
+
+## [0.1.13](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.12...rust-mlt-wasm-v0.1.13) - 2026-06-18
+
+### Other
+
+- *(deps-dev)* bump flatted from 3.3.3 to 3.4.2 in /ts in the all-npm-security-updates group across 1 directory ([#1184](https://github.com/maplibre/maplibre-tile-spec/pull/1184))
+- *(deps-dev)* bump vite from 7.3.1 to 7.3.5 in /rust/mlt-wasm ([#1441](https://github.com/maplibre/maplibre-tile-spec/pull/1441))
+
+## [0.1.12](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.11...rust-mlt-wasm-v0.1.12) - 2026-06-15
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.11](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.10...rust-mlt-wasm-v0.1.11) - 2026-06-13
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.10](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.9...rust-mlt-wasm-v0.1.10) - 2026-06-08
+
+### Other
+
+- *(deps-dev)* bump vitest, @vitest/coverage-v8 and @vitest/ui in /rust/mlt-wasm ([#1426](https://github.com/maplibre/maplibre-tile-spec/pull/1426))
+
+## [0.1.9](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.8...rust-mlt-wasm-v0.1.9) - 2026-05-15
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.8](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.7...rust-mlt-wasm-v0.1.8) - 2026-05-14
+
+### Other
+
+- updated the following local packages: mlt-core
+
 ## [0.1.7](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.6...rust-mlt-wasm-v0.1.7) - 2026-05-05
 
 ### Other
