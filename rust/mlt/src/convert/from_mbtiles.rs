@@ -9,7 +9,7 @@ use futures::StreamExt;
 use martin_tile_utils::{Encoding, Format};
 use mbtiles::{MbtType, Mbtiles, MbtilesTranscoder, Metadata};
 use mlt_core::encoder::EncoderConfig;
-use pmtiles::{PmTilesWriter, TileCoord, TileType, Compression};
+use pmtiles::{Compression, PmTilesWriter, TileCoord, TileType};
 use size_format::SizeFormatterSI;
 use usize_cast::FromUsize as _;
 
@@ -17,9 +17,7 @@ use super::common::{
     ENCODE_CACHE_BYTES, EncodedTile, MAX_TILE_CACHE_TRACK_SIZE_BYTES, TileStats, encode_tile,
     make_encode_cache, make_progress_bar,
 };
-use super::{
-    ContainerFormat, MbtFormat, encode_one, update_mlt_pmtiles_metadata,
-};
+use super::{ContainerFormat, MbtFormat, encode_one, update_mlt_pmtiles_metadata};
 
 /// Re-encode an `.mbtiles` input (MVT) into the requested container.
 pub async fn convert(
