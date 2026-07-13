@@ -9,18 +9,15 @@ The `mlt` binary provides several commands for working with MLT files:
 * **`convert`** - Convert MVT or MLT tile files and MVT `.mbtiles`/`.pmtiles` archives to MLT
 * **`ui`** - Interactive terminal visualizer for MLT files
 
-### PMTiles conversion
+### Format conversion
 
-Convert an MVT PMTiles archive to MLT while gzip-compressing each output tile payload:
+Convert an MVT archive or files to MLT:
 
 ```bash
-cargo run --release -p mlt -- \
-  convert input.mvt.pmtiles output.mlt.pmtiles \
-  --tile-compression gzip
+mlt convert input.mvt.pmtiles output.mlt.pmtiles
 ```
 
-The conversion summary compares unique, decompressed tile payloads with the
-complete archive sizes. For example:
+The conversion summary reports unique, decompressed tile payloads as such:
 
 ```text
 input.mvt.pmtiles -> output.mlt.pmtiles (pmtiles):
