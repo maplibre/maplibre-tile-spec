@@ -130,20 +130,11 @@ pub(super) enum PmtilesTileCompression {
     Gzip,
 }
 
-impl PmtilesTileCompression {
-    fn resolve(self, source_encoding: Encoding) -> AnyResult<Compression> {
-        match self {
-            Self::None => Ok(Compression::None),
-            Self::Gzip => Ok(Compression::Gzip),
-            Self::Auto => match source_encoding {
-                Encoding::Uncompressed | Encoding::Internal => Ok(Compression::None),
-                Encoding::Gzip => Ok(Compression::Gzip),
-                Encoding::Brotli => Ok(Compression::Brotli),
-                Encoding::Zstd => Ok(Compression::Zstd),
-                Encoding::Zlib => bail!(
-                    "PMTiles does not support zlib tile compression; use --tile-compression gzip or none"
-                ),
-            },
+impl From<PmtilesTileCompression> for Compression {
+    fn from(comp: PmtilesTileCompression) -> Compression {
+        match comp {
+            PmtilesTileCompression::None => Ok(Compression::None),
+            PmtilesTileCompression::Gzip => Ok(Compression::Gzip),
         }
     }
 }
