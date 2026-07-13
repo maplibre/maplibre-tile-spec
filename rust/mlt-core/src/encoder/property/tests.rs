@@ -1305,17 +1305,22 @@ fn high_cardinality_digit_columns_not_grouped() {
         .map(|i| PropValue::Str(Some(format!("{},{}", 200_000 + i, 300_000 + i))))
         .collect();
     let col_c: Vec<PropValue> = (0..n)
-        .map(|i| PropValue::Str(Some(format!(
-            "{}:{}|{}:{}",
-            200_000 + i,
-            4 + i,
-            300_000 + i,
-            8 + i
-        ))))
+        .map(|i| {
+            PropValue::Str(Some(format!(
+                "{}:{}|{}:{}",
+                200_000 + i,
+                4 + i,
+                300_000 + i,
+                8 + i
+            )))
+        })
         .collect();
 
-    let tile =
-        tile_from_cols(&[("@id", col_a), ("relation_ids", col_b), ("relation_data", col_c)]);
+    let tile = tile_from_cols(&[
+        ("@id", col_a),
+        ("relation_ids", col_b),
+        ("relation_data", col_c),
+    ]);
     let res = tile.analyze(true).unwrap();
 
     for (idx, prop) in res.properties.iter().enumerate() {
