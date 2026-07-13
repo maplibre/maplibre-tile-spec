@@ -28,12 +28,11 @@ const MINHASH_PERMUTATIONS: usize = 128;
 /// grouped into a single shared dictionary.
 const MINHASH_SIMILARITY_THRESHOLD: f64 = 0.075;
 
-/// Groups whose sum of per-column unique-corpus bytes exceeds this are
-/// validated via [`group_is_beneficial`]; smaller groups are kept unconditionally.
+/// Groups whose sum of per-column unique-corpus bytes exceeds this are validated via [`group_is_beneficial`].
+/// Smaller groups are kept unconditionally.
 const VALIDATE_CORPUS_THRESHOLD: usize = 100_000;
 
-/// Minimum dedup ratio (`1 − union/sum_individual`) for a validated group to
-/// be retained.
+/// Minimum dedup ratio (`1 − union/sum_individual`) for a validated group to be retained.
 const MIN_DEDUP_RATIO: f64 = 0.05;
 
 struct StringProfile<'a> {
