@@ -41,13 +41,13 @@ pub fn make_encode_cache() -> EncodeCache {
         .build_with_hasher(Xxh3Builder::default())
 }
 
-/// Encode one source tile MVT → MLT, deduplicating through `cache`.
+/// Encode one source tile MVT -> MLT, deduplicating through `cache`.
 ///
-/// Only small tiles (ocean, empty land, ...) actually repeat across a tileset;
-/// big city tiles are essentially unique, so tiles over
-/// [`MAX_TILE_CACHE_TRACK_SIZE_BYTES`] skip the cache (any rare repeat still
-/// dedups when the container is written). Returns the encoded bytes, the raw
-/// MVT size, and whether the result came from the cache.
+/// Returns the encoded bytes, the raw MVT size, and whether the result came from the cache.
+///
+/// Only small tiles (ocean, empty land, ...) actually repeat across a tileset.
+/// Big city tiles are essentially unique, so tiles over [`MAX_TILE_CACHE_TRACK_SIZE_BYTES`] skip the cache.
+/// Any rare repeat still dedups when the container is written.
 pub fn encode_tile(
     cache: &EncodeCache,
     data: &[u8],

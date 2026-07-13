@@ -122,7 +122,7 @@ enum SortMode {
 }
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, ValueEnum)]
-pub(super) enum PmtilesTileCompression {
+pub(super) enum TileCompression {
     /// Store MLT tile payloads without outer compression
     #[default]
     None,
@@ -130,11 +130,11 @@ pub(super) enum PmtilesTileCompression {
     Gzip,
 }
 
-impl From<PmtilesTileCompression> for Compression {
-    fn from(comp: PmtilesTileCompression) -> Compression {
+impl From<TileCompression> for Compression {
+    fn from(comp: TileCompression) -> Compression {
         match comp {
-            PmtilesTileCompression::None => Ok(Compression::None),
-            PmtilesTileCompression::Gzip => Ok(Compression::Gzip),
+            TileCompression::None => Ok(Compression::None),
+            TileCompression::Gzip => Ok(Compression::Gzip),
         }
     }
 }
@@ -191,9 +191,9 @@ pub struct ConvertArgs {
     /// Output tile format (`mlt` re-encodes; `mvt` decodes MLT inputs back to MVT)
     #[clap(long, default_value = "mlt")]
     to: TileFormat,
-    /// Outer compression for tile payloads written to a `.pmtiles` output
-    #[clap(long, value_enum, default_value = "auto")]
-    tile_compression: PmtilesTileCompression,
+    /// Outer compression for tile payloads
+    #[clap(long, value_enum, default_value = "none")]
+    tile_compression: TileCompression,
 }
 
 impl ConvertArgs {
@@ -224,11 +224,11 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     let output_container = args.output_container();
     let has_archive_input =
         input_container == ContainerFormat::Mbtiles || input_container == ContainerFormat::Pmtiles;
-    if args.tile_compression != PmtilesTileCompression::Auto
+    if args.tile_compression != TileCompression::None
         && (!has_archive_input || output_container != ContainerFormat::Pmtiles)
     {
         bail!(
-            "--tile-compression is only supported when converting .mbtiles or .pmtiles input to .pmtiles output"
+            "--tile-compression is currently only supported when converting .mbtiles or .pmtiles input to .pmtiles output"
         );
     }
     if has_archive_input {
@@ -261,7 +261,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
                 &args.input,
                 output,
                 cfg,
-                args.tile_compression,
+                args.tile_compression.into(),
             )),
             // mbtiles is the only other container possible here.
             _ => runtime.block_on(from_mbtiles::convert(
@@ -269,7 +269,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
                 output,
                 cfg,
                 args.mbtiles_format,
-                args.tile_compression,
+                args.tile_compression.into(),
             )),
         };
     }
@@ -368,42 +368,6 @@ fn convert_buffer(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn auto_pmtiles_compression_preserves_supported_input_compression() {
-        assert_eq!(
-            PmtilesTileCompression::Auto
-                .resolve(Encoding::Gzip)
-                .unwrap(),
-            Compression::Gzip
-        );
-        assert_eq!(
-            PmtilesTileCompression::Auto
-                .resolve(Encoding::Uncompressed)
-                .unwrap(),
-            Compression::None
-        );
-        assert_eq!(
-            PmtilesTileCompression::Auto
-                .resolve(Encoding::Brotli)
-                .unwrap(),
-            Compression::Brotli
-        );
-        assert_eq!(
-            PmtilesTileCompression::Auto
-                .resolve(Encoding::Zstd)
-                .unwrap(),
-            Compression::Zstd
-        );
-    }
-
-    #[test]
-    fn auto_pmtiles_compression_rejects_zlib() {
-        let error = PmtilesTileCompression::Auto
-            .resolve(Encoding::Zlib)
-            .unwrap_err();
-        assert!(error.to_string().contains("PMTiles does not support zlib"));
-    }
 
     #[test]
     fn pmtiles_metadata_tracks_tile_compression() {

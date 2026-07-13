@@ -9,7 +9,7 @@ use futures::StreamExt;
 use martin_tile_utils::{Encoding, Format};
 use mbtiles::{MbtType, Mbtiles, MbtilesTranscoder, Metadata};
 use mlt_core::encoder::EncoderConfig;
-use pmtiles::{PmTilesWriter, TileCoord, TileType};
+use pmtiles::{PmTilesWriter, TileCoord, TileType, Compression};
 use size_format::SizeFormatterSI;
 use usize_cast::FromUsize as _;
 
@@ -18,7 +18,7 @@ use super::common::{
     make_encode_cache, make_progress_bar,
 };
 use super::{
-    ContainerFormat, MbtFormat, PmtilesTileCompression, encode_one, update_mlt_pmtiles_metadata,
+    ContainerFormat, MbtFormat, encode_one, update_mlt_pmtiles_metadata,
 };
 
 /// Re-encode an `.mbtiles` input (MVT) into the requested container.
@@ -27,7 +27,7 @@ pub async fn convert(
     output: (&Path, ContainerFormat),
     cfg: EncoderConfig,
     mbtiles_format: Option<MbtFormat>,
-    tile_compression: PmtilesTileCompression,
+    tile_compression: Compression,
 ) -> AnyResult<()> {
     match output {
         (output, ContainerFormat::Mbtiles) => {
@@ -151,11 +151,10 @@ async fn convert_mbtiles_to_pmtiles(
     input: &Path,
     output: &Path,
     cfg: EncoderConfig,
-    tile_compression: PmtilesTileCompression,
+    tile_compression: Compression,
 ) -> AnyResult<()> {
     // FIXME: add a fastpath for normalised schemas. We don't need to cache them
     let (encoding, _, metadata, total) = get_metadata(input).await?;
-    let tile_compression = tile_compression.resolve(encoding)?;
     let input_archive_size = std::fs::metadata(input)?.len();
 
     eprintln!("{} -> {} (pmtiles):", input.display(), output.display());

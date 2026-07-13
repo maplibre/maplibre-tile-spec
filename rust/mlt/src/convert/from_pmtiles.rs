@@ -17,14 +17,14 @@ use pmtiles::{
 use super::common::{
     EncodeCache, EncodedTile, TileStats, encode_tile, make_encode_cache, make_progress_bar,
 };
-use super::{ContainerFormat, PmtilesTileCompression, update_mlt_pmtiles_metadata};
+use super::{ContainerFormat, update_mlt_pmtiles_metadata};
 
 /// Re-encode a `.pmtiles` input (MVT) into the requested container.
 pub async fn convert(
     input: &Path,
     output: (&Path, ContainerFormat),
     cfg: EncoderConfig,
-    tile_compression: PmtilesTileCompression,
+    tile_compression: Compression,
 ) -> AnyResult<()> {
     match output {
         (output, ContainerFormat::Pmtiles) => {
@@ -270,10 +270,9 @@ async fn convert_pmtiles_to_pmtiles(
     input: &Path,
     output: &Path,
     cfg: EncoderConfig,
-    tile_compression: PmtilesTileCompression,
+    tile_compression: Compression,
 ) -> AnyResult<()> {
     let (reader, encoding) = open_mvt_pmtiles(input).await?;
-    let tile_compression = tile_compression.resolve(encoding)?;
     let ids = collect_pmtiles_ids(&reader).await?;
     let input_archive_size = std::fs::metadata(input)?.len();
 
@@ -364,7 +363,7 @@ mod tests {
             &input,
             &output.0,
             EncoderConfig::default(),
-            PmtilesTileCompression::Gzip,
+            Compression::Gzip,
         )
         .await
         .expect("conversion succeeds");
