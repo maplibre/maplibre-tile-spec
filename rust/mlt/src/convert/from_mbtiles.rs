@@ -14,10 +14,20 @@ use size_format::SizeFormatterSI;
 use usize_cast::FromUsize as _;
 
 use super::common::{
-    ENCODE_CACHE_BYTES, EncodedTile, MAX_TILE_CACHE_TRACK_SIZE_BYTES, TileStats, encode_tile,
-    make_encode_cache, make_progress_bar,
+    ENCODE_CACHE_BYTES, EncodedTile, MAX_TILE_CACHE_TRACK_SIZE_BYTES, PmTilesGeography, TileStats,
+    encode_tile, make_encode_cache, make_progress_bar,
 };
 use super::{ContainerFormat, MbtFormat, encode_one};
+
+fn geography_from_metadata(metadata: &Metadata) -> PmTilesGeography {
+    let tilejson = &metadata.tilejson;
+    PmTilesGeography {
+        min_zoom: tilejson.minzoom,
+        max_zoom: tilejson.maxzoom,
+        bounds: tilejson.bounds.map(|v| (v.left, v.bottom, v.right, v.top)),
+        center: tilejson.center.map(|v| (v.longitude, v.latitude, v.zoom)),
+    }
+}
 
 /// Re-encode an `.mbtiles` input (MVT) into the requested container.
 pub async fn convert(
@@ -154,13 +164,15 @@ async fn convert_mbtiles_to_pmtiles(
     let start = Instant::now();
     let bar = make_progress_bar(total);
 
+    let geography = geography_from_metadata(&metadata);
     metadata.tilejson.other.insert(
         "format".into(),
         serde_json::Value::String(Format::Mlt.metadata_format_value().into()),
     );
     let file = std::fs::File::create(output)?;
     let metadata_str = serde_json::to_string(&metadata.tilejson)?;
-    let mut stream_writer = PmTilesWriter::new(TileType::Mlt)
+    let mut stream_writer = geography
+        .apply(PmTilesWriter::new(TileType::Mlt))
         .metadata(&metadata_str)
         .create(file)?;
 
@@ -218,4 +230,38 @@ async fn convert_mbtiles_to_pmtiles(
     stats.print_summary(start);
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reads_pmtiles_geography_from_mbtiles_metadata() {
+        let metadata = Metadata {
+            id: "test".into(),
+            layer_type: None,
+            tilejson: serde_json::from_value(serde_json::json!({
+                "tilejson": "3.0.0",
+                "tiles": [],
+                "minzoom": 3,
+                "maxzoom": 12,
+                "bounds": [-12.345_678_9, -67.890_123_4, 98.765_432_1, 54.321_098_7],
+                "center": [11.223_344_5, -44.556_677_8, 8]
+            }))
+            .expect("parse TileJSON metadata"),
+            json: None,
+            agg_tiles_hash: None,
+        };
+
+        assert_eq!(
+            geography_from_metadata(&metadata),
+            PmTilesGeography {
+                min_zoom: Some(3),
+                max_zoom: Some(12),
+                bounds: Some((-12.345_678_9, -67.890_123_4, 98.765_432_1, 54.321_098_7)),
+                center: Some((11.223_344_5, -44.556_677_8, 8)),
+            }
+        );
+    }
 }
