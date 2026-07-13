@@ -47,8 +47,7 @@ pub fn make_encode_cache() -> EncodeCache {
 /// big city tiles are essentially unique, so tiles over
 /// [`MAX_TILE_CACHE_TRACK_SIZE_BYTES`] skip the cache (any rare repeat still
 /// dedups when the container is written). Returns the encoded bytes, the raw
-/// MVT size, and whether the result came from the cache. Mirrors `files.rs` and
-/// the mbtiles transcoder.
+/// MVT size, and whether the result came from the cache.
 pub fn encode_tile(
     cache: &EncodeCache,
     data: &[u8],
