@@ -123,16 +123,10 @@ enum SortMode {
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, ValueEnum)]
 pub(super) enum PmtilesTileCompression {
-    /// Preserve PMTiles-compatible input compression (default).
-    ///
-    /// Auto may retain Brotli or Zstandard when the source already uses it,
-    /// but they are intentionally not explicit options because common web
-    /// `PMTiles` clients require custom decompression support for those codecs.
-    #[default]
-    Auto,
     /// Store MLT tile payloads without outer compression
+    #[default]
     None,
-    /// Gzip-compress each MLT tile payload
+    /// Gzip-compress each MLT tile payload for size, sacrificing decoding speed
     Gzip,
 }
 
