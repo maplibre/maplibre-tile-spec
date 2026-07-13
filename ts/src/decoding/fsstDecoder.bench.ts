@@ -15,7 +15,7 @@ const phrases = [
 const { symbols, symbolLengths } = createSymbolTable(phrases);
 const original = textEncoder.encode(phrases.join("").repeat(25_000));
 const compressed = encodeFsst(symbols, symbolLengths, original);
-let checksum = 0;
+let _checksum = 0;
 
 function referenceDecodeFsst(): Uint8Array {
     const decoded: number[] = [];
@@ -42,7 +42,7 @@ describe(`FSST ${compressed.length} compressed bytes to ${original.length} decod
     bench(
         "reference whole dictionary",
         () => {
-            checksum += referenceDecodeFsst().length;
+            _checksum += referenceDecodeFsst().length;
         },
         options,
     );
@@ -50,7 +50,7 @@ describe(`FSST ${compressed.length} compressed bytes to ${original.length} decod
     bench(
         "optimized whole dictionary",
         () => {
-            checksum += decodeFsst(symbols, symbolLengths, compressed).length;
+            _checksum += decodeFsst(symbols, symbolLengths, compressed).length;
         },
         options,
     );
@@ -59,7 +59,7 @@ describe(`FSST ${compressed.length} compressed bytes to ${original.length} decod
         "one sparse range",
         () => {
             const decoder = new FsstDecoder(symbols, symbolLengths, compressed);
-            checksum += decoder.decodeRange(original.length / 2, original.length / 2 + 32).length;
+            _checksum += decoder.decodeRange(original.length / 2, original.length / 2 + 32).length;
         },
         options,
     );
@@ -70,7 +70,7 @@ describe(`FSST ${compressed.length} compressed bytes to ${original.length} decod
             const decoder = new FsstDecoder(symbols, symbolLengths, compressed);
             for (let i = 1; i <= 10; i++) {
                 const start = Math.floor((original.length * i) / 11);
-                checksum += decoder.decodeRange(start, start + 32).length;
+                _checksum += decoder.decodeRange(start, start + 32).length;
             }
         },
         options,
