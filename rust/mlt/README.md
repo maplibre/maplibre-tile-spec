@@ -19,11 +19,6 @@ cargo run --release -p mlt -- \
   --tile-compression gzip
 ```
 
-The default is `--tile-compression auto`, which preserves gzip, Brotli,
-Zstandard, and uncompressed input. PMTiles does not support zlib compression,
-so zlib input requires an explicit `gzip` or `none` override. Non-auto values
-are only accepted when the output path has a `.pmtiles` extension.
-
 The conversion summary compares unique, decompressed tile payloads with the
 complete archive sizes. For example:
 
