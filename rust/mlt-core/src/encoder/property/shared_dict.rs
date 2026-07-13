@@ -28,9 +28,19 @@ const MINHASH_PERMUTATIONS: usize = 128;
 /// grouped into a single shared dictionary.
 const MINHASH_SIMILARITY_THRESHOLD: f64 = 0.075;
 
+/// Groups whose sum of per-column unique-corpus bytes exceeds this are
+/// validated via [`group_is_beneficial`]; smaller groups are kept unconditionally.
+const VALIDATE_CORPUS_THRESHOLD: usize = 100_000;
+
+/// Minimum dedup ratio (`1 − union/sum_individual`) for a validated group to
+/// be retained.
+const MIN_DEDUP_RATIO: f64 = 0.05;
+
 struct StringProfile<'a> {
     col_idx: usize,
     name: &'a str,
+    /// Sorted, deduplicated values for [`group_is_beneficial`].
+    unique_values: Vec<&'a str>,
     /// `MinHash` over exact string values.
     exact_hashes: Vec<u64>,
     /// `MinHash` over byte trigrams (empty when all strings are shorter than 3 bytes).
@@ -61,7 +71,7 @@ impl TileLayer {
             .iter()
             .enumerate()
             .filter_map(|(col_idx, name)| {
-                let vals: Vec<&str> = self
+                let mut vals: Vec<&str> = self
                     .features()
                     .iter()
                     .filter_map(|f| match f.properties().get(col_idx) {
@@ -72,6 +82,8 @@ impl TileLayer {
                 if vals.is_empty() {
                     return None;
                 }
+                vals.sort_unstable();
+                vals.dedup();
                 let exact_hashes = exact_mh.get_min_hashes(vals.iter().copied());
                 let trigrams: Vec<[u8; 3]> = vals
                     .iter()
@@ -85,6 +97,7 @@ impl TileLayer {
                 Some(StringProfile {
                     col_idx,
                     name,
+                    unique_values: vals,
                     exact_hashes,
                     trigram_hashes,
                 })
@@ -120,6 +133,34 @@ fn minhash_similarity(a: &[u64], b: &[u64]) -> f64 {
     matches as f64 / a.len() as f64
 }
 
+/// Check whether a proposed shared-dictionary group has enough cross-column
+/// value deduplication to justify the combined dictionary.
+///
+/// Groups below [`VALIDATE_CORPUS_THRESHOLD`] are always kept. Larger groups
+/// must achieve at least [`MIN_DEDUP_RATIO`] dedup savings.
+#[allow(clippy::cast_precision_loss)]
+fn group_is_beneficial(group: &[StringProfile<'_>]) -> bool {
+    let sum_individual: usize = group
+        .iter()
+        .map(|p| p.unique_values.iter().map(|s| s.len()).sum::<usize>())
+        .sum();
+
+    if sum_individual <= VALIDATE_CORPUS_THRESHOLD {
+        return true;
+    }
+
+    let mut all_values: Vec<&str> = group
+        .iter()
+        .flat_map(|p| p.unique_values.iter().copied())
+        .collect();
+    all_values.sort_unstable();
+    all_values.dedup();
+    let union_bytes: usize = all_values.iter().map(|s| s.len()).sum();
+
+    let dedup_savings = sum_individual.saturating_sub(union_bytes);
+    dedup_savings as f64 / sum_individual as f64 >= MIN_DEDUP_RATIO
+}
+
 fn cluster_by_similarity(profiles: Vec<StringProfile<'_>>) -> Vec<Vec<StringProfile<'_>>> {
     if profiles.is_empty() {
         return Vec::new();
@@ -146,7 +187,7 @@ fn cluster_by_similarity(profiles: Vec<StringProfile<'_>>) -> Vec<Vec<StringProf
     let mut groups: Vec<Vec<StringProfile<'_>>> = groups_map
         .into_values()
         .filter_map(|mut v| {
-            if v.len() >= 2 {
+            if v.len() >= 2 && group_is_beneficial(&v) {
                 v.sort_unstable_by_key(|p| p.col_idx);
                 Some(v)
             } else {

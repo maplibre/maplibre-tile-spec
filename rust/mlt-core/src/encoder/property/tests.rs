@@ -1296,6 +1296,71 @@ fn mixed_scalars_and_grouped_strings() {
 }
 
 #[test]
+fn high_cardinality_digit_columns_not_grouped() {
+    let n = 5000;
+    let col_a: Vec<PropValue> = (0..n)
+        .map(|i| PropValue::Str(Some(format!("way/{}", 100_000 + i))))
+        .collect();
+    let col_b: Vec<PropValue> = (0..n)
+        .map(|i| PropValue::Str(Some(format!("{},{}", 200_000 + i, 300_000 + i))))
+        .collect();
+    let col_c: Vec<PropValue> = (0..n)
+        .map(|i| PropValue::Str(Some(format!(
+            "{}:{}|{}:{}",
+            200_000 + i,
+            4 + i,
+            300_000 + i,
+            8 + i
+        ))))
+        .collect();
+
+    let tile =
+        tile_from_cols(&[("@id", col_a), ("relation_ids", col_b), ("relation_data", col_c)]);
+    let res = tile.analyze(true).unwrap();
+
+    for (idx, prop) in res.properties.iter().enumerate() {
+        assert_eq!(
+            prop.stats.shared_dict(),
+            SharedDictRole::None,
+            "column {idx} should not be in a shared dict"
+        );
+    }
+}
+
+#[test]
+fn overlapping_name_columns_stay_grouped() {
+    let n = 500;
+    let shared_names: Vec<String> = (0..n).map(|i| format!("Place_{i}")).collect();
+    let col_name: Vec<PropValue> = shared_names
+        .iter()
+        .map(|s| PropValue::Str(Some(s.clone())))
+        .collect();
+    let col_en: Vec<PropValue> = shared_names
+        .iter()
+        .enumerate()
+        .map(|(i, s)| {
+            if i % 10 == 0 {
+                PropValue::Str(Some(format!("{s} (EN)")))
+            } else {
+                PropValue::Str(Some(s.clone()))
+            }
+        })
+        .collect();
+
+    let tile = tile_from_cols(&[("name", col_name), ("name:en", col_en)]);
+    let res = tile.analyze(true).unwrap();
+
+    assert_eq!(
+        res.properties[0].stats.shared_dict(),
+        SharedDictRole::Owner("name".to_string())
+    );
+    assert_eq!(
+        res.properties[1].stats.shared_dict(),
+        SharedDictRole::Member(0)
+    );
+}
+
+#[test]
 fn encode_with_explicit_encoder_works() {
     let props = vec![StagedProperty::u32("id", (1_000u32..2_000).collect())];
     let mut enc = Encoder::default();
