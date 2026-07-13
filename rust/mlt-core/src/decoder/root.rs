@@ -241,10 +241,7 @@ impl MemBudget {
     fn consume(&mut self, size: u32) -> MltResult<()> {
         let accumulator = &mut self.bytes_used;
         let max_bytes = self.max_bytes;
-        if let Some(new_value) = accumulator
-            .checked_add(size)
-            .and_then(|v| if v > max_bytes { None } else { Some(v) })
-        {
+        if let Some(new_value) = accumulator.checked_add(size).filter(|&v| v <= max_bytes) {
             *accumulator = new_value;
             Ok(())
         } else {
