@@ -41,4 +41,4 @@ test: install
 
 # Run benchmark
 bench: install
-    echo "TODO: Add js benchmark command"
+    npm run bench
