@@ -131,10 +131,10 @@ pub(super) enum TileCompression {
 }
 
 impl From<TileCompression> for Compression {
-    fn from(comp: TileCompression) -> Compression {
+    fn from(comp: TileCompression) -> Self {
         match comp {
-            TileCompression::None => Ok(Compression::None),
-            TileCompression::Gzip => Ok(Compression::Gzip),
+            TileCompression::None => Self::None,
+            TileCompression::Gzip => Self::Gzip,
         }
     }
 }
