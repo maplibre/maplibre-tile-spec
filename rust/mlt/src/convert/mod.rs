@@ -9,11 +9,12 @@ use anyhow::{Result as AnyResult, bail};
 use bytes::Bytes;
 use clap::{Args, ValueEnum};
 use indicatif::ProgressState;
-use martin_tile_utils::{Encoding, decode_brotli, decode_gzip, decode_zlib, decode_zstd};
+use martin_tile_utils::{Encoding, Format, decode_brotli, decode_gzip, decode_zlib, decode_zstd};
 use mbtiles::{MbtType, NormalizedSchema};
 use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig};
 use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::{Decoder, Layer, Parser};
+use pmtiles::Compression;
 
 #[expect(
     clippy::cast_possible_truncation,
@@ -120,6 +121,45 @@ enum SortMode {
     Id,
 }
 
+#[derive(Clone, Copy, Default, Eq, PartialEq, ValueEnum)]
+pub(super) enum TileCompression {
+    /// Store MLT tile payloads without outer compression
+    #[default]
+    None,
+    /// Gzip-compress each MLT tile payload for size, sacrificing decoding speed
+    Gzip,
+}
+
+impl From<TileCompression> for Compression {
+    fn from(comp: TileCompression) -> Self {
+        match comp {
+            TileCompression::None => Self::None,
+            TileCompression::Gzip => Self::Gzip,
+        }
+    }
+}
+
+fn update_mlt_pmtiles_metadata(
+    metadata: &mut serde_json::Map<String, serde_json::Value>,
+    tile_compression: Compression,
+) {
+    metadata.insert(
+        "format".into(),
+        serde_json::Value::String(Format::Mlt.metadata_format_value().into()),
+    );
+    match tile_compression.content_encoding() {
+        Some(compression) => {
+            metadata.insert(
+                "compression".into(),
+                serde_json::Value::String(compression.into()),
+            );
+        }
+        None => {
+            metadata.remove("compression");
+        }
+    }
+}
+
 #[derive(Args)]
 #[expect(
     clippy::struct_excessive_bools,
@@ -151,6 +191,9 @@ pub struct ConvertArgs {
     /// Output tile format (`mlt` re-encodes; `mvt` decodes MLT inputs back to MVT)
     #[clap(long, default_value = "mlt")]
     to: TileFormat,
+    /// Outer compression for tile payloads
+    #[clap(long, value_enum, default_value = "none")]
+    tile_compression: TileCompression,
 }
 
 impl ConvertArgs {
@@ -178,13 +221,23 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         .with_fsst(!args.no_fsst);
 
     let input_container = args.input_container();
-    if input_container == ContainerFormat::Mbtiles || input_container == ContainerFormat::Pmtiles {
+    let output_container = args.output_container();
+    let has_archive_input =
+        input_container == ContainerFormat::Mbtiles || input_container == ContainerFormat::Pmtiles;
+    if args.tile_compression != TileCompression::None
+        && (!has_archive_input || output_container != ContainerFormat::Pmtiles)
+    {
+        bail!(
+            "--tile-compression is currently only supported when converting .mbtiles or .pmtiles input to .pmtiles output"
+        );
+    }
+    if has_archive_input {
         if args.to == TileFormat::Mvt {
             bail!(
                 "--to mvt is not supported for .mbtiles/.pmtiles input/output yet; convert to a directory instead"
             );
         }
-        if args.output_container() == ContainerFormat::Files {
+        if output_container == ContainerFormat::Files {
             bail!(
                 "Output must be either an .mbtiles or a .pmtiles file when input is an .mbtiles/.pmtiles file, got: {}",
                 args.output.display()
@@ -202,17 +255,21 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
             .enable_io()
             .enable_time()
             .build()?;
-        let output = (args.output.as_path(), args.output_container());
+        let output = (args.output.as_path(), output_container);
         return match input_container {
-            ContainerFormat::Pmtiles => {
-                runtime.block_on(from_pmtiles::convert(&args.input, output, cfg))
-            }
+            ContainerFormat::Pmtiles => runtime.block_on(from_pmtiles::convert(
+                &args.input,
+                output,
+                cfg,
+                args.tile_compression.into(),
+            )),
             // mbtiles is the only other container possible here.
             _ => runtime.block_on(from_mbtiles::convert(
                 &args.input,
                 output,
                 cfg,
                 args.mbtiles_format,
+                args.tile_compression.into(),
             )),
         };
     }
@@ -277,7 +334,7 @@ fn mlt_buffer_to_tile_layers(buffer: &[u8]) -> AnyResult<Vec<mlt_core::TileLayer
     Ok(tiles)
 }
 
-fn encode_one(data: Vec<u8>, encoding: Encoding, cfg: EncoderConfig) -> AnyResult<Bytes> {
+fn encode_one(data: Vec<u8>, encoding: Encoding, cfg: EncoderConfig) -> AnyResult<(Bytes, u64)> {
     let mvt = match encoding {
         Encoding::Gzip => decode_gzip(&data)?,
         Encoding::Zlib => decode_zlib(&data)?,
@@ -285,7 +342,8 @@ fn encode_one(data: Vec<u8>, encoding: Encoding, cfg: EncoderConfig) -> AnyResul
         Encoding::Zstd => decode_zstd(&data)?,
         Encoding::Uncompressed | Encoding::Internal => data,
     };
-    convert_mvt_buffer(mvt, cfg).map(Bytes::from_owner)
+    let raw_mvt_size = mvt.len() as u64;
+    convert_mvt_buffer(mvt, cfg).map(|data| (Bytes::from_owner(data), raw_mvt_size))
 }
 
 /// Convert one input buffer to the requested target format.
@@ -304,5 +362,29 @@ fn convert_buffer(
         // Re-encoding through TileLayer is lossy (e.g. SInt vs Int wire choice)
         // and offers no benefit.
         (TileFormat::Mvt, TileFormat::Mvt) => Ok(buffer),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pmtiles_metadata_tracks_tile_compression() {
+        let mut metadata = serde_json::Map::from_iter([
+            ("format".into(), serde_json::Value::String("pbf".into())),
+            (
+                "compression".into(),
+                serde_json::Value::String("gzip".into()),
+            ),
+        ]);
+
+        update_mlt_pmtiles_metadata(&mut metadata, Compression::None);
+        assert_eq!(metadata["format"], "mlt");
+        assert!(!metadata.contains_key("compression"));
+
+        update_mlt_pmtiles_metadata(&mut metadata, Compression::Gzip);
+        assert_eq!(metadata["format"], "mlt");
+        assert_eq!(metadata["compression"], "gzip");
     }
 }

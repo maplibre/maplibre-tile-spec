@@ -25,11 +25,11 @@ pub fn tile_layers_to_mvt(layers: Vec<TileLayer>) -> MltResult<Vec<u8>> {
                     feature.tag(name, value)?;
                 }
             }
-            mvt_layer = feature.finish();
+            mvt_layer = feature.end();
         }
-        tile = mvt_layer.finish();
+        tile = mvt_layer.end();
     }
-    Ok(tile.finish())
+    Ok(tile.encode())
 }
 
 impl TryFrom<PropValue> for MvtValue {
