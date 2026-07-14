@@ -7,27 +7,30 @@ use std::time::Instant;
 use anyhow::{Result as AnyResult, bail};
 use bytes::Bytes;
 use futures::TryStreamExt;
-use martin_tile_utils::{Encoding, Format};
+use martin_tile_utils::Encoding;
 use mlt_core::encoder::EncoderConfig;
 use pmtiles::{
     AsyncPmTilesReader, Compression, HashMapCache, Header, MmapBackend, PmTilesWriter, TileCoord,
     TileId, TileType,
 };
 
-use super::ContainerFormat;
 use super::common::{
     EncodeCache, EncodedTile, PmTilesGeography, TileStats, encode_tile, make_encode_cache,
     make_progress_bar,
 };
+use super::{ContainerFormat, update_mlt_pmtiles_metadata};
 
 /// Re-encode a `.pmtiles` input (MVT) into the requested container.
 pub async fn convert(
     input: &Path,
     output: (&Path, ContainerFormat),
     cfg: EncoderConfig,
+    tile_compression: Compression,
 ) -> AnyResult<()> {
     match output {
-        (output, ContainerFormat::Pmtiles) => convert_pmtiles_to_pmtiles(input, output, cfg).await,
+        (output, ContainerFormat::Pmtiles) => {
+            convert_pmtiles_to_pmtiles(input, output, cfg, tile_compression).await
+        }
         (output, _) => bail!(
             "Output must be a .pmtiles file when input is a .pmtiles file, got: {}",
             output.display()
@@ -52,15 +55,12 @@ fn compression_to_encoding(compression: Compression) -> AnyResult<Encoding> {
     }
 }
 
-/// Copy the source metadata JSON, overriding `format` to MLT.
-fn mlt_pmtiles_metadata(metadata: &str) -> AnyResult<String> {
+/// Copy the source metadata JSON, overriding the MLT format and outer compression.
+fn mlt_pmtiles_metadata(metadata: &str, tile_compression: Compression) -> AnyResult<String> {
     let mut value: serde_json::Value =
         serde_json::from_str(metadata).unwrap_or_else(|_| serde_json::json!({}));
     if let Some(obj) = value.as_object_mut() {
-        obj.insert(
-            "format".into(),
-            serde_json::Value::String(Format::Mlt.metadata_format_value().into()),
-        );
+        update_mlt_pmtiles_metadata(obj, tile_compression);
     }
     Ok(serde_json::to_string(&value)?)
 }
@@ -222,19 +222,19 @@ fn spawn_encode_pipeline(
                 let cache = cache.clone();
                 thread::spawn(move || {
                     for (seq, coord, data) in raw_rx {
-                        let bytes_in = data.len() as u64;
-                        let result =
-                            encode_tile(&cache, &data, encoding, cfg).map(|(data, hit)| {
+                        let result = encode_tile(&cache, &data, encoding, cfg).map(
+                            |(data, raw_mvt_size, hit)| {
                                 (
                                     seq,
                                     EncodedTile {
                                         coord,
                                         data,
-                                        bytes_in,
+                                        raw_mvt_size,
                                         hit,
                                     },
                                 )
-                            });
+                            },
+                        );
                         if res_tx.send(result).is_err() {
                             break; // emitter gone
                         }
@@ -289,18 +289,21 @@ async fn convert_pmtiles_to_pmtiles(
     input: &Path,
     output: &Path,
     cfg: EncoderConfig,
+    tile_compression: Compression,
 ) -> AnyResult<()> {
     let (reader, encoding) = open_mvt_pmtiles(input).await?;
     let ids = collect_pmtiles_ids(&reader).await?;
+    let input_archive_size = std::fs::metadata(input)?.len();
 
     eprintln!("{} -> {} (pmtiles):", input.display(), output.display());
     let start = Instant::now();
     let bar = make_progress_bar(ids.len() as u64);
 
-    let metadata_str = mlt_pmtiles_metadata(&reader.get_metadata().await?)?;
+    let metadata_str = mlt_pmtiles_metadata(&reader.get_metadata().await?, tile_compression)?;
     let file = std::fs::File::create(output)?;
     let mut writer = geography_from_header(reader.get_header())
         .apply(PmTilesWriter::new(TileType::Mlt))
+        .tile_compression(tile_compression)
         .metadata(&metadata_str)
         .create(file)?;
 
@@ -316,11 +319,11 @@ async fn convert_pmtiles_to_pmtiles(
         let EncodedTile {
             coord,
             data,
-            bytes_in,
+            raw_mvt_size,
             hit,
         } = tile?;
         writer.add_tile(coord, &data)?;
-        stats.record(data.len() as u64, bytes_in, hit);
+        stats.record(data.len() as u64, raw_mvt_size, hit);
         bar.inc(1);
         done += 1;
         if log_progress && done.is_multiple_of(PROGRESS_LOG_EVERY) {
@@ -328,15 +331,26 @@ async fn convert_pmtiles_to_pmtiles(
         }
     }
     writer.finalize()?;
+    let output_archive_size = std::fs::metadata(output)?.len();
     bar.finish_and_clear();
-    stats.print_summary(start);
+    stats.print_summary(
+        start,
+        input_archive_size,
+        output_archive_size,
+        encoding,
+        tile_compression,
+    );
 
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
     use std::io::Cursor;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    use mlt_core::Parser;
 
     use super::*;
 
@@ -390,5 +404,77 @@ mod tests {
         assert_eq!(source.tile_compression, Compression::Gzip);
         assert_eq!(output.tile_compression, Compression::None);
         assert_eq!(output.tile_type, TileType::Mlt);
+    }
+
+    static NEXT_OUTPUT_ID: AtomicU64 = AtomicU64::new(0);
+
+    struct TempOutput(std::path::PathBuf);
+
+    impl TempOutput {
+        fn new() -> Self {
+            let id = NEXT_OUTPUT_ID.fetch_add(1, Ordering::Relaxed);
+            Self(std::env::temp_dir().join(format!(
+                "mlt-convert-test-{}-{id}.pmtiles",
+                std::process::id()
+            )))
+        }
+    }
+
+    impl Drop for TempOutput {
+        fn drop(&mut self) {
+            let _ = fs::remove_file(&self.0);
+        }
+    }
+
+    #[tokio::test]
+    async fn writes_gzip_compressed_mlt_pmtiles() {
+        let input = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/omt-planet-20260112.mvt.max1.pmtiles");
+        let output = TempOutput::new();
+
+        convert_pmtiles_to_pmtiles(
+            &input,
+            &output.0,
+            EncoderConfig::default(),
+            Compression::Gzip,
+        )
+        .await
+        .expect("conversion succeeds");
+
+        let reader = Arc::new(
+            PmReader::new_with_cached_path(HashMapCache::default(), &output.0)
+                .await
+                .expect("output opens"),
+        );
+        assert_eq!(reader.get_header().tile_type, TileType::Mlt);
+        assert_eq!(reader.get_header().tile_compression, Compression::Gzip);
+
+        let metadata: serde_json::Value =
+            serde_json::from_str(&reader.get_metadata().await.expect("metadata reads"))
+                .expect("metadata is JSON");
+        assert_eq!(metadata["format"], "mlt");
+        assert_eq!(metadata["compression"], "gzip");
+
+        let tile_ids = collect_pmtiles_ids(&reader)
+            .await
+            .expect("tile directory reads");
+        let raw_tile = reader
+            .get_tile(tile_ids[0])
+            .await
+            .expect("tile reads")
+            .expect("tile exists");
+        assert_eq!(&raw_tile[..2], &[0x1f, 0x8b]);
+
+        let tile = reader
+            .get_tile_decompressed(tile_ids[0])
+            .await
+            .expect("tile decompresses")
+            .expect("tile exists");
+        assert!(
+            !Parser::default()
+                .parse_layers(&tile)
+                .expect("decompressed MLT tile parses")
+                .is_empty()
+        );
     }
 }
