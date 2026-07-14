@@ -10,13 +10,14 @@ use futures::TryStreamExt;
 use martin_tile_utils::{Encoding, Format};
 use mlt_core::encoder::EncoderConfig;
 use pmtiles::{
-    AsyncPmTilesReader, Compression, HashMapCache, MmapBackend, PmTilesWriter, TileCoord, TileId,
-    TileType,
+    AsyncPmTilesReader, Compression, HashMapCache, Header, MmapBackend, PmTilesWriter, TileCoord,
+    TileId, TileType,
 };
 
 use super::ContainerFormat;
 use super::common::{
-    EncodeCache, EncodedTile, TileStats, encode_tile, make_encode_cache, make_progress_bar,
+    EncodeCache, EncodedTile, PmTilesGeography, TileStats, encode_tile, make_encode_cache,
+    make_progress_bar,
 };
 
 /// Re-encode a `.pmtiles` input (MVT) into the requested container.
@@ -62,6 +63,24 @@ fn mlt_pmtiles_metadata(metadata: &str) -> AnyResult<String> {
         );
     }
     Ok(serde_json::to_string(&value)?)
+}
+
+fn geography_from_header(source: &Header) -> PmTilesGeography {
+    PmTilesGeography {
+        min_zoom: Some(source.min_zoom),
+        max_zoom: Some(source.max_zoom),
+        bounds: Some((
+            source.min_longitude,
+            source.min_latitude,
+            source.max_longitude,
+            source.max_latitude,
+        )),
+        center: Some((
+            source.center_longitude,
+            source.center_latitude,
+            source.center_zoom,
+        )),
+    }
 }
 
 /// Open a local `.pmtiles`, require MVT tiles, and report its tile [`Encoding`].
@@ -280,7 +299,8 @@ async fn convert_pmtiles_to_pmtiles(
 
     let metadata_str = mlt_pmtiles_metadata(&reader.get_metadata().await?)?;
     let file = std::fs::File::create(output)?;
-    let mut writer = PmTilesWriter::new(TileType::Mlt)
+    let mut writer = geography_from_header(reader.get_header())
+        .apply(PmTilesWriter::new(TileType::Mlt))
         .metadata(&metadata_str)
         .create(file)?;
 
@@ -312,4 +332,63 @@ async fn convert_pmtiles_to_pmtiles(
     stats.print_summary(start);
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Cursor;
+
+    use super::*;
+
+    const HEADER_SIZE: usize = 127;
+
+    fn write_header(writer: PmTilesWriter) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        writer
+            .create(Cursor::new(&mut bytes))
+            .expect("create PMTiles writer")
+            .finalize()
+            .expect("finalize PMTiles writer");
+        bytes
+    }
+
+    fn parse_header(bytes: &[u8]) -> Header {
+        Header::try_from_bytes(Bytes::copy_from_slice(&bytes[..HEADER_SIZE]))
+            .expect("parse PMTiles header")
+    }
+
+    #[test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "header floats round-trip losslessly through the writer"
+    )]
+    fn copies_geographic_header_without_copying_content_encoding() {
+        let source = write_header(
+            PmTilesWriter::new(TileType::Mvt)
+                .min_zoom(3)
+                .max_zoom(12)
+                .bounds(-12.345_678_9, -67.890_123_4, 98.765_432_1, 54.321_098_7)
+                .center_zoom(8)
+                .center(11.223_344_5, -44.556_677_8),
+        );
+        let source = parse_header(&source);
+
+        let output =
+            write_header(geography_from_header(&source).apply(PmTilesWriter::new(TileType::Mlt)));
+        let output = parse_header(&output);
+
+        assert_eq!(output.min_zoom, source.min_zoom);
+        assert_eq!(output.max_zoom, source.max_zoom);
+        assert_eq!(output.min_longitude, source.min_longitude);
+        assert_eq!(output.min_latitude, source.min_latitude);
+        assert_eq!(output.max_longitude, source.max_longitude);
+        assert_eq!(output.max_latitude, source.max_latitude);
+        assert_eq!(output.center_zoom, source.center_zoom);
+        assert_eq!(output.center_longitude, source.center_longitude);
+        assert_eq!(output.center_latitude, source.center_latitude);
+
+        assert_eq!(source.tile_compression, Compression::Gzip);
+        assert_eq!(output.tile_compression, Compression::None);
+        assert_eq!(output.tile_type, TileType::Mlt);
+    }
 }

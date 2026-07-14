@@ -6,11 +6,42 @@ use indicatif::{ProgressBar, ProgressStyle};
 use martin_tile_utils::Encoding;
 use mlt_core::encoder::EncoderConfig;
 use moka::sync::Cache;
-use pmtiles::TileCoord;
+use pmtiles::{PmTilesWriter, TileCoord};
 use size_format::SizeFormatterSI;
 use xxhash_rust::xxh3::Xxh3Builder;
 
 use super::{encode_one, whole_rate_per_sec};
+
+/// Geographic fields that can be carried into a new `PMTiles` archive.
+///
+/// Optional fields support metadata sources such as `MBTiles`, where individual
+/// values may be absent. Unspecified values retain the writer's defaults.
+#[derive(Debug, Default, PartialEq)]
+pub struct PmTilesGeography {
+    pub min_zoom: Option<u8>,
+    pub max_zoom: Option<u8>,
+    pub bounds: Option<(f64, f64, f64, f64)>,
+    pub center: Option<(f64, f64, u8)>,
+}
+
+impl PmTilesGeography {
+    #[must_use]
+    pub fn apply(self, mut writer: PmTilesWriter) -> PmTilesWriter {
+        if let Some(min_zoom) = self.min_zoom {
+            writer = writer.min_zoom(min_zoom);
+        }
+        if let Some(max_zoom) = self.max_zoom {
+            writer = writer.max_zoom(max_zoom);
+        }
+        if let Some((min_lon, min_lat, max_lon, max_lat)) = self.bounds {
+            writer = writer.bounds(min_lon, min_lat, max_lon, max_lat);
+        }
+        if let Some((longitude, latitude, zoom)) = self.center {
+            writer = writer.center_zoom(zoom).center(longitude, latitude);
+        }
+        writer
+    }
+}
 
 /// Cap on the encoding cache (which encoded `Bytes` to keep around).
 pub const ENCODE_CACHE_BYTES: u64 = 512 * 1024 * 1024;
