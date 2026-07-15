@@ -1005,8 +1005,8 @@ If included, it should be a u64 or narrower integer type (u32 if possible) for M
 A narrower type enables the use of efficient encodings like FastPfor128.</p>
 <h3 id="geometry-column">Geometry Column<a class="headerlink" href="#geometry-column" title="Link to this section">&para;</a></h3>
 <p>The geometry column uses a Structure of Arrays (SoA) layout (data-oriented design).
-The <code>x</code>, <code>y</code>, and optional <code>z</code> coordinates are stored interleaved in a <code>VertexBuffer</code> for efficient CPU processing and direct copying to GPU buffers.
-If the <code>z</code> coordinate is not needed for rendering, it can be stored separately as an <code>M-value</code> (see vertex-scoped properties).</p>
+The <code>x</code>, <code>y</code> coordinates are stored interleaved in a <code>VertexBuffer</code> for efficient CPU processing and direct copying to GPU buffers.</p>
+<p><span class="experimental"></span> Optional <code>z</code> could be interleaved together with <code>x</code>,<code>y</code>, or if it is not needed for rendering, it can be stored separately as an <code>M-value</code> (see vertex-scoped properties).</p>
 <p>The geometry information is separated into different streams, partly inspired by the <a href="https://github.com/geoarrow/geoarrow">geoarrow</a> specification.
 This separation enables better compression optimization and faster processing.
 Pre-tessellated polygon meshes can also be stored directly to avoid runtime triangulation.</p>
