@@ -23,6 +23,7 @@ import java.util.stream.StreamSupport;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryCollection;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.LinearRing;
@@ -39,6 +40,7 @@ import org.maplibre.mlt.converter.geometry.SpaceFillingCurve;
 import org.maplibre.mlt.converter.geometry.Vertex;
 import org.maplibre.mlt.converter.geometry.ZOrderCurve;
 import org.maplibre.mlt.converter.tessellation.TessellationUtils;
+import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.metadata.stream.DictionaryType;
 import org.maplibre.mlt.metadata.stream.LengthType;
 import org.maplibre.mlt.metadata.stream.LogicalLevelTechnique;
@@ -364,6 +366,21 @@ public class GeometryEncoder {
             vertexBuffer.add(new Vertex((int) point.getX(), (int) point.getY()));
           }
         }
+        case GeometryCollection geometryCollection -> {
+            final var nestedGeometries = IntStream.range(0, geometryCollection.getNumGeometries())
+                            .mapToObj(geometryCollection::getGeometryN)
+                                    .toList();
+            prepareGeometry(
+                nestedGeometries,
+                numGeometries,
+                geometryTypes,
+                vertexBuffer,
+                numParts,
+                numRings,
+                numTriangles,
+                indexBuffer,
+                tessellateSource);
+        }
         default ->
             throw new IllegalArgumentException(
                 "Specified geometry type is not (yet) supported: " + geometry.getGeometryType());
@@ -633,5 +650,24 @@ public class GeometryEncoder {
 
     result.add(encodedValues);
     return result;
+  }
+
+  public static boolean hasGeometry(@Nullable Feature feature) {
+    return (feature != null) && hasGeometry(feature.getGeometry());
+  }
+  public static boolean hasGeometry(@Nullable Geometry geometry) {
+    return switch (geometry) {
+      case Point ignored -> true;
+      case LineString lineString -> !lineString.isEmpty();
+      case Polygon polygon -> !polygon.isEmpty();
+      case MultiLineString multiLineString -> !multiLineString.isEmpty();
+      case MultiPolygon multiPolygon -> !multiPolygon.isEmpty();
+      case MultiPoint multiPoint -> !multiPoint.isEmpty();
+      case GeometryCollection geometryCollection ->
+        IntStream.range(0, geometryCollection.getNumGeometries())
+                .mapToObj(geometryCollection::getGeometryN)
+                .anyMatch(GeometryEncoder::hasGeometry);
+        case null, default -> false;
+    };
   }
 }
