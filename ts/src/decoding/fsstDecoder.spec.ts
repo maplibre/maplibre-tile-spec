@@ -42,6 +42,14 @@ describe("decodeFsst", () => {
             expect(new TextDecoder().decode(decoded)).toBe(inputString);
         });
 
+        it("should handle consecutive escaped bytes", () => {
+            const symbols = new Uint8Array([65]);
+            const symbolLengths = new Uint32Array([1]);
+            const encoded = new Uint8Array([255, 1, 255, 2, 0, 255, 3]);
+
+            expect(decodeFsst(symbols, symbolLengths, encoded)).toEqual(new Uint8Array([1, 2, 65, 3]));
+        });
+
         it("should handle string with all matching symbols", () => {
             const inputString = "AAAA";
             const originalBytes = textEncoder.encode(inputString);
