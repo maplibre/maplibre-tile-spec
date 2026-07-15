@@ -370,6 +370,7 @@ public class GeometryEncoder {
           final var nestedGeometries =
               IntStream.range(0, geometryCollection.getNumGeometries())
                   .mapToObj(geometryCollection::getGeometryN)
+                  .filter(GeometryEncoder::hasGeometry)
                   .toList();
           prepareGeometry(
               nestedGeometries,
@@ -659,7 +660,7 @@ public class GeometryEncoder {
 
   public static boolean hasGeometry(@Nullable Geometry geometry) {
     return switch (geometry) {
-      case Point ignored -> true;
+      case Point point -> !point.isEmpty();
       case LineString lineString -> !lineString.isEmpty();
       case Polygon polygon -> !polygon.isEmpty();
       case MultiLineString multiLineString -> !multiLineString.isEmpty();

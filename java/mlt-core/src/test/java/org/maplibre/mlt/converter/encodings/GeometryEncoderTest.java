@@ -44,34 +44,9 @@ class GeometryEncoderTest {
     assertFalse(GeometryEncoder.hasGeometry(makeEmptyGeometry(type)), type.name());
   }
 
-  private Geometry makeGeometry(final GeometryType type) {
-    return switch (type) {
-      case POINT -> GF.createPoint(coord(0, 0));
-      case LINESTRING -> GF.createLineString(new Coordinate[] {coord(0, 0), coord(1, 1)});
-      case POLYGON -> makePolygon(SAMPLE_SQUARE);
-      case MULTIPOINT -> {
-        final var p1 = GF.createPoint(coord(0, 0));
-        final var p2 = GF.createPoint(coord(1, 1));
-        yield GF.createMultiPoint(new Point[] {p1, p2});
-      }
-      case MULTILINESTRING -> {
-        final var l1 = GF.createLineString(new Coordinate[] {coord(0, 0), coord(1, 1)});
-        final var l2 = GF.createLineString(new Coordinate[] {coord(2, 2), coord(3, 3)});
-        yield GF.createMultiLineString(new LineString[] {l1, l2});
-      }
-      case MULTIPOLYGON -> GF.createMultiPolygon(new Polygon[] {makePolygon(SAMPLE_SQUARE)});
-    };
-  }
-
-  private Geometry makeEmptyGeometry(final GeometryType type) {
-    return switch (type) {
-      case POINT -> emptyGeom();
-      case LINESTRING -> GF.createLineString(new Coordinate[] {});
-      case POLYGON -> GF.createPolygon(new Coordinate[] {});
-      case MULTIPOINT -> emptyGeom();
-      case MULTILINESTRING -> GF.createMultiLineString(new LineString[] {});
-      case MULTIPOLYGON -> GF.createMultiPolygon(new Polygon[] {});
-    };
+  @Test
+  void emptyPoint() {
+    assertFalse(GeometryEncoder.hasGeometry(GF.createPoint((Coordinate) null)));
   }
 
   @Test
@@ -102,14 +77,15 @@ class GeometryEncoderTest {
 
   @Test
   void emptyGeomCollection() {
-    final var collection = GF.createGeometryCollection(new Geometry[] {emptyGeom()});
+    final var collection = GF.createGeometryCollection(new Geometry[] {GF.createEmpty(2)});
     assertHasGeometry(collection, false);
   }
 
   @Test
   void collectionAnyNotEmpty() {
     final var collection =
-        GF.createGeometryCollection(new Geometry[] {emptyGeom(), GF.createPoint(coord(0, 0))});
+        GF.createGeometryCollection(
+            new Geometry[] {GF.createEmpty(2), GF.createPoint(coord(0, 0))});
     assertHasGeometry(collection, true);
   }
 
@@ -117,7 +93,7 @@ class GeometryEncoderTest {
   void collectionAllEmpty() {
     final var collection =
         GF.createGeometryCollection(
-            new Geometry[] {emptyGeom(), GF.createLineString(new Coordinate[] {})});
+            new Geometry[] {GF.createEmpty(2), GF.createLineString(new Coordinate[] {})});
     assertHasGeometry(collection, false);
   }
 
@@ -127,7 +103,7 @@ class GeometryEncoderTest {
     final var inner =
         hasContent
             ? GF.createGeometryCollection(new Geometry[] {GF.createPoint(coord(0, 0))})
-            : GF.createGeometryCollection(new Geometry[] {emptyGeom()});
+            : GF.createGeometryCollection(new Geometry[] {GF.createEmpty(2)});
     final var outer = GF.createGeometryCollection(new Geometry[] {inner});
     assertHasGeometry(outer, hasContent);
   }
@@ -182,6 +158,36 @@ class GeometryEncoderTest {
         runPrepareGeometry(List.of(makePolygon(SAMPLE_SQUARE), makePolygon(SAMPLE_SQUARE_2))));
   }
 
+  private Geometry makeGeometry(final GeometryType type) {
+    return switch (type) {
+      case POINT -> GF.createPoint(coord(0, 0));
+      case LINESTRING -> GF.createLineString(new Coordinate[] {coord(0, 0), coord(1, 1)});
+      case POLYGON -> makePolygon(SAMPLE_SQUARE);
+      case MULTIPOINT -> {
+        final var p1 = GF.createPoint(coord(0, 0));
+        final var p2 = GF.createPoint(coord(1, 1));
+        yield GF.createMultiPoint(new Point[] {p1, p2});
+      }
+      case MULTILINESTRING -> {
+        final var l1 = GF.createLineString(new Coordinate[] {coord(0, 0), coord(1, 1)});
+        final var l2 = GF.createLineString(new Coordinate[] {coord(2, 2), coord(3, 3)});
+        yield GF.createMultiLineString(new LineString[] {l1, l2});
+      }
+      case MULTIPOLYGON -> GF.createMultiPolygon(new Polygon[] {makePolygon(SAMPLE_SQUARE)});
+    };
+  }
+
+  private Geometry makeEmptyGeometry(final GeometryType type) {
+    return switch (type) {
+      case POINT -> GF.createPoint((Coordinate) null);
+      case LINESTRING -> GF.createLineString(new Coordinate[] {});
+      case POLYGON -> GF.createPolygon(new Coordinate[] {});
+      case MULTIPOINT -> GF.createMultiPoint(new Point[] {});
+      case MULTILINESTRING -> GF.createMultiLineString(new LineString[] {});
+      case MULTIPOLYGON -> GF.createMultiPolygon(new Polygon[] {});
+    };
+  }
+
   private static final GeometryFactory GF = new GeometryFactory();
   private static final Coordinate[] SAMPLE_SQUARE = {
     coord(0, 0), coord(1, 0), coord(1, 1), coord(0, 1), coord(0, 0)
@@ -196,10 +202,6 @@ class GeometryEncoderTest {
 
   private static Polygon makePolygon(final Coordinate[] coords) {
     return GF.createPolygon(coords);
-  }
-
-  private static Geometry emptyGeom() {
-    return GF.createEmpty(2);
   }
 
   private static void assertHasGeometry(final Geometry geom, final boolean expected) {
