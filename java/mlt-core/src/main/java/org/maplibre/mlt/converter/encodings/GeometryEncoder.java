@@ -367,19 +367,20 @@ public class GeometryEncoder {
           }
         }
         case GeometryCollection geometryCollection -> {
-            final var nestedGeometries = IntStream.range(0, geometryCollection.getNumGeometries())
-                            .mapToObj(geometryCollection::getGeometryN)
-                                    .toList();
-            prepareGeometry(
-                nestedGeometries,
-                numGeometries,
-                geometryTypes,
-                vertexBuffer,
-                numParts,
-                numRings,
-                numTriangles,
-                indexBuffer,
-                tessellateSource);
+          final var nestedGeometries =
+              IntStream.range(0, geometryCollection.getNumGeometries())
+                  .mapToObj(geometryCollection::getGeometryN)
+                  .toList();
+          prepareGeometry(
+              nestedGeometries,
+              numGeometries,
+              geometryTypes,
+              vertexBuffer,
+              numParts,
+              numRings,
+              numTriangles,
+              indexBuffer,
+              tessellateSource);
         }
         default ->
             throw new IllegalArgumentException(
@@ -655,6 +656,7 @@ public class GeometryEncoder {
   public static boolean hasGeometry(@Nullable Feature feature) {
     return (feature != null) && hasGeometry(feature.getGeometry());
   }
+
   public static boolean hasGeometry(@Nullable Geometry geometry) {
     return switch (geometry) {
       case Point ignored -> true;
@@ -664,10 +666,10 @@ public class GeometryEncoder {
       case MultiPolygon multiPolygon -> !multiPolygon.isEmpty();
       case MultiPoint multiPoint -> !multiPoint.isEmpty();
       case GeometryCollection geometryCollection ->
-        IntStream.range(0, geometryCollection.getNumGeometries())
-                .mapToObj(geometryCollection::getGeometryN)
-                .anyMatch(GeometryEncoder::hasGeometry);
-        case null, default -> false;
+          IntStream.range(0, geometryCollection.getNumGeometries())
+              .mapToObj(geometryCollection::getGeometryN)
+              .anyMatch(GeometryEncoder::hasGeometry);
+      case null, default -> false;
     };
   }
 }
