@@ -82,9 +82,11 @@ async fn get_metadata(input: &Path) -> AnyResult<(Encoding, MbtType, Metadata, u
         None => "tiles",
     };
     #[expect(clippy::cast_sign_loss, reason = "COUNT(*) is always non-negative")]
-    let total: u64 = sqlx::query_scalar::<_, i64>(&format!("SELECT COUNT(*) FROM {count_table}"))
-        .fetch_one(&mut src_conn)
-        .await? as u64;
+    let total: u64 = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(format!(
+        "SELECT COUNT(*) FROM {count_table}"
+    )))
+    .fetch_one(&mut src_conn)
+    .await? as u64;
     Ok((tile_info.encoding, src_type, meta, total))
 }
 

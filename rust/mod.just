@@ -1,12 +1,11 @@
 main_crate := 'mlt-core'
 just := quote(just_executable())
 
-# if running in CI, treat warnings as errors by setting RUSTFLAGS and RUSTDOCFLAGS to '-D warnings' unless they are already set
+# if running in CI, treat warnings as errors by setting CARGO_BUILD_WARNINGS to 'deny' unless it is already set
 # Use `CI=true just ci-test` to run the same tests as in GitHub CI.
-# Use `just ci-env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
+# Use `just env-info` to see the current value of CARGO_BUILD_WARNINGS
 ci_mode := if env('CI', '') != '' {'1'} else {''}
-export RUSTFLAGS := env('RUSTFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
-export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
+export CARGO_BUILD_WARNINGS := env('CARGO_BUILD_WARNINGS', if ci_mode == '1' {'deny'} else {'warn'})
 export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'})
 
 # Features excluded from cargo-hack --each-feature iterations (heavy optional instrumentation)
@@ -70,8 +69,7 @@ ci-env-info:
     rustc --version
     cargo --version
     rustup --version
-    echo "RUSTFLAGS='$RUSTFLAGS'"
-    echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
+    echo "CARGO_BUILD_WARNINGS='$CARGO_BUILD_WARNINGS'"
     echo "RUST_BACKTRACE='$RUST_BACKTRACE'"
     echo "::endgroup::"
 
@@ -111,7 +109,7 @@ ci-test-msrv: ci-env-info
     #!/usr/bin/env bash
     set -euo pipefail
     # For MSRV, relax all warnings to avoid different warnings per rust version
-    unset CI RUSTFLAGS RUSTDOCFLAGS RUST_BACKTRACE
+    unset CI CARGO_BUILD_WARNINGS RUSTDOCFLAGS RUST_BACKTRACE
     # Pre-install cargo-hack to avoid CI binstall issues
     {{just}} cargo-install cargo-hack
     {{just}} rust::ci-check
