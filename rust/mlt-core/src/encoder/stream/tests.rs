@@ -50,7 +50,7 @@ fn make_logical_val(logical_encoding: LogicalEncoding, num_values: usize) -> Log
 struct StreamTestCase {
     meta: StreamMeta,
     data: &'static [u8],
-    /// Expected contents of the physical decode buffer after `decode_bits_u32`.
+    /// Expected contents of the physical decode buffer after `decode_bits::<u32>`.
     expected_u32_logical_value: Option<Vec<u32>>,
 }
 
@@ -93,7 +93,7 @@ fn test_decode_bits_u32() {
             let stream = create_stream_from_test_case(&test_case);
             let mut buf = Vec::new();
             stream
-                .decode_bits_u32(&mut buf, &mut dec())
+                .decode_bits::<u32>(&mut buf, &mut dec())
                 .expect("Should successfully decode u32 values");
             assert_eq!(
                 &buf, expected_buf,
