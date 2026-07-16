@@ -8,8 +8,8 @@ use crate::MltError::{
 };
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
-    Column, ColumnType, DictionaryType, Extent, Geometry, Id, Layer01, ParsedLayer01, RawFsstData,
-    RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar,
+    Column, ColumnType, CoordDim, DictionaryType, Extent, Geometry, Id, Layer01, ParsedLayer01,
+    RawFsstData, RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar,
     RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings,
     RawStringsEncoding, StreamType,
 };
@@ -313,7 +313,10 @@ impl<'a> Layer01<'a, Lazy> {
                     }))?;
                 }
                 ColumnType::Geometry => {
-                    input = parse_geometry_column(input, &mut geometry, parser)?;
+                    input = parse_geometry_column(input, &mut geometry, CoordDim::Xy, parser)?;
+                }
+                ColumnType::GeometryZ => {
+                    input = parse_geometry_column(input, &mut geometry, CoordDim::Xyz, parser)?;
                 }
                 ColumnType::Bool | ColumnType::OptBool => {
                     (input, opt) = parse_optional(column.typ, input, parser)?;
@@ -450,6 +453,7 @@ fn parse_optional<'a>(
 fn parse_geometry_column<'a>(
     input: &'a [u8],
     geometry: &mut Option<Geometry<'a>>,
+    dim: CoordDim,
     parser: &mut Parser,
 ) -> MltResult<&'a [u8]> {
     let (input, stream_count) = parse_varint::<u32>(input)?;
@@ -465,7 +469,7 @@ fn parse_geometry_column<'a>(
     let (input, meta) = RawStream::from_bytes(input, parser)?;
     // geometry items
     let (input, items) = RawStream::parse_multiple(input, stream_count_capa - 1, parser)?;
-    geometry.set_once(Raw(RawGeometry { meta, items }))?;
+    geometry.set_once(Raw(RawGeometry { meta, items, dim }))?;
     Ok(input)
 }
 

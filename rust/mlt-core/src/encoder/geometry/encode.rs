@@ -9,11 +9,11 @@ use usize_cast::{FromUsize as _, IntoUsize as _};
 use super::model::VertexBufferType;
 use crate::MltResult;
 use crate::codecs::hilbert::hilbert_sort_key;
-use crate::codecs::zigzag::encode_componentwise_delta_vec2s;
+use crate::codecs::zigzag::encode_componentwise_delta;
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
 use crate::decoder::{
-    ColumnType, DictionaryType, GeometryType, GeometryValues, LengthType, LogicalEncoding, Morton,
-    OffsetType, PhysicalEncoding, StreamMeta, StreamType,
+    ColumnType, CoordDim, DictionaryType, GeometryType, GeometryValues, LengthType,
+    LogicalEncoding, Morton, OffsetType, PhysicalEncoding, StreamMeta, StreamType,
 };
 use crate::encoder::model::{CurveParams, StreamCtx};
 use crate::encoder::{Codecs, Encoder, PhysicalCodecs, write_stream_payload};
@@ -384,14 +384,15 @@ fn get_hilbert_params(enc: &Encoder) -> CurveParams {
         .expect("hilbert_cache populated by StagedLayer::encode_into")
 }
 
-/// Encode the plain Vec2 vertex layout: componentwise-delta over the raw
-/// `[x0, y0, x1, y1, …]` slice.
-fn encode_vec2_vertex_stream(
+/// Encode the plain vertex layout: componentwise-delta over the raw interleaved
+/// `[x0, y0, (z0,) x1, y1, (z1,) …]` slice with the given `n_dims` stride.
+fn encode_vecn_vertex_stream(
     vertices: &[i32],
+    n_dims: usize,
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<u8> {
-    let delta = encode_componentwise_delta_vec2s(vertices, &mut codecs.logical.u32_tmp);
+    let delta = encode_componentwise_delta(vertices, n_dims, &mut codecs.logical.u32_tmp);
     let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
     let logical = LogicalEncoding::ComponentwiseDelta;
     write_geo_precomputed_stream(delta, ctx, logical, enc, &mut codecs.physical)
@@ -454,7 +455,7 @@ fn encode_hilbert_vertex_streams(
 
     // Reuse `offsets` as the delta output rather than allocating another Vec;
     // also keeps `codecs.logical.u32_values` free for the inner race.
-    encode_componentwise_delta_vec2s(&dict_xy, &mut offsets);
+    encode_componentwise_delta(&dict_xy, 2, &mut offsets);
     let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
     let logical = LogicalEncoding::ComponentwiseDelta;
     n += write_geo_precomputed_stream(&offsets, ctx, logical, enc, &mut codecs.physical)?;
@@ -537,7 +538,9 @@ impl GeometryValues {
             index_buffer,
             triangles,
             vertices,
+            dim,
         } = self;
+        let n_dims = dim.size();
 
         // Flatten every Option<Vec> → Vec  (empty == not present).
         // triangles: None means no tessellation; Some([]) can't occur in practice (each
@@ -576,7 +579,11 @@ impl GeometryValues {
 
         // Write column type to meta; reserve exactly 1 byte for stream count
         // (geometry never exceeds ~8 streams, always fits in a single varint byte).
-        enc.write_column_type(ColumnType::Geometry)?;
+        let column_type = match dim {
+            CoordDim::Xy => ColumnType::Geometry,
+            CoordDim::Xyz => ColumnType::GeometryZ,
+        };
+        enc.write_column_type(column_type)?;
         let stream_count_pos = enc.data().len();
         enc.data_mut().push(0); // placeholder — patched below
         let mut n: u8 = 0;
@@ -673,9 +680,13 @@ impl GeometryValues {
         let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Index), "triangles_indexes");
         n += write_geo_u32_stream(&index_buffer, ctx, enc, codecs)?;
 
-        if let Some(forced) = enc.override_vertex_buffer_type() {
+        if dim != CoordDim::Xy {
+            // Morton/Hilbert space-filling curves are 2D-only, so 3D geometry always uses the
+            // plain interleaved layout with componentwise delta.
+            n += encode_vecn_vertex_stream(&vertices, n_dims, enc, codecs)?;
+        } else if let Some(forced) = enc.override_vertex_buffer_type() {
             n += match forced {
-                VertexBufferType::Vec2 => encode_vec2_vertex_stream(&vertices, enc, codecs)?,
+                VertexBufferType::Vec2 => encode_vecn_vertex_stream(&vertices, 2, enc, codecs)?,
                 VertexBufferType::Morton => encode_morton_vertex_streams(&vertices, enc, codecs)?,
                 VertexBufferType::Hilbert => encode_hilbert_vertex_streams(&vertices, enc, codecs)?,
             };
@@ -687,7 +698,7 @@ impl GeometryValues {
             alt.with(|e| {
                 let ds = e.data().len();
                 let ms = e.meta().len();
-                winner_stream_cnt = encode_vec2_vertex_stream(&vertices, e, codecs)?;
+                winner_stream_cnt = encode_vecn_vertex_stream(&vertices, 2, e, codecs)?;
                 winner_size = (e.data().len() - ds) + (e.meta().len() - ms);
                 Ok(())
             })?;
@@ -715,7 +726,7 @@ impl GeometryValues {
             drop(alt);
             n += winner_stream_cnt;
         } else {
-            n += encode_vec2_vertex_stream(&vertices, enc, codecs)?;
+            n += encode_vecn_vertex_stream(&vertices, 2, enc, codecs)?;
         }
 
         // Patch the reserved stream-count byte.

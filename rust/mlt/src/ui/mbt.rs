@@ -7,9 +7,10 @@ use std::thread;
 
 use martin_tile_utils::{decode_gzip, decode_zstd};
 use mbtiles::Mbtiles;
-use mlt_core::geo_types::{Coord, Geometry, Polygon};
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::mvt::mvt_to_feature_collection;
+use mlt_core::wkt::Wkt;
+use mlt_core::wkt::types::{Coord, Polygon};
 use rstar::{AABB, PointDistance, RTree, RTreeObject};
 
 use super::group_by_layer;
@@ -111,32 +112,43 @@ impl TileTransform {
 
     /// Collect world-coordinate vertices from a polygon.
     pub(crate) fn poly_verts(&self, poly: &Polygon<i32>) -> Vec<[f64; 2]> {
-        poly.exterior()
-            .0
+        poly.rings()
             .iter()
-            .copied()
-            .chain(poly.interiors().iter().flat_map(|r| r.0.iter().copied()))
+            .flat_map(|r| r.coords().iter().copied())
             .map(|c| self.to_world(c))
             .collect()
     }
 
     /// Collect world-coordinate vertices from any geometry.
-    pub(crate) fn geom_verts(&self, geom: &Geometry<i32>) -> Vec<[f64; 2]> {
+    pub(crate) fn geom_verts(&self, geom: &Wkt<i32>) -> Vec<[f64; 2]> {
         match geom {
-            Geometry::<i32>::Point(p) => vec![self.to_world(p.0)],
-            Geometry::<i32>::LineString(ls) => {
-                ls.0.iter().copied().map(|c| self.to_world(c)).collect()
-            }
-            Geometry::<i32>::MultiPoint(mp) => mp.iter().map(|p| self.to_world(p.0)).collect(),
-            Geometry::<i32>::Polygon(poly) => self.poly_verts(poly),
-            Geometry::<i32>::MultiLineString(mls) => mls
+            Wkt::Point(p) => p
+                .coord()
+                .map(|c| vec![self.to_world(*c)])
+                .unwrap_or_default(),
+            Wkt::LineString(ls) => ls
+                .coords()
                 .iter()
-                .flat_map(|ls| ls.0.iter().copied().map(|c| self.to_world(c)))
+                .copied()
+                .map(|c| self.to_world(c))
                 .collect(),
-            Geometry::<i32>::MultiPolygon(mpoly) => {
-                mpoly.iter().flat_map(|p| self.poly_verts(p)).collect()
-            }
-            _ => vec![],
+            Wkt::MultiPoint(mp) => mp
+                .points()
+                .iter()
+                .filter_map(|p| p.coord().map(|c| self.to_world(*c)))
+                .collect(),
+            Wkt::Polygon(poly) => self.poly_verts(poly),
+            Wkt::MultiLineString(mls) => mls
+                .line_strings()
+                .iter()
+                .flat_map(|ls| ls.coords().iter().copied().map(|c| self.to_world(c)))
+                .collect(),
+            Wkt::MultiPolygon(mpoly) => mpoly
+                .polygons()
+                .iter()
+                .flat_map(|p| self.poly_verts(p))
+                .collect(),
+            Wkt::GeometryCollection(_) => vec![],
         }
     }
 }

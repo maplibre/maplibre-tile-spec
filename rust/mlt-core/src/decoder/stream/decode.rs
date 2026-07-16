@@ -78,6 +78,18 @@ impl<'a> RawStream<'a> {
         result
     }
 
+    /// Like [`Self::decode_i32s`], but decodes a componentwise-delta vertex stream with the given
+    /// `n_dims` stride (used for the geometry `VertexBuffer`: 2 for `Geometry`, 3 for `GeometryZ`).
+    pub fn decode_i32s_strided(self, n_dims: usize, dec: &mut Decoder) -> MltResult<Vec<i32>> {
+        let meta = self.meta;
+        let mut buf = mem::take(&mut dec.buffer_u32);
+        self.decode_bits_u32(&mut buf, dec)?;
+        let result = LogicalValue::new(meta).decode_i32_strided(&buf, n_dims, dec);
+        dec.buffer_u32 = buf;
+        dec.buffer_u32.clear();
+        result
+    }
+
     pub fn decode_u32s(self, dec: &mut Decoder) -> MltResult<Vec<u32>> {
         let meta = self.meta;
         if meta.encoding.logical == LogicalEncoding::None {

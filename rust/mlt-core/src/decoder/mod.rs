@@ -17,8 +17,8 @@ mod tile;
 // ── Crate-internal re-exports ─────────────────────────────────────────────────
 // Allow internal modules to keep using `crate::decoder::*` paths without
 // reaching into sub-module paths explicitly.
+pub use geometry::{CoordDim, GeometryType, GeometryValues};
 pub(crate) use geometry::{Geometry, RawGeometry};
-pub use geometry::{GeometryType, GeometryValues};
 pub use id::ParsedId;
 // pub (not pub(crate)) so __private module can re-export it
 pub(crate) use id::{Id, RawId, RawIdValue};

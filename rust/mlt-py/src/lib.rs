@@ -2,11 +2,9 @@ mod encode;
 mod feature;
 mod tile_transform;
 
-use std::iter::once;
-use std::ops::Deref;
-
-use mlt_core::geo_types::{Geometry, LineString, Polygon};
 use mlt_core::geojson::FeatureCollection;
+use mlt_core::wkt::Wkt;
+use mlt_core::wkt::types::{Coord, Dimension, LineString, Polygon};
 use mlt_core::{
     Decoder, GeometryType, Layer, LendingIterator, MltError, MltResult, ParsedLayer01, Parser,
     PropValueRef,
@@ -49,21 +47,18 @@ impl MltLayer {
     }
 }
 
-fn push_coord_raw(buf: &mut Vec<u8>, coord: [i32; 2]) {
-    buf.extend_from_slice(&f64::from(coord[0]).to_le_bytes());
-    buf.extend_from_slice(&f64::from(coord[1]).to_le_bytes());
-}
-
-fn push_coord_xform(buf: &mut Vec<u8>, coord: [i32; 2], xf: TileTransform) {
-    let [x, y] = xf.apply(coord);
+/// Append one coordinate as little-endian f64 `x, y` (and `z` when `has_z`).
+///
+/// The tile transform applies to the planar `x`/`y` only; `z` is elevation and is written as-is.
+fn push_coord(buf: &mut Vec<u8>, c: &Coord<i32>, has_z: bool, xf: Option<TileTransform>) {
+    let [x, y] = match xf {
+        Some(xf) => xf.apply([c.x, c.y]),
+        None => [f64::from(c.x), f64::from(c.y)],
+    };
     buf.extend_from_slice(&x.to_le_bytes());
     buf.extend_from_slice(&y.to_le_bytes());
-}
-
-fn push_coord(buf: &mut Vec<u8>, coord: [i32; 2], xf: Option<TileTransform>) {
-    match xf {
-        Some(xf) => push_coord_xform(buf, coord, xf),
-        None => push_coord_raw(buf, coord),
+    if has_z {
+        buf.extend_from_slice(&f64::from(c.z.unwrap_or(0)).to_le_bytes());
     }
 }
 
@@ -71,73 +66,85 @@ fn push_u32(buf: &mut Vec<u8>, v: u32) {
     buf.extend_from_slice(&v.to_le_bytes());
 }
 
-fn push_rings(
-    buf: &mut Vec<u8>,
-    rings: impl IntoIterator<Item = impl Deref<Target = LineString<i32>>>,
-    xf: Option<TileTransform>,
-) {
-    for ring in rings {
-        push_u32(buf, ring.0.len() as u32);
-        for c in &ring.0 {
-            push_coord(buf, (*c).into(), xf);
-        }
+/// ISO WKB geometry type code: `base` for 2D, `base + 1000` for the Z (3D) variant.
+fn wkb_type(base: u32, has_z: bool) -> u32 {
+    if has_z { base + 1000 } else { base }
+}
+
+/// Append a coordinate sequence: a `u32` count followed by each coordinate.
+fn push_coords(buf: &mut Vec<u8>, coords: &[Coord<i32>], has_z: bool, xf: Option<TileTransform>) {
+    push_u32(buf, coords.len() as u32);
+    for c in coords {
+        push_coord(buf, c, has_z, xf);
     }
 }
 
 fn push_linestring(
     buf: &mut Vec<u8>,
-    line: impl Deref<Target = LineString<i32>>,
+    line: &LineString<i32>,
+    has_z: bool,
     xf: Option<TileTransform>,
 ) {
     buf.push(0x01);
-    push_u32(buf, 2);
-    push_rings(buf, once(line), xf);
+    push_u32(buf, wkb_type(2, has_z));
+    push_coords(buf, line.coords(), has_z, xf);
 }
 
-fn push_polygon(buf: &mut Vec<u8>, poly: &Polygon<i32>, xf: Option<TileTransform>) {
+fn push_polygon(buf: &mut Vec<u8>, poly: &Polygon<i32>, has_z: bool, xf: Option<TileTransform>) {
     buf.push(0x01);
-    push_u32(buf, 3);
-    push_u32(buf, (poly.interiors().len() + 1) as u32);
-    push_rings(buf, once(poly.exterior()).chain(poly.interiors()), xf);
+    push_u32(buf, wkb_type(3, has_z));
+    push_u32(buf, poly.rings().len() as u32);
+    for ring in poly.rings() {
+        push_coords(buf, ring.coords(), has_z, xf);
+    }
 }
 
-fn geom32_to_wkb(geom: &Geometry<i32>, xf: Option<TileTransform>) -> MltResult<Vec<u8>> {
+/// Encode a decoded geometry as WKB. 3D geometries are emitted as ISO WKB with the Z coordinate
+/// preserved (type code `base + 1000`); 2D geometries are unchanged.
+fn geom32_to_wkb(geom: &Wkt<i32>, xf: Option<TileTransform>) -> MltResult<Vec<u8>> {
+    let has_z = matches!(geom.dimension(), Dimension::XYZ);
     let mut buf = Vec::with_capacity(128);
     match geom {
-        Geometry::<i32>::Point(c) => {
+        Wkt::Point(p) => {
             buf.push(0x01);
-            push_u32(&mut buf, 1);
-            push_coord(&mut buf, (*c).into(), xf);
+            push_u32(&mut buf, wkb_type(1, has_z));
+            if let Some(c) = p.coord() {
+                push_coord(&mut buf, c, has_z, xf);
+            }
         }
-        Geometry::<i32>::LineString(coords) => push_linestring(&mut buf, coords, xf),
-        Geometry::<i32>::Polygon(poly) => push_polygon(&mut buf, poly, xf),
-        Geometry::<i32>::MultiPoint(coords) => {
+        Wkt::LineString(line) => push_linestring(&mut buf, line, has_z, xf),
+        Wkt::Polygon(poly) => push_polygon(&mut buf, poly, has_z, xf),
+        Wkt::MultiPoint(mp) => {
             buf.push(0x01);
-            push_u32(&mut buf, 4);
-            push_u32(&mut buf, coords.0.len() as u32);
-            for c in &coords.0 {
+            push_u32(&mut buf, wkb_type(4, has_z));
+            push_u32(&mut buf, mp.points().len() as u32);
+            for p in mp.points() {
                 buf.push(0x01);
-                push_u32(&mut buf, 1);
-                push_coord(&mut buf, (*c).into(), xf);
+                push_u32(&mut buf, wkb_type(1, has_z));
+                if let Some(c) = p.coord() {
+                    push_coord(&mut buf, c, has_z, xf);
+                }
             }
         }
-        Geometry::<i32>::MultiLineString(lines) => {
+        Wkt::MultiLineString(mls) => {
             buf.push(0x01);
-            push_u32(&mut buf, 5);
-            push_u32(&mut buf, lines.0.len() as u32);
-            for line in &lines.0 {
-                push_linestring(&mut buf, line, xf);
+            push_u32(&mut buf, wkb_type(5, has_z));
+            push_u32(&mut buf, mls.line_strings().len() as u32);
+            for line in mls.line_strings() {
+                push_linestring(&mut buf, line, has_z, xf);
             }
         }
-        Geometry::<i32>::MultiPolygon(polygons) => {
+        Wkt::MultiPolygon(mp) => {
             buf.push(0x01);
-            push_u32(&mut buf, 6);
-            push_u32(&mut buf, polygons.0.len() as u32);
-            for polygon in &polygons.0 {
-                push_polygon(&mut buf, polygon, xf);
+            push_u32(&mut buf, wkb_type(6, has_z));
+            push_u32(&mut buf, mp.polygons().len() as u32);
+            for poly in mp.polygons() {
+                push_polygon(&mut buf, poly, has_z, xf);
             }
         }
-        _ => return Err(MltError::NotImplemented("unsupported geometry type")),
+        Wkt::GeometryCollection(_) => {
+            return Err(MltError::NotImplemented("unsupported geometry type"));
+        }
     }
     Ok(buf)
 }
@@ -468,5 +475,34 @@ mod tests {
             wkb_type, 2,
             "line fixture should produce WKB type 2 (LineString)"
         );
+    }
+
+    /// A 3D geometry must emit ISO WKB with the Z coordinate preserved (type `base + 1000`).
+    #[test]
+    fn wkb_preserves_z_for_3d_linestring() {
+        use mlt_core::wkt::Wkt;
+        use mlt_core::wkt::types::{Coord, Dimension, LineString};
+
+        let z = |x, y, z| Coord {
+            x,
+            y,
+            z: Some(z),
+            m: None,
+        };
+        let ls = Wkt::LineString(LineString::new(
+            vec![z(1, 2, 3), z(4, 5, 6)],
+            Dimension::XYZ,
+        ));
+        let geom = GeometryValues::default().with_geom(&ls);
+
+        let wkb = geom32_to_wkb(&geom.to_geojson(0).unwrap(), None).expect("wkb");
+
+        // byte order (1) + type (4) + count (4) + 2 coords * 3 components * 8 bytes.
+        assert_eq!(wkb.len(), 1 + 4 + 4 + 2 * 3 * 8);
+        let wkb_type = u32::from_le_bytes([wkb[1], wkb[2], wkb[3], wkb[4]]);
+        assert_eq!(wkb_type, 1002, "3D LineString -> ISO WKB type 1002");
+        // The first coordinate's Z (third f64, after x and y) must be 3.0.
+        let z0 = f64::from_le_bytes(wkb[9 + 16..9 + 24].try_into().unwrap());
+        assert_eq!(z0, 3.0);
     }
 }

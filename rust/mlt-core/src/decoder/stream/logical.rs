@@ -5,7 +5,7 @@ use num_traits::{PrimInt, ToPrimitive as _};
 use usize_cast::IntoUsize as _;
 
 use crate::MltError::{ParsingLogicalTechnique, RleRunLenInvalid, UnsupportedLogicalEncoding};
-use crate::codecs::zigzag::{decode_componentwise_delta_vec2s, decode_zigzag, decode_zigzag_delta};
+use crate::codecs::zigzag::{decode_componentwise_delta, decode_zigzag, decode_zigzag_delta};
 use crate::decoder::{LogicalEncoding, LogicalTechnique, LogicalValue, RleMeta, StreamMeta};
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
 use crate::{Decoder, MltResult};
@@ -64,7 +64,7 @@ impl LogicalValue {
         match self.meta.encoding.logical {
             LogicalEncoding::None => decode_zigzag(data, dec),
             LogicalEncoding::Rle(v) => decode_zigzag(&v.decode(data, dec)?, dec),
-            LogicalEncoding::ComponentwiseDelta => decode_componentwise_delta_vec2s(data, dec),
+            LogicalEncoding::ComponentwiseDelta => decode_componentwise_delta(data, 2, dec),
             LogicalEncoding::Delta => decode_zigzag_delta::<i32, _>(data, dec),
             LogicalEncoding::DeltaRle(v) => {
                 let expanded = v.decode(data, dec)?;
@@ -80,6 +80,22 @@ impl LogicalValue {
                 self.meta.encoding.logical,
                 "i32",
             )),
+        }
+    }
+
+    /// Like [`Self::decode_i32`], but decodes a componentwise-delta vertex stream with the given
+    /// `n_dims` stride (2 for `Geometry`, 3 for `GeometryZ`). All other logical encodings are
+    /// stride-independent and delegate to [`Self::decode_i32`].
+    pub fn decode_i32_strided(
+        self,
+        data: &[u32],
+        n_dims: usize,
+        dec: &mut Decoder,
+    ) -> MltResult<Vec<i32>> {
+        if self.meta.encoding.logical == LogicalEncoding::ComponentwiseDelta {
+            decode_componentwise_delta(data, n_dims, dec)
+        } else {
+            self.decode_i32(data, dec)
         }
     }
 

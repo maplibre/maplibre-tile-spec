@@ -1,7 +1,11 @@
 //! Feature reordering for the optimizer
 
-use geo::CoordsIter as _;
-use geo_types::{Coord, Geometry};
+use geo_traits::{
+    CoordTrait, GeometryCollectionTrait as _, GeometryTrait, GeometryType as GeoType,
+    LineStringTrait as _, LineTrait as _, MultiLineStringTrait as _, MultiPointTrait as _,
+    MultiPolygonTrait as _, PointTrait as _, PolygonTrait, RectTrait as _, TriangleTrait as _,
+};
+use geo_types::Coord;
 
 use crate::codecs::hilbert::{hilbert_curve_params_from_bounds, hilbert_sort_key};
 use crate::codecs::morton::morton_sort_key;
@@ -79,32 +83,114 @@ impl TileLayer {
     #[hotpath::measure]
     #[must_use]
     pub fn curve_params(&self) -> CurveParams {
-        let (min_val, max_val) = self
-            .features()
-            .iter()
-            .flat_map(|f| f.geometry().coords_iter())
-            .fold((i32::MAX, i32::MIN), |(min, max), c| {
-                (min.min(c.x).min(c.y), max.max(c.x).max(c.y))
+        let mut min_val = i32::MAX;
+        let mut max_val = i32::MIN;
+        for f in self.features() {
+            for_each_coord(f.geometry(), &mut |x, y| {
+                min_val = min_val.min(x).min(y);
+                max_val = max_val.max(x).max(y);
             });
+        }
         hilbert_curve_params_from_bounds(min_val, max_val)
     }
 }
 
-/// Extract the coordinate of the first vertex of a geometry.
-fn first_vertex(geom: &Geometry<i32>) -> Option<Coord<i32>> {
-    match geom {
-        Geometry::<i32>::Point(p) => Some(p.0),
-        Geometry::<i32>::Line(l) => Some(l.start),
-        Geometry::<i32>::LineString(ls) => ls.0.first().copied(),
-        Geometry::<i32>::Polygon(p) => p.exterior().0.first().copied(),
-        Geometry::<i32>::MultiPoint(mp) => mp.0.first().map(|p| p.0),
-        Geometry::<i32>::MultiLineString(mls) => mls.0.first().and_then(|ls| ls.0.first().copied()),
-        Geometry::<i32>::MultiPolygon(mp) => {
-            mp.0.first().and_then(|p| p.exterior().0.first().copied())
+/// Extract the coordinate of the first vertex of a geometry (X/Y only).
+///
+/// This reads only the first coordinate (no full traversal).
+fn first_vertex(geom: &impl GeometryTrait<T = i32>) -> Option<Coord<i32>> {
+    // The associated coordinate types borrow from owned intermediates (e.g. a ring returned by
+    // `exterior()`), so each `Coord<i32>` must be materialized inside the closure that owns them.
+    match geom.as_type() {
+        GeoType::Point(p) => p.coord().map(|c| coord_xy(&c)),
+        GeoType::Line(l) => Some(coord_xy(&l.start())),
+        GeoType::LineString(ls) => ls.coords().next().map(|c| coord_xy(&c)),
+        GeoType::Polygon(p) => p
+            .exterior()
+            .and_then(|r| r.coords().next().map(|c| coord_xy(&c))),
+        GeoType::MultiPoint(mp) => mp
+            .points()
+            .next()
+            .and_then(|p| p.coord().map(|c| coord_xy(&c))),
+        GeoType::MultiLineString(mls) => mls
+            .line_strings()
+            .next()
+            .and_then(|ls| ls.coords().next().map(|c| coord_xy(&c))),
+        GeoType::MultiPolygon(mp) => mp.polygons().next().and_then(|p| {
+            p.exterior()
+                .and_then(|r| r.coords().next().map(|c| coord_xy(&c)))
+        }),
+        GeoType::Triangle(t) => Some(coord_xy(&t.first())),
+        GeoType::Rect(r) => Some(coord_xy(&r.min())),
+        GeoType::GeometryCollection(gc) => gc.geometries().next().and_then(|g| first_vertex(&g)),
+    }
+}
+
+/// Materialize a 2D [`Coord`] from any [`CoordTrait`] (X/Y only).
+fn coord_xy(c: &impl CoordTrait<T = i32>) -> Coord<i32> {
+    Coord { x: c.x(), y: c.y() }
+}
+
+/// Visit every X/Y coordinate of a geometry, calling `f(x, y)` for each.
+fn for_each_coord(geom: &impl GeometryTrait<T = i32>, f: &mut impl FnMut(i32, i32)) {
+    fn poly_coords(poly: &impl PolygonTrait<T = i32>, f: &mut impl FnMut(i32, i32)) {
+        for ring in poly.exterior().into_iter().chain(poly.interiors()) {
+            for c in ring.coords() {
+                f(c.x(), c.y());
+            }
         }
-        Geometry::<i32>::Triangle(t) => Some(t.v1()),
-        Geometry::<i32>::Rect(r) => Some(r.min()),
-        Geometry::<i32>::GeometryCollection(gc) => gc.0.first().and_then(first_vertex),
+    }
+    match geom.as_type() {
+        GeoType::Point(p) => {
+            if let Some(c) = p.coord() {
+                f(c.x(), c.y());
+            }
+        }
+        GeoType::Line(l) => {
+            let (s, e) = (l.start(), l.end());
+            f(s.x(), s.y());
+            f(e.x(), e.y());
+        }
+        GeoType::LineString(ls) => {
+            for c in ls.coords() {
+                f(c.x(), c.y());
+            }
+        }
+        GeoType::Polygon(p) => poly_coords(p, f),
+        GeoType::MultiPoint(mp) => {
+            for pt in mp.points() {
+                if let Some(c) = pt.coord() {
+                    f(c.x(), c.y());
+                }
+            }
+        }
+        GeoType::MultiLineString(mls) => {
+            for ls in mls.line_strings() {
+                for c in ls.coords() {
+                    f(c.x(), c.y());
+                }
+            }
+        }
+        GeoType::MultiPolygon(mp) => {
+            for poly in mp.polygons() {
+                poly_coords(&poly, f);
+            }
+        }
+        GeoType::Triangle(t) => {
+            for c in [t.first(), t.second(), t.third()] {
+                f(c.x(), c.y());
+            }
+        }
+        GeoType::Rect(r) => {
+            let (mn, mx) = (r.min(), r.max());
+            f(mn.x(), mn.y());
+            f(mx.x(), mx.y());
+        }
+        GeoType::GeometryCollection(gc) => {
+            for g in gc.geometries() {
+                for_each_coord(&g, f);
+            }
+        }
     }
 }
 
@@ -150,7 +236,9 @@ pub(crate) fn spatial_sort_likely_to_help(layer: &TileLayer) -> bool {
 mod tests {
     use geo_types::{Coord, Geometry as GeoGeom, Geometry, LineString, Point, Polygon};
 
-    use crate::decoder::{GeometryType, GeometryValues, RawGeometry, TileFeature, TileLayer};
+    use crate::decoder::{
+        CoordDim, GeometryType, GeometryValues, RawGeometry, TileFeature, TileLayer,
+    };
     use crate::encoder::{
         Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, SortStrategy, stage_tile,
     };
@@ -197,7 +285,7 @@ mod tests {
             .expect("encode failed");
         let buf = enc.data().to_vec();
 
-        let parsed = assert_empty(RawGeometry::from_bytes(&buf, &mut parser()));
+        let parsed = assert_empty(RawGeometry::from_bytes(&buf, CoordDim::Xy, &mut parser()));
         let mut d = dec();
         let result = LazyParsed::Raw(parsed)
             .into_parsed(&mut d)
@@ -226,7 +314,7 @@ mod tests {
             .zip(ids.iter())
             .map(|(g, &id)| TileFeature {
                 id: Some(id),
-                geometry: g.clone(),
+                geometry: crate::convert::geom::to_wkt(g),
                 properties: vec![],
             })
             .collect();
@@ -376,7 +464,7 @@ mod tests {
                 .zip(ids.iter())
                 .map(|(g, &id)| TileFeature {
                     id,
-                    geometry: g.clone(),
+                    geometry: crate::convert::geom::to_wkt(g),
                     properties: vec![],
                 })
                 .collect(),

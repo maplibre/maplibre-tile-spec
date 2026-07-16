@@ -100,6 +100,10 @@ pub enum ColumnType {
     LongId = 2,
     OptLongId = 3,
     Geometry = 4,
+    /// 3D geometry column (interleaved `x, y, z` vertices). The in-tile analog of the spec's
+    /// `ComplexType::GEOMETRY_Z`. Value `6` is even so the odd-LSB "optional" convention
+    /// (see [`Self::is_optional`]) correctly reports it as non-optional.
+    GeometryZ = 6,
     Bool = 10,
     OptBool = 11,
     I8 = 12,
@@ -217,8 +221,8 @@ pub struct TileLayer {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TileFeature {
     pub(crate) id: Option<u64>,
-    /// Geometry as a [`geo_types`] form
-    pub(crate) geometry: geo_types::Geometry<i32>,
+    /// Geometry as a dimension-aware [`wkt::Wkt`] (currently always 2D).
+    pub(crate) geometry: wkt::Wkt<i32>,
     /// One value per property column, in the same order as
     /// [`TileLayer::property_names`].
     pub(crate) properties: Vec<PropValue>,
@@ -354,20 +358,23 @@ impl TileLayer {
 }
 
 impl TileFeature {
+    /// Create a feature from any geometry that implements [`geo_traits::GeometryTrait`]
+    /// (e.g. a [`geo_types::Geometry`] or a [`wkt::Wkt`]). The geometry is normalized to
+    /// [`wkt::Wkt`] internally.
     #[must_use]
-    pub fn new(geometry: geo_types::Geometry<i32>) -> Self {
+    pub fn new(geometry: &impl geo_traits::GeometryTrait<T = i32>) -> Self {
         Self {
             id: None,
-            geometry,
+            geometry: crate::convert::geom::to_wkt(geometry),
             properties: Vec::new(),
         }
     }
 
     #[must_use]
-    pub fn with_id(geometry: geo_types::Geometry<i32>, id: u64) -> Self {
+    pub fn with_id(geometry: &impl geo_traits::GeometryTrait<T = i32>, id: u64) -> Self {
         Self {
             id: Some(id),
-            geometry,
+            geometry: crate::convert::geom::to_wkt(geometry),
             properties: Vec::new(),
         }
     }
@@ -378,7 +385,7 @@ impl TileFeature {
     }
 
     #[must_use]
-    pub fn geometry(&self) -> &geo_types::Geometry<i32> {
+    pub fn geometry(&self) -> &wkt::Wkt<i32> {
         &self.geometry
     }
 
@@ -426,7 +433,10 @@ impl TileLayerBuilder {
         self.layer.add_property(name, kind)
     }
 
-    pub fn feature(&mut self, geometry: geo_types::Geometry<i32>) -> TileFeatureBuilder<'_> {
+    pub fn feature(
+        &mut self,
+        geometry: &impl geo_traits::GeometryTrait<T = i32>,
+    ) -> TileFeatureBuilder<'_> {
         let properties = self
             .layer
             .property_kinds
@@ -438,7 +448,7 @@ impl TileLayerBuilder {
             layer: self,
             feature: TileFeature {
                 id: None,
-                geometry,
+                geometry: crate::convert::geom::to_wkt(geometry),
                 properties,
             },
         }
@@ -623,7 +633,7 @@ mod tests {
     fn point_feature(properties: Vec<PropValue>) -> TileFeature {
         TileFeature {
             id: None,
-            geometry: Geometry::Point(Point::new(0, 0)),
+            geometry: crate::convert::geom::to_wkt(&Geometry::Point(Point::new(0, 0))),
             properties,
         }
     }
@@ -716,7 +726,7 @@ mod tests {
     fn builder_uses_declared_property_kind_for_defaults() {
         let mut builder = TileLayer::builder("layer", 4096).unwrap();
         let flag = builder.add_property("flag", PropKind::Bool).unwrap();
-        let mut feature = builder.feature(Geometry::Point(Point::new(0, 0)));
+        let mut feature = builder.feature(&Geometry::Point(Point::new(0, 0)));
         feature.property(flag, PropValue::Bool(Some(true))).unwrap();
         feature.finish().unwrap();
         let layer = builder.finish();

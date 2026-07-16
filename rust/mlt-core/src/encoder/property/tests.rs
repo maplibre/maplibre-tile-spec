@@ -694,7 +694,7 @@ fn tile_from_cols(cols: &[(&str, Vec<PropValue>)]) -> TileLayer {
 fn try_tile_from_cols(cols: &[(&str, Vec<PropValue>)]) -> MltResult<TileLayer> {
     let n = cols.first().map_or(0, |(_, v)| v.len());
     let property_names = cols.iter().map(|(name, _)| (*name).to_string()).collect();
-    let geom = geo_types::Geometry::<i32>::Point(Point::new(0, 0));
+    let geom = crate::convert::geom::to_wkt(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
     let features = (0..n)
         .map(|i| TileFeature {
             id: None,
@@ -717,7 +717,7 @@ fn tile_from_cols_with_ids(ids: &[Option<u64>], cols: &[(&str, Vec<PropValue>)])
 }
 
 fn tile_from_ids(ids: &[Option<u64>]) -> TileLayer {
-    let geom = geo_types::Geometry::<i32>::Point(Point::new(0, 0));
+    let geom = crate::convert::geom::to_wkt(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
     TileLayer::from_parts(
         "test",
         4096,

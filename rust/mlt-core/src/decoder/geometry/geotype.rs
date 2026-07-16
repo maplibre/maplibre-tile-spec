@@ -1,9 +1,8 @@
 use std::ops::Range;
 
-use geo_types::{
-    Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
-};
 use usize_cast::IntoUsize as _;
+use wkt::Wkt;
+use wkt::types::{Coord, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon};
 
 use crate::MltError::{
     GeometryIndexOutOfBounds, GeometryOutOfBounds, GeometryVertexOutOfBounds, NoGeometryOffsets,
@@ -84,14 +83,19 @@ impl GeometryValues {
         self.vertices.as_deref()
     }
 
-    /// Build a `GeoJSON` geometry for a single feature at index `i`.
+    /// Build a [`wkt::Wkt`] geometry for a single feature at index `i`.
     /// Polygon and `MultiPolygon` rings are closed per `GeoJSON` spec
     /// (MLT omits the closing vertex).
-    pub fn to_geojson(&self, index: usize) -> MltResult<Geometry<i32>> {
+    ///
+    /// Coordinates are 2D (`Dimension::XY`) or 3D (`Dimension::XYZ`) per `self.dim`.
+    pub fn to_geojson(&self, index: usize) -> MltResult<Wkt<i32>> {
         let verts = self.vertices.as_deref().unwrap_or(&[]);
         let geoms = self.geometry_offsets.as_deref();
         let parts = self.part_offsets.as_deref();
         let rings = self.ring_offsets.as_deref();
+        // Components per vertex (2 = XY, 3 = XYZ). The vertex buffer is interleaved at this stride.
+        let n = self.dim.size();
+        let coord_dim = self.dim.to_wkt();
 
         let off = |s: &[u32], idx: usize, field: &'static str| -> MltResult<usize> {
             s.get(idx)
@@ -116,30 +120,34 @@ impl GeometryValues {
 
         let vert = |idx: usize| -> MltResult<Coord<i32>> {
             verts
-                .get(idx * 2..idx * 2 + 2)
-                .map(|s| Coord { x: s[0], y: s[1] })
+                .get(idx * n..idx * n + n)
+                .map(|s| Coord {
+                    x: s[0],
+                    y: s[1],
+                    z: (n >= 3).then(|| s[2]),
+                    m: None,
+                })
                 .ok_or(GeometryVertexOutOfBounds {
                     index,
                     vertex: idx,
-                    count: verts.len() / 2,
+                    count: verts.len() / n,
                 })
         };
-        let line = |r: Range<usize>| -> MltResult<LineString<i32>> { r.map(&vert).collect() };
+        let line = |r: Range<usize>| -> MltResult<LineString<i32>> {
+            let coords: Vec<Coord<i32>> = r.map(&vert).collect::<Result<_, _>>()?;
+            Ok(LineString::new(coords, coord_dim))
+        };
         let closed_ring = |r: Range<usize>| -> MltResult<LineString<i32>> {
             let first = r.start;
             let mut coords: Vec<Coord<i32>> = r.map(&vert).collect::<Result<_, _>>()?;
             coords.push(vert(first)?);
-            Ok(LineString(coords))
+            Ok(LineString::new(coords, coord_dim))
         };
         let poly_from_rings = |part_rng: Range<usize>, r: &[u32]| -> MltResult<Polygon<i32>> {
-            let mut rings = part_rng
+            let rings = part_rng
                 .map(|idx| closed_ring(ring_range(r, idx)?))
-                .collect::<Result<Vec<_>, _>>()?
-                .into_iter();
-            Ok(Polygon::new(
-                rings.next().unwrap_or_else(|| LineString(vec![])),
-                rings.collect(),
-            ))
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(Polygon::new(rings, coord_dim))
         };
 
         let geom_type = *self
@@ -153,7 +161,7 @@ impl GeometryValues {
                 let idx = geoms.map_or(Ok(index), |g| geom_off(g, index))?;
                 let idx = parts.map_or(Ok(idx), |p| part_off(p, idx))?;
                 let idx = rings.map_or(Ok(idx), |r| ring_off(r, idx))?;
-                Ok(Geometry::<i32>::Point(Point(vert(idx)?)))
+                Ok(Wkt::Point(Point::from_coord(vert(idx)?)))
             }
             GeometryType::LineString => {
                 let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
@@ -165,7 +173,7 @@ impl GeometryValues {
                     Some(ring) => ring_range(ring, part_off(parts, part_idx)?)?,
                     None => part_range(parts, part_idx)?,
                 };
-                line(vert_range).map(Geometry::<i32>::LineString)
+                line(vert_range).map(Wkt::LineString)
             }
             GeometryType::Polygon => {
                 let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
@@ -174,7 +182,7 @@ impl GeometryValues {
                     .map(|geom| geom_off(geom, index))
                     .transpose()?
                     .unwrap_or(index);
-                poly_from_rings(part_range(parts, idx)?, rings).map(Geometry::<i32>::Polygon)
+                poly_from_rings(part_range(parts, idx)?, rings).map(Wkt::Polygon)
             }
             GeometryType::MultiPoint => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
@@ -192,9 +200,8 @@ impl GeometryValues {
                     (Some(part), None) => geom_rng.map(|idx| vert(part_off(part, idx)?)).collect(),
                     (None, _) => geom_rng.map(&vert).collect(),
                 };
-                Ok(Geometry::<i32>::MultiPoint(MultiPoint(
-                    coords?.into_iter().map(Point).collect(),
-                )))
+                let points: Vec<Point<i32>> = coords?.into_iter().map(Point::from_coord).collect();
+                Ok(Wkt::MultiPoint(MultiPoint::new(points, coord_dim)))
             }
             GeometryType::MultiLineString => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
@@ -210,7 +217,9 @@ impl GeometryValues {
                         .collect(),
                     None => geom_rng.map(|idx| line(part_range(parts, idx)?)).collect(),
                 };
-                Ok(Geometry::<i32>::MultiLineString(MultiLineString(lines?)))
+                Ok(Wkt::MultiLineString(MultiLineString::new(
+                    lines?, coord_dim,
+                )))
             }
             GeometryType::MultiPolygon => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
@@ -219,7 +228,7 @@ impl GeometryValues {
                 let polys: Vec<_> = geom_range(geoms, index)?
                     .map(|idx| poly_from_rings(part_range(parts, idx)?, rings))
                     .collect::<Result<_, _>>()?;
-                Ok(Geometry::<i32>::MultiPolygon(MultiPolygon(polys)))
+                Ok(Wkt::MultiPolygon(MultiPolygon::new(polys, coord_dim)))
             }
         }
     }

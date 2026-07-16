@@ -2,6 +2,7 @@
 //! delegating wire-format details to the [`fast_mvt`] crate.
 
 use fast_mvt::{MvtTileBuilder, MvtValue};
+use geo_traits::to_geo::ToGeoGeometry as _;
 
 use crate::decoder::{PropValue, TileLayer};
 use crate::{MltError, MltResult};
@@ -16,7 +17,7 @@ pub fn tile_layers_to_mvt(layers: Vec<TileLayer>) -> MltResult<Vec<u8>> {
         let mut mvt_layer = tile.layer_with_capacity(layer.name, layer.features.len())?;
         mvt_layer.extent(layer.extent.into());
         for feat in layer.features {
-            let mut feature = mvt_layer.feature(&feat.geometry)?;
+            let mut feature = mvt_layer.feature(&feat.geometry.to_geometry())?;
             feature.id(feat.id);
             for (col_idx, prop) in feat.properties.into_iter().enumerate() {
                 if let Some(name) = layer.property_names.get(col_idx)
@@ -99,20 +100,24 @@ mod tests {
             vec![],
             vec![TileFeature {
                 id: Some(1),
-                geometry: Geometry::Polygon(Polygon::new(LineString(ring), vec![])),
+                geometry: crate::convert::geom::to_wkt(&Geometry::Polygon(Polygon::new(
+                    LineString(ring),
+                    vec![],
+                ))),
                 properties: vec![],
             }],
         )
         .unwrap();
         let bytes = tile_layers_to_mvt(vec![layer]).unwrap();
         let back = mvt_to_tile_layers(bytes).unwrap();
-        let Geometry::Polygon(p) = back[0].features()[0].geometry() else {
+        let wkt::Wkt::Polygon(p) = back[0].features()[0].geometry() else {
             panic!(
                 "expected polygon, got {:?}",
                 back[0].features()[0].geometry()
             );
         };
-        assert_eq!(p.exterior().0.len(), 5);
-        assert_eq!(p.exterior().0.first(), p.exterior().0.last());
+        let exterior = &p.rings()[0];
+        assert_eq!(exterior.coords().len(), 5);
+        assert_eq!(exterior.coords().first(), exterior.coords().last());
     }
 }
