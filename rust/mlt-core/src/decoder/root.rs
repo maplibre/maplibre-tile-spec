@@ -318,47 +318,47 @@ impl<'a> Layer01<'a, Lazy> {
                 ColumnType::Bool | ColumnType::OptBool => {
                     (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::parse_bool(input, parser)?;
-                    properties.push(Raw(RP::Bool(scalar(name, presence, value))));
+                    properties.push(Raw(RP::Bool(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::I8 | ColumnType::OptI8 => {
                     (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Raw(RP::I8(scalar(name, presence, value))));
+                    properties.push(Raw(RP::I8(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::U8 | ColumnType::OptU8 => {
                     (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Raw(RP::U8(scalar(name, presence, value))));
+                    properties.push(Raw(RP::U8(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::I32 | ColumnType::OptI32 => {
                     (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Raw(RP::I32(scalar(name, presence, value))));
+                    properties.push(Raw(RP::I32(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::U32 | ColumnType::OptU32 => {
                     (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Raw(RP::U32(scalar(name, presence, value))));
+                    properties.push(Raw(RP::U32(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::I64 | ColumnType::OptI64 => {
                     (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Raw(RP::I64(scalar(name, presence, value))));
+                    properties.push(Raw(RP::I64(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::U64 | ColumnType::OptU64 => {
                     (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Raw(RP::U64(scalar(name, presence, value))));
+                    properties.push(Raw(RP::U64(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::F32 | ColumnType::OptF32 => {
                     (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Raw(RP::F32(scalar(name, presence, value))));
+                    properties.push(Raw(RP::F32(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::F64 | ColumnType::OptF64 => {
                     (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Raw(RP::F64(scalar(name, presence, value))));
+                    properties.push(Raw(RP::F64(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::Str | ColumnType::OptStr => {
                     let prop;
@@ -416,18 +416,18 @@ fn parse_shared_dict_children<'a>(
     let mut children = Vec::with_capacity(column.children.len());
     for child in &column.children {
         let (inp, sc) = parse_varint::<u32>(input)?;
-        let (inp, child_optional) = parse_optional(child.typ, inp, parser)?;
-        let optional_stream_count = u32::from(child_optional.is_optional());
+        let (inp, presence) = parse_optional(child.typ, inp, parser)?;
+        let optional_stream_count = u32::from(presence.is_optional());
         if let Some(data_count) = sc.checked_sub(optional_stream_count)
             && data_count != 1
         {
             return Err(UnexpectedStructChildCount(data_count));
         }
-        let (inp, child_data) = RawStream::from_bytes(inp, parser)?;
+        let (inp, data) = RawStream::from_bytes(inp, parser)?;
         children.push(RawSharedDictItem {
             name: child.name.unwrap_or(""),
-            presence: child_optional,
-            data: child_data,
+            presence,
+            data,
         });
         input = inp;
     }
@@ -638,11 +638,21 @@ fn parse_columns_meta<'a>(
     Ok((input, (col_info, column_count - geometries - ids)))
 }
 
-fn scalar<'a>(name: &'a str, presence: RawPresence<'a>, value: RawStream<'a>) -> RawScalar<'a> {
-    RawScalar {
-        name,
-        presence,
-        data: value,
+impl<'a> RawScalar<'a> {
+    fn new(name: &'a str, presence: RawPresence<'a>, data: RawStream<'a>) -> Self {
+        Self {
+            name,
+            presence,
+            data,
+        }
+    }
+}
+
+impl RawPresence<'_> {
+    /// Whether this column carries presence data (some features may be null).
+    #[must_use]
+    pub(crate) fn is_optional(&self) -> bool {
+        !matches!(self, Self::AllPresent)
     }
 }
 

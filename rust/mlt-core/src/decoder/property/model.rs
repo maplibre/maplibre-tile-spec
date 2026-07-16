@@ -222,11 +222,3 @@ pub enum RawPresence<'a> {
     /// Tag `0x01`: bool-RLE presence stream with a full stream header.
     Stream(RawStream<'a>),
 }
-
-impl RawPresence<'_> {
-    /// Whether this column carries presence data (some features may be null).
-    #[must_use]
-    pub(crate) fn is_optional(&self) -> bool {
-        !matches!(self, Self::AllPresent)
-    }
-}
