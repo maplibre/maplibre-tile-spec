@@ -69,7 +69,7 @@ ci-env-info:
     rustc --version
     cargo --version
     rustup --version
-    @echo "CARGO_BUILD_WARNINGS='$CARGO_BUILD_WARNINGS'"
+    echo "CARGO_BUILD_WARNINGS='$CARGO_BUILD_WARNINGS'"
     echo "RUST_BACKTRACE='$RUST_BACKTRACE'"
     echo "::endgroup::"
 
