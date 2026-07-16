@@ -291,24 +291,24 @@ impl<'a> Layer01<'a, Lazy> {
         for column in col_info {
             use crate::decoder::RawProperty as RP;
 
-            let opt;
+            let presence;
             let value;
             let name = column.name.unwrap_or("");
 
             match column.typ {
                 ColumnType::Id | ColumnType::OptId => {
-                    (input, opt) = parse_optional(column.typ, input, parser)?;
+                    (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
                     id_column.set_once(Raw(RawId {
-                        presence: opt,
+                        presence,
                         value: RawIdValue::Id32(value),
                     }))?;
                 }
                 ColumnType::LongId | ColumnType::OptLongId => {
-                    (input, opt) = parse_optional(column.typ, input, parser)?;
+                    (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
                     id_column.set_once(Raw(RawId {
-                        presence: opt,
+                        presence,
                         value: RawIdValue::Id64(value),
                     }))?;
                 }
@@ -316,49 +316,49 @@ impl<'a> Layer01<'a, Lazy> {
                     input = parse_geometry_column(input, &mut geometry, parser)?;
                 }
                 ColumnType::Bool | ColumnType::OptBool => {
-                    (input, opt) = parse_optional(column.typ, input, parser)?;
+                    (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::parse_bool(input, parser)?;
-                    properties.push(Raw(RP::Bool(scalar(name, opt, value))));
+                    properties.push(Raw(RP::Bool(scalar(name, presence, value))));
                 }
                 ColumnType::I8 | ColumnType::OptI8 => {
-                    (input, opt) = parse_optional(column.typ, input, parser)?;
+                    (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Raw(RP::I8(scalar(name, opt, value))));
+                    properties.push(Raw(RP::I8(scalar(name, presence, value))));
                 }
                 ColumnType::U8 | ColumnType::OptU8 => {
-                    (input, opt) = parse_optional(column.typ, input, parser)?;
+                    (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Raw(RP::U8(scalar(name, opt, value))));
+                    properties.push(Raw(RP::U8(scalar(name, presence, value))));
                 }
                 ColumnType::I32 | ColumnType::OptI32 => {
-                    (input, opt) = parse_optional(column.typ, input, parser)?;
+                    (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Raw(RP::I32(scalar(name, opt, value))));
+                    properties.push(Raw(RP::I32(scalar(name, presence, value))));
                 }
                 ColumnType::U32 | ColumnType::OptU32 => {
-                    (input, opt) = parse_optional(column.typ, input, parser)?;
+                    (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Raw(RP::U32(scalar(name, opt, value))));
+                    properties.push(Raw(RP::U32(scalar(name, presence, value))));
                 }
                 ColumnType::I64 | ColumnType::OptI64 => {
-                    (input, opt) = parse_optional(column.typ, input, parser)?;
+                    (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Raw(RP::I64(scalar(name, opt, value))));
+                    properties.push(Raw(RP::I64(scalar(name, presence, value))));
                 }
                 ColumnType::U64 | ColumnType::OptU64 => {
-                    (input, opt) = parse_optional(column.typ, input, parser)?;
+                    (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Raw(RP::U64(scalar(name, opt, value))));
+                    properties.push(Raw(RP::U64(scalar(name, presence, value))));
                 }
                 ColumnType::F32 | ColumnType::OptF32 => {
-                    (input, opt) = parse_optional(column.typ, input, parser)?;
+                    (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Raw(RP::F32(scalar(name, opt, value))));
+                    properties.push(Raw(RP::F32(scalar(name, presence, value))));
                 }
                 ColumnType::F64 | ColumnType::OptF64 => {
-                    (input, opt) = parse_optional(column.typ, input, parser)?;
+                    (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Raw(RP::F64(scalar(name, opt, value))));
+                    properties.push(Raw(RP::F64(scalar(name, presence, value))));
                 }
                 ColumnType::Str | ColumnType::OptStr => {
                     let prop;
