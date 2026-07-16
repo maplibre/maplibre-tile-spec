@@ -23,6 +23,7 @@ pub(crate) mod decoder;
 pub mod encoder;
 pub(crate) mod errors;
 pub(crate) mod utils;
+pub mod v2;
 
 pub use convert::{geojson, mvt};
 pub use decoder::{
