@@ -29,18 +29,17 @@ pub fn parse_u8(input: &[u8]) -> MltRefResult<'_, u8> {
 
 /// Decode an optional presence stream, combining it with the dense values.
 ///
-/// Returns [`Presence::AllPresent`] wrapping `values` when `presence.0` is `None`
-/// (non-optional column). Otherwise decodes the bitvector and checks that the
-/// number of set bits equals `values.len()` (the number of non-null values already decoded).
+/// Returns [`Presence::AllPresent`] wrapping `values` for a non-optional column.
+/// Otherwise decodes the bitvector and checks that the number of set bits
+/// equals `values.len()` (the number of non-null values already decoded).
 pub fn decode_presence<'a, T: Copy>(
     presence: RawPresence<'a>,
     values: Vec<T>,
     dec: &mut Decoder,
 ) -> MltResult<Presence<'a, T>> {
-    let Some(raw) = presence.0 else {
+    let Some(bits) = presence.decode_bits(dec)? else {
         return Ok(Presence::AllPresent(values));
     };
-    let bits = raw.decode_bitvec(dec)?;
     let set_count = bits.count_ones();
     let dense_count = values.len();
     if set_count != dense_count {

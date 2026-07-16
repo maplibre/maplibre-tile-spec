@@ -1,56 +1,84 @@
+//! Stream-header wire codec for tag `0x01` (v1) layers.
+//!
+//! A v1 stream header is laid out as:
+//!
+//! ```text
+//! [u8     stream_type]      category / subtype nibbles
+//! [u8     encoding]         logical1 (bits 7-5), logical2 (bits 4-2), physical (bits 1-0)
+//! [varint num_values]
+//! [varint byte_length]
+//! [varint runs]             RLE streams only (non-bool)
+//! [varint num_rle_values]   RLE streams only (non-bool)
+//! [varint bits]             Morton streams only
+//! [varint shift]            Morton streams only
+//! ```
+//!
+//! Only the wire (de)serialization lives in this module. [`StreamMeta`] itself
+//! is a format-independent in-memory descriptor (see `model.rs`), so other
+//! layer formats can parse into / write from the same types with their own
+//! header codec.
+
 use std::io;
 
 use integer_encoding::VarIntWriter as _;
 use usize_cast::IntoUsize as _;
 
+use crate::MltError::ParsingStreamType;
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
-    IntEncoding, LogicalEncoding, LogicalTechnique, Morton, PhysicalEncoding, RawStream, RleMeta,
-    StreamMeta, StreamType,
+    DictionaryType, IntEncoding, LengthType, LogicalEncoding, LogicalTechnique, Morton, OffsetType,
+    PhysicalEncoding, RawStream, RleMeta, StreamMeta, StreamType,
 };
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
 use crate::utils::{BinarySerializer as _, parse_u8, take};
 use crate::{MltError, MltRefResult, MltResult, Parser};
 
-impl IntEncoding {
-    #[must_use]
-    pub(crate) const fn new(logical: LogicalEncoding, physical: PhysicalEncoding) -> Self {
-        Self { logical, physical }
+impl StreamType {
+    /// Parse the v1 `stream_type` byte: category in the high nibble, subtype in the low nibble.
+    pub fn from_bytes(input: &'_ [u8]) -> MltRefResult<'_, Self> {
+        let (input, value) = parse_u8(input)?;
+        let pt = Self::from_u8(value).ok_or(ParsingStreamType(value))?;
+        Ok((input, pt))
     }
 
+    fn from_u8(value: u8) -> Option<Self> {
+        let high4 = value >> 4;
+        let low4 = value & 0x0F;
+        Some(match high4 {
+            #[cfg(fuzzing)]
+            // when fuzzing, we cannot have ignored bits, to preserve roundtrip-ability
+            0 if low4 == 0 => StreamType::Present,
+            #[cfg(not(fuzzing))]
+            0 => Self::Present,
+            1 => Self::Data(DictionaryType::try_from(low4).ok()?),
+            2 => Self::Offset(OffsetType::try_from(low4).ok()?),
+            3 => Self::Length(LengthType::try_from(low4).ok()?),
+            _ => return None,
+        })
+    }
+
+    /// Serialize to the v1 `stream_type` byte.
     #[must_use]
-    pub(crate) const fn none() -> Self {
-        Self::new(LogicalEncoding::None, PhysicalEncoding::None)
+    pub fn as_u8(self) -> u8 {
+        let proto_high4 = match self {
+            Self::Present => 0,
+            Self::Data(_) => 1,
+            Self::Offset(_) => 2,
+            Self::Length(_) => 3,
+        };
+        let high4 = proto_high4 << 4;
+        let low4 = match self {
+            Self::Present => 0,
+            Self::Data(i) => i as u8,
+            Self::Offset(i) => i as u8,
+            Self::Length(i) => i as u8,
+        };
+        debug_assert!(low4 <= 0x0F, "secondary types should not exceed 4 bit");
+        high4 | low4
     }
 }
 
 impl StreamMeta {
-    #[inline]
-    pub(crate) fn new(stream_type: StreamType, encoding: IntEncoding, num_values: u32) -> Self {
-        Self {
-            stream_type,
-            encoding,
-            num_values,
-        }
-    }
-
-    #[inline]
-    pub(crate) fn new2(
-        stream_type: StreamType,
-        logical: LogicalEncoding,
-        physical: PhysicalEncoding,
-        num_values: usize,
-    ) -> MltResult<Self> {
-        let enc = IntEncoding::new(logical, physical);
-        Ok(Self::new(stream_type, enc, u32::try_from(num_values)?))
-    }
-
-    #[inline]
-    pub(crate) fn new_none(stream_type: StreamType, num_values: usize) -> MltResult<Self> {
-        let enc = IntEncoding::none();
-        Ok(Self::new(stream_type, enc, u32::try_from(num_values)?))
-    }
-
     /// Parse stream from the input
     ///
     /// If `is_bool` is true, compute RLE parameters for boolean streams
@@ -186,11 +214,6 @@ impl StreamMeta {
 }
 
 impl<'a> RawStream<'a> {
-    #[must_use]
-    pub(crate) fn new(meta: StreamMeta, data: &'a [u8]) -> Self {
-        Self { meta, data }
-    }
-
     pub(crate) fn from_bytes(input: &'a [u8], parser: &mut Parser) -> MltRefResult<'a, Self> {
         Self::from_bytes_internal(input, false, parser)
     }

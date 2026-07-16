@@ -280,10 +280,7 @@ impl<'a> RawStrings<'a> {
     /// Decode string property from its encoded column.
     pub fn decode(self, dec: &mut Decoder) -> MltResult<ParsedStrings<'a>> {
         let name = self.name;
-        let presence = match self.presence.0 {
-            Some(s) => Some(s.decode_bools(dec)?),
-            None => None,
-        };
+        let presence = self.presence.decode_bools(dec)?;
 
         let parsed = match self.encoding {
             RawStringsEncoding::Plain(plain_data) => {
@@ -448,10 +445,7 @@ impl<'a> RawSharedDict<'a> {
         let mut items = Vec::with_capacity(self.children.len());
         for child in self.children {
             let offsets: Vec<u32> = child.data.decode_u32s(dec)?;
-            let presence = match child.presence.0 {
-                Some(s) => Some(s.decode_bools(dec)?),
-                None => None,
-            };
+            let presence = child.presence.decode_bools(dec)?;
             let ranges = resolve_dict_spans(&offsets, presence.as_deref(), &dict_spans, dec)?
                 .into_iter()
                 .map(|span| match span {
