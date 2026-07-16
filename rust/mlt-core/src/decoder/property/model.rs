@@ -209,6 +209,24 @@ pub struct RawFsstData<'a> {
     pub corpus: RawStream<'a>,
 }
 
-/// Raw presence/nullability stream borrowed from input bytes.
+/// Raw presence/nullability data for an optional column.
+///
+/// The wire representation is layer-format-specific, so consumers must not
+/// depend on a particular variant: decode through [`RawPresence::decode_bits`]
+/// or [`RawPresence::decode_bools`] instead of matching on it.
 #[derive(Debug, Clone, PartialEq, Default)]
-pub struct RawPresence<'a>(pub Option<RawStream<'a>>);
+pub enum RawPresence<'a> {
+    /// Non-optional column — every feature has a value; nothing is stored.
+    #[default]
+    AllPresent,
+    /// Tag `0x01`: bool-RLE presence stream with a full stream header.
+    Stream(RawStream<'a>),
+}
+
+impl RawPresence<'_> {
+    /// Whether this column carries presence data (some features may be null).
+    #[must_use]
+    pub(crate) fn is_optional(&self) -> bool {
+        !matches!(self, Self::AllPresent)
+    }
+}

@@ -440,8 +440,8 @@ mod tests {
                 _ => unreachable!(),
             }
             match column_type {
-                CT::OptId | CT::OptLongId => assert!(raw_id.presence.0.is_some()),
-                CT::Id | CT::LongId => assert!(raw_id.presence.0.is_none()),
+                CT::OptId | CT::OptLongId => assert!(raw_id.presence.is_optional()),
+                CT::Id | CT::LongId => assert!(!raw_id.presence.is_optional()),
                 _ => unreachable!(),
             }
         });
@@ -625,11 +625,14 @@ mod tests {
 
             if matches!(column_type, CT::OptId | CT::OptLongId) {
                 prop_assert!(
-                    raw_id.presence.0.is_some(),
+                    raw_id.presence.is_optional(),
                     "Expected optional stream to be present"
                 );
             } else {
-                prop_assert!(raw_id.presence.0.is_none(), "Expected no optional stream");
+                prop_assert!(
+                    !raw_id.presence.is_optional(),
+                    "Expected no optional stream"
+                );
             }
             Ok(())
         })

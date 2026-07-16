@@ -1,6 +1,35 @@
+use std::borrow::Cow;
+
+use bitvec::order::Lsb0;
+use bitvec::slice::BitSlice;
+
 use crate::decoder::{ParsedProperty, ParsedScalar, RawPresence, RawProperty};
 use crate::utils::decode_presence;
 use crate::{Decode, Decoder, MltResult};
+
+impl<'a> RawPresence<'a> {
+    /// Decode into a packed bitvector, or `None` for a non-optional column.
+    ///
+    /// This is the only place aware of every wire representation of presence;
+    /// all downstream presence handling goes through the returned bits.
+    pub(crate) fn decode_bits(
+        self,
+        dec: &mut Decoder,
+    ) -> MltResult<Option<Cow<'a, BitSlice<u8, Lsb0>>>> {
+        match self {
+            Self::AllPresent => Ok(None),
+            Self::Stream(s) => Ok(Some(s.decode_bitvec(dec)?)),
+        }
+    }
+
+    /// Decode into one bool per feature, or `None` for a non-optional column.
+    pub(crate) fn decode_bools(self, dec: &mut Decoder) -> MltResult<Option<Vec<bool>>> {
+        match self {
+            Self::AllPresent => Ok(None),
+            Self::Stream(s) => Ok(Some(s.decode_bools(dec)?)),
+        }
+    }
+}
 
 impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
     pub fn from_parts(

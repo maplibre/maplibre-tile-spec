@@ -300,7 +300,7 @@ impl<'a> Layer01<'a, Lazy> {
                     (input, opt) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
                     id_column.set_once(Raw(RawId {
-                        presence: RawPresence(opt),
+                        presence: opt,
                         value: RawIdValue::Id32(value),
                     }))?;
                 }
@@ -308,7 +308,7 @@ impl<'a> Layer01<'a, Lazy> {
                     (input, opt) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
                     id_column.set_once(Raw(RawId {
-                        presence: RawPresence(opt),
+                        presence: opt,
                         value: RawIdValue::Id64(value),
                     }))?;
                 }
@@ -408,7 +408,7 @@ impl<'a> Layer01<'a, Lazy> {
     }
 }
 
-fn parse_struct_children<'a>(
+fn parse_shared_dict_children<'a>(
     mut input: &'a [u8],
     column: &Column<'a>,
     parser: &mut Parser,
@@ -417,7 +417,7 @@ fn parse_struct_children<'a>(
     for child in &column.children {
         let (inp, sc) = parse_varint::<u32>(input)?;
         let (inp, child_optional) = parse_optional(child.typ, inp, parser)?;
-        let optional_stream_count = u32::from(child_optional.is_some());
+        let optional_stream_count = u32::from(child_optional.is_optional());
         if let Some(data_count) = sc.checked_sub(optional_stream_count)
             && data_count != 1
         {
@@ -426,7 +426,7 @@ fn parse_struct_children<'a>(
         let (inp, child_data) = RawStream::from_bytes(inp, parser)?;
         children.push(RawSharedDictItem {
             name: child.name.unwrap_or(""),
-            presence: RawPresence(child_optional),
+            presence: child_optional,
             data: child_data,
         });
         input = inp;
@@ -438,12 +438,12 @@ fn parse_optional<'a>(
     typ: ColumnType,
     input: &'a [u8],
     parser: &mut Parser,
-) -> MltRefResult<'a, Option<RawStream<'a>>> {
+) -> MltRefResult<'a, RawPresence<'a>> {
     if typ.is_optional() {
         let (input, optional) = RawStream::parse_bool(input, parser)?;
-        Ok((input, Some(optional)))
+        Ok((input, RawPresence::Stream(optional)))
     } else {
-        Ok((input, None))
+        Ok((input, RawPresence::AllPresent))
     }
 }
 
@@ -482,7 +482,7 @@ fn parse_str_column<'a>(
     };
     let presence;
     (input, presence) = parse_optional(typ, input, parser)?;
-    if presence.is_some() {
+    if presence.is_optional() {
         if stream_count == 0 {
             return Err(UnsupportedStringStreamCount(stream_count));
         }
@@ -516,7 +516,7 @@ fn parse_str_column<'a>(
         input,
         RawProperty::Str(RawStrings {
             name,
-            presence: RawPresence(presence),
+            presence,
             encoding,
         }),
     ))
@@ -548,13 +548,13 @@ fn parse_shared_dict_column<'a>(
         }
     }
     let children;
-    (input, children) = parse_struct_children(input, column, parser)?;
+    (input, children) = parse_shared_dict_children(input, column, parser)?;
 
     // Validate stream_count: must equal dict_streams + children + optional_children.
     let children_n = u32::try_from(children.len()).or_overflow()?;
     let optional_n = children
         .iter()
-        .filter(|c| c.presence.0.is_some())
+        .filter(|c| c.presence.is_optional())
         .count()
         .try_into()
         .or_overflow()?;
@@ -638,10 +638,10 @@ fn parse_columns_meta<'a>(
     Ok((input, (col_info, column_count - geometries - ids)))
 }
 
-fn scalar<'a>(name: &'a str, opt: Option<RawStream<'a>>, value: RawStream<'a>) -> RawScalar<'a> {
+fn scalar<'a>(name: &'a str, presence: RawPresence<'a>, value: RawStream<'a>) -> RawScalar<'a> {
     RawScalar {
         name,
-        presence: RawPresence(opt),
+        presence,
         data: value,
     }
 }
