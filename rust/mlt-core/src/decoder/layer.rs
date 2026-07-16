@@ -37,7 +37,6 @@ impl<'a> Layer<'a> {
         let (input, value) = take(input, size)?;
 
         let layer = match tag {
-            // For now, we only support tag 0x01 layers, but more will be added soon
             1 => Layer::Tag01(Layer01::from_bytes(value, parser)?),
             tag => Layer::Unknown(Unknown { tag, value }),
         };
@@ -51,7 +50,7 @@ impl<'a> Layer<'a> {
     /// `Layer::Tag01(lazy)` and call the individual methods on [`Layer01`].
     pub fn decode_all(self, dec: &mut Decoder) -> MltResult<ParsedLayer<'a>> {
         match self {
-            Layer::Tag01(lazy) => Ok(Layer::Tag01(lazy.decode_all(dec)?)),
+            Layer::Tag01(v) => Ok(Layer::Tag01(v.decode_all(dec)?)),
             Layer::Unknown(u) => Ok(Layer::Unknown(u)),
         }
     }
