@@ -11,7 +11,10 @@ import { decodeUnsignedInt32Stream, decodeLengthStreamToOffsetBuffer } from "./i
 import { type Column, ScalarType } from "../metadata/tileset/tilesetMetadata";
 import { decodeVarintInt32 } from "./integerDecodingUtils";
 import { decodeBooleanRle, skipColumn } from "./decodingUtils";
-import { StringFsstDictionaryVector } from "../vector/fsst-dictionary/stringFsstDictionaryVector";
+import {
+    type FsstDictionaryCache,
+    StringFsstDictionaryVector,
+} from "../vector/fsst-dictionary/stringFsstDictionaryVector";
 
 export function decodeString(
     name: string,
@@ -204,6 +207,8 @@ export function decodeSharedDictionary(
 
     const childFields = column.complexType.children;
     const stringDictionaryVectors = [];
+    /** Shared by every FSST child-column vector in this SharedDict and populated on first access. */
+    const sharedDictionaryCache: FsstDictionaryCache | undefined = symbolTableBuffer ? {} : undefined;
     let i = 0;
     for (const childField of childFields) {
         const numStreams = decodeVarintInt32(data, offset, 1)[0];
@@ -259,6 +264,7 @@ export function decodeSharedDictionary(
                   symbolOffsetBuffer,
                   symbolTableBuffer,
                   presentStreamBitVector,
+                  sharedDictionaryCache,
               )
             : new StringDictionaryVector(
                   columnName,

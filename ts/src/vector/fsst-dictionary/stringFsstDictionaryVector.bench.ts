@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { bench, describe } from "vitest";
 import decodeTile from "../../mltDecoder";
 import type BitVector from "../flat/bitVector";
-import { StringFsstDictionaryVector } from "./stringFsstDictionaryVector";
+import { type FsstDictionaryCache, StringFsstDictionaryVector } from "./stringFsstDictionaryVector";
 
 type FsstVectorData = {
     indexBuffer: Uint32Array;
@@ -31,7 +31,7 @@ describe("cold FSST dictionary access", () => {
     if (valueIndex === undefined) throw new Error("FSST cache benchmark dictionary contains no values");
 
     let decodedLengthChecksum = 0;
-    const createVector = (dataBuffer: Uint8Array) =>
+    const createVector = (dataBuffer: Uint8Array, sharedDictionaryCache?: FsstDictionaryCache) =>
         new StringFsstDictionaryVector(
             "name",
             vectorData.indexBuffer,
@@ -40,6 +40,7 @@ describe("cold FSST dictionary access", () => {
             vectorData.symbolOffsetBuffer,
             vectorData.symbolTableBuffer,
             vectorData.nullabilityBuffer,
+            sharedDictionaryCache,
         );
 
     bench(
@@ -55,7 +56,7 @@ describe("cold FSST dictionary access", () => {
     bench(
         "two ordinary FSST vectors",
         () => {
-            // Independent dictionary vectors both decode their dictionary.
+            // Ordinary vectors do not receive a SharedDict cache, so both decode independently.
             for (let i = 0; i < 2; i++) {
                 const vector = createVector(vectorData.dataBuffer.slice());
                 decodedLengthChecksum = (decodedLengthChecksum + (vector.getValue(valueIndex)?.length ?? 0)) | 0;
@@ -67,10 +68,11 @@ describe("cold FSST dictionary access", () => {
     bench(
         "two vectors from one SharedDict",
         () => {
-            // These vectors model one SharedDict; without reuse both decode the same dictionary.
+            // Vectors from one SharedDict receive the same cache, so the second reuses the first decoded dictionary.
             const sharedData = vectorData.dataBuffer.slice();
+            const sharedDictionaryCache: FsstDictionaryCache = {};
             for (let i = 0; i < 2; i++) {
-                const vector = createVector(sharedData);
+                const vector = createVector(sharedData, sharedDictionaryCache);
                 decodedLengthChecksum = (decodedLengthChecksum + (vector.getValue(valueIndex)?.length ?? 0)) | 0;
             }
         },
@@ -80,10 +82,11 @@ describe("cold FSST dictionary access", () => {
     bench(
         "five vectors from one SharedDict",
         () => {
-            // These vectors model one SharedDict; without reuse all five decode the same dictionary.
+            // Vectors from one SharedDict receive the same cache, so four reuse the first decoded dictionary.
             const sharedData = vectorData.dataBuffer.slice();
+            const sharedDictionaryCache: FsstDictionaryCache = {};
             for (let i = 0; i < 5; i++) {
-                const vector = createVector(sharedData);
+                const vector = createVector(sharedData, sharedDictionaryCache);
                 decodedLengthChecksum = (decodedLengthChecksum + (vector.getValue(valueIndex)?.length ?? 0)) | 0;
             }
         },
