@@ -428,6 +428,22 @@ fn rle_friendly_constant_column() {
     assert_differential(&layer(geoms, None, &props));
 }
 
+/// v2 bool columns are stored as a raw packed bitfield (1 bit/value), so a
+/// random bool column's data is ~`ceil(n/8)` bytes — far smaller than one byte
+/// per value. Alternating values defeat RLE, isolating the bitfield size.
+#[test]
+fn bool_column_is_packed_bitfield() {
+    let n = 256_usize;
+    let geoms: Vec<_> = (0..n).map(|i| pt(i as i32, 0)).collect();
+    let values: Vec<PropValue> = (0..n).map(|i| PropValue::Bool(Some(i % 2 == 0))).collect();
+    let l = layer(geoms, None, &[("flag", values)]);
+    let (_v1, v2) = assert_differential(&l);
+    // 256 geometry points dominate, but the whole v2 tile must be well under
+    // one byte per bool for the column alone (256 B); the bitfield is 32 B.
+    // A generous ceiling that still fails if bools regress to a byte each.
+    assert!(v2 < 900, "v2 tile unexpectedly large: {v2} B");
+}
+
 /// Presence bitfields around byte boundaries (1, 7, 8, 9, 17 features).
 #[test]
 fn presence_bitfield_byte_boundaries() {

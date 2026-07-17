@@ -11,10 +11,12 @@
 
 use integer_encoding::VarIntWriter as _;
 
-use crate::decoder::{ColumnType02, DictionaryType, StreamType};
+use crate::decoder::{
+    ColumnType02, DictionaryType, LogicalEncoding, PhysicalEncoding, StreamMeta, StreamType,
+};
 use crate::encoder::geometry::encode02::write_geometry02;
 use crate::encoder::model::{StagedLayer, StreamCtx};
-use crate::encoder::{Codecs, Encoder, StagedId, StagedProperty};
+use crate::encoder::{Codecs, Encoder, StagedId, StagedProperty, write_stream_payload};
 use crate::utils::BinarySerializer as _;
 use crate::{MltError, MltResult};
 
@@ -91,6 +93,27 @@ where
     result
 }
 
+/// Write a boolean data stream as a raw LSB-first packed bitfield — one bit per
+/// value, `ceil(len/8)` bytes, framed as a `logical=None` / `physical=None`
+/// stream. This mirrors how v2 presence bitfields are stored and is up to 8×
+/// smaller than one byte per value; [`RawStream::decode_bools`] reads it back
+/// via the same bitmap unpacker as v1's byte-RLE bools.
+fn write_bool_bitfield(enc: &mut Encoder, values: &[bool]) -> MltResult<()> {
+    let mut packed = vec![0u8; values.len().div_ceil(8)];
+    for (i, &b) in values.iter().enumerate() {
+        if b {
+            packed[i / 8] |= 1 << (i % 8);
+        }
+    }
+    let meta = StreamMeta::new2(
+        StreamType::Data(DictionaryType::None),
+        LogicalEncoding::None,
+        PhysicalEncoding::None,
+        values.len(),
+    )?;
+    write_stream_payload(enc, meta, false, &packed)
+}
+
 fn write_id02(id: StagedId, enc: &mut Encoder, codecs: &mut Codecs) -> MltResult<()> {
     use ColumnType02 as CT;
     let ctx = StreamCtx::id(StreamType::Data(DictionaryType::None));
@@ -149,15 +172,11 @@ fn write_prop02(prop: &StagedProperty, enc: &mut Encoder, codecs: &mut Codecs) -
     match prop {
         D::Bool(v) => {
             begin_col02(enc, CT::Bool, Some(&v.name))?;
-            let bytes: Vec<u8> = v.values.iter().copied().map(u8::from).collect();
-            codecs.write_int_stream(&bytes, &StreamCtx::prop_data(&v.name), enc)
+            write_bool_bitfield(enc, &v.values)
         }
         D::OptBool(v) => {
             begin_col02(enc, CT::OptBool, Some(&v.name))?;
-            let bytes: Vec<u8> = v.values.iter().copied().map(u8::from).collect();
-            write_opt_col02(enc, &v.presence, |enc| {
-                codecs.write_int_stream(&bytes, &StreamCtx::prop_data(&v.name), enc)
-            })
+            write_opt_col02(enc, &v.presence, |enc| write_bool_bitfield(enc, &v.values))
         }
         D::F32(v) => {
             begin_col02(enc, CT::F32, Some(&v.name))?;
