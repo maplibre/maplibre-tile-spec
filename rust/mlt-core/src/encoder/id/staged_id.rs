@@ -183,10 +183,10 @@ impl StagedId {
     pub fn write_to(self, enc: &mut Encoder, codecs: &mut Codecs) -> MltResult<()> {
         match &self {
             Self::None => Ok(()),
-            Self::U32(v) => codecs.write_u32_scalar_col(ColumnType::Id, None, v, enc),
-            Self::OptU32(v) => codecs.write_opt_u32_scalar_col(ColumnType::OptId, None, v, enc),
-            Self::U64(v) => codecs.write_u64_scalar_col(ColumnType::LongId, None, v, enc),
-            Self::OptU64(v) => codecs.write_opt_u64_scalar_col(ColumnType::OptLongId, None, v, enc),
+            Self::U32(v) => codecs.write_scalar_col(ColumnType::Id, None, v, enc),
+            Self::OptU32(v) => codecs.write_opt_scalar_col(ColumnType::OptId, None, v, enc),
+            Self::U64(v) => codecs.write_scalar_col(ColumnType::LongId, None, v, enc),
+            Self::OptU64(v) => codecs.write_opt_scalar_col(ColumnType::OptLongId, None, v, enc),
         }
     }
 }

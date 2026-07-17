@@ -402,7 +402,7 @@ proptest! {
         let mut codecs = Codecs::default();
         codecs.write_int_stream(&widened, &StreamCtx::prop_data("test"), &mut enc).unwrap();
         let parsed_stream = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
-        let decoded_values = parsed_stream.decode_i8s(&mut dec()).unwrap();
+        let decoded_values = parsed_stream.decode_narrow::<i8, i32>(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);
     }
@@ -417,7 +417,7 @@ proptest! {
         let mut codecs = Codecs::default();
         codecs.write_int_stream(&widened, &StreamCtx::prop_data("test"), &mut enc).unwrap();
         let parsed_stream = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
-        let decoded_values = parsed_stream.decode_u8s(&mut dec()).unwrap();
+        let decoded_values = parsed_stream.decode_narrow::<u8, u32>(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);
     }
@@ -478,11 +478,11 @@ proptest! {
 
     #[test]
     fn test_f32_roundtrip(values in prop::collection::vec(any::<f32>(), 0..100)) {
-        let owned_stream = EncodedStream::encode_f32(&values).unwrap();
+        let owned_stream = EncodedStream::encode_floats(&values).unwrap();
 
         let mut buf = Vec::new();
         let parsed_stream = roundtrip_stream(&mut buf, &owned_stream);
-        let decoded_values = parsed_stream.decode_f32s(&mut dec()).unwrap();
+        let decoded_values = parsed_stream.decode_floats::<f32>(&mut dec()).unwrap();
 
         assert_eq!(decoded_values.len(), values.len());
         for (v1, v2) in decoded_values.iter().zip(values.iter()) {
@@ -496,11 +496,11 @@ proptest! {
 
     #[test]
     fn test_f64_roundtrip(values in prop::collection::vec(any::<f64>(), 0..100)) {
-        let owned_stream = EncodedStream::encode_f64(&values).unwrap();
+        let owned_stream = EncodedStream::encode_floats(&values).unwrap();
 
         let mut buf = Vec::new();
         let parsed_stream = roundtrip_stream(&mut buf, &owned_stream);
-        let decoded_values = parsed_stream.decode_f64s(&mut dec()).unwrap();
+        let decoded_values = parsed_stream.decode_floats::<f64>(&mut dec()).unwrap();
 
         assert_eq!(decoded_values.len(), values.len());
         for (v1, v2) in decoded_values.iter().zip(values.iter()) {

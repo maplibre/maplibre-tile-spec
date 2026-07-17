@@ -50,19 +50,18 @@ impl<'a> RawStream<'a> {
         decode_bytes_to_bools(&decoded, num_values, dec)
     }
 
-    pub fn decode_i8s(self, dec: &mut Decoder) -> MltResult<Vec<i8>> {
-        self.decode_ints::<i32>(dec)?
+    /// Decode an integer stream via its 32-bit physical type `W`, then narrow each
+    /// value to the 8-bit output `N`, erroring if any value is out of range.
+    pub fn decode_narrow<N, W>(self, dec: &mut Decoder) -> MltResult<Vec<N>>
+    where
+        W: DecodeInt,
+        N: TryFrom<W>,
+        MltError: From<<N as TryFrom<W>>::Error>,
+    {
+        self.decode_ints::<W>(dec)?
             .into_iter()
-            .map(i8::try_from)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(Into::into)
-    }
-
-    pub fn decode_u8s(self, dec: &mut Decoder) -> MltResult<Vec<u8>> {
-        self.decode_ints::<u32>(dec)?
-            .into_iter()
-            .map(u8::try_from)
-            .collect::<Result<Vec<u8>, _>>()
+            .map(N::try_from)
+            .collect::<Result<Vec<N>, _>>()
             .map_err(Into::into)
     }
 
@@ -89,35 +88,32 @@ impl<'a> RawStream<'a> {
         result
     }
 
-    /// Decode a stream of f32 values from raw little-endian bytes, charging `dec`.
-    pub fn decode_f32s(self, dec: &mut Decoder) -> MltResult<Vec<f32>> {
+    /// Decode a stream of floating-point values (`f32` / `f64`) from raw little-endian
+    /// bytes, charging `dec`. Varint physical encoding is not supported for floats.
+    pub fn decode_floats<T>(self, dec: &mut Decoder) -> MltResult<Vec<T>>
+    where
+        T: num_traits::FromBytes,
+        for<'b> <T as num_traits::FromBytes>::Bytes: TryFrom<&'b [u8]>,
+    {
         if self.meta.encoding.physical == PhysicalEncoding::VarInt {
-            return Err(MltError::NotImplemented("varint f32 decoding"));
+            return Err(MltError::NotImplemented("varint float decoding"));
         }
         let num = self.meta.num_values.into_usize();
-        dec.consume_items::<f32>(num)?;
-        fail_if_invalid_stream_size(self.data.len(), num.checked_mul(4).or_overflow()?)?;
+        let width = size_of::<T>();
+        fail_if_invalid_stream_size(self.data.len(), num.checked_mul(width).or_overflow()?)?;
+        dec.consume_items::<T>(num)?;
 
         Ok(self
             .data
-            .chunks_exact(4)
-            .map(|chunk| f32::from_le_bytes(chunk.try_into().expect("infallible: chunks_exact(4)")))
-            .collect())
-    }
-
-    /// Decode a stream of f64 values from raw little-endian bytes, charging `dec`.
-    pub fn decode_f64s(self, dec: &mut Decoder) -> MltResult<Vec<f64>> {
-        if self.meta.encoding.physical == PhysicalEncoding::VarInt {
-            return Err(MltError::NotImplemented("varint f64 decoding"));
-        }
-        let num = self.meta.num_values.into_usize();
-        fail_if_invalid_stream_size(self.data.len(), num.checked_mul(8).or_overflow()?)?;
-
-        dec.consume_items::<f64>(num)?;
-        Ok(self
-            .data
-            .chunks_exact(8)
-            .map(|chunk| f64::from_le_bytes(chunk.try_into().expect("infallible: chunks_exact(8)")))
+            .chunks_exact(width)
+            .map(|chunk| {
+                T::from_le_bytes(
+                    &chunk
+                        .try_into()
+                        .ok()
+                        .expect("infallible: chunks_exact(width)"),
+                )
+            })
             .collect())
     }
 
