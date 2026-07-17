@@ -494,7 +494,7 @@ A narrower type enables the use of efficient encodings like FastPfor128.
 
 ### Geometry Column {#geometry-column}
 
-The geometry column uses a Structure of Arrays (SoA) layout (data-oriented design).
+The geometry column uses an Array of Structure (AoS) layout.
 The `x`, `y` coordinates are stored interleaved in a `VertexBuffer` for efficient CPU processing and direct copying to GPU buffers.
 
 <span class="experimental"></span> Optional `z` could be interleaved together with `x`,`y`, or if it is not needed for rendering, it can be stored separately as an `M-value` (see vertex-scoped properties).
