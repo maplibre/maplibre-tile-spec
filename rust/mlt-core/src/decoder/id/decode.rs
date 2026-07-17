@@ -10,11 +10,11 @@ impl<'a> Decode<ParsedId<'a>> for RawId<'a> {
         let values: Vec<u64> = match value {
             RawIdValue::Id32(stream) => {
                 // FIXME: ParsedId should be an enum of u32 or u64 to avoid extra allocation
-                let ids = stream.decode_u32s(dec)?;
+                let ids = stream.decode_ints::<u32>(dec)?;
                 dec.consume_items::<u64>(ids.len())?;
                 ids.into_iter().map(u64::from).collect()
             }
-            RawIdValue::Id64(stream) => stream.decode_u64s(dec)?,
+            RawIdValue::Id64(stream) => stream.decode_ints::<u64>(dec)?,
         };
 
         Ok(ParsedId(decode_presence(presence, values, dec)?))

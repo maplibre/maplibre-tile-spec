@@ -62,7 +62,7 @@ mod tests {
             let ctx = StreamCtx::prop_data("test");
             codecs.write_int_stream(&values, &ctx, &mut enc).unwrap();
             let parsed = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
-            let decoded = parsed.decode_u32s(&mut dec()).unwrap();
+            let decoded = parsed.decode_ints::<u32>(&mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
         }
 
@@ -79,7 +79,7 @@ mod tests {
             let ctx = StreamCtx::prop_data("test");
             codecs.write_int_stream(&values, &ctx, &mut enc).unwrap();
             let parsed = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
-            let decoded = parsed.decode_i32s(&mut dec()).unwrap();
+            let decoded = parsed.decode_ints::<i32>(&mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
         }
 
@@ -96,7 +96,7 @@ mod tests {
             let ctx = StreamCtx::prop_data("test");
             codecs.write_int_stream(&values, &ctx, &mut enc).unwrap();
             let parsed = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
-            let decoded = parsed.decode_u64s(&mut dec()).unwrap();
+            let decoded = parsed.decode_ints::<u64>(&mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
         }
 
@@ -113,7 +113,7 @@ mod tests {
             let ctx = StreamCtx::prop_data("test");
             codecs.write_int_stream(&values, &ctx, &mut enc).unwrap();
             let parsed = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
-            let decoded = parsed.decode_i64s(&mut dec()).unwrap();
+            let decoded = parsed.decode_ints::<i64>(&mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
         }
     }

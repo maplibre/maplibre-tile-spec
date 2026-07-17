@@ -25,7 +25,7 @@ pub fn decode_fsst(raw: RawFsstData<'_>, dec: &mut Decoder) -> MltResult<(String
         corpus,
     } = raw;
 
-    let sym_lens = symbol_lengths.decode_u32s(dec)?;
+    let sym_lens = symbol_lengths.decode_ints::<u32>(dec)?;
     let symbols = symbol_table.data;
     let compressed = corpus.data;
 
@@ -51,7 +51,7 @@ pub fn decode_fsst(raw: RawFsstData<'_>, dec: &mut Decoder) -> MltResult<(String
     }
 
     dec.consume_items::<u8>(output.len())?;
-    Ok((String::from_utf8(output)?, lengths.decode_u32s(dec)?))
+    Ok((String::from_utf8(output)?, lengths.decode_ints::<u32>(dec)?))
 }
 
 /// Raw output from FSST compression (unencoded byte buffers).
