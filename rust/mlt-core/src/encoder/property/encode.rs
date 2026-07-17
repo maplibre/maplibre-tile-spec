@@ -53,40 +53,16 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder, codecs: &mut Codecs) -> 
             codecs.begin_opt_col(CT::OptF64, &v.name, &v.presence, enc)?;
             codecs.write_float_stream(&v.values, StreamType::Data(DictionaryType::None), enc)
         }
-        D::I8(v) => {
-            enc.write_column_header(CT::I8, &v.name)?;
-            codecs.write_int_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)
-        }
-        D::OptI8(v) => {
-            codecs.begin_opt_col(CT::OptI8, &v.name, &v.presence, enc)?;
-            codecs.write_int_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)
-        }
-        D::U8(v) => {
-            enc.write_column_header(CT::U8, &v.name)?;
-            codecs.write_int_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)
-        }
-        D::OptU8(v) => {
-            codecs.begin_opt_col(CT::OptU8, &v.name, &v.presence, enc)?;
-            codecs.write_int_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)
-        }
-        D::I32(v) => {
-            enc.write_column_header(CT::I32, &v.name)?;
-            codecs.write_int_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)
-        }
-        D::OptI32(v) => {
-            codecs.begin_opt_col(CT::OptI32, &v.name, &v.presence, enc)?;
-            codecs.write_int_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)
-        }
+        D::I8(v) => codecs.write_scalar_col(CT::I8, Some(&v.name), v, enc),
+        D::OptI8(v) => codecs.write_opt_scalar_col(CT::OptI8, Some(&v.name), v, enc),
+        D::U8(v) => codecs.write_scalar_col(CT::U8, Some(&v.name), v, enc),
+        D::OptU8(v) => codecs.write_opt_scalar_col(CT::OptU8, Some(&v.name), v, enc),
+        D::I32(v) => codecs.write_scalar_col(CT::I32, Some(&v.name), v, enc),
+        D::OptI32(v) => codecs.write_opt_scalar_col(CT::OptI32, Some(&v.name), v, enc),
         D::U32(v) => codecs.write_scalar_col(CT::U32, Some(&v.name), v, enc),
         D::OptU32(v) => codecs.write_opt_scalar_col(CT::OptU32, Some(&v.name), v, enc),
-        D::I64(v) => {
-            enc.write_column_header(CT::I64, &v.name)?;
-            codecs.write_int_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)
-        }
-        D::OptI64(v) => {
-            codecs.begin_opt_col(CT::OptI64, &v.name, &v.presence, enc)?;
-            codecs.write_int_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)
-        }
+        D::I64(v) => codecs.write_scalar_col(CT::I64, Some(&v.name), v, enc),
+        D::OptI64(v) => codecs.write_opt_scalar_col(CT::OptI64, Some(&v.name), v, enc),
         D::U64(v) => codecs.write_scalar_col(CT::U64, Some(&v.name), v, enc),
         D::OptU64(v) => codecs.write_opt_scalar_col(CT::OptU64, Some(&v.name), v, enc),
         D::Str(v) => {
