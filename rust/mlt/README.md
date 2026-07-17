@@ -6,6 +6,7 @@ The `mlt` binary provides several commands for working with MLT files:
 
 * **`dump`** - Parse an MLT file and dump raw layer data without decoding
 * **`decode`** - Parse an MLT file, decode all layers, and dump the result (supports text and `GeoJSON` output)
+* **`hexdump`** - Annotated byte/bit-level hexdump of an MLT file's metadata (layer framing, column schema, stream headers) with data-stream payloads shown as raw hex plus decoded values
 * **`convert`** - Convert MVT or MLT tile files and MVT `.mbtiles`/`.pmtiles` archives to MLT
 * **`ui`** - Interactive terminal visualizer for MLT files
 
