@@ -23,7 +23,7 @@ fn roundtrip_stream_u32s(wire: &[u8]) -> Vec<u32> {
     let parsed_stream = assert_empty(RawStream::from_bytes(wire, &mut parser()));
 
     let mut decoder = dec();
-    let values = parsed_stream.decode_u32s(&mut decoder).unwrap();
+    let values = parsed_stream.decode_ints::<u32>(&mut decoder).unwrap();
     if !values.is_empty() {
         assert!(
             decoder.consumed() > 0,
@@ -443,7 +443,7 @@ proptest! {
         let mut codecs = Codecs::default();
         codecs.write_int_stream(&values, &StreamCtx::prop_data("test"), &mut enc).unwrap();
         let parsed_stream = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
-        let decoded_values = parsed_stream.decode_i32s(&mut dec()).unwrap();
+        let decoded_values = parsed_stream.decode_ints::<i32>(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);
     }
@@ -457,7 +457,7 @@ proptest! {
         let mut codecs = Codecs::default();
         codecs.write_int_stream(&values, &StreamCtx::prop_data("test"), &mut enc).unwrap();
         let parsed_stream = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
-        let decoded_values = parsed_stream.decode_u64s(&mut dec()).unwrap();
+        let decoded_values = parsed_stream.decode_ints::<u64>(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);
     }
@@ -471,7 +471,7 @@ proptest! {
         let mut codecs = Codecs::default();
         codecs.write_int_stream(&values, &StreamCtx::prop_data("test"), &mut enc).unwrap();
         let parsed_stream = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
-        let decoded_values = parsed_stream.decode_i64s(&mut dec()).unwrap();
+        let decoded_values = parsed_stream.decode_ints::<i64>(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);
     }

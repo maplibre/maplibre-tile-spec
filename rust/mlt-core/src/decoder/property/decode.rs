@@ -52,9 +52,9 @@ impl<'a> Decode<ParsedProperty<'a>> for RawProperty<'a> {
     /// charged *after* decoding based on actual allocation sizes.
     fn decode(self, dec: &mut Decoder) -> MltResult<ParsedProperty<'a>> {
         /// Decode the dense value stream and wrap it with the presence bitmap.
-        /// `$decode_method` is the typed `RawStream` method for element type `$ty`.
+        /// `$decode_method` is the typed `RawStream` method.
         macro_rules! scalar_decode {
-            ($variant:ident, $ty:ty, $decode_method:ident, $v:expr, $dec:expr) => {{
+            ($variant:ident, $decode_method:ident, $v:expr, $dec:expr) => {{
                 ParsedProperty::$variant(ParsedScalar::from_parts(
                     $v.name,
                     $v.presence,
@@ -64,16 +64,27 @@ impl<'a> Decode<ParsedProperty<'a>> for RawProperty<'a> {
             }};
         }
 
+        macro_rules! scalar_decode_int {
+            ($variant:ident, $ty:ty, $v:expr, $dec:expr) => {{
+                ParsedProperty::$variant(ParsedScalar::from_parts(
+                    $v.name,
+                    $v.presence,
+                    $v.data.decode_ints::<$ty>($dec)?,
+                    $dec,
+                )?)
+            }};
+        }
+
         Ok(match self {
-            Self::Bool(v) => scalar_decode!(Bool, bool, decode_bools, v, dec),
-            Self::I8(v) => scalar_decode!(I8, i8, decode_i8s, v, dec),
-            Self::U8(v) => scalar_decode!(U8, u8, decode_u8s, v, dec),
-            Self::I32(v) => scalar_decode!(I32, i32, decode_i32s, v, dec),
-            Self::U32(v) => scalar_decode!(U32, u32, decode_u32s, v, dec),
-            Self::I64(v) => scalar_decode!(I64, i64, decode_i64s, v, dec),
-            Self::U64(v) => scalar_decode!(U64, u64, decode_u64s, v, dec),
-            Self::F32(v) => scalar_decode!(F32, f32, decode_f32s, v, dec),
-            Self::F64(v) => scalar_decode!(F64, f64, decode_f64s, v, dec),
+            Self::Bool(v) => scalar_decode!(Bool, decode_bools, v, dec),
+            Self::I8(v) => scalar_decode!(I8, decode_i8s, v, dec),
+            Self::U8(v) => scalar_decode!(U8, decode_u8s, v, dec),
+            Self::I32(v) => scalar_decode_int!(I32, i32, v, dec),
+            Self::U32(v) => scalar_decode_int!(U32, u32, v, dec),
+            Self::I64(v) => scalar_decode_int!(I64, i64, v, dec),
+            Self::U64(v) => scalar_decode_int!(U64, u64, v, dec),
+            Self::F32(v) => scalar_decode!(F32, decode_f32s, v, dec),
+            Self::F64(v) => scalar_decode!(F64, decode_f64s, v, dec),
             Self::Str(v) => ParsedProperty::Str(v.decode(dec)?),
             Self::SharedDict(v) => ParsedProperty::SharedDict(v.decode(dec)?),
         })
