@@ -22,7 +22,10 @@ fn check([path]: [&Path; 1]) {
         // Well-formed per the real parser → the walker must succeed and cover everything.
         (true, Ok(tree)) => assert_full_coverage(&tree, buffer.len(), path),
         (true, Err(e)) => {
-            panic!("{}: parser succeeded but annotate_tile failed: {e}", path.display())
+            panic!(
+                "{}: parser succeeded but annotate_tile failed: {e}",
+                path.display()
+            )
         }
         // Malformed → the walker may error too; it must never panic (reaching here proves it didn't).
         (false, _) => {}
@@ -39,9 +42,19 @@ fn assert_full_coverage(tree: &DumpTree, buf_len: usize, path: &Path) {
         .collect();
     leaves.sort_unstable();
 
-    assert_eq!(tree.buf_len, buf_len, "{}: buf_len mismatch", path.display());
+    assert_eq!(
+        tree.buf_len,
+        buf_len,
+        "{}: buf_len mismatch",
+        path.display()
+    );
     assert!(!leaves.is_empty(), "{}: no leaf regions", path.display());
-    assert_eq!(leaves[0].0, 0, "{}: first leaf not at offset 0", path.display());
+    assert_eq!(
+        leaves[0].0,
+        0,
+        "{}: first leaf not at offset 0",
+        path.display()
+    );
 
     let mut cursor = 0usize;
     for (offset, len) in &leaves {

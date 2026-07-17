@@ -156,10 +156,12 @@ impl<'a> Walker<'a> {
         let start = input;
         let ci = self.open(start, format!("layer[{idx}]"));
 
-        let (input, size) =
-            self.field(input, "size", |i| parse_varint::<u32>(i), |v| {
-                Some(format!("{v} (varint) — tag + body"))
-            })?;
+        let (input, size) = self.field(
+            input,
+            "size",
+            |i| parse_varint::<u32>(i),
+            |v| Some(format!("{v} (varint) — tag + body")),
+        )?;
         let (input, tag) = self.field(input, "tag", parse_u8, |t| {
             Some(match t {
                 1 => "0x01 → Tag01".to_string(),
@@ -183,12 +185,19 @@ impl<'a> Walker<'a> {
 
     /// Mirror [`crate::decoder::Layer01::from_bytes`]. `body` must be consumed fully.
     fn walk_layer01(&mut self, input: &'a [u8]) -> MltResult<()> {
-        let (input, _name) =
-            self.field(input, "name", parse_string, |s| Some(format!("{s:?}")))?;
-        let (input, _extent) =
-            self.field(input, "extent", |i| parse_varint::<u32>(i), |v| Some(v.to_string()))?;
-        let (input, column_count) =
-            self.field(input, "column_count", |i| parse_varint::<u32>(i), |v| Some(v.to_string()))?;
+        let (input, _name) = self.field(input, "name", parse_string, |s| Some(format!("{s:?}")))?;
+        let (input, _extent) = self.field(
+            input,
+            "extent",
+            |i| parse_varint::<u32>(i),
+            |v| Some(v.to_string()),
+        )?;
+        let (input, column_count) = self.field(
+            input,
+            "column_count",
+            |i| parse_varint::<u32>(i),
+            |v| Some(v.to_string()),
+        )?;
 
         let (mut input, columns) = self.walk_schema(input, column_count)?;
 
@@ -229,11 +238,7 @@ impl<'a> Walker<'a> {
 
     /// Mirror `Column::from_bytes` (plus inline `SharedDict` children), split into
     /// `[type u8][optional name]` (and child defs).
-    fn walk_column_def(
-        &mut self,
-        input: &'a [u8],
-        i: u32,
-    ) -> MltResult<(&'a [u8], Column<'a>)> {
+    fn walk_column_def(&mut self, input: &'a [u8], i: u32) -> MltResult<(&'a [u8], Column<'a>)> {
         let ci = self.open(input, format!("column[{i}]"));
 
         // Column-type byte, with the optional-flag bit broken out.
@@ -289,7 +294,14 @@ impl<'a> Walker<'a> {
         }
 
         self.close(ci, input);
-        Ok((input, Column { typ, name, children }))
+        Ok((
+            input,
+            Column {
+                typ,
+                name,
+                children,
+            },
+        ))
     }
 
     // ── Column data ─────────────────────────────────────────────────────────
@@ -320,31 +332,45 @@ impl<'a> Walker<'a> {
             }
             C::Bool | C::OptBool => {
                 input = self.walk_optional(input, typ)?;
-                input = self.walk_stream(input, true, "data", |_| DecodeHint::Bool)?.0;
+                input = self
+                    .walk_stream(input, true, "data", |_| DecodeHint::Bool)?
+                    .0;
             }
             C::I8 | C::OptI8 | C::I32 | C::OptI32 => {
                 input = self.walk_optional(input, typ)?;
-                input = self.walk_stream(input, false, "data", |_| DecodeHint::I32)?.0;
+                input = self
+                    .walk_stream(input, false, "data", |_| DecodeHint::I32)?
+                    .0;
             }
             C::U8 | C::OptU8 | C::U32 | C::OptU32 => {
                 input = self.walk_optional(input, typ)?;
-                input = self.walk_stream(input, false, "data", |_| DecodeHint::U32)?.0;
+                input = self
+                    .walk_stream(input, false, "data", |_| DecodeHint::U32)?
+                    .0;
             }
             C::I64 | C::OptI64 => {
                 input = self.walk_optional(input, typ)?;
-                input = self.walk_stream(input, false, "data", |_| DecodeHint::I64)?.0;
+                input = self
+                    .walk_stream(input, false, "data", |_| DecodeHint::I64)?
+                    .0;
             }
             C::U64 | C::OptU64 => {
                 input = self.walk_optional(input, typ)?;
-                input = self.walk_stream(input, false, "data", |_| DecodeHint::U64)?.0;
+                input = self
+                    .walk_stream(input, false, "data", |_| DecodeHint::U64)?
+                    .0;
             }
             C::F32 | C::OptF32 => {
                 input = self.walk_optional(input, typ)?;
-                input = self.walk_stream(input, false, "data", |_| DecodeHint::F32)?.0;
+                input = self
+                    .walk_stream(input, false, "data", |_| DecodeHint::F32)?
+                    .0;
             }
             C::F64 | C::OptF64 => {
                 input = self.walk_optional(input, typ)?;
-                input = self.walk_stream(input, false, "data", |_| DecodeHint::F64)?.0;
+                input = self
+                    .walk_stream(input, false, "data", |_| DecodeHint::F64)?
+                    .0;
             }
             C::Str | C::OptStr => {
                 input = self.walk_str(input, typ)?;
@@ -508,29 +534,49 @@ impl<'a> Walker<'a> {
         );
         c = c2;
 
-        (c, _) = self.field(c, "num_values", |i| parse_varint::<u32>(i), |v| {
-            Some(v.to_string())
-        })?;
-        (c, _) = self.field(c, "byte_length", |i| parse_varint::<u32>(i), |v| {
-            Some(v.to_string())
-        })?;
+        (c, _) = self.field(
+            c,
+            "num_values",
+            |i| parse_varint::<u32>(i),
+            |v| Some(v.to_string()),
+        )?;
+        (c, _) = self.field(
+            c,
+            "byte_length",
+            |i| parse_varint::<u32>(i),
+            |v| Some(v.to_string()),
+        )?;
 
         match meta.encoding.logical {
             LogicalEncoding::Rle(_) | LogicalEncoding::DeltaRle(_) if !is_bool => {
-                (c, _) =
-                    self.field(c, "runs", |i| parse_varint::<u32>(i), |v| Some(v.to_string()))?;
-                (c, _) = self.field(c, "num_rle_values", |i| parse_varint::<u32>(i), |v| {
-                    Some(v.to_string())
-                })?;
+                (c, _) = self.field(
+                    c,
+                    "runs",
+                    |i| parse_varint::<u32>(i),
+                    |v| Some(v.to_string()),
+                )?;
+                (c, _) = self.field(
+                    c,
+                    "num_rle_values",
+                    |i| parse_varint::<u32>(i),
+                    |v| Some(v.to_string()),
+                )?;
             }
             LogicalEncoding::Morton(_)
             | LogicalEncoding::MortonDelta(_)
             | LogicalEncoding::MortonRle(_) => {
-                (c, _) =
-                    self.field(c, "bits", |i| parse_varint::<u32>(i), |v| Some(v.to_string()))?;
-                (c, _) = self.field(c, "shift", |i| parse_varint::<u32>(i), |v| {
-                    Some(v.to_string())
-                })?;
+                (c, _) = self.field(
+                    c,
+                    "bits",
+                    |i| parse_varint::<u32>(i),
+                    |v| Some(v.to_string()),
+                )?;
+                (c, _) = self.field(
+                    c,
+                    "shift",
+                    |i| parse_varint::<u32>(i),
+                    |v| Some(v.to_string()),
+                )?;
             }
             _ => {}
         }

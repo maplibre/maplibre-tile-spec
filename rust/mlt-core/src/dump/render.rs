@@ -82,7 +82,11 @@ fn render_region(
 
     if region.container {
         let left = format!("{:08x}", region.offset);
-        let annot = format!("{indent}{} ({} B)", paint(&region.label, opts, Paint::Label), region.len);
+        let annot = format!(
+            "{indent}{} ({} B)",
+            paint(&region.label, opts, Paint::Label),
+            region.len
+        );
         writeln!(w, "{left:<left_len$}{SEP}{annot}")?;
         return Ok(());
     }
@@ -127,7 +131,12 @@ fn render_meta(
                 bf.meaning,
                 width = width
             );
-            writeln!(w, "{:<left_len$}{SEP}{}", "", paint(&annot, opts, Paint::Dim))?;
+            writeln!(
+                w,
+                "{:<left_len$}{SEP}{}",
+                "",
+                paint(&annot, opts, Paint::Dim)
+            )?;
         }
     }
     Ok(())
@@ -165,7 +174,12 @@ fn render_blob(
                 "{indent}  … {} more bytes omitted (--max-blob to change)",
                 bytes.len() - shown.len()
             );
-            writeln!(w, "{:<left_len$}{SEP}{}", "", paint(&note, opts, Paint::Dim))?;
+            writeln!(
+                w,
+                "{:<left_len$}{SEP}{}",
+                "",
+                paint(&note, opts, Paint::Dim)
+            )?;
         }
     }
 
@@ -206,7 +220,11 @@ fn decode_blob(info: BlobInfo, data: &[u8], dec: &mut Decoder) -> String {
         DecodeHint::Presence => match RawStream::new(meta, data).decode_bitvec(dec) {
             Ok(bits) => {
                 let n = bits.len();
-                let shown: String = bits.iter().take(96).map(|b| if *b { '1' } else { '0' }).collect();
+                let shown: String = bits
+                    .iter()
+                    .take(96)
+                    .map(|b| if *b { '1' } else { '0' })
+                    .collect();
                 let more = if n > 96 { "…" } else { "" };
                 format!("{n} present-bits: {shown}{more}")
             }
@@ -281,7 +299,13 @@ fn emit_bytes(
             .join(" ");
         let ascii: String = chunk
             .iter()
-            .map(|&b| if (0x20..=0x7e).contains(&b) { b as char } else { '.' })
+            .map(|&b| {
+                if (0x20..=0x7e).contains(&b) {
+                    b as char
+                } else {
+                    '.'
+                }
+            })
             .collect();
         let hexw = opts.width * 3;
         let left = format!("{row_off:08x}  {hex:<hexw$}  {ascii}");
@@ -308,9 +332,9 @@ fn paint(s: &str, opts: &RenderOpts, kind: Paint) -> String {
         return s.to_string();
     }
     let code = match kind {
-        Paint::Label => "1",    // bold
-        Paint::Value => "36",   // cyan
-        Paint::Dim => "2",      // dim
+        Paint::Label => "1",  // bold
+        Paint::Value => "36", // cyan
+        Paint::Dim => "2",    // dim
     };
     format!("\x1b[{code}m{s}\x1b[0m")
 }
