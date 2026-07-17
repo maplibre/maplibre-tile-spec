@@ -57,7 +57,6 @@ jobs:
           args: --release --zig --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-py/Cargo.toml
           sccache: false
           manylinux: auto
-          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload wheels
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -161,7 +160,6 @@ jobs:
           target: ${{ matrix.platform.target }}
           args: --release --zig --out dist --find-interpreter --locked --compatibility pypi --future-incompat-report --manifest-path rust/mlt-py/Cargo.toml
           sccache: false
-          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload wheels
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -177,7 +175,6 @@ jobs:
         with:
           command: sdist
           args: --out dist --manifest-path rust/mlt-py/Cargo.toml
-          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload sdist
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with: { name: 'wheels-sdist', path: 'dist' }
