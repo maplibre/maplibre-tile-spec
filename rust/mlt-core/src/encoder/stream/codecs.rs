@@ -2,8 +2,6 @@ use std::collections::HashMap;
 
 use bytemuck::{NoUninit, cast_slice};
 use fastpfor::FastPFor256;
-use num_traits::WrappingSub;
-use zigzag::ZigZag;
 
 use crate::codecs::bytes::encode_bools_to_bytes;
 use crate::codecs::rle::encode_byte_rle;
@@ -111,7 +109,6 @@ impl Codecs {
     ) -> MltResult<()>
     where
         [T]: LogicalIntStreamKind<Input = T>,
-        <<[T] as LogicalIntStreamKind>::Profile as ZigZag>::UInt: WrappingSub,
         LogicalCodecs: LogicalIntCodec<[T]>,
     {
         type Output<T> = <[T] as LogicalIntStreamKind>::Output;

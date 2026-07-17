@@ -2,7 +2,10 @@ use super::model::{StagedOptScalar, StagedProperty};
 use crate::MltResult;
 use crate::decoder::{ColumnType, DictionaryType, StreamType};
 use crate::encoder::model::StreamCtx;
-use crate::encoder::{Codecs, Encoder, StagedScalar, StagedStrings};
+use crate::encoder::{
+    Codecs, Encoder, LogicalCodecs, LogicalIntCodec, LogicalIntStreamKind, StagedScalar,
+    StagedStrings,
+};
 
 /// Encode all property columns and write them to `enc`.
 #[hotpath::measure]
@@ -74,8 +77,8 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder, codecs: &mut Codecs) -> 
             codecs.begin_opt_col(CT::OptI32, &v.name, &v.presence, enc)?;
             codecs.write_int_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)
         }
-        D::U32(v) => codecs.write_u32_scalar_col(CT::U32, Some(&v.name), v, enc),
-        D::OptU32(v) => codecs.write_opt_u32_scalar_col(CT::OptU32, Some(&v.name), v, enc),
+        D::U32(v) => codecs.write_scalar_col(CT::U32, Some(&v.name), v, enc),
+        D::OptU32(v) => codecs.write_opt_scalar_col(CT::OptU32, Some(&v.name), v, enc),
         D::I64(v) => {
             enc.write_column_header(CT::I64, &v.name)?;
             codecs.write_int_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)
@@ -84,8 +87,8 @@ fn write_prop(prop: &StagedProperty, enc: &mut Encoder, codecs: &mut Codecs) -> 
             codecs.begin_opt_col(CT::OptI64, &v.name, &v.presence, enc)?;
             codecs.write_int_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)
         }
-        D::U64(v) => codecs.write_u64_scalar_col(CT::U64, Some(&v.name), v, enc),
-        D::OptU64(v) => codecs.write_opt_u64_scalar_col(CT::OptU64, Some(&v.name), v, enc),
+        D::U64(v) => codecs.write_scalar_col(CT::U64, Some(&v.name), v, enc),
+        D::OptU64(v) => codecs.write_opt_scalar_col(CT::OptU64, Some(&v.name), v, enc),
         D::Str(v) => {
             enc.write_column_header(ColumnType::Str, &v.name)?;
             codecs.write_str_col(v, None, enc)
@@ -115,50 +118,36 @@ impl Codecs {
         self.write_presence_stream(presence.iter().copied(), enc)
     }
 
-    pub(crate) fn write_u32_scalar_col(
+    pub(crate) fn write_scalar_col<T>(
         &mut self,
         ct: ColumnType,
         name: Option<&str>,
-        v: &StagedScalar<u32>,
+        v: &StagedScalar<T>,
         enc: &mut Encoder,
-    ) -> MltResult<()> {
+    ) -> MltResult<()>
+    where
+        T: Copy + PartialEq,
+        [T]: LogicalIntStreamKind<Input = T>,
+        LogicalCodecs: LogicalIntCodec<[T]>,
+    {
         begin_scalar_col(ct, name, enc)?;
         self.write_int_stream(&v.values, &scalar_ctx(name), enc)
     }
 
-    pub(crate) fn write_opt_u32_scalar_col(
+    pub(crate) fn write_opt_scalar_col<T>(
         &mut self,
         ct: ColumnType,
         name: Option<&str>,
-        v: &StagedOptScalar<u32>,
+        v: &StagedOptScalar<T>,
         enc: &mut Encoder,
-    ) -> MltResult<()> {
+    ) -> MltResult<()>
+    where
+        T: Copy + PartialEq,
+        [T]: LogicalIntStreamKind<Input = T>,
+        LogicalCodecs: LogicalIntCodec<[T]>,
+    {
         begin_scalar_col(ct, name, enc)?;
         self.write_presence_stream(v.presence.iter().copied(), enc)?;
-        self.write_int_stream(&v.values, &scalar_ctx(name), enc)
-    }
-
-    pub(crate) fn write_u64_scalar_col(
-        &mut self,
-        ct: ColumnType,
-        name: Option<&str>,
-        v: &StagedScalar<u64>,
-        enc: &mut Encoder,
-    ) -> MltResult<()> {
-        begin_scalar_col(ct, name, enc)?;
-        self.write_int_stream(&v.values, &scalar_ctx(name), enc)
-    }
-
-    pub(crate) fn write_opt_u64_scalar_col(
-        &mut self,
-        ct: ColumnType,
-        name: Option<&str>,
-        v: &StagedOptScalar<u64>,
-        enc: &mut Encoder,
-    ) -> MltResult<()> {
-        let presence_bools = v.presence.iter().copied();
-        begin_scalar_col(ct, name, enc)?;
-        self.write_presence_stream(presence_bools, enc)?;
         self.write_int_stream(&v.values, &scalar_ctx(name), enc)
     }
 }

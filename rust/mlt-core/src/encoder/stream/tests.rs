@@ -478,7 +478,7 @@ proptest! {
 
     #[test]
     fn test_f32_roundtrip(values in prop::collection::vec(any::<f32>(), 0..100)) {
-        let owned_stream = EncodedStream::encode_f32(&values).unwrap();
+        let owned_stream = EncodedStream::encode_floats(&values).unwrap();
 
         let mut buf = Vec::new();
         let parsed_stream = roundtrip_stream(&mut buf, &owned_stream);
@@ -496,7 +496,7 @@ proptest! {
 
     #[test]
     fn test_f64_roundtrip(values in prop::collection::vec(any::<f64>(), 0..100)) {
-        let owned_stream = EncodedStream::encode_f64(&values).unwrap();
+        let owned_stream = EncodedStream::encode_floats(&values).unwrap();
 
         let mut buf = Vec::new();
         let parsed_stream = roundtrip_stream(&mut buf, &owned_stream);
