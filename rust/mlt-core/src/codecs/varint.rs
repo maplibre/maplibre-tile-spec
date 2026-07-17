@@ -1,7 +1,7 @@
 use integer_encoding::VarInt;
 use usize_cast::IntoUsize as _;
 
-use crate::{Decoder, MltError, MltRefResult};
+use crate::{Decoder, MltError, MltRefResult, MltResult};
 
 /// Parse a single varint (variable-length integer) from the input, returning
 /// the remaining bytes and the decoded value.
@@ -42,6 +42,25 @@ pub fn parse_varint_vec<'a, T: VarInt>(
         values.push(val);
     }
     Ok((input, values))
+}
+
+/// Parse varints of wire type `T` until `input` is exhausted, charging `dec`
+/// for the output allocation.
+///
+/// Used for v2 interleaved-RLE streams, whose `(run, value)` pair count is not
+/// stored on the wire — the data is scanned to the stream's `byte_length`.
+/// Every varint occupies at least one byte, so `input.len()` bounds the
+/// element count for the budget pre-charge.
+pub fn parse_varint_vec_all<T: VarInt>(mut input: &[u8], dec: &mut Decoder) -> MltResult<Vec<T>> {
+    let alloc_size = input.len();
+    let mut values = dec.alloc::<T>(alloc_size)?;
+    while !input.is_empty() {
+        let val;
+        (input, val) = parse_varint::<T>(input)?;
+        values.push(val);
+    }
+    dec.adjust_alloc(&values, alloc_size)?;
+    Ok(values)
 }
 
 #[cfg(test)]

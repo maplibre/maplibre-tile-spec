@@ -41,6 +41,12 @@ impl From<Extent> for NonZeroU32 {
 pub enum Layer<'a, S: DecodeState = Lazy> {
     /// MVT-compatible layer (tag = 1)
     Tag01(Layer01<'a, S>),
+    /// Experimental v2 layer (tag = 2).
+    ///
+    /// Parsed into the same in-memory columnar representation as `Tag01`; only
+    /// the wire format differs. The enum variant preserves which format the
+    /// layer was read from.
+    Tag02(Layer01<'a, S>),
     /// Unknown layer with tag, size, and value
     Unknown(Unknown<'a>),
 }
@@ -53,6 +59,7 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Tag01(l) => f.debug_tuple("Tag01").field(l).finish(),
+            Self::Tag02(l) => f.debug_tuple("Tag02").field(l).finish(),
             Self::Unknown(u) => f.debug_tuple("Unknown").field(u).finish(),
         }
     }

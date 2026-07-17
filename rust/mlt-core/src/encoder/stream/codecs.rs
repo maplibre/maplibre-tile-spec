@@ -55,7 +55,7 @@ impl LogicalCodecs {
         let num_values = u32::try_from(values.len())?;
         let data = encode_bools_to_bytes(values, &mut self.u8_tmp);
         let encoded = encode_byte_rle(data, &mut self.u8_tmp2);
-        let meta = LogicalEncoding::Rle(RleMeta {
+        let meta = LogicalEncoding::Rle(RleMeta::Split {
             runs: num_values.div_ceil(8),
             num_rle_values: u32::try_from(encoded.len())?,
         });
@@ -73,7 +73,7 @@ impl Codecs {
         let num_values = values.len();
         let (logical, vals) = self.logical.encode_bools(values)?;
         let meta = StreamMeta::new2(stream_type, logical, PhysicalEncoding::None, num_values)?;
-        encoder::write_stream_payload(enc.data_mut(), meta, true, vals)
+        encoder::write_stream_payload(enc, meta, true, vals)
     }
 
     pub(crate) fn write_presence_stream(
@@ -98,7 +98,7 @@ impl Codecs {
         compile_error!("not implemented for non-little-endian targets");
 
         let meta = StreamMeta::new_none(stream_type, values.len())?;
-        encoder::write_stream_payload(enc.data_mut(), meta, false, cast_slice(values))
+        encoder::write_stream_payload(enc, meta, false, cast_slice(values))
     }
 
     pub(crate) fn write_int_stream<T>(
@@ -118,11 +118,12 @@ impl Codecs {
 
         // FIXME: does StreamMeta encode values.len() or vals1.len()?
         if let Some(int_enc) = enc.override_int_enc(ctx) {
+            let rle_layout = enc.config().wire_version().rle_layout();
             let (le, vals) = match int_enc.logical {
                 LogicalEncoder::None => (LE::None, self.logical.none(values)),
                 LogicalEncoder::Delta => (LE::Delta, self.logical.delta(values)),
-                LogicalEncoder::Rle => self.logical.rle(values)?,
-                LogicalEncoder::DeltaRle => self.logical.delta_rle(values)?,
+                LogicalEncoder::Rle => self.logical.rle(values, rle_layout)?,
+                LogicalEncoder::DeltaRle => self.logical.delta_rle(values, rle_layout)?,
             };
             let phys = int_enc.physical;
             return self
@@ -134,7 +135,7 @@ impl Codecs {
             let vals1 = self.logical.none(values);
             let vals2 = Output::<T>::none(&mut self.physical, vals1);
             let meta = StreamMeta::new2(ctx.stream_type, LE::None, PE::None, vals1.len())?;
-            return encoder::write_stream_payload(enc.data_mut(), meta, false, vals2);
+            return encoder::write_stream_payload(enc, meta, false, vals2);
         }
 
         // A single value has no deltas or runs, so Delta would only zigzag the
@@ -157,10 +158,11 @@ impl Codecs {
                 (PE::None, cast_slice(encoded))
             };
             let meta = StreamMeta::new2(ctx.stream_type, LE::None, pe, 1)?;
-            return encoder::write_stream_payload(enc.data_mut(), meta, false, payload);
+            return encoder::write_stream_payload(enc, meta, false, payload);
         }
 
-        let allow_fastpfor = enc.config().allow_fastpfor();
+        let allow_fastpfor = enc.config().race_fastpfor();
+        let rle_layout = enc.config().wire_version().rle_layout();
         let mut alt = enc.try_alternatives();
 
         let sample = logical.none(DataProfile::take_sample(values));
@@ -169,7 +171,7 @@ impl Codecs {
         if profile.delta_is_beneficial()
             && (profile.rle_is_viable() || profile.delta_rle_is_viable())
         {
-            let (logical_enc, values) = logical.delta_rle(values)?;
+            let (logical_enc, values) = logical.delta_rle(values, rle_layout)?;
             physical.write_alternatives::<Output<T>>(
                 &mut alt,
                 values,
@@ -189,7 +191,7 @@ impl Codecs {
             )?;
         }
         if profile.rle_is_viable() {
-            let (logical_enc, values) = logical.rle(values)?;
+            let (logical_enc, values) = logical.rle(values, rle_layout)?;
             physical.write_alternatives::<Output<T>>(
                 &mut alt,
                 values,

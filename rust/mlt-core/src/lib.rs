@@ -51,7 +51,7 @@ pub mod wire {
     pub use crate::decoder::ColumnType;
     pub use crate::decoder::stream::model::{
         DictionaryType, IntEncoding, LengthType, LogicalEncoding, LogicalTechnique, Morton,
-        OffsetType, PhysicalEncoding, RleMeta, StreamMeta, StreamType,
+        OffsetType, PhysicalEncoding, RleLayout, RleMeta, StreamMeta, StreamType,
     };
     pub use crate::utils::analyze::{Analyze, StatType};
 }

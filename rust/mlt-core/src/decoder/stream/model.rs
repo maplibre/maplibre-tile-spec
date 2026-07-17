@@ -16,15 +16,41 @@ pub enum LogicalTechnique {
     PseudoDecimal = 5,
 }
 
-/// Metadata for RLE decoding
-/// TODO v2 optimizations:
-///   * runs is identical to half the size of the associated array
-///   * `num_rle_values` is identical to the size of the sum of the first half of the array.
-///     Computing checked sum should not be too expensive.
+/// Which RLE stream layout the encoder should produce.
+///
+/// A data-less selector chosen up front by the wire format (see
+/// [`WireVersion::rle_layout`](crate::encoder::WireVersion)); the realized
+/// per-stream metadata is [`RleMeta`], whose variants mirror these.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RleLayout {
+    /// Tag `0x01`: all run lengths first, then all values.
+    Split,
+    /// Tag `0x02`: `(run_length, value)` pairs.
+    Interleaved,
+}
+
+/// Metadata for RLE decoding, one variant per [`RleLayout`].
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct RleMeta {
-    pub(crate) runs: u32,
-    pub(crate) num_rle_values: u32,
+pub enum RleMeta {
+    /// Tag `0x01`: physically-decoded words are `[run_len × runs][value × runs]`.
+    /// `runs` is the split point; `num_rle_values` is the expanded element count.
+    Split { runs: u32, num_rle_values: u32 },
+    /// Tag `0x02`: physically-decoded words are `(run_len, value)` pairs. The run
+    /// count is derived from the data length, so only the expanded element count
+    /// (`num_rle_values`, from the stream's count context) is carried.
+    Interleaved { num_rle_values: u32 },
+}
+
+impl RleMeta {
+    /// The total expanded element count, common to both layouts.
+    #[must_use]
+    pub(crate) fn num_rle_values(self) -> u32 {
+        match self {
+            Self::Split { num_rle_values, .. } | Self::Interleaved { num_rle_values } => {
+                num_rle_values
+            }
+        }
+    }
 }
 
 /// Metadata for Morton decoding
