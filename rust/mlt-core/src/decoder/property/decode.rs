@@ -51,42 +51,48 @@ impl<'a> Decode<ParsedProperty<'a>> for RawProperty<'a> {
     /// columns the exact decoded size depends on compression, so the budget is
     /// charged *after* decoding based on actual allocation sizes.
     fn decode(self, dec: &mut Decoder) -> MltResult<ParsedProperty<'a>> {
-        /// Decode the dense value stream and wrap it with the presence bitmap.
-        /// `$decode_method` is the typed `RawStream` method.
-        macro_rules! scalar_decode {
-            ($variant:ident, $decode_method:ident, $v:expr, $dec:expr) => {{
-                ParsedProperty::$variant(ParsedScalar::from_parts(
-                    $v.name,
-                    $v.presence,
-                    $v.data.$decode_method($dec)?,
-                    $dec,
-                )?)
-            }};
-        }
-
-        macro_rules! scalar_decode_int {
-            ($variant:ident, $ty:ty, $v:expr, $dec:expr) => {{
-                ParsedProperty::$variant(ParsedScalar::from_parts(
-                    $v.name,
-                    $v.presence,
-                    $v.data.decode_ints::<$ty>($dec)?,
-                    $dec,
-                )?)
-            }};
-        }
+        use ParsedProperty as P;
+        use ParsedScalar as S;
 
         Ok(match self {
-            Self::Bool(v) => scalar_decode!(Bool, decode_bools, v, dec),
-            Self::I8(v) => scalar_decode!(I8, decode_i8s, v, dec),
-            Self::U8(v) => scalar_decode!(U8, decode_u8s, v, dec),
-            Self::I32(v) => scalar_decode_int!(I32, i32, v, dec),
-            Self::U32(v) => scalar_decode_int!(U32, u32, v, dec),
-            Self::I64(v) => scalar_decode_int!(I64, i64, v, dec),
-            Self::U64(v) => scalar_decode_int!(U64, u64, v, dec),
-            Self::F32(v) => scalar_decode!(F32, decode_f32s, v, dec),
-            Self::F64(v) => scalar_decode!(F64, decode_f64s, v, dec),
-            Self::Str(v) => ParsedProperty::Str(v.decode(dec)?),
-            Self::SharedDict(v) => ParsedProperty::SharedDict(v.decode(dec)?),
+            Self::Bool(v) => {
+                let vals = v.data.decode_bools(dec)?;
+                P::Bool(S::from_parts(v.name, v.presence, vals, dec)?)
+            }
+            Self::I8(v) => {
+                let vals = v.data.decode_narrow::<i8, i32>(dec)?;
+                P::I8(S::from_parts(v.name, v.presence, vals, dec)?)
+            }
+            Self::U8(v) => {
+                let vals = v.data.decode_narrow::<u8, u32>(dec)?;
+                P::U8(S::from_parts(v.name, v.presence, vals, dec)?)
+            }
+            Self::I32(v) => {
+                let vals = v.data.decode_ints::<i32>(dec)?;
+                P::I32(S::from_parts(v.name, v.presence, vals, dec)?)
+            }
+            Self::U32(v) => {
+                let vals = v.data.decode_ints::<u32>(dec)?;
+                P::U32(S::from_parts(v.name, v.presence, vals, dec)?)
+            }
+            Self::I64(v) => {
+                let vals = v.data.decode_ints::<i64>(dec)?;
+                P::I64(S::from_parts(v.name, v.presence, vals, dec)?)
+            }
+            Self::U64(v) => {
+                let vals = v.data.decode_ints::<u64>(dec)?;
+                P::U64(S::from_parts(v.name, v.presence, vals, dec)?)
+            }
+            Self::F32(v) => {
+                let vals = v.data.decode_floats::<f32>(dec)?;
+                P::F32(S::from_parts(v.name, v.presence, vals, dec)?)
+            }
+            Self::F64(v) => {
+                let vals = v.data.decode_floats::<f64>(dec)?;
+                P::F64(S::from_parts(v.name, v.presence, vals, dec)?)
+            }
+            Self::Str(v) => P::Str(v.decode(dec)?),
+            Self::SharedDict(v) => P::SharedDict(v.decode(dec)?),
         })
     }
 }
