@@ -14,7 +14,8 @@ macro_rules! validate_stream {
     };
 }
 
-// re-export geo types
+// re-export useful libs
+pub use fast_mvt;
 pub use geo_types;
 
 pub(crate) mod codecs;
