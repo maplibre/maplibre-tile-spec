@@ -211,6 +211,4 @@ if(MLT_WITH_TOOLS)
 endif(MLT_WITH_TOOLS)
 
 list(APPEND MLT_EXPORT_TARGETS mlt-cpp-encoder)
-if(NOT MLT_AS_OBJECT_LIBRARY)
-    export(TARGETS ${MLT_EXPORT_TARGETS} FILE MLTTargets.cmake)
-endif()
+export(TARGETS ${MLT_EXPORT_TARGETS} FILE MLTTargets.cmake)
