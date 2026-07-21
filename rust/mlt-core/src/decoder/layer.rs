@@ -1,6 +1,7 @@
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{Layer01, Unknown};
 use crate::utils::{parse_u8, take};
+use crate::v2::decode_v2_layer;
 use crate::{DecodeState, Decoder, Layer, MltError, MltRefResult, MltResult, ParsedLayer, Parser};
 
 impl<'a, S: DecodeState> Layer<'a, S> {
@@ -9,7 +10,7 @@ impl<'a, S: DecodeState> Layer<'a, S> {
     pub fn as_layer01(&self) -> Option<&Layer01<'a, S>> {
         match self {
             Self::Tag01(l) => Some(l),
-            Self::Unknown(_) => None,
+            _ => None,
         }
     }
 
@@ -18,7 +19,7 @@ impl<'a, S: DecodeState> Layer<'a, S> {
     pub fn into_layer01(self) -> Option<Layer01<'a, S>> {
         match self {
             Self::Tag01(l) => Some(l),
-            Self::Unknown(_) => None,
+            _ => None,
         }
     }
 }
@@ -38,6 +39,7 @@ impl<'a> Layer<'a> {
 
         let layer = match tag {
             1 => Layer::Tag01(Layer01::from_bytes(value, parser)?),
+            2 => Layer::Tag02(decode_v2_layer(value)?),
             tag => Layer::Unknown(Unknown { tag, value }),
         };
 
@@ -51,6 +53,7 @@ impl<'a> Layer<'a> {
     pub fn decode_all(self, dec: &mut Decoder) -> MltResult<ParsedLayer<'a>> {
         match self {
             Layer::Tag01(v) => Ok(Layer::Tag01(v.decode_all(dec)?)),
+            Layer::Tag02(v) => Ok(Layer::Tag02(v)),
             Layer::Unknown(u) => Ok(Layer::Unknown(u)),
         }
     }
