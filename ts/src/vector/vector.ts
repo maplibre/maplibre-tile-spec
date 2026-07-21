@@ -1,7 +1,7 @@
 import type BitVector from "./flat/bitVector";
 
 export default abstract class Vector<T extends ArrayBufferView = ArrayBufferView, K = unknown> {
-    protected nullabilityBuffer: BitVector | null;
+    protected nullabilityBuffer: BitVector | null = null;
     protected _size: number;
 
     constructor(
