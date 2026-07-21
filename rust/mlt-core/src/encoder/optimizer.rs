@@ -4,7 +4,8 @@ use crate::decoder::{Morton, PropKind, TileLayer};
 use crate::encoder::model::{CurveParams, StagedLayer};
 use crate::encoder::property::encode::write_properties;
 use crate::encoder::{
-    Codecs, Encoder, EncoderConfig, SortStrategy, StagedId, spatial_sort_likely_to_help,
+    Codecs, Encoder, EncoderConfig, SortStrategy, StagedId, WireVersion,
+    spatial_sort_likely_to_help,
 };
 use crate::{MltError, MltResult, PropValue};
 
@@ -19,6 +20,9 @@ impl StagedLayer {
     pub fn encode_into(self, mut enc: Encoder, codecs: &mut Codecs) -> MltResult<Encoder> {
         if self.name.is_empty() {
             return Err(MltError::MissingLayerName);
+        }
+        if enc.config().wire_version() == WireVersion::V02 {
+            return crate::encoder::encode02::encode_into02(self, enc, codecs);
         }
         let column_count = usize::from(!matches!(self.id, StagedId::None))
             + 1 // geometry

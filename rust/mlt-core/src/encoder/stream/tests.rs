@@ -114,7 +114,7 @@ fn test_decode_bits_u32() {
 // RLE: [3,2] [0,2] -> [0,0,0,2,2]
 // ZigZag: [0,0,0,2,2] -> [0,0,0,1,1]
 // Delta: [0,0,0,1,1] -> [0,0,0,1,2]
-#[case::delta_rle(LogicalEncoding::DeltaRle(RleMeta { runs: 2, num_rle_values: 5 }), vec![3u32, 2, 0, 2], vec![0i32, 0, 0, 1, 2]
+#[case::delta_rle(LogicalEncoding::DeltaRle(RleMeta::Split { runs: 2, num_rle_values: 5 }), vec![3u32, 2, 0, 2], vec![0i32, 0, 0, 1, 2]
 )]
 #[case::delta_empty(LogicalEncoding::Delta, vec![], vec![])]
 fn test_decode_i32(
@@ -131,7 +131,7 @@ fn test_decode_i32(
 #[rstest]
 #[case::empty(LogicalEncoding::None, vec![], vec![])]
 #[case::new_encoded(LogicalEncoding::None, vec![10u32, 20, 30, 40], vec![10u32, 20, 30, 40])]
-#[case::rle(LogicalEncoding::Rle(RleMeta { runs: 3, num_rle_values: 6 }), vec![3u32, 2, 1, 10, 20, 30], vec![10u32, 10, 10, 20, 20, 30]
+#[case::rle(LogicalEncoding::Rle(RleMeta::Split { runs: 3, num_rle_values: 6 }), vec![3u32, 2, 1, 10, 20, 30], vec![10u32, 10, 10, 20, 20, 30]
 )]
 // ZigZag: [0,2,2,2,2] -> [0,1,1,1,1]
 // Delta: [0,1,1,1,1] -> [0,1,2,3,4]
@@ -259,13 +259,13 @@ fn allow_fastpfor_gates_fastpfor_selection() {
 )]
 #[case::varint(StreamType::Length(LengthType::VarBinary), 3, LogicalEncoding::Delta, PhysicalEncoding::VarInt, vec![0x00, 0x02, 0x02], false
 )]
-#[case::rle(StreamType::Data(DictionaryType::None), 6, LogicalEncoding::Rle(RleMeta { runs: 3, num_rle_values: 6 }), PhysicalEncoding::VarInt, vec![0x03, 0x02, 0x01, 0x0A, 0x14, 0x1E], false
+#[case::rle(StreamType::Data(DictionaryType::None), 6, LogicalEncoding::Rle(RleMeta::Split { runs: 3, num_rle_values: 6 }), PhysicalEncoding::VarInt, vec![0x03, 0x02, 0x01, 0x0A, 0x14, 0x1E], false
 )]
-#[case::rle(StreamType::Data(DictionaryType::None), 5, LogicalEncoding::DeltaRle(RleMeta { runs: 2, num_rle_values: 5 }), PhysicalEncoding::VarInt, vec![0x03, 0x02, 0x00, 0x02], false
+#[case::rle(StreamType::Data(DictionaryType::None), 5, LogicalEncoding::DeltaRle(RleMeta::Split { runs: 2, num_rle_values: 5 }), PhysicalEncoding::VarInt, vec![0x03, 0x02, 0x00, 0x02], false
 )]
 #[case::morton(StreamType::Data(DictionaryType::Morton), 4, LogicalEncoding::Morton(Morton { bits: 16, shift: 0 }), PhysicalEncoding::VarInt, vec![0x01, 0x02, 0x03, 0x04], false
 )]
-#[case::boolean(StreamType::Present, 16, LogicalEncoding::Rle(RleMeta { runs: 2, num_rle_values: 2 }), PhysicalEncoding::VarInt, vec![0xFF, 0x00], true
+#[case::boolean(StreamType::Present, 16, LogicalEncoding::Rle(RleMeta::Split { runs: 2, num_rle_values: 2 }), PhysicalEncoding::VarInt, vec![0xFF, 0x00], true
 )]
 fn test_stream_roundtrip(
     #[case] stream_type: StreamType,
@@ -350,7 +350,7 @@ fn test_varint_stream_huge_num_values_empty_data() {
 fn test_rle_num_rle_values_mismatch() {
     // runs=1, num_rle_values=u32::MAX (declared), but the single run has value 1.
     // Sum of runs = 1 ≠ u32::MAX → must error before allocating ~16 GB.
-    let rle = RleMeta {
+    let rle = RleMeta::Split {
         runs: 1,
         num_rle_values: u32::MAX,
     };

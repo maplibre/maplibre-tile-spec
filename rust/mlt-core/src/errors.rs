@@ -58,6 +58,10 @@ pub enum MltError {
     NotEncoded,
     #[error("error parsing column type: code={0}")]
     ParsingColumnType(u8),
+    #[error("error parsing v2 stream encoding byte: 0x{0:02X}")]
+    ParsingEncodingByte(u8),
+    #[error("error parsing v2 geometry layout: code={0}")]
+    ParsingGeoLayout(u8),
     #[error("error parsing logical technique: code={0}")]
     ParsingLogicalTechnique(u8),
     #[error("error parsing physical encoding: code={0}")]

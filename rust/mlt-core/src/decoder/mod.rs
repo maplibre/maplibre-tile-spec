@@ -7,8 +7,10 @@ mod id;
 mod iterators;
 mod layer;
 mod model;
+mod model02;
 mod property;
 mod root;
+mod root02;
 pub(crate) mod stream;
 mod tile;
 
@@ -30,6 +32,7 @@ pub use model::{
     ColumnType, Extent, Layer, Layer01, ParsedLayer, ParsedLayer01, PropKind, PropValue,
     PropertyKey, TileFeature, TileFeatureBuilder, TileLayer, TileLayerBuilder, Unknown,
 };
+pub(crate) use model02::{ColumnType02, GeoLayout};
 // Re-export strings sub-module so encoder can use `crate::decoder::strings::*`
 pub(crate) use property::strings;
 pub(crate) use property::{
@@ -40,5 +43,5 @@ pub(crate) use property::{
 pub use root::{Decoder, Parser};
 pub(crate) use stream::model::{
     DictionaryType, IntEncoding, LengthType, LogicalEncoding, LogicalTechnique, LogicalValue,
-    Morton, OffsetType, PhysicalEncoding, RawStream, RleMeta, StreamMeta, StreamType,
+    Morton, OffsetType, PhysicalEncoding, RawStream, RleLayout, RleMeta, StreamMeta, StreamType,
 };

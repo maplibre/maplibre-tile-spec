@@ -285,11 +285,11 @@ pub fn write_fsst_data(
     codecs.write_int_stream(&raw.symbol_lengths, &ctx, enc)?;
     let typ = StreamType::Data(DictionaryType::Fsst);
     let meta = StreamMeta::new_none(typ, raw.symbol_lengths.len())?;
-    write_stream_payload(enc.data_mut(), meta, false, &raw.symbol_bytes)?;
+    write_stream_payload(enc, meta, false, &raw.symbol_bytes)?;
     let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), name);
     codecs.write_int_stream(&raw.value_lengths, &ctx, enc)?;
     let meta = StreamMeta::new_none(StreamType::Data(dict_type), raw.value_lengths.len())?;
-    write_stream_payload(enc.data_mut(), meta, false, &raw.corpus)?;
+    write_stream_payload(enc, meta, false, &raw.corpus)?;
     Ok(())
 }
 
