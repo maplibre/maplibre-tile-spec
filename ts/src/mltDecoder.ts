@@ -149,6 +149,10 @@ export default function decodeTile(
             }
         }
 
+        if (geometryVector === null) {
+            throw new Error(`Feature table "${featureTableMetadata.name}" is missing its geometry column.`);
+        }
+
         const featureTable = new FeatureTable(
             featureTableMetadata.name,
             geometryVector,
