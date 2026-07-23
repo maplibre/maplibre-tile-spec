@@ -348,10 +348,7 @@ fn generate_geometry(w: &mut SynthWriter) {
 
 fn write_mix(w: &mut SynthWriter, current: &[usize]) {
     let mut builder = geo_varint();
-    // builder_t: polygon-only tessellated variant (matches Java, no -rust suffix)
     let mut builder_t = Some(geo_varint().tessellate());
-    // builder_t_with_lines: tessellated variant that also accepts LineString/MultiLineString
-    // alongside polygons. Java doesn't emit these, so they get the -rust suffix.
     let mut builder_t_with_lines = Some(geo_varint().tessellate());
     let mut has_polygon = false;
     let mut has_line = false;
@@ -394,7 +391,6 @@ fn write_mix(w: &mut SynthWriter, current: &[usize]) {
         let suffix = "";
         bldr.write(w, format!("{name}_tes{suffix}"));
     } else if has_polygon && has_line {
-        // Mixed polygon+line tessellated: exercises GpuVector LINESTRING/MULTILINESTRING decoding
         if let Some(bldr) = builder_t_with_lines {
             bldr.write(w, format!("{name}_tes-rust"));
         }

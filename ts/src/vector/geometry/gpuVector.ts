@@ -125,9 +125,6 @@ export abstract class GpuVector implements Iterable<CoordinatesArray> {
                     break;
                 case GEOMETRY_TYPE.LINESTRING:
                     {
-                        // In tessellated tiles (which always contain polygon geometry),
-                        // linestring vertex counts are stored in ringOffsets (one entry per line)
-                        // and partOffsets has one entry (value 1) per linestring.
                         partOffsetCounter++;
                         const numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
                         ringOffsetsCounter++;
