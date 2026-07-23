@@ -1,5 +1,4 @@
-import Point from "@mapbox/point-geometry";
-import { GEOMETRY_TYPE } from "./geometryType";
+import { createFlatGeometryVector } from "./flatGeometryVector";
 import type { CoordinatesArray } from "./geometryVector";
 import type { TopologyVector } from "./topologyVector";
 
@@ -33,135 +32,15 @@ export abstract class GpuVector implements Iterable<CoordinatesArray> {
         return this._topologyVector;
     }
 
-    /**
-     * Returns geometries as coordinate arrays by extracting polygon outlines from topology.
-     * The vertexBuffer contains the outline vertices, separate from the tessellated triangles.
-     */
     getGeometries(): CoordinatesArray[] {
         if (!this._topologyVector) {
             throw new Error("Cannot convert GpuVector to coordinates without topology information");
         }
-
-        const geometries: CoordinatesArray[] = new Array(this.numGeometries);
-        const topology = this._topologyVector;
-        const partOffsets = topology.partOffsets;
-        const ringOffsets = topology.ringOffsets;
-        const geometryOffsets = topology.geometryOffsets;
-
-        // Use counters to track position in offset arrays (like Java implementation)
-        let vertexBufferOffset = 0;
-        let partOffsetCounter = 1;
-        let ringOffsetsCounter = 1;
-        let geometryOffsetsCounter = 1;
-
+        const types = new Uint32Array(this.numGeometries);
         for (let i = 0; i < this.numGeometries; i++) {
-            const geometryType = this.geometryType(i);
-
-            switch (geometryType) {
-                case GEOMETRY_TYPE.POLYGON:
-                    {
-                        // Get number of rings for this polygon
-                        const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
-                        partOffsetCounter++;
-                        const rings: Point[][] = [];
-
-                        for (let j = 0; j < numRings; j++) {
-                            // Get number of vertices in this ring
-                            const numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
-                            ringOffsetsCounter++;
-                            const ring: Point[] = [];
-
-                            for (let k = 0; k < numVertices; k++) {
-                                const x = this._vertexBuffer[vertexBufferOffset++];
-                                const y = this._vertexBuffer[vertexBufferOffset++];
-                                ring.push(new Point(x, y));
-                            }
-                            // Close the ring by duplicating the first vertex (MVT format requirement)
-                            if (ring.length > 0) {
-                                ring.push(ring[0]);
-                            }
-                            rings.push(ring);
-                        }
-
-                        geometries[i] = rings;
-                        if (geometryOffsets) geometryOffsetsCounter++;
-                    }
-                    break;
-                case GEOMETRY_TYPE.MULTIPOLYGON:
-                    {
-                        // Get number of polygons in this multipolygon
-                        const numPolygons =
-                            geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
-                        geometryOffsetsCounter++;
-                        const allRings: Point[][] = [];
-
-                        for (let p = 0; p < numPolygons; p++) {
-                            // Get number of rings in this polygon
-                            const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
-                            partOffsetCounter++;
-
-                            for (let j = 0; j < numRings; j++) {
-                                // Get number of vertices in this ring
-                                const numVertices =
-                                    ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
-                                ringOffsetsCounter++;
-                                const ring: Point[] = [];
-
-                                for (let k = 0; k < numVertices; k++) {
-                                    const x = this._vertexBuffer[vertexBufferOffset++];
-                                    const y = this._vertexBuffer[vertexBufferOffset++];
-                                    ring.push(new Point(x, y));
-                                }
-                                // Close the ring by duplicating the first vertex (MVT format requirement)
-                                if (ring.length > 0) {
-                                    ring.push(ring[0]);
-                                }
-                                allRings.push(ring);
-                            }
-                        }
-
-                        geometries[i] = allRings;
-                    }
-                    break;
-                case GEOMETRY_TYPE.LINESTRING:
-                    {
-                        partOffsetCounter++;
-                        const numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
-                        ringOffsetsCounter++;
-                        const line: Point[] = [];
-                        for (let k = 0; k < numVertices; k++) {
-                            const x = this._vertexBuffer[vertexBufferOffset++];
-                            const y = this._vertexBuffer[vertexBufferOffset++];
-                            line.push(new Point(x, y));
-                        }
-                        geometries[i] = [line];
-                        if (geometryOffsets) geometryOffsetsCounter++;
-                    }
-                    break;
-                case GEOMETRY_TYPE.MULTILINESTRING:
-                    {
-                        const numLineStrings =
-                            geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
-                        geometryOffsetsCounter++;
-                        const lineStrings: Point[][] = [];
-                        for (let j = 0; j < numLineStrings; j++) {
-                            partOffsetCounter++;
-                            const numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
-                            ringOffsetsCounter++;
-                            const line: Point[] = [];
-                            for (let k = 0; k < numVertices; k++) {
-                                const x = this._vertexBuffer[vertexBufferOffset++];
-                                const y = this._vertexBuffer[vertexBufferOffset++];
-                                line.push(new Point(x, y));
-                            }
-                            lineStrings.push(line);
-                        }
-                        geometries[i] = lineStrings;
-                    }
-                    break;
-            }
+            types[i] = this.geometryType(i);
         }
-        return geometries;
+        return createFlatGeometryVector(types, this._topologyVector, undefined, this._vertexBuffer).getGeometries();
     }
 
     [Symbol.iterator](): Iterator<CoordinatesArray> {
