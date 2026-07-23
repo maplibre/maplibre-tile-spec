@@ -383,9 +383,7 @@ fn write_mix(w: &mut SynthWriter, current: &[usize]) {
         }
     }
     if let Some(bldr) = builder_t {
-        // let suffix = if ["..."].contains(name) { "" } else { "-rust" };
-        let suffix = "";
-        bldr.write(w, format!("{name}_tes{suffix}"));
+bldr.write(w, format!("{name}_tes"));
     } else if has_polygon && has_line {
         if let Some(bldr) = builder_t_with_lines {
             bldr.write(w, format!("{name}_tes-rust"));
