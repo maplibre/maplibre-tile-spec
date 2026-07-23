@@ -361,7 +361,7 @@ fn write_mix(w: &mut SynthWriter, current: &[usize]) {
             mix_type.1,
             Geometry::<i32>::Polygon(_) | Geometry::<i32>::MultiPolygon(_)
         );
-        has_polygon |= is_line
+        has_polygon |= is_line;
         let is_line = matches!(
             mix_type.1,
             Geometry::<i32>::LineString(_) | Geometry::<i32>::MultiLineString(_)
