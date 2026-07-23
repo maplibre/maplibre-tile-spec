@@ -349,26 +349,45 @@ fn generate_geometry(w: &mut SynthWriter) {
 fn write_mix(w: &mut SynthWriter, current: &[usize]) {
     let mut builder = geo_varint();
     let mut builder_t = Some(geo_varint().tessellate());
+    let mut builder_t_with_lines = Some(geo_varint().tessellate());
+    let mut has_polygon = false;
+    let mut has_line = false;
     let mut name = format!("mix_{}", current.len());
     for idx in current {
         let mix_type = &MIX_TYPES[*idx];
         builder = builder.geo(mix_type.1.clone());
         write!(&mut name, "_{}", mix_type.0).unwrap();
+        let is_polygon = matches!(
+            mix_type.1,
+            Geometry::<i32>::Polygon(_) | Geometry::<i32>::MultiPolygon(_)
+        );
+        has_polygon |= is_polygon;
+        let is_line = matches!(
+            mix_type.1,
+            Geometry::<i32>::LineString(_) | Geometry::<i32>::MultiLineString(_)
+        );
+        has_line |= is_line;
         if let Some(bldr) = builder_t {
-            if matches!(
-                mix_type.1,
-                Geometry::<i32>::Polygon(_) | Geometry::<i32>::MultiPolygon(_)
-            ) {
+            if is_polygon {
                 builder_t = Some(bldr.geo(mix_type.1.clone()));
             } else {
                 builder_t = None;
             }
         }
+        if let Some(bldr) = builder_t_with_lines {
+            if is_polygon || is_line {
+                builder_t_with_lines = Some(bldr.geo(mix_type.1.clone()));
+            } else {
+                builder_t_with_lines = None;
+            }
+        }
     }
     if let Some(bldr) = builder_t {
-        // let suffix = if ["..."].contains(name) { "" } else { "-rust" };
-        let suffix = "";
-        bldr.write(w, format!("{name}_tes{suffix}"));
+        bldr.write(w, format!("{name}_tes"));
+    } else if has_polygon && has_line {
+        if let Some(bldr) = builder_t_with_lines {
+            bldr.write(w, format!("{name}_tes"));
+        }
     }
     builder.write(w, &name);
 }
