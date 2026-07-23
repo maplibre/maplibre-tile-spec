@@ -348,20 +348,44 @@ fn generate_geometry(w: &mut SynthWriter) {
 
 fn write_mix(w: &mut SynthWriter, current: &[usize]) {
     let mut builder = geo_varint();
+    // builder_t: polygon-only tessellated variant (matches Java, no -rust suffix)
     let mut builder_t = Some(geo_varint().tessellate());
+    // builder_t_with_lines: tessellated variant that also accepts LineString/MultiLineString
+    // alongside polygons. Java doesn't emit these, so they get the -rust suffix.
+    let mut builder_t_with_lines = Some(geo_varint().tessellate());
+    let mut has_polygon = false;
+    let mut has_line = false;
     let mut name = format!("mix_{}", current.len());
     for idx in current {
         let mix_type = &MIX_TYPES[*idx];
         builder = builder.geo(mix_type.1.clone());
         write!(&mut name, "_{}", mix_type.0).unwrap();
+        let is_polygon = matches!(
+            mix_type.1,
+            Geometry::<i32>::Polygon(_) | Geometry::<i32>::MultiPolygon(_)
+        );
+        let is_line = matches!(
+            mix_type.1,
+            Geometry::<i32>::LineString(_) | Geometry::<i32>::MultiLineString(_)
+        );
+        if is_polygon {
+            has_polygon = true;
+        }
+        if is_line {
+            has_line = true;
+        }
         if let Some(bldr) = builder_t {
-            if matches!(
-                mix_type.1,
-                Geometry::<i32>::Polygon(_) | Geometry::<i32>::MultiPolygon(_)
-            ) {
+            if is_polygon {
                 builder_t = Some(bldr.geo(mix_type.1.clone()));
             } else {
                 builder_t = None;
+            }
+        }
+        if let Some(bldr) = builder_t_with_lines {
+            if is_polygon || is_line {
+                builder_t_with_lines = Some(bldr.geo(mix_type.1.clone()));
+            } else {
+                builder_t_with_lines = None;
             }
         }
     }
@@ -369,6 +393,11 @@ fn write_mix(w: &mut SynthWriter, current: &[usize]) {
         // let suffix = if ["..."].contains(name) { "" } else { "-rust" };
         let suffix = "";
         bldr.write(w, format!("{name}_tes{suffix}"));
+    } else if has_polygon && has_line {
+        // Mixed polygon+line tessellated: exercises GpuVector LINESTRING/MULTILINESTRING decoding
+        if let Some(bldr) = builder_t_with_lines {
+            bldr.write(w, format!("{name}_tes-rust"));
+        }
     }
     builder.write(w, &name);
 }

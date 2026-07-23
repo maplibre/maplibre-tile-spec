@@ -123,6 +123,45 @@ export abstract class GpuVector implements Iterable<CoordinatesArray> {
                         geometries[i] = allRings;
                     }
                     break;
+                case GEOMETRY_TYPE.LINESTRING:
+                    {
+                        // In tessellated tiles (which always contain polygon geometry),
+                        // linestring vertex counts are stored in ringOffsets (one entry per line)
+                        // and partOffsets has one entry (value 1) per linestring.
+                        partOffsetCounter++;
+                        const numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
+                        ringOffsetsCounter++;
+                        const line: Point[] = [];
+                        for (let k = 0; k < numVertices; k++) {
+                            const x = this._vertexBuffer[vertexBufferOffset++];
+                            const y = this._vertexBuffer[vertexBufferOffset++];
+                            line.push(new Point(x, y));
+                        }
+                        geometries[i] = [line];
+                        if (geometryOffsets) geometryOffsetsCounter++;
+                    }
+                    break;
+                case GEOMETRY_TYPE.MULTILINESTRING:
+                    {
+                        const numLineStrings =
+                            geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
+                        geometryOffsetsCounter++;
+                        const lineStrings: Point[][] = [];
+                        for (let j = 0; j < numLineStrings; j++) {
+                            partOffsetCounter++;
+                            const numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
+                            ringOffsetsCounter++;
+                            const line: Point[] = [];
+                            for (let k = 0; k < numVertices; k++) {
+                                const x = this._vertexBuffer[vertexBufferOffset++];
+                                const y = this._vertexBuffer[vertexBufferOffset++];
+                                line.push(new Point(x, y));
+                            }
+                            lineStrings.push(line);
+                        }
+                        geometries[i] = lineStrings;
+                    }
+                    break;
             }
         }
         return geometries;
