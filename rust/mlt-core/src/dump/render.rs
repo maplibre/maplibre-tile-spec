@@ -49,14 +49,20 @@ impl Default for RenderOpts {
 
 const SEP: &str = " | ";
 
-/// Render `tree` as an annotated hexdump. `buf` must be the same buffer that was
-/// passed to [`super::annotate_tile`].
+/// Render `tree` as an annotated hexdump.
+/// `buf` must be the buffer that was passed to [`super::annotate_tile`].
 pub fn render(
     tree: &DumpTree,
     buf: &[u8],
     opts: &RenderOpts,
     w: &mut impl Write,
 ) -> io::Result<()> {
+    if opts.width == 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "render width must be non-zero",
+        ));
+    }
     let mut dec = Decoder::default();
     let left_len = left_width(opts.width);
     for region in &tree.regions {
@@ -210,10 +216,10 @@ fn blob_summary(region: &Region, bytes: &[u8]) -> String {
     }
 }
 
-/// Best-effort decode of a stream payload for display. Never panics — decode
-/// errors are rendered inline.
+/// Best-effort decode of a stream payload for display.
+/// Never panics; decode errors are rendered inline.
 fn decode_blob(info: BlobInfo, data: &[u8], dec: &mut Decoder) -> String {
-    // Bound memory/time per blob: the decoded values are dropped immediately.
+    // Bound memory/time per blob; the decoded values are dropped immediately.
     dec.reset_budget();
     let meta = info.meta;
     match info.hint {
@@ -275,8 +281,8 @@ fn truncate_str(s: &str, max: usize) -> String {
     }
 }
 
-/// Emit one or more hexdump rows for `bytes` starting at `offset`. The
-/// `annotation` is printed on the first row only.
+/// Emit one or more hexdump rows for `bytes` starting at `offset`.
+/// The `annotation` is printed on the first row only.
 fn emit_bytes(
     w: &mut impl Write,
     offset: usize,

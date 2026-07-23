@@ -2,21 +2,18 @@
 
 use crate::wire::StreamMeta;
 
-/// Whether a region describes tile *metadata* (framing, schema, stream headers)
-/// or an opaque *data payload* blob.
+/// Whether a region is tile metadata or an opaque data payload.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RegionKind {
-    /// Framing, schema, or stream-header bytes — annotated byte- and bit-for-byte.
+    /// Framing, schema, or stream-header bytes, annotated byte- and bit-for-byte.
     Meta,
-    /// A stream payload — rendered as raw hex plus (best-effort) decoded values.
+    /// A stream payload, rendered as raw hex plus best-effort decoded values.
     DataBlob,
 }
 
-/// How a [`RegionKind::DataBlob`] payload should be decoded for display.
+/// How a [`RegionKind::DataBlob`] payload is decoded for display.
 ///
-/// Chosen by the walker from the owning column's type and the stream's
-/// [`StreamMeta::stream_type`]. Decoding is best-effort: on any error the
-/// renderer falls back to raw hex only.
+/// Best-effort: on any decode error the renderer falls back to raw hex.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DecodeHint {
     /// Nullability bitmap (byte-RLE → packed bits).
@@ -39,8 +36,7 @@ pub enum DecodeHint {
     Bytes,
 }
 
-/// One decoded sub-field of a bit-packed byte (e.g. the nibbles of a
-/// `stream_type` byte or the logical/physical fields of an `encoding` byte).
+/// One sub-field of a bit-packed byte, e.g. a nibble of `stream_type`.
 #[derive(Debug, Clone)]
 pub struct BitField {
     /// Inclusive high bit index (7..=0, MSB first).
@@ -53,8 +49,7 @@ pub struct BitField {
     pub meaning: String,
 }
 
-/// Extra info attached to a [`RegionKind::DataBlob`] region so the renderer can
-/// decode it. `StreamMeta` is `Copy`, so this is cheap to store.
+/// Stream metadata attached to a [`RegionKind::DataBlob`] so the renderer can decode it.
 #[derive(Debug, Clone, Copy)]
 pub struct BlobInfo {
     pub meta: StreamMeta,
@@ -63,9 +58,8 @@ pub struct BlobInfo {
 
 /// A single annotated span of the tile buffer.
 ///
-/// Regions are emitted in pre-order. `container` regions bracket their children
-/// (and legitimately overlap them); leaf regions (`!container`) partition the
-/// buffer exactly, which the coverage test relies on.
+/// Emitted in pre-order. Containers bracket their children and may overlap them.
+/// Leaf regions partition the buffer exactly; the coverage test relies on this.
 #[derive(Debug, Clone)]
 pub struct Region {
     /// Absolute byte offset into the tile buffer.

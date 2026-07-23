@@ -1,7 +1,6 @@
-//! Verifies the annotated-dump walker (`mlt_core::dump::annotate_tile`) against
-//! every synthetic fixture: its leaf regions must partition the whole buffer
-//! with no gaps or overlaps, and it must agree with the real parser on whether
-//! a file is well-formed.
+//! Checks `mlt_core::dump::annotate_tile` against every synthetic fixture.
+//! Its leaf regions must partition the whole buffer with no gaps or overlaps.
+//! It must also agree with the real parser on whether a file is well-formed.
 
 use std::fs;
 use std::path::Path;

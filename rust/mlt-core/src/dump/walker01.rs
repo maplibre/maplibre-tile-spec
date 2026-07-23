@@ -1,12 +1,12 @@
 //! Annotating walker for tag `0x01` (v1) tiles.
 //!
-//! Mirrors the wire layout parsed by [`crate::decoder`], but instead of building
-//! decoded structures it records an annotated [`Region`] for every field. Byte
-//! advancement is delegated to the *same* primitives the real parser uses
-//! (`parse_u8`, `parse_varint`, `parse_string`, `take`) and to the authoritative
-//! [`StreamMeta::from_bytes`] / [`ColumnType::from_bytes`], so recorded offsets
-//! are exact by construction. Only the per-column *stream sequencing* is mirrored
-//! by hand (guarded by the coverage test in `tests/dump_coverage.rs`).
+//! Mirrors the wire layout of [`crate::decoder`], but records an annotated
+//! [`Region`] per field instead of building decoded structures.
+//! Advancement is delegated to the real parser's primitives and to the
+//! authoritative `StreamMeta::from_bytes` / `ColumnType::from_bytes`, so offsets
+//! are exact by construction.
+//! Only per-column stream sequencing is mirrored by hand; the coverage test in
+//! `tests/dump_coverage.rs` guards it.
 
 use usize_cast::IntoUsize as _;
 
@@ -183,7 +183,8 @@ impl<'a> Walker<'a> {
         Ok(rest)
     }
 
-    /// Mirror [`crate::decoder::Layer01::from_bytes`]. `body` must be consumed fully.
+    /// Mirror [`crate::decoder::Layer01::from_bytes`].
+    /// `body` must be consumed fully.
     fn walk_layer01(&mut self, input: &'a [u8]) -> MltResult<()> {
         let (input, _name) = self.field(input, "name", parse_string, |s| Some(format!("{s:?}")))?;
         let (input, _extent) = self.field(
@@ -226,6 +227,9 @@ impl<'a> Walker<'a> {
         column_count: u32,
     ) -> MltResult<(&'a [u8], Vec<Column<'a>>)> {
         let si = self.open(input, "schema".to_string());
+        if input.len() < column_count.into_usize() {
+            return Err(MltError::BufferUnderflow(column_count, input.len()));
+        }
         let mut cols = Vec::with_capacity(column_count.into_usize());
         for i in 0..column_count {
             let (rest, col) = self.walk_column_def(input, i)?;
@@ -285,6 +289,9 @@ impl<'a> Walker<'a> {
                 |v| Some(v.to_string()),
             )?;
             input = rest;
+            if input.len() < child_count.into_usize() {
+                return Err(MltError::BufferUnderflow(child_count, input.len()));
+            }
             children.reserve(child_count.into_usize());
             for j in 0..child_count {
                 let (rest, child) = self.walk_column_def(input, j)?;
