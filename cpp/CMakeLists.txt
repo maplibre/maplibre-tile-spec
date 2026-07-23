@@ -22,12 +22,18 @@ if(PROJECT_IS_TOP_LEVEL AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     set(CMAKE_MODULE_LINKER_FLAGS_COVERAGE "--coverage")
 endif()
 
-add_library(mlt-cpp STATIC)
-add_library(mlt-cpp-encoder STATIC)
-
+option(MLT_AS_OBJECT_LIBRARY "Build mlt-cpp and mlt-cpp-encoder as object libraries" OFF)
 option(MLT_WITH_JSON "Include JSON support" ON)
 option(MLT_WITH_TESTS "Include Tests" ON)
 option(MLT_WITH_TOOLS "Include CLI tools" ON)
+
+if(MLT_AS_OBJECT_LIBRARY)
+    add_library(mlt-cpp OBJECT)
+    add_library(mlt-cpp-encoder OBJECT)
+else()
+    add_library(mlt-cpp STATIC)
+    add_library(mlt-cpp-encoder STATIC)
+endif()
 
 foreach(_target mlt-cpp mlt-cpp-encoder)
     set_target_properties(
@@ -94,6 +100,9 @@ add_cxx_compiler_flag(-wd4514) # MSVC: unreferenced inline function has been rem
 add_cxx_compiler_flag(-wd4710) # MSVC: function not inlined
 add_cxx_compiler_flag(-wd4711) # MSVC: function selected for inline expansion
 add_cxx_compiler_flag(-wd4820) # MSVC: padding added after data member
+if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+   add_cxx_compiler_flag(-pthread)
+endif()
 
 foreach(_target mlt-cpp mlt-cpp-encoder)
     target_include_directories(${_target}

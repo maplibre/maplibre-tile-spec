@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.23](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.22...rust-mlt-v0.1.23) - 2026-07-18
+
+### Fixed
+
+- *(rust)* preserve PMTiles geographic header ([#1503](https://github.com/maplibre/maplibre-tile-spec/pull/1503))
+
+### Other
+
+- *(rust)* update dependencies, use CARGO_BUILD_WARNINGS ([#1515](https://github.com/maplibre/maplibre-tile-spec/pull/1515))
+- Add PMTiles compression support to the Rust MVT-to-MLT converter ([#1498](https://github.com/maplibre/maplibre-tile-spec/pull/1498))
+
 ## [0.1.22](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.21...rust-mlt-v0.1.22) - 2026-07-01
 
 ### Other
