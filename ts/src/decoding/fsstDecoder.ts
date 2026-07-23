@@ -1,4 +1,26 @@
 /**
+ * Calculates the exact output size before decoding. This allows one final
+ * `Uint8Array` allocation and avoids growing a JavaScript number array and
+ * copying it into a typed array afterward. Traversing the compressed data
+ * twice is always worthwhile here because it avoids those larger temporary
+ * allocations.
+ */
+function getDecodedLength(symbolLengths: Uint32Array, compressedData: Uint8Array): number {
+    let decodedLength = 0;
+    for (let i = 0; i < compressedData.length; i++) {
+        const symbolIndex = compressedData[i];
+        if (symbolIndex === 255) {
+            decodedLength++;
+            i++; // Skip the literal byte following the escape marker.
+        } else {
+            decodedLength += symbolLengths[symbolIndex];
+        }
+    }
+
+    return decodedLength;
+}
+
+/**
  * Decode FSST compressed data
  *
  * @param symbols           Array of symbols, where each symbol can be between 1 and 8 bytes
@@ -6,26 +28,28 @@
  * @param compressedData    FSST Compressed data, where each entry is an index to the symbols array
  * @returns                 Decoded data as Uint8Array
  */
-//TODO: improve -> quick and dirty implementation
 export function decodeFsst(symbols: Uint8Array, symbolLengths: Uint32Array, compressedData: Uint8Array): Uint8Array {
-    //TODO: use typed array directly
-    const decodedData: number[] = [];
-    const symbolOffsets: number[] = new Array(symbolLengths.length).fill(0);
+    const symbolOffsets = new Uint32Array(symbolLengths.length);
 
     for (let i = 1; i < symbolLengths.length; i++) {
         symbolOffsets[i] = symbolOffsets[i - 1] + symbolLengths[i - 1];
     }
 
+    const decodedData = new Uint8Array(getDecodedLength(symbolLengths, compressedData));
+    let decodedOffset = 0;
     for (let i = 0; i < compressedData.length; i++) {
-        if (compressedData[i] === 255) {
-            decodedData.push(compressedData[++i]);
+        const symbolIndex = compressedData[i];
+        if (symbolIndex === 255) {
+            i++;
+            decodedData[decodedOffset++] = compressedData[i];
         } else {
-            const symbolLength = symbolLengths[compressedData[i]];
-            const symbolOffset = symbolOffsets[compressedData[i]];
-            for (let j = 0; j < symbolLength; j++) {
-                decodedData.push(symbols[symbolOffset + j]);
+            let symbolLength = symbolLengths[symbolIndex];
+            let symbolOffset = symbolOffsets[symbolIndex];
+            while (symbolLength-- > 0) {
+                decodedData[decodedOffset++] = symbols[symbolOffset++];
             }
         }
     }
-    return new Uint8Array(decodedData);
+
+    return decodedData;
 }

@@ -3,6 +3,12 @@ import type BitVector from "../flat/bitVector";
 import { decodeFsst } from "../../decoding/fsstDecoder";
 import { decodeString } from "../../decoding/decodingUtils";
 
+/** Mutable cache shared by the FSST child columns of one SharedDict. */
+export type FsstDictionaryCache = {
+    /** Undefined until one member of the SharedDict group decodes the dictionary on first access. */
+    decodedDictionary?: Uint8Array;
+};
+
 export class StringFsstDictionaryVector extends VariableSizeVector<Uint8Array, string> {
     // TODO: extend from StringVector
     private symbolLengthBuffer?: Uint32Array;
@@ -16,24 +22,34 @@ export class StringFsstDictionaryVector extends VariableSizeVector<Uint8Array, s
         private readonly symbolOffsetBuffer: Uint32Array,
         private readonly symbolTableBuffer: Uint8Array,
         nullabilityBuffer?: BitVector,
+        /** Cache shared by the FSST child columns of one SharedDict. */
+        private readonly sharedDictionaryCache?: FsstDictionaryCache,
     ) {
         super(name, offsetBuffer, dictionaryBuffer, nullabilityBuffer ?? indexBuffer.length);
     }
 
     protected getValueFromBuffer(index: number): string {
         if (this.decodedDictionary == null) {
-            if (this.symbolLengthBuffer == null) {
-                // TODO: change FsstEncoder to take offsets instead of length to get rid of this conversion
-                this.symbolLengthBuffer = this.offsetToLengthBuffer(this.symbolOffsetBuffer);
+            this.decodedDictionary = this.sharedDictionaryCache?.decodedDictionary;
+            if (this.decodedDictionary == null) {
+                this.decodedDictionary = this.decodeDictionary();
+                if (this.sharedDictionaryCache) {
+                    this.sharedDictionaryCache.decodedDictionary = this.decodedDictionary;
+                }
             }
-
-            this.decodedDictionary = decodeFsst(this.symbolTableBuffer, this.symbolLengthBuffer, this.dataBuffer);
         }
 
         const offset = this.indexBuffer[index];
         const start = this.offsetBuffer[offset];
         const end = this.offsetBuffer[offset + 1];
         return decodeString(this.decodedDictionary, start, end);
+    }
+
+    private decodeDictionary(): Uint8Array {
+        if (this.symbolLengthBuffer == null) {
+            this.symbolLengthBuffer = this.offsetToLengthBuffer(this.symbolOffsetBuffer);
+        }
+        return decodeFsst(this.symbolTableBuffer, this.symbolLengthBuffer, this.dataBuffer);
     }
 
     // TODO: get rid of that conversion

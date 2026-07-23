@@ -30,7 +30,7 @@ pub fn decode_geometry_types(
     dec: &mut Decoder,
 ) -> MltResult<Vec<GeometryType>> {
     // TODO: simplify this, e.g. use u8 or even GeometryType directly rather than going via Vec<u32>
-    let vector_types: Vec<u32> = meta.decode_u32s(dec)?;
+    let vector_types: Vec<u32> = meta.decode_ints::<u32>(dec)?;
     let vector_types: Vec<GeometryType> = vector_types
         .into_iter()
         .map::<MltResult<GeometryType>, _>(|v| Ok(u8::try_from(v)?.try_into()?))
@@ -267,7 +267,7 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
                 StreamType::Present => {}
                 StreamType::Data(v) => match v {
                     DictionaryType::Vertex | DictionaryType::Morton => {
-                        vertices.set_once(stream.decode_i32s(dec)?)?;
+                        vertices.set_once(stream.decode_ints::<i32>(dec)?)?;
                     }
                     _ => Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?,
                 },
@@ -277,7 +277,7 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
                         OffsetType::Index => &mut index_buffer,
                         _ => Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?,
                     };
-                    target.set_once(stream.decode_u32s(dec)?)?;
+                    target.set_once(stream.decode_ints::<u32>(dec)?)?;
                 }
                 StreamType::Length(v) => {
                     let target = match v {
@@ -287,7 +287,7 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
                         LengthType::Triangles => &mut triangles,
                         _ => Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?,
                     };
-                    target.set_once(stream.decode_u32s(dec)?)?;
+                    target.set_once(stream.decode_ints::<u32>(dec)?)?;
                 }
             }
         }

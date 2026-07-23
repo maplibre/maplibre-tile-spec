@@ -78,7 +78,10 @@ impl Analyze for RawIdValue<'_> {
 
 impl Analyze for RawPresence<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
-        self.0.for_each_stream(cb);
+        match self {
+            Self::AllPresent => {}
+            Self::Stream(s) => s.for_each_stream(cb),
+        }
     }
 }
 

@@ -5,8 +5,7 @@ use bitvec::prelude::{BitSlice, BitVec, Lsb0};
 use bitvec::view::BitView as _;
 use usize_cast::IntoUsize as _;
 
-use crate::codecs::bytes::{decode_bytes_to_bools, decode_bytes_to_u32s, decode_bytes_to_u64s};
-use crate::codecs::fastpfor::decode_fastpfor;
+use crate::codecs::bytes::{PhysicalWord, decode_bytes_to_bools, decode_bytes_to_words};
 use crate::codecs::rle::decode_byte_rle;
 use crate::codecs::varint::parse_varint_vec;
 use crate::decoder::{LogicalEncoding, LogicalValue, PhysicalEncoding, RawStream};
@@ -51,157 +50,197 @@ impl<'a> RawStream<'a> {
         decode_bytes_to_bools(&decoded, num_values, dec)
     }
 
-    pub fn decode_i8s(self, dec: &mut Decoder) -> MltResult<Vec<i8>> {
-        self.decode_i32s(dec)?
+    /// Decode an integer stream via its 32-bit physical type `W`, then narrow each
+    /// value to the 8-bit output `N`, erroring if any value is out of range.
+    pub fn decode_narrow<N, W>(self, dec: &mut Decoder) -> MltResult<Vec<N>>
+    where
+        W: DecodeInt,
+        N: TryFrom<W>,
+        MltError: From<<N as TryFrom<W>>::Error>,
+    {
+        self.decode_ints::<W>(dec)?
             .into_iter()
-            .map(i8::try_from)
-            .collect::<Result<Vec<_>, _>>()
+            .map(N::try_from)
+            .collect::<Result<Vec<N>, _>>()
             .map_err(Into::into)
     }
 
-    pub fn decode_u8s(self, dec: &mut Decoder) -> MltResult<Vec<u8>> {
-        self.decode_u32s(dec)?
-            .into_iter()
-            .map(u8::try_from)
-            .collect::<Result<Vec<u8>, _>>()
-            .map_err(Into::into)
-    }
-
-    pub fn decode_i32s(self, dec: &mut Decoder) -> MltResult<Vec<i32>> {
+    /// Decode an integer stream into `Vec<T>`, applying the logical transform.
+    ///
+    /// Fast path: when there is no logical transform and `T` is unsigned, the
+    /// physical words *are* the output and are decoded straight into a fresh
+    /// `Vec`, skipping the scratch-buffer round-trip. Otherwise the physical
+    /// decode uses the decoder's reusable scratch buffer and the logical
+    /// transform (zigzag / delta / RLE / Morton / …) produces the output. Signed
+    /// types always take the transform path (zigzag is required even for `None`).
+    pub fn decode_ints<T: DecodeInt>(self, dec: &mut Decoder) -> MltResult<Vec<T>> {
         let meta = self.meta;
-        // i32 always needs a logical transform (zigzag at minimum) — use scratch buffer.
-        let mut buf = mem::take(&mut dec.buffer_u32);
-        self.decode_bits_u32(&mut buf, dec)?;
-        let result = LogicalValue::new(meta).decode_i32(&buf, dec);
-        dec.buffer_u32 = buf;
-        dec.buffer_u32.clear();
+        if meta.encoding.logical == LogicalEncoding::None
+            && let Some(out) = T::decode_none_passthrough(&self, dec)?
+        {
+            return Ok(out);
+        }
+        let mut buf = mem::take(T::scratch(dec));
+        self.decode_bits::<T::Physical>(&mut buf, dec)?;
+        let result = T::logical_decode(LogicalValue::new(meta), &buf, dec);
+        *T::scratch(dec) = buf;
+        T::scratch(dec).clear();
         result
     }
 
-    pub fn decode_u32s(self, dec: &mut Decoder) -> MltResult<Vec<u32>> {
-        let meta = self.meta;
-        if meta.encoding.logical == LogicalEncoding::None {
-            // No logical transform: physical words are the output — decode into a fresh Vec.
-            let mut out = Vec::new();
-            self.decode_bits_u32(&mut out, dec)?;
-            Ok(out)
-        } else {
-            // Logical transform needed — use the reusable scratch buffer.
-            let mut buf = mem::take(&mut dec.buffer_u32);
-            self.decode_bits_u32(&mut buf, dec)?;
-            let result = LogicalValue::new(meta).decode_u32(&buf, dec);
-            dec.buffer_u32 = buf;
-            dec.buffer_u32.clear();
-            result
-        }
-    }
-
-    pub fn decode_u64s(self, dec: &mut Decoder) -> MltResult<Vec<u64>> {
-        let meta = self.meta;
-        if meta.encoding.logical == LogicalEncoding::None {
-            // No logical transform: physical words are the output — decode into a fresh Vec.
-            let mut out = Vec::new();
-            self.decode_bits_u64(&mut out, dec)?;
-            Ok(out)
-        } else {
-            // Logical transform needed — use the reusable scratch buffer.
-            let mut buf = mem::take(&mut dec.buffer_u64);
-            self.decode_bits_u64(&mut buf, dec)?;
-            let result = LogicalValue::new(meta).decode_u64(&buf, dec);
-            dec.buffer_u64 = buf;
-            dec.buffer_u64.clear();
-            result
-        }
-    }
-
-    pub fn decode_i64s(self, dec: &mut Decoder) -> MltResult<Vec<i64>> {
-        let meta = self.meta;
-        // i64 always needs a logical transform (zigzag at minimum) — use scratch buffer.
-        let mut buf = mem::take(&mut dec.buffer_u64);
-        self.decode_bits_u64(&mut buf, dec)?;
-        let result = LogicalValue::new(meta).decode_i64(&buf, dec);
-        dec.buffer_u64 = buf;
-        dec.buffer_u64.clear();
-        result
-    }
-
-    /// Decode a stream of f32 values from raw little-endian bytes, charging `dec`.
-    pub fn decode_f32s(self, dec: &mut Decoder) -> MltResult<Vec<f32>> {
+    /// Decode a stream of floating-point values (`f32` / `f64`) from raw little-endian
+    /// bytes, charging `dec`. Varint physical encoding is not supported for floats.
+    pub fn decode_floats<T>(self, dec: &mut Decoder) -> MltResult<Vec<T>>
+    where
+        T: num_traits::FromBytes,
+        for<'b> <T as num_traits::FromBytes>::Bytes: TryFrom<&'b [u8]>,
+    {
         if self.meta.encoding.physical == PhysicalEncoding::VarInt {
-            return Err(MltError::NotImplemented("varint f32 decoding"));
+            return Err(MltError::NotImplemented("varint float decoding"));
         }
         let num = self.meta.num_values.into_usize();
-        dec.consume_items::<f32>(num)?;
-        fail_if_invalid_stream_size(self.data.len(), num.checked_mul(4).or_overflow()?)?;
+        let width = size_of::<T>();
+        fail_if_invalid_stream_size(self.data.len(), num.checked_mul(width).or_overflow()?)?;
+        dec.consume_items::<T>(num)?;
 
         Ok(self
             .data
-            .chunks_exact(4)
-            .map(|chunk| f32::from_le_bytes(chunk.try_into().expect("infallible: chunks_exact(4)")))
+            .chunks_exact(width)
+            .map(|chunk| {
+                T::from_le_bytes(
+                    &chunk
+                        .try_into()
+                        .ok()
+                        .expect("infallible: chunks_exact(width)"),
+                )
+            })
             .collect())
     }
 
-    /// Decode a stream of f64 values from raw little-endian bytes, charging `dec`.
-    pub fn decode_f64s(self, dec: &mut Decoder) -> MltResult<Vec<f64>> {
-        if self.meta.encoding.physical == PhysicalEncoding::VarInt {
-            return Err(MltError::NotImplemented("varint f64 decoding"));
-        }
-        let num = self.meta.num_values.into_usize();
-        fail_if_invalid_stream_size(self.data.len(), num.checked_mul(8).or_overflow()?)?;
-
-        dec.consume_items::<f64>(num)?;
-        Ok(self
-            .data
-            .chunks_exact(8)
-            .map(|chunk| f64::from_le_bytes(chunk.try_into().expect("infallible: chunks_exact(8)")))
-            .collect())
-    }
-
-    /// Physically decode the stream into `buf` as `u32` values.
+    /// Physically decode the stream into `buf` as `T` (`u32` or `u64`) values.
     ///
     /// `buf` is cleared and filled with the decoded words. The caller owns the
     /// buffer and is responsible for deciding whether it constitutes a final
     /// persistent allocation (and therefore should be charged to a [`Decoder`]).
-    pub fn decode_bits_u32(self, buf: &mut Vec<u32>, dec: &mut Decoder) -> MltResult<()> {
+    ///
+    /// `FastPFOR` is `u32`-only; decoding a `u64` `FastPFOR` stream returns an error.
+    pub fn decode_bits<T: PhysicalWord>(
+        &self,
+        buf: &mut Vec<T>,
+        dec: &mut Decoder,
+    ) -> MltResult<()> {
         buf.clear();
         match self.meta.encoding.physical {
             PhysicalEncoding::None => {
-                let (_, values) = decode_bytes_to_u32s(self.data, self.meta.num_values, dec)?;
+                let (_, values) = decode_bytes_to_words::<T>(self.data, self.meta.num_values, dec)?;
                 *buf = values;
             }
             PhysicalEncoding::FastPFor256 => {
-                *buf = decode_fastpfor(self.data, self.meta.num_values, dec)?;
+                *buf = T::decode_fastpfor(self.data, self.meta.num_values, dec)?;
             }
             PhysicalEncoding::VarInt => {
-                let (_, values) = parse_varint_vec::<u32>(self.data, self.meta.num_values, dec)?;
+                let (_, values) = parse_varint_vec::<T>(self.data, self.meta.num_values, dec)?;
                 *buf = values;
             }
         }
         Ok(())
     }
+}
 
-    /// Physically decode the stream into `buf` as `u64` values.
-    ///
-    /// `buf` is cleared and filled with the decoded words. The caller owns the
-    /// buffer and is responsible for deciding whether it constitutes a final
-    /// persistent allocation (and therefore should be charged to a [`Decoder`]).
-    pub fn decode_bits_u64(self, buf: &mut Vec<u64>, dec: &mut Decoder) -> MltResult<()> {
-        buf.clear();
-        match self.meta.encoding.physical {
-            PhysicalEncoding::None => {
-                let (_, values) = decode_bytes_to_u64s(self.data, self.meta.num_values, dec)?;
-                *buf = values;
-            }
-            PhysicalEncoding::FastPFor256 => {
-                return Err(MltError::UnsupportedPhysicalEncoding(
-                    "FastPFOR decoding u64",
-                ));
-            }
-            PhysicalEncoding::VarInt => {
-                let (_, values) = parse_varint_vec::<u64>(self.data, self.meta.num_values, dec)?;
-                *buf = values;
-            }
-        }
-        Ok(())
+/// Logical output integer type of a decoded stream (`i32` / `u32` / `i64` / `u64`).
+///
+/// Maps the output type to the physical word width it decodes from, the decoder
+/// scratch buffer to reuse for that width, and the logical-decode entry point.
+/// Decoder-side mirror of the encoder's `LogicalIntStreamKind`.
+pub trait DecodeInt: Sized {
+    /// Physical word width the stream is decoded into before the logical transform.
+    type Physical: PhysicalWord;
+
+    /// The reusable scratch buffer the decoder holds for this physical width.
+    fn scratch(dec: &mut Decoder) -> &mut Vec<Self::Physical>;
+
+    /// Apply the logical transform (zigzag / delta / RLE / Morton / …) to the
+    /// physically decoded words, producing the output values.
+    fn logical_decode(
+        lv: LogicalValue,
+        data: &[Self::Physical],
+        dec: &mut Decoder,
+    ) -> MltResult<Vec<Self>>;
+
+    /// Fast path for [`LogicalEncoding::None`]: for unsigned types the physical
+    /// words are already the output, so decode straight into a fresh `Vec` and
+    /// skip the scratch round-trip. Signed types return `None` — a zigzag
+    /// transform is always required, so they fall through to the general path.
+    fn decode_none_passthrough(
+        _stream: &RawStream<'_>,
+        _dec: &mut Decoder,
+    ) -> MltResult<Option<Vec<Self>>> {
+        Ok(None)
+    }
+}
+
+impl DecodeInt for i32 {
+    type Physical = u32;
+
+    fn scratch(dec: &mut Decoder) -> &mut Vec<u32> {
+        &mut dec.buffer_u32
+    }
+
+    fn logical_decode(lv: LogicalValue, data: &[u32], dec: &mut Decoder) -> MltResult<Vec<Self>> {
+        lv.decode_i32(data, dec)
+    }
+}
+
+impl DecodeInt for u32 {
+    type Physical = Self;
+
+    fn scratch(dec: &mut Decoder) -> &mut Vec<Self> {
+        &mut dec.buffer_u32
+    }
+
+    fn logical_decode(lv: LogicalValue, data: &[Self], dec: &mut Decoder) -> MltResult<Vec<Self>> {
+        lv.decode_u32(data, dec)
+    }
+
+    fn decode_none_passthrough(
+        stream: &RawStream<'_>,
+        dec: &mut Decoder,
+    ) -> MltResult<Option<Vec<Self>>> {
+        let mut out = Vec::new();
+        stream.decode_bits::<Self>(&mut out, dec)?;
+        Ok(Some(out))
+    }
+}
+
+impl DecodeInt for i64 {
+    type Physical = u64;
+
+    fn scratch(dec: &mut Decoder) -> &mut Vec<u64> {
+        &mut dec.buffer_u64
+    }
+
+    fn logical_decode(lv: LogicalValue, data: &[u64], dec: &mut Decoder) -> MltResult<Vec<Self>> {
+        lv.decode_i64(data, dec)
+    }
+}
+
+impl DecodeInt for u64 {
+    type Physical = Self;
+
+    fn scratch(dec: &mut Decoder) -> &mut Vec<Self> {
+        &mut dec.buffer_u64
+    }
+
+    fn logical_decode(lv: LogicalValue, data: &[Self], dec: &mut Decoder) -> MltResult<Vec<Self>> {
+        lv.decode_u64(data, dec)
+    }
+
+    fn decode_none_passthrough(
+        stream: &RawStream<'_>,
+        dec: &mut Decoder,
+    ) -> MltResult<Option<Vec<Self>>> {
+        let mut out = Vec::new();
+        stream.decode_bits::<Self>(&mut out, dec)?;
+        Ok(Some(out))
     }
 }

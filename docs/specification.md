@@ -495,8 +495,9 @@ A narrower type enables the use of efficient encodings like FastPfor128.
 ### Geometry Column {#geometry-column}
 
 The geometry column uses a Structure of Arrays (SoA) layout (data-oriented design).
-The `x`, `y`, and optional `z` coordinates are stored interleaved in a `VertexBuffer` for efficient CPU processing and direct copying to GPU buffers.
-If the `z` coordinate is not needed for rendering, it can be stored separately as an `M-value` (see vertex-scoped properties).
+The `x`, `y` coordinates are stored interleaved in a `VertexBuffer` for efficient CPU processing and direct copying to GPU buffers.
+
+<span class="experimental"></span> Optional `z` could be interleaved together with `x`,`y`, or if it is not needed for rendering, it can be stored separately as an `M-value` (see vertex-scoped properties).
 
 The geometry information is separated into different streams, partly inspired by the [geoarrow](https://github.com/geoarrow/geoarrow) specification.
 This separation enables better compression optimization and faster processing.

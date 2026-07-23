@@ -196,7 +196,7 @@ impl<'a> RawPlainData<'a> {
     pub fn decode(self, dec: &mut Decoder) -> MltResult<(&'a str, Vec<u32>)> {
         Ok((
             str::from_utf8(self.data.data)?,
-            self.lengths.decode_u32s(dec)?,
+            self.lengths.decode_ints(dec)?,
         ))
     }
 }
@@ -280,10 +280,7 @@ impl<'a> RawStrings<'a> {
     /// Decode string property from its encoded column.
     pub fn decode(self, dec: &mut Decoder) -> MltResult<ParsedStrings<'a>> {
         let name = self.name;
-        let presence = match self.presence.0 {
-            Some(s) => Some(s.decode_bools(dec)?),
-            None => None,
-        };
+        let presence = self.presence.decode_bools(dec)?;
 
         let parsed = match self.encoding {
             RawStringsEncoding::Plain(plain_data) => {
@@ -299,7 +296,7 @@ impl<'a> RawStrings<'a> {
                 offsets,
             } => {
                 let (data, lengths) = plain_data.decode(dec)?;
-                let offsets: Vec<u32> = offsets.decode_u32s(dec)?;
+                let offsets: Vec<u32> = offsets.decode_ints(dec)?;
                 decode_dictionary_strings(name, &lengths, &offsets, presence.as_deref(), data, dec)?
             }
             RawStringsEncoding::FsstPlain(fsst_data) => {
@@ -312,7 +309,7 @@ impl<'a> RawStrings<'a> {
             }
             RawStringsEncoding::FsstDictionary { fsst_data, offsets } => {
                 let (data, lengths) = fsst_data.decode(dec)?;
-                let offsets: Vec<u32> = offsets.decode_u32s(dec)?;
+                let offsets: Vec<u32> = offsets.decode_ints(dec)?;
                 decode_dictionary_strings(
                     name,
                     &lengths,
@@ -447,11 +444,8 @@ impl<'a> RawSharedDict<'a> {
         };
         let mut items = Vec::with_capacity(self.children.len());
         for child in self.children {
-            let offsets: Vec<u32> = child.data.decode_u32s(dec)?;
-            let presence = match child.presence.0 {
-                Some(s) => Some(s.decode_bools(dec)?),
-                None => None,
-            };
+            let offsets: Vec<u32> = child.data.decode_ints(dec)?;
+            let presence = child.presence.decode_bools(dec)?;
             let ranges = resolve_dict_spans(&offsets, presence.as_deref(), &dict_spans, dec)?
                 .into_iter()
                 .map(|span| match span {

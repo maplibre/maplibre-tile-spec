@@ -32,24 +32,13 @@ pub(crate) fn dedup_strings<S: AsRef<str>>(values: &[S]) -> MltResult<(Vec<&str>
 
 #[cfg(any(test, feature = "__private"))]
 impl EncodedStream {
-    /// Encodes `f32`s into a stream
+    /// Encodes floating-point values (`f32` / `f64`) into a stream as raw little-endian bytes.
     #[hotpath::measure]
-    pub fn encode_f32(values: &[f32]) -> MltResult<Self> {
-        let data = values
-            .iter()
-            .flat_map(|f| f.to_le_bytes())
-            .collect::<Vec<u8>>();
-        let meta = StreamMeta::new_none(StreamType::Data(DictionaryType::None), values.len())?;
-        Ok(Self { meta, data })
-    }
-
-    /// Encodes `f64`s into a stream
-    #[hotpath::measure]
-    pub fn encode_f64(values: &[f64]) -> MltResult<Self> {
-        let data = values
-            .iter()
-            .flat_map(|v| v.to_le_bytes())
-            .collect::<Vec<u8>>();
+    pub fn encode_floats<T: num_traits::ToBytes>(values: &[T]) -> MltResult<Self> {
+        let mut data = Vec::with_capacity(size_of_val(values));
+        for v in values {
+            data.extend_from_slice(v.to_le_bytes().as_ref());
+        }
         let meta = StreamMeta::new_none(StreamType::Data(DictionaryType::None), values.len())?;
         Ok(Self { meta, data })
     }

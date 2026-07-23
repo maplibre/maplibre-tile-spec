@@ -622,7 +622,8 @@ public class MltConverter {
         throw new RuntimeException("Missing Metadata");
       }
 
-      final var sourceFeatures = sourceLayer.features();
+      final var sourceFeatures =
+          sourceLayer.features().stream().filter(GeometryEncoder::hasGeometry).toList();
       if (sourceFeatures.isEmpty()) {
         continue;
       }
