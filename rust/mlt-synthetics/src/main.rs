@@ -357,7 +357,7 @@ fn write_mix(w: &mut SynthWriter, current: &[usize]) {
         let mix_type = &MIX_TYPES[*idx];
         builder = builder.geo(mix_type.1.clone());
         write!(&mut name, "_{}", mix_type.0).unwrap();
-        let is_line = matches!(
+        let is_polygon = matches!(
             mix_type.1,
             Geometry::<i32>::Polygon(_) | Geometry::<i32>::MultiPolygon(_)
         );
