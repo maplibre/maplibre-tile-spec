@@ -3,7 +3,7 @@ import { GEOMETRY_TYPE } from "./geometryType";
 import type { CoordinatesArray } from "./geometryVector";
 import type { TopologyVector } from "./topologyVector";
 
-export abstract class GpuVector implements Iterable<CoordinatesArray> {
+export abstract class GpuVector {
     protected constructor(
         private readonly _triangleOffsets: Uint32Array,
         private readonly _indexBuffer: Uint32Array,
@@ -43,10 +43,10 @@ export abstract class GpuVector implements Iterable<CoordinatesArray> {
         }
 
         const geometries: CoordinatesArray[] = new Array(this.numGeometries);
-        const topology = this._topologyVector;
-        const partOffsets = topology.partOffsets;
-        const ringOffsets = topology.ringOffsets;
-        const geometryOffsets = topology.geometryOffsets;
+        const { partOffsets, ringOffsets, geometryOffsets } = this._topologyVector;
+        if (!partOffsets || !ringOffsets) {
+            throw new Error("Cannot convert GpuVector to coordinates without part and ring offsets");
+        }
 
         // Use counters to track position in offset arrays (like Java implementation)
         let vertexBufferOffset = 0;
@@ -89,6 +89,11 @@ export abstract class GpuVector implements Iterable<CoordinatesArray> {
                     break;
                 case GEOMETRY_TYPE.MULTIPOLYGON:
                     {
+                        if (!geometryOffsets) {
+                            throw new Error(
+                                "Cannot convert MultiPolygon GpuVector to coordinates without geometry offsets",
+                            );
+                        }
                         // Get number of polygons in this multipolygon
                         const numPolygons =
                             geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
@@ -126,20 +131,5 @@ export abstract class GpuVector implements Iterable<CoordinatesArray> {
             }
         }
         return geometries;
-    }
-
-    [Symbol.iterator](): Iterator<CoordinatesArray> {
-        /*for(let i = 1; i < this.triangleOffsets.length; i++) {
-           const numTriangles = this.triangleOffsets[i] - this.triangleOffsets[i-1];
-           const startIndex = this.triangleOffsets[i-1] * 3;
-           const endIndex = this.triangleOffsets[i] * 3;
-       }
-
-        while (index < this.numGeometries) {
-            yield geometries[index++];
-        }*/
-
-        //throw new Error("Iterator on a GpuVector is not implemented yet.");
-        return null;
     }
 }

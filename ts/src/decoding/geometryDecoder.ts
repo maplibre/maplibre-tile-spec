@@ -96,7 +96,14 @@ export function decodeGeometryColumn(
             }
         }
 
+        if (vertexBuffer === undefined) {
+            throw new Error("Geometry column is missing its vertex buffer.");
+        }
+
         if (indexBuffer) {
+            if (triangleOffsets === undefined) {
+                throw new Error("Tessellated geometry is missing its triangle offsets.");
+            }
             if (geometryOffsets !== undefined || partOffsets !== undefined) {
                 /* Case when the indices of a Polygon outline are encoded in the tile */
                 const topologyVector = { geometryOffsets, partOffsets, ringOffsets };
@@ -208,13 +215,19 @@ export function decodeGeometryColumn(
         partOffsets = decodeRootLengthStream(geometryTypeVector, partLengths, 0);
     }
 
-    if (indexBuffer && !partOffsets) {
-        /* Case when the indices of a Polygon outline are not encoded in the data so no
-         *  topology data are present in the tile */
-        return createFlatGpuVector(geometryTypeVector, triangleOffsets, indexBuffer, vertexBuffer);
+    if (vertexBuffer === undefined) {
+        throw new Error("Geometry column is missing its vertex buffer.");
     }
 
     if (indexBuffer) {
+        if (triangleOffsets === undefined) {
+            throw new Error("Tessellated geometry is missing its triangle offsets.");
+        }
+        if (!partOffsets) {
+            /* Case when the indices of a Polygon outline are not encoded in the data so no
+             *  topology data are present in the tile */
+            return createFlatGpuVector(geometryTypeVector, triangleOffsets, indexBuffer, vertexBuffer);
+        }
         /* Case when the indices of a Polygon outline are encoded in the tile */
         return createFlatGpuVector(geometryTypeVector, triangleOffsets, indexBuffer, vertexBuffer, {
             geometryOffsets,

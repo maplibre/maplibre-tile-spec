@@ -15,9 +15,7 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
 
     const mortonSettings = geometryVector.mortonSettings;
     const topologyVector = geometryVector.topologyVector;
-    const geometryOffsets = topologyVector.geometryOffsets;
-    const partOffsets = topologyVector.partOffsets;
-    const ringOffsets = topologyVector.ringOffsets;
+    const { geometryOffsets, partOffsets, ringOffsets } = topologyVector;
     const vertexOffsets = geometryVector.vertexOffsets;
     const nonOffset = !vertexOffsets || vertexOffsets.length === 0;
 
@@ -37,6 +35,9 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                     } else if (geometryVector.vertexBufferType === VertexBufferType.MORTON) {
                         const offset = vertexOffsets[vertexOffsetsOffset++];
                         const mortonCode = vertexBuffer[offset];
+                        if (!mortonSettings) {
+                            throw new Error("Morton-encoded geometry vector is missing morton settings.");
+                        }
                         const vertex = decodeZOrderCurve(
                             mortonCode,
                             mortonSettings.numBits,
@@ -57,6 +58,9 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                 break;
             case GEOMETRY_TYPE.MULTIPOINT:
                 {
+                    if (!geometryOffsets) {
+                        throw new Error("MultiPoint geometry is missing its geometry offsets.");
+                    }
                     const numPoints =
                         geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
                     geometryOffsetsCounter++;
@@ -85,9 +89,15 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                 {
                     let numVertices: number;
                     if (containsPolygon) {
+                        if (!ringOffsets) {
+                            throw new Error("LineString geometry is missing its ring offsets.");
+                        }
                         numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
                         ringOffsetsCounter++;
                     } else {
+                        if (!partOffsets) {
+                            throw new Error("LineString geometry is missing its part offsets.");
+                        }
                         numVertices = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
                     }
                     partOffsetCounter++;
@@ -116,6 +126,9 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                 break;
             case GEOMETRY_TYPE.POLYGON:
                 {
+                    if (!partOffsets || !ringOffsets) {
+                        throw new Error("Polygon geometry is missing its part or ring offsets.");
+                    }
                     const numRings = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
                     partOffsetCounter++;
                     const rings: CoordinatesArray = new Array(numRings - 1);
@@ -164,6 +177,9 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                 break;
             case GEOMETRY_TYPE.MULTILINESTRING:
                 {
+                    if (!geometryOffsets) {
+                        throw new Error("MultiLineString geometry is missing its geometry offsets.");
+                    }
                     const numLineStrings =
                         geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
                     geometryOffsetsCounter++;
@@ -171,9 +187,15 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                     for (let j = 0; j < numLineStrings; j++) {
                         let numVertices: number;
                         if (containsPolygon) {
+                            if (!ringOffsets) {
+                                throw new Error("MultiLineString geometry is missing its ring offsets.");
+                            }
                             numVertices = ringOffsets[ringOffsetsCounter] - ringOffsets[ringOffsetsCounter - 1];
                             ringOffsetsCounter++;
                         } else {
+                            if (!partOffsets) {
+                                throw new Error("MultiLineString geometry is missing its part offsets.");
+                            }
                             numVertices = partOffsets[partOffsetCounter] - partOffsets[partOffsetCounter - 1];
                         }
                         partOffsetCounter++;
@@ -199,6 +221,9 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                 break;
             case GEOMETRY_TYPE.MULTIPOLYGON:
                 {
+                    if (!geometryOffsets || !partOffsets || !ringOffsets) {
+                        throw new Error("MultiPolygon geometry is missing its geometry, part, or ring offsets.");
+                    }
                     const numPolygons =
                         geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
                     geometryOffsetsCounter++;
@@ -265,9 +290,12 @@ function decodeDictionaryEncodedLineStringOrRing(
     vertexOffset: number,
     numVertices: number,
     closeLineString: boolean,
-    mortonSettings: MortonSettings,
+    mortonSettings: MortonSettings | undefined,
 ): Point[] {
     if (vertexBufferType === VertexBufferType.MORTON) {
+        if (!mortonSettings) {
+            throw new Error("Morton-encoded geometry vector is missing morton settings.");
+        }
         return decodeMortonDictionaryEncodedLineString(
             vertexBuffer,
             vertexOffsets,

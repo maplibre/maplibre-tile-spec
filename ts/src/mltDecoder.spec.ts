@@ -8,6 +8,10 @@ import Pbf from "pbf";
 import { type FeatureTable, type Feature, decodeTile } from ".";
 import path from "node:path";
 import fs from "node:fs";
+import IntWrapper from "./decoding/intWrapper";
+import { concatenateBuffers } from "./decoding/decodingTestUtils";
+import { encodeFieldName } from "./encoding/embeddedTilesetMetadataEncoder";
+import { encodeVarintInt32Value } from "./encoding/integerEncodingUtils";
 
 const ITERATOR_TILE = path.resolve(__dirname, "../../test/expected/tag0x01/simple/multiline-boolean.mlt");
 
@@ -55,6 +59,29 @@ describe("FeatureTable", () => {
             featureCount++;
         }
         assert.equal(featureCount, table.numFeatures);
+    });
+});
+
+describe("decodeTile invariants", () => {
+    function varint(value: number): Uint8Array {
+        const buffer = new Uint8Array(5);
+        const offset = new IntWrapper(0);
+        encodeVarintInt32Value(value, buffer, offset);
+        return buffer.slice(0, offset.get());
+    }
+
+    it("throws when a feature table has no geometry column", () => {
+        // A Tag 0x01 block whose embedded metadata describes a feature table with zero
+        // columns, so neither an id nor a geometry column is decoded.
+        const metadata = concatenateBuffers(
+            encodeFieldName("layer"), // feature table name (length-prefixed)
+            varint(4096), // extent
+            varint(0), // column count
+        );
+        const block = concatenateBuffers(varint(1), metadata); // tag 0x01 + metadata
+        const tile = concatenateBuffers(varint(block.length), block); // length-prefixed block
+
+        assert.throws(() => decodeTile(tile), /Feature table "layer" is missing its geometry column\./);
     });
 });
 
