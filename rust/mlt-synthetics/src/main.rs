@@ -374,9 +374,9 @@ fn write_mix(w: &mut SynthWriter, current: &[usize]) {
                 builder_t = None;
             }
         }
-        if let Some(bldr) = builder_t_with_lines {
+        if let Some(b) = builder_t_with_lines {
             if is_polygon || is_line {
-                builder_t_with_lines = Some(bldr.geo(mix_type.1.clone()));
+                builder_t_with_lines = Some(b.geo(mix_type.1.clone()));
             } else {
                 builder_t_with_lines = None;
             }
@@ -384,11 +384,9 @@ fn write_mix(w: &mut SynthWriter, current: &[usize]) {
     }
     if let Some(bldr) = builder_t {
         bldr.write(w, format!("{name}_tes"));
-    } else if has_polygon && has_line {
-        if let Some(bldr) = builder_t_with_lines {
-            bldr.write(w, format!("{name}_tes"));
-        }
-    }
+    } else if has_polygon && has_line && let Some(b) = builder_t_with_lines {
+            b.write(w, format!("{name}_tes"));
+}
     builder.write(w, &name);
 }
 
