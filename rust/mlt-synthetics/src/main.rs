@@ -622,6 +622,8 @@ fn generate_properties(w: &mut SynthWriter) {
 
     p0().add_prop(e_int, P::u32("val", vec![42]))
         .write(w, "prop_u32_np");
+    p0().add_prop(E::plain(), P::u32("val", vec![0x0102_0304]))
+        .write(w, "prop_u32_plain_np-rust");
     p0().add_prop(e_int, P::opt_u32("val", vec![Some(42)]))
         .write(w, "prop_u32");
     p0().add_prop(E::delta_varint(), P::u32("val", vec![42]))
