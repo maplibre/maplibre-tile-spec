@@ -54,7 +54,7 @@ export function decodeSignedInt32Stream(
     scalingData?: GeometryScaling,
     nullabilityBuffer?: BitVector,
 ): Int32Array {
-    const values = decodePhysicalLevelTechniqueInt32(data, offset, streamMetadata);
+    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
     return decodeSignedInt32(values, streamMetadata, scalingData, nullabilityBuffer);
 }
 
@@ -65,7 +65,7 @@ export function decodeUnsignedInt32Stream(
     scalingData?: GeometryScaling,
     nullabilityBuffer?: BitVector,
 ): Uint32Array {
-    const values = decodePhysicalLevelTechniqueInt32(data, offset, streamMetadata);
+    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
     return decodeUnsignedInt32(values, streamMetadata, scalingData, nullabilityBuffer);
 }
 
@@ -74,11 +74,11 @@ export function decodeLengthStreamToOffsetBuffer(
     offset: IntWrapper,
     streamMetadata: StreamMetadata,
 ): Uint32Array {
-    const values = decodePhysicalLevelTechniqueInt32(data, offset, streamMetadata);
+    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
     return decodeLengthToOffsetBuffer(values, streamMetadata);
 }
 
-function decodePhysicalLevelTechniqueInt32(
+function decodePhysicalLevelTechnique(
     data: Uint8Array,
     offset: IntWrapper,
     streamMetadata: StreamMetadata,
@@ -90,7 +90,7 @@ function decodePhysicalLevelTechniqueInt32(
         case PhysicalLevelTechnique.VARINT:
             return decodeVarintInt32(data, offset, streamMetadata.numValues);
         case PhysicalLevelTechnique.NONE:
-            return decodeUint32sLE(data, offset, streamMetadata.numValues, streamMetadata.byteLength);
+            return decodeUint32sLE(data, offset, streamMetadata.numValues);
         default:
             throw new Error(`Specified physicalLevelTechnique ${physicalLevelTechnique} is not supported (yet).`);
     }
@@ -106,7 +106,7 @@ function decodePhysicalLevelTechniqueInt64(
         case PhysicalLevelTechnique.VARINT:
             return decodeVarintInt64(data, offset, streamMetadata.numValues);
         case PhysicalLevelTechnique.NONE:
-            return decodeUint64sLE(data, offset, streamMetadata.numValues, streamMetadata.byteLength);
+            return decodeUint64sLE(data, offset, streamMetadata.numValues);
         default:
             throw new Error(`Specified physicalLevelTechnique ${physicalLevelTechnique} is not supported (yet).`);
     }
@@ -117,7 +117,7 @@ export function decodeSignedConstInt32Stream(
     offset: IntWrapper,
     streamMetadata: StreamMetadata,
 ): number {
-    const values = decodePhysicalLevelTechniqueInt32(data, offset, streamMetadata);
+    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
 
     if (values.length === 1) {
         return decodeZigZagInt32Value(values[0]);
@@ -131,7 +131,7 @@ export function decodeUnsignedConstInt32Stream(
     offset: IntWrapper,
     streamMetadata: StreamMetadata,
 ): number {
-    const values = decodePhysicalLevelTechniqueInt32(data, offset, streamMetadata);
+    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
 
     if (values.length === 1) {
         if (streamMetadata.logicalLevelTechnique1 === LogicalLevelTechnique.DELTA) {
@@ -148,7 +148,7 @@ export function decodeSequenceInt32Stream(
     offset: IntWrapper,
     streamMetadata: StreamMetadata,
 ): [baseValue: number, delta: number] {
-    const values = decodePhysicalLevelTechniqueInt32(data, offset, streamMetadata);
+    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
     return decodeZigZagSequenceRleInt32(values);
 }
 
@@ -157,7 +157,7 @@ export function decodeSequenceInt64Stream(
     offset: IntWrapper,
     streamMetadata: StreamMetadata,
 ): [baseValue: bigint, delta: bigint] {
-    const values = decodePhysicalLevelTechniqueInt64(data, offset, streamMetadata);
+    const values = decodeVarintInt64(data, offset, streamMetadata.numValues);
     return decodeZigZagSequenceRleInt64(values);
 }
 
@@ -186,8 +186,7 @@ export function decodeSignedInt64AsFloat64Stream(
     offset: IntWrapper,
     streamMetadata: StreamMetadata,
 ): Float64Array {
-    const values = decodeVarintFloat64(data, offset, streamMetadata.numValues);
-    return decodeFloat64Values(values, streamMetadata, true);
+    return decodeInt64AsFloat64(data, offset, streamMetadata, true);
 }
 
 export function decodeUnsignedInt64AsFloat64Stream(
@@ -195,8 +194,25 @@ export function decodeUnsignedInt64AsFloat64Stream(
     offset: IntWrapper,
     streamMetadata: StreamMetadata,
 ): Float64Array {
-    const values = decodeVarintFloat64(data, offset, streamMetadata.numValues);
-    return decodeFloat64Values(values, streamMetadata, false);
+    return decodeInt64AsFloat64(data, offset, streamMetadata, false);
+}
+
+function decodeInt64AsFloat64(
+    data: Uint8Array,
+    offset: IntWrapper,
+    streamMetadata: StreamMetadata,
+    isSigned: boolean,
+): Float64Array {
+    if (streamMetadata.physicalLevelTechnique === PhysicalLevelTechnique.VARINT) {
+        const values = decodeVarintFloat64(data, offset, streamMetadata.numValues);
+        return decodeFloat64Values(values, streamMetadata, isSigned);
+    }
+
+    const values = decodePhysicalLevelTechniqueInt64(data, offset, streamMetadata);
+    const decodedValues = isSigned
+        ? decodeSignedInt64(values, streamMetadata)
+        : decodeUnsignedInt64(values, streamMetadata);
+    return Float64Array.from(decodedValues, Number);
 }
 
 export function decodeSignedConstInt64Stream(
@@ -535,8 +551,8 @@ export function getVectorType(
         return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
     }
 
-    const decoded = decodeUint32sLE(data, offset, 4);
-    const values = new Int32Array(decoded.buffer, decoded.byteOffset, decoded.length);
+    const byteOffset = offset.get();
+    const values = new Int32Array(data.buffer, data.byteOffset + byteOffset, 4);
     offset.set(savedOffset);
     // Check if both deltas are encoded 1
     const zigZagOne = 2;
