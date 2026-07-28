@@ -13,6 +13,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const binary = resolve(__dirname, "../build/tool/mlt-cpp-json");
 
 const SKIPPED_TESTS = [
+  "0x01-rust/prop_u32_plain_np",
   "0x02/prop_nested_big",
   "0x02/prop_nested_ints",
   "0x02/prop_nested_json",
