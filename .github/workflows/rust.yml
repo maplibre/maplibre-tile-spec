@@ -36,7 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: ./.github/actions/mlt-setup-rust
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with: { python-version: "3.13" }
       - run: just -v rust::py-test
 
@@ -48,7 +48,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: ./.github/actions/mlt-setup-rust
         with: { toolchain: nightly } # because of covs --doctests
-      - uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
+      - uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
         with: { tool: "cargo-llvm-cov" }
       - run: just -v rust::ci-coverage
       - name: Upload coverage to Codecov
@@ -70,7 +70,7 @@ jobs:
       - uses: ./.github/actions/mlt-setup-rust
       - run: rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
       - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: "rust/mlt-wasm/.nvmrc"
           cache: "npm"
@@ -140,7 +140,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: ./.github/actions/mlt-setup-rust
       - if: matrix.backend == 'kotlin'
-        uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5.5.0
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: 'temurin'
           java-version: '21'
@@ -197,7 +197,7 @@ jobs:
       - run: rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
 
       - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: "rust/mlt-wasm/.nvmrc"
           cache: "npm"
@@ -272,14 +272,14 @@ jobs:
         with: { fetch-depth: 0, persist-credentials: false }
       - uses: ./.github/actions/mlt-setup-rust
       - name: Publish to crates.io if crate's version is newer
-        uses: release-plz/action@e8792575c7f2366cf6ff3ccc33ead9ace5b691c7 # v0.5.130
+        uses: release-plz/action@2eb1d8bcb770b4c48ccfaad919734b38b51958c9 # v0.5.131
         id: release
         with: { command: release, manifest_path: ./rust/Cargo.toml }
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: If version is the same, create a PR proposing new version and changelog for the next release
-        uses: release-plz/action@e8792575c7f2366cf6ff3ccc33ead9ace5b691c7 # v0.5.130
+        uses: release-plz/action@2eb1d8bcb770b4c48ccfaad919734b38b51958c9 # v0.5.131
         with: { command: release-pr, manifest_path: ./rust/Cargo.toml }
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
@@ -296,7 +296,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
+      - uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
         with: { tool: "just" }
       - name: Get mlt version for release tag
         id: get_version
@@ -306,7 +306,7 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v3.1.0-node20
         with: { path: artifacts }
       - name: Add binaries to GitHub release
-        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           tag_name: ${{ steps.get_version.outputs.tag }}
           files: |
@@ -345,7 +345,7 @@ jobs:
           fi
 
       - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
@@ -357,7 +357,7 @@ jobs:
           path: mlt-wasm-pkg
 
       - name: Release (GitHub) - Create Draft
-        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           name: mlt-wasm-js-v${{ env.version }}
           tag_name: mlt-wasm-js-v${{ env.version }}
@@ -371,7 +371,7 @@ jobs:
           npm publish "$package_tgz" --access=public
 
       - name: Publish GitHub release (remove draft)
-        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           tag_name: mlt-wasm-js-v${{ env.version }}
           name: mlt-wasm-js-v${{ env.version }}

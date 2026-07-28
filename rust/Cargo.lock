@@ -875,9 +875,9 @@ checksum = "175812e0be2bccb6abe50bb8d566126198344f707e304f45c648fd8f2cc0365e"
 
 [[package]]
 name = "bytemuck"
-version = "1.25.1"
+version = "1.25.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6aedf8ae72766347502cf3cb4f41cf5e9cc37d28bee90f1fdaaae15f9cf9424"
+checksum = "95832e849adfb21180ccb6826a99da14e5d266ae5c2e668e1602cf234f153797"
 
 [[package]]
 name = "byteorder"
@@ -1000,9 +1000,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.6.2"
+version = "4.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd059f9da4f5c36b3787f65d38ccaab1cc315f07b01f89abc8359ee6a8205011"
+checksum = "0fb99565819980999fb7b4a1796046a5c949e6d4ff132cf5fadf5a641e20d776"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1022,9 +1022,9 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "4.6.1"
+version = "4.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2ce8604710f6733aa641a2b3731eaa1e8b3d9973d5e3565da11800813f997a9"
+checksum = "32f2392eae7f16557a3d727ef3a12e57b2b2ca6f98566a5f4fb41ffe305df077"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -1840,9 +1840,9 @@ dependencies = [
 
 [[package]]
 name = "fast-mvt"
-version = "0.6.1"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c092c8e2ed3b78d9bfa4e328df8f5bee510c3fc33c3522367ba1aee21be8c9d"
+checksum = "5eed97ad4cc2f618f3a3544238f862fde13e4202dddcceff9ad024082e18f254"
 dependencies = [
  "buffa",
  "dup-indexer",
@@ -2257,9 +2257,9 @@ dependencies = [
 
 [[package]]
 name = "glob"
-version = "0.3.3"
+version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
+checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
 
 [[package]]
 name = "globset"
@@ -2476,6 +2476,15 @@ version = "0.21.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "902f40dea4993d99db66732fddd9143e92657f1d47a642395f92b339b1375659"
 dependencies = [
+ "hotpath-macros 0.21.5",
+]
+
+[[package]]
+name = "hotpath"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "66750a77f4f6b408a148be5102ef1f3ba7172def7ee92b1cfc75d9f7a3870453"
+dependencies = [
  "arc-swap",
  "axum",
  "cfg-if",
@@ -2485,7 +2494,7 @@ dependencies = [
  "eyre",
  "futures-util",
  "hdrhistogram",
- "hotpath-macros",
+ "hotpath-macros 0.22.0",
  "hotpath-meta",
  "libc",
  "pin-project-lite",
@@ -2508,6 +2517,12 @@ name = "hotpath-macros"
 version = "0.21.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "191f6e3b11c1f817e5c3737158812bc8d3a383e9d9d89526703ea6dc1e9fe647"
+
+[[package]]
+name = "hotpath-macros"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "afe0e1900d2dbe2e2df8e9522b97ebd7a5598ba18478f57e247957022dffedbe"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2516,9 +2531,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath-macros-meta"
-version = "0.21.5"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "604e1929e4e069ce456916d2bb267ddd2b7d680bfb5b89abca06a9b6d3fe50a7"
+checksum = "21f2f70b29b6f42311acd2fb0b2f91a34d9a573c76fb8a7f51970670a1673a49"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2527,9 +2542,9 @@ dependencies = [
 
 [[package]]
 name = "hotpath-meta"
-version = "0.21.5"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85c1f5d817c1a70efc3aa66d27909e86878ea22991c0b6fc5f36d6dbd26856a3"
+checksum = "8b771f77b2f409086bb40ff029f850ce99d17118d4e207df0f28cb32bd7568c7"
 dependencies = [
  "arc-swap",
  "axum",
@@ -3337,15 +3352,15 @@ dependencies = [
 
 [[package]]
 name = "mbtiles"
-version = "0.18.1"
+version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45329f97ca36dbe66594f5ec93f0bf6611fec42c635aa0593a1a75ed8fec1485"
+checksum = "972679d364faade87fb6c2ef2febdda017174d336ccd4bc9ee57c142c7525b8f"
 dependencies = [
  "bytes",
  "enum-display",
  "flume",
  "futures",
- "hotpath",
+ "hotpath 0.21.5",
  "itertools 0.15.0",
  "martin-tile-utils",
  "md5",
@@ -3469,7 +3484,7 @@ dependencies = [
  "futures",
  "glob",
  "globset",
- "hotpath",
+ "hotpath 0.22.0",
  "indicatif",
  "martin-tile-utils",
  "mbtiles",
@@ -3511,7 +3526,7 @@ dependencies = [
  "geo-types",
  "hex",
  "hilbert_2d",
- "hotpath",
+ "hotpath 0.22.0",
  "insta",
  "integer-encoding",
  "num-traits",
@@ -5600,9 +5615,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.150"
+version = "1.0.151"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8014e44b4736ed0538adeecded0fce2a272f22dc9578a7eb6b2d9993c74cfb9"
+checksum = "c841b55ecdae098c80dcae9cf767f6f8a0c2cdb3416bbef72181df4d0fe73f14"
 dependencies = [
  "itoa",
  "memchr",
@@ -6576,9 +6591,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.53.0"
+version = "1.53.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d988bcd52dbe076d3d46903332f58c912b87a2c49b1428419a5845154762ffee"
+checksum = "202caea871b69668250d242070849eb495be178ed697a3e98aebce5bc81a0bed"
 dependencies = [
  "bytes",
  "libc",
@@ -7577,9 +7592,9 @@ checksum = "66fee0b777b0f5ac1c69bb06d361268faafa61cd4682ae064a171c16c433e9e4"
 
 [[package]]
 name = "xxhash-rust"
-version = "0.8.17"
+version = "0.8.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "985eec839aaf2a1270af8f4ebcf63cf9401cfd90f0902f97c28d9f104ffbde72"
+checksum = "aee1b19627c7c60102ab80d3a9cbe18de90bfe03bfa6c3715447681f0e8c8af6"
 
 [[package]]
 name = "yansi"
