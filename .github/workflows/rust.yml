@@ -37,7 +37,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: ./.github/actions/mlt-setup-rust
       - uses: actions/setup-python@v7
-        with: { python-version: "3.13" }
+        with: { python-version: '3.13' }
       - run: just -v rust::py-test
 
   coverage:
@@ -49,7 +49,7 @@ jobs:
       - uses: ./.github/actions/mlt-setup-rust
         with: { toolchain: nightly } # because of covs --doctests
       - uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
-        with: { tool: "cargo-llvm-cov" }
+        with: { tool: 'cargo-llvm-cov' }
       - run: just -v rust::ci-coverage
       - name: Upload coverage to Codecov
         if: github.repository_owner == 'maplibre'
@@ -141,9 +141,7 @@ jobs:
       - uses: ./.github/actions/mlt-setup-rust
       - if: matrix.backend == 'kotlin'
         uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
-        with:
-          distribution: 'temurin'
-          java-version: '21'
+        with: { distribution: 'temurin', java-version: '21' }
       - if: matrix.backend == 'kotlin'
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
       - run: just -v rust::${{ matrix.recipe }}
@@ -223,9 +221,7 @@ jobs:
 
       - name: Upload npm package artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: mlt-wasm-npm
-          path: rust/mlt-wasm/maplibre-mlt-wasm-*.tgz
+        with: { name: 'mlt-wasm-npm', path: 'rust/mlt-wasm/maplibre-mlt-wasm-*.tgz' }
 
   # This job checks if any of the previous jobs failed or were canceled.
   # This approach also allows some jobs to be skipped if they are not needed.
@@ -253,16 +249,14 @@ jobs:
 
   # Release unpublished packages or create a PR with changes
   release-plz:
-    needs: [ci-passed-rust]
+    needs: [ ci-passed-rust ]
     if: |
       always()
       && needs.ci-passed-rust.result == 'success'
       && inputs.run-release
       && github.repository_owner == 'maplibre'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
+    permissions: { contents: read, id-token: write }
     concurrency:
       group: release-plz-${{ github.ref }}
       cancel-in-progress: false
@@ -289,7 +283,7 @@ jobs:
 
   upload-release-binaries:
     name: Upload release binaries to GitHub releases
-    needs: [release-plz]
+    needs: [ release-plz ]
     if: ${{ needs.release-plz.outputs.releases_created == 'true' }}
     runs-on: ubuntu-latest
     permissions:
@@ -297,14 +291,14 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
-        with: { tool: "just" }
+        with: { tool: 'just' }
       - name: Get mlt version for release tag
         id: get_version
         shell: bash
         run: just -v rust::ci-get-release-info mlt >> $GITHUB_OUTPUT
       - name: Download all artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v3.1.0-node20
-        with: { path: artifacts }
+        with: { path: 'artifacts' }
       - name: Add binaries to GitHub release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
@@ -318,14 +312,12 @@ jobs:
   # The npm package tarball was already built and uploaded as an artifact by build-wasm-npm.
   publish-wasm-npm:
     name: Publish @maplibre/mlt-wasm to npm
-    needs: [release-plz]
+    needs: [ release-plz ]
     if: |
       needs.release-plz.outputs.releases_created == 'true'
       && contains(fromJSON(needs.release-plz.outputs.releases || '[]').*.package_name, 'mlt-wasm')
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      id-token: write
+    permissions: { contents: write, id-token: write }
     steps:
       - name: Get mlt-wasm release version
         id: version
@@ -346,15 +338,11 @@ jobs:
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "24"
-          registry-url: "https://registry.npmjs.org"
+        with: { node-version: '24', registry-url: 'https://registry.npmjs.org' }
 
       - name: Download npm package artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v3.1.0-node20
-        with:
-          name: mlt-wasm-npm
-          path: mlt-wasm-pkg
+        with: { name: 'mlt-wasm-npm', path: 'mlt-wasm-pkg' }
 
       - name: Release (GitHub) - Create Draft
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2

@@ -2,17 +2,16 @@ name: autofix.ci # See https://autofix.ci/security why this name
 
 on:
   pull_request:
-    types: [labeled, opened, synchronize, reopened]
+    types: [ labeled, opened, synchronize, reopened ]
   workflow_dispatch:
 
-permissions: {}
+permissions: { }
 
 jobs:
   ts-fmt:
     name: Format TypeScript
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    permissions: { contents: read }
     if: |
       github.event.action == 'opened' ||
       github.event.action == 'synchronize' ||
@@ -49,12 +48,11 @@ jobs:
         run: just rust::fmt-toml
 
       - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a # v1.3.4
-        with: { commit-message: "chore: sort Cargo.toml" }
+        with: { commit-message: 'chore: sort Cargo.toml' }
   rust-sync-versions:
     name: Sync Rust-provided bindings version indicators
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    permissions: { contents: read }
     if: |
       github.event.action == 'opened' ||
       github.event.action == 'synchronize' ||
@@ -76,7 +74,7 @@ jobs:
         run: just rust::sync-pyo3-version
 
       - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a # v1.3.4
-        with: {commit-message: "chore: sync secondary version indicators"}
+        with: { commit-message: 'chore: sync secondary version indicators' }
 
   rust-gen-ffi-bindings:
     name: Regenerate diplomat FFI bindings
@@ -110,13 +108,12 @@ jobs:
         continue-on-error: true
 
       - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a # v1.3.4
-        with: { commit-message: "chore: regenerate diplomat FFI bindings" }
+        with: { commit-message: 'chore: regenerate diplomat FFI bindings' }
 
   rust-gen-pyo3-stubs:
     name: Regenerate maplibre_tiles.pyi stub
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    permissions: { contents: read }
     if: |
       github.event.action == 'opened' ||
       github.event.action == 'synchronize' ||
@@ -137,7 +134,7 @@ jobs:
         continue-on-error: true
 
       - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a
-        with: {commit-message: "chore: regenerate maplibre_tiles.pyi stub"}
+        with: { commit-message: 'chore: regenerate maplibre_tiles.pyi stub' }
 
   bless:
     name: Bless test output
@@ -167,8 +164,7 @@ jobs:
 
       - name: Install just
         uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
-        with:
-          tool: just,cargo-binstall
+        with: { tool: 'just,cargo-binstall' }
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -183,4 +179,4 @@ jobs:
         continue-on-error: true
 
       - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a # v1.3.4
-        with: {commit-message: "chore: update blessed test snapshots across all components"}
+        with: { commit-message: 'chore: update blessed test snapshots across all components' }
