@@ -4,10 +4,20 @@ import {
     encodeByteRle,
     encodeDoubleLE,
     encodeFloatsLE,
+    encodeUint32sLE,
+    encodeUint64sLE,
     encodeStrings,
 } from "../encoding/encodingUtils";
 import BitVector from "../vector/flat/bitVector";
-import { decodeBooleanRle, decodeByteRle, decodeDoublesLE, decodeFloatsLE, decodeString } from "./decodingUtils";
+import {
+    decodeBooleanRle,
+    decodeByteRle,
+    decodeDoublesLE,
+    decodeFloatsLE,
+    decodeString,
+    decodeUint32sLE,
+    decodeUint64sLE,
+} from "./decodingUtils";
 import IntWrapper from "./intWrapper";
 
 describe("decodingUtils", () => {
@@ -33,6 +43,56 @@ describe("decodingUtils", () => {
             expect(result[0]).toBeCloseTo(Math.PI);
             expect(result[1]).toBeCloseTo(Math.E);
             expect(offset.get()).toBe(Float64Array.BYTES_PER_ELEMENT * 2);
+        });
+    });
+
+    describe("decodeUint32sLE", () => {
+        it("should encode and decode uint32 values in little-endian byte order", () => {
+            const expectedValues = new Uint32Array([0x01020304]);
+            const expectedBytes = new Uint8Array([0x04, 0x03, 0x02, 0x01]);
+
+            expect(encodeUint32sLE(expectedValues)).toEqual(expectedBytes);
+
+            const offset = new IntWrapper(0);
+            const result = decodeUint32sLE(expectedBytes, offset, expectedValues.length);
+
+            expect(result).toEqual(expectedValues);
+            expect(offset.get()).toBe(expectedBytes.length);
+        });
+
+        it("should not read past the provided Uint8Array view", () => {
+            const backingBuffer = new Uint8Array([0x04, 0x03, 0x02, 0x01, 0x08, 0x07, 0x06, 0x05]);
+            const data = backingBuffer.subarray(0, Uint32Array.BYTES_PER_ELEMENT);
+            const offset = new IntWrapper(0);
+
+            expect(() => decodeUint32sLE(data, offset, 2)).toThrow(RangeError);
+            expect(offset.get()).toBe(0);
+        });
+    });
+
+    describe("decodeUint64sLE", () => {
+        it("should encode and decode uint64 values in little-endian byte order", () => {
+            const expectedValues = new BigUint64Array([0x0102030405060708n]);
+            const expectedBytes = new Uint8Array([0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01]);
+
+            expect(encodeUint64sLE(expectedValues)).toEqual(expectedBytes);
+
+            const offset = new IntWrapper(0);
+            const result = decodeUint64sLE(expectedBytes, offset, expectedValues.length);
+
+            expect(result).toEqual(expectedValues);
+            expect(offset.get()).toBe(expectedBytes.length);
+        });
+
+        it("should not read past the provided Uint8Array view", () => {
+            const backingBuffer = new Uint8Array([
+                0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x10, 0x0f, 0x0e, 0x0d, 0x0c, 0x0b, 0x0a, 0x09,
+            ]);
+            const data = backingBuffer.subarray(0, BigUint64Array.BYTES_PER_ELEMENT);
+            const offset = new IntWrapper(0);
+
+            expect(() => decodeUint64sLE(data, offset, 2)).toThrow(RangeError);
+            expect(offset.get()).toBe(0);
         });
     });
 
