@@ -25,8 +25,7 @@ jobs:
       - name: Check if version has been updated
         id: check
         uses: EndBug/version-check@095362f3cd50f690c8fa0e6afeea81834bd8d320
-        with:
-          file-name: ts/package.json
+        with: { file-name: 'ts/package.json' }
 
       - run: just -v assert-git-is-clean
 

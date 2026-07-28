@@ -2,9 +2,8 @@ name: Rust Hotpath Comment
 
 on:
   workflow_run:
-    workflows: ["Rust Hotpath Profile"]
-    types:
-      - completed
+    workflows: [ "Rust Hotpath Profile" ]
+    types: [ completed ]
 
 permissions:
   contents: read
@@ -19,7 +18,6 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
       - uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
