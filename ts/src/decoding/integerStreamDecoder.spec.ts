@@ -417,6 +417,18 @@ describe("decodeInt64AsFloat64Stream", () => {
         expect(result).toEqual(expectedValues);
     });
 
+    it("should restore null positions in unsigned values", () => {
+        const metadata = createStreamMetadata(LogicalLevelTechnique.NONE, LogicalLevelTechnique.NONE, 4);
+        const data = encodeInt64UnsignedNone(new BigInt64Array([9_234_567_890n, 101n, 105n, 106n]));
+        const nullabilityBuffer = new BitVector(new Uint8Array([0b00011110]), 5);
+        const offset = new IntWrapper(0);
+
+        const result = decodeUnsignedInt64AsFloat64Stream(data, offset, metadata, nullabilityBuffer);
+
+        expect(result).toEqual(new Float64Array([0, 9_234_567_890, 101, 105, 106]));
+        expect(offset.get()).toBe(data.length);
+    });
+
     it("should decode logical NONE signed with PhysicalLevelTechnique.VARINT", () => {
         const metadata = createStreamMetadata(LogicalLevelTechnique.NONE);
         const expectedValues = new Float64Array([2, 5, 3]);

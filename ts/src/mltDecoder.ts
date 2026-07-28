@@ -207,7 +207,7 @@ function decodeIdColumn(
     switch (vectorType) {
         case VectorType.FLAT: {
             if (idWithinMaxSafeInteger) {
-                const id = decodeUnsignedInt64AsFloat64Stream(tile, offset, idDataStreamMetadata);
+                const id = decodeUnsignedInt64AsFloat64Stream(tile, offset, idDataStreamMetadata, nullabilityBuffer);
                 return new DoubleFlatVector(columnName, id, sizeOrNullabilityBuffer);
             }
             const id = decodeUnsignedInt64Stream(tile, offset, idDataStreamMetadata, nullabilityBuffer);

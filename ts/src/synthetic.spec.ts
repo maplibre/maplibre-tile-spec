@@ -43,11 +43,21 @@ describe("MLT Decoder - Synthetic tests", () => {
     for (const { name, content, fileName } of testCases.skipped) {
         it(`${name} (unsupported)`, () => expectUnsupported(() => decodeMLT(fileName), content));
     }
+
+    for (const name of ["0x01/ids64_opt", "0x01/ids64_opt_delta"]) {
+        it(`${name} in number mode`, async () => {
+            const testCase = testCases.active.find((testCase) => testCase.name === name);
+            expect(testCase).toBeDefined();
+
+            const actual = await decodeMLT(testCase.fileName, true);
+            expect(actual).toEqual(testCase.content);
+        });
+    }
 });
 
-async function decodeMLT(mltFilePath: string) {
+async function decodeMLT(mltFilePath: string, idWithinMaxSafeInteger = false) {
     const mltBuffer = await readFile(mltFilePath);
-    const featureTables = decodeTile(mltBuffer, undefined, false);
+    const featureTables = decodeTile(mltBuffer, undefined, idWithinMaxSafeInteger);
     return featureTablesToFeatureCollection(featureTables) as unknown as Record<string, unknown>;
 }
 
