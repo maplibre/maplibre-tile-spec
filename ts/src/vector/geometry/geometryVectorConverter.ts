@@ -269,7 +269,7 @@ function decodeDictionaryEncodedVertices(
     vertexOffsets: Uint32Array,
     vertexOffset: number,
     numVertices: number,
-    closeRing: boolean,
+    isRing: boolean,
     mortonSettings: MortonSettings,
 ): Point[] {
     if (vertexBufferType === VertexBufferType.MORTON) {
@@ -278,11 +278,11 @@ function decodeDictionaryEncodedVertices(
             vertexOffsets,
             vertexOffset,
             numVertices,
-            closeRing,
+            isRing,
             mortonSettings,
         );
     } else {
-        return decodeVec2DictionaryEncodedVertices(vertexBuffer, vertexOffsets, vertexOffset, numVertices, closeRing);
+        return decodeVec2DictionaryEncodedVertices(vertexBuffer, vertexOffsets, vertexOffset, numVertices, isRing);
     }
 }
 
@@ -290,16 +290,16 @@ function getLineStringOrRing(
     vertexBuffer: Int32Array | Uint32Array,
     startIndex: number,
     numVertices: number,
-    closeLineString: boolean,
+    isRing: boolean,
 ): Point[] {
-    const vertices: Point[] = new Array(closeLineString ? numVertices + 1 : numVertices);
+    const vertices: Point[] = new Array(isRing ? numVertices + 1 : numVertices);
     for (let i = 0; i < numVertices * 2; i += 2) {
         const x = vertexBuffer[startIndex + i];
         const y = vertexBuffer[startIndex + i + 1];
         vertices[i / 2] = new Point(x, y);
     }
 
-    if (closeLineString) {
+    if (isRing) {
         vertices[vertices.length - 1] = vertices[0];
     }
     return vertices;
@@ -310,9 +310,9 @@ function decodeVec2DictionaryEncodedVertices(
     vertexOffsets: Uint32Array,
     vertexOffset: number,
     numVertices: number,
-    closeRing: boolean,
+    isRing: boolean,
 ): Point[] {
-    const vertices: Point[] = new Array(closeRing ? numVertices + 1 : numVertices);
+    const vertices: Point[] = new Array(isRing ? numVertices + 1 : numVertices);
     for (let i = 0; i < numVertices * 2; i += 2) {
         const offset = vertexOffsets[vertexOffset + i / 2] * 2;
         const x = vertexBuffer[offset];
@@ -320,7 +320,7 @@ function decodeVec2DictionaryEncodedVertices(
         vertices[i / 2] = new Point(x, y);
     }
 
-    if (closeRing) {
+    if (isRing) {
         vertices[vertices.length - 1] = vertices[0];
     }
     return vertices;
@@ -331,17 +331,17 @@ function decodeMortonDictionaryEncodedVertices(
     vertexOffsets: Uint32Array,
     vertexOffset: number,
     numVertices: number,
-    closeRing: boolean,
+    isRing: boolean,
     mortonSettings: MortonSettings,
 ): Point[] {
-    const vertices: Point[] = new Array(closeRing ? numVertices + 1 : numVertices);
+    const vertices: Point[] = new Array(isRing ? numVertices + 1 : numVertices);
     for (let i = 0; i < numVertices; i++) {
         const offset = vertexOffsets[vertexOffset + i];
         const mortonEncodedVertex = vertexBuffer[offset];
         const vertex = decodeZOrderCurve(mortonEncodedVertex, mortonSettings.numBits, mortonSettings.coordinateShift);
         vertices[i] = new Point(vertex.x, vertex.y);
     }
-    if (closeRing) {
+    if (isRing) {
         vertices[vertices.length - 1] = vertices[0];
     }
 
