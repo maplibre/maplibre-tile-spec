@@ -1,4 +1,5 @@
 pub(crate) mod encode;
+pub(crate) mod encode02;
 mod geotype;
 mod model;
 #[cfg(test)]

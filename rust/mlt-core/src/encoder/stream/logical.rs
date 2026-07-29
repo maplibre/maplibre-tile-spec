@@ -4,25 +4,41 @@ use num_traits::PrimInt;
 
 use crate::MltResult;
 use crate::codecs::rle::encode_rle;
-use crate::decoder::RleMeta;
+use crate::decoder::{RleLayout, RleMeta};
 
 /// RLE-encode `data` into `target` and return the matching `RleMeta`.
 ///
 /// `target` is treated as a scratch buffer: cleared before writing.
 /// `num_logical` is the expanded output length (stored in `RleMeta::num_rle_values`).
+/// `layout` selects the wire layout: split run/value halves (tag `0x01`) or
+/// interleaved `(run, value)` pairs (tag `0x02`).
 pub(crate) fn apply_rle<T: PrimInt + Debug>(
     data: &[T],
     num_logical: usize,
+    layout: RleLayout,
     target: &mut Vec<T>,
 ) -> MltResult<RleMeta> {
     let (runs_vec, vals_vec) = encode_rle(data);
-    let meta = RleMeta {
-        runs: u32::try_from(runs_vec.len())?,
-        num_rle_values: u32::try_from(num_logical)?,
-    };
+    let num_rle_values = u32::try_from(num_logical)?;
     target.clear();
-    target.extend_from_slice(&runs_vec);
-    target.extend_from_slice(&vals_vec);
+    let meta = match layout {
+        RleLayout::Split => {
+            target.extend_from_slice(&runs_vec);
+            target.extend_from_slice(&vals_vec);
+            RleMeta::Split {
+                runs: u32::try_from(runs_vec.len())?,
+                num_rle_values,
+            }
+        }
+        RleLayout::Interleaved => {
+            target.reserve(runs_vec.len().saturating_mul(2));
+            for (&run, &val) in runs_vec.iter().zip(&vals_vec) {
+                target.push(run);
+                target.push(val);
+            }
+            RleMeta::Interleaved { num_rle_values }
+        }
+    };
     Ok(meta)
 }
 

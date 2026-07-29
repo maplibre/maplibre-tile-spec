@@ -129,7 +129,7 @@ impl StreamMeta {
                 // Reserve decoded memory (worst case: u64 = 8 bytes per value)
                 let decoded_bytes = num_rle_values.saturating_mul(8);
                 parser.reserve(decoded_bytes)?;
-                let rle = RleMeta {
+                let rle = RleMeta::Split {
                     runs,
                     num_rle_values,
                 };
@@ -197,11 +197,22 @@ impl StreamMeta {
 
         // some encoding have settings inside them
         match self.encoding.logical {
-            LE::DeltaRle(r) | LE::Rle(r) => {
+            // v1 always uses the Split layout; interleaved is a v2-only concern.
+            LE::DeltaRle(RleMeta::Split {
+                runs,
+                num_rle_values,
+            })
+            | LE::Rle(RleMeta::Split {
+                runs,
+                num_rle_values,
+            }) => {
                 if !is_bool {
-                    writer.write_varint(r.runs)?;
-                    writer.write_varint(r.num_rle_values)?;
+                    writer.write_varint(runs)?;
+                    writer.write_varint(num_rle_values)?;
                 }
+            }
+            LE::DeltaRle(RleMeta::Interleaved { .. }) | LE::Rle(RleMeta::Interleaved { .. }) => {
+                debug_assert!(false, "v1 stream header codec cannot emit interleaved RLE");
             }
             LE::Morton(m) | LE::MortonDelta(m) | LE::MortonRle(m) => {
                 writer.write_varint(m.bits)?;
@@ -251,12 +262,20 @@ impl<'a> RawStream<'a> {
         let (input, (meta, byte_length)) = StreamMeta::from_bytes(input, is_bool, parser)?;
         let (input, data) = take(input, byte_length)?;
 
-        // For RLE with VarInt physical encoding, validate stream: run lengths must sum to num_rle_values
-        if let LE::Rle(r) | LE::DeltaRle(r) = meta.encoding.logical
+        // For RLE with VarInt physical encoding, validate stream: run lengths must sum to num_rle_values.
+        // v1 parsing only ever produces the Split layout.
+        if let LE::Rle(RleMeta::Split {
+            runs,
+            num_rle_values,
+        })
+        | LE::DeltaRle(RleMeta::Split {
+            runs,
+            num_rle_values,
+        }) = meta.encoding.logical
             && matches!(meta.encoding.physical, PD::VarInt)
             && !is_bool
         {
-            validate_rle_varint_stream(data, r.runs, r.num_rle_values)?;
+            validate_rle_varint_stream(data, runs, num_rle_values)?;
         }
 
         Ok((input, RawStream::new(meta, data)))

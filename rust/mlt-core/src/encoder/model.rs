@@ -3,7 +3,7 @@ use std::collections::HashSet;
 
 use derive_debug::Dbg;
 
-use crate::decoder::{DictionaryType, Extent, GeometryValues, StreamType};
+use crate::decoder::{DictionaryType, Extent, GeometryValues, RleLayout, StreamType};
 use crate::encoder::geometry::VertexBufferType;
 use crate::encoder::{IntEncoder, StagedId, StagedProperty};
 use crate::{MltError, MltResult};
@@ -171,6 +171,39 @@ impl StagedLayer {
     }
 }
 
+/// Which wire format layers are encoded to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum WireVersion {
+    /// Tag `0x01` — the stable v1 format.
+    #[default]
+    V01,
+    /// Tag `0x02` — the experimental v2 format (see `docs/migrating-to-v2.md`).
+    ///
+    /// Currently limited to ID, scalar, and non-tessellated geometry columns;
+    /// string and shared-dictionary columns are not yet supported.
+    V02,
+}
+
+impl WireVersion {
+    /// The layer tag byte identifying this format on the wire.
+    #[must_use]
+    pub(crate) fn tag(self) -> u8 {
+        match self {
+            Self::V01 => 1,
+            Self::V02 => 2,
+        }
+    }
+
+    /// The RLE stream data layout used by this format.
+    #[must_use]
+    pub(crate) fn rle_layout(self) -> RleLayout {
+        match self {
+            Self::V01 => RleLayout::Split,
+            Self::V02 => RleLayout::Interleaved,
+        }
+    }
+}
+
 /// Global encoder settings controlling which optimization strategies are attempted.
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
 #[expect(
@@ -178,6 +211,8 @@ impl StagedLayer {
     reason = "enums would not model this better, not a state machine"
 )]
 pub struct EncoderConfig {
+    /// The wire format to encode layers to.
+    wire_version: WireVersion,
     /// Generate tessellation data for polygons and multi-polygons.
     tessellate: bool,
     /// Try sorting features by the Z-order (Morton) curve index of their first vertex.
@@ -196,6 +231,7 @@ pub struct EncoderConfig {
 impl Default for EncoderConfig {
     fn default() -> Self {
         Self {
+            wire_version: WireVersion::V01,
             tessellate: false,
             attempt_spatial_morton_sort: true,
             attempt_spatial_hilbert_sort: true,
@@ -208,6 +244,21 @@ impl Default for EncoderConfig {
 }
 
 impl EncoderConfig {
+    #[must_use]
+    pub fn wire_version(self) -> WireVersion {
+        self.wire_version
+    }
+
+    /// Whether the `FastPFor` physical encoding may compete for streams.
+    ///
+    /// v2 will use `FastPFor128` in little-endian byte order; until that codec
+    /// lands, `FastPFor` is only raced for v1 layers.
+    // TODO(v2): race FastPFor128-LE for `WireVersion::V02`.
+    #[must_use]
+    pub(crate) fn race_fastpfor(self) -> bool {
+        self.allow_fastpfor && self.wire_version == WireVersion::V01
+    }
+
     #[must_use]
     pub fn tessellate(self) -> bool {
         self.tessellate
@@ -241,6 +292,12 @@ impl EncoderConfig {
     #[must_use]
     pub fn allow_shared_dict(self) -> bool {
         self.allow_shared_dict
+    }
+
+    #[must_use]
+    pub fn with_wire_version(mut self, version: WireVersion) -> Self {
+        self.wire_version = version;
+        self
     }
 
     #[must_use]

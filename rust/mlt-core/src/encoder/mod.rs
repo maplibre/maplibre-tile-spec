@@ -1,4 +1,5 @@
 mod analyze;
+mod encode02;
 #[cfg(all(not(test), feature = "arbitrary"))]
 mod fuzzing;
 mod geometry;
@@ -21,7 +22,7 @@ pub use geometry::VertexBufferType;
 pub use id::StagedId;
 #[cfg(feature = "__private")]
 pub use model::{ColumnKind, CurveParams, ExplicitEncoder, StagedLayer, StrEncoding, StreamCtx};
-pub use model::{EncodedUnknown, EncoderConfig};
+pub use model::{EncodedUnknown, EncoderConfig, WireVersion};
 #[cfg(all(test, not(feature = "__private")))]
 pub(crate) use model::{ExplicitEncoder, StagedLayer, StrEncoding};
 #[cfg(any(test, feature = "__private"))]
