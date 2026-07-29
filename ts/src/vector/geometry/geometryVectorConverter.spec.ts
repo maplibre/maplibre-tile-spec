@@ -130,18 +130,18 @@ describe("MULTIPOINT – VEC_2 dictionary encoded", () => {
 });
 
 describe("MULTIPOINT - Morton dictionary encoded", () => {
-    it("decodes each point via its Morton dictionary offset", () => {
+    it("decodes points across geometries via their Morton dictionary offsets", () => {
         const settings: MortonSettings = { numBits: 4, coordinateShift: 0 } as MortonSettings;
         const gv = new ConstGeometryVector(
-            1,
+            2,
             GEOMETRY_TYPE.MULTIPOINT,
             VertexBufferType.MORTON,
             {
-                geometryOffsets: new Uint32Array([0, 2]),
+                geometryOffsets: new Uint32Array([0, 2, 4]),
                 partOffsets: undefined,
                 ringOffsets: undefined,
             },
-            new Uint32Array([1, 0]),
+            new Uint32Array([1, 0, 0, 1]),
             // Morton codes: 47 → (3, 7), 72 → (8, 2).
             new Int32Array([72, 47]),
             settings,
@@ -149,7 +149,10 @@ describe("MULTIPOINT - Morton dictionary encoded", () => {
 
         const result = convertGeometryVector(gv);
 
-        expect(result[0]).toEqual([[new Point(3, 7)], [new Point(8, 2)]]);
+        expect(result).toEqual([
+            [[new Point(3, 7)], [new Point(8, 2)]],
+            [[new Point(8, 2)], [new Point(3, 7)]],
+        ]);
     });
 });
 
