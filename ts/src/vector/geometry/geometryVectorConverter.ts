@@ -60,20 +60,25 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                     const numPoints =
                         geometryOffsets[geometryOffsetsCounter] - geometryOffsets[geometryOffsetsCounter - 1];
                     geometryOffsetsCounter++;
-                    const points: Point[] = new Array(numPoints);
+                    let points: Point[];
                     if (nonOffset) {
+                        points = new Array(numPoints);
                         for (let j = 0; j < numPoints; j++) {
                             const x = vertexBuffer[vertexBufferOffset++];
                             const y = vertexBuffer[vertexBufferOffset++];
                             points[j] = new Point(x, y);
                         }
                     } else {
-                        for (let j = 0; j < numPoints; j++) {
-                            const offset = vertexOffsets[vertexOffsetsOffset++] * 2;
-                            const x = vertexBuffer[offset];
-                            const y = vertexBuffer[offset + 1];
-                            points[j] = new Point(x, y);
-                        }
+                        points = decodeDictionaryEncodedLineStringOrRing(
+                            geometryVector.vertexBufferType,
+                            vertexBuffer,
+                            vertexOffsets,
+                            vertexOffsetsOffset,
+                            numPoints,
+                            false,
+                            mortonSettings,
+                        );
+                        vertexOffsetsOffset += numPoints;
                     }
                     geometries[geometryCounter++] = points.map((point) => [point]);
                     // MULTIPOINT must increment offset counters like POINT does
