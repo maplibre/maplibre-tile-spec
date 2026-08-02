@@ -280,6 +280,9 @@ impl<'feat, 'layer: 'feat> FeatureRef<'feat, 'layer> {
 /// Scalar and string columns contribute exactly one name; `SharedDict` columns
 /// contribute one per sub-item.
 pub trait ColNames {
+    /// Always `PropName<'tile>`.  It cannot be written as `PropName<'_>` directly:
+    /// that would tie names to the `&self` borrow rather than to the tile buffer,
+    /// so they could no longer outlive the layer.
     type Name;
 
     /// Number of names this column contributes.
