@@ -17,11 +17,12 @@
 //! `.collect()` are **not** available directly.  Use a `while let` loop instead:
 
 use std::fmt;
+use std::iter::FusedIterator;
 
 use geo_types::Geometry;
 use usize_cast::IntoUsize as _;
 
-use crate::decoder::{Layer01, ParsedLayer01, ParsedProperty, ParsedScalar, RawProperty};
+use crate::decoder::{Layer01, ParsedLayer01, ParsedProperty, ParsedScalar, Property, RawProperty};
 use crate::{Lazy, LazyParsed, MltResult, Parsed};
 
 /// A minimal lending (streaming) iterator trait.
@@ -56,27 +57,8 @@ impl<'a> Layer01<'a, Lazy> {
     ///
     /// Pair with [`FeatureRef::iter_all_properties`] to associate per-feature
     /// values with their column names.
-    pub fn iterate_prop_names(&self) -> impl Iterator<Item = PropName<'a>> + '_ {
-        let props = &self.properties;
-        let mut col_idx = 0;
-        let mut dict_idx = 0;
-        std::iter::from_fn(move || {
-            loop {
-                let idx = col_idx;
-                col_idx += 1;
-                let name = match props.get(idx)? {
-                    LazyParsed::Raw(r) => raw_col_name(r, &mut dict_idx),
-                    LazyParsed::Parsed(p) => parsed_col_name(p, &mut dict_idx),
-                    LazyParsed::ParsingFailed => None,
-                };
-                if dict_idx != 0 {
-                    col_idx -= 1;
-                }
-                if let Some(n) = name {
-                    return Some(n);
-                }
-            }
-        })
+    pub fn iterate_prop_names(&self) -> PropNamesIter<'_, Property<'a, Lazy>> {
+        PropNamesIter::new(&self.properties)
     }
 }
 
@@ -106,8 +88,8 @@ impl<'a> ParsedLayer01<'a> {
 
     /// Iterate over the property column names of this layer, in order.
     /// See [`Layer01::iterate_prop_names`] for details.
-    pub fn iterate_prop_names(&self) -> impl Iterator<Item = PropName<'a>> + '_ {
-        Layer01PropNamesIter::new(&self.properties)
+    pub fn iterate_prop_names(&self) -> PropNamesIter<'_, ParsedProperty<'a>> {
+        PropNamesIter::new(&self.properties)
     }
 }
 
@@ -256,7 +238,13 @@ impl<'feat, 'layer: 'feat> FeatureRef<'feat, 'layer> {
     /// - `None` — the slot is null / absent.
     ///
     /// Use [`Layer01::iterate_prop_names`] to pair values with their column names.
-    pub fn iter_all_properties(&self) -> impl Iterator<Item = Option<PropValueRef<'layer>>> + '_ {
+    #[must_use]
+    pub fn iter_all_properties(
+        &self,
+    ) -> impl ExactSizeIterator<Item = Option<PropValueRef<'layer>>>
+    + DoubleEndedIterator
+    + FusedIterator
+    + '_ {
         self.values.iter().copied()
     }
 
@@ -264,8 +252,11 @@ impl<'feat, 'layer: 'feat> FeatureRef<'feat, 'layer> {
     ///
     /// `SharedDict` columns are transparently expanded into one [`ColumnRef`] per sub-item.
     /// Null / absent values are skipped entirely. The iterator is infallible.
-    pub fn iter_properties(&self) -> impl Iterator<Item = ColumnRef<'layer>> + '_ {
-        Layer01PropNamesIter::new(self.columns)
+    #[must_use]
+    pub fn iter_properties(
+        &self,
+    ) -> impl DoubleEndedIterator<Item = ColumnRef<'layer>> + FusedIterator + '_ {
+        PropNamesIter::new(self.columns)
             .zip(self.values.iter().copied())
             .filter_map(|(name, opt_val)| opt_val.map(|value| ColumnRef { name, value }))
     }
@@ -284,99 +275,181 @@ impl<'feat, 'layer: 'feat> FeatureRef<'feat, 'layer> {
 
 // ── Column name helpers ───────────────────────────────────────────────────────
 
-/// Iterates the property column names of a fully-decoded [`ParsedLayer01`].
+/// A property column that contributes one or more [`PropName`]s.
+///
+/// Scalar and string columns contribute exactly one name; `SharedDict` columns
+/// contribute one per sub-item.
+pub trait ColNames {
+    type Name;
+
+    /// Number of names this column contributes.
+    fn name_count(&self) -> usize;
+
+    /// The name at sub-index `idx`, which must be less than [`Self::name_count`].
+    fn name_at(&self, idx: usize) -> Self::Name;
+}
+
+impl<'p> ColNames for ParsedProperty<'p> {
+    type Name = PropName<'p>;
+
+    fn name_count(&self) -> usize {
+        match self {
+            Self::SharedDict(sd) => sd.items.len(),
+            _ => 1,
+        }
+    }
+
+    fn name_at(&self, idx: usize) -> PropName<'p> {
+        use ParsedProperty as P;
+        match self {
+            P::Bool(s) => PropName(s.name, ""),
+            P::I8(s) => PropName(s.name, ""),
+            P::U8(s) => PropName(s.name, ""),
+            P::I32(s) => PropName(s.name, ""),
+            P::U32(s) => PropName(s.name, ""),
+            P::I64(s) => PropName(s.name, ""),
+            P::U64(s) => PropName(s.name, ""),
+            P::F32(s) => PropName(s.name, ""),
+            P::F64(s) => PropName(s.name, ""),
+            P::Str(s) => PropName(s.name, ""),
+            P::SharedDict(sd) => PropName(sd.prefix, sd.items[idx].suffix),
+        }
+    }
+}
+
+impl<'p> ColNames for RawProperty<'p> {
+    type Name = PropName<'p>;
+
+    fn name_count(&self) -> usize {
+        match self {
+            Self::SharedDict(sd) => sd.children.len(),
+            _ => 1,
+        }
+    }
+
+    fn name_at(&self, idx: usize) -> PropName<'p> {
+        use RawProperty as P;
+        match self {
+            P::Bool(s)
+            | P::I8(s)
+            | P::U8(s)
+            | P::I32(s)
+            | P::U32(s)
+            | P::I64(s)
+            | P::U64(s)
+            | P::F32(s)
+            | P::F64(s) => PropName(s.name, ""),
+            P::Str(s) => PropName(s.name, ""),
+            P::SharedDict(sd) => PropName(sd.name, sd.children[idx].name),
+        }
+    }
+}
+
+/// A column that failed to parse contributes no names at all.
+impl<'p> ColNames for LazyParsed<RawProperty<'p>, ParsedProperty<'p>> {
+    type Name = PropName<'p>;
+
+    fn name_count(&self) -> usize {
+        match self {
+            Self::Raw(r) => r.name_count(),
+            Self::Parsed(p) => p.name_count(),
+            Self::ParsingFailed => 0,
+        }
+    }
+
+    fn name_at(&self, idx: usize) -> PropName<'p> {
+        match self {
+            Self::Raw(r) => r.name_at(idx),
+            Self::Parsed(p) => p.name_at(idx),
+            Self::ParsingFailed => unreachable!("ParsingFailed contributes no names"),
+        }
+    }
+}
+
+/// Iterates the property column names of a layer, in column order.
 ///
 /// Regular columns yield one [`PropName`]; `SharedDict` columns yield one name per
 /// sub-item (`(prefix, suffix)`).
-pub(crate) struct Layer01PropNamesIter<'a, 'p> {
-    props: &'a [ParsedProperty<'p>],
+#[must_use]
+pub struct PropNamesIter<'a, C> {
+    props: &'a [C],
+    /// Next column to read from the front.
     col_idx: usize,
-    dict_idx: usize,
+    /// Sub-index within `props[col_idx]` to read next from the front.
+    sub_idx: usize,
+    /// One past the last column to read from the back.
+    back_col: usize,
+    /// Number of names already taken from the back of `props[back_col - 1]`.
+    back_taken: usize,
+    /// Names not yet yielded from either end.
+    remaining: usize,
 }
 
-impl<'a, 'p> Layer01PropNamesIter<'a, 'p> {
-    pub(crate) fn new(props: &'a [ParsedProperty<'p>]) -> Self {
+impl<'a, C: ColNames> PropNamesIter<'a, C> {
+    pub(crate) fn new(props: &'a [C]) -> Self {
         Self {
             props,
             col_idx: 0,
-            dict_idx: 0,
+            sub_idx: 0,
+            back_col: props.len(),
+            back_taken: 0,
+            remaining: props.iter().map(ColNames::name_count).sum(),
         }
     }
 }
 
-impl<'a> Iterator for Layer01PropNamesIter<'_, 'a> {
-    type Item = PropName<'a>;
+impl<C: ColNames> Iterator for PropNamesIter<'_, C> {
+    type Item = C::Name;
 
-    fn next(&mut self) -> Option<PropName<'a>> {
+    fn next(&mut self) -> Option<C::Name> {
+        if self.remaining == 0 {
+            return None;
+        }
+        self.remaining -= 1;
         loop {
-            let col_idx = self.col_idx;
+            // `remaining` was non-zero, so a column at or after `col_idx` still has a name.
+            let col = &self.props[self.col_idx];
+            if self.sub_idx < col.name_count() {
+                let name = col.name_at(self.sub_idx);
+                self.sub_idx += 1;
+                return Some(name);
+            }
             self.col_idx += 1;
-            let name = parsed_col_name(self.props.get(col_idx)?, &mut self.dict_idx);
-            if self.dict_idx != 0 {
-                self.col_idx -= 1; // SharedDict not yet exhausted: revisit this column
+            self.sub_idx = 0;
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.remaining, Some(self.remaining))
+    }
+}
+
+impl<C: ColNames> DoubleEndedIterator for PropNamesIter<'_, C> {
+    fn next_back(&mut self) -> Option<C::Name> {
+        if self.remaining == 0 {
+            return None;
+        }
+        self.remaining -= 1;
+        loop {
+            let col = &self.props[self.back_col - 1];
+            let count = col.name_count();
+            if self.back_taken < count {
+                self.back_taken += 1;
+                return Some(col.name_at(count - self.back_taken));
             }
-            if let Some(n) = name {
-                return Some(n);
-            }
+            self.back_col -= 1;
+            self.back_taken = 0;
         }
     }
 }
 
-/// Yield the next [`PropName`] from a [`ParsedProperty`] column.
-#[inline]
-fn parsed_col_name<'p>(prop: &ParsedProperty<'p>, dict_idx: &mut usize) -> Option<PropName<'p>> {
-    use ParsedProperty as P;
-    match prop {
-        P::Bool(s) => Some(PropName(s.name, "")),
-        P::I8(s) => Some(PropName(s.name, "")),
-        P::U8(s) => Some(PropName(s.name, "")),
-        P::I32(s) => Some(PropName(s.name, "")),
-        P::U32(s) => Some(PropName(s.name, "")),
-        P::I64(s) => Some(PropName(s.name, "")),
-        P::U64(s) => Some(PropName(s.name, "")),
-        P::F32(s) => Some(PropName(s.name, "")),
-        P::F64(s) => Some(PropName(s.name, "")),
-        P::Str(s) => Some(PropName(s.name, "")),
-        P::SharedDict(sd) => {
-            if *dict_idx < sd.items.len() {
-                let idx = *dict_idx;
-                *dict_idx += 1;
-                Some(PropName(sd.prefix, sd.items[idx].suffix))
-            } else {
-                *dict_idx = 0;
-                None
-            }
-        }
+impl<C: ColNames> ExactSizeIterator for PropNamesIter<'_, C> {
+    fn len(&self) -> usize {
+        self.remaining
     }
 }
 
-/// Yield the next [`PropName`] from a [`RawProperty`] column.  See [`parsed_col_name`].
-#[inline]
-fn raw_col_name<'p>(prop: &RawProperty<'p>, dict_idx: &mut usize) -> Option<PropName<'p>> {
-    use RawProperty as P;
-    match prop {
-        P::Bool(s)
-        | P::I8(s)
-        | P::U8(s)
-        | P::I32(s)
-        | P::U32(s)
-        | P::I64(s)
-        | P::U64(s)
-        | P::F32(s)
-        | P::F64(s) => Some(PropName(s.name, "")),
-        P::Str(s) => Some(PropName(s.name, "")),
-        P::SharedDict(sd) => {
-            if *dict_idx < sd.children.len() {
-                let idx = *dict_idx;
-                *dict_idx += 1;
-                Some(PropName(sd.name, sd.children[idx].name))
-            } else {
-                *dict_idx = 0;
-                None
-            }
-        }
-    }
-}
+impl<C: ColNames> FusedIterator for PropNamesIter<'_, C> {}
 
 /// A boxed per-column-slot value iterator yielding one `Option<`[`PropValueRef`]`>` per feature.
 type ColValIter<'l> = Box<dyn Iterator<Item = Option<PropValueRef<'l>>> + 'l>;
@@ -538,7 +611,7 @@ mod tests {
     use crate::decoder::GeometryValues;
     use crate::encoder::model::StagedLayer;
     use crate::encoder::{Codecs, Encoder, Presence, StagedId, StagedProperty, StagedSharedDict};
-    use crate::test_helpers::{dec, parser};
+    use crate::test_helpers::{assert_size_hint_exact, dec, parser};
 
     fn layer_buf(staged: StagedLayer) -> Vec<u8> {
         staged
@@ -967,5 +1040,152 @@ mod tests {
 
         let names: Vec<_> = parsed.iterate_prop_names().map(|n| n.to_string()).collect();
         assert_eq!(names, ["addr:city", "addr:zip"]);
+    }
+
+    fn strs<'p>(iter: impl Iterator<Item = PropName<'p>>) -> Vec<String> {
+        iter.map(|n| n.to_string()).collect()
+    }
+
+    fn reversed<'p>(iter: impl DoubleEndedIterator<Item = PropName<'p>>) -> Vec<String> {
+        let mut names = strs(iter.rev());
+        names.reverse();
+        names
+    }
+
+    fn both_ends_layer() -> Vec<u8> {
+        let shared_dict = StagedSharedDict::new(
+            "addr:",
+            [
+                ("city", vec![Some("Paris"); 3], Presence::AllPresent),
+                ("zip", vec![Some("75001"); 3], Presence::AllPresent),
+                ("street", vec![Some("Rue"); 3], Presence::AllPresent),
+            ],
+        )
+        .unwrap();
+
+        layer_buf(staged_layer(
+            "test",
+            StagedId::None,
+            three_points(),
+            vec![
+                StagedProperty::str("before", ["a", "a", "a"]),
+                StagedProperty::u32("count", vec![1, 2, 3]),
+                StagedProperty::SharedDict(shared_dict),
+                StagedProperty::str("after", ["b", "b", "b"]),
+            ],
+        ))
+    }
+
+    const BOTH_ENDS_NAMES: [&str; 6] = [
+        "before",
+        "count",
+        "addr:city",
+        "addr:zip",
+        "addr:street",
+        "after",
+    ];
+
+    fn prop_names() -> Vec<PropName<'static>> {
+        BOTH_ENDS_NAMES.iter().map(|n| PropName(n, "")).collect()
+    }
+
+    #[test]
+    fn prop_names_iterate_from_both_ends_lazy() {
+        let buf = both_ends_layer();
+        let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
+        let Layer::Tag01(lazy) = layer else { panic!() };
+
+        assert_eq!(strs(lazy.iterate_prop_names()), BOTH_ENDS_NAMES);
+        assert_eq!(reversed(lazy.iterate_prop_names()), BOTH_ENDS_NAMES);
+        assert_size_hint_exact(|| lazy.iterate_prop_names(), &prop_names());
+    }
+
+    #[test]
+    fn prop_names_iterate_from_both_ends_parsed() {
+        let buf = both_ends_layer();
+        let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
+        let Layer::Tag01(lazy) = layer else { panic!() };
+        let parsed = lazy.decode_all(&mut dec()).unwrap();
+
+        assert_eq!(strs(parsed.iterate_prop_names()), BOTH_ENDS_NAMES);
+        assert_eq!(reversed(parsed.iterate_prop_names()), BOTH_ENDS_NAMES);
+
+        assert_size_hint_exact(|| parsed.iterate_prop_names(), &prop_names());
+    }
+
+    #[test]
+    fn prop_names_of_layer_without_properties() {
+        let buf = layer_buf(empty_layer("test"));
+        let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
+        let Layer::Tag01(lazy) = layer else { panic!() };
+
+        assert_eq!(lazy.iterate_prop_names().size_hint(), (0, Some(0)));
+        assert_eq!(lazy.iterate_prop_names().next(), None);
+        assert_eq!(lazy.iterate_prop_names().next_back(), None);
+
+        let parsed = lazy.decode_all(&mut dec()).unwrap();
+        assert_eq!(parsed.iterate_prop_names().size_hint(), (0, Some(0)));
+        assert_eq!(parsed.iterate_prop_names().next(), None);
+        assert_eq!(parsed.iterate_prop_names().next_back(), None);
+    }
+
+    /// `Layer01<Lazy>` only ever holds `Raw` columns today, so the `Parsed` and
+    /// `ParsingFailed` arms are exercised against a hand-built column slice.
+    #[test]
+    fn prop_names_skip_columns_that_failed_to_parse() {
+        let buf = both_ends_layer();
+        let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
+        let Layer::Tag01(lazy) = layer else { panic!() };
+        let raw = lazy.properties.clone();
+
+        let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
+        let Layer::Tag01(lazy) = layer else { panic!() };
+        let parsed = lazy.decode_all(&mut dec()).unwrap().properties;
+
+        let mixed = vec![
+            raw[0].clone(),
+            LazyParsed::ParsingFailed,
+            LazyParsed::Parsed(parsed[2].clone()),
+            LazyParsed::ParsingFailed,
+            raw[3].clone(),
+        ];
+        let expected = ["before", "addr:city", "addr:zip", "addr:street", "after"];
+
+        assert_eq!(strs(PropNamesIter::new(&mixed)), expected);
+        assert_eq!(reversed(PropNamesIter::new(&mixed)), expected);
+        assert_size_hint_exact(
+            || PropNamesIter::new(&mixed),
+            &expected.map(|n| PropName(n, "")),
+        );
+
+        let all_failed = vec![LazyParsed::ParsingFailed; 3];
+        assert_eq!(PropNamesIter::new(&all_failed).size_hint(), (0, Some(0)));
+        assert_eq!(PropNamesIter::new(&all_failed).next(), None);
+        assert_eq!(PropNamesIter::new(&all_failed).next_back(), None);
+    }
+
+    #[test]
+    fn feature_property_iterators_run_backwards() {
+        let buf = both_ends_layer();
+        let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
+        let Layer::Tag01(lazy) = layer else { panic!() };
+        let parsed = lazy.decode_all(&mut dec()).unwrap();
+
+        let mut iter = parsed.iter_features();
+        let feat = iter.next().unwrap().unwrap();
+
+        let all: Vec<_> = feat.iter_all_properties().collect();
+        assert_size_hint_exact(|| feat.iter_all_properties(), &all);
+        let mut all_back: Vec<_> = feat.iter_all_properties().rev().collect();
+        all_back.reverse();
+        assert_eq!(all_back, all);
+
+        let mut props_back: Vec<_> = feat
+            .iter_properties()
+            .rev()
+            .map(|c| c.name().to_string())
+            .collect();
+        props_back.reverse();
+        assert_eq!(props_back, BOTH_ENDS_NAMES);
     }
 }
