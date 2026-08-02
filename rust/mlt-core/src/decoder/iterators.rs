@@ -18,6 +18,7 @@
 
 use std::fmt;
 use std::iter::FusedIterator;
+use std::ops::Range;
 
 use geo_types::Geometry;
 use usize_cast::IntoUsize as _;
@@ -376,15 +377,15 @@ impl<'p> ColNames for LazyParsed<RawProperty<'p>, ParsedProperty<'p>> {
 #[must_use]
 pub struct PropNamesIter<'a, C> {
     props: &'a [C],
-    /// Next column to read from the front.
-    col_idx: usize,
-    /// Sub-index within `props[col_idx]` to read next from the front.
-    sub_idx: usize,
-    /// One past the last column to read from the back.
-    back_col: usize,
-    /// Number of names already taken from the back of `props[back_col - 1]`.
-    back_taken: usize,
-    /// Names not yet yielded from either end.
+    /// Columns that may still yield a name: `cols.start` is the front column,
+    /// `cols.end - 1` the back one.  The two coincide once they meet.
+    cols: Range<usize>,
+    /// Next sub-index to yield from `props[cols.start]`.
+    front_sub: usize,
+    /// One past the next sub-index to yield from `props[cols.end - 1]`.
+    back_sub: usize,
+    /// Names not yet yielded from either end.  Both ends decrement it, so it is
+    /// what stops them crossing while they share a column.
     remaining: usize,
 }
 
@@ -392,10 +393,9 @@ impl<'a, C: ColNames> PropNamesIter<'a, C> {
     pub(crate) fn new(props: &'a [C]) -> Self {
         Self {
             props,
-            col_idx: 0,
-            sub_idx: 0,
-            back_col: props.len(),
-            back_taken: 0,
+            cols: 0..props.len(),
+            front_sub: 0,
+            back_sub: props.last().map_or(0, ColNames::name_count),
             remaining: props.iter().map(ColNames::name_count).sum(),
         }
     }
@@ -410,15 +410,15 @@ impl<C: ColNames> Iterator for PropNamesIter<'_, C> {
         }
         self.remaining -= 1;
         loop {
-            // `remaining` was non-zero, so a column at or after `col_idx` still has a name.
-            let col = &self.props[self.col_idx];
-            if self.sub_idx < col.name_count() {
-                let name = col.name_at(self.sub_idx);
-                self.sub_idx += 1;
+            // `remaining` was non-zero, so some column in `cols` still has a name.
+            let col = &self.props[self.cols.start];
+            if self.front_sub < col.name_count() {
+                let name = col.name_at(self.front_sub);
+                self.front_sub += 1;
                 return Some(name);
             }
-            self.col_idx += 1;
-            self.sub_idx = 0;
+            self.cols.start += 1;
+            self.front_sub = 0;
         }
     }
 
@@ -434,14 +434,12 @@ impl<C: ColNames> DoubleEndedIterator for PropNamesIter<'_, C> {
         }
         self.remaining -= 1;
         loop {
-            let col = &self.props[self.back_col - 1];
-            let count = col.name_count();
-            if self.back_taken < count {
-                self.back_taken += 1;
-                return Some(col.name_at(count - self.back_taken));
+            if self.back_sub > 0 {
+                self.back_sub -= 1;
+                return Some(self.props[self.cols.end - 1].name_at(self.back_sub));
             }
-            self.back_col -= 1;
-            self.back_taken = 0;
+            self.cols.end -= 1;
+            self.back_sub = self.props[self.cols.end - 1].name_count();
         }
     }
 }
