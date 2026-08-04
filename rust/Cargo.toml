@@ -28,8 +28,8 @@ criterion = { version = "0.8", features = ["html_reports"] }
 crossbeam-channel = "0.5"
 crossterm = "0.29.0"
 derive-debug = "0.1.2"
-diplomat = "0.15.0"
-diplomat-runtime = "0.15.1"
+diplomat = "0.16.0"
+diplomat-runtime = "0.16.0"
 enum_dispatch = "0.3"
 fast-mvt = "0.6.0"
 fastpfor = { version = "0.9", features = ["rust"] }
