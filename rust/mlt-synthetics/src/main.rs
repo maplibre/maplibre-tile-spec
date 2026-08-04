@@ -12,6 +12,7 @@
 //! ### Common filename abbreviations
 //! * `np` - no presence stream, i.e. values exist for each feature in a column
 //! * `fpf` - uses `FastPFor` compression
+//! * `plain` - `PhysicalLevelTechnique::NONE`, i.e. fixed-width little-endian ints
 //! * `tes` - includes tessellation triangles stream
 //! * `ns` - unlike Java encoder, empty streams are not forced to be created
 
@@ -602,6 +603,8 @@ fn generate_properties(w: &mut SynthWriter) {
         .write(w, "prop_i32_neg_np");
     p0().add_prop(e_int, P::opt_i32("val", vec![Some(-42)]))
         .write(w, "prop_i32_neg");
+    p0().add_prop(E::plain(), P::i32("val", vec![-0x1234_5678]))
+        .write(w, "prop_i32_plain_np-rust");
     p0().add_prop(e_int, P::i32("val", vec![i32::MIN]))
         .write(w, "prop_i32_min_np");
     p0().add_prop(e_int, P::opt_i32("val", vec![Some(i32::MIN)]))
@@ -622,8 +625,6 @@ fn generate_properties(w: &mut SynthWriter) {
 
     p0().add_prop(e_int, P::u32("val", vec![42]))
         .write(w, "prop_u32_np");
-    p0().add_prop(E::plain(), P::u32("val", vec![0x0102_0304]))
-        .write(w, "prop_u32_plain_np-rust");
     p0().add_prop(e_int, P::opt_u32("val", vec![Some(42)]))
         .write(w, "prop_u32");
     p0().add_prop(E::delta_varint(), P::u32("val", vec![42]))
@@ -638,6 +639,8 @@ fn generate_properties(w: &mut SynthWriter) {
         .write(w, "prop_u32_delta_rle_np");
     p0().add_prop(E::delta_rle_varint(), P::opt_u32("val", vec![Some(42)]))
         .write(w, "prop_u32_delta_rle-rust");
+    p0().add_prop(E::plain(), P::u32("val", vec![0x1234_5678]))
+        .write(w, "prop_u32_plain_np-rust");
     p0().add_prop(e_int, P::u32("val", vec![0]))
         .write(w, "prop_u32_min_np");
     p0().add_prop(e_int, P::opt_u32("val", vec![Some(0)]))
@@ -685,6 +688,8 @@ fn generate_properties(w: &mut SynthWriter) {
         .write(w, "prop_i64_neg_np");
     p0().add_prop(e_int, P::opt_i64("val", vec![Some(-9_876_543_210)]))
         .write(w, "prop_i64_neg");
+    p0().add_prop(E::plain(), P::i64("val", vec![-0x0123_4567_89AB_CDEF]))
+        .write(w, "prop_i64_plain_np-rust");
     p0().add_prop(e_int, P::i64("val", vec![i64::MIN]))
         .write(w, "prop_i64_min_np");
     p0().add_prop(e_int, P::opt_i64("val", vec![Some(i64::MIN)]))
@@ -710,6 +715,8 @@ fn generate_properties(w: &mut SynthWriter) {
         P::opt_u64("bignum", vec![Some(1_234_567_890_123_456_789)]),
     )
     .write(w, "prop_u64");
+    p0().add_prop(E::plain(), P::u64("bignum", vec![0x0123_4567_89AB_CDEF]))
+        .write(w, "prop_u64_plain_np-rust");
     p0().add_prop(e_int, P::u64("bignum", vec![0]))
         .write(w, "prop_u64_min_np");
     p0().add_prop(e_int, P::opt_u64("bignum", vec![Some(0)]))
