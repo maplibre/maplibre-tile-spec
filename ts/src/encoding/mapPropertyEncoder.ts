@@ -237,10 +237,7 @@ function encodeScalarByIndex(value: string | number | bigint, indexByKey: Map<st
 }
 
 /** Writes the stream mask and every stream it announces, the counterpart of `decodeMapStreams`. */
-function encodeMapStreams(
-    streams: MapStreams,
-    options: MapEncodingOptions,
-): { data: Uint8Array; numStreams: number } {
+function encodeMapStreams(streams: MapStreams, options: MapEncodingOptions): { data: Uint8Array; numStreams: number } {
     const parts: Uint8Array[] = [];
     let mask = 0;
     let numStreams = 0;
@@ -306,7 +303,9 @@ function encodeIntegerDictionaries(
 
     const wide = integers.some((value) => value < BigInt(INT32_MIN) || value > BigInt(INT32_MAX));
     parts.push(
-        wide ? encodeInt64NoneColumn(BigInt64Array.from(integers)) : encodeInt32NoneColumn(Int32Array.from(integers, Number)),
+        wide
+            ? encodeInt64NoneColumn(BigInt64Array.from(integers))
+            : encodeInt32NoneColumn(Int32Array.from(integers, Number)),
     );
     return { mask: wide ? MapMask.INT64 : MapMask.INT32, count: 1 };
 }

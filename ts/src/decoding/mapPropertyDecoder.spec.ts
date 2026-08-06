@@ -170,7 +170,14 @@ describe("map property column - absent values", () => {
 
 describe("map property column - shared child columns", () => {
     it("round-trips two child columns sharing one dictionary", () => {
-        const decoded = roundTrip([[{ b: "c" }, "d"], [["e"], null]], {}, ["one", "two"]);
+        const decoded = roundTrip(
+            [
+                [{ b: "c" }, "d"],
+                [["e"], null],
+            ],
+            {},
+            ["one", "two"],
+        );
         expect(decoded).toEqual([
             [{ b: "c" }, "d"],
             [["e"], null],
@@ -307,9 +314,9 @@ describe("map property column - malformed streams", () => {
     });
 
     it("rejects fewer lengths than the presence stream announces", () => {
-        expect(() =>
-            decodeRaw({ strings: ["a"], lengths: [1], tokens: [FIRST], presence: [true, true] }),
-        ).toThrow(/Merged map counts underflow/);
+        expect(() => decodeRaw({ strings: ["a"], lengths: [1], tokens: [FIRST], presence: [true, true] })).toThrow(
+            /Merged map counts underflow/,
+        );
     });
 
     it("rejects a feature length running past the token stream", () => {
@@ -327,21 +334,21 @@ describe("map property column - malformed streams", () => {
 
     it("rejects a map key that is not a string", () => {
         // Two tokens, so the payload decodes as map entries, with an integer in key position.
-        expect(() =>
-            decodeRaw({ strings: ["a"], integers: [7], lengths: [2], tokens: [FIRST + 1, FIRST] }),
-        ).toThrow(/Map key dictionary index does not resolve to a string/);
+        expect(() => decodeRaw({ strings: ["a"], integers: [7], lengths: [2], tokens: [FIRST + 1, FIRST] })).toThrow(
+            /Map key dictionary index does not resolve to a string/,
+        );
     });
 
     it("rejects a map entry whose key has no value", () => {
-        expect(() =>
-            decodeRaw({ strings: ["a", "b"], lengths: [3], tokens: [FIRST, FIRST + 1, FIRST] }),
-        ).toThrow(/Unexpected end of map value stream/);
+        expect(() => decodeRaw({ strings: ["a", "b"], lengths: [3], tokens: [FIRST, FIRST + 1, FIRST] })).toThrow(
+            /Unexpected end of map value stream/,
+        );
     });
 
     it("rejects a nested payload with no length", () => {
-        expect(() =>
-            decodeRaw({ strings: ["a"], lengths: [2], tokens: [FIRST, MapControlValue.START_MAP] }),
-        ).toThrow(/Missing length for nested map\/list payload/);
+        expect(() => decodeRaw({ strings: ["a"], lengths: [2], tokens: [FIRST, MapControlValue.START_MAP] })).toThrow(
+            /Missing length for nested map\/list payload/,
+        );
     });
 
     it("rejects a nested payload length below the header size", () => {
