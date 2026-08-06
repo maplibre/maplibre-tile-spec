@@ -140,13 +140,8 @@ function getGeometry(geometry: Geometry): GeoJSON.Geometry {
             return { type: "MultiPoint", coordinates: coords.map((r) => r[0]) };
         case GEOMETRY_TYPE.MULTILINESTRING:
             return { type: "MultiLineString", coordinates: coords };
-        case GEOMETRY_TYPE.MULTIPOLYGON: {
-            const polygons = classifyRings(geometry.coordinates);
-            return {
-                type: "MultiPolygon",
-                coordinates: polygons.map((polygon) => polygon.map((ring) => ring.map((p) => [p.x, p.y]))),
-            };
-        }
+        case GEOMETRY_TYPE.MULTIPOLYGON:
+            return { type: "MultiPolygon", coordinates: classifyRings(coords) };
         default:
             throw new Error(`Unsupported geometry type: ${geometry.type}`);
     }

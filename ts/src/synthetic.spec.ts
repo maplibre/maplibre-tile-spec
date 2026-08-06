@@ -12,12 +12,18 @@ import decodeTile from "./mltDecoder";
 import type { Geometry } from "./vector/geometry/geometryVector";
 import type FeatureTable from "./vector/featureTable";
 
+/**
+ * Synthetics the decoder cannot handle yet. These still run: `expectUnsupported` asserts they fail,
+ * so an entry that starts decoding correctly fails the test until it is removed from this list.
+ * Prefer fixing the decoder over adding to it.
+ */
 const UNIMPLEMENTED_SYNTHETICS: string[] = [
+    // Nested properties are not implemented in the TS decoder.
     "0x02/prop_nested_big",
     "0x02/prop_nested_ints",
     "0x02/prop_nested_json",
-    "0x02/prop_nested_list_root",
     "0x02/prop_nested_list",
+    "0x02/prop_nested_list_root",
     "0x02/prop_nested_mixed_root",
     "0x02/prop_nested_null",
     "0x02/prop_nested_shared",
@@ -86,14 +92,10 @@ function getGeometry(geometry: Geometry): GeoJSON.Geometry {
             return { type: "MultiPoint", coordinates: coords.map((r) => r[0]) };
         case GEOMETRY_TYPE.MULTILINESTRING:
             return { type: "MultiLineString", coordinates: coords };
-        case GEOMETRY_TYPE.MULTIPOLYGON: {
-            const polygons = classifyRings(geometry.coordinates);
-            return {
-                type: "MultiPolygon",
-                coordinates: polygons.map((polygon) => polygon.map((ring) => ring.map((p) => [p.x, p.y]))),
-            };
-        }
+        case GEOMETRY_TYPE.MULTIPOLYGON:
+            return { type: "MultiPolygon", coordinates: classifyRings(coords) };
         default:
             throw new Error(`Unsupported geometry type: ${geometry.type}`);
     }
 }
+
