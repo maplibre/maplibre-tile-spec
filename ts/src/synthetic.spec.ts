@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { GEOMETRY_TYPE } from "./vector/geometry/geometryType";
-import { classifyRings } from "./vector/geometry/classifyRings";
+import { featureTablesToFeatureCollection } from "./vector/featureTablesToGeoJson";
 import {
     compareWithTolerance,
     expectUnsupported,
@@ -9,8 +8,6 @@ import {
     writeActualOutput,
 } from "../../test/synthetic/synthetic-test-utils";
 import decodeTile from "./mltDecoder";
-import type { Geometry } from "./vector/geometry/geometryVector";
-import type FeatureTable from "./vector/featureTable";
 
 /**
  * Synthetics the decoder cannot handle yet. These still run: `expectUnsupported` asserts they fail,
@@ -50,51 +47,4 @@ async function decodeMLT(mltFilePath: string) {
     const mltBuffer = await readFile(mltFilePath);
     const featureTables = decodeTile(mltBuffer, undefined, false);
     return featureTablesToFeatureCollection(featureTables) as unknown as Record<string, unknown>;
-}
-
-function featureTablesToFeatureCollection(featureTables: FeatureTable[]): GeoJSON.FeatureCollection {
-    const features: GeoJSON.Feature[] = [];
-    for (const table of featureTables) {
-        for (const feature of table.getFeatures()) {
-            const geojsonFeature: GeoJSON.Feature = {
-                type: "Feature",
-                geometry: getGeometry(feature.geometry),
-                properties: {
-                    _layer: table.name,
-                    _extent: table.extent,
-                    ...Object.fromEntries(Object.entries(feature.properties).map(([k, v]) => [k, safeNumber(v)])),
-                },
-            };
-            const safeId = safeNumber(feature.id);
-            if (safeId !== null && safeId !== undefined) {
-                geojsonFeature.id = safeId;
-            }
-            features.push(geojsonFeature);
-        }
-    }
-    return { type: "FeatureCollection", features };
-}
-
-function safeNumber<T>(val: bigint | T): T | number {
-    return typeof val === "bigint" ? Number(val) : val;
-}
-
-function getGeometry(geometry: Geometry): GeoJSON.Geometry {
-    const coords = geometry.coordinates.map((ring) => ring.map((p) => [p.x, p.y]));
-    switch (geometry.type) {
-        case GEOMETRY_TYPE.POINT:
-            return { type: "Point", coordinates: coords[0][0] };
-        case GEOMETRY_TYPE.LINESTRING:
-            return { type: "LineString", coordinates: coords[0] };
-        case GEOMETRY_TYPE.POLYGON:
-            return { type: "Polygon", coordinates: coords };
-        case GEOMETRY_TYPE.MULTIPOINT:
-            return { type: "MultiPoint", coordinates: coords.map((r) => r[0]) };
-        case GEOMETRY_TYPE.MULTILINESTRING:
-            return { type: "MultiLineString", coordinates: coords };
-        case GEOMETRY_TYPE.MULTIPOLYGON:
-            return { type: "MultiPolygon", coordinates: classifyRings(coords) };
-        default:
-            throw new Error(`Unsupported geometry type: ${geometry.type}`);
-    }
 }
