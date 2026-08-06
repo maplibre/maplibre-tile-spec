@@ -104,7 +104,7 @@ function classifyRings(rings: number[][][]): number[][][][] {
         const area = signedArea(ring);
         // A degenerate ring has no winding of its own, so it always starts a new polygon. Rings
         // following a degenerate exterior have nothing to match against and become its holes.
-        if (!polygon || area === 0 || (area < 0) === exteriorIsCcw) {
+        if (!polygon || area === 0 || area < 0 === exteriorIsCcw) {
             if (polygon) polygons.push(polygon);
             polygon = [ring];
             exteriorIsCcw = area === 0 ? undefined : area < 0;
