@@ -189,7 +189,10 @@ function encodeIdColumn(features: Feature[]): { typeCode: number; data: Uint8Arr
         };
     }
     if (wide) {
-        return { typeCode: ColumnTypeCode.ID | ColumnTypeCode.ID_LONG, data: encodeUint64Column(BigUint64Array.from(ids, (id) => BigInt(id ?? 0))) };
+        return {
+            typeCode: ColumnTypeCode.ID | ColumnTypeCode.ID_LONG,
+            data: encodeUint64Column(BigUint64Array.from(ids, (id) => BigInt(id ?? 0))),
+        };
     }
     return { typeCode: ColumnTypeCode.ID, data: encodeUint32Column(Uint32Array.from(ids, (id) => Number(id ?? 0))) };
 }
@@ -204,26 +207,20 @@ function encodePropertyColumn(type: PropertyType, values: PropertyValue[], nulla
 
     if (type === "boolean") {
         const booleans = values.map((value) => (value === null ? null : Boolean(value)));
-        return nullable
-            ? encodeBooleanNullableColumn(booleans)
-            : encodeBooleanColumn(booleans);
+        return nullable ? encodeBooleanNullableColumn(booleans) : encodeBooleanColumn(booleans);
     }
 
     if (type === "int64" || type === "uint64") {
         const bigints = values.map((value) => (value === null ? null : BigInt(value as number | bigint)));
         if (type === "uint64") {
-            return nullable
-                ? encodeUint64NullableColumn(bigints)
-                : encodeUint64Column(BigUint64Array.from(bigints));
+            return nullable ? encodeUint64NullableColumn(bigints) : encodeUint64Column(BigUint64Array.from(bigints));
         }
         return nullable ? encodeInt64NullableColumn(bigints) : encodeInt64NoneColumn(BigInt64Array.from(bigints));
     }
 
     const numbers = values.map((value) => (value === null ? null : Number(value)));
     if (type === "int32") {
-        return nullable
-            ? encodeInt32NullableColumn(numbers)
-            : encodeInt32NoneColumn(Int32Array.from(numbers));
+        return nullable ? encodeInt32NullableColumn(numbers) : encodeInt32NoneColumn(Int32Array.from(numbers));
     }
     if (type === "float") {
         return nullable ? encodeFloatNullableColumn(numbers) : encodeFloatColumn(Float32Array.from(numbers));

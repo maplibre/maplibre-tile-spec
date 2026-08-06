@@ -98,4 +98,3 @@ function getGeometry(geometry: Geometry): GeoJSON.Geometry {
             throw new Error(`Unsupported geometry type: ${geometry.type}`);
     }
 }
-

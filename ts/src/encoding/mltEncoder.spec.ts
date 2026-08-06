@@ -259,10 +259,7 @@ describe("encodeTile - ids and properties", () => {
     });
 
     it("omits a property that is absent for a feature", () => {
-        const decoded = roundTrip([
-            { geometry: point, properties: { name: "alpha" } },
-            { geometry: point },
-        ]);
+        const decoded = roundTrip([{ geometry: point, properties: { name: "alpha" } }, { geometry: point }]);
         expect(decoded[0].properties.name).toBe("alpha");
         expect(decoded[1].properties.name).toBeUndefined();
     });
