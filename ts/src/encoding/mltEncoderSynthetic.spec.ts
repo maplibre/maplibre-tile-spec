@@ -81,7 +81,6 @@ function toLayers(featureTables: FeatureTable[]): Layer[] {
     }));
 }
 
-
 /** Property order and key order are not preserved by encoding, so compare a canonical form. */
 function normalise(collection: GeoJSON.FeatureCollection): GeoJSON.FeatureCollection {
     return {
