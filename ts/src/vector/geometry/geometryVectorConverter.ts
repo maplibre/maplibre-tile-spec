@@ -67,6 +67,17 @@ export function convertGeometryVector(geometryVector: GeometryVector): Coordinat
                             const y = vertexBuffer[vertexBufferOffset++];
                             points[j] = new Point(x, y);
                         }
+                    } else if (geometryVector.vertexBufferType === VertexBufferType.MORTON) {
+                        for (let j = 0; j < numPoints; j++) {
+                            const offset = vertexOffsets[vertexOffsetsOffset++];
+                            const mortonCode = vertexBuffer[offset];
+                            const vertex = decodeZOrderCurve(
+                                mortonCode,
+                                mortonSettings.numBits,
+                                mortonSettings.coordinateShift,
+                            );
+                            points[j] = new Point(vertex.x, vertex.y);
+                        }
                     } else {
                         for (let j = 0; j < numPoints; j++) {
                             const offset = vertexOffsets[vertexOffsetsOffset++] * 2;
