@@ -1,4 +1,3 @@
-import type { Feature, FeatureCollection, Geometry as GeoJsonGeometry } from "geojson";
 import { GEOMETRY_TYPE } from "./geometry/geometryType";
 import { classifyRings } from "./geometry/classifyRings";
 import type { Geometry } from "./geometry/geometryVector";
@@ -11,11 +10,11 @@ import type FeatureTable from "./featureTable";
  * fixtures in exactly the same way. The layer name and extent are carried in the properties, since
  * GeoJSON has nowhere else to put them.
  */
-export function featureTablesToFeatureCollection(featureTables: FeatureTable[]): FeatureCollection {
-    const features: Feature[] = [];
+export function featureTablesToFeatureCollection(featureTables: FeatureTable[]): GeoJSON.FeatureCollection {
+    const features: GeoJSON.Feature[] = [];
     for (const table of featureTables) {
         for (const feature of table.getFeatures()) {
-            const geojsonFeature: Feature = {
+            const geojsonFeature: GeoJSON.Feature = {
                 type: "Feature",
                 geometry: getGeometry(feature.geometry),
                 properties: {
@@ -38,7 +37,7 @@ export function featureTablesToFeatureCollection(featureTables: FeatureTable[]):
  * Converts one decoded geometry to GeoJSON. Multi-polygons need their flat ring list grouped back
  * into polygons, which {@link classifyRings} does from the winding order.
  */
-export function getGeometry(geometry: Geometry): GeoJsonGeometry {
+export function getGeometry(geometry: Geometry): GeoJSON.Geometry {
     const coords = geometry.coordinates.map((ring) => ring.map((p) => [p.x, p.y]));
     switch (geometry.type) {
         case GEOMETRY_TYPE.POINT:
