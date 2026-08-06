@@ -31,6 +31,34 @@ export interface MapEncodingOptions {
 }
 
 /**
+ * The pieces of a map column, before they are written out. Mirrors `MapStreams` in the decoder,
+ * except that the dictionary is still split by type: the encoder has to choose a stream per type,
+ * whereas the decoder only ever sees them concatenated.
+ */
+interface MapStreams {
+    /** Number of tokens each present feature contributes, laid out child-major. */
+    lengthStream: number[];
+    dictionaries: Dictionaries;
+    /** Which features have a value at all, laid out child-major. */
+    presenceBits: boolean[];
+    /** Dictionary indices interleaved with control tokens. */
+    flattenedValues: number[];
+}
+
+interface Dictionaries {
+    strings: string[];
+    integers: bigint[];
+    decimals: number[];
+    indexByKey: Map<string, number>;
+}
+
+/** How many streams a step wrote, and which mask bits it claims. */
+interface WrittenStreams {
+    mask: number;
+    count: number;
+}
+
+/**
  * Encodes nested property (MAP) columns, the inverse of `decodeMapPropertyColumn`.
  *
  * Takes one array of per-feature values per child column — a single column for a standalone map,
@@ -44,7 +72,7 @@ export interface MapEncodingOptions {
  *
  * @returns the encoded column and the stream count the decoder must be given.
  */
-export function encodeMapColumn(
+export function encodeMapPropertyColumn(
     childColumns: (MapValue | null)[][],
     options: MapEncodingOptions = {},
 ): { data: Uint8Array; numStreams: number } {
@@ -56,108 +84,26 @@ export function encodeMapColumn(
         throw new Error("All child columns must hold the same number of features");
     }
 
-    const dictionaries = collectDictionaries(childColumns);
-    // The lookup always hits: collectDictionaries walked the very same values with this same key.
-    const indexOf = (value: string | number | bigint): number =>
-        dictionaries.indexByKey.get(dictionaryKey(value));
-
-    // Lengths, presence bits and tokens are all laid out child-major.
-    const featureValueCounts: number[] = [];
-    const presenceBits: boolean[] = [];
-    const flattenedValues: number[] = [];
-    let hasAbsentValues = false;
+    const streams: MapStreams = {
+        lengthStream: [],
+        dictionaries: collectDictionaries(childColumns),
+        presenceBits: [],
+        flattenedValues: [],
+    };
 
     for (const column of childColumns) {
-        for (const value of column) {
-            const present = value !== null;
-            presenceBits.push(present);
-            if (!present) {
-                hasAbsentValues = true;
-                continue;
-            }
-            const start = flattenedValues.length;
-            flattenRootValue(value, flattenedValues, indexOf);
-            featureValueCounts.push(flattenedValues.length - start);
-        }
+        encodeChildColumn(column, streams);
     }
 
-    const streams: Uint8Array[] = [];
-    let numStreams = 0;
-    let mask = 0;
-
-    // The length stream is the only mandatory one.
-    streams.push(encodeUint32Column(new Uint32Array(featureValueCounts)));
-    numStreams++;
-
-    if (dictionaries.strings.length > 0) {
-        mask |= MapMask.STRING;
-        // Plain strings are written as a LENGTH and a DATA stream.
-        const stringStreamCount = 2;
-        streams.push(new Uint8Array([stringStreamCount]));
-        streams.push(encodePlainStrings(dictionaries.strings));
-        numStreams += stringStreamCount;
-    }
-
-    if (dictionaries.integers.length > 0) {
-        const wide = dictionaries.integers.some((value) =>
-            options.unsignedIntegers ? value > BigInt(UINT32_MAX) : value < BigInt(INT32_MIN) || value > BigInt(INT32_MAX),
-        );
-        if (options.unsignedIntegers) {
-            mask |= wide ? MapMask.UINT64 : MapMask.UINT32;
-            streams.push(
-                wide
-                    ? encodeUint64Column(BigUint64Array.from(dictionaries.integers))
-                    : encodeUint32Column(Uint32Array.from(dictionaries.integers, Number)),
-            );
-        } else {
-            mask |= wide ? MapMask.INT64 : MapMask.INT32;
-            streams.push(
-                wide
-                    ? encodeInt64NoneColumn(BigInt64Array.from(dictionaries.integers))
-                    : encodeInt32NoneColumn(Int32Array.from(dictionaries.integers, Number)),
-            );
-        }
-        numStreams++;
-    }
-
-    if (dictionaries.decimals.length > 0) {
-        if (options.singlePrecisionFloats) {
-            mask |= MapMask.FLOAT;
-            streams.push(encodeFloatColumn(Float32Array.from(dictionaries.decimals)));
-        } else {
-            mask |= MapMask.DOUBLE;
-            streams.push(encodeDoubleColumn(Float64Array.from(dictionaries.decimals)));
-        }
-        numStreams++;
-    }
-
-    if (hasAbsentValues) {
-        mask |= MapMask.PRESENCE;
-        streams.push(
-            createStream(PhysicalStreamType.PRESENT, encodeBooleanRle(presenceBits), { count: presenceBits.length }),
-        );
-        numStreams++;
-    }
-
-    if (flattenedValues.length > 0) {
-        streams.push(encodeUint32Column(new Uint32Array(flattenedValues)));
-        numStreams++;
-    }
-
-    return { data: concatenateBuffers(new Uint8Array([mask]), ...streams), numStreams };
-}
-
-interface Dictionaries {
-    strings: string[];
-    integers: bigint[];
-    decimals: number[];
-    indexByKey: Map<string, number>;
+    return encodeMapStreams(streams, options);
 }
 
 /**
- * Walks every value to gather the unique scalars of each type, then assigns each one its index.
- * Indices run across the concatenated dictionaries in the order the decoder reads them —
- * strings, integers, then floating point — offset by the reserved control values.
+ * Gathers the unique scalars of each type and assigns each one its index.
+ *
+ * This step has no counterpart in the decoder, which reads the dictionaries straight off the wire
+ * in `decodeMapStreams`. Indices run across the concatenated dictionaries in the order the decoder
+ * reads them — strings, integers, then floating point — offset by the reserved control values.
  */
 function collectDictionaries(childColumns: (MapValue | null)[][]): Dictionaries {
     const strings: string[] = [];
@@ -207,6 +153,199 @@ function collectDictionaries(childColumns: (MapValue | null)[][]): Dictionaries 
 }
 
 /**
+ * Writes one child column's per-feature values, the counterpart of `decodeChildColumn`.
+ *
+ * Lengths, presence bits and tokens are all laid out child-major, so each child appends to where
+ * the previous one left off.
+ */
+function encodeChildColumn(column: (MapValue | null)[], streams: MapStreams): void {
+    for (const value of column) {
+        const present = value !== null;
+        streams.presenceBits.push(present);
+        if (!present) continue;
+
+        const start = streams.flattenedValues.length;
+        encodeFeatureValue(value, streams.flattenedValues, streams.dictionaries.indexByKey);
+        streams.lengthStream.push(streams.flattenedValues.length - start);
+    }
+}
+
+/**
+ * A feature's payload is written as a bare sequence of map entries, unless it is a scalar — a
+ * single token — or a list, which keeps its header. Those two shapes are what let
+ * `decodeFeatureValue` tell them apart from map entries.
+ */
+function encodeFeatureValue(value: MapValue, flattenedValues: number[], indexByKey: Map<string, number>): void {
+    if (!Array.isArray(value) && typeof value === "object") {
+        encodeMapEntries(value, flattenedValues, indexByKey);
+        return;
+    }
+    encodeValue(value, flattenedValues, indexByKey);
+}
+
+function encodeMapEntries(
+    value: { [key: string]: MapValue },
+    flattenedValues: number[],
+    indexByKey: Map<string, number>,
+): void {
+    for (const [key, entry] of Object.entries(value)) {
+        flattenedValues.push(encodeScalarByIndex(key, indexByKey));
+        encodeValue(entry, flattenedValues, indexByKey);
+    }
+}
+
+function encodeValue(value: MapValue, flattenedValues: number[], indexByKey: Map<string, number>): void {
+    rejectNestedNull(value);
+
+    if (typeof value === "boolean") {
+        flattenedValues.push(value ? MapControlValue.TRUE : MapControlValue.FALSE);
+        return;
+    }
+
+    if (Array.isArray(value)) {
+        const startIndex = flattenedValues.length;
+        flattenedValues.push(MapControlValue.START_LIST, 0);
+        for (const entry of value) encodeValue(entry, flattenedValues, indexByKey);
+        encodeNestedPayloadLength(flattenedValues, startIndex);
+        return;
+    }
+
+    if (typeof value === "object") {
+        const startIndex = flattenedValues.length;
+        flattenedValues.push(MapControlValue.START_MAP, 0);
+        encodeMapEntries(value, flattenedValues, indexByKey);
+        encodeNestedPayloadLength(flattenedValues, startIndex);
+        return;
+    }
+
+    flattenedValues.push(encodeScalarByIndex(value, indexByKey));
+}
+
+/**
+ * Backfills the length of a nested payload once its end is known, the counterpart of
+ * `decodeNestedPayloadEnd`. The length covers the two header tokens as well, so the decoder can
+ * skip the whole payload without walking it.
+ */
+function encodeNestedPayloadLength(flattenedValues: number[], startIndex: number): void {
+    flattenedValues[startIndex + 1] = flattenedValues.length - startIndex;
+}
+
+/** The counterpart of `decodeScalarByIndex`: turns a value back into its dictionary token. */
+function encodeScalarByIndex(value: string | number | bigint, indexByKey: Map<string, number>): number {
+    // The lookup always hits: collectDictionaries walked the very same values with this same key.
+    return indexByKey.get(dictionaryKey(value));
+}
+
+/** Writes the stream mask and every stream it announces, the counterpart of `decodeMapStreams`. */
+function encodeMapStreams(
+    streams: MapStreams,
+    options: MapEncodingOptions,
+): { data: Uint8Array; numStreams: number } {
+    const parts: Uint8Array[] = [];
+    let mask = 0;
+    let numStreams = 0;
+
+    const write = (written: WrittenStreams): void => {
+        mask |= written.mask;
+        numStreams += written.count;
+    };
+
+    // The length stream is the only mandatory one.
+    parts.push(encodeUint32Column(new Uint32Array(streams.lengthStream)));
+    numStreams++;
+
+    write(encodeStringDictionary(streams.dictionaries.strings, parts));
+    write(encodeIntegerDictionaries(streams.dictionaries.integers, parts, options));
+    write(encodeFloatingPointDictionaries(streams.dictionaries.decimals, parts, options));
+    write(encodePresenceStream(streams.presenceBits, parts));
+
+    if (streams.flattenedValues.length > 0) {
+        parts.push(encodeUint32Column(new Uint32Array(streams.flattenedValues)));
+        numStreams++;
+    }
+
+    return { data: concatenateBuffers(new Uint8Array([mask]), ...parts), numStreams };
+}
+
+/** The counterpart of `decodeStringDictionary`. */
+function encodeStringDictionary(strings: string[], parts: Uint8Array[]): WrittenStreams {
+    if (strings.length === 0) {
+        return { mask: 0, count: 0 };
+    }
+
+    // Plain strings are written as a LENGTH and a DATA stream.
+    const stringStreamCount = 2;
+    parts.push(new Uint8Array([stringStreamCount]));
+    parts.push(encodePlainStrings(strings));
+
+    return { mask: MapMask.STRING, count: stringStreamCount };
+}
+
+/**
+ * Writes the integers as one stream, narrow or wide, the counterpart of
+ * `decodeIntegerDictionaries`.
+ */
+function encodeIntegerDictionaries(
+    integers: bigint[],
+    parts: Uint8Array[],
+    options: MapEncodingOptions,
+): WrittenStreams {
+    if (integers.length === 0) {
+        return { mask: 0, count: 0 };
+    }
+
+    if (options.unsignedIntegers) {
+        const wide = integers.some((value) => value > BigInt(UINT32_MAX));
+        parts.push(
+            wide
+                ? encodeUint64Column(BigUint64Array.from(integers))
+                : encodeUint32Column(Uint32Array.from(integers, Number)),
+        );
+        return { mask: wide ? MapMask.UINT64 : MapMask.UINT32, count: 1 };
+    }
+
+    const wide = integers.some((value) => value < BigInt(INT32_MIN) || value > BigInt(INT32_MAX));
+    parts.push(
+        wide ? encodeInt64NoneColumn(BigInt64Array.from(integers)) : encodeInt32NoneColumn(Int32Array.from(integers, Number)),
+    );
+    return { mask: wide ? MapMask.INT64 : MapMask.INT32, count: 1 };
+}
+
+/** The counterpart of `decodeFloatingPointDictionaries`. */
+function encodeFloatingPointDictionaries(
+    decimals: number[],
+    parts: Uint8Array[],
+    options: MapEncodingOptions,
+): WrittenStreams {
+    if (decimals.length === 0) {
+        return { mask: 0, count: 0 };
+    }
+
+    if (options.singlePrecisionFloats) {
+        parts.push(encodeFloatColumn(Float32Array.from(decimals)));
+        return { mask: MapMask.FLOAT, count: 1 };
+    }
+
+    parts.push(encodeDoubleColumn(Float64Array.from(decimals)));
+    return { mask: MapMask.DOUBLE, count: 1 };
+}
+
+/**
+ * The counterpart of `decodePresenceStream`. Written only when some feature has no value at all,
+ * which is what lets the decoder tell an absent property from an empty map.
+ */
+function encodePresenceStream(presenceBits: boolean[], parts: Uint8Array[]): WrittenStreams {
+    if (!presenceBits.includes(false)) {
+        return { mask: 0, count: 0 };
+    }
+
+    parts.push(
+        createStream(PhysicalStreamType.PRESENT, encodeBooleanRle(presenceBits), { count: presenceBits.length }),
+    );
+    return { mask: MapMask.PRESENCE, count: 1 };
+}
+
+/**
  * The format has no token for null: a null is only meaningful as a whole feature value, where it is
  * carried by the presence stream. Reject it anywhere else rather than encoding something lossy.
  */
@@ -230,51 +369,4 @@ function dictionaryKey(value: string | number | bigint): string {
  */
 function isIntegral(value: number): boolean {
     return Number.isSafeInteger(value);
-}
-
-/**
- * A root value is stored without a wrapping control token: a map becomes bare entries, a scalar a
- * single token. Only a list keeps its header, which is what lets the decoder tell the two apart.
- */
-function flattenRootValue(value: MapValue, out: number[], indexOf: (value: string | number | bigint) => number): void {
-    if (!Array.isArray(value) && value !== null && typeof value === "object") {
-        flattenMapEntries(value, out, indexOf);
-        return;
-    }
-    flattenValue(value, out, indexOf);
-}
-
-function flattenValue(value: MapValue, out: number[], indexOf: (value: string | number | bigint) => number): void {
-    rejectNestedNull(value);
-    if (typeof value === "boolean") {
-        out.push(value ? MapControlValue.TRUE : MapControlValue.FALSE);
-        return;
-    }
-    if (Array.isArray(value)) {
-        // The length covers the two header tokens as well, so the decoder can skip the whole payload.
-        const start = out.length;
-        out.push(MapControlValue.START_LIST, 0);
-        for (const entry of value) flattenValue(entry, out, indexOf);
-        out[start + 1] = out.length - start;
-        return;
-    }
-    if (typeof value === "object") {
-        const start = out.length;
-        out.push(MapControlValue.START_MAP, 0);
-        flattenMapEntries(value, out, indexOf);
-        out[start + 1] = out.length - start;
-        return;
-    }
-    out.push(indexOf(value));
-}
-
-function flattenMapEntries(
-    value: { [key: string]: MapValue },
-    out: number[],
-    indexOf: (value: string | number | bigint) => number,
-): void {
-    for (const [key, entry] of Object.entries(value)) {
-        out.push(indexOf(key));
-        flattenValue(entry, out, indexOf);
-    }
 }

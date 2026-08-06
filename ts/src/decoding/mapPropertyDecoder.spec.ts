@@ -5,7 +5,7 @@ import IntWrapper from "./intWrapper";
 import type Vector from "../vector/vector";
 import { ColumnScope, ComplexType, ScalarType, type Column, type Field } from "../metadata/tileset/tilesetMetadata";
 import { ObjectFlatVector } from "../vector/flat/objectFlatVector";
-import { encodeMapColumn, type MapEncodingOptions, type MapValue } from "../encoding/mapPropertyEncoder";
+import { encodeMapPropertyColumn, type MapEncodingOptions, type MapValue } from "../encoding/mapPropertyEncoder";
 import { MapControlValue } from "../metadata/tile/mapControlValue";
 import { MapMask } from "../metadata/tile/mapMask";
 import { PhysicalStreamType } from "../metadata/tile/physicalStreamType";
@@ -44,7 +44,7 @@ function roundTrip(
     options: MapEncodingOptions = {},
     childNames: string[] = [],
 ): unknown[][] {
-    const { data, numStreams } = encodeMapColumn(childColumns, options);
+    const { data, numStreams } = encodeMapPropertyColumn(childColumns, options);
     const columnMetadata = createMapColumnMetadata("a", childNames);
     const offset = new IntWrapper(0);
 
@@ -148,7 +148,7 @@ describe("map property column - value types", () => {
     });
 
     it("reuses one dictionary entry for a value repeated across features", () => {
-        const { data } = encodeMapColumn([[{ a: "shared" }, { b: "shared" }]]);
+        const { data } = encodeMapPropertyColumn([[{ a: "shared" }, { b: "shared" }]]);
         const occurrences = Buffer.from(data).toString("latin1").split("shared").length - 1;
         expect(occurrences).toBe(1);
     });
@@ -178,7 +178,7 @@ describe("map property column - shared child columns", () => {
     });
 
     it("names child columns by appending the child name to the parent name", () => {
-        const { data, numStreams } = encodeMapColumn([[{ b: "c" }], [{ d: "e" }]]);
+        const { data, numStreams } = encodeMapPropertyColumn([[{ b: "c" }], [{ d: "e" }]]);
         const columnMetadata = createMapColumnMetadata("name:", ["one", "two"]);
         const result = decodePropertyColumn(data, new IntWrapper(0), columnMetadata, numStreams, 1) as Vector[];
 
@@ -186,7 +186,7 @@ describe("map property column - shared child columns", () => {
     });
 
     it("uses the column name itself when there are no children", () => {
-        const { data, numStreams } = encodeMapColumn([[{ b: "c" }]]);
+        const { data, numStreams } = encodeMapPropertyColumn([[{ b: "c" }]]);
         const columnMetadata = createMapColumnMetadata("a");
         const result = decodePropertyColumn(data, new IntWrapper(0), columnMetadata, numStreams, 1) as Vector[];
 
@@ -196,23 +196,23 @@ describe("map property column - shared child columns", () => {
 
 describe("map property column - encoder validation", () => {
     it("rejects a null nested inside a value", () => {
-        expect(() => encodeMapColumn([[{ a: null as unknown as MapValue }]])).toThrow(
+        expect(() => encodeMapPropertyColumn([[{ a: null as unknown as MapValue }]])).toThrow(
             /Nested null values cannot be encoded/,
         );
     });
 
     it("rejects child columns of differing lengths", () => {
-        expect(() => encodeMapColumn([[{ a: "b" }], []])).toThrow(/same number of features/);
+        expect(() => encodeMapPropertyColumn([[{ a: "b" }], []])).toThrow(/same number of features/);
     });
 
     it("rejects an empty set of child columns", () => {
-        expect(() => encodeMapColumn([])).toThrow(/at least one child column/);
+        expect(() => encodeMapPropertyColumn([])).toThrow(/at least one child column/);
     });
 });
 
 describe("map property column - decoder validation", () => {
     it("reports a truncated stream set", () => {
-        const { data, numStreams } = encodeMapColumn([[{ b: "c" }]]);
+        const { data, numStreams } = encodeMapPropertyColumn([[{ b: "c" }]]);
         expect(() => decodePropertyColumn(data, new IntWrapper(0), createMapColumnMetadata("a"), numStreams + 1, 1)) //
             .toThrow(/remaining streams/);
     });

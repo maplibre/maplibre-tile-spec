@@ -318,13 +318,13 @@ function decodeValue(
     if (token === MapControlValue.TRUE) return { value: true, nextIndex: startIndex + 1 };
 
     if (token === MapControlValue.START_MAP) {
-        const valueEndIndex = getValueEndIndex(flattenedValues, startIndex, endIndex);
+        const valueEndIndex = decodeNestedPayloadEnd(flattenedValues, startIndex, endIndex);
         const nested = decodeMapEntries(flattenedValues, startIndex + 2, valueEndIndex, dictionary);
         return { value: nested.value, nextIndex: valueEndIndex };
     }
 
     if (token === MapControlValue.START_LIST) {
-        const valueEndIndex = getValueEndIndex(flattenedValues, startIndex, endIndex);
+        const valueEndIndex = decodeNestedPayloadEnd(flattenedValues, startIndex, endIndex);
         const value: MapValue[] = [];
         let index = startIndex + 2;
         while (index < valueEndIndex) {
@@ -338,8 +338,11 @@ function decodeValue(
     return { value: decodeScalarByIndex(token, dictionary), nextIndex: startIndex + 1 };
 }
 
-/** Nested payloads are prefixed with their own length, which includes the token and the length. */
-function getValueEndIndex(flattenedValues: Uint32Array, startIndex: number, endIndex: number): number {
+/**
+ * Reads the length prefix of a nested payload and returns where it ends, the counterpart of
+ * `encodeNestedPayloadLength`. The length covers the two header tokens as well.
+ */
+function decodeNestedPayloadEnd(flattenedValues: Uint32Array, startIndex: number, endIndex: number): number {
     if (startIndex + 1 >= endIndex) {
         throw new Error("Missing length for nested map/list payload");
     }
