@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { classifyRings } from "@maplibre/maplibre-gl-style-spec";
 import { GEOMETRY_TYPE } from "./vector/geometry/geometryType";
+import { classifyRings } from "./vector/geometry/classifyRings";
 import {
     compareWithTolerance,
     expectUnsupported,
@@ -12,12 +12,7 @@ import decodeTile from "./mltDecoder";
 import type { Geometry } from "./vector/geometry/geometryVector";
 import type FeatureTable from "./vector/featureTable";
 
-const EARCUT_MAX_RINGS = 500;
-
 const UNIMPLEMENTED_SYNTHETICS: string[] = [
-    "0x01/poly_multi_morton_hole_morton",
-    "0x01/poly_multi_morton_ring_morton",
-    "0x01/poly_multi_morton_ring_no_morton",
     "0x02/prop_nested_big",
     "0x02/prop_nested_ints",
     "0x02/prop_nested_json",
@@ -92,7 +87,7 @@ function getGeometry(geometry: Geometry): GeoJSON.Geometry {
         case GEOMETRY_TYPE.MULTILINESTRING:
             return { type: "MultiLineString", coordinates: coords };
         case GEOMETRY_TYPE.MULTIPOLYGON: {
-            const polygons = classifyRings(geometry.coordinates, EARCUT_MAX_RINGS);
+            const polygons = classifyRings(geometry.coordinates);
             return {
                 type: "MultiPolygon",
                 coordinates: polygons.map((polygon) => polygon.map((ring) => ring.map((p) => [p.x, p.y]))),

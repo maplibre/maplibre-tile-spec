@@ -8,10 +8,28 @@ import {
 } from "./tilesetMetadata";
 
 /**
+ * The single varint32 that introduces every column in the tile metadata, identifying what kind of
+ * column follows. Ids occupy a small range of flagged codes, geometry has one code of its own, and
+ * scalar properties are laid out from `SCALAR_BASE` upwards, two codes per type.
+ */
+export const ColumnTypeCode = {
+    /** Id columns occupy 0..3. */
+    ID: 0,
+    /** Set on an id column whose values can be null. */
+    ID_NULLABLE: 1,
+    /** Set on an id column holding 64-bit rather than 32-bit ids. */
+    ID_LONG: 2,
+    GEOMETRY: 4,
+    /** Scalar properties are `SCALAR_BASE + scalarType * 2 + (nullable ? 1 : 0)`. */
+    SCALAR_BASE: 10,
+    STRUCT: 30,
+} as const;
+
+/**
  * The type code is a single varint32 that encodes:
  * - Physical or logical type
  * - Nullable flag
- * - Whether the column has a name (typeCode >= 10)
+ * - Whether the column has a name (typeCode >= ColumnTypeCode.SCALAR_BASE)
  * - Whether the column has children (typeCode == 30 for STRUCT)
  * - For ID types: whether it uses long (64-bit) IDs
  */
@@ -28,21 +46,21 @@ import {
  */
 export function decodeColumnType(typeCode: number): ColumnWithoutName | null {
     switch (typeCode) {
-        case 0:
-        case 1:
-        case 2:
-        case 3:
+        case ColumnTypeCode.ID:
+        case ColumnTypeCode.ID | ColumnTypeCode.ID_NULLABLE:
+        case ColumnTypeCode.ID | ColumnTypeCode.ID_LONG:
+        case ColumnTypeCode.ID | ColumnTypeCode.ID_LONG | ColumnTypeCode.ID_NULLABLE:
             return {
-                nullable: (typeCode & 1) !== 0,
+                nullable: (typeCode & ColumnTypeCode.ID_NULLABLE) !== 0,
                 columnScope: ColumnScope.FEATURE,
                 type: "scalarType",
                 scalarType: {
-                    longID: (typeCode & 2) !== 0,
+                    longID: (typeCode & ColumnTypeCode.ID_LONG) !== 0,
                     type: "logicalType",
                     logicalType: LogicalScalarType.ID,
                 },
             };
-        case 4:
+        case ColumnTypeCode.GEOMETRY:
             // GEOMETRY (non-nullable, no children)
             return {
                 nullable: false,
@@ -54,7 +72,7 @@ export function decodeColumnType(typeCode: number): ColumnWithoutName | null {
                     children: [],
                 },
             };
-        case 30:
+        case ColumnTypeCode.STRUCT:
             // STRUCT (non-nullable with children)
             return {
                 nullable: false,
@@ -74,10 +92,10 @@ export function decodeColumnType(typeCode: number): ColumnWithoutName | null {
 /**
  * Returns true if this type code requires a name to be stored.
  * ID (0-3) and GEOMETRY (4) columns have implicit names.
- * All other types (>= 10) require explicit names.
+ * All other types (>= ColumnTypeCode.SCALAR_BASE) require explicit names.
  */
 export function columnTypeHasName(typeCode: number): boolean {
-    return typeCode >= 10;
+    return typeCode >= ColumnTypeCode.SCALAR_BASE;
 }
 
 /**
@@ -85,7 +103,7 @@ export function columnTypeHasName(typeCode: number): boolean {
  * Only STRUCT (typeCode 30) has children.
  */
 export function columnTypeHasChildren(typeCode: number): boolean {
-    return typeCode === 30;
+    return typeCode === ColumnTypeCode.STRUCT;
 }
 
 /**
