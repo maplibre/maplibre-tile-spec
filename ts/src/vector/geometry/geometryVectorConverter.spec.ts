@@ -524,6 +524,43 @@ describe("MULTIPOLYGON – VEC_2 dictionary encoded, with holes", () => {
         const result = convertGeometryVector(gv);
         expect(result[0]).toHaveLength(2);
     });
+
+    it("uses the per-ring vertex count when rings differ in size", () => {
+        const gv = encodeMultiPolygonGeometryVectorWithOffsets([
+            [
+                [
+                    [0, 0],
+                    [10, 0],
+                    [10, 10],
+                    [0, 10],
+                ],
+                [
+                    [1, 1],
+                    [3, 1],
+                    [1, 3],
+                ],
+            ],
+            [
+                [
+                    [20, 20],
+                    [22, 20],
+                    [20, 22],
+                ],
+            ],
+        ]);
+
+        const result = convertGeometryVector(gv);
+        expect(result[0]).toHaveLength(3);
+        expect(result[0][0]).toEqual([
+            new Point(0, 0),
+            new Point(10, 0),
+            new Point(10, 10),
+            new Point(0, 10),
+            new Point(0, 0), // closed
+        ]);
+        expect(result[0][1]).toEqual([new Point(1, 1), new Point(3, 1), new Point(1, 3), new Point(1, 1)]);
+        expect(result[0][2]).toEqual([new Point(20, 20), new Point(22, 20), new Point(20, 22), new Point(20, 20)]);
+    });
 });
 
 describe("MULTIPOLYGON – Morton dictionary encoded, no holes", () => {
@@ -563,6 +600,43 @@ describe("MULTIPOLYGON – Morton dictionary encoded, with holes", () => {
         ]);
         const result = convertGeometryVector(gv);
         expect(result[0]).toHaveLength(2);
+    });
+
+    it("uses the per-ring vertex count when rings differ in size", () => {
+        const gv = encodeMultiPolygonGeometryVectorWithMortonOffsets([
+            [
+                [
+                    [0, 0],
+                    [10, 0],
+                    [10, 10],
+                    [0, 10],
+                ],
+                [
+                    [1, 1],
+                    [3, 1],
+                    [1, 3],
+                ],
+            ],
+            [
+                [
+                    [20, 20],
+                    [22, 20],
+                    [20, 22],
+                ],
+            ],
+        ]);
+
+        const result = convertGeometryVector(gv);
+        expect(result[0]).toHaveLength(3);
+        expect(result[0][0]).toEqual([
+            new Point(0, 0),
+            new Point(10, 0),
+            new Point(10, 10),
+            new Point(0, 10),
+            new Point(0, 0), // closed
+        ]);
+        expect(result[0][1]).toEqual([new Point(1, 1), new Point(3, 1), new Point(1, 3), new Point(1, 1)]);
+        expect(result[0][2]).toEqual([new Point(20, 20), new Point(22, 20), new Point(20, 22), new Point(20, 20)]);
     });
 });
 
