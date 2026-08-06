@@ -7,6 +7,138 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.4](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.3...rust-mlt-core-v0.12.4) - 2026-07-18
+
+### Fixed
+
+- *(rust)* gate trigram-based shared-dict merging on corpus size ([#1505](https://github.com/maplibre/maplibre-tile-spec/pull/1505))
+- *(rust)* use Option::filter instead of manual and_then ([#1504](https://github.com/maplibre/maplibre-tile-spec/pull/1504))
+
+### Other
+
+- *(rust)* re-publish fast-mvt ([#1524](https://github.com/maplibre/maplibre-tile-spec/pull/1524))
+- *(rust)* genericize some more fns ([#1519](https://github.com/maplibre/maplibre-tile-spec/pull/1519))
+- *(rust)* simplify `decode_(i32|i64|u32|u64)` to `decode_ints::<T>` ([#1518](https://github.com/maplibre/maplibre-tile-spec/pull/1518))
+- *(rust)* dedup some code with generics ([#1516](https://github.com/maplibre/maplibre-tile-spec/pull/1516))
+- *(rust)* carve v1 wire-format seams to prep for v2 ([#1513](https://github.com/maplibre/maplibre-tile-spec/pull/1513))
+- *(rust)* minor v1 cleanup v2 prep ([#1510](https://github.com/maplibre/maplibre-tile-spec/pull/1510))
+- *(deps)* bump the all-cargo-version-updates group across 1 directory with 4 updates ([#1500](https://github.com/maplibre/maplibre-tile-spec/pull/1500))
+
+## [0.12.3](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.2...rust-mlt-core-v0.12.3) - 2026-07-01
+
+### Other
+
+- update Cargo.toml dependencies
+
+## [0.12.2](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.1...rust-mlt-core-v0.12.2) - 2026-06-29
+
+### Added
+
+- *(rust)* narrow 64-bit property columns to 32-bit when values fit ([#1465](https://github.com/maplibre/maplibre-tile-spec/pull/1465))
+
+### Fixed
+
+- *(rust)* Skip encoding competition for single-value int streams; pick smaller of VarInt/plain ([#1466](https://github.com/maplibre/maplibre-tile-spec/pull/1466))
+
+### Other
+
+- *(rust)* Add Rust <-> C++ differential decoder fuzzer ([#1471](https://github.com/maplibre/maplibre-tile-spec/pull/1471))
+
+## [0.12.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.0...rust-mlt-core-v0.12.1) - 2026-06-20
+
+### Other
+
+- *(deps)* bump fast-mvt from 0.3.2 to 0.4.0 in /rust in the all-cargo-version-updates group ([#1452](https://github.com/maplibre/maplibre-tile-spec/pull/1452))
+
+## [0.12.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.11.1...rust-mlt-core-v0.12.0) - 2026-06-19
+
+### Other
+
+- *(rust)* rm pub fields, builder pattern ([#1428](https://github.com/maplibre/maplibre-tile-spec/pull/1428))
+
+## [0.11.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.11.0...rust-mlt-core-v0.11.1) - 2026-06-18
+
+### Fixed
+
+- *(rust)* `allow_fastpfor` not consulted for precomputed geometry stream ([#1446](https://github.com/maplibre/maplibre-tile-spec/pull/1446))
+
+## [0.11.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.10.1...rust-mlt-core-v0.11.0) - 2026-06-15
+
+### Added
+
+- *(py)* make `mlt.encode_geojson` configurable ([#1427](https://github.com/maplibre/maplibre-tile-spec/pull/1427))
+
+### Fixed
+
+- *(rust)* clear losing sort-trial buffers between encode trials ([#1432](https://github.com/maplibre/maplibre-tile-spec/pull/1432))
+
+### Other
+
+- *(rust)* enforce non-empty layer name ([#1423](https://github.com/maplibre/maplibre-tile-spec/pull/1423))
+- *(rust)* remove unnecessary conversions ([#1421](https://github.com/maplibre/maplibre-tile-spec/pull/1421))
+allow_fastpfor
+## [0.10.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.10.0...rust-mlt-core-v0.10.1) - 2026-06-13
+
+### Fixed
+
+- wire `allow_fastpfor` and `allow_fsst` through the mlt implementations ([#1431](https://github.com/maplibre/maplibre-tile-spec/pull/1431))
+
+## [0.10.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.9.3...rust-mlt-core-v0.10.0) - 2026-06-08
+
+### Added
+
+- *(py)* simple, geojson based encoding ([#1416](https://github.com/maplibre/maplibre-tile-spec/pull/1416))
+
+### Other
+
+- *(rust)* use `usize_cast` for casting ([#1414](https://github.com/maplibre/maplibre-tile-spec/pull/1414))
+- *(rust)* migrate to fast-mvt crate ([#1415](https://github.com/maplibre/maplibre-tile-spec/pull/1415))
+
+## [0.9.3](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.9.2...rust-mlt-core-v0.9.3) - 2026-05-15
+
+### Other
+
+- update Cargo.toml dependencies
+
+## [0.9.2](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.9.1...rust-mlt-core-v0.9.2) - 2026-05-14
+
+### Other
+
+- make errors more accurate ([#1370](https://github.com/maplibre/maplibre-tile-spec/pull/1370))
+
+## [0.9.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.9.0...rust-mlt-core-v0.9.1) - 2026-05-05
+
+### Added
+
+- *(rust)* MLT -> MVT write support ([#1369](https://github.com/maplibre/maplibre-tile-spec/pull/1369))
+
+## [0.9.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.8.0...rust-mlt-core-v0.9.0) - 2026-04-29
+
+### Added
+
+- *(rust)* add secondary Hilbert dictionary sorting on select tiles ([#1349](https://github.com/maplibre/maplibre-tile-spec/pull/1349))
+
+### Fixed
+
+- *(rust)* terrible fsst compression ratio due to reusing compressor results for unrelated shared dicts ([#1333](https://github.com/maplibre/maplibre-tile-spec/pull/1333))
+
+### Other
+
+- *(rust)* presence detection ([#1359](https://github.com/maplibre/maplibre-tile-spec/pull/1359))
+- *(rust)* simplify encoding ([#1358](https://github.com/maplibre/maplibre-tile-spec/pull/1358))
+- *(rust)* refactor low level encoding ([#1355](https://github.com/maplibre/maplibre-tile-spec/pull/1355))
+- *(rust)* consolidate encoders with common buffers ([#1352](https://github.com/maplibre/maplibre-tile-spec/pull/1352))
+- *(rust)* compute more stats before sort to enable deduplicating presence in v2 ([#1348](https://github.com/maplibre/maplibre-tile-spec/pull/1348))
+- *(rust)* simplify StagingId ([#1347](https://github.com/maplibre/maplibre-tile-spec/pull/1347))
+- *(rust)* new encoding methods ([#1346](https://github.com/maplibre/maplibre-tile-spec/pull/1346))
+- *(rust)* rm "01" from TileLayer01, StagedLayer01 ([#1345](https://github.com/maplibre/maplibre-tile-spec/pull/1345))
+- *(rust)* remove unused staging code and eq impl ([#1344](https://github.com/maplibre/maplibre-tile-spec/pull/1344))
+- *(rust)* follow up to Presence cleanup ([#1337](https://github.com/maplibre/maplibre-tile-spec/pull/1337))
+- *(rust)* simplify debug formatting ([#1336](https://github.com/maplibre/maplibre-tile-spec/pull/1336))
+- *(rust)* IdValues→ParsedId+StagedId, simplify presence ([#1334](https://github.com/maplibre/maplibre-tile-spec/pull/1334))
+- *(rust)* push fsst training up one level to not gain false statistics ([#1335](https://github.com/maplibre/maplibre-tile-spec/pull/1335))
+- *(rust)* rework presence to use bitvec ([#1329](https://github.com/maplibre/maplibre-tile-spec/pull/1329))
+
 ## [0.8.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.7.0...rust-mlt-core-v0.8.0) - 2026-04-18
 
 ### Fixed
@@ -112,7 +244,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(rust)* rename to IdValues and GeometryValues ([#1159](https://github.com/maplibre/maplibre-tile-spec/pull/1159))
 - *(rust)* mv impls out of models, use full wire round-trips ([#1158](https://github.com/maplibre/maplibre-tile-spec/pull/1158))
 - *(chore)* remove into_static, test fixes ([#1154](https://github.com/maplibre/maplibre-tile-spec/pull/1154))
-- *(rust)* rework WASM code to use TileLayer01 ([#1153](https://github.com/maplibre/maplibre-tile-spec/pull/1153))
+- *(rust)* rework WASM code to use TileLayer ([#1153](https://github.com/maplibre/maplibre-tile-spec/pull/1153))
 - *(rust)* remove unnecessary to_owned calls ([#1151](https://github.com/maplibre/maplibre-tile-spec/pull/1151))
 - *(rust)* introduce staging types in Rust layer implementation ([#1149](https://github.com/maplibre/maplibre-tile-spec/pull/1149))
 - *(rust)* introduce staging types ([#1148](https://github.com/maplibre/maplibre-tile-spec/pull/1148))
@@ -205,7 +337,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(rust)* rename IntEncoder and add IntEncoding ([#1019](https://github.com/maplibre/maplibre-tile-spec/pull/1019))
 - *(rust)* move prop internals to "big enum" arch ([#1014](https://github.com/maplibre/maplibre-tile-spec/pull/1014))
 - clean up how FromDecoded interacts with strings ([#1011](https://github.com/maplibre/maplibre-tile-spec/pull/1011))
-- rename `Encoder` -> `IntegerEncoder` ([#1010](https://github.com/maplibre/maplibre-tile-spec/pull/1010))
+- rename `Encoder` -> `PhysicalCodecs` ([#1010](https://github.com/maplibre/maplibre-tile-spec/pull/1010))
 - *(rust)* start fixing rust synthetics ([#1002](https://github.com/maplibre/maplibre-tile-spec/pull/1002))
 - *(synthetic)* add Morton fixture synthetic test ([#960](https://github.com/maplibre/maplibre-tile-spec/pull/960))
 - More testing around geometry combinations ([#982](https://github.com/maplibre/maplibre-tile-spec/pull/982))

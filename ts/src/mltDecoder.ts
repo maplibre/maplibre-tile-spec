@@ -1,5 +1,5 @@
 import FeatureTable from "./vector/featureTable";
-import { type Column, LogicalScalarType, ScalarType } from "./metadata/tileset/tilesetMetadata";
+import { type Column, ScalarType } from "./metadata/tileset/tilesetMetadata";
 import IntWrapper from "./decoding/intWrapper";
 import { decodeStreamMetadata, type RleEncodedStreamMetadata } from "./metadata/tile/streamMetadataDecoder";
 import { VectorType } from "./vector/vectorType";
@@ -172,16 +172,7 @@ function decodeIdColumn(
     sizeOrNullabilityBuffer: number | BitVector,
     idWithinMaxSafeInteger = false,
 ): IdVector {
-    const scalarTypeMetadata = columnMetadata.scalarType;
-    if (
-        !scalarTypeMetadata ||
-        scalarTypeMetadata.type !== "logicalType" ||
-        scalarTypeMetadata.logicalType !== LogicalScalarType.ID
-    ) {
-        throw new Error(`ID column must be a logical ID scalar type: ${columnName}`);
-    }
-
-    const idDataType = scalarTypeMetadata.longID ? ScalarType.UINT_64 : ScalarType.UINT_32;
+    const idDataType = columnMetadata.scalarType?.longID ? ScalarType.UINT_64 : ScalarType.UINT_32;
     const nullabilityBuffer = typeof sizeOrNullabilityBuffer === "number" ? undefined : sizeOrNullabilityBuffer;
 
     const vectorType = getVectorType(
@@ -204,6 +195,7 @@ function decodeIdColumn(
                     id[0],
                     id[1],
                     (idDataStreamMetadata as RleEncodedStreamMetadata).numRleValues,
+                    false,
                 );
             }
             case VectorType.CONST: {
@@ -228,6 +220,7 @@ function decodeIdColumn(
                 id[0],
                 id[1],
                 (idDataStreamMetadata as RleEncodedStreamMetadata).numRleValues,
+                false,
             );
         }
         case VectorType.CONST: {

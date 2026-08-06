@@ -1,5 +1,7 @@
 package org.maplibre.mlt.data.unsigned;
 
+import java.math.BigInteger;
+
 public record U8(byte value) implements Unsigned {
 
   public static U8 of(int value) {
@@ -8,6 +10,8 @@ public record U8(byte value) implements Unsigned {
     }
     return new U8((byte) value);
   }
+
+  public static final U8 MAX_VALUE = U8.of(0xFF);
 
   @Override
   public Byte byteValue() {
@@ -20,6 +24,11 @@ public record U8(byte value) implements Unsigned {
   }
 
   @Override
+  public BigInteger bigIntValue() {
+    return BigInteger.valueOf(longValue());
+  }
+
+  @Override
   public Long longValue() {
     return Byte.toUnsignedLong(value);
   }
@@ -27,5 +36,10 @@ public record U8(byte value) implements Unsigned {
   @Override
   public String toString() {
     return "u8(" + Byte.toUnsignedInt(value) + ")";
+  }
+
+  @Override
+  public int compareTo(Unsigned other) {
+    return Unsigned.super.compareTo(other);
   }
 }

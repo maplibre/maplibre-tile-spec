@@ -9,20 +9,17 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    permissions: { contents: write }
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up JDK
-        uses: actions/setup-java@v5
-        with:
-          java-version: '21'
-          distribution: 'temurin'
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with: { java-version: '21', distribution: 'temurin' }
 
-      - uses: taiki-e/install-action@v2
+      - uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
         with: { tool: 'just,cargo-binstall' }
 
       - name: Get version from tag
@@ -54,7 +51,7 @@ jobs:
           cp java/mlt-cli/build/libs/decode.jar mlt-decode.jar
 
       - name: Add CLI artifacts to GitHub release
-        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           tag_name: java-v${{ env.version }}
           fail_on_unmatched_files: true

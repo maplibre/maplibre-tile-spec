@@ -1,17 +1,17 @@
 use proptest::prelude::*;
 use rstest::rstest;
 
-use super::write::{do_write_i32, do_write_i64};
-use super::{do_write_u32, do_write_u64};
+use crate::MltError;
 use crate::decoder::{
     DictionaryType, IntEncoding, LengthType, LogicalEncoding, LogicalValue, Morton, OffsetType,
     PhysicalEncoding, RawStream, RleMeta, StreamMeta, StreamType,
 };
-use crate::encoder::{EncodedStream, Encoder, IntEncoder, PhysicalEncoder};
+use crate::encoder::model::StreamCtx;
+use crate::encoder::{
+    Codecs, EncodedStream, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, PhysicalEncoder,
+};
 use crate::test_helpers::{assert_empty, dec, parser};
 use crate::utils::BinarySerializer as _;
-
-const DATA_STREAM: StreamType = StreamType::Data(DictionaryType::None);
 
 fn roundtrip_stream<'a>(buffer: &'a mut Vec<u8>, stream: &EncodedStream) -> RawStream<'a> {
     buffer.clear();
@@ -23,7 +23,7 @@ fn roundtrip_stream_u32s(wire: &[u8]) -> Vec<u32> {
     let parsed_stream = assert_empty(RawStream::from_bytes(wire, &mut parser()));
 
     let mut decoder = dec();
-    let values = parsed_stream.decode_u32s(&mut decoder).unwrap();
+    let values = parsed_stream.decode_ints::<u32>(&mut decoder).unwrap();
     if !values.is_empty() {
         assert!(
             decoder.consumed() > 0,
@@ -34,11 +34,15 @@ fn roundtrip_stream_u32s(wire: &[u8]) -> Vec<u32> {
 }
 
 fn make_logical_val(logical_encoding: LogicalEncoding, num_values: usize) -> LogicalValue {
-    LogicalValue::new(StreamMeta::new(
-        StreamType::Data(DictionaryType::None),
-        IntEncoding::new(logical_encoding, PhysicalEncoding::VarInt),
-        u32::try_from(num_values).expect("input_data length fits in u32"),
-    ))
+    LogicalValue::new(
+        StreamMeta::new2(
+            StreamType::Data(DictionaryType::None),
+            logical_encoding,
+            PhysicalEncoding::VarInt,
+            num_values,
+        )
+        .unwrap(),
+    )
 }
 
 /// Test case for stream decoding tests
@@ -46,7 +50,7 @@ fn make_logical_val(logical_encoding: LogicalEncoding, num_values: usize) -> Log
 struct StreamTestCase {
     meta: StreamMeta,
     data: &'static [u8],
-    /// Expected contents of the physical decode buffer after `decode_bits_u32`.
+    /// Expected contents of the physical decode buffer after `decode_bits::<u32>`.
     expected_u32_logical_value: Option<Vec<u32>>,
 }
 
@@ -89,7 +93,7 @@ fn test_decode_bits_u32() {
             let stream = create_stream_from_test_case(&test_case);
             let mut buf = Vec::new();
             stream
-                .decode_bits_u32(&mut buf, &mut dec())
+                .decode_bits::<u32>(&mut buf, &mut dec())
                 .expect("Should successfully decode u32 values");
             assert_eq!(
                 &buf, expected_buf,
@@ -102,14 +106,16 @@ fn test_decode_bits_u32() {
 #[rstest]
 // ZigZag pairs: [(0,0),(2,4),(2,4)] -> [(0,0),(1,2),(1,2)]
 // Delta: [(0,0),(1,2),(1,2)] -> [(0,0),(1,2),(2,4)]
-#[case::componentwise_delta(LogicalEncoding::ComponentwiseDelta, vec![0u32, 0, 2, 4, 2, 4], vec![0i32, 0, 1, 2, 2, 4])]
+#[case::componentwise_delta(LogicalEncoding::ComponentwiseDelta, vec![0u32, 0, 2, 4, 2, 4], vec![0i32, 0, 1, 2, 2, 4]
+)]
 // ZigZag: [0,1,2,1,2] -> [0,-1,1,-1,1]
 // Delta: [0,-1,1,-1,1] -> [0,-1,0,-1,0]
 #[case::delta(LogicalEncoding::Delta, vec![0u32, 1, 2, 1, 2], vec![0i32, -1, 0, -1, 0])]
 // RLE: [3,2] [0,2] -> [0,0,0,2,2]
 // ZigZag: [0,0,0,2,2] -> [0,0,0,1,1]
 // Delta: [0,0,0,1,1] -> [0,0,0,1,2]
-#[case::delta_rle(LogicalEncoding::DeltaRle(RleMeta { runs: 2, num_rle_values: 5 }), vec![3u32, 2, 0, 2], vec![0i32, 0, 0, 1, 2])]
+#[case::delta_rle(LogicalEncoding::DeltaRle(RleMeta { runs: 2, num_rle_values: 5 }), vec![3u32, 2, 0, 2], vec![0i32, 0, 0, 1, 2]
+)]
 #[case::delta_empty(LogicalEncoding::Delta, vec![], vec![])]
 fn test_decode_i32(
     #[case] logical_encoding: LogicalEncoding,
@@ -125,7 +131,8 @@ fn test_decode_i32(
 #[rstest]
 #[case::empty(LogicalEncoding::None, vec![], vec![])]
 #[case::new_encoded(LogicalEncoding::None, vec![10u32, 20, 30, 40], vec![10u32, 20, 30, 40])]
-#[case::rle(LogicalEncoding::Rle(RleMeta { runs: 3, num_rle_values: 6 }), vec![3u32, 2, 1, 10, 20, 30], vec![10u32, 10, 10, 20, 20, 30])]
+#[case::rle(LogicalEncoding::Rle(RleMeta { runs: 3, num_rle_values: 6 }), vec![3u32, 2, 1, 10, 20, 30], vec![10u32, 10, 10, 20, 20, 30]
+)]
 // ZigZag: [0,2,2,2,2] -> [0,1,1,1,1]
 // Delta: [0,1,1,1,1] -> [0,1,2,3,4]
 #[case::delta(LogicalEncoding::Delta, vec![0u32, 2, 2, 2, 2], vec![0u32, 1, 2, 3, 4])]
@@ -146,26 +153,120 @@ fn test_decode_u32(
 #[case::edge_values(vec![0, 1, 2, 4, 8, 16, 1024, 65535, 1_000_000_000, u32::MAX])]
 #[case::empty(vec![])]
 fn test_fastpfor_roundtrip(#[case] values: Vec<u32>) {
-    let encoder = IntEncoder::fastpfor();
-    let mut enc = Encoder::default();
-    do_write_u32(&values, DATA_STREAM, encoder, &mut enc).unwrap();
-    let decoded_values = roundtrip_stream_u32s(&enc.data);
+    let mut enc = Encoder::with_explicit(
+        EncoderConfig::default(),
+        ExplicitEncoder::all(IntEncoder::fastpfor()),
+    );
+    let codecs = &mut Codecs::default();
+    let ctx = StreamCtx::prop_data("test");
+    codecs.write_int_stream(&values, &ctx, &mut enc).unwrap();
+    let decoded_values = roundtrip_stream_u32s(enc.data());
     assert_eq!(decoded_values, values);
+}
+
+/// Auto-encode `values` (no explicit override) under `cfg` and return the
+/// physical encoding the competition selected.
+fn auto_physical(values: &[u32], cfg: EncoderConfig) -> PhysicalEncoding {
+    let mut enc = Encoder::new(cfg);
+    let codecs = &mut Codecs::default();
+    let ctx = StreamCtx::prop_data("test");
+    codecs.write_int_stream(values, &ctx, &mut enc).unwrap();
+    let parsed = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
+    parsed.meta.encoding.physical
+}
+
+#[rstest]
+#[case::u32_zero(0u32, PhysicalEncoding::VarInt)]
+#[case::u32_small(5u32, PhysicalEncoding::VarInt)]
+#[case::u32_two_bytes(1000u32, PhysicalEncoding::VarInt)]
+#[case::u32_boundary_lo((1u32 << 28) - 1, PhysicalEncoding::VarInt)]
+#[case::u32_boundary_hi(1u32 << 28, PhysicalEncoding::None)]
+#[case::u32_max(u32::MAX, PhysicalEncoding::None)]
+fn single_value_u32_picks_smaller_physical(
+    #[case] v: u32,
+    #[case] expected_physical: PhysicalEncoding,
+) {
+    let mut enc = Encoder::new(EncoderConfig::default());
+    let codecs = &mut Codecs::default();
+    let ctx = StreamCtx::prop_data("test");
+    codecs.write_int_stream(&[v], &ctx, &mut enc).unwrap();
+
+    let parsed = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
+    assert_eq!(parsed.meta.encoding.logical, LogicalEncoding::None);
+    assert_eq!(parsed.meta.encoding.physical, expected_physical);
+    assert_eq!(parsed.meta.num_values, 1);
+    assert_eq!(roundtrip_stream_u32s(enc.data()), vec![v]);
+}
+
+#[rstest]
+#[case::i32_zero(0i32, PhysicalEncoding::VarInt)]
+#[case::i32_neg_one(-1i32, PhysicalEncoding::VarInt)]
+#[case::i32_small_neg(-1000i32, PhysicalEncoding::VarInt)]
+#[case::i32_large_pos(i32::MAX, PhysicalEncoding::None)]
+#[case::i32_large_neg(i32::MIN, PhysicalEncoding::None)]
+fn single_value_i32_picks_smaller_physical(
+    #[case] v: i32,
+    #[case] expected_physical: PhysicalEncoding,
+) {
+    let mut enc = Encoder::new(EncoderConfig::default());
+    let codecs = &mut Codecs::default();
+    let ctx = StreamCtx::prop_data("test");
+    codecs.write_int_stream(&[v], &ctx, &mut enc).unwrap();
+
+    let parsed = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
+    assert_eq!(parsed.meta.encoding.logical, LogicalEncoding::None);
+    assert_eq!(parsed.meta.encoding.physical, expected_physical);
+}
+
+/// Regression: `EncoderConfig::allow_fastpfor` must actually gate `FastPFOR` selection in the auto path.
+/// Previously the flag was dead — `FastPFOR` was always tried.
+#[test]
+fn allow_fastpfor_gates_fastpfor_selection() {
+    // 12-bit pseudo-random values: not sequential and not run-heavy.
+    // FastPFOR bit-packing beats VarInt here, so it wins the competition when allowed.
+    let values: Vec<u32> = (0..2000u32)
+        .map(|i| i.wrapping_mul(2_654_435_761) % 4096)
+        .collect();
+
+    let on = EncoderConfig::default().with_fastpfor(true);
+    let off = EncoderConfig::default().with_fastpfor(false);
+
+    assert_eq!(
+        auto_physical(&values, on),
+        PhysicalEncoding::FastPFor256,
+        "FastPFOR should win for this data when allow_fastpfor = true"
+    );
+    assert_ne!(
+        auto_physical(&values, off),
+        PhysicalEncoding::FastPFor256,
+        "allow_fastpfor = false must prevent FastPFOR from being selected"
+    );
 }
 
 /// Test roundtrip: write -> parse -> equality for stream serialization
 #[rstest]
-#[case::new_encoded(StreamType::Data(DictionaryType::None), 2, LogicalEncoding::None, PhysicalEncoding::None, vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08], false)]
-#[case::new_encoded(StreamType::Data(DictionaryType::None), 2, LogicalEncoding::ComponentwiseDelta, PhysicalEncoding::None, vec![0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00], false)]
-#[case::new_encoded(StreamType::Offset(OffsetType::Vertex), 3, LogicalEncoding::None, PhysicalEncoding::None, vec![0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00], false)]
-#[case::varint(StreamType::Data(DictionaryType::None), 4, LogicalEncoding::None, PhysicalEncoding::VarInt, vec![0x0A, 0x14, 0x1E, 0x28], false)]
-#[case::varint(StreamType::Data(DictionaryType::None), 5, LogicalEncoding::Delta, PhysicalEncoding::VarInt, vec![0x00, 0x02, 0x02, 0x02, 0x02], false)]
-#[case::varint(StreamType::Data(DictionaryType::None), 3, LogicalEncoding::PseudoDecimal, PhysicalEncoding::VarInt, vec![0x01, 0x02, 0x03], false)]
-#[case::varint(StreamType::Length(LengthType::VarBinary), 3, LogicalEncoding::Delta, PhysicalEncoding::VarInt, vec![0x00, 0x02, 0x02], false)]
-#[case::rle(StreamType::Data(DictionaryType::None), 6, LogicalEncoding::Rle(RleMeta { runs: 3, num_rle_values: 6 }), PhysicalEncoding::VarInt, vec![0x03, 0x02, 0x01, 0x0A, 0x14, 0x1E], false)]
-#[case::rle(StreamType::Data(DictionaryType::None), 5, LogicalEncoding::DeltaRle(RleMeta { runs: 2, num_rle_values: 5 }), PhysicalEncoding::VarInt, vec![0x03, 0x02, 0x00, 0x02], false)]
-#[case::morton(StreamType::Data(DictionaryType::Morton), 4, LogicalEncoding::Morton(Morton { bits: 32, shift: 0 }), PhysicalEncoding::VarInt, vec![0x01, 0x02, 0x03, 0x04], false)]
-#[case::boolean(StreamType::Present, 16, LogicalEncoding::Rle(RleMeta { runs: 2, num_rle_values: 2 }), PhysicalEncoding::VarInt, vec![0xFF, 0x00], true)]
+#[case::new_encoded(StreamType::Data(DictionaryType::None), 2, LogicalEncoding::None, PhysicalEncoding::None, vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08], false
+)]
+#[case::new_encoded(StreamType::Data(DictionaryType::None), 2, LogicalEncoding::ComponentwiseDelta, PhysicalEncoding::None, vec![0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00], false
+)]
+#[case::new_encoded(StreamType::Offset(OffsetType::Vertex), 3, LogicalEncoding::None, PhysicalEncoding::None, vec![0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00], false
+)]
+#[case::varint(StreamType::Data(DictionaryType::None), 4, LogicalEncoding::None, PhysicalEncoding::VarInt, vec![0x0A, 0x14, 0x1E, 0x28], false
+)]
+#[case::varint(StreamType::Data(DictionaryType::None), 5, LogicalEncoding::Delta, PhysicalEncoding::VarInt, vec![0x00, 0x02, 0x02, 0x02, 0x02], false
+)]
+#[case::varint(StreamType::Data(DictionaryType::None), 3, LogicalEncoding::PseudoDecimal, PhysicalEncoding::VarInt, vec![0x01, 0x02, 0x03], false
+)]
+#[case::varint(StreamType::Length(LengthType::VarBinary), 3, LogicalEncoding::Delta, PhysicalEncoding::VarInt, vec![0x00, 0x02, 0x02], false
+)]
+#[case::rle(StreamType::Data(DictionaryType::None), 6, LogicalEncoding::Rle(RleMeta { runs: 3, num_rle_values: 6 }), PhysicalEncoding::VarInt, vec![0x03, 0x02, 0x01, 0x0A, 0x14, 0x1E], false
+)]
+#[case::rle(StreamType::Data(DictionaryType::None), 5, LogicalEncoding::DeltaRle(RleMeta { runs: 2, num_rle_values: 5 }), PhysicalEncoding::VarInt, vec![0x03, 0x02, 0x00, 0x02], false
+)]
+#[case::morton(StreamType::Data(DictionaryType::Morton), 4, LogicalEncoding::Morton(Morton { bits: 16, shift: 0 }), PhysicalEncoding::VarInt, vec![0x01, 0x02, 0x03, 0x04], false
+)]
+#[case::boolean(StreamType::Present, 16, LogicalEncoding::Rle(RleMeta { runs: 2, num_rle_values: 2 }), PhysicalEncoding::VarInt, vec![0xFF, 0x00], true
+)]
 fn test_stream_roundtrip(
     #[case] stream_type: StreamType,
     #[case] num_values: u32,
@@ -200,6 +301,26 @@ fn test_stream_roundtrip(
 
     assert_eq!(parsed.meta, stream.meta, "metadata mismatch");
     assert_eq!(stream.data.as_slice(), parsed.data, "data mismatch");
+}
+
+#[test]
+fn test_morton_parse_rejects_too_many_bits() {
+    let stream = EncodedStream {
+        meta: StreamMeta::new(
+            StreamType::Data(DictionaryType::Morton),
+            IntEncoding::new(
+                LogicalEncoding::Morton(Morton { bits: 17, shift: 0 }),
+                PhysicalEncoding::VarInt,
+            ),
+            1,
+        ),
+        data: vec![0],
+    };
+    let mut buffer = Vec::new();
+    buffer.write_stream(&stream).unwrap();
+
+    let err = RawStream::from_bytes(&buffer, &mut parser()).unwrap_err();
+    assert!(matches!(err, MltError::InvalidMortonBits(17)));
 }
 
 /// OOM regression: `VarInt` stream with huge `num_values` but `byte_length=0`.
@@ -256,7 +377,8 @@ fn dedup_and_get_parts(values: &[&str]) -> (Vec<u32>, Vec<u32>) {
 }
 
 #[rstest]
-#[case::with_duplicates(&["apple", "banana", "apple", "cherry", "banana", "apple"], &[0, 1, 0, 2, 1, 0], &[5, 6, 6])]
+#[case::with_duplicates(&["apple", "banana", "apple", "cherry", "banana", "apple"], &[0, 1, 0, 2, 1, 0], &[5, 6, 6]
+)]
 #[case::all_unique(&["a", "b", "c", "d"], &[0, 1, 2, 3], &[1, 1, 1, 1])]
 #[case::all_same(&["same", "same", "same", "same"], &[0, 0, 0, 0], &[4])]
 fn test_encode_strings_dict(
@@ -276,10 +398,11 @@ proptest! {
         encoding in any::<IntEncoder>(),
     ) {
         let widened: Vec<i32> = values.iter().map(|&v| i32::from(v)).collect();
-        let mut enc = Encoder::default();
-        do_write_i32(&widened, DATA_STREAM, encoding, &mut enc).unwrap();
-        let parsed_stream = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
-        let decoded_values = parsed_stream.decode_i8s(&mut dec()).unwrap();
+        let mut enc = Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::all(encoding));
+        let mut codecs = Codecs::default();
+        codecs.write_int_stream(&widened, &StreamCtx::prop_data("test"), &mut enc).unwrap();
+        let parsed_stream = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
+        let decoded_values = parsed_stream.decode_narrow::<i8, i32>(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);
     }
@@ -290,10 +413,11 @@ proptest! {
         encoding in any::<IntEncoder>()
     ) {
         let widened: Vec<u32> = values.iter().map(|&v| u32::from(v)).collect();
-        let mut enc = Encoder::default();
-        do_write_u32(&widened, DATA_STREAM, encoding, &mut enc).unwrap();
-        let parsed_stream = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
-        let decoded_values = parsed_stream.decode_u8s(&mut dec()).unwrap();
+        let mut enc = Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::all(encoding));
+        let mut codecs = Codecs::default();
+        codecs.write_int_stream(&widened, &StreamCtx::prop_data("test"), &mut enc).unwrap();
+        let parsed_stream = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
+        let decoded_values = parsed_stream.decode_narrow::<u8, u32>(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);
     }
@@ -303,9 +427,10 @@ proptest! {
         values in prop::collection::vec(any::<u32>(), 0..100),
         encoding in any::<IntEncoder>()
     ) {
-        let mut enc = Encoder::default();
-        do_write_u32(&values, DATA_STREAM, encoding, &mut enc).unwrap();
-        let decoded_values = roundtrip_stream_u32s(&enc.data);
+        let mut enc = Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::all(encoding));
+        let mut codecs = Codecs::default();
+        codecs.write_int_stream(&values, &StreamCtx::prop_data("test"), &mut enc).unwrap();
+        let decoded_values = roundtrip_stream_u32s(enc.data());
         assert_eq!(decoded_values, values);
     }
 
@@ -314,10 +439,11 @@ proptest! {
         values in prop::collection::vec(any::<i32>(), 0..100),
         encoding in any::<IntEncoder>(),
     ) {
-        let mut enc = Encoder::default();
-        do_write_i32(&values, DATA_STREAM, encoding, &mut enc).unwrap();
-        let parsed_stream = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
-        let decoded_values = parsed_stream.decode_i32s(&mut dec()).unwrap();
+        let mut enc = Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::all(encoding));
+        let mut codecs = Codecs::default();
+        codecs.write_int_stream(&values, &StreamCtx::prop_data("test"), &mut enc).unwrap();
+        let parsed_stream = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
+        let decoded_values = parsed_stream.decode_ints::<i32>(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);
     }
@@ -327,10 +453,11 @@ proptest! {
         values in prop::collection::vec(any::<u64>(), 0..100),
         encoding in encoding_no_fastpfor()
     ) {
-        let mut enc = Encoder::default();
-        do_write_u64(&values, DATA_STREAM, encoding, &mut enc).unwrap();
-        let parsed_stream = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
-        let decoded_values = parsed_stream.decode_u64s(&mut dec()).unwrap();
+        let mut enc = Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::all(encoding));
+        let mut codecs = Codecs::default();
+        codecs.write_int_stream(&values, &StreamCtx::prop_data("test"), &mut enc).unwrap();
+        let parsed_stream = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
+        let decoded_values = parsed_stream.decode_ints::<u64>(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);
     }
@@ -340,21 +467,22 @@ proptest! {
         values in prop::collection::vec(any::<i64>(), 0..100),
         encoding in encoding_no_fastpfor()
     ) {
-        let mut enc = Encoder::default();
-        do_write_i64(&values, DATA_STREAM, encoding, &mut enc).unwrap();
-        let parsed_stream = assert_empty(RawStream::from_bytes(&enc.data, &mut parser()));
-        let decoded_values = parsed_stream.decode_i64s(&mut dec()).unwrap();
+        let mut enc = Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::all(encoding));
+        let mut codecs = Codecs::default();
+        codecs.write_int_stream(&values, &StreamCtx::prop_data("test"), &mut enc).unwrap();
+        let parsed_stream = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
+        let decoded_values = parsed_stream.decode_ints::<i64>(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);
     }
 
     #[test]
     fn test_f32_roundtrip(values in prop::collection::vec(any::<f32>(), 0..100)) {
-        let owned_stream = EncodedStream::encode_f32(&values).unwrap();
+        let owned_stream = EncodedStream::encode_floats(&values).unwrap();
 
         let mut buf = Vec::new();
         let parsed_stream = roundtrip_stream(&mut buf, &owned_stream);
-        let decoded_values = parsed_stream.decode_f32s(&mut dec()).unwrap();
+        let decoded_values = parsed_stream.decode_floats::<f32>(&mut dec()).unwrap();
 
         assert_eq!(decoded_values.len(), values.len());
         for (v1, v2) in decoded_values.iter().zip(values.iter()) {
@@ -368,11 +496,11 @@ proptest! {
 
     #[test]
     fn test_f64_roundtrip(values in prop::collection::vec(any::<f64>(), 0..100)) {
-        let owned_stream = EncodedStream::encode_f64(&values).unwrap();
+        let owned_stream = EncodedStream::encode_floats(&values).unwrap();
 
         let mut buf = Vec::new();
         let parsed_stream = roundtrip_stream(&mut buf, &owned_stream);
-        let decoded_values = parsed_stream.decode_f64s(&mut dec()).unwrap();
+        let decoded_values = parsed_stream.decode_floats::<f64>(&mut dec()).unwrap();
 
         assert_eq!(decoded_values.len(), values.len());
         for (v1, v2) in decoded_values.iter().zip(values.iter()) {

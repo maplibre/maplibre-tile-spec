@@ -9,6 +9,7 @@ use mlt_core::geojson::{Feature, FeatureCollection};
 use ratatui::layout::{Constraint, Rect};
 use ratatui::widgets::TableState;
 use rstar::{PointDistance as _, RTree};
+use usize_cast::IntoUsize as _;
 
 use crate::ls::{FileAlgorithm, FileSortColumn, LsRow};
 use crate::ui::mbt::MbtilesState;
@@ -732,7 +733,7 @@ impl App {
 
         let best = if let Some(ref tree) = self.geometry_index {
             let mut best: Option<(f64, usize, usize, Option<usize>)> = None;
-            for e in tree.nearest_neighbor_iter(&pt) {
+            for e in tree.nearest_neighbor_iter(pt) {
                 let d = e.distance_2(&pt);
                 if d > thresh_sq {
                     break;
@@ -806,7 +807,7 @@ impl App {
         part: Option<usize>,
         tree_height: u16,
     ) {
-        let inner = tree_height.saturating_sub(2) as usize;
+        let inner = tree_height.saturating_sub(2).into_usize();
         self.ensure_layer_expanded(layer);
         if let Some(f) = feat {
             if multi_part_count(&self.feature(layer, f).geometry) > 0 {
@@ -830,9 +831,9 @@ impl App {
 
     pub(crate) fn scroll_selected_into_view(&mut self, inner_height: usize) {
         let idx = self.selected_index;
-        if idx < self.tree_scroll as usize {
+        if idx < self.tree_scroll.into_usize() {
             self.tree_scroll = u16::try_from(idx).unwrap_or(0);
-        } else if inner_height > 0 && idx >= self.tree_scroll as usize + inner_height {
+        } else if inner_height > 0 && idx >= self.tree_scroll.into_usize() + inner_height {
             self.tree_scroll =
                 u16::try_from(idx.saturating_sub(inner_height.saturating_sub(1))).unwrap_or(0);
         }

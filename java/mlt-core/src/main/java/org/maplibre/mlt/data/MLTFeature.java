@@ -36,7 +36,9 @@ public class MLTFeature extends Feature {
   }
 
   static MltMetadata.FieldType getType(Object value) {
-    if (value instanceof Map<?, ?>) {
+    if (value instanceof Map<?, ?> || value instanceof Iterable<?>) {
+      // Child types are not populated.  The type of a nested column
+      // is not a schema for all possible property values.
       return MltMetadata.complexFieldType(MltMetadata.ComplexType.MAP, true);
     }
     final var isNullable = true;

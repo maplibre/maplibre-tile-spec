@@ -5,7 +5,7 @@ import { DictionaryType } from "../metadata/tile/dictionaryType";
 import { LengthType } from "../metadata/tile/lengthType";
 import { OffsetType } from "../metadata/tile/offsetType";
 import IntWrapper from "./intWrapper";
-import { type Column, type Field, ComplexType, ScalarType } from "../metadata/tileset/tilesetMetadata";
+import { type Column, type Field, ColumnScope, ComplexType, ScalarType } from "../metadata/tileset/tilesetMetadata";
 import { encodeBooleanRle, encodeStrings, createStringLengths } from "../encoding/encodingUtils";
 import { encodeVarintInt32Value, encodeVarintInt32 } from "../encoding/integerEncodingUtils";
 import type { RleEncodedStreamMetadata, StreamMetadata } from "../metadata/tile/streamMetadataDecoder";
@@ -74,6 +74,7 @@ export function createColumnMetadataForStruct(
     return {
         name: columnName,
         nullable: false,
+        columnScope: ColumnScope.FEATURE,
         complexType: {
             physicalType: ComplexType.STRUCT,
             children,

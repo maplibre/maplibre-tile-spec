@@ -7,7 +7,7 @@ use crate::encoder::model::EncodedUnknown;
 use crate::utils::{BinarySerializer as _, checked_sum2};
 
 impl EncodedUnknown {
-    /// Serialize an unknown layer record directly to [`enc.data`](Encoder::data).
+    /// Serialize an unknown layer record directly to the encoder data section.
     ///
     /// Writes the complete `[varint(size)][tag][value]` record — the bytes are
     /// already in wire format so no `hdr`/`meta` split is needed.
@@ -16,7 +16,7 @@ impl EncodedUnknown {
         let size = checked_sum2(buffer_len, 1)?;
         enc.write_varint(size)?;
         enc.write_u8(self.tag)?;
-        enc.data.extend_from_slice(&self.value);
+        enc.data_mut().extend_from_slice(&self.value);
         Ok(enc)
     }
 }

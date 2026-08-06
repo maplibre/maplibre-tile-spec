@@ -35,4 +35,9 @@ runs:
     - name: Cache Cargo registry and build artifacts
       if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       uses: Swatinem/rust-cache@v2
-      with: { workspaces: rust }
+      with:
+        workspaces: rust
+        # Caching ~/.cargo/bin breaks rustup proxies after restore (they end up
+        # dispatching to rustup-init mode), causing maturin-action to fail with
+        # "unexpected argument '--print' found / Usage: rustup-init[EXE]".
+        cache-bin: false

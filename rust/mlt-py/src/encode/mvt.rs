@@ -1,0 +1,49 @@
+//! Encode an entire MVT tile to MLT bytes.
+
+use mlt_core::MltResult;
+use mlt_core::mvt::mvt_to_tile_layers;
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
+use pyo3::types::PyBytes;
+use pyo3_stub_gen::derive::gen_stub_pyfunction;
+
+use super::shared::encoder_config;
+
+/// Encode an entire MVT tile to MLT using default encoding options.
+///
+/// `data` is a raw Mapbox Vector Tile (protobuf).
+///
+/// Options:
+/// `tessellate` generates triangulation data for polygons and multi-polygons.
+/// `sort` chooses which feature ordering(s) the encoder trials: `all` tries all orderings, `auto` tries a subset with a good speed-size tradeoff, a named curve (`morton`/`hilbert`/`id`) tries just that one, and `none` keeps the input order.
+/// `shared_dict` allows grouping strings into shared dictionaries.
+/// `fsst` allows FSST string compression.
+/// `fastpfor` allows FastPFOR integer compression.
+#[gen_stub_pyfunction]
+#[pyfunction]
+#[pyo3(signature = (data, *, tessellate=false, sort="auto", shared_dict=true, fsst=true, fastpfor=true))]
+pub fn encode_mvt(
+    py: Python<'_>,
+    #[gen_stub(override_type(type_repr = "bytes"))] data: &[u8],
+    tessellate: bool,
+    #[gen_stub(override_type(
+        type_repr = "typing.Literal['all', 'auto', 'morton', 'hilbert', 'id', 'none']"
+    ))]
+    sort: &str,
+    shared_dict: bool,
+    fsst: bool,
+    fastpfor: bool,
+) -> PyResult<Py<PyBytes>> {
+    let cfg = encoder_config(tessellate, sort, shared_dict, fsst, fastpfor)?;
+    let bytes = py
+        .detach(|| -> MltResult<Vec<u8>> {
+            let data = data.to_vec();
+            let mut out = Vec::new();
+            for tile in mvt_to_tile_layers(data)? {
+                out.extend_from_slice(&tile.encode(cfg)?);
+            }
+            Ok(out)
+        })
+        .map_err(|e| PyValueError::new_err(format!("MLT encode error: {e}")))?;
+    Ok(PyBytes::new(py, &bytes).unbind())
+}

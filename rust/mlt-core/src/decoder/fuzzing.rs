@@ -1,9 +1,10 @@
 use arbitrary::{Arbitrary, Result, Unstructured};
 use geo_types::{Coord, Geometry, Point};
+use usize_cast::IntoUsize as _;
 
 #[cfg(fuzzing)]
 use crate::decoder::ColumnType;
-use crate::decoder::{GeometryValues, IdValues};
+use crate::decoder::GeometryValues;
 #[allow(
     unused_imports,
     clippy::wildcard_imports,
@@ -53,21 +54,12 @@ impl From<ArbitraryGeometry> for Geometry<i32> {
 impl Arbitrary<'_> for GeometryValues {
     fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
         // Bound geometry count to prevent OOM from unbounded iteration
-        let count = u.int_in_range(1..=32u16)? as usize;
+        let count = u.int_in_range(1..=32u16)?.into_usize();
         let mut decoded = Self::default();
         for _ in 0..count {
             let geo: ArbitraryGeometry = u.arbitrary()?;
             decoded.push_geom(&Geometry::<i32>::from(geo));
         }
         Ok(decoded)
-    }
-}
-
-impl Arbitrary<'_> for IdValues {
-    fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
-        // Bound ID count to prevent OOM from unbounded vector generation
-        let count = u.int_in_range(0..=64u8)? as usize;
-        let values: Vec<Option<u64>> = (0..count).map(|_| u.arbitrary()).collect::<Result<_>>()?;
-        Ok(Self(values))
     }
 }

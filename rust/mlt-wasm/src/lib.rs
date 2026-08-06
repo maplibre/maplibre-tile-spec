@@ -2,7 +2,7 @@
 //!
 //! # Design
 //!
-//! A single `MltTile` struct owns all decoded [`mlt_core::TileLayer01`] data for
+//! A single `MltTile` struct owns all decoded [`mlt_core::TileLayer`] data for
 //! every layer in the tile.  No per-layer or per-feature WASM objects are
 //! created; every accessor takes explicit `(layer_idx, feature_idx)` arguments
 //! so the JavaScript side can keep plain numeric indices rather than
@@ -41,7 +41,7 @@ use wasm_bindgen::prelude::*;
 /// Decode a raw MLT tile blob and return an `MltTile`.
 ///
 /// All geometry, IDs and properties are decoded eagerly into row-oriented
-/// [`mlt_core::TileLayer01`] values.
+/// [`mlt_core::TileLayer`] values.
 #[wasm_bindgen]
 pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
     let mut parser = Parser::default();

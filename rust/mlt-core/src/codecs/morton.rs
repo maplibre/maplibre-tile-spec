@@ -90,7 +90,7 @@ impl Morton {
         } else {
             0u32
         };
-        Ok(Self { bits, shift })
+        Self::new(bits, shift)
     }
 
     /// Encode a single `(x, y)` coordinate pair to its Z-order (Morton) code.
@@ -111,17 +111,6 @@ impl Morton {
     }
 }
 
-/// Delta-encode a sorted slice of Morton codes: `[codes[0], codes[1]-codes[0], ...]`.
-/// Clears `target` and fills it with the delta-encoded values.
-#[inline]
-pub fn morton_deltas(codes: &[u32], target: &mut Vec<u32>) {
-    target.clear();
-    let Some(&first) = codes.first() else {
-        return;
-    };
-    target.extend(std::iter::once(first).chain(codes.windows(2).map(|w| w[1] - w[0])));
-}
-
 impl Morton {
     /// Decode a single Morton code to a `Coord<i32>`, applying `shift`.
     #[inline]
@@ -134,8 +123,8 @@ impl Morton {
             y |= ((morton_code >> 1) & bit_mask) >> i;
         }
         Coord::<i32> {
-            x: x.cast_signed() - self.shift.cast_signed(),
-            y: y.cast_signed() - self.shift.cast_signed(),
+            x: x.wrapping_sub(self.shift).cast_signed(),
+            y: y.wrapping_sub(self.shift).cast_signed(),
         }
     }
 

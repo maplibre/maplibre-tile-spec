@@ -9,7 +9,6 @@ mod serialize;
 pub mod test_helpers;
 
 pub use extensions::*;
-pub(crate) use formatter::{FmtOptVec, OptSeq, OptSeqOpt};
 pub(crate) use parse::*;
 pub use presence::*;
 pub use serialize::*;

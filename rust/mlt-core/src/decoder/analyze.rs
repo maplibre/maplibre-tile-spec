@@ -1,12 +1,8 @@
-use std::fmt::{Debug, Formatter};
-
 use crate::decoder::{
-    Geometry, GeometryType, GeometryValues, Id, IdValues, Layer01, Property, RawFsstData,
-    RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar,
-    RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings, RawStringsEncoding,
-    StreamMeta,
+    Geometry, GeometryType, GeometryValues, Id, Layer01, Property, RawFsstData, RawGeometry, RawId,
+    RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
+    RawSharedDictEncoding, RawSharedDictItem, RawStrings, RawStringsEncoding, StreamMeta,
 };
-use crate::utils::OptSeqOpt;
 use crate::{Analyze, DecodeState, StatType};
 
 impl<'a, S: DecodeState> Analyze for Layer01<'a, S>
@@ -17,7 +13,7 @@ where
 {
     fn collect_statistic(&self, stat: StatType) -> usize {
         match stat {
-            StatType::DecodedMetaSize => self.name.len() + size_of::<u32>(),
+            StatType::DecodedMetaSize => self.name().len() + size_of::<u32>(),
             StatType::DecodedDataSize => {
                 self.id.collect_statistic(stat)
                     + self.geometry.collect_statistic(stat)
@@ -82,19 +78,10 @@ impl Analyze for RawIdValue<'_> {
 
 impl Analyze for RawPresence<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
-        self.0.for_each_stream(cb);
-    }
-}
-
-impl Analyze for IdValues {
-    fn collect_statistic(&self, stat: StatType) -> usize {
-        self.0.collect_statistic(stat)
-    }
-}
-
-impl Debug for IdValues {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "IdValues({:?})", &OptSeqOpt(Some(&self.0)))
+        match self {
+            Self::AllPresent => {}
+            Self::Stream(s) => s.for_each_stream(cb),
+        }
     }
 }
 

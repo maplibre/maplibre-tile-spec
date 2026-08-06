@@ -206,6 +206,18 @@ describe("decodePropertyColumn - UINT_32", () => {
         const constVec = result as Int32ConstVector;
         expect(constVec.getValue(0)).toBe(expectedValue);
     });
+
+    it("should decode UINT_32 max value in SEQUENCE vector", () => {
+        // -1 is the signed bit pattern the delta-RLE stream stores for 0xffffffff.
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.UINT_32, false);
+        const encodedData = encodeInt32DeltaRleColumn([[1, -1]]);
+        const offset = new IntWrapper(0);
+
+        const result = decodePropertyColumn(encodedData, offset, columnMetadata, 1, 1);
+
+        expect(result).toBeInstanceOf(Int32SequenceVector);
+        expect((result as Int32SequenceVector).getValue(0)).toBe(0xffffffff);
+    });
 });
 
 describe("decodePropertyColumn - INT_64", () => {
@@ -364,6 +376,18 @@ describe("decodePropertyColumn - UINT_64", () => {
         expect(result).toBeInstanceOf(Int64ConstVector);
         const constVec = result as Int64ConstVector;
         expect(constVec.getValue(0)).toBe(expectedValue);
+    });
+
+    it("should decode UINT_64 max value in SEQUENCE vector", () => {
+        // -1n is the signed bit pattern the delta-RLE stream stores for 0xffffffffffffffff.
+        const columnMetadata = createColumnMetadata("testColumn", ScalarType.UINT_64, false);
+        const encodedData = encodeInt64DeltaRleColumn([[1, -1n]]);
+        const offset = new IntWrapper(0);
+
+        const result = decodePropertyColumn(encodedData, offset, columnMetadata, 1, 1);
+
+        expect(result).toBeInstanceOf(Int64SequenceVector);
+        expect((result as Int64SequenceVector).getValue(0)).toBe(0xffffffffffffffffn);
     });
 
     it("should decode nullable UINT_64 column with null values", () => {

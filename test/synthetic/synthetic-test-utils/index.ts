@@ -2,6 +2,7 @@ import { globSync, readFileSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { expect } from "vitest";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RELATIVE_FLOAT_TOLERANCE = 0.0001 / 100;
@@ -44,29 +45,57 @@ export function writeActualOutput(
   return actualFile;
 }
 
+export type TestCase = { name: string; content: object; fileName: string };
+
 export function getTestCases(skipList: string[]): {
-  active: { name: string; content: object; fileName: string }[];
-  skipped: string[];
+  active: TestCase[];
+  skipped: TestCase[];
 } {
   const syntheticDir = resolve(__dirname, "..");
   const mltFiles = globSync(`**/*.mlt`, {
     cwd: syntheticDir,
   }).map((mltFile: string) => path.join(syntheticDir, mltFile));
 
-  const active: { name: string; content: object; fileName: string }[] = [];
-  const skipped: string[] = [];
+  const active: TestCase[] = [];
+  const skipped: TestCase[] = [];
+  const matched = new Set<string>();
 
   for (const mltFile of mltFiles) {
     const testName = path.relative(syntheticDir, mltFile).replace(/\.mlt$/, "");
+    const jsonFile = mltFile.replace(/\.mlt$/, ".json");
+    const expected = JSON.parse(readFileSync(jsonFile, "utf-8"));
+    const testCase = { name: testName, fileName: mltFile, content: expected };
     if (skipList.includes(testName)) {
-      skipped.push(testName);
+      matched.add(testName);
+      skipped.push(testCase);
     } else {
-      const jsonFile = mltFile.replace(/\.mlt$/, ".json");
-      const expectedRaw = readFileSync(jsonFile, "utf-8");
-      const expected = JSON.parse(expectedRaw);
-      active.push({ name: testName, fileName: mltFile, content: expected });
+      active.push(testCase);
     }
   }
 
+  const unmatched = skipList.filter((name) => !matched.has(name));
+  if (unmatched.length > 0) {
+    throw new Error(
+      `Exclusion list references unknown synthetic test(s): ${unmatched.join(", ")}. ` +
+        `Use the full path-style name, e.g. "0x01/poly_fpf".`,
+    );
+  }
+
   return { active, skipped };
+}
+
+export async function expectUnsupported(
+  decode: () => Promise<unknown>,
+  content: object,
+): Promise<void> {
+  let actual: unknown;
+  try {
+    actual = await decode();
+  } catch {
+    return;
+  }
+  expect(
+    actual,
+    "decoded and matched the expected output — remove it from the exclusion list",
+  ).not.toEqual(content);
 }

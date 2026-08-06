@@ -1,7 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { GEOMETRY_TYPE } from "./vector/geometry/geometryType";
-import { compareWithTolerance, getTestCases, writeActualOutput } from "../../test/synthetic/synthetic-test-utils";
+import {
+    compareWithTolerance,
+    expectUnsupported,
+    getTestCases,
+    writeActualOutput,
+} from "../../test/synthetic/synthetic-test-utils";
 import decodeTile from "./mltDecoder";
 import type { Geometry } from "./vector/geometry/geometryVector";
 import type FeatureTable from "./vector/featureTable";
@@ -20,10 +25,8 @@ describe("MLT Decoder - Synthetic tests", () => {
         });
     }
 
-    for (const skippedTest of testCases.skipped) {
-        it.skip(skippedTest, () => {
-            // Test is skipped since it is not supported yet
-        });
+    for (const { name, content, fileName } of testCases.skipped) {
+        it(`${name} (unsupported)`, () => expectUnsupported(() => decodeMLT(fileName), content));
     }
 });
 

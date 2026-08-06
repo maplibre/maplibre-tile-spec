@@ -6,7 +6,24 @@ The `mlt` binary provides several commands for working with MLT files:
 
 * **`dump`** - Parse an MLT file and dump raw layer data without decoding
 * **`decode`** - Parse an MLT file, decode all layers, and dump the result (supports text and `GeoJSON` output)
+* **`convert`** - Convert MVT or MLT tile files and MVT `.mbtiles`/`.pmtiles` archives to MLT
 * **`ui`** - Interactive terminal visualizer for MLT files
+
+### Format conversion
+
+Convert an MVT archive or files to MLT:
+
+```bash
+mlt convert input.mvt.pmtiles output.mlt.pmtiles
+```
+
+The conversion summary reports unique, decompressed tile payloads as such:
+
+```text
+input.mvt.pmtiles -> output.mlt.pmtiles (pmtiles):
+  converted 5 tiles (5 unique encoded, 0 cache hits) in 740.9ms
+  size raw/archive: MVT(gzip) 813.7kB/459.8kB -> MLT(gzip) 460.3kB/357.0kB
+```
 
 ### Visualizer
 

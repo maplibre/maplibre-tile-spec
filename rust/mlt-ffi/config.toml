@@ -1,0 +1,3 @@
+[kotlin]
+domain = "org.maplibre"
+lib_name = "mlt_ffi"

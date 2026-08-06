@@ -103,7 +103,7 @@ flowchart TB
 
     H(["Layer01::into_tile()"])
 
-    subgraph BRIDGE ["TileLayer01  (row-oriented, fully owned)"]
+    subgraph BRIDGE ["TileLayer  (row-oriented, fully owned)"]
         I["Vec&lt;TileFeature>
            id:       Option&lt;u64>
            geometry: geo_types::Geometry&lt;i32>
@@ -111,11 +111,11 @@ flowchart TB
     end
 
     subgraph ENC ["Encoding"]
-        J["StagedLayer01::from(TileLayer01)
+        J["StagedLayer::from(TileLayer)
            owned columnar form
            IdValues · GeometryValues · Vec&lt;StagedProperty>"]
 
-        K["StagedLayer01::encode()
+        K["StagedLayer::encode()
            / encode_auto() / encode_with_profile()
            per-column compression applied"]
 
@@ -132,7 +132,7 @@ flowchart TB
     A --> B --> C --> D --> E
     E -->|"borrow"| F --> G
     E -->|"own all data"| H --> I
-    I -->|"From&lt;TileLayer01>"| J --> K --> L --> M --> N
+    I -->|"From&lt;TileLayer>"| J --> K --> L --> M --> N
 
     classDef io fill:#1e5c3a,color:#e8f5e9,stroke:#0a3d22
     classDef bridge fill:#4a1c6b,color:#f3e5f5,stroke:#2d0b45
@@ -151,8 +151,8 @@ flowchart TB
 | `Layer<Lazy>` / `Layer01<Lazy>` | Parsed frame with column byte slices still unprocessed; zero allocation beyond the parse pass |
 | `LazyParsed<Raw, Parsed>` | Type-state wrapper: `Raw(RawStream)` before decoding, `Parsed(T)` after, `ParsingFailed` on error |
 | `ParsedLayer` = `Layer<Parsed>` | All columns decoded; borrow-based iteration via `iter_features()` |
-| `TileLayer01` | Row-oriented, fully owned bridge between decode and encode |
-| `StagedLayer01` | Owned columnar data ready for compression/encoding |
+| `TileLayer` | Row-oriented, fully owned bridge between decode and encode |
+| `StagedLayer` | Owned columnar data ready for compression/encoding |
 | `EncodedLayer01` | Wire-ready columnar data; written by `write_to()` with size + tag prefix |
 
 ## Tools

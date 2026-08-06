@@ -3,6 +3,7 @@ use std::io::{Read as _, Write as _};
 
 use criterion::{BatchSize, BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mlt_core::__private::{dec, parser};
+use usize_cast::FromUsize as _;
 
 #[path = "bench_utils.rs"]
 mod bench_utils;
@@ -63,21 +64,20 @@ fn compress_tiles(
         .collect()
 }
 
-fn mvt_parse(data: Vec<u8>) {
-    let reader = mvt_reader::Reader::new(black_box(data)).expect("mvt reader construction failed");
+fn mvt_parse(data: &[u8]) {
+    let reader =
+        fast_mvt::MvtReaderRef::new(black_box(data)).expect("mvt reader construction failed");
     let _ = black_box(reader);
 }
 
-fn mvt_decode(data: Vec<u8>) {
-    let reader = mvt_reader::Reader::new(black_box(data)).expect("mvt reader construction failed");
-    let layers = reader
-        .get_layer_metadata()
-        .expect("mvt layer metadata failed");
-    for layer in &layers {
-        let features = reader
-            .get_features(layer.layer_index)
-            .expect("mvt get_features failed");
-        let _ = black_box(features);
+fn mvt_decode(data: &[u8]) {
+    let reader =
+        fast_mvt::MvtReaderRef::new(black_box(data)).expect("mvt reader construction failed");
+    for layer in reader.layers() {
+        for feature in layer.features() {
+            let _ = black_box(feature.properties_vec().expect("mvt properties failed"));
+            let _ = black_box(feature.geometry().expect("mvt geometry failed"));
+        }
     }
     let _ = black_box(reader);
 }
@@ -103,7 +103,7 @@ fn bench_parse(c: &mut Criterion) {
         let proto_tiles = load_proto_tiles(zoom);
 
         // mlt parse
-        group.throughput(Throughput::Bytes(total_bytes(&mlt_tiles) as u64));
+        group.throughput(Throughput::Bytes(u64::from_usize(total_bytes(&mlt_tiles))));
         group.bench_with_input(BenchmarkId::new("mlt", zoom), &mlt_tiles, |b, tiles| {
             b.iter(|| {
                 for (_, data) in tiles {
@@ -119,7 +119,7 @@ fn bench_parse(c: &mut Criterion) {
         // mvt parse (per codec)
         for &(codec_name, compress, decompress) in CODECS {
             let compressed = compress_tiles(&proto_tiles, compress);
-            group.throughput(Throughput::Bytes(total_bytes(&compressed) as u64));
+            group.throughput(Throughput::Bytes(u64::from_usize(total_bytes(&compressed))));
             group.bench_with_input(
                 BenchmarkId::new(format!("mvt+{codec_name}"), zoom),
                 &compressed,
@@ -128,7 +128,7 @@ fn bench_parse(c: &mut Criterion) {
                         || tiles.iter().map(|(_, d)| d.clone()).collect::<Vec<_>>(),
                         |compressed_data| {
                             for data in compressed_data {
-                                mvt_parse(decompress(black_box(&data)));
+                                mvt_parse(&decompress(black_box(&data)));
                             }
                         },
                         BatchSize::LargeInput,
@@ -149,7 +149,7 @@ fn bench_decode_all(c: &mut Criterion) {
         let proto_tiles = load_proto_tiles(zoom);
 
         // mlt decode_all
-        group.throughput(Throughput::Bytes(total_bytes(&mlt_tiles) as u64));
+        group.throughput(Throughput::Bytes(u64::from_usize(total_bytes(&mlt_tiles))));
         group.bench_with_input(BenchmarkId::new("mlt", zoom), &mlt_tiles, |b, tiles| {
             b.iter_batched(
                 || {
@@ -181,7 +181,7 @@ fn bench_decode_all(c: &mut Criterion) {
         // mvt decode_all (per codec)
         for &(codec_name, compress, decompress) in CODECS {
             let compressed = compress_tiles(&proto_tiles, compress);
-            group.throughput(Throughput::Bytes(total_bytes(&compressed) as u64));
+            group.throughput(Throughput::Bytes(u64::from_usize(total_bytes(&compressed))));
             group.bench_with_input(
                 BenchmarkId::new(format!("mvt+{codec_name}"), zoom),
                 &compressed,
@@ -190,7 +190,7 @@ fn bench_decode_all(c: &mut Criterion) {
                         || tiles.iter().map(|(_, d)| d.clone()).collect::<Vec<_>>(),
                         |compressed_data| {
                             for data in compressed_data {
-                                mvt_decode(decompress(black_box(&data)));
+                                mvt_decode(&decompress(black_box(&data)));
                             }
                         },
                         BatchSize::LargeInput,

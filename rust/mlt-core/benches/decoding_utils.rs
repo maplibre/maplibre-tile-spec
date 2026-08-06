@@ -73,10 +73,7 @@ fn bench_impls<I: Clone, O>(
 }
 
 fn bench_morton(c: &mut Criterion) {
-    let meta = Morton {
-        bits: NUM_BITS,
-        shift: COORDINATE_SHIFT,
-    };
+    let meta = Morton::new(NUM_BITS, COORDINATE_SHIFT).unwrap();
     bench_impls(c, "morton/decode_codes", make_morton_codes, |v| {
         meta.decode_codes(v, &mut Decoder::with_max_size(u32::MAX))
             .unwrap()

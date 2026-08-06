@@ -7,19 +7,20 @@ use crate::{Decoder, MltResult};
 /// ZigZag-encode `data` into `target`.
 ///
 /// `target` is treated as a scratch buffer: cleared before writing.
-pub fn encode_zigzag<T: ZigZag>(data: &[T], target: &mut Vec<T::UInt>) {
+pub fn encode_zigzag<'a, T: ZigZag>(data: &[T], target: &'a mut Vec<T::UInt>) -> &'a [T::UInt] {
     target.clear();
     target.extend(data.iter().map(|&v| T::encode(v)));
+    target
 }
 
 /// Delta-then-ZigZag-encode `data` into `target` in a single pass.
 ///
 /// `target` is treated as a scratch buffer: cleared before writing.
 /// Fuses the delta and zigzag steps to avoid an intermediate allocation.
-pub fn encode_zigzag_delta<T: Copy + ZigZag + WrappingSub<Output = T>>(
+pub fn encode_zigzag_delta<'a, T: Copy + ZigZag + WrappingSub<Output = T>>(
     data: &[T],
-    target: &mut Vec<T::UInt>,
-) {
+    target: &'a mut Vec<T::UInt>,
+) -> &'a [T::UInt] {
     target.clear();
     target.reserve(data.len());
     let mut prev = T::zero();
@@ -27,6 +28,7 @@ pub fn encode_zigzag_delta<T: Copy + ZigZag + WrappingSub<Output = T>>(
         target.push(T::encode(v.wrapping_sub(&prev)));
         prev = v;
     }
+    target
 }
 
 /// Encode signed integer vec2 values using componentwise delta + zigzag into `target`.
@@ -36,7 +38,10 @@ pub fn encode_zigzag_delta<T: Copy + ZigZag + WrappingSub<Output = T>>(
 ///
 /// `target` is treated as a scratch buffer: cleared before writing.
 /// This is the inverse of `decode_componentwise_delta_vec2s`.
-pub fn encode_componentwise_delta_vec2s<T>(data: &[T], target: &mut Vec<T::UInt>)
+pub fn encode_componentwise_delta_vec2s<'a, T>(
+    data: &[T],
+    target: &'a mut Vec<T::UInt>,
+) -> &'a [T::UInt]
 where
     T: ZigZag + WrappingSub,
 {
@@ -50,6 +55,7 @@ where
         target.push(T::encode(y.wrapping_sub(&prev_y)));
         (prev_x, prev_y) = (x, y);
     }
+    target
 }
 
 /// ZigZag-decode a slice, charging `dec` for the output allocation.
@@ -110,8 +116,7 @@ mod tests {
         #[test]
         fn test_zigzag_roundtrip_i64(data: Vec<i64>) {
             let mut encoded = Vec::new();
-            encode_zigzag(&data, &mut encoded);
-            let decoded = decode_zigzag::<i64>(&encoded, &mut dec()).unwrap();
+            let decoded = decode_zigzag::<i64>(encode_zigzag(&data, &mut encoded), &mut dec()).unwrap();
             prop_assert_eq!(data, decoded);
         }
 
@@ -136,8 +141,8 @@ mod tests {
                 &data[..data.len() - 1]
             };
             let mut encoded = Vec::new();
-            encode_componentwise_delta_vec2s(data_slice, &mut encoded);
-            let decoded = decode_componentwise_delta_vec2s::<i32>(&encoded, &mut dec()).unwrap();
+            let data = encode_componentwise_delta_vec2s(data_slice, &mut encoded);
+            let decoded = decode_componentwise_delta_vec2s::<i32>(data, &mut dec()).unwrap();
             prop_assert_eq!(data_slice, &decoded);
         }
     }
@@ -145,8 +150,7 @@ mod tests {
     #[test]
     fn test_encode_zigzag_empty() {
         let mut target = Vec::<u32>::new();
-        encode_zigzag::<i32>(&[], &mut target);
-        assert!(target.is_empty());
+        assert!(encode_zigzag::<i32>(&[], &mut target).is_empty());
     }
 
     #[test]

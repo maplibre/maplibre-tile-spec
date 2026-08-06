@@ -1,10 +1,9 @@
 import {
     type Column,
+    type ColumnWithoutName,
     ColumnScope,
-    type ComplexColumn,
     ComplexType,
     LogicalScalarType,
-    type ScalarColumn,
     ScalarType,
 } from "./tilesetMetadata";
 
@@ -27,47 +26,46 @@ import {
  * ID columns are kept as logical types so they remain distinguishable
  * from feature properties that may also be named "id".
  */
-export function decodeColumnType(typeCode: number): Column | null {
+export function decodeColumnType(typeCode: number): ColumnWithoutName | null {
     switch (typeCode) {
         case 0:
         case 1:
         case 2:
-        case 3: {
-            const column = {} as Column;
-            column.nullable = (typeCode & 1) !== 0;
-            column.columnScope = ColumnScope.FEATURE;
-            const scalarCol = {} as ScalarColumn;
-            scalarCol.type = "logicalType";
-            scalarCol.logicalType = LogicalScalarType.ID;
-            scalarCol.longID = (typeCode & 2) !== 0;
-            column.scalarType = scalarCol;
-            column.type = "scalarType";
-            return column;
-        }
-        case 4: {
+        case 3:
+            return {
+                nullable: (typeCode & 1) !== 0,
+                columnScope: ColumnScope.FEATURE,
+                type: "scalarType",
+                scalarType: {
+                    longID: (typeCode & 2) !== 0,
+                    type: "logicalType",
+                    logicalType: LogicalScalarType.ID,
+                },
+            };
+        case 4:
             // GEOMETRY (non-nullable, no children)
-            const column = {} as Column;
-            column.nullable = false;
-            column.columnScope = ColumnScope.FEATURE;
-            const complexCol = {} as ComplexColumn;
-            complexCol.type = "physicalType";
-            complexCol.physicalType = ComplexType.GEOMETRY;
-            column.type = "complexType";
-            column.complexType = complexCol;
-            return column;
-        }
-        case 30: {
+            return {
+                nullable: false,
+                columnScope: ColumnScope.FEATURE,
+                type: "complexType",
+                complexType: {
+                    type: "physicalType",
+                    physicalType: ComplexType.GEOMETRY,
+                    children: [],
+                },
+            };
+        case 30:
             // STRUCT (non-nullable with children)
-            const column = {} as Column;
-            column.nullable = false;
-            column.columnScope = ColumnScope.FEATURE;
-            const complexCol = {} as ComplexColumn;
-            complexCol.type = "physicalType";
-            complexCol.physicalType = ComplexType.STRUCT;
-            column.type = "complexType";
-            column.complexType = complexCol;
-            return column;
-        }
+            return {
+                nullable: false,
+                columnScope: ColumnScope.FEATURE,
+                type: "complexType",
+                complexType: {
+                    type: "physicalType",
+                    physicalType: ComplexType.STRUCT,
+                    children: [],
+                },
+            };
         default:
             return mapScalarType(typeCode);
     }
@@ -160,61 +158,62 @@ export function isGeometryColumn(column: Column): boolean {
  * Type codes 10-29 encode scalar types with nullable flag.
  * Even codes are non-nullable, odd codes are nullable.
  */
-function mapScalarType(typeCode: number): Column | null {
-    let scalarType: number | null;
+function mapScalarType(typeCode: number): ColumnWithoutName | null {
+    let physicalType: number;
 
     switch (typeCode) {
         case 10:
         case 11:
-            scalarType = ScalarType.BOOLEAN;
+            physicalType = ScalarType.BOOLEAN;
             break;
         case 12:
         case 13:
-            scalarType = ScalarType.INT_8;
+            physicalType = ScalarType.INT_8;
             break;
         case 14:
         case 15:
-            scalarType = ScalarType.UINT_8;
+            physicalType = ScalarType.UINT_8;
             break;
         case 16:
         case 17:
-            scalarType = ScalarType.INT_32;
+            physicalType = ScalarType.INT_32;
             break;
         case 18:
         case 19:
-            scalarType = ScalarType.UINT_32;
+            physicalType = ScalarType.UINT_32;
             break;
         case 20:
         case 21:
-            scalarType = ScalarType.INT_64;
+            physicalType = ScalarType.INT_64;
             break;
         case 22:
         case 23:
-            scalarType = ScalarType.UINT_64;
+            physicalType = ScalarType.UINT_64;
             break;
         case 24:
         case 25:
-            scalarType = ScalarType.FLOAT;
+            physicalType = ScalarType.FLOAT;
             break;
         case 26:
         case 27:
-            scalarType = ScalarType.DOUBLE;
+            physicalType = ScalarType.DOUBLE;
             break;
         case 28:
         case 29:
-            scalarType = ScalarType.STRING;
+            physicalType = ScalarType.STRING;
             break;
         default:
             return null;
     }
 
-    const column = {} as Column;
-    column.nullable = (typeCode & 1) !== 0;
-    column.columnScope = ColumnScope.FEATURE;
-    const scalarCol = {} as ScalarColumn;
-    scalarCol.type = "physicalType";
-    scalarCol.physicalType = scalarType;
-    column.type = "scalarType";
-    column.scalarType = scalarCol;
-    return column;
+    return {
+        nullable: (typeCode & 1) !== 0,
+        columnScope: ColumnScope.FEATURE,
+        type: "scalarType",
+        scalarType: {
+            longID: false,
+            type: "physicalType",
+            physicalType,
+        },
+    };
 }

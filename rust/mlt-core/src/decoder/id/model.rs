@@ -1,11 +1,15 @@
+use std::ops::Deref;
+
 use crate::decoder::{RawPresence, RawStream};
+use crate::utils::Presence;
+use crate::utils::analyze::AnalyzeViaDeref;
 use crate::{DecodeState, Lazy};
 
 /// ID column representation, parameterized by decode state.
 ///
-/// - `Id<'a>` / `Id<'a, Lazy>` — either raw bytes or decoded, in an [`crate::LazyParsed`] enum.
-/// - `Id<'a, Parsed>` — decoded [`IdValues`] directly (no enum wrapper).
-pub type Id<'a, S = Lazy> = <S as DecodeState>::LazyOrParsed<RawId<'a>, IdValues>;
+/// - `Id<'a>` / `Id<'a, Lazy>` — either raw bytes or decoded, in a [`crate::LazyParsed`] enum.
+/// - `Id<'a, Parsed>` — decoded [`ParsedId`] directly (no enum wrapper).
+pub type Id<'a, S = Lazy> = <S as DecodeState>::LazyOrParsed<RawId<'a>, ParsedId<'a>>;
 
 /// Unparsed ID data as read directly from the tile (borrows from input bytes)
 #[derive(Debug, PartialEq, Clone)]
@@ -21,6 +25,26 @@ pub enum RawIdValue<'a> {
     Id64(RawStream<'a>),
 }
 
-/// Parsed ID values as a vector of optional 64-bit unsigned integers
-#[derive(Clone, Default, PartialEq, Eq)]
-pub struct IdValues(pub Vec<Option<u64>>);
+/// Decoded ID column.
+///
+/// A transparent type over [`Presence<'a, u64>`]. All feature-access methods
+/// (`get`, `feature_count`, `dense_values`, `materialize`, `is_present`) are
+/// available via auto-deref.
+///
+/// The lifetime `'a` allows zero-copy decoding when the inner bitvector borrows
+/// from the source bytes. When the presence stream is RLE-decompressed, the inner
+/// `Cow` becomes owned and no longer borrows from the input.
+// TODO: consider converting ParsedId to an enum with u32 vs u64 for performance
+#[derive(Clone, Debug, PartialEq)]
+pub struct ParsedId<'a>(pub(crate) Presence<'a, u64>);
+
+impl<'a> Deref for ParsedId<'a> {
+    type Target = Presence<'a, u64>;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl AnalyzeViaDeref for ParsedId<'_> {}
