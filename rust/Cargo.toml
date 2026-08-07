@@ -34,7 +34,7 @@ enum_dispatch = "0.3"
 fast-mvt = "0.6.0"
 fastpfor = { version = "0.9", features = ["rust"] }
 flate2 = "1"
-fsst-rs = "0.5"
+fsst-rs = "0.6"
 futures = "0.3"
 geo = { version = "0.33.1", default-features = false }
 geo-types = "0.7.19"
