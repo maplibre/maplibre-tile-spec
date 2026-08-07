@@ -20,6 +20,7 @@ export const ScalarType = {
 export const ComplexType = {
     GEOMETRY: 0,
     STRUCT: 1,
+    MAP: 2,
 } as const;
 
 export const LogicalScalarType = {
