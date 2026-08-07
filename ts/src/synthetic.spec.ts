@@ -1,6 +1,5 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { classifyRings } from "@maplibre/maplibre-gl-style-spec";
 import { GEOMETRY_TYPE } from "./vector/geometry/geometryType";
 import {
     compareWithTolerance,
@@ -12,17 +11,18 @@ import decodeTile from "./mltDecoder";
 import type { Geometry } from "./vector/geometry/geometryVector";
 import type FeatureTable from "./vector/featureTable";
 
-const EARCUT_MAX_RINGS = 500;
-
+/**
+ * Synthetics the decoder cannot handle yet. These still run: `expectUnsupported` asserts they fail,
+ * so an entry that starts decoding correctly fails the test until it is removed from this list.
+ * Prefer fixing the decoder over adding to it.
+ */
 const UNIMPLEMENTED_SYNTHETICS: string[] = [
-    "0x01/poly_multi_morton_hole_morton",
-    "0x01/poly_multi_morton_ring_morton",
-    "0x01/poly_multi_morton_ring_no_morton",
+    // Nested properties are not implemented in the TS decoder.
     "0x02/prop_nested_big",
     "0x02/prop_nested_ints",
     "0x02/prop_nested_json",
-    "0x02/prop_nested_list_root",
     "0x02/prop_nested_list",
+    "0x02/prop_nested_list_root",
     "0x02/prop_nested_mixed_root",
     "0x02/prop_nested_null",
     "0x02/prop_nested_shared",
@@ -91,14 +91,51 @@ function getGeometry(geometry: Geometry): GeoJSON.Geometry {
             return { type: "MultiPoint", coordinates: coords.map((r) => r[0]) };
         case GEOMETRY_TYPE.MULTILINESTRING:
             return { type: "MultiLineString", coordinates: coords };
-        case GEOMETRY_TYPE.MULTIPOLYGON: {
-            const polygons = classifyRings(geometry.coordinates, EARCUT_MAX_RINGS);
-            return {
-                type: "MultiPolygon",
-                coordinates: polygons.map((polygon) => polygon.map((ring) => ring.map((p) => [p.x, p.y]))),
-            };
-        }
+        case GEOMETRY_TYPE.MULTIPOLYGON:
+            return { type: "MultiPolygon", coordinates: classifyRings(coords) };
         default:
             throw new Error(`Unsupported geometry type: ${geometry.type}`);
     }
+}
+
+/**
+ * Splits the flat ring list of a multi-polygon into its polygons by winding order, following the
+ * same rule as `classifyRings` in the style-spec: a ring wound like the current polygon's exterior
+ * starts a new polygon, a ring wound the other way is one of its holes.
+ *
+ * It differs from the style-spec version in how it treats degenerate rings. That one skips any ring
+ * whose signed area is zero, which silently drops rings the decoder returned correctly
+ *
+ * Note that a degenerate exterior has no winding to compare against, so the rings that follow it are
+ * treated as its holes. Grouping is a property of the topology vector (partOffsets), not of the
+ * coordinates, so for such rings this is a convention rather than something the geometry implies.
+ */
+function classifyRings(rings: number[][][]): number[][][][] {
+    const polygons: number[][][][] = [];
+    let polygon: number[][][] | undefined;
+    let exteriorIsCcw: boolean | undefined;
+
+    for (const ring of rings) {
+        const area = signedArea(ring);
+        // A degenerate ring has no winding of its own, so it always starts a new polygon. Rings
+        // following a degenerate exterior have nothing to match against and become its holes.
+        if (!polygon || area === 0 || area < 0 === exteriorIsCcw) {
+            if (polygon) polygons.push(polygon);
+            polygon = [ring];
+            exteriorIsCcw = area === 0 ? undefined : area < 0;
+        } else {
+            polygon.push(ring);
+        }
+    }
+
+    if (polygon) polygons.push(polygon);
+    return polygons;
+}
+
+function signedArea(ring: number[][]): number {
+    let sum = 0;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        sum += (ring[j][0] - ring[i][0]) * (ring[i][1] + ring[j][1]);
+    }
+    return sum;
 }
