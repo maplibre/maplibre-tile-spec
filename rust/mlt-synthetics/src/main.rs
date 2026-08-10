@@ -302,6 +302,11 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .geo(MultiPoint(vec![P1, P2, P3]))
         .write(w, "multipoint");
+    geo_varint()
+        .vertex_buffer_type(VertexBufferType::Morton)
+        .vertex_offsets(E::delta_rle_varint())
+        .geo(MultiPoint(morton_curve().into_iter().map(Point).collect()))
+        .write(w, "multipoint_morton_dictionary-rust");
     // Split the Morton curve at a different place so that the rings are different lengths,
     // use one as the shell and one as the hole of a single and multi-polygon.
     let quarter = mc.len() / 4;

@@ -193,8 +193,10 @@ export function decodeUnsignedInt64AsFloat64Stream(
     data: Uint8Array,
     offset: IntWrapper,
     streamMetadata: StreamMetadata,
+    nullabilityBuffer?: BitVector,
 ): Float64Array {
-    return decodeInt64AsFloat64(data, offset, streamMetadata, false);
+    const values = decodeInt64AsFloat64(data, offset, streamMetadata, false);
+    return nullabilityBuffer ? unpackNullable(values, nullabilityBuffer, 0) : values;
 }
 
 function decodeInt64AsFloat64(
