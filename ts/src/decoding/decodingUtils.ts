@@ -98,6 +98,30 @@ export function decodeDoublesLE(
     return fb;
 }
 
+export function decodeUint32sLE(encodedValues: Uint8Array, pos: IntWrapper, numValues: number): Uint32Array {
+    const currentPos = pos.get();
+    const byteLength = numValues * Uint32Array.BYTES_PER_ELEMENT;
+    const view = new DataView(encodedValues.buffer, encodedValues.byteOffset, encodedValues.byteLength);
+    const values = new Uint32Array(numValues);
+    for (let i = 0; i < numValues; i++) {
+        values[i] = view.getUint32(currentPos + i * Uint32Array.BYTES_PER_ELEMENT, true);
+    }
+    pos.add(byteLength);
+    return values;
+}
+
+export function decodeUint64sLE(encodedValues: Uint8Array, pos: IntWrapper, numValues: number): BigUint64Array {
+    const currentPos = pos.get();
+    const byteLength = numValues * BigUint64Array.BYTES_PER_ELEMENT;
+    const view = new DataView(encodedValues.buffer, encodedValues.byteOffset, encodedValues.byteLength);
+    const values = new BigUint64Array(numValues);
+    for (let i = 0; i < numValues; i++) {
+        values[i] = view.getBigUint64(currentPos + i * BigUint64Array.BYTES_PER_ELEMENT, true);
+    }
+    pos.add(byteLength);
+    return values;
+}
+
 const TEXT_DECODER_MIN_LENGTH = 12;
 const utf8TextDecoder = new TextDecoder();
 

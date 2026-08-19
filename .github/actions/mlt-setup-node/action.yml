@@ -1,14 +1,14 @@
 name: mlt-setup-node
 description: Setup Node-JS requirements
 
-inputs: {}
+inputs: { }
 
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
 
     - name: Setup Node.js
-      uses: actions/setup-node@v5
+      uses: actions/setup-node@v7
       with:
         node-version-file: 'ts/.nvmrc'
         cache: 'npm'

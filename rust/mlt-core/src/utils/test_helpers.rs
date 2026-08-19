@@ -1,9 +1,65 @@
 //! Shared helpers for unit tests, integration tests, and benchmarks.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt::Debug;
 
 use crate::decoder::Layer01;
 use crate::{Decoder, Layer, MltRefResult, Parser, PropValue, TileLayer};
+
+/// Assert that `len`/`size_hint` equal the number of items actually left, at every
+/// position reachable by consuming from the front, the back, or both alternately.
+///
+/// `make` must produce a fresh iterator over `expected` on each call.
+pub fn assert_size_hint_exact<I, T>(make: impl Fn() -> I, expected: &[T])
+where
+    I: ExactSizeIterator<Item = T> + DoubleEndedIterator,
+    T: PartialEq + Debug,
+{
+    fn check<I: ExactSizeIterator>(iter: &I, left: usize) {
+        assert_eq!(iter.len(), left, "len");
+        assert_eq!(iter.size_hint(), (left, Some(left)), "size_hint");
+    }
+
+    let count = expected.len();
+
+    for taken in 0..=count {
+        let mut iter = make();
+        for _ in 0..taken {
+            iter.next().expect("front item");
+        }
+        check(&iter, count - taken);
+        assert_eq!(iter.collect::<Vec<_>>().as_slice(), &expected[taken..]);
+    }
+
+    for taken in 0..=count {
+        let mut iter = make();
+        for _ in 0..taken {
+            iter.next_back().expect("back item");
+        }
+        check(&iter, count - taken);
+        assert_eq!(
+            iter.collect::<Vec<_>>().as_slice(),
+            &expected[..count - taken]
+        );
+    }
+
+    let mut iter = make();
+    let mut left = count;
+    check(&iter, left);
+    while left > 0 {
+        iter.next().expect("front item");
+        left -= 1;
+        check(&iter, left);
+        if left > 0 {
+            iter.next_back().expect("back item");
+            left -= 1;
+            check(&iter, left);
+        }
+    }
+    assert!(iter.next().is_none());
+    assert!(iter.next_back().is_none());
+    check(&iter, 0);
+}
 
 /// Default decoder for decoding in tests.
 #[must_use]

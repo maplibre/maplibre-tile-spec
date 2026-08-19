@@ -28,7 +28,7 @@ public:
     /**
      * Borrow the contents as a byte slice.
      */
-    inline diplomat::span<const uint8_t> as_bytes() const;
+    inline diplomat::span<const uint8_t> as_bytes() const DIPLOMAT_LIFETIME_BOUND;
 
     /**
      * Number of bytes in the buffer.

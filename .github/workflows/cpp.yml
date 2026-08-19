@@ -10,23 +10,20 @@ jobs:
       id-token: write  # for OIDC Codecov
     strategy:
       matrix:
-        os: [macos-15, ubuntu-24.04]
+        os: [ macos-15, ubuntu-24.04 ]
     runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          submodules: recursive
-          fetch-depth: 1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { submodules: recursive, fetch-depth: 1 }
 
-      - uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
+      - uses: taiki-e/install-action@6c6fd71fe4fb72c3697d269963d0e15df8adedad # v2.85.10
         with: { tool: 'just,cargo-binstall' }
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version-file: 'cpp/.nvmrc'
+        with: { node-version-file: 'cpp/.nvmrc' }
 
       - name: install gcovr (macOS)
         if: runner.os == 'macOS'

@@ -87,6 +87,8 @@ public class IntegerDecoder {
               data, streamMetadata.numValues(), streamMetadata.byteLength(), offset);
     } else if (streamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.VARINT) {
       values = DecodingUtils.decodeVarints(data, offset, streamMetadata.numValues());
+    } else if (streamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.NONE) {
+      values = DecodingUtils.decodeIntsLE(data, offset, streamMetadata.numValues());
     } else {
       throw new IllegalArgumentException(
           "Specified physical level technique not yet supported: "
@@ -141,7 +143,18 @@ public class IntegerDecoder {
 
   public static List<Long> decodeLongStream(
       byte[] data, IntWrapper offset, StreamMetadata streamMetadata, boolean isSigned) {
-    var values = DecodingUtils.decodeLongVarints(data, offset, streamMetadata.numValues());
+    long[] values;
+    if (streamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.VARINT) {
+      values = DecodingUtils.decodeLongVarints(data, offset, streamMetadata.numValues());
+    } else if (streamMetadata.physicalLevelTechnique() == PhysicalLevelTechnique.NONE) {
+      values = DecodingUtils.decodeLongsLE(data, offset, streamMetadata.numValues());
+    } else {
+      // FAST_PFOR is 32-bit only, so it is not a valid choice for a 64-bit stream.
+      throw new IllegalArgumentException(
+          "Specified physical level technique not yet supported: "
+              + streamMetadata.physicalLevelTechnique());
+    }
+
     return decodeLongArray(values, streamMetadata, isSigned);
   }
 
