@@ -16,18 +16,7 @@ import type FeatureTable from "./vector/featureTable";
  * so an entry that starts decoding correctly fails the test until it is removed from this list.
  * Prefer fixing the decoder over adding to it.
  */
-const UNIMPLEMENTED_SYNTHETICS: string[] = [
-    // Nested properties are not implemented in the TS decoder.
-    "0x02/prop_nested_big",
-    "0x02/prop_nested_ints",
-    "0x02/prop_nested_json",
-    "0x02/prop_nested_list",
-    "0x02/prop_nested_list_root",
-    "0x02/prop_nested_mixed_root",
-    "0x02/prop_nested_null",
-    "0x02/prop_nested_shared",
-    "0x02/prop_nested_specials",
-];
+const UNIMPLEMENTED_SYNTHETICS: string[] = [];
 
 describe("MLT Decoder - Synthetic tests", () => {
     expect.addEqualityTesters([compareWithTolerance]);
@@ -74,8 +63,20 @@ function featureTablesToFeatureCollection(featureTables: FeatureTable[]): GeoJSO
     return { type: "FeatureCollection", features };
 }
 
-function safeNumber<T>(val: bigint | T): T | number {
-    return typeof val === "bigint" ? Number(val) : val;
+/**
+ * Converts BigInt to Number so the result can be JSON-serialized for comparison.
+ *
+ * Nested property values are maps and lists of arbitrary depth, and 64-bit integers anywhere inside
+ * them decode to BigInt, so the conversion has to recurse. Values too large for a double lose
+ * precision here, which `compareWithTolerance` absorbs.
+ */
+function safeNumber<T>(val: bigint | T): unknown {
+    if (typeof val === "bigint") return Number(val);
+    if (Array.isArray(val)) return val.map(safeNumber);
+    if (val !== null && typeof val === "object") {
+        return Object.fromEntries(Object.entries(val).map(([k, v]) => [k, safeNumber(v)]));
+    }
+    return val;
 }
 
 function getGeometry(geometry: Geometry): GeoJSON.Geometry {

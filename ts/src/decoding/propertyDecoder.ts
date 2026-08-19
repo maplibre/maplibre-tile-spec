@@ -1,5 +1,5 @@
 import type IntWrapper from "./intWrapper";
-import { type Column, type ScalarColumn, ScalarType } from "../metadata/tileset/tilesetMetadata";
+import { type Column, ComplexType, type ScalarColumn, ScalarType } from "../metadata/tileset/tilesetMetadata";
 import type Vector from "../vector/vector";
 import BitVector from "../vector/flat/bitVector";
 import { decodeStreamMetadata, type RleEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
@@ -28,6 +28,7 @@ import {
 import { Int32SequenceVector } from "../vector/sequence/int32SequenceVector";
 import { Int64SequenceVector } from "../vector/sequence/int64SequenceVector";
 import { decodeSharedDictionary, decodeString } from "./stringDecoder";
+import { decodeMapPropertyColumn } from "./mapPropertyDecoder";
 
 export function decodePropertyColumn(
     data: Uint8Array,
@@ -51,6 +52,10 @@ export function decodePropertyColumn(
             columnMetadata.scalarType,
             columnMetadata,
         );
+    }
+
+    if (columnMetadata.complexType?.physicalType === ComplexType.MAP) {
+        return decodeMapPropertyColumn(data, offset, columnMetadata, numStreams);
     }
 
     if (numStreams === 0) {
