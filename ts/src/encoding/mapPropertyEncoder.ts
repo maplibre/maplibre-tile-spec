@@ -19,11 +19,13 @@ export type MapValue = string | number | bigint | boolean | MapValue[] | { [key:
 const INT32_MIN = -(2 ** 31);
 const INT32_MAX = 2 ** 31 - 1;
 const UINT32_MAX = 2 ** 32 - 1;
+const INT64_MAX = 2n ** 63n - 1n;
 
 export interface MapEncodingOptions {
     /**
-     * Route integer values through the unsigned dictionary rather than the signed one.
-     * The encoder cannot tell a signed from an unsigned source type by looking at a JS value.
+     * Route every integer value through the unsigned dictionary rather than the signed one.
+     * The encoder cannot tell a signed from an unsigned source type by looking at a JS value, so by
+     * default only values too large for a signed 64-bit stream go to the unsigned dictionary.
      */
     unsignedIntegers?: boolean;
     /** Encode non-integer numbers as 32-bit floats instead of doubles. */
@@ -47,7 +49,9 @@ interface MapStreams {
 
 interface Dictionaries {
     strings: string[];
-    integers: bigint[];
+    /** Integers written as a signed stream, which the decoder reads ahead of the unsigned one. */
+    signedIntegers: bigint[];
+    unsignedIntegers: bigint[];
     decimals: number[];
     indexByKey: Map<string, number>;
 }
@@ -86,7 +90,7 @@ export function encodeMapPropertyColumn(
 
     const streams: MapStreams = {
         lengthStream: [],
-        dictionaries: collectDictionaries(childColumns),
+        dictionaries: collectDictionaries(childColumns, options),
         presenceBits: [],
         flattenedValues: [],
     };
@@ -103,13 +107,22 @@ export function encodeMapPropertyColumn(
  *
  * This step has no counterpart in the decoder, which reads the dictionaries straight off the wire
  * in `decodeMapStreams`. Indices run across the concatenated dictionaries in the order the decoder
- * reads them — strings, integers, then floating point — offset by the reserved control values.
+ * reads them — strings, signed integers, unsigned integers, then floating point — offset by the
+ * reserved control values.
  */
-function collectDictionaries(childColumns: (MapValue | null)[][]): Dictionaries {
+function collectDictionaries(childColumns: (MapValue | null)[][], options: MapEncodingOptions): Dictionaries {
     const strings: string[] = [];
-    const integers: bigint[] = [];
+    const signedIntegers: bigint[] = [];
+    const unsignedIntegers: bigint[] = [];
     const decimals: number[] = [];
     const seen = new Set<string>();
+
+    // Only a value past the signed maximum needs the unsigned dictionary, so a column mixing
+    // negative values with such a value ends up with one dictionary of each.
+    const collectInteger = (value: bigint): void => {
+        if (options.unsignedIntegers || value > INT64_MAX) unsignedIntegers.push(value);
+        else signedIntegers.push(value);
+    };
 
     const collect = (value: MapValue): void => {
         rejectNestedNull(value);
@@ -131,8 +144,8 @@ function collectDictionaries(childColumns: (MapValue | null)[][]): Dictionaries 
         seen.add(key);
 
         if (typeof value === "string") strings.push(value);
-        else if (typeof value === "bigint") integers.push(value);
-        else if (isIntegral(value)) integers.push(BigInt(value));
+        else if (typeof value === "bigint") collectInteger(value);
+        else if (isIntegral(value)) collectInteger(BigInt(value));
         else decimals.push(value);
     };
 
@@ -146,10 +159,11 @@ function collectDictionaries(childColumns: (MapValue | null)[][]): Dictionaries 
     const indexByKey = new Map<string, number>();
     let index = MapControlValue.COUNT;
     for (const value of strings) indexByKey.set(dictionaryKey(value), index++);
-    for (const value of integers) indexByKey.set(dictionaryKey(value), index++);
+    for (const value of signedIntegers) indexByKey.set(dictionaryKey(value), index++);
+    for (const value of unsignedIntegers) indexByKey.set(dictionaryKey(value), index++);
     for (const value of decimals) indexByKey.set(dictionaryKey(value), index++);
 
-    return { strings, integers, decimals, indexByKey };
+    return { strings, signedIntegers, unsignedIntegers, decimals, indexByKey };
 }
 
 /**
@@ -252,7 +266,7 @@ function encodeMapStreams(streams: MapStreams, options: MapEncodingOptions): { d
     numStreams++;
 
     write(encodeStringDictionary(streams.dictionaries.strings, parts));
-    write(encodeIntegerDictionaries(streams.dictionaries.integers, parts, options));
+    write(encodeIntegerDictionaries(streams.dictionaries, parts));
     write(encodeFloatingPointDictionaries(streams.dictionaries.decimals, parts, options));
     write(encodePresenceStream(streams.presenceBits, parts));
 
@@ -279,26 +293,19 @@ function encodeStringDictionary(strings: string[], parts: Uint8Array[]): Written
 }
 
 /**
- * Writes the integers as one stream, narrow or wide, the counterpart of
- * `decodeIntegerDictionaries`.
+ * Writes the signed dictionary and then the unsigned one, each as a single stream at the narrower
+ * width that fits it, the counterpart of `decodeIntegerDictionaries`. Both are written when the
+ * values need both, which is the order the decoder reads them in.
  */
-function encodeIntegerDictionaries(
-    integers: bigint[],
-    parts: Uint8Array[],
-    options: MapEncodingOptions,
-): WrittenStreams {
+function encodeIntegerDictionaries(dictionaries: Dictionaries, parts: Uint8Array[]): WrittenStreams {
+    const signed = encodeSignedIntegerDictionary(dictionaries.signedIntegers, parts);
+    const unsigned = encodeUnsignedIntegerDictionary(dictionaries.unsignedIntegers, parts);
+    return { mask: signed.mask | unsigned.mask, count: signed.count + unsigned.count };
+}
+
+function encodeSignedIntegerDictionary(integers: bigint[], parts: Uint8Array[]): WrittenStreams {
     if (integers.length === 0) {
         return { mask: 0, count: 0 };
-    }
-
-    if (options.unsignedIntegers) {
-        const wide = integers.some((value) => value > BigInt(UINT32_MAX));
-        parts.push(
-            wide
-                ? encodeUint64Column(BigUint64Array.from(integers))
-                : encodeUint32Column(Uint32Array.from(integers, Number)),
-        );
-        return { mask: wide ? MapMask.UINT64 : MapMask.UINT32, count: 1 };
     }
 
     const wide = integers.some((value) => value < BigInt(INT32_MIN) || value > BigInt(INT32_MAX));
@@ -308,6 +315,18 @@ function encodeIntegerDictionaries(
             : encodeInt32NoneColumn(Int32Array.from(integers, Number)),
     );
     return { mask: wide ? MapMask.INT64 : MapMask.INT32, count: 1 };
+}
+
+function encodeUnsignedIntegerDictionary(integers: bigint[], parts: Uint8Array[]): WrittenStreams {
+    if (integers.length === 0) {
+        return { mask: 0, count: 0 };
+    }
+
+    const wide = integers.some((value) => value > BigInt(UINT32_MAX));
+    parts.push(
+        wide ? encodeUint64Column(BigUint64Array.from(integers)) : encodeUint32Column(Uint32Array.from(integers, Number)),
+    );
+    return { mask: wide ? MapMask.UINT64 : MapMask.UINT32, count: 1 };
 }
 
 /** The counterpart of `decodeFloatingPointDictionaries`. */

@@ -292,6 +292,76 @@ describe("encodeTile - ids and properties", () => {
     });
 });
 
+describe("encodeTile - nested properties", () => {
+    const point: FeatureGeometry = { type: "Point", coordinates: [0, 0] };
+
+    it("round-trips a map", () => {
+        const decoded = roundTrip([{ geometry: point, properties: { nested: { a: "b", c: 1 } } }]);
+        expect(decoded[0].properties.nested).toEqual({ a: "b", c: 1 });
+    });
+
+    it("round-trips a list", () => {
+        const decoded = roundTrip([{ geometry: point, properties: { nested: ["a", 1, true] } }]);
+        expect(decoded[0].properties.nested).toEqual(["a", 1, true]);
+    });
+
+    it("round-trips maps and lists nested in each other", () => {
+        const value = { a: [1, { b: ["c", { d: 2.5 }] }] };
+        const decoded = roundTrip([{ geometry: point, properties: { nested: value } }]);
+        expect(decoded[0].properties.nested).toEqual(value);
+    });
+
+    it("takes a scalar as a whole feature value, so root shapes can differ per feature", () => {
+        const decoded = roundTrip([
+            { geometry: point, properties: { nested: "a" } },
+            { geometry: point, properties: { nested: { b: "c" } } },
+            { geometry: point, properties: { nested: ["d"] } },
+        ]);
+        expect(decoded.map((feature) => feature.properties.nested)).toEqual(["a", { b: "c" }, ["d"]]);
+    });
+
+    it("omits a nested property that is absent for a feature", () => {
+        const decoded = roundTrip([{ geometry: point, properties: { nested: { a: "b" } } }, { geometry: point }]);
+        expect(decoded[0].properties.nested).toEqual({ a: "b" });
+        expect(decoded[1].properties.nested).toBeUndefined();
+    });
+
+    it("keeps an empty map apart from an absent value", () => {
+        const decoded = roundTrip([{ geometry: point, properties: { nested: {} } }, { geometry: point }]);
+        expect(decoded[0].properties.nested).toEqual({});
+        expect(decoded[1].properties.nested).toBeUndefined();
+    });
+
+    it("writes a signed and an unsigned dictionary when the values need both", () => {
+        const decoded = roundTrip([{ geometry: point, properties: { nested: [-2, 2n ** 63n] } }]);
+        expect(decoded[0].properties.nested).toEqual([-2, 2n ** 63n]);
+    });
+
+    it("writes single-precision floats when asked to", () => {
+        const decoded = roundTrip([{ geometry: point, properties: { nested: [1.5, -2.25] } }], {
+            mapOptions: { singlePrecisionFloats: true },
+        });
+        expect(decoded[0].properties.nested).toEqual([1.5, -2.25]);
+    });
+
+    it("keeps a column nested when the type is pinned, so its features may differ in type", () => {
+        const decoded = roundTrip(
+            [
+                { geometry: point, properties: { mixed: "a" } },
+                { geometry: point, properties: { mixed: 1 } },
+            ],
+            { propertyTypes: { mixed: "map" } },
+        );
+        expect(decoded.map((feature) => feature.properties.mixed)).toEqual(["a", 1]);
+    });
+
+    it("rejects a null nested inside a value, which the format cannot express", () => {
+        expect(() =>
+            encodeTile([{ name: "layer", features: [{ geometry: point, properties: { nested: { a: null } } }] }]),
+        ).toThrow(/Nested null values cannot be encoded/);
+    });
+});
+
 describe("encodeTile - tiles and layers", () => {
     it("encodes several layers into one tile", () => {
         const point: FeatureGeometry = { type: "Point", coordinates: [1, 1] };

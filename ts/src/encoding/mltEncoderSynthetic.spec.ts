@@ -10,18 +10,7 @@ import { encodeTile, type Feature, type FeatureGeometry, type Layer, type Proper
  * Fixtures that cannot survive this round trip. Each is checked below to still *fail*, so an entry
  * that starts working fails the suite until it is removed from this list.
  */
-const UNSUPPORTED: string[] = [
-    // Nested (MAP) property columns, which neither this encoder nor the decoder supports yet.
-    "0x02/prop_nested_big",
-    "0x02/prop_nested_ints",
-    "0x02/prop_nested_json",
-    "0x02/prop_nested_list",
-    "0x02/prop_nested_list_root",
-    "0x02/prop_nested_mixed_root",
-    "0x02/prop_nested_null",
-    "0x02/prop_nested_shared",
-    "0x02/prop_nested_specials",
-];
+const UNSUPPORTED: string[] = [];
 
 /**
  * Decodes each synthetic `.mlt`, re-encodes what came out, and checks the result still decodes to

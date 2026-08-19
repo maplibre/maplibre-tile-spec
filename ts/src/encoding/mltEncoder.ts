@@ -8,9 +8,10 @@ import { createStream } from "../decoding/decodingTestUtils";
 import IntWrapper from "../decoding/intWrapper";
 import { concatenateBuffers } from "./encodingUtils";
 import { encodeVarintInt32, encodeVarintInt32Value, encodeZigZagInt32 } from "./integerEncodingUtils";
-import { encodeFieldName, encodeTypeCode, scalarTypeCode } from "./embeddedTilesetMetadataEncoder";
+import { encodeChildCount, encodeFieldName, encodeTypeCode, scalarTypeCode } from "./embeddedTilesetMetadataEncoder";
 import { ColumnTypeCode } from "../metadata/tileset/typeMap";
 import { encodePlainStrings } from "./stringEncoder";
+import { encodeMapPropertyColumn, type MapEncodingOptions, type MapValue } from "./mapPropertyEncoder";
 import {
     encodeBooleanColumn,
     encodeBooleanNullableColumn,
@@ -43,7 +44,11 @@ export type FeatureGeometry =
     | { type: "Polygon"; coordinates: Position[][] }
     | { type: "MultiPolygon"; coordinates: Position[][][] };
 
-export type PropertyValue = string | number | bigint | boolean | null;
+/**
+ * A property value. Maps and lists of arbitrary depth are allowed and go out as a nested (MAP)
+ * column; `null` means the property is absent for that feature.
+ */
+export type PropertyValue = MapValue | null;
 
 export interface Feature {
     id?: number | bigint;
@@ -61,12 +66,18 @@ export interface Layer {
 /**
  * The physical type a property column is written as. Inferred per column when not given, which is
  * all the synthetic cases need; pass it explicitly to pin a width the values alone do not imply.
+ *
+ * `map` is the nested column, which holds maps, lists and scalars of any shape. It is inferred for
+ * any column holding a map or a list, and can be pinned to keep a column nested even when the
+ * values it happens to hold are all scalars.
  */
-export type PropertyType = "boolean" | "int32" | "int64" | "uint64" | "float" | "double" | "string";
+export type PropertyType = "boolean" | "int32" | "int64" | "uint64" | "float" | "double" | "string" | "map";
 
 export interface EncodeOptions {
     /** Physical type per property name, for columns whose values do not imply one. */
     propertyTypes?: Record<string, PropertyType>;
+    /** Dictionary widths for nested columns, which the values alone do not always imply. */
+    mapOptions?: MapEncodingOptions;
 }
 
 const INT32_MIN = -(2 ** 31);
@@ -83,6 +94,9 @@ const TAG = 1;
  * no dictionaries, no RLE, no FastPFOR or FSST, no morton-coded or dictionary-encoded vertices and
  * no pre-tessellation. The result is larger than what the Java or Rust encoders produce but is
  * built only from the stream encoders already in this package, and decodes to the same features.
+ *
+ * Nested (MAP) columns are the one exception: the format stores them as dictionaries of scalars and
+ * a stream of tokens, so there is no plainer form to write them in.
  */
 export function encodeTile(layers: Layer[], options: EncodeOptions = {}): Uint8Array {
     return concatenateBuffers(...layers.map((layer) => encodeLayer(layer, options)));
@@ -109,8 +123,15 @@ function encodeLayer(layer: Layer, options: EncodeOptions): Uint8Array {
     for (const name of propertyNames) {
         const values = layer.features.map((feature) => feature.properties?.[name] ?? null);
         const type = options.propertyTypes?.[name] ?? inferPropertyType(name, values);
-        const nullable = values.some((value) => value === null);
 
+        if (type === "map") {
+            const { data, numStreams } = encodeMapPropertyColumn([values], options.mapOptions);
+            metadata.push(encodeTypeCode(ColumnTypeCode.MAP), encodeFieldName(name), encodeChildCount(0));
+            columns.push(concatenateBuffers(encodeVarintValue(numStreams), data));
+            continue;
+        }
+
+        const nullable = values.some((value) => value === null);
         metadata.push(encodeTypeCode(scalarTypeCode(scalarTypeOf(type), nullable)), encodeFieldName(name));
         columns.push(encodePropertyColumn(type, values, nullable));
     }
@@ -141,6 +162,9 @@ function collectPropertyNames(features: Feature[]): string[] {
 function inferPropertyType(name: string, values: PropertyValue[]): PropertyType {
     const present = values.filter((value) => value !== null);
     if (present.length === 0) return "string";
+    // One map or list anywhere in the column makes the whole column nested. The nested encoding also
+    // takes plain scalars, so the features whose value is a scalar still fit.
+    if (present.some((value) => typeof value === "object")) return "map";
     if (present.every((value) => typeof value === "boolean")) return "boolean";
     if (present.every((value) => typeof value === "string")) return "string";
     if (present.every((value) => typeof value === "bigint")) {
@@ -154,7 +178,7 @@ function inferPropertyType(name: string, values: PropertyValue[]): PropertyType 
     throw new Error(`Property "${name}" mixes value types, so no single column type fits it`);
 }
 
-function scalarTypeOf(type: PropertyType): number {
+function scalarTypeOf(type: Exclude<PropertyType, "map">): number {
     switch (type) {
         case "boolean":
             return ScalarType.BOOLEAN;
@@ -197,7 +221,12 @@ function encodeIdColumn(features: Feature[]): { typeCode: number; data: Uint8Arr
     return { typeCode: ColumnTypeCode.ID, data: encodeUint32Column(Uint32Array.from(ids, (id) => Number(id ?? 0))) };
 }
 
-function encodePropertyColumn(type: PropertyType, values: PropertyValue[], nullable: boolean): Uint8Array {
+/** Writes one non-nested column. Nested columns go through {@link encodeMapPropertyColumn}. */
+function encodePropertyColumn(
+    type: Exclude<PropertyType, "map">,
+    values: PropertyValue[],
+    nullable: boolean,
+): Uint8Array {
     if (type === "string") {
         const strings = values.map((value) => (value === null ? null : String(value)));
         // The decoder is told how many streams the column holds; plain strings use a length and a
