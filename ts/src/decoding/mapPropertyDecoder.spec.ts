@@ -204,7 +204,14 @@ describe("map property column - absent values", () => {
     });
 
     it("tracks presence per child column", () => {
-        const [one, two] = roundTripVectors([[{ b: "c" }, null], [null, "d"]], {}, ["one", "two"]);
+        const [one, two] = roundTripVectors(
+            [
+                [{ b: "c" }, null],
+                [null, "d"],
+            ],
+            {},
+            ["one", "two"],
+        );
 
         expect([one.has(0), one.has(1)]).toEqual([true, false]);
         expect([two.has(0), two.has(1)]).toEqual([false, true]);
