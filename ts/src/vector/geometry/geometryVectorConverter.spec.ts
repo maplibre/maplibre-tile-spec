@@ -72,7 +72,7 @@ describe("POINT – Morton dictionary encoded", () => {
     it("decodes a point with a non-zero coordinateShift", () => {
         const x = 50;
         const y = 80;
-        const settings: MortonSettings = { numBits: 16, coordinateShift: 100 } as MortonSettings;
+        const settings: MortonSettings = { numBits: 16, coordinateShift: 100 };
         const code = encodeZOrderCurve(x, y, settings.numBits, settings.coordinateShift);
 
         const gv = new ConstGeometryVector(
@@ -131,7 +131,7 @@ describe("MULTIPOINT – VEC_2 dictionary encoded", () => {
 
 describe("MULTIPOINT - Morton dictionary encoded", () => {
     it("decodes points across geometries via their Morton dictionary offsets", () => {
-        const settings: MortonSettings = { numBits: 4, coordinateShift: 0 } as MortonSettings;
+        const settings: MortonSettings = { numBits: 4, coordinateShift: 0 };
         const gv = new ConstGeometryVector(
             2,
             GEOMETRY_TYPE.MULTIPOINT,
