@@ -23,7 +23,8 @@ pub use id::ParsedId;
 // pub (not pub(crate)) so __private module can re-export it
 pub(crate) use id::{Id, RawId, RawIdValue};
 pub use iterators::{
-    ColumnRef, FeatureRef, Layer01FeatureIter, LendingIterator, PropName, PropValueRef,
+    ColNames, ColumnRef, FeatureRef, Layer01FeatureIter, LendingIterator, PropName, PropNamesIter,
+    PropValueRef,
 };
 pub(crate) use model::Column;
 pub use model::{

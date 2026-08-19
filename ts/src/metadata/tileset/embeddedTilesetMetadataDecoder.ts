@@ -5,8 +5,8 @@ import { ColumnTypeCode, columnTypeHasChildren, columnTypeHasName, decodeColumnT
 
 const textDecoder = new TextDecoder();
 
-const SUPPORTED_COLUMN_TYPES = "0-3(ID), 4(GEOMETRY), 10-29(scalars), 30(STRUCT)";
-const SUPPORTED_FIELD_TYPES = "10-29(scalars), 30(STRUCT)";
+const SUPPORTED_COLUMN_TYPES = "0-3(ID), 4(GEOMETRY), 10-29(scalars), 30(STRUCT), 31(MAP)";
+const SUPPORTED_FIELD_TYPES = "10-29(scalars), 30(STRUCT), 31(MAP)";
 
 /**
  * Decodes a length-prefixed UTF-8 string.
@@ -87,7 +87,6 @@ function decodeColumn(src: Uint8Array, offset: IntWrapper): Column {
     const column: Column = { ...base, name };
 
     if (column.type === "complexType" && columnTypeHasChildren(typeCode)) {
-        // Only STRUCT (typeCode 30) has children
         const childCount = decodeVarintInt32(src, offset, 1)[0] >>> 0;
         const complexCol = column.complexType;
         complexCol.children = new Array(childCount);

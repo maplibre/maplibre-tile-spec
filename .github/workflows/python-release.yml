@@ -201,11 +201,11 @@ jobs:
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v3.1.0-node20
       - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with: { subject-path: 'wheels-*/*' }
       - name: Install uv
         if: ${{ startsWith(github.ref, 'refs/tags/') }}
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       - name: Publish to PyPI
         if: ${{ startsWith(github.ref, 'refs/tags/') }}
         run: uv publish 'wheels-*/*'

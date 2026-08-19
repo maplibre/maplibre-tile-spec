@@ -23,9 +23,10 @@ export function featureTablesToFeatureCollection(featureTables: FeatureTable[]):
                     ...Object.fromEntries(Object.entries(feature.properties).map(([k, v]) => [k, safeNumber(v)])),
                 },
             };
-            const safeId = safeNumber(feature.id);
-            if (safeId !== null && safeId !== undefined) {
-                geojsonFeature.id = safeId;
+            // Ids are always numeric, so they convert directly rather than through `safeNumber`,
+            // whose nested-value return type GeoJSON's id does not accept.
+            if (feature.id !== undefined) {
+                geojsonFeature.id = Number(feature.id);
             }
             features.push(geojsonFeature);
         }
@@ -57,7 +58,18 @@ export function getGeometry(geometry: Geometry): GeoJSON.Geometry {
     }
 }
 
-/** 64-bit values decode to BigInt, which JSON cannot serialise for comparison. */
-function safeNumber<T>(val: bigint | T): T | number {
-    return typeof val === "bigint" ? Number(val) : val;
+/**
+ * Converts BigInt to Number so the result can be JSON-serialized for comparison.
+ *
+ * Nested property values are maps and lists of arbitrary depth, and 64-bit integers anywhere inside
+ * them decode to BigInt, so the conversion has to recurse. Values too large for a double lose
+ * precision here, which `compareWithTolerance` absorbs.
+ */
+function safeNumber<T>(val: bigint | T): unknown {
+    if (typeof val === "bigint") return Number(val);
+    if (Array.isArray(val)) return val.map(safeNumber);
+    if (val !== null && typeof val === "object") {
+        return Object.fromEntries(Object.entries(val).map(([k, v]) => [k, safeNumber(v)]));
+    }
+    return val;
 }

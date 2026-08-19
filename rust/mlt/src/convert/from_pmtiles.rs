@@ -38,13 +38,12 @@ pub async fn convert(
     }
 }
 
-/// An mmap-backed reader over a local `.pmtiles` file. A [`HashMapCache`] keeps
-/// decoded leaf directories resident, so converting many tiles doesn't re-walk
-/// and re-decompress the same directories on every `get_tile`.
+/// Mmap-backed reader over a local `.pmtiles` file.
+/// The [`HashMapCache`] avoids re-decoding leaf directories on every `get_tile`.
 type PmReader = AsyncPmTilesReader<MmapBackend, HashMapCache>;
 
-/// Map a `PMTiles` tile compression to the [`Encoding`] that `encode_one`
-/// understands. `PMTiles` has no zlib/deflate variant.
+/// Maps `PMTiles` tile compression to the [`Encoding`] used by `encode_tile`.
+/// `PMTiles` has no zlib/deflate variant.
 fn compression_to_encoding(compression: Compression) -> AnyResult<Encoding> {
     match compression {
         Compression::None => Ok(Encoding::Uncompressed),
@@ -109,16 +108,11 @@ async fn collect_pmtiles_ids(reader: &Arc<PmReader>) -> AnyResult<Vec<TileId>> {
     Ok(ids)
 }
 
-/// How many tiles may be in flight (read, encoding, or buffered awaiting
-/// in-order emission) per CPU. Bounds memory on huge archives while keeping
-/// every core fed. Tile encode times vary by orders of magnitude (a dense city
-/// tile vs. an empty ocean tile), so a deep window is needed to keep all cores
-/// busy while a few slow tiles are in flight ahead of in-order emission.
+/// Max in-flight tiles per CPU, bounding memory while keeping every core fed.
+/// Encode time varies wildly per tile, so the window must be deep to hide stragglers.
 const PIPELINE_DEPTH_PER_CORE: usize = 32;
 
-/// How often to emit a plain-text progress line when the live bar is hidden
-/// (non-terminal stderr). Large enough to stay quiet in logs, small enough to
-/// give a useful ETA on multi-hour runs.
+/// How often to log progress when the live bar is hidden (non-terminal stderr).
 const PROGRESS_LOG_EVERY: u64 = 5_000_000;
 
 /// Emit one plain-text progress line (used when the live bar is hidden).
@@ -132,17 +126,11 @@ fn log_progress_line(done: u64, total: u64, elapsed: std::time::Duration) {
     eprintln!("  {done}/{total} tiles ({rate:.0}/s, eta {eta_min:.0} min)");
 }
 
-/// Re-encode every tile MVT → MLT, deduplicating through `cache`, and deliver
-/// the results **in ascending tile-id order** so a [`PmTilesWriter`] can keep
-/// the archive clustered and run-length encoded.
-///
-/// The work runs on cooperating threads, none of which is the caller's async
-/// runtime: a reader walks the (already ascending) `ids` and pulls raw MVT off
-/// the mmap; a pool of `parallelism` worker threads drains those (via a
-/// lock-free MPMC channel) and encodes in parallel; and an emitter reorders the
-/// unordered encode results back into id order. A pool of `cap` permits flows
-/// backpressure from the consumer all the way to the reader, so at most `cap`
-/// tiles are ever resident.
+/// Re-encodes every tile MVT → MLT and emits results in ascending tile-id order,
+/// so [`PmTilesWriter`] keeps the archive clustered and run-length encoded.
+/// Three thread roles: a reader pulls raw MVT off the mmap, a worker pool encodes
+/// in parallel via a lock-free MPMC channel, and an emitter reorders results back
+/// into id order. A `cap`-sized permit pool backpressures the reader.
 fn spawn_encode_pipeline(
     reader: Arc<PmReader>,
     ids: Vec<TileId>,
@@ -158,22 +146,19 @@ fn spawn_encode_pipeline(
     let (out_tx, out_rx) = tokio::sync::mpsc::channel(parallelism);
 
     thread::spawn(move || {
-        // `cap` permits cap how far the reader runs ahead of in-order emission.
+        // Permits cap how far the reader can run ahead of in-order emission.
         let (tok_tx, tok_rx) = mpsc::channel::<()>();
         for _ in 0..cap {
             tok_tx.send(()).expect("permit receiver alive");
         }
-        // Raw tiles: reader → encoder worker pool. A lock-free MPMC channel lets
-        // every worker pull independently; `par_bridge` instead funnels all
-        // pulls through one mutex, which caps useful parallelism well below the
-        // core count once per-tile encode work is non-trivial.
+        // Raw tiles: reader → encoder pool, via a lock-free MPMC channel.
+        // (`par_bridge` funnels pulls through one mutex, capping parallelism.)
         let (raw_tx, raw_rx) = crossbeam_channel::unbounded::<(usize, TileCoord, Bytes)>();
         // Encoded tiles: encoders → the in-order emitter (this thread).
         let (res_tx, res_rx) = mpsc::channel::<AnyResult<(usize, EncodedTile)>>();
 
-        // Reader: one sequential pass over the ascending ids. A permit is taken
-        // only for tiles that exist, so `seq` stays gap-free and skipped ids
-        // never stall the emitter.
+        // Reader: one sequential pass over ascending ids.
+        // Permits are taken only for tiles that exist, so `seq` stays gap-free.
         let reader_thread = {
             let res_tx = res_tx.clone();
             thread::spawn(move || {
@@ -213,8 +198,7 @@ fn spawn_encode_pipeline(
             })
         };
 
-        // Encoders: a fixed pool of `parallelism` workers, each draining raw
-        // tiles from the shared MPMC channel and deduping the small ones.
+        // Encoders: `parallelism` workers draining the shared MPMC channel.
         let encoder_threads: Vec<_> = (0..parallelism)
             .map(|_| {
                 let raw_rx = raw_rx.clone();
@@ -244,12 +228,10 @@ fn spawn_encode_pipeline(
             .collect();
         // Only the workers' clones should keep the raw channel open.
         drop(raw_rx);
-        // Drop the engine's own sender so `res_rx` closes once the reader and
-        // every encoder worker have dropped their clones.
+        // Drop our sender so `res_rx` closes once reader and workers finish.
         drop(res_tx);
 
-        // Emitter: reorder by `seq` and forward in ascending order, returning a
-        // permit for every tile sent on so the reader can advance.
+        // Emitter: reorders by `seq`, forwards in order, returns a permit per tile sent.
         let mut next = 0usize;
         let mut buffer: BTreeMap<usize, EncodedTile> = BTreeMap::new();
         for msg in res_rx {
@@ -309,9 +291,7 @@ async fn convert_pmtiles_to_pmtiles(
 
     let mut tiles = spawn_encode_pipeline(reader, ids, encoding, cfg, make_encode_cache());
     let mut stats = TileStats::default();
-    // When stderr isn't a terminal (e.g. output redirected to a log) the bar
-    // renders nothing, so emit a periodic plain-text progress line instead —
-    // long full-planet runs to a log file still need a visible ETA.
+    // The bar renders nothing when stderr isn't a terminal, so log progress periodically instead.
     let log_progress = bar.is_hidden();
     let mut done: u64 = 0;
     // Tiles arrive in ascending id order, so the writer stays clustered.

@@ -59,7 +59,7 @@ export default function decodeTile(
         }
 
         const tag = decodeVarintInt32(tile, offset, 1)[0] >>> 0;
-        if (tag !== 1) {
+        if (tag !== 1 && tag !== 2) {
             // Skip unknown block types
             offset.set(blockEnd);
             continue;
@@ -207,7 +207,7 @@ function decodeIdColumn(
     switch (vectorType) {
         case VectorType.FLAT: {
             if (idWithinMaxSafeInteger) {
-                const id = decodeUnsignedInt64AsFloat64Stream(tile, offset, idDataStreamMetadata);
+                const id = decodeUnsignedInt64AsFloat64Stream(tile, offset, idDataStreamMetadata, nullabilityBuffer);
                 return new DoubleFlatVector(columnName, id, sizeOrNullabilityBuffer);
             }
             const id = decodeUnsignedInt64Stream(tile, offset, idDataStreamMetadata, nullabilityBuffer);

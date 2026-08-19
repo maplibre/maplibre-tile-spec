@@ -7,7 +7,6 @@ use crate::encoder::{EncoderConfig, StagedId, StagedProperty, StagedSharedDict, 
 
 impl Arbitrary<'_> for EncoderConfig {
     fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
-        // Each optimization toggle is fuzzed independently via the public builder.
         Ok(Self::default()
             .with_tessellation(u.arbitrary()?)
             .with_spatial_morton_sort(u.arbitrary()?)

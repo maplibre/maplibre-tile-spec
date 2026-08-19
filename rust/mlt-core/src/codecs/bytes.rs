@@ -21,17 +21,12 @@ pub fn encode_bools_to_bytes(
 }
 
 /// A physical word type a stream can be decoded into (`u32` or `u64`).
-///
-/// Encapsulates the small per-width differences between the physical decode
-/// paths: how one little-endian word is read from bytes, and whether `FastPFOR`
-/// (which is `u32`-only) is supported. This is the decoder-side mirror of the
-/// encoder's `PhysicalIntStreamKind`.
+/// Decoder-side mirror of the encoder's `PhysicalIntStreamKind`.
 pub trait PhysicalWord: Copy + Sized + VarInt {
     /// Read one little-endian word from exactly `size_of::<Self>()` bytes.
     fn from_le_word(bytes: &[u8]) -> Self;
 
     /// Physically decode a `FastPFOR`-compressed stream into `Vec<Self>`.
-    ///
     /// `FastPFOR` only supports `u32`; the `u64` implementation returns an error.
     fn decode_fastpfor(data: &[u8], num_values: u32, dec: &mut Decoder) -> MltResult<Vec<Self>>;
 }
@@ -58,9 +53,7 @@ impl PhysicalWord for u64 {
     }
 }
 
-/// Decode a slice of bytes into a `Vec<T>` of little-endian words, charging `dec`
-/// for the output allocation.
-///
+/// Decode a slice of bytes into a `Vec<T>` of little-endian words, charging `dec` for the allocation.
 /// Returns the remaining (unconsumed) input alongside the decoded values.
 /// TODO: ensure the entire input is consumed, and don't return it?
 pub fn decode_bytes_to_words<'a, T: PhysicalWord>(

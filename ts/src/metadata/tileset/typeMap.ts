@@ -23,6 +23,7 @@ export const ColumnTypeCode = {
     /** Scalar properties are `SCALAR_BASE + scalarType * 2 + (nullable ? 1 : 0)`. */
     SCALAR_BASE: 10,
     STRUCT: 30,
+    MAP: 31,
 } as const;
 
 /**
@@ -84,6 +85,19 @@ export function decodeColumnType(typeCode: number): ColumnWithoutName | null {
                     children: [],
                 },
             };
+        case ColumnTypeCode.MAP:
+            // MAP (nested properties, always nullable, may carry children when the
+            // dictionaries are shared between sibling columns)
+            return {
+                nullable: true,
+                columnScope: ColumnScope.FEATURE,
+                type: "complexType",
+                complexType: {
+                    type: "physicalType",
+                    physicalType: ComplexType.MAP,
+                    children: [],
+                },
+            };
         default:
             return mapScalarType(typeCode);
     }
@@ -100,10 +114,10 @@ export function columnTypeHasName(typeCode: number): boolean {
 
 /**
  * Returns true if this type code has child fields.
- * Only STRUCT (typeCode 30) has children.
+ * STRUCT (typeCode 30) and MAP (typeCode 31) have children.
  */
 export function columnTypeHasChildren(typeCode: number): boolean {
-    return typeCode === ColumnTypeCode.STRUCT;
+    return typeCode === ColumnTypeCode.STRUCT || typeCode === ColumnTypeCode.MAP;
 }
 
 /**
@@ -144,6 +158,7 @@ export function hasStreamCount(column: Column): boolean {
             switch (physicalType) {
                 case ComplexType.GEOMETRY:
                 case ComplexType.STRUCT:
+                case ComplexType.MAP:
                     return true;
                 default:
                     return false;
