@@ -73,7 +73,6 @@ impl<'a> Walker<'a> {
         self.out[idx].len = self.off(after) - start;
     }
 
-    /// Record a leaf metadata region for the span `before..after`.
     fn leaf(&mut self, before: &'a [u8], after: &'a [u8], label: String, value: Option<String>) {
         self.out.push(Region {
             offset: self.off(before),
@@ -138,8 +137,6 @@ impl<'a> Walker<'a> {
             blob: None,
         });
     }
-
-    // ── Tile / layer framing ────────────────────────────────────────────────
 
     fn walk_tile(&mut self) -> MltResult<()> {
         let mut input = self.buf;
@@ -217,8 +214,6 @@ impl<'a> Walker<'a> {
         }
         Ok(())
     }
-
-    // ── Column schema ─────────────────────────────────────────────────────────
 
     /// Mirror `parse_columns_meta`: `column_count` column definitions.
     fn walk_schema(
@@ -310,8 +305,6 @@ impl<'a> Walker<'a> {
             },
         ))
     }
-
-    // ── Column data ─────────────────────────────────────────────────────────
 
     fn walk_column_data(
         &mut self,
@@ -497,8 +490,6 @@ impl<'a> Walker<'a> {
         Ok(input)
     }
 
-    // ── Stream header + payload ───────────────────────────────────────────────
-
     /// Walk one stream: the annotated header (via the authoritative
     /// [`StreamMeta::from_bytes`]) followed by the payload blob.
     fn walk_stream(
@@ -594,7 +585,6 @@ impl<'a> Walker<'a> {
             return Err(MltError::NotImplemented("stream header re-walk desync"));
         }
 
-        // Payload blob.
         let (rest, _payload) = take(after_hdr, byte_length)?;
         self.out.push(Region {
             offset: self.off(after_hdr),

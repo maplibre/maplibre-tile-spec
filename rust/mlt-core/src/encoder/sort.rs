@@ -71,11 +71,9 @@ impl TileLayer {
         }
     }
 
-    /// Compute Hilbert/Morton `CurveParams` for this layer.
-    ///
-    /// The bounds are order-invariant, so the optimizer calls this once per
-    /// layer and reuses the result across every sort trial and the encoder's
-    /// dictionary builders.
+    /// Hilbert/Morton `CurveParams` for this layer.
+    /// Bounds are order-invariant, so the optimizer computes this once per layer
+    /// and reuses it across every sort trial and the encoder's dictionary builders.
     #[hotpath::measure]
     #[must_use]
     pub fn curve_params(&self) -> CurveParams {

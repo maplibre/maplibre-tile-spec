@@ -14,7 +14,6 @@ macro_rules! validate_stream {
     };
 }
 
-// re-export useful libs
 pub use fast_mvt;
 pub use geo_types;
 

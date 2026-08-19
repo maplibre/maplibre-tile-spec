@@ -132,11 +132,8 @@ fn minhash_similarity(a: &[u64], b: &[u64]) -> f64 {
     matches as f64 / a.len() as f64
 }
 
-/// Check whether a proposed shared-dictionary group has enough cross-column
-/// value deduplication to justify the combined dictionary.
-///
-/// Groups below [`VALIDATE_CORPUS_THRESHOLD`] are always kept. Larger groups
-/// must achieve at least [`MIN_DEDUP_RATIO`] dedup savings.
+/// Whether a shared-dictionary group has enough cross-column value dedup to justify combining.
+/// Groups below [`VALIDATE_CORPUS_THRESHOLD`] are always kept; larger ones need [`MIN_DEDUP_RATIO`] savings.
 #[allow(clippy::cast_precision_loss)]
 fn group_is_beneficial(group: &[StringProfile<'_>]) -> bool {
     let sum_individual: usize = group

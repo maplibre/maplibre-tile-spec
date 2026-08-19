@@ -64,7 +64,6 @@ pub struct BlobInfo {
 pub struct Region {
     /// Absolute byte offset into the tile buffer.
     pub offset: usize,
-    /// Byte length of this region.
     pub len: usize,
     /// Nesting depth, for indentation.
     pub depth: usize,
@@ -83,7 +82,6 @@ pub struct Region {
 
 /// The full annotation of a tile: a flat, depth-tagged region list.
 pub struct DumpTree {
-    /// Total length of the annotated buffer.
     pub buf_len: usize,
     /// Regions in pre-order (containers before their children).
     pub regions: Vec<Region>,

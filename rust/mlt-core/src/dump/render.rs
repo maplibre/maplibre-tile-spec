@@ -324,8 +324,6 @@ fn emit_bytes(
     Ok(())
 }
 
-// ── Minimal ANSI coloring ────────────────────────────────────────────────────
-
 #[derive(Clone, Copy)]
 enum Paint {
     Label,

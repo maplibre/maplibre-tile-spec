@@ -5,9 +5,8 @@
 //! Coordinates must be integer-valued and 2D.
 //!
 //! The Python mapping is deserialized once into [`mlt_core::geojson::FeatureCollection`].
-//! That type parses coordinates as `[i32; 2]` arrays, so non-integer or 3D coordinates,
-//! null geometry, and out-of-range / non-integer feature ids are all rejected during
-//! deserialization. Emptiness and non-scalar property values are checked here.
+//! Coordinates are parsed as `[i32; 2]`, rejecting non-integer/3D coordinates, null geometry, and bad feature ids.
+//! Emptiness and non-scalar property values are checked separately, here.
 
 use std::collections::HashMap;
 
@@ -29,7 +28,9 @@ use super::shared::{encoder_config, val_err};
 /// Geometry is in tile-local coordinate space (no projection).
 ///
 /// `tessellate` generates triangulation data for polygons and multi-polygons.
-/// `sort` chooses which feature ordering(s) the encoder trials: `all` tries all orderings, `auto` tries a subset with a good speed-size tradeoff, a named curve (`morton`/`hilbert`/`id`) tries just that one, and `none` keeps the input order.
+/// `sort` chooses which feature ordering(s) the encoder trials.
+/// `all` tries every ordering; `auto` tries a subset with a good speed/size tradeoff.
+/// A named curve (`morton`/`hilbert`/`id`) tries just that one; `none` keeps input order.
 /// `shared_dict` allows grouping strings into shared dictionaries.
 /// `fsst` allows FSST string compression.
 /// `fastpfor` allows FastPFOR integer compression.
@@ -73,7 +74,7 @@ pub fn encode_geojson(
 
     let tile = build_layer(fc, name, extent)?;
     let cfg = encoder_config(tessellate, sort, shared_dict, fsst, fastpfor)?;
-    // Release the GIL for the pure-Rust encode. The steps above read Python input and keep it.
+    // The steps above read Python input, so they keep the GIL; release it for the pure-Rust encode.
     let bytes = py
         .detach(|| tile.encode(cfg))
         .map_err(|e| val_err(format!("MLT encode error: {e}")))?;
@@ -121,8 +122,8 @@ enum ColKind {
 }
 
 impl ColKind {
-    /// Classify a scalar property value. `Ok(None)` is a JSON null (typed null);
-    /// nested arrays/objects are rejected.
+    /// Classifies a scalar property value.
+    /// `Ok(None)` is a JSON null (typed null); nested arrays/objects are rejected.
     fn of(key: &str, v: &Value) -> PyResult<Option<Self>> {
         Ok(match v {
             Value::Null => None,
@@ -178,7 +179,7 @@ impl ColKind {
     }
 }
 
-/// Validate geometries, reject nested property values, and infer one type per column.
+/// Validates geometries, rejects nested property values, and infers one type per column.
 /// Column order follows first appearance across features.
 fn build_layer(fc: FeatureCollection, name: String, extent: u32) -> PyResult<TileLayer> {
     let mut names: Vec<String> = Vec::new();
