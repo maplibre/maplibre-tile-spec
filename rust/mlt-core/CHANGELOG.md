@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.5](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.4...rust-mlt-core-v0.12.5) - 2026-08-19
+
+### Added
+
+- *(rust)* show MLT as hexdump ([#1521](https://github.com/maplibre/maplibre-tile-spec/pull/1521))
+
+### Other
+
+- *(rust)* implement FusedIterator, ExactSizeIterator and DoubleEndedIterator for the decoder iterators ([#1546](https://github.com/maplibre/maplibre-tile-spec/pull/1546))
+- *(rust)* speed up MVT-to-MLT ~30% by not calling fast-mvt's to_tile() ([#1545](https://github.com/maplibre/maplibre-tile-spec/pull/1545))
+
 ## [0.12.4](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.3...rust-mlt-core-v0.12.4) - 2026-07-18
 
 ### Fixed
