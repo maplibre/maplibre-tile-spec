@@ -73,8 +73,6 @@ fn unknown_zero_length_body() {
 
 #[test]
 fn multiple_layers_mixed_unknown_and_tag01() {
-    // Build two unknown layers back-to-back.
-    // so use tags 10 and 11 for these "unknown" tests.
     let mut raw = unknown_layer_bytes(10, b"hello");
     raw.extend_from_slice(&unknown_layer_bytes(11, b"world"));
 

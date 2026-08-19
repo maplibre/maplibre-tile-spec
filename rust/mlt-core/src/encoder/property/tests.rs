@@ -167,7 +167,6 @@ fn encode_and_tile(props: Vec<StagedProperty>) -> TileLayer {
     encode_and_tile_explicit(props, ExplicitEncoder::all(IntEncoder::varint()))
 }
 
-/// Encode and decode with explicit encoder config.
 fn encode_and_tile_explicit(props: Vec<StagedProperty>, cfg: ExplicitEncoder) -> TileLayer {
     let bytes = encode_to_bytes_explicit(props, cfg);
     let (_, layer) = Layer::from_bytes(&bytes, &mut parser()).expect("layer parse failed");

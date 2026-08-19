@@ -292,7 +292,7 @@ mod tests {
         }
     }
 
-    /// Minimal hand-written MVT
+    /// Minimal hand-written MVT tile with one point feature carrying `tags`.
     fn mvt_with_tags(tags: &[u32]) -> Vec<u8> {
         fn field(number: u32, wire: u32) -> u8 {
             u8::try_from((number << 3) | wire).expect("small field number")

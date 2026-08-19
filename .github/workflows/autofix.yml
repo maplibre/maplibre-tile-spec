@@ -20,7 +20,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
+      - uses: taiki-e/install-action@82cd3e7658a6f96c86c0234aeeda1748937cb0a1 # v2.85.13
         with: { tool: 'just' }
       - uses: ./.github/actions/mlt-setup-node
       - name: Format TypeScript
@@ -42,7 +42,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
+      - uses: taiki-e/install-action@82cd3e7658a6f96c86c0234aeeda1748937cb0a1 # v2.85.13
         with: { tool: 'just,cargo-sort' }
       - name: Format Cargo.toml
         run: just rust::fmt-toml
@@ -63,7 +63,7 @@ jobs:
         with: { persist-credentials: false }
       - name: Setup Rust
         run: rustup update stable && rustup default stable
-      - uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
+      - uses: taiki-e/install-action@82cd3e7658a6f96c86c0234aeeda1748937cb0a1 # v2.85.13
         with: { tool: 'just' }
       - run: sudo apt update && sudo apt install -y jq
       - name: Sync package.json version from Cargo.toml
@@ -90,7 +90,7 @@ jobs:
         with: { persist-credentials: false }
       - name: Setup Rust
         run: rustup update stable && rustup default stable
-      - uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
+      - uses: taiki-e/install-action@82cd3e7658a6f96c86c0234aeeda1748937cb0a1 # v2.85.13
         with: { tool: 'just,cargo-binstall' }
       - run: sudo apt-get update && sudo apt-get install -y clang-format
       - name: Install ktlint
@@ -103,7 +103,7 @@ jobs:
 
       # run pre-commit as a formatting tiebreaker
       - name: Install uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       - run: uvx pre-commit run --all-files
         continue-on-error: true
 
@@ -121,7 +121,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
+      - uses: taiki-e/install-action@82cd3e7658a6f96c86c0234aeeda1748937cb0a1 # v2.85.13
         with: { tool: 'just' }
       - uses: ./.github/actions/mlt-setup-rust
       - name: Regenerate stub
@@ -129,7 +129,7 @@ jobs:
 
       # run pre-commit as a formatting tiebreaker
       - name: Install uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       - run: uvx pre-commit run --all-files
         continue-on-error: true
 
@@ -163,7 +163,7 @@ jobs:
         run: rustup update stable && rustup default stable
 
       - name: Install just
-        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
+        uses: taiki-e/install-action@82cd3e7658a6f96c86c0234aeeda1748937cb0a1 # v2.85.13
         with: { tool: 'just,cargo-binstall' }
 
       - name: Setup Node.js
@@ -174,7 +174,7 @@ jobs:
 
       # run pre-commit as a formatting tiebreaker
       - name: Install uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       - run: uvx pre-commit run --all-files
         continue-on-error: true
 

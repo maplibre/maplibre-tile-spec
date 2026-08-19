@@ -20,8 +20,9 @@ import org.maplibre.mlt.decoder.MltDecoder;
 import org.maplibre.mlt.json.Json;
 
 public class SyntheticsTest {
-  private static final Set<Path> UNIMPLEMENTED_SYNTHETICS =
-      Set.of(Path.of("../../test/synthetic/0x01-rust/prop_u32_plain_np.mlt"));
+  /// Synthetics the Java decoder cannot yet decode. They are still executed, asserting that
+  /// decoding fails, so that implementing support trips this test rather than going unnoticed.
+  private static final Set<Path> UNIMPLEMENTED_SYNTHETICS = Set.of();
 
   @Test
   public void checkSynthetics() throws IOException {

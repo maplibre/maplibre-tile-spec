@@ -251,6 +251,30 @@ public class DecodingUtils {
     return values;
   }
 
+  /// Read fixed-width little-endian ints, i.e. PhysicalLevelTechnique.NONE.
+  public static int[] decodeIntsLE(byte[] encodedValues, IntWrapper pos, int numValues) {
+    var ib =
+        ByteBuffer.wrap(encodedValues, pos.get(), numValues * Integer.BYTES)
+            .order(ByteOrder.LITTLE_ENDIAN)
+            .asIntBuffer();
+    pos.set(pos.get() + numValues * Integer.BYTES);
+    var decodedValues = new int[ib.limit()];
+    ib.get(decodedValues);
+    return decodedValues;
+  }
+
+  /// Read fixed-width little-endian longs, i.e. PhysicalLevelTechnique.NONE.
+  public static long[] decodeLongsLE(byte[] encodedValues, IntWrapper pos, int numValues) {
+    var lb =
+        ByteBuffer.wrap(encodedValues, pos.get(), numValues * Long.BYTES)
+            .order(ByteOrder.LITTLE_ENDIAN)
+            .asLongBuffer();
+    pos.set(pos.get() + numValues * Long.BYTES);
+    var decodedValues = new long[lb.limit()];
+    lb.get(decodedValues);
+    return decodedValues;
+  }
+
   public static float[] decodeFloatsLE(byte[] encodedValues, IntWrapper pos, int numValues) {
     var fb =
         ByteBuffer.wrap(encodedValues, pos.get(), numValues * Float.BYTES)
