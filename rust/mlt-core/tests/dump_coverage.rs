@@ -26,8 +26,14 @@ fn check([path]: [&Path; 1]) {
                 path.display()
             )
         }
-        // Malformed → the walker may error too; it must never panic (reaching here proves it didn't).
-        (false, _) => {}
+        // Malformed → the walker must error too; it must never panic (reaching here proves it didn't).
+        (false, Err(_)) => {}
+        (false, Ok(_)) => {
+            panic!(
+                "{}: parser failed but annotate_tile succeeded",
+                path.display()
+            )
+        }
     }
 }
 
