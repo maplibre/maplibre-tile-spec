@@ -38,12 +38,12 @@ function createMapColumnMetadata(name: string, childNames: string[] = []): Colum
     };
 }
 
-/** Encodes the columns, decodes them again, and returns the per-feature values of each column. */
-function roundTrip(
+/** Encodes the columns and decodes them again, returning one vector per column. */
+function roundTripVectors(
     childColumns: (MapValue | null)[][],
     options: MapEncodingOptions = {},
     childNames: string[] = [],
-): unknown[][] {
+): Vector[] {
     const { data, numStreams } = encodeMapPropertyColumn(childColumns, options);
     const columnMetadata = createMapColumnMetadata("a", childNames);
     const offset = new IntWrapper(0);
@@ -55,7 +55,19 @@ function roundTrip(
         expect(vector).toBeInstanceOf(ObjectFlatVector);
     }
 
-    return vectors.map((vector) => Array.from({ length: childColumns[0].length }, (_, i) => vector.getValue(i)));
+    return vectors;
+}
+
+/** Encodes the columns, decodes them again, and returns the per-feature values of each column. */
+function roundTrip(
+    childColumns: (MapValue | null)[][],
+    options: MapEncodingOptions = {},
+    childNames: string[] = [],
+): unknown[][] {
+    const featureCount = childColumns[0].length;
+    return roundTripVectors(childColumns, options, childNames).map((vector) =>
+        Array.from({ length: featureCount }, (_, i) => vector.getValue(i)),
+    );
 }
 
 describe("map property column - root values", () => {
@@ -147,6 +159,14 @@ describe("map property column - value types", () => {
         expect(roundTrip([[{ a: "1", b: 1 }]])).toEqual([[{ a: "1", b: 1 }]]);
     });
 
+    it("keeps a __proto__ key as an entry instead of reassigning the prototype", () => {
+        // A computed key, so the literal stores an own property rather than setting the prototype.
+        const [[decoded]] = roundTrip([[{ ["__proto__"]: "c" }]]);
+
+        expect(Object.getPrototypeOf(decoded)).toBeNull();
+        expect(Object.getOwnPropertyDescriptor(decoded as object, "__proto__")?.value).toBe("c");
+    });
+
     it("reuses one dictionary entry for a value repeated across features", () => {
         const { data } = encodeMapPropertyColumn([[{ a: "shared" }, { b: "shared" }]]);
         const occurrences = Buffer.from(data).toString("latin1").split("shared").length - 1;
@@ -165,6 +185,30 @@ describe("map property column - absent values", () => {
 
     it("distinguishes an absent value from an empty map", () => {
         expect(roundTrip([[null, {}]])).toEqual([[null, {}]]);
+    });
+
+    it("reports an absent property as missing", () => {
+        const [vector] = roundTripVectors([[{ b: "c" }, null]]);
+
+        expect(vector.has(0)).toBe(true);
+        expect(vector.getValue(0)).toEqual({ b: "c" });
+        expect(vector.has(1)).toBe(false);
+        expect(vector.getValue(1)).toBeNull();
+    });
+
+    it("reports every feature as present when the column carries no presence stream", () => {
+        const [vector] = roundTripVectors([[{ b: "c" }, "d"]]);
+
+        expect(vector.has(0)).toBe(true);
+        expect(vector.has(1)).toBe(true);
+    });
+
+    it("tracks presence per child column", () => {
+        const [one, two] = roundTripVectors([[{ b: "c" }, null], [null, "d"]], {}, ["one", "two"]);
+
+        expect([one.has(0), one.has(1)]).toEqual([true, false]);
+        expect([two.has(0), two.has(1)]).toEqual([false, true]);
+        expect([two.getValue(0), two.getValue(1)]).toEqual([null, "d"]);
     });
 });
 

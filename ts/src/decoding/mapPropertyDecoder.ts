@@ -63,7 +63,7 @@ export function decodeMapPropertyColumn(
 
     for (let childIndex = 0; childIndex < columnNames.length; childIndex++) {
         const child = decodeChildColumn(streams, childIndex, featureCount, countsCursor, valuesCursor);
-        vectors.push(new ObjectFlatVector(columnNames[childIndex], child.value));
+        vectors.push(new ObjectFlatVector(columnNames[childIndex], child.value, child.nullabilityBuffer));
         countsCursor = child.countsEnd;
         valuesCursor = child.valuesEnd;
     }
@@ -218,15 +218,20 @@ function decodeChildColumn(
     featureCount: number,
     countsCursor: number,
     valuesCursor: number,
-): { value: MapValue[]; countsEnd: number; valuesEnd: number } {
+): { value: MapValue[]; nullabilityBuffer?: BitVector; countsEnd: number; valuesEnd: number } {
     const { lengthStream, flattenedValues, presentStream, dictionary } = streams;
     const presentOffset = childIndex * featureCount;
 
     let presentInChild = featureCount;
+    let nullabilityBuffer: BitVector | undefined;
     if (presentStream) {
+        nullabilityBuffer = new BitVector(new Uint8Array(Math.ceil(featureCount / 8)), featureCount);
         presentInChild = 0;
         for (let i = 0; i < featureCount; i++) {
-            if (presentStream.get(presentOffset + i)) presentInChild++;
+            if (presentStream.get(presentOffset + i)) {
+                nullabilityBuffer.set(i, true);
+                presentInChild++;
+            }
         }
     }
 
@@ -262,7 +267,7 @@ function decodeChildColumn(
         throw new Error("Unused flattened map values remain after decode");
     }
 
-    return { value, countsEnd, valuesEnd };
+    return { value, nullabilityBuffer, countsEnd, valuesEnd };
 }
 
 /**
@@ -287,7 +292,9 @@ function decodeMapEntries(
     endIndex: number,
     dictionary: MapValue[],
 ): Decoded<Record<string, MapValue>> {
-    const value: Record<string, MapValue> = {};
+    // Keys come off the wire, so the object is created without a prototype: a `__proto__` key would
+    // otherwise reassign the prototype instead of being stored as an entry.
+    const value: Record<string, MapValue> = Object.create(null);
     let index = startIndex;
 
     while (index < endIndex) {
