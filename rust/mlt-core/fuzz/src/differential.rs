@@ -7,9 +7,9 @@ use mlt_core::encoder::{Codecs, Encoder, EncoderConfig, StagedLayer};
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::{Decoder, Parser};
 
-/// An arbitrary tile and encoder config, encoded by Rust and decoded by both
-/// decoders. The Rust decoder and the C++ `mlt-cpp-json` tool must agree on the
-/// [`FeatureCollection`] JSON.
+/// An arbitrary tile and encoder config.
+/// Encoded once by Rust, then decoded by both the Rust decoder and the C++ `mlt-cpp-json` tool.
+/// Both must agree on the resulting [`FeatureCollection`] JSON.
 #[derive(arbitrary::Arbitrary)]
 pub struct DifferentialInput {
     pub layer: StagedLayer,
@@ -18,8 +18,6 @@ pub struct DifferentialInput {
 
 impl DifferentialInput {
     pub fn fuzz(self) {
-        // Encode the arbitrary layer to MLT bytes with the fuzzed encoder
-        // config. These bytes are the shared input fed to both decoders.
         let mut codecs = Codecs::default();
         let buffer = self
             .layer
@@ -30,9 +28,7 @@ impl DifferentialInput {
 
         let rust_json = rust_decode(&buffer);
 
-        // A C++ decode failure (unsupported technique, thrown exception) is not
-        // a mismatch. Skip these inputs and only flag genuine disagreements
-        // between the two decoders' output.
+        // A C++ decode failure (unsupported technique, thrown exception) is not a mismatch.
         let Some(cpp_json) = cpp_decode(&buffer) else {
             return;
         };
@@ -53,8 +49,7 @@ impl DifferentialInput {
     }
 }
 
-/// Decode MLT bytes with the Rust decoder to `FeatureCollection` JSON.
-/// The format matches the output of `mlt-cpp-json`.
+/// Decode MLT bytes to `FeatureCollection` JSON, in the same format as `mlt-cpp-json`.
 fn rust_decode(buffer: &[u8]) -> String {
     let layers = Parser::default()
         .parse_layers(buffer)
@@ -67,8 +62,7 @@ fn rust_decode(buffer: &[u8]) -> String {
 }
 
 /// Decode MLT bytes with the C++ `mlt-cpp-json` tool.
-/// Returns `None` when the tool exits non-zero, which covers decode errors and
-/// thrown exceptions.
+/// Returns `None` if the tool exits non-zero (decode error or thrown exception).
 fn cpp_decode(buffer: &[u8]) -> Option<String> {
     let path = temp_tile_path();
     std::fs::write(path, buffer).expect("write temp tile");
@@ -97,23 +91,16 @@ fn cpp_json_bin() -> &'static str {
     })
 }
 
-/// A per-process temp file the C++ tool reads from.
-/// `mlt-cpp-json` only accepts a file path.
-/// Each input is written here and overwrites the previous one.
+/// Per-process temp file for `mlt-cpp-json`, which only accepts a file path.
+/// Overwritten on every call.
 fn temp_tile_path() -> &'static PathBuf {
     static PATH: OnceLock<PathBuf> = OnceLock::new();
     PATH.get_or_init(|| std::env::temp_dir().join(format!("mlt-diff-{}.mlt", std::process::id())))
 }
 
-/// Compares two JSON values structurally.
-/// Numbers are compared by value, so `0` and `0.0` count as equal.
-/// This stops the two JSON libraries' integer-vs-float formatting from
-/// reading as a difference.
-///
-/// Geometry coordinates are compared at `f32` precision because the C++ decoder
-/// stores coordinates as 32-bit `float` by design. Comparing them at `f64`
-/// would flag every coordinate above 2^24 as a difference and mask all other
-/// divergences. Properties and extent are still compared exactly.
+/// Compares two JSON values structurally, tolerating integer-vs-float formatting differences.
+/// Coordinates are compared at `f32` precision, since the C++ decoder stores them as `float`.
+/// Everything else is compared exactly.
 fn json_eq(a: &serde_json::Value, b: &serde_json::Value) -> bool {
     json_eq_inner(a, b, false)
 }

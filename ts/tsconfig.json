@@ -16,7 +16,8 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "types": [
-      "node"
+      "node",
+      "geojson"
     ]
   },
   "include": [

@@ -59,7 +59,7 @@ export default function decodeTile(
         }
 
         const tag = decodeVarintInt32(tile, offset, 1)[0] >>> 0;
-        if (tag !== 1) {
+        if (tag !== 1 && tag !== 2) {
             // Skip unknown block types
             offset.set(blockEnd);
             continue;

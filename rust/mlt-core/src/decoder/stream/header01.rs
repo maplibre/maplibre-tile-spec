@@ -79,14 +79,9 @@ impl StreamType {
 }
 
 impl StreamMeta {
-    /// Parse stream from the input
+    /// Parse stream metadata and byte length from the input.
     ///
-    /// If `is_bool` is true, compute RLE parameters for boolean streams
-    /// automatically instead of reading them from the input.
-    ///
-    /// Returns the stream metadata and the size of the stream in bytes.
-    /// Reserves an upper-bound estimate of decoded bytes (`num_values * 8`) on the parser
-    /// for all stream types. RLE uses `num_rle_values * 8` since that is the actual expanded count.
+    /// If `is_bool`, RLE parameters are derived instead of read, since bool streams omit them.
     pub(crate) fn from_bytes<'a>(
         input: &'a [u8],
         is_bool: bool,
@@ -106,7 +101,7 @@ impl StreamMeta {
         let mut input = input;
         let logical_encoding = match (logical1, logical2) {
             (LT::None | LT::Delta | LT::ComponentwiseDelta | LT::PseudoDecimal, LT::None) => {
-                // Reserve decoded memory upper bound: worst case u64 = 8 bytes per value
+                // Worst case is u64 per value, 8 bytes.
                 let decoded_bytes = num_values.saturating_mul(8);
                 parser.reserve(decoded_bytes)?;
                 match logical1 {
@@ -126,7 +121,7 @@ impl StreamMeta {
                     (input, runs) = parse_varint::<u32>(input)?;
                     (input, num_rle_values) = parse_varint::<u32>(input)?;
                 }
-                // Reserve decoded memory (worst case: u64 = 8 bytes per value)
+                // Worst case is u64 per value, 8 bytes.
                 let decoded_bytes = num_rle_values.saturating_mul(8);
                 parser.reserve(decoded_bytes)?;
                 let rle = RleMeta {
@@ -140,7 +135,7 @@ impl StreamMeta {
                 }
             }
             (LT::Morton, LT::None | LT::Rle | LT::Delta) => {
-                // Reserve decoded memory upper bound: worst case u64 = 8 bytes per value
+                // Worst case is u64 per value, 8 bytes.
                 let decoded_bytes = num_values.saturating_mul(8);
                 parser.reserve(decoded_bytes)?;
                 let bits;
@@ -195,7 +190,6 @@ impl StreamMeta {
         writer.write_varint(self.num_values)?;
         writer.write_varint(byte_length)?;
 
-        // some encoding have settings inside them
         match self.encoding.logical {
             LE::DeltaRle(r) | LE::Rle(r) => {
                 if !is_bool {
@@ -236,10 +230,7 @@ impl<'a> RawStream<'a> {
         Self::from_bytes_internal(input, true, parser)
     }
 
-    /// Parse stream from the input
-    /// If `is_bool` is true, compute RLE parameters for boolean streams
-    /// automatically instead of reading them from the input.
-    /// For RLE streams with `VarInt` data, validates that run lengths sum to `num_rle_values`.
+    // For RLE + VarInt, validates that run lengths sum to `num_rle_values`.
     fn from_bytes_internal(
         input: &'a [u8],
         is_bool: bool,
@@ -251,7 +242,6 @@ impl<'a> RawStream<'a> {
         let (input, (meta, byte_length)) = StreamMeta::from_bytes(input, is_bool, parser)?;
         let (input, data) = take(input, byte_length)?;
 
-        // For RLE with VarInt physical encoding, validate stream: run lengths must sum to num_rle_values
         if let LE::Rle(r) | LE::DeltaRle(r) = meta.encoding.logical
             && matches!(meta.encoding.physical, PD::VarInt)
             && !is_bool
