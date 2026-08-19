@@ -1,7 +1,7 @@
 import type IntWrapper from "../../decoding/intWrapper";
 import { decodeVarintInt32 } from "../../decoding/integerDecodingUtils";
 import type { Column, FeatureTableSchema, Field, TileSetMetadata } from "./tilesetMetadata";
-import { columnTypeHasChildren, columnTypeHasName, decodeColumnType } from "./typeMap";
+import { ColumnTypeCode, columnTypeHasChildren, columnTypeHasName, decodeColumnType } from "./typeMap";
 
 const textDecoder = new TextDecoder();
 
@@ -42,7 +42,7 @@ function columnToField(column: Column): Field {
 export function decodeField(src: Uint8Array, offset: IntWrapper): Field {
     const typeCode = decodeVarintInt32(src, offset, 1)[0] >>> 0;
 
-    const base = typeCode >= 10 ? decodeColumnType(typeCode) : null;
+    const base = typeCode >= ColumnTypeCode.SCALAR_BASE ? decodeColumnType(typeCode) : null;
     if (!base) {
         throw new Error(`Unsupported field type code ${typeCode}. Supported: ${SUPPORTED_FIELD_TYPES}`);
     }
@@ -76,9 +76,9 @@ function decodeColumn(src: Uint8Array, offset: IntWrapper): Column {
     let name: string;
     if (columnTypeHasName(typeCode)) {
         name = decodeString(src, offset);
-    } else if (typeCode <= 3) {
+    } else if (typeCode < ColumnTypeCode.GEOMETRY) {
         name = "id";
-    } else if (typeCode === 4) {
+    } else if (typeCode === ColumnTypeCode.GEOMETRY) {
         name = "geometry";
     } else {
         throw new Error(`Unsupported column type code ${typeCode}. Supported: ${SUPPORTED_COLUMN_TYPES}`);

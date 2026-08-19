@@ -142,6 +142,15 @@ describe("map property column - value types", () => {
         expect(roundTrip([[values]], { unsignedIntegers: true })).toEqual([[values]]);
     });
 
+    it("writes both integer dictionaries when neither alone holds every value", () => {
+        expect(roundTrip([[[-1, 2n ** 63n]]])).toEqual([[[-1, 2n ** 63n]]]);
+    });
+
+    it("picks each integer dictionary's width on its own", () => {
+        const values: MapValue = [-(2n ** 40n), 2n ** 63n];
+        expect(roundTrip([[values]])).toEqual([[values]]);
+    });
+
     it("round-trips doubles", () => {
         expect(roundTrip([[[1.5, -2.25, 1e300]]])).toEqual([[[1.5, -2.25, 1e300]]]);
     });
