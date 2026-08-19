@@ -7,9 +7,11 @@ mod id;
 mod iterators;
 mod layer;
 mod model;
+#[cfg(feature = "unstable-v2")]
 mod model02;
 mod property;
 mod root;
+#[cfg(feature = "unstable-v2")]
 mod root02;
 pub(crate) mod stream;
 mod tile;
@@ -33,6 +35,7 @@ pub use model::{
     ColumnType, Extent, Layer, Layer01, ParsedLayer, ParsedLayer01, PropKind, PropValue,
     PropertyKey, TileFeature, TileFeatureBuilder, TileLayer, TileLayerBuilder, Unknown,
 };
+#[cfg(feature = "unstable-v2")]
 pub(crate) use model02::{ColumnType02, GeoLayout};
 // Re-export strings sub-module so encoder can use `crate::decoder::strings::*`
 pub(crate) use property::strings;

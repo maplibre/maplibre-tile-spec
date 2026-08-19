@@ -39,6 +39,7 @@ required-features = ["__private"]
 [features]
 default = []
 arbitrary = ["dep:arbitrary", "geo-types/arbitrary"]
+unstable-v2 = []
 # Used internally for testing and benchmarking, not intended for public use
 __private = []
 
@@ -96,3 +97,7 @@ required-features = ["__private"]
 [[test]]
 name = "snapshots"
 required-features = ["__private"]
+
+[[test]]
+name = "tag02_roundtrip"
+required-features = ["unstable-v2"]

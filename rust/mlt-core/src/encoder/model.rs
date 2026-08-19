@@ -178,9 +178,11 @@ pub enum WireVersion {
     #[default]
     V01,
     /// Tag `0x02` — the experimental v2 format (see `docs/migrating-to-v2.md`).
+    /// Requires the `unstable-v2` feature.
     ///
     /// Currently limited to ID, scalar, and non-tessellated geometry columns;
     /// string and shared-dictionary columns are not yet supported.
+    #[cfg(feature = "unstable-v2")]
     V02,
 }
 
@@ -190,6 +192,7 @@ impl WireVersion {
     pub(crate) fn tag(self) -> u8 {
         match self {
             Self::V01 => 1,
+            #[cfg(feature = "unstable-v2")]
             Self::V02 => 2,
         }
     }
@@ -199,6 +202,7 @@ impl WireVersion {
     pub(crate) fn rle_layout(self) -> RleLayout {
         match self {
             Self::V01 => RleLayout::Split,
+            #[cfg(feature = "unstable-v2")]
             Self::V02 => RleLayout::Interleaved,
         }
     }

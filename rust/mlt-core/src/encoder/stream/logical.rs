@@ -30,6 +30,7 @@ pub(crate) fn apply_rle<T: PrimInt + Debug>(
                 num_rle_values,
             }
         }
+        #[cfg(feature = "unstable-v2")]
         RleLayout::Interleaved => {
             target.reserve(runs_vec.len().saturating_mul(2));
             for (&run, &val) in runs_vec.iter().zip(&vals_vec) {

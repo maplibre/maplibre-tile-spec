@@ -60,6 +60,7 @@ pub enum MltError {
     ParsingColumnType(u8),
     #[error("error parsing v2 stream encoding byte: 0x{0:02X}")]
     ParsingEncodingByte(u8),
+    #[cfg(feature = "unstable-v2")]
     #[error("error parsing v2 geometry layout: code={0}")]
     ParsingGeoLayout(u8),
     #[error("error parsing logical technique: code={0}")]

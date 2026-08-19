@@ -82,7 +82,9 @@ pub fn assert_empty<T>(result: MltRefResult<T>) -> T {
 #[must_use]
 pub fn into_layer01(layer: Layer) -> Layer01 {
     match layer {
-        Layer::Tag01(v) | Layer::Tag02(v) => v,
+        Layer::Tag01(v) => v,
+        #[cfg(feature = "unstable-v2")]
+        Layer::Tag02(v) => v,
         Layer::Unknown(v) => panic!("expected Tag01/Tag02 layer, got Tag{:02x}", v.tag),
     }
 }

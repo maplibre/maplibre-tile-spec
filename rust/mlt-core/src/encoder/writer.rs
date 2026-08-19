@@ -127,6 +127,7 @@ pub struct Encoder {
     ///
     /// Read by the v2 stream-header codec to decide whether an explicit count
     /// varint must be emitted; ignored entirely for v1 layers.
+    #[cfg(feature = "unstable-v2")]
     pub(crate) count_context: u32,
 
     // -----------------------------------------------------------------------
@@ -186,6 +187,7 @@ impl Encoder {
             morton_cache: None,
             hilbert_cache: None,
             fsst_cache: HashMap::new(),
+            #[cfg(feature = "unstable-v2")]
             count_context: 0,
             alt_stack: vec![],
         }
@@ -272,6 +274,7 @@ impl Encoder {
     ///
     /// Unlike v1, `column_count` is not part of the header — it precedes the
     /// counted columns in the data section, after the geometry section.
+    #[cfg(feature = "unstable-v2")]
     pub(crate) fn write_header02(
         &mut self,
         name: &str,

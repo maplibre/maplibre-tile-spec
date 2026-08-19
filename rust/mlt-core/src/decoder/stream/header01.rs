@@ -24,7 +24,9 @@ use std::io;
 use integer_encoding::VarIntWriter as _;
 use usize_cast::IntoUsize as _;
 
-use crate::MltError::{ParsingStreamType, UnsupportedLogicalEncoding};
+use crate::MltError::ParsingStreamType;
+#[cfg(feature = "unstable-v2")]
+use crate::MltError::UnsupportedLogicalEncoding;
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
     DictionaryType, IntEncoding, LengthType, LogicalEncoding, LogicalTechnique, Morton, OffsetType,
@@ -208,6 +210,7 @@ pub(crate) fn write_stream_meta<W: io::Write>(
                 writer.write_varint(num_rle_values)?;
             }
         }
+        #[cfg(feature = "unstable-v2")]
         LE::DeltaRle(RleMeta::Interleaved { .. }) | LE::Rle(RleMeta::Interleaved { .. }) => {
             return Err(UnsupportedLogicalEncoding(
                 meta.encoding.logical,
@@ -381,6 +384,7 @@ mod tests {
         assert_eq!(stream.data, payload);
     }
 
+    #[cfg(feature = "unstable-v2")]
     #[rstest]
     #[case::rle(true)]
     #[case::delta_rle(false)]

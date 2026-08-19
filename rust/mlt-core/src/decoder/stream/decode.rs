@@ -8,7 +8,9 @@ use usize_cast::IntoUsize as _;
 use crate::codecs::bytes::{PhysicalWord, decode_bytes_to_bools, decode_bytes_to_words};
 use crate::codecs::rle::decode_byte_rle;
 use crate::codecs::varint::{parse_varint_vec, parse_varint_vec_all};
-use crate::decoder::{LogicalEncoding, LogicalValue, PhysicalEncoding, RawStream, RleMeta};
+use crate::decoder::{LogicalEncoding, LogicalValue, PhysicalEncoding, RawStream};
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::RleMeta;
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
 use crate::{Decoder, MltError, MltResult};
 
@@ -266,10 +268,18 @@ impl LogicalEncoding {
     /// Whether the physical word count is unknown up front and the payload is
     /// scanned to its end: v2 interleaved-RLE stores no run count on the wire, and
     /// `num_values` holds the *decoded* count instead of the encoded word count.
+    #[cfg(feature = "unstable-v2")]
     fn scans_to_end(self) -> bool {
         matches!(
             self,
             Self::Rle(RleMeta::Interleaved { .. }) | Self::DeltaRle(RleMeta::Interleaved { .. })
         )
+    }
+
+    /// Without `unstable-v2`, no logical encoding ever scans to end: v1's RLE
+    /// always carries an explicit run count.
+    #[cfg(not(feature = "unstable-v2"))]
+    fn scans_to_end(self) -> bool {
+        false
     }
 }

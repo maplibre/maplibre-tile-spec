@@ -19,6 +19,7 @@ impl RleMeta {
                 runs,
                 num_rle_values,
             } => Self::decode_split(runs, num_rle_values, data, dec),
+            #[cfg(feature = "unstable-v2")]
             Self::Interleaved { num_rle_values } => {
                 Self::decode_interleaved(num_rle_values, data, dec)
             }
@@ -55,6 +56,7 @@ impl RleMeta {
 
     /// Tag `0x02` layout: `(run_len, value)` pairs. The run count is derived from
     /// the data length; `num_rle_values` comes from the stream's count context.
+    #[cfg(feature = "unstable-v2")]
     fn decode_interleaved<T: PrimInt + Debug>(
         num_rle_values: u32,
         data: &[T],
@@ -227,6 +229,7 @@ mod tests {
         assert!(matches!(err, InvalidDecodingStreamSize(3, 4)));
     }
 
+    #[cfg(feature = "unstable-v2")]
     #[test]
     fn test_decode_rle_interleaved() {
         let rle = RleMeta::Interleaved { num_rle_values: 6 };
@@ -236,12 +239,14 @@ mod tests {
         assert_eq!(decoded, vec![7, 7, 7, 9, 7, 7]);
     }
 
+    #[cfg(feature = "unstable-v2")]
     #[test]
     fn test_decode_rle_interleaved_empty() {
         let rle = RleMeta::Interleaved { num_rle_values: 0 };
         assert!(rle.decode::<u32>(&[], &mut dec()).unwrap().is_empty());
     }
 
+    #[cfg(feature = "unstable-v2")]
     #[test]
     fn test_decode_rle_interleaved_count_mismatch() {
         // Runs sum to 4, but the context count declares 5.
@@ -250,6 +255,7 @@ mod tests {
         assert!(rle.decode(&data, &mut dec()).is_err());
     }
 
+    #[cfg(feature = "unstable-v2")]
     #[test]
     fn test_decode_rle_interleaved_odd_length() {
         let rle = RleMeta::Interleaved { num_rle_values: 3 };
@@ -257,6 +263,7 @@ mod tests {
         assert!(rle.decode(&data, &mut dec()).is_err());
     }
 
+    #[cfg(feature = "unstable-v2")]
     #[test]
     fn test_decode_rle_interleaved_overflowing_run() {
         // A single run larger than the declared count must not over-allocate.

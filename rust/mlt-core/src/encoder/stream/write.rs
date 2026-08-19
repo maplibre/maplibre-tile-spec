@@ -7,7 +7,9 @@ use zigzag::ZigZag;
 use crate::MltError::UnsupportedPhysicalEncoding;
 use crate::MltResult;
 use crate::codecs::zigzag::{encode_zigzag, encode_zigzag_delta};
-use crate::decoder::stream::{header01, header02};
+use crate::decoder::stream::header01;
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::stream::header02;
 use crate::decoder::{LogicalEncoding, PhysicalEncoding, RleLayout, StreamMeta, StreamType};
 use crate::encoder::Encoder;
 use crate::encoder::model::{StreamCtx, WireVersion};
@@ -19,7 +21,8 @@ use crate::encoder::writer::AltSession;
 /// Write one stream (header + payload) to `enc`, using the stream-header codec
 /// selected by [`EncoderConfig::wire_version`](crate::encoder::EncoderConfig::wire_version).
 ///
-/// For v2, the implicit-count context comes from [`Encoder::count_context`].
+/// For v2 (requires the `unstable-v2` feature), the implicit-count context
+/// comes from `Encoder::count_context`.
 #[inline]
 pub(crate) fn write_stream_payload(
     enc: &mut Encoder,
@@ -32,6 +35,7 @@ pub(crate) fn write_stream_payload(
         WireVersion::V01 => {
             header01::write_stream_meta(&meta, enc.data_mut(), is_boolean, byte_length)?;
         }
+        #[cfg(feature = "unstable-v2")]
         WireVersion::V02 => {
             debug_assert!(!is_boolean, "v2 layers have no bool-RLE streams");
             let implicit_count = enc.count_context;
