@@ -331,10 +331,8 @@ fn generate_geometry(w: &mut SynthWriter) {
         .geo(MultiLineString(vec![line1(), line2()]))
         .write(w, "multiline");
 
-    // See https://github.com/maplibre/maplibre-gl-js/issues/7659
-    //
-    // There was a mismatch between what rust encoded and what ts decoded
-    // in the case of single element geometry streams.
+    // Regression test for https://github.com/maplibre/maplibre-gl-js/issues/7659:
+    // rust encoder and ts decoder disagreed on single-element geometry streams.
     geo_varint()
         .meta(E::delta_varint())
         .no_rings(E::rle_varint())

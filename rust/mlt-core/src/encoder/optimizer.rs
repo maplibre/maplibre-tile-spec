@@ -127,11 +127,7 @@ impl TileLayer {
                 if enc.total_len() < best.total_len() {
                     best = enc.preserve_results();
                 } else {
-                    // The losing trial's bytes must be dropped so the next trial
-                    // encodes into a clean buffer. `preserve_results` only empties
-                    // `enc` when a trial wins; without this, the next `encode_into`
-                    // would append to the loser's bytes and overcount its
-                    // `total_len`, so later trials could never win.
+                    // Drop the losing trial's bytes, or the next trial would append to them and overcount its total_len.
                     enc.clear_results();
                 }
             }
@@ -233,7 +229,6 @@ impl PropertyTypedStats {
     }
 
     /// Returns `true` if every value fits in an `i32`.
-    ///
     /// Unlike [`Self::values_fit_u32`] this admits negative values.
     #[must_use]
     pub fn values_fit_i32(&self) -> bool {

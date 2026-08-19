@@ -137,13 +137,8 @@ impl Codecs {
             return encoder::write_stream_payload(enc.data_mut(), meta, false, vals2);
         }
 
-        // A single value has no deltas or runs, so Delta would only zigzag the
-        // lone value into something equal or larger, and FastPFOR never pays off
-        // for one value. Only the physical layout matters, so skip the
-        // competition. Matching the encoded stream binds the lone value with no
-        // indexing bounds check. VarInt is shorter until the value needs all its
-        // bytes (>= 2^28 for u32, >= 2^56 for u64, post-zigzag for signed),
-        // where fixed-width plain avoids VarInt's continuation byte.
+        // A single value has no deltas or runs, so Delta/FastPFOR never help — skip the competition.
+        // VarInt is shorter until the value needs all its bytes; fixed-width plain wins after that.
         let Self { logical, physical } = self;
         if values.len() == 1
             && let [value] = logical.none(values)

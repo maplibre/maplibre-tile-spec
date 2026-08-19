@@ -14,13 +14,13 @@ macro_rules! validate_stream {
     };
 }
 
-// re-export useful libs
 pub use fast_mvt;
 pub use geo_types;
 
 pub(crate) mod codecs;
 pub(crate) mod convert;
 pub(crate) mod decoder;
+pub mod dump;
 pub mod encoder;
 pub(crate) mod errors;
 pub(crate) mod utils;

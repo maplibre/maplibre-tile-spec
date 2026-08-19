@@ -28,10 +28,8 @@ pub fn parse_u8(input: &[u8]) -> MltRefResult<'_, u8> {
 }
 
 /// Decode an optional presence stream, combining it with the dense values.
-///
-/// Returns [`Presence::AllPresent`] wrapping `values` for a non-optional column.
-/// Otherwise decodes the bitvector and checks that the number of set bits
-/// equals `values.len()` (the number of non-null values already decoded).
+/// Returns [`Presence::AllPresent`] for a non-optional column.
+/// Otherwise decodes the bitvector and checks its set-bit count matches `values.len()`.
 pub fn decode_presence<'a, T: Copy>(
     presence: RawPresence<'a>,
     values: Vec<T>,
