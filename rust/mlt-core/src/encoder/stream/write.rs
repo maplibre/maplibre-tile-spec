@@ -7,7 +7,7 @@ use zigzag::ZigZag;
 use crate::MltError::UnsupportedPhysicalEncoding;
 use crate::MltResult;
 use crate::codecs::zigzag::{encode_zigzag, encode_zigzag_delta};
-use crate::decoder::stream::header02;
+use crate::decoder::stream::{header01, header02};
 use crate::decoder::{LogicalEncoding, PhysicalEncoding, RleLayout, StreamMeta, StreamType};
 use crate::encoder::Encoder;
 use crate::encoder::model::{StreamCtx, WireVersion};
@@ -29,7 +29,9 @@ pub(crate) fn write_stream_payload(
 ) -> MltResult<()> {
     let byte_length = u32::try_from(payload.len())?;
     match enc.config().wire_version() {
-        WireVersion::V01 => meta.write_to(enc.data_mut(), is_boolean, byte_length)?,
+        WireVersion::V01 => {
+            header01::write_stream_meta(&meta, enc.data_mut(), is_boolean, byte_length)?;
+        }
         WireVersion::V02 => {
             debug_assert!(!is_boolean, "v2 layers have no bool-RLE streams");
             let implicit_count = enc.count_context;

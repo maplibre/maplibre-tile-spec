@@ -2,6 +2,7 @@ use proptest::prelude::*;
 use rstest::rstest;
 
 use crate::MltError;
+use crate::decoder::stream::header01;
 use crate::decoder::{
     DictionaryType, IntEncoding, LengthType, LogicalEncoding, LogicalValue, Morton, OffsetType,
     PhysicalEncoding, RawStream, RleMeta, StreamMeta, StreamType,
@@ -16,11 +17,11 @@ use crate::utils::BinarySerializer as _;
 fn roundtrip_stream<'a>(buffer: &'a mut Vec<u8>, stream: &EncodedStream) -> RawStream<'a> {
     buffer.clear();
     buffer.write_stream(stream).unwrap();
-    assert_empty(RawStream::from_bytes(buffer, &mut parser()))
+    assert_empty(header01::parse_stream(buffer, &mut parser()))
 }
 
 fn roundtrip_stream_u32s(wire: &[u8]) -> Vec<u32> {
-    let parsed_stream = assert_empty(RawStream::from_bytes(wire, &mut parser()));
+    let parsed_stream = assert_empty(header01::parse_stream(wire, &mut parser()));
 
     let mut decoder = dec();
     let values = parsed_stream.decode_ints::<u32>(&mut decoder).unwrap();
@@ -171,7 +172,7 @@ fn auto_physical(values: &[u32], cfg: EncoderConfig) -> PhysicalEncoding {
     let codecs = &mut Codecs::default();
     let ctx = StreamCtx::prop_data("test");
     codecs.write_int_stream(values, &ctx, &mut enc).unwrap();
-    let parsed = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
+    let parsed = assert_empty(header01::parse_stream(enc.data(), &mut parser()));
     parsed.meta.encoding.physical
 }
 
@@ -191,7 +192,7 @@ fn single_value_u32_picks_smaller_physical(
     let ctx = StreamCtx::prop_data("test");
     codecs.write_int_stream(&[v], &ctx, &mut enc).unwrap();
 
-    let parsed = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
+    let parsed = assert_empty(header01::parse_stream(enc.data(), &mut parser()));
     assert_eq!(parsed.meta.encoding.logical, LogicalEncoding::None);
     assert_eq!(parsed.meta.encoding.physical, expected_physical);
     assert_eq!(parsed.meta.num_values, 1);
@@ -213,7 +214,7 @@ fn single_value_i32_picks_smaller_physical(
     let ctx = StreamCtx::prop_data("test");
     codecs.write_int_stream(&[v], &ctx, &mut enc).unwrap();
 
-    let parsed = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
+    let parsed = assert_empty(header01::parse_stream(enc.data(), &mut parser()));
     assert_eq!(parsed.meta.encoding.logical, LogicalEncoding::None);
     assert_eq!(parsed.meta.encoding.physical, expected_physical);
 }
@@ -294,9 +295,9 @@ fn test_stream_roundtrip(
 
     // Parse back
     let parsed = assert_empty(if is_bool {
-        RawStream::parse_bool(&buffer, &mut parser())
+        header01::parse_bool_stream(&buffer, &mut parser())
     } else {
-        RawStream::from_bytes(&buffer, &mut parser())
+        header01::parse_stream(&buffer, &mut parser())
     });
 
     assert_eq!(parsed.meta, stream.meta, "metadata mismatch");
@@ -319,7 +320,7 @@ fn test_morton_parse_rejects_too_many_bits() {
     let mut buffer = Vec::new();
     buffer.write_stream(&stream).unwrap();
 
-    let err = RawStream::from_bytes(&buffer, &mut parser()).unwrap_err();
+    let err = header01::parse_stream(&buffer, &mut parser()).unwrap_err();
     assert!(matches!(err, MltError::InvalidMortonBits(17)));
 }
 
@@ -335,7 +336,7 @@ fn test_varint_stream_huge_num_values_empty_data() {
     // byte_length = 0x00 → 0 bytes of data
     let wire: &[u8] = &[0x00, 0x02, 0xd5, 0xff, 0xd5, 0xff, 0x03, 0x00];
     // Parsing must fail: budget reserves num_values * 8 ≈ 8 GB which exceeds the 10 MB limit.
-    let result = RawStream::from_bytes(wire, &mut parser());
+    let result = header01::parse_stream(wire, &mut parser());
     assert!(
         result.is_err(),
         "parse must fail when num_values * 8 exceeds the memory budget"
@@ -401,7 +402,7 @@ proptest! {
         let mut enc = Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::all(encoding));
         let mut codecs = Codecs::default();
         codecs.write_int_stream(&widened, &StreamCtx::prop_data("test"), &mut enc).unwrap();
-        let parsed_stream = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
+        let parsed_stream = assert_empty(header01::parse_stream(enc.data(), &mut parser()));
         let decoded_values = parsed_stream.decode_narrow::<i8, i32>(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);
@@ -416,7 +417,7 @@ proptest! {
         let mut enc = Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::all(encoding));
         let mut codecs = Codecs::default();
         codecs.write_int_stream(&widened, &StreamCtx::prop_data("test"), &mut enc).unwrap();
-        let parsed_stream = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
+        let parsed_stream = assert_empty(header01::parse_stream(enc.data(), &mut parser()));
         let decoded_values = parsed_stream.decode_narrow::<u8, u32>(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);
@@ -442,7 +443,7 @@ proptest! {
         let mut enc = Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::all(encoding));
         let mut codecs = Codecs::default();
         codecs.write_int_stream(&values, &StreamCtx::prop_data("test"), &mut enc).unwrap();
-        let parsed_stream = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
+        let parsed_stream = assert_empty(header01::parse_stream(enc.data(), &mut parser()));
         let decoded_values = parsed_stream.decode_ints::<i32>(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);
@@ -456,7 +457,7 @@ proptest! {
         let mut enc = Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::all(encoding));
         let mut codecs = Codecs::default();
         codecs.write_int_stream(&values, &StreamCtx::prop_data("test"), &mut enc).unwrap();
-        let parsed_stream = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
+        let parsed_stream = assert_empty(header01::parse_stream(enc.data(), &mut parser()));
         let decoded_values = parsed_stream.decode_ints::<u64>(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);
@@ -470,7 +471,7 @@ proptest! {
         let mut enc = Encoder::with_explicit(EncoderConfig::default(), ExplicitEncoder::all(encoding));
         let mut codecs = Codecs::default();
         codecs.write_int_stream(&values, &StreamCtx::prop_data("test"), &mut enc).unwrap();
-        let parsed_stream = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
+        let parsed_stream = assert_empty(header01::parse_stream(enc.data(), &mut parser()));
         let decoded_values = parsed_stream.decode_ints::<i64>(&mut dec()).unwrap();
 
         assert_eq!(decoded_values, values);

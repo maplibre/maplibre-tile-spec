@@ -30,6 +30,7 @@
 use std::io;
 
 use integer_encoding::VarIntWriter as _;
+use num_enum::TryFromPrimitive;
 
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
@@ -41,20 +42,28 @@ use crate::{MltError, MltRefResult, MltResult, Parser};
 /// Bit 7 of the encoding byte: an explicit count varint follows.
 const HAS_EXPLICIT_COUNT: u8 = 0x80;
 
-// Logical field values (bits 6-4).
-const LOGICAL_NONE: u8 = 0;
-const LOGICAL_DELTA: u8 = 1;
-const LOGICAL_CW_DELTA: u8 = 2;
-const LOGICAL_RLE: u8 = 3;
-const LOGICAL_DELTA_RLE: u8 = 4;
-const LOGICAL_MORTON: u8 = 5;
-const LOGICAL_PSEUDO_DECIMAL: u8 = 6;
+/// Logical field (bits 6-4 of the encoding byte). Bit pattern 7 is reserved.
+#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
+#[repr(u8)]
+enum LogicalField {
+    None = 0,
+    Delta = 1,
+    CwDelta = 2,
+    Rle = 3,
+    DeltaRle = 4,
+    Morton = 5,
+    PseudoDecimal = 6,
+}
 
-// Physical field values (bits 3-2).
-const PHYSICAL_NONE_NO_LEN: u8 = 0;
-const PHYSICAL_NONE_WITH_LEN: u8 = 1;
-const PHYSICAL_VARINT: u8 = 2;
-const PHYSICAL_FASTPFOR128: u8 = 3;
+/// Physical field (bits 3-2 of the encoding byte).
+#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
+#[repr(u8)]
+enum PhysicalField {
+    NoneNoLen = 0,
+    NoneWithLen = 1,
+    VarInt = 2,
+    FastPFor128 = 3,
+}
 
 /// Parse one v2 stream (header + data), synthesizing [`StreamMeta`] from the
 /// wire header plus positional context.
@@ -76,8 +85,10 @@ pub(crate) fn parse_stream<'a>(
     if enc_byte & 0b11 != 0 {
         return Err(MltError::ParsingEncodingByte(enc_byte));
     }
-    let logical_bits = (enc_byte >> 4) & 0x7;
-    let physical_bits = (enc_byte >> 2) & 0x3;
+    let logical_field = LogicalField::try_from((enc_byte >> 4) & 0x7)
+        .map_err(|_| MltError::ParsingEncodingByte(enc_byte))?;
+    let physical_field = PhysicalField::try_from((enc_byte >> 2) & 0x3)
+        .map_err(|_| MltError::ParsingEncodingByte(enc_byte))?;
 
     let (input, num_values) = if enc_byte & HAS_EXPLICIT_COUNT == 0 {
         (input, implicit_count)
@@ -87,46 +98,37 @@ pub(crate) fn parse_stream<'a>(
     // Reserve decoded memory upper bound: worst case u64 = 8 bytes per value.
     parser.reserve(num_values.saturating_mul(8))?;
 
-    let encoding = match logical_bits {
-        LOGICAL_RLE | LOGICAL_DELTA_RLE => {
-            if physical_bits != 0 {
+    let encoding = match logical_field {
+        LogicalField::Rle | LogicalField::DeltaRle => {
+            if physical_field != PhysicalField::NoneNoLen {
                 return Err(MltError::ParsingEncodingByte(enc_byte));
             }
             let rle = RleMeta::Interleaved {
                 num_rle_values: num_values,
             };
-            let logical = if logical_bits == LOGICAL_RLE {
+            let logical = if logical_field == LogicalField::Rle {
                 LogicalEncoding::Rle(rle)
             } else {
                 LogicalEncoding::DeltaRle(rle)
             };
             IntEncoding::new(logical, PhysicalEncoding::VarInt)
         }
-        LOGICAL_MORTON => return Err(MltError::NotImplemented("v2 Morton streams")),
-        LOGICAL_PSEUDO_DECIMAL => {
+        LogicalField::Morton => return Err(MltError::NotImplemented("v2 Morton streams")),
+        LogicalField::PseudoDecimal => {
             return Err(MltError::NotImplemented("v2 PseudoDecimal streams"));
         }
-        _ => {
-            let logical = match logical_bits {
-                LOGICAL_NONE => LogicalEncoding::None,
-                LOGICAL_DELTA => LogicalEncoding::Delta,
-                LOGICAL_CW_DELTA => LogicalEncoding::ComponentwiseDelta,
-                _ => return Err(MltError::ParsingEncodingByte(enc_byte)),
-            };
-            let physical = match physical_bits {
-                PHYSICAL_NONE_WITH_LEN => PhysicalEncoding::None,
-                PHYSICAL_VARINT => PhysicalEncoding::VarInt,
-                PHYSICAL_NONE_NO_LEN => {
-                    // Requires element-width context to derive byte_length.
-                    return Err(MltError::NotImplemented("v2 None-noLen physical encoding"));
-                }
-                PHYSICAL_FASTPFOR128 => {
-                    return Err(MltError::NotImplemented("v2 FastPFor128 physical encoding"));
-                }
-                _ => return Err(MltError::ParsingEncodingByte(enc_byte)),
-            };
-            IntEncoding::new(logical, physical)
-        }
+        LogicalField::None => IntEncoding::new(
+            LogicalEncoding::None,
+            physical_encoding_for(physical_field)?,
+        ),
+        LogicalField::Delta => IntEncoding::new(
+            LogicalEncoding::Delta,
+            physical_encoding_for(physical_field)?,
+        ),
+        LogicalField::CwDelta => IntEncoding::new(
+            LogicalEncoding::ComponentwiseDelta,
+            physical_encoding_for(physical_field)?,
+        ),
     };
 
     let (input, byte_length) = parse_varint::<u32>(input)?;
@@ -153,26 +155,37 @@ pub(crate) fn write_stream_meta<W: io::Write>(
 ) -> MltResult<()> {
     use LogicalEncoding as LE;
 
-    let (logical_bits, physical_bits) = match meta.encoding.logical {
-        LE::None => (LOGICAL_NONE, physical_bits(meta.encoding.physical)?),
-        LE::Delta => (LOGICAL_DELTA, physical_bits(meta.encoding.physical)?),
-        LE::ComponentwiseDelta => (LOGICAL_CW_DELTA, physical_bits(meta.encoding.physical)?),
+    let (logical_field, physical_field) = match meta.encoding.logical {
+        LE::None => (
+            LogicalField::None,
+            physical_field_for(meta.encoding.physical)?,
+        ),
+        LE::Delta => (
+            LogicalField::Delta,
+            physical_field_for(meta.encoding.physical)?,
+        ),
+        LE::ComponentwiseDelta => (
+            LogicalField::CwDelta,
+            physical_field_for(meta.encoding.physical)?,
+        ),
         LE::Rle(rle) | LE::DeltaRle(rle) => {
-            debug_assert!(
-                matches!(rle, RleMeta::Interleaved { .. }),
-                "v2 RLE streams must use the interleaved layout"
-            );
+            if !matches!(rle, RleMeta::Interleaved { .. }) {
+                return Err(MltError::UnsupportedLogicalEncoding(
+                    meta.encoding.logical,
+                    "v2 stream header codec requires the Interleaved RLE layout",
+                ));
+            }
             if meta.encoding.physical != PhysicalEncoding::VarInt {
                 return Err(MltError::UnsupportedPhysicalEncoding(
                     "v2 RLE requires VarInt",
                 ));
             }
             let logical = if matches!(meta.encoding.logical, LE::Rle(_)) {
-                LOGICAL_RLE
+                LogicalField::Rle
             } else {
-                LOGICAL_DELTA_RLE
+                LogicalField::DeltaRle
             };
-            (logical, 0)
+            (logical, PhysicalField::NoneNoLen)
         }
         LE::Morton(_) | LE::MortonDelta(_) | LE::MortonRle(_) => {
             return Err(MltError::NotImplemented("v2 Morton streams"));
@@ -188,8 +201,9 @@ pub(crate) fn write_stream_meta<W: io::Write>(
         _ => meta.num_values,
     };
     let explicit = num_values != implicit_count;
-    let enc_byte =
-        if explicit { HAS_EXPLICIT_COUNT } else { 0 } | (logical_bits << 4) | (physical_bits << 2);
+    let enc_byte = if explicit { HAS_EXPLICIT_COUNT } else { 0 }
+        | ((logical_field as u8) << 4)
+        | ((physical_field as u8) << 2);
     writer.write_u8(enc_byte)?;
     if explicit {
         writer.write_varint(num_values)?;
@@ -198,14 +212,29 @@ pub(crate) fn write_stream_meta<W: io::Write>(
     Ok(())
 }
 
-/// Map an in-memory physical encoding to the v2 physical field bits.
-fn physical_bits(physical: PhysicalEncoding) -> MltResult<u8> {
+/// Map an in-memory physical encoding to the v2 physical field.
+fn physical_field_for(physical: PhysicalEncoding) -> MltResult<PhysicalField> {
     match physical {
-        PhysicalEncoding::None => Ok(PHYSICAL_NONE_WITH_LEN),
-        PhysicalEncoding::VarInt => Ok(PHYSICAL_VARINT),
+        PhysicalEncoding::None => Ok(PhysicalField::NoneWithLen),
+        PhysicalEncoding::VarInt => Ok(PhysicalField::VarInt),
         PhysicalEncoding::FastPFor256 => Err(MltError::NotImplemented(
             "v2 FastPFor: requires the FastPFor128-LE codec",
         )),
+    }
+}
+
+/// Map the v2 physical field to an in-memory physical encoding, for the
+/// None/Delta/ComponentwiseDelta logical arms.
+fn physical_encoding_for(field: PhysicalField) -> MltResult<PhysicalEncoding> {
+    match field {
+        PhysicalField::NoneWithLen => Ok(PhysicalEncoding::None),
+        PhysicalField::VarInt => Ok(PhysicalEncoding::VarInt),
+        PhysicalField::NoneNoLen => {
+            Err(MltError::NotImplemented("v2 None-noLen physical encoding"))
+        }
+        PhysicalField::FastPFor128 => {
+            Err(MltError::NotImplemented("v2 FastPFor128 physical encoding"))
+        }
     }
 }
 
@@ -311,5 +340,24 @@ mod tests {
         let buf = [enc_byte, 0];
         let err = parse_stream(&buf, DATA, 0, &mut parser()).unwrap_err();
         assert!(matches!(err, MltError::NotImplemented(_)));
+    }
+
+    #[rstest]
+    #[case::rle(true)]
+    #[case::delta_rle(false)]
+    fn write_rejects_split_rle(#[case] plain_rle: bool) {
+        let rle = RleMeta::Split {
+            runs: 2,
+            num_rle_values: 5,
+        };
+        let logical = if plain_rle {
+            LogicalEncoding::Rle(rle)
+        } else {
+            LogicalEncoding::DeltaRle(rle)
+        };
+        let meta = meta(logical, PhysicalEncoding::VarInt, 5);
+        let mut buf = Vec::new();
+        let err = write_stream_meta(&meta, &mut buf, 0, 5).unwrap_err();
+        assert!(matches!(err, MltError::UnsupportedLogicalEncoding(_, _)));
     }
 }

@@ -139,7 +139,8 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::decoder::{DictionaryType, LengthType, RawFsstData, RawStream, StreamType};
+    use crate::decoder::stream::header01;
+    use crate::decoder::{DictionaryType, LengthType, RawFsstData, StreamType};
     use crate::encoder::model::StreamCtx;
     use crate::encoder::{
         Codecs, EncodedStream, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder,
@@ -201,7 +202,7 @@ mod tests {
         let buffers = [sym_len_bytes, sym_table_buf, lengths_bytes, corpus_buf];
         let mut raw_streams = Vec::new();
         for buf in &buffers {
-            raw_streams.push(assert_empty(RawStream::from_bytes(buf, &mut parser())));
+            raw_streams.push(assert_empty(header01::parse_stream(buf, &mut parser())));
         }
         let [s0, s1, s2, s3] = raw_streams.try_into().expect("expected 4 streams");
         let raw = RawFsstData::new(s0, s1, s2, s3).expect("RawFsstData::new failed");

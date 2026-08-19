@@ -7,6 +7,7 @@ use crate::MltError::{
     TrailingLayerData, UnexpectedStructChildCount, UnsupportedStringStreamCount,
 };
 use crate::codecs::varint::parse_varint;
+use crate::decoder::stream::header01;
 use crate::decoder::{
     Column, ColumnType, DictionaryType, Extent, Geometry, Id, Layer01, ParsedLayer01, RawFsstData,
     RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar,
@@ -298,7 +299,7 @@ impl<'a> Layer01<'a, Lazy> {
             match column.typ {
                 ColumnType::Id | ColumnType::OptId => {
                     (input, presence) = parse_optional(column.typ, input, parser)?;
-                    (input, value) = RawStream::from_bytes(input, parser)?;
+                    (input, value) = header01::parse_stream(input, parser)?;
                     id_column.set_once(Raw(RawId {
                         presence,
                         value: RawIdValue::Id32(value),
@@ -306,7 +307,7 @@ impl<'a> Layer01<'a, Lazy> {
                 }
                 ColumnType::LongId | ColumnType::OptLongId => {
                     (input, presence) = parse_optional(column.typ, input, parser)?;
-                    (input, value) = RawStream::from_bytes(input, parser)?;
+                    (input, value) = header01::parse_stream(input, parser)?;
                     id_column.set_once(Raw(RawId {
                         presence,
                         value: RawIdValue::Id64(value),
@@ -317,47 +318,47 @@ impl<'a> Layer01<'a, Lazy> {
                 }
                 ColumnType::Bool | ColumnType::OptBool => {
                     (input, presence) = parse_optional(column.typ, input, parser)?;
-                    (input, value) = RawStream::parse_bool(input, parser)?;
+                    (input, value) = header01::parse_bool_stream(input, parser)?;
                     properties.push(Raw(RP::Bool(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::I8 | ColumnType::OptI8 => {
                     (input, presence) = parse_optional(column.typ, input, parser)?;
-                    (input, value) = RawStream::from_bytes(input, parser)?;
+                    (input, value) = header01::parse_stream(input, parser)?;
                     properties.push(Raw(RP::I8(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::U8 | ColumnType::OptU8 => {
                     (input, presence) = parse_optional(column.typ, input, parser)?;
-                    (input, value) = RawStream::from_bytes(input, parser)?;
+                    (input, value) = header01::parse_stream(input, parser)?;
                     properties.push(Raw(RP::U8(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::I32 | ColumnType::OptI32 => {
                     (input, presence) = parse_optional(column.typ, input, parser)?;
-                    (input, value) = RawStream::from_bytes(input, parser)?;
+                    (input, value) = header01::parse_stream(input, parser)?;
                     properties.push(Raw(RP::I32(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::U32 | ColumnType::OptU32 => {
                     (input, presence) = parse_optional(column.typ, input, parser)?;
-                    (input, value) = RawStream::from_bytes(input, parser)?;
+                    (input, value) = header01::parse_stream(input, parser)?;
                     properties.push(Raw(RP::U32(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::I64 | ColumnType::OptI64 => {
                     (input, presence) = parse_optional(column.typ, input, parser)?;
-                    (input, value) = RawStream::from_bytes(input, parser)?;
+                    (input, value) = header01::parse_stream(input, parser)?;
                     properties.push(Raw(RP::I64(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::U64 | ColumnType::OptU64 => {
                     (input, presence) = parse_optional(column.typ, input, parser)?;
-                    (input, value) = RawStream::from_bytes(input, parser)?;
+                    (input, value) = header01::parse_stream(input, parser)?;
                     properties.push(Raw(RP::U64(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::F32 | ColumnType::OptF32 => {
                     (input, presence) = parse_optional(column.typ, input, parser)?;
-                    (input, value) = RawStream::from_bytes(input, parser)?;
+                    (input, value) = header01::parse_stream(input, parser)?;
                     properties.push(Raw(RP::F32(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::F64 | ColumnType::OptF64 => {
                     (input, presence) = parse_optional(column.typ, input, parser)?;
-                    (input, value) = RawStream::from_bytes(input, parser)?;
+                    (input, value) = header01::parse_stream(input, parser)?;
                     properties.push(Raw(RP::F64(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::Str | ColumnType::OptStr => {
@@ -423,7 +424,7 @@ fn parse_shared_dict_children<'a>(
         {
             return Err(UnexpectedStructChildCount(data_count));
         }
-        let (inp, data) = RawStream::from_bytes(inp, parser)?;
+        let (inp, data) = header01::parse_stream(inp, parser)?;
         children.push(RawSharedDictItem {
             name: child.name.unwrap_or(""),
             presence,
@@ -440,7 +441,7 @@ fn parse_optional<'a>(
     parser: &mut Parser,
 ) -> MltRefResult<'a, RawPresence<'a>> {
     if typ.is_optional() {
-        let (input, optional) = RawStream::parse_bool(input, parser)?;
+        let (input, optional) = header01::parse_bool_stream(input, parser)?;
         Ok((input, RawPresence::Stream(optional)))
     } else {
         Ok((input, RawPresence::AllPresent))
@@ -462,9 +463,9 @@ fn parse_geometry_column<'a>(
         return Err(BufferUnderflow(stream_count, input.len()));
     }
     // metadata
-    let (input, meta) = RawStream::from_bytes(input, parser)?;
+    let (input, meta) = header01::parse_stream(input, parser)?;
     // geometry items
-    let (input, items) = RawStream::parse_multiple(input, stream_count_capa - 1, parser)?;
+    let (input, items) = header01::parse_streams(input, stream_count_capa - 1, parser)?;
     geometry.set_once(Raw(RawGeometry { meta, items }))?;
     Ok(input)
 }
@@ -494,7 +495,7 @@ fn parse_str_column<'a>(
     }
     for slot in str_streams.iter_mut().take(stream_count) {
         let stream;
-        (input, stream) = RawStream::from_bytes(input, parser)?;
+        (input, stream) = header01::parse_stream(input, parser)?;
         *slot = Some(stream);
     }
     let encoding = match str_streams {
@@ -534,7 +535,7 @@ fn parse_shared_dict_column<'a>(
     let mut streams_taken = 0_usize;
     while streams_taken < stream_count.into_usize() {
         let stream;
-        (input, stream) = RawStream::from_bytes(input, parser)?;
+        (input, stream) = header01::parse_stream(input, parser)?;
         let is_last = matches!(
             stream.meta.stream_type,
             StreamType::Data(DictionaryType::Single | DictionaryType::Shared)
