@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.4](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.3...rust-mlt-core-v0.12.4) - 2026-07-18
+
+### Fixed
+
+- *(rust)* gate trigram-based shared-dict merging on corpus size ([#1505](https://github.com/maplibre/maplibre-tile-spec/pull/1505))
+- *(rust)* use Option::filter instead of manual and_then ([#1504](https://github.com/maplibre/maplibre-tile-spec/pull/1504))
+
+### Other
+
+- *(rust)* re-publish fast-mvt ([#1524](https://github.com/maplibre/maplibre-tile-spec/pull/1524))
+- *(rust)* genericize some more fns ([#1519](https://github.com/maplibre/maplibre-tile-spec/pull/1519))
+- *(rust)* simplify `decode_(i32|i64|u32|u64)` to `decode_ints::<T>` ([#1518](https://github.com/maplibre/maplibre-tile-spec/pull/1518))
+- *(rust)* dedup some code with generics ([#1516](https://github.com/maplibre/maplibre-tile-spec/pull/1516))
+- *(rust)* carve v1 wire-format seams to prep for v2 ([#1513](https://github.com/maplibre/maplibre-tile-spec/pull/1513))
+- *(rust)* minor v1 cleanup v2 prep ([#1510](https://github.com/maplibre/maplibre-tile-spec/pull/1510))
+- *(deps)* bump the all-cargo-version-updates group across 1 directory with 4 updates ([#1500](https://github.com/maplibre/maplibre-tile-spec/pull/1500))
+
 ## [0.12.3](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.2...rust-mlt-core-v0.12.3) - 2026-07-01
 
 ### Other

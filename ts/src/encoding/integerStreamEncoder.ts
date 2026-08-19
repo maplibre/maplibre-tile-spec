@@ -22,6 +22,7 @@ import type BitVector from "../vector/flat/bitVector";
 import { packNullable } from "./packNullableUtils";
 import { PhysicalLevelTechnique } from "../metadata/tile/physicalLevelTechnique";
 import type GeometryScaling from "../decoding/geometryScaling";
+import { encodeUint32sLE } from "./encodingUtils";
 
 export function encodeSignedInt32Stream(
     values: Int32Array,
@@ -53,8 +54,7 @@ function encodePhysicalLevelTechnique(data: Uint32Array, streamMetadata: StreamM
     }
 
     if (physicalLevelTechnique === PhysicalLevelTechnique.NONE) {
-        const slice = data.subarray(0, streamMetadata.byteLength);
-        return new Uint8Array(slice);
+        return encodeUint32sLE(data);
     }
 
     throw new Error("Specified physicalLevelTechnique is not supported (yet).");

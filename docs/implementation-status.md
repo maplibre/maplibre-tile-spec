@@ -4,8 +4,8 @@
 
 | Integration | Status |
 |---|---|
-| [MapLibre Native](https://maplibre.org/maplibre-native/) | Supported since MapLibre Android 12.1.0, MapLibre iOS 6.2.0. PR: [#3246](https://github.com/maplibre/maplibre-native/pull/3246). |
-| [MapLibre GL JS](https://maplibre.org/maplibre-gl-js/) | Supported since version 5.12.0. PR: [#6570](https://github.com/maplibre/maplibre-gl-js/pull/6570). |
+| [MapLibre Native](https://maplibre.org/projects/native/) | Supported since MapLibre Android 12.1.0, MapLibre iOS 6.2.0. PR: [#3246](https://github.com/maplibre/maplibre-native/pull/3246). |
+| [MapLibre GL JS](https://maplibre.org/projects/gl-js/) | Supported since version 5.12.0. PR: [#6570](https://github.com/maplibre/maplibre-gl-js/pull/6570). |
 | [Planetiler](https://github.com/onthegomap/planetiler) | Can generate tiles in MLT since version [0.10.0](https://github.com/onthegomap/planetiler/releases/tag/v0.10.0). |
 | [PMTiles](https://github.com/protomaps/pmtiles) | Can store MLT, see [PMTiles v3 spec - Tile Type](https://github.com/protomaps/PMTiles/blob/main/spec/v3/spec.md#tile-type-tt). |
 | [Martin tile server](https://maplibre.org/martin/) | Can detect and serve MLT since version [1.3.0](https://github.com/maplibre/martin/releases/tag/martin-v1.3.0). PR: [#2512](https://github.com/maplibre/martin/pull/2512).<br>Can automatically convert between MLT and MVT depending on headers since [1.9.0](https://github.com/maplibre/martin/releases/tag/martin-v1.9.0). [docs](https://maplibre.org/martin/using-guides/mlt/) |
@@ -17,7 +17,7 @@
 | Implementation | Language | Type | Notes |
 |---|---|---|---|
 | [maplibre-tile-spec/cpp](https://github.com/maplibre/maplibre-tile-spec/tree/main/cpp) | C++ | Decoder | Used by MapLibre Native |
-| [maplibre-tile-spec/js](https://github.com/maplibre/maplibre-tile-spec/tree/main/js) | TypeScript | Decoder | Used by MapLibre GL JS |
+| [maplibre-tile-spec/js](https://github.com/maplibre/maplibre-tile-spec/tree/main/ts) | TypeScript | Decoder | Used by MapLibre GL JS |
 | [maplibre-tile-spec/java](https://github.com/maplibre/maplibre-tile-spec/tree/main/java) | Java | Encoder | |
 | [maplibre-tile-spec/rust/mlt](https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt/README.md) | Rust | Decoder / Encoder | Includes bundled `mlt` CLI, TUI, and conversion tooling. |
 | [maplibre-tile-spec/rust/mlt-core](https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt-core/README.md) | Rust | Decoder / Encoder | Used in Martin. Includes bundled `mlt` CLI, TUI, and conversion tooling. |

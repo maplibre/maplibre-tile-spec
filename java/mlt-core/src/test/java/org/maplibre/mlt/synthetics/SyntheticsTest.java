@@ -12,6 +12,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.SequencedCollection;
+import java.util.Set;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.maplibre.mlt.data.MapLibreTile;
@@ -19,6 +20,10 @@ import org.maplibre.mlt.decoder.MltDecoder;
 import org.maplibre.mlt.json.Json;
 
 public class SyntheticsTest {
+  /// Synthetics the Java decoder cannot yet decode. They are still executed, asserting that
+  /// decoding fails, so that implementing support trips this test rather than going unnoticed.
+  private static final Set<Path> UNIMPLEMENTED_SYNTHETICS = Set.of();
+
   @Test
   public void checkSynthetics() throws IOException {
     final var matcher = FileSystems.getDefault().getPathMatcher("glob:**/*.mlt");
@@ -27,6 +32,13 @@ public class SyntheticsTest {
     final var mltPaths =
         Arrays.stream(rootPaths).flatMap(root -> findFiles(root, matcher).stream()).toList();
     for (Path path : mltPaths) {
+      if (UNIMPLEMENTED_SYNTHETICS.contains(path)) {
+        final var data = Files.readAllBytes(path);
+        Assertions.assertThrows(
+            IllegalArgumentException.class, () -> MltDecoder.decodeMlTile(data));
+        continue;
+      }
+
       // Load the file
       final MapLibreTile tile;
       try {

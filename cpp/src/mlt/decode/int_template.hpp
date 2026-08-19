@@ -227,6 +227,21 @@ void IntegerDecoder::decodeStream(BufferStream& tileData,
 
             break;
         }
+        case PhysicalLevelTechnique::NONE: {
+            // Fixed-width little-endian values, no physical-level compression.
+            const auto numValues = metadata.getNumValues();
+            if (metadata.getByteLength() != numValues * sizeof(TDecode)) {
+                throw std::runtime_error("unexpected byte length for unencoded integer stream");
+            }
+            const auto* src = tileData.getReadPosition();
+            for (std::uint32_t i = 0; i < numValues; ++i) {
+                TDecode value = 0;
+                std::memcpy(&value, src + (i * sizeof(TDecode)), sizeof(TDecode));
+                out[i] = static_cast<TTarget>(value);
+            }
+            tileData.consume(metadata.getByteLength());
+            break;
+        }
         case PhysicalLevelTechnique::VARINT:
             util::decoding::decodeVarints<TDecode>(tileData, static_cast<std::uint32_t>(outSize), out);
             break;

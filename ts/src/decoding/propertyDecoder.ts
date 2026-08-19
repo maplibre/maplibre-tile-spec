@@ -36,7 +36,7 @@ export function decodePropertyColumn(
     numStreams: number,
     numFeatures: number,
     propertyColumnNames?: Set<string>,
-): Vector | Vector[] {
+): Vector | Vector[] | null {
     if (columnMetadata.type === "scalarType") {
         if (propertyColumnNames && !propertyColumnNames.has(columnMetadata.name)) {
             skipColumn(numStreams, data, offset);
@@ -68,7 +68,7 @@ function decodeScalarPropertyColumn(
     column: ScalarColumn,
     columnMetadata: Column,
 ) {
-    let nullabilityBuffer: BitVector = null;
+    let nullabilityBuffer: BitVector | undefined;
     if (numStreams === 0) {
         return null;
     }
@@ -91,7 +91,7 @@ function decodeScalarPropertyColumn(
         case ScalarType.STRING: {
             // In embedded format: numStreams includes nullability stream if column is nullable
             const stringDataStreams = columnMetadata.nullable ? numStreams - 1 : numStreams;
-            return decodeString(columnMetadata.name, data, offset, stringDataStreams, nullabilityBuffer);
+            return decodeString(columnMetadata.name, data, offset, stringDataStreams, nullabilityBuffer) ?? null;
         }
         case ScalarType.BOOLEAN:
             return decodeBooleanColumn(data, offset, columnMetadata, numFeatures, sizeOrNullabilityBuffer);

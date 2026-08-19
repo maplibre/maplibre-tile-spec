@@ -14,7 +14,8 @@ macro_rules! validate_stream {
     };
 }
 
-// re-export geo types
+// re-export useful libs
+pub use fast_mvt;
 pub use geo_types;
 
 pub(crate) mod codecs;
@@ -26,10 +27,10 @@ pub(crate) mod utils;
 
 pub use convert::{geojson, mvt};
 pub use decoder::{
-    ColumnRef, Decoder, Extent, FeatureRef, GeometryType, GeometryValues, Layer, Layer01,
+    ColNames, ColumnRef, Decoder, Extent, FeatureRef, GeometryType, GeometryValues, Layer, Layer01,
     Layer01FeatureIter, LendingIterator, ParsedLayer, ParsedLayer01, Parser, PropKind, PropName,
-    PropValue, PropValueRef, PropertyKey, TileFeature, TileFeatureBuilder, TileLayer,
-    TileLayerBuilder, Unknown,
+    PropNamesIter, PropValue, PropValueRef, PropertyKey, TileFeature, TileFeatureBuilder,
+    TileLayer, TileLayerBuilder, Unknown,
 };
 // Crate-internal re-exports: allow internal modules to use `crate::Lazy` etc.
 // without exposing these implementation details to external users.
