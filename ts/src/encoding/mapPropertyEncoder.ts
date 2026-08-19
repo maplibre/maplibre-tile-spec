@@ -324,7 +324,9 @@ function encodeUnsignedIntegerDictionary(integers: bigint[], parts: Uint8Array[]
 
     const wide = integers.some((value) => value > BigInt(UINT32_MAX));
     parts.push(
-        wide ? encodeUint64Column(BigUint64Array.from(integers)) : encodeUint32Column(Uint32Array.from(integers, Number)),
+        wide
+            ? encodeUint64Column(BigUint64Array.from(integers))
+            : encodeUint32Column(Uint32Array.from(integers, Number)),
     );
     return { mask: wide ? MapMask.UINT64 : MapMask.UINT32, count: 1 };
 }
