@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.24](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.23...rust-mlt-v0.1.24) - 2026-08-19
+
+### Added
+
+- *(rust)* show MLT as hexdump ([#1521](https://github.com/maplibre/maplibre-tile-spec/pull/1521))
+
 ## [0.1.23](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.22...rust-mlt-v0.1.23) - 2026-07-18
 
 ### Fixed
