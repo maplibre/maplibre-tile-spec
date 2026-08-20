@@ -68,7 +68,7 @@ fn unknown_zero_length_body() {
     };
 
     assert_eq!(u.tag(), 99u32);
-    assert!(u.data().is_empty());
+    assert_eq!(u.data(), [] as [u8; 0]);
 }
 
 #[test]

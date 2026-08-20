@@ -49,8 +49,7 @@ where
     target.reserve(data.len());
     let mut prev_x = T::zero();
     let mut prev_y = T::zero();
-    for chunk in data.chunks_exact(2) {
-        let (x, y) = (chunk[0], chunk[1]);
+    for &[x, y] in data.as_chunks::<2>().0 {
         target.push(T::encode(x.wrapping_sub(&prev_x)));
         target.push(T::encode(y.wrapping_sub(&prev_y)));
         (prev_x, prev_y) = (x, y);
@@ -150,14 +149,14 @@ mod tests {
     #[test]
     fn test_encode_zigzag_empty() {
         let mut target = Vec::<u32>::new();
-        assert!(encode_zigzag::<i32>(&[], &mut target).is_empty());
+        assert_eq!(encode_zigzag::<i32>(&[], &mut target), [] as [u32; 0]);
     }
 
     #[test]
     fn test_encode_zigzag_delta_empty() {
         let mut target = Vec::<u32>::new();
         encode_zigzag_delta::<i32>(&[], &mut target);
-        assert!(target.is_empty());
+        assert_eq!(target, [] as [u32; 0]);
     }
 
     #[test]
@@ -178,15 +177,17 @@ mod tests {
 
     #[test]
     fn test_decode_zigzag_empty() {
-        assert!(decode_zigzag::<i32>(&[], &mut dec()).unwrap().is_empty());
+        assert_eq!(
+            decode_zigzag::<i32>(&[], &mut dec()).unwrap(),
+            [] as [i32; 0]
+        );
     }
 
     #[test]
     fn test_decode_zigzag_delta_empty() {
-        assert!(
-            decode_zigzag_delta::<i32, i32>(&[], &mut dec())
-                .unwrap()
-                .is_empty()
+        assert_eq!(
+            decode_zigzag_delta::<i32, i32>(&[], &mut dec()).unwrap(),
+            [] as [i32; 0]
         );
     }
 

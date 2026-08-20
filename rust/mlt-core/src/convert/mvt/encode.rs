@@ -62,7 +62,7 @@ mod tests {
     fn empty_input_yields_empty_output() {
         let bytes = tile_layers_to_mvt(Vec::new()).unwrap();
         let decoded = mvt_to_tile_layers(bytes).unwrap();
-        assert!(decoded.is_empty());
+        assert_eq!(decoded, [] as [TileLayer; 0]);
     }
 
     #[test]

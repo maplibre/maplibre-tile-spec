@@ -155,18 +155,18 @@ mod tests {
     #[test]
     fn test_encode_rle_empty() {
         let (runs, vals) = encode_rle::<u8>(&[]);
-        assert!(runs.is_empty());
-        assert!(vals.is_empty());
+        assert_eq!(runs, [] as [u8; 0]);
+        assert_eq!(vals, [] as [u8; 0]);
     }
 
     #[test]
     fn test_encode_byte_rle_empty() {
         let mut buf = Vec::new();
-        assert!(encode_byte_rle(&[], &mut buf).is_empty());
+        assert_eq!(encode_byte_rle(&[], &mut buf), [] as [u8; 0]);
     }
 
     #[test]
     fn test_decode_byte_rle_empty() {
-        assert!(decode_byte_rle(&[], 0, &mut dec()).unwrap().is_empty());
+        assert_eq!(decode_byte_rle(&[], 0, &mut dec()).unwrap(), [] as [u8; 0]);
     }
 }
