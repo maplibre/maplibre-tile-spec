@@ -28,8 +28,10 @@ use crate::encoder::{Codecs, Encoder, PhysicalCodecs, write_stream_payload};
 #[hotpath::measure]
 fn build_morton_dict(vertices: &[i32], meta: Morton) -> MltResult<(Vec<u32>, Vec<u32>)> {
     let codes: Vec<u32> = vertices
-        .chunks_exact(2)
-        .map(|c| meta.encode_morton(c[0], c[1]))
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|&[x, y]| meta.encode_morton(x, y))
         .collect::<Result<_, _>>()?;
 
     let mut dict = codes.clone();
@@ -83,7 +85,7 @@ fn build_hilbert_dict(
     dict_xy.reserve(coord_count * 2);
     remap.reserve(coord_count);
 
-    for (i, &[x,y]) in vertices.as_chunks::<2>().0.into_iter().enumerate() {
+    for (i, &[x, y]) in vertices.as_chunks::<2>().0.iter().enumerate() {
         let k = hilbert_sort_key(Coord { x, y }, params);
         offsets.push(k);
         // Key in the high 32 bits so a single u64 sort orders by Hilbert

@@ -138,20 +138,16 @@ impl Morton {
         let mut out = dec.alloc(alloc_size)?;
         let shift_vec = u32x8::splat(self.shift);
 
-        let mut chunks = data.chunks_exact(LANES);
-
-        for chunk in chunks.by_ref() {
-            let buf = [
-                chunk[0], chunk[1], chunk[2], chunk[3], chunk[4], chunk[5], chunk[6], chunk[7],
-            ];
+        let (chunks, remainder) = data.as_chunks::<LANES>();
+        for &buf in chunks {
             self.decode_chunk(buf, shift_vec, &mut out);
         }
 
         // Scalar tail for any codes that didn't fill a full SIMD chunk.
-        for &code in chunks.remainder() {
-            let coord = self.decode_one(code);
-            out.push(coord.x);
-            out.push(coord.y);
+        for &code in remainder {
+            let Coord { x, y } = self.decode_one(code);
+            out.push(x);
+            out.push(y);
         }
 
         dec.adjust_alloc(&out, alloc_size)?;
@@ -170,9 +166,9 @@ impl Morton {
         let shift_vec = u32x8::splat(self.shift);
 
         let mut prev = 0i32;
-        let mut chunks = data.chunks_exact(LANES);
+        let (chunks,remainder) = data.as_chunks::<LANES>();
 
-        for chunk in chunks.by_ref() {
+        for chunk in chunks {
             // Sequential prefix sum into a stack buffer - no heap allocation.
             let mut buf = [0u32; LANES];
             for (b, &d) in buf.iter_mut().zip(chunk.iter()) {
@@ -183,7 +179,7 @@ impl Morton {
         }
 
         // Scalar tail for any codes that didn't fill a full SIMD chunk.
-        for &d in chunks.remainder() {
+        for &d in remainder {
             prev = prev.wrapping_add(d.cast_signed());
             let coord = self.decode_one(prev.cast_unsigned());
             out.push(coord.x);
