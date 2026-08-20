@@ -289,7 +289,7 @@ mod tests {
         assert_eq!(buf[0], expected);
     }
 
-    /// Round-trip write → parse for every PR2 combination.
+    /// Round-trip write -> parse for every PR2 combination.
     #[rstest]
     #[case::varint(meta(LogicalEncoding::None, PhysicalEncoding::VarInt, 5), 5)]
     #[case::varint_explicit(meta(LogicalEncoding::None, PhysicalEncoding::VarInt, 7), 5)]

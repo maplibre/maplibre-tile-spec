@@ -5,7 +5,7 @@
 //! `RingLengths?`, Vertices. This replaces v1's `stream_count` varint and the
 //! per-stream `stream_type` bytes.
 //!
-//! The topology encoding (offsets → length streams) intentionally mirrors
+//! The topology encoding (offsets -> length streams) intentionally mirrors
 //! [`GeometryValues::write_to`] branch for branch, so a v2 layer decodes into
 //! exactly the same geometry as its v1 counterpart. A computed length stream
 //! that comes out empty is not written - the layout simply does not declare

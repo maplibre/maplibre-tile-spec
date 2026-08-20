@@ -350,7 +350,7 @@ fn test_varint_stream_huge_num_values_empty_data() {
 #[test]
 fn test_rle_num_rle_values_mismatch() {
     // runs=1, num_rle_values=u32::MAX (declared), but the single run has value 1.
-    // Sum of runs = 1 ≠ u32::MAX → must error before allocating ~16 GB.
+    // Sum of runs = 1 ≠ u32::MAX -> must error before allocating ~16 GB.
     let rle = RleMeta::Split {
         runs: 1,
         num_rle_values: u32::MAX,
