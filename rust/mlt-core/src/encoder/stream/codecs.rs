@@ -73,7 +73,7 @@ impl Codecs {
         let num_values = values.len();
         let (logical, vals) = self.logical.encode_bools(values)?;
         let meta = StreamMeta::new2(stream_type, logical, PhysicalEncoding::None, num_values)?;
-        encoder::write_stream_payload(enc.data_mut(), meta, true, vals)
+        encoder::write_stream_payload(enc, meta, true, vals)
     }
 
     pub(crate) fn write_presence_stream(
@@ -98,7 +98,7 @@ impl Codecs {
         compile_error!("not implemented for non-little-endian targets");
 
         let meta = StreamMeta::new_none(stream_type, values.len())?;
-        encoder::write_stream_payload(enc.data_mut(), meta, false, cast_slice(values))
+        encoder::write_stream_payload(enc, meta, false, cast_slice(values))
     }
 
     pub(crate) fn write_int_stream<T>(
@@ -134,7 +134,7 @@ impl Codecs {
             let vals1 = self.logical.none(values);
             let vals2 = Output::<T>::none(&mut self.physical, vals1);
             let meta = StreamMeta::new2(ctx.stream_type, LE::None, PE::None, vals1.len())?;
-            return encoder::write_stream_payload(enc.data_mut(), meta, false, vals2);
+            return encoder::write_stream_payload(enc, meta, false, vals2);
         }
 
         // A single value has no deltas or runs, so Delta/FastPFOR never help - skip the competition.
@@ -152,7 +152,7 @@ impl Codecs {
                 (PE::None, cast_slice(encoded))
             };
             let meta = StreamMeta::new2(ctx.stream_type, LE::None, pe, 1)?;
-            return encoder::write_stream_payload(enc.data_mut(), meta, false, payload);
+            return encoder::write_stream_payload(enc, meta, false, payload);
         }
 
         let allow_fastpfor = enc.config().allow_fastpfor();

@@ -5,8 +5,9 @@
 
 mod model;
 mod render;
+mod walker;
 mod walker01;
 
 pub use model::{BitField, BlobInfo, DecodeHint, DumpTree, Region, RegionKind};
 pub use render::{DataMode, RenderOpts, render};
-pub use walker01::annotate_tile;
+pub use walker::annotate_tile;

@@ -1,6 +1,7 @@
 use usize_cast::IntoUsize as _;
 
 use crate::codecs::varint::parse_varint;
+use crate::decoder::stream::header01;
 use crate::decoder::{
     DictionaryType, GeometryType, GeometryValues, IntEncoding, LengthType, OffsetType, RawGeometry,
     RawStream, StreamMeta, StreamType,
@@ -239,9 +240,9 @@ impl<'a> RawGeometry<'a> {
             ));
         }
 
-        let (input, meta) = RawStream::from_bytes(input, parser)?;
+        let (input, meta) = header01::parse_stream(input, parser)?;
         // Safety: stream_count is validated != 0
-        let (input, items) = RawStream::parse_multiple(input, stream_count - 1, parser)?;
+        let (input, items) = header01::parse_multiple_streams(input, stream_count - 1, parser)?;
 
         Ok((input, Self { meta, items }))
     }

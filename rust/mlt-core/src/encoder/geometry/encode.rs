@@ -503,7 +503,7 @@ fn write_geo_precomputed_stream(
             physical.write_encoded_as::<[u32]>(&ctx, enc, logical, data, int_enc.physical)?;
         } else if data.is_empty() {
             let meta = StreamMeta::new2(ctx.stream_type, logical, PE::None, 0)?;
-            write_stream_payload(enc.data_mut(), meta, false, &[])?;
+            write_stream_payload(enc, meta, false, &[])?;
         } else {
             let allow_fastpfor = enc.config().allow_fastpfor();
             let mut alt = enc.try_alternatives();
@@ -512,13 +512,13 @@ fn write_geo_precomputed_stream(
                     let vals = physical.fastpfor(data)?;
                     let meta =
                         StreamMeta::new2(ctx.stream_type, logical, PE::FastPFor256, data.len())?;
-                    write_stream_payload(enc.data_mut(), meta, false, vals)
+                    write_stream_payload(enc, meta, false, vals)
                 })?;
             }
             alt.with(|enc| {
                 let vals = physical.varint(data);
                 let meta = StreamMeta::new2(ctx.stream_type, logical, PE::VarInt, data.len())?;
-                write_stream_payload(enc.data_mut(), meta, false, vals)
+                write_stream_payload(enc, meta, false, vals)
             })?;
         }
         1
