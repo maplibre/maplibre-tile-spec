@@ -77,7 +77,7 @@ impl Morton {
         let tile_extent = i64::from(max_v) + i64::from(shift);
         let bits = if let Ok(extent) = u32::try_from(tile_extent) {
             // ceil(log2(extent + 1)), matching Java's Math.ceil(Math.log(...) / Math.log(2)).
-            // Computed with integer arithmetic: for te >= 1, this equals `u32::BITS - te.leading_zeros()`.
+            // Computed with integer arithmetic: for te >= 1, this equals `te.bit_width()`.
             // Capped at 16: Morton codes are u32, so each axis may use at most 16 bits.
             let required_bits = extent.bit_width();
             if required_bits > 16 {
@@ -366,7 +366,10 @@ mod tests {
 
     #[test]
     fn test_decode_morton_codes_empty() {
-        assert!(MORTON.decode_codes(&[], &mut dec()).unwrap().is_empty());
+        assert_eq!(
+            MORTON.decode_codes(&[], &mut dec()).unwrap(),
+            [] as [i32; 0]
+        );
     }
 
     #[test]
@@ -434,7 +437,10 @@ mod tests {
 
     #[test]
     fn test_decode_morton_delta_empty() {
-        assert!(MORTON.decode_delta(&[], &mut dec()).unwrap().is_empty());
+        assert_eq!(
+            MORTON.decode_delta(&[], &mut dec()).unwrap(),
+            [] as [i32; 0]
+        );
     }
 
     #[test]

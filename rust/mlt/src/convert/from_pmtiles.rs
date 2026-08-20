@@ -352,10 +352,6 @@ mod tests {
     }
 
     #[test]
-    #[expect(
-        clippy::float_cmp,
-        reason = "header floats round-trip losslessly through the writer"
-    )]
     fn copies_geographic_header_without_copying_content_encoding() {
         let source = write_header(
             PmTilesWriter::new(TileType::Mvt)

@@ -764,7 +764,7 @@ mod tests {
 
         let lengths = encode_root_length_stream(&types, &offsets, Polygon);
         // Polygon == buffer_id, so no length encoded
-        assert!(lengths.is_empty());
+        assert_eq!(lengths, [] as [u32; 0]);
 
         // MultiPolygon needs length encoded
         let types = vec![GeometryType::MultiPolygon];

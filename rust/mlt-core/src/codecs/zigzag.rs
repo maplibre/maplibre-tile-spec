@@ -149,14 +149,14 @@ mod tests {
     #[test]
     fn test_encode_zigzag_empty() {
         let mut target = Vec::<u32>::new();
-        assert!(encode_zigzag::<i32>(&[], &mut target).is_empty());
+        assert_eq!(encode_zigzag::<i32>(&[], &mut target), [] as [u32; 0]);
     }
 
     #[test]
     fn test_encode_zigzag_delta_empty() {
         let mut target = Vec::<u32>::new();
         encode_zigzag_delta::<i32>(&[], &mut target);
-        assert!(target.is_empty());
+        assert_eq!(target, [] as [u32; 0]);
     }
 
     #[test]
@@ -177,15 +177,17 @@ mod tests {
 
     #[test]
     fn test_decode_zigzag_empty() {
-        assert!(decode_zigzag::<i32>(&[], &mut dec()).unwrap().is_empty());
+        assert_eq!(
+            decode_zigzag::<i32>(&[], &mut dec()).unwrap(),
+            [] as [i32; 0]
+        );
     }
 
     #[test]
     fn test_decode_zigzag_delta_empty() {
-        assert!(
-            decode_zigzag_delta::<i32, i32>(&[], &mut dec())
-                .unwrap()
-                .is_empty()
+        assert_eq!(
+            decode_zigzag_delta::<i32, i32>(&[], &mut dec()).unwrap(),
+            [] as [i32; 0]
         );
     }
 

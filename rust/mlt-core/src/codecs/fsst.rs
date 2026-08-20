@@ -211,8 +211,8 @@ mod tests {
     #[test]
     fn test_fsst_roundtrip_empty() {
         let (corpus, lengths) = roundtrip(&[]);
-        assert!(corpus.is_empty());
-        assert!(lengths.is_empty());
+        assert_eq!(corpus, "");
+        assert_eq!(lengths, [] as [u32; 0]);
     }
 
     #[rstest]
