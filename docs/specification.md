@@ -658,9 +658,9 @@ Encoded geometries lengths: [3]     // Only MultiPolygon needs explicit count
                                     // (MultiPolygon=5 > Polygon=2)
 
 Decoding to offsets:
-  Point:        implicit 1  → offset 0→1   (Point=0, not greater than Polygon=2)
-  MultiPolygon: explicit 3  → offset 1→4   (MultiPolygon=5 > Polygon=2, read from stream)
-  Polygon:      implicit 1  → offset 4→5   (Polygon=2, not greater than Polygon=2)
+  Point:        implicit 1  -> offset 0->1   (Point=0, not greater than Polygon=2)
+  MultiPolygon: explicit 3  -> offset 1->4   (MultiPolygon=5 > Polygon=2, read from stream)
+  Polygon:      implicit 1  -> offset 4->5   (Polygon=2, not greater than Polygon=2)
 
 Result: geometry_offsets = [0, 1, 4, 5]
 ```

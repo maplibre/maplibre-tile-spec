@@ -339,7 +339,7 @@ fn str_scalar_empty() {
         "unused",
         std::iter::empty::<&str>(),
     )]);
-    // Zero features → zero properties should be visible after decoding
+    // Zero features -> zero properties should be visible after decoding
     assert!(tile.features().is_empty());
 }
 
@@ -403,7 +403,7 @@ fn encode_to_bytes_auto(props: Vec<StagedProperty>, cfg: EncoderConfig) -> Vec<u
 }
 
 /// Regression: `EncoderConfig::allow_fsst` must actually gate `FSST` selection in the auto path.
-/// Previously the flag was dead — `FSST` was always competed, so toggling it changed nothing.
+/// Previously the flag was dead - `FSST` was always competed, so toggling it changed nothing.
 #[test]
 fn allow_fsst_gates_fsst_selection() {
     // High-cardinality strings with a shared prefix.

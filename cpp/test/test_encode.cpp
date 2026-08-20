@@ -1242,13 +1242,13 @@ TEST(Encode, PretessellatedPolygonRoundtrip) {
     ASSERT_TRUE(decoded);
     ASSERT_EQ(decoded->getFeatures().size(), 2u);
 
-    // Simple quad → 2 triangles = 6 indices
+    // Simple quad -> 2 triangles = 6 indices
     EXPECT_EQ(decoded->getFeatures()[0].getGeometry().getTriangles().size(), 6u);
     for (auto idx : decoded->getFeatures()[0].getGeometry().getTriangles()) {
         EXPECT_LT(idx, 4u);
     }
 
-    // Quad with hole → 8 triangles = 24 indices
+    // Quad with hole -> 8 triangles = 24 indices
     EXPECT_EQ(decoded->getFeatures()[1].getGeometry().getTriangles().size(), 24u);
     for (auto idx : decoded->getFeatures()[1].getGeometry().getTriangles()) {
         EXPECT_LT(idx, 8u);
@@ -1616,7 +1616,7 @@ void compareDecodedTiles(const Layer& a, const Layer& b, bool sortedByEncoder) {
     }
 }
 
-// --- Cross-validation: decode Java fixture → re-encode → decode → compare ---
+// --- Cross-validation: decode Java fixture -> re-encode -> decode -> compare ---
 
 struct SimpleFixtureParams {
     std::string path;

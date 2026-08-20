@@ -578,7 +578,7 @@ impl GeometryValues {
         // (geometry never exceeds ~8 streams, always fits in a single varint byte).
         enc.write_column_type(ColumnType::Geometry)?;
         let stream_count_pos = enc.data().len();
-        enc.data_mut().push(0); // placeholder — patched below
+        enc.data_mut().push(0); // placeholder - patched below
         let mut n: u8 = 0;
 
         // Meta stream - always written, even for a zero-feature layer.

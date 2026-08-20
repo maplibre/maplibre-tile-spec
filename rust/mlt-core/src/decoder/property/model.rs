@@ -216,7 +216,7 @@ pub struct RawFsstData<'a> {
 /// [`RawPresence::decode_bools`] instead of matching on it.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub enum RawPresence<'a> {
-    /// Non-optional column — every feature has a value; nothing is stored.
+    /// Non-optional column - every feature has a value; nothing is stored.
     #[default]
     AllPresent,
     /// Tag `0x01`: bool-RLE presence stream with a full stream header.

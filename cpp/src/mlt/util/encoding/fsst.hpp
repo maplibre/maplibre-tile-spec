@@ -52,7 +52,7 @@ inline FsstResult encode(std::span<const std::uint8_t> data) {
 
     auto decoder = fsst_decoder(encoder.get());
 
-    // The decoder stores symbols in length-group order (2,3,4,5,6,7,8,1) —
+    // The decoder stores symbols in length-group order (2,3,4,5,6,7,8,1) -
     // matching the MLT wire format expected by the Java/C++ decoders.
     std::vector<std::uint8_t> symbolBytes;
     std::vector<std::uint32_t> symbolLengths;

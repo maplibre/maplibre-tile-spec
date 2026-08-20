@@ -137,7 +137,7 @@ impl Codecs {
             return encoder::write_stream_payload(enc.data_mut(), meta, false, vals2);
         }
 
-        // A single value has no deltas or runs, so Delta/FastPFOR never help — skip the competition.
+        // A single value has no deltas or runs, so Delta/FastPFOR never help - skip the competition.
         // VarInt is shorter until the value needs all its bytes; fixed-width plain wins after that.
         let Self { logical, physical } = self;
         if values.len() == 1

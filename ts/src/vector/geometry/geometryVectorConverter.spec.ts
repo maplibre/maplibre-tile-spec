@@ -142,7 +142,7 @@ describe("MULTIPOINT - Morton dictionary encoded", () => {
                 ringOffsets: undefined,
             },
             new Uint32Array([1, 0, 0, 1]),
-            // Morton codes: 47 → (3, 7), 72 → (8, 2).
+            // Morton codes: 47 -> (3, 7), 72 -> (8, 2).
             new Int32Array([72, 47]),
             settings,
         );
@@ -156,7 +156,7 @@ describe("MULTIPOINT - Morton dictionary encoded", () => {
     });
 });
 
-describe("LINESTRING – sequential vertex buffer, no polygon context", () => {
+describe("LINESTRING - sequential vertex buffer, no polygon context", () => {
     it("creates a line string from sequential vertices", () => {
         const gv = encodeLineStringGeometryVector([
             [0, 0],

@@ -271,8 +271,8 @@ function decodeChildColumn(
 }
 
 /**
- * A feature's payload is a bare sequence of map entries, unless it is a single token — a root-level
- * scalar — or opens with a list token. Those two shapes are what distinguish it from map entries.
+ * A feature's payload is a bare sequence of map entries, unless it is a single token - a root-level
+ * scalar - or opens with a list token. Those two shapes are what distinguish it from map entries.
  */
 function decodeFeatureValue(
     flattenedValues: Uint32Array,

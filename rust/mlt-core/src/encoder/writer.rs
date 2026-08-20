@@ -31,9 +31,9 @@ use crate::{MltError, MltResult};
 /// The three sections are accumulated into separate buffers so they can be
 /// combined at the end *without* any in-place insertion or extra copies:
 ///
-/// * `hdr` – layer header (name, extent, `column_count`).
-/// * [`meta`] – column-type bytes (one byte + optional name per column).
-/// * [`data`] – encoded stream data; also the target of [`impl Write`].
+/// * `hdr` - layer header (name, extent, `column_count`).
+/// * [`meta`] - column-type bytes (one byte + optional name per column).
+/// * [`data`] - encoded stream data; also the target of [`impl Write`].
 ///
 /// # Sort-strategy trialing
 ///

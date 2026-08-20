@@ -649,7 +649,7 @@ mod tests {
             assert!(n > 0, "expected at least one triangle");
             let ib = g.index_buffer().expect("index buffer");
             assert_eq!(ib.len(), n.into_usize() * 3);
-            // 4 unique (non-closing) vertices → indices in 0..4
+            // 4 unique (non-closing) vertices -> indices in 0..4
             assert!(ib.iter().all(|&i| i < 4));
         }
 

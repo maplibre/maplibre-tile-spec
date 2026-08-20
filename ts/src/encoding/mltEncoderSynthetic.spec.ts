@@ -17,7 +17,7 @@ const UNSUPPORTED: string[] = [];
  * the fixture's expected GeoJSON.
  *
  * The reference tile is the input rather than the expected JSON, so values reach the encoder with
- * the types they really have — 64-bit ids stay BigInt instead of being rounded through a JSON
+ * the types they really have - 64-bit ids stay BigInt instead of being rounded through a JSON
  * double. Only the final comparison goes via GeoJSON. The byte layout is free to differ from the
  * reference: this encoder writes plain streams where the reference uses dictionaries, FastPFOR and
  * the like.
@@ -41,7 +41,7 @@ describe("encodeTile - synthetic fixtures round trip", () => {
             } catch {
                 return;
             }
-            expect(actual, "round-tripped cleanly — remove it from the exclusion list").not.toEqual(
+            expect(actual, "round-tripped cleanly - remove it from the exclusion list").not.toEqual(
                 normalise(content as GeoJSON.FeatureCollection),
             );
         });

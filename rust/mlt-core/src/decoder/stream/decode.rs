@@ -160,7 +160,7 @@ pub trait DecodeInt: Sized {
 
     /// Fast path for [`LogicalEncoding::None`] on unsigned types: skip the scratch
     /// round-trip since the physical words are already the output.
-    /// Signed types return `None` — they always need at least a zigzag transform.
+    /// Signed types return `None` - they always need at least a zigzag transform.
     fn decode_none_passthrough(
         _stream: &RawStream<'_>,
         _dec: &mut Decoder,

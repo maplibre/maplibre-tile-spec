@@ -16,9 +16,9 @@ pub enum RegionKind {
 /// Best-effort: on any decode error the renderer falls back to raw hex.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DecodeHint {
-    /// Nullability bitmap (byte-RLE → packed bits).
+    /// Nullability bitmap (byte-RLE -> packed bits).
     Presence,
-    /// Boolean data stream (byte-RLE → bools).
+    /// Boolean data stream (byte-RLE -> bools).
     Bool,
     /// Signed 32-bit integers (`i8`/`i32` columns).
     I32,

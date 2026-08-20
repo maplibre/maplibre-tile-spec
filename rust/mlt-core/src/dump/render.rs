@@ -132,7 +132,7 @@ fn render_meta(
             };
             let width = usize::from(bf.hi - bf.lo + 1);
             let annot = format!(
-                "{indent}  └ {range} = {:0width$b} → {}",
+                "{indent}  └ {range} = {:0width$b} -> {}",
                 bf.raw,
                 bf.meaning,
                 width = width
