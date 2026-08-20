@@ -145,7 +145,7 @@ impl Codecs {
             && let [value] = logical.none(values)
         {
             let n: u64 = (*value).into();
-            let varint_len = (u64::BITS - n.leading_zeros()).max(1).div_ceil(7) as usize;
+            let varint_len = n.bit_width().max(1).div_ceil(7) as usize;
             let encoded = std::slice::from_ref(value);
             let (pe, payload) = if varint_len <= size_of_val(encoded) {
                 (PE::VarInt, physical.varint(encoded))

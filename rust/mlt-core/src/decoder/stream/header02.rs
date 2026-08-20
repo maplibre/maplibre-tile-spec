@@ -40,12 +40,12 @@ use crate::utils::{BinarySerializer as _, parse_u8, take};
 use crate::{MltError, MltRefResult, MltResult, Parser};
 
 /// Bit 7 of the encoding byte: an explicit count varint follows.
-const HAS_EXPLICIT_COUNT: u8 = 0x80;
+pub(crate) const HAS_EXPLICIT_COUNT: u8 = 0x80;
 
 /// Logical field (bits 6-4 of the encoding byte). Bit pattern 7 is reserved.
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
-enum LogicalField {
+pub(crate) enum LogicalField {
     None = 0,
     Delta = 1,
     CwDelta = 2,
@@ -58,7 +58,7 @@ enum LogicalField {
 /// Physical field (bits 3-2 of the encoding byte).
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
-enum PhysicalField {
+pub(crate) enum PhysicalField {
     NoneNoLen = 0,
     NoneWithLen = 1,
     VarInt = 2,

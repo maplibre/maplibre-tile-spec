@@ -83,8 +83,8 @@ fn build_hilbert_dict(
     dict_xy.reserve(coord_count * 2);
     remap.reserve(coord_count);
 
-    for (i, c) in vertices.chunks_exact(2).enumerate() {
-        let k = hilbert_sort_key(Coord { x: c[0], y: c[1] }, params);
+    for (i, &[x,y]) in vertices.as_chunks::<2>().0.into_iter().enumerate() {
+        let k = hilbert_sort_key(Coord { x, y }, params);
         offsets.push(k);
         // Key in the high 32 bits so a single u64 sort orders by Hilbert
         // index while preserving the original position for tie-breaking.
@@ -362,7 +362,7 @@ fn dict_may_be_beneficial(vertices: &[i32], enc: &Encoder) -> bool {
     }
 
     let mut hll = HyperLogLog::<Coord<i32>>::with_hasher(0.03, SipHasherBuilder::from_seed(0, 0));
-    for c in vertices.chunks_exact(2) {
+    for c in vertices.as_chunks::<2>().0 {
         hll.insert(&Coord::<i32> { x: c[0], y: c[1] });
     }
     #[expect(clippy::cast_precision_loss)]

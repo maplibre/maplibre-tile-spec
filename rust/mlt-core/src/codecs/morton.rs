@@ -79,7 +79,7 @@ impl Morton {
             // ceil(log2(extent + 1)), matching Java's Math.ceil(Math.log(...) / Math.log(2)).
             // Computed with integer arithmetic: for te >= 1, this equals `u32::BITS - te.leading_zeros()`.
             // Capped at 16: Morton codes are u32, so each axis may use at most 16 bits.
-            let required_bits = u32::BITS - extent.leading_zeros();
+            let required_bits = extent.bit_width();
             if required_bits > 16 {
                 return Err(MltError::VertexMortonNotCompatibleWithExtent {
                     extent,

@@ -5,6 +5,7 @@
 //! pipeline (envelope, geometry layouts, presence bitfields, stream headers,
 //! interleaved RLE) against the v1 implementation as the reference.
 
+use mlt_core::dump::{RenderOpts, annotate_tile, render};
 use mlt_core::encoder::{EncoderConfig, WireVersion};
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
@@ -56,7 +57,34 @@ fn assert_differential(layer: &TileLayer) -> (usize, usize) {
     assert_eq!(tag1, 1);
     assert_eq!(tag2, 2);
     assert_eq!(tile1, tile2, "v1 and v2 decoded layers must be identical");
+    assert_dump_covers(&v1_bytes);
+    assert_dump_covers(&v2_bytes);
     (v1_bytes.len(), v2_bytes.len())
+}
+
+fn assert_dump_covers(bytes: &[u8]) {
+    let tree = annotate_tile(bytes).expect("annotate_tile");
+    let mut leaves: Vec<(usize, usize)> = tree
+        .regions
+        .iter()
+        .filter(|r| !r.container)
+        .map(|r| (r.offset, r.len))
+        .collect();
+    leaves.sort_unstable();
+
+    let mut cursor = 0;
+    for (offset, len) in &leaves {
+        assert_eq!(*offset, cursor, "gap/overlap at offset {offset}");
+        cursor += len;
+    }
+    assert_eq!(
+        cursor,
+        bytes.len(),
+        "dump covers {cursor} of {} bytes",
+        bytes.len()
+    );
+
+    render(&tree, bytes, &RenderOpts::default(), &mut Vec::new()).expect("render");
 }
 
 /// Build a layer from geometries, optional per-feature IDs, and property columns.
