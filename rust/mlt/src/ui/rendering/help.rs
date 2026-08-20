@@ -3,6 +3,7 @@ use ratatui::layout::{Alignment, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
+use usize_cast::IntoUsize as _;
 
 use crate::ui::state::{App, ViewMode};
 use crate::ui::{
@@ -74,7 +75,7 @@ pub fn render_help_overlay(f: &mut Frame<'_>, app: &mut App) {
         height,
     );
     let inner = height.saturating_sub(2);
-    let max = u16::try_from(lines.len().saturating_sub(inner as usize)).unwrap_or(0);
+    let max = u16::try_from(lines.len().saturating_sub(inner.into_usize())).unwrap_or(0);
     app.help_scroll = app.help_scroll.min(max);
     f.render_widget(ratatui::widgets::Clear, popup);
     let para = Paragraph::new(lines)

@@ -12,9 +12,8 @@ jobs:
   profile:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0 }
 
       - uses: ./.github/actions/mlt-setup-rust
 
@@ -26,10 +25,8 @@ jobs:
       # See `just rust::download-benchmark-tiles` for details.
       - name: Cache benchmark tiles
         id: cache-tiles
-        uses: actions/cache@v5
-        with:
-          path: /tmp/benchmark-tiles
-          key: hotpath-tiles-protomaps-z6-v1
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with: { path: '/tmp/benchmark-tiles', key: 'hotpath-tiles-protomaps-z6-v1' }
 
       - name: Download benchmark tiles
         if: steps.cache-tiles.outputs.cache-hit != 'true'
@@ -74,7 +71,7 @@ jobs:
           echo "$BASE_REF" > /tmp/metrics/base_ref.txt
           echo "$HEAD_REF" > /tmp/metrics/head_ref.txt
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: profile-metrics
           path: /tmp/metrics/

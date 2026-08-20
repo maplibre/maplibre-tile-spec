@@ -1,4 +1,5 @@
 //! TUI visualizer for MLT files using ratatui
+use usize_cast::IntoUsize as _;
 
 pub(crate) mod mbt;
 mod rendering;
@@ -253,7 +254,7 @@ fn click_row_in_area(col: u16, row: u16, area: Rect, scroll: usize) -> Option<us
     let top = area.y + 1;
     let bot = area.y + area.height.saturating_sub(1);
     (col >= area.x && col < area.x + area.width && row >= top && row < bot)
-        .then(|| (row - top) as usize + scroll)
+        .then(|| (row - top).into_usize() + scroll)
 }
 
 const HIGHLIGHT_SYMBOL_WIDTH: u16 = 3;
@@ -767,7 +768,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     mouse.column,
                                     mouse.row,
                                     area,
-                                    app.tree_scroll as usize,
+                                    app.tree_scroll.into_usize(),
                                 )
                                 && let Some((l, f, p)) =
                                     app.tree_items.get(row).and_then(TreeItem::layer_feat_part)
@@ -871,7 +872,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 if up {
                                     app.tree_scroll = app.tree_scroll.saturating_sub(step);
                                 } else {
-                                    let inner = area.height.saturating_sub(2) as usize;
+                                    let inner = area.height.saturating_sub(2).into_usize();
                                     let max =
                                         u16::try_from(app.tree_items.len().saturating_sub(inner))?;
                                     app.tree_scroll = app.tree_scroll.saturating_add(step).min(max);
@@ -940,8 +941,8 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             if let Some(fa) = filter_area
                                 && point_in_rect(mouse.column, mouse.row, fa)
                             {
-                                let row = mouse.row.saturating_sub(fa.y + 1) as usize
-                                    + app.filter_scroll as usize;
+                                let row = mouse.row.saturating_sub(fa.y + 1).into_usize()
+                                    + app.filter_scroll.into_usize();
                                 handle_filter_click(app, row);
                                 continue;
                             }
@@ -950,7 +951,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 && app.filtered_file_indices.is_empty()
                                 && !app.files.is_empty()
                             {
-                                let row = mouse.row.saturating_sub(ia.y + 1) as usize;
+                                let row = mouse.row.saturating_sub(ia.y + 1).into_usize();
                                 if row == 2 {
                                     app.ext_filters.clear();
                                     app.geom_filters.clear();
@@ -1005,7 +1006,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                     mouse.column,
                                     mouse.row,
                                     area,
-                                    app.tree_scroll as usize,
+                                    app.tree_scroll.into_usize(),
                                 )
                                 && row < app.tree_items.len()
                             {
@@ -1020,7 +1021,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                                 } else {
                                     app.selected_index = row;
                                     app.scroll_selected_into_view(
-                                        area.height.saturating_sub(2) as usize
+                                        area.height.saturating_sub(2).into_usize(),
                                     );
                                 }
                                 app.invalidate_bounds();

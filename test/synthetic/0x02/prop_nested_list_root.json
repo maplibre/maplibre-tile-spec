@@ -1,0 +1,31 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "a": [
+          true,
+          false,
+          1,
+          2147483649,
+          255,
+          2147483650,
+          9223372036854775811,
+          "5",
+          6.0,
+          3.402823466385289E38
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ]
+      }
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import { ColumnTypeCode } from "../metadata/tileset/typeMap";
 import IntWrapper from "../decoding/intWrapper";
 import { encodeVarintInt32Value } from "./integerEncodingUtils";
 import { concatenateBuffers } from "../decoding/decodingTestUtils";
@@ -39,5 +40,5 @@ export function encodeChildCount(count: number): Uint8Array {
  * Computes typeCode for a scalar field.
  */
 export function scalarTypeCode(scalarType: number, nullable: boolean): number {
-    return 10 + scalarType * 2 + (nullable ? 1 : 0);
+    return ColumnTypeCode.SCALAR_BASE + scalarType * 2 + (nullable ? 1 : 0);
 }

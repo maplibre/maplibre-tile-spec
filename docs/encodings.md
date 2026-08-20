@@ -130,6 +130,7 @@ A bit-aligned null suppression technique that compresses integers using a minima
 Uses a patched approach to store exceptions (outliers) separately, keeping the overall bit width small.
 
 Refer to:
+
 - <https://arxiv.org/pdf/1209.2137.pdf>
 - <https://ayende.com/blog/199524-C/integer-compression-the-fastpfor-code>
 

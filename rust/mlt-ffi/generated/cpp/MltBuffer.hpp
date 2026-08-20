@@ -27,7 +27,7 @@ void MltBuffer_destroy(MltBuffer* self);
 } // namespace capi
 } // namespace diplomat
 
-inline diplomat::span<const uint8_t> MltBuffer::as_bytes() const {
+inline diplomat::span<const uint8_t> MltBuffer::as_bytes() const DIPLOMAT_LIFETIME_BOUND {
     auto result = diplomat::capi::MltBuffer_as_bytes(this->AsFFI());
     return diplomat::span<const uint8_t>(result.data, result.len);
 }

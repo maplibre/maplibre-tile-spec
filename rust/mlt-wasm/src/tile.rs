@@ -31,19 +31,19 @@ impl MltTile {
     /// Name of layer `layer_idx`.
     #[must_use]
     pub fn layer_name(&self, layer_idx: usize) -> String {
-        self.layers[layer_idx].tile.name.clone()
+        self.layers[layer_idx].tile.name().to_string()
     }
 
     /// Extent of layer `layer_idx` in tile coordinates (typically 4096).
     #[must_use]
     pub fn layer_extent(&self, layer_idx: usize) -> u32 {
-        self.layers[layer_idx].tile.extent
+        self.layers[layer_idx].tile.extent().get()
     }
 
     /// Number of features in layer `layer_idx`.
     #[must_use]
     pub fn feature_count(&self, layer_idx: usize) -> usize {
-        self.layers[layer_idx].tile.features.len()
+        self.layers[layer_idx].tile.features().len()
     }
 
     // -----------------------------------------------------------------------
@@ -67,12 +67,12 @@ impl MltTile {
     /// One `f64` per feature.  Absent IDs are `NaN`.
     #[must_use]
     pub fn layer_ids(&self, layer_idx: usize) -> Float64Array {
-        let features = &self.layers[layer_idx].tile.features;
+        let features = self.layers[layer_idx].tile.features();
         let floats: Vec<f64> = features
             .iter()
             .map(|f| {
                 #[expect(clippy::cast_precision_loss)]
-                f.id.map_or(f64::NAN, |v| v as f64)
+                f.id().map_or(f64::NAN, |v| v as f64)
             })
             .collect();
         Float64Array::from(floats.as_slice())
@@ -109,8 +109,12 @@ impl MltTile {
     pub fn feature_properties(&self, layer_idx: usize, feature_idx: usize) -> Object {
         let tile = &self.layers[layer_idx].tile;
         let obj = Object::new();
-        if let Some(feature) = tile.features.get(feature_idx) {
-            for (name, val) in tile.property_names.iter().zip(feature.properties.iter()) {
+        if let Some(feature) = tile.features().get(feature_idx) {
+            for (name, val) in tile
+                .property_names()
+                .iter()
+                .zip(feature.properties().iter())
+            {
                 if let Some(js_val) = prop_value_to_js(val) {
                     let _ = Reflect::set(&obj, &JsValue::from_str(name), &js_val);
                 }

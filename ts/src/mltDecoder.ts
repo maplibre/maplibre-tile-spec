@@ -1,5 +1,5 @@
 import FeatureTable from "./vector/featureTable";
-import { type Column, LogicalScalarType, ScalarType } from "./metadata/tileset/tilesetMetadata";
+import { type Column, ScalarType } from "./metadata/tileset/tilesetMetadata";
 import IntWrapper from "./decoding/intWrapper";
 import { decodeStreamMetadata, type RleEncodedStreamMetadata } from "./metadata/tile/streamMetadataDecoder";
 import { VectorType } from "./vector/vectorType";
@@ -59,7 +59,7 @@ export default function decodeTile(
         }
 
         const tag = decodeVarintInt32(tile, offset, 1)[0] >>> 0;
-        if (tag !== 1) {
+        if (tag !== 1 && tag !== 2) {
             // Skip unknown block types
             offset.set(blockEnd);
             continue;
@@ -172,16 +172,7 @@ function decodeIdColumn(
     sizeOrNullabilityBuffer: number | BitVector,
     idWithinMaxSafeInteger = false,
 ): IdVector {
-    const scalarTypeMetadata = columnMetadata.scalarType;
-    if (
-        !scalarTypeMetadata ||
-        scalarTypeMetadata.type !== "logicalType" ||
-        scalarTypeMetadata.logicalType !== LogicalScalarType.ID
-    ) {
-        throw new Error(`ID column must be a logical ID scalar type: ${columnName}`);
-    }
-
-    const idDataType = scalarTypeMetadata.longID ? ScalarType.UINT_64 : ScalarType.UINT_32;
+    const idDataType = columnMetadata.scalarType?.longID ? ScalarType.UINT_64 : ScalarType.UINT_32;
     const nullabilityBuffer = typeof sizeOrNullabilityBuffer === "number" ? undefined : sizeOrNullabilityBuffer;
 
     const vectorType = getVectorType(
@@ -204,6 +195,7 @@ function decodeIdColumn(
                     id[0],
                     id[1],
                     (idDataStreamMetadata as RleEncodedStreamMetadata).numRleValues,
+                    false,
                 );
             }
             case VectorType.CONST: {
@@ -215,7 +207,7 @@ function decodeIdColumn(
     switch (vectorType) {
         case VectorType.FLAT: {
             if (idWithinMaxSafeInteger) {
-                const id = decodeUnsignedInt64AsFloat64Stream(tile, offset, idDataStreamMetadata);
+                const id = decodeUnsignedInt64AsFloat64Stream(tile, offset, idDataStreamMetadata, nullabilityBuffer);
                 return new DoubleFlatVector(columnName, id, sizeOrNullabilityBuffer);
             }
             const id = decodeUnsignedInt64Stream(tile, offset, idDataStreamMetadata, nullabilityBuffer);
@@ -228,6 +220,7 @@ function decodeIdColumn(
                 id[0],
                 id[1],
                 (idDataStreamMetadata as RleEncodedStreamMetadata).numRleValues,
+                false,
             );
         }
         case VectorType.CONST: {

@@ -7,6 +7,7 @@ use integer_encoding::VarIntWriter as _;
 use probabilistic_collections::SipHasherBuilder;
 use probabilistic_collections::similarity::MinHash;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind as _};
+use usize_cast::IntoUsize as _;
 
 use crate::MltError::DictIndexOutOfBounds;
 use crate::codecs::fsst::compress_fsst_with;
@@ -14,10 +15,10 @@ use crate::decoder::strings::{decode_shared_dict_range, encode_shared_dict_range
 use crate::decoder::{PropValue, TileLayer};
 use crate::encoder::model::{StrEncoding, StreamCtx};
 use crate::encoder::optimizer::{Presence, PropertyStats, SharedDictRole};
-use crate::encoder::property::strings::{fsst_try_train, write_fsst_data, write_raw_str_data};
+use crate::encoder::property::strings::{write_fsst_data, write_raw_str_data};
 use crate::encoder::{Codecs, Encoder, StagedSharedDict, StagedSharedDictItem};
 use crate::errors::AsMltError as _;
-use crate::utils::{AsUsize as _, checked_sum3, strings_to_lengths};
+use crate::utils::{checked_sum3, strings_to_lengths};
 use crate::{ColumnType, DictRange, DictionaryType, LengthType, MltResult, OffsetType, StreamType};
 
 /// Number of [`MinHash`] permutations. 128 gives ~9 % error on Jaccard estimates.
@@ -27,9 +28,18 @@ const MINHASH_PERMUTATIONS: usize = 128;
 /// grouped into a single shared dictionary.
 const MINHASH_SIMILARITY_THRESHOLD: f64 = 0.075;
 
+/// Groups whose sum of per-column unique-corpus bytes exceeds this are validated via [`group_is_beneficial`].
+/// Smaller groups are kept unconditionally.
+const VALIDATE_CORPUS_THRESHOLD: usize = 100_000;
+
+/// Minimum dedup ratio (`1 − union/sum_individual`) for a validated group to be retained.
+const MIN_DEDUP_RATIO: f64 = 0.05;
+
 struct StringProfile<'a> {
     col_idx: usize,
     name: &'a str,
+    /// Sorted, deduplicated values for [`group_is_beneficial`].
+    unique_values: Vec<&'a str>,
     /// `MinHash` over exact string values.
     exact_hashes: Vec<u64>,
     /// `MinHash` over byte trigrams (empty when all strings are shorter than 3 bytes).
@@ -56,14 +66,14 @@ impl TileLayer {
         );
 
         let profiles: Vec<StringProfile<'_>> = self
-            .property_names
+            .property_names()
             .iter()
             .enumerate()
             .filter_map(|(col_idx, name)| {
-                let vals: Vec<&str> = self
-                    .features
+                let mut vals: Vec<&str> = self
+                    .features()
                     .iter()
-                    .filter_map(|f| match f.properties.get(col_idx) {
+                    .filter_map(|f| match f.properties().get(col_idx) {
                         Some(PropValue::Str(Some(s))) => Some(s.as_str()),
                         _ => None,
                     })
@@ -71,6 +81,8 @@ impl TileLayer {
                 if vals.is_empty() {
                     return None;
                 }
+                vals.sort_unstable();
+                vals.dedup();
                 let exact_hashes = exact_mh.get_min_hashes(vals.iter().copied());
                 let trigrams: Vec<[u8; 3]> = vals
                     .iter()
@@ -84,6 +96,7 @@ impl TileLayer {
                 Some(StringProfile {
                     col_idx,
                     name,
+                    unique_values: vals,
                     exact_hashes,
                     trigram_hashes,
                 })
@@ -119,6 +132,31 @@ fn minhash_similarity(a: &[u64], b: &[u64]) -> f64 {
     matches as f64 / a.len() as f64
 }
 
+/// Whether a shared-dictionary group has enough cross-column value dedup to justify combining.
+/// Groups below [`VALIDATE_CORPUS_THRESHOLD`] are always kept; larger ones need [`MIN_DEDUP_RATIO`] savings.
+#[allow(clippy::cast_precision_loss)]
+fn group_is_beneficial(group: &[StringProfile<'_>]) -> bool {
+    let sum_individual: usize = group
+        .iter()
+        .map(|p| p.unique_values.iter().map(|s| s.len()).sum::<usize>())
+        .sum();
+
+    if sum_individual <= VALIDATE_CORPUS_THRESHOLD {
+        return true;
+    }
+
+    let mut all_values: Vec<&str> = group
+        .iter()
+        .flat_map(|p| p.unique_values.iter().copied())
+        .collect();
+    all_values.sort_unstable();
+    all_values.dedup();
+    let union_bytes: usize = all_values.iter().map(|s| s.len()).sum();
+
+    let dedup_savings = sum_individual.saturating_sub(union_bytes);
+    dedup_savings as f64 / sum_individual as f64 >= MIN_DEDUP_RATIO
+}
+
 fn cluster_by_similarity(profiles: Vec<StringProfile<'_>>) -> Vec<Vec<StringProfile<'_>>> {
     if profiles.is_empty() {
         return Vec::new();
@@ -145,7 +183,7 @@ fn cluster_by_similarity(profiles: Vec<StringProfile<'_>>) -> Vec<Vec<StringProf
     let mut groups: Vec<Vec<StringProfile<'_>>> = groups_map
         .into_values()
         .filter_map(|mut v| {
-            if v.len() >= 2 {
+            if v.len() >= 2 && group_is_beneficial(&v) {
                 v.sort_unstable_by_key(|p| p.col_idx);
                 Some(v)
             } else {
@@ -185,7 +223,7 @@ impl StagedSharedDict {
 
     #[must_use]
     pub fn get(&self, span: (u32, u32)) -> Option<&str> {
-        self.corpus().get(span.0.as_usize()..span.1.as_usize())
+        self.corpus().get(span.0.into_usize()..span.1.into_usize())
     }
 }
 
@@ -223,6 +261,15 @@ impl StagedSharedDictItem {
         self.ranges
             .iter()
             .filter_map(|&range| decode_shared_dict_range(range))
+    }
+}
+
+impl StagedSharedDict {
+    #[must_use]
+    pub fn feature_count(&self) -> usize {
+        self.items
+            .first()
+            .map_or(0, StagedSharedDictItem::feature_count)
     }
 }
 
@@ -327,18 +374,13 @@ impl Codecs {
             }
             Some(StrEncoding::Plain | StrEncoding::Dict) => None,
             None => {
-                // Populate cache on first sort trial, reuse on subsequent.
-                // Key includes the suffix as otherwise multiple groups could share the same prefix
-                // (e.g. two "name:" groups for Arabic vs Cyrillic scripts).
-                // Since the grouping is done only once, the order inside the items is deterministic, so we can just take the first suffix for the cache key.
+                // The cache key includes the suffix.
+                // Otherwise two groups could share a prefix (e.g. "name:" for Arabic vs Cyrillic scripts).
+                // Grouping happens once and item order is deterministic, so the first suffix is a stable key.
                 let first_suffix = shared_dict.items.first().map_or("", |i| &i.suffix);
-                enc.fsst_cache
-                    .entry(format!(
-                        "{prefix}{first_suffix}",
-                        prefix = shared_dict.prefix
-                    ))
-                    .or_insert_with(|| fsst_try_train(&dict))
-                    .as_ref()
+                let key = format!("{prefix}{first_suffix}", prefix = shared_dict.prefix);
+                // `fsst_compressor` honors `allow_fsst` and caches across sort trials.
+                enc.fsst_compressor(&key, &dict)
                     .map(|c| compress_fsst_with(&dict, c))
             }
         };
@@ -367,7 +409,7 @@ impl Codecs {
         }
 
         enc.write_column_header(ColumnType::SharedDict, &shared_dict.prefix)?;
-        enc.meta.write_varint(children_count)?;
+        enc.meta_mut().write_varint(children_count)?;
 
         for item in &shared_dict.items {
             if item.has_presence() {

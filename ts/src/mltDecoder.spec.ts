@@ -3,7 +3,7 @@ import { describe, it } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import { parse, join } from "node:path";
 import { VectorTile, type VectorTileFeature } from "@mapbox/vector-tile";
-import Pbf from "pbf";
+import { PbfReader } from "pbf";
 
 import { type FeatureTable, type Feature, decodeTile } from ".";
 import path from "node:path";
@@ -70,7 +70,7 @@ function testTiles(mltSearchDir: string, mvtSearchDir: string) {
 
             const encodedMvt = readFileSync(mvtPath);
             const encodedMlt = readFileSync(mltPath);
-            const buf = new Pbf(encodedMvt);
+            const buf = new PbfReader(encodedMvt);
             const decodedMvt = new VectorTile(buf);
 
             const decodedMlt = decodeTile(encodedMlt, undefined, true);
@@ -108,7 +108,9 @@ function comparePlainGeometryEncodedTile(mlt: FeatureTable[], mvt: VectorTile) {
             assert.deepEqual(mltGeometry, mvtGeometry);
 
             const mltProperties = mltFeature.properties;
-            const mvtProperties = mvtFeature.properties;
+            // vector-tile v3 returns a null-prototype object; copy to a plain object so
+            // assert.deepEqual's prototype check passes.
+            const mvtProperties = { ...mvtFeature.properties };
             transformPropertyNames(mltProperties);
             transformPropertyNames(mvtProperties);
             convertBigIntPropertyValues(mltProperties);

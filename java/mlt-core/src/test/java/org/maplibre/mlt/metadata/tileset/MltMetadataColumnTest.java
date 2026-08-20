@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.maplibre.mlt.data.Layer;
 
 class MltMetadataColumnTest {
   @Test
@@ -55,6 +56,21 @@ class MltMetadataColumnTest {
     final var col =
         new MltMetadata.Column(MltMetadata.scalarFieldType(MltMetadata.ScalarType.STRING, true));
     assertEquals(MltMetadata.ColumnScope.FEATURE, col.columnScope());
+  }
+
+  @Test
+  void rejectsEmptyFeatureTableName() {
+    assertThrows(IllegalArgumentException.class, () -> new MltMetadata.FeatureTable(""));
+  }
+
+  @Test
+  void rejectsEmptyLayerName() {
+    assertThrows(IllegalArgumentException.class, () -> new Layer("", List.of(), 4096));
+  }
+
+  @Test
+  void rejectsNullLayerFeatures() {
+    assertThrows(NullPointerException.class, () -> new Layer("layer", null, 4096));
   }
 
   @Test

@@ -1,7 +1,17 @@
 #include <mlt/metadata/stream.hpp>
 
+#include <mlt/util/buffer_stream.hpp>
+#include <mlt/util/encoding/varint.hpp>
+#include <mlt/util/varint.hpp>
+
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace mlt::metadata::stream {
 
@@ -11,21 +21,21 @@ std::optional<LogicalStreamType> decodeLogicalStreamType(PhysicalStreamType phys
         case PhysicalStreamType::DATA: {
             const auto type = static_cast<DictionaryType>(value);
             if (type < DictionaryType::VALUE_COUNT) {
-                return type;
+                return LogicalStreamType(type);
             }
             break;
         }
         case PhysicalStreamType::OFFSET: {
             const auto type = static_cast<OffsetType>(value);
             if (type < OffsetType::VALUE_COUNT) {
-                return type;
+                return LogicalStreamType(type);
             }
             break;
         }
         case PhysicalStreamType::LENGTH: {
             const auto type = static_cast<LengthType>(value);
             if (type < LengthType::VALUE_COUNT) {
-                return type;
+                return LogicalStreamType(type);
             }
             break;
         }
@@ -46,10 +56,9 @@ std::unique_ptr<StreamMetadata> StreamMetadata::decode(BufferStream& tileData) {
         auto result = MortonEncodedStreamMetadata::decodePartial(std::move(streamMetadata), tileData);
         return std::make_unique<MortonEncodedStreamMetadata>(std::move(result));
     }
-    // Boolean RLE doesn't need additional information
-    else if ((streamMetadata.getLogicalLevelTechnique1() == LogicalLevelTechnique::RLE ||
-              streamMetadata.getLogicalLevelTechnique2() == LogicalLevelTechnique::RLE) &&
-             streamMetadata.getPhysicalLevelTechnique() != PhysicalLevelTechnique::NONE) {
+    if ((streamMetadata.getLogicalLevelTechnique1() == LogicalLevelTechnique::RLE ||
+         streamMetadata.getLogicalLevelTechnique2() == LogicalLevelTechnique::RLE) &&
+        streamMetadata.getPhysicalLevelTechnique() != PhysicalLevelTechnique::NONE) {
         auto result = RleEncodedStreamMetadata::decodePartial(std::move(streamMetadata), tileData);
         return std::make_unique<RleEncodedStreamMetadata>(std::move(result));
     }
@@ -102,6 +111,37 @@ StreamMetadata StreamMetadata::decodeInternal(BufferStream& tileData) {
         numValues,
         byteLength,
     };
+}
+
+std::vector<std::uint8_t> StreamMetadata::encode() const {
+    std::vector<std::uint8_t> result;
+    result.reserve(16);
+
+    const auto encodedStreamType = static_cast<std::uint8_t>((std::to_underlying(physicalStreamType) << 4) |
+                                                             getLogicalType());
+    const auto encodedEncodingScheme = static_cast<std::uint8_t>((std::to_underlying(logicalLevelTechnique1) << 5) |
+                                                                 (std::to_underlying(logicalLevelTechnique2) << 2) |
+                                                                 std::to_underlying(physicalLevelTechnique));
+
+    result.push_back(encodedStreamType);
+    result.push_back(encodedEncodingScheme);
+    util::encoding::encodeVarint(numValues, result);
+    util::encoding::encodeVarint(byteLength, result);
+    return result;
+}
+
+std::vector<std::uint8_t> RleEncodedStreamMetadata::encode() const {
+    auto result = StreamMetadata::encode();
+    util::encoding::encodeVarint(runs, result);
+    util::encoding::encodeVarint(numRleValues, result);
+    return result;
+}
+
+std::vector<std::uint8_t> MortonEncodedStreamMetadata::encode() const {
+    auto result = StreamMetadata::encode();
+    util::encoding::encodeVarint(numBits, result);
+    util::encoding::encodeVarint(coordinateShift, result);
+    return result;
 }
 
 } // namespace mlt::metadata::stream

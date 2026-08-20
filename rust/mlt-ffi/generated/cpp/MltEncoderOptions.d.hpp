@@ -41,17 +41,17 @@ public:
     /**
      * Try sorting features by the Z-order (Morton) curve index.
      */
-    inline void set_try_spatial_morton_sort(bool enabled);
+    inline void set_attempt_spatial_morton_sort(bool enabled);
 
     /**
      * Try sorting features by the Hilbert curve index.
      */
-    inline void set_try_spatial_hilbert_sort(bool enabled);
+    inline void set_attempt_spatial_hilbert_sort(bool enabled);
 
     /**
      * Try sorting features by their feature ID in ascending order.
      */
-    inline void set_try_id_sort(bool enabled);
+    inline void set_attempt_id_sort(bool enabled);
 
     /**
      * Allow FSST string compression.
@@ -61,7 +61,7 @@ public:
     /**
      * Allow `FastPFOR` integer compression.
      */
-    inline void set_allow_fpf(bool enabled);
+    inline void set_allow_fastpfor(bool enabled);
 
     /**
      * Allow string grouping into shared dictionaries.

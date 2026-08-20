@@ -11,6 +11,8 @@ public record U32(int value) implements Unsigned {
     return new U32((int) value);
   }
 
+  public static U32 MAX_VALUE = new U32(0xFFFFFFFF);
+
   @Override
   public Byte byteValue() {
     final var v = value;
@@ -38,5 +40,10 @@ public record U32(int value) implements Unsigned {
   @Override
   public String toString() {
     return "u32(" + Integer.toUnsignedLong(value) + ")";
+  }
+
+  @Override
+  public int compareTo(Unsigned other) {
+    return Unsigned.super.compareTo(other);
   }
 }

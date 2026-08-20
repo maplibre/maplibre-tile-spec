@@ -1,7 +1,7 @@
 use bytemuck::{NoUninit, cast_slice};
 use fastpfor::AnyLenCodec as _;
 use integer_encoding::VarInt;
-use num_traits::PrimInt;
+use num_traits::{PrimInt, WrappingSub};
 use zigzag::ZigZag;
 
 use crate::MltError::UnsupportedPhysicalEncoding;
@@ -29,7 +29,7 @@ pub(crate) fn write_stream_payload(
 }
 
 pub(crate) trait PhysicalIntStreamKind {
-    type Value: Into<u64> + NoUninit + PrimInt;
+    type Value: Into<u64> + NoUninit + PrimInt + WrappingSub;
     const FASTPFOR_ALLOWED: bool;
 
     #[cfg(target_endian = "little")]
@@ -92,7 +92,7 @@ impl PhysicalCodecs {
             PhysicalEncoder::FastPFOR => (PE::FastPFor256, P::fastpfor(self, values)?),
         };
         let meta = StreamMeta::new2(ctx.stream_type, le, pe, values.len())?;
-        write_stream_payload(&mut enc.data, meta, false, vals)
+        write_stream_payload(enc.data_mut(), meta, false, vals)
     }
 
     pub(crate) fn write_alternatives<P: PhysicalIntStreamKind + ?Sized>(
@@ -101,17 +101,21 @@ impl PhysicalCodecs {
         values: &[P::Value],
         logical: LogicalEncoding,
         stream_type: StreamType,
+        allow_fastpfor: bool,
     ) -> MltResult<()> {
         use PhysicalEncoding as PE;
-        if P::FASTPFOR_ALLOWED {
+        // `FASTPFOR_ALLOWED` is the type-level capability: FastPFOR only supports u32.
+        // `allow_fastpfor` is the caller's runtime preference.
+        // Both must hold to try FastPFOR.
+        if P::FASTPFOR_ALLOWED && allow_fastpfor {
             alt.with(|enc| {
                 let meta = StreamMeta::new2(stream_type, logical, PE::FastPFor256, values.len())?;
-                write_stream_payload(&mut enc.data, meta, false, P::fastpfor(self, values)?)
+                write_stream_payload(enc.data_mut(), meta, false, P::fastpfor(self, values)?)
             })?;
         }
         alt.with(|enc| {
             let meta = StreamMeta::new2(stream_type, logical, PE::VarInt, values.len())?;
-            write_stream_payload(&mut enc.data, meta, false, self.varint(values))
+            write_stream_payload(enc.data_mut(), meta, false, self.varint(values))
         })
     }
 }
@@ -180,19 +184,11 @@ fn encode_i8_zigzag<'a>(values: &[i8], target: &'a mut Vec<u32>) -> &'a [u32] {
     target
 }
 
-fn encode_u8_delta<'a>(values: &[u8], target: &'a mut Vec<u32>) -> &'a [u32] {
-    target.clear();
-    target.reserve(values.len());
-    let mut prev = 0_i32;
-    for &v in values {
-        let v = i32::from(v);
-        target.push(i32::encode(v.wrapping_sub(prev)));
-        prev = v;
-    }
-    target
-}
-
-fn encode_i8_delta<'a>(values: &[i8], target: &'a mut Vec<u32>) -> &'a [u32] {
+/// Delta-then-zigzag-encode narrow (`u8`/`i8`) values, widening each to `i32` first.
+fn encode_narrow_delta<'a, T: Copy>(values: &[T], target: &'a mut Vec<u32>) -> &'a [u32]
+where
+    i32: From<T>,
+{
     target.clear();
     target.reserve(values.len());
     let mut prev = 0_i32;
@@ -216,7 +212,7 @@ impl LogicalIntCodec<[u8]> for LogicalCodecs {
     }
 
     fn delta<'a>(&'a mut self, values: &'a [u8]) -> &'a [u32] {
-        encode_u8_delta(values, &mut self.u32_tmp)
+        encode_narrow_delta(values, &mut self.u32_tmp)
     }
 
     fn rle<'a>(&'a mut self, values: &'a [u8]) -> MltResult<(LogicalEncoding, &'a [u32])> {
@@ -226,7 +222,7 @@ impl LogicalIntCodec<[u8]> for LogicalCodecs {
     }
 
     fn delta_rle<'a>(&'a mut self, values: &'a [u8]) -> MltResult<(LogicalEncoding, &'a [u32])> {
-        let data = encode_u8_delta(values, &mut self.u32_tmp);
+        let data = encode_narrow_delta(values, &mut self.u32_tmp);
         let meta = apply_rle(data, values.len(), &mut self.u32_tmp2)?;
         Ok((LogicalEncoding::DeltaRle(meta), &self.u32_tmp2))
     }
@@ -244,7 +240,7 @@ impl LogicalIntCodec<[i8]> for LogicalCodecs {
     }
 
     fn delta<'a>(&'a mut self, values: &'a [i8]) -> &'a [u32] {
-        encode_i8_delta(values, &mut self.u32_tmp)
+        encode_narrow_delta(values, &mut self.u32_tmp)
     }
 
     fn rle<'a>(&'a mut self, values: &'a [i8]) -> MltResult<(LogicalEncoding, &'a [u32])> {
@@ -254,7 +250,7 @@ impl LogicalIntCodec<[i8]> for LogicalCodecs {
     }
 
     fn delta_rle<'a>(&'a mut self, values: &'a [i8]) -> MltResult<(LogicalEncoding, &'a [u32])> {
-        let data = encode_i8_delta(values, &mut self.u32_tmp);
+        let data = encode_narrow_delta(values, &mut self.u32_tmp);
         let meta = apply_rle(data, values.len(), &mut self.u32_tmp2)?;
         Ok((LogicalEncoding::DeltaRle(meta), &self.u32_tmp2))
     }

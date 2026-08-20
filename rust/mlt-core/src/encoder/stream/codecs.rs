@@ -2,8 +2,6 @@ use std::collections::HashMap;
 
 use bytemuck::{NoUninit, cast_slice};
 use fastpfor::FastPFor256;
-use num_traits::WrappingSub;
-use zigzag::ZigZag;
 
 use crate::codecs::bytes::encode_bools_to_bytes;
 use crate::codecs::rle::encode_byte_rle;
@@ -75,7 +73,7 @@ impl Codecs {
         let num_values = values.len();
         let (logical, vals) = self.logical.encode_bools(values)?;
         let meta = StreamMeta::new2(stream_type, logical, PhysicalEncoding::None, num_values)?;
-        encoder::write_stream_payload(&mut enc.data, meta, true, vals)
+        encoder::write_stream_payload(enc.data_mut(), meta, true, vals)
     }
 
     pub(crate) fn write_presence_stream(
@@ -100,7 +98,7 @@ impl Codecs {
         compile_error!("not implemented for non-little-endian targets");
 
         let meta = StreamMeta::new_none(stream_type, values.len())?;
-        encoder::write_stream_payload(&mut enc.data, meta, false, cast_slice(values))
+        encoder::write_stream_payload(enc.data_mut(), meta, false, cast_slice(values))
     }
 
     pub(crate) fn write_int_stream<T>(
@@ -111,7 +109,6 @@ impl Codecs {
     ) -> MltResult<()>
     where
         [T]: LogicalIntStreamKind<Input = T>,
-        <<[T] as LogicalIntStreamKind>::Profile as ZigZag>::UInt: WrappingSub,
         LogicalCodecs: LogicalIntCodec<[T]>,
     {
         type Output<T> = <[T] as LogicalIntStreamKind>::Output;
@@ -137,10 +134,28 @@ impl Codecs {
             let vals1 = self.logical.none(values);
             let vals2 = Output::<T>::none(&mut self.physical, vals1);
             let meta = StreamMeta::new2(ctx.stream_type, LE::None, PE::None, vals1.len())?;
-            return encoder::write_stream_payload(&mut enc.data, meta, false, vals2);
+            return encoder::write_stream_payload(enc.data_mut(), meta, false, vals2);
         }
 
+        // A single value has no deltas or runs, so Delta/FastPFOR never help — skip the competition.
+        // VarInt is shorter until the value needs all its bytes; fixed-width plain wins after that.
         let Self { logical, physical } = self;
+        if values.len() == 1
+            && let [value] = logical.none(values)
+        {
+            let n: u64 = (*value).into();
+            let varint_len = (u64::BITS - n.leading_zeros()).max(1).div_ceil(7) as usize;
+            let encoded = std::slice::from_ref(value);
+            let (pe, payload) = if varint_len <= size_of_val(encoded) {
+                (PE::VarInt, physical.varint(encoded))
+            } else {
+                (PE::None, cast_slice(encoded))
+            };
+            let meta = StreamMeta::new2(ctx.stream_type, LE::None, pe, 1)?;
+            return encoder::write_stream_payload(enc.data_mut(), meta, false, payload);
+        }
+
+        let allow_fastpfor = enc.config().allow_fastpfor();
         let mut alt = enc.try_alternatives();
 
         let sample = logical.none(DataProfile::take_sample(values));
@@ -155,6 +170,7 @@ impl Codecs {
                 values,
                 logical_enc,
                 ctx.stream_type,
+                allow_fastpfor,
             )?;
         }
         if profile.delta_is_beneficial() {
@@ -164,6 +180,7 @@ impl Codecs {
                 values,
                 LE::Delta,
                 ctx.stream_type,
+                allow_fastpfor,
             )?;
         }
         if profile.rle_is_viable() {
@@ -173,9 +190,16 @@ impl Codecs {
                 values,
                 logical_enc,
                 ctx.stream_type,
+                allow_fastpfor,
             )?;
         }
         let values = logical.none(values);
-        physical.write_alternatives::<Output<T>>(&mut alt, values, LE::None, ctx.stream_type)
+        physical.write_alternatives::<Output<T>>(
+            &mut alt,
+            values,
+            LE::None,
+            ctx.stream_type,
+            allow_fastpfor,
+        )
     }
 }

@@ -12,6 +12,7 @@
 //! ### Common filename abbreviations
 //! * `np` - no presence stream, i.e. values exist for each feature in a column
 //! * `fpf` - uses `FastPFor` compression
+//! * `plain` - `PhysicalLevelTechnique::NONE`, i.e. fixed-width little-endian ints
 //! * `tes` - includes tessellation triangles stream
 //! * `ns` - unlike Java encoder, empty streams are not forced to be created
 
@@ -301,6 +302,11 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .geo(MultiPoint(vec![P1, P2, P3]))
         .write(w, "multipoint");
+    geo_varint()
+        .vertex_buffer_type(VertexBufferType::Morton)
+        .vertex_offsets(E::delta_rle_varint())
+        .geo(MultiPoint(morton_curve().into_iter().map(Point).collect()))
+        .write(w, "multipoint_morton_dictionary-rust");
     // Split the Morton curve at a different place so that the rings are different lengths,
     // use one as the shell and one as the hole of a single and multi-polygon.
     let quarter = mc.len() / 4;
@@ -325,6 +331,14 @@ fn generate_geometry(w: &mut SynthWriter) {
         .geo(MultiLineString(vec![line1(), line2()]))
         .write(w, "multiline");
 
+    // Regression test for https://github.com/maplibre/maplibre-gl-js/issues/7659:
+    // rust encoder and ts decoder disagreed on single-element geometry streams.
+    geo_varint()
+        .meta(E::delta_varint())
+        .no_rings(E::rle_varint())
+        .geo(MultiLineString(vec![line1(), line2()]))
+        .write(w, "multiline_meta_delta-rust");
+
     // Split the Morton curve into two halves to form a MultiLineString with Morton encoding.
     let mline1 = LineString::new(mc[..half].to_vec());
     let mline2 = LineString::new(mc[half..].to_vec());
@@ -339,26 +353,46 @@ fn generate_geometry(w: &mut SynthWriter) {
 fn write_mix(w: &mut SynthWriter, current: &[usize]) {
     let mut builder = geo_varint();
     let mut builder_t = Some(geo_varint().tessellate());
+    let mut builder_t_with_lines = Some(geo_varint().tessellate());
+    let mut has_polygon = false;
+    let mut has_line = false;
     let mut name = format!("mix_{}", current.len());
     for idx in current {
         let mix_type = &MIX_TYPES[*idx];
         builder = builder.geo(mix_type.1.clone());
         write!(&mut name, "_{}", mix_type.0).unwrap();
+        let is_polygon = matches!(
+            mix_type.1,
+            Geometry::<i32>::Polygon(_) | Geometry::<i32>::MultiPolygon(_)
+        );
+        has_polygon |= is_polygon;
+        let is_line = matches!(
+            mix_type.1,
+            Geometry::<i32>::LineString(_) | Geometry::<i32>::MultiLineString(_)
+        );
+        has_line |= is_line;
         if let Some(bldr) = builder_t {
-            if matches!(
-                mix_type.1,
-                Geometry::<i32>::Polygon(_) | Geometry::<i32>::MultiPolygon(_)
-            ) {
+            if is_polygon {
                 builder_t = Some(bldr.geo(mix_type.1.clone()));
             } else {
                 builder_t = None;
             }
         }
+        if let Some(b) = builder_t_with_lines {
+            if is_polygon || is_line {
+                builder_t_with_lines = Some(b.geo(mix_type.1.clone()));
+            } else {
+                builder_t_with_lines = None;
+            }
+        }
     }
     if let Some(bldr) = builder_t {
-        // let suffix = if ["..."].contains(name) { "" } else { "-rust" };
-        let suffix = "";
-        bldr.write(w, format!("{name}_tes{suffix}"));
+        bldr.write(w, format!("{name}_tes"));
+    } else if has_polygon
+        && has_line
+        && let Some(b) = builder_t_with_lines
+    {
+        b.write(w, format!("{name}_tes"));
     }
     builder.write(w, &name);
 }
@@ -411,10 +445,22 @@ fn generate_ids(w: &mut SynthWriter) {
         .write(w, "id_min");
     p0().ids(Id::u32(vec![u32::MAX]), E::varint_with(L::None))
         .write(w, "id_max");
+    p0().ids(Id::u32(vec![u32::MAX]), E::varint_with(L::Delta))
+        .write(w, "id_max_delta");
+    p0().ids(Id::u32(vec![u32::MAX]), E::varint_with(L::Rle))
+        .write(w, "id_max_rle");
+    p0().ids(Id::u32(vec![u32::MAX]), E::varint_with(L::DeltaRle))
+        .write(w, "id_max_delta_rle");
     p0().ids(Id::u64(vec![9_234_567_890]), E::varint_with(L::None))
         .write(w, "id64");
     p0().ids(Id::u64(vec![u64::MAX]), E::varint_with(L::None))
         .write(w, "id64_max");
+    p0().ids(Id::u64(vec![u64::MAX]), E::varint_with(L::Delta))
+        .write(w, "id64_max_delta");
+    p0().ids(Id::u64(vec![u64::MAX]), E::varint_with(L::Rle))
+        .write(w, "id64_max_rle");
+    p0().ids(Id::u64(vec![u64::MAX]), E::varint_with(L::DeltaRle))
+        .write(w, "id64_max_delta_rle");
 
     let four_p0 = || geo_varint_with_rle().geos([P0, P0, P0, P0]);
     let dup_id = || Id::u32(vec![103; 4]);
@@ -543,10 +589,25 @@ fn generate_properties(w: &mut SynthWriter) {
         .write(w, "prop_i32_np");
     p0().add_prop(e_int, P::opt_i32("val", vec![Some(42)]))
         .write(w, "prop_i32");
+    // Single-value variants hit the CONST/SEQUENCE path the multi-feature props_* tests miss.
+    p0().add_prop(E::delta_varint(), P::i32("val", vec![42]))
+        .write(w, "prop_i32_delta_np");
+    p0().add_prop(E::delta_varint(), P::opt_i32("val", vec![Some(42)]))
+        .write(w, "prop_i32_delta");
+    p0().add_prop(E::rle_varint(), P::i32("val", vec![42]))
+        .write(w, "prop_i32_rle_np");
+    p0().add_prop(E::rle_varint(), P::opt_i32("val", vec![Some(42)]))
+        .write(w, "prop_i32_rle-rust");
+    p0().add_prop(E::delta_rle_varint(), P::i32("val", vec![42]))
+        .write(w, "prop_i32_delta_rle_np");
+    p0().add_prop(E::delta_rle_varint(), P::opt_i32("val", vec![Some(42)]))
+        .write(w, "prop_i32_delta_rle-rust");
     p0().add_prop(e_int, P::i32("val", vec![-42]))
         .write(w, "prop_i32_neg_np");
     p0().add_prop(e_int, P::opt_i32("val", vec![Some(-42)]))
         .write(w, "prop_i32_neg");
+    p0().add_prop(E::plain(), P::i32("val", vec![-0x1234_5678]))
+        .write(w, "prop_i32_plain_np-rust");
     p0().add_prop(e_int, P::i32("val", vec![i32::MIN]))
         .write(w, "prop_i32_min_np");
     p0().add_prop(e_int, P::opt_i32("val", vec![Some(i32::MIN)]))
@@ -569,6 +630,20 @@ fn generate_properties(w: &mut SynthWriter) {
         .write(w, "prop_u32_np");
     p0().add_prop(e_int, P::opt_u32("val", vec![Some(42)]))
         .write(w, "prop_u32");
+    p0().add_prop(E::delta_varint(), P::u32("val", vec![42]))
+        .write(w, "prop_u32_delta_np");
+    p0().add_prop(E::delta_varint(), P::opt_u32("val", vec![Some(42)]))
+        .write(w, "prop_u32_delta");
+    p0().add_prop(E::rle_varint(), P::u32("val", vec![42]))
+        .write(w, "prop_u32_rle_np");
+    p0().add_prop(E::rle_varint(), P::opt_u32("val", vec![Some(42)]))
+        .write(w, "prop_u32_rle-rust");
+    p0().add_prop(E::delta_rle_varint(), P::u32("val", vec![42]))
+        .write(w, "prop_u32_delta_rle_np");
+    p0().add_prop(E::delta_rle_varint(), P::opt_u32("val", vec![Some(42)]))
+        .write(w, "prop_u32_delta_rle-rust");
+    p0().add_prop(E::plain(), P::u32("val", vec![0x1234_5678]))
+        .write(w, "prop_u32_plain_np-rust");
     p0().add_prop(e_int, P::u32("val", vec![0]))
         .write(w, "prop_u32_min_np");
     p0().add_prop(e_int, P::opt_u32("val", vec![Some(0)]))
@@ -591,10 +666,33 @@ fn generate_properties(w: &mut SynthWriter) {
         .write(w, "prop_i64_np");
     p0().add_prop(e_int, P::opt_i64("val", vec![Some(9_876_543_210)]))
         .write(w, "prop_i64");
+    p0().add_prop(E::delta_varint(), P::i64("val", vec![9_876_543_210]))
+        .write(w, "prop_i64_delta_np");
+    p0().add_prop(
+        E::delta_varint(),
+        P::opt_i64("val", vec![Some(9_876_543_210)]),
+    )
+    .write(w, "prop_i64_delta");
+    p0().add_prop(E::rle_varint(), P::i64("val", vec![9_876_543_210]))
+        .write(w, "prop_i64_rle_np");
+    p0().add_prop(
+        E::rle_varint(),
+        P::opt_i64("val", vec![Some(9_876_543_210)]),
+    )
+    .write(w, "prop_i64_rle-rust");
+    p0().add_prop(E::delta_rle_varint(), P::i64("val", vec![9_876_543_210]))
+        .write(w, "prop_i64_delta_rle_np");
+    p0().add_prop(
+        E::delta_rle_varint(),
+        P::opt_i64("val", vec![Some(9_876_543_210)]),
+    )
+    .write(w, "prop_i64_delta_rle-rust");
     p0().add_prop(e_int, P::i64("val", vec![-9_876_543_210]))
         .write(w, "prop_i64_neg_np");
     p0().add_prop(e_int, P::opt_i64("val", vec![Some(-9_876_543_210)]))
         .write(w, "prop_i64_neg");
+    p0().add_prop(E::plain(), P::i64("val", vec![-0x0123_4567_89AB_CDEF]))
+        .write(w, "prop_i64_plain_np-rust");
     p0().add_prop(e_int, P::i64("val", vec![i64::MIN]))
         .write(w, "prop_i64_min_np");
     p0().add_prop(e_int, P::opt_i64("val", vec![Some(i64::MIN)]))
@@ -620,6 +718,8 @@ fn generate_properties(w: &mut SynthWriter) {
         P::opt_u64("bignum", vec![Some(1_234_567_890_123_456_789)]),
     )
     .write(w, "prop_u64");
+    p0().add_prop(E::plain(), P::u64("bignum", vec![0x0123_4567_89AB_CDEF]))
+        .write(w, "prop_u64_plain_np-rust");
     p0().add_prop(e_int, P::u64("bignum", vec![0]))
         .write(w, "prop_u64_min_np");
     p0().add_prop(e_int, P::opt_u64("bignum", vec![Some(0)]))
@@ -628,6 +728,37 @@ fn generate_properties(w: &mut SynthWriter) {
         .write(w, "prop_u64_max_np");
     p0().add_prop(e_int, P::opt_u64("bignum", vec![Some(u64::MAX)]))
         .write(w, "prop_u64_max");
+    // The exact shape that hid the const un-ZigZag bug, from real ev.mlt tiles.
+    p0().add_prop(
+        E::delta_varint(),
+        P::u64("bignum", vec![1_234_567_890_123_456_789]),
+    )
+    .write(w, "prop_u64_delta_np");
+    p0().add_prop(
+        E::delta_varint(),
+        P::opt_u64("bignum", vec![Some(1_234_567_890_123_456_789)]),
+    )
+    .write(w, "prop_u64_delta");
+    p0().add_prop(
+        E::rle_varint(),
+        P::u64("bignum", vec![1_234_567_890_123_456_789]),
+    )
+    .write(w, "prop_u64_rle_np");
+    p0().add_prop(
+        E::rle_varint(),
+        P::opt_u64("bignum", vec![Some(1_234_567_890_123_456_789)]),
+    )
+    .write(w, "prop_u64_rle-rust");
+    p0().add_prop(
+        E::delta_rle_varint(),
+        P::u64("bignum", vec![1_234_567_890_123_456_789]),
+    )
+    .write(w, "prop_u64_delta_rle_np");
+    p0().add_prop(
+        E::delta_rle_varint(),
+        P::opt_u64("bignum", vec![Some(1_234_567_890_123_456_789)]),
+    )
+    .write(w, "prop_u64_delta_rle-rust");
     // Two-feature optional u64 variants (key is "val" to match Java)
     geo_varint_with_rle()
         .geos([P0, P0])

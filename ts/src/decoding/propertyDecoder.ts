@@ -1,5 +1,5 @@
 import type IntWrapper from "./intWrapper";
-import { type Column, type ScalarColumn, ScalarType } from "../metadata/tileset/tilesetMetadata";
+import { type Column, ComplexType, type ScalarColumn, ScalarType } from "../metadata/tileset/tilesetMetadata";
 import type Vector from "../vector/vector";
 import BitVector from "../vector/flat/bitVector";
 import { decodeStreamMetadata, type RleEncodedStreamMetadata } from "../metadata/tile/streamMetadataDecoder";
@@ -28,6 +28,7 @@ import {
 import { Int32SequenceVector } from "../vector/sequence/int32SequenceVector";
 import { Int64SequenceVector } from "../vector/sequence/int64SequenceVector";
 import { decodeSharedDictionary, decodeString } from "./stringDecoder";
+import { decodeMapPropertyColumn } from "./mapPropertyDecoder";
 
 export function decodePropertyColumn(
     data: Uint8Array,
@@ -36,7 +37,7 @@ export function decodePropertyColumn(
     numStreams: number,
     numFeatures: number,
     propertyColumnNames?: Set<string>,
-): Vector | Vector[] {
+): Vector | Vector[] | null {
     if (columnMetadata.type === "scalarType") {
         if (propertyColumnNames && !propertyColumnNames.has(columnMetadata.name)) {
             skipColumn(numStreams, data, offset);
@@ -51,6 +52,10 @@ export function decodePropertyColumn(
             columnMetadata.scalarType,
             columnMetadata,
         );
+    }
+
+    if (columnMetadata.complexType?.physicalType === ComplexType.MAP) {
+        return decodeMapPropertyColumn(data, offset, columnMetadata, numStreams);
     }
 
     if (numStreams === 0) {
@@ -68,7 +73,7 @@ function decodeScalarPropertyColumn(
     column: ScalarColumn,
     columnMetadata: Column,
 ) {
-    let nullabilityBuffer: BitVector = null;
+    let nullabilityBuffer: BitVector | undefined;
     if (numStreams === 0) {
         return null;
     }
@@ -91,7 +96,7 @@ function decodeScalarPropertyColumn(
         case ScalarType.STRING: {
             // In embedded format: numStreams includes nullability stream if column is nullable
             const stringDataStreams = columnMetadata.nullable ? numStreams - 1 : numStreams;
-            return decodeString(columnMetadata.name, data, offset, stringDataStreams, nullabilityBuffer);
+            return decodeString(columnMetadata.name, data, offset, stringDataStreams, nullabilityBuffer) ?? null;
         }
         case ScalarType.BOOLEAN:
             return decodeBooleanColumn(data, offset, columnMetadata, numFeatures, sizeOrNullabilityBuffer);
@@ -172,6 +177,7 @@ function decodeInt64Column(
             id[0],
             id[1],
             (dataStreamMetadata as RleEncodedStreamMetadata).numRleValues,
+            isSigned,
         );
     }
     const constValue = isSigned
@@ -205,6 +211,7 @@ function decodeInt32Column(
             id[0],
             id[1],
             (dataStreamMetadata as RleEncodedStreamMetadata).numRleValues,
+            isSigned,
         );
     }
     const constValue = isSigned

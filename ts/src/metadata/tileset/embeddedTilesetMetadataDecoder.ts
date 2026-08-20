@@ -1,12 +1,12 @@
 import type IntWrapper from "../../decoding/intWrapper";
 import { decodeVarintInt32 } from "../../decoding/integerDecodingUtils";
 import type { Column, FeatureTableSchema, Field, TileSetMetadata } from "./tilesetMetadata";
-import { columnTypeHasChildren, columnTypeHasName, decodeColumnType } from "./typeMap";
+import { ColumnTypeCode, columnTypeHasChildren, columnTypeHasName, decodeColumnType } from "./typeMap";
 
 const textDecoder = new TextDecoder();
 
-const SUPPORTED_COLUMN_TYPES = "0-3(ID), 4(GEOMETRY), 10-29(scalars), 30(STRUCT)";
-const SUPPORTED_FIELD_TYPES = "10-29(scalars), 30(STRUCT)";
+const SUPPORTED_COLUMN_TYPES = "0-3(ID), 4(GEOMETRY), 10-29(scalars), 30(STRUCT), 31(MAP)";
+const SUPPORTED_FIELD_TYPES = "10-29(scalars), 30(STRUCT), 31(MAP)";
 
 /**
  * Decodes a length-prefixed UTF-8 string.
@@ -29,13 +29,11 @@ function decodeString(src: Uint8Array, offset: IntWrapper): string {
  * Used when decoding Field metadata which has the same format as Column.
  */
 function columnToField(column: Column): Field {
-    return {
-        name: column.name,
-        nullable: column.nullable,
-        scalarField: column.scalarType,
-        complexField: column.complexType,
-        type: column.type === "scalarType" ? "scalarField" : "complexField",
-    };
+    const name = column.name;
+    const nullable = column.nullable;
+    return column.type === "scalarType"
+        ? { type: "scalarField", scalarField: column.scalarType, name, nullable }
+        : { type: "complexField", complexField: column.complexType, name, nullable };
 }
 
 /**
@@ -44,21 +42,20 @@ function columnToField(column: Column): Field {
 export function decodeField(src: Uint8Array, offset: IntWrapper): Field {
     const typeCode = decodeVarintInt32(src, offset, 1)[0] >>> 0;
 
-    if (typeCode < 10 || typeCode > 30) {
+    const base = typeCode >= ColumnTypeCode.SCALAR_BASE ? decodeColumnType(typeCode) : null;
+    if (!base) {
         throw new Error(`Unsupported field type code ${typeCode}. Supported: ${SUPPORTED_FIELD_TYPES}`);
     }
 
-    const column = decodeColumnType(typeCode);
+    // Field type codes (10-30) always carry an explicit name.
+    const column: Column = { ...base, name: decodeString(src, offset) };
 
-    if (columnTypeHasName(typeCode)) {
-        column.name = decodeString(src, offset);
-    }
-
-    if (columnTypeHasChildren(typeCode)) {
+    if (column.type === "complexType" && columnTypeHasChildren(typeCode)) {
+        const complexCol = column.complexType;
         const childCount = decodeVarintInt32(src, offset, 1)[0] >>> 0;
-        column.complexType.children = new Array(childCount);
+        complexCol.children = new Array(childCount);
         for (let i = 0; i < childCount; i++) {
-            column.complexType.children[i] = decodeField(src, offset);
+            complexCol.children[i] = decodeField(src, offset);
         }
     }
 
@@ -70,25 +67,26 @@ export function decodeField(src: Uint8Array, offset: IntWrapper): Field {
  */
 function decodeColumn(src: Uint8Array, offset: IntWrapper): Column {
     const typeCode = decodeVarintInt32(src, offset, 1)[0] >>> 0;
-    const column = decodeColumnType(typeCode);
+    const base = decodeColumnType(typeCode);
 
-    if (!column) {
+    if (!base) {
         throw new Error(`Unsupported column type code ${typeCode}. Supported: ${SUPPORTED_COLUMN_TYPES}`);
     }
 
+    let name: string;
     if (columnTypeHasName(typeCode)) {
-        column.name = decodeString(src, offset);
+        name = decodeString(src, offset);
+    } else if (typeCode < ColumnTypeCode.GEOMETRY) {
+        name = "id";
+    } else if (typeCode === ColumnTypeCode.GEOMETRY) {
+        name = "geometry";
     } else {
-        // ID and GEOMETRY columns have implicit names
-        if (typeCode >= 0 && typeCode <= 3) {
-            column.name = "id";
-        } else if (typeCode === 4) {
-            column.name = "geometry";
-        }
+        throw new Error(`Unsupported column type code ${typeCode}. Supported: ${SUPPORTED_COLUMN_TYPES}`);
     }
 
-    if (columnTypeHasChildren(typeCode)) {
-        // Only STRUCT (typeCode 30) has children
+    const column: Column = { ...base, name };
+
+    if (column.type === "complexType" && columnTypeHasChildren(typeCode)) {
         const childCount = decodeVarintInt32(src, offset, 1)[0] >>> 0;
         const complexCol = column.complexType;
         complexCol.children = new Array(childCount);
@@ -113,6 +111,9 @@ export function decodeEmbeddedTileSetMetadata(bytes: Uint8Array, offset: IntWrap
 
     const table = {} as FeatureTableSchema;
     table.name = decodeString(bytes, offset);
+    if (table.name.length === 0) {
+        throw new Error("Missing layer name");
+    }
     const extent = decodeVarintInt32(bytes, offset, 1)[0] >>> 0;
 
     const columnCount = decodeVarintInt32(bytes, offset, 1)[0] >>> 0;

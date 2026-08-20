@@ -26,6 +26,10 @@ large (planet-scale) 2D and 2.5 basemaps. In particular, MLT offers the followin
 allowing for efficient processing on both CPU and GPU. The formats are designed to be loaded into
 GPU buffers with little or no additional processing
 
+MLTv1 can represent common MVT content, but its column-oriented layout is stricter than MVT's per-feature tag/value model.
+For example, layer names must be non-empty, a property must have one type across a layer, missing properties become typed nulls, duplicate keys on one feature cannot be represented as multiple values, and optimized encoders may reorder features.
+See the [MVT compatibility notes](docs/specification.md#mvt-compatibility-notes) for details.
+
 📝 For a more in-depth exploration of MLT have a look at the [following slides](https://github.com/mactrem/presentations/blob/main/FOSS4G_2024_Europe/FOSS4G_2024_Europe.pdf), watch
 [this talk](https://www.youtube.com/watch?v=YHcoAFcsES0) or read [this paper](https://dl.acm.org/doi/10.1145/3748636.3763208) by MLT inventor Markus Tremmel.
 

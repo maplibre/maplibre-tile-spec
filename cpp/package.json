@@ -2,6 +2,6 @@
   "type": "module",
   "dependencies": {
     "synthetic-test-utils": "file:../test/synthetic/synthetic-test-utils",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.0"
   }
 }

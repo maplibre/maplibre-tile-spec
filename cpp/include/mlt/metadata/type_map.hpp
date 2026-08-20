@@ -1,6 +1,8 @@
-#include <cassert>
+#pragma once
+
 #include <cstddef>
 #include <optional>
+#include <stdexcept>
 
 #include <mlt/metadata/tileset.hpp>
 
@@ -28,7 +30,7 @@ struct Tag0x01 {
             }
         } else if (logicalScalarType) {
             if (logicalScalarType == LogicalScalarType::ID) {
-                return isNullable ? (hasLongIDs ? 3 : 2) : (hasLongIDs ? 1 : 0);
+                return (hasLongIDs ? 2 : 0) | (isNullable ? 1 : 0);
             }
         } else if (physicalComplexType) {
             if (physicalComplexType == ComplexType::GEOMETRY) {
@@ -117,7 +119,7 @@ struct Tag0x01 {
             }
         }
         // other cases should be impossible
-        assert(false);
+        throw std::runtime_error("Invalid column type for hasStreamCount");
         return false;
     }
 
@@ -181,7 +183,7 @@ private:
             case ScalarType::STRING:
                 return isNullable ? 29 : 28;
             default:
-                assert(false);
+                throw std::runtime_error("Invalid scalar type for encoding");
                 return std::nullopt;
         }
     }

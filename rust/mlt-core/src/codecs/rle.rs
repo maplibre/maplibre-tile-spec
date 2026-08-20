@@ -1,6 +1,6 @@
 use num_traits::PrimInt;
+use usize_cast::IntoUsize as _;
 
-use crate::utils::AsUsize as _;
 use crate::{Decoder, MltError, MltResult};
 
 /// Generic run-length encode: returns `(run_lengths, values)`.
@@ -104,7 +104,7 @@ pub fn decode_byte_rle(input: &[u8], num_bytes: usize, dec: &mut Decoder) -> Mlt
         pos += 1;
         if control >= 128 {
             let count = u32::from(control ^ 0xFF) + 1;
-            let end = pos + count.as_usize();
+            let end = pos + count.into_usize();
             let slice = input.get(pos..end).ok_or(MltError::BufferUnderflow(
                 count,
                 input.len().saturating_sub(pos),

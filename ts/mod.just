@@ -33,6 +33,7 @@ install:
 # Run linting
 lint: install
     npm run lint
+    npm run format:check
 
 # Run tests
 test: install
@@ -40,4 +41,4 @@ test: install
 
 # Run benchmark
 bench: install
-    echo "TODO: Add js benchmark command"
+    npm run bench

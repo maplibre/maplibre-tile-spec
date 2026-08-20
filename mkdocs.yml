@@ -64,7 +64,6 @@ nav:
   - Implementation Status: implementation-status.md
   - Encoding Algorithms: encodings.md
   - Specification: specification.md
-  - Geometry Spec: geometry.md
 
 extra:
   social:

@@ -13,7 +13,7 @@ where
 {
     fn collect_statistic(&self, stat: StatType) -> usize {
         match stat {
-            StatType::DecodedMetaSize => self.name.len() + size_of::<u32>(),
+            StatType::DecodedMetaSize => self.name().len() + size_of::<u32>(),
             StatType::DecodedDataSize => {
                 self.id.collect_statistic(stat)
                     + self.geometry.collect_statistic(stat)
@@ -78,7 +78,10 @@ impl Analyze for RawIdValue<'_> {
 
 impl Analyze for RawPresence<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
-        self.0.for_each_stream(cb);
+        match self {
+            Self::AllPresent => {}
+            Self::Stream(s) => s.for_each_stream(cb),
+        }
     }
 }
 

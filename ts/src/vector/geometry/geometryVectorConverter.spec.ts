@@ -72,7 +72,7 @@ describe("POINT - Morton dictionary encoded", () => {
     it("decodes a point with a non-zero coordinateShift", () => {
         const x = 50;
         const y = 80;
-        const settings: MortonSettings = { numBits: 16, coordinateShift: 100 } as MortonSettings;
+        const settings: MortonSettings = { numBits: 16, coordinateShift: 100 };
         const code = encodeZOrderCurve(x, y, settings.numBits, settings.coordinateShift);
 
         const gv = new ConstGeometryVector(
@@ -129,7 +129,34 @@ describe("MULTIPOINT - VEC_2 dictionary encoded", () => {
     });
 });
 
-describe("LINESTRING - sequential vertex buffer, no polygon context", () => {
+describe("MULTIPOINT - Morton dictionary encoded", () => {
+    it("decodes points across geometries via their Morton dictionary offsets", () => {
+        const settings: MortonSettings = { numBits: 4, coordinateShift: 0 };
+        const gv = new ConstGeometryVector(
+            2,
+            GEOMETRY_TYPE.MULTIPOINT,
+            VertexBufferType.MORTON,
+            {
+                geometryOffsets: new Uint32Array([0, 2, 4]),
+                partOffsets: undefined,
+                ringOffsets: undefined,
+            },
+            new Uint32Array([1, 0, 0, 1]),
+            // Morton codes: 47 → (3, 7), 72 → (8, 2).
+            new Int32Array([72, 47]),
+            settings,
+        );
+
+        const result = convertGeometryVector(gv);
+
+        expect(result).toEqual([
+            [[new Point(3, 7)], [new Point(8, 2)]],
+            [[new Point(8, 2)], [new Point(3, 7)]],
+        ]);
+    });
+});
+
+describe("LINESTRING – sequential vertex buffer, no polygon context", () => {
     it("creates a line string from sequential vertices", () => {
         const gv = encodeLineStringGeometryVector([
             [0, 0],
@@ -497,6 +524,43 @@ describe("MULTIPOLYGON - VEC_2 dictionary encoded, with holes", () => {
         const result = convertGeometryVector(gv);
         expect(result[0]).toHaveLength(2);
     });
+
+    it("uses the per-ring vertex count when rings differ in size", () => {
+        const gv = encodeMultiPolygonGeometryVectorWithOffsets([
+            [
+                [
+                    [0, 0],
+                    [10, 0],
+                    [10, 10],
+                    [0, 10],
+                ],
+                [
+                    [1, 1],
+                    [3, 1],
+                    [1, 3],
+                ],
+            ],
+            [
+                [
+                    [20, 20],
+                    [22, 20],
+                    [20, 22],
+                ],
+            ],
+        ]);
+
+        const result = convertGeometryVector(gv);
+        expect(result[0]).toHaveLength(3);
+        expect(result[0][0]).toEqual([
+            new Point(0, 0),
+            new Point(10, 0),
+            new Point(10, 10),
+            new Point(0, 10),
+            new Point(0, 0), // closed
+        ]);
+        expect(result[0][1]).toEqual([new Point(1, 1), new Point(3, 1), new Point(1, 3), new Point(1, 1)]);
+        expect(result[0][2]).toEqual([new Point(20, 20), new Point(22, 20), new Point(20, 22), new Point(20, 20)]);
+    });
 });
 
 describe("MULTIPOLYGON - Morton dictionary encoded, no holes", () => {
@@ -536,6 +600,43 @@ describe("MULTIPOLYGON - Morton dictionary encoded, with holes", () => {
         ]);
         const result = convertGeometryVector(gv);
         expect(result[0]).toHaveLength(2);
+    });
+
+    it("uses the per-ring vertex count when rings differ in size", () => {
+        const gv = encodeMultiPolygonGeometryVectorWithMortonOffsets([
+            [
+                [
+                    [0, 0],
+                    [10, 0],
+                    [10, 10],
+                    [0, 10],
+                ],
+                [
+                    [1, 1],
+                    [3, 1],
+                    [1, 3],
+                ],
+            ],
+            [
+                [
+                    [20, 20],
+                    [22, 20],
+                    [20, 22],
+                ],
+            ],
+        ]);
+
+        const result = convertGeometryVector(gv);
+        expect(result[0]).toHaveLength(3);
+        expect(result[0][0]).toEqual([
+            new Point(0, 0),
+            new Point(10, 0),
+            new Point(10, 10),
+            new Point(0, 10),
+            new Point(0, 0), // closed
+        ]);
+        expect(result[0][1]).toEqual([new Point(1, 1), new Point(3, 1), new Point(1, 3), new Point(1, 1)]);
+        expect(result[0][2]).toEqual([new Point(20, 20), new Point(22, 20), new Point(20, 22), new Point(20, 20)]);
     });
 });
 
@@ -614,7 +715,9 @@ describe("Error handling", () => {
             containsPolygonGeometry: () => false,
         } as unknown as GeometryVector;
 
-        expect(() => convertGeometryVector(gv)).toThrowError("The specified geometry type is currently not supported.");
+        expect(() => convertGeometryVector(gv)).toThrow(
+            "The specified geometry type (999) is currently not supported.",
+        );
     });
 });
 

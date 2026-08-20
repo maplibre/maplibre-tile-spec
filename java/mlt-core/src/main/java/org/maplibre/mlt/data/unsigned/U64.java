@@ -4,12 +4,25 @@ import java.math.BigInteger;
 
 public record U64(long value) implements Unsigned {
 
+  public static U64 of(long value) {
+    if (value < 0) {
+      throw new IllegalArgumentException("Out of range for u64");
+    }
+    return new U64(value);
+  }
+
+  public static U64 of(U32 value) {
+    return new U64(value.longValue());
+  }
+
   public static U64 of(BigInteger value) {
     if (value.signum() < 0 || value.bitLength() > 64) {
       throw new IllegalArgumentException("Out of range for u64");
     }
     return new U64(value.longValue());
   }
+
+  public static U64 MAX_VALUE = new U64(-1L);
 
   @Override
   public Byte byteValue() {
@@ -43,5 +56,10 @@ public record U64(long value) implements Unsigned {
   @Override
   public String toString() {
     return "u64(" + Long.toUnsignedString(value) + ")";
+  }
+
+  @Override
+  public int compareTo(Unsigned other) {
+    return Unsigned.super.compareTo(other);
   }
 }

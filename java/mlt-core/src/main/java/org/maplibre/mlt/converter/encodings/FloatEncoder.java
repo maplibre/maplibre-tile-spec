@@ -2,7 +2,8 @@ package org.maplibre.mlt.converter.encodings;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.List;
+import java.util.Collection;
+import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.metadata.stream.LogicalLevelTechnique;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.stream.PhysicalStreamType;
@@ -12,26 +13,29 @@ public class FloatEncoder {
 
   private FloatEncoder() {}
 
-  public static ArrayList<byte[]> encodeFloatStream(List<Float> values) throws IOException {
-    // TODO: add encodings -> RLE, Dictionary, PDE
-    final float[] floatArray = new float[values.size()];
-    for (int i = 0; i < values.size(); i++) {
-      floatArray[i] = values.get(i);
-    }
-    final var encodedValueStream = EncodingUtils.encodeFloatsLE(floatArray);
+  public static ArrayList<byte[]> encodeFloatStream(final float[] values) throws IOException {
+    return encodeFloatStream(values.length, EncodingUtils.encodeFloatsLE(values));
+  }
 
-    final var valuesMetadata =
+  public static ArrayList<byte[]> encodeFloatStream(@NotNull final Collection<Float> values)
+      throws IOException {
+    return encodeFloatStream(values.size(), EncodingUtils.encodeFloatsLE(values));
+  }
+
+  private static ArrayList<byte[]> encodeFloatStream(final int size, final byte[] encoded)
+      throws IOException {
+    // TODO: add encodings -> RLE, Dictionary, PDE
+    final var result =
         new StreamMetadata(
                 PhysicalStreamType.DATA,
                 null,
                 LogicalLevelTechnique.NONE,
                 LogicalLevelTechnique.NONE,
                 PhysicalLevelTechnique.NONE,
-                values.size(),
-                encodedValueStream.length)
+                size,
+                encoded.length)
             .encode();
-
-    valuesMetadata.add(encodedValueStream);
-    return valuesMetadata;
+    result.add(encoded);
+    return result;
   }
 }

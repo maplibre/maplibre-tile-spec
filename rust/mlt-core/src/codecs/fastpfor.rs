@@ -1,6 +1,6 @@
 use fastpfor::{AnyLenCodec as _, FastPFor256};
+use usize_cast::IntoUsize as _;
 
-use crate::utils::AsUsize as _;
 use crate::{Decoder, MltError, MltResult};
 
 /// Decode `FastPFOR`-compressed data using the composite codec protocol.
@@ -44,14 +44,14 @@ pub fn decode_fastpfor(data: &[u8], num_values: u32, dec: &mut Decoder) -> MltRe
 
     let Some(adjustment) = result
         .len()
-        .checked_sub(num_values.as_usize())
+        .checked_sub(num_values.into_usize())
         .and_then(|v| u32::try_from(v).ok())
     else {
         return Err(MltError::FastPforDecode(num_values, result.len()));
     };
 
     dec.adjust(adjustment);
-    result.truncate(num_values.as_usize());
+    result.truncate(num_values.into_usize());
 
     Ok(result)
 }

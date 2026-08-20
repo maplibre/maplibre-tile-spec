@@ -1,19 +1,12 @@
-#if !MLT_WITH_FASTPFOR
-#error This file should be excluded when FastPFor support is not enabled
-#endif
-
 #include <gtest/gtest.h>
 
 // From fastpfor/...
-#include <compositecodec.h>
-#include <fastpfor.h>
-#include <variablebyte.h>
-
-#if MLT_WITH_FASTPFOR_SIMD
-#include <simdfastpfor.h>
-#endif // MLT_WITH_FASTPFOR_SIMD
+#include <fastpfor/compositecodec.h>
+#include <fastpfor/fastpfor.h>
+#include <fastpfor/variablebyte.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <ranges>
 #include <string>
@@ -72,87 +65,3 @@ TEST(FastPfor, JavaV1) {
     EXPECT_EQ(outSize, decoded.size());
     EXPECT_EQ(decoded, simpleValues(decoded.size()));
 }
-
-#if MLT_WITH_FASTPFOR_SIMD
-namespace {
-template <int BLOCK_SIZE>
-void testSIMDInterop(int valuesCount) {
-    FastPForLib::CompositeCodec<FastPForLib::FastPFor<BLOCK_SIZE>, FastPForLib::VariableByte> codec;
-    FastPForLib::CompositeCodec<FastPForLib::SIMDFastPFor<BLOCK_SIZE>, FastPForLib::VariableByte> simd_codec;
-
-    const auto values = simpleValues(valuesCount);
-    const auto encoded = codec.compress(values);
-    const auto simd_encoded = simd_codec.compress(values);
-
-    {
-        SCOPED_TRACE("Plain uncompress of plain compress");
-        EXPECT_EQ(codec.uncompress(encoded, values.size()), values);
-    }
-    {
-        SCOPED_TRACE("SIMD uncompress of SIMD compress");
-        EXPECT_EQ(simd_codec.uncompress(simd_encoded, values.size()), values);
-    }
-    {
-        SCOPED_TRACE("SIMD uncompress of plain compress");
-        const auto decoded = simd_codec.uncompress(encoded, values.size());
-        if (valuesCount < 32 * BLOCK_SIZE) {
-            EXPECT_EQ(decoded, values);
-        } else {
-            EXPECT_NE(decoded, values);
-        }
-    }
-    {
-        SCOPED_TRACE("Plain uncompress of SIMD compress");
-        const auto decoded = codec.uncompress(simd_encoded, values.size());
-        if (valuesCount < 32 * BLOCK_SIZE) {
-            EXPECT_EQ(decoded, values);
-        } else {
-            EXPECT_NE(decoded, values);
-        }
-    }
-}
-
-struct SIMDInteropCase {
-    int values;
-    int blockSize;
-};
-
-std::vector<SIMDInteropCase> simdInteropCases() {
-    constexpr int valueCounts[] = {96, 128, 160, 256, 384};
-    constexpr int blockSizes[] = {4, 8};
-
-    std::vector<SIMDInteropCase> cases;
-    cases.reserve(std::size(valueCounts) * std::size(blockSizes));
-
-    for (const int values : valueCounts) {
-        for (const int blockSize : blockSizes) {
-            cases.push_back({values, blockSize});
-        }
-    }
-
-    return cases;
-}
-
-std::string simdInteropCaseName(const ::testing::TestParamInfo<SIMDInteropCase>& info) {
-    return "Values_" + std::to_string(info.param.values) + "_BlockSize_" + std::to_string(info.param.blockSize);
-}
-
-class PFORSIMDInteropTest : public ::testing::TestWithParam<SIMDInteropCase> {};
-
-TEST_P(PFORSIMDInteropTest, Interop) {
-    const auto testCase = GetParam();
-    switch (testCase.blockSize) {
-        case 4:
-            testSIMDInterop<4>(testCase.values);
-            break;
-        case 8:
-            testSIMDInterop<8>(testCase.values);
-            break;
-        default:
-            FAIL() << "Unsupported block size: " << testCase.blockSize;
-    }
-}
-
-INSTANTIATE_TEST_SUITE_P(FastPfor, PFORSIMDInteropTest, ::testing::ValuesIn(simdInteropCases()), simdInteropCaseName);
-} // namespace
-#endif // MLT_WITH_FASTPFOR_SIMD

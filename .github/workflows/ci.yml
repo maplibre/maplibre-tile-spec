@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -12,11 +12,11 @@ jobs:
     outputs:
       rust: ${{ steps.filter.outputs.rust }}
       java: ${{ steps.filter.outputs.java }}
-      ts:   ${{ steps.filter.outputs.ts }}
-      cpp:  ${{ steps.filter.outputs.cpp }}
+      ts: ${{ steps.filter.outputs.ts }}
+      cpp: ${{ steps.filter.outputs.cpp }}
     steps:
-      - uses: actions/checkout@v6.0.2
-      - uses: dorny/paths-filter@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           filters: |
@@ -52,9 +52,7 @@ jobs:
     with:
       run-release: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     secrets: inherit
-    permissions:
-      contents: write
-      id-token: write
+    permissions: { contents: write, id-token: write }
 
   java:
     needs: changes
@@ -68,8 +66,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.ts == 'true'
     uses: ./.github/workflows/ts.yml
-    permissions:
-      contents: read
+    permissions: { contents: read }
 
   cpp:
     needs: changes
@@ -81,11 +78,10 @@ jobs:
 
   docs:
     uses: ./.github/workflows/gh-pages.yml
-    permissions:
-      contents: write
+    permissions: { contents: write }
 
   ci-passed:
-    needs: [rust, java, ts, cpp, docs]
+    needs: [ rust, java, ts, cpp, docs ]
     if: always()
     runs-on: ubuntu-latest
     steps:

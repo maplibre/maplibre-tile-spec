@@ -4,8 +4,6 @@ A C++ implementation of the MapLibre Tile (MLT) vector tile format.
 
 ## Status
 
-Decoder only, partial support for encodings.
-
 CMake and Bazel build support.
 
 ## Build
@@ -53,3 +51,10 @@ A simple application which dumps a tile/metadata file pair to JSON format.
 ```bash
 build/tool/mlt-cpp-json ../test/expected/tag0x01/bing/4-12-6.mlt
 ```
+
+## Implementation Notes
+
+### Encoder
+
+- The C++ encoder supports detecting nullable columns in cases where the Java implementation (as of 04/2026) always encodes nullable columns with trivial presence streams.  The `EncoderConfig.forceNullableColumns` option must be set in some cases for parity.
+- Java uses closed rings in generateMixed because it is building JTS Polygon objects, and JTS polygon rings are expected to be closed. But when Java converts geometry to MLT streams, it deliberately strips the duplicated closing vertex, to be synthesized on decoding.  The C++ encoder does not use JTS and encodes the geometry exactly as provided, so closing vertices should not be provided.

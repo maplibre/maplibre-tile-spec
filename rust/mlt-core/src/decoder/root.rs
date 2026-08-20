@@ -1,18 +1,20 @@
+use usize_cast::IntoUsize as _;
+
 use crate::LazyParsed::Raw;
 use crate::MltError::{
     BufferUnderflow, GeometryWithoutStreams, InvalidSharedDictStreamCount, MissingGeometry,
-    MultipleGeometryColumns, MultipleIdColumns, SharedDictRequiresStreams, TrailingLayerData,
-    UnexpectedStructChildCount, UnsupportedStringStreamCount,
+    MissingLayerName, MultipleGeometryColumns, MultipleIdColumns, SharedDictRequiresStreams,
+    TrailingLayerData, UnexpectedStructChildCount, UnsupportedStringStreamCount,
 };
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
-    Column, ColumnType, DictionaryType, Geometry, Id, Layer01, ParsedLayer01, RawFsstData,
+    Column, ColumnType, DictionaryType, Extent, Geometry, Id, Layer01, ParsedLayer01, RawFsstData,
     RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar,
     RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings,
     RawStringsEncoding, StreamType,
 };
 use crate::errors::AsMltError as _;
-use crate::utils::{AsUsize as _, SetOptionOnce as _, parse_string};
+use crate::utils::{SetOptionOnce as _, parse_string};
 use crate::{Layer, Lazy, MltError, MltRefResult, MltResult, ParsedLayer};
 
 /// Default memory budget: 20 MiB.
@@ -239,10 +241,7 @@ impl MemBudget {
     fn consume(&mut self, size: u32) -> MltResult<()> {
         let accumulator = &mut self.bytes_used;
         let max_bytes = self.max_bytes;
-        if let Some(new_value) = accumulator
-            .checked_add(size)
-            .and_then(|v| if v > max_bytes { None } else { Some(v) })
-        {
+        if let Some(new_value) = accumulator.checked_add(size).filter(|&v| v <= max_bytes) {
             *accumulator = new_value;
             Ok(())
         } else {
@@ -263,11 +262,15 @@ impl<'a> Layer01<'a, Lazy> {
     /// Parse `v01::Layer` metadata, reserving decoded memory against the parser's budget.
     pub(crate) fn from_bytes(input: &'a [u8], parser: &mut Parser) -> MltResult<Self> {
         let (input, layer_name) = parse_string(input)?;
+        if layer_name.is_empty() {
+            return Err(MissingLayerName);
+        }
         let (input, extent) = parse_varint::<u32>(input)?;
+        let extent = Extent::new(extent)?;
         let (input, column_count) = parse_varint::<u32>(input)?;
 
         // Each column requires at least 1 byte (column type)
-        if input.len() < column_count.as_usize() {
+        if input.len() < column_count.into_usize() {
             return Err(BufferUnderflow(column_count, input.len()));
         }
 
@@ -281,31 +284,31 @@ impl<'a> Layer01<'a, Lazy> {
             .map(crate::decoder::fuzzing::LayerOrdering::from)
             .collect();
 
-        let mut properties = Vec::with_capacity(prop_count.as_usize());
+        let mut properties = Vec::with_capacity(prop_count.into_usize());
         let mut id_column: Option<Id> = None;
         let mut geometry: Option<Geometry> = None;
 
         for column in col_info {
             use crate::decoder::RawProperty as RP;
 
-            let opt;
+            let presence;
             let value;
             let name = column.name.unwrap_or("");
 
             match column.typ {
                 ColumnType::Id | ColumnType::OptId => {
-                    (input, opt) = parse_optional(column.typ, input, parser)?;
+                    (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
                     id_column.set_once(Raw(RawId {
-                        presence: RawPresence(opt),
+                        presence,
                         value: RawIdValue::Id32(value),
                     }))?;
                 }
                 ColumnType::LongId | ColumnType::OptLongId => {
-                    (input, opt) = parse_optional(column.typ, input, parser)?;
+                    (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
                     id_column.set_once(Raw(RawId {
-                        presence: RawPresence(opt),
+                        presence,
                         value: RawIdValue::Id64(value),
                     }))?;
                 }
@@ -313,49 +316,49 @@ impl<'a> Layer01<'a, Lazy> {
                     input = parse_geometry_column(input, &mut geometry, parser)?;
                 }
                 ColumnType::Bool | ColumnType::OptBool => {
-                    (input, opt) = parse_optional(column.typ, input, parser)?;
+                    (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::parse_bool(input, parser)?;
-                    properties.push(Raw(RP::Bool(scalar(name, opt, value))));
+                    properties.push(Raw(RP::Bool(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::I8 | ColumnType::OptI8 => {
-                    (input, opt) = parse_optional(column.typ, input, parser)?;
+                    (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Raw(RP::I8(scalar(name, opt, value))));
+                    properties.push(Raw(RP::I8(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::U8 | ColumnType::OptU8 => {
-                    (input, opt) = parse_optional(column.typ, input, parser)?;
+                    (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Raw(RP::U8(scalar(name, opt, value))));
+                    properties.push(Raw(RP::U8(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::I32 | ColumnType::OptI32 => {
-                    (input, opt) = parse_optional(column.typ, input, parser)?;
+                    (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Raw(RP::I32(scalar(name, opt, value))));
+                    properties.push(Raw(RP::I32(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::U32 | ColumnType::OptU32 => {
-                    (input, opt) = parse_optional(column.typ, input, parser)?;
+                    (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Raw(RP::U32(scalar(name, opt, value))));
+                    properties.push(Raw(RP::U32(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::I64 | ColumnType::OptI64 => {
-                    (input, opt) = parse_optional(column.typ, input, parser)?;
+                    (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Raw(RP::I64(scalar(name, opt, value))));
+                    properties.push(Raw(RP::I64(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::U64 | ColumnType::OptU64 => {
-                    (input, opt) = parse_optional(column.typ, input, parser)?;
+                    (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Raw(RP::U64(scalar(name, opt, value))));
+                    properties.push(Raw(RP::U64(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::F32 | ColumnType::OptF32 => {
-                    (input, opt) = parse_optional(column.typ, input, parser)?;
+                    (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Raw(RP::F32(scalar(name, opt, value))));
+                    properties.push(Raw(RP::F32(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::F64 | ColumnType::OptF64 => {
-                    (input, opt) = parse_optional(column.typ, input, parser)?;
+                    (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = RawStream::from_bytes(input, parser)?;
-                    properties.push(Raw(RP::F64(scalar(name, opt, value))));
+                    properties.push(Raw(RP::F64(RawScalar::new(name, presence, value))));
                 }
                 ColumnType::Str | ColumnType::OptStr => {
                     let prop;
@@ -405,7 +408,7 @@ impl<'a> Layer01<'a, Lazy> {
     }
 }
 
-fn parse_struct_children<'a>(
+fn parse_shared_dict_children<'a>(
     mut input: &'a [u8],
     column: &Column<'a>,
     parser: &mut Parser,
@@ -413,18 +416,18 @@ fn parse_struct_children<'a>(
     let mut children = Vec::with_capacity(column.children.len());
     for child in &column.children {
         let (inp, sc) = parse_varint::<u32>(input)?;
-        let (inp, child_optional) = parse_optional(child.typ, inp, parser)?;
-        let optional_stream_count = u32::from(child_optional.is_some());
+        let (inp, presence) = parse_optional(child.typ, inp, parser)?;
+        let optional_stream_count = u32::from(presence.is_optional());
         if let Some(data_count) = sc.checked_sub(optional_stream_count)
             && data_count != 1
         {
             return Err(UnexpectedStructChildCount(data_count));
         }
-        let (inp, child_data) = RawStream::from_bytes(inp, parser)?;
+        let (inp, data) = RawStream::from_bytes(inp, parser)?;
         children.push(RawSharedDictItem {
             name: child.name.unwrap_or(""),
-            presence: RawPresence(child_optional),
-            data: child_data,
+            presence,
+            data,
         });
         input = inp;
     }
@@ -435,12 +438,12 @@ fn parse_optional<'a>(
     typ: ColumnType,
     input: &'a [u8],
     parser: &mut Parser,
-) -> MltRefResult<'a, Option<RawStream<'a>>> {
+) -> MltRefResult<'a, RawPresence<'a>> {
     if typ.is_optional() {
         let (input, optional) = RawStream::parse_bool(input, parser)?;
-        Ok((input, Some(optional)))
+        Ok((input, RawPresence::Stream(optional)))
     } else {
-        Ok((input, None))
+        Ok((input, RawPresence::AllPresent))
     }
 }
 
@@ -454,7 +457,7 @@ fn parse_geometry_column<'a>(
         return Err(GeometryWithoutStreams);
     }
     // Each stream requires at least 1 byte (physical stream type)
-    let stream_count_capa = stream_count.as_usize();
+    let stream_count_capa = stream_count.into_usize();
     if input.len() < stream_count_capa {
         return Err(BufferUnderflow(stream_count, input.len()));
     }
@@ -475,11 +478,11 @@ fn parse_str_column<'a>(
     let mut stream_count = {
         let stream_count_u32;
         (input, stream_count_u32) = parse_varint::<u32>(input)?;
-        stream_count_u32.as_usize()
+        stream_count_u32.into_usize()
     };
     let presence;
     (input, presence) = parse_optional(typ, input, parser)?;
-    if presence.is_some() {
+    if presence.is_optional() {
         if stream_count == 0 {
             return Err(UnsupportedStringStreamCount(stream_count));
         }
@@ -513,7 +516,7 @@ fn parse_str_column<'a>(
         input,
         RawProperty::Str(RawStrings {
             name,
-            presence: RawPresence(presence),
+            presence,
             encoding,
         }),
     ))
@@ -529,7 +532,7 @@ fn parse_shared_dict_column<'a>(
     (input, stream_count) = parse_varint::<u32>(input)?;
     let mut dict_streams = [None, None, None, None, None];
     let mut streams_taken = 0_usize;
-    while streams_taken < stream_count.as_usize() {
+    while streams_taken < stream_count.into_usize() {
         let stream;
         (input, stream) = RawStream::from_bytes(input, parser)?;
         let is_last = matches!(
@@ -545,13 +548,13 @@ fn parse_shared_dict_column<'a>(
         }
     }
     let children;
-    (input, children) = parse_struct_children(input, column, parser)?;
+    (input, children) = parse_shared_dict_children(input, column, parser)?;
 
     // Validate stream_count: must equal dict_streams + children + optional_children.
     let children_n = u32::try_from(children.len()).or_overflow()?;
     let optional_n = children
         .iter()
-        .filter(|c| c.presence.0.is_some())
+        .filter(|c| c.presence.is_optional())
         .count()
         .try_into()
         .or_overflow()?;
@@ -594,7 +597,7 @@ fn parse_columns_meta<'a>(
 ) -> MltRefResult<'a, (Vec<Column<'a>>, u32)> {
     use crate::decoder::ColumnType::{Geometry, Id, LongId, OptId, OptLongId, SharedDict};
 
-    let mut col_info = Vec::with_capacity(column_count.as_usize());
+    let mut col_info = Vec::with_capacity(column_count.into_usize());
     let mut geometries = 0;
     let mut ids = 0;
     for _ in 0..column_count {
@@ -609,7 +612,7 @@ fn parse_columns_meta<'a>(
                 (input, child_column_count) = parse_varint::<u32>(input)?;
 
                 // Each column requires at least 1 byte (ColumnType without a name)
-                let child_col_capacity = child_column_count.as_usize();
+                let child_col_capacity = child_column_count.into_usize();
                 if input.len() < child_col_capacity {
                     return Err(BufferUnderflow(child_column_count, input.len()));
                 }
@@ -635,10 +638,41 @@ fn parse_columns_meta<'a>(
     Ok((input, (col_info, column_count - geometries - ids)))
 }
 
-fn scalar<'a>(name: &'a str, opt: Option<RawStream<'a>>, value: RawStream<'a>) -> RawScalar<'a> {
-    RawScalar {
-        name,
-        presence: RawPresence(opt),
-        data: value,
+impl<'a> RawScalar<'a> {
+    fn new(name: &'a str, presence: RawPresence<'a>, data: RawStream<'a>) -> Self {
+        Self {
+            name,
+            presence,
+            data,
+        }
+    }
+}
+
+impl RawPresence<'_> {
+    /// Whether this column carries presence data (some features may be null).
+    #[must_use]
+    pub(crate) fn is_optional(&self) -> bool {
+        !matches!(self, Self::AllPresent)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{MltError, Parser};
+
+    #[test]
+    fn parse_layers_rejects_empty_layer_name() {
+        let bytes = [
+            5, // layer size: tag byte + 4-byte body
+            1, // tag 0x01
+            0, // empty layer name
+            0x80, 0x20, // extent 4096
+            0,    // column count
+        ];
+
+        assert!(matches!(
+            Parser::default().parse_layers(&bytes),
+            Err(MltError::MissingLayerName)
+        ));
     }
 }

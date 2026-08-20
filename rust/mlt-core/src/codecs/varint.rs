@@ -1,6 +1,6 @@
 use integer_encoding::VarInt;
+use usize_cast::IntoUsize as _;
 
-use crate::utils::AsUsize as _;
 use crate::{Decoder, MltError, MltRefResult};
 
 /// Parse a single varint (variable-length integer) from the input, returning
@@ -28,23 +28,18 @@ pub fn parse_varint<T: VarInt>(input: &[u8]) -> MltRefResult<'_, T> {
     }
 }
 
-/// Parse `size` varints of wire type `T` into a `Vec<U>`, charging `dec` for
+/// Parse `size` varints of wire type `T` into a `Vec<T>`, charging `dec` for
 /// the output allocation.
-pub fn parse_varint_vec<'a, T, U>(
+pub fn parse_varint_vec<'a, T: VarInt>(
     mut input: &'a [u8],
     size: u32,
     dec: &mut Decoder,
-) -> MltRefResult<'a, Vec<U>>
-where
-    T: VarInt,
-    U: TryFrom<T>,
-    MltError: From<<U as TryFrom<T>>::Error>,
-{
-    let mut values = dec.alloc::<U>(size.as_usize())?;
-    let mut val;
+) -> MltRefResult<'a, Vec<T>> {
+    let mut values = dec.alloc::<T>(size.into_usize())?;
     for _ in 0..size {
+        let val;
         (input, val) = parse_varint::<T>(input)?;
-        values.push(val.try_into()?);
+        values.push(val);
     }
     Ok((input, values))
 }
@@ -89,7 +84,7 @@ mod tests {
             buf.extend_from_slice(&buf_tmp[0..written]);
         }
         let (remaining, values) =
-            parse_varint_vec::<u32, u32>(&buf, 3, &mut dec()).expect("parse_varint_vec failed");
+            parse_varint_vec::<u32>(&buf, 3, &mut dec()).expect("parse_varint_vec failed");
         assert!(remaining.is_empty());
         assert_eq!(values, [1, 2, 3]);
     }

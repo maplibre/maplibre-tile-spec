@@ -2,7 +2,8 @@ package org.maplibre.mlt.converter.encodings;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.List;
+import java.util.Collection;
+import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.metadata.stream.LogicalLevelTechnique;
 import org.maplibre.mlt.metadata.stream.PhysicalLevelTechnique;
 import org.maplibre.mlt.metadata.stream.PhysicalStreamType;
@@ -12,14 +13,18 @@ public class DoubleEncoder {
 
   private DoubleEncoder() {}
 
-  public static ArrayList<byte[]> encodeDoubleStream(List<Double> values) throws IOException {
-    // TODO: add encodings -> RLE, Dictionary, PDE
-    final double[] doubleArray = new double[values.size()];
-    for (int i = 0; i < values.size(); i++) {
-      doubleArray[i] = values.get(i);
-    }
-    final var encodedValueStream = EncodingUtils.encodeDoublesLE(doubleArray);
+  public static ArrayList<byte[]> encodeDoubleStream(@NotNull final Collection<Double> values)
+      throws IOException {
+    return encodeDoubleStream(values.size(), EncodingUtils.encodeDoublesLE(values));
+  }
 
+  public static ArrayList<byte[]> encodeDoubleStream(final double[] values) throws IOException {
+    // TODO: add encodings -> RLE, Dictionary, PDE
+    return encodeDoubleStream(values.length, EncodingUtils.encodeDoublesLE(values));
+  }
+
+  private static ArrayList<byte[]> encodeDoubleStream(int length, final byte[] encoded)
+      throws IOException {
     final var result =
         new StreamMetadata(
                 PhysicalStreamType.DATA,
@@ -27,11 +32,10 @@ public class DoubleEncoder {
                 LogicalLevelTechnique.NONE,
                 LogicalLevelTechnique.NONE,
                 PhysicalLevelTechnique.NONE,
-                values.size(),
-                encodedValueStream.length)
+                length,
+                encoded.length)
             .encode();
-
-    result.add(encodedValueStream);
+    result.add(encoded);
     return result;
   }
 }

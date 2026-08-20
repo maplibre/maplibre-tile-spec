@@ -137,6 +137,18 @@ pub struct IntEncoding {
     pub physical: PhysicalEncoding,
 }
 
+impl IntEncoding {
+    #[must_use]
+    pub(crate) const fn new(logical: LogicalEncoding, physical: PhysicalEncoding) -> Self {
+        Self { logical, physical }
+    }
+
+    #[must_use]
+    pub(crate) const fn none() -> Self {
+        Self::new(LogicalEncoding::None, PhysicalEncoding::None)
+    }
+}
+
 /// Metadata about an encoded stream
 #[derive(Clone, Copy, Dbg, PartialEq)]
 pub struct StreamMeta {
@@ -147,10 +159,45 @@ pub struct StreamMeta {
     pub(crate) num_values: u32,
 }
 
+impl StreamMeta {
+    #[inline]
+    pub(crate) fn new(stream_type: StreamType, encoding: IntEncoding, num_values: u32) -> Self {
+        Self {
+            stream_type,
+            encoding,
+            num_values,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn new2(
+        stream_type: StreamType,
+        logical: LogicalEncoding,
+        physical: PhysicalEncoding,
+        num_values: usize,
+    ) -> MltResult<Self> {
+        let enc = IntEncoding::new(logical, physical);
+        Ok(Self::new(stream_type, enc, u32::try_from(num_values)?))
+    }
+
+    #[inline]
+    pub(crate) fn new_none(stream_type: StreamType, num_values: usize) -> MltResult<Self> {
+        let enc = IntEncoding::none();
+        Ok(Self::new(stream_type, enc, u32::try_from(num_values)?))
+    }
+}
+
 /// Representation of an encoded stream
 #[derive(Clone, Dbg, PartialEq)]
 pub struct RawStream<'a> {
     pub meta: StreamMeta,
     #[dbg(formatter = "bytes_dbg")]
     pub(crate) data: &'a [u8],
+}
+
+impl<'a> RawStream<'a> {
+    #[must_use]
+    pub(crate) fn new(meta: StreamMeta, data: &'a [u8]) -> Self {
+        Self { meta, data }
+    }
 }

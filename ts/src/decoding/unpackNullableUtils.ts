@@ -46,7 +46,7 @@ export function unpackNullable<T extends TypedArrayInstance>(
     let counter = 0;
     for (let i = 0; i < size; i++) {
         // If position has a value, take from data stream; otherwise use default
-        result[i] = presentBits.get(i) ? dataStream[counter++] : (defaultValue as any);
+        result[i] = presentBits.get(i) ? dataStream[counter++] : defaultValue;
     }
 
     return result;

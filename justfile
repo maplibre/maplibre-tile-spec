@@ -69,6 +69,12 @@ ci-extract-version language tag:
 mlt *args:
     cargo run --manifest-path {{join(justfile_directory(), 'rust', 'Cargo.toml')}} --package mlt -- "$@"
 
+# Run the mlt CLI tool with the given arguments from current dir.
+[no-cd]
+[positional-arguments]  # avoids shell expansions
+mlt-rel *args:
+    cargo run --release --manifest-path {{join(justfile_directory(), 'rust', 'Cargo.toml')}} --package mlt -- "$@"
+
 # Ensure a command is available
 assert-cmd command:
     #!/usr/bin/env bash
@@ -82,14 +88,15 @@ assert-cmd command:
 cargo-install $COMMAND $INSTALL_CMD='' *args='':
     #!/usr/bin/env bash
     set -euo pipefail
+    unset CARGO_BUILD_WARNINGS
     binstall_args="{{ if env('CI', '') != '' {'--no-confirm --no-track --disable-telemetry'} else {''} }}"
     if ! command -v $COMMAND > /dev/null; then
         if ! command -v cargo-binstall > /dev/null; then
             echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}"
             cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}
         else
-            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} $binstall_args --locked {{args}}"
-            cargo binstall ${INSTALL_CMD:-$COMMAND} $binstall_args --locked {{args}}
+            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} $binstall_args --locked"
+            cargo binstall ${INSTALL_CMD:-$COMMAND} $binstall_args --locked
         fi
     fi
 
