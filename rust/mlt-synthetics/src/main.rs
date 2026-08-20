@@ -1093,7 +1093,7 @@ fn generate_props_str(w: &mut SynthWriter) {
     six_points()
         .add_prop(E::varint(), P::opt_str("val", str_vals.map(Some)))
         .write(w, "props_str");
-    // FSST variants — same split
+    // FSST variants - same split
     six_points()
         .add_prop_str_fsst(E::varint(), E::varint(), P::str("val", str_vals))
         .write(w, "props_str_fsst_np");
@@ -1105,7 +1105,7 @@ fn generate_props_str(w: &mut SynthWriter) {
         )
         .write(w, "props_str_fsst"); // FSST compression output is not byte-for-byte consistent with Java's
 
-    // Two features with the same 30-char value → deduplicated dictionary encoding.
+    // Two features with the same 30-char value -> deduplicated dictionary encoding.
     // 30 chars because otherwise FSST is skipped.
     let long_string = || "A".repeat(30);
     let two_pts = || geo_varint_with_rle().geos([P1, P2]);

@@ -103,7 +103,7 @@ impl Morton {
         let sy = u32::try_from(i64::from(y) + i64::from(self.shift))?;
         let mut code = 0u32;
         for i in 0..self.bits {
-            // bits are capped at 16, so 2*i+1 ≤ 31 — no shift overflow.
+            // bits are capped at 16, so 2*i+1 ≤ 31 - no shift overflow.
             code |= ((sx >> i) & 1) << (2 * i);
             code |= ((sy >> i) & 1) << (2 * i + 1);
         }
@@ -173,7 +173,7 @@ impl Morton {
         let mut chunks = data.chunks_exact(LANES);
 
         for chunk in chunks.by_ref() {
-            // Sequential prefix sum into a stack buffer — no heap allocation.
+            // Sequential prefix sum into a stack buffer - no heap allocation.
             let mut buf = [0u32; LANES];
             for (b, &d) in buf.iter_mut().zip(chunk.iter()) {
                 prev = prev.wrapping_add(d.cast_signed());
@@ -291,25 +291,25 @@ mod tests {
 
     #[test]
     fn x_axis_produces_even_bits() {
-        // x=1, y=0  →  only bit 0 of x is set → Morton bit 0 set → code = 1
+        // x=1, y=0  ->  only bit 0 of x is set -> Morton bit 0 set -> code = 1
         assert_eq!(morton_sort_key(c(1, 0), p(0, 16)), 1);
-        // x=2, y=0  →  only bit 1 of x is set → Morton bit 2 set → code = 4
+        // x=2, y=0  ->  only bit 1 of x is set -> Morton bit 2 set -> code = 4
         assert_eq!(morton_sort_key(c(2, 0), p(0, 16)), 4);
     }
 
     #[test]
     fn y_axis_produces_odd_bits() {
-        // x=0, y=1  →  only bit 0 of y is set → Morton bit 1 set → code = 2
+        // x=0, y=1  ->  only bit 0 of y is set -> Morton bit 1 set -> code = 2
         assert_eq!(morton_sort_key(c(0, 1), p(0, 16)), 2);
-        // x=0, y=2  →  only bit 1 of y is set → Morton bit 3 set → code = 8
+        // x=0, y=2  ->  only bit 1 of y is set -> Morton bit 3 set -> code = 8
         assert_eq!(morton_sort_key(c(0, 2), p(0, 16)), 8);
     }
 
     #[test]
     fn negative_coords_shift_correctly() {
-        // Shifting (-1, -1) by 1 maps to (0, 0) → Morton code 0
+        // Shifting (-1, -1) by 1 maps to (0, 0) -> Morton code 0
         assert_eq!(morton_sort_key(c(-1, -1), p(1, 16)), 0);
-        // Shifting (-1, 0) by 1 maps to (0, 1) → Morton code 2
+        // Shifting (-1, 0) by 1 maps to (0, 1) -> Morton code 2
         assert_eq!(morton_sort_key(c(-1, 0), p(1, 16)), 2);
     }
 
@@ -382,7 +382,7 @@ mod tests {
 
     #[test]
     fn test_decode_morton_codes_known_values() {
-        // x=1, y=2 (pre-shift) → decoded (1 - COORD_SHIFT, 2 - COORD_SHIFT)
+        // x=1, y=2 (pre-shift) -> decoded (1 - COORD_SHIFT, 2 - COORD_SHIFT)
         let x: u32 = 1;
         let y: u32 = 2;
         let code = encode_morton_15((x, y).into());
@@ -394,7 +394,7 @@ mod tests {
 
     #[test]
     fn test_decode_morton_codes_scalar_tail() {
-        // 3 codes — exercises the scalar tail path (< 8 codes).
+        // 3 codes - exercises the scalar tail path (< 8 codes).
         let pairs: [Coord<u32>; _] = [(0, 1).into(), (2, 3).into(), (4, 5).into()];
         let codes: Vec<u32> = pairs.iter().map(|&c| encode_morton_15(c)).collect();
         let result = MORTON.decode_codes(&codes, &mut dec()).unwrap();
@@ -404,7 +404,7 @@ mod tests {
 
     #[test]
     fn test_decode_morton_codes_full_simd_chunk() {
-        // 8 codes — exercises exactly one SIMD chunk, no scalar tail.
+        // 8 codes - exercises exactly one SIMD chunk, no scalar tail.
         let pairs: [Coord<u32>; _] = [
             (0, 0).into(),
             (1, 0).into(),
@@ -423,7 +423,7 @@ mod tests {
 
     #[test]
     fn test_decode_morton_codes_simd_plus_tail() {
-        // 11 codes — one full SIMD chunk of 8 plus a scalar tail of 3.
+        // 11 codes - one full SIMD chunk of 8 plus a scalar tail of 3.
         let pairs: Vec<Coord<u32>> = (0..11u32)
             .map(|i| (i * 3 % 100, i * 7 % 100).into())
             .collect();
@@ -466,7 +466,7 @@ mod tests {
 
     #[test]
     fn test_decode_morton_delta_scalar_tail() {
-        // 3 codes via deltas — scalar tail path only.
+        // 3 codes via deltas - scalar tail path only.
         let codes: Vec<u32> = vec![
             encode_morton_15((10, 20).into()),
             encode_morton_15((30, 40).into()),
@@ -480,7 +480,7 @@ mod tests {
 
     #[test]
     fn test_decode_morton_delta_wrapping() {
-        // A single wrapping delta: start from a large code, subtract more than it — should
+        // A single wrapping delta: start from a large code, subtract more than it - should
         // still round-trip correctly via wrapping arithmetic.
         let code_a = encode_morton_15((500, 300).into());
         let code_b = encode_morton_15((10, 10).into()); // numerically smaller than code_a

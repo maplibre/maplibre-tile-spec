@@ -31,9 +31,9 @@ use crate::{MltError, MltResult};
 /// The three sections are accumulated into separate buffers so they can be
 /// combined at the end *without* any in-place insertion or extra copies:
 ///
-/// * `hdr` – layer header (name, extent, `column_count`).
-/// * [`meta`] – column-type bytes (one byte + optional name per column).
-/// * [`data`] – encoded stream data; also the target of [`impl Write`].
+/// * `hdr` - layer header (name, extent, `column_count`).
+/// * [`meta`] - column-type bytes (one byte + optional name per column).
+/// * [`data`] - encoded stream data; also the target of [`impl Write`].
 ///
 /// # Sort-strategy trialing
 ///
@@ -63,7 +63,7 @@ use crate::{MltError, MltResult};
 /// let mut alt = enc.try_alternatives();
 /// alt.with(|enc| write_stream_as_varint(data, enc))?;
 /// alt.with(|enc| write_stream_as_fastpfor(data, enc))?;
-/// // alt drops → keeps whichever was shorter
+/// // alt drops -> keeps whichever was shorter
 /// ```
 ///
 /// [`meta`]: Encoder::meta
@@ -122,13 +122,13 @@ pub struct Encoder {
     pub(crate) fsst_cache: HashMap<String, Option<Compressor>>,
 
     // -----------------------------------------------------------------------
-    // Alternatives state — a stack that supports nested competitions.
+    // Alternatives state - a stack that supports nested competitions.
     //
     // Invariant between candidates at any level:
     //   data.len() == level.data_start + level.best_data_size.unwrap_or(0)
     //   meta.len() == level.meta_start + level.best_meta_size.unwrap_or(0)
     //
-    // Empty stack ↔ no competition in progress.
+    // Empty stack <-> no competition in progress.
     // -----------------------------------------------------------------------
     /// Stack of active encoding competitions, innermost last.
     ///
@@ -310,7 +310,7 @@ impl Encoder {
     /// tag/size prefix.
     ///
     /// Use this when the caller expects raw layer body bytes (without the size/tag framing)
-    /// rather than a complete framed wire record — see [`Self::into_layer_bytes`] for the framed form.
+    /// rather than a complete framed wire record - see [`Self::into_layer_bytes`] for the framed form.
     #[must_use]
     pub fn into_raw_bytes(mut self) -> Vec<u8> {
         if self.hdr.is_empty() && self.meta.is_empty() {
@@ -363,7 +363,7 @@ impl Encoder {
     /// for cand in candidates {
     ///     alt.with(|enc| write_candidate(cand, enc))?;
     /// }
-    /// // alt drops → finalises the competition
+    /// // alt drops -> finalises the competition
     /// ```
     pub fn try_alternatives(&mut self) -> AltSession<'_> {
         self.alt_stack.push(AltLevel {
@@ -480,8 +480,8 @@ pub struct AltSession<'a> {
 impl AltSession<'_> {
     /// Encode one candidate.
     ///
-    /// - **`Ok`** — commits the candidate; replaces the running best if shorter.
-    /// - **`Err`** — truncates the partial write back to the pre-call checkpoint
+    /// - **`Ok`** - commits the candidate; replaces the running best if shorter.
+    /// - **`Err`** - truncates the partial write back to the pre-call checkpoint
     ///   and returns the error.  The guard's `Drop` still finalises the
     ///   competition cleanly using whichever candidates succeeded so far.
     #[hotpath::measure]
@@ -560,7 +560,7 @@ mod tests {
             push(enc, b"ab");
             Ok(())
         })
-        .unwrap(); // 2 bytes — shortest
+        .unwrap(); // 2 bytes - shortest
         alt.with(|enc| {
             push(enc, b"xyz");
             Ok(())
@@ -586,7 +586,7 @@ mod tests {
             push(enc, b"bbb");
             Ok(())
         })
-        .unwrap(); // 3 bytes — equal
+        .unwrap(); // 3 bytes - equal
         drop(alt);
 
         assert_eq!(enc.data, b"aaa");
@@ -624,7 +624,7 @@ mod tests {
             push(enc, b"short");
             Ok(())
         })
-        .unwrap(); // 5 bytes — winner
+        .unwrap(); // 5 bytes - winner
         drop(alt);
 
         assert_eq!(&enc.data[..3], b"HDR");
@@ -669,7 +669,7 @@ mod tests {
                 inner.with(|enc| {
                     push(enc, b"in");
                     Ok(())
-                })?; // 2 bytes — inner winner
+                })?; // 2 bytes - inner winner
                 drop(inner); // inner done; enc = b"A:in"
                 push(enc, b"!");
                 Ok(())
@@ -682,7 +682,7 @@ mod tests {
                 push(enc, b"B");
                 Ok(())
             })
-            .unwrap(); // 1 byte — winner
+            .unwrap(); // 1 byte - winner
         drop(outer);
 
         assert_eq!(enc.data, b"B");
@@ -734,7 +734,7 @@ mod tests {
             Ok(())
         })
         .unwrap();
-        // Candidate B: 1 data + 1 meta = 2 total — winner
+        // Candidate B: 1 data + 1 meta = 2 total - winner
         alt.with(|enc| {
             push(enc, b"d");
             enc.meta.extend_from_slice(b"n");

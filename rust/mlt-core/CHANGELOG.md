@@ -146,7 +146,7 @@ allow_fastpfor
 - *(rust)* remove unused staging code and eq impl ([#1344](https://github.com/maplibre/maplibre-tile-spec/pull/1344))
 - *(rust)* follow up to Presence cleanup ([#1337](https://github.com/maplibre/maplibre-tile-spec/pull/1337))
 - *(rust)* simplify debug formatting ([#1336](https://github.com/maplibre/maplibre-tile-spec/pull/1336))
-- *(rust)* IdValues→ParsedId+StagedId, simplify presence ([#1334](https://github.com/maplibre/maplibre-tile-spec/pull/1334))
+- *(rust)* IdValues->ParsedId+StagedId, simplify presence ([#1334](https://github.com/maplibre/maplibre-tile-spec/pull/1334))
 - *(rust)* push fsst training up one level to not gain false statistics ([#1335](https://github.com/maplibre/maplibre-tile-spec/pull/1335))
 - *(rust)* rework presence to use bitvec ([#1329](https://github.com/maplibre/maplibre-tile-spec/pull/1329))
 

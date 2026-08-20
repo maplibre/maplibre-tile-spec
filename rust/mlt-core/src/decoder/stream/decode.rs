@@ -39,7 +39,7 @@ impl<'a> RawStream<'a> {
         }
     }
 
-    /// Decode a boolean data stream: byte-RLE → packed bitmap → `Vec<bool>`, charging `dec`.
+    /// Decode a boolean data stream: byte-RLE -> packed bitmap -> `Vec<bool>`, charging `dec`.
     pub fn decode_bools(self, dec: &mut Decoder) -> MltResult<Vec<bool>> {
         if self.meta.encoding.physical == PhysicalEncoding::VarInt {
             return Err(MltError::NotImplemented("varint bool decoding"));
@@ -160,7 +160,7 @@ pub trait DecodeInt: Sized {
 
     /// Fast path for [`LogicalEncoding::None`] on unsigned types: skip the scratch
     /// round-trip since the physical words are already the output.
-    /// Signed types return `None` — they always need at least a zigzag transform.
+    /// Signed types return `None` - they always need at least a zigzag transform.
     fn decode_none_passthrough(
         _stream: &RawStream<'_>,
         _dec: &mut Decoder,

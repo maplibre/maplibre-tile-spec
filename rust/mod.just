@@ -273,7 +273,7 @@ fuzz-seed target='layer': (just 'cargo-install' 'fd' 'fd-find')
     fd . ../test --extension mlt --threads=1 --exec cp --force {} mlt-core/fuzz/corpus/{{target}}/
     {{just}} rust::fuzz-cmin {{target}}
 
-# Minimize the fuzz corpus for target (slow — run occasionally to prune redundant entries)
+# Minimize the fuzz corpus for target (slow - run occasionally to prune redundant entries)
 fuzz-cmin target='layer': (cargo-fuzz 'cmin' target '--target' 'x86_64-unknown-linux-gnu')
 
 # Collect coverage from the fuzz corpus and open an HTML report (installs `cargo fuzz`, `rustfilt`)
@@ -321,7 +321,7 @@ py: (just 'cargo-install' 'maturin')
     fi
     source .venv/bin/activate
     maturin develop
-    python3 -i -c "import maplibre_tiles; print('maplibre_tiles ready — try: maplibre_tiles.decode_mlt(data)')"
+    python3 -i -c "import maplibre_tiles; print('maplibre_tiles ready - try: maplibre_tiles.decode_mlt(data)')"
 
 # Build mlt-py and run its Python test suite (pytest)
 [working-directory: 'mlt-py']

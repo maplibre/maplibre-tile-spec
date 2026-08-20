@@ -83,7 +83,7 @@ pub enum MltError {
     #[error("StagedLayer::encode_explicit requires Encoder.explicit to be Some(_)")]
     MissingExplicitEncoder,
 
-    // Wire/codec decoding (bytes → primitives)
+    // Wire/codec decoding (bytes -> primitives)
     #[error("buffer underflow: needed {0} bytes, but only {1} remain")]
     BufferUnderflow(u32, usize),
     #[error("FastPFor decode failed: expected={0} got={1}")]

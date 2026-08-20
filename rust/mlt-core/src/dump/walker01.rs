@@ -157,12 +157,12 @@ impl<'a> Walker<'a> {
             input,
             "size",
             |i| parse_varint::<u32>(i),
-            |v| Some(format!("{v} (varint) — tag + body")),
+            |v| Some(format!("{v} (varint) - tag + body")),
         )?;
         let (input, tag) = self.field(input, "tag", parse_u8, |t| {
             Some(match t {
-                1 => "0x01 → Tag01".to_string(),
-                other => format!("0x{other:02X} → Unknown"),
+                1 => "0x01 -> Tag01".to_string(),
+                other => format!("0x{other:02X} -> Unknown"),
             })
         })?;
 
@@ -416,7 +416,7 @@ impl<'a> Walker<'a> {
     }
 
     /// Mirror `parse_str_column`: `[varint stream_count]`, optional presence, then
-    /// 2–5 data/offset/length streams.
+    /// 2-5 data/offset/length streams.
     fn walk_str(&mut self, input: &'a [u8], typ: ColumnType) -> MltResult<&'a [u8]> {
         let (mut input, stream_count) = self.field(
             input,
@@ -501,7 +501,7 @@ impl<'a> Walker<'a> {
     ) -> MltResult<(&'a [u8], StreamMeta)> {
         let si = self.open(input, label.to_string());
 
-        // Authoritative parse — drives advancement and gives us `meta`/`byte_length`.
+        // Authoritative parse - drives advancement and gives us `meta`/`byte_length`.
         let (after_hdr, (meta, byte_length)) =
             StreamMeta::from_bytes(input, is_bool, &mut self.parser)?;
 
@@ -634,7 +634,7 @@ fn stream_type_bits(st: StreamType, byte: u8) -> Vec<BitField> {
         StreamType::Length(_) => "Length",
     };
     let subtype = match st {
-        StreamType::Present => "—".to_string(),
+        StreamType::Present => "-".to_string(),
         StreamType::Data(d) => format!("{d:?}"),
         StreamType::Offset(o) => format!("{o:?}"),
         StreamType::Length(l) => format!("{l:?}"),

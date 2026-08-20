@@ -9,8 +9,8 @@ use crate::{DecodeState, Lazy};
 
 /// Property column representation, parameterized by decode state.
 ///
-/// - `Property<'a>` / `Property<'a, Lazy>` — either raw bytes or decoded, in an [`crate::LazyParsed`] enum.
-/// - `Property<'a, Parsed>` — decoded [`ParsedProperty`] directly (no enum wrapper).
+/// - `Property<'a>` / `Property<'a, Lazy>` - either raw bytes or decoded, in an [`crate::LazyParsed`] enum.
+/// - `Property<'a, Parsed>` - decoded [`ParsedProperty`] directly (no enum wrapper).
 pub type Property<'a, S = Lazy> =
     <S as DecodeState>::LazyOrParsed<RawProperty<'a>, ParsedProperty<'a>>;
 
@@ -216,7 +216,7 @@ pub struct RawFsstData<'a> {
 /// [`RawPresence::decode_bools`] instead of matching on it.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub enum RawPresence<'a> {
-    /// Non-optional column — every feature has a value; nothing is stored.
+    /// Non-optional column - every feature has a value; nothing is stored.
     #[default]
     AllPresent,
     /// Tag `0x01`: bool-RLE presence stream with a full stream header.

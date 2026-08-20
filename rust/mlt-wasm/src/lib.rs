@@ -12,11 +12,11 @@
 //!
 //! `MltTile::layer_geometry` returns a `LayerGeometry`
 //! whose typed-array getters expose the raw offset and vertex buffers.
-//! JS walks these directly — zero WASM boundary crossings per feature.
+//! JS walks these directly - zero WASM boundary crossings per feature.
 //!
 //! ## IDs
 //!
-//! `MltTile::layer_ids` returns a `Float64Array` — one `f64` per
+//! `MltTile::layer_ids` returns a `Float64Array` - one `f64` per
 //! feature.  Absent IDs are `NaN` (≡ `undefined` after the JS wrapper checks
 //! `isNaN`).  IDs above `Number.MAX_SAFE_INTEGER` lose precision.
 //!
@@ -24,7 +24,7 @@
 //!
 //! `MltTile::layer_property_keys` and `MltTile::layer_properties`
 //! expose all property columns as typed arrays built once per layer.  JS reads
-//! any feature's property with a single array index — zero WASM calls during
+//! any feature's property with a single array index - zero WASM calls during
 //! traversal.
 
 mod geometry;

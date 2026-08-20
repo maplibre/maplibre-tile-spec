@@ -19,7 +19,7 @@ pub fn hilbert_xy_to_index(level: u32, coord: Coord<u32>) -> u32 {
 ///
 /// `shift` is added to both axes to move the origin into the non-negative
 /// range (use the global minimum across *all* vertices for the layer, not
-/// per-axis).  `bits` is the grid level — both shifted components must
+/// per-axis).  `bits` is the grid level - both shifted components must
 /// fit in `[0, 2^bits)`.
 ///
 /// Use [`hilbert_curve_params_from_bounds`] to compute `shift` and `bits`

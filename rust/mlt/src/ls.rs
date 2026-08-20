@@ -209,7 +209,7 @@ impl Serialize for FileAlgorithm {
 }
 
 /// Dash shown when a numeric column is not applicable (e.g. MVT has no Enc %).
-pub const NA: &str = "—";
+pub const NA: &str = "-";
 
 #[must_use]
 pub fn na(v: Option<String>) -> String {

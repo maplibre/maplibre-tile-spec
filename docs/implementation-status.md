@@ -25,7 +25,7 @@
 | [maplibre-tile-spec/rust/mlt-py](https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-py) | Rust / [PyO3](https://pyo3.rs/). | Decoder / Encoder | Exposes `mlt-core` to the python communtiy via [PyO3](https://pyo3.rs/). |
 | [maplibre-tile-spec/rust/mlt-ffi](https://github.com/maplibre/maplibre-tile-spec/tree/main/rust/mlt-ffi) | Rust / FFI | Decoder / Encoder | Foreign-function bindings for `mlt-core` to the java/kotlin, cpp and c community |
 
-## Ongoing work — tools adding MLT support
+## Ongoing work - tools adding MLT support
 
 | Tool | Status | Tracking issue | Dependency / notes |
 |---|---|---|---|

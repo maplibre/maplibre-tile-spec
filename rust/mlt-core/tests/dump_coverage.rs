@@ -18,7 +18,7 @@ fn check([path]: [&Path; 1]) {
     let tree = annotate_tile(&buffer);
 
     match (parse_ok, tree) {
-        // Well-formed per the real parser → the walker must succeed and cover everything.
+        // Well-formed per the real parser -> the walker must succeed and cover everything.
         (true, Ok(tree)) => assert_full_coverage(&tree, buffer.len(), path),
         (true, Err(e)) => {
             panic!(
@@ -26,7 +26,7 @@ fn check([path]: [&Path; 1]) {
                 path.display()
             )
         }
-        // Malformed → the walker must error too; it must never panic (reaching here proves it didn't).
+        // Malformed -> the walker must error too; it must never panic (reaching here proves it didn't).
         (false, Err(_)) => {}
         (false, Ok(_)) => {
             panic!(

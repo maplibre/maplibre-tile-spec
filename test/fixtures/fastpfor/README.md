@@ -18,4 +18,4 @@ For each `vectorN`:
   - Fixtures are stored in canonical form: trailing `0x00000000` padding words are trimmed.
 - `vectorN_decoded.bin`
   - Big-endian bytes of the expected **decoded int32 values** (`uint32_t[]` in C++).
-  - When interpreted as signed int32, values use two’s complement (e.g. the `-100..99` range in `vector3`).
+  - When interpreted as signed int32, values use two's complement (e.g. the `-100..99` range in `vector3`).

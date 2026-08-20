@@ -219,7 +219,7 @@ fn single_value_i32_picks_smaller_physical(
 }
 
 /// Regression: `EncoderConfig::allow_fastpfor` must actually gate `FastPFOR` selection in the auto path.
-/// Previously the flag was dead — `FastPFOR` was always tried.
+/// Previously the flag was dead - `FastPFOR` was always tried.
 #[test]
 fn allow_fastpfor_gates_fastpfor_selection() {
     // 12-bit pseudo-random values: not sequential and not run-heavy.
@@ -326,13 +326,13 @@ fn test_morton_parse_rejects_too_many_bits() {
 /// OOM regression: `VarInt` stream with huge `num_values` but `byte_length=0`.
 ///
 /// `Wire: stream_type=0x00 | enc=0x02(VarInt) | num_values=0xd5_ff_d5_ff_03 | byte_length=0x00`
-/// Before the budget fix, `parse_varint_vec` called `Vec::with_capacity(1_073_053_653)` → ~4 GB OOM.
+/// Before the budget fix, `parse_varint_vec` called `Vec::with_capacity(1_073_053_653)` -> ~4 GB OOM.
 /// Now the memory budget is checked at parse time: `num_values * 8 = ~8 GB > 10 MB limit`.
 #[test]
 fn test_varint_stream_huge_num_values_empty_data() {
-    // enc_byte = 0x02 → logical1=0(None), logical2=0(None), physical=2(VarInt)
+    // enc_byte = 0x02 -> logical1=0(None), logical2=0(None), physical=2(VarInt)
     // num_values = 0xd5 0xff 0xd5 0xff 0x03 = 1_073_053_653 (valid u32, 5-byte varint)
-    // byte_length = 0x00 → 0 bytes of data
+    // byte_length = 0x00 -> 0 bytes of data
     let wire: &[u8] = &[0x00, 0x02, 0xd5, 0xff, 0xd5, 0xff, 0x03, 0x00];
     // Parsing must fail: budget reserves num_values * 8 ≈ 8 GB which exceeds the 10 MB limit.
     let result = RawStream::from_bytes(wire, &mut parser());
@@ -349,7 +349,7 @@ fn test_varint_stream_huge_num_values_empty_data() {
 #[test]
 fn test_rle_num_rle_values_mismatch() {
     // runs=1, num_rle_values=u32::MAX (declared), but the single run has value 1.
-    // Sum of runs = 1 ≠ u32::MAX → must error before allocating ~16 GB.
+    // Sum of runs = 1 ≠ u32::MAX -> must error before allocating ~16 GB.
     let rle = RleMeta {
         runs: 1,
         num_rle_values: u32::MAX,
