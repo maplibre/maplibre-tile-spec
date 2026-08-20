@@ -130,7 +130,7 @@ impl Decoder {
     /// Reset the memory budget to zero, keeping scratch buffers allocated.
     ///
     /// Call this between tiles when reusing a single `Decoder` for multiple
-    /// decodes — the per-tile budget is enforced fresh, but the internal
+    /// decodes - the per-tile budget is enforced fresh, but the internal
     /// `buffer_u32` / `buffer_u64` scratch space is retained so it doesn't
     /// need to be re-allocated.
     ///

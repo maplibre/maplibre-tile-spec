@@ -96,6 +96,6 @@ export async function expectUnsupported(
   }
   expect(
     actual,
-    "decoded and matched the expected output — remove it from the exclusion list",
+    "decoded and matched the expected output - remove it from the exclusion list",
   ).not.toEqual(content);
 }

@@ -25,8 +25,8 @@ A QGIS plugin to open **MapLibre Tile (MLT)** files, powered by the Rust
 ## Prerequisites
 
 - **QGIS 3.22+** (tested with 3.34)
-- **Rust toolchain** (1.87+) — install via [rustup](https://rustup.rs)
-- **maturin** — PyO3 build tool (`pip install maturin`)
+- **Rust toolchain** (1.87+) - install via [rustup](https://rustup.rs)
+- **maturin** - PyO3 build tool (`pip install maturin`)
 - **Python 3.9+** (must match the Python that QGIS uses)
 
 ## Installation
@@ -103,7 +103,7 @@ ln -sfn "$(pwd)/../../qgis/mlt_plugin" \
 3. A dialog appears with auto-detected **z/x/y** coordinates (parsed from the
    filename, e.g. `14_8297_10749.mlt` → z=14, x=8297, y=10749)
 4. Confirm or edit the values, toggle **TMS y-axis** if needed
-5. Click **OK** — each MLT layer loads as a QGIS memory layer with real
+5. Click **OK** - each MLT layer loads as a QGIS memory layer with real
    EPSG:3857 coordinates
 
 ### Opening multiple tiles at once
@@ -112,10 +112,10 @@ ln -sfn "$(pwd)/../../qgis/mlt_plugin" \
 2. Select multiple `.mlt` files (Ctrl+click / Shift+click)
 3. A table dialog shows all files with their auto-detected z/x/y
 4. Options:
-   - **TMS y-axis** — checked by default (correct for OpenMapTiles / MBTiles)
-   - **Merge same-named layers** — checked by default; combines features from
+   - **TMS y-axis** - checked by default (correct for OpenMapTiles / MBTiles)
+   - **Merge same-named layers** - checked by default; combines features from
      the same MLT layer across tiles into one QGIS layer for seamless viewing
-5. Click **OK** — e.g. selecting a 3×3 tile grid creates unified "building",
+5. Click **OK** - e.g. selecting a 3×3 tile grid creates unified "building",
    "transportation", "water" layers containing features from all 9 tiles
 
 ### Coordinate conventions
@@ -132,15 +132,15 @@ geo-referencing (useful for inspecting raw tile data).
 
 ## Troubleshooting
 
-**"mlt module not found"** — the native module isn't installed for QGIS's
+**"mlt module not found"** - the native module isn't installed for QGIS's
 Python. Re-run Step 2 using the correct interpreter.
 
-**Features appear in the ocean** — toggle the TMS checkbox, or verify z/x/y
+**Features appear in the ocean** - toggle the TMS checkbox, or verify z/x/y
 values are correct.
 
-**Plugin not visible in QGIS** — check the symlink points to the right
+**Plugin not visible in QGIS** - check the symlink points to the right
 directory and that the `metadata.txt` file exists inside it.
 
-**Build fails with "unsafe_code forbidden"** — the `mlt-py` crate overrides
+**Build fails with "unsafe_code forbidden"** - the `mlt-py` crate overrides
 the workspace lint locally; make sure you're building from `rust/mlt-py/`,
 not the workspace root.

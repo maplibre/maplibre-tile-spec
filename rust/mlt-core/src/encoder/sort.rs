@@ -15,7 +15,7 @@ use crate::encoder::model::CurveParams;
 /// opt in explicitly.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, strum::EnumIter, strum::EnumCount)]
 pub enum SortStrategy {
-    /// Preserve the original feature order — no reordering is applied.
+    /// Preserve the original feature order - no reordering is applied.
     ///
     /// This is the default.
     #[default]

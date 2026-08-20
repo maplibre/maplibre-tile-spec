@@ -220,7 +220,7 @@ fn single_value_i32_picks_smaller_physical(
 }
 
 /// Regression: `EncoderConfig::allow_fastpfor` must actually gate `FastPFOR` selection in the auto path.
-/// Previously the flag was dead — `FastPFOR` was always tried.
+/// Previously the flag was dead - `FastPFOR` was always tried.
 #[test]
 fn allow_fastpfor_gates_fastpfor_selection() {
     // 12-bit pseudo-random values: not sequential and not run-heavy.

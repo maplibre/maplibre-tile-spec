@@ -142,7 +142,7 @@ pub(crate) fn parse_stream<'a>(
 /// `implicit_count` is the count the decoder will infer from context; an
 /// explicit count varint is emitted only when `meta.num_values` differs.
 ///
-/// The physical field is emitted as `None-withLen` for raw streams — the
+/// The physical field is emitted as `None-withLen` for raw streams - the
 /// `None-noLen` optimization (deriving byte length from an element width)
 /// is not implemented yet.
 // TODO(v2): emit None-noLen when the element width is unambiguous, saving the

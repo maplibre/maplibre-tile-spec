@@ -43,7 +43,7 @@ pub use errors::{MltError, MltResult};
 pub(crate) use utils::analyze::{Analyze, StatType};
 pub(crate) use utils::lazy_state::{Decode, DecodeState, Lazy, LazyParsed, Parsed};
 
-/// Wire-level encoding metadata — for tile analysis and tooling.
+/// Wire-level encoding metadata - for tile analysis and tooling.
 ///
 /// These types describe the physical and logical encoding of streams inside an
 /// MLT tile. Normal tile consumers (parse → iterate features) do not need this

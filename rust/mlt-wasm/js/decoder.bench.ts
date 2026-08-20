@@ -17,9 +17,9 @@ function loadPool(zoom: number): Uint8Array[] {
     .map((f) => new Uint8Array(readFileSync(resolve(OMT, f))));
 }
 
-// zoom 11: 12 tiles, 39–89 KB each  (~760 KB total — exceeds typical L2)
+// zoom 11: 12 tiles, 39–89 KB each  (~760 KB total - exceeds typical L2)
 // zoom 10: 12 tiles, 70–128 KB each (~1.1 MB total)
-// zoom 14: 10 tiles, 344–763 KB each (~5.5 MB total — exceeds most L3s)
+// zoom 14: 10 tiles, 344–763 KB each (~5.5 MB total - exceeds most L3s)
 const POOLS = [
   { label: "small  (zoom 11, 39–89 KB)", pool: loadPool(11) },
   { label: "medium (zoom 10, 70–128 KB)", pool: loadPool(10) },

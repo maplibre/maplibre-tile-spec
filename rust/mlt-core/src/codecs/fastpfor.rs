@@ -67,7 +67,7 @@ mod tests {
         #[test]
         fn test_fastpfor_roundtrip(data: Vec<u32>) {
             // FastPFor256 produces a non-empty output (VByte header) even for empty input,
-            // but decode_fastpfor requires zero bytes when num_values == 0 — consistent
+            // but decode_fastpfor requires zero bytes when num_values == 0 - consistent
             // with how PhysicalEncoder guards `if !values.is_empty()`.
             prop_assume!(!data.is_empty());
             let mut encoded = Vec::new();

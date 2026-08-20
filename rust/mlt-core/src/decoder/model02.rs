@@ -1,6 +1,6 @@
 //! In-memory model types specific to tag `0x02` (v2) layers.
 //!
-//! The numeric code assignments below are **provisional** — the v2 spec
+//! The numeric code assignments below are **provisional** - the v2 spec
 //! (`docs/migrating-to-v2.md`) intentionally defers them. Scalar and ID codes
 //! mirror v1 for clarity; string codes (28–35), shared-dict codes (36–39), and
 //! shared-presence variants (`base | 0x80`) will be added with those features.
@@ -37,9 +37,9 @@ pub(crate) enum ColumnType02 {
     OptF32 = 25,
     F64 = 26,
     OptF64 = 27,
-    // 28..=35: StrPlain / OptStrPlain / StrDict / OptStrDict / StrFsst /
+    // TODO(v2): 28..=35: StrPlain / OptStrPlain / StrDict / OptStrDict / StrFsst /
     //          OptStrFsst / StrFsstDict / OptStrFsstDict   (not yet implemented)
-    // 36..=39: SharedDictPlain / SharedDictFsst / SharedDictChildRef /
+    // TODO(v2): 36..=39: SharedDictPlain / SharedDictFsst / SharedDictChildRef /
     //          OptSharedDictChildRef                        (not yet implemented)
 }
 

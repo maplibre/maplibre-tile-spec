@@ -33,15 +33,15 @@ names = maplibre_tiles.list_layers(data)
 
 `decode_mlt(...)` returns a list of `MltLayer` objects.
 Each `MltLayer` represents one decoded MLT layer and exposes:
-- `name: str` — the layer name.
-- `extent: int` — the layer extent.
-- `features: list[MltFeature]` — the decoded features in that layer.
+- `name: str` - the layer name.
+- `extent: int` - the layer extent.
+- `features: list[MltFeature]` - the decoded features in that layer.
 
 Each `MltFeature` represents one decoded feature and exposes:
-- `id: int | None` — the feature id, if present.
-- `geometry_type: str` — the decoded geometry type.
-- `wkb: bytes` — the geometry as WKB.
-- `properties: dict` — the feature properties.
+- `id: int | None` - the feature id, if present.
+- `geometry_type: str` - the decoded geometry type.
+- `wkb: bytes` - the geometry as WKB.
+- `properties: dict` - the feature properties.
 
 
 ```python

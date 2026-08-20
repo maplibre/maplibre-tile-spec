@@ -47,7 +47,7 @@ impl<'a> RawStream<'a> {
     /// they differ only in how that bitmap is framed, which the logical encoding
     /// distinguishes:
     /// - tag `0x01` (`logical = Rle`): byte-RLE compressed bitmap.
-    /// - tag `0x02` (`logical = None`): raw bitmap, no compression — the same
+    /// - tag `0x02` (`logical = None`): raw bitmap, no compression - the same
     ///   representation as a v2 presence bitfield.
     pub fn decode_bools(self, dec: &mut Decoder) -> MltResult<Vec<bool>> {
         let num_values = self.meta.num_values.into_usize();
@@ -188,7 +188,7 @@ pub trait DecodeInt: Sized {
 
     /// Fast path for [`LogicalEncoding::None`]: for unsigned types the physical
     /// words are already the output, so decode straight into a fresh `Vec` and
-    /// skip the scratch round-trip. Signed types return `None` — a zigzag
+    /// skip the scratch round-trip. Signed types return `None` - a zigzag
     /// transform is always required, so they fall through to the general path.
     fn decode_none_passthrough(
         _stream: &RawStream<'_>,

@@ -174,10 +174,10 @@ impl StagedLayer {
 /// Which wire format layers are encoded to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum WireVersion {
-    /// Tag `0x01` — the stable v1 format.
+    /// Tag `0x01` - the stable v1 format.
     #[default]
     V01,
-    /// Tag `0x02` — the experimental v2 format (see `docs/migrating-to-v2.md`).
+    /// Tag `0x02` - the experimental v2 format (see `docs/migrating-to-v2.md`).
     /// Requires the `unstable-v2` feature.
     ///
     /// Currently limited to ID, scalar, and non-tessellated geometry columns;

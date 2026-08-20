@@ -144,7 +144,7 @@ impl GeometryValues {
         // their vertex offsets are sitting in part_offsets. Move them to
         // ring_offsets now, before we set up ring_offsets for polygon use.
         // On subsequent polygons ring_offsets is already initialized and
-        // part_offsets holds polygon ring-range data — leave both alone.
+        // part_offsets holds polygon ring-range data - leave both alone.
         self.vector_types.push(GeometryType::Polygon);
         self.init_polygon_offsets();
 
@@ -587,7 +587,7 @@ mod tests {
             data: raw_bytes,
         };
 
-        // Assemble, serialize, parse, decode — same wire layout as geometry encoder:
+        // Assemble, serialize, parse, decode - same wire layout as geometry encoder:
         // stream count, then meta (geom type), parts, vertex offsets, Morton dict.
         let mut codecs = Codecs::default();
         let mut enc = Encoder::with_explicit(

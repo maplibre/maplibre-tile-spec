@@ -1,7 +1,7 @@
 //! Parser for tag `0x02` (v2) layer bodies.
 //!
-//! Produces the same in-memory representation as the v1 parser — a lazy
-//! [`Layer01`] over `Raw*` column containers — by synthesizing per-stream
+//! Produces the same in-memory representation as the v1 parser - a lazy
+//! [`Layer01`] over `Raw*` column containers - by synthesizing per-stream
 //! metadata (stream role, value count) from the envelope context instead of
 //! reading it from the wire. All downstream decoding is shared with v1.
 //!

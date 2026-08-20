@@ -310,7 +310,7 @@ async fn convert_pmtiles_to_pmtiles(
     let mut tiles = spawn_encode_pipeline(reader, ids, encoding, cfg, make_encode_cache());
     let mut stats = TileStats::default();
     // When stderr isn't a terminal (e.g. output redirected to a log) the bar
-    // renders nothing, so emit a periodic plain-text progress line instead —
+    // renders nothing, so emit a periodic plain-text progress line instead -
     // long full-planet runs to a log file still need a visible ETA.
     let log_progress = bar.is_hidden();
     let mut done: u64 = 0;

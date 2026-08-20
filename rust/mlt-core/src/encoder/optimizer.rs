@@ -40,7 +40,7 @@ impl StagedLayer {
                 id.write_to(&mut enc, codecs)?;
                 geometry.write_to(&mut enc, codecs)?;
                 write_properties(&properties, &mut enc, codecs)?;
-                enc.write_header(&name, extent.get(), column_count)?;
+                enc.write_header01(&name, extent.get(), column_count)?;
 
                 Ok(enc)
             }
@@ -71,8 +71,8 @@ impl TileLayer {
     /// 2. Tries each sort strategy, encoding and measuring the output size
     /// 3. Returns the smallest encoding as a complete layer record (including tag and length prefix)
     ///
-    /// All encoding choices — sort order, per-stream integer encodings, string compression,
-    /// vertex buffer layout — are selected automatically to minimize output size.
+    /// All encoding choices - sort order, per-stream integer encodings, string compression,
+    /// vertex buffer layout - are selected automatically to minimize output size.
     #[hotpath::measure]
     pub fn encode(self, cfg: EncoderConfig) -> MltResult<Vec<u8>> {
         if self.name().is_empty() {

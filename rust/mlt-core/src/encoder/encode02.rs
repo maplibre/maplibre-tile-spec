@@ -2,7 +2,7 @@
 //!
 //! A v2 layer body is: header (`name`, `extent`, `feature_count`), geometry
 //! section, `column_count` varint, then each counted column as
-//! `[type byte][name?][presence bitfield?][data stream]` — metadata and data
+//! `[type byte][name?][presence bitfield?][data stream]` - metadata and data
 //! merged, unlike v1's split sections.
 //!
 //! Stream payload encodings (and their size competitions) are shared with v1
@@ -56,7 +56,7 @@ pub(crate) fn encode_into02(
     Ok(enc)
 }
 
-/// Write a column's type byte and, for named columns, its name — inline in the
+/// Write a column's type byte and, for named columns, its name - inline in the
 /// data section (v2 has no separate metadata section).
 fn begin_col02(enc: &mut Encoder, typ: ColumnType02, name: Option<&str>) -> MltResult<()> {
     let data = enc.data_mut();
@@ -70,7 +70,7 @@ fn begin_col02(enc: &mut Encoder, typ: ColumnType02, name: Option<&str>) -> MltR
 
 /// Write a raw packed presence bitfield (`ceil(len/8)` bytes, LSB-first),
 /// then run `write_data` with [`Encoder::count_context`] set to the presence
-/// popcount — the implicit count of the optional column's data stream.
+/// popcount - the implicit count of the optional column's data stream.
 fn write_opt_col02<F>(enc: &mut Encoder, presence: &[bool], write_data: F) -> MltResult<()>
 where
     F: FnOnce(&mut Encoder) -> MltResult<()>,
@@ -93,7 +93,7 @@ where
     result
 }
 
-/// Write a boolean data stream as a raw LSB-first packed bitfield — one bit per
+/// Write a boolean data stream as a raw LSB-first packed bitfield - one bit per
 /// value, `ceil(len/8)` bytes, framed as a `logical=None` / `physical=None`
 /// stream. This mirrors how v2 presence bitfields are stored and is up to 8×
 /// smaller than one byte per value; [`RawStream::decode_bools`] reads it back

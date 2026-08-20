@@ -305,9 +305,9 @@ pub(super) fn normalize_geometry_offsets(
 /// directly by geometry position.
 ///
 /// Each slot in the output holds the first index into `ring_offsets` for that geometry:
-/// - `Point`: no contribution — slot range is empty (`ring_idx` unchanged).
-/// - `LineString`: contributes 1 slot (vertex count) — slot range is 1.
-/// - `Polygon`: contributes `ring_count` slots — slot range equals its ring count.
+/// - `Point`: no contribution - slot range is empty (`ring_idx` unchanged).
+/// - `LineString`: contributes 1 slot (vertex count) - slot range is 1.
+/// - `Polygon`: contributes `ring_count` slots - slot range equals its ring count.
 pub(super) fn normalize_part_offsets_for_rings(
     vector_types: &[GeometryType],
     part_offsets: &[u32],
@@ -447,7 +447,7 @@ fn encode_hilbert_vertex_streams(
         &mut dict_xy,
         &mut remap,
     );
-    // Done with these — restore so the physical-encoding race below can use
+    // Done with these - restore so the physical-encoding race below can use
     // them via the codec.
     codecs.logical.hilbert_indexed = indexed;
     codecs.logical.hilbert_remap = remap;
@@ -581,10 +581,10 @@ impl GeometryValues {
         // (geometry never exceeds ~8 streams, always fits in a single varint byte).
         enc.write_column_type(ColumnType::Geometry)?;
         let stream_count_pos = enc.data().len();
-        enc.data_mut().push(0); // placeholder — patched below
+        enc.data_mut().push(0); // placeholder - patched below
         let mut n: u8 = 0;
 
-        // Meta stream — always written, even for a zero-feature layer.
+        // Meta stream - always written, even for a zero-feature layer.
         let ctx = StreamCtx::geom(StreamType::Length(LengthType::VarBinary), "meta");
         codecs.write_int_stream(&meta, &ctx, enc)?;
         n += 1;
@@ -744,7 +744,7 @@ mod tests {
     #[test]
     fn test_build_morton_dict() {
         let meta = Morton { bits: 4, shift: 0 };
-        // vertices: [x0,y0, x1,y1, x2,y2, x3,y3] — repeat (1,2) to test dedup
+        // vertices: [x0,y0, x1,y1, x2,y2, x3,y3] - repeat (1,2) to test dedup
         let vertices = [1, 2, 3, 4, 1, 2, 0, 0];
         let (dict, offsets) = build_morton_dict(&vertices, meta).unwrap();
 

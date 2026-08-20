@@ -229,7 +229,7 @@ pub fn render_mbtiles_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
     let visible = mbt.visible_tiles();
     let (cz, cx, cy) = mbt.center_tile_xyz();
     let title = format!(
-        "World Map — {cz}/{cx}/{cy} — zoom {:.1}  drag=pan  hover=info  q/Esc quit",
+        "World Map - {cz}/{cx}/{cy} - zoom {:.1}  drag=pan  hover=info  q/Esc quit",
         mbt.zoom_f
     );
 

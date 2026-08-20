@@ -48,7 +48,7 @@ pub fn parse_varint_vec<'a, T: VarInt>(
 /// for the output allocation.
 ///
 /// Used for v2 interleaved-RLE streams, whose `(run, value)` pair count is not
-/// stored on the wire — the data is scanned to the stream's `byte_length`.
+/// stored on the wire - the data is scanned to the stream's `byte_length`.
 /// Every varint occupies at least one byte, so `input.len()` bounds the
 /// element count for the budget pre-charge.
 pub fn parse_varint_vec_all<T: VarInt>(mut input: &[u8], dec: &mut Decoder) -> MltResult<Vec<T>> {

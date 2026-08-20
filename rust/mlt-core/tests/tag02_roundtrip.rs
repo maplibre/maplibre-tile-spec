@@ -429,7 +429,7 @@ fn rle_friendly_constant_column() {
 }
 
 /// v2 bool columns are stored as a raw packed bitfield (1 bit/value), so a
-/// random bool column's data is ~`ceil(n/8)` bytes — far smaller than one byte
+/// random bool column's data is ~`ceil(n/8)` bytes - far smaller than one byte
 /// per value. Alternating values defeat RLE, isolating the bitfield size.
 #[test]
 fn bool_column_is_packed_bitfield() {

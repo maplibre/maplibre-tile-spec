@@ -1095,7 +1095,7 @@ fn generate_props_str(w: &mut SynthWriter) {
     six_points()
         .add_prop(E::varint(), P::opt_str("val", str_vals.map(Some)))
         .write(w, "props_str");
-    // FSST variants — same split
+    // FSST variants - same split
     six_points()
         .add_prop_str_fsst(E::varint(), E::varint(), P::str("val", str_vals))
         .write(w, "props_str_fsst_np");

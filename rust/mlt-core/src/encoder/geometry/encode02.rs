@@ -8,7 +8,7 @@
 //! The topology encoding (offsets → length streams) intentionally mirrors
 //! [`GeometryValues::write_to`] branch for branch, so a v2 layer decodes into
 //! exactly the same geometry as its v1 counterpart. A computed length stream
-//! that comes out empty is not written — the layout simply does not declare
+//! that comes out empty is not written - the layout simply does not declare
 //! it, matching v1's skip-empty behavior.
 //!
 //! Vertex data is always written as a plain Vec2 stream for now.

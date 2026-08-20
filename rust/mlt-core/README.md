@@ -63,13 +63,13 @@ See [`CONTRIBUTING.md`](../CONTRIBUTING.md) for additional pipeline docs.
 
 ## Data Pipeline
 
-The diagram below shows the full lifecycle of tile data — from raw bytes on the wire,
+The diagram below shows the full lifecycle of tile data - from raw bytes on the wire,
 through lazy parsing and optional per-column decoding, to zero-copy iteration or
 fully owned row-form access, and back to encoded bytes via the columnar encode pipeline.
 
 ```mermaid
 flowchart TB
-    A(["&[u8]  —  raw tile bytes"])
+    A(["&[u8]  -  raw tile bytes"])
 
     subgraph DEC ["Decoding"]
         B["<b>Parser::parse_layers(&[u8])</b>
@@ -81,7 +81,7 @@ flowchart TB
            columns = LazyParsed::Raw(RawStream)
            zero allocations for column data"]
 
-        D["decode_all()  — or per-column:
+        D["decode_all()  - or per-column:
            decode_id() / decode_geometry() / decode_properties()
 
            RawStream
@@ -127,7 +127,7 @@ flowchart TB
            serialises: varint(size) + tag byte + column payloads"]
     end
 
-    N(["Vec&lt;u8>  —  encoded tile bytes"])
+    N(["Vec&lt;u8>  -  encoded tile bytes"])
 
     A --> B --> C --> D --> E
     E -->|"borrow"| F --> G

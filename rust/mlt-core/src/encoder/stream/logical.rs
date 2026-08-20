@@ -10,8 +10,9 @@ use crate::decoder::{RleLayout, RleMeta};
 ///
 /// `target` is treated as a scratch buffer: cleared before writing.
 /// `num_logical` is the expanded output length (stored in `RleMeta::num_rle_values`).
-/// `layout` selects the wire layout: split run/value halves (tag `0x01`) or
-/// interleaved `(run, value)` pairs (tag `0x02`).
+/// `layout` selects the wire layout:
+///  - split run/value halves (tag `0x01`) or
+///  - interleaved `(run, value)` pairs (tag `0x02`).
 pub(crate) fn apply_rle<T: PrimInt + Debug>(
     data: &[T],
     num_logical: usize,
