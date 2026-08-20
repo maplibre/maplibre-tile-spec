@@ -254,12 +254,11 @@ impl EncoderConfig {
     }
 
     /// Whether the `FastPFor` physical encoding may compete for streams.
-    ///
-    /// v2 will use `FastPFor128` in little-endian byte order; until that codec
-    /// lands, `FastPFor` is only raced for v1 layers.
     // TODO(v2): race FastPFor128-LE for `WireVersion::V02`.
+    // v2 will use `FastPFor128` in little-endian byte order.
+    // Until that codec lands, `FastPFor` is only attempted for v1 layers.
     #[must_use]
-    pub(crate) fn race_fastpfor(self) -> bool {
+    pub(crate) fn attempt_fastpfor(self) -> bool {
         self.allow_fastpfor && self.wire_version == WireVersion::V01
     }
 

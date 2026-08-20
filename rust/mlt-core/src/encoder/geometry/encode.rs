@@ -508,7 +508,7 @@ fn write_geo_precomputed_stream(
             let meta = StreamMeta::new2(ctx.stream_type, logical, PE::None, 0)?;
             write_stream_payload(enc, meta, false, &[])?;
         } else {
-            let allow_fastpfor = enc.config().race_fastpfor();
+            let allow_fastpfor = enc.config().attempt_fastpfor();
             let mut alt = enc.try_alternatives();
             if allow_fastpfor {
                 alt.with(|enc| {

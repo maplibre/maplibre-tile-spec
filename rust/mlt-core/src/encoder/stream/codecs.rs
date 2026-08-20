@@ -161,7 +161,7 @@ impl Codecs {
             return encoder::write_stream_payload(enc, meta, false, payload);
         }
 
-        let allow_fastpfor = enc.config().race_fastpfor();
+        let allow_fastpfor = enc.config().attempt_fastpfor();
         let rle_layout = enc.config().wire_version().rle_layout();
         let mut alt = enc.try_alternatives();
 
