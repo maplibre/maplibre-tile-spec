@@ -16,7 +16,7 @@ internal interface MltConverterLib : Library {
     ): ResultPointerInt
 }
 
-/** Stateless FFI entry-points for MLT ↔ MVT conversion.
+/** Stateless FFI entry-points for MLT <-> MVT conversion.
 */
 class MltConverter internal constructor(
     internal val handle: Pointer,

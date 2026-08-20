@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.13](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.12...rust-mlt-ffi-v0.1.13) - 2026-08-19
+
+### Other
+
+- *(rust)* speed up MVT-to-MLT ~30% by not calling fast-mvt's to_tile() ([#1545](https://github.com/maplibre/maplibre-tile-spec/pull/1545))
+
 ## [0.1.12](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.11...rust-mlt-ffi-v0.1.12) - 2026-07-18
 
 ### Other

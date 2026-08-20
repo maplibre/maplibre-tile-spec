@@ -27,8 +27,8 @@ pub fn decode_fastpfor(data: &[u8], num_values: u32, dec: &mut Decoder) -> MltRe
     if !data.len().is_multiple_of(4) {
         return Err(MltError::InvalidFastPforByteLength(data.len()));
     }
-    // The Java MLT encoder writes compressed int[] → byte[] in big-endian order.
-    // We must convert BE bytes → u32 to reconstruct the original integer values
+    // The Java MLT encoder writes compressed int[] -> byte[] in big-endian order.
+    // We must convert BE bytes -> u32 to reconstruct the original integer values
     // that the Composition(FastPFOR, VariableByte) codec produced.
     let num_words = data.len() / 4;
     dec.consume_items::<u32>(num_words)?;

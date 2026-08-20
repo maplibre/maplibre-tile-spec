@@ -6,6 +6,7 @@ The `mlt` binary provides several commands for working with MLT files:
 
 * **`dump`** - Parse an MLT file and dump raw layer data without decoding
 * **`decode`** - Parse an MLT file, decode all layers, and dump the result (supports text and `GeoJSON` output)
+* **`hexdump`** - Annotated byte/bit-level hexdump of an MLT file's metadata and stream payloads
 * **`convert`** - Convert MVT or MLT tile files and MVT `.mbtiles`/`.pmtiles` archives to MLT
 * **`ui`** - Interactive terminal visualizer for MLT files
 
@@ -68,5 +69,5 @@ Features:
   - `↑`/`k` - Move selection up
   - `↓`/`j` - Move selection down
   - `Enter` - In layer overview mode, switch to detail mode; In file browser, open selected file
-  - `Esc` - Go back (detail → overview → file list) or quit if at top level
+  - `Esc` - Go back (detail -> overview -> file list) or quit if at top level
   - `q` - Quit the visualizer

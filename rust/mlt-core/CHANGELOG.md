@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.5](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.4...rust-mlt-core-v0.12.5) - 2026-08-19
+
+### Added
+
+- *(rust)* show MLT as hexdump ([#1521](https://github.com/maplibre/maplibre-tile-spec/pull/1521))
+
+### Other
+
+- *(rust)* implement FusedIterator, ExactSizeIterator and DoubleEndedIterator for the decoder iterators ([#1546](https://github.com/maplibre/maplibre-tile-spec/pull/1546))
+- *(rust)* speed up MVT-to-MLT ~30% by not calling fast-mvt's to_tile() ([#1545](https://github.com/maplibre/maplibre-tile-spec/pull/1545))
+
 ## [0.12.4](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.3...rust-mlt-core-v0.12.4) - 2026-07-18
 
 ### Fixed
@@ -135,7 +146,7 @@ allow_fastpfor
 - *(rust)* remove unused staging code and eq impl ([#1344](https://github.com/maplibre/maplibre-tile-spec/pull/1344))
 - *(rust)* follow up to Presence cleanup ([#1337](https://github.com/maplibre/maplibre-tile-spec/pull/1337))
 - *(rust)* simplify debug formatting ([#1336](https://github.com/maplibre/maplibre-tile-spec/pull/1336))
-- *(rust)* IdValues→ParsedId+StagedId, simplify presence ([#1334](https://github.com/maplibre/maplibre-tile-spec/pull/1334))
+- *(rust)* IdValues->ParsedId+StagedId, simplify presence ([#1334](https://github.com/maplibre/maplibre-tile-spec/pull/1334))
 - *(rust)* push fsst training up one level to not gain false statistics ([#1335](https://github.com/maplibre/maplibre-tile-spec/pull/1335))
 - *(rust)* rework presence to use bitvec ([#1329](https://github.com/maplibre/maplibre-tile-spec/pull/1329))
 

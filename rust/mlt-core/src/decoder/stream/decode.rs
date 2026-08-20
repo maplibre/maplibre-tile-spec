@@ -8,9 +8,9 @@ use usize_cast::IntoUsize as _;
 use crate::codecs::bytes::{PhysicalWord, decode_bytes_to_bools, decode_bytes_to_words};
 use crate::codecs::rle::decode_byte_rle;
 use crate::codecs::varint::{parse_varint_vec, parse_varint_vec_all};
-use crate::decoder::{LogicalEncoding, LogicalValue, PhysicalEncoding, RawStream};
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::RleMeta;
+use crate::decoder::{LogicalEncoding, LogicalValue, PhysicalEncoding, RawStream};
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
 use crate::{Decoder, MltError, MltResult};
 
@@ -63,8 +63,7 @@ impl<'a> RawStream<'a> {
         }
     }
 
-    /// Decode an integer stream via its 32-bit physical type `W`, then narrow each
-    /// value to the 8-bit output `N`, erroring if any value is out of range.
+    /// Decode via physical type `W`, then narrow to `N`, erroring if a value is out of range.
     pub fn decode_narrow<N, W>(self, dec: &mut Decoder) -> MltResult<Vec<N>>
     where
         W: DecodeInt,
@@ -80,12 +79,9 @@ impl<'a> RawStream<'a> {
 
     /// Decode an integer stream into `Vec<T>`, applying the logical transform.
     ///
-    /// Fast path: when there is no logical transform and `T` is unsigned, the
-    /// physical words *are* the output and are decoded straight into a fresh
-    /// `Vec`, skipping the scratch-buffer round-trip. Otherwise the physical
-    /// decode uses the decoder's reusable scratch buffer and the logical
-    /// transform (zigzag / delta / RLE / Morton / …) produces the output. Signed
-    /// types always take the transform path (zigzag is required even for `None`).
+    /// Unsigned `T` with no logical transform decodes straight into a fresh `Vec`.
+    /// Everything else goes through the decoder's scratch buffer, since signed
+    /// types always need at least a zigzag transform.
     pub fn decode_ints<T: DecodeInt>(self, dec: &mut Decoder) -> MltResult<Vec<T>> {
         let meta = self.meta;
         if meta.encoding.logical == LogicalEncoding::None
@@ -101,8 +97,9 @@ impl<'a> RawStream<'a> {
         result
     }
 
-    /// Decode a stream of floating-point values (`f32` / `f64`) from raw little-endian
-    /// bytes, charging `dec`. Varint physical encoding is not supported for floats.
+    /// Decode a stream of `f32`/`f64` from raw little-endian bytes, charging `dec`.
+    ///
+    /// Floats do not support varint physical encoding.
     pub fn decode_floats<T>(self, dec: &mut Decoder) -> MltResult<Vec<T>>
     where
         T: num_traits::FromBytes,
@@ -132,10 +129,7 @@ impl<'a> RawStream<'a> {
 
     /// Physically decode the stream into `buf` as `T` (`u32` or `u64`) values.
     ///
-    /// `buf` is cleared and filled with the decoded words. The caller owns the
-    /// buffer and is responsible for deciding whether it constitutes a final
-    /// persistent allocation (and therefore should be charged to a [`Decoder`]).
-    ///
+    /// `buf` is cleared first. The caller decides whether the result is charged to `dec`.
     /// `FastPFOR` is `u32`-only; decoding a `u64` `FastPFOR` stream returns an error.
     pub fn decode_bits<T: PhysicalWord>(
         &self,
@@ -168,8 +162,6 @@ impl<'a> RawStream<'a> {
 
 /// Logical output integer type of a decoded stream (`i32` / `u32` / `i64` / `u64`).
 ///
-/// Maps the output type to the physical word width it decodes from, the decoder
-/// scratch buffer to reuse for that width, and the logical-decode entry point.
 /// Decoder-side mirror of the encoder's `LogicalIntStreamKind`.
 pub trait DecodeInt: Sized {
     /// Physical word width the stream is decoded into before the logical transform.
@@ -178,18 +170,16 @@ pub trait DecodeInt: Sized {
     /// The reusable scratch buffer the decoder holds for this physical width.
     fn scratch(dec: &mut Decoder) -> &mut Vec<Self::Physical>;
 
-    /// Apply the logical transform (zigzag / delta / RLE / Morton / …) to the
-    /// physically decoded words, producing the output values.
+    /// Apply the logical transform (zigzag / delta / RLE / Morton / …).
     fn logical_decode(
         lv: LogicalValue,
         data: &[Self::Physical],
         dec: &mut Decoder,
     ) -> MltResult<Vec<Self>>;
 
-    /// Fast path for [`LogicalEncoding::None`]: for unsigned types the physical
-    /// words are already the output, so decode straight into a fresh `Vec` and
-    /// skip the scratch round-trip. Signed types return `None` - a zigzag
-    /// transform is always required, so they fall through to the general path.
+    /// Fast path for [`LogicalEncoding::None`]:
+    /// for unsigned types the physical words are already the output, so decode straight into a fresh `Vec`.
+    /// Signed types return `None` (zigzag transform always required), so they fall through to the general path.
     fn decode_none_passthrough(
         _stream: &RawStream<'_>,
         _dec: &mut Decoder,

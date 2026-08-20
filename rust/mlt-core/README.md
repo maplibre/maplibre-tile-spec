@@ -85,16 +85,16 @@ flowchart TB
            decode_id() / decode_geometry() / decode_properties()
 
            RawStream
-           → physical codec: FastPFor · varint · byte-RLE
-           → logical  codec: delta · zigzag · Morton · Hilbert
-           → typed column buffers Vec&lt;T>"]
+           -> physical codec: FastPFor · varint · byte-RLE
+           -> logical  codec: delta · zigzag · Morton · Hilbert
+           -> typed column buffers Vec&lt;T>"]
 
         E["ParsedLayer  =  Layer&lt;Parsed>
            all columns decoded into typed buffers"]
     end
 
     subgraph ACCESS ["Iterate  (zero-copy borrow)"]
-        F["iter_features()  →  Layer01FeatureIter"]
+        F["iter_features()  ->  Layer01FeatureIter"]
         G["FeatureRef
            id: Option&lt;u64>
            geometry reference

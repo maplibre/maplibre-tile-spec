@@ -2,6 +2,8 @@
   "compilerOptions": {
     "target": "ES2020",
     "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": false,
     "resolveJsonModule": true,
     "module": "es2022",
     "declaration": true,
@@ -14,7 +16,8 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "types": [
-      "node"
+      "node",
+      "geojson"
     ]
   },
   "include": [

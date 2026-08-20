@@ -32,7 +32,7 @@ const MINHASH_SIMILARITY_THRESHOLD: f64 = 0.075;
 /// Smaller groups are kept unconditionally.
 const VALIDATE_CORPUS_THRESHOLD: usize = 100_000;
 
-/// Minimum dedup ratio (`1 − union/sum_individual`) for a validated group to be retained.
+/// Minimum dedup ratio (`1 - union/sum_individual`) for a validated group to be retained.
 const MIN_DEDUP_RATIO: f64 = 0.05;
 
 struct StringProfile<'a> {
@@ -132,11 +132,8 @@ fn minhash_similarity(a: &[u64], b: &[u64]) -> f64 {
     matches as f64 / a.len() as f64
 }
 
-/// Check whether a proposed shared-dictionary group has enough cross-column
-/// value deduplication to justify the combined dictionary.
-///
-/// Groups below [`VALIDATE_CORPUS_THRESHOLD`] are always kept. Larger groups
-/// must achieve at least [`MIN_DEDUP_RATIO`] dedup savings.
+/// Whether a shared-dictionary group has enough cross-column value dedup to justify combining.
+/// Groups below [`VALIDATE_CORPUS_THRESHOLD`] are always kept; larger ones need [`MIN_DEDUP_RATIO`] savings.
 #[allow(clippy::cast_precision_loss)]
 fn group_is_beneficial(group: &[StringProfile<'_>]) -> bool {
     let sum_individual: usize = group

@@ -2,7 +2,7 @@ use mlt_core::encoder::SortStrategy::Unsorted;
 use mlt_core::encoder::{Codecs, Encoder, StagedLayer, stage_tile};
 use mlt_core::{Decoder, Layer, Parser, TileLayer};
 
-/// Fuzz input that starts from a staged layer and tests encode → decode roundtrip.
+/// Fuzz input that starts from a staged layer and tests encode -> decode roundtrip.
 ///
 /// Generates valid [`StagedLayer`] values directly and verifies that the
 /// canonical roundtrip (`Tile -> Staged -> bytes -> Tile`) is idempotent.

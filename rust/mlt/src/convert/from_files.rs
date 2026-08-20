@@ -16,8 +16,7 @@ use xxhash_rust::xxh3::xxh3_128;
 
 use super::{EncoderConfig, TileFormat, convert_buffer, whole_rate_per_sec};
 
-/// Only tiles below this size are tracked in the dedup cache, because
-/// larger tiles almost never repeat across a tileset.
+/// Only tiles below this size are cached; larger tiles rarely repeat across a tileset.
 const MAX_TILE_TRACK_SIZE: usize = 1024;
 
 const CACHE_MAX_BYTES: u64 = 512 * 1024 * 1024;

@@ -389,7 +389,7 @@ impl Layer {
             None => (StagedId::None, None),
         };
 
-        // Build name→PropConfig map for the ExplicitEncoder callbacks.
+        // Build name->PropConfig map for the ExplicitEncoder callbacks.
         let prop_map: HashMap<String, PropConfig> = props
             .iter()
             .map(|(p, c)| (p.name().to_string(), c.clone()))

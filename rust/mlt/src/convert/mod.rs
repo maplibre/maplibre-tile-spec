@@ -126,16 +126,14 @@ impl From<MltVersion> for WireVersion {
 
 #[derive(Clone, Default, ValueEnum)]
 enum SortMode {
-    /// Try no-sort and Z-order (Morton) sort, keep the smaller (default).
+    /// Try no-sort and Morton sort, keep the smaller (default).
     ///
-    /// Morton wins ~8% of layers and captures nearly all of the spatial gain;
-    /// Hilbert and feature-ID sort each win <1% of layers while each doubling
-    /// the per-layer encode work, so they are excluded here and only tried
-    /// under `all`.
+    /// Morton wins ~8% of layers and captures nearly all the spatial gain.
+    /// Hilbert and feature-ID sort each win <1% of layers, at double the encode work.
     #[default]
     Auto,
-    /// Try every sort strategy (no-sort, Morton, Hilbert, feature-ID) and keep
-    /// the smallest. Slowest, for marginally smaller output.
+    /// Try every sort strategy (no-sort, Morton, Hilbert, feature-ID) and keep the smallest.
+    /// Slowest, for marginally smaller output.
     All,
     /// Do not reorder features (original order only)
     None,

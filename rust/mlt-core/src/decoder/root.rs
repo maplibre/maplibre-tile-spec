@@ -155,7 +155,7 @@ impl MemBudget {
         self.bytes_used = 0;
     }
 }
-/// Stateful parser that enforces a memory budget during parsing (binary → raw structures).
+/// Stateful parser that enforces a memory budget during parsing (binary -> raw structures).
 ///
 /// The parse chain reserves memory before allocations so total heap stays within the limit.
 ///

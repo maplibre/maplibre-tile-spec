@@ -14,13 +14,13 @@ macro_rules! validate_stream {
     };
 }
 
-// re-export useful libs
 pub use fast_mvt;
 pub use geo_types;
 
 pub(crate) mod codecs;
 pub(crate) mod convert;
 pub(crate) mod decoder;
+pub mod dump;
 pub mod encoder;
 pub(crate) mod errors;
 pub(crate) mod utils;
@@ -46,7 +46,7 @@ pub(crate) use utils::lazy_state::{Decode, DecodeState, Lazy, LazyParsed, Parsed
 /// Wire-level encoding metadata - for tile analysis and tooling.
 ///
 /// These types describe the physical and logical encoding of streams inside an
-/// MLT tile. Normal tile consumers (parse → iterate features) do not need this
+/// MLT tile. Normal tile consumers (parse -> iterate features) do not need this
 /// module; it is intended for tools that inspect or report encoding statistics.
 pub mod wire {
     pub use crate::decoder::ColumnType;

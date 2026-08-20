@@ -893,21 +893,21 @@ mod tests {
 
         let mut iter = parsed.iter_features();
 
-        // feat 0: flag=true, score=null → 1 property
+        // feat 0: flag=true, score=null -> 1 property
         {
             let feat = iter.next().unwrap().unwrap();
             assert_eq!(feat.iter_properties().count(), 1);
             assert_eq!(feat.get_property("flag"), Some(PropValueRef::Bool(true)));
             assert_eq!(feat.get_property("score"), None);
         }
-        // feat 1: flag=false, score=-5 → 2 properties
+        // feat 1: flag=false, score=-5 -> 2 properties
         {
             let feat = iter.next().unwrap().unwrap();
             assert_eq!(feat.iter_properties().count(), 2);
             assert_eq!(feat.get_property("flag"), Some(PropValueRef::Bool(false)));
             assert_eq!(feat.get_property("score"), Some(PropValueRef::I32(-5)));
         }
-        // feat 2: flag=null, score=7 → 1 property
+        // feat 2: flag=null, score=7 -> 1 property
         {
             let feat = iter.next().unwrap().unwrap();
             assert_eq!(feat.iter_properties().count(), 1);
@@ -930,7 +930,7 @@ mod tests {
         let Layer::Tag01(lazy) = layer else { panic!() };
         let mut parsed = lazy.decode_all(&mut dec()).unwrap();
 
-        // Corrupt feature 1's geometry type: Point → LineString.
+        // Corrupt feature 1's geometry type: Point -> LineString.
         // A LineString requires part_offsets, which are absent here, so
         // to_geojson(1) will return Err(NoPartOffsets).
         parsed.geometry.vector_types[1] = GeometryType::LineString;

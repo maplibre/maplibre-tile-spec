@@ -31,9 +31,9 @@ use crate::{MltError, MltResult};
 /// The three sections are accumulated into separate buffers so they can be
 /// combined at the end *without* any in-place insertion or extra copies:
 ///
-/// * `hdr` – layer header (name, extent, `column_count`).
-/// * [`meta`] – column-type bytes (one byte + optional name per column).
-/// * [`data`] – encoded stream data; also the target of [`impl Write`].
+/// * `hdr` - layer header (name, extent, `column_count`).
+/// * [`meta`] - column-type bytes (one byte + optional name per column).
+/// * [`data`] - encoded stream data; also the target of [`impl Write`].
 ///
 /// # Sort-strategy trialing
 ///
@@ -63,7 +63,7 @@ use crate::{MltError, MltResult};
 /// let mut alt = enc.try_alternatives();
 /// alt.with(|enc| write_stream_as_varint(data, enc))?;
 /// alt.with(|enc| write_stream_as_fastpfor(data, enc))?;
-/// // alt drops → keeps whichever was shorter
+/// // alt drops -> keeps whichever was shorter
 /// ```
 ///
 /// [`meta`]: Encoder::meta
@@ -137,7 +137,7 @@ pub struct Encoder {
     //   data.len() == level.data_start + level.best_data_size.unwrap_or(0)
     //   meta.len() == level.meta_start + level.best_meta_size.unwrap_or(0)
     //
-    // Empty stack ↔ no competition in progress.
+    // Empty stack <-> no competition in progress.
     // -----------------------------------------------------------------------
     /// Stack of active encoding competitions, innermost last.
     ///
@@ -341,14 +341,9 @@ impl Encoder {
         self.hdr.len() + self.meta.len() + self.data.len()
     }
 
-    /// Empty the output buffers (`hdr`/`meta`/`data`) so this encoder can be
-    /// reused for the next sort trial, keeping their allocated capacity and the
-    /// seeded curve/FSST caches.
-    ///
-    /// Unlike [`Self::preserve_results`] (which moves the buffers out into the
-    /// kept "best" result), this is used when a trial loses: its bytes must be
-    /// discarded, otherwise the next trial's `encode_into` would append to them
-    /// and over-count its `total_len`.
+    /// Empty the output buffers so this encoder can be reused for the next sort trial.
+    /// Keeps allocated capacity and the seeded curve/FSST caches.
+    /// Used when a trial loses; [`Self::preserve_results`] handles the winning case instead.
     pub(crate) fn clear_results(&mut self) {
         debug_assert!(self.alt_stack.is_empty(), "Alternatives stack is not empty");
         self.hdr.clear();
@@ -415,7 +410,7 @@ impl Encoder {
     /// for cand in candidates {
     ///     alt.with(|enc| write_candidate(cand, enc))?;
     /// }
-    /// // alt drops → finalises the competition
+    /// // alt drops -> finalises the competition
     /// ```
     pub fn try_alternatives(&mut self) -> AltSession<'_> {
         self.alt_stack.push(AltLevel {

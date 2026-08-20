@@ -71,11 +71,9 @@ impl TileLayer {
         }
     }
 
-    /// Compute Hilbert/Morton `CurveParams` for this layer.
-    ///
-    /// The bounds are order-invariant, so the optimizer calls this once per
-    /// layer and reuses the result across every sort trial and the encoder's
-    /// dictionary builders.
+    /// Hilbert/Morton `CurveParams` for this layer.
+    /// Bounds are order-invariant, so the optimizer computes this once per layer
+    /// and reuses it across every sort trial and the encoder's dictionary builders.
     #[hotpath::measure]
     #[must_use]
     pub fn curve_params(&self) -> CurveParams {
@@ -257,7 +255,7 @@ mod tests {
 
         assert_eq!(
             after_roundtrip, expected_canonical,
-            "\nsorted geometry did not match expected after encode→decode round-trip\
+            "\nsorted geometry did not match expected after encode->decode round-trip\
              \nvector_types after sort: {:?}\
              \nvector_types expected:   {:?}",
             sorted_decoded.vector_types, expected_canonical.vector_types,
@@ -385,7 +383,7 @@ mod tests {
     }
 
     /// Encode the layer with a given sort strategy, decode it back, and return the `TileLayer`.
-    /// This tests the full encode→decode roundtrip, verifying that sorting was applied.
+    /// This tests the full encode->decode roundtrip, verifying that sorting was applied.
     fn sort_encode_decode(tile: TileLayer, sort: SortStrategy) -> TileLayer {
         let enc_cfg = EncoderConfig::default();
         let enc = Encoder::with_explicit(enc_cfg, ExplicitEncoder::for_id(IntEncoder::varint()));

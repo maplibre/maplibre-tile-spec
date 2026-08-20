@@ -12,10 +12,8 @@ use xxhash_rust::xxh3::Xxh3Builder;
 
 use super::{encode_one, whole_rate_per_sec};
 
-/// Geographic fields that can be carried into a new `PMTiles` archive.
-///
-/// Optional fields support metadata sources such as `MBTiles`, where individual
-/// values may be absent. Unspecified values retain the writer's defaults.
+/// Geographic fields carried into a new `PMTiles` archive.
+/// Optional because sources like `MBTiles` may not have every value; unset fields keep the writer's defaults.
 #[derive(Debug, Default, PartialEq)]
 pub struct PmTilesGeography {
     pub min_zoom: Option<u8>,
@@ -72,13 +70,10 @@ pub fn make_encode_cache() -> EncodeCache {
         .build_with_hasher(Xxh3Builder::default())
 }
 
-/// Encode one source tile MVT -> MLT, deduplicating through `cache`.
-///
-/// Returns the encoded bytes, the raw MVT size, and whether the result came from the cache.
-///
-/// Only small tiles (ocean, empty land, ...) actually repeat across a tileset.
-/// Big city tiles are essentially unique, so tiles over [`MAX_TILE_CACHE_TRACK_SIZE_BYTES`] skip the cache.
-/// Any rare repeat still dedups when the container is written.
+/// Encodes one tile MVT -> MLT, deduplicating small tiles through `cache`.
+/// Returns the encoded bytes, the raw MVT size, and whether it was a cache hit.
+/// Only small tiles (ocean, empty land) repeat often across a tileset.
+/// Tiles over [`MAX_TILE_CACHE_TRACK_SIZE_BYTES`] skip the cache since city tiles are unique.
 pub fn encode_tile(
     cache: &EncodeCache,
     data: &[u8],
@@ -99,8 +94,7 @@ pub fn encode_tile(
     Ok((encoded.0, encoded.1, hit))
 }
 
-/// Running totals for a container-to-container conversion, matching the
-/// summary line printed by every tileset conversion.
+/// Running totals for a container-to-container conversion, printed in the summary line.
 #[derive(Default)]
 pub struct TileStats {
     written: u64,
@@ -149,8 +143,7 @@ impl TileStats {
     }
 }
 
-/// One encoded tile leaving the pipeline: its coordinate, the MLT bytes, the
-/// source MVT size, and whether the encode was served from the dedup cache.
+/// One encoded tile leaving the pipeline.
 pub struct EncodedTile {
     pub coord: TileCoord,
     pub data: Bytes,

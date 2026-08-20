@@ -34,7 +34,7 @@ assert_eq!(bytes, bytes')
 This ensures that:
 1. The parser correctly interprets the binary format
 2. The serializer produces canonical output
-3. No data is lost or corrupted during the parse → serialize round-trip
+3. No data is lost or corrupted during the parse -> serialize round-trip
 
 ## Prerequisites
 

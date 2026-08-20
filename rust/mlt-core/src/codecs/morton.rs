@@ -291,25 +291,25 @@ mod tests {
 
     #[test]
     fn x_axis_produces_even_bits() {
-        // x=1, y=0  →  only bit 0 of x is set → Morton bit 0 set → code = 1
+        // x=1, y=0  ->  only bit 0 of x is set -> Morton bit 0 set -> code = 1
         assert_eq!(morton_sort_key(c(1, 0), p(0, 16)), 1);
-        // x=2, y=0  →  only bit 1 of x is set → Morton bit 2 set → code = 4
+        // x=2, y=0  ->  only bit 1 of x is set -> Morton bit 2 set -> code = 4
         assert_eq!(morton_sort_key(c(2, 0), p(0, 16)), 4);
     }
 
     #[test]
     fn y_axis_produces_odd_bits() {
-        // x=0, y=1  →  only bit 0 of y is set → Morton bit 1 set → code = 2
+        // x=0, y=1  ->  only bit 0 of y is set -> Morton bit 1 set -> code = 2
         assert_eq!(morton_sort_key(c(0, 1), p(0, 16)), 2);
-        // x=0, y=2  →  only bit 1 of y is set → Morton bit 3 set → code = 8
+        // x=0, y=2  ->  only bit 1 of y is set -> Morton bit 3 set -> code = 8
         assert_eq!(morton_sort_key(c(0, 2), p(0, 16)), 8);
     }
 
     #[test]
     fn negative_coords_shift_correctly() {
-        // Shifting (-1, -1) by 1 maps to (0, 0) → Morton code 0
+        // Shifting (-1, -1) by 1 maps to (0, 0) -> Morton code 0
         assert_eq!(morton_sort_key(c(-1, -1), p(1, 16)), 0);
-        // Shifting (-1, 0) by 1 maps to (0, 1) → Morton code 2
+        // Shifting (-1, 0) by 1 maps to (0, 1) -> Morton code 2
         assert_eq!(morton_sort_key(c(-1, 0), p(1, 16)), 2);
     }
 
@@ -382,7 +382,7 @@ mod tests {
 
     #[test]
     fn test_decode_morton_codes_known_values() {
-        // x=1, y=2 (pre-shift) → decoded (1 - COORD_SHIFT, 2 - COORD_SHIFT)
+        // x=1, y=2 (pre-shift) -> decoded (1 - COORD_SHIFT, 2 - COORD_SHIFT)
         let x: u32 = 1;
         let y: u32 = 2;
         let code = encode_morton_15((x, y).into());

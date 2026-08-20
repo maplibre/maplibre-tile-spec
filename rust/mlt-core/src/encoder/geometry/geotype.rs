@@ -649,7 +649,7 @@ mod tests {
             assert!(n > 0, "expected at least one triangle");
             let ib = g.index_buffer().expect("index buffer");
             assert_eq!(ib.len(), n.into_usize() * 3);
-            // 4 unique (non-closing) vertices → indices in 0..4
+            // 4 unique (non-closing) vertices -> indices in 0..4
             assert!(ib.iter().all(|&i| i < 4));
         }
 
@@ -668,7 +668,7 @@ mod tests {
             assert_eq!(tris.len(), 1);
             let total = tris[0].into_usize();
             assert_eq!(ib.len(), total * 3);
-            // First quad: 4 verts → 2 triangles, 6 indices
+            // First quad: 4 verts -> 2 triangles, 6 indices
             let split = 6;
             let (first, second) = ib.split_at(split);
             assert!(

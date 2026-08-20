@@ -90,9 +90,9 @@ ln -sfn "$(pwd)/../../qgis/mlt_plugin" \
 ### Step 4: Enable in QGIS
 
 1. Launch QGIS
-2. **Plugins → Manage and Install Plugins**
+2. **Plugins -> Manage and Install Plugins**
 3. Search for **MLT Provider**, check the box to enable it
-4. A toolbar icon and menu entry appear under **Vector → MLT Provider → Open MLT File(s)…**
+4. A toolbar icon and menu entry appear under **Vector -> MLT Provider -> Open MLT File(s)…**
 
 ## Usage
 
@@ -101,7 +101,7 @@ ln -sfn "$(pwd)/../../qgis/mlt_plugin" \
 1. Click **Open MLT File(s)…**
 2. Select one `.mlt` file
 3. A dialog appears with auto-detected **z/x/y** coordinates (parsed from the
-   filename, e.g. `14_8297_10749.mlt` → z=14, x=8297, y=10749)
+   filename, e.g. `14_8297_10749.mlt` -> z=14, x=8297, y=10749)
 4. Confirm or edit the values, toggle **TMS y-axis** if needed
 5. Click **OK** - each MLT layer loads as a QGIS memory layer with real
    EPSG:3857 coordinates

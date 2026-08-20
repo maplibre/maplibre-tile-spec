@@ -167,7 +167,6 @@ fn encode_and_tile(props: Vec<StagedProperty>) -> TileLayer {
     encode_and_tile_explicit(props, ExplicitEncoder::all(IntEncoder::varint()))
 }
 
-/// Encode and decode with explicit encoder config.
 fn encode_and_tile_explicit(props: Vec<StagedProperty>, cfg: ExplicitEncoder) -> TileLayer {
     let bytes = encode_to_bytes_explicit(props, cfg);
     let (_, layer) = Layer::from_bytes(&bytes, &mut parser()).expect("layer parse failed");
@@ -340,7 +339,7 @@ fn str_scalar_empty() {
         "unused",
         std::iter::empty::<&str>(),
     )]);
-    // Zero features → zero properties should be visible after decoding
+    // Zero features -> zero properties should be visible after decoding
     assert!(tile.features().is_empty());
 }
 
