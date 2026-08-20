@@ -79,7 +79,7 @@ impl Morton {
             // ceil(log2(extent + 1)), matching Java's Math.ceil(Math.log(...) / Math.log(2)).
             // Computed with integer arithmetic: for te >= 1, this equals `u32::BITS - te.leading_zeros()`.
             // Capped at 16: Morton codes are u32, so each axis may use at most 16 bits.
-            let required_bits = u32::BITS - extent.leading_zeros();
+            let required_bits = extent.bit_width();
             if required_bits > 16 {
                 return Err(MltError::VertexMortonNotCompatibleWithExtent {
                     extent,
@@ -138,17 +138,14 @@ impl Morton {
         let mut out = dec.alloc(alloc_size)?;
         let shift_vec = u32x8::splat(self.shift);
 
-        let mut chunks = data.chunks_exact(LANES);
+        let (chunks, remainder) = data.as_chunks::<LANES>();
 
-        for chunk in chunks.by_ref() {
-            let buf = [
-                chunk[0], chunk[1], chunk[2], chunk[3], chunk[4], chunk[5], chunk[6], chunk[7],
-            ];
-            self.decode_chunk(buf, shift_vec, &mut out);
+        for &chunk in chunks {
+            self.decode_chunk(chunk, shift_vec, &mut out);
         }
 
         // Scalar tail for any codes that didn't fill a full SIMD chunk.
-        for &code in chunks.remainder() {
+        for &code in remainder {
             let coord = self.decode_one(code);
             out.push(coord.x);
             out.push(coord.y);
@@ -170,9 +167,9 @@ impl Morton {
         let shift_vec = u32x8::splat(self.shift);
 
         let mut prev = 0i32;
-        let mut chunks = data.chunks_exact(LANES);
+        let (chunks, remainder) = data.as_chunks::<LANES>();
 
-        for chunk in chunks.by_ref() {
+        for chunk in chunks {
             // Sequential prefix sum into a stack buffer - no heap allocation.
             let mut buf = [0u32; LANES];
             for (b, &d) in buf.iter_mut().zip(chunk.iter()) {
@@ -183,7 +180,7 @@ impl Morton {
         }
 
         // Scalar tail for any codes that didn't fill a full SIMD chunk.
-        for &d in chunks.remainder() {
+        for &d in remainder {
             prev = prev.wrapping_add(d.cast_signed());
             let coord = self.decode_one(prev.cast_unsigned());
             out.push(coord.x);
