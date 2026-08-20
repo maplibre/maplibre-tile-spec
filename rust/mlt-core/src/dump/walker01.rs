@@ -3,7 +3,7 @@
 //! Mirrors the wire layout of [`crate::decoder`], but records an annotated
 //! [`Region`] per field instead of building decoded structures.
 //! Advancement is delegated to the real parser's primitives and to the
-//! authoritative `StreamMeta::from_bytes` / `ColumnType::from_bytes`, so offsets
+//! authoritative `parse_stream_meta` / `ColumnType::from_bytes`, so offsets
 //! are exact by construction.
 //! Only per-column stream sequencing is mirrored by hand; the coverage test in
 //! `tests/dump_coverage.rs` guards it.
@@ -12,6 +12,7 @@ use usize_cast::IntoUsize as _;
 
 use super::model::{BitField, BlobInfo, DecodeHint, DumpTree, Region, RegionKind};
 use crate::codecs::varint::parse_varint;
+use crate::decoder::stream::header01::parse_stream_meta;
 use crate::decoder::{Column, ColumnType, DictionaryType, StreamType};
 use crate::utils::{parse_string, parse_u8, take};
 use crate::wire::{LogicalEncoding, LogicalTechnique, PhysicalEncoding, StreamMeta};
@@ -38,7 +39,7 @@ struct Walker<'a> {
     buf: &'a [u8],
     out: Vec<Region>,
     depth: usize,
-    /// Throwaway budget for the authoritative `StreamMeta::from_bytes` calls.
+    /// Throwaway budget for the authoritative `parse_stream_meta` calls.
     parser: Parser,
 }
 
@@ -491,7 +492,7 @@ impl<'a> Walker<'a> {
     }
 
     /// Walk one stream: the annotated header (via the authoritative
-    /// [`StreamMeta::from_bytes`]) followed by the payload blob.
+    /// [`parse_stream_meta`]) followed by the payload blob.
     fn walk_stream(
         &mut self,
         input: &'a [u8],
@@ -502,8 +503,7 @@ impl<'a> Walker<'a> {
         let si = self.open(input, label.to_string());
 
         // Authoritative parse - drives advancement and gives us `meta`/`byte_length`.
-        let (after_hdr, (meta, byte_length)) =
-            StreamMeta::from_bytes(input, is_bool, &mut self.parser)?;
+        let (after_hdr, (meta, byte_length)) = parse_stream_meta(input, is_bool, &mut self.parser)?;
 
         // Re-walk the consumed header bytes to annotate each field.
         let hi = self.open(input, "header".to_string());

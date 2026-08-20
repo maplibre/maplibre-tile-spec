@@ -1,8 +1,6 @@
 use bitvec::vec::BitVec;
 
 use crate::decoder::{Morton, PropKind, TileLayer};
-#[cfg(feature = "unstable-v2")]
-use crate::encoder::WireVersion;
 use crate::encoder::model::{CurveParams, StagedLayer};
 use crate::encoder::property::encode::write_properties;
 use crate::encoder::{
@@ -29,7 +27,7 @@ impl StagedLayer {
                     + 1 // geometry
                     + self.properties.len();
 
-                let StagedLayer {
+                let Self {
                     name,
                     extent,
                     id,

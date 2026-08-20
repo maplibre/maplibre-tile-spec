@@ -269,6 +269,7 @@ impl LogicalEncoding {
     /// Without `unstable-v2`, no logical encoding ever scans to end: v1's RLE
     /// always carries an explicit run count.
     #[cfg(not(feature = "unstable-v2"))]
+    #[expect(clippy::unused_self, reason = "tmp because feature gate")]
     fn scans_to_end(self) -> bool {
         false
     }

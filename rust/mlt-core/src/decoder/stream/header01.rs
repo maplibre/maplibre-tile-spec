@@ -80,7 +80,7 @@ fn stream_type_to_byte(stream_type: StreamType) -> u8 {
 /// Returns the stream metadata and the size of the payload in bytes. Reserves an
 /// upper-bound estimate of decoded bytes (`num_values * 8`) on the parser for all
 /// stream types. RLE uses `num_rle_values * 8` since that is the actual expanded count.
-fn parse_stream_meta<'a>(
+pub(crate) fn parse_stream_meta<'a>(
     input: &'a [u8],
     is_bool: bool,
     parser: &mut Parser,
