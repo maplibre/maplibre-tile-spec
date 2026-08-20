@@ -167,9 +167,6 @@ mod tests {
 
     #[test]
     fn test_decode_byte_rle_empty() {
-        assert_eq!(
-            decode_byte_rle(&[], 0, &mut dec()).unwrap(),
-            [] as [u8; 0]
-        );
+        assert_eq!(decode_byte_rle(&[], 0, &mut dec()).unwrap(), [] as [u8; 0]);
     }
 }

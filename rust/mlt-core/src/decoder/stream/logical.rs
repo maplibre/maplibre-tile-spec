@@ -169,10 +169,7 @@ mod tests {
             runs: 0,
             num_rle_values: 0,
         };
-        assert_eq!(
-            rle.decode::<u32>(&[], &mut dec()).unwrap(),
-            [] as [u32; 0]
-        );
+        assert_eq!(rle.decode::<u32>(&[], &mut dec()).unwrap(), [] as [u32; 0]);
     }
 
     #[test]
