@@ -24,7 +24,7 @@ impl StagedLayer {
             + 1 // geometry
             + self.properties.len();
 
-        let StagedLayer {
+        let Self {
             name,
             extent,
             id,
