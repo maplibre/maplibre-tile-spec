@@ -253,6 +253,7 @@ impl<'feat, 'layer: 'feat> FeatureRef<'feat, 'layer> {
     ///
     /// `SharedDict` columns are transparently expanded into one [`ColumnRef`] per sub-item.
     /// Null / absent values are skipped entirely. The iterator is infallible.
+    #[must_use]
     pub fn iter_properties(
         &self,
     ) -> impl DoubleEndedIterator<Item = ColumnRef<'layer>> + FusedIterator + '_ {
