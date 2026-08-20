@@ -70,7 +70,7 @@ pub fn hilbert_curve_params_from_bounds(min_val: i32, max_val: i32) -> CurvePara
     let bits = if extent == 0 {
         1
     } else {
-        (u64::BITS - extent.leading_zeros()).min(16)
+        extent.bit_width().min(16)
     };
 
     CurveParams { shift, bits }

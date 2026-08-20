@@ -85,7 +85,7 @@ mod tests {
         }
         let (remaining, values) =
             parse_varint_vec::<u32>(&buf, 3, &mut dec()).expect("parse_varint_vec failed");
-        assert!(remaining.is_empty());
+        assert_eq!(remaining, [] as [u8; 0]);
         assert_eq!(values, [1, 2, 3]);
     }
 }

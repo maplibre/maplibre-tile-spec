@@ -217,6 +217,6 @@ mod tests {
     #[test]
     fn test_decode_bytes_to_u32s_empty() {
         let decoded = assert_empty(decode_bytes_to_words::<u32>(&[], 0, &mut dec()));
-        assert!(decoded.is_empty());
+        assert_eq!(decoded, [] as [u32; 0]);
     }
 }

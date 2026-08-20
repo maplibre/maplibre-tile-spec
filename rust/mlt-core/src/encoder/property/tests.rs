@@ -340,7 +340,7 @@ fn str_scalar_empty() {
         std::iter::empty::<&str>(),
     )]);
     // Zero features -> zero properties should be visible after decoding
-    assert!(tile.features().is_empty());
+    assert_eq!(tile.features(), [] as [TileFeature; 0]);
 }
 
 proptest! {
@@ -1197,7 +1197,7 @@ fn sequential_u32_encodes_successfully() {
     let mut enc = Encoder::default();
     let mut codecs = Codecs::default();
     write_properties(&props, &mut enc, &mut codecs).unwrap();
-    assert!(!enc.meta().is_empty());
+    assert_ne!(enc.meta(), [] as [u8; 0]);
 }
 
 #[test]
@@ -1206,7 +1206,7 @@ fn constant_u32_encodes_successfully() {
     let mut enc = Encoder::default();
     let mut codecs = Codecs::default();
     write_properties(&props, &mut enc, &mut codecs).unwrap();
-    assert!(!enc.meta().is_empty());
+    assert_ne!(enc.meta(), [] as [u8; 0]);
 }
 
 #[test]
@@ -1370,5 +1370,5 @@ fn encode_with_explicit_encoder_works() {
     let mut enc = Encoder::default();
     let mut codecs = Codecs::default();
     write_properties(&props, &mut enc, &mut codecs).unwrap();
-    assert!(!enc.meta().is_empty());
+    assert_ne!(enc.meta(), [] as [u8; 0]);
 }

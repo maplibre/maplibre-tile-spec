@@ -85,6 +85,6 @@ mod tests {
     #[test]
     fn test_decode_fastpfor_empty() {
         let decoded = decode_fastpfor(&[], 0, &mut dec()).unwrap();
-        assert!(decoded.is_empty());
+        assert_eq!(decoded, [] as [u32; 0]);
     }
 }

@@ -28,8 +28,10 @@ use crate::encoder::{Codecs, Encoder, PhysicalCodecs, write_stream_payload};
 #[hotpath::measure]
 fn build_morton_dict(vertices: &[i32], meta: Morton) -> MltResult<(Vec<u32>, Vec<u32>)> {
     let codes: Vec<u32> = vertices
-        .chunks_exact(2)
-        .map(|c| meta.encode_morton(c[0], c[1]))
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|&[x, y]| meta.encode_morton(x, y))
         .collect::<Result<_, _>>()?;
 
     let mut dict = codes.clone();
@@ -83,8 +85,8 @@ fn build_hilbert_dict(
     dict_xy.reserve(coord_count * 2);
     remap.reserve(coord_count);
 
-    for (i, c) in vertices.chunks_exact(2).enumerate() {
-        let k = hilbert_sort_key(Coord { x: c[0], y: c[1] }, params);
+    for (i, &[x, y]) in vertices.as_chunks::<2>().0.iter().enumerate() {
+        let k = hilbert_sort_key(Coord { x, y }, params);
         offsets.push(k);
         // Key in the high 32 bits so a single u64 sort orders by Hilbert
         // index while preserving the original position for tie-breaking.
@@ -359,8 +361,8 @@ fn dict_may_be_beneficial(vertices: &[i32], enc: &Encoder) -> bool {
     }
 
     let mut hll = HyperLogLog::<Coord<i32>>::with_hasher(0.03, SipHasherBuilder::from_seed(0, 0));
-    for c in vertices.chunks_exact(2) {
-        hll.insert(&Coord::<i32> { x: c[0], y: c[1] });
+    for &[x, y] in vertices.as_chunks::<2>().0 {
+        hll.insert(&Coord::<i32> { x, y });
     }
     #[expect(clippy::cast_precision_loss)]
     let estimated_unique = hll.len().clamp(0.0, coord_count as f64);
@@ -762,7 +764,7 @@ mod tests {
 
         let lengths = encode_root_length_stream(&types, &offsets, Polygon);
         // Polygon == buffer_id, so no length encoded
-        assert!(lengths.is_empty());
+        assert_eq!(lengths, [] as [u32; 0]);
 
         // MultiPolygon needs length encoded
         let types = vec![GeometryType::MultiPolygon];
