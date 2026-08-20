@@ -256,7 +256,7 @@ mod tests {
         });
 
         assert_eq!(tile.property_names, vec!["flag"]);
-        // Null slot → typed null matching the column type
+        // Null slot -> typed null matching the column type
         assert_eq!(tile.features[0].properties[0], PropValue::Bool(None));
         // Non-null value after the null must not be dropped
         assert_eq!(tile.features[1].properties[0], PropValue::Bool(Some(false)));
@@ -286,7 +286,7 @@ mod tests {
             properties: props,
         });
 
-        // Feature 0: every column is null → typed null for each column
+        // Feature 0: every column is null -> typed null for each column
         let n = &tile.features[0].properties;
         assert_eq!(n[0], PropValue::Bool(None));
         assert_eq!(n[1], PropValue::I8(None));

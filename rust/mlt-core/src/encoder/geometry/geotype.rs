@@ -144,7 +144,7 @@ impl GeometryValues {
         // their vertex offsets are sitting in part_offsets. Move them to
         // ring_offsets now, before we set up ring_offsets for polygon use.
         // On subsequent polygons ring_offsets is already initialized and
-        // part_offsets holds polygon ring-range data — leave both alone.
+        // part_offsets holds polygon ring-range data - leave both alone.
         self.vector_types.push(GeometryType::Polygon);
         self.init_polygon_offsets();
 
@@ -585,7 +585,7 @@ mod tests {
             data: raw_bytes,
         };
 
-        // Assemble, serialize, parse, decode — same wire layout as geometry encoder:
+        // Assemble, serialize, parse, decode - same wire layout as geometry encoder:
         // stream count, then meta (geom type), parts, vertex offsets, Morton dict.
         let mut codecs = Codecs::default();
         let mut enc = Encoder::with_explicit(
@@ -646,7 +646,7 @@ mod tests {
             assert!(n > 0, "expected at least one triangle");
             let ib = g.index_buffer().expect("index buffer");
             assert_eq!(ib.len(), usize::try_from(n).unwrap() * 3);
-            // 4 unique (non-closing) vertices → indices in 0..4
+            // 4 unique (non-closing) vertices -> indices in 0..4
             assert!(ib.iter().all(|&i| i < 4));
         }
 
@@ -665,7 +665,7 @@ mod tests {
             assert_eq!(tris.len(), 1);
             let total = usize::try_from(tris[0]).unwrap();
             assert_eq!(ib.len(), total * 3);
-            // First quad: 4 verts → 2 triangles, 6 indices
+            // First quad: 4 verts -> 2 triangles, 6 indices
             let split = 6;
             let (first, second) = ib.split_at(split);
             assert!(

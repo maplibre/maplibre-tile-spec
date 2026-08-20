@@ -9,7 +9,7 @@ use crate::utils::{BinarySerializer as _, checked_sum2};
 impl EncodedUnknown {
     /// Serialize an unknown layer record directly to [`enc.data`](Encoder::data).
     ///
-    /// Writes the complete `[varint(size)][tag][value]` record — the bytes are
+    /// Writes the complete `[varint(size)][tag][value]` record - the bytes are
     /// already in wire format so no `hdr`/`meta` split is needed.
     pub fn write_to(&self, mut enc: Encoder) -> MltResult<Encoder> {
         let buffer_len = u32::try_from(self.value.len())?;

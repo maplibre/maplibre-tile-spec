@@ -59,8 +59,8 @@ impl TileLayer {
     /// 2. Tries each sort strategy, encoding and measuring the output size
     /// 3. Returns the smallest encoding as a complete layer record (including tag and length prefix)
     ///
-    /// All encoding choices — sort order, per-stream integer encodings, string compression,
-    /// vertex buffer layout — are selected automatically to minimize output size.
+    /// All encoding choices - sort order, per-stream integer encodings, string compression,
+    /// vertex buffer layout - are selected automatically to minimize output size.
     #[hotpath::measure]
     pub fn encode(self, cfg: EncoderConfig) -> MltResult<Vec<u8>> {
         if self.features.is_empty() {

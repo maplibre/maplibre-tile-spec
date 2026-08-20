@@ -38,7 +38,7 @@ pub(crate) struct TileLoadResult {
 // ---------------------------------------------------------------------------
 
 /// Feature entry stored in the per-tile R-tree, using world coordinates.
-/// World coordinate space: `x ∈ [0, 1]` west→east, `y ∈ [0, 1]` north→south.
+/// World coordinate space: `x ∈ [0, 1]` west->east, `y ∈ [0, 1]` north->south.
 pub(crate) struct MbtGeoEntry {
     pub layer: usize,
     pub feat: usize,
@@ -79,7 +79,7 @@ impl PointDistance for MbtGeoEntry {
 }
 
 // ---------------------------------------------------------------------------
-// Tile coordinate transform (tile-local → world)
+// Tile coordinate transform (tile-local -> world)
 // ---------------------------------------------------------------------------
 
 /// Transforms coordinates from tile-local space ([0, extent]) to world space ([0, 1]).
@@ -176,7 +176,7 @@ pub(crate) struct MbtHoveredInfo {
 pub(crate) struct MbtilesState {
     #[allow(dead_code)]
     pub path: PathBuf,
-    /// Viewport bounds in world coords: `x ∈ [0, 1]` west→east, `y ∈ [0, 1]` north→south.
+    /// Viewport bounds in world coords: `x ∈ [0, 1]` west->east, `y ∈ [0, 1]` north->south.
     pub vp_x0: f64,
     pub vp_x1: f64,
     pub vp_y0: f64,
@@ -509,7 +509,7 @@ impl MbtilesState {
         true
     }
 
-    /// Pan the viewport by mouse delta in terminal cells (`d_col`/`d_row` = current − previous).
+    /// Pan the viewport by mouse delta in terminal cells (`d_col`/`d_row` = current - previous).
     pub(crate) fn pan_by_pixels(&mut self, area_w: u16, area_h: u16, d_col: i32, d_row: i32) {
         if area_w == 0 || area_h == 0 {
             return;

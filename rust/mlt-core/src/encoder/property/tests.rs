@@ -221,7 +221,7 @@ macro_rules! integer_roundtrip_proptests {
     };
 }
 
-// i8, u8, i32, u32 — all physical encoders are valid.
+// i8, u8, i32, u32 - all physical encoders are valid.
 integer_roundtrip_proptests!(i8_present, i8_absent, I8, opt_i8, i8, i8, arb_int_encoder());
 integer_roundtrip_proptests!(u8_present, u8_absent, U8, opt_u8, u8, u8, arb_int_encoder());
 integer_roundtrip_proptests!(
@@ -336,12 +336,12 @@ fn str_scalar_with_nulls() {
 fn str_scalar_empty() {
     // Staging an empty column is a no-op at the staging layer (build_scalar_column
     // never produces empty StagedProperty::str; this test exercises the case where
-    // a tile has zero features — the round-trip must not panic).
+    // a tile has zero features - the round-trip must not panic).
     let tile = encode_and_tile(vec![StagedProperty::str(
         "unused",
         std::iter::empty::<&str>(),
     )]);
-    // Zero features → zero properties should be visible after decoding
+    // Zero features -> zero properties should be visible after decoding
     assert!(tile.features.is_empty());
 }
 
@@ -432,8 +432,8 @@ fn struct_with_nulls() {
 
 #[test]
 fn struct_shared_dict_inline_ranges_track_nulls_and_empty_strings() {
-    // This test validates internal range bookkeeping in StagedSharedDict —
-    // not the byte encoding pipeline — so it inspects the staged form directly.
+    // This test validates internal range bookkeeping in StagedSharedDict -
+    // not the byte encoding pipeline - so it inspects the staged form directly.
     let dict = StagedSharedDict::new(
         "name",
         vec![
@@ -594,7 +594,7 @@ fn lazy_layer01_iterate_prop_names_returns_column_names() {
         ),
     ]);
 
-    // Parse as a lazy Layer01 — no column data decoded yet.
+    // Parse as a lazy Layer01 - no column data decoded yet.
     let (_, layer) = Layer::from_bytes(&bytes, &mut parser()).expect("parse failed");
     let Layer::Tag01(layer) = layer else {
         panic!("expected Tag01 layer")

@@ -202,7 +202,7 @@ fn bench_fsst_length_encoding(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmark 3 – encoding type: plain vs FSST, fixed `IntEncoder`
+/// Benchmark 3 - encoding type: plain vs FSST, fixed `IntEncoder`
 fn bench_encoding_type(c: &mut Criterion) {
     let mut group = c.benchmark_group("strings/encoding_type");
     let int_enc = IntEncoder::plain();
@@ -251,7 +251,7 @@ fn bench_encoding_type(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmark 4 – presence stream overhead: non-nullable vs nullable column
+/// Benchmark 4 - presence stream overhead: non-nullable vs nullable column
 fn bench_presence(c: &mut Criterion) {
     let mut group = c.benchmark_group("strings/presence");
     let int_enc = IntEncoder::plain();
@@ -309,7 +309,7 @@ fn bench_presence(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmark 5 – shared dict vs plain
+/// Benchmark 5 - shared dict vs plain
 ///
 /// Compares decoding two plain string columns against a shared-dictionary struct
 /// column (plain and FSST flavors) that carries the same string data spread

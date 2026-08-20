@@ -40,7 +40,7 @@ impl<'a> RawStream<'a> {
         }
     }
 
-    /// Decode a boolean data stream: byte-RLE → packed bitmap → `Vec<bool>`, charging `dec`.
+    /// Decode a boolean data stream: byte-RLE -> packed bitmap -> `Vec<bool>`, charging `dec`.
     pub fn decode_bools(self, dec: &mut Decoder) -> MltResult<Vec<bool>> {
         if self.meta.encoding.physical == PhysicalEncoding::VarInt {
             return Err(MltError::NotImplemented("varint bool decoding"));
@@ -69,7 +69,7 @@ impl<'a> RawStream<'a> {
 
     pub fn decode_i32s(self, dec: &mut Decoder) -> MltResult<Vec<i32>> {
         let meta = self.meta;
-        // i32 always needs a logical transform (zigzag at minimum) — use scratch buffer.
+        // i32 always needs a logical transform (zigzag at minimum) - use scratch buffer.
         let mut buf = mem::take(&mut dec.buffer_u32);
         self.decode_bits_u32(&mut buf, dec)?;
         let result = LogicalValue::new(meta).decode_i32(&buf, dec);
@@ -81,12 +81,12 @@ impl<'a> RawStream<'a> {
     pub fn decode_u32s(self, dec: &mut Decoder) -> MltResult<Vec<u32>> {
         let meta = self.meta;
         if meta.encoding.logical == LogicalEncoding::None {
-            // No logical transform: physical words are the output — decode into a fresh Vec.
+            // No logical transform: physical words are the output - decode into a fresh Vec.
             let mut out = Vec::new();
             self.decode_bits_u32(&mut out, dec)?;
             Ok(out)
         } else {
-            // Logical transform needed — use the reusable scratch buffer.
+            // Logical transform needed - use the reusable scratch buffer.
             let mut buf = mem::take(&mut dec.buffer_u32);
             self.decode_bits_u32(&mut buf, dec)?;
             let result = LogicalValue::new(meta).decode_u32(&buf, dec);
@@ -99,12 +99,12 @@ impl<'a> RawStream<'a> {
     pub fn decode_u64s(self, dec: &mut Decoder) -> MltResult<Vec<u64>> {
         let meta = self.meta;
         if meta.encoding.logical == LogicalEncoding::None {
-            // No logical transform: physical words are the output — decode into a fresh Vec.
+            // No logical transform: physical words are the output - decode into a fresh Vec.
             let mut out = Vec::new();
             self.decode_bits_u64(&mut out, dec)?;
             Ok(out)
         } else {
-            // Logical transform needed — use the reusable scratch buffer.
+            // Logical transform needed - use the reusable scratch buffer.
             let mut buf = mem::take(&mut dec.buffer_u64);
             self.decode_bits_u64(&mut buf, dec)?;
             let result = LogicalValue::new(meta).decode_u64(&buf, dec);
@@ -116,7 +116,7 @@ impl<'a> RawStream<'a> {
 
     pub fn decode_i64s(self, dec: &mut Decoder) -> MltResult<Vec<i64>> {
         let meta = self.meta;
-        // i64 always needs a logical transform (zigzag at minimum) — use scratch buffer.
+        // i64 always needs a logical transform (zigzag at minimum) - use scratch buffer.
         let mut buf = mem::take(&mut dec.buffer_u64);
         self.decode_bits_u64(&mut buf, dec)?;
         let result = LogicalValue::new(meta).decode_i64(&buf, dec);

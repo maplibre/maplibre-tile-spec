@@ -99,7 +99,7 @@ mod ffi {
         }
     }
 
-    /// Stateless FFI entry-points for MLT ↔ MVT conversion.
+    /// Stateless FFI entry-points for MLT <-> MVT conversion.
     #[diplomat::opaque]
     pub struct MltConverter;
 

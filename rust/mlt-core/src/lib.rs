@@ -41,10 +41,10 @@ pub use errors::{MltError, MltResult};
 pub(crate) use utils::analyze::{Analyze, StatType};
 pub(crate) use utils::lazy_state::{Decode, DecodeState, Lazy, LazyParsed, Parsed};
 
-/// Wire-level encoding metadata — for tile analysis and tooling.
+/// Wire-level encoding metadata - for tile analysis and tooling.
 ///
 /// These types describe the physical and logical encoding of streams inside an
-/// MLT tile. Normal tile consumers (parse → iterate features) do not need this
+/// MLT tile. Normal tile consumers (parse -> iterate features) do not need this
 /// module; it is intended for tools that inspect or report encoding statistics.
 pub mod wire {
     pub use crate::decoder::ColumnType;

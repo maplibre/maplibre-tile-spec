@@ -58,7 +58,7 @@ fn build_morton_dict(vertices: &[i32], meta: Morton) -> MltResult<(Vec<u32>, Vec
 /// and `remap` are left as opaque scratch.
 ///
 /// Dedup is keyed on the Hilbert curve index. Inside the `params.bits` grid
-/// the index ↔ `(x, y)` mapping is bijective, so dedup-by-index is equivalent
+/// the index <-> `(x, y)` mapping is bijective, so dedup-by-index is equivalent
 /// to dedup-by-coordinate without the cost of hashing pairs.
 #[hotpath::measure]
 fn build_hilbert_dict(
@@ -302,9 +302,9 @@ fn normalize_geometry_offsets(vector_types: &[GeometryType], geom_offsets: &[u32
 /// directly by geometry position.
 ///
 /// Each slot in the output holds the first index into `ring_offsets` for that geometry:
-/// - `Point`: no contribution — slot range is empty (`ring_idx` unchanged).
-/// - `LineString`: contributes 1 slot (vertex count) — slot range is 1.
-/// - `Polygon`: contributes `ring_count` slots — slot range equals its ring count.
+/// - `Point`: no contribution - slot range is empty (`ring_idx` unchanged).
+/// - `LineString`: contributes 1 slot (vertex count) - slot range is 1.
+/// - `Polygon`: contributes `ring_count` slots - slot range equals its ring count.
 fn normalize_part_offsets_for_rings(
     vector_types: &[GeometryType],
     part_offsets: &[u32],
@@ -444,7 +444,7 @@ fn encode_hilbert_vertex_streams(
         &mut dict_xy,
         &mut remap,
     );
-    // Done with these — restore so the physical-encoding race below can use
+    // Done with these - restore so the physical-encoding race below can use
     // them via the codec.
     codecs.logical.hilbert_indexed = indexed;
     codecs.logical.hilbert_remap = remap;
@@ -535,7 +535,7 @@ impl GeometryValues {
             vertices,
         } = self;
 
-        // Flatten every Option<Vec> → Vec  (empty == not present).
+        // Flatten every Option<Vec> -> Vec  (empty == not present).
         // triangles: None means no tessellation; Some([]) can't occur in practice (each
         // push_geom appends a count), so empty == absent is safe here too.
         // vertices: None means no coordinate data (e.g. empty layer).
@@ -574,10 +574,10 @@ impl GeometryValues {
         // (geometry never exceeds ~8 streams, always fits in a single varint byte).
         enc.write_column_type(ColumnType::Geometry)?;
         let stream_count_pos = enc.data.len();
-        enc.data.push(0); // placeholder — patched below
+        enc.data.push(0); // placeholder - patched below
         let mut n: u8 = 0;
 
-        // Meta stream — always written, even for a zero-feature layer.
+        // Meta stream - always written, even for a zero-feature layer.
         let ctx = StreamCtx::geom(StreamType::Length(LengthType::VarBinary), "meta");
         codecs.write_int_stream(&meta, &ctx, enc)?;
         n += 1;
@@ -600,7 +600,7 @@ impl GeometryValues {
             // would insert Point slots and corrupt the counter arithmetic.
             if !part_offsets.is_empty() {
                 if ring_offsets.is_empty() {
-                    // geom → parts only (no rings).
+                    // geom -> parts only (no rings).
                     let data = encode_level1_without_ring_buffer_length_stream(
                         &vector_types,
                         &geom_offsets,
@@ -609,7 +609,7 @@ impl GeometryValues {
                     let ctx = StreamCtx::geom(StreamType::Length(LengthType::Parts), "no_rings");
                     n += write_geo_u32_stream(&data, ctx, enc, codecs)?;
                 } else {
-                    // Full topology: geom → parts → rings.
+                    // Full topology: geom -> parts -> rings.
                     // LineStrings contribute to rings here, not to parts.
                     let data = encode_level1_length_stream(
                         &vector_types,
@@ -636,7 +636,7 @@ impl GeometryValues {
                 let ctx = StreamCtx::geom(StreamType::Length(LengthType::Parts), "no_rings");
                 n += write_geo_u32_stream(&data, ctx, enc, codecs)?;
             } else {
-                // No Multi* types; parts → rings (Polygon / mixed Point+Polygon).
+                // No Multi* types; parts -> rings (Polygon / mixed Point+Polygon).
                 // Java writes an empty GEOMETRIES stream here for tessellated polygons; only do
                 // so when explicitly forced (e.g. to preserve byte-for-byte Java compatibility).
                 let ctx = StreamCtx::geom(StreamType::Length(LengthType::Geometries), "geometries");
@@ -737,7 +737,7 @@ mod tests {
     #[test]
     fn test_build_morton_dict() {
         let meta = Morton { bits: 4, shift: 0 };
-        // vertices: [x0,y0, x1,y1, x2,y2, x3,y3] — repeat (1,2) to test dedup
+        // vertices: [x0,y0, x1,y1, x2,y2, x3,y3] - repeat (1,2) to test dedup
         let vertices = [1, 2, 3, 4, 1, 2, 0, 0];
         let (dict, offsets) = build_morton_dict(&vertices, meta).unwrap();
 

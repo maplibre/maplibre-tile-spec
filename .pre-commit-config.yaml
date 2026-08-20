@@ -70,3 +70,35 @@ repos:
       - id: biome-check
         args: [--unsafe]
         exclude: '.*\.json$'
+
+  - repo: https://github.com/Lucas-C/pre-commit-hooks
+    rev: v1.5.6
+    hooks:
+      - id: forbid-tabs
+      - id: remove-tabs
+
+  - repo: https://github.com/sirosen/texthooks
+    rev: 0.7.1
+    hooks:
+      - id: fix-smartquotes
+      - id: fix-spaces
+      - id: fix-ligatures
+      - id: forbid-bidi-controls
+
+  - repo: local
+    hooks:
+      - id: fix-unicode-dashes-single
+        name: fold unicode dashes to single ASCII hyphen
+        # texthooks' fix-unicode-dashes maps em-dash to "--"; we want single "-".
+        # exclude self so the bracket pattern below is not eaten by its own hook.
+        exclude: "^\\.pre-commit-config\\.yaml$"
+        entry: sed -i 's/[‐‑‒–—―⁃−﹘﹣－]/-/g'
+        language: system
+        types: [text]
+      - id: fix-unicode-arrows
+        name: fold unicode arrows to ASCII
+        # exclude self so the arrows in this entry are not eaten by its own hook.
+        exclude: "^\\.pre-commit-config\\.yaml$"
+        entry: sed -i -e 's/↔/<->/g' -e 's/⇔/<=>/g' -e 's/→/->/g' -e 's/←/<-/g' -e 's/⇒/=>/g' -e 's/⇐/<=/g' -e 's/↦/|->/g'
+        language: system
+        types: [text]

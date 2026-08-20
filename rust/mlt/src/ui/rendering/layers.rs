@@ -341,7 +341,7 @@ fn mbt_hover_title_and_lines(app: &App) -> (String, Vec<Line<'static>>) {
     let feat = &fc.features[gi];
     let (z, tx, ty) = h.tile;
     let title = format!(
-        "Properties — {} feat {} (tile {z}/{tx}/{ty})",
+        "Properties - {} feat {} (tile {z}/{tx}/{ty})",
         group.name, h.feat_idx
     );
     (title, feature_property_lines(feat))

@@ -15,7 +15,7 @@ use crate::encoder::model::CurveParams;
 /// opt in explicitly.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, strum::EnumIter, strum::EnumCount)]
 pub enum SortStrategy {
-    /// Preserve the original feature order — no reordering is applied.
+    /// Preserve the original feature order - no reordering is applied.
     ///
     /// This is the default.
     #[default]
@@ -260,7 +260,7 @@ mod tests {
 
         assert_eq!(
             after_roundtrip, expected_canonical,
-            "\nsorted geometry did not match expected after encode→decode round-trip\
+            "\nsorted geometry did not match expected after encode->decode round-trip\
              \nvector_types after sort: {:?}\
              \nvector_types expected:   {:?}",
             sorted_decoded.vector_types, expected_canonical.vector_types,
@@ -387,7 +387,7 @@ mod tests {
     }
 
     /// Encode the layer with a given sort strategy, decode it back, and return the `TileLayer`.
-    /// This tests the full encode→decode roundtrip, verifying that sorting was applied.
+    /// This tests the full encode->decode roundtrip, verifying that sorting was applied.
     fn sort_encode_decode(tile: TileLayer, sort: SortStrategy) -> TileLayer {
         let enc_cfg = Encoder::default().cfg;
         let enc = Encoder::with_explicit(enc_cfg, ExplicitEncoder::for_id(IntEncoder::varint()));

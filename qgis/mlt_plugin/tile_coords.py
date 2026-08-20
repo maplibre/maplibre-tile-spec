@@ -50,7 +50,7 @@ def parse_zxy_from_path(file_path: str) -> Optional[ZXY]:
 
 
 class TileCoordDialog(QDialog):
-    """Dialog for a single tile — enter or confirm z/x/y coordinates."""
+    """Dialog for a single tile - enter or confirm z/x/y coordinates."""
 
     def __init__(self, parent=None, initial: Optional[ZXY] = None):
         super().__init__(parent)
@@ -119,7 +119,7 @@ class TileCoordDialog(QDialog):
 
 
 class MultipleTileCoordDialog(QDialog):
-    """Dialog for multiple tiles — shows an editable table of detected z/x/y per file."""
+    """Dialog for multiple tiles - shows an editable table of detected z/x/y per file."""
 
     def __init__(
         self,

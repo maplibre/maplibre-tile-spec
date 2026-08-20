@@ -55,7 +55,7 @@ impl LogicalValue {
 
     /// Logically decode `data` (physically decoded u32 words) into `Vec<i32>`.
     ///
-    /// Never called for `LogicalEncoding::None` — that case is handled directly
+    /// Never called for `LogicalEncoding::None` - that case is handled directly
     /// in the bridge (physical buffer decoded into a fresh output Vec).
     pub fn decode_i32(self, data: &[u32], dec: &mut Decoder) -> MltResult<Vec<i32>> {
         match self.meta.encoding.logical {
@@ -82,7 +82,7 @@ impl LogicalValue {
 
     /// Logically decode `data` (physically decoded u32 words) into `Vec<u32>`.
     ///
-    /// Not called for `LogicalEncoding::None` — that case is handled entirely
+    /// Not called for `LogicalEncoding::None` - that case is handled entirely
     /// in the bridge (physical buffer decoded directly into the output Vec).
     pub fn decode_u32(self, data: &[u32], dec: &mut Decoder) -> MltResult<Vec<u32>> {
         let num = self.meta.num_values.as_usize();
@@ -106,7 +106,7 @@ impl LogicalValue {
 
     /// Logically decode `data` (physically decoded u64 words) into `Vec<i64>`.
     ///
-    /// Never called for `LogicalEncoding::None` — that case is handled directly
+    /// Never called for `LogicalEncoding::None` - that case is handled directly
     /// in the bridge (physical buffer decoded into a fresh output Vec).
     pub fn decode_i64(self, data: &[u64], dec: &mut Decoder) -> MltResult<Vec<i64>> {
         match self.meta.encoding.logical {
@@ -130,7 +130,7 @@ impl LogicalValue {
 
     /// Logically decode `data` (physically decoded u64 words) into `Vec<u64>`.
     ///
-    /// Not called for `LogicalEncoding::None` — that case is handled entirely
+    /// Not called for `LogicalEncoding::None` - that case is handled entirely
     /// in the bridge (physical buffer decoded directly into the output Vec).
     pub fn decode_u64(self, data: &[u64], dec: &mut Decoder) -> MltResult<Vec<u64>> {
         let num = self.meta.num_values.as_usize();

@@ -51,5 +51,5 @@ Features:
   - `↑`/`k` - Move selection up
   - `↓`/`j` - Move selection down
   - `Enter` - In layer overview mode, switch to detail mode; In file browser, open selected file
-  - `Esc` - Go back (detail → overview → file list) or quit if at top level
+  - `Esc` - Go back (detail -> overview -> file list) or quit if at top level
   - `q` - Quit the visualizer

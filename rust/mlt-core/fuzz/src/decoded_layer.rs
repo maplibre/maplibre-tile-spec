@@ -2,7 +2,7 @@ use mlt_core::encoder::SortStrategy::Unsorted;
 use mlt_core::encoder::{Codecs, Encoder, StagedLayer, stage_tile};
 use mlt_core::{Decoder, Layer, Parser, TileLayer};
 
-/// Fuzz input that starts from a staged layer and tests encode → decode roundtrip.
+/// Fuzz input that starts from a staged layer and tests encode -> decode roundtrip.
 ///
 /// Generates valid [`StagedLayer`] values directly and verifies that the
 /// canonical roundtrip (`Tile -> Staged -> bytes -> Tile`) is idempotent.
@@ -20,11 +20,11 @@ impl arbitrary::Arbitrary<'_> for DecodedLayerInput {
 impl DecodedLayerInput {
     pub fn fuzz_roundtrip(self) {
         // Normalize: encode the fuzzed StagedLayer and decode to TileLayer.
-        // This drops all-null columns, etc. — expected encoder behavior.
+        // This drops all-null columns, etc. - expected encoder behavior.
         let tile1 = encode_decode(self.layer);
         let tile2 = encode_decode(stage_tile(tile1, Unsorted, false, false));
 
-        // Same roundtrip again — must be a fixpoint.
+        // Same roundtrip again - must be a fixpoint.
         let tile3 = encode_decode(stage_tile(tile2.clone(), Unsorted, false, false));
         assert_eq!(tile2, tile3, "canonical roundtrip is not idempotent");
     }

@@ -8,8 +8,8 @@
 //! # Iterator model
 //!
 //! Feature iteration uses [`LendingIterator`] rather than [`std::iter::Iterator`].
-//! This allows the iterator to reuse an internal buffer across steps — the
-//! [`FeatureRef`] borrows its property values from that buffer — eliminating a
+//! This allows the iterator to reuse an internal buffer across steps - the
+//! [`FeatureRef`] borrows its property values from that buffer - eliminating a
 //! per-feature `Vec` allocation.
 //!
 //! The consequence is that each [`FeatureRef`] must be dropped before calling
@@ -34,7 +34,7 @@ use crate::{Lazy, LazyParsed, MltResult, Parsed};
 /// let mut iter = layer.iter_features();
 /// while let Some(feat) = iter.next() {
 ///     let feat = feat?;
-///     /* use feat here — it borrows from iter */
+///     /* use feat here - it borrows from iter */
 /// }
 /// ```
 pub trait LendingIterator {
@@ -95,8 +95,8 @@ impl<'a> ParsedLayer01<'a> {
     /// }
     /// ```
     ///
-    /// All inner iterators — [`FeatureRef::iter_properties`],
-    /// [`FeatureRef::iter_all_properties`], and the name iterators — implement the
+    /// All inner iterators - [`FeatureRef::iter_properties`],
+    /// [`FeatureRef::iter_all_properties`], and the name iterators - implement the
     /// standard [`std::iter::Iterator`] trait and compose normally.
     #[must_use]
     pub fn iter_features(&self) -> Layer01FeatureIter<'_, 'a> {
@@ -113,8 +113,8 @@ impl<'a> ParsedLayer01<'a> {
 /// A zero-allocation two-part property name yielded by [`FeatureRef::iter_properties`].
 ///
 /// The two parts concatenate on [`Display`](fmt::Display) as `"{}{}"`:
-/// - For regular columns: `(column_name, "")` — zero allocation, second part always empty.
-/// - For `SharedDict` sub-items: `(prefix, suffix)` — both borrow directly from layer data.
+/// - For regular columns: `(column_name, "")` - zero allocation, second part always empty.
+/// - For `SharedDict` sub-items: `(prefix, suffix)` - both borrow directly from layer data.
 ///
 /// Structural [`PartialEq`] compares both parts independently.  Use [`PartialEq<str>`] or
 /// [`PartialEq<&str>`] (also implemented) to compare against a plain `&str` as if the two
@@ -210,7 +210,7 @@ pub struct ColumnRef<'a> {
 
 /// A single map feature returned by [`ParsedLayer01::iter_features`].
 ///
-/// Borrows `values` from the outer [`Layer01FeatureIter`] buffer — it must be
+/// Borrows `values` from the outer [`Layer01FeatureIter`] buffer - it must be
 /// dropped before calling [`LendingIterator::next`] again.
 #[derive(Debug)]
 pub struct FeatureRef<'feat, 'layer: 'feat> {
@@ -221,7 +221,7 @@ pub struct FeatureRef<'feat, 'layer: 'feat> {
     /// Borrowed slice of column descriptors from the layer; used to yield column names.
     columns: &'layer [ParsedProperty<'layer>],
     /// Per-feature values in column order, one per slot (scalar, string, or `SharedDict`
-    /// sub-item).  Borrowed from the iterator's reused buffer — no allocation per feature.
+    /// sub-item).  Borrowed from the iterator's reused buffer - no allocation per feature.
     values: &'feat [Option<PropValueRef<'layer>>],
 }
 
@@ -229,8 +229,8 @@ impl<'feat, 'layer: 'feat> FeatureRef<'feat, 'layer> {
     /// Iterate over every property slot for this feature, **values only**, in column order.
     ///
     /// Yields `Option<PropValueRef>`:
-    /// - `Some(value)` — the slot contains a non-null value.
-    /// - `None` — the slot is null / absent.
+    /// - `Some(value)` - the slot contains a non-null value.
+    /// - `None` - the slot is null / absent.
     ///
     /// Use [`Layer01::iterate_prop_names`] to pair values with their column names.
     pub fn iter_all_properties(&self) -> impl Iterator<Item = Option<PropValueRef<'layer>>> + '_ {
@@ -430,7 +430,7 @@ where
 ///
 /// Holds one O(1)-per-step cursor per property column slot. On each step the
 /// per-column cursors are advanced and their results written into a reused
-/// `values_buf` — yielding a [`FeatureRef`] that borrows that buffer with no
+/// `values_buf` - yielding a [`FeatureRef`] that borrows that buffer with no
 /// per-feature heap allocation.
 pub struct Layer01FeatureIter<'layer, 'data: 'layer> {
     layer: &'layer Layer01<'data, Parsed>,
@@ -809,21 +809,21 @@ mod tests {
 
         let mut iter = parsed.iter_features();
 
-        // feat 0: flag=true, score=null → 1 property
+        // feat 0: flag=true, score=null -> 1 property
         {
             let feat = iter.next().unwrap().unwrap();
             assert_eq!(feat.iter_properties().count(), 1);
             assert_eq!(feat.get_property("flag"), Some(PropValueRef::Bool(true)));
             assert_eq!(feat.get_property("score"), None);
         }
-        // feat 1: flag=false, score=-5 → 2 properties
+        // feat 1: flag=false, score=-5 -> 2 properties
         {
             let feat = iter.next().unwrap().unwrap();
             assert_eq!(feat.iter_properties().count(), 2);
             assert_eq!(feat.get_property("flag"), Some(PropValueRef::Bool(false)));
             assert_eq!(feat.get_property("score"), Some(PropValueRef::I32(-5)));
         }
-        // feat 2: flag=null, score=7 → 1 property
+        // feat 2: flag=null, score=7 -> 1 property
         {
             let feat = iter.next().unwrap().unwrap();
             assert_eq!(feat.iter_properties().count(), 1);
@@ -847,7 +847,7 @@ mod tests {
         let Layer::Tag01(lazy) = layer else { panic!() };
         let mut parsed = lazy.decode_all(&mut dec()).unwrap();
 
-        // Corrupt feature 1's geometry type: Point → LineString.
+        // Corrupt feature 1's geometry type: Point -> LineString.
         // A LineString requires part_offsets, which are absent here, so
         // to_geojson(1) will return Err(NoPartOffsets).
         parsed.geometry.vector_types[1] = GeometryType::LineString;
@@ -858,7 +858,7 @@ mod tests {
         let feat0 = iter.next().unwrap().unwrap();
         assert_eq!(feat0.id, Some(10));
 
-        // Feature 1: geometry error — iterator still advances ID cursor
+        // Feature 1: geometry error - iterator still advances ID cursor
         assert!(iter.next().unwrap().is_err());
 
         // Feature 2: valid Point, id must be Some(30), not Some(20)

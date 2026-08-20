@@ -8,8 +8,8 @@ use crate::{DecodeState, Lazy, Parsed};
 /// A layer that can be one of the known types, or an unknown.
 ///
 /// The decode-state type parameter `S` mirrors [`Layer01<'a, S>`]:
-/// - `Layer<'a>` / `Layer<'a, Lazy>` — freshly parsed; columns may still be raw bytes.
-/// - `Layer<'a, Parsed>` — returned by [`Layer::decode_all`]; all columns are decoded. Use `ParsedLayer` alias.
+/// - `Layer<'a>` / `Layer<'a, Lazy>` - freshly parsed; columns may still be raw bytes.
+/// - `Layer<'a, Parsed>` - returned by [`Layer::decode_all`]; all columns are decoded. Use `ParsedLayer` alias.
 #[non_exhaustive]
 pub enum Layer<'a, S: DecodeState = Lazy> {
     /// MVT-compatible layer (tag = 1)
@@ -100,10 +100,10 @@ pub enum ColumnType {
 ///
 /// The type parameter `S` controls how columns are stored:
 ///
-/// - `Layer01<'a>` / `Layer01<'a, Lazy>` (default) — columns are [`LazyParsed`](crate::LazyParsed) enums
+/// - `Layer01<'a>` / `Layer01<'a, Lazy>` (default) - columns are [`LazyParsed`](crate::LazyParsed) enums
 ///   that may be raw or decoded. Use [`Layer01::decode_all`] to transition to `Layer01<Parsed>`.
 ///
-/// - `Layer01<'a, Parsed>` — all columns are fully decoded. The fields `id`, `geometry`, and
+/// - `Layer01<'a, Parsed>` - all columns are fully decoded. The fields `id`, `geometry`, and
 ///   `properties` hold the parsed types directly, allowing infallible readonly access.
 ///   There is a `ParsedLayer01<'a>` type alias for this.
 pub struct Layer01<'a, S: DecodeState = Lazy> {

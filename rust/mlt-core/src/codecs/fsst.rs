@@ -12,7 +12,7 @@ use crate::{Decoder, MltResult};
 /// - `corpus`: the FSST-encoded payload (read as raw bytes)
 ///
 /// The encoding uses two special cases:
-/// - Byte `0xFF` (255): the next byte is a literal — output it verbatim.
+/// - Byte `0xFF` (255): the next byte is a literal - output it verbatim.
 /// - Any other byte `idx < symbol_lengths.len()`: expand the symbol at that index.
 ///
 /// Returns `(decompressed_utf8_string, value_lengths)`.
@@ -77,7 +77,7 @@ pub struct FsstRawData {
 /// 1. Symbol lengths (`Length(Symbol)`)
 /// 2. Symbol table data (`Data(Fsst)`)
 /// 3. Value lengths (`Length(Dictionary)`)
-/// 4. Compressed corpus (`Data(dict_type)` — supplied by the caller at write time)
+/// 4. Compressed corpus (`Data(dict_type)` - supplied by the caller at write time)
 ///
 /// Note: The FSST algorithm implementation may differ from Java's, so the
 /// compressed output may not be byte-for-byte identical. Both implementations

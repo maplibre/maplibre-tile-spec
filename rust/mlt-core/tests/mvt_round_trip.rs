@@ -30,7 +30,7 @@ fn round_trip_fixture([path]: [&Path; 1]) {
         Ok(layers) => {
             assert!(
                 !expected_unsupported,
-                "{} unexpectedly decoded — remove its parent dir from \
+                "{} unexpectedly decoded - remove its parent dir from \
                  UNSUPPORTED_PARENT_DIRS so it gets full round-trip coverage",
                 path.display()
             );

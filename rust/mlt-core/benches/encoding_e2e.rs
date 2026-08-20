@@ -24,7 +24,7 @@ fn limit<T>(values: impl Iterator<Item = T>) -> impl Iterator<Item = T> {
 
 /// Build `StagedLayer` values from decoded tiles for encode benchmarks.
 ///
-/// Goes through `Layer01 → TileLayer → StagedLayer`, which is the correct
+/// Goes through `Layer01 -> TileLayer -> StagedLayer`, which is the correct
 /// encode-pipeline entry point per CONTRIBUTING.md.
 fn decode_to_owned(tiles: &[(String, Vec<u8>)], tessellate: bool) -> Vec<StagedLayer> {
     tiles

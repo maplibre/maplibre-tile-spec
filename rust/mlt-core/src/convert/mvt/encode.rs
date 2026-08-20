@@ -11,7 +11,7 @@ const DEFAULT_EXTENT: u32 = 4096;
 
 /// Encode row-oriented [`TileLayer`]s as MVT (Mapbox Vector Tile) bytes.
 ///
-/// All input layers must share the same `extent` — MVT writes a single
+/// All input layers must share the same `extent` - MVT writes a single
 /// tile-level extent, and [`mvt::Tile::add_layer`] rejects mismatches.
 pub fn tile_layers_to_mvt(layers: Vec<TileLayer>) -> MltResult<Vec<u8>> {
     let extent = layers.first().map_or(DEFAULT_EXTENT, |l| l.extent);

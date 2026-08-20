@@ -17,7 +17,7 @@ pub trait BinarySerializer: Write + VarIntWriter + Sized {
         self.write_all(value.as_bytes())
     }
 
-    /// Reverses `RawStream::from_bytes` — writes a stream header then the stream data bytes.
+    /// Reverses `RawStream::from_bytes` - writes a stream header then the stream data bytes.
     #[cfg(any(test, feature = "__private"))]
     fn write_stream(&mut self, stream: &EncodedStream) -> io::Result<()> {
         let byte_length = u32::try_from(stream.data.len()).map_err(MltError::from)?;
@@ -26,7 +26,7 @@ pub trait BinarySerializer: Write + VarIntWriter + Sized {
         Ok(())
     }
 
-    /// Reverses `RawStream::parse_bool` — writes a boolean stream header then the stream data bytes.
+    /// Reverses `RawStream::parse_bool` - writes a boolean stream header then the stream data bytes.
     #[cfg(test)]
     fn write_boolean_stream(&mut self, stream: &EncodedStream) -> io::Result<()> {
         let byte_length = u32::try_from(stream.data.len()).map_err(MltError::from)?;

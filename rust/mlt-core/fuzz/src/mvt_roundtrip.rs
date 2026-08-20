@@ -3,7 +3,7 @@ use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::test_helpers::assert_mvt_equivalent_layers;
 use mlt_core::{Decoder, Layer, Parser, TileLayer};
 
-/// Fuzz input exercising `TileLayer → MVT → TileLayer`.
+/// Fuzz input exercising `TileLayer -> MVT -> TileLayer`.
 ///
 /// MVT's wire types are narrower than MLT's (all narrow integer widths
 /// collapse to `sint64`/`uint64`, etc.), so the first round-trip is

@@ -9,8 +9,8 @@ use crate::{DecodeState, Lazy};
 
 /// Property column representation, parameterized by decode state.
 ///
-/// - `Property<'a>` / `Property<'a, Lazy>` — either raw bytes or decoded, in an [`crate::LazyParsed`] enum.
-/// - `Property<'a, Parsed>` — decoded [`ParsedProperty`] directly (no enum wrapper).
+/// - `Property<'a>` / `Property<'a, Lazy>` - either raw bytes or decoded, in an [`crate::LazyParsed`] enum.
+/// - `Property<'a, Parsed>` - decoded [`ParsedProperty`] directly (no enum wrapper).
 pub type Property<'a, S = Lazy> =
     <S as DecodeState>::LazyOrParsed<RawProperty<'a>, ParsedProperty<'a>>;
 

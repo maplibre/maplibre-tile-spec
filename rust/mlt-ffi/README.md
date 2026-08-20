@@ -8,7 +8,7 @@
 | Type               | Purpose                                                          |
 | ------------------ | ---------------------------------------------------------------- |
 | `MltConverter`     | `mlt_to_mvt(bytes)` and `mvt_to_mlt(bytes, encoder_options)` conversion |
-| `MltEncoderOptions`| Builder wrapping `EncoderConfig` — construct with `new()`, toggle flags with setters |
+| `MltEncoderOptions`| Builder wrapping `EncoderConfig` - construct with `new()`, toggle flags with setters |
 | `MltBuffer`        | Owned result buffer with `.bytes` / `.len` accessors             |
 | `ConvertError`     | `InvalidInput` or `EncodingFailed`                               |
 
@@ -16,9 +16,9 @@
 
 The round-trip tests are the primary documentation for each language:
 
-- **C** — [`tests/c/test_round_trip.c`](tests/c/test_round_trip.c)
-- **C++** — [`tests/cpp/test_round_trip.cpp`](tests/cpp/test_round_trip.cpp)
-- **Kotlin** — [`tests/kotlin/TestRoundTrip.kt`](tests/kotlin/TestRoundTrip.kt)
+- **C** - [`tests/c/test_round_trip.c`](tests/c/test_round_trip.c)
+- **C++** - [`tests/cpp/test_round_trip.cpp`](tests/cpp/test_round_trip.cpp)
+- **Kotlin** - [`tests/kotlin/TestRoundTrip.kt`](tests/kotlin/TestRoundTrip.kt)
 
 ## Building
 

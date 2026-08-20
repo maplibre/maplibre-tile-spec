@@ -217,7 +217,7 @@ fn draw_mbtiles_loaded_tile_layers(
 
 /// Render the interactive world map for an .mbtiles file.
 ///
-/// World coordinate space: `x ∈ [0, 1]` west→east, `y ∈ [0, 1]` north→south.
+/// World coordinate space: `x ∈ [0, 1]` west->east, `y ∈ [0, 1]` north->south.
 ///
 /// `y_bounds` must be `[min_y, max_y]` with `min_y < max_y` for Ratatui's `Painter` clip math.
 /// The painter maps **larger** world Y toward the **top** of the widget, so we reflect each
@@ -229,7 +229,7 @@ pub fn render_mbtiles_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
     let visible = mbt.visible_tiles();
     let (cz, cx, cy) = mbt.center_tile_xyz();
     let title = format!(
-        "World Map — {cz}/{cx}/{cy} — zoom {:.1}  drag=pan  hover=info  q/Esc quit",
+        "World Map - {cz}/{cx}/{cy} - zoom {:.1}  drag=pan  hover=info  q/Esc quit",
         mbt.zoom_f
     );
 

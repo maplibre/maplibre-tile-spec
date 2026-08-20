@@ -531,7 +531,7 @@ mod tests {
         }
     }
 
-    /// Round-trip `StagedId` via full layer bytes (encode → bytes → parse → decode).
+    /// Round-trip `StagedId` via full layer bytes (encode -> bytes -> parse -> decode).
     fn assert_roundtrip(ids: &StagedId, int_enc: IntEncoder) {
         prop_assert_roundtrip(ids, int_enc).expect("roundtrip failed");
     }
