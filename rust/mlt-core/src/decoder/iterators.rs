@@ -239,6 +239,7 @@ impl<'feat, 'layer: 'feat> FeatureRef<'feat, 'layer> {
     /// - `None` - the slot is null / absent.
     ///
     /// Use [`Layer01::iterate_prop_names`] to pair values with their column names.
+    #[must_use]
     pub fn iter_all_properties(
         &self,
     ) -> impl ExactSizeIterator<Item = Option<PropValueRef<'layer>>>
