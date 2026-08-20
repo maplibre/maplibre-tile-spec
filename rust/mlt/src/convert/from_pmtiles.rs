@@ -352,6 +352,7 @@ mod tests {
     }
 
     #[test]
+    #[expect(clippy::float_cmp, reason = "bounds are copied verbatim, not computed")]
     fn copies_geographic_header_without_copying_content_encoding() {
         let source = write_header(
             PmTilesWriter::new(TileType::Mvt)
