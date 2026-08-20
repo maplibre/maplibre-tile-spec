@@ -166,7 +166,7 @@ impl Morton {
         let shift_vec = u32x8::splat(self.shift);
 
         let mut prev = 0i32;
-        let (chunks,remainder) = data.as_chunks::<LANES>();
+        let (chunks, remainder) = data.as_chunks::<LANES>();
 
         for chunk in chunks {
             // Sequential prefix sum into a stack buffer - no heap allocation.

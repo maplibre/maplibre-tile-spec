@@ -49,7 +49,7 @@ where
     target.reserve(data.len());
     let mut prev_x = T::zero();
     let mut prev_y = T::zero();
-    for &[x,y] in data.as_chunks::<2>().0 {
+    for &[x, y] in data.as_chunks::<2>().0 {
         target.push(T::encode(x.wrapping_sub(&prev_x)));
         target.push(T::encode(y.wrapping_sub(&prev_y)));
         (prev_x, prev_y) = (x, y);

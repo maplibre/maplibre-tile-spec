@@ -139,13 +139,7 @@ impl<'a> Walker<'a> {
         bits: impl FnOnce(u8) -> Vec<BitField>,
     ) -> MltResult<(&'a [u8], u8)> {
         let (after, byte) = parse_u8(before)?;
-        self.leaf_bits(
-            before,
-            after,
-            label,
-            Some(value(byte)),
-            bits(byte),
-        );
+        self.leaf_bits(before, after, label, Some(value(byte)), bits(byte));
         Ok((after, byte))
     }
 
