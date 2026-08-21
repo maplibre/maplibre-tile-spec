@@ -224,16 +224,7 @@ fn decode_blob(info: BlobInfo, data: &[u8], dec: &mut Decoder) -> String {
     let meta = info.meta;
     match info.hint {
         DecodeHint::Presence => match RawStream::new(meta, data).decode_bitvec(dec) {
-            Ok(bits) => {
-                let n = bits.len();
-                let shown: String = bits
-                    .iter()
-                    .take(96)
-                    .map(|b| if *b { '1' } else { '0' })
-                    .collect();
-                let more = if n > 96 { "…" } else { "" };
-                format!("{n} present-bits: {shown}{more}")
-            }
+            Ok(bits) => fmt_bits(bits.len(), |i| bits[i]),
             Err(e) => format!("<undecodable: {e}>"),
         },
         DecodeHint::Bool => fmt_res(RawStream::new(meta, data).decode_bools(dec)),
@@ -248,6 +239,15 @@ fn decode_blob(info: BlobInfo, data: &[u8], dec: &mut Decoder) -> String {
             Err(_) => format!("<{} binary bytes>", data.len()),
         },
     }
+}
+
+/// Render the first 96 of `n` presence bits as a `0`/`1` string.
+fn fmt_bits(n: usize, bit: impl Fn(usize) -> bool) -> String {
+    let shown: String = (0..n.min(96))
+        .map(|i| if bit(i) { '1' } else { '0' })
+        .collect();
+    let more = if n > 96 { "…" } else { "" };
+    format!("{n} present-bits: {shown}{more}")
 }
 
 fn fmt_res<T: std::fmt::Display>(res: crate::MltResult<Vec<T>>) -> String {

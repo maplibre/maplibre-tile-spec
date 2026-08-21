@@ -9,6 +9,8 @@ impl<'a, S: DecodeState> Layer<'a, S> {
     pub fn as_layer01(&self) -> Option<&Layer01<'a, S>> {
         match self {
             Self::Tag01(l) => Some(l),
+            #[cfg(feature = "unstable-v2")]
+            Self::Tag02(l) => Some(l),
             Self::Unknown(_) => None,
         }
     }
@@ -18,6 +20,8 @@ impl<'a, S: DecodeState> Layer<'a, S> {
     pub fn into_layer01(self) -> Option<Layer01<'a, S>> {
         match self {
             Self::Tag01(l) => Some(l),
+            #[cfg(feature = "unstable-v2")]
+            Self::Tag02(l) => Some(l),
             Self::Unknown(_) => None,
         }
     }
@@ -51,6 +55,8 @@ impl<'a> Layer<'a> {
     pub fn decode_all(self, dec: &mut Decoder) -> MltResult<ParsedLayer<'a>> {
         match self {
             Layer::Tag01(v) => Ok(Layer::Tag01(v.decode_all(dec)?)),
+            #[cfg(feature = "unstable-v2")]
+            Layer::Tag02(_) => Err(MltError::NotImplemented("mltv2 decoding")),
             Layer::Unknown(u) => Ok(Layer::Unknown(u)),
         }
     }

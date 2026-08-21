@@ -10,6 +10,7 @@ use mlt_core::dump::{DumpTree, annotate_tile};
 use test_each_file::test_each_path;
 
 test_each_path! { for ["mlt"] in "../test/synthetic/0x01" as dump_0x01 => check }
+test_each_path! { for ["mlt"] in "../test/synthetic/0x01-rust" as dump_0x01_rust => check }
 test_each_path! { for ["mlt"] in "../test/synthetic/0x02" as dump_0x02 => check }
 
 fn check([path]: [&Path; 1]) {

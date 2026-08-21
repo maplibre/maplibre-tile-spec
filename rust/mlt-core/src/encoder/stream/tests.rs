@@ -2,6 +2,7 @@ use proptest::prelude::*;
 use rstest::rstest;
 
 use crate::MltError;
+use crate::decoder::stream::header01;
 use crate::decoder::{
     DictionaryType, IntEncoding, LengthType, LogicalEncoding, LogicalValue, Morton, OffsetType,
     PhysicalEncoding, RawStream, RleMeta, StreamMeta, StreamType,
@@ -12,8 +13,6 @@ use crate::encoder::{
 };
 use crate::test_helpers::{assert_empty, dec, parser};
 use crate::utils::BinarySerializer as _;
-
-use crate::decoder::stream::header01;
 
 fn roundtrip_stream<'a>(buffer: &'a mut Vec<u8>, stream: &EncodedStream) -> RawStream<'a> {
     buffer.clear();
