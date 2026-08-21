@@ -7,6 +7,7 @@ use mlt_core::GeometryValues;
 use mlt_core::encoder::{
     Codecs, ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, Presence, StagedId,
     StagedLayer, StagedProperty, StagedSharedDict, StrEncoding, StreamCtx, VertexBufferType,
+    WireVersion,
 };
 use mlt_core::geo_types::{Coord, Geometry};
 use mlt_core::wire::{LengthType, OffsetType, StreamType};
@@ -126,6 +127,7 @@ pub struct Layer {
     props: Vec<(StagedProperty, PropConfig)>,
     extent: Option<u32>,
     ids: Option<(StagedId, IntEncoder)>,
+    no_v2: bool,
 }
 
 impl Layer {
@@ -140,7 +142,15 @@ impl Layer {
             props: vec![],
             extent: None,
             ids: None,
+            no_v2: false,
         }
+    }
+
+    /// Skip encoding this layer as v2 (tag `0x02`).
+    #[must_use]
+    pub fn no_v2(mut self) -> Self {
+        self.no_v2 = true;
+        self
     }
 
     #[must_use]
@@ -189,8 +199,19 @@ impl Layer {
     /// `name` is the geometry stream name as used internally by the encoder
     /// (e.g. `"triangles_indexes"`, `"geometries"`, `"rings"`, …).
     ///
-    /// Useful for producing byte-for-byte output that matches Java's encoder when a
-    /// normally-empty stream must still appear in the wire format.
+    /// Exercises decoders against present-but-empty streams, which the Java encoder
+    /// used to emit. Unforced output is the baseline, so a forced fixture is written as
+    /// its own `_fs`-suffixed sibling next to the unforced one rather than replacing it:
+    ///
+    /// ```ignore
+    /// geo_varint().tessellate().geo(poly1()).write(w, "poly_tes");
+    /// geo_varint().tessellate().force_empty_stream("geometries").geo(poly1()).write(w, "poly_tes_fs-rust");
+    /// ```
+    ///
+    /// Forcing a stream that is never empty (or whose name does not match any stream) is
+    /// a no-op, and the resulting duplicate bytes are reported by [`SynthWriter`]; drop the
+    /// call rather than keeping a fixture that adds no coverage. Add [`Self::no_v2`] when the
+    /// forced stream is only meaningful for v1.
     #[must_use]
     #[expect(
         dead_code,
@@ -320,26 +341,8 @@ impl Layer {
     /// Encode and then either verify against the reference dir (non-rust files) or write to the
     /// output dir (`-rust`-suffixed files). Delegates to [`SynthWriter::write`].
     ///
-    /// When `force_empty_streams` is non-empty, also emits a `_ns` ("no forced stream")
-    /// sibling - but only when removing the forced-empty-stream flag **actually changes the
-    /// encoded output**.  For some geometry configurations (e.g. Multi* types where the
-    /// GEOMETRIES stream is already non-empty) the flag is a no-op; emitting the sibling in
-    /// those cases would produce duplicate MLT files and fail the uniqueness check.
+    /// One call produces exactly one fixture name, for every wire version this layer wants.
     pub fn write(self, w: &mut SynthWriter, name: impl AsRef<str>) {
-        if !self.force_empty_streams.is_empty() {
-            let forced_bytes = self.clone().encode_to_bytes().ok();
-            let mut ns_layer = self.clone();
-            ns_layer.force_empty_streams.clear();
-            let ns_bytes = ns_layer.clone().encode_to_bytes().ok();
-            if forced_bytes != ns_bytes {
-                let name = if let Some(prefix) = name.as_ref().strip_suffix("-rust") {
-                    format!("{prefix}_ns-rust")
-                } else {
-                    format!("{}_ns", name.as_ref())
-                };
-                w.write(ns_layer, name);
-            }
-        }
         w.write(self, name);
     }
 
@@ -360,7 +363,11 @@ impl Layer {
         OpenOptions::new().write(true).create_new(true).open(path)
     }
 
-    pub fn encode_to_bytes(self) -> SynthResult<Vec<u8>> {
+    pub(crate) fn wants_v2(&self) -> bool {
+        !self.no_v2
+    }
+
+    pub fn encode_to_bytes(self, wire_version: WireVersion) -> SynthResult<Vec<u8>> {
         let Self {
             default_geo_enc,
             geo_stream_overrides,
@@ -371,9 +378,12 @@ impl Layer {
             props,
             extent,
             ids,
+            no_v2: _,
         } = self;
 
-        let enc_cfg = EncoderConfig::default().with_tessellation(tessellate);
+        let enc_cfg = EncoderConfig::default()
+            .with_tessellation(tessellate)
+            .with_wire_version(wire_version);
 
         let mut geometry = if enc_cfg.tessellate() {
             GeometryValues::new_tessellated()
