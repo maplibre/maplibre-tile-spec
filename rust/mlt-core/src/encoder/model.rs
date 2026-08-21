@@ -196,7 +196,6 @@ impl WireVersion {
             Self::V02 => 2,
         }
     }
-<<<<<<< HEAD
 
     /// The RLE stream data layout used by this format.
     #[must_use]
@@ -207,8 +206,6 @@ impl WireVersion {
             Self::V02 => RleLayout::Interleaved,
         }
     }
-=======
->>>>>>> 509c2cf1 (intial)
 }
 
 /// Global encoder settings controlling which optimization strategies are attempted.

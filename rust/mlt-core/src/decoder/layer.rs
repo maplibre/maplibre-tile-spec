@@ -62,11 +62,7 @@ impl<'a> Layer<'a> {
         match self {
             Layer::Tag01(v) => Ok(Layer::Tag01(v.decode_all(dec)?)),
             #[cfg(feature = "unstable-v2")]
-<<<<<<< HEAD
             Layer::Tag02(v) => Ok(Layer::Tag02(v.decode_all(dec)?)),
-=======
-            Layer::Tag02(_) => Err(MltError::NotImplemented("mltv2 decoding")),
->>>>>>> 509c2cf1 (intial)
             Layer::Unknown(u) => Ok(Layer::Unknown(u)),
         }
     }
