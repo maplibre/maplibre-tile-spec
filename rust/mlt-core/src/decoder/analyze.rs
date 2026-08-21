@@ -80,6 +80,9 @@ impl Analyze for RawPresence<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         match self {
             Self::AllPresent => {}
+            // Bitfield presence is headerless raw bytes, not a stream.
+            #[cfg(feature = "unstable-v2")]
+            Self::Bitfield(_) => {}
             Self::Stream(s) => s.for_each_stream(cb),
         }
     }

@@ -97,3 +97,7 @@ required-features = ["__private"]
 [[test]]
 name = "snapshots"
 required-features = ["__private"]
+
+[[test]]
+name = "tag02_roundtrip"
+required-features = ["unstable-v2"]

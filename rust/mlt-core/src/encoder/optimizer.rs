@@ -1,9 +1,12 @@
 use bitvec::vec::BitVec;
 
 use crate::decoder::Morton;
-use crate::encoder::model::{CurveParams, StagedLayer, WireVersion};
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::encode02;
+use crate::encoder::model::{CurveParams, StagedLayer};
 use crate::encoder::{
-    Codecs, Encoder, EncoderConfig, SortStrategy, encode01, spatial_sort_likely_to_help,
+    Codecs, Encoder, EncoderConfig, SortStrategy, WireVersion, encode01,
+    spatial_sort_likely_to_help,
 };
 use crate::tile::{PropKind, TileLayer};
 use crate::{MltError, MltResult, PropValue};
@@ -23,7 +26,7 @@ impl StagedLayer {
         match enc.config().wire_version() {
             WireVersion::V01 => encode01::encode_into01(self, enc, codecs),
             #[cfg(feature = "unstable-v2")]
-            WireVersion::V02 => Err(MltError::NotImplemented("mltv2 encoding")),
+            WireVersion::V02 => encode02::encode_into02(self, enc, codecs),
         }
     }
 }

@@ -19,7 +19,9 @@ use crate::{DecodeState, Lazy, Parsed};
 pub enum Layer<'a, S: DecodeState = Lazy> {
     /// MVT-compatible layer (tag = 1)
     Tag01(Layer01<'a, S>),
-    /// Compact, MVT-compatible data layer (tag = 2).
+    /// Experimental v2 layer (tag = 2).
+    ///
+    /// Parsed into the same in-memory columnar representation as `Tag01` but with an more compact wire format.
     #[cfg(feature = "unstable-v2")]
     Tag02(Layer01<'a, S>),
     /// Unknown layer with tag, size, and value

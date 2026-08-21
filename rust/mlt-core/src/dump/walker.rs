@@ -68,6 +68,12 @@ impl<'a> Walker<'a> {
         self.out[idx].len = self.off(after) - start;
     }
 
+    /// Rename the container opened at `idx`.
+    #[cfg(feature = "unstable-v2")]
+    pub(super) fn relabel(&mut self, idx: usize, label: impl Into<String>) {
+        self.out[idx].label = label.into();
+    }
+
     pub(super) fn leaf(
         &mut self,
         before: &'a [u8],
@@ -194,6 +200,8 @@ impl<'a> Walker<'a> {
 
         match tag {
             1 => self.walk_layer01(body)?,
+            #[cfg(feature = "unstable-v2")]
+            2 => self.walk_layer02(body)?,
             _ => self.raw_blob(body, body.len(), format!("value (Unknown tag 0x{tag:02X})")),
         }
 
@@ -206,6 +214,8 @@ impl<'a> Walker<'a> {
 fn tag_label(tag: u8) -> String {
     match tag {
         1 => "0x01 -> Tag01".into(),
+        #[cfg(feature = "unstable-v2")]
+        2 => "0x02 -> Tag02".into(),
         other => format!("0x{other:02X} -> Unknown"),
     }
 }
