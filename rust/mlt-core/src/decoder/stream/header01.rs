@@ -22,6 +22,8 @@ use integer_encoding::VarIntWriter as _;
 use usize_cast::IntoUsize as _;
 
 use crate::MltError::ParsingStreamType;
+#[cfg(feature = "unstable-v2")]
+use crate::MltError::UnsupportedLogicalEncoding;
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
     DictionaryType, IntEncoding, LengthType, LogicalEncoding, LogicalTechnique, Morton, OffsetType,
@@ -119,7 +121,7 @@ pub(crate) fn parse_stream_meta<'a>(
             // Reserve decoded memory (worst case: u64 = 8 bytes per value)
             let decoded_bytes = num_rle_values.saturating_mul(8);
             parser.reserve(decoded_bytes)?;
-            let rle = RleMeta {
+            let rle = RleMeta::Split {
                 runs,
                 num_rle_values,
             };
@@ -191,11 +193,12 @@ pub(crate) fn write_stream_meta<W: io::Write>(
 
     // some encoding have settings inside them
     match meta.encoding.logical {
-        LE::DeltaRle(RleMeta {
+        // v1 always uses the Split layout; interleaved is a v2-only concern.
+        LE::DeltaRle(RleMeta::Split {
             runs,
             num_rle_values,
         })
-        | LE::Rle(RleMeta {
+        | LE::Rle(RleMeta::Split {
             runs,
             num_rle_values,
         }) => {
@@ -203,6 +206,13 @@ pub(crate) fn write_stream_meta<W: io::Write>(
                 writer.write_varint(runs)?;
                 writer.write_varint(num_rle_values)?;
             }
+        }
+        #[cfg(feature = "unstable-v2")]
+        LE::DeltaRle(RleMeta::Interleaved { .. }) | LE::Rle(RleMeta::Interleaved { .. }) => {
+            return Err(UnsupportedLogicalEncoding(
+                meta.encoding.logical,
+                "v1 stream header codec requires the Split RLE layout",
+            ));
         }
         LE::Morton(m) | LE::MortonDelta(m) | LE::MortonRle(m) => {
             writer.write_varint(m.bits)?;
@@ -261,11 +271,11 @@ fn parse_stream_internal<'a>(
 
     // For RLE with VarInt physical encoding, validate stream: run lengths must sum to num_rle_values.
     // v1 parsing only ever produces the Split layout.
-    if let LE::Rle(RleMeta {
+    if let LE::Rle(RleMeta::Split {
         runs,
         num_rle_values,
     })
-    | LE::DeltaRle(RleMeta {
+    | LE::DeltaRle(RleMeta::Split {
         runs,
         num_rle_values,
     }) = meta.encoding.logical
@@ -345,7 +355,7 @@ mod tests {
     fn rle_header_roundtrip(#[case] plain_rle: bool) {
         let run_lengths = [2_u8, 3];
         let values = [10_u8, 20];
-        let rle = RleMeta {
+        let rle = RleMeta::Split {
             runs: u32::try_from(run_lengths.len()).unwrap(),
             num_rle_values: u32::from(run_lengths.iter().sum::<u8>()),
         };
@@ -369,6 +379,23 @@ mod tests {
         assert!(rest.is_empty());
         assert_eq!(stream.meta, meta);
         assert_eq!(stream.data, payload);
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[rstest]
+    #[case::rle(true)]
+    #[case::delta_rle(false)]
+    fn write_rejects_interleaved_rle(#[case] plain_rle: bool) {
+        let rle = RleMeta::Interleaved { num_rle_values: 5 };
+        let logical = if plain_rle {
+            LogicalEncoding::Rle(rle)
+        } else {
+            LogicalEncoding::DeltaRle(rle)
+        };
+        let meta = meta(logical, PhysicalEncoding::VarInt, 4);
+        let mut buf = Vec::new();
+        let err = write_stream_meta(&meta, &mut buf, false, 4).unwrap_err();
+        assert!(matches!(err, UnsupportedLogicalEncoding(_, _)));
     }
 
     #[test]

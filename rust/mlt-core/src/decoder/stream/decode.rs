@@ -7,7 +7,9 @@ use usize_cast::IntoUsize as _;
 
 use crate::codecs::bytes::{PhysicalWord, decode_bytes_to_bools, decode_bytes_to_words};
 use crate::codecs::rle::decode_byte_rle;
-use crate::codecs::varint::parse_varint_vec;
+use crate::codecs::varint::{parse_varint_vec, parse_varint_vec_all};
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::RleMeta;
 use crate::decoder::{LogicalEncoding, LogicalValue, PhysicalEncoding, RawStream};
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
 use crate::{Decoder, MltError, MltResult};
@@ -39,15 +41,26 @@ impl<'a> RawStream<'a> {
         }
     }
 
-    /// Decode a boolean data stream: byte-RLE -> packed bitmap -> `Vec<bool>`, charging `dec`.
+    /// Decode a boolean data stream into `Vec<bool>`, charging `dec`.
+    ///
+    /// Both wire formats store one bit per value in an LSB-first packed bitmap;
+    /// they differ only in how that bitmap is framed, which the logical encoding
+    /// distinguishes:
+    /// - tag `0x01` (`logical = Rle`): byte-RLE compressed bitmap.
+    /// - tag `0x02` (`logical = None`): raw bitmap, no compression - the same
+    ///   representation as a v2 presence bitfield.
     pub fn decode_bools(self, dec: &mut Decoder) -> MltResult<Vec<bool>> {
-        if self.meta.encoding.physical == PhysicalEncoding::VarInt {
-            return Err(MltError::NotImplemented("varint bool decoding"));
-        }
         let num_values = self.meta.num_values.into_usize();
-        let num_bytes = num_values.div_ceil(8);
-        let decoded = decode_byte_rle(self.data, num_bytes, dec)?;
-        decode_bytes_to_bools(&decoded, num_values, dec)
+        match self.meta.encoding.logical {
+            LogicalEncoding::Rle(_) => {
+                let bytes = decode_byte_rle(self.data, num_values.div_ceil(8), dec)?;
+                decode_bytes_to_bools(&bytes, num_values, dec)
+            }
+            LogicalEncoding::None if self.meta.encoding.physical == PhysicalEncoding::None => {
+                decode_bytes_to_bools(self.data, num_values, dec)
+            }
+            _ => Err(MltError::NotImplemented("unsupported bool stream encoding")),
+        }
     }
 
     /// Decode via physical type `W`, then narrow to `N`, erroring if a value is out of range.
@@ -133,8 +146,14 @@ impl<'a> RawStream<'a> {
                 *buf = T::decode_fastpfor(self.data, self.meta.num_values, dec)?;
             }
             PhysicalEncoding::VarInt => {
-                let (_, values) = parse_varint_vec::<T>(self.data, self.meta.num_values, dec)?;
-                *buf = values;
+                // v2 interleaved-RLE stores no run count on the wire: `num_values`
+                // is the decoded count, so the varint pairs are scanned to the end.
+                *buf = if self.meta.encoding.logical.scans_to_end() {
+                    parse_varint_vec_all::<T>(self.data, dec)?
+                } else {
+                    let (_, values) = parse_varint_vec::<T>(self.data, self.meta.num_values, dec)?;
+                    values
+                };
             }
         }
         Ok(())
@@ -158,9 +177,9 @@ pub trait DecodeInt: Sized {
         dec: &mut Decoder,
     ) -> MltResult<Vec<Self>>;
 
-    /// Fast path for [`LogicalEncoding::None`] on unsigned types: skip the scratch
-    /// round-trip since the physical words are already the output.
-    /// Signed types return `None` - they always need at least a zigzag transform.
+    /// Fast path for [`LogicalEncoding::None`]:
+    /// for unsigned types the physical words are already the output, so decode straight into a fresh `Vec`.
+    /// Signed types return `None` (zigzag transform always required), so they fall through to the general path.
     fn decode_none_passthrough(
         _stream: &RawStream<'_>,
         _dec: &mut Decoder,
@@ -232,5 +251,26 @@ impl DecodeInt for u64 {
         let mut out = Vec::new();
         stream.decode_bits::<Self>(&mut out, dec)?;
         Ok(Some(out))
+    }
+}
+
+impl LogicalEncoding {
+    /// Whether the physical word count is unknown up front and the payload is
+    /// scanned to its end: v2 interleaved-RLE stores no run count on the wire, and
+    /// `num_values` holds the *decoded* count instead of the encoded word count.
+    #[cfg(feature = "unstable-v2")]
+    fn scans_to_end(self) -> bool {
+        matches!(
+            self,
+            Self::Rle(RleMeta::Interleaved { .. }) | Self::DeltaRle(RleMeta::Interleaved { .. })
+        )
+    }
+
+    /// Without `unstable-v2`, no logical encoding ever scans to end: v1's RLE
+    /// always carries an explicit run count.
+    #[cfg(not(feature = "unstable-v2"))]
+    #[expect(clippy::unused_self, reason = "tmp because feature gate")]
+    fn scans_to_end(self) -> bool {
+        false
     }
 }

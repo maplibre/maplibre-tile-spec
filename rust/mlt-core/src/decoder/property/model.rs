@@ -1,6 +1,10 @@
 use std::borrow::Cow;
 use std::ops::Deref;
 
+#[cfg(feature = "unstable-v2")]
+use bitvec::order::Lsb0;
+#[cfg(feature = "unstable-v2")]
+use bitvec::slice::BitSlice;
 use enum_dispatch::enum_dispatch;
 
 use crate::decoder::RawStream;
@@ -221,4 +225,9 @@ pub enum RawPresence<'a> {
     AllPresent,
     /// Tag `0x01`: bool-RLE presence stream with a full stream header.
     Stream(RawStream<'a>),
+    /// Tag `0x02`: raw packed bitfield (LSB-first per byte, one bit per feature),
+    /// borrowed zero-copy from the tile bytes. No header precedes it.
+    /// Requires the `unstable-v2` feature.
+    #[cfg(feature = "unstable-v2")]
+    Bitfield(&'a BitSlice<u8, Lsb0>),
 }

@@ -7,6 +7,8 @@ mod model;
 mod render;
 mod walker;
 mod walker01;
+#[cfg(feature = "unstable-v2")]
+mod walker02;
 
 pub use model::{BitField, BlobInfo, DecodeHint, DumpTree, Region, RegionKind};
 pub use render::{DataMode, RenderOpts, render};

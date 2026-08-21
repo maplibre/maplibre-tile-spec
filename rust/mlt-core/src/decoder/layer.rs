@@ -1,10 +1,13 @@
 use crate::codecs::varint::parse_varint;
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::root02::parse_layer02;
 use crate::decoder::{Layer01, Unknown};
 use crate::utils::{parse_u8, take};
 use crate::{DecodeState, Decoder, Layer, MltError, MltRefResult, MltResult, ParsedLayer, Parser};
 
 impl<'a, S: DecodeState> Layer<'a, S> {
-    /// Returns the inner `Layer01` if this is a Tag01 layer, or `None` otherwise.
+    /// Returns the inner [`Layer01`] for any layer stored in the `Layer01`
+    /// in-memory representation (both `Tag01` and `Tag02`), or `None` otherwise.
     #[must_use]
     pub fn as_layer01(&self) -> Option<&Layer01<'a, S>> {
         match self {
@@ -15,7 +18,8 @@ impl<'a, S: DecodeState> Layer<'a, S> {
         }
     }
 
-    /// Consumes this layer and returns the inner `Layer01`, or `None` if it is not a Tag01 layer.
+    /// Consumes this layer and returns the inner [`Layer01`] for any layer stored
+    /// in the `Layer01` in-memory representation, or `None` otherwise.
     #[must_use]
     pub fn into_layer01(self) -> Option<Layer01<'a, S>> {
         match self {
@@ -42,6 +46,8 @@ impl<'a> Layer<'a> {
 
         let layer = match tag {
             1 => Layer::Tag01(Layer01::from_bytes(value, parser)?),
+            #[cfg(feature = "unstable-v2")]
+            2 => Layer::Tag02(parse_layer02(value, parser)?),
             tag => Layer::Unknown(Unknown { tag, value }),
         };
 
@@ -56,7 +62,7 @@ impl<'a> Layer<'a> {
         match self {
             Layer::Tag01(v) => Ok(Layer::Tag01(v.decode_all(dec)?)),
             #[cfg(feature = "unstable-v2")]
-            Layer::Tag02(_) => Err(MltError::NotImplemented("mltv2 decoding")),
+            Layer::Tag02(v) => Ok(Layer::Tag02(v.decode_all(dec)?)),
             Layer::Unknown(u) => Ok(Layer::Unknown(u)),
         }
     }
