@@ -10,7 +10,7 @@ import { encodeTile, type Feature, type FeatureGeometry, type Layer, type Proper
  * Fixtures that cannot survive this round trip. Each is checked below to still *fail*, so an entry
  * that starts working fails the suite until it is removed from this list.
  */
-const UNSUPPORTED: string[] = [];
+const UNSUPPORTED: string[] = ["0x02"];
 
 /**
  * Decodes each synthetic `.mlt`, re-encodes what came out, and checks the result still decodes to

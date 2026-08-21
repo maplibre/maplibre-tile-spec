@@ -65,8 +65,11 @@ export function getTestCases(skipList: string[]): {
     const jsonFile = mltFile.replace(/\.mlt$/, ".json");
     const expected = JSON.parse(readFileSync(jsonFile, "utf-8"));
     const testCase = { name: testName, fileName: mltFile, content: expected };
-    if (skipList.includes(testName)) {
-      matched.add(testName);
+    const skipEntry = skipList.find(
+      (entry) => testName === entry || testName.startsWith(`${entry}/`),
+    );
+    if (skipEntry !== undefined) {
+      matched.add(skipEntry);
       skipped.push(testCase);
     } else {
       active.push(testCase);
@@ -77,7 +80,7 @@ export function getTestCases(skipList: string[]): {
   if (unmatched.length > 0) {
     throw new Error(
       `Exclusion list references unknown synthetic test(s): ${unmatched.join(", ")}. ` +
-        `Use the full path-style name, e.g. "0x01/poly_fpf".`,
+        `Use the full path-style name, e.g. "0x01/poly_fpf", or a directory, e.g. "0x02".`,
     );
   }
 
