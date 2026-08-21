@@ -86,8 +86,7 @@ pub struct Encoder {
 
     /// Layer header bytes: `name`, `extent`, `column_count`.
     ///
-    /// Written to `hdr` via [`Encoder::write_header`].  This section comes
-    /// first in the wire format and is never subject to alternatives.
+    /// This section comes first in the wire format and is never subject to alternatives.
     hdr: Vec<u8>,
 
     /// Column-type metadata bytes.
@@ -234,11 +233,16 @@ impl Encoder {
         self.write_column_name(name)
     }
 
-    /// Write the layer header (`name`, `extent`, `column_count`) to `hdr`.
+    /// Write the v1 layer header (`name`, `extent`, `column_count`) to `hdr`.
     ///
     /// Must be called exactly once per layer, after all column meta and data.
     #[hotpath::measure]
-    pub fn write_header(&mut self, name: &str, extent: u32, column_count: usize) -> MltResult<()> {
+    pub fn write_header01(
+        &mut self,
+        name: &str,
+        extent: u32,
+        column_count: usize,
+    ) -> MltResult<()> {
         if name.is_empty() {
             return Err(MltError::MissingLayerName);
         }
@@ -323,9 +327,10 @@ impl Encoder {
         out
     }
 
-    /// Assemble the complete Tag-01 layer record.
+    /// Assemble the complete layer record.
     pub fn into_layer_bytes(self) -> MltResult<Vec<u8>> {
-        self.into_layer_bytes_with_tag(1)
+        let tag = self.cfg.wire_version().tag();
+        self.into_layer_bytes_with_tag(tag)
     }
 
     /// Assemble a complete layer record for the given `tag`:

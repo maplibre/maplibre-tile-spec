@@ -1,13 +1,4 @@
-//! Annotating walker for the tag `0x01` (v1) layer body.
-//!
-//! Mirrors the wire layout of [`crate::decoder`], but records an annotated
-//! [`Region`](super::model::Region) per field instead of building decoded
-//! structures.
-//! Advancement is delegated to the real parser's primitives and to the
-//! authoritative `parse_stream_meta` / `ColumnType::from_bytes`, so offsets
-//! are exact by construction.
-//! Only per-column stream sequencing is mirrored by hand; the coverage test in
-//! `tests/dump_coverage.rs` guards it.
+//! Annotating walker for the tag `0x01` layer body.
 
 use usize_cast::IntoUsize as _;
 

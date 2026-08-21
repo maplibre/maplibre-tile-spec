@@ -41,6 +41,9 @@ impl From<Extent> for NonZeroU32 {
 pub enum Layer<'a, S: DecodeState = Lazy> {
     /// MVT-compatible layer (tag = 1)
     Tag01(Layer01<'a, S>),
+    /// Compact, MVT-compatible data layer (tag = 2).
+    #[cfg(feature = "unstable-v2")]
+    Tag02(Layer01<'a, S>),
     /// Unknown layer with tag, size, and value
     Unknown(Unknown<'a>),
 }
@@ -53,6 +56,8 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Tag01(l) => f.debug_tuple("Tag01").field(l).finish(),
+            #[cfg(feature = "unstable-v2")]
+            Self::Tag02(l) => f.debug_tuple("Tag02").field(l).finish(),
             Self::Unknown(u) => f.debug_tuple("Unknown").field(u).finish(),
         }
     }

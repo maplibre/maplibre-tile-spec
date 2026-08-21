@@ -8,7 +8,7 @@ use serde::ser::SerializeMap as _;
 use serde::{Deserialize, Serialize};
 use serde_json::{Number, Value};
 
-use crate::decoder::{Layer, PropValueRef};
+use crate::decoder::PropValueRef;
 use crate::{LendingIterator, MltResult, ParsedLayer};
 
 /// `GeoJSON` [`FeatureCollection`]
@@ -25,7 +25,7 @@ impl FeatureCollection {
     pub fn from_layers<'a>(layers: impl IntoIterator<Item = ParsedLayer<'a>>) -> MltResult<Self> {
         let mut features = Vec::new();
         for layer in layers {
-            let Layer::Tag01(parsed) = layer else {
+            let Some(parsed) = layer.into_layer01() else {
                 continue;
             };
             let layer_name = parsed.name();
