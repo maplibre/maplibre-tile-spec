@@ -13,11 +13,8 @@
 //! [varint shift]            Morton streams only
 //! ```
 //!
-//! Only the wire (de)serialization lives in this module, as a set of free
-//! functions mirroring [`super::header02`]'s shape. [`StreamMeta`] itself is a
-//! format-independent in-memory descriptor (see `model.rs`), so other layer
-//! formats can parse into / write from the same types with their own header
-//! codec.
+//! [`StreamMeta`] itself is a format-independent in-memory descriptor (see `model.rs`), so other layer
+//! formats can parse into / write from the same types with their own header codec.
 
 use std::io;
 
@@ -235,7 +232,7 @@ pub(crate) fn parse_stream<'a>(
 }
 
 /// Parse `count` consecutive v1 streams.
-pub(crate) fn parse_streams<'a>(
+pub(crate) fn parse_multiple_streams<'a>(
     mut input: &'a [u8],
     count: usize,
     parser: &mut Parser,

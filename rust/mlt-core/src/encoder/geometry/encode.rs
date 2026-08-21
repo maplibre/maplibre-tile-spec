@@ -364,8 +364,8 @@ fn dict_may_be_beneficial(vertices: &[i32], enc: &Encoder) -> bool {
     }
 
     let mut hll = HyperLogLog::<Coord<i32>>::with_hasher(0.03, SipHasherBuilder::from_seed(0, 0));
-    for c in vertices.as_chunks::<2>().0 {
-        hll.insert(&Coord::<i32> { x: c[0], y: c[1] });
+    for &[x, y] in vertices.as_chunks::<2>().0 {
+        hll.insert(&Coord::<i32> { x, y });
     }
     #[expect(clippy::cast_precision_loss)]
     let estimated_unique = hll.len().clamp(0.0, coord_count as f64);
@@ -767,7 +767,7 @@ mod tests {
 
         let lengths = encode_root_length_stream(&types, &offsets, Polygon);
         // Polygon == buffer_id, so no length encoded
-        assert!(lengths.is_empty());
+        assert_eq!(lengths, [] as [u32; 0]);
 
         // MultiPolygon needs length encoded
         let types = vec![GeometryType::MultiPolygon];

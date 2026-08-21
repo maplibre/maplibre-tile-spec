@@ -14,6 +14,8 @@ use crate::encoder::{
 use crate::test_helpers::{assert_empty, dec, parser};
 use crate::utils::BinarySerializer as _;
 
+use crate::decoder::stream::header01;
+
 fn roundtrip_stream<'a>(buffer: &'a mut Vec<u8>, stream: &EncodedStream) -> RawStream<'a> {
     buffer.clear();
     buffer.write_stream(stream).unwrap();

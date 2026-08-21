@@ -242,7 +242,7 @@ impl<'a> RawGeometry<'a> {
 
         let (input, meta) = header01::parse_stream(input, parser)?;
         // Safety: stream_count is validated != 0
-        let (input, items) = header01::parse_streams(input, stream_count - 1, parser)?;
+        let (input, items) = header01::parse_multiple_streams(input, stream_count - 1, parser)?;
 
         Ok((input, Self { meta, items }))
     }

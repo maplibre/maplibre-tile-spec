@@ -465,7 +465,7 @@ fn parse_geometry_column<'a>(
     // metadata
     let (input, meta) = header01::parse_stream(input, parser)?;
     // geometry items
-    let (input, items) = header01::parse_streams(input, stream_count_capa - 1, parser)?;
+    let (input, items) = header01::parse_multiple_streams(input, stream_count_capa - 1, parser)?;
     geometry.set_once(Raw(RawGeometry { meta, items }))?;
     Ok(input)
 }
