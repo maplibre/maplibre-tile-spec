@@ -81,7 +81,7 @@ pub fn decode_to_json(bytes: &[u8]) -> FeatureCollection {
 }
 
 impl SynthWriter {
-    pub fn new(args: Args) -> Self {
+    pub fn new(args: &Args) -> Self {
         let root = args.synthetics.canonicalize().unwrap_or_else(|e| {
             panic!(
                 "synthetics dir not found: {}\n{e}",
@@ -89,7 +89,9 @@ impl SynthWriter {
             )
         });
         let ref_dirs = [root.join("0x01"), root.join("0x02")];
-        ref_dirs.iter().for_each(|d| assert!(d.is_dir()));
+        for d in &ref_dirs {
+            assert!(d.is_dir());
+        }
         let out_dirs = [root.join("0x01-rust"), root.join("0x02-rust")];
 
         println!(
@@ -107,7 +109,7 @@ impl SynthWriter {
                 .collect::<Vec<_>>()
         );
         for d in &out_dirs {
-            fs::create_dir_all(&d).unwrap_or_else(|e| panic!("cannot create {}: {e}", d.display()));
+            fs::create_dir_all(d).unwrap_or_else(|e| panic!("cannot create {}: {e}", d.display()));
         }
 
         Self {
@@ -127,7 +129,7 @@ impl SynthWriter {
     }
 
     /// Encode and write (or verify) `layer`, recording the outcome in this writer's statistics.
-    pub fn write(&mut self, layer: Layer, name: impl AsRef<str>) {
+    pub fn write(&mut self, layer: &Layer, name: impl AsRef<str>) {
         let name = name.as_ref();
         let res = self.write_int(layer, name);
         match res {
@@ -143,7 +145,8 @@ impl SynthWriter {
     ///
     /// Returns `Ok(true)` for a rust-only file, `Ok(false)` for a shared file,
     /// or `Err` on any failure.
-    fn write_int(&mut self, layer: Layer, mut name: &str) -> SynthResult<()> {
+    #[expect(clippy::panic_in_result_fn)]
+    fn write_int(&mut self, layer: &Layer, mut name: &str) -> SynthResult<()> {
         let mut is_rust_specific = false;
         if let Some(base) = name.strip_suffix("-rust") {
             is_rust_specific = true;
@@ -224,7 +227,7 @@ impl SynthWriter {
                 if self.verbose {
                     println!("ok  {name}");
                 }
-            };
+            }
         }
 
         Ok(())

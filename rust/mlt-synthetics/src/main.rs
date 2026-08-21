@@ -99,7 +99,7 @@ static MIX_TYPES: LazyLock<[(&'static str, Geometry<i32>); 7]> = LazyLock::new(|
 });
 
 fn main() {
-    let mut writer = SynthWriter::new(Args::parse());
+    let mut writer = SynthWriter::new(&Args::parse());
 
     generate_geometry(&mut writer);
     generate_mixed(&mut writer);

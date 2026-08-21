@@ -342,7 +342,7 @@ impl Layer {
     /// output dir (`-rust`-suffixed files). Delegates to [`SynthWriter::write`].
     ///
     /// One call produces exactly one fixture name, for every wire version this layer wants.
-    pub fn write(self, w: &mut SynthWriter, name: impl AsRef<str>) {
+    pub fn write(&self, w: &mut SynthWriter, name: impl AsRef<str>) {
         w.write(self, name);
     }
 

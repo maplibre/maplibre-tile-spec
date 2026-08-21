@@ -17,7 +17,6 @@ use crate::encoder::stream::codecs::{LogicalCodecs, PhysicalCodecs};
 use crate::encoder::stream::logical::apply_rle;
 use crate::encoder::stream::physical::PhysicalEncoder;
 use crate::encoder::writer::AltSession;
-use crate::encoder::{Encoder, WireVersion};
 
 /// Write one stream (header + payload) to `enc`, using the stream-header codec [`EncoderConfig::wire_version`](crate::encoder::EncoderConfig::wire_version).
 #[inline]
