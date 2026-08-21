@@ -1,11 +1,10 @@
 use bitvec::vec::BitVec;
 
 use crate::decoder::{Morton, PropKind, TileLayer};
-use crate::encoder::model::{CurveParams, StagedLayer};
+use crate::encoder::model::{CurveParams, StagedLayer, WireVersion};
 use crate::encoder::property::encode::write_properties;
 use crate::encoder::{
-    Codecs, Encoder, EncoderConfig, SortStrategy, StagedId, WireVersion,
-    spatial_sort_likely_to_help,
+    Codecs, Encoder, EncoderConfig, SortStrategy, StagedId, spatial_sort_likely_to_help,
 };
 use crate::{MltError, MltResult, PropValue};
 
