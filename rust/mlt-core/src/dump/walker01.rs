@@ -1,188 +1,29 @@
-//! Annotating walker for tag `0x01` (v1) tiles.
+//! Annotating walker for the tag `0x01` (v1) layer body.
 //!
 //! Mirrors the wire layout of [`crate::decoder`], but records an annotated
-//! [`Region`] per field instead of building decoded structures.
+//! [`Region`](super::model::Region) per field instead of building decoded
+//! structures.
 //! Advancement is delegated to the real parser's primitives and to the
-//! authoritative `StreamMeta::from_bytes` / `ColumnType::from_bytes`, so offsets
+//! authoritative `parse_stream_meta` / `ColumnType::from_bytes`, so offsets
 //! are exact by construction.
 //! Only per-column stream sequencing is mirrored by hand; the coverage test in
 //! `tests/dump_coverage.rs` guards it.
 
 use usize_cast::IntoUsize as _;
 
-use super::model::{BitField, BlobInfo, DecodeHint, DumpTree, Region, RegionKind};
+use super::model::{BitField, BlobInfo, DecodeHint};
+use super::walker::Walker;
 use crate::codecs::varint::parse_varint;
+use crate::decoder::stream::header01::parse_stream_meta;
 use crate::decoder::{Column, ColumnType, DictionaryType, StreamType};
-use crate::utils::{parse_string, parse_u8, take};
+use crate::utils::{parse_string, take};
 use crate::wire::{LogicalEncoding, LogicalTechnique, PhysicalEncoding, StreamMeta};
-use crate::{MltError, MltRefResult, MltResult, Parser};
-
-/// Walk a whole tile buffer, producing an annotated [`DumpTree`].
-///
-/// The returned tree references offsets into `buf`; keep `buf` alive to render it.
-pub fn annotate_tile(buf: &[u8]) -> MltResult<DumpTree> {
-    let mut w = Walker {
-        buf,
-        out: Vec::new(),
-        depth: 0,
-        parser: Parser::default(),
-    };
-    w.walk_tile()?;
-    Ok(DumpTree {
-        buf_len: buf.len(),
-        regions: w.out,
-    })
-}
-
-struct Walker<'a> {
-    buf: &'a [u8],
-    out: Vec<Region>,
-    depth: usize,
-    /// Throwaway budget for the authoritative `StreamMeta::from_bytes` calls.
-    parser: Parser,
-}
+use crate::{MltError, MltResult};
 
 impl<'a> Walker<'a> {
-    /// Absolute offset of a tail slice against the base buffer.
-    fn off(&self, s: &'a [u8]) -> usize {
-        (s.as_ptr() as usize) - (self.buf.as_ptr() as usize)
-    }
-
-    /// Open a container region spanning children; returns its index for [`Walker::close`].
-    fn open(&mut self, at: &'a [u8], label: String) -> usize {
-        let idx = self.out.len();
-        self.out.push(Region {
-            offset: self.off(at),
-            len: 0,
-            depth: self.depth,
-            label,
-            value: None,
-            bits: Vec::new(),
-            kind: RegionKind::Meta,
-            container: true,
-            blob: None,
-        });
-        self.depth += 1;
-        idx
-    }
-
-    /// Close the container opened at `idx`, setting its length up to `after`.
-    fn close(&mut self, idx: usize, after: &'a [u8]) {
-        self.depth -= 1;
-        let start = self.out[idx].offset;
-        self.out[idx].len = self.off(after) - start;
-    }
-
-    fn leaf(&mut self, before: &'a [u8], after: &'a [u8], label: String, value: Option<String>) {
-        self.out.push(Region {
-            offset: self.off(before),
-            len: before.len() - after.len(),
-            depth: self.depth,
-            label,
-            value,
-            bits: Vec::new(),
-            kind: RegionKind::Meta,
-            container: false,
-            blob: None,
-        });
-    }
-
-    /// Record a leaf metadata region carrying a bit-level breakdown.
-    fn leaf_bits(
-        &mut self,
-        before: &'a [u8],
-        after: &'a [u8],
-        label: String,
-        value: Option<String>,
-        bits: Vec<BitField>,
-    ) {
-        self.out.push(Region {
-            offset: self.off(before),
-            len: before.len() - after.len(),
-            depth: self.depth,
-            label,
-            value,
-            bits,
-            kind: RegionKind::Meta,
-            container: false,
-            blob: None,
-        });
-    }
-
-    /// Parse one field with a real primitive, record a leaf region, return the tail.
-    fn field<T>(
-        &mut self,
-        before: &'a [u8],
-        label: &str,
-        parse: impl FnOnce(&'a [u8]) -> MltRefResult<'a, T>,
-        render: impl FnOnce(&T) -> Option<String>,
-    ) -> MltResult<(&'a [u8], T)> {
-        let (after, val) = parse(before)?;
-        let value = render(&val);
-        self.leaf(before, after, label.to_string(), value);
-        Ok((after, val))
-    }
-
-    /// Record a raw byte range as a data blob (no decodable metadata).
-    fn raw_blob(&mut self, before: &'a [u8], after: &'a [u8], label: String) {
-        self.out.push(Region {
-            offset: self.off(before),
-            len: before.len() - after.len(),
-            depth: self.depth,
-            label,
-            value: None,
-            bits: Vec::new(),
-            kind: RegionKind::DataBlob,
-            container: false,
-            blob: None,
-        });
-    }
-
-    fn walk_tile(&mut self) -> MltResult<()> {
-        let mut input = self.buf;
-        let mut idx = 0;
-        while !input.is_empty() {
-            input = self.walk_layer(input, idx)?;
-            idx += 1;
-        }
-        Ok(())
-    }
-
-    /// Mirror [`crate::decoder::Layer::from_bytes`]: `[varint size][u8 tag][value]`.
-    fn walk_layer(&mut self, input: &'a [u8], idx: usize) -> MltResult<&'a [u8]> {
-        let start = input;
-        let ci = self.open(start, format!("layer[{idx}]"));
-
-        let (input, size) = self.field(
-            input,
-            "size",
-            |i| parse_varint::<u32>(i),
-            |v| Some(format!("{v} (varint) - tag + body")),
-        )?;
-        let (input, tag) = self.field(input, "tag", parse_u8, |t| {
-            Some(match t {
-                1 => "0x01 -> Tag01".to_string(),
-                other => format!("0x{other:02X} -> Unknown"),
-            })
-        })?;
-
-        let body_len = size.checked_sub(1).ok_or(MltError::ZeroLayerSize)?;
-        let (rest, body) = take(input, body_len)?;
-
-        if tag == 1 {
-            self.walk_layer01(body)?;
-        } else {
-            let end = &body[body.len()..];
-            self.raw_blob(body, end, format!("value (Unknown tag 0x{tag:02X})"));
-        }
-
-        self.close(ci, rest);
-        Ok(rest)
-    }
-
     /// Mirror [`crate::decoder::Layer01::from_bytes`].
     /// `body` must be consumed fully.
-    fn walk_layer01(&mut self, input: &'a [u8]) -> MltResult<()> {
+    pub(super) fn walk_layer01(&mut self, input: &'a [u8]) -> MltResult<()> {
         let (input, _name) = self.field(input, "name", parse_string, |s| Some(format!("{s:?}")))?;
         let (input, _extent) = self.field(
             input,
@@ -209,8 +50,7 @@ impl<'a> Walker<'a> {
 
         // A well-formed layer consumes its whole body; record any trailing bytes.
         if !input.is_empty() {
-            let end = &input[input.len()..];
-            self.raw_blob(input, end, "trailing bytes".to_string());
+            self.raw_blob(input, input.len(), "trailing bytes".to_string());
         }
         Ok(())
     }
@@ -491,7 +331,7 @@ impl<'a> Walker<'a> {
     }
 
     /// Walk one stream: the annotated header (via the authoritative
-    /// [`StreamMeta::from_bytes`]) followed by the payload blob.
+    /// [`parse_stream_meta`]) followed by the payload blob.
     fn walk_stream(
         &mut self,
         input: &'a [u8],
@@ -499,38 +339,32 @@ impl<'a> Walker<'a> {
         label: &str,
         hint: impl FnOnce(StreamType) -> DecodeHint,
     ) -> MltResult<(&'a [u8], StreamMeta)> {
-        let si = self.open(input, label.to_string());
+        let si = self.open(input, label);
 
         // Authoritative parse - drives advancement and gives us `meta`/`byte_length`.
-        let (after_hdr, (meta, byte_length)) =
-            StreamMeta::from_bytes(input, is_bool, &mut self.parser)?;
+        let (after_hdr, (meta, byte_length)) = parse_stream_meta(input, is_bool, &mut self.parser)?;
 
         // Re-walk the consumed header bytes to annotate each field.
-        let hi = self.open(input, "header".to_string());
+        let hi = self.open(input, "header");
         let mut c = input;
 
-        let (c1, st_byte) = parse_u8(c)?;
-        self.leaf_bits(
+        (c, _) = self.byte_field(
             c,
-            c1,
-            "stream_type".to_string(),
-            Some(format!("0x{st_byte:02X} {:?}", meta.stream_type)),
-            stream_type_bits(meta.stream_type, st_byte),
-        );
-        c = c1;
-
-        let (c2, enc_byte) = parse_u8(c)?;
-        self.leaf_bits(
+            "stream_type",
+            |b| format!("0x{b:02X} {:?}", meta.stream_type),
+            |b| stream_type_bits(meta.stream_type, b),
+        )?;
+        (c, _) = self.byte_field(
             c,
-            c2,
-            "encoding".to_string(),
-            Some(format!(
-                "0x{enc_byte:02X} logical={:?} physical={:?}",
-                meta.encoding.logical, meta.encoding.physical
-            )),
-            encoding_bits(enc_byte),
-        );
-        c = c2;
+            "encoding",
+            |b| {
+                format!(
+                    "0x{b:02X} logical={:?} physical={:?}",
+                    meta.encoding.logical, meta.encoding.physical
+                )
+            },
+            encoding_bits,
+        )?;
 
         (c, _) = self.field(
             c,
@@ -585,21 +419,16 @@ impl<'a> Walker<'a> {
             return Err(MltError::NotImplemented("stream header re-walk desync"));
         }
 
-        let (rest, _payload) = take(after_hdr, byte_length)?;
-        self.out.push(Region {
-            offset: self.off(after_hdr),
-            len: byte_length.into_usize(),
-            depth: self.depth,
-            label: "data".to_string(),
-            value: None,
-            bits: Vec::new(),
-            kind: RegionKind::DataBlob,
-            container: false,
-            blob: Some(BlobInfo {
+        let (rest, payload) = take(after_hdr, byte_length)?;
+        self.stream_blob(
+            payload,
+            payload.len(),
+            "data",
+            BlobInfo {
                 meta,
                 hint: hint(meta.stream_type),
-            }),
-        });
+            },
+        );
 
         self.close(si, rest);
         Ok((rest, meta))

@@ -4,6 +4,8 @@ use std::io::Write;
 use integer_encoding::VarIntWriter;
 
 #[cfg(any(test, feature = "__private"))]
+use crate::decoder::stream::header01;
+#[cfg(any(test, feature = "__private"))]
 use crate::encoder::EncodedStream;
 use crate::{MltError, MltResult};
 
@@ -17,20 +19,20 @@ pub trait BinarySerializer: Write + VarIntWriter + Sized {
         self.write_all(value.as_bytes())
     }
 
-    /// Reverses `RawStream::from_bytes` - writes a stream header then the stream data bytes.
+    /// Reverses `header01::parse_stream` - writes a stream header then the stream data bytes.
     #[cfg(any(test, feature = "__private"))]
     fn write_stream(&mut self, stream: &EncodedStream) -> io::Result<()> {
         let byte_length = u32::try_from(stream.data.len()).map_err(MltError::from)?;
-        stream.meta.write_to(self, false, byte_length)?;
+        header01::write_stream_meta(&stream.meta, self, false, byte_length)?;
         stream.write_to(self)?;
         Ok(())
     }
 
-    /// Reverses `RawStream::parse_bool` - writes a boolean stream header then the stream data bytes.
+    /// Reverses `header01::parse_bool_stream` - writes a boolean stream header then the stream data bytes.
     #[cfg(test)]
     fn write_boolean_stream(&mut self, stream: &EncodedStream) -> io::Result<()> {
         let byte_length = u32::try_from(stream.data.len()).map_err(MltError::from)?;
-        stream.meta.write_to(self, true, byte_length)?;
+        header01::write_stream_meta(&stream.meta, self, true, byte_length)?;
         stream.write_to(self)?;
         Ok(())
     }

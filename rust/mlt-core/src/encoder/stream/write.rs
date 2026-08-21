@@ -7,6 +7,7 @@ use zigzag::ZigZag;
 use crate::MltError::UnsupportedPhysicalEncoding;
 use crate::MltResult;
 use crate::codecs::zigzag::{encode_zigzag, encode_zigzag_delta};
+use crate::decoder::stream::header01;
 use crate::decoder::{LogicalEncoding, PhysicalEncoding, StreamMeta, StreamType};
 use crate::encoder::Encoder;
 use crate::encoder::model::StreamCtx;
@@ -17,14 +18,14 @@ use crate::encoder::writer::AltSession;
 
 #[inline]
 pub(crate) fn write_stream_payload(
-    data: &mut Vec<u8>,
+    enc: &mut Encoder,
     meta: StreamMeta,
     is_boolean: bool,
     payload: &[u8],
 ) -> MltResult<()> {
     let byte_length = u32::try_from(payload.len())?;
-    meta.write_to(data, is_boolean, byte_length)?;
-    data.extend_from_slice(payload);
+    header01::write_stream_meta(&meta, enc.data_mut(), is_boolean, byte_length)?;
+    enc.data_mut().extend_from_slice(payload);
     Ok(())
 }
 
@@ -92,7 +93,7 @@ impl PhysicalCodecs {
             PhysicalEncoder::FastPFOR => (PE::FastPFor256, P::fastpfor(self, values)?),
         };
         let meta = StreamMeta::new2(ctx.stream_type, le, pe, values.len())?;
-        write_stream_payload(enc.data_mut(), meta, false, vals)
+        write_stream_payload(enc, meta, false, vals)
     }
 
     pub(crate) fn write_alternatives<P: PhysicalIntStreamKind + ?Sized>(
@@ -110,12 +111,12 @@ impl PhysicalCodecs {
         if P::FASTPFOR_ALLOWED && allow_fastpfor {
             alt.with(|enc| {
                 let meta = StreamMeta::new2(stream_type, logical, PE::FastPFor256, values.len())?;
-                write_stream_payload(enc.data_mut(), meta, false, P::fastpfor(self, values)?)
+                write_stream_payload(enc, meta, false, P::fastpfor(self, values)?)
             })?;
         }
         alt.with(|enc| {
             let meta = StreamMeta::new2(stream_type, logical, PE::VarInt, values.len())?;
-            write_stream_payload(enc.data_mut(), meta, false, self.varint(values))
+            write_stream_payload(enc, meta, false, self.varint(values))
         })
     }
 }
