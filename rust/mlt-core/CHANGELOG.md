@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.6](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.5...rust-mlt-core-v0.12.6) - 2026-08-21
+
+### Other
+
+- *(rust)* refactor the header related code to be able to accept v2 ([#1569](https://github.com/maplibre/maplibre-tile-spec/pull/1569))
+- *(rust)* fixes new issues uncovered by clippy with bumped rust-version ([#1568](https://github.com/maplibre/maplibre-tile-spec/pull/1568))
+- add an anti-vibing pre-commit to clean up weird unicode and tabs ([#1566](https://github.com/maplibre/maplibre-tile-spec/pull/1566))
+
 ## [0.12.5](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.4...rust-mlt-core-v0.12.5) - 2026-08-19
 
 ### Added
