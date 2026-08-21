@@ -29,7 +29,7 @@
     "url": "https://github.com/maplibre/maplibre-tile-spec/issues"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.7",
+    "@biomejs/biome": "^2.5.9",
     "@eslint/js": "^10.0.1",
     "@mapbox/vector-tile": "^3.0.0",
     "@maplibre/maplibre-gl-style-spec": "^26.2.1",
@@ -42,7 +42,7 @@
     "earcut": "^3.2.3",
     "eslint": "^10.8.1",
     "pbf": "^5.1.2",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "typescript-eslint": "^8.67.0",
     "vitest": "^4.0.1"
   },
