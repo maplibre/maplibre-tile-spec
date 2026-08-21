@@ -71,7 +71,7 @@ impl<'a> Walker<'a> {
     /// Rename the container opened at `idx`.
     #[cfg(feature = "unstable-v2")]
     pub(super) fn relabel(&mut self, idx: usize, label: impl Into<String>) {
-        self.out[idx].label = label;
+        self.out[idx].label = label.into();
     }
 
     pub(super) fn leaf(
