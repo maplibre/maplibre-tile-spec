@@ -19,6 +19,8 @@ impl<'a> RawPresence<'a> {
         match self {
             Self::AllPresent => Ok(None),
             Self::Stream(s) => Ok(Some(s.decode_bitvec(dec)?)),
+            #[cfg(feature = "unstable-v2")]
+            Self::Bitfield(bits) => Ok(Some(Cow::Borrowed(bits))),
         }
     }
 
@@ -27,6 +29,11 @@ impl<'a> RawPresence<'a> {
         match self {
             Self::AllPresent => Ok(None),
             Self::Stream(s) => Ok(Some(s.decode_bools(dec)?)),
+            #[cfg(feature = "unstable-v2")]
+            Self::Bitfield(bits) => {
+                dec.consume_items::<bool>(bits.len())?;
+                Ok(Some(bits.iter().by_vals().collect()))
+            }
         }
     }
 }

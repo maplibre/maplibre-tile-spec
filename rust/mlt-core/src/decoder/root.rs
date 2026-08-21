@@ -640,7 +640,7 @@ fn parse_columns_meta<'a>(
 }
 
 impl<'a> RawScalar<'a> {
-    fn new(name: &'a str, presence: RawPresence<'a>, data: RawStream<'a>) -> Self {
+    pub(crate) fn new(name: &'a str, presence: RawPresence<'a>, data: RawStream<'a>) -> Self {
         Self {
             name,
             presence,

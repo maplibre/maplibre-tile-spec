@@ -1,4 +1,6 @@
 mod analyze;
+#[cfg(feature = "unstable-v2")]
+mod encode02;
 #[cfg(all(not(test), feature = "arbitrary"))]
 mod fuzzing;
 mod geometry;

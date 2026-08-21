@@ -55,7 +55,7 @@ impl LogicalCodecs {
         let num_values = u32::try_from(values.len())?;
         let data = encode_bools_to_bytes(values, &mut self.u8_tmp);
         let encoded = encode_byte_rle(data, &mut self.u8_tmp2);
-        let meta = LogicalEncoding::Rle(RleMeta {
+        let meta = LogicalEncoding::Rle(RleMeta::Split {
             runs: num_values.div_ceil(8),
             num_rle_values: u32::try_from(encoded.len())?,
         });
@@ -118,11 +118,12 @@ impl Codecs {
 
         // FIXME: does StreamMeta encode values.len() or vals1.len()?
         if let Some(int_enc) = enc.override_int_enc(ctx) {
+            let rle_layout = enc.config().wire_version().rle_layout();
             let (le, vals) = match int_enc.logical {
                 LogicalEncoder::None => (LE::None, self.logical.none(values)),
                 LogicalEncoder::Delta => (LE::Delta, self.logical.delta(values)),
-                LogicalEncoder::Rle => self.logical.rle(values)?,
-                LogicalEncoder::DeltaRle => self.logical.delta_rle(values)?,
+                LogicalEncoder::Rle => self.logical.rle(values, rle_layout)?,
+                LogicalEncoder::DeltaRle => self.logical.delta_rle(values, rle_layout)?,
             };
             let phys = int_enc.physical;
             return self
@@ -156,6 +157,7 @@ impl Codecs {
         }
 
         let allow_fastpfor = enc.config().allow_fastpfor();
+        let rle_layout = enc.config().wire_version().rle_layout();
         let mut alt = enc.try_alternatives();
 
         let sample = logical.none(DataProfile::take_sample(values));
@@ -164,7 +166,7 @@ impl Codecs {
         if profile.delta_is_beneficial()
             && (profile.rle_is_viable() || profile.delta_rle_is_viable())
         {
-            let (logical_enc, values) = logical.delta_rle(values)?;
+            let (logical_enc, values) = logical.delta_rle(values, rle_layout)?;
             physical.write_alternatives::<Output<T>>(
                 &mut alt,
                 values,
@@ -184,7 +186,7 @@ impl Codecs {
             )?;
         }
         if profile.rle_is_viable() {
-            let (logical_enc, values) = logical.rle(values)?;
+            let (logical_enc, values) = logical.rle(values, rle_layout)?;
             physical.write_alternatives::<Output<T>>(
                 &mut alt,
                 values,

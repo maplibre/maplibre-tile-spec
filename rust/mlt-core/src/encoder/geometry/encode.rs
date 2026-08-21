@@ -136,7 +136,7 @@ fn extend_offsets(lengths: &mut Vec<u32>, offsets: &[u32]) -> usize {
 ///
 /// If dense `(len == geom_types.len() + 1)`, use geometry index directly.
 /// If sparse, use sequential indexing for matching geometry types.
-fn encode_root_length_stream(
+pub(super) fn encode_root_length_stream(
     geom_types: &[GeometryType],
     geom_offsets: &[u32],
     buffer_id: GeometryType,
@@ -161,7 +161,7 @@ fn encode_root_length_stream(
 }
 
 /// Convert part offsets to length stream for level 1 encoding.
-fn encode_level1_length_stream(
+pub(super) fn encode_level1_length_stream(
     geom_types: &[GeometryType],
     geom_offsets: &[u32],
     part_offsets: &[u32],
@@ -189,7 +189,7 @@ fn encode_level1_length_stream(
 /// Using the geometry index directly as the ring-slot index avoids the
 /// running-counter misalignment that `encode_level1_length_stream` would produce
 /// when non-length types (Points) occupy slots that a sparse counter skips.
-fn encode_ring_lengths_for_mixed(
+pub(super) fn encode_ring_lengths_for_mixed(
     geom_types: &[GeometryType],
     part_offsets: &[u32],
     ring_offsets: &[u32],
@@ -211,7 +211,7 @@ fn encode_ring_lengths_for_mixed(
 ///
 /// The `geom_offsets` array is expected to be an N+1 element array for N geometries.
 /// The `part_offsets` array tracks ring counts cumulatively.
-fn encode_level2_length_stream(
+pub(super) fn encode_level2_length_stream(
     geom_types: &[GeometryType],
     geom_offsets: &[u32],
     part_offsets: &[u32],
@@ -250,7 +250,7 @@ fn encode_level2_length_stream(
 /// types are present (they always create `ring_offsets`).  Only LineString/MultiLineString
 /// contribute vertex-count lengths here; Point/MultiPoint use an implicit count of 1 in the
 /// decoder and produce no entry in this stream.
-fn encode_level1_without_ring_buffer_length_stream(
+pub(super) fn encode_level1_without_ring_buffer_length_stream(
     geom_types: &[GeometryType],
     geom_offsets: &[u32],
     part_offsets: &[u32],
@@ -270,7 +270,10 @@ fn encode_level1_without_ring_buffer_length_stream(
 }
 
 /// Normalize `geom_offsets` for mixed geometry types.
-fn normalize_geometry_offsets(vector_types: &[GeometryType], geom_offsets: &[u32]) -> Vec<u32> {
+pub(super) fn normalize_geometry_offsets(
+    vector_types: &[GeometryType],
+    geom_offsets: &[u32],
+) -> Vec<u32> {
     let mut normalized = Vec::with_capacity(vector_types.len() + 1);
     let mut offset = 0_u32;
     let mut sparse_idx = 0_usize; // Index into sparse geom_offsets
@@ -307,7 +310,7 @@ fn normalize_geometry_offsets(vector_types: &[GeometryType], geom_offsets: &[u32
 /// - `Point`: no contribution - slot range is empty (`ring_idx` unchanged).
 /// - `LineString`: contributes 1 slot (vertex count) - slot range is 1.
 /// - `Polygon`: contributes `ring_count` slots - slot range equals its ring count.
-fn normalize_part_offsets_for_rings(
+pub(super) fn normalize_part_offsets_for_rings(
     vector_types: &[GeometryType],
     part_offsets: &[u32],
     ring_offsets: &[u32],
@@ -388,7 +391,7 @@ fn get_hilbert_params(enc: &Encoder) -> CurveParams {
 
 /// Encode the plain Vec2 vertex layout: componentwise-delta over the raw
 /// `[x0, y0, x1, y1, …]` slice.
-fn encode_vec2_vertex_stream(
+pub(super) fn encode_vec2_vertex_stream(
     vertices: &[i32],
     enc: &mut Encoder,
     codecs: &mut Codecs,
