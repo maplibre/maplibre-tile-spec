@@ -6,9 +6,10 @@ mod geometry;
 mod id;
 mod iterators;
 mod layer;
+mod limits;
 mod model;
 mod property;
-mod root;
+mod root01;
 pub(crate) mod stream;
 mod tile;
 
@@ -26,6 +27,7 @@ pub use iterators::{
     ColNames, ColumnRef, FeatureRef, Layer01FeatureIter, LendingIterator, PropName, PropNamesIter,
     PropValueRef,
 };
+pub use limits::{Decoder, Parser};
 pub(crate) use model::Column;
 pub use model::{
     ColumnType, Extent, Layer, Layer01, ParsedLayer, ParsedLayer01, PropKind, PropValue,
@@ -38,7 +40,6 @@ pub(crate) use property::{
     Property, RawFsstData, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
     RawSharedDictEncoding, RawSharedDictItem, RawStrings, RawStringsEncoding,
 };
-pub use root::{Decoder, Parser};
 pub(crate) use stream::model::{
     DictionaryType, IntEncoding, LengthType, LogicalEncoding, LogicalTechnique, LogicalValue,
     Morton, OffsetType, PhysicalEncoding, RawStream, RleMeta, StreamMeta, StreamType,

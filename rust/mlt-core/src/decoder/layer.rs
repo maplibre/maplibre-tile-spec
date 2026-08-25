@@ -1,7 +1,9 @@
 use crate::codecs::varint::parse_varint;
-use crate::decoder::{Layer01, Unknown};
+use crate::decoder::{Layer01, ParsedLayer01, Unknown};
 use crate::utils::{parse_u8, take};
-use crate::{DecodeState, Decoder, Layer, MltError, MltRefResult, MltResult, ParsedLayer, Parser};
+use crate::{
+    DecodeState, Decoder, Layer, Lazy, MltError, MltRefResult, MltResult, ParsedLayer, Parser,
+};
 
 impl<'a, S: DecodeState> Layer<'a, S> {
     /// Returns the inner `Layer01` if this is a Tag01 layer, or `None` otherwise.
@@ -59,5 +61,27 @@ impl<'a> Layer<'a> {
             Layer::Tag02(_) => Err(MltError::NotImplemented("mltv2 decoding")),
             Layer::Unknown(u) => Ok(Layer::Unknown(u)),
         }
+    }
+}
+
+impl<'a> Layer01<'a, Lazy> {
+    /// Decode all columns and transition to [`Layer01<Parsed>`].
+    ///
+    /// Consumes `self` (a `Layer01<Lazy>`) and returns a `Layer01<Parsed>` where every
+    /// column field holds its parsed value directly, enabling infallible readonly access.
+    pub fn decode_all(self, dec: &mut Decoder) -> MltResult<ParsedLayer01<'a>> {
+        Ok(Layer01 {
+            name: self.name,
+            extent: self.extent,
+            id: self.id.map(|id| id.into_parsed(dec)).transpose()?,
+            geometry: self.geometry.into_parsed(dec)?,
+            properties: self
+                .properties
+                .into_iter()
+                .map(|p| p.into_parsed(dec))
+                .collect::<MltResult<Vec<_>>>()?,
+            #[cfg(fuzzing)]
+            layer_order: self.layer_order,
+        })
     }
 }
