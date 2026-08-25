@@ -31,6 +31,7 @@ import org.maplibre.mlt.converter.ColumnMappingConfig;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.converter.FeatureTableOptimizations;
 import org.maplibre.mlt.converter.MltConverter;
+import org.maplibre.mlt.converter.encodings.MltTypeMap;
 import org.maplibre.mlt.data.Feature;
 import org.maplibre.mlt.data.Layer;
 import org.maplibre.mlt.data.MLTFeature;
@@ -43,6 +44,13 @@ import org.maplibre.mlt.json.Json;
 class SyntheticMltUtil {
 
   static final Path SYNTHETICS_DIR = Paths.get("../test/synthetic");
+
+  // Output directory holding the fixtures Java generates for the given wire tag.
+  // Tag 0x02 is suffixed because 0x02 holds the Rust v2 fixtures.
+  static Path syntheticsDir(int tag) {
+    final var name = String.format("0x%02x", tag);
+    return SYNTHETICS_DIR.resolve(tag == MltTypeMap.Tag0x02.TAG ? name + "-java" : name);
+  }
 
   static final String DEFAULT_LAYER_NAME = "layer1";
 
@@ -327,8 +335,7 @@ class SyntheticMltUtil {
                 + "\nDecoded:\n"
                 + decodedJSON);
       }
-      final var baseDir =
-          SYNTHETICS_DIR.resolve(String.format("0x%02x", mltVersion.get().intValue()));
+      final var baseDir = syntheticsDir(mltVersion.get().intValue());
       Files.write(baseDir.resolve(fileName + ".mlt"), mlt, StandardOpenOption.CREATE_NEW);
       Files.writeString(
           baseDir.resolve(fileName + ".json"), decodedJSON, StandardOpenOption.CREATE_NEW);
