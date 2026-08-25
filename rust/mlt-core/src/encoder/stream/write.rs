@@ -9,13 +9,14 @@ use crate::MltResult;
 use crate::codecs::zigzag::{encode_zigzag, encode_zigzag_delta};
 use crate::decoder::stream::header01;
 use crate::decoder::{LogicalEncoding, PhysicalEncoding, StreamMeta, StreamType};
-use crate::encoder::Encoder;
 use crate::encoder::model::StreamCtx;
 use crate::encoder::stream::codecs::{LogicalCodecs, PhysicalCodecs};
 use crate::encoder::stream::logical::apply_rle;
 use crate::encoder::stream::physical::PhysicalEncoder;
 use crate::encoder::writer::AltSession;
+use crate::encoder::{Encoder, WireVersion};
 
+/// Write one stream (header + payload) to `enc`, using the stream-header codec [`EncoderConfig::wire_version`](crate::encoder::EncoderConfig::wire_version).
 #[inline]
 pub(crate) fn write_stream_payload(
     enc: &mut Encoder,
@@ -24,7 +25,17 @@ pub(crate) fn write_stream_payload(
     payload: &[u8],
 ) -> MltResult<()> {
     let byte_length = u32::try_from(payload.len())?;
-    header01::write_stream_meta(&meta, enc.data_mut(), is_boolean, byte_length)?;
+    match enc.config().wire_version() {
+        WireVersion::V01 => {
+            header01::write_stream_meta(&meta, enc.data_mut(), is_boolean, byte_length)?;
+        }
+        #[cfg(feature = "unstable-v2")]
+        WireVersion::V02 => {
+            return Err(crate::MltError::NotImplemented(
+                "header02::write_stream_meta",
+            ));
+        }
+    }
     enc.data_mut().extend_from_slice(payload);
     Ok(())
 }

@@ -1,7 +1,7 @@
 use bitvec::vec::BitVec;
 
 use crate::decoder::{Morton, PropKind, TileLayer};
-use crate::encoder::model::{CurveParams, StagedLayer};
+use crate::encoder::model::{CurveParams, StagedLayer, WireVersion};
 use crate::encoder::property::encode::write_properties;
 use crate::encoder::{
     Codecs, Encoder, EncoderConfig, SortStrategy, StagedId, spatial_sort_likely_to_help,
@@ -20,24 +20,29 @@ impl StagedLayer {
         if self.name.is_empty() {
             return Err(MltError::MissingLayerName);
         }
-        let column_count = usize::from(!matches!(self.id, StagedId::None))
-            + 1 // geometry
-            + self.properties.len();
+        match enc.config().wire_version() {
+            WireVersion::V01 => {
+                let column_count = usize::from(!matches!(self.id, StagedId::None))
+                    + 1 // geometry
+                    + self.properties.len();
 
-        let Self {
-            name,
-            extent,
-            id,
-            geometry,
-            properties,
-        } = self;
+                let Self {
+                    name,
+                    extent,
+                    id,
+                    geometry,
+                    properties,
+                } = self;
 
-        id.write_to(&mut enc, codecs)?;
-        geometry.write_to(&mut enc, codecs)?;
-        write_properties(&properties, &mut enc, codecs)?;
-        enc.write_header(&name, extent.get(), column_count)?;
-
-        Ok(enc)
+                id.write_to(&mut enc, codecs)?;
+                geometry.write_to(&mut enc, codecs)?;
+                write_properties(&properties, &mut enc, codecs)?;
+                enc.write_header01(&name, extent.get(), column_count)?;
+                Ok(enc)
+            }
+            #[cfg(feature = "unstable-v2")]
+            WireVersion::V02 => Err(MltError::NotImplemented("mltv2 encoding")),
+        }
     }
 }
 
