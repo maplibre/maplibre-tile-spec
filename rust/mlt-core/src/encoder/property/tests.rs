@@ -7,7 +7,7 @@ use rstest::rstest;
 use crate::encoder::SortStrategy::Unsorted;
 use crate::encoder::model::{ExplicitEncoder, StagedLayer, StrEncoding};
 use crate::encoder::optimizer::{Presence, PropertyTypedStats, SharedDictRole};
-use crate::encoder::property::encode::write_properties;
+use crate::encoder::property::encode::write_prop;
 use crate::encoder::{
     Codecs, Encoder, EncoderConfig, IntEncoder, LogicalEncoder, PhysicalEncoder, StagedId,
     StagedProperty, StagedSharedDict, stage_tile,
@@ -1176,7 +1176,9 @@ fn no_nulls_produces_encoded_output() {
     let props = vec![StagedProperty::u32("pop", vec![1, 2, 3])];
     let mut enc = Encoder::default();
     let mut codecs = Codecs::default();
-    write_properties(&props, &mut enc, &mut codecs).unwrap();
+    for prop in props {
+        write_prop(&prop, &mut enc, &mut codecs).unwrap();
+    }
     assert!(
         !enc.meta().is_empty(),
         "non-null column should write one column"
@@ -1188,7 +1190,9 @@ fn all_nulls_encodes_without_error() {
     let props = vec![StagedProperty::opt_i32("x", vec![None, None, None])];
     let mut enc = Encoder::default();
     let mut codecs = Codecs::default();
-    write_properties(&props, &mut enc, &mut codecs).unwrap();
+    for prop in props {
+        write_prop(&prop, &mut enc, &mut codecs).unwrap();
+    }
 }
 
 #[test]
@@ -1196,7 +1200,9 @@ fn sequential_u32_encodes_successfully() {
     let props = vec![StagedProperty::u32("id", (0u32..1_000).collect())];
     let mut enc = Encoder::default();
     let mut codecs = Codecs::default();
-    write_properties(&props, &mut enc, &mut codecs).unwrap();
+    for prop in props {
+        write_prop(&prop, &mut enc, &mut codecs).unwrap();
+    }
     assert_ne!(enc.meta(), [] as [u8; 0]);
 }
 
@@ -1205,7 +1211,9 @@ fn constant_u32_encodes_successfully() {
     let props = vec![StagedProperty::u32("val", vec![42u32; 500])];
     let mut enc = Encoder::default();
     let mut codecs = Codecs::default();
-    write_properties(&props, &mut enc, &mut codecs).unwrap();
+    for prop in props {
+        write_prop(&prop, &mut enc, &mut codecs).unwrap();
+    }
     assert_ne!(enc.meta(), [] as [u8; 0]);
 }
 
@@ -1369,6 +1377,8 @@ fn encode_with_explicit_encoder_works() {
     let props = vec![StagedProperty::u32("id", (1_000u32..2_000).collect())];
     let mut enc = Encoder::default();
     let mut codecs = Codecs::default();
-    write_properties(&props, &mut enc, &mut codecs).unwrap();
+    for prop in props {
+        write_prop(&prop, &mut enc, &mut codecs).unwrap();
+    }
     assert_ne!(enc.meta(), [] as [u8; 0]);
 }

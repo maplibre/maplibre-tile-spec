@@ -2,9 +2,8 @@ use bitvec::vec::BitVec;
 
 use crate::decoder::Morton;
 use crate::encoder::model::{CurveParams, StagedLayer, WireVersion};
-use crate::encoder::property::encode::write_properties;
 use crate::encoder::{
-    Codecs, Encoder, EncoderConfig, SortStrategy, StagedId, spatial_sort_likely_to_help,
+    Codecs, Encoder, EncoderConfig, SortStrategy, encode01, spatial_sort_likely_to_help,
 };
 use crate::tile::{PropKind, TileLayer};
 use crate::{MltError, MltResult, PropValue};
@@ -17,30 +16,12 @@ impl StagedLayer {
     /// trial calls this method on its own fresh `Encoder`, and only the
     /// `Encoder` with the smallest `total_len()` is kept.
     #[hotpath::measure]
-    pub fn encode_into(self, mut enc: Encoder, codecs: &mut Codecs) -> MltResult<Encoder> {
+    pub fn encode_into(self, enc: Encoder, codecs: &mut Codecs) -> MltResult<Encoder> {
         if self.name.is_empty() {
             return Err(MltError::MissingLayerName);
         }
         match enc.config().wire_version() {
-            WireVersion::V01 => {
-                let column_count = usize::from(!matches!(self.id, StagedId::None))
-                    + 1 // geometry
-                    + self.properties.len();
-
-                let Self {
-                    name,
-                    extent,
-                    id,
-                    geometry,
-                    properties,
-                } = self;
-
-                id.write_to(&mut enc, codecs)?;
-                geometry.write_to(&mut enc, codecs)?;
-                write_properties(&properties, &mut enc, codecs)?;
-                enc.write_header01(&name, extent.get(), column_count)?;
-                Ok(enc)
-            }
+            WireVersion::V01 => encode01::encode_into01(self, enc, codecs),
             #[cfg(feature = "unstable-v2")]
             WireVersion::V02 => Err(MltError::NotImplemented("mltv2 encoding")),
         }
