@@ -5,8 +5,8 @@ use geo_types::{Coord, Geometry};
 
 use crate::codecs::hilbert::{hilbert_curve_params_from_bounds, hilbert_sort_key};
 use crate::codecs::morton::morton_sort_key;
-use crate::decoder::TileLayer;
 use crate::encoder::model::CurveParams;
+use crate::tile::TileLayer;
 
 /// Controls how features inside a layer are reordered before encoding.
 ///
@@ -148,11 +148,12 @@ pub(crate) fn spatial_sort_likely_to_help(layer: &TileLayer) -> bool {
 mod tests {
     use geo_types::{Coord, Geometry as GeoGeom, Geometry, LineString, Point, Polygon};
 
-    use crate::decoder::{GeometryType, GeometryValues, RawGeometry, TileFeature, TileLayer};
+    use crate::decoder::{GeometryType, GeometryValues, RawGeometry};
     use crate::encoder::{
         Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, SortStrategy, stage_tile,
     };
     use crate::test_helpers::{assert_empty, dec, into_layer01, parser};
+    use crate::tile::{TileFeature, TileLayer};
     use crate::{Layer, LazyParsed};
 
     fn pt(x: i32, y: i32) -> Geometry<i32> {

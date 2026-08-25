@@ -3,9 +3,10 @@ use std::collections::HashSet;
 
 use derive_debug::Dbg;
 
-use crate::decoder::{DictionaryType, Extent, GeometryValues, StreamType};
+use crate::decoder::{DictionaryType, GeometryValues, StreamType};
 use crate::encoder::geometry::VertexBufferType;
 use crate::encoder::{IntEncoder, StagedId, StagedProperty};
+use crate::tile::Extent;
 use crate::{MltError, MltResult};
 
 /// Owned variant of `Unknown`.

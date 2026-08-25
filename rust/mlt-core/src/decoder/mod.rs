@@ -1,17 +1,17 @@
 mod analyze;
-mod column;
 #[cfg(all(not(test), feature = "arbitrary"))]
 pub mod fuzzing;
 mod geometry;
 mod id;
+mod into_tile;
 mod iterators;
 mod layer;
 mod limits;
 mod model;
+mod model01;
 mod property;
 mod root01;
 pub(crate) mod stream;
-mod tile;
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -28,11 +28,9 @@ pub use iterators::{
     PropValueRef,
 };
 pub use limits::{Decoder, Parser};
-pub(crate) use model::Column;
-pub use model::{
-    ColumnType, Extent, Layer, Layer01, ParsedLayer, ParsedLayer01, PropKind, PropValue,
-    PropertyKey, TileFeature, TileFeatureBuilder, TileLayer, TileLayerBuilder, Unknown,
-};
+pub use model::{Layer, Layer01, ParsedLayer, ParsedLayer01, Unknown};
+pub(crate) use model01::Column;
+pub use model01::ColumnType;
 // Re-export strings sub-module so encoder can use `crate::decoder::strings::*`
 pub(crate) use property::strings;
 pub(crate) use property::{

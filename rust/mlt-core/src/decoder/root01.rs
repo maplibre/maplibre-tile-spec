@@ -11,11 +11,12 @@ use crate::MltError::{
 use crate::codecs::varint::parse_varint;
 use crate::decoder::stream::header01;
 use crate::decoder::{
-    Column, ColumnType, DictionaryType, Extent, Geometry, Id, Layer01, RawFsstData, RawGeometry,
-    RawId, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
+    Column, ColumnType, DictionaryType, Geometry, Id, Layer01, RawFsstData, RawGeometry, RawId,
+    RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
     RawSharedDictEncoding, RawSharedDictItem, RawStrings, RawStringsEncoding, StreamType,
 };
 use crate::errors::AsMltError as _;
+use crate::tile::Extent;
 use crate::utils::{SetOptionOnce as _, parse_string};
 use crate::{Lazy, MltRefResult, MltResult, Parser};
 

@@ -3,7 +3,7 @@
 
 use fast_mvt::{MvtTileBuilder, MvtValue};
 
-use crate::decoder::{PropValue, TileLayer};
+use crate::tile::{PropValue, TileLayer};
 use crate::{MltError, MltResult};
 
 /// Encode row-oriented [`TileLayer`]s as MVT (Mapbox Vector Tile) bytes.
@@ -55,8 +55,8 @@ impl TryFrom<PropValue> for MvtValue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::decoder::{Extent, TileFeature};
     use crate::mvt::mvt_to_tile_layers;
+    use crate::tile::{Extent, TileFeature};
 
     #[test]
     fn empty_input_yields_empty_output() {
