@@ -8,13 +8,13 @@ use crate::MltError::UnsupportedPhysicalEncoding;
 use crate::MltResult;
 use crate::codecs::zigzag::{encode_zigzag, encode_zigzag_delta};
 use crate::decoder::stream::header01;
-use crate::decoder::{LogicalEncoding, PhysicalEncoding, StreamMeta, StreamType};
-use crate::encoder::model::StreamCtx;
+use crate::decoder::{LogicalEncoding, PhysicalEncoding, RleLayout, StreamMeta, StreamType};
+use crate::encoder::Encoder;
+use crate::encoder::model::{StreamCtx, WireVersion};
 use crate::encoder::stream::codecs::{LogicalCodecs, PhysicalCodecs};
 use crate::encoder::stream::logical::apply_rle;
 use crate::encoder::stream::physical::PhysicalEncoder;
 use crate::encoder::writer::AltSession;
-use crate::encoder::{Encoder, WireVersion};
 
 /// Write one stream (header + payload) to `enc`, using the stream-header codec [`EncoderConfig::wire_version`](crate::encoder::EncoderConfig::wire_version).
 #[inline]
@@ -170,6 +170,7 @@ pub(crate) trait LogicalIntCodec<T: LogicalIntStreamKind + ?Sized> {
     fn rle<'a>(
         &'a mut self,
         values: &'a T,
+        layout: RleLayout,
     ) -> MltResult<(
         LogicalEncoding,
         &'a [<T::Output as PhysicalIntStreamKind>::Value],
@@ -178,6 +179,7 @@ pub(crate) trait LogicalIntCodec<T: LogicalIntStreamKind + ?Sized> {
     fn delta_rle<'a>(
         &'a mut self,
         values: &'a T,
+        layout: RleLayout,
     ) -> MltResult<(
         LogicalEncoding,
         &'a [<T::Output as PhysicalIntStreamKind>::Value],
@@ -227,15 +229,23 @@ impl LogicalIntCodec<[u8]> for LogicalCodecs {
         encode_narrow_delta(values, &mut self.u32_tmp)
     }
 
-    fn rle<'a>(&'a mut self, values: &'a [u8]) -> MltResult<(LogicalEncoding, &'a [u32])> {
+    fn rle<'a>(
+        &'a mut self,
+        values: &'a [u8],
+        layout: RleLayout,
+    ) -> MltResult<(LogicalEncoding, &'a [u32])> {
         let data = encode_u8_as_u32(values, &mut self.u32_tmp);
-        let meta = apply_rle(data, values.len(), &mut self.u32_tmp2)?;
+        let meta = apply_rle(data, values.len(), layout, &mut self.u32_tmp2)?;
         Ok((LogicalEncoding::Rle(meta), &self.u32_tmp2))
     }
 
-    fn delta_rle<'a>(&'a mut self, values: &'a [u8]) -> MltResult<(LogicalEncoding, &'a [u32])> {
+    fn delta_rle<'a>(
+        &'a mut self,
+        values: &'a [u8],
+        layout: RleLayout,
+    ) -> MltResult<(LogicalEncoding, &'a [u32])> {
         let data = encode_narrow_delta(values, &mut self.u32_tmp);
-        let meta = apply_rle(data, values.len(), &mut self.u32_tmp2)?;
+        let meta = apply_rle(data, values.len(), layout, &mut self.u32_tmp2)?;
         Ok((LogicalEncoding::DeltaRle(meta), &self.u32_tmp2))
     }
 }
@@ -255,15 +265,23 @@ impl LogicalIntCodec<[i8]> for LogicalCodecs {
         encode_narrow_delta(values, &mut self.u32_tmp)
     }
 
-    fn rle<'a>(&'a mut self, values: &'a [i8]) -> MltResult<(LogicalEncoding, &'a [u32])> {
+    fn rle<'a>(
+        &'a mut self,
+        values: &'a [i8],
+        layout: RleLayout,
+    ) -> MltResult<(LogicalEncoding, &'a [u32])> {
         let data = encode_i8_zigzag(values, &mut self.u32_tmp);
-        let meta = apply_rle(data, values.len(), &mut self.u32_tmp2)?;
+        let meta = apply_rle(data, values.len(), layout, &mut self.u32_tmp2)?;
         Ok((LogicalEncoding::Rle(meta), &self.u32_tmp2))
     }
 
-    fn delta_rle<'a>(&'a mut self, values: &'a [i8]) -> MltResult<(LogicalEncoding, &'a [u32])> {
+    fn delta_rle<'a>(
+        &'a mut self,
+        values: &'a [i8],
+        layout: RleLayout,
+    ) -> MltResult<(LogicalEncoding, &'a [u32])> {
         let data = encode_narrow_delta(values, &mut self.u32_tmp);
-        let meta = apply_rle(data, values.len(), &mut self.u32_tmp2)?;
+        let meta = apply_rle(data, values.len(), layout, &mut self.u32_tmp2)?;
         Ok((LogicalEncoding::DeltaRle(meta), &self.u32_tmp2))
     }
 }
@@ -283,14 +301,22 @@ impl LogicalIntCodec<[u32]> for LogicalCodecs {
         encode_zigzag_delta(cast_slice::<u32, i32>(values), &mut self.u32_tmp)
     }
 
-    fn rle<'a>(&'a mut self, values: &'a [u32]) -> MltResult<(LogicalEncoding, &'a [u32])> {
-        let meta = apply_rle(values, values.len(), &mut self.u32_tmp)?;
+    fn rle<'a>(
+        &'a mut self,
+        values: &'a [u32],
+        layout: RleLayout,
+    ) -> MltResult<(LogicalEncoding, &'a [u32])> {
+        let meta = apply_rle(values, values.len(), layout, &mut self.u32_tmp)?;
         Ok((LogicalEncoding::Rle(meta), &self.u32_tmp))
     }
 
-    fn delta_rle<'a>(&'a mut self, values: &'a [u32]) -> MltResult<(LogicalEncoding, &'a [u32])> {
+    fn delta_rle<'a>(
+        &'a mut self,
+        values: &'a [u32],
+        layout: RleLayout,
+    ) -> MltResult<(LogicalEncoding, &'a [u32])> {
         let data = encode_zigzag_delta(cast_slice::<u32, i32>(values), &mut self.u32_tmp);
-        let meta = apply_rle(data, values.len(), &mut self.u32_tmp2)?;
+        let meta = apply_rle(data, values.len(), layout, &mut self.u32_tmp2)?;
         Ok((LogicalEncoding::DeltaRle(meta), &self.u32_tmp2))
     }
 }
@@ -310,15 +336,23 @@ impl LogicalIntCodec<[i32]> for LogicalCodecs {
         encode_zigzag_delta(values, &mut self.u32_tmp)
     }
 
-    fn rle<'a>(&'a mut self, values: &'a [i32]) -> MltResult<(LogicalEncoding, &'a [u32])> {
+    fn rle<'a>(
+        &'a mut self,
+        values: &'a [i32],
+        layout: RleLayout,
+    ) -> MltResult<(LogicalEncoding, &'a [u32])> {
         let data = encode_zigzag(values, &mut self.u32_tmp);
-        let meta = apply_rle(data, values.len(), &mut self.u32_tmp2)?;
+        let meta = apply_rle(data, values.len(), layout, &mut self.u32_tmp2)?;
         Ok((LogicalEncoding::Rle(meta), &self.u32_tmp2))
     }
 
-    fn delta_rle<'a>(&'a mut self, values: &'a [i32]) -> MltResult<(LogicalEncoding, &'a [u32])> {
+    fn delta_rle<'a>(
+        &'a mut self,
+        values: &'a [i32],
+        layout: RleLayout,
+    ) -> MltResult<(LogicalEncoding, &'a [u32])> {
         let data = encode_zigzag_delta(values, &mut self.u32_tmp);
-        let meta = apply_rle(data, values.len(), &mut self.u32_tmp2)?;
+        let meta = apply_rle(data, values.len(), layout, &mut self.u32_tmp2)?;
         Ok((LogicalEncoding::DeltaRle(meta), &self.u32_tmp2))
     }
 }
@@ -338,14 +372,22 @@ impl LogicalIntCodec<[u64]> for LogicalCodecs {
         encode_zigzag_delta(cast_slice::<u64, i64>(values), &mut self.u64_tmp)
     }
 
-    fn rle<'a>(&'a mut self, values: &'a [u64]) -> MltResult<(LogicalEncoding, &'a [u64])> {
-        let meta = apply_rle(values, values.len(), &mut self.u64_tmp)?;
+    fn rle<'a>(
+        &'a mut self,
+        values: &'a [u64],
+        layout: RleLayout,
+    ) -> MltResult<(LogicalEncoding, &'a [u64])> {
+        let meta = apply_rle(values, values.len(), layout, &mut self.u64_tmp)?;
         Ok((LogicalEncoding::Rle(meta), &self.u64_tmp))
     }
 
-    fn delta_rle<'a>(&'a mut self, values: &'a [u64]) -> MltResult<(LogicalEncoding, &'a [u64])> {
+    fn delta_rle<'a>(
+        &'a mut self,
+        values: &'a [u64],
+        layout: RleLayout,
+    ) -> MltResult<(LogicalEncoding, &'a [u64])> {
         let data = encode_zigzag_delta(cast_slice::<u64, i64>(values), &mut self.u64_tmp);
-        let meta = apply_rle(data, values.len(), &mut self.u64_tmp2)?;
+        let meta = apply_rle(data, values.len(), layout, &mut self.u64_tmp2)?;
         Ok((LogicalEncoding::DeltaRle(meta), &self.u64_tmp2))
     }
 }
@@ -365,15 +407,23 @@ impl LogicalIntCodec<[i64]> for LogicalCodecs {
         encode_zigzag_delta(values, &mut self.u64_tmp)
     }
 
-    fn rle<'a>(&'a mut self, values: &'a [i64]) -> MltResult<(LogicalEncoding, &'a [u64])> {
+    fn rle<'a>(
+        &'a mut self,
+        values: &'a [i64],
+        layout: RleLayout,
+    ) -> MltResult<(LogicalEncoding, &'a [u64])> {
         let data = encode_zigzag(values, &mut self.u64_tmp);
-        let meta = apply_rle(data, values.len(), &mut self.u64_tmp2)?;
+        let meta = apply_rle(data, values.len(), layout, &mut self.u64_tmp2)?;
         Ok((LogicalEncoding::Rle(meta), &self.u64_tmp2))
     }
 
-    fn delta_rle<'a>(&'a mut self, values: &'a [i64]) -> MltResult<(LogicalEncoding, &'a [u64])> {
+    fn delta_rle<'a>(
+        &'a mut self,
+        values: &'a [i64],
+        layout: RleLayout,
+    ) -> MltResult<(LogicalEncoding, &'a [u64])> {
         let data = encode_zigzag_delta(values, &mut self.u64_tmp);
-        let meta = apply_rle(data, values.len(), &mut self.u64_tmp2)?;
+        let meta = apply_rle(data, values.len(), layout, &mut self.u64_tmp2)?;
         Ok((LogicalEncoding::DeltaRle(meta), &self.u64_tmp2))
     }
 }
