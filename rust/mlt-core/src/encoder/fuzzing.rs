@@ -8,6 +8,7 @@ use crate::encoder::{EncoderConfig, StagedId, StagedProperty, StagedSharedDict, 
 impl Arbitrary<'_> for EncoderConfig {
     fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
         Ok(Self::default()
+            .with_wire_version(u.arbitrary()?)
             .with_tessellation(u.arbitrary()?)
             .with_spatial_morton_sort(u.arbitrary()?)
             .with_spatial_hilbert_sort(u.arbitrary()?)

@@ -174,6 +174,7 @@ impl StagedLayer {
 
 /// Which wire format layers are encoded to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum WireVersion {
     /// Tag `0x01` - the stable v1 format.
     #[default]
