@@ -14,6 +14,7 @@
 //! * `fpf` - uses `FastPFor` compression
 //! * `plain` - `PhysicalLevelTechnique::NONE`, i.e. fixed-width little-endian ints
 //! * `tes` - includes tessellation triangles stream
+//! * `same_nulls` - several columns are null on exactly the same features
 //! * `ns` - unlike Java encoder, empty streams are not forced to be created
 
 mod layer;
@@ -110,6 +111,7 @@ fn main() {
     generate_extent(&mut writer);
     generate_ids(&mut writer);
     generate_properties(&mut writer);
+    generate_shared_presence(&mut writer);
 
     writer.report_ungenerated();
 
@@ -947,6 +949,75 @@ fn generate_properties(w: &mut SynthWriter) {
     generate_props_u64(w);
     generate_props_str(w);
     generate_shared_dictionaries(w);
+}
+
+/// One `Some` per non-`-` position of a presence mask, e.g. `"x-x-"` -> `[0, None, 2, None]`.
+fn masked(mask: &str) -> Vec<Option<u32>> {
+    mask.bytes()
+        .enumerate()
+        .map(|(i, b)| (b != b'-').then(|| u32::try_from(i).unwrap()))
+        .collect()
+}
+
+/// One point per feature of a presence mask.
+fn masked_points(mask: &str) -> Layer {
+    geo_varint_with_rle().geos(vec![P0; mask.len()])
+}
+
+/// Columns that are null on exactly the same features.
+///
+/// v1 gives every column its own presence stream, so these fixtures pin down what
+/// repeated identical presence masks currently cost on the wire.
+fn generate_shared_presence(w: &mut SynthWriter) {
+    let e = E::varint();
+
+    let both = "x-x-";
+    masked_points(both)
+        .add_prop(e, P::opt_u32("a", masked(both)))
+        .add_prop(e, P::opt_u32("b", masked(both)))
+        .write(w, "props_same_nulls");
+
+    // Two repeated masks interleaved, plus a mask nobody else has and a column that
+    // is never null.
+    let a = "x--x-x";
+    let b = "xx---x";
+    let lonely = "-x-x-x";
+    masked_points(a)
+        .add_prop(e, P::opt_u32("a1", masked(a)))
+        .add_prop(e, P::opt_u32("b1", masked(b)))
+        .add_prop(e, P::opt_u32("a2", masked(a)))
+        .add_prop(e, P::opt_u32("b2", masked(b)))
+        .add_prop(e, P::opt_u32("a3", masked(a)))
+        .add_prop(e, P::opt_u32("lonely", masked(lonely)))
+        .add_prop(e, P::u32("always", vec![7; a.len()]))
+        .write(w, "props_same_nulls_mixed");
+
+    // The ID column has a presence mask like any other column.
+    let with_id = "x-xx-";
+    masked_points(with_id)
+        .ids(
+            Id::opt_u32(masked(with_id).into_iter().map(|v| v.map(|v| v + 100))),
+            E::varint_with(L::None),
+        )
+        .add_prop(e, P::opt_u32("val", masked(with_id)))
+        .write(w, "props_same_nulls_id");
+
+    // Eight pairs of columns sharing a mask, one pair per feature position.
+    let masks: Vec<String> = (0..8)
+        .map(|i| {
+            let mut mask = vec![b'-'; 9];
+            mask[0] = b'x';
+            mask[i + 1] = b'x';
+            String::from_utf8(mask).unwrap()
+        })
+        .collect();
+    let mut layer = masked_points(&masks[0]);
+    for (i, mask) in masks.iter().enumerate() {
+        layer = layer
+            .add_prop(e, P::opt_u32(format!("a{i}"), masked(mask)))
+            .add_prop(e, P::opt_u32(format!("b{i}"), masked(mask)));
+    }
+    layer.write(w, "props_same_nulls_max");
 }
 
 fn generate_props_i32(w: &mut SynthWriter) {

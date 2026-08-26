@@ -189,8 +189,18 @@ impl Layer {
     /// `name` is the geometry stream name as used internally by the encoder
     /// (e.g. `"triangles_indexes"`, `"geometries"`, `"rings"`, …).
     ///
-    /// Useful for producing byte-for-byte output that matches Java's encoder when a
-    /// normally-empty stream must still appear in the wire format.
+    /// Exercises decoders against present-but-empty streams, which the Java encoder
+    /// used to emit. Unforced output is the baseline, so a forced fixture is written as
+    /// its own `_fs`-suffixed sibling next to the unforced one rather than replacing it:
+    ///
+    /// ```ignore
+    /// geo_varint().tessellate().geo(poly1()).write(w, "poly_tes");
+    /// geo_varint().tessellate().force_empty_stream("geometries").geo(poly1()).write(w, "poly_tes_fs-rust");
+    /// ```
+    ///
+    /// Forcing a stream that is never empty (or whose name does not match any stream) is
+    /// a no-op, and the resulting duplicate bytes are reported by [`SynthWriter`]; drop the
+    /// call rather than keeping a fixture that adds no coverage.
     #[must_use]
     #[expect(
         dead_code,
@@ -320,26 +330,8 @@ impl Layer {
     /// Encode and then either verify against the reference dir (non-rust files) or write to the
     /// output dir (`-rust`-suffixed files). Delegates to [`SynthWriter::write`].
     ///
-    /// When `force_empty_streams` is non-empty, also emits a `_ns` ("no forced stream")
-    /// sibling - but only when removing the forced-empty-stream flag **actually changes the
-    /// encoded output**.  For some geometry configurations (e.g. Multi* types where the
-    /// GEOMETRIES stream is already non-empty) the flag is a no-op; emitting the sibling in
-    /// those cases would produce duplicate MLT files and fail the uniqueness check.
+    /// One call produces exactly one fixture.
     pub fn write(self, w: &mut SynthWriter, name: impl AsRef<str>) {
-        if !self.force_empty_streams.is_empty() {
-            let forced_bytes = self.clone().encode_to_bytes().ok();
-            let mut ns_layer = self.clone();
-            ns_layer.force_empty_streams.clear();
-            let ns_bytes = ns_layer.clone().encode_to_bytes().ok();
-            if forced_bytes != ns_bytes {
-                let name = if let Some(prefix) = name.as_ref().strip_suffix("-rust") {
-                    format!("{prefix}_ns-rust")
-                } else {
-                    format!("{}_ns", name.as_ref())
-                };
-                w.write(ns_layer, name);
-            }
-        }
         w.write(self, name);
     }
 
