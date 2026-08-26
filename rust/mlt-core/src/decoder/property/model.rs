@@ -22,6 +22,16 @@ pub struct RawScalar<'a> {
     pub(crate) data: RawStream<'a>,
 }
 
+impl<'a> RawScalar<'a> {
+    pub(crate) fn new(name: &'a str, presence: RawPresence<'a>, data: RawStream<'a>) -> Self {
+        Self {
+            name,
+            presence,
+            data,
+        }
+    }
+}
+
 /// Raw string column as read directly from the tile.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RawStrings<'a> {
@@ -221,4 +231,12 @@ pub enum RawPresence<'a> {
     AllPresent,
     /// Tag `0x01`: bool-RLE presence stream with a full stream header.
     Stream(RawStream<'a>),
+}
+
+impl RawPresence<'_> {
+    /// Whether this column carries presence data (some features may be null).
+    #[must_use]
+    pub(crate) fn is_optional(&self) -> bool {
+        !matches!(self, Self::AllPresent)
+    }
 }
