@@ -19,6 +19,7 @@
 use std::io;
 
 use integer_encoding::VarIntWriter as _;
+use num_enum::TryFromPrimitive;
 use usize_cast::IntoUsize as _;
 
 use crate::MltError::ParsingStreamType;
@@ -31,40 +32,74 @@ use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
 use crate::utils::{BinarySerializer as _, parse_u8, take};
 use crate::{MltError, MltRefResult, MltResult, Parser};
 
+/// Mask of the `stream_type` byte holding the [`CategoryField`].
+const CATEGORY_MASK: u8 = 0b1111_0000;
+
+/// Mask of the `stream_type` byte holding the subtype.
+const SUBTYPE_MASK: u8 = 0b0000_1111;
+
+/// Mask of the encoding byte holding the primary [`LogicalTechnique`].
+const LOGICAL1_MASK: u8 = 0b1110_0000;
+
+/// Mask of the encoding byte holding the secondary [`LogicalTechnique`].
+const LOGICAL2_MASK: u8 = 0b0001_1100;
+
+/// Distance between the primary logical field and the secondary one.
+const LOGICAL2_SHIFT: u32 = 3;
+
+/// Mask of the encoding byte holding the [`PhysicalEncoding`].
+const PHYSICAL_MASK: u8 = 0b0000_0011;
+
+/// Category field (bits 7-4 of the `stream_type` byte), already shifted into place.
+#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
+#[repr(u8)]
+enum CategoryField {
+    Present = 0b0000_0000,
+    Data = 0b0001_0000,
+    Offset = 0b0010_0000,
+    Length = 0b0011_0000,
+}
+
+/// Read the secondary logical field, lifted into the primary field's bit positions.
+fn parse_logical2(encoding_byte: u8) -> MltResult<LogicalTechnique> {
+    LogicalTechnique::parse((encoding_byte & LOGICAL2_MASK) << LOGICAL2_SHIFT)
+}
+
+/// Place a technique into the encoding byte's secondary logical field.
+fn logical2_bits(technique: LogicalTechnique) -> u8 {
+    (technique as u8) >> LOGICAL2_SHIFT
+}
+
 /// Parse the v1 `stream_type` byte: category in the high nibble, subtype in the low nibble.
 fn stream_type_from_byte(value: u8) -> Option<StreamType> {
-    let high4 = value >> 4;
-    let low4 = value & 0x0F;
-    Some(match high4 {
-        #[cfg(fuzzing)]
-        // when fuzzing, we cannot have ignored bits, to preserve roundtrip-ability
-        0 if low4 == 0 => StreamType::Present,
-        #[cfg(not(fuzzing))]
-        0 => StreamType::Present,
-        1 => StreamType::Data(DictionaryType::try_from(low4).ok()?),
-        2 => StreamType::Offset(OffsetType::try_from(low4).ok()?),
-        3 => StreamType::Length(LengthType::try_from(low4).ok()?),
-        _ => return None,
+    let category = CategoryField::try_from(value & CATEGORY_MASK).ok()?;
+    let subtype = value & SUBTYPE_MASK;
+    // when fuzzing, we cannot have ignored bits, to preserve roundtrip-ability
+    #[cfg(fuzzing)]
+    if category == CategoryField::Present && subtype != 0 {
+        return None;
+    }
+    Some(match category {
+        CategoryField::Present => StreamType::Present,
+        CategoryField::Data => StreamType::Data(DictionaryType::try_from(subtype).ok()?),
+        CategoryField::Offset => StreamType::Offset(OffsetType::try_from(subtype).ok()?),
+        CategoryField::Length => StreamType::Length(LengthType::try_from(subtype).ok()?),
     })
 }
 
 /// Serialize to the v1 `stream_type` byte.
 fn stream_type_to_byte(stream_type: StreamType) -> u8 {
-    let proto_high4 = match stream_type {
-        StreamType::Present => 0,
-        StreamType::Data(_) => 1,
-        StreamType::Offset(_) => 2,
-        StreamType::Length(_) => 3,
+    let (category, subtype) = match stream_type {
+        StreamType::Present => (CategoryField::Present, 0),
+        StreamType::Data(i) => (CategoryField::Data, i as u8),
+        StreamType::Offset(i) => (CategoryField::Offset, i as u8),
+        StreamType::Length(i) => (CategoryField::Length, i as u8),
     };
-    let high4 = proto_high4 << 4;
-    let low4 = match stream_type {
-        StreamType::Present => 0,
-        StreamType::Data(i) => i as u8,
-        StreamType::Offset(i) => i as u8,
-        StreamType::Length(i) => i as u8,
-    };
-    debug_assert!(low4 <= 0x0F, "secondary types should not exceed 4 bit");
-    high4 | low4
+    debug_assert!(
+        subtype <= SUBTYPE_MASK,
+        "secondary types should not exceed 4 bit"
+    );
+    category as u8 | subtype
 }
 
 /// Parse the metadata portion of a v1 stream header (everything before the payload).
@@ -86,9 +121,9 @@ pub(crate) fn parse_stream_meta<'a>(
     let stream_type = stream_type_from_byte(st_byte).ok_or(ParsingStreamType(st_byte))?;
 
     let (input, val) = parse_u8(input)?;
-    let logical1 = LT::parse(val >> 5)?;
-    let logical2 = LT::parse((val >> 2) & 0x7)?;
-    let physical_encoding = PhysicalEncoding::parse(val & 0x3)?;
+    let logical1 = LT::parse(val & LOGICAL1_MASK)?;
+    let logical2 = parse_logical2(val)?;
+    let physical_encoding = PhysicalEncoding::parse(val & PHYSICAL_MASK)?;
 
     let (input, num_values) = parse_varint::<u32>(input)?;
     let (input, byte_length) = parse_varint::<u32>(input)?;
@@ -169,23 +204,18 @@ pub(crate) fn write_stream_meta<W: io::Write>(
     use LogicalTechnique as LT;
 
     writer.write_u8(stream_type_to_byte(meta.stream_type))?;
-    let logical_enc_u8: u8 = match meta.encoding.logical {
-        LE::None => (LT::None as u8) << 5,
-        LE::Delta => (LT::Delta as u8) << 5,
-        LE::DeltaRle(_) => ((LT::Delta as u8) << 5) | ((LT::Rle as u8) << 2),
-        LE::ComponentwiseDelta => (LT::ComponentwiseDelta as u8) << 5,
-        LE::Rle(_) => (LT::Rle as u8) << 5,
-        LE::Morton(_) => (LT::Morton as u8) << 5,
-        LE::MortonRle(_) => (LT::Morton as u8) << 5 | ((LT::Rle as u8) << 2),
-        LE::MortonDelta(_) => (LT::Morton as u8) << 5 | ((LT::Delta as u8) << 2),
-        LE::PseudoDecimal => (LT::PseudoDecimal as u8) << 5,
+    let (logical1, logical2) = match meta.encoding.logical {
+        LE::None => (LT::None, LT::None),
+        LE::Delta => (LT::Delta, LT::None),
+        LE::DeltaRle(_) => (LT::Delta, LT::Rle),
+        LE::ComponentwiseDelta => (LT::ComponentwiseDelta, LT::None),
+        LE::Rle(_) => (LT::Rle, LT::None),
+        LE::Morton(_) => (LT::Morton, LT::None),
+        LE::MortonRle(_) => (LT::Morton, LT::Rle),
+        LE::MortonDelta(_) => (LT::Morton, LT::Delta),
+        LE::PseudoDecimal => (LT::PseudoDecimal, LT::None),
     };
-    let physical_enc_u8: u8 = match meta.encoding.physical {
-        PhysicalEncoding::None => 0x0,
-        PhysicalEncoding::FastPFor256 => 0x1,
-        PhysicalEncoding::VarInt => 0x2,
-    };
-    writer.write_u8(logical_enc_u8 | physical_enc_u8)?;
+    writer.write_u8(logical1 as u8 | logical2_bits(logical2) | meta.encoding.physical as u8)?;
     writer.write_varint(meta.num_values)?;
     writer.write_varint(byte_length)?;
 
@@ -373,9 +403,8 @@ mod tests {
 
     #[test]
     fn rejects_invalid_logical_combination() {
-        let logical1 = LogicalTechnique::ComponentwiseDelta as u8;
-        let logical2 = LogicalTechnique::Rle as u8;
-        let enc_byte = (logical1 << 5) | (logical2 << 2);
+        let enc_byte =
+            LogicalTechnique::ComponentwiseDelta as u8 | logical2_bits(LogicalTechnique::Rle);
         let buf = [0u8, enc_byte, 0, 0];
         let err = parse_stream(&buf, &mut parser()).unwrap_err();
         assert!(matches!(err, MltError::InvalidLogicalEncodings(_, _)));

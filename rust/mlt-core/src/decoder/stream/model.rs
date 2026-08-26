@@ -5,15 +5,19 @@ use crate::utils::formatter::{bytes_dbg, compact_dbg};
 use crate::{MltError, MltResult};
 
 /// Logical encoding technique used for a column, as stored in the tile
+///
+/// Variants are already shifted into the primary logical field of the v1 encoding byte (bits 7-5),
+/// so that field is matched with a mask rather than shifted down first.
+/// The secondary field (bits 4-2) holds the same patterns three bits lower.
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum LogicalTechnique {
-    None = 0,
-    Delta = 1,
-    ComponentwiseDelta = 2,
-    Rle = 3,
-    Morton = 4,
-    PseudoDecimal = 5,
+    None = 0b0000_0000,
+    Delta = 0b0010_0000,
+    ComponentwiseDelta = 0b0100_0000,
+    Rle = 0b0110_0000,
+    Morton = 0b1000_0000,
+    PseudoDecimal = 0b1010_0000,
 }
 
 /// Metadata for RLE decoding
@@ -76,35 +80,35 @@ pub struct LogicalValue {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, TryFromPrimitive)]
 #[repr(u8)]
 pub enum DictionaryType {
-    None = 0,
-    Single = 1,
-    Shared = 2,
-    Vertex = 3,
-    Morton = 4,
-    Fsst = 5,
+    None = 0b0000_0000,
+    Single = 0b0000_0001,
+    Shared = 0b0000_0010,
+    Vertex = 0b0000_0011,
+    Morton = 0b0000_0100,
+    Fsst = 0b0000_0101,
 }
 
 /// Offset type used for a column, as stored in the tile
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, TryFromPrimitive)]
 #[repr(u8)]
 pub enum OffsetType {
-    Vertex = 0,
-    Index = 1,
-    String = 2,
-    Key = 3,
+    Vertex = 0b0000_0000,
+    Index = 0b0000_0001,
+    String = 0b0000_0010,
+    Key = 0b0000_0011,
 }
 
 /// Length type used for a column, as stored in the tile
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, TryFromPrimitive)]
 #[repr(u8)]
 pub enum LengthType {
-    VarBinary = 0,
-    Geometries = 1,
-    Parts = 2,
-    Rings = 3,
-    Triangles = 4,
-    Symbol = 5,
-    Dictionary = 6,
+    VarBinary = 0b0000_0000,
+    Geometries = 0b0000_0001,
+    Parts = 0b0000_0010,
+    Rings = 0b0000_0011,
+    Triangles = 0b0000_0100,
+    Symbol = 0b0000_0101,
+    Dictionary = 0b0000_0110,
 }
 
 /// How should the stream be interpreted at the physical level (first pass of decoding)
@@ -120,13 +124,13 @@ pub enum StreamType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, TryFromPrimitive)]
 #[repr(u8)]
 pub enum PhysicalEncoding {
-    None = 0,
+    None = 0b0000_0000,
     /// Preferred, tends to produce the best compression ratio and decoding performance.
     /// But currently limited to 32-bit integer.
-    FastPFor256 = 1,
+    FastPFor256 = 0b0000_0001,
     /// Can produce better results in combination with a heavyweight compression scheme like `Gzip`.
     /// Simple compression scheme where the encoding is easier to implement compared to `FastPfor`.
-    VarInt = 2,
+    VarInt = 0b0000_0010,
 }
 
 // RawStream types
