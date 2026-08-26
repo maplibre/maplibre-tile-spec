@@ -63,7 +63,7 @@ generate-synthetic-mlts:
     #!/usr/bin/env bash
     set -euo pipefail
     rm -rf ../test/synthetic/0x01
-    rm -rf ../test/synthetic/0x02
+    rm -rf ../test/synthetic/0x02-java
     ./gradlew :mlt-tools:generateSyntheticMlt
     {{just}} _assert-all-mlt-files-different
 
