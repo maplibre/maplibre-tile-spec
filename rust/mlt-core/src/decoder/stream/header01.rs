@@ -23,6 +23,8 @@ use num_enum::TryFromPrimitive;
 use usize_cast::IntoUsize as _;
 
 use crate::MltError::ParsingStreamType;
+#[cfg(feature = "unstable-v2")]
+use crate::MltError::UnsupportedLogicalEncoding;
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
     DictionaryType, IntEncoding, LengthType, LogicalCombination, LogicalEncoding, LogicalTechnique,
@@ -229,7 +231,7 @@ pub(crate) fn write_stream_meta<W: io::Write>(
 
     // some encoding have settings inside them
     match meta.encoding.logical {
-        // v1 always uses the Split layout.
+        // v1 always uses the Split layout; interleaved is a v2-only concern.
         LE::DeltaRle(RleMeta::Split {
             runs,
             num_rle_values,
@@ -242,6 +244,13 @@ pub(crate) fn write_stream_meta<W: io::Write>(
                 writer.write_varint(runs)?;
                 writer.write_varint(num_rle_values)?;
             }
+        }
+        #[cfg(feature = "unstable-v2")]
+        LE::DeltaRle(RleMeta::Interleaved { .. }) | LE::Rle(RleMeta::Interleaved { .. }) => {
+            return Err(UnsupportedLogicalEncoding(
+                meta.encoding.logical,
+                "v1 stream header codec requires the Split RLE layout",
+            ));
         }
         LE::Morton(m) | LE::MortonDelta(m) | LE::MortonRle(m) => {
             writer.write_varint(m.bits)?;
@@ -463,6 +472,23 @@ mod tests {
         #[case] secondary: LogicalTechnique,
     ) {
         assert_eq!(combination as u8, logical_bits(primary, secondary));
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[rstest]
+    #[case::rle(true)]
+    #[case::delta_rle(false)]
+    fn write_rejects_interleaved_rle(#[case] plain_rle: bool) {
+        let rle = RleMeta::Interleaved { num_rle_values: 5 };
+        let logical = if plain_rle {
+            LogicalEncoding::Rle(rle)
+        } else {
+            LogicalEncoding::DeltaRle(rle)
+        };
+        let meta = meta(logical, PhysicalEncoding::VarInt, 4);
+        let mut buf = Vec::new();
+        let err = write_stream_meta(&meta, &mut buf, false, 4).unwrap_err();
+        assert!(matches!(err, UnsupportedLogicalEncoding(_, _)));
     }
 
     #[test]

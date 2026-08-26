@@ -1,9 +1,12 @@
 use bitvec::vec::BitVec;
 
 use crate::decoder::Morton;
-use crate::encoder::model::{CurveParams, StagedLayer, WireVersion};
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::encode02;
+use crate::encoder::model::{CurveParams, StagedLayer};
 use crate::encoder::{
-    Codecs, Encoder, EncoderConfig, SortStrategy, encode01, spatial_sort_likely_to_help,
+    Codecs, Encoder, EncoderConfig, SortStrategy, WireVersion, encode01,
+    spatial_sort_likely_to_help,
 };
 use crate::tile::{PropKind, TileLayer};
 use crate::{MltError, MltResult, PropValue};
@@ -23,7 +26,7 @@ impl StagedLayer {
         match enc.config().wire_version() {
             WireVersion::V01 => encode01::encode_into01(self, enc, codecs),
             #[cfg(feature = "unstable-v2")]
-            WireVersion::V02 => Err(MltError::NotImplemented("mltv2 encoding")),
+            WireVersion::V02 => encode02::encode_into02(self, enc, codecs),
         }
     }
 }
@@ -140,6 +143,11 @@ pub enum Presence {
     /// Some, but not all, features have a value for this logical column.
     Mixed,
     /// Mixed presence with the same per-feature mask as an earlier property column.
+    ///
+    /// Only tells the stager the column is nullable, same as [`Self::Mixed`]. Which
+    /// columns actually end up sharing one presence bitfield is decided per wire
+    /// format at write time, from the staged masks - see `SharedPresence` in
+    /// `encoder::encode02`.
     SameAsProp(usize),
 }
 impl Presence {

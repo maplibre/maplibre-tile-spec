@@ -7,7 +7,7 @@ use crate::roundtrip::encode_decode;
 ///
 /// Generates valid [`StagedLayer`] values directly and verifies that the
 /// canonical roundtrip (`Tile -> Staged -> bytes -> Tile`) is idempotent.
-/// The config carries the wire version, so every version is exercised.
+/// The config carries the wire version, so both v1 and v2 are exercised.
 #[derive(arbitrary::Arbitrary)]
 pub struct DecodedLayerInput {
     pub layer: StagedLayer,

@@ -1,23 +1,28 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::str::FromStr as _;
 
+use mlt_core::encoder::WireVersion;
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::{Decoder, MltError, Parser};
 
 use crate::Args;
 use crate::layer::Layer;
 
+const WIRE_VERSIONS_CNT: usize = 2;
+
 pub struct SynthWriter {
-    ref_dir: PathBuf,
-    out_dir: PathBuf,
+    ref_dirs: [PathBuf; WIRE_VERSIONS_CNT],
+    out_dirs: [PathBuf; WIRE_VERSIONS_CNT],
     verbose: bool,
-    generated: HashSet<String>,
-    rust_written: usize,
     notes: usize,
     pub failures: usize,
+    /// all generated version files to prevent dup naming issues
+    generated: HashSet<(WireVersion, String)>,
+    /// Encoded bytes -> the fixture name that produced them to prevent dup content
+    by_content: HashMap<Vec<u8>, String>,
 }
 
 pub type SynthResult<T> = Result<T, SynthErr>;
@@ -42,6 +47,11 @@ pub enum SynthErr {
     SerializeJson(serde_json::Error),
     #[error("cannot write {0}: {1}")]
     WriteFile(PathBuf, #[source] std::io::Error),
+    #[error(
+        "{0:?} bytes are byte-identical to fixture `{1}`, so this fixture adds no coverage; \
+         drop whichever builder call was meant to change the output (e.g. a no-op force_empty_stream)"
+    )]
+    DuplicateContent(WireVersion, String),
 }
 
 /// Compare `actual` against the JSON reference file at `ref_path`.
@@ -71,33 +81,45 @@ pub fn decode_to_json(bytes: &[u8]) -> FeatureCollection {
 }
 
 impl SynthWriter {
-    pub fn new(mut args: Args) -> Self {
-        let canonical_synth = args.synthetics.canonicalize();
-        let canonical_synth = canonical_synth.unwrap_or_else(|e| {
+    pub fn new(args: &Args) -> Self {
+        let root = args.synthetics.canonicalize().unwrap_or_else(|e| {
             panic!(
-                "reference synthetics dir not found: {}\n{e}",
+                "synthetics dir not found: {}\n{e}",
                 args.synthetics.display()
             )
         });
-        args.synthetics = canonical_synth;
+        let ref_dirs = [root.join("0x01"), root.join("0x02")];
+        for d in &ref_dirs {
+            assert!(d.is_dir());
+        }
+        let out_dirs = [root.join("0x01-rust"), root.join("0x02-rust")];
 
-        println!("Verifying synthetics against {}", args.synthetics.display());
         println!(
-            "Writing rust-only files to {}",
-            args.synthetics_rust.display()
+            "Verifying synthetics against {:?}",
+            ref_dirs
+                .iter()
+                .map(|p| format!("{:?}", p.display()))
+                .collect::<Vec<_>>()
         );
-
-        fs::create_dir_all(&args.synthetics_rust)
-            .unwrap_or_else(|e| panic!("cannot create {}: {e}", args.synthetics_rust.display()));
+        println!(
+            "Writing rust-only files to {:?}",
+            out_dirs
+                .iter()
+                .map(|p| format!("{:?}", p.display()))
+                .collect::<Vec<_>>()
+        );
+        for d in &out_dirs {
+            fs::create_dir_all(d).unwrap_or_else(|e| panic!("cannot create {}: {e}", d.display()));
+        }
 
         Self {
-            ref_dir: args.synthetics,
-            out_dir: args.synthetics_rust,
+            ref_dirs,
+            out_dirs,
             verbose: args.verbose,
             failures: 0,
-            generated: HashSet::new(),
-            rust_written: 0,
             notes: 0,
+            generated: HashSet::new(),
+            by_content: HashMap::new(),
         }
     }
 
@@ -107,32 +129,13 @@ impl SynthWriter {
     }
 
     /// Encode and write (or verify) `layer`, recording the outcome in this writer's statistics.
-    pub fn write(&mut self, layer: Layer, name: impl AsRef<str>) {
-        let name = name.as_ref();
-        let res = self.write_int(layer, name);
-        match res {
-            Ok(is_rust) => {
-                let typ = if is_rust {
-                    self.rust_written += 1;
-                    // Record the base name so report_ungenerated won't warn about
-                    // ref files that are covered by a rust-only counterpart.
-                    if let Some(base) = name.strip_suffix("-rust") {
-                        self.generated.insert(base.to_string());
-                    }
-                    "wrote"
-                } else {
-                    assert!(
-                        self.generated.insert(name.to_string()),
-                        "duplicate generated name: {name}"
-                    );
-                    "ok"
-                };
-                if self.verbose {
-                    println!("{typ:5}  {name}");
-                }
-            }
+    ///
+    /// `names` holds one fixture name per wire version, see [`Layer::write_per_version`].
+    pub fn write(&mut self, layer: &Layer, names: [&str; WIRE_VERSIONS_CNT]) {
+        match self.write_int(layer, names) {
+            Ok(()) => {}
             Err(e) => {
-                eprintln!("FAIL {name}: {e}");
+                eprintln!("FAIL {}: {e}", names[0]);
                 self.failures += 1;
             }
         }
@@ -142,83 +145,124 @@ impl SynthWriter {
     ///
     /// Returns `Ok(true)` for a rust-only file, `Ok(false)` for a shared file,
     /// or `Err` on any failure.
-    fn write_int(&mut self, layer: Layer, mut name: &str) -> SynthResult<bool> {
-        let mut is_rust_specific = false;
-        if let Some(base) = name.strip_suffix("-rust") {
-            is_rust_specific = true;
-            name = base;
-        }
-        if name.contains("_fsst") {
-            // FSST frequently generates binary-different but compatible data
-            is_rust_specific = true;
-        }
-        let name_mlt = format!("{name}.mlt");
-        let name_json = format!("{name}.json");
-        let rust_mlt = self.out_dir.join(&name_mlt);
-        let rust_json = self.out_dir.join(&name_json);
-        let ref_mlt = self.ref_dir.join(&name_mlt);
-        let ref_json = self.ref_dir.join(&name_json);
-        let ref_json_exists = ref_json.is_file();
-        let bytes = layer.encode_to_bytes()?;
-        let decoded = decode_to_json(&bytes);
-
-        if is_rust_specific || !ref_json_exists {
-            // rust-only: write MLT to disk, compare decoded JSON to reference (if it exists).
-            write_file(&rust_mlt, &bytes)?;
-            if ref_json_exists {
-                check_json(&decoded, &ref_json)?;
-            } else {
-                self.print_note(&format!(
-                    "Java synthetics doesn't have MLT matching 0x01-rust/{name_mlt}"
-                ));
-            }
-            let mut s = serde_json::to_string_pretty(&decoded).map_err(SynthErr::SerializeJson)?;
-            s.push('\n');
-            write_file(&rust_json, s.as_bytes())?;
-            Ok(true)
+    #[expect(clippy::panic_in_result_fn)]
+    fn write_int(&mut self, layer: &Layer, names: [&str; WIRE_VERSIONS_CNT]) -> SynthResult<()> {
+        let versions = if layer.wants_v2() {
+            [WireVersion::V01, WireVersion::V02].as_slice()
         } else {
-            // shared: verify bytes and JSON against reference, nothing written to disk.
-            fs::read(&ref_mlt)
-                .map_err(SynthErr::ReadRefMlt)
-                .and_then(|ref_bytes| {
-                    if ref_bytes == bytes {
-                        Ok(())
-                    } else {
-                        write_file(&rust_mlt, &bytes)?;
-                        Err(SynthErr::MltMismatch(ref_mlt))
-                    }
-                })?;
-            check_json(&decoded, &ref_json)?;
-            Ok(false)
+            [WireVersion::V01].as_slice()
+        };
+        for (((ref_dir, out_dir), &version), name) in self
+            .ref_dirs
+            .clone()
+            .into_iter()
+            .zip(self.out_dirs.clone())
+            .zip(versions)
+            .zip(names)
+        {
+            let (name, mut is_rust_specific) = match name.strip_suffix("-rust") {
+                Some(base) => (base, true),
+                None => (name, false),
+            };
+            // FSST frequently generates binary-different but compatible data
+            is_rust_specific |= name.contains("_fsst");
+            let name_mlt = format!("{name}.mlt");
+            let name_json = format!("{name}.json");
+
+            let rust_mlt = out_dir.join(&name_mlt);
+            let rust_json = out_dir.join(&name_json);
+            let ref_mlt = ref_dir.join(&name_mlt);
+            let ref_json = ref_dir.join(&name_json);
+            let ref_json_exists = ref_json.is_file();
+            let bytes = layer.clone().encode_to_bytes(version)?;
+            assert!(
+                self.generated.insert((version, name.to_owned())),
+                "expected to not generate the same name more than once, got {name} for {version:?}"
+            );
+            if let Some(prev) = self.by_content.insert(bytes.clone(), name.to_owned()) {
+                return Err(SynthErr::DuplicateContent(version, prev));
+            }
+            let decoded = decode_to_json(&bytes);
+
+            // The `-rust` suffix and `_fsst` marker say Java's encoder *may* differ, but that
+            // is a per-version question: a fixture Java only lacks in v1 still has a correct
+            // v2 reference. When this version's reference already matches byte-for-byte there
+            // is nothing version-specific to record, so verify against it rather than write a
+            // redundant `{ver}-rust/` copy (which `_assert-all-mlt-files-different` then flags
+            // as a duplicate).
+            let is_rust_specific = is_rust_specific
+                && !(ref_json_exists && fs::read(&ref_mlt).is_ok_and(|r| r == bytes));
+
+            if is_rust_specific || !ref_json_exists {
+                // rust-only: write MLT to disk, compare decoded JSON to reference (if it exists).
+                write_file(&rust_mlt, &bytes)?;
+                if ref_json_exists {
+                    check_json(&decoded, &ref_json)?;
+                } else {
+                    let dir = out_dir.file_name().unwrap_or(out_dir.as_os_str());
+                    self.print_note(&format!(
+                        "Synthetics doesn't have MLT matching {}/{name_mlt}",
+                        dir.to_string_lossy()
+                    ));
+                }
+                let mut s =
+                    serde_json::to_string_pretty(&decoded).map_err(SynthErr::SerializeJson)?;
+                s.push('\n');
+                write_file(&rust_json, s.as_bytes())?;
+                if self.verbose {
+                    println!("wrote  {name}");
+                }
+            } else {
+                // shared: verify bytes and JSON against reference, nothing written to disk.
+                fs::read(&ref_mlt)
+                    .map_err(SynthErr::ReadRefMlt)
+                    .and_then(|ref_bytes| {
+                        if ref_bytes == bytes {
+                            Ok(())
+                        } else {
+                            write_file(&rust_mlt, &bytes)?;
+                            Err(SynthErr::MltMismatch(ref_mlt))
+                        }
+                    })?;
+                check_json(&decoded, &ref_json)?;
+                if self.verbose {
+                    println!("ok  {name}");
+                }
+            }
         }
+
+        Ok(())
     }
 
     /// Warn about `.mlt` files in the reference dir that Rust never generated.
     /// Prints a summary that includes the total failure count.
     pub fn report_ungenerated(&mut self) {
-        let mut ref_mlts: Vec<String> = fs::read_dir(&self.ref_dir)
-            .unwrap_or_else(|e| panic!("cannot read {}: {e}", self.ref_dir.display()))
-            .flatten()
-            .filter_map(|e| {
-                let p = e.path();
-                (p.extension()? == "mlt")
-                    .then(|| p.file_stem().unwrap().to_string_lossy().into_owned())
-            })
-            .collect();
-        ref_mlts.sort();
-
-        for name in &ref_mlts {
-            if !self.generated.contains(name) {
-                self.print_note(&format!(
-                    "Rust synthetics did not generate a test matching Java's 0x01/{name}.mlt"
-                ));
+        let versions: [WireVersion; WIRE_VERSIONS_CNT] = [WireVersion::V01, WireVersion::V02];
+        for (d, v) in self.ref_dirs.clone().iter().zip(versions) {
+            let mut ref_mlts: Vec<String> = fs::read_dir(d)
+                .unwrap_or_else(|e| panic!("cannot read {}: {e}", d.display()))
+                .flatten()
+                .filter_map(|e| {
+                    let p = e.path();
+                    (p.extension()? == "mlt")
+                        .then(|| p.file_stem().unwrap().to_string_lossy().into_owned())
+                })
+                .collect();
+            ref_mlts.sort();
+            for name in &ref_mlts {
+                if !self.generated.contains(&(v, name.clone())) {
+                    let dir = d.file_name().unwrap_or(d.as_os_str());
+                    self.print_note(&format!(
+                        "Rust synthetics did not generate a test matching {}/{name}.mlt",
+                        dir.to_string_lossy()
+                    ));
+                }
             }
         }
 
         println!(
-            "Verified: {} | Rust-only: {} | Notes: {} | Failures: {}",
+            "Generated {} | Notes: {} | Failures: {}",
             self.generated.len(),
-            self.rust_written,
             self.notes,
             self.failures,
         );

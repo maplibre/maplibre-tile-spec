@@ -10,7 +10,9 @@ use crate::decoder::{RleLayout, RleMeta};
 ///
 /// `target` is treated as a scratch buffer: cleared before writing.
 /// `num_logical` is the expanded output length (stored in `RleMeta::num_rle_values`).
-/// `layout` selects the wire layout: currently only split run/value halves (tag `0x01`).
+/// `layout` selects the wire layout:
+///  - split run/value halves (tag `0x01`) or
+///  - interleaved `(run, value)` pairs (tag `0x02`).
 pub(crate) fn apply_rle<T: PrimInt + Debug>(
     data: &[T],
     num_logical: usize,
@@ -28,6 +30,15 @@ pub(crate) fn apply_rle<T: PrimInt + Debug>(
                 runs: u32::try_from(runs_vec.len())?,
                 num_rle_values,
             }
+        }
+        #[cfg(feature = "unstable-v2")]
+        RleLayout::Interleaved => {
+            target.reserve(runs_vec.len().saturating_mul(2));
+            for (&run, &val) in runs_vec.iter().zip(&vals_vec) {
+                target.push(run);
+                target.push(val);
+            }
+            RleMeta::Interleaved { num_rle_values }
         }
     };
     Ok(meta)

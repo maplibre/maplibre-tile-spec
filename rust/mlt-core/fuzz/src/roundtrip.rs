@@ -3,7 +3,7 @@ use mlt_core::{Decoder, Layer, MltError, Parser, TileLayer};
 
 /// Encode `staged` with `cfg`, then parse and decode it back to a row-oriented [`TileLayer`].
 ///
-/// Returns `None` when the wire version cannot represent the layer.
+/// Returns `None` when the wire version cannot represent the layer, e.g. v2 string columns.
 /// Every other encode failure is a bug and panics.
 pub fn encode_decode(staged: StagedLayer, cfg: EncoderConfig) -> Option<TileLayer> {
     let bytes = encode(staged, cfg)?;
@@ -41,13 +41,15 @@ pub fn decode(bytes: &[u8], tag: u8) -> TileLayer {
 pub fn expected_tag(cfg: EncoderConfig) -> u8 {
     match cfg.wire_version() {
         WireVersion::V01 => 1,
+        WireVersion::V02 => 2,
     }
 }
 
 fn actual_tag(layer: &Layer<'_>) -> u8 {
     match layer {
         Layer::Tag01(_) => 1,
-        Layer::Unknown(u) => panic!("expected a Tag01 layer, got tag {:#04x}", u.tag()),
-        other => panic!("expected a Tag01 layer, got {other:?}"),
+        Layer::Tag02(_) => 2,
+        Layer::Unknown(u) => panic!("expected a Tag01/Tag02 layer, got tag {:#04x}", u.tag()),
+        other => panic!("expected a Tag01/Tag02 layer, got {other:?}"),
     }
 }
