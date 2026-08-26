@@ -23,14 +23,18 @@ pub(crate) mod decoder;
 pub mod dump;
 pub mod encoder;
 pub(crate) mod errors;
+pub(crate) mod tile;
 pub(crate) mod utils;
 
 pub use convert::{geojson, mvt};
 pub use decoder::{
-    ColNames, ColumnRef, Decoder, Extent, FeatureRef, GeometryType, GeometryValues, Layer, Layer01,
-    Layer01FeatureIter, LendingIterator, ParsedLayer, ParsedLayer01, Parser, PropKind, PropName,
-    PropNamesIter, PropValue, PropValueRef, PropertyKey, TileFeature, TileFeatureBuilder,
-    TileLayer, TileLayerBuilder, Unknown,
+    ColNames, ColumnRef, Decoder, FeatureRef, GeometryType, GeometryValues, Layer, Layer01,
+    Layer01FeatureIter, LendingIterator, ParsedLayer, ParsedLayer01, Parser, PropName,
+    PropNamesIter, PropValueRef, Unknown,
+};
+pub use tile::{
+    Extent, PropKind, PropValue, PropertyKey, TileFeature, TileFeatureBuilder, TileLayer,
+    TileLayerBuilder,
 };
 // Crate-internal re-exports: allow internal modules to use `crate::Lazy` etc.
 // without exposing these implementation details to external users.
@@ -69,6 +73,7 @@ pub mod __private {
     pub use crate::decoder::*;
     pub use crate::errors::*;
     pub use crate::test_helpers::*;
+    pub use crate::tile::*;
     pub use crate::utils::analyze::*;
     pub use crate::utils::lazy_state::*;
     pub use crate::utils::*;

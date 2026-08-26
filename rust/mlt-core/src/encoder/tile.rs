@@ -9,10 +9,11 @@
 //! Conversion from [`TileLayer`] to [`StagedLayer`] is done via
 //! [`StagedLayer::from_tile`] with pre-computed layer statistics.
 
-use crate::decoder::{GeometryValues, PropValue, TileFeature, TileLayer};
+use crate::decoder::GeometryValues;
 use crate::encoder::model::{CurveParams, StagedLayer};
 use crate::encoder::optimizer::{LayerStats, Presence, PropertyTypedStats, SharedDictRole};
 use crate::encoder::{SortStrategy, StagedId, StagedProperty, StagedSharedDict};
+use crate::tile::{PropValue, TileFeature, TileLayer};
 
 impl StagedLayer {
     /// Construct a [`StagedLayer`] from a row-oriented [`TileLayer`] using

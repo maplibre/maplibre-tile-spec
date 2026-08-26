@@ -1,30 +1,16 @@
-//! Row-oriented "source form" for the optimizer.
+//! Conversion from the decoded columnar form into the row-oriented
+//! [`crate::tile`] model.
 //!
-//! [`TileLayer`] holds one [`TileFeature`] per map feature, each owning
-//! its geometry as a [`geo_types::Geometry<i32>`] and its property values as a
-//! plain `Vec<PropValue>`.  This is the working form used throughout the
-//! optimizer and sorting pipeline: it is cheap to clone, trivially sortable,
-//! and free from any encoded/decoded duality.
+//! [`ParsedLayer01::into_tile`] materializes one [`TileFeature`] per map
+//! feature, owning its geometry and property values outright. That is the form
+//! the optimizer, the sorting pipeline, and the converters work in.
 
-use crate::decoder::{
-    GeometryValues, Layer01, ParsedLayer01, ParsedProperty, PropValue, PropValueRef, TileFeature,
-    TileLayer,
-};
+use crate::decoder::{Layer01, ParsedLayer01, ParsedProperty, PropValueRef};
 use crate::errors::AsMltError as _;
+use crate::tile::{PropValue, TileFeature, TileLayer};
 use crate::{Decoder, LendingIterator, MltResult};
 
 impl ParsedLayer01<'_> {
-    /// Returns the decoded geometry buffer for this layer.
-    ///
-    /// Provides access to the columnar geometry arrays (vertex buffer, offset arrays, geometry
-    /// types) for advanced use cases such as building typed arrays for WebAssembly or
-    /// performing spatial indexing. For iterating feature geometries as `geo_types` values,
-    /// prefer [`iter_features`](Self::iter_features) instead.
-    #[must_use]
-    pub fn geometry_values(&self) -> &GeometryValues {
-        &self.geometry
-    }
-
     /// Decode and convert into a row-oriented [`TileLayer`], charging every
     /// heap allocation against `dec`.
     pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer> {
@@ -55,11 +41,6 @@ impl ParsedLayer01<'_> {
         }
 
         TileLayer::from_parts(name, extent, names, features)
-    }
-
-    #[must_use]
-    pub fn feature_count(&self) -> usize {
-        self.geometry.vector_types.len()
     }
 }
 

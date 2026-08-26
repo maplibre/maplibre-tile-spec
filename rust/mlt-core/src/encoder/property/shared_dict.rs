@@ -12,12 +12,12 @@ use usize_cast::IntoUsize as _;
 use crate::MltError::DictIndexOutOfBounds;
 use crate::codecs::fsst::compress_fsst_with;
 use crate::decoder::strings::{decode_shared_dict_range, encode_shared_dict_range};
-use crate::decoder::{PropValue, TileLayer};
 use crate::encoder::model::{StrEncoding, StreamCtx};
 use crate::encoder::optimizer::{Presence, PropertyStats, SharedDictRole};
 use crate::encoder::property::strings::{write_fsst_data, write_raw_str_data};
 use crate::encoder::{Codecs, Encoder, StagedSharedDict, StagedSharedDictItem};
 use crate::errors::AsMltError as _;
+use crate::tile::{PropValue, TileLayer};
 use crate::utils::{checked_sum3, strings_to_lengths};
 use crate::{ColumnType, DictRange, DictionaryType, LengthType, MltResult, OffsetType, StreamType};
 

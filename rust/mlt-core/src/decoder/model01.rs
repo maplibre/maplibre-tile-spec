@@ -1,10 +1,56 @@
+//! Column model and parsing specific to tag `0x01` (v1) layers.
+//!
+//! v2 replaces both types below with `model02::ColumnType02` and
+//! `model02::GeoLayout`; the resulting [`super::Layer01`] is shared.
+
 use std::io;
 use std::io::Write;
 
+use num_enum::TryFromPrimitive;
+
 use crate::MltError::ParsingColumnType;
-use crate::decoder::{Column, ColumnType};
 use crate::utils::{BinarySerializer as _, parse_string, parse_u8};
 use crate::{MltRefResult, Parser};
+
+/// Column definition
+#[derive(Debug, PartialEq)]
+pub struct Column<'a> {
+    pub(crate) typ: ColumnType,
+    pub(crate) name: Option<&'a str>,
+    pub(crate) children: Vec<Self>,
+}
+
+/// Column data type, as stored in the tile
+#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
+#[repr(u8)]
+pub enum ColumnType {
+    Id = 0,
+    OptId = 1,
+    LongId = 2,
+    OptLongId = 3,
+    Geometry = 4,
+    Bool = 10,
+    OptBool = 11,
+    I8 = 12,
+    OptI8 = 13,
+    U8 = 14,
+    OptU8 = 15,
+    I32 = 16,
+    OptI32 = 17,
+    U32 = 18,
+    OptU32 = 19,
+    I64 = 20,
+    OptI64 = 21,
+    U64 = 22,
+    OptU64 = 23,
+    F32 = 24,
+    OptF32 = 25,
+    F64 = 26,
+    OptF64 = 27,
+    Str = 28,
+    OptStr = 29,
+    SharedDict = 30,
+}
 
 impl Column<'_> {
     /// Parse a single column definition

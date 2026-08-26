@@ -35,8 +35,8 @@ pub enum MltError {
     #[error("property {index} kind mismatch: expected {expected:?}, got {actual:?}")]
     PropertyKindMismatch {
         index: usize,
-        expected: crate::decoder::PropKind,
-        actual: crate::decoder::PropKind,
+        expected: crate::tile::PropKind,
+        actual: crate::tile::PropKind,
     },
     #[error("staged column {column} feature count mismatch: expected {expected}, got {actual}")]
     StagedFeatureCountMismatch {
