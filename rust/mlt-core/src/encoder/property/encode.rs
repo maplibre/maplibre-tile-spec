@@ -7,22 +7,13 @@ use crate::encoder::{
     StagedStrings,
 };
 
-/// Encode all property columns and write them to `enc`.
+/// Encode a single property column, dispatching on variant.
 #[hotpath::measure]
-pub fn write_properties(
-    props: &[StagedProperty],
+pub(crate) fn write_prop(
+    prop: &StagedProperty,
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
-    for prop in props {
-        write_prop(prop, enc, codecs)?;
-    }
-    Ok(())
-}
-
-/// Encode a single property column, dispatching on variant.
-#[hotpath::measure]
-fn write_prop(prop: &StagedProperty, enc: &mut Encoder, codecs: &mut Codecs) -> MltResult<()> {
     use ColumnType as CT;
     use StagedProperty as D;
 
