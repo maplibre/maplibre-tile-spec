@@ -188,4 +188,28 @@ private:
         }
     }
 };
+
+struct Tag0x02 : Tag0x01 {
+    static std::optional<Column> decodeColumnType(std::uint32_t typeCode) {
+        if (typeCode == 31) {
+            using ColumnScope = metadata::tileset::ColumnScope;
+            return Column{.name = {},
+                          .nullable = true,
+                          .columnScope = ColumnScope::FEATURE,
+                          .type = ComplexColumn{.type = ComplexType::MAP, .children = {}}};
+        }
+        return Tag0x01::decodeColumnType(typeCode);
+    }
+
+    static bool columnTypeHasChildren(std::uint32_t typeCode) {
+        return (typeCode == 31) || Tag0x01::columnTypeHasChildren(typeCode);
+    }
+
+    static bool hasStreamCount(const Column& column) {
+        if (column.isMap()) {
+            return true;
+        }
+        return Tag0x01::hasStreamCount(column);
+    }
+};
 } // namespace mlt::metadata::type_map

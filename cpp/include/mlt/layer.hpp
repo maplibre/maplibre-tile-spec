@@ -21,7 +21,8 @@ public:
           extent_t extent_,
           std::unique_ptr<geometry::GeometryVector>&& geometryVector_,
           std::vector<Feature> features_,
-          PropertyVecMap properties_) noexcept;
+          PropertyVecMap properties_,
+          MapPropertyVecMap mapProperties_ = {}) noexcept;
     ~Layer();
 
     Layer(Layer&&) noexcept = default;
@@ -31,6 +32,7 @@ public:
     extent_t getExtent() const noexcept { return extent; }
     const std::vector<Feature>& getFeatures() const noexcept { return features; }
     const PropertyVecMap& getProperties() const { return properties; }
+    const MapPropertyVecMap& getMapProperties() const { return mapProperties; }
 
 private:
     std::string name;
@@ -41,6 +43,7 @@ private:
 
     std::vector<Feature> features;
     PropertyVecMap properties;
+    MapPropertyVecMap mapProperties;
 };
 
 } // namespace mlt

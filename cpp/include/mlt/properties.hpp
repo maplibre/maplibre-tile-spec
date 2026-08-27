@@ -1,11 +1,13 @@
 #pragma once
 
 #include <mlt/metadata/tileset.hpp>
+#include <mlt/nested_value.hpp>
 #include <mlt/util/noncopyable.hpp>
 #include <mlt/util/packed_bitset.hpp>
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <variant>
@@ -112,5 +114,28 @@ private:
 
 /// All the property columns for a layer
 using PropertyVecMap = std::unordered_map<std::string, PresentProperties>;
+
+/// A nested property column, with one value per feature
+class MapProperties : util::noncopyable {
+public:
+    MapProperties() = default;
+    MapProperties(std::vector<std::optional<NestedValue>> values_) noexcept
+        : values(std::move(values_)) {}
+    MapProperties(MapProperties&&) noexcept = default;
+    MapProperties& operator=(MapProperties&&) = default;
+
+    const NestedValue* getProperty(std::uint32_t featureIndex) const {
+        if (featureIndex < values.size() && values[featureIndex]) {
+            return &*values[featureIndex];
+        }
+        return nullptr;
+    }
+    std::size_t size() const { return values.size(); }
+
+private:
+    std::vector<std::optional<NestedValue>> values;
+};
+
+using MapPropertyVecMap = std::unordered_map<std::string, MapProperties>;
 
 } // namespace mlt

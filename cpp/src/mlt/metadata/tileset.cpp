@@ -27,26 +27,36 @@ std::string decodeString(BufferStream& tileData) {
     return result;
 }
 
-Column decodeColumn(BufferStream& tileData) {
+Column decodeColumn(BufferStream& tileData, std::uint32_t layerTag) {
     const auto typeCode = decodeVarint<std::uint32_t>(tileData);
-    auto column = type_map::Tag0x01::decodeColumnType(typeCode);
+
+    std::optional<Column> column;
+    if (layerTag >= 2) {
+        column = type_map::Tag0x02::decodeColumnType(typeCode);
+    } else {
+        column = type_map::Tag0x01::decodeColumnType(typeCode);
+    }
     if (!column) {
-        // We can't just skip this because we don't know the actual length
         throw std::runtime_error("Unsupported column type code: " + std::to_string(typeCode));
     }
 
-    if (type_map::Tag0x01::columnTypeHasName(typeCode)) {
+    const auto hasName = (layerTag >= 2) ? type_map::Tag0x02::columnTypeHasName(typeCode)
+                                         : type_map::Tag0x01::columnTypeHasName(typeCode);
+    if (hasName) {
         column->name = decodeString(tileData);
     }
 
-    if (type_map::Tag0x01::columnTypeHasChildren(typeCode)) {
+    const auto hasChildren = (layerTag >= 2) ? type_map::Tag0x02::columnTypeHasChildren(typeCode)
+                                             : type_map::Tag0x01::columnTypeHasChildren(typeCode);
+    if (hasChildren) {
         if (!column->hasComplexType()) {
             throw std::runtime_error(
                 "Column type code indicates children but decoded column does not have complex type");
         }
         auto& complex = column->getComplexType();
         const auto childCount = decodeVarint<std::uint32_t>(tileData);
-        complex.children = util::generateVector<Column>(childCount, [&](auto) { return decodeColumn(tileData); });
+        complex.children = util::generateVector<Column>(childCount,
+                                                        [&](auto) { return decodeColumn(tileData, layerTag); });
     }
 
     return *column;
@@ -54,13 +64,17 @@ Column decodeColumn(BufferStream& tileData) {
 } // namespace
 
 FeatureTable decodeFeatureTable(BufferStream& tileData) {
+    return decodeFeatureTable(tileData, 1);
+}
+
+FeatureTable decodeFeatureTable(BufferStream& tileData, std::uint32_t layerTag) {
     auto name = decodeString(tileData);
     if (name.empty()) {
         throw std::runtime_error("Missing layer name");
     }
     const auto extent = decodeVarint<std::uint32_t>(tileData);
     const auto columnCount = decodeVarint<std::uint32_t>(tileData);
-    auto columns = util::generateVector<Column>(columnCount, [&](auto) { return decodeColumn(tileData); });
+    auto columns = util::generateVector<Column>(columnCount, [&](auto) { return decodeColumn(tileData, layerTag); });
     return {.name = std::move(name), .extent = extent, .columns = std::move(columns)};
 }
 

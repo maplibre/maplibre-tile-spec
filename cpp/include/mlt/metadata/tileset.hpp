@@ -41,6 +41,7 @@ enum class ComplexType : std::uint8_t {
     // vec3<Int32> for the VertexBuffer stream with additional information
     // (streams) about the topology
     STRUCT = 1,
+    MAP = 2,
 };
 
 enum class LogicalScalarType : std::uint8_t {
@@ -103,6 +104,7 @@ struct ComplexColumn {
     auto& getLogicalType() const { return std::get<LogicalComplexType>(type); }
     bool isGeometry() const { return hasPhysicalType() && getPhysicalType() == ComplexType::GEOMETRY; }
     bool isStruct() const { return hasPhysicalType() && getPhysicalType() == ComplexType::STRUCT; }
+    bool isMap() const { return hasPhysicalType() && getPhysicalType() == ComplexType::MAP; }
 };
 
 // Column are top-level types in the schema
@@ -121,6 +123,7 @@ struct Column {
     bool isID() const { return hasScalarType() && getScalarType().isID(); }
     bool isGeometry() const { return hasComplexType() && getComplexType().isGeometry(); }
     bool isStruct() const { return hasComplexType() && getComplexType().isStruct(); }
+    bool isMap() const { return hasComplexType() && getComplexType().isMap(); }
 };
 
 struct FeatureTable {
@@ -130,6 +133,7 @@ struct FeatureTable {
 };
 
 FeatureTable decodeFeatureTable(BufferStream&);
+FeatureTable decodeFeatureTable(BufferStream&, std::uint32_t layerTag);
 
 /// Encode a feature table header into binary format (inverse of decodeFeatureTable).
 std::vector<std::uint8_t> encodeFeatureTable(const FeatureTable&);

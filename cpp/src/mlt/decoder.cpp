@@ -3,6 +3,7 @@
 #include <mlt/common.hpp>
 #include <mlt/decode/geometry.hpp>
 #include <mlt/decode/int.hpp>
+#include <mlt/decode/map_property.hpp>
 #include <mlt/decode/property.hpp>
 #include <mlt/decode/string.hpp>
 #include <mlt/feature.hpp>
@@ -41,29 +42,34 @@ struct Decoder::Impl {
           geometryDecoder(integerDecoder),
           geometryFactory(std::move(geometryFactory_)) {}
 
-    Layer parseBasicMVTEquivalent(BufferStream&);
+    Layer parseLayer(BufferStream&, std::uint32_t layerTag);
     static std::vector<Feature> makeFeatures(const std::vector<std::optional<Feature::id_t>>&,
                                              std::vector<std::unique_ptr<Geometry>>&&);
 
     IntegerDecoder integerDecoder;
     StringDecoder stringDecoder{integerDecoder};
     PropertyDecoder propertyDecoder{integerDecoder, stringDecoder};
+    MapPropertyDecoder mapPropertyDecoder{integerDecoder, stringDecoder};
     GeometryDecoder geometryDecoder;
     std::unique_ptr<GeometryFactory> geometryFactory;
 };
 
-Layer Decoder::Impl::parseBasicMVTEquivalent(BufferStream& tileData) {
+Layer Decoder::Impl::parseLayer(BufferStream& tileData, std::uint32_t layerTag) {
     using mlt::metadata::stream::StreamMetadata;
     using mlt::metadata::type_map::Tag0x01;
+    using mlt::metadata::type_map::Tag0x02;
 
-    const auto layerMetadata = mlt::metadata::tileset::decodeFeatureTable(tileData);
+    const auto layerMetadata = mlt::metadata::tileset::decodeFeatureTable(tileData, layerTag);
 
     std::vector<std::optional<Feature::id_t>> ids;
     std::unique_ptr<geometry::GeometryVector> geometryVector;
     PropertyVecMap properties;
+    MapPropertyVecMap mapProperties;
 
     for (const auto& columnMetadata : layerMetadata.columns) {
-        const auto numStreams = Tag0x01::hasStreamCount(columnMetadata) ? decodeVarint<std::uint32_t>(tileData) : 1;
+        const auto hasStreamCount = (layerTag >= 2) ? Tag0x02::hasStreamCount(columnMetadata)
+                                                    : Tag0x01::hasStreamCount(columnMetadata);
+        const auto numStreams = hasStreamCount ? decodeVarint<std::uint32_t>(tileData) : 1;
         if (columnMetadata.isID()) {
             PackedBitset idPresentBits;
             std::uint32_t numFeaturesFromPresent = 0;
@@ -100,6 +106,11 @@ Layer Decoder::Impl::parseBasicMVTEquivalent(BufferStream& tileData) {
             }
         } else if (columnMetadata.isGeometry()) {
             geometryVector = geometryDecoder.decodeGeometryColumn(tileData, columnMetadata, numStreams);
+        } else if (columnMetadata.isMap()) {
+            auto columnMapProps = mapPropertyDecoder.decodeMapPropertyColumn(tileData, columnMetadata, numStreams);
+            for (auto& [k, v] : columnMapProps) {
+                mapProperties.emplace(std::move(k), std::move(v));
+            }
         } else {
             // Decode the property column, which may result in multiple properties (e.g. struct), and merge the results
             auto columnProperties = propertyDecoder.decodePropertyColumn(tileData, columnMetadata, numStreams);
@@ -118,7 +129,8 @@ Layer Decoder::Impl::parseBasicMVTEquivalent(BufferStream& tileData) {
             layerMetadata.extent,
             std::move(geometryVector),
             makeFeatures(ids, geometryVector->getGeometries(*geometryFactory)),
-            std::move(properties)};
+            std::move(properties),
+            std::move(mapProperties)};
 }
 
 std::vector<Feature> Decoder::Impl::makeFeatures(const std::vector<std::optional<Feature::id_t>>& ids,
@@ -153,8 +165,8 @@ MapLibreTile Decoder::decode(BufferStream tileData) {
         tileData.consume(layerLength);
 
         const auto layerTag = decodeVarint<std::uint32_t>(layerStream);
-        if (layerTag == 1) {
-            layers.push_back(impl->parseBasicMVTEquivalent(layerStream));
+        if (layerTag == 1 || layerTag == 2) {
+            layers.push_back(impl->parseLayer(layerStream, layerTag));
         } else {
             // Skipping unknown layer
         }

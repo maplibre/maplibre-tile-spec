@@ -607,3 +607,40 @@ TEST_F(Tag0x01TypeMapTest, StructTypeHasCorrectPhysicalType) {
     EXPECT_TRUE(decoded->getComplexType().hasPhysicalType());
     EXPECT_EQ(decoded->getComplexType().getPhysicalType(), ComplexType::STRUCT);
 }
+
+// --- Tag0x02 Tests ---
+
+class Tag0x02TypeMapTest : public ::testing::Test {
+protected:
+    using Tag0x02 = type_map::Tag0x02;
+};
+
+TEST_F(Tag0x02TypeMapTest, DecodeMapColumn) {
+    const auto decoded = Tag0x02::decodeColumnType(31u);
+    ASSERT_TRUE(decoded);
+    EXPECT_TRUE(decoded->nullable);
+    EXPECT_TRUE(decoded->isMap());
+    EXPECT_FALSE(decoded->isStruct());
+    EXPECT_EQ(decoded->getComplexType().getPhysicalType(), ComplexType::MAP);
+    EXPECT_TRUE(decoded->getComplexType().children.empty());
+    EXPECT_TRUE(Tag0x02::columnTypeHasChildren(31u));
+    EXPECT_TRUE(Tag0x02::hasStreamCount(*decoded));
+}
+
+TEST_F(Tag0x02TypeMapTest, FallsThroughToTag0x01) {
+    const auto scalar = Tag0x02::decodeColumnType(10u);
+    ASSERT_TRUE(scalar);
+    EXPECT_EQ(scalar->getScalarType().getPhysicalType(), ScalarType::BOOLEAN);
+    EXPECT_FALSE(scalar->nullable);
+
+    const auto structCol = Tag0x02::decodeColumnType(30u);
+    ASSERT_TRUE(structCol);
+    EXPECT_TRUE(structCol->isStruct());
+    EXPECT_FALSE(structCol->isMap());
+    EXPECT_TRUE(Tag0x02::columnTypeHasChildren(30u));
+    EXPECT_FALSE(Tag0x02::columnTypeHasChildren(10u));
+}
+
+TEST_F(Tag0x02TypeMapTest, Tag0x01RejectsMapColumn) {
+    EXPECT_FALSE(type_map::Tag0x01::decodeColumnType(31u));
+}

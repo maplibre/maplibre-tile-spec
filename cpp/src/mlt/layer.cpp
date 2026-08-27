@@ -15,12 +15,14 @@ Layer::Layer(std::string name_,
              extent_t extent_,
              std::unique_ptr<geometry::GeometryVector>&& geometryVector_,
              std::vector<Feature> features_,
-             PropertyVecMap properties_) noexcept
+             PropertyVecMap properties_,
+             MapPropertyVecMap mapProperties_) noexcept
     : name(std::move(name_)),
       extent(extent_),
       geometryVector(std::move(geometryVector_)),
       features(std::move(features_)),
-      properties(std::move(properties_)) {}
+      properties(std::move(properties_)),
+      mapProperties(std::move(mapProperties_)) {}
 
 Layer::~Layer() = default;
 

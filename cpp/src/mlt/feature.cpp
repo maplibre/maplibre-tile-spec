@@ -27,4 +27,12 @@ std::optional<Property> Feature::getProperty(const std::string& key, const Layer
     return std::nullopt;
 }
 
+const NestedValue* Feature::getMapProperty(const std::string& key, const Layer& layer) const {
+    const auto& mapPropertyMap = layer.getMapProperties();
+    if (const auto hit = mapPropertyMap.find(key); hit != mapPropertyMap.end()) {
+        return hit->second.getProperty(index);
+    }
+    return nullptr;
+}
+
 } // namespace mlt

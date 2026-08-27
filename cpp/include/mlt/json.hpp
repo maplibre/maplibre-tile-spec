@@ -244,6 +244,59 @@ inline json buildAnyGeometryElement(const geometry::Geometry& geometry, const Pr
 #pragma endregion Geometry
 
 #pragma region Properties
+inline json nestedValueToJson(const NestedValue& val) {
+    if (val.isNull()) {
+        return nullptr;
+    }
+    if (val.isBool()) {
+        return val.getBool();
+    }
+    if (val.isInt64()) {
+        return val.getInt64();
+    }
+    if (val.isUint64()) {
+        return val.getUint64();
+    }
+    if (val.isFloat()) {
+        auto f = val.getFloat();
+        if (std::isfinite(f)) {
+            return json(static_cast<double>(f));
+        }
+        if (std::isnan(f)) {
+            return json("f32::NAN");
+        }
+        return std::signbit(f) ? json("f32::NEG_INFINITY") : json("f32::INFINITY");
+    }
+    if (val.isDouble()) {
+        auto d = val.getDouble();
+        if (std::isfinite(d)) {
+            return json(d);
+        }
+        if (std::isnan(d)) {
+            return json("f64::NAN");
+        }
+        return std::signbit(d) ? json("f64::NEG_INFINITY") : json("f64::INFINITY");
+    }
+    if (val.isString()) {
+        return val.getString();
+    }
+    if (val.isArray()) {
+        auto arr = json::array();
+        for (const auto& elem : val.getArray()) {
+            arr.push_back(nestedValueToJson(elem));
+        }
+        return arr;
+    }
+    if (val.isObject()) {
+        auto obj = json::object();
+        for (const auto& [key, v] : val.getObject()) {
+            obj[key] = nestedValueToJson(v);
+        }
+        return obj;
+    }
+    return nullptr;
+}
+
 struct PropertyVisitor {
     template <typename T>
     std::optional<json> encodeFloatingPoint(T value, std::string_view prefix) const {
@@ -277,6 +330,11 @@ inline json buildProperties(const Layer& layer, const Feature& feature) {
             }
         }
     }
+    for (const auto& [key, _] : layer.getMapProperties()) {
+        if (const auto* mapProp = feature.getMapProperty(key, layer); mapProp) {
+            result[key] = nestedValueToJson(*mapProp);
+        }
+    }
     return result;
 }
 #pragma endregion Properties
@@ -293,7 +351,7 @@ inline json toJSON(const Layer& layer, const Feature& feature, const Projection&
     if (geoJSON) {
         result["type"] = "Feature";
     }
-    if (!layer.getProperties().empty()) {
+    if (!layer.getProperties().empty() || !layer.getMapProperties().empty()) {
         result["properties"] = detail::buildProperties(layer, feature);
     }
     return result;

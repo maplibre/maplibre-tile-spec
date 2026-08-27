@@ -35,6 +35,7 @@ public:
     std::uint32_t getIndex() const noexcept { return index; }
     const Geometry& getGeometry() const noexcept { return *geometry; }
     std::optional<Property> getProperty(const std::string& key, const Layer&) const;
+    const NestedValue* getMapProperty(const std::string& key, const Layer&) const;
 
 private:
     std::optional<id_t> ident;
