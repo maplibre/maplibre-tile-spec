@@ -39,6 +39,6 @@ pub(crate) use property::{
     RawSharedDictEncoding, RawSharedDictItem, RawStrings, RawStringsEncoding,
 };
 pub(crate) use stream::model::{
-    DictionaryType, IntEncoding, LengthType, LogicalEncoding, LogicalTechnique, LogicalValue,
-    Morton, OffsetType, PhysicalEncoding, RawStream, RleMeta, StreamMeta, StreamType,
+    DictionaryType, IntEncoding, LengthType, LogicalCombination, LogicalEncoding, LogicalTechnique,
+    LogicalValue, Morton, OffsetType, PhysicalEncoding, RawStream, RleMeta, StreamMeta, StreamType,
 };

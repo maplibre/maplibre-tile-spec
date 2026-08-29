@@ -25,8 +25,8 @@ use usize_cast::IntoUsize as _;
 use crate::MltError::ParsingStreamType;
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
-    DictionaryType, IntEncoding, LengthType, LogicalEncoding, LogicalTechnique, Morton, OffsetType,
-    PhysicalEncoding, RawStream, RleMeta, StreamMeta, StreamType,
+    DictionaryType, IntEncoding, LengthType, LogicalCombination, LogicalEncoding, LogicalTechnique,
+    Morton, OffsetType, PhysicalEncoding, RawStream, RleMeta, StreamMeta, StreamType,
 };
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
 use crate::utils::{BinarySerializer as _, parse_u8, take};
@@ -47,6 +47,9 @@ const LOGICAL2_MASK: u8 = 0b0001_1100;
 /// Distance between the primary logical field and the secondary one.
 const LOGICAL2_SHIFT: u32 = 3;
 
+/// Mask of the encoding byte holding both logical fields, i.e. a [`LogicalCombination`].
+const LOGICAL_MASK: u8 = LOGICAL1_MASK | LOGICAL2_MASK;
+
 /// Mask of the encoding byte holding the [`PhysicalEncoding`].
 const PHYSICAL_MASK: u8 = 0b0000_0011;
 
@@ -60,14 +63,21 @@ enum CategoryField {
     Length = 0b0011_0000,
 }
 
-/// Read the secondary logical field, lifted into the primary field's bit positions.
-fn parse_logical2(encoding_byte: u8) -> MltResult<LogicalTechnique> {
-    LogicalTechnique::parse((encoding_byte & LOGICAL2_MASK) << LOGICAL2_SHIFT)
+/// Read both logical fields of the encoding byte as the combination they spell out.
+///
+/// Combinations that are not legal on the wire are reported as [`MltError::InvalidLogicalEncodings`]
+/// naming both fields, so decompose the byte again on that path.
+fn parse_logical(encoding_byte: u8) -> MltResult<LogicalCombination> {
+    LogicalCombination::try_from(encoding_byte & LOGICAL_MASK).or_else(|_| {
+        let primary = LogicalTechnique::parse(encoding_byte & LOGICAL1_MASK)?;
+        let secondary = LogicalTechnique::parse((encoding_byte & LOGICAL2_MASK) << LOGICAL2_SHIFT)?;
+        Err(MltError::InvalidLogicalEncodings(primary, secondary))
+    })
 }
 
-/// Place a technique into the encoding byte's secondary logical field.
-fn logical2_bits(technique: LogicalTechnique) -> u8 {
-    (technique as u8) >> LOGICAL2_SHIFT
+/// Assemble the encoding byte from its logical and physical fields.
+fn encoding_byte(logical: LogicalCombination, physical: PhysicalEncoding) -> u8 {
+    logical as u8 | physical as u8
 }
 
 /// Parse the v1 `stream_type` byte: category in the high nibble, subtype in the low nibble.
@@ -115,33 +125,32 @@ pub(crate) fn parse_stream_meta<'a>(
     is_bool: bool,
     parser: &mut Parser,
 ) -> MltRefResult<'a, (StreamMeta, u32)> {
-    use LogicalTechnique as LT;
+    use LogicalCombination as LC;
 
     let (input, st_byte) = parse_u8(input)?;
     let stream_type = stream_type_from_byte(st_byte).ok_or(ParsingStreamType(st_byte))?;
 
     let (input, val) = parse_u8(input)?;
-    let logical1 = LT::parse(val & LOGICAL1_MASK)?;
-    let logical2 = parse_logical2(val)?;
+    let logical = parse_logical(val)?;
     let physical_encoding = PhysicalEncoding::parse(val & PHYSICAL_MASK)?;
 
     let (input, num_values) = parse_varint::<u32>(input)?;
     let (input, byte_length) = parse_varint::<u32>(input)?;
 
     let mut input = input;
-    let logical_encoding = match (logical1, logical2) {
-        (LT::None | LT::Delta | LT::ComponentwiseDelta | LT::PseudoDecimal, LT::None) => {
+    let logical_encoding = match logical {
+        LC::None | LC::Delta | LC::ComponentwiseDelta | LC::PseudoDecimal => {
             // Reserve decoded memory upper bound: worst case u64 = 8 bytes per value
             let decoded_bytes = num_values.saturating_mul(8);
             parser.reserve(decoded_bytes)?;
-            match logical1 {
-                LT::None => LogicalEncoding::None,
-                LT::Delta => LogicalEncoding::Delta,
-                LT::ComponentwiseDelta => LogicalEncoding::ComponentwiseDelta,
+            match logical {
+                LC::None => LogicalEncoding::None,
+                LC::Delta => LogicalEncoding::Delta,
+                LC::ComponentwiseDelta => LogicalEncoding::ComponentwiseDelta,
                 _ => LogicalEncoding::PseudoDecimal,
             }
         }
-        (LT::Delta, LT::Rle) | (LT::Rle, LT::None) => {
+        LC::Rle | LC::DeltaRle => {
             let runs;
             let num_rle_values;
             if is_bool {
@@ -158,13 +167,13 @@ pub(crate) fn parse_stream_meta<'a>(
                 runs,
                 num_rle_values,
             };
-            if logical1 == LT::Rle {
+            if logical == LC::Rle {
                 LogicalEncoding::Rle(rle)
             } else {
                 LogicalEncoding::DeltaRle(rle)
             }
         }
-        (LT::Morton, LT::None | LT::Rle | LT::Delta) => {
+        LC::Morton | LC::MortonRle | LC::MortonDelta => {
             // Reserve decoded memory upper bound: worst case u64 = 8 bytes per value
             let decoded_bytes = num_values.saturating_mul(8);
             parser.reserve(decoded_bytes)?;
@@ -173,13 +182,12 @@ pub(crate) fn parse_stream_meta<'a>(
             (input, bits) = parse_varint::<u32>(input)?;
             (input, shift) = parse_varint::<u32>(input)?;
             let morton = Morton::new(bits, shift)?;
-            match logical2 {
-                LT::Rle => LogicalEncoding::MortonRle(morton),
-                LT::Delta => LogicalEncoding::MortonDelta(morton),
+            match logical {
+                LC::MortonRle => LogicalEncoding::MortonRle(morton),
+                LC::MortonDelta => LogicalEncoding::MortonDelta(morton),
                 _ => LogicalEncoding::Morton(morton),
             }
         }
-        _ => Err(MltError::InvalidLogicalEncodings(logical1, logical2))?,
     };
 
     let meta = StreamMeta::new(
@@ -200,22 +208,22 @@ pub(crate) fn write_stream_meta<W: io::Write>(
     is_bool: bool,
     byte_length: u32,
 ) -> MltResult<()> {
+    use LogicalCombination as LC;
     use LogicalEncoding as LE;
-    use LogicalTechnique as LT;
 
     writer.write_u8(stream_type_to_byte(meta.stream_type))?;
-    let (logical1, logical2) = match meta.encoding.logical {
-        LE::None => (LT::None, LT::None),
-        LE::Delta => (LT::Delta, LT::None),
-        LE::DeltaRle(_) => (LT::Delta, LT::Rle),
-        LE::ComponentwiseDelta => (LT::ComponentwiseDelta, LT::None),
-        LE::Rle(_) => (LT::Rle, LT::None),
-        LE::Morton(_) => (LT::Morton, LT::None),
-        LE::MortonRle(_) => (LT::Morton, LT::Rle),
-        LE::MortonDelta(_) => (LT::Morton, LT::Delta),
-        LE::PseudoDecimal => (LT::PseudoDecimal, LT::None),
+    let logical = match meta.encoding.logical {
+        LE::None => LC::None,
+        LE::Delta => LC::Delta,
+        LE::DeltaRle(_) => LC::DeltaRle,
+        LE::ComponentwiseDelta => LC::ComponentwiseDelta,
+        LE::Rle(_) => LC::Rle,
+        LE::Morton(_) => LC::Morton,
+        LE::MortonRle(_) => LC::MortonRle,
+        LE::MortonDelta(_) => LC::MortonDelta,
+        LE::PseudoDecimal => LC::PseudoDecimal,
     };
-    writer.write_u8(logical1 as u8 | logical2_bits(logical2) | meta.encoding.physical as u8)?;
+    writer.write_u8(encoding_byte(logical, meta.encoding.physical))?;
     writer.write_varint(meta.num_values)?;
     writer.write_varint(byte_length)?;
 
@@ -333,6 +341,11 @@ mod tests {
 
     const DATA: StreamType = StreamType::Data(DictionaryType::None);
 
+    /// Place two techniques into the logical fields of the encoding byte.
+    fn logical_bits(primary: LogicalTechnique, secondary: LogicalTechnique) -> u8 {
+        primary as u8 | ((secondary as u8) >> LOGICAL2_SHIFT)
+    }
+
     fn meta(logical: LogicalEncoding, physical: PhysicalEncoding, num: u32) -> StreamMeta {
         StreamMeta::new(DATA, IntEncoding::new(logical, physical), num)
     }
@@ -401,10 +414,59 @@ mod tests {
         assert_eq!(stream.data, payload);
     }
 
+    #[rstest]
+    #[case::none(
+        LogicalCombination::None,
+        LogicalTechnique::None,
+        LogicalTechnique::None
+    )]
+    #[case::delta(
+        LogicalCombination::Delta,
+        LogicalTechnique::Delta,
+        LogicalTechnique::None
+    )]
+    #[case::delta_rle(
+        LogicalCombination::DeltaRle,
+        LogicalTechnique::Delta,
+        LogicalTechnique::Rle
+    )]
+    #[case::cw_delta(
+        LogicalCombination::ComponentwiseDelta,
+        LogicalTechnique::ComponentwiseDelta,
+        LogicalTechnique::None
+    )]
+    #[case::rle(LogicalCombination::Rle, LogicalTechnique::Rle, LogicalTechnique::None)]
+    #[case::morton(
+        LogicalCombination::Morton,
+        LogicalTechnique::Morton,
+        LogicalTechnique::None
+    )]
+    #[case::morton_delta(
+        LogicalCombination::MortonDelta,
+        LogicalTechnique::Morton,
+        LogicalTechnique::Delta
+    )]
+    #[case::morton_rle(
+        LogicalCombination::MortonRle,
+        LogicalTechnique::Morton,
+        LogicalTechnique::Rle
+    )]
+    #[case::pseudo_decimal(
+        LogicalCombination::PseudoDecimal,
+        LogicalTechnique::PseudoDecimal,
+        LogicalTechnique::None
+    )]
+    fn combination_holds_both_field_bits(
+        #[case] combination: LogicalCombination,
+        #[case] primary: LogicalTechnique,
+        #[case] secondary: LogicalTechnique,
+    ) {
+        assert_eq!(combination as u8, logical_bits(primary, secondary));
+    }
+
     #[test]
     fn rejects_invalid_logical_combination() {
-        let enc_byte =
-            LogicalTechnique::ComponentwiseDelta as u8 | logical2_bits(LogicalTechnique::Rle);
+        let enc_byte = logical_bits(LogicalTechnique::ComponentwiseDelta, LogicalTechnique::Rle);
         let buf = [0u8, enc_byte, 0, 0];
         let err = parse_stream(&buf, &mut parser()).unwrap_err();
         assert!(matches!(err, MltError::InvalidLogicalEncodings(_, _)));

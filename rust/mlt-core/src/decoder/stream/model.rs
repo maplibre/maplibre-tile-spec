@@ -20,6 +20,25 @@ pub enum LogicalTechnique {
     PseudoDecimal = 0b1010_0000,
 }
 
+/// The combinations of the two [`LogicalTechnique`] fields that are legal on the wire
+///
+/// Each variant is the whole logical part of the v1 encoding byte, i.e. the primary field
+/// (bits 7-5) or-ed with the secondary field (bits 4-2).
+/// Any other pairing of the two fields is rejected while parsing.
+#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
+#[repr(u8)]
+pub enum LogicalCombination {
+    None = 0b0000_0000,
+    Delta = 0b0010_0000,
+    DeltaRle = 0b0010_1100,
+    ComponentwiseDelta = 0b0100_0000,
+    Rle = 0b0110_0000,
+    Morton = 0b1000_0000,
+    MortonDelta = 0b1000_0100,
+    MortonRle = 0b1000_1100,
+    PseudoDecimal = 0b1010_0000,
+}
+
 /// Metadata for RLE decoding
 /// TODO v2 optimizations:
 ///   * runs is identical to half the size of the associated array
