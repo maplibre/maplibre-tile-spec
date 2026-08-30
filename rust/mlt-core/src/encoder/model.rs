@@ -3,7 +3,7 @@ use std::collections::HashSet;
 
 use derive_debug::Dbg;
 
-use crate::decoder::{DictionaryType, GeometryValues, StreamType};
+use crate::decoder::{DictionaryType, GeometryValues, RleLayout, StreamType};
 use crate::encoder::geometry::VertexBufferType;
 use crate::encoder::{IntEncoder, StagedId, StagedProperty};
 use crate::tile::Extent;
@@ -197,6 +197,17 @@ impl WireVersion {
             Self::V02 => 2,
         }
     }
+
+    /// The RLE stream data layout used by this format.
+    #[must_use]
+    pub(crate) fn rle_layout(self) -> RleLayout {
+        match self {
+            Self::V01 => RleLayout::Split,
+            // TODO(v2): v2 uses interleaved `(run, value)` pairs.
+            #[cfg(feature = "unstable-v2")]
+            Self::V02 => RleLayout::Split,
+        }
+    }
 }
 
 /// Global encoder settings controlling which optimization strategies are attempted.
@@ -269,12 +280,11 @@ impl EncoderConfig {
         self.allow_fsst
     }
 
-    /// Whether the `FastPFor` physical encoding may compete for streams.
-    // TODO(v2): race FastPFor128-LE for `WireVersion::V02`.
-    // v2 will use `FastPFor128` in little-endian byte order.
-    // Until that codec lands, `FastPFor` is only attempted for v1 layers.
     #[must_use]
     pub fn allow_fastpfor(self) -> bool {
+        // TODO(v2): race FastPFor128-LE for `WireVersion::V02`.
+        // v2 will use `FastPFor128` in little-endian byte order.
+        // Until that codec lands, `FastPFor` is only attempted for v1 layers.
         self.allow_fastpfor && self.wire_version == WireVersion::V01
     }
 

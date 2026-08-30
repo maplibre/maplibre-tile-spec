@@ -39,15 +39,23 @@ pub enum LogicalCombination {
     PseudoDecimal = 0b1010_0000,
 }
 
-/// Metadata for RLE decoding
-/// TODO v2 optimizations:
-///   * runs is identical to half the size of the associated array
-///   * `num_rle_values` is identical to the size of the sum of the first half of the array.
-///     Computing checked sum should not be too expensive.
+/// Which RLE stream layout the encoder should produce.
+///
+/// A data-less selector chosen up front by the wire format (see
+/// [`WireVersion::rle_layout`](crate::encoder::WireVersion)); the realized
+/// per-stream metadata is [`RleMeta`], whose variants mirror these.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RleLayout {
+    /// Tag `0x01`: all run lengths first, then all values.
+    Split,
+}
+
+/// Metadata for RLE decoding, one variant per [`RleLayout`].
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct RleMeta {
-    pub(crate) runs: u32,
-    pub(crate) num_rle_values: u32,
+pub enum RleMeta {
+    /// Tag `0x01`: physically-decoded words are `[run_len × runs][value × runs]`.
+    /// `runs` is the split point; `num_rle_values` is the expanded element count.
+    Split { runs: u32, num_rle_values: u32 },
 }
 
 /// Metadata for Morton decoding

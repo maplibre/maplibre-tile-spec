@@ -14,16 +14,31 @@ impl RleMeta {
     /// Decode RLE (Run-Length Encoding) data.
     /// Charges the decoder for the expanded output allocation.
     pub fn decode<T: PrimInt + Debug>(self, data: &[T], dec: &mut Decoder) -> MltResult<Vec<T>> {
-        let expected_len = self.runs.into_usize().checked_mul(2).or_overflow()?;
+        match self {
+            Self::Split {
+                runs,
+                num_rle_values,
+            } => Self::decode_split(runs, num_rle_values, data, dec),
+        }
+    }
+
+    /// Tag `0x01` layout: `[run_len × runs][value × runs]`.
+    fn decode_split<T: PrimInt + Debug>(
+        runs: u32,
+        num_rle_values: u32,
+        data: &[T],
+        dec: &mut Decoder,
+    ) -> MltResult<Vec<T>> {
+        let expected_len = runs.into_usize().checked_mul(2).or_overflow()?;
         fail_if_invalid_stream_size(data.len(), expected_len)?;
 
-        let (run_lens, values) = data.split_at(self.runs.into_usize());
+        let (run_lens, values) = data.split_at(runs.into_usize());
         fail_if_invalid_stream_size(
-            self.num_rle_values.into_usize(),
+            num_rle_values.into_usize(),
             Self::calc_size(run_lens)?.into_usize(),
         )?;
 
-        let alloc_size = self.num_rle_values.into_usize();
+        let alloc_size = num_rle_values.into_usize();
         let mut result = dec.alloc(alloc_size)?;
         for (&run_len, &val) in run_lens.iter().zip(values.iter()) {
             let run = run_len
@@ -165,7 +180,7 @@ mod tests {
 
     #[test]
     fn test_decode_rle_empty() {
-        let rle = RleMeta {
+        let rle = RleMeta::Split {
             runs: 0,
             num_rle_values: 0,
         };
@@ -175,7 +190,7 @@ mod tests {
     #[test]
     fn test_decode_rle_invalid_stream_size() {
         // Valid RLE for runs=2 needs 4 elements (2 run lengths + 2 values). Only 3 provided.
-        let rle = RleMeta {
+        let rle = RleMeta::Split {
             runs: 2,
             num_rle_values: 3,
         };

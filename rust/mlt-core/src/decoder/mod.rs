@@ -40,5 +40,6 @@ pub(crate) use property::{
 };
 pub(crate) use stream::model::{
     DictionaryType, IntEncoding, LengthType, LogicalCombination, LogicalEncoding, LogicalTechnique,
-    LogicalValue, Morton, OffsetType, PhysicalEncoding, RawStream, RleMeta, StreamMeta, StreamType,
+    LogicalValue, Morton, OffsetType, PhysicalEncoding, RawStream, RleLayout, RleMeta, StreamMeta,
+    StreamType,
 };

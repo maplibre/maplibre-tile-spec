@@ -163,7 +163,7 @@ pub(crate) fn parse_stream_meta<'a>(
             // Reserve decoded memory (worst case: u64 = 8 bytes per value)
             let decoded_bytes = num_rle_values.saturating_mul(8);
             parser.reserve(decoded_bytes)?;
-            let rle = RleMeta {
+            let rle = RleMeta::Split {
                 runs,
                 num_rle_values,
             };
@@ -229,11 +229,12 @@ pub(crate) fn write_stream_meta<W: io::Write>(
 
     // some encoding have settings inside them
     match meta.encoding.logical {
-        LE::DeltaRle(RleMeta {
+        // v1 always uses the Split layout.
+        LE::DeltaRle(RleMeta::Split {
             runs,
             num_rle_values,
         })
-        | LE::Rle(RleMeta {
+        | LE::Rle(RleMeta::Split {
             runs,
             num_rle_values,
         }) => {
@@ -299,11 +300,11 @@ fn parse_stream_internal<'a>(
 
     // For RLE with VarInt physical encoding, validate stream: run lengths must sum to num_rle_values.
     // v1 parsing only ever produces the Split layout.
-    if let LE::Rle(RleMeta {
+    if let LE::Rle(RleMeta::Split {
         runs,
         num_rle_values,
     })
-    | LE::DeltaRle(RleMeta {
+    | LE::DeltaRle(RleMeta::Split {
         runs,
         num_rle_values,
     }) = meta.encoding.logical
@@ -388,7 +389,7 @@ mod tests {
     fn rle_header_roundtrip(#[case] plain_rle: bool) {
         let run_lengths = [2_u8, 3];
         let values = [10_u8, 20];
-        let rle = RleMeta {
+        let rle = RleMeta::Split {
             runs: u32::try_from(run_lengths.len()).unwrap(),
             num_rle_values: u32::from(run_lengths.iter().sum::<u8>()),
         };
