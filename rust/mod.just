@@ -177,7 +177,7 @@ _coverage: (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm
         --workspace --exclude-no-default-features --exclude-all-features
     rm -rf ../test/synthetic/0x01-rust ../test/synthetic/0x02-rust
     cargo llvm-cov run --no-report -p mlt-synthetics
-    cargo llvm-cov run --no-report -p mlt -- ls --validate-to-json {{validate_excludes}} --details basic ../test/synthetic/
+    cargo llvm-cov run --no-report -p mlt --features unstable-v2 -- ls --validate-to-json {{validate_excludes}} --details basic ../test/synthetic/
     rustup toolchain install nightly --profile minimal --component llvm-tools
     cargo +nightly llvm-cov --no-report --doctests --workspace
 

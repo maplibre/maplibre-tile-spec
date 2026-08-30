@@ -15,6 +15,7 @@ import {
 } from "./vectorTile";
 
 const UNIMPLEMENTED_SYNTHETICS = new Map([
+  ["0x02", "the v2 wire format is behind the unstable-v2 feature"],
   ["0x02-java/prop_nested_big", "not supported"],
   ["0x02-java/prop_nested_ints", "not supported"],
   ["0x02-java/prop_nested_json", "not supported"],
@@ -39,10 +40,20 @@ describe("MLT WASM Decoder - Synthetic tests", () => {
   }
 
   for (const { name, content, fileName } of testCases.skipped) {
-    it(`${name} (unsupported: ${UNIMPLEMENTED_SYNTHETICS.get(name)})`, () =>
+    it(`${name} (unsupported: ${reasonFor(name)})`, () =>
       expectUnsupported(() => decodeMLT(fileName), content));
   }
 });
+
+/**
+ * Skip-list entries name either a single fixture or a whole directory, matching `getTestCases`.
+ */
+function reasonFor(name: string): string {
+  for (const [entry, reason] of UNIMPLEMENTED_SYNTHETICS) {
+    if (name === entry || name.startsWith(`${entry}/`)) return reason;
+  }
+  return "not supported";
+}
 
 async function decodeMLT(
   mltFilePath: string,

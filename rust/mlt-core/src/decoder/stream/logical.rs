@@ -12,6 +12,21 @@ use crate::{Decoder, MltResult};
 
 impl RleMeta {
     /// Decode RLE (Run-Length Encoding) data.
+    ///
+    /// A run-length encoded stream is a sequence of runs, each a `(run_len, value)` pair
+    /// that expands to `run_len` copies of `value`.
+    /// The two layouts differ only in how those pairs are arranged in the stream:
+    ///
+    /// ```text
+    /// logical values:   [7, 7, 7, 9, 5, 5]     runs = 3, num_rle_values = 6
+    /// Split (v1):       [3, 1, 2][7, 9, 5]     all run lengths, then all values
+    /// Interleaved (v2): [3, 7][1, 9][2, 5]     one (run_len, value) pair per run
+    /// ```
+    ///
+    /// Split reads `runs` from the stream header, so the split point is known up front.
+    /// Interleaved derives the run count from the data length, which must therefore be even.
+    /// Both know `num_rle_values`, the expanded element count that the run lengths must sum to.
+    ///
     /// Charges the decoder for the expanded output allocation.
     pub fn decode<T: PrimInt + Debug>(self, data: &[T], dec: &mut Decoder) -> MltResult<Vec<T>> {
         match self {
@@ -26,7 +41,7 @@ impl RleMeta {
         }
     }
 
-    /// Tag `0x01` layout: `[run_len × runs][value × runs]`.
+    /// Tag `0x01` layout: `[run_len × runs][value × runs]`, with `runs` from the header.
     fn decode_split<T: PrimInt + Debug>(
         runs: u32,
         num_rle_values: u32,
@@ -54,8 +69,8 @@ impl RleMeta {
         Ok(result)
     }
 
-    /// Tag `0x02` layout: `(run_len, value)` pairs. The run count is derived from
-    /// the data length; `num_rle_values` comes from the stream's count context.
+    /// Tag `0x02` layout: `(run_len, value)` pairs, with the run count derived from the data length.
+    /// `num_rle_values` comes from the stream's count context rather than its own varint.
     #[cfg(feature = "unstable-v2")]
     fn decode_interleaved<T: PrimInt + Debug>(
         num_rle_values: u32,

@@ -24,9 +24,10 @@ pub fn hilbert_xy_to_index(level: u32, coord: Coord<u32>) -> u32 {
 ///
 /// Use [`hilbert_curve_params_from_bounds`] to compute `shift` and `bits`
 /// from global min/max coordinates.
+/// Levels above 16 are clamped, which only coarsens the ordering.
 #[must_use]
 pub fn hilbert_sort_key(c: Coord<i32>, params: CurveParams) -> u32 {
-    debug_assert!((1..=16).contains(&params.bits));
+    debug_assert!(params.bits >= 1);
     #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
@@ -39,7 +40,7 @@ pub fn hilbert_sort_key(c: Coord<i32>, params: CurveParams) -> u32 {
         reason = "shift brings value into [0, extent]; masked to 16 bits immediately after"
     )]
     let sy = ((i64::from(c.y) + i64::from(params.shift)) as u32) & 0xFFFF;
-    hilbert_xy_to_index(params.bits, (sx, sy).into())
+    hilbert_xy_to_index(params.bits.min(16), (sx, sy).into())
 }
 
 /// Compute the coordinate shift and grid level from pre-computed global
@@ -49,8 +50,13 @@ pub fn hilbert_sort_key(c: Coord<i32>, params: CurveParams) -> u32 {
 /// - `shift` is subtracted from the global minimum (i.e. it equals
 ///   `min_val.unsigned_abs()` when `min_val < 0`, else `0`), ensuring all
 ///   shifted coordinates are non-negative.
-/// - `bits` is the smallest level `l` in `[1, 16]` such that all
-///   shifted values fit in `[0, 2^l)`.
+/// - `bits` is the smallest level `l >= 1` such that all shifted values fit
+///   in `[0, 2^l)`.
+///
+/// `bits` may exceed the 16 levels a curve key can represent.
+/// Reporting that instead of clamping is what lets `Morton::new` reject the
+/// layer, so the vertex dictionaries never dedup coordinates that alias onto
+/// the same 16-bit curve key.
 ///
 /// If `min > max` (empty input), returns `(0, 1)`.
 #[must_use]
@@ -67,11 +73,7 @@ pub fn hilbert_curve_params_from_bounds(min_val: i32, max_val: i32) -> CurvePara
     let extent = (i64::from(max_val) + i64::from(shift)).unsigned_abs();
     // bits = ceil(log2(extent + 1)), i.e. the smallest l s.t. 2^l > extent.
     // For extent = 0 the grid degenerates to a single cell; use level 1.
-    let bits = if extent == 0 {
-        1
-    } else {
-        extent.bit_width().min(16)
-    };
+    let bits = if extent == 0 { 1 } else { extent.bit_width() };
 
     CurveParams { shift, bits }
 }
@@ -84,6 +86,7 @@ mod tests {
 
     use super::*;
     use crate::codecs::morton::interleave_bits;
+    use crate::decoder::Morton;
 
     const fn c(x: i32, y: i32) -> Coord<i32> {
         Coord::<i32> { x, y }
@@ -270,11 +273,18 @@ mod tests {
     }
 
     #[test]
-    fn curve_params_clamped_at_16_bits() {
-        // extent = 65535 = 2^16 - 1, bits = 16.
+    fn curve_params_at_the_16_bit_boundary() {
         let CurveParams { shift, bits } = hilbert_curve_params_from_bounds(0, 65535);
         assert_eq!(shift, 0);
         assert_eq!(bits, 16);
+    }
+
+    #[test]
+    fn curve_params_report_bits_beyond_what_a_curve_key_holds() {
+        let CurveParams { shift, bits } = hilbert_curve_params_from_bounds(0, 2_686_984);
+        assert_eq!(shift, 0);
+        assert_eq!(bits, 22);
+        assert!(Morton::new(bits, shift).is_err());
     }
 
     // ── Hilbert vs Morton locality comparison ─────────────────────────────────
