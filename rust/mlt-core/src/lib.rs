@@ -32,10 +32,6 @@ pub use decoder::{
     Layer01FeatureIter, LendingIterator, ParsedLayer, ParsedLayer01, Parser, PropName,
     PropNamesIter, PropValueRef, Unknown,
 };
-pub use tile::{
-    Extent, PropKind, PropValue, PropertyKey, TileFeature, TileFeatureBuilder, TileLayer,
-    TileLayerBuilder,
-};
 // Crate-internal re-exports: allow internal modules to use `crate::Lazy` etc.
 // without exposing these implementation details to external users.
 pub(crate) use decoder::{
@@ -44,6 +40,10 @@ pub(crate) use decoder::{
 };
 pub(crate) use errors::MltRefResult;
 pub use errors::{MltError, MltResult};
+pub use tile::{
+    Extent, PropKind, PropValue, PropertyKey, TileFeature, TileFeatureBuilder, TileLayer,
+    TileLayerBuilder,
+};
 pub(crate) use utils::analyze::{Analyze, StatType};
 pub(crate) use utils::lazy_state::{Decode, DecodeState, Lazy, LazyParsed, Parsed};
 
