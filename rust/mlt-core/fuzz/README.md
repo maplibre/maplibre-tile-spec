@@ -15,7 +15,10 @@ fuzz/
 ├── src/
 │   └── lib.rs              # mlt_fuzz library with LayerInput and fuzz_roundtrip logic
 ├── fuzz_targets/
-│   └── layer.rs            # Fuzz target that feeds random data to LayerInput
+│   ├── layer.rs            # Fuzz target that feeds random data to LayerInput
+│   ├── decoded_layer.rs    # Encode -> decode -> re-encode fixpoint
+│   ├── mvt_roundtrip.rs    # TileLayer -> MVT -> TileLayer fixpoint
+│   └── differential.rs     # Rust vs C++ decoder differential
 ├── tests/
 │   └── reproduce.rs        # Template for reproducing fuzzer-found issues
 ├── corpus/layer/           # Seed inputs for fuzzing
