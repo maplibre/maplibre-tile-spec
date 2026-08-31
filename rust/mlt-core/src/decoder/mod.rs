@@ -41,8 +41,9 @@ pub(crate) use model02::{ColumnType02, DataType02, GeoLayout, LayerLayout, Prese
 pub(crate) use property::strings;
 pub(crate) use property::{
     DictRange, ParsedProperty, ParsedScalar, ParsedSharedDict, ParsedSharedDictItem, ParsedStrings,
-    Property, RawFsstData, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
-    RawSharedDictEncoding, RawSharedDictItem, RawStrings, RawStringsEncoding,
+    Property, RawFloats, RawFloatsEncoding, RawFsstData, RawPlainData, RawPresence, RawProperty,
+    RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings,
+    RawStringsEncoding,
 };
 pub(crate) use stream::model::{
     DictionaryType, IntEncoding, LengthType, LogicalCombination, LogicalEncoding, LogicalTechnique,

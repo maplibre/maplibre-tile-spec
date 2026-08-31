@@ -3,7 +3,9 @@ use std::borrow::Cow;
 use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
 
-use crate::decoder::{ParsedProperty, ParsedScalar, RawPresence, RawProperty};
+use crate::decoder::{
+    ParsedProperty, ParsedScalar, RawFloats, RawFloatsEncoding, RawPresence, RawProperty,
+};
 use crate::utils::decode_presence;
 use crate::{Decode, Decoder, MltResult};
 
@@ -22,6 +24,20 @@ impl<'a> RawPresence<'a> {
             #[cfg(feature = "unstable-v2")]
             Self::Bitfield(bits) => Ok(Some(Cow::Borrowed(bits))),
         }
+    }
+}
+
+impl<'a> RawFloats<'a> {
+    /// Decode the column, reading whichever stream set its encoding uses.
+    fn decode<T>(self, dec: &mut Decoder) -> MltResult<ParsedScalar<'a, T>>
+    where
+        T: Copy + PartialEq + num_traits::FromBytes,
+        for<'b> <T as num_traits::FromBytes>::Bytes: TryFrom<&'b [u8]>,
+    {
+        let values = match self.encoding {
+            RawFloatsEncoding::Single(data) => data.decode_floats::<T>(dec)?,
+        };
+        ParsedScalar::from_parts(self.name, self.presence, values, dec)
     }
 }
 
@@ -77,14 +93,8 @@ impl<'a> Decode<ParsedProperty<'a>> for RawProperty<'a> {
                 let vals = v.data.decode_ints::<u64>(dec)?;
                 P::U64(S::from_parts(v.name, v.presence, vals, dec)?)
             }
-            Self::F32(v) => {
-                let vals = v.data.decode_floats::<f32>(dec)?;
-                P::F32(S::from_parts(v.name, v.presence, vals, dec)?)
-            }
-            Self::F64(v) => {
-                let vals = v.data.decode_floats::<f64>(dec)?;
-                P::F64(S::from_parts(v.name, v.presence, vals, dec)?)
-            }
+            Self::F32(v) => P::F32(v.decode::<f32>(dec)?),
+            Self::F64(v) => P::F64(v.decode::<f64>(dec)?),
             Self::Str(v) => P::Str(v.decode(dec)?),
             Self::SharedDict(v) => P::SharedDict(v.decode(dec)?),
         })
