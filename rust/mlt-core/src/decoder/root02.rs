@@ -42,7 +42,7 @@ use crate::decoder::stream::header02;
 use crate::decoder::stream::header02::StreamCtx02;
 use crate::decoder::{
     ColumnType02, DataType02, GeoLayout, Id, Layer01, LayerLayout, LengthType, Presence02,
-    RawGeometry, RawId, RawIdValue, RawPresence, RawScalar,
+    RawFloats, RawGeometry, RawId, RawIdValue, RawPresence, RawScalar,
 };
 use crate::tile::Extent;
 use crate::utils::{SetOptionOnce as _, parse_string, parse_u8, take};
@@ -134,8 +134,8 @@ pub(crate) fn parse_layer02<'a>(
             DataType02::U32 => RP::U32(RawScalar::new(name, presence, value)),
             DataType02::I64 => RP::I64(RawScalar::new(name, presence, value)),
             DataType02::U64 => RP::U64(RawScalar::new(name, presence, value)),
-            DataType02::F32 => RP::F32(RawScalar::new(name, presence, value)),
-            DataType02::F64 => RP::F64(RawScalar::new(name, presence, value)),
+            DataType02::F32 => RP::F32(RawFloats::single(name, presence, value)),
+            DataType02::F64 => RP::F64(RawFloats::single(name, presence, value)),
         };
         properties.push(Raw(prop));
     }
