@@ -23,19 +23,6 @@ impl<'a> RawPresence<'a> {
             Self::Bitfield(bits) => Ok(Some(Cow::Borrowed(bits))),
         }
     }
-
-    /// Decode into one bool per feature, or `None` for a non-optional column.
-    pub(crate) fn decode_bools(self, dec: &mut Decoder) -> MltResult<Option<Vec<bool>>> {
-        match self {
-            Self::AllPresent => Ok(None),
-            Self::Stream(s) => Ok(Some(s.decode_bools(dec)?)),
-            #[cfg(feature = "unstable-v2")]
-            Self::Bitfield(bits) => {
-                dec.consume_items::<bool>(bits.len())?;
-                Ok(Some(bits.iter().by_vals().collect()))
-            }
-        }
-    }
 }
 
 impl<'a, T: Copy + PartialEq> ParsedScalar<'a, T> {
