@@ -36,6 +36,33 @@ impl<'a> RawScalar<'a> {
     }
 }
 
+/// Raw float column as read directly from the tile.
+/// Its encodings differ in how many streams they use, so it carries an encoding enum like [`RawStrings`] rather than one stream.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RawFloats<'a> {
+    pub name: &'a str,
+    pub presence: RawPresence<'a>,
+    pub encoding: RawFloatsEncoding<'a>,
+}
+
+impl<'a> RawFloats<'a> {
+    /// A column stored as one data stream.
+    pub(crate) fn single(name: &'a str, presence: RawPresence<'a>, data: RawStream<'a>) -> Self {
+        Self {
+            name,
+            presence,
+            encoding: RawFloatsEncoding::Single(data),
+        }
+    }
+}
+
+/// Raw encoding payload for a float column.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RawFloatsEncoding<'a> {
+    /// One data stream, its own logical encoding saying how to read it.
+    Single(RawStream<'a>),
+}
+
 /// Raw string column as read directly from the tile.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RawStrings<'a> {
@@ -96,8 +123,8 @@ pub enum RawProperty<'a> {
     U32(RawScalar<'a>),
     I64(RawScalar<'a>),
     U64(RawScalar<'a>),
-    F32(RawScalar<'a>),
-    F64(RawScalar<'a>),
+    F32(RawFloats<'a>),
+    F64(RawFloats<'a>),
     Str(RawStrings<'a>),
     SharedDict(RawSharedDict<'a>),
 }
