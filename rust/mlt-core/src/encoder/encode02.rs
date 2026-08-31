@@ -20,6 +20,7 @@ use std::collections::HashMap;
 
 use integer_encoding::VarIntWriter as _;
 
+use crate::decoder::stream::header02::StreamCtx02;
 use crate::decoder::{
     ColumnType02, DataType02, DictionaryType, LayerLayout, LogicalEncoding, PhysicalEncoding,
     Presence02, StreamMeta, StreamType,
@@ -220,6 +221,9 @@ fn begin_col02(
     typ: DataType02,
     name: Option<&str>,
 ) -> MltResult<()> {
+    // Every v2 column starts here, so this is where its data stream's family is fixed.
+    enc.family_context = StreamCtx02::Property(typ).family();
+
     let data = enc.data_mut();
     data.push(ColumnType02::new(presence, typ).to_byte());
     debug_assert_eq!(typ.has_name(), name.is_some());

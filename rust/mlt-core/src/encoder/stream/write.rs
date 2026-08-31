@@ -39,7 +39,14 @@ pub(crate) fn write_stream_payload(
         WireVersion::V02 => {
             debug_assert!(!is_boolean, "v2 layers have no bool-RLE streams");
             let implicit_count = enc.count_context;
-            header02::write_stream_meta(&meta, enc.data_mut(), byte_length, implicit_count)?;
+            let family = enc.family_context;
+            header02::write_stream_meta(
+                &meta,
+                enc.data_mut(),
+                byte_length,
+                implicit_count,
+                family,
+            )?;
         }
     }
     enc.data_mut().extend_from_slice(payload);
