@@ -39,9 +39,10 @@ use crate::LazyParsed::Raw;
 use crate::MltError::{BufferUnderflow, MissingLayerName, TrailingLayerData};
 use crate::codecs::varint::parse_varint;
 use crate::decoder::stream::header02;
+use crate::decoder::stream::header02::StreamCtx02;
 use crate::decoder::{
-    ColumnType02, DataType02, DictionaryType, GeoLayout, Id, Layer01, LayerLayout, LengthType,
-    Presence02, RawGeometry, RawId, RawIdValue, RawPresence, RawScalar, StreamType,
+    ColumnType02, DataType02, GeoLayout, Id, Layer01, LayerLayout, LengthType, Presence02,
+    RawGeometry, RawId, RawIdValue, RawPresence, RawScalar,
 };
 use crate::tile::Extent;
 use crate::utils::{SetOptionOnce as _, parse_string, parse_u8, take};
@@ -101,9 +102,9 @@ pub(crate) fn parse_layer02<'a>(
             RawPresence::Bitfield(bits) => u32::try_from(bits.count_ones())?,
             RawPresence::AllPresent | RawPresence::Stream(_) => feature_count,
         };
-        let data = StreamType::Data(DictionaryType::None);
+        let ctx = StreamCtx02::Property(typ.data);
         let value;
-        (input, value) = header02::parse_stream(input, data, data_count, parser)?;
+        (input, value) = header02::parse_stream(input, ctx, data_count, parser)?;
 
         #[cfg(fuzzing)]
         layer_order.push(match typ.data {
@@ -224,8 +225,8 @@ fn parse_geometry<'a>(
     }
 
     // Types stream: implicit count = feature_count.
-    let types_role = StreamType::Length(LengthType::VarBinary);
-    let (mut input, types) = header02::parse_stream(input, types_role, feature_count, parser)?;
+    let (mut input, types) =
+        header02::parse_stream(input, StreamCtx02::GeomTypes, feature_count, parser)?;
 
     let mut items = Vec::with_capacity(4);
     let lengths = [
@@ -235,16 +236,16 @@ fn parse_geometry<'a>(
     ];
     for (present, length_type) in lengths {
         if present {
-            let role = StreamType::Length(length_type);
+            let ctx = StreamCtx02::GeomOffsets(length_type);
             let stream;
-            (input, stream) = header02::parse_stream(input, role, feature_count, parser)?;
+            (input, stream) = header02::parse_stream(input, ctx, feature_count, parser)?;
             items.push(stream);
         }
     }
 
     // Vertex stream (explicit count in practice; context falls back to feature_count).
-    let vertex_role = StreamType::Data(DictionaryType::Vertex);
-    let (input, vertices) = header02::parse_stream(input, vertex_role, feature_count, parser)?;
+    let (input, vertices) =
+        header02::parse_stream(input, StreamCtx02::GeomVertices, feature_count, parser)?;
     items.push(vertices);
 
     Ok((input, RawGeometry { meta: types, items }))

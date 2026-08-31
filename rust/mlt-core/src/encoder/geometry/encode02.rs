@@ -8,6 +8,7 @@ use super::streams::{
     encode_vec2_vertex_stream, normalize_geometry_offsets, normalize_part_offsets_for_rings,
 };
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
+use crate::decoder::stream::header02::Family;
 use crate::decoder::{GeoLayout, GeometryType, GeometryValues, LengthType, StreamType};
 use crate::encoder::model::StreamCtx;
 use crate::encoder::{Codecs, Encoder};
@@ -150,6 +151,9 @@ impl GeometrySection02 {
     /// Expects `enc.count_context` to hold the layer's `feature_count`, and the
     /// layout byte to have been written already.
     pub(crate) fn write_to(self, enc: &mut Encoder, codecs: &mut Codecs) -> MltResult<()> {
+        // Types and length streams are integer streams, only the vertex stream has its own family.
+        enc.family_context = Family::Int;
+
         // Types stream: implicit count = feature_count (the current count context).
         let ctx = StreamCtx::geom(StreamType::Length(LengthType::VarBinary), "meta");
         codecs.write_int_stream(&self.types, &ctx, enc)?;
@@ -166,6 +170,7 @@ impl GeometrySection02 {
             }
         }
 
+        enc.family_context = Family::Vertex;
         encode_vec2_vertex_stream(&self.vertices, enc, codecs)?;
         Ok(())
     }
