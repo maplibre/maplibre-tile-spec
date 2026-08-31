@@ -101,14 +101,38 @@ impl<'a> RawStream<'a> {
 
     /// Decode a stream of `f32`/`f64` from raw little-endian bytes, charging `dec`.
     ///
-    /// Floats do not support varint physical encoding.
+    /// Raw is the only float representation either wire format can express today.
+    /// Both fields are matched explicitly rather than defaulted to raw, so a
+    /// stream tagged with an encoding floats do not have is rejected instead of
+    /// being reinterpreted as little-endian bytes.
     pub fn decode_floats<T>(self, dec: &mut Decoder) -> MltResult<Vec<T>>
     where
         T: num_traits::FromBytes,
         for<'b> <T as num_traits::FromBytes>::Bytes: TryFrom<&'b [u8]>,
     {
-        if self.meta.encoding.physical == PhysicalEncoding::VarInt {
-            return Err(MltError::NotImplemented("varint float decoding"));
+        match self.meta.encoding.logical {
+            LogicalEncoding::None => {}
+            LogicalEncoding::Delta
+            | LogicalEncoding::DeltaRle(_)
+            | LogicalEncoding::ComponentwiseDelta
+            | LogicalEncoding::Rle(_)
+            | LogicalEncoding::Morton(_)
+            | LogicalEncoding::MortonDelta(_)
+            | LogicalEncoding::MortonRle(_) => {
+                return Err(MltError::UnsupportedLogicalEncoding(
+                    self.meta.encoding.logical,
+                    "float streams, which are stored raw",
+                ));
+            }
+        }
+        match self.meta.encoding.physical {
+            PhysicalEncoding::None => {}
+            PhysicalEncoding::VarInt => {
+                return Err(MltError::UnsupportedPhysicalEncoding("varint floats"));
+            }
+            PhysicalEncoding::FastPFor256 => {
+                return Err(MltError::UnsupportedPhysicalEncoding("FastPFOR floats"));
+            }
         }
         let num = self.meta.num_values.into_usize();
         let width = size_of::<T>();
@@ -280,11 +304,12 @@ impl LogicalEncoding {
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;
+    use rstest::rstest;
 
     use super::*;
     use crate::codecs::bytes::encode_bools_to_bytes;
     use crate::codecs::rle::encode_byte_rle;
-    use crate::decoder::{RleMeta, StreamMeta, StreamType};
+    use crate::decoder::{DictionaryType, IntEncoding, RleMeta, StreamMeta, StreamType};
     use crate::test_helpers::dec;
 
     fn packed(bools: &[bool]) -> Vec<u8> {
@@ -383,5 +408,39 @@ mod tests {
             err,
             MltError::NotImplemented("unsupported bool stream encoding")
         ));
+    }
+
+    const DATA: StreamType = StreamType::Data(DictionaryType::None);
+
+    fn float_stream(logical: LogicalEncoding, physical: PhysicalEncoding) -> RawStream<'static> {
+        const BYTES: [u8; 8] = [0; 8];
+        let meta = StreamMeta::new(DATA, IntEncoding::new(logical, physical), 2);
+        RawStream::new(meta, &BYTES)
+    }
+
+    #[rstest]
+    #[case::delta(LogicalEncoding::Delta)]
+    #[case::componentwise_delta(LogicalEncoding::ComponentwiseDelta)]
+    fn decode_floats_rejects_non_raw_logical(#[case] logical: LogicalEncoding) {
+        let stream = float_stream(logical, PhysicalEncoding::None);
+        let err = stream.decode_floats::<f32>(&mut dec()).unwrap_err();
+        assert!(matches!(err, MltError::UnsupportedLogicalEncoding(_, _)));
+    }
+
+    #[rstest]
+    #[case::varint(PhysicalEncoding::VarInt)]
+    #[case::fastpfor(PhysicalEncoding::FastPFor256)]
+    fn decode_floats_rejects_non_raw_physical(#[case] physical: PhysicalEncoding) {
+        let stream = float_stream(LogicalEncoding::None, physical);
+        let err = stream.decode_floats::<f32>(&mut dec()).unwrap_err();
+        assert!(matches!(err, MltError::UnsupportedPhysicalEncoding(_)));
+    }
+
+    #[test]
+    fn decode_floats_reads_raw_little_endian() {
+        let bytes = 1.5_f32.to_le_bytes();
+        let meta = StreamMeta::new(DATA, IntEncoding::none(), 1);
+        let stream = RawStream::new(meta, &bytes);
+        assert_eq!(stream.decode_floats::<f32>(&mut dec()).unwrap(), vec![1.5]);
     }
 }
