@@ -11,8 +11,8 @@ use crate::MltError::{
 use crate::codecs::varint::parse_varint;
 use crate::decoder::stream::header01;
 use crate::decoder::{
-    Column, ColumnType, DictionaryType, Geometry, Id, Layer01, RawFsstData, RawGeometry, RawId,
-    RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
+    Column, ColumnType, DictionaryType, Geometry, Id, Layer01, RawFloats, RawFsstData, RawGeometry,
+    RawId, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
     RawSharedDictEncoding, RawSharedDictItem, RawStrings, RawStringsEncoding, StreamType,
 };
 use crate::errors::AsMltError as _;
@@ -115,12 +115,12 @@ impl<'a> Layer01<'a, Lazy> {
                 ColumnType::F32 | ColumnType::OptF32 => {
                     (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = header01::parse_stream(input, parser)?;
-                    properties.push(Raw(RP::F32(RawScalar::new(name, presence, value))));
+                    properties.push(Raw(RP::F32(RawFloats::single(name, presence, value))));
                 }
                 ColumnType::F64 | ColumnType::OptF64 => {
                     (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = header01::parse_stream(input, parser)?;
-                    properties.push(Raw(RP::F64(RawScalar::new(name, presence, value))));
+                    properties.push(Raw(RP::F64(RawFloats::single(name, presence, value))));
                 }
                 ColumnType::Str | ColumnType::OptStr => {
                     let prop;
