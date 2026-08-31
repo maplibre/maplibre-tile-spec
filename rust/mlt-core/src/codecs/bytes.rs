@@ -82,27 +82,6 @@ pub fn decode_bytes_to_words<'a, T: PhysicalWord>(
     Ok((input, values))
 }
 
-/// Helper to unpack a `Vec<u8>` into `Vec<bool>` where each byte represents 8 booleans.
-/// TODO: Use `BitSlice` from bitvec crate and avoid copying?
-pub fn decode_bytes_to_bools(
-    bytes: &[u8],
-    num_bools: usize,
-    dec: &mut Decoder,
-) -> MltResult<Vec<bool>> {
-    if num_bools > bytes.len() * 8 {
-        return Err(BufferUnderflow(
-            u32::try_from(num_bools.div_ceil(8))?,
-            bytes.len(),
-        ));
-    }
-    let mut result = dec.alloc(num_bools)?;
-    for i in 0..num_bools {
-        result.push((bytes[i / 8] >> (i % 8)) & 1 == 1);
-    }
-    debug_assert_length(&result, num_bools);
-    Ok(result)
-}
-
 #[inline]
 pub fn debug_assert_length<T>(buffer: &[T], expected_len: usize) {
     debug_assert_eq!(
@@ -114,6 +93,8 @@ pub fn debug_assert_length<T>(buffer: &[T], expected_len: usize) {
 
 #[cfg(test)]
 mod tests {
+    use bitvec::order::Lsb0;
+    use bitvec::view::BitView as _;
     use proptest::prelude::*;
 
     use super::*;
@@ -124,8 +105,8 @@ mod tests {
         fn encode_bools_to_bytes_roundtrip(bools: Vec<bool>) {
             let mut bytes = Vec::new();
             let data = encode_bools_to_bytes(bools.iter().copied(), &mut bytes);
-            let bools_rountrip = decode_bytes_to_bools(data, bools.len(), &mut dec()).unwrap();
-            prop_assert_eq!(bools_rountrip, bools);
+            let packed = &data.view_bits::<Lsb0>()[..bools.len()];
+            prop_assert_eq!(packed.iter().by_vals().collect::<Vec<bool>>(), bools);
         }
 
         #[test]

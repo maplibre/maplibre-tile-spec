@@ -5,7 +5,7 @@ use bitvec::prelude::{BitSlice, BitVec, Lsb0};
 use bitvec::view::BitView as _;
 use usize_cast::IntoUsize as _;
 
-use crate::codecs::bytes::{PhysicalWord, decode_bytes_to_bools, decode_bytes_to_words};
+use crate::codecs::bytes::{PhysicalWord, debug_assert_length, decode_bytes_to_words};
 use crate::codecs::rle::decode_byte_rle;
 use crate::codecs::varint::{parse_varint_vec, parse_varint_vec_all};
 #[cfg(feature = "unstable-v2")]
@@ -15,52 +15,46 @@ use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
 use crate::{Decoder, MltError, MltResult};
 
 impl<'a> RawStream<'a> {
-    /// Decode a presence/nullability stream into a packed bitvector.
-    ///
-    /// Borrows directly from tile bytes (zero-copy) when both logical and physical
-    /// encodings are `None`; otherwise decompresses byte-RLE into an owned `BitVec`.
-    /// The result is always truncated to exactly `num_values` bits.
-    pub(crate) fn decode_bitvec(self, dec: &mut Decoder) -> MltResult<Cow<'a, BitSlice<u8, Lsb0>>> {
-        let num_values = self.meta.num_values.into_usize();
-        if self.meta.encoding.physical == PhysicalEncoding::VarInt {
-            return Err(MltError::NotImplemented("varint presence decoding"));
-        }
-        if self.meta.encoding.logical == LogicalEncoding::None
-            && self.meta.encoding.physical == PhysicalEncoding::None
-        {
-            // Zero-copy: raw tile bytes are the packed bitvector.
-            let num_bytes = num_values.div_ceil(8);
-            fail_if_invalid_stream_size(self.data.len(), num_bytes)?;
-            Ok(Cow::Borrowed(&self.data.view_bits::<Lsb0>()[..num_values]))
-        } else {
-            let num_bytes = num_values.div_ceil(8);
-            let bytes = decode_byte_rle(self.data, num_bytes, dec)?;
-            let mut bvec = BitVec::<u8, Lsb0>::from_vec(bytes);
-            bvec.truncate(num_values);
-            Ok(Cow::Owned(bvec))
-        }
-    }
-
-    /// Decode a boolean data stream into `Vec<bool>`, charging `dec`.
+    /// Decode a boolean stream (presence or bool data) into a packed bitvector.
     ///
     /// Both wire formats store one bit per value in an LSB-first packed bitmap;
     /// they differ only in how that bitmap is framed, which the logical encoding
     /// distinguishes:
-    /// - tag `0x01` (`logical = Rle`): byte-RLE compressed bitmap.
-    /// - tag `0x02` (`logical = None`): raw bitmap, no compression - the same
-    ///   representation as a v2 presence bitfield.
-    pub fn decode_bools(self, dec: &mut Decoder) -> MltResult<Vec<bool>> {
+    /// - tag `0x01` (`logical = Rle`): byte-RLE compressed bitmap, decompressed
+    ///   into an owned `BitVec`.
+    /// - tag `0x02` (`logical = None`): raw bitmap, borrowed straight from the tile
+    ///   bytes - the same representation as a v2 presence bitfield.
+    ///
+    /// The result is always exactly `num_values` bits.
+    pub(crate) fn decode_bitvec(self, dec: &mut Decoder) -> MltResult<Cow<'a, BitSlice<u8, Lsb0>>> {
         let num_values = self.meta.num_values.into_usize();
+        let num_bytes = num_values.div_ceil(8);
         match self.meta.encoding.logical {
             LogicalEncoding::Rle(_) => {
-                let bytes = decode_byte_rle(self.data, num_values.div_ceil(8), dec)?;
-                decode_bytes_to_bools(&bytes, num_values, dec)
+                let bytes = decode_byte_rle(self.data, num_bytes, dec)?;
+                fail_if_invalid_stream_size(bytes.len(), num_bytes)?;
+                let mut bits = BitVec::<u8, Lsb0>::from_vec(bytes);
+                bits.truncate(num_values);
+                Ok(Cow::Owned(bits))
             }
             LogicalEncoding::None if self.meta.encoding.physical == PhysicalEncoding::None => {
-                decode_bytes_to_bools(self.data, num_values, dec)
+                fail_if_invalid_stream_size(self.data.len(), num_bytes)?;
+                Ok(Cow::Borrowed(&self.data.view_bits::<Lsb0>()[..num_values]))
             }
             _ => Err(MltError::NotImplemented("unsupported bool stream encoding")),
         }
+    }
+
+    /// Decode a boolean data stream into one `bool` per value, charging `dec`.
+    ///
+    /// Prefer [`RawStream::decode_bitvec`], which keeps the wire's packed layout.
+    /// This 8x expansion exists for the dense `Vec<bool>` of a boolean column.
+    pub fn decode_bools(self, dec: &mut Decoder) -> MltResult<Vec<bool>> {
+        let bits = self.decode_bitvec(dec)?;
+        let mut bools = dec.alloc(bits.len())?;
+        bools.extend(bits.iter().by_vals());
+        debug_assert_length(&bools, bits.len());
+        Ok(bools)
     }
 
     /// Decode via physical type `W`, then narrow to `N`, erroring if a value is out of range.
@@ -272,5 +266,114 @@ impl LogicalEncoding {
     #[expect(clippy::unused_self, reason = "tmp because feature gate")]
     fn scans_to_end(self) -> bool {
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use proptest::prelude::*;
+
+    use super::*;
+    use crate::codecs::bytes::encode_bools_to_bytes;
+    use crate::codecs::rle::encode_byte_rle;
+    use crate::decoder::{RleMeta, StreamMeta, StreamType};
+    use crate::test_helpers::dec;
+
+    fn packed(bools: &[bool]) -> Vec<u8> {
+        let mut target = Vec::new();
+        encode_bools_to_bytes(bools.iter().copied(), &mut target).to_vec()
+    }
+
+    fn raw_bitmap(data: &[u8], num_values: usize) -> RawStream<'_> {
+        let meta = StreamMeta::new_none(StreamType::Present, num_values).unwrap();
+        RawStream::new(meta, data)
+    }
+
+    fn byte_rle(data: &[u8], num_values: usize) -> RawStream<'_> {
+        let logical = LogicalEncoding::Rle(RleMeta::Split {
+            runs: u32::try_from(num_values.div_ceil(8)).unwrap(),
+            num_rle_values: u32::try_from(data.len()).unwrap(),
+        });
+        let meta = StreamMeta::new2(
+            StreamType::Present,
+            logical,
+            PhysicalEncoding::None,
+            num_values,
+        )
+        .unwrap();
+        RawStream::new(meta, data)
+    }
+
+    fn compressed(bools: &[bool]) -> Vec<u8> {
+        let mut encoded = Vec::new();
+        encode_byte_rle(&packed(bools), &mut encoded).to_vec()
+    }
+
+    proptest! {
+        #[test]
+        fn decode_bitvec_borrows_raw_bitmap_from_tile_bytes(bools: Vec<bool>) {
+            let bytes = packed(&bools);
+            let bits = raw_bitmap(&bytes, bools.len()).decode_bitvec(&mut dec()).unwrap();
+            prop_assert!(matches!(bits, Cow::Borrowed(_)));
+            prop_assert_eq!(bits.iter().by_vals().collect::<Vec<bool>>(), bools);
+        }
+
+        #[test]
+        fn decode_bitvec_expands_byte_rle(bools: Vec<bool>) {
+            let bytes = compressed(&bools);
+            let bits = byte_rle(&bytes, bools.len()).decode_bitvec(&mut dec()).unwrap();
+            prop_assert_eq!(bits.len(), bools.len());
+            prop_assert_eq!(bits.iter().by_vals().collect::<Vec<bool>>(), bools);
+        }
+
+        #[test]
+        fn decode_bools_agrees_with_decode_bitvec(bools: Vec<bool>) {
+            let bytes = compressed(&bools);
+            let decoded = byte_rle(&bytes, bools.len()).decode_bools(&mut dec()).unwrap();
+            prop_assert_eq!(decoded, bools);
+        }
+    }
+
+    #[test]
+    fn decode_bitvec_rejects_short_raw_bitmap() {
+        let err = raw_bitmap(&[0xFF], 9)
+            .decode_bitvec(&mut dec())
+            .unwrap_err();
+        assert!(matches!(err, MltError::InvalidDecodingStreamSize(1, 2)));
+    }
+
+    #[test]
+    fn decode_bitvec_rejects_truncated_byte_rle() {
+        // One literal byte, where nine bits need two.
+        let err = byte_rle(&[0xFF, 0b0101_0101], 9)
+            .decode_bitvec(&mut dec())
+            .unwrap_err();
+        assert!(matches!(err, MltError::InvalidDecodingStreamSize(1, 2)));
+    }
+
+    #[test]
+    fn decode_bools_rejects_truncated_byte_rle() {
+        let err = byte_rle(&[0xFF, 0b0101_0101], 9)
+            .decode_bools(&mut dec())
+            .unwrap_err();
+        assert!(matches!(err, MltError::InvalidDecodingStreamSize(1, 2)));
+    }
+
+    #[test]
+    fn decode_bitvec_rejects_varint_physical_encoding() {
+        let meta = StreamMeta::new2(
+            StreamType::Present,
+            LogicalEncoding::None,
+            PhysicalEncoding::VarInt,
+            8,
+        )
+        .unwrap();
+        let err = RawStream::new(meta, &[0x01])
+            .decode_bitvec(&mut dec())
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            MltError::NotImplemented("unsupported bool stream encoding")
+        ));
     }
 }
