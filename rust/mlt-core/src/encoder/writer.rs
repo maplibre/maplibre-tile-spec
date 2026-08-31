@@ -4,6 +4,8 @@ use std::{io, mem};
 use fsst::Compressor;
 use integer_encoding::VarIntWriter as _;
 
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::stream::header02::Family;
 use crate::decoder::{ColumnType, Morton};
 use crate::encoder::model::{CurveParams, ExplicitEncoder, StrEncoding, StreamCtx};
 use crate::encoder::{EncoderConfig, IntEncoder, VertexBufferType};
@@ -129,6 +131,11 @@ pub struct Encoder {
     #[cfg(feature = "unstable-v2")]
     pub(crate) count_context: u32,
 
+    /// The family the stream being written is numbered in, set by the v2 writers alongside [`Self::count_context`].
+    /// Ignored for v1 layers.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) family_context: Family,
+
     // -----------------------------------------------------------------------
     // Alternatives state - a stack that supports nested competitions.
     //
@@ -188,6 +195,8 @@ impl Encoder {
             fsst_cache: HashMap::new(),
             #[cfg(feature = "unstable-v2")]
             count_context: 0,
+            #[cfg(feature = "unstable-v2")]
+            family_context: Family::Int,
             alt_stack: vec![],
         }
     }
