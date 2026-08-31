@@ -8,6 +8,8 @@ use crate::MltError::UnsupportedPhysicalEncoding;
 use crate::MltResult;
 use crate::codecs::zigzag::{encode_zigzag, encode_zigzag_delta};
 use crate::decoder::stream::header01;
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::stream::header02;
 use crate::decoder::{LogicalEncoding, PhysicalEncoding, RleLayout, StreamMeta, StreamType};
 use crate::encoder::Encoder;
 use crate::encoder::model::{StreamCtx, WireVersion};
@@ -31,9 +33,9 @@ pub(crate) fn write_stream_payload(
         }
         #[cfg(feature = "unstable-v2")]
         WireVersion::V02 => {
-            return Err(crate::MltError::NotImplemented(
-                "header02::write_stream_meta",
-            ));
+            debug_assert!(!is_boolean, "v2 layers have no bool-RLE streams");
+            let implicit_count = enc.count_context;
+            header02::write_stream_meta(&meta, enc.data_mut(), byte_length, implicit_count)?;
         }
     }
     enc.data_mut().extend_from_slice(payload);

@@ -204,9 +204,8 @@ impl WireVersion {
     pub(crate) fn rle_layout(self) -> RleLayout {
         match self {
             Self::V01 => RleLayout::Split,
-            // TODO(v2): v2 uses interleaved `(run, value)` pairs.
             #[cfg(feature = "unstable-v2")]
-            Self::V02 => RleLayout::Split,
+            Self::V02 => RleLayout::Interleaved,
         }
     }
 }

@@ -120,6 +120,15 @@ pub struct Encoder {
     /// Trained on deduplicated values on the first sort trial, reused on subsequent trials.
     pub(crate) fsst_cache: HashMap<String, Option<Compressor>>,
 
+    /// The stream count a v2 decoder would infer from context at the current
+    /// write position: the layer's `feature_count`, or the presence popcount
+    /// while an optional column's data stream is being written.
+    ///
+    /// Read by the v2 stream-header codec to decide whether an explicit count
+    /// varint must be emitted; ignored entirely for v1 layers.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) count_context: u32,
+
     // -----------------------------------------------------------------------
     // Alternatives state - a stack that supports nested competitions.
     //
@@ -167,7 +176,9 @@ impl Encoder {
     pub(crate) fn preserve_results(&mut self) -> Self {
         assert_eq!(self.alt_stack.len(), 0, "Alternatives stack is not empty");
         Self {
-            cfg: EncoderConfig::default(),
+            // Keep the config: the archived result still needs it to frame the
+            // layer with the right tag in `into_layer_bytes`.
+            cfg: self.cfg,
             explicit: None,
             hdr: mem::take(&mut self.hdr),
             meta: mem::take(&mut self.meta),
@@ -175,6 +186,8 @@ impl Encoder {
             morton_cache: None,
             hilbert_cache: None,
             fsst_cache: HashMap::new(),
+            #[cfg(feature = "unstable-v2")]
+            count_context: 0,
             alt_stack: vec![],
         }
     }
@@ -257,6 +270,33 @@ impl Encoder {
         self.hdr.write_varint(extent).map_err(MltError::from)?;
         self.hdr
             .write_varint(column_count)
+            .map_err(MltError::from)?;
+        Ok(())
+    }
+
+    /// Write the v2 layer header (`name`, `extent`, `feature_count`) to `hdr`.
+    ///
+    /// Unlike v1, `column_count` is not part of the header - it precedes the
+    /// counted columns in the data section, after the geometry section.
+    #[cfg(feature = "unstable-v2")]
+    #[hotpath::measure]
+    pub(crate) fn write_header02(
+        &mut self,
+        name: &str,
+        extent: u32,
+        feature_count: u32,
+    ) -> MltResult<()> {
+        if name.is_empty() {
+            return Err(MltError::MissingLayerName);
+        }
+        debug_assert!(
+            self.alt_stack.is_empty(),
+            "write_header02 called with an open alternatives session"
+        );
+        self.hdr.write_string(name).map_err(MltError::from)?;
+        self.hdr.write_varint(extent).map_err(MltError::from)?;
+        self.hdr
+            .write_varint(feature_count)
             .map_err(MltError::from)?;
         Ok(())
     }

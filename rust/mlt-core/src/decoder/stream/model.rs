@@ -48,6 +48,9 @@ pub enum LogicalCombination {
 pub enum RleLayout {
     /// Tag `0x01`: all run lengths first, then all values.
     Split,
+    /// Tag `0x02`: `(run_length, value)` pairs. Requires the `unstable-v2` feature.
+    #[cfg(feature = "unstable-v2")]
+    Interleaved,
 }
 
 /// Metadata for RLE decoding, one variant per [`RleLayout`].
@@ -56,6 +59,25 @@ pub enum RleMeta {
     /// Tag `0x01`: physically-decoded words are `[run_len × runs][value × runs]`.
     /// `runs` is the split point; `num_rle_values` is the expanded element count.
     Split { runs: u32, num_rle_values: u32 },
+    /// Tag `0x02`: physically-decoded words are `(run_len, value)` pairs. The run
+    /// count is derived from the data length, so only the expanded element count
+    /// (`num_rle_values`, from the stream's count context) is carried.
+    /// Requires the `unstable-v2` feature.
+    #[cfg(feature = "unstable-v2")]
+    Interleaved { num_rle_values: u32 },
+}
+
+impl RleMeta {
+    /// The total expanded element count, common to both layouts.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub(crate) fn num_rle_values(self) -> u32 {
+        match self {
+            Self::Split { num_rle_values, .. } => num_rle_values,
+            #[cfg(feature = "unstable-v2")]
+            Self::Interleaved { num_rle_values } => num_rle_values,
+        }
+    }
 }
 
 /// Metadata for Morton decoding

@@ -13,7 +13,7 @@ publish = false
 
 [dependencies]
 clap.workspace = true
-mlt-core = { workspace = true, features = ["__private"] }
+mlt-core = { workspace = true, features = ["__private", "unstable-v2"] }
 serde_json.workspace = true
 thiserror.workspace = true
 

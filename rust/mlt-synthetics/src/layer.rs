@@ -7,6 +7,7 @@ use mlt_core::GeometryValues;
 use mlt_core::encoder::{
     Codecs, ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, Presence, StagedId,
     StagedLayer, StagedProperty, StagedSharedDict, StrEncoding, StreamCtx, VertexBufferType,
+    WireVersion,
 };
 use mlt_core::geo_types::{Coord, Geometry};
 use mlt_core::wire::{LengthType, OffsetType, StreamType};
@@ -126,6 +127,7 @@ pub struct Layer {
     props: Vec<(StagedProperty, PropConfig)>,
     extent: Option<u32>,
     ids: Option<(StagedId, IntEncoder)>,
+    no_v2: bool,
 }
 
 impl Layer {
@@ -140,7 +142,15 @@ impl Layer {
             props: vec![],
             extent: None,
             ids: None,
+            no_v2: false,
         }
+    }
+
+    /// Skip encoding this layer as v2 (tag `0x02`).
+    #[must_use]
+    pub fn no_v2(mut self) -> Self {
+        self.no_v2 = true;
+        self
     }
 
     #[must_use]
@@ -200,7 +210,8 @@ impl Layer {
     ///
     /// Forcing a stream that is never empty (or whose name does not match any stream) is
     /// a no-op, and the resulting duplicate bytes are reported by [`SynthWriter`]; drop the
-    /// call rather than keeping a fixture that adds no coverage.
+    /// call rather than keeping a fixture that adds no coverage. Add [`Self::no_v2`] when the
+    /// forced stream is only meaningful for v1.
     #[must_use]
     #[expect(
         dead_code,
@@ -330,9 +341,19 @@ impl Layer {
     /// Encode and then either verify against the reference dir (non-rust files) or write to the
     /// output dir (`-rust`-suffixed files). Delegates to [`SynthWriter::write`].
     ///
-    /// One call produces exactly one fixture.
-    pub fn write(self, w: &mut SynthWriter, name: impl AsRef<str>) {
-        w.write(self, name);
+    /// One call produces exactly one fixture name, for every wire version this layer wants.
+    pub fn write(&self, w: &mut SynthWriter, name: impl AsRef<str>) {
+        let name = name.as_ref();
+        w.write(self, [name, name]);
+    }
+
+    /// Like [`Self::write`], but names the v1 and v2 fixtures separately.
+    ///
+    /// For when one name would mislead: a name describing a v2-only encoding says
+    /// nothing true about the v1 file holding the same data. Both files still hold
+    /// the same logical features, so they share one `.json`-equivalent expectation.
+    pub fn write_per_version(&self, w: &mut SynthWriter, v1_name: &str, v2_name: &str) {
+        w.write(self, [v1_name, v2_name]);
     }
 
     #[must_use]
@@ -352,7 +373,11 @@ impl Layer {
         OpenOptions::new().write(true).create_new(true).open(path)
     }
 
-    pub fn encode_to_bytes(self) -> SynthResult<Vec<u8>> {
+    pub(crate) fn wants_v2(&self) -> bool {
+        !self.no_v2
+    }
+
+    pub fn encode_to_bytes(self, wire_version: WireVersion) -> SynthResult<Vec<u8>> {
         let Self {
             default_geo_enc,
             geo_stream_overrides,
@@ -363,9 +388,12 @@ impl Layer {
             props,
             extent,
             ids,
+            no_v2: _,
         } = self;
 
-        let enc_cfg = EncoderConfig::default().with_tessellation(tessellate);
+        let enc_cfg = EncoderConfig::default()
+            .with_tessellation(tessellate)
+            .with_wire_version(wire_version);
 
         let mut geometry = if enc_cfg.tessellate() {
             GeometryValues::new_tessellated()

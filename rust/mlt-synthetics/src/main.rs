@@ -14,8 +14,10 @@
 //! * `fpf` - uses `FastPFor` compression
 //! * `plain` - `PhysicalLevelTechnique::NONE`, i.e. fixed-width little-endian ints
 //! * `tes` - includes tessellation triangles stream
-//! * `same_nulls` - several columns are null on exactly the same features
-//! * `ns` - unlike Java encoder, empty streams are not forced to be created
+//! * `fs` - forces normally-empty streams to still be written, as the Java encoder used to do
+//! * `sp` - shared presence, i.e. columns null on the same features share one bitfield.
+//!   A v2-only encoding, so the v1 sibling of each `props_sp*` fixture holds the same
+//!   data under a `props_same_nulls*` name instead.
 
 mod layer;
 mod writer;
@@ -46,13 +48,9 @@ struct Args {
     #[arg(long)]
     verbose: bool,
 
-    /// Directory with the reference synthetic MLT files to verify against (must exist)
-    #[arg(long, default_value = "../test/synthetic/0x01/")]
+    /// Root directory of the synthetic test files (contains `0x01`/`0x02`)
+    #[arg(long, default_value = "../test/synthetic/")]
     synthetics: PathBuf,
-
-    /// Directory to use for Rust-specific synthetic MLT files (will be created if it doesn't exist)
-    #[arg(long, default_value = "../test/synthetic/0x01-rust/")]
-    synthetics_rust: PathBuf,
 }
 
 const C0: Coord<i32> = coord! { x: 13, y: 42 };
@@ -104,14 +102,13 @@ static MIX_TYPES: LazyLock<[(&'static str, Geometry<i32>); 7]> = LazyLock::new(|
 });
 
 fn main() {
-    let mut writer = SynthWriter::new(Args::parse());
+    let mut writer = SynthWriter::new(&Args::parse());
 
     generate_geometry(&mut writer);
     generate_mixed(&mut writer);
     generate_extent(&mut writer);
     generate_ids(&mut writer);
     generate_properties(&mut writer);
-    generate_shared_presence(&mut writer);
 
     writer.report_ungenerated();
 
@@ -155,6 +152,7 @@ fn generate_geometry(w: &mut SynthWriter) {
         .geo(LineString::new(morton_curve()))
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
+        .no_v2()
         .write(w, "line_morton_curve_morton");
     geo_varint()
         .geo(LineString::new(morton_curve()))
@@ -166,10 +164,15 @@ fn generate_geometry(w: &mut SynthWriter) {
         .write(w, "line_zero_length");
 
     geo_varint().geo(poly1()).write(w, "poly");
-    geo_fastpfor().geo(poly1()).write(w, "poly_fpf");
-    geo_varint().tessellate().geo(poly1()).write(w, "poly_tes");
+    geo_fastpfor().no_v2().geo(poly1()).write(w, "poly_fpf");
+    geo_varint()
+        .tessellate()
+        .no_v2()
+        .geo(poly1())
+        .write(w, "poly_tes");
     geo_fastpfor()
         .tessellate()
+        .no_v2()
         .geo(poly1())
         .write(w, "poly_fpf_tes");
 
@@ -177,14 +180,17 @@ fn generate_geometry(w: &mut SynthWriter) {
         .geo(poly_collinear())
         .write(w, "poly_collinear");
     geo_fastpfor()
+        .no_v2()
         .geo(poly_collinear())
         .write(w, "poly_collinear_fpf");
     geo_varint()
         .tessellate()
+        .no_v2()
         .geo(poly_collinear())
         .write(w, "poly_collinear_tes");
     geo_fastpfor()
         .tessellate()
+        .no_v2()
         .geo(poly_collinear())
         .write(w, "poly_collinear_fpf_tes");
 
@@ -192,14 +198,17 @@ fn generate_geometry(w: &mut SynthWriter) {
         .geo(poly_self_intersect())
         .write(w, "poly_self_intersect");
     geo_fastpfor()
+        .no_v2()
         .geo(poly_self_intersect())
         .write(w, "poly_self_intersect_fpf");
     geo_varint()
         .tessellate()
+        .no_v2()
         .geo(poly_self_intersect())
         .write(w, "poly_self_intersect_tes");
     geo_fastpfor()
         .tessellate()
+        .no_v2()
         .geo(poly_self_intersect())
         .write(w, "poly_self_intersect_fpf_tes");
 
@@ -209,16 +218,19 @@ fn generate_geometry(w: &mut SynthWriter) {
         .write(w, "poly_hole");
     geo_fastpfor()
         .parts_ring(E::rle_fastpfor())
+        .no_v2()
         .geo(poly1h())
         .write(w, "poly_hole_fpf");
     geo_varint()
         .parts_ring(E::rle_varint())
         .tessellate()
+        .no_v2()
         .geo(poly1h())
         .write(w, "poly_hole_tes");
     geo_fastpfor()
         .parts_ring(E::rle_fastpfor())
         .tessellate()
+        .no_v2()
         .geo(poly1h())
         .write(w, "poly_hole_fpf_tes");
 
@@ -228,16 +240,19 @@ fn generate_geometry(w: &mut SynthWriter) {
         .write(w, "poly_hole_touching");
     geo_fastpfor()
         .parts_ring(E::fastpfor())
+        .no_v2()
         .geo(poly_hole_touching())
         .write(w, "poly_hole_touching_fpf");
     geo_varint()
         .parts_ring(E::varint())
         .tessellate()
+        .no_v2()
         .geo(poly_hole_touching())
         .write(w, "poly_hole_touching_tes");
     geo_fastpfor()
         .parts_ring(E::fastpfor())
         .tessellate()
+        .no_v2()
         .geo(poly_hole_touching())
         .write(w, "poly_hole_touching_fpf_tes");
 
@@ -249,18 +264,21 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_fastpfor()
         .rings(E::rle_fastpfor())
         .rings2(E::rle_fastpfor())
+        .no_v2()
         .geo(MultiPolygon(vec![poly1(), poly2()]))
         .write(w, "poly_multi_fpf");
     geo_varint()
         .rings(E::rle_varint())
         .rings2(E::rle_varint())
         .tessellate()
+        .no_v2()
         .geo(MultiPolygon(vec![poly1(), poly2()]))
         .write(w, "poly_multi_tes");
     geo_fastpfor()
         .rings(E::rle_fastpfor())
         .rings2(E::rle_fastpfor())
         .tessellate()
+        .no_v2()
         .geo(MultiPolygon(vec![poly1(), poly2()]))
         .write(w, "poly_multi_fpf_tes");
 
@@ -274,6 +292,7 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
+        .no_v2()
         .geo(morton_poly)
         .write(w, "poly_morton_ring_morton");
 
@@ -298,6 +317,7 @@ fn generate_geometry(w: &mut SynthWriter) {
         .rings2(E::rle_varint())
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
+        .no_v2()
         .geo(mp_morton)
         .write(w, "poly_multi_morton_ring_morton");
 
@@ -307,6 +327,7 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
+        .no_v2()
         .geo(MultiPoint(morton_curve().into_iter().map(Point).collect()))
         .write(w, "multipoint_morton_dictionary-rust");
     // Split the Morton curve at a different place so that the rings are different lengths,
@@ -320,11 +341,13 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
+        .no_v2()
         .geo(poly_with_hole.clone())
         .write(w, "poly_morton_hole_morton");
     geo_varint()
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
+        .no_v2()
         .geo(MultiPolygon(vec![poly_with_hole]))
         .write(w, "poly_multi_morton_hole_morton");
 
@@ -348,14 +371,15 @@ fn generate_geometry(w: &mut SynthWriter) {
         .no_rings(E::rle_varint())
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
+        .no_v2()
         .geo(MultiLineString(vec![mline1, mline2]))
         .write(w, "multiline_morton");
 }
 
 fn write_mix(w: &mut SynthWriter, current: &[usize]) {
     let mut builder = geo_varint();
-    let mut builder_t = Some(geo_varint().tessellate());
-    let mut builder_t_with_lines = Some(geo_varint().tessellate());
+    let mut builder_t = Some(geo_varint().tessellate().no_v2());
+    let mut builder_t_with_lines = Some(geo_varint().tessellate().no_v2());
     let mut has_polygon = false;
     let mut has_line = false;
     let mut name = format!("mix_{}", current.len());
@@ -540,9 +564,13 @@ fn generate_ids(w: &mut SynthWriter) {
         .write(w, "ids64_minmax_delta");
 
     // FastPFOR physical encoding for u32 IDs (Rust-only: Java encoder does not support this)
-    four_p0().ids(dup_id(), E::fastpfor()).write(w, "ids_fpf");
+    four_p0()
+        .ids(dup_id(), E::fastpfor())
+        .no_v2()
+        .write(w, "ids_fpf");
     four_p0()
         .ids(dup_id(), E::delta_fastpfor())
+        .no_v2()
         .write(w, "ids_delta_fpf");
 }
 
@@ -882,44 +910,58 @@ fn generate_properties(w: &mut SynthWriter) {
 
     let e_str = E::varint();
     p0().add_prop(e_str, P::str("val", [""]))
+        .no_v2()
         .write(w, "prop_str_empty_np");
     p0().add_prop(e_str, P::opt_str("val", [Some("")]))
+        .no_v2()
         .write(w, "prop_str_empty");
     p0().add_prop(e_str, P::str("val", ["42"]))
+        .no_v2()
         .write(w, "prop_str_ascii_np");
     p0().add_prop(e_str, P::opt_str("val", [Some("42")]))
+        .no_v2()
         .write(w, "prop_str_ascii");
     p0().add_prop(e_str, P::str("val", ["Line1\n\t\"quoted\"\\path"]))
+        .no_v2()
         .write(w, "prop_str_escape_np");
     p0().add_prop(
         e_str,
         P::opt_str("val", [Some("Line1\n\t\"quoted\"\\path")]),
     )
+    .no_v2()
     .write(w, "prop_str_escape");
     p0().add_prop(e_str, P::str("val", ["München 📍 cafe\u{0301}"]))
+        .no_v2()
         .write(w, "prop_str_unicode_np");
     p0().add_prop(e_str, P::opt_str("val", [Some("München 📍 cafe\u{0301}")]))
+        .no_v2()
         .write(w, "prop_str_unicode");
     p0().add_prop(e_str, P::str("val", ["hello\u{0000} world\n"]))
+        .no_v2()
         .write(w, "prop_str_special_np");
     p0().add_prop(e_str, P::opt_str("val", [Some("hello\u{0000} world\n")]))
+        .no_v2()
         .write(w, "prop_str_special");
     // Two-feature optional str variants
     geo_varint_with_rle()
         .geos([P0, P0])
         .add_prop(e_str, P::opt_str("val", [Some("42"), None]))
+        .no_v2()
         .write(w, "prop_str_val_null");
     geo_varint_with_rle()
         .geos([P0, P0])
         .add_prop(e_str, P::opt_str("val", [None, Some("42")]))
+        .no_v2()
         .write(w, "prop_str_null_val");
     geo_varint_with_rle()
         .geos([P0, P0])
         .add_prop(e_str, P::opt_str("val", [Some(""), None]))
+        .no_v2()
         .write(w, "prop_str_val_empty");
     geo_varint_with_rle()
         .geos([P0, P0])
         .add_prop(e_str, P::opt_str("val", [None, Some("")]))
+        .no_v2()
         .write(w, "prop_str_empty_val");
 
     p0().add_prop(E::varint(), P::bool("active", vec![true]))
@@ -930,6 +972,7 @@ fn generate_properties(w: &mut SynthWriter) {
         .add_prop(E::varint(), P::str("name", ["Test Point"]))
         .add_prop(E::varint(), P::f64("precision", vec![0.123_456_789]))
         .add_prop(E::varint(), P::f32("temp", vec![25.5]))
+        .no_v2()
         .write(w, "props_mixed_np");
     p0().add_prop(E::varint(), P::opt_bool("active", vec![Some(true)]))
         .add_prop(E::varint(), P::opt_u64("biggest", vec![Some(0)]))
@@ -942,16 +985,18 @@ fn generate_properties(w: &mut SynthWriter) {
             P::opt_f64("precision", vec![Some(0.123_456_789)]),
         )
         .add_prop(E::varint(), P::opt_f32("temp", vec![Some(25.5)]))
+        .no_v2()
         .write(w, "props_mixed");
 
     generate_props_i32(w);
     generate_props_u32(w);
     generate_props_u64(w);
     generate_props_str(w);
+    generate_shared_presence(w);
     generate_shared_dictionaries(w);
 }
 
-/// One `Some` per non-`-` position of a presence mask, e.g. `"x-x-"` -> `[0, None, 2, None]`.
+/// A presence mask, where `x` is a value and `-` is a null.
 fn masked(mask: &str) -> Vec<Option<u32>> {
     mask.bytes()
         .enumerate()
@@ -966,8 +1011,9 @@ fn masked_points(mask: &str) -> Layer {
 
 /// Columns that are null on exactly the same features.
 ///
-/// v1 gives every column its own presence stream, so these fixtures pin down what
-/// repeated identical presence masks currently cost on the wire.
+/// A v2 layer stores one bitfield for such a set and points every member at it;
+/// v1 gives each column its own presence stream, so these are the fixtures where
+/// the two formats disagree the most.
 fn generate_shared_presence(w: &mut SynthWriter) {
     let e = E::varint();
 
@@ -975,10 +1021,10 @@ fn generate_shared_presence(w: &mut SynthWriter) {
     masked_points(both)
         .add_prop(e, P::opt_u32("a", masked(both)))
         .add_prop(e, P::opt_u32("b", masked(both)))
-        .write(w, "props_same_nulls");
+        .write_per_version(w, "props_same_nulls", "props_sp");
 
-    // Two repeated masks interleaved, plus a mask nobody else has and a column that
-    // is never null.
+    // Two shared masks interleaved, plus a mask nobody else has and a column that
+    // is never null, so all three presence nibbles appear in one layer.
     let a = "x--x-x";
     let b = "xx---x";
     let lonely = "-x-x-x";
@@ -990,9 +1036,9 @@ fn generate_shared_presence(w: &mut SynthWriter) {
         .add_prop(e, P::opt_u32("a3", masked(a)))
         .add_prop(e, P::opt_u32("lonely", masked(lonely)))
         .add_prop(e, P::u32("always", vec![7; a.len()]))
-        .write(w, "props_same_nulls_mixed");
+        .write_per_version(w, "props_same_nulls_mixed", "props_sp_mixed");
 
-    // The ID column has a presence mask like any other column.
+    // The ID column shares like any other column.
     let with_id = "x-xx-";
     masked_points(with_id)
         .ids(
@@ -1000,9 +1046,10 @@ fn generate_shared_presence(w: &mut SynthWriter) {
             E::varint_with(L::None),
         )
         .add_prop(e, P::opt_u32("val", masked(with_id)))
-        .write(w, "props_same_nulls_id");
+        .write_per_version(w, "props_same_nulls_id", "props_sp_id");
 
-    // Eight pairs of columns sharing a mask, one pair per feature position.
+    // Eight pairs of columns want a shared bitfield but only seven fit in the
+    // layout byte, so the last pair keeps its own.
     let masks: Vec<String> = (0..8)
         .map(|i| {
             let mut mask = vec![b'-'; 9];
@@ -1017,7 +1064,7 @@ fn generate_shared_presence(w: &mut SynthWriter) {
             .add_prop(e, P::opt_u32(format!("a{i}"), masked(mask)))
             .add_prop(e, P::opt_u32(format!("b{i}"), masked(mask)));
     }
-    layer.write(w, "props_same_nulls_max");
+    layer.write_per_version(w, "props_same_nulls_max", "props_sp_max");
 }
 
 fn generate_props_i32(w: &mut SynthWriter) {
@@ -1096,6 +1143,7 @@ fn generate_props_u32(w: &mut SynthWriter) {
                 .meta(E::rle_fastpfor())
                 .vertex_buffer_type(VertexBufferType::Hilbert)
                 .vertex_offsets(E::rle_fastpfor())
+                .no_v2()
                 .geos(vec![P0; count])
                 .add_prop(E::fastpfor(), P::u32("val", vals))
                 .write(w, format!("props_u32_fpf_{count}_np"));
@@ -1103,6 +1151,7 @@ fn generate_props_u32(w: &mut SynthWriter) {
                 .meta(E::rle_fastpfor())
                 .vertex_buffer_type(VertexBufferType::Hilbert)
                 .vertex_offsets(E::rle_fastpfor())
+                .no_v2()
                 .geos(vec![P0; count])
                 .add_prop(E::fastpfor(), P::opt_u32("val", opt_vals))
                 .write(w, format!("props_u32_fpf_{count}"));
@@ -1159,14 +1208,17 @@ fn generate_props_str(w: &mut SynthWriter) {
     // _np variant: non-optional (CT::Str, no presence stream)
     six_points()
         .add_prop(E::varint(), P::str("val", str_vals))
+        .no_v2()
         .write(w, "props_str_np");
     // canonical: all-present optional (CT::OptStr + presence), matching Java's format
     six_points()
         .add_prop(E::varint(), P::opt_str("val", str_vals.map(Some)))
+        .no_v2()
         .write(w, "props_str");
     // FSST variants - same split
     six_points()
         .add_prop_str_fsst(E::varint(), E::varint(), P::str("val", str_vals))
+        .no_v2()
         .write(w, "props_str_fsst_np");
     six_points()
         .add_prop_str_fsst(
@@ -1174,6 +1226,7 @@ fn generate_props_str(w: &mut SynthWriter) {
             E::varint(),
             P::opt_str("val", str_vals.map(Some)),
         )
+        .no_v2()
         .write(w, "props_str_fsst"); // FSST compression output is not byte-for-byte consistent with Java's
 
     // Two features with the same 30-char value -> deduplicated dictionary encoding.
@@ -1187,6 +1240,7 @@ fn generate_props_str(w: &mut SynthWriter) {
             E::rle_varint(),
             P::str("val", [long_string(), long_string()]),
         )
+        .no_v2()
         .write(w, "props_offset_str_np");
     two_pts()
         .add_prop_str_dict(
@@ -1194,6 +1248,7 @@ fn generate_props_str(w: &mut SynthWriter) {
             E::rle_varint(),
             P::opt_str("val", [Some(long_string()), Some(long_string())]),
         )
+        .no_v2()
         .write(w, "props_offset_str");
     two_pts()
         .add_prop_str_fsst_dict(
@@ -1202,6 +1257,7 @@ fn generate_props_str(w: &mut SynthWriter) {
             E::rle_varint(),
             P::str("val", [long_string(), long_string()]),
         )
+        .no_v2()
         .write(w, "props_offset_str_fsst_np");
     two_pts()
         .add_prop_str_fsst_dict(
@@ -1210,6 +1266,7 @@ fn generate_props_str(w: &mut SynthWriter) {
             E::rle_varint(),
             P::opt_str("val", [Some(long_string()), Some(long_string())]),
         )
+        .no_v2()
         .write(w, "props_offset_str_fsst");
 }
 
@@ -1218,9 +1275,11 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
     let e_str = E::varint();
     p0().add_prop(e_str, P::str("name:de", [long_string()]))
         .add_prop(e_str, P::str("name:en", [long_string()]))
+        .no_v2()
         .write(w, "props_no_shared_dict_np");
     p0().add_prop(e_str, P::opt_str("name:de", [Some(long_string())]))
         .add_prop(e_str, P::opt_str("name:en", [Some(long_string())]))
+        .no_v2()
         .write(w, "props_no_shared_dict");
 
     p0().add_shared_dict(
@@ -1228,12 +1287,14 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
             .col("de", E::varint(), [long_string()])
             .col("en", E::varint(), [long_string()]),
     )
+    .no_v2()
     .write(w, "props_shared_dict_np");
     p0().add_shared_dict(
         SharedDict::new("name:", StrEncoding::Plain)
             .opt("de", E::varint(), [Some(long_string())])
             .opt("en", E::varint(), [Some(long_string())]),
     )
+    .no_v2()
     .write(w, "props_shared_dict");
 
     p0().add_shared_dict(
@@ -1241,24 +1302,28 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
             .col("a", E::varint(), [long_string()])
             .col("b", E::varint(), [long_string()]),
     )
+    .no_v2()
     .write(w, "props_shared_dict_no_struct_name_np");
     p0().add_shared_dict(
         SharedDict::new("", StrEncoding::Plain)
             .opt("a", E::varint(), [Some(long_string())])
             .opt("b", E::varint(), [Some(long_string())]),
     )
+    .no_v2()
     .write(w, "props_shared_dict_no_struct_name");
     p0().add_shared_dict(
         SharedDict::new("", StrEncoding::Fsst)
             .col("a", E::varint(), [long_string()])
             .col("b", E::varint(), [long_string()]),
     )
+    .no_v2()
     .write(w, "props_shared_dict_no_struct_name_fsst_np");
     p0().add_shared_dict(
         SharedDict::new("", StrEncoding::Fsst)
             .opt("a", E::varint(), [Some(long_string())])
             .opt("b", E::varint(), [Some(long_string())]),
     )
+    .no_v2()
     .write(w, "props_shared_dict_no_struct_name_fsst");
 
     p0().add_prop(e_str, P::str("place", [long_string()]))
@@ -1267,6 +1332,7 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
             E::varint(),
             [long_string()],
         ))
+        .no_v2()
         .write(w, "props_shared_dict_one_child_np");
     p0().add_prop(e_str, P::opt_str("place", [Some(long_string())]))
         .add_shared_dict(SharedDict::new("name:en", StrEncoding::Plain).opt(
@@ -1274,6 +1340,7 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
             E::varint(),
             [Some(long_string())],
         ))
+        .no_v2()
         .write(w, "props_shared_dict_one_child");
 
     p0().add_shared_dict(SharedDict::new("a", StrEncoding::Plain).col(
@@ -1281,12 +1348,14 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
         E::varint(),
         [long_string()],
     ))
+    .no_v2()
     .write(w, "props_shared_dict_no_child_name_np");
     p0().add_shared_dict(SharedDict::new("a", StrEncoding::Plain).opt(
         "",
         E::varint(),
         [Some(long_string())],
     ))
+    .no_v2()
     .write(w, "props_shared_dict_no_child_name");
 
     p0().add_shared_dict(
@@ -1294,12 +1363,14 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
             .col("de", E::varint(), [long_string()])
             .col("en", E::varint(), [long_string()]),
     )
+    .no_v2()
     .write(w, "props_shared_dict_fsst_np");
     p0().add_shared_dict(
         SharedDict::new("name:", StrEncoding::Fsst)
             .opt("de", E::varint(), [Some(long_string())])
             .opt("en", E::varint(), [Some(long_string())]),
     )
+    .no_v2()
     .write(w, "props_shared_dict_fsst");
 
     p0().add_shared_dict(SharedDict::new("a", StrEncoding::Fsst).col(
@@ -1307,12 +1378,14 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
         E::varint(),
         [long_string()],
     ))
+    .no_v2()
     .write(w, "props_shared_dict_no_child_name_fsst_np");
     p0().add_shared_dict(SharedDict::new("a", StrEncoding::Fsst).opt(
         "",
         E::varint(),
         [Some(long_string())],
     ))
+    .no_v2()
     .write(w, "props_shared_dict_no_child_name_fsst");
 
     p0().add_prop(e_str, P::str("place", [long_string()]))
@@ -1321,6 +1394,7 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
             E::varint(),
             [long_string()],
         ))
+        .no_v2()
         .write(w, "props_shared_dict_one_child_fsst_np");
     p0().add_prop(e_str, P::opt_str("place", [Some(long_string())]))
         .add_shared_dict(SharedDict::new("name:en", StrEncoding::Fsst).opt(
@@ -1328,6 +1402,7 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
             E::varint(),
             [Some(long_string())],
         ))
+        .no_v2()
         .write(w, "props_shared_dict_one_child_fsst");
     p0()
         // column names MUST be unique, but the shared dict prefix can duplicate
@@ -1342,6 +1417,7 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
                 .col(":he", E::varint(), [long_string()])
                 .col("_fr", E::varint(), [long_string()]),
         )
+        .no_v2()
         .write(w, "props_shared_dict_2_same_prefix_np");
     p0().add_shared_dict(
         SharedDict::new("name", StrEncoding::Plain)
@@ -1353,6 +1429,7 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
             .opt(":he", E::varint(), [Some(long_string())])
             .opt("_fr", E::varint(), [Some(long_string())]),
     )
+    .no_v2()
     .write(w, "props_shared_dict_2_same_prefix");
 
     let mixed = || [Some(long_string()), None, Some(long_string())];
@@ -1402,6 +1479,7 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
                 .opt("a", E::varint(), none())
                 .opt("b", E::varint(), mixed()),
         )
+        .no_v2()
         .write(w, "props_shared_dict_presence_variants_np");
 
     // canonical: all columns are optional (presence stream always written).
@@ -1447,5 +1525,6 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
                 .opt("a", E::varint(), none())
                 .opt("b", E::varint(), mixed()),
         )
+        .no_v2()
         .write(w, "props_shared_dict_presence_variants");
 }

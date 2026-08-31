@@ -2,6 +2,9 @@
 
 use std::io::{self, Write};
 
+#[cfg(feature = "unstable-v2")]
+use usize_cast::IntoUsize as _;
+
 use super::model::{BlobInfo, DecodeHint, DumpTree, Region, RegionKind};
 use crate::Decoder;
 use crate::decoder::RawStream;
@@ -227,6 +230,15 @@ fn decode_blob(info: BlobInfo, data: &[u8], dec: &mut Decoder) -> String {
             Ok(bits) => fmt_bits(bits.len(), |i| bits[i]),
             Err(e) => format!("<undecodable: {e}>"),
         },
+        #[cfg(feature = "unstable-v2")]
+        DecodeHint::PackedBits => {
+            let n = meta.num_values.into_usize();
+            let available = data.len() * 8;
+            if available < n {
+                return format!("<undecodable: needs {n} bits, got {available}>");
+            }
+            fmt_bits(n, |i| data[i / 8] >> (i % 8) & 1 == 1)
+        }
         DecodeHint::Bool => fmt_res(RawStream::new(meta, data).decode_bools(dec)),
         DecodeHint::I32 => fmt_res(RawStream::new(meta, data).decode_ints::<i32>(dec)),
         DecodeHint::U32 => fmt_res(RawStream::new(meta, data).decode_ints::<u32>(dec)),

@@ -175,9 +175,9 @@ _coverage: (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm
     cargo llvm-cov clean --workspace
     cargo hack llvm-cov --no-report --all-targets --each-feature {{hack_skip}} \
         --workspace --exclude-no-default-features --exclude-all-features
-    rm -rf ../test/synthetic/0x01-rust
+    rm -rf ../test/synthetic/0x01-rust ../test/synthetic/0x02-rust
     cargo llvm-cov run --no-report -p mlt-synthetics
-    cargo llvm-cov run --no-report -p mlt -- ls --validate-to-json {{validate_excludes}} --details basic ../test/synthetic/
+    cargo llvm-cov run --no-report -p mlt --features unstable-v2 -- ls --validate-to-json {{validate_excludes}} --details basic ../test/synthetic/
     rustup toolchain install nightly --profile minimal --component llvm-tools
     cargo +nightly llvm-cov --no-report --doctests --workspace
 
@@ -476,7 +476,7 @@ update:
 generate-synthetic-mlts *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    rm -rf ../test/synthetic/0x01-rust
+    rm -rf ../test/synthetic/0x01-rust ../test/synthetic/0x02-rust
     cargo run -p mlt-synthetics -- {{args}}
     {{just}} rust::validate-synthetic
     {{just}} _assert-all-mlt-files-different
