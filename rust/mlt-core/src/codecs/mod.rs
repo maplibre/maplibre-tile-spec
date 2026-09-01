@@ -1,5 +1,8 @@
+#[cfg(feature = "unstable-v2")]
+pub mod alp;
 pub mod bytes;
 pub mod fastpfor;
+pub mod float;
 pub mod fsst;
 pub mod hilbert;
 pub mod morton;
