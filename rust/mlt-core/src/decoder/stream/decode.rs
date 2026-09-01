@@ -115,7 +115,7 @@ impl<'a> RawStream<'a> {
     {
         match self.meta.encoding.logical {
             LogicalEncoding::Float(FloatLogical::None) => {}
-            LogicalEncoding::Float(FloatLogical::Dict)
+            LogicalEncoding::Float(FloatLogical::Dict | FloatLogical::Alp(_))
             | LogicalEncoding::Int(_)
             | LogicalEncoding::Bool(_)
             | LogicalEncoding::Vertex(_) => {
