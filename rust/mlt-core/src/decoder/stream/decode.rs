@@ -9,8 +9,12 @@ use crate::codecs::bytes::{PhysicalWord, debug_assert_length, decode_bytes_to_wo
 use crate::codecs::rle::decode_byte_rle;
 use crate::codecs::varint::{parse_varint_vec, parse_varint_vec_all};
 #[cfg(feature = "unstable-v2")]
+use crate::decoder::IntLogical;
+#[cfg(feature = "unstable-v2")]
 use crate::decoder::RleMeta;
-use crate::decoder::{LogicalEncoding, LogicalValue, PhysicalEncoding, RawStream};
+use crate::decoder::{
+    BoolLogical, FloatLogical, LogicalEncoding, LogicalValue, PhysicalEncoding, RawStream,
+};
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
 use crate::{Decoder, MltError, MltResult};
 
@@ -30,24 +34,23 @@ impl<'a> RawStream<'a> {
         let num_values = self.meta.num_values.into_usize();
         let num_bytes = num_values.div_ceil(8);
         match self.meta.encoding.logical {
-            LogicalEncoding::Rle(_) => {
+            LogicalEncoding::Bool(BoolLogical::ByteRle(_)) => {
                 let bytes = decode_byte_rle(self.data, num_bytes, dec)?;
                 fail_if_invalid_stream_size(bytes.len(), num_bytes)?;
                 let mut bits = BitVec::<u8, Lsb0>::from_vec(bytes);
                 bits.truncate(num_values);
                 Ok(Cow::Owned(bits))
             }
-            LogicalEncoding::None if self.meta.encoding.physical == PhysicalEncoding::None => {
+            LogicalEncoding::Bool(BoolLogical::None)
+                if self.meta.encoding.physical == PhysicalEncoding::None =>
+            {
                 fail_if_invalid_stream_size(self.data.len(), num_bytes)?;
                 Ok(Cow::Borrowed(&self.data.view_bits::<Lsb0>()[..num_values]))
             }
-            LogicalEncoding::None
-            | LogicalEncoding::Delta
-            | LogicalEncoding::DeltaRle(_)
-            | LogicalEncoding::ComponentwiseDelta
-            | LogicalEncoding::Morton(_)
-            | LogicalEncoding::MortonDelta(_)
-            | LogicalEncoding::MortonRle(_) => {
+            LogicalEncoding::Bool(BoolLogical::None)
+            | LogicalEncoding::Int(_)
+            | LogicalEncoding::Float(_)
+            | LogicalEncoding::Vertex(_) => {
                 Err(MltError::NotImplemented("unsupported bool stream encoding"))
             }
         }
@@ -86,7 +89,7 @@ impl<'a> RawStream<'a> {
     /// types always need at least a zigzag transform.
     pub fn decode_ints<T: DecodeInt>(self, dec: &mut Decoder) -> MltResult<Vec<T>> {
         let meta = self.meta;
-        if meta.encoding.logical == LogicalEncoding::None
+        if meta.encoding.logical.is_identity()
             && let Some(out) = T::decode_none_passthrough(&self, dec)?
         {
             return Ok(out);
@@ -111,14 +114,8 @@ impl<'a> RawStream<'a> {
         for<'b> <T as num_traits::FromBytes>::Bytes: TryFrom<&'b [u8]>,
     {
         match self.meta.encoding.logical {
-            LogicalEncoding::None => {}
-            LogicalEncoding::Delta
-            | LogicalEncoding::DeltaRle(_)
-            | LogicalEncoding::ComponentwiseDelta
-            | LogicalEncoding::Rle(_)
-            | LogicalEncoding::Morton(_)
-            | LogicalEncoding::MortonDelta(_)
-            | LogicalEncoding::MortonRle(_) => {
+            LogicalEncoding::Float(FloatLogical::None) => {}
+            LogicalEncoding::Int(_) | LogicalEncoding::Bool(_) | LogicalEncoding::Vertex(_) => {
                 return Err(MltError::UnsupportedLogicalEncoding(
                     self.meta.encoding.logical,
                     "float streams, which are stored raw",
@@ -203,7 +200,7 @@ pub trait DecodeInt: Sized {
         dec: &mut Decoder,
     ) -> MltResult<Vec<Self>>;
 
-    /// Fast path for [`LogicalEncoding::None`]:
+    /// Fast path for [`IntLogical::None`]:
     /// for unsigned types the physical words are already the output, so decode straight into a fresh `Vec`.
     /// Signed types return `None` (zigzag transform always required), so they fall through to the general path.
     fn decode_none_passthrough(
@@ -288,7 +285,10 @@ impl LogicalEncoding {
     fn scans_to_end(self) -> bool {
         matches!(
             self,
-            Self::Rle(RleMeta::Interleaved { .. }) | Self::DeltaRle(RleMeta::Interleaved { .. })
+            Self::Int(
+                IntLogical::Rle(RleMeta::Interleaved { .. })
+                    | IntLogical::DeltaRle(RleMeta::Interleaved { .. })
+            )
         )
     }
 
@@ -309,7 +309,7 @@ mod tests {
     use super::*;
     use crate::codecs::bytes::encode_bools_to_bytes;
     use crate::codecs::rle::encode_byte_rle;
-    use crate::decoder::{DictionaryType, IntEncoding, RleMeta, StreamMeta, StreamType};
+    use crate::decoder::{DictionaryType, IntEncoding, RleMeta, StreamMeta, StreamType, ValueKind};
     use crate::test_helpers::dec;
 
     fn packed(bools: &[bool]) -> Vec<u8> {
@@ -318,15 +318,15 @@ mod tests {
     }
 
     fn raw_bitmap(data: &[u8], num_values: usize) -> RawStream<'_> {
-        let meta = StreamMeta::new_none(StreamType::Present, num_values).unwrap();
+        let meta = StreamMeta::new_none(StreamType::Present, ValueKind::Bool, num_values).unwrap();
         RawStream::new(meta, data)
     }
 
     fn byte_rle(data: &[u8], num_values: usize) -> RawStream<'_> {
-        let logical = LogicalEncoding::Rle(RleMeta::Split {
+        let logical = LogicalEncoding::Bool(BoolLogical::ByteRle(RleMeta::Split {
             runs: u32::try_from(num_values.div_ceil(8)).unwrap(),
             num_rle_values: u32::try_from(data.len()).unwrap(),
-        });
+        }));
         let meta = StreamMeta::new2(
             StreamType::Present,
             logical,
@@ -396,7 +396,7 @@ mod tests {
     fn decode_bitvec_rejects_varint_physical_encoding() {
         let meta = StreamMeta::new2(
             StreamType::Present,
-            LogicalEncoding::None,
+            LogicalEncoding::Bool(BoolLogical::None),
             PhysicalEncoding::VarInt,
             8,
         )
@@ -419,19 +419,10 @@ mod tests {
     }
 
     #[rstest]
-    #[case::delta(LogicalEncoding::Delta)]
-    #[case::componentwise_delta(LogicalEncoding::ComponentwiseDelta)]
-    fn decode_floats_rejects_non_raw_logical(#[case] logical: LogicalEncoding) {
-        let stream = float_stream(logical, PhysicalEncoding::None);
-        let err = stream.decode_floats::<f32>(&mut dec()).unwrap_err();
-        assert!(matches!(err, MltError::UnsupportedLogicalEncoding(_, _)));
-    }
-
-    #[rstest]
     #[case::varint(PhysicalEncoding::VarInt)]
     #[case::fastpfor(PhysicalEncoding::FastPFor256)]
     fn decode_floats_rejects_non_raw_physical(#[case] physical: PhysicalEncoding) {
-        let stream = float_stream(LogicalEncoding::None, physical);
+        let stream = float_stream(LogicalEncoding::Float(FloatLogical::None), physical);
         let err = stream.decode_floats::<f32>(&mut dec()).unwrap_err();
         assert!(matches!(err, MltError::UnsupportedPhysicalEncoding(_)));
     }
@@ -439,7 +430,7 @@ mod tests {
     #[test]
     fn decode_floats_reads_raw_little_endian() {
         let bytes = 1.5_f32.to_le_bytes();
-        let meta = StreamMeta::new(DATA, IntEncoding::none(), 1);
+        let meta = StreamMeta::new(DATA, IntEncoding::none(ValueKind::Float), 1);
         let stream = RawStream::new(meta, &bytes);
         assert_eq!(stream.decode_floats::<f32>(&mut dec()).unwrap(), vec![1.5]);
     }

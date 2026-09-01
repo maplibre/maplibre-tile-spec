@@ -3,7 +3,8 @@ use std::num::TryFromIntError;
 use num_enum::TryFromPrimitiveError;
 
 use crate::decoder::{
-    GeometryType, LogicalEncoding, LogicalTechnique, PhysicalEncoding, StreamType,
+    GeometryType, LogicalCombination, LogicalEncoding, LogicalTechnique, PhysicalEncoding,
+    StreamType, ValueKind,
 };
 
 pub type MltResult<T> = Result<T, MltError>;
@@ -84,6 +85,8 @@ pub enum MltError {
     UnsupportedLogicalEncoding(LogicalEncoding, &'static str),
     #[error("invalid combination of logical encodings: {0:?} + {1:?}")]
     InvalidLogicalEncodings(LogicalTechnique, LogicalTechnique),
+    #[error("logical encoding {0:?} is not one a {1:?} stream has")]
+    LogicalEncodingNotInKind(LogicalCombination, ValueKind),
     #[error("layer has zero size")]
     ZeroLayerSize,
     #[error("The encoder used to optimise data is incompatible")]
