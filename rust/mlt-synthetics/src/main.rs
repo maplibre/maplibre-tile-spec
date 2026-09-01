@@ -28,8 +28,8 @@ use std::sync::LazyLock;
 
 use clap::Parser;
 use mlt_core::encoder::{
-    IntEncoder as E, LogicalEncoder as L, StagedId as Id, StagedProperty as P, StrEncoding,
-    VertexBufferType,
+    FloatEncoding, IntEncoder as E, LogicalEncoder as L, StagedId as Id, StagedProperty as P,
+    StrEncoding, VertexBufferType,
 };
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, coord,
@@ -991,6 +991,7 @@ fn generate_properties(w: &mut SynthWriter) {
     generate_props_i32(w);
     generate_props_u32(w);
     generate_props_u64(w);
+    generate_float_codecs(w);
     generate_props_str(w);
     generate_shared_presence(w);
     generate_shared_dictionaries(w);
@@ -1004,9 +1005,14 @@ fn masked(mask: &str) -> Vec<Option<u32>> {
         .collect()
 }
 
+/// One point per feature, all at the same coordinate.
+fn points(count: usize) -> Layer {
+    geo_varint_with_rle().geos(vec![P0; count])
+}
+
 /// One point per feature of a presence mask.
 fn masked_points(mask: &str) -> Layer {
-    geo_varint_with_rle().geos(vec![P0; mask.len()])
+    points(mask.len())
 }
 
 /// Columns that are null on exactly the same features.
@@ -1193,6 +1199,117 @@ fn generate_props_u64(w: &mut SynthWriter) {
     four_points()
         .add_prop(E::delta_rle_varint(), opt_property())
         .write(w, "props_u64_delta_rle");
+}
+
+/// Float columns under the two v2-only float encodings, one fixture per pinned encoding.
+///
+/// v1 can express neither, so its sibling holds the same values raw under a name describing the data.
+/// The macro runs the same set for both float widths so neither can drift ahead of the other.
+fn generate_float_codecs(w: &mut SynthWriter) {
+    let e = E::varint();
+
+    macro_rules! float_codec_fixtures {
+        ($name:literal, $ty:ty, $val:path, $opt:path) => {
+            points(6)
+                .add_prop_float(
+                    e,
+                    FloatEncoding::Dict,
+                    $val("val", vec![1.5, 2.5, 1.5, 1.5, 2.5, 3.5]),
+                )
+                .write_per_version(
+                    w,
+                    concat!("prop_", $name, "_repeated_np-rust"),
+                    concat!("prop_", $name, "_dict_np"),
+                );
+            points(6)
+                .add_prop_float(
+                    e,
+                    FloatEncoding::Dict,
+                    $opt(
+                        "val",
+                        vec![Some(1.5), None, Some(2.5), Some(1.5), None, Some(2.5)],
+                    ),
+                )
+                .write_per_version(
+                    w,
+                    concat!("prop_", $name, "_repeated-rust"),
+                    concat!("prop_", $name, "_dict"),
+                );
+            points(4)
+                .add_prop_float(
+                    e,
+                    FloatEncoding::Dict,
+                    $val("val", vec![0.0, -0.0, 0.0, -0.0]),
+                )
+                .write_per_version(
+                    w,
+                    concat!("prop_", $name, "_zeros_np-rust"),
+                    concat!("prop_", $name, "_dict_zeros_np"),
+                );
+            points(4)
+                .add_prop_float(
+                    e,
+                    FloatEncoding::Dict,
+                    $val("val", vec![<$ty>::NAN, 7.5, <$ty>::NAN, 7.5]),
+                )
+                .write_per_version(
+                    w,
+                    concat!("prop_", $name, "_nan_repeated_np-rust"),
+                    concat!("prop_", $name, "_dict_nan_np"),
+                );
+            points(6)
+                .add_prop_float(
+                    e,
+                    FloatEncoding::Dict,
+                    $val("val", vec![1.5, 2.5, 3.5, 4.5, 5.5, 6.5]),
+                )
+                .write_per_version(
+                    w,
+                    concat!("prop_", $name, "_distinct_np-rust"),
+                    concat!("prop_", $name, "_dict_distinct_np"),
+                );
+
+            points(6)
+                .add_prop_float(
+                    e,
+                    FloatEncoding::Alp,
+                    $val("val", vec![-0.75, -0.5, -0.25, 0.25, 0.5, 0.75]),
+                )
+                .write_per_version(
+                    w,
+                    concat!("prop_", $name, "_decimals_np-rust"),
+                    concat!("prop_", $name, "_alp_np"),
+                );
+            points(6)
+                .add_prop_float(
+                    e,
+                    FloatEncoding::Alp,
+                    $opt(
+                        "val",
+                        vec![Some(-0.75), None, Some(0.25), Some(1.5), None, Some(-2.25)],
+                    ),
+                )
+                .write_per_version(
+                    w,
+                    concat!("prop_", $name, "_decimals-rust"),
+                    concat!("prop_", $name, "_alp"),
+                );
+            points(6)
+                .add_prop_float(
+                    e,
+                    FloatEncoding::Alp,
+                    $val("val", vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0]),
+                )
+                .write_per_version(
+                    w,
+                    concat!("prop_", $name, "_whole_np-rust"),
+                    concat!("prop_", $name, "_alp_whole_np"),
+                );
+        };
+    }
+
+    float_codec_fixtures!("f32", f32, P::f32, P::opt_f32);
+    float_codec_fixtures!("f64", f64, P::f64, P::opt_f64);
 }
 
 fn generate_props_str(w: &mut SynthWriter) {
