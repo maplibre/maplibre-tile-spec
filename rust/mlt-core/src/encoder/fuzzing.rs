@@ -66,17 +66,13 @@ impl Arbitrary<'_> for StagedLayer {
     }
 }
 
-/// One `generate_property` arm per [`StagedProperty`] variant.
-const PROPERTY_KINDS: u8 = 21;
-const _: () = assert!(StagedProperty::COUNT == PROPERTY_KINDS as usize);
-
 /// Generate a property column of an arbitrary kind holding exactly `count` values.
 fn generate_property(
     u: &mut Unstructured<'_>,
     name: String,
     count: usize,
 ) -> Result<StagedProperty> {
-    Ok(match u.int_in_range(0..=PROPERTY_KINDS - 1)? {
+    Ok(match u.int_in_range(0..=StagedProperty::COUNT - 1)? {
         0 => StagedProperty::bool(name, generate_scalars(u, count)?),
         1 => StagedProperty::i8(name, generate_scalars(u, count)?),
         2 => StagedProperty::u8(name, generate_scalars(u, count)?),
