@@ -72,6 +72,7 @@ fn generate_property(
     name: String,
     count: usize,
 ) -> Result<StagedProperty> {
+    const _: () = assert!(StagedProperty::COUNT == 21, "needs new variant in match below");
     Ok(match u.int_in_range(0..=StagedProperty::COUNT - 1)? {
         0 => StagedProperty::bool(name, generate_scalars(u, count)?),
         1 => StagedProperty::i8(name, generate_scalars(u, count)?),
