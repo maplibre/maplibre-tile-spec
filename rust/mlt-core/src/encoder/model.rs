@@ -394,6 +394,16 @@ pub enum StrEncoding {
     FsstDict,
 }
 
+/// How to encode a float column, pinned rather than costed against the alternatives.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FloatEncoding {
+    None,
+    #[cfg(feature = "unstable-v2")]
+    Dict,
+    #[cfg(feature = "unstable-v2")]
+    Alp,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ColumnKind {
     Id,
@@ -475,4 +485,7 @@ pub struct ExplicitEncoder {
     /// Return the string encoding strategy for a string property column.
     #[dbg(skip)]
     pub get_str_encoding: Box<dyn Fn(&str) -> StrEncoding>,
+    /// Return the logical encoding for a float property column.
+    #[dbg(skip)]
+    pub get_float_encoding: Box<dyn Fn(&str) -> FloatEncoding>,
 }
