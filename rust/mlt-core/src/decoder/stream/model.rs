@@ -17,7 +17,6 @@ pub enum LogicalTechnique {
     ComponentwiseDelta = 0b0100_0000,
     Rle = 0b0110_0000,
     Morton = 0b1000_0000,
-    PseudoDecimal = 0b1010_0000,
 }
 
 /// The combinations of the two [`LogicalTechnique`] fields that are legal on the wire
@@ -36,7 +35,6 @@ pub enum LogicalCombination {
     Morton = 0b1000_0000,
     MortonDelta = 0b1000_0100,
     MortonRle = 0b1000_1100,
-    PseudoDecimal = 0b1010_0000,
 }
 
 /// Which RLE stream layout the encoder should produce.
@@ -110,7 +108,6 @@ pub enum LogicalEncoding {
     Morton(Morton),
     MortonDelta(Morton),
     MortonRle(Morton),
-    PseudoDecimal,
 }
 
 /// Carries the stream metadata needed to perform the logical decode pass.

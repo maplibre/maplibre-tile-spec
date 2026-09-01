@@ -6,7 +6,7 @@
 //! [u8 encoding_byte]
 //!      bit  7:   has_explicit_count (1 = a count varint follows)
 //!      bits 6-4: logical  (0=None, 1=Delta, 2=CwDelta, 3=Rle, 4=DeltaRle,
-//!                          5=Morton, 6=PseudoDecimal, 7=reserved)
+//!                          5=Morton, 6-7=reserved)
 //!      bits 3-2: physical (0=None-noLen, 1=None-withLen, 2=VarInt, 3=FastPFor128);
 //!                reserved (must be 0) for Rle/DeltaRle, whose physical
 //!                encoding is implied to be VarInt
@@ -24,8 +24,7 @@
 //! from the count context.
 //!
 //! Not yet implemented (rejected with [`MltError::NotImplemented`]):
-//! `None-noLen` (requires element-width context), `FastPFor128`, `Morton`,
-//! and `PseudoDecimal`.
+//! `None-noLen` (requires element-width context), `FastPFor128`, and `Morton`.
 
 use std::io;
 
@@ -51,7 +50,7 @@ pub(crate) const PHYSICAL_MASK: u8 = 0b0000_1100;
 /// Mask of the encoding byte bits held in reserve, which must be zero.
 pub(crate) const ENCODING_RESERVED_MASK: u8 = 0b0000_0011;
 
-/// Logical field (bits 6-4 of the encoding byte). Bit pattern 7 is reserved.
+/// Logical field (bits 6-4 of the encoding byte). Bit patterns 6 and 7 are reserved.
 ///
 /// Variants are already shifted into place, so the byte is matched with
 /// `byte & LOGICAL_MASK` rather than shifted down first.
@@ -64,7 +63,6 @@ pub(crate) enum LogicalField {
     Rle = 0b0011_0000,
     DeltaRle = 0b0100_0000,
     Morton = 0b0101_0000,
-    PseudoDecimal = 0b0110_0000,
 }
 
 /// Physical field (bits 3-2 of the encoding byte), also shifted into place.
@@ -126,9 +124,6 @@ pub(crate) fn parse_stream<'a>(
             IntEncoding::new(logical, PhysicalEncoding::VarInt)
         }
         LogicalField::Morton => return Err(MltError::NotImplemented("v2 Morton streams")),
-        LogicalField::PseudoDecimal => {
-            return Err(MltError::NotImplemented("v2 PseudoDecimal streams"));
-        }
         LogicalField::None => IntEncoding::new(
             LogicalEncoding::None,
             physical_encoding_for(physical_field)?,
@@ -202,7 +197,6 @@ pub(crate) fn write_stream_meta<W: io::Write>(
         LE::Morton(_) | LE::MortonDelta(_) | LE::MortonRle(_) => {
             return Err(MltError::NotImplemented("v2 Morton streams"));
         }
-        LE::PseudoDecimal => return Err(MltError::NotImplemented("v2 PseudoDecimal streams")),
     };
 
     // For RLE streams the wire count is the *decoded* count (the encoder's
@@ -346,7 +340,8 @@ mod tests {
     #[case::reserved_low_bits2(0b0000_1010)]
     #[case::rle_with_physical(0b0011_0100)]
     #[case::delta_rle_with_physical(0b0100_1000)]
-    #[case::logical_reserved(0b0111_1000)]
+    #[case::logical_reserved6(0b0110_1000)]
+    #[case::logical_reserved7(0b0111_1000)]
     fn rejects_reserved_bits(#[case] enc_byte: u8) {
         let buf = [enc_byte, 0];
         let err = parse_stream(&buf, DATA, 0, &mut parser()).unwrap_err();
@@ -358,7 +353,6 @@ mod tests {
     #[case::none_no_len(0b0000_0000)]
     #[case::fastpfor128(0b0000_1100)]
     #[case::morton(0b0101_0000)]
-    #[case::pseudo_decimal(0b0110_0000)]
     fn rejects_unimplemented(#[case] enc_byte: u8) {
         let buf = [enc_byte, 0];
         let err = parse_stream(&buf, DATA, 0, &mut parser()).unwrap_err();

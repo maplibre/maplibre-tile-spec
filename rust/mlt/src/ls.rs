@@ -184,7 +184,6 @@ impl std::fmt::Display for FileAlgorithm {
                     StatLogicalCodec::Morton => "Morton",
                     StatLogicalCodec::MortonDelta => "MortonDelta",
                     StatLogicalCodec::MortonRle => "MortonRle",
-                    StatLogicalCodec::PseudoDecimal => "PseudoDec",
                 };
                 write!(f, "{phys_type}")?;
                 if !physical.is_empty() {
@@ -661,7 +660,6 @@ pub enum StatLogicalCodec {
     Morton,
     MortonDelta,
     MortonRle,
-    PseudoDecimal,
 }
 
 impl From<LogicalEncoding> for StatLogicalCodec {
@@ -675,7 +673,6 @@ impl From<LogicalEncoding> for StatLogicalCodec {
             LogicalEncoding::Morton(_) => Self::Morton,
             LogicalEncoding::MortonDelta(_) => Self::MortonDelta,
             LogicalEncoding::MortonRle(_) => Self::MortonRle,
-            LogicalEncoding::PseudoDecimal => Self::PseudoDecimal,
         }
     }
 }
