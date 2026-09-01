@@ -117,6 +117,9 @@ pub enum MltError {
     MissingStructEncoderForStruct,
     #[error("previous decode/parsing attempt failed")]
     PriorParseFailure,
+    #[cfg(feature = "unstable-v2")]
+    #[error("dictionary code {0} is out of range for a dictionary of {1} values")]
+    DictionaryCodeOutOfRange(u32, usize),
     #[error("presence stream has {0} bits set but {1} values provided")]
     PresenceValueCountMismatch(usize, usize),
     #[error("need to encode before being able to write")]

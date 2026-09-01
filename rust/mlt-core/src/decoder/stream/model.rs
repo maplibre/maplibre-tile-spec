@@ -132,6 +132,10 @@ pub enum BoolLogical {
 pub enum FloatLogical {
     /// Fixed-width little-endian values, one per element.
     None,
+    /// A decimal split across two integer streams, which v1 can name but no decoder here implements.
+    /// One code per element, with the distinct values following as a second stream.
+    /// Only the tag `0x02` codec reads or writes it.
+    Dict,
 }
 
 /// Logical encoding of a geometry vertex stream, whose values are interleaved coordinate pairs.
@@ -180,13 +184,14 @@ impl LogicalEncoding {
     }
 
     /// Whether the stream's own logical pass is a no-op, so the physical words are already the output.
+    /// True for a float dictionary's codes, which the column turns back into floats.
     #[must_use]
     pub(crate) fn is_identity(self) -> bool {
         matches!(
             self,
             Self::Int(IntLogical::None)
                 | Self::Bool(BoolLogical::None)
-                | Self::Float(FloatLogical::None)
+                | Self::Float(FloatLogical::None | FloatLogical::Dict)
                 | Self::Vertex(VertexLogical::None)
         )
     }
