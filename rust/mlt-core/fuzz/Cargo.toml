@@ -47,8 +47,6 @@ hex = "0.4.3"
 libfuzzer-sys = "0.4"
 mlt-core = { path = "..", features = ["arbitrary", "__private"] }
 pretty_assertions = "1.4"
-# `arbitrary_precision` re-parses number tokens with the standard library, whose rounding is
-# correct for the oracle's 17-digit doubles.
 serde_json = { version = "1", features = ["arbitrary_precision"] }
 
 [lints.rust]
