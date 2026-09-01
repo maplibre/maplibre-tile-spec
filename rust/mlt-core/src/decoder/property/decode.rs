@@ -2,7 +2,11 @@ use std::borrow::Cow;
 
 use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
+#[cfg(feature = "unstable-v2")]
+use usize_cast::IntoUsize as _;
 
+#[cfg(feature = "unstable-v2")]
+use crate::MltError;
 use crate::decoder::{
     ParsedProperty, ParsedScalar, RawFloats, RawFloatsEncoding, RawPresence, RawProperty,
 };
@@ -36,6 +40,21 @@ impl<'a> RawFloats<'a> {
     {
         let values = match self.encoding {
             RawFloatsEncoding::Single(data) => data.decode_floats::<T>(dec)?,
+            #[cfg(feature = "unstable-v2")]
+            RawFloatsEncoding::Dictionary { codes, dictionary } => {
+                let dictionary = dictionary.decode_floats::<T>(dec)?;
+                let codes = codes.decode_ints::<u32>(dec)?;
+                dec.consume_items::<T>(codes.len())?;
+                codes
+                    .into_iter()
+                    .map(|code| {
+                        dictionary
+                            .get(code.into_usize())
+                            .copied()
+                            .ok_or(MltError::DictionaryCodeOutOfRange(code, dictionary.len()))
+                    })
+                    .collect::<MltResult<Vec<T>>>()?
+            }
         };
         ParsedScalar::from_parts(self.name, self.presence, values, dec)
     }
@@ -98,5 +117,74 @@ impl<'a> Decode<ParsedProperty<'a>> for RawProperty<'a> {
             Self::Str(v) => P::Str(v.decode(dec)?),
             Self::SharedDict(v) => P::SharedDict(v.decode(dec)?),
         })
+    }
+}
+
+#[cfg(all(test, feature = "unstable-v2"))]
+mod tests {
+    use bytemuck::cast_slice;
+
+    use super::*;
+    use crate::decoder::{
+        DictionaryType, FloatLogical, IntEncoding, LogicalEncoding, PhysicalEncoding, RawStream,
+        StreamMeta, StreamType, ValueKind,
+    };
+    use crate::test_helpers::dec;
+
+    fn codes(values: &[u32]) -> RawStream<'_> {
+        let encoding = IntEncoding::new(
+            LogicalEncoding::Float(FloatLogical::Dict),
+            PhysicalEncoding::None,
+        );
+        let num = u32::try_from(values.len()).unwrap();
+        let meta = StreamMeta::new(StreamType::Data(DictionaryType::None), encoding, num);
+        RawStream::new(meta, cast_slice(values))
+    }
+
+    fn dictionary(values: &[f64]) -> RawStream<'_> {
+        let num = u32::try_from(values.len()).unwrap();
+        let meta = StreamMeta::new(
+            StreamType::Data(DictionaryType::Single),
+            IntEncoding::none(ValueKind::Float),
+            num,
+        );
+        RawStream::new(meta, cast_slice(values))
+    }
+
+    fn floats<'a>(codes: RawStream<'a>, dictionary: RawStream<'a>) -> RawFloats<'a> {
+        RawFloats {
+            name: "v",
+            presence: RawPresence::AllPresent,
+            encoding: RawFloatsEncoding::Dictionary { codes, dictionary },
+        }
+    }
+
+    #[test]
+    fn a_dictionary_column_expands_its_codes_bit_for_bit() {
+        let dict = [1.5_f64, -0.0, f64::NAN];
+        let column = floats(codes(&[2, 0, 1, 0]), dictionary(&dict));
+        let parsed = column.decode::<f64>(&mut dec()).unwrap();
+
+        let bits: Vec<u64> = parsed
+            .presence
+            .dense_values()
+            .iter()
+            .map(|v| v.to_bits())
+            .collect();
+        let expected: Vec<u64> = [dict[2], dict[0], dict[1], dict[0]]
+            .iter()
+            .map(|v| v.to_bits())
+            .collect();
+        assert_eq!(bits, expected);
+    }
+
+    #[test]
+    fn a_code_past_the_end_of_the_dictionary_is_rejected() {
+        let column = floats(codes(&[0, 3]), dictionary(&[1.0, 2.0, 3.0]));
+        let err = column.decode::<f64>(&mut dec()).unwrap_err();
+        assert!(
+            matches!(err, MltError::DictionaryCodeOutOfRange(3, 3)),
+            "{err:?}"
+        );
     }
 }
