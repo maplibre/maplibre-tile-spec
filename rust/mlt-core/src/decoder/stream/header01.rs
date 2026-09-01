@@ -22,9 +22,7 @@ use integer_encoding::VarIntWriter as _;
 use num_enum::TryFromPrimitive;
 use usize_cast::IntoUsize as _;
 
-use crate::MltError::ParsingStreamType;
-#[cfg(feature = "unstable-v2")]
-use crate::MltError::UnsupportedLogicalEncoding;
+use crate::MltError::{ParsingStreamType, UnsupportedLogicalEncoding};
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
     BoolLogical, DictionaryType, FloatLogical, IntEncoding, IntLogical, LengthType,
@@ -256,6 +254,12 @@ pub(crate) fn write_stream_meta<W: io::Write>(
         LE::Vertex(VL::Morton(_)) => LC::Morton,
         LE::Vertex(VL::MortonDelta(_)) => LC::MortonDelta,
         LE::Vertex(VL::MortonRle(_)) => LC::MortonRle,
+        LE::Float(FL::Dict) => {
+            return Err(UnsupportedLogicalEncoding(
+                meta.encoding.logical,
+                "v1, whose dictionaries are named by the stream type",
+            ));
+        }
     };
     writer.write_u8(encoding_byte(logical, meta.encoding.physical))?;
     writer.write_varint(meta.num_values)?;

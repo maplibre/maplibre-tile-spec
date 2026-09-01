@@ -68,6 +68,8 @@ pub(crate) enum Logical {
     Rle,
     DeltaRle,
     Morton,
+    Alp,
+    Dict,
 }
 
 /// Which logical encodings a stream's context admits, and how each reads the rest of the encoding byte.
@@ -86,17 +88,12 @@ pub(crate) enum Family {
 
 impl Family {
     /// The encodings this family has, in [`Logical`]'s canonical order, indexed by their wire code.
-    #[expect(
-        clippy::match_same_arms,
-        reason = "the families are separate tables that happen to agree today; \
-                  float gains Alp and Dict, bool does not"
-    )]
     const fn members(self) -> &'static [Logical] {
         use Logical as L;
         match self {
             Self::Int => &[L::None, L::Delta, L::Rle, L::DeltaRle],
             Self::Bool => &[L::None, L::Rle],
-            Self::Float => &[L::None, L::Rle],
+            Self::Float => &[L::None, L::Rle, L::Alp, L::Dict],
             Self::Vertex => &[L::None, L::Delta, L::CwDelta, L::Morton],
         }
     }
@@ -119,6 +116,8 @@ impl Family {
 pub(crate) enum StreamCtx02 {
     /// A counted column's data stream, typed by the column's data type.
     Property(DataType02),
+    /// The dictionary a column's codes index into, following its codes stream, of the column's own type.
+    PropertyDictionary(DataType02),
     GeomTypes,
     GeomVertices,
     GeomOffsets(LengthType),
@@ -128,9 +127,15 @@ impl StreamCtx02 {
     /// The family this stream's logical field is numbered in.
     pub(crate) fn family(self) -> Family {
         match self {
-            Self::Property(DataType02::Bool) => Family::Bool,
-            Self::Property(DataType02::F32 | DataType02::F64) => Family::Float,
-            Self::Property(_) | Self::GeomTypes | Self::GeomOffsets(_) => Family::Int,
+            Self::Property(DataType02::Bool) | Self::PropertyDictionary(DataType02::Bool) => {
+                Family::Bool
+            }
+            Self::Property(DataType02::F32 | DataType02::F64)
+            | Self::PropertyDictionary(DataType02::F32 | DataType02::F64) => Family::Float,
+            Self::Property(_)
+            | Self::PropertyDictionary(_)
+            | Self::GeomTypes
+            | Self::GeomOffsets(_) => Family::Int,
             Self::GeomVertices => Family::Vertex,
         }
     }
@@ -139,6 +144,7 @@ impl StreamCtx02 {
     fn stream_type(self) -> StreamType {
         match self {
             Self::Property(_) => StreamType::Data(DictionaryType::None),
+            Self::PropertyDictionary(_) => StreamType::Data(DictionaryType::Single),
             Self::GeomTypes => StreamType::Length(LengthType::VarBinary),
             Self::GeomVertices => StreamType::Data(DictionaryType::Vertex),
             Self::GeomOffsets(length_type) => StreamType::Length(length_type),
@@ -190,6 +196,11 @@ pub(crate) enum LogicalFloat {
     /// Fixed-width little-endian values, one per element.
     None(PhysicalBits),
     Rle,
+    /// Adaptive lossless floating-point compression.
+    Alp,
+    /// One code per element, then the dictionary of distinct values as a second stream.
+    /// The physical field codes the codes, not the values.
+    Dict(PhysicalInt),
 }
 
 /// Logical encoding of a geometry vertex stream.
@@ -260,7 +271,9 @@ impl Encoding02 {
                     no_physical(enc_byte)?;
                     LogicalInt::DeltaRle
                 }
-                Logical::CwDelta | Logical::Morton => unreachable_member(family, logical)?,
+                Logical::CwDelta | Logical::Morton | Logical::Alp | Logical::Dict => {
+                    unreachable_member(family, logical)?
+                }
             }),
             Family::Bool => Self::Bool(match logical {
                 Logical::None => LogicalBool::None(physical_bits(enc_byte)?),
@@ -268,9 +281,12 @@ impl Encoding02 {
                     no_physical(enc_byte)?;
                     LogicalBool::Rle
                 }
-                Logical::Delta | Logical::CwDelta | Logical::DeltaRle | Logical::Morton => {
-                    unreachable_member(family, logical)?
-                }
+                Logical::Delta
+                | Logical::CwDelta
+                | Logical::DeltaRle
+                | Logical::Morton
+                | Logical::Alp
+                | Logical::Dict => unreachable_member(family, logical)?,
             }),
             Family::Float => Self::Float(match logical {
                 Logical::None => LogicalFloat::None(physical_bits(enc_byte)?),
@@ -278,6 +294,11 @@ impl Encoding02 {
                     no_physical(enc_byte)?;
                     LogicalFloat::Rle
                 }
+                Logical::Alp => {
+                    no_physical(enc_byte)?;
+                    LogicalFloat::Alp
+                }
+                Logical::Dict => LogicalFloat::Dict(physical_int(enc_byte)?),
                 Logical::Delta | Logical::CwDelta | Logical::DeltaRle | Logical::Morton => {
                     unreachable_member(family, logical)?
                 }
@@ -290,7 +311,9 @@ impl Encoding02 {
                     no_physical(enc_byte)?;
                     LogicalVertex::Morton
                 }
-                Logical::Rle | Logical::DeltaRle => unreachable_member(family, logical)?,
+                Logical::Rle | Logical::DeltaRle | Logical::Alp | Logical::Dict => {
+                    unreachable_member(family, logical)?
+                }
             }),
         })
     }
@@ -311,6 +334,8 @@ impl Encoding02 {
             | Self::Float(LogicalFloat::Rle) => Logical::Rle,
             Self::Int(LogicalInt::DeltaRle) => Logical::DeltaRle,
             Self::Vertex(LogicalVertex::Morton) => Logical::Morton,
+            Self::Float(LogicalFloat::Alp) => Logical::Alp,
+            Self::Float(LogicalFloat::Dict(_)) => Logical::Dict,
         }
     }
 
@@ -318,13 +343,14 @@ impl Encoding02 {
     fn physical_label(self) -> &'static str {
         match self {
             Self::Int(LogicalInt::None(p) | LogicalInt::Delta(p))
+            | Self::Float(LogicalFloat::Dict(p))
             | Self::Vertex(
                 LogicalVertex::None(p) | LogicalVertex::Delta(p) | LogicalVertex::CwDelta(p),
             ) => p.into(),
             Self::Bool(LogicalBool::None(p)) | Self::Float(LogicalFloat::None(p)) => p.into(),
             Self::Int(LogicalInt::Rle | LogicalInt::DeltaRle)
             | Self::Bool(LogicalBool::Rle)
-            | Self::Float(LogicalFloat::Rle)
+            | Self::Float(LogicalFloat::Rle | LogicalFloat::Alp)
             | Self::Vertex(LogicalVertex::Morton) => "implied",
         }
     }
@@ -372,6 +398,12 @@ impl Encoding02 {
             Self::Float(LogicalFloat::Rle) => {
                 return Err(MltError::NotImplemented("v2 RLE over a float column"));
             }
+            Self::Float(LogicalFloat::Alp) => {
+                return Err(MltError::NotImplemented("v2 ALP float streams"));
+            }
+            Self::Float(LogicalFloat::Dict(p)) => {
+                IntEncoding::new(LogicalEncoding::Float(FloatLogical::Dict), flat_int(p)?)
+            }
             Self::Vertex(LogicalVertex::Morton) => {
                 return Err(MltError::NotImplemented("v2 Morton streams"));
             }
@@ -402,6 +434,19 @@ fn flat_bits(physical: PhysicalBits) -> MltResult<PhysicalEncoding> {
         PhysicalBits::WithLen => Ok(PhysicalEncoding::None),
         PhysicalBits::NoLen => Err(MltError::NotImplemented("v2 None-noLen physical encoding")),
     }
+}
+
+/// The physical field bits for a stream of integers, whatever the column's own type is.
+fn physical_int_field(physical: PhysicalEncoding) -> MltResult<u8> {
+    Ok(match physical {
+        PhysicalEncoding::None => PhysicalInt::NoneWithLen as u8,
+        PhysicalEncoding::VarInt => PhysicalInt::VarInt as u8,
+        PhysicalEncoding::FastPFor256 => {
+            return Err(MltError::NotImplemented(
+                "v2 FastPFor: requires the FastPFor128-LE codec",
+            ));
+        }
+    })
 }
 
 /// The logical encoding and physical field bits `encoding` is written as, the reverse of [`Encoding02::to_model`].
@@ -435,6 +480,8 @@ fn wire_fields(encoding: IntEncoding, family: Family) -> MltResult<(Logical, u8)
         LE::Int(IL::None) | LE::Bool(BL::None) | LE::Float(FL::None) | LE::Vertex(VL::None) => {
             (Logical::None, physical(encoding)?)
         }
+        // Codes are an integer stream, whatever the column's type is.
+        LE::Float(FL::Dict) => (Logical::Dict, physical_int_field(encoding.physical)?),
         LE::Int(IL::Delta) | LE::Vertex(VL::Delta) => (Logical::Delta, physical(encoding)?),
         LE::Vertex(VL::ComponentwiseDelta) => (Logical::CwDelta, physical(encoding)?),
         LE::Int(IL::Rle(rle) | IL::DeltaRle(rle)) => {
@@ -619,6 +666,8 @@ mod tests {
     #[case::bool_rle(Family::Bool, Logical::Rle, 0b001)]
     #[case::float_none(Family::Float, Logical::None, 0b000)]
     #[case::float_rle(Family::Float, Logical::Rle, 0b001)]
+    #[case::float_alp(Family::Float, Logical::Alp, 0b010)]
+    #[case::float_dict(Family::Float, Logical::Dict, 0b011)]
     #[case::vertex_none(Family::Vertex, Logical::None, 0b000)]
     #[case::vertex_delta(Family::Vertex, Logical::Delta, 0b001)]
     #[case::vertex_cw_delta(Family::Vertex, Logical::CwDelta, 0b010)]
@@ -705,6 +754,12 @@ mod tests {
     )]
     #[case::raw_float(float(FloatLogical::None, PE::None, 5), 5, Family::Float, 0b0000_0100)]
     #[case::raw_bool(boolean(BoolLogical::None, PE::None, 5), 5, Family::Bool, 0b0000_0100)]
+    #[case::float_dict_codes_varint(
+        float(FloatLogical::Dict, PE::VarInt, 5),
+        5,
+        Family::Float,
+        0b0011_1000
+    )]
     #[case::cw_delta_vertices_explicit(
         vertex(VertexLogical::ComponentwiseDelta, PE::VarInt, 8),
         5,
@@ -731,6 +786,8 @@ mod tests {
     #[case::delta_rle(int(IntLogical::DeltaRle(rle(9)), PE::VarInt, 9), 5, INT)]
     #[case::raw_float(float(FloatLogical::None, PE::None, 5), 5, FLOAT)]
     #[case::raw_bool(boolean(BoolLogical::None, PE::None, 5), 5, BOOL)]
+    #[case::float_dict_codes_varint(float(FloatLogical::Dict, PE::VarInt, 5), 5, FLOAT)]
+    #[case::float_dict_codes_raw(float(FloatLogical::Dict, PE::None, 5), 5, FLOAT)]
     #[case::cw_delta_vertices(vertex(VertexLogical::ComponentwiseDelta, PE::VarInt, 10), 5, VERTEX)]
     fn header_roundtrip(
         #[case] meta: StreamMeta,
@@ -761,7 +818,7 @@ mod tests {
     #[case::morton_with_physical(VERTEX, 0b0011_1000)]
     #[case::int_logical_past_table(INT, 0b0100_1000)]
     #[case::bool_logical_past_table(BOOL, 0b0010_0100)]
-    #[case::float_logical_past_table(FLOAT, 0b0011_0100)]
+    #[case::float_dict_with_extension(FLOAT, 0b0011_0101)]
     #[case::vertex_logical_past_table(VERTEX, 0b0100_1000)]
     #[case::float_physical_varint(FLOAT, 0b0000_1000)]
     #[case::float_physical_fastpfor(FLOAT, 0b0000_1100)]
@@ -780,6 +837,8 @@ mod tests {
     #[case::fastpfor128(INT, 0b0000_1100)]
     #[case::float_none_no_len(FLOAT, 0b0000_0000)]
     #[case::float_rle(FLOAT, 0b0001_0000)]
+    #[case::float_alp(FLOAT, 0b0010_0000)]
+    #[case::float_dict_no_len(FLOAT, 0b0011_0000)]
     #[case::bool_rle(BOOL, 0b0001_0000)]
     #[case::vertex_morton(VERTEX, 0b0011_0000)]
     fn parse_rejects_unimplemented_encoding(#[case] ctx: StreamCtx02, #[case] enc_byte: u8) {
@@ -790,15 +849,11 @@ mod tests {
 
     #[rstest]
     #[case::delta(0b0001_1000, LogicalEncoding::Int(IntLogical::Delta), "encoding byte")]
-    #[case::rle(
-        0b0010_0000,
-        LogicalEncoding::Int(IntLogical::Rle(rle(1))),
-        "encoding byte"
-    )]
+    #[case::rle(0b0010_0000, LogicalEncoding::Int(IntLogical::Rle(rle(1))), "ALP")]
     #[case::delta_rle(
         0b0011_0000,
         LogicalEncoding::Int(IntLogical::DeltaRle(rle(1))),
-        "encoding byte"
+        "None-noLen"
     )]
     fn an_int_bit_pattern_never_means_the_same_on_a_float_column(
         #[case] enc_byte: u8,
@@ -860,6 +915,8 @@ mod tests {
         })),
         Family::Bool
     )]
+    #[case::dict_on_an_int_column(LogicalEncoding::Float(FloatLogical::Dict), Family::Int)]
+    #[case::dict_on_a_vertex_stream(LogicalEncoding::Float(FloatLogical::Dict), Family::Vertex)]
     fn write_rejects_a_logical_the_family_does_not_list(
         #[case] logical: LogicalEncoding,
         #[case] family: Family,
