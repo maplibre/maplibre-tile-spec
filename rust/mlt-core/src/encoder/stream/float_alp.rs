@@ -15,33 +15,38 @@ pub(crate) struct AlpStream {
 }
 
 impl AlpStream {
-    /// The smallest exception-free ALP encoding of `values`, or [`None`] when none exists or none beats raw.
-    pub(crate) fn worth_building<T: FloatValue>(values: &[T]) -> Option<Self> {
+    /// The smallest exception-free ALP encoding of `values`, or [`None`] when no parameters fit.
+    /// Whether it beats storing the floats raw is the caller's question.
+    pub(crate) fn smallest<T: FloatValue>(values: &[T]) -> Option<Self> {
         if values.is_empty() {
             return None;
         }
         let mut scratch = Vec::new();
-        let mut best: Option<Alp> = None;
-        let mut best_bytes = raw_stored_bytes::<T>(values.len());
+        let mut best: Option<(Alp, usize)> = None;
 
         for params in candidates::<T>() {
             if encode_exact(values, params, &mut scratch).is_none() {
                 continue;
             }
             let bytes = stored_bytes(scratch.iter().map(|&c| i64::encode(c)), params);
-            if bytes < best_bytes {
-                best_bytes = bytes;
-                best = Some(params);
+            if best.is_none_or(|(_, best_bytes)| bytes < best_bytes) {
+                best = Some((params, bytes));
             }
         }
 
-        let params = best?;
+        let (params, _) = best?;
         encode_exact(values, params, &mut scratch)
             .expect("the winning parameters encoded every value a moment ago");
         Some(Self {
             params,
             codes: scratch.into_iter().map(i64::encode).collect(),
         })
+    }
+
+    /// The smallest exception-free ALP encoding, or [`None`] when it would not beat the raw column.
+    pub(crate) fn worth_building<T: FloatValue>(values: &[T]) -> Option<Self> {
+        Self::smallest(values)
+            .filter(|alp| alp.stored_bytes() < raw_stored_bytes::<T>(values.len()))
     }
 
     /// Bytes this stream occupies, for the competition against a dictionary.
