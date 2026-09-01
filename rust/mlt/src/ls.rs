@@ -185,6 +185,7 @@ impl std::fmt::Display for FileAlgorithm {
                     StatLogicalCodec::MortonDelta => "MortonDelta",
                     StatLogicalCodec::MortonRle => "MortonRle",
                     StatLogicalCodec::Dict => "Dict",
+                    StatLogicalCodec::Alp => "ALP",
                 };
                 write!(f, "{phys_type}")?;
                 if !physical.is_empty() {
@@ -668,6 +669,7 @@ pub enum StatLogicalCodec {
     MortonDelta,
     MortonRle,
     Dict,
+    Alp,
 }
 
 impl From<LogicalEncoding> for StatLogicalCodec {
@@ -686,6 +688,7 @@ impl From<LogicalEncoding> for StatLogicalCodec {
             LE::Vertex(VertexLogical::MortonDelta(_)) => Self::MortonDelta,
             LE::Vertex(VertexLogical::MortonRle(_)) => Self::MortonRle,
             LE::Float(FloatLogical::Dict) => Self::Dict,
+            LE::Float(FloatLogical::Alp(_)) => Self::Alp,
         }
     }
 }

@@ -55,7 +55,7 @@ pub(crate) use utils::lazy_state::{Decode, DecodeState, Lazy, LazyParsed, Parsed
 pub mod wire {
     pub use crate::decoder::ColumnType;
     pub use crate::decoder::stream::model::{
-        BoolLogical, DictionaryType, FloatLogical, IntEncoding, IntLogical, LengthType,
+        Alp, BoolLogical, DictionaryType, FloatLogical, IntEncoding, IntLogical, LengthType,
         LogicalEncoding, LogicalTechnique, Morton, OffsetType, PhysicalEncoding, RleLayout,
         RleMeta, StreamMeta, StreamType, ValueKind, VertexLogical,
     };
