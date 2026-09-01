@@ -4,6 +4,7 @@ use bytemuck::{NoUninit, cast_slice};
 use fastpfor::FastPFor256;
 
 use crate::codecs::bytes::encode_bools_to_bytes;
+use crate::codecs::float::FloatValue;
 use crate::codecs::rle::encode_byte_rle;
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::FloatLogical;
@@ -14,7 +15,8 @@ use crate::decoder::{
 use crate::encoder;
 use crate::encoder::Encoder;
 use crate::encoder::model::StreamCtx;
-use crate::encoder::stream::float_dict::FloatBits;
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::stream::float_alp::AlpStream;
 #[cfg(feature = "unstable-v2")]
 use crate::encoder::stream::float_dict::FloatDict;
 use crate::encoder::stream::logical::LogicalEncoder;
@@ -99,7 +101,7 @@ impl Codecs {
             reason = "kept as a Codecs method to match the other stream writers"
         )
     )]
-    pub(crate) fn write_float_stream<T: NoUninit + FloatBits>(
+    pub(crate) fn write_float_stream<T: NoUninit + FloatValue>(
         &mut self,
         values: &[T],
         stream_type: StreamType,
@@ -109,20 +111,56 @@ impl Codecs {
         compile_error!("not implemented for non-little-endian targets");
 
         #[cfg(feature = "unstable-v2")]
-        if enc.config().allow_float_dict()
-            && let Some(dict) = FloatDict::worth_building(values)
         {
-            return self.write_float_dict_streams(values, &dict, stream_type, enc);
+            // Both candidates already beat storing the floats raw, so the smaller of the two does too.
+            let dict = if enc.config().allow_float_dict() {
+                FloatDict::worth_building(values)
+            } else {
+                None
+            };
+            let alp = if enc.config().allow_float_alp() {
+                AlpStream::worth_building(values)
+            } else {
+                None
+            };
+            let dict_bytes = dict.as_ref().map_or(usize::MAX, FloatDict::stored_bytes);
+            let alp_bytes = alp.as_ref().map_or(usize::MAX, AlpStream::stored_bytes);
+            if alp_bytes <= dict_bytes
+                && let Some(alp) = alp
+            {
+                return self.write_alp_stream(&alp, stream_type, enc);
+            }
+            if let Some(dict) = dict {
+                return self.write_float_dict_streams(values, &dict, stream_type, enc);
+            }
         }
 
         let meta = StreamMeta::new_none(stream_type, ValueKind::Float, values.len())?;
         encoder::write_stream_payload(enc, meta, false, cast_slice(values))
     }
 
+    /// Write a float column as ALP integers, its parameters in the header.
+    #[cfg(feature = "unstable-v2")]
+    fn write_alp_stream(
+        &mut self,
+        alp: &AlpStream,
+        stream_type: StreamType,
+        enc: &mut Encoder,
+    ) -> MltResult<()> {
+        let meta = StreamMeta::new2(
+            stream_type,
+            LogicalEncoding::Float(FloatLogical::Alp(alp.params)),
+            PhysicalEncoding::VarInt,
+            alp.codes.len(),
+        )?;
+        let codes = self.physical.varint(&alp.codes);
+        encoder::write_stream_payload(enc, meta, false, codes)
+    }
+
     /// Write a float column as a codes stream followed by its dictionary.
     /// Codes first, so only the dictionary needs a count in its header.
     #[cfg(feature = "unstable-v2")]
-    fn write_float_dict_streams<T: NoUninit + FloatBits>(
+    fn write_float_dict_streams<T: NoUninit + FloatValue>(
         &mut self,
         values: &[T],
         dict: &FloatDict<T>,

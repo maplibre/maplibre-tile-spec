@@ -229,6 +229,9 @@ pub struct EncoderConfig {
     /// Allow the v2-only float dictionary encoding
     #[cfg(feature = "unstable-v2")]
     allow_float_dict: bool,
+    /// Allow the v2-only ALP float encoding
+    #[cfg(feature = "unstable-v2")]
+    allow_float_alp: bool,
 }
 impl Default for EncoderConfig {
     fn default() -> Self {
@@ -243,6 +246,8 @@ impl Default for EncoderConfig {
             allow_shared_dict: true,
             #[cfg(feature = "unstable-v2")]
             allow_float_dict: true,
+            #[cfg(feature = "unstable-v2")]
+            allow_float_alp: true,
         }
     }
 }
@@ -296,6 +301,13 @@ impl EncoderConfig {
     #[must_use]
     pub fn allow_float_dict(self) -> bool {
         self.allow_float_dict && self.wire_version != WireVersion::V01
+    }
+
+    /// Whether float columns may use ALP, which only v2 can express.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn allow_float_alp(self) -> bool {
+        self.allow_float_alp && self.wire_version != WireVersion::V01
     }
 
     #[must_use]
@@ -353,6 +365,14 @@ impl EncoderConfig {
     #[must_use]
     pub fn with_float_dict(mut self, enabled: bool) -> Self {
         self.allow_float_dict = enabled;
+        self
+    }
+
+    /// Allow float columns to store each value as a decimal-scaled integer.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn with_float_alp(mut self, enabled: bool) -> Self {
+        self.allow_float_alp = enabled;
         self
     }
 }
