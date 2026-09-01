@@ -1,4 +1,5 @@
 mod codecs;
+mod float_dict;
 pub(crate) use codecs::LogicalCodecs;
 #[cfg(feature = "__private")]
 pub use codecs::{Codecs, PhysicalCodecs};
