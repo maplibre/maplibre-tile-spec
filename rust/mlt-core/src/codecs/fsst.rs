@@ -150,7 +150,7 @@ mod tests {
 
     /// Encode the 4 FSST raw streams to wire bytes and parse them back for decoding.
     fn roundtrip(values: &[&str]) -> (String, Vec<u32>) {
-        use crate::decoder::StreamMeta;
+        use crate::decoder::{StreamMeta, ValueKind};
         let raw = compress_fsst(values);
 
         let sym_len_bytes = {
@@ -168,6 +168,7 @@ mod tests {
         let sym_table_stream = EncodedStream {
             meta: StreamMeta::new_none(
                 StreamType::Data(DictionaryType::Fsst),
+                ValueKind::Int,
                 raw.symbol_lengths.len(),
             )
             .unwrap(),
@@ -186,8 +187,12 @@ mod tests {
             enc.data().to_vec()
         };
         let corpus_stream = EncodedStream {
-            meta: StreamMeta::new_none(StreamType::Data(DictionaryType::Single), values.len())
-                .unwrap(),
+            meta: StreamMeta::new_none(
+                StreamType::Data(DictionaryType::Single),
+                ValueKind::Int,
+                values.len(),
+            )
+            .unwrap(),
             data: raw.corpus.clone(),
         };
 
@@ -202,7 +207,11 @@ mod tests {
         let buffers = [sym_len_bytes, sym_table_buf, lengths_bytes, corpus_buf];
         let mut raw_streams = Vec::new();
         for buf in &buffers {
-            raw_streams.push(assert_empty(header01::parse_stream(buf, &mut parser())));
+            raw_streams.push(assert_empty(header01::parse_stream(
+                buf,
+                ValueKind::Int,
+                &mut parser(),
+            )));
         }
         let [s0, s1, s2, s3] = raw_streams.try_into().expect("expected 4 streams");
         let raw = RawFsstData::new(s0, s1, s2, s3).expect("RawFsstData::new failed");
