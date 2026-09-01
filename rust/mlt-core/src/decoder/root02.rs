@@ -41,8 +41,9 @@ use crate::codecs::varint::parse_varint;
 use crate::decoder::stream::header02;
 use crate::decoder::stream::header02::StreamCtx02;
 use crate::decoder::{
-    ColumnType02, DataType02, GeoLayout, Id, Layer01, LayerLayout, LengthType, Presence02,
-    RawFloats, RawGeometry, RawId, RawIdValue, RawPresence, RawScalar,
+    ColumnType02, DataType02, FloatLogical, GeoLayout, Id, Layer01, LayerLayout, LengthType,
+    LogicalEncoding, Presence02, RawFloats, RawFloatsEncoding, RawGeometry, RawId, RawIdValue,
+    RawPresence, RawScalar, RawStream,
 };
 use crate::tile::Extent;
 use crate::utils::{SetOptionOnce as _, parse_string, parse_u8, take};
@@ -134,8 +135,15 @@ pub(crate) fn parse_layer02<'a>(
             DataType02::U32 => RP::U32(RawScalar::new(name, presence, value)),
             DataType02::I64 => RP::I64(RawScalar::new(name, presence, value)),
             DataType02::U64 => RP::U64(RawScalar::new(name, presence, value)),
-            DataType02::F32 => RP::F32(RawFloats::single(name, presence, value)),
-            DataType02::F64 => RP::F64(RawFloats::single(name, presence, value)),
+            DataType02::F32 | DataType02::F64 => {
+                let floats;
+                (input, floats) = parse_floats(input, typ.data, name, presence, value, parser)?;
+                if typ.data == DataType02::F32 {
+                    RP::F32(floats)
+                } else {
+                    RP::F64(floats)
+                }
+            }
         };
         properties.push(Raw(prop));
     }
@@ -152,6 +160,35 @@ pub(crate) fn parse_layer02<'a>(
         #[cfg(fuzzing)]
         layer_order,
     })
+}
+
+/// Finish a float column, reading the dictionary stream when its data stream turned out to be one of codes.
+fn parse_floats<'a>(
+    input: &'a [u8],
+    typ: DataType02,
+    name: &'a str,
+    presence: RawPresence<'a>,
+    data: RawStream<'a>,
+    parser: &mut Parser,
+) -> MltRefResult<'a, RawFloats<'a>> {
+    if data.meta.encoding.logical != LogicalEncoding::Float(FloatLogical::Dict) {
+        return Ok((input, RawFloats::single(name, presence, data)));
+    }
+    // The dictionary's count is explicit in its header, so this fallback is never used.
+    let ctx = StreamCtx02::PropertyDictionary(typ);
+    let (input, dictionary) = header02::parse_stream(input, ctx, data.meta.num_values, parser)?;
+    let encoding = RawFloatsEncoding::Dictionary {
+        codes: data,
+        dictionary,
+    };
+    Ok((
+        input,
+        RawFloats {
+            name,
+            presence,
+            encoding,
+        },
+    ))
 }
 
 /// Parse the layer's shared presence bitfields: `shared_presence` back-to-back
