@@ -285,7 +285,7 @@ mod tests {
     use crate::LazyParsed;
     use crate::decoder::{
         DictionaryType, IntEncoding, LengthType, LogicalEncoding, Morton, OffsetType, RawGeometry,
-        StreamMeta, StreamType,
+        StreamMeta, StreamType, VertexLogical,
     };
     use crate::encoder::model::StreamCtx;
     use crate::encoder::{
@@ -579,7 +579,10 @@ mod tests {
             meta: StreamMeta::new(
                 StreamType::Data(DictionaryType::Morton),
                 IntEncoding::new(
-                    LogicalEncoding::MortonDelta(Morton { bits: 3, shift: 0 }),
+                    LogicalEncoding::Vertex(VertexLogical::MortonDelta(Morton {
+                        bits: 3,
+                        shift: 0,
+                    })),
                     PhysicalEncoding::VarInt,
                 ),
                 3, // 3 dictionary entries -> 3 physical u32 values
