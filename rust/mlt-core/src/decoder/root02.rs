@@ -171,15 +171,25 @@ fn parse_floats<'a>(
     data: RawStream<'a>,
     parser: &mut Parser,
 ) -> MltRefResult<'a, RawFloats<'a>> {
-    if data.meta.encoding.logical != LogicalEncoding::Float(FloatLogical::Dict) {
-        return Ok((input, RawFloats::single(name, presence, data)));
-    }
-    // The dictionary's count is explicit in its header, so this fallback is never used.
-    let ctx = StreamCtx02::PropertyDictionary(typ);
-    let (input, dictionary) = header02::parse_stream(input, ctx, data.meta.num_values, parser)?;
-    let encoding = RawFloatsEncoding::Dictionary {
-        codes: data,
-        dictionary,
+    let (input, encoding) = match data.meta.encoding.logical {
+        LogicalEncoding::Float(FloatLogical::Alp(params)) => {
+            (input, RawFloatsEncoding::Alp { params, data })
+        }
+        LogicalEncoding::Float(FloatLogical::Dict) => {
+            // The dictionary's count is explicit in its header, so this fallback is never used.
+            let ctx = StreamCtx02::PropertyDictionary(typ);
+            let (input, dictionary) =
+                header02::parse_stream(input, ctx, data.meta.num_values, parser)?;
+            let encoding = RawFloatsEncoding::Dictionary {
+                codes: data,
+                dictionary,
+            };
+            (input, encoding)
+        }
+        LogicalEncoding::Float(FloatLogical::None)
+        | LogicalEncoding::Int(_)
+        | LogicalEncoding::Bool(_)
+        | LogicalEncoding::Vertex(_) => (input, RawFloatsEncoding::Single(data)),
     };
     Ok((
         input,
@@ -274,9 +284,9 @@ fn parse_geometry<'a>(
     for (present, length_type) in lengths {
         if present {
             let ctx = StreamCtx02::GeomOffsets(length_type);
-            let stream;
-            (input, stream) = header02::parse_stream(input, ctx, feature_count, parser)?;
-            items.push(stream);
+            let parsed;
+            (input, parsed) = header02::parse_stream(input, ctx, feature_count, parser)?;
+            items.push(parsed);
         }
     }
 

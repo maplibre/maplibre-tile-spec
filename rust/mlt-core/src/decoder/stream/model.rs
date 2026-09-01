@@ -97,6 +97,30 @@ impl Morton {
     }
 }
 
+/// ALP parameters: `v = i * 10^f / 10^e`.
+/// Written as two header varints, the stream itself holding plain integers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Alp {
+    /// Decimal exponent the values were scaled by.
+    pub(crate) e: u8,
+    /// Factor dividing out the trailing zeros `e` introduced, never exceeding `e`.
+    pub(crate) f: u8,
+}
+
+#[cfg(feature = "unstable-v2")]
+impl Alp {
+    /// Largest exponent any supported float type uses.
+    pub(crate) const MAX_EXPONENT: u8 = 18;
+
+    pub(crate) fn new(e: u8, f: u8) -> MltResult<Self> {
+        if e <= Self::MAX_EXPONENT && f <= e {
+            Ok(Self { e, f })
+        } else {
+            Err(MltError::InvalidAlpParams(e, f))
+        }
+    }
+}
+
 /// What kind of values a stream holds, which fixes the encodings it can name.
 /// Neither wire format stores it: v1 reads it from the column type, v2 from the stream's context.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -136,6 +160,9 @@ pub enum FloatLogical {
     /// One code per element, with the distinct values following as a second stream.
     /// Only the tag `0x02` codec reads or writes it.
     Dict,
+    /// Integers scaled by these parameters.
+    /// Only the tag `0x02` codec reads or writes it.
+    Alp(Alp),
 }
 
 /// Logical encoding of a geometry vertex stream, whose values are interleaved coordinate pairs.
@@ -184,14 +211,14 @@ impl LogicalEncoding {
     }
 
     /// Whether the stream's own logical pass is a no-op, so the physical words are already the output.
-    /// True for a float dictionary's codes, which the column turns back into floats.
+    /// True for a float dictionary's codes and for ALP's integers, which the column turns back into floats.
     #[must_use]
     pub(crate) fn is_identity(self) -> bool {
         matches!(
             self,
             Self::Int(IntLogical::None)
                 | Self::Bool(BoolLogical::None)
-                | Self::Float(FloatLogical::None | FloatLogical::Dict)
+                | Self::Float(FloatLogical::None | FloatLogical::Dict | FloatLogical::Alp(_))
                 | Self::Vertex(VertexLogical::None)
         )
     }
