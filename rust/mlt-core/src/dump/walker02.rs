@@ -20,7 +20,7 @@ use crate::decoder::{
 };
 use crate::tile::Extent;
 use crate::utils::{parse_string, parse_u8, take};
-use crate::wire::{IntEncoding, StreamMeta, ValueKind};
+use crate::wire::{FloatLogical, IntEncoding, LogicalEncoding, StreamMeta, ValueKind};
 use crate::{MltError, MltResult};
 
 impl<'a> Walker<'a> {
@@ -110,7 +110,7 @@ impl<'a> Walker<'a> {
             return Err(MltError::NotImplemented("v2 tessellated geometry layouts"));
         }
 
-        let mut input = self.walk_stream02(
+        let (mut input, _) = self.walk_stream02(
             input,
             StreamCtx02::GeomTypes,
             feature_count,
@@ -130,17 +130,19 @@ impl<'a> Walker<'a> {
         for (present, length_type, label) in lengths {
             if present {
                 let ctx = StreamCtx02::GeomOffsets(length_type);
-                input = self.walk_stream02(input, ctx, feature_count, label, DecodeHint::U32)?;
+                (input, _) =
+                    self.walk_stream02(input, ctx, feature_count, label, DecodeHint::U32)?;
             }
         }
 
-        self.walk_stream02(
+        let (input, _) = self.walk_stream02(
             input,
             StreamCtx02::GeomVertices,
             feature_count,
             "vertices",
             DecodeHint::I32,
-        )
+        )?;
+        Ok(input)
     }
 
     /// `[u8 type][name?][presence bitfield?][data stream]`.
@@ -199,7 +201,20 @@ impl<'a> Walker<'a> {
         };
 
         let ctx = StreamCtx02::Property(typ.data);
-        input = self.walk_stream02(input, ctx, data_count, "data", hint_for(typ.data))?;
+        let meta;
+        (input, meta) = self.walk_stream02(input, ctx, data_count, "data", hint_for(typ.data))?;
+
+        // A dictionary column's data stream holds codes, and the values follow.
+        if meta.encoding.logical == LogicalEncoding::Float(FloatLogical::Dict) {
+            let ctx = StreamCtx02::PropertyDictionary(typ.data);
+            (input, _) = self.walk_stream02(
+                input,
+                ctx,
+                meta.num_values,
+                "dictionary",
+                hint_for(typ.data),
+            )?;
+        }
 
         self.close(ci, input);
         Ok(input)
@@ -244,7 +259,7 @@ impl<'a> Walker<'a> {
         implicit_count: u32,
         label: &str,
         hint: DecodeHint,
-    ) -> MltResult<&'a [u8]> {
+    ) -> MltResult<(&'a [u8], StreamMeta)> {
         let si = self.open(input, label.to_string());
 
         // parse -> synthesized meta.
@@ -297,7 +312,7 @@ impl<'a> Walker<'a> {
         );
 
         self.close(si, rest);
-        Ok(rest)
+        Ok((rest, stream.meta))
     }
 }
 
