@@ -45,6 +45,8 @@ pub(crate) use property::{
     RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings,
     RawStringsEncoding,
 };
+#[cfg(feature = "unstable-v2")]
+pub(crate) use stream::model::Alp;
 pub(crate) use stream::model::{
     BoolLogical, DictionaryType, FloatLogical, IntEncoding, IntLogical, LengthType,
     LogicalCombination, LogicalEncoding, LogicalTechnique, LogicalValue, Morton, OffsetType,

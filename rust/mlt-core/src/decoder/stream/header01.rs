@@ -254,10 +254,10 @@ pub(crate) fn write_stream_meta<W: io::Write>(
         LE::Vertex(VL::Morton(_)) => LC::Morton,
         LE::Vertex(VL::MortonDelta(_)) => LC::MortonDelta,
         LE::Vertex(VL::MortonRle(_)) => LC::MortonRle,
-        LE::Float(FL::Dict) => {
+        LE::Float(FL::Dict | FL::Alp(_)) => {
             return Err(UnsupportedLogicalEncoding(
                 meta.encoding.logical,
-                "v1, whose dictionaries are named by the stream type",
+                "v1, whose float columns are stored raw",
             ));
         }
     };
@@ -420,14 +420,34 @@ mod tests {
         StreamMeta::new(stream_type, IntEncoding::new(logical, physical), num)
     }
 
-    fn int(physical: PhysicalEncoding, logical: IntLogical) -> StreamMeta {
-        meta(DATA, LogicalEncoding::Int(logical), physical, 5)
-    }
-
     #[rstest]
-    #[case::none_varint(int(PhysicalEncoding::VarInt, IntLogical::None), 0x02)]
-    #[case::none_raw(int(PhysicalEncoding::None, IntLogical::None), 0x00)]
-    #[case::delta(int(PhysicalEncoding::VarInt, IntLogical::Delta), 0x22)]
+    #[case::none_varint(
+        meta(
+            DATA,
+            LogicalEncoding::Int(IntLogical::None),
+            PhysicalEncoding::VarInt,
+            5
+        ),
+        0x02
+    )]
+    #[case::none_raw(
+        meta(
+            DATA,
+            LogicalEncoding::Int(IntLogical::None),
+            PhysicalEncoding::None,
+            5
+        ),
+        0x00
+    )]
+    #[case::delta(
+        meta(
+            DATA,
+            LogicalEncoding::Int(IntLogical::Delta),
+            PhysicalEncoding::VarInt,
+            5
+        ),
+        0x22
+    )]
     #[case::cw_delta(
         meta(
             VERTEX,
@@ -444,9 +464,24 @@ mod tests {
     }
 
     #[rstest]
-    #[case::none_varint(int(PhysicalEncoding::VarInt, IntLogical::None))]
-    #[case::none_raw(int(PhysicalEncoding::None, IntLogical::None))]
-    #[case::delta(int(PhysicalEncoding::VarInt, IntLogical::Delta))]
+    #[case::none_varint(meta(
+        DATA,
+        LogicalEncoding::Int(IntLogical::None),
+        PhysicalEncoding::VarInt,
+        5
+    ))]
+    #[case::none_raw(meta(
+        DATA,
+        LogicalEncoding::Int(IntLogical::None),
+        PhysicalEncoding::None,
+        5
+    ))]
+    #[case::delta(meta(
+        DATA,
+        LogicalEncoding::Int(IntLogical::Delta),
+        PhysicalEncoding::VarInt,
+        5
+    ))]
     #[case::cw_delta(meta(
         VERTEX,
         LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta),
