@@ -30,19 +30,19 @@ pub(crate) fn write_prop(
         }
         D::F32(v) => {
             enc.write_column_header(CT::F32, &v.name)?;
-            codecs.write_float_stream(&v.values, StreamType::Data(DictionaryType::None), enc)
+            codecs.write_float_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)
         }
         D::OptF32(v) => {
             codecs.begin_opt_col(CT::OptF32, &v.name, &v.presence, enc)?;
-            codecs.write_float_stream(&v.values, StreamType::Data(DictionaryType::None), enc)
+            codecs.write_float_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)
         }
         D::F64(v) => {
             enc.write_column_header(CT::F64, &v.name)?;
-            codecs.write_float_stream(&v.values, StreamType::Data(DictionaryType::None), enc)
+            codecs.write_float_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)
         }
         D::OptF64(v) => {
             codecs.begin_opt_col(CT::OptF64, &v.name, &v.presence, enc)?;
-            codecs.write_float_stream(&v.values, StreamType::Data(DictionaryType::None), enc)
+            codecs.write_float_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)
         }
         D::I8(v) => codecs.write_scalar_col(CT::I8, Some(&v.name), v, enc),
         D::OptI8(v) => codecs.write_opt_scalar_col(CT::OptI8, Some(&v.name), v, enc),
