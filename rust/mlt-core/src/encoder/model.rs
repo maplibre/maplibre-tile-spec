@@ -393,6 +393,18 @@ pub enum StrEncoding {
     FsstDict,
 }
 
+/// How to encode a float column, pinned rather than costed against the alternatives.
+///
+/// Used by [`ExplicitEncoder`] where the output has to be one exact layout.
+/// Only v2 can express `Dict` and `Alp`, so a v1 layer writes the values raw either way.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum FloatEncoding {
+    #[default]
+    None,
+    Dict,
+    Alp,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ColumnKind {
     Id,
@@ -478,4 +490,7 @@ pub struct ExplicitEncoder {
     /// Return the string encoding strategy for a string property column.
     #[dbg(skip)]
     pub get_str_encoding: Box<dyn Fn(&str) -> StrEncoding>,
+    /// Return the logical encoding for a float property column.
+    #[dbg(skip)]
+    pub get_float_encoding: Box<dyn Fn(&str) -> FloatEncoding>,
 }

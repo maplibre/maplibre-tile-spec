@@ -14,6 +14,10 @@ use crate::decoder::{
 };
 use crate::encoder;
 use crate::encoder::Encoder;
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::WireVersion;
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::model::FloatEncoding;
 use crate::encoder::model::StreamCtx;
 #[cfg(feature = "unstable-v2")]
 use crate::encoder::stream::float_alp::AlpStream;
@@ -22,6 +26,8 @@ use crate::encoder::stream::float_dict::FloatDict;
 use crate::encoder::stream::logical::LogicalEncoder;
 use crate::encoder::stream::optimizer::DataProfile;
 use crate::encoder::write::{LogicalIntCodec, LogicalIntStreamKind, PhysicalIntStreamKind};
+#[cfg(feature = "unstable-v2")]
+use crate::errors::MltError;
 use crate::errors::MltResult;
 
 #[derive(Default)]
@@ -104,38 +110,53 @@ impl Codecs {
     pub(crate) fn write_float_stream<T: NoUninit + FloatValue>(
         &mut self,
         values: &[T],
-        stream_type: StreamType,
+        ctx: &StreamCtx<'_>,
         enc: &mut Encoder,
     ) -> MltResult<()> {
         #[cfg(not(target_endian = "little"))]
         compile_error!("not implemented for non-little-endian targets");
 
+        // v1 has no way to write either encoding, and one `Layer` is encoded as both versions.
         #[cfg(feature = "unstable-v2")]
-        {
-            // Both candidates already beat storing the floats raw, so the smaller of the two does too.
-            let dict = if enc.config().allow_float_dict() {
-                FloatDict::worth_building(values)
-            } else {
-                None
-            };
-            let alp = if enc.config().allow_float_alp() {
-                AlpStream::worth_building(values)
-            } else {
-                None
-            };
-            let dict_bytes = dict.as_ref().map_or(usize::MAX, FloatDict::stored_bytes);
-            let alp_bytes = alp.as_ref().map_or(usize::MAX, AlpStream::stored_bytes);
-            if alp_bytes <= dict_bytes
-                && let Some(alp) = alp
-            {
-                return self.write_alp_stream(&alp, stream_type, enc);
-            }
-            if let Some(dict) = dict {
-                return self.write_float_dict_streams(values, &dict, stream_type, enc);
+        if enc.config().wire_version() != WireVersion::V01 {
+            match enc.override_float_enc(ctx.name) {
+                // A pinned encoding is written as asked, with nothing costed against it.
+                Some(FloatEncoding::Alp) => {
+                    let alp = AlpStream::smallest(values).ok_or(MltError::NoAlpParameters)?;
+                    return self.write_alp_stream(&alp, ctx.stream_type, enc);
+                }
+                Some(FloatEncoding::Dict) => {
+                    let dict = FloatDict::build(values)?;
+                    return self.write_float_dict_streams(values, &dict, ctx.stream_type, enc);
+                }
+                Some(FloatEncoding::None) => {}
+                None => {
+                    // Both candidates already beat storing the floats raw, so the smaller of the two does too.
+                    let dict = if enc.config().allow_float_dict() {
+                        FloatDict::worth_building(values)
+                    } else {
+                        None
+                    };
+                    let alp = if enc.config().allow_float_alp() {
+                        AlpStream::worth_building(values)
+                    } else {
+                        None
+                    };
+                    let dict_bytes = dict.as_ref().map_or(usize::MAX, FloatDict::stored_bytes);
+                    let alp_bytes = alp.as_ref().map_or(usize::MAX, AlpStream::stored_bytes);
+                    if alp_bytes <= dict_bytes
+                        && let Some(alp) = alp
+                    {
+                        return self.write_alp_stream(&alp, ctx.stream_type, enc);
+                    }
+                    if let Some(dict) = dict {
+                        return self.write_float_dict_streams(values, &dict, ctx.stream_type, enc);
+                    }
+                }
             }
         }
 
-        let meta = StreamMeta::new_none(stream_type, ValueKind::Float, values.len())?;
+        let meta = StreamMeta::new_none(ctx.stream_type, ValueKind::Float, values.len())?;
         encoder::write_stream_payload(enc, meta, false, cast_slice(values))
     }
 
