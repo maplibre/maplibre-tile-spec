@@ -8,7 +8,10 @@ use crate::codecs::varint::parse_varint;
 use crate::decoder::stream::header01::parse_stream_meta;
 use crate::decoder::{Column, ColumnType, DictionaryType, StreamType};
 use crate::utils::{parse_string, take};
-use crate::wire::{LogicalEncoding, LogicalTechnique, PhysicalEncoding, StreamMeta};
+use crate::wire::{
+    BoolLogical, IntLogical, LogicalEncoding, LogicalTechnique, PhysicalEncoding, StreamMeta,
+    ValueKind, VertexLogical,
+};
 use crate::{MltError, MltResult};
 
 impl<'a> Walker<'a> {
@@ -152,11 +155,15 @@ impl<'a> Walker<'a> {
         match typ {
             C::Id | C::OptId => {
                 input = self.walk_optional(input, typ)?;
-                input = self.walk_stream(input, false, "id", |_| DecodeHint::U32)?.0;
+                input = self
+                    .walk_stream(input, ValueKind::Int, "id", |_| DecodeHint::U32)?
+                    .0;
             }
             C::LongId | C::OptLongId => {
                 input = self.walk_optional(input, typ)?;
-                input = self.walk_stream(input, false, "id", |_| DecodeHint::U64)?.0;
+                input = self
+                    .walk_stream(input, ValueKind::Int, "id", |_| DecodeHint::U64)?
+                    .0;
             }
             C::Geometry => {
                 input = self.walk_geometry(input)?;
@@ -164,43 +171,43 @@ impl<'a> Walker<'a> {
             C::Bool | C::OptBool => {
                 input = self.walk_optional(input, typ)?;
                 input = self
-                    .walk_stream(input, true, "data", |_| DecodeHint::Bool)?
+                    .walk_stream(input, ValueKind::Bool, "data", |_| DecodeHint::Bool)?
                     .0;
             }
             C::I8 | C::OptI8 | C::I32 | C::OptI32 => {
                 input = self.walk_optional(input, typ)?;
                 input = self
-                    .walk_stream(input, false, "data", |_| DecodeHint::I32)?
+                    .walk_stream(input, ValueKind::Int, "data", |_| DecodeHint::I32)?
                     .0;
             }
             C::U8 | C::OptU8 | C::U32 | C::OptU32 => {
                 input = self.walk_optional(input, typ)?;
                 input = self
-                    .walk_stream(input, false, "data", |_| DecodeHint::U32)?
+                    .walk_stream(input, ValueKind::Int, "data", |_| DecodeHint::U32)?
                     .0;
             }
             C::I64 | C::OptI64 => {
                 input = self.walk_optional(input, typ)?;
                 input = self
-                    .walk_stream(input, false, "data", |_| DecodeHint::I64)?
+                    .walk_stream(input, ValueKind::Int, "data", |_| DecodeHint::I64)?
                     .0;
             }
             C::U64 | C::OptU64 => {
                 input = self.walk_optional(input, typ)?;
                 input = self
-                    .walk_stream(input, false, "data", |_| DecodeHint::U64)?
+                    .walk_stream(input, ValueKind::Int, "data", |_| DecodeHint::U64)?
                     .0;
             }
             C::F32 | C::OptF32 => {
                 input = self.walk_optional(input, typ)?;
                 input = self
-                    .walk_stream(input, false, "data", |_| DecodeHint::F32)?
+                    .walk_stream(input, ValueKind::Float, "data", |_| DecodeHint::F32)?
                     .0;
             }
             C::F64 | C::OptF64 => {
                 input = self.walk_optional(input, typ)?;
                 input = self
-                    .walk_stream(input, false, "data", |_| DecodeHint::F64)?
+                    .walk_stream(input, ValueKind::Float, "data", |_| DecodeHint::F64)?
                     .0;
             }
             C::Str | C::OptStr => {
@@ -219,7 +226,7 @@ impl<'a> Walker<'a> {
     fn walk_optional(&mut self, input: &'a [u8], typ: ColumnType) -> MltResult<&'a [u8]> {
         if typ.is_optional() {
             Ok(self
-                .walk_stream(input, true, "present", |_| DecodeHint::Presence)?
+                .walk_stream(input, ValueKind::Bool, "present", |_| DecodeHint::Presence)?
                 .0)
         } else {
             Ok(input)
@@ -237,10 +244,12 @@ impl<'a> Walker<'a> {
         if stream_count == 0 {
             return Err(MltError::GeometryWithoutStreams);
         }
-        input = self.walk_stream(input, false, "meta", geom_hint)?.0;
+        input = self
+            .walk_stream(input, ValueKind::Int, "meta", geom_hint)?
+            .0;
         for j in 0..stream_count - 1 {
             input = self
-                .walk_stream(input, false, &format!("stream[{j}]"), geom_hint)?
+                .walk_stream(input, ValueKind::Int, &format!("stream[{j}]"), geom_hint)?
                 .0;
         }
         Ok(input)
@@ -261,13 +270,13 @@ impl<'a> Walker<'a> {
                 return Err(MltError::UnsupportedStringStreamCount(remaining));
             }
             input = self
-                .walk_stream(input, true, "present", |_| DecodeHint::Presence)?
+                .walk_stream(input, ValueKind::Bool, "present", |_| DecodeHint::Presence)?
                 .0;
             remaining -= 1;
         }
         for j in 0..remaining {
             input = self
-                .walk_stream(input, false, &format!("stream[{j}]"), auto_hint)?
+                .walk_stream(input, ValueKind::Int, &format!("stream[{j}]"), auto_hint)?
                 .0;
         }
         Ok(input)
@@ -285,8 +294,12 @@ impl<'a> Walker<'a> {
         // Dictionary streams: read until the DATA(Single|Shared) stream.
         let mut taken = 0usize;
         loop {
-            let (rest, meta) =
-                self.walk_stream(input, false, &format!("dict_stream[{taken}]"), auto_hint)?;
+            let (rest, meta) = self.walk_stream(
+                input,
+                ValueKind::Int,
+                &format!("dict_stream[{taken}]"),
+                auto_hint,
+            )?;
             input = rest;
             taken += 1;
             if matches!(
@@ -312,10 +325,12 @@ impl<'a> Walker<'a> {
             input = rest;
             if child.typ.is_optional() {
                 input = self
-                    .walk_stream(input, true, "present", |_| DecodeHint::Presence)?
+                    .walk_stream(input, ValueKind::Bool, "present", |_| DecodeHint::Presence)?
                     .0;
             }
-            input = self.walk_stream(input, false, "data", auto_hint)?.0;
+            input = self
+                .walk_stream(input, ValueKind::Int, "data", auto_hint)?
+                .0;
             self.close(cci, input);
         }
         Ok(input)
@@ -326,14 +341,16 @@ impl<'a> Walker<'a> {
     fn walk_stream(
         &mut self,
         input: &'a [u8],
-        is_bool: bool,
+        kind: ValueKind,
         label: &str,
         hint: impl FnOnce(StreamType) -> DecodeHint,
     ) -> MltResult<(&'a [u8], StreamMeta)> {
         let si = self.open(input, label);
+        let is_bool = kind == ValueKind::Bool;
 
         // Authoritative parse - drives advancement and gives us `meta`/`byte_length`.
-        let (after_hdr, (meta, byte_length)) = parse_stream_meta(input, is_bool, &mut self.parser)?;
+        let (after_hdr, (meta, byte_length)) =
+            parse_stream_meta(input, kind, is_bool, &mut self.parser)?;
 
         // Re-walk the consumed header bytes to annotate each field.
         let hi = self.open(input, "header");
@@ -371,7 +388,10 @@ impl<'a> Walker<'a> {
         )?;
 
         match meta.encoding.logical {
-            LogicalEncoding::Rle(_) | LogicalEncoding::DeltaRle(_) if !is_bool => {
+            LogicalEncoding::Int(IntLogical::Rle(_) | IntLogical::DeltaRle(_))
+            | LogicalEncoding::Bool(BoolLogical::ByteRle(_))
+                if !is_bool =>
+            {
                 (c, _) = self.field(
                     c,
                     "runs",
@@ -385,9 +405,11 @@ impl<'a> Walker<'a> {
                     |v| Some(v.to_string()),
                 )?;
             }
-            LogicalEncoding::Morton(_)
-            | LogicalEncoding::MortonDelta(_)
-            | LogicalEncoding::MortonRle(_) => {
+            LogicalEncoding::Vertex(
+                VertexLogical::Morton(_)
+                | VertexLogical::MortonDelta(_)
+                | VertexLogical::MortonRle(_),
+            ) => {
                 (c, _) = self.field(
                     c,
                     "bits",
@@ -401,11 +423,12 @@ impl<'a> Walker<'a> {
                     |v| Some(v.to_string()),
                 )?;
             }
-            LogicalEncoding::None
-            | LogicalEncoding::Delta
-            | LogicalEncoding::DeltaRle(_)
-            | LogicalEncoding::ComponentwiseDelta
-            | LogicalEncoding::Rle(_) => {}
+            LogicalEncoding::Int(_)
+            | LogicalEncoding::Bool(_)
+            | LogicalEncoding::Float(_)
+            | LogicalEncoding::Vertex(
+                VertexLogical::None | VertexLogical::Delta | VertexLogical::ComponentwiseDelta,
+            ) => {}
         }
         self.close(hi, c);
 
