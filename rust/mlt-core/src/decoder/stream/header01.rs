@@ -141,15 +141,14 @@ pub(crate) fn parse_stream_meta<'a>(
 
     let mut input = input;
     let logical_encoding = match logical {
-        LC::None | LC::Delta | LC::ComponentwiseDelta | LC::PseudoDecimal => {
+        LC::None | LC::Delta | LC::ComponentwiseDelta => {
             // Reserve decoded memory upper bound: worst case u64 = 8 bytes per value
             let decoded_bytes = num_values.saturating_mul(8);
             parser.reserve(decoded_bytes)?;
             match logical {
                 LC::None => LogicalEncoding::None,
                 LC::Delta => LogicalEncoding::Delta,
-                LC::ComponentwiseDelta => LogicalEncoding::ComponentwiseDelta,
-                _ => LogicalEncoding::PseudoDecimal,
+                _ => LogicalEncoding::ComponentwiseDelta,
             }
         }
         LC::Rle | LC::DeltaRle => {
@@ -223,7 +222,6 @@ pub(crate) fn write_stream_meta<W: io::Write>(
         LE::Morton(_) => LC::Morton,
         LE::MortonRle(_) => LC::MortonRle,
         LE::MortonDelta(_) => LC::MortonDelta,
-        LE::PseudoDecimal => LC::PseudoDecimal,
     };
     writer.write_u8(encoding_byte(logical, meta.encoding.physical))?;
     writer.write_varint(meta.num_values)?;
@@ -256,7 +254,7 @@ pub(crate) fn write_stream_meta<W: io::Write>(
             writer.write_varint(m.bits)?;
             writer.write_varint(m.shift)?;
         }
-        LE::None | LE::Delta | LE::ComponentwiseDelta | LE::PseudoDecimal => {}
+        LE::None | LE::Delta | LE::ComponentwiseDelta => {}
     }
     Ok(())
 }
@@ -460,11 +458,6 @@ mod tests {
         LogicalCombination::MortonRle,
         LogicalTechnique::Morton,
         LogicalTechnique::Rle
-    )]
-    #[case::pseudo_decimal(
-        LogicalCombination::PseudoDecimal,
-        LogicalTechnique::PseudoDecimal,
-        LogicalTechnique::None
     )]
     fn combination_holds_both_field_bits(
         #[case] combination: LogicalCombination,

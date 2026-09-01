@@ -136,10 +136,6 @@ impl LogicalValue {
                 self.meta.encoding.logical,
                 "i32 (MortonRle)",
             )),
-            LogicalEncoding::PseudoDecimal => Err(UnsupportedLogicalEncoding(
-                self.meta.encoding.logical,
-                "i32",
-            )),
         }
     }
 

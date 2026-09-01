@@ -19,7 +19,7 @@ public class DoubleEncoder {
   }
 
   public static ArrayList<byte[]> encodeDoubleStream(final double[] values) throws IOException {
-    // TODO: add encodings -> RLE, Dictionary, PDE
+    // TODO: add encodings -> RLE, Dictionary
     return encodeDoubleStream(values.length, EncodingUtils.encodeDoublesLE(values));
   }
 

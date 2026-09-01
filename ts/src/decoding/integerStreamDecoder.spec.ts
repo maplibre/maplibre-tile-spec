@@ -395,8 +395,8 @@ describe("decodeUnsignedConstInt32Stream", () => {
         expect(result).toBe(4);
     });
 
-    it("should throw for unsupported technique", () => {
-        const metadata = createStreamMetadata(LogicalLevelTechnique.PDE, LogicalLevelTechnique.NONE, 3);
+    it("should throw for an unknown logical level technique", () => {
+        const metadata = createStreamMetadata("UNKNOWN" as LogicalLevelTechnique, LogicalLevelTechnique.NONE, 3);
         const offset = new IntWrapper(0);
         const bitVector = new BitVector(new Uint8Array([0b00000111]), 3);
 
