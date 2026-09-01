@@ -10,14 +10,14 @@ import { encodeTile, type Feature, type FeatureGeometry, type Layer, type Proper
  * Fixtures that cannot survive this round trip. Each is checked below to still *fail*, so an entry
  * that starts working fails the suite until it is removed from this list.
  */
-const UNSUPPORTED: string[] = [];
+const UNSUPPORTED: string[] = ["0x02"];
 
 /**
  * Decodes each synthetic `.mlt`, re-encodes what came out, and checks the result still decodes to
  * the fixture's expected GeoJSON.
  *
  * The reference tile is the input rather than the expected JSON, so values reach the encoder with
- * the types they really have — 64-bit ids stay BigInt instead of being rounded through a JSON
+ * the types they really have - 64-bit ids stay BigInt instead of being rounded through a JSON
  * double. Only the final comparison goes via GeoJSON. The byte layout is free to differ from the
  * reference: this encoder writes plain streams where the reference uses dictionaries, FastPFOR and
  * the like.
@@ -41,7 +41,7 @@ describe("encodeTile - synthetic fixtures round trip", () => {
             } catch {
                 return;
             }
-            expect(actual, "round-tripped cleanly — remove it from the exclusion list").not.toEqual(
+            expect(actual, "round-tripped cleanly - remove it from the exclusion list").not.toEqual(
                 normalise(content as GeoJSON.FeatureCollection),
             );
         });

@@ -1,6 +1,9 @@
-pub(crate) mod encode;
+mod encode01;
+#[cfg(feature = "unstable-v2")]
+pub(crate) mod encode02;
 mod geotype;
 mod model;
+mod streams;
 #[cfg(test)]
 mod tests;
 

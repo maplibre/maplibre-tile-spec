@@ -38,7 +38,6 @@ inline std::size_t IntegerDecoder::getIntArrayBufferSize(const std::size_t count
         case LogicalLevelTechnique::MORTON: {
             return 2 * count;
         }
-        case LogicalLevelTechnique::PSEUDODECIMAL:
         default:
             return 0;
     }
@@ -121,7 +120,6 @@ void IntegerDecoder::decodeIntArray(const T* values,
             }
             break;
         }
-        case LogicalLevelTechnique::PSEUDODECIMAL:
         default:
             throw std::runtime_error("The specified logical level technique is not supported for integers: " +
                                      std::to_string(std::to_underlying(streamMetadata.getLogicalLevelTechnique1())));

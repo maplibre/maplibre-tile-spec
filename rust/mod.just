@@ -12,7 +12,7 @@ export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'
 hack_skip := '--exclude-features hotpath,hotpath-alloc,hotpath-mcp'
 
 # Files excluded from `mlt ls --validate-to-json ...`
-validate_excludes := "--exclude '../test/synthetic/0x02/prop_nested*'"
+validate_excludes := "--exclude '../test/synthetic/0x02-java/prop_nested*'"
 
 _default: (just '--list' 'rust')
 
@@ -175,9 +175,9 @@ _coverage: (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm
     cargo llvm-cov clean --workspace
     cargo hack llvm-cov --no-report --all-targets --each-feature {{hack_skip}} \
         --workspace --exclude-no-default-features --exclude-all-features
-    rm -rf ../test/synthetic/0x01-rust
+    rm -rf ../test/synthetic/0x01-rust ../test/synthetic/0x02-rust
     cargo llvm-cov run --no-report -p mlt-synthetics
-    cargo llvm-cov run --no-report -p mlt -- ls --validate-to-json {{validate_excludes}} --details basic ../test/synthetic/
+    cargo llvm-cov run --no-report -p mlt --features unstable-v2 -- ls --validate-to-json {{validate_excludes}} --details basic ../test/synthetic/
     rustup toolchain install nightly --profile minimal --component llvm-tools
     cargo +nightly llvm-cov --no-report --doctests --workspace
 
@@ -273,7 +273,7 @@ fuzz-seed target='layer': (just 'cargo-install' 'fd' 'fd-find')
     fd . ../test --extension mlt --threads=1 --exec cp --force {} mlt-core/fuzz/corpus/{{target}}/
     {{just}} rust::fuzz-cmin {{target}}
 
-# Minimize the fuzz corpus for target (slow — run occasionally to prune redundant entries)
+# Minimize the fuzz corpus for target (slow - run occasionally to prune redundant entries)
 fuzz-cmin target='layer': (cargo-fuzz 'cmin' target '--target' 'x86_64-unknown-linux-gnu')
 
 # Collect coverage from the fuzz corpus and open an HTML report (installs `cargo fuzz`, `rustfilt`)
@@ -321,7 +321,7 @@ py: (just 'cargo-install' 'maturin')
     fi
     source .venv/bin/activate
     maturin develop
-    python3 -i -c "import maplibre_tiles; print('maplibre_tiles ready — try: maplibre_tiles.decode_mlt(data)')"
+    python3 -i -c "import maplibre_tiles; print('maplibre_tiles ready - try: maplibre_tiles.decode_mlt(data)')"
 
 # Build mlt-py and run its Python test suite (pytest)
 [working-directory: 'mlt-py']
@@ -476,7 +476,7 @@ update:
 generate-synthetic-mlts *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    rm -rf ../test/synthetic/0x01-rust
+    rm -rf ../test/synthetic/0x01-rust ../test/synthetic/0x02-rust
     cargo run -p mlt-synthetics -- {{args}}
     {{just}} rust::validate-synthetic
     {{just}} _assert-all-mlt-files-different

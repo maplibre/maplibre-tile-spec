@@ -12,7 +12,7 @@ use crate::{Analyze, StatType};
 /// `(byte[i/8] >> (i%8)) & 1`.
 #[derive(Clone, PartialEq, Debug)]
 pub enum Presence<'a, T: Copy> {
-    /// No presence stream — every feature has a value.
+    /// No presence stream - every feature has a value.
     AllPresent(Vec<T>),
     /// Per-feature packed bitvector: bit `i` is set iff feature `i` has a value.
     /// `values` holds only the non-null (present) entries in dense order.

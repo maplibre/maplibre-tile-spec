@@ -30,7 +30,7 @@ pub struct Lazy;
 /// Fully-decoded state: all columns hold their parsed values directly.
 ///
 /// A `Layer01<Parsed>` is produced by [`Layer01::decode_all`](crate::Layer01::decode_all).
-/// Its fields (`id`, `geometry`, `properties`) are the parsed types themselves — no
+/// Its fields (`id`, `geometry`, `properties`) are the parsed types themselves - no
 /// wrapping enum, no `Result`, just plain field access.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Parsed;
@@ -42,7 +42,7 @@ impl DecodeState for Lazy {
     type LazyOrParsed<Raw, Parsed> = LazyParsed<Raw, Parsed>;
 }
 impl DecodeState for Parsed {
-    /// In the decoded state the column IS the parsed value — no enum wrapper.
+    /// In the decoded state the column IS the parsed value - no enum wrapper.
     type LazyOrParsed<Raw, Parsed> = Parsed;
 }
 

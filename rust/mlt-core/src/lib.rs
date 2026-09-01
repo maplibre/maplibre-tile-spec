@@ -23,14 +23,14 @@ pub(crate) mod decoder;
 pub mod dump;
 pub mod encoder;
 pub(crate) mod errors;
+pub(crate) mod tile;
 pub(crate) mod utils;
 
 pub use convert::{geojson, mvt};
 pub use decoder::{
-    ColNames, ColumnRef, Decoder, Extent, FeatureRef, GeometryType, GeometryValues, Layer, Layer01,
-    Layer01FeatureIter, LendingIterator, ParsedLayer, ParsedLayer01, Parser, PropKind, PropName,
-    PropNamesIter, PropValue, PropValueRef, PropertyKey, TileFeature, TileFeatureBuilder,
-    TileLayer, TileLayerBuilder, Unknown,
+    ColNames, ColumnRef, Decoder, FeatureRef, GeometryType, GeometryValues, Layer, Layer01,
+    Layer01FeatureIter, LendingIterator, ParsedLayer, ParsedLayer01, Parser, PropName,
+    PropNamesIter, PropValueRef, Unknown,
 };
 // Crate-internal re-exports: allow internal modules to use `crate::Lazy` etc.
 // without exposing these implementation details to external users.
@@ -40,19 +40,23 @@ pub(crate) use decoder::{
 };
 pub(crate) use errors::MltRefResult;
 pub use errors::{MltError, MltResult};
+pub use tile::{
+    Extent, PropKind, PropValue, PropertyKey, TileFeature, TileFeatureBuilder, TileLayer,
+    TileLayerBuilder,
+};
 pub(crate) use utils::analyze::{Analyze, StatType};
 pub(crate) use utils::lazy_state::{Decode, DecodeState, Lazy, LazyParsed, Parsed};
 
-/// Wire-level encoding metadata — for tile analysis and tooling.
+/// Wire-level encoding metadata - for tile analysis and tooling.
 ///
 /// These types describe the physical and logical encoding of streams inside an
-/// MLT tile. Normal tile consumers (parse → iterate features) do not need this
+/// MLT tile. Normal tile consumers (parse -> iterate features) do not need this
 /// module; it is intended for tools that inspect or report encoding statistics.
 pub mod wire {
     pub use crate::decoder::ColumnType;
     pub use crate::decoder::stream::model::{
         DictionaryType, IntEncoding, LengthType, LogicalEncoding, LogicalTechnique, Morton,
-        OffsetType, PhysicalEncoding, RleMeta, StreamMeta, StreamType,
+        OffsetType, PhysicalEncoding, RleLayout, RleMeta, StreamMeta, StreamType,
     };
     pub use crate::utils::analyze::{Analyze, StatType};
 }
@@ -69,6 +73,7 @@ pub mod __private {
     pub use crate::decoder::*;
     pub use crate::errors::*;
     pub use crate::test_helpers::*;
+    pub use crate::tile::*;
     pub use crate::utils::analyze::*;
     pub use crate::utils::lazy_state::*;
     pub use crate::utils::*;

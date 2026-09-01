@@ -1,6 +1,10 @@
 use std::borrow::Cow;
 use std::ops::Deref;
 
+#[cfg(feature = "unstable-v2")]
+use bitvec::order::Lsb0;
+#[cfg(feature = "unstable-v2")]
+use bitvec::slice::BitSlice;
 use enum_dispatch::enum_dispatch;
 
 use crate::decoder::RawStream;
@@ -9,8 +13,8 @@ use crate::{DecodeState, Lazy};
 
 /// Property column representation, parameterized by decode state.
 ///
-/// - `Property<'a>` / `Property<'a, Lazy>` — either raw bytes or decoded, in an [`crate::LazyParsed`] enum.
-/// - `Property<'a, Parsed>` — decoded [`ParsedProperty`] directly (no enum wrapper).
+/// - `Property<'a>` / `Property<'a, Lazy>` - either raw bytes or decoded, in an [`crate::LazyParsed`] enum.
+/// - `Property<'a, Parsed>` - decoded [`ParsedProperty`] directly (no enum wrapper).
 pub type Property<'a, S = Lazy> =
     <S as DecodeState>::LazyOrParsed<RawProperty<'a>, ParsedProperty<'a>>;
 
@@ -20,6 +24,16 @@ pub struct RawScalar<'a> {
     pub(crate) name: &'a str,
     pub(crate) presence: RawPresence<'a>,
     pub(crate) data: RawStream<'a>,
+}
+
+impl<'a> RawScalar<'a> {
+    pub(crate) fn new(name: &'a str, presence: RawPresence<'a>, data: RawStream<'a>) -> Self {
+        Self {
+            name,
+            presence,
+            data,
+        }
+    }
 }
 
 /// Raw string column as read directly from the tile.
@@ -212,13 +226,26 @@ pub struct RawFsstData<'a> {
 /// Raw presence/nullability data for a column.
 ///
 /// `AllPresent` represents a non-optional column; other variants encode presence in a
-/// layer-format-specific way. Decode through [`RawPresence::decode_bits`] or
-/// [`RawPresence::decode_bools`] instead of matching on it.
+/// layer-format-specific way. Decode through [`RawPresence::decode_bits`]
+/// instead of matching on it.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub enum RawPresence<'a> {
-    /// Non-optional column — every feature has a value; nothing is stored.
+    /// Non-optional column - every feature has a value; nothing is stored.
     #[default]
     AllPresent,
     /// Tag `0x01`: bool-RLE presence stream with a full stream header.
     Stream(RawStream<'a>),
+    /// Tag `0x02`: raw packed bitfield (LSB-first per byte, one bit per feature),
+    /// borrowed zero-copy from the tile bytes. No header precedes it.
+    /// Requires the `unstable-v2` feature.
+    #[cfg(feature = "unstable-v2")]
+    Bitfield(&'a BitSlice<u8, Lsb0>),
+}
+
+impl RawPresence<'_> {
+    /// Whether this column carries presence data (some features may be null).
+    #[must_use]
+    pub(crate) fn is_optional(&self) -> bool {
+        !matches!(self, Self::AllPresent)
+    }
 }

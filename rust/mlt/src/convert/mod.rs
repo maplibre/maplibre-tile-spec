@@ -11,7 +11,7 @@ use clap::{Args, ValueEnum};
 use indicatif::ProgressState;
 use martin_tile_utils::{Encoding, Format, decode_brotli, decode_gzip, decode_zlib, decode_zstd};
 use mbtiles::{MbtType, NormalizedSchema};
-use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig};
+use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig, WireVersion};
 use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::{Decoder, Layer, Parser};
 use pmtiles::Compression;
@@ -94,6 +94,32 @@ impl TileFormat {
         match path.extension().and_then(std::ffi::OsStr::to_str) {
             Some("mvt" | "pbf") => Self::Mvt,
             _ => Self::Mlt,
+        }
+    }
+}
+
+/// Which MLT wire format version `convert` writes.
+///
+/// Defaults to the newest version the binary was built with.
+#[derive(Clone, Copy, Default, ValueEnum, PartialEq, Eq)]
+pub enum MltVersion {
+    /// Version 1
+    #[cfg_attr(not(feature = "unstable-v2"), default)]
+    #[value(name = "1", alias = "v1")]
+    V1,
+    /// Version 2
+    #[cfg(feature = "unstable-v2")]
+    #[cfg_attr(feature = "unstable-v2", default)]
+    #[value(name = "2", alias = "v2")]
+    V2,
+}
+
+impl From<MltVersion> for WireVersion {
+    fn from(version: MltVersion) -> Self {
+        match version {
+            MltVersion::V1 => Self::V01,
+            #[cfg(feature = "unstable-v2")]
+            MltVersion::V2 => Self::V02,
         }
     }
 }
@@ -189,6 +215,15 @@ pub struct ConvertArgs {
     /// Output tile format (`mlt` re-encodes; `mvt` decodes MLT inputs back to MVT)
     #[clap(long, default_value = "mlt")]
     to: TileFormat,
+    /// MLT wire format version to write
+    #[cfg_attr(
+        not(feature = "unstable-v2"),
+        doc = "",
+        doc = "Version 2 requires building with `--features unstable-v2`."
+    )]
+    #[cfg_attr(not(feature = "unstable-v2"), clap(long, default_value = "1"))]
+    #[cfg_attr(feature = "unstable-v2", clap(long, default_value = "2"))]
+    mlt_version: MltVersion,
     /// Outer compression for tile payloads
     #[clap(long, value_enum, default_value = "none")]
     tile_compression: TileCompression,
@@ -210,6 +245,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     let hilbert = matches!(args.sort, SortMode::All | SortMode::Hilbert);
     let id_sort = matches!(args.sort, SortMode::All | SortMode::Id);
     let cfg = EncoderConfig::default()
+        .with_wire_version(args.mlt_version.into())
         .with_tessellation(args.tessellate)
         .with_spatial_morton_sort(morton)
         .with_spatial_hilbert_sort(hilbert)

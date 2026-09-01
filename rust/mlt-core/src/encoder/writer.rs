@@ -31,9 +31,9 @@ use crate::{MltError, MltResult};
 /// The three sections are accumulated into separate buffers so they can be
 /// combined at the end *without* any in-place insertion or extra copies:
 ///
-/// * `hdr` – layer header (name, extent, `column_count`).
-/// * [`meta`] – column-type bytes (one byte + optional name per column).
-/// * [`data`] – encoded stream data; also the target of [`impl Write`].
+/// * `hdr` - layer header (name, extent, `column_count`).
+/// * [`meta`] - column-type bytes (one byte + optional name per column).
+/// * [`data`] - encoded stream data; also the target of [`impl Write`].
 ///
 /// # Sort-strategy trialing
 ///
@@ -63,7 +63,7 @@ use crate::{MltError, MltResult};
 /// let mut alt = enc.try_alternatives();
 /// alt.with(|enc| write_stream_as_varint(data, enc))?;
 /// alt.with(|enc| write_stream_as_fastpfor(data, enc))?;
-/// // alt drops → keeps whichever was shorter
+/// // alt drops -> keeps whichever was shorter
 /// ```
 ///
 /// [`meta`]: Encoder::meta
@@ -86,8 +86,7 @@ pub struct Encoder {
 
     /// Layer header bytes: `name`, `extent`, `column_count`.
     ///
-    /// Written to `hdr` via [`Encoder::write_header`].  This section comes
-    /// first in the wire format and is never subject to alternatives.
+    /// This section comes first in the wire format and is never subject to alternatives.
     hdr: Vec<u8>,
 
     /// Column-type metadata bytes.
@@ -121,14 +120,23 @@ pub struct Encoder {
     /// Trained on deduplicated values on the first sort trial, reused on subsequent trials.
     pub(crate) fsst_cache: HashMap<String, Option<Compressor>>,
 
+    /// The stream count a v2 decoder would infer from context at the current
+    /// write position: the layer's `feature_count`, or the presence popcount
+    /// while an optional column's data stream is being written.
+    ///
+    /// Read by the v2 stream-header codec to decide whether an explicit count
+    /// varint must be emitted; ignored entirely for v1 layers.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) count_context: u32,
+
     // -----------------------------------------------------------------------
-    // Alternatives state — a stack that supports nested competitions.
+    // Alternatives state - a stack that supports nested competitions.
     //
     // Invariant between candidates at any level:
     //   data.len() == level.data_start + level.best_data_size.unwrap_or(0)
     //   meta.len() == level.meta_start + level.best_meta_size.unwrap_or(0)
     //
-    // Empty stack ↔ no competition in progress.
+    // Empty stack <-> no competition in progress.
     // -----------------------------------------------------------------------
     /// Stack of active encoding competitions, innermost last.
     ///
@@ -168,7 +176,9 @@ impl Encoder {
     pub(crate) fn preserve_results(&mut self) -> Self {
         assert_eq!(self.alt_stack.len(), 0, "Alternatives stack is not empty");
         Self {
-            cfg: EncoderConfig::default(),
+            // Keep the config: the archived result still needs it to frame the
+            // layer with the right tag in `into_layer_bytes`.
+            cfg: self.cfg,
             explicit: None,
             hdr: mem::take(&mut self.hdr),
             meta: mem::take(&mut self.meta),
@@ -176,6 +186,8 @@ impl Encoder {
             morton_cache: None,
             hilbert_cache: None,
             fsst_cache: HashMap::new(),
+            #[cfg(feature = "unstable-v2")]
+            count_context: 0,
             alt_stack: vec![],
         }
     }
@@ -234,11 +246,16 @@ impl Encoder {
         self.write_column_name(name)
     }
 
-    /// Write the layer header (`name`, `extent`, `column_count`) to `hdr`.
+    /// Write the v1 layer header (`name`, `extent`, `column_count`) to `hdr`.
     ///
     /// Must be called exactly once per layer, after all column meta and data.
     #[hotpath::measure]
-    pub fn write_header(&mut self, name: &str, extent: u32, column_count: usize) -> MltResult<()> {
+    pub fn write_header01(
+        &mut self,
+        name: &str,
+        extent: u32,
+        column_count: usize,
+    ) -> MltResult<()> {
         if name.is_empty() {
             return Err(MltError::MissingLayerName);
         }
@@ -253,6 +270,33 @@ impl Encoder {
         self.hdr.write_varint(extent).map_err(MltError::from)?;
         self.hdr
             .write_varint(column_count)
+            .map_err(MltError::from)?;
+        Ok(())
+    }
+
+    /// Write the v2 layer header (`name`, `extent`, `feature_count`) to `hdr`.
+    ///
+    /// Unlike v1, `column_count` is not part of the header - it precedes the
+    /// counted columns in the data section, after the geometry section.
+    #[cfg(feature = "unstable-v2")]
+    #[hotpath::measure]
+    pub(crate) fn write_header02(
+        &mut self,
+        name: &str,
+        extent: u32,
+        feature_count: u32,
+    ) -> MltResult<()> {
+        if name.is_empty() {
+            return Err(MltError::MissingLayerName);
+        }
+        debug_assert!(
+            self.alt_stack.is_empty(),
+            "write_header02 called with an open alternatives session"
+        );
+        self.hdr.write_string(name).map_err(MltError::from)?;
+        self.hdr.write_varint(extent).map_err(MltError::from)?;
+        self.hdr
+            .write_varint(feature_count)
             .map_err(MltError::from)?;
         Ok(())
     }
@@ -310,7 +354,7 @@ impl Encoder {
     /// tag/size prefix.
     ///
     /// Use this when the caller expects raw layer body bytes (without the size/tag framing)
-    /// rather than a complete framed wire record — see [`Self::into_layer_bytes`] for the framed form.
+    /// rather than a complete framed wire record - see [`Self::into_layer_bytes`] for the framed form.
     #[must_use]
     pub fn into_raw_bytes(mut self) -> Vec<u8> {
         if self.hdr.is_empty() && self.meta.is_empty() {
@@ -323,9 +367,10 @@ impl Encoder {
         out
     }
 
-    /// Assemble the complete Tag-01 layer record.
+    /// Assemble the complete layer record.
     pub fn into_layer_bytes(self) -> MltResult<Vec<u8>> {
-        self.into_layer_bytes_with_tag(1)
+        let tag = self.cfg.wire_version().tag();
+        self.into_layer_bytes_with_tag(tag)
     }
 
     /// Assemble a complete layer record for the given `tag`:
@@ -363,7 +408,7 @@ impl Encoder {
     /// for cand in candidates {
     ///     alt.with(|enc| write_candidate(cand, enc))?;
     /// }
-    /// // alt drops → finalises the competition
+    /// // alt drops -> finalises the competition
     /// ```
     pub fn try_alternatives(&mut self) -> AltSession<'_> {
         self.alt_stack.push(AltLevel {
@@ -480,8 +525,8 @@ pub struct AltSession<'a> {
 impl AltSession<'_> {
     /// Encode one candidate.
     ///
-    /// - **`Ok`** — commits the candidate; replaces the running best if shorter.
-    /// - **`Err`** — truncates the partial write back to the pre-call checkpoint
+    /// - **`Ok`** - commits the candidate; replaces the running best if shorter.
+    /// - **`Err`** - truncates the partial write back to the pre-call checkpoint
     ///   and returns the error.  The guard's `Drop` still finalises the
     ///   competition cleanly using whichever candidates succeeded so far.
     #[hotpath::measure]
@@ -560,7 +605,7 @@ mod tests {
             push(enc, b"ab");
             Ok(())
         })
-        .unwrap(); // 2 bytes — shortest
+        .unwrap(); // 2 bytes - shortest
         alt.with(|enc| {
             push(enc, b"xyz");
             Ok(())
@@ -586,7 +631,7 @@ mod tests {
             push(enc, b"bbb");
             Ok(())
         })
-        .unwrap(); // 3 bytes — equal
+        .unwrap(); // 3 bytes - equal
         drop(alt);
 
         assert_eq!(enc.data, b"aaa");
@@ -624,7 +669,7 @@ mod tests {
             push(enc, b"short");
             Ok(())
         })
-        .unwrap(); // 5 bytes — winner
+        .unwrap(); // 5 bytes - winner
         drop(alt);
 
         assert_eq!(&enc.data[..3], b"HDR");
@@ -669,7 +714,7 @@ mod tests {
                 inner.with(|enc| {
                     push(enc, b"in");
                     Ok(())
-                })?; // 2 bytes — inner winner
+                })?; // 2 bytes - inner winner
                 drop(inner); // inner done; enc = b"A:in"
                 push(enc, b"!");
                 Ok(())
@@ -682,7 +727,7 @@ mod tests {
                 push(enc, b"B");
                 Ok(())
             })
-            .unwrap(); // 1 byte — winner
+            .unwrap(); // 1 byte - winner
         drop(outer);
 
         assert_eq!(enc.data, b"B");
@@ -734,7 +779,7 @@ mod tests {
             Ok(())
         })
         .unwrap();
-        // Candidate B: 1 data + 1 meta = 2 total — winner
+        // Candidate B: 1 data + 1 meta = 2 total - winner
         alt.with(|enc| {
             push(enc, b"d");
             enc.meta.extend_from_slice(b"n");

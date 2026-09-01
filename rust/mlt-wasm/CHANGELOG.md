@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.21](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.20...rust-mlt-wasm-v0.1.21) - 2026-08-31
+
+### Added
+
+- *(rust)* implement basic header and metadata format ([#1571](https://github.com/maplibre/maplibre-tile-spec/pull/1571))
+
+### Fixed
+
+- *(java)* move the Java nested-property fixtures to 0x02-java ([#1582](https://github.com/maplibre/maplibre-tile-spec/pull/1582))
+
+## [0.1.20](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.19...rust-mlt-wasm-v0.1.20) - 2026-08-21
+
+### Other
+
+- add an anti-vibing pre-commit to clean up weird unicode and tabs ([#1566](https://github.com/maplibre/maplibre-tile-spec/pull/1566))
+
 ## [0.1.19](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.18...rust-mlt-wasm-v0.1.19) - 2026-08-19
 
 ### Other

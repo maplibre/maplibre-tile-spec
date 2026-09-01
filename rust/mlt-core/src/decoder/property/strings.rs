@@ -1,5 +1,7 @@
 use std::borrow::Cow;
 
+use bitvec::order::Lsb0;
+use bitvec::slice::BitSlice;
 use usize_cast::IntoUsize as _;
 
 use crate::MltError::{BufferUnderflow, DictIndexOutOfBounds};
@@ -98,22 +100,17 @@ pub(crate) fn shared_dict_spans(lengths: &[u32], dec: &mut Decoder) -> MltResult
 
 pub(crate) fn resolve_dict_spans(
     offsets: &[u32],
-    presence: Option<&[bool]>,
+    presence: Option<&BitSlice<u8, Lsb0>>,
     dict_spans: &[(u32, u32)],
     dec: &mut Decoder,
 ) -> MltResult<Vec<Option<(u32, u32)>>> {
-    let present_count = presence.map_or(offsets.len(), <[bool]>::len);
+    let present_count = presence.map_or(offsets.len(), BitSlice::len);
     let mut resolved = dec.alloc(present_count)?;
     let mut next = offsets.iter().copied();
 
     if let Some(presence) = presence {
-        let fail = || {
-            MltError::PresenceValueCountMismatch(
-                presence.iter().filter(|&&v| v).count(),
-                offsets.len(),
-            )
-        };
-        for &present in presence {
+        let fail = || MltError::PresenceValueCountMismatch(presence.count_ones(), offsets.len());
+        for present in presence.iter().by_vals() {
             if !present {
                 resolved.push(None);
                 continue;
@@ -280,7 +277,7 @@ impl<'a> RawStrings<'a> {
     /// Decode string property from its encoded column.
     pub fn decode(self, dec: &mut Decoder) -> MltResult<ParsedStrings<'a>> {
         let name = self.name;
-        let presence = self.presence.decode_bools(dec)?;
+        let presence = self.presence.decode_bits(dec)?;
 
         let parsed = match self.encoding {
             RawStringsEncoding::Plain(plain_data) => {
@@ -326,15 +323,15 @@ impl<'a> RawStrings<'a> {
 
 fn to_absolute_lengths(
     lengths: &[u32],
-    presence: Option<&[bool]>,
+    presence: Option<&BitSlice<u8, Lsb0>>,
     dec: &mut Decoder,
 ) -> MltResult<Vec<i32>> {
-    let capacity = presence.map_or(lengths.len(), <[bool]>::len);
+    let capacity = presence.map_or(lengths.len(), BitSlice::len);
     let mut absolute = dec.alloc(capacity)?;
     let mut iter = lengths.iter().copied();
     let mut end = 0_i32;
     if let Some(presence) = presence {
-        for &present in presence {
+        for present in presence.iter().by_vals() {
             if present {
                 let len = iter.next().ok_or(MltError::PresenceValueCountMismatch(
                     presence.len(),
@@ -348,7 +345,7 @@ fn to_absolute_lengths(
         }
         if iter.next().is_some() {
             return Err(MltError::PresenceValueCountMismatch(
-                presence.iter().filter(|v| **v).count(),
+                presence.count_ones(),
                 lengths.len(),
             ));
         }
@@ -365,7 +362,7 @@ fn decode_dictionary_strings<'a>(
     name: &'a str,
     dict_lengths: &[u32],
     offsets: &[u32],
-    presence: Option<&[bool]>,
+    presence: Option<&BitSlice<u8, Lsb0>>,
     dict_data: &str,
     dec: &mut Decoder,
 ) -> MltResult<ParsedStrings<'a>> {
@@ -445,7 +442,7 @@ impl<'a> RawSharedDict<'a> {
         let mut items = Vec::with_capacity(self.children.len());
         for child in self.children {
             let offsets: Vec<u32> = child.data.decode_ints(dec)?;
-            let presence = child.presence.decode_bools(dec)?;
+            let presence = child.presence.decode_bits(dec)?;
             let ranges = resolve_dict_spans(&offsets, presence.as_deref(), &dict_spans, dec)?
                 .into_iter()
                 .map(|span| match span {

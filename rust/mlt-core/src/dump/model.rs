@@ -16,9 +16,9 @@ pub enum RegionKind {
 /// Best-effort: on any decode error the renderer falls back to raw hex.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DecodeHint {
-    /// Nullability bitmap (byte-RLE → packed bits).
+    /// Nullability bitmap (byte-RLE -> packed bits).
     Presence,
-    /// Boolean data stream (byte-RLE → bools).
+    /// Boolean data stream (byte-RLE -> bools).
     Bool,
     /// Signed 32-bit integers (`i8`/`i32` columns).
     I32,
@@ -34,6 +34,9 @@ pub enum DecodeHint {
     F64,
     /// Opaque bytes (string / dictionary / FSST payloads); shown as hex + UTF-8 preview.
     Bytes,
+    /// A raw LSB0 bitfield, not a stream: `ceil(num_values/8)` packed bytes.
+    #[cfg(feature = "unstable-v2")]
+    PackedBits,
 }
 
 /// One sub-field of a bit-packed byte, e.g. a nibble of `stream_type`.

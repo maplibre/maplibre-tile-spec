@@ -13,7 +13,7 @@ use crate::{Decoder, MltResult};
 /// - `corpus`: the FSST-encoded payload (read as raw bytes)
 ///
 /// The encoding uses two special cases:
-/// - Byte `0xFF` (255): the next byte is a literal — output it verbatim.
+/// - Byte `0xFF` (255): the next byte is a literal - output it verbatim.
 /// - Any other byte `idx < symbol_lengths.len()`: expand the symbol at that index.
 ///
 /// Returns `(decompressed_utf8_string, value_lengths)`.
@@ -78,7 +78,7 @@ pub struct FsstRawData {
 /// 1. Symbol lengths (`Length(Symbol)`)
 /// 2. Symbol table data (`Data(Fsst)`)
 /// 3. Value lengths (`Length(Dictionary)`)
-/// 4. Compressed corpus (`Data(dict_type)` — supplied by the caller at write time)
+/// 4. Compressed corpus (`Data(dict_type)` - supplied by the caller at write time)
 ///
 /// Note: The FSST algorithm implementation may differ from Java's, so the
 /// compressed output may not be byte-for-byte identical. Both implementations
@@ -139,7 +139,8 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::decoder::{DictionaryType, LengthType, RawFsstData, RawStream, StreamType};
+    use crate::decoder::stream::header01;
+    use crate::decoder::{DictionaryType, LengthType, RawFsstData, StreamType};
     use crate::encoder::model::StreamCtx;
     use crate::encoder::{
         Codecs, EncodedStream, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder,
@@ -201,7 +202,7 @@ mod tests {
         let buffers = [sym_len_bytes, sym_table_buf, lengths_bytes, corpus_buf];
         let mut raw_streams = Vec::new();
         for buf in &buffers {
-            raw_streams.push(assert_empty(RawStream::from_bytes(buf, &mut parser())));
+            raw_streams.push(assert_empty(header01::parse_stream(buf, &mut parser())));
         }
         let [s0, s1, s2, s3] = raw_streams.try_into().expect("expected 4 streams");
         let raw = RawFsstData::new(s0, s1, s2, s3).expect("RawFsstData::new failed");
@@ -211,8 +212,8 @@ mod tests {
     #[test]
     fn test_fsst_roundtrip_empty() {
         let (corpus, lengths) = roundtrip(&[]);
-        assert!(corpus.is_empty());
-        assert!(lengths.is_empty());
+        assert_eq!(corpus, "");
+        assert_eq!(lengths, [] as [u32; 0]);
     }
 
     #[rstest]

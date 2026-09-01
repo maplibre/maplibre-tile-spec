@@ -1,11 +1,14 @@
 use bitvec::vec::BitVec;
 
-use crate::decoder::{Morton, PropKind, TileLayer};
+use crate::decoder::Morton;
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::encode02;
 use crate::encoder::model::{CurveParams, StagedLayer};
-use crate::encoder::property::encode::write_properties;
 use crate::encoder::{
-    Codecs, Encoder, EncoderConfig, SortStrategy, StagedId, spatial_sort_likely_to_help,
+    Codecs, Encoder, EncoderConfig, SortStrategy, WireVersion, encode01,
+    spatial_sort_likely_to_help,
 };
+use crate::tile::{PropKind, TileLayer};
 use crate::{MltError, MltResult, PropValue};
 
 impl StagedLayer {
@@ -16,28 +19,15 @@ impl StagedLayer {
     /// trial calls this method on its own fresh `Encoder`, and only the
     /// `Encoder` with the smallest `total_len()` is kept.
     #[hotpath::measure]
-    pub fn encode_into(self, mut enc: Encoder, codecs: &mut Codecs) -> MltResult<Encoder> {
+    pub fn encode_into(self, enc: Encoder, codecs: &mut Codecs) -> MltResult<Encoder> {
         if self.name.is_empty() {
             return Err(MltError::MissingLayerName);
         }
-        let column_count = usize::from(!matches!(self.id, StagedId::None))
-            + 1 // geometry
-            + self.properties.len();
-
-        let StagedLayer {
-            name,
-            extent,
-            id,
-            geometry,
-            properties,
-        } = self;
-
-        id.write_to(&mut enc, codecs)?;
-        geometry.write_to(&mut enc, codecs)?;
-        write_properties(&properties, &mut enc, codecs)?;
-        enc.write_header(&name, extent.get(), column_count)?;
-
-        Ok(enc)
+        match enc.config().wire_version() {
+            WireVersion::V01 => encode01::encode_into01(self, enc, codecs),
+            #[cfg(feature = "unstable-v2")]
+            WireVersion::V02 => encode02::encode_into02(self, enc, codecs),
+        }
     }
 }
 
@@ -62,8 +52,8 @@ impl TileLayer {
     /// 2. Tries each sort strategy, encoding and measuring the output size
     /// 3. Returns the smallest encoding as a complete layer record (including tag and length prefix)
     ///
-    /// All encoding choices — sort order, per-stream integer encodings, string compression,
-    /// vertex buffer layout — are selected automatically to minimize output size.
+    /// All encoding choices - sort order, per-stream integer encodings, string compression,
+    /// vertex buffer layout - are selected automatically to minimize output size.
     #[hotpath::measure]
     pub fn encode(self, cfg: EncoderConfig) -> MltResult<Vec<u8>> {
         if self.name().is_empty() {
@@ -153,6 +143,11 @@ pub enum Presence {
     /// Some, but not all, features have a value for this logical column.
     Mixed,
     /// Mixed presence with the same per-feature mask as an earlier property column.
+    ///
+    /// Only tells the stager the column is nullable, same as [`Self::Mixed`]. Which
+    /// columns actually end up sharing one presence bitfield is decided per wire
+    /// format at write time, from the staged masks - see `SharedPresence` in
+    /// `encoder::encode02`.
     SameAsProp(usize),
 }
 impl Presence {

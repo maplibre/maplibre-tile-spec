@@ -10,7 +10,9 @@ use mlt_core::dump::{DumpTree, annotate_tile};
 use test_each_file::test_each_path;
 
 test_each_path! { for ["mlt"] in "../test/synthetic/0x01" as dump_0x01 => check }
+test_each_path! { for ["mlt"] in "../test/synthetic/0x01-rust" as dump_0x01_rust => check }
 test_each_path! { for ["mlt"] in "../test/synthetic/0x02" as dump_0x02 => check }
+test_each_path! { for ["mlt"] in "../test/synthetic/0x02-java" as dump_0x02_java => check }
 
 fn check([path]: [&Path; 1]) {
     let buffer = fs::read(path).unwrap();
@@ -18,7 +20,7 @@ fn check([path]: [&Path; 1]) {
     let tree = annotate_tile(&buffer);
 
     match (parse_ok, tree) {
-        // Well-formed per the real parser → the walker must succeed and cover everything.
+        // Well-formed per the real parser -> the walker must succeed and cover everything.
         (true, Ok(tree)) => assert_full_coverage(&tree, buffer.len(), path),
         (true, Err(e)) => {
             panic!(
@@ -26,7 +28,7 @@ fn check([path]: [&Path; 1]) {
                 path.display()
             )
         }
-        // Malformed → the walker must error too; it must never panic (reaching here proves it didn't).
+        // Malformed -> the walker must error too; it must never panic (reaching here proves it didn't).
         (false, Err(_)) => {}
         (false, Ok(_)) => {
             panic!(

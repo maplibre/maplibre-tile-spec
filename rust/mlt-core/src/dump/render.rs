@@ -2,6 +2,9 @@
 
 use std::io::{self, Write};
 
+#[cfg(feature = "unstable-v2")]
+use usize_cast::IntoUsize as _;
+
 use super::model::{BlobInfo, DecodeHint, DumpTree, Region, RegionKind};
 use crate::Decoder;
 use crate::decoder::RawStream;
@@ -132,7 +135,7 @@ fn render_meta(
             };
             let width = usize::from(bf.hi - bf.lo + 1);
             let annot = format!(
-                "{indent}  └ {range} = {:0width$b} → {}",
+                "{indent}  └ {range} = {:0width$b} -> {}",
                 bf.raw,
                 bf.meaning,
                 width = width
@@ -224,18 +227,18 @@ fn decode_blob(info: BlobInfo, data: &[u8], dec: &mut Decoder) -> String {
     let meta = info.meta;
     match info.hint {
         DecodeHint::Presence => match RawStream::new(meta, data).decode_bitvec(dec) {
-            Ok(bits) => {
-                let n = bits.len();
-                let shown: String = bits
-                    .iter()
-                    .take(96)
-                    .map(|b| if *b { '1' } else { '0' })
-                    .collect();
-                let more = if n > 96 { "…" } else { "" };
-                format!("{n} present-bits: {shown}{more}")
-            }
+            Ok(bits) => fmt_bits(bits.len(), |i| bits[i]),
             Err(e) => format!("<undecodable: {e}>"),
         },
+        #[cfg(feature = "unstable-v2")]
+        DecodeHint::PackedBits => {
+            let n = meta.num_values.into_usize();
+            let available = data.len() * 8;
+            if available < n {
+                return format!("<undecodable: needs {n} bits, got {available}>");
+            }
+            fmt_bits(n, |i| data[i / 8] >> (i % 8) & 1 == 1)
+        }
         DecodeHint::Bool => fmt_res(RawStream::new(meta, data).decode_bools(dec)),
         DecodeHint::I32 => fmt_res(RawStream::new(meta, data).decode_ints::<i32>(dec)),
         DecodeHint::U32 => fmt_res(RawStream::new(meta, data).decode_ints::<u32>(dec)),
@@ -248,6 +251,15 @@ fn decode_blob(info: BlobInfo, data: &[u8], dec: &mut Decoder) -> String {
             Err(_) => format!("<{} binary bytes>", data.len()),
         },
     }
+}
+
+/// Render the first 96 of `n` presence bits as a `0`/`1` string.
+fn fmt_bits(n: usize, bit: impl Fn(usize) -> bool) -> String {
+    let shown: String = (0..n.min(96))
+        .map(|i| if bit(i) { '1' } else { '0' })
+        .collect();
+    let more = if n > 96 { "…" } else { "" };
+    format!("{n} present-bits: {shown}{more}")
 }
 
 fn fmt_res<T: std::fmt::Display>(res: crate::MltResult<Vec<T>>) -> String {

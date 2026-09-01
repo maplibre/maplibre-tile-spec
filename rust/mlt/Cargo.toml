@@ -1,7 +1,7 @@
 [package]
 name = "mlt"
 description = "MapLibre Tile Tools"
-version = "0.1.24"
+version = "0.1.26"
 authors.workspace = true
 categories.workspace = true
 edition.workspace = true
@@ -19,6 +19,7 @@ pkg-fmt = "tgz"
 pkg-fmt = "zip"
 
 [features]
+unstable-v2 = ["mlt-core/unstable-v2"]
 hotpath = ["hotpath/hotpath", "hotpath/tokio", "hotpath/threads", "hotpath/tui"]
 hotpath-alloc = ["hotpath", "hotpath/hotpath-alloc"]
 hotpath-mcp = ["hotpath", "hotpath/hotpath-mcp", "hotpath/hotpath-mcp-meta"]

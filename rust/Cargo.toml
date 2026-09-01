@@ -14,7 +14,7 @@ homepage = "https://maplibre.org"
 keywords = ["maplibre", "tile", "mlt", "mvt", "map"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/maplibre/maplibre-tile-spec"
-rust-version = "1.92"
+rust-version = "1.98"
 
 [workspace.dependencies]
 anyhow = "1"
@@ -42,7 +42,7 @@ glob = "0.3"
 globset = "0.4"
 hex = "0.4.3"
 hilbert_2d = "1.1.0"
-hotpath = "0.23"
+hotpath = "0.24"
 indicatif = "0.18"
 insta = "1.47.2"
 integer-encoding = "4.0.2"
@@ -50,7 +50,7 @@ js-sys = "0.3"
 martin-tile-utils = "0.7"
 mbtiles = { version = "0.19", default-features = false, features = ["transcode"] }
 mimalloc = "0.1.52"
-mlt-core = { version = "0.12.5", path = "mlt-core" }
+mlt-core = { version = "0.12.7", path = "mlt-core" }
 moka = { version = "0.12", features = ["sync"] }
 num-traits = "0.2.19"
 num_enum = "0.7.6"

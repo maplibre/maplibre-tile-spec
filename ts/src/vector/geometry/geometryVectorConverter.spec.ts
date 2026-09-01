@@ -26,7 +26,7 @@ import {
 import { ConstGeometryVector } from "./constGeometryVector";
 import { FlatGeometryVector } from "./flatGeometryVector";
 
-describe("POINT – sequential vertex buffer (no vertexOffsets)", () => {
+describe("POINT - sequential vertex buffer (no vertexOffsets)", () => {
     it("creates a single point from the vertex buffer", () => {
         const x = 5;
         const y = 7;
@@ -46,9 +46,9 @@ describe("POINT – sequential vertex buffer (no vertexOffsets)", () => {
     });
 });
 
-describe("POINT – VEC_2 dictionary encoded", () => {
+describe("POINT - VEC_2 dictionary encoded", () => {
     it("reads point via vertexOffsets with VEC_2 buffer type", () => {
-        // vertexOffsets[0] = 1 → vertexBuffer[2], vertexBuffer[3]
+        // vertexOffsets[0] = 1 -> vertexBuffer[2], vertexBuffer[3]
         const x = 42;
         const y = 55;
         const gv = encodePointGeometryVectorWithOffset(x, y);
@@ -58,7 +58,7 @@ describe("POINT – VEC_2 dictionary encoded", () => {
     });
 });
 
-describe("POINT – Morton dictionary encoded", () => {
+describe("POINT - Morton dictionary encoded", () => {
     it("decodes a point via morton encoding", () => {
         const x = 3;
         const y = 7;
@@ -94,7 +94,7 @@ describe("POINT – Morton dictionary encoded", () => {
     });
 });
 
-describe("MULTIPOINT – sequential vertex buffer", () => {
+describe("MULTIPOINT - sequential vertex buffer", () => {
     it("creates a multi-point geometry", () => {
         const gv = encodeMultiPointGeometryVector([
             [1, 2],
@@ -107,9 +107,9 @@ describe("MULTIPOINT – sequential vertex buffer", () => {
     });
 });
 
-describe("MULTIPOINT – VEC_2 dictionary encoded", () => {
+describe("MULTIPOINT - VEC_2 dictionary encoded", () => {
     it("reads multi-point via vertexOffsets", () => {
-        // offsets [0, 2] → vertexBuffer[0,1] and vertexBuffer[4,5]
+        // offsets [0, 2] -> vertexBuffer[0,1] and vertexBuffer[4,5]
         const gv = new ConstGeometryVector(
             1,
             GEOMETRY_TYPE.MULTIPOINT,
@@ -142,7 +142,7 @@ describe("MULTIPOINT - Morton dictionary encoded", () => {
                 ringOffsets: undefined,
             },
             new Uint32Array([1, 0, 0, 1]),
-            // Morton codes: 47 → (3, 7), 72 → (8, 2).
+            // Morton codes: 47 -> (3, 7), 72 -> (8, 2).
             new Int32Array([72, 47]),
             settings,
         );
@@ -156,7 +156,7 @@ describe("MULTIPOINT - Morton dictionary encoded", () => {
     });
 });
 
-describe("LINESTRING – sequential vertex buffer, no polygon context", () => {
+describe("LINESTRING - sequential vertex buffer, no polygon context", () => {
     it("creates a line string from sequential vertices", () => {
         const gv = encodeLineStringGeometryVector([
             [0, 0],
@@ -169,7 +169,7 @@ describe("LINESTRING – sequential vertex buffer, no polygon context", () => {
     });
 });
 
-describe("LINESTRING – sequential vertex buffer, polygon context (uses ringOffsets)", () => {
+describe("LINESTRING - sequential vertex buffer, polygon context (uses ringOffsets)", () => {
     it("creates a line string using ringOffsets when containsPolygon is true", () => {
         const gv = {
             numGeometries: 1,
@@ -189,9 +189,9 @@ describe("LINESTRING – sequential vertex buffer, polygon context (uses ringOff
     });
 });
 
-describe("LINESTRING – VEC_2 dictionary encoded", () => {
+describe("LINESTRING - VEC_2 dictionary encoded", () => {
     it("decodes a line string via vertexOffsets VEC_2", () => {
-        // offsets [0, 1] → vertexBuffer[0,1] and [2,3]
+        // offsets [0, 1] -> vertexBuffer[0,1] and [2,3]
         const gv = {
             numGeometries: 1,
             vertexBuffer: new Int32Array([5, 10, 15, 20]),
@@ -211,7 +211,7 @@ describe("LINESTRING – VEC_2 dictionary encoded", () => {
     });
 });
 
-describe("LINESTRING – Morton dictionary encoded", () => {
+describe("LINESTRING - Morton dictionary encoded", () => {
     it("decodes a line string via Morton encoding", () => {
         const gv = encodeLineStringGeometryVectorWithMortonEncoding([
             [1, 2],
@@ -224,7 +224,7 @@ describe("LINESTRING – Morton dictionary encoded", () => {
     });
 });
 
-describe("POLYGON – sequential vertex buffer, no holes", () => {
+describe("POLYGON - sequential vertex buffer, no holes", () => {
     it("creates a polygon shell that is closed", () => {
         const gv = encodePolygonGeometryVector([
             [
@@ -242,7 +242,7 @@ describe("POLYGON – sequential vertex buffer, no holes", () => {
     });
 });
 
-describe("POLYGON – sequential vertex buffer, with hole", () => {
+describe("POLYGON - sequential vertex buffer, with hole", () => {
     it("creates a polygon with one hole", () => {
         const gv = encodePolygonGeometryVector([
             [
@@ -264,7 +264,7 @@ describe("POLYGON – sequential vertex buffer, with hole", () => {
     });
 });
 
-describe("POLYGON – VEC_2 dictionary encoded, no holes", () => {
+describe("POLYGON - VEC_2 dictionary encoded, no holes", () => {
     it("creates a closed polygon shell via VEC_2 vertex offsets", () => {
         const gv = encodePolygonGeometryVectorWithOffsets([
             [
@@ -281,7 +281,7 @@ describe("POLYGON – VEC_2 dictionary encoded, no holes", () => {
     });
 });
 
-describe("POLYGON – VEC_2 dictionary encoded, with hole", () => {
+describe("POLYGON - VEC_2 dictionary encoded, with hole", () => {
     it("creates a polygon with one hole via VEC_2 vertex offsets", () => {
         const gv = encodePolygonGeometryVectorWithOffsets([
             [
@@ -303,7 +303,7 @@ describe("POLYGON – VEC_2 dictionary encoded, with hole", () => {
     });
 });
 
-describe("POLYGON – Morton dictionary encoded, no holes", () => {
+describe("POLYGON - Morton dictionary encoded, no holes", () => {
     it("creates a closed polygon shell via Morton encoding", () => {
         const gv = encodePolygonGeometryVectorWithMortonOffsets([
             [
@@ -322,7 +322,7 @@ describe("POLYGON – Morton dictionary encoded, no holes", () => {
     });
 });
 
-describe("POLYGON – Morton dictionary encoded, with hole", () => {
+describe("POLYGON - Morton dictionary encoded, with hole", () => {
     it("creates a polygon with one hole via Morton encoding", () => {
         const gv = encodePolygonGeometryVectorWithMortonOffsets([
             [
@@ -343,7 +343,7 @@ describe("POLYGON – Morton dictionary encoded, with hole", () => {
     });
 });
 
-describe("MULTILINESTRING – sequential vertex buffer, no polygon context", () => {
+describe("MULTILINESTRING - sequential vertex buffer, no polygon context", () => {
     it("creates a multi-line string with two line strings", () => {
         const gv = encodeMultiLineStringGeometryVector([
             [
@@ -368,7 +368,7 @@ describe("MULTILINESTRING – sequential vertex buffer, no polygon context", () 
     });
 });
 
-describe("MULTILINESTRING – VEC_2 dictionary encoded", () => {
+describe("MULTILINESTRING - VEC_2 dictionary encoded", () => {
     it("decodes multi-line string via vertexOffsets VEC_2", () => {
         const gv = encodeMultiLineStringGeometryVectorWithOffsets([
             [
@@ -387,7 +387,7 @@ describe("MULTILINESTRING – VEC_2 dictionary encoded", () => {
     });
 });
 
-describe("MULTILINESTRING – Morton dictionary encoded", () => {
+describe("MULTILINESTRING - Morton dictionary encoded", () => {
     it("decodes multi-line string via Morton encoding", () => {
         const gv = encodeMultiLineStringGeometryVectorWithMortonOffsets([
             [
@@ -401,7 +401,7 @@ describe("MULTILINESTRING – Morton dictionary encoded", () => {
     });
 });
 
-describe("MULTIPOLYGON – sequential vertex buffer, no holes", () => {
+describe("MULTIPOLYGON - sequential vertex buffer, no holes", () => {
     it("creates a multi-polygon with two triangular polygons", () => {
         const gv = encodeMultiPolygonGeometryVector([
             [
@@ -435,7 +435,7 @@ describe("MULTIPOLYGON – sequential vertex buffer, no holes", () => {
     });
 });
 
-describe("MULTIPOLYGON – sequential vertex buffer, with holes", () => {
+describe("MULTIPOLYGON - sequential vertex buffer, with holes", () => {
     it("creates a polygon that has a hole", () => {
         const gv = encodeMultiPolygonGeometryVector([
             [
@@ -481,7 +481,7 @@ describe("MULTIPOLYGON – sequential vertex buffer, with holes", () => {
     });
 });
 
-describe("MULTIPOLYGON – VEC_2 dictionary encoded, no holes", () => {
+describe("MULTIPOLYGON - VEC_2 dictionary encoded, no holes", () => {
     it("decodes multi-polygon via vertexOffsets VEC_2", () => {
         const gv = encodeMultiPolygonGeometryVectorWithOffsets([
             [
@@ -505,7 +505,7 @@ describe("MULTIPOLYGON – VEC_2 dictionary encoded, no holes", () => {
     });
 });
 
-describe("MULTIPOLYGON – VEC_2 dictionary encoded, with holes", () => {
+describe("MULTIPOLYGON - VEC_2 dictionary encoded, with holes", () => {
     it("creates a multi-polygon with hole via VEC_2", () => {
         const gv = encodeMultiPolygonGeometryVectorWithOffsets([
             [
@@ -563,7 +563,7 @@ describe("MULTIPOLYGON – VEC_2 dictionary encoded, with holes", () => {
     });
 });
 
-describe("MULTIPOLYGON – Morton dictionary encoded, no holes", () => {
+describe("MULTIPOLYGON - Morton dictionary encoded, no holes", () => {
     it("decodes multi-polygon shells via Morton encoding", () => {
         const gv = encodeMultiPolygonGeometryVectorWithMortonOffsets([
             [
@@ -582,7 +582,7 @@ describe("MULTIPOLYGON – Morton dictionary encoded, no holes", () => {
     });
 });
 
-describe("MULTIPOLYGON – Morton dictionary encoded, with holes", () => {
+describe("MULTIPOLYGON - Morton dictionary encoded, with holes", () => {
     it("creates a multi-polygon with hole via Morton encoding", () => {
         const gv = encodeMultiPolygonGeometryVectorWithMortonOffsets([
             [
@@ -741,7 +741,7 @@ describe("Edge cases", () => {
                 partOffsets: undefined,
                 ringOffsets: undefined,
             },
-            new Uint32Array([]), // length === 0 → same as undefined
+            new Uint32Array([]), // length === 0 -> same as undefined
             new Int32Array([3, 9]),
         );
 

@@ -28,7 +28,7 @@ struct MltConverter;
 } // namespace diplomat
 
 /**
- * Stateless FFI entry-points for MLT ↔ MVT conversion.
+ * Stateless FFI entry-points for MLT <-> MVT conversion.
  */
 class MltConverter {
 public:

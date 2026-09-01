@@ -37,7 +37,7 @@ interface WasmMltTile {
   layer_ids(layer_idx: number): Float64Array;
   /**
    * All decoded geometry arrays for the layer in one call.
-   * JS walks these directly — zero WASM calls per feature for geometry.
+   * JS walks these directly - zero WASM calls per feature for geometry.
    */
   layer_geometry(layer_idx: number): LayerGeometry;
   /** Column names for the layer, parallel to layer_properties(). */
@@ -75,7 +75,7 @@ const POINT = 1;
 const LINESTRING = 2;
 const POLYGON = 3;
 
-/** Mirrors `GeometryType` in mlt-core — preserves the single vs multi distinction that MVT collapses. */
+/** Mirrors `GeometryType` in mlt-core - preserves the single vs multi distinction that MVT collapses. */
 export enum MltGeometryType {
   Point = 0,
   LineString = 1,
@@ -86,7 +86,7 @@ export enum MltGeometryType {
 }
 
 // ---------------------------------------------------------------------------
-// loadGeometry — JS equivalent of DecodedGeometry::to_mvt_rings
+// loadGeometry - JS equivalent of DecodedGeometry::to_mvt_rings
 // ---------------------------------------------------------------------------
 
 function openRing(verts: Int32Array, start: number, end: number): Point[] {
@@ -178,7 +178,7 @@ function loadGeometry(
       }
       return rings;
     } else {
-      // Flat ring list matching MVT convention — use loadPolygons() for grouped output.
+      // Flat ring list matching MVT convention - use loadPolygons() for grouped output.
       const gStart = geomOffsets[featureIdx];
       const gEnd = geomOffsets[featureIdx + 1];
       const result: Point[][] = [];
@@ -314,7 +314,7 @@ export class MltFeature implements VectorTileFeatureLike {
     );
   }
 
-  /** Returns rings grouped by polygon — avoids the lossy winding-order heuristic in MVT's classifyRings. */
+  /** Returns rings grouped by polygon - avoids the lossy winding-order heuristic in MVT's classifyRings. */
   loadPolygons(): Point[][][] {
     if (this.type !== POLYGON) return [this.loadGeometry()];
     return loadPolygons(

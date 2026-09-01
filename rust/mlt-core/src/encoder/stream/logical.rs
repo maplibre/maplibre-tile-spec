@@ -4,25 +4,43 @@ use num_traits::PrimInt;
 
 use crate::MltResult;
 use crate::codecs::rle::encode_rle;
-use crate::decoder::RleMeta;
+use crate::decoder::{RleLayout, RleMeta};
 
 /// RLE-encode `data` into `target` and return the matching `RleMeta`.
 ///
 /// `target` is treated as a scratch buffer: cleared before writing.
 /// `num_logical` is the expanded output length (stored in `RleMeta::num_rle_values`).
+/// `layout` selects the wire layout:
+///  - split run/value halves (tag `0x01`) or
+///  - interleaved `(run, value)` pairs (tag `0x02`).
 pub(crate) fn apply_rle<T: PrimInt + Debug>(
     data: &[T],
     num_logical: usize,
+    layout: RleLayout,
     target: &mut Vec<T>,
 ) -> MltResult<RleMeta> {
     let (runs_vec, vals_vec) = encode_rle(data);
-    let meta = RleMeta {
-        runs: u32::try_from(runs_vec.len())?,
-        num_rle_values: u32::try_from(num_logical)?,
-    };
+    let num_rle_values = u32::try_from(num_logical)?;
     target.clear();
-    target.extend_from_slice(&runs_vec);
-    target.extend_from_slice(&vals_vec);
+    let meta = match layout {
+        RleLayout::Split => {
+            target.extend_from_slice(&runs_vec);
+            target.extend_from_slice(&vals_vec);
+            RleMeta::Split {
+                runs: u32::try_from(runs_vec.len())?,
+                num_rle_values,
+            }
+        }
+        #[cfg(feature = "unstable-v2")]
+        RleLayout::Interleaved => {
+            target.reserve(runs_vec.len().saturating_mul(2));
+            for (&run, &val) in runs_vec.iter().zip(&vals_vec) {
+                target.push(run);
+                target.push(val);
+            }
+            RleMeta::Interleaved { num_rle_values }
+        }
+    };
     Ok(meta)
 }
 
@@ -43,7 +61,7 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
-    use crate::decoder::RawStream;
+    use crate::decoder::stream::header01;
     use crate::encoder::model::StreamCtx;
     use crate::encoder::{Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder};
     use crate::test_helpers::{assert_empty, dec, parser};
@@ -61,7 +79,7 @@ mod tests {
             let mut codecs = Codecs::default();
             let ctx = StreamCtx::prop_data("test");
             codecs.write_int_stream(&values, &ctx, &mut enc).unwrap();
-            let parsed = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
+            let parsed = assert_empty(header01::parse_stream(enc.data(), &mut parser()));
             let decoded = parsed.decode_ints::<u32>(&mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
         }
@@ -78,7 +96,7 @@ mod tests {
             let mut codecs = Codecs::default();
             let ctx = StreamCtx::prop_data("test");
             codecs.write_int_stream(&values, &ctx, &mut enc).unwrap();
-            let parsed = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
+            let parsed = assert_empty(header01::parse_stream(enc.data(), &mut parser()));
             let decoded = parsed.decode_ints::<i32>(&mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
         }
@@ -95,7 +113,7 @@ mod tests {
             let mut codecs = Codecs::default();
             let ctx = StreamCtx::prop_data("test");
             codecs.write_int_stream(&values, &ctx, &mut enc).unwrap();
-            let parsed = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
+            let parsed = assert_empty(header01::parse_stream(enc.data(), &mut parser()));
             let decoded = parsed.decode_ints::<u64>(&mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
         }
@@ -112,7 +130,7 @@ mod tests {
             let mut codecs = Codecs::default();
             let ctx = StreamCtx::prop_data("test");
             codecs.write_int_stream(&values, &ctx, &mut enc).unwrap();
-            let parsed = assert_empty(RawStream::from_bytes(enc.data(), &mut parser()));
+            let parsed = assert_empty(header01::parse_stream(enc.data(), &mut parser()));
             let decoded = parsed.decode_ints::<i64>(&mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
         }

@@ -65,7 +65,7 @@ interface WrittenStreams {
 /**
  * Encodes nested property (MAP) columns, the inverse of `decodeMapPropertyColumn`.
  *
- * Takes one array of per-feature values per child column — a single column for a standalone map,
+ * Takes one array of per-feature values per child column - a single column for a standalone map,
  * several when the dictionaries are shared between sibling columns. A `null` entry marks the
  * property as absent for that feature, which is the only form of null the format can express;
  * nulls nested inside a map or list are rejected.
@@ -107,7 +107,7 @@ export function encodeMapPropertyColumn(
  *
  * This step has no counterpart in the decoder, which reads the dictionaries straight off the wire
  * in `decodeMapStreams`. Indices run across the concatenated dictionaries in the order the decoder
- * reads them — strings, signed integers, unsigned integers, then floating point — offset by the
+ * reads them - strings, signed integers, unsigned integers, then floating point - offset by the
  * reserved control values.
  */
 function collectDictionaries(childColumns: (MapValue | null)[][], options: MapEncodingOptions): Dictionaries {
@@ -185,8 +185,8 @@ function encodeChildColumn(column: (MapValue | null)[], streams: MapStreams): vo
 }
 
 /**
- * A feature's payload is written as a bare sequence of map entries, unless it is a scalar — a
- * single token — or a list, which keeps its header. Those two shapes are what let
+ * A feature's payload is written as a bare sequence of map entries, unless it is a scalar - a
+ * single token - or a list, which keeps its header. Those two shapes are what let
  * `decodeFeatureValue` tell them apart from map entries.
  */
 function encodeFeatureValue(value: MapValue, flattenedValues: number[], indexByKey: Map<string, number>): void {

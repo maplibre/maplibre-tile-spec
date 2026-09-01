@@ -35,8 +35,8 @@ pub enum MltError {
     #[error("property {index} kind mismatch: expected {expected:?}, got {actual:?}")]
     PropertyKindMismatch {
         index: usize,
-        expected: crate::decoder::PropKind,
-        actual: crate::decoder::PropKind,
+        expected: crate::tile::PropKind,
+        actual: crate::tile::PropKind,
     },
     #[error("staged column {column} feature count mismatch: expected {expected}, got {actual}")]
     StagedFeatureCountMismatch {
@@ -58,6 +58,14 @@ pub enum MltError {
     NotEncoded,
     #[error("error parsing column type: code={0}")]
     ParsingColumnType(u8),
+    #[error("error parsing v2 stream encoding byte: 0x{0:02X}")]
+    ParsingEncodingByte(u8),
+    #[cfg(feature = "unstable-v2")]
+    #[error("error parsing v2 geometry layout: code={0}")]
+    ParsingGeoLayout(u8),
+    #[cfg(feature = "unstable-v2")]
+    #[error("error parsing v2 layer layout: byte=0x{0:02X}")]
+    ParsingLayerLayout(u8),
     #[error("error parsing logical technique: code={0}")]
     ParsingLogicalTechnique(u8),
     #[error("error parsing physical encoding: code={0}")]
@@ -83,7 +91,7 @@ pub enum MltError {
     #[error("StagedLayer::encode_explicit requires Encoder.explicit to be Some(_)")]
     MissingExplicitEncoder,
 
-    // Wire/codec decoding (bytes → primitives)
+    // Wire/codec decoding (bytes -> primitives)
     #[error("buffer underflow: needed {0} bytes, but only {1} remain")]
     BufferUnderflow(u32, usize),
     #[error("FastPFor decode failed: expected={0} got={1}")]

@@ -27,8 +27,8 @@ pub fn decode_fastpfor(data: &[u8], num_values: u32, dec: &mut Decoder) -> MltRe
     if !data.len().is_multiple_of(4) {
         return Err(MltError::InvalidFastPforByteLength(data.len()));
     }
-    // The Java MLT encoder writes compressed int[] → byte[] in big-endian order.
-    // We must convert BE bytes → u32 to reconstruct the original integer values
+    // The Java MLT encoder writes compressed int[] -> byte[] in big-endian order.
+    // We must convert BE bytes -> u32 to reconstruct the original integer values
     // that the Composition(FastPFOR, VariableByte) codec produced.
     let num_words = data.len() / 4;
     dec.consume_items::<u32>(num_words)?;
@@ -67,7 +67,7 @@ mod tests {
         #[test]
         fn test_fastpfor_roundtrip(data: Vec<u32>) {
             // FastPFor256 produces a non-empty output (VByte header) even for empty input,
-            // but decode_fastpfor requires zero bytes when num_values == 0 — consistent
+            // but decode_fastpfor requires zero bytes when num_values == 0 - consistent
             // with how PhysicalEncoder guards `if !values.is_empty()`.
             prop_assume!(!data.is_empty());
             let mut encoded = Vec::new();
@@ -85,6 +85,6 @@ mod tests {
     #[test]
     fn test_decode_fastpfor_empty() {
         let decoded = decode_fastpfor(&[], 0, &mut dec()).unwrap();
-        assert!(decoded.is_empty());
+        assert_eq!(decoded, [] as [u32; 0]);
     }
 }

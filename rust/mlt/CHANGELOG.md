@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.26](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.25...rust-mlt-v0.1.26) - 2026-08-31
+
+### Added
+
+- *(rust)* inital v2 plumbing ([#1570](https://github.com/maplibre/maplibre-tile-spec/pull/1570))
+
+## [0.1.25](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.24...rust-mlt-v0.1.25) - 2026-08-21
+
+### Other
+
+- *(rust)* fixes new issues uncovered by clippy with bumped rust-version ([#1568](https://github.com/maplibre/maplibre-tile-spec/pull/1568))
+- add an anti-vibing pre-commit to clean up weird unicode and tabs ([#1566](https://github.com/maplibre/maplibre-tile-spec/pull/1566))
+
 ## [0.1.24](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.23...rust-mlt-v0.1.24) - 2026-08-19
 
 ### Added
@@ -111,7 +124,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
-- *(rust)* IdValues→ParsedId+StagedId, simplify presence ([#1334](https://github.com/maplibre/maplibre-tile-spec/pull/1334))
+- *(rust)* IdValues->ParsedId+StagedId, simplify presence ([#1334](https://github.com/maplibre/maplibre-tile-spec/pull/1334))
 - *(rust)* Improve the performance of `mlt convert` by caching and special-casing ([#1286](https://github.com/maplibre/maplibre-tile-spec/pull/1286))
 
 ## [0.1.10](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.9...rust-mlt-v0.1.10) - 2026-04-18

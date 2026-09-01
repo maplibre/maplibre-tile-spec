@@ -50,13 +50,13 @@ impl MltTile {
     // Bulk typed-array accessors
     // -----------------------------------------------------------------------
 
-    /// MVT geometry types — collapses single and multi into `1`/`2`/`3`.
+    /// MVT geometry types - collapses single and multi into `1`/`2`/`3`.
     #[must_use]
     pub fn layer_types(&self, layer_idx: usize) -> js_sys::Uint8Array {
         self.layers[layer_idx].types_array.clone()
     }
 
-    /// Original MLT geometry types — preserves the single vs multi distinction.
+    /// Original MLT geometry types - preserves the single vs multi distinction.
     #[must_use]
     pub fn layer_mlt_types(&self, layer_idx: usize) -> js_sys::Uint8Array {
         self.layers[layer_idx].mlt_types_array.clone()

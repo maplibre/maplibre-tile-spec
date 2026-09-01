@@ -6,7 +6,7 @@
 
 namespace mlt::util::encoding::rle {
 
-// ORC-style byte RLE: control byte high bit set → literal run, otherwise repeated run.
+// ORC-style byte RLE: control byte high bit set -> literal run, otherwise repeated run.
 inline void encodeByte(const std::uint8_t* data, std::size_t count, std::vector<std::uint8_t>& out) {
     static constexpr std::size_t MIN_REPEAT = 3;
     static constexpr std::size_t MAX_REPEAT = 127 + MIN_REPEAT;

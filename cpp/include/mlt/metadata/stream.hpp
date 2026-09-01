@@ -49,8 +49,7 @@ enum class LogicalLevelTechnique : std::uint8_t {
     COMPONENTWISE_DELTA = 2,
     RLE = 3,
     MORTON = 4,
-    PSEUDODECIMAL = 5,
-    VALUE_COUNT = 6,
+    VALUE_COUNT = 5,
 };
 
 enum class OffsetType : std::uint8_t {

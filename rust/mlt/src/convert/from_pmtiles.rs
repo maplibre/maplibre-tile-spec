@@ -126,7 +126,7 @@ fn log_progress_line(done: u64, total: u64, elapsed: std::time::Duration) {
     eprintln!("  {done}/{total} tiles ({rate:.0}/s, eta {eta_min:.0} min)");
 }
 
-/// Re-encodes every tile MVT → MLT and emits results in ascending tile-id order,
+/// Re-encodes every tile MVT -> MLT and emits results in ascending tile-id order,
 /// so [`PmTilesWriter`] keeps the archive clustered and run-length encoded.
 /// Three thread roles: a reader pulls raw MVT off the mmap, a worker pool encodes
 /// in parallel via a lock-free MPMC channel, and an emitter reorders results back
@@ -151,10 +151,10 @@ fn spawn_encode_pipeline(
         for _ in 0..cap {
             tok_tx.send(()).expect("permit receiver alive");
         }
-        // Raw tiles: reader → encoder pool, via a lock-free MPMC channel.
+        // Raw tiles: reader -> encoder pool, via a lock-free MPMC channel.
         // (`par_bridge` funnels pulls through one mutex, capping parallelism.)
         let (raw_tx, raw_rx) = crossbeam_channel::unbounded::<(usize, TileCoord, Bytes)>();
-        // Encoded tiles: encoders → the in-order emitter (this thread).
+        // Encoded tiles: encoders -> the in-order emitter (this thread).
         let (res_tx, res_rx) = mpsc::channel::<AnyResult<(usize, EncodedTile)>>();
 
         // Reader: one sequential pass over ascending ids.
@@ -352,10 +352,7 @@ mod tests {
     }
 
     #[test]
-    #[expect(
-        clippy::float_cmp,
-        reason = "header floats round-trip losslessly through the writer"
-    )]
+    #[expect(clippy::float_cmp, reason = "bounds are copied verbatim, not computed")]
     fn copies_geographic_header_without_copying_content_encoding() {
         let source = write_header(
             PmTilesWriter::new(TileType::Mvt)

@@ -4,7 +4,6 @@ import static org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption.
 import static org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption.DELTA_RLE;
 import static org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption.PLAIN;
 import static org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption.RLE;
-import static org.maplibre.mlt.tools.SyntheticMltUtil.SYNTHETICS_DIR;
 import static org.maplibre.mlt.tools.SyntheticMltUtil.array;
 import static org.maplibre.mlt.tools.SyntheticMltUtil.c;
 import static org.maplibre.mlt.tools.SyntheticMltUtil.c1;
@@ -35,6 +34,7 @@ import static org.maplibre.mlt.tools.SyntheticMltUtil.poly2;
 import static org.maplibre.mlt.tools.SyntheticMltUtil.prop;
 import static org.maplibre.mlt.tools.SyntheticMltUtil.props;
 import static org.maplibre.mlt.tools.SyntheticMltUtil.ring;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.syntheticsDir;
 import static org.maplibre.mlt.tools.SyntheticMltUtil.write;
 
 import java.io.IOException;
@@ -63,7 +63,7 @@ public class SyntheticMltGenerator {
     final int minVersion = MltTypeMap.Tag0x01.TAG;
     final int maxVersion = MltTypeMap.Tag0x02.TAG;
     for (int i = minVersion; i <= maxVersion; ++i) {
-      final var path = SYNTHETICS_DIR.resolve(String.format("0x%02x", i));
+      final var path = syntheticsDir(i);
       if (Files.exists(path)) {
         throw new IOException(
             "Synthetics dir must be deleted before running `:mlt-tools:generateSyntheticMlt`: "

@@ -5,8 +5,8 @@ use geo_types::{Coord, Geometry};
 
 use crate::codecs::hilbert::{hilbert_curve_params_from_bounds, hilbert_sort_key};
 use crate::codecs::morton::morton_sort_key;
-use crate::decoder::TileLayer;
 use crate::encoder::model::CurveParams;
+use crate::tile::TileLayer;
 
 /// Controls how features inside a layer are reordered before encoding.
 ///
@@ -15,7 +15,7 @@ use crate::encoder::model::CurveParams;
 /// opt in explicitly.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, strum::EnumIter, strum::EnumCount)]
 pub enum SortStrategy {
-    /// Preserve the original feature order — no reordering is applied.
+    /// Preserve the original feature order - no reordering is applied.
     ///
     /// This is the default.
     #[default]
@@ -148,11 +148,12 @@ pub(crate) fn spatial_sort_likely_to_help(layer: &TileLayer) -> bool {
 mod tests {
     use geo_types::{Coord, Geometry as GeoGeom, Geometry, LineString, Point, Polygon};
 
-    use crate::decoder::{GeometryType, GeometryValues, RawGeometry, TileFeature, TileLayer};
+    use crate::decoder::{GeometryType, GeometryValues, RawGeometry};
     use crate::encoder::{
         Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, SortStrategy, stage_tile,
     };
     use crate::test_helpers::{assert_empty, dec, into_layer01, parser};
+    use crate::tile::{TileFeature, TileLayer};
     use crate::{Layer, LazyParsed};
 
     fn pt(x: i32, y: i32) -> Geometry<i32> {
@@ -255,7 +256,7 @@ mod tests {
 
         assert_eq!(
             after_roundtrip, expected_canonical,
-            "\nsorted geometry did not match expected after encode→decode round-trip\
+            "\nsorted geometry did not match expected after encode->decode round-trip\
              \nvector_types after sort: {:?}\
              \nvector_types expected:   {:?}",
             sorted_decoded.vector_types, expected_canonical.vector_types,
@@ -383,7 +384,7 @@ mod tests {
     }
 
     /// Encode the layer with a given sort strategy, decode it back, and return the `TileLayer`.
-    /// This tests the full encode→decode roundtrip, verifying that sorting was applied.
+    /// This tests the full encode->decode roundtrip, verifying that sorting was applied.
     fn sort_encode_decode(tile: TileLayer, sort: SortStrategy) -> TileLayer {
         let enc_cfg = EncoderConfig::default();
         let enc = Encoder::with_explicit(enc_cfg, ExplicitEncoder::for_id(IntEncoder::varint()));

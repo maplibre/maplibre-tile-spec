@@ -60,8 +60,25 @@ fn automatic_optimization_distinct_points_picks_vec2() {
 }
 
 #[test]
+fn automatic_optimization_repeated_points_beyond_curve_range_picks_vec2() {
+    let decoded = push_geoms(
+        &std::iter::repeat_n(point! { x: 2_686_984, y: 0 }.into(), 20).collect::<Vec<_>>(),
+    );
+    insta::assert_debug_snapshot!(auto_mode_streams(&decoded), @r"
+    [
+        Data(
+            Vertex,
+        ),
+        Length(
+            VarBinary,
+        ),
+    ]
+    ");
+}
+
+#[test]
 fn automatic_optimization_repeated_points_picks_dict() {
-    // The Hilbert vs. Morton race resolves deterministically for this input —
+    // The Hilbert vs. Morton race resolves deterministically for this input -
     // Hilbert wins, so the encoded streams use `Data(Vertex)` + a vertex
     // offset stream. The snapshot pins that outcome; if the race tie-break
     // or the heuristic ever changes it should fail loudly.

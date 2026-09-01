@@ -5,6 +5,7 @@ use usize_cast::IntoUsize as _;
 use super::model::StagedStrings;
 use crate::MltResult;
 use crate::codecs::fsst::{FsstRawData, compress_fsst, compress_fsst_with};
+use crate::decoder::stream::header01;
 use crate::decoder::strings::{checked_string_end, encode_null_end};
 use crate::decoder::{DictionaryType, LengthType, OffsetType, StreamMeta, StreamType};
 use crate::encoder::model::{StrEncoding, StreamCtx};
@@ -279,11 +280,11 @@ pub fn write_fsst_data(
     codecs.write_int_stream(&raw.symbol_lengths, &ctx, enc)?;
     let typ = StreamType::Data(DictionaryType::Fsst);
     let meta = StreamMeta::new_none(typ, raw.symbol_lengths.len())?;
-    write_stream_payload(enc.data_mut(), meta, false, &raw.symbol_bytes)?;
+    write_stream_payload(enc, meta, false, &raw.symbol_bytes)?;
     let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), name);
     codecs.write_int_stream(&raw.value_lengths, &ctx, enc)?;
     let meta = StreamMeta::new_none(StreamType::Data(dict_type), raw.value_lengths.len())?;
-    write_stream_payload(enc.data_mut(), meta, false, &raw.corpus)?;
+    write_stream_payload(enc, meta, false, &raw.corpus)?;
     Ok(())
 }
 
@@ -297,7 +298,7 @@ pub fn write_raw_str_data(
     let total_len: usize = strings.iter().map(|s| s.len()).sum();
     let typ = StreamType::Data(dict_type);
     let meta = StreamMeta::new_none(typ, strings.len())?;
-    meta.write_to(enc, false, u32::try_from(total_len)?)?;
+    header01::write_stream_meta(&meta, enc, false, u32::try_from(total_len)?)?;
     enc.data_mut().reserve(total_len);
     for s in strings {
         enc.data_mut().extend_from_slice(s.as_bytes());

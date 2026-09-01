@@ -20,7 +20,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@82cd3e7658a6f96c86c0234aeeda1748937cb0a1 # v2.85.13
+      - uses: taiki-e/install-action@37f7c5781271959fb65b6b35224e28652ff2b63d # v2.87.0
         with: { tool: 'just' }
       - uses: ./.github/actions/mlt-setup-node
       - name: Format TypeScript
@@ -42,7 +42,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@82cd3e7658a6f96c86c0234aeeda1748937cb0a1 # v2.85.13
+      - uses: taiki-e/install-action@37f7c5781271959fb65b6b35224e28652ff2b63d # v2.87.0
         with: { tool: 'just,cargo-sort' }
       - name: Format Cargo.toml
         run: just rust::fmt-toml
@@ -63,7 +63,7 @@ jobs:
         with: { persist-credentials: false }
       - name: Setup Rust
         run: rustup update stable && rustup default stable
-      - uses: taiki-e/install-action@82cd3e7658a6f96c86c0234aeeda1748937cb0a1 # v2.85.13
+      - uses: taiki-e/install-action@37f7c5781271959fb65b6b35224e28652ff2b63d # v2.87.0
         with: { tool: 'just' }
       - run: sudo apt update && sudo apt install -y jq
       - name: Sync package.json version from Cargo.toml
@@ -90,7 +90,7 @@ jobs:
         with: { persist-credentials: false }
       - name: Setup Rust
         run: rustup update stable && rustup default stable
-      - uses: taiki-e/install-action@82cd3e7658a6f96c86c0234aeeda1748937cb0a1 # v2.85.13
+      - uses: taiki-e/install-action@37f7c5781271959fb65b6b35224e28652ff2b63d # v2.87.0
         with: { tool: 'just,cargo-binstall' }
       - run: sudo apt-get update && sudo apt-get install -y clang-format
       - name: Install ktlint
@@ -121,7 +121,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@82cd3e7658a6f96c86c0234aeeda1748937cb0a1 # v2.85.13
+      - uses: taiki-e/install-action@37f7c5781271959fb65b6b35224e28652ff2b63d # v2.87.0
         with: { tool: 'just' }
       - uses: ./.github/actions/mlt-setup-rust
       - name: Regenerate stub
@@ -163,7 +163,7 @@ jobs:
         run: rustup update stable && rustup default stable
 
       - name: Install just
-        uses: taiki-e/install-action@82cd3e7658a6f96c86c0234aeeda1748937cb0a1 # v2.85.13
+        uses: taiki-e/install-action@37f7c5781271959fb65b6b35224e28652ff2b63d # v2.87.0
         with: { tool: 'just,cargo-binstall' }
 
       - name: Setup Node.js

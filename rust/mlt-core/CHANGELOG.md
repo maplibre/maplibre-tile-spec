@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.7](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.6...rust-mlt-core-v0.12.7) - 2026-08-31
+
+### Added
+
+- *(rust)* implement basic header and metadata format ([#1571](https://github.com/maplibre/maplibre-tile-spec/pull/1571))
+- *(rust)* inital v2 plumbing ([#1570](https://github.com/maplibre/maplibre-tile-spec/pull/1570))
+
+### Fixed
+
+- *(java)* move the Java nested-property fixtures to 0x02-java ([#1582](https://github.com/maplibre/maplibre-tile-spec/pull/1582))
+
+### Other
+
+- *(rust)* share one encode/decode helper across the fuzz targets ([#1588](https://github.com/maplibre/maplibre-tile-spec/pull/1588))
+- *(rust)* make RleMeta an enum over the RLE stream layout ([#1587](https://github.com/maplibre/maplibre-tile-spec/pull/1587))
+- *(rust)* express wire enum discriminants as their bit patterns ([#1586](https://github.com/maplibre/maplibre-tile-spec/pull/1586))
+- *(rust)* split the geometry encoder into encode01 and streams ([#1580](https://github.com/maplibre/maplibre-tile-spec/pull/1580))
+- *(rust)* extract the v1 layer encoder into encoder::encode01 ([#1579](https://github.com/maplibre/maplibre-tile-spec/pull/1579))
+- *(rust)* move the public tile model out of decoder into crate::tile ([#1578](https://github.com/maplibre/maplibre-tile-spec/pull/1578))
+- *(rust)* split decoder::root into limits and root01 ([#1577](https://github.com/maplibre/maplibre-tile-spec/pull/1577))
+
+## [0.12.6](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.5...rust-mlt-core-v0.12.6) - 2026-08-21
+
+### Other
+
+- *(rust)* refactor the header related code to be able to accept v2 ([#1569](https://github.com/maplibre/maplibre-tile-spec/pull/1569))
+- *(rust)* fixes new issues uncovered by clippy with bumped rust-version ([#1568](https://github.com/maplibre/maplibre-tile-spec/pull/1568))
+- add an anti-vibing pre-commit to clean up weird unicode and tabs ([#1566](https://github.com/maplibre/maplibre-tile-spec/pull/1566))
+
 ## [0.12.5](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.4...rust-mlt-core-v0.12.5) - 2026-08-19
 
 ### Added
@@ -146,7 +175,7 @@ allow_fastpfor
 - *(rust)* remove unused staging code and eq impl ([#1344](https://github.com/maplibre/maplibre-tile-spec/pull/1344))
 - *(rust)* follow up to Presence cleanup ([#1337](https://github.com/maplibre/maplibre-tile-spec/pull/1337))
 - *(rust)* simplify debug formatting ([#1336](https://github.com/maplibre/maplibre-tile-spec/pull/1336))
-- *(rust)* IdValues→ParsedId+StagedId, simplify presence ([#1334](https://github.com/maplibre/maplibre-tile-spec/pull/1334))
+- *(rust)* IdValues->ParsedId+StagedId, simplify presence ([#1334](https://github.com/maplibre/maplibre-tile-spec/pull/1334))
 - *(rust)* push fsst training up one level to not gain false statistics ([#1335](https://github.com/maplibre/maplibre-tile-spec/pull/1335))
 - *(rust)* rework presence to use bitvec ([#1329](https://github.com/maplibre/maplibre-tile-spec/pull/1329))
 
