@@ -115,7 +115,10 @@ impl<'a> RawStream<'a> {
     {
         match self.meta.encoding.logical {
             LogicalEncoding::Float(FloatLogical::None) => {}
-            LogicalEncoding::Int(_) | LogicalEncoding::Bool(_) | LogicalEncoding::Vertex(_) => {
+            LogicalEncoding::Float(FloatLogical::Dict)
+            | LogicalEncoding::Int(_)
+            | LogicalEncoding::Bool(_)
+            | LogicalEncoding::Vertex(_) => {
                 return Err(MltError::UnsupportedLogicalEncoding(
                     self.meta.encoding.logical,
                     "float streams, which are stored raw",
