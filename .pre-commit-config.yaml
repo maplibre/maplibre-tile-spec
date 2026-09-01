@@ -35,6 +35,7 @@ repos:
       - id: mixed-line-ending
         args: [ --fix=lf ]
       - id: trailing-whitespace
+        exclude: '\.snap$' # insta snapshots assert trailing whitespace
 
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v22.1.8
