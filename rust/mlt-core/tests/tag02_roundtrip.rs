@@ -607,3 +607,140 @@ fn tessellation_not_yet_supported() {
     let err = l.encode(cfg_v2().with_tessellation(true)).unwrap_err();
     assert!(err.to_string().contains("not"), "unexpected error: {err}");
 }
+
+/// Float columns encoded as a dictionary: off by default, so these opt in.
+mod float_dictionary {
+    use super::*;
+
+    fn cfg_dict() -> EncoderConfig {
+        cfg_v2().with_float_dict(true)
+    }
+
+    fn f64_col(values: &[f64]) -> Vec<PropValue> {
+        values.iter().map(|&v| PropValue::F64(Some(v))).collect()
+    }
+
+    fn f32_col(values: &[f32]) -> Vec<PropValue> {
+        values.iter().map(|&v| PropValue::F32(Some(v))).collect()
+    }
+
+    fn round_trip(l: &TileLayer, config: EncoderConfig) -> TileLayer {
+        let bytes = l.clone().encode(config).expect("encode");
+        let (tag, tile) = decode(&bytes);
+        assert_eq!(tag, 2);
+        assert_dump_covers(&bytes);
+        tile
+    }
+
+    fn column(values: &[f64]) -> TileLayer {
+        let mask = "1".repeat(values.len());
+        layer(points(&mask), None, &[("v", f64_col(values))])
+    }
+
+    #[test]
+    fn a_repetitive_column_round_trips_through_a_dictionary() {
+        const VALUES: &[f64] = &[1.5, 2.5, 1.5, 1.5, 2.5, 3.5, 1.5, 2.5, 1.5, 1.5, 2.5, 3.5];
+        let l = column(VALUES);
+        assert_eq!(round_trip(&l, cfg_dict()), round_trip(&l, cfg_v2()));
+    }
+
+    #[test]
+    fn the_dictionary_is_smaller_and_shows_in_the_dump() {
+        const VALUES: &[f64] = &[1.5, 2.5, 1.5, 1.5, 2.5, 3.5, 1.5, 2.5, 1.5, 1.5, 2.5, 3.5];
+        let l = column(VALUES);
+        let plain = l.clone().encode(cfg_v2()).unwrap();
+        let dict = l.clone().encode(cfg_dict()).unwrap();
+        assert!(
+            dict.len() < plain.len(),
+            "{} vs {}",
+            dict.len(),
+            plain.len()
+        );
+
+        let dump = dump_text(&dict);
+        assert!(
+            dump.contains("logical = Dict, numbered for a v2 float column"),
+            "{dump}"
+        );
+        assert!(dump.contains("dictionary"), "{dump}");
+    }
+
+    #[test]
+    #[expect(
+        clippy::wildcard_enum_match_arm,
+        reason = "only f64 values are expected"
+    )]
+    fn zero_and_negative_zero_stay_distinct_entries() {
+        const VALUES: &[f64] = &[0.0, -0.0, 0.0, -0.0, 0.0, -0.0];
+        let l = column(VALUES);
+        let tile = round_trip(&l, cfg_dict());
+        let signs: Vec<bool> = tile
+            .features()
+            .iter()
+            .map(|f| match f.properties()[0] {
+                PropValue::F64(Some(v)) => v.is_sign_negative(),
+                ref other => panic!("unexpected {other:?}"),
+            })
+            .collect();
+        assert_eq!(signs, [false, true, false, true, false, true]);
+    }
+
+    #[test]
+    #[expect(
+        clippy::wildcard_enum_match_arm,
+        reason = "only f64 values are expected"
+    )]
+    fn every_nan_with_the_same_bits_shares_one_entry() {
+        let values: Vec<f64> = (0..8)
+            .map(|i| if i % 2 == 0 { f64::NAN } else { 7.5 })
+            .collect();
+        let l = column(&values);
+        let tile = round_trip(&l, cfg_dict());
+        let nans: Vec<bool> = tile
+            .features()
+            .iter()
+            .map(|f| match f.properties()[0] {
+                PropValue::F64(Some(v)) => v.is_nan(),
+                ref other => panic!("unexpected {other:?}"),
+            })
+            .collect();
+        assert_eq!(nans, [true, false, true, false, true, false, true, false]);
+    }
+
+    #[test]
+    fn an_all_distinct_column_stays_raw() {
+        let values: Vec<f64> = (0..16).map(f64::from).collect();
+        let l = column(&values);
+        assert_eq!(
+            l.clone().encode(cfg_dict()).unwrap(),
+            l.encode(cfg_v2()).unwrap()
+        );
+    }
+
+    #[test]
+    fn f32_columns_round_trip_through_a_dictionary() {
+        const VALUES: &[f32] = &[1.5, 2.5, 1.5, 1.5, 2.5, 3.5, 1.5, 2.5, 1.5, 1.5, 2.5, 3.5];
+        let mask = "1".repeat(VALUES.len());
+        let l = layer(points(&mask), None, &[("v", f32_col(VALUES))]);
+        assert_eq!(round_trip(&l, cfg_dict()), round_trip(&l, cfg_v2()));
+    }
+
+    #[test]
+    fn an_optional_dictionary_column_round_trips() {
+        let values: Vec<PropValue> = (0..12)
+            .map(|i| PropValue::F64((i % 3 != 0).then(|| f64::from(i % 2) + 0.5)))
+            .collect();
+        let l = layer(points(&"1".repeat(12)), None, &[("v", values)]);
+        assert_eq!(round_trip(&l, cfg_dict()), round_trip(&l, cfg_v2()));
+    }
+
+    #[test]
+    fn v1_ignores_the_flag() {
+        const VALUES: &[f64] = &[1.5, 1.5, 1.5, 1.5];
+        let l = column(VALUES);
+        assert_eq!(
+            l.clone().encode(cfg_v1().with_float_dict(true)).unwrap(),
+            l.encode(cfg_v1()).unwrap()
+        );
+    }
+}
