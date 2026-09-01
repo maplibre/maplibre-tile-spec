@@ -3,7 +3,7 @@ use std::collections::hash_map::Entry;
 
 use crate::MltResult;
 #[cfg(any(test, feature = "__private"))]
-use crate::decoder::{DictionaryType, StreamMeta, StreamType};
+use crate::decoder::{DictionaryType, StreamMeta, StreamType, ValueKind};
 #[cfg(any(test, feature = "__private"))]
 use crate::encoder::EncodedStream;
 use crate::errors::AsMltError as _;
@@ -39,7 +39,11 @@ impl EncodedStream {
         for v in values {
             data.extend_from_slice(v.to_le_bytes().as_ref());
         }
-        let meta = StreamMeta::new_none(StreamType::Data(DictionaryType::None), values.len())?;
+        let meta = StreamMeta::new_none(
+            StreamType::Data(DictionaryType::None),
+            ValueKind::Float,
+            values.len(),
+        )?;
         Ok(Self { meta, data })
     }
 }

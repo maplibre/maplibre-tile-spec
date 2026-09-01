@@ -22,8 +22,8 @@ use integer_encoding::VarIntWriter as _;
 
 use crate::decoder::stream::header02::StreamCtx02;
 use crate::decoder::{
-    ColumnType02, DataType02, DictionaryType, LayerLayout, LogicalEncoding, PhysicalEncoding,
-    Presence02, StreamMeta, StreamType,
+    BoolLogical, ColumnType02, DataType02, DictionaryType, LayerLayout, LogicalEncoding,
+    PhysicalEncoding, Presence02, StreamMeta, StreamType,
 };
 use crate::encoder::geometry::encode02::encode_geometry02;
 use crate::encoder::model::{StagedLayer, StreamCtx};
@@ -272,7 +272,7 @@ fn write_bool_bitfield(enc: &mut Encoder, values: &[bool]) -> MltResult<()> {
     write_presence_bits(&mut packed, values);
     let meta = StreamMeta::new2(
         StreamType::Data(DictionaryType::None),
-        LogicalEncoding::None,
+        LogicalEncoding::Bool(BoolLogical::None),
         PhysicalEncoding::None,
         values.len(),
     )?;
