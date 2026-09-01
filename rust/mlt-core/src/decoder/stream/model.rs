@@ -97,17 +97,99 @@ impl Morton {
     }
 }
 
-/// How should the stream be interpreted at the logical level (second pass of decoding)
+/// What kind of values a stream holds, which fixes the encodings it can name.
+/// Neither wire format stores it: v1 reads it from the column type, v2 from the stream's context.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ValueKind {
+    Int,
+    Bool,
+    Float,
+    Vertex,
+}
+
+/// Logical encoding of a stream of integer values.
+/// Covers the id columns, the integer property columns, and the geometry length and offset streams.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum LogicalEncoding {
+pub enum IntLogical {
     None,
     Delta,
-    DeltaRle(RleMeta),
-    ComponentwiseDelta,
     Rle(RleMeta),
+    DeltaRle(RleMeta),
+}
+
+/// Logical encoding of a bool column's data stream or a presence bitfield.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum BoolLogical {
+    /// A raw packed bitmap, one bit per value.
+    None,
+    /// A byte-RLE compressed bitmap.
+    /// Its run parameters come from the stream's context rather than from its header.
+    ByteRle(RleMeta),
+}
+
+/// Logical encoding of a float column's data stream.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum FloatLogical {
+    /// Fixed-width little-endian values, one per element.
+    None,
+}
+
+/// Logical encoding of a geometry vertex stream, whose values are interleaved coordinate pairs.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum VertexLogical {
+    None,
+    Delta,
+    ComponentwiseDelta,
     Morton(Morton),
     MortonDelta(Morton),
     MortonRle(Morton),
+}
+
+/// How should the stream be interpreted at the logical level (second pass of decoding)
+///
+/// Split per [`ValueKind`] so a stream can name only the encodings its values can have.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum LogicalEncoding {
+    Int(IntLogical),
+    Bool(BoolLogical),
+    Float(FloatLogical),
+    Vertex(VertexLogical),
+}
+
+impl LogicalEncoding {
+    /// The kind of values this encoding belongs to.
+    #[must_use]
+    pub fn kind(self) -> ValueKind {
+        match self {
+            Self::Int(_) => ValueKind::Int,
+            Self::Bool(_) => ValueKind::Bool,
+            Self::Float(_) => ValueKind::Float,
+            Self::Vertex(_) => ValueKind::Vertex,
+        }
+    }
+
+    /// The identity encoding for `kind`, i.e. values stored as they are.
+    #[must_use]
+    pub(crate) fn none(kind: ValueKind) -> Self {
+        match kind {
+            ValueKind::Int => Self::Int(IntLogical::None),
+            ValueKind::Bool => Self::Bool(BoolLogical::None),
+            ValueKind::Float => Self::Float(FloatLogical::None),
+            ValueKind::Vertex => Self::Vertex(VertexLogical::None),
+        }
+    }
+
+    /// Whether the stream's own logical pass is a no-op, so the physical words are already the output.
+    #[must_use]
+    pub(crate) fn is_identity(self) -> bool {
+        matches!(
+            self,
+            Self::Int(IntLogical::None)
+                | Self::Bool(BoolLogical::None)
+                | Self::Float(FloatLogical::None)
+                | Self::Vertex(VertexLogical::None)
+        )
+    }
 }
 
 /// Carries the stream metadata needed to perform the logical decode pass.
@@ -194,8 +276,8 @@ impl IntEncoding {
     }
 
     #[must_use]
-    pub(crate) const fn none() -> Self {
-        Self::new(LogicalEncoding::None, PhysicalEncoding::None)
+    pub(crate) fn none(kind: ValueKind) -> Self {
+        Self::new(LogicalEncoding::none(kind), PhysicalEncoding::None)
     }
 }
 
@@ -231,8 +313,12 @@ impl StreamMeta {
     }
 
     #[inline]
-    pub(crate) fn new_none(stream_type: StreamType, num_values: usize) -> MltResult<Self> {
-        let enc = IntEncoding::none();
+    pub(crate) fn new_none(
+        stream_type: StreamType,
+        kind: ValueKind,
+        num_values: usize,
+    ) -> MltResult<Self> {
+        let enc = IntEncoding::none(kind);
         Ok(Self::new(stream_type, enc, u32::try_from(num_values)?))
     }
 }

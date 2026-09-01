@@ -46,7 +46,8 @@ pub(crate) use property::{
     RawStringsEncoding,
 };
 pub(crate) use stream::model::{
-    DictionaryType, IntEncoding, LengthType, LogicalCombination, LogicalEncoding, LogicalTechnique,
-    LogicalValue, Morton, OffsetType, PhysicalEncoding, RawStream, RleLayout, RleMeta, StreamMeta,
-    StreamType,
+    BoolLogical, DictionaryType, FloatLogical, IntEncoding, IntLogical, LengthType,
+    LogicalCombination, LogicalEncoding, LogicalTechnique, LogicalValue, Morton, OffsetType,
+    PhysicalEncoding, RawStream, RleLayout, RleMeta, StreamMeta, StreamType, ValueKind,
+    VertexLogical,
 };
