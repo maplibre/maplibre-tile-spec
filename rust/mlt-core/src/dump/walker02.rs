@@ -20,7 +20,7 @@ use crate::decoder::{
 };
 use crate::tile::Extent;
 use crate::utils::{parse_string, parse_u8, take};
-use crate::wire::{IntEncoding, StreamMeta};
+use crate::wire::{IntEncoding, StreamMeta, ValueKind};
 use crate::{MltError, MltResult};
 
 impl<'a> Walker<'a> {
@@ -218,7 +218,11 @@ impl<'a> Walker<'a> {
             bytes.len(),
             label.to_string(),
             BlobInfo {
-                meta: StreamMeta::new(StreamType::Present, IntEncoding::none(), feature_count),
+                meta: StreamMeta::new(
+                    StreamType::Present,
+                    IntEncoding::none(ValueKind::Bool),
+                    feature_count,
+                ),
                 hint: DecodeHint::PackedBits,
             },
         );
