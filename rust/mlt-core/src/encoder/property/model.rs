@@ -4,7 +4,7 @@ use crate::DictRange;
 ///
 /// Unlike `ParsedProperty` (decode-side, potentially borrowed), all string names
 /// and corpus data are owned strings.  No lifetime parameter needed.
-#[derive(Debug, Clone, PartialEq, strum::IntoStaticStr)]
+#[derive(Debug, Clone, PartialEq, strum::IntoStaticStr, strum::EnumCount)]
 #[strum(serialize_all = "snake_case")]
 pub enum StagedProperty {
     Bool(StagedScalar<bool>),
