@@ -5,9 +5,9 @@ use std::path::Path;
 
 use mlt_core::GeometryValues;
 use mlt_core::encoder::{
-    Codecs, ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, Presence, StagedId,
-    StagedLayer, StagedProperty, StagedSharedDict, StrEncoding, StreamCtx, VertexBufferType,
-    WireVersion,
+    Codecs, ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, FloatEncoding, IntEncoder,
+    Presence, StagedId, StagedLayer, StagedProperty, StagedSharedDict, StrEncoding, StreamCtx,
+    VertexBufferType, WireVersion,
 };
 use mlt_core::geo_types::{Coord, Geometry};
 use mlt_core::wire::{LengthType, OffsetType, StreamType};
@@ -34,6 +34,11 @@ pub fn geo_fastpfor() -> Layer {
 enum PropConfig {
     /// Int/Bool/Float: `enc` is used for integer streams; Bool/Float auto-detect from type.
     Scalar(IntEncoder),
+    /// Float with its logical encoding pinned, `enc` carrying the dictionary codes or ALP integers.
+    Float {
+        enc: IntEncoder,
+        float_enc: FloatEncoding,
+    },
     /// String FSST encoding.
     StrFsst {
         sym_lengths: IntEncoder,
@@ -58,9 +63,21 @@ enum PropConfig {
 }
 
 impl PropConfig {
+    /// The pinned float encoding, or [`FloatEncoding::None`] for a column that is not a pinned float.
+    fn float_encoding(&self) -> FloatEncoding {
+        match self {
+            Self::Float { float_enc, .. } => *float_enc,
+            Self::Scalar(_)
+            | Self::StrFsst { .. }
+            | Self::StrFsstDict { .. }
+            | Self::StrDict { .. }
+            | Self::SharedDict { .. } => FloatEncoding::None,
+        }
+    }
+
     fn str_encoding(&self) -> StrEncoding {
         match self {
-            Self::Scalar(_) => StrEncoding::Plain,
+            Self::Scalar(_) | Self::Float { .. } => StrEncoding::Plain,
             Self::StrFsst { .. } => StrEncoding::Fsst,
             Self::StrFsstDict { .. } => StrEncoding::FsstDict,
             Self::StrDict { .. } => StrEncoding::Dict,
@@ -74,7 +91,7 @@ impl PropConfig {
         use OffsetType as OT;
         use StreamType as ST;
         match self {
-            Self::Scalar(e) => *e,
+            Self::Scalar(e) | Self::Float { enc: e, .. } => *e,
             Self::StrFsst {
                 sym_lengths,
                 dict_lengths,
@@ -245,6 +262,20 @@ impl Layer {
     #[must_use]
     pub fn add_prop(mut self, enc: IntEncoder, prop: StagedProperty) -> Self {
         self.props.push((prop, PropConfig::Scalar(enc)));
+        self
+    }
+
+    /// Add a float property whose logical encoding is pinned rather than costed.
+    /// Only v2 can express anything but [`FloatEncoding::None`], so v1 writes the values raw.
+    #[must_use]
+    pub fn add_prop_float(
+        mut self,
+        enc: IntEncoder,
+        float_enc: FloatEncoding,
+        prop: StagedProperty,
+    ) -> Self {
+        self.props
+            .push((prop, PropConfig::Float { enc, float_enc }));
         self
     }
 
@@ -434,10 +465,18 @@ impl Layer {
                 })
             },
             get_str_encoding: {
+                let prop_map = prop_map.clone();
                 Box::new(move |name: &str| {
                     prop_map
                         .get(name)
                         .map_or(StrEncoding::Plain, PropConfig::str_encoding)
+                })
+            },
+            get_float_encoding: {
+                Box::new(move |name: &str| {
+                    prop_map
+                        .get(name)
+                        .map_or(FloatEncoding::None, PropConfig::float_encoding)
                 })
             },
         };
