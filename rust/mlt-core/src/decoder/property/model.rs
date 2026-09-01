@@ -61,6 +61,14 @@ impl<'a> RawFloats<'a> {
 pub enum RawFloatsEncoding<'a> {
     /// One data stream, its own logical encoding saying how to read it.
     Single(RawStream<'a>),
+    /// Codes first, then the distinct values they index.
+    ///
+    /// Requires the `unstable-v2` feature.
+    #[cfg(feature = "unstable-v2")]
+    Dictionary {
+        codes: RawStream<'a>,
+        dictionary: RawStream<'a>,
+    },
 }
 
 /// Raw string column as read directly from the tile.
