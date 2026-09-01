@@ -18,7 +18,9 @@ impl Arbitrary<'_> for EncoderConfig {
             .with_fastpfor(u.arbitrary()?)
             .with_shared_dict(u.arbitrary()?);
         #[cfg(feature = "unstable-v2")]
-        let config = config.with_wire_version(u.arbitrary()?);
+        let config = config
+            .with_wire_version(u.arbitrary()?)
+            .with_float_dict(u.arbitrary()?);
         Ok(config)
     }
 }
