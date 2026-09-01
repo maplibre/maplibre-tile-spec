@@ -226,6 +226,9 @@ pub struct EncoderConfig {
     allow_fastpfor: bool,
     /// Allow string grouping into shared dictionaries
     allow_shared_dict: bool,
+    /// Allow the v2-only float dictionary encoding
+    #[cfg(feature = "unstable-v2")]
+    allow_float_dict: bool,
 }
 impl Default for EncoderConfig {
     fn default() -> Self {
@@ -238,6 +241,9 @@ impl Default for EncoderConfig {
             allow_fsst: true,
             allow_fastpfor: true,
             allow_shared_dict: true,
+            // Off by default while the encoding is still being measured.
+            #[cfg(feature = "unstable-v2")]
+            allow_float_dict: false,
         }
     }
 }
@@ -286,6 +292,13 @@ impl EncoderConfig {
         self.allow_shared_dict
     }
 
+    /// Whether float columns may use a dictionary, which only v2 can express.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn allow_float_dict(self) -> bool {
+        self.allow_float_dict && self.wire_version != WireVersion::V01
+    }
+
     #[must_use]
     pub fn with_wire_version(mut self, version: WireVersion) -> Self {
         self.wire_version = version;
@@ -331,6 +344,16 @@ impl EncoderConfig {
     #[must_use]
     pub fn with_shared_dict(mut self, enabled: bool) -> Self {
         self.allow_shared_dict = enabled;
+        self
+    }
+
+    /// Allow float columns to store one code per value into a dictionary of the distinct ones.
+    /// Off by default, and only v2 can express it.
+    /// A column takes it only when it comes out strictly smaller in stored bytes.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn with_float_dict(mut self, enabled: bool) -> Self {
+        self.allow_float_dict = enabled;
         self
     }
 }

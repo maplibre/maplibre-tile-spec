@@ -5,6 +5,8 @@ use fastpfor::FastPFor256;
 
 use crate::codecs::bytes::encode_bools_to_bytes;
 use crate::codecs::rle::encode_byte_rle;
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::FloatLogical;
 use crate::decoder::{
     BoolLogical, IntLogical, LogicalEncoding, PhysicalEncoding, RleMeta, StreamMeta, StreamType,
     ValueKind,
@@ -12,6 +14,9 @@ use crate::decoder::{
 use crate::encoder;
 use crate::encoder::Encoder;
 use crate::encoder::model::StreamCtx;
+use crate::encoder::stream::float_dict::FloatBits;
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::stream::float_dict::FloatDict;
 use crate::encoder::stream::logical::LogicalEncoder;
 use crate::encoder::stream::optimizer::DataProfile;
 use crate::encoder::write::{LogicalIntCodec, LogicalIntStreamKind, PhysicalIntStreamKind};
@@ -87,11 +92,14 @@ impl Codecs {
         self.write_bool_stream(values, StreamType::Present, enc)
     }
 
-    #[expect(
-        clippy::unused_self,
-        reason = "kept as a Codecs method to match the other stream writers"
+    #[cfg_attr(
+        not(feature = "unstable-v2"),
+        expect(
+            clippy::unused_self,
+            reason = "kept as a Codecs method to match the other stream writers"
+        )
     )]
-    pub(crate) fn write_float_stream<T: NoUninit>(
+    pub(crate) fn write_float_stream<T: NoUninit + FloatBits>(
         &mut self,
         values: &[T],
         stream_type: StreamType,
@@ -100,8 +108,44 @@ impl Codecs {
         #[cfg(not(target_endian = "little"))]
         compile_error!("not implemented for non-little-endian targets");
 
+        #[cfg(feature = "unstable-v2")]
+        if enc.config().allow_float_dict()
+            && let Some(dict) = FloatDict::worth_building(values)
+        {
+            return self.write_float_dict_streams(values, &dict, stream_type, enc);
+        }
+
         let meta = StreamMeta::new_none(stream_type, ValueKind::Float, values.len())?;
         encoder::write_stream_payload(enc, meta, false, cast_slice(values))
+    }
+
+    /// Write a float column as a codes stream followed by its dictionary.
+    /// Codes first, so only the dictionary needs a count in its header.
+    #[cfg(feature = "unstable-v2")]
+    fn write_float_dict_streams<T: NoUninit + FloatBits>(
+        &mut self,
+        values: &[T],
+        dict: &FloatDict<T>,
+        stream_type: StreamType,
+        enc: &mut Encoder,
+    ) -> MltResult<()> {
+        use crate::decoder::DictionaryType;
+
+        let codes_meta = StreamMeta::new2(
+            stream_type,
+            LogicalEncoding::Float(FloatLogical::Dict),
+            PhysicalEncoding::VarInt,
+            values.len(),
+        )?;
+        let codes = self.physical.varint(&dict.codes);
+        encoder::write_stream_payload(enc, codes_meta, false, codes)?;
+
+        let values_meta = StreamMeta::new_none(
+            StreamType::Data(DictionaryType::Single),
+            ValueKind::Float,
+            dict.values.len(),
+        )?;
+        encoder::write_stream_payload(enc, values_meta, false, cast_slice(&dict.values))
     }
 
     pub(crate) fn write_int_stream<T>(
