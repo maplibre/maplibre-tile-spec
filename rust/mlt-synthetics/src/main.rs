@@ -910,58 +910,44 @@ fn generate_properties(w: &mut SynthWriter) {
 
     let e_str = E::varint();
     p0().add_prop(e_str, P::str("val", [""]))
-        .no_v2()
         .write(w, "prop_str_empty_np");
     p0().add_prop(e_str, P::opt_str("val", [Some("")]))
-        .no_v2()
         .write(w, "prop_str_empty");
     p0().add_prop(e_str, P::str("val", ["42"]))
-        .no_v2()
         .write(w, "prop_str_ascii_np");
     p0().add_prop(e_str, P::opt_str("val", [Some("42")]))
-        .no_v2()
         .write(w, "prop_str_ascii");
     p0().add_prop(e_str, P::str("val", ["Line1\n\t\"quoted\"\\path"]))
-        .no_v2()
         .write(w, "prop_str_escape_np");
     p0().add_prop(
         e_str,
         P::opt_str("val", [Some("Line1\n\t\"quoted\"\\path")]),
     )
-    .no_v2()
     .write(w, "prop_str_escape");
     p0().add_prop(e_str, P::str("val", ["München 📍 cafe\u{0301}"]))
-        .no_v2()
         .write(w, "prop_str_unicode_np");
     p0().add_prop(e_str, P::opt_str("val", [Some("München 📍 cafe\u{0301}")]))
-        .no_v2()
         .write(w, "prop_str_unicode");
     p0().add_prop(e_str, P::str("val", ["hello\u{0000} world\n"]))
-        .no_v2()
         .write(w, "prop_str_special_np");
     p0().add_prop(e_str, P::opt_str("val", [Some("hello\u{0000} world\n")]))
-        .no_v2()
         .write(w, "prop_str_special");
     // Two-feature optional str variants
     geo_varint_with_rle()
         .geos([P0, P0])
         .add_prop(e_str, P::opt_str("val", [Some("42"), None]))
-        .no_v2()
         .write(w, "prop_str_val_null");
     geo_varint_with_rle()
         .geos([P0, P0])
         .add_prop(e_str, P::opt_str("val", [None, Some("42")]))
-        .no_v2()
         .write(w, "prop_str_null_val");
     geo_varint_with_rle()
         .geos([P0, P0])
         .add_prop(e_str, P::opt_str("val", [Some(""), None]))
-        .no_v2()
         .write(w, "prop_str_val_empty");
     geo_varint_with_rle()
         .geos([P0, P0])
         .add_prop(e_str, P::opt_str("val", [None, Some("")]))
-        .no_v2()
         .write(w, "prop_str_empty_val");
 
     p0().add_prop(E::varint(), P::bool("active", vec![true]))
@@ -972,7 +958,6 @@ fn generate_properties(w: &mut SynthWriter) {
         .add_prop(E::varint(), P::str("name", ["Test Point"]))
         .add_prop(E::varint(), P::f64("precision", vec![0.123_456_789]))
         .add_prop(E::varint(), P::f32("temp", vec![25.5]))
-        .no_v2()
         .write(w, "props_mixed_np");
     p0().add_prop(E::varint(), P::opt_bool("active", vec![Some(true)]))
         .add_prop(E::varint(), P::opt_u64("biggest", vec![Some(0)]))
@@ -985,7 +970,6 @@ fn generate_properties(w: &mut SynthWriter) {
             P::opt_f64("precision", vec![Some(0.123_456_789)]),
         )
         .add_prop(E::varint(), P::opt_f32("temp", vec![Some(25.5)]))
-        .no_v2()
         .write(w, "props_mixed");
 
     generate_props_i32(w);
@@ -1325,26 +1309,23 @@ fn generate_props_str(w: &mut SynthWriter) {
     // _np variant: non-optional (CT::Str, no presence stream)
     six_points()
         .add_prop(E::varint(), P::str("val", str_vals))
-        .no_v2()
-        .write(w, "props_str_np");
+        .write_per_version(w, "props_str_np", "props_str_plain_np");
     // canonical: all-present optional (CT::OptStr + presence), matching Java's format
     six_points()
         .add_prop(E::varint(), P::opt_str("val", str_vals.map(Some)))
-        .no_v2()
-        .write(w, "props_str");
+        .write_per_version(w, "props_str", "props_str_plain");
     // FSST variants - same split
     six_points()
         .add_prop_str_fsst(E::varint(), E::varint(), P::str("val", str_vals))
-        .no_v2()
-        .write(w, "props_str_fsst_np");
+        .write_per_version(w, "props_str_fsst_np", "props_str_fsst_np");
     six_points()
         .add_prop_str_fsst(
             E::varint(),
             E::varint(),
             P::opt_str("val", str_vals.map(Some)),
         )
-        .no_v2()
-        .write(w, "props_str_fsst"); // FSST compression output is not byte-for-byte consistent with Java's
+        // FSST compression output is not byte-for-byte consistent with Java's
+        .write_per_version(w, "props_str_fsst", "props_str_fsst");
 
     // Two features with the same 30-char value -> deduplicated dictionary encoding.
     // 30 chars because otherwise FSST is skipped.
@@ -1357,16 +1338,14 @@ fn generate_props_str(w: &mut SynthWriter) {
             E::rle_varint(),
             P::str("val", [long_string(), long_string()]),
         )
-        .no_v2()
-        .write(w, "props_offset_str_np");
+        .write_per_version(w, "props_offset_str_np", "props_str_dict_np");
     two_pts()
         .add_prop_str_dict(
             E::varint(),
             E::rle_varint(),
             P::opt_str("val", [Some(long_string()), Some(long_string())]),
         )
-        .no_v2()
-        .write(w, "props_offset_str");
+        .write_per_version(w, "props_offset_str", "props_str_dict");
     two_pts()
         .add_prop_str_fsst_dict(
             E::varint(),
@@ -1374,8 +1353,7 @@ fn generate_props_str(w: &mut SynthWriter) {
             E::rle_varint(),
             P::str("val", [long_string(), long_string()]),
         )
-        .no_v2()
-        .write(w, "props_offset_str_fsst_np");
+        .write_per_version(w, "props_offset_str_fsst_np", "props_str_fsst_dict_np");
     two_pts()
         .add_prop_str_fsst_dict(
             E::varint(),
@@ -1383,8 +1361,43 @@ fn generate_props_str(w: &mut SynthWriter) {
             E::rle_varint(),
             P::opt_str("val", [Some(long_string()), Some(long_string())]),
         )
-        .no_v2()
-        .write(w, "props_offset_str_fsst");
+        .write_per_version(w, "props_offset_str_fsst", "props_str_fsst_dict");
+
+    // Null-first columns, whose nulls v1 stores in a presence stream and v2 in the column's bitfield.
+    let sparse = |values: [&str; 4]| {
+        let mut vals: Vec<Option<String>> = vec![None; 6];
+        for (slot, value) in [1_usize, 2, 4, 5].into_iter().zip(values) {
+            vals[slot] = Some(value.to_string());
+        }
+        vals
+    };
+    let distinct = || sparse([str_vals[0], str_vals[1], str_vals[2], str_vals[3]]);
+    let repeated = || {
+        let long = long_string();
+        sparse([&long, &long, str_vals[0], &long])
+    };
+
+    six_points()
+        .add_prop(E::varint(), P::opt_str("val", distinct()))
+        .write_per_version(w, "props_str_nulls-rust", "props_str_plain_nulls");
+    six_points()
+        .add_prop_str_dict(E::varint(), E::rle_varint(), P::opt_str("val", repeated()))
+        .write_per_version(w, "props_offset_str_nulls-rust", "props_str_dict_nulls");
+    six_points()
+        .add_prop_str_fsst(E::varint(), E::varint(), P::opt_str("val", distinct()))
+        .write_per_version(w, "props_str_fsst_nulls", "props_str_fsst_nulls");
+    six_points()
+        .add_prop_str_fsst_dict(
+            E::varint(),
+            E::varint(),
+            E::rle_varint(),
+            P::opt_str("val", repeated()),
+        )
+        .write_per_version(
+            w,
+            "props_offset_str_fsst_nulls",
+            "props_str_fsst_dict_nulls",
+        );
 }
 
 fn generate_shared_dictionaries(w: &mut SynthWriter) {

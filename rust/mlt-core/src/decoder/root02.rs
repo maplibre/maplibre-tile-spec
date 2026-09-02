@@ -39,11 +39,12 @@ use crate::LazyParsed::Raw;
 use crate::MltError::{BufferUnderflow, MissingLayerName, TrailingLayerData};
 use crate::codecs::varint::parse_varint;
 use crate::decoder::stream::header02;
-use crate::decoder::stream::header02::StreamCtx02;
+use crate::decoder::stream::header02::{StrLayout, StreamCtx02};
 use crate::decoder::{
-    ColumnType02, DataType02, FloatLogical, GeoLayout, Id, Layer01, LayerLayout, LengthType,
-    LogicalEncoding, Presence02, RawFloats, RawFloatsEncoding, RawGeometry, RawId, RawIdValue,
-    RawPresence, RawScalar, RawStream,
+    ColumnType02, DataType02, DictionaryType, FloatLogical, GeoLayout, Id, Layer01, LayerLayout,
+    LengthType, LogicalEncoding, Presence02, RawFloats, RawFloatsEncoding, RawFsstData,
+    RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawScalar, RawStream, RawStrings,
+    RawStringsEncoding,
 };
 use crate::tile::Extent;
 use crate::utils::{SetOptionOnce as _, parse_string, parse_u8, take};
@@ -103,15 +104,23 @@ pub(crate) fn parse_layer02<'a>(
             RawPresence::Bitfield(bits) => u32::try_from(bits.count_ones())?,
             RawPresence::AllPresent | RawPresence::Stream(_) => feature_count,
         };
-        let ctx = StreamCtx02::Property(typ.data);
-        let value;
-        (input, value) = header02::parse_stream(input, ctx, data_count, parser)?;
-
         #[cfg(fuzzing)]
         layer_order.push(match typ.data {
             DataType02::Id | DataType02::LongId => crate::decoder::fuzzing::LayerOrdering::Id,
             _ => crate::decoder::fuzzing::LayerOrdering::Property,
         });
+
+        // A string column reads a stream set of its own, the rest one data stream.
+        if typ.data == DataType02::Str {
+            let strings;
+            (input, strings) = parse_strings(input, name, presence, data_count, parser)?;
+            properties.push(Raw(RP::Str(strings)));
+            continue;
+        }
+
+        let ctx = StreamCtx02::Property(typ.data);
+        let value;
+        (input, value) = header02::parse_stream(input, ctx, data_count, parser)?;
 
         let prop = match typ.data {
             DataType02::Id => {
@@ -144,6 +153,7 @@ pub(crate) fn parse_layer02<'a>(
                     RP::F64(floats)
                 }
             }
+            DataType02::Str => unreachable!("string columns are read before this match"),
         };
         properties.push(Raw(prop));
     }
@@ -194,6 +204,68 @@ fn parse_floats<'a>(
     Ok((
         input,
         RawFloats {
+            name,
+            presence,
+            encoding,
+        },
+    ))
+}
+
+/// Parse a string column, whose leading stream's extension bits name the layout the rest follow.
+///
+/// Every stream but that leading one carries an explicit count, or, for the byte
+/// blobs, none at all, so `count` is only ever the leading stream's context.
+fn parse_strings<'a>(
+    input: &'a [u8],
+    name: &'a str,
+    presence: RawPresence<'a>,
+    count: u32,
+    parser: &mut Parser,
+) -> MltRefResult<'a, RawStrings<'a>> {
+    // The layout is in the leading stream's encoding byte, which its own context is needed to read.
+    let (_, enc_byte) = parse_u8(input)?;
+    let layout = StrLayout::from_bits(enc_byte);
+    let stream = |input: &'a [u8], ctx, parser: &mut Parser| {
+        header02::parse_stream(input, ctx, count, parser)
+    };
+    let (input, leading) = stream(input, StreamCtx02::StrData(layout), parser)?;
+
+    let (input, encoding) = match layout {
+        StrLayout::Plain => {
+            let (input, data) = stream(input, StreamCtx02::StrBlob(DictionaryType::None), parser)?;
+            let plain = RawPlainData::new(leading, data)?;
+            (input, RawStringsEncoding::plain(plain))
+        }
+        StrLayout::Dict => {
+            let (input, lengths) = stream(input, StreamCtx02::StrDictLengths, parser)?;
+            let (input, data) =
+                stream(input, StreamCtx02::StrBlob(DictionaryType::Single), parser)?;
+            let plain = RawPlainData::new(lengths, data)?;
+            (input, RawStringsEncoding::dictionary(plain, leading)?)
+        }
+        StrLayout::Fsst => {
+            let (input, symbol_lengths) = stream(input, StreamCtx02::StrSymbolLengths, parser)?;
+            let (input, symbols) =
+                stream(input, StreamCtx02::StrBlob(DictionaryType::Fsst), parser)?;
+            let (input, corpus) =
+                stream(input, StreamCtx02::StrBlob(DictionaryType::Single), parser)?;
+            let fsst = RawFsstData::new(symbol_lengths, symbols, leading, corpus)?;
+            (input, RawStringsEncoding::fsst_plain(fsst))
+        }
+        StrLayout::FsstDict => {
+            let (input, lengths) = stream(input, StreamCtx02::StrDictLengths, parser)?;
+            let (input, symbol_lengths) = stream(input, StreamCtx02::StrSymbolLengths, parser)?;
+            let (input, symbols) =
+                stream(input, StreamCtx02::StrBlob(DictionaryType::Fsst), parser)?;
+            let (input, corpus) =
+                stream(input, StreamCtx02::StrBlob(DictionaryType::Single), parser)?;
+            let fsst = RawFsstData::new(symbol_lengths, symbols, lengths, corpus)?;
+            (input, RawStringsEncoding::fsst_dictionary(fsst, leading)?)
+        }
+    };
+    Ok((
+        input,
+        RawStrings {
             name,
             presence,
             encoding,
