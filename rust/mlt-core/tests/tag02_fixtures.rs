@@ -19,6 +19,7 @@ fn cfg(version: WireVersion) -> EncoderConfig {
         .with_wire_version(version)
 }
 
+#[expect(clippy::wildcard_enum_match_arm, reason = "Layer is non_exhaustive")]
 fn decode(bytes: &[u8], expected_tag: u8) -> TileLayer {
     let mut parser = Parser::default();
     let layers = parser.parse_layers(bytes).expect("parse");
