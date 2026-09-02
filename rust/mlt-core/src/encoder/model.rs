@@ -243,9 +243,8 @@ impl Default for EncoderConfig {
             allow_fsst: true,
             allow_fastpfor: true,
             allow_shared_dict: true,
-            // Off by default while the encoding is still being measured.
             #[cfg(feature = "unstable-v2")]
-            allow_float_dict: false,
+            allow_float_dict: true,
         }
     }
 }
