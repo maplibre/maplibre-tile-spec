@@ -2,8 +2,8 @@
 source: mlt-core/tests/tag02_roundtrip.rs
 expression: dump_text(&l.encode(cfg_v2()).unwrap())
 ---
-00000000                                                                     | layer[0] (644 B)
-00000000  82 05                                             ..               |   size: 642 (varint) - tag + body
+00000000                                                                     | layer[0] (624 B)
+00000000  ee 04                                             ..               |   size: 622 (varint) - tag + body
 00000002  02                                                .                |   tag: 0x02 -> Tag02
 00000003  0a 74 65 73 74 5f 6c 61 79 65 72                  .test_layer      |   name: "test_layer"
 0000000e  80 20                                             .                |   extent: 4096
@@ -35,8 +35,8 @@ expression: dump_text(&l.encode(cfg_v2()).unwrap())
 00000019  00 00 02 00 02 00 02 00 02 00                     ..........       |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 10 values, 10 B]
                                                                              |         decoded: [0, 0, 1, 0, 2, 0, 3, 0, 4, 0]
 00000023  01                                                .                |   column_count: 1
-00000024                                                                     |   columns (608 B)
-00000024                                                                     |     column[0] Str "v" (608 B)
+00000024                                                                     |   columns (588 B)
+00000024                                                                     |     column[0] Str "v" (588 B)
 00000024  0b                                                .                |       type: 0x0B AllPresent Str
                                                                              |         └ bits 7-4 = 0000 -> presence = AllPresent
                                                                              |         └ bits 3-0 = 1011 -> data type = Str
@@ -49,8 +49,8 @@ expression: dump_text(&l.encode(cfg_v2()).unwrap())
                                                                              |             └ bits 3-2 = 00 -> physical = implied
                                                                              |             └ bits 1-0 = 10 -> string layout = Fsst
 00000028  03                                                .                |           byte_length: 3
-00000029  05 a0 04                                          ...              |         data [Length(Dictionary) Int(Rle(Interleaved { num_rle_values: 5 }))/VarInt, 5 values, 3 B]
-                                                                             |           decoded: [544, 544, 544, 544, 544]
+00000029  05 80 04                                          ...              |         data [Length(Dictionary) Int(Rle(Interleaved { num_rle_values: 5 }))/VarInt, 5 values, 3 B]
+                                                                             |           decoded: [512, 512, 512, 512, 512]
 0000002c                                                                     |       symbol_lengths (11 B)
 0000002c                                                                     |         header (3 B)
 0000002c  a0                                                .                |           encoding: 0xA0 logical=Rle physical=implied
@@ -58,52 +58,50 @@ expression: dump_text(&l.encode(cfg_v2()).unwrap())
                                                                              |             └ bits 6-4 = 010 -> logical = Rle, numbered for a v2 integer stream
                                                                              |             └ bits 3-2 = 00 -> physical = implied
                                                                              |             └ bits 1-0 = 00 -> extension = 0
-0000002d  22                                                "                |           num_values: 34
+0000002d  1a                                                .                |           num_values: 26
 0000002e  08                                                .                |           byte_length: 8
-0000002f  05 02 01 06 0f 08 0d 01                           ........         |         data [Length(Symbol) Int(Rle(Interleaved { num_rle_values: 34 }))/VarInt, 34 values, 8 B]
-                                                                             |           decoded: [2, 2, 2, 2, 2, 6, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-00000037                                                                     |       symbol_table (152 B)
-00000037                                                                     |         header (3 B)
+0000002f  01 02 01 06 0c 08 0c 01                           ........         |         data [Length(Symbol) Int(Rle(Interleaved { num_rle_values: 26 }))/VarInt, 26 values, 8 B]
+                                                                             |           decoded: [2, 6, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+00000037                                                                     |       symbol_table (118 B)
+00000037                                                                     |         header (2 B)
 00000037  04                                                .                |           encoding: 0x04 logical=None physical=WithLen
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> a blob's byte length is its value count
                                                                              |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 byte blob
                                                                              |             └ bits 3-2 = 01 -> physical = WithLen
                                                                              |             └ bits 1-0 = 00 -> extension = 0
-00000038  95 01                                             ..               |           byte_length: 149
-0000003a  30 34 30 30 5f 30 30 5f 31 5f 32 5f 72 65 73 69   0400_00_1_2_resi |         data [Data(Fsst) Int(None)/None, 149 values, 149 B]
-0000004a  5f 6e 6f 72 74 68 5f 73 69 61 6c 5f 7a 6f 6e 65   _north_sial_zone | 
-0000005a  65 63 74 6f 72 5f 30 30 72 65 73 69 64 65 6e 74   ector_00resident | 
-0000006a  5f 73 65 63 74 6f 72 5f 64 65 6e 74 69 61 6c 5f   _sector_dential_ | 
-0000007a  6e 74 69 61 6c 5f 7a 6f 6e 65 5f 6e 6f 72 74 68   ntial_zone_north | 
-0000008a  74 68 5f 73 65 63 74 6f 7a 6f 6e 65 5f 6e 6f 72   th_sectozone_nor | 
-0000009a  33 5f 72 65 73 69 64 65 5f 72 65 73 69 64 65 6e   3_reside_residen | 
-000000aa  73 65 63 74 6f 72 5f 30 74 69 61 6c 5f 7a 6f 6e   sector_0tial_zon | 
-000000ba  65 5f 6e 6f 72 74 68 5f 5f 30 72 65 69 6e 74 32   e_north__0reint2 | 
-000000ca  7a 31 33 64 73                                    z13ds            | 
-                                                                             |           decoded: utf-8 "0400_00_1_2_resi_north_sial_zoneector_00resident_sector_dential_ntial_zone_northth_sectozone_nor3_reside_residensector_0tial_zone_north__0reint2z13ds"
-000000cf                                                                     |       corpus (437 B)
-000000cf                                                                     |         header (3 B)
-000000cf  04                                                .                |           encoding: 0x04 logical=None physical=WithLen
+00000038  74                                                t                |           byte_length: 116
+00000039  62 5f 63 5f 72 65 73 69 6e 74 69 61 6c 5f 7a 6f   b_c_resintial_zo |         data [Data(Fsst) Int(None)/None, 116 values, 116 B]
+00000049  6e 65 5f 6e 6f 72 74 68 5f 73 65 63 74 6f 72 5f   ne_north_sector_ | 
+00000059  6f 6e 65 5f 6e 6f 72 74 61 5f 72 65 73 69 64 65   one_norta_reside | 
+00000069  64 5f 72 65 73 69 64 65 65 6e 74 69 61 6c 5f 7a   d_resideential_z | 
+00000079  65 5f 72 65 73 69 64 65 69 64 65 6e 74 69 61 6c   e_resideidential | 
+00000089  5f 7a 6f 6e 65 5f 6e 6f 72 74 68 5f 73 65 63 74   _zone_north_sect | 
+00000099  68 5f 73 65 63 74 6f 72 5f 6e 65 72 64 6f 63 61   h_sector_nerdoca | 
+000000a9  68 62 73 69                                       hbsi             | 
+                                                                             |           decoded: utf-8 "b_c_resintial_zone_north_sector_one_norta_resided_resideential_ze_resideidential_zone_north_secth_sector_nerdocahbsi"
+000000ad                                                                     |       corpus (451 B)
+000000ad                                                                     |         header (3 B)
+000000ad  04                                                .                |           encoding: 0x04 logical=None physical=WithLen
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> a blob's byte length is its value count
                                                                              |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 byte blob
                                                                              |             └ bits 3-2 = 01 -> physical = WithLen
                                                                              |             └ bits 1-0 = 00 -> extension = 0
-000000d0  b2 03                                             ..               |           byte_length: 434
-000000d2  09 07 06 08 03 09 07 06 08 03 09 07 06 08 03 09   ................ |         data [Data(Single) Int(None)/None, 434 values, 434 B]
-000000e2  07 06 08 03 09 07 06 08 03 09 07 06 08 03 09 07   ................ | 
-000000f2  06 08 03 09 07 06 08 03 09 07 06 08 03 09 07 06   ................ | 
-00000102  08 03 09 07 06 08 03 09 07 06 08 03 09 07 06 08   ................ | 
-00000112  03 09 07 06 08 03 09 07 06 08 03 09 07 06 08 03   ................ | 
-00000122  09 07 06 08 04 09 07 06 08 04 09 07 06 08 04 09   ................ | 
-00000132  07 06 08 04 09 07 06 08 04 09 07 06 08 04 09 07   ................ | 
-00000142  06 08 04 09 07 06 08 04 09 07 06 08 04 09 07 06   ................ | 
-00000152  08 04 09 07 06 08 04 09 07 06 08 04 09 07 06 08   ................ | 
-00000162  04 09 07 06 08 04 09 07 06 08 04 09 07 06 08 04   ................ | 
-00000172  09 07 06 08 05 0b 0f 0e 17 02 16 05 0b 0f 0e 17   ................ | 
-00000182  02 16 05 0b 0f 0e 17 02 16 05 0b 0f 0e 17 02 16   ................ | 
-00000192  05 0b 0f 0e 17 02 16 05 0b 0f 0e 17 02 16 05 0b   ................ | 
-000001a2  0f 0e 17 02 16 05 0b 0f 0e 17 02 16 05 0b 0f 0e   ................ | 
-000001b2  17 02 16 05 0b 0f 0e 17 02 16 05 0b 0f 0e 17 02   ................ | 
-000001c2  16 05 0b 0f 0e 17 02 16 05 0b 0f 0e 17 02 16 05   ................ | 
-                                                                             |           … 178 more bytes omitted (--max-blob to change)
-                                                                             |           decoded: <434 binary bytes>
+000000ae  c0 03                                             ..               |           byte_length: 448
+000000b0  06 02 03 04 06 02 03 04 06 02 03 04 06 02 03 04   ................ |         data [Data(Single) Int(None)/None, 448 values, 448 B]
+000000c0  06 02 03 04 06 02 03 04 06 02 03 04 06 02 03 04   ................ | 
+000000d0  06 02 03 04 06 02 03 04 06 02 03 04 06 02 03 04   ................ | 
+000000e0  06 02 03 04 06 02 03 04 06 02 03 04 06 02 03 04   ................ | 
+000000f0  00 11 10 18 0a 0b 0c 13 11 0e 00 11 10 18 0a 0b   ................ | 
+00000100  0c 13 11 0e 00 11 10 18 0a 0b 0c 13 11 0e 00 11   ................ | 
+00000110  10 18 0a 0b 0c 13 11 0e 00 11 10 18 0a 0b 0c 13   ................ | 
+00000120  11 0e 00 11 10 18 0a 0b 0c 13 11 0e 00 11 10 18   ................ | 
+00000130  0a 0b 0c 13 11 0e 00 11 10 18 0a 0b 0c 13 11 0e   ................ | 
+00000140  00 11 10 18 0a 0b 0c 13 11 0e 00 11 10 18 0a 0b   ................ | 
+00000150  0c 13 11 0e 00 11 10 18 0a 0b 0c 13 11 0e 00 11   ................ | 
+00000160  10 18 0a 0b 0c 13 11 0e 00 11 10 18 0a 0b 0c 13   ................ | 
+00000170  11 0e 00 11 10 18 0a 0b 0c 13 11 0e 00 11 10 18   ................ | 
+00000180  0a 0b 0c 13 11 0e 00 11 10 18 0a 0b 0c 13 11 0e   ................ | 
+00000190  01 12 08 05 0d 0e 01 12 08 05 0d 0e 01 12 08 05   ................ | 
+000001a0  0d 0e 01 12 08 05 0d 0e 01 12 08 05 0d 0e 01 12   ................ | 
+                                                                             |           … 192 more bytes omitted (--max-blob to change)
+                                                                             |           decoded: utf-8 "\u{6}\u{2}\u{3}\u{4}\u{6}\u{2}\u{3}\u{4}\u{6}\u{2}\u{3}\u{4}\u{6}\u{2}\u{3}\u{4}\u{6}\u{2}\u{3}\u{4}\u{6}\u{2}\u{3}\u{4}\u{6}\u{2}\u{3}\u{4}\u{6}\u{2}\u{3}\u{4}\u{6}\u{2}\u{3}\u{4}\u{6}\u{2}\u{3}\u{4}\u{6}\u{2}\u{3}\u{4}\u{6}\u{2}\u{3}\u{4}\u{6}\u{2}\u{3}\u{4}\u{6}\u{2}\u{3}\u{4}\u{6}\u{2}\u{3}\u{4}\u{6}\u{2}\u{3}\u{4}\0\u{11}\u{10}\u{18}\n\u{b}\u{c}\u{13}\u{11}\u{e}\0\u{11}\u{10}\u{18}\n\u{b}\u{c}\u{13}\u{11}\u{e}\0\u{11}\u{10}\u{18}\n\u{b}\u{c}\u{13}\u{11}\u{e}\0\u{11}\u{10}\u{18}\n\u{b}\u{c}\u{13}\u{11}\u{e}\0\u{11}\u{10}\u{18}\n\u{b}\u{c}\u{13}\u{11}\u{e}\0\u{11}\u{10}\u{18}\n\u{b}\u{c}\u{13}\u{11}\u{e}\0\u{11}\u{10}\u{18}\n\u{b}\u{c}\u{13}\u{11}\u{e}\0\u{11}\u{10}\u{18}\n\u{b}\u{c}\u{13}\u{11}\u{e}\0\u{11}\u{10}\u{18}\n\u{b}\u{c}\u{13}\u{11}\u{e}\0\u{11}\u{10}\u{18}\n\u{b}\u{c}\u{13}\u{11}\u{e}\0\u{11}\u{10}\u{18}\n\u{b}\u{c}\u{13}\u{11}\u{e}\0\u{11}\u{10}\u{18}\n\u{b}\u{c}\u{13}\u{11}\u{e}\0\u{11}\u{10}\u{18}\n\u{b}\u{c}\u{13}\u{11}\u{e}\0\u{11}\u{10}\u{18}\n\u{b}…"

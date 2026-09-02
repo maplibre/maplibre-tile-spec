@@ -120,6 +120,8 @@ pub enum MltError {
     #[cfg(feature = "unstable-v2")]
     #[error("dictionary code {0} is out of range for a dictionary of {1} values")]
     DictionaryCodeOutOfRange(u32, usize),
+    #[error("front-coded dictionary is malformed: {0}")]
+    MalformedFrontCoding(&'static str),
     #[cfg(feature = "unstable-v2")]
     #[error("no ALP parameters return this float column bit-for-bit")]
     NoAlpParameters,

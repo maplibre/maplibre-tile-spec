@@ -2,8 +2,8 @@
 source: mlt-core/tests/tag02_roundtrip.rs
 expression: dump_text(&l.encode(cfg_v2()).unwrap())
 ---
-00000000                                                                     | layer[0] (66 B)
-00000000  41                                                A                |   size: 65 (varint) - tag + body
+00000000                                                                     | layer[0] (94 B)
+00000000  5d                                                ]                |   size: 93 (varint) - tag + body
 00000001  02                                                .                |   tag: 0x02 -> Tag02
 00000002  0a 74 65 73 74 5f 6c 61 79 65 72                  .test_layer      |   name: "test_layer"
 0000000d  80 20                                             .                |   extent: 4096
@@ -35,8 +35,8 @@ expression: dump_text(&l.encode(cfg_v2()).unwrap())
 00000018  00 00 02 00 02 00 02 00                           ........         |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 8 values, 8 B]
                                                                              |         decoded: [0, 0, 1, 0, 2, 0, 3, 0]
 00000020  01                                                .                |   column_count: 1
-00000021                                                                     |   columns (33 B)
-00000021                                                                     |     column[0] Str "v" (33 B)
+00000021                                                                     |   columns (61 B)
+00000021                                                                     |     column[0] Str "v" (61 B)
 00000021  0b                                                .                |       type: 0x0B AllPresent Str
                                                                              |         └ bits 7-4 = 0000 -> presence = AllPresent
                                                                              |         └ bits 3-0 = 1011 -> data type = Str
@@ -49,16 +49,18 @@ expression: dump_text(&l.encode(cfg_v2()).unwrap())
                                                                              |             └ bits 3-2 = 00 -> physical = implied
                                                                              |             └ bits 1-0 = 00 -> string layout = Plain
 00000025  02                                                .                |           byte_length: 2
-00000026  04 06                                             ..               |         data [Length(VarBinary) Int(Rle(Interleaved { num_rle_values: 4 }))/VarInt, 4 values, 2 B]
-                                                                             |           decoded: [6, 6, 6, 6]
-00000028                                                                     |       values (26 B)
+00000026  04 0d                                             ..               |         data [Length(VarBinary) Int(Rle(Interleaved { num_rle_values: 4 }))/VarInt, 4 values, 2 B]
+                                                                             |           decoded: [13, 13, 13, 13]
+00000028                                                                     |       values (54 B)
 00000028                                                                     |         header (2 B)
 00000028  04                                                .                |           encoding: 0x04 logical=None physical=WithLen
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> a blob's byte length is its value count
                                                                              |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 byte blob
                                                                              |             └ bits 3-2 = 01 -> physical = WithLen
                                                                              |             └ bits 1-0 = 00 -> extension = 0
-00000029  18                                                .                |           byte_length: 24
-0000002a  7a 6f 6e 65 5f 30 7a 6f 6e 65 5f 31 7a 6f 6e 65   zone_0zone_1zone |         data [Data(None) Int(None)/None, 24 values, 24 B]
-0000003a  5f 32 7a 6f 6e 65 5f 33                           _2zone_3         | 
-                                                                             |           decoded: utf-8 "zone_0zone_1zone_2zone_3"
+00000029  34                                                4                |           byte_length: 52
+0000002a  61 5f 7a 6f 6e 65 5f 6d 61 72 6b 65 72 62 5f 7a   a_zone_markerb_z |         data [Data(None) Int(None)/None, 52 values, 52 B]
+0000003a  6f 6e 65 5f 6d 61 72 6b 65 72 63 5f 7a 6f 6e 65   one_markerc_zone | 
+0000004a  5f 6d 61 72 6b 65 72 64 5f 7a 6f 6e 65 5f 6d 61   _markerd_zone_ma | 
+0000005a  72 6b 65 72                                       rker             | 
+                                                                             |           decoded: utf-8 "a_zone_markerb_zone_markerc_zone_markerd_zone_marker"
