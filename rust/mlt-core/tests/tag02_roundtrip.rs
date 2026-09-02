@@ -579,23 +579,6 @@ fn an_optional_id_shares_its_presence_bitfield_with_a_column() {
 }
 
 #[test]
-fn string_columns_not_yet_supported() {
-    let l = layer(
-        vec![pt(0, 0), pt(1, 1)],
-        None,
-        &[(
-            "name",
-            vec![
-                PropValue::Str(Some("a".to_string())),
-                PropValue::Str(Some("b".to_string())),
-            ],
-        )],
-    );
-    let err = l.encode(cfg_v2()).unwrap_err();
-    assert!(err.to_string().contains("not"), "unexpected error: {err}");
-}
-
-#[test]
 fn tessellation_not_yet_supported() {
     let l = layer(
         vec![Geometry::Polygon(Polygon::new(
@@ -607,6 +590,144 @@ fn tessellation_not_yet_supported() {
     );
     let err = l.encode(cfg_v2().with_tessellation(true)).unwrap_err();
     assert!(err.to_string().contains("not"), "unexpected error: {err}");
+}
+
+mod strings {
+    use super::*;
+
+    /// A value long and repetitive enough for FSST to pay off its symbol table.
+    fn long(seed: usize) -> String {
+        format!("residential_zone_north_sector_{seed:03}_").repeat(16)
+    }
+
+    /// Distinct short values, which neither a dictionary nor a symbol table improves on.
+    fn plain_values(n: usize) -> Vec<String> {
+        (0..n).map(|i| format!("zone_{i}")).collect()
+    }
+
+    /// Two long values alternating, which is what a dictionary is for.
+    fn dict_values(n: usize) -> Vec<String> {
+        (0..n)
+            .map(|i| format!("{}{}", "A".repeat(30), i % 2))
+            .collect()
+    }
+
+    /// Distinct values FSST compresses, so a dictionary of them would only add codes.
+    fn fsst_values(n: usize) -> Vec<String> {
+        (0..n).map(long).collect()
+    }
+
+    /// Four of those repeated, so the dictionary and the symbol table both pay off.
+    fn fsst_dict_values(n: usize) -> Vec<String> {
+        (0..n).map(|i| long(i % 4)).collect()
+    }
+
+    type Values = fn(usize) -> Vec<String>;
+
+    fn column(values: impl IntoIterator<Item = Option<String>>) -> TileLayer {
+        let values: Vec<PropValue> = values.into_iter().map(PropValue::Str).collect();
+        layer(points(&"1".repeat(values.len())), None, &[("v", values)])
+    }
+
+    /// The layout of every string column in the tile, in wire order.
+    fn layouts(bytes: &[u8]) -> Vec<String> {
+        dump_text(bytes)
+            .lines()
+            .filter_map(|line| line.split_once("string layout = "))
+            .map(|(_, layout)| layout.trim().to_string())
+            .collect()
+    }
+
+    #[rstest]
+    #[case::plain(plain_values as Values, "Plain")]
+    #[case::dict(dict_values as Values, "Dict")]
+    #[case::fsst(fsst_values as Values, "Fsst")]
+    #[case::fsst_dict(fsst_dict_values as Values, "FsstDict")]
+    fn each_layout_round_trips(#[case] values: Values, #[case] layout: &str) {
+        let l = column(values(9).into_iter().map(Some));
+        assert_differential(&l);
+        assert_eq!(layouts(&l.encode(cfg_v2()).unwrap()), [layout]);
+    }
+
+    #[rstest]
+    #[case::plain(plain_values as Values, "Plain")]
+    #[case::dict(dict_values as Values, "Dict")]
+    #[case::fsst(fsst_values as Values, "Fsst")]
+    #[case::fsst_dict(fsst_dict_values as Values, "FsstDict")]
+    fn each_layout_round_trips_with_nulls(#[case] values: Values, #[case] layout: &str) {
+        let l = column(
+            values(12)
+                .into_iter()
+                .enumerate()
+                .map(|(i, v)| (i % 3 != 0).then_some(v)),
+        );
+        assert_differential(&l);
+        assert_eq!(layouts(&l.encode(cfg_v2()).unwrap()), [layout]);
+    }
+
+    #[test]
+    fn empty_values_round_trip() {
+        let l = column(["", "a", "", "bb", ""].map(|v| Some(v.to_string())));
+        assert_differential(&l);
+    }
+
+    #[test]
+    fn a_column_starting_with_a_null_round_trips() {
+        let l = column([None, Some("a".to_string()), None, Some("b".to_string())]);
+        assert_differential(&l);
+    }
+
+    #[test]
+    fn non_ascii_values_round_trip() {
+        let l = column(["日本語", "Ünïcödé", "🌍 🌏", ""].map(|v| Some(v.to_string())));
+        assert_differential(&l);
+    }
+
+    #[test]
+    fn a_column_of_one_repeated_value_round_trips() {
+        let l = column((0..8).map(|_| Some("same".to_string())));
+        assert_differential(&l);
+    }
+
+    #[test]
+    fn a_string_column_shares_its_presence_bitfield_with_a_scalar_one() {
+        const MASK: &str = "10110010";
+        let strings: Vec<PropValue> = MASK
+            .bytes()
+            .enumerate()
+            .map(|(i, b)| PropValue::Str((b == b'1').then(|| format!("v{i}"))))
+            .collect();
+        let l = layer(points(MASK), None, &[("s", strings), ("n", opt_col(MASK))]);
+        assert_differential(&l);
+
+        let dump = dump_text(&l.encode(cfg_v2()).unwrap());
+        assert!(dump.contains("shared presence bitfields = 1"), "{dump}");
+        assert_eq!(dump.matches("presence = Shared(0)").count(), 2, "{dump}");
+    }
+
+    #[test]
+    fn plain_column_layout() {
+        let l = column(plain_values(4).into_iter().map(Some));
+        assert_snapshot!(dump_text(&l.encode(cfg_v2()).unwrap()));
+    }
+
+    #[test]
+    fn dict_column_layout() {
+        let l = column(dict_values(6).into_iter().map(Some));
+        assert_snapshot!(dump_text(&l.encode(cfg_v2()).unwrap()));
+    }
+
+    #[test]
+    fn fsst_column_layout() {
+        let l = column(fsst_values(5).into_iter().map(Some));
+        assert_snapshot!(dump_text(&l.encode(cfg_v2()).unwrap()));
+    }
+
+    #[test]
+    fn fsst_dict_column_layout() {
+        let l = column(fsst_dict_values(6).into_iter().map(Some));
+        assert_snapshot!(dump_text(&l.encode(cfg_v2()).unwrap()));
+    }
 }
 
 mod float_codecs {

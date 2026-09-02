@@ -13,10 +13,11 @@ use super::walker::Walker;
 use crate::codecs::varint::parse_varint;
 use crate::decoder::stream::header02;
 use crate::decoder::stream::header02::{
-    Family, HAS_EXPLICIT_COUNT, StreamCtx02, describe_encoding,
+    Family, HAS_EXPLICIT_COUNT, StrLayout, StreamCtx02, describe_encoding,
 };
 use crate::decoder::{
-    ColumnType02, DataType02, GeoLayout, LayerLayout, LengthType, Presence02, StreamType,
+    ColumnType02, DataType02, DictionaryType, GeoLayout, LayerLayout, LengthType, Presence02,
+    StreamType,
 };
 use crate::tile::Extent;
 use crate::utils::{parse_string, parse_u8, take};
@@ -200,6 +201,13 @@ impl<'a> Walker<'a> {
             }
         };
 
+        // A string column has a stream set of its own, the rest one data stream.
+        if typ.data == DataType02::Str {
+            input = self.walk_strings02(input, data_count)?;
+            self.close(ci, input);
+            return Ok(input);
+        }
+
         let ctx = StreamCtx02::Property(typ.data);
         let meta;
         (input, meta) = self.walk_stream02(input, ctx, data_count, "data", hint_for(typ.data))?;
@@ -217,6 +225,63 @@ impl<'a> Walker<'a> {
         }
 
         self.close(ci, input);
+        Ok(input)
+    }
+
+    /// Mirror `parse_strings`: the leading stream names the layout the rest of the streams follow.
+    fn walk_strings02(&mut self, input: &'a [u8], count: u32) -> MltResult<&'a [u8]> {
+        /// One string stream: what it holds, what to call it, and how to read its payload.
+        type Stream = (StreamCtx02, &'static str, DecodeHint);
+        const DICT_LENGTHS: Stream = (StreamCtx02::StrDictLengths, "dict_lengths", DecodeHint::U32);
+        const SYMBOL_LENGTHS: Stream = (
+            StreamCtx02::StrSymbolLengths,
+            "symbol_lengths",
+            DecodeHint::U32,
+        );
+        const SYMBOL_TABLE: Stream = (
+            StreamCtx02::StrBlob(DictionaryType::Fsst),
+            "symbol_table",
+            DecodeHint::Bytes,
+        );
+        const CORPUS: Stream = (
+            StreamCtx02::StrBlob(DictionaryType::Single),
+            "corpus",
+            DecodeHint::Bytes,
+        );
+        const VALUES: Stream = (
+            StreamCtx02::StrBlob(DictionaryType::None),
+            "values",
+            DecodeHint::Bytes,
+        );
+        const DICT_VALUES: Stream = (
+            StreamCtx02::StrBlob(DictionaryType::Single),
+            "dict_values",
+            DecodeHint::Bytes,
+        );
+
+        let (_, enc_byte) = parse_u8(input)?;
+        let layout = StrLayout::from_bits(enc_byte);
+        let leading = match layout {
+            StrLayout::Plain | StrLayout::Fsst => "lengths",
+            StrLayout::Dict | StrLayout::FsstDict => "codes",
+        };
+        let rest: &[Stream] = match layout {
+            StrLayout::Plain => &[VALUES],
+            StrLayout::Dict => &[DICT_LENGTHS, DICT_VALUES],
+            StrLayout::Fsst => &[SYMBOL_LENGTHS, SYMBOL_TABLE, CORPUS],
+            StrLayout::FsstDict => &[DICT_LENGTHS, SYMBOL_LENGTHS, SYMBOL_TABLE, CORPUS],
+        };
+
+        let (mut input, _) = self.walk_stream02(
+            input,
+            StreamCtx02::StrData(layout),
+            count,
+            leading,
+            DecodeHint::U32,
+        )?;
+        for &(ctx, label, hint) in rest {
+            (input, _) = self.walk_stream02(input, ctx, count, label, hint)?;
+        }
         Ok(input)
     }
 
@@ -344,6 +409,7 @@ fn hint_for(typ: DataType02) -> DecodeHint {
         D::LongId | D::U64 => DecodeHint::U64,
         D::F32 => DecodeHint::F32,
         D::F64 => DecodeHint::F64,
+        D::Str => DecodeHint::Bytes,
     }
 }
 
@@ -412,7 +478,9 @@ fn encoding_bits02(byte: u8, implicit_count: u32, family: Family) -> Vec<BitFiel
     let extension = byte & 0x3;
     let (name_lo, name_ph) = describe_encoding(family, byte);
     let family_name: &'static str = family.into();
-    let count = if explicit {
+    let count = if family == Family::Bytes {
+        "has_explicit_count = false -> a blob's byte length is its value count".to_string()
+    } else if explicit {
         "has_explicit_count = true -> a num_values varint follows".to_string()
     } else {
         format!("has_explicit_count = false -> {implicit_count} values from context")
@@ -440,7 +508,12 @@ fn encoding_bits02(byte: u8, implicit_count: u32, family: Family) -> Vec<BitFiel
             hi: 1,
             lo: 0,
             raw: u64::from(extension),
-            meaning: format!("extension = {extension}"),
+            meaning: match family {
+                Family::Str(layout) => format!("string layout = {layout:?}"),
+                Family::Int | Family::Bool | Family::Float | Family::Vertex | Family::Bytes => {
+                    format!("extension = {extension}")
+                }
+            },
         },
     ]
 }
