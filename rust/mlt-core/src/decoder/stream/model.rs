@@ -97,27 +97,81 @@ impl Morton {
     }
 }
 
-/// ALP parameters: `v = i * 10^f / 10^e`.
-/// Written as two header varints, the stream itself holding plain integers.
+/// The decimal scaling an ALP column uses: `i = round(v * 10^e / 10^f)`.
+/// Chosen before any value is seen, so it carries no frame of reference.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Alp {
+pub struct AlpScale {
     /// Decimal exponent the values were scaled by.
     pub(crate) e: u8,
     /// Factor dividing out the trailing zeros `e` introduced, never exceeding `e`.
     pub(crate) f: u8,
 }
 
+/// ALP parameters: `v = (base + offset) * 10^f / 10^e`.
+/// Written as three header varints, the stream itself holding the unsigned offsets.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct Alp {
+    pub(crate) scale: AlpScale,
+    /// Frame of reference the offsets are measured from, the smallest scaled integer in the column.
+    pub(crate) base: i64,
+}
+
 #[cfg(feature = "unstable-v2")]
-impl Alp {
-    /// Largest exponent any supported float type uses.
+impl AlpScale {
+    /// Largest exponent the codes can carry, past which `v * 10^e` leaves the `i64` range.
     pub(crate) const MAX_EXPONENT: u8 = 18;
 
-    pub(crate) fn new(e: u8, f: u8) -> MltResult<Self> {
-        if e <= Self::MAX_EXPONENT && f <= e {
-            Ok(Self { e, f })
+    /// Net power of ten the codes carry, which fixes their magnitude and so their stored size.
+    /// The order [`candidates`](crate::codecs::alp::candidates) walks, and so what lets the
+    /// encoder stop at the first scale that fits; only the tests holding that invariant name it.
+    #[cfg(test)]
+    pub(crate) fn net(self) -> u8 {
+        self.e - self.f
+    }
+}
+
+/// Flattened, since the nesting is an encoder concern and these appear in stream labels.
+impl std::fmt::Debug for Alp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Alp {{ e: {}, f: {}, base: {} }}",
+            self.scale.e, self.scale.f, self.base
+        )
+    }
+}
+
+#[cfg(feature = "unstable-v2")]
+impl Alp {
+    pub(crate) fn new(e: u8, f: u8, base: i64) -> MltResult<Self> {
+        if e <= AlpScale::MAX_EXPONENT && f <= e {
+            Ok(Self {
+                scale: AlpScale { e, f },
+                base,
+            })
         } else {
             Err(MltError::InvalidAlpParams(e, f))
         }
+    }
+
+    /// Measure a scaled integer from the frame of reference, giving the offset the stream stores.
+    /// Wrapping, so a column spanning the whole `i64` range still subtracts exactly.
+    #[expect(
+        clippy::cast_sign_loss,
+        reason = "the bit pattern is the point; `code_at` casts it back"
+    )]
+    pub(crate) fn offset_of(self, code: i64) -> u64 {
+        (code as u64).wrapping_sub(self.base as u64)
+    }
+
+    /// Put a stored offset back on the frame of reference, inverting [`Self::offset_of`].
+    #[expect(
+        clippy::cast_possible_wrap,
+        clippy::cast_sign_loss,
+        reason = "the bit pattern is the point; inverts `offset_of` exactly"
+    )]
+    pub(crate) fn code_at(self, offset: u64) -> i64 {
+        (self.base as u64).wrapping_add(offset) as i64
     }
 }
 
@@ -211,14 +265,15 @@ impl LogicalEncoding {
     }
 
     /// Whether the stream's own logical pass is a no-op, so the physical words are already the output.
-    /// True for a float dictionary's codes and for ALP's integers, which the column turns back into floats.
+    /// True for a float dictionary's codes, which the column turns back into floats.
+    /// Not true for ALP, whose offsets still need the frame of reference added back.
     #[must_use]
     pub(crate) fn is_identity(self) -> bool {
         matches!(
             self,
             Self::Int(IntLogical::None)
                 | Self::Bool(BoolLogical::None)
-                | Self::Float(FloatLogical::None | FloatLogical::Dict | FloatLogical::Alp(_))
+                | Self::Float(FloatLogical::None | FloatLogical::Dict)
                 | Self::Vertex(VertexLogical::None)
         )
     }

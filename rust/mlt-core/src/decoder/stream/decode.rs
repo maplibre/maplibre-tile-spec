@@ -9,6 +9,8 @@ use crate::codecs::bytes::{PhysicalWord, debug_assert_length, decode_bytes_to_wo
 use crate::codecs::rle::decode_byte_rle;
 use crate::codecs::varint::{parse_varint_vec, parse_varint_vec_all};
 #[cfg(feature = "unstable-v2")]
+use crate::decoder::Alp;
+#[cfg(feature = "unstable-v2")]
 use crate::decoder::IntLogical;
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::RleMeta;
@@ -99,6 +101,36 @@ impl<'a> RawStream<'a> {
         let result = T::logical_decode(LogicalValue::new(meta), &buf, dec);
         *T::scratch(dec) = buf;
         T::scratch(dec).clear();
+        result
+    }
+
+    /// Decode an ALP stream's offsets back into the scaled integers they were measured from.
+    ///
+    /// Unlike [`Self::decode_ints`] this picks the physical word width from the stream rather
+    /// than from the output type, so that `FastPFOR`'s `u32` words reach a `u64` offset stream.
+    #[cfg(feature = "unstable-v2")]
+    pub fn decode_alp_codes(&self, params: Alp, dec: &mut Decoder) -> MltResult<Vec<i64>> {
+        match self.meta.encoding.physical {
+            PhysicalEncoding::FastPFor(_) => self.alp_codes_via::<u32>(params, dec),
+            PhysicalEncoding::None | PhysicalEncoding::VarInt => {
+                self.alp_codes_via::<u64>(params, dec)
+            }
+        }
+    }
+
+    /// Decode the offsets as `W` words through the decoder's scratch, then lift them onto `params`.
+    #[cfg(feature = "unstable-v2")]
+    fn alp_codes_via<W>(&self, params: Alp, dec: &mut Decoder) -> MltResult<Vec<i64>>
+    where
+        W: DecodeInt<Physical = W> + PhysicalWord + Into<u64>,
+    {
+        let mut buf = mem::take(W::scratch(dec));
+        let result = self.decode_bits::<W>(&mut buf, dec).and_then(|()| {
+            dec.consume_items::<i64>(buf.len())?;
+            Ok(buf.iter().map(|&w| params.code_at(w.into())).collect())
+        });
+        *W::scratch(dec) = buf;
+        W::scratch(dec).clear();
         result
     }
 
