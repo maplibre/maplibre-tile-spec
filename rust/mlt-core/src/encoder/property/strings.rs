@@ -222,7 +222,7 @@ fn write_str_leading02(
 
 /// Write already-encoded bytes as a v2 blob, whose byte length is also its value count.
 #[cfg(feature = "unstable-v2")]
-fn write_blob02(bytes: &[u8], layout: BlobLayout, enc: &mut Encoder) -> MltResult<()> {
+pub(crate) fn write_blob02(bytes: &[u8], layout: BlobLayout, enc: &mut Encoder) -> MltResult<()> {
     header02::write_blob_meta(enc.data_mut(), layout, u32::try_from(bytes.len())?)?;
     enc.data_mut().extend_from_slice(bytes);
     Ok(())
@@ -264,6 +264,17 @@ fn write_str_dict02(
     codecs: &mut Codecs,
 ) -> MltResult<()> {
     write_str_leading02(offset_indices, StrLayout::Dict, name, enc, codecs)?;
+    write_dict_tail02(unique, name, enc, codecs)
+}
+
+/// A plain dictionary's own streams: one length per entry, then the entries.
+#[cfg(feature = "unstable-v2")]
+pub(crate) fn write_dict_tail02(
+    unique: &[&str],
+    name: &str,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
     let lengths = strings_to_lengths(unique)?;
     let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), name);
     codecs.write_int_stream(&lengths, &ctx, enc)?;
@@ -318,7 +329,10 @@ fn write_str_fsst_dict02(
 /// Front coding only pays when neighbours share prefixes, which sorting is what arranges.
 /// Equal values stay equal codes, so RLE over the codes is unaffected; their order is not.
 #[cfg(feature = "unstable-v2")]
-fn sort_dictionary<'a>(unique: &[&'a str], codes: &[u32]) -> MltResult<(Vec<&'a str>, Vec<u32>)> {
+pub(crate) fn sort_dictionary<'a>(
+    unique: &[&'a str],
+    codes: &[u32],
+) -> MltResult<(Vec<&'a str>, Vec<u32>)> {
     let mut order: Vec<u32> = (0..u32::try_from(unique.len())?).collect();
     order.sort_unstable_by_key(|&i| unique[i.into_usize()]);
     let mut rank = vec![0_u32; unique.len()];
@@ -332,7 +346,7 @@ fn sort_dictionary<'a>(unique: &[&'a str], codes: &[u32]) -> MltResult<(Vec<&'a 
 
 /// The suffixes as one slice per entry, which is what FSST trains its symbols on.
 #[cfg(feature = "unstable-v2")]
-fn suffix_parts(coded: &FrontCoded) -> Vec<&[u8]> {
+pub(crate) fn suffix_parts(coded: &FrontCoded) -> Vec<&[u8]> {
     let mut parts = Vec::with_capacity(coded.suffix_lengths.len());
     let mut at = 0_usize;
     for &len in &coded.suffix_lengths {
@@ -345,7 +359,7 @@ fn suffix_parts(coded: &FrontCoded) -> Vec<&[u8]> {
 
 /// Write a front-coded dictionary's lengths stream, which holds the prefix then the suffix lengths.
 #[cfg(feature = "unstable-v2")]
-fn write_front_lengths02(
+pub(crate) fn write_front_lengths02(
     coded: &FrontCoded,
     name: &str,
     enc: &mut Encoder,
@@ -395,7 +409,7 @@ fn write_str_fsst_front_dict02(
 
 /// The symbol lengths, symbol table and compressed corpus both v2 FSST layouts end with.
 #[cfg(feature = "unstable-v2")]
-fn write_fsst_tail02(
+pub(crate) fn write_fsst_tail02(
     symbol_lengths: &[u32],
     symbol_bytes: &[u8],
     corpus: &[u8],

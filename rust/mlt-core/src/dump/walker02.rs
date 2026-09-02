@@ -17,7 +17,7 @@ use crate::decoder::stream::header02::{
 };
 use crate::decoder::{
     ColumnType02, DataType02, DictionaryType, GeoLayout, LayerLayout, LengthType, Presence02,
-    StreamType,
+    SharedDictKind, StreamType,
 };
 use crate::tile::Extent;
 use crate::utils::{parse_string, parse_u8, take};
@@ -161,6 +161,13 @@ impl<'a> Walker<'a> {
 
         let (_, typ_byte) = parse_u8(input)?;
         let shared_count = u8::try_from(shared.len())?;
+        // A shared dictionary spends its presence nibble on the corpus encoding, so it walks
+        // its own way rather than through the presence-carrying column shape below.
+        if ColumnType02::fields(typ_byte).1 == DataType02::SharedDict as u8 {
+            let input = self.walk_shared_dict02(input, ci, i, feature_count, shared)?;
+            self.close(ci, input);
+            return Ok(input);
+        }
         let typ = ColumnType02::parse(typ_byte, shared_count)?;
         let (mut input, _) = self.byte_field(
             input,
@@ -225,6 +232,125 @@ impl<'a> Walker<'a> {
         }
 
         self.close(ci, input);
+        Ok(input)
+    }
+
+    /// Mirror `parse_shared_dict02`: the corpus, then the children that index into it.
+    fn walk_shared_dict02(
+        &mut self,
+        input: &'a [u8],
+        ci: usize,
+        i: u32,
+        feature_count: u32,
+        shared: &[&'a BitSlice<u8, Lsb0>],
+    ) -> MltResult<&'a [u8]> {
+        let (_, typ_byte) = parse_u8(input)?;
+        let kind = SharedDictKind::parse(ColumnType02::fields(typ_byte).0)
+            .ok_or(MltError::ParsingColumnType(typ_byte))?;
+        let (mut input, _) = self.byte_field(
+            input,
+            "type",
+            |b| format!("0x{b:02X} {kind:?} SharedDict"),
+            shared_dict_type_bits02,
+        )?;
+
+        let name;
+        (input, name) = self.field(input, "name", parse_string, |s| Some(format!("{s:?}")))?;
+        self.relabel(ci, format!("column[{i}] SharedDict {name:?}"));
+        let child_count;
+        (input, child_count) = self.field(input, "child_count", parse_varint::<u32>, |c| {
+            Some(c.to_string())
+        })?;
+
+        // The corpus streams mirror a lone string column's dictionary tail.
+        match kind {
+            SharedDictKind::Plain => {
+                (input, _) = self.walk_stream02(
+                    input,
+                    StreamCtx02::StrDictLengths,
+                    0,
+                    "dict_lengths",
+                    DecodeHint::U32,
+                )?;
+                (input, _) = self.walk_stream02(
+                    input,
+                    StreamCtx02::StrBlob(DictionaryType::Shared),
+                    0,
+                    "dict_values",
+                    DecodeHint::Bytes,
+                )?;
+            }
+            SharedDictKind::Fsst => {
+                (input, _) = self.walk_stream02(
+                    input,
+                    StreamCtx02::StrDictLengths,
+                    0,
+                    "dict_lengths",
+                    DecodeHint::U32,
+                )?;
+                (input, _) = self.walk_stream02(
+                    input,
+                    StreamCtx02::StrSymbolLengths,
+                    0,
+                    "symbol_lengths",
+                    DecodeHint::U32,
+                )?;
+                (input, _) = self.walk_stream02(
+                    input,
+                    StreamCtx02::StrBlob(DictionaryType::Fsst),
+                    0,
+                    "symbol_table",
+                    DecodeHint::Bytes,
+                )?;
+                (input, _) = self.walk_stream02(
+                    input,
+                    StreamCtx02::StrBlob(DictionaryType::Shared),
+                    0,
+                    "corpus",
+                    DecodeHint::Bytes,
+                )?;
+            }
+        }
+
+        let shared_count = u8::try_from(shared.len())?;
+        for child in 0..child_count {
+            let cc = self.open(input, format!("child[{child}]"));
+            let (_, child_byte) = parse_u8(input)?;
+            let child_typ = ColumnType02::parse(child_byte, shared_count)?;
+            (input, _) = self.byte_field(
+                input,
+                "type",
+                |b| format!("0x{b:02X} {:?} {:?}", child_typ.presence, child_typ.data),
+                move |b| column_type_bits02(b, shared_count),
+            )?;
+            let suffix;
+            (input, suffix) =
+                self.field(input, "name", parse_string, |s| Some(format!("{s:?}")))?;
+            self.relabel(cc, format!("child[{child}] {suffix:?}"));
+
+            let count = match child_typ.presence {
+                Presence02::AllPresent => feature_count,
+                Presence02::Inline => {
+                    let bits;
+                    (input, bits) = self.walk_bitfield02(input, feature_count, "present")?;
+                    u32::try_from(bits.count_ones())?
+                }
+                Presence02::Shared(index) => {
+                    let bits = shared
+                        .get(usize::from(index))
+                        .ok_or(MltError::ParsingColumnType(child_byte))?;
+                    u32::try_from(bits.count_ones())?
+                }
+            };
+            (input, _) = self.walk_stream02(
+                input,
+                StreamCtx02::StrData(StrLayout::Dict),
+                count,
+                "codes",
+                DecodeHint::U32,
+            )?;
+            self.close(cc, input);
+        }
         Ok(input)
     }
 
@@ -404,6 +530,29 @@ impl<'a> Walker<'a> {
     }
 }
 
+/// Bit breakdown of a shared-dictionary column's type byte, whose high nibble names the
+/// corpus encoding rather than presence.
+fn shared_dict_type_bits02(byte: u8) -> Vec<BitField> {
+    let (kind, data) = ColumnType02::fields(byte);
+    vec![
+        BitField {
+            hi: 7,
+            lo: 4,
+            raw: u64::from(kind >> 4),
+            meaning: SharedDictKind::parse(kind).map_or_else(
+                || "corpus = reserved".to_string(),
+                |k| format!("corpus = {k:?}"),
+            ),
+        },
+        BitField {
+            hi: 3,
+            lo: 0,
+            raw: u64::from(data),
+            meaning: "data type = SharedDict".to_string(),
+        },
+    ]
+}
+
 /// Decode hint for a column's data stream, keyed by the data type nibble.
 fn hint_for(typ: DataType02) -> DecodeHint {
     use DataType02 as D;
@@ -415,7 +564,7 @@ fn hint_for(typ: DataType02) -> DecodeHint {
         D::LongId | D::U64 => DecodeHint::U64,
         D::F32 => DecodeHint::F32,
         D::F64 => DecodeHint::F64,
-        D::Str => DecodeHint::Bytes,
+        D::Str | D::SharedDict => DecodeHint::Bytes,
     }
 }
 
