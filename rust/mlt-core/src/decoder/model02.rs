@@ -27,9 +27,7 @@ pub(crate) enum DataType02 {
     F32 = 0x09,
     F64 = 0x0A,
     Str = 0x0B,
-    // TODO(v2): 0x0F: shared dictionary escape. Each of its sub-columns carries
-    //           its own presence nibble, so the column's own nibble is free here
-    //           and names the shared dictionary kind instead (plain / FSST / child reference).
+    SharedDict = 0x0F,
 }
 
 impl DataType02 {
@@ -38,6 +36,32 @@ impl DataType02 {
     #[must_use]
     pub(crate) fn has_name(self) -> bool {
         !matches!(self, Self::Id | Self::LongId)
+    }
+}
+
+/// How a shared dictionary stores its corpus, read from the high nibble of its column type byte.
+///
+/// A shared-dictionary column has no values of its own, so the nibble that names
+/// [`Presence02`] elsewhere is free to name the corpus encoding here.
+/// Front coding is named by the corpus blob's own encoding byte, as it is for a lone string column.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub(crate) enum SharedDictKind {
+    /// Two streams: the entry lengths, then the entries.
+    Plain = 0b0000_0000,
+    /// Four streams: the entry lengths, the symbol lengths, the symbol table, then the corpus.
+    Fsst = 0b0001_0000,
+}
+
+impl SharedDictKind {
+    /// Read a masked nibble, or [`None`] for one this version has no meaning for.
+    #[must_use]
+    pub(crate) fn parse(nibble: u8) -> Option<Self> {
+        match nibble {
+            0b0000_0000 => Some(Self::Plain),
+            0b0001_0000 => Some(Self::Fsst),
+            _ => None,
+        }
     }
 }
 
@@ -137,11 +161,17 @@ impl ColumnType02 {
     /// `shared_count` is [`LayerLayout::shared_presence`] of the enclosing layer,
     /// so a column pointing past the last shared bitfield is rejected here rather
     /// than resolved to a missing one later.
+    ///
+    /// [`DataType02::SharedDict`] is rejected too: its high nibble names the corpus encoding
+    /// rather than presence, so its reader takes it before the byte reaches here.
     pub(crate) fn parse(byte: u8, shared_count: u8) -> MltResult<Self> {
         let err = || MltError::ParsingColumnType(byte);
         let (presence, data) = Self::fields(byte);
-        let presence = Presence02::parse(presence, shared_count).ok_or_else(err)?;
         let data = DataType02::try_from(data).map_err(|_| err())?;
+        if data == DataType02::SharedDict {
+            return Err(err());
+        }
+        let presence = Presence02::parse(presence, shared_count).ok_or_else(err)?;
         Ok(Self { presence, data })
     }
 
@@ -373,7 +403,7 @@ mod tests {
     }
 
     #[rstest]
-    #[case::reserved_data_type(0b0000_1111, ALL_SHARED)]
+    #[case::shared_dict_is_read_before_this(0b0000_1111, ALL_SHARED)]
     #[case::unassigned_data_type(0b0000_1100, ALL_SHARED)]
     #[case::reserved_presence(0b1001_0101, ALL_SHARED)]
     #[case::reserved_presence_top(0b1111_0101, ALL_SHARED)]
