@@ -703,6 +703,22 @@ mod strings {
         assert!(dump.contains("shared presence bitfields = 1"), "{dump}");
         assert_eq!(dump.matches("presence = Shared(0)").count(), 2, "{dump}");
     }
+
+    #[test]
+    fn columns_v1_would_share_a_dictionary_stay_separate_in_v2() {
+        let shared: Vec<PropValue> = dict_values(6)
+            .into_iter()
+            .map(|v| PropValue::Str(Some(v)))
+            .collect();
+        let l = layer(
+            points(&"1".repeat(6)),
+            None,
+            &[("a", shared.clone()), ("b", shared)],
+        );
+        assert!(dump_text(&l.clone().encode(cfg_v1()).unwrap()).contains("SharedDict"));
+        assert_differential(&l);
+        assert_eq!(layouts(&l.encode(cfg_v2()).unwrap()), ["Dict", "Dict"]);
+    }
 }
 
 mod float_codecs {
