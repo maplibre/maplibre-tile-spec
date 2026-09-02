@@ -766,7 +766,7 @@ mod strings {
 }
 
 mod float_codecs {
-    use mlt_core::wire::{FloatLogical, LogicalEncoding};
+    use mlt_core::wire::{FloatLogical, LogicalEncoding, PhysicalEncoding};
 
     use super::*;
 
@@ -822,6 +822,22 @@ mod float_codecs {
                 PropValue::F64(Some(v)) => v.to_bits(),
                 PropValue::F32(Some(v)) => u64::from(v.to_bits()),
                 ref other => panic!("unexpected {other:?}"),
+            })
+            .collect()
+    }
+
+    /// The physical encoding each float stream in the tile carries, in wire order.
+    pub fn float_physicals(bytes: &[u8]) -> Vec<PhysicalEncoding> {
+        annotate_tile(bytes)
+            .expect("annotate_tile")
+            .regions
+            .iter()
+            .filter_map(|r| r.blob)
+            .filter_map(|b| match b.meta.encoding.logical {
+                LogicalEncoding::Float(_) => Some(b.meta.encoding.physical),
+                LogicalEncoding::Int(_) | LogicalEncoding::Bool(_) | LogicalEncoding::Vertex(_) => {
+                    None
+                }
             })
             .collect()
     }
@@ -987,7 +1003,7 @@ mod float_codecs {
 }
 
 mod alp {
-    use mlt_core::wire::FloatLogical;
+    use mlt_core::wire::{FastPForKind, FloatLogical, PhysicalEncoding};
 
     use super::float_codecs::*;
     use super::*;
@@ -1006,6 +1022,84 @@ mod alp {
             coded.len(),
             plain.len()
         );
+    }
+
+    #[rstest]
+    #[case::short_near_zero((0..8).map(|i| f64::from(i) * 0.25).collect())]
+    #[case::long_near_zero((0..1024).map(|i| f64::from(i % 97) * 0.25).collect())]
+    #[case::long_far_from_zero((0..1024).map(|i| 52_500_000.0 + f64::from(i % 97) * 0.25).collect())]
+    #[case::negative_only((0..600).map(|i| -1000.0 - f64::from(i % 53) * 0.5).collect())]
+    #[case::straddling_zero((0..600).map(|i| f64::from(i % 53) * 0.5 - 13.0).collect())]
+    #[case::single_value(vec![1.25])]
+    #[case::all_equal(vec![4.0; 600])]
+    #[case::wide_spread((0..600).map(|i| if i % 2 == 0 { -1e12 } else { 1e12 }).collect())]
+    // The widest offsets an exception-free column can hold: the two ends of the `i64` code range,
+    // whose distance only just fits `u64`.
+    #[case::offsets_nearly_fill_u64(vec![-9.223_372_036_854_775e18, 9.223_372_036_854_775e18])]
+    fn any_alp_column_shape_round_trips_bit_for_bit(#[case] values: Vec<f64>) {
+        let l = column(&values);
+        assert_eq!(
+            value_bits(&round_trip(&l, cfg_alp())),
+            value_bits(&round_trip(&l, cfg_v2()))
+        );
+    }
+
+    /// A long column of narrow offsets is what bitpacking is for.
+    #[test]
+    fn a_long_alp_column_takes_fastpfor_over_varint() {
+        let values: Vec<f64> = (0..1024)
+            .map(|i| 1000.0 + f64::from(i % 97) * 0.25)
+            .collect();
+        let l = column(&values);
+        let packed = l.clone().encode(cfg_alp()).unwrap();
+        let varint = l.clone().encode(cfg_alp().with_fastpfor(false)).unwrap();
+
+        assert_eq!(
+            float_physicals(&packed)[..],
+            [PhysicalEncoding::FastPFor(FastPForKind::Block128Le)]
+        );
+        assert!(
+            packed.len() < varint.len(),
+            "{} vs {}",
+            packed.len(),
+            varint.len()
+        );
+        assert_eq!(
+            value_bits(&round_trip(&l, cfg_alp())),
+            value_bits(&round_trip(&l, cfg_v2()))
+        );
+    }
+
+    /// Block framing does not amortise over a handful of values, so varint must keep it.
+    #[test]
+    fn a_short_alp_column_keeps_varint() {
+        let values: Vec<f64> = (0..8).map(|i| f64::from(i) * 0.25).collect();
+        let bytes = column(&values).encode(cfg_alp()).unwrap();
+        assert_eq!(float_physicals(&bytes)[..], [PhysicalEncoding::VarInt]);
+    }
+
+    /// `FastPFOR` codes `u32` words, so a column whose offsets overflow one is not a candidate.
+    #[test]
+    fn a_column_whose_offsets_overflow_u32_keeps_varint() {
+        let values: Vec<f64> = (0..1024)
+            .map(|i| if i % 2 == 0 { 0.5 } else { 1e15 + 0.5 })
+            .collect();
+        let bytes = column(&values).encode(cfg_alp()).unwrap();
+        assert_eq!(float_physicals(&bytes)[..], [PhysicalEncoding::VarInt]);
+        assert_eq!(
+            value_bits(&round_trip(&column(&values), cfg_alp())),
+            value_bits(&round_trip(&column(&values), cfg_v2()))
+        );
+    }
+
+    /// A frame-of-reference base means only the spread costs bytes, not the magnitude.
+    #[test]
+    fn shifting_a_narrow_column_far_from_zero_costs_only_the_base() {
+        let near_zero: Vec<f64> = (0..256).map(|i| f64::from(i) * 0.25).collect();
+        let shifted: Vec<f64> = near_zero.iter().map(|v| v + 52_500_000.0).collect();
+        let here = column(&near_zero).encode(cfg_alp()).unwrap().len();
+        let far = column(&shifted).encode(cfg_alp()).unwrap().len();
+        assert!(far <= here + 8, "{far} vs {here}");
     }
 
     #[test]

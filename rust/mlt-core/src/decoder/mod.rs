@@ -46,7 +46,7 @@ pub(crate) use property::{
     RawStringsEncoding,
 };
 #[cfg(feature = "unstable-v2")]
-pub(crate) use stream::model::Alp;
+pub(crate) use stream::model::{Alp, AlpScale};
 pub(crate) use stream::model::{
     BoolLogical, DictionaryType, FastPForKind, FloatLogical, IntEncoding, IntLogical, LengthType,
     LogicalCombination, LogicalEncoding, LogicalTechnique, LogicalValue, Morton, OffsetType,
