@@ -401,7 +401,11 @@ impl<'a> Walker<'a> {
                     |v| Some(v.to_string()),
                 )?;
             }
-            _ => {}
+            LogicalEncoding::None
+            | LogicalEncoding::Delta
+            | LogicalEncoding::DeltaRle(_)
+            | LogicalEncoding::ComponentwiseDelta
+            | LogicalEncoding::Rle(_) => {}
         }
         self.close(hi, c);
 

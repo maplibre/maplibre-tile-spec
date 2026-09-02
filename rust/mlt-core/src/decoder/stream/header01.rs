@@ -145,10 +145,12 @@ pub(crate) fn parse_stream_meta<'a>(
             // Reserve decoded memory upper bound: worst case u64 = 8 bytes per value
             let decoded_bytes = num_values.saturating_mul(8);
             parser.reserve(decoded_bytes)?;
-            match logical {
-                LC::None => LogicalEncoding::None,
-                LC::Delta => LogicalEncoding::Delta,
-                _ => LogicalEncoding::ComponentwiseDelta,
+            if logical == LC::None {
+                LogicalEncoding::None
+            } else if logical == LC::Delta {
+                LogicalEncoding::Delta
+            } else {
+                LogicalEncoding::ComponentwiseDelta
             }
         }
         LC::Rle | LC::DeltaRle => {
@@ -183,10 +185,12 @@ pub(crate) fn parse_stream_meta<'a>(
             (input, bits) = parse_varint::<u32>(input)?;
             (input, shift) = parse_varint::<u32>(input)?;
             let morton = Morton::new(bits, shift)?;
-            match logical {
-                LC::MortonRle => LogicalEncoding::MortonRle(morton),
-                LC::MortonDelta => LogicalEncoding::MortonDelta(morton),
-                _ => LogicalEncoding::Morton(morton),
+            if logical == LC::MortonRle {
+                LogicalEncoding::MortonRle(morton)
+            } else if logical == LC::MortonDelta {
+                LogicalEncoding::MortonDelta(morton)
+            } else {
+                LogicalEncoding::Morton(morton)
             }
         }
     };

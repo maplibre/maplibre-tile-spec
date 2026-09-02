@@ -56,7 +56,7 @@ impl TreeItem {
         match self {
             Self::Feature { layer, feat } => Some((*layer, *feat, None)),
             Self::SubFeature { layer, feat, part } => Some((*layer, *feat, Some(*part))),
-            _ => None,
+            Self::All | Self::Layer(_) => None,
         }
     }
 }
@@ -451,7 +451,7 @@ impl App {
                         let s = r.path().display().to_string();
                         match r {
                             LsRow::Error { error, .. } => (s, true, error.clone()),
-                            _ => (s, false, String::new()),
+                            LsRow::Info { .. } | LsRow::Loading { .. } => (s, false, String::new()),
                         }
                     })
                     .unwrap_or_default();
@@ -665,7 +665,7 @@ impl App {
                                 .iter()
                                 .all(|a| info.algorithms.contains(a))
                     }
-                    _ => true,
+                    LsRow::Error { .. } | LsRow::Loading { .. } => true,
                 }
             })
             .collect();
@@ -787,7 +787,10 @@ impl App {
                 } if *l == layer && *f == feat && part == Some(*p) => {
                     return Some(idx);
                 }
-                _ => {}
+                TreeItem::All
+                | TreeItem::Layer(_)
+                | TreeItem::Feature { .. }
+                | TreeItem::SubFeature { .. } => {}
             }
         }
         None
@@ -851,7 +854,9 @@ impl App {
             TreeItem::Layer(_) => {
                 self.select_and_scroll(layer, Some(feat), None, tree_height);
             }
-            _ => self.select_and_scroll(layer, Some(feat), part, tree_height),
+            TreeItem::Feature { .. } | TreeItem::SubFeature { .. } => {
+                self.select_and_scroll(layer, Some(feat), part, tree_height);
+            }
         }
     }
 }
@@ -859,7 +864,7 @@ impl App {
 fn error_size(row: &LsRow) -> usize {
     match row {
         LsRow::Error { size: Some(s), .. } => *s,
-        _ => 0,
+        LsRow::Error { size: None, .. } | LsRow::Info { .. } | LsRow::Loading { .. } => 0,
     }
 }
 
@@ -882,7 +887,10 @@ fn file_cmp(a: &LsRow, b: &LsRow, col: FileSortColumn, asc: bool) -> std::cmp::O
         (_, LsRow::Info { .. }) => Ordering::Greater,
         (LsRow::Error { .. }, LsRow::Error { .. }) => match col {
             FileSortColumn::Size => error_size(a).cmp(&error_size(b)),
-            _ => a.path().cmp(b.path()),
+            FileSortColumn::File
+            | FileSortColumn::EncPct
+            | FileSortColumn::Layers
+            | FileSortColumn::Features => a.path().cmp(b.path()),
         },
         _ => a.path().cmp(b.path()),
     };

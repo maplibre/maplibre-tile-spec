@@ -115,7 +115,7 @@ pub fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         .map(str::to_lowercase);
     let sel_info = selected_mlt.and_then(|r| match r {
         LsRow::Info { info, .. } => Some(info),
-        _ => None,
+        LsRow::Error { .. } | LsRow::Loading { .. } => None,
     });
 
     let mut lines: Vec<Line<'static>> = Vec::new();
@@ -184,7 +184,7 @@ pub fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
 pub fn render_file_info_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     let info = app.get_selected_file().and_then(|r| match r {
         LsRow::Info { info, .. } => Some(info),
-        _ => None,
+        LsRow::Error { .. } | LsRow::Loading { .. } => None,
     });
 
     let lines: Vec<Line<'static>> = if let Some(info) = info {

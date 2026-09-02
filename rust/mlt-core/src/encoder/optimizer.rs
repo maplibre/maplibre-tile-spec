@@ -238,14 +238,24 @@ impl PropertyTypedStats {
     pub fn shared_dict(&self) -> SharedDictRole {
         match self {
             Self::String { shared_dict, .. } => shared_dict.clone(),
-            _ => SharedDictRole::None,
+            Self::None
+            | Self::Bool
+            | Self::Signed { .. }
+            | Self::Unsigned { .. }
+            | Self::F32
+            | Self::F64 => SharedDictRole::None,
         }
     }
 
     pub(crate) fn set_shared_dict(&mut self, role: SharedDictRole) {
         match self {
             Self::String { shared_dict, .. } => *shared_dict = role,
-            _ => debug_assert_eq!(role, SharedDictRole::None),
+            Self::None
+            | Self::Bool
+            | Self::Signed { .. }
+            | Self::Unsigned { .. }
+            | Self::F32
+            | Self::F64 => debug_assert_eq!(role, SharedDictRole::None),
         }
     }
 
@@ -280,7 +290,16 @@ impl PropertyTypedStats {
                 self.merge_same_kind(Self::F64, column_idx, property_name)?;
             }
             PropValue::Str(Some(_)) => self.merge_string(column_idx, property_name)?,
-            _ => return Ok(false),
+            PropValue::Bool(None)
+            | PropValue::I8(None)
+            | PropValue::U8(None)
+            | PropValue::I32(None)
+            | PropValue::U32(None)
+            | PropValue::I64(None)
+            | PropValue::U64(None)
+            | PropValue::F32(None)
+            | PropValue::F64(None)
+            | PropValue::Str(None) => return Ok(false),
         }
         Ok(true)
     }
@@ -302,7 +321,9 @@ impl PropertyTypedStats {
                 *min = (*min).min(value);
                 *max = (*max).max(value);
             }
-            _ => return mixed_prop_err(column_idx, property_name),
+            Self::Bool | Self::Unsigned { .. } | Self::F32 | Self::F64 | Self::String { .. } => {
+                return mixed_prop_err(column_idx, property_name);
+            }
         }
         Ok(())
     }
@@ -324,7 +345,9 @@ impl PropertyTypedStats {
                 *min = (*min).min(value);
                 *max = (*max).max(value);
             }
-            _ => return mixed_prop_err(column_idx, property_name),
+            Self::Bool | Self::Signed { .. } | Self::F32 | Self::F64 | Self::String { .. } => {
+                return mixed_prop_err(column_idx, property_name);
+            }
         }
         Ok(())
     }
@@ -337,7 +360,9 @@ impl PropertyTypedStats {
                 };
             }
             Self::String { .. } => {}
-            _ => return mixed_prop_err(column_idx, property_name),
+            Self::Bool | Self::Signed { .. } | Self::Unsigned { .. } | Self::F32 | Self::F64 => {
+                return mixed_prop_err(column_idx, property_name);
+            }
         }
         Ok(())
     }
@@ -353,7 +378,12 @@ impl PropertyTypedStats {
             Self::Bool if matches!(kind, Self::Bool) => {}
             Self::F32 if matches!(kind, Self::F32) => {}
             Self::F64 if matches!(kind, Self::F64) => {}
-            _ => return mixed_prop_err(column_idx, property_name),
+            Self::Bool
+            | Self::Signed { .. }
+            | Self::Unsigned { .. }
+            | Self::F32
+            | Self::F64
+            | Self::String { .. } => return mixed_prop_err(column_idx, property_name),
         }
         Ok(())
     }

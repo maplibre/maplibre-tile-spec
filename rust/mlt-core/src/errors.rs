@@ -205,9 +205,10 @@ pub enum MltError {
 
 impl From<MltError> for std::io::Error {
     fn from(value: MltError) -> Self {
-        match value {
-            MltError::Io(e) => e,
-            other => Self::other(other),
+        if let MltError::Io(e) = value {
+            e
+        } else {
+            Self::other(value)
         }
     }
 }

@@ -99,7 +99,7 @@ pub(crate) fn parse_layer02<'a>(
         // only the present ones when a presence bitfield precedes the data.
         let data_count = match &presence {
             RawPresence::Bitfield(bits) => u32::try_from(bits.count_ones())?,
-            _ => feature_count,
+            RawPresence::AllPresent | RawPresence::Stream(_) => feature_count,
         };
         let data = StreamType::Data(DictionaryType::None);
         let value;

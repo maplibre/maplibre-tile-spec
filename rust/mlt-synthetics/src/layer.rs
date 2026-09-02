@@ -80,7 +80,7 @@ impl PropConfig {
                 dict_lengths,
             } => match ctx.stream_type {
                 ST::Length(LT::Symbol) => *sym_lengths,
-                _ => *dict_lengths,
+                ST::Present | ST::Data(_) | ST::Offset(_) | ST::Length(_) => *dict_lengths,
             },
             Self::StrFsstDict {
                 sym_lengths,
@@ -89,14 +89,14 @@ impl PropConfig {
             } => match ctx.stream_type {
                 ST::Length(LT::Symbol) => *sym_lengths,
                 ST::Offset(OT::String) => *offsets,
-                _ => *dict_lengths,
+                ST::Present | ST::Data(_) | ST::Offset(_) | ST::Length(_) => *dict_lengths,
             },
             Self::StrDict {
                 string_lengths,
                 offsets,
             } => match ctx.stream_type {
                 ST::Offset(OT::String) => *offsets,
-                _ => *string_lengths,
+                ST::Present | ST::Data(_) | ST::Offset(_) | ST::Length(_) => *string_lengths,
             },
             Self::SharedDict { item_encs, .. } => {
                 // sub is the item suffix

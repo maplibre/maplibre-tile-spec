@@ -70,6 +70,7 @@ panic_in_result_fn = "warn"
 todo = "warn"
 unimplemented = "warn"
 unused_trait_names = "warn"
+wildcard_enum_match_arm = "warn"
 
 # Too noisy
 missing_errors_doc = "allow"

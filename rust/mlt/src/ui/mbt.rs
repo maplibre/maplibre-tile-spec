@@ -136,7 +136,10 @@ impl TileTransform {
             Geometry::<i32>::MultiPolygon(mpoly) => {
                 mpoly.iter().flat_map(|p| self.poly_verts(p)).collect()
             }
-            _ => vec![],
+            Geometry::<i32>::Line(_)
+            | Geometry::<i32>::GeometryCollection(_)
+            | Geometry::<i32>::Rect(_)
+            | Geometry::<i32>::Triangle(_) => vec![],
         }
     }
 }

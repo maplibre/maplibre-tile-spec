@@ -204,7 +204,12 @@ pub(crate) fn write_stream_meta<W: io::Write>(
     // derives by scanning the pairs to `byte_length`).
     let num_values = match meta.encoding.logical {
         LE::Rle(rle) | LE::DeltaRle(rle) => rle.num_rle_values(),
-        _ => meta.num_values,
+        LE::None
+        | LE::Delta
+        | LE::ComponentwiseDelta
+        | LE::Morton(_)
+        | LE::MortonDelta(_)
+        | LE::MortonRle(_) => meta.num_values,
     };
     let explicit = num_values != implicit_count;
     let enc_byte =
