@@ -399,11 +399,11 @@ fn to_absolute_lengths(
 ///
 /// A front-coded blob holds only suffixes, which are not valid UTF-8 on their own, so the
 /// conversion happens here rather than when the blob is read.
-fn rebuild_dictionary<'a>(
+fn rebuild_dictionary<'d, 'l>(
     dict: DictLayout,
-    lengths: &'a [u32],
-    data: &'a [u8],
-) -> MltResult<(Cow<'a, str>, Cow<'a, [u32]>)> {
+    lengths: &'l [u32],
+    data: &'d [u8],
+) -> MltResult<(Cow<'d, str>, Cow<'l, [u32]>)> {
     match dict {
         DictLayout::Plain => Ok((Cow::Borrowed(str::from_utf8(data)?), Cow::Borrowed(lengths))),
         DictLayout::FrontCoded => {
@@ -470,11 +470,13 @@ impl<'a> RawSharedDict<'a> {
     pub fn new(
         name: &'a str,
         encoding: RawSharedDictEncoding<'a>,
+        dict: DictLayout,
         children: Vec<RawSharedDictItem<'a>>,
     ) -> Self {
         Self {
             name,
             encoding,
+            dict,
             children,
         }
     }
@@ -484,14 +486,18 @@ impl<'a> RawSharedDict<'a> {
         let prefix = self.name;
         let (data, dict_spans) = match self.encoding {
             RawSharedDictEncoding::Plain(plain_data) => {
-                let (decoded, lengths) = plain_data.decode(dec)?;
+                let (blob, lengths) = plain_data.decode_bytes(dec)?;
+                let (entries, lengths) = rebuild_dictionary(self.dict, &lengths, blob)?;
                 let dict_spans = shared_dict_spans(&lengths, dec)?;
-                (Cow::Borrowed(decoded), dict_spans)
+                (entries, dict_spans)
             }
             RawSharedDictEncoding::FsstPlain(fsst_data) => {
-                let (decoded, lengths) = fsst_data.decode(dec)?;
+                let (blob, lengths) = fsst_data.decode_bytes(dec)?;
+                // `entries` borrows the decompressed corpus, which is local, so it is taken owned.
+                let (entries, lengths) = rebuild_dictionary(self.dict, &lengths, &blob)?;
+                let (entries, lengths) = (entries.into_owned(), lengths.into_owned());
                 let dict_spans = shared_dict_spans(&lengths, dec)?;
-                (decoded.into(), dict_spans)
+                (Cow::Owned(entries), dict_spans)
             }
         };
         let mut items = Vec::with_capacity(self.children.len());

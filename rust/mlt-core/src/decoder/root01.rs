@@ -328,6 +328,7 @@ fn parse_shared_dict_column<'a>(
     Ok((
         input,
         RawProperty::SharedDict(RawSharedDict {
+            dict: DictLayout::Plain,
             name,
             encoding,
             children,

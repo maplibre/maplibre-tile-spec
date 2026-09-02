@@ -42,10 +42,10 @@ use crate::decoder::stream::header02;
 use crate::decoder::stream::header02::{BlobLayout, StrLayout, StreamCtx02};
 use crate::decoder::{
     ColumnType02, DataType02, DictLayout, DictionaryType, FloatLogical, GeoLayout, Id, Layer01,
-    LayerLayout,
+    LayerLayout, SharedDictKind,
     LengthType, LogicalEncoding, Presence02, RawFloats, RawFloatsEncoding, RawFsstData,
-    RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawScalar, RawStream, RawStrings,
-    RawStringsEncoding,
+    RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawScalar, RawSharedDict,
+    RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding,
 };
 use crate::tile::Extent;
 use crate::utils::{SetOptionOnce as _, parse_string, parse_u8, take};
@@ -89,6 +89,24 @@ pub(crate) fn parse_layer02<'a>(
 
         let typ_byte;
         (input, typ_byte) = parse_u8(input)?;
+        // A shared dictionary spends its presence nibble on the corpus encoding, so it is
+        // taken here rather than through `ColumnType02::parse`, which reads that nibble as presence.
+        if ColumnType02::fields(typ_byte).1 == DataType02::SharedDict as u8 {
+            let shared_dict;
+            (input, shared_dict) = parse_shared_dict02(
+                input,
+                typ_byte,
+                &shared_presence,
+                feature_count,
+                layout.shared_presence,
+                parser,
+            )?;
+            properties.push(Raw(RP::SharedDict(shared_dict)));
+            #[cfg(fuzzing)]
+            layer_order.push(crate::decoder::fuzzing::LayerOrdering::Property);
+            continue;
+        }
+
         let typ = ColumnType02::parse(typ_byte, layout.shared_presence)?;
         let name = if typ.data.has_name() {
             let named;
@@ -138,6 +156,8 @@ pub(crate) fn parse_layer02<'a>(
                 }))?;
                 continue;
             }
+            // `ColumnType02::parse` rejects this byte, since the loop takes it first.
+            DataType02::SharedDict => return Err(MltError::ParsingColumnType(typ.to_byte())),
             DataType02::Bool => RP::Bool(RawScalar::new(name, presence, value)),
             DataType02::I8 => RP::I8(RawScalar::new(name, presence, value)),
             DataType02::U8 => RP::U8(RawScalar::new(name, presence, value)),
@@ -210,6 +230,86 @@ fn parse_floats<'a>(
             encoding,
         },
     ))
+}
+
+/// Parse a shared-dictionary column: its corpus, then the children that index into it.
+///
+/// The type byte's high nibble names the corpus encoding rather than presence, since the group
+/// holds no values of its own. Each child carries its own presence nibble and offsets stream.
+#[allow(clippy::too_many_arguments, reason = "each argument is a distinct wire input")]
+fn parse_shared_dict02<'a>(
+    input: &'a [u8],
+    typ_byte: u8,
+    shared: &[&'a BitSlice<u8, Lsb0>],
+    feature_count: u32,
+    shared_count: u8,
+    parser: &mut Parser,
+) -> MltRefResult<'a, RawSharedDict<'a>> {
+    let kind = SharedDictKind::parse(ColumnType02::fields(typ_byte).0)
+        .ok_or(MltError::ParsingColumnType(typ_byte))?;
+    let (input, name) = parse_string(input)?;
+    let (input, child_count) = parse_varint::<u32>(input)?;
+    parser.reserve(child_count)?;
+
+    let stream = |input: &'a [u8], ctx, parser: &mut Parser| {
+        header02::parse_stream(input, ctx, 0, parser)
+    };
+    // The corpus streams mirror a lone string column's dictionary tail, so the blob that ends
+    // them is what names front coding here too.
+    let (input, encoding, dict) = match kind {
+        SharedDictKind::Plain => {
+            let (input, lengths) = stream(input, StreamCtx02::StrDictLengths, parser)?;
+            let dict = blob_dict_layout(input)?;
+            let (input, data) =
+                stream(input, StreamCtx02::StrBlob(DictionaryType::Shared), parser)?;
+            let plain = RawPlainData::new(lengths, data)?;
+            (input, RawSharedDictEncoding::plain(plain), dict)
+        }
+        SharedDictKind::Fsst => {
+            let (input, lengths) = stream(input, StreamCtx02::StrDictLengths, parser)?;
+            let (input, symbol_lengths) = stream(input, StreamCtx02::StrSymbolLengths, parser)?;
+            let (input, symbols) =
+                stream(input, StreamCtx02::StrBlob(DictionaryType::Fsst), parser)?;
+            let dict = blob_dict_layout(input)?;
+            let (input, corpus) =
+                stream(input, StreamCtx02::StrBlob(DictionaryType::Shared), parser)?;
+            let fsst = RawFsstData::new(symbol_lengths, symbols, lengths, corpus)?;
+            (input, RawSharedDictEncoding::fsst_plain(fsst), dict)
+        }
+    };
+
+    let mut input = input;
+    let mut children = Vec::with_capacity(child_count.into_usize());
+    for _ in 0..child_count {
+        let child_byte;
+        (input, child_byte) = parse_u8(input)?;
+        let child_typ = ColumnType02::parse(child_byte, shared_count)?;
+        if child_typ.data != DataType02::Str {
+            return Err(MltError::ParsingColumnType(child_byte));
+        }
+        let child_name;
+        (input, child_name) = parse_string(input)?;
+        let presence;
+        (input, presence) = parse_presence(child_typ, shared, input, feature_count)?;
+        let count = match &presence {
+            RawPresence::Bitfield(bits) => u32::try_from(bits.count_ones())?,
+            RawPresence::AllPresent | RawPresence::Stream(_) => feature_count,
+        };
+        let data;
+        (input, data) = header02::parse_stream(
+            input,
+            StreamCtx02::StrData(StrLayout::Dict),
+            count,
+            parser,
+        )?;
+        children.push(RawSharedDictItem {
+            name: child_name,
+            presence,
+            data,
+        });
+    }
+
+    Ok((input, RawSharedDict::new(name, encoding, dict, children)))
 }
 
 /// Read how a dictionary blob lays its entries out, from the encoding byte its stream begins with.

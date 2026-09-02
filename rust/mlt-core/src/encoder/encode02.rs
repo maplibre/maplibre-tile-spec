@@ -31,7 +31,7 @@ use crate::encoder::{
     Codecs, Encoder, StagedId, StagedOptScalar, StagedProperty, write_stream_payload,
 };
 use crate::utils::BinarySerializer as _;
-use crate::{MltError, MltResult};
+use crate::MltResult;
 
 /// The presence masks the layer stores once for several columns to read.
 ///
@@ -162,7 +162,7 @@ fn column_masks<'a>(
 
 /// Append `bits` as `ceil(len/8)` LSB-first packed bytes - the layout v2 uses for
 /// both presence bitfields and bool column data.
-fn write_presence_bits(data: &mut Vec<u8>, bits: &[bool]) {
+pub(crate) fn write_presence_bits(data: &mut Vec<u8>, bits: &[bool]) {
     let start = data.len();
     data.resize(start + bits.len().div_ceil(8), 0);
     for (i, &bit) in bits.iter().enumerate() {
@@ -297,7 +297,9 @@ fn family_of(typ: DataType02) -> Family {
         | DataType02::U32
         | DataType02::I64
         | DataType02::U64
-        | DataType02::Str => Family::Int,
+        | DataType02::Str
+        // A shared dictionary has no data stream of its own; each of its streams sets its own family.
+        | DataType02::SharedDict => Family::Int,
     }
 }
 
@@ -411,6 +413,6 @@ fn write_prop02(
                 codecs.write_str_col02(v, enc)
             })
         }
-        D::SharedDict(_) => Err(MltError::NotImplemented("v2 shared dictionary columns")),
+        D::SharedDict(v) => codecs.write_shared_dict02(v, enc),
     }
 }

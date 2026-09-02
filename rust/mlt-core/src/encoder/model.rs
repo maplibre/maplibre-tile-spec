@@ -309,12 +309,7 @@ impl EncoderConfig {
 
     #[must_use]
     pub fn allow_shared_dict(self) -> bool {
-        // TODO(v2): group string columns into a shared dictionary for `WireVersion::V02`.
-        // A v2 shared dictionary needs the `DataType02` `0x0F` escape designed to name the
-        // group and its members, then an encoder and decoder for that column shape.
-        // Until then shared dictionaries are only attempted for v1 layers, and v2 writes
-        // every string column on its own.
-        self.allow_shared_dict && self.wire_version == WireVersion::V01
+        self.allow_shared_dict
     }
 
     /// Whether float columns may use a dictionary, which only v2 can express.
