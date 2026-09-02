@@ -297,8 +297,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
                 cfg,
                 args.tile_compression.into(),
             )),
-            // `has_archive_input` above rules out a directory input, so this is mbtiles.
-            ContainerFormat::Mbtiles | ContainerFormat::Files => {
+            ContainerFormat::Mbtiles => {
                 runtime.block_on(from_mbtiles::convert(
                     &args.input,
                     output,
@@ -306,7 +305,8 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
                     args.mbtiles_format,
                     args.tile_compression.into(),
                 ))
-            }
+            },
+            ContainerFormat::Files => unreachable!("`has_archive_input` above rules out a directory input"),
         };
     }
 
