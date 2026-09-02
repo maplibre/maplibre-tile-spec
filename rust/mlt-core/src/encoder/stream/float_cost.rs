@@ -16,7 +16,7 @@ pub(crate) fn data_bytes(values: impl Iterator<Item = u64>) -> usize {
 }
 
 /// Encoded length of a varint, for costing a header that is not written yet.
-pub(crate) fn varint_len(value: impl TryInto<u64>) -> usize {
-    let value: u64 = value.try_into().unwrap_or(u64::MAX);
-    integer_encoding::VarInt::required_space(value)
+/// Signed types are measured through their zigzag form, which is how they are written.
+pub(crate) fn varint_len(value: impl integer_encoding::VarInt) -> usize {
+    value.required_space()
 }

@@ -123,7 +123,9 @@ impl Codecs {
             match enc.override_float_enc(ctx.name) {
                 // A pinned encoding is written as asked, with nothing costed against it.
                 Some(FloatEncoding::Alp) => {
-                    let alp = AlpStream::smallest(values).ok_or(MltError::NoAlpParameters)?;
+                    let mut alp = AlpStream::smallest(values).ok_or(MltError::NoAlpParameters)?;
+                    // The pin names the logical encoding; the physical one still races.
+                    alp.race_fastpfor(&mut self.physical, enc.config())?;
                     return self.write_alp_stream(&alp, ctx.stream_type, enc);
                 }
                 Some(FloatEncoding::Dict) => {
@@ -139,7 +141,7 @@ impl Codecs {
                         None
                     };
                     let alp = if enc.config().allow_float_alp() {
-                        AlpStream::worth_building(values)
+                        AlpStream::worth_building(values, &mut self.physical, enc.config())?
                     } else {
                         None
                     };
@@ -169,14 +171,15 @@ impl Codecs {
         stream_type: StreamType,
         enc: &mut Encoder,
     ) -> MltResult<()> {
+        let count = alp.offsets.len();
+        let (physical, payload) = alp.payload(&mut self.physical);
         let meta = StreamMeta::new2(
             stream_type,
             LogicalEncoding::Float(FloatLogical::Alp(alp.params)),
-            PhysicalEncoding::VarInt,
-            alp.codes.len(),
+            physical,
+            count,
         )?;
-        let codes = self.physical.varint(&alp.codes);
-        encoder::write_stream_payload(enc, meta, false, codes)
+        encoder::write_stream_payload(enc, meta, false, payload)
     }
 
     /// Write a float column as a codes stream followed by its dictionary.

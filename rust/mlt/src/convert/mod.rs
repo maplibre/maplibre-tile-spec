@@ -212,6 +212,14 @@ pub struct ConvertArgs {
     /// Disable `FSST` string compression
     #[clap(long)]
     no_fsst: bool,
+    /// Enable the v2-only ALP float encoding, storing floats as decimal-scaled integers
+    #[cfg(feature = "unstable-v2")]
+    #[clap(long)]
+    float_alp: bool,
+    /// Enable the v2-only float dictionary encoding
+    #[cfg(feature = "unstable-v2")]
+    #[clap(long)]
+    float_dict: bool,
     /// Output tile format (`mlt` re-encodes; `mvt` decodes MLT inputs back to MVT)
     #[clap(long, default_value = "mlt")]
     to: TileFormat,
@@ -253,6 +261,10 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         .with_shared_dict(!args.no_shared_dict)
         .with_fastpfor(!args.no_fastpfor)
         .with_fsst(!args.no_fsst);
+    #[cfg(feature = "unstable-v2")]
+    let cfg = cfg
+        .with_float_alp(args.float_alp)
+        .with_float_dict(args.float_dict);
 
     let input_container = args.input_container();
     let output_container = args.output_container();
