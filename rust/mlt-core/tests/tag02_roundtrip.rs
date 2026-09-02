@@ -640,17 +640,40 @@ mod strings {
     use super::*;
 
     /// A value long and repetitive enough for FSST to pay off its symbol table.
+    /// The seed leads, so two of them share no prefix worth coding.
     fn long(seed: usize) -> String {
+        let lead = char::from(b'a' + u8::try_from(seed).unwrap());
+        format!("{lead}_residential_zone_north_sector_").repeat(16)
+    }
+
+    /// As [`long`], with the seed last, so two of them share all but their final bytes.
+    fn long_shared(seed: usize) -> String {
         format!("residential_zone_north_sector_{seed:03}_").repeat(16)
     }
 
-    /// Distinct short values, which neither a dictionary nor a symbol table improves on.
+    /// Distinct short values sharing no prefix, which no dictionary or symbol table improves on.
     fn plain_values(n: usize) -> Vec<String> {
-        (0..n).map(|i| format!("zone_{i}")).collect()
+        (0..n)
+            .map(|i| {
+                let lead = char::from(b'a' + u8::try_from(i).unwrap());
+                format!("{lead}_zone_marker")
+            })
+            .collect()
     }
 
     /// Two long values alternating, which is what a dictionary is for.
+    /// They share no prefix, so front coding would only add a length per entry.
     fn dict_values(n: usize) -> Vec<String> {
+        (0..n)
+            .map(|i| {
+                let lead = if i % 2 == 0 { "A" } else { "B" };
+                lead.repeat(30)
+            })
+            .collect()
+    }
+
+    /// As [`dict_values`], with the two sharing all but their last byte, which front coding factors out.
+    fn front_dict_values(n: usize) -> Vec<String> {
         (0..n)
             .map(|i| format!("{}{}", "A".repeat(30), i % 2))
             .collect()
@@ -666,11 +689,21 @@ mod strings {
         (0..n).map(|i| long(i % 4)).collect()
     }
 
+    /// As [`fsst_dict_values`], with the four sharing prefixes for front coding to factor out.
+    fn fsst_front_dict_values(n: usize) -> Vec<String> {
+        (0..n).map(|i| long_shared(i % 4)).collect()
+    }
+
     type Values = fn(usize) -> Vec<String>;
 
     fn column(values: impl IntoIterator<Item = Option<String>>) -> TileLayer {
         let values: Vec<PropValue> = values.into_iter().map(PropValue::Str).collect();
         layer(points(&"1".repeat(values.len())), None, &[("v", values)])
+    }
+
+    /// Whether the tile writes a front-coded dictionary blob.
+    fn is_front_coded(bytes: &[u8]) -> bool {
+        dump_text(bytes).contains("logical = FrontCoded")
     }
 
     /// The layout of every string column in the tile, in wire order.
@@ -685,8 +718,10 @@ mod strings {
     #[rstest]
     #[case::plain(plain_values as Values, "Plain")]
     #[case::dict(dict_values as Values, "Dict")]
+    #[case::front_dict(front_dict_values as Values, "Dict")]
     #[case::fsst(fsst_values as Values, "Fsst")]
     #[case::fsst_dict(fsst_dict_values as Values, "FsstDict")]
+    #[case::fsst_front_dict(fsst_front_dict_values as Values, "FsstDict")]
     fn each_layout_round_trips(#[case] values: Values, #[case] layout: &str) {
         let l = column(values(9).into_iter().map(Some));
         assert_differential(&l);
@@ -696,8 +731,10 @@ mod strings {
     #[rstest]
     #[case::plain(plain_values as Values, "Plain")]
     #[case::dict(dict_values as Values, "Dict")]
+    #[case::front_dict(front_dict_values as Values, "Dict")]
     #[case::fsst(fsst_values as Values, "Fsst")]
     #[case::fsst_dict(fsst_dict_values as Values, "FsstDict")]
+    #[case::fsst_front_dict(fsst_front_dict_values as Values, "FsstDict")]
     fn each_layout_round_trips_with_nulls(#[case] values: Values, #[case] layout: &str) {
         let l = column(
             values(12)
@@ -707,6 +744,17 @@ mod strings {
         );
         assert_differential(&l);
         assert_eq!(layouts(&l.encode(cfg_v2()).unwrap()), [layout]);
+    }
+
+    /// Front coding is raced like every other layout, so it should win exactly when the
+    /// dictionary's entries share prefixes to factor out.
+    #[rstest]
+    #[case::entries_share_a_prefix(front_dict_values as Values, true)]
+    #[case::entries_share_no_prefix(dict_values as Values, false)]
+    fn front_coding_wins_on_shared_prefixes(#[case] values: Values, #[case] front_coded: bool) {
+        let l = column(values(9).into_iter().map(Some));
+        assert_differential(&l);
+        assert_eq!(is_front_coded(&l.encode(cfg_v2()).unwrap()), front_coded);
     }
 
     #[test]
@@ -774,6 +822,18 @@ mod strings {
     #[test]
     fn dict_column_layout() {
         let l = column(dict_values(6).into_iter().map(Some));
+        assert_snapshot!(dump_text(&l.encode(cfg_v2()).unwrap()));
+    }
+
+    #[test]
+    fn front_coded_dict_column_layout() {
+        let l = column(front_dict_values(6).into_iter().map(Some));
+        assert_snapshot!(dump_text(&l.encode(cfg_v2()).unwrap()));
+    }
+
+    #[test]
+    fn fsst_front_coded_dict_column_layout() {
+        let l = column(fsst_front_dict_values(6).into_iter().map(Some));
         assert_snapshot!(dump_text(&l.encode(cfg_v2()).unwrap()));
     }
 
