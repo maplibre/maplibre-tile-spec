@@ -366,6 +366,12 @@ impl<'a> Walker<'a> {
             for name in ["alp_e", "alp_f"] {
                 (c, _) = self.field(c, name, |i| parse_varint::<u8>(i), |v| Some(v.to_string()))?;
             }
+            (c, _) = self.field(
+                c,
+                "alp_base",
+                |i| parse_varint::<i64>(i),
+                |v| Some(v.to_string()),
+            )?;
         }
         self.close(hi, c);
 
@@ -377,7 +383,7 @@ impl<'a> Walker<'a> {
         // A dictionary's codes and ALP's integers are integer streams, whatever the column's type is.
         let hint = match stream.meta.encoding.logical {
             LogicalEncoding::Float(FloatLogical::Dict) => DecodeHint::U32,
-            LogicalEncoding::Float(FloatLogical::Alp(_)) => DecodeHint::I64,
+            LogicalEncoding::Float(FloatLogical::Alp(params)) => DecodeHint::Alp(params),
             LogicalEncoding::Float(FloatLogical::None)
             | LogicalEncoding::Int(_)
             | LogicalEncoding::Bool(_)
