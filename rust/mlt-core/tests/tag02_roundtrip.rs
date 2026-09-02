@@ -822,10 +822,7 @@ mod strings {
     fn a_shared_dictionary_is_smaller_than_per_column_ones() {
         let l = shared_dict_layer();
         let shared = l.clone().encode(cfg_v2()).unwrap().len();
-        let separate = l
-            .encode(cfg_v2().with_shared_dict(false))
-            .unwrap()
-            .len();
+        let separate = l.encode(cfg_v2().with_shared_dict(false)).unwrap().len();
         assert!(shared < separate, "shared {shared} vs separate {separate}");
     }
 

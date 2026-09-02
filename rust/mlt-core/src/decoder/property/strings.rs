@@ -9,9 +9,8 @@ use crate::codecs::front_coding::front_decode;
 use crate::codecs::fsst::{decode_fsst, decode_fsst_bytes};
 use crate::decoder::{
     DictLayout, DictionaryType, LengthType, OffsetType, ParsedSharedDict, ParsedSharedDictItem,
-    ParsedStrings,
-    RawFsstData, RawPlainData, RawPresence, RawSharedDictEncoding, RawStream, RawStrings,
-    RawStringsEncoding, StreamType,
+    ParsedStrings, RawFsstData, RawPlainData, RawPresence, RawSharedDictEncoding, RawStream,
+    RawStrings, RawStringsEncoding, StreamType,
 };
 use crate::errors::AsMltError as _;
 use crate::{Decoder, DictRange, MltError, MltResult, RawSharedDict, RawSharedDictItem};

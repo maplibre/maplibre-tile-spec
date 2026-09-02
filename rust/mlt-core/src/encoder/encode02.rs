@@ -20,6 +20,7 @@ use std::collections::HashMap;
 
 use integer_encoding::VarIntWriter as _;
 
+use crate::MltResult;
 use crate::decoder::stream::header02::Family;
 use crate::decoder::{
     BoolLogical, ColumnType02, DataType02, DictionaryType, LayerLayout, LogicalEncoding,
@@ -31,7 +32,6 @@ use crate::encoder::{
     Codecs, Encoder, StagedId, StagedOptScalar, StagedProperty, write_stream_payload,
 };
 use crate::utils::BinarySerializer as _;
-use crate::MltResult;
 
 /// The presence masks the layer stores once for several columns to read.
 ///

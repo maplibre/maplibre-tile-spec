@@ -4,11 +4,11 @@ use usize_cast::IntoUsize as _;
 
 use super::model::StagedStrings;
 use crate::MltResult;
-use crate::codecs::fsst::{FsstRawData, compress_fsst, compress_fsst_with};
 #[cfg(feature = "unstable-v2")]
 use crate::codecs::front_coding::{FrontCoded, front_code};
 #[cfg(feature = "unstable-v2")]
 use crate::codecs::fsst::{FsstBlob, compress_fsst_bytes};
+use crate::codecs::fsst::{FsstRawData, compress_fsst, compress_fsst_with};
 use crate::decoder::stream::header01;
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::stream::header02;
@@ -196,7 +196,9 @@ impl Codecs {
             alt.with(|enc| write_str_fsst_dict02(raw, &codes, name, enc, self))?;
         }
         if let Some(ref raw) = front_fsst {
-            alt.with(|enc| write_str_fsst_front_dict02(&front, raw, &sorted_codes, name, enc, self))?;
+            alt.with(|enc| {
+                write_str_fsst_front_dict02(&front, raw, &sorted_codes, name, enc, self)
+            })?;
         }
         Ok(())
     }
@@ -327,7 +329,10 @@ fn write_str_fsst_dict02(
 /// Front coding only pays when neighbours share prefixes, which sorting is what arranges.
 /// Equal values stay equal codes, so RLE over the codes is unaffected; their order is not.
 #[cfg(feature = "unstable-v2")]
-pub(crate) fn sort_dictionary<'a>(unique: &[&'a str], codes: &[u32]) -> MltResult<(Vec<&'a str>, Vec<u32>)> {
+pub(crate) fn sort_dictionary<'a>(
+    unique: &[&'a str],
+    codes: &[u32],
+) -> MltResult<(Vec<&'a str>, Vec<u32>)> {
     let mut order: Vec<u32> = (0..u32::try_from(unique.len())?).collect();
     order.sort_unstable_by_key(|&i| unique[i.into_usize()]);
     let mut rank = vec![0_u32; unique.len()];

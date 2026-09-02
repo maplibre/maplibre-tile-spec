@@ -17,8 +17,7 @@ use crate::decoder::stream::header02::{
 };
 use crate::decoder::{
     ColumnType02, DataType02, DictionaryType, GeoLayout, LayerLayout, LengthType, Presence02,
-    SharedDictKind,
-    StreamType,
+    SharedDictKind, StreamType,
 };
 use crate::tile::Extent;
 use crate::utils::{parse_string, parse_u8, take};
@@ -259,8 +258,9 @@ impl<'a> Walker<'a> {
         (input, name) = self.field(input, "name", parse_string, |s| Some(format!("{s:?}")))?;
         self.relabel(ci, format!("column[{i}] SharedDict {name:?}"));
         let child_count;
-        (input, child_count) =
-            self.field(input, "child_count", parse_varint::<u32>, |c| Some(c.to_string()))?;
+        (input, child_count) = self.field(input, "child_count", parse_varint::<u32>, |c| {
+            Some(c.to_string())
+        })?;
 
         // The corpus streams mirror a lone string column's dictionary tail.
         match kind {

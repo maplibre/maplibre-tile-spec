@@ -12,10 +12,9 @@ use crate::codecs::varint::parse_varint;
 use crate::decoder::stream::header01;
 use crate::decoder::{
     Column, ColumnType, DictLayout, DictionaryType, Geometry, Id, Layer01, RawFloats, RawFsstData,
-    RawGeometry,
-    RawId, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
-    RawSharedDictEncoding, RawSharedDictItem, RawStrings, RawStringsEncoding, StreamType,
-    ValueKind,
+    RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar,
+    RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings, RawStringsEncoding,
+    StreamType, ValueKind,
 };
 use crate::errors::AsMltError as _;
 use crate::tile::Extent;
@@ -252,9 +251,11 @@ fn parse_str_column<'a>(
         [Some(s1), Some(s2), Some(s3), Some(s4), None] => {
             RawStringsEncoding::fsst_plain(RawFsstData::new(s1, s2, s3, s4)?)
         }
-        [Some(s1), Some(s2), Some(s3), Some(s4), Some(s5)] => {
-            RawStringsEncoding::fsst_dictionary(RawFsstData::new(s1, s2, s3, s4)?, s5, DictLayout::Plain)?
-        }
+        [Some(s1), Some(s2), Some(s3), Some(s4), Some(s5)] => RawStringsEncoding::fsst_dictionary(
+            RawFsstData::new(s1, s2, s3, s4)?,
+            s5,
+            DictLayout::Plain,
+        )?,
         _ => Err(UnsupportedStringStreamCount(stream_count))?,
     };
     Ok((

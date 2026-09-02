@@ -395,11 +395,7 @@ fn logical_int(family: Family, enc_byte: u8, logical: Logical) -> MltResult<Logi
             no_physical(enc_byte)?;
             LogicalInt::DeltaRle
         }
-        Logical::CwDelta
-        | Logical::Morton
-        | Logical::Alp
-        | Logical::Dict
-        | Logical::FrontCoded => {
+        Logical::CwDelta | Logical::Morton | Logical::Alp | Logical::Dict | Logical::FrontCoded => {
             unreachable_member(family, logical)?
         }
     })
@@ -462,9 +458,7 @@ impl Encoding02 {
                 | Logical::CwDelta
                 | Logical::DeltaRle
                 | Logical::Morton
-                | Logical::FrontCoded => {
-                    unreachable_member(family, logical)?
-                }
+                | Logical::FrontCoded => unreachable_member(family, logical)?,
             }),
             Family::Vertex => Self::Vertex(match logical {
                 Logical::None => LogicalVertex::None(physical_int(enc_byte)?),

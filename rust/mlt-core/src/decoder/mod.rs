@@ -43,9 +43,8 @@ pub(crate) use model02::{
 pub(crate) use property::strings;
 pub(crate) use property::{
     DictLayout, DictRange, ParsedProperty, ParsedScalar, ParsedSharedDict, ParsedSharedDictItem,
-    ParsedStrings,
-    Property, RawFloats, RawFloatsEncoding, RawFsstData, RawPlainData, RawPresence, RawProperty,
-    RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings,
+    ParsedStrings, Property, RawFloats, RawFloatsEncoding, RawFsstData, RawPlainData, RawPresence,
+    RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings,
     RawStringsEncoding,
 };
 #[cfg(feature = "unstable-v2")]

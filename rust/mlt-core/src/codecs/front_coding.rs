@@ -50,7 +50,9 @@ pub(crate) fn front_code(sorted: &[&str]) -> MltResult<FrontCoded> {
         let entry = entry.as_bytes();
         let shared = common_prefix_len(previous, entry);
         coded.prefix_lengths.push(u32::try_from(shared)?);
-        coded.suffix_lengths.push(u32::try_from(entry.len() - shared)?);
+        coded
+            .suffix_lengths
+            .push(u32::try_from(entry.len() - shared)?);
         coded.suffixes.extend_from_slice(&entry[shared..]);
         previous = entry;
     }

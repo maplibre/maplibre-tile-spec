@@ -10,13 +10,13 @@ use crate::codecs::front_coding::front_code;
 use crate::codecs::fsst::{compress_fsst_bytes, compress_fsst_with};
 use crate::decoder::stream::header02::{BlobLayout, Family, StrLayout};
 use crate::decoder::{ColumnType02, DataType02, Presence02, SharedDictKind};
+use crate::encoder::encode02::write_presence_bits;
 use crate::encoder::model::StreamCtx;
 use crate::encoder::property::shared_dict::collect_staged_shared_dict_spans;
 use crate::encoder::property::strings::{
     suffix_parts, write_blob02, write_dict_tail02, write_front_lengths02, write_fsst_tail02,
 };
 use crate::encoder::{Codecs, Encoder, StagedSharedDict};
-use crate::encoder::encode02::write_presence_bits;
 use crate::utils::BinarySerializer as _;
 use crate::{LengthType, MltResult, OffsetType, StreamType};
 

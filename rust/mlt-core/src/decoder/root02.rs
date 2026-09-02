@@ -42,10 +42,10 @@ use crate::decoder::stream::header02;
 use crate::decoder::stream::header02::{BlobLayout, StrLayout, StreamCtx02};
 use crate::decoder::{
     ColumnType02, DataType02, DictLayout, DictionaryType, FloatLogical, GeoLayout, Id, Layer01,
-    LayerLayout, SharedDictKind,
-    LengthType, LogicalEncoding, Presence02, RawFloats, RawFloatsEncoding, RawFsstData,
-    RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawScalar, RawSharedDict,
-    RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding,
+    LayerLayout, LengthType, LogicalEncoding, Presence02, RawFloats, RawFloatsEncoding,
+    RawFsstData, RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawScalar,
+    RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings,
+    RawStringsEncoding, SharedDictKind,
 };
 use crate::tile::Extent;
 use crate::utils::{SetOptionOnce as _, parse_string, parse_u8, take};
@@ -236,7 +236,10 @@ fn parse_floats<'a>(
 ///
 /// The type byte's high nibble names the corpus encoding rather than presence, since the group
 /// holds no values of its own. Each child carries its own presence nibble and offsets stream.
-#[allow(clippy::too_many_arguments, reason = "each argument is a distinct wire input")]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "each argument is a distinct wire input"
+)]
 fn parse_shared_dict02<'a>(
     input: &'a [u8],
     typ_byte: u8,
@@ -251,9 +254,8 @@ fn parse_shared_dict02<'a>(
     let (input, child_count) = parse_varint::<u32>(input)?;
     parser.reserve(child_count)?;
 
-    let stream = |input: &'a [u8], ctx, parser: &mut Parser| {
-        header02::parse_stream(input, ctx, 0, parser)
-    };
+    let stream =
+        |input: &'a [u8], ctx, parser: &mut Parser| header02::parse_stream(input, ctx, 0, parser);
     // The corpus streams mirror a lone string column's dictionary tail, so the blob that ends
     // them is what names front coding here too.
     let (input, encoding, dict) = match kind {
@@ -296,12 +298,8 @@ fn parse_shared_dict02<'a>(
             RawPresence::AllPresent | RawPresence::Stream(_) => feature_count,
         };
         let data;
-        (input, data) = header02::parse_stream(
-            input,
-            StreamCtx02::StrData(StrLayout::Dict),
-            count,
-            parser,
-        )?;
+        (input, data) =
+            header02::parse_stream(input, StreamCtx02::StrData(StrLayout::Dict), count, parser)?;
         children.push(RawSharedDictItem {
             name: child_name,
             presence,
@@ -376,7 +374,10 @@ fn parse_strings<'a>(
             let (input, corpus) =
                 stream(input, StreamCtx02::StrBlob(DictionaryType::Single), parser)?;
             let fsst = RawFsstData::new(symbol_lengths, symbols, lengths, corpus)?;
-            (input, RawStringsEncoding::fsst_dictionary(fsst, leading, dict)?)
+            (
+                input,
+                RawStringsEncoding::fsst_dictionary(fsst, leading, dict)?,
+            )
         }
     };
     Ok((
