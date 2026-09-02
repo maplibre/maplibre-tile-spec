@@ -130,7 +130,7 @@ impl<'a> RawStream<'a> {
             PhysicalEncoding::VarInt => {
                 return Err(MltError::UnsupportedPhysicalEncoding("varint floats"));
             }
-            PhysicalEncoding::FastPFor256 => {
+            PhysicalEncoding::FastPFor(_) => {
                 return Err(MltError::UnsupportedPhysicalEncoding("FastPFOR floats"));
             }
         }
@@ -168,8 +168,8 @@ impl<'a> RawStream<'a> {
                 let (_, values) = decode_bytes_to_words::<T>(self.data, self.meta.num_values, dec)?;
                 *buf = values;
             }
-            PhysicalEncoding::FastPFor256 => {
-                *buf = T::decode_fastpfor(self.data, self.meta.num_values, dec)?;
+            PhysicalEncoding::FastPFor(kind) => {
+                *buf = T::decode_fastpfor(self.data, self.meta.num_values, kind, dec)?;
             }
             PhysicalEncoding::VarInt => {
                 // v2 interleaved-RLE stores no run count on the wire: `num_values`
@@ -285,7 +285,7 @@ impl LogicalEncoding {
     /// scanned to its end: v2 interleaved-RLE stores no run count on the wire, and
     /// `num_values` holds the *decoded* count instead of the encoded word count.
     #[cfg(feature = "unstable-v2")]
-    fn scans_to_end(self) -> bool {
+    pub(crate) fn scans_to_end(self) -> bool {
         matches!(
             self,
             Self::Int(
@@ -299,7 +299,7 @@ impl LogicalEncoding {
     /// always carries an explicit run count.
     #[cfg(not(feature = "unstable-v2"))]
     #[expect(clippy::unused_self, reason = "tmp because feature gate")]
-    fn scans_to_end(self) -> bool {
+    pub(crate) fn scans_to_end(self) -> bool {
         false
     }
 }
@@ -312,7 +312,9 @@ mod tests {
     use super::*;
     use crate::codecs::bytes::encode_bools_to_bytes;
     use crate::codecs::rle::encode_byte_rle;
-    use crate::decoder::{DictionaryType, IntEncoding, RleMeta, StreamMeta, StreamType, ValueKind};
+    use crate::decoder::{
+        DictionaryType, FastPForKind, IntEncoding, RleMeta, StreamMeta, StreamType, ValueKind,
+    };
     use crate::test_helpers::dec;
 
     fn packed(bools: &[bool]) -> Vec<u8> {
@@ -423,7 +425,8 @@ mod tests {
 
     #[rstest]
     #[case::varint(PhysicalEncoding::VarInt)]
-    #[case::fastpfor(PhysicalEncoding::FastPFor256)]
+    #[case::fastpfor(PhysicalEncoding::FastPFor(FastPForKind::Block256Be))]
+    #[case::fastpfor128(PhysicalEncoding::FastPFor(FastPForKind::Block128Le))]
     fn decode_floats_rejects_non_raw_physical(#[case] physical: PhysicalEncoding) {
         let stream = float_stream(LogicalEncoding::Float(FloatLogical::None), physical);
         let err = stream.decode_floats::<f32>(&mut dec()).unwrap_err();

@@ -25,7 +25,7 @@ use usize_cast::IntoUsize as _;
 use crate::MltError::{ParsingStreamType, UnsupportedLogicalEncoding};
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
-    BoolLogical, DictionaryType, FloatLogical, IntEncoding, IntLogical, LengthType,
+    BoolLogical, DictionaryType, FastPForKind, FloatLogical, IntEncoding, IntLogical, LengthType,
     LogicalCombination, LogicalEncoding, LogicalTechnique, Morton, OffsetType, PhysicalEncoding,
     RawStream, RleMeta, StreamMeta, StreamType, ValueKind, VertexLogical,
 };
@@ -54,6 +54,24 @@ const LOGICAL_MASK: u8 = LOGICAL1_MASK | LOGICAL2_MASK;
 /// Mask of the encoding byte holding the [`PhysicalEncoding`].
 const PHYSICAL_MASK: u8 = 0b0000_0011;
 
+/// Physical field of the encoding byte, already masked into place.
+/// v1 codes only one `FastPFor` block size, so the field names it outright.
+#[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive, strum::IntoStaticStr)]
+#[repr(u8)]
+pub(crate) enum PhysicalField {
+    None = 0b0000_0000,
+    FastPFor256 = 0b0000_0001,
+    VarInt = 0b0000_0010,
+}
+
+impl PhysicalField {
+    /// Read the physical field, for a caller that names the bits rather than decodes them.
+    pub(crate) fn parse(encoding_byte: u8) -> MltResult<Self> {
+        let field = encoding_byte & PHYSICAL_MASK;
+        Self::try_from(field).or(Err(MltError::ParsingPhysicalEncoding(field)))
+    }
+}
+
 /// Category field (bits 7-4 of the `stream_type` byte), already shifted into place.
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
@@ -76,9 +94,29 @@ fn parse_logical(encoding_byte: u8) -> MltResult<LogicalCombination> {
     })
 }
 
+/// Read the physical field of the encoding byte, v1 coding `FastPFor` as 256-value big-endian blocks.
+fn parse_physical(encoding_byte: u8) -> MltResult<PhysicalEncoding> {
+    Ok(match PhysicalField::parse(encoding_byte)? {
+        PhysicalField::None => PhysicalEncoding::None,
+        PhysicalField::FastPFor256 => PhysicalEncoding::FastPFor(FastPForKind::Block256Be),
+        PhysicalField::VarInt => PhysicalEncoding::VarInt,
+    })
+}
+
 /// Assemble the encoding byte from its logical and physical fields.
-fn encoding_byte(logical: LogicalCombination, physical: PhysicalEncoding) -> u8 {
-    logical as u8 | physical as u8
+fn encoding_byte(logical: LogicalCombination, physical: PhysicalEncoding) -> MltResult<u8> {
+    let field = match physical {
+        PhysicalEncoding::None => PhysicalField::None,
+        PhysicalEncoding::FastPFor(FastPForKind::Block256Be) => PhysicalField::FastPFor256,
+        PhysicalEncoding::VarInt => PhysicalField::VarInt,
+        PhysicalEncoding::FastPFor(FastPForKind::Block128Le) => {
+            return Err(MltError::UnsupportedPhysicalEncodingForType(
+                physical,
+                "v1, whose FastPFor streams are 256-value big-endian blocks",
+            ));
+        }
+    };
+    Ok(logical as u8 | field as u8)
 }
 
 /// Parse the v1 `stream_type` byte: category in the high nibble, subtype in the low nibble.
@@ -146,7 +184,7 @@ pub(crate) fn parse_stream_meta<'a>(
 
     let (input, val) = parse_u8(input)?;
     let logical = parse_logical(val)?;
-    let physical_encoding = PhysicalEncoding::parse(val & PHYSICAL_MASK)?;
+    let physical_encoding = parse_physical(val)?;
 
     let (input, num_values) = parse_varint::<u32>(input)?;
     let (input, byte_length) = parse_varint::<u32>(input)?;
@@ -261,7 +299,7 @@ pub(crate) fn write_stream_meta<W: io::Write>(
             ));
         }
     };
-    writer.write_u8(encoding_byte(logical, meta.encoding.physical))?;
+    writer.write_u8(encoding_byte(logical, meta.encoding.physical)?)?;
     writer.write_varint(meta.num_values)?;
     writer.write_varint(byte_length)?;
 

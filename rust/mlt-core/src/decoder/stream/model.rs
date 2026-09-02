@@ -281,16 +281,24 @@ pub enum StreamType {
 }
 
 /// Physical encoding used for a column, as stored in the tile
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, TryFromPrimitive)]
-#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum PhysicalEncoding {
-    None = 0b0000_0000,
+    None,
     /// Preferred, tends to produce the best compression ratio and decoding performance.
     /// But currently limited to 32-bit integer.
-    FastPFor256 = 0b0000_0001,
+    FastPFor(FastPForKind),
     /// Can produce better results in combination with a heavyweight compression scheme like `Gzip`.
     /// Simple compression scheme where the encoding is easier to implement compared to `FastPfor`.
-    VarInt = 0b0000_0010,
+    VarInt,
+}
+
+/// The `FastPFor` block size and word order a wire version codes its integer streams with.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum FastPForKind {
+    /// 256-value blocks over big-endian words, as tag `0x01` stores them.
+    Block256Be,
+    /// 128-value blocks over little-endian words, as tag `0x02` stores them.
+    Block128Le,
 }
 
 // RawStream types

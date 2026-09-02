@@ -1,12 +1,3 @@
-use crate::decoder::PhysicalEncoding;
-use crate::{MltError, MltResult};
-
-impl PhysicalEncoding {
-    pub fn parse(value: u8) -> MltResult<Self> {
-        Self::try_from(value).or(Err(MltError::ParsingPhysicalEncoding(value)))
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::EnumIter)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]

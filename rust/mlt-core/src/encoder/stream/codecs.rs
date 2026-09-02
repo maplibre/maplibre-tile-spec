@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use bytemuck::{NoUninit, cast_slice};
-use fastpfor::FastPFor256;
+use fastpfor::{FastPFor128, FastPFor256};
 
 use crate::codecs::bytes::encode_bools_to_bytes;
 use crate::codecs::float::FloatValue;
@@ -40,7 +40,8 @@ pub struct Codecs {
 pub struct PhysicalCodecs {
     pub(crate) u32_tmp: Vec<u32>,
     pub(crate) u8_tmp: Vec<u8>,
-    pub(crate) fastpfor: FastPFor256,
+    pub(crate) fastpfor256: FastPFor256,
+    pub(crate) fastpfor128: FastPFor128,
 }
 
 #[derive(Default)]
@@ -267,7 +268,7 @@ impl Codecs {
             return encoder::write_stream_payload(enc, meta, false, payload);
         }
 
-        let allow_fastpfor = enc.config().allow_fastpfor();
+        let fastpfor = enc.config().fastpfor();
         let rle_layout = enc.config().wire_version().rle_layout();
         let mut alt = enc.try_alternatives();
 
@@ -283,7 +284,7 @@ impl Codecs {
                 values,
                 logical_enc,
                 ctx.stream_type,
-                allow_fastpfor,
+                fastpfor,
             )?;
         }
         if profile.delta_is_beneficial() {
@@ -293,7 +294,7 @@ impl Codecs {
                 values,
                 LE::Int(IntLogical::Delta),
                 ctx.stream_type,
-                allow_fastpfor,
+                fastpfor,
             )?;
         }
         if profile.rle_is_viable() {
@@ -303,7 +304,7 @@ impl Codecs {
                 values,
                 logical_enc,
                 ctx.stream_type,
-                allow_fastpfor,
+                fastpfor,
             )?;
         }
         let values = logical.none(values);
@@ -312,7 +313,7 @@ impl Codecs {
             values,
             LE::Int(IntLogical::None),
             ctx.stream_type,
-            allow_fastpfor,
+            fastpfor,
         )
     }
 }

@@ -469,6 +469,50 @@ fn default_config_with_sort_trials() {
 }
 
 #[test]
+fn a_bitpacking_friendly_column_takes_fastpfor128() {
+    let n = 2000_u32;
+    let geoms: Vec<_> = (0..n).map(|i| pt(i32::try_from(i).unwrap(), 0)).collect();
+    let values: Vec<PropValue> = (0..n)
+        .map(|i| PropValue::U32(Some(i.wrapping_mul(2_654_435_761) % 4096)))
+        .collect();
+    let l = layer(geoms, None, &[("scattered", values)]);
+
+    let v2 = l.clone().encode(cfg_v2()).expect("v2 encode");
+    assert!(
+        dump_text(&v2).contains("physical = FastPFor128"),
+        "v2 should code the scattered column with FastPFor128"
+    );
+    assert_differential(&l);
+
+    let without = l
+        .encode(cfg_v2().with_fastpfor(false))
+        .expect("v2 encode without fastpfor");
+    assert!(
+        v2.len() < without.len(),
+        "FastPFor128 ({} B) should beat the varint fallback ({} B)",
+        v2.len(),
+        without.len()
+    );
+}
+
+#[rstest]
+fn a_fastpfor128_stream_round_trips_across_block_boundaries(
+    #[values(127, 128, 129, 255, 256, 257, 383, 384, 385, 511, 512, 513)] n: u32,
+) {
+    let geoms: Vec<_> = (0..n).map(|i| pt(i32::try_from(i).unwrap(), 0)).collect();
+    let values: Vec<PropValue> = (0..n)
+        .map(|i| PropValue::U32(Some(i.wrapping_mul(2_654_435_761) % 4096)))
+        .collect();
+    let l = layer(geoms, None, &[("scattered", values)]);
+    let v2 = l.clone().encode(cfg_v2()).expect("v2 encode");
+    assert!(
+        dump_text(&v2).contains("physical = FastPFor128"),
+        "{n} scattered values should be coded with FastPFor128"
+    );
+    assert_differential(&l);
+}
+
+#[test]
 fn v2_is_smaller_for_typical_layer() {
     let n = 100_u16;
     let geoms: Vec<_> = (0..n)
