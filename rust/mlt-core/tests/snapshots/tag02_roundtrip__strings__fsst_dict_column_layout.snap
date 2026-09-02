@@ -1,0 +1,118 @@
+---
+source: mlt-core/tests/tag02_roundtrip.rs
+expression: dump_text(&l.encode(cfg_v2()).unwrap())
+---
+00000000                                                                     | layer[0] (537 B)
+00000000  97 04                                             ..               |   size: 535 (varint) - tag + body
+00000002  02                                                .                |   tag: 0x02 -> Tag02
+00000003  0a 74 65 73 74 5f 6c 61 79 65 72                  .test_layer      |   name: "test_layer"
+0000000e  80 20                                             .                |   extent: 4096
+00000010  06                                                .                |   feature_count: 6
+00000011  00                                                .                |   layout: 0x00 Points
+                                                                             |     └ bit 7 = 0 -> reserved = 0
+                                                                             |     └ bits 6-4 = 000 -> shared presence bitfields = 0
+                                                                             |     └ bits 3-0 = 0000 -> geometry layout = Points
+00000012                                                                     |   geometry (19 B)
+00000012                                                                     |     types (4 B)
+00000012                                                                     |       header (2 B)
+00000012  30                                                0                |         encoding: 0x30 logical=DeltaRle physical=implied
+                                                                             |           └ bit 7 = 0 -> has_explicit_count = false -> 6 values from context
+                                                                             |           └ bits 6-4 = 011 -> logical = DeltaRle, numbered for a v2 integer stream
+                                                                             |           └ bits 3-2 = 00 -> physical = implied
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+00000013  02                                                .                |         byte_length: 2
+00000014  06 00                                             ..               |       data [Length(VarBinary) Int(DeltaRle(Interleaved { num_rle_values: 6 }))/VarInt, 6 values, 2 B]
+                                                                             |         decoded: [0, 0, 0, 0, 0, 0]
+00000016                                                                     |     vertices (15 B)
+00000016                                                                     |       header (3 B)
+00000016  a8                                                .                |         encoding: 0xA8 logical=CwDelta physical=VarInt
+                                                                             |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta, numbered for a v2 vertex stream
+                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+00000017  0c                                                .                |         num_values: 12
+00000018  0c                                                .                |         byte_length: 12
+00000019  00 00 02 00 02 00 02 00 02 00 02 00               ............     |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 12 values, 12 B]
+                                                                             |         decoded: [0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0]
+00000025  01                                                .                |   column_count: 1
+00000026                                                                     |   columns (499 B)
+00000026                                                                     |     column[0] Str "v" (499 B)
+00000026  0b                                                .                |       type: 0x0B AllPresent Str
+                                                                             |         └ bits 7-4 = 0000 -> presence = AllPresent
+                                                                             |         └ bits 3-0 = 1011 -> data type = Str
+00000027  01 76                                             .v               |       name: "v"
+00000029                                                                     |       codes (8 B)
+00000029                                                                     |         header (2 B)
+00000029  0b                                                .                |           encoding: 0x0B logical=None physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 6 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 string column
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 11 -> string layout = FsstDict
+0000002a  06                                                .                |           byte_length: 6
+0000002b  00 01 02 03 00 01                                 ......           |         data [Offset(String) Int(None)/VarInt, 6 values, 6 B]
+                                                                             |           decoded: [0, 1, 2, 3, 0, 1]
+00000031                                                                     |       dict_lengths (6 B)
+00000031                                                                     |         header (3 B)
+00000031  a0                                                .                |           encoding: 0xA0 logical=Rle physical=implied
+                                                                             |             └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |             └ bits 6-4 = 010 -> logical = Rle, numbered for a v2 integer stream
+                                                                             |             └ bits 3-2 = 00 -> physical = implied
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+00000032  04                                                .                |           num_values: 4
+00000033  03                                                .                |           byte_length: 3
+00000034  04 a0 04                                          ...              |         data [Length(Dictionary) Int(Rle(Interleaved { num_rle_values: 4 }))/VarInt, 4 values, 3 B]
+                                                                             |           decoded: [544, 544, 544, 544]
+00000037                                                                     |       symbol_lengths (11 B)
+00000037                                                                     |         header (3 B)
+00000037  a0                                                .                |           encoding: 0xA0 logical=Rle physical=implied
+                                                                             |             └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |             └ bits 6-4 = 010 -> logical = Rle, numbered for a v2 integer stream
+                                                                             |             └ bits 3-2 = 00 -> physical = implied
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+00000038  1c                                                .                |           num_values: 28
+00000039  08                                                .                |           byte_length: 8
+0000003a  04 02 01 06 0b 08 0c 01                           ........         |         data [Length(Symbol) Int(Rle(Interleaved { num_rle_values: 28 }))/VarInt, 28 values, 8 B]
+                                                                             |           decoded: [2, 2, 2, 2, 6, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+00000042                                                                     |       symbol_table (116 B)
+00000042                                                                     |         header (2 B)
+00000042  04                                                .                |           encoding: 0x04 logical=None physical=WithLen
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> a blob's byte length is its value count
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 byte blob
+                                                                             |             └ bits 3-2 = 01 -> physical = WithLen
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+00000043  72                                                r                |           byte_length: 114
+00000044  30 33 5f 30 31 5f 30 5f 32 5f 72 65 73 69 69 61   03_01_0_2_resiia |         data [Data(Fsst) Int(None)/None, 114 values, 114 B]
+00000054  6c 5f 7a 6f 6e 65 72 65 73 69 64 65 6e 74 65 63   l_zoneresidentec | 
+00000064  74 6f 72 5f 30 30 5f 6e 6f 72 74 68 5f 73 65 5f   tor_00_north_se_ | 
+00000074  6e 6f 72 74 68 5f 65 6e 74 69 61 6c 5f 7a 68 5f   north_ential_zh_ | 
+00000084  73 65 63 74 6f 72 73 65 63 74 6f 72 5f 30 74 69   sectorsector_0ti | 
+00000094  61 6c 5f 7a 6f 6e 6f 6e 65 5f 6e 6f 72 74 5f 72   al_zonone_nort_r | 
+000000a4  65 73 69 64 65 6e 5f 65 30 69 72 32 31 74 68 64   esiden_e0ir21thd | 
+000000b4  6f 73                                             os               | 
+                                                                             |           decoded: utf-8 "03_01_0_2_resiial_zoneresidentector_00_north_se_north_ential_zh_sectorsector_0tial_zonone_nort_residen_e0ir21thdos"
+000000b6                                                                     |       corpus (355 B)
+000000b6                                                                     |         header (3 B)
+000000b6  04                                                .                |           encoding: 0x04 logical=None physical=WithLen
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> a blob's byte length is its value count
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 byte blob
+                                                                             |             └ bits 3-2 = 01 -> physical = WithLen
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+000000b7  e0 02                                             ..               |           byte_length: 352
+000000b9  06 05 08 07 03 06 05 08 07 03 06 05 08 07 03 06   ................ |         data [Data(Single) Int(None)/None, 352 values, 352 B]
+000000c9  05 08 07 03 06 05 08 07 03 06 05 08 07 03 06 05   ................ | 
+000000d9  08 07 03 06 05 08 07 03 06 05 08 07 03 06 05 08   ................ | 
+000000e9  07 03 06 05 08 07 03 06 05 08 07 03 06 05 08 07   ................ | 
+000000f9  03 06 05 08 07 03 06 05 08 07 03 06 05 08 07 03   ................ | 
+00000109  06 05 08 07 02 06 05 08 07 02 06 05 08 07 02 06   ................ | 
+00000119  05 08 07 02 06 05 08 07 02 06 05 08 07 02 06 05   ................ | 
+00000129  08 07 02 06 05 08 07 02 06 05 08 07 02 06 05 08   ................ | 
+00000139  07 02 06 05 08 07 02 06 05 08 07 02 06 05 08 07   ................ | 
+00000149  02 06 05 08 07 02 06 05 08 07 02 06 05 08 07 02   ................ | 
+00000159  06 05 08 07 04 19 0a 0e 0b 01 12 04 19 0a 0e 0b   ................ | 
+00000169  01 12 04 19 0a 0e 0b 01 12 04 19 0a 0e 0b 01 12   ................ | 
+00000179  04 19 0a 0e 0b 01 12 04 19 0a 0e 0b 01 12 04 19   ................ | 
+00000189  0a 0e 0b 01 12 04 19 0a 0e 0b 01 12 04 19 0a 0e   ................ | 
+00000199  0b 01 12 04 19 0a 0e 0b 01 12 04 19 0a 0e 0b 01   ................ | 
+000001a9  12 04 19 0a 0e 0b 01 12 04 19 0a 0e 0b 01 12 04   ................ | 
+                                                                             |           … 96 more bytes omitted (--max-blob to change)
+                                                                             |           decoded: utf-8 "\u{6}\u{5}\u{8}\u{7}\u{3}\u{6}\u{5}\u{8}\u{7}\u{3}\u{6}\u{5}\u{8}\u{7}\u{3}\u{6}\u{5}\u{8}\u{7}\u{3}\u{6}\u{5}\u{8}\u{7}\u{3}\u{6}\u{5}\u{8}\u{7}\u{3}\u{6}\u{5}\u{8}\u{7}\u{3}\u{6}\u{5}\u{8}\u{7}\u{3}\u{6}\u{5}\u{8}\u{7}\u{3}\u{6}\u{5}\u{8}\u{7}\u{3}\u{6}\u{5}\u{8}\u{7}\u{3}\u{6}\u{5}\u{8}\u{7}\u{3}\u{6}\u{5}\u{8}\u{7}\u{3}\u{6}\u{5}\u{8}\u{7}\u{3}\u{6}\u{5}\u{8}\u{7}\u{3}\u{6}\u{5}\u{8}\u{7}\u{3}\u{6}\u{5}\u{8}\u{7}\u{2}\u{6}\u{5}\u{8}\u{7}\u{2}\u{6}\u{5}\u{8}\u{7}\u{2}\u{6}\u{5}\u{8}\u{7}\u{2}\u{6}\u{5}\u{8}\u{7}\u{2}\u{6}\u{5}\u{8}\u{7}\u{2}\u{6}\u{5}\u{8}\u{7}\u{2}\u{6}\u{5}\u{8}\u{7}\u{2}\u{6}\u{5}\u{8}\u{7}\u{2}\u{6}\u{5}\u{8}\u{7}\u{2}\u{6}\u{5}\u{8}\u{7}\u{2}\u{6}\u{5}\u{8}\u{7}\u{2}\u{6}\u{5}\u{8}\u{7}\u{2}\u{6}\u{5}\u{8}\u{7}\u{2}\u{6}\u{5}\u{8}\u{7}\u{2}\u{6}\u{5}\u{8}\u{7}\u{2}\u{6}\u{5}\u{8}\u{7}\u{4}\u{19}\n\u{e}\u{b}\u{1}\u{12}\u{4}\u{19}\n\u{e}\u{b}\u{1}\u{12}\u{4}\u{19}\n\u{e}\u{b}\u{1}\u{12}\u{4}\u{19}\n\u{e}\u{b}\u{1}\u{12}\u{4}\u{19}\n\u{e}\u{b}\u{1}\u{12}\u{4}…"

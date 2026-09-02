@@ -80,9 +80,9 @@ fn differential_fixture([path]: [&Path; 1]) {
 }
 
 #[rstest]
-#[case::amazon_5_5_11("amazon/5_5_11.mvt", 14)]
-#[case::amazon_11_1037_704("amazon/11_1037_704.mvt", 12)]
-#[case::amazon_5_8_12("amazon/5_8_12.mvt", 14)]
+#[case::amazon_5_5_11("amazon/5_5_11.mvt", 15)]
+#[case::amazon_11_1037_704("amazon/11_1037_704.mvt", 15)]
+#[case::amazon_5_8_12("amazon/5_8_12.mvt", 15)]
 fn named_fixtures_still_reach_the_v2_encoder(#[case] fixture: &str, #[case] expected: usize) {
     let root = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../test/fixtures"));
     let layers = mvt_to_tile_layers(fs::read(root.join(fixture)).expect("read fixture"))
