@@ -511,13 +511,12 @@ fn write_geo_precomputed_stream(
             let meta = StreamMeta::new2(ctx.stream_type, logical, PE::None, 0)?;
             write_stream_payload(enc, meta, false, &[])?;
         } else {
-            let allow_fastpfor = enc.config().allow_fastpfor();
+            let fastpfor = enc.config().fastpfor();
             let mut alt = enc.try_alternatives();
-            if allow_fastpfor {
+            if let Some(pe @ PE::FastPFor(kind)) = fastpfor {
                 alt.with(|enc| {
-                    let vals = physical.fastpfor(data)?;
-                    let meta =
-                        StreamMeta::new2(ctx.stream_type, logical, PE::FastPFor256, data.len())?;
+                    let vals = physical.fastpfor(kind, data)?;
+                    let meta = StreamMeta::new2(ctx.stream_type, logical, pe, data.len())?;
                     write_stream_payload(enc, meta, false, vals)
                 })?;
             }

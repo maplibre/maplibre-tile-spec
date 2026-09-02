@@ -48,7 +48,7 @@ pub(crate) use property::{
 #[cfg(feature = "unstable-v2")]
 pub(crate) use stream::model::Alp;
 pub(crate) use stream::model::{
-    BoolLogical, DictionaryType, FloatLogical, IntEncoding, IntLogical, LengthType,
+    BoolLogical, DictionaryType, FastPForKind, FloatLogical, IntEncoding, IntLogical, LengthType,
     LogicalCombination, LogicalEncoding, LogicalTechnique, LogicalValue, Morton, OffsetType,
     PhysicalEncoding, RawStream, RleLayout, RleMeta, StreamMeta, StreamType, ValueKind,
     VertexLogical,

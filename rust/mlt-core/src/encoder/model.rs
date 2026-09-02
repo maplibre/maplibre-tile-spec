@@ -5,7 +5,7 @@ use derive_debug::Dbg;
 
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::RleLayout;
-use crate::decoder::{DictionaryType, GeometryValues, StreamType};
+use crate::decoder::{DictionaryType, FastPForKind, GeometryValues, PhysicalEncoding, StreamType};
 use crate::encoder::geometry::VertexBufferType;
 use crate::encoder::{IntEncoder, StagedId, StagedProperty};
 use crate::tile::Extent;
@@ -193,6 +193,15 @@ impl WireVersion {
         }
     }
 
+    /// The `FastPFor` block size and word order used by this format.
+    #[must_use]
+    pub(crate) fn fastpfor_kind(self) -> FastPForKind {
+        match self {
+            Self::V01 => FastPForKind::Block256Be,
+            Self::V02 => FastPForKind::Block128Le,
+        }
+    }
+
     /// The RLE stream data layout used by this format.
     #[must_use]
     pub(crate) fn rle_layout(self) -> RleLayout {
@@ -289,14 +298,18 @@ impl EncoderConfig {
 
     #[must_use]
     pub fn allow_fastpfor(self) -> bool {
-        // TODO(v2): race FastPFor128-LE for `WireVersion::V02`.
-        // v2 will use `FastPFor128` in little-endian byte order.
-        // Until that codec lands, `FastPFor` is only attempted for v1 layers.
+        self.allow_fastpfor
+    }
+
+    /// The `FastPFor` encoding to race, or `None` when `FastPFor` is switched off.
+    #[must_use]
+    pub(crate) fn fastpfor(self) -> Option<PhysicalEncoding> {
         #[cfg(feature = "unstable-v2")]
-        let is_v1 = self.wire_version == WireVersion::V01;
+        let kind = self.wire_version.fastpfor_kind();
         #[cfg(not(feature = "unstable-v2"))]
-        let is_v1 = true;
-        self.allow_fastpfor && is_v1
+        let kind = FastPForKind::Block256Be;
+        self.allow_fastpfor
+            .then_some(PhysicalEncoding::FastPFor(kind))
     }
 
     #[must_use]

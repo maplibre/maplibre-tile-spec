@@ -164,7 +164,7 @@ fn generate_geometry(w: &mut SynthWriter) {
         .write(w, "line_zero_length");
 
     geo_varint().geo(poly1()).write(w, "poly");
-    geo_fastpfor().no_v2().geo(poly1()).write(w, "poly_fpf");
+    geo_fastpfor().geo(poly1()).write(w, "poly_fpf");
     geo_varint()
         .tessellate()
         .no_v2()
@@ -180,7 +180,6 @@ fn generate_geometry(w: &mut SynthWriter) {
         .geo(poly_collinear())
         .write(w, "poly_collinear");
     geo_fastpfor()
-        .no_v2()
         .geo(poly_collinear())
         .write(w, "poly_collinear_fpf");
     geo_varint()
@@ -198,7 +197,6 @@ fn generate_geometry(w: &mut SynthWriter) {
         .geo(poly_self_intersect())
         .write(w, "poly_self_intersect");
     geo_fastpfor()
-        .no_v2()
         .geo(poly_self_intersect())
         .write(w, "poly_self_intersect_fpf");
     geo_varint()
@@ -218,7 +216,6 @@ fn generate_geometry(w: &mut SynthWriter) {
         .write(w, "poly_hole");
     geo_fastpfor()
         .parts_ring(E::rle_fastpfor())
-        .no_v2()
         .geo(poly1h())
         .write(w, "poly_hole_fpf");
     geo_varint()
@@ -240,7 +237,6 @@ fn generate_geometry(w: &mut SynthWriter) {
         .write(w, "poly_hole_touching");
     geo_fastpfor()
         .parts_ring(E::fastpfor())
-        .no_v2()
         .geo(poly_hole_touching())
         .write(w, "poly_hole_touching_fpf");
     geo_varint()
@@ -261,6 +257,7 @@ fn generate_geometry(w: &mut SynthWriter) {
         .rings2(E::rle_varint())
         .geo(MultiPolygon(vec![poly1(), poly2()]))
         .write(w, "poly_multi");
+    // v2's interleaved RLE is a varint pair stream, so RLE + FastPFor is v1-only.
     geo_fastpfor()
         .rings(E::rle_fastpfor())
         .rings2(E::rle_fastpfor())
@@ -564,13 +561,9 @@ fn generate_ids(w: &mut SynthWriter) {
         .write(w, "ids64_minmax_delta");
 
     // FastPFOR physical encoding for u32 IDs (Rust-only: Java encoder does not support this)
-    four_p0()
-        .ids(dup_id(), E::fastpfor())
-        .no_v2()
-        .write(w, "ids_fpf");
+    four_p0().ids(dup_id(), E::fastpfor()).write(w, "ids_fpf");
     four_p0()
         .ids(dup_id(), E::delta_fastpfor())
-        .no_v2()
         .write(w, "ids_delta_fpf");
 }
 
@@ -1123,6 +1116,8 @@ fn generate_props_u32(w: &mut SynthWriter) {
         .add_prop(E::delta_rle_varint(), opt_values())
         .write(w, "props_u32_delta_rle");
 
+    // Block boundaries of both FastPFor sizes, off by one either way.
+    // v1-only: v2's interleaved RLE is a varint pair stream, so RLE + FastPFor has no v2 encoding.
     for multiplier in [1, 2, 3, 4] {
         for offset in [-1, 0, 1] {
             let count = usize::try_from(128 * multiplier + offset).unwrap();

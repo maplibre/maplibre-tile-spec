@@ -5,12 +5,12 @@ use usize_cast::IntoUsize as _;
 use super::model::{BitField, BlobInfo, DecodeHint};
 use super::walker::Walker;
 use crate::codecs::varint::parse_varint;
-use crate::decoder::stream::header01::parse_stream_meta;
+use crate::decoder::stream::header01::{PhysicalField, parse_stream_meta};
 use crate::decoder::{Column, ColumnType, DictionaryType, StreamType};
 use crate::utils::{parse_string, take};
 use crate::wire::{
-    BoolLogical, IntLogical, LogicalEncoding, LogicalTechnique, PhysicalEncoding, StreamMeta,
-    ValueKind, VertexLogical,
+    BoolLogical, IntLogical, LogicalEncoding, LogicalTechnique, StreamMeta, ValueKind,
+    VertexLogical,
 };
 use crate::{MltError, MltResult};
 
@@ -512,8 +512,10 @@ fn encoding_bits(byte: u8) -> Vec<BitField> {
         LogicalTechnique::try_from(v << 5)
             .map_or_else(|_| format!("invalid({v})"), |t| format!("{t:?}"))
     };
-    let name_ph = PhysicalEncoding::try_from(ph)
-        .map_or_else(|_| format!("invalid({ph})"), |p| format!("{p:?}"));
+    let name_ph = PhysicalField::parse(byte).map_or_else(
+        |_| format!("invalid({ph})"),
+        |p| <&str>::from(p).to_string(),
+    );
     vec![
         BitField {
             hi: 7,
