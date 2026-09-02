@@ -40,9 +40,9 @@ pub(crate) use model02::{ColumnType02, DataType02, GeoLayout, LayerLayout, Prese
 // Re-export strings sub-module so encoder can use `crate::decoder::strings::*`
 pub(crate) use property::strings;
 pub(crate) use property::{
-    DictRange, ParsedProperty, ParsedScalar, ParsedSharedDict, ParsedSharedDictItem, ParsedStrings,
-    Property, RawFloats, RawFloatsEncoding, RawFsstData, RawPlainData, RawPresence, RawProperty,
-    RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings,
+    DictLayout, DictRange, ParsedProperty, ParsedScalar, ParsedSharedDict, ParsedSharedDictItem,
+    ParsedStrings, Property, RawFloats, RawFloatsEncoding, RawFsstData, RawPlainData, RawPresence,
+    RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings,
     RawStringsEncoding,
 };
 #[cfg(feature = "unstable-v2")]
