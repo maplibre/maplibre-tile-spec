@@ -220,6 +220,14 @@ pub struct ConvertArgs {
     /// Disable `FSST` string compression
     #[clap(long)]
     no_fsst: bool,
+    /// Disable `ALP` float encoding, storing floats as decimal-scaled integers
+    #[cfg(feature = "unstable-v2")]
+    #[clap(long)]
+    no_alp: bool,
+    /// Disable float dictionary encoding
+    #[cfg(feature = "unstable-v2")]
+    #[clap(long)]
+    no_float_dict: bool,
     /// Output tile format (`mlt` re-encodes; `mvt` decodes MLT inputs back to MVT)
     #[clap(long, default_value = "mlt")]
     to: TileFormat,
@@ -268,7 +276,10 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         .with_fastpfor(!args.no_fastpfor)
         .with_fsst(!args.no_fsst);
     #[cfg(feature = "unstable-v2")]
-    let cfg = cfg.with_wire_version(args.mlt_version.into());
+    let cfg = cfg
+        .with_wire_version(args.mlt_version.into())
+        .with_float_alp(!args.no_alp)
+        .with_float_dict(!args.no_float_dict);
 
     let filter = BboxFilter::new(&args.bbox)?;
     let input_container = args.input_container();

@@ -42,9 +42,9 @@ impl<'a> RawFloats<'a> {
             RawFloatsEncoding::Single(data) => data.decode_floats::<T>(dec)?,
             #[cfg(feature = "unstable-v2")]
             RawFloatsEncoding::Alp { params, data } => {
-                let codes = data.decode_ints::<i64>(dec)?;
+                let codes = data.decode_alp_codes(params, dec)?;
                 dec.consume_items::<T>(codes.len())?;
-                crate::codecs::alp::decode::<T>(&codes, params)
+                crate::codecs::alp::decode::<T>(&codes, params.scale)
             }
             #[cfg(feature = "unstable-v2")]
             RawFloatsEncoding::Dictionary { codes, dictionary } => {

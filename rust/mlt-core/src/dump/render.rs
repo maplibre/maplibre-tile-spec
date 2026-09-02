@@ -244,6 +244,10 @@ fn decode_blob(info: BlobInfo, data: &[u8], dec: &mut Decoder) -> String {
         DecodeHint::I32 => fmt_res(RawStream::new(meta, data).decode_ints::<i32>(dec)),
         DecodeHint::U32 => fmt_res(RawStream::new(meta, data).decode_ints::<u32>(dec)),
         DecodeHint::I64 => fmt_res(RawStream::new(meta, data).decode_ints::<i64>(dec)),
+        #[cfg(feature = "unstable-v2")]
+        DecodeHint::Alp(params) => {
+            fmt_res(RawStream::new(meta, data).decode_alp_codes(params, dec))
+        }
         DecodeHint::U64 => fmt_res(RawStream::new(meta, data).decode_ints::<u64>(dec)),
         DecodeHint::F32 => fmt_res(RawStream::new(meta, data).decode_floats::<f32>(dec)),
         DecodeHint::F64 => fmt_res(RawStream::new(meta, data).decode_floats::<f64>(dec)),
