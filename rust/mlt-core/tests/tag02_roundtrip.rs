@@ -797,20 +797,59 @@ mod strings {
         assert_eq!(dump.matches("presence = Shared(0)").count(), 2, "{dump}");
     }
 
-    #[test]
-    fn columns_v1_would_share_a_dictionary_stay_separate_in_v2() {
+    /// A layer whose two string columns hold the same values, which both versions group.
+    fn shared_dict_layer() -> TileLayer {
         let shared: Vec<PropValue> = dict_values(6)
             .into_iter()
             .map(|v| PropValue::Str(Some(v)))
             .collect();
-        let l = layer(
+        layer(
             points(&"1".repeat(6)),
             None,
             &[("a", shared.clone()), ("b", shared)],
-        );
+        )
+    }
+
+    #[test]
+    fn columns_v1_would_share_a_dictionary_share_one_in_v2_too() {
+        let l = shared_dict_layer();
         assert!(dump_text(&l.clone().encode(cfg_v1()).unwrap()).contains("SharedDict"));
+        assert!(dump_text(&l.clone().encode(cfg_v2()).unwrap()).contains("SharedDict"));
         assert_differential(&l);
-        assert_eq!(layouts(&l.encode(cfg_v2()).unwrap()), ["Dict", "Dict"]);
+    }
+
+    #[test]
+    fn a_shared_dictionary_is_smaller_than_per_column_ones() {
+        let l = shared_dict_layer();
+        let shared = l.clone().encode(cfg_v2()).unwrap().len();
+        let separate = l.encode(cfg_v2().with_shared_dict(false)).unwrap().len();
+        assert!(shared < separate, "shared {shared} vs separate {separate}");
+    }
+
+    #[test]
+    fn a_shared_dictionary_with_nulls_round_trips() {
+        let mask = "101101";
+        let values = |offset: usize| -> Vec<PropValue> {
+            mask.bytes()
+                .enumerate()
+                .map(|(i, b)| {
+                    PropValue::Str((b == b'1').then(|| format!("name:{}", (i + offset) % 3)))
+                })
+                .collect()
+        };
+        let l = layer(
+            points(mask),
+            None,
+            &[("name:de", values(0)), ("name:en", values(1))],
+        );
+        assert!(dump_text(&l.clone().encode(cfg_v2()).unwrap()).contains("SharedDict"));
+        assert_differential(&l);
+    }
+
+    #[test]
+    fn shared_dict_column_layout() {
+        let l = shared_dict_layer();
+        assert_snapshot!(dump_text(&l.encode(cfg_v2()).unwrap()));
     }
 
     #[test]

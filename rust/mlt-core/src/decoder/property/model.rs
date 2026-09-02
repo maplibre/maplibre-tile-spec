@@ -138,6 +138,7 @@ pub enum RawSharedDictEncoding<'a> {
 pub struct RawSharedDict<'a> {
     pub name: &'a str,
     pub encoding: RawSharedDictEncoding<'a>,
+    pub dict: DictLayout,
     pub children: Vec<RawSharedDictItem<'a>>,
 }
 
