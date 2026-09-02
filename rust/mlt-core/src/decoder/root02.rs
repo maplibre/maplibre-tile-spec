@@ -39,9 +39,10 @@ use crate::LazyParsed::Raw;
 use crate::MltError::{BufferUnderflow, MissingLayerName, TrailingLayerData};
 use crate::codecs::varint::parse_varint;
 use crate::decoder::stream::header02;
-use crate::decoder::stream::header02::{StrLayout, StreamCtx02};
+use crate::decoder::stream::header02::{BlobLayout, StrLayout, StreamCtx02};
 use crate::decoder::{
-    ColumnType02, DataType02, DictionaryType, FloatLogical, GeoLayout, Id, Layer01, LayerLayout,
+    ColumnType02, DataType02, DictLayout, DictionaryType, FloatLogical, GeoLayout, Id, Layer01,
+    LayerLayout,
     LengthType, LogicalEncoding, Presence02, RawFloats, RawFloatsEncoding, RawFsstData,
     RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawScalar, RawStream, RawStrings,
     RawStringsEncoding,
@@ -211,6 +212,19 @@ fn parse_floats<'a>(
     ))
 }
 
+/// Read how a dictionary blob lays its entries out, from the encoding byte its stream begins with.
+///
+/// The blob is the last stream either dictionary layout writes, so its own byte is what names
+/// front coding; a stream count would not fit v2's positional string columns.
+fn blob_dict_layout(input: &[u8]) -> MltResult<DictLayout> {
+    let (_, enc_byte) = parse_u8(input)?;
+    Ok(match header02::peek_blob_layout(enc_byte) {
+        Some(BlobLayout::FrontCoded) => DictLayout::FrontCoded,
+        // An unknown code is left to `parse_stream`, which reports it against the blob's family.
+        Some(BlobLayout::Plain) | None => DictLayout::Plain,
+    })
+}
+
 /// Parse a string column, whose leading stream's extension bits name the layout the rest follow.
 ///
 /// Every stream but that leading one carries an explicit count, or, for the byte
@@ -238,10 +252,11 @@ fn parse_strings<'a>(
         }
         StrLayout::Dict => {
             let (input, lengths) = stream(input, StreamCtx02::StrDictLengths, parser)?;
+            let dict = blob_dict_layout(input)?;
             let (input, data) =
                 stream(input, StreamCtx02::StrBlob(DictionaryType::Single), parser)?;
             let plain = RawPlainData::new(lengths, data)?;
-            (input, RawStringsEncoding::dictionary(plain, leading)?)
+            (input, RawStringsEncoding::dictionary(plain, leading, dict)?)
         }
         StrLayout::Fsst => {
             let (input, symbol_lengths) = stream(input, StreamCtx02::StrSymbolLengths, parser)?;
@@ -257,10 +272,11 @@ fn parse_strings<'a>(
             let (input, symbol_lengths) = stream(input, StreamCtx02::StrSymbolLengths, parser)?;
             let (input, symbols) =
                 stream(input, StreamCtx02::StrBlob(DictionaryType::Fsst), parser)?;
+            let dict = blob_dict_layout(input)?;
             let (input, corpus) =
                 stream(input, StreamCtx02::StrBlob(DictionaryType::Single), parser)?;
             let fsst = RawFsstData::new(symbol_lengths, symbols, lengths, corpus)?;
-            (input, RawStringsEncoding::fsst_dictionary(fsst, leading)?)
+            (input, RawStringsEncoding::fsst_dictionary(fsst, leading, dict)?)
         }
     };
     Ok((

@@ -5,9 +5,11 @@ use bitvec::slice::BitSlice;
 use usize_cast::IntoUsize as _;
 
 use crate::MltError::{BufferUnderflow, DictIndexOutOfBounds};
-use crate::codecs::fsst::decode_fsst;
+use crate::codecs::front_coding::front_decode;
+use crate::codecs::fsst::{decode_fsst, decode_fsst_bytes};
 use crate::decoder::{
-    DictionaryType, LengthType, OffsetType, ParsedSharedDict, ParsedSharedDictItem, ParsedStrings,
+    DictLayout, DictionaryType, LengthType, OffsetType, ParsedSharedDict, ParsedSharedDictItem,
+    ParsedStrings,
     RawFsstData, RawPlainData, RawPresence, RawSharedDictEncoding, RawStream, RawStrings,
     RawStringsEncoding, StreamType,
 };
@@ -191,10 +193,13 @@ impl<'a> RawPlainData<'a> {
     }
 
     pub fn decode(self, dec: &mut Decoder) -> MltResult<(&'a str, Vec<u32>)> {
-        Ok((
-            str::from_utf8(self.data.data)?,
-            self.lengths.decode_ints(dec)?,
-        ))
+        let (data, lengths) = self.decode_bytes(dec)?;
+        Ok((str::from_utf8(data)?, lengths))
+    }
+
+    /// As [`Self::decode`], for a blob that is only valid UTF-8 once its caller reassembles it.
+    pub fn decode_bytes(self, dec: &mut Decoder) -> MltResult<(&'a [u8], Vec<u32>)> {
+        Ok((self.data.data, self.lengths.decode_ints(dec)?))
     }
 }
 
@@ -223,6 +228,11 @@ impl<'a> RawFsstData<'a> {
     pub fn decode(self, dec: &mut Decoder) -> MltResult<(String, Vec<u32>)> {
         decode_fsst(self, dec)
     }
+
+    /// As [`Self::decode`], for a corpus that is only valid UTF-8 once its caller reassembles it.
+    pub fn decode_bytes(self, dec: &mut Decoder) -> MltResult<(Vec<u8>, Vec<u32>)> {
+        decode_fsst_bytes(self, dec)
+    }
 }
 
 impl<'a> RawStringsEncoding<'a> {
@@ -231,11 +241,16 @@ impl<'a> RawStringsEncoding<'a> {
         Self::Plain(plain_data)
     }
 
-    pub fn dictionary(plain_data: RawPlainData<'a>, offsets: RawStream<'a>) -> MltResult<Self> {
+    pub fn dictionary(
+        plain_data: RawPlainData<'a>,
+        offsets: RawStream<'a>,
+        dict: DictLayout,
+    ) -> MltResult<Self> {
         validate_stream!(offsets, StreamType::Offset(OffsetType::String));
         Ok(Self::Dictionary {
             plain_data,
             offsets,
+            dict,
         })
     }
 
@@ -244,9 +259,17 @@ impl<'a> RawStringsEncoding<'a> {
         Self::FsstPlain(fsst_data)
     }
 
-    pub fn fsst_dictionary(fsst_data: RawFsstData<'a>, offsets: RawStream<'a>) -> MltResult<Self> {
+    pub fn fsst_dictionary(
+        fsst_data: RawFsstData<'a>,
+        offsets: RawStream<'a>,
+        dict: DictLayout,
+    ) -> MltResult<Self> {
         validate_stream!(offsets, StreamType::Offset(OffsetType::String));
-        Ok(Self::FsstDictionary { fsst_data, offsets })
+        Ok(Self::FsstDictionary {
+            fsst_data,
+            offsets,
+            dict,
+        })
     }
 }
 
@@ -291,10 +314,19 @@ impl<'a> RawStrings<'a> {
             RawStringsEncoding::Dictionary {
                 plain_data,
                 offsets,
+                dict,
             } => {
-                let (data, lengths) = plain_data.decode(dec)?;
+                let (data, lengths) = plain_data.decode_bytes(dec)?;
                 let offsets: Vec<u32> = offsets.decode_ints(dec)?;
-                decode_dictionary_strings(name, &lengths, &offsets, presence.as_deref(), data, dec)?
+                let (dictionary, lengths) = rebuild_dictionary(dict, &lengths, data)?;
+                decode_dictionary_strings(
+                    name,
+                    &lengths,
+                    &offsets,
+                    presence.as_deref(),
+                    &dictionary,
+                    dec,
+                )?
             }
             RawStringsEncoding::FsstPlain(fsst_data) => {
                 let (data, dict_lens) = fsst_data.decode(dec)?;
@@ -304,15 +336,20 @@ impl<'a> RawStrings<'a> {
                     data: data.into(),
                 }
             }
-            RawStringsEncoding::FsstDictionary { fsst_data, offsets } => {
-                let (data, lengths) = fsst_data.decode(dec)?;
+            RawStringsEncoding::FsstDictionary {
+                fsst_data,
+                offsets,
+                dict,
+            } => {
+                let (data, lengths) = fsst_data.decode_bytes(dec)?;
                 let offsets: Vec<u32> = offsets.decode_ints(dec)?;
+                let (dictionary, lengths) = rebuild_dictionary(dict, &lengths, &data)?;
                 decode_dictionary_strings(
                     name,
                     &lengths,
                     &offsets,
                     presence.as_deref(),
-                    &data,
+                    &dictionary,
                     dec,
                 )?
             }
@@ -356,6 +393,24 @@ fn to_absolute_lengths(
         }
     }
     Ok(absolute)
+}
+
+/// Turn a dictionary blob into its entries back to back with one length each, whatever its layout.
+///
+/// A front-coded blob holds only suffixes, which are not valid UTF-8 on their own, so the
+/// conversion happens here rather than when the blob is read.
+fn rebuild_dictionary<'a>(
+    dict: DictLayout,
+    lengths: &'a [u32],
+    data: &'a [u8],
+) -> MltResult<(Cow<'a, str>, Cow<'a, [u32]>)> {
+    match dict {
+        DictLayout::Plain => Ok((Cow::Borrowed(str::from_utf8(data)?), Cow::Borrowed(lengths))),
+        DictLayout::FrontCoded => {
+            let (entries, entry_lengths) = front_decode(lengths, data)?;
+            Ok((Cow::Owned(entries), Cow::Owned(entry_lengths)))
+        }
+    }
 }
 
 fn decode_dictionary_strings<'a>(

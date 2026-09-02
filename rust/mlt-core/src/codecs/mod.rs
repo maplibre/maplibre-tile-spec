@@ -3,6 +3,7 @@ pub mod alp;
 pub mod bytes;
 pub mod fastpfor;
 pub mod float;
+pub mod front_coding;
 pub mod fsst;
 pub mod hilbert;
 pub mod morton;

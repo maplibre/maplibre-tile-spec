@@ -97,6 +97,7 @@ pub enum RawStringsEncoding<'a> {
     Dictionary {
         plain_data: RawPlainData<'a>,
         offsets: RawStream<'a>,
+        dict: DictLayout,
     },
     /// FSST plain (4 streams): symbol lengths, symbol table, value lengths, compressed corpus. No offsets.
     FsstPlain(RawFsstData<'a>),
@@ -104,7 +105,21 @@ pub enum RawStringsEncoding<'a> {
     FsstDictionary {
         fsst_data: RawFsstData<'a>,
         offsets: RawStream<'a>,
+        dict: DictLayout,
     },
+}
+
+/// How a dictionary's entries sit in its blob.
+///
+/// Only v2 writes anything but [`Self::Plain`]; v1 dictionaries are always entries back to back.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DictLayout {
+    /// Entries back to back, the lengths stream holding one length each.
+    #[default]
+    Plain,
+    /// Entries with the prefix each shares with its predecessor factored out, so the blob holds
+    /// only suffixes and the lengths stream holds every prefix length then every suffix length.
+    FrontCoded,
 }
 
 /// Raw encoding payload for a `SharedDict` column.
