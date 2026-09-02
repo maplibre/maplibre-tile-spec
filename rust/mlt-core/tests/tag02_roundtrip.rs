@@ -706,6 +706,22 @@ mod strings {
     }
 
     #[test]
+    fn columns_v1_would_share_a_dictionary_stay_separate_in_v2() {
+        let shared: Vec<PropValue> = dict_values(6)
+            .into_iter()
+            .map(|v| PropValue::Str(Some(v)))
+            .collect();
+        let l = layer(
+            points(&"1".repeat(6)),
+            None,
+            &[("a", shared.clone()), ("b", shared)],
+        );
+        assert!(dump_text(&l.clone().encode(cfg_v1()).unwrap()).contains("SharedDict"));
+        assert_differential(&l);
+        assert_eq!(layouts(&l.encode(cfg_v2()).unwrap()), ["Dict", "Dict"]);
+    }
+
+    #[test]
     fn plain_column_layout() {
         let l = column(plain_values(4).into_iter().map(Some));
         assert_snapshot!(dump_text(&l.encode(cfg_v2()).unwrap()));
