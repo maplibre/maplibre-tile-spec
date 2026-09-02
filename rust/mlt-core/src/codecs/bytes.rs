@@ -3,6 +3,7 @@ use usize_cast::IntoUsize as _;
 
 use crate::MltError::{BufferUnderflow, UnsupportedPhysicalEncoding};
 use crate::codecs::fastpfor::decode_fastpfor;
+use crate::decoder::FastPForKind;
 use crate::utils::take;
 use crate::{Decoder, MltRefResult, MltResult};
 
@@ -28,7 +29,12 @@ pub trait PhysicalWord: Copy + Sized + VarInt {
 
     /// Physically decode a `FastPFOR`-compressed stream into `Vec<Self>`.
     /// `FastPFOR` only supports `u32`; the `u64` implementation returns an error.
-    fn decode_fastpfor(data: &[u8], num_values: u32, dec: &mut Decoder) -> MltResult<Vec<Self>>;
+    fn decode_fastpfor(
+        data: &[u8],
+        num_values: u32,
+        kind: FastPForKind,
+        dec: &mut Decoder,
+    ) -> MltResult<Vec<Self>>;
 }
 
 impl PhysicalWord for u32 {
@@ -37,8 +43,13 @@ impl PhysicalWord for u32 {
         Self::from_le_bytes(bytes.try_into().expect("infallible: 4-byte chunk"))
     }
 
-    fn decode_fastpfor(data: &[u8], num_values: u32, dec: &mut Decoder) -> MltResult<Vec<Self>> {
-        decode_fastpfor(data, num_values, dec)
+    fn decode_fastpfor(
+        data: &[u8],
+        num_values: u32,
+        kind: FastPForKind,
+        dec: &mut Decoder,
+    ) -> MltResult<Vec<Self>> {
+        decode_fastpfor(data, num_values, kind, dec)
     }
 }
 
@@ -48,7 +59,12 @@ impl PhysicalWord for u64 {
         Self::from_le_bytes(bytes.try_into().expect("infallible: 8-byte chunk"))
     }
 
-    fn decode_fastpfor(_data: &[u8], _num_values: u32, _dec: &mut Decoder) -> MltResult<Vec<Self>> {
+    fn decode_fastpfor(
+        _data: &[u8],
+        _num_values: u32,
+        _kind: FastPForKind,
+        _dec: &mut Decoder,
+    ) -> MltResult<Vec<Self>> {
         Err(UnsupportedPhysicalEncoding("FastPFOR decoding u64"))
     }
 }
