@@ -11,7 +11,7 @@ use crate::decoder::stream::header01;
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::stream::header02;
 use crate::decoder::{
-    IntLogical, LogicalEncoding, PhysicalEncoding, RleLayout, StreamMeta, StreamType,
+    FastPForKind, IntLogical, LogicalEncoding, PhysicalEncoding, RleLayout, StreamMeta, StreamType,
 };
 use crate::encoder::Encoder;
 use crate::encoder::model::StreamCtx;
@@ -69,6 +69,7 @@ pub(crate) trait PhysicalIntStreamKind {
 
     fn fastpfor<'a>(
         physical: &'a mut PhysicalCodecs,
+        kind: FastPForKind,
         values: &'a [Self::Value],
     ) -> MltResult<&'a [u8]>;
 }
@@ -89,13 +90,20 @@ impl PhysicalCodecs {
         &self.u8_tmp
     }
 
-    pub(crate) fn fastpfor(&mut self, values: &[u32]) -> MltResult<&[u8]> {
+    pub(crate) fn fastpfor(&mut self, kind: FastPForKind, values: &[u32]) -> MltResult<&[u8]> {
         self.u8_tmp.clear();
         if !values.is_empty() {
             self.u32_tmp.clear();
-            self.fastpfor.encode(values, &mut self.u32_tmp)?;
-            for word in &mut self.u32_tmp {
-                *word = word.to_be();
+            match kind {
+                FastPForKind::Block256Be => {
+                    self.fastpfor256.encode(values, &mut self.u32_tmp)?;
+                    // v1 stores the compressed words big-endian, so swap them on the way out.
+                    for word in &mut self.u32_tmp {
+                        *word = word.to_be();
+                    }
+                }
+                #[cfg(feature = "unstable-v2")]
+                FastPForKind::Block128Le => self.fastpfor128.encode(values, &mut self.u32_tmp)?,
             }
             self.u8_tmp.extend_from_slice(cast_slice(&self.u32_tmp));
         }
@@ -115,7 +123,13 @@ impl PhysicalCodecs {
         let (pe, vals) = match encode_as {
             PhysicalEncoder::None => (PE::None, P::none(self, values)),
             PhysicalEncoder::VarInt => (PE::VarInt, self.varint(values)),
-            PhysicalEncoder::FastPFOR => (PE::FastPFor256, P::fastpfor(self, values)?),
+            PhysicalEncoder::FastPFOR => {
+                #[cfg(feature = "unstable-v2")]
+                let kind = enc.config().wire_version().fastpfor_kind();
+                #[cfg(not(feature = "unstable-v2"))]
+                let kind = FastPForKind::Block256Be;
+                (PE::FastPFor(kind), P::fastpfor(self, kind, values)?)
+            }
         };
         let meta = StreamMeta::new2(ctx.stream_type, le, pe, values.len())?;
         write_stream_payload(enc, meta, false, vals)
@@ -127,16 +141,20 @@ impl PhysicalCodecs {
         values: &[P::Value],
         logical: LogicalEncoding,
         stream_type: StreamType,
-        allow_fastpfor: bool,
+        fastpfor: Option<PhysicalEncoding>,
     ) -> MltResult<()> {
         use PhysicalEncoding as PE;
         // `FASTPFOR_ALLOWED` is the type-level capability: FastPFOR only supports u32.
-        // `allow_fastpfor` is the caller's runtime preference.
-        // Both must hold to try FastPFOR.
-        if P::FASTPFOR_ALLOWED && allow_fastpfor {
+        // `fastpfor` is the caller's runtime preference, already resolved to this layer's codec.
+        // v2's interleaved RLE is a varint pair stream, so it admits no other physical encoding.
+        // All three must hold to try FastPFOR.
+        if P::FASTPFOR_ALLOWED
+            && !logical.scans_to_end()
+            && let Some(pe @ PE::FastPFor(kind)) = fastpfor
+        {
             alt.with(|enc| {
-                let meta = StreamMeta::new2(stream_type, logical, PE::FastPFor256, values.len())?;
-                write_stream_payload(enc, meta, false, P::fastpfor(self, values)?)
+                let meta = StreamMeta::new2(stream_type, logical, pe, values.len())?;
+                write_stream_payload(enc, meta, false, P::fastpfor(self, kind, values)?)
             })?;
         }
         alt.with(|enc| {
@@ -152,9 +170,10 @@ impl PhysicalIntStreamKind for [u32] {
 
     fn fastpfor<'a>(
         physical: &'a mut PhysicalCodecs,
+        kind: FastPForKind,
         values: &'a [Self::Value],
     ) -> MltResult<&'a [u8]> {
-        physical.fastpfor(values)
+        physical.fastpfor(kind, values)
     }
 }
 
@@ -164,6 +183,7 @@ impl PhysicalIntStreamKind for [u64] {
 
     fn fastpfor<'a>(
         _physical: &'a mut PhysicalCodecs,
+        _kind: FastPForKind,
         _values: &'a [Self::Value],
     ) -> MltResult<&'a [u8]> {
         Err(UnsupportedPhysicalEncoding("FastPFOR on u64"))?
