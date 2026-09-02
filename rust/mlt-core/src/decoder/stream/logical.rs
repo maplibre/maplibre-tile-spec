@@ -129,9 +129,7 @@ impl LogicalValue {
         use VertexLogical as VL;
 
         match self.meta.encoding.logical {
-            LE::Int(IL::None) | LE::Vertex(VL::None) | LE::Float(FloatLogical::Alp(_)) => {
-                decode_zigzag(data, dec)
-            }
+            LE::Int(IL::None) | LE::Vertex(VL::None) => decode_zigzag(data, dec),
             LE::Int(IL::Rle(v)) => decode_zigzag(&v.decode(data, dec)?, dec),
             LE::Vertex(VL::ComponentwiseDelta) => decode_componentwise_delta_vec2s(data, dec),
             LE::Int(IL::Delta) | LE::Vertex(VL::Delta) => decode_zigzag_delta::<i32, _>(data, dec),
@@ -184,8 +182,7 @@ impl LogicalValue {
     /// in the bridge (physical buffer decoded into a fresh output Vec).
     pub fn decode_i64(self, data: &[u64], dec: &mut Decoder) -> MltResult<Vec<i64>> {
         match self.meta.encoding.logical {
-            LogicalEncoding::Int(IntLogical::None)
-            | LogicalEncoding::Float(FloatLogical::Alp(_)) => decode_zigzag(data, dec),
+            LogicalEncoding::Int(IntLogical::None) => decode_zigzag(data, dec),
             LogicalEncoding::Int(IntLogical::Delta) => decode_zigzag_delta::<i64, _>(data, dec),
             LogicalEncoding::Int(IntLogical::DeltaRle(rle)) => {
                 let expanded = rle.decode(data, dec)?;
