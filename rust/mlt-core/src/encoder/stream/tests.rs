@@ -4,9 +4,9 @@ use rstest::rstest;
 use crate::MltError;
 use crate::decoder::stream::header01;
 use crate::decoder::{
-    BoolLogical, DictionaryType, IntEncoding, IntLogical, LengthType, LogicalEncoding,
-    LogicalValue, Morton, OffsetType, PhysicalEncoding, RawStream, RleMeta, StreamMeta, StreamType,
-    ValueKind, VertexLogical,
+    BoolLogical, DictionaryType, FastPForKind, IntEncoding, IntLogical, LengthType,
+    LogicalEncoding, LogicalValue, Morton, OffsetType, PhysicalEncoding, RawStream, RleMeta,
+    StreamMeta, StreamType, ValueKind, VertexLogical,
 };
 use crate::encoder::model::StreamCtx;
 use crate::encoder::{
@@ -263,12 +263,12 @@ fn allow_fastpfor_gates_fastpfor_selection() {
 
     assert_eq!(
         auto_physical(&values, on),
-        PhysicalEncoding::FastPFor256,
+        PhysicalEncoding::FastPFor(FastPForKind::Block256Be),
         "FastPFOR should win for this data when allow_fastpfor = true"
     );
     assert_ne!(
         auto_physical(&values, off),
-        PhysicalEncoding::FastPFor256,
+        PhysicalEncoding::FastPFor(FastPForKind::Block256Be),
         "allow_fastpfor = false must prevent FastPFOR from being selected"
     );
 }
