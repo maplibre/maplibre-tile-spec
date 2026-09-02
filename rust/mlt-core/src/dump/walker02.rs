@@ -375,6 +375,7 @@ fn encoding_bits02(byte: u8, implicit_count: u32, family: Family) -> Vec<BitFiel
     let physical = (byte >> 2) & 0x3;
     let extension = byte & 0x3;
     let (name_lo, name_ph) = describe_encoding(family, byte);
+    let family_name: &'static str = family.into();
     let count = if explicit {
         "has_explicit_count = true -> a num_values varint follows".to_string()
     } else {
@@ -391,7 +392,7 @@ fn encoding_bits02(byte: u8, implicit_count: u32, family: Family) -> Vec<BitFiel
             hi: 6,
             lo: 4,
             raw: u64::from(logical),
-            meaning: format!("logical = {name_lo} ({family:?} family)"),
+            meaning: format!("logical = {name_lo}, numbered for {family_name}"),
         },
         BitField {
             hi: 3,

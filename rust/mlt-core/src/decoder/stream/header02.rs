@@ -60,7 +60,7 @@ pub(crate) const EXTENSION_MASK: u8 = 0b0000_0011;
 
 /// Every logical encoding a v2 encoding byte can name, in the canonical order families number from.
 /// New encodings append to it, so no family's existing codes move.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumCount, strum::EnumIter)]
 pub(crate) enum Logical {
     None,
     Delta,
@@ -71,12 +71,16 @@ pub(crate) enum Logical {
 }
 
 /// Which logical encodings a stream's context admits, and how each reads the rest of the encoding byte.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, strum::EnumIter, strum::IntoStaticStr)]
 pub(crate) enum Family {
     #[default]
+    #[strum(serialize = "a v2 integer stream")]
     Int,
+    #[strum(serialize = "a v2 bool column")]
     Bool,
+    #[strum(serialize = "a v2 float column")]
     Float,
+    #[strum(serialize = "a v2 vertex stream")]
     Vertex,
 }
 
@@ -143,7 +147,7 @@ impl StreamCtx02 {
 }
 
 /// Physical field of a stream of integer words.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive, strum::IntoStaticStr)]
 #[repr(u8)]
 pub(crate) enum PhysicalInt {
     NoneNoLen = 0b0000_0000,
@@ -154,7 +158,7 @@ pub(crate) enum PhysicalInt {
 
 /// Physical field of a stream of opaque fixed-width elements, i.e. a float column's values or a bool column's bitmap.
 /// Only whether a byte length follows is open, so the field's two high patterns are unassigned.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive, strum::IntoStaticStr)]
 #[repr(u8)]
 pub(crate) enum PhysicalBits {
     NoLen = 0b0000_0000,
@@ -264,7 +268,9 @@ impl Encoding02 {
                     no_physical(enc_byte)?;
                     LogicalBool::Rle
                 }
-                _ => unreachable_member(family, logical)?,
+                Logical::Delta | Logical::CwDelta | Logical::DeltaRle | Logical::Morton => {
+                    unreachable_member(family, logical)?
+                }
             }),
             Family::Float => Self::Float(match logical {
                 Logical::None => LogicalFloat::None(physical_bits(enc_byte)?),
@@ -272,7 +278,9 @@ impl Encoding02 {
                     no_physical(enc_byte)?;
                     LogicalFloat::Rle
                 }
-                _ => unreachable_member(family, logical)?,
+                Logical::Delta | Logical::CwDelta | Logical::DeltaRle | Logical::Morton => {
+                    unreachable_member(family, logical)?
+                }
             }),
             Family::Vertex => Self::Vertex(match logical {
                 Logical::None => LogicalVertex::None(physical_int(enc_byte)?),
@@ -282,7 +290,7 @@ impl Encoding02 {
                     no_physical(enc_byte)?;
                     LogicalVertex::Morton
                 }
-                _ => unreachable_member(family, logical)?,
+                Logical::Rle | Logical::DeltaRle => unreachable_member(family, logical)?,
             }),
         })
     }
@@ -307,19 +315,17 @@ impl Encoding02 {
     }
 
     /// What the physical field said, named for tooling.
-    fn physical_label(self) -> String {
+    fn physical_label(self) -> &'static str {
         match self {
             Self::Int(LogicalInt::None(p) | LogicalInt::Delta(p))
             | Self::Vertex(
                 LogicalVertex::None(p) | LogicalVertex::Delta(p) | LogicalVertex::CwDelta(p),
-            ) => format!("{p:?}"),
-            Self::Bool(LogicalBool::None(p)) | Self::Float(LogicalFloat::None(p)) => {
-                format!("{p:?}")
-            }
+            ) => p.into(),
+            Self::Bool(LogicalBool::None(p)) | Self::Float(LogicalFloat::None(p)) => p.into(),
             Self::Int(LogicalInt::Rle | LogicalInt::DeltaRle)
             | Self::Bool(LogicalBool::Rle)
             | Self::Float(LogicalFloat::Rle)
-            | Self::Vertex(LogicalVertex::Morton) => "implied".to_string(),
+            | Self::Vertex(LogicalVertex::Morton) => "implied",
         }
     }
 
@@ -494,7 +500,7 @@ pub(crate) fn write_stream_meta<W: io::Write>(
 
     let (logical, physical_bits) = wire_fields(meta.encoding, family)?;
     let code = family.code(logical).ok_or_else(|| {
-        MltError::UnsupportedLogicalEncoding(meta.encoding.logical, family_name(family))
+        MltError::UnsupportedLogicalEncoding(meta.encoding.logical, family.into())
     })?;
 
     // For RLE streams the wire count is the *decoded* count (the encoder's
@@ -520,16 +526,6 @@ pub(crate) fn write_stream_meta<W: io::Write>(
     Ok(())
 }
 
-/// How a family names itself in an error about an encoding it does not list.
-fn family_name(family: Family) -> &'static str {
-    match family {
-        Family::Int => "a v2 integer stream",
-        Family::Bool => "a v2 bool column",
-        Family::Float => "a v2 float column",
-        Family::Vertex => "a v2 vertex stream",
-    }
-}
-
 /// Name an encoding byte's logical and physical fields in `family`'s terms, for tooling that annotates a byte.
 /// The extension field is masked off, since whether those bits are set says nothing about what the other two name.
 pub(crate) fn describe_encoding(family: Family, byte: u8) -> (String, String) {
@@ -537,13 +533,13 @@ pub(crate) fn describe_encoding(family: Family, byte: u8) -> (String, String) {
     let physical = (byte & PHYSICAL_MASK) >> PHYSICAL_SHIFT;
     match Encoding02::parse(family, byte & !EXTENSION_MASK) {
         Ok(encoding) => (
-            format!("{:?}", encoding.logical()),
-            encoding.physical_label(),
+            encoding.logical().to_string(),
+            encoding.physical_label().to_string(),
         ),
         Err(_) => (
             family
                 .logical(code)
-                .map_or_else(|| format!("unassigned({code})"), |l| format!("{l:?}")),
+                .map_or_else(|| format!("unassigned({code})"), |l| l.to_string()),
             format!("invalid({physical})"),
         ),
     }
@@ -552,6 +548,7 @@ pub(crate) fn describe_encoding(family: Family, byte: u8) -> (String, String) {
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
+    use strum::{EnumCount as _, IntoEnumIterator as _};
 
     use super::*;
     use crate::test_helpers::parser;
@@ -560,18 +557,6 @@ mod tests {
     const BOOL: StreamCtx02 = StreamCtx02::Property(DataType02::Bool);
     const FLOAT: StreamCtx02 = StreamCtx02::Property(DataType02::F64);
     const VERTEX: StreamCtx02 = StreamCtx02::GeomVertices;
-
-    /// Every logical encoding v2 can name, in the canonical order of record 0006.
-    const CANONICAL: [Logical; 6] = [
-        Logical::None,
-        Logical::Delta,
-        Logical::CwDelta,
-        Logical::Rle,
-        Logical::DeltaRle,
-        Logical::Morton,
-    ];
-
-    const ALL_FAMILIES: [Family; 4] = [Family::Int, Family::Bool, Family::Float, Family::Vertex];
 
     fn meta(logical: LogicalEncoding, physical: PhysicalEncoding, num: u32) -> StreamMeta {
         let stream_type = StreamType::Data(DictionaryType::None);
@@ -608,23 +593,36 @@ mod tests {
 
     #[test]
     fn every_family_lists_its_members_in_canonical_order() {
-        for family in ALL_FAMILIES {
-            let ranks: Vec<usize> = family
-                .members()
-                .iter()
-                .map(|m| {
-                    CANONICAL
-                        .iter()
-                        .position(|c| c == m)
-                        .expect("member is in the canonical order")
-                })
-                .collect();
-            assert!(
-                ranks.windows(2).all(|w| w[0] < w[1]),
-                "{family:?} lists {:?}",
-                family.members()
-            );
+        for family in Family::iter() {
+            let mut canonical = Logical::iter();
+            for &member in family.members() {
+                assert!(
+                    canonical.any(|c| c == member),
+                    "{family:?} lists {:?}",
+                    family.members()
+                );
+            }
         }
+    }
+
+    #[test]
+    fn no_family_lists_an_encoding_twice() {
+        for family in Family::iter() {
+            for (index, &member) in family.members().iter().enumerate() {
+                let code = u8::try_from(index).unwrap();
+                assert_eq!(
+                    family.code(member),
+                    Some(code),
+                    "{family:?} lists {member} twice"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_canonical_order_fits_the_logical_field() {
+        let codes = usize::from(LOGICAL_MASK >> LOGICAL_SHIFT) + 1;
+        assert!(Logical::COUNT <= codes, "{} encodings", Logical::COUNT);
     }
 
     #[rstest]
