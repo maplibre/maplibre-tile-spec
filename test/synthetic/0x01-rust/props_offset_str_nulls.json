@@ -1,0 +1,93 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11,
+          52
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "val": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          71,
+          72
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "val": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          61,
+          22
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          65,
+          66
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "val": "residential_zone_north_sector_1"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          35,
+          56
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "val": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          55,
+          36
+        ]
+      }
+    }
+  ]
+}

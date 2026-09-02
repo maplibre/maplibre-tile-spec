@@ -175,8 +175,8 @@ pub enum WireVersion {
     /// Tag `0x02` - the experimental v2 format (see `docs/migrating-to-v2.md`).
     /// Requires the `unstable-v2` feature.
     ///
-    /// Currently limited to ID, scalar, and non-tessellated geometry columns;
-    /// string and shared-dictionary columns are not yet supported.
+    /// Currently limited to ID, scalar, string, and non-tessellated geometry
+    /// columns; shared-dictionary columns are not yet supported.
     #[cfg(feature = "unstable-v2")]
     V02,
 }
