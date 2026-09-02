@@ -64,11 +64,15 @@ fn differential_fixture([path]: [&Path; 1]) {
     for layer in layers {
         let v2_bytes = match layer.clone().encode(cfg(WireVersion::V02)) {
             Ok(bytes) => bytes,
-            // Strings, shared dictionaries and tessellation have no v2 encoder yet.
+            // Tessellation has no v2 encoder yet.
             Err(MltError::NotImplemented(_)) => continue,
             Err(e) => panic!("{}: v2 encode failed: {e}", path.display()),
         };
-        let v1_bytes = layer.encode(cfg(WireVersion::V01)).expect("v1 encode");
+        // v1 reorders properties when it groups string columns into a shared dictionary,
+        // which v2 cannot express yet, so the comparison turns the grouping off.
+        let v1_bytes = layer
+            .encode(cfg(WireVersion::V01).with_shared_dict(false))
+            .expect("v1 encode");
         assert_eq!(
             decode(&v1_bytes, 1),
             decode(&v2_bytes, 2),
@@ -80,9 +84,9 @@ fn differential_fixture([path]: [&Path; 1]) {
 }
 
 #[rstest]
-#[case::amazon_5_5_11("amazon/5_5_11.mvt", 15)]
-#[case::amazon_11_1037_704("amazon/11_1037_704.mvt", 15)]
-#[case::amazon_5_8_12("amazon/5_8_12.mvt", 15)]
+#[case::amazon_5_5_11("amazon/5_5_11.mvt", 25)]
+#[case::amazon_11_1037_704("amazon/11_1037_704.mvt", 23)]
+#[case::amazon_5_8_12("amazon/5_8_12.mvt", 23)]
 fn named_fixtures_still_reach_the_v2_encoder(#[case] fixture: &str, #[case] expected: usize) {
     let root = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../test/fixtures"));
     let layers = mvt_to_tile_layers(fs::read(root.join(fixture)).expect("read fixture"))
