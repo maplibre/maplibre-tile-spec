@@ -41,7 +41,15 @@ impl<'a> RawStream<'a> {
                 fail_if_invalid_stream_size(self.data.len(), num_bytes)?;
                 Ok(Cow::Borrowed(&self.data.view_bits::<Lsb0>()[..num_values]))
             }
-            _ => Err(MltError::NotImplemented("unsupported bool stream encoding")),
+            LogicalEncoding::None
+            | LogicalEncoding::Delta
+            | LogicalEncoding::DeltaRle(_)
+            | LogicalEncoding::ComponentwiseDelta
+            | LogicalEncoding::Morton(_)
+            | LogicalEncoding::MortonDelta(_)
+            | LogicalEncoding::MortonRle(_) => {
+                Err(MltError::NotImplemented("unsupported bool stream encoding"))
+            }
         }
     }
 

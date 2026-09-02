@@ -299,7 +299,16 @@ impl<'p> ColNames for ParsedProperty<'p> {
     fn name_count(&self) -> usize {
         match self {
             Self::SharedDict(sd) => sd.items.len(),
-            _ => 1,
+            Self::Bool(_)
+            | Self::I8(_)
+            | Self::U8(_)
+            | Self::I32(_)
+            | Self::U32(_)
+            | Self::I64(_)
+            | Self::U64(_)
+            | Self::F32(_)
+            | Self::F64(_)
+            | Self::Str(_) => 1,
         }
     }
 
@@ -327,7 +336,16 @@ impl<'p> ColNames for RawProperty<'p> {
     fn name_count(&self) -> usize {
         match self {
             Self::SharedDict(sd) => sd.children.len(),
-            _ => 1,
+            Self::Bool(_)
+            | Self::I8(_)
+            | Self::U8(_)
+            | Self::I32(_)
+            | Self::U32(_)
+            | Self::I64(_)
+            | Self::U64(_)
+            | Self::F32(_)
+            | Self::F64(_)
+            | Self::Str(_) => 1,
         }
     }
 

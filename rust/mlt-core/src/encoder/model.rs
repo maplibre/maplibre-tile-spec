@@ -116,24 +116,17 @@ impl StagedLayer {
                         actual,
                     });
                 }
-                match property {
-                    StagedProperty::SharedDict(sd) => {
-                        for item in &sd.items {
-                            if !seen.insert(Cow::Owned(format!("{}{}", sd.prefix, item.suffix))) {
-                                return Err(MltError::DuplicatePropertyName(format!(
-                                    "{}{}",
-                                    sd.prefix, item.suffix
-                                )));
-                            }
+                if let StagedProperty::SharedDict(sd) = property {
+                    for item in &sd.items {
+                        if !seen.insert(Cow::Owned(format!("{}{}", sd.prefix, item.suffix))) {
+                            return Err(MltError::DuplicatePropertyName(format!(
+                                "{}{}",
+                                sd.prefix, item.suffix
+                            )));
                         }
                     }
-                    _ => {
-                        if !seen.insert(Cow::Borrowed(property.name())) {
-                            return Err(MltError::DuplicatePropertyName(
-                                property.name().to_string(),
-                            ));
-                        }
-                    }
+                } else if !seen.insert(Cow::Borrowed(property.name())) {
+                    return Err(MltError::DuplicatePropertyName(property.name().to_string()));
                 }
             }
         }

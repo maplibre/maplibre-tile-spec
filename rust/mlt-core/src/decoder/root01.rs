@@ -337,7 +337,10 @@ fn parse_columns_meta<'a>(
     column_count: u32,
     parser: &mut Parser,
 ) -> MltRefResult<'a, (Vec<Column<'a>>, u32)> {
-    use crate::decoder::ColumnType::{Geometry, Id, LongId, OptId, OptLongId, SharedDict};
+    use crate::decoder::ColumnType::{
+        Bool, F32, F64, Geometry, I8, I32, I64, Id, LongId, OptBool, OptF32, OptF64, OptI8, OptI32,
+        OptI64, OptId, OptLongId, OptStr, OptU8, OptU32, OptU64, SharedDict, Str, U8, U32, U64,
+    };
 
     let mut col_info = Vec::with_capacity(column_count.into_usize());
     let mut geometries = 0;
@@ -366,7 +369,8 @@ fn parse_columns_meta<'a>(
                 }
                 typ.children = children;
             }
-            _ => {}
+            Bool | OptBool | I8 | OptI8 | U8 | OptU8 | I32 | OptI32 | U32 | OptU32 | I64
+            | OptI64 | U64 | OptU64 | F32 | OptF32 | F64 | OptF64 | Str | OptStr => {}
         }
         col_info.push(typ);
     }

@@ -278,7 +278,11 @@ fn file_header_click_column(
         .iter()
         .map(|c| match c {
             Constraint::Length(l) => *l,
-            _ => 0,
+            Constraint::Min(_)
+            | Constraint::Max(_)
+            | Constraint::Percentage(_)
+            | Constraint::Ratio(..)
+            | Constraint::Fill(_) => 0,
         })
         .sum();
     let remaining = inner
@@ -289,7 +293,10 @@ fn file_header_click_column(
         resolved[i] = match c {
             Constraint::Length(l) => *l,
             Constraint::Min(_) => remaining,
-            _ => 0,
+            Constraint::Max(_)
+            | Constraint::Percentage(_)
+            | Constraint::Ratio(..)
+            | Constraint::Fill(_) => 0,
         };
     }
     let cols = [
@@ -612,6 +619,10 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                         continue;
                     }
                     if app.show_help {
+                        #[expect(
+                            clippy::wildcard_enum_match_arm,
+                            reason = "any other key closes help"
+                        )]
                         match key.code {
                             KeyCode::Up | KeyCode::Char('k') => {
                                 app.help_scroll = app.help_scroll.saturating_sub(1);
@@ -632,6 +643,7 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                         app.invalidate();
                         continue;
                     }
+                    #[expect(clippy::wildcard_enum_match_arm, reason = "unbound keys do nothing")]
                     match key.code {
                         KeyCode::Char('q') => break,
                         KeyCode::Esc if app.handle_escape() => break,
@@ -688,7 +700,12 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                         app.help_scroll = app.help_scroll.saturating_add(1);
                         app.invalidate();
                     }
-                    _ => {}
+                    MouseEventKind::Down(_)
+                    | MouseEventKind::Up(_)
+                    | MouseEventKind::Drag(_)
+                    | MouseEventKind::Moved
+                    | MouseEventKind::ScrollLeft
+                    | MouseEventKind::ScrollRight => {}
                 },
                 Event::Mouse(mouse) => match mouse.kind {
                     MouseEventKind::Up(_) => {
@@ -1039,10 +1056,10 @@ fn run_app_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> anyho
                             }
                         }
                     }
-                    _ => {}
+                    MouseEventKind::ScrollLeft | MouseEventKind::ScrollRight => {}
                 },
                 Event::Resize(_, _) => app.invalidate(),
-                _ => {}
+                Event::FocusGained | Event::FocusLost | Event::Key(_) | Event::Paste(_) => {}
             }
         }
     }
@@ -1167,7 +1184,13 @@ fn multi_part_count(geom: &Geometry<i32>) -> usize {
         Geometry::<i32>::MultiPoint(mp) => mp.0.len(),
         Geometry::<i32>::MultiLineString(mls) => mls.0.len(),
         Geometry::<i32>::MultiPolygon(mpoly) => mpoly.0.len(),
-        _ => 0,
+        Geometry::<i32>::Point(_)
+        | Geometry::<i32>::Line(_)
+        | Geometry::<i32>::LineString(_)
+        | Geometry::<i32>::Polygon(_)
+        | Geometry::<i32>::GeometryCollection(_)
+        | Geometry::<i32>::Rect(_)
+        | Geometry::<i32>::Triangle(_) => 0,
     }
 }
 
@@ -1193,7 +1216,14 @@ fn feature_suffix(geom: &Geometry<i32>) -> String {
                 format!(" ({total}v)")
             }
         }
-        _ => String::new(),
+        Geometry::<i32>::Point(_)
+        | Geometry::<i32>::Line(_)
+        | Geometry::<i32>::MultiPoint(_)
+        | Geometry::<i32>::MultiLineString(_)
+        | Geometry::<i32>::MultiPolygon(_)
+        | Geometry::<i32>::GeometryCollection(_)
+        | Geometry::<i32>::Rect(_)
+        | Geometry::<i32>::Triangle(_) => String::new(),
     }
 }
 
@@ -1211,7 +1241,14 @@ fn sub_feature_suffix(geom: &Geometry<i32>, part: usize) -> String {
                 format!(" ({total}v)")
             }
         }),
-        _ => String::new(),
+        Geometry::<i32>::Point(_)
+        | Geometry::<i32>::Line(_)
+        | Geometry::<i32>::LineString(_)
+        | Geometry::<i32>::Polygon(_)
+        | Geometry::<i32>::MultiPoint(_)
+        | Geometry::<i32>::GeometryCollection(_)
+        | Geometry::<i32>::Rect(_)
+        | Geometry::<i32>::Triangle(_) => String::new(),
     }
 }
 
@@ -1266,7 +1303,14 @@ fn has_bad_winding(geom: &Geometry<i32>) -> bool {
     match geom {
         Geometry::<i32>::Polygon(poly) => check(poly),
         Geometry::<i32>::MultiPolygon(mpoly) => mpoly.iter().any(check),
-        _ => false,
+        Geometry::<i32>::Point(_)
+        | Geometry::<i32>::Line(_)
+        | Geometry::<i32>::LineString(_)
+        | Geometry::<i32>::MultiPoint(_)
+        | Geometry::<i32>::MultiLineString(_)
+        | Geometry::<i32>::GeometryCollection(_)
+        | Geometry::<i32>::Rect(_)
+        | Geometry::<i32>::Triangle(_) => false,
     }
 }
 

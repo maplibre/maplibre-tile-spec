@@ -44,7 +44,10 @@ pub fn render_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
                     {
                         Some(*part)
                     }
-                    _ => None,
+                    TreeItem::All
+                    | TreeItem::Layer(_)
+                    | TreeItem::Feature { .. }
+                    | TreeItem::SubFeature { .. } => None,
                 };
                 let hov_part =
                     hov.and_then(|h| (app.global_idx(h.layer, h.feat) == gi).then_some(h.part)?);
@@ -129,7 +132,10 @@ fn draw_feature(
                 draw_polygon(ctx, poly, matches!(pc, CLR_HOVERED | CLR_SELECTED), pc);
             }
         }
-        _ => {}
+        Geometry::<i32>::Line(_)
+        | Geometry::<i32>::GeometryCollection(_)
+        | Geometry::<i32>::Rect(_)
+        | Geometry::<i32>::Triangle(_) => {}
     }
 }
 
@@ -391,7 +397,10 @@ fn draw_geom_world(
                 }
             }
         }
-        _ => {}
+        Geometry::<i32>::Line(_)
+        | Geometry::<i32>::GeometryCollection(_)
+        | Geometry::<i32>::Rect(_)
+        | Geometry::<i32>::Triangle(_) => {}
     }
 }
 

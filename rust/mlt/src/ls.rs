@@ -348,7 +348,7 @@ pub fn ls(args: &LsArgs) -> AnyResult<bool> {
             info: MltFileInfo { matches_json, .. },
             ..
         } => matches_json.unwrap_or(true),
-        _ => false,
+        LsRow::Error { .. } | LsRow::Loading { .. } => false,
     }))
 }
 

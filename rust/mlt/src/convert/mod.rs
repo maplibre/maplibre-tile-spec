@@ -297,14 +297,16 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
                 cfg,
                 args.tile_compression.into(),
             )),
-            // mbtiles is the only other container possible here.
-            _ => runtime.block_on(from_mbtiles::convert(
+            ContainerFormat::Mbtiles => runtime.block_on(from_mbtiles::convert(
                 &args.input,
                 output,
                 cfg,
                 args.mbtiles_format,
                 args.tile_compression.into(),
             )),
+            ContainerFormat::Files => {
+                unreachable!("`has_archive_input` above rules out a directory input")
+            }
         };
     }
 
@@ -317,6 +319,7 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
     let mut out: Vec<u8> = Vec::new();
 
     for layer in layers {
+        #[expect(clippy::wildcard_enum_match_arm, reason = "Layer is non_exhaustive")]
         match layer {
             Layer::Tag01(l) => {
                 let tile = l.into_tile(&mut dec)?;
@@ -353,6 +356,7 @@ fn mlt_buffer_to_tile_layers(buffer: &[u8]) -> AnyResult<Vec<mlt_core::TileLayer
     let mut dec = Decoder::default();
     let mut tiles = Vec::new();
     for layer in layers {
+        #[expect(clippy::wildcard_enum_match_arm, reason = "Layer is non_exhaustive")]
         match layer {
             Layer::Tag01(l) => {
                 tiles.push(l.into_tile(&mut dec)?);

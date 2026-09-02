@@ -63,7 +63,13 @@ pub fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                         Geometry::<i32>::MultiPoint(_) => "Point",
                         Geometry::<i32>::MultiLineString(_) => "LineString",
                         Geometry::<i32>::MultiPolygon(_) => "Polygon",
-                        _ => "Part",
+                        Geometry::<i32>::Point(_)
+                        | Geometry::<i32>::Line(_)
+                        | Geometry::<i32>::LineString(_)
+                        | Geometry::<i32>::Polygon(_)
+                        | Geometry::<i32>::GeometryCollection(_)
+                        | Geometry::<i32>::Rect(_)
+                        | Geometry::<i32>::Triangle(_) => "Part",
                     };
                     (
                         format!("      Part {part}: {n}{}", sub_feature_suffix(geom, *part)),
@@ -124,7 +130,11 @@ fn feature_property_lines(feat: &Feature) -> Vec<Line<'static>> {
                 Span::styled(format!("{k}: "), STYLE_LABEL),
                 Span::raw(match v {
                     serde_json::Value::String(s) => s.clone(),
-                    _ => v.to_string(),
+                    serde_json::Value::Null
+                    | serde_json::Value::Bool(_)
+                    | serde_json::Value::Number(_)
+                    | serde_json::Value::Array(_)
+                    | serde_json::Value::Object(_) => v.to_string(),
                 }),
             ])
         })
@@ -255,7 +265,12 @@ fn geometry_stats_lines(geom: &Geometry<i32>) -> Vec<Line<'static>> {
         Geometry::<i32>::MultiPoint(pts) => info_multi_point(&mut lines, pts),
         Geometry::<i32>::MultiLineString(mls) => info_multi_line_string(&mut lines, mls),
         Geometry::<i32>::MultiPolygon(mpoly) => info_multi_polygon(&mut lines, mpoly),
-        _ => unreachable!("Unexpected geometry type {geom:?}"),
+        Geometry::<i32>::Line(_)
+        | Geometry::<i32>::GeometryCollection(_)
+        | Geometry::<i32>::Rect(_)
+        | Geometry::<i32>::Triangle(_) => {
+            unreachable!("Unexpected geometry type {geom:?}")
+        }
     }
     lines
 }
@@ -284,7 +299,13 @@ fn subpart_stats_lines(geom: &Geometry<i32>, part: usize) -> Vec<Line<'static>> 
                 info_polygon(&mut lines, poly);
             }
         }
-        _ => {}
+        Geometry::<i32>::Point(_)
+        | Geometry::<i32>::Line(_)
+        | Geometry::<i32>::LineString(_)
+        | Geometry::<i32>::Polygon(_)
+        | Geometry::<i32>::GeometryCollection(_)
+        | Geometry::<i32>::Rect(_)
+        | Geometry::<i32>::Triangle(_) => {}
     }
     lines
 }

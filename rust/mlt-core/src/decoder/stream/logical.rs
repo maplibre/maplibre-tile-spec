@@ -156,7 +156,10 @@ impl LogicalValue {
             LogicalEncoding::DeltaRle(rle) => {
                 decode_zigzag_delta::<i32, _>(&rle.decode(data, dec)?, dec)
             }
-            _ => Err(UnsupportedLogicalEncoding(
+            LogicalEncoding::ComponentwiseDelta
+            | LogicalEncoding::Morton(_)
+            | LogicalEncoding::MortonDelta(_)
+            | LogicalEncoding::MortonRle(_) => Err(UnsupportedLogicalEncoding(
                 self.meta.encoding.logical,
                 "u32",
             )),
@@ -180,7 +183,10 @@ impl LogicalValue {
                 let expanded = rle.decode(data, dec)?;
                 decode_zigzag(&expanded, dec)
             }
-            _ => Err(UnsupportedLogicalEncoding(
+            LogicalEncoding::ComponentwiseDelta
+            | LogicalEncoding::Morton(_)
+            | LogicalEncoding::MortonDelta(_)
+            | LogicalEncoding::MortonRle(_) => Err(UnsupportedLogicalEncoding(
                 self.meta.encoding.logical,
                 "i64",
             )),
@@ -205,7 +211,10 @@ impl LogicalValue {
                 let expanded = rle.decode(data, dec)?;
                 decode_zigzag_delta::<i64, _>(&expanded, dec)
             }
-            _ => Err(UnsupportedLogicalEncoding(
+            LogicalEncoding::ComponentwiseDelta
+            | LogicalEncoding::Morton(_)
+            | LogicalEncoding::MortonDelta(_)
+            | LogicalEncoding::MortonRle(_) => Err(UnsupportedLogicalEncoding(
                 self.meta.encoding.logical,
                 "u64",
             )),

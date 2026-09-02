@@ -140,7 +140,18 @@ fn column_masks<'a>(
             D::OptF32(v) => Some(mask(v)),
             D::OptF64(v) => Some(mask(v)),
             // Strings and shared dictionaries are not encodable as v2 yet.
-            _ => None,
+            D::Bool(_)
+            | D::I8(_)
+            | D::U8(_)
+            | D::I32(_)
+            | D::U32(_)
+            | D::I64(_)
+            | D::U64(_)
+            | D::F32(_)
+            | D::F64(_)
+            | D::Str(_)
+            | D::OptStr(_)
+            | D::SharedDict(_) => None,
         }
     });
     id.into_iter().chain(props)

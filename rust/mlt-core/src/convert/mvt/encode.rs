@@ -47,7 +47,16 @@ impl TryFrom<PropValue> for MvtValue {
             PropValue::F32(Some(f)) => Self::Float(f),
             PropValue::F64(Some(f)) => Self::Double(f),
             PropValue::Str(Some(s)) => Self::String(s),
-            _ => Err(())?,
+            PropValue::Bool(None)
+            | PropValue::I8(None)
+            | PropValue::U8(None)
+            | PropValue::I32(None)
+            | PropValue::U32(None)
+            | PropValue::I64(None)
+            | PropValue::U64(None)
+            | PropValue::F32(None)
+            | PropValue::F64(None)
+            | PropValue::Str(None) => Err(())?,
         })
     }
 }
