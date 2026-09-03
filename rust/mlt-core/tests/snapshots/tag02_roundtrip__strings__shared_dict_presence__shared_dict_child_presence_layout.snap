@@ -1,0 +1,133 @@
+---
+source: mlt-core/tests/tag02_roundtrip.rs
+expression: dump_text(&l.encode(cfg_v2()).unwrap())
+---
+00000000                                                                     | layer[0] (152 B)
+00000000  96 01                                             ..               |   size: 150 (varint) - tag + body
+00000002  02                                                .                |   tag: 0x02 -> Tag02
+00000003  0a 74 65 73 74 5f 6c 61 79 65 72                  .test_layer      |   name: "test_layer"
+0000000e  80 20                                             .                |   extent: 4096
+00000010  06                                                .                |   feature_count: 6
+00000011  10                                                .                |   layout: 0x10 Points
+                                                                             |     └ bit 7 = 0 -> reserved = 0
+                                                                             |     └ bits 6-4 = 001 -> shared presence bitfields = 1
+                                                                             |     └ bits 3-0 = 0000 -> geometry layout = Points
+00000012                                                                     |   shared_presence (1 B)
+00000012  2d                                                -                |     present[0] [Present Bool(None)/None, 6 values, 1 B]
+                                                                             |       decoded: 6 present-bits: 101101
+00000013                                                                     |   geometry (19 B)
+00000013                                                                     |     types (4 B)
+00000013                                                                     |       header (2 B)
+00000013  30                                                0                |         encoding: 0x30 logical=DeltaRle physical=implied
+                                                                             |           └ bit 7 = 0 -> has_explicit_count = false -> 6 values from context
+                                                                             |           └ bits 6-4 = 011 -> logical = DeltaRle, numbered for a v2 integer stream
+                                                                             |           └ bits 3-2 = 00 -> physical = implied
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+00000014  02                                                .                |         byte_length: 2
+00000015  06 00                                             ..               |       data [Length(VarBinary) Int(DeltaRle(Interleaved { num_rle_values: 6 }))/VarInt, 6 values, 2 B]
+                                                                             |         decoded: [0, 0, 0, 0, 0, 0]
+00000017                                                                     |     vertices (15 B)
+00000017                                                                     |       header (3 B)
+00000017  a8                                                .                |         encoding: 0xA8 logical=CwDelta physical=VarInt
+                                                                             |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta, numbered for a v2 vertex stream
+                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+00000018  0c                                                .                |         num_values: 12
+00000019  0c                                                .                |         byte_length: 12
+0000001a  00 00 02 00 02 00 02 00 02 00 02 00               ............     |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 12 values, 12 B]
+                                                                             |         decoded: [0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0]
+00000026  02                                                .                |   column_count: 2
+00000027                                                                     |   columns (113 B)
+00000027                                                                     |     column[0] SharedDict "name:" (103 B)
+00000027  0f                                                .                |       type: 0x0F Plain SharedDict
+                                                                             |         └ bits 7-4 = 0000 -> corpus = Plain
+                                                                             |         └ bits 3-0 = 1111 -> data type = SharedDict
+00000028  05 6e 61 6d 65 3a                                 .name:           |       name: "name:"
+0000002e  03                                                .                |       child_count: 3
+0000002f                                                                     |       dict_lengths (5 B)
+0000002f                                                                     |         header (3 B)
+0000002f  98                                                .                |           encoding: 0x98 logical=Delta physical=VarInt
+                                                                             |             └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |             └ bits 6-4 = 001 -> logical = Delta, numbered for a v2 integer stream
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+00000030  02                                                .                |           num_values: 2
+00000031  02                                                .                |           byte_length: 2
+00000032  3c 00                                             <.               |         data [Length(Dictionary) Int(Delta)/VarInt, 2 values, 2 B]
+                                                                             |           decoded: [30, 30]
+00000034                                                                     |       dict_values (62 B)
+00000034                                                                     |         header (2 B)
+00000034  04                                                .                |           encoding: 0x04 logical=None physical=WithLen
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> a blob's byte length is its value count
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 byte blob
+                                                                             |             └ bits 3-2 = 01 -> physical = WithLen
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+00000035  3c                                                <                |           byte_length: 60
+00000036  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Shared) Int(None)/None, 60 values, 60 B]
+00000046  41 41 41 41 41 41 41 41 41 41 41 41 41 41 42 42   AAAAAAAAAAAAAABB | 
+00000056  42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42   BBBBBBBBBBBBBBBB | 
+00000066  42 42 42 42 42 42 42 42 42 42 42 42               BBBBBBBBBBBB     | 
+                                                                             |           decoded: utf-8 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAABBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+00000072                                                                     |       child[0] "0" (9 B)
+00000072  2b                                                +                |         type: 0x2B Shared(0) Str
+                                                                             |           └ bits 7-4 = 0010 -> presence = Shared(0)
+                                                                             |           └ bits 3-0 = 1011 -> data type = Str
+00000073  01 30                                             .0               |         name: "0"
+00000075                                                                     |         codes (6 B)
+00000075                                                                     |           header (2 B)
+00000075  19                                                .                |             encoding: 0x19 logical=Delta physical=VarInt
+                                                                             |               └ bit 7 = 0 -> has_explicit_count = false -> 4 values from context
+                                                                             |               └ bits 6-4 = 001 -> logical = Delta, numbered for a v2 string column
+                                                                             |               └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |               └ bits 1-0 = 01 -> string layout = Dict
+00000076  04                                                .                |             byte_length: 4
+00000077  00 00 02 00                                       ....             |           data [Offset(String) Int(Delta)/VarInt, 4 values, 4 B]
+                                                                             |             decoded: [0, 0, 1, 1]
+0000007b                                                                     |       child[1] "1" (9 B)
+0000007b  2b                                                +                |         type: 0x2B Shared(0) Str
+                                                                             |           └ bits 7-4 = 0010 -> presence = Shared(0)
+                                                                             |           └ bits 3-0 = 1011 -> data type = Str
+0000007c  01 31                                             .1               |         name: "1"
+0000007e                                                                     |         codes (6 B)
+0000007e                                                                     |           header (2 B)
+0000007e  19                                                .                |             encoding: 0x19 logical=Delta physical=VarInt
+                                                                             |               └ bit 7 = 0 -> has_explicit_count = false -> 4 values from context
+                                                                             |               └ bits 6-4 = 001 -> logical = Delta, numbered for a v2 string column
+                                                                             |               └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |               └ bits 1-0 = 01 -> string layout = Dict
+0000007f  04                                                .                |             byte_length: 4
+00000080  00 00 02 00                                       ....             |           data [Offset(String) Int(Delta)/VarInt, 4 values, 4 B]
+                                                                             |             decoded: [0, 0, 1, 1]
+00000084                                                                     |       child[2] "2" (10 B)
+00000084  1b                                                .                |         type: 0x1B Inline Str
+                                                                             |           └ bits 7-4 = 0001 -> presence = Inline
+                                                                             |           └ bits 3-0 = 1011 -> data type = Str
+00000085  01 32                                             .2               |         name: "2"
+00000087  33                                                3                |         present [Present Bool(None)/None, 6 values, 1 B]
+                                                                             |           decoded: 6 present-bits: 110011
+00000088                                                                     |         codes (6 B)
+00000088                                                                     |           header (2 B)
+00000088  09                                                .                |             encoding: 0x09 logical=None physical=VarInt
+                                                                             |               └ bit 7 = 0 -> has_explicit_count = false -> 4 values from context
+                                                                             |               └ bits 6-4 = 000 -> logical = None, numbered for a v2 string column
+                                                                             |               └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |               └ bits 1-0 = 01 -> string layout = Dict
+00000089  04                                                .                |             byte_length: 4
+0000008a  00 01 00 01                                       ....             |           data [Offset(String) Int(None)/VarInt, 4 values, 4 B]
+                                                                             |             decoded: [0, 1, 0, 1]
+0000008e                                                                     |     column[1] OptU32 "n0" (10 B)
+0000008e  26                                                &                |       type: 0x26 Shared(0) U32
+                                                                             |         └ bits 7-4 = 0010 -> presence = Shared(0)
+                                                                             |         └ bits 3-0 = 0110 -> data type = U32
+0000008f  02 6e 30                                          .n0              |       name: "n0"
+00000092                                                                     |       data (6 B)
+00000092                                                                     |         header (2 B)
+00000092  18                                                .                |           encoding: 0x18 logical=Delta physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 4 values from context
+                                                                             |             └ bits 6-4 = 001 -> logical = Delta, numbered for a v2 integer stream
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+00000093  04                                                .                |           byte_length: 4
+00000094  00 04 02 04                                       ....             |         data [Data(None) Int(Delta)/VarInt, 4 values, 4 B]
+                                                                             |           decoded: [0, 2, 3, 5]
