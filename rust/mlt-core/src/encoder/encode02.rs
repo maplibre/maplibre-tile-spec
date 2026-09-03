@@ -195,12 +195,15 @@ pub(crate) fn encode_into02(
     // ── Layer layout byte + shared presence bitfields ─────────────────────
     let shared = SharedPresence::plan(&id, &properties);
     let geometry = encode_geometry02(geometry)?;
-    enc.data_mut()
-        .push(LayerLayout::new(geometry.layout, shared.count()).to_byte());
+    // The geometry layout is only settled once its vertex streams are written, so
+    // the byte is reserved here and patched below.
+    let layout_pos = enc.data().len();
+    enc.data_mut().push(0);
     shared.write_to(&mut enc);
 
     // ── Geometry section (not part of column_count) ───────────────────────
-    geometry.write_to(&mut enc, codecs)?;
+    let geo_layout = geometry.write_to(&mut enc, codecs)?;
+    enc.data_mut()[layout_pos] = LayerLayout::new(geo_layout, shared.count()).to_byte();
 
     // ── Counted columns ───────────────────────────────────────────────────
     let column_count = usize::from(!matches!(id, StagedId::None)) + properties.len();

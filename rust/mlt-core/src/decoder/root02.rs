@@ -453,18 +453,18 @@ fn parse_geometry<'a>(
     feature_count: u32,
     parser: &mut Parser,
 ) -> MltRefResult<'a, RawGeometry<'a>> {
-    if layout.is_dict() {
-        return Err(MltError::NotImplemented("v2 dict geometry layouts"));
-    }
-    if layout.is_tess() {
-        return Err(MltError::NotImplemented("v2 tessellated geometry layouts"));
-    }
-
     // Types stream: implicit count = feature_count.
     let (mut input, types) =
         header02::parse_stream(input, StreamCtx02::GeomTypes, feature_count, parser)?;
 
-    let mut items = Vec::with_capacity(4);
+    let mut items = Vec::with_capacity(6);
+    // Each stream's role comes from its position, so they only differ in context.
+    let mut stream = |input: &'a [u8], ctx, items: &mut Vec<_>| -> MltResult<&'a [u8]> {
+        let (rest, parsed) = header02::parse_stream(input, ctx, feature_count, parser)?;
+        items.push(parsed);
+        Ok(rest)
+    };
+
     let lengths = [
         (layout.has_geo_lengths(), LengthType::Geometries),
         (layout.has_part_lengths(), LengthType::Parts),
@@ -472,17 +472,22 @@ fn parse_geometry<'a>(
     ];
     for (present, length_type) in lengths {
         if present {
-            let ctx = StreamCtx02::GeomOffsets(length_type);
-            let parsed;
-            (input, parsed) = header02::parse_stream(input, ctx, feature_count, parser)?;
-            items.push(parsed);
+            input = stream(input, StreamCtx02::GeomOffsets(length_type), &mut items)?;
         }
     }
 
-    // Vertex stream (explicit count in practice; context falls back to feature_count).
-    let (input, vertices) =
-        header02::parse_stream(input, StreamCtx02::GeomVertices, feature_count, parser)?;
-    items.push(vertices);
+    if layout.is_tess() {
+        let triangles = StreamCtx02::GeomOffsets(LengthType::Triangles);
+        input = stream(input, triangles, &mut items)?;
+        input = stream(input, StreamCtx02::GeomIndices, &mut items)?;
+    }
+
+    // Vertex stream, holding the whole vertex sequence or a dictionary of the distinct
+    // ones (explicit count in practice; context falls back to feature_count).
+    input = stream(input, StreamCtx02::GeomVertices, &mut items)?;
+    if layout.is_dict() {
+        input = stream(input, StreamCtx02::GeomVertexOffsets, &mut items)?;
+    }
 
     Ok((input, RawGeometry { meta: types, items }))
 }

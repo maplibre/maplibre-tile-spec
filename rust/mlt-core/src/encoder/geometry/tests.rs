@@ -276,3 +276,55 @@ fn encoded_stream_types(data: &[u8]) -> HashSet<StreamType> {
         .chain(raw.items.iter().map(|s| s.meta.stream_type))
         .collect()
 }
+
+#[cfg(feature = "unstable-v2")]
+mod v2 {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+    use crate::TileLayer;
+    use crate::encoder::model::WireVersion;
+    use crate::encoder::{StagedId, StagedLayer};
+    use crate::test_helpers::into_layer01;
+
+    /// Encode `decoded` as a whole layer with the vertex layout pinned to `strategy`,
+    /// then read it back through the layer envelope.
+    fn forced_layer(
+        decoded: &GeometryValues,
+        strategy: VertexBufferType,
+        version: WireVersion,
+    ) -> TileLayer {
+        let staged = StagedLayer::new("test", 4096, StagedId::None, decoded.clone(), Vec::new())
+            .expect("stage failed");
+        let explicit = ExplicitEncoder {
+            vertex_buffer_type: strategy,
+            ..ExplicitEncoder::all(IntEncoder::varint())
+        };
+        let cfg = EncoderConfig::default().with_wire_version(version);
+        let bytes = staged
+            .encode_into(
+                Encoder::with_explicit(cfg, explicit),
+                &mut Codecs::default(),
+            )
+            .expect("encode failed")
+            .into_layer_bytes()
+            .expect("layer bytes");
+        let mut layers = crate::Parser::default()
+            .parse_layers(&bytes)
+            .expect("parse");
+        assert_eq!(layers.len(), 1);
+        into_layer01(layers.remove(0))
+            .into_tile(&mut dec())
+            .expect("decode failed")
+    }
+
+    #[rstest]
+    #[case::vec2(VertexBufferType::Vec2)]
+    #[case::morton(VertexBufferType::Morton)]
+    #[case::hilbert(VertexBufferType::Hilbert)]
+    fn a_forced_vertex_layout_decodes_as_v1_does(#[case] strategy: VertexBufferType) {
+        let decoded = repeated_multipoint();
+        let v1 = forced_layer(&decoded, VertexBufferType::Vec2, WireVersion::V01);
+        assert_eq!(v1, forced_layer(&decoded, strategy, WireVersion::V02));
+    }
+}

@@ -13,6 +13,8 @@
 //!                       comes from context (feature_count, or the presence
 //!                       popcount for optional column data)
 //! [varint byte_length]  present unless the physical field says none follows
+//! [varint parameters]   what the logical encoding carries, if anything:
+//!                       ALP's scale and frame of reference, or Morton's grid
 //! ```
 //!
 //! What the fields mean is per [`Family`], which is fixed by context read before the encoding byte.
@@ -25,8 +27,7 @@
 //! from the count context.
 //!
 //! Not yet implemented (rejected with [`MltError::NotImplemented`]):
-//! `None-noLen` (requires element-width context), `Morton`, and RLE over a
-//! bool or float column.
+//! `None-noLen` (requires element-width context), and RLE over a bool or float column.
 
 use std::io;
 
@@ -36,8 +37,8 @@ use num_enum::TryFromPrimitive;
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
     Alp, BoolLogical, DataType02, DictionaryType, FastPForKind, FloatLogical, IntEncoding,
-    IntLogical, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding, RawStream, RleMeta,
-    StreamMeta, StreamType, VertexLogical,
+    IntLogical, LengthType, LogicalEncoding, Morton, OffsetType, PhysicalEncoding, RawStream,
+    RleMeta, StreamMeta, StreamType, VertexLogical,
 };
 use crate::utils::{BinarySerializer as _, parse_u8, take};
 use crate::{MltError, MltRefResult, MltResult, Parser};
@@ -167,7 +168,12 @@ pub(crate) enum StreamCtx02 {
     /// One of a string column's byte blobs, named by the dictionary role it fills.
     StrBlob(DictionaryType),
     GeomTypes,
+    /// The vertices themselves, or the distinct ones a dictionary layout stores once.
     GeomVertices,
+    /// One index per vertex into the dictionary the preceding stream holds.
+    GeomVertexOffsets,
+    /// The triangle indices of a tessellated layer, three per triangle.
+    GeomIndices,
     GeomOffsets(LengthType),
 }
 
@@ -187,6 +193,8 @@ impl StreamCtx02 {
             | Self::StrDictLengths
             | Self::StrSymbolLengths
             | Self::GeomTypes
+            | Self::GeomVertexOffsets
+            | Self::GeomIndices
             | Self::GeomOffsets(_) => Family::Int,
             Self::GeomVertices => Family::Vertex,
         }
@@ -209,6 +217,8 @@ impl StreamCtx02 {
             Self::StrSymbolLengths => StreamType::Length(LengthType::Symbol),
             Self::StrBlob(dictionary) => StreamType::Data(dictionary),
             Self::GeomVertices => StreamType::Data(DictionaryType::Vertex),
+            Self::GeomVertexOffsets => StreamType::Offset(OffsetType::Vertex),
+            Self::GeomIndices => StreamType::Offset(OffsetType::Index),
             Self::GeomOffsets(length_type) => StreamType::Length(length_type),
         }
     }
@@ -337,7 +347,9 @@ pub(crate) enum LogicalVertex {
     None(PhysicalInt),
     Delta(PhysicalInt),
     CwDelta(PhysicalInt),
-    Morton,
+    /// Deltas between the Morton codes of a sorted vertex dictionary.
+    /// The grid the codes are laid on follows the byte length as two varints.
+    Morton(PhysicalInt),
 }
 
 /// One encoding byte's logical and physical fields, read in its family's terms.
@@ -464,10 +476,7 @@ impl Encoding02 {
                 Logical::None => LogicalVertex::None(physical_int(enc_byte)?),
                 Logical::Delta => LogicalVertex::Delta(physical_int(enc_byte)?),
                 Logical::CwDelta => LogicalVertex::CwDelta(physical_int(enc_byte)?),
-                Logical::Morton => {
-                    no_physical(enc_byte)?;
-                    LogicalVertex::Morton
-                }
+                Logical::Morton => LogicalVertex::Morton(physical_int(enc_byte)?),
                 Logical::Rle
                 | Logical::DeltaRle
                 | Logical::Alp
@@ -494,7 +503,7 @@ impl Encoding02 {
             | Self::Bool(LogicalBool::Rle)
             | Self::Float(LogicalFloat::Rle) => Logical::Rle,
             Self::Int(LogicalInt::DeltaRle) => Logical::DeltaRle,
-            Self::Vertex(LogicalVertex::Morton) => Logical::Morton,
+            Self::Vertex(LogicalVertex::Morton(_)) => Logical::Morton,
             Self::Float(LogicalFloat::Alp(_)) => Logical::Alp,
             Self::Float(LogicalFloat::Dict(_)) => Logical::Dict,
             Self::Bytes(LogicalBytes::FrontCoded(_)) => Logical::FrontCoded,
@@ -508,15 +517,17 @@ impl Encoding02 {
             Self::Int(LogicalInt::None(p) | LogicalInt::Delta(p))
             | Self::Float(LogicalFloat::Dict(p) | LogicalFloat::Alp(p))
             | Self::Vertex(
-                LogicalVertex::None(p) | LogicalVertex::Delta(p) | LogicalVertex::CwDelta(p),
+                LogicalVertex::None(p)
+                | LogicalVertex::Delta(p)
+                | LogicalVertex::CwDelta(p)
+                | LogicalVertex::Morton(p),
             ) => p.into(),
             Self::Bool(LogicalBool::None(p))
             | Self::Float(LogicalFloat::None(p))
             | Self::Bytes(LogicalBytes::None(p) | LogicalBytes::FrontCoded(p)) => p.into(),
             Self::Int(LogicalInt::Rle | LogicalInt::DeltaRle)
             | Self::Bool(LogicalBool::Rle)
-            | Self::Float(LogicalFloat::Rle)
-            | Self::Vertex(LogicalVertex::Morton) => "implied",
+            | Self::Float(LogicalFloat::Rle) => "implied",
         }
     }
 
@@ -586,8 +597,14 @@ impl Encoding02 {
             Self::Float(LogicalFloat::Dict(p)) => {
                 IntEncoding::new(LogicalEncoding::Float(FloatLogical::Dict), flat_int(p)?)
             }
-            Self::Vertex(LogicalVertex::Morton) => {
-                return Err(MltError::NotImplemented("v2 Morton streams"));
+            Self::Vertex(LogicalVertex::Morton(p)) => {
+                let (after, bits) = parse_varint::<u32>(input)?;
+                let (after, shift) = parse_varint::<u32>(after)?;
+                rest = after;
+                IntEncoding::new(
+                    LogicalEncoding::Vertex(VertexLogical::MortonDelta(Morton::new(bits, shift)?)),
+                    flat_int(p)?,
+                )
             }
         };
         Ok((rest, encoding))
@@ -690,8 +707,13 @@ fn wire_fields(encoding: IntEncoding, family: Family) -> MltResult<(Logical, u8)
                 "v2, whose bool columns have no byte-RLE",
             ));
         }
-        LE::Vertex(VL::Morton(_) | VL::MortonDelta(_) | VL::MortonRle(_)) => {
-            return Err(MltError::NotImplemented("v2 Morton streams"));
+        // v2 stores Morton codes only as a sorted dictionary, whose deltas are always the shorter form.
+        LE::Vertex(VL::MortonDelta(_)) => (Logical::Morton, physical_int_field(encoding.physical)?),
+        LE::Vertex(VL::Morton(_) | VL::MortonRle(_)) => {
+            return Err(MltError::UnsupportedLogicalEncoding(
+                encoding.logical,
+                "v2, whose Morton streams are always delta-coded",
+            ));
         }
     })
 }
@@ -799,6 +821,10 @@ pub(crate) fn write_stream_meta<W: io::Write>(
         writer.write_varint(alp.scale.f)?;
         writer.write_varint(alp.base)?;
     }
+    if let LE::Vertex(VertexLogical::MortonDelta(morton)) = meta.encoding.logical {
+        writer.write_varint(morton.bits)?;
+        writer.write_varint(morton.shift)?;
+    }
     Ok(())
 }
 
@@ -833,7 +859,6 @@ mod tests {
     use strum::IntoEnumIterator as _;
 
     use super::*;
-    use crate::decoder::Morton;
     use crate::test_helpers::parser;
 
     const INT: StreamCtx02 = StreamCtx02::Property(DataType02::U32);
@@ -955,6 +980,8 @@ mod tests {
     #[case::types(StreamCtx02::GeomTypes, Family::Int)]
     #[case::lengths(StreamCtx02::GeomOffsets(LengthType::Parts), Family::Int)]
     #[case::vertices(StreamCtx02::GeomVertices, Family::Vertex)]
+    #[case::vertex_offsets(StreamCtx02::GeomVertexOffsets, Family::Int)]
+    #[case::triangle_indices(StreamCtx02::GeomIndices, Family::Int)]
     fn geometry_role_picks_its_family(#[case] ctx: StreamCtx02, #[case] family: Family) {
         assert_eq!(ctx.family(), family);
     }
@@ -1043,6 +1070,12 @@ mod tests {
         Family::Vertex,
         0b1010_1000
     )]
+    #[case::morton_dict_varint(
+        vertex(VertexLogical::MortonDelta(Morton::new(12, 3).unwrap()), PE::VarInt, 5),
+        5,
+        Family::Vertex,
+        0b0011_1000
+    )]
     #[case::str_plain_lengths(
         int(IntLogical::None, PE::VarInt, 5),
         5,
@@ -1109,6 +1142,16 @@ mod tests {
         FLOAT
     )]
     #[case::cw_delta_vertices(vertex(VertexLogical::ComponentwiseDelta, PE::VarInt, 10), 5, VERTEX)]
+    #[case::morton_dict(
+        vertex(VertexLogical::MortonDelta(Morton::new(16, 4096).unwrap()), PE::VarInt, 10),
+        5,
+        VERTEX
+    )]
+    #[case::morton_dict_fastpfor128(
+        vertex(VertexLogical::MortonDelta(Morton::new(0, 0).unwrap()), FPF128, 5),
+        5,
+        VERTEX
+    )]
     #[case::str_plain_lengths(int(IntLogical::None, PE::VarInt, 5), 5, STR_PLAIN)]
     #[case::str_fsst_dict_codes(int(IntLogical::DeltaRle(rle(5)), PE::VarInt, 5), 5, STR_FSST_DICT)]
     fn header_roundtrip(
@@ -1137,7 +1180,6 @@ mod tests {
     #[case::extension_on_rle(INT, 0b0010_0001)]
     #[case::rle_with_physical(INT, 0b0010_0100)]
     #[case::delta_rle_with_physical(INT, 0b0011_1000)]
-    #[case::morton_with_physical(VERTEX, 0b0011_1000)]
     #[case::int_logical_past_table(INT, 0b0100_1000)]
     #[case::bool_logical_past_table(BOOL, 0b0010_0100)]
     #[case::float_dict_with_extension(FLOAT, 0b0011_0101)]
@@ -1168,7 +1210,7 @@ mod tests {
     #[case::float_alp(FLOAT, 0b0010_0000)]
     #[case::float_dict_no_len(FLOAT, 0b0011_0000)]
     #[case::bool_rle(BOOL, 0b0001_0000)]
-    #[case::vertex_morton(VERTEX, 0b0011_0000)]
+    #[case::morton_none_no_len(VERTEX, 0b0011_0000)]
     fn parse_rejects_unimplemented_encoding(#[case] ctx: StreamCtx02, #[case] enc_byte: u8) {
         // Long enough for the widest header prefix any case here parses: ALP's three varints.
         let buf = [enc_byte, 0, 0, 0, 0];
