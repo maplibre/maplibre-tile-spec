@@ -5,6 +5,8 @@ use fastpfor::FastPFor256;
 
 use crate::codecs::bytes::encode_bools_to_bytes;
 use crate::codecs::rle::encode_byte_rle;
+#[cfg(not(feature = "unstable-v2"))]
+use crate::decoder::RleLayout;
 use crate::decoder::{LogicalEncoding, PhysicalEncoding, RleMeta, StreamMeta, StreamType};
 use crate::encoder;
 use crate::encoder::Encoder;
@@ -116,9 +118,13 @@ impl Codecs {
         use LogicalEncoding as LE;
         use PhysicalEncoding as PE;
 
+        #[cfg(feature = "unstable-v2")]
+        let rle_layout = enc.config().wire_version().rle_layout();
+        #[cfg(not(feature = "unstable-v2"))]
+        let rle_layout = RleLayout::Split;
+
         // FIXME: does StreamMeta encode values.len() or vals1.len()?
         if let Some(int_enc) = enc.override_int_enc(ctx) {
-            let rle_layout = enc.config().wire_version().rle_layout();
             let (le, vals) = match int_enc.logical {
                 LogicalEncoder::None => (LE::None, self.logical.none(values)),
                 LogicalEncoder::Delta => (LE::Delta, self.logical.delta(values)),
@@ -157,7 +163,6 @@ impl Codecs {
         }
 
         let allow_fastpfor = enc.config().allow_fastpfor();
-        let rle_layout = enc.config().wire_version().rle_layout();
         let mut alt = enc.try_alternatives();
 
         let sample = logical.none(DataProfile::take_sample(values));

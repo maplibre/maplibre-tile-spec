@@ -1,0 +1,56 @@
+---
+source: mlt-core/tests/tag02_roundtrip.rs
+assertion_line: 728
+expression: dump_text(&l.encode(cfg_dict()).unwrap())
+---
+00000000                                                                     | layer[0] (50 B)
+00000000  31                                                1                |   size: 49 (varint) - tag + body
+00000001  02                                                .                |   tag: 0x02 -> Tag02
+00000002  0a 74 65 73 74 5f 6c 61 79 65 72                  .test_layer      |   name: "test_layer"
+0000000d  80 20                                             .                |   extent: 4096
+0000000f  06                                                .                |   feature_count: 6
+00000010  00                                                .                |   layout: 0x00 Points
+                                                                             |     └ bit 7 = 0 -> reserved = 0
+                                                                             |     └ bits 6-4 = 000 -> shared presence bitfields = 0
+                                                                             |     └ bits 3-0 = 0000 -> geometry layout = Points
+00000011                                                                     |   geometry (19 B)
+00000011                                                                     |     types (4 B)
+00000011                                                                     |       header (2 B)
+00000011  30                                                0                |         encoding: 0x30 logical=DeltaRle physical=implied
+                                                                             |           └ bit 7 = 0 -> has_explicit_count = false -> 6 values from context
+                                                                             |           └ bits 6-4 = 011 -> logical = DeltaRle, numbered for a v2 integer stream
+                                                                             |           └ bits 3-2 = 00 -> physical = implied
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+00000012  02                                                .                |         byte_length: 2
+00000013  06 00                                             ..               |       data [Length(VarBinary) Int(DeltaRle(Interleaved { num_rle_values: 6 }))/VarInt, 6 values, 2 B]
+                                                                             |         decoded: [0, 0, 0, 0, 0, 0]
+00000015                                                                     |     vertices (15 B)
+00000015                                                                     |       header (3 B)
+00000015  a8                                                .                |         encoding: 0xA8 logical=CwDelta physical=VarInt
+                                                                             |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta, numbered for a v2 vertex stream
+                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+00000016  0c                                                .                |         num_values: 12
+00000017  0c                                                .                |         byte_length: 12
+00000018  00 00 02 00 02 00 02 00 02 00 02 00               ............     |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 12 values, 12 B]
+                                                                             |         decoded: [0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0]
+00000024  01                                                .                |   column_count: 1
+00000025                                                                     |   columns (13 B)
+00000025                                                                     |     column[0] F64 "v" (13 B)
+00000025  0a                                                .                |       type: 0x0A AllPresent F64
+                                                                             |         └ bits 7-4 = 0000 -> presence = AllPresent
+                                                                             |         └ bits 3-0 = 1010 -> data type = F64
+00000026  01 76                                             .v               |       name: "v"
+00000028                                                                     |       data (10 B)
+00000028                                                                     |         header (4 B)
+00000028  28                                                (                |           encoding: 0x28 logical=Alp physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 6 values from context
+                                                                             |             └ bits 6-4 = 010 -> logical = Alp, numbered for a v2 float column
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+00000029  06                                                .                |           byte_length: 6
+0000002a  01                                                .                |           alp_e: 1
+0000002b  00                                                .                |           alp_f: 0
+0000002c  1e 32 1e 1e 32 46                                 .2..2F           |         data [Data(None) Float(Alp(Alp { e: 1, f: 0 }))/VarInt, 6 values, 6 B]
+                                                                             |           decoded: [15, 25, 15, 15, 25, 35]

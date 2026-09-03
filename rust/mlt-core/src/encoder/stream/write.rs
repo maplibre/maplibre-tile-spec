@@ -12,13 +12,15 @@ use crate::decoder::stream::header01;
 use crate::decoder::stream::header02;
 use crate::decoder::{LogicalEncoding, PhysicalEncoding, RleLayout, StreamMeta, StreamType};
 use crate::encoder::Encoder;
-use crate::encoder::model::{StreamCtx, WireVersion};
+use crate::encoder::model::StreamCtx;
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::model::WireVersion;
 use crate::encoder::stream::codecs::{LogicalCodecs, PhysicalCodecs};
 use crate::encoder::stream::logical::apply_rle;
 use crate::encoder::stream::physical::PhysicalEncoder;
 use crate::encoder::writer::AltSession;
 
-/// Write one stream (header + payload) to `enc`, using the stream-header codec [`EncoderConfig::wire_version`](crate::encoder::EncoderConfig::wire_version).
+/// Write one stream (header + payload) to `enc`, using the stream-header codec of the wire version.
 #[inline]
 pub(crate) fn write_stream_payload(
     enc: &mut Encoder,
@@ -27,11 +29,13 @@ pub(crate) fn write_stream_payload(
     payload: &[u8],
 ) -> MltResult<()> {
     let byte_length = u32::try_from(payload.len())?;
+    #[cfg(not(feature = "unstable-v2"))]
+    header01::write_stream_meta(&meta, enc.data_mut(), is_boolean, byte_length)?;
+    #[cfg(feature = "unstable-v2")]
     match enc.config().wire_version() {
         WireVersion::V01 => {
             header01::write_stream_meta(&meta, enc.data_mut(), is_boolean, byte_length)?;
         }
-        #[cfg(feature = "unstable-v2")]
         WireVersion::V02 => {
             debug_assert!(!is_boolean, "v2 layers have no bool-RLE streams");
             let implicit_count = enc.count_context;
