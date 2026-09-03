@@ -50,18 +50,18 @@ def decode_mlt(data: bytes, z: typing.Optional[builtins.int] = None, x: typing.O
     are preserved.
 
     `tms`: when True (the default), treat `y` as TMS convention (y=0 at south,
-    used by OpenMapTiles / MBTiles). Set to False for XYZ / slippy-map tiles
+    used by `OpenMapTiles` / `MBTiles`). Set to False for XYZ / slippy-map tiles
     (y=0 at north, e.g. OSM raster tiles).
     """
 
 def decode_mlt_to_geojson(data: bytes) -> builtins.str:
     r"""
-    Decode an MLT binary blob and return GeoJSON as a string.
+    Decode an MLT binary blob and return `GeoJSON` as a string.
     """
 
 def encode_geojson(geojson: typing.Mapping[builtins.str, builtins.object], name: builtins.str, extent: builtins.int = 4096, *, tessellate: builtins.bool = False, sort: typing.Literal['all', 'auto', 'morton', 'hilbert', 'id', 'none'] = "auto", shared_dict: builtins.bool = True, fsst: builtins.bool = True, fastpfor: builtins.bool = True) -> bytes:
     r"""
-    Encode a GeoJSON `FeatureCollection` into MLT bytes.
+    Encode a `GeoJSON` `FeatureCollection` into MLT bytes.
 
     `geojson` is an RFC 7946 `FeatureCollection`.
     `name` and `extent` set the MLT layer metadata, since a `FeatureCollection` has no slot for them.
@@ -73,7 +73,7 @@ def encode_geojson(geojson: typing.Mapping[builtins.str, builtins.object], name:
     A named curve (`morton`/`hilbert`/`id`) tries just that one; `none` keeps input order.
     `shared_dict` allows grouping strings into shared dictionaries.
     `fsst` allows FSST string compression.
-    `fastpfor` allows FastPFOR integer compression.
+    `fastpfor` allows `FastPFOR` integer compression.
     See the module docs.
     """
 
@@ -90,7 +90,7 @@ def encode_mvt(data: bytes, *, tessellate: builtins.bool = False, sort: typing.L
     A named curve (`morton`/`hilbert`/`id`) tries just that one; `none` keeps input order.
     `shared_dict` allows grouping strings into shared dictionaries.
     `fsst` allows FSST string compression.
-    `fastpfor` allows FastPFOR integer compression.
+    `fastpfor` allows `FastPFOR` integer compression.
     """
 
 def list_layers(data: bytes) -> builtins.list[builtins.str]:
