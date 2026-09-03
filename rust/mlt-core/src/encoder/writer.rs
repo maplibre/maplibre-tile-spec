@@ -369,7 +369,11 @@ impl Encoder {
 
     /// Assemble the complete layer record.
     pub fn into_layer_bytes(self) -> MltResult<Vec<u8>> {
+        #[cfg(feature = "unstable-v2")]
         let tag = self.cfg.wire_version().tag();
+        // v1 is the only format this build writes, and `0x01` is its layer tag.
+        #[cfg(not(feature = "unstable-v2"))]
+        let tag = 1;
         self.into_layer_bytes_with_tag(tag)
     }
 
