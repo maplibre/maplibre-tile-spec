@@ -20,6 +20,7 @@ use tile_transform::TileTransform;
 
 use crate::feature::MltFeature;
 
+#[expect(clippy::needless_pass_by_value, reason = "helper util")]
 fn mlt_err(e: MltError) -> PyErr {
     PyValueError::new_err(format!("MLT decode error: {e}"))
 }
@@ -75,30 +76,39 @@ fn push_rings(
     buf: &mut Vec<u8>,
     rings: impl IntoIterator<Item = impl Deref<Target = LineString<i32>>>,
     xf: Option<TileTransform>,
-) {
+) -> MltResult<()> {
     for ring in rings {
-        push_u32(buf, ring.0.len() as u32);
+        let len = u32::try_from(ring.0.len()).map_err(|_| MltError::IntegerOverflow)?;
+        push_u32(buf, len);
         for c in &ring.0 {
             push_coord(buf, (*c).into(), xf);
         }
     }
+    Ok(())
 }
 
 fn push_linestring(
     buf: &mut Vec<u8>,
     line: impl Deref<Target = LineString<i32>>,
     xf: Option<TileTransform>,
-) {
+) -> MltResult<()> {
     buf.push(0x01);
     push_u32(buf, 2);
-    push_rings(buf, once(line), xf);
+    push_rings(buf, once(line), xf)?;
+    Ok(())
 }
 
-fn push_polygon(buf: &mut Vec<u8>, poly: &Polygon<i32>, xf: Option<TileTransform>) {
+fn push_polygon(
+    buf: &mut Vec<u8>,
+    poly: &Polygon<i32>,
+    xf: Option<TileTransform>,
+) -> MltResult<()> {
     buf.push(0x01);
     push_u32(buf, 3);
-    push_u32(buf, (poly.interiors().len() + 1) as u32);
-    push_rings(buf, once(poly.exterior()).chain(poly.interiors()), xf);
+    let len = u32::try_from(poly.interiors().len() + 1).map_err(|_| MltError::IntegerOverflow)?;
+    push_u32(buf, len);
+    push_rings(buf, once(poly.exterior()).chain(poly.interiors()), xf)?;
+    Ok(())
 }
 
 fn geom32_to_wkb(geom: &Geometry<i32>, xf: Option<TileTransform>) -> MltResult<Vec<u8>> {
@@ -109,12 +119,13 @@ fn geom32_to_wkb(geom: &Geometry<i32>, xf: Option<TileTransform>) -> MltResult<V
             push_u32(&mut buf, 1);
             push_coord(&mut buf, (*c).into(), xf);
         }
-        Geometry::<i32>::LineString(coords) => push_linestring(&mut buf, coords, xf),
-        Geometry::<i32>::Polygon(poly) => push_polygon(&mut buf, poly, xf),
+        Geometry::<i32>::LineString(coords) => push_linestring(&mut buf, coords, xf)?,
+        Geometry::<i32>::Polygon(poly) => push_polygon(&mut buf, poly, xf)?,
         Geometry::<i32>::MultiPoint(coords) => {
             buf.push(0x01);
             push_u32(&mut buf, 4);
-            push_u32(&mut buf, coords.0.len() as u32);
+            let len = u32::try_from(coords.0.len()).map_err(|_| MltError::IntegerOverflow)?;
+            push_u32(&mut buf, len);
             for c in &coords.0 {
                 buf.push(0x01);
                 push_u32(&mut buf, 1);
@@ -124,20 +135,27 @@ fn geom32_to_wkb(geom: &Geometry<i32>, xf: Option<TileTransform>) -> MltResult<V
         Geometry::<i32>::MultiLineString(lines) => {
             buf.push(0x01);
             push_u32(&mut buf, 5);
-            push_u32(&mut buf, lines.0.len() as u32);
+            let len = u32::try_from(lines.0.len()).map_err(|_| MltError::IntegerOverflow)?;
+            push_u32(&mut buf, len);
             for line in &lines.0 {
-                push_linestring(&mut buf, line, xf);
+                push_linestring(&mut buf, line, xf)?;
             }
         }
         Geometry::<i32>::MultiPolygon(polygons) => {
             buf.push(0x01);
             push_u32(&mut buf, 6);
-            push_u32(&mut buf, polygons.0.len() as u32);
+            let len = u32::try_from(polygons.0.len()).map_err(|_| MltError::IntegerOverflow)?;
+            push_u32(&mut buf, len);
             for polygon in &polygons.0 {
-                push_polygon(&mut buf, polygon, xf);
+                push_polygon(&mut buf, polygon, xf)?;
             }
         }
-        _ => return Err(MltError::NotImplemented("unsupported geometry type")),
+        Geometry::Line(_)
+        | Geometry::GeometryCollection(_)
+        | Geometry::Rect(_)
+        | Geometry::Triangle(_) => {
+            return Err(MltError::NotImplemented("unsupported geometry type"));
+        }
     }
     Ok(buf)
 }
@@ -166,7 +184,8 @@ fn build_features(
     let mut feat_iter = layer.iter_features();
     while let Some(feat_result) = feat_iter.next() {
         let feat = feat_result.map_err(mlt_err)?;
-        let geometry_type = GeometryType::try_from(feat.geometry()).map_or_else(|()| "Unknown".to_string(), |gt| gt.to_string());
+        let geometry_type = GeometryType::try_from(feat.geometry())
+            .map_or_else(|()| "Unknown".to_string(), |gt| gt.to_string());
         let wkb_bytes = geom32_to_wkb(feat.geometry(), xf).map_err(mlt_err)?;
         let wkb = PyBytes::new(py, &wkb_bytes).unbind();
         let prop_dict = PyDict::new(py);

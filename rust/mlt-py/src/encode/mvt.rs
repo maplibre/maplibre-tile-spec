@@ -24,6 +24,7 @@ use super::shared::encoder_config;
 #[gen_stub_pyfunction]
 #[pyfunction]
 #[pyo3(signature = (data, *, tessellate=false, sort="auto", shared_dict=true, fsst=true, fastpfor=true))]
+#[expect(clippy::fn_params_excessive_bools, reason = "python API ideom")]
 pub fn encode_mvt(
     py: Python<'_>,
     #[gen_stub(override_type(type_repr = "bytes"))] data: &[u8],
