@@ -23,7 +23,7 @@ just *args:
 # Run integration tests and save its output as the new expected output
 bless *args: (just 'cargo-install' 'cargo-insta') (just 'cargo-install' 'cargo-hack')
     cargo hack insta test --accept --unreferenced=delete --each-feature {{hack_skip}} \
-        --package mlt-core --exclude-no-default-features --exclude-all-features \
+        --package mlt-core --package mlt --exclude-no-default-features --exclude-all-features \
         {{args}}
 
 # Run benchmarks
