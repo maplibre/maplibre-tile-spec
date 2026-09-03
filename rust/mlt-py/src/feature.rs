@@ -34,7 +34,7 @@ impl MltFeature {
         wkb: Py<PyBytes>,
         properties: Py<PyDict>,
     ) -> Self {
-        MltFeature {
+        Self {
             id,
             geometry_type,
             wkb,

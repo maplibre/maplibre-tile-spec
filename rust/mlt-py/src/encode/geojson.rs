@@ -1,4 +1,4 @@
-//! Encode a GeoJSON `FeatureCollection` into MLT bytes.
+//! Encode a `GeoJSON` `FeatureCollection` into MLT bytes.
 //!
 //! Input is an RFC 7946 `FeatureCollection`.
 //! Geometry is in tile-local coordinate space (no projection), mirroring `mapbox_vector_tile`'s default.
@@ -21,7 +21,7 @@ use serde_json::Value;
 
 use super::shared::{encoder_config, val_err};
 
-/// Encode a GeoJSON `FeatureCollection` into MLT bytes.
+/// Encode a `GeoJSON` `FeatureCollection` into MLT bytes.
 ///
 /// `geojson` is an RFC 7946 `FeatureCollection`.
 /// `name` and `extent` set the MLT layer metadata, since a `FeatureCollection` has no slot for them.
@@ -33,7 +33,7 @@ use super::shared::{encoder_config, val_err};
 /// A named curve (`morton`/`hilbert`/`id`) tries just that one; `none` keeps input order.
 /// `shared_dict` allows grouping strings into shared dictionaries.
 /// `fsst` allows FSST string compression.
-/// `fastpfor` allows FastPFOR integer compression.
+/// `fastpfor` allows `FastPFOR` integer compression.
 /// See the module docs.
 #[gen_stub_pyfunction]
 #[pyfunction]

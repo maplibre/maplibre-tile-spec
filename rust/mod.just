@@ -406,7 +406,7 @@ test-ffi-kotlin: (just 'assert-cmd' 'java')
 
 # Regenerate the Python type stub for mlt-py
 sync-pyo3-stubs:
-    cargo run -p mlt-py --bin stub_gen --features abi3
+    cargo run -p mlt-py --bin stub-gen --features abi3
 
 # Sync the version field in mlt-py/pyproject.toml to match mlt-py/Cargo.toml
 sync-pyo3-version:

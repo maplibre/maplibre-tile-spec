@@ -20,7 +20,7 @@ use super::shared::encoder_config;
 /// A named curve (`morton`/`hilbert`/`id`) tries just that one; `none` keeps input order.
 /// `shared_dict` allows grouping strings into shared dictionaries.
 /// `fsst` allows FSST string compression.
-/// `fastpfor` allows FastPFOR integer compression.
+/// `fastpfor` allows `FastPFOR` integer compression.
 #[gen_stub_pyfunction]
 #[pyfunction]
 #[pyo3(signature = (data, *, tessellate=false, sort="auto", shared_dict=true, fsst=true, fastpfor=true))]

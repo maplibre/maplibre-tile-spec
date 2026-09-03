@@ -166,9 +166,7 @@ fn build_features(
     let mut feat_iter = layer.iter_features();
     while let Some(feat_result) = feat_iter.next() {
         let feat = feat_result.map_err(mlt_err)?;
-        let geometry_type = GeometryType::try_from(feat.geometry())
-            .map(|gt| gt.to_string())
-            .unwrap_or_else(|_| "Unknown".to_string());
+        let geometry_type = GeometryType::try_from(feat.geometry()).map_or_else(|()| "Unknown".to_string(), |gt| gt.to_string());
         let wkb_bytes = geom32_to_wkb(feat.geometry(), xf).map_err(mlt_err)?;
         let wkb = PyBytes::new(py, &wkb_bytes).unbind();
         let prop_dict = PyDict::new(py);
@@ -188,7 +186,7 @@ fn build_features(
 /// are preserved.
 ///
 /// `tms`: when True (the default), treat `y` as TMS convention (y=0 at south,
-/// used by OpenMapTiles / MBTiles). Set to False for XYZ / slippy-map tiles
+/// used by `OpenMapTiles` / `MBTiles`). Set to False for XYZ / slippy-map tiles
 /// (y=0 at north, e.g. OSM raster tiles).
 #[gen_stub_pyfunction]
 #[pyfunction]
@@ -225,7 +223,7 @@ fn decode_mlt(
     Ok(result)
 }
 
-/// Decode an MLT binary blob and return GeoJSON as a string.
+/// Decode an MLT binary blob and return `GeoJSON` as a string.
 #[gen_stub_pyfunction]
 #[pyfunction]
 fn decode_mlt_to_geojson(
