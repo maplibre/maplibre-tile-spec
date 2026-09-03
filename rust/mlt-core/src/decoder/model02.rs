@@ -218,21 +218,52 @@ pub(crate) enum GeoLayout {
     TessPolygonsWithOutlines = 0x0D,
 }
 
+/// How a v2 geometry section stores its vertices, which [`GeoLayout`] names alongside the topology.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum VertexStorage {
+    /// One entry per vertex, in a single stream.
+    Plain,
+    /// The distinct vertices once, then one index per vertex into them.
+    Dict,
+    /// A triangle count per geometry and an index buffer, in front of the vertices.
+    Tessellated,
+}
+
 impl GeoLayout {
-    /// Layout for a plain (non-dict, non-tessellated) stream set.
+    /// Layout for a stream set whose topology streams are `geo`, `part` and `ring`.
     ///
-    /// The stream set is produced by the same topology encoding as v1, where
-    /// empty length streams are skipped; every reachable combination maps to a
-    /// layout. `ring` without `part` cannot occur structurally.
-    pub(crate) fn from_streams(geo: bool, part: bool, ring: bool) -> MltResult<Self> {
-        Ok(match (geo, part, ring) {
-            (false, false, false) => Self::Points,
-            (true, false, false) => Self::MultiPoints,
-            (false, true, false) => Self::Lines,
-            (true, true, false) => Self::MultiLines,
-            (false, true, true) => Self::Polygons,
-            (true, true, true) => Self::MultiPolygons,
-            (_, false, true) => Err(MltError::NotImplemented(
+    /// The topology streams are produced by the same encoding as v1, where empty
+    /// length streams are skipped; every reachable combination maps to a layout.
+    /// `ring` without `part` cannot occur structurally. Tessellation pairs with no
+    /// topology at all or with all three streams, so a layer that has only some of
+    /// them writes an empty [`LengthType::Geometries`](crate::decoder::LengthType)
+    /// stream to reach [`Self::TessPolygonsWithOutlines`].
+    pub(crate) fn from_streams(
+        geo: bool,
+        part: bool,
+        ring: bool,
+        vertices: VertexStorage,
+    ) -> MltResult<Self> {
+        use VertexStorage as V;
+        Ok(match (vertices, geo, part, ring) {
+            (V::Plain, false, false, false) => Self::Points,
+            (V::Dict, false, false, false) => Self::PointsDict,
+            (V::Plain, true, false, false) => Self::MultiPoints,
+            (V::Dict, true, false, false) => Self::MultiPointsDict,
+            (V::Plain, false, true, false) => Self::Lines,
+            (V::Dict, false, true, false) => Self::LinesDict,
+            (V::Plain, true, true, false) => Self::MultiLines,
+            (V::Dict, true, true, false) => Self::MultiLinesDict,
+            (V::Plain, false, true, true) => Self::Polygons,
+            (V::Dict, false, true, true) => Self::PolygonsDict,
+            (V::Plain, true, true, true) => Self::MultiPolygons,
+            (V::Dict, true, true, true) => Self::MultiPolygonsDict,
+            (V::Tessellated, false, false, false) => Self::TessPolygons,
+            (V::Tessellated, true, true, true) => Self::TessPolygonsWithOutlines,
+            (V::Tessellated, ..) => Err(MltError::NotImplemented(
+                "v2 tessellation with only part of the outline topology",
+            ))?,
+            (V::Plain | V::Dict, _, false, true) => Err(MltError::NotImplemented(
                 "v2 geometry: ring lengths without part lengths",
             ))?,
         })
@@ -412,6 +443,63 @@ mod tests {
     fn column_type_byte_rejects_unassigned(#[case] byte: u8, #[case] shared_count: u8) {
         let err = ColumnType02::parse(byte, shared_count).unwrap_err();
         assert!(matches!(err, MltError::ParsingColumnType(b) if b == byte));
+    }
+
+    #[rstest]
+    #[case::points(false, false, false, VertexStorage::Plain, GeoLayout::Points)]
+    #[case::points_dict(false, false, false, VertexStorage::Dict, GeoLayout::PointsDict)]
+    #[case::multi_points(true, false, false, VertexStorage::Plain, GeoLayout::MultiPoints)]
+    #[case::lines_dict(false, true, false, VertexStorage::Dict, GeoLayout::LinesDict)]
+    #[case::multi_lines(true, true, false, VertexStorage::Plain, GeoLayout::MultiLines)]
+    #[case::polygons(false, true, true, VertexStorage::Plain, GeoLayout::Polygons)]
+    #[case::multi_polygons_dict(
+        true,
+        true,
+        true,
+        VertexStorage::Dict,
+        GeoLayout::MultiPolygonsDict
+    )]
+    #[case::tess(
+        false,
+        false,
+        false,
+        VertexStorage::Tessellated,
+        GeoLayout::TessPolygons
+    )]
+    #[case::tess_with_outlines(
+        true,
+        true,
+        true,
+        VertexStorage::Tessellated,
+        GeoLayout::TessPolygonsWithOutlines
+    )]
+    fn a_stream_set_picks_its_layout(
+        #[case] geo: bool,
+        #[case] part: bool,
+        #[case] ring: bool,
+        #[case] vertices: VertexStorage,
+        #[case] expected: GeoLayout,
+    ) {
+        let layout = GeoLayout::from_streams(geo, part, ring, vertices).unwrap();
+        assert_eq!(layout, expected);
+        assert_eq!(layout.has_geo_lengths(), geo);
+        assert_eq!(layout.has_part_lengths(), part);
+        assert_eq!(layout.has_ring_lengths(), ring);
+        assert_eq!(layout.is_dict(), vertices == VertexStorage::Dict);
+        assert_eq!(layout.is_tess(), vertices == VertexStorage::Tessellated);
+    }
+
+    #[rstest]
+    #[case::rings_without_parts(false, false, true, VertexStorage::Plain)]
+    #[case::tess_without_geometries(false, true, true, VertexStorage::Tessellated)]
+    fn a_stream_set_with_no_layout_is_rejected(
+        #[case] geo: bool,
+        #[case] part: bool,
+        #[case] ring: bool,
+        #[case] vertices: VertexStorage,
+    ) {
+        let err = GeoLayout::from_streams(geo, part, ring, vertices).unwrap_err();
+        assert!(matches!(err, MltError::NotImplemented(_)), "{err:?}");
     }
 
     #[rstest]

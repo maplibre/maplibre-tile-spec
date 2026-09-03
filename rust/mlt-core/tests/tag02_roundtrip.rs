@@ -41,8 +41,16 @@ fn decode(bytes: &[u8]) -> (u8, TileLayer) {
 }
 
 fn assert_differential(layer: &TileLayer) -> (usize, usize) {
-    let v1_bytes = layer.clone().encode(cfg_v1()).expect("v1 encode");
-    let v2_bytes = layer.clone().encode(cfg_v2()).expect("v2 encode");
+    assert_differential_with(layer, cfg_v1())
+}
+
+/// As [`assert_differential`], with `cfg` deciding everything but the wire version.
+fn assert_differential_with(layer: &TileLayer, cfg: EncoderConfig) -> (usize, usize) {
+    let v1_bytes = layer.clone().encode(cfg).expect("v1 encode");
+    let v2_bytes = layer
+        .clone()
+        .encode(cfg.with_wire_version(WireVersion::V02))
+        .expect("v2 encode");
     let (tag1, tile1) = decode(&v1_bytes);
     let (tag2, tile2) = decode(&v2_bytes);
     assert_eq!(tag1, 1);
@@ -621,18 +629,84 @@ fn an_optional_id_shares_its_presence_bitfield_with_a_column() {
     assert_eq!(dump.matches("[Present ").count(), 1, "{dump}");
 }
 
-#[test]
-fn tessellation_not_yet_supported() {
-    let l = layer(
-        vec![Geometry::Polygon(Polygon::new(
-            ring(&[(0, 0), (10, 0), (10, 10), (0, 10)]),
+mod geometry_layouts {
+    use super::*;
+
+    fn cfg_tessellated() -> EncoderConfig {
+        cfg_v1().with_tessellation(true)
+    }
+
+    fn square(x: i32, y: i32) -> Polygon<i32> {
+        Polygon::new(
+            ring(&[(x, y), (x + 10, y), (x + 10, y + 10), (x, y + 10)]),
             vec![],
-        ))],
-        None,
-        &[],
-    );
-    let err = l.encode(cfg_v2().with_tessellation(true)).unwrap_err();
-    assert!(err.to_string().contains("not"), "unexpected error: {err}");
+        )
+    }
+
+    /// Points cycling through a handful of coordinates, so a vertex dictionary pays off.
+    fn repeated_points(n: i32) -> Vec<Geometry<i32>> {
+        (0..n).map(|i| pt((i % 7) * 10, (i % 5) * 10)).collect()
+    }
+
+    #[test]
+    fn repeated_vertices_pick_a_dictionary_layout() {
+        let l = layer(repeated_points(200), None, &[]);
+        let dump = dump_text(&l.clone().encode(cfg_v2()).unwrap());
+        assert!(dump.contains("geometry layout = PointsDict"), "{dump}");
+        assert!(dump.contains("vertex_offsets"), "{dump}");
+        assert_differential(&l);
+    }
+
+    #[test]
+    fn distinct_vertices_stay_plain() {
+        let l = layer((0..64).map(|i| pt(i * 7, i * 13)).collect(), None, &[]);
+        let dump = dump_text(&l.clone().encode(cfg_v2()).unwrap());
+        assert!(dump.contains("geometry layout = Points\n"), "{dump}");
+        assert_differential(&l);
+    }
+
+    #[rstest]
+    #[case::polygons(vec![
+        Geometry::Polygon(square(0, 0)),
+        Geometry::Polygon(Polygon::new(
+            ring(&[(0, 0), (100, 0), (100, 100), (0, 100)]),
+            vec![ring(&[(20, 20), (40, 20), (40, 40), (20, 40)])],
+        )),
+    ])]
+    #[case::mixed_points_and_polygons(vec![pt(5, 5), Geometry::Polygon(square(20, 20))])]
+    #[case::mixed_lines_and_polygons(vec![
+        line(&[(0, 0), (10, 10), (20, 0)]),
+        Geometry::Polygon(square(40, 40)),
+    ])]
+    #[case::multipolygons(vec![
+        Geometry::MultiPolygon(MultiPolygon(vec![square(0, 0), square(20, 20)])),
+        Geometry::Polygon(square(50, 50)),
+    ])]
+    fn tessellated_geometry(#[case] geoms: Vec<Geometry<i32>>) {
+        let l = layer(geoms, None, &[]);
+        let dump = dump_text(
+            &l.clone()
+                .encode(cfg_tessellated().with_wire_version(WireVersion::V02))
+                .unwrap(),
+        );
+        assert!(
+            dump.contains("geometry layout = TessPolygonsWithOutlines"),
+            "{dump}"
+        );
+        assert_differential_with(&l, cfg_tessellated());
+    }
+
+    #[test]
+    fn a_layer_without_polygons_is_not_tessellated() {
+        let l = layer(vec![pt(5, 5), line(&[(0, 0), (10, 10)])], None, &[]);
+        let dump = dump_text(
+            &l.clone()
+                .encode(cfg_tessellated().with_wire_version(WireVersion::V02))
+                .unwrap(),
+        );
+        assert!(dump.contains("geometry layout = Lines"), "{dump}");
+        assert_differential_with(&l, cfg_tessellated());
+    }
 }
 
 mod strings {
