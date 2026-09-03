@@ -114,6 +114,8 @@ pub enum MltError {
     MissingStructEncoderForStruct,
     #[error("previous decode/parsing attempt failed")]
     PriorParseFailure,
+    #[error("FSST-compressed data is malformed: {0}")]
+    MalformedFsst(&'static str),
     #[error("presence stream has {0} bits set but {1} values provided")]
     PresenceValueCountMismatch(usize, usize),
     #[error("need to encode before being able to write")]
