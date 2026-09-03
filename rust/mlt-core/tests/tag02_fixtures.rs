@@ -64,7 +64,7 @@ fn differential_fixture([path]: [&Path; 1]) {
     for layer in layers {
         let v2_bytes = match layer.clone().encode(cfg(WireVersion::V02)) {
             Ok(bytes) => bytes,
-            // Tessellation has no v2 encoder yet.
+            // A stream set v2 has no layout code for.
             Err(MltError::NotImplemented(_)) => continue,
             Err(e) => panic!("{}: v2 encode failed: {e}", path.display()),
         };
