@@ -1,7 +1,10 @@
 use usize_cast::IntoUsize as _;
 
 use crate::decoder::RawFsstData;
-use crate::{Decoder, MltResult};
+use crate::{Decoder, MltError, MltResult};
+
+/// The corpus byte announcing that the next byte is a literal.
+const ESCAPE_MARKER: u8 = 0xFF;
 
 /// Decode an FSST-compressed byte sequence into the original bytes and value lengths,
 /// charging `dec` for the output.
@@ -29,25 +32,36 @@ pub fn decode_fsst(raw: RawFsstData<'_>, dec: &mut Decoder) -> MltResult<(String
     let symbols = symbol_table.data;
     let compressed = corpus.data;
 
-    // Build symbol offset table from lengths.
-    let mut symbol_offsets = vec![0u32; sym_lens.len()];
-    for i in 1..sym_lens.len() {
-        symbol_offsets[i] = symbol_offsets[i - 1] + sym_lens[i - 1];
+    // Split the symbol table into one slice per symbol up front, so the decode loop below is a
+    // single lookup per corpus byte.
+    let mut symbols_by_index = Vec::with_capacity(sym_lens.len());
+    let mut rest = symbols;
+    for &len in &sym_lens {
+        let Some((symbol, tail)) = rest.split_at_checked(len.into_usize()) else {
+            return Err(MltError::MalformedFsst(
+                "symbol lengths overrun the symbol table",
+            ));
+        };
+        symbols_by_index.push(symbol);
+        rest = tail;
     }
 
     let mut output = Vec::new();
-    let mut i = 0;
-    while i < compressed.len() {
-        let sym_idx = usize::from(compressed[i]);
-        if sym_idx == 255 {
-            i += 1;
-            output.push(compressed[i]);
-        } else if sym_idx < sym_lens.len() {
-            let len = sym_lens[sym_idx].into_usize();
-            let off = symbol_offsets[sym_idx].into_usize();
-            output.extend_from_slice(&symbols[off..off + len]);
+    let mut corpus_bytes = compressed.iter();
+    while let Some(&sym_idx) = corpus_bytes.next() {
+        if sym_idx == ESCAPE_MARKER {
+            let &escaped = corpus_bytes
+                .next()
+                .ok_or(MltError::MalformedFsst("corpus ends on an escape marker"))?;
+            output.push(escaped);
+        } else {
+            let Some(symbol) = symbols_by_index.get(usize::from(sym_idx)) else {
+                return Err(MltError::MalformedFsst(
+                    "corpus references a symbol the symbol table does not have",
+                ));
+            };
+            output.extend_from_slice(symbol);
         }
-        i += 1;
     }
 
     dec.consume_items::<u8>(output.len())?;
@@ -139,6 +153,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+    use crate::MltError;
     use crate::decoder::stream::header01;
     use crate::decoder::{DictionaryType, LengthType, RawFsstData, StreamType};
     use crate::encoder::model::StreamCtx;
@@ -148,65 +163,91 @@ mod tests {
     use crate::test_helpers::{assert_empty, dec, parser};
     use crate::utils::BinarySerializer as _;
 
-    /// Encode the 4 FSST raw streams to wire bytes and parse them back for decoding.
-    fn roundtrip(values: &[&str]) -> (String, Vec<u32>) {
+    /// The 4 FSST streams as wire bytes, ready to be parsed back.
+    fn wire_streams(
+        symbol_lengths: &[u32],
+        symbol_bytes: &[u8],
+        value_lengths: &[u32],
+        corpus: &[u8],
+    ) -> [Vec<u8>; 4] {
         use crate::decoder::StreamMeta;
-        let raw = compress_fsst(values);
 
-        let sym_len_bytes = {
+        let int_stream = |values: &[u32], ty: StreamType, name: &'static str| {
             let mut enc = Encoder::with_explicit(
                 EncoderConfig::default(),
                 ExplicitEncoder::all(IntEncoder::varint()),
             );
             let mut codecs = Codecs::default();
-            let ctx = StreamCtx::prop(StreamType::Length(LengthType::Symbol), "symbol");
-            codecs
-                .write_int_stream(&raw.symbol_lengths, &ctx, &mut enc)
-                .unwrap();
+            let ctx = StreamCtx::prop(ty, name);
+            codecs.write_int_stream(values, &ctx, &mut enc).unwrap();
             enc.data().to_vec()
         };
-        let sym_table_stream = EncodedStream {
-            meta: StreamMeta::new_none(
+        let byte_stream = |data: &[u8], ty: StreamType, num_values: usize| {
+            let stream = EncodedStream {
+                meta: StreamMeta::new_none(ty, num_values).unwrap(),
+                data: data.to_vec(),
+            };
+            let mut buf = Vec::new();
+            buf.write_stream(&stream).expect("write_stream failed");
+            buf
+        };
+
+        [
+            int_stream(
+                symbol_lengths,
+                StreamType::Length(LengthType::Symbol),
+                "symbol",
+            ),
+            byte_stream(
+                symbol_bytes,
                 StreamType::Data(DictionaryType::Fsst),
-                raw.symbol_lengths.len(),
-            )
-            .unwrap(),
-            data: raw.symbol_bytes.clone(),
-        };
-        let lengths_bytes = {
-            let mut enc = Encoder::with_explicit(
-                EncoderConfig::default(),
-                ExplicitEncoder::all(IntEncoder::varint()),
-            );
-            let mut codecs = Codecs::default();
-            let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), "dictionary");
-            codecs
-                .write_int_stream(&raw.value_lengths, &ctx, &mut enc)
-                .unwrap();
-            enc.data().to_vec()
-        };
-        let corpus_stream = EncodedStream {
-            meta: StreamMeta::new_none(StreamType::Data(DictionaryType::Single), values.len())
-                .unwrap(),
-            data: raw.corpus.clone(),
-        };
+                symbol_lengths.len(),
+            ),
+            int_stream(
+                value_lengths,
+                StreamType::Length(LengthType::Dictionary),
+                "dictionary",
+            ),
+            byte_stream(
+                corpus,
+                StreamType::Data(DictionaryType::Single),
+                value_lengths.len(),
+            ),
+        ]
+    }
 
-        let mut sym_table_buf = Vec::new();
-        sym_table_buf
-            .write_stream(&sym_table_stream)
-            .expect("write_stream failed");
-        let mut corpus_buf = Vec::new();
-        corpus_buf
-            .write_stream(&corpus_stream)
-            .expect("write_stream failed");
-        let buffers = [sym_len_bytes, sym_table_buf, lengths_bytes, corpus_buf];
+    /// Parse the wire buffers from [`wire_streams`] back into decodable streams.
+    fn parse_streams(buffers: &[Vec<u8>; 4]) -> RawFsstData<'_> {
         let mut raw_streams = Vec::new();
-        for buf in &buffers {
+        for buf in buffers {
             raw_streams.push(assert_empty(header01::parse_stream(buf, &mut parser())));
         }
         let [s0, s1, s2, s3] = raw_streams.try_into().expect("expected 4 streams");
-        let raw = RawFsstData::new(s0, s1, s2, s3).expect("RawFsstData::new failed");
-        decode_fsst(raw, &mut dec()).expect("decode_fsst failed")
+        RawFsstData::new(s0, s1, s2, s3).expect("RawFsstData::new failed")
+    }
+
+    /// Compress `values`, write them to the wire and decode them back.
+    fn roundtrip(values: &[&str]) -> (String, Vec<u32>) {
+        let raw = compress_fsst(values);
+        let buffers = wire_streams(
+            &raw.symbol_lengths,
+            &raw.symbol_bytes,
+            &raw.value_lengths,
+            &raw.corpus,
+        );
+        decode_fsst(parse_streams(&buffers), &mut dec()).expect("decode_fsst failed")
+    }
+
+    /// Decode hand-built streams that no encoder would produce.
+    fn decode_malformed(
+        symbol_lengths: &[u32],
+        symbol_bytes: &[u8],
+        value_lengths: &[u32],
+        corpus: &[u8],
+    ) -> MltError {
+        let buffers = wire_streams(symbol_lengths, symbol_bytes, value_lengths, corpus);
+        decode_fsst(parse_streams(&buffers), &mut dec())
+            .expect_err("expected malformed FSST data to be rejected")
     }
 
     #[test]
@@ -227,5 +268,46 @@ mod tests {
             assert_eq!(&corpus[offset..offset + len], *s);
             offset += len;
         }
+    }
+
+    #[rstest]
+    #[case::only_byte(&[0xFF])]
+    #[case::after_a_symbol(&[0x00, 0xFF])]
+    fn corpus_ending_on_an_escape_marker(#[case] corpus: &[u8]) {
+        let err = decode_malformed(&[2], b"ab", &[1], corpus);
+        assert!(matches!(err, MltError::MalformedFsst(_)), "{err:?}");
+    }
+
+    #[test]
+    fn symbol_longer_than_the_symbol_table() {
+        let err = decode_malformed(&[9], b"ab", &[1], &[0x00]);
+        assert!(matches!(err, MltError::MalformedFsst(_)), "{err:?}");
+    }
+
+    #[test]
+    fn later_symbol_reaching_past_the_symbol_table() {
+        let err = decode_malformed(&[2, 2], b"abc", &[1], &[0x01]);
+        assert!(matches!(err, MltError::MalformedFsst(_)), "{err:?}");
+    }
+
+    #[test]
+    fn symbol_lengths_too_large_to_sum() {
+        let err = decode_malformed(&[u32::MAX, u32::MAX, 1], b"ab", &[1], &[0x00]);
+        assert!(matches!(err, MltError::MalformedFsst(_)), "{err:?}");
+    }
+
+    #[test]
+    fn symbol_index_with_no_symbol_behind_it() {
+        let err = decode_malformed(&[2], b"ab", &[1], &[0x07]);
+        assert!(matches!(err, MltError::MalformedFsst(_)), "{err:?}");
+    }
+
+    #[test]
+    fn escaped_byte_survives_a_valid_corpus() {
+        let buffers = wire_streams(&[2], b"ab", &[3], &[0x00, 0xFF, 0x7A]);
+        let (corpus, lengths) = decode_fsst(parse_streams(&buffers), &mut dec())
+            .expect("valid FSST data should decode");
+        assert_eq!(corpus, "abz");
+        assert_eq!(lengths, [3]);
     }
 }
