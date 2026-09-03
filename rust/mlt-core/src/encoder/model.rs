@@ -177,8 +177,9 @@ pub enum WireVersion {
     V01,
     /// Tag `0x02` - the experimental v2 format (see `docs/migrating-to-v2.md`).
     ///
-    /// Currently limited to ID, scalar, string, and non-tessellated geometry
-    /// columns; shared-dictionary columns are not yet supported.
+    /// Currently limited to ID, scalar, string, shared-dictionary and geometry
+    /// columns, the last without a tessellation that has only part of its
+    /// outline topology.
     V02,
 }
 
