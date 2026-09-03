@@ -1,3 +1,4 @@
+mod bbox;
 mod common;
 mod from_files;
 mod from_mbtiles;
@@ -15,6 +16,10 @@ use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig, WireVersion};
 use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::{Decoder, Layer, Parser};
 use pmtiles::Compression;
+use tilejson::Bounds;
+
+use crate::convert::bbox::BboxFilter;
+use crate::convert::from_mbtiles::BboxExtract;
 
 #[expect(
     clippy::cast_possible_truncation,
@@ -227,6 +232,13 @@ pub struct ConvertArgs {
     /// Outer compression for tile payloads
     #[clap(long, value_enum, default_value = "none")]
     tile_compression: TileCompression,
+    /// Bounds to convert, in the format `min_lon,min_lat,max_lon,max_lat`
+    ///
+    /// Every tile overlapping the bounds is converted, at every zoom level.
+    /// Can be specified multiple times.
+    /// If omitted, the whole input is converted.
+    #[clap(long, value_name = "BBOX", allow_hyphen_values = true)]
+    bbox: Vec<Bounds>,
 }
 
 impl ConvertArgs {
@@ -254,10 +266,17 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         .with_fastpfor(!args.no_fastpfor)
         .with_fsst(!args.no_fsst);
 
+    let filter = BboxFilter::new(&args.bbox)?;
     let input_container = args.input_container();
     let output_container = args.output_container();
     let has_archive_input =
         input_container == ContainerFormat::Mbtiles || input_container == ContainerFormat::Pmtiles;
+    if filter.is_some() && !has_archive_input {
+        bail!(
+            "--bbox currently requires an archive based input (mbtiles,pmtiles), but got {}",
+            args.input.display()
+        );
+    }
     if args.tile_compression != TileCompression::None
         && (!has_archive_input || output_container != ContainerFormat::Pmtiles)
     {
@@ -296,14 +315,11 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
                 output,
                 cfg,
                 args.tile_compression.into(),
+                filter.as_ref(),
             )),
-            ContainerFormat::Mbtiles => runtime.block_on(from_mbtiles::convert(
-                &args.input,
-                output,
-                cfg,
-                args.mbtiles_format,
-                args.tile_compression.into(),
-            )),
+            ContainerFormat::Mbtiles => {
+                runtime.block_on(convert_mbtiles(args, output, cfg, filter.as_ref()))
+            }
             ContainerFormat::Files => {
                 unreachable!("`has_archive_input` above rules out a directory input")
             }
@@ -311,6 +327,33 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     }
 
     from_files::convert(&args.input, &args.output, cfg, args.to)
+}
+
+/// Converts an `.mbtiles` input, first extracting the requested boxes into a temporary
+/// archive so that only those tiles are read and re-encoded.
+async fn convert_mbtiles(
+    args: &ConvertArgs,
+    output: (&Path, ContainerFormat),
+    cfg: EncoderConfig,
+    filter: Option<&BboxFilter>,
+) -> AnyResult<()> {
+    let dst_type = args.mbtiles_format.map(MbtType::from);
+    let tile_compression = args.tile_compression.into();
+    let Some(filter) = filter else {
+        return from_mbtiles::convert(&args.input, output, cfg, dst_type, tile_compression, None)
+            .await;
+    };
+
+    let extract = BboxExtract::create(&args.input, output.0, filter).await?;
+    from_mbtiles::convert(
+        extract.path(),
+        output,
+        cfg,
+        dst_type.or(Some(extract.source_type)),
+        tile_compression,
+        Some(filter.bounds()),
+    )
+    .await
 }
 
 fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {

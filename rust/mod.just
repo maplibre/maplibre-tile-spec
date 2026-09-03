@@ -23,7 +23,7 @@ just *args:
 # Run integration tests and save its output as the new expected output
 bless *args: (just 'cargo-install' 'cargo-insta') (just 'cargo-install' 'cargo-hack')
     cargo hack insta test --accept --unreferenced=delete --each-feature {{hack_skip}} \
-        --package mlt-core --exclude-no-default-features --exclude-all-features \
+        --package mlt-core --package mlt --exclude-no-default-features --exclude-all-features \
         {{args}}
 
 # Run benchmarks
@@ -406,7 +406,7 @@ test-ffi-kotlin: (just 'assert-cmd' 'java')
 
 # Regenerate the Python type stub for mlt-py
 sync-pyo3-stubs:
-    cargo run -p mlt-py --bin stub_gen --features abi3
+    cargo run -p mlt-py --bin stub-gen --features abi3
 
 # Sync the version field in mlt-py/pyproject.toml to match mlt-py/Cargo.toml
 sync-pyo3-version:

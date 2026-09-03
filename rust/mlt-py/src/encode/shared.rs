@@ -11,6 +11,10 @@ pub(crate) fn val_err(msg: impl Into<String>) -> PyErr {
 
 /// Build an [`EncoderConfig`] from the Python-facing options.
 /// `sort` collapses the three sort-strategy toggles into one choice, mirroring the `mlt convert` CLI.
+#[expect(
+    clippy::fn_params_excessive_bools,
+    reason = "is shared util, enums not cleaner"
+)]
 pub(crate) fn encoder_config(
     tessellate: bool,
     sort: &str,
