@@ -75,7 +75,7 @@ If a mismatch is found, the fuzzer panics with a detailed error message showing 
 
 This target feeds untrusted bytes straight at the parser, so it covers every layer tag the crate can parse - both `0x01` and `0x02`.
 
-### `decoded_layer`
+### `decoded-layer`
 
 **Location:** `fuzz_targets/decoded_layer.rs`
 
@@ -85,7 +85,7 @@ The config carries the wire version, so this covers both tag `0x01` and tag `0x0
 A layer the chosen wire version cannot represent (v2 has no string or shared-dictionary
 columns yet) is skipped rather than treated as a failure.
 
-### `wire_version`
+### `wire-version`
 
 **Location:** `fuzz_targets/wire_version.rs`
 
@@ -108,7 +108,7 @@ The target:
 3. decodes the same bytes with the C++ `mlt-cpp-json` tool, run as a subprocess.
 
 The two JSON outputs must match.
-The config is pinned to v1, since the C++ decoder only reads tag `0x01`; use `wire_version` for v2.
+The config is pinned to v1, since the C++ decoder only reads tag `0x01`; use `wire-version` for v2.
 A mismatch is a crash, and the report prints both outputs and the input bytes as hex.
 If the C++ tool fails to decode the bytes (e.g. an unsupported encoding), the
 input is skipped rather than treated as a failure.

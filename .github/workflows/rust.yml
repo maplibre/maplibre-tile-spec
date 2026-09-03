@@ -85,9 +85,9 @@ jobs:
       matrix:
         include:
           - target: layer
-          - target: decoded_layer
-          - target: mvt_roundtrip
-          - target: wire_version
+          - target: decoded-layer
+          - target: mvt-roundtrip
+          - target: wire-version
           - target: differential
     env:
       MLT_CPP_JSON_BIN: ${{ github.workspace }}/cpp/build/tool/mlt-cpp-json
