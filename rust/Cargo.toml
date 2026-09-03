@@ -75,6 +75,7 @@ tabled = "0.21"
 test_each_file = "0.3.5"
 thiserror = "2.0.11"
 thousands = "0.2"
+tilejson = "0.4"
 tokio = { version = "1", features = ["macros", "rt", "sync", "time"] }
 union-find = "0.4.4"
 usize_cast = "1.1.0"
