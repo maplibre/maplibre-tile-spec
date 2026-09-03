@@ -21,7 +21,9 @@ use crate::decoder::{
 };
 use crate::tile::Extent;
 use crate::utils::{parse_string, parse_u8, take};
-use crate::wire::{FloatLogical, IntEncoding, LogicalEncoding, StreamMeta, ValueKind};
+use crate::wire::{
+    FloatLogical, IntEncoding, LogicalEncoding, StreamMeta, ValueKind, VertexLogical,
+};
 use crate::{MltError, MltResult};
 
 impl<'a> Walker<'a> {
@@ -104,13 +106,6 @@ impl<'a> Walker<'a> {
         layout: GeoLayout,
         feature_count: u32,
     ) -> MltResult<&'a [u8]> {
-        if layout.is_dict() {
-            return Err(MltError::NotImplemented("v2 dict geometry layouts"));
-        }
-        if layout.is_tess() {
-            return Err(MltError::NotImplemented("v2 tessellated geometry layouts"));
-        }
-
         let (mut input, _) = self.walk_stream02(
             input,
             StreamCtx02::GeomTypes,
@@ -136,13 +131,40 @@ impl<'a> Walker<'a> {
             }
         }
 
-        let (input, _) = self.walk_stream02(
+        if layout.is_tess() {
+            let ctx = StreamCtx02::GeomOffsets(LengthType::Triangles);
+            (input, _) =
+                self.walk_stream02(input, ctx, feature_count, "tri_lengths", DecodeHint::U32)?;
+            (input, _) = self.walk_stream02(
+                input,
+                StreamCtx02::GeomIndices,
+                feature_count,
+                "tri_indexes",
+                DecodeHint::U32,
+            )?;
+        }
+
+        let label = if layout.is_dict() {
+            "vertex_dict"
+        } else {
+            "vertices"
+        };
+        (input, _) = self.walk_stream02(
             input,
             StreamCtx02::GeomVertices,
             feature_count,
-            "vertices",
+            label,
             DecodeHint::I32,
         )?;
+        if layout.is_dict() {
+            (input, _) = self.walk_stream02(
+                input,
+                StreamCtx02::GeomVertexOffsets,
+                feature_count,
+                "vertex_offsets",
+                DecodeHint::U32,
+            )?;
+        }
         Ok(input)
     }
 
@@ -498,6 +520,16 @@ impl<'a> Walker<'a> {
                 |i| parse_varint::<i64>(i),
                 |v| Some(v.to_string()),
             )?;
+        }
+        // So do the Morton grid's, for a vertex dictionary keyed by Morton code.
+        if matches!(
+            stream.meta.encoding.logical,
+            LogicalEncoding::Vertex(VertexLogical::MortonDelta(_))
+        ) {
+            for name in ["morton_bits", "morton_shift"] {
+                (c, _) =
+                    self.field(c, name, |i| parse_varint::<u32>(i), |v| Some(v.to_string()))?;
+            }
         }
         self.close(hi, c);
 
