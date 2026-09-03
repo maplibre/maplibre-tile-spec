@@ -970,6 +970,137 @@ mod strings {
         let l = column(fsst_dict_values(6).into_iter().map(Some));
         assert_snapshot!(dump_text(&l.encode(cfg_v2()).unwrap()));
     }
+
+    mod shared_dict_presence {
+        use super::*;
+
+        /// A shared-dictionary child per mask, holding a [`dict_values`] entry at each `'1'`.
+        ///
+        /// Every mask must cover an even and an odd index, so all children hold the same two
+        /// distinct values and the encoder groups them into one dictionary.
+        fn dict_children(masks: &[&str]) -> Vec<(String, Vec<PropValue>)> {
+            let values = dict_values(masks[0].len());
+            masks
+                .iter()
+                .enumerate()
+                .map(|(child, mask)| {
+                    let column = mask
+                        .bytes()
+                        .zip(&values)
+                        .map(|(b, v)| PropValue::Str((b == b'1').then(|| v.clone())))
+                        .collect();
+                    (format!("name:{child}"), column)
+                })
+                .collect()
+        }
+
+        /// A layer of one shared-dictionary column over `dict_masks`, then a `u32` column per
+        /// mask in `scalar_masks`.
+        fn dict_layer(dict_masks: &[&str], scalar_masks: &[&str]) -> TileLayer {
+            let mut props = dict_children(dict_masks);
+            for (i, mask) in scalar_masks.iter().enumerate() {
+                props.push((format!("n{i}"), opt_col(mask)));
+            }
+            let borrowed: Vec<(&str, Vec<PropValue>)> = props
+                .iter()
+                .map(|(name, values)| (name.as_str(), values.clone()))
+                .collect();
+            layer(points(dict_masks[0]), None, &borrowed)
+        }
+
+        /// How often `needle` annotates the v2 dump of `l`.
+        fn count(l: &TileLayer, needle: &str) -> usize {
+            dump_text(&l.clone().encode(cfg_v2()).unwrap())
+                .matches(needle)
+                .count()
+        }
+
+        #[test]
+        fn dict_children_with_the_same_nulls_share_one_presence_bitfield() {
+            let l = dict_layer(&["101101", "101101", "101101"], &[]);
+            assert_differential(&l);
+
+            assert_eq!(count(&l, "shared presence bitfields = 1"), 1);
+            assert_eq!(count(&l, "presence = Shared(0)"), 3);
+            assert_eq!(count(&l, "[Present "), 1);
+        }
+
+        #[test]
+        fn a_mask_only_one_dict_child_has_stays_inline() {
+            let l = dict_layer(&["101101", "101101", "110011"], &[]);
+            assert_differential(&l);
+
+            assert_eq!(count(&l, "shared presence bitfields = 1"), 1);
+            assert_eq!(count(&l, "presence = Shared(0)"), 2);
+            assert_eq!(count(&l, "presence = Inline"), 1);
+            assert_eq!(count(&l, "[Present "), 2);
+        }
+
+        #[test]
+        fn a_dict_child_without_nulls_stays_all_present() {
+            let l = dict_layer(&["111111", "101101", "101101"], &[]);
+            assert_differential(&l);
+
+            assert_eq!(count(&l, "shared presence bitfields = 1"), 1);
+            assert_eq!(count(&l, "presence = AllPresent"), 1);
+            assert_eq!(count(&l, "presence = Shared(0)"), 2);
+            assert_eq!(count(&l, "[Present "), 1);
+        }
+
+        #[test]
+        fn a_mask_a_dict_child_and_a_scalar_column_share_costs_one_slot() {
+            // Neither mask is shared within the dictionary, so both slots are earned
+            // only by counting the dict children alongside the scalar columns.
+            let l = dict_layer(&["101101", "110011"], &["101101", "110011"]);
+            assert_differential(&l);
+
+            assert_eq!(count(&l, "shared presence bitfields = 2"), 1);
+            assert_eq!(count(&l, "presence = Shared(0)"), 2);
+            assert_eq!(count(&l, "presence = Shared(1)"), 2);
+            assert_eq!(count(&l, "[Present "), 2);
+        }
+
+        #[test]
+        fn dict_children_compete_for_the_seven_slots_the_layout_byte_allows() {
+            // Eight masks, each held by two children: one group has to lose the tie-break.
+            let masks: Vec<String> = (0..8)
+                .map(|i| {
+                    let mut mask = vec![b'0'; 9];
+                    mask[0] = b'1';
+                    mask[1] = b'1';
+                    if i > 0 {
+                        mask[i + 1] = b'1';
+                    }
+                    String::from_utf8(mask).unwrap()
+                })
+                .collect();
+            let paired: Vec<&str> = masks
+                .iter()
+                .flat_map(|mask| [mask.as_str(), mask.as_str()])
+                .collect();
+            let l = dict_layer(&paired, &[]);
+            assert_differential(&l);
+
+            assert_eq!(count(&l, "shared presence bitfields = 7"), 1);
+            assert_eq!(count(&l, "presence = Inline"), 2);
+            assert_eq!(count(&l, "[Present "), 9);
+        }
+
+        #[test]
+        fn which_masks_win_a_slot_does_not_depend_on_hash_map_order() {
+            let l = dict_layer(&["101101", "101101", "110011", "110011", "111101"], &[]);
+            let first = l.clone().encode(cfg_v2()).unwrap();
+            let second = l.encode(cfg_v2()).unwrap();
+            assert_eq!(first, second);
+        }
+
+        #[test]
+        fn shared_dict_child_presence_layout() {
+            let l = dict_layer(&["101101", "101101", "110011"], &["101101"]);
+            assert_differential(&l);
+            assert_snapshot!(dump_text(&l.encode(cfg_v2()).unwrap()));
+        }
+    }
 }
 
 mod float_codecs {

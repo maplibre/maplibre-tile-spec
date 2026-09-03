@@ -29,7 +29,8 @@ use crate::decoder::{
 use crate::encoder::geometry::encode02::encode_geometry02;
 use crate::encoder::model::{StagedLayer, StreamCtx};
 use crate::encoder::{
-    Codecs, Encoder, StagedId, StagedOptScalar, StagedProperty, write_stream_payload,
+    Codecs, Encoder, StagedId, StagedOptScalar, StagedProperty, StagedSharedDictItem,
+    write_stream_payload,
 };
 use crate::utils::BinarySerializer as _;
 
@@ -39,13 +40,14 @@ use crate::utils::BinarySerializer as _;
 /// many masks there are and the block right after it holds them - both come
 /// before the geometry section.
 ///
-/// A mask only earns a slot when more than one column has it; a mask used once is
-/// no cheaper shared than inline. The layout byte fits at most
-/// [`LayerLayout::MAX_SHARED_PRESENCE`] of them, so when more groups qualify the
-/// ones shared by the most columns win, since every extra sharer saves exactly
+/// A mask only earns a slot when more than one column reads it; a mask read once is
+/// no cheaper shared than inline. Each child of a shared dictionary counts as a
+/// reader in its own right, since each writes its own bitfield otherwise. The layout
+/// byte fits at most [`LayerLayout::MAX_SHARED_PRESENCE`] of them, so when more
+/// groups qualify the most-read ones win, since every extra reader saves exactly
 /// one copy of the same `ceil(feature_count/8)` bytes.
 #[derive(Debug)]
-struct SharedPresence {
+pub(crate) struct SharedPresence {
     /// The masks in wire index order.
     masks: Vec<Vec<bool>>,
     /// Wire index of each mask, for resolving a column's nibble.
@@ -53,7 +55,7 @@ struct SharedPresence {
 }
 
 impl SharedPresence {
-    /// Group the layer's optional columns by mask and keep the shared ones.
+    /// Group the layer's optional columns and dictionary children by mask and keep the shared ones.
     fn plan(id: &StagedId, properties: &[StagedProperty]) -> Self {
         // (column count, index of the first column with this mask) per mask.
         let mut groups: HashMap<Vec<bool>, (usize, usize)> = HashMap::new();
@@ -96,7 +98,7 @@ impl SharedPresence {
 
     /// Where an optional column's nulls live: this layer's shared bitfield when
     /// another column has the same mask, the column's own bitfield otherwise.
-    fn nibble_for(&self, mask: &[bool]) -> Presence02 {
+    pub(crate) fn nibble_for(&self, mask: &[bool]) -> Presence02 {
         self.index
             .get(mask)
             .map_or(Presence02::Inline, |&i| Presence02::Shared(i))
@@ -110,8 +112,9 @@ impl SharedPresence {
     }
 }
 
-/// The presence mask of every optional column, in the order the columns are
-/// written: the ID column first, then the properties.
+/// The presence mask of everything that writes one, in the order it is written:
+/// the ID column first, then the properties, a shared dictionary contributing one
+/// mask per child at its parent column's position.
 ///
 /// Owned, because a string column derives its mask from its lengths rather than storing one.
 /// Columns that cannot be null contribute nothing - there is no mask to share.
@@ -129,21 +132,28 @@ fn column_masks<'a>(
         StagedId::OptU64(v) => Some(mask(v)),
         StagedId::None | StagedId::U32(_) | StagedId::U64(_) => None,
     };
-    let props = properties.iter().filter_map(|prop| {
+    let props = properties.iter().flat_map(|prop| {
         use StagedProperty as D;
         match prop {
-            D::OptBool(v) => Some(mask(v)),
-            D::OptI8(v) => Some(mask(v)),
-            D::OptU8(v) => Some(mask(v)),
-            D::OptI32(v) => Some(mask(v)),
-            D::OptU32(v) => Some(mask(v)),
-            D::OptI64(v) => Some(mask(v)),
-            D::OptU64(v) => Some(mask(v)),
-            D::OptF32(v) => Some(mask(v)),
-            D::OptF64(v) => Some(mask(v)),
-            D::OptStr(v) => Some(v.presence_bools().collect()),
-            // A column with no null mask has no presence bits, and shared
-            // dictionaries are not encodable as v2 yet.
+            D::OptBool(v) => vec![mask(v)],
+            D::OptI8(v) => vec![mask(v)],
+            D::OptU8(v) => vec![mask(v)],
+            D::OptI32(v) => vec![mask(v)],
+            D::OptU32(v) => vec![mask(v)],
+            D::OptI64(v) => vec![mask(v)],
+            D::OptU64(v) => vec![mask(v)],
+            D::OptF32(v) => vec![mask(v)],
+            D::OptF64(v) => vec![mask(v)],
+            D::OptStr(v) => vec![v.presence_bools().collect()],
+            // A shared dictionary holds no values of its own, but each of its
+            // children is null on its own features, so each is a sharer in its
+            // own right - listed here, where its parent column sits.
+            D::SharedDict(v) => v
+                .items
+                .iter()
+                .filter_map(StagedSharedDictItem::optional_presence)
+                .collect(),
+            // A column with no null mask has no presence bits.
             D::Bool(_)
             | D::I8(_)
             | D::U8(_)
@@ -153,8 +163,7 @@ fn column_masks<'a>(
             | D::U64(_)
             | D::F32(_)
             | D::F64(_)
-            | D::Str(_)
-            | D::SharedDict(_) => None,
+            | D::Str(_) => vec![],
         }
     });
     id.into_iter().chain(props)
@@ -416,6 +425,6 @@ fn write_prop02(
                 codecs.write_str_col02(v, enc)
             })
         }
-        D::SharedDict(v) => codecs.write_shared_dict02(v, enc),
+        D::SharedDict(v) => codecs.write_shared_dict02(v, shared, enc),
     }
 }
