@@ -2,8 +2,8 @@
 source: mlt-core/tests/tag02_roundtrip.rs
 expression: dump_text(&l.encode(cfg_dict()).unwrap())
 ---
-00000000                                                                     | layer[0] (75 B)
-00000000  4a                                                J                |   size: 74 (varint) - tag + body
+00000000                                                                     | layer[0] (51 B)
+00000000  32                                                2                |   size: 50 (varint) - tag + body
 00000001  02                                                .                |   tag: 0x02 -> Tag02
 00000002  0a 74 65 73 74 5f 6c 61 79 65 72                  .test_layer      |   name: "test_layer"
 0000000d  80 20                                             .                |   extent: 4096
@@ -35,31 +35,22 @@ expression: dump_text(&l.encode(cfg_dict()).unwrap())
 00000018  00 00 02 00 02 00 02 00 02 00 02 00               ............     |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 12 values, 12 B]
                                                                              |         decoded: [0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0]
 00000024  01                                                .                |   column_count: 1
-00000025                                                                     |   columns (38 B)
-00000025                                                                     |     column[0] F64 "v" (38 B)
+00000025                                                                     |   columns (14 B)
+00000025                                                                     |     column[0] F64 "v" (14 B)
 00000025  0a                                                .                |       type: 0x0A AllPresent F64
                                                                              |         └ bits 7-4 = 0000 -> presence = AllPresent
                                                                              |         └ bits 3-0 = 1010 -> data type = F64
 00000026  01 76                                             .v               |       name: "v"
-00000028                                                                     |       data (8 B)
-00000028                                                                     |         header (2 B)
-00000028  38                                                8                |           encoding: 0x38 logical=Dict physical=VarInt
+00000028                                                                     |       data (11 B)
+00000028                                                                     |         header (5 B)
+00000028  28                                                (                |           encoding: 0x28 logical=Alp physical=VarInt
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> 6 values from context
-                                                                             |             └ bits 6-4 = 011 -> logical = Dict, numbered for a v2 float column
+                                                                             |             └ bits 6-4 = 010 -> logical = Alp, numbered for a v2 float column
                                                                              |             └ bits 3-2 = 10 -> physical = VarInt
                                                                              |             └ bits 1-0 = 00 -> extension = 0
 00000029  06                                                .                |           byte_length: 6
-0000002a  00 01 00 00 01 02                                 ......           |         data [Data(None) Float(Dict)/VarInt, 6 values, 6 B]
-                                                                             |           decoded: [0, 1, 0, 0, 1, 2]
-00000030                                                                     |       dictionary (27 B)
-00000030                                                                     |         header (3 B)
-00000030  84                                                .                |           encoding: 0x84 logical=None physical=WithLen
-                                                                             |             └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
-                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 float column
-                                                                             |             └ bits 3-2 = 01 -> physical = WithLen
-                                                                             |             └ bits 1-0 = 00 -> extension = 0
-00000031  03                                                .                |           num_values: 3
-00000032  18                                                .                |           byte_length: 24
-00000033  00 00 00 00 00 00 f8 3f 00 00 00 00 00 00 04 40   .......?.......@ |         data [Data(Single) Float(None)/None, 3 values, 24 B]
-00000043  00 00 00 00 00 00 0c 40                           .......@         | 
-                                                                             |           decoded: [1.5, 2.5, 3.5]
+0000002a  01                                                .                |           alp_e: 1
+0000002b  00                                                .                |           alp_f: 0
+0000002c  1e                                                .                |           alp_base: 15
+0000002d  00 0a 00 00 0a 14                                 ......           |         data [Data(None) Float(Alp(Alp { e: 1, f: 0, base: 15 }))/VarInt, 6 values, 6 B]
+                                                                             |           decoded: [15, 25, 15, 15, 25, 35]
