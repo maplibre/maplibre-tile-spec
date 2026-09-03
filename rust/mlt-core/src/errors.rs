@@ -122,6 +122,8 @@ pub enum MltError {
     DictionaryCodeOutOfRange(u32, usize),
     #[error("front-coded dictionary is malformed: {0}")]
     MalformedFrontCoding(&'static str),
+    #[error("FSST-compressed data is malformed: {0}")]
+    MalformedFsst(&'static str),
     #[cfg(feature = "unstable-v2")]
     #[error("no ALP parameters return this float column bit-for-bit")]
     NoAlpParameters,
