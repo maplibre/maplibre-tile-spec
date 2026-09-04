@@ -16,11 +16,11 @@
 0000000e                                                                     |   geometry (19 B)
 0000000e                                                                     |     types (4 B)
 0000000e                                                                     |       header (2 B)
-0000000e  30                                                0                |         encoding: 0x30 logical=Rle(Interleaved { num_rle_values: 6 }) physical=VarInt
+0000000e  20                                                                 |         encoding: 0x20 logical=Rle(Interleaved { num_rle_values: 6 }) physical=VarInt
                                                                              |           └ bit 7 = 0 -> has_explicit_count = false -> 6 values from context
-                                                                             |           └ bits 6-4 = 011 -> logical = Rle
-                                                                             |           └ bits 3-2 = 00 -> physical = NoneNoLen
-                                                                             |           └ bits 1-0 = 00 -> reserved = 0
+                                                                             |           └ bits 6-4 = 010 -> logical = Rle, numbered for a v2 integer stream
+                                                                             |           └ bits 3-2 = 00 -> physical = implied
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
 0000000f  02                                                .                |         byte_length: 2
 00000010  06 00                                             ..               |       data [Length(VarBinary) Rle(Interleaved { num_rle_values: 6 })/VarInt, 6 values, 2 B]
                                                                              |         decoded: [0, 0, 0, 0, 0, 0]
@@ -28,9 +28,9 @@
 00000012                                                                     |       header (3 B)
 00000012  a8                                                .                |         encoding: 0xA8 logical=ComponentwiseDelta physical=VarInt
                                                                              |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
-                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta
+                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta, numbered for a v2 vertex stream
                                                                              |           └ bits 3-2 = 10 -> physical = VarInt
-                                                                             |           └ bits 1-0 = 00 -> reserved = 0
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
 00000013  0c                                                .                |         num_values: 12
 00000014  0c                                                .                |         byte_length: 12
 00000015  1a 54 00 00 00 00 00 00 00 00 00 00               .T..........     |       data [Data(Vertex) ComponentwiseDelta/VarInt, 12 values, 12 B]
@@ -46,9 +46,9 @@
 00000026                                                                     |         header (2 B)
 00000026  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> 3 values from context
-                                                                             |             └ bits 6-4 = 000 -> logical = None
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
                                                                              |             └ bits 3-2 = 10 -> physical = VarInt
-                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
 00000027  03                                                .                |           byte_length: 3
 00000028  00 03 05                                          ...              |         data [Data(None) None/VarInt, 3 values, 3 B]
                                                                              |           decoded: [0, 3, 5]
@@ -61,9 +61,9 @@
 0000002f                                                                     |         header (2 B)
 0000002f  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> 3 values from context
-                                                                             |             └ bits 6-4 = 000 -> logical = None
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
                                                                              |             └ bits 3-2 = 10 -> physical = VarInt
-                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
 00000030  03                                                .                |           byte_length: 3
 00000031  00 01 05                                          ...              |         data [Data(None) None/VarInt, 3 values, 3 B]
                                                                              |           decoded: [0, 1, 5]
@@ -76,9 +76,9 @@
 00000038                                                                     |         header (2 B)
 00000038  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> 3 values from context
-                                                                             |             └ bits 6-4 = 000 -> logical = None
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
                                                                              |             └ bits 3-2 = 10 -> physical = VarInt
-                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
 00000039  03                                                .                |           byte_length: 3
 0000003a  00 03 05                                          ...              |         data [Data(None) None/VarInt, 3 values, 3 B]
                                                                              |           decoded: [0, 3, 5]
@@ -91,9 +91,9 @@
 00000041                                                                     |         header (2 B)
 00000041  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> 3 values from context
-                                                                             |             └ bits 6-4 = 000 -> logical = None
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
                                                                              |             └ bits 3-2 = 10 -> physical = VarInt
-                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
 00000042  03                                                .                |           byte_length: 3
 00000043  00 01 05                                          ...              |         data [Data(None) None/VarInt, 3 values, 3 B]
                                                                              |           decoded: [0, 1, 5]
@@ -106,9 +106,9 @@
 0000004a                                                                     |         header (2 B)
 0000004a  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> 3 values from context
-                                                                             |             └ bits 6-4 = 000 -> logical = None
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
                                                                              |             └ bits 3-2 = 10 -> physical = VarInt
-                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
 0000004b  03                                                .                |           byte_length: 3
 0000004c  00 03 05                                          ...              |         data [Data(None) None/VarInt, 3 values, 3 B]
                                                                              |           decoded: [0, 3, 5]
@@ -123,9 +123,9 @@
 00000058                                                                     |         header (2 B)
 00000058  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> 3 values from context
-                                                                             |             └ bits 6-4 = 000 -> logical = None
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
                                                                              |             └ bits 3-2 = 10 -> physical = VarInt
-                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
 00000059  03                                                .                |           byte_length: 3
 0000005a  01 03 05                                          ...              |         data [Data(None) None/VarInt, 3 values, 3 B]
                                                                              |           decoded: [1, 3, 5]
@@ -138,9 +138,9 @@
 00000065                                                                     |         header (2 B)
 00000065  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> 6 values from context
-                                                                             |             └ bits 6-4 = 000 -> logical = None
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
                                                                              |             └ bits 3-2 = 10 -> physical = VarInt
-                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
 00000066  06                                                .                |           byte_length: 6
 00000067  07 07 07 07 07 07                                 ......           |         data [Data(None) None/VarInt, 6 values, 6 B]
                                                                              |           decoded: [7, 7, 7, 7, 7, 7]
