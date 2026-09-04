@@ -163,7 +163,7 @@ jobs:
       - run: just -v assert-git-is-clean
 
   build-release-binaries:
-    if: ${{ github.event_name != 'pull_request' || inputs.run-heavy }}
+    if: ${{ github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-plz-') }}
     name: Build release binaries for ${{ matrix.target }}
     strategy:
       fail-fast: false
