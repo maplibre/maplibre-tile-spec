@@ -69,5 +69,5 @@
                                                                              |             └ bits 1-0 = 00 -> extension = 0
 00000027  1e                                                .                |           byte_length: 30
 00000028  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Single) Int(None)/None, 30 values, 30 B]
-00000038  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   | 
+00000038  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   |
                                                                              |           decoded: utf-8 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"

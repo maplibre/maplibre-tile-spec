@@ -69,7 +69,7 @@
                                                                              |             └ bits 1-0 = 00 -> extension = 0
 00000034  3d                                                =                |           byte_length: 61
 00000035  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Single) Int(None)/None, 61 values, 61 B]
-00000045  41 41 41 41 41 41 41 41 41 41 41 41 41 41 72 65   AAAAAAAAAAAAAAre | 
-00000055  73 69 64 65 6e 74 69 61 6c 5f 7a 6f 6e 65 5f 6e   sidential_zone_n | 
-00000065  6f 72 74 68 5f 73 65 63 74 6f 72 5f 31            orth_sector_1    | 
+00000045  41 41 41 41 41 41 41 41 41 41 41 41 41 41 72 65   AAAAAAAAAAAAAAre |
+00000055  73 69 64 65 6e 74 69 61 6c 5f 7a 6f 6e 65 5f 6e   sidential_zone_n |
+00000065  6f 72 74 68 5f 73 65 63 74 6f 72 5f 31            orth_sector_1    |
                                                                              |           decoded: utf-8 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAresidential_zone_north_sector_1"

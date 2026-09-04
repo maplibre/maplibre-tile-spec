@@ -57,7 +57,7 @@
 0000002f  15                                                .                |           num_values: 21
 00000030  15                                                .                |           byte_length: 21
 00000031  02 02 02 02 02 02 02 02 02 02 06 06 06 01 01 01   ................ |         data [Length(Symbol) Int(None)/VarInt, 21 values, 21 B]
-00000041  01 01 01 01 01                                    .....            | 
+00000041  01 01 01 01 01                                    .....            |
                                                                              |           decoded: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 6, 6, 6, 1, 1, 1, 1, 1, 1, 1, 1]
 00000046                                                                     |       symbol_table (48 B)
 00000046                                                                     |         header (2 B)
@@ -68,8 +68,8 @@
                                                                              |             └ bits 1-0 = 00 -> extension = 0
 00000047  2e                                                .                |           byte_length: 46
 00000048  5f 73 68 5f 74 68 72 74 73 69 72 65 65 72 6e 6f   _sh_thrtsireerno |         data [Data(Fsst) Int(None)/None, 46 values, 46 B]
-00000058  65 6e 74 69 5f 7a 6f 6e 65 5f 65 63 74 6f 72 5f   enti_zone_ector_ | 
-00000068  73 65 63 74 6f 72 5f 65 74 73 72 61 6e 6c         sector_etsranl   | 
+00000058  65 6e 74 69 5f 7a 6f 6e 65 5f 65 63 74 6f 72 5f   enti_zone_ector_ |
+00000068  73 65 63 74 6f 72 5f 65 74 73 72 61 6e 6c         sector_etsranl   |
                                                                              |           decoded: utf-8 "_sh_thrtsireernoenti_zone_ector_sector_etsranl"
 00000076                                                                     |       corpus (115 B)
 00000076                                                                     |         header (2 B)
@@ -80,11 +80,11 @@
                                                                              |             └ bits 1-0 = 00 -> extension = 0
 00000077  71                                                q                |           byte_length: 113
 00000078  05 04 ff 64 08 09 12 14 0a 07 03 01 0c 0d ff 31   ...d...........1 |         data [Data(Single) Int(None)/None, 113 values, 113 B]
-00000088  ff 63 ff 6f ff 6d ff 6d 06 ff 63 ff 69 12 14 0a   .c.o.m.m..c.i... | 
-00000098  10 ff 6f ff 75 02 00 0b ff 32 ff 69 13 ff 64 ff   ..o.u....2.i..d. | 
-000000a8  75 10 0f 11 ff 69 12 14 0a 0e 12 10 0f 00 0b ff   u....i.......... | 
-000000b8  33 ff 70 12 11 ff 6b 0a ff 77 0e 10 0f 00 0b ff   3.p...k..w...... | 
-000000c8  34 ff 77 12 0f 06 0a 07 03 01 0c 0d ff 35 05 04   4.w..........5.. | 
-000000d8  ff 64 08 09 12 14 0a 10 ff 6f ff 75 02 00 0b ff   .d.......o.u.... | 
-000000e8  36                                                6                | 
+00000088  ff 63 ff 6f ff 6d ff 6d 06 ff 63 ff 69 12 14 0a   .c.o.m.m..c.i... |
+00000098  10 ff 6f ff 75 02 00 0b ff 32 ff 69 13 ff 64 ff   ..o.u....2.i..d. |
+000000a8  75 10 0f 11 ff 69 12 14 0a 0e 12 10 0f 00 0b ff   u....i.......... |
+000000b8  33 ff 70 12 11 ff 6b 0a ff 77 0e 10 0f 00 0b ff   3.p...k..w...... |
+000000c8  34 ff 77 12 0f 06 0a 07 03 01 0c 0d ff 35 05 04   4.w..........5.. |
+000000d8  ff 64 08 09 12 14 0a 10 ff 6f ff 75 02 00 0b ff   .d.......o.u.... |
+000000e8  36                                                6                |
                                                                              |           decoded: <113 binary bytes>
