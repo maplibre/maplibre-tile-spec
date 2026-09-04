@@ -24,7 +24,7 @@ use crate::ls::{FileSortColumn, LsRow, analyze_tile_files, analyze_tile_row};
 use crate::ui::mbt::{MbtHoveredInfo, MbtTileData, MbtilesState};
 use crate::ui::scan::{ScanEvent, start_scan};
 use crate::ui::state::{App, HoveredInfo, ResizeHandle, TreeItem, ViewMode};
-use crate::ui::tile::{DEFAULT_CACHE_MB, ParsedTile, TileCache, cache_bytes};
+use crate::ui::tile::{ParsedTile, TileCache};
 
 const WIDTH: u16 = 100;
 const HEIGHT: u16 = 30;
@@ -742,7 +742,7 @@ fn tile_cache_shares_decoded_tiles_and_respects_its_budget() {
 
 fn mbtiles_app() -> App {
     let path = test_dir("fixtures/omt.max1.mbtiles");
-    let mbt = MbtilesState::new(path.clone(), cache_bytes(DEFAULT_CACHE_MB));
+    let mbt = MbtilesState::new(path.clone());
     App::new_mbtiles(mbt, path)
 }
 
@@ -1235,7 +1235,6 @@ fn ui_args(path: PathBuf, center_tile: Option<&str>) -> UiArgs {
     UiArgs {
         path,
         center_tile: center_tile.map(str::to_string),
-        cache_mb: 1,
     }
 }
 
@@ -1293,7 +1292,7 @@ fn tick_loads_previews_and_serves_repeats_from_the_cache() {
 #[test]
 fn tick_surfaces_a_loader_failure_as_a_popup() {
     let path = test_dir("missing.mbtiles");
-    let mut app = App::new_mbtiles(MbtilesState::new(path.clone(), cache_bytes(1)), path);
+    let mut app = App::new_mbtiles(MbtilesState::new(path.clone()), path);
     tick_until(&mut app, |a| a.error_popup.is_some());
     let (title, msg) = app.error_popup.clone().unwrap();
     assert!(title.ends_with("missing.mbtiles"));

@@ -58,7 +58,6 @@ cargo run -- ui path/to/directory
 - Press `Enter` to open and visualize a file
 - Press `Esc` to go back to file list
 - Press `q` to quit
-- Decoded tiles stay in an LRU cache (256 MB by default, `--cache-mb` changes it), so moving between files does not decode them again; the `.mbtiles` map keeps its decoded tiles within the same budget, dropping the ones farthest from the viewport first
 
 Features:
 - **Tree View Panel (left)**: Browse layers and features in a hierarchical tree

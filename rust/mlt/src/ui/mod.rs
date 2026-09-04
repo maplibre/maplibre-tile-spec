@@ -48,7 +48,7 @@ use crate::ui::rendering::layers::{
 use crate::ui::rendering::map::{render_map_panel, render_mbtiles_map_panel};
 use crate::ui::scan::start_scan;
 use crate::ui::state::{App, HoveredInfo, LayerGroup, ResizeHandle, TreeItem, ViewMode};
-use crate::ui::tile::{DEFAULT_CACHE_MB, TileCache, cache_bytes, polygon_coord_count};
+use crate::ui::tile::{TileCache, polygon_coord_count};
 
 pub const CLR_POINT: Color = Color::Magenta;
 pub const CLR_MULTI_POINT: Color = Color::LightMagenta;
@@ -81,9 +81,6 @@ pub struct UiArgs {
     /// Start `MBTiles` map centered on this XYZ tile (`z/x/y`, e.g. `6/32/21`). `MBTiles` only.
     #[arg(long = "center-tile", value_name = "Z/X/Y")]
     center_tile: Option<String>,
-    /// Memory budget for decoded tiles kept in the LRU cache, in megabytes.
-    #[arg(long = "cache-mb", value_name = "MB", default_value_t = DEFAULT_CACHE_MB)]
-    cache_mb: u64,
 }
 
 /// Analysis flags for the file browser scan.
@@ -102,10 +99,9 @@ fn build_app(args: &UiArgs) -> anyhow::Result<App> {
     if args.center_tile.is_some() && !is_mbt_extension(&args.path) {
         bail!("--center-tile is only supported when opening an .mbtiles file");
     }
-    let budget = cache_bytes(args.cache_mb);
-    let cache = TileCache::new(budget);
+    let cache = TileCache::default();
     let mut app = if is_mbt_extension(&args.path) {
-        let mut mbt = MbtilesState::new(args.path.clone(), budget);
+        let mut mbt = MbtilesState::new(args.path.clone());
         if let Some(ref s) = args.center_tile {
             let (z, x, y) = parse_center_tile_xyz(s)?;
             mbt.set_viewport_to_tile(z, x, y)

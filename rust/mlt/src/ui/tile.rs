@@ -13,13 +13,8 @@ use moka::sync::Cache;
 
 use crate::ls::is_mlt_extension;
 
-/// Default size of the decoded tile cache, in megabytes.
-pub const DEFAULT_CACHE_MB: u64 = 256;
-
-/// The `--cache-mb` budget in bytes.
-pub(crate) const fn cache_bytes(megabytes: u64) -> u64 {
-    megabytes.saturating_mul(1024 * 1024)
-}
+/// Memory budget for decoded tiles.
+pub(crate) const CACHE_BYTES: u64 = 256 * 1024 * 1024;
 
 /// A decoded tile and its extent.
 pub(crate) struct ParsedTile {
@@ -130,7 +125,7 @@ impl TileCache {
 
 impl Default for TileCache {
     fn default() -> Self {
-        Self::new(cache_bytes(DEFAULT_CACHE_MB))
+        Self::new(CACHE_BYTES)
     }
 }
 

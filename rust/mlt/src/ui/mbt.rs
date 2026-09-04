@@ -14,7 +14,7 @@ use rstar::{AABB, PointDistance, RTree, RTreeObject};
 
 use super::group_by_layer;
 use super::state::LayerGroup;
-use super::tile::fc_memory_estimate;
+use super::tile::{CACHE_BYTES, fc_memory_estimate};
 
 type DecodedTile = (FeatureCollection, u32, Vec<LayerGroup>, RTree<MbtGeoEntry>);
 type BestHover = Option<(f64, (u8, u32, u32), usize, usize)>;
@@ -228,7 +228,7 @@ pub(crate) struct MbtilesState {
 }
 
 impl MbtilesState {
-    pub(crate) fn new(path: PathBuf, cache_bytes: u64) -> Self {
+    pub(crate) fn new(path: PathBuf) -> Self {
         let (req_tx, req_rx) = mpsc::sync_channel::<TileLoadRequest>(200);
         let (res_tx, res_rx) = mpsc::sync_channel::<TileLoadResult>(200);
         let (init_tx, init_rx) = mpsc::sync_channel::<Result<(), String>>(1);
@@ -285,7 +285,7 @@ impl MbtilesState {
             hovered: None,
             zoom_f: 0.0,
             map_drag_last: None,
-            cache_bytes,
+            cache_bytes: CACHE_BYTES,
             loading: HashSet::new(),
             request_tx: req_tx,
             result_rx: res_rx,
@@ -740,7 +740,6 @@ mod tests {
     };
 
     use super::*;
-    use crate::ui::tile::{DEFAULT_CACHE_MB, cache_bytes};
 
     fn c(x: i32, y: i32) -> Coord<i32> {
         Coord { x, y }
@@ -773,10 +772,7 @@ mod tests {
 
     #[test]
     fn integer_zoom_reached_by_half_steps_loads_that_level() {
-        let mut state = MbtilesState::new(
-            PathBuf::from("missing.mbtiles"),
-            cache_bytes(DEFAULT_CACHE_MB),
-        );
+        let mut state = MbtilesState::new(PathBuf::from("missing.mbtiles"));
         state.set_viewport_to_tile(1, 0, 0).unwrap();
         state.zoom_wheel_at(0.3, 0.3, true);
         state.zoom_wheel_at(0.3, 0.3, true);
