@@ -6,6 +6,10 @@ on:
       run-release:
         type: boolean
         default: false
+      run-heavy:
+        description: Run the expensive artifact/fuzz jobs. Off for pull requests that are not on top of their stack.
+        type: boolean
+        default: true
   workflow_dispatch:
 
 jobs:
@@ -78,6 +82,7 @@ jobs:
       - run: just -v rust::ci-test-wasm
 
   fuzz:
+    if: ${{ github.event_name != 'pull_request' || inputs.run-heavy }}
     name: Fuzz ${{ matrix.target }}
     runs-on: ubuntu-latest
     strategy:
@@ -158,6 +163,7 @@ jobs:
       - run: just -v assert-git-is-clean
 
   build-release-binaries:
+    if: ${{ github.event_name != 'pull_request' || inputs.run-heavy }}
     name: Build release binaries for ${{ matrix.target }}
     strategy:
       fail-fast: false
@@ -187,6 +193,7 @@ jobs:
           path: ${{ matrix.artifact_name }}
 
   build-wasm-npm:
+    if: ${{ github.event_name != 'pull_request' || inputs.run-heavy }}
     name: Build @maplibre/mlt-wasm npm package
     runs-on: ubuntu-latest
     steps:
