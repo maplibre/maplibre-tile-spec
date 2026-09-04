@@ -85,7 +85,7 @@
 00000041  09                                                .                |           num_values: 9
 00000042  14                                                .                |           byte_length: 20
 00000043  5f 73 65 63 74 6f 72 5f 5f 7a 6f 6e 65 5f 5f 65   _sector__zone__e |         data [Data(Fsst) Int(None)/None, 9 values, 20 B]
-00000053  74 72 61 73                                       tras             | 
+00000053  74 72 61 73                                       tras             |
                                                                              |           decoded: utf-8 "_sector__zone__etras"
 00000057                                                                     |       stream[2] (8 B)
 00000057                                                                     |         header (4 B)
@@ -112,12 +112,12 @@
 00000061  04                                                .                |           num_values: 4
 00000062  64                                                d                |           byte_length: 100
 00000063  06 04 08 ff 69 ff 64 04 ff 6e 05 ff 69 07 ff 6c   ....i.d..n..i..l |         data [Data(Single) Int(None)/None, 4 values, 100 B]
-00000073  02 ff 6e ff 6f 06 05 ff 68 00 01 ff 31 ff 63 ff   ..n.o...h...1.c. | 
-00000083  6f ff 6d ff 6d 04 06 ff 63 ff 69 07 ff 6c 02 08   o.m.m...c.i..l.. | 
-00000093  ff 6f ff 75 05 ff 68 00 01 ff 32 ff 69 ff 6e ff   .o.u..h...2.i.n. | 
-000000a3  64 ff 75 08 05 06 ff 69 07 ff 6c 02 04 07 08 05   d.u....i..l..... | 
-000000b3  00 01 ff 33 ff 70 07 06 ff 6b 02 ff 77 04 08 05   ...3.p...k..w... | 
-000000c3  00 01 ff 34                                       ...4             | 
+00000073  02 ff 6e ff 6f 06 05 ff 68 00 01 ff 31 ff 63 ff   ..n.o...h...1.c. |
+00000083  6f ff 6d ff 6d 04 06 ff 63 ff 69 07 ff 6c 02 08   o.m.m...c.i..l.. |
+00000093  ff 6f ff 75 05 ff 68 00 01 ff 32 ff 69 ff 6e ff   .o.u..h...2.i.n. |
+000000a3  64 ff 75 08 05 06 ff 69 07 ff 6c 02 04 07 08 05   d.u....i..l..... |
+000000b3  00 01 ff 33 ff 70 07 06 ff 6b 02 ff 77 04 08 05   ...3.p...k..w... |
+000000c3  00 01 ff 34                                       ...4             |
                                                                              |           decoded: <100 binary bytes>
 000000c7                                                                     |       stream[4] (8 B)
 000000c7                                                                     |         header (4 B)

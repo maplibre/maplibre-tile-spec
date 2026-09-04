@@ -56,5 +56,5 @@
                                                                              |             └ bits 1-0 = 00 -> extension = 0
 0000001e  14                                                .                |           byte_length: 20
 0000001f  4d c3 bc 6e 63 68 65 6e 20 f0 9f 93 8d 20 63 61   M..nchen .... ca |         data [Data(None) Int(None)/None, 20 values, 20 B]
-0000002f  66 65 cc 81                                       fe..             | 
+0000002f  66 65 cc 81                                       fe..             |
                                                                              |           decoded: utf-8 "München 📍 cafe\u{301}"
