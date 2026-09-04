@@ -100,5 +100,5 @@
 00000038  01                                                .                |           num_values: 1
 00000039  1e                                                .                |           byte_length: 30
 0000003a  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Single) None/None, 1 values, 30 B]
-0000004a  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   | 
+0000004a  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   |
                                                                              |           decoded: utf-8 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"

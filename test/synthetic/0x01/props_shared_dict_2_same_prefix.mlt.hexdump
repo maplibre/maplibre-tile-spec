@@ -97,7 +97,7 @@
 00000043  01                                                .                |           num_values: 1
 00000044  1e                                                .                |           byte_length: 30
 00000045  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Shared) None/None, 1 values, 30 B]
-00000055  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   | 
+00000055  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   |
                                                                              |           decoded: utf-8 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 00000063                                                                     |       child[0] OptStr (12 B)
 00000063  02                                                .                |         stream_count: 2
@@ -182,7 +182,7 @@
 00000083  01                                                .                |           num_values: 1
 00000084  1e                                                .                |           byte_length: 30
 00000085  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Shared) None/None, 1 values, 30 B]
-00000095  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   | 
+00000095  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   |
                                                                              |           decoded: utf-8 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 000000a3                                                                     |       child[0] OptStr (12 B)
 000000a3  02                                                .                |         stream_count: 2

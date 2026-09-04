@@ -45,5 +45,5 @@
                                                                              |             └ bits 1-0 = 00 -> reserved = 0
 0000001e  16                                                .                |           byte_length: 22
 0000001f  00 ff ff ff ff ff ff ff ff ff 01 00 ff ff ff ff   ................ |         data [Data(None) None/VarInt, 4 values, 22 B]
-0000002f  ff ff ff ff ff 01                                 ......           | 
+0000002f  ff ff ff ff ff 01                                 ......           |
                                                                              |           decoded: [0, 18446744073709551615, 0, 18446744073709551615]

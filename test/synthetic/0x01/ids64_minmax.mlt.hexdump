@@ -27,7 +27,7 @@
 0000000f  04                                                .                |           num_values: 4
 00000010  16                                                .                |           byte_length: 22
 00000011  00 ff ff ff ff ff ff ff ff ff 01 00 ff ff ff ff   ................ |         data [Data(None) None/VarInt, 4 values, 22 B]
-00000021  ff ff ff ff ff 01                                 ......           | 
+00000021  ff ff ff ff ff 01                                 ......           |
                                                                              |           decoded: [0, 18446744073709551615, 0, 18446744073709551615]
 00000027                                                                     |     column[1] Geometry (21 B)
 00000027  02                                                .                |       stream_count: 2
