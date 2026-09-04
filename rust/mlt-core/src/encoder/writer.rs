@@ -110,6 +110,11 @@ pub struct Encoder {
     /// [`impl Write`]: Encoder#impl-Write
     data: Vec<u8>,
 
+    /// The tile's table of shared names, when the tile carries one.
+    /// Every name field this encoder writes goes through it - see [`names02`](crate::encoder::names02).
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) names: Option<std::sync::Arc<crate::encoder::names02::NameTable>>,
+
     /// Morton parameters for this layer's vertex set; `None` if the extent
     /// exceeds 16 bits per axis (Morton encoding is unusable in that case).
     /// Pre-populated by [`StagedLayer::encode_into`](crate::encoder::StagedLayer::encode_into).
@@ -167,6 +172,24 @@ impl Encoder {
         }
     }
 
+    /// Every name field this encoder writes goes through `table`, so a name the
+    /// tile already carries is written as an index into it.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub(crate) fn with_names(
+        mut self,
+        table: std::sync::Arc<crate::encoder::names02::NameTable>,
+    ) -> Self {
+        self.names = Some(table);
+        self
+    }
+
+    /// Write a name field into the data section, through the tile's name table.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) fn write_data_name(&mut self, name: &str) -> MltResult<()> {
+        crate::encoder::names02::write_name02(&mut self.data, self.names.as_deref(), name)
+    }
+
     /// Like [`Self::new`] but with the explicit encoder set for deterministic encoding
     /// (tests, synthetics). Use with `StagedLayer::encode_explicit`.
     #[inline]
@@ -192,6 +215,8 @@ impl Encoder {
             hdr: mem::take(&mut self.hdr),
             meta: mem::take(&mut self.meta),
             data: mem::take(&mut self.data),
+            #[cfg(feature = "unstable-v2")]
+            names: self.names.clone(),
             morton_cache: None,
             hilbert_cache: None,
             fsst_cache: HashMap::new(),
@@ -304,7 +329,7 @@ impl Encoder {
             self.alt_stack.is_empty(),
             "write_header02 called with an open alternatives session"
         );
-        self.hdr.write_string(name).map_err(MltError::from)?;
+        crate::encoder::names02::write_name02(&mut self.hdr, self.names.as_deref(), name)?;
         self.hdr.write_varint(extent).map_err(MltError::from)?;
         self.hdr
             .write_varint(feature_count)
