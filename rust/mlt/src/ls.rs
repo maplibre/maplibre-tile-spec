@@ -170,10 +170,23 @@ impl std::fmt::Display for FileAlgorithm {
                         LengthType::Dictionary => "DictLen",
                     },
                 };
+                // `mlt-core` may carry v2-only encodings this build has no name for,
+                // since its features are resolved separately from this crate's.
+                #[cfg_attr(
+                    not(feature = "unstable-v2"),
+                    expect(
+                        clippy::wildcard_enum_match_arm,
+                        reason = "v2 encodings exist only when mlt-core has them"
+                    )
+                )]
                 let physical = match physical {
                     PhysicalEncoding::None => "",
                     PhysicalEncoding::FastPFor(_) => "FastPFOR",
                     PhysicalEncoding::VarInt => "VarInt",
+                    #[cfg(feature = "unstable-v2")]
+                    PhysicalEncoding::BitPacked => "BitPacked",
+                    #[cfg(not(feature = "unstable-v2"))]
+                    _ => "",
                 };
                 let logical = match logical {
                     StatLogicalCodec::None => "",

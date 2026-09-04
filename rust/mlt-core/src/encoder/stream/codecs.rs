@@ -13,8 +13,8 @@ use crate::decoder::FloatLogical;
 #[cfg(not(feature = "unstable-v2"))]
 use crate::decoder::RleLayout;
 use crate::decoder::{
-    BoolLogical, IntLogical, LogicalEncoding, PhysicalEncoding, RleMeta, StreamMeta, StreamType,
-    ValueKind,
+    BoolLogical, IntLogical, LogicalEncoding, OffsetType, PhysicalEncoding, RleMeta, StreamMeta,
+    StreamType, ValueKind,
 };
 use crate::encoder;
 use crate::encoder::Encoder;
@@ -281,6 +281,11 @@ impl Codecs {
         }
 
         let fastpfor = enc.config().fastpfor();
+        // Bit packing earns its width byte on a dictionary's codes, whose alphabet is small
+        // and known; every other stream would only pay for the measurement.
+        #[cfg(feature = "unstable-v2")]
+        let bitpacked = enc.config().allow_packed_dict_codes()
+            && matches!(ctx.stream_type, StreamType::Offset(OffsetType::String));
         let mut alt = enc.try_alternatives();
 
         let sample = logical.none(DataProfile::take_sample(values));
@@ -296,6 +301,8 @@ impl Codecs {
                 logical_enc,
                 ctx.stream_type,
                 fastpfor,
+                #[cfg(feature = "unstable-v2")]
+                bitpacked,
             )?;
         }
         if profile.delta_is_beneficial() {
@@ -306,6 +313,8 @@ impl Codecs {
                 LE::Int(IntLogical::Delta),
                 ctx.stream_type,
                 fastpfor,
+                #[cfg(feature = "unstable-v2")]
+                bitpacked,
             )?;
         }
         if profile.rle_is_viable() {
@@ -316,6 +325,8 @@ impl Codecs {
                 logical_enc,
                 ctx.stream_type,
                 fastpfor,
+                #[cfg(feature = "unstable-v2")]
+                bitpacked,
             )?;
         }
         let values = logical.none(values);
@@ -325,6 +336,8 @@ impl Codecs {
             LE::Int(IntLogical::None),
             ctx.stream_type,
             fastpfor,
+            #[cfg(feature = "unstable-v2")]
+            bitpacked,
         )
     }
 }
