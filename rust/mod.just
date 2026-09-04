@@ -104,6 +104,9 @@ ci-test: ci-env-info (just 'java::gen-snippets') test
 ci-test-wasm: ci-env-info wasm-test
     {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
 
+# Run all FFI round-trip tests as expected by CI, building the cdylib once
+ci-test-ffi: ci-env-info test-ffi-c test-ffi-cpp test-ffi-kotlin
+
 # Run minimal subset of tests to ensure compatibility with MSRV
 ci-test-msrv: ci-env-info
     #!/usr/bin/env bash
@@ -359,11 +362,14 @@ sync-ffi-bindings: (just 'cargo-install' 'diplomat-tool') (just 'assert-cmd' 'cl
     clang-format -style=WebKit -i tests/c/*.c tests/cpp/*.cpp generated/c/* generated/cpp/*
     ktlint --format ./**/*.kt
 
+[private]
+_build-ffi-lib:
+    cargo build --release -p mlt-ffi
+
 # Run the C FFI round-trip test (builds cdylib, compiles + runs test)
-test-ffi-c:
+test-ffi-c: _build-ffi-lib
     #!/usr/bin/env bash
     set -euo pipefail
-    cargo build --release -p mlt-ffi
     LIB_DIR="$(pwd)/target/release"
     gcc mlt-ffi/tests/c/test_round_trip.c \
         -I mlt-ffi/generated/c \
@@ -372,10 +378,9 @@ test-ffi-c:
     LD_LIBRARY_PATH="$LIB_DIR" target/test_ffi_c
 
 # Run the C++ FFI round-trip test (builds cdylib, compiles + runs test)
-test-ffi-cpp:
+test-ffi-cpp: _build-ffi-lib
     #!/usr/bin/env bash
     set -euo pipefail
-    cargo build --release -p mlt-ffi
     LIB_DIR="$(pwd)/target/release"
     g++ -std=c++20 mlt-ffi/tests/cpp/test_round_trip.cpp \
         -I mlt-ffi/generated/cpp \
@@ -384,11 +389,9 @@ test-ffi-cpp:
     LD_LIBRARY_PATH="$LIB_DIR" target/test_ffi_cpp
 
 # Run the Kotlin FFI round-trip test (builds cdylib, compiles + runs test)
-test-ffi-kotlin: (just 'assert-cmd' 'java')
+test-ffi-kotlin: _build-ffi-lib (just 'assert-cmd' 'java')
     #!/usr/bin/env bash
     set -euo pipefail
-    cargo build --release -p mlt-ffi
-
     case "$(uname -s)-$(uname -m)" in
         Linux-x86_64)        CLASSIFIER=linux-x86_64;   LIB=libmlt_ffi.so    ;;
         Linux-aarch64)       CLASSIFIER=linux-aarch64;  LIB=libmlt_ffi.so    ;;
