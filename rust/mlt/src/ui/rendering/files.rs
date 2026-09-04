@@ -78,6 +78,7 @@ pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         .map(|&i| Row::new(row_cells_6(&app.files[i], base).map(Cell::from)))
         .collect();
 
+    let status = app.scan_status();
     let sort_hint = if app.data_loaded() {
         " Click header to sort"
     } else {
@@ -90,8 +91,16 @@ pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     } else {
         total.to_string()
     };
+    let progress = if status.scanning {
+        ", scanning…".to_string()
+    } else if status.pending > 0 {
+        format!(", {} analyzing…", status.pending)
+    } else {
+        String::new()
+    };
+    let count = format!("{count} found{progress}");
     let title =
-        format!("MLT Files ({count} found) - ↑/↓ navigate, Enter open, h help, q quit{sort_hint}");
+        format!("MLT Files ({count}) - ↑/↓ navigate, Enter open, h help, q quit{sort_hint}");
     let table = Table::new(rows, widths)
         .header(header)
         .column_spacing(1)
@@ -186,6 +195,11 @@ pub fn render_file_info_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         LsRow::Info { info, .. } => Some(info),
         LsRow::Error { .. } | LsRow::Loading { .. } => None,
     });
+    let base = app
+        .file_browser_base
+        .as_ref()
+        .map_or_else(String::new, |p| p.display().to_string());
+    let status = app.scan_status();
 
     let lines: Vec<Line<'static>> = if let Some(info) = info {
         let sz = |n: usize| format!("{:.1}B", SizeFormatterSI::new(u64::from_usize(n)));
@@ -241,12 +255,18 @@ pub fn render_file_info_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                 "compression methods",
             ),
         ]
-    } else if app.filtered_file_indices.is_empty() && !app.files.is_empty() {
+    } else if app.files.is_empty() && status.scanning {
+        vec![Line::from(format!("Scanning {base}…"))]
+    } else if app.files.is_empty() {
+        vec![Line::from(format!("No tile files found in {base}"))]
+    } else if app.filtered_file_indices.is_empty() {
         vec![
             Line::from("No files match the current filters."),
             Line::from(""),
             Line::from(Span::styled("[Reset filters]", STYLE_SELECTED)),
         ]
+    } else if matches!(app.get_selected_file(), Some(LsRow::Loading { .. })) {
+        vec![Line::from("Analyzing…")]
     } else {
         vec![Line::from("Select a file to view details")]
     };

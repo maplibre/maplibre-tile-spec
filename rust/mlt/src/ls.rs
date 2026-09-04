@@ -357,20 +357,26 @@ pub fn ls(args: &LsArgs) -> AnyResult<bool> {
 pub fn analyze_tile_files(paths: &[PathBuf], base_path: &Path, flags: LsFlags) -> Vec<LsRow> {
     paths
         .par_iter()
-        .map(|path| match analyze_tile_file(path, base_path, flags) {
-            Ok(info) => LsRow::Info {
-                path: path.clone(),
-                info,
-            },
-            Err(e) => LsRow::Error {
-                path: path.clone(),
-                error: e.to_string(),
-                size: fs::metadata(path)
-                    .ok()
-                    .and_then(|m| usize::try_from(m.len()).ok()),
-            },
-        })
+        .map(|path| analyze_tile_row(path, base_path, flags))
         .collect()
+}
+
+/// Analyze one tile file into a row, turning failures into `LsRow::Error`.
+#[must_use]
+pub fn analyze_tile_row(path: &Path, base_path: &Path, flags: LsFlags) -> LsRow {
+    match analyze_tile_file(path, base_path, flags) {
+        Ok(info) => LsRow::Info {
+            path: path.to_path_buf(),
+            info,
+        },
+        Err(e) => LsRow::Error {
+            path: path.to_path_buf(),
+            error: e.to_string(),
+            size: fs::metadata(path)
+                .ok()
+                .and_then(|m| usize::try_from(m.len()).ok()),
+        },
+    }
 }
 
 /// Return cells for UI table display: [File, Size, Enc%, Layers, Features].

@@ -52,8 +52,9 @@ cargo run -- ui path/to/directory
 ```
 
 **Directory Mode**:
-- Lists all `.mlt` files found recursively in the directory
-- Use `↑`/`↓` to navigate the file list
+- Lists every `.mlt`, `.mvt`, and `.pbf` file under the directory; the walk and the per-file analysis run in the background, so the list fills in while you browse
+- Use `↑`/`↓` to navigate the file list; the preview, filter, and info panels follow the selection
+- Click a column header to sort once the scan is done; click the filter checkboxes to narrow the list
 - Press `Enter` to open and visualize a file
 - Press `Esc` to go back to file list
 - Press `q` to quit

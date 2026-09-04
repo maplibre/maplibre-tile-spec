@@ -119,7 +119,7 @@ fn help_file_browser() -> Vec<Line<'static>> {
         heading("Mouse"),
         key("Click row", "Select file"),
         key("Double-click row", "Open file"),
-        key("Click header", "Sort by column"),
+        key("Click header", "Sort by column (once the scan is done)"),
         key("Scroll", "Navigate file list"),
         key("Drag divider", "Resize panels"),
         Line::from(""),
