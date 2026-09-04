@@ -16,7 +16,7 @@
   "scripts": {
     "build": "tsc",
     "bench": "vitest bench --run src",
-    "test": "vitest run --coverage --coverage.reportOnFailure",
+    "test": "vitest run --coverage",
     "lint": "eslint",
     "format": "biome format --write ./src",
     "format:check": "biome format ./src"

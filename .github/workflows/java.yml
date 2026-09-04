@@ -11,7 +11,9 @@ defaults:
 jobs:
   test-java:
     permissions:
-      id-token: write  # for OIDC Codecov
+      contents: read
+      code-quality: write
+      pull-requests: read
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -27,6 +29,14 @@ jobs:
         run: just -v java::lint
 
       - run: just -v java::test-coverage
+      - if: matrix.os == 'ubuntu-latest'
+        run: just -v java::coverage-report
+      - if: matrix.os == 'ubuntu-latest'
+        uses: ./.github/actions/mlt-publish-coverage
+        with:
+          file: java/build/coverage/cobertura.xml
+          language: Java
+          label: code-coverage/jacoco
 
       - run: just -v java::test-cli
 
@@ -38,11 +48,6 @@ jobs:
       - run: npm run lint
         working-directory: java/encoding-server
       - run: just -v assert-git-is-clean
-
-      - name: Upload coverage to Codecov
-        if: github.repository_owner == 'maplibre'
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
-        with: { use_oidc: true, directory: java }
 
       - name: Test synthetic MLT generation
         run: just -v java::ci-check-synthetic-mlts

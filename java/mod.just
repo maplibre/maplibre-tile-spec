@@ -93,6 +93,17 @@ test-cli:
 test-coverage:
     ./gradlew jacocoTestReport
 
+# Merge the per-module JaCoCo reports into `java/build/coverage/cobertura.xml`
+coverage-report:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -rf build/coverage && mkdir -p build/coverage/jacoco
+    shopt -s nullglob
+    for report in */build/reports/jacoco/test/jacocoTestReport.xml; do
+        cp "$report" "build/coverage/jacoco/${report%%/*}.xml"
+    done
+    {{just}} coverage-merge java/build/coverage/jacoco java/build/coverage/cobertura.xml
+
 # Test Maven local publishing
 test-publish:
     ./gradlew publishMavenPublicationToMavenLocal

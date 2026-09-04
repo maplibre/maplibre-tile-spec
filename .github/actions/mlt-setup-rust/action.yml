@@ -6,6 +6,12 @@ inputs:
     description: 'Rust toolchain to install: stable (default), nightly, or msrv'
     required: false
     default: 'stable'
+  coverage:
+    description: >-
+      Instrument the job with cargo-llvm-cov, so every later step records coverage.
+      Collect it with `just rust::coverage-report <suite>` and the mlt-upload-coverage action.
+    required: false
+    default: 'false'
 
 runs:
   using: "composite"
@@ -41,3 +47,13 @@ runs:
         # dispatching to rustup-init mode), causing maturin-action to fail with
         # "unexpected argument '--print' found / Usage: rustup-init[EXE]".
         cache-bin: false
+        # Instrumented artifacts cannot be reused by the uninstrumented jobs, so they get their own cache
+        key: ${{ inputs.coverage == 'true' && 'coverage' || '' }}
+
+    - if: ${{ inputs.coverage == 'true' }}
+      uses: taiki-e/install-action@v2
+      with: { tool: 'cargo-llvm-cov' }
+    - if: ${{ inputs.coverage == 'true' }}
+      name: Instrument this job with cargo-llvm-cov
+      shell: bash
+      run: just -v rust::coverage-env "$GITHUB_ENV"
