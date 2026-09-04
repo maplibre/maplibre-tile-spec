@@ -71,5 +71,5 @@
 0000002e  04                                                .                |           num_values: 4
 0000002f  14                                                .                |           byte_length: 20
 00000030  d4 db 80 cb 49 d4 db 80 cb 49 d4 db 80 cb 49 d4   ....I....I....I. |         data [Data(None) Int(None)/VarInt, 4 values, 20 B]
-00000040  db 80 cb 49                                       ...I             | 
+00000040  db 80 cb 49                                       ...I             |
                                                                              |           decoded: [9876543210, 9876543210, 9876543210, 9876543210]

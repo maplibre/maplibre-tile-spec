@@ -63,5 +63,5 @@
 00000023  12                                                .                |           num_values: 18
 00000024  14                                                .                |           byte_length: 20
 00000025  6e 0a 06 2e 22 0b 8b 01 20 0e 0e 05 32 5c 81 01   n..."... ...2\.. |         data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 18 values, 20 B]
-00000035  06 2e 22 0b                                       ..".             | 
+00000035  06 2e 22 0b                                       ..".             |
                                                                              |           decoded: [55, 5, 58, 28, 75, 22, 5, 38, 12, 45, 9, 70, 55, 5, 58, 28, 75, 22]
