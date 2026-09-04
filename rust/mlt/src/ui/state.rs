@@ -63,32 +63,12 @@ impl TreeItem {
     }
 }
 
+/// What the mouse is over, resolved to the level the selection exposes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HoveredInfo {
-    pub(crate) tree_idx: usize,
-    pub(crate) layer: usize,
-    pub(crate) feat: usize,
-    pub(crate) part: Option<usize>,
-}
-
-impl HoveredInfo {
-    pub fn new(tree_idx: usize, layer: usize, feat: usize, part: Option<usize>) -> Self {
-        Self {
-            tree_idx,
-            layer,
-            feat,
-            part,
-        }
-    }
-
-    /// The hovered feature or part as a tree item.
-    pub(crate) fn item(&self) -> TreeItem {
-        let (layer, feat) = (self.layer, self.feat);
-        match self.part {
-            Some(part) => TreeItem::SubFeature { layer, feat, part },
-            None => TreeItem::Feature { layer, feat },
-        }
-    }
+    /// Row in the tree that represents `item` (or its closest visible ancestor).
+    pub(crate) tree_idx: Option<usize>,
+    pub(crate) item: TreeItem,
 }
 
 pub struct LayerGroup {
@@ -840,6 +820,8 @@ impl App {
         (x0 - px, y0 - py, x1 + px, y1 + py)
     }
 
+    /// Resolve the nearest geometry into the hover target for the current level.
+    /// Geometries outside the current level are ignored.
     pub(crate) fn find_hovered_feature(&mut self, cx: f64, cy: f64, bounds: (f64, f64, f64, f64)) {
         let sel = self.selected_item().clone();
         let threshold = (bounds.2 - bounds.0).max(bounds.3 - bounds.1) * 0.02;
@@ -869,47 +851,36 @@ impl App {
             None
         };
 
-        self.hovered = best.and_then(|(_, l, f, p)| {
-            self.find_tree_idx_for_feature(l, f, p)
-                .map(|idx| HoveredInfo::new(idx, l, f, p))
+        self.hovered = best.map(|(_, layer, feat, part)| {
+            let item = match sel {
+                TreeItem::All => TreeItem::Layer(layer),
+                TreeItem::Layer(_) => TreeItem::Feature { layer, feat },
+                TreeItem::Feature { .. } | TreeItem::SubFeature { .. } => match part {
+                    Some(part) => TreeItem::SubFeature { layer, feat, part },
+                    None => TreeItem::Feature { layer, feat },
+                },
+            };
+            HoveredInfo {
+                tree_idx: self.find_tree_idx(&item),
+                item,
+            }
         });
     }
 
-    fn find_tree_idx_for_feature(
-        &self,
-        layer: usize,
-        feat: usize,
-        part: Option<usize>,
-    ) -> Option<usize> {
-        for (idx, item) in self.tree_items.iter().enumerate() {
-            match item {
-                TreeItem::Layer(li)
-                    if *li == layer
-                        && !self.expanded_layers.get(layer).copied().unwrap_or(false) =>
-                {
-                    return Some(idx);
-                }
-                TreeItem::Feature { layer: l, feat: f }
-                    if *l == layer
-                        && *f == feat
-                        && (part.is_none() || !self.expanded_features.contains(&(layer, feat))) =>
-                {
-                    return Some(idx);
-                }
-                TreeItem::SubFeature {
-                    layer: l,
-                    feat: f,
-                    part: p,
-                } if *l == layer && *f == feat && part == Some(*p) => {
-                    return Some(idx);
-                }
-                TreeItem::All
-                | TreeItem::Layer(_)
-                | TreeItem::Feature { .. }
-                | TreeItem::SubFeature { .. } => {}
+    /// Row of `item` in the tree, or of its closest ancestor when its parent is collapsed.
+    pub(crate) fn find_tree_idx(&self, item: &TreeItem) -> Option<usize> {
+        let mut candidates = vec![item.clone()];
+        match *item {
+            TreeItem::SubFeature { layer, feat, .. } => {
+                candidates.push(TreeItem::Feature { layer, feat });
+                candidates.push(TreeItem::Layer(layer));
             }
+            TreeItem::Feature { layer, .. } => candidates.push(TreeItem::Layer(layer)),
+            TreeItem::All | TreeItem::Layer(_) => {}
         }
-        None
+        candidates
+            .iter()
+            .find_map(|c| self.tree_items.iter().position(|t| t == c))
     }
 
     fn ensure_layer_expanded(&mut self, layer: usize) {
@@ -933,7 +904,15 @@ impl App {
                 self.expanded_features.insert((layer, f));
                 self.build_tree_items();
             }
-            if let Some(idx) = self.find_tree_idx_for_feature(layer, f, part) {
+            let item = match part {
+                Some(part) => TreeItem::SubFeature {
+                    layer,
+                    feat: f,
+                    part,
+                },
+                None => TreeItem::Feature { layer, feat: f },
+            };
+            if let Some(idx) = self.find_tree_idx(&item) {
                 self.selected_index = idx;
                 self.scroll_selected_into_view(inner);
             }
@@ -958,6 +937,7 @@ impl App {
         }
     }
 
+    /// A click on a tree row drills one level down from the current selection.
     pub(crate) fn handle_feature_click(
         &mut self,
         layer: usize,
@@ -972,6 +952,20 @@ impl App {
             }
             TreeItem::Feature { .. } | TreeItem::SubFeature { .. } => {
                 self.select_and_scroll(layer, Some(feat), part, tree_height);
+            }
+        }
+    }
+
+    /// A click on the map selects whatever the hover already resolved to.
+    pub(crate) fn handle_map_click(&mut self, item: &TreeItem, tree_height: u16) {
+        match *item {
+            TreeItem::All => {}
+            TreeItem::Layer(layer) => self.select_and_scroll(layer, None, None, tree_height),
+            TreeItem::Feature { layer, feat } => {
+                self.select_and_scroll(layer, Some(feat), None, tree_height);
+            }
+            TreeItem::SubFeature { layer, feat, part } => {
+                self.select_and_scroll(layer, Some(feat), Some(part), tree_height);
             }
         }
     }

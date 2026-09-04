@@ -84,7 +84,11 @@ pub fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
 
             let style = if idx == app.selected_index {
                 STYLE_SELECTED
-            } else if app.hovered.as_ref().is_some_and(|h| h.tree_idx == idx) {
+            } else if app
+                .hovered
+                .as_ref()
+                .is_some_and(|h| h.tree_idx == Some(idx))
+            {
                 Style::default()
                     .fg(CLR_HOVERED_TREE)
                     .add_modifier(Modifier::UNDERLINED)
@@ -245,7 +249,7 @@ pub fn render_properties_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) -> 
 /// The hovered item when there is one, else the selection.
 fn info_target(app: &App) -> (TreeItem, bool) {
     match app.hovered.as_ref() {
-        Some(h) => (h.item(), true),
+        Some(h) => (h.item.clone(), true),
         None => (app.selected_item().clone(), false),
     }
 }

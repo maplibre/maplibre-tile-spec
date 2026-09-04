@@ -64,9 +64,10 @@ Features:
   - "All" - every layer, with layer and feature counts and the tile's geometry types
   - Individual layers - the layer's features, with each property's value types and the layer's geometry types
   - Individual features - the feature's properties and geometry statistics
-  - Hovered features are highlighted with underlined green text
+  - Hovered rows are highlighted with underlined green text
 - **Map Panel (right)**: Visual representation of the geometries
   - Shows the extent boundary as a thin gray rectangle
+  - Draws the selected level in color and the rest in gray as context
   - **Color coding by geometry type**:
     - Points: Magenta (multipoint: light magenta)
     - `LineStrings`: Cyan (multi-linestring: light cyan)
@@ -78,7 +79,9 @@ Features:
   - Hovered features: White
   - Automatically adjusts bounds to fit all visible geometries
 - **Mouse Interaction**:
-  - Hover over geometries to highlight them in the tree view
+  - Hovering the map targets one level below the selection, so a layer under All, a feature under a layer, a part under a feature
+  - The hovered row is underlined and the info panels describe it
+  - Clicking the map selects the hovered item
 - **Keyboard Navigation**:
   - `↑`/`k` - Move selection up
   - `↓`/`j` - Move selection down
