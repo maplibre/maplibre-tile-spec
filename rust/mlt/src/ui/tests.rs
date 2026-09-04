@@ -861,6 +861,59 @@ fn hovering_a_tree_row_targets_that_row() {
 }
 
 #[test]
+fn tessellated_polygons_show_their_triangles() {
+    let path = test_dir("synthetic/0x01/mix_2_poly_polyh_tes.mlt");
+    let tile = TileCache::default().load(&path).unwrap();
+    assert!(tile.triangles.iter().all(Option::is_some));
+    let triangles: usize = tile.triangles[1]
+        .as_ref()
+        .unwrap()
+        .iter()
+        .map(Vec::len)
+        .sum();
+    assert!(
+        triangles > 0,
+        "feature 1 should carry tessellation triangles"
+    );
+    let mut app = App::new_single_file(tile, Some(path));
+    press(&mut app, KeyCode::Down);
+    press(&mut app, KeyCode::Down);
+    press(&mut app, KeyCode::Down);
+    insta::assert_snapshot!(render(&mut app), @r#"
+    "┌mix_2_poly_polyh_tes.mlt - E┐┌Map View────────────────────────────────────────────────────────────┐"
+    "│   All                      ││                                                                    │"
+    "│     Layer: layer1 (2 Polygo││                                                                    │"
+    "│       Feat 0: Polygon (4v) ││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⡆     │"
+    "│>>     Feat 1: Polygon (8v, ││     ⢸                                                        ⡇     │"
+    "│                            ││     ⢸                                         ⢀⡀             ⡇     │"
+    "│                            ││     ⢸                                  ⢀⣀⣠⡤⠶⠚⠋⢱⠁             ⡇     │"
+    "│                            ││     ⢸                           ⢀⣀⡠⠤⣒⡲⠭⠓⠉⠁    ⡎              ⡇     │"
+    "│                            ││     ⢸                     ⣀⡠⠤⠔⠒⣉⠥⠔⠒⠉         ⢸               ⡇     │"
+    "│                            ││     ⢸              ⣀⡠⣤⣔⣒⠭⠭⣔⠶⠖⢫⠛⡄            ⢀⠇               ⡇     │"
+    "│                            ││     ⢸         ⠠⢴⣶⣾⢏⣉⣉⣀⡠⠔⠒⠉  ⢠⠃ ⠈⢢           ⡸                ⡇     │"
+    "│                            ││     ⢸           ⠈⠑⠛⠭⣒⠒⠬⠵⣢⣄⡀⢠⠃    ⠑⡄        ⢠⠃                ⡇     │"
+    "│                            ││     ⢸                ⠉⠒⠢⢄⡀⠉⠑⠢⢄    ⠈⢢       ⡜                 ⡇     │"
+    "│                            ││     ⢸                    ⠈⠉⠒⠤⣀⡉⠒⢄⡀  ⠑⡄    ⢰⠁                 ⡇     │"
+    "└────────────────────────────┘│     ⢸                         ⠈⠑⠢⠬⣑⠤⡀⠈⢢   ⡎                  ⡇     │"
+    "┌Properties (feat 1)─────────┐│     ⢸                              ⠉⠚⠵⢦⣑⡄⢸                   ⡇     │"
+    "│(no properties)             ││     ⢸                                  ⠈⠙⠃                   ⡇     │"
+    "│                            ││     ⢸                                                        ⡇     │"
+    "│                            ││     ⢸                                        ⢰⠢⠤⢄⣀           ⡇     │"
+    "│                            ││     ⢸                                        ⡎    ⠉⠉⠒⠢⠤⣀⣀    ⡇     │"
+    "│                            ││     ⢸                                        ⡇         ⢀⠔⠋   ⡇     │"
+    "│                            ││     ⢸                                       ⢸       ⢀⠤⠊⠁     ⡇     │"
+    "└────────────────────────────┘│     ⢸                                       ⡜    ⢀⡠⠒⠁        ⡇     │"
+    "┌Geometry────────────────────┐│     ⢸                                       ⡇  ⡠⠔⠁           ⡇     │"
+    "│Type: Polygon               ││     ⢸                                      ⢰⣁⠔⠉              ⡇     │"
+    "│Vertices: 8                 ││     ⢸                                      ⠈                 ⡇     │"
+    "│Rings: 2                    ││     ⠸⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
+    "│  Ring 0: 4v, CW            ││                                                                    │"
+    "│  Ring 1: 4v, CCW           ││                                                                    │"
+    "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
+    "#);
+}
+
+#[test]
 fn scan_streams_files_into_the_browser() {
     let base = fixtures_dir();
     let rx = start_scan(base.clone(), SCAN_FLAGS);
@@ -2347,6 +2400,89 @@ fn layer_summary_lists_every_value_type_and_skips_unknown_geometries() {
     "│                            ││                                                                    │"
     "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
     "#);
+}
+
+#[test]
+fn tessellated_multipolygon_parts_carry_their_own_triangles() {
+    let cache = TileCache::default();
+    let tile = cache
+        .load(&test_dir("synthetic/0x01/mix_2_poly_mpoly_tes.mlt"))
+        .unwrap();
+    let parts = tile.triangles[1].as_ref().unwrap();
+    assert!(parts.len() > 1 && parts.iter().all(|p| !p.is_empty()));
+    let mut app = App::new_single_file(tile, None);
+    press(&mut app, KeyCode::Down);
+    press(&mut app, KeyCode::Down);
+    press(&mut app, KeyCode::Down);
+    press(&mut app, KeyCode::Char('+'));
+    press(&mut app, KeyCode::Down);
+    insta::assert_snapshot!(render_sized(&mut app, 100, 50), @r#"
+    "┌unknown - Enter/+/-:expand, ┐┌Map View────────────────────────────────────────────────────────────┐"
+    "│   All                      ││                                                                    │"
+    "│     Layer: layer1 (2 featur││                                                                    │"
+    "│       Feat 0: Polygon (4v) ││                                                                    │"
+    "│       Feat 1: MultiPolygon ││                                                                    │"
+    "│>>       Part 0: Polygon (8v││     ⢸⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
+    "│         Part 1: Polygon (4v││     ⢸                                                        ⡇     │"
+    "│                            ││     ⢸                                                        ⡇     │"
+    "│                            ││     ⢸                                                        ⡇     │"
+    "│                            ││     ⢸                                                        ⡇     │"
+    "│                            ││     ⢸                                                        ⡇     │"
+    "│                            ││     ⢸                                                        ⡇     │"
+    "│                            ││     ⢸                                                 ⢸⢆     ⡇     │"
+    "│                            ││     ⢸                                                 ⡇⢠⠃    ⡇     │"
+    "│                            ││     ⢸                                                ⢠⢣⠃     ⡇     │"
+    "│                            ││     ⢸                                                ⢸⠎      ⡇     │"
+    "│                            ││     ⢸                                                ⠏       ⡇     │"
+    "│                            ││     ⢸                                                        ⡇     │"
+    "│                            ││     ⢸                                                        ⡇     │"
+    "│                            ││     ⢸                                                        ⡇     │"
+    "│                            ││     ⢸                                                        ⡇     │"
+    "│                            ││     ⢸                                                        ⡇     │"
+    "│                            ││     ⢸                                                        ⡇     │"
+    "│                            ││     ⢸                                                        ⡇     │"
+    "└────────────────────────────┘│     ⢸                                                        ⡇     │"
+    "┌Properties (feat 1)─────────┐│     ⢸                                                        ⡇     │"
+    "│(no properties)             ││     ⢸                                                        ⡇     │"
+    "│                            ││     ⢸                                                        ⡇     │"
+    "│                            ││     ⢸                                                        ⡇     │"
+    "│                            ││     ⢸             ⢀⣴                                         ⡇     │"
+    "│                            ││     ⢸            ⡔⢡⠋⡆                        ⢀⡀              ⡇     │"
+    "│                            ││     ⢸          ⡠⠊ ⡎ ⢇                        ⢸⠈⠑⠢⢄⡀          ⡇     │"
+    "│                            ││     ⢸        ⡠⠊ ⡠⣼⡀ ⢸                        ⡎    ⠈⠑⠢⢄⡀      ⡇     │"
+    "│                            ││     ⢸      ⢀⢎⡠⠒⠉⡰⠹⣣ ⠈⡆                       ⡇        ⠈⠑⠢⢄   ⡇     │"
+    "│                            ││     ⢸    ⢀⣴⣓⣁⣀⣀⡰⠁ ⡏⡆ ⡇                       ⡇          ⡰⠁   ⡇     │"
+    "│                            ││     ⢸     ⠙⠲⡤⣀ ⠘⢄ ⡇⠸⡀⢸                      ⢰⠁        ⡠⠊     ⡇     │"
+    "│                            ││     ⢸       ⠈⠢⢕⠢⢌⡢⣱ ⢣⠘⡄                     ⢸       ⢀⠔⠁      ⡇     │"
+    "└────────────────────────────┘│     ⢸          ⠑⠤⡈⠙⡄ ⢇⡇                     ⢸      ⡰⠁        ⡇     │"
+    "┌Geometry────────────────────┐│     ⢸            ⠈⠢⢌⢢⠘⣼                     ⡇    ⢠⠊          ⡇     │"
+    "│Component: part #0 of a     ││     ⢸               ⠑⢕⣽⡄                    ⡇  ⢀⠔⠁           ⡇     │"
+    "│MultiPolygon                ││     ⢸                 ⠈⠃                    ⡇ ⡠⠃             ⡇     │"
+    "│Type: Polygon               ││     ⢸                                      ⢸⢠⠊               ⡇     │"
+    "│Vertices: 8                 ││     ⢸                                      ⠘⠁                ⡇     │"
+    "│Rings: 2                    ││     ⢸                                                        ⡇     │"
+    "│  Ring 0: 4v, CW            ││     ⢸⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⡇     │"
+    "│  Ring 1: 4v, CCW           ││                                                                    │"
+    "│Triangles: 6                ││                                                                    │"
+    "│                            ││                                                                    │"
+    "│                            ││                                                                    │"
+    "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
+    "#);
+
+    let mixed = cache
+        .load(&test_dir("synthetic/0x01-rust/mix_2_line_poly_tes.mlt"))
+        .unwrap();
+    assert!(mixed.triangles[0].is_none() && mixed.triangles[1].is_some());
+    let plain = cache
+        .load(&test_dir(
+            "synthetic/0x01/mix_7_pt_line_poly_polyh_mpt_mline_mpoly.mlt",
+        ))
+        .unwrap();
+    assert!(plain.triangles.iter().all(Option::is_none));
+    let mut app = App::new_single_file(plain, None);
+    press(&mut app, KeyCode::Char('*'));
+    press(&mut app, KeyCode::End);
+    render(&mut app);
 }
 
 #[test]

@@ -5,43 +5,69 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use mlt_core::geo_types::{Coord, Geometry, Polygon};
+use mlt_core::geo_types::{Coord, Geometry, LineString, Polygon};
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::mvt::mvt_to_feature_collection;
-use mlt_core::{Decoder, Parser};
+use mlt_core::{Decoder, LendingIterator as _, ParsedLayer, Parser};
 use moka::sync::Cache;
+use usize_cast::IntoUsize as _;
 
 use crate::ls::is_mlt_extension;
 
 /// Memory budget for decoded tiles.
 pub(crate) const CACHE_BYTES: u64 = 256 * 1024 * 1024;
 
-/// A decoded tile and its extent.
+/// One tessellation triangle in tile coordinates.
+pub(crate) type Triangle = [Coord<i32>; 3];
+
+/// Triangles of a tessellated feature, one list per polygon part (a plain polygon has one).
+pub(crate) type Tessellation = Vec<Vec<Triangle>>;
+
+/// A decoded tile with the tessellation triangles the encoder stored for its polygons.
+/// `triangles` is indexed like `fc.features`.
 pub(crate) struct ParsedTile {
     pub fc: FeatureCollection,
     pub extent: u32,
+    pub triangles: Vec<Option<Tessellation>>,
 }
 
 impl ParsedTile {
     pub(crate) fn from_fc(fc: FeatureCollection) -> Self {
         let extent = extent_from_fc(&fc);
-        Self { fc, extent }
+        let triangles = vec![None; fc.features.len()];
+        Self {
+            fc,
+            extent,
+            triangles,
+        }
     }
 
     pub(crate) fn load(path: &Path) -> anyhow::Result<Self> {
         let buf = fs::read(path)?;
-        let fc = if is_mlt_extension(path) {
+        if is_mlt_extension(path) {
             let layers = Decoder::default().decode_all(Parser::default().parse_layers(&buf)?)?;
-            FeatureCollection::from_layers(layers)?
+            let mut triangles = layer_triangles(&layers)?;
+            let fc = FeatureCollection::from_layers(layers)?;
+            triangles.resize(fc.features.len(), None);
+            Ok(Self {
+                extent: extent_from_fc(&fc),
+                fc,
+                triangles,
+            })
         } else {
-            mvt_to_feature_collection(buf)?
-        };
-        Ok(Self::from_fc(fc))
+            Ok(Self::from_fc(mvt_to_feature_collection(buf)?))
+        }
     }
 
     /// Rough number of bytes this tile occupies, used to weigh it in the cache.
     pub(crate) fn memory_estimate(&self) -> usize {
-        fc_memory_estimate(&self.fc)
+        let triangles: usize = self
+            .triangles
+            .iter()
+            .flatten()
+            .flat_map(|parts| parts.iter().map(Vec::len))
+            .sum();
+        fc_memory_estimate(&self.fc) + triangles * size_of::<Triangle>()
     }
 }
 
@@ -92,6 +118,96 @@ pub(crate) fn polygon_coord_count(poly: &Polygon<i32>) -> usize {
     poly.exterior().0.len() + poly.interiors().iter().map(|r| r.0.len()).sum::<usize>()
 }
 
+/// Polygon vertices in the order the encoder tessellated them, plus where each part starts.
+/// Rings drop their closing vertex, and anything that is not a polygon yields `None`.
+fn tessellation_vertices(geom: &Geometry<i32>) -> Option<(Vec<Coord<i32>>, Vec<usize>)> {
+    fn push_ring(out: &mut Vec<Coord<i32>>, ring: &LineString<i32>) {
+        let coords = &ring.0;
+        let closed = coords.len() > 1 && coords.first() == coords.last();
+        let n = if closed {
+            coords.len() - 1
+        } else {
+            coords.len()
+        };
+        out.extend_from_slice(&coords[..n]);
+    }
+    fn push_polygon(out: &mut Vec<Coord<i32>>, starts: &mut Vec<usize>, poly: &Polygon<i32>) {
+        starts.push(out.len());
+        push_ring(out, poly.exterior());
+        for ring in poly.interiors() {
+            push_ring(out, ring);
+        }
+    }
+    let mut out = Vec::new();
+    let mut starts = Vec::new();
+    match geom {
+        Geometry::<i32>::Polygon(poly) => push_polygon(&mut out, &mut starts, poly),
+        Geometry::<i32>::MultiPolygon(mp) => {
+            for poly in mp {
+                push_polygon(&mut out, &mut starts, poly);
+            }
+        }
+        Geometry::<i32>::Point(_)
+        | Geometry::<i32>::Line(_)
+        | Geometry::<i32>::LineString(_)
+        | Geometry::<i32>::MultiPoint(_)
+        | Geometry::<i32>::MultiLineString(_)
+        | Geometry::<i32>::GeometryCollection(_)
+        | Geometry::<i32>::Rect(_)
+        | Geometry::<i32>::Triangle(_) => return None,
+    }
+    Some((out, starts))
+}
+
+/// Per-feature triangles from the tessellation streams, in [`FeatureCollection::from_layers`] order.
+fn layer_triangles(layers: &[ParsedLayer<'_>]) -> anyhow::Result<Vec<Option<Tessellation>>> {
+    let mut out = Vec::new();
+    for layer in layers {
+        let Some(layer) = layer.as_layer01() else {
+            continue;
+        };
+        let values = layer.geometry_values();
+        let (Some(counts), Some(indices)) = (values.triangles(), values.index_buffer()) else {
+            out.extend(std::iter::repeat_n(None, layer.feature_count()));
+            continue;
+        };
+        let mut counts = counts.iter();
+        let mut next_index = 0usize;
+        let mut features = layer.iter_features();
+        while let Some(feat) = features.next() {
+            let feat = feat?;
+            let Some((verts, starts)) = tessellation_vertices(feat.geometry()) else {
+                out.push(None);
+                continue;
+            };
+            let Some(count) = counts.next() else {
+                out.push(None);
+                continue;
+            };
+            let end = next_index + count.into_usize() * 3;
+            let mut parts: Tessellation = vec![Vec::new(); starts.len()];
+            let feature_indices = indices.get(next_index..end).unwrap_or(&[]);
+            for t in feature_indices.as_chunks::<3>().0 {
+                let idx = [t[0].into_usize(), t[1].into_usize(), t[2].into_usize()];
+                let Some(tri) = idx
+                    .iter()
+                    .map(|&i| verts.get(i).copied())
+                    .collect::<Option<Vec<_>>>()
+                else {
+                    continue;
+                };
+                let part = starts.partition_point(|&s| s <= idx[0]).saturating_sub(1);
+                if let Some(slot) = parts.get_mut(part) {
+                    slot.push([tri[0], tri[1], tri[2]]);
+                }
+            }
+            next_index = end;
+            out.push(Some(parts));
+        }
+    }
+    Ok(out)
+}
+
 /// Memory-bounded LRU cache of decoded tiles keyed by path.
 #[derive(Clone)]
 pub(crate) struct TileCache(Cache<PathBuf, Arc<ParsedTile>>);
@@ -131,7 +247,9 @@ impl Default for TileCache {
 
 #[cfg(test)]
 mod tests {
-    use mlt_core::geo_types::{GeometryCollection, Line, LineString, Point, Rect, Triangle};
+    use mlt_core::geo_types::{
+        GeometryCollection, Line, LineString, MultiPolygon, Point, Rect, Triangle,
+    };
 
     use super::*;
 
@@ -146,6 +264,24 @@ mod tests {
             paths.sort();
             paths
         }
+    }
+
+    #[test]
+    fn tessellation_vertices_drop_closing_points_and_mark_part_starts() {
+        let closed = LineString(vec![c(0, 0), c(4, 0), c(4, 4), c(0, 4), c(0, 0)]);
+        let open = LineString(vec![c(1, 1), c(2, 1), c(2, 2)]);
+        let poly = Polygon::new(closed.clone(), vec![open.clone()]);
+        let (verts, starts) = tessellation_vertices(&Geometry::Polygon(poly.clone())).unwrap();
+        assert_eq!(verts.len(), 7, "four exterior and three interior vertices");
+        assert_eq!(starts, vec![0]);
+
+        let multi = MultiPolygon(vec![poly, Polygon::new(open, vec![])]);
+        let (verts, starts) = tessellation_vertices(&Geometry::MultiPolygon(multi)).unwrap();
+        assert_eq!(verts.len(), 10);
+        assert_eq!(starts, vec![0, 7]);
+
+        assert!(tessellation_vertices(&Geometry::Point(Point(c(1, 1)))).is_none());
+        assert!(tessellation_vertices(&Geometry::LineString(closed)).is_none());
     }
 
     #[test]

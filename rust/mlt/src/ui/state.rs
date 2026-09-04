@@ -15,7 +15,7 @@ use usize_cast::IntoUsize as _;
 use crate::ls::{FileAlgorithm, FileSortColumn, LsRow};
 use crate::ui::mbt::MbtilesState;
 use crate::ui::scan::ScanEvent;
-use crate::ui::tile::{ParsedTile, TileCache};
+use crate::ui::tile::{ParsedTile, Tessellation, TileCache};
 use crate::ui::{
     GeometryIndexEntry, auto_expand, coord_f64, group_by_layer, is_entry_visible, multi_part_count,
 };
@@ -405,6 +405,11 @@ impl App {
 
     pub(crate) fn feature(&self, layer: usize, feat: usize) -> &Feature {
         &self.tile.fc.features[self.global_idx(layer, feat)]
+    }
+
+    /// Tessellation triangles of a feature, one list per polygon part, if the tile stores them.
+    pub(crate) fn tessellation(&self, layer: usize, feat: usize) -> Option<&Tessellation> {
+        self.tile.triangles[self.global_idx(layer, feat)].as_ref()
     }
 
     pub(crate) fn extent(&self) -> u32 {

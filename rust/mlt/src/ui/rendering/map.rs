@@ -10,10 +10,11 @@ use ratatui::widgets::canvas::{Canvas, Context, Line as CanvasLine, Rectangle};
 
 use crate::ui::mbt::{MbtHoveredInfo, MbtTileData, TileTransform};
 use crate::ui::state::{App, LayerGroup, TreeItem};
+use crate::ui::tile::{Tessellation, Triangle};
 use crate::ui::{
     CLR_CONTEXT_FEATURE, CLR_CONTEXT_LAYER, CLR_DIMMED, CLR_EXTENT, CLR_HOVERED, CLR_INNER_RING,
-    CLR_INNER_RING_SEL, CLR_POLYGON, CLR_SELECTED, block_with_title, coord_f64, geometry_color,
-    is_ring_ccw,
+    CLR_INNER_RING_SEL, CLR_POLYGON, CLR_SELECTED, CLR_TRIANGLE, block_with_title, coord_f64,
+    geometry_color, is_ring_ccw,
 };
 
 /// How a geometry is colored.
@@ -83,6 +84,7 @@ pub fn render_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
                         }
                     }
                     if let Some(fi) = hov_feat {
+                        draw_tessellation(ctx, app.tessellation(*l, fi), None);
                         let geom = &app.feature(*l, fi).geometry;
                         draw_feature(ctx, geom, Paint::Highlight(CLR_HOVERED), None, None);
                     }
@@ -112,6 +114,7 @@ pub fn render_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
                         hov,
                         Some(TreeItem::Feature { layer: hl, feat: hf }) if hl == layer && hf == feat
                     );
+                    draw_tessellation(ctx, app.tessellation(*layer, *feat), sel_part);
                     let geom = &app.feature(*layer, *feat).geometry;
                     let paint = if whole_hovered {
                         Paint::Highlight(CLR_HOVERED)
@@ -137,6 +140,22 @@ fn draw_other_layers(ctx: &mut Context<'_>, app: &App, except: usize) {
     for (li, group) in app.layer_groups.iter().enumerate() {
         if li != except {
             draw_group(ctx, &app.tile.fc, group, Paint::Flat(CLR_CONTEXT_LAYER));
+        }
+    }
+}
+
+/// Tessellation triangles of a feature (`part` restricts a multipolygon to one polygon).
+fn draw_tessellation(ctx: &mut Context<'_>, tess: Option<&Tessellation>, part: Option<usize>) {
+    let Some(parts) = tess else {
+        return;
+    };
+    let selected: &[Vec<Triangle>] = match part {
+        Some(p) => parts.get(p).map_or(&[][..], std::slice::from_ref),
+        None => parts,
+    };
+    for tris in selected {
+        for [a, b, c] in tris {
+            draw_line(ctx, &[*a, *b, *c, *a], CLR_TRIANGLE);
         }
     }
 }
