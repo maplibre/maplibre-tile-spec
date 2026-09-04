@@ -18,6 +18,7 @@ jobs:
       java: ${{ steps.filter.outputs.java }}
       ts: ${{ steps.filter.outputs.ts }}
       cpp: ${{ steps.filter.outputs.cpp }}
+      docs: ${{ steps.filter.outputs.docs }}
       top-of-stack: ${{ github.event.pull_request.stack != null && github.event.pull_request.stack.position == github.event.pull_request.stack.size }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -49,6 +50,11 @@ jobs:
               - '.github/**'
               - 'cpp/**'
               - 'test/**'
+            docs:
+              - 'justfile'
+              - '.github/**'
+              - 'docs/**'
+              - 'mkdocs.yml'
 
   rust:
     needs: changes
@@ -85,6 +91,8 @@ jobs:
       contents: read
 
   docs:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
     uses: ./.github/workflows/gh-pages.yml
     permissions: { contents: write }
 
