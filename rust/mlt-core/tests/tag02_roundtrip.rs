@@ -70,6 +70,18 @@ fn dump_text(bytes: &[u8]) -> String {
     String::from_utf8(out).expect("dump is utf8")
 }
 
+/// The physical encoding the dump reports for every stream of `bytes`, in wire order.
+#[cfg(feature = "unstable-v2")]
+fn stream_physicals(bytes: &[u8]) -> Vec<mlt_core::wire::PhysicalEncoding> {
+    annotate_tile(bytes)
+        .expect("annotate_tile")
+        .regions
+        .iter()
+        .filter_map(|r| r.blob.as_ref())
+        .map(|blob| blob.meta.encoding.physical)
+        .collect()
+}
+
 fn assert_dump_covers(bytes: &[u8]) {
     let tree = annotate_tile(bytes).expect("annotate_tile");
     let mut leaves: Vec<(usize, usize)> = tree
@@ -1521,5 +1533,61 @@ mod alp {
         let values: Vec<f32> = (0_i16..32).map(|i| f32::from(i) * 0.5 - 8.0).collect();
         let l = f32_column(&values);
         assert_eq!(round_trip(&l, cfg_alp()), round_trip(&l, cfg_v2()));
+    }
+}
+
+/// The v2-only bit-packed physical encoding, behind a default-off [`EncoderConfig`] flag.
+mod bit_packing {
+    use mlt_core::wire::{FastPForKind, PhysicalEncoding};
+
+    use super::*;
+
+    /// A string column over more distinct values than a one-byte varint code can
+    /// number, in an order no delta or run can shorten.
+    fn wide_dict_layer() -> TileLayer {
+        let values: Vec<PropValue> = (0..600_u32)
+            .map(|i| {
+                let scrambled = i.wrapping_mul(2_654_435_761) >> 7;
+                PropValue::Str(Some(format!("value_{:04}", scrambled % 300)))
+            })
+            .collect();
+        let geoms = points(&"1".repeat(values.len()));
+        layer(geoms, None, &[("v", values)])
+    }
+
+    #[test]
+    fn packed_dictionary_codes_round_trip_and_shrink_the_column() {
+        let l = wide_dict_layer();
+        let plain = l.clone().encode(cfg_v2()).unwrap();
+        let packed = l.encode(cfg_v2().with_packed_dict_codes(true)).unwrap();
+        assert!(
+            packed.len() < plain.len(),
+            "{} vs {}",
+            packed.len(),
+            plain.len()
+        );
+        assert_eq!(
+            stream_physicals(&packed),
+            [
+                PhysicalEncoding::VarInt,
+                PhysicalEncoding::FastPFor(FastPForKind::Block128Le),
+                PhysicalEncoding::BitPacked,
+                PhysicalEncoding::VarInt,
+                PhysicalEncoding::None,
+            ]
+        );
+        assert_eq!(decode(&packed).1, decode(&plain).1);
+        assert_dump_covers(&packed);
+    }
+
+    #[test]
+    fn packing_changes_nothing_in_v1() {
+        let l = wide_dict_layer();
+        assert_eq!(
+            l.clone()
+                .encode(cfg_v1().with_packed_dict_codes(true))
+                .unwrap(),
+            l.encode(cfg_v1()).unwrap()
+        );
     }
 }
