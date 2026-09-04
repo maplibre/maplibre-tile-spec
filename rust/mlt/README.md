@@ -61,9 +61,9 @@ cargo run -- ui path/to/directory
 
 Features:
 - **Tree View Panel (left)**: Browse layers and features in a hierarchical tree
-- "All Layers" - shows all features from all layers
-  - Individual layers - shows all features in that layer
-  - Individual features - shows only the selected feature
+  - "All" - every layer, with layer and feature counts and the tile's geometry types
+  - Individual layers - the layer's features, with each property's value types and the layer's geometry types
+  - Individual features - the feature's properties and geometry statistics
   - Hovered features are highlighted with underlined green text
 - **Map Panel (right)**: Visual representation of the geometries
   - Shows the extent boundary as a thin gray rectangle

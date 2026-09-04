@@ -9,6 +9,7 @@ use mlt_core::GeometryType;
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };
+use mlt_core::geo_types::{GeometryCollection, Line, Rect as GeoRect, Triangle};
 use mlt_core::geojson::{Feature, FeatureCollection};
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
@@ -170,20 +171,20 @@ fn layer_overview_starts_on_all_layers() {
     "│                            ││     ⢸      ⢸             ⡖⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⡲⡎⠁           ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⡇      ⢸  ⢀⠔⠊ ⡇            ⢸        ⡇     │"
     "└────────────────────────────┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
-    "┌Properties──────────────────┐│     ⢸⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⢉⠭⢻⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
-    "│Select or hover over a      ││     ⢸      ⢸             ⡇  ⡠⠔⠁ ⢸      ⡇            ⢸        ⡇     │"
-    "│feature to view properties  ││     ⢸      ⢸             ⣇⡠⠊    ⢸      ⡇            ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸           ⢀⠔⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠁            ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸         ⡠⠊⠁        ⢸               ×   ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸      ⢀⠔⠉           ⢸            ×      ⢸        ⡇     │"
+    "┌Properties (all layers)─────┐│     ⢸⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⢉⠭⢻⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
+    "│Layers: 3                   ││     ⢸      ⢸             ⡇  ⡠⠔⠁ ⢸      ⡇            ⢸        ⡇     │"
+    "│Features: 6                 ││     ⢸      ⢸             ⣇⡠⠊    ⢸      ⡇            ⢸        ⡇     │"
+    "│water: 2 features           ││     ⢸      ⢸           ⢀⠔⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠁            ⢸        ⡇     │"
+    "│roads: 2 features           ││     ⢸      ⢸         ⡠⠊⠁        ⢸               ×   ⢸        ⡇     │"
+    "│poi: 2 features             ││     ⢸      ⢸      ⢀⠔⠉           ⢸            ×      ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸    ⡠⠒⠁             ⢸                   ⢸        ⡇     │"
     "└────────────────────────────┘│     ⢸  ⢸⠉⠉⠉⢹⠉⢉⠭⢻                ⢸                   ⢸        ⡇     │"
-    "┌Geometry────────────────────┐│     ⢸  ⢸   ⡸⠴⠥⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼        ⡇     │"
-    "│Select or hover over a      ││     ⢸  ⢸⢀⡠⠊    ⢸                ⢸                            ⡇     │"
-    "│feature to view geometry    ││     ⢸ ⢀⠜⠓⠒⠒⠒⠒⠒⠒⠚                ⢸                            ⡇     │"
-    "│info                        ││     ⠸⠮⠥⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│                            ││                                                                    │"
-    "│                            ││                                                                    │"
+    "┌Geometry (all layers)───────┐│     ⢸  ⢸   ⡸⠴⠥⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼        ⡇     │"
+    "│Vertices: 29                ││     ⢸  ⢸⢀⡠⠊    ⢸                ⢸                            ⡇     │"
+    "│Point: 1                    ││     ⢸ ⢀⠜⠓⠒⠒⠒⠒⠒⠒⠚                ⢸                            ⡇     │"
+    "│LineString: 1               ││     ⠸⠮⠥⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
+    "│Polygon: 1                  ││                                                                    │"
+    "│MultiPoint: 1               ││                                                                    │"
     "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
     "#);
 }
@@ -369,20 +370,20 @@ fn help_overlay_lists_the_layer_overview_keys() {
     "│                  │  *                   Expand/collapse all layers            │   ⢸        ⡇     │"
     "│                  │  Left                Jump to parent node                   │   ⢸        ⡇     │"
     "└──────────────────│  Ctrl+h / Ctrl+l     Resize left/right split               │   ⢸        ⡇     │"
-    "┌Properties────────│  Shift+J / Shift+K   Resize top/bottom split               │⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
-    "│Select or hover ov│                                                            │   ⢸        ⡇     │"
-    "│feature to view pr│Mouse                                                       │   ⢸        ⡇     │"
-    "│                  │  Click tree item     Select (drill into level)             │   ⢸        ⡇     │"
-    "│                  │  Double-click        Expand/collapse                       │   ⢸        ⡇     │"
-    "│                  │  Hover tree/map      Highlight geometry                    │   ⢸        ⡇     │"
+    "┌Properties (all la│  Shift+J / Shift+K   Resize top/bottom split               │⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
+    "│Layers: 3         │                                                            │   ⢸        ⡇     │"
+    "│Features: 6       │Mouse                                                       │   ⢸        ⡇     │"
+    "│water: 2 features │  Click tree item     Select (drill into level)             │   ⢸        ⡇     │"
+    "│roads: 2 features │  Double-click        Expand/collapse                       │   ⢸        ⡇     │"
+    "│poi: 2 features   │  Hover tree/map      Highlight geometry                    │   ⢸        ⡇     │"
     "│                  │  Click on map        Select hovered feature                │   ⢸        ⡇     │"
     "└──────────────────│  Scroll panels       Scroll tree/properties                │   ⢸        ⡇     │"
-    "┌Geometry──────────│  Drag dividers       Resize panels                         │⠤⠤⠤⠼        ⡇     │"
-    "│Select or hover ov│                                                            │            ⡇     │"
-    "│feature to view ge│Map Colors                                                  │            ⡇     │"
-    "│info              │  Magenta             Point                                 │⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│                  │  Light magenta       MultiPoint                            │                  │"
-    "│                  └────────────────────────────────────────────────────────────┘                  │"
+    "┌Geometry (all laye│  Drag dividers       Resize panels                         │⠤⠤⠤⠼        ⡇     │"
+    "│Vertices: 29      │                                                            │            ⡇     │"
+    "│Point: 1          │Map Colors                                                  │            ⡇     │"
+    "│LineString: 1     │  Magenta             Point                                 │⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
+    "│Polygon: 1        │  Light magenta       MultiPoint                            │                  │"
+    "│MultiPoint: 1     └────────────────────────────────────────────────────────────┘                  │"
     "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
     "#);
     press(&mut app, KeyCode::Char('x'));
@@ -410,19 +411,19 @@ fn error_popup_shows_the_message_until_a_key_is_pressed() {
     "│         │                                                                              │   ⡇     │"
     "└─────────│                           unexpected end of buffer                           │   ⡇     │"
     "┌Propertie│                                                                              │⠉⠉⠉⡇     │"
-    "│Select or│                                                                              │   ⡇     │"
-    "│feature t└──────────────────────────────────────────────────────────────any key to close┘   ⡇     │"
-    "│                            ││     ⢸      ⢸           ⢀⠔⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠁            ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸         ⡠⠊⠁        ⢸               ×   ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸      ⢀⠔⠉           ⢸            ×      ⢸        ⡇     │"
+    "│Layers: 3│                                                                              │   ⡇     │"
+    "│Features:└──────────────────────────────────────────────────────────────any key to close┘   ⡇     │"
+    "│water: 2 features           ││     ⢸      ⢸           ⢀⠔⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠁            ⢸        ⡇     │"
+    "│roads: 2 features           ││     ⢸      ⢸         ⡠⠊⠁        ⢸               ×   ⢸        ⡇     │"
+    "│poi: 2 features             ││     ⢸      ⢸      ⢀⠔⠉           ⢸            ×      ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸    ⡠⠒⠁             ⢸                   ⢸        ⡇     │"
     "└────────────────────────────┘│     ⢸  ⢸⠉⠉⠉⢹⠉⢉⠭⢻                ⢸                   ⢸        ⡇     │"
-    "┌Geometry────────────────────┐│     ⢸  ⢸   ⡸⠴⠥⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼        ⡇     │"
-    "│Select or hover over a      ││     ⢸  ⢸⢀⡠⠊    ⢸                ⢸                            ⡇     │"
-    "│feature to view geometry    ││     ⢸ ⢀⠜⠓⠒⠒⠒⠒⠒⠒⠚                ⢸                            ⡇     │"
-    "│info                        ││     ⠸⠮⠥⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│                            ││                                                                    │"
-    "│                            ││                                                                    │"
+    "┌Geometry (all layers)───────┐│     ⢸  ⢸   ⡸⠴⠥⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼        ⡇     │"
+    "│Vertices: 29                ││     ⢸  ⢸⢀⡠⠊    ⢸                ⢸                            ⡇     │"
+    "│Point: 1                    ││     ⢸ ⢀⠜⠓⠒⠒⠒⠒⠒⠒⠚                ⢸                            ⡇     │"
+    "│LineString: 1               ││     ⠸⠮⠥⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
+    "│Polygon: 1                  ││                                                                    │"
+    "│MultiPoint: 1               ││                                                                    │"
     "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
     "#);
     press(&mut app, KeyCode::Enter);
@@ -619,24 +620,63 @@ fn enter_opens_a_file_and_escape_returns_to_the_browser() {
     "│                            ││     ⢸                                                        ⡇     │"
     "│                            ││     ⢸                                                        ⡇     │"
     "└────────────────────────────┘│     ⢸                                                        ⡇     │"
-    "┌Properties──────────────────┐│     ⢸                                                        ⡇     │"
-    "│Select or hover over a      ││     ⢸                                                        ⡇     │"
-    "│feature to view properties  ││     ⢸                                                        ⡇     │"
-    "│                            ││     ⢸                                                        ⡇     │"
+    "┌Properties (all layers)─────┐│     ⢸                                                        ⡇     │"
+    "│Layers: 1                   ││     ⢸                                                        ⡇     │"
+    "│Features: 1                 ││     ⢸                                                        ⡇     │"
+    "│layer: 1 features           ││     ⢸                                                        ⡇     │"
     "│                            ││     ⢸                                                        ⡇     │"
     "│                            ││     ⢸                                                        ⡇     │"
     "│                            ││     ⢸                                                        ⡇     │"
     "└────────────────────────────┘│     ⢸                                                        ⡇     │"
-    "┌Geometry────────────────────┐│     ⢸                                                        ⡇     │"
-    "│Select or hover over a      ││     ⢸                                                        ⡇     │"
-    "│feature to view geometry    ││     ⢸                                                        ⡇     │"
-    "│info                        ││     ⠸⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
+    "┌Geometry (all layers)───────┐│     ⢸                                                        ⡇     │"
+    "│Vertices: 3                 ││     ⢸                                                        ⡇     │"
+    "│LineString: 1               ││     ⢸                                                        ⡇     │"
+    "│                            ││     ⠸⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
     "│                            ││                                                                    │"
     "│                            ││                                                                    │"
     "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
     "#);
     press(&mut app, KeyCode::Esc);
     assert_eq!(app.mode, ViewMode::FileBrowser);
+}
+
+#[test]
+fn layer_selection_summarizes_properties_and_geometry() {
+    let mut app = sample_app();
+    press(&mut app, KeyCode::Down);
+    press(&mut app, KeyCode::Down);
+    insta::assert_snapshot!(render(&mut app), @r#"
+    "┌sample.mlt - Enter/+/-:expan┐┌Map View────────────────────────────────────────────────────────────┐"
+    "│   All                      ││                                                                    │"
+    "│     Layer: water (2 feature││                                                                    │"
+    "│>>   Layer: roads (2 feature││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
+    "│     Layer: poi (2 features,││     ⢸                           ⢸                        ⢀⠔⠁ ⡇     │"
+    "│                            ││     ⢸                           ⢸                      ⡠⠊⠁   ⡇     │"
+    "│                            ││     ⢸                           ⢸                   ⢀⠔⠊      ⡇     │"
+    "│                            ││     ⢸                           ⢸                 ⡠⠒⠁        ⡇     │"
+    "│                            ││     ⢸                           ⢸              ⢀⠤⠊           ⡇     │"
+    "│                            ││     ⢸                           ⢸            ⣀⠔⠁             ⡇     │"
+    "│                            ││     ⢸                           ⢸         ⢀⡠⠊                ⡇     │"
+    "│                            ││     ⢸                           ⢸       ⢀⠔⠁                  ⡇     │"
+    "│                            ││     ⢸                           ⢸     ⡠⠊⠁                    ⡇     │"
+    "│                            ││     ⢸                           ⢸  ⢀⠔⠊                       ⡇     │"
+    "└────────────────────────────┘│     ⢸                           ⢸⡠⠒⠁                         ⡇     │"
+    "┌Properties (layer roads)────┐│     ⢸⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢉⠭⢻⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
+    "│Features: 2                 ││     ⢸                       ⡠⠔⠁ ⢸                            ⡇     │"
+    "│Properties: 2               ││     ⢸                    ⢀⡠⠊    ⢸                            ⡇     │"
+    "│class: string               ││     ⢸                  ⢀⠔⠁      ⢸                            ⡇     │"
+    "│oneway: bool                ││     ⢸                ⡠⠊⠁        ⢸                            ⡇     │"
+    "│                            ││     ⢸             ⢀⠔⠉           ⢸                            ⡇     │"
+    "│                            ││     ⢸           ⡠⠒⠁             ⢸                            ⡇     │"
+    "└────────────────────────────┘│     ⢸        ⢀⠤⠊                ⢸                            ⡇     │"
+    "┌Geometry (layer roads)──────┐│     ⢸      ⡠⠔⠁                  ⢸                            ⡇     │"
+    "│Vertices: 6                 ││     ⢸   ⢀⡠⠊                     ⢸                            ⡇     │"
+    "│LineString: 1               ││     ⢸ ⢀⠔⠁                       ⢸                            ⡇     │"
+    "│MultiLineString: 1          ││     ⠸⠮⠥⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
+    "│                            ││                                                                    │"
+    "│                            ││                                                                    │"
+    "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
+    "#);
 }
 
 #[test]
@@ -2021,6 +2061,75 @@ fn help_renders_for_the_file_browser() {
     let mut app = file_browser_app();
     press(&mut app, KeyCode::Char('?'));
     assert!(render(&mut app).contains("Double-click row"));
+}
+
+#[test]
+fn layer_summary_lists_every_value_type_and_skips_unknown_geometries() {
+    let odd = vec![
+        feature(
+            "odd",
+            Point(c(1, 1)),
+            &[
+                ("n", Value::Null),
+                ("a", json!([1, 2])),
+                ("o", json!({"k": 1})),
+                ("b", json!(true)),
+            ],
+        ),
+        feature(
+            "odd",
+            GeoRect::new(c(10, 10), c(20, 20)),
+            &[("n", json!("text"))],
+        ),
+        feature("odd", Line::new(c(0, 0), c(9, 9)), &[]),
+        feature("odd", Triangle::new(c(0, 0), c(4, 0), c(0, 4)), &[]),
+        feature(
+            "odd",
+            Geometry::<i32>::GeometryCollection(GeometryCollection(vec![Geometry::Point(Point(
+                c(7, 7),
+            ))])),
+            &[],
+        ),
+    ];
+    let fc = FeatureCollection {
+        features: odd,
+        ty: "FeatureCollection".into(),
+    };
+    let tile = Arc::new(ParsedTile::from_fc(fc));
+    let mut app = App::new_single_file(tile, Some(PathBuf::from("odd.mlt")));
+    press(&mut app, KeyCode::Down);
+    insta::assert_snapshot!(render(&mut app), @r#"
+    "┌odd.mlt - Enter/+/-:expand, ┐┌Map View────────────────────────────────────────────────────────────┐"
+    "│   All                      ││                                                                    │"
+    "│>>   Layer: odd (5 features,││                                                                    │"
+    "│       Feat 0: Point        ││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⡆     │"
+    "│       Feat 1: Unknown      ││     ⢸                                                        ⡇     │"
+    "│       Feat 2: Unknown      ││     ⢸                                                        ⡇     │"
+    "│       Feat 3: Unknown      ││     ⢸                                                        ⡇     │"
+    "│       Feat 4: Unknown      ││     ⢸                                                        ⡇     │"
+    "│                            ││     ⢸                                                        ⡇     │"
+    "│                            ││     ⢸                                                        ⡇     │"
+    "│                            ││     ⢸                                                        ⡇     │"
+    "│                            ││     ⢸                                                        ⡇     │"
+    "│                            ││     ⢸                                                        ⡇     │"
+    "│                            ││     ⢸                                                        ⡇     │"
+    "└────────────────────────────┘│     ⢸                                                        ⡇     │"
+    "┌Properties (layer odd)──────┐│     ⢸                                                        ⡇     │"
+    "│Features: 5                 ││     ⢸                                                        ⡇     │"
+    "│Properties: 4               ││     ⢸                                                        ⡇     │"
+    "│a: array                    ││     ⢸                                                        ⡇     │"
+    "│b: bool                     ││     ⢸                                                        ⡇     │"
+    "│n: null | string            ││     ⢸                                                        ⡇     │"
+    "│o: object                   ││     ⢸                                                        ⡇     │"
+    "└────────────────────────────┘│     ⢸                                                        ⡇     │"
+    "┌Geometry (layer odd)────────┐│     ⢸                                                        ⡇     │"
+    "│Vertices: 9                 ││     ⢸                                                        ⡇     │"
+    "│Point: 1                    ││     ×                                                        ⡇     │"
+    "│                            ││     ⠸⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
+    "│                            ││                                                                    │"
+    "│                            ││                                                                    │"
+    "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
+    "#);
 }
 
 #[test]

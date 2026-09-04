@@ -1,3 +1,6 @@
+use std::collections::{BTreeMap, BTreeSet};
+
+use mlt_core::GeometryType;
 use mlt_core::geo_types::{
     Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };
@@ -10,7 +13,7 @@ use usize_cast::IntoUsize as _;
 
 use crate::ui::mbt::MbtTileData;
 use crate::ui::state::{App, TreeItem, ViewMode};
-use crate::ui::tile::polygon_coord_count;
+use crate::ui::tile::{geometry_coord_count, polygon_coord_count};
 use crate::ui::{
     CLR_HOVERED_TREE, STYLE_LABEL, STYLE_SELECTED, block_with_title, feature_suffix,
     geometry_color, geometry_type_name, is_ring_ccw, stat_line, sub_feature_suffix,
@@ -147,6 +150,84 @@ fn feature_property_lines(feat: &Feature) -> Vec<Line<'static>> {
     }
 }
 
+fn value_type_name(v: &serde_json::Value) -> &'static str {
+    match v {
+        serde_json::Value::Null => "null",
+        serde_json::Value::Bool(_) => "bool",
+        serde_json::Value::Number(_) => "number",
+        serde_json::Value::String(_) => "string",
+        serde_json::Value::Array(_) => "array",
+        serde_json::Value::Object(_) => "object",
+    }
+}
+
+/// Layer count and per-layer feature counts for the whole tile.
+fn tile_summary_lines(app: &App) -> Vec<Line<'static>> {
+    let mut lines = vec![
+        stat_line("Layers", &app.layer_groups.len()),
+        stat_line("Features", &app.tile.fc.features.len()),
+    ];
+    for g in &app.layer_groups {
+        lines.push(Line::from(format!(
+            "  {}: {} features",
+            g.name,
+            g.feature_indices.len()
+        )));
+    }
+    lines
+}
+
+/// Feature count and property names with their value types for one layer, in name order.
+fn layer_summary_lines(app: &App, layer: usize) -> Vec<Line<'static>> {
+    let group = &app.layer_groups[layer];
+    let mut types: BTreeMap<&str, BTreeSet<&'static str>> = BTreeMap::new();
+    for &gi in &group.feature_indices {
+        for (k, v) in &app.tile.fc.features[gi].properties {
+            if k == "_layer" || k == "_extent" {
+                continue;
+            }
+            types.entry(k).or_default().insert(value_type_name(v));
+        }
+    }
+    let mut lines = vec![
+        stat_line("Features", &group.feature_indices.len()),
+        stat_line("Properties", &types.len()),
+    ];
+    for (name, kinds) in types {
+        let kinds: Vec<&str> = kinds.into_iter().collect();
+        lines.push(Line::from(vec![
+            Span::styled(format!("  {name}: "), STYLE_LABEL),
+            Span::raw(kinds.join(" | ")),
+        ]));
+    }
+    lines
+}
+
+/// Geometry types with counts, over one layer or the whole tile, in type order.
+fn geometry_count_lines(app: &App, layer: Option<usize>) -> Vec<Line<'static>> {
+    let mut counts: BTreeMap<GeometryType, usize> = BTreeMap::new();
+    let mut vertices = 0usize;
+    let groups = app
+        .layer_groups
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| layer.is_none_or(|l| l == *i));
+    for (_, group) in groups {
+        for &gi in &group.feature_indices {
+            let geom = &app.tile.fc.features[gi].geometry;
+            if let Ok(t) = GeometryType::try_from(geom) {
+                *counts.entry(t).or_default() += 1;
+            }
+            vertices += geometry_coord_count(geom);
+        }
+    }
+    let mut lines = vec![stat_line("Vertices", &vertices)];
+    for (t, n) in counts {
+        lines.push(stat_line(&t.to_string(), &n));
+    }
+    lines
+}
+
 pub fn render_properties_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) -> Rect {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -161,42 +242,31 @@ pub fn render_properties_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) -> 
     chunks[1]
 }
 
+/// The hovered item when there is one, else the selection.
+fn info_target(app: &App) -> (TreeItem, bool) {
+    match app.hovered.as_ref() {
+        Some(h) => (h.item(), true),
+        None => (app.selected_item().clone(), false),
+    }
+}
+
 fn render_properties_top(f: &mut Frame<'_>, area: Rect, app: &mut App) {
-    let item = app.tree_items.get(app.selected_index);
-    let hov = app.hovered.as_ref();
-    let (title, lines): (String, Vec<Line<'static>>) = match item {
-        None | Some(TreeItem::All | TreeItem::Layer(_)) => {
-            if let Some(h) = hov {
-                let key = (h.layer, h.feat);
-                if app.last_properties_key != Some(key) {
-                    app.properties_scroll = 0;
-                    app.last_properties_key = Some(key);
-                }
-                (
-                    format!("Properties (feat {}, hover)", h.feat),
-                    feature_property_lines(app.feature(h.layer, h.feat)),
-                )
-            } else {
-                app.last_properties_key = None;
-                (
-                    "Properties".into(),
-                    vec![Line::from(
-                        "Select or hover over a feature to view properties",
-                    )],
-                )
-            }
-        }
-        Some(TreeItem::Feature { layer, feat } | TreeItem::SubFeature { layer, feat, .. }) => {
-            let key = (*layer, *feat);
-            if app.last_properties_key != Some(key) {
-                app.properties_scroll = 0;
-                app.last_properties_key = Some(key);
-            }
-            (
-                format!("Properties (feat {feat})"),
-                feature_property_lines(app.feature(*layer, *feat)),
-            )
-        }
+    let (target, hover) = info_target(app);
+    if app.last_properties_key.as_ref() != Some(&target) {
+        app.properties_scroll = 0;
+        app.last_properties_key = Some(target.clone());
+    }
+    let suffix = if hover { ", hover" } else { "" };
+    let (title, lines): (String, Vec<Line<'static>>) = match &target {
+        TreeItem::All => ("Properties (all layers)".into(), tile_summary_lines(app)),
+        TreeItem::Layer(l) => (
+            format!("Properties (layer {}{suffix})", app.layer_groups[*l].name),
+            layer_summary_lines(app, *l),
+        ),
+        TreeItem::Feature { layer, feat } | TreeItem::SubFeature { layer, feat, .. } => (
+            format!("Properties (feat {feat}{suffix})"),
+            feature_property_lines(app.feature(*layer, *feat)),
+        ),
     };
     let inner = area.height.saturating_sub(2);
     let max = u16::try_from(lines.len().saturating_sub(inner.into_usize())).unwrap_or(0);
@@ -364,33 +434,28 @@ fn mbt_hover_title_and_lines(app: &App) -> (String, Vec<Line<'static>>) {
 }
 
 fn render_geometry_stats(f: &mut Frame<'_>, area: Rect, app: &App) {
-    let item = app.tree_items.get(app.selected_index);
-    let hov = app.hovered.as_ref();
-
-    let lines = match item {
-        Some(TreeItem::SubFeature { layer, feat, part }) => {
-            subpart_stats_lines(&app.feature(*layer, *feat).geometry, *part)
-        }
-        Some(TreeItem::Feature { layer, feat }) => {
-            geometry_stats_lines(&app.feature(*layer, *feat).geometry)
-        }
-        _ => {
-            if let Some(h) = hov {
-                let geom = &app.feature(h.layer, h.feat).geometry;
-                match h.part {
-                    Some(p) => subpart_stats_lines(geom, p),
-                    None => geometry_stats_lines(geom),
-                }
-            } else {
-                vec![Line::from(
-                    "Select or hover over a feature to view geometry info",
-                )]
-            }
-        }
+    let (target, _) = info_target(app);
+    let (title, lines) = match target {
+        TreeItem::All => (
+            "Geometry (all layers)".to_string(),
+            geometry_count_lines(app, None),
+        ),
+        TreeItem::Layer(l) => (
+            format!("Geometry (layer {})", app.layer_groups[l].name),
+            geometry_count_lines(app, Some(l)),
+        ),
+        TreeItem::Feature { layer, feat } => (
+            "Geometry".to_string(),
+            geometry_stats_lines(&app.feature(layer, feat).geometry),
+        ),
+        TreeItem::SubFeature { layer, feat, part } => (
+            "Geometry".to_string(),
+            subpart_stats_lines(&app.feature(layer, feat).geometry, part),
+        ),
     };
 
     let para = Paragraph::new(lines)
-        .block(block_with_title("Geometry"))
+        .block(block_with_title(title))
         .wrap(Wrap { trim: false });
     f.render_widget(para, area);
 }
