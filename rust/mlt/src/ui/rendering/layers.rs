@@ -12,6 +12,7 @@ use ratatui::widgets::{Paragraph, Wrap};
 use usize_cast::IntoUsize as _;
 
 use crate::ui::mbt::MbtTileData;
+use crate::ui::rendering::scrollbar::{Scroll, render_hscrollbar, render_vscrollbar, wrapped_rows};
 use crate::ui::state::{App, TreeItem, ViewMode};
 use crate::ui::tile::{geometry_coord_count, polygon_coord_count};
 use crate::ui::{
@@ -118,14 +119,24 @@ pub fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         }
         ViewMode::FileBrowser | ViewMode::MbtilesMap => "Features".into(),
     };
-    let inner = area.height.saturating_sub(2).into_usize();
-    app.tree_inner_height = inner;
-    let max = u16::try_from(app.tree_items.len().saturating_sub(inner)).unwrap_or(0);
-    app.tree_scroll = app.tree_scroll.min(max);
+    let inner_h = area.height.saturating_sub(2).into_usize();
+    let inner_w = area.width.saturating_sub(2).into_usize();
+    app.tree_inner_height = inner_h;
+    let content_w = lines.iter().map(Line::width).max().unwrap_or(0);
+    app.tree_scroll = app
+        .tree_scroll
+        .min(Scroll::max_pos(app.tree_items.len(), inner_h));
+    app.tree_hscroll = app.tree_hscroll.min(Scroll::max_pos(content_w, inner_w));
     let para = Paragraph::new(lines)
         .block(block_with_title(title))
-        .scroll((app.tree_scroll, 0));
+        .scroll((app.tree_scroll, app.tree_hscroll));
     f.render_widget(para, area);
+    render_vscrollbar(
+        f,
+        area,
+        Scroll::new(app.tree_items.len(), inner_h, app.tree_scroll),
+    );
+    render_hscrollbar(f, area, Scroll::new(content_w, inner_w, app.tree_hscroll));
 }
 
 fn feature_property_lines(feat: &Feature) -> Vec<Line<'static>> {
@@ -258,6 +269,7 @@ fn render_properties_top(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     let (target, hover) = info_target(app);
     if app.last_properties_key.as_ref() != Some(&target) {
         app.properties_scroll = 0;
+        app.geometry_scroll = 0;
         app.last_properties_key = Some(target.clone());
     }
     let suffix = if hover { ", hover" } else { "" };
@@ -272,14 +284,16 @@ fn render_properties_top(f: &mut Frame<'_>, area: Rect, app: &mut App) {
             feature_property_lines(app.feature(*layer, *feat)),
         ),
     };
-    let inner = area.height.saturating_sub(2);
-    let max = u16::try_from(lines.len().saturating_sub(inner.into_usize())).unwrap_or(0);
-    app.properties_scroll = app.properties_scroll.min(max);
+    let inner_h = area.height.saturating_sub(2).into_usize();
+    let inner_w = area.width.saturating_sub(2).into_usize();
+    let rows = wrapped_rows(&lines, inner_w);
+    app.properties_scroll = app.properties_scroll.min(Scroll::max_pos(rows, inner_h));
     let para = Paragraph::new(lines)
         .block(block_with_title(title))
         .wrap(Wrap { trim: true })
         .scroll((app.properties_scroll, 0));
     f.render_widget(para, area);
+    render_vscrollbar(f, area, Scroll::new(rows, inner_h, app.properties_scroll));
 }
 
 fn info_point(lines: &mut Vec<Line<'static>>, p: Point<i32>) {
@@ -400,14 +414,16 @@ fn tessellation_line(
 /// Renders the left panel for `MbtilesMap` mode: shows hovered feature properties only.
 pub fn render_mbtiles_hover_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     let (title, lines) = mbt_hover_title_and_lines(app);
-    let inner = area.height.saturating_sub(2).into_usize();
-    let max = u16::try_from(lines.len().saturating_sub(inner)).unwrap_or(0);
-    app.properties_scroll = app.properties_scroll.min(max);
+    let inner_h = area.height.saturating_sub(2).into_usize();
+    let inner_w = area.width.saturating_sub(2).into_usize();
+    let rows = wrapped_rows(&lines, inner_w);
+    app.properties_scroll = app.properties_scroll.min(Scroll::max_pos(rows, inner_h));
     let para = Paragraph::new(lines)
         .block(block_with_title(title))
         .wrap(Wrap { trim: true })
         .scroll((app.properties_scroll, 0));
     f.render_widget(para, area);
+    render_vscrollbar(f, area, Scroll::new(rows, inner_h, app.properties_scroll));
 }
 
 fn mbt_hover_title_and_lines(app: &App) -> (String, Vec<Line<'static>>) {
@@ -452,7 +468,7 @@ fn mbt_hover_title_and_lines(app: &App) -> (String, Vec<Line<'static>>) {
     (title, feature_property_lines(feat))
 }
 
-fn render_geometry_stats(f: &mut Frame<'_>, area: Rect, app: &App) {
+fn render_geometry_stats(f: &mut Frame<'_>, area: Rect, app: &mut App) {
     let (target, _) = info_target(app);
     let (title, lines) = match target {
         TreeItem::All => (
@@ -475,8 +491,14 @@ fn render_geometry_stats(f: &mut Frame<'_>, area: Rect, app: &App) {
         }
     };
 
+    let inner_h = area.height.saturating_sub(2).into_usize();
+    let inner_w = area.width.saturating_sub(2).into_usize();
+    let rows = wrapped_rows(&lines, inner_w);
+    app.geometry_scroll = app.geometry_scroll.min(Scroll::max_pos(rows, inner_h));
     let para = Paragraph::new(lines)
         .block(block_with_title(title))
-        .wrap(Wrap { trim: false });
+        .wrap(Wrap { trim: false })
+        .scroll((app.geometry_scroll, 0));
     f.render_widget(para, area);
+    render_vscrollbar(f, area, Scroll::new(rows, inner_h, app.geometry_scroll));
 }
