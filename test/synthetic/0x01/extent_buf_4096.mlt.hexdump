@@ -1,0 +1,53 @@
+00000000                                                                     | layer[0] (34 B)
+00000000  21                                                !                |   size: 33 (varint) - tag + body
+00000001  01                                                .                |   tag: 0x01 -> Tag01
+00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
+00000009  80 20                                             .                |   extent: 4096
+0000000b  01                                                .                |   column_count: 1
+0000000c                                                                     |   schema (1 B)
+0000000c                                                                     |     column[0] (1 B)
+0000000c  04                                                .                |       type: 0x04 Geometry
+                                                                             |         └ bits 7-1 = 0000010 -> base type = Geometry
+                                                                             |         └ bit 0 = 0 -> optional = false
+0000000d                                                                     |   column data (21 B)
+0000000d                                                                     |     column[0] Geometry (21 B)
+0000000d  03                                                .                |       stream_count: 3
+0000000e                                                                     |       meta (5 B)
+0000000e                                                                     |         header (4 B)
+0000000e  30                                                0                |           stream_type: 0x30 Length(VarBinary)
+                                                                             |             └ bits 7-4 = 0011 -> category = Length
+                                                                             |             └ bits 3-0 = 0000 -> subtype = VarBinary
+0000000f  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+                                                                             |             └ bits 7-5 = 000 -> logical1 = None
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 10 -> physical = VarInt
+00000010  01                                                .                |           num_values: 1
+00000011  01                                                .                |           byte_length: 1
+00000012  01                                                .                |         data [Length(VarBinary) None/VarInt, 1 values, 1 B]
+                                                                             |           decoded: [1]
+00000013                                                                     |       stream[0] (5 B)
+00000013                                                                     |         header (4 B)
+00000013  32                                                2                |           stream_type: 0x32 Length(Parts)
+                                                                             |             └ bits 7-4 = 0011 -> category = Length
+                                                                             |             └ bits 3-0 = 0010 -> subtype = Parts
+00000014  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+                                                                             |             └ bits 7-5 = 000 -> logical1 = None
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 10 -> physical = VarInt
+00000015  01                                                .                |           num_values: 1
+00000016  01                                                .                |           byte_length: 1
+00000017  02                                                .                |         data [Length(Parts) None/VarInt, 1 values, 1 B]
+                                                                             |           decoded: [2]
+00000018                                                                     |       stream[1] (10 B)
+00000018                                                                     |         header (4 B)
+00000018  13                                                .                |           stream_type: 0x13 Data(Vertex)
+                                                                             |             └ bits 7-4 = 0001 -> category = Data
+                                                                             |             └ bits 3-0 = 0011 -> subtype = Vertex
+00000019  42                                                B                |           encoding: 0x42 logical=ComponentwiseDelta physical=VarInt
+                                                                             |             └ bits 7-5 = 010 -> logical1 = ComponentwiseDelta
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 10 -> physical = VarInt
+0000001a  04                                                .                |           num_values: 4
+0000001b  06                                                .                |           byte_length: 6
+0000001c  53 53 a8 41 a8 41                                 SS.A.A           |         data [Data(Vertex) ComponentwiseDelta/VarInt, 4 values, 6 B]
+                                                                             |           decoded: [-42, -42, 4138, 4138]

@@ -1,0 +1,67 @@
+00000000                                                                     | layer[0] (74 B)
+00000000  49                                                I                |   size: 73 (varint) - tag + body
+00000001  02                                                .                |   tag: 0x02 -> Tag02
+00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
+00000009  50                                                P                |   extent: 80
+0000000a  03                                                .                |   feature_count: 3
+0000000b  0a                                                .                |   layout: 0x0A MultiPolygons
+                                                                             |     └ bit 7 = 0 -> reserved = 0
+                                                                             |     └ bits 6-4 = 000 -> shared presence bitfields = 0
+                                                                             |     └ bits 3-0 = 1010 -> geometry layout = MultiPolygons
+0000000c                                                                     |   geometry (61 B)
+0000000c                                                                     |     types (5 B)
+0000000c                                                                     |       header (2 B)
+0000000c  08                                                .                |         encoding: 0x08 logical=None physical=VarInt
+                                                                             |           └ bit 7 = 0 -> has_explicit_count = false -> 3 values from context
+                                                                             |           └ bits 6-4 = 000 -> logical = None
+                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |           └ bits 1-0 = 00 -> reserved = 0
+0000000d  03                                                .                |         byte_length: 3
+0000000e  02 04 05                                          ...              |       data [Length(VarBinary) None/VarInt, 3 values, 3 B]
+                                                                             |         decoded: [2, 4, 5]
+00000011                                                                     |     geo_lengths (5 B)
+00000011                                                                     |       header (3 B)
+00000011  88                                                .                |         encoding: 0x88 logical=None physical=VarInt
+                                                                             |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |           └ bits 6-4 = 000 -> logical = None
+                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |           └ bits 1-0 = 00 -> reserved = 0
+00000012  02                                                .                |         num_values: 2
+00000013  02                                                .                |         byte_length: 2
+00000014  02 02                                             ..               |       data [Length(Geometries) None/VarInt, 2 values, 2 B]
+                                                                             |         decoded: [2, 2]
+00000016                                                                     |     part_lengths (5 B)
+00000016                                                                     |       header (2 B)
+00000016  08                                                .                |         encoding: 0x08 logical=None physical=VarInt
+                                                                             |           └ bit 7 = 0 -> has_explicit_count = false -> 3 values from context
+                                                                             |           └ bits 6-4 = 000 -> logical = None
+                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |           └ bits 1-0 = 00 -> reserved = 0
+00000017  03                                                .                |         byte_length: 3
+00000018  01 02 01                                          ...              |       data [Length(Parts) None/VarInt, 3 values, 3 B]
+                                                                             |         decoded: [1, 2, 1]
+0000001b                                                                     |     ring_lengths (9 B)
+0000001b                                                                     |       header (3 B)
+0000001b  88                                                .                |         encoding: 0x88 logical=None physical=VarInt
+                                                                             |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |           └ bits 6-4 = 000 -> logical = None
+                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |           └ bits 1-0 = 00 -> reserved = 0
+0000001c  06                                                .                |         num_values: 6
+0000001d  06                                                .                |         byte_length: 6
+0000001e  03 02 03 03 03 03                                 ......           |       data [Length(Rings) None/VarInt, 6 values, 6 B]
+                                                                             |         decoded: [3, 2, 3, 3, 3, 3]
+00000024                                                                     |     vertices (37 B)
+00000024                                                                     |       header (3 B)
+00000024  a8                                                .                |         encoding: 0xA8 logical=ComponentwiseDelta physical=VarInt
+                                                                             |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta
+                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |           └ bits 1-0 = 00 -> reserved = 0
+00000025  22                                                "                |         num_values: 34
+00000026  22                                                "                |         byte_length: 34
+00000027  6e 0a 06 2e 22 0b 65 17 24 10 17 24 24 20 19 14   n...".e.$..$$ .. |       data [Data(Vertex) ComponentwiseDelta/VarInt, 34 values, 34 B]
+00000037  37 53 1c 16 0a 2b 15 16 0a 09 03 14 66 40 04 12   7S...+......f@.. | 
+00000047  04 03                                             ..               | 
+                                                                             |         decoded: [55, 5, 58, 28, 75, 22, 24, 10, 42, 18, 30, 36, 48, 52, 35, 62, 7, 20, 21, 31, 26, 9, 15, 20, 20, 15, 18, 25, 69, 57, 71, 66, 73, 64]
+00000049  00                                                .                |   column_count: 0
