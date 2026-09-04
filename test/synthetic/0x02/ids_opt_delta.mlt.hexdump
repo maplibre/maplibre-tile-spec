@@ -11,7 +11,7 @@
 0000000c                                                                     |   geometry (17 B)
 0000000c                                                                     |     types (4 B)
 0000000c                                                                     |       header (2 B)
-0000000c  20                                                                 |         encoding: 0x20 logical=Int(Rle(Interleaved { num_rle_values: 5 })) physical=VarInt
+0000000c  20                                                                 |         encoding: 0x20 logical=Rle physical=implied
                                                                              |           └ bit 7 = 0 -> has_explicit_count = false -> 5 values from context
                                                                              |           └ bits 6-4 = 010 -> logical = Rle, numbered for a v2 integer stream
                                                                              |           └ bits 3-2 = 00 -> physical = implied
@@ -21,7 +21,7 @@
                                                                              |         decoded: [0, 0, 0, 0, 0]
 00000010                                                                     |     vertices (13 B)
 00000010                                                                     |       header (3 B)
-00000010  a8                                                .                |         encoding: 0xA8 logical=Vertex(ComponentwiseDelta) physical=VarInt
+00000010  a8                                                .                |         encoding: 0xA8 logical=CwDelta physical=VarInt
                                                                              |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
                                                                              |           └ bits 6-4 = 010 -> logical = CwDelta, numbered for a v2 vertex stream
                                                                              |           └ bits 3-2 = 10 -> physical = VarInt
@@ -40,7 +40,7 @@
                                                                              |         decoded: 5 present-bits: 11011
 00000020                                                                     |       data (7 B)
 00000020                                                                     |         header (2 B)
-00000020  18                                                .                |           encoding: 0x18 logical=Int(Delta) physical=VarInt
+00000020  18                                                .                |           encoding: 0x18 logical=Delta physical=VarInt
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> 4 values from context
                                                                              |             └ bits 6-4 = 001 -> logical = Delta, numbered for a v2 integer stream
                                                                              |             └ bits 3-2 = 10 -> physical = VarInt
