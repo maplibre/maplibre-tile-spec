@@ -14,7 +14,6 @@ jobs:
       java: ${{ steps.filter.outputs.java }}
       ts: ${{ steps.filter.outputs.ts }}
       cpp: ${{ steps.filter.outputs.cpp }}
-      # Only the top pull request in a stack runs the expensive artifact and fuzz jobs.
       top-of-stack: ${{ github.event.pull_request.stack != null && github.event.pull_request.stack.position == github.event.pull_request.stack.size }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
