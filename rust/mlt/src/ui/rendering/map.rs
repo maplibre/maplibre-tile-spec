@@ -11,14 +11,29 @@ use ratatui::widgets::canvas::{Canvas, Context, Line as CanvasLine, Rectangle};
 use crate::ui::mbt::{MbtHoveredInfo, MbtTileData, TileTransform};
 use crate::ui::state::{App, LayerGroup, TreeItem};
 use crate::ui::{
-    CLR_DIMMED, CLR_EXTENT, CLR_HOVERED, CLR_INNER_RING, CLR_INNER_RING_SEL, CLR_POLYGON,
-    CLR_SELECTED, block_with_title, coord_f64, geometry_color, is_ring_ccw, part_color,
+    CLR_CONTEXT_FEATURE, CLR_CONTEXT_LAYER, CLR_DIMMED, CLR_EXTENT, CLR_HOVERED, CLR_INNER_RING,
+    CLR_INNER_RING_SEL, CLR_POLYGON, CLR_SELECTED, block_with_title, coord_f64, geometry_color,
+    is_ring_ccw,
 };
 
+/// How a geometry is colored.
+#[derive(Debug, Clone, Copy)]
+enum Paint {
+    /// Geometry-type colors, polygon rings by winding.
+    Natural,
+    /// One color, with holes in the highlighted-hole tint.
+    Highlight(Color),
+    /// One color for everything.
+    Flat(Color),
+}
+
+/// Draws the selected scope in color, the rest as gray context, and the hovered item in white.
 pub fn render_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
     let sel = app.selected_item();
     let ext = app.extent();
     let (x0, y0, x1, y1) = app.calculate_bounds();
+    let hov = app.hovered.as_ref().map(|h| &h.item);
+    let fc = &app.tile.fc;
 
     let canvas = Canvas::default()
         .block(block_with_title("Map View"))
@@ -33,45 +48,97 @@ pub fn render_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
                 color: CLR_EXTENT,
             });
 
-            let hov = app.hovered.as_ref();
-            let draw_feat = |ctx: &mut Context<'_>, gi: usize| {
-                let geom = &app.tile.fc.features[gi].geometry;
-                let base = geometry_color(geom);
-                let is_hov = hov.is_some_and(|h| app.global_idx(h.layer, h.feat) == gi);
-                let sel_part = match sel {
-                    TreeItem::SubFeature { layer, feat, part }
-                        if app.global_idx(*layer, *feat) == gi =>
-                    {
-                        Some(*part)
-                    }
-                    TreeItem::All
-                    | TreeItem::Layer(_)
-                    | TreeItem::Feature { .. }
-                    | TreeItem::SubFeature { .. } => None,
-                };
-                let hov_part =
-                    hov.and_then(|h| (app.global_idx(h.layer, h.feat) == gi).then_some(h.part)?);
-                draw_feature(ctx, geom, base, is_hov, sel_part, hov_part);
-            };
-
             match sel {
                 TreeItem::All => {
-                    for gi in 0..app.tile.fc.features.len() {
-                        draw_feat(ctx, gi);
+                    let hov_layer = match hov {
+                        Some(TreeItem::Layer(l)) => Some(*l),
+                        _ => None,
+                    };
+                    for (li, group) in app.layer_groups.iter().enumerate() {
+                        if Some(li) == hov_layer {
+                            continue;
+                        }
+                        draw_group(ctx, fc, group, Paint::Natural);
+                    }
+                    if let Some(l) = hov_layer {
+                        draw_group(ctx, fc, &app.layer_groups[l], Paint::Highlight(CLR_HOVERED));
                     }
                 }
                 TreeItem::Layer(l) => {
-                    for &gi in &app.layer_groups[*l].feature_indices {
-                        draw_feat(ctx, gi);
+                    draw_other_layers(ctx, app, *l);
+                    let hov_feat = match hov {
+                        Some(TreeItem::Feature { layer, feat }) if layer == l => Some(*feat),
+                        _ => None,
+                    };
+                    let group = &app.layer_groups[*l];
+                    for (fi, &gi) in group.feature_indices.iter().enumerate() {
+                        if Some(fi) != hov_feat {
+                            draw_feature(
+                                ctx,
+                                &fc.features[gi].geometry,
+                                Paint::Natural,
+                                None,
+                                None,
+                            );
+                        }
+                    }
+                    if let Some(fi) = hov_feat {
+                        let geom = &app.feature(*l, fi).geometry;
+                        draw_feature(ctx, geom, Paint::Highlight(CLR_HOVERED), None, None);
                     }
                 }
                 TreeItem::Feature { layer, feat } | TreeItem::SubFeature { layer, feat, .. } => {
-                    draw_feat(ctx, app.global_idx(*layer, *feat));
+                    draw_other_layers(ctx, app, *layer);
+                    let group = &app.layer_groups[*layer];
+                    for (fi, &gi) in group.feature_indices.iter().enumerate() {
+                        if fi != *feat {
+                            let paint = Paint::Flat(CLR_CONTEXT_FEATURE);
+                            draw_feature(ctx, &fc.features[gi].geometry, paint, None, None);
+                        }
+                    }
+                    let sel_part = match sel {
+                        TreeItem::SubFeature { part, .. } => Some(*part),
+                        TreeItem::All | TreeItem::Layer(_) | TreeItem::Feature { .. } => None,
+                    };
+                    let hov_part = match hov {
+                        Some(TreeItem::SubFeature {
+                            layer: hl,
+                            feat: hf,
+                            part,
+                        }) if hl == layer && hf == feat => Some(*part),
+                        _ => None,
+                    };
+                    let whole_hovered = matches!(
+                        hov,
+                        Some(TreeItem::Feature { layer: hl, feat: hf }) if hl == layer && hf == feat
+                    );
+                    let geom = &app.feature(*layer, *feat).geometry;
+                    let paint = if whole_hovered {
+                        Paint::Highlight(CLR_HOVERED)
+                    } else {
+                        Paint::Natural
+                    };
+                    draw_feature(ctx, geom, paint, sel_part, hov_part);
                 }
             }
         });
 
     f.render_widget(canvas, area);
+}
+
+fn draw_group(ctx: &mut Context<'_>, fc: &FeatureCollection, group: &LayerGroup, paint: Paint) {
+    for &gi in &group.feature_indices {
+        draw_feature(ctx, &fc.features[gi].geometry, paint, None, None);
+    }
+}
+
+/// Every layer except `except`, in the darker context gray.
+fn draw_other_layers(ctx: &mut Context<'_>, app: &App, except: usize) {
+    for (li, group) in app.layer_groups.iter().enumerate() {
+        if li != except {
+            draw_group(ctx, &app.tile.fc, group, Paint::Flat(CLR_CONTEXT_LAYER));
+        }
+    }
 }
 
 /// Full-tile preview for file browser (all layers, no r-tree/mouse).
@@ -89,47 +156,59 @@ pub fn render_tile_preview(f: &mut Frame<'_>, area: Rect, fc: &FeatureCollection
                 color: CLR_EXTENT,
             });
             for feat in &fc.features {
-                draw_feature(
-                    ctx,
-                    &feat.geometry,
-                    geometry_color(&feat.geometry),
-                    false,
-                    None,
-                    None,
-                );
+                draw_feature(ctx, &feat.geometry, Paint::Natural, None, None);
             }
         });
 
     f.render_widget(canvas, area);
 }
 
+fn flat_color(paint: Paint, geom: &Geometry<i32>) -> Color {
+    match paint {
+        Paint::Natural => geometry_color(geom),
+        Paint::Highlight(c) | Paint::Flat(c) => c,
+    }
+}
+
+/// Paint of part `idx` of a multi-geometry given the selected and hovered parts.
+fn part_paint(paint: Paint, sel: Option<usize>, hov: Option<usize>, idx: usize) -> Paint {
+    if sel == Some(idx) {
+        Paint::Highlight(CLR_SELECTED)
+    } else if hov == Some(idx) {
+        Paint::Highlight(CLR_HOVERED)
+    } else if sel.is_some() || hov.is_some() {
+        Paint::Flat(CLR_DIMMED)
+    } else {
+        paint
+    }
+}
+
 fn draw_feature(
     ctx: &mut Context<'_>,
     geom: &Geometry<i32>,
-    base: Color,
-    is_hov: bool,
+    paint: Paint,
     sel_part: Option<usize>,
     hov_part: Option<usize>,
 ) {
-    let color = if is_hov { CLR_HOVERED } else { base };
     match geom {
-        Geometry::<i32>::Point(p) => draw_point(ctx, p.0, color),
-        Geometry::<i32>::LineString(ls) => draw_line(ctx, &ls.0, color),
-        Geometry::<i32>::Polygon(poly) => draw_polygon(ctx, poly, is_hov, color),
+        Geometry::<i32>::Point(p) => draw_point(ctx, p.0, flat_color(paint, geom)),
+        Geometry::<i32>::LineString(ls) => draw_line(ctx, &ls.0, flat_color(paint, geom)),
+        Geometry::<i32>::Polygon(poly) => draw_polygon(ctx, poly, paint),
         Geometry::<i32>::MultiPoint(pts) => {
             for (i, p) in pts.iter().enumerate() {
-                draw_point(ctx, p.0, part_color(sel_part, hov_part, i, color));
+                let pc = flat_color(part_paint(paint, sel_part, hov_part, i), geom);
+                draw_point(ctx, p.0, pc);
             }
         }
         Geometry::<i32>::MultiLineString(lines) => {
             for (i, ls) in lines.iter().enumerate() {
-                draw_line(ctx, &ls.0, part_color(sel_part, hov_part, i, color));
+                let pc = flat_color(part_paint(paint, sel_part, hov_part, i), geom);
+                draw_line(ctx, &ls.0, pc);
             }
         }
         Geometry::<i32>::MultiPolygon(polys) => {
             for (i, poly) in polys.iter().enumerate() {
-                let pc = part_color(sel_part, hov_part, i, color);
-                draw_polygon(ctx, poly, matches!(pc, CLR_HOVERED | CLR_SELECTED), pc);
+                draw_polygon(ctx, poly, part_paint(paint, sel_part, hov_part, i));
             }
         }
         Geometry::<i32>::Line(_)
@@ -161,25 +240,22 @@ fn draw_ring(ctx: &mut Context<'_>, ring: &[Coord<i32>], color: Color) {
     }
 }
 
-fn ring_color(ring: &[Coord<i32>], highlighted: bool, fallback: Color) -> Color {
-    if !highlighted {
-        if is_ring_ccw(ring) {
-            CLR_POLYGON
-        } else {
-            CLR_INNER_RING
-        }
-    } else if is_ring_ccw(ring) {
-        fallback
-    } else {
-        CLR_INNER_RING_SEL
+fn ring_color(ring: &[Coord<i32>], paint: Paint) -> Color {
+    let ccw = is_ring_ccw(ring);
+    match paint {
+        Paint::Natural if ccw => CLR_POLYGON,
+        Paint::Natural => CLR_INNER_RING,
+        Paint::Highlight(c) if ccw => c,
+        Paint::Highlight(_) => CLR_INNER_RING_SEL,
+        Paint::Flat(c) => c,
     }
 }
 
-fn draw_polygon(ctx: &mut Context<'_>, poly: &Polygon<i32>, highlighted: bool, fallback: Color) {
+fn draw_polygon(ctx: &mut Context<'_>, poly: &Polygon<i32>, paint: Paint) {
     let ext = &poly.exterior().0;
-    draw_ring(ctx, ext, ring_color(ext, highlighted, fallback));
+    draw_ring(ctx, ext, ring_color(ext, paint));
     for ring in poly.interiors() {
-        draw_ring(ctx, &ring.0, ring_color(&ring.0, highlighted, fallback));
+        draw_ring(ctx, &ring.0, ring_color(&ring.0, paint));
     }
 }
 

@@ -66,6 +66,10 @@ pub const CLR_DIMMED: Color = Color::DarkGray;
 pub const CLR_INNER_RING_SEL: Color = Color::Rgb(255, 150, 120);
 pub const CLR_LABEL: Color = Color::Cyan;
 pub const CLR_HINT: Color = Color::DarkGray;
+/// Other layers, drawn as context behind the selected layer or feature.
+pub const CLR_CONTEXT_LAYER: Color = Color::DarkGray;
+/// Other features of the selected feature's layer.
+pub const CLR_CONTEXT_FEATURE: Color = Color::Gray;
 
 pub const STYLE_SELECTED: Style = Style::new().fg(CLR_SELECTED).add_modifier(Modifier::BOLD);
 pub const STYLE_LABEL: Style = Style::new().fg(CLR_LABEL);
@@ -853,18 +857,6 @@ fn is_entry_visible(layer: usize, feat: usize, sel: &TreeItem) -> bool {
     }
 }
 
-fn part_color(sel: Option<usize>, hov: Option<usize>, idx: usize, base: Color) -> Color {
-    if sel == Some(idx) {
-        CLR_SELECTED
-    } else if hov == Some(idx) {
-        CLR_HOVERED
-    } else if sel.is_some() || hov.is_some() {
-        CLR_DIMMED
-    } else {
-        base
-    }
-}
-
 // --- Winding ---
 
 fn ring_signed_area(ring: &[Coord<i32>]) -> f64 {
@@ -1072,10 +1064,13 @@ fn handle_mouse(
                         area,
                         app.tree_scroll.into_usize(),
                     )
-                    && let Some((l, f, p)) =
-                        app.tree_items.get(row).and_then(TreeItem::layer_feat_part)
+                    && let Some(item) = app.tree_items.get(row)
+                    && *item != TreeItem::All
                 {
-                    app.hovered = Some(HoveredInfo::new(row, l, f, p));
+                    app.hovered = Some(HoveredInfo {
+                        tree_idx: Some(row),
+                        item: item.clone(),
+                    });
                 }
                 if app.hovered.is_none()
                     && let Some(area) = areas.map
@@ -1335,13 +1330,13 @@ fn handle_mouse(
                         app.handle_enter();
                     }
                 }
-                if let Some(ref h) = app.hovered
+                if let Some(h) = app.hovered.clone()
                     && let Some(ta) = areas.tree
                     && areas
                         .map
                         .is_some_and(|m| point_in_rect(mouse.column, mouse.row, m))
                 {
-                    app.handle_feature_click(h.layer, h.feat, h.part, ta.height);
+                    app.handle_map_click(&h.item, ta.height);
                     app.invalidate_bounds();
                 }
             }

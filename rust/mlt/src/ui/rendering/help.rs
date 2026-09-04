@@ -7,9 +7,10 @@ use usize_cast::IntoUsize as _;
 
 use crate::ui::state::{App, ViewMode};
 use crate::ui::{
-    CLR_BAD_WINDING, CLR_DIMMED, CLR_EXTENT, CLR_HOVERED, CLR_INNER_RING, CLR_INNER_RING_SEL,
-    CLR_LINE, CLR_MULTI_LINE, CLR_MULTI_POINT, CLR_MULTI_POLYGON, CLR_POINT, CLR_POLYGON,
-    CLR_SELECTED, STYLE_LABEL, STYLE_SELECTED, block_with_title,
+    CLR_BAD_WINDING, CLR_CONTEXT_FEATURE, CLR_CONTEXT_LAYER, CLR_DIMMED, CLR_EXTENT, CLR_HOVERED,
+    CLR_INNER_RING, CLR_INNER_RING_SEL, CLR_LINE, CLR_MULTI_LINE, CLR_MULTI_POINT,
+    CLR_MULTI_POLYGON, CLR_POINT, CLR_POLYGON, CLR_SELECTED, STYLE_LABEL, STYLE_SELECTED,
+    block_with_title,
 };
 
 const CLR_ERROR: Color = Color::Red;
@@ -169,8 +170,9 @@ fn help_layer_overview() -> Vec<Line<'static>> {
         heading("Mouse"),
         key("Click tree item", "Select (drill into level)"),
         key("Double-click", "Expand/collapse"),
-        key("Hover tree/map", "Highlight geometry"),
-        key("Click on map", "Select hovered feature"),
+        key("Hover tree/map", "Highlight the layer, feature, or part"),
+        key("", "at the current level"),
+        key("Click on map", "Select the hovered item"),
         key("Scroll panels", "Scroll tree/properties"),
         key("Drag dividers", "Resize panels"),
         Line::from(""),
@@ -187,8 +189,10 @@ fn help_layer_overview() -> Vec<Line<'static>> {
         Line::from(""),
         heading("Selection Colors"),
         color(CLR_SELECTED, "Yellow", "Selected feature/part"),
-        color(CLR_HOVERED, "White", "Hovered feature"),
+        color(CLR_HOVERED, "White", "Hovered layer/feature/part"),
         color(CLR_INNER_RING_SEL, "Salmon", "Inner ring (selected)"),
         color(CLR_DIMMED, "Dark gray", "Sibling parts (dimmed)"),
+        color(CLR_CONTEXT_FEATURE, "Gray", "Other features in the layer"),
+        color(CLR_CONTEXT_LAYER, "Dark gray", "Other layers"),
     ]
 }
