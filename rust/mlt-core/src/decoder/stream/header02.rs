@@ -74,6 +74,7 @@ pub(crate) enum Logical {
     Alp,
     Dict,
     FrontCoded,
+    BitPacked,
 }
 
 /// How a string column lays its streams out, named by the extension bits of its leading stream.
@@ -129,7 +130,7 @@ impl Family {
     const fn members(self) -> &'static [Logical] {
         use Logical as L;
         match self {
-            Self::Int | Self::Str(_) => &[L::None, L::Delta, L::Rle, L::DeltaRle],
+            Self::Int | Self::Str(_) => &[L::None, L::Delta, L::Rle, L::DeltaRle, L::BitPacked],
             Self::Bool => &[L::None, L::Rle],
             Self::Float => &[L::None, L::Rle, L::Alp, L::Dict],
             Self::Vertex => &[L::None, L::Delta, L::CwDelta, L::Morton],
@@ -259,7 +260,8 @@ pub(crate) fn peek_blob_layout(enc_byte: u8) -> Option<BlobLayout> {
         | Logical::DeltaRle
         | Logical::Morton
         | Logical::Alp
-        | Logical::Dict => None,
+        | Logical::Dict
+        | Logical::BitPacked => None,
     }
 }
 
@@ -303,6 +305,9 @@ pub(crate) enum LogicalInt {
     Rle,
     /// As [`Self::Rle`], over zigzag deltas.
     DeltaRle,
+    /// Every value in the same number of bits, so the physical field is reserved.
+    /// The width leads the payload, since it is a property of the values rather than of the format.
+    BitPacked,
 }
 
 /// Logical encoding of a bool column's data stream.
@@ -407,6 +412,10 @@ fn logical_int(family: Family, enc_byte: u8, logical: Logical) -> MltResult<Logi
             no_physical(enc_byte)?;
             LogicalInt::DeltaRle
         }
+        Logical::BitPacked => {
+            no_physical(enc_byte)?;
+            LogicalInt::BitPacked
+        }
         Logical::CwDelta | Logical::Morton | Logical::Alp | Logical::Dict | Logical::FrontCoded => {
             unreachable_member(family, logical)?
         }
@@ -442,7 +451,8 @@ impl Encoding02 {
                 | Logical::DeltaRle
                 | Logical::Morton
                 | Logical::Alp
-                | Logical::Dict => unreachable_member(family, logical)?,
+                | Logical::Dict
+                | Logical::BitPacked => unreachable_member(family, logical)?,
             }),
             Family::Bool => Self::Bool(match logical {
                 Logical::None => LogicalBool::None(physical_bits(enc_byte)?),
@@ -456,7 +466,8 @@ impl Encoding02 {
                 | Logical::Morton
                 | Logical::Alp
                 | Logical::Dict
-                | Logical::FrontCoded => unreachable_member(family, logical)?,
+                | Logical::FrontCoded
+                | Logical::BitPacked => unreachable_member(family, logical)?,
             }),
             Family::Float => Self::Float(match logical {
                 Logical::None => LogicalFloat::None(physical_bits(enc_byte)?),
@@ -470,7 +481,8 @@ impl Encoding02 {
                 | Logical::CwDelta
                 | Logical::DeltaRle
                 | Logical::Morton
-                | Logical::FrontCoded => unreachable_member(family, logical)?,
+                | Logical::FrontCoded
+                | Logical::BitPacked => unreachable_member(family, logical)?,
             }),
             Family::Vertex => Self::Vertex(match logical {
                 Logical::None => LogicalVertex::None(physical_int(enc_byte)?),
@@ -481,7 +493,8 @@ impl Encoding02 {
                 | Logical::DeltaRle
                 | Logical::Alp
                 | Logical::Dict
-                | Logical::FrontCoded => unreachable_member(family, logical)?,
+                | Logical::FrontCoded
+                | Logical::BitPacked => unreachable_member(family, logical)?,
             }),
         })
     }
@@ -503,6 +516,7 @@ impl Encoding02 {
             | Self::Bool(LogicalBool::Rle)
             | Self::Float(LogicalFloat::Rle) => Logical::Rle,
             Self::Int(LogicalInt::DeltaRle) => Logical::DeltaRle,
+            Self::Int(LogicalInt::BitPacked) => Logical::BitPacked,
             Self::Vertex(LogicalVertex::Morton(_)) => Logical::Morton,
             Self::Float(LogicalFloat::Alp(_)) => Logical::Alp,
             Self::Float(LogicalFloat::Dict(_)) => Logical::Dict,
@@ -525,6 +539,7 @@ impl Encoding02 {
             Self::Bool(LogicalBool::None(p))
             | Self::Float(LogicalFloat::None(p))
             | Self::Bytes(LogicalBytes::None(p) | LogicalBytes::FrontCoded(p)) => p.into(),
+            Self::Int(LogicalInt::BitPacked) => "BitPacked",
             Self::Int(LogicalInt::Rle | LogicalInt::DeltaRle)
             | Self::Bool(LogicalBool::Rle)
             | Self::Float(LogicalFloat::Rle) => "implied",
@@ -571,6 +586,11 @@ impl Encoding02 {
             Self::Int(LogicalInt::DeltaRle) => IntEncoding::new(
                 LogicalEncoding::Int(IntLogical::DeltaRle(rle())),
                 PhysicalEncoding::VarInt,
+            ),
+            // Bit packing is a physical layout, so it reads back as one over untransformed values.
+            Self::Int(LogicalInt::BitPacked) => IntEncoding::new(
+                LogicalEncoding::Int(IntLogical::None),
+                PhysicalEncoding::BitPacked,
             ),
             Self::Bool(LogicalBool::None(p)) => {
                 IntEncoding::new(LogicalEncoding::Bool(BoolLogical::None), flat_bits(p)?)
@@ -646,6 +666,13 @@ fn physical_int_field(physical: PhysicalEncoding) -> MltResult<u8> {
                 "v2, whose FastPFor streams are 128-value little-endian blocks",
             ));
         }
+        // Bit packing is named by the logical field, which `wire_fields` takes before this.
+        PhysicalEncoding::BitPacked => {
+            return Err(MltError::UnsupportedPhysicalEncodingForType(
+                physical,
+                "a v2 physical field, which has no code for bit packing",
+            ));
+        }
     })
 }
 
@@ -671,6 +698,17 @@ fn wire_fields(encoding: IntEncoding, family: Family) -> MltResult<(Logical, u8)
             _ => physical_int_field(encoding.physical),
         }
     };
+
+    // Bit packing has a logical code of its own, since the physical field has no spare pattern.
+    if encoding.physical == PhysicalEncoding::BitPacked {
+        if encoding.logical != LE::Int(IL::None) {
+            return Err(MltError::UnsupportedLogicalEncoding(
+                encoding.logical,
+                "v2 bit packing, which stores values as they are",
+            ));
+        }
+        return Ok((Logical::BitPacked, 0));
+    }
 
     Ok(match encoding.logical {
         LE::Int(IL::None) | LE::Bool(BL::None) | LE::Float(FL::None) | LE::Vertex(VL::None) => {

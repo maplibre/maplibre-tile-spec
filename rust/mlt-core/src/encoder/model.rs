@@ -243,6 +243,9 @@ pub struct EncoderConfig {
     /// Allow the v2-only ALP float encoding
     #[cfg(feature = "unstable-v2")]
     allow_float_alp: bool,
+    /// Allow the v2-only bit-packed physical encoding for dictionary code streams
+    #[cfg(feature = "unstable-v2")]
+    allow_packed_dict_codes: bool,
 }
 impl Default for EncoderConfig {
     fn default() -> Self {
@@ -261,6 +264,8 @@ impl Default for EncoderConfig {
             allow_float_dict: false,
             #[cfg(feature = "unstable-v2")]
             allow_float_alp: false,
+            #[cfg(feature = "unstable-v2")]
+            allow_packed_dict_codes: false,
         }
     }
 }
@@ -396,6 +401,22 @@ impl EncoderConfig {
     #[must_use]
     pub fn with_float_alp(mut self, enabled: bool) -> Self {
         self.allow_float_alp = enabled;
+        self
+    }
+
+    /// Whether dictionary code streams may be stored bit-packed.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn allow_packed_dict_codes(self) -> bool {
+        self.allow_packed_dict_codes && self.wire_version != WireVersion::V01
+    }
+
+    /// Allow dictionary code streams to store every code in the same
+    /// `ceil(log2(dict_len))` bits instead of a varint each.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn with_packed_dict_codes(mut self, enabled: bool) -> Self {
+        self.allow_packed_dict_codes = enabled;
         self
     }
 }

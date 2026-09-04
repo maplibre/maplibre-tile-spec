@@ -345,6 +345,11 @@ pub enum PhysicalEncoding {
     /// Can produce better results in combination with a heavyweight compression scheme like `Gzip`.
     /// Simple compression scheme where the encoding is easier to implement compared to `FastPfor`.
     VarInt,
+    /// Every value in the same number of bits, which a leading payload byte names.
+    /// Beats `VarInt` on the short, small-alphabet streams a dictionary's codes form,
+    /// where `FastPFor`'s 128-value blocks are too coarse to pay for themselves.
+    #[cfg(feature = "unstable-v2")]
+    BitPacked,
 }
 
 /// The `FastPFor` block size and word order a wire version codes its integer streams with.
