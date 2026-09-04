@@ -1,0 +1,101 @@
+name: CodeQL
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: '38 4 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions: { }
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      languages: ${{ steps.select.outputs.languages }}
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        with:
+          # Only files the extractors actually read, verified against a default-setup run log.
+          # Build manifests are absent on purpose: every language but java-kotlin runs
+          # build-mode none, so CMake/Bazel/lockfiles never reach the analysis.
+          filters: |
+            actions:
+              - '.github/workflows/codeql.yml'
+              - '.github/workflows/**'
+              - '.github/actions/**'
+            c-cpp:
+              - '.github/workflows/codeql.yml'
+              - '**/*.c'
+              - '**/*.h'
+              - '**/*.cpp'
+              - '**/*.hpp'
+            java-kotlin:
+              - '.github/workflows/codeql.yml'
+              - '**/*.java'
+              - '**/*.kt'
+              - '**/*.gradle'
+              - 'java/gradle/**'
+            javascript-typescript:
+              - '.github/workflows/codeql.yml'
+              - '**/*.ts'
+              - '**/*.mjs'
+              - '**/package.json'
+              - '**/tsconfig*.json'
+            python:
+              - '.github/workflows/codeql.yml'
+              - '**/*.py'
+              - '**/*.pyi'
+            rust:
+              - '.github/workflows/codeql.yml'
+              - '**/*.rs'
+              - '**/Cargo.toml'
+
+      - name: Select languages to analyse
+        id: select
+        env:
+          # Scheduled and manual runs refresh every language, so the alert baseline never goes stale.
+          CHANGED: ${{ steps.filter.outcome == 'skipped' && '["actions","c-cpp","java-kotlin","javascript-typescript","python","rust"]' || steps.filter.outputs.changes }}
+        run: |
+          echo "languages=$CHANGED" >> "$GITHUB_OUTPUT"
+          echo "Analysing: $CHANGED" >> "$GITHUB_STEP_SUMMARY"
+
+  analyze:
+    needs: changes
+    if: needs.changes.outputs.languages != '[]'
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      packages: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ${{ fromJSON(needs.changes.outputs.languages) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        with:
+          languages: ${{ matrix.language }}
+          # Same build modes GitHub's default setup used, so results stay comparable.
+          build-mode: ${{ matrix.language == 'java-kotlin' && 'autobuild' || 'none' }}
+
+      - if: matrix.language == 'java-kotlin'
+        uses: github/codeql-action/autobuild@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+
+      - uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        with:
+          category: /language:${{ matrix.language }}
