@@ -22,7 +22,26 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      # Wheels are only worth building when the bindings changed, or when this
+      # is the top pull request in the stack (i.e. everything below it landed).
+      build: ${{ steps.filter.outputs.python == 'true' || github.event_name != 'pull_request' || (github.event.pull_request.stack != null && github.event.pull_request.stack.position == github.event.pull_request.stack.size) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        if: github.event_name == 'pull_request'
+        with:
+          filters: |
+            python:
+              - 'rust/mlt-py/**'
+              - '.github/workflows/python-release.yml'
+
   linux:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       fail-fast: false
@@ -140,6 +159,8 @@ jobs:
   #        path: dist
 
   macos:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       fail-fast: false
@@ -167,6 +188,8 @@ jobs:
           path: dist
 
   sdist:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
