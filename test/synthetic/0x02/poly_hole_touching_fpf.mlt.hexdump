@@ -50,6 +50,6 @@
 0000002c  0e                                                .                |         num_values: 14
 0000002d  14                                                .                |         byte_length: 20
 0000002e  00 00 00 00 80 80 94 80 80 94 93 80 80 93 84 84   ................ |       data [Data(Vertex) Vertex(ComponentwiseDelta)/FastPFor(Block128Le), 14 values, 20 B]
-0000003e  86 80 00 00                                       ....             | 
+0000003e  86 80 00 00                                       ....             |
                                                                              |         decoded: [0, 0, 10, 0, 10, 10, 0, 10, 0, 0, 2, 2, 5, 2]
 00000042  00                                                .                |   column_count: 0
