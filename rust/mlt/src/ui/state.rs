@@ -61,7 +61,7 @@ impl TreeItem {
     }
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HoveredInfo {
     pub(crate) tree_idx: usize,
     pub(crate) layer: usize,
