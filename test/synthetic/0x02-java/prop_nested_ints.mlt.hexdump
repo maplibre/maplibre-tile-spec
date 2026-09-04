@@ -1,0 +1,2 @@
+!! hexdump failed with exit code 1
+Error: error parsing v2 stream encoding byte: 0x1F
