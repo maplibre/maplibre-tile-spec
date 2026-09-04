@@ -145,7 +145,7 @@
 00000066  30                                                0                |           stream_type: 0x30 Length(VarBinary)
                                                                              |             └ bits 7-4 = 0011 -> category = Length
                                                                              |             └ bits 3-0 = 0000 -> subtype = VarBinary
-00000067  62                                                b                |           encoding: 0x62 logical=Rle(Split { runs: 1, num_rle_values: 3 }) physical=VarInt
+00000067  62                                                b                |           encoding: 0x62 logical=Int(Rle(Split { runs: 1, num_rle_values: 3 })) physical=VarInt
                                                                              |             └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
@@ -153,20 +153,20 @@
 00000069  02                                                .                |           byte_length: 2
 0000006a  01                                                .                |           runs: 1
 0000006b  03                                                .                |           num_rle_values: 3
-0000006c  03 00                                             ..               |         data [Length(VarBinary) Rle(Split { runs: 1, num_rle_values: 3 })/VarInt, 2 values, 2 B]
+0000006c  03 00                                             ..               |         data [Length(VarBinary) Int(Rle(Split { runs: 1, num_rle_values: 3 }))/VarInt, 2 values, 2 B]
                                                                              |           decoded: [0, 0, 0]
 0000006e                                                                     |       stream[0] (10 B)
 0000006e                                                                     |         header (4 B)
 0000006e  13                                                .                |           stream_type: 0x13 Data(Vertex)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0011 -> subtype = Vertex
-0000006f  42                                                B                |           encoding: 0x42 logical=ComponentwiseDelta physical=VarInt
+0000006f  42                                                B                |           encoding: 0x42 logical=Vertex(ComponentwiseDelta) physical=VarInt
                                                                              |             └ bits 7-5 = 010 -> logical1 = ComponentwiseDelta
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 00000070  06                                                .                |           num_values: 6
 00000071  06                                                .                |           byte_length: 6
-00000072  1a 54 00 00 00 00                                 .T....           |         data [Data(Vertex) ComponentwiseDelta/VarInt, 6 values, 6 B]
+00000072  1a 54 00 00 00 00                                 .T....           |         data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 6 values, 6 B]
                                                                              |           decoded: [13, 42, 13, 42, 13, 42]
 00000078                                                                     |     column[1] SharedDict "1-" (56 B)
 00000078  04                                                .                |       stream_count: 4
@@ -175,27 +175,27 @@
 00000079  36                                                6                |           stream_type: 0x36 Length(Dictionary)
                                                                              |             └ bits 7-4 = 0011 -> category = Length
                                                                              |             └ bits 3-0 = 0110 -> subtype = Dictionary
-0000007a  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+0000007a  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 0000007b  01                                                .                |           num_values: 1
 0000007c  01                                                .                |           byte_length: 1
-0000007d  1e                                                .                |         data [Length(Dictionary) None/VarInt, 1 values, 1 B]
+0000007d  1e                                                .                |         data [Length(Dictionary) Int(None)/VarInt, 1 values, 1 B]
                                                                              |           decoded: [30]
 0000007e                                                                     |       dict_stream[1] (34 B)
 0000007e                                                                     |         header (4 B)
 0000007e  12                                                .                |           stream_type: 0x12 Data(Shared)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0010 -> subtype = Shared
-0000007f  00                                                .                |           encoding: 0x00 logical=None physical=None
+0000007f  00                                                .                |           encoding: 0x00 logical=Int(None) physical=None
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 00 -> physical = None
 00000080  01                                                .                |           num_values: 1
 00000081  1e                                                .                |           byte_length: 30
-00000082  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Shared) None/None, 1 values, 30 B]
-00000092  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   |
+00000082  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Shared) Int(None)/None, 1 values, 30 B]
+00000092  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   | 
                                                                              |           decoded: utf-8 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 000000a0                                                                     |       child[0] Str (8 B)
 000000a0  01                                                .                |         stream_count: 1
@@ -204,13 +204,13 @@
 000000a1  22                                                "                |             stream_type: 0x22 Offset(String)
                                                                              |               └ bits 7-4 = 0010 -> category = Offset
                                                                              |               └ bits 3-0 = 0010 -> subtype = String
-000000a2  02                                                .                |             encoding: 0x02 logical=None physical=VarInt
+000000a2  02                                                .                |             encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |               └ bits 7-5 = 000 -> logical1 = None
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 10 -> physical = VarInt
 000000a3  03                                                .                |             num_values: 3
 000000a4  03                                                .                |             byte_length: 3
-000000a5  00 00 00                                          ...              |           data [Offset(String) None/VarInt, 3 values, 3 B]
+000000a5  00 00 00                                          ...              |           data [Offset(String) Int(None)/VarInt, 3 values, 3 B]
                                                                              |             decoded: [0, 0, 0]
 000000a8                                                                     |       child[1] Str (8 B)
 000000a8  01                                                .                |         stream_count: 1
@@ -219,13 +219,13 @@
 000000a9  22                                                "                |             stream_type: 0x22 Offset(String)
                                                                              |               └ bits 7-4 = 0010 -> category = Offset
                                                                              |               └ bits 3-0 = 0010 -> subtype = String
-000000aa  02                                                .                |             encoding: 0x02 logical=None physical=VarInt
+000000aa  02                                                .                |             encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |               └ bits 7-5 = 000 -> logical1 = None
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 10 -> physical = VarInt
 000000ab  03                                                .                |             num_values: 3
 000000ac  03                                                .                |             byte_length: 3
-000000ad  00 00 00                                          ...              |           data [Offset(String) None/VarInt, 3 values, 3 B]
+000000ad  00 00 00                                          ...              |           data [Offset(String) Int(None)/VarInt, 3 values, 3 B]
                                                                              |             decoded: [0, 0, 0]
 000000b0                                                                     |     column[2] SharedDict "2-" (61 B)
 000000b0  05                                                .                |       stream_count: 5
@@ -234,27 +234,27 @@
 000000b1  36                                                6                |           stream_type: 0x36 Length(Dictionary)
                                                                              |             └ bits 7-4 = 0011 -> category = Length
                                                                              |             └ bits 3-0 = 0110 -> subtype = Dictionary
-000000b2  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+000000b2  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 000000b3  01                                                .                |           num_values: 1
 000000b4  01                                                .                |           byte_length: 1
-000000b5  1e                                                .                |         data [Length(Dictionary) None/VarInt, 1 values, 1 B]
+000000b5  1e                                                .                |         data [Length(Dictionary) Int(None)/VarInt, 1 values, 1 B]
                                                                              |           decoded: [30]
 000000b6                                                                     |       dict_stream[1] (34 B)
 000000b6                                                                     |         header (4 B)
 000000b6  12                                                .                |           stream_type: 0x12 Data(Shared)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0010 -> subtype = Shared
-000000b7  00                                                .                |           encoding: 0x00 logical=None physical=None
+000000b7  00                                                .                |           encoding: 0x00 logical=Int(None) physical=None
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 00 -> physical = None
 000000b8  01                                                .                |           num_values: 1
 000000b9  1e                                                .                |           byte_length: 30
-000000ba  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Shared) None/None, 1 values, 30 B]
-000000ca  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   |
+000000ba  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Shared) Int(None)/None, 1 values, 30 B]
+000000ca  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   | 
                                                                              |           decoded: utf-8 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 000000d8                                                                     |       child[0] Str (8 B)
 000000d8  01                                                .                |         stream_count: 1
@@ -263,13 +263,13 @@
 000000d9  22                                                "                |             stream_type: 0x22 Offset(String)
                                                                              |               └ bits 7-4 = 0010 -> category = Offset
                                                                              |               └ bits 3-0 = 0010 -> subtype = String
-000000da  02                                                .                |             encoding: 0x02 logical=None physical=VarInt
+000000da  02                                                .                |             encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |               └ bits 7-5 = 000 -> logical1 = None
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 10 -> physical = VarInt
 000000db  03                                                .                |             num_values: 3
 000000dc  03                                                .                |             byte_length: 3
-000000dd  00 00 00                                          ...              |           data [Offset(String) None/VarInt, 3 values, 3 B]
+000000dd  00 00 00                                          ...              |           data [Offset(String) Int(None)/VarInt, 3 values, 3 B]
                                                                              |             decoded: [0, 0, 0]
 000000e0                                                                     |       child[1] OptStr (13 B)
 000000e0  02                                                .                |         stream_count: 2
@@ -278,26 +278,26 @@
 000000e1  00                                                .                |             stream_type: 0x00 Present
                                                                              |               └ bits 7-4 = 0000 -> category = Present
                                                                              |               └ bits 3-0 = 0000 -> subtype = -
-000000e2  60                                                `                |             encoding: 0x60 logical=Rle(Split { runs: 1, num_rle_values: 2 }) physical=None
+000000e2  60                                                `                |             encoding: 0x60 logical=Bool(ByteRle(Split { runs: 1, num_rle_values: 2 })) physical=None
                                                                              |               └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 00 -> physical = None
 000000e3  03                                                .                |             num_values: 3
 000000e4  02                                                .                |             byte_length: 2
-000000e5  ff 05                                             ..               |           data [Present Rle(Split { runs: 1, num_rle_values: 2 })/None, 3 values, 2 B]
+000000e5  ff 05                                             ..               |           data [Present Bool(ByteRle(Split { runs: 1, num_rle_values: 2 }))/None, 3 values, 2 B]
                                                                              |             decoded: 3 present-bits: 101
 000000e7                                                                     |         data (6 B)
 000000e7                                                                     |           header (4 B)
 000000e7  22                                                "                |             stream_type: 0x22 Offset(String)
                                                                              |               └ bits 7-4 = 0010 -> category = Offset
                                                                              |               └ bits 3-0 = 0010 -> subtype = String
-000000e8  02                                                .                |             encoding: 0x02 logical=None physical=VarInt
+000000e8  02                                                .                |             encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |               └ bits 7-5 = 000 -> logical1 = None
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 10 -> physical = VarInt
 000000e9  02                                                .                |             num_values: 2
 000000ea  02                                                .                |             byte_length: 2
-000000eb  00 00                                             ..               |           data [Offset(String) None/VarInt, 2 values, 2 B]
+000000eb  00 00                                             ..               |           data [Offset(String) Int(None)/VarInt, 2 values, 2 B]
                                                                              |             decoded: [0, 0]
 000000ed                                                                     |     column[3] SharedDict "3-" (59 B)
 000000ed  05                                                .                |       stream_count: 5
@@ -306,27 +306,27 @@
 000000ee  36                                                6                |           stream_type: 0x36 Length(Dictionary)
                                                                              |             └ bits 7-4 = 0011 -> category = Length
                                                                              |             └ bits 3-0 = 0110 -> subtype = Dictionary
-000000ef  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+000000ef  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 000000f0  01                                                .                |           num_values: 1
 000000f1  01                                                .                |           byte_length: 1
-000000f2  1e                                                .                |         data [Length(Dictionary) None/VarInt, 1 values, 1 B]
+000000f2  1e                                                .                |         data [Length(Dictionary) Int(None)/VarInt, 1 values, 1 B]
                                                                              |           decoded: [30]
 000000f3                                                                     |       dict_stream[1] (34 B)
 000000f3                                                                     |         header (4 B)
 000000f3  12                                                .                |           stream_type: 0x12 Data(Shared)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0010 -> subtype = Shared
-000000f4  00                                                .                |           encoding: 0x00 logical=None physical=None
+000000f4  00                                                .                |           encoding: 0x00 logical=Int(None) physical=None
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 00 -> physical = None
 000000f5  01                                                .                |           num_values: 1
 000000f6  1e                                                .                |           byte_length: 30
-000000f7  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Shared) None/None, 1 values, 30 B]
-00000107  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   |
+000000f7  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Shared) Int(None)/None, 1 values, 30 B]
+00000107  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   | 
                                                                              |           decoded: utf-8 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 00000115                                                                     |       child[0] Str (8 B)
 00000115  01                                                .                |         stream_count: 1
@@ -335,13 +335,13 @@
 00000116  22                                                "                |             stream_type: 0x22 Offset(String)
                                                                              |               └ bits 7-4 = 0010 -> category = Offset
                                                                              |               └ bits 3-0 = 0010 -> subtype = String
-00000117  02                                                .                |             encoding: 0x02 logical=None physical=VarInt
+00000117  02                                                .                |             encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |               └ bits 7-5 = 000 -> logical1 = None
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 10 -> physical = VarInt
 00000118  03                                                .                |             num_values: 3
 00000119  03                                                .                |             byte_length: 3
-0000011a  00 00 00                                          ...              |           data [Offset(String) None/VarInt, 3 values, 3 B]
+0000011a  00 00 00                                          ...              |           data [Offset(String) Int(None)/VarInt, 3 values, 3 B]
                                                                              |             decoded: [0, 0, 0]
 0000011d                                                                     |       child[1] OptStr (11 B)
 0000011d  02                                                .                |         stream_count: 2
@@ -350,26 +350,26 @@
 0000011e  00                                                .                |             stream_type: 0x00 Present
                                                                              |               └ bits 7-4 = 0000 -> category = Present
                                                                              |               └ bits 3-0 = 0000 -> subtype = -
-0000011f  60                                                `                |             encoding: 0x60 logical=Rle(Split { runs: 1, num_rle_values: 2 }) physical=None
+0000011f  60                                                `                |             encoding: 0x60 logical=Bool(ByteRle(Split { runs: 1, num_rle_values: 2 })) physical=None
                                                                              |               └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 00 -> physical = None
 00000120  03                                                .                |             num_values: 3
 00000121  02                                                .                |             byte_length: 2
-00000122  ff 00                                             ..               |           data [Present Rle(Split { runs: 1, num_rle_values: 2 })/None, 3 values, 2 B]
+00000122  ff 00                                             ..               |           data [Present Bool(ByteRle(Split { runs: 1, num_rle_values: 2 }))/None, 3 values, 2 B]
                                                                              |             decoded: 3 present-bits: 000
 00000124                                                                     |         data (4 B)
 00000124                                                                     |           header (4 B)
 00000124  22                                                "                |             stream_type: 0x22 Offset(String)
                                                                              |               └ bits 7-4 = 0010 -> category = Offset
                                                                              |               └ bits 3-0 = 0010 -> subtype = String
-00000125  02                                                .                |             encoding: 0x02 logical=None physical=VarInt
+00000125  02                                                .                |             encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |               └ bits 7-5 = 000 -> logical1 = None
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 10 -> physical = VarInt
 00000126  00                                                .                |             num_values: 0
 00000127  00                                                .                |             byte_length: 0
-00000128                                                                     |           data [Offset(String) None/VarInt, 0 values, 0 B]
+00000128                                                                     |           data [Offset(String) Int(None)/VarInt, 0 values, 0 B]
                                                                              |             decoded: []
 00000128                                                                     |     column[4] SharedDict "4-" (61 B)
 00000128  05                                                .                |       stream_count: 5
@@ -378,27 +378,27 @@
 00000129  36                                                6                |           stream_type: 0x36 Length(Dictionary)
                                                                              |             └ bits 7-4 = 0011 -> category = Length
                                                                              |             └ bits 3-0 = 0110 -> subtype = Dictionary
-0000012a  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+0000012a  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 0000012b  01                                                .                |           num_values: 1
 0000012c  01                                                .                |           byte_length: 1
-0000012d  1e                                                .                |         data [Length(Dictionary) None/VarInt, 1 values, 1 B]
+0000012d  1e                                                .                |         data [Length(Dictionary) Int(None)/VarInt, 1 values, 1 B]
                                                                              |           decoded: [30]
 0000012e                                                                     |       dict_stream[1] (34 B)
 0000012e                                                                     |         header (4 B)
 0000012e  12                                                .                |           stream_type: 0x12 Data(Shared)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0010 -> subtype = Shared
-0000012f  00                                                .                |           encoding: 0x00 logical=None physical=None
+0000012f  00                                                .                |           encoding: 0x00 logical=Int(None) physical=None
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 00 -> physical = None
 00000130  01                                                .                |           num_values: 1
 00000131  1e                                                .                |           byte_length: 30
-00000132  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Shared) None/None, 1 values, 30 B]
-00000142  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   |
+00000132  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Shared) Int(None)/None, 1 values, 30 B]
+00000142  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   | 
                                                                              |           decoded: utf-8 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 00000150                                                                     |       child[0] OptStr (13 B)
 00000150  02                                                .                |         stream_count: 2
@@ -407,26 +407,26 @@
 00000151  00                                                .                |             stream_type: 0x00 Present
                                                                              |               └ bits 7-4 = 0000 -> category = Present
                                                                              |               └ bits 3-0 = 0000 -> subtype = -
-00000152  60                                                `                |             encoding: 0x60 logical=Rle(Split { runs: 1, num_rle_values: 2 }) physical=None
+00000152  60                                                `                |             encoding: 0x60 logical=Bool(ByteRle(Split { runs: 1, num_rle_values: 2 })) physical=None
                                                                              |               └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 00 -> physical = None
 00000153  03                                                .                |             num_values: 3
 00000154  02                                                .                |             byte_length: 2
-00000155  ff 05                                             ..               |           data [Present Rle(Split { runs: 1, num_rle_values: 2 })/None, 3 values, 2 B]
+00000155  ff 05                                             ..               |           data [Present Bool(ByteRle(Split { runs: 1, num_rle_values: 2 }))/None, 3 values, 2 B]
                                                                              |             decoded: 3 present-bits: 101
 00000157                                                                     |         data (6 B)
 00000157                                                                     |           header (4 B)
 00000157  22                                                "                |             stream_type: 0x22 Offset(String)
                                                                              |               └ bits 7-4 = 0010 -> category = Offset
                                                                              |               └ bits 3-0 = 0010 -> subtype = String
-00000158  02                                                .                |             encoding: 0x02 logical=None physical=VarInt
+00000158  02                                                .                |             encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |               └ bits 7-5 = 000 -> logical1 = None
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 10 -> physical = VarInt
 00000159  02                                                .                |             num_values: 2
 0000015a  02                                                .                |             byte_length: 2
-0000015b  00 00                                             ..               |           data [Offset(String) None/VarInt, 2 values, 2 B]
+0000015b  00 00                                             ..               |           data [Offset(String) Int(None)/VarInt, 2 values, 2 B]
                                                                              |             decoded: [0, 0]
 0000015d                                                                     |       child[1] Str (8 B)
 0000015d  01                                                .                |         stream_count: 1
@@ -435,13 +435,13 @@
 0000015e  22                                                "                |             stream_type: 0x22 Offset(String)
                                                                              |               └ bits 7-4 = 0010 -> category = Offset
                                                                              |               └ bits 3-0 = 0010 -> subtype = String
-0000015f  02                                                .                |             encoding: 0x02 logical=None physical=VarInt
+0000015f  02                                                .                |             encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |               └ bits 7-5 = 000 -> logical1 = None
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 10 -> physical = VarInt
 00000160  03                                                .                |             num_values: 3
 00000161  03                                                .                |             byte_length: 3
-00000162  00 00 00                                          ...              |           data [Offset(String) None/VarInt, 3 values, 3 B]
+00000162  00 00 00                                          ...              |           data [Offset(String) Int(None)/VarInt, 3 values, 3 B]
                                                                              |             decoded: [0, 0, 0]
 00000165                                                                     |     column[5] SharedDict "5-" (66 B)
 00000165  06                                                .                |       stream_count: 6
@@ -450,27 +450,27 @@
 00000166  36                                                6                |           stream_type: 0x36 Length(Dictionary)
                                                                              |             └ bits 7-4 = 0011 -> category = Length
                                                                              |             └ bits 3-0 = 0110 -> subtype = Dictionary
-00000167  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+00000167  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 00000168  01                                                .                |           num_values: 1
 00000169  01                                                .                |           byte_length: 1
-0000016a  1e                                                .                |         data [Length(Dictionary) None/VarInt, 1 values, 1 B]
+0000016a  1e                                                .                |         data [Length(Dictionary) Int(None)/VarInt, 1 values, 1 B]
                                                                              |           decoded: [30]
 0000016b                                                                     |       dict_stream[1] (34 B)
 0000016b                                                                     |         header (4 B)
 0000016b  12                                                .                |           stream_type: 0x12 Data(Shared)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0010 -> subtype = Shared
-0000016c  00                                                .                |           encoding: 0x00 logical=None physical=None
+0000016c  00                                                .                |           encoding: 0x00 logical=Int(None) physical=None
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 00 -> physical = None
 0000016d  01                                                .                |           num_values: 1
 0000016e  1e                                                .                |           byte_length: 30
-0000016f  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Shared) None/None, 1 values, 30 B]
-0000017f  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   |
+0000016f  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Shared) Int(None)/None, 1 values, 30 B]
+0000017f  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   | 
                                                                              |           decoded: utf-8 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 0000018d                                                                     |       child[0] OptStr (13 B)
 0000018d  02                                                .                |         stream_count: 2
@@ -479,26 +479,26 @@
 0000018e  00                                                .                |             stream_type: 0x00 Present
                                                                              |               └ bits 7-4 = 0000 -> category = Present
                                                                              |               └ bits 3-0 = 0000 -> subtype = -
-0000018f  60                                                `                |             encoding: 0x60 logical=Rle(Split { runs: 1, num_rle_values: 2 }) physical=None
+0000018f  60                                                `                |             encoding: 0x60 logical=Bool(ByteRle(Split { runs: 1, num_rle_values: 2 })) physical=None
                                                                              |               └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 00 -> physical = None
 00000190  03                                                .                |             num_values: 3
 00000191  02                                                .                |             byte_length: 2
-00000192  ff 05                                             ..               |           data [Present Rle(Split { runs: 1, num_rle_values: 2 })/None, 3 values, 2 B]
+00000192  ff 05                                             ..               |           data [Present Bool(ByteRle(Split { runs: 1, num_rle_values: 2 }))/None, 3 values, 2 B]
                                                                              |             decoded: 3 present-bits: 101
 00000194                                                                     |         data (6 B)
 00000194                                                                     |           header (4 B)
 00000194  22                                                "                |             stream_type: 0x22 Offset(String)
                                                                              |               └ bits 7-4 = 0010 -> category = Offset
                                                                              |               └ bits 3-0 = 0010 -> subtype = String
-00000195  02                                                .                |             encoding: 0x02 logical=None physical=VarInt
+00000195  02                                                .                |             encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |               └ bits 7-5 = 000 -> logical1 = None
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 10 -> physical = VarInt
 00000196  02                                                .                |             num_values: 2
 00000197  02                                                .                |             byte_length: 2
-00000198  00 00                                             ..               |           data [Offset(String) None/VarInt, 2 values, 2 B]
+00000198  00 00                                             ..               |           data [Offset(String) Int(None)/VarInt, 2 values, 2 B]
                                                                              |             decoded: [0, 0]
 0000019a                                                                     |       child[1] OptStr (13 B)
 0000019a  02                                                .                |         stream_count: 2
@@ -507,26 +507,26 @@
 0000019b  00                                                .                |             stream_type: 0x00 Present
                                                                              |               └ bits 7-4 = 0000 -> category = Present
                                                                              |               └ bits 3-0 = 0000 -> subtype = -
-0000019c  60                                                `                |             encoding: 0x60 logical=Rle(Split { runs: 1, num_rle_values: 2 }) physical=None
+0000019c  60                                                `                |             encoding: 0x60 logical=Bool(ByteRle(Split { runs: 1, num_rle_values: 2 })) physical=None
                                                                              |               └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 00 -> physical = None
 0000019d  03                                                .                |             num_values: 3
 0000019e  02                                                .                |             byte_length: 2
-0000019f  ff 05                                             ..               |           data [Present Rle(Split { runs: 1, num_rle_values: 2 })/None, 3 values, 2 B]
+0000019f  ff 05                                             ..               |           data [Present Bool(ByteRle(Split { runs: 1, num_rle_values: 2 }))/None, 3 values, 2 B]
                                                                              |             decoded: 3 present-bits: 101
 000001a1                                                                     |         data (6 B)
 000001a1                                                                     |           header (4 B)
 000001a1  22                                                "                |             stream_type: 0x22 Offset(String)
                                                                              |               └ bits 7-4 = 0010 -> category = Offset
                                                                              |               └ bits 3-0 = 0010 -> subtype = String
-000001a2  02                                                .                |             encoding: 0x02 logical=None physical=VarInt
+000001a2  02                                                .                |             encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |               └ bits 7-5 = 000 -> logical1 = None
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 10 -> physical = VarInt
 000001a3  02                                                .                |             num_values: 2
 000001a4  02                                                .                |             byte_length: 2
-000001a5  00 00                                             ..               |           data [Offset(String) None/VarInt, 2 values, 2 B]
+000001a5  00 00                                             ..               |           data [Offset(String) Int(None)/VarInt, 2 values, 2 B]
                                                                              |             decoded: [0, 0]
 000001a7                                                                     |     column[6] SharedDict "6-" (64 B)
 000001a7  06                                                .                |       stream_count: 6
@@ -535,27 +535,27 @@
 000001a8  36                                                6                |           stream_type: 0x36 Length(Dictionary)
                                                                              |             └ bits 7-4 = 0011 -> category = Length
                                                                              |             └ bits 3-0 = 0110 -> subtype = Dictionary
-000001a9  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+000001a9  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 000001aa  01                                                .                |           num_values: 1
 000001ab  01                                                .                |           byte_length: 1
-000001ac  1e                                                .                |         data [Length(Dictionary) None/VarInt, 1 values, 1 B]
+000001ac  1e                                                .                |         data [Length(Dictionary) Int(None)/VarInt, 1 values, 1 B]
                                                                              |           decoded: [30]
 000001ad                                                                     |       dict_stream[1] (34 B)
 000001ad                                                                     |         header (4 B)
 000001ad  12                                                .                |           stream_type: 0x12 Data(Shared)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0010 -> subtype = Shared
-000001ae  00                                                .                |           encoding: 0x00 logical=None physical=None
+000001ae  00                                                .                |           encoding: 0x00 logical=Int(None) physical=None
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 00 -> physical = None
 000001af  01                                                .                |           num_values: 1
 000001b0  1e                                                .                |           byte_length: 30
-000001b1  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Shared) None/None, 1 values, 30 B]
-000001c1  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   |
+000001b1  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Shared) Int(None)/None, 1 values, 30 B]
+000001c1  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   | 
                                                                              |           decoded: utf-8 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 000001cf                                                                     |       child[0] OptStr (13 B)
 000001cf  02                                                .                |         stream_count: 2
@@ -564,26 +564,26 @@
 000001d0  00                                                .                |             stream_type: 0x00 Present
                                                                              |               └ bits 7-4 = 0000 -> category = Present
                                                                              |               └ bits 3-0 = 0000 -> subtype = -
-000001d1  60                                                `                |             encoding: 0x60 logical=Rle(Split { runs: 1, num_rle_values: 2 }) physical=None
+000001d1  60                                                `                |             encoding: 0x60 logical=Bool(ByteRle(Split { runs: 1, num_rle_values: 2 })) physical=None
                                                                              |               └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 00 -> physical = None
 000001d2  03                                                .                |             num_values: 3
 000001d3  02                                                .                |             byte_length: 2
-000001d4  ff 05                                             ..               |           data [Present Rle(Split { runs: 1, num_rle_values: 2 })/None, 3 values, 2 B]
+000001d4  ff 05                                             ..               |           data [Present Bool(ByteRle(Split { runs: 1, num_rle_values: 2 }))/None, 3 values, 2 B]
                                                                              |             decoded: 3 present-bits: 101
 000001d6                                                                     |         data (6 B)
 000001d6                                                                     |           header (4 B)
 000001d6  22                                                "                |             stream_type: 0x22 Offset(String)
                                                                              |               └ bits 7-4 = 0010 -> category = Offset
                                                                              |               └ bits 3-0 = 0010 -> subtype = String
-000001d7  02                                                .                |             encoding: 0x02 logical=None physical=VarInt
+000001d7  02                                                .                |             encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |               └ bits 7-5 = 000 -> logical1 = None
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 10 -> physical = VarInt
 000001d8  02                                                .                |             num_values: 2
 000001d9  02                                                .                |             byte_length: 2
-000001da  00 00                                             ..               |           data [Offset(String) None/VarInt, 2 values, 2 B]
+000001da  00 00                                             ..               |           data [Offset(String) Int(None)/VarInt, 2 values, 2 B]
                                                                              |             decoded: [0, 0]
 000001dc                                                                     |       child[1] OptStr (11 B)
 000001dc  02                                                .                |         stream_count: 2
@@ -592,26 +592,26 @@
 000001dd  00                                                .                |             stream_type: 0x00 Present
                                                                              |               └ bits 7-4 = 0000 -> category = Present
                                                                              |               └ bits 3-0 = 0000 -> subtype = -
-000001de  60                                                `                |             encoding: 0x60 logical=Rle(Split { runs: 1, num_rle_values: 2 }) physical=None
+000001de  60                                                `                |             encoding: 0x60 logical=Bool(ByteRle(Split { runs: 1, num_rle_values: 2 })) physical=None
                                                                              |               └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 00 -> physical = None
 000001df  03                                                .                |             num_values: 3
 000001e0  02                                                .                |             byte_length: 2
-000001e1  ff 00                                             ..               |           data [Present Rle(Split { runs: 1, num_rle_values: 2 })/None, 3 values, 2 B]
+000001e1  ff 00                                             ..               |           data [Present Bool(ByteRle(Split { runs: 1, num_rle_values: 2 }))/None, 3 values, 2 B]
                                                                              |             decoded: 3 present-bits: 000
 000001e3                                                                     |         data (4 B)
 000001e3                                                                     |           header (4 B)
 000001e3  22                                                "                |             stream_type: 0x22 Offset(String)
                                                                              |               └ bits 7-4 = 0010 -> category = Offset
                                                                              |               └ bits 3-0 = 0010 -> subtype = String
-000001e4  02                                                .                |             encoding: 0x02 logical=None physical=VarInt
+000001e4  02                                                .                |             encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |               └ bits 7-5 = 000 -> logical1 = None
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 10 -> physical = VarInt
 000001e5  00                                                .                |             num_values: 0
 000001e6  00                                                .                |             byte_length: 0
-000001e7                                                                     |           data [Offset(String) None/VarInt, 0 values, 0 B]
+000001e7                                                                     |           data [Offset(String) Int(None)/VarInt, 0 values, 0 B]
                                                                              |             decoded: []
 000001e7                                                                     |     column[7] SharedDict "7-" (59 B)
 000001e7  05                                                .                |       stream_count: 5
@@ -620,27 +620,27 @@
 000001e8  36                                                6                |           stream_type: 0x36 Length(Dictionary)
                                                                              |             └ bits 7-4 = 0011 -> category = Length
                                                                              |             └ bits 3-0 = 0110 -> subtype = Dictionary
-000001e9  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+000001e9  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 000001ea  01                                                .                |           num_values: 1
 000001eb  01                                                .                |           byte_length: 1
-000001ec  1e                                                .                |         data [Length(Dictionary) None/VarInt, 1 values, 1 B]
+000001ec  1e                                                .                |         data [Length(Dictionary) Int(None)/VarInt, 1 values, 1 B]
                                                                              |           decoded: [30]
 000001ed                                                                     |       dict_stream[1] (34 B)
 000001ed                                                                     |         header (4 B)
 000001ed  12                                                .                |           stream_type: 0x12 Data(Shared)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0010 -> subtype = Shared
-000001ee  00                                                .                |           encoding: 0x00 logical=None physical=None
+000001ee  00                                                .                |           encoding: 0x00 logical=Int(None) physical=None
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 00 -> physical = None
 000001ef  01                                                .                |           num_values: 1
 000001f0  1e                                                .                |           byte_length: 30
-000001f1  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Shared) None/None, 1 values, 30 B]
-00000201  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   |
+000001f1  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Shared) Int(None)/None, 1 values, 30 B]
+00000201  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   | 
                                                                              |           decoded: utf-8 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 0000020f                                                                     |       child[0] OptStr (11 B)
 0000020f  02                                                .                |         stream_count: 2
@@ -649,26 +649,26 @@
 00000210  00                                                .                |             stream_type: 0x00 Present
                                                                              |               └ bits 7-4 = 0000 -> category = Present
                                                                              |               └ bits 3-0 = 0000 -> subtype = -
-00000211  60                                                `                |             encoding: 0x60 logical=Rle(Split { runs: 1, num_rle_values: 2 }) physical=None
+00000211  60                                                `                |             encoding: 0x60 logical=Bool(ByteRle(Split { runs: 1, num_rle_values: 2 })) physical=None
                                                                              |               └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 00 -> physical = None
 00000212  03                                                .                |             num_values: 3
 00000213  02                                                .                |             byte_length: 2
-00000214  ff 00                                             ..               |           data [Present Rle(Split { runs: 1, num_rle_values: 2 })/None, 3 values, 2 B]
+00000214  ff 00                                             ..               |           data [Present Bool(ByteRle(Split { runs: 1, num_rle_values: 2 }))/None, 3 values, 2 B]
                                                                              |             decoded: 3 present-bits: 000
 00000216                                                                     |         data (4 B)
 00000216                                                                     |           header (4 B)
 00000216  22                                                "                |             stream_type: 0x22 Offset(String)
                                                                              |               └ bits 7-4 = 0010 -> category = Offset
                                                                              |               └ bits 3-0 = 0010 -> subtype = String
-00000217  02                                                .                |             encoding: 0x02 logical=None physical=VarInt
+00000217  02                                                .                |             encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |               └ bits 7-5 = 000 -> logical1 = None
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 10 -> physical = VarInt
 00000218  00                                                .                |             num_values: 0
 00000219  00                                                .                |             byte_length: 0
-0000021a                                                                     |           data [Offset(String) None/VarInt, 0 values, 0 B]
+0000021a                                                                     |           data [Offset(String) Int(None)/VarInt, 0 values, 0 B]
                                                                              |             decoded: []
 0000021a                                                                     |       child[1] Str (8 B)
 0000021a  01                                                .                |         stream_count: 1
@@ -677,13 +677,13 @@
 0000021b  22                                                "                |             stream_type: 0x22 Offset(String)
                                                                              |               └ bits 7-4 = 0010 -> category = Offset
                                                                              |               └ bits 3-0 = 0010 -> subtype = String
-0000021c  02                                                .                |             encoding: 0x02 logical=None physical=VarInt
+0000021c  02                                                .                |             encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |               └ bits 7-5 = 000 -> logical1 = None
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 10 -> physical = VarInt
 0000021d  03                                                .                |             num_values: 3
 0000021e  03                                                .                |             byte_length: 3
-0000021f  00 00 00                                          ...              |           data [Offset(String) None/VarInt, 3 values, 3 B]
+0000021f  00 00 00                                          ...              |           data [Offset(String) Int(None)/VarInt, 3 values, 3 B]
                                                                              |             decoded: [0, 0, 0]
 00000222                                                                     |     column[8] SharedDict "8-" (64 B)
 00000222  06                                                .                |       stream_count: 6
@@ -692,27 +692,27 @@
 00000223  36                                                6                |           stream_type: 0x36 Length(Dictionary)
                                                                              |             └ bits 7-4 = 0011 -> category = Length
                                                                              |             └ bits 3-0 = 0110 -> subtype = Dictionary
-00000224  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+00000224  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 00000225  01                                                .                |           num_values: 1
 00000226  01                                                .                |           byte_length: 1
-00000227  1e                                                .                |         data [Length(Dictionary) None/VarInt, 1 values, 1 B]
+00000227  1e                                                .                |         data [Length(Dictionary) Int(None)/VarInt, 1 values, 1 B]
                                                                              |           decoded: [30]
 00000228                                                                     |       dict_stream[1] (34 B)
 00000228                                                                     |         header (4 B)
 00000228  12                                                .                |           stream_type: 0x12 Data(Shared)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0010 -> subtype = Shared
-00000229  00                                                .                |           encoding: 0x00 logical=None physical=None
+00000229  00                                                .                |           encoding: 0x00 logical=Int(None) physical=None
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 00 -> physical = None
 0000022a  01                                                .                |           num_values: 1
 0000022b  1e                                                .                |           byte_length: 30
-0000022c  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Shared) None/None, 1 values, 30 B]
-0000023c  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   |
+0000022c  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Shared) Int(None)/None, 1 values, 30 B]
+0000023c  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   | 
                                                                              |           decoded: utf-8 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 0000024a                                                                     |       child[0] OptStr (11 B)
 0000024a  02                                                .                |         stream_count: 2
@@ -721,26 +721,26 @@
 0000024b  00                                                .                |             stream_type: 0x00 Present
                                                                              |               └ bits 7-4 = 0000 -> category = Present
                                                                              |               └ bits 3-0 = 0000 -> subtype = -
-0000024c  60                                                `                |             encoding: 0x60 logical=Rle(Split { runs: 1, num_rle_values: 2 }) physical=None
+0000024c  60                                                `                |             encoding: 0x60 logical=Bool(ByteRle(Split { runs: 1, num_rle_values: 2 })) physical=None
                                                                              |               └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 00 -> physical = None
 0000024d  03                                                .                |             num_values: 3
 0000024e  02                                                .                |             byte_length: 2
-0000024f  ff 00                                             ..               |           data [Present Rle(Split { runs: 1, num_rle_values: 2 })/None, 3 values, 2 B]
+0000024f  ff 00                                             ..               |           data [Present Bool(ByteRle(Split { runs: 1, num_rle_values: 2 }))/None, 3 values, 2 B]
                                                                              |             decoded: 3 present-bits: 000
 00000251                                                                     |         data (4 B)
 00000251                                                                     |           header (4 B)
 00000251  22                                                "                |             stream_type: 0x22 Offset(String)
                                                                              |               └ bits 7-4 = 0010 -> category = Offset
                                                                              |               └ bits 3-0 = 0010 -> subtype = String
-00000252  02                                                .                |             encoding: 0x02 logical=None physical=VarInt
+00000252  02                                                .                |             encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |               └ bits 7-5 = 000 -> logical1 = None
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 10 -> physical = VarInt
 00000253  00                                                .                |             num_values: 0
 00000254  00                                                .                |             byte_length: 0
-00000255                                                                     |           data [Offset(String) None/VarInt, 0 values, 0 B]
+00000255                                                                     |           data [Offset(String) Int(None)/VarInt, 0 values, 0 B]
                                                                              |             decoded: []
 00000255                                                                     |       child[1] OptStr (13 B)
 00000255  02                                                .                |         stream_count: 2
@@ -749,24 +749,24 @@
 00000256  00                                                .                |             stream_type: 0x00 Present
                                                                              |               └ bits 7-4 = 0000 -> category = Present
                                                                              |               └ bits 3-0 = 0000 -> subtype = -
-00000257  60                                                `                |             encoding: 0x60 logical=Rle(Split { runs: 1, num_rle_values: 2 }) physical=None
+00000257  60                                                `                |             encoding: 0x60 logical=Bool(ByteRle(Split { runs: 1, num_rle_values: 2 })) physical=None
                                                                              |               └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 00 -> physical = None
 00000258  03                                                .                |             num_values: 3
 00000259  02                                                .                |             byte_length: 2
-0000025a  ff 05                                             ..               |           data [Present Rle(Split { runs: 1, num_rle_values: 2 })/None, 3 values, 2 B]
+0000025a  ff 05                                             ..               |           data [Present Bool(ByteRle(Split { runs: 1, num_rle_values: 2 }))/None, 3 values, 2 B]
                                                                              |             decoded: 3 present-bits: 101
 0000025c                                                                     |         data (6 B)
 0000025c                                                                     |           header (4 B)
 0000025c  22                                                "                |             stream_type: 0x22 Offset(String)
                                                                              |               └ bits 7-4 = 0010 -> category = Offset
                                                                              |               └ bits 3-0 = 0010 -> subtype = String
-0000025d  02                                                .                |             encoding: 0x02 logical=None physical=VarInt
+0000025d  02                                                .                |             encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |               └ bits 7-5 = 000 -> logical1 = None
                                                                              |               └ bits 4-2 = 000 -> logical2 = None
                                                                              |               └ bits 1-0 = 10 -> physical = VarInt
 0000025e  02                                                .                |             num_values: 2
 0000025f  02                                                .                |             byte_length: 2
-00000260  00 00                                             ..               |           data [Offset(String) None/VarInt, 2 values, 2 B]
+00000260  00 00                                             ..               |           data [Offset(String) Int(None)/VarInt, 2 values, 2 B]
                                                                              |             decoded: [0, 0]

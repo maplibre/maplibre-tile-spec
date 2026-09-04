@@ -9,29 +9,29 @@
                                                                              |     └ bits 6-4 = 001 -> shared presence bitfields = 1
                                                                              |     └ bits 3-0 = 0000 -> geometry layout = Points
 0000000c                                                                     |   shared_presence (1 B)
-0000000c  0d                                                .                |     present[0] [Present None/None, 5 values, 1 B]
+0000000c  0d                                                .                |     present[0] [Present Bool(None)/None, 5 values, 1 B]
                                                                              |       decoded: 5 present-bits: 10110
 0000000d                                                                     |   geometry (17 B)
 0000000d                                                                     |     types (4 B)
 0000000d                                                                     |       header (2 B)
-0000000d  20                                                                 |         encoding: 0x20 logical=Rle(Interleaved { num_rle_values: 5 }) physical=VarInt
+0000000d  20                                                                 |         encoding: 0x20 logical=Int(Rle(Interleaved { num_rle_values: 5 })) physical=VarInt
                                                                              |           └ bit 7 = 0 -> has_explicit_count = false -> 5 values from context
                                                                              |           └ bits 6-4 = 010 -> logical = Rle, numbered for a v2 integer stream
                                                                              |           └ bits 3-2 = 00 -> physical = implied
                                                                              |           └ bits 1-0 = 00 -> extension = 0
 0000000e  02                                                .                |         byte_length: 2
-0000000f  05 00                                             ..               |       data [Length(VarBinary) Rle(Interleaved { num_rle_values: 5 })/VarInt, 5 values, 2 B]
+0000000f  05 00                                             ..               |       data [Length(VarBinary) Int(Rle(Interleaved { num_rle_values: 5 }))/VarInt, 5 values, 2 B]
                                                                              |         decoded: [0, 0, 0, 0, 0]
 00000011                                                                     |     vertices (13 B)
 00000011                                                                     |       header (3 B)
-00000011  a8                                                .                |         encoding: 0xA8 logical=ComponentwiseDelta physical=VarInt
+00000011  a8                                                .                |         encoding: 0xA8 logical=Vertex(ComponentwiseDelta) physical=VarInt
                                                                              |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
                                                                              |           └ bits 6-4 = 010 -> logical = CwDelta, numbered for a v2 vertex stream
                                                                              |           └ bits 3-2 = 10 -> physical = VarInt
                                                                              |           └ bits 1-0 = 00 -> extension = 0
 00000012  0a                                                .                |         num_values: 10
 00000013  0a                                                .                |         byte_length: 10
-00000014  1a 54 00 00 00 00 00 00 00 00                     .T........       |       data [Data(Vertex) ComponentwiseDelta/VarInt, 10 values, 10 B]
+00000014  1a 54 00 00 00 00 00 00 00 00                     .T........       |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 10 values, 10 B]
                                                                              |         decoded: [13, 42, 13, 42, 13, 42, 13, 42, 13, 42]
 0000001e  02                                                .                |   column_count: 2
 0000001f                                                                     |   columns (16 B)
@@ -41,13 +41,13 @@
                                                                              |         └ bits 3-0 = 0000 -> data type = Id
 00000020                                                                     |       data (5 B)
 00000020                                                                     |         header (2 B)
-00000020  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+00000020  08                                                .                |           encoding: 0x08 logical=Int(None) physical=VarInt
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> 3 values from context
                                                                              |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
                                                                              |             └ bits 3-2 = 10 -> physical = VarInt
                                                                              |             └ bits 1-0 = 00 -> extension = 0
 00000021  03                                                .                |           byte_length: 3
-00000022  64 66 67                                          dfg              |         data [Data(None) None/VarInt, 3 values, 3 B]
+00000022  64 66 67                                          dfg              |         data [Data(None) Int(None)/VarInt, 3 values, 3 B]
                                                                              |           decoded: [100, 102, 103]
 00000025                                                                     |     column[1] OptU32 "val" (10 B)
 00000025  26                                                &                |       type: 0x26 Shared(0) U32
@@ -56,11 +56,11 @@
 00000026  03 76 61 6c                                       .val             |       name: "val"
 0000002a                                                                     |       data (5 B)
 0000002a                                                                     |         header (2 B)
-0000002a  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+0000002a  08                                                .                |           encoding: 0x08 logical=Int(None) physical=VarInt
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> 3 values from context
                                                                              |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
                                                                              |             └ bits 3-2 = 10 -> physical = VarInt
                                                                              |             └ bits 1-0 = 00 -> extension = 0
 0000002b  03                                                .                |           byte_length: 3
-0000002c  00 02 03                                          ...              |         data [Data(None) None/VarInt, 3 values, 3 B]
+0000002c  00 02 03                                          ...              |         data [Data(None) Int(None)/VarInt, 3 values, 3 B]
                                                                              |           decoded: [0, 2, 3]
