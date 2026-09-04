@@ -76,5 +76,5 @@
 00000025  12                                                .                |           num_values: 18
 00000026  12                                                .                |           byte_length: 18
 00000027  68 46 4b 28 5c 22 37 2b 08 14 17 0b 23 39 1e 20   hFK(\"7+....#9.  |         data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 18 values, 18 B]
-00000037  04 38                                             .8               | 
+00000037  04 38                                             .8               |
                                                                              |           decoded: [52, 35, 14, 55, 60, 72, 32, 50, 36, 60, 24, 54, 6, 25, 21, 41, 23, 69]
