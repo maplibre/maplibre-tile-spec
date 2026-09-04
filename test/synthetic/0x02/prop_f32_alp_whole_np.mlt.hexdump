@@ -1,5 +1,5 @@
-00000000                                                                     | layer[0] (47 B)
-00000000  2e                                                .                |   size: 46 (varint) - tag + body
+00000000                                                                     | layer[0] (48 B)
+00000000  2f                                                /                |   size: 47 (varint) - tag + body
 00000001  02                                                .                |   tag: 0x02 -> Tag02
 00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
 00000009  50                                                P                |   extent: 80
@@ -31,14 +31,14 @@
 00000013  1a 54 00 00 00 00 00 00 00 00 00 00               .T..........     |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 12 values, 12 B]
                                                                              |         decoded: [13, 42, 13, 42, 13, 42, 13, 42, 13, 42, 13, 42]
 0000001f  01                                                .                |   column_count: 1
-00000020                                                                     |   columns (15 B)
-00000020                                                                     |     column[0] F32 "val" (15 B)
+00000020                                                                     |   columns (16 B)
+00000020                                                                     |     column[0] F32 "val" (16 B)
 00000020  09                                                .                |       type: 0x09 AllPresent F32
                                                                              |         └ bits 7-4 = 0000 -> presence = AllPresent
                                                                              |         └ bits 3-0 = 1001 -> data type = F32
 00000021  03 76 61 6c                                       .val             |       name: "val"
-00000025                                                                     |       data (10 B)
-00000025                                                                     |         header (4 B)
+00000025                                                                     |       data (11 B)
+00000025                                                                     |         header (5 B)
 00000025  28                                                (                |           encoding: 0x28 logical=Alp physical=VarInt
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> 6 values from context
                                                                              |             └ bits 6-4 = 010 -> logical = Alp, numbered for a v2 float column
@@ -47,5 +47,6 @@
 00000026  06                                                .                |           byte_length: 6
 00000027  00                                                .                |           alp_e: 0
 00000028  00                                                .                |           alp_f: 0
-00000029  00 02 04 06 08 0a                                 ......           |         data [Data(None) Float(Alp(Alp { e: 0, f: 0 }))/VarInt, 6 values, 6 B]
+00000029  00                                                .                |           alp_base: 0
+0000002a  00 01 02 03 04 05                                 ......           |         data [Data(None) Float(Alp(Alp { e: 0, f: 0, base: 0 }))/VarInt, 6 values, 6 B]
                                                                              |           decoded: [0, 1, 2, 3, 4, 5]
