@@ -301,6 +301,8 @@ impl App {
         self.build_geometry_index();
         self.build_tree_items();
         self.selected_index = 0;
+        self.hovered = None;
+        self.tree_scroll = 0;
         self.invalidate_bounds();
         Ok(())
     }
@@ -561,6 +563,7 @@ impl App {
             ViewMode::LayerOverview if self.files.is_empty() => true,
             ViewMode::LayerOverview => {
                 self.mode = ViewMode::FileBrowser;
+                self.hovered = None;
                 self.invalidate_bounds();
                 false
             }
@@ -586,6 +589,7 @@ impl App {
             TreeItem::All => {
                 if !self.files.is_empty() {
                     self.mode = ViewMode::FileBrowser;
+                    self.hovered = None;
                 }
                 return;
             }

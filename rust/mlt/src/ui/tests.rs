@@ -933,6 +933,105 @@ fn dragging_the_divider_resizes_the_split() {
 }
 
 #[test]
+fn file_browser_mouse_sorts_selects_opens_and_filters() {
+    let mut app = file_browser_app();
+    let areas = render_with_areas(&mut app, WIDTH, HEIGHT);
+    let table = app.file_table_area.unwrap();
+    let mut clicks = MouseState::default();
+
+    send(
+        &mut app,
+        &areas,
+        &mut clicks,
+        SCREEN,
+        LEFT,
+        table.x + 32,
+        table.y + 1,
+    );
+    let first = app.get_selected_file().unwrap().path().to_path_buf();
+    assert!(
+        app.files[0].path().ends_with("point-boolean.mvt"),
+        "header click sorts by size"
+    );
+    assert!(
+        first.ends_with("line-boolean.mvt"),
+        "the selection follows its file"
+    );
+
+    send(
+        &mut app,
+        &areas,
+        &mut clicks,
+        SCREEN,
+        LEFT,
+        table.x + 6,
+        table.y + 3,
+    );
+    assert!(
+        app.get_selected_file()
+            .unwrap()
+            .path()
+            .ends_with("multipoint-boolean.mvt")
+    );
+
+    let filter = areas.filter.unwrap();
+    let first_geometry_row = 3 + collect_extensions(&app.files).len() + 2;
+    let row = filter.y + 1 + u16::try_from(first_geometry_row).unwrap();
+    send(
+        &mut app,
+        &areas,
+        &mut clicks,
+        SCREEN,
+        LEFT,
+        filter.x + 4,
+        row,
+    );
+    assert_eq!(
+        app.filtered_file_indices.len(),
+        1,
+        "geometry filter narrows the list"
+    );
+    send(
+        &mut app,
+        &areas,
+        &mut clicks,
+        SCREEN,
+        LEFT,
+        filter.x + 4,
+        filter.y + 1,
+    );
+    assert_eq!(
+        app.filtered_file_indices.len(),
+        6,
+        "[Reset filters] clears it"
+    );
+
+    send(
+        &mut app,
+        &areas,
+        &mut clicks,
+        SCREEN,
+        LEFT,
+        table.x + 6,
+        table.y + 2,
+    );
+    send(
+        &mut app,
+        &areas,
+        &mut clicks,
+        SCREEN,
+        LEFT,
+        table.x + 6,
+        table.y + 2,
+    );
+    assert_eq!(
+        app.mode,
+        ViewMode::LayerOverview,
+        "double-click opens the file"
+    );
+}
+
+#[test]
 fn mbtiles_mouse_pans_and_zooms() {
     let mut app = mbtiles_app();
     let areas = render_with_areas(&mut app, WIDTH, HEIGHT);
@@ -1783,4 +1882,38 @@ fn enter_and_tree_clicks_drill_through_features_and_parts() {
     press(&mut app, KeyCode::PageDown);
     press(&mut app, KeyCode::Enter);
     assert_eq!(app.selected_index, 0, "the map view has no tree to move in");
+}
+
+#[test]
+fn opening_another_file_drops_the_previous_hover_and_scroll() {
+    let base = test_dir("synthetic/0x01");
+    let rows = vec![
+        analyze_row(
+            base.join("mix_7_pt_line_poly_polyh_mpt_mline_mpoly.mlt"),
+            &base,
+        ),
+        analyze_row(fixtures_dir().join("point-boolean.mvt"), &base),
+    ];
+    let mut app = App::new_file_browser(rows, None, base);
+    press(&mut app, KeyCode::Enter);
+    render_sized(&mut app, 60, 12);
+    press(&mut app, KeyCode::End);
+    assert!(app.tree_scroll > 0, "the tree scrolled to the last feature");
+    let last = app.tree_items.len() - 1;
+    let (layer, feat, part) = app.tree_items[last].layer_feat_part().unwrap();
+    app.hovered = Some(HoveredInfo::new(last, layer, feat, part));
+
+    press(&mut app, KeyCode::Esc);
+    press(&mut app, KeyCode::Down);
+    press(&mut app, KeyCode::Enter);
+    assert_eq!(app.mode, ViewMode::LayerOverview);
+    render(&mut app);
+    assert!(
+        app.hovered.is_none(),
+        "the hover belonged to the previous file"
+    );
+    assert_eq!(
+        app.tree_scroll, 0,
+        "a new file starts at the top of the tree"
+    );
 }

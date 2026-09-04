@@ -347,7 +347,10 @@ fn stat_line(name: &str, val: &dyn std::fmt::Display) -> Line<'static> {
     ])
 }
 
+/// Columns either side of a vertical divider that start a drag.
 const DIVIDER_GRAB: u16 = 2;
+/// Rows either side of a horizontal divider that start a drag.
+const DIVIDER_GRAB_ROWS: u16 = 1;
 
 fn divider_hit(
     col: u16,
@@ -357,8 +360,8 @@ fn divider_hit(
     geom: Option<Rect>,
 ) -> Option<ResizeHandle> {
     let horiz_hit = |dy: u16| {
-        row >= dy.saturating_sub(DIVIDER_GRAB)
-            && row < dy.saturating_add(DIVIDER_GRAB)
+        row >= dy.saturating_sub(DIVIDER_GRAB_ROWS)
+            && row < dy.saturating_add(DIVIDER_GRAB_ROWS)
             && col >= left.x
             && col < left.x + left.width
     };
@@ -1286,8 +1289,8 @@ fn handle_mouse(
                 }
                 if let (Some(pa), Some(fa)) = (areas.preview, areas.filter) {
                     let mut invalidate = |value: u16, resizer: ResizeHandle| {
-                        if mouse.row >= value.saturating_sub(DIVIDER_GRAB)
-                            && mouse.row < value.saturating_add(DIVIDER_GRAB)
+                        if mouse.row >= value.saturating_sub(DIVIDER_GRAB_ROWS)
+                            && mouse.row < value.saturating_add(DIVIDER_GRAB_ROWS)
                             && areas
                                 .right_col
                                 .is_some_and(|rc| point_in_rect(mouse.column, mouse.row, rc))
@@ -1345,7 +1348,9 @@ fn handle_mouse(
                         mouse.row,
                         area,
                         app.file_list_state.offset(),
-                    ) && row < app.filtered_file_indices.len()
+                    )
+                    .and_then(|r| r.checked_sub(1))
+                        && row < app.filtered_file_indices.len()
                     {
                         let dbl = clicks
                             .file_click
