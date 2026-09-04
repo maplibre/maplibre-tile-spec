@@ -70,5 +70,5 @@
 00000025  01                                                .                |           num_values: 1
 00000026  14                                                .                |           byte_length: 20
 00000027  4c 69 6e 65 31 0a 09 22 71 75 6f 74 65 64 22 5c   Line1.."quoted"\ |         data [Data(None) None/None, 1 values, 20 B]
-00000037  70 61 74 68                                       path             | 
+00000037  70 61 74 68                                       path             |
                                                                              |           decoded: utf-8 "Line1\n\t\"quoted\"\\path"
