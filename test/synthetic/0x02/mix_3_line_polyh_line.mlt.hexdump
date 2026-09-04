@@ -51,6 +51,6 @@
 0000001d  18                                                .                |         num_values: 24
 0000001e  18                                                .                |         byte_length: 24
 0000001f  0a 4c 0e 0e 05 32 56 45 4b 28 5c 22 37 2b 08 14   .L...2VEK(\"7+.. |       data [Data(Vertex) ComponentwiseDelta/VarInt, 24 values, 24 B]
-0000002f  17 0b 25 1f 0e 0e 05 32                           ..%....2         | 
+0000002f  17 0b 25 1f 0e 0e 05 32                           ..%....2         |
                                                                              |         decoded: [5, 38, 12, 45, 9, 70, 52, 35, 14, 55, 60, 72, 32, 50, 36, 60, 24, 54, 5, 38, 12, 45, 9, 70]
 00000037  00                                                .                |   column_count: 0

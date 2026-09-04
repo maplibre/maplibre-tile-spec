@@ -72,14 +72,14 @@
 00000038  06                                                .                |           num_values: 6
 00000039  a9 01                                             ..               |           byte_length: 169
 0000003b  72 65 73 69 64 65 6e 74 69 61 6c 5f 7a 6f 6e 65   residential_zone |         data [Data(None) None/None, 6 values, 169 B]
-0000004b  5f 6e 6f 72 74 68 5f 73 65 63 74 6f 72 5f 31 63   _north_sector_1c | 
-0000005b  6f 6d 6d 65 72 63 69 61 6c 5f 7a 6f 6e 65 5f 73   ommercial_zone_s | 
-0000006b  6f 75 74 68 5f 73 65 63 74 6f 72 5f 32 69 6e 64   outh_sector_2ind | 
-0000007b  75 73 74 72 69 61 6c 5f 7a 6f 6e 65 5f 65 61 73   ustrial_zone_eas | 
-0000008b  74 5f 73 65 63 74 6f 72 5f 33 70 61 72 6b 5f 7a   t_sector_3park_z | 
-0000009b  6f 6e 65 5f 77 65 73 74 5f 73 65 63 74 6f 72 5f   one_west_sector_ | 
-000000ab  34 77 61 74 65 72 5f 7a 6f 6e 65 5f 6e 6f 72 74   4water_zone_nort | 
-000000bb  68 5f 73 65 63 74 6f 72 5f 35 72 65 73 69 64 65   h_sector_5reside | 
-000000cb  6e 74 69 61 6c 5f 7a 6f 6e 65 5f 73 6f 75 74 68   ntial_zone_south | 
-000000db  5f 73 65 63 74 6f 72 5f 36                        _sector_6        | 
+0000004b  5f 6e 6f 72 74 68 5f 73 65 63 74 6f 72 5f 31 63   _north_sector_1c |
+0000005b  6f 6d 6d 65 72 63 69 61 6c 5f 7a 6f 6e 65 5f 73   ommercial_zone_s |
+0000006b  6f 75 74 68 5f 73 65 63 74 6f 72 5f 32 69 6e 64   outh_sector_2ind |
+0000007b  75 73 74 72 69 61 6c 5f 7a 6f 6e 65 5f 65 61 73   ustrial_zone_eas |
+0000008b  74 5f 73 65 63 74 6f 72 5f 33 70 61 72 6b 5f 7a   t_sector_3park_z |
+0000009b  6f 6e 65 5f 77 65 73 74 5f 73 65 63 74 6f 72 5f   one_west_sector_ |
+000000ab  34 77 61 74 65 72 5f 7a 6f 6e 65 5f 6e 6f 72 74   4water_zone_nort |
+000000bb  68 5f 73 65 63 74 6f 72 5f 35 72 65 73 69 64 65   h_sector_5reside |
+000000cb  6e 74 69 61 6c 5f 7a 6f 6e 65 5f 73 6f 75 74 68   ntial_zone_south |
+000000db  5f 73 65 63 74 6f 72 5f 36                        _sector_6        |
                                                                              |           decoded: utf-8 "residential_zone_north_sector_1commercial_zone_south_sector_2industrial_zone_east_sector_3park_zone_west_sector_4water_zone_north_sector_5residential_zone_south_sector_6"

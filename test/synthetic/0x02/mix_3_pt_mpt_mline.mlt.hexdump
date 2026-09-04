@@ -51,6 +51,6 @@
 0000001c  12                                                .                |         num_values: 18
 0000001d  12                                                .                |         byte_length: 18
 0000001e  4c 3a 3f 07 1e 20 04 38 02 75 24 10 17 24 24 20   L:?.. .8.u$..$$  |       data [Data(Vertex) ComponentwiseDelta/VarInt, 18 values, 18 B]
-0000002e  19 14                                             ..               | 
+0000002e  19 14                                             ..               |
                                                                              |         decoded: [38, 29, 6, 25, 21, 41, 23, 69, 24, 10, 42, 18, 30, 36, 48, 52, 35, 62]
 00000030  00                                                .                |   column_count: 0

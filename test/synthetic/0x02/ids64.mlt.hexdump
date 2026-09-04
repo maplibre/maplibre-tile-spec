@@ -45,5 +45,5 @@
                                                                              |             └ bits 1-0 = 00 -> reserved = 0
 0000001e  14                                                .                |           byte_length: 20
 0000001f  d2 a5 b1 b3 22 d2 a5 b1 b3 22 d2 a5 b1 b3 22 d2   ...."...."....". |         data [Data(None) None/VarInt, 4 values, 20 B]
-0000002f  a5 b1 b3 22                                       ..."             | 
+0000002f  a5 b1 b3 22                                       ..."             |
                                                                              |           decoded: [9234567890, 9234567890, 9234567890, 9234567890]
