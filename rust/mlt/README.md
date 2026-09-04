@@ -26,6 +26,19 @@ input.mvt.pmtiles -> output.mlt.pmtiles (pmtiles):
   size raw/archive: MVT(gzip) 813.7kB/459.8kB -> MLT(gzip) 460.3kB/357.0kB
 ```
 
+### Partial conversion
+
+Pass `--bbox min_lon,min_lat,max_lon,max_lat` to convert one region of an archive,
+the same way `martin-cp` limits what it copies:
+
+```bash
+mlt convert planet.mvt.pmtiles berlin.mlt.pmtiles --bbox 13.0,52.3,13.8,52.7
+```
+
+Every tile overlapping the bounds is converted, at every zoom level, and the output's
+bounds and center metadata shrink to the region. Repeat `--bbox` to keep several regions.
+It needs an `.mbtiles` or `.pmtiles` input, the only ones that record where each tile is.
+
 ### Visualizer
 
 The visualizer command provides an interactive terminal-based UI for exploring MLT files:

@@ -15,8 +15,8 @@ pub struct TileTransform {
 impl TileTransform {
     /// Build a transform from tile z/x/y coordinates.
     ///
-    /// `tms`: if true, y uses TMS convention (y=0 at south, used by OpenMapTiles
-    /// and MBTiles). If false, y uses XYZ / slippy-map convention (y=0 at north,
+    /// `tms`: if true, y uses TMS convention (y=0 at south, used by `OpenMapTiles`
+    /// and `MBTiles`). If false, y uses XYZ / slippy-map convention (y=0 at north,
     /// used by OSM tile servers).
     pub fn from_zxy(z: u32, x: u32, y: u32, extent: u32, tms: bool) -> Result<Self, PyErr> {
         if z > 30 {
@@ -44,7 +44,7 @@ impl TileTransform {
 
         let scale = tile_size / f64::from(extent);
 
-        Ok(TileTransform {
+        Ok(Self {
             x_origin,
             y_origin,
             x_scale: scale,

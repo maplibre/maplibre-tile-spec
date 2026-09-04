@@ -272,14 +272,16 @@ impl MbtilesState {
         self.loader_fatal.take()
     }
 
-    /// Tile zoom used for loading tiles: floor of `-log2(viewport width)`.
+    /// Tile zoom used for loading tiles.
+    /// Floors `-log2(viewport width)` with a tolerance so an integer zoom does not round down a level.
     pub(crate) fn zoom_level(&self) -> u8 {
+        const TOLERANCE: f64 = 1e-6;
         let vp_w = self.vp_x1 - self.vp_x0;
         if vp_w <= 0.0 {
             return 0;
         }
         #[expect(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-        let z = (-vp_w.log2()).floor().clamp(0.0, 22.0) as u8;
+        let z = (-vp_w.log2() + TOLERANCE).floor().clamp(0.0, 22.0) as u8;
         z
     }
 
@@ -694,4 +696,19 @@ fn build_world_geo_index(
         }
     }
     RTree::bulk_load(entries)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn integer_zoom_reached_by_half_steps_loads_that_level() {
+        let mut state = MbtilesState::new(PathBuf::from("missing.mbtiles"));
+        state.set_viewport_to_tile(1, 0, 0).unwrap();
+        state.zoom_wheel_at(0.3, 0.3, true);
+        state.zoom_wheel_at(0.3, 0.3, true);
+        assert_eq!(state.zoom_level(), 2);
+        assert_eq!(state.center_tile_xyz().0, 2);
+    }
 }

@@ -13,7 +13,9 @@ use pmtiles::{
     AsyncPmTilesReader, Compression, HashMapCache, Header, MmapBackend, PmTilesWriter, TileCoord,
     TileId, TileType,
 };
+use tilejson::{Bounds, Center};
 
+use super::bbox::BboxFilter;
 use super::common::{
     EncodeCache, EncodedTile, PmTilesGeography, TileStats, encode_tile, make_encode_cache,
     make_progress_bar,
@@ -26,10 +28,11 @@ pub async fn convert(
     output: (&Path, ContainerFormat),
     cfg: EncoderConfig,
     tile_compression: Compression,
+    filter: Option<&BboxFilter>,
 ) -> AnyResult<()> {
     match output {
         (output, ContainerFormat::Pmtiles) => {
-            convert_pmtiles_to_pmtiles(input, output, cfg, tile_compression).await
+            convert_pmtiles_to_pmtiles(input, output, cfg, tile_compression, filter).await
         }
         (output, _) => bail!(
             "Output must be a .pmtiles file when input is a .pmtiles file, got: {}",
@@ -55,11 +58,19 @@ fn compression_to_encoding(compression: Compression) -> AnyResult<Encoding> {
 }
 
 /// Copy the source metadata JSON, overriding the MLT format and outer compression.
-fn mlt_pmtiles_metadata(metadata: &str, tile_compression: Compression) -> AnyResult<String> {
+/// A `--bbox` conversion also replaces the geography the metadata repeats.
+fn mlt_pmtiles_metadata(
+    metadata: &str,
+    tile_compression: Compression,
+    clipped: Option<&PmTilesGeography>,
+) -> AnyResult<String> {
     let mut value: serde_json::Value =
         serde_json::from_str(metadata).unwrap_or_else(|_| serde_json::json!({}));
     if let Some(obj) = value.as_object_mut() {
         update_mlt_pmtiles_metadata(obj, tile_compression);
+        if let Some(geography) = clipped {
+            geography.write_to_metadata(obj);
+        }
     }
     Ok(serde_json::to_string(&value)?)
 }
@@ -68,13 +79,13 @@ fn geography_from_header(source: &Header) -> PmTilesGeography {
     PmTilesGeography {
         min_zoom: Some(source.min_zoom),
         max_zoom: Some(source.max_zoom),
-        bounds: Some((
+        bounds: Some(Bounds::new(
             source.min_longitude,
             source.min_latitude,
             source.max_longitude,
             source.max_latitude,
         )),
-        center: Some((
+        center: Some(Center::new(
             source.center_longitude,
             source.center_latitude,
             source.center_zoom,
@@ -98,12 +109,21 @@ async fn open_mvt_pmtiles(input: &Path) -> AnyResult<(Arc<PmReader>, Encoding)> 
     Ok((reader, encoding))
 }
 
-/// Flatten the archive's run-length data entries into individual tile ids.
-async fn collect_pmtiles_ids(reader: &Arc<PmReader>) -> AnyResult<Vec<TileId>> {
+/// Flatten the archive's run-length data entries into individual tile ids,
+/// dropping the ids `filter` does not keep.
+async fn collect_pmtiles_ids(
+    reader: &Arc<PmReader>,
+    filter: Option<&BboxFilter>,
+) -> AnyResult<Vec<TileId>> {
     let mut ids = Vec::new();
     let mut entries = reader.clone().entries();
     while let Some(entry) = entries.try_next().await? {
-        ids.extend(entry.iter_coords());
+        ids.extend(entry.iter_coords().filter(|id| {
+            filter.is_none_or(|filter| {
+                let coord = TileCoord::from(*id);
+                filter.keeps(coord.z(), coord.x(), coord.y())
+            })
+        }));
     }
     Ok(ids)
 }
@@ -272,18 +292,41 @@ async fn convert_pmtiles_to_pmtiles(
     output: &Path,
     cfg: EncoderConfig,
     tile_compression: Compression,
+    filter: Option<&BboxFilter>,
 ) -> AnyResult<()> {
     let (reader, encoding) = open_mvt_pmtiles(input).await?;
-    let ids = collect_pmtiles_ids(&reader).await?;
+    let ids = collect_pmtiles_ids(&reader, filter).await?;
     let input_archive_size = std::fs::metadata(input)?.len();
+    if let Some(filter) = filter
+        && ids.is_empty()
+    {
+        bail!(
+            "--bbox {} selected no tiles from {}",
+            filter.bounds(),
+            input.display()
+        );
+    }
 
     eprintln!("{} -> {} (pmtiles):", input.display(), output.display());
+    if let Some(filter) = filter {
+        eprintln!("  {} tiles are within {}", ids.len(), filter.bounds());
+    }
     let start = Instant::now();
     let bar = make_progress_bar(ids.len() as u64);
 
-    let metadata_str = mlt_pmtiles_metadata(&reader.get_metadata().await?, tile_compression)?;
+    let geography = geography_from_header(reader.get_header());
+    let geography = match filter {
+        Some(filter) => geography.clip_to(filter.bounds()),
+        None => geography,
+    };
+    let metadata_str = mlt_pmtiles_metadata(
+        &reader.get_metadata().await?,
+        tile_compression,
+        // Without a bbox the metadata keeps whatever geography the source recorded.
+        filter.map(|_| &geography),
+    )?;
     let file = std::fs::File::create(output)?;
-    let mut writer = geography_from_header(reader.get_header())
+    let mut writer = geography
         .apply(PmTilesWriter::new(TileType::Mlt))
         .tile_compression(tile_compression)
         .metadata(&metadata_str)
@@ -404,6 +447,60 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn converts_only_the_tiles_overlapping_the_bbox() {
+        let input = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/omt-planet-20260112.mvt.max1.pmtiles");
+        let output = TempOutput::new();
+        let bbox = Bounds::new(20.0, 20.0, 30.0, 30.0);
+        let filter = BboxFilter::new(&[bbox])
+            .expect("bbox is valid")
+            .expect("bbox is set");
+
+        convert_pmtiles_to_pmtiles(
+            &input,
+            &output.0,
+            EncoderConfig::default(),
+            Compression::None,
+            Some(&filter),
+        )
+        .await
+        .expect("conversion succeeds");
+
+        let reader = Arc::new(
+            PmReader::new_with_cached_path(HashMapCache::default(), &output.0)
+                .await
+                .expect("output opens"),
+        );
+        let header = reader.get_header();
+        assert_eq!(
+            Bounds::new(
+                header.min_longitude,
+                header.min_latitude,
+                header.max_longitude,
+                header.max_latitude
+            ),
+            bbox
+        );
+        assert_eq!(
+            Center::new(
+                header.center_longitude,
+                header.center_latitude,
+                header.center_zoom
+            ),
+            Center::new(bbox.left, bbox.bottom, 0)
+        );
+
+        let coords: Vec<_> = collect_pmtiles_ids(&reader, None)
+            .await
+            .expect("tile directory reads")
+            .into_iter()
+            .map(TileCoord::from)
+            .map(|coord| (coord.z(), coord.x(), coord.y()))
+            .collect();
+        assert_eq!(coords, [(0, 0, 0), (1, 1, 0)]);
+    }
+
+    #[tokio::test]
     async fn writes_gzip_compressed_mlt_pmtiles() {
         let input = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../test/fixtures/omt-planet-20260112.mvt.max1.pmtiles");
@@ -414,6 +511,7 @@ mod tests {
             &output.0,
             EncoderConfig::default(),
             Compression::Gzip,
+            None,
         )
         .await
         .expect("conversion succeeds");
@@ -432,7 +530,7 @@ mod tests {
         assert_eq!(metadata["format"], "mlt");
         assert_eq!(metadata["compression"], "gzip");
 
-        let tile_ids = collect_pmtiles_ids(&reader)
+        let tile_ids = collect_pmtiles_ids(&reader, None)
             .await
             .expect("tile directory reads");
         let raw_tile = reader

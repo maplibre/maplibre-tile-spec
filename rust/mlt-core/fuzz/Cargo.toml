@@ -21,14 +21,14 @@ doc = false
 bench = false
 
 [[bin]]
-name = "decoded_layer"
+name = "decoded-layer"
 path = "fuzz_targets/decoded_layer.rs"
 test = false
 doc = false
 bench = false
 
 [[bin]]
-name = "mvt_roundtrip"
+name = "mvt-roundtrip"
 path = "fuzz_targets/mvt_roundtrip.rs"
 test = false
 doc = false
@@ -42,7 +42,7 @@ doc = false
 bench = false
 
 [[bin]]
-name = "wire_version"
+name = "wire-version"
 path = "fuzz_targets/wire_version.rs"
 test = false
 doc = false

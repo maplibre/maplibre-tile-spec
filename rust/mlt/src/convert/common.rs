@@ -8,8 +8,10 @@ use mlt_core::encoder::EncoderConfig;
 use moka::sync::Cache;
 use pmtiles::{Compression, PmTilesWriter, TileCoord};
 use size_format::SizeFormatterSI;
+use tilejson::{Bounds, Center};
 use xxhash_rust::xxh3::Xxh3Builder;
 
+use super::bbox::{clip_bounds, clip_center};
 use super::{encode_one, whole_rate_per_sec};
 
 /// Geographic fields carried into a new `PMTiles` archive.
@@ -18,8 +20,8 @@ use super::{encode_one, whole_rate_per_sec};
 pub struct PmTilesGeography {
     pub min_zoom: Option<u8>,
     pub max_zoom: Option<u8>,
-    pub bounds: Option<(f64, f64, f64, f64)>,
-    pub center: Option<(f64, f64, u8)>,
+    pub bounds: Option<Bounds>,
+    pub center: Option<Center>,
 }
 
 impl PmTilesGeography {
@@ -31,13 +33,40 @@ impl PmTilesGeography {
         if let Some(max_zoom) = self.max_zoom {
             writer = writer.max_zoom(max_zoom);
         }
-        if let Some((min_lon, min_lat, max_lon, max_lat)) = self.bounds {
-            writer = writer.bounds(min_lon, min_lat, max_lon, max_lat);
+        if let Some(bounds) = self.bounds {
+            writer = writer.bounds(bounds.left, bounds.bottom, bounds.right, bounds.top);
         }
-        if let Some((longitude, latitude, zoom)) = self.center {
-            writer = writer.center_zoom(zoom).center(longitude, latitude);
+        if let Some(center) = self.center {
+            writer = writer
+                .center_zoom(center.zoom)
+                .center(center.longitude, center.latitude);
         }
         writer
+    }
+
+    /// Narrows the geography to the box a `--bbox` conversion limited the output to.
+    #[must_use]
+    pub fn clip_to(mut self, clip: Bounds) -> Self {
+        let bounds = self.bounds.map_or(clip, |bounds| clip_bounds(bounds, clip));
+        self.center = self.center.map(|center| clip_center(center, bounds));
+        self.bounds = Some(bounds);
+        self
+    }
+
+    /// Overwrites the geography a metadata JSON object repeats from the archive header.
+    pub fn write_to_metadata(&self, metadata: &mut serde_json::Map<String, serde_json::Value>) {
+        if let Some(bounds) = self.bounds {
+            metadata.insert(
+                "bounds".into(),
+                serde_json::json!([bounds.left, bounds.bottom, bounds.right, bounds.top]),
+            );
+        }
+        if let Some(center) = self.center {
+            metadata.insert(
+                "center".into(),
+                serde_json::json!([center.longitude, center.latitude, center.zoom]),
+            );
+        }
     }
 }
 

@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
@@ -7,25 +7,36 @@ use std::time::Instant;
 use anyhow::{Result as AnyResult, anyhow, bail};
 use futures::StreamExt;
 use martin_tile_utils::{Encoding, Format};
-use mbtiles::{MbtType, Mbtiles, MbtilesTranscoder, Metadata};
+use mbtiles::{MbtType, Mbtiles, MbtilesTranscoder, Metadata, detach_db, init_mbtiles_schema};
 use mlt_core::encoder::EncoderConfig;
 use pmtiles::{Compression, PmTilesWriter, TileCoord, TileType};
 use size_format::SizeFormatterSI;
+use tilejson::{Bounds, TileJSON};
 use usize_cast::FromUsize as _;
 
+use super::bbox::{BboxFilter, clip_bounds, clip_center};
 use super::common::{
     ENCODE_CACHE_BYTES, EncodedTile, MAX_TILE_CACHE_TRACK_SIZE_BYTES, PmTilesGeography, TileStats,
     encode_tile, make_encode_cache, make_progress_bar,
 };
-use super::{ContainerFormat, MbtFormat, encode_one, update_mlt_pmtiles_metadata};
+use super::{ContainerFormat, encode_one, update_mlt_pmtiles_metadata};
+
+/// Narrows a tileset's geography to the box a `--bbox` conversion kept.
+fn clip_tilejson(tilejson: &mut TileJSON, clip: Bounds) {
+    let bounds = tilejson
+        .bounds
+        .map_or(clip, |bounds| clip_bounds(bounds, clip));
+    tilejson.center = tilejson.center.map(|center| clip_center(center, bounds));
+    tilejson.bounds = Some(bounds);
+}
 
 fn geography_from_metadata(metadata: &Metadata) -> PmTilesGeography {
     let tilejson = &metadata.tilejson;
     PmTilesGeography {
         min_zoom: tilejson.minzoom,
         max_zoom: tilejson.maxzoom,
-        bounds: tilejson.bounds.map(|v| (v.left, v.bottom, v.right, v.top)),
-        center: tilejson.center.map(|v| (v.longitude, v.latitude, v.zoom)),
+        bounds: tilejson.bounds,
+        center: tilejson.center,
     }
 }
 
@@ -34,15 +45,16 @@ pub async fn convert(
     input: &Path,
     output: (&Path, ContainerFormat),
     cfg: EncoderConfig,
-    mbtiles_format: Option<MbtFormat>,
+    dst_type: Option<MbtType>,
     tile_compression: Compression,
+    clip: Option<Bounds>,
 ) -> AnyResult<()> {
     match output {
         (output, ContainerFormat::Mbtiles) => {
-            convert_mbtiles_to_mbtiles(input, output, mbtiles_format, cfg).await
+            convert_mbtiles_to_mbtiles(input, output, dst_type, cfg, clip).await
         }
         (output, ContainerFormat::Pmtiles) => {
-            convert_mbtiles_to_pmtiles(input, output, cfg, tile_compression).await
+            convert_mbtiles_to_pmtiles(input, output, cfg, tile_compression, clip).await
         }
         (output, ContainerFormat::Files) => bail!(
             "Output must be either an .mbtiles or a .pmtiles file when input is an .mbtiles file, got: {}",
@@ -93,11 +105,12 @@ async fn get_metadata(input: &Path) -> AnyResult<(Encoding, MbtType, Metadata, u
 async fn convert_mbtiles_to_mbtiles(
     input: &Path,
     output: &Path,
-    mbtiles_format: Option<MbtFormat>,
+    dst_type: Option<MbtType>,
     cfg: EncoderConfig,
+    clip: Option<Bounds>,
 ) -> AnyResult<()> {
-    let (encoding, src_type, _, total) = get_metadata(input).await?;
-    let mbt_type = mbtiles_format.map_or(src_type, Into::into);
+    let (encoding, src_type, mut metadata, total) = get_metadata(input).await?;
+    let mbt_type = dst_type.unwrap_or(src_type);
 
     eprintln!("{} -> {} ({mbt_type}):", input.display(), output.display());
 
@@ -141,6 +154,18 @@ async fn convert_mbtiles_to_mbtiles(
     let mut dst_conn = dst.open_or_new().await?;
     dst.set_metadata_value(&mut dst_conn, "format", Format::Mlt.metadata_format_value())
         .await?;
+    // The copied geography still describes the whole source archive.
+    if let Some(clip) = clip {
+        clip_tilejson(&mut metadata.tilejson, clip);
+        if let Some(bounds) = metadata.tilejson.bounds {
+            dst.set_metadata_value(&mut dst_conn, "bounds", bounds.to_string())
+                .await?;
+        }
+        if let Some(center) = metadata.tilejson.center {
+            dst.set_metadata_value(&mut dst_conn, "center", center.to_string())
+                .await?;
+        }
+    }
 
     let in_bytes = sizes.bytes_in.load(Ordering::Relaxed);
     let out_bytes = sizes.bytes_out.load(Ordering::Relaxed);
@@ -162,9 +187,10 @@ async fn convert_mbtiles_to_pmtiles(
     output: &Path,
     cfg: EncoderConfig,
     tile_compression: Compression,
+    clip: Option<Bounds>,
 ) -> AnyResult<()> {
     // FIXME: add a fastpath for normalised schemas. We don't need to cache them
-    let (encoding, _, metadata, total) = get_metadata(input).await?;
+    let (encoding, _, mut metadata, total) = get_metadata(input).await?;
     let input_archive_size = std::fs::metadata(input)?.len();
 
     eprintln!("{} -> {} (pmtiles):", input.display(), output.display());
@@ -172,6 +198,10 @@ async fn convert_mbtiles_to_pmtiles(
     let start = Instant::now();
     let bar = make_progress_bar(total);
 
+    // The source geography still describes every tile the `--bbox` dropped.
+    if let Some(clip) = clip {
+        clip_tilejson(&mut metadata.tilejson, clip);
+    }
     let geography = geography_from_metadata(&metadata);
     let file = std::fs::File::create(output)?;
     let mut metadata_json = serde_json::to_value(&metadata.tilejson)?;
@@ -248,9 +278,132 @@ async fn convert_mbtiles_to_pmtiles(
     Ok(())
 }
 
+/// A temporary `.mbtiles` holding only the tiles a `--bbox` keeps, deleted when dropped.
+///
+/// Filtering in `SQLite` keeps the conversion from reading tile payloads it would discard.
+pub struct BboxExtract {
+    path: PathBuf,
+    /// Schema of the archive the tiles came from, which the conversion keeps writing.
+    pub source_type: MbtType,
+}
+
+impl BboxExtract {
+    /// Copies every source tile overlapping `filter` into a temporary archive beside `output`.
+    pub async fn create(input: &Path, output: &Path, filter: &BboxFilter) -> AnyResult<Self> {
+        let path = output.with_extension("bbox-extract.mbtiles");
+        if path.exists() {
+            bail!(
+                "Temporary bbox extract {} already exists; delete it first",
+                path.display()
+            );
+        }
+        let src = Mbtiles::new(input)?;
+        let mut src_conn = src.open_readonly().await?;
+        let source_type = src.detect_type(&mut src_conn).await?;
+        drop(src_conn);
+
+        let start = Instant::now();
+        // Constructed before the work so that a failure cleans the partial file up.
+        let extract = Self { path, source_type };
+        let dst = Mbtiles::new(&extract.path)?;
+        let mut conn = dst.open_or_new().await?;
+        init_mbtiles_schema(&mut conn, MbtType::Flat, false).await?;
+        src.attach_to(&mut conn, "src").await?;
+        sqlx::query(
+            "INSERT OR REPLACE INTO metadata (name, value) SELECT name, value FROM src.metadata",
+        )
+        .execute(&mut conn)
+        .await?;
+        let copied = sqlx::query(sqlx::AssertSqlSafe(format!(
+            "INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) \
+             SELECT zoom_level, tile_column, tile_row, tile_data FROM src.tiles WHERE {}",
+            filter.mbtiles_where()
+        )))
+        .execute(&mut conn)
+        .await?
+        .rows_affected();
+        detach_db(&mut conn, "src").await?;
+        drop(conn);
+
+        if copied == 0 {
+            bail!(
+                "--bbox {} selected no tiles from {}",
+                filter.bounds(),
+                input.display()
+            );
+        }
+        eprintln!(
+            "{} -> {} (bbox extract):",
+            input.display(),
+            extract.path.display()
+        );
+        eprintln!(
+            "  extracted {copied} tiles within {} in {:.1?}",
+            filter.bounds(),
+            start.elapsed()
+        );
+        Ok(extract)
+    }
+
+    #[must_use]
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+impl Drop for BboxExtract {
+    fn drop(&mut self) {
+        for suffix in ["", "-wal", "-shm", "-journal"] {
+            let mut path = self.path.clone().into_os_string();
+            path.push(suffix);
+            let _ = std::fs::remove_file(PathBuf::from(path));
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use tilejson::Center;
+
     use super::*;
+
+    #[tokio::test]
+    async fn extracts_only_the_tiles_overlapping_the_bbox() {
+        let input =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test/fixtures/omt.max1.mbtiles");
+        let output = std::env::temp_dir().join(format!(
+            "mlt-bbox-extract-test-{}.pmtiles",
+            std::process::id()
+        ));
+        let filter = BboxFilter::new(&[Bounds::new(20.0, 20.0, 30.0, 30.0)])
+            .expect("bbox is valid")
+            .expect("bbox is set");
+
+        let extract = BboxExtract::create(&input, &output, &filter)
+            .await
+            .expect("extract is written");
+        assert_eq!(extract.source_type, MbtType::Flat);
+
+        let mbt = Mbtiles::new(extract.path()).expect("extract opens");
+        let mut conn = mbt.open_readonly().await.expect("extract connects");
+        let tiles: Vec<(i64, i64, i64)> =
+            sqlx::query_as("SELECT zoom_level, tile_column, tile_row FROM tiles ORDER BY 1, 2, 3")
+                .fetch_all(&mut conn)
+                .await
+                .expect("extract is queryable");
+        assert_eq!(tiles, [(0, 0, 0), (1, 1, 1)]);
+        assert_eq!(
+            mbt.get_metadata_value(&mut conn, "format")
+                .await
+                .expect("metadata is readable"),
+            Some("pbf".to_string())
+        );
+        drop(conn);
+
+        let path = extract.path().to_path_buf();
+        drop(extract);
+        assert!(!path.exists());
+    }
 
     #[test]
     fn reads_pmtiles_geography_from_mbtiles_metadata() {
@@ -275,8 +428,13 @@ mod tests {
             PmTilesGeography {
                 min_zoom: Some(3),
                 max_zoom: Some(12),
-                bounds: Some((-12.345_678_9, -67.890_123_4, 98.765_432_1, 54.321_098_7)),
-                center: Some((11.223_344_5, -44.556_677_8, 8)),
+                bounds: Some(Bounds::new(
+                    -12.345_678_9,
+                    -67.890_123_4,
+                    98.765_432_1,
+                    54.321_098_7
+                )),
+                center: Some(Center::new(11.223_344_5, -44.556_677_8, 8)),
             }
         );
     }
