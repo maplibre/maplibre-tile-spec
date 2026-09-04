@@ -12,8 +12,10 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  ts-fmt:
-    name: Format TypeScript
+  # A single job so that one pull request costs one concurrency slot instead of five.
+  # Each fixup is gated on the paths it actually reads, and one autofix-ci call commits the result.
+  autofix:
+    name: Autofix
     runs-on: ubuntu-latest
     permissions: { contents: read }
     if: |
@@ -24,121 +26,78 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
+
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            ts:
+              - '.github/workflows/autofix.yml'
+              - 'ts/**'
+            rust:
+              - '.github/workflows/autofix.yml'
+              - 'rust/**'
+            ffi:
+              - '.github/workflows/autofix.yml'
+              - 'rust/mlt-ffi/**'
+            py:
+              - '.github/workflows/autofix.yml'
+              - 'rust/mlt-py/**'
+            wasm:
+              - '.github/workflows/autofix.yml'
+              - 'rust/mlt-wasm/**'
+
       - uses: taiki-e/install-action@37f7c5781271959fb65b6b35224e28652ff2b63d # v2.87.0
         with: { tool: 'just' }
-      - uses: ./.github/actions/mlt-setup-node
+
+      # TypeScript
+      - if: steps.filter.outputs.ts == 'true'
+        uses: ./.github/actions/mlt-setup-node
       - name: Format TypeScript
+        if: steps.filter.outputs.ts == 'true'
         run: just ts::fmt
 
-      - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a # v1.3.4
-        with: { commit-message: "chore: format TypeScript" }
-
-  rust-fmt-toml:
-    name: Format Cargo.toml
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    if: |
-      github.event.action == 'opened' ||
-      github.event.action == 'synchronize' ||
-      github.event.action == 'reopened'
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with: { persist-credentials: false }
-      - uses: taiki-e/install-action@37f7c5781271959fb65b6b35224e28652ff2b63d # v2.87.0
-        with: { tool: 'just,cargo-sort' }
+      # Rust
+      # Also installs just and cargo-sort, so it has to come before the Rust fixups.
+      - if: steps.filter.outputs.rust == 'true'
+        uses: ./.github/actions/mlt-setup-rust
       - name: Format Cargo.toml
+        if: steps.filter.outputs.rust == 'true'
         run: just rust::fmt-toml
 
-      - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a # v1.3.4
-        with: { commit-message: 'chore: sort Cargo.toml' }
-  rust-sync-versions:
-    name: Sync Rust-provided bindings version indicators
-    runs-on: ubuntu-latest
-    permissions: { contents: read }
-    if: |
-      github.event.action == 'opened' ||
-      github.event.action == 'synchronize' ||
-      github.event.action == 'reopened'
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with: { persist-credentials: false }
-      - name: Setup Rust
-        run: rustup update stable && rustup default stable
-      - uses: taiki-e/install-action@37f7c5781271959fb65b6b35224e28652ff2b63d # v2.87.0
-        with: { tool: 'just' }
-      - run: sudo apt update && sudo apt install -y jq
       - name: Sync package.json version from Cargo.toml
-        working-directory: rust
+        if: steps.filter.outputs.wasm == 'true'
         run: just rust::sync-wasm-version
+
       - name: Sync pyproject.toml version from Cargo.toml
-        working-directory: rust
+        if: steps.filter.outputs.py == 'true'
         run: just rust::sync-pyo3-version
 
-      - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a # v1.3.4
-        with: { commit-message: 'chore: sync secondary version indicators' }
-
-  rust-gen-ffi-bindings:
-    name: Regenerate diplomat FFI bindings
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    if: |
-      github.event.action == 'opened' ||
-      github.event.action == 'synchronize' ||
-      github.event.action == 'reopened'
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with: { persist-credentials: false }
-      - name: Setup Rust
-        run: rustup update stable && rustup default stable
-      - uses: taiki-e/install-action@37f7c5781271959fb65b6b35224e28652ff2b63d # v2.87.0
-        with: { tool: 'just,cargo-binstall' }
-      - run: sudo apt-get update && sudo apt-get install -y clang-format
-      - name: Install ktlint
+      - name: Install clang-format and ktlint
+        if: steps.filter.outputs.ffi == 'true'
         run: |
+          sudo apt-get update && sudo apt-get install -y clang-format
           curl -sSL https://github.com/pinterest/ktlint/releases/latest/download/ktlint -o /usr/local/bin/ktlint
           chmod +x /usr/local/bin/ktlint
-      - name: Regenerate FFI bindings
-        working-directory: rust
+
+      - name: Regenerate diplomat FFI bindings
+        if: steps.filter.outputs.ffi == 'true'
         run: just rust::sync-ffi-bindings
 
-      # run pre-commit as a formatting tiebreaker
+      - name: Regenerate maplibre_tiles.pyi stub
+        if: steps.filter.outputs.py == 'true'
+        run: just rust::sync-pyo3-stubs
+
+      # Formatting tiebreaker for the generated files
       - name: Install uv
+        if: steps.filter.outputs.ffi == 'true' || steps.filter.outputs.py == 'true'
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-      - run: uvx pre-commit run --all-files
+      - if: steps.filter.outputs.ffi == 'true' || steps.filter.outputs.py == 'true'
+        run: uvx pre-commit run --all-files
         continue-on-error: true
 
       - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a # v1.3.4
-        with: { commit-message: 'chore: regenerate diplomat FFI bindings' }
-
-  rust-gen-pyo3-stubs:
-    name: Regenerate maplibre_tiles.pyi stub
-    runs-on: ubuntu-latest
-    permissions: { contents: read }
-    if: |
-      github.event.action == 'opened' ||
-      github.event.action == 'synchronize' ||
-      github.event.action == 'reopened'
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with: { persist-credentials: false }
-      - uses: taiki-e/install-action@37f7c5781271959fb65b6b35224e28652ff2b63d # v2.87.0
-        with: { tool: 'just' }
-      - uses: ./.github/actions/mlt-setup-rust
-      - name: Regenerate stub
-        run: just rust::sync-pyo3-stubs
-
-      # run pre-commit as a formatting tiebreaker
-      - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-      - run: uvx pre-commit run --all-files
-        continue-on-error: true
-
-      - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a
-        with: { commit-message: 'chore: regenerate maplibre_tiles.pyi stub' }
+        with: { commit-message: 'chore: apply automated fixes' }
 
   bless:
     name: Bless test output
