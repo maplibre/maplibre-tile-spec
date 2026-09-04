@@ -1,0 +1,51 @@
+00000000                                                                     | layer[0] (42 B)
+00000000  29                                                )                |   size: 41 (varint) - tag + body
+00000001  02                                                .                |   tag: 0x02 -> Tag02
+00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
+00000009  50                                                P                |   extent: 80
+0000000a  04                                                .                |   feature_count: 4
+0000000b  00                                                .                |   layout: 0x00 Points
+                                                                             |     └ bit 7 = 0 -> reserved = 0
+                                                                             |     └ bits 6-4 = 000 -> shared presence bitfields = 0
+                                                                             |     └ bits 3-0 = 0000 -> geometry layout = Points
+0000000c                                                                     |   geometry (15 B)
+0000000c                                                                     |     types (4 B)
+0000000c                                                                     |       header (2 B)
+0000000c  30                                                0                |         encoding: 0x30 logical=Rle(Interleaved { num_rle_values: 4 }) physical=VarInt
+                                                                             |           └ bit 7 = 0 -> has_explicit_count = false -> 4 values from context
+                                                                             |           └ bits 6-4 = 011 -> logical = Rle
+                                                                             |           └ bits 3-2 = 00 -> physical = NoneNoLen
+                                                                             |           └ bits 1-0 = 00 -> reserved = 0
+0000000d  02                                                .                |         byte_length: 2
+0000000e  04 00                                             ..               |       data [Length(VarBinary) Rle(Interleaved { num_rle_values: 4 })/VarInt, 4 values, 2 B]
+                                                                             |         decoded: [0, 0, 0, 0]
+00000010                                                                     |     vertices (11 B)
+00000010                                                                     |       header (3 B)
+00000010  a8                                                .                |         encoding: 0xA8 logical=ComponentwiseDelta physical=VarInt
+                                                                             |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta
+                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |           └ bits 1-0 = 00 -> reserved = 0
+00000011  08                                                .                |         num_values: 8
+00000012  08                                                .                |         byte_length: 8
+00000013  1a 54 03 14 78 28 13 63                           .T..x(.c         |       data [Data(Vertex) ComponentwiseDelta/VarInt, 8 values, 8 B]
+                                                                             |         decoded: [13, 42, 11, 52, 71, 72, 61, 22]
+0000001b  01                                                .                |   column_count: 1
+0000001c                                                                     |   columns (14 B)
+0000001c                                                                     |     column[0] OptU64 "val" (14 B)
+0000001c  18                                                .                |       type: 0x18 Inline U64
+                                                                             |         └ bits 7-4 = 0001 -> presence = Inline
+                                                                             |         └ bits 3-0 = 1000 -> data type = U64
+0000001d  03 76 61 6c                                       .val             |       name: "val"
+00000021  0f                                                .                |       present [Present None/None, 4 values, 1 B]
+                                                                             |         decoded: 4 present-bits: 1111
+00000022                                                                     |       data (8 B)
+00000022                                                                     |         header (2 B)
+00000022  18                                                .                |           encoding: 0x18 logical=Delta physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 4 values from context
+                                                                             |             └ bits 6-4 = 001 -> logical = Delta
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+00000023  06                                                .                |           byte_length: 6
+00000024  d0 8c 01 00 00 00                                 ......           |         data [Data(None) Delta/VarInt, 4 values, 6 B]
+                                                                             |           decoded: [9000, 9000, 9000, 9000]

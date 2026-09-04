@@ -1,0 +1,310 @@
+00000000                                                                     | layer[0] (202 B)
+00000000  c8 01                                             ..               |   size: 200 (varint) - tag + body
+00000002  01                                                .                |   tag: 0x01 -> Tag01
+00000003  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
+0000000a  50                                                P                |   extent: 80
+0000000b  09                                                .                |   column_count: 9
+0000000c                                                                     |   schema (64 B)
+0000000c                                                                     |     column[0] (1 B)
+0000000c  04                                                .                |       type: 0x04 Geometry
+                                                                             |         └ bits 7-1 = 0000010 -> base type = Geometry
+                                                                             |         └ bit 0 = 0 -> optional = false
+0000000d                                                                     |     column[1] (8 B)
+0000000d  0b                                                .                |       type: 0x0B OptBool
+                                                                             |         └ bits 7-1 = 0000101 -> base type = OptBool
+                                                                             |         └ bit 0 = 1 -> optional = true
+0000000e  06 61 63 74 69 76 65                              .active          |       name: "active"
+00000015                                                                     |     column[2] (9 B)
+00000015  17                                                .                |       type: 0x17 OptU64
+                                                                             |         └ bits 7-1 = 0001011 -> base type = OptU64
+                                                                             |         └ bit 0 = 1 -> optional = true
+00000016  07 62 69 67 67 65 73 74                           .biggest         |       name: "biggest"
+0000001e                                                                     |     column[3] (8 B)
+0000001e  11                                                .                |       type: 0x11 OptI32
+                                                                             |         └ bits 7-1 = 0001000 -> base type = OptI32
+                                                                             |         └ bit 0 = 1 -> optional = true
+0000001f  06 62 69 67 6e 75 6d                              .bignum          |       name: "bignum"
+00000026                                                                     |     column[4] (7 B)
+00000026  11                                                .                |       type: 0x11 OptI32
+                                                                             |         └ bits 7-1 = 0001000 -> base type = OptI32
+                                                                             |         └ bit 0 = 1 -> optional = true
+00000027  05 63 6f 75 6e 74                                 .count           |       name: "count"
+0000002d                                                                     |     column[5] (8 B)
+0000002d  13                                                .                |       type: 0x13 OptU32
+                                                                             |         └ bits 7-1 = 0001001 -> base type = OptU32
+                                                                             |         └ bit 0 = 1 -> optional = true
+0000002e  06 6d 65 64 69 75 6d                              .medium          |       name: "medium"
+00000035                                                                     |     column[6] (6 B)
+00000035  1d                                                .                |       type: 0x1D OptStr
+                                                                             |         └ bits 7-1 = 0001110 -> base type = OptStr
+                                                                             |         └ bit 0 = 1 -> optional = true
+00000036  04 6e 61 6d 65                                    .name            |       name: "name"
+0000003b                                                                     |     column[7] (11 B)
+0000003b  1b                                                .                |       type: 0x1B OptF64
+                                                                             |         └ bits 7-1 = 0001101 -> base type = OptF64
+                                                                             |         └ bit 0 = 1 -> optional = true
+0000003c  09 70 72 65 63 69 73 69 6f 6e                     .precision       |       name: "precision"
+00000046                                                                     |     column[8] (6 B)
+00000046  19                                                .                |       type: 0x19 OptF32
+                                                                             |         └ bits 7-1 = 0001100 -> base type = OptF32
+                                                                             |         └ bit 0 = 1 -> optional = true
+00000047  04 74 65 6d 70                                    .temp            |       name: "temp"
+0000004c                                                                     |   column data (126 B)
+0000004c                                                                     |     column[0] Geometry (12 B)
+0000004c  02                                                .                |       stream_count: 2
+0000004d                                                                     |       meta (5 B)
+0000004d                                                                     |         header (4 B)
+0000004d  30                                                0                |           stream_type: 0x30 Length(VarBinary)
+                                                                             |             └ bits 7-4 = 0011 -> category = Length
+                                                                             |             └ bits 3-0 = 0000 -> subtype = VarBinary
+0000004e  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+                                                                             |             └ bits 7-5 = 000 -> logical1 = None
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 10 -> physical = VarInt
+0000004f  01                                                .                |           num_values: 1
+00000050  01                                                .                |           byte_length: 1
+00000051  00                                                .                |         data [Length(VarBinary) None/VarInt, 1 values, 1 B]
+                                                                             |           decoded: [0]
+00000052                                                                     |       stream[0] (6 B)
+00000052                                                                     |         header (4 B)
+00000052  13                                                .                |           stream_type: 0x13 Data(Vertex)
+                                                                             |             └ bits 7-4 = 0001 -> category = Data
+                                                                             |             └ bits 3-0 = 0011 -> subtype = Vertex
+00000053  42                                                B                |           encoding: 0x42 logical=ComponentwiseDelta physical=VarInt
+                                                                             |             └ bits 7-5 = 010 -> logical1 = ComponentwiseDelta
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 10 -> physical = VarInt
+00000054  02                                                .                |           num_values: 2
+00000055  02                                                .                |           byte_length: 2
+00000056  1a 54                                             .T               |         data [Data(Vertex) ComponentwiseDelta/VarInt, 2 values, 2 B]
+                                                                             |           decoded: [13, 42]
+00000058                                                                     |     column[1] OptBool "active" (12 B)
+00000058                                                                     |       present (6 B)
+00000058                                                                     |         header (4 B)
+00000058  00                                                .                |           stream_type: 0x00 Present
+                                                                             |             └ bits 7-4 = 0000 -> category = Present
+                                                                             |             └ bits 3-0 = 0000 -> subtype = -
+00000059  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 1, num_rle_values: 2 }) physical=None
+                                                                             |             └ bits 7-5 = 011 -> logical1 = Rle
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 00 -> physical = None
+0000005a  01                                                .                |           num_values: 1
+0000005b  02                                                .                |           byte_length: 2
+0000005c  ff 01                                             ..               |         data [Present Rle(Split { runs: 1, num_rle_values: 2 })/None, 1 values, 2 B]
+                                                                             |           decoded: 1 present-bits: 1
+0000005e                                                                     |       data (6 B)
+0000005e                                                                     |         header (4 B)
+0000005e  10                                                .                |           stream_type: 0x10 Data(None)
+                                                                             |             └ bits 7-4 = 0001 -> category = Data
+                                                                             |             └ bits 3-0 = 0000 -> subtype = None
+0000005f  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 1, num_rle_values: 2 }) physical=None
+                                                                             |             └ bits 7-5 = 011 -> logical1 = Rle
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 00 -> physical = None
+00000060  01                                                .                |           num_values: 1
+00000061  02                                                .                |           byte_length: 2
+00000062  ff 01                                             ..               |         data [Data(None) Rle(Split { runs: 1, num_rle_values: 2 })/None, 1 values, 2 B]
+                                                                             |           decoded: [true]
+00000064                                                                     |     column[2] OptU64 "biggest" (11 B)
+00000064                                                                     |       present (6 B)
+00000064                                                                     |         header (4 B)
+00000064  00                                                .                |           stream_type: 0x00 Present
+                                                                             |             └ bits 7-4 = 0000 -> category = Present
+                                                                             |             └ bits 3-0 = 0000 -> subtype = -
+00000065  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 1, num_rle_values: 2 }) physical=None
+                                                                             |             └ bits 7-5 = 011 -> logical1 = Rle
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 00 -> physical = None
+00000066  01                                                .                |           num_values: 1
+00000067  02                                                .                |           byte_length: 2
+00000068  ff 01                                             ..               |         data [Present Rle(Split { runs: 1, num_rle_values: 2 })/None, 1 values, 2 B]
+                                                                             |           decoded: 1 present-bits: 1
+0000006a                                                                     |       data (5 B)
+0000006a                                                                     |         header (4 B)
+0000006a  10                                                .                |           stream_type: 0x10 Data(None)
+                                                                             |             └ bits 7-4 = 0001 -> category = Data
+                                                                             |             └ bits 3-0 = 0000 -> subtype = None
+0000006b  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+                                                                             |             └ bits 7-5 = 000 -> logical1 = None
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 10 -> physical = VarInt
+0000006c  01                                                .                |           num_values: 1
+0000006d  01                                                .                |           byte_length: 1
+0000006e  00                                                .                |         data [Data(None) None/VarInt, 1 values, 1 B]
+                                                                             |           decoded: [0]
+0000006f                                                                     |     column[3] OptI32 "bignum" (11 B)
+0000006f                                                                     |       present (6 B)
+0000006f                                                                     |         header (4 B)
+0000006f  00                                                .                |           stream_type: 0x00 Present
+                                                                             |             └ bits 7-4 = 0000 -> category = Present
+                                                                             |             └ bits 3-0 = 0000 -> subtype = -
+00000070  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 1, num_rle_values: 2 }) physical=None
+                                                                             |             └ bits 7-5 = 011 -> logical1 = Rle
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 00 -> physical = None
+00000071  01                                                .                |           num_values: 1
+00000072  02                                                .                |           byte_length: 2
+00000073  ff 01                                             ..               |         data [Present Rle(Split { runs: 1, num_rle_values: 2 })/None, 1 values, 2 B]
+                                                                             |           decoded: 1 present-bits: 1
+00000075                                                                     |       data (5 B)
+00000075                                                                     |         header (4 B)
+00000075  10                                                .                |           stream_type: 0x10 Data(None)
+                                                                             |             └ bits 7-4 = 0001 -> category = Data
+                                                                             |             └ bits 3-0 = 0000 -> subtype = None
+00000076  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+                                                                             |             └ bits 7-5 = 000 -> logical1 = None
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 10 -> physical = VarInt
+00000077  01                                                .                |           num_values: 1
+00000078  01                                                .                |           byte_length: 1
+00000079  54                                                T                |         data [Data(None) None/VarInt, 1 values, 1 B]
+                                                                             |           decoded: [42]
+0000007a                                                                     |     column[4] OptI32 "count" (11 B)
+0000007a                                                                     |       present (6 B)
+0000007a                                                                     |         header (4 B)
+0000007a  00                                                .                |           stream_type: 0x00 Present
+                                                                             |             └ bits 7-4 = 0000 -> category = Present
+                                                                             |             └ bits 3-0 = 0000 -> subtype = -
+0000007b  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 1, num_rle_values: 2 }) physical=None
+                                                                             |             └ bits 7-5 = 011 -> logical1 = Rle
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 00 -> physical = None
+0000007c  01                                                .                |           num_values: 1
+0000007d  02                                                .                |           byte_length: 2
+0000007e  ff 01                                             ..               |         data [Present Rle(Split { runs: 1, num_rle_values: 2 })/None, 1 values, 2 B]
+                                                                             |           decoded: 1 present-bits: 1
+00000080                                                                     |       data (5 B)
+00000080                                                                     |         header (4 B)
+00000080  10                                                .                |           stream_type: 0x10 Data(None)
+                                                                             |             └ bits 7-4 = 0001 -> category = Data
+                                                                             |             └ bits 3-0 = 0000 -> subtype = None
+00000081  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+                                                                             |             └ bits 7-5 = 000 -> logical1 = None
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 10 -> physical = VarInt
+00000082  01                                                .                |           num_values: 1
+00000083  01                                                .                |           byte_length: 1
+00000084  54                                                T                |         data [Data(None) None/VarInt, 1 values, 1 B]
+                                                                             |           decoded: [42]
+00000085                                                                     |     column[5] OptU32 "medium" (11 B)
+00000085                                                                     |       present (6 B)
+00000085                                                                     |         header (4 B)
+00000085  00                                                .                |           stream_type: 0x00 Present
+                                                                             |             └ bits 7-4 = 0000 -> category = Present
+                                                                             |             └ bits 3-0 = 0000 -> subtype = -
+00000086  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 1, num_rle_values: 2 }) physical=None
+                                                                             |             └ bits 7-5 = 011 -> logical1 = Rle
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 00 -> physical = None
+00000087  01                                                .                |           num_values: 1
+00000088  02                                                .                |           byte_length: 2
+00000089  ff 01                                             ..               |         data [Present Rle(Split { runs: 1, num_rle_values: 2 })/None, 1 values, 2 B]
+                                                                             |           decoded: 1 present-bits: 1
+0000008b                                                                     |       data (5 B)
+0000008b                                                                     |         header (4 B)
+0000008b  10                                                .                |           stream_type: 0x10 Data(None)
+                                                                             |             └ bits 7-4 = 0001 -> category = Data
+                                                                             |             └ bits 3-0 = 0000 -> subtype = None
+0000008c  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+                                                                             |             └ bits 7-5 = 000 -> logical1 = None
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 10 -> physical = VarInt
+0000008d  01                                                .                |           num_values: 1
+0000008e  01                                                .                |           byte_length: 1
+0000008f  64                                                d                |         data [Data(None) None/VarInt, 1 values, 1 B]
+                                                                             |           decoded: [100]
+00000090                                                                     |     column[6] OptStr "name" (26 B)
+00000090  03                                                .                |       stream_count: 3
+00000091                                                                     |       present (6 B)
+00000091                                                                     |         header (4 B)
+00000091  00                                                .                |           stream_type: 0x00 Present
+                                                                             |             └ bits 7-4 = 0000 -> category = Present
+                                                                             |             └ bits 3-0 = 0000 -> subtype = -
+00000092  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 1, num_rle_values: 2 }) physical=None
+                                                                             |             └ bits 7-5 = 011 -> logical1 = Rle
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 00 -> physical = None
+00000093  01                                                .                |           num_values: 1
+00000094  02                                                .                |           byte_length: 2
+00000095  ff 01                                             ..               |         data [Present Rle(Split { runs: 1, num_rle_values: 2 })/None, 1 values, 2 B]
+                                                                             |           decoded: 1 present-bits: 1
+00000097                                                                     |       stream[0] (5 B)
+00000097                                                                     |         header (4 B)
+00000097  30                                                0                |           stream_type: 0x30 Length(VarBinary)
+                                                                             |             └ bits 7-4 = 0011 -> category = Length
+                                                                             |             └ bits 3-0 = 0000 -> subtype = VarBinary
+00000098  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+                                                                             |             └ bits 7-5 = 000 -> logical1 = None
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 10 -> physical = VarInt
+00000099  01                                                .                |           num_values: 1
+0000009a  01                                                .                |           byte_length: 1
+0000009b  0a                                                .                |         data [Length(VarBinary) None/VarInt, 1 values, 1 B]
+                                                                             |           decoded: [10]
+0000009c                                                                     |       stream[1] (14 B)
+0000009c                                                                     |         header (4 B)
+0000009c  10                                                .                |           stream_type: 0x10 Data(None)
+                                                                             |             └ bits 7-4 = 0001 -> category = Data
+                                                                             |             └ bits 3-0 = 0000 -> subtype = None
+0000009d  00                                                .                |           encoding: 0x00 logical=None physical=None
+                                                                             |             └ bits 7-5 = 000 -> logical1 = None
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 00 -> physical = None
+0000009e  01                                                .                |           num_values: 1
+0000009f  0a                                                .                |           byte_length: 10
+000000a0  54 65 73 74 20 50 6f 69 6e 74                     Test Point       |         data [Data(None) None/None, 1 values, 10 B]
+                                                                             |           decoded: utf-8 "Test Point"
+000000aa                                                                     |     column[7] OptF64 "precision" (18 B)
+000000aa                                                                     |       present (6 B)
+000000aa                                                                     |         header (4 B)
+000000aa  00                                                .                |           stream_type: 0x00 Present
+                                                                             |             └ bits 7-4 = 0000 -> category = Present
+                                                                             |             └ bits 3-0 = 0000 -> subtype = -
+000000ab  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 1, num_rle_values: 2 }) physical=None
+                                                                             |             └ bits 7-5 = 011 -> logical1 = Rle
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 00 -> physical = None
+000000ac  01                                                .                |           num_values: 1
+000000ad  02                                                .                |           byte_length: 2
+000000ae  ff 01                                             ..               |         data [Present Rle(Split { runs: 1, num_rle_values: 2 })/None, 1 values, 2 B]
+                                                                             |           decoded: 1 present-bits: 1
+000000b0                                                                     |       data (12 B)
+000000b0                                                                     |         header (4 B)
+000000b0  10                                                .                |           stream_type: 0x10 Data(None)
+                                                                             |             └ bits 7-4 = 0001 -> category = Data
+                                                                             |             └ bits 3-0 = 0000 -> subtype = None
+000000b1  00                                                .                |           encoding: 0x00 logical=None physical=None
+                                                                             |             └ bits 7-5 = 000 -> logical1 = None
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 00 -> physical = None
+000000b2  01                                                .                |           num_values: 1
+000000b3  08                                                .                |           byte_length: 8
+000000b4  5f 63 39 37 dd 9a bf 3f                           _c97...?         |         data [Data(None) None/None, 1 values, 8 B]
+                                                                             |           decoded: [0.123456789]
+000000bc                                                                     |     column[8] OptF32 "temp" (14 B)
+000000bc                                                                     |       present (6 B)
+000000bc                                                                     |         header (4 B)
+000000bc  00                                                .                |           stream_type: 0x00 Present
+                                                                             |             └ bits 7-4 = 0000 -> category = Present
+                                                                             |             └ bits 3-0 = 0000 -> subtype = -
+000000bd  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 1, num_rle_values: 2 }) physical=None
+                                                                             |             └ bits 7-5 = 011 -> logical1 = Rle
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 00 -> physical = None
+000000be  01                                                .                |           num_values: 1
+000000bf  02                                                .                |           byte_length: 2
+000000c0  ff 01                                             ..               |         data [Present Rle(Split { runs: 1, num_rle_values: 2 })/None, 1 values, 2 B]
+                                                                             |           decoded: 1 present-bits: 1
+000000c2                                                                     |       data (8 B)
+000000c2                                                                     |         header (4 B)
+000000c2  10                                                .                |           stream_type: 0x10 Data(None)
+                                                                             |             └ bits 7-4 = 0001 -> category = Data
+                                                                             |             └ bits 3-0 = 0000 -> subtype = None
+000000c3  00                                                .                |           encoding: 0x00 logical=None physical=None
+                                                                             |             └ bits 7-5 = 000 -> logical1 = None
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 00 -> physical = None
+000000c4  01                                                .                |           num_values: 1
+000000c5  04                                                .                |           byte_length: 4
+000000c6  00 00 cc 41                                       ...A             |         data [Data(None) None/None, 1 values, 4 B]
+                                                                             |           decoded: [25.5]

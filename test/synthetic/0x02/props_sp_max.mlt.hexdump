@@ -1,0 +1,294 @@
+00000000                                                                     | layer[0] (185 B)
+00000000  b7 01                                             ..               |   size: 183 (varint) - tag + body
+00000002  02                                                .                |   tag: 0x02 -> Tag02
+00000003  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
+0000000a  50                                                P                |   extent: 80
+0000000b  09                                                .                |   feature_count: 9
+0000000c  70                                                p                |   layout: 0x70 Points
+                                                                             |     └ bit 7 = 0 -> reserved = 0
+                                                                             |     └ bits 6-4 = 111 -> shared presence bitfields = 7
+                                                                             |     └ bits 3-0 = 0000 -> geometry layout = Points
+0000000d                                                                     |   shared_presence (14 B)
+0000000d  03 00                                             ..               |     present[0] [Present None/None, 9 values, 2 B]
+                                                                             |       decoded: 9 present-bits: 110000000
+0000000f  05 00                                             ..               |     present[1] [Present None/None, 9 values, 2 B]
+                                                                             |       decoded: 9 present-bits: 101000000
+00000011  09 00                                             ..               |     present[2] [Present None/None, 9 values, 2 B]
+                                                                             |       decoded: 9 present-bits: 100100000
+00000013  11 00                                             ..               |     present[3] [Present None/None, 9 values, 2 B]
+                                                                             |       decoded: 9 present-bits: 100010000
+00000015  21 00                                             !.               |     present[4] [Present None/None, 9 values, 2 B]
+                                                                             |       decoded: 9 present-bits: 100001000
+00000017  41 00                                             A.               |     present[5] [Present None/None, 9 values, 2 B]
+                                                                             |       decoded: 9 present-bits: 100000100
+00000019  81 00                                             ..               |     present[6] [Present None/None, 9 values, 2 B]
+                                                                             |       decoded: 9 present-bits: 100000010
+0000001b                                                                     |   geometry (25 B)
+0000001b                                                                     |     types (4 B)
+0000001b                                                                     |       header (2 B)
+0000001b  30                                                0                |         encoding: 0x30 logical=Rle(Interleaved { num_rle_values: 9 }) physical=VarInt
+                                                                             |           └ bit 7 = 0 -> has_explicit_count = false -> 9 values from context
+                                                                             |           └ bits 6-4 = 011 -> logical = Rle
+                                                                             |           └ bits 3-2 = 00 -> physical = NoneNoLen
+                                                                             |           └ bits 1-0 = 00 -> reserved = 0
+0000001c  02                                                .                |         byte_length: 2
+0000001d  09 00                                             ..               |       data [Length(VarBinary) Rle(Interleaved { num_rle_values: 9 })/VarInt, 9 values, 2 B]
+                                                                             |         decoded: [0, 0, 0, 0, 0, 0, 0, 0, 0]
+0000001f                                                                     |     vertices (21 B)
+0000001f                                                                     |       header (3 B)
+0000001f  a8                                                .                |         encoding: 0xA8 logical=ComponentwiseDelta physical=VarInt
+                                                                             |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta
+                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |           └ bits 1-0 = 00 -> reserved = 0
+00000020  12                                                .                |         num_values: 18
+00000021  12                                                .                |         byte_length: 18
+00000022  1a 54 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .T.............. |       data [Data(Vertex) ComponentwiseDelta/VarInt, 18 values, 18 B]
+00000032  00 00                                             ..               | 
+                                                                             |         decoded: [13, 42, 13, 42, 13, 42, 13, 42, 13, 42, 13, 42, 13, 42, 13, 42, 13, 42]
+00000034  10                                                .                |   column_count: 16
+00000035                                                                     |   columns (132 B)
+00000035                                                                     |     column[0] OptU32 "a0" (8 B)
+00000035  26                                                &                |       type: 0x26 Shared(0) U32
+                                                                             |         └ bits 7-4 = 0010 -> presence = Shared(0)
+                                                                             |         └ bits 3-0 = 0110 -> data type = U32
+00000036  02 61 30                                          .a0              |       name: "a0"
+00000039                                                                     |       data (4 B)
+00000039                                                                     |         header (2 B)
+00000039  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+0000003a  02                                                .                |           byte_length: 2
+0000003b  00 01                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+                                                                             |           decoded: [0, 1]
+0000003d                                                                     |     column[1] OptU32 "b0" (8 B)
+0000003d  26                                                &                |       type: 0x26 Shared(0) U32
+                                                                             |         └ bits 7-4 = 0010 -> presence = Shared(0)
+                                                                             |         └ bits 3-0 = 0110 -> data type = U32
+0000003e  02 62 30                                          .b0              |       name: "b0"
+00000041                                                                     |       data (4 B)
+00000041                                                                     |         header (2 B)
+00000041  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+00000042  02                                                .                |           byte_length: 2
+00000043  00 01                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+                                                                             |           decoded: [0, 1]
+00000045                                                                     |     column[2] OptU32 "a1" (8 B)
+00000045  36                                                6                |       type: 0x36 Shared(1) U32
+                                                                             |         └ bits 7-4 = 0011 -> presence = Shared(1)
+                                                                             |         └ bits 3-0 = 0110 -> data type = U32
+00000046  02 61 31                                          .a1              |       name: "a1"
+00000049                                                                     |       data (4 B)
+00000049                                                                     |         header (2 B)
+00000049  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+0000004a  02                                                .                |           byte_length: 2
+0000004b  00 02                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+                                                                             |           decoded: [0, 2]
+0000004d                                                                     |     column[3] OptU32 "b1" (8 B)
+0000004d  36                                                6                |       type: 0x36 Shared(1) U32
+                                                                             |         └ bits 7-4 = 0011 -> presence = Shared(1)
+                                                                             |         └ bits 3-0 = 0110 -> data type = U32
+0000004e  02 62 31                                          .b1              |       name: "b1"
+00000051                                                                     |       data (4 B)
+00000051                                                                     |         header (2 B)
+00000051  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+00000052  02                                                .                |           byte_length: 2
+00000053  00 02                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+                                                                             |           decoded: [0, 2]
+00000055                                                                     |     column[4] OptU32 "a2" (8 B)
+00000055  46                                                F                |       type: 0x46 Shared(2) U32
+                                                                             |         └ bits 7-4 = 0100 -> presence = Shared(2)
+                                                                             |         └ bits 3-0 = 0110 -> data type = U32
+00000056  02 61 32                                          .a2              |       name: "a2"
+00000059                                                                     |       data (4 B)
+00000059                                                                     |         header (2 B)
+00000059  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+0000005a  02                                                .                |           byte_length: 2
+0000005b  00 03                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+                                                                             |           decoded: [0, 3]
+0000005d                                                                     |     column[5] OptU32 "b2" (8 B)
+0000005d  46                                                F                |       type: 0x46 Shared(2) U32
+                                                                             |         └ bits 7-4 = 0100 -> presence = Shared(2)
+                                                                             |         └ bits 3-0 = 0110 -> data type = U32
+0000005e  02 62 32                                          .b2              |       name: "b2"
+00000061                                                                     |       data (4 B)
+00000061                                                                     |         header (2 B)
+00000061  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+00000062  02                                                .                |           byte_length: 2
+00000063  00 03                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+                                                                             |           decoded: [0, 3]
+00000065                                                                     |     column[6] OptU32 "a3" (8 B)
+00000065  56                                                V                |       type: 0x56 Shared(3) U32
+                                                                             |         └ bits 7-4 = 0101 -> presence = Shared(3)
+                                                                             |         └ bits 3-0 = 0110 -> data type = U32
+00000066  02 61 33                                          .a3              |       name: "a3"
+00000069                                                                     |       data (4 B)
+00000069                                                                     |         header (2 B)
+00000069  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+0000006a  02                                                .                |           byte_length: 2
+0000006b  00 04                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+                                                                             |           decoded: [0, 4]
+0000006d                                                                     |     column[7] OptU32 "b3" (8 B)
+0000006d  56                                                V                |       type: 0x56 Shared(3) U32
+                                                                             |         └ bits 7-4 = 0101 -> presence = Shared(3)
+                                                                             |         └ bits 3-0 = 0110 -> data type = U32
+0000006e  02 62 33                                          .b3              |       name: "b3"
+00000071                                                                     |       data (4 B)
+00000071                                                                     |         header (2 B)
+00000071  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+00000072  02                                                .                |           byte_length: 2
+00000073  00 04                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+                                                                             |           decoded: [0, 4]
+00000075                                                                     |     column[8] OptU32 "a4" (8 B)
+00000075  66                                                f                |       type: 0x66 Shared(4) U32
+                                                                             |         └ bits 7-4 = 0110 -> presence = Shared(4)
+                                                                             |         └ bits 3-0 = 0110 -> data type = U32
+00000076  02 61 34                                          .a4              |       name: "a4"
+00000079                                                                     |       data (4 B)
+00000079                                                                     |         header (2 B)
+00000079  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+0000007a  02                                                .                |           byte_length: 2
+0000007b  00 05                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+                                                                             |           decoded: [0, 5]
+0000007d                                                                     |     column[9] OptU32 "b4" (8 B)
+0000007d  66                                                f                |       type: 0x66 Shared(4) U32
+                                                                             |         └ bits 7-4 = 0110 -> presence = Shared(4)
+                                                                             |         └ bits 3-0 = 0110 -> data type = U32
+0000007e  02 62 34                                          .b4              |       name: "b4"
+00000081                                                                     |       data (4 B)
+00000081                                                                     |         header (2 B)
+00000081  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+00000082  02                                                .                |           byte_length: 2
+00000083  00 05                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+                                                                             |           decoded: [0, 5]
+00000085                                                                     |     column[10] OptU32 "a5" (8 B)
+00000085  76                                                v                |       type: 0x76 Shared(5) U32
+                                                                             |         └ bits 7-4 = 0111 -> presence = Shared(5)
+                                                                             |         └ bits 3-0 = 0110 -> data type = U32
+00000086  02 61 35                                          .a5              |       name: "a5"
+00000089                                                                     |       data (4 B)
+00000089                                                                     |         header (2 B)
+00000089  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+0000008a  02                                                .                |           byte_length: 2
+0000008b  00 06                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+                                                                             |           decoded: [0, 6]
+0000008d                                                                     |     column[11] OptU32 "b5" (8 B)
+0000008d  76                                                v                |       type: 0x76 Shared(5) U32
+                                                                             |         └ bits 7-4 = 0111 -> presence = Shared(5)
+                                                                             |         └ bits 3-0 = 0110 -> data type = U32
+0000008e  02 62 35                                          .b5              |       name: "b5"
+00000091                                                                     |       data (4 B)
+00000091                                                                     |         header (2 B)
+00000091  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+00000092  02                                                .                |           byte_length: 2
+00000093  00 06                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+                                                                             |           decoded: [0, 6]
+00000095                                                                     |     column[12] OptU32 "a6" (8 B)
+00000095  86                                                .                |       type: 0x86 Shared(6) U32
+                                                                             |         └ bits 7-4 = 1000 -> presence = Shared(6)
+                                                                             |         └ bits 3-0 = 0110 -> data type = U32
+00000096  02 61 36                                          .a6              |       name: "a6"
+00000099                                                                     |       data (4 B)
+00000099                                                                     |         header (2 B)
+00000099  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+0000009a  02                                                .                |           byte_length: 2
+0000009b  00 07                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+                                                                             |           decoded: [0, 7]
+0000009d                                                                     |     column[13] OptU32 "b6" (8 B)
+0000009d  86                                                .                |       type: 0x86 Shared(6) U32
+                                                                             |         └ bits 7-4 = 1000 -> presence = Shared(6)
+                                                                             |         └ bits 3-0 = 0110 -> data type = U32
+0000009e  02 62 36                                          .b6              |       name: "b6"
+000000a1                                                                     |       data (4 B)
+000000a1                                                                     |         header (2 B)
+000000a1  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+000000a2  02                                                .                |           byte_length: 2
+000000a3  00 07                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+                                                                             |           decoded: [0, 7]
+000000a5                                                                     |     column[14] OptU32 "a7" (10 B)
+000000a5  16                                                .                |       type: 0x16 Inline U32
+                                                                             |         └ bits 7-4 = 0001 -> presence = Inline
+                                                                             |         └ bits 3-0 = 0110 -> data type = U32
+000000a6  02 61 37                                          .a7              |       name: "a7"
+000000a9  01 01                                             ..               |       present [Present None/None, 9 values, 2 B]
+                                                                             |         decoded: 9 present-bits: 100000001
+000000ab                                                                     |       data (4 B)
+000000ab                                                                     |         header (2 B)
+000000ab  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+000000ac  02                                                .                |           byte_length: 2
+000000ad  00 08                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+                                                                             |           decoded: [0, 8]
+000000af                                                                     |     column[15] OptU32 "b7" (10 B)
+000000af  16                                                .                |       type: 0x16 Inline U32
+                                                                             |         └ bits 7-4 = 0001 -> presence = Inline
+                                                                             |         └ bits 3-0 = 0110 -> data type = U32
+000000b0  02 62 37                                          .b7              |       name: "b7"
+000000b3  01 01                                             ..               |       present [Present None/None, 9 values, 2 B]
+                                                                             |         decoded: 9 present-bits: 100000001
+000000b5                                                                     |       data (4 B)
+000000b5                                                                     |         header (2 B)
+000000b5  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+000000b6  02                                                .                |           byte_length: 2
+000000b7  00 08                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+                                                                             |           decoded: [0, 8]
