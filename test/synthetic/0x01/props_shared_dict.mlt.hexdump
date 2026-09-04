@@ -81,7 +81,7 @@
 00000030  01                                                .                |           num_values: 1
 00000031  1e                                                .                |           byte_length: 30
 00000032  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Shared) Int(None)/None, 1 values, 30 B]
-00000042  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   | 
+00000042  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   |
                                                                              |           decoded: utf-8 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 00000050                                                                     |       child[0] OptStr (12 B)
 00000050  02                                                .                |         stream_count: 2

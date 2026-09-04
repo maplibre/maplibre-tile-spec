@@ -83,5 +83,5 @@
 0000002b  01                                                .                |           num_values: 1
 0000002c  14                                                .                |           byte_length: 20
 0000002d  4d c3 bc 6e 63 68 65 6e 20 f0 9f 93 8d 20 63 61   M..nchen .... ca |         data [Data(None) Int(None)/None, 1 values, 20 B]
-0000003d  66 65 cc 81                                       fe..             | 
+0000003d  66 65 cc 81                                       fe..             |
                                                                              |           decoded: utf-8 "München 📍 cafe\u{301}"

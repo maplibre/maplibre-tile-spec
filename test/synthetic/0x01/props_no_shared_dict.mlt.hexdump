@@ -88,7 +88,7 @@
 00000039  01                                                .                |           num_values: 1
 0000003a  1e                                                .                |           byte_length: 30
 0000003b  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(None) Int(None)/None, 1 values, 30 B]
-0000004b  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   | 
+0000004b  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   |
                                                                              |           decoded: utf-8 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 00000059                                                                     |     column[2] OptStr "name:en" (46 B)
 00000059  03                                                .                |       stream_count: 3
@@ -130,5 +130,5 @@
 00000067  01                                                .                |           num_values: 1
 00000068  1e                                                .                |           byte_length: 30
 00000069  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(None) Int(None)/None, 1 values, 30 B]
-00000079  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   | 
+00000079  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   |
                                                                              |           decoded: utf-8 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"

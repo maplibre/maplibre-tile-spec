@@ -94,7 +94,7 @@
 0000003a  01                                                .                |           num_values: 1
 0000003b  1e                                                .                |           byte_length: 30
 0000003c  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(None) Int(None)/None, 1 values, 30 B]
-0000004c  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   | 
+0000004c  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   |
                                                                              |           decoded: utf-8 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 0000005a                                                                     |     column[2] SharedDict "name:en" (50 B)
 0000005a  06                                                .                |       stream_count: 6

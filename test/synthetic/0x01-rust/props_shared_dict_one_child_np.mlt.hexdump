@@ -81,7 +81,7 @@
 00000034  01                                                .                |           num_values: 1
 00000035  1e                                                .                |           byte_length: 30
 00000036  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(None) Int(None)/None, 1 values, 30 B]
-00000046  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   | 
+00000046  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   |
                                                                              |           decoded: utf-8 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 00000054                                                                     |     column[2] SharedDict "name:en" (46 B)
 00000054  03                                                .                |       stream_count: 3
@@ -110,7 +110,7 @@
 0000005c  01                                                .                |           num_values: 1
 0000005d  1e                                                .                |           byte_length: 30
 0000005e  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Shared) Int(None)/None, 1 values, 30 B]
-0000006e  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   | 
+0000006e  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   |
                                                                              |           decoded: utf-8 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 0000007c                                                                     |       child[0] Str (6 B)
 0000007c  01                                                .                |         stream_count: 1

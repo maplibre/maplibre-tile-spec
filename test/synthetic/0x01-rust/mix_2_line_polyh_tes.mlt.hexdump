@@ -76,7 +76,7 @@
 00000026  12                                                .                |           num_values: 18
 00000027  12                                                .                |           byte_length: 18
 00000028  01 05 04 03 05 01 02 01 04 03 01 00 00 02 04 04   ................ |         data [Offset(Index) Int(None)/VarInt, 18 values, 18 B]
-00000038  03 00                                             ..               | 
+00000038  03 00                                             ..               |
                                                                              |           decoded: [1, 5, 4, 3, 5, 1, 2, 1, 4, 3, 1, 0, 0, 2, 4, 4, 3, 0]
 0000003a                                                                     |       stream[4] (22 B)
 0000003a                                                                     |         header (4 B)
@@ -90,5 +90,5 @@
 0000003c  12                                                .                |           num_values: 18
 0000003d  12                                                .                |           byte_length: 18
 0000003e  0a 4c 0e 0e 05 32 56 45 4b 28 5c 22 37 2b 08 14   .L...2VEK(\"7+.. |         data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 18 values, 18 B]
-0000004e  17 0b                                             ..               | 
+0000004e  17 0b                                             ..               |
                                                                              |           decoded: [5, 38, 12, 45, 9, 70, 52, 35, 14, 55, 60, 72, 32, 50, 36, 60, 24, 54]

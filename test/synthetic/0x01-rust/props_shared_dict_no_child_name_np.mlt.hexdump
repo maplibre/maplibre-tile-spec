@@ -76,7 +76,7 @@
 00000026  01                                                .                |           num_values: 1
 00000027  1e                                                .                |           byte_length: 30
 00000028  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Shared) Int(None)/None, 1 values, 30 B]
-00000038  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   | 
+00000038  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   |
                                                                              |           decoded: utf-8 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 00000046                                                                     |       child[0] Str (6 B)
 00000046  01                                                .                |         stream_count: 1

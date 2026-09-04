@@ -50,6 +50,6 @@
 0000001c  14                                                .                |         num_values: 20
 0000001d  14                                                .                |         byte_length: 20
 0000001e  4c 3a 22 2f 06 2e 22 0b 2d 1a 4b 28 5c 22 37 2b   L:"/..".-.K(\"7+ |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 20 values, 20 B]
-0000002e  08 14 17 0b                                       ....             | 
+0000002e  08 14 17 0b                                       ....             |
                                                                              |         decoded: [38, 29, 55, 5, 58, 28, 75, 22, 52, 35, 14, 55, 60, 72, 32, 50, 36, 60, 24, 54]
 00000032  00                                                .                |   column_count: 0
