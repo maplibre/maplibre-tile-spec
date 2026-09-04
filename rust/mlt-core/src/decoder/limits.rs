@@ -150,10 +150,22 @@ impl Parser {
     /// Parse a sequence of binary layers, reserving decoded memory against this parser's budget.
     pub fn parse_layers<'a>(&mut self, mut input: &'a [u8]) -> MltResult<Vec<Layer<'a>>> {
         let mut result = Vec::new();
+        // A name table record applies to every v2 layer after it in the tile.
+        #[cfg(feature = "unstable-v2")]
+        let mut names: Option<Vec<&'a str>> = None;
         while !input.is_empty() {
             let layer;
-            (input, layer) = Layer::from_bytes(input, self)?;
-            result.push(layer);
+            #[cfg(feature = "unstable-v2")]
+            {
+                (input, layer) = Layer::from_bytes_named(input, self, &mut names)?;
+            }
+            #[cfg(not(feature = "unstable-v2"))]
+            {
+                (input, layer) = Layer::from_bytes(input, self).map(|(i, l)| (i, Some(l)))?;
+            }
+            if let Some(layer) = layer {
+                result.push(layer);
+            }
         }
         Ok(result)
     }

@@ -57,6 +57,25 @@ impl TileLayer {
     /// vertex buffer layout - are selected automatically to minimize output size.
     #[hotpath::measure]
     pub fn encode(self, cfg: EncoderConfig) -> MltResult<Vec<u8>> {
+        let stats = self.analyze(cfg.allow_shared_dict())?;
+        self.encode_analyzed(
+            cfg,
+            &stats,
+            #[cfg(feature = "unstable-v2")]
+            None,
+        )
+    }
+
+    /// [`Self::encode`] over an analysis the caller already has, which a whole-tile
+    /// encode needs to plan what its layers share before any of them is written.
+    pub(crate) fn encode_analyzed(
+        self,
+        cfg: EncoderConfig,
+        stats: &LayerStats,
+        #[cfg(feature = "unstable-v2")] names: Option<
+            std::sync::Arc<crate::encoder::names02::NameTable>,
+        >,
+    ) -> MltResult<Vec<u8>> {
         if self.name().is_empty() {
             return Err(MltError::MissingLayerName);
         }
@@ -81,7 +100,6 @@ impl TileLayer {
             sort_by.push(SortStrategy::Id);
         }
 
-        let stats = self.analyze(cfg.allow_shared_dict())?;
         // Bounds are order-invariant, so this scan is shared across every
         // sort trial and the encoder's Hilbert/Morton dictionary builders.
         let curve_params = self.curve_params();
@@ -89,19 +107,25 @@ impl TileLayer {
         // `Encoder::preserve_results` clears caches only on the moved-out
         // archive, so a single seeding here serves every trial that reuses
         // `enc`.
+        #[cfg(feature = "unstable-v2")]
+        let mut enc = match names {
+            Some(table) => Encoder::new(cfg).with_names(table),
+            None => Encoder::new(cfg),
+        };
+        #[cfg(not(feature = "unstable-v2"))]
         let mut enc = Encoder::new(cfg);
         seed_curve_caches(&mut enc, curve_params);
 
         let (last, init) = sort_by.split_last().expect("at least one strategy");
         if init.is_empty() {
             let mut codecs = Codecs::default();
-            StagedLayer::from_tile(self, *last, &stats, cfg.tessellate(), curve_params)
+            StagedLayer::from_tile(self, *last, stats, cfg.tessellate(), curve_params)
                 .encode_into(enc, &mut codecs)?
         } else {
             let mut codecs = Codecs::default();
             enc = {
                 let first = init[0];
-                StagedLayer::from_tile(self.clone(), first, &stats, cfg.tessellate(), curve_params)
+                StagedLayer::from_tile(self.clone(), first, stats, cfg.tessellate(), curve_params)
                     .encode_into(enc, &mut codecs)?
             };
             let mut best = enc.preserve_results();
@@ -110,7 +134,7 @@ impl TileLayer {
                 let layer = StagedLayer::from_tile(
                     self.clone(),
                     sort,
-                    &stats,
+                    stats,
                     cfg.tessellate(),
                     curve_params,
                 );
@@ -123,7 +147,7 @@ impl TileLayer {
                 }
             }
             // Last strategy: consume self, no clone
-            let layer = StagedLayer::from_tile(self, *last, &stats, cfg.tessellate(), curve_params);
+            let layer = StagedLayer::from_tile(self, *last, stats, cfg.tessellate(), curve_params);
             enc = layer.encode_into(enc, &mut codecs)?;
             if enc.total_len() < best.total_len() {
                 best = enc.preserve_results();
@@ -132,6 +156,54 @@ impl TileLayer {
         }
         .into_layer_bytes()
     }
+}
+
+/// Encode every layer of one tile, in order, into a single tile buffer.
+///
+/// The counterpart of [`TileLayer::encode`] for callers that hold a whole tile,
+/// and the only entry point that can hoist what its layers share: with
+/// [`EncoderConfig::allow_tile_name_table`] the tile leads with the names more
+/// than one of its layers writes, and those layers reference them by index.
+pub fn encode_tile(layers: Vec<TileLayer>, cfg: EncoderConfig) -> MltResult<Vec<u8>> {
+    #[cfg(feature = "unstable-v2")]
+    if cfg.allow_tile_name_table() {
+        return encode_tile_with_names(layers, cfg);
+    }
+    let mut out = Vec::new();
+    for layer in layers {
+        out.extend_from_slice(&layer.encode(cfg)?);
+    }
+    Ok(out)
+}
+
+/// Encode a tile behind a table of the names its layers repeat.
+#[cfg(feature = "unstable-v2")]
+fn encode_tile_with_names(layers: Vec<TileLayer>, cfg: EncoderConfig) -> MltResult<Vec<u8>> {
+    use std::sync::Arc;
+
+    use crate::encoder::names02::NameTable;
+
+    let analyzed = layers
+        .into_iter()
+        .filter(|layer| !layer.features().is_empty())
+        .map(|layer| {
+            let stats = layer.analyze(cfg.allow_shared_dict())?;
+            Ok((layer, stats))
+        })
+        .collect::<MltResult<Vec<_>>>()?;
+
+    let table = NameTable::plan(&analyzed);
+    let mut out = Vec::new();
+    let table = if table.is_empty() {
+        None
+    } else {
+        out.extend_from_slice(&table.to_record()?);
+        Some(Arc::new(table))
+    };
+    for (layer, stats) in analyzed {
+        out.extend_from_slice(&layer.encode_analyzed(cfg, &stats, table.clone())?);
+    }
+    Ok(out)
 }
 
 /// Row-order-independent presence classification for IDs and properties.

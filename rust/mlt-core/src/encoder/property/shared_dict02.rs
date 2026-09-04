@@ -17,7 +17,6 @@ use crate::encoder::property::strings::{
     suffix_parts, write_blob02, write_dict_tail02, write_front_lengths02, write_fsst_tail02,
 };
 use crate::encoder::{Codecs, Encoder, StagedSharedDict};
-use crate::utils::BinarySerializer as _;
 use crate::{LengthType, MltResult, OffsetType, StreamType};
 
 /// The dictionary a shared-dictionary column writes, with each child's codes into it.
@@ -175,10 +174,10 @@ fn begin_shared_dict02(
     enc.family_context = Family::Int;
     enc.count_context = 0;
     let byte = kind as u8 | DataType02::SharedDict as u8;
-    let data = enc.data_mut();
-    data.push(byte);
-    data.write_string(&shared_dict.prefix)?;
-    data.write_varint(u32::try_from(shared_dict.items.len())?)?;
+    enc.data_mut().push(byte);
+    enc.write_data_name(&shared_dict.prefix)?;
+    enc.data_mut()
+        .write_varint(u32::try_from(shared_dict.items.len())?)?;
     Ok(())
 }
 
@@ -200,9 +199,9 @@ fn write_children02(
         let where_ = presence
             .as_ref()
             .map_or(Presence02::AllPresent, |mask| shared.nibble_for(mask));
-        let data = enc.data_mut();
-        data.push(ColumnType02::new(where_, DataType02::Str).to_byte());
-        data.write_string(&item.suffix)?;
+        enc.data_mut()
+            .push(ColumnType02::new(where_, DataType02::Str).to_byte());
+        enc.write_data_name(&item.suffix)?;
         if let (Presence02::Inline, Some(mask)) = (where_, &presence) {
             write_presence_bits(enc.data_mut(), mask);
         }

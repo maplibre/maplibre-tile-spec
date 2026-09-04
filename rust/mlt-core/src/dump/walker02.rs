@@ -20,7 +20,7 @@ use crate::decoder::{
     SharedDictKind, StreamType,
 };
 use crate::tile::Extent;
-use crate::utils::{parse_string, parse_u8, take};
+use crate::utils::{parse_u8, take};
 use crate::wire::{
     FloatLogical, IntEncoding, LogicalEncoding, StreamMeta, ValueKind, VertexLogical,
 };
@@ -28,7 +28,7 @@ use crate::{MltError, MltResult};
 
 impl<'a> Walker<'a> {
     pub(super) fn walk_layer02(&mut self, input: &'a [u8]) -> MltResult<()> {
-        let (input, name) = self.field(input, "name", parse_string, |s| Some(format!("{s:?}")))?;
+        let (input, name) = self.name_field(input, "name")?;
         if name.is_empty() {
             return Err(MltError::MissingLayerName);
         }
@@ -200,8 +200,7 @@ impl<'a> Walker<'a> {
 
         let mut name_suffix = String::new();
         if typ.data.has_name() {
-            let (rest, name) =
-                self.field(input, "name", parse_string, |s| Some(format!("{s:?}")))?;
+            let (rest, name) = self.name_field(input, "name")?;
             input = rest;
             name_suffix = format!(" {name:?}");
         }
@@ -277,7 +276,7 @@ impl<'a> Walker<'a> {
         )?;
 
         let name;
-        (input, name) = self.field(input, "name", parse_string, |s| Some(format!("{s:?}")))?;
+        (input, name) = self.name_field(input, "name")?;
         self.relabel(ci, format!("column[{i}] SharedDict {name:?}"));
         let child_count;
         (input, child_count) = self.field(input, "child_count", parse_varint::<u32>, |c| {
@@ -346,8 +345,7 @@ impl<'a> Walker<'a> {
                 move |b| column_type_bits02(b, shared_count),
             )?;
             let suffix;
-            (input, suffix) =
-                self.field(input, "name", parse_string, |s| Some(format!("{s:?}")))?;
+            (input, suffix) = self.name_field(input, "name")?;
             self.relabel(cc, format!("child[{child}] {suffix:?}"));
 
             let count = match child_typ.presence {
@@ -458,6 +456,17 @@ impl<'a> Walker<'a> {
             rest,
             &bytes.view_bits::<Lsb0>()[..feature_count.into_usize()],
         ))
+    }
+
+    /// Walk a name field, which the tile's name table may hold instead of the layer.
+    fn name_field(&mut self, input: &'a [u8], label: &str) -> MltResult<(&'a [u8], &'a str)> {
+        let names = self.names.clone();
+        self.field(
+            input,
+            label,
+            |i| crate::decoder::parse_name02(i, names.as_deref()),
+            |s| Some(format!("{s:?}")),
+        )
     }
 
     /// Walk one v2 stream: the annotated header (via the authoritative

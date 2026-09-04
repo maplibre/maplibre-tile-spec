@@ -1519,3 +1519,84 @@ mod bit_packing {
         );
     }
 }
+
+/// The tile-level table of names its v2 layers repeat, behind a default-off flag.
+mod tile_name_table {
+    use mlt_core::encoder::encode_tile;
+
+    use super::*;
+
+    /// Layers whose column names overlap, which is what the table hoists.
+    fn tile() -> Vec<TileLayer> {
+        ["roads", "water", "places"]
+            .iter()
+            .map(|name| {
+                let mut builder = TileLayer::builder(*name, 4096).unwrap();
+                let class = builder
+                    .add_property("class", mlt_core::PropKind::Str)
+                    .unwrap();
+                let label = builder
+                    .add_property("name", mlt_core::PropKind::Str)
+                    .unwrap();
+                for i in 0..12_i32 {
+                    let mut feature = builder.feature(pt(i, i * 2));
+                    feature
+                        .property(class, PropValue::Str(Some(format!("class_{}", i % 3))))
+                        .unwrap();
+                    feature
+                        .property(label, PropValue::Str(Some(format!("label_{i}"))))
+                        .unwrap();
+                    feature.finish().unwrap();
+                }
+                builder.finish()
+            })
+            .collect()
+    }
+
+    fn decode_tile(bytes: &[u8]) -> Vec<TileLayer> {
+        let mut parser = Parser::default();
+        let mut dec = Decoder::default();
+        parser
+            .parse_layers(bytes)
+            .expect("parse")
+            .into_iter()
+            .map(|l| {
+                l.into_layer01()
+                    .expect("layer01 representation")
+                    .into_tile(&mut dec)
+                    .expect("into_tile")
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_hoisted_tile_round_trips_and_shrinks() {
+        let plain = encode_tile(tile(), cfg_v2()).unwrap();
+        let hoisted = encode_tile(tile(), cfg_v2().with_tile_name_table(true)).unwrap();
+        assert!(
+            hoisted.len() < plain.len(),
+            "{} vs {}",
+            hoisted.len(),
+            plain.len()
+        );
+        assert_eq!(decode_tile(&hoisted), decode_tile(&plain));
+        assert_dump_covers(&hoisted);
+    }
+
+    #[test]
+    fn a_tile_with_nothing_to_hoist_writes_no_table() {
+        let one = vec![tile().swap_remove(0)];
+        let plain = encode_tile(one.clone(), cfg_v2()).unwrap();
+        let hoisted = encode_tile(one, cfg_v2().with_tile_name_table(true)).unwrap();
+        assert_eq!(hoisted, plain);
+    }
+
+    #[test]
+    fn hoisting_changes_nothing_in_v1() {
+        let layers = tile();
+        assert_eq!(
+            encode_tile(layers.clone(), cfg_v1().with_tile_name_table(true)).unwrap(),
+            encode_tile(layers, cfg_v1()).unwrap()
+        );
+    }
+}

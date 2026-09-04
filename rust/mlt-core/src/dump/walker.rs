@@ -18,6 +18,8 @@ pub fn annotate_tile(buf: &[u8]) -> MltResult<DumpTree> {
         out: Vec::new(),
         depth: 0,
         parser: Parser::default(),
+        #[cfg(feature = "unstable-v2")]
+        names: None,
     };
     w.walk_tile()?;
     Ok(DumpTree {
@@ -32,6 +34,9 @@ pub(super) struct Walker<'a> {
     pub(super) depth: usize,
     /// Throwaway budget for the authoritative stream-header parsers.
     pub(super) parser: Parser,
+    /// The tile's name table, once a record has declared one.
+    #[cfg(feature = "unstable-v2")]
+    pub(super) names: Option<Vec<&'a str>>,
 }
 
 impl<'a> Walker<'a> {
@@ -183,6 +188,30 @@ impl<'a> Walker<'a> {
         Ok(())
     }
 
+    /// Walk the tile's name table record, which the layers after it index into.
+    #[cfg(feature = "unstable-v2")]
+    fn walk_name_table02(&mut self, input: &'a [u8]) -> MltResult<()> {
+        let (mut input, count) = self.field(
+            input,
+            "count",
+            |i| parse_varint::<u32>(i),
+            |v| Some(v.to_string()),
+        )?;
+        let mut names = Vec::with_capacity(usize::min(count as usize, input.len()));
+        for i in 0..count {
+            let name;
+            (input, name) = self.field(
+                input,
+                &format!("name[{i}]"),
+                crate::utils::parse_string,
+                |s| Some(format!("{s:?}")),
+            )?;
+            names.push(name);
+        }
+        self.names = Some(names);
+        Ok(())
+    }
+
     /// Mirror [`crate::decoder::Layer`]`::from_bytes`: `[varint size][u8 tag][value]`.
     fn walk_layer(&mut self, input: &'a [u8], idx: usize) -> MltResult<&'a [u8]> {
         let ci = self.open(input, format!("layer[{idx}]"));
@@ -202,6 +231,8 @@ impl<'a> Walker<'a> {
             1 => self.walk_layer01(body)?,
             #[cfg(feature = "unstable-v2")]
             2 => self.walk_layer02(body)?,
+            #[cfg(feature = "unstable-v2")]
+            crate::encoder::names02::NAME_TABLE_TAG => self.walk_name_table02(body)?,
             _ => self.raw_blob(body, body.len(), format!("value (Unknown tag 0x{tag:02X})")),
         }
 
@@ -216,6 +247,8 @@ fn tag_label(tag: u8) -> String {
         1 => "0x01 -> Tag01".into(),
         #[cfg(feature = "unstable-v2")]
         2 => "0x02 -> Tag02".into(),
+        #[cfg(feature = "unstable-v2")]
+        3 => "0x03 -> NameTable".into(),
         other => format!("0x{other:02X} -> Unknown"),
     }
 }

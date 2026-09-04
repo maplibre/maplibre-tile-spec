@@ -15,6 +15,8 @@ mod property;
 mod root01;
 #[cfg(feature = "unstable-v2")]
 mod root02;
+#[cfg(feature = "unstable-v2")]
+pub(crate) use root02::parse_name as parse_name02;
 pub(crate) mod stream;
 
 // ── Public API ────────────────────────────────────────────────────────────────

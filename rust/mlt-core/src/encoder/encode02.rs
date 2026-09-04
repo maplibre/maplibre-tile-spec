@@ -32,7 +32,6 @@ use crate::encoder::{
     Codecs, Encoder, StagedId, StagedOptScalar, StagedProperty, StagedSharedDictItem,
     write_stream_payload,
 };
-use crate::utils::BinarySerializer as _;
 
 /// The presence masks the layer stores once for several columns to read.
 ///
@@ -239,11 +238,11 @@ fn begin_col02(
     // A string column's writer re-fixes it per stream, once it has picked a layout.
     enc.family_context = family_of(typ);
 
-    let data = enc.data_mut();
-    data.push(ColumnType02::new(presence, typ).to_byte());
+    enc.data_mut()
+        .push(ColumnType02::new(presence, typ).to_byte());
     debug_assert_eq!(typ.has_name(), name.is_some());
     if let Some(name) = name {
-        data.write_string(name)?;
+        enc.write_data_name(name)?;
     }
     Ok(())
 }

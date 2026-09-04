@@ -14,7 +14,7 @@ use martin_tile_utils::{Encoding, Format, decode_brotli, decode_gzip, decode_zli
 use mbtiles::{MbtType, NormalizedSchema};
 #[cfg(feature = "unstable-v2")]
 use mlt_core::encoder::WireVersion;
-use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig};
+use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig, encode_tile};
 use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::{Decoder, Layer, Parser};
 use pmtiles::Compression;
@@ -232,6 +232,10 @@ pub struct ConvertArgs {
     #[cfg(feature = "unstable-v2")]
     #[clap(long)]
     packed_dict_codes: bool,
+    /// Hoist the names a tile's layers repeat into a table of the tile's own
+    #[cfg(feature = "unstable-v2")]
+    #[clap(long)]
+    tile_name_table: bool,
     /// Output tile format (`mlt` re-encodes; `mvt` decodes MLT inputs back to MVT)
     #[clap(long, default_value = "mlt")]
     to: TileFormat,
@@ -284,7 +288,8 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         .with_wire_version(args.mlt_version.into())
         .with_float_alp(!args.no_alp)
         .with_float_dict(!args.no_float_dict)
-        .with_packed_dict_codes(args.packed_dict_codes);
+        .with_packed_dict_codes(args.packed_dict_codes)
+        .with_tile_name_table(args.tile_name_table);
 
     let filter = BboxFilter::new(&args.bbox)?;
     let input_container = args.input_container();
@@ -401,11 +406,8 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
 }
 
 fn convert_mvt_buffer(buffer: Vec<u8>, cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
-    let mut out: Vec<u8> = Vec::new();
-    for tile in mvt_to_tile_layers(buffer)? {
-        out.extend_from_slice(&tile.encode(cfg)?);
-    }
-    Ok(out)
+    // The whole-tile entry point, so what the tile's layers share can be hoisted.
+    Ok(encode_tile(mvt_to_tile_layers(buffer)?, cfg)?)
 }
 
 /// Decode an MLT buffer to row-oriented [`mlt_core::TileLayer`]s.

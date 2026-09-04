@@ -55,8 +55,9 @@ use crate::{Lazy, MltError, MltRefResult, MltResult, Parser};
 pub(crate) fn parse_layer02<'a>(
     input: &'a [u8],
     parser: &mut Parser,
+    names: Option<&[&'a str]>,
 ) -> MltResult<Layer01<'a, Lazy>> {
-    let (input, layer_name) = parse_string(input)?;
+    let (input, layer_name) = parse_name(input, names)?;
     if layer_name.is_empty() {
         return Err(MissingLayerName);
     }
@@ -100,6 +101,7 @@ pub(crate) fn parse_layer02<'a>(
                 feature_count,
                 layout.shared_presence,
                 parser,
+                names,
             )?;
             properties.push(Raw(RP::SharedDict(shared_dict)));
             #[cfg(fuzzing)]
@@ -109,9 +111,9 @@ pub(crate) fn parse_layer02<'a>(
 
         let typ = ColumnType02::parse(typ_byte, layout.shared_presence)?;
         let name = if typ.data.has_name() {
-            let named;
-            (input, named) = parse_string(input)?;
-            named
+            let column_name;
+            (input, column_name) = parse_name(input, names)?;
+            column_name
         } else {
             ""
         };
@@ -193,6 +195,29 @@ pub(crate) fn parse_layer02<'a>(
     })
 }
 
+/// Read a name field, which is an index into the tile's name table when it has one.
+///
+/// A tile that carries a table spends the low bit of the field's leading varint on
+/// telling a name that follows from one the table holds - see
+/// [`names02`](crate::encoder::names02).
+pub(crate) fn parse_name<'a>(
+    input: &'a [u8],
+    names: Option<&[&'a str]>,
+) -> MltRefResult<'a, &'a str> {
+    let Some(names) = names else {
+        return parse_string(input);
+    };
+    let (input, tagged) = parse_varint::<u32>(input)?;
+    if tagged % 2 == 0 {
+        let (input, value) = take(input, tagged / 2)?;
+        return Ok((input, str::from_utf8(value)?));
+    }
+    let name = names
+        .get((tagged / 2).into_usize())
+        .ok_or(MltError::NameTableIndex(tagged / 2))?;
+    Ok((input, name))
+}
+
 /// Finish a float column, reading the dictionary stream when its data stream turned out to be one of codes.
 fn parse_floats<'a>(
     input: &'a [u8],
@@ -247,10 +272,11 @@ fn parse_shared_dict02<'a>(
     feature_count: u32,
     shared_count: u8,
     parser: &mut Parser,
+    names: Option<&[&'a str]>,
 ) -> MltRefResult<'a, RawSharedDict<'a>> {
     let kind = SharedDictKind::parse(ColumnType02::fields(typ_byte).0)
         .ok_or(MltError::ParsingColumnType(typ_byte))?;
-    let (input, name) = parse_string(input)?;
+    let (input, name) = parse_name(input, names)?;
     let (input, child_count) = parse_varint::<u32>(input)?;
     parser.reserve(child_count)?;
 
@@ -290,7 +316,7 @@ fn parse_shared_dict02<'a>(
             return Err(MltError::ParsingColumnType(child_byte));
         }
         let child_name;
-        (input, child_name) = parse_string(input)?;
+        (input, child_name) = parse_name(input, names)?;
         let presence;
         (input, presence) = parse_presence(child_typ, shared, input, feature_count)?;
         let count = match &presence {

@@ -246,6 +246,9 @@ pub struct EncoderConfig {
     /// Allow the v2-only bit-packed physical encoding for dictionary code streams
     #[cfg(feature = "unstable-v2")]
     allow_packed_dict_codes: bool,
+    /// Allow a tile-level table of the names its v2 layers repeat
+    #[cfg(feature = "unstable-v2")]
+    allow_tile_name_table: bool,
 }
 impl Default for EncoderConfig {
     fn default() -> Self {
@@ -266,6 +269,8 @@ impl Default for EncoderConfig {
             allow_float_alp: false,
             #[cfg(feature = "unstable-v2")]
             allow_packed_dict_codes: false,
+            #[cfg(feature = "unstable-v2")]
+            allow_tile_name_table: false,
         }
     }
 }
@@ -417,6 +422,22 @@ impl EncoderConfig {
     #[must_use]
     pub fn with_packed_dict_codes(mut self, enabled: bool) -> Self {
         self.allow_packed_dict_codes = enabled;
+        self
+    }
+
+    /// Whether a tile may hoist the names its layers repeat into a table of its own.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn allow_tile_name_table(self) -> bool {
+        self.allow_tile_name_table && self.wire_version != WireVersion::V01
+    }
+
+    /// Let a tile store the names more than one of its v2 layers uses in a table,
+    /// which those layers reference instead of repeating.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn with_tile_name_table(mut self, enabled: bool) -> Self {
+        self.allow_tile_name_table = enabled;
         self
     }
 }
