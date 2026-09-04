@@ -13,7 +13,9 @@ jobs:
   cpp-build:
     if: ${{ github.event_name != 'pull_request' || inputs.run-heavy }}
     permissions:
-      id-token: write  # for OIDC Codecov
+      contents: read
+      code-quality: write
+      pull-requests: read
     strategy:
       matrix:
         os: [ macos-15, ubuntu-24.04 ]
@@ -42,15 +44,12 @@ jobs:
       - name: Build, test and generate coverage report
         run: just -v cpp::coverage
 
-      - name: Upload coverage to Codecov
-        if: github.repository_owner == 'maplibre'
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+      - if: runner.os == 'Linux'
+        uses: ./.github/actions/mlt-publish-coverage
         with:
-          use_oidc: true
-          fail_ci_if_error: true
-          disable_file_fixes: true
-          disable_search: true
-          files: cpp/build/coverage.xml
+          file: cpp/build/coverage.xml
+          language: C++
+          label: code-coverage/gcovr
 
       - name: Sanity test for mlt-cpp-json tool
         run: just -v cpp::test-json

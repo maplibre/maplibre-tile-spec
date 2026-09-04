@@ -64,21 +64,22 @@ jobs:
       run-release: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       run-heavy: ${{ needs.changes.outputs.run-heavy == 'true' }}
     secrets: inherit
-    permissions: { contents: write, id-token: write }
+    permissions: { contents: write, id-token: write, code-quality: write, pull-requests: read }
 
   java:
     needs: changes
     if: needs.changes.outputs.java == 'true'
     uses: ./.github/workflows/java.yml
     permissions:
-      id-token: write
       contents: read
+      code-quality: write
+      pull-requests: read
 
   ts:
     needs: changes
     if: needs.changes.outputs.ts == 'true'
     uses: ./.github/workflows/ts.yml
-    permissions: { contents: read }
+    permissions: { contents: read, code-quality: write, pull-requests: read }
 
   cpp:
     needs: changes
@@ -87,8 +88,9 @@ jobs:
     with:
       run-heavy: ${{ needs.changes.outputs.run-heavy == 'true' }}
     permissions:
-      id-token: write
       contents: read
+      code-quality: write
+      pull-requests: read
 
   docs:
     needs: changes

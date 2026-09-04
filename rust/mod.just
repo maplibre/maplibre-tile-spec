@@ -49,11 +49,19 @@ check: (just 'cargo-install' 'cargo-hack')
         --workspace --exclude-no-default-features --exclude-all-features
     cd mlt-core/fuzz && cargo check --all-features
 
-# Generate code coverage report to upload to codecov.io
-ci-coverage: ci-env-info _coverage
-    {{just}} assert-git-is-clean  # call it explicitly to avoid just optimizing it to just one call
-    mkdir -p target/llvm-cov      # the output-path here is used in the CI workflow
-    cargo llvm-cov report --include-build-script --lcov --output-path target/llvm-cov/lcov.info
+# Append the cargo-llvm-cov environment to `file` ($GITHUB_ENV), instrumenting every later CI step
+coverage-env file: (just 'cargo-install' 'cargo-llvm-cov')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! rustup component list --installed | grep -q llvm-tools; then
+        rustup component add llvm-tools-preview
+    fi
+    cargo llvm-cov clean --profraw-only
+    cargo llvm-cov show-env | sed "s/'//g" >> {{quote(file)}}
+
+# Write the coverage recorded since `coverage-env` to `target/lcov-<suite>.info`
+coverage-report suite:
+    cargo llvm-cov report --include-build-script --lcov --output-path target/lcov-{{suite}}.info
 
 # Run minimal subset of tests to ensure compatibility with MSRV
 ci-check: ci-env-info check
@@ -126,7 +134,7 @@ ci-fuzz-build target: (cargo-fuzz 'build' target '--target' 'x86_64-unknown-linu
 # Fuzz the target for 90 seconds (installs `cargo fuzz`)
 ci-fuzz-run target: (cargo-fuzz 'run' target '--target' 'x86_64-unknown-linux-gnu' '--' '-max_total_time=90' '-max_len=300' '-rss_limit_mb=2048')
 
-# Run coverage against a previously generated corpus and export LCOV for Codecov upload.
+# Run coverage against a previously generated corpus and export LCOV for the `coverage` CI job.
 # Output: target/llvm-cov/fuzz-<target>.lcov
 [working-directory: 'mlt-core']
 ci-fuzz-cov target: (just 'cargo-install' 'cargo-fuzz')
@@ -169,20 +177,14 @@ clippy *args: (just 'cargo-install' 'cargo-hack')
     cargo clippy --all-targets --all-features --workspace {{args}}
     cd mlt-core/fuzz && cargo clippy --all-features {{args}}
 
-# Generate code coverage report and open it
-coverage: _coverage
-    cargo llvm-cov report --include-build-script --open
-
-# Generate code coverage report. Installs `cargo llvm-cov`
-_coverage: (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-llvm-cov') (just 'java::gen-snippets')
+# Run the test suite under coverage instrumentation and open the report
+coverage *args='--open': (just 'cargo-install' 'cargo-llvm-cov') (just 'java::gen-snippets')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source <(cargo llvm-cov show-env --sh)
     cargo llvm-cov clean --workspace
-    cargo hack llvm-cov --no-report --all-targets --each-feature {{hack_skip}} \
-        --workspace --exclude-no-default-features --exclude-all-features
-    rm -rf ../test/synthetic/0x01-rust ../test/synthetic/0x02-rust
-    cargo llvm-cov run --no-report -p mlt-synthetics
-    cargo llvm-cov run --no-report -p mlt --features unstable-v2 -- ls --validate-to-json {{validate_excludes}} --details basic ../test/synthetic/
-    rustup toolchain install nightly --profile minimal --component llvm-tools
-    cargo +nightly llvm-cov --no-report --doctests --workspace
+    {{just}} rust::test
+    cargo llvm-cov report --include-build-script {{args}}
 
 # Run the encoder with hotpath profiling (timing + allocation tracking)
 profile *args:
