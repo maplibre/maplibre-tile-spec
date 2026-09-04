@@ -14,6 +14,7 @@ use rstar::{AABB, PointDistance, RTree, RTreeObject};
 
 use super::group_by_layer;
 use super::state::LayerGroup;
+use super::tile::{CACHE_BYTES, fc_memory_estimate};
 
 type DecodedTile = (FeatureCollection, u32, Vec<LayerGroup>, RTree<MbtGeoEntry>);
 type BestHover = Option<(f64, (u8, u32, u32), usize, usize)>;
@@ -158,7 +159,29 @@ pub(crate) enum MbtTileData {
         extent: u32,
         layer_groups: Vec<LayerGroup>,
         geo_index: RTree<MbtGeoEntry>,
+        /// Rough size of the decoded data, computed once when the tile arrives.
+        bytes: u64,
     },
+}
+
+impl MbtTileData {
+    /// Rough number of bytes this entry holds, for the memory budget.
+    fn memory_estimate(&self) -> u64 {
+        match self {
+            Self::Loading | Self::Empty => 64,
+            Self::Error(e) => 64 + u64::try_from(e.len()).unwrap_or(u64::MAX),
+            Self::Loaded { bytes, .. } => *bytes,
+        }
+    }
+}
+
+/// Rough number of bytes a decoded tile and its spatial index hold.
+fn loaded_bytes(fc: &FeatureCollection, geo_index: &RTree<MbtGeoEntry>) -> u64 {
+    let index: usize = geo_index
+        .iter()
+        .map(|e| e.vertices.len() * size_of::<[f64; 2]>() + 48)
+        .sum();
+    u64::try_from(fc_memory_estimate(fc) + index).unwrap_or(u64::MAX)
 }
 
 // ---------------------------------------------------------------------------
@@ -193,6 +216,8 @@ pub(crate) struct MbtilesState {
     pub zoom_f: f64,
     /// Last mouse cell during left-button map drag (`Drag` deltas are applied from here).
     pub map_drag_last: Option<(u16, u16)>,
+    /// Memory budget for `tiles`.
+    pub(crate) cache_bytes: u64,
     loading: HashSet<(u8, u32, u32)>,
     request_tx: mpsc::SyncSender<TileLoadRequest>,
     pub result_rx: mpsc::Receiver<TileLoadResult>,
@@ -260,6 +285,7 @@ impl MbtilesState {
             hovered: None,
             zoom_f: 0.0,
             map_drag_last: None,
+            cache_bytes: CACHE_BYTES,
             loading: HashSet::new(),
             request_tx: req_tx,
             result_rx: res_rx,
@@ -474,12 +500,16 @@ impl MbtilesState {
             Err(e) => MbtTileData::Error(e),
             Ok(None) => MbtTileData::Empty,
             Ok(Some(raw)) => match decode_and_parse(res.z, res.x, res.y, raw) {
-                Ok(Some((fc, extent, layer_groups, geo_index))) => MbtTileData::Loaded {
-                    fc,
-                    extent,
-                    layer_groups,
-                    geo_index,
-                },
+                Ok(Some((fc, extent, layer_groups, geo_index))) => {
+                    let bytes = loaded_bytes(&fc, &geo_index);
+                    MbtTileData::Loaded {
+                        fc,
+                        extent,
+                        layer_groups,
+                        geo_index,
+                        bytes,
+                    }
+                }
                 Ok(None) => MbtTileData::Empty,
                 Err(e) => MbtTileData::Error(e.to_string()),
             },
@@ -613,10 +643,11 @@ impl MbtilesState {
         out
     }
 
-    /// Drop cached tiles far from the viewport so panning does not grow memory without bound.
+    /// Drop cached tiles far from the viewport once the decoded tiles exceed the memory budget.
+    /// Visible tiles and their ancestors stay.
     pub(crate) fn prune_tile_cache_if_needed(&mut self) {
-        const MAX: usize = 256;
-        if self.tiles.len() <= MAX {
+        let total: u64 = self.tiles.values().map(MbtTileData::memory_estimate).sum();
+        if total <= self.cache_bytes {
             return;
         }
         let keep = self.keep_tile_keys();
