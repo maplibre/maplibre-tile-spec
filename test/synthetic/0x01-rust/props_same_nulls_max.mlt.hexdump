@@ -97,7 +97,7 @@
 0000004e  30                                                0                |           stream_type: 0x30 Length(VarBinary)
                                                                              |             └ bits 7-4 = 0011 -> category = Length
                                                                              |             └ bits 3-0 = 0000 -> subtype = VarBinary
-0000004f  62                                                b                |           encoding: 0x62 logical=Rle(Split { runs: 1, num_rle_values: 9 }) physical=VarInt
+0000004f  62                                                b                |           encoding: 0x62 logical=Int(Rle(Split { runs: 1, num_rle_values: 9 })) physical=VarInt
                                                                              |             └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
@@ -105,21 +105,21 @@
 00000051  02                                                .                |           byte_length: 2
 00000052  01                                                .                |           runs: 1
 00000053  09                                                .                |           num_rle_values: 9
-00000054  09 00                                             ..               |         data [Length(VarBinary) Rle(Split { runs: 1, num_rle_values: 9 })/VarInt, 2 values, 2 B]
+00000054  09 00                                             ..               |         data [Length(VarBinary) Int(Rle(Split { runs: 1, num_rle_values: 9 }))/VarInt, 2 values, 2 B]
                                                                              |           decoded: [0, 0, 0, 0, 0, 0, 0, 0, 0]
 00000056                                                                     |       stream[0] (22 B)
 00000056                                                                     |         header (4 B)
 00000056  13                                                .                |           stream_type: 0x13 Data(Vertex)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0011 -> subtype = Vertex
-00000057  42                                                B                |           encoding: 0x42 logical=ComponentwiseDelta physical=VarInt
+00000057  42                                                B                |           encoding: 0x42 logical=Vertex(ComponentwiseDelta) physical=VarInt
                                                                              |             └ bits 7-5 = 010 -> logical1 = ComponentwiseDelta
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 00000058  12                                                .                |           num_values: 18
 00000059  12                                                .                |           byte_length: 18
-0000005a  1a 54 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .T.............. |         data [Data(Vertex) ComponentwiseDelta/VarInt, 18 values, 18 B]
-0000006a  00 00                                             ..               |
+0000005a  1a 54 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .T.............. |         data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 18 values, 18 B]
+0000006a  00 00                                             ..               | 
                                                                              |           decoded: [13, 42, 13, 42, 13, 42, 13, 42, 13, 42, 13, 42, 13, 42, 13, 42, 13, 42]
 0000006c                                                                     |     column[1] OptU32 "a0" (13 B)
 0000006c                                                                     |       present (7 B)
@@ -127,26 +127,26 @@
 0000006c  00                                                .                |           stream_type: 0x00 Present
                                                                              |             └ bits 7-4 = 0000 -> category = Present
                                                                              |             └ bits 3-0 = 0000 -> subtype = -
-0000006d  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 2, num_rle_values: 3 }) physical=None
+0000006d  60                                                `                |           encoding: 0x60 logical=Bool(ByteRle(Split { runs: 2, num_rle_values: 3 })) physical=None
                                                                              |             └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 00 -> physical = None
 0000006e  09                                                .                |           num_values: 9
 0000006f  03                                                .                |           byte_length: 3
-00000070  fe 03 00                                          ...              |         data [Present Rle(Split { runs: 2, num_rle_values: 3 })/None, 9 values, 3 B]
+00000070  fe 03 00                                          ...              |         data [Present Bool(ByteRle(Split { runs: 2, num_rle_values: 3 }))/None, 9 values, 3 B]
                                                                              |           decoded: 9 present-bits: 110000000
 00000073                                                                     |       data (6 B)
 00000073                                                                     |         header (4 B)
 00000073  10                                                .                |           stream_type: 0x10 Data(None)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0000 -> subtype = None
-00000074  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+00000074  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 00000075  02                                                .                |           num_values: 2
 00000076  02                                                .                |           byte_length: 2
-00000077  00 01                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+00000077  00 01                                             ..               |         data [Data(None) Int(None)/VarInt, 2 values, 2 B]
                                                                              |           decoded: [0, 1]
 00000079                                                                     |     column[2] OptU32 "b0" (13 B)
 00000079                                                                     |       present (7 B)
@@ -154,26 +154,26 @@
 00000079  00                                                .                |           stream_type: 0x00 Present
                                                                              |             └ bits 7-4 = 0000 -> category = Present
                                                                              |             └ bits 3-0 = 0000 -> subtype = -
-0000007a  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 2, num_rle_values: 3 }) physical=None
+0000007a  60                                                `                |           encoding: 0x60 logical=Bool(ByteRle(Split { runs: 2, num_rle_values: 3 })) physical=None
                                                                              |             └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 00 -> physical = None
 0000007b  09                                                .                |           num_values: 9
 0000007c  03                                                .                |           byte_length: 3
-0000007d  fe 03 00                                          ...              |         data [Present Rle(Split { runs: 2, num_rle_values: 3 })/None, 9 values, 3 B]
+0000007d  fe 03 00                                          ...              |         data [Present Bool(ByteRle(Split { runs: 2, num_rle_values: 3 }))/None, 9 values, 3 B]
                                                                              |           decoded: 9 present-bits: 110000000
 00000080                                                                     |       data (6 B)
 00000080                                                                     |         header (4 B)
 00000080  10                                                .                |           stream_type: 0x10 Data(None)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0000 -> subtype = None
-00000081  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+00000081  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 00000082  02                                                .                |           num_values: 2
 00000083  02                                                .                |           byte_length: 2
-00000084  00 01                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+00000084  00 01                                             ..               |         data [Data(None) Int(None)/VarInt, 2 values, 2 B]
                                                                              |           decoded: [0, 1]
 00000086                                                                     |     column[3] OptU32 "a1" (13 B)
 00000086                                                                     |       present (7 B)
@@ -181,26 +181,26 @@
 00000086  00                                                .                |           stream_type: 0x00 Present
                                                                              |             └ bits 7-4 = 0000 -> category = Present
                                                                              |             └ bits 3-0 = 0000 -> subtype = -
-00000087  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 2, num_rle_values: 3 }) physical=None
+00000087  60                                                `                |           encoding: 0x60 logical=Bool(ByteRle(Split { runs: 2, num_rle_values: 3 })) physical=None
                                                                              |             └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 00 -> physical = None
 00000088  09                                                .                |           num_values: 9
 00000089  03                                                .                |           byte_length: 3
-0000008a  fe 05 00                                          ...              |         data [Present Rle(Split { runs: 2, num_rle_values: 3 })/None, 9 values, 3 B]
+0000008a  fe 05 00                                          ...              |         data [Present Bool(ByteRle(Split { runs: 2, num_rle_values: 3 }))/None, 9 values, 3 B]
                                                                              |           decoded: 9 present-bits: 101000000
 0000008d                                                                     |       data (6 B)
 0000008d                                                                     |         header (4 B)
 0000008d  10                                                .                |           stream_type: 0x10 Data(None)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0000 -> subtype = None
-0000008e  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+0000008e  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 0000008f  02                                                .                |           num_values: 2
 00000090  02                                                .                |           byte_length: 2
-00000091  00 02                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+00000091  00 02                                             ..               |         data [Data(None) Int(None)/VarInt, 2 values, 2 B]
                                                                              |           decoded: [0, 2]
 00000093                                                                     |     column[4] OptU32 "b1" (13 B)
 00000093                                                                     |       present (7 B)
@@ -208,26 +208,26 @@
 00000093  00                                                .                |           stream_type: 0x00 Present
                                                                              |             └ bits 7-4 = 0000 -> category = Present
                                                                              |             └ bits 3-0 = 0000 -> subtype = -
-00000094  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 2, num_rle_values: 3 }) physical=None
+00000094  60                                                `                |           encoding: 0x60 logical=Bool(ByteRle(Split { runs: 2, num_rle_values: 3 })) physical=None
                                                                              |             └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 00 -> physical = None
 00000095  09                                                .                |           num_values: 9
 00000096  03                                                .                |           byte_length: 3
-00000097  fe 05 00                                          ...              |         data [Present Rle(Split { runs: 2, num_rle_values: 3 })/None, 9 values, 3 B]
+00000097  fe 05 00                                          ...              |         data [Present Bool(ByteRle(Split { runs: 2, num_rle_values: 3 }))/None, 9 values, 3 B]
                                                                              |           decoded: 9 present-bits: 101000000
 0000009a                                                                     |       data (6 B)
 0000009a                                                                     |         header (4 B)
 0000009a  10                                                .                |           stream_type: 0x10 Data(None)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0000 -> subtype = None
-0000009b  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+0000009b  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 0000009c  02                                                .                |           num_values: 2
 0000009d  02                                                .                |           byte_length: 2
-0000009e  00 02                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+0000009e  00 02                                             ..               |         data [Data(None) Int(None)/VarInt, 2 values, 2 B]
                                                                              |           decoded: [0, 2]
 000000a0                                                                     |     column[5] OptU32 "a2" (13 B)
 000000a0                                                                     |       present (7 B)
@@ -235,26 +235,26 @@
 000000a0  00                                                .                |           stream_type: 0x00 Present
                                                                              |             └ bits 7-4 = 0000 -> category = Present
                                                                              |             └ bits 3-0 = 0000 -> subtype = -
-000000a1  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 2, num_rle_values: 3 }) physical=None
+000000a1  60                                                `                |           encoding: 0x60 logical=Bool(ByteRle(Split { runs: 2, num_rle_values: 3 })) physical=None
                                                                              |             └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 00 -> physical = None
 000000a2  09                                                .                |           num_values: 9
 000000a3  03                                                .                |           byte_length: 3
-000000a4  fe 09 00                                          ...              |         data [Present Rle(Split { runs: 2, num_rle_values: 3 })/None, 9 values, 3 B]
+000000a4  fe 09 00                                          ...              |         data [Present Bool(ByteRle(Split { runs: 2, num_rle_values: 3 }))/None, 9 values, 3 B]
                                                                              |           decoded: 9 present-bits: 100100000
 000000a7                                                                     |       data (6 B)
 000000a7                                                                     |         header (4 B)
 000000a7  10                                                .                |           stream_type: 0x10 Data(None)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0000 -> subtype = None
-000000a8  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+000000a8  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 000000a9  02                                                .                |           num_values: 2
 000000aa  02                                                .                |           byte_length: 2
-000000ab  00 03                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+000000ab  00 03                                             ..               |         data [Data(None) Int(None)/VarInt, 2 values, 2 B]
                                                                              |           decoded: [0, 3]
 000000ad                                                                     |     column[6] OptU32 "b2" (13 B)
 000000ad                                                                     |       present (7 B)
@@ -262,26 +262,26 @@
 000000ad  00                                                .                |           stream_type: 0x00 Present
                                                                              |             └ bits 7-4 = 0000 -> category = Present
                                                                              |             └ bits 3-0 = 0000 -> subtype = -
-000000ae  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 2, num_rle_values: 3 }) physical=None
+000000ae  60                                                `                |           encoding: 0x60 logical=Bool(ByteRle(Split { runs: 2, num_rle_values: 3 })) physical=None
                                                                              |             └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 00 -> physical = None
 000000af  09                                                .                |           num_values: 9
 000000b0  03                                                .                |           byte_length: 3
-000000b1  fe 09 00                                          ...              |         data [Present Rle(Split { runs: 2, num_rle_values: 3 })/None, 9 values, 3 B]
+000000b1  fe 09 00                                          ...              |         data [Present Bool(ByteRle(Split { runs: 2, num_rle_values: 3 }))/None, 9 values, 3 B]
                                                                              |           decoded: 9 present-bits: 100100000
 000000b4                                                                     |       data (6 B)
 000000b4                                                                     |         header (4 B)
 000000b4  10                                                .                |           stream_type: 0x10 Data(None)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0000 -> subtype = None
-000000b5  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+000000b5  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 000000b6  02                                                .                |           num_values: 2
 000000b7  02                                                .                |           byte_length: 2
-000000b8  00 03                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+000000b8  00 03                                             ..               |         data [Data(None) Int(None)/VarInt, 2 values, 2 B]
                                                                              |           decoded: [0, 3]
 000000ba                                                                     |     column[7] OptU32 "a3" (13 B)
 000000ba                                                                     |       present (7 B)
@@ -289,26 +289,26 @@
 000000ba  00                                                .                |           stream_type: 0x00 Present
                                                                              |             └ bits 7-4 = 0000 -> category = Present
                                                                              |             └ bits 3-0 = 0000 -> subtype = -
-000000bb  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 2, num_rle_values: 3 }) physical=None
+000000bb  60                                                `                |           encoding: 0x60 logical=Bool(ByteRle(Split { runs: 2, num_rle_values: 3 })) physical=None
                                                                              |             └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 00 -> physical = None
 000000bc  09                                                .                |           num_values: 9
 000000bd  03                                                .                |           byte_length: 3
-000000be  fe 11 00                                          ...              |         data [Present Rle(Split { runs: 2, num_rle_values: 3 })/None, 9 values, 3 B]
+000000be  fe 11 00                                          ...              |         data [Present Bool(ByteRle(Split { runs: 2, num_rle_values: 3 }))/None, 9 values, 3 B]
                                                                              |           decoded: 9 present-bits: 100010000
 000000c1                                                                     |       data (6 B)
 000000c1                                                                     |         header (4 B)
 000000c1  10                                                .                |           stream_type: 0x10 Data(None)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0000 -> subtype = None
-000000c2  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+000000c2  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 000000c3  02                                                .                |           num_values: 2
 000000c4  02                                                .                |           byte_length: 2
-000000c5  00 04                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+000000c5  00 04                                             ..               |         data [Data(None) Int(None)/VarInt, 2 values, 2 B]
                                                                              |           decoded: [0, 4]
 000000c7                                                                     |     column[8] OptU32 "b3" (13 B)
 000000c7                                                                     |       present (7 B)
@@ -316,26 +316,26 @@
 000000c7  00                                                .                |           stream_type: 0x00 Present
                                                                              |             └ bits 7-4 = 0000 -> category = Present
                                                                              |             └ bits 3-0 = 0000 -> subtype = -
-000000c8  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 2, num_rle_values: 3 }) physical=None
+000000c8  60                                                `                |           encoding: 0x60 logical=Bool(ByteRle(Split { runs: 2, num_rle_values: 3 })) physical=None
                                                                              |             └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 00 -> physical = None
 000000c9  09                                                .                |           num_values: 9
 000000ca  03                                                .                |           byte_length: 3
-000000cb  fe 11 00                                          ...              |         data [Present Rle(Split { runs: 2, num_rle_values: 3 })/None, 9 values, 3 B]
+000000cb  fe 11 00                                          ...              |         data [Present Bool(ByteRle(Split { runs: 2, num_rle_values: 3 }))/None, 9 values, 3 B]
                                                                              |           decoded: 9 present-bits: 100010000
 000000ce                                                                     |       data (6 B)
 000000ce                                                                     |         header (4 B)
 000000ce  10                                                .                |           stream_type: 0x10 Data(None)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0000 -> subtype = None
-000000cf  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+000000cf  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 000000d0  02                                                .                |           num_values: 2
 000000d1  02                                                .                |           byte_length: 2
-000000d2  00 04                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+000000d2  00 04                                             ..               |         data [Data(None) Int(None)/VarInt, 2 values, 2 B]
                                                                              |           decoded: [0, 4]
 000000d4                                                                     |     column[9] OptU32 "a4" (13 B)
 000000d4                                                                     |       present (7 B)
@@ -343,26 +343,26 @@
 000000d4  00                                                .                |           stream_type: 0x00 Present
                                                                              |             └ bits 7-4 = 0000 -> category = Present
                                                                              |             └ bits 3-0 = 0000 -> subtype = -
-000000d5  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 2, num_rle_values: 3 }) physical=None
+000000d5  60                                                `                |           encoding: 0x60 logical=Bool(ByteRle(Split { runs: 2, num_rle_values: 3 })) physical=None
                                                                              |             └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 00 -> physical = None
 000000d6  09                                                .                |           num_values: 9
 000000d7  03                                                .                |           byte_length: 3
-000000d8  fe 21 00                                          .!.              |         data [Present Rle(Split { runs: 2, num_rle_values: 3 })/None, 9 values, 3 B]
+000000d8  fe 21 00                                          .!.              |         data [Present Bool(ByteRle(Split { runs: 2, num_rle_values: 3 }))/None, 9 values, 3 B]
                                                                              |           decoded: 9 present-bits: 100001000
 000000db                                                                     |       data (6 B)
 000000db                                                                     |         header (4 B)
 000000db  10                                                .                |           stream_type: 0x10 Data(None)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0000 -> subtype = None
-000000dc  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+000000dc  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 000000dd  02                                                .                |           num_values: 2
 000000de  02                                                .                |           byte_length: 2
-000000df  00 05                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+000000df  00 05                                             ..               |         data [Data(None) Int(None)/VarInt, 2 values, 2 B]
                                                                              |           decoded: [0, 5]
 000000e1                                                                     |     column[10] OptU32 "b4" (13 B)
 000000e1                                                                     |       present (7 B)
@@ -370,26 +370,26 @@
 000000e1  00                                                .                |           stream_type: 0x00 Present
                                                                              |             └ bits 7-4 = 0000 -> category = Present
                                                                              |             └ bits 3-0 = 0000 -> subtype = -
-000000e2  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 2, num_rle_values: 3 }) physical=None
+000000e2  60                                                `                |           encoding: 0x60 logical=Bool(ByteRle(Split { runs: 2, num_rle_values: 3 })) physical=None
                                                                              |             └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 00 -> physical = None
 000000e3  09                                                .                |           num_values: 9
 000000e4  03                                                .                |           byte_length: 3
-000000e5  fe 21 00                                          .!.              |         data [Present Rle(Split { runs: 2, num_rle_values: 3 })/None, 9 values, 3 B]
+000000e5  fe 21 00                                          .!.              |         data [Present Bool(ByteRle(Split { runs: 2, num_rle_values: 3 }))/None, 9 values, 3 B]
                                                                              |           decoded: 9 present-bits: 100001000
 000000e8                                                                     |       data (6 B)
 000000e8                                                                     |         header (4 B)
 000000e8  10                                                .                |           stream_type: 0x10 Data(None)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0000 -> subtype = None
-000000e9  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+000000e9  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 000000ea  02                                                .                |           num_values: 2
 000000eb  02                                                .                |           byte_length: 2
-000000ec  00 05                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+000000ec  00 05                                             ..               |         data [Data(None) Int(None)/VarInt, 2 values, 2 B]
                                                                              |           decoded: [0, 5]
 000000ee                                                                     |     column[11] OptU32 "a5" (13 B)
 000000ee                                                                     |       present (7 B)
@@ -397,26 +397,26 @@
 000000ee  00                                                .                |           stream_type: 0x00 Present
                                                                              |             └ bits 7-4 = 0000 -> category = Present
                                                                              |             └ bits 3-0 = 0000 -> subtype = -
-000000ef  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 2, num_rle_values: 3 }) physical=None
+000000ef  60                                                `                |           encoding: 0x60 logical=Bool(ByteRle(Split { runs: 2, num_rle_values: 3 })) physical=None
                                                                              |             └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 00 -> physical = None
 000000f0  09                                                .                |           num_values: 9
 000000f1  03                                                .                |           byte_length: 3
-000000f2  fe 41 00                                          .A.              |         data [Present Rle(Split { runs: 2, num_rle_values: 3 })/None, 9 values, 3 B]
+000000f2  fe 41 00                                          .A.              |         data [Present Bool(ByteRle(Split { runs: 2, num_rle_values: 3 }))/None, 9 values, 3 B]
                                                                              |           decoded: 9 present-bits: 100000100
 000000f5                                                                     |       data (6 B)
 000000f5                                                                     |         header (4 B)
 000000f5  10                                                .                |           stream_type: 0x10 Data(None)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0000 -> subtype = None
-000000f6  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+000000f6  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 000000f7  02                                                .                |           num_values: 2
 000000f8  02                                                .                |           byte_length: 2
-000000f9  00 06                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+000000f9  00 06                                             ..               |         data [Data(None) Int(None)/VarInt, 2 values, 2 B]
                                                                              |           decoded: [0, 6]
 000000fb                                                                     |     column[12] OptU32 "b5" (13 B)
 000000fb                                                                     |       present (7 B)
@@ -424,26 +424,26 @@
 000000fb  00                                                .                |           stream_type: 0x00 Present
                                                                              |             └ bits 7-4 = 0000 -> category = Present
                                                                              |             └ bits 3-0 = 0000 -> subtype = -
-000000fc  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 2, num_rle_values: 3 }) physical=None
+000000fc  60                                                `                |           encoding: 0x60 logical=Bool(ByteRle(Split { runs: 2, num_rle_values: 3 })) physical=None
                                                                              |             └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 00 -> physical = None
 000000fd  09                                                .                |           num_values: 9
 000000fe  03                                                .                |           byte_length: 3
-000000ff  fe 41 00                                          .A.              |         data [Present Rle(Split { runs: 2, num_rle_values: 3 })/None, 9 values, 3 B]
+000000ff  fe 41 00                                          .A.              |         data [Present Bool(ByteRle(Split { runs: 2, num_rle_values: 3 }))/None, 9 values, 3 B]
                                                                              |           decoded: 9 present-bits: 100000100
 00000102                                                                     |       data (6 B)
 00000102                                                                     |         header (4 B)
 00000102  10                                                .                |           stream_type: 0x10 Data(None)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0000 -> subtype = None
-00000103  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+00000103  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 00000104  02                                                .                |           num_values: 2
 00000105  02                                                .                |           byte_length: 2
-00000106  00 06                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+00000106  00 06                                             ..               |         data [Data(None) Int(None)/VarInt, 2 values, 2 B]
                                                                              |           decoded: [0, 6]
 00000108                                                                     |     column[13] OptU32 "a6" (13 B)
 00000108                                                                     |       present (7 B)
@@ -451,26 +451,26 @@
 00000108  00                                                .                |           stream_type: 0x00 Present
                                                                              |             └ bits 7-4 = 0000 -> category = Present
                                                                              |             └ bits 3-0 = 0000 -> subtype = -
-00000109  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 2, num_rle_values: 3 }) physical=None
+00000109  60                                                `                |           encoding: 0x60 logical=Bool(ByteRle(Split { runs: 2, num_rle_values: 3 })) physical=None
                                                                              |             └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 00 -> physical = None
 0000010a  09                                                .                |           num_values: 9
 0000010b  03                                                .                |           byte_length: 3
-0000010c  fe 81 00                                          ...              |         data [Present Rle(Split { runs: 2, num_rle_values: 3 })/None, 9 values, 3 B]
+0000010c  fe 81 00                                          ...              |         data [Present Bool(ByteRle(Split { runs: 2, num_rle_values: 3 }))/None, 9 values, 3 B]
                                                                              |           decoded: 9 present-bits: 100000010
 0000010f                                                                     |       data (6 B)
 0000010f                                                                     |         header (4 B)
 0000010f  10                                                .                |           stream_type: 0x10 Data(None)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0000 -> subtype = None
-00000110  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+00000110  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 00000111  02                                                .                |           num_values: 2
 00000112  02                                                .                |           byte_length: 2
-00000113  00 07                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+00000113  00 07                                             ..               |         data [Data(None) Int(None)/VarInt, 2 values, 2 B]
                                                                              |           decoded: [0, 7]
 00000115                                                                     |     column[14] OptU32 "b6" (13 B)
 00000115                                                                     |       present (7 B)
@@ -478,26 +478,26 @@
 00000115  00                                                .                |           stream_type: 0x00 Present
                                                                              |             └ bits 7-4 = 0000 -> category = Present
                                                                              |             └ bits 3-0 = 0000 -> subtype = -
-00000116  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 2, num_rle_values: 3 }) physical=None
+00000116  60                                                `                |           encoding: 0x60 logical=Bool(ByteRle(Split { runs: 2, num_rle_values: 3 })) physical=None
                                                                              |             └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 00 -> physical = None
 00000117  09                                                .                |           num_values: 9
 00000118  03                                                .                |           byte_length: 3
-00000119  fe 81 00                                          ...              |         data [Present Rle(Split { runs: 2, num_rle_values: 3 })/None, 9 values, 3 B]
+00000119  fe 81 00                                          ...              |         data [Present Bool(ByteRle(Split { runs: 2, num_rle_values: 3 }))/None, 9 values, 3 B]
                                                                              |           decoded: 9 present-bits: 100000010
 0000011c                                                                     |       data (6 B)
 0000011c                                                                     |         header (4 B)
 0000011c  10                                                .                |           stream_type: 0x10 Data(None)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0000 -> subtype = None
-0000011d  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+0000011d  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 0000011e  02                                                .                |           num_values: 2
 0000011f  02                                                .                |           byte_length: 2
-00000120  00 07                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+00000120  00 07                                             ..               |         data [Data(None) Int(None)/VarInt, 2 values, 2 B]
                                                                              |           decoded: [0, 7]
 00000122                                                                     |     column[15] OptU32 "a7" (13 B)
 00000122                                                                     |       present (7 B)
@@ -505,26 +505,26 @@
 00000122  00                                                .                |           stream_type: 0x00 Present
                                                                              |             └ bits 7-4 = 0000 -> category = Present
                                                                              |             └ bits 3-0 = 0000 -> subtype = -
-00000123  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 2, num_rle_values: 3 }) physical=None
+00000123  60                                                `                |           encoding: 0x60 logical=Bool(ByteRle(Split { runs: 2, num_rle_values: 3 })) physical=None
                                                                              |             └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 00 -> physical = None
 00000124  09                                                .                |           num_values: 9
 00000125  03                                                .                |           byte_length: 3
-00000126  fe 01 01                                          ...              |         data [Present Rle(Split { runs: 2, num_rle_values: 3 })/None, 9 values, 3 B]
+00000126  fe 01 01                                          ...              |         data [Present Bool(ByteRle(Split { runs: 2, num_rle_values: 3 }))/None, 9 values, 3 B]
                                                                              |           decoded: 9 present-bits: 100000001
 00000129                                                                     |       data (6 B)
 00000129                                                                     |         header (4 B)
 00000129  10                                                .                |           stream_type: 0x10 Data(None)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0000 -> subtype = None
-0000012a  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+0000012a  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 0000012b  02                                                .                |           num_values: 2
 0000012c  02                                                .                |           byte_length: 2
-0000012d  00 08                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+0000012d  00 08                                             ..               |         data [Data(None) Int(None)/VarInt, 2 values, 2 B]
                                                                              |           decoded: [0, 8]
 0000012f                                                                     |     column[16] OptU32 "b7" (13 B)
 0000012f                                                                     |       present (7 B)
@@ -532,24 +532,24 @@
 0000012f  00                                                .                |           stream_type: 0x00 Present
                                                                              |             └ bits 7-4 = 0000 -> category = Present
                                                                              |             └ bits 3-0 = 0000 -> subtype = -
-00000130  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 2, num_rle_values: 3 }) physical=None
+00000130  60                                                `                |           encoding: 0x60 logical=Bool(ByteRle(Split { runs: 2, num_rle_values: 3 })) physical=None
                                                                              |             └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 00 -> physical = None
 00000131  09                                                .                |           num_values: 9
 00000132  03                                                .                |           byte_length: 3
-00000133  fe 01 01                                          ...              |         data [Present Rle(Split { runs: 2, num_rle_values: 3 })/None, 9 values, 3 B]
+00000133  fe 01 01                                          ...              |         data [Present Bool(ByteRle(Split { runs: 2, num_rle_values: 3 }))/None, 9 values, 3 B]
                                                                              |           decoded: 9 present-bits: 100000001
 00000136                                                                     |       data (6 B)
 00000136                                                                     |         header (4 B)
 00000136  10                                                .                |           stream_type: 0x10 Data(None)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0000 -> subtype = None
-00000137  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+00000137  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 00000138  02                                                .                |           num_values: 2
 00000139  02                                                .                |           byte_length: 2
-0000013a  00 08                                             ..               |         data [Data(None) None/VarInt, 2 values, 2 B]
+0000013a  00 08                                             ..               |         data [Data(None) Int(None)/VarInt, 2 values, 2 B]
                                                                              |           decoded: [0, 8]
