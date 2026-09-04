@@ -22,7 +22,7 @@
 00000013  30                                                0                |           stream_type: 0x30 Length(VarBinary)
                                                                              |             └ bits 7-4 = 0011 -> category = Length
                                                                              |             └ bits 3-0 = 0000 -> subtype = VarBinary
-00000014  61                                                a                |           encoding: 0x61 logical=Int(Rle(Split { runs: 1, num_rle_values: 511 })) physical=FastPFor256
+00000014  61                                                a                |           encoding: 0x61 logical=Int(Rle(Split { runs: 1, num_rle_values: 511 })) physical=FastPFor(Block256Be)
                                                                              |             └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 01 -> physical = FastPFor256
@@ -30,14 +30,14 @@
 00000016  08                                                .                |           byte_length: 8
 00000017  01                                                .                |           runs: 1
 00000018  ff 03                                             ..               |           num_rle_values: 511
-0000001a  00 00 00 00 00 80 83 7f                           ........         |         data [Length(VarBinary) Int(Rle(Split { runs: 1, num_rle_values: 511 }))/FastPFor256, 2 values, 8 B]
+0000001a  00 00 00 00 00 80 83 7f                           ........         |         data [Length(VarBinary) Int(Rle(Split { runs: 1, num_rle_values: 511 }))/FastPFor(Block256Be), 2 values, 8 B]
                                                                              |           decoded: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, … ] (511 total)
 00000022                                                                     |       stream[0] (15 B)
 00000022                                                                     |         header (7 B)
 00000022  20                                                                 |           stream_type: 0x20 Offset(Vertex)
                                                                              |             └ bits 7-4 = 0010 -> category = Offset
                                                                              |             └ bits 3-0 = 0000 -> subtype = Vertex
-00000023  61                                                a                |           encoding: 0x61 logical=Int(Rle(Split { runs: 1, num_rle_values: 511 })) physical=FastPFor256
+00000023  61                                                a                |           encoding: 0x61 logical=Int(Rle(Split { runs: 1, num_rle_values: 511 })) physical=FastPFor(Block256Be)
                                                                              |             └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 01 -> physical = FastPFor256
@@ -45,20 +45,20 @@
 00000025  08                                                .                |           byte_length: 8
 00000026  01                                                .                |           runs: 1
 00000027  ff 03                                             ..               |           num_rle_values: 511
-00000029  00 00 00 00 00 80 83 7f                           ........         |         data [Offset(Vertex) Int(Rle(Split { runs: 1, num_rle_values: 511 }))/FastPFor256, 2 values, 8 B]
+00000029  00 00 00 00 00 80 83 7f                           ........         |         data [Offset(Vertex) Int(Rle(Split { runs: 1, num_rle_values: 511 }))/FastPFor(Block256Be), 2 values, 8 B]
                                                                              |           decoded: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, … ] (511 total)
 00000031                                                                     |       stream[1] (12 B)
 00000031                                                                     |         header (4 B)
 00000031  13                                                .                |           stream_type: 0x13 Data(Vertex)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0011 -> subtype = Vertex
-00000032  41                                                A                |           encoding: 0x41 logical=Vertex(ComponentwiseDelta) physical=FastPFor256
+00000032  41                                                A                |           encoding: 0x41 logical=Vertex(ComponentwiseDelta) physical=FastPFor(Block256Be)
                                                                              |             └ bits 7-5 = 010 -> logical1 = ComponentwiseDelta
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 01 -> physical = FastPFor256
 00000033  02                                                .                |           num_values: 2
 00000034  08                                                .                |           byte_length: 8
-00000035  00 00 00 00 00 00 d4 9a                           ........         |         data [Data(Vertex) Vertex(ComponentwiseDelta)/FastPFor256, 2 values, 8 B]
+00000035  00 00 00 00 00 00 d4 9a                           ........         |         data [Data(Vertex) Vertex(ComponentwiseDelta)/FastPFor(Block256Be), 2 values, 8 B]
                                                                              |           decoded: [13, 42]
 0000003d                                                                     |     column[1] OptU32 "val" (355 B)
 0000003d                                                                     |       present (9 B)
@@ -79,27 +79,27 @@
 00000046  10                                                .                |           stream_type: 0x10 Data(None)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0000 -> subtype = None
-00000047  01                                                .                |           encoding: 0x01 logical=Int(None) physical=FastPFor256
+00000047  01                                                .                |           encoding: 0x01 logical=Int(None) physical=FastPFor(Block256Be)
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 01 -> physical = FastPFor256
 00000048  ff 03                                             ..               |           num_values: 511
 0000004a  d4 02                                             ..               |           byte_length: 340
-0000004c  00 00 01 00 00 00 00 11 24 92 49 24 49 24 92 49   ........$.I$I$.I |         data [Data(None) Int(None)/FastPFor256, 511 values, 340 B]
-0000005c  92 49 24 92 24 92 49 24 49 24 92 49 92 49 24 92   .I$.$.I$I$.I.I$. |
-0000006c  24 92 49 24 49 24 92 49 92 49 24 92 24 92 49 24   $.I$I$.I.I$.$.I$ |
-0000007c  49 24 92 49 92 49 24 92 24 92 49 24 49 24 92 49   I$.I.I$.$.I$I$.I |
-0000008c  92 49 24 92 24 92 49 24 00 00 00 02 00 00 00 02   .I$.$.I$........ |
-0000009c  00 00 00 00 81 80 82 81 82 81 80 82 80 82 81 80   ................ |
-000000ac  81 80 82 81 82 81 80 82 80 82 81 80 81 80 82 81   ................ |
-000000bc  82 81 80 82 80 82 81 80 81 80 82 81 82 81 80 82   ................ |
-000000cc  80 82 81 80 81 80 82 81 82 81 80 82 80 82 81 80   ................ |
-000000dc  81 80 82 81 82 81 80 82 80 82 81 80 81 80 82 81   ................ |
-000000ec  82 81 80 82 80 82 81 80 81 80 82 81 82 81 80 82   ................ |
-000000fc  80 82 81 80 81 80 82 81 82 81 80 82 80 82 81 80   ................ |
-0000010c  81 80 82 81 82 81 80 82 80 82 81 80 81 80 82 81   ................ |
-0000011c  82 81 80 82 80 82 81 80 81 80 82 81 82 81 80 82   ................ |
-0000012c  80 82 81 80 81 80 82 81 82 81 80 82 80 82 81 80   ................ |
-0000013c  81 80 82 81 82 81 80 82 80 82 81 80 81 80 82 81   ................ |
+0000004c  00 00 01 00 00 00 00 11 24 92 49 24 49 24 92 49   ........$.I$I$.I |         data [Data(None) Int(None)/FastPFor(Block256Be), 511 values, 340 B]
+0000005c  92 49 24 92 24 92 49 24 49 24 92 49 92 49 24 92   .I$.$.I$I$.I.I$. | 
+0000006c  24 92 49 24 49 24 92 49 92 49 24 92 24 92 49 24   $.I$I$.I.I$.$.I$ | 
+0000007c  49 24 92 49 92 49 24 92 24 92 49 24 49 24 92 49   I$.I.I$.$.I$I$.I | 
+0000008c  92 49 24 92 24 92 49 24 00 00 00 02 00 00 00 02   .I$.$.I$........ | 
+0000009c  00 00 00 00 81 80 82 81 82 81 80 82 80 82 81 80   ................ | 
+000000ac  81 80 82 81 82 81 80 82 80 82 81 80 81 80 82 81   ................ | 
+000000bc  82 81 80 82 80 82 81 80 81 80 82 81 82 81 80 82   ................ | 
+000000cc  80 82 81 80 81 80 82 81 82 81 80 82 80 82 81 80   ................ | 
+000000dc  81 80 82 81 82 81 80 82 80 82 81 80 81 80 82 81   ................ | 
+000000ec  82 81 80 82 80 82 81 80 81 80 82 81 82 81 80 82   ................ | 
+000000fc  80 82 81 80 81 80 82 81 82 81 80 82 80 82 81 80   ................ | 
+0000010c  81 80 82 81 82 81 80 82 80 82 81 80 81 80 82 81   ................ | 
+0000011c  82 81 80 82 80 82 81 80 81 80 82 81 82 81 80 82   ................ | 
+0000012c  80 82 81 80 81 80 82 81 82 81 80 82 80 82 81 80   ................ | 
+0000013c  81 80 82 81 82 81 80 82 80 82 81 80 81 80 82 81   ................ | 
                                                                              |           … 84 more bytes omitted (--max-blob to change)
                                                                              |           decoded: [0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, … ] (511 total)
