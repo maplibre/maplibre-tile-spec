@@ -4,6 +4,7 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+use mlt_core::GeometryType;
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };
@@ -15,12 +16,12 @@ use serde_json::{Value, json};
 
 use super::{
     MouseState, PanelAreas, SCAN_FLAGS, UiArgs, build_app, collect_extensions,
-    collect_file_algorithms, collect_file_geometries, extent_from_fc, find_tile_files,
-    handle_filter_click, handle_key, handle_mouse, load_fc, parse_center_tile_xyz, render_frame,
-    tick,
+    collect_file_algorithms, collect_file_geometries, extent_from_fc, handle_filter_click,
+    handle_key, handle_mouse, load_fc, parse_center_tile_xyz, render_frame, tick,
 };
-use crate::ls::{FileSortColumn, LsRow, analyze_tile_files};
+use crate::ls::{FileSortColumn, LsRow, analyze_tile_files, analyze_tile_row};
 use crate::ui::mbt::{MbtHoveredInfo, MbtTileData, MbtilesState};
+use crate::ui::scan::{ScanEvent, start_scan};
 use crate::ui::state::{App, HoveredInfo, ResizeHandle, TreeItem, ViewMode};
 
 const WIDTH: u16 = 100;
@@ -138,19 +139,13 @@ fn fixtures_dir() -> PathBuf {
     test_dir("fixtures/simple")
 }
 
-/// File browser over `test/fixtures/simple` with every file analyzed.
+/// File browser over `test/fixtures/simple` with the background scan already finished.
 fn file_browser_app() -> App {
-    browser_over(fixtures_dir())
-}
-
-fn browser_over(base: PathBuf) -> App {
-    let paths = find_tile_files(&base).unwrap();
-    let files = analyze_tile_files(&paths, &base, SCAN_FLAGS);
-    App::new_file_browser(files, None, base)
-}
-
-fn analyze_row(path: PathBuf, base: &std::path::Path) -> LsRow {
-    analyze_tile_files(&[path], base, SCAN_FLAGS).remove(0)
+    let base = fixtures_dir();
+    let rx = start_scan(base.clone(), SCAN_FLAGS);
+    let mut app = App::new_file_browser(Vec::new(), Some(rx), base);
+    app.finish_scan();
+    app
 }
 
 #[test]
@@ -641,6 +636,53 @@ fn enter_opens_a_file_and_escape_returns_to_the_browser() {
     "#);
     press(&mut app, KeyCode::Esc);
     assert_eq!(app.mode, ViewMode::FileBrowser);
+}
+
+#[test]
+fn scan_streams_files_into_the_browser() {
+    let base = fixtures_dir();
+    let rx = start_scan(base.clone(), SCAN_FLAGS);
+    let mut app = App::new_file_browser(Vec::new(), Some(rx), base);
+    assert!(!app.data_loaded());
+    insta::assert_snapshot!(render(&mut app), @r#"
+    "┌MLT Files (0 found, scanning…) - ↑/↓ navigate, Enter open, h help, q┐┌Tile Preview────────────────┐"
+    "│   File     Size   Enc % Layers   Features Notes                    ││Select a tile file (.mlt / .│"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    │└────────────────────────────┘"
+    "│                                                                    │┌Filter (click to toggle)────┐"
+    "│                                                                    ││[Reset filters]             │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    │└────────────────────────────┘"
+    "│                                                                    │┌File Info───────────────────┐"
+    "│                                                                    ││Scanning                    │"
+    "│                                                                    ││../../test/fixtures/simple… │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "└────────────────────────────────────────────────────────────────────┘└────────────────────────────┘"
+    "#);
+    app.finish_scan();
+    assert!(app.data_loaded());
+    assert_eq!(app.files.len(), 6);
+    assert!(
+        app.files.iter().all(|r| matches!(r, LsRow::Info { .. })),
+        "every row should be analyzed"
+    );
 }
 
 fn mbtiles_app() -> App {
@@ -1336,7 +1378,7 @@ fn file_browser_keys_page_and_bad_rows_show_a_popup() {
 
     let base = fixtures_dir();
     let rows = vec![
-        analyze_row(base.join("broken.mvt"), &base),
+        analyze_tile_row(&base.join("broken.mvt"), &base, SCAN_FLAGS),
         LsRow::Loading {
             path: base.join("missing.mvt"),
         },
@@ -1398,7 +1440,7 @@ fn header_clicks_sort_every_column_both_ways() {
         size: Some(9),
         error: "bad".into(),
     });
-    rows.push(analyze_row(base.join("a.mvt"), &base));
+    rows.push(analyze_tile_row(&base.join("a.mvt"), &base, SCAN_FLAGS));
     let mut app = App::new_file_browser(rows, None, base);
     app.handle_file_header_click(FileSortColumn::Size);
     let names: Vec<String> = app
@@ -1417,14 +1459,95 @@ fn header_clicks_sort_every_column_both_ways() {
         "error rows sort after info rows"
     );
 
-    let (tx, rx) = mpsc::channel::<Vec<LsRow>>();
+    let (tx, rx) = mpsc::channel::<ScanEvent>();
     let mut app = App::new_file_browser(Vec::new(), Some(rx), fixtures_dir());
     app.handle_file_header_click(FileSortColumn::Size);
     drop(tx);
 }
 
 #[test]
+fn scan_events_drive_the_browser_through_poll() {
+    let base = fixtures_dir();
+    let (tx, rx) = mpsc::channel();
+    let mut app = App::new_file_browser(Vec::new(), Some(rx), base.clone());
+    assert!(!app.poll_scan());
+    let path = base.join("point-boolean.mvt");
+    tx.send(ScanEvent::Found(path.clone())).unwrap();
+    tx.send(ScanEvent::Done).unwrap();
+    assert!(app.poll_scan());
+    assert_eq!(app.files.len(), 1);
+    assert!(!app.data_loaded());
+    insta::assert_snapshot!(render(&mut app), @r#"
+    "┌MLT Files (1 found, 1 analyzing…) - ↑/↓ navigate, Enter open, h help┐┌Tile Preview────────────────┐"
+    "│   File                  Size   Enc % Layers   Features Notes       ││Select a tile file (.mlt / .│"
+    "│>> point-boolean.mvt …        …       …      …                      ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    │└────────────────────────────┘"
+    "│                                                                    │┌Filter (click to toggle)────┐"
+    "│                                                                    ││[Reset filters]             │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││Extensions:                 │"
+    "│                                                                    ││  [ ] mvt                   │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    │└────────────────────────────┘"
+    "│                                                                    │┌File Info───────────────────┐"
+    "│                                                                    ││Analyzing…                  │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││                            │"
+    "└────────────────────────────────────────────────────────────────────┘└────────────────────────────┘"
+    "#);
+    let row = analyze_tile_row(&path, &base, SCAN_FLAGS);
+    tx.send(ScanEvent::Analyzed(0, Box::new(row))).unwrap();
+    assert!(app.poll_scan());
+    assert!(app.data_loaded());
+    assert!(matches!(app.files[0], LsRow::Info { .. }));
+
+    let (tx, rx) = mpsc::channel();
+    let mut app = App::new_file_browser(Vec::new(), Some(rx), base.clone());
+    app.geom_filters.insert(GeometryType::Point);
+    let line = base.join("line-boolean.mvt");
+    tx.send(ScanEvent::Found(path.clone())).unwrap();
+    tx.send(ScanEvent::Found(line.clone())).unwrap();
+    let line_row = analyze_tile_row(&line, &base, SCAN_FLAGS);
+    let point_row = analyze_tile_row(&path, &base, SCAN_FLAGS);
+    tx.send(ScanEvent::Analyzed(1, Box::new(line_row))).unwrap();
+    tx.send(ScanEvent::Analyzed(0, Box::new(point_row)))
+        .unwrap();
+    assert!(app.poll_scan());
+    assert_eq!(
+        app.filtered_file_indices.len(),
+        1,
+        "an active filter rebuilds the list"
+    );
+    assert!(
+        app.files[1].path().ends_with("line-boolean.mvt"),
+        "rows land where the walk found them"
+    );
+    drop(tx);
+    assert!(app.poll_scan(), "a dropped scanner ends the scan");
+    assert!(app.data_loaded());
+    drop(start_scan(base, SCAN_FLAGS));
+}
+
+#[test]
 fn empty_loading_and_filtered_out_browser_states_render() {
+    let base = fixtures_dir();
+    let mut app = App::new_file_browser(Vec::new(), None, base);
+    assert!(render(&mut app).contains("No tile files found"));
+
     let mut app = file_browser_app();
     let path = app.get_selected_file().unwrap().path().to_path_buf();
     app.preview_load_requested = Some(path);
@@ -1461,7 +1584,10 @@ fn filter_clicks_toggle_extensions_and_algorithms() {
     handle_filter_click(&mut app, 3);
     assert!(app.ext_filters.is_empty(), "a second click toggles it off");
 
-    let mut app = browser_over(test_dir("synthetic/0x01-rust"));
+    let base = test_dir("synthetic/0x01-rust");
+    let rx = start_scan(base.clone(), SCAN_FLAGS);
+    let mut app = App::new_file_browser(Vec::new(), Some(rx), base);
+    app.finish_scan();
     assert!(app.files.len() > 100);
     let algos = collect_file_algorithms(&app.files);
     assert!(!algos.is_empty());
@@ -1888,11 +2014,12 @@ fn enter_and_tree_clicks_drill_through_features_and_parts() {
 fn opening_another_file_drops_the_previous_hover_and_scroll() {
     let base = test_dir("synthetic/0x01");
     let rows = vec![
-        analyze_row(
-            base.join("mix_7_pt_line_poly_polyh_mpt_mline_mpoly.mlt"),
+        analyze_tile_row(
+            &base.join("mix_7_pt_line_poly_polyh_mpt_mline_mpoly.mlt"),
             &base,
+            SCAN_FLAGS,
         ),
-        analyze_row(fixtures_dir().join("point-boolean.mvt"), &base),
+        analyze_tile_row(&fixtures_dir().join("point-boolean.mvt"), &base, SCAN_FLAGS),
     ];
     let mut app = App::new_file_browser(rows, None, base);
     press(&mut app, KeyCode::Enter);

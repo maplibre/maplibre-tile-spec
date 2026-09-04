@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::mpsc;
+use std::sync::mpsc::{self, TryRecvError};
 use std::time::Instant;
 
 use mlt_core::GeometryType;
@@ -13,6 +13,7 @@ use usize_cast::IntoUsize as _;
 
 use crate::ls::{FileAlgorithm, FileSortColumn, LsRow};
 use crate::ui::mbt::MbtilesState;
+use crate::ui::scan::ScanEvent;
 use crate::ui::{
     GeometryIndexEntry, auto_expand, coord_f64, group_by_layer, is_entry_visible, load_fc,
     multi_part_count,
@@ -103,7 +104,12 @@ pub struct App {
     pub(crate) files: Vec<LsRow>,
     pub(crate) selected_file_index: usize,
     pub(crate) file_list_state: TableState,
-    pub(crate) analysis_rx: Option<mpsc::Receiver<Vec<LsRow>>>,
+    /// Directory scan in progress, `None` once every file is analyzed.
+    scan_rx: Option<mpsc::Receiver<ScanEvent>>,
+    scan_done: bool,
+    pending_analysis: usize,
+    /// Rows that were there before the scan started.
+    scan_base: usize,
     /// Base path for file browser; used when drawing to show relative paths.
     pub(crate) file_browser_base: Option<PathBuf>,
     file_sort: Option<(FileSortColumn, bool)>,
@@ -160,7 +166,10 @@ impl Default for App {
             files: Vec::new(),
             selected_file_index: 0,
             file_list_state: TableState::default(),
-            analysis_rx: None,
+            scan_rx: None,
+            scan_done: false,
+            pending_analysis: 0,
+            scan_base: 0,
             file_browser_base: None,
             file_sort: None,
             file_table_area: None,
@@ -213,19 +222,34 @@ impl Default for App {
     }
 }
 
+/// Progress of the directory scan behind the file browser.
+pub(crate) struct ScanStatus {
+    /// Files found but not yet analyzed.
+    pub pending: usize,
+    /// The directory walk is still running.
+    pub scanning: bool,
+}
+
 impl App {
     pub(crate) fn new_file_browser(
         files: Vec<LsRow>,
-        analysis_rx: Option<mpsc::Receiver<Vec<LsRow>>>,
+        scan_rx: Option<mpsc::Receiver<ScanEvent>>,
         base_path: PathBuf,
     ) -> Self {
         let mut file_list_state = TableState::default();
         file_list_state.select(Some(0));
         let filtered_file_indices = (0..files.len()).collect();
+        let scan_base = files.len();
+        let pending_analysis = files
+            .iter()
+            .filter(|r| matches!(r, LsRow::Loading { .. }))
+            .count();
         Self {
             files,
             file_list_state,
-            analysis_rx,
+            scan_rx,
+            pending_analysis,
+            scan_base,
             file_browser_base: Some(base_path),
             filtered_file_indices,
             ..Self::default()
@@ -258,11 +282,87 @@ impl App {
     }
 
     pub(crate) fn data_loaded(&self) -> bool {
-        self.analysis_rx.is_none()
-            && !self
-                .files
-                .iter()
-                .any(|r| matches!(r, LsRow::Loading { .. }))
+        self.scan_rx.is_none()
+    }
+
+    pub(crate) fn scan_status(&self) -> ScanStatus {
+        ScanStatus {
+            pending: self.pending_analysis,
+            scanning: self.scan_rx.is_some() && !self.scan_done,
+        }
+    }
+
+    /// Apply every scan event that has arrived.
+    /// Returns true when the file list changed.
+    pub(crate) fn poll_scan(&mut self) -> bool {
+        let Some(rx) = self.scan_rx.as_ref() else {
+            return false;
+        };
+        let mut events = Vec::new();
+        let mut disconnected = false;
+        loop {
+            match rx.try_recv() {
+                Ok(ev) => events.push(ev),
+                Err(TryRecvError::Empty) => break,
+                Err(TryRecvError::Disconnected) => {
+                    disconnected = true;
+                    break;
+                }
+            }
+        }
+        let changed = !events.is_empty() || disconnected;
+        let first_new = self.files.len();
+        for ev in events {
+            self.apply_scan_event(ev);
+        }
+        if disconnected {
+            self.scan_done = true;
+            self.pending_analysis = 0;
+        }
+        self.settle_scan();
+        if changed {
+            self.refresh_filtered_files(first_new);
+        }
+        changed
+    }
+
+    /// Bring `filtered_file_indices` up to date after the scan appended or replaced rows.
+    fn refresh_filtered_files(&mut self, first_new: usize) {
+        if self.has_filters() {
+            self.rebuild_filtered_files();
+        } else {
+            self.filtered_file_indices
+                .extend(first_new..self.files.len());
+            self.invalidate();
+        }
+    }
+
+    fn has_filters(&self) -> bool {
+        !self.ext_filters.is_empty()
+            || !self.geom_filters.is_empty()
+            || !self.algo_filters.is_empty()
+    }
+
+    fn apply_scan_event(&mut self, event: ScanEvent) {
+        match event {
+            ScanEvent::Found(path) => {
+                self.files.push(LsRow::Loading { path });
+                self.pending_analysis += 1;
+            }
+            ScanEvent::Analyzed(i, row) => {
+                if let Some(slot) = self.files.get_mut(self.scan_base + i) {
+                    *slot = *row;
+                }
+                self.pending_analysis = self.pending_analysis.saturating_sub(1);
+            }
+            ScanEvent::Done => self.scan_done = true,
+        }
+    }
+
+    fn settle_scan(&mut self) {
+        if self.scan_done && self.pending_analysis == 0 {
+            self.scan_rx = None;
+        }
     }
 
     pub(crate) fn open_help(&mut self) {
@@ -560,7 +660,7 @@ impl App {
     pub(crate) fn handle_escape(&mut self) -> bool {
         match self.mode {
             ViewMode::FileBrowser | ViewMode::MbtilesMap => true,
-            ViewMode::LayerOverview if self.files.is_empty() => true,
+            ViewMode::LayerOverview if self.file_browser_base.is_none() => true,
             ViewMode::LayerOverview => {
                 self.mode = ViewMode::FileBrowser;
                 self.hovered = None;
@@ -587,7 +687,7 @@ impl App {
                 .position(|t| matches!(t, TreeItem::Layer(l) if *l == layer)),
             TreeItem::Layer(_) => Some(0),
             TreeItem::All => {
-                if !self.files.is_empty() {
+                if self.file_browser_base.is_some() {
                     self.mode = ViewMode::FileBrowser;
                     self.hovered = None;
                 }
@@ -640,9 +740,7 @@ impl App {
 
     pub(crate) fn rebuild_filtered_files(&mut self) {
         let prev = self.selected_file_real_index();
-        let has_filters = !self.ext_filters.is_empty()
-            || !self.geom_filters.is_empty()
-            || !self.algo_filters.is_empty();
+        let has_filters = self.has_filters();
         self.filtered_file_indices = (0..self.files.len())
             .filter(|&i| {
                 if !has_filters {
@@ -936,5 +1034,27 @@ fn geometry_vertices(geom: &Geometry<i32>, part: Option<usize>) -> Vec<[f64; 2]>
             mpoly.0.get(p).map(poly_verts).unwrap_or_default()
         }
         _ => Vec::new(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    impl App {
+        /// Block until the scan has delivered every file.
+        pub(crate) fn finish_scan(&mut self) {
+            while self.scan_rx.is_some() {
+                let received = self.scan_rx.as_ref().map(mpsc::Receiver::recv);
+                if let Some(Ok(ev)) = received {
+                    self.apply_scan_event(ev);
+                } else {
+                    self.scan_done = true;
+                    self.pending_analysis = 0;
+                }
+                self.settle_scan();
+            }
+            self.rebuild_filtered_files();
+        }
     }
 }

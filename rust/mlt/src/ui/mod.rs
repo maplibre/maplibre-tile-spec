@@ -3,12 +3,12 @@ use usize_cast::IntoUsize as _;
 
 pub(crate) mod mbt;
 mod rendering;
+mod scan;
 mod state;
 #[cfg(test)]
 mod tests;
 
 use std::collections::HashSet;
-use std::fs::canonicalize;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
@@ -34,8 +34,8 @@ use ratatui::widgets::{Block, Borders};
 use rstar::{AABB, PointDistance, RTreeObject};
 
 use crate::ls::{
-    FileAlgorithm, FileSortColumn, LsFlags, LsRow, analyze_tile_files, is_mbt_extension,
-    is_mlt_extension, is_tile_extension,
+    FileAlgorithm, FileSortColumn, LsFlags, LsRow, is_mbt_extension, is_mlt_extension,
+    is_tile_extension,
 };
 use crate::ui::mbt::MbtilesState;
 use crate::ui::rendering::files::{
@@ -47,6 +47,7 @@ use crate::ui::rendering::layers::{
     render_mbtiles_hover_panel, render_properties_panel, render_tree_panel,
 };
 use crate::ui::rendering::map::{render_map_panel, render_mbtiles_map_panel};
+use crate::ui::scan::start_scan;
 use crate::ui::state::{App, HoveredInfo, LayerGroup, ResizeHandle, TreeItem, ViewMode};
 
 pub const CLR_POINT: Color = Color::Magenta;
@@ -107,23 +108,8 @@ fn build_app(args: &UiArgs) -> anyhow::Result<App> {
         }
         App::new_mbtiles(mbt, args.path.clone())
     } else if args.path.is_dir() {
-        let paths = find_tile_files(&args.path)?;
-        if paths.is_empty() {
-            bail!(
-                "No tile files found in {}",
-                canonicalize(&args.path)?.display()
-            );
-        }
-        let base = args.path.clone();
-        let files: Vec<LsRow> = paths
-            .iter()
-            .map(|p| LsRow::Loading { path: p.clone() })
-            .collect();
-        let (tx, rx) = mpsc::channel();
-        thread::spawn(move || {
-            let _ = tx.send(analyze_tile_files(&paths, &base, SCAN_FLAGS));
-        });
-        App::new_file_browser(files, Some(rx), args.path.clone())
+        let rx = start_scan(args.path.clone(), SCAN_FLAGS);
+        App::new_file_browser(Vec::new(), Some(rx), args.path.clone())
     } else if args.path.is_file() {
         App::new_single_file(load_fc(&args.path)?, Some(args.path.clone()))
     } else {
@@ -229,26 +215,6 @@ fn auto_expand(groups: &[LayerGroup]) -> Vec<bool> {
     } else {
         vec![false; groups.len()]
     }
-}
-
-fn find_tile_files(dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
-    fn visit(dir: &Path, out: &mut Vec<PathBuf>) -> anyhow::Result<()> {
-        if dir.is_dir() {
-            for entry in fs::read_dir(dir)? {
-                let p = entry?.path();
-                if p.is_dir() {
-                    visit(&p, out)?;
-                } else if is_tile_extension(&p) {
-                    out.push(p);
-                }
-            }
-        }
-        Ok(())
-    }
-    let mut files = Vec::new();
-    visit(dir, &mut files)?;
-    files.sort_unstable();
-    Ok(files)
 }
 
 // --- Hit testing ---
@@ -636,17 +602,7 @@ fn tick(app: &mut App) {
         mbt.prune_tile_cache_if_needed();
     }
 
-    if let Some(rows) = app.analysis_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
-        if rows.len() == app.files.len() {
-            for (i, row) in rows.into_iter().enumerate() {
-                if let Some(e) = app.files.get_mut(i) {
-                    *e = row;
-                }
-            }
-        }
-        app.analysis_rx = None;
-        app.rebuild_filtered_files();
-    }
+    app.poll_scan();
 
     if let Some((path, result)) = app.preview_rx.as_mut().and_then(|rx| rx.try_recv().ok()) {
         app.preview_rx = None;
