@@ -80,6 +80,15 @@ impl HoveredInfo {
             part,
         }
     }
+
+    /// The hovered feature or part as a tree item.
+    pub(crate) fn item(&self) -> TreeItem {
+        let (layer, feat) = (self.layer, self.feat);
+        match self.part {
+            Some(part) => TreeItem::SubFeature { layer, feat, part },
+            None => TreeItem::Feature { layer, feat },
+        }
+    }
 }
 
 pub struct LayerGroup {
@@ -136,7 +145,7 @@ pub struct App {
     pub(crate) properties_scroll: u16,
     pub(crate) tree_scroll: u16,
     pub(crate) tree_inner_height: usize,
-    pub(crate) last_properties_key: Option<(usize, usize)>,
+    pub(crate) last_properties_key: Option<TreeItem>,
     pub(crate) properties_pct: u16,
     geometry_index: Option<RTree<GeometryIndexEntry>>,
     pub(crate) file_left_pct: u16,
