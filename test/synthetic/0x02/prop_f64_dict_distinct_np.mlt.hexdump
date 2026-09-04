@@ -1,0 +1,61 @@
+00000000                                                                     | layer[0] (95 B)
+00000000  5e                                                ^                |   size: 94 (varint) - tag + body
+00000001  02                                                .                |   tag: 0x02 -> Tag02
+00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
+00000009  50                                                P                |   extent: 80
+0000000a  06                                                .                |   feature_count: 6
+0000000b  00                                                .                |   layout: 0x00 Points
+                                                                             |     └ bit 7 = 0 -> reserved = 0
+                                                                             |     └ bits 6-4 = 000 -> shared presence bitfields = 0
+                                                                             |     └ bits 3-0 = 0000 -> geometry layout = Points
+0000000c                                                                     |   geometry (19 B)
+0000000c                                                                     |     types (4 B)
+0000000c                                                                     |       header (2 B)
+0000000c  20                                                                 |         encoding: 0x20 logical=Rle physical=implied
+                                                                             |           └ bit 7 = 0 -> has_explicit_count = false -> 6 values from context
+                                                                             |           └ bits 6-4 = 010 -> logical = Rle, numbered for a v2 integer stream
+                                                                             |           └ bits 3-2 = 00 -> physical = implied
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+0000000d  02                                                .                |         byte_length: 2
+0000000e  06 00                                             ..               |       data [Length(VarBinary) Int(Rle(Interleaved { num_rle_values: 6 }))/VarInt, 6 values, 2 B]
+                                                                             |         decoded: [0, 0, 0, 0, 0, 0]
+00000010                                                                     |     vertices (15 B)
+00000010                                                                     |       header (3 B)
+00000010  a8                                                .                |         encoding: 0xA8 logical=CwDelta physical=VarInt
+                                                                             |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta, numbered for a v2 vertex stream
+                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+00000011  0c                                                .                |         num_values: 12
+00000012  0c                                                .                |         byte_length: 12
+00000013  1a 54 00 00 00 00 00 00 00 00 00 00               .T..........     |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 12 values, 12 B]
+                                                                             |         decoded: [13, 42, 13, 42, 13, 42, 13, 42, 13, 42, 13, 42]
+0000001f  01                                                .                |   column_count: 1
+00000020                                                                     |   columns (63 B)
+00000020                                                                     |     column[0] F64 "val" (63 B)
+00000020  0a                                                .                |       type: 0x0A AllPresent F64
+                                                                             |         └ bits 7-4 = 0000 -> presence = AllPresent
+                                                                             |         └ bits 3-0 = 1010 -> data type = F64
+00000021  03 76 61 6c                                       .val             |       name: "val"
+00000025                                                                     |       data (8 B)
+00000025                                                                     |         header (2 B)
+00000025  38                                                8                |           encoding: 0x38 logical=Dict physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 6 values from context
+                                                                             |             └ bits 6-4 = 011 -> logical = Dict, numbered for a v2 float column
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+00000026  06                                                .                |           byte_length: 6
+00000027  00 01 02 03 04 05                                 ......           |         data [Data(None) Float(Dict)/VarInt, 6 values, 6 B]
+                                                                             |           decoded: [0, 1, 2, 3, 4, 5]
+0000002d                                                                     |       dictionary (50 B)
+0000002d                                                                     |         header (2 B)
+0000002d  04                                                .                |           encoding: 0x04 logical=None physical=WithLen
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 6 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 float column
+                                                                             |             └ bits 3-2 = 01 -> physical = WithLen
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+0000002e  30                                                0                |           byte_length: 48
+0000002f  00 00 00 00 00 00 f8 3f 00 00 00 00 00 00 04 40   .......?.......@ |         data [Data(Single) Float(None)/None, 6 values, 48 B]
+0000003f  00 00 00 00 00 00 0c 40 00 00 00 00 00 00 12 40   .......@.......@ | 
+0000004f  00 00 00 00 00 00 16 40 00 00 00 00 00 00 1a 40   .......@.......@ | 
+                                                                             |           decoded: [1.5, 2.5, 3.5, 4.5, 5.5, 6.5]
