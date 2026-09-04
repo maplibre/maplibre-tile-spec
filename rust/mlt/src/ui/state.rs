@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::sync::mpsc::{self, TryRecvError};
 use std::time::Instant;
 
@@ -14,9 +15,9 @@ use usize_cast::IntoUsize as _;
 use crate::ls::{FileAlgorithm, FileSortColumn, LsRow};
 use crate::ui::mbt::MbtilesState;
 use crate::ui::scan::ScanEvent;
+use crate::ui::tile::{ParsedTile, TileCache};
 use crate::ui::{
-    GeometryIndexEntry, auto_expand, coord_f64, group_by_layer, is_entry_visible, load_fc,
-    multi_part_count,
+    GeometryIndexEntry, auto_expand, coord_f64, group_by_layer, is_entry_visible, multi_part_count,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -97,7 +98,7 @@ impl LayerGroup {
     }
 }
 
-pub type PreviewValue = (PathBuf, Result<(FeatureCollection, u32), ()>);
+pub type PreviewValue = (PathBuf, Result<Arc<ParsedTile>, String>);
 
 pub struct App {
     pub(crate) mode: ViewMode,
@@ -116,7 +117,8 @@ pub struct App {
     pub(crate) file_table_area: Option<Rect>,
     pub(crate) file_table_widths: Option<[Constraint; 6]>,
     pub(crate) current_file: Option<PathBuf>,
-    pub(crate) fc: FeatureCollection,
+    pub(crate) tile: Arc<ParsedTile>,
+    pub(crate) tile_cache: TileCache,
     pub(crate) layer_groups: Vec<LayerGroup>,
     pub(crate) tree_items: Vec<TreeItem>,
     pub(crate) selected_index: usize,
@@ -151,8 +153,8 @@ pub struct App {
     pub(crate) error_popup: Option<(String, String)>,
     pub(crate) file_info_scroll: u16,
     pub(crate) preview_tile_path: Option<PathBuf>,
-    pub(crate) preview_fc: Option<FeatureCollection>,
-    pub(crate) preview_extent: u32,
+    pub(crate) preview: Option<Arc<ParsedTile>>,
+    pub(crate) preview_error: Option<String>,
     pub(crate) preview_rx: Option<mpsc::Receiver<PreviewValue>>,
     pub(crate) preview_load_requested: Option<PathBuf>,
     /// State for the `MbtilesMap` mode (Some only when mode == `MbtilesMap`).
@@ -175,10 +177,11 @@ impl Default for App {
             file_table_area: None,
             file_table_widths: None,
             current_file: None,
-            fc: FeatureCollection {
+            tile: Arc::new(ParsedTile::from_fc(FeatureCollection {
                 features: Vec::new(),
                 ty: "FeatureCollection".into(),
-            },
+            })),
+            tile_cache: TileCache::default(),
             layer_groups: Vec::new(),
             tree_items: Vec::new(),
             selected_index: 0,
@@ -213,8 +216,8 @@ impl Default for App {
             error_popup: None,
             file_info_scroll: 0,
             preview_tile_path: None,
-            preview_fc: None,
-            preview_extent: 4096,
+            preview: None,
+            preview_error: None,
             preview_rx: None,
             preview_load_requested: None,
             mbt_state: None,
@@ -265,15 +268,15 @@ impl App {
         }
     }
 
-    pub(crate) fn new_single_file(fc: FeatureCollection, path: Option<PathBuf>) -> Self {
-        let layer_groups = group_by_layer(&fc);
+    pub(crate) fn new_single_file(tile: Arc<ParsedTile>, path: Option<PathBuf>) -> Self {
+        let layer_groups = group_by_layer(&tile.fc);
         let expanded_layers = auto_expand(&layer_groups);
         let mut app = Self {
             mode: ViewMode::LayerOverview,
             current_file: path,
             expanded_layers,
             layer_groups,
-            fc,
+            tile,
             ..Self::default()
         };
         app.build_geometry_index();
@@ -392,8 +395,8 @@ impl App {
     }
 
     fn load_file(&mut self, path: &Path) -> anyhow::Result<()> {
-        self.fc = load_fc(path)?;
-        self.layer_groups = group_by_layer(&self.fc);
+        self.tile = self.tile_cache.load(path)?;
+        self.layer_groups = group_by_layer(&self.tile.fc);
         self.current_file = Some(path.to_path_buf());
         self.mode = ViewMode::LayerOverview;
         self.expanded_layers = auto_expand(&self.layer_groups);
@@ -412,11 +415,13 @@ impl App {
     }
 
     pub(crate) fn feature(&self, layer: usize, feat: usize) -> &Feature {
-        &self.fc.features[self.global_idx(layer, feat)]
+        &self.tile.fc.features[self.global_idx(layer, feat)]
     }
 
     pub(crate) fn extent(&self) -> u32 {
-        self.layer_groups.first().map_or(4096, |g| g.extent)
+        self.layer_groups
+            .first()
+            .map_or(self.tile.extent, |g| g.extent)
     }
 
     pub(crate) fn selected_item(&self) -> &TreeItem {
@@ -437,7 +442,7 @@ impl App {
                     feat: fi,
                 });
                 if self.expanded_features.contains(&(li, fi)) {
-                    for part in 0..multi_part_count(&self.fc.features[gi].geometry) {
+                    for part in 0..multi_part_count(&self.tile.fc.features[gi].geometry) {
                         self.tree_items.push(TreeItem::SubFeature {
                             layer: li,
                             feat: fi,
@@ -453,7 +458,7 @@ impl App {
         let mut entries: Vec<GeometryIndexEntry> = Vec::new();
         for (li, group) in self.layer_groups.iter().enumerate() {
             for (fi, &gi) in group.feature_indices.iter().enumerate() {
-                let geom = &self.fc.features[gi].geometry;
+                let geom = &self.tile.fc.features[gi].geometry;
                 let n = multi_part_count(geom);
                 let parts: Vec<Option<usize>> = if n == 0 {
                     vec![None]
@@ -801,11 +806,11 @@ impl App {
         };
 
         let geoms: Vec<&Geometry<i32>> = match sel {
-            TreeItem::All => self.fc.features.iter().map(|f| &f.geometry).collect(),
+            TreeItem::All => self.tile.fc.features.iter().map(|f| &f.geometry).collect(),
             TreeItem::Layer(l) => self.layer_groups[*l]
                 .feature_indices
                 .iter()
-                .map(|&gi| &self.fc.features[gi].geometry)
+                .map(|&gi| &self.tile.fc.features[gi].geometry)
                 .collect(),
             TreeItem::Feature { layer, feat } | TreeItem::SubFeature { layer, feat, .. } => {
                 vec![&self.feature(*layer, *feat).geometry]

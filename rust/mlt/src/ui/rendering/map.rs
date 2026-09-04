@@ -35,7 +35,7 @@ pub fn render_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
 
             let hov = app.hovered.as_ref();
             let draw_feat = |ctx: &mut Context<'_>, gi: usize| {
-                let geom = &app.fc.features[gi].geometry;
+                let geom = &app.tile.fc.features[gi].geometry;
                 let base = geometry_color(geom);
                 let is_hov = hov.is_some_and(|h| app.global_idx(h.layer, h.feat) == gi);
                 let sel_part = match sel {
@@ -56,7 +56,7 @@ pub fn render_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
 
             match sel {
                 TreeItem::All => {
-                    for gi in 0..app.fc.features.len() {
+                    for gi in 0..app.tile.fc.features.len() {
                         draw_feat(ctx, gi);
                     }
                 }

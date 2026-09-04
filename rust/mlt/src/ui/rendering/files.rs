@@ -16,27 +16,28 @@ use crate::ui::{
 };
 
 pub fn render_tile_preview_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
-    if let Some(ref fc) = app.preview_fc {
-        map::render_tile_preview(f, area, fc, app.preview_extent);
-    } else {
-        let msg = if app
-            .get_selected_file()
-            .and_then(|r| {
-                app.preview_load_requested
-                    .as_ref()
-                    .filter(|p| p.as_path() == r.path())
-            })
-            .is_some()
-        {
-            "Loading…"
-        } else {
-            "Select a tile file (.mlt / .mvt) to preview"
-        };
-        f.render_widget(
-            Paragraph::new(Line::from(msg)).block(block_with_title("Tile Preview")),
-            area,
-        );
+    if let Some(ref tile) = app.preview {
+        map::render_tile_preview(f, area, &tile.fc, tile.extent);
+        return;
     }
+    let selected = app.get_selected_file().map(LsRow::path);
+    let msg = if let Some(err) = app
+        .preview_error
+        .as_ref()
+        .filter(|_| app.preview_tile_path.as_deref() == selected)
+    {
+        format!("Preview failed: {err}")
+    } else if selected.is_some() && app.preview_load_requested.as_deref() == selected {
+        "Loading…".into()
+    } else {
+        "Select a tile file (.mlt / .mvt) to preview".into()
+    };
+    f.render_widget(
+        Paragraph::new(Line::from(msg))
+            .wrap(Wrap { trim: true })
+            .block(block_with_title("Tile Preview")),
+        area,
+    );
 }
 
 pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {

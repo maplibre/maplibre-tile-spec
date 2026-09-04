@@ -10,6 +10,7 @@ use usize_cast::IntoUsize as _;
 
 use crate::ui::mbt::MbtTileData;
 use crate::ui::state::{App, TreeItem, ViewMode};
+use crate::ui::tile::polygon_coord_count;
 use crate::ui::{
     CLR_HOVERED_TREE, STYLE_LABEL, STYLE_SELECTED, block_with_title, feature_suffix,
     geometry_color, geometry_type_name, is_ring_ccw, stat_line, sub_feature_suffix,
@@ -29,11 +30,11 @@ pub fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                     let first = g
                         .feature_indices
                         .first()
-                        .map(|&gi| geometry_type_name(&app.fc.features[gi].geometry));
+                        .map(|&gi| geometry_type_name(&app.tile.fc.features[gi].geometry));
                     let all_same = first.is_some_and(|ft| {
                         g.feature_indices
                             .iter()
-                            .all(|&gi| geometry_type_name(&app.fc.features[gi].geometry) == ft)
+                            .all(|&gi| geometry_type_name(&app.tile.fc.features[gi].geometry) == ft)
                     });
                     let label = if all_same && n > 0 {
                         format!("{}s", first.unwrap())
@@ -216,9 +217,7 @@ fn info_line_string(lines: &mut Vec<Line<'static>>, ls: &LineString<i32>) {
 }
 
 fn info_polygon(lines: &mut Vec<Line<'static>>, poly: &Polygon<i32>) {
-    let total: usize =
-        poly.exterior().0.len() + poly.interiors().iter().map(|r| r.0.len()).sum::<usize>();
-    lines.push(stat_line("Vertices", &total));
+    lines.push(stat_line("Vertices", &polygon_coord_count(poly)));
     lines.push(stat_line("Rings", &(1 + poly.interiors().len())));
     let ext = &poly.exterior().0;
     let w = if is_ring_ccw(ext) { "CCW" } else { "CW" };
@@ -244,12 +243,7 @@ fn info_multi_line_string(lines: &mut Vec<Line<'static>>, mls: &MultiLineString<
 }
 
 fn info_multi_polygon(lines: &mut Vec<Line<'static>>, mpoly: &MultiPolygon<i32>) {
-    let total: usize = mpoly
-        .iter()
-        .flat_map(|p| {
-            std::iter::once(p.exterior().0.len()).chain(p.interiors().iter().map(|r| r.0.len()))
-        })
-        .sum();
+    let total: usize = mpoly.iter().map(polygon_coord_count).sum();
     let total_rings: usize = mpoly.iter().map(|p| 1 + p.interiors().len()).sum();
     lines.push(stat_line("Parts", &mpoly.0.len()));
     lines.push(stat_line("Total vertices", &total));

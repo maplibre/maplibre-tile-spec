@@ -7,13 +7,14 @@ mod scan;
 mod state;
 #[cfg(test)]
 mod tests;
+mod tile;
 
 use std::collections::HashSet;
 use std::io::Write as _;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::mpsc;
+use std::thread;
 use std::time::{Duration, Instant};
-use std::{fs, thread};
 
 use anyhow::bail;
 use clap::Args;
@@ -22,10 +23,9 @@ use crossterm::event::{
     KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
 use crossterm::execute;
+use mlt_core::GeometryType;
 use mlt_core::geo_types::{Coord, Geometry, Polygon};
 use mlt_core::geojson::FeatureCollection;
-use mlt_core::mvt::mvt_to_feature_collection;
-use mlt_core::{Decoder, GeometryType, Parser};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -34,8 +34,7 @@ use ratatui::widgets::{Block, Borders};
 use rstar::{AABB, PointDistance, RTreeObject};
 
 use crate::ls::{
-    FileAlgorithm, FileSortColumn, LsFlags, LsRow, is_mbt_extension, is_mlt_extension,
-    is_tile_extension,
+    FileAlgorithm, FileSortColumn, LsFlags, LsRow, is_mbt_extension, is_tile_extension,
 };
 use crate::ui::mbt::MbtilesState;
 use crate::ui::rendering::files::{
@@ -49,6 +48,7 @@ use crate::ui::rendering::layers::{
 use crate::ui::rendering::map::{render_map_panel, render_mbtiles_map_panel};
 use crate::ui::scan::start_scan;
 use crate::ui::state::{App, HoveredInfo, LayerGroup, ResizeHandle, TreeItem, ViewMode};
+use crate::ui::tile::{DEFAULT_CACHE_MB, TileCache, cache_bytes, polygon_coord_count};
 
 pub const CLR_POINT: Color = Color::Magenta;
 pub const CLR_MULTI_POINT: Color = Color::LightMagenta;
@@ -81,6 +81,9 @@ pub struct UiArgs {
     /// Start `MBTiles` map centered on this XYZ tile (`z/x/y`, e.g. `6/32/21`). `MBTiles` only.
     #[arg(long = "center-tile", value_name = "Z/X/Y")]
     center_tile: Option<String>,
+    /// Memory budget for decoded tiles kept in the LRU cache, in megabytes.
+    #[arg(long = "cache-mb", value_name = "MB", default_value_t = DEFAULT_CACHE_MB)]
+    cache_mb: u64,
 }
 
 /// Analysis flags for the file browser scan.
@@ -99,8 +102,10 @@ fn build_app(args: &UiArgs) -> anyhow::Result<App> {
     if args.center_tile.is_some() && !is_mbt_extension(&args.path) {
         bail!("--center-tile is only supported when opening an .mbtiles file");
     }
-    let app = if is_mbt_extension(&args.path) {
-        let mut mbt = MbtilesState::new(args.path.clone());
+    let budget = cache_bytes(args.cache_mb);
+    let cache = TileCache::new(budget);
+    let mut app = if is_mbt_extension(&args.path) {
+        let mut mbt = MbtilesState::new(args.path.clone(), budget);
         if let Some(ref s) = args.center_tile {
             let (z, x, y) = parse_center_tile_xyz(s)?;
             mbt.set_viewport_to_tile(z, x, y)
@@ -111,10 +116,12 @@ fn build_app(args: &UiArgs) -> anyhow::Result<App> {
         let rx = start_scan(args.path.clone(), SCAN_FLAGS);
         App::new_file_browser(Vec::new(), Some(rx), args.path.clone())
     } else if args.path.is_file() {
-        App::new_single_file(load_fc(&args.path)?, Some(args.path.clone()))
+        let tile = cache.load(&args.path)?;
+        App::new_single_file(tile, Some(args.path.clone()))
     } else {
         bail!("Path is not a file or directory");
     };
+    app.tile_cache = cache;
     Ok(app)
 }
 
@@ -150,39 +157,15 @@ fn parse_center_tile_xyz(spec: &str) -> anyhow::Result<(u8, u32, u32)> {
 
 // --- Data loading ---
 
-fn load_fc(path: &Path) -> anyhow::Result<FeatureCollection> {
-    let buf = fs::read(path)?;
-    if is_mlt_extension(path) {
-        let layers = Decoder::default().decode_all(Parser::default().parse_layers(&buf)?)?;
-        Ok(FeatureCollection::from_layers(layers)?)
-    } else {
-        Ok(mvt_to_feature_collection(buf)?)
-    }
-}
-
-fn extent_from_fc(fc: &FeatureCollection) -> u32 {
-    fc.features
-        .first()
-        .and_then(|f| {
-            f.properties
-                .get("_extent")
-                .and_then(serde_json::Value::as_u64)
-        })
-        .map_or(4096, |v| u32::try_from(v).expect("_extent is valid u32"))
-}
-
+/// Drop the preview when the selection is no longer a tile file.
 fn refresh_tile_preview(app: &mut App) {
-    let path = if let Some(r) = app.get_selected_file() {
-        r.path().to_path_buf()
-    } else {
+    let is_tile = app
+        .get_selected_file()
+        .is_some_and(|r| is_tile_extension(r.path()));
+    if !is_tile {
         app.preview_tile_path = None;
-        app.preview_fc = None;
-        app.preview_load_requested = None;
-        return;
-    };
-    if !is_tile_extension(&path) {
-        app.preview_tile_path = None;
-        app.preview_fc = None;
+        app.preview = None;
+        app.preview_error = None;
         app.preview_load_requested = None;
     }
 }
@@ -608,13 +591,16 @@ fn tick(app: &mut App) {
         app.preview_rx = None;
         app.preview_load_requested = None;
         if app.get_selected_file().map(LsRow::path) == Some(path.as_path()) {
-            if let Ok((fc, ext)) = result {
-                app.preview_tile_path = Some(path);
-                app.preview_fc = Some(fc);
-                app.preview_extent = ext;
-            } else {
-                app.preview_tile_path = Some(path);
-                app.preview_fc = None;
+            app.preview_tile_path = Some(path);
+            match result {
+                Ok(tile) => {
+                    app.preview = Some(tile);
+                    app.preview_error = None;
+                }
+                Err(e) => {
+                    app.preview = None;
+                    app.preview_error = Some(e);
+                }
             }
         }
         app.invalidate();
@@ -624,22 +610,24 @@ fn tick(app: &mut App) {
     {
         let path = selected.path().to_path_buf();
         if is_tile_extension(&path)
-            && (app.preview_tile_path.as_ref() != Some(&path) || app.preview_fc.is_none())
+            && app.preview_tile_path.as_ref() != Some(&path)
             && app.preview_load_requested.as_ref() != Some(&path)
         {
-            let (tx, rx) = mpsc::channel();
-            app.preview_rx = Some(rx);
-            app.preview_load_requested = Some(path.clone());
-            let path_spawn = path.clone();
-            thread::spawn(move || {
-                let result = load_fc(&path_spawn)
-                    .map(|fc| {
-                        let ext = extent_from_fc(&fc);
-                        (fc, ext)
-                    })
-                    .map_err(|_| ());
-                let _ = tx.send((path_spawn, result));
-            });
+            if let Some(tile) = app.tile_cache.get(&path) {
+                app.preview_tile_path = Some(path);
+                app.preview = Some(tile);
+                app.preview_error = None;
+                app.invalidate();
+            } else {
+                let (tx, rx) = mpsc::channel();
+                app.preview_rx = Some(rx);
+                app.preview_load_requested = Some(path.clone());
+                let cache = app.tile_cache.clone();
+                thread::spawn(move || {
+                    let result = cache.load(&path).map_err(|e| e.to_string());
+                    let _ = tx.send((path, result));
+                });
+            }
         }
     }
 }
@@ -804,10 +792,7 @@ fn multi_part_count(geom: &Geometry<i32>) -> usize {
 }
 
 fn poly_ring_stats(poly: &Polygon<i32>) -> (usize, usize) {
-    let ring_count = 1 + poly.interiors().len();
-    let total_verts =
-        poly.exterior().0.len() + poly.interiors().iter().map(|r| r.0.len()).sum::<usize>();
-    (total_verts, ring_count)
+    (polygon_coord_count(poly), 1 + poly.interiors().len())
 }
 
 fn feature_suffix(geom: &Geometry<i32>) -> String {

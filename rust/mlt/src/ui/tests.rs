@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::sync::mpsc;
 use std::time::Duration;
 
@@ -16,13 +17,14 @@ use serde_json::{Value, json};
 
 use super::{
     MouseState, PanelAreas, SCAN_FLAGS, UiArgs, build_app, collect_extensions,
-    collect_file_algorithms, collect_file_geometries, extent_from_fc, handle_filter_click,
-    handle_key, handle_mouse, load_fc, parse_center_tile_xyz, render_frame, tick,
+    collect_file_algorithms, collect_file_geometries, handle_filter_click, handle_key,
+    handle_mouse, parse_center_tile_xyz, render_frame, tick,
 };
 use crate::ls::{FileSortColumn, LsRow, analyze_tile_files, analyze_tile_row};
 use crate::ui::mbt::{MbtHoveredInfo, MbtTileData, MbtilesState};
 use crate::ui::scan::{ScanEvent, start_scan};
 use crate::ui::state::{App, HoveredInfo, ResizeHandle, TreeItem, ViewMode};
+use crate::ui::tile::{DEFAULT_CACHE_MB, ParsedTile, TileCache, cache_bytes};
 
 const WIDTH: u16 = 100;
 const HEIGHT: u16 = 30;
@@ -127,7 +129,8 @@ fn sample_fc() -> FeatureCollection {
 }
 
 fn sample_app() -> App {
-    App::new_single_file(sample_fc(), Some(PathBuf::from("sample.mlt")))
+    let tile = Arc::new(ParsedTile::from_fc(sample_fc()));
+    App::new_single_file(tile, Some(PathBuf::from("sample.mlt")))
 }
 
 /// Fixture paths relative to the package directory, where cargo runs unit tests.
@@ -445,8 +448,8 @@ fn file_browser_lists_the_directory() {
     let mut app = file_browser_app();
     insta::assert_snapshot!(render(&mut app), @r#"
     "┌MLT Files (6 found) - ↑/↓ navigate, Enter open, h help, q quit Click┐┌Tile Preview────────────────┐"
-    "│   File                         Size   Enc % Layers   Features Notes││Select a tile file (.mlt / .│"
-    "│>> line-boolean.mvt              40B      -       1          1      ││                            │"
+    "│   File                         Size   Enc % Layers   Features Notes││Select a tile file (.mlt /  │"
+    "│>> line-boolean.mvt              40B      -       1          1      ││.mvt) to preview            │"
     "│   multiline-boolean.mvt         46B      -       1          1      ││                            │"
     "│   multipoint-boolean.mvt        37B      -       1          1      ││                            │"
     "│   multipolygon-boolean.mvt      65B      -       1          1      ││                            │"
@@ -482,9 +485,7 @@ fn file_browser_previews_the_selected_tile() {
     let mut app = file_browser_app();
     press(&mut app, KeyCode::Down);
     let path = app.get_selected_file().unwrap().path().to_path_buf();
-    let fc = load_fc(&path).unwrap();
-    app.preview_extent = extent_from_fc(&fc);
-    app.preview_fc = Some(fc);
+    app.preview = Some(app.tile_cache.load(&path).unwrap());
     app.preview_tile_path = Some(path);
     insta::assert_snapshot!(render(&mut app), @r#"
     "┌MLT Files (6 found) - ↑/↓ navigate, Enter open, h help, q quit Click┐┌Tile Preview────────────────┐"
@@ -526,8 +527,8 @@ fn file_browser_sorts_by_a_clicked_header() {
     app.handle_file_header_click(FileSortColumn::Size);
     insta::assert_snapshot!(render(&mut app), @r#"
     "┌MLT Files (6 found) - ↑/↓ navigate, Enter open, h help, q quit Click┐┌Tile Preview────────────────┐"
-    "│   File                         Size   Enc % Layers   Features Notes││Select a tile file (.mlt / .│"
-    "│   point-boolean.mvt             35B      -       1          1      ││                            │"
+    "│   File                         Size   Enc % Layers   Features Notes││Select a tile file (.mlt /  │"
+    "│   point-boolean.mvt             35B      -       1          1      ││.mvt) to preview            │"
     "│   multipoint-boolean.mvt        37B      -       1          1      ││                            │"
     "│>> line-boolean.mvt              40B      -       1          1      ││                            │"
     "│   polygon-boolean.mvt           41B      -       1          1      ││                            │"
@@ -565,8 +566,8 @@ fn filter_click_narrows_the_file_list() {
     handle_filter_click(&mut app, first_geometry_row);
     insta::assert_snapshot!(render(&mut app), @r#"
     "┌MLT Files (1/6 found) - ↑/↓ navigate, Enter open, h help, q quit Cli┐┌Tile Preview────────────────┐"
-    "│   File                         Size   Enc % Layers   Features Notes││Select a tile file (.mlt / .│"
-    "│>> point-boolean.mvt             35B      -       1          1      ││                            │"
+    "│   File                         Size   Enc % Layers   Features Notes││Select a tile file (.mlt /  │"
+    "│>> point-boolean.mvt             35B      -       1          1      ││.mvt) to preview            │"
     "│                                                                    ││                            │"
     "│                                                                    ││                            │"
     "│                                                                    ││                            │"
@@ -646,8 +647,8 @@ fn scan_streams_files_into_the_browser() {
     assert!(!app.data_loaded());
     insta::assert_snapshot!(render(&mut app), @r#"
     "┌MLT Files (0 found, scanning…) - ↑/↓ navigate, Enter open, h help, q┐┌Tile Preview────────────────┐"
-    "│   File     Size   Enc % Layers   Features Notes                    ││Select a tile file (.mlt / .│"
-    "│                                                                    ││                            │"
+    "│   File     Size   Enc % Layers   Features Notes                    ││Select a tile file (.mlt /  │"
+    "│                                                                    ││.mvt) to preview            │"
     "│                                                                    ││                            │"
     "│                                                                    ││                            │"
     "│                                                                    ││                            │"
@@ -685,9 +686,63 @@ fn scan_streams_files_into_the_browser() {
     );
 }
 
+#[test]
+fn preview_failures_are_reported() {
+    let mut app = file_browser_app();
+    let path = app.get_selected_file().unwrap().path().to_path_buf();
+    app.preview_tile_path = Some(path);
+    app.preview_error = Some("unexpected end of buffer".into());
+    insta::assert_snapshot!(render(&mut app), @r#"
+    "┌MLT Files (6 found) - ↑/↓ navigate, Enter open, h help, q quit Click┐┌Tile Preview────────────────┐"
+    "│   File                         Size   Enc % Layers   Features Notes││Preview failed: unexpected  │"
+    "│>> line-boolean.mvt              40B      -       1          1      ││end of buffer               │"
+    "│   multiline-boolean.mvt         46B      -       1          1      ││                            │"
+    "│   multipoint-boolean.mvt        37B      -       1          1      ││                            │"
+    "│   multipolygon-boolean.mvt      65B      -       1          1      ││                            │"
+    "│   point-boolean.mvt             35B      -       1          1      ││                            │"
+    "│   polygon-boolean.mvt           41B      -       1          1      ││                            │"
+    "│                                                                    ││                            │"
+    "│                                                                    │└────────────────────────────┘"
+    "│                                                                    │┌Filter (click to toggle)────┐"
+    "│                                                                    ││[Reset filters]             │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││Extensions:                 │"
+    "│                                                                    ││  [ ] mvt                   │"
+    "│                                                                    ││                            │"
+    "│                                                                    ││Geometry Types:             │"
+    "│                                                                    ││  [ ] Point                 │"
+    "│                                                                    ││  [ ] LineString            │"
+    "│                                                                    │└────────────────────────────┘"
+    "│                                                                    │┌File Info───────────────────┐"
+    "│                                                                    ││File: line-boolean.mvt      │"
+    "│                                                                    ││Size: 40B  raw MLT file size│"
+    "│                                                                    ││Encoding: -  MLT / (data +  │"
+    "│                                                                    ││metadata)                   │"
+    "│                                                                    ││Data: -  decoded payload    │"
+    "│                                                                    ││size                        │"
+    "│                                                                    ││Metadata: -  encoding       │"
+    "│                                                                    ││overhead                    │"
+    "└────────────────────────────────────────────────────────────────────┘└────────────────────────────┘"
+    "#);
+}
+
+#[test]
+fn tile_cache_shares_decoded_tiles_and_respects_its_budget() {
+    let path = fixtures_dir().join("line-boolean.mvt");
+    let cache = TileCache::new(1 << 20);
+    let first = cache.load(&path).unwrap();
+    let second = cache.load(&path).unwrap();
+    assert!(Arc::ptr_eq(&first, &second));
+    assert_eq!(cache.cached_paths(), vec![path.clone()]);
+
+    let tiny = TileCache::new(1);
+    tiny.load(&path).unwrap();
+    assert!(tiny.cached_paths().is_empty());
+}
+
 fn mbtiles_app() -> App {
     let path = test_dir("fixtures/omt.max1.mbtiles");
-    let mbt = MbtilesState::new(path.clone());
+    let mbt = MbtilesState::new(path.clone(), cache_bytes(DEFAULT_CACHE_MB));
     App::new_mbtiles(mbt, path)
 }
 
@@ -831,6 +886,34 @@ fn mbtiles_center_tile_zoom_and_pan_move_the_viewport() {
     "│                            ││⡇⠈⠦⠃ ⠾⠶⠟⠋   ⢀⣀⠼⠄                                            ⠘⡶⢴    ⢹│"
     "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
     "#);
+}
+
+#[test]
+fn mbtiles_prunes_tiles_away_from_the_viewport_over_the_budget() {
+    let mut app = mbtiles_app();
+    mbt(&mut app).wait_for_visible_tiles();
+    let state = mbt(&mut app);
+    state.tiles.insert((5, 31, 31), MbtTileData::Empty);
+    state
+        .tiles
+        .insert((5, 0, 0), MbtTileData::Error("boom".into()));
+    state.prune_tile_cache_if_needed();
+    assert!(
+        state.tiles.contains_key(&(5, 31, 31)),
+        "under budget nothing is pruned"
+    );
+
+    state.cache_bytes = 1;
+    state.prune_tile_cache_if_needed();
+    assert!(!state.tiles.contains_key(&(5, 31, 31)));
+    assert!(!state.tiles.contains_key(&(5, 0, 0)));
+    assert!(
+        matches!(
+            state.tiles.get(&(0, 0, 0)),
+            Some(MbtTileData::Loaded { .. })
+        ),
+        "the visible tile survives even over budget"
+    );
 }
 
 fn render_with_areas(app: &mut App, width: u16, height: u16) -> PanelAreas {
@@ -1152,6 +1235,7 @@ fn ui_args(path: PathBuf, center_tile: Option<&str>) -> UiArgs {
     UiArgs {
         path,
         center_tile: center_tile.map(str::to_string),
+        cache_mb: 1,
     }
 }
 
@@ -1190,19 +1274,26 @@ fn tick_until(app: &mut App, done: impl Fn(&App) -> bool) {
 }
 
 #[test]
-fn tick_loads_previews() {
+fn tick_loads_previews_and_serves_repeats_from_the_cache() {
     let mut app = file_browser_app();
-    tick_until(&mut app, |a| a.preview_fc.is_some());
+    tick_until(&mut app, |a| a.preview.is_some());
     let first = app.preview_tile_path.clone().unwrap();
     press(&mut app, KeyCode::Down);
     tick_until(&mut app, |a| a.preview_tile_path.as_ref() != Some(&first));
-    assert!(app.preview_fc.is_some());
+    press(&mut app, KeyCode::Up);
+    tick(&mut app);
+    assert_eq!(
+        app.preview_tile_path.as_ref(),
+        Some(&first),
+        "cache hit is synchronous"
+    );
+    assert!(app.preview.is_some());
 }
 
 #[test]
 fn tick_surfaces_a_loader_failure_as_a_popup() {
     let path = test_dir("missing.mbtiles");
-    let mut app = App::new_mbtiles(MbtilesState::new(path.clone()), path);
+    let mut app = App::new_mbtiles(MbtilesState::new(path.clone(), cache_bytes(1)), path);
     tick_until(&mut app, |a| a.error_popup.is_some());
     let (title, msg) = app.error_popup.clone().unwrap();
     assert!(title.ends_with("missing.mbtiles"));
@@ -1479,8 +1570,8 @@ fn scan_events_drive_the_browser_through_poll() {
     assert!(!app.data_loaded());
     insta::assert_snapshot!(render(&mut app), @r#"
     "┌MLT Files (1 found, 1 analyzing…) - ↑/↓ navigate, Enter open, h help┐┌Tile Preview────────────────┐"
-    "│   File                  Size   Enc % Layers   Features Notes       ││Select a tile file (.mlt / .│"
-    "│>> point-boolean.mvt …        …       …      …                      ││                            │"
+    "│   File                  Size   Enc % Layers   Features Notes       ││Select a tile file (.mlt /  │"
+    "│>> point-boolean.mvt …        …       …      …                      ││.mvt) to preview            │"
     "│                                                                    ││                            │"
     "│                                                                    ││                            │"
     "│                                                                    ││                            │"
@@ -1910,15 +2001,13 @@ fn mbtiles_viewport_edges_and_pruning_at_depth() {
     state.set_viewport_to_tile(2, 1, 1).unwrap();
     state.wait_for_visible_tiles();
     state.find_hovered(0.3, 0.3);
-    for x in 0..300u32 {
-        state.tiles.insert((9, x, 511), MbtTileData::Empty);
-    }
     state.tiles.insert((5, 31, 31), MbtTileData::Empty);
     state.hovered = Some(MbtHoveredInfo {
         tile: (5, 31, 31),
         layer_idx: 0,
         feat_idx: 0,
     });
+    state.cache_bytes = 1;
     state.prune_tile_cache_if_needed();
     assert!(
         state.hovered.is_none(),
