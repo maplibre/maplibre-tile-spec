@@ -17,33 +17,33 @@
 0000000d  30                                                0                |           stream_type: 0x30 Length(VarBinary)
                                                                              |             └ bits 7-4 = 0011 -> category = Length
                                                                              |             └ bits 3-0 = 0000 -> subtype = VarBinary
-0000000e  01                                                .                |           encoding: 0x01 logical=Int(None) physical=FastPFor256
+0000000e  01                                                .                |           encoding: 0x01 logical=Int(None) physical=FastPFor(Block256Be)
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 01 -> physical = FastPFor256
 0000000f  01                                                .                |           num_values: 1
 00000010  08                                                .                |           byte_length: 8
-00000011  00 00 00 00 00 00 00 82                           ........         |         data [Length(VarBinary) Int(None)/FastPFor256, 1 values, 8 B]
+00000011  00 00 00 00 00 00 00 82                           ........         |         data [Length(VarBinary) Int(None)/FastPFor(Block256Be), 1 values, 8 B]
                                                                              |           decoded: [2]
 00000019                                                                     |       stream[0] (12 B)
 00000019                                                                     |         header (4 B)
 00000019  32                                                2                |           stream_type: 0x32 Length(Parts)
                                                                              |             └ bits 7-4 = 0011 -> category = Length
                                                                              |             └ bits 3-0 = 0010 -> subtype = Parts
-0000001a  01                                                .                |           encoding: 0x01 logical=Int(None) physical=FastPFor256
+0000001a  01                                                .                |           encoding: 0x01 logical=Int(None) physical=FastPFor(Block256Be)
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 01 -> physical = FastPFor256
 0000001b  01                                                .                |           num_values: 1
 0000001c  08                                                .                |           byte_length: 8
-0000001d  00 00 00 00 00 00 00 82                           ........         |         data [Length(Parts) Int(None)/FastPFor256, 1 values, 8 B]
+0000001d  00 00 00 00 00 00 00 82                           ........         |         data [Length(Parts) Int(None)/FastPFor(Block256Be), 1 values, 8 B]
                                                                              |           decoded: [2]
 00000025                                                                     |       stream[1] (14 B)
 00000025                                                                     |         header (6 B)
 00000025  33                                                3                |           stream_type: 0x33 Length(Rings)
                                                                              |             └ bits 7-4 = 0011 -> category = Length
                                                                              |             └ bits 3-0 = 0011 -> subtype = Rings
-00000026  61                                                a                |           encoding: 0x61 logical=Int(Rle(Split { runs: 1, num_rle_values: 2 })) physical=FastPFor256
+00000026  61                                                a                |           encoding: 0x61 logical=Int(Rle(Split { runs: 1, num_rle_values: 2 })) physical=FastPFor(Block256Be)
                                                                              |             └ bits 7-5 = 011 -> logical1 = Rle
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 01 -> physical = FastPFor256
@@ -51,33 +51,33 @@
 00000028  08                                                .                |           byte_length: 8
 00000029  01                                                .                |           runs: 1
 0000002a  02                                                .                |           num_rle_values: 2
-0000002b  00 00 00 00 00 00 83 82                           ........         |         data [Length(Rings) Int(Rle(Split { runs: 1, num_rle_values: 2 }))/FastPFor256, 2 values, 8 B]
+0000002b  00 00 00 00 00 00 83 82                           ........         |         data [Length(Rings) Int(Rle(Split { runs: 1, num_rle_values: 2 }))/FastPFor(Block256Be), 2 values, 8 B]
                                                                              |           decoded: [3, 3]
 00000033                                                                     |       stream[2] (12 B)
 00000033                                                                     |         header (4 B)
 00000033  34                                                4                |           stream_type: 0x34 Length(Triangles)
                                                                              |             └ bits 7-4 = 0011 -> category = Length
                                                                              |             └ bits 3-0 = 0100 -> subtype = Triangles
-00000034  01                                                .                |           encoding: 0x01 logical=Int(None) physical=FastPFor256
+00000034  01                                                .                |           encoding: 0x01 logical=Int(None) physical=FastPFor(Block256Be)
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 01 -> physical = FastPFor256
 00000035  01                                                .                |           num_values: 1
 00000036  08                                                .                |           byte_length: 8
-00000037  00 00 00 00 00 00 00 86                           ........         |         data [Length(Triangles) Int(None)/FastPFor256, 1 values, 8 B]
+00000037  00 00 00 00 00 00 00 86                           ........         |         data [Length(Triangles) Int(None)/FastPFor(Block256Be), 1 values, 8 B]
                                                                              |           decoded: [6]
 0000003f                                                                     |       stream[3] (28 B)
 0000003f                                                                     |         header (4 B)
 0000003f  21                                                !                |           stream_type: 0x21 Offset(Index)
                                                                              |             └ bits 7-4 = 0010 -> category = Offset
                                                                              |             └ bits 3-0 = 0001 -> subtype = Index
-00000040  01                                                .                |           encoding: 0x01 logical=Int(None) physical=FastPFor256
+00000040  01                                                .                |           encoding: 0x01 logical=Int(None) physical=FastPFor(Block256Be)
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 01 -> physical = FastPFor256
 00000041  12                                                .                |           num_values: 18
 00000042  18                                                .                |           byte_length: 24
-00000043  00 00 00 00 85 83 84 80 80 81 80 84 82 80 85 83   ................ |         data [Offset(Index) Int(None)/FastPFor256, 18 values, 24 B]
+00000043  00 00 00 00 85 83 84 80 80 81 80 84 82 80 85 83   ................ |         data [Offset(Index) Int(None)/FastPFor(Block256Be), 18 values, 24 B]
 00000053  83 83 81 82 00 00 82 85                           ........         | 
                                                                              |           decoded: [0, 4, 3, 5, 4, 0, 1, 0, 3, 5, 0, 2, 2, 1, 3, 3, 5, 2]
 0000005b                                                                     |       stream[4] (20 B)
@@ -85,11 +85,11 @@
 0000005b  13                                                .                |           stream_type: 0x13 Data(Vertex)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0011 -> subtype = Vertex
-0000005c  41                                                A                |           encoding: 0x41 logical=Vertex(ComponentwiseDelta) physical=FastPFor256
+0000005c  41                                                A                |           encoding: 0x41 logical=Vertex(ComponentwiseDelta) physical=FastPFor(Block256Be)
                                                                              |             └ bits 7-5 = 010 -> logical1 = ComponentwiseDelta
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 01 -> physical = FastPFor256
 0000005d  0c                                                .                |           num_values: 12
 0000005e  10                                                .                |           byte_length: 16
-0000005f  00 00 00 00 a8 f8 e8 96 d8 88 e3 93 a7 a8 93 bb   ................ |         data [Data(Vertex) Vertex(ComponentwiseDelta)/FastPFor256, 12 values, 16 B]
+0000005f  00 00 00 00 a8 f8 e8 96 d8 88 e3 93 a7 a8 93 bb   ................ |         data [Data(Vertex) Vertex(ComponentwiseDelta)/FastPFor(Block256Be), 12 values, 16 B]
                                                                              |           decoded: [11, 52, 71, 72, 61, 22, 65, 66, 35, 56, 55, 36]
