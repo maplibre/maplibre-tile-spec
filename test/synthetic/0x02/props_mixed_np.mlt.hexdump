@@ -1,0 +1,164 @@
+00000000                                                                     | layer[0] (131 B)
+00000000  81 01                                             ..               |   size: 129 (varint) - tag + body
+00000002  02                                                .                |   tag: 0x02 -> Tag02
+00000003  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
+0000000a  50                                                P                |   extent: 80
+0000000b  01                                                .                |   feature_count: 1
+0000000c  00                                                .                |   layout: 0x00 Points
+                                                                             |     └ bit 7 = 0 -> reserved = 0
+                                                                             |     └ bits 6-4 = 000 -> shared presence bitfields = 0
+                                                                             |     └ bits 3-0 = 0000 -> geometry layout = Points
+0000000d                                                                     |   geometry (8 B)
+0000000d                                                                     |     types (3 B)
+0000000d                                                                     |       header (2 B)
+0000000d  08                                                .                |         encoding: 0x08 logical=None physical=VarInt
+                                                                             |           └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
+                                                                             |           └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
+                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+0000000e  01                                                .                |         byte_length: 1
+0000000f  00                                                .                |       data [Length(VarBinary) Int(None)/VarInt, 1 values, 1 B]
+                                                                             |         decoded: [0]
+00000010                                                                     |     vertices (5 B)
+00000010                                                                     |       header (3 B)
+00000010  a8                                                .                |         encoding: 0xA8 logical=CwDelta physical=VarInt
+                                                                             |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta, numbered for a v2 vertex stream
+                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+00000011  02                                                .                |         num_values: 2
+00000012  02                                                .                |         byte_length: 2
+00000013  1a 54                                             .T               |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 2 values, 2 B]
+                                                                             |         decoded: [13, 42]
+00000015  08                                                .                |   column_count: 8
+00000016                                                                     |   columns (109 B)
+00000016                                                                     |     column[0] Bool "active" (11 B)
+00000016  02                                                .                |       type: 0x02 AllPresent Bool
+                                                                             |         └ bits 7-4 = 0000 -> presence = AllPresent
+                                                                             |         └ bits 3-0 = 0010 -> data type = Bool
+00000017  06 61 63 74 69 76 65                              .active          |       name: "active"
+0000001e                                                                     |       data (3 B)
+0000001e                                                                     |         header (2 B)
+0000001e  04                                                .                |           encoding: 0x04 logical=None physical=WithLen
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 bool column
+                                                                             |             └ bits 3-2 = 01 -> physical = WithLen
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+0000001f  01                                                .                |           byte_length: 1
+00000020  01                                                .                |         data [Data(None) Bool(None)/None, 1 values, 1 B]
+                                                                             |           decoded: [true]
+00000021                                                                     |     column[1] U64 "biggest" (12 B)
+00000021  08                                                .                |       type: 0x08 AllPresent U64
+                                                                             |         └ bits 7-4 = 0000 -> presence = AllPresent
+                                                                             |         └ bits 3-0 = 1000 -> data type = U64
+00000022  07 62 69 67 67 65 73 74                           .biggest         |       name: "biggest"
+0000002a                                                                     |       data (3 B)
+0000002a                                                                     |         header (2 B)
+0000002a  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+0000002b  01                                                .                |           byte_length: 1
+0000002c  00                                                .                |         data [Data(None) Int(None)/VarInt, 1 values, 1 B]
+                                                                             |           decoded: [0]
+0000002d                                                                     |     column[2] I32 "bignum" (11 B)
+0000002d  05                                                .                |       type: 0x05 AllPresent I32
+                                                                             |         └ bits 7-4 = 0000 -> presence = AllPresent
+                                                                             |         └ bits 3-0 = 0101 -> data type = I32
+0000002e  06 62 69 67 6e 75 6d                              .bignum          |       name: "bignum"
+00000035                                                                     |       data (3 B)
+00000035                                                                     |         header (2 B)
+00000035  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+00000036  01                                                .                |           byte_length: 1
+00000037  54                                                T                |         data [Data(None) Int(None)/VarInt, 1 values, 1 B]
+                                                                             |           decoded: [42]
+00000038                                                                     |     column[3] I32 "count" (10 B)
+00000038  05                                                .                |       type: 0x05 AllPresent I32
+                                                                             |         └ bits 7-4 = 0000 -> presence = AllPresent
+                                                                             |         └ bits 3-0 = 0101 -> data type = I32
+00000039  05 63 6f 75 6e 74                                 .count           |       name: "count"
+0000003f                                                                     |       data (3 B)
+0000003f                                                                     |         header (2 B)
+0000003f  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+00000040  01                                                .                |           byte_length: 1
+00000041  54                                                T                |         data [Data(None) Int(None)/VarInt, 1 values, 1 B]
+                                                                             |           decoded: [42]
+00000042                                                                     |     column[4] U32 "medium" (11 B)
+00000042  06                                                .                |       type: 0x06 AllPresent U32
+                                                                             |         └ bits 7-4 = 0000 -> presence = AllPresent
+                                                                             |         └ bits 3-0 = 0110 -> data type = U32
+00000043  06 6d 65 64 69 75 6d                              .medium          |       name: "medium"
+0000004a                                                                     |       data (3 B)
+0000004a                                                                     |         header (2 B)
+0000004a  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+0000004b  01                                                .                |           byte_length: 1
+0000004c  64                                                d                |         data [Data(None) Int(None)/VarInt, 1 values, 1 B]
+                                                                             |           decoded: [100]
+0000004d                                                                     |     column[5] Str "name" (21 B)
+0000004d  0b                                                .                |       type: 0x0B AllPresent Str
+                                                                             |         └ bits 7-4 = 0000 -> presence = AllPresent
+                                                                             |         └ bits 3-0 = 1011 -> data type = Str
+0000004e  04 6e 61 6d 65                                    .name            |       name: "name"
+00000053                                                                     |       lengths (3 B)
+00000053                                                                     |         header (2 B)
+00000053  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 string column
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> string layout = Plain
+00000054  01                                                .                |           byte_length: 1
+00000055  0a                                                .                |         data [Length(VarBinary) Int(None)/VarInt, 1 values, 1 B]
+                                                                             |           decoded: [10]
+00000056                                                                     |       values (12 B)
+00000056                                                                     |         header (2 B)
+00000056  04                                                .                |           encoding: 0x04 logical=None physical=WithLen
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> a blob's byte length is its value count
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 byte blob
+                                                                             |             └ bits 3-2 = 01 -> physical = WithLen
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+00000057  0a                                                .                |           byte_length: 10
+00000058  54 65 73 74 20 50 6f 69 6e 74                     Test Point       |         data [Data(None) Int(None)/None, 10 values, 10 B]
+                                                                             |           decoded: utf-8 "Test Point"
+00000062                                                                     |     column[6] F64 "precision" (21 B)
+00000062  0a                                                .                |       type: 0x0A AllPresent F64
+                                                                             |         └ bits 7-4 = 0000 -> presence = AllPresent
+                                                                             |         └ bits 3-0 = 1010 -> data type = F64
+00000063  09 70 72 65 63 69 73 69 6f 6e                     .precision       |       name: "precision"
+0000006d                                                                     |       data (10 B)
+0000006d                                                                     |         header (2 B)
+0000006d  04                                                .                |           encoding: 0x04 logical=None physical=WithLen
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 float column
+                                                                             |             └ bits 3-2 = 01 -> physical = WithLen
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+0000006e  08                                                .                |           byte_length: 8
+0000006f  5f 63 39 37 dd 9a bf 3f                           _c97...?         |         data [Data(None) Float(None)/None, 1 values, 8 B]
+                                                                             |           decoded: [0.123456789]
+00000077                                                                     |     column[7] F32 "temp" (12 B)
+00000077  09                                                .                |       type: 0x09 AllPresent F32
+                                                                             |         └ bits 7-4 = 0000 -> presence = AllPresent
+                                                                             |         └ bits 3-0 = 1001 -> data type = F32
+00000078  04 74 65 6d 70                                    .temp            |       name: "temp"
+0000007d                                                                     |       data (6 B)
+0000007d                                                                     |         header (2 B)
+0000007d  04                                                .                |           encoding: 0x04 logical=None physical=WithLen
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 float column
+                                                                             |             └ bits 3-2 = 01 -> physical = WithLen
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+0000007e  04                                                .                |           byte_length: 4
+0000007f  00 00 cc 41                                       ...A             |         data [Data(None) Float(None)/None, 1 values, 4 B]
+                                                                             |           decoded: [25.5]
