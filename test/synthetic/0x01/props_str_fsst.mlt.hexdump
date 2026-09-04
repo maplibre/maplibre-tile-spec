@@ -87,7 +87,7 @@
 00000040  0f                                                .                |           num_values: 15
 00000041  1b                                                .                |           byte_length: 27
 00000042  5f 7a 6f 6e 65 5f 5f 73 65 63 74 6f 72 5f 5f 61   _zone__sector__a |         data [Data(Fsst) Int(None)/None, 15 values, 27 B]
-00000052  64 65 68 69 6c 6e 6f 72 73 74 75                  dehilnorstu      | 
+00000052  64 65 68 69 6c 6e 6f 72 73 74 75                  dehilnorstu      |
                                                                              |           decoded: utf-8 "_zone__sector__adehilnorstu"
 0000005d                                                                     |       stream[2] (10 B)
 0000005d                                                                     |         header (4 B)
@@ -114,12 +114,12 @@
 00000069  06                                                .                |           num_values: 6
 0000006a  6f                                                o                |           byte_length: 111
 0000006b  0b 05 0c 07 04 05 09 0d 07 03 08 00 09 0a 0b 0d   ................ |         data [Data(Single) Int(None)/None, 6 values, 111 B]
-0000007b  06 01 ff 31 ff 63 0a ff 6d ff 6d 05 0b ff 63 07   ...1.c..m.m...c. | 
-0000008b  03 08 00 0c 0a 0e 0d 06 01 ff 32 07 09 04 0e 0c   ..........2..... | 
-0000009b  0d 0b 07 03 08 00 05 03 0c 0d 01 ff 33 ff 70 03   ............3.p. | 
-000000ab  0b ff 6b 00 ff 77 05 0c 0d 01 ff 34 ff 77 03 0d   ..k..w.....4.w.. | 
-000000bb  05 0b 00 09 0a 0b 0d 06 01 ff 35 0b 05 0c 07 04   ..........5..... | 
-000000cb  05 09 0d 07 03 08 00 0c 0a 0e 0d 06 01 ff 36      ..............6  | 
+0000007b  06 01 ff 31 ff 63 0a ff 6d ff 6d 05 0b ff 63 07   ...1.c..m.m...c. |
+0000008b  03 08 00 0c 0a 0e 0d 06 01 ff 32 07 09 04 0e 0c   ..........2..... |
+0000009b  0d 0b 07 03 08 00 05 03 0c 0d 01 ff 33 ff 70 03   ............3.p. |
+000000ab  0b ff 6b 00 ff 77 05 0c 0d 01 ff 34 ff 77 03 0d   ..k..w.....4.w.. |
+000000bb  05 0b 00 09 0a 0b 0d 06 01 ff 35 0b 05 0c 07 04   ..........5..... |
+000000cb  05 09 0d 07 03 08 00 0c 0a 0e 0d 06 01 ff 36      ..............6  |
                                                                              |           decoded: <111 binary bytes>
 000000da                                                                     |       stream[4] (10 B)
 000000da                                                                     |         header (6 B)

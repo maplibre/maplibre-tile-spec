@@ -111,9 +111,9 @@
 00000054  02                                                .                |           num_values: 2
 00000055  3d                                                =                |           byte_length: 61
 00000056  01 01 01 00 00 00 04 03 ff 73 ff 69 ff 64 03 ff   .........s.i.d.. |         data [Data(Single) Int(None)/None, 2 values, 61 B]
-00000066  6e ff 74 ff 69 ff 61 ff 6c ff 5f ff 7a ff 6f ff   n.t.i.a.l._.z.o. | 
-00000076  6e 03 ff 5f ff 6e ff 6f 04 ff 74 ff 68 ff 5f ff   n.._.n.o..t.h._. | 
-00000086  73 03 ff 63 ff 74 ff 6f 04 ff 5f ff 31            s..c.t.o.._.1    | 
+00000066  6e ff 74 ff 69 ff 61 ff 6c ff 5f ff 7a ff 6f ff   n.t.i.a.l._.z.o. |
+00000076  6e 03 ff 5f ff 6e ff 6f 04 ff 74 ff 68 ff 5f ff   n.._.n.o..t.h._. |
+00000086  73 03 ff 63 ff 74 ff 6f 04 ff 5f ff 31            s..c.t.o.._.1    |
                                                                              |           decoded: <61 binary bytes>
 00000093                                                                     |       stream[4] (12 B)
 00000093                                                                     |         header (6 B)

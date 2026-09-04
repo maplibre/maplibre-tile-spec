@@ -58,11 +58,11 @@
                                                                              |             └ bits 1-0 = 00 -> extension = 0
 0000002e  71                                                q                |           byte_length: 113
 0000002f  72 65 73 69 64 65 6e 74 69 61 6c 5f 7a 6f 6e 65   residential_zone |         data [Data(None) Int(None)/None, 113 values, 113 B]
-0000003f  5f 6e 6f 72 74 68 5f 73 65 63 74 6f 72 5f 31 63   _north_sector_1c | 
-0000004f  6f 6d 6d 65 72 63 69 61 6c 5f 7a 6f 6e 65 5f 73   ommercial_zone_s | 
-0000005f  6f 75 74 68 5f 73 65 63 74 6f 72 5f 32 69 6e 64   outh_sector_2ind | 
-0000006f  75 73 74 72 69 61 6c 5f 7a 6f 6e 65 5f 65 61 73   ustrial_zone_eas | 
-0000007f  74 5f 73 65 63 74 6f 72 5f 33 70 61 72 6b 5f 7a   t_sector_3park_z | 
-0000008f  6f 6e 65 5f 77 65 73 74 5f 73 65 63 74 6f 72 5f   one_west_sector_ | 
-0000009f  34                                                4                | 
+0000003f  5f 6e 6f 72 74 68 5f 73 65 63 74 6f 72 5f 31 63   _north_sector_1c |
+0000004f  6f 6d 6d 65 72 63 69 61 6c 5f 7a 6f 6e 65 5f 73   ommercial_zone_s |
+0000005f  6f 75 74 68 5f 73 65 63 74 6f 72 5f 32 69 6e 64   outh_sector_2ind |
+0000006f  75 73 74 72 69 61 6c 5f 7a 6f 6e 65 5f 65 61 73   ustrial_zone_eas |
+0000007f  74 5f 73 65 63 74 6f 72 5f 33 70 61 72 6b 5f 7a   t_sector_3park_z |
+0000008f  6f 6e 65 5f 77 65 73 74 5f 73 65 63 74 6f 72 5f   one_west_sector_ |
+0000009f  34                                                4                |
                                                                              |           decoded: utf-8 "residential_zone_north_sector_1commercial_zone_south_sector_2industrial_zone_east_sector_3park_zone_west_sector_4"
