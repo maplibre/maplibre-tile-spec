@@ -14,7 +14,7 @@
 0000000d                                                                     |   geometry (17 B)
 0000000d                                                                     |     types (4 B)
 0000000d                                                                     |       header (2 B)
-0000000d  20                                                                 |         encoding: 0x20 logical=Int(Rle(Interleaved { num_rle_values: 5 })) physical=VarInt
+0000000d  20                                                                 |         encoding: 0x20 logical=Rle physical=implied
                                                                              |           └ bit 7 = 0 -> has_explicit_count = false -> 5 values from context
                                                                              |           └ bits 6-4 = 010 -> logical = Rle, numbered for a v2 integer stream
                                                                              |           └ bits 3-2 = 00 -> physical = implied
@@ -24,7 +24,7 @@
                                                                              |         decoded: [0, 0, 0, 0, 0]
 00000011                                                                     |     vertices (13 B)
 00000011                                                                     |       header (3 B)
-00000011  a8                                                .                |         encoding: 0xA8 logical=Vertex(ComponentwiseDelta) physical=VarInt
+00000011  a8                                                .                |         encoding: 0xA8 logical=CwDelta physical=VarInt
                                                                              |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
                                                                              |           └ bits 6-4 = 010 -> logical = CwDelta, numbered for a v2 vertex stream
                                                                              |           └ bits 3-2 = 10 -> physical = VarInt
@@ -41,7 +41,7 @@
                                                                              |         └ bits 3-0 = 0000 -> data type = Id
 00000020                                                                     |       data (5 B)
 00000020                                                                     |         header (2 B)
-00000020  08                                                .                |           encoding: 0x08 logical=Int(None) physical=VarInt
+00000020  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> 3 values from context
                                                                              |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
                                                                              |             └ bits 3-2 = 10 -> physical = VarInt
@@ -56,7 +56,7 @@
 00000026  03 76 61 6c                                       .val             |       name: "val"
 0000002a                                                                     |       data (5 B)
 0000002a                                                                     |         header (2 B)
-0000002a  08                                                .                |           encoding: 0x08 logical=Int(None) physical=VarInt
+0000002a  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> 3 values from context
                                                                              |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
                                                                              |             └ bits 3-2 = 10 -> physical = VarInt
