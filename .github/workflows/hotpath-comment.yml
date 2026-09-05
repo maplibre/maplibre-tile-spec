@@ -30,8 +30,11 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
 
-      - name: Install hotpath-utils CLI
-        run: cargo install hotpath --bin hotpath-utils --features=utils
+      - name: Install hotpath-utils at the version the profile ran with
+        run: |
+          version=$(cargo tree --manifest-path rust/Cargo.toml -p mlt --depth 1 --prefix none --features hotpath \
+            | awk '$1 == "hotpath" { print substr($2, 2); exit }')
+          cargo install "hotpath@${version}" --bin hotpath-utils --features=utils
 
       - name: Compose comment (hotpath + per-tile size diff)
         env:
