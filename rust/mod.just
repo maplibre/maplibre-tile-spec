@@ -485,6 +485,24 @@ generate-synthetic-mlts *args:
     cargo run -p mlt-synthetics -- {{args}}
     {{just}} rust::validate-synthetic
     {{just}} _assert-all-mlt-files-different
+    {{just}} rust::generate-synthetic-hexdumps
+
+# Write an annotated .mlt.hexdump next to every .mlt in test/synthetic
+generate-synthetic-hexdumps:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo build -q --bin mlt
+    find ../test/synthetic -name '*.mlt' -print0 | while IFS= read -r -d '' f; do
+        code=0
+        err="$(target/debug/mlt hexdump --color never "$f" 2>&1 >"$f.hexdump")" || code=$?
+        if [ "$code" -ne 0 ]; then
+            printf '!! hexdump failed with exit code %s\n%s\n' "$code" "$err" > "$f.hexdump"
+        fi
+    done
+    # Drop hexdumps whose .mlt is gone, so a renamed fixture cannot leave one behind
+    find ../test/synthetic -name '*.mlt.hexdump' -print0 | while IFS= read -r -d '' h; do
+        [ -f "${h%.hexdump}" ] || rm "$h"
+    done
 
 # Create .dump files for all .mlt files in test/synthetic for all languages
 generate-synthetic-dumps: (just 'cargo-install' 'fd' 'fd-find')
