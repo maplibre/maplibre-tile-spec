@@ -70,7 +70,7 @@ pub const CLR_HINT: Color = Color::DarkGray;
 pub const CLR_CONTEXT_LAYER: Color = Color::DarkGray;
 /// Other features of the selected feature's layer.
 pub const CLR_CONTEXT_FEATURE: Color = Color::Gray;
-pub const CLR_TRIANGLE: Color = Color::Gray;
+pub const CLR_TRIANGLE: Color = Color::DarkGray;
 
 pub const STYLE_SELECTED: Style = Style::new().fg(CLR_SELECTED).add_modifier(Modifier::BOLD);
 pub const STYLE_LABEL: Style = Style::new().fg(CLR_LABEL);

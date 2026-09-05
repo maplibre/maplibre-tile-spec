@@ -186,7 +186,7 @@ fn help_layer_overview() -> Vec<Line<'static>> {
         color(CLR_INNER_RING, "Red", "Inner ring (hole, CW)"),
         color(CLR_BAD_WINDING, "Light red", "Non-standard winding"),
         color(CLR_EXTENT, "Dark gray", "Tile extent boundary"),
-        color(CLR_TRIANGLE, "Gray", "Tessellation triangles"),
+        color(CLR_TRIANGLE, "Dark gray", "Tessellation edges"),
         Line::from(""),
         heading("Selection Colors"),
         color(CLR_SELECTED, "Yellow", "Selected feature/part"),
