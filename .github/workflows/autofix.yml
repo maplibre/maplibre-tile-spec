@@ -47,7 +47,7 @@ jobs:
               - '.github/workflows/autofix.yml'
               - 'rust/mlt-wasm/**'
 
-      - uses: taiki-e/install-action@37f7c5781271959fb65b6b35224e28652ff2b63d # v2.87.0
+      - uses: taiki-e/install-action@e67fa11c4b9316fa714ddf0abed07a0c3143b95b # v2.87.4
         with: { tool: 'just' }
 
       # TypeScript
@@ -126,7 +126,7 @@ jobs:
         run: rustup update stable && rustup default stable
 
       - name: Install just
-        uses: taiki-e/install-action@37f7c5781271959fb65b6b35224e28652ff2b63d # v2.87.0
+        uses: taiki-e/install-action@e67fa11c4b9316fa714ddf0abed07a0c3143b95b # v2.87.4
         with: { tool: 'just,cargo-binstall' }
 
       - name: Setup Node.js
