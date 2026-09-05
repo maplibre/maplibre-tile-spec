@@ -17,51 +17,51 @@
 0000000d  30                                                0                |           stream_type: 0x30 Length(VarBinary)
                                                                              |             └ bits 7-4 = 0011 -> category = Length
                                                                              |             └ bits 3-0 = 0000 -> subtype = VarBinary
-0000000e  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+0000000e  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 0000000f  03                                                .                |           num_values: 3
 00000010  03                                                .                |           byte_length: 3
-00000011  03 01 03                                          ...              |         data [Length(VarBinary) None/VarInt, 3 values, 3 B]
+00000011  03 01 03                                          ...              |         data [Length(VarBinary) Int(None)/VarInt, 3 values, 3 B]
                                                                              |           decoded: [3, 1, 3]
 00000014                                                                     |       stream[0] (6 B)
 00000014                                                                     |         header (4 B)
 00000014  31                                                1                |           stream_type: 0x31 Length(Geometries)
                                                                              |             └ bits 7-4 = 0011 -> category = Length
                                                                              |             └ bits 3-0 = 0001 -> subtype = Geometries
-00000015  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+00000015  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 00000016  02                                                .                |           num_values: 2
 00000017  02                                                .                |           byte_length: 2
-00000018  03 03                                             ..               |         data [Length(Geometries) None/VarInt, 2 values, 2 B]
+00000018  03 03                                             ..               |         data [Length(Geometries) Int(None)/VarInt, 2 values, 2 B]
                                                                              |           decoded: [3, 3]
 0000001a                                                                     |       stream[1] (5 B)
 0000001a                                                                     |         header (4 B)
 0000001a  32                                                2                |           stream_type: 0x32 Length(Parts)
                                                                              |             └ bits 7-4 = 0011 -> category = Length
                                                                              |             └ bits 3-0 = 0010 -> subtype = Parts
-0000001b  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+0000001b  02                                                .                |           encoding: 0x02 logical=Int(None) physical=VarInt
                                                                              |             └ bits 7-5 = 000 -> logical1 = None
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 0000001c  01                                                .                |           num_values: 1
 0000001d  01                                                .                |           byte_length: 1
-0000001e  03                                                .                |         data [Length(Parts) None/VarInt, 1 values, 1 B]
+0000001e  03                                                .                |         data [Length(Parts) Int(None)/VarInt, 1 values, 1 B]
                                                                              |           decoded: [3]
 0000001f                                                                     |       stream[2] (22 B)
 0000001f                                                                     |         header (4 B)
 0000001f  13                                                .                |           stream_type: 0x13 Data(Vertex)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0011 -> subtype = Vertex
-00000020  42                                                B                |           encoding: 0x42 logical=ComponentwiseDelta physical=VarInt
+00000020  42                                                B                |           encoding: 0x42 logical=Vertex(ComponentwiseDelta) physical=VarInt
                                                                              |             └ bits 7-5 = 010 -> logical1 = ComponentwiseDelta
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 10 -> physical = VarInt
 00000021  12                                                .                |           num_values: 18
 00000022  12                                                .                |           byte_length: 18
-00000023  0c 32 1e 20 04 38 23 3d 0e 0e 05 32 05 59 1e 20   .2. .8#=...2.Y.  |         data [Data(Vertex) ComponentwiseDelta/VarInt, 18 values, 18 B]
+00000023  0c 32 1e 20 04 38 23 3d 0e 0e 05 32 05 59 1e 20   .2. .8#=...2.Y.  |         data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 18 values, 18 B]
 00000033  04 38                                             .8               |
                                                                              |           decoded: [6, 25, 21, 41, 23, 69, 5, 38, 12, 45, 9, 70, 6, 25, 21, 41, 23, 69]

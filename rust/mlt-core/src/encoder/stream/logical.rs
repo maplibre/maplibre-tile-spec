@@ -61,6 +61,7 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
+    use crate::decoder::ValueKind;
     use crate::decoder::stream::header01;
     use crate::encoder::model::StreamCtx;
     use crate::encoder::{Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder};
@@ -79,7 +80,7 @@ mod tests {
             let mut codecs = Codecs::default();
             let ctx = StreamCtx::prop_data("test");
             codecs.write_int_stream(&values, &ctx, &mut enc).unwrap();
-            let parsed = assert_empty(header01::parse_stream(enc.data(), &mut parser()));
+            let parsed = assert_empty(header01::parse_stream(enc.data(), ValueKind::Int, &mut parser()));
             let decoded = parsed.decode_ints::<u32>(&mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
         }
@@ -96,7 +97,7 @@ mod tests {
             let mut codecs = Codecs::default();
             let ctx = StreamCtx::prop_data("test");
             codecs.write_int_stream(&values, &ctx, &mut enc).unwrap();
-            let parsed = assert_empty(header01::parse_stream(enc.data(), &mut parser()));
+            let parsed = assert_empty(header01::parse_stream(enc.data(), ValueKind::Int, &mut parser()));
             let decoded = parsed.decode_ints::<i32>(&mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
         }
@@ -113,7 +114,7 @@ mod tests {
             let mut codecs = Codecs::default();
             let ctx = StreamCtx::prop_data("test");
             codecs.write_int_stream(&values, &ctx, &mut enc).unwrap();
-            let parsed = assert_empty(header01::parse_stream(enc.data(), &mut parser()));
+            let parsed = assert_empty(header01::parse_stream(enc.data(), ValueKind::Int, &mut parser()));
             let decoded = parsed.decode_ints::<u64>(&mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
         }
@@ -130,7 +131,7 @@ mod tests {
             let mut codecs = Codecs::default();
             let ctx = StreamCtx::prop_data("test");
             codecs.write_int_stream(&values, &ctx, &mut enc).unwrap();
-            let parsed = assert_empty(header01::parse_stream(enc.data(), &mut parser()));
+            let parsed = assert_empty(header01::parse_stream(enc.data(), ValueKind::Int, &mut parser()));
             let decoded = parsed.decode_ints::<i64>(&mut dec()).unwrap();
             prop_assert_eq!(decoded, values);
         }
