@@ -177,8 +177,8 @@ pub enum WireVersion {
     V01,
     /// Tag `0x02` - the experimental v2 format (see `docs/migrating-to-v2.md`).
     ///
-    /// Currently limited to ID, scalar, and non-tessellated geometry columns;
-    /// string and shared-dictionary columns are not yet supported.
+    /// Currently limited to ID, scalar, string, and non-tessellated geometry
+    /// columns; shared-dictionary columns are not yet supported.
     V02,
 }
 
@@ -301,7 +301,16 @@ impl EncoderConfig {
 
     #[must_use]
     pub fn allow_shared_dict(self) -> bool {
-        self.allow_shared_dict
+        // TODO(v2): group string columns into a shared dictionary for `WireVersion::V02`.
+        // A v2 shared dictionary needs the `DataType02` `0x0F` escape designed to name the
+        // group and its members, then an encoder and decoder for that column shape.
+        // Until then shared dictionaries are only attempted for v1 layers, and v2 writes
+        // every string column on its own.
+        #[cfg(feature = "unstable-v2")]
+        let is_v1 = self.wire_version == WireVersion::V01;
+        #[cfg(not(feature = "unstable-v2"))]
+        let is_v1 = true;
+        self.allow_shared_dict && is_v1
     }
 
     /// Whether float columns may use a dictionary, which only v2 can express.
