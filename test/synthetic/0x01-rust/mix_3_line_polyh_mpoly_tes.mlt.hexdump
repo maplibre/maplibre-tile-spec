@@ -1,0 +1,109 @@
+00000000                                                                     | layer[0] (132 B)
+00000000  82 01                                             ..               |   size: 130 (varint) - tag + body
+00000002  01                                                .                |   tag: 0x01 -> Tag01
+00000003  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
+0000000a  50                                                P                |   extent: 80
+0000000b  01                                                .                |   column_count: 1
+0000000c                                                                     |   schema (1 B)
+0000000c                                                                     |     column[0] (1 B)
+0000000c  04                                                .                |       type: 0x04 Geometry
+                                                                             |         └ bits 7-1 = 0000010 -> base type = Geometry
+                                                                             |         └ bit 0 = 0 -> optional = false
+0000000d                                                                     |   column data (119 B)
+0000000d                                                                     |     column[0] Geometry (119 B)
+0000000d  07                                                .                |       stream_count: 7
+0000000e                                                                     |       meta (7 B)
+0000000e                                                                     |         header (4 B)
+0000000e  30                                                0                |           stream_type: 0x30 Length(VarBinary)
+                                                                             |             └ bits 7-4 = 0011 -> category = Length
+                                                                             |             └ bits 3-0 = 0000 -> subtype = VarBinary
+0000000f  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+                                                                             |             └ bits 7-5 = 000 -> logical1 = None
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 10 -> physical = VarInt
+00000010  03                                                .                |           num_values: 3
+00000011  03                                                .                |           byte_length: 3
+00000012  01 02 05                                          ...              |         data [Length(VarBinary) None/VarInt, 3 values, 3 B]
+                                                                             |           decoded: [1, 2, 5]
+00000015                                                                     |       stream[0] (5 B)
+00000015                                                                     |         header (4 B)
+00000015  31                                                1                |           stream_type: 0x31 Length(Geometries)
+                                                                             |             └ bits 7-4 = 0011 -> category = Length
+                                                                             |             └ bits 3-0 = 0001 -> subtype = Geometries
+00000016  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+                                                                             |             └ bits 7-5 = 000 -> logical1 = None
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 10 -> physical = VarInt
+00000017  01                                                .                |           num_values: 1
+00000018  01                                                .                |           byte_length: 1
+00000019  02                                                .                |         data [Length(Geometries) None/VarInt, 1 values, 1 B]
+                                                                             |           decoded: [2]
+0000001a                                                                     |       stream[1] (7 B)
+0000001a                                                                     |         header (4 B)
+0000001a  32                                                2                |           stream_type: 0x32 Length(Parts)
+                                                                             |             └ bits 7-4 = 0011 -> category = Length
+                                                                             |             └ bits 3-0 = 0010 -> subtype = Parts
+0000001b  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+                                                                             |             └ bits 7-5 = 000 -> logical1 = None
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 10 -> physical = VarInt
+0000001c  03                                                .                |           num_values: 3
+0000001d  03                                                .                |           byte_length: 3
+0000001e  02 02 01                                          ...              |         data [Length(Parts) None/VarInt, 3 values, 3 B]
+                                                                             |           decoded: [2, 2, 1]
+00000021                                                                     |       stream[2] (10 B)
+00000021                                                                     |         header (4 B)
+00000021  33                                                3                |           stream_type: 0x33 Length(Rings)
+                                                                             |             └ bits 7-4 = 0011 -> category = Length
+                                                                             |             └ bits 3-0 = 0011 -> subtype = Rings
+00000022  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+                                                                             |             └ bits 7-5 = 000 -> logical1 = None
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 10 -> physical = VarInt
+00000023  06                                                .                |           num_values: 6
+00000024  06                                                .                |           byte_length: 6
+00000025  03 03 03 03 03 03                                 ......           |         data [Length(Rings) None/VarInt, 6 values, 6 B]
+                                                                             |           decoded: [3, 3, 3, 3, 3, 3]
+0000002b                                                                     |       stream[3] (6 B)
+0000002b                                                                     |         header (4 B)
+0000002b  34                                                4                |           stream_type: 0x34 Length(Triangles)
+                                                                             |             └ bits 7-4 = 0011 -> category = Length
+                                                                             |             └ bits 3-0 = 0100 -> subtype = Triangles
+0000002c  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+                                                                             |             └ bits 7-5 = 000 -> logical1 = None
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 10 -> physical = VarInt
+0000002d  02                                                .                |           num_values: 2
+0000002e  02                                                .                |           byte_length: 2
+0000002f  06 07                                             ..               |         data [Length(Triangles) None/VarInt, 2 values, 2 B]
+                                                                             |           decoded: [6, 7]
+00000031                                                                     |       stream[4] (43 B)
+00000031                                                                     |         header (4 B)
+00000031  21                                                !                |           stream_type: 0x21 Offset(Index)
+                                                                             |             └ bits 7-4 = 0010 -> category = Offset
+                                                                             |             └ bits 3-0 = 0001 -> subtype = Index
+00000032  02                                                .                |           encoding: 0x02 logical=None physical=VarInt
+                                                                             |             └ bits 7-5 = 000 -> logical1 = None
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 10 -> physical = VarInt
+00000033  27                                                '                |           num_values: 39
+00000034  27                                                '                |           byte_length: 39
+00000035  01 05 04 03 05 01 02 01 04 03 01 00 00 02 04 04   ................ |         data [Offset(Index) None/VarInt, 39 values, 39 B]
+00000045  03 00 00 03 05 04 03 00 01 00 05 04 00 02 02 01   ................ |
+00000055  05 05 04 02 07 06 08                              .......          |
+                                                                             |           decoded: [1, 5, 4, 3, 5, 1, 2, 1, 4, 3, 1, 0, 0, 2, 4, 4, 3, 0, 0, 3, 5, 4, 3, 0, 1, 0, 5, 4, 0, 2, 2, 1, 5, 5, 4, 2, 7, 6, 8]
+0000005c                                                                     |       stream[5] (40 B)
+0000005c                                                                     |         header (4 B)
+0000005c  13                                                .                |           stream_type: 0x13 Data(Vertex)
+                                                                             |             └ bits 7-4 = 0001 -> category = Data
+                                                                             |             └ bits 3-0 = 0011 -> subtype = Vertex
+0000005d  42                                                B                |           encoding: 0x42 logical=ComponentwiseDelta physical=VarInt
+                                                                             |             └ bits 7-5 = 010 -> logical1 = ComponentwiseDelta
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 10 -> physical = VarInt
+0000005e  24                                                $                |           num_values: 36
+0000005f  24                                                $                |           byte_length: 36
+00000060  0a 4c 0e 0e 05 32 56 45 4b 28 5c 22 37 2b 08 14   .L...2VEK(\"7+.. |         data [Data(Vertex) ComponentwiseDelta/VarInt, 36 values, 36 B]
+00000070  17 0b 21 43 1c 16 0a 2b 15 16 0a 09 03 14 66 40   ..!C...+......f@ |
+00000080  04 12 04 03                                       ....             |
+                                                                             |           decoded: [5, 38, 12, 45, 9, 70, 52, 35, 14, 55, 60, 72, 32, 50, 36, 60, 24, 54, 7, 20, 21, 31, 26, 9, 15, 20, 20, 15, 18, 25, 69, 57, 71, 66, 73, 64]

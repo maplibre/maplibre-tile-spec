@@ -65,9 +65,20 @@ public class SyntheticMltGenerator {
     for (int i = minVersion; i <= maxVersion; ++i) {
       final var path = syntheticsDir(i);
       if (Files.exists(path)) {
-        throw new IOException(
-            "Synthetics dir must be deleted before running `:mlt-tools:generateSyntheticMlt`: "
-                + path.toAbsolutePath());
+        // The rust side owns the .hexdump files, so leaving those in place is fine.
+        try (var entries = Files.walk(path)) {
+          final var leftover =
+              entries
+                  .filter(Files::isRegularFile)
+                  .filter(f -> !f.getFileName().toString().endsWith(".hexdump"))
+                  .findAny();
+          if (leftover.isPresent()) {
+            throw new IOException(
+                "Synthetics dir must hold only .hexdump files before running"
+                    + " `:mlt-tools:generateSyntheticMlt`: "
+                    + leftover.get().toAbsolutePath());
+          }
+        }
       }
       Files.createDirectories(path);
     }

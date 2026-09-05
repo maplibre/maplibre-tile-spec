@@ -1,0 +1,97 @@
+00000000                                                                     | layer[0] (202 B)
+00000000  c8 01                                             ..               |   size: 200 (varint) - tag + body
+00000002  01                                                .                |   tag: 0x01 -> Tag01
+00000003  04 61 61 61 61                                    .aaaa            |   name: "aaaa"
+00000008  50                                                P                |   extent: 80
+00000009  02                                                .                |   column_count: 2
+0000000a                                                                     |   schema (4 B)
+0000000a                                                                     |     column[0] (1 B)
+0000000a  04                                                .                |       type: 0x04 Geometry
+                                                                             |         └ bits 7-1 = 0000010 -> base type = Geometry
+                                                                             |         └ bit 0 = 0 -> optional = false
+0000000b                                                                     |     column[1] (3 B)
+0000000b  13                                                .                |       type: 0x13 OptU32
+                                                                             |         └ bits 7-1 = 0001001 -> base type = OptU32
+                                                                             |         └ bit 0 = 1 -> optional = true
+0000000c  01 76                                             .v               |       name: "v"
+0000000e                                                                     |   column data (188 B)
+0000000e                                                                     |     column[0] Geometry (43 B)
+0000000e  03                                                .                |       stream_count: 3
+0000000f                                                                     |       meta (15 B)
+0000000f                                                                     |         header (7 B)
+0000000f  30                                                0                |           stream_type: 0x30 Length(VarBinary)
+                                                                             |             └ bits 7-4 = 0011 -> category = Length
+                                                                             |             └ bits 3-0 = 0000 -> subtype = VarBinary
+00000010  61                                                a                |           encoding: 0x61 logical=Rle(Split { runs: 1, num_rle_values: 128 }) physical=FastPFor256
+                                                                             |             └ bits 7-5 = 011 -> logical1 = Rle
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 01 -> physical = FastPFor256
+00000011  02                                                .                |           num_values: 2
+00000012  08                                                .                |           byte_length: 8
+00000013  01                                                .                |           runs: 1
+00000014  80 01                                             ..               |           num_rle_values: 128
+00000016  00 00 00 00 00 80 81 00                           ........         |         data [Length(VarBinary) Rle(Split { runs: 1, num_rle_values: 128 })/FastPFor256, 2 values, 8 B]
+                                                                             |           decoded: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, … ] (128 total)
+0000001e                                                                     |       stream[0] (15 B)
+0000001e                                                                     |         header (7 B)
+0000001e  20                                                                 |           stream_type: 0x20 Offset(Vertex)
+                                                                             |             └ bits 7-4 = 0010 -> category = Offset
+                                                                             |             └ bits 3-0 = 0000 -> subtype = Vertex
+0000001f  61                                                a                |           encoding: 0x61 logical=Rle(Split { runs: 1, num_rle_values: 128 }) physical=FastPFor256
+                                                                             |             └ bits 7-5 = 011 -> logical1 = Rle
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 01 -> physical = FastPFor256
+00000020  02                                                .                |           num_values: 2
+00000021  08                                                .                |           byte_length: 8
+00000022  01                                                .                |           runs: 1
+00000023  80 01                                             ..               |           num_rle_values: 128
+00000025  00 00 00 00 00 80 81 00                           ........         |         data [Offset(Vertex) Rle(Split { runs: 1, num_rle_values: 128 })/FastPFor256, 2 values, 8 B]
+                                                                             |           decoded: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, … ] (128 total)
+0000002d                                                                     |       stream[1] (12 B)
+0000002d                                                                     |         header (4 B)
+0000002d  13                                                .                |           stream_type: 0x13 Data(Vertex)
+                                                                             |             └ bits 7-4 = 0001 -> category = Data
+                                                                             |             └ bits 3-0 = 0011 -> subtype = Vertex
+0000002e  41                                                A                |           encoding: 0x41 logical=ComponentwiseDelta physical=FastPFor256
+                                                                             |             └ bits 7-5 = 010 -> logical1 = ComponentwiseDelta
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 01 -> physical = FastPFor256
+0000002f  02                                                .                |           num_values: 2
+00000030  08                                                .                |           byte_length: 8
+00000031  00 00 00 00 00 00 d4 9a                           ........         |         data [Data(Vertex) ComponentwiseDelta/FastPFor256, 2 values, 8 B]
+                                                                             |           decoded: [13, 42]
+00000039                                                                     |     column[1] OptU32 "v" (145 B)
+00000039                                                                     |       present (7 B)
+00000039                                                                     |         header (5 B)
+00000039  00                                                .                |           stream_type: 0x00 Present
+                                                                             |             └ bits 7-4 = 0000 -> category = Present
+                                                                             |             └ bits 3-0 = 0000 -> subtype = -
+0000003a  60                                                `                |           encoding: 0x60 logical=Rle(Split { runs: 16, num_rle_values: 2 }) physical=None
+                                                                             |             └ bits 7-5 = 011 -> logical1 = Rle
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 00 -> physical = None
+0000003b  80 01                                             ..               |           num_values: 128
+0000003d  02                                                .                |           byte_length: 2
+0000003e  0d ff                                             ..               |         data [Present Rle(Split { runs: 16, num_rle_values: 2 })/None, 128 values, 2 B]
+                                                                             |           decoded: 128 present-bits: 111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111…
+00000040                                                                     |       data (138 B)
+00000040                                                                     |         header (6 B)
+00000040  10                                                .                |           stream_type: 0x10 Data(None)
+                                                                             |             └ bits 7-4 = 0001 -> category = Data
+                                                                             |             └ bits 3-0 = 0000 -> subtype = None
+00000041  01                                                .                |           encoding: 0x01 logical=None physical=FastPFor256
+                                                                             |             └ bits 7-5 = 000 -> logical1 = None
+                                                                             |             └ bits 4-2 = 000 -> logical2 = None
+                                                                             |             └ bits 1-0 = 01 -> physical = FastPFor256
+00000042  80 01                                             ..               |           num_values: 128
+00000044  84 01                                             ..               |           byte_length: 132
+00000046  00 00 00 00 80 82 81 80 81 80 82 81 82 81 80 82   ................ |         data [Data(None) None/FastPFor256, 128 values, 132 B]
+00000056  80 82 81 80 81 80 82 81 82 81 80 82 80 82 81 80   ................ |
+00000066  81 80 82 81 82 81 80 82 80 82 81 80 81 80 82 81   ................ |
+00000076  82 81 80 82 80 82 81 80 81 80 82 81 82 81 80 82   ................ |
+00000086  80 82 81 80 81 80 82 81 82 81 80 82 80 82 81 80   ................ |
+00000096  81 80 82 81 82 81 80 82 80 82 81 80 81 80 82 81   ................ |
+000000a6  82 81 80 82 80 82 81 80 81 80 82 81 82 81 80 82   ................ |
+000000b6  80 82 81 80 81 80 82 81 82 81 80 82 80 82 81 80   ................ |
+000000c6  81 80 82 81                                       ....             |
+                                                                             |           decoded: [0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, … ] (128 total)
