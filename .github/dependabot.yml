@@ -19,6 +19,9 @@ updates:
         applies-to: version-updates
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
       all-actions-security-updates:
         applies-to: security-updates
         patterns:
@@ -34,6 +37,9 @@ updates:
         applies-to: version-updates
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
       all-gradle-security-updates:
         applies-to: security-updates
         patterns:
@@ -49,6 +55,9 @@ updates:
         applies-to: version-updates
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
       all-npm-security-updates:
         applies-to: security-updates
         patterns:
@@ -66,6 +75,9 @@ updates:
         applies-to: version-updates
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
       all-cargo-security-updates:
         applies-to: security-updates
         patterns:
