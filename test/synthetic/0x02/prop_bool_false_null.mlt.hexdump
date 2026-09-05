@@ -11,11 +11,11 @@
 0000000c                                                                     |   geometry (11 B)
 0000000c                                                                     |     types (4 B)
 0000000c                                                                     |       header (2 B)
-0000000c  30                                                0                |         encoding: 0x30 logical=Rle(Interleaved { num_rle_values: 2 }) physical=VarInt
+0000000c  20                                                                 |         encoding: 0x20 logical=Rle(Interleaved { num_rle_values: 2 }) physical=VarInt
                                                                              |           └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
-                                                                             |           └ bits 6-4 = 011 -> logical = Rle
-                                                                             |           └ bits 3-2 = 00 -> physical = NoneNoLen
-                                                                             |           └ bits 1-0 = 00 -> reserved = 0
+                                                                             |           └ bits 6-4 = 010 -> logical = Rle, numbered for a v2 integer stream
+                                                                             |           └ bits 3-2 = 00 -> physical = implied
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
 0000000d  02                                                .                |         byte_length: 2
 0000000e  02 00                                             ..               |       data [Length(VarBinary) Rle(Interleaved { num_rle_values: 2 })/VarInt, 2 values, 2 B]
                                                                              |         decoded: [0, 0]
@@ -23,9 +23,9 @@
 00000010                                                                     |       header (3 B)
 00000010  a8                                                .                |         encoding: 0xA8 logical=ComponentwiseDelta physical=VarInt
                                                                              |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
-                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta
+                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta, numbered for a v2 vertex stream
                                                                              |           └ bits 3-2 = 10 -> physical = VarInt
-                                                                             |           └ bits 1-0 = 00 -> reserved = 0
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
 00000011  04                                                .                |         num_values: 4
 00000012  04                                                .                |         byte_length: 4
 00000013  1a 54 00 00                                       .T..             |       data [Data(Vertex) ComponentwiseDelta/VarInt, 4 values, 4 B]
@@ -43,9 +43,9 @@
 0000001e                                                                     |         header (2 B)
 0000001e  04                                                .                |           encoding: 0x04 logical=None physical=None
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
-                                                                             |             └ bits 6-4 = 000 -> logical = None
-                                                                             |             └ bits 3-2 = 01 -> physical = NoneWithLen
-                                                                             |             └ bits 1-0 = 00 -> reserved = 0
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 bool column
+                                                                             |             └ bits 3-2 = 01 -> physical = WithLen
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
 0000001f  01                                                .                |           byte_length: 1
 00000020  00                                                .                |         data [Data(None) None/None, 1 values, 1 B]
                                                                              |           decoded: [false]

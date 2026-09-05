@@ -13,11 +13,10 @@ use super::walker::Walker;
 use crate::codecs::varint::parse_varint;
 use crate::decoder::stream::header02;
 use crate::decoder::stream::header02::{
-    HAS_EXPLICIT_COUNT, LOGICAL_MASK, LogicalField, PHYSICAL_MASK, PhysicalField,
+    Family, HAS_EXPLICIT_COUNT, StreamCtx02, describe_encoding,
 };
 use crate::decoder::{
-    ColumnType02, DataType02, DictionaryType, GeoLayout, LayerLayout, LengthType, Presence02,
-    StreamType,
+    ColumnType02, DataType02, GeoLayout, LayerLayout, LengthType, Presence02, StreamType,
 };
 use crate::tile::Extent;
 use crate::utils::{parse_string, parse_u8, take};
@@ -111,9 +110,13 @@ impl<'a> Walker<'a> {
             return Err(MltError::NotImplemented("v2 tessellated geometry layouts"));
         }
 
-        let types = StreamType::Length(LengthType::VarBinary);
-        let mut input =
-            self.walk_stream02(input, types, feature_count, "types", DecodeHint::U32)?;
+        let mut input = self.walk_stream02(
+            input,
+            StreamCtx02::GeomTypes,
+            feature_count,
+            "types",
+            DecodeHint::U32,
+        )?;
 
         let lengths = [
             (
@@ -126,13 +129,18 @@ impl<'a> Walker<'a> {
         ];
         for (present, length_type, label) in lengths {
             if present {
-                let role = StreamType::Length(length_type);
-                input = self.walk_stream02(input, role, feature_count, label, DecodeHint::U32)?;
+                let ctx = StreamCtx02::GeomOffsets(length_type);
+                input = self.walk_stream02(input, ctx, feature_count, label, DecodeHint::U32)?;
             }
         }
 
-        let vertices = StreamType::Data(DictionaryType::Vertex);
-        self.walk_stream02(input, vertices, feature_count, "vertices", DecodeHint::I32)
+        self.walk_stream02(
+            input,
+            StreamCtx02::GeomVertices,
+            feature_count,
+            "vertices",
+            DecodeHint::I32,
+        )
     }
 
     /// `[u8 type][name?][presence bitfield?][data stream]`.
@@ -190,8 +198,8 @@ impl<'a> Walker<'a> {
             }
         };
 
-        let data = StreamType::Data(DictionaryType::None);
-        input = self.walk_stream02(input, data, data_count, "data", hint_for(typ.data))?;
+        let ctx = StreamCtx02::Property(typ.data);
+        input = self.walk_stream02(input, ctx, data_count, "data", hint_for(typ.data))?;
 
         self.close(ci, input);
         Ok(input)
@@ -223,12 +231,12 @@ impl<'a> Walker<'a> {
     /// Walk one v2 stream: the annotated header (via the authoritative
     /// [`header02::parse_stream`]) followed by the payload blob.
     ///
-    /// `stream_type`, `implicit_count`, and `hint` are all supplied by the
-    /// caller: none of them are on the wire.
+    /// `ctx`, `implicit_count`, and `hint` are all supplied by the caller: none of them are on the wire.
+    /// `ctx` also names the family the encoding byte's logical field is read against.
     fn walk_stream02(
         &mut self,
         input: &'a [u8],
-        stream_type: StreamType,
+        ctx: StreamCtx02,
         implicit_count: u32,
         label: &str,
         hint: DecodeHint,
@@ -236,8 +244,7 @@ impl<'a> Walker<'a> {
         let si = self.open(input, label.to_string());
 
         // parse -> synthesized meta.
-        let (rest, stream) =
-            header02::parse_stream(input, stream_type, implicit_count, &mut self.parser)?;
+        let (rest, stream) = header02::parse_stream(input, ctx, implicit_count, &mut self.parser)?;
 
         // Re-walk the consumed header bytes to annotate each field.
         let hi = self.open(input, "header".to_string());
@@ -250,7 +257,7 @@ impl<'a> Walker<'a> {
                     stream.meta.encoding.logical, stream.meta.encoding.physical
                 )
             },
-            |b| encoding_bits02(b, implicit_count),
+            |b| encoding_bits02(b, implicit_count, ctx.family()),
         )?;
 
         if enc_byte & HAS_EXPLICIT_COUNT != 0 {
@@ -361,17 +368,14 @@ fn column_type_bits02(byte: u8, shared_count: u8) -> Vec<BitField> {
 }
 
 /// Bit breakdown of the v2 encoding byte: explicit-count flag (7), logical (6-4),
-/// physical (3-2), reserved (1-0).
-fn encoding_bits02(byte: u8, implicit_count: u32) -> Vec<BitField> {
+/// physical (3-2), extension (1-0).
+fn encoding_bits02(byte: u8, implicit_count: u32, family: Family) -> Vec<BitField> {
     let explicit = byte & HAS_EXPLICIT_COUNT != 0;
     let logical = (byte >> 4) & 0x7;
     let physical = (byte >> 2) & 0x3;
-    let reserved = byte & 0x3;
-    // Both field reprs are pre-shifted into place, so name them from the masked byte.
-    let name_lo = LogicalField::try_from(byte & LOGICAL_MASK)
-        .map_or_else(|_| format!("reserved({logical})"), |f| format!("{f:?}"));
-    let name_ph = PhysicalField::try_from(byte & PHYSICAL_MASK)
-        .map_or_else(|_| format!("invalid({physical})"), |f| format!("{f:?}"));
+    let extension = byte & 0x3;
+    let (name_lo, name_ph) = describe_encoding(family, byte);
+    let family_name: &'static str = family.into();
     let count = if explicit {
         "has_explicit_count = true -> a num_values varint follows".to_string()
     } else {
@@ -388,7 +392,7 @@ fn encoding_bits02(byte: u8, implicit_count: u32) -> Vec<BitField> {
             hi: 6,
             lo: 4,
             raw: u64::from(logical),
-            meaning: format!("logical = {name_lo}"),
+            meaning: format!("logical = {name_lo}, numbered for {family_name}"),
         },
         BitField {
             hi: 3,
@@ -399,8 +403,8 @@ fn encoding_bits02(byte: u8, implicit_count: u32) -> Vec<BitField> {
         BitField {
             hi: 1,
             lo: 0,
-            raw: u64::from(reserved),
-            meaning: format!("reserved = {reserved}"),
+            raw: u64::from(extension),
+            meaning: format!("extension = {extension}"),
         },
     ]
 }
