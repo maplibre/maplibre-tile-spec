@@ -123,7 +123,9 @@ pub struct App {
     pub(crate) features_pct: u16,
     pub(crate) resizing: Option<ResizeHandle>,
     pub(crate) properties_scroll: u16,
+    pub(crate) geometry_scroll: u16,
     pub(crate) tree_scroll: u16,
+    pub(crate) tree_hscroll: u16,
     pub(crate) tree_inner_height: usize,
     pub(crate) last_properties_key: Option<TreeItem>,
     pub(crate) properties_pct: u16,
@@ -186,8 +188,10 @@ impl Default for App {
             features_pct: 50,
             resizing: None,
             properties_scroll: 0,
+            geometry_scroll: 0,
             last_properties_key: None,
             tree_scroll: 0,
+            tree_hscroll: 0,
             tree_inner_height: 0,
             properties_pct: 50,
             geometry_index: None,
@@ -395,6 +399,7 @@ impl App {
         self.selected_index = 0;
         self.hovered = None;
         self.tree_scroll = 0;
+        self.tree_hscroll = 0;
         self.invalidate_bounds();
         Ok(())
     }
