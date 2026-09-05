@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.28](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.27...rust-mlt-v0.1.28) - 2026-09-05
+
+### Added
+
+- *(rust)* draw tessellation triangles in the mlt ui ([#1649](https://github.com/maplibre/maplibre-tile-spec/pull/1649))
+- *(rust)* hover and click one level below the selection in the mlt ui ([#1647](https://github.com/maplibre/maplibre-tile-spec/pull/1647))
+- *(rust)* summarize layers and the whole tile in the mlt ui info panels ([#1646](https://github.com/maplibre/maplibre-tile-spec/pull/1646))
+- *(rust)* cache decoded tiles in the mlt ui ([#1643](https://github.com/maplibre/maplibre-tile-spec/pull/1643))
+
 ## [0.1.27](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.26...rust-mlt-v0.1.27) - 2026-09-04
 
 ### Added
