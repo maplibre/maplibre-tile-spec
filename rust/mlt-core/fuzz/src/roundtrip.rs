@@ -3,7 +3,8 @@ use mlt_core::{Decoder, Layer, MltError, Parser, TileLayer};
 
 /// Encode `staged` with `cfg`, then parse and decode it back to a row-oriented [`TileLayer`].
 ///
-/// Returns `None` when the wire version cannot represent the layer, e.g. v2 tessellated geometry.
+/// Returns `None` when the wire version cannot represent the layer, e.g. a v2 layer
+/// tessellated without its full outline topology.
 /// Every other encode failure is a bug and panics.
 pub fn encode_decode(staged: StagedLayer, cfg: EncoderConfig) -> Option<TileLayer> {
     let bytes = encode(staged, cfg)?;
