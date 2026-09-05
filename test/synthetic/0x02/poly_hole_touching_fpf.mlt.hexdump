@@ -1,0 +1,55 @@
+00000000                                                                     | layer[0] (67 B)
+00000000  42                                                B                |   size: 66 (varint) - tag + body
+00000001  02                                                .                |   tag: 0x02 -> Tag02
+00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
+00000009  50                                                P                |   extent: 80
+0000000a  01                                                .                |   feature_count: 1
+0000000b  08                                                .                |   layout: 0x08 Polygons
+                                                                             |     └ bit 7 = 0 -> reserved = 0
+                                                                             |     └ bits 6-4 = 000 -> shared presence bitfields = 0
+                                                                             |     └ bits 3-0 = 1000 -> geometry layout = Polygons
+0000000c                                                                     |   geometry (54 B)
+0000000c                                                                     |     types (10 B)
+0000000c                                                                     |       header (2 B)
+0000000c  0c                                                .                |         encoding: 0x0C logical=None physical=FastPFor128
+                                                                             |           └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
+                                                                             |           └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
+                                                                             |           └ bits 3-2 = 11 -> physical = FastPFor128
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+0000000d  08                                                .                |         byte_length: 8
+0000000e  00 00 00 00 82 00 00 00                           ........         |       data [Length(VarBinary) Int(None)/FastPFor(Block128Le), 1 values, 8 B]
+                                                                             |         decoded: [2]
+00000016                                                                     |     part_lengths (10 B)
+00000016                                                                     |       header (2 B)
+00000016  0c                                                .                |         encoding: 0x0C logical=None physical=FastPFor128
+                                                                             |           └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
+                                                                             |           └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
+                                                                             |           └ bits 3-2 = 11 -> physical = FastPFor128
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+00000017  08                                                .                |         byte_length: 8
+00000018  00 00 00 00 82 00 00 00                           ........         |       data [Length(Parts) Int(None)/FastPFor(Block128Le), 1 values, 8 B]
+                                                                             |         decoded: [2]
+00000020                                                                     |     ring_lengths (11 B)
+00000020                                                                     |       header (3 B)
+00000020  8c                                                .                |         encoding: 0x8C logical=None physical=FastPFor128
+                                                                             |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |           └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
+                                                                             |           └ bits 3-2 = 11 -> physical = FastPFor128
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+00000021  02                                                .                |         num_values: 2
+00000022  08                                                .                |         byte_length: 8
+00000023  00 00 00 00 84 83 00 00                           ........         |       data [Length(Rings) Int(None)/FastPFor(Block128Le), 2 values, 8 B]
+                                                                             |         decoded: [4, 3]
+0000002b                                                                     |     vertices (23 B)
+0000002b                                                                     |       header (3 B)
+0000002b  ac                                                .                |         encoding: 0xAC logical=CwDelta physical=FastPFor128
+                                                                             |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta, numbered for a v2 vertex stream
+                                                                             |           └ bits 3-2 = 11 -> physical = FastPFor128
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+0000002c  0e                                                .                |         num_values: 14
+0000002d  14                                                .                |         byte_length: 20
+0000002e  00 00 00 00 80 80 94 80 80 94 93 80 80 93 84 84   ................ |       data [Data(Vertex) Vertex(ComponentwiseDelta)/FastPFor(Block128Le), 14 values, 20 B]
+0000003e  86 80 00 00                                       ....             |
+                                                                             |         decoded: [0, 0, 10, 0, 10, 10, 0, 10, 0, 0, 2, 2, 5, 2]
+00000042  00                                                .                |   column_count: 0

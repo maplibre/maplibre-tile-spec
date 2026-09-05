@@ -20,13 +20,13 @@
 0000000d  10                                                .                |           stream_type: 0x10 Data(None)
                                                                              |             └ bits 7-4 = 0001 -> category = Data
                                                                              |             └ bits 3-0 = 0000 -> subtype = None
-0000000e  21                                                !                |           encoding: 0x21 logical=Int(Delta) physical=FastPFor256
+0000000e  21                                                !                |           encoding: 0x21 logical=Int(Delta) physical=FastPFor(Block256Be)
                                                                              |             └ bits 7-5 = 001 -> logical1 = Delta
                                                                              |             └ bits 4-2 = 000 -> logical2 = None
                                                                              |             └ bits 1-0 = 01 -> physical = FastPFor256
 0000000f  04                                                .                |           num_values: 4
 00000010  0c                                                .                |           byte_length: 12
-00000011  00 00 00 00 80 80 81 4e 00 00 00 80               .......N....     |         data [Data(None) Int(Delta)/FastPFor256, 4 values, 12 B]
+00000011  00 00 00 00 80 80 81 4e 00 00 00 80               .......N....     |         data [Data(None) Int(Delta)/FastPFor(Block256Be), 4 values, 12 B]
                                                                              |           decoded: [103, 103, 103, 103]
 0000001d                                                                     |     column[1] Geometry (21 B)
 0000001d  02                                                .                |       stream_count: 2
