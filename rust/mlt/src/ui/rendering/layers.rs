@@ -378,6 +378,21 @@ fn subpart_stats_lines(geom: &Geometry<i32>, part: usize) -> Vec<Line<'static>> 
     lines
 }
 
+/// Triangle count line for a tessellated feature or one of its parts.
+fn tessellation_line(
+    app: &App,
+    layer: usize,
+    feat: usize,
+    part: Option<usize>,
+) -> Option<Line<'static>> {
+    let tess = app.tessellation(layer, feat)?;
+    let n: usize = match part {
+        Some(p) => tess.get(p)?.len(),
+        None => tess.iter().map(Vec::len).sum(),
+    };
+    Some(stat_line("Triangles", &n))
+}
+
 // ---------------------------------------------------------------------------
 // MBTiles hover properties panel
 // ---------------------------------------------------------------------------
@@ -448,14 +463,16 @@ fn render_geometry_stats(f: &mut Frame<'_>, area: Rect, app: &App) {
             format!("Geometry (layer {})", app.layer_groups[l].name),
             geometry_count_lines(app, Some(l)),
         ),
-        TreeItem::Feature { layer, feat } => (
-            "Geometry".to_string(),
-            geometry_stats_lines(&app.feature(layer, feat).geometry),
-        ),
-        TreeItem::SubFeature { layer, feat, part } => (
-            "Geometry".to_string(),
-            subpart_stats_lines(&app.feature(layer, feat).geometry, part),
-        ),
+        TreeItem::Feature { layer, feat } => {
+            let mut lines = geometry_stats_lines(&app.feature(layer, feat).geometry);
+            lines.extend(tessellation_line(app, layer, feat, None));
+            ("Geometry".to_string(), lines)
+        }
+        TreeItem::SubFeature { layer, feat, part } => {
+            let mut lines = subpart_stats_lines(&app.feature(layer, feat).geometry, part);
+            lines.extend(tessellation_line(app, layer, feat, Some(part)));
+            ("Geometry".to_string(), lines)
+        }
     };
 
     let para = Paragraph::new(lines)

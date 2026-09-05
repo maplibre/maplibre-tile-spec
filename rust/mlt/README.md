@@ -68,6 +68,7 @@ Features:
 - **Map Panel (right)**: Visual representation of the geometries
   - Shows the extent boundary as a thin gray rectangle
   - Draws the selected level in color and the rest in gray as context
+  - Tessellation edges stored in the tile are drawn in dark gray inside the selected polygon, or inside a hovered one in a layer
   - **Color coding by geometry type**:
     - Points: Magenta (multipoint: light magenta)
     - `LineStrings`: Cyan (multi-linestring: light cyan)

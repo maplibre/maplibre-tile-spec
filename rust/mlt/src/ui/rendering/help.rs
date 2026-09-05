@@ -9,8 +9,8 @@ use crate::ui::state::{App, ViewMode};
 use crate::ui::{
     CLR_BAD_WINDING, CLR_CONTEXT_FEATURE, CLR_CONTEXT_LAYER, CLR_DIMMED, CLR_EXTENT, CLR_HOVERED,
     CLR_INNER_RING, CLR_INNER_RING_SEL, CLR_LINE, CLR_MULTI_LINE, CLR_MULTI_POINT,
-    CLR_MULTI_POLYGON, CLR_POINT, CLR_POLYGON, CLR_SELECTED, STYLE_LABEL, STYLE_SELECTED,
-    block_with_title,
+    CLR_MULTI_POLYGON, CLR_POINT, CLR_POLYGON, CLR_SELECTED, CLR_TRIANGLE, STYLE_LABEL,
+    STYLE_SELECTED, block_with_title,
 };
 
 const CLR_ERROR: Color = Color::Red;
@@ -186,6 +186,7 @@ fn help_layer_overview() -> Vec<Line<'static>> {
         color(CLR_INNER_RING, "Red", "Inner ring (hole, CW)"),
         color(CLR_BAD_WINDING, "Light red", "Non-standard winding"),
         color(CLR_EXTENT, "Dark gray", "Tile extent boundary"),
+        color(CLR_TRIANGLE, "Dark gray", "Tessellation edges"),
         Line::from(""),
         heading("Selection Colors"),
         color(CLR_SELECTED, "Yellow", "Selected feature/part"),

@@ -10,10 +10,11 @@ use ratatui::widgets::canvas::{Canvas, Context, Line as CanvasLine, Rectangle};
 
 use crate::ui::mbt::{MbtHoveredInfo, MbtTileData, TileTransform};
 use crate::ui::state::{App, LayerGroup, TreeItem};
+use crate::ui::tile::{Tessellation, Triangle};
 use crate::ui::{
     CLR_CONTEXT_FEATURE, CLR_CONTEXT_LAYER, CLR_DIMMED, CLR_EXTENT, CLR_HOVERED, CLR_INNER_RING,
-    CLR_INNER_RING_SEL, CLR_POLYGON, CLR_SELECTED, block_with_title, coord_f64, geometry_color,
-    is_ring_ccw,
+    CLR_INNER_RING_SEL, CLR_POLYGON, CLR_SELECTED, CLR_TRIANGLE, block_with_title, coord_f64,
+    geometry_color, is_ring_ccw,
 };
 
 /// How a geometry is colored.
@@ -84,6 +85,7 @@ pub fn render_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
                     }
                     if let Some(fi) = hov_feat {
                         let geom = &app.feature(*l, fi).geometry;
+                        draw_tessellation(ctx, app.tessellation(*l, fi), geom, None);
                         draw_feature(ctx, geom, Paint::Highlight(CLR_HOVERED), None, None);
                     }
                 }
@@ -113,6 +115,7 @@ pub fn render_map_panel(f: &mut Frame<'_>, area: Rect, app: &App) {
                         Some(TreeItem::Feature { layer: hl, feat: hf }) if hl == layer && hf == feat
                     );
                     let geom = &app.feature(*layer, *feat).geometry;
+                    draw_tessellation(ctx, app.tessellation(*layer, *feat), geom, sel_part);
                     let paint = if whole_hovered {
                         Paint::Highlight(CLR_HOVERED)
                     } else {
@@ -139,6 +142,74 @@ fn draw_other_layers(ctx: &mut Context<'_>, app: &App, except: usize) {
             draw_group(ctx, &app.tile.fc, group, Paint::Flat(CLR_CONTEXT_LAYER));
         }
     }
+}
+
+/// Tessellation edges of a feature that are not already ring edges.
+/// `part` restricts a multipolygon to one polygon.
+fn draw_tessellation(
+    ctx: &mut Context<'_>,
+    tess: Option<&Tessellation>,
+    geom: &Geometry<i32>,
+    part: Option<usize>,
+) {
+    let Some(parts) = tess else {
+        return;
+    };
+    let selected: &[Vec<Triangle>] = match part {
+        Some(p) => parts.get(p).map_or(&[][..], std::slice::from_ref),
+        None => parts,
+    };
+    let ring_edges = ring_edges(geom);
+    for tris in selected {
+        for [a, b, c] in tris {
+            for (p, q) in [(a, b), (b, c), (c, a)] {
+                if !ring_edges.contains(&edge_key(*p, *q)) {
+                    draw_line(ctx, &[*p, *q], CLR_TRIANGLE);
+                }
+            }
+        }
+    }
+}
+
+/// An edge as an unordered pair of vertices.
+fn edge_key(a: Coord<i32>, b: Coord<i32>) -> (Coord<i32>, Coord<i32>) {
+    if (a.x, a.y) <= (b.x, b.y) {
+        (a, b)
+    } else {
+        (b, a)
+    }
+}
+
+/// Every ring edge of a polygon or multipolygon, including the closing edge of each ring.
+fn ring_edges(geom: &Geometry<i32>) -> HashSet<(Coord<i32>, Coord<i32>)> {
+    let mut edges = HashSet::new();
+    let mut add_ring = |ring: &[Coord<i32>]| {
+        for w in ring.windows(2) {
+            edges.insert(edge_key(w[0], w[1]));
+        }
+        if let (Some(&first), Some(&last)) = (ring.first(), ring.last()) {
+            edges.insert(edge_key(last, first));
+        }
+    };
+    let mut add_polygon = |poly: &Polygon<i32>| {
+        add_ring(&poly.exterior().0);
+        for ring in poly.interiors() {
+            add_ring(&ring.0);
+        }
+    };
+    match geom {
+        Geometry::<i32>::Polygon(poly) => add_polygon(poly),
+        Geometry::<i32>::MultiPolygon(mp) => mp.iter().for_each(&mut add_polygon),
+        Geometry::<i32>::Point(_)
+        | Geometry::<i32>::Line(_)
+        | Geometry::<i32>::LineString(_)
+        | Geometry::<i32>::MultiPoint(_)
+        | Geometry::<i32>::MultiLineString(_)
+        | Geometry::<i32>::GeometryCollection(_)
+        | Geometry::<i32>::Rect(_)
+        | Geometry::<i32>::Triangle(_) => {}
+    }
+    edges
 }
 
 /// Full-tile preview for file browser (all layers, no r-tree/mouse).
