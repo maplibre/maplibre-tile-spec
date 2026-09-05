@@ -112,12 +112,17 @@ impl Analyze for RawStringsEncoding<'_> {
             Self::Dictionary {
                 plain_data,
                 offsets,
+                dict: _,
             } => {
                 plain_data.for_each_stream(cb);
                 offsets.for_each_stream(cb);
             }
             Self::FsstPlain(fsst_data) => fsst_data.for_each_stream(cb),
-            Self::FsstDictionary { fsst_data, offsets } => {
+            Self::FsstDictionary {
+                fsst_data,
+                offsets,
+                dict: _,
+            } => {
                 fsst_data.for_each_stream(cb);
                 offsets.for_each_stream(cb);
             }
