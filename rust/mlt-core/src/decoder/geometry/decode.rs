@@ -270,13 +270,20 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
                     DictionaryType::Vertex | DictionaryType::Morton => {
                         vertices.set_once(stream.decode_ints::<i32>(dec)?)?;
                     }
-                    _ => Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?,
+                    DictionaryType::None
+                    | DictionaryType::Single
+                    | DictionaryType::Shared
+                    | DictionaryType::Fsst => {
+                        Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?;
+                    }
                 },
                 StreamType::Offset(v) => {
                     let target = match v {
                         OffsetType::Vertex => &mut vertex_offsets,
                         OffsetType::Index => &mut index_buffer,
-                        _ => Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?,
+                        OffsetType::String | OffsetType::Key => {
+                            Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?
+                        }
                     };
                     target.set_once(stream.decode_ints::<u32>(dec)?)?;
                 }
@@ -286,7 +293,9 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
                         LengthType::Parts => &mut part_offsets,
                         LengthType::Rings => &mut ring_offsets,
                         LengthType::Triangles => &mut triangles,
-                        _ => Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?,
+                        LengthType::VarBinary | LengthType::Symbol | LengthType::Dictionary => {
+                            Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?
+                        }
                     };
                     target.set_once(stream.decode_ints::<u32>(dec)?)?;
                 }

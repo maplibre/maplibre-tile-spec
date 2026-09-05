@@ -12,6 +12,9 @@ use crate::MltError::ParsingColumnType;
 use crate::utils::{BinarySerializer as _, parse_string, parse_u8};
 use crate::{MltRefResult, Parser};
 
+/// Bit 0 of the column type byte: the column has a presence stream.
+const OPTIONAL_FLAG: u8 = 0b0000_0001;
+
 /// Column definition
 #[derive(Debug, PartialEq)]
 pub struct Column<'a> {
@@ -20,36 +23,36 @@ pub struct Column<'a> {
     pub(crate) children: Vec<Self>,
 }
 
-/// Column data type, as stored in the tile
+/// Column data type, as stored in the tile.
 #[derive(Debug, Clone, Copy, PartialEq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum ColumnType {
-    Id = 0,
-    OptId = 1,
-    LongId = 2,
-    OptLongId = 3,
-    Geometry = 4,
-    Bool = 10,
-    OptBool = 11,
-    I8 = 12,
-    OptI8 = 13,
-    U8 = 14,
-    OptU8 = 15,
-    I32 = 16,
-    OptI32 = 17,
-    U32 = 18,
-    OptU32 = 19,
-    I64 = 20,
-    OptI64 = 21,
-    U64 = 22,
-    OptU64 = 23,
-    F32 = 24,
-    OptF32 = 25,
-    F64 = 26,
-    OptF64 = 27,
-    Str = 28,
-    OptStr = 29,
-    SharedDict = 30,
+    Id = 0b0000_0000,
+    OptId = 0b0000_0001,
+    LongId = 0b0000_0010,
+    OptLongId = 0b0000_0011,
+    Geometry = 0b0000_0100,
+    Bool = 0b0000_1010,
+    OptBool = 0b0000_1011,
+    I8 = 0b0000_1100,
+    OptI8 = 0b0000_1101,
+    U8 = 0b0000_1110,
+    OptU8 = 0b0000_1111,
+    I32 = 0b0001_0000,
+    OptI32 = 0b0001_0001,
+    U32 = 0b0001_0010,
+    OptU32 = 0b0001_0011,
+    I64 = 0b0001_0100,
+    OptI64 = 0b0001_0101,
+    U64 = 0b0001_0110,
+    OptU64 = 0b0001_0111,
+    F32 = 0b0001_1000,
+    OptF32 = 0b0001_1001,
+    F64 = 0b0001_1010,
+    OptF64 = 0b0001_1011,
+    Str = 0b0001_1100,
+    OptStr = 0b0001_1101,
+    SharedDict = 0b0001_1110,
 }
 
 impl Column<'_> {
@@ -104,6 +107,6 @@ impl ColumnType {
     /// Check if the column type has a presence stream
     #[must_use]
     pub(crate) fn is_optional(self) -> bool {
-        (self as u8) & 1 != 0
+        (self as u8) & OPTIONAL_FLAG != 0
     }
 }

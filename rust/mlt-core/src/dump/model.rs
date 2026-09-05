@@ -34,6 +34,9 @@ pub enum DecodeHint {
     F64,
     /// Opaque bytes (string / dictionary / FSST payloads); shown as hex + UTF-8 preview.
     Bytes,
+    /// A raw LSB0 bitfield, not a stream: `ceil(num_values/8)` packed bytes.
+    #[cfg(feature = "unstable-v2")]
+    PackedBits,
 }
 
 /// One sub-field of a bit-packed byte, e.g. a nibble of `stream_type`.

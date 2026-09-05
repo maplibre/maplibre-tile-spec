@@ -3,17 +3,26 @@ use std::process::Command;
 use std::sync::OnceLock;
 
 use hex::ToHex as _;
-use mlt_core::encoder::{Codecs, Encoder, EncoderConfig, StagedLayer};
+use mlt_core::encoder::{Codecs, Encoder, EncoderConfig, StagedLayer, WireVersion};
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::{Decoder, Parser};
 
 /// An arbitrary tile and encoder config.
 /// Encoded once by Rust, then decoded by both the Rust decoder and the C++ `mlt-cpp-json` tool.
 /// Both must agree on the resulting [`FeatureCollection`] JSON.
-#[derive(arbitrary::Arbitrary)]
 pub struct DifferentialInput {
     pub layer: StagedLayer,
     pub config: EncoderConfig,
+}
+
+impl arbitrary::Arbitrary<'_> for DifferentialInput {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
+        Ok(Self {
+            layer: u.arbitrary()?,
+            // The C++ decoder only reads tag 0x01, so v2 inputs would all be skipped.
+            config: EncoderConfig::arbitrary(u)?.with_wire_version(WireVersion::V01),
+        })
+    }
 }
 
 impl DifferentialInput {

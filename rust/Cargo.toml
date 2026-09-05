@@ -50,7 +50,7 @@ js-sys = "0.3"
 martin-tile-utils = "0.7"
 mbtiles = { version = "0.19", default-features = false, features = ["transcode"] }
 mimalloc = "0.1.52"
-mlt-core = { version = "0.12.6", path = "mlt-core" }
+mlt-core = { version = "0.12.8", path = "mlt-core" }
 moka = { version = "0.12", features = ["sync"] }
 num-traits = "0.2.19"
 num_enum = "0.7.6"
@@ -75,6 +75,7 @@ tabled = "0.21"
 test_each_file = "0.3.5"
 thiserror = "2.0.11"
 thousands = "0.2"
+tilejson = "0.4"
 tokio = { version = "1", features = ["macros", "rt", "sync", "time"] }
 union-find = "0.4.4"
 usize_cast = "1.1.0"
@@ -99,6 +100,7 @@ panic_in_result_fn = "warn"
 todo = "warn"
 unimplemented = "warn"
 use_self = "warn"
+wildcard_enum_match_arm = "warn"
 
 # Too noisy
 missing_errors_doc = "allow"

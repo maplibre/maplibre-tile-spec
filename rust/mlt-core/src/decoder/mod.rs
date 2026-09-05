@@ -9,8 +9,12 @@ mod layer;
 mod limits;
 mod model;
 mod model01;
+#[cfg(feature = "unstable-v2")]
+mod model02;
 mod property;
 mod root01;
+#[cfg(feature = "unstable-v2")]
+mod root02;
 pub(crate) mod stream;
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -31,6 +35,8 @@ pub use limits::{Decoder, Parser};
 pub use model::{Layer, Layer01, ParsedLayer, ParsedLayer01, Unknown};
 pub(crate) use model01::Column;
 pub use model01::ColumnType;
+#[cfg(feature = "unstable-v2")]
+pub(crate) use model02::{ColumnType02, DataType02, GeoLayout, LayerLayout, Presence02};
 // Re-export strings sub-module so encoder can use `crate::decoder::strings::*`
 pub(crate) use property::strings;
 pub(crate) use property::{
@@ -39,6 +45,7 @@ pub(crate) use property::{
     RawSharedDictEncoding, RawSharedDictItem, RawStrings, RawStringsEncoding,
 };
 pub(crate) use stream::model::{
-    DictionaryType, IntEncoding, LengthType, LogicalEncoding, LogicalTechnique, LogicalValue,
-    Morton, OffsetType, PhysicalEncoding, RawStream, RleMeta, StreamMeta, StreamType,
+    DictionaryType, IntEncoding, LengthType, LogicalCombination, LogicalEncoding, LogicalTechnique,
+    LogicalValue, Morton, OffsetType, PhysicalEncoding, RawStream, RleLayout, RleMeta, StreamMeta,
+    StreamType,
 };

@@ -10,18 +10,24 @@ defaults:
 
 jobs:
   test-js:
+    permissions:
+      contents: read
+      code-quality: write
+      pull-requests: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: taiki-e/install-action@ba47c86ac325773530516bb756137ac718732518 # v2.86.5
+      - uses: taiki-e/install-action@e67fa11c4b9316fa714ddf0abed07a0c3143b95b # v2.87.4
         with: { tool: 'just,cargo-binstall' }
       - uses: ./.github/actions/mlt-setup-node
       - name: Lint JS code. If fails, run `just ts::fmt` to reformat, and `just ts::lint` to see issues locally
         run: just -v ts::lint
       - run: just -v ts::test
       - run: just -v ts::build
-      - name: Codecov upload
-        if: "github.repository_owner == 'maplibre' && !cancelled()"
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
-        with: { files: 'ts/coverage/coverage-final.json' }
+      - if: ${{ !cancelled() }}
+        uses: ./.github/actions/mlt-publish-coverage
+        with:
+          file: ts/coverage/cobertura-coverage.xml
+          language: TypeScript
+          label: code-coverage/vitest
       - run: just -v assert-git-is-clean

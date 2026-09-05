@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - uses: taiki-e/install-action@ba47c86ac325773530516bb756137ac718732518 # v2.86.5
+      - uses: taiki-e/install-action@e67fa11c4b9316fa714ddf0abed07a0c3143b95b # v2.87.4
         with: { tool: 'just' }
 
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v3.1.0-node20
@@ -30,8 +30,11 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
 
-      - name: Install hotpath-utils CLI
-        run: cargo install hotpath --bin hotpath-utils --features=utils
+      - name: Install hotpath-utils at the version the profile ran with
+        run: |
+          version=$(cargo tree --manifest-path rust/Cargo.toml -p mlt --depth 1 --prefix none --features hotpath \
+            | awk '$1 == "hotpath" { print substr($2, 2); exit }')
+          cargo install "hotpath@${version}" --bin hotpath-utils --features=utils
 
       - name: Compose comment (hotpath + per-tile size diff)
         env:

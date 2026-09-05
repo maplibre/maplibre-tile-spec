@@ -47,7 +47,6 @@ const LOGICAL_LEVEL_TECHNIQUE_BY_ID: readonly LogicalLevelTechnique[] = [
     LogicalLevelTechnique.COMPONENTWISE_DELTA,
     LogicalLevelTechnique.RLE,
     LogicalLevelTechnique.MORTON,
-    LogicalLevelTechnique.PDE,
 ];
 
 const PHYSICAL_LEVEL_TECHNIQUE_BY_ID: readonly PhysicalLevelTechnique[] = [

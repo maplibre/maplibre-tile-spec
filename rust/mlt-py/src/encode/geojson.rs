@@ -1,4 +1,4 @@
-//! Encode a GeoJSON `FeatureCollection` into MLT bytes.
+//! Encode a `GeoJSON` `FeatureCollection` into MLT bytes.
 //!
 //! Input is an RFC 7946 `FeatureCollection`.
 //! Geometry is in tile-local coordinate space (no projection), mirroring `mapbox_vector_tile`'s default.
@@ -21,7 +21,7 @@ use serde_json::Value;
 
 use super::shared::{encoder_config, val_err};
 
-/// Encode a GeoJSON `FeatureCollection` into MLT bytes.
+/// Encode a `GeoJSON` `FeatureCollection` into MLT bytes.
 ///
 /// `geojson` is an RFC 7946 `FeatureCollection`.
 /// `name` and `extent` set the MLT layer metadata, since a `FeatureCollection` has no slot for them.
@@ -33,13 +33,14 @@ use super::shared::{encoder_config, val_err};
 /// A named curve (`morton`/`hilbert`/`id`) tries just that one; `none` keeps input order.
 /// `shared_dict` allows grouping strings into shared dictionaries.
 /// `fsst` allows FSST string compression.
-/// `fastpfor` allows FastPFOR integer compression.
+/// `fastpfor` allows `FastPFOR` integer compression.
 /// See the module docs.
 #[gen_stub_pyfunction]
 #[pyfunction]
 #[pyo3(signature = (geojson, name, extent=4096, *, tessellate=false, sort="auto", shared_dict=true, fsst=true, fastpfor=true))]
 #[expect(
     clippy::too_many_arguments,
+    clippy::fn_params_excessive_bools,
     reason = "argument list mirrors the intentional Python keyword-argument API"
 )]
 pub fn encode_geojson(
@@ -91,7 +92,10 @@ fn validate_non_empty(g: &Geometry<i32>) -> PyResult<()> {
         Geometry::MultiPolygon(mp) => {
             !mp.0.is_empty() && mp.0.iter().all(|p| !p.exterior().0.is_empty())
         }
-        _ => false,
+        Geometry::Line(_)
+        | Geometry::GeometryCollection(_)
+        | Geometry::Rect(_)
+        | Geometry::Triangle(_) => false,
     };
     if non_empty {
         Ok(())
@@ -102,11 +106,12 @@ fn validate_non_empty(g: &Geometry<i32>) -> PyResult<()> {
 
 /// Stringify a scalar JSON value (without the quoting `Value::to_string` adds to strings).
 fn stringify(v: &Value) -> String {
+    use Value::{Array, Bool, Null, Number, Object, String};
     match v {
-        Value::Bool(b) => b.to_string(),
-        Value::Number(n) => n.to_string(),
-        Value::String(s) => s.clone(),
-        other => other.to_string(),
+        Bool(b) => b.to_string(),
+        Number(n) => n.to_string(),
+        String(s) => s.clone(),
+        other @ (Null | Array(_) | Object(_)) => other.to_string(),
     }
 }
 
@@ -167,14 +172,14 @@ impl ColKind {
         }
     }
 
-    fn convert(self, v: Value) -> PropValue {
-        match (self, &v) {
+    fn convert(self, v: &Value) -> PropValue {
+        match (self, v) {
             (Self::Bool, Value::Bool(b)) => PropValue::Bool(Some(*b)),
             (Self::I64, Value::Number(n)) if n.is_i64() => PropValue::I64(n.as_i64()),
             (Self::U64, Value::Number(n)) if n.is_u64() => PropValue::U64(n.as_u64()),
             (Self::F64, Value::Number(n)) => PropValue::F64(n.as_f64()),
             (Self::Str, Value::String(s)) => PropValue::Str(Some(s.clone())),
-            _ => PropValue::Str(Some(stringify(&v))),
+            _ => PropValue::Str(Some(stringify(v))),
         }
     }
 }
@@ -223,11 +228,11 @@ fn build_layer(fc: FeatureCollection, name: String, extent: u32) -> PyResult<Til
     for feat in fc.features {
         let mut feature = builder.feature(feat.geometry);
         feature.id(feat.id);
-        for (key, val) in feat.properties {
+        for (key, val) in &feat.properties {
             if val.is_null() {
                 continue;
             }
-            if let Some(&idx) = index.get(&key) {
+            if let Some(&idx) = index.get(key) {
                 feature
                     .property(keys[idx], kinds[idx].convert(val))
                     .map_err(|err| PyValueError::new_err(err.to_string()))?;

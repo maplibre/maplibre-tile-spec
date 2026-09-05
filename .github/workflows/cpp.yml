@@ -2,12 +2,20 @@ name: C++ CI
 
 on:
   workflow_call:
+    inputs:
+      run-heavy:
+        description: Run the expensive artifact/fuzz jobs. Off for pull requests that are not on top of their stack.
+        type: boolean
+        default: true
   workflow_dispatch:
 
 jobs:
   cpp-build:
+    if: ${{ github.event_name != 'pull_request' || inputs.run-heavy }}
     permissions:
-      id-token: write  # for OIDC Codecov
+      contents: read
+      code-quality: write
+      pull-requests: read
     strategy:
       matrix:
         os: [ macos-15, ubuntu-24.04 ]
@@ -18,7 +26,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { submodules: recursive, fetch-depth: 1 }
 
-      - uses: taiki-e/install-action@ba47c86ac325773530516bb756137ac718732518 # v2.86.5
+      - uses: taiki-e/install-action@e67fa11c4b9316fa714ddf0abed07a0c3143b95b # v2.87.4
         with: { tool: 'just,cargo-binstall' }
 
       - name: Setup Node.js
@@ -36,15 +44,12 @@ jobs:
       - name: Build, test and generate coverage report
         run: just -v cpp::coverage
 
-      - name: Upload coverage to Codecov
-        if: github.repository_owner == 'maplibre'
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+      - if: runner.os == 'Linux'
+        uses: ./.github/actions/mlt-publish-coverage
         with:
-          use_oidc: true
-          fail_ci_if_error: true
-          disable_file_fixes: true
-          disable_search: true
-          files: cpp/build/coverage.xml
+          file: cpp/build/coverage.xml
+          language: C++
+          label: code-coverage/gcovr
 
       - name: Sanity test for mlt-cpp-json tool
         run: just -v cpp::test-json

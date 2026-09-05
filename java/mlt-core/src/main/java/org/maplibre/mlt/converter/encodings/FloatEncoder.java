@@ -24,7 +24,7 @@ public class FloatEncoder {
 
   private static ArrayList<byte[]> encodeFloatStream(final int size, final byte[] encoded)
       throws IOException {
-    // TODO: add encodings -> RLE, Dictionary, PDE
+    // TODO: add encodings -> RLE, Dictionary
     final var result =
         new StreamMetadata(
                 PhysicalStreamType.DATA,

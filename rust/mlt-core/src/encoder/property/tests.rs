@@ -789,6 +789,10 @@ fn stage_single_prop(name: &str, values: Vec<PropValue>) -> StagedProperty {
     staged.pop().unwrap()
 }
 
+#[expect(
+    clippy::wildcard_enum_match_arm,
+    reason = "only integer kinds are named"
+)]
 fn staged_kind(p: &StagedProperty) -> &'static str {
     match p {
         StagedProperty::U32(_) => "U32",

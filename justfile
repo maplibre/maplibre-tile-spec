@@ -59,6 +59,15 @@ docs:
 docs-build:
     docker run --rm -v ${PWD}:/docs zensical/zensical:latest build
 
+# Merge the lcov and JaCoCo coverage reports in `dir` into one Cobertura report at `out`
+coverage-merge dir out: (cargo-install 'grcov')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p "$(dirname {{quote(out)}})"
+    grcov {{quote(dir)}} --source-dir . \
+        --ignore '**/build/**' --ignore '**/target/**' --ignore '**/node_modules/**' \
+        --output-types cobertura --output-path {{quote(out)}}
+
 # Extract version from a tag by removing language prefix and 'v' prefix
 ci-extract-version language tag:
     @echo "{{replace(replace(tag, language + '-', ''), 'v', '')}}"
@@ -67,13 +76,13 @@ ci-extract-version language tag:
 [no-cd]
 [positional-arguments]  # avoids shell expansions
 mlt *args:
-    cargo run --manifest-path {{join(justfile_directory(), 'rust', 'Cargo.toml')}} --package mlt -- "$@"
+    cargo run --manifest-path {{join(justfile_directory(), 'rust', 'Cargo.toml')}} --package mlt --features unstable-v2 -- "$@"
 
 # Run the mlt CLI tool with the given arguments from current dir.
 [no-cd]
 [positional-arguments]  # avoids shell expansions
 mlt-rel *args:
-    cargo run --release --manifest-path {{join(justfile_directory(), 'rust', 'Cargo.toml')}} --package mlt -- "$@"
+    cargo run --release --manifest-path {{join(justfile_directory(), 'rust', 'Cargo.toml')}} --package mlt --features unstable-v2 -- "$@"
 
 # Ensure a command is available
 assert-cmd command:

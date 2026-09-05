@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.29](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.28...python-mlt-v0.1.29) - 2026-09-04
+
+### Added
+
+- *(rust)* `mlt convert --bbox` to convert only part of an archive ([#1620](https://github.com/maplibre/maplibre-tile-spec/pull/1620))
+
+## [0.1.28](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.27...python-mlt-v0.1.28) - 2026-08-31
+
+### Other
+
+- update Cargo.lock dependencies
+
 ## [0.1.27](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.26...python-mlt-v0.1.27) - 2026-08-21
 
 ### Other

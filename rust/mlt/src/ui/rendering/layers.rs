@@ -1,3 +1,6 @@
+use std::collections::{BTreeMap, BTreeSet};
+
+use mlt_core::GeometryType;
 use mlt_core::geo_types::{
     Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };
@@ -10,6 +13,7 @@ use usize_cast::IntoUsize as _;
 
 use crate::ui::mbt::MbtTileData;
 use crate::ui::state::{App, TreeItem, ViewMode};
+use crate::ui::tile::{geometry_coord_count, polygon_coord_count};
 use crate::ui::{
     CLR_HOVERED_TREE, STYLE_LABEL, STYLE_SELECTED, block_with_title, feature_suffix,
     geometry_color, geometry_type_name, is_ring_ccw, stat_line, sub_feature_suffix,
@@ -29,11 +33,11 @@ pub fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                     let first = g
                         .feature_indices
                         .first()
-                        .map(|&gi| geometry_type_name(&app.fc.features[gi].geometry));
+                        .map(|&gi| geometry_type_name(&app.tile.fc.features[gi].geometry));
                     let all_same = first.is_some_and(|ft| {
                         g.feature_indices
                             .iter()
-                            .all(|&gi| geometry_type_name(&app.fc.features[gi].geometry) == ft)
+                            .all(|&gi| geometry_type_name(&app.tile.fc.features[gi].geometry) == ft)
                     });
                     let label = if all_same && n > 0 {
                         format!("{}s", first.unwrap())
@@ -63,7 +67,13 @@ pub fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                         Geometry::<i32>::MultiPoint(_) => "Point",
                         Geometry::<i32>::MultiLineString(_) => "LineString",
                         Geometry::<i32>::MultiPolygon(_) => "Polygon",
-                        _ => "Part",
+                        Geometry::<i32>::Point(_)
+                        | Geometry::<i32>::Line(_)
+                        | Geometry::<i32>::LineString(_)
+                        | Geometry::<i32>::Polygon(_)
+                        | Geometry::<i32>::GeometryCollection(_)
+                        | Geometry::<i32>::Rect(_)
+                        | Geometry::<i32>::Triangle(_) => "Part",
                     };
                     (
                         format!("      Part {part}: {n}{}", sub_feature_suffix(geom, *part)),
@@ -74,7 +84,11 @@ pub fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
 
             let style = if idx == app.selected_index {
                 STYLE_SELECTED
-            } else if app.hovered.as_ref().is_some_and(|h| h.tree_idx == idx) {
+            } else if app
+                .hovered
+                .as_ref()
+                .is_some_and(|h| h.tree_idx == Some(idx))
+            {
                 Style::default()
                     .fg(CLR_HOVERED_TREE)
                     .add_modifier(Modifier::UNDERLINED)
@@ -124,7 +138,11 @@ fn feature_property_lines(feat: &Feature) -> Vec<Line<'static>> {
                 Span::styled(format!("{k}: "), STYLE_LABEL),
                 Span::raw(match v {
                     serde_json::Value::String(s) => s.clone(),
-                    _ => v.to_string(),
+                    serde_json::Value::Null
+                    | serde_json::Value::Bool(_)
+                    | serde_json::Value::Number(_)
+                    | serde_json::Value::Array(_)
+                    | serde_json::Value::Object(_) => v.to_string(),
                 }),
             ])
         })
@@ -134,6 +152,84 @@ fn feature_property_lines(feat: &Feature) -> Vec<Line<'static>> {
     } else {
         lines
     }
+}
+
+fn value_type_name(v: &serde_json::Value) -> &'static str {
+    match v {
+        serde_json::Value::Null => "null",
+        serde_json::Value::Bool(_) => "bool",
+        serde_json::Value::Number(_) => "number",
+        serde_json::Value::String(_) => "string",
+        serde_json::Value::Array(_) => "array",
+        serde_json::Value::Object(_) => "object",
+    }
+}
+
+/// Layer count and per-layer feature counts for the whole tile.
+fn tile_summary_lines(app: &App) -> Vec<Line<'static>> {
+    let mut lines = vec![
+        stat_line("Layers", &app.layer_groups.len()),
+        stat_line("Features", &app.tile.fc.features.len()),
+    ];
+    for g in &app.layer_groups {
+        lines.push(Line::from(format!(
+            "  {}: {} features",
+            g.name,
+            g.feature_indices.len()
+        )));
+    }
+    lines
+}
+
+/// Feature count and property names with their value types for one layer, in name order.
+fn layer_summary_lines(app: &App, layer: usize) -> Vec<Line<'static>> {
+    let group = &app.layer_groups[layer];
+    let mut types: BTreeMap<&str, BTreeSet<&'static str>> = BTreeMap::new();
+    for &gi in &group.feature_indices {
+        for (k, v) in &app.tile.fc.features[gi].properties {
+            if k == "_layer" || k == "_extent" {
+                continue;
+            }
+            types.entry(k).or_default().insert(value_type_name(v));
+        }
+    }
+    let mut lines = vec![
+        stat_line("Features", &group.feature_indices.len()),
+        stat_line("Properties", &types.len()),
+    ];
+    for (name, kinds) in types {
+        let kinds: Vec<&str> = kinds.into_iter().collect();
+        lines.push(Line::from(vec![
+            Span::styled(format!("  {name}: "), STYLE_LABEL),
+            Span::raw(kinds.join(" | ")),
+        ]));
+    }
+    lines
+}
+
+/// Geometry types with counts, over one layer or the whole tile, in type order.
+fn geometry_count_lines(app: &App, layer: Option<usize>) -> Vec<Line<'static>> {
+    let mut counts: BTreeMap<GeometryType, usize> = BTreeMap::new();
+    let mut vertices = 0usize;
+    let groups = app
+        .layer_groups
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| layer.is_none_or(|l| l == *i));
+    for (_, group) in groups {
+        for &gi in &group.feature_indices {
+            let geom = &app.tile.fc.features[gi].geometry;
+            if let Ok(t) = GeometryType::try_from(geom) {
+                *counts.entry(t).or_default() += 1;
+            }
+            vertices += geometry_coord_count(geom);
+        }
+    }
+    let mut lines = vec![stat_line("Vertices", &vertices)];
+    for (t, n) in counts {
+        lines.push(stat_line(&t.to_string(), &n));
+    }
+    lines
 }
 
 pub fn render_properties_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) -> Rect {
@@ -150,42 +246,31 @@ pub fn render_properties_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) -> 
     chunks[1]
 }
 
+/// The hovered item when there is one, else the selection.
+fn info_target(app: &App) -> (TreeItem, bool) {
+    match app.hovered.as_ref() {
+        Some(h) => (h.item.clone(), true),
+        None => (app.selected_item().clone(), false),
+    }
+}
+
 fn render_properties_top(f: &mut Frame<'_>, area: Rect, app: &mut App) {
-    let item = app.tree_items.get(app.selected_index);
-    let hov = app.hovered.as_ref();
-    let (title, lines): (String, Vec<Line<'static>>) = match item {
-        None | Some(TreeItem::All | TreeItem::Layer(_)) => {
-            if let Some(h) = hov {
-                let key = (h.layer, h.feat);
-                if app.last_properties_key != Some(key) {
-                    app.properties_scroll = 0;
-                    app.last_properties_key = Some(key);
-                }
-                (
-                    format!("Properties (feat {}, hover)", h.feat),
-                    feature_property_lines(app.feature(h.layer, h.feat)),
-                )
-            } else {
-                app.last_properties_key = None;
-                (
-                    "Properties".into(),
-                    vec![Line::from(
-                        "Select or hover over a feature to view properties",
-                    )],
-                )
-            }
-        }
-        Some(TreeItem::Feature { layer, feat } | TreeItem::SubFeature { layer, feat, .. }) => {
-            let key = (*layer, *feat);
-            if app.last_properties_key != Some(key) {
-                app.properties_scroll = 0;
-                app.last_properties_key = Some(key);
-            }
-            (
-                format!("Properties (feat {feat})"),
-                feature_property_lines(app.feature(*layer, *feat)),
-            )
-        }
+    let (target, hover) = info_target(app);
+    if app.last_properties_key.as_ref() != Some(&target) {
+        app.properties_scroll = 0;
+        app.last_properties_key = Some(target.clone());
+    }
+    let suffix = if hover { ", hover" } else { "" };
+    let (title, lines): (String, Vec<Line<'static>>) = match &target {
+        TreeItem::All => ("Properties (all layers)".into(), tile_summary_lines(app)),
+        TreeItem::Layer(l) => (
+            format!("Properties (layer {}{suffix})", app.layer_groups[*l].name),
+            layer_summary_lines(app, *l),
+        ),
+        TreeItem::Feature { layer, feat } | TreeItem::SubFeature { layer, feat, .. } => (
+            format!("Properties (feat {feat}{suffix})"),
+            feature_property_lines(app.feature(*layer, *feat)),
+        ),
     };
     let inner = area.height.saturating_sub(2);
     let max = u16::try_from(lines.len().saturating_sub(inner.into_usize())).unwrap_or(0);
@@ -206,9 +291,7 @@ fn info_line_string(lines: &mut Vec<Line<'static>>, ls: &LineString<i32>) {
 }
 
 fn info_polygon(lines: &mut Vec<Line<'static>>, poly: &Polygon<i32>) {
-    let total: usize =
-        poly.exterior().0.len() + poly.interiors().iter().map(|r| r.0.len()).sum::<usize>();
-    lines.push(stat_line("Vertices", &total));
+    lines.push(stat_line("Vertices", &polygon_coord_count(poly)));
     lines.push(stat_line("Rings", &(1 + poly.interiors().len())));
     let ext = &poly.exterior().0;
     let w = if is_ring_ccw(ext) { "CCW" } else { "CW" };
@@ -234,12 +317,7 @@ fn info_multi_line_string(lines: &mut Vec<Line<'static>>, mls: &MultiLineString<
 }
 
 fn info_multi_polygon(lines: &mut Vec<Line<'static>>, mpoly: &MultiPolygon<i32>) {
-    let total: usize = mpoly
-        .iter()
-        .flat_map(|p| {
-            std::iter::once(p.exterior().0.len()).chain(p.interiors().iter().map(|r| r.0.len()))
-        })
-        .sum();
+    let total: usize = mpoly.iter().map(polygon_coord_count).sum();
     let total_rings: usize = mpoly.iter().map(|p| 1 + p.interiors().len()).sum();
     lines.push(stat_line("Parts", &mpoly.0.len()));
     lines.push(stat_line("Total vertices", &total));
@@ -255,7 +333,12 @@ fn geometry_stats_lines(geom: &Geometry<i32>) -> Vec<Line<'static>> {
         Geometry::<i32>::MultiPoint(pts) => info_multi_point(&mut lines, pts),
         Geometry::<i32>::MultiLineString(mls) => info_multi_line_string(&mut lines, mls),
         Geometry::<i32>::MultiPolygon(mpoly) => info_multi_polygon(&mut lines, mpoly),
-        _ => unreachable!("Unexpected geometry type {geom:?}"),
+        Geometry::<i32>::Line(_)
+        | Geometry::<i32>::GeometryCollection(_)
+        | Geometry::<i32>::Rect(_)
+        | Geometry::<i32>::Triangle(_) => {
+            unreachable!("Unexpected geometry type {geom:?}")
+        }
     }
     lines
 }
@@ -284,7 +367,13 @@ fn subpart_stats_lines(geom: &Geometry<i32>, part: usize) -> Vec<Line<'static>> 
                 info_polygon(&mut lines, poly);
             }
         }
-        _ => {}
+        Geometry::<i32>::Point(_)
+        | Geometry::<i32>::Line(_)
+        | Geometry::<i32>::LineString(_)
+        | Geometry::<i32>::Polygon(_)
+        | Geometry::<i32>::GeometryCollection(_)
+        | Geometry::<i32>::Rect(_)
+        | Geometry::<i32>::Triangle(_) => {}
     }
     lines
 }
@@ -349,33 +438,28 @@ fn mbt_hover_title_and_lines(app: &App) -> (String, Vec<Line<'static>>) {
 }
 
 fn render_geometry_stats(f: &mut Frame<'_>, area: Rect, app: &App) {
-    let item = app.tree_items.get(app.selected_index);
-    let hov = app.hovered.as_ref();
-
-    let lines = match item {
-        Some(TreeItem::SubFeature { layer, feat, part }) => {
-            subpart_stats_lines(&app.feature(*layer, *feat).geometry, *part)
-        }
-        Some(TreeItem::Feature { layer, feat }) => {
-            geometry_stats_lines(&app.feature(*layer, *feat).geometry)
-        }
-        _ => {
-            if let Some(h) = hov {
-                let geom = &app.feature(h.layer, h.feat).geometry;
-                match h.part {
-                    Some(p) => subpart_stats_lines(geom, p),
-                    None => geometry_stats_lines(geom),
-                }
-            } else {
-                vec![Line::from(
-                    "Select or hover over a feature to view geometry info",
-                )]
-            }
-        }
+    let (target, _) = info_target(app);
+    let (title, lines) = match target {
+        TreeItem::All => (
+            "Geometry (all layers)".to_string(),
+            geometry_count_lines(app, None),
+        ),
+        TreeItem::Layer(l) => (
+            format!("Geometry (layer {})", app.layer_groups[l].name),
+            geometry_count_lines(app, Some(l)),
+        ),
+        TreeItem::Feature { layer, feat } => (
+            "Geometry".to_string(),
+            geometry_stats_lines(&app.feature(layer, feat).geometry),
+        ),
+        TreeItem::SubFeature { layer, feat, part } => (
+            "Geometry".to_string(),
+            subpart_stats_lines(&app.feature(layer, feat).geometry, part),
+        ),
     };
 
     let para = Paragraph::new(lines)
-        .block(block_with_title("Geometry"))
+        .block(block_with_title(title))
         .wrap(Wrap { trim: false });
     f.render_widget(para, area);
 }

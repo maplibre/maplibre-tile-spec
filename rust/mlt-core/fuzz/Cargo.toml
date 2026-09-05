@@ -21,14 +21,14 @@ doc = false
 bench = false
 
 [[bin]]
-name = "decoded_layer"
+name = "decoded-layer"
 path = "fuzz_targets/decoded_layer.rs"
 test = false
 doc = false
 bench = false
 
 [[bin]]
-name = "mvt_roundtrip"
+name = "mvt-roundtrip"
 path = "fuzz_targets/mvt_roundtrip.rs"
 test = false
 doc = false
@@ -41,13 +41,20 @@ test = false
 doc = false
 bench = false
 
+[[bin]]
+name = "wire-version"
+path = "fuzz_targets/wire_version.rs"
+test = false
+doc = false
+bench = false
+
 [dependencies]
 arbitrary = { version = "1.4.2", features = ["derive"] }
 hex = "0.4.3"
 libfuzzer-sys = "0.4"
-mlt-core = { path = "..", features = ["arbitrary", "__private"] }
+mlt-core = { path = "..", features = ["arbitrary", "__private", "unstable-v2"] }
 pretty_assertions = "1.4"
-serde_json = "1"
+serde_json = { version = "1", features = ["arbitrary_precision"] }
 
 [lints.rust]
 unsafe_code = "forbid"
@@ -63,6 +70,7 @@ panic_in_result_fn = "warn"
 todo = "warn"
 unimplemented = "warn"
 unused_trait_names = "warn"
+wildcard_enum_match_arm = "warn"
 
 # Too noisy
 missing_errors_doc = "allow"

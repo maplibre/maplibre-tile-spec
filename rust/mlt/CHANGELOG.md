@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.27](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.26...rust-mlt-v0.1.27) - 2026-09-04
+
+### Added
+
+- *(rust)* `mlt convert --bbox` to convert only part of an archive ([#1620](https://github.com/maplibre/maplibre-tile-spec/pull/1620))
+
+### Fixed
+
+- *(rust)* floor the mbtiles zoom level with a tolerance ([#1627](https://github.com/maplibre/maplibre-tile-spec/pull/1627))
+
+### Other
+
+- *(rust)* drive the mlt ui from tests through TestBackend ([#1638](https://github.com/maplibre/maplibre-tile-spec/pull/1638))
+- *(rust)* enable clippy::wildcard_enum_match_arm ([#1610](https://github.com/maplibre/maplibre-tile-spec/pull/1610))
+- remove the never-implemented Pseudodecimal encoding ([#1605](https://github.com/maplibre/maplibre-tile-spec/pull/1605))
+
+## [0.1.26](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.25...rust-mlt-v0.1.26) - 2026-08-31
+
+### Added
+
+- *(rust)* inital v2 plumbing ([#1570](https://github.com/maplibre/maplibre-tile-spec/pull/1570))
+
 ## [0.1.25](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.24...rust-mlt-v0.1.25) - 2026-08-21
 
 ### Other

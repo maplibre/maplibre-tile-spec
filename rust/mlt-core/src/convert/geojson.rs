@@ -156,7 +156,12 @@ mod geom_serde {
                 "MultiPolygon",
                 serde_json::to_value(mpoly.iter().map(poly_arr).collect::<Vec<_>>()).unwrap(),
             ),
-            _ => return Err(Error::custom("unsupported geometry variant")),
+            Geometry::Line(_)
+            | Geometry::Rect(_)
+            | Geometry::Triangle(_)
+            | Geometry::GeometryCollection(_) => {
+                return Err(Error::custom("unsupported geometry variant"));
+            }
         };
         m.serialize_entry("type", ty)?;
         m.serialize_entry("coordinates", &coords)?;
@@ -274,7 +279,7 @@ fn normalize_tiny_floats(value: Value) -> Value {
                 .map(|(k, v)| (k, normalize_tiny_floats(v)))
                 .collect(),
         ),
-        v => v,
+        Value::Null | Value::Bool(_) | Value::String(_) => value,
     }
 }
 

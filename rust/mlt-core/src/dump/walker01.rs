@@ -401,7 +401,11 @@ impl<'a> Walker<'a> {
                     |v| Some(v.to_string()),
                 )?;
             }
-            _ => {}
+            LogicalEncoding::None
+            | LogicalEncoding::Delta
+            | LogicalEncoding::DeltaRle(_)
+            | LogicalEncoding::ComponentwiseDelta
+            | LogicalEncoding::Rle(_) => {}
         }
         self.close(hi, c);
 
@@ -480,8 +484,10 @@ fn encoding_bits(byte: u8) -> Vec<BitField> {
     let l1 = byte >> 5;
     let l2 = (byte >> 2) & 0x7;
     let ph = byte & 0x3;
+    // The `LogicalTechnique` repr is pre-shifted into the logical1 field, so name both from there.
     let name_lt = |v: u8| {
-        LogicalTechnique::try_from(v).map_or_else(|_| format!("invalid({v})"), |t| format!("{t:?}"))
+        LogicalTechnique::try_from(v << 5)
+            .map_or_else(|_| format!("invalid({v})"), |t| format!("{t:?}"))
     };
     let name_ph = PhysicalEncoding::try_from(ph)
         .map_or_else(|_| format!("invalid({ph})"), |p| format!("{p:?}"));

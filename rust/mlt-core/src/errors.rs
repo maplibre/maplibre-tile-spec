@@ -58,6 +58,14 @@ pub enum MltError {
     NotEncoded,
     #[error("error parsing column type: code={0}")]
     ParsingColumnType(u8),
+    #[error("error parsing v2 stream encoding byte: 0x{0:02X}")]
+    ParsingEncodingByte(u8),
+    #[cfg(feature = "unstable-v2")]
+    #[error("error parsing v2 geometry layout: code={0}")]
+    ParsingGeoLayout(u8),
+    #[cfg(feature = "unstable-v2")]
+    #[error("error parsing v2 layer layout: byte=0x{0:02X}")]
+    ParsingLayerLayout(u8),
     #[error("error parsing logical technique: code={0}")]
     ParsingLogicalTechnique(u8),
     #[error("error parsing physical encoding: code={0}")]
@@ -106,6 +114,8 @@ pub enum MltError {
     MissingStructEncoderForStruct,
     #[error("previous decode/parsing attempt failed")]
     PriorParseFailure,
+    #[error("FSST-compressed data is malformed: {0}")]
+    MalformedFsst(&'static str),
     #[error("presence stream has {0} bits set but {1} values provided")]
     PresenceValueCountMismatch(usize, usize),
     #[error("need to encode before being able to write")]
@@ -197,9 +207,10 @@ pub enum MltError {
 
 impl From<MltError> for std::io::Error {
     fn from(value: MltError) -> Self {
-        match value {
-            MltError::Io(e) => e,
-            other => Self::other(other),
+        if let MltError::Io(e) = value {
+            e
+        } else {
+            Self::other(value)
         }
     }
 }

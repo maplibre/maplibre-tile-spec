@@ -14,6 +14,7 @@ use rstar::{AABB, PointDistance, RTree, RTreeObject};
 
 use super::group_by_layer;
 use super::state::LayerGroup;
+use super::tile::{CACHE_BYTES, fc_memory_estimate};
 
 type DecodedTile = (FeatureCollection, u32, Vec<LayerGroup>, RTree<MbtGeoEntry>);
 type BestHover = Option<(f64, (u8, u32, u32), usize, usize)>;
@@ -136,7 +137,10 @@ impl TileTransform {
             Geometry::<i32>::MultiPolygon(mpoly) => {
                 mpoly.iter().flat_map(|p| self.poly_verts(p)).collect()
             }
-            _ => vec![],
+            Geometry::<i32>::Line(_)
+            | Geometry::<i32>::GeometryCollection(_)
+            | Geometry::<i32>::Rect(_)
+            | Geometry::<i32>::Triangle(_) => vec![],
         }
     }
 }
@@ -155,7 +159,29 @@ pub(crate) enum MbtTileData {
         extent: u32,
         layer_groups: Vec<LayerGroup>,
         geo_index: RTree<MbtGeoEntry>,
+        /// Rough size of the decoded data, computed once when the tile arrives.
+        bytes: u64,
     },
+}
+
+impl MbtTileData {
+    /// Rough number of bytes this entry holds, for the memory budget.
+    fn memory_estimate(&self) -> u64 {
+        match self {
+            Self::Loading | Self::Empty => 64,
+            Self::Error(e) => 64 + u64::try_from(e.len()).unwrap_or(u64::MAX),
+            Self::Loaded { bytes, .. } => *bytes,
+        }
+    }
+}
+
+/// Rough number of bytes a decoded tile and its spatial index hold.
+fn loaded_bytes(fc: &FeatureCollection, geo_index: &RTree<MbtGeoEntry>) -> u64 {
+    let index: usize = geo_index
+        .iter()
+        .map(|e| e.vertices.len() * size_of::<[f64; 2]>() + 48)
+        .sum();
+    u64::try_from(fc_memory_estimate(fc) + index).unwrap_or(u64::MAX)
 }
 
 // ---------------------------------------------------------------------------
@@ -190,6 +216,8 @@ pub(crate) struct MbtilesState {
     pub zoom_f: f64,
     /// Last mouse cell during left-button map drag (`Drag` deltas are applied from here).
     pub map_drag_last: Option<(u16, u16)>,
+    /// Memory budget for `tiles`.
+    pub(crate) cache_bytes: u64,
     loading: HashSet<(u8, u32, u32)>,
     request_tx: mpsc::SyncSender<TileLoadRequest>,
     pub result_rx: mpsc::Receiver<TileLoadResult>,
@@ -257,6 +285,7 @@ impl MbtilesState {
             hovered: None,
             zoom_f: 0.0,
             map_drag_last: None,
+            cache_bytes: CACHE_BYTES,
             loading: HashSet::new(),
             request_tx: req_tx,
             result_rx: res_rx,
@@ -269,14 +298,16 @@ impl MbtilesState {
         self.loader_fatal.take()
     }
 
-    /// Tile zoom used for loading tiles: floor of `-log2(viewport width)`.
+    /// Tile zoom used for loading tiles.
+    /// Floors `-log2(viewport width)` with a tolerance so an integer zoom does not round down a level.
     pub(crate) fn zoom_level(&self) -> u8 {
+        const TOLERANCE: f64 = 1e-6;
         let vp_w = self.vp_x1 - self.vp_x0;
         if vp_w <= 0.0 {
             return 0;
         }
         #[expect(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-        let z = (-vp_w.log2()).floor().clamp(0.0, 22.0) as u8;
+        let z = (-vp_w.log2() + TOLERANCE).floor().clamp(0.0, 22.0) as u8;
         z
     }
 
@@ -456,26 +487,34 @@ impl MbtilesState {
         }
 
         while let Ok(res) = self.result_rx.try_recv() {
-            let key = (res.z, res.x, res.y);
-            self.loading.remove(&key);
-            let entry = match res.data {
-                Err(e) => MbtTileData::Error(e),
-                Ok(None) => MbtTileData::Empty,
-                Ok(Some(raw)) => match decode_and_parse(res.z, res.x, res.y, raw) {
-                    Ok(Some((fc, extent, layer_groups, geo_index))) => MbtTileData::Loaded {
+            self.apply_result(res);
+            changed = true;
+        }
+        changed
+    }
+
+    fn apply_result(&mut self, res: TileLoadResult) {
+        let key = (res.z, res.x, res.y);
+        self.loading.remove(&key);
+        let entry = match res.data {
+            Err(e) => MbtTileData::Error(e),
+            Ok(None) => MbtTileData::Empty,
+            Ok(Some(raw)) => match decode_and_parse(res.z, res.x, res.y, raw) {
+                Ok(Some((fc, extent, layer_groups, geo_index))) => {
+                    let bytes = loaded_bytes(&fc, &geo_index);
+                    MbtTileData::Loaded {
                         fc,
                         extent,
                         layer_groups,
                         geo_index,
-                    },
-                    Ok(None) => MbtTileData::Empty,
-                    Err(e) => MbtTileData::Error(e.to_string()),
-                },
-            };
-            self.tiles.insert(key, entry);
-            changed = true;
-        }
-        changed
+                        bytes,
+                    }
+                }
+                Ok(None) => MbtTileData::Empty,
+                Err(e) => MbtTileData::Error(e.to_string()),
+            },
+        };
+        self.tiles.insert(key, entry);
     }
 
     /// Zoom in/out by half a zoom level around `(wx, wy)` (scroll wheel).
@@ -604,10 +643,11 @@ impl MbtilesState {
         out
     }
 
-    /// Drop cached tiles far from the viewport so panning does not grow memory without bound.
+    /// Drop cached tiles far from the viewport once the decoded tiles exceed the memory budget.
+    /// Visible tiles and their ancestors stay.
     pub(crate) fn prune_tile_cache_if_needed(&mut self) {
-        const MAX: usize = 256;
-        if self.tiles.len() <= MAX {
+        let total: u64 = self.tiles.values().map(MbtTileData::memory_estimate).sum();
+        if total <= self.cache_bytes {
             return;
         }
         let keep = self.keep_tile_keys();
@@ -691,4 +731,121 @@ fn build_world_geo_index(
         }
     }
     RTree::bulk_load(entries)
+}
+
+#[cfg(test)]
+mod tests {
+    use mlt_core::geo_types::{
+        GeometryCollection, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Rect,
+    };
+
+    use super::*;
+
+    fn c(x: i32, y: i32) -> Coord<i32> {
+        Coord { x, y }
+    }
+
+    impl MbtilesState {
+        /// Request the visible tiles and block until every requested tile has arrived.
+        pub(crate) fn wait_for_visible_tiles(&mut self) {
+            loop {
+                for (z, x, y) in self.visible_tiles() {
+                    self.request_tile_with_ancestors(z, x, y);
+                }
+                self.process_results();
+                let pending = self
+                    .tiles
+                    .values()
+                    .any(|t| matches!(t, MbtTileData::Loading));
+                if self.loader_fatal.is_some() || (!pending && self.loader_init_rx.is_none()) {
+                    return;
+                }
+                if let Ok(res) = self.result_rx.recv() {
+                    self.apply_result(res);
+                } else {
+                    self.process_results();
+                    return;
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn integer_zoom_reached_by_half_steps_loads_that_level() {
+        let mut state = MbtilesState::new(PathBuf::from("missing.mbtiles"));
+        state.set_viewport_to_tile(1, 0, 0).unwrap();
+        state.zoom_wheel_at(0.3, 0.3, true);
+        state.zoom_wheel_at(0.3, 0.3, true);
+        assert_eq!(state.zoom_level(), 2);
+        assert_eq!(state.center_tile_xyz().0, 2);
+    }
+
+    #[test]
+    fn transform_flattens_every_geometry_kind_into_world_space() {
+        let t = TileTransform::new(1, 1, 0, 4096);
+        let [wx, wy] = t.to_world(c(4096, 0));
+        assert!(
+            (wx - 1.0).abs() < 1e-12 && wy.abs() < 1e-12,
+            "east edge of tile 1/1/0"
+        );
+        let ring = LineString(vec![c(0, 0), c(4, 0), c(4, 4)]);
+        let poly = Polygon::new(ring.clone(), vec![ring.clone()]);
+        assert_eq!(t.geom_verts(&Geometry::Point(Point(c(1, 1)))).len(), 1);
+        assert_eq!(t.geom_verts(&Geometry::LineString(ring.clone())).len(), 3);
+        assert_eq!(
+            t.geom_verts(&Geometry::MultiPoint(MultiPoint(vec![
+                Point(c(0, 0)),
+                Point(c(1, 1))
+            ])))
+            .len(),
+            2
+        );
+        assert_eq!(t.geom_verts(&Geometry::Polygon(poly.clone())).len(), 8);
+        assert_eq!(
+            t.geom_verts(&Geometry::MultiLineString(MultiLineString(vec![
+                ring.clone(),
+                ring
+            ])))
+            .len(),
+            6
+        );
+        assert_eq!(
+            t.geom_verts(&Geometry::MultiPolygon(MultiPolygon(vec![
+                poly.clone(),
+                poly
+            ])))
+            .len(),
+            16
+        );
+        assert!(
+            t.geom_verts(&Geometry::Rect(Rect::new(c(0, 0), c(1, 1))))
+                .is_empty()
+        );
+        assert!(
+            t.geom_verts(&Geometry::GeometryCollection(GeometryCollection(vec![])))
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn an_entry_without_vertices_sits_at_the_origin() {
+        let entry = MbtGeoEntry {
+            layer: 0,
+            feat: 0,
+            vertices: Vec::new(),
+        };
+        assert_eq!(entry.envelope(), AABB::from_point([0.0, 0.0]));
+    }
+
+    #[test]
+    fn decompress_passes_plain_bytes_through_and_inflates_gzip() {
+        assert_eq!(decompress(vec![1, 2, 3]).unwrap(), vec![1, 2, 3]);
+        let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+        std::io::Write::write_all(&mut gz, b"tile").unwrap();
+        assert_eq!(decompress(gz.finish().unwrap()).unwrap(), b"tile");
+        assert!(
+            decompress(vec![0x28, 0xb5, 0x2f, 0xfd, 1]).is_err(),
+            "truncated zstd is an error"
+        );
+    }
 }

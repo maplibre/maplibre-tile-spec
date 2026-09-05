@@ -434,11 +434,19 @@ mod tests {
     fn test_config_produces_correct_variant(#[case] column_type: CT, #[case] input: StagedId) {
         let int_enc = IntEncoder::varint_with(LogicalEncoder::None);
         with_encoded_raw_id(&input, int_enc, |raw_id| {
+            #[expect(
+                clippy::wildcard_enum_match_arm,
+                reason = "cases only cover id columns"
+            )]
             match column_type {
                 CT::OptId | CT::Id => assert!(matches!(raw_id.value, RawIdValue::Id32(_))),
                 CT::LongId | CT::OptLongId => assert!(matches!(raw_id.value, RawIdValue::Id64(_))),
                 _ => unreachable!(),
             }
+            #[expect(
+                clippy::wildcard_enum_match_arm,
+                reason = "cases only cover id columns"
+            )]
             match column_type {
                 CT::OptId | CT::OptLongId => assert!(raw_id.presence.is_optional()),
                 CT::Id | CT::LongId => assert!(!raw_id.presence.is_optional()),
@@ -472,6 +480,10 @@ mod tests {
         #[values(LogicalEncoder::None)] logical: LogicalEncoder,
         #[values(CT::Id, CT::OptId, CT::LongId, CT::OptLongId)] column_type: CT,
     ) {
+        #[expect(
+            clippy::wildcard_enum_match_arm,
+            reason = "values only cover id columns"
+        )]
         let input = match column_type {
             CT::Id => StagedId::u32((1..=100).collect()),
             CT::OptId => StagedId::opt_u32((1..=100).map(Some)),

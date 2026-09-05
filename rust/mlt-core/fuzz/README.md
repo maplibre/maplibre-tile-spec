@@ -15,7 +15,11 @@ fuzz/
 ├── src/
 │   └── lib.rs              # mlt_fuzz library with LayerInput and fuzz_roundtrip logic
 ├── fuzz_targets/
-│   └── layer.rs            # Fuzz target that feeds random data to LayerInput
+│   ├── layer.rs            # Fuzz target that feeds random data to LayerInput
+│   ├── decoded_layer.rs    # Encode -> decode -> re-encode fixpoint, per wire version
+│   ├── wire_version.rs     # v1 vs v2 encoder differential
+│   ├── mvt_roundtrip.rs    # TileLayer -> MVT -> TileLayer fixpoint
+│   └── differential.rs     # Rust vs C++ decoder differential
 ├── tests/
 │   └── reproduce.rs        # Template for reproducing fuzzer-found issues
 ├── corpus/layer/           # Seed inputs for fuzzing
@@ -69,6 +73,28 @@ Tests the `Layer` parser and serializer by generating arbitrary `LayerInput` val
 
 If a mismatch is found, the fuzzer panics with a detailed error message showing both the input and output in hexadecimal format.
 
+This target feeds untrusted bytes straight at the parser, so it covers every layer tag the crate can parse - both `0x01` and `0x02`.
+
+### `decoded-layer`
+
+**Location:** `fuzz_targets/decoded_layer.rs`
+
+Generates a valid `StagedLayer` and an `EncoderConfig`, encodes, decodes, and re-stages it,
+and asserts the second and third round-trips are identical.
+The config carries the wire version, so this covers both tag `0x01` and tag `0x02` layers.
+A layer the chosen wire version cannot represent (v2 has no string or shared-dictionary
+columns yet) is skipped rather than treated as a failure.
+
+### `wire-version`
+
+**Location:** `fuzz_targets/wire_version.rs`
+
+Encodes one arbitrary `StagedLayer` to both wire versions and asserts the two decoded
+`TileLayer`s are identical.
+v1 is the reference, so this catches v2 envelope, presence, and stream-header bugs that a
+v2-only round-trip would reproduce consistently wrong in both directions.
+Inputs v2 cannot yet encode are skipped.
+
 ### `differential`
 
 **Location:** `fuzz_targets/differential.rs`
@@ -82,6 +108,7 @@ The target:
 3. decodes the same bytes with the C++ `mlt-cpp-json` tool, run as a subprocess.
 
 The two JSON outputs must match.
+The config is pinned to v1, since the C++ decoder only reads tag `0x01`; use `wire-version` for v2.
 A mismatch is a crash, and the report prints both outputs and the input bytes as hex.
 If the C++ tool fails to decode the bytes (e.g. an unsupported encoding), the
 input is skipped rather than treated as a failure.

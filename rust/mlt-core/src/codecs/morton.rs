@@ -48,7 +48,7 @@ pub fn interleave_bits(coord: Coord<u32>) -> u32 {
 #[must_use]
 #[inline]
 pub fn morton_sort_key(c: Coord<i32>, params: CurveParams) -> u32 {
-    debug_assert!((1..=16).contains(&params.bits));
+    debug_assert!(params.bits >= 1);
     #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,

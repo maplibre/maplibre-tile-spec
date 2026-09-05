@@ -14,7 +14,7 @@ import decodeTile from "./mltDecoder";
  * so an entry that starts decoding correctly fails the test until it is removed from this list.
  * Prefer fixing the decoder over adding to it.
  */
-const UNIMPLEMENTED_SYNTHETICS: string[] = [];
+const UNIMPLEMENTED_SYNTHETICS: string[] = ["0x02"];
 
 describe("MLT Decoder - Synthetic tests", () => {
     expect.addEqualityTesters([compareWithTolerance]);

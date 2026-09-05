@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::mpsc;
+use std::sync::Arc;
+use std::sync::mpsc::{self, TryRecvError};
 use std::time::Instant;
 
 use mlt_core::GeometryType;
@@ -13,9 +14,10 @@ use usize_cast::IntoUsize as _;
 
 use crate::ls::{FileAlgorithm, FileSortColumn, LsRow};
 use crate::ui::mbt::MbtilesState;
+use crate::ui::scan::ScanEvent;
+use crate::ui::tile::{ParsedTile, TileCache};
 use crate::ui::{
-    GeometryIndexEntry, auto_expand, coord_f64, group_by_layer, is_entry_visible, load_fc,
-    multi_part_count,
+    GeometryIndexEntry, auto_expand, coord_f64, group_by_layer, is_entry_visible, multi_part_count,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -56,28 +58,17 @@ impl TreeItem {
         match self {
             Self::Feature { layer, feat } => Some((*layer, *feat, None)),
             Self::SubFeature { layer, feat, part } => Some((*layer, *feat, Some(*part))),
-            _ => None,
+            Self::All | Self::Layer(_) => None,
         }
     }
 }
 
-#[derive(Clone, PartialEq, Eq)]
+/// What the mouse is over, resolved to the level the selection exposes.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HoveredInfo {
-    pub(crate) tree_idx: usize,
-    pub(crate) layer: usize,
-    pub(crate) feat: usize,
-    pub(crate) part: Option<usize>,
-}
-
-impl HoveredInfo {
-    pub fn new(tree_idx: usize, layer: usize, feat: usize, part: Option<usize>) -> Self {
-        Self {
-            tree_idx,
-            layer,
-            feat,
-            part,
-        }
-    }
+    /// Row in the tree that represents `item` (or its closest visible ancestor).
+    pub(crate) tree_idx: Option<usize>,
+    pub(crate) item: TreeItem,
 }
 
 pub struct LayerGroup {
@@ -96,21 +87,27 @@ impl LayerGroup {
     }
 }
 
-pub type PreviewValue = (PathBuf, Result<(FeatureCollection, u32), ()>);
+pub type PreviewValue = (PathBuf, Result<Arc<ParsedTile>, String>);
 
 pub struct App {
     pub(crate) mode: ViewMode,
     pub(crate) files: Vec<LsRow>,
     pub(crate) selected_file_index: usize,
     pub(crate) file_list_state: TableState,
-    pub(crate) analysis_rx: Option<mpsc::Receiver<Vec<LsRow>>>,
+    /// Directory scan in progress, `None` once every file is analyzed.
+    scan_rx: Option<mpsc::Receiver<ScanEvent>>,
+    scan_done: bool,
+    pending_analysis: usize,
+    /// Rows that were there before the scan started.
+    scan_base: usize,
     /// Base path for file browser; used when drawing to show relative paths.
     pub(crate) file_browser_base: Option<PathBuf>,
     file_sort: Option<(FileSortColumn, bool)>,
     pub(crate) file_table_area: Option<Rect>,
     pub(crate) file_table_widths: Option<[Constraint; 6]>,
     pub(crate) current_file: Option<PathBuf>,
-    pub(crate) fc: FeatureCollection,
+    pub(crate) tile: Arc<ParsedTile>,
+    pub(crate) tile_cache: TileCache,
     pub(crate) layer_groups: Vec<LayerGroup>,
     pub(crate) tree_items: Vec<TreeItem>,
     pub(crate) selected_index: usize,
@@ -128,7 +125,7 @@ pub struct App {
     pub(crate) properties_scroll: u16,
     pub(crate) tree_scroll: u16,
     pub(crate) tree_inner_height: usize,
-    pub(crate) last_properties_key: Option<(usize, usize)>,
+    pub(crate) last_properties_key: Option<TreeItem>,
     pub(crate) properties_pct: u16,
     geometry_index: Option<RTree<GeometryIndexEntry>>,
     pub(crate) file_left_pct: u16,
@@ -145,8 +142,8 @@ pub struct App {
     pub(crate) error_popup: Option<(String, String)>,
     pub(crate) file_info_scroll: u16,
     pub(crate) preview_tile_path: Option<PathBuf>,
-    pub(crate) preview_fc: Option<FeatureCollection>,
-    pub(crate) preview_extent: u32,
+    pub(crate) preview: Option<Arc<ParsedTile>>,
+    pub(crate) preview_error: Option<String>,
     pub(crate) preview_rx: Option<mpsc::Receiver<PreviewValue>>,
     pub(crate) preview_load_requested: Option<PathBuf>,
     /// State for the `MbtilesMap` mode (Some only when mode == `MbtilesMap`).
@@ -160,16 +157,20 @@ impl Default for App {
             files: Vec::new(),
             selected_file_index: 0,
             file_list_state: TableState::default(),
-            analysis_rx: None,
+            scan_rx: None,
+            scan_done: false,
+            pending_analysis: 0,
+            scan_base: 0,
             file_browser_base: None,
             file_sort: None,
             file_table_area: None,
             file_table_widths: None,
             current_file: None,
-            fc: FeatureCollection {
+            tile: Arc::new(ParsedTile::from_fc(FeatureCollection {
                 features: Vec::new(),
                 ty: "FeatureCollection".into(),
-            },
+            })),
+            tile_cache: TileCache::default(),
             layer_groups: Vec::new(),
             tree_items: Vec::new(),
             selected_index: 0,
@@ -204,8 +205,8 @@ impl Default for App {
             error_popup: None,
             file_info_scroll: 0,
             preview_tile_path: None,
-            preview_fc: None,
-            preview_extent: 4096,
+            preview: None,
+            preview_error: None,
             preview_rx: None,
             preview_load_requested: None,
             mbt_state: None,
@@ -213,19 +214,34 @@ impl Default for App {
     }
 }
 
+/// Progress of the directory scan behind the file browser.
+pub(crate) struct ScanStatus {
+    /// Files found but not yet analyzed.
+    pub pending: usize,
+    /// The directory walk is still running.
+    pub scanning: bool,
+}
+
 impl App {
     pub(crate) fn new_file_browser(
         files: Vec<LsRow>,
-        analysis_rx: Option<mpsc::Receiver<Vec<LsRow>>>,
+        scan_rx: Option<mpsc::Receiver<ScanEvent>>,
         base_path: PathBuf,
     ) -> Self {
         let mut file_list_state = TableState::default();
         file_list_state.select(Some(0));
         let filtered_file_indices = (0..files.len()).collect();
+        let scan_base = files.len();
+        let pending_analysis = files
+            .iter()
+            .filter(|r| matches!(r, LsRow::Loading { .. }))
+            .count();
         Self {
             files,
             file_list_state,
-            analysis_rx,
+            scan_rx,
+            pending_analysis,
+            scan_base,
             file_browser_base: Some(base_path),
             filtered_file_indices,
             ..Self::default()
@@ -241,15 +257,15 @@ impl App {
         }
     }
 
-    pub(crate) fn new_single_file(fc: FeatureCollection, path: Option<PathBuf>) -> Self {
-        let layer_groups = group_by_layer(&fc);
+    pub(crate) fn new_single_file(tile: Arc<ParsedTile>, path: Option<PathBuf>) -> Self {
+        let layer_groups = group_by_layer(&tile.fc);
         let expanded_layers = auto_expand(&layer_groups);
         let mut app = Self {
             mode: ViewMode::LayerOverview,
             current_file: path,
             expanded_layers,
             layer_groups,
-            fc,
+            tile,
             ..Self::default()
         };
         app.build_geometry_index();
@@ -258,11 +274,87 @@ impl App {
     }
 
     pub(crate) fn data_loaded(&self) -> bool {
-        self.analysis_rx.is_none()
-            && !self
-                .files
-                .iter()
-                .any(|r| matches!(r, LsRow::Loading { .. }))
+        self.scan_rx.is_none()
+    }
+
+    pub(crate) fn scan_status(&self) -> ScanStatus {
+        ScanStatus {
+            pending: self.pending_analysis,
+            scanning: self.scan_rx.is_some() && !self.scan_done,
+        }
+    }
+
+    /// Apply every scan event that has arrived.
+    /// Returns true when the file list changed.
+    pub(crate) fn poll_scan(&mut self) -> bool {
+        let Some(rx) = self.scan_rx.as_ref() else {
+            return false;
+        };
+        let mut events = Vec::new();
+        let mut disconnected = false;
+        loop {
+            match rx.try_recv() {
+                Ok(ev) => events.push(ev),
+                Err(TryRecvError::Empty) => break,
+                Err(TryRecvError::Disconnected) => {
+                    disconnected = true;
+                    break;
+                }
+            }
+        }
+        let changed = !events.is_empty() || disconnected;
+        let first_new = self.files.len();
+        for ev in events {
+            self.apply_scan_event(ev);
+        }
+        if disconnected {
+            self.scan_done = true;
+            self.pending_analysis = 0;
+        }
+        self.settle_scan();
+        if changed {
+            self.refresh_filtered_files(first_new);
+        }
+        changed
+    }
+
+    /// Bring `filtered_file_indices` up to date after the scan appended or replaced rows.
+    fn refresh_filtered_files(&mut self, first_new: usize) {
+        if self.has_filters() {
+            self.rebuild_filtered_files();
+        } else {
+            self.filtered_file_indices
+                .extend(first_new..self.files.len());
+            self.invalidate();
+        }
+    }
+
+    fn has_filters(&self) -> bool {
+        !self.ext_filters.is_empty()
+            || !self.geom_filters.is_empty()
+            || !self.algo_filters.is_empty()
+    }
+
+    fn apply_scan_event(&mut self, event: ScanEvent) {
+        match event {
+            ScanEvent::Found(path) => {
+                self.files.push(LsRow::Loading { path });
+                self.pending_analysis += 1;
+            }
+            ScanEvent::Analyzed(i, row) => {
+                if let Some(slot) = self.files.get_mut(self.scan_base + i) {
+                    *slot = *row;
+                }
+                self.pending_analysis = self.pending_analysis.saturating_sub(1);
+            }
+            ScanEvent::Done => self.scan_done = true,
+        }
+    }
+
+    fn settle_scan(&mut self) {
+        if self.scan_done && self.pending_analysis == 0 {
+            self.scan_rx = None;
+        }
     }
 
     pub(crate) fn open_help(&mut self) {
@@ -292,8 +384,8 @@ impl App {
     }
 
     fn load_file(&mut self, path: &Path) -> anyhow::Result<()> {
-        self.fc = load_fc(path)?;
-        self.layer_groups = group_by_layer(&self.fc);
+        self.tile = self.tile_cache.load(path)?;
+        self.layer_groups = group_by_layer(&self.tile.fc);
         self.current_file = Some(path.to_path_buf());
         self.mode = ViewMode::LayerOverview;
         self.expanded_layers = auto_expand(&self.layer_groups);
@@ -301,6 +393,8 @@ impl App {
         self.build_geometry_index();
         self.build_tree_items();
         self.selected_index = 0;
+        self.hovered = None;
+        self.tree_scroll = 0;
         self.invalidate_bounds();
         Ok(())
     }
@@ -310,11 +404,13 @@ impl App {
     }
 
     pub(crate) fn feature(&self, layer: usize, feat: usize) -> &Feature {
-        &self.fc.features[self.global_idx(layer, feat)]
+        &self.tile.fc.features[self.global_idx(layer, feat)]
     }
 
     pub(crate) fn extent(&self) -> u32 {
-        self.layer_groups.first().map_or(4096, |g| g.extent)
+        self.layer_groups
+            .first()
+            .map_or(self.tile.extent, |g| g.extent)
     }
 
     pub(crate) fn selected_item(&self) -> &TreeItem {
@@ -335,7 +431,7 @@ impl App {
                     feat: fi,
                 });
                 if self.expanded_features.contains(&(li, fi)) {
-                    for part in 0..multi_part_count(&self.fc.features[gi].geometry) {
+                    for part in 0..multi_part_count(&self.tile.fc.features[gi].geometry) {
                         self.tree_items.push(TreeItem::SubFeature {
                             layer: li,
                             feat: fi,
@@ -351,7 +447,7 @@ impl App {
         let mut entries: Vec<GeometryIndexEntry> = Vec::new();
         for (li, group) in self.layer_groups.iter().enumerate() {
             for (fi, &gi) in group.feature_indices.iter().enumerate() {
-                let geom = &self.fc.features[gi].geometry;
+                let geom = &self.tile.fc.features[gi].geometry;
                 let n = multi_part_count(geom);
                 let parts: Vec<Option<usize>> = if n == 0 {
                     vec![None]
@@ -451,7 +547,7 @@ impl App {
                         let s = r.path().display().to_string();
                         match r {
                             LsRow::Error { error, .. } => (s, true, error.clone()),
-                            _ => (s, false, String::new()),
+                            LsRow::Info { .. } | LsRow::Loading { .. } => (s, false, String::new()),
                         }
                     })
                     .unwrap_or_default();
@@ -558,9 +654,10 @@ impl App {
     pub(crate) fn handle_escape(&mut self) -> bool {
         match self.mode {
             ViewMode::FileBrowser | ViewMode::MbtilesMap => true,
-            ViewMode::LayerOverview if self.files.is_empty() => true,
+            ViewMode::LayerOverview if self.file_browser_base.is_none() => true,
             ViewMode::LayerOverview => {
                 self.mode = ViewMode::FileBrowser;
+                self.hovered = None;
                 self.invalidate_bounds();
                 false
             }
@@ -584,8 +681,9 @@ impl App {
                 .position(|t| matches!(t, TreeItem::Layer(l) if *l == layer)),
             TreeItem::Layer(_) => Some(0),
             TreeItem::All => {
-                if !self.files.is_empty() {
+                if self.file_browser_base.is_some() {
                     self.mode = ViewMode::FileBrowser;
+                    self.hovered = None;
                 }
                 return;
             }
@@ -636,9 +734,7 @@ impl App {
 
     pub(crate) fn rebuild_filtered_files(&mut self) {
         let prev = self.selected_file_real_index();
-        let has_filters = !self.ext_filters.is_empty()
-            || !self.geom_filters.is_empty()
-            || !self.algo_filters.is_empty();
+        let has_filters = self.has_filters();
         self.filtered_file_indices = (0..self.files.len())
             .filter(|&i| {
                 if !has_filters {
@@ -665,7 +761,7 @@ impl App {
                                 .iter()
                                 .all(|a| info.algorithms.contains(a))
                     }
-                    _ => true,
+                    LsRow::Error { .. } | LsRow::Loading { .. } => true,
                 }
             })
             .collect();
@@ -699,11 +795,11 @@ impl App {
         };
 
         let geoms: Vec<&Geometry<i32>> = match sel {
-            TreeItem::All => self.fc.features.iter().map(|f| &f.geometry).collect(),
+            TreeItem::All => self.tile.fc.features.iter().map(|f| &f.geometry).collect(),
             TreeItem::Layer(l) => self.layer_groups[*l]
                 .feature_indices
                 .iter()
-                .map(|&gi| &self.fc.features[gi].geometry)
+                .map(|&gi| &self.tile.fc.features[gi].geometry)
                 .collect(),
             TreeItem::Feature { layer, feat } | TreeItem::SubFeature { layer, feat, .. } => {
                 vec![&self.feature(*layer, *feat).geometry]
@@ -724,6 +820,8 @@ impl App {
         (x0 - px, y0 - py, x1 + px, y1 + py)
     }
 
+    /// Resolve the nearest geometry into the hover target for the current level.
+    /// Geometries outside the current level are ignored.
     pub(crate) fn find_hovered_feature(&mut self, cx: f64, cy: f64, bounds: (f64, f64, f64, f64)) {
         let sel = self.selected_item().clone();
         let threshold = (bounds.2 - bounds.0).max(bounds.3 - bounds.1) * 0.02;
@@ -753,44 +851,36 @@ impl App {
             None
         };
 
-        self.hovered = best.and_then(|(_, l, f, p)| {
-            self.find_tree_idx_for_feature(l, f, p)
-                .map(|idx| HoveredInfo::new(idx, l, f, p))
+        self.hovered = best.map(|(_, layer, feat, part)| {
+            let item = match sel {
+                TreeItem::All => TreeItem::Layer(layer),
+                TreeItem::Layer(_) => TreeItem::Feature { layer, feat },
+                TreeItem::Feature { .. } | TreeItem::SubFeature { .. } => match part {
+                    Some(part) => TreeItem::SubFeature { layer, feat, part },
+                    None => TreeItem::Feature { layer, feat },
+                },
+            };
+            HoveredInfo {
+                tree_idx: self.find_tree_idx(&item),
+                item,
+            }
         });
     }
 
-    fn find_tree_idx_for_feature(
-        &self,
-        layer: usize,
-        feat: usize,
-        part: Option<usize>,
-    ) -> Option<usize> {
-        for (idx, item) in self.tree_items.iter().enumerate() {
-            match item {
-                TreeItem::Layer(li)
-                    if *li == layer
-                        && !self.expanded_layers.get(layer).copied().unwrap_or(false) =>
-                {
-                    return Some(idx);
-                }
-                TreeItem::Feature { layer: l, feat: f }
-                    if *l == layer
-                        && *f == feat
-                        && (part.is_none() || !self.expanded_features.contains(&(layer, feat))) =>
-                {
-                    return Some(idx);
-                }
-                TreeItem::SubFeature {
-                    layer: l,
-                    feat: f,
-                    part: p,
-                } if *l == layer && *f == feat && part == Some(*p) => {
-                    return Some(idx);
-                }
-                _ => {}
+    /// Row of `item` in the tree, or of its closest ancestor when its parent is collapsed.
+    pub(crate) fn find_tree_idx(&self, item: &TreeItem) -> Option<usize> {
+        let mut candidates = vec![item.clone()];
+        match *item {
+            TreeItem::SubFeature { layer, feat, .. } => {
+                candidates.push(TreeItem::Feature { layer, feat });
+                candidates.push(TreeItem::Layer(layer));
             }
+            TreeItem::Feature { layer, .. } => candidates.push(TreeItem::Layer(layer)),
+            TreeItem::All | TreeItem::Layer(_) => {}
         }
-        None
+        candidates
+            .iter()
+            .find_map(|c| self.tree_items.iter().position(|t| t == c))
     }
 
     fn ensure_layer_expanded(&mut self, layer: usize) {
@@ -814,7 +904,15 @@ impl App {
                 self.expanded_features.insert((layer, f));
                 self.build_tree_items();
             }
-            if let Some(idx) = self.find_tree_idx_for_feature(layer, f, part) {
+            let item = match part {
+                Some(part) => TreeItem::SubFeature {
+                    layer,
+                    feat: f,
+                    part,
+                },
+                None => TreeItem::Feature { layer, feat: f },
+            };
+            if let Some(idx) = self.find_tree_idx(&item) {
                 self.selected_index = idx;
                 self.scroll_selected_into_view(inner);
             }
@@ -839,6 +937,7 @@ impl App {
         }
     }
 
+    /// A click on a tree row drills one level down from the current selection.
     pub(crate) fn handle_feature_click(
         &mut self,
         layer: usize,
@@ -851,7 +950,23 @@ impl App {
             TreeItem::Layer(_) => {
                 self.select_and_scroll(layer, Some(feat), None, tree_height);
             }
-            _ => self.select_and_scroll(layer, Some(feat), part, tree_height),
+            TreeItem::Feature { .. } | TreeItem::SubFeature { .. } => {
+                self.select_and_scroll(layer, Some(feat), part, tree_height);
+            }
+        }
+    }
+
+    /// A click on the map selects whatever the hover already resolved to.
+    pub(crate) fn handle_map_click(&mut self, item: &TreeItem, tree_height: u16) {
+        match *item {
+            TreeItem::All => {}
+            TreeItem::Layer(layer) => self.select_and_scroll(layer, None, None, tree_height),
+            TreeItem::Feature { layer, feat } => {
+                self.select_and_scroll(layer, Some(feat), None, tree_height);
+            }
+            TreeItem::SubFeature { layer, feat, part } => {
+                self.select_and_scroll(layer, Some(feat), Some(part), tree_height);
+            }
         }
     }
 }
@@ -859,7 +974,7 @@ impl App {
 fn error_size(row: &LsRow) -> usize {
     match row {
         LsRow::Error { size: Some(s), .. } => *s,
-        _ => 0,
+        LsRow::Error { size: None, .. } | LsRow::Info { .. } | LsRow::Loading { .. } => 0,
     }
 }
 
@@ -882,7 +997,10 @@ fn file_cmp(a: &LsRow, b: &LsRow, col: FileSortColumn, asc: bool) -> std::cmp::O
         (_, LsRow::Info { .. }) => Ordering::Greater,
         (LsRow::Error { .. }, LsRow::Error { .. }) => match col {
             FileSortColumn::Size => error_size(a).cmp(&error_size(b)),
-            _ => a.path().cmp(b.path()),
+            FileSortColumn::File
+            | FileSortColumn::EncPct
+            | FileSortColumn::Layers
+            | FileSortColumn::Features => a.path().cmp(b.path()),
         },
         _ => a.path().cmp(b.path()),
     };
@@ -924,5 +1042,27 @@ fn geometry_vertices(geom: &Geometry<i32>, part: Option<usize>) -> Vec<[f64; 2]>
             mpoly.0.get(p).map(poly_verts).unwrap_or_default()
         }
         _ => Vec::new(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    impl App {
+        /// Block until the scan has delivered every file.
+        pub(crate) fn finish_scan(&mut self) {
+            while self.scan_rx.is_some() {
+                let received = self.scan_rx.as_ref().map(mpsc::Receiver::recv);
+                if let Some(Ok(ev)) = received {
+                    self.apply_scan_event(ev);
+                } else {
+                    self.scan_done = true;
+                    self.pending_analysis = 0;
+                }
+                self.settle_scan();
+            }
+            self.rebuild_filtered_files();
+        }
     }
 }

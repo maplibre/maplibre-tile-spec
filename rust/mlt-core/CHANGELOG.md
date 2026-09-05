@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.8](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.7...rust-mlt-core-v0.12.8) - 2026-09-04
+
+### Added
+
+- *(rust)* `mlt convert --bbox` to convert only part of an archive ([#1620](https://github.com/maplibre/maplibre-tile-spec/pull/1620))
+
+### Fixed
+
+- *(rust)* reject malformed FSST data instead of panicking ([#1621](https://github.com/maplibre/maplibre-tile-spec/pull/1621))
+
+### Other
+
+- *(rust)* enable clippy::wildcard_enum_match_arm ([#1610](https://github.com/maplibre/maplibre-tile-spec/pull/1610))
+- *(rust)* generate every property column kind in the fuzz generator ([#1608](https://github.com/maplibre/maplibre-tile-spec/pull/1608))
+- remove the never-implemented Pseudodecimal encoding ([#1605](https://github.com/maplibre/maplibre-tile-spec/pull/1605))
+- *(rust)* decode boolean streams as packed bits instead of `Vec<bool>` ([#1596](https://github.com/maplibre/maplibre-tile-spec/pull/1596))
+
+## [0.12.7](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.6...rust-mlt-core-v0.12.7) - 2026-08-31
+
+### Added
+
+- *(rust)* implement basic header and metadata format ([#1571](https://github.com/maplibre/maplibre-tile-spec/pull/1571))
+- *(rust)* inital v2 plumbing ([#1570](https://github.com/maplibre/maplibre-tile-spec/pull/1570))
+
+### Fixed
+
+- *(java)* move the Java nested-property fixtures to 0x02-java ([#1582](https://github.com/maplibre/maplibre-tile-spec/pull/1582))
+
+### Other
+
+- *(rust)* share one encode/decode helper across the fuzz targets ([#1588](https://github.com/maplibre/maplibre-tile-spec/pull/1588))
+- *(rust)* make RleMeta an enum over the RLE stream layout ([#1587](https://github.com/maplibre/maplibre-tile-spec/pull/1587))
+- *(rust)* express wire enum discriminants as their bit patterns ([#1586](https://github.com/maplibre/maplibre-tile-spec/pull/1586))
+- *(rust)* split the geometry encoder into encode01 and streams ([#1580](https://github.com/maplibre/maplibre-tile-spec/pull/1580))
+- *(rust)* extract the v1 layer encoder into encoder::encode01 ([#1579](https://github.com/maplibre/maplibre-tile-spec/pull/1579))
+- *(rust)* move the public tile model out of decoder into crate::tile ([#1578](https://github.com/maplibre/maplibre-tile-spec/pull/1578))
+- *(rust)* split decoder::root into limits and root01 ([#1577](https://github.com/maplibre/maplibre-tile-spec/pull/1577))
+
 ## [0.12.6](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.5...rust-mlt-core-v0.12.6) - 2026-08-21
 
 ### Other

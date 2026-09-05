@@ -3,7 +3,7 @@ use std::collections::HashSet;
 
 use derive_debug::Dbg;
 
-use crate::decoder::{DictionaryType, GeometryValues, StreamType};
+use crate::decoder::{DictionaryType, GeometryValues, RleLayout, StreamType};
 use crate::encoder::geometry::VertexBufferType;
 use crate::encoder::{IntEncoder, StagedId, StagedProperty};
 use crate::tile::Extent;
@@ -116,24 +116,17 @@ impl StagedLayer {
                         actual,
                     });
                 }
-                match property {
-                    StagedProperty::SharedDict(sd) => {
-                        for item in &sd.items {
-                            if !seen.insert(Cow::Owned(format!("{}{}", sd.prefix, item.suffix))) {
-                                return Err(MltError::DuplicatePropertyName(format!(
-                                    "{}{}",
-                                    sd.prefix, item.suffix
-                                )));
-                            }
+                if let StagedProperty::SharedDict(sd) = property {
+                    for item in &sd.items {
+                        if !seen.insert(Cow::Owned(format!("{}{}", sd.prefix, item.suffix))) {
+                            return Err(MltError::DuplicatePropertyName(format!(
+                                "{}{}",
+                                sd.prefix, item.suffix
+                            )));
                         }
                     }
-                    _ => {
-                        if !seen.insert(Cow::Borrowed(property.name())) {
-                            return Err(MltError::DuplicatePropertyName(
-                                property.name().to_string(),
-                            ));
-                        }
-                    }
+                } else if !seen.insert(Cow::Borrowed(property.name())) {
+                    return Err(MltError::DuplicatePropertyName(property.name().to_string()));
                 }
             }
         }
@@ -174,6 +167,7 @@ impl StagedLayer {
 
 /// Which wire format layers are encoded to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum WireVersion {
     /// Tag `0x01` - the stable v1 format.
     #[default]
@@ -195,6 +189,16 @@ impl WireVersion {
             Self::V01 => 1,
             #[cfg(feature = "unstable-v2")]
             Self::V02 => 2,
+        }
+    }
+
+    /// The RLE stream data layout used by this format.
+    #[must_use]
+    pub(crate) fn rle_layout(self) -> RleLayout {
+        match self {
+            Self::V01 => RleLayout::Split,
+            #[cfg(feature = "unstable-v2")]
+            Self::V02 => RleLayout::Interleaved,
         }
     }
 }
@@ -269,12 +273,11 @@ impl EncoderConfig {
         self.allow_fsst
     }
 
-    /// Whether the `FastPFor` physical encoding may compete for streams.
-    // TODO(v2): race FastPFor128-LE for `WireVersion::V02`.
-    // v2 will use `FastPFor128` in little-endian byte order.
-    // Until that codec lands, `FastPFor` is only attempted for v1 layers.
     #[must_use]
     pub fn allow_fastpfor(self) -> bool {
+        // TODO(v2): race FastPFor128-LE for `WireVersion::V02`.
+        // v2 will use `FastPFor128` in little-endian byte order.
+        // Until that codec lands, `FastPFor` is only attempted for v1 layers.
         self.allow_fastpfor && self.wire_version == WireVersion::V01
     }
 

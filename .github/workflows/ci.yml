@@ -6,6 +6,10 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   changes:
     runs-on: ubuntu-latest
@@ -14,6 +18,8 @@ jobs:
       java: ${{ steps.filter.outputs.java }}
       ts: ${{ steps.filter.outputs.ts }}
       cpp: ${{ steps.filter.outputs.cpp }}
+      docs: ${{ steps.filter.outputs.docs }}
+      run-heavy: ${{ github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
@@ -44,6 +50,11 @@ jobs:
               - '.github/**'
               - 'cpp/**'
               - 'test/**'
+            docs:
+              - 'justfile'
+              - '.github/**'
+              - 'docs/**'
+              - 'mkdocs.yml'
 
   rust:
     needs: changes
@@ -51,32 +62,39 @@ jobs:
     uses: ./.github/workflows/rust.yml
     with:
       run-release: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      run-heavy: ${{ needs.changes.outputs.run-heavy == 'true' }}
     secrets: inherit
-    permissions: { contents: write, id-token: write }
+    permissions: { contents: write, id-token: write, code-quality: write, pull-requests: read }
 
   java:
     needs: changes
     if: needs.changes.outputs.java == 'true'
     uses: ./.github/workflows/java.yml
     permissions:
-      id-token: write
       contents: read
+      code-quality: write
+      pull-requests: read
 
   ts:
     needs: changes
     if: needs.changes.outputs.ts == 'true'
     uses: ./.github/workflows/ts.yml
-    permissions: { contents: read }
+    permissions: { contents: read, code-quality: write, pull-requests: read }
 
   cpp:
     needs: changes
     if: needs.changes.outputs.cpp == 'true'
     uses: ./.github/workflows/cpp.yml
+    with:
+      run-heavy: ${{ needs.changes.outputs.run-heavy == 'true' }}
     permissions:
-      id-token: write
       contents: read
+      code-quality: write
+      pull-requests: read
 
   docs:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
     uses: ./.github/workflows/gh-pages.yml
     permissions: { contents: write }
 
