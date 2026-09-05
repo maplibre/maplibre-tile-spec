@@ -1289,6 +1289,19 @@ fn generate_float_codecs(w: &mut SynthWriter) {
 
     float_codec_fixtures!("f32", f32, P::f32, P::opt_f32);
     float_codec_fixtures!("f64", f64, P::f64, P::opt_f64);
+
+    // Long enough for FastPFOR to beat varint, and far enough from zero that only the
+    // frame of reference keeps the offsets narrow. The short fixtures above reach neither.
+    let elevations: Vec<f64> = (0..300)
+        .map(|i| 52_500_000.0 + f64::from(i % 97) * 0.25)
+        .collect();
+    points(300)
+        .add_prop_float(e, FloatEncoding::Alp, P::f64("val", elevations))
+        .write_per_version(
+            w,
+            "prop_f64_offset_decimals_np-rust",
+            "prop_f64_alp_offset_np",
+        );
 }
 
 fn generate_props_str(w: &mut SynthWriter) {
