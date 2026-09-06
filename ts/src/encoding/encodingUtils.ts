@@ -51,11 +51,7 @@ export function encodeBooleanRle(values: boolean[]): Uint8Array {
         }
     }
 
-    const result = new Uint8Array(1 + numBytes);
-    result[0] = 256 - numBytes;
-    result.set(packed, 1);
-
-    return result;
+    return encodeByteRle(packed);
 }
 
 export function encodeByteRle(values: Uint8Array): Uint8Array {
@@ -66,13 +62,13 @@ export function encodeByteRle(values: Uint8Array): Uint8Array {
         const currentByte = values[i];
         let runLength = 1;
 
-        while (i + runLength < values.length && values[i + runLength] === currentByte && runLength < 131) {
+        while (i + runLength < values.length && values[i + runLength] === currentByte && runLength < 130) {
             runLength++;
         }
 
         if (runLength >= 3) {
             const header = runLength - 3;
-            result.push(Math.min(header, 0x7f));
+            result.push(header);
             result.push(currentByte);
             i += runLength;
         } else {
