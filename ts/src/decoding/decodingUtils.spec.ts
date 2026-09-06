@@ -140,6 +140,16 @@ describe("decodingUtils", () => {
             // All 8 bits should be set in the first byte
             expect(result[0]).toBe(0xff);
         });
+
+        it("should round trip more booleans than one literal run can hold", () => {
+            // 1032 booleans pack into 129 bytes, one more than a literal run can carry
+            const data = Array.from({ length: 1032 }, (_, i) => i % 3 === 0);
+            const encoded = encodeBooleanRle(data);
+            const offset = new IntWrapper(0);
+            const bits = new BitVector(decodeBooleanRle(encoded, data.length, encoded.length, offset), data.length);
+
+            expect(data.map((_, i) => bits.get(i))).toEqual(data);
+        });
     });
 
     describe("decodeByteRle", () => {
@@ -199,6 +209,16 @@ describe("decodingUtils", () => {
             const encoded = encodeByteRle(data);
             const offset = new IntWrapper(0);
             const result = decodeByteRle(encoded, 130, encoded.length, offset);
+
+            expect(result).toEqual(data);
+        });
+
+        it("should handle 130 run max", () => {
+            // A run of 131 identical bytes needs a 130 byte run plus a literal
+            const data = new Uint8Array(131).fill(7);
+            const encoded = encodeByteRle(data);
+            const offset = new IntWrapper(0);
+            const result = decodeByteRle(encoded, 131, encoded.length, offset);
 
             expect(result).toEqual(data);
         });
