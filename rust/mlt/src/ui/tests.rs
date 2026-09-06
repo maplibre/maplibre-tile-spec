@@ -369,20 +369,20 @@ fn help_overlay_lists_the_layer_overview_keys() {
     "│                  │  -                   Collapse (or jump to parent)          █   ⢸        ⡇     │"
     "│                  │  *                   Expand/collapse all layers            ║   ⢸        ⡇     │"
     "│                  │  Left                Jump to parent node                   ║   ⢸        ⡇     │"
-    "└◄██████████═══════│  Shift+Left/Right    Scroll the tree sideways              ║   ⢸        ⡇     │"
-    "┌Properties (all la│  Ctrl+h / Ctrl+l     Resize left/right split               ║⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
-    "│Layers: 3         │  Shift+J / Shift+K   Resize top/bottom split               ║   ⢸        ⡇     │"
-    "│Features: 6       │                                                            ║   ⢸        ⡇     │"
-    "│water: 2 features │Mouse                                                       ║   ⢸        ⡇     │"
-    "│roads: 2 features │  Click tree item     Select (drill into level)             ║   ⢸        ⡇     │"
-    "│poi: 2 features   │  Double-click        Expand/collapse                       ║   ⢸        ⡇     │"
-    "│                  │  Hover tree/map      Highlight the layer, feature, or part ║   ⢸        ⡇     │"
-    "└──────────────────│                      at the current level                  ║   ⢸        ⡇     │"
-    "┌Geometry (all laye│  Click on map        Select the hovered item               ║⠤⠤⠤⠼        ⡇     │"
-    "│Vertices: 29      │  Scroll panels       Scroll tree/properties/geometry       ║            ⡇     │"
-    "│Point: 1          │  Scroll sideways     Scroll the tree horizontally          ║            ⡇     │"
-    "│LineString: 1     │  Drag dividers       Resize panels                         ║⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│Polygon: 1        │                                                            ▼                  │"
+    "└◄██████████═══════│  <  >                Scroll the tree sideways              ║   ⢸        ⡇     │"
+    "┌Properties (all la│  Shift+Left/Right    Scroll the tree sideways              ║⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
+    "│Layers: 3         │  Ctrl+h / Ctrl+l     Resize left/right split               ║   ⢸        ⡇     │"
+    "│Features: 6       │  Shift+J / Shift+K   Resize top/bottom split               ║   ⢸        ⡇     │"
+    "│water: 2 features │                                                            ║   ⢸        ⡇     │"
+    "│roads: 2 features │Mouse                                                       ║   ⢸        ⡇     │"
+    "│poi: 2 features   │  Click tree item     Select (drill into level)             ║   ⢸        ⡇     │"
+    "│                  │  Double-click        Expand/collapse                       ║   ⢸        ⡇     │"
+    "└──────────────────│  Hover tree/map      Highlight the layer, feature, or part ║   ⢸        ⡇     │"
+    "┌Geometry (all laye│                      at the current level                  ║⠤⠤⠤⠼        ⡇     │"
+    "│Vertices: 29      │  Click on map        Select the hovered item               ║            ⡇     │"
+    "│Point: 1          │  Scroll panels       Scroll tree/properties/geometry       ║            ⡇     │"
+    "│LineString: 1     │  Scroll sideways     Scroll the tree horizontally          ║⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
+    "│Polygon: 1        │  Drag dividers       Resize panels                         ▼                  │"
     "│MultiPoint: 1     └────────────────────────────────────────────────────────────┘                  │"
     "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
     "#);
@@ -903,6 +903,32 @@ fn small_terminal_shows_scrollbars_and_scrolls_the_tree_sideways() {
     "│Point: 1        ││                                        │"
     "└────────────────┘└────────────────────────────────────────┘"
     "#);
+}
+
+#[test]
+fn angle_brackets_scroll_the_tree_sideways_like_shift_arrows() {
+    let mut by_shift = sample_app();
+    press(&mut by_shift, KeyCode::Char('*'));
+    let shift_right = KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT);
+    assert!(!handle_key(&mut by_shift, shift_right));
+    assert!(!handle_key(&mut by_shift, shift_right));
+    let expected = render_sized(&mut by_shift, 60, 16);
+
+    let mut by_key = sample_app();
+    press(&mut by_key, KeyCode::Char('*'));
+    press(&mut by_key, KeyCode::Char('>'));
+    press(&mut by_key, KeyCode::Char('>'));
+    assert_eq!(render_sized(&mut by_key, 60, 16), expected);
+    assert_eq!(by_key.tree_hscroll, 8);
+
+    press(&mut by_key, KeyCode::Char('<'));
+    assert_eq!(by_key.tree_hscroll, 4);
+    press(&mut by_key, KeyCode::Char('<'));
+    press(&mut by_key, KeyCode::Char('<'));
+    assert_eq!(
+        by_key.tree_hscroll, 0,
+        "sideways scroll saturates at the left edge"
+    );
 }
 
 #[test]

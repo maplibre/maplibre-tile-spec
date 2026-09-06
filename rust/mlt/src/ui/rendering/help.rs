@@ -166,6 +166,7 @@ fn help_layer_overview() -> Vec<Line<'static>> {
         key("-", "Collapse (or jump to parent)"),
         key("*", "Expand/collapse all layers"),
         key("Left", "Jump to parent node"),
+        key("<  >", "Scroll the tree sideways"),
         key("Shift+Left/Right", "Scroll the tree sideways"),
         key("Ctrl+h / Ctrl+l", "Resize left/right split"),
         key("Shift+J / Shift+K", "Resize top/bottom split"),
