@@ -106,9 +106,13 @@ impl Codecs {
         if let Some(str_enc) = enc.override_str_enc(name) {
             match str_enc {
                 StrEncoding::Plain => write_str_plain(&non_null, presence, name, enc, self)?,
-                StrEncoding::Dict => write_str_dict(&non_null, presence, name, enc, self)?,
+                StrEncoding::Dict | StrEncoding::FrontDict => {
+                    write_str_dict(&non_null, presence, name, enc, self)?;
+                }
                 StrEncoding::Fsst => write_str_fsst(&non_null, presence, name, enc, self)?,
-                StrEncoding::FsstDict => write_str_fsst_dict(&non_null, presence, name, enc, self)?,
+                StrEncoding::FsstDict | StrEncoding::FsstFrontDict => {
+                    write_str_fsst_dict(&non_null, presence, name, enc, self)?;
+                }
             }
         } else {
             // Dedup once; reused by Dict and FSST+Dict alternatives.
@@ -168,15 +172,24 @@ impl Codecs {
                     let (unique, codes) = dedup_strings(&non_null)?;
                     write_str_fsst_dict02(&compress_fsst(&unique), &codes, name, enc, self)
                 }
+                StrEncoding::FrontDict => {
+                    let (unique, codes) = dedup_strings(&non_null)?;
+                    let (front, sorted_codes) = front_coded_dict(&unique, &codes)?;
+                    write_str_front_dict02(&front, &sorted_codes, name, enc, self)
+                }
+                StrEncoding::FsstFrontDict => {
+                    let (unique, codes) = dedup_strings(&non_null)?;
+                    let (front, sorted_codes) = front_coded_dict(&unique, &codes)?;
+                    let parts = suffix_parts(&front);
+                    let blob = compress_fsst_bytes(&parts, &front.suffixes);
+                    write_str_fsst_front_dict02(&front, &blob, &sorted_codes, name, enc, self)
+                }
             };
         }
 
         // Dedup once; reused by Dict and FSST+Dict alternatives.
         let (unique, codes) = dedup_strings(&non_null)?;
-        // Front coding needs the dictionary sorted, which renumbers the codes with it.
-        let (sorted, rank) = sort_dictionary(&unique)?;
-        let sorted_codes = recode(&codes, &rank);
-        let front = front_code(&sorted)?;
+        let (front, sorted_codes) = front_coded_dict(&unique, &codes)?;
         // `None` disables FSST, so only Plain and Dict compete.
         let compressor = enc.fsst_compressor(name, &unique);
         // Compute before try_alternatives borrows enc; FsstRawData is owned so the cache borrow ends here.
@@ -324,6 +337,13 @@ pub(crate) fn sort_dictionary<'a>(unique: &[&'a str]) -> MltResult<(Vec<&'a str>
     }
     let sorted = order.iter().map(|&i| unique[i.into_usize()]).collect();
     Ok((sorted, rank))
+}
+
+/// Front code `unique` sorted, with `codes` renumbered into that order.
+#[cfg(feature = "unstable-v2")]
+fn front_coded_dict(unique: &[&str], codes: &[u32]) -> MltResult<(FrontCoded, Vec<u32>)> {
+    let (sorted, rank) = sort_dictionary(unique)?;
+    Ok((front_code(&sorted)?, recode(codes, &rank)))
 }
 
 /// Renumber codes into the order [`sort_dictionary`] put their dictionary in.

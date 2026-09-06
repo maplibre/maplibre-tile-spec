@@ -55,6 +55,17 @@ enum PropConfig {
         string_lengths: IntEncoder,
         offsets: IntEncoder,
     },
+    /// String front-coded Dictionary encoding, whose lengths stream holds the prefixes then the suffixes.
+    StrFrontDict {
+        string_lengths: IntEncoder,
+        offsets: IntEncoder,
+    },
+    /// String FSST + front-coded Dictionary encoding, so FSST runs over the suffixes.
+    StrFsstFrontDict {
+        sym_lengths: IntEncoder,
+        dict_lengths: IntEncoder,
+        offsets: IntEncoder,
+    },
     /// Shared dictionary: `StrEncoding` for the corpus, per-suffix `IntEncoder` for offsets.
     SharedDict {
         dict_encoding: StrEncoding,
@@ -71,6 +82,8 @@ impl PropConfig {
             | Self::StrFsst { .. }
             | Self::StrFsstDict { .. }
             | Self::StrDict { .. }
+            | Self::StrFrontDict { .. }
+            | Self::StrFsstFrontDict { .. }
             | Self::SharedDict { .. } => FloatEncoding::None,
         }
     }
@@ -81,6 +94,8 @@ impl PropConfig {
             Self::StrFsst { .. } => StrEncoding::Fsst,
             Self::StrFsstDict { .. } => StrEncoding::FsstDict,
             Self::StrDict { .. } => StrEncoding::Dict,
+            Self::StrFrontDict { .. } => StrEncoding::FrontDict,
+            Self::StrFsstFrontDict { .. } => StrEncoding::FsstFrontDict,
             Self::SharedDict { dict_encoding, .. } => *dict_encoding,
         }
     }
@@ -103,12 +118,21 @@ impl PropConfig {
                 sym_lengths,
                 dict_lengths,
                 offsets,
+            }
+            | Self::StrFsstFrontDict {
+                sym_lengths,
+                dict_lengths,
+                offsets,
             } => match ctx.stream_type {
                 ST::Length(LT::Symbol) => *sym_lengths,
                 ST::Offset(OT::String) => *offsets,
                 ST::Present | ST::Data(_) | ST::Offset(_) | ST::Length(_) => *dict_lengths,
             },
             Self::StrDict {
+                string_lengths,
+                offsets,
+            }
+            | Self::StrFrontDict {
                 string_lengths,
                 offsets,
             } => match ctx.stream_type {
@@ -309,6 +333,44 @@ impl Layer {
             prop,
             PropConfig::StrDict {
                 string_lengths,
+                offsets,
+            },
+        ));
+        self
+    }
+
+    /// Add a front-coded Dictionary string property.
+    #[must_use]
+    pub fn add_prop_str_front_dict(
+        mut self,
+        string_lengths: IntEncoder,
+        offsets: IntEncoder,
+        prop: StagedProperty,
+    ) -> Self {
+        self.props.push((
+            prop,
+            PropConfig::StrFrontDict {
+                string_lengths,
+                offsets,
+            },
+        ));
+        self
+    }
+
+    /// Add an FSST + front-coded Dictionary string property.
+    #[must_use]
+    pub fn add_prop_str_fsst_front_dict(
+        mut self,
+        sym_lengths: IntEncoder,
+        dict_lengths: IntEncoder,
+        offsets: IntEncoder,
+        prop: StagedProperty,
+    ) -> Self {
+        self.props.push((
+            prop,
+            PropConfig::StrFsstFrontDict {
+                sym_lengths,
+                dict_lengths,
                 offsets,
             },
         ));
