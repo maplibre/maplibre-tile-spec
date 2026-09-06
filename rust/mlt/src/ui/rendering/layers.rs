@@ -115,7 +115,7 @@ pub fn render_tree_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                 .and_then(|p| p.file_name())
                 .and_then(|n| n.to_str())
                 .unwrap_or("unknown");
-            format!("{name} - Enter/+/-:expand, Esc:back, h:help, q:quit")
+            format!("{name} - h:help, q:quit, Enter/+/-:expand, Esc:back")
         }
         ViewMode::FileBrowser | ViewMode::MbtilesMap => "Features".into(),
     };
