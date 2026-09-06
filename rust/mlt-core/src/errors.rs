@@ -140,6 +140,9 @@ pub enum MltError {
         available: usize,
     },
     #[cfg(feature = "unstable-v2")]
+    #[error("front-coded dictionary leaves {0} suffix bytes after its last entry")]
+    FrontCodedTrailingSuffixBytes(usize),
+    #[cfg(feature = "unstable-v2")]
     #[error("no ALP parameters return this float column bit-for-bit")]
     NoAlpParameters,
     #[error("invalid ALP parameters: e={0}, f={1}")]
