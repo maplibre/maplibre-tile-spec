@@ -122,8 +122,23 @@ pub enum MltError {
     #[cfg(feature = "unstable-v2")]
     #[error("dictionary code {0} is out of range for a dictionary of {1} values")]
     DictionaryCodeOutOfRange(u32, usize),
-    #[error("front-coded dictionary is malformed: {0}")]
-    MalformedFrontCoding(&'static str),
+    #[cfg(feature = "unstable-v2")]
+    #[error("front-coded lengths stream holds a prefix and a suffix length per entry, so its {0} values cannot be split in two")]
+    FrontCodedOddLengthCount(usize),
+    #[cfg(feature = "unstable-v2")]
+    #[error("front-coded entry {index} shares {shared} bytes with a predecessor of only {available}")]
+    FrontCodedPrefixTooLong {
+        index: usize,
+        shared: usize,
+        available: usize,
+    },
+    #[cfg(feature = "unstable-v2")]
+    #[error("front-coded entry {index} needs {needed} suffix bytes, but {available} remain in the blob")]
+    FrontCodedSuffixOutOfBounds {
+        index: usize,
+        needed: usize,
+        available: usize,
+    },
     #[cfg(feature = "unstable-v2")]
     #[error("no ALP parameters return this float column bit-for-bit")]
     NoAlpParameters,

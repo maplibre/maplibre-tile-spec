@@ -16,8 +16,8 @@ use crate::decoder::stream::header02::{
     Family, HAS_EXPLICIT_COUNT, StrLayout, StreamCtx02, describe_encoding,
 };
 use crate::decoder::{
-    ColumnType02, DataType02, DictionaryType, GeoLayout, LayerLayout, LengthType, Presence02,
-    SharedDictKind, StreamType,
+    Column02, ColumnType02, DataType02, DictionaryType, GeoLayout, LayerLayout, LengthType,
+    Presence02, SharedDictKind, StreamType,
 };
 use crate::tile::Extent;
 use crate::utils::{parse_string, parse_u8, take};
@@ -161,14 +161,14 @@ impl<'a> Walker<'a> {
 
         let (_, typ_byte) = parse_u8(input)?;
         let shared_count = u8::try_from(shared.len())?;
-        // A shared dictionary spends its presence nibble on the corpus encoding, so it walks
-        // its own way rather than through the presence-carrying column shape below.
-        if ColumnType02::fields(typ_byte).1 == DataType02::SharedDict as u8 {
-            let input = self.walk_shared_dict02(input, ci, i, feature_count, shared)?;
-            self.close(ci, input);
-            return Ok(input);
-        }
-        let typ = ColumnType02::parse(typ_byte, shared_count)?;
+        let typ = match Column02::parse(typ_byte, shared_count)? {
+            Column02::SharedDict(kind) => {
+                let input = self.walk_shared_dict02(input, ci, i, kind, feature_count, shared)?;
+                self.close(ci, input);
+                return Ok(input);
+            }
+            Column02::Values(typ) => typ,
+        };
         let (mut input, _) = self.byte_field(
             input,
             "type",
@@ -241,12 +241,10 @@ impl<'a> Walker<'a> {
         input: &'a [u8],
         ci: usize,
         i: u32,
+        kind: SharedDictKind,
         feature_count: u32,
         shared: &[&'a BitSlice<u8, Lsb0>],
     ) -> MltResult<&'a [u8]> {
-        let (_, typ_byte) = parse_u8(input)?;
-        let kind = SharedDictKind::parse(ColumnType02::fields(typ_byte).0)
-            .ok_or(MltError::ParsingColumnType(typ_byte))?;
         let (mut input, _) = self.byte_field(
             input,
             "type",
@@ -564,7 +562,7 @@ fn hint_for(typ: DataType02) -> DecodeHint {
         D::LongId | D::U64 => DecodeHint::U64,
         D::F32 => DecodeHint::F32,
         D::F64 => DecodeHint::F64,
-        D::Str | D::SharedDict => DecodeHint::Bytes,
+        D::Str => DecodeHint::Bytes,
     }
 }
 

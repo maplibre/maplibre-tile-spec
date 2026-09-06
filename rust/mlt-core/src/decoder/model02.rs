@@ -27,7 +27,6 @@ pub(crate) enum DataType02 {
     F32 = 0x09,
     F64 = 0x0A,
     Str = 0x0B,
-    SharedDict = 0x0F,
 }
 
 impl DataType02 {
@@ -42,8 +41,7 @@ impl DataType02 {
 /// How a shared dictionary stores its corpus, read from the high nibble of its column type byte.
 ///
 /// A shared-dictionary column has no values of its own, so the nibble that names
-/// [`Presence02`] elsewhere is free to name the corpus encoding here.
-/// Front coding is named by the corpus blob's own encoding byte, as it is for a lone string column.
+/// [`Presence02`] elsewhere names the corpus encoding here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub(crate) enum SharedDictKind {
@@ -161,16 +159,10 @@ impl ColumnType02 {
     /// `shared_count` is [`LayerLayout::shared_presence`] of the enclosing layer,
     /// so a column pointing past the last shared bitfield is rejected here rather
     /// than resolved to a missing one later.
-    ///
-    /// [`DataType02::SharedDict`] is rejected too: its high nibble names the corpus encoding
-    /// rather than presence, so its reader takes it before the byte reaches here.
     pub(crate) fn parse(byte: u8, shared_count: u8) -> MltResult<Self> {
         let err = || MltError::ParsingColumnType(byte);
         let (presence, data) = Self::fields(byte);
         let data = DataType02::try_from(data).map_err(|_| err())?;
-        if data == DataType02::SharedDict {
-            return Err(err());
-        }
         let presence = Presence02::parse(presence, shared_count).ok_or_else(err)?;
         Ok(Self { presence, data })
     }
@@ -178,6 +170,36 @@ impl ColumnType02 {
     #[must_use]
     pub(crate) fn to_byte(self) -> u8 {
         self.presence.to_nibble() | self.data as u8
+    }
+}
+
+/// A v2 column type byte, read as whichever of the two column shapes its data type nibble names.
+///
+/// The two shapes read the high nibble differently, so nothing but this split can name it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Column02 {
+    /// A column of values: [`Presence02`] in the high nibble, [`DataType02`] in the low.
+    Values(ColumnType02),
+    /// A shared dictionary and the columns indexing it: [`SharedDictKind`] in the high nibble.
+    SharedDict(SharedDictKind),
+}
+
+impl Column02 {
+    /// Data type nibble of [`Self::SharedDict`], the one value no [`DataType02`] takes.
+    pub(crate) const SHARED_DICT: u8 = 0x0F;
+
+    /// Read a wire byte in the terms of the shape its data type nibble names.
+    ///
+    /// `shared_count` is [`LayerLayout::shared_presence`] of the enclosing layer.
+    pub(crate) fn parse(byte: u8, shared_count: u8) -> MltResult<Self> {
+        let err = || MltError::ParsingColumnType(byte);
+        let (high, data) = ColumnType02::fields(byte);
+        if data == Self::SHARED_DICT {
+            return SharedDictKind::parse(high)
+                .map(Self::SharedDict)
+                .ok_or_else(err);
+        }
+        ColumnType02::parse(byte, shared_count).map(Self::Values)
     }
 }
 
@@ -403,7 +425,26 @@ mod tests {
     }
 
     #[rstest]
-    #[case::shared_dict_is_read_before_this(0b0000_1111, ALL_SHARED)]
+    #[case::values(
+        0b0001_0101,
+        Column02::Values(ColumnType02::new(Presence02::Inline, DataType02::I32))
+    )]
+    #[case::plain_shared_dict(0b0000_1111, Column02::SharedDict(SharedDictKind::Plain))]
+    #[case::fsst_shared_dict(0b0001_1111, Column02::SharedDict(SharedDictKind::Fsst))]
+    fn column_byte_names_the_shape_it_holds(#[case] byte: u8, #[case] column: Column02) {
+        assert_eq!(Column02::parse(byte, ALL_SHARED).unwrap(), column);
+    }
+
+    #[rstest]
+    #[case::reserved_shared_dict_corpus(0b0010_1111)]
+    #[case::unassigned_data_type(0b0000_1100)]
+    fn column_byte_rejects_unassigned(#[case] byte: u8) {
+        let err = Column02::parse(byte, ALL_SHARED).unwrap_err();
+        assert!(matches!(err, MltError::ParsingColumnType(b) if b == byte));
+    }
+
+    #[rstest]
+    #[case::shared_dict_is_not_a_data_type(0b0000_1111, ALL_SHARED)]
     #[case::unassigned_data_type(0b0000_1100, ALL_SHARED)]
     #[case::reserved_presence(0b1001_0101, ALL_SHARED)]
     #[case::reserved_presence_top(0b1111_0101, ALL_SHARED)]

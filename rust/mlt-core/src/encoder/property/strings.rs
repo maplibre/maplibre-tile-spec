@@ -9,11 +9,13 @@ use crate::codecs::front_coding::{FrontCoded, front_code};
 #[cfg(feature = "unstable-v2")]
 use crate::codecs::fsst::{FsstBlob, compress_fsst_bytes};
 use crate::codecs::fsst::{FsstRawData, compress_fsst, compress_fsst_with};
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::DictLayout;
 use crate::decoder::stream::header01;
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::stream::header02;
 #[cfg(feature = "unstable-v2")]
-use crate::decoder::stream::header02::{BlobLayout, Family, StrLayout, StreamCtx02};
+use crate::decoder::stream::header02::{Family, StrLayout, StreamCtx02};
 use crate::decoder::strings::{checked_string_end, encode_null_end};
 use crate::decoder::{DictionaryType, LengthType, OffsetType, StreamMeta, StreamType, ValueKind};
 use crate::encoder::model::{StrEncoding, StreamCtx};
@@ -172,7 +174,8 @@ impl Codecs {
         // Dedup once; reused by Dict and FSST+Dict alternatives.
         let (unique, codes) = dedup_strings(&non_null)?;
         // Front coding needs the dictionary sorted, which renumbers the codes with it.
-        let (sorted, sorted_codes) = sort_dictionary(&unique, &codes)?;
+        let (sorted, rank) = sort_dictionary(&unique)?;
+        let sorted_codes = recode(&codes, &rank);
         let front = front_code(&sorted)?;
         // `None` disables FSST, so only Plain and Dict compete.
         let compressor = enc.fsst_compressor(name, &unique);
@@ -180,7 +183,7 @@ impl Codecs {
         let plain_fsst = compressor.map(|c| compress_fsst_with(&non_null, c));
         let dict_fsst = compressor.map(|c| compress_fsst_with(&unique, c));
         // FSST over the suffixes is trained on them, since they are not the corpus `unique` is.
-        let front_fsst = compressor.map(|_| {
+        let front_fsst = enc.config().allow_fsst().then(|| {
             let parts = suffix_parts(&front);
             compress_fsst_bytes(&parts, &front.suffixes)
         });
@@ -222,7 +225,7 @@ fn write_str_leading02(
 
 /// Write already-encoded bytes as a v2 blob, whose byte length is also its value count.
 #[cfg(feature = "unstable-v2")]
-pub(crate) fn write_blob02(bytes: &[u8], layout: BlobLayout, enc: &mut Encoder) -> MltResult<()> {
+pub(crate) fn write_blob02(bytes: &[u8], layout: DictLayout, enc: &mut Encoder) -> MltResult<()> {
     header02::write_blob_meta(enc.data_mut(), layout, u32::try_from(bytes.len())?)?;
     enc.data_mut().extend_from_slice(bytes);
     Ok(())
@@ -232,7 +235,7 @@ pub(crate) fn write_blob02(bytes: &[u8], layout: BlobLayout, enc: &mut Encoder) 
 #[cfg(feature = "unstable-v2")]
 fn write_str_blob02(strings: &[&str], enc: &mut Encoder) -> MltResult<()> {
     let total: usize = strings.iter().map(|s| s.len()).sum();
-    header02::write_blob_meta(enc.data_mut(), BlobLayout::Plain, u32::try_from(total)?)?;
+    header02::write_blob_meta(enc.data_mut(), DictLayout::Plain, u32::try_from(total)?)?;
     let data = enc.data_mut();
     data.reserve(total);
     for s in strings {
@@ -290,15 +293,7 @@ fn write_str_fsst02(
     codecs: &mut Codecs,
 ) -> MltResult<()> {
     write_str_leading02(&raw.value_lengths, StrLayout::Fsst, name, enc, codecs)?;
-    write_fsst_tail02(
-        &raw.symbol_lengths,
-        &raw.symbol_bytes,
-        &raw.corpus,
-        BlobLayout::Plain,
-        name,
-        enc,
-        codecs,
-    )
+    write_fsst_tail02(&raw.blob, DictLayout::Plain, name, enc, codecs)
 }
 
 /// [`StrLayout::FsstDict`]: one code per value, then the distinct values' lengths, symbol table and corpus.
@@ -313,26 +308,14 @@ fn write_str_fsst_dict02(
     write_str_leading02(offset_indices, StrLayout::FsstDict, name, enc, codecs)?;
     let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), name);
     codecs.write_int_stream(&raw.value_lengths, &ctx, enc)?;
-    write_fsst_tail02(
-        &raw.symbol_lengths,
-        &raw.symbol_bytes,
-        &raw.corpus,
-        BlobLayout::Plain,
-        name,
-        enc,
-        codecs,
-    )
+    write_fsst_tail02(&raw.blob, DictLayout::Plain, name, enc, codecs)
 }
 
-/// Reorder a dictionary lexicographically, remapping the codes that index it.
+/// A dictionary in lexicographic order, beside the new code each of its old codes becomes.
 ///
 /// Front coding only pays when neighbours share prefixes, which sorting is what arranges.
-/// Equal values stay equal codes, so RLE over the codes is unaffected; their order is not.
 #[cfg(feature = "unstable-v2")]
-pub(crate) fn sort_dictionary<'a>(
-    unique: &[&'a str],
-    codes: &[u32],
-) -> MltResult<(Vec<&'a str>, Vec<u32>)> {
+pub(crate) fn sort_dictionary<'a>(unique: &[&'a str]) -> MltResult<(Vec<&'a str>, Vec<u32>)> {
     let mut order: Vec<u32> = (0..u32::try_from(unique.len())?).collect();
     order.sort_unstable_by_key(|&i| unique[i.into_usize()]);
     let mut rank = vec![0_u32; unique.len()];
@@ -340,8 +323,13 @@ pub(crate) fn sort_dictionary<'a>(
         rank[old.into_usize()] = u32::try_from(new)?;
     }
     let sorted = order.iter().map(|&i| unique[i.into_usize()]).collect();
-    let recoded = codes.iter().map(|&c| rank[c.into_usize()]).collect();
-    Ok((sorted, recoded))
+    Ok((sorted, rank))
+}
+
+/// Renumber codes into the order [`sort_dictionary`] put their dictionary in.
+#[cfg(feature = "unstable-v2")]
+pub(crate) fn recode(codes: &[u32], rank: &[u32]) -> Vec<u32> {
+    codes.iter().map(|&c| rank[c.into_usize()]).collect()
 }
 
 /// The suffixes as one slice per entry, which is what FSST trains its symbols on.
@@ -381,7 +369,7 @@ fn write_str_front_dict02(
 ) -> MltResult<()> {
     write_str_leading02(offset_indices, StrLayout::Dict, name, enc, codecs)?;
     write_front_lengths02(coded, name, enc, codecs)?;
-    write_blob02(&coded.suffixes, BlobLayout::FrontCoded, enc)
+    write_blob02(&coded.suffixes, DictLayout::FrontCoded, enc)
 }
 
 /// [`StrLayout::FsstDict`] over a front-coded dictionary, so FSST runs over the suffixes.
@@ -396,32 +384,22 @@ fn write_str_fsst_front_dict02(
 ) -> MltResult<()> {
     write_str_leading02(offset_indices, StrLayout::FsstDict, name, enc, codecs)?;
     write_front_lengths02(coded, name, enc, codecs)?;
-    write_fsst_tail02(
-        &blob.symbol_lengths,
-        &blob.symbol_bytes,
-        &blob.corpus,
-        BlobLayout::FrontCoded,
-        name,
-        enc,
-        codecs,
-    )
+    write_fsst_tail02(blob, DictLayout::FrontCoded, name, enc, codecs)
 }
 
 /// The symbol lengths, symbol table and compressed corpus both v2 FSST layouts end with.
 #[cfg(feature = "unstable-v2")]
 pub(crate) fn write_fsst_tail02(
-    symbol_lengths: &[u32],
-    symbol_bytes: &[u8],
-    corpus: &[u8],
-    corpus_layout: BlobLayout,
+    blob: &FsstBlob,
+    corpus_layout: DictLayout,
     name: &str,
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
     let ctx = StreamCtx::prop(StreamType::Length(LengthType::Symbol), name);
-    codecs.write_int_stream(symbol_lengths, &ctx, enc)?;
-    write_blob02(symbol_bytes, BlobLayout::Plain, enc)?;
-    write_blob02(corpus, corpus_layout, enc)
+    codecs.write_int_stream(&blob.symbol_lengths, &ctx, enc)?;
+    write_blob02(&blob.symbol_bytes, DictLayout::Plain, enc)?;
+    write_blob02(&blob.corpus, corpus_layout, enc)
 }
 
 /// Encode with plain (`VarBinary` lengths) layout.
@@ -570,10 +548,10 @@ pub fn write_fsst_data(
     codecs: &mut Codecs,
 ) -> MltResult<()> {
     let ctx = StreamCtx::prop(StreamType::Length(LengthType::Symbol), name);
-    codecs.write_int_stream(&raw.symbol_lengths, &ctx, enc)?;
+    codecs.write_int_stream(&raw.blob.symbol_lengths, &ctx, enc)?;
     let typ = StreamType::Data(DictionaryType::Fsst);
-    let meta = StreamMeta::new_none(typ, ValueKind::Int, raw.symbol_lengths.len())?;
-    write_stream_payload(enc, meta, false, &raw.symbol_bytes)?;
+    let meta = StreamMeta::new_none(typ, ValueKind::Int, raw.blob.symbol_lengths.len())?;
+    write_stream_payload(enc, meta, false, &raw.blob.symbol_bytes)?;
     let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), name);
     codecs.write_int_stream(&raw.value_lengths, &ctx, enc)?;
     let meta = StreamMeta::new_none(
@@ -581,7 +559,7 @@ pub fn write_fsst_data(
         ValueKind::Int,
         raw.value_lengths.len(),
     )?;
-    write_stream_payload(enc, meta, false, &raw.corpus)?;
+    write_stream_payload(enc, meta, false, &raw.blob.corpus)?;
     Ok(())
 }
 

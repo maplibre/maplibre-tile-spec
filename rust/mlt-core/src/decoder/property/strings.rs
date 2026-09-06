@@ -6,7 +6,7 @@ use usize_cast::IntoUsize as _;
 
 use crate::MltError::{BufferUnderflow, DictIndexOutOfBounds};
 #[cfg(feature = "unstable-v2")]
-use crate::codecs::front_coding::front_decode;
+use crate::codecs::front_coding::{FrontLengths, front_decode};
 use crate::codecs::fsst::{decode_fsst, decode_fsst_bytes};
 use crate::decoder::{
     DictLayout, DictionaryType, LengthType, OffsetType, ParsedSharedDict, ParsedSharedDictItem,
@@ -408,7 +408,7 @@ fn rebuild_dictionary<'d, 'l>(
         DictLayout::Plain => Ok((Cow::Borrowed(str::from_utf8(data)?), Cow::Borrowed(lengths))),
         #[cfg(feature = "unstable-v2")]
         DictLayout::FrontCoded => {
-            let (entries, entry_lengths) = front_decode(lengths, data)?;
+            let (entries, entry_lengths) = front_decode(FrontLengths::split(lengths)?, data)?;
             Ok((Cow::Owned(entries), Cow::Owned(entry_lengths)))
         }
     }

@@ -2,7 +2,9 @@
 
 use usize_cast::IntoUsize as _;
 
-use crate::MltError::MalformedFrontCoding;
+use crate::MltError::{
+    FrontCodedOddLengthCount, FrontCodedPrefixTooLong, FrontCodedSuffixOutOfBounds,
+};
 use crate::MltResult;
 
 /// A sorted dictionary with each entry's prefix shared with its predecessor factored out.
@@ -23,10 +25,6 @@ pub(crate) struct FrontCoded {
 
 impl FrontCoded {
     /// The two length runs as one stream, all prefix lengths then all suffix lengths.
-    ///
-    /// One stream keeps the dictionary's stream count the same as a plain dictionary's,
-    /// which is what lets the blob's encoding byte alone name the layout.
-    /// Grouping by kind rather than interleaving keeps each run homogeneous for the integer codecs.
     pub(crate) fn to_lengths(&self) -> Vec<u32> {
         let mut lengths = Vec::with_capacity(self.prefix_lengths.len() * 2);
         lengths.extend_from_slice(&self.prefix_lengths);
@@ -38,7 +36,6 @@ impl FrontCoded {
 /// Factor out each entry's prefix shared with its predecessor.
 ///
 /// `sorted` is expected in lexicographic order, which is what makes neighbours share prefixes.
-/// Any order round-trips, only worse.
 pub(crate) fn front_code(sorted: &[&str]) -> MltResult<FrontCoded> {
     let mut coded = FrontCoded {
         prefix_lengths: Vec::with_capacity(sorted.len()),
@@ -59,38 +56,69 @@ pub(crate) fn front_code(sorted: &[&str]) -> MltResult<FrontCoded> {
     Ok(coded)
 }
 
-/// Rebuild a front-coded dictionary into its entries back to back, with each entry's byte length.
+/// The two length runs of a front-coded dictionary, split out of the one stream that carries them.
 ///
-/// `lengths` is the combined stream [`FrontCoded::to_lengths`] wrote, so its length is twice
-/// the entry count.
-pub(crate) fn front_decode(lengths: &[u32], suffixes: &[u8]) -> MltResult<(String, Vec<u32>)> {
-    if !lengths.len().is_multiple_of(2) {
-        return Err(MalformedFrontCoding(
-            "the lengths stream holds a prefix and a suffix length per entry, so it has an even count",
-        ));
-    }
-    let count = lengths.len() / 2;
-    let (prefix_lengths, suffix_lengths) = lengths.split_at(count);
+/// [`Self::split`] is the only place the stream's even count is checked, so walking the pairs
+/// cannot meet a prefix length that has no suffix length beside it.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct FrontLengths<'a> {
+    prefixes: &'a [u32],
+    suffixes: &'a [u32],
+}
 
+impl<'a> FrontLengths<'a> {
+    /// Split the combined stream [`FrontCoded::to_lengths`] wrote back into its two runs.
+    pub(crate) fn split(lengths: &'a [u32]) -> MltResult<Self> {
+        if !lengths.len().is_multiple_of(2) {
+            return Err(FrontCodedOddLengthCount(lengths.len()));
+        }
+        let (prefixes, suffixes) = lengths.split_at(lengths.len() / 2);
+        Ok(Self { prefixes, suffixes })
+    }
+
+    /// How many entries the dictionary holds.
+    fn count(self) -> usize {
+        self.prefixes.len()
+    }
+
+    /// Each entry's shared prefix length beside its suffix length.
+    fn pairs(self) -> impl Iterator<Item = (usize, usize)> + 'a {
+        self.prefixes
+            .iter()
+            .zip(self.suffixes)
+            .map(|(&prefix, &suffix)| (prefix.into_usize(), suffix.into_usize()))
+    }
+}
+
+/// Rebuild a front-coded dictionary into its entries back to back, with each entry's byte length.
+pub(crate) fn front_decode(
+    lengths: FrontLengths<'_>,
+    suffixes: &[u8],
+) -> MltResult<(String, Vec<u32>)> {
     let mut entries = Vec::with_capacity(suffixes.len());
-    let mut entry_lengths = Vec::with_capacity(count);
+    let mut entry_lengths = Vec::with_capacity(lengths.count());
     // Where the previous entry starts in `entries`, so its prefix can be copied forward.
     let mut previous_start = 0_usize;
-    let mut consumed = 0_usize;
-    for (&shared, &suffix_len) in prefix_lengths.iter().zip(suffix_lengths) {
-        let (shared, suffix_len) = (shared.into_usize(), suffix_len.into_usize());
-        if shared > entries.len() - previous_start {
-            return Err(MalformedFrontCoding(
-                "an entry shares more bytes than its predecessor has",
-            ));
+    // Shrinking the remainder rather than tracking an offset keeps the suffix cursor in bounds.
+    let mut remaining = suffixes;
+    for (index, (shared, suffix_len)) in lengths.pairs().enumerate() {
+        let available = entries.len() - previous_start;
+        if shared > available {
+            return Err(FrontCodedPrefixTooLong {
+                index,
+                shared,
+                available,
+            });
         }
-        let end = consumed
-            .checked_add(suffix_len)
-            .ok_or(MalformedFrontCoding("suffix lengths overflow"))?;
-        let suffix = suffixes.get(consumed..end).ok_or(MalformedFrontCoding(
-            "the suffixes run past the end of the blob",
-        ))?;
-        consumed = end;
+        let (suffix, rest) =
+            remaining
+                .split_at_checked(suffix_len)
+                .ok_or(FrontCodedSuffixOutOfBounds {
+                    index,
+                    needed: suffix_len,
+                    available: remaining.len(),
+                })?;
+        remaining = rest;
 
         let start = entries.len();
         entries.extend_from_within(previous_start..previous_start + shared);
@@ -112,9 +140,13 @@ mod tests {
 
     use super::*;
 
+    fn decode(lengths: &[u32], suffixes: &[u8]) -> MltResult<(String, Vec<u32>)> {
+        front_decode(FrontLengths::split(lengths)?, suffixes)
+    }
+
     fn roundtrip(entries: &[&str]) -> Vec<String> {
         let coded = front_code(entries).unwrap();
-        let (corpus, lengths) = front_decode(&coded.to_lengths(), &coded.suffixes).unwrap();
+        let (corpus, lengths) = decode(&coded.to_lengths(), &coded.suffixes).unwrap();
         let mut out = Vec::new();
         let mut at = 0_usize;
         for len in lengths {
@@ -163,17 +195,40 @@ mod tests {
     }
 
     #[test]
-    fn decode_rejects_an_odd_lengths_stream() {
-        assert!(front_decode(&[0, 1, 2], b"abc").is_err());
+    fn splitting_rejects_an_odd_lengths_stream() {
+        let err = FrontLengths::split(&[0, 1, 2]).unwrap_err();
+        assert!(matches!(err, FrontCodedOddLengthCount(3)), "{err:?}");
     }
 
     #[test]
     fn decode_rejects_a_prefix_longer_than_its_predecessor() {
-        assert!(front_decode(&[0, 9, 2, 1], b"abc").is_err());
+        let err = decode(&[0, 9, 2, 1], b"abc").unwrap_err();
+        assert!(
+            matches!(
+                err,
+                FrontCodedPrefixTooLong {
+                    index: 1,
+                    shared: 9,
+                    available: 2
+                }
+            ),
+            "{err:?}"
+        );
     }
 
     #[test]
     fn decode_rejects_a_suffix_running_past_the_blob() {
-        assert!(front_decode(&[0, 0, 2, 9], b"ab").is_err());
+        let err = decode(&[0, 0, 2, 9], b"ab").unwrap_err();
+        assert!(
+            matches!(
+                err,
+                FrontCodedSuffixOutOfBounds {
+                    index: 1,
+                    needed: 9,
+                    available: 0
+                }
+            ),
+            "{err:?}"
+        );
     }
 }
