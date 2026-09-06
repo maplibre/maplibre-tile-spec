@@ -4,6 +4,7 @@ use usize_cast::IntoUsize as _;
 
 use crate::MltError::{
     FrontCodedOddLengthCount, FrontCodedPrefixTooLong, FrontCodedSuffixOutOfBounds,
+    FrontCodedTrailingSuffixBytes,
 };
 use crate::MltResult;
 
@@ -126,6 +127,9 @@ pub(crate) fn front_decode(
         previous_start = start;
         entry_lengths.push(u32::try_from(shared + suffix_len)?);
     }
+    if !remaining.is_empty() {
+        return Err(FrontCodedTrailingSuffixBytes(remaining.len()));
+    }
     Ok((String::from_utf8(entries)?, entry_lengths))
 }
 
@@ -230,5 +234,11 @@ mod tests {
             ),
             "{err:?}"
         );
+    }
+
+    #[test]
+    fn decode_rejects_suffix_bytes_after_the_last_entry() {
+        let err = decode(&[0, 0, 2, 1], b"abcd").unwrap_err();
+        assert!(matches!(err, FrontCodedTrailingSuffixBytes(1)), "{err:?}");
     }
 }

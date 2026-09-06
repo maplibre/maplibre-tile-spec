@@ -274,6 +274,15 @@ mod tests {
         decode_fsst(parse_streams(&buffers), &mut dec()).expect("decode_fsst failed")
     }
 
+    /// A symbol table and corpus as a blob, without going through the compressor.
+    fn hand_built_blob(symbol_lengths: &[u32], symbol_bytes: &[u8], corpus: &[u8]) -> FsstBlob {
+        FsstBlob {
+            symbol_lengths: symbol_lengths.to_vec(),
+            symbol_bytes: symbol_bytes.to_vec(),
+            corpus: corpus.to_vec(),
+        }
+    }
+
     /// Decode hand-built streams that no encoder would produce.
     fn decode_malformed(
         symbol_lengths: &[u32],
@@ -281,7 +290,8 @@ mod tests {
         value_lengths: &[u32],
         corpus: &[u8],
     ) -> MltError {
-        let buffers = wire_streams(symbol_lengths, symbol_bytes, value_lengths, corpus);
+        let blob = hand_built_blob(symbol_lengths, symbol_bytes, corpus);
+        let buffers = wire_streams(&blob, value_lengths);
         decode_fsst(parse_streams(&buffers), &mut dec())
             .expect_err("expected malformed FSST data to be rejected")
     }
@@ -340,7 +350,8 @@ mod tests {
 
     #[test]
     fn escaped_byte_survives_a_valid_corpus() {
-        let buffers = wire_streams(&[2], b"ab", &[3], &[0x00, 0xFF, 0x7A]);
+        let blob = hand_built_blob(&[2], b"ab", &[0x00, 0xFF, 0x7A]);
+        let buffers = wire_streams(&blob, &[3]);
         let (corpus, lengths) = decode_fsst(parse_streams(&buffers), &mut dec())
             .expect("valid FSST data should decode");
         assert_eq!(corpus, "abz");
