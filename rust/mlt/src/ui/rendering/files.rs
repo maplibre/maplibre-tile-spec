@@ -9,6 +9,7 @@ use usize_cast::{FromUsize as _, IntoUsize as _};
 
 use crate::ls::{LsRow, NA, na, path_display, row_cells_6};
 use crate::ui::rendering::map;
+use crate::ui::rendering::scrollbar::{Scroll, render_vscrollbar, wrapped_rows};
 use crate::ui::state::App;
 use crate::ui::{
     CLR_DIMMED, CLR_HINT, CLR_HOVERED, STYLE_BOLD, STYLE_LABEL, STYLE_SELECTED, block_with_title,
@@ -78,6 +79,7 @@ pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         .iter()
         .map(|&i| Row::new(row_cells_6(&app.files[i], base).map(Cell::from)))
         .collect();
+    let row_count = rows.len();
 
     let status = app.scan_status();
     let sort_hint = if app.data_loaded() {
@@ -110,6 +112,15 @@ pub fn render_file_browser(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         .highlight_symbol(">> ")
         .highlight_spacing(HighlightSpacing::Always);
     f.render_stateful_widget(table, area, &mut app.file_list_state);
+    render_vscrollbar(
+        f,
+        area,
+        Scroll {
+            content: row_count,
+            view: app.file_table_inner_height,
+            pos: app.file_list_state.offset(),
+        },
+    );
 }
 
 pub fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
@@ -182,13 +193,14 @@ pub fn render_file_filter_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         lines.push(Line::from("(loading…)"));
     }
 
-    let inner = area.height.saturating_sub(2);
-    let max = u16::try_from(lines.len().saturating_sub(inner.into_usize())).unwrap_or(0);
-    app.filter_scroll = app.filter_scroll.min(max);
+    let inner = area.height.saturating_sub(2).into_usize();
+    let content = lines.len();
+    app.filter_scroll = app.filter_scroll.min(Scroll::max_pos(content, inner));
     let para = Paragraph::new(lines)
         .block(block_with_title("Filter (click to toggle)"))
         .scroll((app.filter_scroll, 0));
     f.render_widget(para, area);
+    render_vscrollbar(f, area, Scroll::new(content, inner, app.filter_scroll));
 }
 
 pub fn render_file_info_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
@@ -272,13 +284,15 @@ pub fn render_file_info_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
         vec![Line::from("Select a file to view details")]
     };
 
-    let inner = area.height.saturating_sub(2).into_usize();
-    let max = u16::try_from(lines.len().saturating_sub(inner)).unwrap_or(0);
-    app.file_info_scroll = app.file_info_scroll.min(max);
+    let inner_h = area.height.saturating_sub(2).into_usize();
+    let inner_w = area.width.saturating_sub(2).into_usize();
+    let rows = wrapped_rows(&lines, inner_w);
+    app.file_info_scroll = app.file_info_scroll.min(Scroll::max_pos(rows, inner_h));
 
     let para = Paragraph::new(lines)
         .block(block_with_title("File Info"))
         .wrap(Wrap { trim: false })
         .scroll((app.file_info_scroll, 0));
     f.render_widget(para, area);
+    render_vscrollbar(f, area, Scroll::new(rows, inner_h, app.file_info_scroll));
 }

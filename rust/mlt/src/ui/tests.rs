@@ -170,7 +170,7 @@ fn layer_overview_starts_on_all_layers() {
     "│                            ││     ⢸      ⢸                    ⢸       ⢀⠔⠁         ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⡖⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⡲⡎⠁           ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⡇      ⢸  ⢀⠔⠊ ⡇            ⢸        ⡇     │"
-    "└────────────────────────────┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
+    "└◄██████████════════════════►┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
     "┌Properties (all layers)─────┐│     ⢸⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⢉⠭⢻⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
     "│Layers: 3                   ││     ⢸      ⢸             ⡇  ⡠⠔⠁ ⢸      ⡇            ⢸        ⡇     │"
     "│Features: 6                 ││     ⢸      ⢸             ⣇⡠⠊    ⢸      ⡇            ⢸        ⡇     │"
@@ -180,11 +180,11 @@ fn layer_overview_starts_on_all_layers() {
     "│                            ││     ⢸      ⢸    ⡠⠒⠁             ⢸                   ⢸        ⡇     │"
     "└────────────────────────────┘│     ⢸  ⢸⠉⠉⠉⢹⠉⢉⠭⢻                ⢸                   ⢸        ⡇     │"
     "┌Geometry (all layers)───────┐│     ⢸  ⢸   ⡸⠴⠥⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼        ⡇     │"
-    "│Vertices: 29                ││     ⢸  ⢸⢀⡠⠊    ⢸                ⢸                            ⡇     │"
-    "│Point: 1                    ││     ⢸ ⢀⠜⠓⠒⠒⠒⠒⠒⠒⠚                ⢸                            ⡇     │"
-    "│LineString: 1               ││     ⠸⠮⠥⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│Polygon: 1                  ││                                                                    │"
-    "│MultiPoint: 1               ││                                                                    │"
+    "│Vertices: 29                ▲│     ⢸  ⢸⢀⡠⠊    ⢸                ⢸                            ⡇     │"
+    "│Point: 1                    █│     ⢸ ⢀⠜⠓⠒⠒⠒⠒⠒⠒⠚                ⢸                            ⡇     │"
+    "│LineString: 1               ║│     ⠸⠮⠥⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
+    "│Polygon: 1                  ║│                                                                    │"
+    "│MultiPoint: 1               ▼│                                                                    │"
     "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
     "#);
 }
@@ -210,7 +210,7 @@ fn keys_expand_a_layer_and_select_a_feature() {
     "│                            ││     ⢸      ⢸                    ⢸       ⢀⠔⠁         ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⡖⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⡲⡎⠁           ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⡇      ⢸  ⢀⠔⠊ ⡇            ⢸        ⡇     │"
-    "└────────────────────────────┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
+    "└◄██████████════════════════►┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
     "┌Properties (feat 0)─────────┐│     ⢸⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⢉⠭⢻⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
     "│class: lake                 ││     ⢸      ⢸             ⡇  ⡠⠔⠁ ⢸      ⡇            ⢸        ⡇     │"
     "│name: Loch                  ││     ⢸      ⢸             ⣇⡠⠊    ⢸      ⡇            ⢸        ⡇     │"
@@ -253,7 +253,7 @@ fn keys_drill_into_a_multipolygon_part() {
     "│                            ││     ⢸      ⢸                    ⢸       ⢀⠔⠁         ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⡖⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⡲⡎⠁           ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⡇      ⢸  ⢀⠔⠊ ⡇            ⢸        ⡇     │"
-    "└────────────────────────────┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
+    "└◄██████████════════════════►┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
     "┌Properties (feat 1)─────────┐│     ⢸⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⢉⠭⢻⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
     "│class: pond                 ││     ⢸      ⢸             ⡇  ⡠⠔⠁ ⢸      ⡇            ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⣇⡠⠊    ⢸      ⡇            ⢸        ⡇     │"
@@ -263,11 +263,11 @@ fn keys_drill_into_a_multipolygon_part() {
     "│                            ││     ⢸      ⢸    ⡠⠒⠁             ⢸                   ⢸        ⡇     │"
     "└────────────────────────────┘│     ⢸  ⢸⠉⠉⠉⢹⠉⢉⠭⢻                ⢸                   ⢸        ⡇     │"
     "┌Geometry────────────────────┐│     ⢸  ⢸   ⡸⠴⠥⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼        ⡇     │"
-    "│Component: part #0 of a     ││     ⢸  ⢸⢀⡠⠊    ⢸                ⢸                            ⡇     │"
-    "│MultiPolygon                ││     ⢸ ⢀⠜⠓⠒⠒⠒⠒⠒⠒⠚                ⢸                            ⡇     │"
-    "│Type: Polygon               ││     ⠸⠮⠥⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│Vertices: 5                 ││                                                                    │"
-    "│Rings: 1                    ││                                                                    │"
+    "│Component: part #0 of a     ▲│     ⢸  ⢸⢀⡠⠊    ⢸                ⢸                            ⡇     │"
+    "│MultiPolygon                █│     ⢸ ⢀⠜⠓⠒⠒⠒⠒⠒⠒⠚                ⢸                            ⡇     │"
+    "│Type: Polygon               █│     ⠸⠮⠥⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
+    "│Vertices: 5                 ║│                                                                    │"
+    "│Rings: 1                    ▼│                                                                    │"
     "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
     "#);
 }
@@ -292,7 +292,7 @@ fn star_expands_every_layer_and_end_jumps_to_the_last_row() {
     "│                            ││     ⢸      ⢸                    ⢸       ⢀⠔⠁         ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⡖⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⡲⡎⠁           ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⡇      ⢸  ⢀⠔⠊ ⡇            ⢸        ⡇     │"
-    "└────────────────────────────┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
+    "└◄██████████════════════════►┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
     "┌Properties (feat 1)─────────┐│     ⢸⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⢉⠭⢻⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
     "│name: Twin peaks            ││     ⢸      ⢸             ⡇  ⡠⠔⠁ ⢸      ⡇            ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⣇⡠⠊    ⢸      ⡇            ⢸        ⡇     │"
@@ -331,7 +331,7 @@ fn hovering_the_map_highlights_the_nearest_feature() {
     "│                            ││     ⢸      ⢸                    ⢸       ⢀⠔⠁         ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⡖⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⡲⡎⠁           ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⡇      ⢸  ⢀⠔⠊ ⡇            ⢸        ⡇     │"
-    "└────────────────────────────┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
+    "└◄██████████════════════════►┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
     "┌Properties (layer poi, hover┐│     ⢸⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⢉⠭⢻⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
     "│Features: 2                 ││     ⢸      ⢸             ⡇  ⡠⠔⠁ ⢸      ⡇            ⢸        ⡇     │"
     "│Properties: 2               ││     ⢸      ⢸             ⣇⡠⠊    ⢸      ⡇            ⢸        ⡇     │"
@@ -357,32 +357,32 @@ fn help_overlay_lists_the_layer_overview_keys() {
     insta::assert_snapshot!(render(&mut app), @r#"
     "┌sample.mlt - Enter/+/-:expan┐┌Map View────────────────────────────────────────────────────────────┐"
     "│>> All            ┌Help (↑/↓/scroll to navigate, any other key to close)───────┐                  │"
-    "│     Layer: water │Keyboard                                                    │                  │"
-    "│     Layer: roads │  ?  h  F1            Toggle this help                      │⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
-    "│     Layer: poi (2│  q  Ctrl+c           Quit                                  │ ⡤⠤⠤⠤⠤⠤⠤⢤⡔⠁ ⡇     │"
-    "│                  │  Esc                 Back to file browser                  │ ⡇    ⡠⠊⠁⡇  ⡇     │"
-    "│                  │  Up/Down  j/k        Navigate feature tree                 │⣀⣇⣀⣀⠔⠊   ⡇  ⡇     │"
-    "│                  │  PageUp/PageDown     Scroll by page                        │ ⣧⣒⣹⣀⣀⣀⣀⣀⡇  ⡇     │"
-    "│                  │  Home/End            Jump to first/last                    │⠊  ⢸        ⡇     │"
-    "│                  │  Enter               Expand/collapse layer or feature      │   ⢸        ⡇     │"
-    "│                  │  +  =  Right         Expand selected node                  │   ⢸        ⡇     │"
-    "│                  │  -                   Collapse (or jump to parent)          │   ⢸        ⡇     │"
-    "│                  │  *                   Expand/collapse all layers            │   ⢸        ⡇     │"
-    "│                  │  Left                Jump to parent node                   │   ⢸        ⡇     │"
-    "└──────────────────│  Ctrl+h / Ctrl+l     Resize left/right split               │   ⢸        ⡇     │"
-    "┌Properties (all la│  Shift+J / Shift+K   Resize top/bottom split               │⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
-    "│Layers: 3         │                                                            │   ⢸        ⡇     │"
-    "│Features: 6       │Mouse                                                       │   ⢸        ⡇     │"
-    "│water: 2 features │  Click tree item     Select (drill into level)             │   ⢸        ⡇     │"
-    "│roads: 2 features │  Double-click        Expand/collapse                       │   ⢸        ⡇     │"
-    "│poi: 2 features   │  Hover tree/map      Highlight the layer, feature, or part │   ⢸        ⡇     │"
-    "│                  │                      at the current level                  │   ⢸        ⡇     │"
-    "└──────────────────│  Click on map        Select the hovered item               │   ⢸        ⡇     │"
-    "┌Geometry (all laye│  Scroll panels       Scroll tree/properties                │⠤⠤⠤⠼        ⡇     │"
-    "│Vertices: 29      │  Drag dividers       Resize panels                         │            ⡇     │"
-    "│Point: 1          │                                                            │            ⡇     │"
-    "│LineString: 1     │Map Colors                                                  │⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│Polygon: 1        │  Magenta             Point                                 │                  │"
+    "│     Layer: water │Keyboard                                                    ▲                  │"
+    "│     Layer: roads │  ?  h  F1            Toggle this help                      █⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
+    "│     Layer: poi (2│  q  Ctrl+c           Quit                                  █ ⡤⠤⠤⠤⠤⠤⠤⢤⡔⠁ ⡇     │"
+    "│                  │  Esc                 Back to file browser                  █ ⡇    ⡠⠊⠁⡇  ⡇     │"
+    "│                  │  Up/Down  j/k        Navigate feature tree                 █⣀⣇⣀⣀⠔⠊   ⡇  ⡇     │"
+    "│                  │  PageUp/PageDown     Scroll by page                        █ ⣧⣒⣹⣀⣀⣀⣀⣀⡇  ⡇     │"
+    "│                  │  Home/End            Jump to first/last                    █⠊  ⢸        ⡇     │"
+    "│                  │  Enter               Expand/collapse layer or feature      █   ⢸        ⡇     │"
+    "│                  │  +  =  Right         Expand selected node                  █   ⢸        ⡇     │"
+    "│                  │  -                   Collapse (or jump to parent)          █   ⢸        ⡇     │"
+    "│                  │  *                   Expand/collapse all layers            ║   ⢸        ⡇     │"
+    "│                  │  Left                Jump to parent node                   ║   ⢸        ⡇     │"
+    "└◄██████████═══════│  Shift+Left/Right    Scroll the tree sideways              ║   ⢸        ⡇     │"
+    "┌Properties (all la│  Ctrl+h / Ctrl+l     Resize left/right split               ║⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
+    "│Layers: 3         │  Shift+J / Shift+K   Resize top/bottom split               ║   ⢸        ⡇     │"
+    "│Features: 6       │                                                            ║   ⢸        ⡇     │"
+    "│water: 2 features │Mouse                                                       ║   ⢸        ⡇     │"
+    "│roads: 2 features │  Click tree item     Select (drill into level)             ║   ⢸        ⡇     │"
+    "│poi: 2 features   │  Double-click        Expand/collapse                       ║   ⢸        ⡇     │"
+    "│                  │  Hover tree/map      Highlight the layer, feature, or part ║   ⢸        ⡇     │"
+    "└──────────────────│                      at the current level                  ║   ⢸        ⡇     │"
+    "┌Geometry (all laye│  Click on map        Select the hovered item               ║⠤⠤⠤⠼        ⡇     │"
+    "│Vertices: 29      │  Scroll panels       Scroll tree/properties/geometry       ║            ⡇     │"
+    "│Point: 1          │  Scroll sideways     Scroll the tree horizontally          ║            ⡇     │"
+    "│LineString: 1     │  Drag dividers       Resize panels                         ║⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
+    "│Polygon: 1        │                                                            ▼                  │"
     "│MultiPoint: 1     └────────────────────────────────────────────────────────────┘                  │"
     "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
     "#);
@@ -409,7 +409,7 @@ fn error_popup_shows_the_message_until_a_key_is_pressed() {
     "│                            ││     ⢸      ⢸                    ⢸       ⢀⠔⠁         ⢸        ⡇     │"
     "│         ┌ Unable to open broken.mlt ───────────────────────────────────────────────────┐   ⡇     │"
     "│         │                                                                              │   ⡇     │"
-    "└─────────│                           unexpected end of buffer                           │   ⡇     │"
+    "└◄████████│                           unexpected end of buffer                           │   ⡇     │"
     "┌Propertie│                                                                              │⠉⠉⠉⡇     │"
     "│Layers: 3│                                                                              │   ⡇     │"
     "│Features:└──────────────────────────────────────────────────────────────any key to close┘   ⡇     │"
@@ -419,11 +419,11 @@ fn error_popup_shows_the_message_until_a_key_is_pressed() {
     "│                            ││     ⢸      ⢸    ⡠⠒⠁             ⢸                   ⢸        ⡇     │"
     "└────────────────────────────┘│     ⢸  ⢸⠉⠉⠉⢹⠉⢉⠭⢻                ⢸                   ⢸        ⡇     │"
     "┌Geometry (all layers)───────┐│     ⢸  ⢸   ⡸⠴⠥⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼        ⡇     │"
-    "│Vertices: 29                ││     ⢸  ⢸⢀⡠⠊    ⢸                ⢸                            ⡇     │"
-    "│Point: 1                    ││     ⢸ ⢀⠜⠓⠒⠒⠒⠒⠒⠒⠚                ⢸                            ⡇     │"
-    "│LineString: 1               ││     ⠸⠮⠥⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│Polygon: 1                  ││                                                                    │"
-    "│MultiPoint: 1               ││                                                                    │"
+    "│Vertices: 29                ▲│     ⢸  ⢸⢀⡠⠊    ⢸                ⢸                            ⡇     │"
+    "│Point: 1                    █│     ⢸ ⢀⠜⠓⠒⠒⠒⠒⠒⠒⠚                ⢸                            ⡇     │"
+    "│LineString: 1               ║│     ⠸⠮⠥⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
+    "│Polygon: 1                  ║│                                                                    │"
+    "│MultiPoint: 1               ▼│                                                                    │"
     "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
     "#);
     press(&mut app, KeyCode::Enter);
@@ -459,24 +459,24 @@ fn file_browser_lists_the_directory() {
     "│                                                                    ││                            │"
     "│                                                                    │└────────────────────────────┘"
     "│                                                                    │┌Filter (click to toggle)────┐"
-    "│                                                                    ││[Reset filters]             │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││Extensions:                 │"
-    "│                                                                    ││  [ ] mvt                   │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││Geometry Types:             │"
-    "│                                                                    ││  [ ] Point                 │"
-    "│                                                                    ││  [ ] LineString            │"
+    "│                                                                    ││[Reset filters]             ▲"
+    "│                                                                    ││                            █"
+    "│                                                                    ││Extensions:                 █"
+    "│                                                                    ││  [ ] mvt                   ║"
+    "│                                                                    ││                            ║"
+    "│                                                                    ││Geometry Types:             ║"
+    "│                                                                    ││  [ ] Point                 ║"
+    "│                                                                    ││  [ ] LineString            ▼"
     "│                                                                    │└────────────────────────────┘"
     "│                                                                    │┌File Info───────────────────┐"
-    "│                                                                    ││File: line-boolean.mvt      │"
-    "│                                                                    ││Size: 40B  raw MLT file size│"
-    "│                                                                    ││Encoding: -  MLT / (data +  │"
-    "│                                                                    ││metadata)                   │"
-    "│                                                                    ││Data: -  decoded payload    │"
-    "│                                                                    ││size                        │"
-    "│                                                                    ││Metadata: -  encoding       │"
-    "│                                                                    ││overhead                    │"
+    "│                                                                    ││File: line-boolean.mvt      ▲"
+    "│                                                                    ││Size: 40B  raw MLT file size█"
+    "│                                                                    ││Encoding: -  MLT / (data +  █"
+    "│                                                                    ││metadata)                   ║"
+    "│                                                                    ││Data: -  decoded payload    ║"
+    "│                                                                    ││size                        ║"
+    "│                                                                    ││Metadata: -  encoding       ║"
+    "│                                                                    ││overhead                    ▼"
     "└────────────────────────────────────────────────────────────────────┘└────────────────────────────┘"
     "#);
 }
@@ -500,24 +500,24 @@ fn file_browser_previews_the_selected_tile() {
     "│                                                                    ││⣇⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣸│"
     "│                                                                    │└────────────────────────────┘"
     "│                                                                    │┌Filter (click to toggle)────┐"
-    "│                                                                    ││[Reset filters]             │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││Extensions:                 │"
-    "│                                                                    ││  [ ] mvt                   │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││Geometry Types:             │"
-    "│                                                                    ││  [ ] Point                 │"
-    "│                                                                    ││  [ ] LineString            │"
+    "│                                                                    ││[Reset filters]             ▲"
+    "│                                                                    ││                            █"
+    "│                                                                    ││Extensions:                 █"
+    "│                                                                    ││  [ ] mvt                   ║"
+    "│                                                                    ││                            ║"
+    "│                                                                    ││Geometry Types:             ║"
+    "│                                                                    ││  [ ] Point                 ║"
+    "│                                                                    ││  [ ] LineString            ▼"
     "│                                                                    │└────────────────────────────┘"
     "│                                                                    │┌File Info───────────────────┐"
-    "│                                                                    ││File: multiline-boolean.mvt │"
-    "│                                                                    ││Size: 46B  raw MLT file size│"
-    "│                                                                    ││Encoding: -  MLT / (data +  │"
-    "│                                                                    ││metadata)                   │"
-    "│                                                                    ││Data: -  decoded payload    │"
-    "│                                                                    ││size                        │"
-    "│                                                                    ││Metadata: -  encoding       │"
-    "│                                                                    ││overhead                    │"
+    "│                                                                    ││File: multiline-boolean.mvt ▲"
+    "│                                                                    ││Size: 46B  raw MLT file size█"
+    "│                                                                    ││Encoding: -  MLT / (data +  █"
+    "│                                                                    ││metadata)                   ║"
+    "│                                                                    ││Data: -  decoded payload    ║"
+    "│                                                                    ││size                        ║"
+    "│                                                                    ││Metadata: -  encoding       ║"
+    "│                                                                    ││overhead                    ▼"
     "└────────────────────────────────────────────────────────────────────┘└────────────────────────────┘"
     "#);
 }
@@ -538,24 +538,24 @@ fn file_browser_sorts_by_a_clicked_header() {
     "│                                                                    ││                            │"
     "│                                                                    │└────────────────────────────┘"
     "│                                                                    │┌Filter (click to toggle)────┐"
-    "│                                                                    ││[Reset filters]             │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││Extensions:                 │"
-    "│                                                                    ││  [ ] mvt                   │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││Geometry Types:             │"
-    "│                                                                    ││  [ ] Point                 │"
-    "│                                                                    ││  [ ] LineString            │"
+    "│                                                                    ││[Reset filters]             ▲"
+    "│                                                                    ││                            █"
+    "│                                                                    ││Extensions:                 █"
+    "│                                                                    ││  [ ] mvt                   ║"
+    "│                                                                    ││                            ║"
+    "│                                                                    ││Geometry Types:             ║"
+    "│                                                                    ││  [ ] Point                 ║"
+    "│                                                                    ││  [ ] LineString            ▼"
     "│                                                                    │└────────────────────────────┘"
     "│                                                                    │┌File Info───────────────────┐"
-    "│                                                                    ││File: line-boolean.mvt      │"
-    "│                                                                    ││Size: 40B  raw MLT file size│"
-    "│                                                                    ││Encoding: -  MLT / (data +  │"
-    "│                                                                    ││metadata)                   │"
-    "│                                                                    ││Data: -  decoded payload    │"
-    "│                                                                    ││size                        │"
-    "│                                                                    ││Metadata: -  encoding       │"
-    "│                                                                    ││overhead                    │"
+    "│                                                                    ││File: line-boolean.mvt      ▲"
+    "│                                                                    ││Size: 40B  raw MLT file size█"
+    "│                                                                    ││Encoding: -  MLT / (data +  █"
+    "│                                                                    ││metadata)                   ║"
+    "│                                                                    ││Data: -  decoded payload    ║"
+    "│                                                                    ││size                        ║"
+    "│                                                                    ││Metadata: -  encoding       ║"
+    "│                                                                    ││overhead                    ▼"
     "└────────────────────────────────────────────────────────────────────┘└────────────────────────────┘"
     "#);
 }
@@ -577,24 +577,24 @@ fn filter_click_narrows_the_file_list() {
     "│                                                                    ││                            │"
     "│                                                                    │└────────────────────────────┘"
     "│                                                                    │┌Filter (click to toggle)────┐"
-    "│                                                                    ││[Reset filters]             │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││Extensions:                 │"
-    "│                                                                    ││  [ ] mvt                   │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││Geometry Types:             │"
-    "│                                                                    ││  [x] Point                 │"
-    "│                                                                    ││  [ ] LineString            │"
+    "│                                                                    ││[Reset filters]             ▲"
+    "│                                                                    ││                            █"
+    "│                                                                    ││Extensions:                 █"
+    "│                                                                    ││  [ ] mvt                   ║"
+    "│                                                                    ││                            ║"
+    "│                                                                    ││Geometry Types:             ║"
+    "│                                                                    ││  [x] Point                 ║"
+    "│                                                                    ││  [ ] LineString            ▼"
     "│                                                                    │└────────────────────────────┘"
     "│                                                                    │┌File Info───────────────────┐"
-    "│                                                                    ││File: point-boolean.mvt     │"
-    "│                                                                    ││Size: 35B  raw MLT file size│"
-    "│                                                                    ││Encoding: -  MLT / (data +  │"
-    "│                                                                    ││metadata)                   │"
-    "│                                                                    ││Data: -  decoded payload    │"
-    "│                                                                    ││size                        │"
-    "│                                                                    ││Metadata: -  encoding       │"
-    "│                                                                    ││overhead                    │"
+    "│                                                                    ││File: point-boolean.mvt     ▲"
+    "│                                                                    ││Size: 35B  raw MLT file size█"
+    "│                                                                    ││Encoding: -  MLT / (data +  █"
+    "│                                                                    ││metadata)                   ║"
+    "│                                                                    ││Data: -  decoded payload    ║"
+    "│                                                                    ││size                        ║"
+    "│                                                                    ││Metadata: -  encoding       ║"
+    "│                                                                    ││overhead                    ▼"
     "└────────────────────────────────────────────────────────────────────┘└────────────────────────────┘"
     "#);
 }
@@ -619,7 +619,7 @@ fn enter_opens_a_file_and_escape_returns_to_the_browser() {
     "│                            ││     ⢸                                                        ⡇     │"
     "│                            ││     ⢸                                                        ⡇     │"
     "│                            ││     ⢸                                                        ⡇     │"
-    "└────────────────────────────┘│     ⢸                                                        ⡇     │"
+    "└◄██████████════════════════►┘│     ⢸                                                        ⡇     │"
     "┌Properties (all layers)─────┐│     ⢸                                                        ⡇     │"
     "│Layers: 1                   ││     ⢸                                                        ⡇     │"
     "│Features: 1                 ││     ⢸                                                        ⡇     │"
@@ -660,7 +660,7 @@ fn layer_selection_summarizes_properties_and_geometry() {
     "│                            ││     ⢸      ⢸                    ⢸       ⢀⠔⠁         ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⡖⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⡲⡎⠁           ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⡇      ⢸  ⢀⠔⠊ ⡇            ⢸        ⡇     │"
-    "└────────────────────────────┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
+    "└◄██████████════════════════►┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
     "┌Properties (layer roads)────┐│     ⢸⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⢉⠭⢻⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
     "│Features: 2                 ││     ⢸      ⢸             ⡇  ⡠⠔⠁ ⢸      ⡇            ⢸        ⡇     │"
     "│Properties: 2               ││     ⢸      ⢸             ⣇⡠⠊    ⢸      ⡇            ⢸        ⡇     │"
@@ -704,7 +704,7 @@ fn hovering_inside_a_layer_targets_a_feature() {
     "│                            ││     ⢸      ⢸                    ⢸       ⢀⠔⠁         ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⡖⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⡲⡎⠁           ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⡇      ⢸  ⢀⠔⠊ ⡇            ⢸        ⡇     │"
-    "└────────────────────────────┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
+    "└◄██████████════════════════►┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
     "┌Properties (feat 1, hover)──┐│     ⢸⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⢉⠭⢻⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
     "│class: pond                 ││     ⢸      ⢸             ⡇  ⡠⠔⠁ ⢸      ⡇            ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⣇⡠⠊    ⢸      ⡇            ⢸        ⡇     │"
@@ -755,7 +755,7 @@ fn hovering_inside_a_feature_targets_a_part() {
     "│                            ││     ⢸      ⢸                    ⢸       ⢀⠔⠁         ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⡖⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⡲⡎⠁           ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⡇      ⢸  ⢀⠔⠊ ⡇            ⢸        ⡇     │"
-    "└────────────────────────────┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
+    "└◄██████████════════════════►┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
     "┌Properties (feat 1, hover)──┐│     ⢸⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⢉⠭⢻⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
     "│class: pond                 ││     ⢸      ⢸             ⡇  ⡠⠔⠁ ⢸      ⡇            ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⣇⡠⠊    ⢸      ⡇            ⢸        ⡇     │"
@@ -765,11 +765,11 @@ fn hovering_inside_a_feature_targets_a_part() {
     "│                            ││     ⢸      ⢸    ⡠⠒⠁             ⢸                   ⢸        ⡇     │"
     "└────────────────────────────┘│     ⢸  ⢸⠉⠉⠉⢹⠉⢉⠭⢻                ⢸                   ⢸        ⡇     │"
     "┌Geometry────────────────────┐│     ⢸  ⢸   ⡸⠴⠥⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼        ⡇     │"
-    "│Component: part #1 of a     ││     ⢸  ⢸⢀⡠⠊    ⢸                ⢸                            ⡇     │"
-    "│MultiPolygon                ││     ⢸ ⢀⠜⠓⠒⠒⠒⠒⠒⠒⠚                ⢸                            ⡇     │"
-    "│Type: Polygon               ││     ⠸⠮⠥⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│Vertices: 5                 ││                                                                    │"
-    "│Rings: 1                    ││                                                                    │"
+    "│Component: part #1 of a     ▲│     ⢸  ⢸⢀⡠⠊    ⢸                ⢸                            ⡇     │"
+    "│MultiPolygon                █│     ⢸ ⢀⠜⠓⠒⠒⠒⠒⠒⠒⠚                ⢸                            ⡇     │"
+    "│Type: Polygon               █│     ⠸⠮⠥⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
+    "│Vertices: 5                 ║│                                                                    │"
+    "│Rings: 1                    ▼│                                                                    │"
     "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
     "#);
 }
@@ -841,7 +841,7 @@ fn hovering_a_tree_row_targets_that_row() {
     "│                            ││     ⢸      ⢸                    ⢸       ⢀⠔⠁         ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⡖⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⡲⡎⠁           ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⡇      ⢸  ⢀⠔⠊ ⡇            ⢸        ⡇     │"
-    "└────────────────────────────┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
+    "└◄██████████════════════════►┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
     "┌Properties (layer roads, hov┐│     ⢸⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⢉⠭⢻⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
     "│Features: 2                 ││     ⢸      ⢸             ⡇  ⡠⠔⠁ ⢸      ⡇            ⢸        ⡇     │"
     "│Properties: 2               ││     ⢸      ⢸             ⣇⡠⠊    ⢸      ⡇            ⢸        ⡇     │"
@@ -857,6 +857,51 @@ fn hovering_a_tree_row_targets_that_row() {
     "│                            ││                                                                    │"
     "│                            ││                                                                    │"
     "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
+    "#);
+}
+
+#[test]
+fn small_terminal_shows_scrollbars_and_scrolls_the_tree_sideways() {
+    let mut app = sample_app();
+    press(&mut app, KeyCode::Char('*'));
+    insta::assert_snapshot!(render_sized(&mut app, 60, 16), @r#"
+    "┌sample.mlt - Ent┐┌Map View────────────────────────────────┐"
+    "│>> All          ▲│                                        │"
+    "│     Layer: wate█│   ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⣒⣒⣒⣒⣒⠶⡆   │"
+    "│       Feat 0: P█│   ⢸   ⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣸⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣇⣀⡠⠊⢹ ⡇   │"
+    "│       Feat 1: M║│   ⢸   ⢸   ×       ⢸        ⢀⡠⠓⢻⠒⠒⠚ ⡇   │"
+    "│     Layer: road║│   ⢸   ⢸           ⢸      ⡠⠒⠁  ⢸    ⡇   │"
+    "│       Feat 0: L▼│   ⢸   ⢸       ⢠⠤⠤⠤⢼⠤⠤⠤⣤⠔⠉     ⢸    ⡇   │"
+    "└◄████══════════►┘│   ⢸   ⢸       ⢸   ⢸⡠⠔⠉⢸       ⢸    ⡇   │"
+    "┌Properties (all ┐│   ⢸⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⢹⠉⣉⠝⢻⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⡇   │"
+    "│Layers: 3       ││   ⢸   ⢸      ⣀⠼⠮⠤⠤⢼⠤⠤⠤⠼    ×  ⢸    ⡇   │"
+    "│Features: 6     ││   ⢸   ⢸   ⢀⠤⠊     ⢸       ×   ⢸    ⡇   │"
+    "└────────────────┘│   ⢸ ⡖⠒⢺⢒⢶⠊⠁       ⢸           ⢸    ⡇   │"
+    "┌Geometry (all la┐│   ⢸ ⣇⡠⠚⠓⢺⠒⠒⠒⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠚    ⡇   │"
+    "│Vertices: 29    ││   ⠸⠶⠭⠭⠭⠭⠭⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇   │"
+    "│Point: 1        ││                                        │"
+    "└────────────────┘└────────────────────────────────────────┘"
+    "#);
+    let shift_right = KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT);
+    assert!(!handle_key(&mut app, shift_right));
+    assert!(!handle_key(&mut app, shift_right));
+    insta::assert_snapshot!(render_sized(&mut app, 60, 16), @r#"
+    "┌sample.mlt - Ent┐┌Map View────────────────────────────────┐"
+    "│                ▲│                                        │"
+    "│er: water (2 fea█│   ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⣒⣒⣒⣒⣒⠶⡆   │"
+    "│eat 0: Polygon (█│   ⢸   ⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣸⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣇⣀⡠⠊⢹ ⡇   │"
+    "│eat 1: MultiPoly║│   ⢸   ⢸   ×       ⢸        ⢀⡠⠓⢻⠒⠒⠚ ⡇   │"
+    "│er: roads (2 fea║│   ⢸   ⢸           ⢸      ⡠⠒⠁  ⢸    ⡇   │"
+    "│eat 0: LineStrin▼│   ⢸   ⢸       ⢠⠤⠤⠤⢼⠤⠤⠤⣤⠔⠉     ⢸    ⡇   │"
+    "└◄══████════════►┘│   ⢸   ⢸       ⢸   ⢸⡠⠔⠉⢸       ⢸    ⡇   │"
+    "┌Properties (all ┐│   ⢸⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⢹⠉⣉⠝⢻⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⡇   │"
+    "│Layers: 3       ││   ⢸   ⢸      ⣀⠼⠮⠤⠤⢼⠤⠤⠤⠼    ×  ⢸    ⡇   │"
+    "│Features: 6     ││   ⢸   ⢸   ⢀⠤⠊     ⢸       ×   ⢸    ⡇   │"
+    "└────────────────┘│   ⢸ ⡖⠒⢺⢒⢶⠊⠁       ⢸           ⢸    ⡇   │"
+    "┌Geometry (all la┐│   ⢸ ⣇⡠⠚⠓⢺⠒⠒⠒⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠚    ⡇   │"
+    "│Vertices: 29    ││   ⠸⠶⠭⠭⠭⠭⠭⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇   │"
+    "│Point: 1        ││                                        │"
+    "└────────────────┘└────────────────────────────────────────┘"
     "#);
 }
 
@@ -894,7 +939,7 @@ fn tessellated_polygons_show_their_triangles() {
     "│                            ││     ⢸           ⠈⠑⠛⠭⣒⠒⠬⠵⣢⣄⡀⢠⠃    ⠑⡄        ⢠⠃                ⡇     │"
     "│                            ││     ⢸                ⠉⠒⠢⢄⡀⠉⠑⠢⢄    ⠈⢢       ⡜                 ⡇     │"
     "│                            ││     ⢸                    ⠈⠉⠒⠤⣀⡉⠒⢄⡀  ⠑⡄    ⢰⠁                 ⡇     │"
-    "└────────────────────────────┘│     ⢸                         ⠈⠑⠢⠬⣑⠤⡀⠈⢢   ⡎                  ⡇     │"
+    "└◄███████████═══════════════►┘│     ⢸                         ⠈⠑⠢⠬⣑⠤⡀⠈⢢   ⡎                  ⡇     │"
     "┌Properties (feat 1)─────────┐│     ⢸                              ⠉⠚⠵⢦⣑⡄⢸                   ⡇     │"
     "│(no properties)             ││     ⢸                                  ⠈⠙⠃                   ⡇     │"
     "│                            ││     ⢸                                                        ⡇     │"
@@ -904,11 +949,11 @@ fn tessellated_polygons_show_their_triangles() {
     "│                            ││     ⢸                                       ⢸       ⢀⠤⠊⠁     ⡇     │"
     "└────────────────────────────┘│     ⢸                                       ⡜    ⢀⡠⠒⠁        ⡇     │"
     "┌Geometry────────────────────┐│     ⢸                                       ⡇  ⡠⠔⠁           ⡇     │"
-    "│Type: Polygon               ││     ⢸                                      ⢰⣁⠔⠉              ⡇     │"
-    "│Vertices: 8                 ││     ⢸                                      ⠈                 ⡇     │"
-    "│Rings: 2                    ││     ⠸⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│  Ring 0: 4v, CW            ││                                                                    │"
-    "│  Ring 1: 4v, CCW           ││                                                                    │"
+    "│Type: Polygon               ▲│     ⢸                                      ⢰⣁⠔⠉              ⡇     │"
+    "│Vertices: 8                 █│     ⢸                                      ⠈                 ⡇     │"
+    "│Rings: 2                    █│     ⠸⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
+    "│  Ring 0: 4v, CW            ║│                                                                    │"
+    "│  Ring 1: 4v, CCW           ▼│                                                                    │"
     "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
     "#);
 }
@@ -978,24 +1023,24 @@ fn preview_failures_are_reported() {
     "│                                                                    ││                            │"
     "│                                                                    │└────────────────────────────┘"
     "│                                                                    │┌Filter (click to toggle)────┐"
-    "│                                                                    ││[Reset filters]             │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││Extensions:                 │"
-    "│                                                                    ││  [ ] mvt                   │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││Geometry Types:             │"
-    "│                                                                    ││  [ ] Point                 │"
-    "│                                                                    ││  [ ] LineString            │"
+    "│                                                                    ││[Reset filters]             ▲"
+    "│                                                                    ││                            █"
+    "│                                                                    ││Extensions:                 █"
+    "│                                                                    ││  [ ] mvt                   ║"
+    "│                                                                    ││                            ║"
+    "│                                                                    ││Geometry Types:             ║"
+    "│                                                                    ││  [ ] Point                 ║"
+    "│                                                                    ││  [ ] LineString            ▼"
     "│                                                                    │└────────────────────────────┘"
     "│                                                                    │┌File Info───────────────────┐"
-    "│                                                                    ││File: line-boolean.mvt      │"
-    "│                                                                    ││Size: 40B  raw MLT file size│"
-    "│                                                                    ││Encoding: -  MLT / (data +  │"
-    "│                                                                    ││metadata)                   │"
-    "│                                                                    ││Data: -  decoded payload    │"
-    "│                                                                    ││size                        │"
-    "│                                                                    ││Metadata: -  encoding       │"
-    "│                                                                    ││overhead                    │"
+    "│                                                                    ││File: line-boolean.mvt      ▲"
+    "│                                                                    ││Size: 40B  raw MLT file size█"
+    "│                                                                    ││Encoding: -  MLT / (data +  █"
+    "│                                                                    ││metadata)                   ║"
+    "│                                                                    ││Data: -  decoded payload    ║"
+    "│                                                                    ││size                        ║"
+    "│                                                                    ││Metadata: -  encoding       ║"
+    "│                                                                    ││overhead                    ▼"
     "└────────────────────────────────────────────────────────────────────┘└────────────────────────────┘"
     "#);
 }
@@ -1082,34 +1127,34 @@ fn mbtiles_hover_describes_the_nearest_feature() {
     assert!(mbt(&mut app).hovered.is_some());
     insta::assert_snapshot!(render(&mut app), @r#"
     "┌Properties - place feat 5 (t┐┌World Map - 0/0/0 - zoom 0.0  drag=pan  hover=info  q/Esc quit──────┐"
-    "│class: continent            ││⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹│"
-    "│name: Oceania               ││⡇×               ⢀⣠⠤⠤⠤⡄  ⣠⣴⡏⠒⠤⡀                                    ⢸│"
-    "│name:ar: أوقيانوسيا         ││⡇               ⣴⡊⡁ ⢀⣶⡯⠭⠾⠽⠉⠲⢭⠻⢴⡶     ⢀⡀   ⣀⣀       ⢠⡀              ⢸│"
-    "│name:be: Акіянія            ││⡇           ⢀⡄⣤⣼⣤⣸⠍⢠⣺⡵⠊      ⢉⡟    ⠐⡝⢓⡟⠁  ⠈⠁       ⠱⣱⢄             ⢸│"
-    "│name:ca: Oceania            ││⡇         ⠠⣊⠿⣧⣬⣽⣷⣿⣥⠊⠙⠷⠤⡀     ⢾⡗     ⠙⠋⠋     ⢀⢤⡶   ⢀⡤⡨⠛⠦⡄   ⢀⠤⣀     ⢸│"
-    "│name:cs: Oceánie            ││⡇         ⡰⣳⠯⢽⣧⢿⡿⡿⢽⡧⡀  ⢣⡀   ⢰⣾⠃            ⢠⡟⠁⢠⢤⣄⡖⠋   ⠐⠗⠦⠖⣄⣀⡿⢍⡁    ⢸│"
-    "│name:da: Oceanien           ││⡯⣀⢠⡖⠉⠉⠑⢲⠔⠚⠚⢻⣯⣤⣽⣻⡜⣿⢲⢲⡉⢇⡀⢘⢧  ⣠⡿⠟      ⢀⡴⡾⣟⠢⢄⣤⣀⠭⠖⠺⢹⡅         ⠉⠉  ⠈⠙⠒⠲⠖⢺│"
-    "│name:de: Ozeanien           ││⡗⠻⢝⠿ ⢀ ⢸  ⠘⢛⣄×  ⢠⠼⣷⣒⡧⢽⠃⠈⢿⣠⡞⠉ ⠹⠭⠃  ⢀⡰⡵⣵⠟⢸⣽⠛⠉    ⠉   ×           ⣀⢀ ⢀⣺│"
-    "│name:el: Ωκεανία            ││⡇ ⠈⣙⡶⠞⠉⠙⠺⣆  ⠉⠒⠲⢀⠳⢄⣀⡣⠈⠚⢄⡀⠈⠉      ×⣦⠈⢲⣷⣪⣿⢏⠉     ⣀⣀⡀     ⣀    ⣠⢔⠒⠛⡖⡯⠉⠁⢸│"
-    "│name:en: Oceania            ││⡇        ⠻⢦⡤⠤×⠤⠽⢄⣤⡘⠃⢀⣠⣤⣿⡄       ⠻×××⣽⣦⣿⣞⣓⡢⢰⣖⠒⡛ ⢉⣉⢒×⡒⠖⠾⠥⢤⡜⠹⢄⣌⢿⠄ ⠛⠁  ⢸│"
-    "│name:eo: Oceanio            ││⡇         ⢸ ⠰ ×  ⠘⠛⢻⠽⠙⠋   ×     ×⣹⣖⣻⣻⡿⣿×⣛⣗⣾×⣟⡷⣧⣾⡾⠃ ⠉⠒×⠚⠉⣤×⡞⢊⡾⠃     ⢸│"
-    "│name:es: Oceanía            ││⡇×         ⠙⣶⣒×⣤⠤⠤⣴⣊           ⢠⣮⠟ ⢻⠓⠲×⠚⣿×⠼⣄⣀⣿×⡻×⢤⣤⣠⣄   ⢹⠈⠛⠋⠁      ⢸│"
-    "│name:fi: Oseania            ││⡇   ⠰       ⠈⠁⠣⢜⢴⣶⡊⠿⠶⠤        ⢰⣟⣸⣉×⡚×⠑⡞⠒×⣧⠤⣬⠿⠉⠘⢳ ⡔⠚⢫⣿×⣶⠊⢽⡀         ⢸│"
-    "│name:fr: Océanie            ││⡇         ×      ⠈⢓×⢛⣭⣽⣤⣄     ⠈⠙⠻⠿⠿⢼⣻×⠿⢮×⢬⡿⠋   ⠈⠚⠇ ⠠⣿⣝⣁⡴⣟⣿⡀ ×      ⢸│"
-    "│name:fy: Oseaanje           ││⡇                 ⠘×⢿⣀⡀×⠈⠉⠉⡆       ⠈⢟⠧⣄⣿⣍⣏ ⡀  ×     ⠈⠻⠭⠽⢿⡿⣛×⢷⢶⡓⢤⡀  ⢸│"
-    "│name:ga: An Aigéine         ││⡇                  ⠈⢹⣦×⢆ ⣀⡜         ⢳⢲×⣯⢿⠜⣎⠇           ⡤⠤⠊×⠉⠊⠣⡀ ⠠⡅ ⢺│"
-    "│name:hi: ओशिआनिया           ││⡇                   ⢸× ⣯⠜           ⠘⣞⣉⠾⠃ ⠈            ⢣⣀⡤⠤⣤⡀ ⡸   ⣀⢸│" Hidden by multi-width symbols: [(12, " "), (15, " "), (17, " ")]
-    "│name:hr: Oceanija           ││⡇        ×         ⢀⣟⣰⠎⠁      ×                             ⠑⠿⠁  ⣠⡾⢿│"
-    "│name:hu: Óceánia            ││⡇                  ⠸⣯⡏⠠⠄                      ⠐⠂                 ⠉ ⢸│"
-    "│name:is: Eyjaálfa           ││⡇                   ⠉⠉                            ×                ⢸│"
-    "│name:it: Oceania            ││⡇                    ⢀⡤⠂                   ⢀⣀     ⡀  ⡀⢀⣀⢀⣀⣀⣄       ⢸│"
-    "│name:kn: ಒಷ್ಯಾನಿಯ             ││⡇                   ⡰⡟⡆         ⣀⣀⣀⡤⣠⠤⣄⡠⠒⠖⠊⠉ ⠉⢩⢦⠴⠉⠉⠉⠉⠈⠁ ⠉  ⠈⠉⠙⠒⠤⣀⣀ ⢸│" Hidden by multi-width symbols: [(13, " ")]
-    "│name:ku: Okyanûsya          ││⡇      ⣀⣀⣀⣦⣦⢤⡀⣸⡿⠴⠒⠴⠬⠿⠃⡕       ⢠⡎⠉⠉            ⠈⠁                 ⡤⠃⢸│"
-    "│name:la: Oceania            ││⡇   ⡤⡤⠚      ⠈ ⠁   ⢰⡒⠊  ⢀⣀ ⣀⠔⠒⠁  ×                              ⢸  ⢸│"
-    "│name:latin: Oceania         ││⡇  ⠹⠕⠒⢄            ⢏⡀⢀⣠⢀⠎⢸ ⠧⢆                                  ⢀⠞⠁ ⢸│"
-    "│name:lt: Okeanija           ││⡇   ⠐⡗⠁             ⠈⠚⢍⢈⡩⢥⠖⠊⠁                                  ⠈⡆  ⢸│"
-    "│name:nl: Oceanië            ││⡇ ⡀  ⣇                ⠈⠊                                        ⠈⢢ ⢸│"
-    "│name:no: Oseania            ││⣗⣋⣑⣄⣀⣈⣒⣆⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣋⣺│"
+    "│class: continent            ▲│⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹│"
+    "│name: Oceania               █│⡇×               ⢀⣠⠤⠤⠤⡄  ⣠⣴⡏⠒⠤⡀                                    ⢸│"
+    "│name:ar: أوقيانوسيا         █│⡇               ⣴⡊⡁ ⢀⣶⡯⠭⠾⠽⠉⠲⢭⠻⢴⡶     ⢀⡀   ⣀⣀       ⢠⡀              ⢸│"
+    "│name:be: Акіянія            █│⡇           ⢀⡄⣤⣼⣤⣸⠍⢠⣺⡵⠊      ⢉⡟    ⠐⡝⢓⡟⠁  ⠈⠁       ⠱⣱⢄             ⢸│"
+    "│name:ca: Oceania            █│⡇         ⠠⣊⠿⣧⣬⣽⣷⣿⣥⠊⠙⠷⠤⡀     ⢾⡗     ⠙⠋⠋     ⢀⢤⡶   ⢀⡤⡨⠛⠦⡄   ⢀⠤⣀     ⢸│"
+    "│name:cs: Oceánie            █│⡇         ⡰⣳⠯⢽⣧⢿⡿⡿⢽⡧⡀  ⢣⡀   ⢰⣾⠃            ⢠⡟⠁⢠⢤⣄⡖⠋   ⠐⠗⠦⠖⣄⣀⡿⢍⡁    ⢸│"
+    "│name:da: Oceanien           █│⡯⣀⢠⡖⠉⠉⠑⢲⠔⠚⠚⢻⣯⣤⣽⣻⡜⣿⢲⢲⡉⢇⡀⢘⢧  ⣠⡿⠟      ⢀⡴⡾⣟⠢⢄⣤⣀⠭⠖⠺⢹⡅         ⠉⠉  ⠈⠙⠒⠲⠖⢺│"
+    "│name:de: Ozeanien           █│⡗⠻⢝⠿ ⢀ ⢸  ⠘⢛⣄×  ⢠⠼⣷⣒⡧⢽⠃⠈⢿⣠⡞⠉ ⠹⠭⠃  ⢀⡰⡵⣵⠟⢸⣽⠛⠉    ⠉   ×           ⣀⢀ ⢀⣺│"
+    "│name:el: Ωκεανία            █│⡇ ⠈⣙⡶⠞⠉⠙⠺⣆  ⠉⠒⠲⢀⠳⢄⣀⡣⠈⠚⢄⡀⠈⠉      ×⣦⠈⢲⣷⣪⣿⢏⠉     ⣀⣀⡀     ⣀    ⣠⢔⠒⠛⡖⡯⠉⠁⢸│"
+    "│name:en: Oceania            █│⡇        ⠻⢦⡤⠤×⠤⠽⢄⣤⡘⠃⢀⣠⣤⣿⡄       ⠻×××⣽⣦⣿⣞⣓⡢⢰⣖⠒⡛ ⢉⣉⢒×⡒⠖⠾⠥⢤⡜⠹⢄⣌⢿⠄ ⠛⠁  ⢸│"
+    "│name:eo: Oceanio            █│⡇         ⢸ ⠰ ×  ⠘⠛⢻⠽⠙⠋   ×     ×⣹⣖⣻⣻⡿⣿×⣛⣗⣾×⣟⡷⣧⣾⡾⠃ ⠉⠒×⠚⠉⣤×⡞⢊⡾⠃     ⢸│"
+    "│name:es: Oceanía            █│⡇×         ⠙⣶⣒×⣤⠤⠤⣴⣊           ⢠⣮⠟ ⢻⠓⠲×⠚⣿×⠼⣄⣀⣿×⡻×⢤⣤⣠⣄   ⢹⠈⠛⠋⠁      ⢸│"
+    "│name:fi: Oseania            ║│⡇   ⠰       ⠈⠁⠣⢜⢴⣶⡊⠿⠶⠤        ⢰⣟⣸⣉×⡚×⠑⡞⠒×⣧⠤⣬⠿⠉⠘⢳ ⡔⠚⢫⣿×⣶⠊⢽⡀         ⢸│"
+    "│name:fr: Océanie            ║│⡇         ×      ⠈⢓×⢛⣭⣽⣤⣄     ⠈⠙⠻⠿⠿⢼⣻×⠿⢮×⢬⡿⠋   ⠈⠚⠇ ⠠⣿⣝⣁⡴⣟⣿⡀ ×      ⢸│"
+    "│name:fy: Oseaanje           ║│⡇                 ⠘×⢿⣀⡀×⠈⠉⠉⡆       ⠈⢟⠧⣄⣿⣍⣏ ⡀  ×     ⠈⠻⠭⠽⢿⡿⣛×⢷⢶⡓⢤⡀  ⢸│"
+    "│name:ga: An Aigéine         ║│⡇                  ⠈⢹⣦×⢆ ⣀⡜         ⢳⢲×⣯⢿⠜⣎⠇           ⡤⠤⠊×⠉⠊⠣⡀ ⠠⡅ ⢺│"
+    "│name:hi: ओशिआनिया           ║│⡇                   ⢸× ⣯⠜           ⠘⣞⣉⠾⠃ ⠈            ⢣⣀⡤⠤⣤⡀ ⡸   ⣀⢸│" Hidden by multi-width symbols: [(12, " "), (15, " "), (17, " ")]
+    "│name:hr: Oceanija           ║│⡇        ×         ⢀⣟⣰⠎⠁      ×                             ⠑⠿⠁  ⣠⡾⢿│"
+    "│name:hu: Óceánia            ║│⡇                  ⠸⣯⡏⠠⠄                      ⠐⠂                 ⠉ ⢸│"
+    "│name:is: Eyjaálfa           ║│⡇                   ⠉⠉                            ×                ⢸│"
+    "│name:it: Oceania            ║│⡇                    ⢀⡤⠂                   ⢀⣀     ⡀  ⡀⢀⣀⢀⣀⣀⣄       ⢸│"
+    "│name:kn: ಒಷ್ಯಾನಿಯ             ║│⡇                   ⡰⡟⡆         ⣀⣀⣀⡤⣠⠤⣄⡠⠒⠖⠊⠉ ⠉⢩⢦⠴⠉⠉⠉⠉⠈⠁ ⠉  ⠈⠉⠙⠒⠤⣀⣀ ⢸│" Hidden by multi-width symbols: [(13, " ")]
+    "│name:ku: Okyanûsya          ║│⡇      ⣀⣀⣀⣦⣦⢤⡀⣸⡿⠴⠒⠴⠬⠿⠃⡕       ⢠⡎⠉⠉            ⠈⠁                 ⡤⠃⢸│"
+    "│name:la: Oceania            ║│⡇   ⡤⡤⠚      ⠈ ⠁   ⢰⡒⠊  ⢀⣀ ⣀⠔⠒⠁  ×                              ⢸  ⢸│"
+    "│name:latin: Oceania         ║│⡇  ⠹⠕⠒⢄            ⢏⡀⢀⣠⢀⠎⢸ ⠧⢆                                  ⢀⠞⠁ ⢸│"
+    "│name:lt: Okeanija           ║│⡇   ⠐⡗⠁             ⠈⠚⢍⢈⡩⢥⠖⠊⠁                                  ⠈⡆  ⢸│"
+    "│name:nl: Oceanië            ║│⡇ ⡀  ⣇                ⠈⠊                                        ⠈⢢ ⢸│"
+    "│name:no: Oseania            ▼│⣗⣋⣑⣄⣀⣈⣒⣆⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣋⣺│"
     "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
     "#);
 }
@@ -1290,6 +1335,7 @@ fn the_wheel_scrolls_the_panel_under_the_cursor() {
     let areas = render_with_areas(&mut app, screen.0, screen.1);
     let tree = areas.tree.unwrap();
     let props = areas.props.unwrap();
+    let geom = areas.geom.unwrap();
     let mut clicks = MouseState::default();
     let down = MouseEventKind::ScrollDown;
     send(
@@ -1307,11 +1353,31 @@ fn the_wheel_scrolls_the_panel_under_the_cursor() {
         &areas,
         &mut clicks,
         screen,
+        MouseEventKind::ScrollRight,
+        tree.x + 2,
+        tree.y + 2,
+    );
+    assert_eq!(app.tree_hscroll, 4);
+    send(
+        &mut app,
+        &areas,
+        &mut clicks,
+        screen,
         down,
         props.x + 2,
         props.y + 1,
     );
     assert!(app.properties_scroll > 0);
+    send(
+        &mut app,
+        &areas,
+        &mut clicks,
+        screen,
+        down,
+        geom.x + 2,
+        geom.y + 1,
+    );
+    assert!(app.geometry_scroll > 0);
 }
 
 #[test]
@@ -1622,6 +1688,14 @@ fn keys_resize_the_splits_and_page_through_the_tree() {
     assert_eq!(app.features_pct, 45);
     assert!(!handle_key(&mut app, shift('K')));
     assert_eq!(app.features_pct, 50);
+    assert!(!handle_key(
+        &mut app,
+        KeyEvent::new(KeyCode::Left, KeyModifiers::SHIFT)
+    ));
+    assert_eq!(
+        app.tree_hscroll, 0,
+        "sideways scroll saturates at the left edge"
+    );
 
     press(&mut app, KeyCode::Char('*'));
     render_sized(&mut app, 60, 16);
@@ -2133,7 +2207,7 @@ fn layer_view_dividers_tree_hover_and_map_wheel() {
     "│                            ││     ⢸      ⢸                    ⢸       ⢀⠔⠁         ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⡖⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⡲⡎⠁           ⢸        ⡇     │"
     "│                            ││     ⢸      ⢸             ⡇      ⢸  ⢀⠔⠊ ⡇            ⢸        ⡇     │"
-    "└────────────────────────────┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
+    "└◄██████████════════════════►┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
     "┌Properties (layer water, hov┐│     ⢸⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⢉⠭⢻⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
     "│Features: 2                 ││     ⢸      ⢸             ⡇  ⡠⠔⠁ ⢸      ⡇            ⢸        ⡇     │"
     "│Properties: 2               ││     ⢸      ⢸             ⣇⡠⠊    ⢸      ⡇            ⢸        ⡇     │"
@@ -2225,6 +2299,17 @@ fn layer_view_dividers_tree_hover_and_map_wheel() {
         app.selected_index, before,
         "the wheel over the map does nothing"
     );
+    app.tree_hscroll = 8;
+    send(
+        &mut app,
+        &areas,
+        &mut clicks,
+        SCREEN,
+        MouseEventKind::ScrollLeft,
+        tree.x + 2,
+        tree.y + 2,
+    );
+    assert_eq!(app.tree_hscroll, 4);
 }
 
 #[test]
@@ -2383,7 +2468,7 @@ fn layer_summary_lists_every_value_type_and_skips_unknown_geometries() {
     "│                            ││     ⢸                                                        ⡇     │"
     "│                            ││     ⢸                                                        ⡇     │"
     "│                            ││     ⢸                                                        ⡇     │"
-    "└────────────────────────────┘│     ⢸                                                        ⡇     │"
+    "└◄███████████═══════════════►┘│     ⢸                                                        ⡇     │"
     "┌Properties (layer odd)──────┐│     ⢸                                                        ⡇     │"
     "│Features: 5                 ││     ⢸                                                        ⡇     │"
     "│Properties: 4               ││     ⢸                                                        ⡇     │"
@@ -2441,7 +2526,7 @@ fn tessellated_multipolygon_parts_carry_their_own_triangles() {
     "│                            ││     ⢸                                                        ⡇     │"
     "│                            ││     ⢸                                                        ⡇     │"
     "│                            ││     ⢸                                                        ⡇     │"
-    "└────────────────────────────┘│     ⢸                                                        ⡇     │"
+    "└◄███████████═══════════════►┘│     ⢸                                                        ⡇     │"
     "┌Properties (feat 1)─────────┐│     ⢸                                                        ⡇     │"
     "│(no properties)             ││     ⢸                                                        ⡇     │"
     "│                            ││     ⢸                                                        ⡇     │"

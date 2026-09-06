@@ -5,6 +5,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 use usize_cast::IntoUsize as _;
 
+use crate::ui::rendering::scrollbar::{Scroll, render_vscrollbar};
 use crate::ui::state::{App, ViewMode};
 use crate::ui::{
     CLR_BAD_WINDING, CLR_CONTEXT_FEATURE, CLR_CONTEXT_LAYER, CLR_DIMMED, CLR_EXTENT, CLR_HOVERED,
@@ -64,7 +65,8 @@ pub fn render_help_overlay(f: &mut Frame<'_>, app: &mut App) {
         ViewMode::LayerOverview => help_layer_overview(),
         ViewMode::MbtilesMap => help_mbtiles_map(),
     };
-    let height = u16::try_from(lines.len())
+    let total = lines.len();
+    let height = u16::try_from(total)
         .unwrap_or(u16::MAX)
         .saturating_add(2)
         .min(area.height.saturating_sub(2));
@@ -75,9 +77,8 @@ pub fn render_help_overlay(f: &mut Frame<'_>, app: &mut App) {
         width,
         height,
     );
-    let inner = height.saturating_sub(2);
-    let max = u16::try_from(lines.len().saturating_sub(inner.into_usize())).unwrap_or(0);
-    app.help_scroll = app.help_scroll.min(max);
+    let inner = height.saturating_sub(2).into_usize();
+    app.help_scroll = app.help_scroll.min(Scroll::max_pos(total, inner));
     f.render_widget(ratatui::widgets::Clear, popup);
     let para = Paragraph::new(lines)
         .block(block_with_title(
@@ -85,6 +86,7 @@ pub fn render_help_overlay(f: &mut Frame<'_>, app: &mut App) {
         ))
         .scroll((app.help_scroll, 0));
     f.render_widget(para, popup);
+    render_vscrollbar(f, popup, Scroll::new(total, inner, app.help_scroll));
 }
 
 fn heading(text: &str) -> Line<'static> {
@@ -164,6 +166,7 @@ fn help_layer_overview() -> Vec<Line<'static>> {
         key("-", "Collapse (or jump to parent)"),
         key("*", "Expand/collapse all layers"),
         key("Left", "Jump to parent node"),
+        key("Shift+Left/Right", "Scroll the tree sideways"),
         key("Ctrl+h / Ctrl+l", "Resize left/right split"),
         key("Shift+J / Shift+K", "Resize top/bottom split"),
         Line::from(""),
@@ -173,7 +176,8 @@ fn help_layer_overview() -> Vec<Line<'static>> {
         key("Hover tree/map", "Highlight the layer, feature, or part"),
         key("", "at the current level"),
         key("Click on map", "Select the hovered item"),
-        key("Scroll panels", "Scroll tree/properties"),
+        key("Scroll panels", "Scroll tree/properties/geometry"),
+        key("Scroll sideways", "Scroll the tree horizontally"),
         key("Drag dividers", "Resize panels"),
         Line::from(""),
         heading("Map Colors"),

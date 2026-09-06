@@ -78,6 +78,8 @@ pub const STYLE_BOLD: Style = Style::new().add_modifier(Modifier::BOLD);
 
 /// Throttle hover-driven redraws so mouse move over map doesn't flood the loop
 const HOVER_REDRAW_THROTTLE: Duration = Duration::from_millis(32);
+/// Columns the feature tree moves per sideways scroll step.
+const TREE_HSCROLL_STEP: u16 = 4;
 
 #[derive(Args)]
 pub struct UiArgs {
@@ -528,6 +530,14 @@ fn handle_key(app: &mut App, key: KeyEvent) -> bool {
             app.open_help();
         }
         KeyCode::Enter => app.handle_enter(),
+        KeyCode::Right if key.modifiers.contains(KeyModifiers::SHIFT) => {
+            app.tree_hscroll = app.tree_hscroll.saturating_add(TREE_HSCROLL_STEP);
+            app.invalidate();
+        }
+        KeyCode::Left if key.modifiers.contains(KeyModifiers::SHIFT) => {
+            app.tree_hscroll = app.tree_hscroll.saturating_sub(TREE_HSCROLL_STEP);
+            app.invalidate();
+        }
         KeyCode::Char('+' | '=') | KeyCode::Right => app.handle_plus(),
         KeyCode::Char('-') => app.handle_minus(),
         KeyCode::Char('*') => app.handle_star(),
@@ -1165,6 +1175,14 @@ fn handle_mouse(
             }
             if app.mode == ViewMode::LayerOverview {
                 if areas
+                    .geom
+                    .is_some_and(|a| point_in_rect(mouse.column, mouse.row, a))
+                {
+                    app.geometry_scroll = scroll_by(app.geometry_scroll, step, up);
+                    app.invalidate();
+                    return Ok(());
+                }
+                if areas
                     .props
                     .is_some_and(|a| point_in_rect(mouse.column, mouse.row, a))
                 {
@@ -1342,7 +1360,16 @@ fn handle_mouse(
                 }
             }
         }
-        MouseEventKind::ScrollLeft | MouseEventKind::ScrollRight => {}
+        MouseEventKind::ScrollLeft | MouseEventKind::ScrollRight => {
+            if app.mode == ViewMode::LayerOverview
+                && let Some(area) = areas.tree
+                && point_in_rect(mouse.column, mouse.row, area)
+            {
+                let left = matches!(mouse.kind, MouseEventKind::ScrollLeft);
+                app.tree_hscroll = scroll_by(app.tree_hscroll, TREE_HSCROLL_STEP, left);
+                app.invalidate();
+            }
+        }
     }
     Ok(())
 }
