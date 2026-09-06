@@ -406,6 +406,8 @@ pub enum StrEncoding {
     Dict,
     Fsst,
     FsstDict,
+    FrontDict,
+    FsstFrontDict,
 }
 
 /// How to encode a float column, pinned rather than costed against the alternatives.

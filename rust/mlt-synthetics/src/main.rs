@@ -1406,6 +1406,42 @@ fn generate_props_str(w: &mut SynthWriter) {
             "props_offset_str_fsst_nulls",
             "props_str_fsst_dict_nulls",
         );
+
+    // Dictionary entries sharing all but their last byte, which v2 front coding factors out.
+    // v1 has no front coding, so its sibling holds the same values in a full dictionary.
+    let prefixed = |n: u8| format!("residential_zone_north_sector_{n}");
+    let repeats = || [1, 2, 3, 1, 2, 3].map(prefixed);
+    let some_prefixed = || repeats().map(Some);
+    let sparse_prefixed = || sparse([&prefixed(1), &prefixed(2), &prefixed(1), &prefixed(3)]);
+    let e = E::varint();
+
+    six_points()
+        .add_prop_str_front_dict(e, e, P::str("val", repeats()))
+        .write_per_version(w, "props_str_prefixes_np", "props_str_front_dict_np");
+    six_points()
+        .add_prop_str_front_dict(e, e, P::opt_str("val", some_prefixed()))
+        .write_per_version(w, "props_str_prefixes", "props_str_front_dict");
+    six_points()
+        .add_prop_str_front_dict(e, e, P::opt_str("val", sparse_prefixed()))
+        .write_per_version(w, "props_str_prefixes_nulls", "props_str_front_dict_nulls");
+
+    six_points()
+        .add_prop_str_fsst_front_dict(e, e, e, P::str("val", repeats()))
+        .write_per_version(
+            w,
+            "props_str_prefixes_fsst_np",
+            "props_str_fsst_front_dict_np",
+        );
+    six_points()
+        .add_prop_str_fsst_front_dict(e, e, e, P::opt_str("val", some_prefixed()))
+        .write_per_version(w, "props_str_prefixes_fsst", "props_str_fsst_front_dict");
+    six_points()
+        .add_prop_str_fsst_front_dict(e, e, e, P::opt_str("val", sparse_prefixed()))
+        .write_per_version(
+            w,
+            "props_str_prefixes_fsst_nulls",
+            "props_str_fsst_front_dict_nulls",
+        );
 }
 
 fn generate_shared_dictionaries(w: &mut SynthWriter) {
