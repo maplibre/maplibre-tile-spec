@@ -61,6 +61,15 @@ fn dump_text(bytes: &[u8]) -> String {
     String::from_utf8(out).expect("dump is utf8")
 }
 
+/// The value of every `label` field in the tile's dump, in wire order.
+fn dump_fields(bytes: &[u8], label: &str) -> Vec<String> {
+    dump_text(bytes)
+        .lines()
+        .filter_map(|line| line.split_once(label))
+        .map(|(_, value)| value.trim().to_string())
+        .collect()
+}
+
 fn assert_dump_covers(bytes: &[u8]) {
     let tree = annotate_tile(bytes).expect("annotate_tile");
     let mut leaves: Vec<(usize, usize)> = tree
@@ -700,18 +709,14 @@ mod strings {
         layer(points(&"1".repeat(values.len())), None, &[("v", values)])
     }
 
-    /// Whether the tile writes a front-coded dictionary blob.
-    fn is_front_coded(bytes: &[u8]) -> bool {
-        dump_text(bytes).contains("logical = FrontCoded")
+    /// How many of the tile's dictionary blobs are front coded.
+    fn front_coded_blobs(bytes: &[u8]) -> usize {
+        dump_text(bytes).matches("logical = FrontCoded").count()
     }
 
     /// The layout of every string column in the tile, in wire order.
     fn layouts(bytes: &[u8]) -> Vec<String> {
-        dump_text(bytes)
-            .lines()
-            .filter_map(|line| line.split_once("string layout = "))
-            .map(|(_, layout)| layout.trim().to_string())
-            .collect()
+        dump_fields(bytes, "string layout = ")
     }
 
     #[rstest]
@@ -745,15 +750,13 @@ mod strings {
         assert_eq!(layouts(&l.encode(cfg_v2()).unwrap()), [layout]);
     }
 
-    /// Front coding is raced like every other layout, so it should win exactly when the
-    /// dictionary's entries share prefixes to factor out.
     #[rstest]
-    #[case::entries_share_a_prefix(front_dict_values as Values, true)]
-    #[case::entries_share_no_prefix(dict_values as Values, false)]
-    fn front_coding_wins_on_shared_prefixes(#[case] values: Values, #[case] front_coded: bool) {
+    #[case::entries_share_a_prefix(front_dict_values as Values, 1)]
+    #[case::entries_share_no_prefix(dict_values as Values, 0)]
+    fn front_coding_wins_on_shared_prefixes(#[case] values: Values, #[case] front_coded: usize) {
         let l = column(values(9).into_iter().map(Some));
         assert_differential(&l);
-        assert_eq!(is_front_coded(&l.encode(cfg_v2()).unwrap()), front_coded);
+        assert_eq!(front_coded_blobs(&l.encode(cfg_v2()).unwrap()), front_coded);
     }
 
     #[test]
@@ -809,11 +812,27 @@ mod strings {
         )
     }
 
+    /// The base type of every v1 column in the tile, in wire order.
+    fn base_types(bytes: &[u8]) -> Vec<String> {
+        dump_fields(bytes, "base type = ")
+    }
+
+    /// The data type of every v2 column in the tile, in wire order.
+    fn data_types(bytes: &[u8]) -> Vec<String> {
+        dump_fields(bytes, "data type = ")
+    }
+
     #[test]
     fn columns_v1_would_share_a_dictionary_share_one_in_v2_too() {
         let l = shared_dict_layer();
-        assert!(dump_text(&l.clone().encode(cfg_v1()).unwrap()).contains("SharedDict"));
-        assert!(dump_text(&l.clone().encode(cfg_v2()).unwrap()).contains("SharedDict"));
+        assert_eq!(
+            base_types(&l.clone().encode(cfg_v1()).unwrap()),
+            ["Geometry", "SharedDict", "Str", "Str"]
+        );
+        assert_eq!(
+            data_types(&l.clone().encode(cfg_v2()).unwrap()),
+            ["SharedDict", "Str", "Str"]
+        );
         assert_differential(&l);
     }
 
@@ -841,7 +860,10 @@ mod strings {
             None,
             &[("name:de", values(0)), ("name:en", values(1))],
         );
-        assert!(dump_text(&l.clone().encode(cfg_v2()).unwrap()).contains("SharedDict"));
+        assert_eq!(
+            data_types(&l.clone().encode(cfg_v2()).unwrap()),
+            ["SharedDict", "Str", "Str"]
+        );
         assert_differential(&l);
     }
 }

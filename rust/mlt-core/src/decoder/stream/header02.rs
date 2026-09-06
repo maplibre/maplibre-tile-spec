@@ -32,12 +32,13 @@ use std::io;
 
 use integer_encoding::VarIntWriter as _;
 use num_enum::TryFromPrimitive;
+use strum::IntoEnumIterator as _;
 
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
-    Alp, BoolLogical, DataType02, DictionaryType, FastPForKind, FloatLogical, IntEncoding,
-    IntLogical, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding, RawStream, RleMeta,
-    StreamMeta, StreamType, VertexLogical,
+    Alp, BoolLogical, DataType02, DictLayout, DictionaryType, FastPForKind, FloatLogical,
+    IntEncoding, IntLogical, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding, RawStream,
+    RleMeta, StreamMeta, StreamType, VertexLogical,
 };
 use crate::utils::{BinarySerializer as _, parse_u8, take};
 use crate::{MltError, MltRefResult, MltResult, Parser};
@@ -107,19 +108,20 @@ impl StrLayout {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, strum::EnumIter, strum::IntoStaticStr)]
 pub(crate) enum Family {
     #[default]
-    #[strum(serialize = "a v2 integer stream")]
+    #[strum(serialize = "integer stream")]
     Int,
-    #[strum(serialize = "a v2 bool column")]
+    #[strum(serialize = "bool column")]
     Bool,
-    #[strum(serialize = "a v2 float column")]
+    #[strum(serialize = "float column")]
     Float,
-    #[strum(serialize = "a v2 vertex stream")]
+    #[strum(serialize = "vertex stream")]
     Vertex,
-    /// A string column's leading stream: an integer stream whose extension bits carry [`StrLayout`].
-    #[strum(serialize = "a v2 string column")]
+    /// A string column's leading stream.
+    /// Is an integer stream whose extension bits carry [`StrLayout`].
+    #[strum(serialize = "string column")]
     Str(StrLayout),
     /// An opaque byte blob, whose value count is its byte length.
-    #[strum(serialize = "a v2 byte blob")]
+    #[strum(serialize = "byte blob")]
     Bytes,
 }
 
@@ -132,7 +134,6 @@ impl Family {
             Self::Bool => &[L::None, L::Rle],
             Self::Float => &[L::None, L::Rle, L::Alp, L::Dict],
             Self::Vertex => &[L::None, L::Delta, L::CwDelta, L::Morton],
-            // Code 2 is reserved for a `Trie` dictionary blob, which would slot in here.
             Self::Bytes => &[L::None, L::FrontCoded],
         }
     }
@@ -214,42 +215,21 @@ impl StreamCtx02 {
     }
 }
 
-/// How a byte blob's bytes are laid out, naming the [`Family::Bytes`] logicals an encoder writes.
-/// The discriminants are the wire codes, which `blob_layout_codes_match_family` holds to [`Family::members`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u8)]
-pub(crate) enum BlobLayout {
-    /// The blob's bytes as they are.
-    Plain = 0,
-    /// A dictionary's entries with their shared prefixes removed, so the blob holds only suffixes.
-    FrontCoded = 1,
-}
-
-impl BlobLayout {
-    /// The canonical encoding this layout names, which only the agreement test needs.
-    #[cfg(test)]
+impl DictLayout {
+    /// The [`Family::Bytes`] encoding this layout is named by on the wire.
     const fn logical(self) -> Logical {
         match self {
             Self::Plain => Logical::None,
             Self::FrontCoded => Logical::FrontCoded,
         }
     }
-}
 
-/// The layout a byte blob's encoding byte names, read before the stream itself is parsed.
-///
-/// Returns [`None`] for a code this version does not have, which parsing the stream then reports.
-pub(crate) fn peek_blob_layout(enc_byte: u8) -> Option<BlobLayout> {
-    match Family::Bytes.logical((enc_byte & LOGICAL_MASK) >> LOGICAL_SHIFT)? {
-        Logical::None => Some(BlobLayout::Plain),
-        Logical::FrontCoded => Some(BlobLayout::FrontCoded),
-        Logical::Delta
-        | Logical::CwDelta
-        | Logical::Rle
-        | Logical::DeltaRle
-        | Logical::Morton
-        | Logical::Alp
-        | Logical::Dict => None,
+    /// The layout a byte blob's encoding byte names, read before the stream itself is parsed.
+    ///
+    /// Returns [`None`] for a code this version does not have, which parsing the stream then reports.
+    pub(crate) fn from_bits(enc_byte: u8) -> Option<Self> {
+        let logical = Family::Bytes.logical((enc_byte & LOGICAL_MASK) >> LOGICAL_SHIFT)?;
+        Self::iter().find(|layout| layout.logical() == logical)
     }
 }
 
@@ -257,10 +237,14 @@ pub(crate) fn peek_blob_layout(enc_byte: u8) -> Option<BlobLayout> {
 /// A blob's value count is its byte length, so no count varint is ever written.
 pub(crate) fn write_blob_meta<W: io::Write>(
     writer: &mut W,
-    layout: BlobLayout,
+    layout: DictLayout,
     byte_length: u32,
 ) -> MltResult<()> {
-    writer.write_u8(((layout as u8) << LOGICAL_SHIFT) | PhysicalBits::WithLen as u8)?;
+    let logical = layout.logical();
+    let code = Family::Bytes
+        .code(logical)
+        .unwrap_or_else(|| unreachable_member(Family::Bytes, logical));
+    writer.write_u8((code << LOGICAL_SHIFT) | PhysicalBits::WithLen as u8)?;
     writer.write_varint(byte_length)?;
     Ok(())
 }
@@ -396,7 +380,7 @@ fn logical_int(family: Family, enc_byte: u8, logical: Logical) -> MltResult<Logi
             LogicalInt::DeltaRle
         }
         Logical::CwDelta | Logical::Morton | Logical::Alp | Logical::Dict | Logical::FrontCoded => {
-            unreachable_member(family, logical)?
+            unreachable_member(family, logical)
         }
     })
 }
@@ -430,7 +414,7 @@ impl Encoding02 {
                 | Logical::DeltaRle
                 | Logical::Morton
                 | Logical::Alp
-                | Logical::Dict => unreachable_member(family, logical)?,
+                | Logical::Dict => unreachable_member(family, logical),
             }),
             Family::Bool => Self::Bool(match logical {
                 Logical::None => LogicalBool::None(physical_bits(enc_byte)?),
@@ -444,7 +428,7 @@ impl Encoding02 {
                 | Logical::Morton
                 | Logical::Alp
                 | Logical::Dict
-                | Logical::FrontCoded => unreachable_member(family, logical)?,
+                | Logical::FrontCoded => unreachable_member(family, logical),
             }),
             Family::Float => Self::Float(match logical {
                 Logical::None => LogicalFloat::None(physical_bits(enc_byte)?),
@@ -458,7 +442,7 @@ impl Encoding02 {
                 | Logical::CwDelta
                 | Logical::DeltaRle
                 | Logical::Morton
-                | Logical::FrontCoded => unreachable_member(family, logical)?,
+                | Logical::FrontCoded => unreachable_member(family, logical),
             }),
             Family::Vertex => Self::Vertex(match logical {
                 Logical::None => LogicalVertex::None(physical_int(enc_byte)?),
@@ -472,7 +456,7 @@ impl Encoding02 {
                 | Logical::DeltaRle
                 | Logical::Alp
                 | Logical::Dict
-                | Logical::FrontCoded => unreachable_member(family, logical)?,
+                | Logical::FrontCoded => unreachable_member(family, logical),
             }),
         })
     }
@@ -595,7 +579,7 @@ impl Encoding02 {
 }
 
 /// A family only resolves a code to one of its own members, so any other pairing is a bug in [`Family::members`].
-fn unreachable_member<T>(family: Family, logical: Logical) -> MltResult<T> {
+fn unreachable_member(family: Family, logical: Logical) -> ! {
     unreachable!("{family:?} does not list {logical:?}")
 }
 
@@ -830,7 +814,6 @@ pub(crate) fn describe_encoding(family: Family, byte: u8) -> (String, String) {
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
-    use strum::IntoEnumIterator as _;
 
     use super::*;
     use crate::decoder::Morton;
@@ -1195,14 +1178,16 @@ mod tests {
     }
 
     #[rstest]
-    #[case(BlobLayout::Plain)]
-    #[case(BlobLayout::FrontCoded)]
-    fn blob_layout_codes_match_family(#[case] layout: BlobLayout) {
-        assert_eq!(
-            Family::Bytes.code(layout.logical()),
-            Some(layout as u8),
-            "{layout:?}"
-        );
+    #[case(DictLayout::Plain, 0b0000_0100)]
+    #[case(DictLayout::FrontCoded, 0b0001_0100)]
+    fn a_blob_encoding_byte_names_its_dict_layout(
+        #[case] layout: DictLayout,
+        #[case] enc_byte: u8,
+    ) {
+        let mut buf = Vec::new();
+        write_blob_meta(&mut buf, layout, 0).unwrap();
+        assert_eq!(buf[0], enc_byte);
+        assert_eq!(DictLayout::from_bits(enc_byte), Some(layout));
     }
 
     #[test]

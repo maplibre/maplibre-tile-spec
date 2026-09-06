@@ -297,9 +297,7 @@ fn family_of(typ: DataType02) -> Family {
         | DataType02::U32
         | DataType02::I64
         | DataType02::U64
-        | DataType02::Str
-        // A shared dictionary has no data stream of its own; each of its streams sets its own family.
-        | DataType02::SharedDict => Family::Int,
+        | DataType02::Str => Family::Int,
     }
 }
 

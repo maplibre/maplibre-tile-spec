@@ -110,7 +110,7 @@ pub enum RawStringsEncoding<'a> {
 }
 
 /// How a dictionary's entries sit in its blob.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::EnumIter)]
 pub enum DictLayout {
     /// Entries back to back, the lengths stream holding one length each.
     Plain,
