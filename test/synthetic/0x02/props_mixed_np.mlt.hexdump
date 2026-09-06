@@ -13,7 +13,7 @@
 0000000d                                                                     |       header (2 B)
 0000000d  08                                                .                |         encoding: 0x08 logical=None physical=VarInt
                                                                              |           └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
-                                                                             |           └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
+                                                                             |           └ bits 6-4 = 000 -> logical = None, numbered for integer stream
                                                                              |           └ bits 3-2 = 10 -> physical = VarInt
                                                                              |           └ bits 1-0 = 00 -> extension = 0
 0000000e  01                                                .                |         byte_length: 1
@@ -23,7 +23,7 @@
 00000010                                                                     |       header (3 B)
 00000010  a8                                                .                |         encoding: 0xA8 logical=CwDelta physical=VarInt
                                                                              |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
-                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta, numbered for a v2 vertex stream
+                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
                                                                              |           └ bits 3-2 = 10 -> physical = VarInt
                                                                              |           └ bits 1-0 = 00 -> extension = 0
 00000011  02                                                .                |         num_values: 2
@@ -41,7 +41,7 @@
 0000001e                                                                     |         header (2 B)
 0000001e  04                                                .                |           encoding: 0x04 logical=None physical=WithLen
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
-                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 bool column
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for bool column
                                                                              |             └ bits 3-2 = 01 -> physical = WithLen
                                                                              |             └ bits 1-0 = 00 -> extension = 0
 0000001f  01                                                .                |           byte_length: 1
@@ -56,7 +56,7 @@
 0000002a                                                                     |         header (2 B)
 0000002a  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
-                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for integer stream
                                                                              |             └ bits 3-2 = 10 -> physical = VarInt
                                                                              |             └ bits 1-0 = 00 -> extension = 0
 0000002b  01                                                .                |           byte_length: 1
@@ -71,7 +71,7 @@
 00000035                                                                     |         header (2 B)
 00000035  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
-                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for integer stream
                                                                              |             └ bits 3-2 = 10 -> physical = VarInt
                                                                              |             └ bits 1-0 = 00 -> extension = 0
 00000036  01                                                .                |           byte_length: 1
@@ -86,7 +86,7 @@
 0000003f                                                                     |         header (2 B)
 0000003f  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
-                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for integer stream
                                                                              |             └ bits 3-2 = 10 -> physical = VarInt
                                                                              |             └ bits 1-0 = 00 -> extension = 0
 00000040  01                                                .                |           byte_length: 1
@@ -101,7 +101,7 @@
 0000004a                                                                     |         header (2 B)
 0000004a  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
-                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for integer stream
                                                                              |             └ bits 3-2 = 10 -> physical = VarInt
                                                                              |             └ bits 1-0 = 00 -> extension = 0
 0000004b  01                                                .                |           byte_length: 1
@@ -116,7 +116,7 @@
 00000053                                                                     |         header (2 B)
 00000053  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
-                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 string column
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for string column
                                                                              |             └ bits 3-2 = 10 -> physical = VarInt
                                                                              |             └ bits 1-0 = 00 -> string layout = Plain
 00000054  01                                                .                |           byte_length: 1
@@ -126,7 +126,7 @@
 00000056                                                                     |         header (2 B)
 00000056  04                                                .                |           encoding: 0x04 logical=None physical=WithLen
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> a blob's byte length is its value count
-                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 byte blob
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for byte blob
                                                                              |             └ bits 3-2 = 01 -> physical = WithLen
                                                                              |             └ bits 1-0 = 00 -> extension = 0
 00000057  0a                                                .                |           byte_length: 10
@@ -141,7 +141,7 @@
 0000006d                                                                     |         header (2 B)
 0000006d  04                                                .                |           encoding: 0x04 logical=None physical=WithLen
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
-                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 float column
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for float column
                                                                              |             └ bits 3-2 = 01 -> physical = WithLen
                                                                              |             └ bits 1-0 = 00 -> extension = 0
 0000006e  08                                                .                |           byte_length: 8
@@ -156,7 +156,7 @@
 0000007d                                                                     |         header (2 B)
 0000007d  04                                                .                |           encoding: 0x04 logical=None physical=WithLen
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
-                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for a v2 float column
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for float column
                                                                              |             └ bits 3-2 = 01 -> physical = WithLen
                                                                              |             └ bits 1-0 = 00 -> extension = 0
 0000007e  04                                                .                |           byte_length: 4

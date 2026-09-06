@@ -1,0 +1,93 @@
+00000000                                                                     | layer[0] (123 B)
+00000000  7a                                                z                |   size: 122 (varint) - tag + body
+00000001  02                                                .                |   tag: 0x02 -> Tag02
+00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
+00000009  50                                                P                |   extent: 80
+0000000a  06                                                .                |   feature_count: 6
+0000000b  00                                                .                |   layout: 0x00 Points
+                                                                             |     └ bit 7 = 0 -> reserved = 0
+                                                                             |     └ bits 6-4 = 000 -> shared presence bitfields = 0
+                                                                             |     └ bits 3-0 = 0000 -> geometry layout = Points
+0000000c                                                                     |   geometry (19 B)
+0000000c                                                                     |     types (4 B)
+0000000c                                                                     |       header (2 B)
+0000000c  20                                                                 |         encoding: 0x20 logical=Rle physical=implied
+                                                                             |           └ bit 7 = 0 -> has_explicit_count = false -> 6 values from context
+                                                                             |           └ bits 6-4 = 010 -> logical = Rle, numbered for integer stream
+                                                                             |           └ bits 3-2 = 00 -> physical = implied
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+0000000d  02                                                .                |         byte_length: 2
+0000000e  06 00                                             ..               |       data [Length(VarBinary) Int(Rle(Interleaved { num_rle_values: 6 }))/VarInt, 6 values, 2 B]
+                                                                             |         decoded: [0, 0, 0, 0, 0, 0]
+00000010                                                                     |     vertices (15 B)
+00000010                                                                     |       header (3 B)
+00000010  a8                                                .                |         encoding: 0xA8 logical=CwDelta physical=VarInt
+                                                                             |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
+                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+00000011  0c                                                .                |         num_values: 12
+00000012  0c                                                .                |         byte_length: 12
+00000013  16 68 78 28 13 63 08 58 3b 13 28 27               .hx(.c.X;.('     |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 12 values, 12 B]
+                                                                             |         decoded: [11, 52, 71, 72, 61, 22, 65, 66, 35, 56, 55, 36]
+0000001f  01                                                .                |   column_count: 1
+00000020                                                                     |   columns (91 B)
+00000020                                                                     |     column[0] Str "val" (91 B)
+00000020  0b                                                .                |       type: 0x0B AllPresent Str
+                                                                             |         └ bits 7-4 = 0000 -> presence = AllPresent
+                                                                             |         └ bits 3-0 = 1011 -> data type = Str
+00000021  03 76 61 6c                                       .val             |       name: "val"
+00000025                                                                     |       codes (8 B)
+00000025                                                                     |         header (2 B)
+00000025  0b                                                .                |           encoding: 0x0B logical=None physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 6 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for string column
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 11 -> string layout = FsstDict
+00000026  06                                                .                |           byte_length: 6
+00000027  00 01 02 00 01 02                                 ......           |         data [Offset(String) Int(None)/VarInt, 6 values, 6 B]
+                                                                             |           decoded: [0, 1, 2, 0, 1, 2]
+0000002d                                                                     |       dict_lengths (8 B)
+0000002d                                                                     |         header (2 B)
+0000002d  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 6 values from context
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for integer stream
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+0000002e  06                                                .                |           byte_length: 6
+0000002f  00 1e 1e 1f 01 01                                 ......           |         data [Length(Dictionary) Int(None)/VarInt, 6 values, 6 B]
+                                                                             |           decoded: [0, 30, 30, 31, 1, 1]
+00000035                                                                     |       symbol_lengths (5 B)
+00000035                                                                     |         header (3 B)
+00000035  88                                                .                |           encoding: 0x88 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for integer stream
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+00000036  02                                                .                |           num_values: 2
+00000037  02                                                .                |           byte_length: 2
+00000038  01 01                                             ..               |         data [Length(Symbol) Int(None)/VarInt, 2 values, 2 B]
+                                                                             |           decoded: [1, 1]
+0000003a                                                                     |       symbol_table (4 B)
+0000003a                                                                     |         header (2 B)
+0000003a  04                                                .                |           encoding: 0x04 logical=None physical=WithLen
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> a blob's byte length is its value count
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for byte blob
+                                                                             |             └ bits 3-2 = 01 -> physical = WithLen
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+0000003b  02                                                .                |           byte_length: 2
+0000003c  72 65                                             re               |         data [Data(Fsst) Int(None)/None, 2 values, 2 B]
+                                                                             |           decoded: utf-8 "re"
+0000003e                                                                     |       corpus (61 B)
+0000003e                                                                     |         header (2 B)
+0000003e  14                                                .                |           encoding: 0x14 logical=FrontCoded physical=WithLen
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> a blob's byte length is its value count
+                                                                             |             └ bits 6-4 = 001 -> logical = FrontCoded, numbered for byte blob
+                                                                             |             └ bits 3-2 = 01 -> physical = WithLen
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+0000003f  3b                                                ;                |           byte_length: 59
+00000040  00 01 ff 73 ff 69 ff 64 01 ff 6e ff 74 ff 69 ff   ...s.i.d..n.t.i. |         data [Data(Single) Int(None)/None, 59 values, 59 B]
+00000050  61 ff 6c ff 5f ff 7a ff 6f ff 6e 01 ff 5f ff 6e   a.l._.z.o.n.._.n |
+00000060  ff 6f 00 ff 74 ff 68 ff 5f ff 73 01 ff 63 ff 74   .o..t.h._.s..c.t |
+00000070  ff 6f 00 ff 5f ff 31 ff 32 ff 33                  .o.._.1.2.3      |
+                                                                             |           decoded: <59 binary bytes>

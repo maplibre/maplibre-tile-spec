@@ -13,7 +13,7 @@
 0000000c                                                                     |       header (2 B)
 0000000c  0c                                                .                |         encoding: 0x0C logical=None physical=FastPFor128
                                                                              |           └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
-                                                                             |           └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
+                                                                             |           └ bits 6-4 = 000 -> logical = None, numbered for integer stream
                                                                              |           └ bits 3-2 = 11 -> physical = FastPFor128
                                                                              |           └ bits 1-0 = 00 -> extension = 0
 0000000d  08                                                .                |         byte_length: 8
@@ -23,7 +23,7 @@
 00000016                                                                     |       header (2 B)
 00000016  0c                                                .                |         encoding: 0x0C logical=None physical=FastPFor128
                                                                              |           └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
-                                                                             |           └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
+                                                                             |           └ bits 6-4 = 000 -> logical = None, numbered for integer stream
                                                                              |           └ bits 3-2 = 11 -> physical = FastPFor128
                                                                              |           └ bits 1-0 = 00 -> extension = 0
 00000017  08                                                .                |         byte_length: 8
@@ -33,7 +33,7 @@
 00000020                                                                     |       header (2 B)
 00000020  0c                                                .                |         encoding: 0x0C logical=None physical=FastPFor128
                                                                              |           └ bit 7 = 0 -> has_explicit_count = false -> 1 values from context
-                                                                             |           └ bits 6-4 = 000 -> logical = None, numbered for a v2 integer stream
+                                                                             |           └ bits 6-4 = 000 -> logical = None, numbered for integer stream
                                                                              |           └ bits 3-2 = 11 -> physical = FastPFor128
                                                                              |           └ bits 1-0 = 00 -> extension = 0
 00000021  08                                                .                |         byte_length: 8
@@ -43,7 +43,7 @@
 0000002a                                                                     |       header (3 B)
 0000002a  ac                                                .                |         encoding: 0xAC logical=CwDelta physical=FastPFor128
                                                                              |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
-                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta, numbered for a v2 vertex stream
+                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
                                                                              |           └ bits 3-2 = 11 -> physical = FastPFor128
                                                                              |           └ bits 1-0 = 00 -> extension = 0
 0000002b  08                                                .                |         num_values: 8

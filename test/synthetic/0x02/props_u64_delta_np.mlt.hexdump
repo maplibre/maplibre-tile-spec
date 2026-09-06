@@ -13,7 +13,7 @@
 0000000c                                                                     |       header (2 B)
 0000000c  20                                                                 |         encoding: 0x20 logical=Rle physical=implied
                                                                              |           └ bit 7 = 0 -> has_explicit_count = false -> 4 values from context
-                                                                             |           └ bits 6-4 = 010 -> logical = Rle, numbered for a v2 integer stream
+                                                                             |           └ bits 6-4 = 010 -> logical = Rle, numbered for integer stream
                                                                              |           └ bits 3-2 = 00 -> physical = implied
                                                                              |           └ bits 1-0 = 00 -> extension = 0
 0000000d  02                                                .                |         byte_length: 2
@@ -23,7 +23,7 @@
 00000010                                                                     |       header (3 B)
 00000010  a8                                                .                |         encoding: 0xA8 logical=CwDelta physical=VarInt
                                                                              |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
-                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta, numbered for a v2 vertex stream
+                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
                                                                              |           └ bits 3-2 = 10 -> physical = VarInt
                                                                              |           └ bits 1-0 = 00 -> extension = 0
 00000011  08                                                .                |         num_values: 8
@@ -41,7 +41,7 @@
 00000021                                                                     |         header (2 B)
 00000021  18                                                .                |           encoding: 0x18 logical=Delta physical=VarInt
                                                                              |             └ bit 7 = 0 -> has_explicit_count = false -> 4 values from context
-                                                                             |             └ bits 6-4 = 001 -> logical = Delta, numbered for a v2 integer stream
+                                                                             |             └ bits 6-4 = 001 -> logical = Delta, numbered for integer stream
                                                                              |             └ bits 3-2 = 10 -> physical = VarInt
                                                                              |             └ bits 1-0 = 00 -> extension = 0
 00000022  06                                                .                |           byte_length: 6
