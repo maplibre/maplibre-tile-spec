@@ -1,0 +1,44 @@
+00000000                                                                     | layer[0] (57 B)
+00000000  38                                                8                |   size: 56 (varint) - tag + body
+00000001  02                                                .                |   tag: 0x02 -> Tag02
+00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
+00000009  50                                                P                |   extent: 80
+0000000a  10                                                .                |   feature_count: 16
+0000000b  01                                                .                |   layout: 0x01 PointsDict
+                                                                             |     └ bit 7 = 0 -> reserved = 0
+                                                                             |     └ bits 6-4 = 000 -> shared presence bitfields = 0
+                                                                             |     └ bits 3-0 = 0001 -> geometry layout = PointsDict
+0000000c                                                                     |   geometry (44 B)
+0000000c                                                                     |     types (18 B)
+0000000c                                                                     |       header (2 B)
+0000000c  08                                                .                |         encoding: 0x08 logical=None physical=VarInt
+                                                                             |           └ bit 7 = 0 -> has_explicit_count = false -> 16 values from context
+                                                                             |           └ bits 6-4 = 000 -> logical = None, numbered for integer stream
+                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+0000000d  10                                                .                |         byte_length: 16
+0000000e  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ................ |       data [Length(VarBinary) Int(None)/VarInt, 16 values, 16 B]
+                                                                             |         decoded: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+0000001e                                                                     |     vertex_dict (20 B)
+0000001e                                                                     |       header (4 B)
+0000001e  38                                                8                |         encoding: 0x38 logical=Morton physical=VarInt
+                                                                             |           └ bit 7 = 0 -> has_explicit_count = false -> 16 values from context
+                                                                             |           └ bits 6-4 = 011 -> logical = Morton, numbered for vertex stream
+                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+0000001f  10                                                .                |         byte_length: 16
+00000020  05                                                .                |         morton_bits: 5
+00000021  00                                                .                |         morton_shift: 0
+00000022  00 40 40 40 40 40 40 40 40 40 40 40 40 40 40 40   .@@@@@@@@@@@@@@@ |       data [Data(Vertex) Vertex(MortonDelta(Morton { bits: 5, shift: 0 }))/VarInt, 16 values, 16 B]
+                                                                             |         decoded: [0, 0, 8, 0, 0, 8, 8, 8, 16, 0, 24, 0, 16, 8, 24, 8, 0, 16, 8, 16, 0, 24, 8, 24, 16, 16, 24, 16, 16, 24, 24, 24]
+00000032                                                                     |     vertex_offsets (6 B)
+00000032                                                                     |       header (2 B)
+00000032  30                                                0                |         encoding: 0x30 logical=DeltaRle physical=implied
+                                                                             |           └ bit 7 = 0 -> has_explicit_count = false -> 16 values from context
+                                                                             |           └ bits 6-4 = 011 -> logical = DeltaRle, numbered for integer stream
+                                                                             |           └ bits 3-2 = 00 -> physical = implied
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+00000033  04                                                .                |         byte_length: 4
+00000034  01 00 0f 02                                       ....             |       data [Offset(Vertex) Int(DeltaRle(Interleaved { num_rle_values: 16 }))/VarInt, 16 values, 4 B]
+                                                                             |         decoded: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+00000038  00                                                .                |   column_count: 0
