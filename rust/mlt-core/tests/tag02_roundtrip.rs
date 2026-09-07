@@ -720,26 +720,31 @@ mod strings {
     }
 
     #[rstest]
-    #[case::plain(plain_values as Values, "Plain")]
-    #[case::dict(dict_values as Values, "Dict")]
-    #[case::front_dict(front_dict_values as Values, "Dict")]
-    #[case::fsst(fsst_values as Values, "Fsst")]
-    #[case::fsst_dict(fsst_dict_values as Values, "FsstDict")]
-    #[case::fsst_front_dict(fsst_front_dict_values as Values, "FsstDict")]
-    fn each_layout_round_trips(#[case] values: Values, #[case] layout: &str) {
+    #[case::plain(plain_values as Values, "Plain", false)]
+    #[case::dict(dict_values as Values, "Dict", false)]
+    #[case::front_dict(front_dict_values as Values, "Dict", false)]
+    #[case::fsst(fsst_values as Values, "Fsst", true)]
+    #[case::fsst_dict(fsst_dict_values as Values, "FsstDict", true)]
+    #[case::fsst_front_dict(fsst_front_dict_values as Values, "FsstDict", true)]
+    fn each_layout_round_trips(#[case] values: Values, #[case] layout: &str, #[case] fsst: bool) {
         let l = column(values(9).into_iter().map(Some));
         assert_differential(&l);
-        assert_eq!(layouts(&l.encode(cfg_v2()).unwrap()), [layout]);
+        let bytes = l.encode(cfg_v2().with_fsst(fsst)).unwrap();
+        assert_eq!(layouts(&bytes), [layout]);
     }
 
     #[rstest]
-    #[case::plain(plain_values as Values, "Plain")]
-    #[case::dict(dict_values as Values, "Dict")]
-    #[case::front_dict(front_dict_values as Values, "Dict")]
-    #[case::fsst(fsst_values as Values, "Fsst")]
-    #[case::fsst_dict(fsst_dict_values as Values, "FsstDict")]
-    #[case::fsst_front_dict(fsst_front_dict_values as Values, "FsstDict")]
-    fn each_layout_round_trips_with_nulls(#[case] values: Values, #[case] layout: &str) {
+    #[case::plain(plain_values as Values, "Plain", false)]
+    #[case::dict(dict_values as Values, "Dict", false)]
+    #[case::front_dict(front_dict_values as Values, "Dict", false)]
+    #[case::fsst(fsst_values as Values, "Fsst", true)]
+    #[case::fsst_dict(fsst_dict_values as Values, "FsstDict", true)]
+    #[case::fsst_front_dict(fsst_front_dict_values as Values, "FsstDict", true)]
+    fn each_layout_round_trips_with_nulls(
+        #[case] values: Values,
+        #[case] layout: &str,
+        #[case] fsst: bool,
+    ) {
         let l = column(
             values(12)
                 .into_iter()
@@ -747,7 +752,22 @@ mod strings {
                 .map(|(i, v)| (i % 3 != 0).then_some(v)),
         );
         assert_differential(&l);
-        assert_eq!(layouts(&l.encode(cfg_v2()).unwrap()), [layout]);
+        let bytes = l.encode(cfg_v2().with_fsst(fsst)).unwrap();
+        assert_eq!(layouts(&bytes), [layout]);
+    }
+
+    #[rstest]
+    #[case::plain(plain_values as Values)]
+    #[case::dict(dict_values as Values)]
+    #[case::front_dict(front_dict_values as Values)]
+    fn fsst_over_front_coded_suffixes_beats_the_layout_that_wins_without_it(
+        #[case] values: Values,
+    ) {
+        let l = column(values(9).into_iter().map(Some));
+        let with = l.clone().encode(cfg_v2()).unwrap();
+        let without = l.encode(cfg_v2().with_fsst(false)).unwrap();
+        assert_eq!(layouts(&with), ["FsstDict"]);
+        assert!(with.len() < without.len(), "{} < {}", with.len(), without.len());
     }
 
     #[rstest]
@@ -756,7 +776,8 @@ mod strings {
     fn front_coding_wins_on_shared_prefixes(#[case] values: Values, #[case] front_coded: usize) {
         let l = column(values(9).into_iter().map(Some));
         assert_differential(&l);
-        assert_eq!(front_coded_blobs(&l.encode(cfg_v2()).unwrap()), front_coded);
+        let bytes = l.encode(cfg_v2().with_fsst(false)).unwrap();
+        assert_eq!(front_coded_blobs(&bytes), front_coded);
     }
 
     #[test]
