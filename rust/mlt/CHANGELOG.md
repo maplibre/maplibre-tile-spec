@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.30](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.29...rust-mlt-v0.1.30) - 2026-09-07
+
+### Added
+
+- *(rust)* scroll the mlt ui tree sideways with < and > ([#1657](https://github.com/maplibre/maplibre-tile-spec/pull/1657))
+
 ## [0.1.29](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.28...rust-mlt-v0.1.29) - 2026-09-06
 
 ### Added
