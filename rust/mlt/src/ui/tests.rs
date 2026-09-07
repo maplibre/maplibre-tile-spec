@@ -156,7 +156,7 @@ fn file_browser_app() -> App {
 fn layer_overview_starts_on_all_layers() {
     let mut app = sample_app();
     insta::assert_snapshot!(render(&mut app), @r#"
-    "┌sample.mlt - Enter/+/-:expan┐┌Map View────────────────────────────────────────────────────────────┐"
+    "┌sample.mlt - h:help, q:quit,┐┌Map View────────────────────────────────────────────────────────────┐"
     "│>> All                      ││                                                                    │"
     "│     Layer: water (2 feature││                                                                    │"
     "│     Layer: roads (2 feature││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
@@ -196,7 +196,7 @@ fn keys_expand_a_layer_and_select_a_feature() {
     press(&mut app, KeyCode::Enter);
     press(&mut app, KeyCode::Down);
     insta::assert_snapshot!(render(&mut app), @r#"
-    "┌sample.mlt - Enter/+/-:expan┐┌Map View────────────────────────────────────────────────────────────┐"
+    "┌sample.mlt - h:help, q:quit,┐┌Map View────────────────────────────────────────────────────────────┐"
     "│   All                      ││                                                                    │"
     "│     Layer: water (2 feature││                                                                    │"
     "│>>     Feat 0: Polygon (10v,││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
@@ -239,7 +239,7 @@ fn keys_drill_into_a_multipolygon_part() {
     press(&mut app, KeyCode::Char('+'));
     press(&mut app, KeyCode::Down);
     insta::assert_snapshot!(render(&mut app), @r#"
-    "┌sample.mlt - Enter/+/-:expan┐┌Map View────────────────────────────────────────────────────────────┐"
+    "┌sample.mlt - h:help, q:quit,┐┌Map View────────────────────────────────────────────────────────────┐"
     "│   All                      ││                                                                    │"
     "│     Layer: water (2 feature││                                                                    │"
     "│       Feat 0: Polygon (10v,││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
@@ -278,7 +278,7 @@ fn star_expands_every_layer_and_end_jumps_to_the_last_row() {
     press(&mut app, KeyCode::Char('*'));
     press(&mut app, KeyCode::End);
     insta::assert_snapshot!(render(&mut app), @r#"
-    "┌sample.mlt - Enter/+/-:expan┐┌Map View────────────────────────────────────────────────────────────┐"
+    "┌sample.mlt - h:help, q:quit,┐┌Map View────────────────────────────────────────────────────────────┐"
     "│   All                      ││                                                                    │"
     "│     Layer: water (2 feature││                                                                    │"
     "│       Feat 0: Polygon (10v,││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
@@ -317,7 +317,7 @@ fn hovering_the_map_highlights_the_nearest_feature() {
     let bounds = app.get_bounds();
     app.find_hovered_feature(1000.0, 3000.0, bounds);
     insta::assert_snapshot!(render(&mut app), @r#"
-    "┌sample.mlt - Enter/+/-:expan┐┌Map View────────────────────────────────────────────────────────────┐"
+    "┌sample.mlt - h:help, q:quit,┐┌Map View────────────────────────────────────────────────────────────┐"
     "│>> All                      ││                                                                    │"
     "│     Layer: water (2 feature││                                                                    │"
     "│     Layer: roads (2 feature││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
@@ -355,7 +355,7 @@ fn help_overlay_lists_the_layer_overview_keys() {
     let mut app = sample_app();
     press(&mut app, KeyCode::Char('?'));
     insta::assert_snapshot!(render(&mut app), @r#"
-    "┌sample.mlt - Enter/+/-:expan┐┌Map View────────────────────────────────────────────────────────────┐"
+    "┌sample.mlt - h:help, q:quit,┐┌Map View────────────────────────────────────────────────────────────┐"
     "│>> All            ┌Help (↑/↓/scroll to navigate, any other key to close)───────┐                  │"
     "│     Layer: water │Keyboard                                                    ▲                  │"
     "│     Layer: roads │  ?  h  F1            Toggle this help                      █⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
@@ -369,20 +369,20 @@ fn help_overlay_lists_the_layer_overview_keys() {
     "│                  │  -                   Collapse (or jump to parent)          █   ⢸        ⡇     │"
     "│                  │  *                   Expand/collapse all layers            ║   ⢸        ⡇     │"
     "│                  │  Left                Jump to parent node                   ║   ⢸        ⡇     │"
-    "└◄██████████═══════│  Shift+Left/Right    Scroll the tree sideways              ║   ⢸        ⡇     │"
-    "┌Properties (all la│  Ctrl+h / Ctrl+l     Resize left/right split               ║⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
-    "│Layers: 3         │  Shift+J / Shift+K   Resize top/bottom split               ║   ⢸        ⡇     │"
-    "│Features: 6       │                                                            ║   ⢸        ⡇     │"
-    "│water: 2 features │Mouse                                                       ║   ⢸        ⡇     │"
-    "│roads: 2 features │  Click tree item     Select (drill into level)             ║   ⢸        ⡇     │"
-    "│poi: 2 features   │  Double-click        Expand/collapse                       ║   ⢸        ⡇     │"
-    "│                  │  Hover tree/map      Highlight the layer, feature, or part ║   ⢸        ⡇     │"
-    "└──────────────────│                      at the current level                  ║   ⢸        ⡇     │"
-    "┌Geometry (all laye│  Click on map        Select the hovered item               ║⠤⠤⠤⠼        ⡇     │"
-    "│Vertices: 29      │  Scroll panels       Scroll tree/properties/geometry       ║            ⡇     │"
-    "│Point: 1          │  Scroll sideways     Scroll the tree horizontally          ║            ⡇     │"
-    "│LineString: 1     │  Drag dividers       Resize panels                         ║⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│Polygon: 1        │                                                            ▼                  │"
+    "└◄██████████═══════│  <  >                Scroll the tree sideways              ║   ⢸        ⡇     │"
+    "┌Properties (all la│  Shift+Left/Right    Scroll the tree sideways              ║⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
+    "│Layers: 3         │  Ctrl+h / Ctrl+l     Resize left/right split               ║   ⢸        ⡇     │"
+    "│Features: 6       │  Shift+J / Shift+K   Resize top/bottom split               ║   ⢸        ⡇     │"
+    "│water: 2 features │                                                            ║   ⢸        ⡇     │"
+    "│roads: 2 features │Mouse                                                       ║   ⢸        ⡇     │"
+    "│poi: 2 features   │  Click tree item     Select (drill into level)             ║   ⢸        ⡇     │"
+    "│                  │  Double-click        Expand/collapse                       ║   ⢸        ⡇     │"
+    "└──────────────────│  Hover tree/map      Highlight the layer, feature, or part ║   ⢸        ⡇     │"
+    "┌Geometry (all laye│                      at the current level                  ║⠤⠤⠤⠼        ⡇     │"
+    "│Vertices: 29      │  Click on map        Select the hovered item               ║            ⡇     │"
+    "│Point: 1          │  Scroll panels       Scroll tree/properties/geometry       ║            ⡇     │"
+    "│LineString: 1     │  Scroll sideways     Scroll the tree horizontally          ║⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
+    "│Polygon: 1        │  Drag dividers       Resize panels                         ▼                  │"
     "│MultiPoint: 1     └────────────────────────────────────────────────────────────┘                  │"
     "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
     "#);
@@ -395,7 +395,7 @@ fn error_popup_shows_the_message_until_a_key_is_pressed() {
     let mut app = sample_app();
     app.error_popup = Some(("broken.mlt".into(), "unexpected end of buffer".into()));
     insta::assert_snapshot!(render(&mut app), @r#"
-    "┌sample.mlt - Enter/+/-:expan┐┌Map View────────────────────────────────────────────────────────────┐"
+    "┌sample.mlt - h:help, q:quit,┐┌Map View────────────────────────────────────────────────────────────┐"
     "│>> All                      ││                                                                    │"
     "│     Layer: water (2 feature││                                                                    │"
     "│     Layer: roads (2 feature││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
@@ -605,7 +605,7 @@ fn enter_opens_a_file_and_escape_returns_to_the_browser() {
     press(&mut app, KeyCode::Enter);
     assert_eq!(app.mode, ViewMode::LayerOverview);
     insta::assert_snapshot!(render(&mut app), @r#"
-    "┌line-boolean.mvt - Enter/+/-┐┌Map View────────────────────────────────────────────────────────────┐"
+    "┌line-boolean.mvt - h:help, q┐┌Map View────────────────────────────────────────────────────────────┐"
     "│>> All                      ││                                                                    │"
     "│     Layer: layer (1 LineStr││                                                                    │"
     "│       Feat 0: LineString (3││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⡆     │"
@@ -646,7 +646,7 @@ fn layer_selection_summarizes_properties_and_geometry() {
     press(&mut app, KeyCode::Down);
     press(&mut app, KeyCode::Down);
     insta::assert_snapshot!(render(&mut app), @r#"
-    "┌sample.mlt - Enter/+/-:expan┐┌Map View────────────────────────────────────────────────────────────┐"
+    "┌sample.mlt - h:help, q:quit,┐┌Map View────────────────────────────────────────────────────────────┐"
     "│   All                      ││                                                                    │"
     "│     Layer: water (2 feature││                                                                    │"
     "│>>   Layer: roads (2 feature││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
@@ -690,7 +690,7 @@ fn hovering_inside_a_layer_targets_a_feature() {
         Some(&TreeItem::Feature { layer: 0, feat: 1 })
     );
     insta::assert_snapshot!(render(&mut app), @r#"
-    "┌sample.mlt - Enter/+/-:expan┐┌Map View────────────────────────────────────────────────────────────┐"
+    "┌sample.mlt - h:help, q:quit,┐┌Map View────────────────────────────────────────────────────────────┐"
     "│   All                      ││                                                                    │"
     "│>>   Layer: water (2 feature││                                                                    │"
     "│     Layer: roads (2 feature││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
@@ -741,7 +741,7 @@ fn hovering_inside_a_feature_targets_a_part() {
         })
     );
     insta::assert_snapshot!(render(&mut app), @r#"
-    "┌sample.mlt - Enter/+/-:expan┐┌Map View────────────────────────────────────────────────────────────┐"
+    "┌sample.mlt - h:help, q:quit,┐┌Map View────────────────────────────────────────────────────────────┐"
     "│   All                      ││                                                                    │"
     "│     Layer: water (2 feature││                                                                    │"
     "│       Feat 0: Polygon (10v,││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
@@ -827,7 +827,7 @@ fn hovering_a_tree_row_targets_that_row() {
         item: TreeItem::Layer(1),
     });
     insta::assert_snapshot!(render(&mut app), @r#"
-    "┌sample.mlt - Enter/+/-:expan┐┌Map View────────────────────────────────────────────────────────────┐"
+    "┌sample.mlt - h:help, q:quit,┐┌Map View────────────────────────────────────────────────────────────┐"
     "│>> All                      ││                                                                    │"
     "│     Layer: water (2 feature││                                                                    │"
     "│     Layer: roads (2 feature││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
@@ -865,7 +865,7 @@ fn small_terminal_shows_scrollbars_and_scrolls_the_tree_sideways() {
     let mut app = sample_app();
     press(&mut app, KeyCode::Char('*'));
     insta::assert_snapshot!(render_sized(&mut app, 60, 16), @r#"
-    "┌sample.mlt - Ent┐┌Map View────────────────────────────────┐"
+    "┌sample.mlt - h:h┐┌Map View────────────────────────────────┐"
     "│>> All          ▲│                                        │"
     "│     Layer: wate█│   ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⣒⣒⣒⣒⣒⠶⡆   │"
     "│       Feat 0: P█│   ⢸   ⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣸⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣇⣀⡠⠊⢹ ⡇   │"
@@ -886,7 +886,7 @@ fn small_terminal_shows_scrollbars_and_scrolls_the_tree_sideways() {
     assert!(!handle_key(&mut app, shift_right));
     assert!(!handle_key(&mut app, shift_right));
     insta::assert_snapshot!(render_sized(&mut app, 60, 16), @r#"
-    "┌sample.mlt - Ent┐┌Map View────────────────────────────────┐"
+    "┌sample.mlt - h:h┐┌Map View────────────────────────────────┐"
     "│                ▲│                                        │"
     "│er: water (2 fea█│   ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⣒⣒⣒⣒⣒⠶⡆   │"
     "│eat 0: Polygon (█│   ⢸   ⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣸⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣇⣀⡠⠊⢹ ⡇   │"
@@ -903,6 +903,32 @@ fn small_terminal_shows_scrollbars_and_scrolls_the_tree_sideways() {
     "│Point: 1        ││                                        │"
     "└────────────────┘└────────────────────────────────────────┘"
     "#);
+}
+
+#[test]
+fn angle_brackets_scroll_the_tree_sideways_like_shift_arrows() {
+    let mut by_shift = sample_app();
+    press(&mut by_shift, KeyCode::Char('*'));
+    let shift_right = KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT);
+    assert!(!handle_key(&mut by_shift, shift_right));
+    assert!(!handle_key(&mut by_shift, shift_right));
+    let expected = render_sized(&mut by_shift, 60, 16);
+
+    let mut by_key = sample_app();
+    press(&mut by_key, KeyCode::Char('*'));
+    press(&mut by_key, KeyCode::Char('>'));
+    press(&mut by_key, KeyCode::Char('>'));
+    assert_eq!(render_sized(&mut by_key, 60, 16), expected);
+    assert_eq!(by_key.tree_hscroll, 8);
+
+    press(&mut by_key, KeyCode::Char('<'));
+    assert_eq!(by_key.tree_hscroll, 4);
+    press(&mut by_key, KeyCode::Char('<'));
+    press(&mut by_key, KeyCode::Char('<'));
+    assert_eq!(
+        by_key.tree_hscroll, 0,
+        "sideways scroll saturates at the left edge"
+    );
 }
 
 #[test]
@@ -925,7 +951,7 @@ fn tessellated_polygons_show_their_triangles() {
     press(&mut app, KeyCode::Down);
     press(&mut app, KeyCode::Down);
     insta::assert_snapshot!(render(&mut app), @r#"
-    "┌mix_2_poly_polyh_tes.mlt - E┐┌Map View────────────────────────────────────────────────────────────┐"
+    "┌mix_2_poly_polyh_tes.mlt - h┐┌Map View────────────────────────────────────────────────────────────┐"
     "│   All                      ││                                                                    │"
     "│     Layer: layer1 (2 Polygo││                                                                    │"
     "│       Feat 0: Polygon (4v) ││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⡆     │"
@@ -2193,7 +2219,7 @@ fn layer_view_dividers_tree_hover_and_map_wheel() {
         })
     );
     insta::assert_snapshot!(render(&mut app), @r#"
-    "┌sample.mlt - Enter/+/-:expan┐┌Map View────────────────────────────────────────────────────────────┐"
+    "┌sample.mlt - h:help, q:quit,┐┌Map View────────────────────────────────────────────────────────────┐"
     "│>> All                      ││                                                                    │"
     "│     Layer: water (2 feature││                                                                    │"
     "│     Layer: roads (2 feature││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
@@ -2454,7 +2480,7 @@ fn layer_summary_lists_every_value_type_and_skips_unknown_geometries() {
     let mut app = App::new_single_file(tile, Some(PathBuf::from("odd.mlt")));
     press(&mut app, KeyCode::Down);
     insta::assert_snapshot!(render(&mut app), @r#"
-    "┌odd.mlt - Enter/+/-:expand, ┐┌Map View────────────────────────────────────────────────────────────┐"
+    "┌odd.mlt - h:help, q:quit, En┐┌Map View────────────────────────────────────────────────────────────┐"
     "│   All                      ││                                                                    │"
     "│>>   Layer: odd (5 features,││                                                                    │"
     "│       Feat 0: Point        ││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⡆     │"
@@ -2502,7 +2528,7 @@ fn tessellated_multipolygon_parts_carry_their_own_triangles() {
     press(&mut app, KeyCode::Char('+'));
     press(&mut app, KeyCode::Down);
     insta::assert_snapshot!(render_sized(&mut app, 100, 50), @r#"
-    "┌unknown - Enter/+/-:expand, ┐┌Map View────────────────────────────────────────────────────────────┐"
+    "┌unknown - h:help, q:quit, En┐┌Map View────────────────────────────────────────────────────────────┐"
     "│   All                      ││                                                                    │"
     "│     Layer: layer1 (2 featur││                                                                    │"
     "│       Feat 0: Polygon (4v) ││                                                                    │"

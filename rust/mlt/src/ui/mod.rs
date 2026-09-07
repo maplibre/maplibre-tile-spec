@@ -530,13 +530,13 @@ fn handle_key(app: &mut App, key: KeyEvent) -> bool {
             app.open_help();
         }
         KeyCode::Enter => app.handle_enter(),
+        KeyCode::Char('>') => scroll_tree_sideways(app, false),
+        KeyCode::Char('<') => scroll_tree_sideways(app, true),
         KeyCode::Right if key.modifiers.contains(KeyModifiers::SHIFT) => {
-            app.tree_hscroll = app.tree_hscroll.saturating_add(TREE_HSCROLL_STEP);
-            app.invalidate();
+            scroll_tree_sideways(app, false);
         }
         KeyCode::Left if key.modifiers.contains(KeyModifiers::SHIFT) => {
-            app.tree_hscroll = app.tree_hscroll.saturating_sub(TREE_HSCROLL_STEP);
-            app.invalidate();
+            scroll_tree_sideways(app, true);
         }
         KeyCode::Char('+' | '=') | KeyCode::Right => app.handle_plus(),
         KeyCode::Char('-') => app.handle_minus(),
@@ -681,6 +681,12 @@ fn scroll_by(val: u16, step: u16, up: bool) -> u16 {
     } else {
         val.saturating_add(step)
     }
+}
+
+/// Move the feature tree one step sideways, from a key or the mouse.
+fn scroll_tree_sideways(app: &mut App, left: bool) {
+    app.tree_hscroll = scroll_by(app.tree_hscroll, TREE_HSCROLL_STEP, left);
+    app.invalidate();
 }
 
 // --- Filtering ---
@@ -1365,9 +1371,7 @@ fn handle_mouse(
                 && let Some(area) = areas.tree
                 && point_in_rect(mouse.column, mouse.row, area)
             {
-                let left = matches!(mouse.kind, MouseEventKind::ScrollLeft);
-                app.tree_hscroll = scroll_by(app.tree_hscroll, TREE_HSCROLL_STEP, left);
-                app.invalidate();
+                scroll_tree_sideways(app, matches!(mouse.kind, MouseEventKind::ScrollLeft));
             }
         }
     }

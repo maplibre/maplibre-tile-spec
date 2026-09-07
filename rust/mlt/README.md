@@ -65,7 +65,7 @@ Features:
   - Individual layers - the layer's features, with each property's value types and the layer's geometry types
   - Individual features - the feature's properties and geometry statistics
   - Every panel scrolls and shows a scrollbar when its content does not fit
-  - The tree also scrolls sideways with `Shift+Left`/`Shift+Right` or a sideways mouse scroll
+  - The tree also scrolls sideways with `<`/`>`, `Shift+Left`/`Shift+Right`, or a sideways mouse scroll
   - Hovered rows are highlighted with underlined green text
 - **Map Panel (right)**: Visual representation of the geometries
   - Shows the extent boundary as a thin gray rectangle
