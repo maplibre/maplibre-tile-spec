@@ -269,6 +269,110 @@ fn push_geoms(geoms: &[Geometry<i32>]) -> GeometryValues {
     d
 }
 
+fn push_geoms_tessellated(geoms: &[Geometry<i32>]) -> GeometryValues {
+    let mut d = GeometryValues::new_tessellated();
+    for g in geoms {
+        d.push_geom(g);
+    }
+    d
+}
+
+fn stage(geoms: &[Geometry<i32>], tessellate: bool) -> GeometryValues {
+    if tessellate {
+        push_geoms_tessellated(geoms)
+    } else {
+        push_geoms(geoms)
+    }
+}
+
+fn geojson(values: &GeometryValues) -> Vec<Result<Geometry<i32>, String>> {
+    (0..values.feature_count())
+        .map(|i| values.to_geojson(i).map_err(|e| e.to_string()))
+        .collect()
+}
+
+/// Encode as v1, decode, and read every feature back as `GeoJSON`.
+fn v1_geojson_roundtrip(geoms: &[Geometry<i32>], tessellate: bool) -> Vec<Geometry<i32>> {
+    let decoded = stage(geoms, tessellate);
+    let mut enc = Encoder::default();
+    let mut codecs = Codecs::default();
+    decoded
+        .write_to(&mut enc, &mut codecs)
+        .expect("encode failed");
+    let raw = assert_empty(RawGeometry::from_bytes(enc.data(), &mut parser()));
+    let out = raw.decode(&mut dec()).unwrap();
+    geojson(&out)
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()
+        .expect("to_geojson failed")
+}
+
+fn empty_multi_polygon() -> Vec<Geometry<i32>> {
+    vec![wkt!(MULTIPOLYGON EMPTY).into()]
+}
+
+fn empty_multi_polygon_then_linestring() -> Vec<Geometry<i32>> {
+    vec![
+        wkt!(MULTIPOLYGON EMPTY).into(),
+        wkt!(LINESTRING(0 0, 10 10)).into(),
+    ]
+}
+
+fn empty_polygon_then_point() -> Vec<Geometry<i32>> {
+    vec![wkt!(POLYGON EMPTY).into(), wkt!(POINT(7 8)).into()]
+}
+
+fn empty_multi_line_string_then_linestring() -> Vec<Geometry<i32>> {
+    vec![
+        wkt!(MULTILINESTRING EMPTY).into(),
+        wkt!(LINESTRING(0 0, 10 10)).into(),
+    ]
+}
+
+#[rstest]
+#[case::empty_multi_polygon(empty_multi_polygon())]
+#[case::empty_multi_polygon_then_linestring(empty_multi_polygon_then_linestring())]
+#[case::empty_polygon_then_point(empty_polygon_then_point())]
+#[case::empty_multi_line_string_then_linestring(empty_multi_line_string_then_linestring())]
+fn a_degenerate_geometry_reads_back_as_itself(
+    #[case] geoms: Vec<Geometry<i32>>,
+    #[values(false, true)] tessellate: bool,
+) {
+    assert_eq!(
+        geojson(&stage(&geoms, tessellate)),
+        geoms.iter().cloned().map(Ok).collect::<Vec<_>>()
+    );
+}
+
+#[rstest]
+fn a_multi_after_a_single_still_misaligns_the_geometry_offsets(
+    #[values(false, true)] tessellate: bool,
+) {
+    let geoms = vec![
+        wkt!(LINESTRING(0 0, 10 10)).into(),
+        wkt!(MULTIPOLYGON EMPTY).into(),
+    ];
+    assert_eq!(
+        geojson(&stage(&geoms, tessellate)),
+        vec![
+            Ok(wkt!(LINESTRING(0 0, 10 10)).into()),
+            Err("geometry[1]: geometry_offsets[2] out of bounds (len=2)".to_string()),
+        ]
+    );
+}
+
+#[rstest]
+#[case::empty_multi_polygon(empty_multi_polygon())]
+#[case::empty_multi_polygon_then_linestring(empty_multi_polygon_then_linestring())]
+#[case::empty_polygon_then_point(empty_polygon_then_point())]
+#[case::empty_multi_line_string_then_linestring(empty_multi_line_string_then_linestring())]
+fn a_degenerate_geometry_survives_a_v1_roundtrip(
+    #[case] geoms: Vec<Geometry<i32>>,
+    #[values(false, true)] tessellate: bool,
+) {
+    assert_eq!(v1_geojson_roundtrip(&geoms, tessellate), geoms);
+}
+
 /// Collect all stream types present in the encoded geometry bytes (meta + items).
 fn encoded_stream_types(data: &[u8]) -> HashSet<StreamType> {
     let raw = assert_empty(RawGeometry::from_bytes(data, &mut parser()));
@@ -316,6 +420,21 @@ mod v2 {
         into_layer01(layers.remove(0))
             .into_tile(&mut dec())
             .expect("decode failed")
+    }
+
+    #[rstest]
+    #[case::empty_multi_polygon(empty_multi_polygon())]
+    #[case::empty_multi_polygon_then_linestring(empty_multi_polygon_then_linestring())]
+    #[case::empty_polygon_then_point(empty_polygon_then_point())]
+    #[case::empty_multi_line_string_then_linestring(empty_multi_line_string_then_linestring())]
+    fn a_degenerate_geometry_survives_a_v2_roundtrip(
+        #[case] geoms: Vec<Geometry<i32>>,
+        #[values(false, true)] tessellate: bool,
+    ) {
+        let decoded = stage(&geoms, tessellate);
+        let layer = forced_layer(&decoded, VertexBufferType::Vec2, WireVersion::V02);
+        let read_back: Vec<_> = layer.features.into_iter().map(|f| f.geometry).collect();
+        assert_eq!(read_back, geoms);
     }
 
     #[rstest]

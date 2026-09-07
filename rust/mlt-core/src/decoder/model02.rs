@@ -247,48 +247,88 @@ pub(crate) enum VertexStorage {
     Plain,
     /// The distinct vertices once, then one index per vertex into them.
     Dict,
-    /// A triangle count per geometry and an index buffer, in front of the vertices.
-    Tessellated,
+}
+
+/// The nesting of a v2 geometry section below the geometry level, carrying the streams that name it.
+///
+/// A ring level with no part level above it is not a shape the geometry model can
+/// produce, so it is not a shape this type can hold.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Topology {
+    /// No nesting: a geometry addresses its vertices directly.
+    Flat,
+    /// One part per geometry, each addressing its vertices directly.
+    Parts(Vec<u32>),
+    /// One part per geometry, each addressing a run of rings.
+    PartsAndRings { parts: Vec<u32>, rings: Vec<u32> },
+}
+
+impl Topology {
+    /// The part and ring length streams, in wire order.
+    pub(crate) fn streams(&self) -> (Option<&[u32]>, Option<&[u32]>) {
+        match self {
+            Self::Flat => (None, None),
+            Self::Parts(parts) => (Some(parts), None),
+            Self::PartsAndRings { parts, rings } => (Some(parts), Some(rings)),
+        }
+    }
+
+    /// Widen to the full part-and-ring nesting, padding a level this layer never used.
+    #[must_use]
+    pub(crate) fn with_rings(self) -> Self {
+        match self {
+            Self::Flat => Self::PartsAndRings {
+                parts: Vec::new(),
+                rings: Vec::new(),
+            },
+            Self::Parts(parts) => Self::PartsAndRings {
+                parts,
+                rings: Vec::new(),
+            },
+            rings @ Self::PartsAndRings { .. } => rings,
+        }
+    }
 }
 
 impl GeoLayout {
-    /// Layout for a stream set whose topology streams are `geo`, `part` and `ring`.
+    /// Layout for a stream set with plain or dictionary vertices.
     ///
-    /// The topology streams are produced by the same encoding as v1, where empty
-    /// length streams are skipped; every reachable combination maps to a layout.
-    /// `ring` without `part` cannot occur structurally. Tessellation pairs with no
-    /// topology at all or with all three streams, so a layer that has only some of
-    /// them writes an empty [`LengthType::Geometries`](crate::decoder::LengthType)
-    /// stream to reach [`Self::TessPolygonsWithOutlines`].
-    pub(crate) fn from_streams(
-        geo: bool,
-        part: bool,
-        ring: bool,
+    /// `has_geo` is independent of the nesting below it: any [`Topology`] can be
+    /// addressed either per feature or per sub-geometry.
+    #[must_use]
+    pub(crate) fn from_topology(
+        topology: &Topology,
+        has_geo: bool,
         vertices: VertexStorage,
-    ) -> MltResult<Self> {
+    ) -> Self {
         use VertexStorage as V;
-        Ok(match (vertices, geo, part, ring) {
-            (V::Plain, false, false, false) => Self::Points,
-            (V::Dict, false, false, false) => Self::PointsDict,
-            (V::Plain, true, false, false) => Self::MultiPoints,
-            (V::Dict, true, false, false) => Self::MultiPointsDict,
-            (V::Plain, false, true, false) => Self::Lines,
-            (V::Dict, false, true, false) => Self::LinesDict,
-            (V::Plain, true, true, false) => Self::MultiLines,
-            (V::Dict, true, true, false) => Self::MultiLinesDict,
-            (V::Plain, false, true, true) => Self::Polygons,
-            (V::Dict, false, true, true) => Self::PolygonsDict,
-            (V::Plain, true, true, true) => Self::MultiPolygons,
-            (V::Dict, true, true, true) => Self::MultiPolygonsDict,
-            (V::Tessellated, false, false, false) => Self::TessPolygons,
-            (V::Tessellated, true, true, true) => Self::TessPolygonsWithOutlines,
-            (V::Tessellated, ..) => Err(MltError::NotImplemented(
-                "v2 tessellation with only part of the outline topology",
-            ))?,
-            (V::Plain | V::Dict, _, false, true) => Err(MltError::NotImplemented(
-                "v2 geometry: ring lengths without part lengths",
-            ))?,
-        })
+        match (topology, has_geo, vertices) {
+            (Topology::Flat, false, V::Plain) => Self::Points,
+            (Topology::Flat, false, V::Dict) => Self::PointsDict,
+            (Topology::Flat, true, V::Plain) => Self::MultiPoints,
+            (Topology::Flat, true, V::Dict) => Self::MultiPointsDict,
+            (Topology::Parts(_), false, V::Plain) => Self::Lines,
+            (Topology::Parts(_), false, V::Dict) => Self::LinesDict,
+            (Topology::Parts(_), true, V::Plain) => Self::MultiLines,
+            (Topology::Parts(_), true, V::Dict) => Self::MultiLinesDict,
+            (Topology::PartsAndRings { .. }, false, V::Plain) => Self::Polygons,
+            (Topology::PartsAndRings { .. }, false, V::Dict) => Self::PolygonsDict,
+            (Topology::PartsAndRings { .. }, true, V::Plain) => Self::MultiPolygons,
+            (Topology::PartsAndRings { .. }, true, V::Dict) => Self::MultiPolygonsDict,
+        }
+    }
+
+    /// Layout for a tessellated stream set, which keeps its vertices plain.
+    ///
+    /// Tessellation pairs with the full outline topology or with none of it, so a
+    /// layer holding only part of it pads the streams it is missing with empty ones.
+    #[must_use]
+    pub(crate) fn tessellated(has_outlines: bool) -> Self {
+        if has_outlines {
+            Self::TessPolygonsWithOutlines
+        } else {
+            Self::TessPolygons
+        }
     }
 
     #[must_use]
@@ -437,6 +477,13 @@ mod tests {
     /// Shared bitfield count of a layer that declares as many as the byte allows.
     const ALL_SHARED: u8 = LayerLayout::MAX_SHARED_PRESENCE;
 
+    fn parts_and_rings() -> Topology {
+        Topology::PartsAndRings {
+            parts: vec![1],
+            rings: vec![4],
+        }
+    }
+
     #[rstest]
     #[case::id(0b0000_0000, Presence02::AllPresent, DataType02::Id)]
     #[case::opt_id(0b0001_0000, Presence02::Inline, DataType02::Id)]
@@ -487,60 +534,58 @@ mod tests {
     }
 
     #[rstest]
-    #[case::points(false, false, false, VertexStorage::Plain, GeoLayout::Points)]
-    #[case::points_dict(false, false, false, VertexStorage::Dict, GeoLayout::PointsDict)]
-    #[case::multi_points(true, false, false, VertexStorage::Plain, GeoLayout::MultiPoints)]
-    #[case::lines_dict(false, true, false, VertexStorage::Dict, GeoLayout::LinesDict)]
-    #[case::multi_lines(true, true, false, VertexStorage::Plain, GeoLayout::MultiLines)]
-    #[case::polygons(false, true, true, VertexStorage::Plain, GeoLayout::Polygons)]
+    #[case::points(Topology::Flat, false, VertexStorage::Plain, GeoLayout::Points)]
+    #[case::points_dict(Topology::Flat, false, VertexStorage::Dict, GeoLayout::PointsDict)]
+    #[case::multi_points(Topology::Flat, true, VertexStorage::Plain, GeoLayout::MultiPoints)]
+    #[case::lines_dict(Topology::Parts(vec![2]), false, VertexStorage::Dict, GeoLayout::LinesDict)]
+    #[case::multi_lines(Topology::Parts(vec![2]), true, VertexStorage::Plain, GeoLayout::MultiLines)]
+    #[case::polygons(parts_and_rings(), false, VertexStorage::Plain, GeoLayout::Polygons)]
     #[case::multi_polygons_dict(
-        true,
-        true,
+        parts_and_rings(),
         true,
         VertexStorage::Dict,
         GeoLayout::MultiPolygonsDict
     )]
-    #[case::tess(
-        false,
-        false,
-        false,
-        VertexStorage::Tessellated,
-        GeoLayout::TessPolygons
-    )]
-    #[case::tess_with_outlines(
-        true,
-        true,
-        true,
-        VertexStorage::Tessellated,
-        GeoLayout::TessPolygonsWithOutlines
-    )]
     fn a_stream_set_picks_its_layout(
-        #[case] geo: bool,
-        #[case] part: bool,
-        #[case] ring: bool,
+        #[case] topology: Topology,
+        #[case] has_geo: bool,
         #[case] vertices: VertexStorage,
         #[case] expected: GeoLayout,
     ) {
-        let layout = GeoLayout::from_streams(geo, part, ring, vertices).unwrap();
+        let layout = GeoLayout::from_topology(&topology, has_geo, vertices);
+        let (parts, rings) = topology.streams();
         assert_eq!(layout, expected);
-        assert_eq!(layout.has_geo_lengths(), geo);
-        assert_eq!(layout.has_part_lengths(), part);
-        assert_eq!(layout.has_ring_lengths(), ring);
+        assert_eq!(layout.has_geo_lengths(), has_geo);
+        assert_eq!(layout.has_part_lengths(), parts.is_some());
+        assert_eq!(layout.has_ring_lengths(), rings.is_some());
         assert_eq!(layout.is_dict(), vertices == VertexStorage::Dict);
-        assert_eq!(layout.is_tess(), vertices == VertexStorage::Tessellated);
+        assert!(!layout.is_tess());
     }
 
     #[rstest]
-    #[case::rings_without_parts(false, false, true, VertexStorage::Plain)]
-    #[case::tess_without_geometries(false, true, true, VertexStorage::Tessellated)]
-    fn a_stream_set_with_no_layout_is_rejected(
-        #[case] geo: bool,
-        #[case] part: bool,
-        #[case] ring: bool,
-        #[case] vertices: VertexStorage,
+    #[case::tess(false, GeoLayout::TessPolygons)]
+    #[case::tess_with_outlines(true, GeoLayout::TessPolygonsWithOutlines)]
+    fn a_tessellated_stream_set_picks_its_layout(
+        #[case] has_outlines: bool,
+        #[case] expected: GeoLayout,
     ) {
-        let err = GeoLayout::from_streams(geo, part, ring, vertices).unwrap_err();
-        assert!(matches!(err, MltError::NotImplemented(_)), "{err:?}");
+        let layout = GeoLayout::tessellated(has_outlines);
+        assert_eq!(layout, expected);
+        assert!(layout.is_tess());
+        assert!(!layout.is_dict());
+        assert_eq!(layout.has_geo_lengths(), has_outlines);
+        assert_eq!(layout.has_part_lengths(), has_outlines);
+        assert_eq!(layout.has_ring_lengths(), has_outlines);
+    }
+
+    #[rstest]
+    #[case::flat(Topology::Flat)]
+    #[case::parts(Topology::Parts(vec![2]))]
+    #[case::parts_and_rings(parts_and_rings())]
+    fn a_topology_widened_to_rings_keeps_both_streams(#[case] topology: Topology) {
+        let widened = topology.with_rings();
+        let (parts, rings) = widened.streams();
+        assert!(parts.is_some() && rings.is_some());
     }
 
     #[rstest]
