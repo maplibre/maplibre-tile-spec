@@ -5,17 +5,18 @@ use super::streams::{
     dict_may_be_beneficial, encode_hilbert_vertex_streams02, encode_level1_length_stream,
     encode_level1_without_ring_buffer_length_stream, encode_level2_length_stream,
     encode_morton_vertex_streams02, encode_ring_lengths_for_mixed, encode_root_length_stream,
-    encode_vec2_vertex_stream, normalize_geometry_offsets, normalize_part_offsets_for_rings,
+    encode_vec2_vertex_stream02, normalize_geometry_offsets, normalize_part_offsets_for_rings,
     seed_curve_caches,
 };
-use crate::MltResult;
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
 use crate::decoder::stream::header02::Family;
 use crate::decoder::{
-    GeoLayout, GeometryType, GeometryValues, LengthType, OffsetType, StreamType, VertexStorage,
+    GeoLayout, GeometryType, GeometryValues, LengthType, OffsetType, StreamType, Topology,
+    VertexStorage,
 };
 use crate::encoder::model::StreamCtx;
 use crate::encoder::{Codecs, Encoder};
+use crate::{MltError, MltResult};
 
 /// Wrap a computed length stream: an empty stream is not written (and not
 /// declared by the layout), matching the v1 writer's skip-empty behavior.
@@ -33,8 +34,7 @@ struct Tessellation {
 pub(crate) struct GeometrySection02 {
     types: Vec<u32>,
     geo_lengths: Option<Vec<u32>>,
-    part_lengths: Option<Vec<u32>>,
-    ring_lengths: Option<Vec<u32>>,
+    topology: Topology,
     tessellation: Option<Tessellation>,
     vertices: Vec<i32>,
 }
@@ -136,52 +136,43 @@ pub(crate) fn encode_geometry02(geometry: GeometryValues) -> MltResult<GeometryS
         }
     }
 
-    // An empty triangle stream means no polygon was tessellated, so the layer keeps
-    // a plain layout. `index_buffer` can be empty next to a non-empty `triangles`
-    // (a polygon that earcut turned into no triangle at all), and is written anyway
-    // because the tessellated layouts declare both streams.
-    let tessellation = (!triangles.is_empty()).then_some(Tessellation {
+    let mut topology = match (part_lengths, ring_lengths) {
+        (None, None) => Topology::Flat,
+        (Some(parts), None) => Topology::Parts(parts),
+        (Some(parts), Some(rings)) => Topology::PartsAndRings { parts, rings },
+        (None, Some(_)) => return Err(MltError::RingLengthsWithoutPartLengths),
+    };
+
+    // An empty index buffer means no polygon tessellated into a triangle, so the layer
+    // keeps a plain layout: dropping the streams is lossless.
+    let tessellation = (!index_buffer.is_empty()).then_some(Tessellation {
         triangles,
         index_buffer,
     });
     // The tessellated layouts declare all three topology streams or none, so a layer
-    // without Multi* geometries fills the gap with an empty one rather than dropping
-    // it: the decoder then rebuilds one geometry per feature, which is what the
-    // stream would have said.
-    if tessellation.is_some() && geo_lengths.is_none() && part_lengths.is_some() {
-        geo_lengths = Some(Vec::new());
+    // missing one fills the gap with an empty stream rather than dropping the others:
+    // the decoder then rebuilds what the stream would have said.
+    if tessellation.is_some() {
+        topology = topology.with_rings();
+        geo_lengths.get_or_insert_with(Vec::new);
     }
 
-    let section = GeometrySection02 {
+    Ok(GeometrySection02 {
         types: vector_types.iter().map(|t| *t as u32).collect(),
         geo_lengths,
-        part_lengths,
-        ring_lengths,
+        topology,
         tessellation,
         vertices,
-    };
-    // Reject a topology that has no layout before any of it is written.
-    section.layout(section.fallback_storage())?;
-    Ok(section)
+    })
 }
 
 impl GeometrySection02 {
     /// The layout declaring these streams, once the vertex storage is known.
-    fn layout(&self, vertices: VertexStorage) -> MltResult<GeoLayout> {
-        GeoLayout::from_streams(
-            self.geo_lengths.is_some(),
-            self.part_lengths.is_some(),
-            self.ring_lengths.is_some(),
-            vertices,
-        )
-    }
-
-    /// How the vertices are stored unless a dictionary layout wins the race.
-    fn fallback_storage(&self) -> VertexStorage {
+    fn layout(&self, vertices: VertexStorage) -> GeoLayout {
         if self.tessellation.is_some() {
-            VertexStorage::Tessellated
+            GeoLayout::tessellated(self.geo_lengths.is_some())
         } else {
-            VertexStorage::Plain
+            GeoLayout::from_topology(&self.topology, self.geo_lengths.is_some(), vertices)
         }
     }
 
@@ -200,10 +191,15 @@ impl GeometrySection02 {
         let ctx = StreamCtx::geom(StreamType::Length(LengthType::VarBinary), "meta");
         codecs.write_int_stream(&self.types, &ctx, enc)?;
 
+        let (part_lengths, ring_lengths) = self.topology.streams();
         let lengths = [
-            (&self.geo_lengths, LengthType::Geometries, "geometries"),
-            (&self.part_lengths, LengthType::Parts, "parts"),
-            (&self.ring_lengths, LengthType::Rings, "rings"),
+            (
+                self.geo_lengths.as_deref(),
+                LengthType::Geometries,
+                "geometries",
+            ),
+            (part_lengths, LengthType::Parts, "parts"),
+            (ring_lengths, LengthType::Rings, "rings"),
         ];
         for (stream, length_type, name) in lengths {
             if let Some(data) = stream {
@@ -219,8 +215,8 @@ impl GeometrySection02 {
             codecs.write_int_stream(&tess.index_buffer, &ctx, enc)?;
         }
 
-        let vertices = write_vertices(&self.vertices, self.fallback_storage(), enc, codecs)?;
-        self.layout(vertices)
+        let vertices = write_vertices(&self.vertices, self.tessellation.is_some(), enc, codecs)?;
+        Ok(self.layout(vertices))
     }
 }
 
@@ -230,22 +226,22 @@ impl GeometrySection02 {
 /// buffer with a vertex dictionary.
 fn write_vertices(
     vertices: &[i32],
-    fallback: VertexStorage,
+    tessellated: bool,
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<VertexStorage> {
     seed_curve_caches(enc, vertices);
     enc.family_context = Family::Vertex;
 
-    if fallback == VertexStorage::Tessellated {
-        encode_vec2_vertex_stream(vertices, enc, codecs)?;
-        return Ok(VertexStorage::Tessellated);
+    if tessellated {
+        encode_vec2_vertex_stream02(vertices, enc, codecs)?;
+        return Ok(VertexStorage::Plain);
     }
 
     if let Some(forced) = enc.override_vertex_buffer_type() {
         return Ok(match forced {
             VertexBufferType::Vec2 => {
-                encode_vec2_vertex_stream(vertices, enc, codecs)?;
+                encode_vec2_vertex_stream02(vertices, enc, codecs)?;
                 VertexStorage::Plain
             }
             VertexBufferType::Morton => {
@@ -260,7 +256,7 @@ fn write_vertices(
     }
 
     if !dict_may_be_beneficial(vertices, enc) {
-        encode_vec2_vertex_stream(vertices, enc, codecs)?;
+        encode_vec2_vertex_stream02(vertices, enc, codecs)?;
         return Ok(VertexStorage::Plain);
     }
 
@@ -285,7 +281,7 @@ fn write_vertices(
         })
     };
     candidate(VertexStorage::Plain, &|enc, codecs| {
-        encode_vec2_vertex_stream(vertices, enc, codecs).map(|_| ())
+        encode_vec2_vertex_stream02(vertices, enc, codecs)
     })?;
     candidate(VertexStorage::Dict, &|enc, codecs| {
         encode_hilbert_vertex_streams02(vertices, enc, codecs)

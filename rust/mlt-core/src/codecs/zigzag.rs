@@ -84,7 +84,8 @@ pub fn decode_componentwise_delta_vec2s<T: ZigZag + WrappingAdd>(
     data: &[T::UInt],
     dec: &mut Decoder,
 ) -> MltResult<Vec<T>> {
-    if data.is_empty() || !data.len().is_multiple_of(2) {
+    // Zero pairs is a well-formed pair stream: a layer can have no vertices at all.
+    if !data.len().is_multiple_of(2) {
         return Err(InvalidPairStreamSize(data.len()));
     }
 

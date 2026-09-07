@@ -221,6 +221,8 @@ pub enum MltError {
     NoRingOffsets(usize, GeometryType),
     #[error("geometry[{0}]: unexpected offset combination for {1}")]
     UnexpectedOffsetCombination(usize, GeometryType),
+    #[error("geometry: ring lengths without part lengths")]
+    RingLengthsWithoutPartLengths,
 
     #[error("FastPFor error: {0}")]
     FastPfor(#[from] fastpfor::FastPForError),
