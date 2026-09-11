@@ -485,7 +485,6 @@ generate-synthetic-mlts *args:
     cargo run -p mlt-synthetics -- {{args}}
     {{just}} rust::validate-synthetic
     {{just}} _assert-all-mlt-files-different
-    {{just}} rust::generate-synthetic-hexdumps
 
 # Write an annotated .mlt.hexdump next to every .mlt in test/synthetic
 generate-synthetic-hexdumps:
