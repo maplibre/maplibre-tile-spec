@@ -35,11 +35,17 @@ impl<'a> RawFloats<'a> {
     /// Decode the column, reading whichever stream set its encoding uses.
     fn decode<T>(self, dec: &mut Decoder) -> MltResult<ParsedScalar<'a, T>>
     where
-        T: Copy + PartialEq + num_traits::FromBytes,
+        T: Copy + PartialEq + num_traits::FromBytes + crate::codecs::float::FloatValue,
         for<'b> <T as num_traits::FromBytes>::Bytes: TryFrom<&'b [u8]>,
     {
         let values = match self.encoding {
             RawFloatsEncoding::Single(data) => data.decode_floats::<T>(dec)?,
+            #[cfg(feature = "unstable-v2")]
+            RawFloatsEncoding::Alp { params, data } => {
+                let codes = data.decode_ints::<i64>(dec)?;
+                dec.consume_items::<T>(codes.len())?;
+                crate::codecs::alp::decode::<T>(&codes, params)
+            }
             #[cfg(feature = "unstable-v2")]
             RawFloatsEncoding::Dictionary { codes, dictionary } => {
                 let dictionary = dictionary.decode_floats::<T>(dec)?;
@@ -126,14 +132,14 @@ mod tests {
 
     use super::*;
     use crate::decoder::{
-        DictionaryType, FloatLogical, IntEncoding, LogicalEncoding, PhysicalEncoding, RawStream,
+        DictionaryType, IntEncoding, IntLogical, LogicalEncoding, PhysicalEncoding, RawStream,
         StreamMeta, StreamType, ValueKind,
     };
     use crate::test_helpers::dec;
 
     fn codes(values: &[u32]) -> RawStream<'_> {
         let encoding = IntEncoding::new(
-            LogicalEncoding::Float(FloatLogical::Dict),
+            LogicalEncoding::Int(IntLogical::None),
             PhysicalEncoding::None,
         );
         let num = u32::try_from(values.len()).unwrap();

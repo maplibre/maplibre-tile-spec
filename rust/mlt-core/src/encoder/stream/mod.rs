@@ -1,4 +1,9 @@
 mod codecs;
+#[cfg(feature = "unstable-v2")]
+mod float_alp;
+#[cfg(feature = "unstable-v2")]
+mod float_cost;
+#[cfg(feature = "unstable-v2")]
 mod float_dict;
 pub(crate) use codecs::LogicalCodecs;
 #[cfg(feature = "__private")]

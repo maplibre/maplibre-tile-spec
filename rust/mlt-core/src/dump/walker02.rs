@@ -267,16 +267,15 @@ impl<'a> Walker<'a> {
 
         // Re-walk the consumed header bytes to annotate each field.
         let hi = self.open(input, "header".to_string());
+        let family = ctx.family();
         let (mut c, enc_byte) = self.byte_field(
             input,
             "encoding",
             |b| {
-                format!(
-                    "0x{b:02X} logical={:?} physical={:?}",
-                    stream.meta.encoding.logical, stream.meta.encoding.physical
-                )
+                let (logical, physical) = describe_encoding(family, b);
+                format!("0x{b:02X} logical={logical} physical={physical}")
             },
-            |b| encoding_bits02(b, implicit_count, ctx.family()),
+            move |b| encoding_bits02(b, implicit_count, family),
         )?;
 
         if enc_byte & HAS_EXPLICIT_COUNT != 0 {
@@ -294,6 +293,15 @@ impl<'a> Walker<'a> {
             |i| parse_varint::<u32>(i),
             |v| Some(v.to_string()),
         )?;
+        // ALP's parameters ride in the header, after the byte length.
+        if matches!(
+            stream.meta.encoding.logical,
+            LogicalEncoding::Float(FloatLogical::Alp(_))
+        ) {
+            for name in ["alp_e", "alp_f"] {
+                (c, _) = self.field(c, name, |i| parse_varint::<u8>(i), |v| Some(v.to_string()))?;
+            }
+        }
         self.close(hi, c);
 
         let (after_payload, payload) = take(c, byte_length)?;
@@ -301,6 +309,15 @@ impl<'a> Walker<'a> {
         if self.off(after_payload) != self.off(rest) {
             return Err(MltError::NotImplemented("v2 stream header re-walk desync"));
         }
+        // A dictionary's codes and ALP's integers are integer streams, whatever the column's type is.
+        let hint = match stream.meta.encoding.logical {
+            LogicalEncoding::Float(FloatLogical::Dict) => DecodeHint::U32,
+            LogicalEncoding::Float(FloatLogical::Alp(_)) => DecodeHint::I64,
+            LogicalEncoding::Float(FloatLogical::None)
+            | LogicalEncoding::Int(_)
+            | LogicalEncoding::Bool(_)
+            | LogicalEncoding::Vertex(_) => hint,
+        };
         self.stream_blob(
             payload,
             payload.len(),

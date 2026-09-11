@@ -34,8 +34,9 @@ use num_enum::TryFromPrimitive;
 
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
-    BoolLogical, DataType02, DictionaryType, FloatLogical, IntEncoding, IntLogical, LengthType,
-    LogicalEncoding, PhysicalEncoding, RawStream, RleMeta, StreamMeta, StreamType, VertexLogical,
+    Alp, BoolLogical, DataType02, DictionaryType, FloatLogical, IntEncoding, IntLogical,
+    LengthType, LogicalEncoding, PhysicalEncoding, RawStream, RleMeta, StreamMeta, StreamType,
+    VertexLogical,
 };
 use crate::utils::{BinarySerializer as _, parse_u8, take};
 use crate::{MltError, MltRefResult, MltResult, Parser};
@@ -187,6 +188,9 @@ pub(crate) enum LogicalInt {
 pub(crate) enum LogicalBool {
     /// A raw packed bitmap, one bit per value.
     None(PhysicalBits),
+    /// Numbered so the family matches the format, but not yet readable.
+    // TODO(v2): decide what RLE over a bool column means - v1's is a byte-RLE compressed
+    //           bitmap, while every other v2 RLE is varint `(run, value)` pairs.
     Rle,
 }
 
@@ -197,7 +201,9 @@ pub(crate) enum LogicalFloat {
     None(PhysicalBits),
     Rle,
     /// Adaptive lossless floating-point compression.
-    Alp,
+    /// The physical field codes the scaled integers, not the column's element layout.
+    // TODO(v2): extension bit 1 = an exception count varint and exception stream follow.
+    Alp(PhysicalInt),
     /// One code per element, then the dictionary of distinct values as a second stream.
     /// The physical field codes the codes, not the values.
     Dict(PhysicalInt),
@@ -294,10 +300,7 @@ impl Encoding02 {
                     no_physical(enc_byte)?;
                     LogicalFloat::Rle
                 }
-                Logical::Alp => {
-                    no_physical(enc_byte)?;
-                    LogicalFloat::Alp
-                }
+                Logical::Alp => LogicalFloat::Alp(physical_int(enc_byte)?),
                 Logical::Dict => LogicalFloat::Dict(physical_int(enc_byte)?),
                 Logical::Delta | Logical::CwDelta | Logical::DeltaRle | Logical::Morton => {
                     unreachable_member(family, logical)?
@@ -334,7 +337,7 @@ impl Encoding02 {
             | Self::Float(LogicalFloat::Rle) => Logical::Rle,
             Self::Int(LogicalInt::DeltaRle) => Logical::DeltaRle,
             Self::Vertex(LogicalVertex::Morton) => Logical::Morton,
-            Self::Float(LogicalFloat::Alp) => Logical::Alp,
+            Self::Float(LogicalFloat::Alp(_)) => Logical::Alp,
             Self::Float(LogicalFloat::Dict(_)) => Logical::Dict,
         }
     }
@@ -343,25 +346,28 @@ impl Encoding02 {
     fn physical_label(self) -> &'static str {
         match self {
             Self::Int(LogicalInt::None(p) | LogicalInt::Delta(p))
-            | Self::Float(LogicalFloat::Dict(p))
+            | Self::Float(LogicalFloat::Dict(p) | LogicalFloat::Alp(p))
             | Self::Vertex(
                 LogicalVertex::None(p) | LogicalVertex::Delta(p) | LogicalVertex::CwDelta(p),
             ) => p.into(),
             Self::Bool(LogicalBool::None(p)) | Self::Float(LogicalFloat::None(p)) => p.into(),
             Self::Int(LogicalInt::Rle | LogicalInt::DeltaRle)
             | Self::Bool(LogicalBool::Rle)
-            | Self::Float(LogicalFloat::Rle | LogicalFloat::Alp)
+            | Self::Float(LogicalFloat::Rle)
             | Self::Vertex(LogicalVertex::Morton) => "implied",
         }
     }
 
-    /// Map down to the flat encoding the rest of the decoder shares with v1.
+    /// Map to the shared model, reading any parameter varints the encoding carries.
+    ///
     /// `num_values` is the expanded element count, which the RLE members need.
-    fn to_model(self, num_values: u32) -> MltResult<IntEncoding> {
+    /// Parameters follow the byte length, as v1 writes Morton's and RLE's.
+    fn to_model(self, input: &[u8], num_values: u32) -> MltRefResult<'_, IntEncoding> {
         let rle = || RleMeta::Interleaved {
             num_rle_values: num_values,
         };
-        Ok(match self {
+        let mut rest = input;
+        let encoding = match self {
             Self::Int(LogicalInt::None(p)) => {
                 IntEncoding::new(LogicalEncoding::Int(IntLogical::None), flat_int(p)?)
             }
@@ -398,8 +404,14 @@ impl Encoding02 {
             Self::Float(LogicalFloat::Rle) => {
                 return Err(MltError::NotImplemented("v2 RLE over a float column"));
             }
-            Self::Float(LogicalFloat::Alp) => {
-                return Err(MltError::NotImplemented("v2 ALP float streams"));
+            Self::Float(LogicalFloat::Alp(p)) => {
+                let (after, e) = parse_varint::<u8>(input)?;
+                let (after, f) = parse_varint::<u8>(after)?;
+                rest = after;
+                IntEncoding::new(
+                    LogicalEncoding::Float(FloatLogical::Alp(Alp::new(e, f)?)),
+                    flat_int(p)?,
+                )
             }
             Self::Float(LogicalFloat::Dict(p)) => {
                 IntEncoding::new(LogicalEncoding::Float(FloatLogical::Dict), flat_int(p)?)
@@ -407,7 +419,8 @@ impl Encoding02 {
             Self::Vertex(LogicalVertex::Morton) => {
                 return Err(MltError::NotImplemented("v2 Morton streams"));
             }
-        })
+        };
+        Ok((rest, encoding))
     }
 }
 
@@ -459,29 +472,21 @@ fn wire_fields(encoding: IntEncoding, family: Family) -> MltResult<(Logical, u8)
     use VertexLogical as VL;
 
     let physical = |encoding: IntEncoding| -> MltResult<u8> {
-        Ok(match (family, encoding.physical) {
-            (Family::Bool | Family::Float, PhysicalEncoding::None) => PhysicalBits::WithLen as u8,
-            (Family::Bool | Family::Float, _) => {
-                return Err(MltError::UnsupportedPhysicalEncoding(
-                    "v2 bool and float streams store fixed-width elements",
-                ));
+        match (family, encoding.physical) {
+            (Family::Bool | Family::Float, PhysicalEncoding::None) => {
+                Ok(PhysicalBits::WithLen as u8)
             }
-            (_, PhysicalEncoding::None) => PhysicalInt::NoneWithLen as u8,
-            (_, PhysicalEncoding::VarInt) => PhysicalInt::VarInt as u8,
-            (_, PhysicalEncoding::FastPFor256) => {
-                return Err(MltError::NotImplemented(
-                    "v2 FastPFor: requires the FastPFor128-LE codec",
-                ));
-            }
-        })
+            (Family::Bool | Family::Float, _) => Err(MltError::UnsupportedPhysicalEncoding(
+                "v2 bool and float streams store fixed-width elements",
+            )),
+            _ => physical_int_field(encoding.physical),
+        }
     };
 
     Ok(match encoding.logical {
         LE::Int(IL::None) | LE::Bool(BL::None) | LE::Float(FL::None) | LE::Vertex(VL::None) => {
             (Logical::None, physical(encoding)?)
         }
-        // Codes are an integer stream, whatever the column's type is.
-        LE::Float(FL::Dict) => (Logical::Dict, physical_int_field(encoding.physical)?),
         LE::Int(IL::Delta) | LE::Vertex(VL::Delta) => (Logical::Delta, physical(encoding)?),
         LE::Vertex(VL::ComponentwiseDelta) => (Logical::CwDelta, physical(encoding)?),
         LE::Int(IL::Rle(rle) | IL::DeltaRle(rle)) => {
@@ -504,6 +509,9 @@ fn wire_fields(encoding: IntEncoding, family: Family) -> MltResult<(Logical, u8)
             // The physical encoding is implied, so the field stays zero.
             (logical, 0)
         }
+        // Codes and scaled integers are integer streams, whatever the column's type is.
+        LE::Float(FL::Dict) => (Logical::Dict, physical_int_field(encoding.physical)?),
+        LE::Float(FL::Alp(_)) => (Logical::Alp, physical_int_field(encoding.physical)?),
         LE::Bool(BL::ByteRle(_)) => {
             return Err(MltError::UnsupportedLogicalEncoding(
                 encoding.logical,
@@ -543,8 +551,8 @@ pub(crate) fn parse_stream<'a>(
     // Reserve decoded memory upper bound: worst case u64 = 8 bytes per value.
     parser.reserve(num_values.saturating_mul(8))?;
 
-    let encoding = encoding.to_model(num_values)?;
     let (input, byte_length) = parse_varint::<u32>(input)?;
+    let (input, encoding) = encoding.to_model(input, num_values)?;
     let (input, data) = take(input, byte_length)?;
     let meta = StreamMeta::new(ctx.stream_type(), encoding, num_values);
     Ok((input, RawStream::new(meta, data)))
@@ -592,6 +600,10 @@ pub(crate) fn write_stream_meta<W: io::Write>(
         writer.write_varint(num_values)?;
     }
     writer.write_varint(byte_length)?;
+    if let LE::Float(FloatLogical::Alp(alp)) = meta.encoding.logical {
+        writer.write_varint(alp.e)?;
+        writer.write_varint(alp.f)?;
+    }
     Ok(())
 }
 
@@ -760,6 +772,12 @@ mod tests {
         Family::Float,
         0b0011_1000
     )]
+    #[case::float_alp_integers(
+        float(FloatLogical::Alp(Alp::new(3, 1).unwrap()), PE::VarInt, 5),
+        5,
+        Family::Float,
+        0b0010_1000
+    )]
     #[case::cw_delta_vertices_explicit(
         vertex(VertexLogical::ComponentwiseDelta, PE::VarInt, 8),
         5,
@@ -788,6 +806,16 @@ mod tests {
     #[case::raw_bool(boolean(BoolLogical::None, PE::None, 5), 5, BOOL)]
     #[case::float_dict_codes_varint(float(FloatLogical::Dict, PE::VarInt, 5), 5, FLOAT)]
     #[case::float_dict_codes_raw(float(FloatLogical::Dict, PE::None, 5), 5, FLOAT)]
+    #[case::float_alp(
+        float(FloatLogical::Alp(Alp::new(6, 2).unwrap()), PE::VarInt, 5),
+        5,
+        FLOAT
+    )]
+    #[case::float_alp_explicit_count(
+        float(FloatLogical::Alp(Alp::new(0, 0).unwrap()), PE::VarInt, 7),
+        5,
+        FLOAT
+    )]
     #[case::cw_delta_vertices(vertex(VertexLogical::ComponentwiseDelta, PE::VarInt, 10), 5, VERTEX)]
     fn header_roundtrip(
         #[case] meta: StreamMeta,
@@ -800,12 +828,12 @@ mod tests {
         write_stream_meta(&meta, &mut buf, byte_length, implicit_count, ctx.family()).unwrap();
         buf.extend_from_slice(&payload);
 
-        let (rest, stream) = parse_stream(&buf, ctx, implicit_count, &mut parser()).unwrap();
+        let (rest, parsed) = parse_stream(&buf, ctx, implicit_count, &mut parser()).unwrap();
         assert!(rest.is_empty());
-        assert_eq!(stream.meta.encoding, meta.encoding);
-        assert_eq!(stream.meta.num_values, meta.num_values);
-        assert_eq!(stream.meta.stream_type, ctx.stream_type());
-        assert_eq!(stream.data, payload);
+        assert_eq!(parsed.meta.encoding, meta.encoding);
+        assert_eq!(parsed.meta.num_values, meta.num_values);
+        assert_eq!(parsed.meta.stream_type, ctx.stream_type());
+        assert_eq!(parsed.data, payload);
     }
 
     #[rstest]
@@ -819,6 +847,7 @@ mod tests {
     #[case::int_logical_past_table(INT, 0b0100_1000)]
     #[case::bool_logical_past_table(BOOL, 0b0010_0100)]
     #[case::float_dict_with_extension(FLOAT, 0b0011_0101)]
+    #[case::float_alp_with_extension(FLOAT, 0b0010_1001)]
     #[case::vertex_logical_past_table(VERTEX, 0b0100_1000)]
     #[case::float_physical_varint(FLOAT, 0b0000_1000)]
     #[case::float_physical_fastpfor(FLOAT, 0b0000_1100)]
@@ -842,30 +871,27 @@ mod tests {
     #[case::bool_rle(BOOL, 0b0001_0000)]
     #[case::vertex_morton(VERTEX, 0b0011_0000)]
     fn parse_rejects_unimplemented_encoding(#[case] ctx: StreamCtx02, #[case] enc_byte: u8) {
-        let buf = [enc_byte, 0];
+        let buf = [enc_byte, 0, 0, 0];
         let err = parse_stream(&buf, ctx, 0, &mut parser()).unwrap_err();
         assert!(matches!(err, MltError::NotImplemented(_)), "{err:?}");
     }
 
     #[rstest]
-    #[case::delta(0b0001_1000, LogicalEncoding::Int(IntLogical::Delta), "encoding byte")]
-    #[case::rle(0b0010_0000, LogicalEncoding::Int(IntLogical::Rle(rle(1))), "ALP")]
-    #[case::delta_rle(
-        0b0011_0000,
-        LogicalEncoding::Int(IntLogical::DeltaRle(rle(1))),
-        "None-noLen"
-    )]
+    #[case::delta(0b0001_1000, LogicalEncoding::Int(IntLogical::Delta))]
+    #[case::rle(0b0010_0000, LogicalEncoding::Int(IntLogical::Rle(rle(1))))]
+    #[case::delta_rle(0b0011_0000, LogicalEncoding::Int(IntLogical::DeltaRle(rle(1))))]
     fn an_int_bit_pattern_never_means_the_same_on_a_float_column(
         #[case] enc_byte: u8,
         #[case] as_int: LogicalEncoding,
-        #[case] float_error: &str,
     ) {
-        let buf = [enc_byte, 0];
-        let (_, stream) = parse_stream(&buf, INT, 1, &mut parser()).unwrap();
-        assert_eq!(stream.meta.encoding.logical, as_int);
+        let buf = [enc_byte, 0, 0, 0];
+        let (_, parsed) = parse_stream(&buf, INT, 1, &mut parser()).unwrap();
+        assert_eq!(parsed.meta.encoding.logical, as_int);
 
-        let err = parse_stream(&buf, FLOAT, 1, &mut parser()).unwrap_err();
-        assert!(err.to_string().contains(float_error), "{err}");
+        let as_float = parse_stream(&buf, FLOAT, 1, &mut parser())
+            .ok()
+            .map(|(_, p)| p.meta.encoding.logical);
+        assert_ne!(as_float, Some(as_int));
     }
 
     #[test]
@@ -884,16 +910,16 @@ mod tests {
     #[case::rle(true)]
     #[case::delta_rle(false)]
     fn write_rejects_split_rle(#[case] plain_rle: bool) {
-        let rle = RleMeta::Split {
+        let split = RleMeta::Split {
             runs: 2,
             num_rle_values: 5,
         };
         let logical = if plain_rle {
-            LogicalEncoding::Int(IntLogical::Rle(rle))
+            IntLogical::Rle(split)
         } else {
-            LogicalEncoding::Int(IntLogical::DeltaRle(rle))
+            IntLogical::DeltaRle(split)
         };
-        let meta = meta(logical, PhysicalEncoding::VarInt, 5);
+        let meta = int(logical, PE::VarInt, 5);
         let mut buf = Vec::new();
         let err = write_stream_meta(&meta, &mut buf, 0, 5, Family::Int).unwrap_err();
         assert!(matches!(err, MltError::UnsupportedLogicalEncoding(_, _)));
@@ -917,11 +943,19 @@ mod tests {
     )]
     #[case::dict_on_an_int_column(LogicalEncoding::Float(FloatLogical::Dict), Family::Int)]
     #[case::dict_on_a_vertex_stream(LogicalEncoding::Float(FloatLogical::Dict), Family::Vertex)]
-    fn write_rejects_a_logical_the_family_does_not_list(
+    #[case::alp_on_an_int_column(
+        LogicalEncoding::Float(FloatLogical::Alp(Alp::new(1, 0).unwrap())),
+        Family::Int
+    )]
+    #[case::alp_on_a_bool_column(
+        LogicalEncoding::Float(FloatLogical::Alp(Alp::new(1, 0).unwrap())),
+        Family::Bool
+    )]
+    fn write_rejects_an_encoding_the_family_does_not_list(
         #[case] logical: LogicalEncoding,
         #[case] family: Family,
     ) {
-        let meta = meta(logical, PhysicalEncoding::None, 5);
+        let meta = meta(logical, PE::None, 5);
         let mut buf = Vec::new();
         let err = write_stream_meta(&meta, &mut buf, 0, 5, family).unwrap_err();
         assert!(

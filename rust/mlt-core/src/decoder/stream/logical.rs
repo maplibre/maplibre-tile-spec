@@ -7,7 +7,8 @@ use usize_cast::IntoUsize as _;
 use crate::MltError::{ParsingLogicalTechnique, RleRunLenInvalid, UnsupportedLogicalEncoding};
 use crate::codecs::zigzag::{decode_componentwise_delta_vec2s, decode_zigzag, decode_zigzag_delta};
 use crate::decoder::{
-    IntLogical, LogicalEncoding, LogicalTechnique, LogicalValue, RleMeta, StreamMeta, VertexLogical,
+    FloatLogical, IntLogical, LogicalEncoding, LogicalTechnique, LogicalValue, RleMeta, StreamMeta,
+    VertexLogical,
 };
 use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
 use crate::{Decoder, MltResult};
@@ -128,7 +129,9 @@ impl LogicalValue {
         use VertexLogical as VL;
 
         match self.meta.encoding.logical {
-            LE::Int(IL::None) | LE::Vertex(VL::None) => decode_zigzag(data, dec),
+            LE::Int(IL::None) | LE::Vertex(VL::None) | LE::Float(FloatLogical::Alp(_)) => {
+                decode_zigzag(data, dec)
+            }
             LE::Int(IL::Rle(v)) => decode_zigzag(&v.decode(data, dec)?, dec),
             LE::Vertex(VL::ComponentwiseDelta) => decode_componentwise_delta_vec2s(data, dec),
             LE::Int(IL::Delta) | LE::Vertex(VL::Delta) => decode_zigzag_delta::<i32, _>(data, dec),
@@ -156,7 +159,7 @@ impl LogicalValue {
     pub fn decode_u32(self, data: &[u32], dec: &mut Decoder) -> MltResult<Vec<u32>> {
         let num = self.meta.num_values.into_usize();
         match self.meta.encoding.logical {
-            LogicalEncoding::Int(IntLogical::None) => {
+            LogicalEncoding::Int(IntLogical::None) | LogicalEncoding::Float(FloatLogical::Dict) => {
                 // Caller should have used the direct-output path; this is a fallback.
                 dec.consume_items::<u32>(num)?;
                 Ok(data.to_vec())
@@ -181,7 +184,8 @@ impl LogicalValue {
     /// in the bridge (physical buffer decoded into a fresh output Vec).
     pub fn decode_i64(self, data: &[u64], dec: &mut Decoder) -> MltResult<Vec<i64>> {
         match self.meta.encoding.logical {
-            LogicalEncoding::Int(IntLogical::None) => decode_zigzag(data, dec),
+            LogicalEncoding::Int(IntLogical::None)
+            | LogicalEncoding::Float(FloatLogical::Alp(_)) => decode_zigzag(data, dec),
             LogicalEncoding::Int(IntLogical::Delta) => decode_zigzag_delta::<i64, _>(data, dec),
             LogicalEncoding::Int(IntLogical::DeltaRle(rle)) => {
                 let expanded = rle.decode(data, dec)?;
@@ -208,7 +212,7 @@ impl LogicalValue {
     pub fn decode_u64(self, data: &[u64], dec: &mut Decoder) -> MltResult<Vec<u64>> {
         let num = self.meta.num_values.into_usize();
         match self.meta.encoding.logical {
-            LogicalEncoding::Int(IntLogical::None) => {
+            LogicalEncoding::Int(IntLogical::None) | LogicalEncoding::Float(FloatLogical::Dict) => {
                 // Caller should have used the direct-output path; this is a fallback.
                 dec.consume_items::<u64>(num)?;
                 Ok(data.to_vec())
