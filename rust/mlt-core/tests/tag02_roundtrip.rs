@@ -767,7 +767,12 @@ mod strings {
         let with = l.clone().encode(cfg_v2()).unwrap();
         let without = l.encode(cfg_v2().with_fsst(false)).unwrap();
         assert_eq!(layouts(&with), ["FsstDict"]);
-        assert!(with.len() < without.len(), "{} < {}", with.len(), without.len());
+        assert!(
+            with.len() < without.len(),
+            "{} < {}",
+            with.len(),
+            without.len()
+        );
     }
 
     #[rstest]
