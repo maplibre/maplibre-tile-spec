@@ -176,7 +176,7 @@ fn render_blob(
                 "{indent}  ... {} more bytes omitted (--max-blob to change)",
                 bytes.len() - shown.len()
             );
-            writeln!(w, "{:<left_len$} | {}", "", paint(&note, opts, Paint::Dim),)?;
+            writeln!(w, "{:<left_len$} | {}", "", paint(&note, opts, Paint::Dim))?;
         }
     }
 
