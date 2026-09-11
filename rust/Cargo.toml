@@ -84,7 +84,7 @@ wasm-bindgen = "0.2"
 wide = "1.5.0"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 zigzag = "0.1.0"
-zstd = "0.13"
+zstd = "0.14"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
