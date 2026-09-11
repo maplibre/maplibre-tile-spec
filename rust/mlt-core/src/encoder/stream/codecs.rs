@@ -7,7 +7,10 @@ use crate::codecs::bytes::encode_bools_to_bytes;
 use crate::codecs::rle::encode_byte_rle;
 #[cfg(not(feature = "unstable-v2"))]
 use crate::decoder::RleLayout;
-use crate::decoder::{LogicalEncoding, PhysicalEncoding, RleMeta, StreamMeta, StreamType};
+use crate::decoder::{
+    BoolLogical, IntLogical, LogicalEncoding, PhysicalEncoding, RleMeta, StreamMeta, StreamType,
+    ValueKind,
+};
 use crate::encoder;
 use crate::encoder::Encoder;
 use crate::encoder::model::StreamCtx;
@@ -57,10 +60,10 @@ impl LogicalCodecs {
         let num_values = u32::try_from(values.len())?;
         let data = encode_bools_to_bytes(values, &mut self.u8_tmp);
         let encoded = encode_byte_rle(data, &mut self.u8_tmp2);
-        let meta = LogicalEncoding::Rle(RleMeta::Split {
+        let meta = LogicalEncoding::Bool(BoolLogical::ByteRle(RleMeta::Split {
             runs: num_values.div_ceil(8),
             num_rle_values: u32::try_from(encoded.len())?,
-        });
+        }));
         Ok((meta, encoded))
     }
 }
@@ -99,7 +102,7 @@ impl Codecs {
         #[cfg(not(target_endian = "little"))]
         compile_error!("not implemented for non-little-endian targets");
 
-        let meta = StreamMeta::new_none(stream_type, values.len())?;
+        let meta = StreamMeta::new_none(stream_type, ValueKind::Float, values.len())?;
         encoder::write_stream_payload(enc, meta, false, cast_slice(values))
     }
 
@@ -126,8 +129,8 @@ impl Codecs {
         // FIXME: does StreamMeta encode values.len() or vals1.len()?
         if let Some(int_enc) = enc.override_int_enc(ctx) {
             let (le, vals) = match int_enc.logical {
-                LogicalEncoder::None => (LE::None, self.logical.none(values)),
-                LogicalEncoder::Delta => (LE::Delta, self.logical.delta(values)),
+                LogicalEncoder::None => (LE::Int(IntLogical::None), self.logical.none(values)),
+                LogicalEncoder::Delta => (LE::Int(IntLogical::Delta), self.logical.delta(values)),
                 LogicalEncoder::Rle => self.logical.rle(values, rle_layout)?,
                 LogicalEncoder::DeltaRle => self.logical.delta_rle(values, rle_layout)?,
             };
@@ -140,7 +143,12 @@ impl Codecs {
         if values.is_empty() {
             let vals1 = self.logical.none(values);
             let vals2 = Output::<T>::none(&mut self.physical, vals1);
-            let meta = StreamMeta::new2(ctx.stream_type, LE::None, PE::None, vals1.len())?;
+            let meta = StreamMeta::new2(
+                ctx.stream_type,
+                LE::Int(IntLogical::None),
+                PE::None,
+                vals1.len(),
+            )?;
             return encoder::write_stream_payload(enc, meta, false, vals2);
         }
 
@@ -158,7 +166,7 @@ impl Codecs {
             } else {
                 (PE::None, cast_slice(encoded))
             };
-            let meta = StreamMeta::new2(ctx.stream_type, LE::None, pe, 1)?;
+            let meta = StreamMeta::new2(ctx.stream_type, LE::Int(IntLogical::None), pe, 1)?;
             return encoder::write_stream_payload(enc, meta, false, payload);
         }
 
@@ -185,7 +193,7 @@ impl Codecs {
             physical.write_alternatives::<Output<T>>(
                 &mut alt,
                 values,
-                LE::Delta,
+                LE::Int(IntLogical::Delta),
                 ctx.stream_type,
                 allow_fastpfor,
             )?;
@@ -204,7 +212,7 @@ impl Codecs {
         physical.write_alternatives::<Output<T>>(
             &mut alt,
             values,
-            LE::None,
+            LE::Int(IntLogical::None),
             ctx.stream_type,
             allow_fastpfor,
         )

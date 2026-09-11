@@ -14,7 +14,7 @@ use crate::codecs::zigzag::encode_componentwise_delta_vec2s;
 use crate::decoder::GeometryType::Point;
 use crate::decoder::{
     DictionaryType, GeometryType, LogicalEncoding, Morton, OffsetType, PhysicalEncoding,
-    StreamMeta, StreamType,
+    StreamMeta, StreamType, VertexLogical,
 };
 use crate::encoder::model::{CurveParams, StreamCtx};
 use crate::encoder::{Codecs, Encoder, PhysicalCodecs, write_stream_payload};
@@ -399,7 +399,7 @@ pub(super) fn encode_vec2_vertex_stream(
 ) -> MltResult<u8> {
     let delta = encode_componentwise_delta_vec2s(vertices, &mut codecs.logical.u32_tmp);
     let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
-    let logical = LogicalEncoding::ComponentwiseDelta;
+    let logical = LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta);
     write_geo_precomputed_stream(delta, ctx, logical, enc, &mut codecs.physical)
 }
 
@@ -419,7 +419,7 @@ pub(super) fn encode_morton_vertex_streams(
 
     let delta = encode_morton_deltas(&dict, &mut codecs.logical.u32_tmp);
     let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Morton), "vertex");
-    let logical = LogicalEncoding::MortonDelta(morton);
+    let logical = LogicalEncoding::Vertex(VertexLogical::MortonDelta(morton));
     n += write_geo_precomputed_stream(delta, ctx, logical, enc, &mut codecs.physical)?;
     Ok(n)
 }
@@ -462,7 +462,7 @@ pub(super) fn encode_hilbert_vertex_streams(
     // also keeps `codecs.logical.u32_values` free for the inner race.
     encode_componentwise_delta_vec2s(&dict_xy, &mut offsets);
     let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
-    let logical = LogicalEncoding::ComponentwiseDelta;
+    let logical = LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta);
     n += write_geo_precomputed_stream(&offsets, ctx, logical, enc, &mut codecs.physical)?;
 
     codecs.logical.hilbert_offsets = offsets;

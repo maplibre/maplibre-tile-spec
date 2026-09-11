@@ -1,12 +1,13 @@
 //! Differential test of the v2 wire format over every MVT fixture v2 can encode.
 
+use std::fs;
+use std::path::Path;
+
 use mlt_core::dump::annotate_tile;
 use mlt_core::encoder::{EncoderConfig, WireVersion};
 use mlt_core::mvt::mvt_to_tile_layers;
 use mlt_core::{Decoder, Layer, MltError, Parser, TileLayer};
 use rstest::rstest;
-use std::fs;
-use std::path::Path;
 use test_each_file::test_each_path;
 
 test_each_path! { for ["mvt"] in "../test/fixtures" as tag02_fixtures => differential_fixture }

@@ -155,7 +155,7 @@ mod tests {
     use super::*;
     use crate::MltError;
     use crate::decoder::stream::header01;
-    use crate::decoder::{DictionaryType, LengthType, RawFsstData, StreamType};
+    use crate::decoder::{DictionaryType, LengthType, RawFsstData, StreamType, ValueKind};
     use crate::encoder::model::StreamCtx;
     use crate::encoder::{
         Codecs, EncodedStream, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder,
@@ -184,7 +184,7 @@ mod tests {
         };
         let byte_stream = |data: &[u8], ty: StreamType, num_values: usize| {
             let stream = EncodedStream {
-                meta: StreamMeta::new_none(ty, num_values).unwrap(),
+                meta: StreamMeta::new_none(ty, ValueKind::Int, num_values).unwrap(),
                 data: data.to_vec(),
             };
             let mut buf = Vec::new();
@@ -220,7 +220,11 @@ mod tests {
     fn parse_streams(buffers: &[Vec<u8>; 4]) -> RawFsstData<'_> {
         let mut raw_streams = Vec::new();
         for buf in buffers {
-            raw_streams.push(assert_empty(header01::parse_stream(buf, &mut parser())));
+            raw_streams.push(assert_empty(header01::parse_stream(
+                buf,
+                ValueKind::Int,
+                &mut parser(),
+            )));
         }
         let [s0, s1, s2, s3] = raw_streams.try_into().expect("expected 4 streams");
         RawFsstData::new(s0, s1, s2, s3).expect("RawFsstData::new failed")
