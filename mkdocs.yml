@@ -40,7 +40,11 @@ markdown_extensions:
   - pymdownx.snippets:
       dedent_subsections: true
       check_paths: true
-      base_path: docs/snippets
+      base_path:
+        - docs/snippets
+        - test/synthetic
+  - pymdownx.tabbed:
+      alternate_style: true
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
@@ -61,9 +65,12 @@ markdown_extensions:
       toc_depth: 6
 nav:
   - Home: index.md
+  - Overview: overview.md
+  - Specification:
+      - MLT v1: specification.md
+      - MLT v2 (experimental): specification-v2.md
+      - Encoding Algorithms: encodings.md
   - Implementation Status: implementation-status.md
-  - Encoding Algorithms: encodings.md
-  - Specification: specification.md
 
 extra:
   social:
@@ -88,6 +95,8 @@ plugins:
       excludes: ['*']
       includes:
         - specification.md
+        - specification-v2.md
+        - overview.md
 validation:
   omitted_files: warn
   absolute_links: warn
