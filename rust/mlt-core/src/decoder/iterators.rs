@@ -352,15 +352,10 @@ impl<'p> ColNames for RawProperty<'p> {
     fn name_at(&self, idx: usize) -> PropName<'p> {
         use RawProperty as P;
         match self {
-            P::Bool(s)
-            | P::I8(s)
-            | P::U8(s)
-            | P::I32(s)
-            | P::U32(s)
-            | P::I64(s)
-            | P::U64(s)
-            | P::F32(s)
-            | P::F64(s) => PropName(s.name, ""),
+            P::Bool(s) | P::I8(s) | P::U8(s) | P::I32(s) | P::U32(s) | P::I64(s) | P::U64(s) => {
+                PropName(s.name, "")
+            }
+            P::F32(s) | P::F64(s) => PropName(s.name, ""),
             P::Str(s) => PropName(s.name, ""),
             P::SharedDict(sd) => PropName(sd.name, sd.children[idx].name),
         }
