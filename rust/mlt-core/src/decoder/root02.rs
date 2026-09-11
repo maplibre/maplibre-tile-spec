@@ -28,6 +28,15 @@
 //!                                   the presence nibble is Inline; a Shared
 //!                                   nibble reads one of the layer's instead
 //!   [data stream]                   count = feature_count or presence popcount
+//! ── m-value section, only when the layout byte says so ─
+//! [varint m_value_count]            non-zero
+//! per m-value column:
+//!   [u8 column_type]                as for a counted column, but never an id
+//!                                   nor a shared dictionary
+//!   [varint name_len] [name]
+//!   [presence bitfield]             as for a counted column, over features
+//!   [data stream]                   one value per vertex of every present
+//!                                   feature, counted in its own header
 //! ```
 
 use bitvec::order::Lsb0;
@@ -39,11 +48,11 @@ use crate::LazyParsed::Raw;
 use crate::MltError::{BufferUnderflow, MissingLayerName, TrailingLayerData};
 use crate::codecs::varint::parse_varint;
 use crate::decoder::stream::header02;
-use crate::decoder::stream::header02::{StrLayout, StreamCtx02};
+use crate::decoder::stream::header02::{HAS_EXPLICIT_COUNT, StrLayout, StreamCtx02};
 use crate::decoder::{
     Column02, ColumnType02, DataType02, DictLayout, DictionaryType, FloatLogical, GeoLayout, Id,
     Layer01, LayerLayout, LengthType, LogicalEncoding, Presence02, RawFloats, RawFloatsEncoding,
-    RawFsstData, RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawScalar,
+    RawFsstData, RawGeometry, RawId, RawIdValue, RawMValue, RawPlainData, RawPresence, RawScalar,
     RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings,
     RawStringsEncoding, SharedDictKind,
 };
@@ -65,6 +74,10 @@ pub(crate) fn parse_layer02<'a>(
     let (input, feature_count) = parse_varint::<u32>(input)?;
     let (input, layout_byte) = parse_u8(input)?;
     let layout = LayerLayout::parse(layout_byte)?;
+
+    if layout.m_values && !layout.geometry.allows_m_values() {
+        return Err(MltError::MValuesNeedVertexCounts(layout.geometry.into()));
+    }
 
     // ── Shared presence bitfields ─────────────────────────────────────────
     let (input, cols) = parse_shared_presence(input, layout, feature_count)?;
@@ -100,15 +113,9 @@ pub(crate) fn parse_layer02<'a>(
             }
             Column02::Values(typ) => typ,
         };
-        let name = if typ.data.has_name() {
-            let named;
-            (input, named) = parse_string(input)?;
-            named
-        } else {
-            ""
-        };
+        let name;
         let presence;
-        (input, presence) = cols.presence(typ, input)?;
+        (input, name, presence) = parse_column_header(input, typ, &cols)?;
         let data_count = cols.count(&presence)?;
         #[cfg(fuzzing)]
         layer_order.push(match typ.data {
@@ -116,53 +123,62 @@ pub(crate) fn parse_layer02<'a>(
             _ => crate::decoder::fuzzing::LayerOrdering::Property,
         });
 
-        // A string column reads a stream set of its own, the rest one data stream.
-        if typ.data == DataType02::Str {
-            let strings;
-            (input, strings) = parse_strings(input, name, presence, data_count, parser)?;
-            properties.push(Raw(RP::Str(strings)));
-            continue;
-        }
+        let values;
+        (input, values) = parse_column_values(
+            input,
+            typ.data,
+            name,
+            presence,
+            Count::Implied(data_count),
+            parser,
+        )?;
 
-        let ctx = StreamCtx02::Property(typ.data);
-        let value;
-        (input, value) = header02::parse_stream(input, ctx, data_count, parser)?;
-
-        let prop = match typ.data {
-            DataType02::Id => {
-                id_column.set_once(Raw(RawId {
-                    presence,
-                    value: RawIdValue::Id32(value),
-                }))?;
-                continue;
-            }
-            DataType02::LongId => {
-                id_column.set_once(Raw(RawId {
-                    presence,
-                    value: RawIdValue::Id64(value),
-                }))?;
-                continue;
-            }
-            DataType02::Bool => RP::Bool(RawScalar::new(name, presence, value)),
-            DataType02::I8 => RP::I8(RawScalar::new(name, presence, value)),
-            DataType02::U8 => RP::U8(RawScalar::new(name, presence, value)),
-            DataType02::I32 => RP::I32(RawScalar::new(name, presence, value)),
-            DataType02::U32 => RP::U32(RawScalar::new(name, presence, value)),
-            DataType02::I64 => RP::I64(RawScalar::new(name, presence, value)),
-            DataType02::U64 => RP::U64(RawScalar::new(name, presence, value)),
-            DataType02::F32 | DataType02::F64 => {
-                let floats;
-                (input, floats) = parse_floats(input, typ.data, name, presence, value, parser)?;
+        let prop = match values {
+            ColumnValues::Strings(strings) => RP::Str(strings),
+            ColumnValues::Floats(floats) => {
                 if typ.data == DataType02::F32 {
                     RP::F32(floats)
                 } else {
                     RP::F64(floats)
                 }
             }
-            DataType02::Str => unreachable!("string columns are read before this match"),
+            ColumnValues::Scalar(scalar) => match typ.data {
+                DataType02::Id => {
+                    id_column.set_once(Raw(RawId {
+                        presence: scalar.presence,
+                        value: RawIdValue::Id32(scalar.data),
+                    }))?;
+                    continue;
+                }
+                DataType02::LongId => {
+                    id_column.set_once(Raw(RawId {
+                        presence: scalar.presence,
+                        value: RawIdValue::Id64(scalar.data),
+                    }))?;
+                    continue;
+                }
+                DataType02::Bool => RP::Bool(scalar),
+                DataType02::I8 => RP::I8(scalar),
+                DataType02::U8 => RP::U8(scalar),
+                DataType02::I32 => RP::I32(scalar),
+                DataType02::U32 => RP::U32(scalar),
+                DataType02::I64 => RP::I64(scalar),
+                DataType02::U64 => RP::U64(scalar),
+                DataType02::F32 | DataType02::F64 | DataType02::Str => {
+                    unreachable!("read as their own stream sets")
+                }
+            },
         };
         properties.push(Raw(prop));
     }
+
+    // ── M-value section ───────────────────────────────────────────────────
+    let m_values;
+    (input, m_values) = if layout.m_values {
+        parse_m_values(input, &cols, parser)?
+    } else {
+        (input, Vec::new())
+    };
 
     if !input.is_empty() {
         return Err(TrailingLayerData(input.len()));
@@ -173,9 +189,170 @@ pub(crate) fn parse_layer02<'a>(
         id: id_column,
         geometry: Raw(geometry),
         properties,
+        m_values,
         #[cfg(fuzzing)]
         layer_order,
     })
+}
+
+/// What a column's leading data stream takes as its value count.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Count {
+    /// The count the envelope implies: `feature_count`, or the presence popcount.
+    Implied(u32),
+    /// No implied count, so the stream has to carry one, as an m-value column's does.
+    Explicit,
+}
+
+impl Count {
+    /// The count to read the leading stream at `input` against.
+    ///
+    /// A stream with no implied count is unreadable without its own, so the
+    /// encoding byte is checked for one before it is parsed.
+    fn resolve(self, input: &[u8], name: &str) -> MltResult<u32> {
+        match self {
+            Self::Implied(count) => Ok(count),
+            Self::Explicit => {
+                let (_, enc_byte) = parse_u8(input)?;
+                if enc_byte & HAS_EXPLICIT_COUNT == 0 {
+                    return Err(MltError::MValueImplicitCount {
+                        name: name.to_string(),
+                        byte: enc_byte,
+                    });
+                }
+                Ok(0)
+            }
+        }
+    }
+}
+
+/// The data streams of a v2 column of values, whichever set its data type names.
+enum ColumnValues<'a> {
+    Scalar(RawScalar<'a>),
+    Floats(RawFloats<'a>),
+    Strings(RawStrings<'a>),
+}
+
+/// Parse a column's name and presence, the two fields every column of values starts with.
+fn parse_column_header<'a>(
+    input: &'a [u8],
+    typ: ColumnType02,
+    cols: &LayerCols<'a>,
+) -> MltResult<(&'a [u8], &'a str, RawPresence<'a>)> {
+    let (input, name) = if typ.data.has_name() {
+        parse_string(input)?
+    } else {
+        (input, "")
+    };
+    let (input, presence) = cols.presence(typ, input)?;
+    Ok((input, name, presence))
+}
+
+/// Parse the data streams of a column of values, of which a counted column and an
+/// m-value column hold exactly the same set.
+///
+/// They differ only in `count`: a counted column's leading stream takes its count
+/// from the envelope, an m-value column's has to write one.
+fn parse_column_values<'a>(
+    input: &'a [u8],
+    data: DataType02,
+    name: &'a str,
+    presence: RawPresence<'a>,
+    count: Count,
+    parser: &mut Parser,
+) -> MltRefResult<'a, ColumnValues<'a>> {
+    if data == DataType02::Str {
+        let (input, strings) = parse_strings(input, name, presence, count, parser)?;
+        return Ok((input, ColumnValues::Strings(strings)));
+    }
+    let leading = count.resolve(input, name)?;
+    let ctx = StreamCtx02::Property(data);
+    let (input, value) = header02::parse_stream(input, ctx, leading, parser)?;
+    Ok(match data {
+        DataType02::F32 | DataType02::F64 => {
+            let (input, floats) = parse_floats(input, data, name, presence, value, parser)?;
+            (input, ColumnValues::Floats(floats))
+        }
+        DataType02::Id
+        | DataType02::LongId
+        | DataType02::Bool
+        | DataType02::I8
+        | DataType02::U8
+        | DataType02::I32
+        | DataType02::U32
+        | DataType02::I64
+        | DataType02::U64
+        | DataType02::Str => (
+            input,
+            ColumnValues::Scalar(RawScalar::new(name, presence, value)),
+        ),
+    })
+}
+
+/// Parse the m-value section: the vertex-scoped columns that end a layer body.
+///
+/// Each reads the streams a counted column of its data type reads, over the
+/// layer's vertex sequence rather than its features. Only the geometry says how
+/// long that is, which the decoder may not have read yet, so the count stays with
+/// the column until [`ParsedMValue::spans`](crate::decoder::ParsedMValue::spans)
+/// checks the two against each other.
+fn parse_m_values<'a>(
+    input: &'a [u8],
+    cols: &LayerCols<'a>,
+    parser: &mut Parser,
+) -> MltRefResult<'a, Vec<crate::decoder::MValueColumn<'a, Lazy>>> {
+    let (mut input, count) = parse_varint::<u32>(input)?;
+    if count == 0 {
+        return Err(MltError::EmptyMValueSection);
+    }
+    // Each column requires at least 1 byte (column type).
+    if input.len() < count.into_usize() {
+        return Err(BufferUnderflow(count, input.len()));
+    }
+    parser.reserve(count)?;
+
+    let mut m_values: Vec<crate::decoder::MValueColumn<'a, Lazy>> =
+        Vec::with_capacity(count.into_usize());
+    let mut names: Vec<&str> = Vec::with_capacity(count.into_usize());
+    for _ in 0..count {
+        let typ_byte;
+        (input, typ_byte) = parse_u8(input)?;
+        let typ = ColumnType02::parse_m_value(typ_byte, cols.shared_count()?)?;
+        let name;
+        let presence;
+        (input, name, presence) = parse_column_header(input, typ, cols)?;
+        if names.contains(&name) {
+            return Err(MltError::DuplicateMValueName(name.to_string()));
+        }
+        names.push(name);
+
+        let values;
+        (input, values) =
+            parse_column_values(input, typ.data, name, presence, Count::Explicit, parser)?;
+        let column = match (values, typ.data) {
+            (ColumnValues::Strings(strings), _) => RawMValue::Str(strings),
+            (ColumnValues::Floats(floats), DataType02::F32) => RawMValue::F32(floats),
+            (ColumnValues::Floats(floats), _) => RawMValue::F64(floats),
+            (ColumnValues::Scalar(scalar), data) => match data {
+                DataType02::Bool => RawMValue::Bool(scalar),
+                DataType02::I8 => RawMValue::I8(scalar),
+                DataType02::U8 => RawMValue::U8(scalar),
+                DataType02::I32 => RawMValue::I32(scalar),
+                DataType02::U32 => RawMValue::U32(scalar),
+                DataType02::I64 => RawMValue::I64(scalar),
+                DataType02::U64 => RawMValue::U64(scalar),
+                DataType02::Id
+                | DataType02::LongId
+                | DataType02::F32
+                | DataType02::F64
+                | DataType02::Str => {
+                    unreachable!("rejected by parse_m_value, or read as their own stream sets")
+                }
+            },
+        };
+        m_values.push(Raw(column));
+    }
+    Ok((input, m_values))
 }
 
 /// Finish a float column, reading the dictionary stream when its data stream turned out to be one of codes.
@@ -295,21 +472,24 @@ fn blob_layout(input: &[u8]) -> MltResult<DictLayout> {
 /// Parse a string column, whose leading stream's extension bits name the layout the rest follow.
 ///
 /// Every stream but that leading one carries an explicit count, or, for the byte
-/// blobs, none at all, so `count` is only ever the leading stream's context.
+/// blobs, none at all, so the context only ever matters for the leading stream.
 fn parse_strings<'a>(
     input: &'a [u8],
     name: &'a str,
     presence: RawPresence<'a>,
-    count: u32,
+    count: Count,
     parser: &mut Parser,
 ) -> MltRefResult<'a, RawStrings<'a>> {
     // The layout is in the leading stream's encoding byte, which its own context is needed to read.
     let (_, enc_byte) = parse_u8(input)?;
     let layout = StrLayout::from_bits(enc_byte);
+    let leading_count = count.resolve(input, name)?;
+    let (input, leading) =
+        header02::parse_stream(input, StreamCtx02::StrData(layout), leading_count, parser)?;
+    let count = leading.meta.num_values;
     let stream = |input: &'a [u8], ctx, parser: &mut Parser| {
         header02::parse_stream(input, ctx, count, parser)
     };
-    let (input, leading) = stream(input, StreamCtx02::StrData(layout), parser)?;
 
     let (input, encoding) = match layout {
         StrLayout::Plain => {

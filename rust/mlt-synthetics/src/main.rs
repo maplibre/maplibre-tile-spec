@@ -28,8 +28,8 @@ use std::sync::LazyLock;
 
 use clap::Parser;
 use mlt_core::encoder::{
-    FloatEncoding, IntEncoder as E, LogicalEncoder as L, StagedId as Id, StagedProperty as P,
-    StrEncoding, VertexBufferType,
+    FloatEncoding, IntEncoder as E, LogicalEncoder as L, StagedId as Id, StagedMValue as M,
+    StagedMValues as MV, StagedProperty as P, StrEncoding, VertexBufferType,
 };
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, coord,
@@ -109,6 +109,7 @@ fn main() {
     generate_extent(&mut writer);
     generate_ids(&mut writer);
     generate_properties(&mut writer);
+    generate_m_values(&mut writer);
 
     writer.report_ungenerated();
 
@@ -957,6 +958,30 @@ fn generate_properties(w: &mut SynthWriter) {
     generate_props_str(w);
     generate_shared_presence(w);
     generate_shared_dictionaries(w);
+}
+
+/// Vertex-scoped columns, which hold one value per vertex instead of per feature.
+///
+/// A v1 layer has nowhere to put one, so these fixtures are v2 only.
+fn generate_m_values(w: &mut SynthWriter) {
+    // Three lines of 3, 3 and 2 vertices: 8 vertices in the layer's sequence.
+    let short = wkt!(LINESTRING(5 38, 12 45));
+    geo_varint()
+        .geos(vec![line1(), line2(), short])
+        .add_m_value(
+            E::delta_varint(),
+            M::new("dist", None, MV::U32(vec![0, 10, 25, 0, 15, 40, 0, 12])),
+        )
+        .add_m_value(
+            E::varint(),
+            // Null on the middle line, which therefore stores no values at all.
+            M::new(
+                "height",
+                Some(vec![true, false, true]),
+                MV::I32(vec![-3, 4, 9, 2, 7]),
+            ),
+        )
+        .write(w, "mvalues");
 }
 
 /// A presence mask, where `x` is a value and `-` is a null.

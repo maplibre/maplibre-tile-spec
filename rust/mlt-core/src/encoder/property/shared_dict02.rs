@@ -131,7 +131,7 @@ fn begin_shared_dict02(
     shared_dict: &StagedSharedDict,
 ) -> MltResult<()> {
     enc.family_context = Family::Int;
-    enc.count_context = 0;
+    enc.count_context = Some(0);
     let byte = kind as u8 | Column02::SHARED_DICT;
     let data = enc.data_mut();
     data.push(byte);
@@ -144,7 +144,7 @@ fn begin_shared_dict02(
 fn write_children02(
     shared_dict: &StagedSharedDict,
     per_child_codes: &[Vec<u32>],
-    features: u32,
+    features: Option<u32>,
     shared: &SharedPresence,
     enc: &mut Encoder,
     codecs: &mut Codecs,
@@ -161,7 +161,7 @@ fn write_children02(
             write_presence_bits(enc.data_mut(), mask);
         }
 
-        enc.count_context = u32::try_from(child_codes.len())?;
+        enc.count_context = Some(u32::try_from(child_codes.len())?);
         let ctx = StreamCtx::prop2(
             StreamType::Offset(OffsetType::String),
             &shared_dict.prefix,

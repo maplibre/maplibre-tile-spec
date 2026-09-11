@@ -257,14 +257,44 @@ fn push_polygon_rings(
     parts.push(ring_count);
 }
 
-/// Push a ring's coordinates (stripping closing vertex) to verts and update rings offset.
-fn push_ring(ring: &LineString<i32>, verts: &mut Vec<i32>, rings: &mut Vec<u32>) {
+/// How many of a ring's coordinates MLT stores, which is all of them but a closing one.
+pub(crate) fn stored_ring_len(ring: &LineString<i32>) -> usize {
     let coords = &ring.0;
-    let len = if coords.len() > 1 && coords.last() == coords.first() {
+    if coords.len() > 1 && coords.last() == coords.first() {
         coords.len() - 1
     } else {
         coords.len()
+    }
+}
+
+/// How many vertices a geometry contributes to the layer's vertex sequence, which
+/// is what an m-value column holds one value per.
+#[cfg(feature = "unstable-v2")]
+pub(crate) fn stored_vertex_count(geom: &Geometry<i32>) -> usize {
+    let polygon = |poly: &Polygon<i32>| {
+        std::iter::once(poly.exterior())
+            .chain(poly.interiors())
+            .map(stored_ring_len)
+            .sum::<usize>()
     };
+    match geom {
+        Geometry::Point(_) => 1,
+        Geometry::Line(_) => 2,
+        Geometry::LineString(ls) => ls.0.len(),
+        Geometry::Polygon(p) => polygon(p),
+        Geometry::MultiPoint(mp) => mp.0.len(),
+        Geometry::MultiLineString(mls) => mls.iter().map(|ls| ls.0.len()).sum(),
+        Geometry::MultiPolygon(mp) => mp.iter().map(polygon).sum(),
+        Geometry::Triangle(t) => polygon(&t.to_polygon()),
+        Geometry::Rect(r) => polygon(&r.to_polygon()),
+        Geometry::GeometryCollection(gc) => gc.iter().map(stored_vertex_count).sum(),
+    }
+}
+
+/// Push a ring's coordinates (stripping closing vertex) to verts and update rings offset.
+fn push_ring(ring: &LineString<i32>, verts: &mut Vec<i32>, rings: &mut Vec<u32>) {
+    let coords = &ring.0;
+    let len = stored_ring_len(ring);
     for c in &coords[..len] {
         verts.extend([c.x, c.y]);
     }

@@ -20,7 +20,6 @@ use std::collections::HashMap;
 
 use integer_encoding::VarIntWriter as _;
 
-use crate::MltResult;
 use crate::decoder::stream::header02::Family;
 use crate::decoder::{
     BoolLogical, ColumnType02, DataType02, DictionaryType, LayerLayout, LogicalEncoding,
@@ -29,10 +28,11 @@ use crate::decoder::{
 use crate::encoder::geometry::encode02::encode_geometry02;
 use crate::encoder::model::{StagedLayer, StreamCtx};
 use crate::encoder::{
-    Codecs, Encoder, StagedId, StagedOptScalar, StagedProperty, StagedSharedDictItem,
-    write_stream_payload,
+    Codecs, Encoder, StagedId, StagedMValue, StagedMValues, StagedOptScalar, StagedProperty,
+    StagedSharedDictItem, write_stream_payload,
 };
 use crate::utils::BinarySerializer as _;
+use crate::{MltError, MltResult};
 
 /// The presence masks the layer stores once for several columns to read.
 ///
@@ -56,10 +56,10 @@ pub(crate) struct SharedPresence {
 
 impl SharedPresence {
     /// Group the layer's optional columns and dictionary children by mask and keep the shared ones.
-    fn plan(id: &StagedId, properties: &[StagedProperty]) -> Self {
+    fn plan(id: &StagedId, properties: &[StagedProperty], m_values: &[StagedMValue]) -> Self {
         // (column count, index of the first column with this mask) per mask.
         let mut groups: HashMap<Vec<bool>, (usize, usize)> = HashMap::new();
-        for (column, mask) in column_masks(id, properties).enumerate() {
+        for (column, mask) in column_masks(id, properties, m_values).enumerate() {
             let group = groups.entry(mask).or_insert((0, column));
             group.0 += 1;
         }
@@ -113,14 +113,15 @@ impl SharedPresence {
 }
 
 /// The presence mask of everything that writes one, in the order it is written:
-/// the ID column first, then the properties, a shared dictionary contributing one
-/// mask per child at its parent column's position.
+/// the ID column first, then the properties, then the m-values, a shared
+/// dictionary contributing one mask per child at its parent column's position.
 ///
 /// Owned, because a string column derives its mask from its lengths rather than storing one.
 /// Columns that cannot be null contribute nothing - there is no mask to share.
 fn column_masks<'a>(
     id: &'a StagedId,
     properties: &'a [StagedProperty],
+    m_values: &'a [StagedMValue],
 ) -> impl Iterator<Item = Vec<bool>> + 'a {
     /// `presence` of an optional staged column.
     fn mask<T: Copy + PartialEq>(v: &StagedOptScalar<T>) -> Vec<bool> {
@@ -166,7 +167,10 @@ fn column_masks<'a>(
             | D::Str(_) => vec![],
         }
     });
-    id.into_iter().chain(props)
+    // An m-value column is null on features, exactly as a property column is, so
+    // the two share a bitfield whenever their masks agree.
+    let m_values = m_values.iter().filter_map(|m| m.presence.clone());
+    id.into_iter().chain(props).chain(m_values)
 }
 
 /// Append `bits` as `ceil(len/8)` LSB-first packed bytes - the layout v2 uses for
@@ -196,13 +200,14 @@ pub(crate) fn encode_into02(
         id,
         geometry,
         properties,
+        m_values,
     } = layer;
 
     let feature_count = u32::try_from(geometry.feature_count())?;
-    enc.count_context = feature_count;
+    enc.count_context = Some(feature_count);
 
     // ── Layer layout byte + shared presence bitfields ─────────────────────
-    let shared = SharedPresence::plan(&id, &properties);
+    let shared = SharedPresence::plan(&id, &properties, &m_values);
     let geometry = encode_geometry02(geometry)?;
     // The geometry layout is only settled once its vertex streams are written, so
     // the byte is reserved here and patched below.
@@ -212,7 +217,13 @@ pub(crate) fn encode_into02(
 
     // ── Geometry section (not part of column_count) ───────────────────────
     let geo_layout = geometry.write_to(&mut enc, codecs)?;
-    enc.data_mut()[layout_pos] = LayerLayout::new(geo_layout, shared.count()).to_byte();
+    // Only the geometry layout says whether a feature's vertex count can be read
+    // back, which is the one thing an m-value column cannot do without.
+    if !m_values.is_empty() && !geo_layout.allows_m_values() {
+        return Err(MltError::MValuesNeedVertexCounts(geo_layout.into()));
+    }
+    enc.data_mut()[layout_pos] =
+        LayerLayout::new(geo_layout, shared.count(), !m_values.is_empty()).to_byte();
 
     // ── Counted columns ───────────────────────────────────────────────────
     let column_count = usize::from(!matches!(id, StagedId::None)) + properties.len();
@@ -221,6 +232,15 @@ pub(crate) fn encode_into02(
     write_id02(&id, &shared, &mut enc, codecs)?;
     for prop in &properties {
         write_prop02(prop, &shared, &mut enc, codecs)?;
+    }
+
+    // ── M-value section (not part of column_count either) ─────────────────
+    if !m_values.is_empty() {
+        enc.data_mut()
+            .write_varint(u32::try_from(m_values.len())?)?;
+        for m_value in &m_values {
+            write_m_value02(m_value, &shared, &mut enc, codecs)?;
+        }
     }
 
     enc.write_header02(&name, extent.get(), feature_count)?;
@@ -271,7 +291,7 @@ where
 
     let popcount = u32::try_from(presence.iter().filter(|&&p| p).count())?;
     let feature_count = enc.count_context;
-    enc.count_context = popcount;
+    enc.count_context = Some(popcount);
     let result = write_data(enc);
     enc.count_context = feature_count;
     result
@@ -425,4 +445,59 @@ fn write_prop02(
         }
         D::SharedDict(v) => codecs.write_shared_dict02(v, shared, enc),
     }
+}
+
+/// Write one m-value column: `[type byte][name][presence bitfield?][data streams]`.
+///
+/// Its streams hold one value per vertex rather than per feature, a count only the
+/// geometry knows, so the column is written with no count context at all and every
+/// stream states its own.
+fn write_m_value02(
+    m_value: &StagedMValue,
+    shared: &SharedPresence,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    use StagedMValues as V;
+
+    let name = m_value.name();
+    let typ = match m_value.values() {
+        V::Bool(_) => DataType02::Bool,
+        V::I8(_) => DataType02::I8,
+        V::U8(_) => DataType02::U8,
+        V::I32(_) => DataType02::I32,
+        V::U32(_) => DataType02::U32,
+        V::I64(_) => DataType02::I64,
+        V::U64(_) => DataType02::U64,
+        V::F32(_) => DataType02::F32,
+        V::F64(_) => DataType02::F64,
+        V::Str(_) => DataType02::Str,
+    };
+    let nibble = match &m_value.presence {
+        Some(mask) => shared.nibble_for(mask),
+        None => Presence02::AllPresent,
+    };
+    begin_col02(enc, nibble, typ, Some(name))?;
+    if let (Presence02::Inline, Some(mask)) = (nibble, &m_value.presence) {
+        write_presence_bits(enc.data_mut(), mask);
+    }
+
+    let features = enc.count_context;
+    enc.count_context = None;
+    let ctx = StreamCtx::prop_data(name);
+    let result = match m_value.values() {
+        V::Bool(v) => write_bool_bitfield(enc, v),
+        V::I8(v) => codecs.write_int_stream(v, &ctx, enc),
+        V::U8(v) => codecs.write_int_stream(v, &ctx, enc),
+        V::I32(v) => codecs.write_int_stream(v, &ctx, enc),
+        V::U32(v) => codecs.write_int_stream(v, &ctx, enc),
+        V::I64(v) => codecs.write_int_stream(v, &ctx, enc),
+        V::U64(v) => codecs.write_int_stream(v, &ctx, enc),
+        V::F32(v) => codecs.write_float_stream(v, &ctx, enc),
+        V::F64(v) => codecs.write_float_stream(v, &ctx, enc),
+        V::Str(v) => codecs.write_str_col02(&m_value.strings(v), enc),
+    };
+    // Restore what the columns after this one imply their counts from.
+    enc.count_context = features;
+    result
 }

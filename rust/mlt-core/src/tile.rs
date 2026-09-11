@@ -7,6 +7,8 @@
 
 use std::num::NonZeroU32;
 
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::stored_vertex_count;
 use crate::{MltError, MltResult};
 
 /// Non-zero tile extent.
@@ -48,6 +50,12 @@ pub struct TileLayer {
     pub(crate) property_names: Vec<String>,
     /// Column types, parallel to `TileFeature::properties`.
     pub(crate) property_kinds: Vec<PropKind>,
+    /// Vertex-scoped column names, parallel to `TileFeature::m_values`.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) m_value_names: Vec<String>,
+    /// Vertex-scoped column types, parallel to `TileFeature::m_values`.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) m_value_kinds: Vec<PropKind>,
     pub(crate) features: Vec<TileFeature>,
 }
 
@@ -60,12 +68,30 @@ pub struct TileFeature {
     /// One value per property column, in the same order as
     /// [`TileLayer::property_names`].
     pub(crate) properties: Vec<PropValue>,
+    /// One entry per m-value column, in the same order as
+    /// [`TileLayer::m_value_names`], each holding one value per vertex of this
+    /// feature's geometry or none at all.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) m_values: Vec<MValue>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PropertyKey(usize);
 
 impl PropertyKey {
+    #[must_use]
+    pub fn index(self) -> usize {
+        self.0
+    }
+}
+
+/// Handle to one of a layer's m-value columns, as [`PropertyKey`] is to a property column.
+#[cfg(feature = "unstable-v2")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct MValueKey(usize);
+
+#[cfg(feature = "unstable-v2")]
+impl MValueKey {
     #[must_use]
     pub fn index(self) -> usize {
         self.0
@@ -86,6 +112,10 @@ impl TileLayer {
             extent,
             property_names: Vec::new(),
             property_kinds: Vec::new(),
+            #[cfg(feature = "unstable-v2")]
+            m_value_names: Vec::new(),
+            #[cfg(feature = "unstable-v2")]
+            m_value_kinds: Vec::new(),
             features: Vec::with_capacity(features),
         })
     }
@@ -106,6 +136,10 @@ impl TileLayer {
             extent,
             property_names,
             property_kinds,
+            #[cfg(feature = "unstable-v2")]
+            m_value_names: Vec::new(),
+            #[cfg(feature = "unstable-v2")]
+            m_value_kinds: Vec::new(),
             features,
         };
         Ok(layer)
@@ -158,6 +192,46 @@ impl TileLayer {
         Ok(PropertyKey(self.property_names.len() - 1))
     }
 
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn m_value_names(&self) -> &[String] {
+        &self.m_value_names
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn m_value_kinds(&self) -> &[PropKind] {
+        &self.m_value_kinds
+    }
+
+    /// Declare a vertex-scoped column, whose values every feature then holds or does not.
+    #[cfg(feature = "unstable-v2")]
+    pub fn add_m_value(&mut self, name: impl Into<String>, kind: PropKind) -> MltResult<MValueKey> {
+        let name = name.into();
+        if self.m_value_names.contains(&name) {
+            return Err(MltError::DuplicateMValueName(name));
+        }
+        for feature in &mut self.features {
+            feature.m_values.push(MValue::null(kind));
+        }
+        self.m_value_names.push(name);
+        self.m_value_kinds.push(kind);
+        Ok(MValueKey(self.m_value_names.len() - 1))
+    }
+
+    /// Name the vertex-scoped columns the features already carry, as
+    /// [`Self::from_parts`] names the property columns.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) fn with_m_value_names(mut self, names: Vec<String>) -> MltResult<Self> {
+        validate_m_value_names(&names)?;
+        self.m_value_kinds = infer_m_value_kinds(&names, &self.features)?;
+        self.m_value_names = names;
+        for feature in &self.features {
+            self.validate_m_values(feature)?;
+        }
+        Ok(self)
+    }
+
     pub fn push_feature(&mut self, feature: TileFeature) -> MltResult<()> {
         self.validate_feature(&feature)?;
         self.features.push(feature);
@@ -187,6 +261,42 @@ impl TileLayer {
                 });
             }
         }
+        #[cfg(feature = "unstable-v2")]
+        self.validate_m_values(feature)?;
+        Ok(())
+    }
+
+    /// Check a feature's m-values against the layer's columns: one entry per
+    /// column, of the column's kind, holding one value per vertex it has.
+    #[cfg(feature = "unstable-v2")]
+    fn validate_m_values(&self, feature: &TileFeature) -> MltResult<()> {
+        let expected = self.m_value_names.len();
+        let actual = feature.m_values.len();
+        if actual != expected {
+            return Err(MltError::MValueLengthMismatch { expected, actual });
+        }
+        let vertices = feature.vertex_count();
+        for (index, m_value) in feature.m_values.iter().enumerate() {
+            let expected = self.m_value_kinds[index];
+            let actual = m_value.kind();
+            if actual != expected {
+                return Err(MltError::MValueKindMismatch {
+                    index,
+                    expected,
+                    actual,
+                });
+            }
+            if let Some(len) = m_value.count()
+                && len != vertices
+            {
+                return Err(MltError::MValueVertexCountMismatch {
+                    name: self.m_value_names[index].clone(),
+                    index,
+                    expected: vertices,
+                    actual: len,
+                });
+            }
+        }
         Ok(())
     }
 }
@@ -198,6 +308,8 @@ impl TileFeature {
             id: None,
             geometry,
             properties: Vec::new(),
+            #[cfg(feature = "unstable-v2")]
+            m_values: Vec::new(),
         }
     }
 
@@ -207,6 +319,8 @@ impl TileFeature {
             id: Some(id),
             geometry,
             properties: Vec::new(),
+            #[cfg(feature = "unstable-v2")]
+            m_values: Vec::new(),
         }
     }
 
@@ -228,6 +342,56 @@ impl TileFeature {
     #[must_use]
     pub(crate) fn properties_mut(&mut self) -> &mut [PropValue] {
         &mut self.properties
+    }
+
+    /// How many vertices this feature stores, which is how many values each of
+    /// its m-values holds.
+    ///
+    /// A polygon ring's closing vertex is not stored, so it is not counted.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn vertex_count(&self) -> usize {
+        stored_vertex_count(&self.geometry)
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn m_values(&self) -> &[MValue] {
+        &self.m_values
+    }
+
+    /// Set this feature's values for one m-value column, which must hold one
+    /// value per vertex unless the feature has none at all.
+    #[cfg(feature = "unstable-v2")]
+    pub fn set_m_value(&mut self, key: MValueKey, value: MValue) -> MltResult<()> {
+        let vertices = self.vertex_count();
+        let Some(slot) = self.m_values.get_mut(key.index()) else {
+            return Err(MltError::MValueLengthMismatch {
+                expected: key.index() + 1,
+                actual: self.m_values.len(),
+            });
+        };
+        let expected = slot.kind();
+        let actual = value.kind();
+        if actual != expected {
+            return Err(MltError::MValueKindMismatch {
+                index: key.index(),
+                expected,
+                actual,
+            });
+        }
+        if let Some(len) = value.count()
+            && len != vertices
+        {
+            return Err(MltError::MValueVertexCountMismatch {
+                name: String::new(),
+                index: key.index(),
+                expected: vertices,
+                actual: len,
+            });
+        }
+        *slot = value;
+        Ok(())
     }
 
     pub fn set_property(&mut self, key: PropertyKey, value: PropValue) -> MltResult<()> {
@@ -264,6 +428,11 @@ impl TileLayerBuilder {
         self.layer.add_property(name, kind)
     }
 
+    #[cfg(feature = "unstable-v2")]
+    pub fn add_m_value(&mut self, name: impl Into<String>, kind: PropKind) -> MltResult<MValueKey> {
+        self.layer.add_m_value(name, kind)
+    }
+
     pub fn feature(&mut self, geometry: geo_types::Geometry<i32>) -> TileFeatureBuilder<'_> {
         let properties = self
             .layer
@@ -272,12 +441,22 @@ impl TileLayerBuilder {
             .copied()
             .map(PropValue::null)
             .collect();
+        #[cfg(feature = "unstable-v2")]
+        let m_values = self
+            .layer
+            .m_value_kinds
+            .iter()
+            .copied()
+            .map(MValue::null)
+            .collect();
         TileFeatureBuilder {
             layer: self,
             feature: TileFeature {
                 id: None,
                 geometry,
                 properties,
+                #[cfg(feature = "unstable-v2")]
+                m_values,
             },
         }
     }
@@ -305,6 +484,12 @@ impl TileFeatureBuilder<'_> {
 
     pub fn property(&mut self, key: PropertyKey, value: PropValue) -> MltResult<&mut Self> {
         self.feature.set_property(key, value)?;
+        Ok(self)
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    pub fn m_value(&mut self, key: MValueKey, value: MValue) -> MltResult<&mut Self> {
+        self.feature.set_m_value(key, value)?;
         Ok(self)
     }
 
@@ -373,6 +558,83 @@ impl PropValue {
     }
 }
 
+/// A feature's values for one vertex-scoped column: one per vertex, or none at all.
+///
+/// The option is around the whole vector because a null is a feature's, not a
+/// vertex's: a feature either measures every one of its vertices or none of them.
+#[cfg(feature = "unstable-v2")]
+#[derive(Debug, Clone, PartialEq)]
+pub enum MValue {
+    Bool(Option<Vec<bool>>),
+    I8(Option<Vec<i8>>),
+    U8(Option<Vec<u8>>),
+    I32(Option<Vec<i32>>),
+    U32(Option<Vec<u32>>),
+    I64(Option<Vec<i64>>),
+    U64(Option<Vec<u64>>),
+    F32(Option<Vec<f32>>),
+    F64(Option<Vec<f64>>),
+    Str(Option<Vec<String>>),
+}
+
+#[cfg(feature = "unstable-v2")]
+impl MValue {
+    #[must_use]
+    pub fn kind(&self) -> PropKind {
+        match self {
+            Self::Bool(_) => PropKind::Bool,
+            Self::I8(_) => PropKind::I8,
+            Self::U8(_) => PropKind::U8,
+            Self::I32(_) => PropKind::I32,
+            Self::U32(_) => PropKind::U32,
+            Self::I64(_) => PropKind::I64,
+            Self::U64(_) => PropKind::U64,
+            Self::F32(_) => PropKind::F32,
+            Self::F64(_) => PropKind::F64,
+            Self::Str(_) => PropKind::Str,
+        }
+    }
+
+    /// How many values this holds, or [`None`] when the feature carries none.
+    #[must_use]
+    pub fn count(&self) -> Option<usize> {
+        match self {
+            Self::Bool(v) => v.as_ref().map(Vec::len),
+            Self::I8(v) => v.as_ref().map(Vec::len),
+            Self::U8(v) => v.as_ref().map(Vec::len),
+            Self::I32(v) => v.as_ref().map(Vec::len),
+            Self::U32(v) => v.as_ref().map(Vec::len),
+            Self::I64(v) => v.as_ref().map(Vec::len),
+            Self::U64(v) => v.as_ref().map(Vec::len),
+            Self::F32(v) => v.as_ref().map(Vec::len),
+            Self::F64(v) => v.as_ref().map(Vec::len),
+            Self::Str(v) => v.as_ref().map(Vec::len),
+        }
+    }
+
+    #[must_use]
+    pub fn is_null(&self) -> bool {
+        self.count().is_none()
+    }
+
+    /// The empty value of `kind`, which is what a feature with no values holds.
+    #[must_use]
+    pub fn null(kind: PropKind) -> Self {
+        match kind {
+            PropKind::Bool => Self::Bool(None),
+            PropKind::I8 => Self::I8(None),
+            PropKind::U8 => Self::U8(None),
+            PropKind::I32 => Self::I32(None),
+            PropKind::U32 => Self::U32(None),
+            PropKind::I64 => Self::I64(None),
+            PropKind::U64 => Self::U64(None),
+            PropKind::F32 => Self::F32(None),
+            PropKind::F64 => Self::F64(None),
+            PropKind::Str => Self::Str(None),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::IntoStaticStr)]
 #[strum(serialize_all = "lowercase")]
 pub enum PropKind {
@@ -424,6 +686,47 @@ fn validate_property_names(names: &[String]) -> MltResult<()> {
     Ok(())
 }
 
+#[cfg(feature = "unstable-v2")]
+fn validate_m_value_names(names: &[String]) -> MltResult<()> {
+    for (i, name) in names.iter().enumerate() {
+        if names[..i].iter().any(|n| n == name) {
+            return Err(MltError::DuplicateMValueName(name.clone()));
+        }
+    }
+    Ok(())
+}
+
+/// The kind of each m-value column, taken from the features that carry values for it.
+#[cfg(feature = "unstable-v2")]
+fn infer_m_value_kinds(names: &[String], features: &[TileFeature]) -> MltResult<Vec<PropKind>> {
+    let mut kinds = vec![None; names.len()];
+    for feature in features {
+        let expected = names.len();
+        let actual = feature.m_values.len();
+        if actual != expected {
+            return Err(MltError::MValueLengthMismatch { expected, actual });
+        }
+        for (index, m_value) in feature.m_values.iter().enumerate() {
+            let actual = m_value.kind();
+            match kinds[index] {
+                Some(expected) if expected != actual => {
+                    return Err(MltError::MValueKindMismatch {
+                        index,
+                        expected,
+                        actual,
+                    });
+                }
+                None => kinds[index] = Some(actual),
+                _ => {}
+            }
+        }
+    }
+    Ok(kinds
+        .into_iter()
+        .map(|kind| kind.unwrap_or(PropKind::Str))
+        .collect())
+}
+
 fn infer_property_kinds(names: &[String], features: &[TileFeature]) -> MltResult<Vec<PropKind>> {
     let mut kinds = vec![None; names.len()];
     for feature in features {
@@ -464,6 +767,8 @@ mod tests {
             id: None,
             geometry: Geometry::Point(Point::new(0, 0)),
             properties,
+            #[cfg(feature = "unstable-v2")]
+            m_values: Vec::new(),
         }
     }
 
@@ -549,6 +854,58 @@ mod tests {
                 actual: PropKind::I32,
             })
         ));
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn push_feature_validates_m_value_count() {
+        let mut layer = TileLayer::new("layer", 4096).unwrap();
+        layer.add_m_value("m", PropKind::I32).unwrap();
+        assert!(matches!(
+            layer.push_feature(point_feature(vec![])),
+            Err(MltError::MValueLengthMismatch {
+                expected: 1,
+                actual: 0
+            })
+        ));
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn push_feature_validates_one_value_per_vertex() {
+        let mut layer = TileLayer::new("layer", 4096).unwrap();
+        layer.add_m_value("m", PropKind::I32).unwrap();
+        let mut feature = point_feature(vec![]);
+        feature.m_values = vec![MValue::I32(Some(vec![1, 2]))];
+        assert!(matches!(
+            layer.push_feature(feature),
+            Err(MltError::MValueVertexCountMismatch {
+                index: 0,
+                expected: 1,
+                actual: 2,
+                ..
+            })
+        ));
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn a_polygon_does_not_count_its_closing_vertices() {
+        let ring = |pts: &[(i32, i32)]| {
+            let mut ls = geo_types::LineString::new(
+                pts.iter()
+                    .map(|&(x, y)| geo_types::Coord { x, y })
+                    .collect(),
+            );
+            ls.close();
+            ls
+        };
+        let poly = geo_types::Polygon::new(
+            ring(&[(0, 0), (0, 4), (4, 4), (4, 0)]),
+            vec![ring(&[(1, 1), (1, 2), (2, 2)])],
+        );
+        let feature = TileFeature::new(Geometry::Polygon(poly));
+        assert_eq!(feature.vertex_count(), 7);
     }
 
     #[test]

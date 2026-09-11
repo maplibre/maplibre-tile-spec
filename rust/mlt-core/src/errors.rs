@@ -65,8 +65,53 @@ pub enum MltError {
     #[error("error parsing v2 geometry layout: code={0}")]
     ParsingGeoLayout(u8),
     #[cfg(feature = "unstable-v2")]
-    #[error("error parsing v2 layer layout: byte=0x{0:02X}")]
-    ParsingLayerLayout(u8),
+    #[error(
+        "v2 geometry layout {0} gives no per-feature vertex count, so it cannot carry m-values"
+    )]
+    MValuesNeedVertexCounts(&'static str),
+    #[cfg(feature = "unstable-v2")]
+    #[error("the v2 layer layout byte claims an m-value section, but it holds no columns")]
+    EmptyMValueSection,
+    #[cfg(feature = "unstable-v2")]
+    #[error("duplicate m-value name: {0}")]
+    DuplicateMValueName(String),
+    #[cfg(feature = "unstable-v2")]
+    #[error(
+        "m-value column {name} has no implied count, so its leading stream must write one: encoding byte 0x{byte:02X}"
+    )]
+    MValueImplicitCount { name: String, byte: u8 },
+    #[cfg(feature = "unstable-v2")]
+    #[error(
+        "m-value column {name} holds {actual} values, but its features have {expected} vertices"
+    )]
+    MValueCountMismatch {
+        name: String,
+        expected: usize,
+        actual: usize,
+    },
+    #[cfg(feature = "unstable-v2")]
+    #[error("feature m-value count mismatch: expected {expected}, got {actual}")]
+    MValueLengthMismatch { expected: usize, actual: usize },
+    #[cfg(feature = "unstable-v2")]
+    #[error("m-value {index} kind mismatch: expected {expected:?}, got {actual:?}")]
+    MValueKindMismatch {
+        index: usize,
+        expected: crate::tile::PropKind,
+        actual: crate::tile::PropKind,
+    },
+    #[cfg(feature = "unstable-v2")]
+    #[error(
+        "m-value {name} of feature {index} holds {actual} values, but the feature has {expected} vertices"
+    )]
+    MValueVertexCountMismatch {
+        name: String,
+        index: usize,
+        expected: usize,
+        actual: usize,
+    },
+    #[cfg(feature = "unstable-v2")]
+    #[error("m-values are a v2 feature, so layer {0} cannot be written as v1")]
+    MValuesNeedV2(String),
     #[error("error parsing logical technique: code={0}")]
     ParsingLogicalTechnique(u8),
     #[error("error parsing physical encoding: code={0}")]

@@ -5,7 +5,7 @@
 00000009  80 04                                             ..               |   extent: 512
 0000000b  01                                                .                |   feature_count: 1
 0000000c  04                                                .                |   layout: 0x04 Lines
-                                                                             |     └ bit 7 = 0 -> reserved = 0
+                                                                             |     └ bit 7 = 0 -> m-value section = 0
                                                                              |     └ bits 6-4 = 000 -> shared presence bitfields = 0
                                                                              |     └ bits 3-0 = 0100 -> geometry layout = Lines
 0000000d                                                                     |   geometry (15 B)

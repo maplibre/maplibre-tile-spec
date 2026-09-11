@@ -76,7 +76,7 @@ impl<'a> Layer01<'a, Lazy> {
     /// Consumes `self` (a `Layer01<Lazy>`) and returns a `Layer01<Parsed>` where every
     /// column field holds its parsed value directly, enabling infallible readonly access.
     pub fn decode_all(self, dec: &mut Decoder) -> MltResult<ParsedLayer01<'a>> {
-        Ok(Layer01 {
+        let layer: ParsedLayer01<'a> = Layer01 {
             name: self.name,
             extent: self.extent,
             id: self.id.map(|id| id.into_parsed(dec)).transpose()?,
@@ -86,8 +86,21 @@ impl<'a> Layer01<'a, Lazy> {
                 .into_iter()
                 .map(|p| p.into_parsed(dec))
                 .collect::<MltResult<Vec<_>>>()?,
+            #[cfg(feature = "unstable-v2")]
+            m_values: self
+                .m_values
+                .into_iter()
+                .map(|m| m.into_parsed(dec))
+                .collect::<MltResult<Vec<_>>>()?,
             #[cfg(fuzzing)]
             layer_order: self.layer_order,
-        })
+        };
+        // An m-value column's count is only checkable once the geometry is decoded too,
+        // which it now is.
+        #[cfg(feature = "unstable-v2")]
+        for column in &layer.m_values {
+            column.spans(&layer.geometry)?;
+        }
+        Ok(layer)
     }
 }

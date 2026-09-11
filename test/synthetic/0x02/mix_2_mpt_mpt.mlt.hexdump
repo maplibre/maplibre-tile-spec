@@ -5,7 +5,7 @@
 00000009  50                                                P                |   extent: 80
 0000000a  02                                                .                |   feature_count: 2
 0000000b  02                                                .                |   layout: 0x02 MultiPoints
-                                                                             |     └ bit 7 = 0 -> reserved = 0
+                                                                             |     └ bit 7 = 0 -> m-value section = 0
                                                                              |     └ bits 6-4 = 000 -> shared presence bitfields = 0
                                                                              |     └ bits 3-0 = 0010 -> geometry layout = MultiPoints
 0000000c                                                                     |   geometry (23 B)

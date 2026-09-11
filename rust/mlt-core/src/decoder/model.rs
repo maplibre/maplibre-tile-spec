@@ -6,6 +6,8 @@
 
 use std::fmt;
 
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::MValueColumn;
 use crate::decoder::{Geometry, GeometryValues, Id, Property};
 use crate::tile::Extent;
 use crate::{DecodeState, Lazy, Parsed};
@@ -86,6 +88,9 @@ pub struct Layer01<'a, S: DecodeState = Lazy> {
     pub(crate) id: Option<Id<'a, S>>,
     pub(crate) geometry: Geometry<'a, S>,
     pub(crate) properties: Vec<Property<'a, S>>,
+    /// Vertex-scoped columns, which only a v2 layer carries.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) m_values: Vec<MValueColumn<'a, S>>,
     #[cfg(fuzzing)]
     pub(crate) layer_order: Vec<crate::decoder::fuzzing::LayerOrdering>,
 }
@@ -120,44 +125,72 @@ impl ParsedLayer01<'_> {
     pub fn feature_count(&self) -> usize {
         self.geometry.vector_types.len()
     }
-}
 
-impl<'a, S> fmt::Debug for Layer01<'a, S>
-where
-    S: DecodeState,
-    Option<Id<'a, S>>: fmt::Debug,
-    Geometry<'a, S>: fmt::Debug,
-    Vec<Property<'a, S>>: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut s = f.debug_struct("Layer01");
-        s.field("name", &self.name)
-            .field("extent", &self.extent)
-            .field("id", &self.id)
-            .field("geometry", &self.geometry)
-            .field("properties", &self.properties);
-        #[cfg(fuzzing)]
-        s.field("layer_order", &self.layer_order);
-        s.finish()
+    /// The layer's vertex-scoped columns, each running over every vertex of
+    /// every feature it marks present.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn m_values(&self) -> &[crate::decoder::ParsedMValue<'_>] {
+        &self.m_values
     }
 }
 
-impl<'a, S> Clone for Layer01<'a, S>
-where
-    S: DecodeState,
-    Option<Id<'a, S>>: Clone,
-    Geometry<'a, S>: Clone,
-    Vec<Property<'a, S>>: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            name: self.name,
-            extent: self.extent,
-            id: self.id.clone(),
-            geometry: self.geometry.clone(),
-            properties: self.properties.clone(),
-            #[cfg(fuzzing)]
-            layer_order: self.layer_order.clone(),
+/// [`fmt::Debug`] and [`Clone`] for a layer, whose column bounds a `where` clause
+/// has to spell out because the decode state hides them behind a projection.
+///
+/// The m-value columns are only a field in a v2 build, so the bound on them only
+/// exists there, which a `where` clause cannot say for itself.
+macro_rules! layer01_traits {
+    ($($m_values:tt)*) => {
+        impl<'a, S> fmt::Debug for Layer01<'a, S>
+        where
+            S: DecodeState,
+            Option<Id<'a, S>>: fmt::Debug,
+            Geometry<'a, S>: fmt::Debug,
+            Vec<Property<'a, S>>: fmt::Debug,
+            $($m_values)*: fmt::Debug,
+        {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                let mut s = f.debug_struct("Layer01");
+                s.field("name", &self.name)
+                    .field("extent", &self.extent)
+                    .field("id", &self.id)
+                    .field("geometry", &self.geometry)
+                    .field("properties", &self.properties);
+                #[cfg(feature = "unstable-v2")]
+                s.field("m_values", &self.m_values);
+                #[cfg(fuzzing)]
+                s.field("layer_order", &self.layer_order);
+                s.finish()
+            }
         }
-    }
+
+        impl<'a, S> Clone for Layer01<'a, S>
+        where
+            S: DecodeState,
+            Option<Id<'a, S>>: Clone,
+            Geometry<'a, S>: Clone,
+            Vec<Property<'a, S>>: Clone,
+            $($m_values)*: Clone,
+        {
+            fn clone(&self) -> Self {
+                Self {
+                    name: self.name,
+                    extent: self.extent,
+                    id: self.id.clone(),
+                    geometry: self.geometry.clone(),
+                    properties: self.properties.clone(),
+                    #[cfg(feature = "unstable-v2")]
+                    m_values: self.m_values.clone(),
+                    #[cfg(fuzzing)]
+                    layer_order: self.layer_order.clone(),
+                }
+            }
+        }
+    };
 }
+
+#[cfg(feature = "unstable-v2")]
+layer01_traits!(Vec<MValueColumn<'a, S>>);
+#[cfg(not(feature = "unstable-v2"))]
+layer01_traits!(Extent);

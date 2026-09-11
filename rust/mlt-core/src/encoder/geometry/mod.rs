@@ -7,4 +7,6 @@ mod streams;
 #[cfg(test)]
 mod tests;
 
+#[cfg(feature = "unstable-v2")]
+pub(crate) use geotype::stored_vertex_count;
 pub use model::*;

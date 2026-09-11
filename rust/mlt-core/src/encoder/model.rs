@@ -6,6 +6,8 @@ use derive_debug::Dbg;
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::RleLayout;
 use crate::decoder::{DictionaryType, FastPForKind, GeometryValues, PhysicalEncoding, StreamType};
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::StagedMValue;
 use crate::encoder::geometry::VertexBufferType;
 use crate::encoder::{IntEncoder, StagedId, StagedProperty};
 use crate::tile::Extent;
@@ -78,6 +80,9 @@ pub struct StagedLayer {
     pub(crate) id: StagedId,
     pub(crate) geometry: GeometryValues,
     pub(crate) properties: Vec<StagedProperty>,
+    /// Vertex-scoped columns, which only a v2 layer can be written with.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) m_values: Vec<StagedMValue>,
 }
 
 #[cfg_attr(not(feature = "__private"), allow(dead_code))]
@@ -89,55 +94,37 @@ impl StagedLayer {
         geometry: GeometryValues,
         properties: Vec<StagedProperty>,
     ) -> MltResult<Self> {
-        let name = name.into();
-        if name.is_empty() {
-            return Err(MltError::MissingLayerName);
-        }
-        let extent = Extent::new(extent)?;
-        let feature_count = geometry.feature_count();
-        if let Some(actual) = id.feature_count()
-            && actual != feature_count
-        {
-            return Err(MltError::StagedFeatureCountMismatch {
-                column: "id".into(),
-                expected: feature_count,
-                actual,
-            });
-        }
-        // Column names must be unique within a layer. A shared dictionary's `name()` is
-        // only its prefix (which may repeat); its real columns are `{prefix}{suffix}`.
-        // Scoped so `seen` releases its borrow of `properties` before the move below.
-        {
-            let mut seen: HashSet<Cow<str>> = HashSet::new();
-            for property in &properties {
-                let actual = property.feature_count();
-                if actual != feature_count {
-                    return Err(MltError::StagedFeatureCountMismatch {
-                        column: property.name().to_string(),
-                        expected: feature_count,
-                        actual,
-                    });
-                }
-                if let StagedProperty::SharedDict(sd) = property {
-                    for item in &sd.items {
-                        if !seen.insert(Cow::Owned(format!("{}{}", sd.prefix, item.suffix))) {
-                            return Err(MltError::DuplicatePropertyName(format!(
-                                "{}{}",
-                                sd.prefix, item.suffix
-                            )));
-                        }
-                    }
-                } else if !seen.insert(Cow::Borrowed(property.name())) {
-                    return Err(MltError::DuplicatePropertyName(property.name().to_string()));
-                }
-            }
-        }
+        let (name, extent) = validate_staged(name, extent, &id, &geometry, &properties)?;
         Ok(Self {
             name,
             extent,
             id,
             geometry,
             properties,
+            #[cfg(feature = "unstable-v2")]
+            m_values: Vec::new(),
+        })
+    }
+
+    /// As [`Self::new`], with the layer's vertex-scoped columns.
+    #[cfg(feature = "unstable-v2")]
+    pub fn with_m_values(
+        name: impl Into<String>,
+        extent: u32,
+        id: StagedId,
+        geometry: GeometryValues,
+        properties: Vec<StagedProperty>,
+        m_values: Vec<StagedMValue>,
+    ) -> MltResult<Self> {
+        let (name, extent) = validate_staged(name, extent, &id, &geometry, &properties)?;
+        validate_m_values(&geometry, &m_values)?;
+        Ok(Self {
+            name,
+            extent,
+            id,
+            geometry,
+            properties,
+            m_values,
         })
     }
 
@@ -165,6 +152,103 @@ impl StagedLayer {
     pub fn properties(&self) -> &[StagedProperty] {
         &self.properties
     }
+
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn m_values(&self) -> &[StagedMValue] {
+        &self.m_values
+    }
+}
+
+/// Check a staged layer's name, extent and columns, returning the two validated fields.
+fn validate_staged(
+    name: impl Into<String>,
+    extent: u32,
+    id: &StagedId,
+    geometry: &GeometryValues,
+    properties: &[StagedProperty],
+) -> MltResult<(String, Extent)> {
+    let name = name.into();
+    if name.is_empty() {
+        return Err(MltError::MissingLayerName);
+    }
+    let extent = Extent::new(extent)?;
+    let feature_count = geometry.feature_count();
+    if let Some(actual) = id.feature_count()
+        && actual != feature_count
+    {
+        return Err(MltError::StagedFeatureCountMismatch {
+            column: "id".into(),
+            expected: feature_count,
+            actual,
+        });
+    }
+    // Column names must be unique within a layer. A shared dictionary's `name()` is
+    // only its prefix (which may repeat); its real columns are `{prefix}{suffix}`.
+    let mut seen: HashSet<Cow<str>> = HashSet::new();
+    for property in properties {
+        let actual = property.feature_count();
+        if actual != feature_count {
+            return Err(MltError::StagedFeatureCountMismatch {
+                column: property.name().to_string(),
+                expected: feature_count,
+                actual,
+            });
+        }
+        if let StagedProperty::SharedDict(sd) = property {
+            for item in &sd.items {
+                if !seen.insert(Cow::Owned(format!("{}{}", sd.prefix, item.suffix))) {
+                    return Err(MltError::DuplicatePropertyName(format!(
+                        "{}{}",
+                        sd.prefix, item.suffix
+                    )));
+                }
+            }
+        } else if !seen.insert(Cow::Borrowed(property.name())) {
+            return Err(MltError::DuplicatePropertyName(property.name().to_string()));
+        }
+    }
+    Ok((name, extent))
+}
+
+/// Check every m-value column against the geometry it runs over: a mask of one
+/// bit per feature, and one value per vertex of every feature it marks present.
+#[cfg(feature = "unstable-v2")]
+fn validate_m_values(geometry: &GeometryValues, m_values: &[StagedMValue]) -> MltResult<()> {
+    let feature_count = geometry.feature_count();
+    let mut seen: HashSet<&str> = HashSet::new();
+    for column in m_values {
+        if !seen.insert(column.name()) {
+            return Err(MltError::DuplicateMValueName(column.name().to_string()));
+        }
+        if let Some(actual) = column.feature_count()
+            && actual != feature_count
+        {
+            return Err(MltError::StagedFeatureCountMismatch {
+                column: column.name().to_string(),
+                expected: feature_count,
+                actual,
+            });
+        }
+        let mut expected = 0;
+        for index in 0..feature_count {
+            let present = column
+                .presence
+                .as_ref()
+                .is_none_or(|mask| mask.get(index).copied().unwrap_or(false));
+            if present {
+                expected += geometry.vertex_count(index)?;
+            }
+        }
+        if expected != column.values().count() {
+            return Err(MltError::MValueCountMismatch {
+                name: column.name().to_string(),
+                expected,
+                actual: column.values().count(),
+            });
+        }
+    }
+    Ok(())
 }
 
 /// Which wire format layers are encoded to.

@@ -32,6 +32,7 @@ A v2 layer decodes into the same in-memory representation as a v1 layer.
 | Integer payloads | None, VarInt, FastPFOR (256-value big-endian blocks) | Adds bit packing. FastPFOR uses 128-value little-endian blocks |
 | Float payloads | Raw IEEE 754 words | Adds [ALP](encodings.md#alp) and float dictionaries |
 | String dictionaries | Plain, FSST | Adds [front coding](encodings.md#front-coding) |
+| Vertex-scoped values | Not implemented | [M-value columns](#m-values) |
 
 Encoders MUST select each encoding by comparing the stored size of each candidate.
 
@@ -58,8 +59,9 @@ body := [string name]                    non-empty, UTF-8, VarInt length prefix
         [u8 layer_layout]
         [shared presence bitfield] * n   n = the layout byte's shared presence count
         geometry_section
-        [varint column_count]            ids and properties only; geometry is not counted
+        [varint column_count]            ids and properties only; geometry and m-values are not counted
         column * column_count
+        m_value_section                  only when the layout byte's m-value bit is set
 ```
 
 The body MUST end exactly at the layer's `size`.
@@ -72,7 +74,7 @@ See [Value Count](#value-count).
 
 | Bits | Field |
 |---|---|
-| 7 | Reserved, MUST be `0` |
+| 7 | An [m-value section](#m-values) ends the body |
 | 6-4 | Number of shared presence bitfields, `0`-`7` |
 | 3-0 | [Geometry layout](#geometry-layout) |
 
@@ -248,6 +250,84 @@ Each child has its own presence nibble and MAY reference any of the layer's shar
 
 Front coding of the dictionary is given by the encoding byte of the last corpus stream, as for a lone string column.
 
+# M-Values
+
+An m-value is a measurement taken at a vertex rather than at a feature:
+
+- a distance along a road,
+- a timestamp per GPS fix,
+- a width that varies along a river.
+
+A layer stores them as named columns that run over its vertices instead of its features.
+
+The section is present only when bit 7 of the [layer layout byte](#layer-layout-byte) is set, and is then the last thing in the layer body.
+
+```
+m_value_section := [varint m_value_count]     non-zero
+                   m_value_column * m_value_count
+m_value_column  := [u8 column_type]           presence nibble over data type, as for a column
+                   [string name]
+                   [presence bitfield]        only when the presence nibble is Inline
+                   [data streams]             one, or a set, per the data type
+```
+
+An m-value column reads the same [column type byte](#column-type-byte), the same [presence nibble](#presence-nibble) and the same data streams as a [column](#columns).
+Only its value count differs.
+Names MUST be unique, including the previous section and there MUST be an error if a name is repeated.
+An m-value column is not counted in `column_count`, and a name MAY repeat one the counted columns use, since the two scopes are read separately.
+
+## Data Types in M-Value Columns
+
+`Bool` through `String`, codes `0x2`-`0xB`, carry exactly the streams they carry as a property column.
+`0x0`, `0x1` and `0xF`-`0xE` are reserved and MUST be rejected.
+
+## The Vertex Sequence
+
+A layer's vertex sequence is every vertex of every feature, in feature order, as the [geometry section](#geometry-section)'s topology streams lay them out.
+Each feature holds one contiguous run of it, of `vertex_count(f)` vertices.
+
+An m-value column holds one value per vertex of that run, in the same order.
+
+- A polygon ring's closing vertex is not stored, so it has no m-value.
+- Under a dictionary layout the sequence is the one the vertex offsets stream spells out, not the distinct vertices the vertex stream holds.
+  Two vertices that share a dictionary entry still have an m-value each.
+- Under `TessPolygonsWithOutlines` the sequence is the outline vertices, which the index buffer indexes into.
+
+## Nulls
+
+M-value columns are nullable, but they are at the feature level, not the vertex level.
+This means a single vertex cannot be null.
+A feature's m-value can be null though.
+
+## Value Count
+
+A column's value count is the sum of `vertex_count(f)` over the features whose presence bit is set, which is every feature under presence nibble `0`.
+
+That count is only known once the geometry topology has been decoded, which a decoder may defer, so it is not an implied count.
+An m-value column's leading data stream MUST set bit 7 of its [encoding byte](#encoding-byte) and write the count explicitly.
+The remaining streams of a string or float-dictionary column carry their own counts, as they do on a counted column, and a decoder that reads one without an explicit count takes the leading stream's count as the implied one.
+An encoder SHOULD write an explicit count on every one of them, since none of the counts are implied here.
+A decoder that has decoded both the geometry and an m-value column MUST reject a count that disagrees with the geometry.
+
+Values are one flat sequence across feature boundaries.
+Delta coding and RLE run through them without a break at each feature.
+
+## Geometry Layouts
+
+An m-value section requires a [geometry layout](#geometry-layout) whose topology gives every feature's vertex count.
+
+| Layout | M-values |
+|---|---|
+| `0x0` Points, `0x1` PointsDict | MUST be rejected |
+| `0x2`-`0xB` | Allowed |
+| `0xC` TessPolygons | MUST be rejected |
+| `0xD` TessPolygonsWithOutlines | Allowed |
+
+A point layer holds one vertex per feature, so a vertex-scoped column would be a property column with extra rules.
+Encode it as a property column.
+`TessPolygons` carries no outline topology, so no feature's vertex count can be read from it.
+A tessellated layer that needs m-values uses `0xD`.
+
 # Streams
 
 ```
@@ -277,6 +357,7 @@ The implied count is:
 - `byte_length`, for a byte blob
 
 Bit 7 MUST be `0` on a byte blob.
+Bit 7 MUST be `1` on an [m-value column](#m-values)'s leading data stream, which has no implied count.
 
 For an RLE stream the value count is the decoded element count.
 The number of `(run, value)` pairs is not stored.
@@ -413,17 +494,17 @@ mlt hexdump path/to/tile.mlt
     --8<-- "0x02/prop_f64_alp.mlt.hexdump"
     ```
 
+=== "M-values"
+
+    Two vertex-scoped columns over a line layer, one of them null on some features.
+
+    ```
+    --8<-- "0x02/mvalues.mlt.hexdump"
+    ```
+
 # Planned Features
 
 The following are not yet specified or implemented.
-
-## M-Values
-
-Per-vertex properties: one value per vertex of a feature's geometry instead of one per feature.
-Examples are linear referencing along a road, a timestamp per GPS fix, or a width that varies along a river.
-
-v1 reserved a flag for vertex-scoped properties but did not implement them.
-v2 will store them as property columns whose value count is the vertex count instead of `feature_count`.
 
 ## Nested Properties
 
@@ -441,7 +522,7 @@ It was not implemented, and v2 does not reuse that design.
 
 Elevation as a third coordinate.
 
-`z` could be interleaved with `x` and `y` in the vertex buffer, or stored as a separate m-value.
+`z` could be interleaved with `x` and `y` in the vertex buffer, or stored as an [m-value](#m-values) column.
 Interleaving suits GPU upload.
-Separate storage compresses better and costs nothing when unused.
+A separate column compresses better and costs nothing when unused.
 Which of the two v2 uses is undecided.

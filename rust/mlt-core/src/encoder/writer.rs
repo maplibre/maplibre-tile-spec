@@ -128,10 +128,13 @@ pub struct Encoder {
     /// write position: the layer's `feature_count`, or the presence popcount
     /// while an optional column's data stream is being written.
     ///
+    /// [`None`] while an m-value column is being written, whose count only the
+    /// geometry knows, so every one of its streams writes its own.
+    ///
     /// Read by the v2 stream-header codec to decide whether an explicit count
     /// varint must be emitted; ignored entirely for v1 layers.
     #[cfg(feature = "unstable-v2")]
-    pub(crate) count_context: u32,
+    pub(crate) count_context: Option<u32>,
 
     /// The family the stream being written is numbered in, set by the v2 writers alongside [`Self::count_context`].
     /// Ignored for v1 layers.
@@ -196,7 +199,7 @@ impl Encoder {
             hilbert_cache: None,
             fsst_cache: HashMap::new(),
             #[cfg(feature = "unstable-v2")]
-            count_context: 0,
+            count_context: None,
             #[cfg(feature = "unstable-v2")]
             family_context: Family::Int,
             alt_stack: vec![],

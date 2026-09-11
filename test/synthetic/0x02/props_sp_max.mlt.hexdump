@@ -5,7 +5,7 @@
 0000000a  50                                                P                |   extent: 80
 0000000b  09                                                .                |   feature_count: 9
 0000000c  70                                                p                |   layout: 0x70 Points
-                                                                             |     └ bit 7 = 0 -> reserved = 0
+                                                                             |     └ bit 7 = 0 -> m-value section = 0
                                                                              |     └ bits 6-4 = 111 -> shared presence bitfields = 7
                                                                              |     └ bits 3-0 = 0000 -> geometry layout = Points
 0000000d                                                                     |   shared_presence (14 B)

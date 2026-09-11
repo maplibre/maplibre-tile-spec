@@ -92,6 +92,12 @@ impl<'a> Walker<'a> {
             self.close(di, input);
         }
 
+        if layout.m_values {
+            let mi = self.open(input, "m_values".to_string());
+            input = self.walk_m_values02(input, feature_count, &shared)?;
+            self.close(mi, input);
+        }
+
         // A well-formed layer consumes its whole body; record any trailing bytes.
         if !input.is_empty() {
             self.raw_blob(input, input.len(), "trailing bytes".to_string());
@@ -191,6 +197,69 @@ impl<'a> Walker<'a> {
             }
             Column02::Values(typ) => typ,
         };
+        let column = Column {
+            region: ci,
+            label: &format!("column[{i}]"),
+            feature_count,
+            shared,
+        };
+        let input = self.walk_value_column02(input, column, typ, true)?;
+        self.close(ci, input);
+        Ok(input)
+    }
+
+    /// Mirror `parse_m_values`: the vertex-scoped columns that end a layer body.
+    ///
+    /// Each reads what a counted column of its data type reads, over the vertex
+    /// sequence rather than the features, so none of their counts are implied.
+    fn walk_m_values02(
+        &mut self,
+        input: &'a [u8],
+        feature_count: u32,
+        shared: &[&'a BitSlice<u8, Lsb0>],
+    ) -> MltResult<&'a [u8]> {
+        let (mut input, count) = self.field(input, "m_value_count", parse_varint::<u32>, |c| {
+            Some(c.to_string())
+        })?;
+        if count == 0 {
+            return Err(MltError::EmptyMValueSection);
+        }
+        let shared_count = u8::try_from(shared.len())?;
+        for i in 0..count {
+            let mi = self.open(input, format!("m_value[{i}]"));
+            let (_, typ_byte) = parse_u8(input)?;
+            let typ = ColumnType02::parse_m_value(typ_byte, shared_count)?;
+            let column = Column {
+                region: mi,
+                label: &format!("m_value[{i}]"),
+                feature_count,
+                shared,
+            };
+            input = self.walk_value_column02(input, column, typ, false)?;
+            self.close(mi, input);
+        }
+        Ok(input)
+    }
+
+    /// Walk a column of values: its type byte, name, presence bitfield and data streams.
+    ///
+    /// `implied` is whether the envelope gives the data streams their value count,
+    /// which is true of a counted column and false of an m-value column.
+    fn walk_value_column02(
+        &mut self,
+        input: &'a [u8],
+        column: Column<'_, 'a>,
+        typ: ColumnType02,
+        implied: bool,
+    ) -> MltResult<&'a [u8]> {
+        let Column {
+            region: ci,
+            label,
+            feature_count,
+            shared,
+        } = column;
+        let shared_count = u8::try_from(shared.len())?;
+        let typ_byte = typ.to_byte();
         let (mut input, _) = self.byte_field(
             input,
             "type",
@@ -210,12 +279,12 @@ impl<'a> Walker<'a> {
         } else {
             ""
         };
-        self.relabel(ci, format!("column[{i}] {opt}{:?}{name_suffix}", typ.data));
+        self.relabel(ci, format!("{label} {opt}{:?}{name_suffix}", typ.data));
 
         // Presence is a raw LSB0 bitfield, not a stream, and sets the data count.
         // A shared bitfield was already walked at the layer root, so only its
         // popcount is needed here.
-        let data_count = match typ.presence {
+        let presence_count = match typ.presence {
             Presence02::AllPresent => feature_count,
             Presence02::Inline => {
                 let bits;
@@ -229,12 +298,13 @@ impl<'a> Walker<'a> {
                 u32::try_from(bits.count_ones())?
             }
         };
+        // An m-value column runs over the vertices, whose count only the geometry
+        // knows, so its streams write their own rather than implying any.
+        let data_count = if implied { presence_count } else { 0 };
 
         // A string column has a stream set of its own, the rest one data stream.
         if typ.data == DataType02::Str {
-            input = self.walk_strings02(input, data_count)?;
-            self.close(ci, input);
-            return Ok(input);
+            return self.walk_strings02(input, data_count);
         }
 
         let ctx = StreamCtx02::Property(typ.data);
@@ -252,8 +322,6 @@ impl<'a> Walker<'a> {
                 hint_for(typ.data),
             )?;
         }
-
-        self.close(ci, input);
         Ok(input)
     }
 
@@ -418,13 +486,14 @@ impl<'a> Walker<'a> {
             StrLayout::FsstDict => &[DICT_LENGTHS, SYMBOL_LENGTHS, SYMBOL_TABLE, CORPUS],
         };
 
-        let (mut input, _) = self.walk_stream02(
+        let (mut input, meta) = self.walk_stream02(
             input,
             StreamCtx02::StrData(layout),
             count,
             leading,
             DecodeHint::U32,
         )?;
+        let count = meta.num_values;
         for &(ctx, label, hint) in rest {
             (input, _) = self.walk_stream02(input, ctx, count, label, hint)?;
         }
@@ -560,6 +629,18 @@ impl<'a> Walker<'a> {
     }
 }
 
+/// Where a column of values sits and what it reads its presence against.
+#[derive(Clone, Copy)]
+struct Column<'l, 'a> {
+    /// The region the column's fields are annotated into.
+    region: usize,
+    /// What to call it, which its data type and name are appended to.
+    label: &'l str,
+    feature_count: u32,
+    /// The layer's shared presence bitfields, one of which the column may read.
+    shared: &'l [&'a BitSlice<u8, Lsb0>],
+}
+
 /// Bit breakdown of a shared-dictionary column's type byte, whose high nibble names the
 /// corpus encoding rather than presence.
 fn shared_dict_type_bits02(byte: u8) -> Vec<BitField> {
@@ -599,20 +680,20 @@ fn hint_for(typ: DataType02) -> DecodeHint {
 }
 
 /// Bit breakdown of the v2 layer layout byte:
-/// - reserved (7),
+/// - m-value section flag (7),
 /// - shared presence bitfield count (6-4),
 /// - geometry layout (3-0).
 fn layer_layout_bits02(byte: u8) -> Vec<BitField> {
-    let (reserved, shared_presence, geometry) = LayerLayout::fields(byte);
+    let (m_values, shared_presence, geometry) = LayerLayout::fields(byte);
     let name_geo = GeoLayout::try_from(geometry)
         .map_or_else(|_| format!("reserved({geometry})"), |g| format!("{g:?}"));
-    let reserved = u64::from(reserved != 0);
+    let m_values = u64::from(m_values != 0);
     vec![
         BitField {
             hi: 7,
             lo: 7,
-            raw: reserved,
-            meaning: format!("reserved = {reserved}"),
+            raw: m_values,
+            meaning: format!("m-value section = {m_values}"),
         },
         BitField {
             hi: 6,

@@ -6,8 +6,8 @@ use std::path::Path;
 use mlt_core::GeometryValues;
 use mlt_core::encoder::{
     Codecs, ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, FloatEncoding, IntEncoder,
-    Presence, StagedId, StagedLayer, StagedProperty, StagedSharedDict, StrEncoding, StreamCtx,
-    VertexBufferType, WireVersion,
+    Presence, StagedId, StagedLayer, StagedMValue, StagedProperty, StagedSharedDict, StrEncoding,
+    StreamCtx, VertexBufferType, WireVersion,
 };
 use mlt_core::geo_types::{Coord, Geometry};
 use mlt_core::wire::{LengthType, OffsetType, StreamType};
@@ -166,6 +166,8 @@ pub struct Layer {
     force_empty_streams: HashSet<&'static str>,
     geometry_items: Vec<Geometry<i32>>,
     props: Vec<(StagedProperty, PropConfig)>,
+    /// Vertex-scoped columns, which only v2 can hold.
+    m_values: Vec<(StagedMValue, PropConfig)>,
     extent: Option<u32>,
     ids: Option<(StagedId, IntEncoder)>,
     no_v2: bool,
@@ -181,6 +183,7 @@ impl Layer {
             force_empty_streams: HashSet::new(),
             geometry_items: vec![],
             props: vec![],
+            m_values: vec![],
             extent: None,
             ids: None,
             no_v2: false,
@@ -397,6 +400,16 @@ impl Layer {
         self
     }
 
+    /// Add a vertex-scoped column, which holds one value per vertex of every
+    /// feature it is not null on.
+    ///
+    /// v1 has nowhere to put one, so a layer with m-values is written as v2 only.
+    #[must_use]
+    pub fn add_m_value(mut self, enc: IntEncoder, m_value: StagedMValue) -> Self {
+        self.m_values.push((m_value, PropConfig::Scalar(enc)));
+        self
+    }
+
     /// Add a shared dictionary column.
     #[must_use]
     pub fn add_shared_dict(mut self, shared_dict: SharedDict) -> Self {
@@ -470,6 +483,11 @@ impl Layer {
         !self.no_v2
     }
 
+    /// Whether v1 can hold this layer, which it cannot once it has m-values.
+    pub(crate) fn wants_v1(&self) -> bool {
+        self.m_values.is_empty()
+    }
+
     pub fn encode_to_bytes(self, wire_version: WireVersion) -> SynthResult<Vec<u8>> {
         let Self {
             default_geo_enc,
@@ -479,6 +497,7 @@ impl Layer {
             force_empty_streams,
             geometry_items,
             props,
+            m_values,
             extent,
             ids,
             no_v2: _,
@@ -503,9 +522,15 @@ impl Layer {
         };
 
         // Build name->PropConfig map for the ExplicitEncoder callbacks.
+        // An m-value column's streams are named after it, exactly as a property's are.
         let prop_map: HashMap<String, PropConfig> = props
             .iter()
             .map(|(p, c)| (p.name().to_string(), c.clone()))
+            .chain(
+                m_values
+                    .iter()
+                    .map(|(m, c)| (m.name().to_string(), c.clone())),
+            )
             .collect();
 
         let cfg = ExplicitEncoder {
@@ -544,12 +569,13 @@ impl Layer {
         };
 
         let mut codecs = Codecs::default();
-        StagedLayer::new(
+        StagedLayer::with_m_values(
             "layer1",
             extent.unwrap_or(80),
             id,
             geometry,
             props.into_iter().map(|(p, _)| p).collect(),
+            m_values.into_iter().map(|(m, _)| m).collect(),
         )?
         .encode_into(Encoder::with_explicit(enc_cfg, cfg), &mut codecs)?
         .into_layer_bytes()

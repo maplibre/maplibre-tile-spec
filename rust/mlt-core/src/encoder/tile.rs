@@ -13,6 +13,10 @@ use crate::decoder::GeometryValues;
 use crate::encoder::model::{CurveParams, StagedLayer};
 use crate::encoder::optimizer::{LayerStats, Presence, PropertyTypedStats, SharedDictRole};
 use crate::encoder::{SortStrategy, StagedId, StagedProperty, StagedSharedDict};
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::{StagedMValue, StagedMValues};
+#[cfg(feature = "unstable-v2")]
+use crate::tile::PropKind;
 use crate::tile::{PropValue, TileFeature, TileLayer};
 
 impl StagedLayer {
@@ -41,6 +45,10 @@ impl StagedLayer {
             extent,
             mut property_names,
             property_kinds: _,
+            #[cfg(feature = "unstable-v2")]
+            m_value_names,
+            #[cfg(feature = "unstable-v2")]
+            m_value_kinds,
             mut features,
         } = source;
         let mut geometry = if tessellate {
@@ -94,14 +102,76 @@ impl StagedLayer {
             }
         }
 
+        #[cfg(feature = "unstable-v2")]
+        let m_values = build_m_values(&m_value_names, &m_value_kinds, &mut features);
+
         Self {
             name,
             extent,
             id,
             geometry,
             properties,
+            #[cfg(feature = "unstable-v2")]
+            m_values,
         }
     }
+}
+
+/// Gather each m-value column out of the features, in the row order the sort left them in.
+///
+/// A feature with no values for a column clears its presence bit and contributes
+/// nothing to the values, which is the whole of how m-values are null.
+#[cfg(feature = "unstable-v2")]
+fn build_m_values(
+    names: &[String],
+    kinds: &[PropKind],
+    features: &mut [TileFeature],
+) -> Vec<StagedMValue> {
+    use crate::tile::MValue as M;
+
+    /// Move one feature's run into the column being gathered.
+    macro_rules! take {
+        ($dst:expr, $src:expr) => {
+            if let Some(values) = $src.take() {
+                $dst.extend(values);
+            }
+        };
+    }
+
+    let mut columns = Vec::with_capacity(names.len());
+    for (index, (name, &kind)) in names.iter().zip(kinds).enumerate() {
+        let mut presence = Vec::with_capacity(features.len());
+        let mut values = StagedMValues::empty(kind);
+        for feature in features.iter_mut() {
+            let Some(m_value) = feature.m_values.get_mut(index) else {
+                presence.push(false);
+                continue;
+            };
+            presence.push(!m_value.is_null());
+            match (&mut values, m_value) {
+                (StagedMValues::Bool(dst), M::Bool(src)) => take!(dst, src),
+                (StagedMValues::I8(dst), M::I8(src)) => take!(dst, src),
+                (StagedMValues::U8(dst), M::U8(src)) => take!(dst, src),
+                (StagedMValues::I32(dst), M::I32(src)) => take!(dst, src),
+                (StagedMValues::U32(dst), M::U32(src)) => take!(dst, src),
+                (StagedMValues::I64(dst), M::I64(src)) => take!(dst, src),
+                (StagedMValues::U64(dst), M::U64(src)) => take!(dst, src),
+                (StagedMValues::F32(dst), M::F32(src)) => take!(dst, src),
+                (StagedMValues::F64(dst), M::F64(src)) => take!(dst, src),
+                (StagedMValues::Str(dst), M::Str(src)) => take!(dst, src),
+                // `TileLayer` only holds values of the kind it declared.
+                _ => unreachable!("m-value kind matches its column"),
+            }
+        }
+        // A column no feature is null on needs no mask at all.
+        let presence = if presence.iter().all(|&p| p) {
+            None
+        } else {
+            Some(presence)
+        };
+        columns.push(StagedMValue::new(name.clone(), presence, values));
+    }
+    columns
 }
 
 fn shared_dict_columns(stats: &LayerStats) -> Vec<Vec<usize>> {

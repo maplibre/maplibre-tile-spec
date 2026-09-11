@@ -5,8 +5,12 @@
 //! feature, owning its geometry and property values outright. That is the form
 //! the optimizer, the sorting pipeline, and the converters work in.
 
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::ParsedMValue;
 use crate::decoder::{Layer01, ParsedLayer01, ParsedProperty, PropValueRef};
 use crate::errors::AsMltError as _;
+#[cfg(feature = "unstable-v2")]
+use crate::tile::MValue;
 use crate::tile::{PropValue, TileFeature, TileLayer};
 use crate::{Decoder, LendingIterator, MltResult};
 
@@ -19,10 +23,23 @@ impl ParsedLayer01<'_> {
         let extent = self.extent().get();
         let names: Vec<String> = self.iterate_prop_names().map(|n| n.to_string()).collect();
         let col_nulls = typed_nulls(&self.properties);
+        #[cfg(feature = "unstable-v2")]
+        let m_names: Vec<String> = self.m_values.iter().map(|m| m.name().to_string()).collect();
+        // Cut every m-value column into per-feature runs up front: the cut is what
+        // checks the column against the geometry, and it is one pass either way.
+        #[cfg(feature = "unstable-v2")]
+        let m_spans = self
+            .m_values
+            .iter()
+            .map(|m| m.spans(&self.geometry))
+            .collect::<MltResult<Vec<_>>>()?;
         let mut features = dec.alloc::<TileFeature>(self.feature_count())?;
         let mut feat_iter = self.iter_features();
         while let Some(feat) = feat_iter.next() {
             let feat = feat?;
+            // One feature is pushed per step, so this is the index of the one being built.
+            #[cfg(feature = "unstable-v2")]
+            let index = features.len();
             let mut values = dec.alloc::<PropValue>(names.len())?;
             for (col_idx, value) in feat.iter_all_properties().enumerate() {
                 values.push(match value {
@@ -37,10 +54,15 @@ impl ParsedLayer01<'_> {
                 id: feat.id(),
                 geometry: feat.geometry().clone(),
                 properties: values,
+                #[cfg(feature = "unstable-v2")]
+                m_values: m_values_of(&self.m_values, &m_spans, index, dec)?,
             });
         }
 
-        TileLayer::from_parts(name, extent, names, features)
+        let layer = TileLayer::from_parts(name, extent, names, features)?;
+        #[cfg(feature = "unstable-v2")]
+        let layer = layer.with_m_value_names(m_names)?;
+        Ok(layer)
     }
 }
 
@@ -49,6 +71,25 @@ impl Layer01<'_> {
     pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer> {
         self.decode_all(dec)?.into_tile(dec)
     }
+}
+
+/// The m-values of feature `index`, one per column, charged against `dec`.
+#[cfg(feature = "unstable-v2")]
+fn m_values_of(
+    columns: &[ParsedMValue<'_>],
+    spans: &[Vec<Option<std::ops::Range<usize>>>],
+    index: usize,
+    dec: &mut Decoder,
+) -> MltResult<Vec<MValue>> {
+    let mut values = dec.alloc::<MValue>(columns.len())?;
+    for (column, spans) in columns.iter().zip(spans) {
+        let span = spans.get(index).cloned().flatten();
+        if let Some(span) = &span {
+            dec.consume(u32::try_from(column.values().row_bytes(span)).or_overflow()?)?;
+        }
+        values.push(column.values().row(column.name(), span)?);
+    }
+    Ok(values)
 }
 
 /// Convert a [`PropValueRef`] (as yielded by [`crate::FeatureRef::iter_all_properties`])
