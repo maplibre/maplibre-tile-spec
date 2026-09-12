@@ -1,0 +1,133 @@
+00000000                                                                     | layer[0] (181 B)
+00000000  b3 01                                             ..               |   size: 179 (varint) - tag + body
+00000002  02                                                .                |   tag: 0x02 -> Tag02
+00000003  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
+0000000a  50                                                P                |   extent: 80
+0000000b  06                                                .                |   feature_count: 6
+0000000c  00                                                .                |   layout: 0x00 Points
+                                                                             |     └ bit 7 = 0 -> m-value section = 0
+                                                                             |     └ bits 6-4 = 000 -> shared presence bitfields = 0
+                                                                             |     └ bits 3-0 = 0000 -> geometry layout = Points
+0000000d                                                                     |   geometry (23 B)
+0000000d                                                                     |     types (8 B)
+0000000d                                                                     |       header (2 B)
+0000000d  08                                                .                |         encoding: 0x08 logical=None physical=VarInt
+                                                                             |           └ bit 7 = 0 -> has_explicit_count = false -> 6 values from context
+                                                                             |           └ bits 6-4 = 000 -> logical = None, numbered for integer stream
+                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+0000000e  06                                                .                |         byte_length: 6
+0000000f  00 00 00 00 00 00                                 ......           |       data [Length(VarBinary) Int(None)/VarInt, 6 values, 6 B]
+                                                                             |         decoded: [0, 0, 0, 0, 0, 0]
+00000015                                                                     |     vertices (15 B)
+00000015                                                                     |       header (3 B)
+00000015  a8                                                .                |         encoding: 0xA8 logical=CwDelta physical=VarInt
+                                                                             |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
+                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+00000016  0c                                                .                |         num_values: 12
+00000017  0c                                                .                |         byte_length: 12
+00000018  16 68 78 28 13 63 08 58 3b 13 28 27               .hx(.c.X;.('     |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 12 values, 12 B]
+                                                                             |         decoded: [11, 52, 71, 72, 61, 22, 65, 66, 35, 56, 55, 36]
+00000024  01                                                .                |   column_count: 1
+00000025                                                                     |   columns (144 B)
+00000025                                                                     |     column[0] Struct "road" (144 B)
+00000025  0c                                                .                |       type: 0x0C AllPresent Struct
+                                                                             |         └ bits 7-4 = 0000 -> presence = AllPresent
+                                                                             |         └ bits 3-0 = 1100 -> data type = Struct
+00000026  04 72 6f 61 64                                    .road            |       name: "road"
+0000002b  04                                                .                |       field_count: 4
+0000002c                                                                     |       field[0] Str "surface" (18 B)
+0000002c  2b                                                +                |         type: 0x2B SharedAllPresent Str
+                                                                             |           └ bits 7-4 = 0010 -> node presence = SharedAllPresent
+                                                                             |           └ bits 3-0 = 1011 -> data type = Str
+0000002d  07 73 75 72 66 61 63 65                           .surface         |         name: "surface"
+00000035  00                                                .                |         corpus_index: 0
+00000036                                                                     |         codes (8 B)
+00000036                                                                     |           header (2 B)
+00000036  09                                                .                |             encoding: 0x09 logical=None physical=VarInt
+                                                                             |               └ bit 7 = 0 -> has_explicit_count = false -> 6 values from context
+                                                                             |               └ bits 6-4 = 000 -> logical = None, numbered for string column
+                                                                             |               └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |               └ bits 1-0 = 01 -> string layout = Dict
+00000037  06                                                .                |             byte_length: 6
+00000038  00 02 03 04 01 05                                 ......           |           data [Offset(String) Int(None)/VarInt, 6 values, 6 B]
+                                                                             |             decoded: [0, 2, 3, 4, 1, 5]
+0000003e                                                                     |       field[1] Str "sidewalk" (19 B)
+0000003e  2b                                                +                |         type: 0x2B SharedAllPresent Str
+                                                                             |           └ bits 7-4 = 0010 -> node presence = SharedAllPresent
+                                                                             |           └ bits 3-0 = 1011 -> data type = Str
+0000003f  08 73 69 64 65 77 61 6c 6b                        .sidewalk        |         name: "sidewalk"
+00000048  00                                                .                |         corpus_index: 0
+00000049                                                                     |         codes (8 B)
+00000049                                                                     |           header (2 B)
+00000049  09                                                .                |             encoding: 0x09 logical=None physical=VarInt
+                                                                             |               └ bit 7 = 0 -> has_explicit_count = false -> 6 values from context
+                                                                             |               └ bits 6-4 = 000 -> logical = None, numbered for string column
+                                                                             |               └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |               └ bits 1-0 = 01 -> string layout = Dict
+0000004a  06                                                .                |             byte_length: 6
+0000004b  03 04 00 02 05 01                                 ......           |           data [Offset(String) Int(None)/VarInt, 6 values, 6 B]
+                                                                             |             decoded: [3, 4, 0, 2, 5, 1]
+00000051                                                                     |       field[2] Str "shoulder" (19 B)
+00000051  2b                                                +                |         type: 0x2B SharedAllPresent Str
+                                                                             |           └ bits 7-4 = 0010 -> node presence = SharedAllPresent
+                                                                             |           └ bits 3-0 = 1011 -> data type = Str
+00000052  08 73 68 6f 75 6c 64 65 72                        .shoulder        |         name: "shoulder"
+0000005b  00                                                .                |         corpus_index: 0
+0000005c                                                                     |         codes (8 B)
+0000005c                                                                     |           header (2 B)
+0000005c  09                                                .                |             encoding: 0x09 logical=None physical=VarInt
+                                                                             |               └ bit 7 = 0 -> has_explicit_count = false -> 6 values from context
+                                                                             |               └ bits 6-4 = 000 -> logical = None, numbered for string column
+                                                                             |               └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |               └ bits 1-0 = 01 -> string layout = Dict
+0000005d  06                                                .                |             byte_length: 6
+0000005e  01 00 05 03 02 04                                 ......           |           data [Offset(String) Int(None)/VarInt, 6 values, 6 B]
+                                                                             |             decoded: [1, 0, 5, 3, 2, 4]
+00000064                                                                     |       field[3] I32 "lanes" (15 B)
+00000064  05                                                .                |         type: 0x05 AllPresent I32
+                                                                             |           └ bits 7-4 = 0000 -> node presence = AllPresent
+                                                                             |           └ bits 3-0 = 0101 -> data type = I32
+00000065  05 6c 61 6e 65 73                                 .lanes           |         name: "lanes"
+0000006b                                                                     |         data (8 B)
+0000006b                                                                     |           header (2 B)
+0000006b  08                                                .                |             encoding: 0x08 logical=None physical=VarInt
+                                                                             |               └ bit 7 = 0 -> has_explicit_count = false -> 6 values from context
+                                                                             |               └ bits 6-4 = 000 -> logical = None, numbered for integer stream
+                                                                             |               └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |               └ bits 1-0 = 00 -> extension = 0
+0000006c  06                                                .                |             byte_length: 6
+0000006d  04 08 04 0c 04 08                                 ......           |           data [Data(None) Int(None)/VarInt, 6 values, 6 B]
+                                                                             |             decoded: [2, 4, 2, 6, 2, 4]
+00000073  01                                                .                |       corpus_count: 1
+00000074                                                                     |       corpus[0] ".s" (65 B)
+00000074  2f                                                /                |         type: 0x2F CorpusPlain SharedDict
+                                                                             |           └ bits 7-4 = 0010 -> corpus = CorpusPlain
+                                                                             |           └ bits 3-0 = 1111 -> data type = SharedDict
+00000075  02 2e 73                                          ..s              |         name: ".s"
+00000078                                                                     |         dict_lengths (9 B)
+00000078                                                                     |           header (3 B)
+00000078  88                                                .                |             encoding: 0x88 logical=None physical=VarInt
+                                                                             |               └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |               └ bits 6-4 = 000 -> logical = None, numbered for integer stream
+                                                                             |               └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |               └ bits 1-0 = 00 -> extension = 0
+00000079  06                                                .                |             num_values: 6
+0000007a  06                                                .                |             byte_length: 6
+0000007b  07 09 08 06 0d 07                                 ......           |           data [Length(Dictionary) Int(None)/VarInt, 6 values, 6 B]
+                                                                             |             decoded: [7, 9, 8, 6, 13, 7]
+00000081                                                                     |         dict_values (52 B)
+00000081                                                                     |           header (2 B)
+00000081  04                                                .                |             encoding: 0x04 logical=None physical=WithLen
+                                                                             |               └ bit 7 = 0 -> has_explicit_count = false -> a blob's byte length is its value count
+                                                                             |               └ bits 6-4 = 000 -> logical = None, numbered for byte blob
+                                                                             |               └ bits 3-2 = 01 -> physical = WithLen
+                                                                             |               └ bits 1-0 = 00 -> extension = 0
+00000082  32                                                2                |             byte_length: 50
+00000083  61 73 70 68 61 6c 74 63 6f 6d 70 61 63 74 65 64   asphaltcompacted |           data [Data(Shared) Int(None)/None, 50 values, 50 B]
+00000093  63 6f 6e 63 72 65 74 65 67 72 61 76 65 6c 70 61   concretegravelpa |
+000000a3  76 69 6e 67 5f 73 74 6f 6e 65 73 75 6e 70 61 76   ving_stonesunpav |
+000000b3  65 64                                             ed               |
+                                                                             |             decoded: utf-8 "asphaltcompactedconcretegravelpaving_stonesunpaved"

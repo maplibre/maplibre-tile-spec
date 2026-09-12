@@ -35,11 +35,11 @@ const VALIDATE_CORPUS_THRESHOLD: usize = 100_000;
 /// Minimum dedup ratio (`1 - union/sum_individual`) for a validated group to be retained.
 const MIN_DEDUP_RATIO: f64 = 0.05;
 
-struct StringProfile<'a> {
-    col_idx: usize,
-    name: &'a str,
+pub(crate) struct StringProfile<'a> {
+    pub(crate) col_idx: usize,
+    pub(crate) name: &'a str,
     /// Sorted, deduplicated values for [`group_is_beneficial`].
-    unique_values: Vec<&'a str>,
+    pub(crate) unique_values: Vec<&'a str>,
     /// `MinHash` over exact string values.
     exact_hashes: Vec<u64>,
     /// `MinHash` over byte trigrams (empty when all strings are shorter than 3 bytes).
@@ -50,58 +50,22 @@ impl TileLayer {
     /// Compute which string columns can be merged into a shared dict.
     #[hotpath::measure]
     pub(crate) fn group_string_properties(&self, properties: &mut [PropertyStats]) {
-        let exact_mh = MinHash::with_hashers(
-            MINHASH_PERMUTATIONS,
-            [
-                SipHasherBuilder::from_seed(0, 0),
-                SipHasherBuilder::from_seed(1, 1),
-            ],
+        let profiles: Vec<StringProfile<'_>> = profile_all(
+            self.property_names()
+                .iter()
+                .enumerate()
+                .map(|(col_idx, name)| {
+                    let vals: Vec<&str> = self
+                        .features()
+                        .iter()
+                        .filter_map(|f| match f.properties().get(col_idx) {
+                            Some(PropValue::Str(Some(s))) => Some(s.as_str()),
+                            _ => None,
+                        })
+                        .collect();
+                    (col_idx, name.as_str(), vals)
+                }),
         );
-        let trigram_mh = MinHash::with_hashers(
-            MINHASH_PERMUTATIONS,
-            [
-                SipHasherBuilder::from_seed(0, 0),
-                SipHasherBuilder::from_seed(1, 1),
-            ],
-        );
-
-        let profiles: Vec<StringProfile<'_>> = self
-            .property_names()
-            .iter()
-            .enumerate()
-            .filter_map(|(col_idx, name)| {
-                let mut vals: Vec<&str> = self
-                    .features()
-                    .iter()
-                    .filter_map(|f| match f.properties().get(col_idx) {
-                        Some(PropValue::Str(Some(s))) => Some(s.as_str()),
-                        _ => None,
-                    })
-                    .collect();
-                if vals.is_empty() {
-                    return None;
-                }
-                vals.sort_unstable();
-                vals.dedup();
-                let exact_hashes = exact_mh.get_min_hashes(vals.iter().copied());
-                let trigrams: Vec<[u8; 3]> = vals
-                    .iter()
-                    .flat_map(|s| s.as_bytes().windows(3).map(|w| [w[0], w[1], w[2]]))
-                    .collect();
-                let trigram_hashes = if trigrams.is_empty() {
-                    Vec::new()
-                } else {
-                    trigram_mh.get_min_hashes(trigrams.into_iter())
-                };
-                Some(StringProfile {
-                    col_idx,
-                    name,
-                    unique_values: vals,
-                    exact_hashes,
-                    trigram_hashes,
-                })
-            })
-            .collect();
 
         for group in cluster_by_similarity(profiles) {
             debug_assert!(
@@ -120,6 +84,50 @@ impl TileLayer {
             }
         }
     }
+}
+
+/// Profile each `(index, name, values)` for clustering, dropping the ones with no values.
+///
+/// The `MinHash` seeds are fixed, so two runs over the same values cluster alike.
+pub(crate) fn profile_all<'a>(
+    columns: impl IntoIterator<Item = (usize, &'a str, Vec<&'a str>)>,
+) -> Vec<StringProfile<'a>> {
+    let seeds = || {
+        [
+            SipHasherBuilder::from_seed(0, 0),
+            SipHasherBuilder::from_seed(1, 1),
+        ]
+    };
+    let exact_mh = MinHash::with_hashers(MINHASH_PERMUTATIONS, seeds());
+    let trigram_mh = MinHash::with_hashers(MINHASH_PERMUTATIONS, seeds());
+
+    columns
+        .into_iter()
+        .filter_map(|(col_idx, name, mut vals)| {
+            if vals.is_empty() {
+                return None;
+            }
+            vals.sort_unstable();
+            vals.dedup();
+            let exact_hashes = exact_mh.get_min_hashes(vals.iter().copied());
+            let trigrams: Vec<[u8; 3]> = vals
+                .iter()
+                .flat_map(|s| s.as_bytes().windows(3).map(|w| [w[0], w[1], w[2]]))
+                .collect();
+            let trigram_hashes = if trigrams.is_empty() {
+                Vec::new()
+            } else {
+                trigram_mh.get_min_hashes(trigrams.into_iter())
+            };
+            Some(StringProfile {
+                col_idx,
+                name,
+                unique_values: vals,
+                exact_hashes,
+                trigram_hashes,
+            })
+        })
+        .collect()
 }
 
 /// Estimate Jaccard similarity from two `MinHash` signature vectors.
@@ -157,7 +165,9 @@ fn group_is_beneficial(group: &[StringProfile<'_>]) -> bool {
     dedup_savings as f64 / sum_individual as f64 >= MIN_DEDUP_RATIO
 }
 
-fn cluster_by_similarity(profiles: Vec<StringProfile<'_>>) -> Vec<Vec<StringProfile<'_>>> {
+pub(crate) fn cluster_by_similarity(
+    profiles: Vec<StringProfile<'_>>,
+) -> Vec<Vec<StringProfile<'_>>> {
     if profiles.is_empty() {
         return Vec::new();
     }
@@ -197,7 +207,7 @@ fn cluster_by_similarity(profiles: Vec<StringProfile<'_>>) -> Vec<Vec<StringProf
 }
 
 /// Returns the longest common byte prefix of `names`.
-fn common_prefix_name(profiles: &[StringProfile<'_>]) -> String {
+pub(crate) fn common_prefix_name(profiles: &[StringProfile<'_>]) -> String {
     debug_assert!(!profiles.is_empty());
     let first = profiles[0].name;
     let mut prefix_len = first.len();
