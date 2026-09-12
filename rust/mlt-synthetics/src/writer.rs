@@ -95,18 +95,20 @@ impl SynthWriter {
         let out_dirs = [root.join("0x01-rust"), root.join("0x02-rust")];
 
         println!(
-            "Verifying synthetics against {:?}",
+            "Verifying synthetics against\n- {}",
             ref_dirs
                 .iter()
-                .map(|p| format!("{:?}", p.display()))
+                .map(|p| format!("{}", p.display()))
                 .collect::<Vec<_>>()
+                .join("\n- ")
         );
         println!(
-            "Writing rust-only files to {:?}",
+            "Writing rust-only files to\n- {}",
             out_dirs
                 .iter()
-                .map(|p| format!("{:?}", p.display()))
+                .map(|p| format!("{}", p.display()))
                 .collect::<Vec<_>>()
+                .join("\n- ")
         );
         for d in &out_dirs {
             fs::create_dir_all(d).unwrap_or_else(|e| panic!("cannot create {}: {e}", d.display()));
