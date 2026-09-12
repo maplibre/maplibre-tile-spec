@@ -7,7 +7,8 @@
 //!      bit  7:   has_explicit_count (1 = a count varint follows)
 //!      bits 6-4: logical, numbered densely within the stream's family
 //!      bits 3-2: physical, interpreted per logical encoding
-//!      bits 1-0: logical metadata extension, interpreted per logical encoding or reserved (must be 0)
+//!      bits 1-0: logical metadata extension, holding a string column's StrLayout,
+//!                otherwise interpreted per logical encoding or reserved (must be 0)
 //! [varint num_values]   only when has_explicit_count = 1; otherwise the count
 //!                       comes from context (feature_count, or the presence
 //!                       popcount for optional column data)
@@ -35,8 +36,8 @@ use num_enum::TryFromPrimitive;
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
     Alp, BoolLogical, DataType02, DictionaryType, FloatLogical, IntEncoding, IntLogical,
-    LengthType, LogicalEncoding, PhysicalEncoding, RawStream, RleMeta, StreamMeta, StreamType,
-    VertexLogical,
+    LengthType, LogicalEncoding, OffsetType, PhysicalEncoding, RawStream, RleMeta, StreamMeta,
+    StreamType, VertexLogical,
 };
 use crate::utils::{BinarySerializer as _, parse_u8, take};
 use crate::{MltError, MltRefResult, MltResult, Parser};
@@ -73,6 +74,34 @@ pub(crate) enum Logical {
     Dict,
 }
 
+/// How a string column lays its streams out, named by the extension bits of its leading stream.
+/// The two bits have exactly four patterns, so every one of them is a layout.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[repr(u8)]
+pub(crate) enum StrLayout {
+    /// `lengths` then the values' bytes.
+    #[default]
+    Plain = 0b00,
+    /// `codes` then the distinct values' lengths and bytes.
+    Dict = 0b01,
+    /// `lengths` then the FSST symbol table and the compressed corpus.
+    Fsst = 0b10,
+    /// `codes` then the distinct values' lengths, the FSST symbol table and the compressed corpus.
+    FsstDict = 0b11,
+}
+
+impl StrLayout {
+    /// The layout an encoding byte's extension field names.
+    pub(crate) fn from_bits(enc_byte: u8) -> Self {
+        match enc_byte & EXTENSION_MASK {
+            0b00 => Self::Plain,
+            0b01 => Self::Dict,
+            0b10 => Self::Fsst,
+            _ => Self::FsstDict,
+        }
+    }
+}
+
 /// Which logical encodings a stream's context admits, and how each reads the rest of the encoding byte.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, strum::EnumIter, strum::IntoStaticStr)]
 pub(crate) enum Family {
@@ -85,6 +114,12 @@ pub(crate) enum Family {
     Float,
     #[strum(serialize = "a v2 vertex stream")]
     Vertex,
+    /// A string column's leading stream: an integer stream whose extension bits carry [`StrLayout`].
+    #[strum(serialize = "a v2 string column")]
+    Str(StrLayout),
+    /// An opaque byte blob, whose value count is its byte length.
+    #[strum(serialize = "a v2 byte blob")]
+    Bytes,
 }
 
 impl Family {
@@ -92,10 +127,11 @@ impl Family {
     const fn members(self) -> &'static [Logical] {
         use Logical as L;
         match self {
-            Self::Int => &[L::None, L::Delta, L::Rle, L::DeltaRle],
+            Self::Int | Self::Str(_) => &[L::None, L::Delta, L::Rle, L::DeltaRle],
             Self::Bool => &[L::None, L::Rle],
             Self::Float => &[L::None, L::Rle, L::Alp, L::Dict],
             Self::Vertex => &[L::None, L::Delta, L::CwDelta, L::Morton],
+            Self::Bytes => &[L::None],
         }
     }
 
@@ -115,10 +151,19 @@ impl Family {
 /// The context that fixes both its [`Family`] and the [`StreamType`] its position implies.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum StreamCtx02 {
-    /// A counted column's data stream, typed by the column's data type.
+    /// A scalar column's data stream, typed by the column's data type.
+    /// A string column's streams have their own contexts, since their roles follow its [`StrLayout`].
     Property(DataType02),
     /// The dictionary a column's codes index into, following its codes stream, of the column's own type.
     PropertyDictionary(DataType02),
+    /// A string column's leading stream, of one entry per present value.
+    StrData(StrLayout),
+    /// The lengths of the distinct values a string column stores once.
+    StrDictLengths,
+    /// The lengths of a string column's FSST symbols.
+    StrSymbolLengths,
+    /// One of a string column's byte blobs, named by the dictionary role it fills.
+    StrBlob(DictionaryType),
     GeomTypes,
     GeomVertices,
     GeomOffsets(LengthType),
@@ -133,8 +178,12 @@ impl StreamCtx02 {
             }
             Self::Property(DataType02::F32 | DataType02::F64)
             | Self::PropertyDictionary(DataType02::F32 | DataType02::F64) => Family::Float,
+            Self::StrData(layout) => Family::Str(layout),
+            Self::StrBlob(_) => Family::Bytes,
             Self::Property(_)
             | Self::PropertyDictionary(_)
+            | Self::StrDictLengths
+            | Self::StrSymbolLengths
             | Self::GeomTypes
             | Self::GeomOffsets(_) => Family::Int,
             Self::GeomVertices => Family::Vertex,
@@ -142,11 +191,21 @@ impl StreamCtx02 {
     }
 
     /// The stream role this position implies, which v2 does not store on the wire.
-    fn stream_type(self) -> StreamType {
+    pub(crate) fn stream_type(self) -> StreamType {
         match self {
             Self::Property(_) => StreamType::Data(DictionaryType::None),
             Self::PropertyDictionary(_) => StreamType::Data(DictionaryType::Single),
-            Self::GeomTypes => StreamType::Length(LengthType::VarBinary),
+            Self::StrData(StrLayout::Plain) | Self::GeomTypes => {
+                StreamType::Length(LengthType::VarBinary)
+            }
+            Self::StrData(StrLayout::Fsst) | Self::StrDictLengths => {
+                StreamType::Length(LengthType::Dictionary)
+            }
+            Self::StrData(StrLayout::Dict | StrLayout::FsstDict) => {
+                StreamType::Offset(OffsetType::String)
+            }
+            Self::StrSymbolLengths => StreamType::Length(LengthType::Symbol),
+            Self::StrBlob(dictionary) => StreamType::Data(dictionary),
             Self::GeomVertices => StreamType::Data(DictionaryType::Vertex),
             Self::GeomOffsets(length_type) => StreamType::Length(length_type),
         }
@@ -209,6 +268,13 @@ pub(crate) enum LogicalFloat {
     Dict(PhysicalInt),
 }
 
+/// Logical encoding of an opaque byte blob.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LogicalBytes {
+    /// The bytes as they are, their count being the stream's byte length.
+    None(PhysicalBits),
+}
+
 /// Logical encoding of a geometry vertex stream.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LogicalVertex {
@@ -225,6 +291,9 @@ pub(crate) enum Encoding02 {
     Bool(LogicalBool),
     Float(LogicalFloat),
     Vertex(LogicalVertex),
+    /// A string column's leading stream, coded as an integer one, plus the layout its extension bits name.
+    Str(LogicalInt, StrLayout),
+    Bytes(LogicalBytes),
 }
 
 /// Read the physical field as an integer codec.
@@ -257,6 +326,25 @@ fn no_extension(enc_byte: u8) -> MltResult<()> {
     }
 }
 
+/// Read an integer stream's logical field, in the terms the integer and string families share.
+fn logical_int(family: Family, enc_byte: u8, logical: Logical) -> MltResult<LogicalInt> {
+    Ok(match logical {
+        Logical::None => LogicalInt::None(physical_int(enc_byte)?),
+        Logical::Delta => LogicalInt::Delta(physical_int(enc_byte)?),
+        Logical::Rle => {
+            no_physical(enc_byte)?;
+            LogicalInt::Rle
+        }
+        Logical::DeltaRle => {
+            no_physical(enc_byte)?;
+            LogicalInt::DeltaRle
+        }
+        Logical::CwDelta | Logical::Morton | Logical::Alp | Logical::Dict => {
+            unreachable_member(family, logical)?
+        }
+    })
+}
+
 impl Encoding02 {
     /// Read the logical, physical and extension fields in `family`'s terms.
     fn parse(family: Family, enc_byte: u8) -> MltResult<Self> {
@@ -264,22 +352,28 @@ impl Encoding02 {
         let logical = family
             .logical(code)
             .ok_or(MltError::ParsingEncodingByte(enc_byte))?;
-        no_extension(enc_byte)?;
+        // Only a string column's leading stream assigns anything to the extension field.
+        if !matches!(family, Family::Str(_)) {
+            no_extension(enc_byte)?;
+        }
         Ok(match family {
-            Family::Int => Self::Int(match logical {
-                Logical::None => LogicalInt::None(physical_int(enc_byte)?),
-                Logical::Delta => LogicalInt::Delta(physical_int(enc_byte)?),
-                Logical::Rle => {
-                    no_physical(enc_byte)?;
-                    LogicalInt::Rle
+            Family::Int => Self::Int(logical_int(family, enc_byte, logical)?),
+            Family::Str(layout) => {
+                // The caller resolves the layout from this very byte, so a mismatch means it read another.
+                if StrLayout::from_bits(enc_byte) != layout {
+                    return Err(MltError::ParsingEncodingByte(enc_byte));
                 }
-                Logical::DeltaRle => {
-                    no_physical(enc_byte)?;
-                    LogicalInt::DeltaRle
-                }
-                Logical::CwDelta | Logical::Morton | Logical::Alp | Logical::Dict => {
-                    unreachable_member(family, logical)?
-                }
+                Self::Str(logical_int(family, enc_byte, logical)?, layout)
+            }
+            Family::Bytes => Self::Bytes(match logical {
+                Logical::None => LogicalBytes::None(physical_bits(enc_byte)?),
+                Logical::Delta
+                | Logical::CwDelta
+                | Logical::Rle
+                | Logical::DeltaRle
+                | Logical::Morton
+                | Logical::Alp
+                | Logical::Dict => unreachable_member(family, logical)?,
             }),
             Family::Bool => Self::Bool(match logical {
                 Logical::None => LogicalBool::None(physical_bits(enc_byte)?),
@@ -324,7 +418,9 @@ impl Encoding02 {
     /// The canonical encoding this byte named.
     fn logical(self) -> Logical {
         match self {
-            Self::Int(LogicalInt::None(_))
+            Self::Str(logical, _) => Self::Int(logical).logical(),
+            Self::Bytes(LogicalBytes::None(_))
+            | Self::Int(LogicalInt::None(_))
             | Self::Bool(LogicalBool::None(_))
             | Self::Float(LogicalFloat::None(_))
             | Self::Vertex(LogicalVertex::None(_)) => Logical::None,
@@ -345,12 +441,15 @@ impl Encoding02 {
     /// What the physical field said, named for tooling.
     fn physical_label(self) -> &'static str {
         match self {
+            Self::Str(logical, _) => Self::Int(logical).physical_label(),
             Self::Int(LogicalInt::None(p) | LogicalInt::Delta(p))
             | Self::Float(LogicalFloat::Dict(p) | LogicalFloat::Alp(p))
             | Self::Vertex(
                 LogicalVertex::None(p) | LogicalVertex::Delta(p) | LogicalVertex::CwDelta(p),
             ) => p.into(),
-            Self::Bool(LogicalBool::None(p)) | Self::Float(LogicalFloat::None(p)) => p.into(),
+            Self::Bool(LogicalBool::None(p))
+            | Self::Float(LogicalFloat::None(p))
+            | Self::Bytes(LogicalBytes::None(p)) => p.into(),
             Self::Int(LogicalInt::Rle | LogicalInt::DeltaRle)
             | Self::Bool(LogicalBool::Rle)
             | Self::Float(LogicalFloat::Rle)
@@ -368,6 +467,11 @@ impl Encoding02 {
         };
         let mut rest = input;
         let encoding = match self {
+            // A string column's leading stream is an integer one; only its extension bits differ.
+            Self::Str(logical, _) => return Self::Int(logical).to_model(input, num_values),
+            Self::Bytes(LogicalBytes::None(p)) => {
+                IntEncoding::new(LogicalEncoding::Int(IntLogical::None), flat_bits(p)?)
+            }
             Self::Int(LogicalInt::None(p)) => {
                 IntEncoding::new(LogicalEncoding::Int(IntLogical::None), flat_int(p)?)
             }
@@ -473,12 +577,14 @@ fn wire_fields(encoding: IntEncoding, family: Family) -> MltResult<(Logical, u8)
 
     let physical = |encoding: IntEncoding| -> MltResult<u8> {
         match (family, encoding.physical) {
-            (Family::Bool | Family::Float, PhysicalEncoding::None) => {
+            (Family::Bool | Family::Float | Family::Bytes, PhysicalEncoding::None) => {
                 Ok(PhysicalBits::WithLen as u8)
             }
-            (Family::Bool | Family::Float, _) => Err(MltError::UnsupportedPhysicalEncoding(
-                "v2 bool and float streams store fixed-width elements",
-            )),
+            (Family::Bool | Family::Float | Family::Bytes, _) => {
+                Err(MltError::UnsupportedPhysicalEncoding(
+                    "v2 bool, float and blob streams store their elements as they are",
+                ))
+            }
             _ => physical_int_field(encoding.physical),
         }
     };
@@ -541,17 +647,32 @@ pub(crate) fn parse_stream<'a>(
     parser: &mut Parser,
 ) -> MltRefResult<'a, RawStream<'a>> {
     let (input, enc_byte) = parse_u8(input)?;
-    let encoding = Encoding02::parse(ctx.family(), enc_byte)?;
+    let family = ctx.family();
+    let encoding = Encoding02::parse(family, enc_byte)?;
 
-    let (input, num_values) = if enc_byte & HAS_EXPLICIT_COUNT == 0 {
-        (input, implicit_count)
-    } else {
+    let explicit = enc_byte & HAS_EXPLICIT_COUNT != 0;
+    // A blob's count is its byte length, so it has nothing for a count varint to say.
+    if explicit && family == Family::Bytes {
+        return Err(MltError::ParsingEncodingByte(enc_byte));
+    }
+    let (input, num_values) = if explicit {
         parse_varint::<u32>(input)?
+    } else {
+        (input, implicit_count)
     };
-    // Reserve decoded memory upper bound: worst case u64 = 8 bytes per value.
-    parser.reserve(num_values.saturating_mul(8))?;
 
     let (input, byte_length) = parse_varint::<u32>(input)?;
+    let num_values = if family == Family::Bytes {
+        byte_length
+    } else {
+        num_values
+    };
+    // Reserve decoded memory upper bound: a blob decodes to its own bytes, any other stream to a u64 per value.
+    parser.reserve(if family == Family::Bytes {
+        byte_length
+    } else {
+        num_values.saturating_mul(8)
+    })?;
     let (input, encoding) = encoding.to_model(input, num_values)?;
     let (input, data) = take(input, byte_length)?;
     let meta = StreamMeta::new(ctx.stream_type(), encoding, num_values);
@@ -592,9 +713,16 @@ pub(crate) fn write_stream_meta<W: io::Write>(
         | LE::Float(_)
         | LE::Vertex(_) => meta.num_values,
     };
-    let explicit = num_values != implicit_count;
-    let enc_byte =
-        if explicit { HAS_EXPLICIT_COUNT } else { 0 } | (code << LOGICAL_SHIFT) | physical_bits;
+    // A blob's count is its byte length, which its length varint already carries.
+    let explicit = family != Family::Bytes && num_values != implicit_count;
+    let extension = match family {
+        Family::Str(layout) => layout as u8,
+        Family::Int | Family::Bool | Family::Float | Family::Vertex | Family::Bytes => 0,
+    };
+    let enc_byte = if explicit { HAS_EXPLICIT_COUNT } else { 0 }
+        | (code << LOGICAL_SHIFT)
+        | physical_bits
+        | extension;
     writer.write_u8(enc_byte)?;
     if explicit {
         writer.write_varint(num_values)?;
@@ -612,7 +740,13 @@ pub(crate) fn write_stream_meta<W: io::Write>(
 pub(crate) fn describe_encoding(family: Family, byte: u8) -> (String, String) {
     let code = (byte & LOGICAL_MASK) >> LOGICAL_SHIFT;
     let physical = (byte & PHYSICAL_MASK) >> PHYSICAL_SHIFT;
-    match Encoding02::parse(family, byte & !EXTENSION_MASK) {
+    // A string column's leading stream is the one family that reads those bits, so it keeps them.
+    let masked = if matches!(family, Family::Str(_)) {
+        byte
+    } else {
+        byte & !EXTENSION_MASK
+    };
+    match Encoding02::parse(family, masked) {
         Ok(encoding) => (
             encoding.logical().to_string(),
             encoding.physical_label().to_string(),
@@ -639,6 +773,9 @@ mod tests {
     const BOOL: StreamCtx02 = StreamCtx02::Property(DataType02::Bool);
     const FLOAT: StreamCtx02 = StreamCtx02::Property(DataType02::F64);
     const VERTEX: StreamCtx02 = StreamCtx02::GeomVertices;
+    const STR_PLAIN: StreamCtx02 = StreamCtx02::StrData(StrLayout::Plain);
+    const STR_FSST_DICT: StreamCtx02 = StreamCtx02::StrData(StrLayout::FsstDict);
+    const BLOB: StreamCtx02 = StreamCtx02::StrBlob(DictionaryType::None);
 
     use PhysicalEncoding as PE;
 
@@ -684,6 +821,9 @@ mod tests {
     #[case::vertex_delta(Family::Vertex, Logical::Delta, 0b001)]
     #[case::vertex_cw_delta(Family::Vertex, Logical::CwDelta, 0b010)]
     #[case::vertex_morton(Family::Vertex, Logical::Morton, 0b011)]
+    #[case::str_none(Family::Str(StrLayout::Dict), Logical::None, 0b000)]
+    #[case::str_delta_rle(Family::Str(StrLayout::Dict), Logical::DeltaRle, 0b011)]
+    #[case::bytes_none(Family::Bytes, Logical::None, 0b000)]
     fn wire_code_of_each_family_member(
         #[case] family: Family,
         #[case] logical: Logical,
@@ -748,6 +888,52 @@ mod tests {
     }
 
     #[rstest]
+    #[case::plain_lengths(
+        STR_PLAIN,
+        Family::Str(StrLayout::Plain),
+        StreamType::Length(LengthType::VarBinary)
+    )]
+    #[case::dict_codes(
+        StreamCtx02::StrData(StrLayout::Dict),
+        Family::Str(StrLayout::Dict),
+        StreamType::Offset(OffsetType::String)
+    )]
+    #[case::fsst_lengths(
+        StreamCtx02::StrData(StrLayout::Fsst),
+        Family::Str(StrLayout::Fsst),
+        StreamType::Length(LengthType::Dictionary)
+    )]
+    #[case::fsst_dict_codes(
+        STR_FSST_DICT,
+        Family::Str(StrLayout::FsstDict),
+        StreamType::Offset(OffsetType::String)
+    )]
+    #[case::dict_lengths(
+        StreamCtx02::StrDictLengths,
+        Family::Int,
+        StreamType::Length(LengthType::Dictionary)
+    )]
+    #[case::symbol_lengths(
+        StreamCtx02::StrSymbolLengths,
+        Family::Int,
+        StreamType::Length(LengthType::Symbol)
+    )]
+    #[case::plain_blob(BLOB, Family::Bytes, StreamType::Data(DictionaryType::None))]
+    #[case::symbol_table(
+        StreamCtx02::StrBlob(DictionaryType::Fsst),
+        Family::Bytes,
+        StreamType::Data(DictionaryType::Fsst)
+    )]
+    fn a_string_streams_position_picks_its_family_and_role(
+        #[case] ctx: StreamCtx02,
+        #[case] family: Family,
+        #[case] stream_type: StreamType,
+    ) {
+        assert_eq!(ctx.family(), family);
+        assert_eq!(ctx.stream_type(), stream_type);
+    }
+
+    #[rstest]
     #[case::varint_implicit(int(IntLogical::None, PE::VarInt, 5), 5, Family::Int, 0b0000_1000)]
     #[case::varint_explicit(int(IntLogical::None, PE::VarInt, 5), 9, Family::Int, 0b1000_1000)]
     #[case::raw_implicit(int(IntLogical::None, PE::None, 5), 5, Family::Int, 0b0000_0100)]
@@ -784,6 +970,36 @@ mod tests {
         Family::Vertex,
         0b1010_1000
     )]
+    #[case::str_plain_lengths(
+        int(IntLogical::None, PE::VarInt, 5),
+        5,
+        Family::Str(StrLayout::Plain),
+        0b0000_1000
+    )]
+    #[case::str_dict_codes_rle(
+        int(IntLogical::Rle(rle(5)), PE::VarInt, 5),
+        5,
+        Family::Str(StrLayout::Dict),
+        0b0010_0001
+    )]
+    #[case::str_fsst_lengths(
+        int(IntLogical::Delta, PE::VarInt, 5),
+        5,
+        Family::Str(StrLayout::Fsst),
+        0b0001_1010
+    )]
+    #[case::str_fsst_dict_codes(
+        int(IntLogical::None, PE::VarInt, 5),
+        5,
+        Family::Str(StrLayout::FsstDict),
+        0b0000_1011
+    )]
+    #[case::blob_never_carries_a_count(
+        int(IntLogical::None, PE::None, 24),
+        5,
+        Family::Bytes,
+        0b0000_0100
+    )]
     fn encoding_byte_value(
         #[case] meta: StreamMeta,
         #[case] implicit_count: u32,
@@ -817,6 +1033,8 @@ mod tests {
         FLOAT
     )]
     #[case::cw_delta_vertices(vertex(VertexLogical::ComponentwiseDelta, PE::VarInt, 10), 5, VERTEX)]
+    #[case::str_plain_lengths(int(IntLogical::None, PE::VarInt, 5), 5, STR_PLAIN)]
+    #[case::str_fsst_dict_codes(int(IntLogical::DeltaRle(rle(5)), PE::VarInt, 5), 5, STR_FSST_DICT)]
     fn header_roundtrip(
         #[case] meta: StreamMeta,
         #[case] implicit_count: u32,
@@ -852,6 +1070,12 @@ mod tests {
     #[case::float_physical_varint(FLOAT, 0b0000_1000)]
     #[case::float_physical_fastpfor(FLOAT, 0b0000_1100)]
     #[case::bool_physical_varint(BOOL, 0b0000_1000)]
+    #[case::str_layout_disagrees_with_the_context(STR_PLAIN, 0b0000_1001)]
+    #[case::str_logical_past_table(STR_PLAIN, 0b0100_1000)]
+    #[case::blob_with_an_explicit_count(BLOB, 0b1000_0100)]
+    #[case::blob_with_an_extension(BLOB, 0b0000_0101)]
+    #[case::blob_logical_past_table(BLOB, 0b0001_0100)]
+    #[case::blob_physical_varint(BLOB, 0b0000_1000)]
     fn parse_rejects_malformed_encoding_byte(#[case] ctx: StreamCtx02, #[case] enc_byte: u8) {
         let buf = [enc_byte, 0];
         let err = parse_stream(&buf, ctx, 0, &mut parser()).unwrap_err();
@@ -904,6 +1128,25 @@ mod tests {
             as_float.to_string().contains("RLE over a float"),
             "{as_float}"
         );
+    }
+
+    #[test]
+    fn a_blob_reads_its_byte_length_as_its_value_count() {
+        let payload = [1_u8, 2, 3];
+        let meta = int(
+            IntLogical::None,
+            PE::None,
+            u32::try_from(payload.len()).unwrap(),
+        );
+        let mut buf = Vec::new();
+        write_stream_meta(&meta, &mut buf, 3, 99, Family::Bytes).unwrap();
+        buf.extend_from_slice(&payload);
+        assert_eq!(buf, [0b0000_0100, 3, 1, 2, 3]);
+
+        let (rest, parsed) = parse_stream(&buf, BLOB, 99, &mut parser()).unwrap();
+        assert!(rest.is_empty());
+        assert_eq!(parsed.meta.num_values, 3);
+        assert_eq!(parsed.data, payload);
     }
 
     #[rstest]

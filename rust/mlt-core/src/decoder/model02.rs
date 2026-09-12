@@ -9,8 +9,9 @@ use crate::{MltError, MltResult};
 /// Unlike v1's [`super::ColumnType`] there are no `Opt` variants - nullability
 /// lives in the high nibble, see [`Presence02`] - and geometry is not a column
 /// (the layer's geometry section precedes the counted columns).
-/// Each string encoding variant gets its own flat code instead of v1's runtime
-/// `stream_count`.
+/// A string column spends one code, its layout living in the extension bits of
+/// its leading stream's encoding byte, see
+/// [`StrLayout`](super::stream::header02::StrLayout).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 #[repr(u8)]
 pub(crate) enum DataType02 {
@@ -25,8 +26,7 @@ pub(crate) enum DataType02 {
     U64 = 0x08,
     F32 = 0x09,
     F64 = 0x0A,
-    // TODO(v2): 0x0B..=0x0E: StrPlain / StrDict / StrFsst / StrFsstDict
-    //           (not yet implemented)
+    Str = 0x0B,
     // TODO(v2): 0x0F: shared dictionary escape. Each of its sub-columns carries
     //           its own presence nibble, so the column's own nibble is free here
     //           and names the shared dictionary kind instead (plain / FSST / child reference).
@@ -359,6 +359,7 @@ mod tests {
     #[case::opt_id(0b0001_0000, Presence02::Inline, DataType02::Id)]
     #[case::i32(0b0000_0101, Presence02::AllPresent, DataType02::I32)]
     #[case::opt_f64(0b0001_1010, Presence02::Inline, DataType02::F64)]
+    #[case::str(0b0000_1011, Presence02::AllPresent, DataType02::Str)]
     #[case::first_shared(0b0010_0101, Presence02::Shared(0), DataType02::I32)]
     #[case::last_shared(0b1000_1010, Presence02::Shared(6), DataType02::F64)]
     fn column_type_byte_roundtrip(
@@ -373,7 +374,7 @@ mod tests {
 
     #[rstest]
     #[case::reserved_data_type(0b0000_1111, ALL_SHARED)]
-    #[case::unassigned_data_type(0b0000_1011, ALL_SHARED)]
+    #[case::unassigned_data_type(0b0000_1100, ALL_SHARED)]
     #[case::reserved_presence(0b1001_0101, ALL_SHARED)]
     #[case::reserved_presence_top(0b1111_0101, ALL_SHARED)]
     #[case::shared_ref_without_shared_columns(0b0010_0101, 0)]

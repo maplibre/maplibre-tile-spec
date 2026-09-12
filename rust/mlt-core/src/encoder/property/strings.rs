@@ -6,6 +6,10 @@ use super::model::StagedStrings;
 use crate::MltResult;
 use crate::codecs::fsst::{FsstRawData, compress_fsst, compress_fsst_with};
 use crate::decoder::stream::header01;
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::stream::header02;
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::stream::header02::{Family, StrLayout, StreamCtx02};
 use crate::decoder::strings::{checked_string_end, encode_null_end};
 use crate::decoder::{DictionaryType, LengthType, OffsetType, StreamMeta, StreamType, ValueKind};
 use crate::encoder::model::{StrEncoding, StreamCtx};
@@ -129,6 +133,186 @@ impl Codecs {
         }
         Ok(())
     }
+}
+
+#[cfg(feature = "unstable-v2")]
+impl Codecs {
+    /// Encode a v2 string column as the [`StrLayout`] that stores the fewest bytes.
+    ///
+    /// Mirrors [`Self::write_str_col`]: [`Encoder::override_str_enc`] pins one layout when set,
+    /// otherwise all four compete. Nulls live in the column's presence bitfield rather than in a
+    /// stream of this column's own, so every layout writes only the present values.
+    #[hotpath::measure]
+    pub(crate) fn write_str_col02(
+        &mut self,
+        v: &StagedStrings,
+        enc: &mut Encoder,
+    ) -> MltResult<()> {
+        let non_null = v.dense_values();
+        let name = &v.name;
+        if let Some(str_enc) = enc.override_str_enc(name) {
+            return match str_enc {
+                StrEncoding::Plain => write_str_plain02(&non_null, name, enc, self),
+                StrEncoding::Dict => {
+                    let (unique, codes) = dedup_strings(&non_null)?;
+                    write_str_dict02(&unique, &codes, name, enc, self)
+                }
+                StrEncoding::Fsst => write_str_fsst02(&compress_fsst(&non_null), name, enc, self),
+                StrEncoding::FsstDict => {
+                    let (unique, codes) = dedup_strings(&non_null)?;
+                    write_str_fsst_dict02(&compress_fsst(&unique), &codes, name, enc, self)
+                }
+            };
+        }
+
+        // Dedup once; reused by Dict and FSST+Dict alternatives.
+        let (unique, codes) = dedup_strings(&non_null)?;
+        // `None` disables FSST, so only Plain and Dict compete.
+        let compressor = enc.fsst_compressor(name, &unique);
+        // Compute before try_alternatives borrows enc; FsstRawData is owned so the cache borrow ends here.
+        let plain_fsst = compressor.map(|c| compress_fsst_with(&non_null, c));
+        let dict_fsst = compressor.map(|c| compress_fsst_with(&unique, c));
+
+        let mut alt = enc.try_alternatives();
+        alt.with(|enc| write_str_plain02(&non_null, name, enc, self))?;
+        alt.with(|enc| write_str_dict02(&unique, &codes, name, enc, self))?;
+        if let Some(ref raw) = plain_fsst {
+            alt.with(|enc| write_str_fsst02(raw, name, enc, self))?;
+        }
+        if let Some(ref raw) = dict_fsst {
+            alt.with(|enc| write_str_fsst_dict02(raw, &codes, name, enc, self))?;
+        }
+        Ok(())
+    }
+}
+
+/// Write a v2 string column's leading stream, whose extension bits name the layout the rest follow.
+#[cfg(feature = "unstable-v2")]
+fn write_str_leading02(
+    values: &[u32],
+    layout: StrLayout,
+    name: &str,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    let ctx = StreamCtx::prop(StreamCtx02::StrData(layout).stream_type(), name);
+    enc.family_context = Family::Str(layout);
+    let result = codecs.write_int_stream(values, &ctx, enc);
+    enc.family_context = Family::Int;
+    result
+}
+
+/// Write a v2 byte blob's header, whose byte length is also its value count.
+#[cfg(feature = "unstable-v2")]
+fn write_blob_header02(
+    byte_length: usize,
+    dictionary: DictionaryType,
+    enc: &mut Encoder,
+) -> MltResult<()> {
+    let meta = StreamMeta::new_none(StreamType::Data(dictionary), ValueKind::Int, byte_length)?;
+    let implicit_count = enc.count_context;
+    header02::write_stream_meta(
+        &meta,
+        enc.data_mut(),
+        u32::try_from(byte_length)?,
+        implicit_count,
+        Family::Bytes,
+    )
+}
+
+/// Write already-encoded bytes as a v2 blob.
+#[cfg(feature = "unstable-v2")]
+fn write_blob02(bytes: &[u8], dictionary: DictionaryType, enc: &mut Encoder) -> MltResult<()> {
+    write_blob_header02(bytes.len(), dictionary, enc)?;
+    enc.data_mut().extend_from_slice(bytes);
+    Ok(())
+}
+
+/// Write `strings` back to back as a v2 blob.
+#[cfg(feature = "unstable-v2")]
+fn write_str_blob02(
+    strings: &[&str],
+    dictionary: DictionaryType,
+    enc: &mut Encoder,
+) -> MltResult<()> {
+    let total: usize = strings.iter().map(|s| s.len()).sum();
+    write_blob_header02(total, dictionary, enc)?;
+    let data = enc.data_mut();
+    data.reserve(total);
+    for s in strings {
+        data.extend_from_slice(s.as_bytes());
+    }
+    Ok(())
+}
+
+/// [`StrLayout::Plain`]: one length per value, then the values' bytes.
+#[cfg(feature = "unstable-v2")]
+fn write_str_plain02(
+    non_null: &[&str],
+    name: &str,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    let lengths = strings_to_lengths(non_null)?;
+    write_str_leading02(&lengths, StrLayout::Plain, name, enc, codecs)?;
+    write_str_blob02(non_null, DictionaryType::None, enc)
+}
+
+/// [`StrLayout::Dict`]: one code per value, then the distinct values' lengths and bytes.
+#[cfg(feature = "unstable-v2")]
+fn write_str_dict02(
+    unique: &[&str],
+    offset_indices: &[u32],
+    name: &str,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    write_str_leading02(offset_indices, StrLayout::Dict, name, enc, codecs)?;
+    let lengths = strings_to_lengths(unique)?;
+    let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), name);
+    codecs.write_int_stream(&lengths, &ctx, enc)?;
+    write_str_blob02(unique, DictionaryType::Single, enc)
+}
+
+/// [`StrLayout::Fsst`]: one length per value, then the symbol table and the compressed corpus.
+#[cfg(feature = "unstable-v2")]
+fn write_str_fsst02(
+    raw: &FsstRawData,
+    name: &str,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    write_str_leading02(&raw.value_lengths, StrLayout::Fsst, name, enc, codecs)?;
+    write_fsst_tail02(raw, name, enc, codecs)
+}
+
+/// [`StrLayout::FsstDict`]: one code per value, then the distinct values' lengths, symbol table and corpus.
+#[cfg(feature = "unstable-v2")]
+fn write_str_fsst_dict02(
+    raw: &FsstRawData,
+    offset_indices: &[u32],
+    name: &str,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    write_str_leading02(offset_indices, StrLayout::FsstDict, name, enc, codecs)?;
+    let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), name);
+    codecs.write_int_stream(&raw.value_lengths, &ctx, enc)?;
+    write_fsst_tail02(raw, name, enc, codecs)
+}
+
+/// The symbol lengths, symbol table and compressed corpus both v2 FSST layouts end with.
+#[cfg(feature = "unstable-v2")]
+fn write_fsst_tail02(
+    raw: &FsstRawData,
+    name: &str,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    let ctx = StreamCtx::prop(StreamType::Length(LengthType::Symbol), name);
+    codecs.write_int_stream(&raw.symbol_lengths, &ctx, enc)?;
+    write_blob02(&raw.symbol_bytes, DictionaryType::Fsst, enc)?;
+    write_blob02(&raw.corpus, DictionaryType::Single, enc)
 }
 
 /// Encode with plain (`VarBinary` lengths) layout.
