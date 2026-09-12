@@ -228,6 +228,10 @@ pub struct ConvertArgs {
     #[cfg(feature = "unstable-v2")]
     #[clap(long)]
     no_float_dict: bool,
+    /// Store dictionary codes bit-packed when that beats a varint each
+    #[cfg(feature = "unstable-v2")]
+    #[clap(long)]
+    packed_dict_codes: bool,
     /// Output tile format (`mlt` re-encodes; `mvt` decodes MLT inputs back to MVT)
     #[clap(long, default_value = "mlt")]
     to: TileFormat,
@@ -279,7 +283,8 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     let cfg = cfg
         .with_wire_version(args.mlt_version.into())
         .with_float_alp(!args.no_alp)
-        .with_float_dict(!args.no_float_dict);
+        .with_float_dict(!args.no_float_dict)
+        .with_packed_dict_codes(args.packed_dict_codes);
 
     let filter = BboxFilter::new(&args.bbox)?;
     let input_container = args.input_container();

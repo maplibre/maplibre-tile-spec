@@ -112,7 +112,7 @@ impl<'a> RawStream<'a> {
     pub fn decode_alp_codes(&self, params: Alp, dec: &mut Decoder) -> MltResult<Vec<i64>> {
         match self.meta.encoding.physical {
             PhysicalEncoding::FastPFor(_) => self.alp_codes_via::<u32>(params, dec),
-            PhysicalEncoding::None | PhysicalEncoding::VarInt => {
+            PhysicalEncoding::None | PhysicalEncoding::VarInt | PhysicalEncoding::BitPacked => {
                 self.alp_codes_via::<u64>(params, dec)
             }
         }
@@ -165,6 +165,10 @@ impl<'a> RawStream<'a> {
             PhysicalEncoding::FastPFor(_) => {
                 return Err(MltError::UnsupportedPhysicalEncoding("FastPFOR floats"));
             }
+            #[cfg(feature = "unstable-v2")]
+            PhysicalEncoding::BitPacked => {
+                return Err(MltError::UnsupportedPhysicalEncoding("bit-packed floats"));
+            }
         }
         let num = self.meta.num_values.into_usize();
         let width = size_of::<T>();
@@ -202,6 +206,11 @@ impl<'a> RawStream<'a> {
             }
             PhysicalEncoding::FastPFor(kind) => {
                 *buf = T::decode_fastpfor(self.data, self.meta.num_values, kind, dec)?;
+            }
+            #[cfg(feature = "unstable-v2")]
+            PhysicalEncoding::BitPacked => {
+                dec.consume_items::<T>(self.meta.num_values.into_usize())?;
+                *buf = crate::codecs::bitpack::unpack(self.data, self.meta.num_values)?;
             }
             PhysicalEncoding::VarInt => {
                 // v2 interleaved-RLE stores no run count on the wire: `num_values`
