@@ -27,6 +27,10 @@ pub trait PhysicalWord: Copy + Sized + VarInt {
     /// Read one little-endian word from exactly `size_of::<Self>()` bytes.
     fn from_le_word(bytes: &[u8]) -> Self;
 
+    /// Narrow a value the caller has already bounded to this word's width.
+    #[cfg(feature = "unstable-v2")]
+    fn from_u64(value: u64) -> Self;
+
     /// Physically decode a `FastPFOR`-compressed stream into `Vec<Self>`.
     /// `FastPFOR` only supports `u32`; the `u64` implementation returns an error.
     fn decode_fastpfor(
@@ -43,6 +47,16 @@ impl PhysicalWord for u32 {
         Self::from_le_bytes(bytes.try_into().expect("infallible: 4-byte chunk"))
     }
 
+    #[cfg(feature = "unstable-v2")]
+    #[inline]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "the caller bounds the value to this word's width"
+    )]
+    fn from_u64(value: u64) -> Self {
+        value as Self
+    }
+
     fn decode_fastpfor(
         data: &[u8],
         num_values: u32,
@@ -57,6 +71,12 @@ impl PhysicalWord for u64 {
     #[inline]
     fn from_le_word(bytes: &[u8]) -> Self {
         Self::from_le_bytes(bytes.try_into().expect("infallible: 8-byte chunk"))
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[inline]
+    fn from_u64(value: u64) -> Self {
+        value
     }
 
     fn decode_fastpfor(
