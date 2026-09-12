@@ -30,6 +30,19 @@ impl GeometryType {
     }
 }
 
+/// An offset level a geometry only needs when it addresses something in it.
+fn require<'a>(
+    level: Option<&'a [u32]>,
+    range: &Range<usize>,
+    missing: impl FnOnce() -> crate::MltError,
+) -> MltResult<&'a [u32]> {
+    match level {
+        Some(level) => Ok(level),
+        None if range.is_empty() => Ok(&[]),
+        None => Err(missing()),
+    }
+}
+
 impl GeometryValues {
     #[must_use]
     pub fn feature_count(&self) -> usize {
@@ -126,6 +139,9 @@ impl GeometryValues {
         };
         let line = |r: Range<usize>| -> MltResult<LineString<i32>> { r.map(&vert).collect() };
         let closed_ring = |r: Range<usize>| -> MltResult<LineString<i32>> {
+            if r.is_empty() {
+                return Ok(LineString(vec![]));
+            }
             let first = r.start;
             let mut coords: Vec<Coord<i32>> = r.map(&vert).collect::<Result<_, _>>()?;
             coords.push(vert(first)?);
@@ -198,8 +214,10 @@ impl GeometryValues {
             }
             GeometryType::MultiLineString => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
-                let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
                 let geom_rng = geom_range(geoms, index)?;
+                // A multi with no sub-geometries never indexes the levels below it,
+                // so it does not need them to be present.
+                let parts = require(parts, &geom_rng, || NoPartOffsets(index, geom_type))?;
                 // geometry_offsets indexes into part_offsets for each linestring.
                 // When ring_offsets exist (polygon geometry present), part_offsets indexes
                 // into ring_offsets for vertex ranges. Otherwise, part_offsets directly
@@ -214,9 +232,12 @@ impl GeometryValues {
             }
             GeometryType::MultiPolygon => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
-                let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
-                let rings = rings.ok_or(NoRingOffsets(index, geom_type))?;
-                let polys: Vec<_> = geom_range(geoms, index)?
+                let geom_rng = geom_range(geoms, index)?;
+                // A multi with no sub-geometries never indexes the levels below it,
+                // so it does not need them to be present.
+                let parts = require(parts, &geom_rng, || NoPartOffsets(index, geom_type))?;
+                let rings = require(rings, &geom_rng, || NoRingOffsets(index, geom_type))?;
+                let polys: Vec<_> = geom_rng
                     .map(|idx| poly_from_rings(part_range(parts, idx)?, rings))
                     .collect::<Result<_, _>>()?;
                 Ok(Geometry::<i32>::MultiPolygon(MultiPolygon(polys)))

@@ -12,6 +12,8 @@ use crate::MltResult;
 use crate::codecs::hilbert::hilbert_sort_key;
 use crate::codecs::zigzag::encode_componentwise_delta_vec2s;
 use crate::decoder::GeometryType::Point;
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::stream::header02::Family;
 use crate::decoder::{
     DictionaryType, GeometryType, LogicalEncoding, Morton, OffsetType, PhysicalEncoding,
     StreamMeta, StreamType, VertexLogical,
@@ -375,6 +377,21 @@ pub(super) fn dict_may_be_beneficial(vertices: &[i32], enc: &Encoder) -> bool {
     uniqueness_ratio < MAXIMUM_UNIQUENESS_THRESHOLD_FOR_DICT
 }
 
+/// Derive the curve parameters from `vertices` unless they are already cached.
+///
+/// [`StagedLayer::encode_into`](crate::encoder::StagedLayer::encode_into) seeds them
+/// from the whole layer; direct callers (tests, custom drivers) arrive with empty
+/// caches, and the dictionary builders rely on them unconditionally.
+pub(super) fn seed_curve_caches(enc: &mut Encoder, vertices: &[i32]) {
+    if enc.hilbert_cache.is_none() {
+        enc.hilbert_cache = Some(CurveParams::from_vertices(vertices));
+    }
+    if enc.morton_cache.is_none() {
+        let p = enc.hilbert_cache.expect("populated above");
+        enc.morton_cache = Morton::new(p.bits, p.shift).ok();
+    }
+}
+
 /// Pre-populated by [`StagedLayer::encode_into`](crate::encoder::StagedLayer::encode_into);
 /// callers must have gated on [`dict_may_be_beneficial`] which rejects layers
 /// whose extent does not fit Morton.
@@ -397,10 +414,32 @@ pub(super) fn encode_vec2_vertex_stream(
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<u8> {
+    vec2_vertex_stream(vertices, enc, codecs, true)
+}
+
+/// The plain Vec2 vertex layout as v2 writes it: always a stream, even an empty one.
+///
+/// Every [`GeoLayout`](crate::decoder::GeoLayout) declares a vertex stream, so a layer
+/// that skipped it for having no vertices would desynchronize the reader.
+#[cfg(feature = "unstable-v2")]
+pub(super) fn encode_vec2_vertex_stream02(
+    vertices: &[i32],
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    vec2_vertex_stream(vertices, enc, codecs, false).map(|_| ())
+}
+
+fn vec2_vertex_stream(
+    vertices: &[i32],
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+    skip_empty: bool,
+) -> MltResult<u8> {
     let delta = encode_componentwise_delta_vec2s(vertices, &mut codecs.logical.u32_tmp);
     let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
     let logical = LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta);
-    write_geo_precomputed_stream(delta, ctx, logical, enc, &mut codecs.physical)
+    write_geo_precomputed_stream(delta, ctx, logical, enc, &mut codecs.physical, skip_empty)
 }
 
 /// Encode a Morton-keyed vertex dictionary: per-vertex offsets stream
@@ -420,7 +459,7 @@ pub(super) fn encode_morton_vertex_streams(
     let delta = encode_morton_deltas(&dict, &mut codecs.logical.u32_tmp);
     let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Morton), "vertex");
     let logical = LogicalEncoding::Vertex(VertexLogical::MortonDelta(morton));
-    n += write_geo_precomputed_stream(delta, ctx, logical, enc, &mut codecs.physical)?;
+    n += write_geo_precomputed_stream(delta, ctx, logical, enc, &mut codecs.physical, true)?;
     Ok(n)
 }
 
@@ -463,11 +502,83 @@ pub(super) fn encode_hilbert_vertex_streams(
     encode_componentwise_delta_vec2s(&dict_xy, &mut offsets);
     let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
     let logical = LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta);
-    n += write_geo_precomputed_stream(&offsets, ctx, logical, enc, &mut codecs.physical)?;
+    n += write_geo_precomputed_stream(&offsets, ctx, logical, enc, &mut codecs.physical, true)?;
 
     codecs.logical.hilbert_offsets = offsets;
     codecs.logical.hilbert_dict_xy = dict_xy;
     Ok(n)
+}
+
+/// Encode a Morton-keyed vertex dictionary the way v2 orders it: the delta-coded
+/// Morton-code dictionary, then the per-vertex offsets into it.
+#[cfg(feature = "unstable-v2")]
+pub(super) fn encode_morton_vertex_streams02(
+    vertices: &[i32],
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    let morton = get_morton(enc);
+    let (dict, offsets) = build_morton_dict(vertices, morton)?;
+
+    // Take the scratch buffer out: the dictionary write below borrows it while
+    // `codecs.physical` is passed on, and the offsets write wants all of `codecs`.
+    let mut delta = mem::take(&mut codecs.logical.u32_tmp);
+    encode_morton_deltas(&dict, &mut delta);
+    let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Morton), "vertex");
+    let logical = LogicalEncoding::Vertex(VertexLogical::MortonDelta(morton));
+    enc.family_context = Family::Vertex;
+    write_geo_precomputed_stream(&delta, ctx, logical, enc, &mut codecs.physical, true)?;
+    codecs.logical.u32_tmp = delta;
+
+    let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex_offsets");
+    enc.family_context = Family::Int;
+    write_geo_u32_stream(&offsets, ctx, enc, codecs)?;
+    Ok(())
+}
+
+/// Encode a Hilbert-keyed vertex dictionary the way v2 orders it: the
+/// componentwise-delta-coded `[x, y, …]` dictionary in Hilbert order, then the
+/// per-vertex offsets into it.
+#[cfg(feature = "unstable-v2")]
+pub(super) fn encode_hilbert_vertex_streams02(
+    vertices: &[i32],
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    let params = get_hilbert_params(enc);
+
+    // Take scratch ownership locally: `write_geo_u32_stream` needs `&mut Codecs`,
+    // which would otherwise conflict with our `&[..]` views into these slots.
+    let mut offsets = mem::take(&mut codecs.logical.hilbert_offsets);
+    let mut indexed = mem::take(&mut codecs.logical.hilbert_indexed);
+    let mut dict_xy = mem::take(&mut codecs.logical.hilbert_dict_xy);
+    let mut remap = mem::take(&mut codecs.logical.hilbert_remap);
+    let mut delta = mem::take(&mut codecs.logical.u32_tmp);
+
+    build_hilbert_dict(
+        vertices,
+        params,
+        &mut offsets,
+        &mut indexed,
+        &mut dict_xy,
+        &mut remap,
+    );
+    codecs.logical.hilbert_indexed = indexed;
+    codecs.logical.hilbert_remap = remap;
+
+    encode_componentwise_delta_vec2s(&dict_xy, &mut delta);
+    let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
+    let logical = LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta);
+    enc.family_context = Family::Vertex;
+    write_geo_precomputed_stream(&delta, ctx, logical, enc, &mut codecs.physical, true)?;
+    codecs.logical.u32_tmp = delta;
+    codecs.logical.hilbert_dict_xy = dict_xy;
+
+    let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex_offsets");
+    enc.family_context = Family::Int;
+    write_geo_u32_stream(&offsets, ctx, enc, codecs)?;
+    codecs.logical.hilbert_offsets = offsets;
+    Ok(())
 }
 
 /// Write a geometry `u32` stream: [`Encoder::override_int_enc`] when explicit mode is active,
@@ -499,35 +610,35 @@ fn write_geo_precomputed_stream(
     logical: LogicalEncoding,
     enc: &mut Encoder,
     physical: &mut PhysicalCodecs,
+    skip_empty: bool,
 ) -> MltResult<u8> {
     use PhysicalEncoding as PE;
 
-    Ok(if data.is_empty() && !enc.force_stream(&ctx) {
-        0
+    if data.is_empty() && skip_empty && !enc.force_stream(&ctx) {
+        return Ok(0);
+    }
+    if let Some(int_enc) = enc.override_int_enc(&ctx) {
+        physical.write_encoded_as::<[u32]>(&ctx, enc, logical, data, int_enc.physical)?;
+    } else if data.is_empty() {
+        let meta = StreamMeta::new2(ctx.stream_type, logical, PE::None, 0)?;
+        write_stream_payload(enc, meta, false, &[])?;
     } else {
-        if let Some(int_enc) = enc.override_int_enc(&ctx) {
-            physical.write_encoded_as::<[u32]>(&ctx, enc, logical, data, int_enc.physical)?;
-        } else if data.is_empty() {
-            let meta = StreamMeta::new2(ctx.stream_type, logical, PE::None, 0)?;
-            write_stream_payload(enc, meta, false, &[])?;
-        } else {
-            let fastpfor = enc.config().fastpfor();
-            let mut alt = enc.try_alternatives();
-            if let Some(pe @ PE::FastPFor(kind)) = fastpfor {
-                alt.with(|enc| {
-                    let vals = physical.fastpfor(kind, data)?;
-                    let meta = StreamMeta::new2(ctx.stream_type, logical, pe, data.len())?;
-                    write_stream_payload(enc, meta, false, vals)
-                })?;
-            }
+        let fastpfor = enc.config().fastpfor();
+        let mut alt = enc.try_alternatives();
+        if let Some(pe @ PE::FastPFor(kind)) = fastpfor {
             alt.with(|enc| {
-                let vals = physical.varint(data);
-                let meta = StreamMeta::new2(ctx.stream_type, logical, PE::VarInt, data.len())?;
+                let vals = physical.fastpfor(kind, data)?;
+                let meta = StreamMeta::new2(ctx.stream_type, logical, pe, data.len())?;
                 write_stream_payload(enc, meta, false, vals)
             })?;
         }
-        1
-    })
+        alt.with(|enc| {
+            let vals = physical.varint(data);
+            let meta = StreamMeta::new2(ctx.stream_type, logical, PE::VarInt, data.len())?;
+            write_stream_payload(enc, meta, false, vals)
+        })?;
+    }
+    Ok(1)
 }
 
 fn encode_morton_deltas<'a>(codes: &[u32], buffer: &'a mut Vec<u32>) -> &'a mut Vec<u32> {

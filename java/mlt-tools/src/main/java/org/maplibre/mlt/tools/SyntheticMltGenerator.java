@@ -119,8 +119,6 @@ public class SyntheticMltGenerator {
     var polCollinear = feat(poly(c(0, 0), c(10, 0), c(20, 0), c(0, 0)));
     write("poly_collinear", polCollinear, cfg());
     write("poly_collinear_fpf", polCollinear, cfg().fastPFOR());
-    write("poly_collinear_tes", polCollinear, cfg().tessellate());
-    write("poly_collinear_fpf_tes", polCollinear, cfg().fastPFOR().tessellate());
 
     var polSelfIntersect = feat(poly(c(0, 0), c(10, 10), c(0, 10), c(10, 0), c(0, 0)));
     write("poly_self_intersect", polSelfIntersect, cfg());

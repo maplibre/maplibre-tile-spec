@@ -27,6 +27,10 @@ impl TryFrom<&Geometry<i32>> for GeometryType {
 /// Run the Earcut algorithm on `polygon`, append triangle indices (shifted by `vertex_offset`)
 /// into `index_buf`, and return `(num_triangles, num_vertices)`.
 fn earcut_into(polygon: &Polygon<i32>, vertex_offset: u32, index_buf: &mut Vec<u32>) -> (u32, u32) {
+    // An empty ring underflows inside `geo` 0.33's earcut, and tessellates to nothing anyway.
+    if polygon.exterior().0.is_empty() {
+        return (0, 0);
+    }
     let polygon_f64: Polygon<f64> = polygon.convert();
     let raw = polygon_f64.earcut_triangles_raw();
     let num_triangles = u32::try_from(raw.triangle_indices.len() / 3).expect("too many triangles");
@@ -182,29 +186,40 @@ impl GeometryValues {
     fn push_multi_linestring(&mut self, mls: &MultiLineString<i32>) {
         self.vector_types.push(GeometryType::MultiLineString);
 
-        let verts = self.vertices.get_or_insert_with(Vec::new);
-        // When a Polygon is present (ring_offsets exists), LineString vertex counts
-        // go to ring_offsets instead of part_offsets. This matches Java's behavior.
-        let offsets = self
-            .ring_offsets
-            .as_mut()
-            .unwrap_or_else(|| self.part_offsets.get_or_insert_with(Vec::new));
+        // An empty multi contributes no part, so it must not bring a part level into
+        // existence either: the offset arrays a layer has must be ones it fills.
+        if !mls.0.is_empty() {
+            let verts = self.vertices.get_or_insert_with(Vec::new);
+            // When a Polygon is present (ring_offsets exists), LineString vertex counts
+            // go to ring_offsets instead of part_offsets. This matches Java's behavior.
+            let offsets = self
+                .ring_offsets
+                .as_mut()
+                .unwrap_or_else(|| self.part_offsets.get_or_insert_with(Vec::new));
 
-        push_linestrings(mls.iter(), verts, offsets);
+            push_linestrings(mls.iter(), verts, offsets);
+        }
 
         self.push_geometry_count(u32::try_from(mls.0.len()).expect("linestring count overflow"));
     }
 
     fn push_multi_polygon(&mut self, mp: &MultiPolygon<i32>) {
         self.vector_types.push(GeometryType::MultiPolygon);
-        self.init_polygon_offsets();
 
-        let verts = self.vertices.get_or_insert_with(Vec::new);
-        let rings = self.ring_offsets.as_mut().unwrap();
-        let parts = self.part_offsets.as_mut().unwrap();
+        // An empty multi contributes no part and no ring, so it must not bring those
+        // levels into existence either: the offset arrays a layer has must be ones it
+        // fills. A `POLYGON EMPTY` still pushes its zero-length ring, since a non-multi
+        // Polygon always contributes exactly its ring count.
+        if !mp.0.is_empty() {
+            self.init_polygon_offsets();
 
-        for poly in mp {
-            push_polygon_rings(poly, verts, rings, parts);
+            let verts = self.vertices.get_or_insert_with(Vec::new);
+            let rings = self.ring_offsets.as_mut().unwrap();
+            let parts = self.part_offsets.as_mut().unwrap();
+
+            for poly in mp {
+                push_polygon_rings(poly, verts, rings, parts);
+            }
         }
 
         self.push_geometry_count(u32::try_from(mp.0.len()).expect("polygon count overflow"));

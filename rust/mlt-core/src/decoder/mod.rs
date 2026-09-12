@@ -38,6 +38,7 @@ pub use model01::ColumnType;
 #[cfg(feature = "unstable-v2")]
 pub(crate) use model02::{
     Column02, ColumnType02, DataType02, GeoLayout, LayerLayout, Presence02, SharedDictKind,
+    Topology, VertexStorage,
 };
 // Re-export strings sub-module so encoder can use `crate::decoder::strings::*`
 pub(crate) use property::strings;

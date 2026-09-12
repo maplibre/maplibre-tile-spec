@@ -95,18 +95,20 @@ impl SynthWriter {
         let out_dirs = [root.join("0x01-rust"), root.join("0x02-rust")];
 
         println!(
-            "Verifying synthetics against {:?}",
+            "Verifying synthetics against\n- {}",
             ref_dirs
                 .iter()
-                .map(|p| format!("{:?}", p.display()))
+                .map(|p| format!("{}", p.display()))
                 .collect::<Vec<_>>()
+                .join("\n- ")
         );
         println!(
-            "Writing rust-only files to {:?}",
+            "Writing rust-only files to\n- {}\n",
             out_dirs
                 .iter()
-                .map(|p| format!("{:?}", p.display()))
+                .map(|p| format!("{}", p.display()))
                 .collect::<Vec<_>>()
+                .join("\n- ")
         );
         for d in &out_dirs {
             fs::create_dir_all(d).unwrap_or_else(|e| panic!("cannot create {}: {e}", d.display()));
@@ -147,17 +149,12 @@ impl SynthWriter {
     /// or `Err` on any failure.
     #[expect(clippy::panic_in_result_fn)]
     fn write_int(&mut self, layer: &Layer, names: [&str; WIRE_VERSIONS_CNT]) -> SynthResult<()> {
-        let versions = if layer.wants_v2() {
-            [WireVersion::V01, WireVersion::V02].as_slice()
-        } else {
-            [WireVersion::V01].as_slice()
-        };
         for (((ref_dir, out_dir), &version), name) in self
             .ref_dirs
             .clone()
             .into_iter()
             .zip(self.out_dirs.clone())
-            .zip(versions)
+            .zip(layer.versions())
             .zip(names)
         {
             let (name, mut is_rust_specific) = match name.strip_suffix("-rust") {

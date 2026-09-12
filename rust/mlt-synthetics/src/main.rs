@@ -152,7 +152,6 @@ fn generate_geometry(w: &mut SynthWriter) {
         .geo(LineString::new(morton_curve()))
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
-        .no_v2()
         .write(w, "line_morton_curve_morton");
     geo_varint()
         .geo(LineString::new(morton_curve()))
@@ -165,14 +164,9 @@ fn generate_geometry(w: &mut SynthWriter) {
 
     geo_varint().geo(poly1()).write(w, "poly");
     geo_fastpfor().geo(poly1()).write(w, "poly_fpf");
-    geo_varint()
-        .tessellate()
-        .no_v2()
-        .geo(poly1())
-        .write(w, "poly_tes");
+    geo_varint().tessellate().geo(poly1()).write(w, "poly_tes");
     geo_fastpfor()
         .tessellate()
-        .no_v2()
         .geo(poly1())
         .write(w, "poly_fpf_tes");
 
@@ -182,16 +176,6 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_fastpfor()
         .geo(poly_collinear())
         .write(w, "poly_collinear_fpf");
-    geo_varint()
-        .tessellate()
-        .no_v2()
-        .geo(poly_collinear())
-        .write(w, "poly_collinear_tes");
-    geo_fastpfor()
-        .tessellate()
-        .no_v2()
-        .geo(poly_collinear())
-        .write(w, "poly_collinear_fpf_tes");
 
     geo_varint()
         .geo(poly_self_intersect())
@@ -201,12 +185,10 @@ fn generate_geometry(w: &mut SynthWriter) {
         .write(w, "poly_self_intersect_fpf");
     geo_varint()
         .tessellate()
-        .no_v2()
         .geo(poly_self_intersect())
         .write(w, "poly_self_intersect_tes");
     geo_fastpfor()
         .tessellate()
-        .no_v2()
         .geo(poly_self_intersect())
         .write(w, "poly_self_intersect_fpf_tes");
 
@@ -221,13 +203,11 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .parts_ring(E::rle_varint())
         .tessellate()
-        .no_v2()
         .geo(poly1h())
         .write(w, "poly_hole_tes");
     geo_fastpfor()
         .parts_ring(E::rle_fastpfor())
         .tessellate()
-        .no_v2()
         .geo(poly1h())
         .write(w, "poly_hole_fpf_tes");
 
@@ -242,13 +222,11 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .parts_ring(E::varint())
         .tessellate()
-        .no_v2()
         .geo(poly_hole_touching())
         .write(w, "poly_hole_touching_tes");
     geo_fastpfor()
         .parts_ring(E::fastpfor())
         .tessellate()
-        .no_v2()
         .geo(poly_hole_touching())
         .write(w, "poly_hole_touching_fpf_tes");
 
@@ -268,9 +246,9 @@ fn generate_geometry(w: &mut SynthWriter) {
         .rings(E::rle_varint())
         .rings2(E::rle_varint())
         .tessellate()
-        .no_v2()
         .geo(MultiPolygon(vec![poly1(), poly2()]))
         .write(w, "poly_multi_tes");
+    // v1-only for the same reason as `poly_multi_fpf`.
     geo_fastpfor()
         .rings(E::rle_fastpfor())
         .rings2(E::rle_fastpfor())
@@ -289,7 +267,6 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
-        .no_v2()
         .geo(morton_poly)
         .write(w, "poly_morton_ring_morton");
 
@@ -314,7 +291,6 @@ fn generate_geometry(w: &mut SynthWriter) {
         .rings2(E::rle_varint())
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
-        .no_v2()
         .geo(mp_morton)
         .write(w, "poly_multi_morton_ring_morton");
 
@@ -324,9 +300,13 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
-        .no_v2()
         .geo(MultiPoint(morton_curve().into_iter().map(Point).collect()))
         .write(w, "multipoint_morton_dictionary-rust");
+    geo_varint()
+        .vertex_buffer_type(VertexBufferType::Morton)
+        .vertex_offsets(E::delta_rle_varint())
+        .geos(morton_curve().into_iter().map(Point))
+        .write(w, "point_morton_dictionary-rust");
     // Split the Morton curve at a different place so that the rings are different lengths,
     // use one as the shell and one as the hole of a single and multi-polygon.
     let quarter = mc.len() / 4;
@@ -338,13 +318,11 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
-        .no_v2()
         .geo(poly_with_hole.clone())
         .write(w, "poly_morton_hole_morton");
     geo_varint()
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
-        .no_v2()
         .geo(MultiPolygon(vec![poly_with_hole]))
         .write(w, "poly_multi_morton_hole_morton");
 
@@ -368,15 +346,14 @@ fn generate_geometry(w: &mut SynthWriter) {
         .no_rings(E::rle_varint())
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
-        .no_v2()
         .geo(MultiLineString(vec![mline1, mline2]))
         .write(w, "multiline_morton");
 }
 
 fn write_mix(w: &mut SynthWriter, current: &[usize]) {
     let mut builder = geo_varint();
-    let mut builder_t = Some(geo_varint().tessellate().no_v2());
-    let mut builder_t_with_lines = Some(geo_varint().tessellate().no_v2());
+    let mut builder_t = Some(geo_varint().tessellate());
+    let mut builder_t_with_lines = Some(geo_varint().tessellate());
     let mut has_polygon = false;
     let mut has_line = false;
     let mut name = format!("mix_{}", current.len());
