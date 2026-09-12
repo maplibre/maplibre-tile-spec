@@ -97,6 +97,49 @@ impl GeometryValues {
         self.vertices.as_deref()
     }
 
+    /// The range of the layer's vertex sequence that feature `index` owns.
+    ///
+    /// The sequence is every vertex of every feature in feature order, which is
+    /// what the vertex buffer holds and what an m-value column runs over.
+    /// A ring's closing vertex is not stored, so it is not in the range either.
+    pub fn vertex_range(&self, index: usize) -> MltResult<Range<usize>> {
+        let entry = |level: &[u32], idx: usize, field: &'static str| -> MltResult<usize> {
+            level
+                .get(idx)
+                .map(|&v| v.into_usize())
+                .ok_or(GeometryOutOfBounds {
+                    index,
+                    field,
+                    idx,
+                    len: level.len(),
+                })
+        };
+        // Every level addresses a contiguous run of the level below it, so descending
+        // a range through them lands on the vertices without caring which shape it is.
+        let mut range = match self.geometry_offsets.as_deref() {
+            Some(geoms) => {
+                entry(geoms, index, "geometry_offsets")?
+                    ..entry(geoms, index + 1, "geometry_offsets")?
+            }
+            None => index..index + 1,
+        };
+        for (level, field) in [
+            (self.part_offsets.as_deref(), "part_offsets"),
+            (self.ring_offsets.as_deref(), "ring_offsets"),
+        ] {
+            if let Some(level) = level {
+                range = entry(level, range.start, field)?..entry(level, range.end, field)?;
+            }
+        }
+        Ok(range)
+    }
+
+    /// How many vertices feature `index` owns, see [`Self::vertex_range`].
+    pub fn vertex_count(&self, index: usize) -> MltResult<usize> {
+        let range = self.vertex_range(index)?;
+        Ok(range.end.saturating_sub(range.start))
+    }
+
     /// Build a `GeoJSON` geometry for a single feature at index `i`.
     /// Polygon and `MultiPolygon` rings are closed per `GeoJSON` spec
     /// (MLT omits the closing vertex).

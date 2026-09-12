@@ -5,7 +5,7 @@ use fsst::Compressor;
 use integer_encoding::VarIntWriter as _;
 
 #[cfg(feature = "unstable-v2")]
-use crate::decoder::stream::header02::Family;
+use crate::decoder::stream::header02::{Count02, Family};
 use crate::decoder::{ColumnType, Morton};
 #[cfg(feature = "unstable-v2")]
 use crate::encoder::model::FloatEncoding;
@@ -124,14 +124,18 @@ pub struct Encoder {
     /// Trained on deduplicated values on the first sort trial, reused on subsequent trials.
     pub(crate) fsst_cache: HashMap<String, Option<Compressor>>,
 
-    /// The stream count a v2 decoder would infer from context at the current
-    /// write position: the layer's `feature_count`, or the presence popcount
-    /// while an optional column's data stream is being written.
+    /// What a v2 decoder will read the stream being written against: the layer's
+    /// `feature_count`, or the presence popcount while an optional column's data
+    /// stream is being written.
+    ///
+    /// [`Count02::Explicit`] while an m-value column or a shared dictionary's
+    /// corpus is being written, whose counts context gives no way to infer, so
+    /// every one of those streams writes its own.
     ///
     /// Read by the v2 stream-header codec to decide whether an explicit count
     /// varint must be emitted; ignored entirely for v1 layers.
     #[cfg(feature = "unstable-v2")]
-    pub(crate) count_context: u32,
+    pub(crate) count_context: Count02,
 
     /// The family the stream being written is numbered in, set by the v2 writers alongside [`Self::count_context`].
     /// Ignored for v1 layers.
@@ -196,7 +200,7 @@ impl Encoder {
             hilbert_cache: None,
             fsst_cache: HashMap::new(),
             #[cfg(feature = "unstable-v2")]
-            count_context: 0,
+            count_context: Count02::Explicit,
             #[cfg(feature = "unstable-v2")]
             family_context: Family::Int,
             alt_stack: vec![],

@@ -19,7 +19,11 @@ pub fn encode(staged: StagedLayer, cfg: EncoderConfig) -> Option<Vec<u8>> {
             enc.into_layer_bytes()
                 .expect("into_layer_bytes should not fail"),
         ),
-        Err(MltError::NotImplemented(_)) => None,
+        Err(
+            MltError::NotImplemented(_)
+            | MltError::MValuesNeedV2(_)
+            | MltError::MValuesNeedVertexCounts(_),
+        ) => None,
         Err(e) => panic!("encode should not fail: {e}"),
     }
 }

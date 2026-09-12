@@ -227,6 +227,8 @@ mod tests {
                 id: Some(id),
                 geometry: g.clone(),
                 properties: vec![],
+                #[cfg(feature = "unstable-v2")]
+                m_values: vec![],
             })
             .collect();
 
@@ -377,6 +379,8 @@ mod tests {
                     id,
                     geometry: g.clone(),
                     properties: vec![],
+                    #[cfg(feature = "unstable-v2")]
+                    m_values: vec![],
                 })
                 .collect(),
         )

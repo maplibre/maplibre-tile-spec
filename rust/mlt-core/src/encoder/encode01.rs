@@ -1,5 +1,7 @@
 //! Layer envelope and column ordering for tag `0x01` (v1) layers.
 
+#[cfg(feature = "unstable-v2")]
+use crate::MltError;
 use crate::MltResult;
 use crate::encoder::model::StagedLayer;
 use crate::encoder::property::encode::write_prop;
@@ -15,12 +17,21 @@ pub(crate) fn encode_into01(
         + 1 // geometry
         + layer.properties.len();
 
+    // v1 has nowhere to put a vertex-scoped column, so a layer with one is not
+    // writable as v1 - dropping them silently would lose data the caller staged.
+    #[cfg(feature = "unstable-v2")]
+    if !layer.m_values.is_empty() {
+        return Err(MltError::MValuesNeedV2(layer.name));
+    }
+
     let StagedLayer {
         name,
         extent,
         id,
         geometry,
         properties,
+        #[cfg(feature = "unstable-v2")]
+            m_values: _,
     } = layer;
 
     id.write_to(&mut enc, codecs)?;

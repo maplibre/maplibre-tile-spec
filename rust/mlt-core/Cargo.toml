@@ -42,6 +42,7 @@ arbitrary = ["dep:arbitrary", "geo-types/arbitrary"]
 unstable-v2 = []
 # Used internally for testing and benchmarking, not intended for public use
 __private = []
+__private-v2 = ["__private", "unstable-v2"]
 
 [dependencies]
 arbitrary = { workspace = true, optional = true }
@@ -101,6 +102,14 @@ required-features = ["__private"]
 [[test]]
 name = "tag02_fixtures"
 required-features = ["unstable-v2"]
+
+[[test]]
+name = "tag02_mvalue_memory"
+required-features = ["__private-v2"]
+
+[[test]]
+name = "tag02_mvalues"
+required-features = ["__private-v2"]
 
 [[test]]
 name = "tag02_roundtrip"
