@@ -80,6 +80,10 @@ pub(crate) enum NodePresence {
     AllPresent,
     /// A `Bool`-family presence stream follows the node type byte and the field name.
     Stream,
+    /// As [`Self::AllPresent`], for a `Str` leaf whose codes index a corpus column.
+    SharedAllPresent,
+    /// As [`Self::Stream`], for a `Str` leaf whose codes index a corpus column.
+    SharedStream,
 }
 
 impl NodePresence {
@@ -89,12 +93,32 @@ impl NodePresence {
     /// Nibble of [`Self::Stream`], already shifted into place.
     const STREAM: u8 = 0b0001_0000;
 
+    /// Nibble of [`Self::SharedAllPresent`], already shifted into place.
+    const SHARED_ALL_PRESENT: u8 = 0b0010_0000;
+
+    /// Nibble of [`Self::SharedStream`], already shifted into place.
+    const SHARED_STREAM: u8 = 0b0011_0000;
+
+    /// Whether the node's codes index a corpus column rather than its own dictionary.
+    #[must_use]
+    pub(crate) fn is_shared(self) -> bool {
+        matches!(self, Self::SharedAllPresent | Self::SharedStream)
+    }
+
+    /// Whether a presence stream follows.
+    #[must_use]
+    pub(crate) fn has_stream(self) -> bool {
+        matches!(self, Self::Stream | Self::SharedStream)
+    }
+
     /// Read a masked nibble, or [`None`] for one this version has no meaning for.
     #[must_use]
     pub(crate) fn parse(nibble: u8) -> Option<Self> {
         match nibble {
             Self::ALL_PRESENT => Some(Self::AllPresent),
             Self::STREAM => Some(Self::Stream),
+            Self::SHARED_ALL_PRESENT => Some(Self::SharedAllPresent),
+            Self::SHARED_STREAM => Some(Self::SharedStream),
             _ => None,
         }
     }
@@ -104,6 +128,8 @@ impl NodePresence {
         match self {
             Self::AllPresent => Self::ALL_PRESENT,
             Self::Stream => Self::STREAM,
+            Self::SharedAllPresent => Self::SHARED_ALL_PRESENT,
+            Self::SharedStream => Self::SHARED_STREAM,
         }
     }
 }
@@ -177,6 +203,10 @@ impl NodeType02 {
             DataType02::F64 => NodeKind02::Leaf(ValueType02::F64),
             DataType02::Str => NodeKind02::Leaf(ValueType02::Str),
         };
+        // Only a string leaf holds codes, so only it can index a corpus.
+        if presence.is_shared() && data != NodeKind02::Leaf(ValueType02::Str) {
+            return Err(err());
+        }
         Ok(Self { presence, data })
     }
 
@@ -248,6 +278,18 @@ pub(crate) enum SharedDictKind {
     Plain = 0b0000_0000,
     /// Four streams: the entry lengths, the symbol lengths, the symbol table, then the corpus.
     Fsst = 0b0001_0000,
+    /// As [`Self::Plain`], with no children of its own.
+    CorpusPlain = 0b0010_0000,
+    /// As [`Self::Fsst`], with no children of its own.
+    CorpusFsst = 0b0011_0000,
+}
+
+impl SharedDictKind {
+    /// Whether the column stores only a corpus, for nodes elsewhere to index.
+    #[must_use]
+    pub(crate) fn is_corpus_only(self) -> bool {
+        matches!(self, Self::CorpusPlain | Self::CorpusFsst)
+    }
 }
 
 impl SharedDictKind {
@@ -257,6 +299,8 @@ impl SharedDictKind {
         match nibble {
             0b0000_0000 => Some(Self::Plain),
             0b0001_0000 => Some(Self::Fsst),
+            0b0010_0000 => Some(Self::CorpusPlain),
+            0b0011_0000 => Some(Self::CorpusFsst),
             _ => None,
         }
     }
@@ -811,12 +855,14 @@ mod tests {
     )]
     #[case::plain_shared_dict(0b0000_1111, Column02::SharedDict(SharedDictKind::Plain))]
     #[case::fsst_shared_dict(0b0001_1111, Column02::SharedDict(SharedDictKind::Fsst))]
+    #[case::plain_corpus(0b0010_1111, Column02::SharedDict(SharedDictKind::CorpusPlain))]
+    #[case::fsst_corpus(0b0011_1111, Column02::SharedDict(SharedDictKind::CorpusFsst))]
     fn column_byte_names_the_shape_it_holds(#[case] byte: u8, #[case] column: Column02) {
         assert_eq!(Column02::parse(byte, ALL_SHARED).unwrap(), column);
     }
 
     #[rstest]
-    #[case::reserved_shared_dict_corpus(0b0010_1111)]
+    #[case::reserved_shared_dict_kind(0b0100_1111)]
     #[case::reserved_presence_over_a_nested_root(0b1001_1100)]
     fn column_byte_rejects_unassigned(#[case] byte: u8) {
         let err = Column02::parse(byte, ALL_SHARED).unwrap_err();
@@ -966,6 +1012,16 @@ mod tests {
     #[case::struct_node(0b0000_1100, NodePresence::AllPresent, NodeKind02::Struct)]
     #[case::optional_list_node(0b0001_1101, NodePresence::Stream, NodeKind02::List)]
     #[case::map_node(0b0000_1110, NodePresence::AllPresent, NodeKind02::Map)]
+    #[case::shared_str_leaf(
+        0b0010_1011,
+        NodePresence::SharedAllPresent,
+        NodeKind02::Leaf(ValueType02::Str)
+    )]
+    #[case::optional_shared_str_leaf(
+        0b0011_1011,
+        NodePresence::SharedStream,
+        NodeKind02::Leaf(ValueType02::Str)
+    )]
     fn node_type_byte_roundtrip(
         #[case] byte: u8,
         #[case] presence: NodePresence,
@@ -980,8 +1036,10 @@ mod tests {
     #[case::id_is_a_features_own(0b0000_0000)]
     #[case::long_id_is_a_features_own(0b0000_0001)]
     #[case::shared_dict_introduces_columns(0b0000_1111)]
-    #[case::reserved_node_presence(0b0010_0101)]
+    #[case::reserved_node_presence(0b0100_0101)]
     #[case::reserved_node_presence_top(0b1111_0101)]
+    #[case::shared_i32_leaf(0b0010_0101)]
+    #[case::shared_struct_node(0b0011_1100)]
     fn node_type_byte_rejects_what_a_node_cannot_hold(#[case] byte: u8) {
         let err = NodeType02::parse(byte).unwrap_err();
         assert!(matches!(err, MltError::ParsingColumnType(b) if b == byte));

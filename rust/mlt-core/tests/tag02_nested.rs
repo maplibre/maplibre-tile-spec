@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::ops::Range;
 
 use mlt_core::dump::{RenderOpts, annotate_tile, render};
 use mlt_core::encoder::{EncoderConfig, WireVersion};
@@ -784,4 +785,129 @@ fn a_node_presence_stream_that_is_not_a_raw_bitmap_is_rejected() {
         "{:?}",
         decode_err(&bytes)
     );
+}
+
+/// What the high nibble of every type byte in the tile means, in wire order.
+fn type_nibbles(bytes: &[u8]) -> Vec<String> {
+    let tree = annotate_tile(bytes).expect("annotate_tile");
+    tree.regions
+        .iter()
+        .filter(|r| r.label == "type")
+        .filter_map(|r| r.bits.first().map(|b| b.meaning.clone()))
+        .collect()
+}
+
+/// A layer whose string fields draw on one vocabulary, which one corpus holds.
+fn shared_vocabulary_layer(sidewalk: [Option<&str>; 4]) -> TileLayer {
+    const SURFACES: [&str; 4] = ["asphalt", "concrete", "gravel", "paving_stones"];
+    let kind = map_kind(&[
+        ("surface", leaf(PropKind::Str)),
+        ("sidewalk", leaf(PropKind::Str)),
+        ("shoulder", leaf(PropKind::Str)),
+        ("lanes", leaf(PropKind::I32)),
+    ]);
+    let geometries: Vec<Geometry<i32>> = (0..4).map(|i| point(i, i)).collect();
+    let values: Vec<NestedValue> = (0..4)
+        .map(|i| {
+            let mut fields = vec![
+                ("surface", str_value(SURFACES[i])),
+                ("shoulder", str_value(SURFACES[3 - i])),
+                ("lanes", i32_value(i32::try_from(i).expect("a small index"))),
+            ];
+            if let Some(value) = sidewalk[i] {
+                fields.push(("sidewalk", str_value(value)));
+            }
+            entries(&fields)
+        })
+        .collect();
+    nested_layer(kind, &geometries, &values)
+}
+
+#[test]
+fn string_fields_over_one_vocabulary_index_one_corpus() {
+    let layer =
+        shared_vocabulary_layer(["gravel", "asphalt", "paving_stones", "concrete"].map(Some));
+    let bytes = assert_round_trips_as_v2(&layer);
+    assert_eq!(
+        type_nibbles(&bytes),
+        [
+            "presence = AllPresent",
+            "node presence = AllPresent",
+            "node presence = SharedAllPresent",
+            "node presence = SharedAllPresent",
+            "node presence = SharedAllPresent",
+            "corpus = CorpusPlain",
+        ]
+    );
+}
+
+#[test]
+fn a_shared_leaf_that_is_null_on_a_feature_round_trips() {
+    let layer = shared_vocabulary_layer([Some("gravel"), None, Some("paving_stones"), None]);
+    let bytes = assert_round_trips_as_v2(&layer);
+    assert_eq!(
+        type_nibbles(&bytes),
+        [
+            "presence = AllPresent",
+            "node presence = AllPresent",
+            "node presence = SharedAllPresent",
+            "node presence = SharedStream",
+            "node presence = SharedAllPresent",
+            "corpus = CorpusPlain",
+        ]
+    );
+}
+
+#[test]
+fn a_corpus_index_past_the_last_corpus_is_rejected() {
+    let layer =
+        shared_vocabulary_layer(["gravel", "asphalt", "paving_stones", "concrete"].map(Some));
+    let mut bytes = layer.encode(cfg_v2()).expect("encode");
+    let (offset, len) = region(&bytes, "corpus_index", 0);
+    assert_eq!((len, bytes[offset]), (1, 0));
+    bytes[offset] = 1;
+    assert!(
+        matches!(
+            decode_err(&bytes),
+            MltError::NestedCorpusOutOfRange { index: 1, len: 1 }
+        ),
+        "{:?}",
+        decode_err(&bytes)
+    );
+}
+#[test]
+fn a_corpus_count_larger_than_the_bytes_left_is_rejected() {
+    let layer =
+        shared_vocabulary_layer(["gravel", "asphalt", "paving_stones", "concrete"].map(Some));
+    let bytes = layer.encode(cfg_v2()).expect("encode");
+    let (offset, len) = region(&bytes, "corpus_count", 0);
+    assert_eq!((len, bytes[offset]), (1, 1));
+    let remaining = bytes.len() - offset - 1;
+    let bytes = splice_layer(&bytes, offset..offset + 1, &[0xfb, 0xbf, 0xfb, 0x08]);
+    assert_eq!(
+        decode_err(&bytes).to_string(),
+        format!("buffer underflow: needed 18800635 bytes, but only {remaining} remain")
+    );
+}
+
+fn splice_layer(bytes: &[u8], range: Range<usize>, with: &[u8]) -> Vec<u8> {
+    let size_len = bytes
+        .iter()
+        .position(|b| b & 0x80 == 0)
+        .expect("a size varint")
+        + 1;
+    let mut body = bytes[size_len..].to_vec();
+    body.splice(
+        range.start - size_len..range.end - size_len,
+        with.iter().copied(),
+    );
+    let mut size = body.len();
+    let mut out = Vec::new();
+    while size >= 0x80 {
+        out.push(u8::try_from(size & 0x7f).expect("seven bits") | 0x80);
+        size >>= 7;
+    }
+    out.push(u8::try_from(size).expect("seven bits"));
+    out.extend_from_slice(&body);
+    out
 }
