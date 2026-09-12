@@ -176,18 +176,6 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_fastpfor()
         .geo(poly_collinear())
         .write(w, "poly_collinear_fpf");
-    geo_varint()
-        .tessellate()
-        .geo(poly_collinear())
-        // is the same in v1 as without, tessellation is only a properly specified feature in v2
-        .no_v1()
-        .write(w, "poly_collinear_tes");
-    geo_fastpfor()
-        .tessellate()
-        .geo(poly_collinear())
-        // is the same in v1 as without, tessellation is only a properly specified feature in v2
-        .no_v1()
-        .write(w, "poly_collinear_fpf_tes");
 
     geo_varint()
         .geo(poly_self_intersect())

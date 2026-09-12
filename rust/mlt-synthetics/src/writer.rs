@@ -103,7 +103,7 @@ impl SynthWriter {
                 .join("\n- ")
         );
         println!(
-            "Writing rust-only files to\n- {}",
+            "Writing rust-only files to\n- {}\n",
             out_dirs
                 .iter()
                 .map(|p| format!("{}", p.display()))
@@ -149,17 +149,12 @@ impl SynthWriter {
     /// or `Err` on any failure.
     #[expect(clippy::panic_in_result_fn)]
     fn write_int(&mut self, layer: &Layer, names: [&str; WIRE_VERSIONS_CNT]) -> SynthResult<()> {
-        let versions = if layer.versions() {
-            [WireVersion::V01, WireVersion::V02].as_slice()
-        } else {
-            [WireVersion::V01].as_slice()
-        };
         for (((ref_dir, out_dir), &version), name) in self
             .ref_dirs
             .clone()
             .into_iter()
             .zip(self.out_dirs.clone())
-            .zip(versions)
+            .zip(layer.versions())
             .zip(names)
         {
             let (name, mut is_rust_specific) = match name.strip_suffix("-rust") {
