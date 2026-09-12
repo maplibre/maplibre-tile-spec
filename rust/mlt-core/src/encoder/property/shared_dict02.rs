@@ -10,7 +10,7 @@ use crate::codecs::fsst::{compress_fsst_bytes, compress_fsst_with};
 use crate::decoder::stream::header02::{Count02, Family, StrLayout};
 use crate::decoder::{Column02, ColumnType02, DataType02, DictLayout, Presence02, SharedDictKind};
 use crate::encoder::encode02::{SharedPresence, write_presence_bits};
-use crate::encoder::model::StreamCtx;
+use crate::encoder::model::{StrAt, StreamCtx};
 use crate::encoder::property::shared_dict::collect_staged_shared_dict_spans;
 use crate::encoder::property::strings::{
     recode, sort_dictionary, suffix_parts, write_blob02, write_dict_tail02, write_front_lengths02,
@@ -61,12 +61,12 @@ impl Codecs {
         // Each shape writes the column's type byte, the tail its corpus is stored as, then the children.
         alt.with(|enc| {
             begin_shared_dict02(enc, SharedDictKind::Plain, shared_dict)?;
-            write_dict_tail02(&plain.entries, name, enc, self)?;
+            write_dict_tail02(&plain.entries, StrAt::flat(name), enc, self)?;
             write_children02(shared_dict, &plain.codes, features, shared, enc, self)
         })?;
         alt.with(|enc| {
             begin_shared_dict02(enc, SharedDictKind::Plain, shared_dict)?;
-            write_front_lengths02(&front, name, enc, self)?;
+            write_front_lengths02(&front, StrAt::flat(name), enc, self)?;
             write_blob02(&front.suffixes, DictLayout::FrontCoded, enc)?;
             write_children02(shared_dict, &sorted_codes, features, shared, enc, self)
         })?;
@@ -75,15 +75,15 @@ impl Codecs {
                 begin_shared_dict02(enc, SharedDictKind::Fsst, shared_dict)?;
                 let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), name);
                 self.write_int_stream(&raw.value_lengths, &ctx, enc)?;
-                write_fsst_tail02(&raw.blob, DictLayout::Plain, name, enc, self)?;
+                write_fsst_tail02(&raw.blob, DictLayout::Plain, StrAt::flat(name), enc, self)?;
                 write_children02(shared_dict, &plain.codes, features, shared, enc, self)
             })?;
         }
         if let Some(ref blob) = front_fsst {
             alt.with(|enc| {
                 begin_shared_dict02(enc, SharedDictKind::Fsst, shared_dict)?;
-                write_front_lengths02(&front, name, enc, self)?;
-                write_fsst_tail02(blob, DictLayout::FrontCoded, name, enc, self)?;
+                write_front_lengths02(&front, StrAt::flat(name), enc, self)?;
+                write_fsst_tail02(blob, DictLayout::FrontCoded, StrAt::flat(name), enc, self)?;
                 write_children02(shared_dict, &sorted_codes, features, shared, enc, self)
             })?;
         }

@@ -39,6 +39,8 @@
 //!                                   feature, counted in its own header
 //! ```
 
+use std::borrow::Cow;
+
 use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
 use bitvec::view::BitView as _;
@@ -47,17 +49,18 @@ use usize_cast::IntoUsize as _;
 use crate::LazyParsed::Raw;
 use crate::MltError::{BufferUnderflow, MissingLayerName, TrailingLayerData};
 use crate::codecs::varint::parse_varint;
+use crate::decoder::nested::parse_nested;
 use crate::decoder::stream::header02;
 use crate::decoder::stream::header02::{Count02, HAS_EXPLICIT_COUNT, StrLayout, StreamCtx02};
 use crate::decoder::{
-    Column02, ColumnKind02, ColumnType02, DataType02, DictLayout, DictionaryType, FloatLogical,
-    GeoLayout, Id, IdWidth02, Layer01, LayerLayout, LengthType, LogicalEncoding, Presence02,
-    RawFloats, RawFloatsEncoding, RawFsstData, RawGeometry, RawId, RawIdValue, RawMValue,
-    RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding,
-    RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding, SharedDictKind, ValueType02,
-    ValuesColumn02,
+    Column02, ColumnKind02, ColumnType02, DataType02, Decoder, DictLayout, DictionaryType,
+    FloatLogical, GeoLayout, Id, IdWidth02, Layer01, LayerLayout, LengthType, LogicalEncoding,
+    MValues, Nested, Presence02, RawFloats, RawFloatsEncoding, RawFsstData, RawGeometry, RawId,
+    RawIdValue, RawMValue, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
+    RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding,
+    SharedDictKind, ValueType02, ValuesColumn02,
 };
-use crate::tile::Extent;
+use crate::tile::{ColumnRole, Extent, reject_taken_name};
 use crate::utils::{SetOptionOnce as _, parse_string, parse_u8, take};
 use crate::{Lazy, MltError, MltRefResult, MltResult, Parser};
 
@@ -95,6 +98,9 @@ pub(crate) fn parse_layer02<'a>(
 
     let mut id_column: Option<Id> = None;
     let mut properties = Vec::with_capacity(column_count.into_usize());
+    let mut nested: Vec<Nested<'a, Lazy>> = Vec::new();
+    // A layer has one namespace of column names, so every name is kept with the kind that holds it.
+    let mut column_names: Vec<(Cow<'a, str>, ColumnRole)> = Vec::new();
     #[cfg(fuzzing)]
     let mut layer_order = vec![crate::decoder::fuzzing::LayerOrdering::Geometry];
 
@@ -105,6 +111,11 @@ pub(crate) fn parse_layer02<'a>(
             Column02::SharedDict(kind) => {
                 let shared_dict;
                 (input, shared_dict) = parse_shared_dict02(input, kind, &cols, parser)?;
+                for child in &shared_dict.children {
+                    let name = format!("{}{}", shared_dict.name, child.name);
+                    reject_column_name(&column_names, &name, ColumnRole::Property)?;
+                    column_names.push((Cow::Owned(name), ColumnRole::Property));
+                }
                 properties.push(Raw(RawProperty::SharedDict(shared_dict)));
                 #[cfg(fuzzing)]
                 layer_order.push(crate::decoder::fuzzing::LayerOrdering::Property);
@@ -134,6 +145,8 @@ pub(crate) fn parse_layer02<'a>(
             ColumnKind02::Values(column) => {
                 #[cfg(fuzzing)]
                 layer_order.push(crate::decoder::fuzzing::LayerOrdering::Property);
+                reject_column_name(&column_names, name, ColumnRole::Property)?;
+                column_names.push((Cow::Borrowed(name), ColumnRole::Property));
                 let values;
                 (input, values) = parse_column_values(
                     input,
@@ -145,13 +158,23 @@ pub(crate) fn parse_layer02<'a>(
                 )?;
                 properties.push(Raw(values.into()));
             }
+            ColumnKind02::Nested(column) => {
+                #[cfg(fuzzing)]
+                layer_order.push(crate::decoder::fuzzing::LayerOrdering::Property);
+                reject_column_name(&column_names, name, ColumnRole::Nested)?;
+                column_names.push((Cow::Borrowed(name), ColumnRole::Nested));
+                let tree;
+                (input, tree) =
+                    parse_nested(input, name, presence, column.root, data_count, parser)?;
+                nested.push(Raw(tree));
+            }
         }
     }
 
     // ── M-value section ───────────────────────────────────────────────────
     let m_values;
     (input, m_values) = if layout.m_values {
-        parse_m_values(input, &cols, parser)?
+        parse_m_values(input, &cols, &mut column_names, parser)?
     } else {
         (input, Vec::new())
     };
@@ -165,10 +188,24 @@ pub(crate) fn parse_layer02<'a>(
         id: id_column,
         geometry: Raw(geometry),
         properties,
+        nested,
         m_values,
         #[cfg(fuzzing)]
         layer_order,
     })
+}
+
+/// Reject a column whose name another column of this layer already holds.
+fn reject_column_name(
+    columns: &[(Cow<'_, str>, ColumnRole)],
+    name: &str,
+    role: ColumnRole,
+) -> MltResult<()> {
+    reject_taken_name(
+        name,
+        role,
+        columns.iter().map(|(seen, taken_by)| (&**seen, *taken_by)),
+    )
 }
 
 /// Container that holds the streams its value type names.
@@ -176,7 +213,8 @@ pub(crate) fn parse_layer02<'a>(
 /// Every column of values is one of these, and a column of any of the ten value
 /// types is one of them, so both the properties and the m-values of a layer are
 /// built from it without either having to name a type the other holds.
-enum ColumnValues<'a> {
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum ColumnValues<'a> {
     Bool(RawScalar<'a>),
     I8(RawScalar<'a>),
     U8(RawScalar<'a>),
@@ -203,6 +241,14 @@ impl<'a> From<ColumnValues<'a>> for RawProperty<'a> {
             ColumnValues::F64(v) => Self::F64(v),
             ColumnValues::Str(v) => Self::Str(v),
         }
+    }
+}
+
+impl<'a> ColumnValues<'a> {
+    /// Decode into the flat values the container holds, dropping the presence a
+    /// nested leaf keeps in its own stream rather than in its column.
+    pub(super) fn decode(self, dec: &mut Decoder) -> MltResult<MValues<'a>> {
+        Ok(crate::Decode::decode(RawMValue::from(self), dec)?.into_values())
     }
 }
 
@@ -243,7 +289,7 @@ fn parse_column_header<'a>(
 ///
 /// They differ only in `count`: a counted column's leading stream takes its count
 /// from the envelope, an m-value column's has to write one.
-fn parse_column_values<'a>(
+pub(super) fn parse_column_values<'a>(
     input: &'a [u8],
     values: ValueType02,
     name: &'a str,
@@ -308,6 +354,7 @@ fn parse_column_values<'a>(
 fn parse_m_values<'a>(
     input: &'a [u8],
     cols: &LayerCols<'a>,
+    column_names: &mut Vec<(Cow<'a, str>, ColumnRole)>,
     parser: &mut Parser,
 ) -> MltRefResult<'a, Vec<crate::decoder::MValueColumn<'a, Lazy>>> {
     let (mut input, count) = parse_varint::<u32>(input)?;
@@ -322,7 +369,6 @@ fn parse_m_values<'a>(
 
     let mut m_values: Vec<crate::decoder::MValueColumn<'a, Lazy>> =
         Vec::with_capacity(count.into_usize());
-    let mut names: Vec<&str> = Vec::with_capacity(count.into_usize());
     for _ in 0..count {
         let typ_byte;
         (input, typ_byte) = parse_u8(input)?;
@@ -330,10 +376,8 @@ fn parse_m_values<'a>(
         let name;
         let presence;
         (input, name, presence) = parse_column_header(input, column.into(), cols)?;
-        if names.contains(&name) {
-            return Err(MltError::DuplicateMValueName(name.to_string()));
-        }
-        names.push(name);
+        reject_column_name(column_names, name, ColumnRole::MValue)?;
+        column_names.push((Cow::Borrowed(name), ColumnRole::MValue));
 
         let values;
         (input, values) = parse_column_values(
@@ -474,7 +518,7 @@ fn blob_layout(input: &[u8]) -> MltResult<DictLayout> {
 ///
 /// Every stream but that leading one carries an explicit count, or, for the byte
 /// blobs, none at all, so the context only ever matters for the leading stream.
-fn parse_strings<'a>(
+pub(super) fn parse_strings<'a>(
     input: &'a [u8],
     name: &'a str,
     presence: RawPresence<'a>,

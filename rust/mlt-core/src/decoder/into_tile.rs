@@ -7,10 +7,10 @@
 
 use crate::decoder::{Layer01, ParsedLayer01, ParsedProperty, PropValueRef};
 #[cfg(feature = "unstable-v2")]
-use crate::decoder::{MValueSpans, ParsedMValue};
+use crate::decoder::{MValueSpans, ParsedMValue, ParsedNested};
 use crate::errors::AsMltError as _;
 #[cfg(feature = "unstable-v2")]
-use crate::tile::MValue;
+use crate::tile::{MValue, NestedKind, NestedValue};
 use crate::tile::{PropValue, TileFeature, TileLayer};
 use crate::{Decoder, LendingIterator, MltResult};
 
@@ -25,6 +25,10 @@ impl ParsedLayer01<'_> {
         let col_nulls = typed_nulls(&self.properties);
         #[cfg(feature = "unstable-v2")]
         let m_names: Vec<String> = self.m_values.iter().map(|m| m.name().to_string()).collect();
+        #[cfg(feature = "unstable-v2")]
+        let nested_names: Vec<String> = self.nested.iter().map(|n| n.name().to_string()).collect();
+        #[cfg(feature = "unstable-v2")]
+        let nested_kinds: Vec<NestedKind> = self.nested.iter().map(ParsedNested::kind).collect();
         // One walk per m-value column, stepped alongside the features. Cutting the
         // columns up front instead would cost a span per feature per column, which is
         // memory the tile declares rather than memory it carries.
@@ -33,6 +37,8 @@ impl ParsedLayer01<'_> {
         #[cfg(feature = "unstable-v2")]
         m_spans.extend(self.m_values.iter().map(|m| m.spans(&self.geometry)));
         let mut features = dec.alloc::<TileFeature>(self.feature_count())?;
+        #[cfg(feature = "unstable-v2")]
+        let mut index = 0_usize;
         let mut feat_iter = self.iter_features();
         while let Some(feat) = feat_iter.next() {
             let feat = feat?;
@@ -52,12 +58,20 @@ impl ParsedLayer01<'_> {
                 properties: values,
                 #[cfg(feature = "unstable-v2")]
                 m_values: m_values_of(&self.m_values, &mut m_spans, dec)?,
+                #[cfg(feature = "unstable-v2")]
+                nested: nested_of(&self.nested, index, dec)?,
             });
+            #[cfg(feature = "unstable-v2")]
+            {
+                index += 1;
+            }
         }
 
         let layer = TileLayer::from_parts(name, extent, names, features)?;
         #[cfg(feature = "unstable-v2")]
-        let layer = layer.with_m_value_names(m_names)?;
+        let layer = layer
+            .with_m_value_names(m_names)?
+            .with_nested(nested_names, nested_kinds)?;
         Ok(layer)
     }
 }
@@ -86,6 +100,22 @@ fn m_values_of(
             dec.consume(u32::try_from(column.values().row_bytes(span)).or_overflow()?)?;
         }
         values.push(column.values().row(column.name(), span)?);
+    }
+    Ok(values)
+}
+
+/// The nested values of feature `index`, one per column, charged against `dec`.
+#[cfg(feature = "unstable-v2")]
+fn nested_of(
+    columns: &[ParsedNested<'_>],
+    index: usize,
+    dec: &mut Decoder,
+) -> MltResult<Vec<NestedValue>> {
+    let mut values = dec.alloc::<NestedValue>(columns.len())?;
+    for column in columns {
+        let value = column.row(index)?;
+        dec.consume(u32::try_from(value.heap_bytes()).or_overflow()?)?;
+        values.push(value);
     }
     Ok(values)
 }

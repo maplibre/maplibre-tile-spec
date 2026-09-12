@@ -2,8 +2,6 @@
 
 --8<-- "live-spec-note"
 
-[TOC]
-
 ---
 
 This page describes the MLT data model.

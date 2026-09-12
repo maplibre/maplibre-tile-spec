@@ -324,6 +324,9 @@ pub enum LengthType {
     Triangles = 0b0000_0100,
     Symbol = 0b0000_0101,
     Dictionary = 0b0000_0110,
+    /// A nested list or map node's lengths, one per present value of the node.
+    #[cfg(feature = "unstable-v2")]
+    Nested = 0b0000_0111,
 }
 
 /// How should the stream be interpreted at the physical level (first pass of decoding)

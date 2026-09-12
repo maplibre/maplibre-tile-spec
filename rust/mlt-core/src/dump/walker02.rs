@@ -11,15 +11,17 @@ use usize_cast::IntoUsize as _;
 use super::model::{BitField, BlobInfo, DecodeHint};
 use super::walker::Walker;
 use crate::codecs::varint::parse_varint;
+use crate::decoder::nested::presence_popcount;
 use crate::decoder::stream::header02;
 use crate::decoder::stream::header02::{
     Count02, Family, HAS_EXPLICIT_COUNT, StrLayout, StreamCtx02, describe_encoding,
 };
 use crate::decoder::{
-    Column02, ColumnType02, DataType02, DictionaryType, GeoLayout, LayerLayout, LengthType,
-    Presence02, SharedDictKind, StreamType, ValuesColumn02,
+    Column02, ColumnType02, DataType02, DictionaryType, GeoLayout, Interior02, LayerLayout,
+    LengthType, NodeKind02, NodePresence, NodeType02, Presence02, SharedDictKind, StreamType,
+    ValuesColumn02,
 };
-use crate::tile::Extent;
+use crate::tile::{Extent, MAX_NESTED_DEPTH};
 use crate::utils::{parse_string, parse_u8, take};
 use crate::wire::{
     FloatLogical, IntEncoding, LogicalEncoding, StreamMeta, ValueKind, VertexLogical,
@@ -204,8 +206,132 @@ impl<'a> Walker<'a> {
             shared,
         };
         let (input, presence_count) = self.walk_column_header02(input, column, typ)?;
-        let input = self.walk_value_streams02(input, typ, Count02::Implied(presence_count))?;
+        let input = match nested_root02(typ.data) {
+            // A nested column's body is a tree of nodes rather than a stream set.
+            Some(root) => {
+                let count = if root.has_lengths() {
+                    Count02::Explicit
+                } else {
+                    Count02::Implied(presence_count)
+                };
+                self.walk_nested_body02(input, root, count, 1)?
+            }
+            None => self.walk_value_streams02(input, typ, Count02::Implied(presence_count))?,
+        };
         self.close(ci, input);
+        Ok(input)
+    }
+
+    /// Mirror `parse_interior`: the body of one interior node, in wire order.
+    fn walk_nested_body02(
+        &mut self,
+        input: &'a [u8],
+        kind: Interior02,
+        count: Count02,
+        depth: usize,
+    ) -> MltResult<&'a [u8]> {
+        match kind {
+            Interior02::Struct => {
+                let (mut input, field_count) =
+                    self.field(input, "field_count", parse_varint::<u32>, |c| {
+                        Some(c.to_string())
+                    })?;
+                if field_count == 0 {
+                    return Err(MltError::EmptyStructNode);
+                }
+                for i in 0..field_count {
+                    input = self.walk_node02(input, &format!("field[{i}]"), true, count, depth)?;
+                }
+                Ok(input)
+            }
+            Interior02::List => {
+                let ctx = StreamCtx02::NestedLengths;
+                let (input, _) =
+                    self.walk_stream02(input, ctx, count, "lengths", DecodeHint::U32)?;
+                self.walk_node02(input, "element", false, Count02::Explicit, depth)
+            }
+            Interior02::Map => {
+                let ctx = StreamCtx02::NestedLengths;
+                let (input, _) =
+                    self.walk_stream02(input, ctx, count, "lengths", DecodeHint::U32)?;
+                let ki = self.open(input, "keys".to_string());
+                let input = self.walk_strings02(input, Count02::Explicit)?;
+                self.close(ki, input);
+                self.walk_node02(input, "value", false, Count02::Explicit, depth)
+            }
+        }
+    }
+
+    /// Mirror `parse_node`: a node's type byte, its name, its presence stream, then its body.
+    fn walk_node02(
+        &mut self,
+        input: &'a [u8],
+        label: &str,
+        named: bool,
+        parent_count: Count02,
+        depth: usize,
+    ) -> MltResult<&'a [u8]> {
+        if depth >= MAX_NESTED_DEPTH {
+            return Err(MltError::NestedTooDeep(depth + 1));
+        }
+        let ni = self.open(input, label.to_string());
+        let (_, typ_byte) = parse_u8(input)?;
+        let typ = NodeType02::parse(typ_byte)?;
+        let (mut input, _) = self.byte_field(
+            input,
+            "type",
+            |b| {
+                format!(
+                    "0x{b:02X} {:?} {:?}",
+                    typ.presence,
+                    DataType02::from(typ.data)
+                )
+            },
+            node_type_bits02,
+        )?;
+        let mut name_suffix = String::new();
+        if named {
+            let name;
+            (input, name) = self.field(input, "name", parse_string, |s| Some(format!("{s:?}")))?;
+            name_suffix = format!(" {name:?}");
+        }
+        self.relabel(
+            ni,
+            format!("{label} {:?}{name_suffix}", DataType02::from(typ.data)),
+        );
+
+        // A list or a map ends the implied counts, its own streams included.
+        let node_count = match typ.data.interior() {
+            Some(kind) if kind.has_lengths() => Count02::Explicit,
+            _ => parent_count,
+        };
+        let mut present = node_count;
+        if typ.presence == NodePresence::Stream {
+            let ctx = StreamCtx02::NestedPresence;
+            let (_, stream) = header02::parse_stream(input, ctx, node_count, &mut self.parser)?;
+            let popcount = presence_popcount(&stream)?;
+            (input, _) =
+                self.walk_stream02(input, ctx, node_count, "present", DecodeHint::PackedBits)?;
+            if node_count != Count02::Explicit {
+                present = Count02::Implied(popcount);
+            }
+        }
+        let input = match typ.data {
+            NodeKind02::Leaf(values) => {
+                let typ = ColumnType02::new(Presence02::AllPresent, values.into());
+                self.walk_value_streams02(input, typ, present)?
+            }
+            NodeKind02::Struct => {
+                self.walk_nested_body02(input, Interior02::Struct, present, depth + 1)?
+            }
+            NodeKind02::List => {
+                self.walk_nested_body02(input, Interior02::List, present, depth + 1)?
+            }
+            NodeKind02::Map => {
+                self.walk_nested_body02(input, Interior02::Map, present, depth + 1)?
+            }
+        };
+        self.close(ni, input);
         Ok(input)
     }
 
@@ -677,6 +803,55 @@ fn shared_dict_type_bits02(byte: u8) -> Vec<BitField> {
     ]
 }
 
+/// The interior a nested column's root data type names, or [`None`] for a flat column.
+fn nested_root02(typ: DataType02) -> Option<Interior02> {
+    use DataType02 as D;
+    match typ {
+        D::Struct => Some(Interior02::Struct),
+        D::List => Some(Interior02::List),
+        D::Map => Some(Interior02::Map),
+        D::Id
+        | D::LongId
+        | D::Bool
+        | D::I8
+        | D::U8
+        | D::I32
+        | D::U32
+        | D::I64
+        | D::U64
+        | D::F32
+        | D::F64
+        | D::Str => None,
+    }
+}
+
+/// Bit breakdown of a nested node's type byte: node presence (7-4), data type (3-0).
+fn node_type_bits02(byte: u8) -> Vec<BitField> {
+    let (presence, data) = ColumnType02::fields(byte);
+    let name_pr = NodePresence::parse(presence).map_or_else(
+        || format!("reserved({})", presence >> 4),
+        |p| format!("{p:?}"),
+    );
+    let name_dt = NodeType02::parse(byte).map_or_else(
+        |_| format!("reserved({data})"),
+        |t| format!("{:?}", DataType02::from(t.data)),
+    );
+    vec![
+        BitField {
+            hi: 7,
+            lo: 4,
+            raw: u64::from(presence >> 4),
+            meaning: format!("node presence = {name_pr}"),
+        },
+        BitField {
+            hi: 3,
+            lo: 0,
+            raw: u64::from(data),
+            meaning: format!("data type = {name_dt}"),
+        },
+    ]
+}
+
 /// Decode hint for a column's data stream, keyed by the data type nibble.
 fn hint_for(typ: DataType02) -> DecodeHint {
     use DataType02 as D;
@@ -688,7 +863,8 @@ fn hint_for(typ: DataType02) -> DecodeHint {
         D::LongId | D::U64 => DecodeHint::U64,
         D::F32 => DecodeHint::F32,
         D::F64 => DecodeHint::F64,
-        D::Str => DecodeHint::Bytes,
+        // A nested column has no data stream of its own, only the tree below it.
+        D::Str | D::Struct | D::List | D::Map => DecodeHint::Bytes,
     }
 }
 

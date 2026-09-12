@@ -9,14 +9,20 @@
 //! Conversion from [`TileLayer`] to [`StagedLayer`] is done via
 //! [`StagedLayer::from_tile`] with pre-computed layer statistics.
 
+#[cfg(feature = "unstable-v2")]
+use std::collections::BTreeMap;
+
 use crate::decoder::GeometryValues;
 use crate::encoder::model::{CurveParams, StagedLayer};
 use crate::encoder::optimizer::{LayerStats, Presence, PropertyTypedStats, SharedDictRole};
 use crate::encoder::{SortStrategy, StagedId, StagedProperty, StagedSharedDict};
 #[cfg(feature = "unstable-v2")]
-use crate::encoder::{StagedMValue, StagedMValues};
+use crate::encoder::{
+    StagedInterior, StagedLeaf, StagedList, StagedMValue, StagedNested, StagedNode, StagedStruct,
+    StagedValues,
+};
 #[cfg(feature = "unstable-v2")]
-use crate::tile::{MValue, PropKind};
+use crate::tile::{MValue, NestedKind, NestedValue, PropKind};
 use crate::tile::{PropValue, TileFeature, TileLayer};
 
 impl StagedLayer {
@@ -49,6 +55,10 @@ impl StagedLayer {
             m_value_names,
             #[cfg(feature = "unstable-v2")]
             m_value_kinds,
+            #[cfg(feature = "unstable-v2")]
+            nested_names,
+            #[cfg(feature = "unstable-v2")]
+            nested_kinds,
             mut features,
         } = source;
         let mut geometry = if tessellate {
@@ -103,6 +113,8 @@ impl StagedLayer {
         }
 
         #[cfg(feature = "unstable-v2")]
+        let nested = build_nested(&nested_names, &nested_kinds, &features);
+        #[cfg(feature = "unstable-v2")]
         let m_values = build_m_values(&m_value_names, &m_value_kinds, &mut features);
 
         Self {
@@ -113,6 +125,8 @@ impl StagedLayer {
             properties,
             #[cfg(feature = "unstable-v2")]
             m_values,
+            #[cfg(feature = "unstable-v2")]
+            nested,
         }
     }
 }
@@ -134,7 +148,7 @@ fn build_m_values(
                 MValue::$variant(run) => Some(run),
                 _ => None,
             });
-            (presence, StagedMValues::$variant(values))
+            (presence, StagedValues::$variant(values))
         }};
     }
 
@@ -186,6 +200,119 @@ fn take_column<T>(
         values.extend(run.take().into_iter().flatten());
     }
     (presence, values)
+}
+
+/// Shred each nested column out of the features, in the row order the sort left them in.
+///
+/// A map is shredded as a struct here, whichever of the two the writer then picks.
+#[cfg(feature = "unstable-v2")]
+fn build_nested(
+    names: &[String],
+    kinds: &[NestedKind],
+    features: &[TileFeature],
+) -> Vec<StagedNested> {
+    let mut columns = Vec::with_capacity(names.len());
+    for (index, (name, kind)) in names.iter().zip(kinds).enumerate() {
+        let inputs: Vec<Option<&NestedValue>> =
+            features.iter().map(|f| f.nested.get(index)).collect();
+        let StagedNode::Interior(root) = shred(kind, &inputs) else {
+            unreachable!("a nested column's root is never a leaf")
+        };
+        columns.push(StagedNested::new(name.clone(), root));
+    }
+    columns
+}
+
+/// Shred one node's worth of values, one per value its parent hands it.
+///
+/// An input that is missing or null clears the node's presence bit and contributes
+/// nothing below it, which is the whole of how a nested value is null.
+#[cfg(feature = "unstable-v2")]
+fn shred(kind: &NestedKind, inputs: &[Option<&NestedValue>]) -> StagedNode {
+    let present = |value: Option<&NestedValue>| value.is_some_and(|v| !v.is_null());
+    let mask: Vec<bool> = inputs.iter().map(|value| present(*value)).collect();
+    let presence = if mask.iter().all(|&bit| bit) {
+        None
+    } else {
+        Some(mask)
+    };
+    let dense: Vec<&NestedValue> = inputs
+        .iter()
+        .copied()
+        .filter(|value| present(*value))
+        .flatten()
+        .collect();
+
+    match kind {
+        NestedKind::Leaf(leaf) => {
+            StagedNode::Leaf(StagedLeaf::new(presence, leaf_values(*leaf, &dense)))
+        }
+        NestedKind::List(element) => {
+            let mut lengths = Vec::with_capacity(dense.len());
+            let mut items: Vec<Option<&NestedValue>> = Vec::new();
+            for value in &dense {
+                let NestedValue::List(Some(list)) = value else {
+                    continue;
+                };
+                lengths.push(u32::try_from(list.len()).unwrap_or(u32::MAX));
+                items.extend(list.iter().map(Some));
+            }
+            StagedNode::Interior(StagedInterior::List(StagedList::new(
+                presence,
+                lengths,
+                shred(element, &items),
+            )))
+        }
+        NestedKind::Map(fields) => {
+            let entries: Vec<&BTreeMap<String, NestedValue>> = dense
+                .iter()
+                .filter_map(|value| match value {
+                    NestedValue::Map(entries) => entries.as_ref(),
+                    NestedValue::Leaf(_) | NestedValue::List(_) => None,
+                })
+                .collect();
+            let fields = fields
+                .iter()
+                .map(|(key, kind)| {
+                    let values: Vec<Option<&NestedValue>> =
+                        entries.iter().map(|entry| entry.get(key)).collect();
+                    (key.clone(), shred(kind, &values))
+                })
+                .collect::<Vec<_>>();
+            StagedNode::Interior(StagedInterior::Struct(StagedStruct::new(presence, fields)))
+        }
+    }
+}
+
+/// Gather a leaf's non-null values into the staged column that holds its type.
+#[cfg(feature = "unstable-v2")]
+fn leaf_values(kind: PropKind, dense: &[&NestedValue]) -> StagedValues {
+    /// Pick the values of one type out of the leaves that hold them.
+    macro_rules! leaf {
+        ($variant:ident) => {
+            StagedValues::$variant(
+                dense
+                    .iter()
+                    .filter_map(|value| match value {
+                        NestedValue::Leaf(PropValue::$variant(Some(v))) => Some(v.clone()),
+                        _ => None,
+                    })
+                    .collect(),
+            )
+        };
+    }
+    match kind {
+        PropKind::Bool => leaf!(Bool),
+        PropKind::I8 => leaf!(I8),
+        PropKind::U8 => leaf!(U8),
+        PropKind::I32 => leaf!(I32),
+        PropKind::U32 => leaf!(U32),
+        PropKind::I64 => leaf!(I64),
+        PropKind::U64 => leaf!(U64),
+        PropKind::F32 => leaf!(F32),
+        PropKind::F64 => leaf!(F64),
+        PropKind::Str => leaf!(Str),
+    }
 }
 
 fn shared_dict_columns(stats: &LayerStats) -> Vec<Vec<usize>> {
