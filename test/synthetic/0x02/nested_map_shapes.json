@@ -1,0 +1,79 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "tags": {
+          "de": "berg",
+          "en": "hill",
+          "fr": "mont"
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "tags": {
+          "de": "see",
+          "fr": "lac"
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11,
+          52
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "tags": {
+          "en": "sea",
+          "fr": "mer"
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          71,
+          72
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "tags": {
+          "de": "fluss",
+          "en": "river",
+          "fr": "riviere"
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          61,
+          22
+        ]
+      }
+    }
+  ]
+}

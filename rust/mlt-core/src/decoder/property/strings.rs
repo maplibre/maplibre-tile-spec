@@ -320,6 +320,21 @@ impl<'a> RawStrings<'a> {
         }
     }
 
+    /// How many values this column holds, off whichever of its streams counts them.
+    ///
+    /// The leading stream is one value per string in every layout: its lengths
+    /// where the strings are stored one each, its codes where they are pooled.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub(crate) fn value_count(&self) -> u32 {
+        match &self.encoding {
+            RawStringsEncoding::Plain(plain) => plain.lengths.meta.num_values,
+            RawStringsEncoding::FsstPlain(fsst) => fsst.lengths.meta.num_values,
+            RawStringsEncoding::Dictionary { offsets, .. }
+            | RawStringsEncoding::FsstDictionary { offsets, .. } => offsets.meta.num_values,
+        }
+    }
+
     /// Decode string property from its encoded column.
     pub fn decode(self, dec: &mut Decoder) -> MltResult<ParsedStrings<'a>> {
         let name = self.name;

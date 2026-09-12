@@ -11,7 +11,9 @@ use usize_cast::IntoUsize as _;
 use super::model::{BitField, BlobInfo, DecodeHint};
 use super::walker::Walker;
 use crate::codecs::varint::parse_varint;
-use crate::decoder::nested::presence_popcount;
+use crate::decoder::nested::{
+    RowShapes, parse_row_shapes, presence_popcount, reject_shaped_child_presence,
+};
 use crate::decoder::stream::header02;
 use crate::decoder::stream::header02::{
     Count02, Family, HAS_EXPLICIT_COUNT, StrLayout, StreamCtx02, describe_encoding,
@@ -215,8 +217,19 @@ impl<'a> Walker<'a> {
                 } else {
                     Count02::Implied(presence_count)
                 };
+                // A root has no node type byte, so the shapes bit rides in one of its own.
+                let mut input = input;
+                let per_row = input.first() == Some(&NodePresence::SHAPES);
+                if per_row {
+                    (input, _) = self.byte_field(
+                        input,
+                        "shapes",
+                        |b| format!("0x{b:02X} children coded per row"),
+                        root_shapes_bits02,
+                    )?;
+                }
                 self.shared_leaves = 0;
-                let mut input = self.walk_nested_body02(input, root, count, 1)?;
+                input = self.walk_nested_body02(input, root, count, per_row, "", 1)?;
                 if self.shared_leaves > 0 {
                     let corpus_count;
                     (input, corpus_count) =
@@ -306,11 +319,15 @@ impl<'a> Walker<'a> {
     }
 
     /// Mirror `parse_interior`: the body of one interior node, in wire order.
+    ///
+    /// `per_row` says the node codes its children's structure as one shape id per row.
     fn walk_nested_body02(
         &mut self,
         input: &'a [u8],
         kind: Interior02,
         count: Count02,
+        per_row: bool,
+        path: &str,
         depth: usize,
     ) -> MltResult<&'a [u8]> {
         match kind {
@@ -322,27 +339,87 @@ impl<'a> Walker<'a> {
                 if field_count == 0 {
                     return Err(MltError::EmptyStructNode);
                 }
+                let mut shapes = None;
+                if per_row {
+                    let found;
+                    (input, found) = self.walk_row_shapes02(input, field_count, count, path)?;
+                    shapes = Some(found);
+                }
                 for i in 0..field_count {
+                    // A shape-coded struct holds every field's presence itself, so each
+                    // field stores none and its streams run over the rows that hold it.
+                    let count = match &shapes {
+                        Some(shapes) => {
+                            reject_shaped_child_presence(input, path)?;
+                            shapes.child_count(i.into_usize(), count)?
+                        }
+                        None => count,
+                    };
                     input = self.walk_node02(input, &format!("field[{i}]"), true, count, depth)?;
                 }
                 Ok(input)
             }
             Interior02::List => {
+                if per_row {
+                    return Err(MltError::NestedRowShapeUnsupported {
+                        name: path.to_string(),
+                        kind: "list",
+                    });
+                }
                 let ctx = StreamCtx02::NestedLengths;
                 let (input, _) =
                     self.walk_stream02(input, ctx, count, "lengths", DecodeHint::U32)?;
                 self.walk_node02(input, "element", false, Count02::Explicit, depth)
+            }
+            // Shape-coded, the key stream holds the distinct key list rather than one
+            // key per entry, and a row's entry count is its shape's population count.
+            Interior02::Map if per_row => {
+                let ki = self.open(input, "keys".to_string());
+                let (input, keys) = self.walk_strings02(input, Count02::Explicit)?;
+                self.close(ki, input);
+                let (input, _) = self.walk_row_shapes02(input, keys, count, path)?;
+                self.walk_node02(input, "value", false, Count02::Explicit, depth)
             }
             Interior02::Map => {
                 let ctx = StreamCtx02::NestedLengths;
                 let (input, _) =
                     self.walk_stream02(input, ctx, count, "lengths", DecodeHint::U32)?;
                 let ki = self.open(input, "keys".to_string());
-                let input = self.walk_strings02(input, Count02::Explicit)?;
+                let (input, _) = self.walk_strings02(input, Count02::Explicit)?;
                 self.close(ki, input);
                 self.walk_node02(input, "value", false, Count02::Explicit, depth)
             }
         }
+    }
+
+    /// Mirror `parse_row_shapes`: the key-set table, then one shape id per row.
+    ///
+    /// The shapes come back because they say how many rows hold each key, which is
+    /// what every child's streams are counted against.
+    fn walk_row_shapes02(
+        &mut self,
+        input: &'a [u8],
+        keys: u32,
+        rows: Count02,
+        path: &str,
+    ) -> MltResult<(&'a [u8], RowShapes)> {
+        let (_, shapes) = parse_row_shapes(input, keys, rows, path, &mut self.parser)?;
+        let count = Count02::Explicit;
+        let (input, _) = self.walk_stream02(
+            input,
+            StreamCtx02::NestedShapeTable,
+            count,
+            "shape_table",
+            DecodeHint::PackedBits,
+        )?;
+        let (input, _) = self.walk_stream02(
+            input,
+            StreamCtx02::NestedShapeIds,
+            count,
+            "shape_ids",
+            DecodeHint::U32,
+        )?;
+        Ok((input, shapes))
     }
 
     /// Mirror `parse_node`: a node's type byte, its name, its presence stream, then its body.
@@ -413,18 +490,39 @@ impl<'a> Walker<'a> {
         }
         let input = match typ.data {
             NodeKind02::Leaf(values) => {
+                if typ.shapes {
+                    return Err(MltError::NestedRowShapeUnsupported {
+                        name: label.to_string(),
+                        kind: "leaf",
+                    });
+                }
                 let typ = ColumnType02::new(Presence02::AllPresent, values.into());
                 self.walk_value_streams02(input, typ, present)?
             }
-            NodeKind02::Struct => {
-                self.walk_nested_body02(input, Interior02::Struct, present, depth + 1)?
-            }
-            NodeKind02::List => {
-                self.walk_nested_body02(input, Interior02::List, present, depth + 1)?
-            }
-            NodeKind02::Map => {
-                self.walk_nested_body02(input, Interior02::Map, present, depth + 1)?
-            }
+            NodeKind02::Struct => self.walk_nested_body02(
+                input,
+                Interior02::Struct,
+                present,
+                typ.shapes,
+                label,
+                depth + 1,
+            )?,
+            NodeKind02::List => self.walk_nested_body02(
+                input,
+                Interior02::List,
+                present,
+                typ.shapes,
+                label,
+                depth + 1,
+            )?,
+            NodeKind02::Map => self.walk_nested_body02(
+                input,
+                Interior02::Map,
+                present,
+                typ.shapes,
+                label,
+                depth + 1,
+            )?,
         };
         self.close(ni, input);
         Ok(input)
@@ -536,7 +634,8 @@ impl<'a> Walker<'a> {
     ) -> MltResult<&'a [u8]> {
         // A string column has a stream set of its own, the rest one data stream.
         if typ.data == DataType02::Str {
-            return self.walk_strings02(input, count);
+            let (input, _) = self.walk_strings02(input, count)?;
+            return Ok(input);
         }
 
         let ctx = StreamCtx02::Property(typ.data);
@@ -630,7 +729,7 @@ impl<'a> Walker<'a> {
     }
 
     /// Mirror `parse_strings`: the leading stream names the layout the rest of the streams follow.
-    fn walk_strings02(&mut self, input: &'a [u8], count: Count02) -> MltResult<&'a [u8]> {
+    fn walk_strings02(&mut self, input: &'a [u8], count: Count02) -> MltResult<(&'a [u8], u32)> {
         /// One string stream: what it holds, what to call it, and how to read its payload.
         type Stream = (StreamCtx02, &'static str, DecodeHint);
         const DICT_LENGTHS: Stream = (StreamCtx02::StrDictLengths, "dict_lengths", DecodeHint::U32);
@@ -685,7 +784,7 @@ impl<'a> Walker<'a> {
         for &(ctx, label, hint) in rest {
             (input, _) = self.walk_stream02(input, ctx, count, label, hint)?;
         }
-        Ok(input)
+        Ok((input, meta.num_values))
     }
 
     /// Annotate one raw `ceil(feature_count/8)` byte presence bitfield.
@@ -874,6 +973,16 @@ fn nested_root02(typ: DataType02) -> Option<Interior02> {
     }
 }
 
+/// Bit breakdown of the byte a shape-coded root carries in place of a node type byte.
+fn root_shapes_bits02(byte: u8) -> Vec<BitField> {
+    vec![BitField {
+        hi: 7,
+        lo: 0,
+        raw: u64::from(byte),
+        meaning: "children coded per row".to_string(),
+    }]
+}
+
 /// Bit breakdown of a nested node's type byte: node presence (7-4), data type (3-0).
 fn node_type_bits02(byte: u8) -> Vec<BitField> {
     let (presence, data) = ColumnType02::fields(byte);
@@ -885,12 +994,17 @@ fn node_type_bits02(byte: u8) -> Vec<BitField> {
         |_| format!("reserved({data})"),
         |t| format!("{:?}", DataType02::from(t.data)),
     );
+    let shapes = if byte & NodePresence::SHAPES == 0 {
+        ""
+    } else {
+        " + row shapes"
+    };
     vec![
         BitField {
             hi: 7,
             lo: 4,
             raw: u64::from(presence >> 4),
-            meaning: format!("node presence = {name_pr}"),
+            meaning: format!("node presence = {name_pr}{shapes}"),
         },
         BitField {
             hi: 3,
