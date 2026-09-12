@@ -41,8 +41,16 @@ fn decode_err(bytes: &[u8]) -> MltError {
     }
 }
 
+fn cfg_row_shapes() -> EncoderConfig {
+    cfg_v2().with_row_shapes(true)
+}
+
 fn assert_round_trips_as_v2(layer: &TileLayer) -> Vec<u8> {
-    let bytes = layer.clone().encode(cfg_v2()).expect("v2 encode");
+    assert_round_trips_with(layer, cfg_v2())
+}
+
+fn assert_round_trips_with(layer: &TileLayer, cfg: EncoderConfig) -> Vec<u8> {
+    let bytes = layer.clone().encode(cfg).expect("v2 encode");
     assert_eq!(&decode(&bytes), layer);
     assert_dump_covers(&bytes);
     bytes
@@ -786,6 +794,114 @@ fn a_node_presence_stream_that_is_not_a_raw_bitmap_is_rejected() {
     );
 }
 
+fn shape_labels(bytes: &[u8]) -> Vec<String> {
+    let tree = annotate_tile(bytes).expect("annotate_tile");
+    tree.regions
+        .iter()
+        .map(|r| r.label.clone())
+        .filter(|label| ["shapes", "shape_table", "shape_ids"].contains(&label.as_str()))
+        .collect()
+}
+
+fn six_field_struct_layer() -> TileLayer {
+    let kind = map_kind(&[
+        ("a", leaf(PropKind::I32)),
+        ("b", leaf(PropKind::I32)),
+        ("c", leaf(PropKind::I32)),
+        ("d", leaf(PropKind::Str)),
+        ("e", leaf(PropKind::Str)),
+        ("f", leaf(PropKind::Str)),
+    ]);
+    let geometries: Vec<Geometry<i32>> = (0..8).map(|i| point(i, i)).collect();
+    let values: Vec<NestedValue> = (0..8)
+        .map(|row| {
+            if row % 2 == 0 {
+                entries(&[
+                    ("a", i32_value(row)),
+                    ("b", i32_value(row + 1)),
+                    ("c", i32_value(row + 2)),
+                ])
+            } else {
+                entries(&[
+                    ("d", str_value("x")),
+                    ("e", str_value("y")),
+                    ("f", str_value("z")),
+                ])
+            }
+        })
+        .collect();
+    nested_layer(kind, &geometries, &values)
+}
+
+#[test]
+fn a_struct_whose_rows_repeat_two_key_sets_is_coded_per_row() {
+    let bytes = assert_round_trips_with(&six_field_struct_layer(), cfg_row_shapes());
+    assert_eq!(root_data_type(&bytes), "data type = Struct");
+    assert_eq!(shape_labels(&bytes), ["shapes", "shape_table", "shape_ids"]);
+}
+
+#[test]
+fn the_same_struct_keeps_one_presence_stream_per_field_with_row_shapes_off() {
+    let plain = assert_round_trips_as_v2(&six_field_struct_layer());
+    let per_row = six_field_struct_layer()
+        .encode(cfg_row_shapes())
+        .expect("encode");
+    assert_eq!(shape_labels(&plain), Vec::<String>::new());
+    assert!(
+        per_row.len() < plain.len(),
+        "{} vs {}",
+        per_row.len(),
+        plain.len()
+    );
+}
+
+/// A layer whose rows draw three key sets from six `name*` keys.
+///
+/// No value repeats across the keys, so no corpus reaches over them and the key sets
+/// are all that is left to code.
+fn name_map_layer() -> TileLayer {
+    const KEYS: [&str; 6] = [
+        "name", "name:de", "name:en", "name:es", "name:fr", "name:it",
+    ];
+    let kind = map_kind(&KEYS.map(|key| (key, leaf(PropKind::Str))));
+    let geometries: Vec<Geometry<i32>> = (0..32).map(|i| point(i, i)).collect();
+    let values: Vec<NestedValue> = (0..32)
+        .map(|row| {
+            let held: &[&str] = match row % 3 {
+                0 => &KEYS[..2],
+                1 => &KEYS[..4],
+                _ => &KEYS[2..],
+            };
+            let fields: Vec<(&str, NestedValue)> = held
+                .iter()
+                .map(|key| (*key, str_value(&format!("{key} {}", row % 2))))
+                .collect();
+            entries(&fields)
+        })
+        .collect();
+    nested_layer(kind, &geometries, &values)
+}
+
+#[test]
+fn a_map_whose_rows_repeat_three_key_sets_is_coded_per_row() {
+    let bytes = assert_round_trips_with(&name_map_layer(), cfg_row_shapes());
+    assert_eq!(root_data_type(&bytes), "data type = Map");
+    assert_eq!(shape_labels(&bytes), ["shapes", "shape_table", "shape_ids"]);
+}
+
+#[test]
+fn the_same_map_keeps_its_lengths_and_one_key_per_entry_with_row_shapes_off() {
+    let plain = assert_round_trips_as_v2(&name_map_layer());
+    let per_row = name_map_layer().encode(cfg_row_shapes()).expect("encode");
+    assert_eq!(shape_labels(&plain), Vec::<String>::new());
+    assert!(
+        per_row.len() < plain.len(),
+        "{} vs {}",
+        per_row.len(),
+        plain.len()
+    );
+}
+
 /// What the high nibble of every type byte in the tile means, in wire order.
 fn type_nibbles(bytes: &[u8]) -> Vec<String> {
     let tree = annotate_tile(bytes).expect("annotate_tile");
@@ -822,6 +938,37 @@ fn shared_vocabulary_layer(sidewalk: [Option<&str>; 4]) -> TileLayer {
     nested_layer(kind, &geometries, &values)
 }
 
+fn list_of_six_field_structs_layer() -> TileLayer {
+    let kind = NestedKind::list(map_kind(&[
+        ("a", leaf(PropKind::I32)),
+        ("b", leaf(PropKind::I32)),
+        ("c", leaf(PropKind::I32)),
+        ("d", leaf(PropKind::Str)),
+        ("e", leaf(PropKind::Str)),
+        ("f", leaf(PropKind::Str)),
+    ]));
+    let item = |row: i32| {
+        if row % 2 == 0 {
+            entries(&[
+                ("a", i32_value(row)),
+                ("b", i32_value(row + 1)),
+                ("c", i32_value(row + 2)),
+            ])
+        } else {
+            entries(&[
+                ("d", str_value("x")),
+                ("e", str_value("y")),
+                ("f", str_value("z")),
+            ])
+        }
+    };
+    let geometries: Vec<Geometry<i32>> = (0..4).map(|i| point(i, i)).collect();
+    let values: Vec<NestedValue> = (0..4)
+        .map(|feature| NestedValue::list((0..4).map(|i| item(feature * 4 + i))))
+        .collect();
+    nested_layer(kind, &geometries, &values)
+}
+
 #[test]
 fn string_fields_over_one_vocabulary_index_one_corpus() {
     let layer =
@@ -836,6 +983,25 @@ fn string_fields_over_one_vocabulary_index_one_corpus() {
             "node presence = SharedAllPresent",
             "node presence = SharedAllPresent",
             "corpus = CorpusPlain",
+        ]
+    );
+}
+
+#[test]
+fn a_struct_below_the_root_carries_the_shapes_bit_in_its_node_type() {
+    let bytes = assert_round_trips_with(&list_of_six_field_structs_layer(), cfg_row_shapes());
+    assert_eq!(shape_labels(&bytes), ["shape_table", "shape_ids"]);
+    assert_eq!(
+        type_nibbles(&bytes),
+        [
+            "presence = AllPresent",
+            "node presence = AllPresent + row shapes",
+            "node presence = AllPresent",
+            "node presence = AllPresent",
+            "node presence = AllPresent",
+            "node presence = AllPresent",
+            "node presence = AllPresent",
+            "node presence = AllPresent",
         ]
     );
 }
@@ -869,6 +1035,112 @@ fn a_corpus_index_past_the_last_corpus_is_rejected() {
         matches!(
             decode_err(&bytes),
             MltError::NestedCorpusOutOfRange { index: 1, len: 1 }
+        ),
+        "{:?}",
+        decode_err(&bytes)
+    );
+}
+
+fn stream_field(bytes: &[u8], stream: &str, field: &str) -> usize {
+    let tree = annotate_tile(bytes).expect("annotate_tile");
+    let start = tree
+        .regions
+        .iter()
+        .find(|r| r.label == stream && r.container)
+        .unwrap_or_else(|| panic!("no stream region labelled {stream}"))
+        .offset;
+    tree.regions
+        .iter()
+        .find(|r| r.label == field && !r.container && r.offset >= start)
+        .unwrap_or_else(|| panic!("no {field} inside {stream}"))
+        .offset
+}
+
+#[rstest]
+#[case::leaf(0x40 | 0x05, "leaf")]
+#[case::list(0x40 | 0x0D, "list")]
+fn a_node_with_no_row_shapes_to_read_is_rejected(#[case] byte: u8, #[case] kind: &str) {
+    let mut bytes = struct_column_bytes();
+    let (first_field_type, _) = region(&bytes, "type", 1);
+    bytes[first_field_type] = byte;
+    assert!(
+        matches!(
+            decode_err(&bytes),
+            MltError::NestedRowShapeUnsupported { kind: k, .. } if k == kind
+        ),
+        "{:?}",
+        decode_err(&bytes)
+    );
+}
+
+#[test]
+fn a_field_of_a_shape_coded_struct_that_stores_its_own_presence_is_rejected() {
+    let mut bytes = six_field_struct_layer()
+        .encode(cfg_row_shapes())
+        .expect("encode");
+    let (first_field_type, _) = region(&bytes, "type", 1);
+    bytes[first_field_type] |= 0x10;
+    assert!(
+        matches!(
+            decode_err(&bytes),
+            MltError::NestedRowShapeChildPresence { .. }
+        ),
+        "{:?}",
+        decode_err(&bytes)
+    );
+}
+
+#[test]
+fn a_shape_id_no_shape_answers_to_is_rejected() {
+    let mut bytes = six_field_struct_layer()
+        .encode(cfg_row_shapes())
+        .expect("encode");
+    let at = stream_field(&bytes, "shape_ids", "data");
+    bytes[at] = 5;
+    assert!(
+        matches!(
+            decode_err(&bytes),
+            MltError::NestedRowShapeOutOfRange { id: 5, len: 2 }
+        ),
+        "{:?}",
+        decode_err(&bytes)
+    );
+}
+
+#[test]
+fn a_shape_table_that_does_not_divide_into_one_bitmap_per_key_is_rejected() {
+    let mut bytes = six_field_struct_layer()
+        .encode(cfg_row_shapes())
+        .expect("encode");
+    let at = stream_field(&bytes, "shape_table", "num_values");
+    assert_eq!(bytes[at], 12);
+    bytes[at] = 11;
+    assert!(
+        matches!(
+            decode_err(&bytes),
+            MltError::NestedRowShapeTableSize { bits: 11, keys: 6 }
+        ),
+        "{:?}",
+        decode_err(&bytes)
+    );
+}
+
+#[test]
+fn a_shape_id_per_row_count_the_node_disagrees_with_is_rejected() {
+    let mut bytes = six_field_struct_layer()
+        .encode(cfg_row_shapes())
+        .expect("encode");
+    let at = stream_field(&bytes, "shape_ids", "num_values");
+    assert_eq!(bytes[at], 8);
+    bytes[at] = 7;
+    assert!(
+        matches!(
+            decode_err(&bytes),
+            MltError::NestedRowShapeCount {
+                expected: 8,
+                actual: 7,
+                ..
+            }
         ),
         "{:?}",
         decode_err(&bytes)

@@ -1160,6 +1160,53 @@ fn generate_nested(w: &mut SynthWriter) {
             )),
         ))
         .write(w, "nested_shared_dict_fsst");
+
+    // Two key sets over four rows, so one shape id per row is smaller than the six
+    // presence streams a field each would need. Mixed types, so this cannot be a map.
+    let even = || Some(vec![true, false, true, false]);
+    let odd = || Some(vec![false, true, false, true]);
+    geo_varint()
+        .geos([P0, P1, P2, P3])
+        .row_shapes()
+        .add_nested(StagedNested::new(
+            "obj",
+            StagedInterior::Struct(StagedStruct::new(
+                None,
+                [
+                    ("a", i32_leaf(even(), vec![1, 3])),
+                    ("b", i32_leaf(even(), vec![2, 4])),
+                    ("c", i32_leaf(even(), vec![3, 5])),
+                    ("x", str_leaf(odd(), ["p", "q"])),
+                    ("y", str_leaf(odd(), ["r", "s"])),
+                    ("z", str_leaf(odd(), ["t", "u"])),
+                ],
+            )),
+        ))
+        .write(w, "nested_struct_shapes");
+
+    // Three key sets over four rows, and the entries of each run in key order, so the
+    // shapes stand in for both the lengths and the one key per entry a map otherwise spends.
+    geo_varint()
+        .geos([P0, P1, P2, P3])
+        .row_shapes()
+        .add_nested(StagedNested::new(
+            "tags",
+            StagedInterior::Map(StagedMap::new(
+                None,
+                vec![3, 2, 2, 3],
+                ["de", "en", "fr", "de", "fr", "en", "fr", "de", "en", "fr"]
+                    .map(ToString::to_string)
+                    .to_vec(),
+                str_leaf(
+                    None,
+                    [
+                        "berg", "hill", "mont", "see", "lac", "sea", "mer", "fluss", "river",
+                        "riviere",
+                    ],
+                ),
+            )),
+        ))
+        .write(w, "nested_map_shapes");
 }
 
 /// A vocabulary of long entries with repeated substrings, which FSST compresses well.
