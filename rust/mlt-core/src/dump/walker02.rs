@@ -13,11 +13,11 @@ use super::walker::Walker;
 use crate::codecs::varint::parse_varint;
 use crate::decoder::stream::header02;
 use crate::decoder::stream::header02::{
-    Family, HAS_EXPLICIT_COUNT, StrLayout, StreamCtx02, describe_encoding,
+    Count02, Family, HAS_EXPLICIT_COUNT, StrLayout, StreamCtx02, describe_encoding,
 };
 use crate::decoder::{
     Column02, ColumnType02, DataType02, DictionaryType, GeoLayout, LayerLayout, LengthType,
-    Presence02, SharedDictKind, StreamType,
+    Presence02, SharedDictKind, StreamType, ValuesColumn02,
 };
 use crate::tile::Extent;
 use crate::utils::{parse_string, parse_u8, take};
@@ -92,6 +92,12 @@ impl<'a> Walker<'a> {
             self.close(di, input);
         }
 
+        if layout.m_values {
+            let mi = self.open(input, "m_values".to_string());
+            input = self.walk_m_values02(input, feature_count, &shared)?;
+            self.close(mi, input);
+        }
+
         // A well-formed layer consumes its whole body; record any trailing bytes.
         if !input.is_empty() {
             self.raw_blob(input, input.len(), "trailing bytes".to_string());
@@ -106,10 +112,12 @@ impl<'a> Walker<'a> {
         layout: GeoLayout,
         feature_count: u32,
     ) -> MltResult<&'a [u8]> {
+        // Every geometry stream is read against the feature count the header gave.
+        let count = Count02::Implied(feature_count);
         let (mut input, _) = self.walk_stream02(
             input,
             StreamCtx02::GeomTypes,
-            feature_count,
+            count,
             "types",
             DecodeHint::U32,
         )?;
@@ -126,19 +134,17 @@ impl<'a> Walker<'a> {
         for (present, length_type, label) in lengths {
             if present {
                 let ctx = StreamCtx02::GeomOffsets(length_type);
-                (input, _) =
-                    self.walk_stream02(input, ctx, feature_count, label, DecodeHint::U32)?;
+                (input, _) = self.walk_stream02(input, ctx, count, label, DecodeHint::U32)?;
             }
         }
 
         if layout.is_tess() {
             let ctx = StreamCtx02::GeomOffsets(LengthType::Triangles);
-            (input, _) =
-                self.walk_stream02(input, ctx, feature_count, "tri_lengths", DecodeHint::U32)?;
+            (input, _) = self.walk_stream02(input, ctx, count, "tri_lengths", DecodeHint::U32)?;
             (input, _) = self.walk_stream02(
                 input,
                 StreamCtx02::GeomIndices,
-                feature_count,
+                count,
                 "tri_indexes",
                 DecodeHint::U32,
             )?;
@@ -152,7 +158,7 @@ impl<'a> Walker<'a> {
         (input, _) = self.walk_stream02(
             input,
             StreamCtx02::GeomVertices,
-            feature_count,
+            count,
             label,
             DecodeHint::I32,
         )?;
@@ -160,7 +166,7 @@ impl<'a> Walker<'a> {
             (input, _) = self.walk_stream02(
                 input,
                 StreamCtx02::GeomVertexOffsets,
-                feature_count,
+                count,
                 "vertex_offsets",
                 DecodeHint::U32,
             )?;
@@ -191,6 +197,74 @@ impl<'a> Walker<'a> {
             }
             Column02::Values(typ) => typ,
         };
+        let column = Column {
+            region: ci,
+            label: &format!("column[{i}]"),
+            feature_count,
+            shared,
+        };
+        let (input, presence_count) = self.walk_column_header02(input, column, typ)?;
+        let input = self.walk_value_streams02(input, typ, Count02::Implied(presence_count))?;
+        self.close(ci, input);
+        Ok(input)
+    }
+
+    /// Mirror `parse_m_values`: the vertex-scoped columns that end a layer body.
+    ///
+    /// Each reads what a counted column of its data type reads, over the vertex
+    /// sequence rather than the features, so none of their counts are implied.
+    fn walk_m_values02(
+        &mut self,
+        input: &'a [u8],
+        feature_count: u32,
+        shared: &[&'a BitSlice<u8, Lsb0>],
+    ) -> MltResult<&'a [u8]> {
+        let (mut input, count) = self.field(input, "m_value_count", parse_varint::<u32>, |c| {
+            Some(c.to_string())
+        })?;
+        if count == 0 {
+            return Err(MltError::EmptyMValueSection);
+        }
+        let shared_count = u8::try_from(shared.len())?;
+        for i in 0..count {
+            let mi = self.open(input, format!("m_value[{i}]"));
+            let (_, typ_byte) = parse_u8(input)?;
+            let typ = ValuesColumn02::parse_m_value(typ_byte, shared_count)?.into();
+            let column = Column {
+                region: mi,
+                label: &format!("m_value[{i}]"),
+                feature_count,
+                shared,
+            };
+            // An m-value column runs over the vertices, whose count only the geometry
+            // knows, so its presence popcount says nothing about its streams, which
+            // write their own counts.
+            let (rest, _) = self.walk_column_header02(input, column, typ)?;
+            input = self.walk_value_streams02(rest, typ, Count02::Explicit)?;
+            self.close(mi, input);
+        }
+        Ok(input)
+    }
+
+    /// Walk a column's type byte, then what `parse_column_header` reads: its name
+    /// and presence bitfield.
+    ///
+    /// Returns how many values that presence marks, the count a counted column's
+    /// data streams are read against.
+    fn walk_column_header02(
+        &mut self,
+        input: &'a [u8],
+        column: Column<'_, 'a>,
+        typ: ColumnType02,
+    ) -> MltResult<(&'a [u8], u32)> {
+        let Column {
+            region: ci,
+            label,
+            feature_count,
+            shared,
+        } = column;
+        let shared_count = u8::try_from(shared.len())?;
+        let typ_byte = typ.to_byte();
         let (mut input, _) = self.byte_field(
             input,
             "type",
@@ -210,12 +284,12 @@ impl<'a> Walker<'a> {
         } else {
             ""
         };
-        self.relabel(ci, format!("column[{i}] {opt}{:?}{name_suffix}", typ.data));
+        self.relabel(ci, format!("{label} {opt}{:?}{name_suffix}", typ.data));
 
-        // Presence is a raw LSB0 bitfield, not a stream, and sets the data count.
+        // Presence is a raw LSB0 bitfield, not a stream, and counts the data.
         // A shared bitfield was already walked at the layer root, so only its
         // popcount is needed here.
-        let data_count = match typ.presence {
+        let presence_count = match typ.presence {
             Presence02::AllPresent => feature_count,
             Presence02::Inline => {
                 let bits;
@@ -229,17 +303,24 @@ impl<'a> Walker<'a> {
                 u32::try_from(bits.count_ones())?
             }
         };
+        Ok((input, presence_count))
+    }
 
+    /// Walk the data streams a column of `typ` holds, read against `count`.
+    fn walk_value_streams02(
+        &mut self,
+        input: &'a [u8],
+        typ: ColumnType02,
+        count: Count02,
+    ) -> MltResult<&'a [u8]> {
         // A string column has a stream set of its own, the rest one data stream.
         if typ.data == DataType02::Str {
-            input = self.walk_strings02(input, data_count)?;
-            self.close(ci, input);
-            return Ok(input);
+            return self.walk_strings02(input, count);
         }
 
         let ctx = StreamCtx02::Property(typ.data);
-        let meta;
-        (input, meta) = self.walk_stream02(input, ctx, data_count, "data", hint_for(typ.data))?;
+        let (mut input, meta) =
+            self.walk_stream02(input, ctx, count, "data", hint_for(typ.data))?;
 
         // A dictionary column's data stream holds codes, and the values follow.
         if meta.encoding.logical == LogicalEncoding::Float(FloatLogical::Dict) {
@@ -247,13 +328,11 @@ impl<'a> Walker<'a> {
             (input, _) = self.walk_stream02(
                 input,
                 ctx,
-                meta.num_values,
+                Count02::Implied(meta.num_values),
                 "dictionary",
                 hint_for(typ.data),
             )?;
         }
-
-        self.close(ci, input);
         Ok(input)
     }
 
@@ -282,20 +361,21 @@ impl<'a> Walker<'a> {
             Some(c.to_string())
         })?;
 
-        // The corpus streams mirror a lone string column's dictionary tail.
+        // The corpus streams mirror a lone string column's dictionary tail. Nothing
+        // implies the dictionary's entry count, so each writes its own.
         match kind {
             SharedDictKind::Plain => {
                 (input, _) = self.walk_stream02(
                     input,
                     StreamCtx02::StrDictLengths,
-                    0,
+                    Count02::Explicit,
                     "dict_lengths",
                     DecodeHint::U32,
                 )?;
                 (input, _) = self.walk_stream02(
                     input,
                     StreamCtx02::StrBlob(DictionaryType::Shared),
-                    0,
+                    Count02::Explicit,
                     "dict_values",
                     DecodeHint::Bytes,
                 )?;
@@ -304,28 +384,28 @@ impl<'a> Walker<'a> {
                 (input, _) = self.walk_stream02(
                     input,
                     StreamCtx02::StrDictLengths,
-                    0,
+                    Count02::Explicit,
                     "dict_lengths",
                     DecodeHint::U32,
                 )?;
                 (input, _) = self.walk_stream02(
                     input,
                     StreamCtx02::StrSymbolLengths,
-                    0,
+                    Count02::Explicit,
                     "symbol_lengths",
                     DecodeHint::U32,
                 )?;
                 (input, _) = self.walk_stream02(
                     input,
                     StreamCtx02::StrBlob(DictionaryType::Fsst),
-                    0,
+                    Count02::Explicit,
                     "symbol_table",
                     DecodeHint::Bytes,
                 )?;
                 (input, _) = self.walk_stream02(
                     input,
                     StreamCtx02::StrBlob(DictionaryType::Shared),
-                    0,
+                    Count02::Explicit,
                     "corpus",
                     DecodeHint::Bytes,
                 )?;
@@ -365,7 +445,7 @@ impl<'a> Walker<'a> {
             (input, _) = self.walk_stream02(
                 input,
                 StreamCtx02::StrData(StrLayout::Dict),
-                count,
+                Count02::Implied(count),
                 "codes",
                 DecodeHint::U32,
             )?;
@@ -375,7 +455,7 @@ impl<'a> Walker<'a> {
     }
 
     /// Mirror `parse_strings`: the leading stream names the layout the rest of the streams follow.
-    fn walk_strings02(&mut self, input: &'a [u8], count: u32) -> MltResult<&'a [u8]> {
+    fn walk_strings02(&mut self, input: &'a [u8], count: Count02) -> MltResult<&'a [u8]> {
         /// One string stream: what it holds, what to call it, and how to read its payload.
         type Stream = (StreamCtx02, &'static str, DecodeHint);
         const DICT_LENGTHS: Stream = (StreamCtx02::StrDictLengths, "dict_lengths", DecodeHint::U32);
@@ -418,13 +498,15 @@ impl<'a> Walker<'a> {
             StrLayout::FsstDict => &[DICT_LENGTHS, SYMBOL_LENGTHS, SYMBOL_TABLE, CORPUS],
         };
 
-        let (mut input, _) = self.walk_stream02(
+        let (mut input, meta) = self.walk_stream02(
             input,
             StreamCtx02::StrData(layout),
             count,
             leading,
             DecodeHint::U32,
         )?;
+        // Every stream after the leading one runs over the values it counted.
+        let count = Count02::Implied(meta.num_values);
         for &(ctx, label, hint) in rest {
             (input, _) = self.walk_stream02(input, ctx, count, label, hint)?;
         }
@@ -461,20 +543,20 @@ impl<'a> Walker<'a> {
     /// Walk one v2 stream: the annotated header (via the authoritative
     /// [`header02::parse_stream`]) followed by the payload blob.
     ///
-    /// `ctx`, `implicit_count`, and `hint` are all supplied by the caller: none of them are on the wire.
+    /// `ctx`, `count`, and `hint` are all supplied by the caller: none of them are on the wire.
     /// `ctx` also names the family the encoding byte's logical field is read against.
     fn walk_stream02(
         &mut self,
         input: &'a [u8],
         ctx: StreamCtx02,
-        implicit_count: u32,
+        count: Count02,
         label: &str,
         hint: DecodeHint,
     ) -> MltResult<(&'a [u8], StreamMeta)> {
         let si = self.open(input, label.to_string());
 
         // parse -> synthesized meta.
-        let (rest, stream) = header02::parse_stream(input, ctx, implicit_count, &mut self.parser)?;
+        let (rest, stream) = header02::parse_stream(input, ctx, count, &mut self.parser)?;
 
         // Re-walk the consumed header bytes to annotate each field.
         let hi = self.open(input, "header".to_string());
@@ -486,7 +568,7 @@ impl<'a> Walker<'a> {
                 let (logical, physical) = describe_encoding(family, b);
                 format!("0x{b:02X} logical={logical} physical={physical}")
             },
-            move |b| encoding_bits02(b, implicit_count, family),
+            move |b| encoding_bits02(b, count, family),
         )?;
 
         if enc_byte & HAS_EXPLICIT_COUNT != 0 {
@@ -560,6 +642,18 @@ impl<'a> Walker<'a> {
     }
 }
 
+/// Where a column of values sits and what it reads its presence against.
+#[derive(Clone, Copy)]
+struct Column<'l, 'a> {
+    /// The region the column's fields are annotated into.
+    region: usize,
+    /// What to call it, which its data type and name are appended to.
+    label: &'l str,
+    feature_count: u32,
+    /// The layer's shared presence bitfields, one of which the column may read.
+    shared: &'l [&'a BitSlice<u8, Lsb0>],
+}
+
 /// Bit breakdown of a shared-dictionary column's type byte, whose high nibble names the
 /// corpus encoding rather than presence.
 fn shared_dict_type_bits02(byte: u8) -> Vec<BitField> {
@@ -599,20 +693,20 @@ fn hint_for(typ: DataType02) -> DecodeHint {
 }
 
 /// Bit breakdown of the v2 layer layout byte:
-/// - reserved (7),
+/// - m-value section flag (7),
 /// - shared presence bitfield count (6-4),
 /// - geometry layout (3-0).
 fn layer_layout_bits02(byte: u8) -> Vec<BitField> {
-    let (reserved, shared_presence, geometry) = LayerLayout::fields(byte);
+    let (m_values, shared_presence, geometry) = LayerLayout::fields(byte);
     let name_geo = GeoLayout::try_from(geometry)
         .map_or_else(|_| format!("reserved({geometry})"), |g| format!("{g:?}"));
-    let reserved = u64::from(reserved != 0);
+    let m_values = u64::from(m_values != 0);
     vec![
         BitField {
             hi: 7,
             lo: 7,
-            raw: reserved,
-            meaning: format!("reserved = {reserved}"),
+            raw: m_values,
+            meaning: format!("m-value section = {m_values}"),
         },
         BitField {
             hi: 6,
@@ -656,7 +750,7 @@ fn column_type_bits02(byte: u8, shared_count: u8) -> Vec<BitField> {
 
 /// Bit breakdown of the v2 encoding byte: explicit-count flag (7), logical (6-4),
 /// physical (3-2), extension (1-0).
-fn encoding_bits02(byte: u8, implicit_count: u32, family: Family) -> Vec<BitField> {
+fn encoding_bits02(byte: u8, count: Count02, family: Family) -> Vec<BitField> {
     let explicit = byte & HAS_EXPLICIT_COUNT != 0;
     let logical = (byte >> 4) & 0x7;
     let physical = (byte >> 2) & 0x3;
@@ -668,7 +762,15 @@ fn encoding_bits02(byte: u8, implicit_count: u32, family: Family) -> Vec<BitFiel
     } else if explicit {
         "has_explicit_count = true -> a num_values varint follows".to_string()
     } else {
-        format!("has_explicit_count = false -> {implicit_count} values from context")
+        match count {
+            Count02::Implied(count) => {
+                format!("has_explicit_count = false -> {count} values from context")
+            }
+            // `parse_stream` has already rejected the stream this would describe.
+            Count02::Explicit => {
+                "has_explicit_count = false -> nothing implies a count".to_string()
+            }
+        }
     };
     vec![
         BitField {

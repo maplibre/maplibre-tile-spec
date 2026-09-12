@@ -14,6 +14,20 @@ macro_rules! validate_stream {
     };
 }
 
+/// Invokes `$m!` with every data type a property or m-value column can hold.
+///
+/// This is the one place the set of kinds is written down. The value enums spell
+/// their variants out, so a kind missing here fails to compile rather than
+/// silently dropping out of the mappings.
+macro_rules! with_kinds {
+    ($m:ident) => {
+        $m! {
+            scalar { Bool, I8, U8, I32, U32, I64, U64, F32, F64 }
+            string { Str }
+        }
+    };
+}
+
 pub use fast_mvt;
 pub use geo_types;
 
@@ -38,12 +52,16 @@ pub(crate) use decoder::{
     ColumnType, DictRange, DictionaryType, LengthType, OffsetType, RawPresence, RawSharedDict,
     RawSharedDictItem, StreamType,
 };
+#[cfg(feature = "unstable-v2")]
+pub use decoder::{MValueColumn, MValueSpans, MValues, ParsedMValue, RawMValue};
 pub(crate) use errors::MltRefResult;
 pub use errors::{MltError, MltResult};
 pub use tile::{
     Extent, PropKind, PropValue, PropertyKey, TileFeature, TileFeatureBuilder, TileLayer,
     TileLayerBuilder,
 };
+#[cfg(feature = "unstable-v2")]
+pub use tile::{MValue, MValueKey};
 pub(crate) use utils::analyze::{Analyze, StatType};
 pub(crate) use utils::lazy_state::{Decode, DecodeState, Lazy, LazyParsed, Parsed};
 

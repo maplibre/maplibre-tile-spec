@@ -62,11 +62,71 @@ pub enum MltError {
     #[error("error parsing v2 stream encoding byte: 0x{0:02X}")]
     ParsingEncodingByte(u8),
     #[cfg(feature = "unstable-v2")]
+    #[error(
+        "a v2 {0:?} stream carries no value count, and nothing in its context implies one: encoding byte 0x{1:02X}"
+    )]
+    StreamWithoutCount(StreamType, u8),
+    #[cfg(feature = "unstable-v2")]
     #[error("error parsing v2 geometry layout: code={0}")]
     ParsingGeoLayout(u8),
     #[cfg(feature = "unstable-v2")]
-    #[error("error parsing v2 layer layout: byte=0x{0:02X}")]
-    ParsingLayerLayout(u8),
+    #[error(
+        "v2 geometry layout {0} gives no per-feature vertex count, so it cannot carry m-values"
+    )]
+    MValuesNeedVertexCounts(&'static str),
+    #[cfg(feature = "unstable-v2")]
+    #[error("the v2 layer layout byte claims an m-value section, but it holds no columns")]
+    EmptyMValueSection,
+    #[cfg(feature = "unstable-v2")]
+    #[error("duplicate m-value name: {0}")]
+    DuplicateMValueName(String),
+    #[cfg(feature = "unstable-v2")]
+    #[error(
+        "m-value column {name} has no implied count, so its leading stream must write one: encoding byte 0x{byte:02X}"
+    )]
+    MValueImplicitCount { name: String, byte: u8 },
+    #[cfg(feature = "unstable-v2")]
+    #[error(
+        "m-value column {name} holds {actual} values, but its features have {expected} vertices"
+    )]
+    MValueColumnLengthMismatch {
+        name: String,
+        expected: usize,
+        actual: usize,
+    },
+    #[cfg(feature = "unstable-v2")]
+    #[error(
+        "m-value column {name} holds {actual} values, so a feature's run of {count} at offset {start} is out of range"
+    )]
+    MValueRunOutOfRange {
+        name: String,
+        start: usize,
+        count: usize,
+        actual: usize,
+    },
+    #[cfg(feature = "unstable-v2")]
+    #[error("a feature carries {actual} m-value columns, but the layer has {expected}")]
+    MValueColumnCountMismatch { expected: usize, actual: usize },
+    #[cfg(feature = "unstable-v2")]
+    #[error("m-value key {index} belongs to another layer: this feature has {columns} columns")]
+    UnknownMValueKey { index: usize, columns: usize },
+    #[cfg(feature = "unstable-v2")]
+    #[error("m-value {index} kind mismatch: expected {expected:?}, got {actual:?}")]
+    MValueKindMismatch {
+        index: usize,
+        expected: crate::tile::PropKind,
+        actual: crate::tile::PropKind,
+    },
+    #[cfg(feature = "unstable-v2")]
+    #[error("m-value {index} holds {actual} values, but the feature has {expected} vertices")]
+    MValueVertexCountMismatch {
+        index: usize,
+        expected: usize,
+        actual: usize,
+    },
+    #[cfg(feature = "unstable-v2")]
+    #[error("m-values are a v2 feature, so layer {0} cannot be written as v1")]
+    MValuesNeedV2(String),
     #[error("error parsing logical technique: code={0}")]
     ParsingLogicalTechnique(u8),
     #[error("error parsing physical encoding: code={0}")]
