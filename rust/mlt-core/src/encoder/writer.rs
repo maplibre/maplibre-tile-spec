@@ -7,6 +7,8 @@ use integer_encoding::VarIntWriter as _;
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::stream::header02::Family;
 use crate::decoder::{ColumnType, Morton};
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::model::FloatEncoding;
 use crate::encoder::model::{CurveParams, ExplicitEncoder, StrEncoding, StreamCtx};
 use crate::encoder::{EncoderConfig, IntEncoder, VertexBufferType};
 use crate::utils::BinarySerializer as _;
@@ -322,6 +324,14 @@ impl Encoder {
     #[inline]
     pub(crate) fn override_str_enc(&self, name: &str) -> Option<StrEncoding> {
         self.explicit.as_ref().map(|e| (e.get_str_encoding)(name))
+    }
+
+    /// When [`Self::explicit`] is [`Some`], returns the callback-chosen [`FloatEncoding`].
+    /// [`None`] means cost the float encodings the config allows against each other.
+    #[inline]
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) fn override_float_enc(&self, name: &str) -> Option<FloatEncoding> {
+        self.explicit.as_ref().map(|e| (e.get_float_encoding)(name))
     }
 
     /// Pinned vertex layout when an explicit encoder is active.

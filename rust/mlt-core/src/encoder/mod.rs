@@ -25,10 +25,12 @@ pub use id::StagedId;
 #[cfg(feature = "unstable-v2")]
 pub use model::WireVersion;
 #[cfg(feature = "__private")]
-pub use model::{ColumnKind, CurveParams, ExplicitEncoder, StagedLayer, StrEncoding, StreamCtx};
+pub use model::{
+    ColumnKind, CurveParams, ExplicitEncoder, FloatEncoding, StagedLayer, StrEncoding, StreamCtx,
+};
 pub use model::{EncodedUnknown, EncoderConfig};
 #[cfg(all(test, not(feature = "__private")))]
-pub(crate) use model::{ExplicitEncoder, StagedLayer, StrEncoding};
+pub(crate) use model::{ExplicitEncoder, FloatEncoding, StagedLayer, StrEncoding};
 #[cfg(any(test, feature = "__private"))]
 pub use optimizer::Presence;
 pub(crate) use property::*;

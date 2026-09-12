@@ -342,7 +342,7 @@ fn write_prop02(
     macro_rules! opt_float {
         ($ct:ident, $v:expr) => {{
             write_opt_col02(enc, shared, DT::$ct, Some(&$v.name), &$v.presence, |enc| {
-                codecs.write_float_stream(&$v.values, StreamType::Data(DictionaryType::None), enc)
+                codecs.write_float_stream(&$v.values, &StreamCtx::prop_data(&$v.name), enc)
             })
         }};
     }
@@ -359,12 +359,12 @@ fn write_prop02(
         }
         D::F32(v) => {
             begin_col02(enc, AllPresent, DT::F32, Some(&v.name))?;
-            codecs.write_float_stream(&v.values, StreamType::Data(DictionaryType::None), enc)
+            codecs.write_float_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)
         }
         D::OptF32(v) => opt_float!(F32, v),
         D::F64(v) => {
             begin_col02(enc, AllPresent, DT::F64, Some(&v.name))?;
-            codecs.write_float_stream(&v.values, StreamType::Data(DictionaryType::None), enc)
+            codecs.write_float_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)
         }
         D::OptF64(v) => opt_float!(F64, v),
         D::I8(v) => scalar!(I8, v),
