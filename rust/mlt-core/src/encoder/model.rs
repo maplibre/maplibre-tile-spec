@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+#[cfg(feature = "unstable-v2")]
 use std::collections::HashSet;
 
 use derive_debug::Dbg;
@@ -6,11 +7,13 @@ use derive_debug::Dbg;
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::RleLayout;
 use crate::decoder::{DictionaryType, FastPForKind, GeometryValues, PhysicalEncoding, StreamType};
-#[cfg(feature = "unstable-v2")]
-use crate::encoder::StagedMValue;
 use crate::encoder::geometry::VertexBufferType;
 use crate::encoder::{IntEncoder, StagedId, StagedProperty};
-use crate::tile::Extent;
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::{StagedInterior, StagedMValue, StagedNested, StagedNode};
+#[cfg(feature = "unstable-v2")]
+use crate::tile::MAX_NESTED_DEPTH;
+use crate::tile::{ColumnRole, Extent, reject_taken_name};
 use crate::{MltError, MltResult};
 
 /// Owned variant of `Unknown`.
@@ -83,6 +86,9 @@ pub struct StagedLayer {
     /// Vertex-scoped columns, which only a v2 layer can be written with.
     #[cfg(feature = "unstable-v2")]
     pub(crate) m_values: Vec<StagedMValue>,
+    /// Nested columns, which only a v2 layer can be written with.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) nested: Vec<StagedNested>,
 }
 
 #[cfg_attr(not(feature = "__private"), allow(dead_code))]
@@ -94,7 +100,7 @@ impl StagedLayer {
         geometry: GeometryValues,
         properties: Vec<StagedProperty>,
     ) -> MltResult<Self> {
-        let (name, extent) = validate_staged(name, extent, &id, &geometry, &properties)?;
+        let (name, extent, _) = validate_staged(name, extent, &id, &geometry, &properties)?;
         Ok(Self {
             name,
             extent,
@@ -103,6 +109,8 @@ impl StagedLayer {
             properties,
             #[cfg(feature = "unstable-v2")]
             m_values: Vec::new(),
+            #[cfg(feature = "unstable-v2")]
+            nested: Vec::new(),
         })
     }
 
@@ -116,8 +124,8 @@ impl StagedLayer {
         properties: Vec<StagedProperty>,
         m_values: Vec<StagedMValue>,
     ) -> MltResult<Self> {
-        let (name, extent) = validate_staged(name, extent, &id, &geometry, &properties)?;
-        validate_m_values(&geometry, &m_values)?;
+        let (name, extent, columns) = validate_staged(name, extent, &id, &geometry, &properties)?;
+        validate_m_values(&geometry, &columns, &m_values)?;
         Ok(Self {
             name,
             extent,
@@ -125,6 +133,32 @@ impl StagedLayer {
             geometry,
             properties,
             m_values,
+            nested: Vec::new(),
+        })
+    }
+
+    /// As [`Self::new`], with both the layer's vertex-scoped and its nested columns.
+    #[cfg(feature = "unstable-v2")]
+    pub fn with_nested(
+        name: impl Into<String>,
+        extent: u32,
+        id: StagedId,
+        geometry: GeometryValues,
+        properties: Vec<StagedProperty>,
+        m_values: Vec<StagedMValue>,
+        nested: Vec<StagedNested>,
+    ) -> MltResult<Self> {
+        let (name, extent, columns) = validate_staged(name, extent, &id, &geometry, &properties)?;
+        validate_m_values(&geometry, &columns, &m_values)?;
+        validate_nested(&geometry, &columns, &m_values, &nested)?;
+        Ok(Self {
+            name,
+            extent,
+            id,
+            geometry,
+            properties,
+            m_values,
+            nested,
         })
     }
 
@@ -158,16 +192,22 @@ impl StagedLayer {
     pub fn m_values(&self) -> &[StagedMValue] {
         &self.m_values
     }
+
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn nested(&self) -> &[StagedNested] {
+        &self.nested
+    }
 }
 
-/// Check a staged layer's name, extent and columns, returning the two validated fields.
-fn validate_staged(
+/// Check a staged layer's name, extent and columns, returning the validated fields and the column names.
+fn validate_staged<'p>(
     name: impl Into<String>,
     extent: u32,
     id: &StagedId,
     geometry: &GeometryValues,
-    properties: &[StagedProperty],
-) -> MltResult<(String, Extent)> {
+    properties: &'p [StagedProperty],
+) -> MltResult<(String, Extent, Vec<Cow<'p, str>>)> {
     let name = name.into();
     if name.is_empty() {
         return Err(MltError::MissingLayerName);
@@ -183,9 +223,9 @@ fn validate_staged(
             actual,
         });
     }
-    // Column names must be unique within a layer. A shared dictionary's `name()` is
-    // only its prefix (which may repeat); its real columns are `{prefix}{suffix}`.
-    let mut seen: HashSet<Cow<str>> = HashSet::new();
+    // A shared dictionary's `name()` is only its prefix, which may repeat.
+    // Its real columns are `{prefix}{suffix}`, so those are the names the layer's namespace holds.
+    let mut columns: Vec<Cow<'p, str>> = Vec::with_capacity(properties.len());
     for property in properties {
         let actual = property.feature_count();
         if actual != feature_count {
@@ -197,30 +237,48 @@ fn validate_staged(
         }
         if let StagedProperty::SharedDict(sd) = property {
             for item in &sd.items {
-                if !seen.insert(Cow::Owned(format!("{}{}", sd.prefix, item.suffix))) {
-                    return Err(MltError::DuplicatePropertyName(format!(
-                        "{}{}",
-                        sd.prefix, item.suffix
-                    )));
-                }
+                let name = format!("{}{}", sd.prefix, item.suffix);
+                reject_taken_name(&name, ColumnRole::Property, property_columns(&columns))?;
+                columns.push(Cow::Owned(name));
             }
-        } else if !seen.insert(Cow::Borrowed(property.name())) {
-            return Err(MltError::DuplicatePropertyName(property.name().to_string()));
+        } else {
+            reject_taken_name(
+                property.name(),
+                ColumnRole::Property,
+                property_columns(&columns),
+            )?;
+            columns.push(Cow::Borrowed(property.name()));
         }
     }
-    Ok((name, extent))
+    Ok((name, extent, columns))
 }
 
-/// Check every m-value column against the geometry it runs over: a mask of one
+/// Pair every property column's name with its kind, as the uniqueness check reads them.
+fn property_columns<'a>(
+    columns: &'a [Cow<'a, str>],
+) -> impl Iterator<Item = (&'a str, ColumnRole)> + 'a {
+    columns
+        .iter()
+        .map(|name| (name.as_ref(), ColumnRole::Property))
+}
+
+/// Check every m-value column against the geometry it runs over: a unique name, a mask of one
 /// bit per feature, and one value per vertex of every feature it marks present.
 #[cfg(feature = "unstable-v2")]
-fn validate_m_values(geometry: &GeometryValues, m_values: &[StagedMValue]) -> MltResult<()> {
+fn validate_m_values(
+    geometry: &GeometryValues,
+    columns: &[Cow<'_, str>],
+    m_values: &[StagedMValue],
+) -> MltResult<()> {
     let feature_count = geometry.feature_count();
-    let mut seen: HashSet<&str> = HashSet::new();
+    let mut seen: Vec<&str> = Vec::with_capacity(m_values.len());
     for column in m_values {
-        if !seen.insert(column.name()) {
-            return Err(MltError::DuplicateMValueName(column.name().to_string()));
-        }
+        reject_taken_name(
+            column.name(),
+            ColumnRole::MValue,
+            property_columns(columns).chain(seen.iter().map(|n| (*n, ColumnRole::MValue))),
+        )?;
+        seen.push(column.name());
         if let Some(actual) = column.feature_count()
             && actual != feature_count
         {
@@ -249,6 +307,69 @@ fn validate_m_values(geometry: &GeometryValues, m_values: &[StagedMValue]) -> Ml
         }
     }
     Ok(())
+}
+
+/// Check every nested column against the layer: a unique name, a mask of one bit
+/// per feature, and a tree the wire can hold.
+#[cfg(feature = "unstable-v2")]
+fn validate_nested(
+    geometry: &GeometryValues,
+    columns: &[Cow<'_, str>],
+    m_values: &[StagedMValue],
+    nested: &[StagedNested],
+) -> MltResult<()> {
+    let feature_count = geometry.feature_count();
+    let mut seen: Vec<&str> = Vec::with_capacity(nested.len());
+    for column in nested {
+        reject_taken_name(
+            column.name(),
+            ColumnRole::Nested,
+            property_columns(columns)
+                .chain(m_values.iter().map(|c| (c.name(), ColumnRole::MValue)))
+                .chain(seen.iter().map(|n| (*n, ColumnRole::Nested))),
+        )?;
+        seen.push(column.name());
+        if column.root.parent_count() != feature_count {
+            return Err(MltError::StagedFeatureCountMismatch {
+                column: column.name().to_string(),
+                expected: feature_count,
+                actual: column.root.parent_count(),
+            });
+        }
+        validate_nested_interior(&column.root, 1)?;
+    }
+    Ok(())
+}
+
+/// Check one node of a nested tree against the depth the wire allows, then its own children.
+#[cfg(feature = "unstable-v2")]
+fn validate_nested_node(node: &StagedNode, depth: usize) -> MltResult<()> {
+    if depth > MAX_NESTED_DEPTH {
+        return Err(MltError::NestedTooDeep(depth));
+    }
+    match node {
+        StagedNode::Leaf(_) => Ok(()),
+        StagedNode::Interior(interior) => validate_nested_interior(interior, depth),
+    }
+}
+
+/// Check an interior node's children: unique field names, and no level the wire cannot reach.
+#[cfg(feature = "unstable-v2")]
+fn validate_nested_interior(interior: &StagedInterior, depth: usize) -> MltResult<()> {
+    match interior {
+        StagedInterior::Struct(node) => {
+            let mut seen: HashSet<&str> = HashSet::with_capacity(node.fields.len());
+            for (name, field) in &node.fields {
+                if !seen.insert(name.as_str()) {
+                    return Err(MltError::DuplicateFieldName(name.clone()));
+                }
+                validate_nested_node(field, depth + 1)?;
+            }
+            Ok(())
+        }
+        StagedInterior::List(node) => validate_nested_node(&node.element, depth + 1),
+        StagedInterior::Map(node) => validate_nested_node(&node.value, depth + 1),
+    }
 }
 
 /// Which wire format layers are encoded to.
@@ -531,6 +652,39 @@ pub enum ColumnKind {
     Property,
 }
 
+/// Where one string stream set sits: the column that holds it, and the path
+/// through a nested column's tree that leads to it.
+///
+/// A flat column's path is empty, so its streams are named exactly as before.
+#[cfg(feature = "unstable-v2")]
+#[derive(Clone, Copy, Debug)]
+pub struct StrAt<'a> {
+    pub name: &'a str,
+    pub subname: &'a str,
+}
+
+#[cfg(feature = "unstable-v2")]
+impl<'a> StrAt<'a> {
+    #[must_use]
+    pub const fn flat(name: &'a str) -> Self {
+        Self { name, subname: "" }
+    }
+
+    #[must_use]
+    pub const fn nested(name: &'a str, subname: &'a str) -> Self {
+        Self { name, subname }
+    }
+
+    pub(crate) fn ctx(self, stream_type: StreamType) -> StreamCtx<'a> {
+        StreamCtx::prop2(stream_type, self.name, self.subname)
+    }
+
+    /// The name an [`ExplicitEncoder`] pins an encoding by, the column's plus the path.
+    pub(crate) fn qualified(self) -> Cow<'a, str> {
+        StreamCtx::prop2(StreamType::Present, self.name, self.subname).qualified()
+    }
+}
+
 /// Context for per-stream encoding decisions in [`ExplicitEncoder`] callbacks.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct StreamCtx<'a> {
@@ -587,6 +741,16 @@ impl<'a> StreamCtx<'a> {
     pub const fn prop2(stream_type: StreamType, prefix: &'a str, suffix: &'a str) -> Self {
         Self::new(ColumnKind::Property, stream_type, prefix, suffix)
     }
+
+    /// The name an [`ExplicitEncoder`] pins an encoding by, the column's plus any path within it.
+    #[must_use]
+    pub fn qualified(&self) -> Cow<'a, str> {
+        if self.subname.is_empty() {
+            Cow::Borrowed(self.name)
+        } else {
+            Cow::Owned(format!("{}{}", self.name, self.subname))
+        }
+    }
 }
 
 /// Explicit, deterministic encoding configuration for synthetics and tests.
@@ -608,4 +772,48 @@ pub struct ExplicitEncoder {
     /// Return the logical encoding for a float property column.
     #[dbg(skip)]
     pub get_float_encoding: Box<dyn Fn(&str) -> FloatEncoding>,
+}
+
+#[cfg(all(test, feature = "unstable-v2"))]
+mod tests {
+    use insta::assert_snapshot;
+
+    use super::*;
+    use crate::encoder::{StagedLeaf, StagedList, StagedStruct, StagedValues};
+
+    fn leaf() -> StagedNode {
+        StagedNode::Leaf(StagedLeaf::new(None, StagedValues::I32(vec![1])))
+    }
+
+    /// A tree of `depth` levels: nested lists all the way down to one leaf.
+    fn lists(depth: usize) -> StagedInterior {
+        let mut node = leaf();
+        for _ in 2..depth {
+            node = StagedNode::Interior(StagedInterior::List(StagedList::new(None, vec![1], node)));
+        }
+        StagedInterior::List(StagedList::new(None, vec![1], node))
+    }
+
+    #[test]
+    fn a_struct_repeating_a_field_name() {
+        let root =
+            StagedInterior::Struct(StagedStruct::new(None, vec![("a", leaf()), ("a", leaf())]));
+        assert_snapshot!(
+            validate_nested_interior(&root, 1).unwrap_err(),
+            @"duplicate field name in a struct node: a"
+        );
+    }
+
+    #[test]
+    fn a_tree_one_level_past_the_limit() {
+        assert_snapshot!(
+            validate_nested_interior(&lists(MAX_NESTED_DEPTH + 1), 1).unwrap_err(),
+            @"a nested column is 9 levels deep, more than the 8 the format allows"
+        );
+    }
+
+    #[test]
+    fn a_tree_at_the_limit() {
+        validate_nested_interior(&lists(MAX_NESTED_DEPTH), 1).expect("a tree at the limit");
+    }
 }

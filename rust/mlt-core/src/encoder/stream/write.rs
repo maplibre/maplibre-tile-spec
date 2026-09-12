@@ -139,6 +139,13 @@ impl PhysicalCodecs {
                 let kind = FastPForKind::Block256Be;
                 (PE::FastPFor(kind), P::fastpfor(self, kind, values)?)
             }
+            #[cfg(feature = "unstable-v2")]
+            PhysicalEncoder::BitPacked => {
+                let payload = self
+                    .bitpack(values)
+                    .ok_or(UnsupportedPhysicalEncoding("bit packing above 32 bits"))?;
+                (PE::BitPacked, payload)
+            }
         };
         let meta = StreamMeta::new2(ctx.stream_type, le, pe, values.len())?;
         write_stream_payload(enc, meta, false, vals)

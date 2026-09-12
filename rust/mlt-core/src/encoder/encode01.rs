@@ -23,6 +23,12 @@ pub(crate) fn encode_into01(
     if !layer.m_values.is_empty() {
         return Err(MltError::MValuesNeedV2(layer.name));
     }
+    // A nested column has nowhere to go in v1 either, and flattening it would be
+    // a different tile rather than the same one in another format.
+    #[cfg(feature = "unstable-v2")]
+    if !layer.nested.is_empty() {
+        return Err(MltError::NestedNeedsV2(layer.name));
+    }
 
     let StagedLayer {
         name,
@@ -32,6 +38,8 @@ pub(crate) fn encode_into01(
         properties,
         #[cfg(feature = "unstable-v2")]
             m_values: _,
+        #[cfg(feature = "unstable-v2")]
+            nested: _,
     } = layer;
 
     id.write_to(&mut enc, codecs)?;

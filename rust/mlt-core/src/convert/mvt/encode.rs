@@ -85,6 +85,10 @@ mod tests {
             m_value_names: vec![],
             #[cfg(feature = "unstable-v2")]
             m_value_kinds: vec![],
+            #[cfg(feature = "unstable-v2")]
+            nested_names: vec![],
+            #[cfg(feature = "unstable-v2")]
+            nested_kinds: vec![],
             features: vec![],
         };
 
@@ -116,6 +120,8 @@ mod tests {
                 properties: vec![],
                 #[cfg(feature = "unstable-v2")]
                 m_values: vec![],
+                #[cfg(feature = "unstable-v2")]
+                nested: vec![],
             }],
         )
         .unwrap();
