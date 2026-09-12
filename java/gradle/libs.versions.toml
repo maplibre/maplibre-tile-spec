@@ -29,6 +29,8 @@ junit-jupiter-platform-launcher = { group = "org.junit.platform", name = "junit-
 kotlin-stdlib = { group = "org.jetbrains.kotlin", name = "kotlin-stdlib", version.ref = "kotlin-jvm" }
 mapbox-vector-tile-java = { group = "io.github.sebasbaumh", name = "mapbox-vector-tile-java", version = "25.1.0" }
 mbtiles4j = { group = "org.imintel", name = "mbtiles4j", version = "1.0.6" }
+mockito-core = { group = "org.mockito", name = "mockito-core", version = "5.23.0" }
+mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version = "6.3.0" }
 planetiler-core = { module= "com.onthegomap.planetiler:planetiler-core", version="0.10.2" }
 protobuf-java = { group = "com.google.protobuf", name = "protobuf-java", version = "4.36.1" }
 log4j-api = { group = "org.apache.logging.log4j", name = "log4j-api", version = "2.26.1" }
