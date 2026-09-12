@@ -10,4 +10,10 @@ pub enum PhysicalEncoder {
     ///
     /// Does not support u64/i64 integers
     FastPFOR,
+    /// Every value in the same `1..=32` bits, which a leading payload byte names.
+    ///
+    /// Only v2 can express it, so the v1 round-trip properties never generate it.
+    #[cfg(feature = "unstable-v2")]
+    #[cfg_attr(test, proptest(skip))]
+    BitPacked,
 }

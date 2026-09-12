@@ -13,10 +13,12 @@ mod model01;
 mod model02;
 #[cfg(feature = "unstable-v2")]
 mod mvalue;
+#[cfg(feature = "unstable-v2")]
+pub(crate) mod nested;
 mod property;
 mod root01;
 #[cfg(feature = "unstable-v2")]
-mod root02;
+pub(crate) mod root02;
 pub(crate) mod stream;
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -39,11 +41,17 @@ pub(crate) use model01::Column;
 pub use model01::ColumnType;
 #[cfg(feature = "unstable-v2")]
 pub(crate) use model02::{
-    Column02, ColumnKind02, ColumnType02, DataType02, GeoLayout, IdWidth02, LayerLayout,
-    Presence02, SharedDictKind, Topology, ValueType02, ValuesColumn02, VertexStorage,
+    Column02, ColumnKind02, ColumnType02, DataType02, GeoLayout, IdWidth02, Interior02,
+    LayerLayout, NodeKind02, NodePresence, NodeType02, Presence02, SharedDictKind, Topology,
+    ValueType02, ValuesColumn02, VertexStorage,
 };
 #[cfg(feature = "unstable-v2")]
 pub use mvalue::{MValueColumn, MValueSpans, MValues, ParsedMValue, RawMValue};
+#[cfg(feature = "unstable-v2")]
+pub use nested::{
+    Nested, ParsedInterior, ParsedLeaf, ParsedList, ParsedMap, ParsedNested, ParsedNode,
+    ParsedStruct, RawInterior, RawLeaf, RawList, RawMap, RawNested, RawNode, RawStruct,
+};
 // Re-export strings sub-module so encoder can use `crate::decoder::strings::*`
 pub(crate) use property::strings;
 pub(crate) use property::{

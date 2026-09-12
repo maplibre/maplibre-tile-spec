@@ -168,6 +168,16 @@ impl std::fmt::Display for FileAlgorithm {
                         LengthType::Triangles => "TrianglesLen",
                         LengthType::Symbol => "SymbolLen",
                         LengthType::Dictionary => "DictLen",
+                        #[cfg(feature = "unstable-v2")]
+                        LengthType::Nested => "NestedLen",
+                        // `mlt-core` resolves its features separately, so it may hand this
+                        // build a nested length stream the match above cannot name.
+                        #[cfg(not(feature = "unstable-v2"))]
+                        #[allow(
+                            unreachable_patterns,
+                            reason = "reachable only when mlt-core has v2"
+                        )]
+                        _ => "NestedLen",
                     },
                 };
                 // `mlt-core` may carry v2-only encodings this build has no name for,

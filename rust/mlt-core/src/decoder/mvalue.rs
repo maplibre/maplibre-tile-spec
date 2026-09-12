@@ -163,6 +163,12 @@ impl<'a> ParsedMValue<'a> {
         &self.values
     }
 
+    /// Take the values out, which a nested leaf does since it keeps its own presence.
+    #[must_use]
+    pub(crate) fn into_values(self) -> MValues<'a> {
+        self.values
+    }
+
     /// Whether feature `index` carries values.
     #[must_use]
     pub fn is_present(&self, index: usize) -> bool {

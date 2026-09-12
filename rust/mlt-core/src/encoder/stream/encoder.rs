@@ -47,6 +47,12 @@ impl IntEncoder {
     pub fn rle_varint() -> Self {
         Self::new(LogicalEncoder::Rle, PhysicalEncoder::VarInt)
     }
+    /// Every value in the same number of bits, which only v2 can express.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn bitpacked() -> Self {
+        Self::new(LogicalEncoder::None, PhysicalEncoder::BitPacked)
+    }
     #[must_use]
     pub fn varint() -> Self {
         Self::new(LogicalEncoder::None, PhysicalEncoder::VarInt)

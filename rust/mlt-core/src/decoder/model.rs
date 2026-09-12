@@ -6,9 +6,9 @@
 
 use std::fmt;
 
-#[cfg(feature = "unstable-v2")]
-use crate::decoder::MValueColumn;
 use crate::decoder::{Geometry, GeometryValues, Id, Property};
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::{MValueColumn, Nested};
 use crate::tile::Extent;
 use crate::{DecodeState, Lazy, Parsed};
 
@@ -88,6 +88,9 @@ pub struct Layer01<'a, S: DecodeState = Lazy> {
     pub(crate) id: Option<Id<'a, S>>,
     pub(crate) geometry: Geometry<'a, S>,
     pub(crate) properties: Vec<Property<'a, S>>,
+    /// Nested columns, which only a v2 layer carries.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) nested: Vec<Nested<'a, S>>,
     /// Vertex-scoped columns, which only a v2 layer carries.
     #[cfg(feature = "unstable-v2")]
     pub(crate) m_values: Vec<MValueColumn<'a, S>>,
@@ -133,6 +136,13 @@ impl ParsedLayer01<'_> {
     pub fn m_values(&self) -> &[crate::decoder::ParsedMValue<'_>] {
         &self.m_values
     }
+
+    /// The layer's nested columns, each a tree over the features it marks present.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn nested(&self) -> &[crate::decoder::ParsedNested<'_>] {
+        &self.nested
+    }
 }
 
 /// [`fmt::Debug`] and [`Clone`] for a layer, whose column bounds a `where` clause
@@ -142,14 +152,14 @@ impl ParsedLayer01<'_> {
 /// exists there, which a `where` clause cannot say for itself. Invoked with the
 /// column type in a v2 build and with nothing at all otherwise.
 macro_rules! layer01_traits {
-    ($($m_values:ty)?) => {
+    ($($m_values:ty, $nested:ty)?) => {
         impl<'a, S> fmt::Debug for Layer01<'a, S>
         where
             S: DecodeState,
             Option<Id<'a, S>>: fmt::Debug,
             Geometry<'a, S>: fmt::Debug,
             Vec<Property<'a, S>>: fmt::Debug,
-            $($m_values: fmt::Debug,)?
+            $($m_values: fmt::Debug, $nested: fmt::Debug,)?
         {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 let mut s = f.debug_struct("Layer01");
@@ -158,6 +168,8 @@ macro_rules! layer01_traits {
                     .field("id", &self.id)
                     .field("geometry", &self.geometry)
                     .field("properties", &self.properties);
+                #[cfg(feature = "unstable-v2")]
+                s.field("nested", &self.nested);
                 #[cfg(feature = "unstable-v2")]
                 s.field("m_values", &self.m_values);
                 #[cfg(fuzzing)]
@@ -172,7 +184,7 @@ macro_rules! layer01_traits {
             Option<Id<'a, S>>: Clone,
             Geometry<'a, S>: Clone,
             Vec<Property<'a, S>>: Clone,
-            $($m_values: Clone,)?
+            $($m_values: Clone, $nested: Clone,)?
         {
             fn clone(&self) -> Self {
                 Self {
@@ -181,6 +193,8 @@ macro_rules! layer01_traits {
                     id: self.id.clone(),
                     geometry: self.geometry.clone(),
                     properties: self.properties.clone(),
+                    #[cfg(feature = "unstable-v2")]
+                    nested: self.nested.clone(),
                     #[cfg(feature = "unstable-v2")]
                     m_values: self.m_values.clone(),
                     #[cfg(fuzzing)]
@@ -192,6 +206,6 @@ macro_rules! layer01_traits {
 }
 
 #[cfg(feature = "unstable-v2")]
-layer01_traits!(Vec<MValueColumn<'a, S>>);
+layer01_traits!(Vec<MValueColumn<'a, S>>, Vec<Nested<'a, S>>);
 #[cfg(not(feature = "unstable-v2"))]
 layer01_traits!();

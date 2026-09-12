@@ -1,7 +1,7 @@
 //! What a v2 m-value section can make the decoder allocate, which its budget has to bound.
 
 use mlt_core::encoder::{
-    Codecs, Encoder, EncoderConfig, StagedId, StagedLayer, StagedMValue, StagedMValues, WireVersion,
+    Codecs, Encoder, EncoderConfig, StagedId, StagedLayer, StagedMValue, StagedValues, WireVersion,
 };
 use mlt_core::geo_types::{Coord, Geometry, LineString};
 use mlt_core::{Decoder, GeometryValues, Layer, MltError, Parser};
@@ -27,7 +27,7 @@ fn absent_columns_tile() -> Vec<u8> {
             StagedMValue::new(
                 format!("m{i}"),
                 Some(vec![false; FEATURES]),
-                StagedMValues::I32(Vec::new()),
+                StagedValues::I32(Vec::new()),
             )
         })
         .collect();
