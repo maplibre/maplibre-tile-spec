@@ -199,6 +199,10 @@ pub(crate) enum StreamCtx02 {
     NestedLengths,
     /// A nested node's presence, one bit per value its parent hands it.
     NestedPresence,
+    /// A shape-coded nested node's key-set table, `shape_count * key_count` bits.
+    NestedShapeTable,
+    /// One shape id per row a shape-coded nested node marks present.
+    NestedShapeIds,
 }
 
 impl StreamCtx02 {
@@ -212,7 +216,7 @@ impl StreamCtx02 {
             | Self::PropertyDictionary(DataType02::F32 | DataType02::F64) => Family::Float,
             Self::StrData(layout) => Family::Str(layout),
             Self::StrBlob(_) => Family::Bytes,
-            Self::NestedPresence => Family::Bool,
+            Self::NestedPresence | Self::NestedShapeTable => Family::Bool,
             Self::Property(_)
             | Self::PropertyDictionary(_)
             | Self::StrDictLengths
@@ -221,7 +225,8 @@ impl StreamCtx02 {
             | Self::GeomVertexOffsets
             | Self::GeomIndices
             | Self::GeomOffsets(_)
-            | Self::NestedLengths => Family::Int,
+            | Self::NestedLengths
+            | Self::NestedShapeIds => Family::Int,
             Self::GeomVertices => Family::Vertex,
         }
     }
@@ -229,7 +234,7 @@ impl StreamCtx02 {
     /// The stream role this position implies, which v2 does not store on the wire.
     pub(crate) fn stream_type(self) -> StreamType {
         match self {
-            Self::Property(_) => StreamType::Data(DictionaryType::None),
+            Self::Property(_) | Self::NestedShapeIds => StreamType::Data(DictionaryType::None),
             Self::PropertyDictionary(_) => StreamType::Data(DictionaryType::Single),
             Self::StrData(StrLayout::Plain) | Self::GeomTypes => {
                 StreamType::Length(LengthType::VarBinary)
@@ -247,7 +252,7 @@ impl StreamCtx02 {
             Self::GeomIndices => StreamType::Offset(OffsetType::Index),
             Self::GeomOffsets(length_type) => StreamType::Length(length_type),
             Self::NestedLengths => StreamType::Length(LengthType::Nested),
-            Self::NestedPresence => StreamType::Present,
+            Self::NestedPresence | Self::NestedShapeTable => StreamType::Present,
         }
     }
 }

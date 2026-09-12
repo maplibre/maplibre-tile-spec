@@ -174,6 +174,8 @@ pub struct Layer {
     /// Encodings pinned for streams inside a nested column, keyed by the column
     /// name plus the path to the node within it.
     nested_encodings: Vec<(String, PropConfig)>,
+    /// Whether a nested node may code its children's structure as one shape id per row.
+    row_shapes: bool,
     extent: Option<u32>,
     ids: Option<(StagedId, IntEncoder)>,
     versions: &'static [WireVersion],
@@ -192,6 +194,7 @@ impl Layer {
             m_values: vec![],
             nested: vec![],
             nested_encodings: vec![],
+            row_shapes: false,
             extent: None,
             versions: &[WireVersion::V01, WireVersion::V02],
             ids: None,
@@ -546,6 +549,16 @@ impl Layer {
         self
     }
 
+    /// Let a nested node code its children's structure as one shape id per row.
+    ///
+    /// Off by default, and only kept where it is smaller than one presence stream
+    /// per struct field or one key per map entry.
+    #[must_use]
+    pub fn row_shapes(mut self) -> Self {
+        self.row_shapes = true;
+        self
+    }
+
     /// Add a shared dictionary column.
     #[must_use]
     pub fn add_shared_dict(mut self, shared_dict: SharedDict) -> Self {
@@ -627,6 +640,7 @@ impl Layer {
             m_values,
             nested,
             nested_encodings,
+            row_shapes,
             extent,
             ids,
             versions: _,
@@ -634,6 +648,7 @@ impl Layer {
 
         let enc_cfg = EncoderConfig::default()
             .with_tessellation(tessellate)
+            .with_row_shapes(row_shapes)
             .with_wire_version(wire_version);
 
         let mut geometry = if enc_cfg.tessellate() {

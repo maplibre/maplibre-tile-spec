@@ -187,6 +187,27 @@ pub enum MltError {
     #[cfg(feature = "unstable-v2")]
     #[error("a nested leaf holds {len} values, so it has no value at index {index}")]
     NestedValueOutOfRange { index: usize, len: usize },
+    #[cfg(feature = "unstable-v2")]
+    #[error("a row-shape table of {bits} bits does not divide into shapes of {keys} keys")]
+    NestedRowShapeTableSize { bits: usize, keys: usize },
+    #[cfg(feature = "unstable-v2")]
+    #[error("a shape-coded nested node has {len} row shapes, so it has no shape {id}")]
+    NestedRowShapeOutOfRange { id: u32, len: usize },
+    #[cfg(feature = "unstable-v2")]
+    #[error("nested node {name} is shape-coded over {expected} rows, but holds {actual} shape ids")]
+    NestedRowShapeCount {
+        name: String,
+        expected: u32,
+        actual: u32,
+    },
+    #[cfg(feature = "unstable-v2")]
+    #[error(
+        "nested node {name} reads its presence from its parent's row shapes, so it stores none of its own"
+    )]
+    NestedRowShapeChildPresence { name: String },
+    #[cfg(feature = "unstable-v2")]
+    #[error("nested node {name} is a {kind}, which has no row shapes to read")]
+    NestedRowShapeUnsupported { name: String, kind: &'static str },
     #[error("error parsing logical technique: code={0}")]
     ParsingLogicalTechnique(u8),
     #[error("error parsing physical encoding: code={0}")]
