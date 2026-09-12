@@ -149,7 +149,7 @@ impl SynthWriter {
     /// or `Err` on any failure.
     #[expect(clippy::panic_in_result_fn)]
     fn write_int(&mut self, layer: &Layer, names: [&str; WIRE_VERSIONS_CNT]) -> SynthResult<()> {
-        let versions = if layer.wants_v2() {
+        let versions = if layer.versions() {
             [WireVersion::V01, WireVersion::V02].as_slice()
         } else {
             [WireVersion::V01].as_slice()

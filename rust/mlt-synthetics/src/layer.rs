@@ -168,7 +168,7 @@ pub struct Layer {
     props: Vec<(StagedProperty, PropConfig)>,
     extent: Option<u32>,
     ids: Option<(StagedId, IntEncoder)>,
-    no_v2: bool,
+    versions: &'static [WireVersion],
 }
 
 impl Layer {
@@ -182,15 +182,26 @@ impl Layer {
             geometry_items: vec![],
             props: vec![],
             extent: None,
+            versions: &[WireVersion::V01, WireVersion::V02],
             ids: None,
-            no_v2: false,
         }
     }
 
     /// Skip encoding this layer as v2 (tag `0x02`).
     #[must_use]
     pub fn no_v2(mut self) -> Self {
-        self.no_v2 = true;
+        assert!(self.versions().contains(&WireVersion::V02));
+        assert_eq!(self.versions().len(), 2);
+        self.versions = &[WireVersion::V01];
+        self
+    }
+
+    /// Skip encoding this layer as v1 (tag `0x01`).
+    #[must_use]
+    pub fn no_v1(mut self) -> Self {
+        assert!(self.versions().contains(&WireVersion::V01));
+        assert_eq!(self.versions().len(), 2);
+        self.versions = &[WireVersion::V02];
         self
     }
 
@@ -466,10 +477,6 @@ impl Layer {
         OpenOptions::new().write(true).create_new(true).open(path)
     }
 
-    pub(crate) fn wants_v2(&self) -> bool {
-        !self.no_v2
-    }
-
     pub fn encode_to_bytes(self, wire_version: WireVersion) -> SynthResult<Vec<u8>> {
         let Self {
             default_geo_enc,
@@ -481,7 +488,7 @@ impl Layer {
             props,
             extent,
             ids,
-            no_v2: _,
+            versions: _,
         } = self;
 
         let enc_cfg = EncoderConfig::default()
@@ -554,6 +561,10 @@ impl Layer {
         .encode_into(Encoder::with_explicit(enc_cfg, cfg), &mut codecs)?
         .into_layer_bytes()
         .map_err(SynthErr::Mlt)
+    }
+
+    pub(crate) fn versions(&self) -> &'static [WireVersion] {
+        self.versions
     }
 }
 
