@@ -89,6 +89,9 @@ pub enum MltError {
     LogicalEncodingNotInKind(LogicalCombination, ValueKind),
     #[error("layer has zero size")]
     ZeroLayerSize,
+    #[error("bit-packed stream width {0} is outside 1..=32")]
+    #[cfg(feature = "unstable-v2")]
+    ParsingBitWidth(u32),
     #[error("The encoder used to optimise data is incompatible")]
     BadEncoderDataCombination,
     #[error("StagedLayer::encode_explicit requires Encoder.explicit to be Some(_)")]
