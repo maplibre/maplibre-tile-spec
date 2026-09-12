@@ -4,14 +4,14 @@ This package contains a JavaScript encoder and decoder for the experimental MapL
 
 ## Install
 
-`npm install @maplibre/maplibre-tile-spec`
+`npm install @maplibre/mlt`
 
 ## Quickstart
 
 ### Decode a tile
 
 ```js
-import { decodeTile } from '@maplibre/maplibre-tile-spec';
+import { decodeTile } from '@maplibre/mlt';
 
 const data = fs.readFileSync(tilePath);
 const tile = decodeTile(data);
@@ -20,7 +20,7 @@ const tile = decodeTile(data);
 ### Encode a tile
 
 ```ts
-import { encodeTile, type Layer } from '@maplibre/maplibre-tile-spec';
+import { encodeTile, type Layer } from '@maplibre/mlt';
 
 const layers: Layer[] = [
     {
