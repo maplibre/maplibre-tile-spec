@@ -17,7 +17,7 @@
 | Implementation | Language | Type | Notes |
 |---|---|---|---|
 | [maplibre-tile-spec/cpp](https://github.com/maplibre/maplibre-tile-spec/tree/main/cpp) | C++ | Decoder | Used by MapLibre Native |
-| [maplibre-tile-spec/js](https://github.com/maplibre/maplibre-tile-spec/tree/main/ts) | TypeScript | Decoder | Used by MapLibre GL JS |
+| [maplibre-tile-spec/js](https://github.com/maplibre/maplibre-tile-spec/tree/main/ts) | TypeScript | Decoder / Encoder | Used by MapLibre GL JS. The encoder is still experimental. |
 | [maplibre-tile-spec/java](https://github.com/maplibre/maplibre-tile-spec/tree/main/java) | Java | Encoder | |
 | [maplibre-tile-spec/rust/mlt](https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt/README.md) | Rust | Decoder / Encoder | Includes bundled `mlt` CLI, TUI, and conversion tooling. |
 | [maplibre-tile-spec/rust/mlt-core](https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt-core/README.md) | Rust | Decoder / Encoder | Used in Martin. Includes bundled `mlt` CLI, TUI, and conversion tooling. |

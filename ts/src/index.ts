@@ -1,4 +1,5 @@
 export { default as decodeTile } from "./mltDecoder";
+export { encodeTile } from "./encoding/mltEncoder";
 export { default as FeatureTable } from "./vector/featureTable";
 export { GeometryVector } from "./vector/geometry/geometryVector";
 export { GpuVector } from "./vector/geometry/gpuVector";
@@ -7,3 +8,13 @@ export { GEOMETRY_TYPE } from "./vector/geometry/geometryType";
 export type { TileSetMetadata } from "./metadata/tileset/tilesetMetadata";
 export type { Geometry } from "./vector/geometry/geometryVector";
 export type { Feature } from "./vector/featureTable";
+export type { MapEncodingOptions } from "./encoding/mapPropertyEncoder";
+export type {
+    EncodeOptions,
+    Feature as FeatureInput,
+    FeatureGeometry,
+    Layer,
+    Position,
+    PropertyType,
+    PropertyValue,
+} from "./encoding/mltEncoder";
