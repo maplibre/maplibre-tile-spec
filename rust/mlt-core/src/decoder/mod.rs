@@ -50,15 +50,16 @@ pub use mvalue::{MValueColumn, MValueSpans, MValues, ParsedMValue, RawMValue};
 #[cfg(feature = "unstable-v2")]
 pub use nested::{
     Nested, ParsedInterior, ParsedLeaf, ParsedList, ParsedMap, ParsedNested, ParsedNode,
-    ParsedStruct, RawInterior, RawLeaf, RawList, RawMap, RawNested, RawNode, RawStruct,
+    ParsedStruct, RawInterior, RawLeaf, RawList, RawMap, RawNested, RawNode, RawSharedLeaf,
+    RawStruct,
 };
 // Re-export strings sub-module so encoder can use `crate::decoder::strings::*`
 pub(crate) use property::strings;
 pub(crate) use property::{
-    DictLayout, DictRange, ParsedProperty, ParsedScalar, ParsedSharedDict, ParsedSharedDictItem,
-    ParsedStrings, Property, RawFloats, RawFloatsEncoding, RawFsstData, RawPlainData, RawPresence,
-    RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings,
-    RawStringsEncoding,
+    DecodedCorpus, DictLayout, DictRange, ParsedProperty, ParsedScalar, ParsedSharedDict,
+    ParsedSharedDictItem, ParsedStrings, Property, RawFloats, RawFloatsEncoding, RawFsstData,
+    RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding,
+    RawSharedDictItem, RawStrings, RawStringsEncoding,
 };
 #[cfg(feature = "unstable-v2")]
 pub(crate) use stream::model::{Alp, AlpScale};

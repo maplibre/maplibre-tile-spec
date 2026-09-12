@@ -432,28 +432,21 @@ fn parse_floats<'a>(
     ))
 }
 
-/// Parse a shared-dictionary column: its corpus, then the children that index into it.
+/// Parse the corpus streams a shared dictionary ends with, in either of its two encodings.
 ///
-/// Each child carries its own presence nibble and offsets stream.
-fn parse_shared_dict02<'a>(
+/// They mirror a lone string column's dictionary tail, so the blob that ends them is what
+/// names front coding here too. A shared dictionary's entry count is nothing the envelope
+/// implies, so each of its streams carries its own.
+pub(crate) fn parse_dict_tail02<'a>(
     input: &'a [u8],
     kind: SharedDictKind,
-    cols: &LayerCols<'a>,
     parser: &mut Parser,
-) -> MltRefResult<'a, RawSharedDict<'a>> {
-    let (input, name) = parse_string(input)?;
-    let (input, child_count) = parse_varint::<u32>(input)?;
-    parser.reserve(child_count)?;
-
-    // A shared dictionary's entry count is nothing the envelope implies, so each of
-    // its corpus streams carries its own.
+) -> MltResult<(&'a [u8], RawSharedDictEncoding<'a>, DictLayout)> {
     let stream = |input: &'a [u8], ctx, parser: &mut Parser| {
         header02::parse_stream(input, ctx, Count02::Explicit, parser)
     };
-    // The corpus streams mirror a lone string column's dictionary tail, so the blob that ends
-    // them is what names front coding here too.
-    let (input, encoding, dict) = match kind {
-        SharedDictKind::Plain => {
+    Ok(match kind {
+        SharedDictKind::Plain | SharedDictKind::CorpusPlain => {
             let (input, lengths) = stream(input, StreamCtx02::StrDictLengths, parser)?;
             let dict = blob_layout(input)?;
             let (input, data) =
@@ -461,7 +454,7 @@ fn parse_shared_dict02<'a>(
             let plain = RawPlainData::new(lengths, data)?;
             (input, RawSharedDictEncoding::plain(plain), dict)
         }
-        SharedDictKind::Fsst => {
+        SharedDictKind::Fsst | SharedDictKind::CorpusFsst => {
             let (input, lengths) = stream(input, StreamCtx02::StrDictLengths, parser)?;
             let (input, symbol_lengths) = stream(input, StreamCtx02::StrSymbolLengths, parser)?;
             let (input, symbols) =
@@ -472,7 +465,27 @@ fn parse_shared_dict02<'a>(
             let fsst = RawFsstData::new(symbol_lengths, symbols, lengths, corpus)?;
             (input, RawSharedDictEncoding::fsst_plain(fsst), dict)
         }
+    })
+}
+
+/// Parse a shared-dictionary column: its corpus, then the children that index into it.
+///
+/// Each child carries its own presence nibble and offsets stream.
+fn parse_shared_dict02<'a>(
+    input: &'a [u8],
+    kind: SharedDictKind,
+    cols: &LayerCols<'a>,
+    parser: &mut Parser,
+) -> MltRefResult<'a, RawSharedDict<'a>> {
+    let (input, name) = parse_string(input)?;
+    // A corpus-only column has no children: the nodes that index it sit elsewhere.
+    let (input, child_count) = if kind.is_corpus_only() {
+        (input, 0)
+    } else {
+        parse_varint::<u32>(input)?
     };
+    parser.reserve(child_count)?;
+    let (input, encoding, dict) = parse_dict_tail02(input, kind, parser)?;
 
     let mut input = input;
     let mut children = Vec::with_capacity(child_count.into_usize());

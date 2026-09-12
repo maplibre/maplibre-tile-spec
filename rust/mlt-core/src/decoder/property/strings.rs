@@ -9,9 +9,9 @@ use crate::MltError::{BufferUnderflow, DictIndexOutOfBounds};
 use crate::codecs::front_coding::{FrontLengths, front_decode};
 use crate::codecs::fsst::{decode_fsst, decode_fsst_bytes};
 use crate::decoder::{
-    DictLayout, DictionaryType, LengthType, OffsetType, ParsedSharedDict, ParsedSharedDictItem,
-    ParsedStrings, RawFsstData, RawPlainData, RawPresence, RawSharedDictEncoding, RawStream,
-    RawStrings, RawStringsEncoding, StreamType,
+    DecodedCorpus, DictLayout, DictionaryType, LengthType, OffsetType, ParsedSharedDict,
+    ParsedSharedDictItem, ParsedStrings, RawFsstData, RawPlainData, RawPresence,
+    RawSharedDictEncoding, RawStream, RawStrings, RawStringsEncoding, StreamType,
 };
 use crate::errors::AsMltError as _;
 use crate::{Decoder, DictRange, MltError, MltResult, RawSharedDict, RawSharedDictItem};
@@ -285,6 +285,29 @@ impl<'a> RawSharedDictEncoding<'a> {
     pub fn fsst_plain(fsst_data: RawFsstData<'a>) -> Self {
         Self::FsstPlain(fsst_data)
     }
+
+    /// Decode the corpus this dictionary holds.
+    pub(crate) fn decode_corpus(
+        self,
+        dict: DictLayout,
+        dec: &mut Decoder,
+    ) -> MltResult<DecodedCorpus<'a>> {
+        let (data, spans) = match self {
+            Self::Plain(plain_data) => {
+                let (blob, lengths) = plain_data.decode_bytes(dec)?;
+                let (entries, lengths) = rebuild_dictionary(dict, &lengths, blob)?;
+                (entries, shared_dict_spans(&lengths, dec)?)
+            }
+            Self::FsstPlain(fsst_data) => {
+                let (blob, lengths) = fsst_data.decode_bytes(dec)?;
+                // `entries` borrows the decompressed corpus, which is local, so it is taken owned.
+                let (entries, lengths) = rebuild_dictionary(dict, &lengths, &blob)?;
+                let spans = shared_dict_spans(&lengths, dec)?;
+                (Cow::Owned(entries.into_owned()), spans)
+            }
+        };
+        Ok(DecodedCorpus { data, spans })
+    }
 }
 
 impl<'a> RawStrings<'a> {
@@ -423,7 +446,21 @@ fn decode_dictionary_strings<'a>(
     dec: &mut Decoder,
 ) -> MltResult<ParsedStrings<'a>> {
     let dict_spans = shared_dict_spans(dict_lengths, dec)?;
-    let resolved_spans = resolve_dict_spans(offsets, presence, &dict_spans, dec)?;
+    decode_dict_codes(name, dict_data, &dict_spans, offsets, presence, dec)
+}
+
+/// Build one string per code out of the dictionary entries the codes index.
+///
+/// A code is read for every value `presence` marks present, and a null is held for the rest.
+pub(crate) fn decode_dict_codes<'a>(
+    name: &'a str,
+    dict_data: &str,
+    dict_spans: &[(u32, u32)],
+    offsets: &[u32],
+    presence: Option<&BitSlice<u8, Lsb0>>,
+    dec: &mut Decoder,
+) -> MltResult<ParsedStrings<'a>> {
+    let resolved_spans = resolve_dict_spans(offsets, presence, dict_spans, dec)?;
     let mut lengths = dec.alloc(resolved_spans.len())?;
     let mut data = String::new();
     let mut end = 0_i32;
@@ -485,22 +522,10 @@ impl<'a> RawSharedDict<'a> {
     /// Decode a shared-dictionary column into its decoded form.
     pub fn decode(self, dec: &mut Decoder) -> MltResult<ParsedSharedDict<'a>> {
         let prefix = self.name;
-        let (data, dict_spans) = match self.encoding {
-            RawSharedDictEncoding::Plain(plain_data) => {
-                let (blob, lengths) = plain_data.decode_bytes(dec)?;
-                let (entries, lengths) = rebuild_dictionary(self.dict, &lengths, blob)?;
-                let dict_spans = shared_dict_spans(&lengths, dec)?;
-                (entries, dict_spans)
-            }
-            RawSharedDictEncoding::FsstPlain(fsst_data) => {
-                let (blob, lengths) = fsst_data.decode_bytes(dec)?;
-                // `entries` borrows the decompressed corpus, which is local, so it is taken owned.
-                let (entries, lengths) = rebuild_dictionary(self.dict, &lengths, &blob)?;
-                let (entries, lengths) = (entries.into_owned(), lengths.into_owned());
-                let dict_spans = shared_dict_spans(&lengths, dec)?;
-                (Cow::Owned(entries), dict_spans)
-            }
-        };
+        let DecodedCorpus {
+            data,
+            spans: dict_spans,
+        } = self.encoding.decode_corpus(self.dict, dec)?;
         let mut items = Vec::with_capacity(self.children.len());
         for child in self.children {
             let offsets: Vec<u32> = child.data.decode_ints(dec)?;

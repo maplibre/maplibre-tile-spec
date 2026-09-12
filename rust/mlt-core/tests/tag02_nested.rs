@@ -785,3 +785,92 @@ fn a_node_presence_stream_that_is_not_a_raw_bitmap_is_rejected() {
         decode_err(&bytes)
     );
 }
+
+/// What the high nibble of every type byte in the tile means, in wire order.
+fn type_nibbles(bytes: &[u8]) -> Vec<String> {
+    let tree = annotate_tile(bytes).expect("annotate_tile");
+    tree.regions
+        .iter()
+        .filter(|r| r.label == "type")
+        .filter_map(|r| r.bits.first().map(|b| b.meaning.clone()))
+        .collect()
+}
+
+/// A layer whose string fields draw on one vocabulary, which one corpus holds.
+fn shared_vocabulary_layer(sidewalk: [Option<&str>; 4]) -> TileLayer {
+    const SURFACES: [&str; 4] = ["asphalt", "concrete", "gravel", "paving_stones"];
+    let kind = map_kind(&[
+        ("surface", leaf(PropKind::Str)),
+        ("sidewalk", leaf(PropKind::Str)),
+        ("shoulder", leaf(PropKind::Str)),
+        ("lanes", leaf(PropKind::I32)),
+    ]);
+    let geometries: Vec<Geometry<i32>> = (0..4).map(|i| point(i, i)).collect();
+    let values: Vec<NestedValue> = (0..4)
+        .map(|i| {
+            let mut fields = vec![
+                ("surface", str_value(SURFACES[i])),
+                ("shoulder", str_value(SURFACES[3 - i])),
+                ("lanes", i32_value(i32::try_from(i).expect("a small index"))),
+            ];
+            if let Some(value) = sidewalk[i] {
+                fields.push(("sidewalk", str_value(value)));
+            }
+            entries(&fields)
+        })
+        .collect();
+    nested_layer(kind, &geometries, &values)
+}
+
+#[test]
+fn string_fields_over_one_vocabulary_index_one_corpus() {
+    let layer =
+        shared_vocabulary_layer(["gravel", "asphalt", "paving_stones", "concrete"].map(Some));
+    let bytes = assert_round_trips_as_v2(&layer);
+    assert_eq!(
+        type_nibbles(&bytes),
+        [
+            "presence = AllPresent",
+            "node presence = AllPresent",
+            "node presence = SharedAllPresent",
+            "node presence = SharedAllPresent",
+            "node presence = SharedAllPresent",
+            "corpus = CorpusPlain",
+        ]
+    );
+}
+
+#[test]
+fn a_shared_leaf_that_is_null_on_a_feature_round_trips() {
+    let layer = shared_vocabulary_layer([Some("gravel"), None, Some("paving_stones"), None]);
+    let bytes = assert_round_trips_as_v2(&layer);
+    assert_eq!(
+        type_nibbles(&bytes),
+        [
+            "presence = AllPresent",
+            "node presence = AllPresent",
+            "node presence = SharedAllPresent",
+            "node presence = SharedStream",
+            "node presence = SharedAllPresent",
+            "corpus = CorpusPlain",
+        ]
+    );
+}
+
+#[test]
+fn a_corpus_index_past_the_last_corpus_is_rejected() {
+    let layer =
+        shared_vocabulary_layer(["gravel", "asphalt", "paving_stones", "concrete"].map(Some));
+    let mut bytes = layer.encode(cfg_v2()).expect("encode");
+    let (offset, len) = region(&bytes, "corpus_index", 0);
+    assert_eq!((len, bytes[offset]), (1, 0));
+    bytes[offset] = 1;
+    assert!(
+        matches!(
+            decode_err(&bytes),
+            MltError::NestedCorpusOutOfRange { index: 1, len: 1 }
+        ),
+        "{:?}",
+        decode_err(&bytes)
+    );
+}

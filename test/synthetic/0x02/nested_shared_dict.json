@@ -1,0 +1,125 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "road": {
+          "lanes": 2,
+          "shoulder": "compacted",
+          "sidewalk": "gravel",
+          "surface": "asphalt"
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11,
+          52
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "road": {
+          "lanes": 4,
+          "shoulder": "asphalt",
+          "sidewalk": "paving_stones",
+          "surface": "concrete"
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          71,
+          72
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "road": {
+          "lanes": 2,
+          "shoulder": "unpaved",
+          "sidewalk": "asphalt",
+          "surface": "gravel"
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          61,
+          22
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "road": {
+          "lanes": 6,
+          "shoulder": "gravel",
+          "sidewalk": "concrete",
+          "surface": "paving_stones"
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          65,
+          66
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "road": {
+          "lanes": 2,
+          "shoulder": "concrete",
+          "sidewalk": "unpaved",
+          "surface": "compacted"
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          35,
+          56
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "road": {
+          "lanes": 4,
+          "shoulder": "paving_stones",
+          "sidewalk": "compacted",
+          "surface": "unpaved"
+        }
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          55,
+          36
+        ]
+      }
+    }
+  ]
+}

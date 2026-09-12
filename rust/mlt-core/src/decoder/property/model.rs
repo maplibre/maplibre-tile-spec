@@ -247,6 +247,12 @@ pub struct ParsedStrings<'a> {
     pub(crate) data: Cow<'a, str>,
 }
 
+/// A decoded dictionary corpus: its entries back to back, and where each entry sits in them.
+pub(crate) struct DecodedCorpus<'a> {
+    pub(crate) data: Cow<'a, str>,
+    pub(crate) spans: Vec<(u32, u32)>,
+}
+
 /// Parsed shared dictionary payload shared by one or more child string properties.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParsedSharedDict<'a> {

@@ -1040,7 +1040,149 @@ fn generate_nested(w: &mut SynthWriter) {
         ))
         .nested_str_dict("tags", E::varint(), E::varint())
         .write(w, "nested_map_str");
+
+    // Three string fields over one vocabulary, so one corpus replaces three dictionaries.
+    geo_varint()
+        .no_v1()
+        .geos([P1, P2, P3, PH1, PH2, PH3])
+        .add_nested(StagedNested::new(
+            "road",
+            StagedInterior::Struct(StagedStruct::new(
+                None,
+                [
+                    ("surface", str_leaf(None, SURFACES)),
+                    (
+                        "sidewalk",
+                        str_leaf(
+                            None,
+                            [
+                                SURFACES[2],
+                                SURFACES[3],
+                                SURFACES[0],
+                                SURFACES[1],
+                                SURFACES[5],
+                                SURFACES[4],
+                            ],
+                        ),
+                    ),
+                    (
+                        "shoulder",
+                        str_leaf(
+                            None,
+                            [
+                                SURFACES[4],
+                                SURFACES[0],
+                                SURFACES[5],
+                                SURFACES[2],
+                                SURFACES[1],
+                                SURFACES[3],
+                            ],
+                        ),
+                    ),
+                    // An `i32` field, so the struct cannot be rewritten as a map of one type.
+                    ("lanes", i32_leaf(None, vec![2, 4, 2, 6, 2, 4])),
+                ],
+            )),
+        ))
+        .write(w, "nested_shared_dict");
+
+    // A shared leaf that is null on two features, so its codes run over the rest.
+    geo_varint()
+        .no_v1()
+        .geos([P1, P2, P3, PH1, PH2, PH3])
+        .add_nested(StagedNested::new(
+            "road",
+            StagedInterior::Struct(StagedStruct::new(
+                None,
+                [
+                    ("surface", str_leaf(None, SURFACES)),
+                    (
+                        "sidewalk",
+                        str_leaf(
+                            Some(vec![true, false, true, true, false, true]),
+                            [SURFACES[2], SURFACES[0], SURFACES[1], SURFACES[4]],
+                        ),
+                    ),
+                    (
+                        "shoulder",
+                        str_leaf(
+                            None,
+                            [
+                                SURFACES[4],
+                                SURFACES[0],
+                                SURFACES[5],
+                                SURFACES[2],
+                                SURFACES[1],
+                                SURFACES[3],
+                            ],
+                        ),
+                    ),
+                    // An `i32` field, so the struct cannot be rewritten as a map of one type.
+                    ("lanes", i32_leaf(None, vec![2, 4, 2, 6, 2, 4])),
+                ],
+            )),
+        ))
+        .write(w, "nested_shared_dict_nulls");
+
+    // Long entries with repeated substrings, so the corpus is stored FSST-compressed.
+    geo_varint()
+        .no_v1()
+        .geos([P1, P2, P3, PH1, PH2, PH3, P1, P2])
+        .add_nested(StagedNested::new(
+            "zone",
+            StagedInterior::Struct(StagedStruct::new(
+                None,
+                [
+                    ("primary", str_leaf(None, SECTORS)),
+                    (
+                        "secondary",
+                        str_leaf(
+                            None,
+                            [
+                                SECTORS[3], SECTORS[4], SECTORS[5], SECTORS[6], SECTORS[7],
+                                SECTORS[0], SECTORS[1], SECTORS[2],
+                            ],
+                        ),
+                    ),
+                    (
+                        "tertiary",
+                        str_leaf(
+                            None,
+                            [
+                                SECTORS[5], SECTORS[6], SECTORS[7], SECTORS[0], SECTORS[1],
+                                SECTORS[2], SECTORS[3], SECTORS[4],
+                            ],
+                        ),
+                    ),
+                    // An `i32` field, so the struct cannot be rewritten as a map of one type.
+                    ("lanes", i32_leaf(None, vec![2, 4, 2, 6, 2, 4, 2, 4])),
+                ],
+            )),
+        ))
+        .write(w, "nested_shared_dict_fsst");
 }
+
+/// A vocabulary of long entries with repeated substrings, which FSST compresses well.
+const SECTORS: [&str; 8] = [
+    "residential_zone_north_sector_1",
+    "residential_zone_south_sector_2",
+    "commercial_zone_north_sector_3",
+    "commercial_zone_south_sector_4",
+    "industrial_zone_north_sector_5",
+    "industrial_zone_south_sector_6",
+    "recreational_zone_north_sector_7",
+    "recreational_zone_south_sector_8",
+];
+
+/// A vocabulary every string field of the shared-dictionary fixtures draws on.
+const SURFACES: [&str; 6] = [
+    "asphalt",
+    "concrete",
+    "gravel",
+    "paving_stones",
+    "compacted",
+    "unpaved",
+];
 
 /// A leaf holding one string per value its parent hands it.
 fn str_leaf<'a>(

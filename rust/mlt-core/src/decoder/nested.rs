@@ -10,12 +10,16 @@ use bitvec::view::BitView as _;
 use usize_cast::IntoUsize as _;
 
 use crate::codecs::varint::parse_varint;
-use crate::decoder::root02::{ColumnValues, parse_column_values, parse_strings};
+use crate::decoder::root02::{ColumnValues, parse_column_values, parse_dict_tail02, parse_strings};
 use crate::decoder::stream::header02;
-use crate::decoder::stream::header02::{Count02, HAS_EXPLICIT_COUNT, PhysicalBits, StreamCtx02};
+use crate::decoder::stream::header02::{
+    Count02, HAS_EXPLICIT_COUNT, PhysicalBits, StrLayout, StreamCtx02,
+};
+use crate::decoder::strings::decode_dict_codes;
 use crate::decoder::{
-    BoolLogical, Interior02, LogicalEncoding, MValues, NodeKind02, NodePresence, NodeType02,
-    ParsedStrings, PhysicalEncoding, RawPresence, RawStream, RawStrings,
+    BoolLogical, Column02, DecodedCorpus, DictLayout, Interior02, LogicalEncoding, MValues,
+    NodeKind02, NodeType02, ParsedStrings, PhysicalEncoding, RawPresence, RawSharedDictEncoding,
+    RawStream, RawStrings,
 };
 use crate::tile::{MAX_NESTED_DEPTH, NestedKind, NestedValue, PropValue};
 use crate::utils::{parse_string, parse_u8};
@@ -39,6 +43,15 @@ pub struct RawNested<'a> {
     /// The column's value count, which is what its root is handed.
     value_count: u32,
     root: RawInterior<'a>,
+    /// The corpora the tree's shared leaves index, which trail the body.
+    corpora: Vec<RawNestedCorpus<'a>>,
+}
+
+/// A raw corpus trailing a nested column's body, which its shared leaves index by position.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct RawNestedCorpus<'a> {
+    encoding: RawSharedDictEncoding<'a>,
+    dict: DictLayout,
 }
 
 /// A raw node of a nested tree: more nodes, or the values a leaf holds.
@@ -46,6 +59,7 @@ pub struct RawNested<'a> {
 pub enum RawNode<'a> {
     Interior(RawInterior<'a>),
     Leaf(RawLeaf<'a>),
+    SharedLeaf(RawSharedLeaf<'a>),
 }
 
 /// A raw interior node, which holds other nodes rather than values.
@@ -89,6 +103,16 @@ pub struct RawLeaf<'a> {
     values: Box<ColumnValues<'a>>,
 }
 
+/// A raw string leaf whose codes index one of its column's corpora instead of its own dictionary.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RawSharedLeaf<'a> {
+    name: &'a str,
+    presence: Option<RawStream<'a>>,
+    /// Which of the column's corpora the codes index.
+    corpus: u32,
+    codes: RawStream<'a>,
+}
+
 impl RawNested<'_> {
     #[must_use]
     pub fn name(&self) -> &str {
@@ -118,6 +142,13 @@ pub(crate) fn parse_nested<'a>(
         Count02::Implied(value_count)
     };
     let (input, root) = parse_interior(input, name, kind, None, count, 1, parser)?;
+    // Only a shared leaf says the corpus section is there at all, so a tree without one
+    // reads the bytes it read before this section existed.
+    let (input, corpora) = if indexes_corpus(&root) {
+        parse_corpora(input, parser)?
+    } else {
+        (input, Vec::new())
+    };
     Ok((
         input,
         RawNested {
@@ -125,8 +156,54 @@ pub(crate) fn parse_nested<'a>(
             presence,
             value_count,
             root,
+            corpora,
         },
     ))
+}
+
+/// Parse the corpora trailing a nested column's body, which its shared leaves index by position.
+fn parse_corpora<'a>(
+    input: &'a [u8],
+    parser: &mut Parser,
+) -> MltRefResult<'a, Vec<RawNestedCorpus<'a>>> {
+    let (mut input, count) = parse_varint::<u32>(input)?;
+    parser.reserve(count)?;
+    let mut corpora = Vec::with_capacity(count.into_usize());
+    for _ in 0..count {
+        let corpus;
+        (input, corpus) = parse_nested_corpus(input, parser)?;
+        corpora.push(corpus);
+    }
+    Ok((input, corpora))
+}
+
+/// Parse one corpus: a shared dictionary with no children, whose type byte names its encoding.
+fn parse_nested_corpus<'a>(
+    input: &'a [u8],
+    parser: &mut Parser,
+) -> MltRefResult<'a, RawNestedCorpus<'a>> {
+    let (input, typ_byte) = parse_u8(input)?;
+    let Column02::SharedDict(kind) = Column02::parse(typ_byte, 0)? else {
+        return Err(MltError::ParsingColumnType(typ_byte));
+    };
+    // The name is the one the encoder gave the group, which no leaf reads.
+    let (input, _) = parse_string(input)?;
+    let (input, encoding, dict) = parse_dict_tail02(input, kind, parser)?;
+    Ok((input, RawNestedCorpus { encoding, dict }))
+}
+
+/// Whether any leaf below this node indexes a corpus.
+fn indexes_corpus(interior: &RawInterior<'_>) -> bool {
+    let node = |node: &RawNode<'_>| match node {
+        RawNode::Interior(inner) => indexes_corpus(inner),
+        RawNode::Leaf(_) => false,
+        RawNode::SharedLeaf(_) => true,
+    };
+    match interior {
+        RawInterior::Struct(n) => n.fields.iter().any(|(_, field)| node(field)),
+        RawInterior::List(n) => node(&n.element),
+        RawInterior::Map(n) => node(&n.value),
+    }
 }
 
 /// Parse one node below the root: its type byte, its name if it has one, its
@@ -163,15 +240,14 @@ fn parse_node<'a>(
         Some(kind) if kind.has_lengths() => Count02::Explicit,
         _ => parent_count,
     };
-    let (input, presence) = match typ.presence {
-        NodePresence::AllPresent => (input, None),
-        NodePresence::Stream => {
-            require_bitmap_presence(input, &path)?;
-            require_explicit_count(input, &path, node_count)?;
-            let (input, stream) =
-                header02::parse_stream(input, StreamCtx02::NestedPresence, node_count, parser)?;
-            (input, Some(stream))
-        }
+    let (input, presence) = if typ.presence.has_stream() {
+        require_bitmap_presence(input, &path)?;
+        require_explicit_count(input, &path, node_count)?;
+        let (input, stream) =
+            header02::parse_stream(input, StreamCtx02::NestedPresence, node_count, parser)?;
+        (input, Some(stream))
+    } else {
+        (input, None)
     };
     // A node's data streams run over the values it marks present, its presence
     // stream over every value its parent handed it.
@@ -180,6 +256,22 @@ fn parse_node<'a>(
         (Count02::Implied(_), Some(stream)) => Count02::Implied(presence_popcount(stream)?),
         (Count02::Implied(count), None) => Count02::Implied(count),
     };
+
+    // A shared leaf holds no dictionary of its own: which corpus it indexes, then its codes.
+    // The corpus itself trails the body, so the codes are resolved against it when the tree decodes.
+    if typ.presence.is_shared() {
+        let (input, corpus) = parse_varint::<u32>(input)?;
+        require_explicit_count(input, &path, body_count)?;
+        let ctx = StreamCtx02::StrData(StrLayout::Dict);
+        let (input, codes) = header02::parse_stream(input, ctx, body_count, parser)?;
+        let leaf = RawSharedLeaf {
+            name,
+            presence,
+            corpus,
+            codes,
+        };
+        return Ok((input, (name, RawNode::SharedLeaf(leaf))));
+    }
 
     let (input, node) = match typ.data {
         NodeKind02::Leaf(values) => {
@@ -392,7 +484,13 @@ pub struct ParsedLeaf<'a> {
 
 impl<'a> Decode<ParsedNested<'a>> for RawNested<'a> {
     fn decode(self, dec: &mut Decoder) -> MltResult<ParsedNested<'a>> {
-        let root = self.root.decode(dec)?;
+        // The corpora trail the body, so the tree is decoded against them once they are all read.
+        let corpora = self
+            .corpora
+            .into_iter()
+            .map(|corpus| corpus.encoding.decode_corpus(corpus.dict, dec))
+            .collect::<MltResult<Vec<_>>>()?;
+        let root = self.root.decode_with(&corpora, dec)?;
         let parsed = ParsedNested {
             name: self.name,
             presence: self.presence.decode_bits(dec)?,
@@ -411,42 +509,80 @@ impl<'a> Decode<ParsedNested<'a>> for RawNested<'a> {
     }
 }
 
-impl<'a> Decode<ParsedNode<'a>> for RawNode<'a> {
-    fn decode(self, dec: &mut Decoder) -> MltResult<ParsedNode<'a>> {
+impl<'a> RawNode<'a> {
+    /// Decode this node, reading any shared leaf's values out of the corpus it indexes.
+    fn decode_with(
+        self,
+        corpora: &[DecodedCorpus<'a>],
+        dec: &mut Decoder,
+    ) -> MltResult<ParsedNode<'a>> {
         Ok(match self {
-            Self::Interior(interior) => ParsedNode::Interior(interior.decode(dec)?),
+            Self::Interior(interior) => ParsedNode::Interior(interior.decode_with(corpora, dec)?),
             Self::Leaf(leaf) => ParsedNode::Leaf(ParsedLeaf {
                 presence: decode_node_presence(leaf.presence, dec)?,
                 values: (*leaf.values).decode(dec)?,
+            }),
+            Self::SharedLeaf(leaf) => ParsedNode::Leaf(ParsedLeaf {
+                presence: decode_node_presence(leaf.presence, dec)?,
+                values: MValues::Str(decode_shared_leaf(
+                    leaf.name,
+                    leaf.corpus,
+                    leaf.codes,
+                    corpora,
+                    dec,
+                )?),
             }),
         })
     }
 }
 
-impl<'a> Decode<ParsedInterior<'a>> for RawInterior<'a> {
-    fn decode(self, dec: &mut Decoder) -> MltResult<ParsedInterior<'a>> {
+impl<'a> RawInterior<'a> {
+    /// Decode this node's children, each against the corpora its column holds.
+    fn decode_with(
+        self,
+        corpora: &[DecodedCorpus<'a>],
+        dec: &mut Decoder,
+    ) -> MltResult<ParsedInterior<'a>> {
         Ok(match self {
             Self::Struct(node) => {
                 let presence = decode_node_presence(node.presence, dec)?;
                 let mut fields = dec.alloc::<(&'a str, ParsedNode<'a>)>(node.fields.len())?;
                 for (name, field) in node.fields {
-                    fields.push((name, field.decode(dec)?));
+                    fields.push((name, field.decode_with(corpora, dec)?));
                 }
                 ParsedInterior::Struct(ParsedStruct { presence, fields })
             }
             Self::List(node) => ParsedInterior::List(ParsedList {
                 presence: decode_node_presence(node.presence, dec)?,
                 lengths: node.lengths.decode_ints::<u32>(dec)?,
-                element: Box::new(node.element.decode(dec)?),
+                element: Box::new(node.element.decode_with(corpora, dec)?),
             }),
             Self::Map(node) => ParsedInterior::Map(ParsedMap {
                 presence: decode_node_presence(node.presence, dec)?,
                 lengths: node.lengths.decode_ints::<u32>(dec)?,
                 keys: node.keys.decode(dec)?,
-                value: Box::new(node.value.decode(dec)?),
+                value: Box::new(node.value.decode_with(corpora, dec)?),
             }),
         })
     }
+}
+
+/// Read a shared leaf's values: one corpus entry per code, over the values it marks present.
+fn decode_shared_leaf<'a>(
+    name: &'a str,
+    corpus: u32,
+    codes: RawStream<'a>,
+    corpora: &[DecodedCorpus<'a>],
+    dec: &mut Decoder,
+) -> MltResult<ParsedStrings<'a>> {
+    let corpus = corpora
+        .get(corpus.into_usize())
+        .ok_or(MltError::NestedCorpusOutOfRange {
+            index: corpus,
+            len: corpora.len(),
+        })?;
+    let codes: Vec<u32> = codes.decode_ints(dec)?;
+    decode_dict_codes(name, &corpus.data, &corpus.spans, &codes, None, dec)
 }
 
 /// Decode a node's presence stream into one bool per value its parent handed it.
