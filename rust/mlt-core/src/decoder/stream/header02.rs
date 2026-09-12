@@ -25,8 +25,8 @@
 //! from the count context.
 //!
 //! Not yet implemented (rejected with [`MltError::NotImplemented`]):
-//! `None-noLen` (requires element-width context), `FastPFor128`, `Morton`,
-//! and RLE over a bool or float column.
+//! `None-noLen` (requires element-width context), `Morton`, and RLE over a
+//! bool or float column.
 
 use std::io;
 
@@ -35,9 +35,9 @@ use num_enum::TryFromPrimitive;
 
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
-    Alp, BoolLogical, DataType02, DictionaryType, FloatLogical, IntEncoding, IntLogical,
-    LengthType, LogicalEncoding, OffsetType, PhysicalEncoding, RawStream, RleMeta, StreamMeta,
-    StreamType, VertexLogical,
+    Alp, BoolLogical, DataType02, DictionaryType, FastPForKind, FloatLogical, IntEncoding,
+    IntLogical, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding, RawStream, RleMeta,
+    StreamMeta, StreamType, VertexLogical,
 };
 use crate::utils::{BinarySerializer as _, parse_u8, take};
 use crate::{MltError, MltRefResult, MltResult, Parser};
@@ -538,10 +538,8 @@ fn flat_int(physical: PhysicalInt) -> MltResult<PhysicalEncoding> {
     match physical {
         PhysicalInt::NoneWithLen => Ok(PhysicalEncoding::None),
         PhysicalInt::VarInt => Ok(PhysicalEncoding::VarInt),
+        PhysicalInt::FastPFor128 => Ok(PhysicalEncoding::FastPFor(FastPForKind::Block128Le)),
         PhysicalInt::NoneNoLen => Err(MltError::NotImplemented("v2 None-noLen physical encoding")),
-        PhysicalInt::FastPFor128 => {
-            Err(MltError::NotImplemented("v2 FastPFor128 physical encoding"))
-        }
     }
 }
 
@@ -558,9 +556,11 @@ fn physical_int_field(physical: PhysicalEncoding) -> MltResult<u8> {
     Ok(match physical {
         PhysicalEncoding::None => PhysicalInt::NoneWithLen as u8,
         PhysicalEncoding::VarInt => PhysicalInt::VarInt as u8,
-        PhysicalEncoding::FastPFor256 => {
-            return Err(MltError::NotImplemented(
-                "v2 FastPFor: requires the FastPFor128-LE codec",
+        PhysicalEncoding::FastPFor(FastPForKind::Block128Le) => PhysicalInt::FastPFor128 as u8,
+        PhysicalEncoding::FastPFor(FastPForKind::Block256Be) => {
+            return Err(MltError::UnsupportedPhysicalEncodingForType(
+                physical,
+                "v2, whose FastPFor streams are 128-value little-endian blocks",
             ));
         }
     })
@@ -779,6 +779,8 @@ mod tests {
 
     use PhysicalEncoding as PE;
 
+    const FPF128: PE = PE::FastPFor(FastPForKind::Block128Le);
+
     fn meta(logical: LogicalEncoding, physical: PhysicalEncoding, num: u32) -> StreamMeta {
         let stream_type = StreamType::Data(DictionaryType::None);
         StreamMeta::new(stream_type, IntEncoding::new(logical, physical), num)
@@ -937,6 +939,7 @@ mod tests {
     #[case::varint_implicit(int(IntLogical::None, PE::VarInt, 5), 5, Family::Int, 0b0000_1000)]
     #[case::varint_explicit(int(IntLogical::None, PE::VarInt, 5), 9, Family::Int, 0b1000_1000)]
     #[case::raw_implicit(int(IntLogical::None, PE::None, 5), 5, Family::Int, 0b0000_0100)]
+    #[case::fastpfor128(int(IntLogical::None, FPF128, 5), 5, Family::Int, 0b0000_1100)]
     #[case::delta_varint(int(IntLogical::Delta, PE::VarInt, 5), 5, Family::Int, 0b0001_1000)]
     #[case::rle_implicit(
         int(IntLogical::Rle(rle(5)), PE::VarInt, 5),
@@ -1015,6 +1018,9 @@ mod tests {
     #[case::varint(int(IntLogical::None, PE::VarInt, 5), 5, INT)]
     #[case::varint_explicit(int(IntLogical::None, PE::VarInt, 7), 5, INT)]
     #[case::raw(int(IntLogical::None, PE::None, 5), 5, INT)]
+    #[case::fastpfor128(int(IntLogical::None, FPF128, 5), 5, INT)]
+    #[case::delta_fastpfor128(int(IntLogical::Delta, FPF128, 5), 5, INT)]
+    #[case::float_dict_codes_fastpfor128(float(FloatLogical::Dict, FPF128, 5), 5, FLOAT)]
     #[case::delta(int(IntLogical::Delta, PE::VarInt, 5), 5, INT)]
     #[case::rle(int(IntLogical::Rle(rle(5)), PE::VarInt, 5), 5, INT)]
     #[case::delta_rle(int(IntLogical::DeltaRle(rle(9)), PE::VarInt, 9), 5, INT)]
@@ -1087,7 +1093,6 @@ mod tests {
 
     #[rstest]
     #[case::none_no_len(INT, 0b0000_0000)]
-    #[case::fastpfor128(INT, 0b0000_1100)]
     #[case::float_none_no_len(FLOAT, 0b0000_0000)]
     #[case::float_rle(FLOAT, 0b0001_0000)]
     #[case::float_alp(FLOAT, 0b0010_0000)]
