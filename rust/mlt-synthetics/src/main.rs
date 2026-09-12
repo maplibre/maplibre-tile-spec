@@ -176,6 +176,16 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_fastpfor()
         .geo(poly_collinear())
         .write(w, "poly_collinear_fpf");
+    geo_varint()
+        .tessellate()
+        .no_v2()
+        .geo(poly_collinear())
+        .write(w, "poly_collinear_tes");
+    geo_fastpfor()
+        .tessellate()
+        .no_v2()
+        .geo(poly_collinear())
+        .write(w, "poly_collinear_fpf_tes");
 
     geo_varint()
         .geo(poly_self_intersect())
