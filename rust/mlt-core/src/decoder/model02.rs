@@ -27,9 +27,6 @@ pub(crate) enum DataType02 {
     F32 = 0x09,
     F64 = 0x0A,
     Str = 0x0B,
-    // TODO(v2): 0x0F: shared dictionary escape. Each of its sub-columns carries
-    //           its own presence nibble, so the column's own nibble is free here
-    //           and names the shared dictionary kind instead (plain / FSST / child reference).
 }
 
 impl DataType02 {
@@ -38,6 +35,31 @@ impl DataType02 {
     #[must_use]
     pub(crate) fn has_name(self) -> bool {
         !matches!(self, Self::Id | Self::LongId)
+    }
+}
+
+/// How a shared dictionary stores its corpus, read from the high nibble of its column type byte.
+///
+/// A shared-dictionary column has no values of its own, so the nibble that names
+/// [`Presence02`] elsewhere names the corpus encoding here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub(crate) enum SharedDictKind {
+    /// Two streams: the entry lengths, then the entries.
+    Plain = 0b0000_0000,
+    /// Four streams: the entry lengths, the symbol lengths, the symbol table, then the corpus.
+    Fsst = 0b0001_0000,
+}
+
+impl SharedDictKind {
+    /// Read a masked nibble, or [`None`] for one this version has no meaning for.
+    #[must_use]
+    pub(crate) fn parse(nibble: u8) -> Option<Self> {
+        match nibble {
+            0b0000_0000 => Some(Self::Plain),
+            0b0001_0000 => Some(Self::Fsst),
+            _ => None,
+        }
     }
 }
 
@@ -140,14 +162,44 @@ impl ColumnType02 {
     pub(crate) fn parse(byte: u8, shared_count: u8) -> MltResult<Self> {
         let err = || MltError::ParsingColumnType(byte);
         let (presence, data) = Self::fields(byte);
-        let presence = Presence02::parse(presence, shared_count).ok_or_else(err)?;
         let data = DataType02::try_from(data).map_err(|_| err())?;
+        let presence = Presence02::parse(presence, shared_count).ok_or_else(err)?;
         Ok(Self { presence, data })
     }
 
     #[must_use]
     pub(crate) fn to_byte(self) -> u8 {
         self.presence.to_nibble() | self.data as u8
+    }
+}
+
+/// A v2 column type byte, read as whichever of the two column shapes its data type nibble names.
+///
+/// The two shapes read the high nibble differently, so nothing but this split can name it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Column02 {
+    /// A column of values: [`Presence02`] in the high nibble, [`DataType02`] in the low.
+    Values(ColumnType02),
+    /// A shared dictionary and the columns indexing it: [`SharedDictKind`] in the high nibble.
+    SharedDict(SharedDictKind),
+}
+
+impl Column02 {
+    /// Data type nibble of [`Self::SharedDict`], the one value no [`DataType02`] takes.
+    pub(crate) const SHARED_DICT: u8 = 0x0F;
+
+    /// Read a wire byte in the terms of the shape its data type nibble names.
+    ///
+    /// `shared_count` is [`LayerLayout::shared_presence`] of the enclosing layer.
+    pub(crate) fn parse(byte: u8, shared_count: u8) -> MltResult<Self> {
+        let err = || MltError::ParsingColumnType(byte);
+        let (high, data) = ColumnType02::fields(byte);
+        if data == Self::SHARED_DICT {
+            return SharedDictKind::parse(high)
+                .map(Self::SharedDict)
+                .ok_or_else(err);
+        }
+        ColumnType02::parse(byte, shared_count).map(Self::Values)
     }
 }
 
@@ -373,7 +425,26 @@ mod tests {
     }
 
     #[rstest]
-    #[case::reserved_data_type(0b0000_1111, ALL_SHARED)]
+    #[case::values(
+        0b0001_0101,
+        Column02::Values(ColumnType02::new(Presence02::Inline, DataType02::I32))
+    )]
+    #[case::plain_shared_dict(0b0000_1111, Column02::SharedDict(SharedDictKind::Plain))]
+    #[case::fsst_shared_dict(0b0001_1111, Column02::SharedDict(SharedDictKind::Fsst))]
+    fn column_byte_names_the_shape_it_holds(#[case] byte: u8, #[case] column: Column02) {
+        assert_eq!(Column02::parse(byte, ALL_SHARED).unwrap(), column);
+    }
+
+    #[rstest]
+    #[case::reserved_shared_dict_corpus(0b0010_1111)]
+    #[case::unassigned_data_type(0b0000_1100)]
+    fn column_byte_rejects_unassigned(#[case] byte: u8) {
+        let err = Column02::parse(byte, ALL_SHARED).unwrap_err();
+        assert!(matches!(err, MltError::ParsingColumnType(b) if b == byte));
+    }
+
+    #[rstest]
+    #[case::shared_dict_is_not_a_data_type(0b0000_1111, ALL_SHARED)]
     #[case::unassigned_data_type(0b0000_1100, ALL_SHARED)]
     #[case::reserved_presence(0b1001_0101, ALL_SHARED)]
     #[case::reserved_presence_top(0b1111_0101, ALL_SHARED)]

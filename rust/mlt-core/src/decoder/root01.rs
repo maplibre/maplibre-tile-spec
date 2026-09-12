@@ -11,10 +11,10 @@ use crate::MltError::{
 use crate::codecs::varint::parse_varint;
 use crate::decoder::stream::header01;
 use crate::decoder::{
-    Column, ColumnType, DictionaryType, Geometry, Id, Layer01, RawFloats, RawFsstData, RawGeometry,
-    RawId, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
-    RawSharedDictEncoding, RawSharedDictItem, RawStrings, RawStringsEncoding, StreamType,
-    ValueKind,
+    Column, ColumnType, DictLayout, DictionaryType, Geometry, Id, Layer01, RawFloats, RawFsstData,
+    RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar,
+    RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings, RawStringsEncoding,
+    StreamType, ValueKind,
 };
 use crate::errors::AsMltError as _;
 use crate::tile::Extent;
@@ -246,14 +246,16 @@ fn parse_str_column<'a>(
             RawStringsEncoding::plain(RawPlainData::new(s1, s2)?)
         }
         [Some(s1), Some(s2), Some(s3), None, None] => {
-            RawStringsEncoding::dictionary(RawPlainData::new(s1, s3)?, s2)?
+            RawStringsEncoding::dictionary(RawPlainData::new(s1, s3)?, s2, DictLayout::Plain)?
         }
         [Some(s1), Some(s2), Some(s3), Some(s4), None] => {
             RawStringsEncoding::fsst_plain(RawFsstData::new(s1, s2, s3, s4)?)
         }
-        [Some(s1), Some(s2), Some(s3), Some(s4), Some(s5)] => {
-            RawStringsEncoding::fsst_dictionary(RawFsstData::new(s1, s2, s3, s4)?, s5)?
-        }
+        [Some(s1), Some(s2), Some(s3), Some(s4), Some(s5)] => RawStringsEncoding::fsst_dictionary(
+            RawFsstData::new(s1, s2, s3, s4)?,
+            s5,
+            DictLayout::Plain,
+        )?,
         _ => Err(UnsupportedStringStreamCount(stream_count))?,
     };
     Ok((
@@ -327,6 +329,7 @@ fn parse_shared_dict_column<'a>(
     Ok((
         input,
         RawProperty::SharedDict(RawSharedDict {
+            dict: DictLayout::Plain,
             name,
             encoding,
             children,

@@ -61,6 +61,15 @@ fn dump_text(bytes: &[u8]) -> String {
     String::from_utf8(out).expect("dump is utf8")
 }
 
+/// The value of every `label` field in the tile's dump, in wire order.
+fn dump_fields(bytes: &[u8], label: &str) -> Vec<String> {
+    dump_text(bytes)
+        .lines()
+        .filter_map(|line| line.split_once(label))
+        .map(|(_, value)| value.trim().to_string())
+        .collect()
+}
+
 fn assert_dump_covers(bytes: &[u8]) {
     let tree = annotate_tile(bytes).expect("annotate_tile");
     let mut leaves: Vec<(usize, usize)> = tree
@@ -639,17 +648,40 @@ mod strings {
     use super::*;
 
     /// A value long and repetitive enough for FSST to pay off its symbol table.
+    /// The seed leads, so two of them share no prefix worth coding.
     fn long(seed: usize) -> String {
+        let lead = char::from(b'a' + u8::try_from(seed).unwrap());
+        format!("{lead}_residential_zone_north_sector_").repeat(16)
+    }
+
+    /// As [`long`], with the seed last, so two of them share all but their final bytes.
+    fn long_shared(seed: usize) -> String {
         format!("residential_zone_north_sector_{seed:03}_").repeat(16)
     }
 
-    /// Distinct short values, which neither a dictionary nor a symbol table improves on.
+    /// Distinct short values sharing no prefix, which no dictionary or symbol table improves on.
     fn plain_values(n: usize) -> Vec<String> {
-        (0..n).map(|i| format!("zone_{i}")).collect()
+        (0..n)
+            .map(|i| {
+                let lead = char::from(b'a' + u8::try_from(i).unwrap());
+                format!("{lead}_zone_marker")
+            })
+            .collect()
     }
 
     /// Two long values alternating, which is what a dictionary is for.
+    /// They share no prefix, so front coding would only add a length per entry.
     fn dict_values(n: usize) -> Vec<String> {
+        (0..n)
+            .map(|i| {
+                let lead = if i % 2 == 0 { "A" } else { "B" };
+                lead.repeat(30)
+            })
+            .collect()
+    }
+
+    /// As [`dict_values`], with the two sharing all but their last byte, which front coding factors out.
+    fn front_dict_values(n: usize) -> Vec<String> {
         (0..n)
             .map(|i| format!("{}{}", "A".repeat(30), i % 2))
             .collect()
@@ -665,6 +697,11 @@ mod strings {
         (0..n).map(|i| long(i % 4)).collect()
     }
 
+    /// As [`fsst_dict_values`], with the four sharing prefixes for front coding to factor out.
+    fn fsst_front_dict_values(n: usize) -> Vec<String> {
+        (0..n).map(|i| long_shared(i % 4)).collect()
+    }
+
     type Values = fn(usize) -> Vec<String>;
 
     fn column(values: impl IntoIterator<Item = Option<String>>) -> TileLayer {
@@ -672,32 +709,42 @@ mod strings {
         layer(points(&"1".repeat(values.len())), None, &[("v", values)])
     }
 
+    /// How many of the tile's dictionary blobs are front coded.
+    fn front_coded_blobs(bytes: &[u8]) -> usize {
+        dump_text(bytes).matches("logical = FrontCoded").count()
+    }
+
     /// The layout of every string column in the tile, in wire order.
     fn layouts(bytes: &[u8]) -> Vec<String> {
-        dump_text(bytes)
-            .lines()
-            .filter_map(|line| line.split_once("string layout = "))
-            .map(|(_, layout)| layout.trim().to_string())
-            .collect()
+        dump_fields(bytes, "string layout = ")
     }
 
     #[rstest]
-    #[case::plain(plain_values as Values, "Plain")]
-    #[case::dict(dict_values as Values, "Dict")]
-    #[case::fsst(fsst_values as Values, "Fsst")]
-    #[case::fsst_dict(fsst_dict_values as Values, "FsstDict")]
-    fn each_layout_round_trips(#[case] values: Values, #[case] layout: &str) {
+    #[case::plain(plain_values as Values, "Plain", false)]
+    #[case::dict(dict_values as Values, "Dict", false)]
+    #[case::front_dict(front_dict_values as Values, "Dict", false)]
+    #[case::fsst(fsst_values as Values, "Fsst", true)]
+    #[case::fsst_dict(fsst_dict_values as Values, "FsstDict", true)]
+    #[case::fsst_front_dict(fsst_front_dict_values as Values, "FsstDict", true)]
+    fn each_layout_round_trips(#[case] values: Values, #[case] layout: &str, #[case] fsst: bool) {
         let l = column(values(9).into_iter().map(Some));
         assert_differential(&l);
-        assert_eq!(layouts(&l.encode(cfg_v2()).unwrap()), [layout]);
+        let bytes = l.encode(cfg_v2().with_fsst(fsst)).unwrap();
+        assert_eq!(layouts(&bytes), [layout]);
     }
 
     #[rstest]
-    #[case::plain(plain_values as Values, "Plain")]
-    #[case::dict(dict_values as Values, "Dict")]
-    #[case::fsst(fsst_values as Values, "Fsst")]
-    #[case::fsst_dict(fsst_dict_values as Values, "FsstDict")]
-    fn each_layout_round_trips_with_nulls(#[case] values: Values, #[case] layout: &str) {
+    #[case::plain(plain_values as Values, "Plain", false)]
+    #[case::dict(dict_values as Values, "Dict", false)]
+    #[case::front_dict(front_dict_values as Values, "Dict", false)]
+    #[case::fsst(fsst_values as Values, "Fsst", true)]
+    #[case::fsst_dict(fsst_dict_values as Values, "FsstDict", true)]
+    #[case::fsst_front_dict(fsst_front_dict_values as Values, "FsstDict", true)]
+    fn each_layout_round_trips_with_nulls(
+        #[case] values: Values,
+        #[case] layout: &str,
+        #[case] fsst: bool,
+    ) {
         let l = column(
             values(12)
                 .into_iter()
@@ -705,7 +752,37 @@ mod strings {
                 .map(|(i, v)| (i % 3 != 0).then_some(v)),
         );
         assert_differential(&l);
-        assert_eq!(layouts(&l.encode(cfg_v2()).unwrap()), [layout]);
+        let bytes = l.encode(cfg_v2().with_fsst(fsst)).unwrap();
+        assert_eq!(layouts(&bytes), [layout]);
+    }
+
+    #[rstest]
+    #[case::plain(plain_values as Values)]
+    #[case::dict(dict_values as Values)]
+    #[case::front_dict(front_dict_values as Values)]
+    fn fsst_over_front_coded_suffixes_beats_the_layout_that_wins_without_it(
+        #[case] values: Values,
+    ) {
+        let l = column(values(9).into_iter().map(Some));
+        let with = l.clone().encode(cfg_v2()).unwrap();
+        let without = l.encode(cfg_v2().with_fsst(false)).unwrap();
+        assert_eq!(layouts(&with), ["FsstDict"]);
+        assert!(
+            with.len() < without.len(),
+            "{} < {}",
+            with.len(),
+            without.len()
+        );
+    }
+
+    #[rstest]
+    #[case::entries_share_a_prefix(front_dict_values as Values, 1)]
+    #[case::entries_share_no_prefix(dict_values as Values, 0)]
+    fn front_coding_wins_on_shared_prefixes(#[case] values: Values, #[case] front_coded: usize) {
+        let l = column(values(9).into_iter().map(Some));
+        assert_differential(&l);
+        let bytes = l.encode(cfg_v2().with_fsst(false)).unwrap();
+        assert_eq!(front_coded_blobs(&bytes), front_coded);
     }
 
     #[test]
@@ -748,20 +825,72 @@ mod strings {
         assert_eq!(dump.matches("presence = Shared(0)").count(), 2, "{dump}");
     }
 
-    #[test]
-    fn columns_v1_would_share_a_dictionary_stay_separate_in_v2() {
+    /// A layer whose two string columns hold the same values, which both versions group.
+    fn shared_dict_layer() -> TileLayer {
         let shared: Vec<PropValue> = dict_values(6)
             .into_iter()
             .map(|v| PropValue::Str(Some(v)))
             .collect();
-        let l = layer(
+        layer(
             points(&"1".repeat(6)),
             None,
             &[("a", shared.clone()), ("b", shared)],
+        )
+    }
+
+    /// The base type of every v1 column in the tile, in wire order.
+    fn base_types(bytes: &[u8]) -> Vec<String> {
+        dump_fields(bytes, "base type = ")
+    }
+
+    /// The data type of every v2 column in the tile, in wire order.
+    fn data_types(bytes: &[u8]) -> Vec<String> {
+        dump_fields(bytes, "data type = ")
+    }
+
+    #[test]
+    fn columns_v1_would_share_a_dictionary_share_one_in_v2_too() {
+        let l = shared_dict_layer();
+        assert_eq!(
+            base_types(&l.clone().encode(cfg_v1()).unwrap()),
+            ["Geometry", "SharedDict", "Str", "Str"]
         );
-        assert!(dump_text(&l.clone().encode(cfg_v1()).unwrap()).contains("SharedDict"));
+        assert_eq!(
+            data_types(&l.clone().encode(cfg_v2()).unwrap()),
+            ["SharedDict", "Str", "Str"]
+        );
         assert_differential(&l);
-        assert_eq!(layouts(&l.encode(cfg_v2()).unwrap()), ["Dict", "Dict"]);
+    }
+
+    #[test]
+    fn a_shared_dictionary_is_smaller_than_per_column_ones() {
+        let l = shared_dict_layer();
+        let shared = l.clone().encode(cfg_v2()).unwrap().len();
+        let separate = l.encode(cfg_v2().with_shared_dict(false)).unwrap().len();
+        assert!(shared < separate, "shared {shared} vs separate {separate}");
+    }
+
+    #[test]
+    fn a_shared_dictionary_with_nulls_round_trips() {
+        let mask = "101101";
+        let values = |offset: usize| -> Vec<PropValue> {
+            mask.bytes()
+                .enumerate()
+                .map(|(i, b)| {
+                    PropValue::Str((b == b'1').then(|| format!("name:{}", (i + offset) % 3)))
+                })
+                .collect()
+        };
+        let l = layer(
+            points(mask),
+            None,
+            &[("name:de", values(0)), ("name:en", values(1))],
+        );
+        assert_eq!(
+            data_types(&l.clone().encode(cfg_v2()).unwrap()),
+            ["SharedDict", "Str", "Str"]
+        );
+        assert_differential(&l);
     }
 }
 

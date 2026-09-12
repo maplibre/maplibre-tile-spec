@@ -21,6 +21,15 @@ const ESCAPE_MARKER: u8 = 0xFF;
 ///
 /// Returns `(decompressed_utf8_string, value_lengths)`.
 pub fn decode_fsst(raw: RawFsstData<'_>, dec: &mut Decoder) -> MltResult<(String, Vec<u32>)> {
+    let (corpus, lengths) = decode_fsst_bytes(raw, dec)?;
+    Ok((String::from_utf8(corpus)?, lengths))
+}
+
+/// As [`decode_fsst`], for a corpus that is only valid UTF-8 once its caller reassembles it.
+pub fn decode_fsst_bytes(
+    raw: RawFsstData<'_>,
+    dec: &mut Decoder,
+) -> MltResult<(Vec<u8>, Vec<u32>)> {
     let RawFsstData {
         symbol_lengths,
         symbol_table,
@@ -65,7 +74,17 @@ pub fn decode_fsst(raw: RawFsstData<'_>, dec: &mut Decoder) -> MltResult<(String
     }
 
     dec.consume_items::<u8>(output.len())?;
-    Ok((String::from_utf8(output)?, lengths.decode_ints::<u32>(dec)?))
+    Ok((output, lengths.decode_ints::<u32>(dec)?))
+}
+
+/// An FSST symbol table and the corpus it compresses.
+pub struct FsstBlob {
+    /// Per-symbol byte lengths (`Length(Symbol)` stream).
+    pub symbol_lengths: Vec<u32>,
+    /// Concatenated raw symbol bytes (`Data(Fsst)` stream).
+    pub symbol_bytes: Vec<u8>,
+    /// FSST-compressed corpus bytes (`Data(dict_type)` stream).
+    pub corpus: Vec<u8>,
 }
 
 /// Raw output from FSST compression (unencoded byte buffers).
@@ -73,14 +92,42 @@ pub fn decode_fsst(raw: RawFsstData<'_>, dec: &mut Decoder) -> MltResult<(String
 /// Pass to the string encoder's `write_fsst_data` helper to write these
 /// streams directly to an [`Encoder`](crate::encoder::Encoder).
 pub struct FsstRawData {
-    /// Per-symbol byte lengths (to be written as `Length(Symbol)` stream).
-    pub symbol_lengths: Vec<u32>,
-    /// Concatenated raw symbol bytes (to be written as `Data(Fsst)` stream).
-    pub symbol_bytes: Vec<u8>,
+    /// symbol table and the compressed corpus.
+    pub blob: FsstBlob,
     /// Per-value byte lengths of the compressed corpus (to be written as `Length(Dictionary)` stream).
     pub value_lengths: Vec<u32>,
-    /// FSST-compressed corpus bytes (to be written as `Data(dict_type)` stream).
-    pub corpus: Vec<u8>,
+}
+
+/// A compressor's symbol table as the two streams that carry it: per-symbol lengths and their bytes.
+fn symbol_table_parts(compressor: &fsst::Compressor) -> (Vec<u32>, Vec<u8>) {
+    let symbols = compressor.symbol_table();
+    let mut symbol_bytes = Vec::new();
+    for sym in symbols {
+        let bytes = sym.to_u64().to_le_bytes();
+        symbol_bytes.extend_from_slice(&bytes[..sym.len()]);
+    }
+    let symbol_lengths = compressor
+        .symbol_lengths()
+        .iter()
+        .take(symbols.len())
+        .map(|&l| u32::from(l))
+        .collect();
+    (symbol_lengths, symbol_bytes)
+}
+
+/// FSST over a corpus whose pieces are not individually valid UTF-8, such as front-coded suffixes.
+///
+/// `parts` are trained on separately, then compressed as one buffer.
+#[cfg(feature = "unstable-v2")]
+#[must_use]
+pub(crate) fn compress_fsst_bytes(parts: &Vec<&[u8]>, corpus: &[u8]) -> FsstBlob {
+    let compressor = fsst::Compressor::train(parts);
+    let (symbol_lengths, symbol_bytes) = symbol_table_parts(&compressor);
+    FsstBlob {
+        symbol_lengths,
+        symbol_bytes,
+        corpus: compressor.compress(corpus),
+    }
 }
 
 /// Shared FSST compression kernel: train a compressor on `values` and compress the corpus.
@@ -108,21 +155,7 @@ pub fn compress_fsst_with<S: AsRef<str>>(
     values: &[S],
     compressor: &fsst::Compressor,
 ) -> FsstRawData {
-    let symbols = compressor.symbol_table();
-    let symbol_lengths_u8 = compressor.symbol_lengths();
-
-    let mut symbol_bytes = Vec::new();
-    for sym in symbols {
-        let bytes = sym.to_u64().to_le_bytes();
-        let len = sym.len();
-        symbol_bytes.extend_from_slice(&bytes[..len]);
-    }
-
-    let symbol_lengths: Vec<u32> = symbol_lengths_u8
-        .iter()
-        .take(symbols.len())
-        .map(|&l| u32::from(l))
-        .collect();
+    let (symbol_lengths, symbol_bytes) = symbol_table_parts(compressor);
 
     let value_lengths: Vec<u32> = values
         .iter()
@@ -141,10 +174,12 @@ pub fn compress_fsst_with<S: AsRef<str>>(
     let corpus = compressor.compress(&concatenated);
 
     FsstRawData {
-        symbol_lengths,
-        symbol_bytes,
+        blob: FsstBlob {
+            symbol_lengths,
+            symbol_bytes,
+            corpus,
+        },
         value_lengths,
-        corpus,
     }
 }
 
@@ -165,10 +200,12 @@ mod tests {
 
     /// The 4 FSST streams as wire bytes, ready to be parsed back.
     fn wire_streams(
-        symbol_lengths: &[u32],
-        symbol_bytes: &[u8],
+        FsstBlob {
+            symbol_lengths,
+            symbol_bytes,
+            corpus,
+        }: &FsstBlob,
         value_lengths: &[u32],
-        corpus: &[u8],
     ) -> [Vec<u8>; 4] {
         use crate::decoder::StreamMeta;
 
@@ -233,13 +270,17 @@ mod tests {
     /// Compress `values`, write them to the wire and decode them back.
     fn roundtrip(values: &[&str]) -> (String, Vec<u32>) {
         let raw = compress_fsst(values);
-        let buffers = wire_streams(
-            &raw.symbol_lengths,
-            &raw.symbol_bytes,
-            &raw.value_lengths,
-            &raw.corpus,
-        );
+        let buffers = wire_streams(&raw.blob, &raw.value_lengths);
         decode_fsst(parse_streams(&buffers), &mut dec()).expect("decode_fsst failed")
+    }
+
+    /// A symbol table and corpus as a blob, without going through the compressor.
+    fn hand_built_blob(symbol_lengths: &[u32], symbol_bytes: &[u8], corpus: &[u8]) -> FsstBlob {
+        FsstBlob {
+            symbol_lengths: symbol_lengths.to_vec(),
+            symbol_bytes: symbol_bytes.to_vec(),
+            corpus: corpus.to_vec(),
+        }
     }
 
     /// Decode hand-built streams that no encoder would produce.
@@ -249,7 +290,8 @@ mod tests {
         value_lengths: &[u32],
         corpus: &[u8],
     ) -> MltError {
-        let buffers = wire_streams(symbol_lengths, symbol_bytes, value_lengths, corpus);
+        let blob = hand_built_blob(symbol_lengths, symbol_bytes, corpus);
+        let buffers = wire_streams(&blob, value_lengths);
         decode_fsst(parse_streams(&buffers), &mut dec())
             .expect_err("expected malformed FSST data to be rejected")
     }
@@ -308,7 +350,8 @@ mod tests {
 
     #[test]
     fn escaped_byte_survives_a_valid_corpus() {
-        let buffers = wire_streams(&[2], b"ab", &[3], &[0x00, 0xFF, 0x7A]);
+        let blob = hand_built_blob(&[2], b"ab", &[0x00, 0xFF, 0x7A]);
+        let buffers = wire_streams(&blob, &[3]);
         let (corpus, lengths) = decode_fsst(parse_streams(&buffers), &mut dec())
             .expect("valid FSST data should decode");
         assert_eq!(corpus, "abz");
