@@ -11,6 +11,8 @@ mod model;
 mod model01;
 #[cfg(feature = "unstable-v2")]
 mod model02;
+#[cfg(feature = "unstable-v2")]
+mod mvalue;
 mod property;
 mod root01;
 #[cfg(feature = "unstable-v2")]
@@ -37,9 +39,11 @@ pub(crate) use model01::Column;
 pub use model01::ColumnType;
 #[cfg(feature = "unstable-v2")]
 pub(crate) use model02::{
-    Column02, ColumnType02, DataType02, GeoLayout, LayerLayout, Presence02, SharedDictKind,
-    Topology, VertexStorage,
+    Column02, ColumnKind02, ColumnType02, DataType02, GeoLayout, IdWidth02, LayerLayout,
+    Presence02, SharedDictKind, Topology, ValueType02, ValuesColumn02, VertexStorage,
 };
+#[cfg(feature = "unstable-v2")]
+pub use mvalue::{MValueColumn, MValueSpans, MValues, ParsedMValue, RawMValue};
 // Re-export strings sub-module so encoder can use `crate::decoder::strings::*`
 pub(crate) use property::strings;
 pub(crate) use property::{

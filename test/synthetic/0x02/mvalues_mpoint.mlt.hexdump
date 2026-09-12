@@ -1,0 +1,61 @@
+00000000                                                                     | layer[0] (49 B)
+00000000  30                                                0                |   size: 48 (varint) - tag + body
+00000001  02                                                .                |   tag: 0x02 -> Tag02
+00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
+00000009  50                                                P                |   extent: 80
+0000000a  02                                                .                |   feature_count: 2
+0000000b  82                                                .                |   layout: 0x82 MultiPoints
+                                                                             |     └ bit 7 = 1 -> m-value section = 1
+                                                                             |     └ bits 6-4 = 000 -> shared presence bitfields = 0
+                                                                             |     └ bits 3-0 = 0010 -> geometry layout = MultiPoints
+0000000c                                                                     |   geometry (21 B)
+0000000c                                                                     |     types (4 B)
+0000000c                                                                     |       header (2 B)
+0000000c  08                                                .                |         encoding: 0x08 logical=None physical=VarInt
+                                                                             |           └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
+                                                                             |           └ bits 6-4 = 000 -> logical = None, numbered for integer stream
+                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+0000000d  02                                                .                |         byte_length: 2
+0000000e  03 03                                             ..               |       data [Length(VarBinary) Int(None)/VarInt, 2 values, 2 B]
+                                                                             |         decoded: [3, 3]
+00000010                                                                     |     geo_lengths (4 B)
+00000010                                                                     |       header (2 B)
+00000010  08                                                .                |         encoding: 0x08 logical=None physical=VarInt
+                                                                             |           └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
+                                                                             |           └ bits 6-4 = 000 -> logical = None, numbered for integer stream
+                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+00000011  02                                                .                |         byte_length: 2
+00000012  03 02                                             ..               |       data [Length(Geometries) Int(None)/VarInt, 2 values, 2 B]
+                                                                             |         decoded: [3, 2]
+00000014                                                                     |     vertices (13 B)
+00000014                                                                     |       header (3 B)
+00000014  a8                                                .                |         encoding: 0xA8 logical=CwDelta physical=VarInt
+                                                                             |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
+                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+00000015  0a                                                .                |         num_values: 10
+00000016  0a                                                .                |         byte_length: 10
+00000017  0c 32 1e 20 04 38 02 75 24 10                     .2. .8.u$.       |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 10 values, 10 B]
+                                                                             |         decoded: [6, 25, 21, 41, 23, 69, 24, 10, 42, 18]
+00000021  00                                                .                |   column_count: 0
+00000022                                                                     |   m_values (15 B)
+00000022  01                                                .                |     m_value_count: 1
+00000023                                                                     |     m_value[0] U32 "dist" (14 B)
+00000023  06                                                .                |       type: 0x06 AllPresent U32
+                                                                             |         └ bits 7-4 = 0000 -> presence = AllPresent
+                                                                             |         └ bits 3-0 = 0110 -> data type = U32
+00000024  04 64 69 73 74                                    .dist            |       name: "dist"
+00000029                                                                     |       data (8 B)
+00000029                                                                     |         header (3 B)
+00000029  98                                                .                |           encoding: 0x98 logical=Delta physical=VarInt
+                                                                             |             └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |             └ bits 6-4 = 001 -> logical = Delta, numbered for integer stream
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+0000002a  05                                                .                |           num_values: 5
+0000002b  05                                                .                |           byte_length: 5
+0000002c  00 0a 0a 0a 0a                                    .....            |         data [Data(None) Int(Delta)/VarInt, 5 values, 5 B]
+                                                                             |           decoded: [0, 5, 10, 15, 20]

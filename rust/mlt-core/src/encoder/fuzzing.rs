@@ -6,6 +6,8 @@ use strum::EnumCount as _;
 use crate::encoder::model::StagedLayer;
 use crate::encoder::optimizer::Presence;
 use crate::encoder::{EncoderConfig, StagedId, StagedProperty, StagedSharedDict};
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::{StagedMValue, StagedMValues};
 
 impl Arbitrary<'_> for EncoderConfig {
     fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
@@ -67,8 +69,61 @@ impl Arbitrary<'_> for StagedLayer {
             .map(|i| generate_property(u, format!("prop{i}"), fc))
             .collect::<Result<_>>()?;
 
-        Self::new(name, extent, id, geometry, properties).map_err(|_| IncorrectFormat)
+        #[cfg(not(feature = "unstable-v2"))]
+        return Self::new(name, extent, id, geometry, properties).map_err(|_| IncorrectFormat);
+        // Bound m-value column count the same way, and against the same geometry:
+        // a column holds one value per vertex of every feature it marks present.
+        #[cfg(feature = "unstable-v2")]
+        {
+            let m_count = usize::from(u.int_in_range(0..=4u8)?);
+            let m_values: Vec<StagedMValue> = (0..m_count)
+                .map(|i| generate_m_value(u, format!("m{i}"), &geometry))
+                .collect::<Result<_>>()?;
+            Self::with_m_values(name, extent, id, geometry, properties, m_values)
+                .map_err(|_| IncorrectFormat)
+        }
     }
+}
+
+/// Generate an m-value column over `geometry`, of an arbitrary kind.
+///
+/// Which features carry values is arbitrary; how many values each of them carries
+/// is not, since the geometry says that.
+#[cfg(feature = "unstable-v2")]
+fn generate_m_value(
+    u: &mut Unstructured<'_>,
+    name: String,
+    geometry: &crate::decoder::GeometryValues,
+) -> Result<StagedMValue> {
+    const _: () = assert!(
+        StagedMValues::COUNT == 10,
+        "needs new variant in match below"
+    );
+    let features = geometry.feature_count();
+    let presence: Option<Vec<bool>> = if u.arbitrary()? {
+        None
+    } else {
+        Some(generate_scalars(u, features)?)
+    };
+    let mut count = 0;
+    for index in 0..features {
+        if presence.as_ref().is_none_or(|mask| mask[index]) {
+            count += geometry.vertex_count(index).map_err(|_| IncorrectFormat)?;
+        }
+    }
+    let values = match u.int_in_range(0..=StagedMValues::COUNT - 1)? {
+        0 => StagedMValues::Bool(generate_scalars(u, count)?),
+        1 => StagedMValues::I8(generate_scalars(u, count)?),
+        2 => StagedMValues::U8(generate_scalars(u, count)?),
+        3 => StagedMValues::I32(generate_scalars(u, count)?),
+        4 => StagedMValues::U32(generate_scalars(u, count)?),
+        5 => StagedMValues::I64(generate_scalars(u, count)?),
+        6 => StagedMValues::U64(generate_scalars(u, count)?),
+        7 => StagedMValues::F32(generate_floats(u, count)?),
+        8 => StagedMValues::F64(generate_floats(u, count)?),
+        _ => StagedMValues::Str(generate_strings(u, count)?),
+    };
+    Ok(StagedMValue::new(name, presence, values))
 }
 
 /// Generate a property column of an arbitrary kind holding exactly `count` values.
