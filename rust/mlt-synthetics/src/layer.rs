@@ -196,15 +196,6 @@ impl Layer {
         self
     }
 
-    /// Skip encoding this layer as v1 (tag `0x01`).
-    #[must_use]
-    pub fn no_v1(mut self) -> Self {
-        assert!(self.versions().contains(&WireVersion::V01));
-        assert_eq!(self.versions().len(), 2);
-        self.versions = &[WireVersion::V02];
-        self
-    }
-
     #[must_use]
     pub fn meta(mut self, e: IntEncoder) -> Self {
         self.geo_stream_overrides.insert("meta", e);
