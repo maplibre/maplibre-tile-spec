@@ -367,12 +367,12 @@ impl Codecs {
         // FSST uses 4 streams; plain uses 2.
         let str_enc_override = enc.override_str_enc(&shared_dict.prefix);
         let fsst_raw = match str_enc_override {
-            Some(StrEncoding::Fsst | StrEncoding::FsstDict) => {
+            Some(StrEncoding::Fsst | StrEncoding::FsstDict | StrEncoding::FsstFrontDict) => {
                 let byte_slices: Vec<&[u8]> = dict.iter().map(|s| s.as_bytes()).collect();
                 let compressor = fsst::Compressor::train(&byte_slices);
                 Some(compress_fsst_with(&dict, &compressor))
             }
-            Some(StrEncoding::Plain | StrEncoding::Dict) => None,
+            Some(StrEncoding::Plain | StrEncoding::Dict | StrEncoding::FrontDict) => None,
             None => {
                 // The cache key includes the suffix.
                 // Otherwise two groups could share a prefix (e.g. "name:" for Arabic vs Cyrillic scripts).

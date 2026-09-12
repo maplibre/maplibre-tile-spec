@@ -15,8 +15,8 @@ use mlt_core::geojson::FeatureCollection;
 use mlt_core::mvt::mvt_to_feature_collection;
 use mlt_core::wire::StatType::{DecodedDataSize, DecodedMetaSize, FeatureCount};
 use mlt_core::wire::{
-    Analyze as _, DictionaryType, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding,
-    StreamMeta, StreamType,
+    Analyze as _, BoolLogical, DictionaryType, FloatLogical, IntLogical, LengthType,
+    LogicalEncoding, OffsetType, PhysicalEncoding, StreamMeta, StreamType, VertexLogical,
 };
 use mlt_core::{Decoder, GeometryType, Parser};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
@@ -172,7 +172,7 @@ impl std::fmt::Display for FileAlgorithm {
                 };
                 let physical = match physical {
                     PhysicalEncoding::None => "",
-                    PhysicalEncoding::FastPFor256 => "FastPFOR",
+                    PhysicalEncoding::FastPFor(_) => "FastPFOR",
                     PhysicalEncoding::VarInt => "VarInt",
                 };
                 let logical = match logical {
@@ -184,6 +184,8 @@ impl std::fmt::Display for FileAlgorithm {
                     StatLogicalCodec::Morton => "Morton",
                     StatLogicalCodec::MortonDelta => "MortonDelta",
                     StatLogicalCodec::MortonRle => "MortonRle",
+                    StatLogicalCodec::Dict => "Dict",
+                    StatLogicalCodec::Alp => "ALP",
                 };
                 write!(f, "{phys_type}")?;
                 if !physical.is_empty() {
@@ -666,19 +668,27 @@ pub enum StatLogicalCodec {
     Morton,
     MortonDelta,
     MortonRle,
+    Dict,
+    Alp,
 }
 
 impl From<LogicalEncoding> for StatLogicalCodec {
     fn from(ld: LogicalEncoding) -> Self {
+        use LogicalEncoding as LE;
         match ld {
-            LogicalEncoding::None => Self::None,
-            LogicalEncoding::Delta => Self::Delta,
-            LogicalEncoding::DeltaRle(_) => Self::DeltaRle,
-            LogicalEncoding::ComponentwiseDelta => Self::ComponentwiseDelta,
-            LogicalEncoding::Rle(_) => Self::Rle,
-            LogicalEncoding::Morton(_) => Self::Morton,
-            LogicalEncoding::MortonDelta(_) => Self::MortonDelta,
-            LogicalEncoding::MortonRle(_) => Self::MortonRle,
+            LE::Int(IntLogical::None)
+            | LE::Bool(BoolLogical::None)
+            | LE::Float(FloatLogical::None)
+            | LE::Vertex(VertexLogical::None) => Self::None,
+            LE::Int(IntLogical::Delta) | LE::Vertex(VertexLogical::Delta) => Self::Delta,
+            LE::Int(IntLogical::DeltaRle(_)) => Self::DeltaRle,
+            LE::Vertex(VertexLogical::ComponentwiseDelta) => Self::ComponentwiseDelta,
+            LE::Int(IntLogical::Rle(_)) | LE::Bool(BoolLogical::ByteRle(_)) => Self::Rle,
+            LE::Vertex(VertexLogical::Morton(_)) => Self::Morton,
+            LE::Vertex(VertexLogical::MortonDelta(_)) => Self::MortonDelta,
+            LE::Vertex(VertexLogical::MortonRle(_)) => Self::MortonRle,
+            LE::Float(FloatLogical::Dict) => Self::Dict,
+            LE::Float(FloatLogical::Alp(_)) => Self::Alp,
         }
     }
 }

@@ -62,8 +62,12 @@ gen-tests: (just 'cargo-install' 'fd' 'fd-find')
 generate-synthetic-mlts:
     #!/usr/bin/env bash
     set -euo pipefail
-    rm -rf ../test/synthetic/0x01
-    rm -rf ../test/synthetic/0x02-java
+    # Keep the .mlt.hexdump files: only the rust side regenerates those
+    for d in ../test/synthetic/0x01 ../test/synthetic/0x02-java; do
+        if [ -d "$d" ]; then
+            find "$d" -type f ! -name '*.hexdump' -delete
+        fi
+    done
     ./gradlew :mlt-tools:generateSyntheticMlt
     {{just}} _assert-all-mlt-files-different
 

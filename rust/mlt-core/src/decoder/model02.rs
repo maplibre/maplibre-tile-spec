@@ -9,8 +9,9 @@ use crate::{MltError, MltResult};
 /// Unlike v1's [`super::ColumnType`] there are no `Opt` variants - nullability
 /// lives in the high nibble, see [`Presence02`] - and geometry is not a column
 /// (the layer's geometry section precedes the counted columns).
-/// Each string encoding variant gets its own flat code instead of v1's runtime
-/// `stream_count`.
+/// A string column spends one code, its layout living in the extension bits of
+/// its leading stream's encoding byte, see
+/// [`StrLayout`](super::stream::header02::StrLayout).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 #[repr(u8)]
 pub(crate) enum DataType02 {
@@ -25,11 +26,7 @@ pub(crate) enum DataType02 {
     U64 = 0x08,
     F32 = 0x09,
     F64 = 0x0A,
-    // TODO(v2): 0x0B..=0x0E: StrPlain / StrDict / StrFsst / StrFsstDict
-    //           (not yet implemented)
-    // TODO(v2): 0x0F: shared dictionary escape. Each of its sub-columns carries
-    //           its own presence nibble, so the column's own nibble is free here
-    //           and names the shared dictionary kind instead (plain / FSST / child reference).
+    Str = 0x0B,
 }
 
 impl DataType02 {
@@ -38,6 +35,31 @@ impl DataType02 {
     #[must_use]
     pub(crate) fn has_name(self) -> bool {
         !matches!(self, Self::Id | Self::LongId)
+    }
+}
+
+/// How a shared dictionary stores its corpus, read from the high nibble of its column type byte.
+///
+/// A shared-dictionary column has no values of its own, so the nibble that names
+/// [`Presence02`] elsewhere names the corpus encoding here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub(crate) enum SharedDictKind {
+    /// Two streams: the entry lengths, then the entries.
+    Plain = 0b0000_0000,
+    /// Four streams: the entry lengths, the symbol lengths, the symbol table, then the corpus.
+    Fsst = 0b0001_0000,
+}
+
+impl SharedDictKind {
+    /// Read a masked nibble, or [`None`] for one this version has no meaning for.
+    #[must_use]
+    pub(crate) fn parse(nibble: u8) -> Option<Self> {
+        match nibble {
+            0b0000_0000 => Some(Self::Plain),
+            0b0001_0000 => Some(Self::Fsst),
+            _ => None,
+        }
     }
 }
 
@@ -140,14 +162,44 @@ impl ColumnType02 {
     pub(crate) fn parse(byte: u8, shared_count: u8) -> MltResult<Self> {
         let err = || MltError::ParsingColumnType(byte);
         let (presence, data) = Self::fields(byte);
-        let presence = Presence02::parse(presence, shared_count).ok_or_else(err)?;
         let data = DataType02::try_from(data).map_err(|_| err())?;
+        let presence = Presence02::parse(presence, shared_count).ok_or_else(err)?;
         Ok(Self { presence, data })
     }
 
     #[must_use]
     pub(crate) fn to_byte(self) -> u8 {
         self.presence.to_nibble() | self.data as u8
+    }
+}
+
+/// A v2 column type byte, read as whichever of the two column shapes its data type nibble names.
+///
+/// The two shapes read the high nibble differently, so nothing but this split can name it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Column02 {
+    /// A column of values: [`Presence02`] in the high nibble, [`DataType02`] in the low.
+    Values(ColumnType02),
+    /// A shared dictionary and the columns indexing it: [`SharedDictKind`] in the high nibble.
+    SharedDict(SharedDictKind),
+}
+
+impl Column02 {
+    /// Data type nibble of [`Self::SharedDict`], the one value no [`DataType02`] takes.
+    pub(crate) const SHARED_DICT: u8 = 0x0F;
+
+    /// Read a wire byte in the terms of the shape its data type nibble names.
+    ///
+    /// `shared_count` is [`LayerLayout::shared_presence`] of the enclosing layer.
+    pub(crate) fn parse(byte: u8, shared_count: u8) -> MltResult<Self> {
+        let err = || MltError::ParsingColumnType(byte);
+        let (high, data) = ColumnType02::fields(byte);
+        if data == Self::SHARED_DICT {
+            return SharedDictKind::parse(high)
+                .map(Self::SharedDict)
+                .ok_or_else(err);
+        }
+        ColumnType02::parse(byte, shared_count).map(Self::Values)
     }
 }
 
@@ -188,24 +240,95 @@ pub(crate) enum GeoLayout {
     TessPolygonsWithOutlines = 0x0D,
 }
 
+/// How a v2 geometry section stores its vertices, which [`GeoLayout`] names alongside the topology.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum VertexStorage {
+    /// One entry per vertex, in a single stream.
+    Plain,
+    /// The distinct vertices once, then one index per vertex into them.
+    Dict,
+}
+
+/// The nesting of a v2 geometry section below the geometry level, carrying the streams that name it.
+///
+/// A ring level with no part level above it is not a shape the geometry model can
+/// produce, so it is not a shape this type can hold.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Topology {
+    /// No nesting: a geometry addresses its vertices directly.
+    Flat,
+    /// One part per geometry, each addressing its vertices directly.
+    Parts(Vec<u32>),
+    /// One part per geometry, each addressing a run of rings.
+    PartsAndRings { parts: Vec<u32>, rings: Vec<u32> },
+}
+
+impl Topology {
+    /// The part and ring length streams, in wire order.
+    pub(crate) fn streams(&self) -> (Option<&[u32]>, Option<&[u32]>) {
+        match self {
+            Self::Flat => (None, None),
+            Self::Parts(parts) => (Some(parts), None),
+            Self::PartsAndRings { parts, rings } => (Some(parts), Some(rings)),
+        }
+    }
+
+    /// Widen to the full part-and-ring nesting, padding a level this layer never used.
+    #[must_use]
+    pub(crate) fn with_rings(self) -> Self {
+        match self {
+            Self::Flat => Self::PartsAndRings {
+                parts: Vec::new(),
+                rings: Vec::new(),
+            },
+            Self::Parts(parts) => Self::PartsAndRings {
+                parts,
+                rings: Vec::new(),
+            },
+            rings @ Self::PartsAndRings { .. } => rings,
+        }
+    }
+}
+
 impl GeoLayout {
-    /// Layout for a plain (non-dict, non-tessellated) stream set.
+    /// Layout for a stream set with plain or dictionary vertices.
     ///
-    /// The stream set is produced by the same topology encoding as v1, where
-    /// empty length streams are skipped; every reachable combination maps to a
-    /// layout. `ring` without `part` cannot occur structurally.
-    pub(crate) fn from_streams(geo: bool, part: bool, ring: bool) -> MltResult<Self> {
-        Ok(match (geo, part, ring) {
-            (false, false, false) => Self::Points,
-            (true, false, false) => Self::MultiPoints,
-            (false, true, false) => Self::Lines,
-            (true, true, false) => Self::MultiLines,
-            (false, true, true) => Self::Polygons,
-            (true, true, true) => Self::MultiPolygons,
-            (_, false, true) => Err(MltError::NotImplemented(
-                "v2 geometry: ring lengths without part lengths",
-            ))?,
-        })
+    /// `has_geo` is independent of the nesting below it: any [`Topology`] can be
+    /// addressed either per feature or per sub-geometry.
+    #[must_use]
+    pub(crate) fn from_topology(
+        topology: &Topology,
+        has_geo: bool,
+        vertices: VertexStorage,
+    ) -> Self {
+        use VertexStorage as V;
+        match (topology, has_geo, vertices) {
+            (Topology::Flat, false, V::Plain) => Self::Points,
+            (Topology::Flat, false, V::Dict) => Self::PointsDict,
+            (Topology::Flat, true, V::Plain) => Self::MultiPoints,
+            (Topology::Flat, true, V::Dict) => Self::MultiPointsDict,
+            (Topology::Parts(_), false, V::Plain) => Self::Lines,
+            (Topology::Parts(_), false, V::Dict) => Self::LinesDict,
+            (Topology::Parts(_), true, V::Plain) => Self::MultiLines,
+            (Topology::Parts(_), true, V::Dict) => Self::MultiLinesDict,
+            (Topology::PartsAndRings { .. }, false, V::Plain) => Self::Polygons,
+            (Topology::PartsAndRings { .. }, false, V::Dict) => Self::PolygonsDict,
+            (Topology::PartsAndRings { .. }, true, V::Plain) => Self::MultiPolygons,
+            (Topology::PartsAndRings { .. }, true, V::Dict) => Self::MultiPolygonsDict,
+        }
+    }
+
+    /// Layout for a tessellated stream set, which keeps its vertices plain.
+    ///
+    /// Tessellation pairs with the full outline topology or with none of it, so a
+    /// layer holding only part of it pads the streams it is missing with empty ones.
+    #[must_use]
+    pub(crate) fn tessellated(has_outlines: bool) -> Self {
+        if has_outlines {
+            Self::TessPolygonsWithOutlines
+        } else {
+            Self::TessPolygons
+        }
     }
 
     #[must_use]
@@ -354,11 +477,19 @@ mod tests {
     /// Shared bitfield count of a layer that declares as many as the byte allows.
     const ALL_SHARED: u8 = LayerLayout::MAX_SHARED_PRESENCE;
 
+    fn parts_and_rings() -> Topology {
+        Topology::PartsAndRings {
+            parts: vec![1],
+            rings: vec![4],
+        }
+    }
+
     #[rstest]
     #[case::id(0b0000_0000, Presence02::AllPresent, DataType02::Id)]
     #[case::opt_id(0b0001_0000, Presence02::Inline, DataType02::Id)]
     #[case::i32(0b0000_0101, Presence02::AllPresent, DataType02::I32)]
     #[case::opt_f64(0b0001_1010, Presence02::Inline, DataType02::F64)]
+    #[case::str(0b0000_1011, Presence02::AllPresent, DataType02::Str)]
     #[case::first_shared(0b0010_0101, Presence02::Shared(0), DataType02::I32)]
     #[case::last_shared(0b1000_1010, Presence02::Shared(6), DataType02::F64)]
     fn column_type_byte_roundtrip(
@@ -372,8 +503,27 @@ mod tests {
     }
 
     #[rstest]
-    #[case::reserved_data_type(0b0000_1111, ALL_SHARED)]
-    #[case::unassigned_data_type(0b0000_1011, ALL_SHARED)]
+    #[case::values(
+        0b0001_0101,
+        Column02::Values(ColumnType02::new(Presence02::Inline, DataType02::I32))
+    )]
+    #[case::plain_shared_dict(0b0000_1111, Column02::SharedDict(SharedDictKind::Plain))]
+    #[case::fsst_shared_dict(0b0001_1111, Column02::SharedDict(SharedDictKind::Fsst))]
+    fn column_byte_names_the_shape_it_holds(#[case] byte: u8, #[case] column: Column02) {
+        assert_eq!(Column02::parse(byte, ALL_SHARED).unwrap(), column);
+    }
+
+    #[rstest]
+    #[case::reserved_shared_dict_corpus(0b0010_1111)]
+    #[case::unassigned_data_type(0b0000_1100)]
+    fn column_byte_rejects_unassigned(#[case] byte: u8) {
+        let err = Column02::parse(byte, ALL_SHARED).unwrap_err();
+        assert!(matches!(err, MltError::ParsingColumnType(b) if b == byte));
+    }
+
+    #[rstest]
+    #[case::shared_dict_is_not_a_data_type(0b0000_1111, ALL_SHARED)]
+    #[case::unassigned_data_type(0b0000_1100, ALL_SHARED)]
     #[case::reserved_presence(0b1001_0101, ALL_SHARED)]
     #[case::reserved_presence_top(0b1111_0101, ALL_SHARED)]
     #[case::shared_ref_without_shared_columns(0b0010_0101, 0)]
@@ -381,6 +531,61 @@ mod tests {
     fn column_type_byte_rejects_unassigned(#[case] byte: u8, #[case] shared_count: u8) {
         let err = ColumnType02::parse(byte, shared_count).unwrap_err();
         assert!(matches!(err, MltError::ParsingColumnType(b) if b == byte));
+    }
+
+    #[rstest]
+    #[case::points(Topology::Flat, false, VertexStorage::Plain, GeoLayout::Points)]
+    #[case::points_dict(Topology::Flat, false, VertexStorage::Dict, GeoLayout::PointsDict)]
+    #[case::multi_points(Topology::Flat, true, VertexStorage::Plain, GeoLayout::MultiPoints)]
+    #[case::lines_dict(Topology::Parts(vec![2]), false, VertexStorage::Dict, GeoLayout::LinesDict)]
+    #[case::multi_lines(Topology::Parts(vec![2]), true, VertexStorage::Plain, GeoLayout::MultiLines)]
+    #[case::polygons(parts_and_rings(), false, VertexStorage::Plain, GeoLayout::Polygons)]
+    #[case::multi_polygons_dict(
+        parts_and_rings(),
+        true,
+        VertexStorage::Dict,
+        GeoLayout::MultiPolygonsDict
+    )]
+    fn a_stream_set_picks_its_layout(
+        #[case] topology: Topology,
+        #[case] has_geo: bool,
+        #[case] vertices: VertexStorage,
+        #[case] expected: GeoLayout,
+    ) {
+        let layout = GeoLayout::from_topology(&topology, has_geo, vertices);
+        let (parts, rings) = topology.streams();
+        assert_eq!(layout, expected);
+        assert_eq!(layout.has_geo_lengths(), has_geo);
+        assert_eq!(layout.has_part_lengths(), parts.is_some());
+        assert_eq!(layout.has_ring_lengths(), rings.is_some());
+        assert_eq!(layout.is_dict(), vertices == VertexStorage::Dict);
+        assert!(!layout.is_tess());
+    }
+
+    #[rstest]
+    #[case::tess(false, GeoLayout::TessPolygons)]
+    #[case::tess_with_outlines(true, GeoLayout::TessPolygonsWithOutlines)]
+    fn a_tessellated_stream_set_picks_its_layout(
+        #[case] has_outlines: bool,
+        #[case] expected: GeoLayout,
+    ) {
+        let layout = GeoLayout::tessellated(has_outlines);
+        assert_eq!(layout, expected);
+        assert!(layout.is_tess());
+        assert!(!layout.is_dict());
+        assert_eq!(layout.has_geo_lengths(), has_outlines);
+        assert_eq!(layout.has_part_lengths(), has_outlines);
+        assert_eq!(layout.has_ring_lengths(), has_outlines);
+    }
+
+    #[rstest]
+    #[case::flat(Topology::Flat)]
+    #[case::parts(Topology::Parts(vec![2]))]
+    #[case::parts_and_rings(parts_and_rings())]
+    fn a_topology_widened_to_rings_keeps_both_streams(#[case] topology: Topology) {
+        let widened = topology.with_rings();
+        let (parts, rings) = widened.streams();
+        assert!(parts.is_some() && rings.is_some());
     }
 
     #[rstest]

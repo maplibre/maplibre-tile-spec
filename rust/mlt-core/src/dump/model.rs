@@ -26,6 +26,9 @@ pub enum DecodeHint {
     U32,
     /// Signed 64-bit integers (`i64` columns).
     I64,
+    /// ALP offsets, put back on their frame of reference.
+    #[cfg(feature = "unstable-v2")]
+    Alp(crate::decoder::Alp),
     /// Unsigned 64-bit integers (`u64` columns, 64-bit ids).
     U64,
     /// 32-bit floats.

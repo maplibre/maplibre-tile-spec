@@ -3,7 +3,9 @@ use std::collections::HashSet;
 
 use derive_debug::Dbg;
 
-use crate::decoder::{DictionaryType, GeometryValues, RleLayout, StreamType};
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::RleLayout;
+use crate::decoder::{DictionaryType, FastPForKind, GeometryValues, PhysicalEncoding, StreamType};
 use crate::encoder::geometry::VertexBufferType;
 use crate::encoder::{IntEncoder, StagedId, StagedProperty};
 use crate::tile::Extent;
@@ -166,6 +168,7 @@ impl StagedLayer {
 }
 
 /// Which wire format layers are encoded to.
+#[cfg(feature = "unstable-v2")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum WireVersion {
@@ -173,22 +176,28 @@ pub enum WireVersion {
     #[default]
     V01,
     /// Tag `0x02` - the experimental v2 format (see `docs/migrating-to-v2.md`).
-    /// Requires the `unstable-v2` feature.
     ///
-    /// Currently limited to ID, scalar, and non-tessellated geometry columns;
-    /// string and shared-dictionary columns are not yet supported.
-    #[cfg(feature = "unstable-v2")]
+    /// Currently limited to ID, scalar, string, shared-dictionary and geometry columns.
     V02,
 }
 
+#[cfg(feature = "unstable-v2")]
 impl WireVersion {
     /// The layer tag byte identifying this format on the wire.
     #[must_use]
     pub(crate) fn tag(self) -> u8 {
         match self {
             Self::V01 => 1,
-            #[cfg(feature = "unstable-v2")]
             Self::V02 => 2,
+        }
+    }
+
+    /// The `FastPFor` block size and word order used by this format.
+    #[must_use]
+    pub(crate) fn fastpfor_kind(self) -> FastPForKind {
+        match self {
+            Self::V01 => FastPForKind::Block256Be,
+            Self::V02 => FastPForKind::Block128Le,
         }
     }
 
@@ -197,7 +206,6 @@ impl WireVersion {
     pub(crate) fn rle_layout(self) -> RleLayout {
         match self {
             Self::V01 => RleLayout::Split,
-            #[cfg(feature = "unstable-v2")]
             Self::V02 => RleLayout::Interleaved,
         }
     }
@@ -211,6 +219,7 @@ impl WireVersion {
 )]
 pub struct EncoderConfig {
     /// The wire format to encode layers to.
+    #[cfg(feature = "unstable-v2")]
     wire_version: WireVersion,
     /// Generate tessellation data for polygons and multi-polygons.
     tessellate: bool,
@@ -226,10 +235,17 @@ pub struct EncoderConfig {
     allow_fastpfor: bool,
     /// Allow string grouping into shared dictionaries
     allow_shared_dict: bool,
+    /// Allow the v2-only float dictionary encoding
+    #[cfg(feature = "unstable-v2")]
+    allow_float_dict: bool,
+    /// Allow the v2-only ALP float encoding
+    #[cfg(feature = "unstable-v2")]
+    allow_float_alp: bool,
 }
 impl Default for EncoderConfig {
     fn default() -> Self {
         Self {
+            #[cfg(feature = "unstable-v2")]
             wire_version: WireVersion::V01,
             tessellate: false,
             attempt_spatial_morton_sort: true,
@@ -238,11 +254,17 @@ impl Default for EncoderConfig {
             allow_fsst: true,
             allow_fastpfor: true,
             allow_shared_dict: true,
+            // Off by default while the encoding is still being measured.
+            #[cfg(feature = "unstable-v2")]
+            allow_float_dict: false,
+            #[cfg(feature = "unstable-v2")]
+            allow_float_alp: false,
         }
     }
 }
 
 impl EncoderConfig {
+    #[cfg(feature = "unstable-v2")]
     #[must_use]
     pub fn wire_version(self) -> WireVersion {
         self.wire_version
@@ -275,10 +297,18 @@ impl EncoderConfig {
 
     #[must_use]
     pub fn allow_fastpfor(self) -> bool {
-        // TODO(v2): race FastPFor128-LE for `WireVersion::V02`.
-        // v2 will use `FastPFor128` in little-endian byte order.
-        // Until that codec lands, `FastPFor` is only attempted for v1 layers.
-        self.allow_fastpfor && self.wire_version == WireVersion::V01
+        self.allow_fastpfor
+    }
+
+    /// The `FastPFor` encoding to race, or `None` when `FastPFor` is switched off.
+    #[must_use]
+    pub(crate) fn fastpfor(self) -> Option<PhysicalEncoding> {
+        #[cfg(feature = "unstable-v2")]
+        let kind = self.wire_version.fastpfor_kind();
+        #[cfg(not(feature = "unstable-v2"))]
+        let kind = FastPForKind::Block256Be;
+        self.allow_fastpfor
+            .then_some(PhysicalEncoding::FastPFor(kind))
     }
 
     #[must_use]
@@ -286,6 +316,21 @@ impl EncoderConfig {
         self.allow_shared_dict
     }
 
+    /// Whether float columns may use a dictionary, which only v2 can express.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn allow_float_dict(self) -> bool {
+        self.allow_float_dict && self.wire_version != WireVersion::V01
+    }
+
+    /// Whether float columns may use ALP, which only v2 can express.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn allow_float_alp(self) -> bool {
+        self.allow_float_alp && self.wire_version != WireVersion::V01
+    }
+
+    #[cfg(feature = "unstable-v2")]
     #[must_use]
     pub fn with_wire_version(mut self, version: WireVersion) -> Self {
         self.wire_version = version;
@@ -333,22 +378,45 @@ impl EncoderConfig {
         self.allow_shared_dict = enabled;
         self
     }
+
+    /// Allow float columns to store one code per value into a dictionary of the distinct ones.
+    /// Off by default, and only v2 can express it.
+    /// A column takes it only when it comes out strictly smaller in stored bytes.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn with_float_dict(mut self, enabled: bool) -> Self {
+        self.allow_float_dict = enabled;
+        self
+    }
+
+    /// Allow float columns to store each value as a decimal-scaled integer.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn with_float_alp(mut self, enabled: bool) -> Self {
+        self.allow_float_alp = enabled;
+        self
+    }
 }
 
 /// How to encode a string column.
-///
-/// Used by [`ExplicitEncoder`] to control per-column string encoding in the
-/// explicit (synthetics / `__private`) path and in property-encoding helpers.
-///
-/// Publicly visible only when the `__private` feature is enabled (re-exported from
-/// [`crate::encoder`]).  Always compiled so that the unified property-encoding path
-/// can reference it without feature flags.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StrEncoding {
     Plain,
     Dict,
     Fsst,
     FsstDict,
+    FrontDict,
+    FsstFrontDict,
+}
+
+/// How to encode a float column, pinned rather than costed against the alternatives.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FloatEncoding {
+    None,
+    #[cfg(feature = "unstable-v2")]
+    Dict,
+    #[cfg(feature = "unstable-v2")]
+    Alp,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -418,11 +486,7 @@ impl<'a> StreamCtx<'a> {
 
 /// Explicit, deterministic encoding configuration for synthetics and tests.
 ///
-/// All encoding choices are caller-specified via callbacks so one struct can cover
-/// any combination without per-stream boilerplate.
-///
-/// Always compiled; publicly visible only when the `__private` feature is enabled
-/// (re-exported from [`crate::encoder`]).
+/// All encoding choices are caller-specified via callbacks so one struct can cover any combination without per-stream boilerplate.
 #[derive(Dbg)]
 pub struct ExplicitEncoder {
     /// Vertex buffer layout for geometry streams.
@@ -436,4 +500,7 @@ pub struct ExplicitEncoder {
     /// Return the string encoding strategy for a string property column.
     #[dbg(skip)]
     pub get_str_encoding: Box<dyn Fn(&str) -> StrEncoding>,
+    /// Return the logical encoding for a float property column.
+    #[dbg(skip)]
+    pub get_float_encoding: Box<dyn Fn(&str) -> FloatEncoding>,
 }

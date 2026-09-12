@@ -36,16 +36,23 @@ pub use model::{Layer, Layer01, ParsedLayer, ParsedLayer01, Unknown};
 pub(crate) use model01::Column;
 pub use model01::ColumnType;
 #[cfg(feature = "unstable-v2")]
-pub(crate) use model02::{ColumnType02, DataType02, GeoLayout, LayerLayout, Presence02};
+pub(crate) use model02::{
+    Column02, ColumnType02, DataType02, GeoLayout, LayerLayout, Presence02, SharedDictKind,
+    Topology, VertexStorage,
+};
 // Re-export strings sub-module so encoder can use `crate::decoder::strings::*`
 pub(crate) use property::strings;
 pub(crate) use property::{
-    DictRange, ParsedProperty, ParsedScalar, ParsedSharedDict, ParsedSharedDictItem, ParsedStrings,
-    Property, RawFsstData, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
-    RawSharedDictEncoding, RawSharedDictItem, RawStrings, RawStringsEncoding,
+    DictLayout, DictRange, ParsedProperty, ParsedScalar, ParsedSharedDict, ParsedSharedDictItem,
+    ParsedStrings, Property, RawFloats, RawFloatsEncoding, RawFsstData, RawPlainData, RawPresence,
+    RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings,
+    RawStringsEncoding,
 };
+#[cfg(feature = "unstable-v2")]
+pub(crate) use stream::model::{Alp, AlpScale};
 pub(crate) use stream::model::{
-    DictionaryType, IntEncoding, LengthType, LogicalCombination, LogicalEncoding, LogicalTechnique,
-    LogicalValue, Morton, OffsetType, PhysicalEncoding, RawStream, RleLayout, RleMeta, StreamMeta,
-    StreamType,
+    BoolLogical, DictionaryType, FastPForKind, FloatLogical, IntEncoding, IntLogical, LengthType,
+    LogicalCombination, LogicalEncoding, LogicalTechnique, LogicalValue, Morton, OffsetType,
+    PhysicalEncoding, RawStream, RleLayout, RleMeta, StreamMeta, StreamType, ValueKind,
+    VertexLogical,
 };

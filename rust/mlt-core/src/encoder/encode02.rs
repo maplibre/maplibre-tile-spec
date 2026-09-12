@@ -20,9 +20,11 @@ use std::collections::HashMap;
 
 use integer_encoding::VarIntWriter as _;
 
+use crate::MltResult;
+use crate::decoder::stream::header02::Family;
 use crate::decoder::{
-    ColumnType02, DataType02, DictionaryType, LayerLayout, LogicalEncoding, PhysicalEncoding,
-    Presence02, StreamMeta, StreamType,
+    BoolLogical, ColumnType02, DataType02, DictionaryType, LayerLayout, LogicalEncoding,
+    PhysicalEncoding, Presence02, StreamMeta, StreamType,
 };
 use crate::encoder::geometry::encode02::encode_geometry02;
 use crate::encoder::model::{StagedLayer, StreamCtx};
@@ -30,7 +32,6 @@ use crate::encoder::{
     Codecs, Encoder, StagedId, StagedOptScalar, StagedProperty, write_stream_payload,
 };
 use crate::utils::BinarySerializer as _;
-use crate::{MltError, MltResult};
 
 /// The presence masks the layer stores once for several columns to read.
 ///
@@ -44,24 +45,24 @@ use crate::{MltError, MltResult};
 /// ones shared by the most columns win, since every extra sharer saves exactly
 /// one copy of the same `ceil(feature_count/8)` bytes.
 #[derive(Debug)]
-struct SharedPresence<'a> {
+struct SharedPresence {
     /// The masks in wire index order.
-    masks: Vec<&'a [bool]>,
+    masks: Vec<Vec<bool>>,
     /// Wire index of each mask, for resolving a column's nibble.
-    index: HashMap<&'a [bool], u8>,
+    index: HashMap<Vec<bool>, u8>,
 }
 
-impl<'a> SharedPresence<'a> {
+impl SharedPresence {
     /// Group the layer's optional columns by mask and keep the shared ones.
-    fn plan(id: &'a StagedId, properties: &'a [StagedProperty]) -> Self {
+    fn plan(id: &StagedId, properties: &[StagedProperty]) -> Self {
         // (column count, index of the first column with this mask) per mask.
-        let mut groups: HashMap<&'a [bool], (usize, usize)> = HashMap::new();
+        let mut groups: HashMap<Vec<bool>, (usize, usize)> = HashMap::new();
         for (column, mask) in column_masks(id, properties).enumerate() {
             let group = groups.entry(mask).or_insert((0, column));
             group.0 += 1;
         }
 
-        let mut shared: Vec<(&'a [bool], usize, usize)> = groups
+        let mut shared: Vec<(Vec<bool>, usize, usize)> = groups
             .into_iter()
             .filter(|&(_, (count, _))| count > 1)
             .map(|(mask, (count, first))| (mask, count, first))
@@ -74,13 +75,13 @@ impl<'a> SharedPresence<'a> {
         // the columns that read them do.
         shared.sort_unstable_by_key(|&(_, _, first)| first);
 
-        let masks: Vec<&'a [bool]> = shared.into_iter().map(|(mask, _, _)| mask).collect();
+        let masks: Vec<Vec<bool>> = shared.into_iter().map(|(mask, _, _)| mask).collect();
         let index = masks
             .iter()
             .enumerate()
-            .map(|(i, &mask)| {
+            .map(|(i, mask)| {
                 (
-                    mask,
+                    mask.clone(),
                     u8::try_from(i).expect("at most MAX_SHARED_PRESENCE masks"),
                 )
             })
@@ -112,14 +113,15 @@ impl<'a> SharedPresence<'a> {
 /// The presence mask of every optional column, in the order the columns are
 /// written: the ID column first, then the properties.
 ///
+/// Owned, because a string column derives its mask from its lengths rather than storing one.
 /// Columns that cannot be null contribute nothing - there is no mask to share.
 fn column_masks<'a>(
     id: &'a StagedId,
     properties: &'a [StagedProperty],
-) -> impl Iterator<Item = &'a [bool]> {
-    /// `presence` of an optional staged column, as a slice.
-    fn mask<T: Copy + PartialEq>(v: &StagedOptScalar<T>) -> &[bool] {
-        &v.presence
+) -> impl Iterator<Item = Vec<bool>> + 'a {
+    /// `presence` of an optional staged column.
+    fn mask<T: Copy + PartialEq>(v: &StagedOptScalar<T>) -> Vec<bool> {
+        v.presence.clone()
     }
 
     let id = match id {
@@ -139,7 +141,9 @@ fn column_masks<'a>(
             D::OptU64(v) => Some(mask(v)),
             D::OptF32(v) => Some(mask(v)),
             D::OptF64(v) => Some(mask(v)),
-            // Strings and shared dictionaries are not encodable as v2 yet.
+            D::OptStr(v) => Some(v.presence_bools().collect()),
+            // A column with no null mask has no presence bits, and shared
+            // dictionaries are not encodable as v2 yet.
             D::Bool(_)
             | D::I8(_)
             | D::U8(_)
@@ -150,7 +154,6 @@ fn column_masks<'a>(
             | D::F32(_)
             | D::F64(_)
             | D::Str(_)
-            | D::OptStr(_)
             | D::SharedDict(_) => None,
         }
     });
@@ -159,7 +162,7 @@ fn column_masks<'a>(
 
 /// Append `bits` as `ceil(len/8)` LSB-first packed bytes - the layout v2 uses for
 /// both presence bitfields and bool column data.
-fn write_presence_bits(data: &mut Vec<u8>, bits: &[bool]) {
+pub(crate) fn write_presence_bits(data: &mut Vec<u8>, bits: &[bool]) {
     let start = data.len();
     data.resize(start + bits.len().div_ceil(8), 0);
     for (i, &bit) in bits.iter().enumerate() {
@@ -192,12 +195,15 @@ pub(crate) fn encode_into02(
     // ── Layer layout byte + shared presence bitfields ─────────────────────
     let shared = SharedPresence::plan(&id, &properties);
     let geometry = encode_geometry02(geometry)?;
-    enc.data_mut()
-        .push(LayerLayout::new(geometry.layout, shared.count()).to_byte());
+    // The geometry layout is only settled once its vertex streams are written, so
+    // the byte is reserved here and patched below.
+    let layout_pos = enc.data().len();
+    enc.data_mut().push(0);
     shared.write_to(&mut enc);
 
     // ── Geometry section (not part of column_count) ───────────────────────
-    geometry.write_to(&mut enc, codecs)?;
+    let geo_layout = geometry.write_to(&mut enc, codecs)?;
+    enc.data_mut()[layout_pos] = LayerLayout::new(geo_layout, shared.count()).to_byte();
 
     // ── Counted columns ───────────────────────────────────────────────────
     let column_count = usize::from(!matches!(id, StagedId::None)) + properties.len();
@@ -220,6 +226,10 @@ fn begin_col02(
     typ: DataType02,
     name: Option<&str>,
 ) -> MltResult<()> {
+    // Every v2 column starts here, so this is where its data stream's family is fixed.
+    // A string column's writer re-fixes it per stream, once it has picked a layout.
+    enc.family_context = family_of(typ);
+
     let data = enc.data_mut();
     data.push(ColumnType02::new(presence, typ).to_byte());
     debug_assert_eq!(typ.has_name(), name.is_some());
@@ -235,7 +245,7 @@ fn begin_col02(
 /// implicit count of the optional column's data stream.
 fn write_opt_col02<F>(
     enc: &mut Encoder,
-    shared: &SharedPresence<'_>,
+    shared: &SharedPresence,
     typ: DataType02,
     name: Option<&str>,
     presence: &[bool],
@@ -268,16 +278,35 @@ fn write_bool_bitfield(enc: &mut Encoder, values: &[bool]) -> MltResult<()> {
     write_presence_bits(&mut packed, values);
     let meta = StreamMeta::new2(
         StreamType::Data(DictionaryType::None),
-        LogicalEncoding::None,
+        LogicalEncoding::Bool(BoolLogical::None),
         PhysicalEncoding::None,
         values.len(),
     )?;
     write_stream_payload(enc, meta, false, &packed)
 }
 
+/// The family a v2 column's data stream is numbered in.
+/// A string column's leading stream is an integer one whose extension bits name the layout,
+/// which only its writer knows.
+fn family_of(typ: DataType02) -> Family {
+    match typ {
+        DataType02::Bool => Family::Bool,
+        DataType02::F32 | DataType02::F64 => Family::Float,
+        DataType02::Id
+        | DataType02::LongId
+        | DataType02::I8
+        | DataType02::U8
+        | DataType02::I32
+        | DataType02::U32
+        | DataType02::I64
+        | DataType02::U64
+        | DataType02::Str => Family::Int,
+    }
+}
+
 fn write_id02(
     id: &StagedId,
-    shared: &SharedPresence<'_>,
+    shared: &SharedPresence,
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
@@ -311,7 +340,7 @@ fn write_id02(
 /// special bool-RLE bitset.
 fn write_prop02(
     prop: &StagedProperty,
-    shared: &SharedPresence<'_>,
+    shared: &SharedPresence,
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
@@ -338,7 +367,7 @@ fn write_prop02(
     macro_rules! opt_float {
         ($ct:ident, $v:expr) => {{
             write_opt_col02(enc, shared, DT::$ct, Some(&$v.name), &$v.presence, |enc| {
-                codecs.write_float_stream(&$v.values, StreamType::Data(DictionaryType::None), enc)
+                codecs.write_float_stream(&$v.values, &StreamCtx::prop_data(&$v.name), enc)
             })
         }};
     }
@@ -355,12 +384,12 @@ fn write_prop02(
         }
         D::F32(v) => {
             begin_col02(enc, AllPresent, DT::F32, Some(&v.name))?;
-            codecs.write_float_stream(&v.values, StreamType::Data(DictionaryType::None), enc)
+            codecs.write_float_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)
         }
         D::OptF32(v) => opt_float!(F32, v),
         D::F64(v) => {
             begin_col02(enc, AllPresent, DT::F64, Some(&v.name))?;
-            codecs.write_float_stream(&v.values, StreamType::Data(DictionaryType::None), enc)
+            codecs.write_float_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)
         }
         D::OptF64(v) => opt_float!(F64, v),
         D::I8(v) => scalar!(I8, v),
@@ -375,7 +404,16 @@ fn write_prop02(
         D::OptI64(v) => opt_scalar!(I64, v),
         D::U64(v) => scalar!(U64, v),
         D::OptU64(v) => opt_scalar!(U64, v),
-        D::Str(_) | D::OptStr(_) => Err(MltError::NotImplemented("v2 string columns")),
-        D::SharedDict(_) => Err(MltError::NotImplemented("v2 shared dictionary columns")),
+        D::Str(v) => {
+            begin_col02(enc, AllPresent, DT::Str, Some(&v.name))?;
+            codecs.write_str_col02(v, enc)
+        }
+        D::OptStr(v) => {
+            let presence: Vec<bool> = v.presence_bools().collect();
+            write_opt_col02(enc, shared, DT::Str, Some(&v.name), &presence, |enc| {
+                codecs.write_str_col02(v, enc)
+            })
+        }
+        D::SharedDict(v) => codecs.write_shared_dict02(v, enc),
     }
 }

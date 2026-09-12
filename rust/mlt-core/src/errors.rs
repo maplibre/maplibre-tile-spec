@@ -3,7 +3,8 @@ use std::num::TryFromIntError;
 use num_enum::TryFromPrimitiveError;
 
 use crate::decoder::{
-    GeometryType, LogicalEncoding, LogicalTechnique, PhysicalEncoding, StreamType,
+    GeometryType, LogicalCombination, LogicalEncoding, LogicalTechnique, PhysicalEncoding,
+    StreamType, ValueKind,
 };
 
 pub type MltResult<T> = Result<T, MltError>;
@@ -84,6 +85,8 @@ pub enum MltError {
     UnsupportedLogicalEncoding(LogicalEncoding, &'static str),
     #[error("invalid combination of logical encodings: {0:?} + {1:?}")]
     InvalidLogicalEncodings(LogicalTechnique, LogicalTechnique),
+    #[error("logical encoding {0:?} is not one a {1:?} stream has")]
+    LogicalEncodingNotInKind(LogicalCombination, ValueKind),
     #[error("layer has zero size")]
     ZeroLayerSize,
     #[error("The encoder used to optimise data is incompatible")]
@@ -116,6 +119,40 @@ pub enum MltError {
     PriorParseFailure,
     #[error("FSST-compressed data is malformed: {0}")]
     MalformedFsst(&'static str),
+    #[cfg(feature = "unstable-v2")]
+    #[error("dictionary code {0} is out of range for a dictionary of {1} values")]
+    DictionaryCodeOutOfRange(u32, usize),
+    #[cfg(feature = "unstable-v2")]
+    #[error(
+        "front-coded lengths stream holds a prefix and a suffix length per entry, so its {0} values cannot be split in two"
+    )]
+    FrontCodedOddLengthCount(usize),
+    #[cfg(feature = "unstable-v2")]
+    #[error(
+        "front-coded entry {index} shares {shared} bytes with a predecessor of only {available}"
+    )]
+    FrontCodedPrefixTooLong {
+        index: usize,
+        shared: usize,
+        available: usize,
+    },
+    #[cfg(feature = "unstable-v2")]
+    #[error(
+        "front-coded entry {index} needs {needed} suffix bytes, but {available} remain in the blob"
+    )]
+    FrontCodedSuffixOutOfBounds {
+        index: usize,
+        needed: usize,
+        available: usize,
+    },
+    #[cfg(feature = "unstable-v2")]
+    #[error("front-coded dictionary leaves {0} suffix bytes after its last entry")]
+    FrontCodedTrailingSuffixBytes(usize),
+    #[cfg(feature = "unstable-v2")]
+    #[error("no ALP parameters return this float column bit-for-bit")]
+    NoAlpParameters,
+    #[error("invalid ALP parameters: e={0}, f={1}")]
+    InvalidAlpParams(u8, u8),
     #[error("presence stream has {0} bits set but {1} values provided")]
     PresenceValueCountMismatch(usize, usize),
     #[error("need to encode before being able to write")]
@@ -184,6 +221,8 @@ pub enum MltError {
     NoRingOffsets(usize, GeometryType),
     #[error("geometry[{0}]: unexpected offset combination for {1}")]
     UnexpectedOffsetCombination(usize, GeometryType),
+    #[error("geometry: ring lengths without part lengths")]
+    RingLengthsWithoutPartLengths,
 
     #[error("FastPFor error: {0}")]
     FastPfor(#[from] fastpfor::FastPForError),

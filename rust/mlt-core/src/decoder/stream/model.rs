@@ -97,17 +97,186 @@ impl Morton {
     }
 }
 
-/// How should the stream be interpreted at the logical level (second pass of decoding)
+/// The decimal scaling an ALP column uses: `i = round(v * 10^e / 10^f)`.
+/// Chosen before any value is seen, so it carries no frame of reference.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AlpScale {
+    /// Decimal exponent the values were scaled by.
+    pub(crate) e: u8,
+    /// Factor dividing out the trailing zeros `e` introduced, never exceeding `e`.
+    pub(crate) f: u8,
+}
+
+/// ALP parameters: `v = (base + offset) * 10^f / 10^e`.
+/// Written as three header varints, the stream itself holding the unsigned offsets.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct Alp {
+    pub(crate) scale: AlpScale,
+    /// Frame of reference the offsets are measured from, the smallest scaled integer in the column.
+    pub(crate) base: i64,
+}
+
+#[cfg(feature = "unstable-v2")]
+impl AlpScale {
+    /// Largest exponent the codes can carry, past which `v * 10^e` leaves the `i64` range.
+    pub(crate) const MAX_EXPONENT: u8 = 18;
+
+    /// Net power of ten the codes carry, which fixes their magnitude and so their stored size.
+    /// The order [`candidates`](crate::codecs::alp::candidates) walks, and so what lets the
+    /// encoder stop at the first scale that fits; only the tests holding that invariant name it.
+    #[cfg(test)]
+    pub(crate) fn net(self) -> u8 {
+        self.e - self.f
+    }
+}
+
+/// Flattened, since the nesting is an encoder concern and these appear in stream labels.
+impl std::fmt::Debug for Alp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Alp {{ e: {}, f: {}, base: {} }}",
+            self.scale.e, self.scale.f, self.base
+        )
+    }
+}
+
+#[cfg(feature = "unstable-v2")]
+impl Alp {
+    pub(crate) fn new(e: u8, f: u8, base: i64) -> MltResult<Self> {
+        if e <= AlpScale::MAX_EXPONENT && f <= e {
+            Ok(Self {
+                scale: AlpScale { e, f },
+                base,
+            })
+        } else {
+            Err(MltError::InvalidAlpParams(e, f))
+        }
+    }
+
+    /// Measure a scaled integer from the frame of reference, giving the offset the stream stores.
+    /// Wrapping, so a column spanning the whole `i64` range still subtracts exactly.
+    #[expect(
+        clippy::cast_sign_loss,
+        reason = "the bit pattern is the point; `code_at` casts it back"
+    )]
+    pub(crate) fn offset_of(self, code: i64) -> u64 {
+        (code as u64).wrapping_sub(self.base as u64)
+    }
+
+    /// Put a stored offset back on the frame of reference, inverting [`Self::offset_of`].
+    #[expect(
+        clippy::cast_possible_wrap,
+        clippy::cast_sign_loss,
+        reason = "the bit pattern is the point; inverts `offset_of` exactly"
+    )]
+    pub(crate) fn code_at(self, offset: u64) -> i64 {
+        (self.base as u64).wrapping_add(offset) as i64
+    }
+}
+
+/// What kind of values a stream holds, which fixes the encodings it can name.
+/// Neither wire format stores it: v1 reads it from the column type, v2 from the stream's context.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ValueKind {
+    Int,
+    Bool,
+    Float,
+    Vertex,
+}
+
+/// Logical encoding of a stream of integer values.
+/// Covers the id columns, the integer property columns, and the geometry length and offset streams.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum LogicalEncoding {
+pub enum IntLogical {
     None,
     Delta,
-    DeltaRle(RleMeta),
-    ComponentwiseDelta,
     Rle(RleMeta),
+    DeltaRle(RleMeta),
+}
+
+/// Logical encoding of a bool column's data stream or a presence bitfield.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum BoolLogical {
+    /// A raw packed bitmap, one bit per value.
+    None,
+    /// A byte-RLE compressed bitmap.
+    /// Its run parameters come from the stream's context rather than from its header.
+    ByteRle(RleMeta),
+}
+
+/// Logical encoding of a float column's data stream.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum FloatLogical {
+    /// Fixed-width little-endian values, one per element.
+    None,
+    /// A decimal split across two integer streams, which v1 can name but no decoder here implements.
+    /// One code per element, with the distinct values following as a second stream.
+    /// Only the tag `0x02` codec reads or writes it.
+    Dict,
+    /// Integers scaled by these parameters.
+    /// Only the tag `0x02` codec reads or writes it.
+    Alp(Alp),
+}
+
+/// Logical encoding of a geometry vertex stream, whose values are interleaved coordinate pairs.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum VertexLogical {
+    None,
+    Delta,
+    ComponentwiseDelta,
     Morton(Morton),
     MortonDelta(Morton),
     MortonRle(Morton),
+}
+
+/// How should the stream be interpreted at the logical level (second pass of decoding)
+///
+/// Split per [`ValueKind`] so a stream can name only the encodings its values can have.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum LogicalEncoding {
+    Int(IntLogical),
+    Bool(BoolLogical),
+    Float(FloatLogical),
+    Vertex(VertexLogical),
+}
+
+impl LogicalEncoding {
+    /// The kind of values this encoding belongs to.
+    #[must_use]
+    pub fn kind(self) -> ValueKind {
+        match self {
+            Self::Int(_) => ValueKind::Int,
+            Self::Bool(_) => ValueKind::Bool,
+            Self::Float(_) => ValueKind::Float,
+            Self::Vertex(_) => ValueKind::Vertex,
+        }
+    }
+
+    /// The identity encoding for `kind`, i.e. values stored as they are.
+    #[must_use]
+    pub(crate) fn none(kind: ValueKind) -> Self {
+        match kind {
+            ValueKind::Int => Self::Int(IntLogical::None),
+            ValueKind::Bool => Self::Bool(BoolLogical::None),
+            ValueKind::Float => Self::Float(FloatLogical::None),
+            ValueKind::Vertex => Self::Vertex(VertexLogical::None),
+        }
+    }
+
+    /// Whether the stream's own logical pass is a no-op, so the physical words are already the output.
+    /// True for a float dictionary's codes, which the column turns back into floats.
+    /// Not true for ALP, whose offsets still need the frame of reference added back.
+    #[must_use]
+    pub(crate) fn is_identity(self) -> bool {
+        matches!(
+            self,
+            Self::Int(IntLogical::None)
+                | Self::Bool(BoolLogical::None)
+                | Self::Float(FloatLogical::None | FloatLogical::Dict)
+                | Self::Vertex(VertexLogical::None)
+        )
+    }
 }
 
 /// Carries the stream metadata needed to perform the logical decode pass.
@@ -167,16 +336,25 @@ pub enum StreamType {
 }
 
 /// Physical encoding used for a column, as stored in the tile
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, TryFromPrimitive)]
-#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum PhysicalEncoding {
-    None = 0b0000_0000,
+    None,
     /// Preferred, tends to produce the best compression ratio and decoding performance.
     /// But currently limited to 32-bit integer.
-    FastPFor256 = 0b0000_0001,
+    FastPFor(FastPForKind),
     /// Can produce better results in combination with a heavyweight compression scheme like `Gzip`.
     /// Simple compression scheme where the encoding is easier to implement compared to `FastPfor`.
-    VarInt = 0b0000_0010,
+    VarInt,
+}
+
+/// The `FastPFor` block size and word order a wire version codes its integer streams with.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum FastPForKind {
+    /// 256-value blocks over big-endian words
+    Block256Be,
+    /// 128-value blocks over little-endian words
+    #[cfg(feature = "unstable-v2")]
+    Block128Le,
 }
 
 // RawStream types
@@ -194,8 +372,8 @@ impl IntEncoding {
     }
 
     #[must_use]
-    pub(crate) const fn none() -> Self {
-        Self::new(LogicalEncoding::None, PhysicalEncoding::None)
+    pub(crate) fn none(kind: ValueKind) -> Self {
+        Self::new(LogicalEncoding::none(kind), PhysicalEncoding::None)
     }
 }
 
@@ -231,8 +409,12 @@ impl StreamMeta {
     }
 
     #[inline]
-    pub(crate) fn new_none(stream_type: StreamType, num_values: usize) -> MltResult<Self> {
-        let enc = IntEncoding::none();
+    pub(crate) fn new_none(
+        stream_type: StreamType,
+        kind: ValueKind,
+        num_values: usize,
+    ) -> MltResult<Self> {
+        let enc = IntEncoding::none(kind);
         Ok(Self::new(stream_type, enc, u32::try_from(num_values)?))
     }
 }

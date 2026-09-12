@@ -12,7 +12,9 @@ use clap::{Args, ValueEnum};
 use indicatif::ProgressState;
 use martin_tile_utils::{Encoding, Format, decode_brotli, decode_gzip, decode_zlib, decode_zstd};
 use mbtiles::{MbtType, NormalizedSchema};
-use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig, WireVersion};
+#[cfg(feature = "unstable-v2")]
+use mlt_core::encoder::WireVersion;
+use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig};
 use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::{Decoder, Layer, Parser};
 use pmtiles::Compression;
@@ -119,6 +121,7 @@ pub enum MltVersion {
     V2,
 }
 
+#[cfg(feature = "unstable-v2")]
 impl From<MltVersion> for WireVersion {
     fn from(version: MltVersion) -> Self {
         match version {
@@ -217,6 +220,14 @@ pub struct ConvertArgs {
     /// Disable `FSST` string compression
     #[clap(long)]
     no_fsst: bool,
+    /// Disable `ALP` float encoding, storing floats as decimal-scaled integers
+    #[cfg(feature = "unstable-v2")]
+    #[clap(long)]
+    no_alp: bool,
+    /// Disable float dictionary encoding
+    #[cfg(feature = "unstable-v2")]
+    #[clap(long)]
+    no_float_dict: bool,
     /// Output tile format (`mlt` re-encodes; `mvt` decodes MLT inputs back to MVT)
     #[clap(long, default_value = "mlt")]
     to: TileFormat,
@@ -257,7 +268,6 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     let hilbert = matches!(args.sort, SortMode::All | SortMode::Hilbert);
     let id_sort = matches!(args.sort, SortMode::All | SortMode::Id);
     let cfg = EncoderConfig::default()
-        .with_wire_version(args.mlt_version.into())
         .with_tessellation(args.tessellate)
         .with_spatial_morton_sort(morton)
         .with_spatial_hilbert_sort(hilbert)
@@ -265,6 +275,11 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         .with_shared_dict(!args.no_shared_dict)
         .with_fastpfor(!args.no_fastpfor)
         .with_fsst(!args.no_fsst);
+    #[cfg(feature = "unstable-v2")]
+    let cfg = cfg
+        .with_wire_version(args.mlt_version.into())
+        .with_float_alp(!args.no_alp)
+        .with_float_dict(!args.no_float_dict);
 
     let filter = BboxFilter::new(&args.bbox)?;
     let input_container = args.input_container();

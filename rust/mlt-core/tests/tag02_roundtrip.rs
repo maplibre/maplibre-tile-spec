@@ -41,8 +41,16 @@ fn decode(bytes: &[u8]) -> (u8, TileLayer) {
 }
 
 fn assert_differential(layer: &TileLayer) -> (usize, usize) {
-    let v1_bytes = layer.clone().encode(cfg_v1()).expect("v1 encode");
-    let v2_bytes = layer.clone().encode(cfg_v2()).expect("v2 encode");
+    assert_differential_with(layer, cfg_v1())
+}
+
+/// As [`assert_differential`], with `cfg` deciding everything but the wire version.
+fn assert_differential_with(layer: &TileLayer, cfg: EncoderConfig) -> (usize, usize) {
+    let v1_bytes = layer.clone().encode(cfg).expect("v1 encode");
+    let v2_bytes = layer
+        .clone()
+        .encode(cfg.with_wire_version(WireVersion::V02))
+        .expect("v2 encode");
     let (tag1, tile1) = decode(&v1_bytes);
     let (tag2, tile2) = decode(&v2_bytes);
     assert_eq!(tag1, 1);
@@ -59,6 +67,15 @@ fn dump_text(bytes: &[u8]) -> String {
     let mut out = Vec::new();
     render(&tree, bytes, &RenderOpts::default(), &mut out).expect("render");
     String::from_utf8(out).expect("dump is utf8")
+}
+
+/// The value of every `label` field in the tile's dump, in wire order.
+fn dump_fields(bytes: &[u8], label: &str) -> Vec<String> {
+    dump_text(bytes)
+        .lines()
+        .filter_map(|line| line.split_once(label))
+        .map(|(_, value)| value.trim().to_string())
+        .collect()
 }
 
 fn assert_dump_covers(bytes: &[u8]) {
@@ -468,6 +485,50 @@ fn default_config_with_sort_trials() {
 }
 
 #[test]
+fn a_bitpacking_friendly_column_takes_fastpfor128() {
+    let n = 2000_u32;
+    let geoms: Vec<_> = (0..n).map(|i| pt(i32::try_from(i).unwrap(), 0)).collect();
+    let values: Vec<PropValue> = (0..n)
+        .map(|i| PropValue::U32(Some(i.wrapping_mul(2_654_435_761) % 4096)))
+        .collect();
+    let l = layer(geoms, None, &[("scattered", values)]);
+
+    let v2 = l.clone().encode(cfg_v2()).expect("v2 encode");
+    assert!(
+        dump_text(&v2).contains("physical = FastPFor128"),
+        "v2 should code the scattered column with FastPFor128"
+    );
+    assert_differential(&l);
+
+    let without = l
+        .encode(cfg_v2().with_fastpfor(false))
+        .expect("v2 encode without fastpfor");
+    assert!(
+        v2.len() < without.len(),
+        "FastPFor128 ({} B) should beat the varint fallback ({} B)",
+        v2.len(),
+        without.len()
+    );
+}
+
+#[rstest]
+fn a_fastpfor128_stream_round_trips_across_block_boundaries(
+    #[values(127, 128, 129, 255, 256, 257, 383, 384, 385, 511, 512, 513)] n: u32,
+) {
+    let geoms: Vec<_> = (0..n).map(|i| pt(i32::try_from(i).unwrap(), 0)).collect();
+    let values: Vec<PropValue> = (0..n)
+        .map(|i| PropValue::U32(Some(i.wrapping_mul(2_654_435_761) % 4096)))
+        .collect();
+    let l = layer(geoms, None, &[("scattered", values)]);
+    let v2 = l.clone().encode(cfg_v2()).expect("v2 encode");
+    assert!(
+        dump_text(&v2).contains("physical = FastPFor128"),
+        "{n} scattered values should be coded with FastPFor128"
+    );
+    assert_differential(&l);
+}
+
+#[test]
 fn v2_is_smaller_for_typical_layer() {
     let n = 100_u16;
     let geoms: Vec<_> = (0..n)
@@ -577,33 +638,740 @@ fn an_optional_id_shares_its_presence_bitfield_with_a_column() {
     assert_eq!(dump.matches("[Present ").count(), 1, "{dump}");
 }
 
-#[test]
-fn string_columns_not_yet_supported() {
-    let l = layer(
-        vec![pt(0, 0), pt(1, 1)],
-        None,
-        &[(
-            "name",
-            vec![
-                PropValue::Str(Some("a".to_string())),
-                PropValue::Str(Some("b".to_string())),
-            ],
-        )],
-    );
-    let err = l.encode(cfg_v2()).unwrap_err();
-    assert!(err.to_string().contains("not"), "unexpected error: {err}");
+mod geometry_layouts {
+    use super::*;
+
+    fn cfg_tessellated() -> EncoderConfig {
+        cfg_v1().with_tessellation(true)
+    }
+
+    fn square(x: i32, y: i32) -> Polygon<i32> {
+        Polygon::new(
+            ring(&[(x, y), (x + 10, y), (x + 10, y + 10), (x, y + 10)]),
+            vec![],
+        )
+    }
+
+    /// Points cycling through a handful of coordinates, so a vertex dictionary pays off.
+    fn repeated_points(n: i32) -> Vec<Geometry<i32>> {
+        (0..n).map(|i| pt((i % 7) * 10, (i % 5) * 10)).collect()
+    }
+
+    #[test]
+    fn repeated_vertices_pick_a_dictionary_layout() {
+        let l = layer(repeated_points(200), None, &[]);
+        let dump = dump_text(&l.clone().encode(cfg_v2()).unwrap());
+        assert!(dump.contains("geometry layout = PointsDict"), "{dump}");
+        assert!(dump.contains("vertex_offsets"), "{dump}");
+        assert_differential(&l);
+    }
+
+    #[test]
+    fn distinct_vertices_stay_plain() {
+        let l = layer((0..64).map(|i| pt(i * 7, i * 13)).collect(), None, &[]);
+        let dump = dump_text(&l.clone().encode(cfg_v2()).unwrap());
+        assert!(dump.contains("geometry layout = Points\n"), "{dump}");
+        assert_differential(&l);
+    }
+
+    #[rstest]
+    #[case::polygons(vec![
+        Geometry::Polygon(square(0, 0)),
+        Geometry::Polygon(Polygon::new(
+            ring(&[(0, 0), (100, 0), (100, 100), (0, 100)]),
+            vec![ring(&[(20, 20), (40, 20), (40, 40), (20, 40)])],
+        )),
+    ])]
+    #[case::mixed_points_and_polygons(vec![pt(5, 5), Geometry::Polygon(square(20, 20))])]
+    #[case::mixed_lines_and_polygons(vec![
+        line(&[(0, 0), (10, 10), (20, 0)]),
+        Geometry::Polygon(square(40, 40)),
+    ])]
+    #[case::multipolygons(vec![
+        Geometry::MultiPolygon(MultiPolygon(vec![square(0, 0), square(20, 20)])),
+        Geometry::Polygon(square(50, 50)),
+    ])]
+    fn tessellated_geometry(#[case] geoms: Vec<Geometry<i32>>) {
+        let l = layer(geoms, None, &[]);
+        let dump = dump_text(
+            &l.clone()
+                .encode(cfg_tessellated().with_wire_version(WireVersion::V02))
+                .unwrap(),
+        );
+        assert!(
+            dump.contains("geometry layout = TessPolygonsWithOutlines"),
+            "{dump}"
+        );
+        assert_differential_with(&l, cfg_tessellated());
+    }
+
+    #[test]
+    fn a_layer_without_polygons_is_not_tessellated() {
+        let l = layer(vec![pt(5, 5), line(&[(0, 0), (10, 10)])], None, &[]);
+        let dump = dump_text(
+            &l.clone()
+                .encode(cfg_tessellated().with_wire_version(WireVersion::V02))
+                .unwrap(),
+        );
+        assert!(dump.contains("geometry layout = Lines"), "{dump}");
+        assert_differential_with(&l, cfg_tessellated());
+    }
 }
 
-#[test]
-fn tessellation_not_yet_supported() {
-    let l = layer(
-        vec![Geometry::Polygon(Polygon::new(
-            ring(&[(0, 0), (10, 0), (10, 10), (0, 10)]),
-            vec![],
-        ))],
-        None,
-        &[],
-    );
-    let err = l.encode(cfg_v2().with_tessellation(true)).unwrap_err();
-    assert!(err.to_string().contains("not"), "unexpected error: {err}");
+mod strings {
+    use super::*;
+
+    /// A value long and repetitive enough for FSST to pay off its symbol table.
+    /// The seed leads, so two of them share no prefix worth coding.
+    fn long(seed: usize) -> String {
+        let lead = char::from(b'a' + u8::try_from(seed).unwrap());
+        format!("{lead}_residential_zone_north_sector_").repeat(16)
+    }
+
+    /// As [`long`], with the seed last, so two of them share all but their final bytes.
+    fn long_shared(seed: usize) -> String {
+        format!("residential_zone_north_sector_{seed:03}_").repeat(16)
+    }
+
+    /// Distinct short values sharing no prefix, which no dictionary or symbol table improves on.
+    fn plain_values(n: usize) -> Vec<String> {
+        (0..n)
+            .map(|i| {
+                let lead = char::from(b'a' + u8::try_from(i).unwrap());
+                format!("{lead}_zone_marker")
+            })
+            .collect()
+    }
+
+    /// Two long values alternating, which is what a dictionary is for.
+    /// They share no prefix, so front coding would only add a length per entry.
+    fn dict_values(n: usize) -> Vec<String> {
+        (0..n)
+            .map(|i| {
+                let lead = if i % 2 == 0 { "A" } else { "B" };
+                lead.repeat(30)
+            })
+            .collect()
+    }
+
+    /// As [`dict_values`], with the two sharing all but their last byte, which front coding factors out.
+    fn front_dict_values(n: usize) -> Vec<String> {
+        (0..n)
+            .map(|i| format!("{}{}", "A".repeat(30), i % 2))
+            .collect()
+    }
+
+    /// Distinct values FSST compresses, so a dictionary of them would only add codes.
+    fn fsst_values(n: usize) -> Vec<String> {
+        (0..n).map(long).collect()
+    }
+
+    /// Four of those repeated, so the dictionary and the symbol table both pay off.
+    fn fsst_dict_values(n: usize) -> Vec<String> {
+        (0..n).map(|i| long(i % 4)).collect()
+    }
+
+    /// As [`fsst_dict_values`], with the four sharing prefixes for front coding to factor out.
+    fn fsst_front_dict_values(n: usize) -> Vec<String> {
+        (0..n).map(|i| long_shared(i % 4)).collect()
+    }
+
+    type Values = fn(usize) -> Vec<String>;
+
+    fn column(values: impl IntoIterator<Item = Option<String>>) -> TileLayer {
+        let values: Vec<PropValue> = values.into_iter().map(PropValue::Str).collect();
+        layer(points(&"1".repeat(values.len())), None, &[("v", values)])
+    }
+
+    /// How many of the tile's dictionary blobs are front coded.
+    fn front_coded_blobs(bytes: &[u8]) -> usize {
+        dump_text(bytes).matches("logical = FrontCoded").count()
+    }
+
+    /// The layout of every string column in the tile, in wire order.
+    fn layouts(bytes: &[u8]) -> Vec<String> {
+        dump_fields(bytes, "string layout = ")
+    }
+
+    #[rstest]
+    #[case::plain(plain_values as Values, "Plain", false)]
+    #[case::dict(dict_values as Values, "Dict", false)]
+    #[case::front_dict(front_dict_values as Values, "Dict", false)]
+    #[case::fsst(fsst_values as Values, "Fsst", true)]
+    #[case::fsst_dict(fsst_dict_values as Values, "FsstDict", true)]
+    #[case::fsst_front_dict(fsst_front_dict_values as Values, "FsstDict", true)]
+    fn each_layout_round_trips(#[case] values: Values, #[case] layout: &str, #[case] fsst: bool) {
+        let l = column(values(9).into_iter().map(Some));
+        assert_differential(&l);
+        let bytes = l.encode(cfg_v2().with_fsst(fsst)).unwrap();
+        assert_eq!(layouts(&bytes), [layout]);
+    }
+
+    #[rstest]
+    #[case::plain(plain_values as Values, "Plain", false)]
+    #[case::dict(dict_values as Values, "Dict", false)]
+    #[case::front_dict(front_dict_values as Values, "Dict", false)]
+    #[case::fsst(fsst_values as Values, "Fsst", true)]
+    #[case::fsst_dict(fsst_dict_values as Values, "FsstDict", true)]
+    #[case::fsst_front_dict(fsst_front_dict_values as Values, "FsstDict", true)]
+    fn each_layout_round_trips_with_nulls(
+        #[case] values: Values,
+        #[case] layout: &str,
+        #[case] fsst: bool,
+    ) {
+        let l = column(
+            values(12)
+                .into_iter()
+                .enumerate()
+                .map(|(i, v)| (i % 3 != 0).then_some(v)),
+        );
+        assert_differential(&l);
+        let bytes = l.encode(cfg_v2().with_fsst(fsst)).unwrap();
+        assert_eq!(layouts(&bytes), [layout]);
+    }
+
+    #[rstest]
+    #[case::plain(plain_values as Values)]
+    #[case::dict(dict_values as Values)]
+    #[case::front_dict(front_dict_values as Values)]
+    fn fsst_over_front_coded_suffixes_beats_the_layout_that_wins_without_it(
+        #[case] values: Values,
+    ) {
+        let l = column(values(9).into_iter().map(Some));
+        let with = l.clone().encode(cfg_v2()).unwrap();
+        let without = l.encode(cfg_v2().with_fsst(false)).unwrap();
+        assert_eq!(layouts(&with), ["FsstDict"]);
+        assert!(
+            with.len() < without.len(),
+            "{} < {}",
+            with.len(),
+            without.len()
+        );
+    }
+
+    #[rstest]
+    #[case::entries_share_a_prefix(front_dict_values as Values, 1)]
+    #[case::entries_share_no_prefix(dict_values as Values, 0)]
+    fn front_coding_wins_on_shared_prefixes(#[case] values: Values, #[case] front_coded: usize) {
+        let l = column(values(9).into_iter().map(Some));
+        assert_differential(&l);
+        let bytes = l.encode(cfg_v2().with_fsst(false)).unwrap();
+        assert_eq!(front_coded_blobs(&bytes), front_coded);
+    }
+
+    #[test]
+    fn empty_values_round_trip() {
+        let l = column(["", "a", "", "bb", ""].map(|v| Some(v.to_string())));
+        assert_differential(&l);
+    }
+
+    #[test]
+    fn a_column_starting_with_a_null_round_trips() {
+        let l = column([None, Some("a".to_string()), None, Some("b".to_string())]);
+        assert_differential(&l);
+    }
+
+    #[test]
+    fn non_ascii_values_round_trip() {
+        let l = column(["日本語", "Ünïcödé", "🌍 🌏", ""].map(|v| Some(v.to_string())));
+        assert_differential(&l);
+    }
+
+    #[test]
+    fn a_column_of_one_repeated_value_round_trips() {
+        let l = column((0..8).map(|_| Some("same".to_string())));
+        assert_differential(&l);
+    }
+
+    #[test]
+    fn a_string_column_shares_its_presence_bitfield_with_a_scalar_one() {
+        const MASK: &str = "10110010";
+        let strings: Vec<PropValue> = MASK
+            .bytes()
+            .enumerate()
+            .map(|(i, b)| PropValue::Str((b == b'1').then(|| format!("v{i}"))))
+            .collect();
+        let l = layer(points(MASK), None, &[("s", strings), ("n", opt_col(MASK))]);
+        assert_differential(&l);
+
+        let dump = dump_text(&l.encode(cfg_v2()).unwrap());
+        assert!(dump.contains("shared presence bitfields = 1"), "{dump}");
+        assert_eq!(dump.matches("presence = Shared(0)").count(), 2, "{dump}");
+    }
+
+    /// A layer whose two string columns hold the same values, which both versions group.
+    fn shared_dict_layer() -> TileLayer {
+        let shared: Vec<PropValue> = dict_values(6)
+            .into_iter()
+            .map(|v| PropValue::Str(Some(v)))
+            .collect();
+        layer(
+            points(&"1".repeat(6)),
+            None,
+            &[("a", shared.clone()), ("b", shared)],
+        )
+    }
+
+    /// The base type of every v1 column in the tile, in wire order.
+    fn base_types(bytes: &[u8]) -> Vec<String> {
+        dump_fields(bytes, "base type = ")
+    }
+
+    /// The data type of every v2 column in the tile, in wire order.
+    fn data_types(bytes: &[u8]) -> Vec<String> {
+        dump_fields(bytes, "data type = ")
+    }
+
+    #[test]
+    fn columns_v1_would_share_a_dictionary_share_one_in_v2_too() {
+        let l = shared_dict_layer();
+        assert_eq!(
+            base_types(&l.clone().encode(cfg_v1()).unwrap()),
+            ["Geometry", "SharedDict", "Str", "Str"]
+        );
+        assert_eq!(
+            data_types(&l.clone().encode(cfg_v2()).unwrap()),
+            ["SharedDict", "Str", "Str"]
+        );
+        assert_differential(&l);
+    }
+
+    #[test]
+    fn a_shared_dictionary_is_smaller_than_per_column_ones() {
+        let l = shared_dict_layer();
+        let shared = l.clone().encode(cfg_v2()).unwrap().len();
+        let separate = l.encode(cfg_v2().with_shared_dict(false)).unwrap().len();
+        assert!(shared < separate, "shared {shared} vs separate {separate}");
+    }
+
+    #[test]
+    fn a_shared_dictionary_with_nulls_round_trips() {
+        let mask = "101101";
+        let values = |offset: usize| -> Vec<PropValue> {
+            mask.bytes()
+                .enumerate()
+                .map(|(i, b)| {
+                    PropValue::Str((b == b'1').then(|| format!("name:{}", (i + offset) % 3)))
+                })
+                .collect()
+        };
+        let l = layer(
+            points(mask),
+            None,
+            &[("name:de", values(0)), ("name:en", values(1))],
+        );
+        assert_eq!(
+            data_types(&l.clone().encode(cfg_v2()).unwrap()),
+            ["SharedDict", "Str", "Str"]
+        );
+        assert_differential(&l);
+    }
+}
+
+mod float_codecs {
+    use mlt_core::wire::{FloatLogical, LogicalEncoding, PhysicalEncoding};
+
+    use super::*;
+
+    pub fn cfg_dict() -> EncoderConfig {
+        cfg_v2().with_float_dict(true)
+    }
+
+    pub fn cfg_alp() -> EncoderConfig {
+        cfg_v2().with_float_alp(true)
+    }
+
+    pub fn cfg_both() -> EncoderConfig {
+        cfg_dict().with_float_alp(true)
+    }
+
+    pub fn f64_col(values: &[f64]) -> Vec<PropValue> {
+        values.iter().map(|&v| PropValue::F64(Some(v))).collect()
+    }
+
+    pub fn f32_col(values: &[f32]) -> Vec<PropValue> {
+        values.iter().map(|&v| PropValue::F32(Some(v))).collect()
+    }
+
+    pub fn f32_column(values: &[f32]) -> TileLayer {
+        layer(
+            points(&"1".repeat(values.len())),
+            None,
+            &[("v", f32_col(values))],
+        )
+    }
+
+    /// A few decimals repeated, which is what a float dictionary is for.
+    pub fn repeated_decimals(n: usize) -> Vec<f64> {
+        const PATTERN: [f64; 6] = [1.5, 2.5, 1.5, 1.5, 2.5, 3.5];
+        (0..n).map(|i| PATTERN[i % PATTERN.len()]).collect()
+    }
+
+    /// Values no power of ten scales to an integer, so ALP cannot take them.
+    pub fn irrational(n: usize) -> Vec<f64> {
+        use std::f64::consts::{E, PI, SQRT_2};
+        (0..n).map(|i| [PI, E, SQRT_2][i % 3]).collect()
+    }
+
+    /// The column's values as bit patterns, so NaN and `-0.0` compare usefully.
+    #[expect(
+        clippy::wildcard_enum_match_arm,
+        reason = "only float values are expected"
+    )]
+    pub fn value_bits(tile: &TileLayer) -> Vec<u64> {
+        tile.features()
+            .iter()
+            .map(|f| match f.properties()[0] {
+                PropValue::F64(Some(v)) => v.to_bits(),
+                PropValue::F32(Some(v)) => u64::from(v.to_bits()),
+                ref other => panic!("unexpected {other:?}"),
+            })
+            .collect()
+    }
+
+    /// The physical encoding each float stream in the tile carries, in wire order.
+    pub fn float_physicals(bytes: &[u8]) -> Vec<PhysicalEncoding> {
+        annotate_tile(bytes)
+            .expect("annotate_tile")
+            .regions
+            .iter()
+            .filter_map(|r| r.blob)
+            .filter_map(|b| match b.meta.encoding.logical {
+                LogicalEncoding::Float(_) => Some(b.meta.encoding.physical),
+                LogicalEncoding::Int(_) | LogicalEncoding::Bool(_) | LogicalEncoding::Vertex(_) => {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    /// The encoding each float stream in the tile carries, in wire order.
+    pub fn float_encodings(bytes: &[u8]) -> Vec<FloatLogical> {
+        annotate_tile(bytes)
+            .expect("annotate_tile")
+            .regions
+            .iter()
+            .filter_map(|r| r.blob)
+            .filter_map(|b| match b.meta.encoding.logical {
+                LogicalEncoding::Float(logical) => Some(logical),
+                LogicalEncoding::Int(_) | LogicalEncoding::Bool(_) | LogicalEncoding::Vertex(_) => {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    pub fn round_trip(l: &TileLayer, config: EncoderConfig) -> TileLayer {
+        let bytes = l.clone().encode(config).expect("encode");
+        let (tag, tile) = decode(&bytes);
+        assert_eq!(tag, 2);
+        assert_dump_covers(&bytes);
+        tile
+    }
+
+    pub fn column(values: &[f64]) -> TileLayer {
+        let mask = "1".repeat(values.len());
+        layer(points(&mask), None, &[("v", f64_col(values))])
+    }
+
+    #[test]
+    fn a_repetitive_column_round_trips_through_a_dictionary() {
+        let l = column(&repeated_decimals(12));
+        assert_eq!(round_trip(&l, cfg_dict()), round_trip(&l, cfg_v2()));
+    }
+
+    #[test]
+    fn a_dictionary_column_is_smaller_than_the_raw_one() {
+        let l = column(&repeated_decimals(12));
+        let plain = l.clone().encode(cfg_v2()).unwrap();
+        let dict = l.clone().encode(cfg_dict()).unwrap();
+        assert!(
+            dict.len() < plain.len(),
+            "{} vs {}",
+            dict.len(),
+            plain.len()
+        );
+        assert_eq!(
+            value_bits(&round_trip(&l, cfg_dict())),
+            value_bits(&round_trip(&l, cfg_v2()))
+        );
+    }
+
+    #[test]
+    fn a_decimal_column_takes_the_dictionary_when_alp_is_off() {
+        let bytes = column(&repeated_decimals(12)).encode(cfg_dict()).unwrap();
+        assert_eq!(
+            float_encodings(&bytes),
+            [FloatLogical::Dict, FloatLogical::None]
+        );
+    }
+
+    #[test]
+    fn a_column_alp_cannot_carry_still_takes_the_dictionary() {
+        let bytes = column(&irrational(12)).encode(cfg_both()).unwrap();
+        assert_eq!(
+            float_encodings(&bytes),
+            [FloatLogical::Dict, FloatLogical::None]
+        );
+    }
+
+    #[test]
+    fn both_flags_off_keeps_a_repetitive_column_raw() {
+        let bytes = column(&repeated_decimals(12)).encode(cfg_v2()).unwrap();
+        assert_eq!(float_encodings(&bytes), [FloatLogical::None]);
+    }
+
+    #[test]
+    #[expect(
+        clippy::wildcard_enum_match_arm,
+        reason = "only f64 values are expected"
+    )]
+    fn zero_and_negative_zero_stay_distinct_entries() {
+        const VALUES: &[f64] = &[0.0, -0.0, 0.0, -0.0, 0.0, -0.0];
+        let l = column(VALUES);
+        let tile = round_trip(&l, cfg_dict());
+        let signs: Vec<bool> = tile
+            .features()
+            .iter()
+            .map(|f| match f.properties()[0] {
+                PropValue::F64(Some(v)) => v.is_sign_negative(),
+                ref other => panic!("unexpected {other:?}"),
+            })
+            .collect();
+        assert_eq!(signs, [false, true, false, true, false, true]);
+    }
+
+    #[test]
+    #[expect(
+        clippy::wildcard_enum_match_arm,
+        reason = "only f64 values are expected"
+    )]
+    fn every_nan_with_the_same_bits_shares_one_entry() {
+        let values: Vec<f64> = (0..8)
+            .map(|i| if i % 2 == 0 { f64::NAN } else { 7.5 })
+            .collect();
+        let l = column(&values);
+        let tile = round_trip(&l, cfg_dict());
+        let nans: Vec<bool> = tile
+            .features()
+            .iter()
+            .map(|f| match f.properties()[0] {
+                PropValue::F64(Some(v)) => v.is_nan(),
+                ref other => panic!("unexpected {other:?}"),
+            })
+            .collect();
+        assert_eq!(nans, [true, false, true, false, true, false, true, false]);
+    }
+
+    #[test]
+    fn an_all_distinct_column_no_encoding_fits_stays_raw() {
+        let values: Vec<f64> = (0..16)
+            .map(|i| std::f64::consts::PI * f64::from(i + 1))
+            .collect();
+        let l = column(&values);
+        assert_eq!(
+            l.clone().encode(cfg_both()).unwrap(),
+            l.encode(cfg_v2()).unwrap()
+        );
+    }
+
+    #[test]
+    fn f32_columns_round_trip_through_a_dictionary() {
+        let values: Vec<f32> = (0..12).map(|i| [1.5_f32, 2.5, 3.5][i % 3]).collect();
+        let l = f32_column(&values);
+        assert_eq!(round_trip(&l, cfg_dict()), round_trip(&l, cfg_v2()));
+    }
+
+    #[test]
+    fn an_optional_dictionary_column_round_trips() {
+        let values: Vec<PropValue> = (0..12)
+            .map(|i| PropValue::F64((i % 3 != 0).then(|| f64::from(i % 2) + 0.5)))
+            .collect();
+        let l = layer(points(&"1".repeat(12)), None, &[("v", values)]);
+        assert_eq!(round_trip(&l, cfg_dict()), round_trip(&l, cfg_v2()));
+    }
+
+    #[rstest]
+    #[case::dict(cfg_v1().with_float_dict(true))]
+    #[case::alp(cfg_v1().with_float_alp(true))]
+    #[case::both(cfg_v1().with_float_dict(true).with_float_alp(true))]
+    fn v1_ignores_the_flags(#[case] config: EncoderConfig) {
+        const VALUES: &[f64] = &[1.5, 1.5, 1.5, 1.5];
+        let l = column(VALUES);
+        assert_eq!(
+            l.clone().encode(config).unwrap(),
+            l.encode(cfg_v1()).unwrap()
+        );
+    }
+}
+
+mod alp {
+    use mlt_core::wire::{FastPForKind, FloatLogical, PhysicalEncoding};
+
+    use super::float_codecs::*;
+    use super::*;
+
+    #[test]
+    fn a_decimal_column_is_smaller_through_alp() {
+        let values: Vec<f64> = (0..64).map(|i| f64::from(i) * 0.25 - 8.0).collect();
+        let l = column(&values);
+        let plain = l.clone().encode(cfg_v2()).unwrap();
+        let coded = l.clone().encode(cfg_alp()).unwrap();
+
+        assert_eq!(round_trip(&l, cfg_alp()), round_trip(&l, cfg_v2()));
+        assert!(
+            coded.len() < plain.len(),
+            "{} vs {}",
+            coded.len(),
+            plain.len()
+        );
+    }
+
+    #[rstest]
+    #[case::short_near_zero((0..8).map(|i| f64::from(i) * 0.25).collect())]
+    #[case::long_near_zero((0..1024).map(|i| f64::from(i % 97) * 0.25).collect())]
+    #[case::long_far_from_zero((0..1024).map(|i| 52_500_000.0 + f64::from(i % 97) * 0.25).collect())]
+    #[case::negative_only((0..600).map(|i| -1000.0 - f64::from(i % 53) * 0.5).collect())]
+    #[case::straddling_zero((0..600).map(|i| f64::from(i % 53) * 0.5 - 13.0).collect())]
+    #[case::single_value(vec![1.25])]
+    #[case::all_equal(vec![4.0; 600])]
+    #[case::wide_spread((0..600).map(|i| if i % 2 == 0 { -1e12 } else { 1e12 }).collect())]
+    // The widest offsets an exception-free column can hold: the two ends of the `i64` code range,
+    // whose distance only just fits `u64`.
+    #[case::offsets_nearly_fill_u64(vec![-9.223_372_036_854_775e18, 9.223_372_036_854_775e18])]
+    fn any_alp_column_shape_round_trips_bit_for_bit(#[case] values: Vec<f64>) {
+        let l = column(&values);
+        assert_eq!(
+            value_bits(&round_trip(&l, cfg_alp())),
+            value_bits(&round_trip(&l, cfg_v2()))
+        );
+    }
+
+    /// A long column of narrow offsets is what bitpacking is for.
+    #[test]
+    fn a_long_alp_column_takes_fastpfor_over_varint() {
+        let values: Vec<f64> = (0..1024)
+            .map(|i| 1000.0 + f64::from(i % 97) * 0.25)
+            .collect();
+        let l = column(&values);
+        let packed = l.clone().encode(cfg_alp()).unwrap();
+        let varint = l.clone().encode(cfg_alp().with_fastpfor(false)).unwrap();
+
+        assert_eq!(
+            float_physicals(&packed)[..],
+            [PhysicalEncoding::FastPFor(FastPForKind::Block128Le)]
+        );
+        assert!(
+            packed.len() < varint.len(),
+            "{} vs {}",
+            packed.len(),
+            varint.len()
+        );
+        assert_eq!(
+            value_bits(&round_trip(&l, cfg_alp())),
+            value_bits(&round_trip(&l, cfg_v2()))
+        );
+    }
+
+    /// Block framing does not amortise over a handful of values, so varint must keep it.
+    #[test]
+    fn a_short_alp_column_keeps_varint() {
+        let values: Vec<f64> = (0..8).map(|i| f64::from(i) * 0.25).collect();
+        let bytes = column(&values).encode(cfg_alp()).unwrap();
+        assert_eq!(float_physicals(&bytes)[..], [PhysicalEncoding::VarInt]);
+    }
+
+    /// `FastPFOR` codes `u32` words, so a column whose offsets overflow one is not a candidate.
+    #[test]
+    fn a_column_whose_offsets_overflow_u32_keeps_varint() {
+        let values: Vec<f64> = (0..1024)
+            .map(|i| if i % 2 == 0 { 0.5 } else { 1e15 + 0.5 })
+            .collect();
+        let bytes = column(&values).encode(cfg_alp()).unwrap();
+        assert_eq!(float_physicals(&bytes)[..], [PhysicalEncoding::VarInt]);
+        assert_eq!(
+            value_bits(&round_trip(&column(&values), cfg_alp())),
+            value_bits(&round_trip(&column(&values), cfg_v2()))
+        );
+    }
+
+    /// A frame-of-reference base means only the spread costs bytes, not the magnitude.
+    #[test]
+    fn shifting_a_narrow_column_far_from_zero_costs_only_the_base() {
+        let near_zero: Vec<f64> = (0..256).map(|i| f64::from(i) * 0.25).collect();
+        let shifted: Vec<f64> = near_zero.iter().map(|v| v + 52_500_000.0).collect();
+        let here = column(&near_zero).encode(cfg_alp()).unwrap().len();
+        let far = column(&shifted).encode(cfg_alp()).unwrap().len();
+        assert!(far <= here + 8, "{far} vs {here}");
+    }
+
+    #[test]
+    fn a_decimal_column_takes_alp_when_the_dictionary_is_off() {
+        let values: Vec<f64> = (0..12).map(|i| f64::from(i) * 0.25).collect();
+        let bytes = column(&values).encode(cfg_alp()).unwrap();
+        assert!(matches!(
+            float_encodings(&bytes)[..],
+            [FloatLogical::Alp(_)]
+        ));
+    }
+
+    #[test]
+    fn alp_beats_the_dictionary_on_a_repetitive_decimal_column() {
+        let bytes = column(&repeated_decimals(12)).encode(cfg_both()).unwrap();
+        assert!(matches!(
+            float_encodings(&bytes)[..],
+            [FloatLogical::Alp(_)]
+        ));
+    }
+
+    #[test]
+    #[expect(
+        clippy::wildcard_enum_match_arm,
+        reason = "only f64 values are expected"
+    )]
+    fn coordinates_round_trip_bit_for_bit() {
+        const VALUES: &[f64] = &[13.404_954, 52.520_008, -74.006, 40.712_776, 0.0, 180.0];
+        let l = column(VALUES);
+        let tile = round_trip(&l, cfg_alp());
+        let bits: Vec<u64> = tile
+            .features()
+            .iter()
+            .map(|f| match f.properties()[0] {
+                PropValue::F64(Some(v)) => v.to_bits(),
+                ref other => panic!("unexpected {other:?}"),
+            })
+            .collect();
+        let expected: Vec<u64> = VALUES.iter().map(|v| v.to_bits()).collect();
+        assert_eq!(bits, expected);
+    }
+
+    #[rstest]
+    #[case::nan(f64::NAN)]
+    #[case::infinity(f64::INFINITY)]
+    #[case::negative_zero(-0.0)]
+    fn one_value_alp_cannot_carry_keeps_the_whole_column_off_alp(#[case] odd: f64) {
+        let mut values: Vec<f64> = (0..16).map(|i| f64::from(i) * 0.5).collect();
+        values.push(odd);
+        let l = column(&values);
+        assert_eq!(
+            value_bits(&round_trip(&l, cfg_alp())),
+            value_bits(&round_trip(&l, cfg_v2()))
+        );
+    }
+
+    #[test]
+    fn an_optional_alp_column_round_trips() {
+        let values: Vec<PropValue> = (0..24)
+            .map(|i| PropValue::F64((i % 4 != 0).then(|| f64::from(i) * 0.125)))
+            .collect();
+        let l = layer(points(&"1".repeat(24)), None, &[("v", values)]);
+        assert_eq!(round_trip(&l, cfg_alp()), round_trip(&l, cfg_v2()));
+    }
+
+    #[test]
+    fn f32_columns_round_trip_through_alp() {
+        let values: Vec<f32> = (0_i16..32).map(|i| f32::from(i) * 0.5 - 8.0).collect();
+        let l = f32_column(&values);
+        assert_eq!(round_trip(&l, cfg_alp()), round_trip(&l, cfg_v2()));
+    }
 }

@@ -5,9 +5,9 @@ use std::path::Path;
 
 use mlt_core::GeometryValues;
 use mlt_core::encoder::{
-    Codecs, ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, Presence, StagedId,
-    StagedLayer, StagedProperty, StagedSharedDict, StrEncoding, StreamCtx, VertexBufferType,
-    WireVersion,
+    Codecs, ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, FloatEncoding, IntEncoder,
+    Presence, StagedId, StagedLayer, StagedProperty, StagedSharedDict, StrEncoding, StreamCtx,
+    VertexBufferType, WireVersion,
 };
 use mlt_core::geo_types::{Coord, Geometry};
 use mlt_core::wire::{LengthType, OffsetType, StreamType};
@@ -34,6 +34,11 @@ pub fn geo_fastpfor() -> Layer {
 enum PropConfig {
     /// Int/Bool/Float: `enc` is used for integer streams; Bool/Float auto-detect from type.
     Scalar(IntEncoder),
+    /// Float with its logical encoding pinned, `enc` carrying the dictionary codes or ALP integers.
+    Float {
+        enc: IntEncoder,
+        float_enc: FloatEncoding,
+    },
     /// String FSST encoding.
     StrFsst {
         sym_lengths: IntEncoder,
@@ -50,6 +55,17 @@ enum PropConfig {
         string_lengths: IntEncoder,
         offsets: IntEncoder,
     },
+    /// String front-coded Dictionary encoding, whose lengths stream holds the prefixes then the suffixes.
+    StrFrontDict {
+        string_lengths: IntEncoder,
+        offsets: IntEncoder,
+    },
+    /// String FSST + front-coded Dictionary encoding, so FSST runs over the suffixes.
+    StrFsstFrontDict {
+        sym_lengths: IntEncoder,
+        dict_lengths: IntEncoder,
+        offsets: IntEncoder,
+    },
     /// Shared dictionary: `StrEncoding` for the corpus, per-suffix `IntEncoder` for offsets.
     SharedDict {
         dict_encoding: StrEncoding,
@@ -58,12 +74,28 @@ enum PropConfig {
 }
 
 impl PropConfig {
+    /// The pinned float encoding, or [`FloatEncoding::None`] for a column that is not a pinned float.
+    fn float_encoding(&self) -> FloatEncoding {
+        match self {
+            Self::Float { float_enc, .. } => *float_enc,
+            Self::Scalar(_)
+            | Self::StrFsst { .. }
+            | Self::StrFsstDict { .. }
+            | Self::StrDict { .. }
+            | Self::StrFrontDict { .. }
+            | Self::StrFsstFrontDict { .. }
+            | Self::SharedDict { .. } => FloatEncoding::None,
+        }
+    }
+
     fn str_encoding(&self) -> StrEncoding {
         match self {
-            Self::Scalar(_) => StrEncoding::Plain,
+            Self::Scalar(_) | Self::Float { .. } => StrEncoding::Plain,
             Self::StrFsst { .. } => StrEncoding::Fsst,
             Self::StrFsstDict { .. } => StrEncoding::FsstDict,
             Self::StrDict { .. } => StrEncoding::Dict,
+            Self::StrFrontDict { .. } => StrEncoding::FrontDict,
+            Self::StrFsstFrontDict { .. } => StrEncoding::FsstFrontDict,
             Self::SharedDict { dict_encoding, .. } => *dict_encoding,
         }
     }
@@ -74,7 +106,7 @@ impl PropConfig {
         use OffsetType as OT;
         use StreamType as ST;
         match self {
-            Self::Scalar(e) => *e,
+            Self::Scalar(e) | Self::Float { enc: e, .. } => *e,
             Self::StrFsst {
                 sym_lengths,
                 dict_lengths,
@@ -86,12 +118,21 @@ impl PropConfig {
                 sym_lengths,
                 dict_lengths,
                 offsets,
+            }
+            | Self::StrFsstFrontDict {
+                sym_lengths,
+                dict_lengths,
+                offsets,
             } => match ctx.stream_type {
                 ST::Length(LT::Symbol) => *sym_lengths,
                 ST::Offset(OT::String) => *offsets,
                 ST::Present | ST::Data(_) | ST::Offset(_) | ST::Length(_) => *dict_lengths,
             },
             Self::StrDict {
+                string_lengths,
+                offsets,
+            }
+            | Self::StrFrontDict {
                 string_lengths,
                 offsets,
             } => match ctx.stream_type {
@@ -127,7 +168,7 @@ pub struct Layer {
     props: Vec<(StagedProperty, PropConfig)>,
     extent: Option<u32>,
     ids: Option<(StagedId, IntEncoder)>,
-    no_v2: bool,
+    versions: &'static [WireVersion],
 }
 
 impl Layer {
@@ -141,15 +182,17 @@ impl Layer {
             geometry_items: vec![],
             props: vec![],
             extent: None,
+            versions: &[WireVersion::V01, WireVersion::V02],
             ids: None,
-            no_v2: false,
         }
     }
 
     /// Skip encoding this layer as v2 (tag `0x02`).
     #[must_use]
     pub fn no_v2(mut self) -> Self {
-        self.no_v2 = true;
+        assert!(self.versions().contains(&WireVersion::V02));
+        assert_eq!(self.versions().len(), 2);
+        self.versions = &[WireVersion::V01];
         self
     }
 
@@ -248,6 +291,20 @@ impl Layer {
         self
     }
 
+    /// Add a float property whose logical encoding is pinned rather than costed.
+    /// Only v2 can express anything but [`FloatEncoding::None`], so v1 writes the values raw.
+    #[must_use]
+    pub fn add_prop_float(
+        mut self,
+        enc: IntEncoder,
+        float_enc: FloatEncoding,
+        prop: StagedProperty,
+    ) -> Self {
+        self.props
+            .push((prop, PropConfig::Float { enc, float_enc }));
+        self
+    }
+
     /// Add an FSST-compressed string property.
     #[must_use]
     pub fn add_prop_str_fsst(
@@ -278,6 +335,44 @@ impl Layer {
             prop,
             PropConfig::StrDict {
                 string_lengths,
+                offsets,
+            },
+        ));
+        self
+    }
+
+    /// Add a front-coded Dictionary string property.
+    #[must_use]
+    pub fn add_prop_str_front_dict(
+        mut self,
+        string_lengths: IntEncoder,
+        offsets: IntEncoder,
+        prop: StagedProperty,
+    ) -> Self {
+        self.props.push((
+            prop,
+            PropConfig::StrFrontDict {
+                string_lengths,
+                offsets,
+            },
+        ));
+        self
+    }
+
+    /// Add an FSST + front-coded Dictionary string property.
+    #[must_use]
+    pub fn add_prop_str_fsst_front_dict(
+        mut self,
+        sym_lengths: IntEncoder,
+        dict_lengths: IntEncoder,
+        offsets: IntEncoder,
+        prop: StagedProperty,
+    ) -> Self {
+        self.props.push((
+            prop,
+            PropConfig::StrFsstFrontDict {
+                sym_lengths,
+                dict_lengths,
                 offsets,
             },
         ));
@@ -373,10 +468,6 @@ impl Layer {
         OpenOptions::new().write(true).create_new(true).open(path)
     }
 
-    pub(crate) fn wants_v2(&self) -> bool {
-        !self.no_v2
-    }
-
     pub fn encode_to_bytes(self, wire_version: WireVersion) -> SynthResult<Vec<u8>> {
         let Self {
             default_geo_enc,
@@ -388,7 +479,7 @@ impl Layer {
             props,
             extent,
             ids,
-            no_v2: _,
+            versions: _,
         } = self;
 
         let enc_cfg = EncoderConfig::default()
@@ -434,10 +525,18 @@ impl Layer {
                 })
             },
             get_str_encoding: {
+                let prop_map = prop_map.clone();
                 Box::new(move |name: &str| {
                     prop_map
                         .get(name)
                         .map_or(StrEncoding::Plain, PropConfig::str_encoding)
+                })
+            },
+            get_float_encoding: {
+                Box::new(move |name: &str| {
+                    prop_map
+                        .get(name)
+                        .map_or(FloatEncoding::None, PropConfig::float_encoding)
                 })
             },
         };
@@ -453,6 +552,10 @@ impl Layer {
         .encode_into(Encoder::with_explicit(enc_cfg, cfg), &mut codecs)?
         .into_layer_bytes()
         .map_err(SynthErr::Mlt)
+    }
+
+    pub(crate) fn versions(&self) -> &'static [WireVersion] {
+        self.versions
     }
 }
 
