@@ -511,9 +511,10 @@ impl Encoding02 {
             Self::Float(LogicalFloat::Alp(p)) => {
                 let (after, e) = parse_varint::<u8>(input)?;
                 let (after, f) = parse_varint::<u8>(after)?;
+                let (after, base) = parse_varint::<i64>(after)?;
                 rest = after;
                 IntEncoding::new(
-                    LogicalEncoding::Float(FloatLogical::Alp(Alp::new(e, f)?)),
+                    LogicalEncoding::Float(FloatLogical::Alp(Alp::new(e, f, base)?)),
                     flat_int(p)?,
                 )
             }
@@ -729,8 +730,9 @@ pub(crate) fn write_stream_meta<W: io::Write>(
     }
     writer.write_varint(byte_length)?;
     if let LE::Float(FloatLogical::Alp(alp)) = meta.encoding.logical {
-        writer.write_varint(alp.e)?;
-        writer.write_varint(alp.f)?;
+        writer.write_varint(alp.scale.e)?;
+        writer.write_varint(alp.scale.f)?;
+        writer.write_varint(alp.base)?;
     }
     Ok(())
 }
@@ -962,7 +964,7 @@ mod tests {
         0b0011_1000
     )]
     #[case::float_alp_integers(
-        float(FloatLogical::Alp(Alp::new(3, 1).unwrap()), PE::VarInt, 5),
+        float(FloatLogical::Alp(Alp::new(3, 1, 0).unwrap()), PE::VarInt, 5),
         5,
         Family::Float,
         0b0010_1000
@@ -1029,12 +1031,12 @@ mod tests {
     #[case::float_dict_codes_varint(float(FloatLogical::Dict, PE::VarInt, 5), 5, FLOAT)]
     #[case::float_dict_codes_raw(float(FloatLogical::Dict, PE::None, 5), 5, FLOAT)]
     #[case::float_alp(
-        float(FloatLogical::Alp(Alp::new(6, 2).unwrap()), PE::VarInt, 5),
+        float(FloatLogical::Alp(Alp::new(6, 2, -7).unwrap()), PE::VarInt, 5),
         5,
         FLOAT
     )]
     #[case::float_alp_explicit_count(
-        float(FloatLogical::Alp(Alp::new(0, 0).unwrap()), PE::VarInt, 7),
+        float(FloatLogical::Alp(Alp::new(0, 0, 0).unwrap()), PE::VarInt, 7),
         5,
         FLOAT
     )]
@@ -1100,7 +1102,8 @@ mod tests {
     #[case::bool_rle(BOOL, 0b0001_0000)]
     #[case::vertex_morton(VERTEX, 0b0011_0000)]
     fn parse_rejects_unimplemented_encoding(#[case] ctx: StreamCtx02, #[case] enc_byte: u8) {
-        let buf = [enc_byte, 0, 0, 0];
+        // Long enough for the widest header prefix any case here parses: ALP's three varints.
+        let buf = [enc_byte, 0, 0, 0, 0];
         let err = parse_stream(&buf, ctx, 0, &mut parser()).unwrap_err();
         assert!(matches!(err, MltError::NotImplemented(_)), "{err:?}");
     }
@@ -1192,11 +1195,11 @@ mod tests {
     #[case::dict_on_an_int_column(LogicalEncoding::Float(FloatLogical::Dict), Family::Int)]
     #[case::dict_on_a_vertex_stream(LogicalEncoding::Float(FloatLogical::Dict), Family::Vertex)]
     #[case::alp_on_an_int_column(
-        LogicalEncoding::Float(FloatLogical::Alp(Alp::new(1, 0).unwrap())),
+        LogicalEncoding::Float(FloatLogical::Alp(Alp::new(1, 0, 0).unwrap())),
         Family::Int
     )]
     #[case::alp_on_a_bool_column(
-        LogicalEncoding::Float(FloatLogical::Alp(Alp::new(1, 0).unwrap())),
+        LogicalEncoding::Float(FloatLogical::Alp(Alp::new(1, 0, 0).unwrap())),
         Family::Bool
     )]
     fn write_rejects_an_encoding_the_family_does_not_list(

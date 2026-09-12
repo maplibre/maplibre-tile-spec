@@ -10,9 +10,6 @@ pub trait FloatValue: Copy {
     /// Dictionary key type: this float's bits.
     type Bits: Copy + Eq + std::hash::Hash;
 
-    /// Largest power of ten worth scaling by, past which the type has no more digits to recover.
-    const MAX_EXPONENT: u8;
-
     fn key(self) -> Self::Bits;
 
     /// Widen to `f64`, so scaling arithmetic happens at full precision.
@@ -25,8 +22,6 @@ pub trait FloatValue: Copy {
 
 impl FloatValue for f32 {
     type Bits = u32;
-
-    const MAX_EXPONENT: u8 = 10;
 
     fn key(self) -> u32 {
         self.to_bits()
@@ -51,8 +46,6 @@ impl FloatValue for f32 {
 
 impl FloatValue for f64 {
     type Bits = u64;
-
-    const MAX_EXPONENT: u8 = 18;
 
     fn key(self) -> u64 {
         self.to_bits()
