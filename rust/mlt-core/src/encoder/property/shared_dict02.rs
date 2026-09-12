@@ -11,6 +11,7 @@ use crate::decoder::stream::header02::{Count02, Family, StrLayout};
 use crate::decoder::{Column02, ColumnType02, DataType02, DictLayout, Presence02, SharedDictKind};
 use crate::encoder::encode02::{SharedPresence, write_presence_bits};
 use crate::encoder::model::{StrAt, StreamCtx};
+use crate::encoder::nested_dict::NestedCorpus;
 use crate::encoder::property::shared_dict::collect_staged_shared_dict_spans;
 use crate::encoder::property::strings::{
     recode, sort_dictionary, suffix_parts, write_blob02, write_dict_tail02, write_front_lengths02,
@@ -89,6 +90,74 @@ impl Codecs {
         }
         Ok(())
     }
+}
+
+impl Codecs {
+    /// Encode a corpus-only shared dictionary as a v2 column and write it to `enc`.
+    ///
+    /// The same four shapes a shared-dictionary column races, minus the children: the leaves
+    /// that index this corpus are written later, wherever they sit in their nested column.
+    /// The entries arrive sorted, so all four number them alike and a leaf's codes are fixed
+    /// before the race runs.
+    pub(crate) fn write_nested_corpus02(
+        &mut self,
+        corpus: &NestedCorpus,
+        enc: &mut Encoder,
+    ) -> MltResult<()> {
+        let entries: Vec<&str> = corpus.entries.iter().map(String::as_str).collect();
+        debug_assert!(entries.is_sorted());
+        let front = front_code(&entries)?;
+        let compressor = enc.fsst_compressor(&corpus.name, &entries);
+        let fsst = compressor.map(|c| compress_fsst_with(&entries, c));
+        let front_fsst = enc.config().allow_fsst().then(|| {
+            let parts = suffix_parts(&front);
+            compress_fsst_bytes(&parts, &front.suffixes)
+        });
+
+        let name = &corpus.name;
+        let outer = enc.count_context;
+        let mut alt = enc.try_alternatives();
+        alt.with(|enc| {
+            begin_nested_corpus02(enc, SharedDictKind::CorpusPlain, name)?;
+            write_dict_tail02(&entries, StrAt::flat(name), enc, self)
+        })?;
+        alt.with(|enc| {
+            begin_nested_corpus02(enc, SharedDictKind::CorpusPlain, name)?;
+            write_front_lengths02(&front, StrAt::flat(name), enc, self)?;
+            write_blob02(&front.suffixes, DictLayout::FrontCoded, enc)
+        })?;
+        if let Some(ref raw) = fsst {
+            alt.with(|enc| {
+                begin_nested_corpus02(enc, SharedDictKind::CorpusFsst, name)?;
+                let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), name);
+                self.write_int_stream(&raw.value_lengths, &ctx, enc)?;
+                write_fsst_tail02(&raw.blob, DictLayout::Plain, StrAt::flat(name), enc, self)
+            })?;
+        }
+        if let Some(ref blob) = front_fsst {
+            alt.with(|enc| {
+                begin_nested_corpus02(enc, SharedDictKind::CorpusFsst, name)?;
+                write_front_lengths02(&front, StrAt::flat(name), enc, self)?;
+                write_fsst_tail02(blob, DictLayout::FrontCoded, StrAt::flat(name), enc, self)
+            })?;
+        }
+        drop(alt);
+        enc.count_context = outer;
+        Ok(())
+    }
+}
+
+/// Write a corpus-only column's type byte and name.
+///
+/// Nothing implies the entry count, so the corpus streams are written against none.
+fn begin_nested_corpus02(enc: &mut Encoder, kind: SharedDictKind, name: &str) -> MltResult<()> {
+    enc.family_context = Family::Int;
+    enc.count_context = Count02::Explicit;
+    let byte = kind as u8 | Column02::SHARED_DICT;
+    let data = enc.data_mut();
+    data.push(byte);
+    data.write_string(name)?;
+    Ok(())
 }
 
 /// The distinct entries every child shares, and each child's codes into them.

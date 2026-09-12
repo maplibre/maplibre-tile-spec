@@ -56,7 +56,7 @@ pub(crate) use decoder::{
 pub use decoder::{
     MValueColumn, MValueSpans, MValues, Nested, ParsedInterior, ParsedLeaf, ParsedList,
     ParsedMValue, ParsedMap, ParsedNested, ParsedNode, ParsedStruct, RawInterior, RawLeaf, RawList,
-    RawMValue, RawMap, RawNested, RawNode, RawStruct,
+    RawMValue, RawMap, RawNested, RawNode, RawSharedLeaf, RawStruct,
 };
 pub(crate) use errors::MltRefResult;
 pub use errors::{MltError, MltResult};
