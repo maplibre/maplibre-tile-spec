@@ -3,7 +3,7 @@
 use mlt_core::dump::{RenderOpts, annotate_tile, render};
 use mlt_core::encoder::{
     Codecs, Encoder, EncoderConfig, ExplicitEncoder, FloatEncoding, IntEncoder, StagedId,
-    StagedLayer, StagedMValue, StagedMValues, StrEncoding, VertexBufferType, WireVersion,
+    StagedLayer, StagedMValue, StagedValues, StrEncoding, VertexBufferType, WireVersion,
 };
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
@@ -434,10 +434,9 @@ fn a_column_of_the_wrong_kind_is_rejected() {
 fn a_duplicate_m_value_name_is_rejected() {
     let mut l = TileLayer::new("test_layer", 4096).unwrap();
     l.add_m_value("m", PropKind::I32).unwrap();
-    let err = l.add_m_value("m", PropKind::U32).unwrap_err();
-    assert!(
-        matches!(err, MltError::DuplicateMValueName(ref name) if name == "m"),
-        "{err:?}"
+    assert_eq!(
+        l.add_m_value("m", PropKind::U32).unwrap_err().to_string(),
+        "duplicate column name m: the m-value column repeats the m-value column"
     );
 }
 
@@ -533,10 +532,60 @@ fn a_duplicate_name_on_the_wire_is_rejected() {
     assert_eq!(len, 3, "a one-byte length prefix and a two-byte name");
     bytes[second + 1..second + 3].copy_from_slice(b"aa");
 
-    let err = decode_err(&bytes);
-    assert!(
-        matches!(err, MltError::DuplicateMValueName(ref name) if name == "aa"),
-        "{err:?}"
+    assert_eq!(
+        decode_err(&bytes).to_string(),
+        "duplicate column name aa: the m-value column repeats the m-value column"
+    );
+}
+
+fn patch_name(bytes: &mut [u8], from: &[u8], to: &[u8]) {
+    assert_eq!(from.len(), to.len());
+    let mut needle = vec![u8::try_from(from.len()).expect("a short name")];
+    needle.extend_from_slice(from);
+    let at = bytes
+        .windows(needle.len())
+        .position(|w| w == needle)
+        .unwrap_or_else(|| panic!("no name {from:?} on the wire"));
+    bytes[at + 1..at + 1 + to.len()].copy_from_slice(to);
+}
+
+fn property_and_m_value_layer() -> TileLayer {
+    let mut builder = TileLayer::builder("test_layer", 4096).unwrap();
+    let prop = builder.add_property("prop", PropKind::I32).unwrap();
+    let m = builder.add_m_value("mval", PropKind::I32).unwrap();
+    let mut feature = builder.feature(line(&[(0, 0), (1, 1)]));
+    feature.property(prop, PropValue::I32(Some(7))).unwrap();
+    feature.m_value(m, MValue::I32(Some(vec![1, 2]))).unwrap();
+    feature.finish().unwrap();
+    builder.finish()
+}
+
+#[test]
+fn an_m_value_name_that_repeats_a_property_column_on_the_wire_is_rejected() {
+    let mut bytes = property_and_m_value_layer()
+        .encode(cfg_v2())
+        .expect("v2 encode");
+    patch_name(&mut bytes, b"mval", b"prop");
+    assert_eq!(
+        decode_err(&bytes).to_string(),
+        "duplicate column name prop: the m-value column repeats the property column"
+    );
+}
+
+#[test]
+fn a_property_name_that_repeats_another_property_column_on_the_wire_is_rejected() {
+    let mut builder = TileLayer::builder("test_layer", 4096).unwrap();
+    let first = builder.add_property("aaaa", PropKind::I32).unwrap();
+    let second = builder.add_property("bbbb", PropKind::I32).unwrap();
+    let mut feature = builder.feature(line(&[(0, 0), (1, 1)]));
+    feature.property(first, PropValue::I32(Some(1))).unwrap();
+    feature.property(second, PropValue::I32(Some(2))).unwrap();
+    feature.finish().unwrap();
+    let mut bytes = builder.finish().encode(cfg_v2()).expect("v2 encode");
+    patch_name(&mut bytes, b"bbbb", b"aaaa");
+    assert_eq!(
+        decode_err(&bytes).to_string(),
+        "duplicate column name aaaa: the property column repeats the property column"
     );
 }
 
@@ -573,7 +622,7 @@ fn encode_dictionary_vertex_layer() -> Vec<u8> {
     for _ in 0..2 {
         geometry.push_geom(&line(&[(0, 0), (8, 8), (16, 16)]));
     }
-    let m_value = StagedMValue::new("m", None, StagedMValues::I32(vec![1, 2, 3, 4, 5, 6]));
+    let m_value = StagedMValue::new("m", None, StagedValues::I32(vec![1, 2, 3, 4, 5, 6]));
     let staged = StagedLayer::with_m_values(
         "test_layer",
         4096,

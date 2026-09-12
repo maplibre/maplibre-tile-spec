@@ -29,8 +29,12 @@ pub enum MltError {
     InvalidExtent(u32),
     #[error("missing property name")]
     MissingPropertyName,
-    #[error("duplicate property name: {0}")]
-    DuplicatePropertyName(String),
+    #[error("duplicate column name {name}: the {role} column repeats the {taken_by} column")]
+    DuplicateColumnName {
+        name: String,
+        role: crate::tile::ColumnRole,
+        taken_by: crate::tile::ColumnRole,
+    },
     #[error("feature property count mismatch: expected {expected}, got {actual}")]
     PropertyLengthMismatch { expected: usize, actual: usize },
     #[error("property {index} kind mismatch: expected {expected:?}, got {actual:?}")]
@@ -78,9 +82,6 @@ pub enum MltError {
     #[error("the v2 layer layout byte claims an m-value section, but it holds no columns")]
     EmptyMValueSection,
     #[cfg(feature = "unstable-v2")]
-    #[error("duplicate m-value name: {0}")]
-    DuplicateMValueName(String),
-    #[cfg(feature = "unstable-v2")]
     #[error(
         "m-value column {name} has no implied count, so its leading stream must write one: encoding byte 0x{byte:02X}"
     )]
@@ -127,6 +128,62 @@ pub enum MltError {
     #[cfg(feature = "unstable-v2")]
     #[error("m-values are a v2 feature, so layer {0} cannot be written as v1")]
     MValuesNeedV2(String),
+    #[cfg(feature = "unstable-v2")]
+    #[error("nested properties are a v2 feature, so layer {0} cannot be written as v1")]
+    NestedNeedsV2(String),
+    #[cfg(feature = "unstable-v2")]
+    #[error("duplicate field name in a struct node: {0}")]
+    DuplicateFieldName(String),
+    #[cfg(feature = "unstable-v2")]
+    #[error("a struct node holds no fields")]
+    EmptyStructNode,
+    #[cfg(feature = "unstable-v2")]
+    #[error("nested column {0} has a scalar root, which is an ordinary column")]
+    NestedRootIsLeaf(String),
+    #[cfg(feature = "unstable-v2")]
+    #[error("a nested column is {0} levels deep, more than the 8 the format allows")]
+    NestedTooDeep(usize),
+    #[cfg(feature = "unstable-v2")]
+    #[error("a nested lengths stream sums to {expected}, but the node below it holds {actual}")]
+    NestedCountMismatch { expected: u32, actual: u32 },
+    #[cfg(feature = "unstable-v2")]
+    #[error(
+        "nested node {name} has no implied count, so its leading stream must write one: encoding byte 0x{byte:02X}"
+    )]
+    NestedImplicitCount { name: String, byte: u8 },
+    #[cfg(feature = "unstable-v2")]
+    #[error("a feature carries {actual} nested columns, but the layer has {expected}")]
+    NestedColumnCountMismatch { expected: usize, actual: usize },
+    #[cfg(feature = "unstable-v2")]
+    #[error("nested key {index} belongs to another layer: this feature has {columns} columns")]
+    UnknownNestedKey { index: usize, columns: usize },
+    #[cfg(feature = "unstable-v2")]
+    #[error("nested column {index} ({name}) was given a value of another shape")]
+    NestedValueMismatch { index: usize, name: String },
+    #[cfg(feature = "unstable-v2")]
+    #[error("nested column {index} was given a value of another shape")]
+    NestedShapeMismatch { index: usize },
+    #[cfg(feature = "unstable-v2")]
+    #[error("nested column {name} runs over {expected} values, but its root holds {actual}")]
+    NestedRootCountMismatch {
+        name: String,
+        expected: u32,
+        actual: u32,
+    },
+    #[cfg(feature = "unstable-v2")]
+    #[error(
+        "nested node {name} must write its presence as a raw bitmap of one bit per value: encoding byte 0x{byte:02X}"
+    )]
+    NestedPresenceEncoding { name: String, byte: u8 },
+    #[cfg(feature = "unstable-v2")]
+    #[error("a nested lengths stream holds {len} lengths, so it has no row {row}")]
+    NestedRowOutOfRange { row: usize, len: usize },
+    #[cfg(feature = "unstable-v2")]
+    #[error("a nested map holds {len} keys, so it has no key for entry {entry}")]
+    NestedKeyOutOfRange { entry: usize, len: usize },
+    #[cfg(feature = "unstable-v2")]
+    #[error("a nested leaf holds {len} values, so it has no value at index {index}")]
+    NestedValueOutOfRange { index: usize, len: usize },
     #[error("error parsing logical technique: code={0}")]
     ParsingLogicalTechnique(u8),
     #[error("error parsing physical encoding: code={0}")]

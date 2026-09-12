@@ -87,6 +87,12 @@ impl<'a> Layer01<'a, Lazy> {
                 .map(|p| p.into_parsed(dec))
                 .collect::<MltResult<Vec<_>>>()?,
             #[cfg(feature = "unstable-v2")]
+            nested: self
+                .nested
+                .into_iter()
+                .map(|n| n.into_parsed(dec))
+                .collect::<MltResult<Vec<_>>>()?,
+            #[cfg(feature = "unstable-v2")]
             m_values: self
                 .m_values
                 .into_iter()

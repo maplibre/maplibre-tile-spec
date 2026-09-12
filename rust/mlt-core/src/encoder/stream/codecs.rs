@@ -125,7 +125,7 @@ impl Codecs {
         // v1 has no way to write either encoding, and one `Layer` is encoded as both versions.
         #[cfg(feature = "unstable-v2")]
         if enc.config().wire_version() != WireVersion::V01 {
-            match enc.override_float_enc(ctx.name) {
+            match enc.override_float_enc(&ctx.qualified()) {
                 // A pinned encoding is written as asked, with nothing costed against it.
                 Some(FloatEncoding::Alp) => {
                     let mut alp = AlpStream::smallest(values).ok_or(MltError::NoAlpParameters)?;

@@ -53,15 +53,19 @@ pub(crate) use decoder::{
     RawSharedDictItem, StreamType,
 };
 #[cfg(feature = "unstable-v2")]
-pub use decoder::{MValueColumn, MValueSpans, MValues, ParsedMValue, RawMValue};
+pub use decoder::{
+    MValueColumn, MValueSpans, MValues, Nested, ParsedInterior, ParsedLeaf, ParsedList,
+    ParsedMValue, ParsedMap, ParsedNested, ParsedNode, ParsedStruct, RawInterior, RawLeaf, RawList,
+    RawMValue, RawMap, RawNested, RawNode, RawStruct,
+};
 pub(crate) use errors::MltRefResult;
 pub use errors::{MltError, MltResult};
 pub use tile::{
-    Extent, PropKind, PropValue, PropertyKey, TileFeature, TileFeatureBuilder, TileLayer,
-    TileLayerBuilder,
+    ColumnRole, Extent, PropKind, PropValue, PropertyKey, TileFeature, TileFeatureBuilder,
+    TileLayer, TileLayerBuilder,
 };
 #[cfg(feature = "unstable-v2")]
-pub use tile::{MValue, MValueKey};
+pub use tile::{MValue, MValueKey, NestedKey, NestedKind, NestedValue};
 pub(crate) use utils::analyze::{Analyze, StatType};
 pub(crate) use utils::lazy_state::{Decode, DecodeState, Lazy, LazyParsed, Parsed};
 

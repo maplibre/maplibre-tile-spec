@@ -18,6 +18,8 @@ use crate::decoder::stream::header02;
 use crate::decoder::stream::header02::{Family, StrLayout, StreamCtx02};
 use crate::decoder::strings::{checked_string_end, encode_null_end};
 use crate::decoder::{DictionaryType, LengthType, OffsetType, StreamMeta, StreamType, ValueKind};
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::model::StrAt;
 use crate::encoder::model::{StrEncoding, StreamCtx};
 use crate::encoder::stream::{dedup_strings, write_stream_payload};
 use crate::encoder::{Codecs, Encoder};
@@ -156,33 +158,34 @@ impl Codecs {
     pub(crate) fn write_str_col02(
         &mut self,
         v: &StagedStrings,
+        at: StrAt<'_>,
         enc: &mut Encoder,
     ) -> MltResult<()> {
         let non_null = v.dense_values();
-        let name = &v.name;
-        if let Some(str_enc) = enc.override_str_enc(name) {
+        let pinned = at.qualified();
+        if let Some(str_enc) = enc.override_str_enc(&pinned) {
             return match str_enc {
-                StrEncoding::Plain => write_str_plain02(&non_null, name, enc, self),
+                StrEncoding::Plain => write_str_plain02(&non_null, at, enc, self),
                 StrEncoding::Dict => {
                     let (unique, codes) = dedup_strings(&non_null)?;
-                    write_str_dict02(&unique, &codes, name, enc, self)
+                    write_str_dict02(&unique, &codes, at, enc, self)
                 }
-                StrEncoding::Fsst => write_str_fsst02(&compress_fsst(&non_null), name, enc, self),
+                StrEncoding::Fsst => write_str_fsst02(&compress_fsst(&non_null), at, enc, self),
                 StrEncoding::FsstDict => {
                     let (unique, codes) = dedup_strings(&non_null)?;
-                    write_str_fsst_dict02(&compress_fsst(&unique), &codes, name, enc, self)
+                    write_str_fsst_dict02(&compress_fsst(&unique), &codes, at, enc, self)
                 }
                 StrEncoding::FrontDict => {
                     let (unique, codes) = dedup_strings(&non_null)?;
                     let (front, sorted_codes) = front_coded_dict(&unique, &codes)?;
-                    write_str_front_dict02(&front, &sorted_codes, name, enc, self)
+                    write_str_front_dict02(&front, &sorted_codes, at, enc, self)
                 }
                 StrEncoding::FsstFrontDict => {
                     let (unique, codes) = dedup_strings(&non_null)?;
                     let (front, sorted_codes) = front_coded_dict(&unique, &codes)?;
                     let parts = suffix_parts(&front);
                     let blob = compress_fsst_bytes(&parts, &front.suffixes);
-                    write_str_fsst_front_dict02(&front, &blob, &sorted_codes, name, enc, self)
+                    write_str_fsst_front_dict02(&front, &blob, &sorted_codes, at, enc, self)
                 }
             };
         }
@@ -191,7 +194,7 @@ impl Codecs {
         let (unique, codes) = dedup_strings(&non_null)?;
         let (front, sorted_codes) = front_coded_dict(&unique, &codes)?;
         // `None` disables FSST, so only Plain and Dict compete.
-        let compressor = enc.fsst_compressor(name, &unique);
+        let compressor = enc.fsst_compressor(&pinned, &unique);
         // Compute before try_alternatives borrows enc; FsstRawData is owned so the cache borrow ends here.
         let plain_fsst = compressor.map(|c| compress_fsst_with(&non_null, c));
         let dict_fsst = compressor.map(|c| compress_fsst_with(&unique, c));
@@ -202,19 +205,17 @@ impl Codecs {
         });
 
         let mut alt = enc.try_alternatives();
-        alt.with(|enc| write_str_plain02(&non_null, name, enc, self))?;
-        alt.with(|enc| write_str_dict02(&unique, &codes, name, enc, self))?;
-        alt.with(|enc| write_str_front_dict02(&front, &sorted_codes, name, enc, self))?;
+        alt.with(|enc| write_str_plain02(&non_null, at, enc, self))?;
+        alt.with(|enc| write_str_dict02(&unique, &codes, at, enc, self))?;
+        alt.with(|enc| write_str_front_dict02(&front, &sorted_codes, at, enc, self))?;
         if let Some(ref raw) = plain_fsst {
-            alt.with(|enc| write_str_fsst02(raw, name, enc, self))?;
+            alt.with(|enc| write_str_fsst02(raw, at, enc, self))?;
         }
         if let Some(ref raw) = dict_fsst {
-            alt.with(|enc| write_str_fsst_dict02(raw, &codes, name, enc, self))?;
+            alt.with(|enc| write_str_fsst_dict02(raw, &codes, at, enc, self))?;
         }
         if let Some(ref raw) = front_fsst {
-            alt.with(|enc| {
-                write_str_fsst_front_dict02(&front, raw, &sorted_codes, name, enc, self)
-            })?;
+            alt.with(|enc| write_str_fsst_front_dict02(&front, raw, &sorted_codes, at, enc, self))?;
         }
         Ok(())
     }
@@ -225,11 +226,11 @@ impl Codecs {
 fn write_str_leading02(
     values: &[u32],
     layout: StrLayout,
-    name: &str,
+    at: StrAt<'_>,
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
-    let ctx = StreamCtx::prop(StreamCtx02::StrData(layout).stream_type(), name);
+    let ctx = at.ctx(StreamCtx02::StrData(layout).stream_type());
     enc.family_context = Family::Str(layout);
     let result = codecs.write_int_stream(values, &ctx, enc);
     enc.family_context = Family::Int;
@@ -261,12 +262,12 @@ fn write_str_blob02(strings: &[&str], enc: &mut Encoder) -> MltResult<()> {
 #[cfg(feature = "unstable-v2")]
 fn write_str_plain02(
     non_null: &[&str],
-    name: &str,
+    at: StrAt<'_>,
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
     let lengths = strings_to_lengths(non_null)?;
-    write_str_leading02(&lengths, StrLayout::Plain, name, enc, codecs)?;
+    write_str_leading02(&lengths, StrLayout::Plain, at, enc, codecs)?;
     write_str_blob02(non_null, enc)
 }
 
@@ -275,24 +276,24 @@ fn write_str_plain02(
 fn write_str_dict02(
     unique: &[&str],
     offset_indices: &[u32],
-    name: &str,
+    at: StrAt<'_>,
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
-    write_str_leading02(offset_indices, StrLayout::Dict, name, enc, codecs)?;
-    write_dict_tail02(unique, name, enc, codecs)
+    write_str_leading02(offset_indices, StrLayout::Dict, at, enc, codecs)?;
+    write_dict_tail02(unique, at, enc, codecs)
 }
 
 /// A plain dictionary's own streams: one length per entry, then the entries.
 #[cfg(feature = "unstable-v2")]
 pub(crate) fn write_dict_tail02(
     unique: &[&str],
-    name: &str,
+    at: StrAt<'_>,
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
     let lengths = strings_to_lengths(unique)?;
-    let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), name);
+    let ctx = at.ctx(StreamType::Length(LengthType::Dictionary));
     codecs.write_int_stream(&lengths, &ctx, enc)?;
     write_str_blob02(unique, enc)
 }
@@ -301,12 +302,12 @@ pub(crate) fn write_dict_tail02(
 #[cfg(feature = "unstable-v2")]
 fn write_str_fsst02(
     raw: &FsstRawData,
-    name: &str,
+    at: StrAt<'_>,
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
-    write_str_leading02(&raw.value_lengths, StrLayout::Fsst, name, enc, codecs)?;
-    write_fsst_tail02(&raw.blob, DictLayout::Plain, name, enc, codecs)
+    write_str_leading02(&raw.value_lengths, StrLayout::Fsst, at, enc, codecs)?;
+    write_fsst_tail02(&raw.blob, DictLayout::Plain, at, enc, codecs)
 }
 
 /// [`StrLayout::FsstDict`]: one code per value, then the distinct values' lengths, symbol table and corpus.
@@ -314,14 +315,14 @@ fn write_str_fsst02(
 fn write_str_fsst_dict02(
     raw: &FsstRawData,
     offset_indices: &[u32],
-    name: &str,
+    at: StrAt<'_>,
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
-    write_str_leading02(offset_indices, StrLayout::FsstDict, name, enc, codecs)?;
-    let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), name);
+    write_str_leading02(offset_indices, StrLayout::FsstDict, at, enc, codecs)?;
+    let ctx = at.ctx(StreamType::Length(LengthType::Dictionary));
     codecs.write_int_stream(&raw.value_lengths, &ctx, enc)?;
-    write_fsst_tail02(&raw.blob, DictLayout::Plain, name, enc, codecs)
+    write_fsst_tail02(&raw.blob, DictLayout::Plain, at, enc, codecs)
 }
 
 /// A dictionary in lexicographic order, beside the new code each of its old codes becomes.
@@ -369,11 +370,11 @@ pub(crate) fn suffix_parts(coded: &FrontCoded) -> Vec<&[u8]> {
 #[cfg(feature = "unstable-v2")]
 pub(crate) fn write_front_lengths02(
     coded: &FrontCoded,
-    name: &str,
+    at: StrAt<'_>,
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
-    let ctx = StreamCtx::prop(StreamType::Length(LengthType::Dictionary), name);
+    let ctx = at.ctx(StreamType::Length(LengthType::Dictionary));
     codecs.write_int_stream(&coded.to_lengths(), &ctx, enc)
 }
 
@@ -383,12 +384,12 @@ pub(crate) fn write_front_lengths02(
 fn write_str_front_dict02(
     coded: &FrontCoded,
     offset_indices: &[u32],
-    name: &str,
+    at: StrAt<'_>,
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
-    write_str_leading02(offset_indices, StrLayout::Dict, name, enc, codecs)?;
-    write_front_lengths02(coded, name, enc, codecs)?;
+    write_str_leading02(offset_indices, StrLayout::Dict, at, enc, codecs)?;
+    write_front_lengths02(coded, at, enc, codecs)?;
     write_blob02(&coded.suffixes, DictLayout::FrontCoded, enc)
 }
 
@@ -398,13 +399,13 @@ fn write_str_fsst_front_dict02(
     coded: &FrontCoded,
     blob: &FsstBlob,
     offset_indices: &[u32],
-    name: &str,
+    at: StrAt<'_>,
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
-    write_str_leading02(offset_indices, StrLayout::FsstDict, name, enc, codecs)?;
-    write_front_lengths02(coded, name, enc, codecs)?;
-    write_fsst_tail02(blob, DictLayout::FrontCoded, name, enc, codecs)
+    write_str_leading02(offset_indices, StrLayout::FsstDict, at, enc, codecs)?;
+    write_front_lengths02(coded, at, enc, codecs)?;
+    write_fsst_tail02(blob, DictLayout::FrontCoded, at, enc, codecs)
 }
 
 /// The symbol lengths, symbol table and compressed corpus both v2 FSST layouts end with.
@@ -412,11 +413,11 @@ fn write_str_fsst_front_dict02(
 pub(crate) fn write_fsst_tail02(
     blob: &FsstBlob,
     corpus_layout: DictLayout,
-    name: &str,
+    at: StrAt<'_>,
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
-    let ctx = StreamCtx::prop(StreamType::Length(LengthType::Symbol), name);
+    let ctx = at.ctx(StreamType::Length(LengthType::Symbol));
     codecs.write_int_stream(&blob.symbol_lengths, &ctx, enc)?;
     write_blob02(&blob.symbol_bytes, DictLayout::Plain, enc)?;
     write_blob02(&blob.corpus, corpus_layout, enc)
