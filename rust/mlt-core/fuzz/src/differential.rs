@@ -3,9 +3,11 @@ use std::process::Command;
 use std::sync::OnceLock;
 
 use hex::ToHex as _;
-use mlt_core::encoder::{Codecs, Encoder, EncoderConfig, StagedLayer, WireVersion};
+use mlt_core::encoder::{EncoderConfig, StagedLayer, WireVersion};
 use mlt_core::geojson::FeatureCollection;
 use mlt_core::{Decoder, Parser};
+
+use crate::roundtrip::encode;
 
 /// An arbitrary tile and encoder config.
 /// Encoded once by Rust, then decoded by both the Rust decoder and the C++ `mlt-cpp-json` tool.
@@ -27,13 +29,10 @@ impl arbitrary::Arbitrary<'_> for DifferentialInput {
 
 impl DifferentialInput {
     pub fn fuzz(self) {
-        let mut codecs = Codecs::default();
-        let buffer = self
-            .layer
-            .encode_into(Encoder::new(self.config), &mut codecs)
-            .expect("encode should not fail")
-            .into_layer_bytes()
-            .expect("into_layer_bytes should not fail");
+        // v1 is what the C++ decoder reads, and it has nowhere to put an m-value column.
+        let Some(buffer) = encode(self.layer, self.config) else {
+            return;
+        };
 
         let rust_json = rust_decode(&buffer);
 

@@ -7,7 +7,7 @@ use integer_encoding::VarIntWriter as _;
 use crate::MltError::DictIndexOutOfBounds;
 use crate::codecs::front_coding::front_code;
 use crate::codecs::fsst::{compress_fsst_bytes, compress_fsst_with};
-use crate::decoder::stream::header02::{Family, StrLayout};
+use crate::decoder::stream::header02::{Count02, Family, StrLayout};
 use crate::decoder::{Column02, ColumnType02, DataType02, DictLayout, Presence02, SharedDictKind};
 use crate::encoder::encode02::{SharedPresence, write_presence_bits};
 use crate::encoder::model::StreamCtx;
@@ -123,15 +123,15 @@ fn group(shared_dict: &StagedSharedDict) -> MltResult<Grouped<'_>> {
 
 /// Write the column's type byte, whose high nibble names `kind`, its name and its child count.
 ///
-/// The dictionary's entry count is nothing the decoder can imply, so its streams are written
-/// against an implicit count of zero, which is what makes them carry their own.
+/// The dictionary's entry count is nothing the decoder can infer, so its streams are
+/// written against no implied count, which is what makes each carry its own.
 fn begin_shared_dict02(
     enc: &mut Encoder,
     kind: SharedDictKind,
     shared_dict: &StagedSharedDict,
 ) -> MltResult<()> {
     enc.family_context = Family::Int;
-    enc.count_context = 0;
+    enc.count_context = Count02::Explicit;
     let byte = kind as u8 | Column02::SHARED_DICT;
     let data = enc.data_mut();
     data.push(byte);
@@ -144,7 +144,7 @@ fn begin_shared_dict02(
 fn write_children02(
     shared_dict: &StagedSharedDict,
     per_child_codes: &[Vec<u32>],
-    features: u32,
+    features: Count02,
     shared: &SharedPresence,
     enc: &mut Encoder,
     codecs: &mut Codecs,
@@ -161,7 +161,7 @@ fn write_children02(
             write_presence_bits(enc.data_mut(), mask);
         }
 
-        enc.count_context = u32::try_from(child_codes.len())?;
+        enc.count_context = Count02::Implied(u32::try_from(child_codes.len())?);
         let ctx = StreamCtx::prop2(
             StreamType::Offset(OffsetType::String),
             &shared_dict.prefix,

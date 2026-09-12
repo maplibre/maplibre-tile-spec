@@ -28,8 +28,8 @@ use std::sync::LazyLock;
 
 use clap::Parser;
 use mlt_core::encoder::{
-    FloatEncoding, IntEncoder as E, LogicalEncoder as L, StagedId as Id, StagedProperty as P,
-    StrEncoding, VertexBufferType,
+    FloatEncoding, IntEncoder as E, LogicalEncoder as L, StagedId as Id, StagedMValue as M,
+    StagedMValues as MV, StagedProperty as P, StrEncoding, VertexBufferType,
 };
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, coord,
@@ -109,6 +109,7 @@ fn main() {
     generate_extent(&mut writer);
     generate_ids(&mut writer);
     generate_properties(&mut writer);
+    generate_m_values(&mut writer);
 
     writer.report_ungenerated();
 
@@ -949,6 +950,439 @@ fn generate_properties(w: &mut SynthWriter) {
     generate_props_str(w);
     generate_shared_presence(w);
     generate_shared_dictionaries(w);
+}
+
+/// Vertex-scoped columns, which hold one value per vertex instead of per feature.
+///
+/// A v1 layer has nowhere to put one, so these fixtures are v2 only.
+fn generate_m_values(w: &mut SynthWriter) {
+    // Three lines of 3, 3 and 2 vertices: 8 vertices in the layer's sequence.
+    let short = wkt!(LINESTRING(5 38, 12 45));
+    geo_varint()
+        .no_v1()
+        .geos(vec![line1(), line2(), short])
+        .add_m_value(
+            E::delta_varint(),
+            M::new("dist", None, MV::U32(vec![0, 10, 25, 0, 15, 40, 0, 12])),
+        )
+        .add_m_value(
+            E::varint(),
+            // Null on the middle line, which therefore stores no values at all.
+            M::new(
+                "height",
+                Some(vec![true, false, true]),
+                MV::I32(vec![-3, 4, 9, 2, 7]),
+            ),
+        )
+        .write(w, "mvalues");
+
+    generate_m_value_types(w);
+    generate_m_value_geometries(w);
+    generate_m_value_presence(w);
+    generate_m_value_encodings(w);
+}
+
+/// The layer every m-value fixture that is not about geometry runs over:
+/// three lines of 3, 3 and 2 vertices, so the sequence is 8 vertices long
+/// and no feature boundary lines up with a power of two.
+fn m_lines() -> Layer {
+    geo_varint().geos(vec![line1(), line2(), wkt!(LINESTRING(5 38, 12 45))])
+}
+
+/// One fixture per data type an m-value column may hold, codes `0x2`-`0xB`.
+fn generate_m_value_types(w: &mut SynthWriter) {
+    let e = E::varint();
+
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            e,
+            M::new(
+                "val",
+                None,
+                MV::Bool(vec![true, false, true, true, false, false, true, false]),
+            ),
+        )
+        .write(w, "mvalues_bool");
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            e,
+            M::new("val", None, MV::I8(vec![-128, -3, -1, 0, 1, 3, 126, 127])),
+        )
+        .write(w, "mvalues_i8");
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            e,
+            M::new("val", None, MV::U8(vec![0, 1, 2, 3, 128, 200, 254, 255])),
+        )
+        .write(w, "mvalues_u8");
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            e,
+            M::new(
+                "val",
+                None,
+                MV::I32(vec![i32::MIN, -70_000, -1, 0, 1, 70_000, 2, i32::MAX]),
+            ),
+        )
+        .write(w, "mvalues_i32");
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            e,
+            M::new(
+                "val",
+                None,
+                MV::U32(vec![0, 1, 127, 128, 16_383, 16_384, 70_000, u32::MAX]),
+            ),
+        )
+        .write(w, "mvalues_u32");
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            e,
+            M::new(
+                "val",
+                None,
+                MV::I64(vec![
+                    i64::MIN,
+                    -5_000_000_000,
+                    -1,
+                    0,
+                    1,
+                    2,
+                    5_000_000_000,
+                    i64::MAX,
+                ]),
+            ),
+        )
+        .write(w, "mvalues_i64");
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            e,
+            M::new(
+                "val",
+                None,
+                MV::U64(vec![0, 1, 2, 3, 5_000_000_000, 6_000_000_000, 7, u64::MAX]),
+            ),
+        )
+        .write(w, "mvalues_u64");
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            e,
+            M::new(
+                "val",
+                None,
+                MV::F32(vec![
+                    -1.5,
+                    0.0,
+                    0.25,
+                    1.5,
+                    f32::MIN,
+                    f32::MAX,
+                    f32::NAN,
+                    -0.0,
+                ]),
+            ),
+        )
+        .write(w, "mvalues_f32");
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            e,
+            M::new(
+                "val",
+                None,
+                MV::F64(vec![
+                    -1.5,
+                    0.0,
+                    0.25,
+                    1.5,
+                    f64::MIN,
+                    f64::MAX,
+                    f64::NAN,
+                    -0.0,
+                ]),
+            ),
+        )
+        .write(w, "mvalues_f64");
+    m_lines()
+        .no_v1()
+        .add_m_value(e, M::new("val", None, MV::Str(m_strings())))
+        .write(w, "mvalues_str_plain");
+}
+
+/// Eight strings for a vertex-scoped string column, repeating so a dictionary has something to fold.
+fn m_strings() -> Vec<String> {
+    [
+        "north", "east", "north", "south", "west", "east", "north", "",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect()
+}
+
+/// Every geometry layout an m-value section is allowed to sit on, `0x2`-`0xB` and `0xD`.
+///
+/// `Points`, `PointsDict` and `TessPolygons` carry no per-feature vertex count,
+/// so they are rejected rather than covered here.
+///
+/// Each dictionary layout repeats vertices, so its dictionary is shorter than the
+/// sequence the vertex offsets spell out and the column still holds one value per offset.
+fn generate_m_value_geometries(w: &mut SynthWriter) {
+    let e = E::delta_varint();
+    let vals = |n: u32| M::new("dist", None, MV::U32((0..n).map(|i| i * 5).collect()));
+    let dict = |layer: Layer| {
+        layer
+            .vertex_buffer_type(VertexBufferType::Morton)
+            .vertex_offsets(E::varint())
+    };
+
+    // 0x2 MultiPoints, 0x3 MultiPointsDict: 3 + 2 vertices.
+    geo_varint()
+        .geos(vec![
+            wkt!(MULTIPOINT(6 25, 21 41, 23 69)),
+            wkt!(MULTIPOINT(24 10, 42 18)),
+        ])
+        .no_v1()
+        .add_m_value(e, vals(5))
+        .write(w, "mvalues_mpoint");
+    dict(geo_varint().geos(vec![
+        wkt!(MULTIPOINT(8 0, 0 0, 8 0)),
+        wkt!(MULTIPOINT(0 8, 8 0)),
+    ]))
+    .no_v1()
+    .add_m_value(e, vals(5))
+    .write(w, "mvalues_mpoint_dict");
+
+    // 0x5 LinesDict, the dictionary sibling of the `mvalues` fixture's `Lines`.
+    dict(geo_varint().geo(wkt!(LINESTRING(8 0, 0 0, 8 0, 0 8))))
+        .no_v1()
+        .add_m_value(e, vals(4))
+        .write(w, "mvalues_line_dict");
+
+    // 0x6 MultiLines, 0x7 MultiLinesDict: 2 + 3 vertices in one feature, 2 in the other.
+    geo_varint()
+        .geos(vec![
+            wkt!(MULTILINESTRING((24 10, 42 18),(30 36, 48 52, 35 62))),
+            wkt!(MULTILINESTRING((5 38, 12 45))),
+        ])
+        .no_v1()
+        .add_m_value(e, vals(7))
+        .write(w, "mvalues_mline");
+    dict(geo_varint().geos(vec![
+        wkt!(MULTILINESTRING((8 0, 0 0),(8 0, 0 8, 8 0))),
+        wkt!(MULTILINESTRING((0 8, 0 0))),
+    ]))
+    .no_v1()
+    .add_m_value(e, vals(7))
+    .write(w, "mvalues_mline_dict");
+
+    // 0x8 Polygons, 0x9 PolygonsDict: a ring's closing vertex is not stored,
+    // so each triangle holds 3 values, not 4.
+    geo_varint()
+        .geos(vec![poly1(), poly2()])
+        .no_v1()
+        .add_m_value(e, vals(6))
+        .write(w, "mvalues_poly");
+    dict(geo_varint().geos(vec![
+        wkt!(POLYGON((0 0, 8 0, 0 8, 0 0))),
+        wkt!(POLYGON((8 8, 8 0, 0 8, 8 8))),
+    ]))
+    .no_v1()
+    .add_m_value(e, vals(6))
+    .write(w, "mvalues_poly_dict");
+
+    // A hole adds a second ring, whose vertices continue the same flat sequence.
+    geo_varint()
+        .parts_ring(E::rle_varint())
+        .geo(poly1h())
+        .no_v1()
+        .add_m_value(e, vals(6))
+        .write(w, "mvalues_poly_hole");
+
+    // 0xA MultiPolygons, 0xB MultiPolygonsDict: two rings across two parts of one feature.
+    geo_varint()
+        .rings(E::rle_varint())
+        .rings2(E::rle_varint())
+        .geo(MultiPolygon(vec![poly1(), poly2()]))
+        .no_v1()
+        .add_m_value(e, vals(6))
+        .write(w, "mvalues_mpoly");
+    dict(
+        geo_varint()
+            .rings(E::rle_varint())
+            .rings2(E::rle_varint())
+            .geo(MultiPolygon(vec![
+                wkt!(POLYGON((0 0, 8 0, 0 8, 0 0))),
+                wkt!(POLYGON((8 8, 8 0, 0 8, 8 8))),
+            ])),
+    )
+    .no_v1()
+    .add_m_value(e, vals(6))
+    .write(w, "mvalues_mpoly_dict");
+
+    // 0xD TessPolygonsWithOutlines: the outline vertices are the sequence,
+    // which the index buffer indexes into rather than replaces.
+    geo_varint()
+        .tessellate()
+        .geos(vec![poly1(), poly2()])
+        .no_v1()
+        .add_m_value(e, vals(6))
+        .write(w, "mvalues_tes");
+}
+
+/// The presence nibbles an m-value column can carry, and how its mask joins the layer's pool.
+fn generate_m_value_presence(w: &mut SynthWriter) {
+    let e = E::varint();
+    let nulls = vec![true, false, true];
+
+    // Two m-value columns null on the same features share one bitfield.
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            e,
+            M::new("a", Some(nulls.clone()), MV::U32(vec![1, 2, 3, 4, 5])),
+        )
+        .add_m_value(
+            e,
+            M::new("b", Some(nulls.clone()), MV::U32(vec![6, 7, 8, 9, 10])),
+        )
+        .write(w, "mvalues_sp");
+
+    // A property column and an m-value column null on the same features share one too,
+    // even though one counts features and the other vertices.
+    m_lines()
+        .add_prop(e, P::opt_u32("prop", vec![Some(1), None, Some(2)]))
+        .no_v1()
+        .add_m_value(
+            e,
+            M::new("m", Some(nulls.clone()), MV::U32(vec![1, 2, 3, 4, 5])),
+        )
+        .write(w, "mvalues_sp_prop");
+
+    // Null on every feature, so the column stores a mask and an empty data stream.
+    m_lines()
+        .no_v1()
+        .add_m_value(e, M::new("val", Some(vec![false; 3]), MV::U32(Vec::new())))
+        .write(w, "mvalues_all_null");
+
+    // The two scopes are read separately, so an m-value column may take a counted column's name.
+    m_lines()
+        .add_prop(e, P::u32("val", vec![1, 2, 3]))
+        .no_v1()
+        .add_m_value(
+            e,
+            M::new("val", None, MV::U32(vec![4, 5, 6, 7, 8, 9, 10, 11])),
+        )
+        .write(w, "mvalues_shadow");
+}
+
+/// Stream encodings over a vertex-scoped column, which run through feature boundaries.
+fn generate_m_value_encodings(w: &mut SynthWriter) {
+    // A run that starts in the first feature and ends in the second.
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            E::rle_varint(),
+            M::new("val", None, MV::U32(vec![5, 5, 5, 5, 5, 7, 7, 7])),
+        )
+        .write(w, "mvalues_rle");
+    // Constant deltas across all three features collapse to one run.
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            E::delta_rle_varint(),
+            M::new("val", None, MV::U32(vec![1, 2, 3, 4, 5, 6, 7, 8])),
+        )
+        .write(w, "mvalues_delta_rle");
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            E::plain(),
+            M::new("val", None, MV::U32(vec![9, 8, 7, 6, 5, 4, 3, 2])),
+        )
+        .write(w, "mvalues_plain");
+    // Long enough for FastPFOR to have full blocks to work with.
+    geo_varint()
+        .geo(LineString::new(
+            (0..300)
+                .map(|i| c(i % 80, (i * 7) % 80))
+                .collect::<Vec<_>>(),
+        ))
+        .no_v1()
+        .add_m_value(
+            E::fastpfor(),
+            M::new("val", None, MV::U32((0..300).map(|i| i % 97).collect())),
+        )
+        .write(w, "mvalues_fpf");
+
+    // The v2-only float encodings, which an m-value column reaches exactly as a property does.
+    m_lines()
+        .no_v1()
+        .add_m_value_float(
+            E::varint(),
+            FloatEncoding::Alp,
+            M::new(
+                "val",
+                None,
+                MV::F64(vec![-0.75, -0.5, -0.25, 0.25, 0.5, 0.75, 1.25, 2.5]),
+            ),
+        )
+        .write(w, "mvalues_f64_alp");
+    m_lines()
+        .no_v1()
+        .add_m_value_float(
+            E::varint(),
+            FloatEncoding::Dict,
+            M::new(
+                "val",
+                None,
+                MV::F32(vec![1.5, 2.5, 1.5, 1.5, 2.5, 3.5, 1.5, 2.5]),
+            ),
+        )
+        .write(w, "mvalues_f32_dict");
+
+    // The string layouts, which the leading stream's extension bits name.
+    m_lines()
+        .no_v1()
+        .add_m_value_str_dict(
+            E::varint(),
+            E::varint(),
+            M::new("val", None, MV::Str(m_strings())),
+        )
+        .write(w, "mvalues_str_dict");
+    m_lines()
+        .no_v1()
+        .add_m_value_str_fsst(
+            E::varint(),
+            E::varint(),
+            M::new(
+                "val",
+                None,
+                MV::Str(
+                    [
+                        "residential_zone_north",
+                        "residential_zone_south",
+                        "commercial_zone_north",
+                        "commercial_zone_south",
+                        "industrial_zone_north",
+                        "industrial_zone_south",
+                        "park_zone_north",
+                        "park_zone_south",
+                    ]
+                    .into_iter()
+                    .map(String::from)
+                    .collect(),
+                ),
+            ),
+        )
+        .write(w, "mvalues_str_fsst");
 }
 
 /// A presence mask, where `x` is a value and `-` is a null.

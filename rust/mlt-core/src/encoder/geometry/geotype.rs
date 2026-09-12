@@ -2,6 +2,7 @@ use geo::{Convert as _, TriangulateEarcut as _};
 use geo_types::{Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Polygon};
 
 use crate::decoder::{GeometryType, GeometryValues};
+use crate::tile::stored_ring_len;
 
 impl TryFrom<&Geometry<i32>> for GeometryType {
     type Error = ();
@@ -260,11 +261,7 @@ fn push_polygon_rings(
 /// Push a ring's coordinates (stripping closing vertex) to verts and update rings offset.
 fn push_ring(ring: &LineString<i32>, verts: &mut Vec<i32>, rings: &mut Vec<u32>) {
     let coords = &ring.0;
-    let len = if coords.len() > 1 && coords.last() == coords.first() {
-        coords.len() - 1
-    } else {
-        coords.len()
-    };
+    let len = stored_ring_len(ring);
     for c in &coords[..len] {
         verts.extend([c.x, c.y]);
     }

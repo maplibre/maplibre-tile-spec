@@ -137,6 +137,8 @@ impl<'a> Layer01<'a, Lazy> {
         }
         if input.is_empty() {
             Ok(Layer01 {
+                #[cfg(feature = "unstable-v2")]
+                m_values: Vec::new(),
                 name: layer_name,
                 extent,
                 id: id_column,
