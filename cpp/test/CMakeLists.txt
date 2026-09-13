@@ -1,12 +1,10 @@
 set(TEST_SOURCES
     test_decode.cpp
-    test_encode.cpp
     test_fastpfor.cpp
     test_fsst.cpp
     test_hilbert_curve.cpp
     test_morton_curve.cpp
     test_packed_bitset.cpp
-    test_synthetic.cpp
     test_type_map.cpp
     test_util.cpp
     test_varint.cpp
@@ -40,7 +38,7 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
 add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/googletest" "${CMAKE_CURRENT_BINARY_DIR}/googletest" EXCLUDE_FROM_ALL SYSTEM)
 
-target_link_libraries(mlt-cpp-test mlt-cpp mlt-cpp-encoder fastpfor-lib gtest_main)
+target_link_libraries(mlt-cpp-test mlt-cpp fastpfor-lib gtest_main)
 
 include(GoogleTest)
 
