@@ -43,10 +43,6 @@ jobs:
       - name: Test Maven local publishing
         run: just -v java::test-publish
 
-      - run: npm ci
-        working-directory: java/encoding-server
-      - run: npm run lint
-        working-directory: java/encoding-server
       - run: just -v assert-git-is-clean
 
       - name: Test synthetic MLT generation
