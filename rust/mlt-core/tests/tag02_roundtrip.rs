@@ -937,6 +937,48 @@ mod strings {
     }
 
     #[test]
+    fn a_child_count_larger_than_the_bytes_left_is_rejected() {
+        let bytes = shared_dict_layer().encode(cfg_v2()).unwrap();
+        let tree = annotate_tile(&bytes).expect("annotate_tile");
+        let count = tree
+            .regions
+            .iter()
+            .find(|r| r.label == "child_count")
+            .expect("a child_count region");
+        assert_eq!((count.len, bytes[count.offset]), (1, 2));
+        let remaining = bytes.len() - count.offset - 1;
+        let bytes = splice_layer(&bytes, count.offset, &[0xfb, 0xbf, 0xfb, 0x08]);
+        let err = Parser::default()
+            .parse_layers(&bytes)
+            .expect_err("a rejection");
+        assert_eq!(
+            err.to_string(),
+            format!("buffer underflow: needed 18800635 bytes, but only {remaining} remain")
+        );
+    }
+
+    /// Replace the byte at `offset` with `with`, re-sizing the layer's length prefix to match.
+    fn splice_layer(bytes: &[u8], offset: usize, with: &[u8]) -> Vec<u8> {
+        let size_len = bytes
+            .iter()
+            .position(|b| b & 0x80 == 0)
+            .expect("a size varint")
+            + 1;
+        let mut body = bytes[size_len..].to_vec();
+        let at = offset - size_len;
+        body.splice(at..=at, with.iter().copied());
+        let mut size = body.len();
+        let mut out = Vec::new();
+        while size >= 0x80 {
+            out.push(u8::try_from(size & 0x7f).expect("seven bits") | 0x80);
+            size >>= 7;
+        }
+        out.push(u8::try_from(size).expect("seven bits"));
+        out.extend_from_slice(&body);
+        out
+    }
+
+    #[test]
     fn a_shared_dictionary_is_smaller_than_per_column_ones() {
         let l = shared_dict_layer();
         let shared = l.clone().encode(cfg_v2()).unwrap().len();
