@@ -1,0 +1,23 @@
+{
+  "name": "encoding-server",
+  "version": "1.0.0",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "lint": "eslint ."
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.2.0",
+    "https": "^1.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.38.0",
+    "eslint": "^9.38.0",
+    "eslint-plugin-n": "^17.23.1",
+    "globals": "^16.4.0"
+  }
+}
