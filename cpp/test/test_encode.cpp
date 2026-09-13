@@ -607,6 +607,41 @@ TEST(Encode, LongStrings) {
     }
 }
 
+TEST(Encode, ByteOrderMarkIsPartOfTheStringValue) {
+    const std::string bom = "\xEF\xBB\xBF";
+    std::vector<Encoder::Feature> features;
+    features.reserve(4);
+    for (int i = 0; i < 4; ++i) {
+        features.push_back(makePointFeature(i,
+                                            {.x = i, .y = i},
+                                            {
+                                                {"leading", bom + "value" + std::to_string(i)},
+                                                {"middle", "val" + bom + "ue" + std::to_string(i)},
+                                                {"only", bom},
+                                                {"repeated", bom + "shared"},
+                                            }));
+    }
+    auto layer = makeLayer("bom", std::move(features));
+
+    for (const bool useFsst : {false, true}) {
+        EncoderConfig config;
+        config.sortFeatures = false;
+        config.useFsst = useFsst;
+        auto tile = encodeDecode({layer}, config);
+        const auto* decoded = tile.getLayer("bom");
+        ASSERT_TRUE(decoded);
+        const auto& props = decoded->getProperties();
+        for (int i = 0; i < 4; ++i) {
+            EXPECT_EQ(std::get<std::string_view>(*props.at("leading").getProperty(i)),
+                      bom + "value" + std::to_string(i));
+            EXPECT_EQ(std::get<std::string_view>(*props.at("middle").getProperty(i)),
+                      "val" + bom + "ue" + std::to_string(i));
+            EXPECT_EQ(std::get<std::string_view>(*props.at("only").getProperty(i)), bom);
+            EXPECT_EQ(std::get<std::string_view>(*props.at("repeated").getProperty(i)), bom + "shared");
+        }
+    }
+}
+
 TEST(Encode, DegeneratePolygon) {
     Encoder::Layer layer;
     layer.name = "degenerate_poly";
