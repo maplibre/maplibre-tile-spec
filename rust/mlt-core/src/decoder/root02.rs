@@ -228,6 +228,10 @@ fn parse_shared_dict02<'a>(
 ) -> MltRefResult<'a, RawSharedDict<'a>> {
     let (input, name) = parse_string(input)?;
     let (input, child_count) = parse_varint::<u32>(input)?;
+    // Each child requires at least 1 byte (column type).
+    if input.len() < child_count.into_usize() {
+        return Err(BufferUnderflow(child_count, input.len()));
+    }
     parser.reserve(child_count)?;
 
     let stream =
