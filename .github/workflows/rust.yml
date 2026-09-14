@@ -276,10 +276,9 @@ jobs:
         with:
           app-id: ${{ secrets.RELEASE_PLZ_APP_ID }}
           private-key: ${{ secrets.RELEASE_PLZ_APP_PRIVATE_KEY }}
-          # tags and releases, the release PRs, and their `release` label
+          # tags and releases, and the release PRs (labeling a PR needs no `issues` permission)
           permission-contents: write
           permission-pull-requests: write
-          permission-issues: write
       - name: Publish to crates.io if crate's version is newer
         uses: release-plz/action@346832d73e3415c2ebd0432cba3a2bf5881e5f7d # v0.5.135
         id: release
