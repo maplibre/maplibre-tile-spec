@@ -268,18 +268,30 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { fetch-depth: 0, persist-credentials: false }
       - uses: ./.github/actions/mlt-setup-rust
+      # A GitHub App token, so that the tags, releases and PRs release-plz creates
+      # trigger workflows. Events created with GITHUB_TOKEN start no workflow.
+      - name: Generate GitHub token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        id: generate-token
+        with:
+          app-id: ${{ secrets.RELEASE_PLZ_APP_ID }}
+          private-key: ${{ secrets.RELEASE_PLZ_APP_PRIVATE_KEY }}
+          # tags and releases, the release PRs, and their `release` label
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
       - name: Publish to crates.io if crate's version is newer
         uses: release-plz/action@346832d73e3415c2ebd0432cba3a2bf5881e5f7d # v0.5.135
         id: release
         with: { command: release, manifest_path: ./rust/Cargo.toml }
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: If version is the same, create a PR proposing new version and changelog for the next release
         uses: release-plz/action@346832d73e3415c2ebd0432cba3a2bf5881e5f7d # v0.5.135
         with: { command: release-pr, manifest_path: ./rust/Cargo.toml }
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
       releases: ${{ steps.release.outputs.releases }}
