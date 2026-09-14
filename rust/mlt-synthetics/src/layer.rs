@@ -549,6 +549,20 @@ impl Layer {
         self
     }
 
+    /// Pin the encoding of every integer stream inside a nested column, whose leaves and structure it covers alike.
+    #[must_use]
+    #[track_caller]
+    pub fn nested_int(mut self, column: impl Into<String>, enc: IntEncoder) -> Self {
+        assert!(
+            !self.versions().contains(&WireVersion::V01),
+            "v1 does not support nested columns. Called from {}",
+            Location::caller()
+        );
+        self.nested_encodings
+            .push((column.into(), PropConfig::Scalar(enc)));
+        self
+    }
+
     /// Let a nested node code its children's structure as one shape id per row.
     ///
     /// Off by default, and only kept where it is smaller than one presence stream

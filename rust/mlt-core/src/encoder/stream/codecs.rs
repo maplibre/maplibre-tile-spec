@@ -270,6 +270,9 @@ impl Codecs {
         {
             let n: u64 = (*value).into();
             let varint_len = n.bit_width().max(1).div_ceil(7) as usize;
+            // A raw word's header can be shorter, which the varint has to beat as well.
+            #[cfg(feature = "unstable-v2")]
+            let varint_len = varint_len + enc.config().wire_version().raw_header_saving();
             let encoded = std::slice::from_ref(value);
             let (pe, payload) = if varint_len <= size_of_val(encoded) {
                 (PE::VarInt, physical.varint(encoded))

@@ -812,10 +812,10 @@ fn six_field_struct_layer() -> TileLayer {
         ("e", leaf(PropKind::Str)),
         ("f", leaf(PropKind::Str)),
     ]);
-    let geometries: Vec<Geometry<i32>> = (0..8).map(|i| point(i, i)).collect();
-    let values: Vec<NestedValue> = (0..8)
+    let geometries: Vec<Geometry<i32>> = (0..16).map(|i| point(i, i)).collect();
+    let values: Vec<NestedValue> = (0..16)
         .map(|row| {
-            if row % 2 == 0 {
+            if row < 8 {
                 entries(&[
                     ("a", i32_value(row)),
                     ("b", i32_value(row + 1)),
@@ -1016,7 +1016,8 @@ fn a_shape_id_no_shape_answers_to_is_rejected() {
         .encode(cfg_row_shapes())
         .expect("encode");
     let at = stream_field(&bytes, "shape_ids", "data");
-    bytes[at] = 5;
+    assert_eq!(bytes[at..at + 4], [8, 0, 8, 1]);
+    bytes[at + 1] = 5;
     assert!(
         matches!(
             decode_err(&bytes),
@@ -1050,15 +1051,18 @@ fn a_shape_id_per_row_count_the_node_disagrees_with_is_rejected() {
     let mut bytes = six_field_struct_layer()
         .encode(cfg_row_shapes())
         .expect("encode");
-    let at = stream_field(&bytes, "shape_ids", "num_values");
-    assert_eq!(bytes[at], 8);
-    bytes[at] = 7;
+    let count_at = stream_field(&bytes, "shape_ids", "num_values");
+    let data_at = stream_field(&bytes, "shape_ids", "data");
+    assert_eq!(bytes[count_at], 16);
+    assert_eq!(bytes[data_at..data_at + 4], [8, 0, 8, 1]);
+    bytes[count_at] = 15;
+    bytes[data_at] = 7;
     assert!(
         matches!(
             decode_err(&bytes),
             MltError::NestedRowShapeCount {
-                expected: 8,
-                actual: 7,
+                expected: 16,
+                actual: 15,
                 ..
             }
         ),

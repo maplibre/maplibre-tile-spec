@@ -805,13 +805,19 @@ impl<'a> Walker<'a> {
                 |v| Some(v.to_string()),
             )?;
         }
-        let byte_length;
-        (c, byte_length) = self.field(
-            c,
-            "byte_length",
-            |i| parse_varint::<u32>(i),
-            |v| Some(v.to_string()),
-        )?;
+        // A raw stream over physical `00` leaves its length to the count and element width.
+        let byte_length = if header02::omits_byte_length(family, enc_byte) {
+            u32::try_from(stream.data.len())?
+        } else {
+            let byte_length;
+            (c, byte_length) = self.field(
+                c,
+                "byte_length",
+                |i| parse_varint::<u32>(i),
+                |v| Some(v.to_string()),
+            )?;
+            byte_length
+        };
         // ALP's parameters ride in the header, after the byte length.
         if matches!(
             stream.meta.encoding.logical,
@@ -1056,7 +1062,11 @@ fn encoding_bits02(byte: u8, count: Count02, family: Family) -> Vec<BitField> {
             byte,
             match family {
                 Family::Str(layout) => format!("string layout = {layout:?}"),
-                Family::Int | Family::Bool | Family::Float | Family::Vertex | Family::Bytes => {
+                Family::Int(_)
+                | Family::Bool
+                | Family::Float(_)
+                | Family::Vertex
+                | Family::Bytes => {
                     format!("extension = {extension}")
                 }
             },

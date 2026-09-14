@@ -13,7 +13,7 @@ use crate::codecs::hilbert::hilbert_sort_key;
 use crate::codecs::zigzag::encode_componentwise_delta_vec2s;
 use crate::decoder::GeometryType::Point;
 #[cfg(feature = "unstable-v2")]
-use crate::decoder::stream::header02::Family;
+use crate::decoder::stream::header02::{Family, WordWidth};
 use crate::decoder::{
     DictionaryType, GeometryType, LogicalEncoding, Morton, OffsetType, PhysicalEncoding,
     StreamMeta, StreamType, VertexLogical,
@@ -531,7 +531,7 @@ pub(super) fn encode_morton_vertex_streams02(
     codecs.logical.u32_tmp = delta;
 
     let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex_offsets");
-    enc.family_context = Family::Int;
+    enc.family_context = Family::Int(WordWidth::W32);
     write_geo_u32_stream(&offsets, ctx, enc, codecs)?;
     Ok(())
 }
@@ -575,7 +575,7 @@ pub(super) fn encode_hilbert_vertex_streams02(
     codecs.logical.hilbert_dict_xy = dict_xy;
 
     let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex_offsets");
-    enc.family_context = Family::Int;
+    enc.family_context = Family::Int(WordWidth::W32);
     write_geo_u32_stream(&offsets, ctx, enc, codecs)?;
     codecs.logical.hilbert_offsets = offsets;
     Ok(())
