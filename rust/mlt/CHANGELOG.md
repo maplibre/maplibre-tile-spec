@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.32](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.31...rust-mlt-v0.1.32) - 2026-09-14
+
+### Added
+
+- *(rust)* give v2 dictionary and tessellated geometry layouts ([#1614](https://github.com/maplibre/maplibre-tile-spec/pull/1614))
+- *(rust)* give v2 ALP a frame of reference and let it race FastPFOR ([#1612](https://github.com/maplibre/maplibre-tile-spec/pull/1612))
+- *(rust)* add `FPF128` with `u32::from_le_bytes` ([#1611](https://github.com/maplibre/maplibre-tile-spec/pull/1611))
+- *(rust)* encode and decode v2 float columns as ALP ([#1603](https://github.com/maplibre/maplibre-tile-spec/pull/1603))
+- *(rust)* decode dictionary-encoded v2 float columns ([#1601](https://github.com/maplibre/maplibre-tile-spec/pull/1601))
+
+### Fixed
+
+- *(rust)* stop silently dropping v2 layers when converting a tile ([#1629](https://github.com/maplibre/maplibre-tile-spec/pull/1629))
+- *(rust)* reject float streams tagged with an encoding floats do not have ([#1597](https://github.com/maplibre/maplibre-tile-spec/pull/1597))
+
+### Other
+
+- *(rust)* split the logical encoding per value kind ([#1600](https://github.com/maplibre/maplibre-tile-spec/pull/1600))
+
 ## [0.1.31](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.30...rust-mlt-v0.1.31) - 2026-09-07
 
 ### Other
