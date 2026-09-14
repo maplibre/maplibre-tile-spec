@@ -13,7 +13,7 @@ use crate::codecs::varint::parse_varint;
 use crate::decoder::root02::{ColumnValues, parse_column_values, parse_dict_tail02, parse_strings};
 use crate::decoder::stream::header02;
 use crate::decoder::stream::header02::{
-    Count02, HAS_EXPLICIT_COUNT, PhysicalBits, StrLayout, StreamCtx02,
+    Count02, HAS_EXPLICIT_COUNT, StrLayout, StreamCtx02, is_packed_bitmap,
 };
 use crate::decoder::strings::decode_dict_codes;
 use crate::decoder::{
@@ -31,9 +31,6 @@ pub type Nested<'a, S = Lazy> = <S as DecodeState>::LazyOrParsed<RawNested<'a>, 
 /// What one node of a tree costs the parser's budget, so a deep or wide tree is
 /// charged for even before its streams are.
 const NODE_COST: u32 = 64;
-
-/// Encoding byte of a raw packed bitmap, which is the `Bool` family's logical `None` over physical `01`.
-const PACKED_BITMAP: u8 = PhysicalBits::WithLen as u8;
 
 /// A raw nested column as read directly from the tile.
 #[derive(Debug, Clone, PartialEq)]
@@ -655,10 +652,10 @@ fn require_explicit_count(input: &[u8], path: &str, count: Count02) -> MltResult
 }
 
 /// Reject a presence stream that is not the raw bitmap the format writes one as.
-/// Its encoding byte must name the `Bool` family's logical `None` over physical `01`, and nothing else.
+/// Its encoding byte must name the `Bool` family's logical `None`, with or without a byte length.
 fn require_bitmap_presence(input: &[u8], path: &str) -> MltResult<()> {
     let (_, enc_byte) = parse_u8(input)?;
-    if enc_byte & !HAS_EXPLICIT_COUNT != PACKED_BITMAP {
+    if !is_packed_bitmap(enc_byte) {
         return Err(MltError::NestedPresenceEncoding {
             name: path.to_string(),
             byte: enc_byte,

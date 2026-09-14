@@ -1161,24 +1161,36 @@ fn generate_nested(w: &mut SynthWriter) {
         ))
         .write(w, "nested_shared_dict_fsst");
 
-    // Two key sets over four rows, so one shape id per row is smaller than the six
-    // presence streams a field each would need. Mixed types, so this cannot be a map.
-    let even = || Some(vec![true, false, true, false]);
-    let odd = || Some(vec![false, true, false, true]);
+    // Two key sets over sixteen rows, each in one run, so the shape ids RLE into
+    // fewer bytes than the six presence bitmaps a field each would need. Mixed
+    // types, so this cannot be a map.
+    let first = || Some((0..16).map(|row| row < 8).collect());
+    let second = || Some((0..16).map(|row| row >= 8).collect());
     geo_varint()
-        .geos([P0, P1, P2, P3])
+        .no_v1()
+        .geos((0..16).map(|i| Point(c(i, i))))
         .row_shapes()
+        .nested_int("obj", E::rle_varint())
         .add_nested(StagedNested::new(
             "obj",
             StagedInterior::Struct(StagedStruct::new(
                 None,
                 [
-                    ("a", i32_leaf(even(), vec![1, 3])),
-                    ("b", i32_leaf(even(), vec![2, 4])),
-                    ("c", i32_leaf(even(), vec![3, 5])),
-                    ("x", str_leaf(odd(), ["p", "q"])),
-                    ("y", str_leaf(odd(), ["r", "s"])),
-                    ("z", str_leaf(odd(), ["t", "u"])),
+                    ("a", i32_leaf(first(), (1..9).collect())),
+                    ("b", i32_leaf(first(), (2..10).collect())),
+                    ("c", i32_leaf(first(), (3..11).collect())),
+                    (
+                        "x",
+                        str_leaf(second(), ["p", "q", "p", "q", "p", "q", "p", "q"]),
+                    ),
+                    (
+                        "y",
+                        str_leaf(second(), ["r", "s", "r", "s", "r", "s", "r", "s"]),
+                    ),
+                    (
+                        "z",
+                        str_leaf(second(), ["t", "u", "t", "u", "t", "u", "t", "u"]),
+                    ),
                 ],
             )),
         ))
@@ -1187,6 +1199,7 @@ fn generate_nested(w: &mut SynthWriter) {
     // Three key sets over four rows, and the entries of each run in key order, so the
     // shapes stand in for both the lengths and the one key per entry a map otherwise spends.
     geo_varint()
+        .no_v1()
         .geos([P0, P1, P2, P3])
         .row_shapes()
         .add_nested(StagedNested::new(

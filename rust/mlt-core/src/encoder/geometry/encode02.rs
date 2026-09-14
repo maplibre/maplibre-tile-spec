@@ -9,7 +9,7 @@ use super::streams::{
     seed_curve_caches,
 };
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
-use crate::decoder::stream::header02::Family;
+use crate::decoder::stream::header02::{Family, WordWidth};
 use crate::decoder::{
     GeoLayout, GeometryType, GeometryValues, LengthType, OffsetType, StreamType, Topology,
     VertexStorage,
@@ -185,7 +185,7 @@ impl GeometrySection02 {
     /// Expects `enc.count_context` to hold the layer's `feature_count`.
     pub(crate) fn write_to(self, enc: &mut Encoder, codecs: &mut Codecs) -> MltResult<GeoLayout> {
         // Types and length streams are integer streams, only the vertex streams have their own family.
-        enc.family_context = Family::Int;
+        enc.family_context = Family::Int(WordWidth::W32);
 
         // Types stream: implicit count = feature_count (the current count context).
         let ctx = StreamCtx::geom(StreamType::Length(LengthType::VarBinary), "meta");
