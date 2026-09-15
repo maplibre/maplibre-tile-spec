@@ -149,14 +149,22 @@ impl SynthWriter {
     /// or `Err` on any failure.
     #[expect(clippy::panic_in_result_fn)]
     fn write_int(&mut self, layer: &Layer, names: [&str; WIRE_VERSIONS_CNT]) -> SynthResult<()> {
-        for (((ref_dir, out_dir), &version), name) in self
-            .ref_dirs
-            .clone()
-            .into_iter()
-            .zip(self.out_dirs.clone())
-            .zip(layer.versions())
-            .zip(names)
-        {
+        let versions = [
+            (
+                0,
+                WireVersion::V01,
+                layer.versions().contains(&WireVersion::V01),
+            ),
+            (
+                1,
+                WireVersion::V02,
+                layer.versions().contains(&WireVersion::V02),
+            ),
+        ];
+        for (slot, version, _) in versions.into_iter().filter(|&(_, _, wanted)| wanted) {
+            let ref_dir = self.ref_dirs[slot].clone();
+            let out_dir = self.out_dirs[slot].clone();
+            let name = names[slot];
             let (name, mut is_rust_specific) = match name.strip_suffix("-rust") {
                 Some(base) => (base, true),
                 None => (name, false),
