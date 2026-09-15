@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.13.0...rust-mlt-core-v0.13.1) - 2026-09-15
+
+### Added
+
+- *(rust)* share v2 presence bitfields with dictionary children ([#1625](https://github.com/maplibre/maplibre-tile-spec/pull/1625))
+
 ## [0.13.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.9...rust-mlt-core-v0.13.0) - 2026-09-14
 
 ### Added
