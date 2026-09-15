@@ -414,6 +414,16 @@ impl WireVersion {
             Self::V02 => RleLayout::Interleaved,
         }
     }
+
+    /// The header bytes a raw stream of fixed-width words saves over any other physical encoding.
+    /// v2 leaves such a stream's `byte_length` varint out, since its count and width give it.
+    #[must_use]
+    pub(crate) fn raw_header_saving(self) -> usize {
+        match self {
+            Self::V01 => 0,
+            Self::V02 => 1,
+        }
+    }
 }
 
 /// Global encoder settings controlling which optimization strategies are attempted.

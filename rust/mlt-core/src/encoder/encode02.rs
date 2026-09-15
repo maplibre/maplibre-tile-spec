@@ -20,7 +20,7 @@ use std::collections::HashMap;
 
 use integer_encoding::VarIntWriter as _;
 
-use crate::decoder::stream::header02::{Count02, Family, StrLayout};
+use crate::decoder::stream::header02::{Count02, Family, StrLayout, StreamCtx02, WordWidth};
 use crate::decoder::{
     BoolLogical, ColumnType02, DataType02, DictionaryType, LayerLayout, LengthType,
     LogicalEncoding, NodeKind02, NodePresence, NodeType02, PhysicalEncoding, Presence02,
@@ -341,28 +341,11 @@ fn write_bool_stream02(
     write_stream_payload(enc, meta, false, &packed)
 }
 
-/// The family a v2 column's data stream is numbered in.
+/// The family a v2 column's data stream is numbered in, which is what a decoder reads it against.
 /// A string column's leading stream is an integer one whose extension bits name the layout,
 /// which only its writer knows.
 fn family_of(typ: DataType02) -> Family {
-    match typ {
-        DataType02::Bool => Family::Bool,
-        DataType02::F32 | DataType02::F64 => Family::Float,
-        DataType02::Id
-        | DataType02::LongId
-        | DataType02::I8
-        | DataType02::U8
-        | DataType02::I32
-        | DataType02::U32
-        | DataType02::I64
-        | DataType02::U64
-        | DataType02::Str
-        // A nested column's own type byte precedes no stream, so its family is
-        // whatever the first node writer sets.
-        | DataType02::Struct
-        | DataType02::List
-        | DataType02::Map => Family::Int,
-    }
+    StreamCtx02::Property(typ).family()
 }
 
 fn write_id02(
@@ -647,7 +630,7 @@ fn write_shapes02(
     let outer = enc.count_context;
     enc.count_context = Count02::Explicit;
     write_bool_stream02(enc, &shapes.table_bits(), StreamType::Present)?;
-    enc.family_context = Family::Int;
+    enc.family_context = Family::Int(WordWidth::W32);
     let ctx = StreamCtx::prop2(StreamType::Data(DictionaryType::None), column, path);
     let result = codecs.write_int_stream(&shapes.ids, &ctx, enc);
     enc.count_context = outer;
@@ -949,7 +932,7 @@ fn write_lengths02(
     enc: &mut Encoder,
     codecs: &mut Codecs,
 ) -> MltResult<()> {
-    enc.family_context = Family::Int;
+    enc.family_context = Family::Int(WordWidth::W32);
     let ctx = StreamCtx::prop2(StreamType::Length(LengthType::Nested), column, path);
     codecs.write_int_stream(lengths, &ctx, enc)
 }
@@ -966,7 +949,7 @@ fn write_shared_leaf02(
     let ctx = StreamCtx::prop2(StreamType::Offset(OffsetType::String), column, path);
     enc.family_context = Family::Str(StrLayout::Dict);
     let result = codecs.write_int_stream(&link.codes, &ctx, enc);
-    enc.family_context = Family::Int;
+    enc.family_context = Family::Int(WordWidth::W32);
     result
 }
 
