@@ -28,6 +28,7 @@ use crate::decoder::{
 };
 use crate::encoder::geometry::encode02::encode_geometry02;
 use crate::encoder::model::{StagedLayer, StrAt, StreamCtx};
+use crate::encoder::nested::RowShapes;
 use crate::encoder::nested_dict::{NestedDicts, SharedLeaf};
 use crate::encoder::{
     Codecs, Encoder, StagedId, StagedInterior, StagedLeaf, StagedMValue, StagedNested, StagedNode,
@@ -572,17 +573,85 @@ fn write_nested02(
     let planned = NestedDicts::plan(std::slice::from_ref(column));
     let alone = NestedDicts::default();
     let as_map = column.root.as_map();
+    let mut roots = Vec::new();
+    for root in std::iter::once(&column.root).chain(as_map.iter()) {
+        roots.push((root, Axis::PerEntry));
+        if per_row_allowed(root, enc) {
+            roots.push((root, Axis::PerRow));
+        }
+    }
 
     let mut alt = enc.try_alternatives();
-    for root in [Some(&column.root), as_map.as_ref()].into_iter().flatten() {
-        alt.with(|enc| write_nested_root02(name, root, shared, enc, codecs, &alone))?;
+    for (root, axis) in roots {
+        alt.with(|enc| write_nested_root02(name, root, axis, shared, enc, codecs, &alone))?;
         // A shape that indexes no corpus writes what the plain candidate already wrote.
         let dicts = planned.restrict(name, root);
         if !dicts.is_empty() {
-            alt.with(|enc| write_nested_root02(name, root, shared, enc, codecs, &dicts))?;
+            alt.with(|enc| write_nested_root02(name, root, axis, shared, enc, codecs, &dicts))?;
         }
     }
     Ok(())
+}
+
+/// Which axis a node's structure is coded along.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Axis {
+    /// One key per map entry, or one presence bit per struct field and row.
+    PerEntry,
+    /// One shape id per row, into a table of key-set bitmaps.
+    PerRow,
+}
+
+/// How a node's own structure is coded, and who codes its presence.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Coding {
+    axis: Axis,
+    owner: Presence,
+}
+
+impl Coding {
+    /// A node that codes its children per entry and stores its own presence.
+    const PER_ENTRY: Self = Self {
+        axis: Axis::PerEntry,
+        owner: Presence::Own,
+    };
+
+    #[must_use]
+    fn with_axis(self, axis: Axis) -> Self {
+        Self { axis, ..self }
+    }
+
+    #[must_use]
+    fn owned_by(self, owner: Presence) -> Self {
+        Self { owner, ..self }
+    }
+}
+
+/// Whether this node has row shapes to code and the encoder is allowed to try them.
+fn per_row_allowed(interior: &StagedInterior, enc: &Encoder) -> bool {
+    enc.config().allow_row_shapes() && interior.row_shapes().is_some()
+}
+
+/// Write a node's row shapes: the key-set table as one run of bits, then one id per row.
+///
+/// Neither stream needs a declared length. The table's own value count is
+/// `shape_count * key_count`, and the key count is what the node already declared -
+/// a struct's `field_count` or the length of a map's key list.
+fn write_shapes02(
+    shapes: &RowShapes,
+    column: &str,
+    path: &str,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    let outer = enc.count_context;
+    enc.count_context = Count02::Explicit;
+    write_bool_stream02(enc, &shapes.table_bits(), StreamType::Present)?;
+    enc.family_context = Family::Int;
+    let ctx = StreamCtx::prop2(StreamType::Data(DictionaryType::None), column, path);
+    let result = codecs.write_int_stream(&shapes.ids, &ctx, enc);
+    enc.count_context = outer;
+    result
 }
 
 /// Write a nested column's root: `[type byte][name][presence bitfield?][body]`.
@@ -592,6 +661,7 @@ fn write_nested02(
 fn write_nested_root02(
     name: &str,
     root: &StagedInterior,
+    axis: Axis,
     shared: &SharedPresence,
     enc: &mut Encoder,
     codecs: &mut Codecs,
@@ -603,6 +673,12 @@ fn write_nested_root02(
     if let (Presence02::Inline, Some(mask)) = (nibble, presence) {
         write_presence_bits(enc.data_mut(), mask);
     }
+    // A root has no node type byte to carry the shapes bit: its high nibble is the
+    // column's presence, which uses all sixteen values. One byte is what either
+    // production codepoint costs, so the size this measures is the size either way.
+    if axis == Axis::PerRow {
+        enc.data_mut().push(NodePresence::SHAPES);
+    }
 
     let outer = enc.count_context;
     let values = match presence {
@@ -613,7 +689,7 @@ fn write_nested_root02(
         },
     };
     enc.count_context = body_context02(root, Count02::Implied(values));
-    let result = write_interior02(root, name, "", enc, codecs, dicts);
+    let result = write_interior02(root, name, "", axis, enc, codecs, dicts);
     enc.count_context = outer;
     result?;
 
@@ -662,11 +738,16 @@ fn node_kind02(node: &StagedNode) -> NodeKind02 {
 ///
 /// A struct one level down races a map exactly as the root does, since the two say
 /// the same thing wherever the struct holds leaves of one type.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "a node's place, how it is coded, and the corpora its leaves may index"
+)]
 fn write_node02(
     node: &StagedNode,
     column: &str,
     path: &str,
     field: Option<&str>,
+    coding: Coding,
     enc: &mut Encoder,
     codecs: &mut Codecs,
     dicts: &NestedDicts,
@@ -675,12 +756,22 @@ fn write_node02(
         StagedNode::Interior(interior) => interior.as_map().map(StagedNode::Interior),
         StagedNode::Leaf(_) => None,
     };
-    let Some(as_map) = as_map else {
-        return write_node_shape02(node, column, path, field, enc, codecs, dicts);
-    };
+    let mut nodes = Vec::new();
+    for candidate in std::iter::once(node).chain(as_map.iter()) {
+        nodes.push((candidate, coding));
+        if let StagedNode::Interior(interior) = candidate
+            && per_row_allowed(interior, enc)
+        {
+            nodes.push((candidate, coding.with_axis(Axis::PerRow)));
+        }
+    }
+    if let [(node, coding)] = nodes[..] {
+        return write_node_shape02(node, column, path, field, coding, enc, codecs, dicts);
+    }
     let mut alt = enc.try_alternatives();
-    alt.with(|enc| write_node_shape02(node, column, path, field, enc, codecs, dicts))?;
-    alt.with(|enc| write_node_shape02(&as_map, column, path, field, enc, codecs, dicts))?;
+    for (node, coding) in nodes {
+        alt.with(|enc| write_node_shape02(node, column, path, field, coding, enc, codecs, dicts))?;
+    }
     Ok(())
 }
 
@@ -689,18 +780,26 @@ fn write_node02(
 /// `field` is the name a struct field carries and is absent for a list element or
 /// a map value. `path` is where the node sits inside `column`, which is what an
 /// explicit encoder pins a stream's encoding by.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "a node's place, how it is coded, and the corpora its leaves may index"
+)]
 fn write_node_shape02(
     node: &StagedNode,
     column: &str,
     path: &str,
     field: Option<&str>,
+    coding: Coding,
     enc: &mut Encoder,
     codecs: &mut Codecs,
     dicts: &NestedDicts,
 ) -> MltResult<()> {
-    let presence = match node {
-        StagedNode::Interior(interior) => interior.presence(),
-        StagedNode::Leaf(leaf) => leaf.presence.as_ref(),
+    // A per-row parent already said which of its rows hold this node, so the node
+    // stores no presence of its own however many of them are null.
+    let presence = match (coding.owner, node) {
+        (Presence::Parent, _) => None,
+        (Presence::Own, StagedNode::Interior(interior)) => interior.presence(),
+        (Presence::Own, StagedNode::Leaf(leaf)) => leaf.presence.as_ref(),
     };
     // A string leaf the plan holds writes its codes into a corpus column instead of a
     // dictionary of its own, which the two shared presence nibbles say on the type byte.
@@ -715,8 +814,12 @@ fn write_node_shape02(
         (true, true) => NodePresence::SharedStream,
     };
     let kind = node_kind02(node);
-    enc.data_mut()
-        .push(NodeType02::new(node_presence, kind).to_byte());
+    let typ = NodeType02::new(node_presence, kind);
+    let typ = match coding.axis {
+        Axis::PerRow => typ.shaped(),
+        Axis::PerEntry => typ,
+    };
+    enc.data_mut().push(typ.to_byte());
     if let Some(field) = field {
         enc.data_mut().write_string(field)?;
     }
@@ -739,7 +842,7 @@ fn write_node_shape02(
         (Some(link), _) => write_shared_leaf02(link, column, path, enc, codecs),
         (None, StagedNode::Interior(interior)) => {
             enc.count_context = body_context02(interior, enc.count_context);
-            write_interior02(interior, column, path, enc, codecs, dicts)
+            write_interior02(interior, column, path, coding.axis, enc, codecs, dicts)
         }
         (None, StagedNode::Leaf(leaf)) => write_leaf02(leaf, column, path, enc, codecs),
     };
@@ -752,10 +855,15 @@ fn write_interior02(
     interior: &StagedInterior,
     column: &str,
     path: &str,
+    axis: Axis,
     enc: &mut Encoder,
     codecs: &mut Codecs,
     dicts: &NestedDicts,
 ) -> MltResult<()> {
+    let shapes = match axis {
+        Axis::PerRow => interior.row_shapes(),
+        Axis::PerEntry => None,
+    };
     match interior {
         StagedInterior::Struct(node) => {
             if node.fields.is_empty() {
@@ -764,10 +872,20 @@ fn write_interior02(
             enc.data_mut()
                 .write_varint(u32::try_from(node.fields.len())?)?;
             let fields = enc.count_context;
+            // The shapes run over the fields in declaration order, so they are what
+            // each field's presence is read out of and no field writes its own.
+            let owner = match &shapes {
+                Some(shapes) => {
+                    write_shapes02(shapes, column, path, enc, codecs)?;
+                    Presence::Parent
+                }
+                None => Presence::Own,
+            };
             for (name, field) in &node.fields {
                 enc.count_context = fields;
                 let path = format!("{path}.{name}");
-                write_node02(field, column, &path, Some(name), enc, codecs, dicts)?;
+                let coding = Coding::PER_ENTRY.owned_by(owner);
+                write_node02(field, column, &path, Some(name), coding, enc, codecs, dicts)?;
             }
             enc.count_context = fields;
             Ok(())
@@ -779,26 +897,48 @@ fn write_interior02(
                 column,
                 &format!("{path}[]"),
                 None,
+                Coding::PER_ENTRY,
                 enc,
                 codecs,
                 dicts,
             )
         }
         StagedInterior::Map(node) => {
-            write_lengths02(&node.lengths, column, path, enc, codecs)?;
-            let keys = StagedStrings::from_strings(column, &node.keys);
-            codecs.write_str_col02(&keys, StrAt::nested(column, path), enc)?;
+            // A shape's population count is the row's entry count, so the lengths
+            // are implied, and the key stream holds the key list rather than one
+            // key per entry.
+            if let Some(shapes) = &shapes {
+                let keys = StagedStrings::from_strings(column, &shapes.keys);
+                codecs.write_str_col02(&keys, StrAt::nested(column, path), enc)?;
+                write_shapes02(shapes, column, path, enc, codecs)?;
+            } else {
+                write_lengths02(&node.lengths, column, path, enc, codecs)?;
+                let keys = StagedStrings::from_strings(column, &node.keys);
+                codecs.write_str_col02(&keys, StrAt::nested(column, path), enc)?;
+            }
+            // A map value's presence runs over entries, not rows, so the shapes
+            // above say nothing about it and it keeps its own.
             write_node02(
                 &node.value,
                 column,
                 &format!("{path}{{}}"),
                 None,
+                Coding::PER_ENTRY,
                 enc,
                 codecs,
                 dicts,
             )
         }
     }
+}
+
+/// Which node stores the presence of the values a node is handed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Presence {
+    /// The node's own presence stream.
+    Own,
+    /// The parent's row shapes, which already name this node's rows.
+    Parent,
 }
 
 /// Write a list or map node's lengths, one per value the node marks present.
