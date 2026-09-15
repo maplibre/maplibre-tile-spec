@@ -15,6 +15,9 @@
 //! * `plain` - `PhysicalLevelTechnique::NONE`, i.e. fixed-width little-endian ints
 //! * `tes` - includes tessellation triangles stream
 //! * `fs` - forces normally-empty streams to still be written, as the Java encoder used to do
+//! * `bp` - bit-packed dictionary codes, i.e. every code in the same number of bits.
+//!   A v2-only physical layout, so the v1 sibling of each `*_bp*` fixture holds the
+//!   same codes as varints.
 //! * `sp` - shared presence, i.e. columns null on the same features share one bitfield.
 //!   A v2-only encoding, so the v1 sibling of each `*_sp*` fixture holds the same
 //!   data under a `*_same_nulls*` name instead.
@@ -1476,6 +1479,22 @@ fn generate_props_str(w: &mut SynthWriter) {
             "props_str_prefixes_fsst_nulls",
             "props_str_fsst_front_dict_nulls",
         );
+
+    // Three dictionary entries, so a code fits in two bits and the six of them
+    // cross a byte boundary and leave a partial one.
+    // The order is shuffled, since a run or a delta of codes would say nothing about packing.
+    // v1 has no code for bit packing, so its sibling holds the same codes as varints.
+    let shuffled = || [1, 3, 2, 3, 1, 2].map(prefixed);
+    six_points()
+        .add_prop_str_dict(e, E::bitpacked(), P::str("val", shuffled()))
+        .write_per_version(
+            w,
+            "props_offset_str_shuffled_np-rust",
+            "props_str_dict_bp_np",
+        );
+    six_points()
+        .add_prop_str_dict(e, E::bitpacked(), P::opt_str("val", shuffled().map(Some)))
+        .write_per_version(w, "props_offset_str_shuffled-rust", "props_str_dict_bp");
 }
 
 fn generate_shared_dictionaries(w: &mut SynthWriter) {
@@ -1735,4 +1754,17 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
         )
         .no_v2()
         .write(w, "props_shared_dict_presence_variants");
+
+    // Each child's codes are a stream of its own, so one can pack them into two bits
+    // each while the other writes a varint apiece.
+    // The corpus lengths follow the first child's encoder, keeping this fixture about the codes.
+    let zone = |i: usize| format!("{}_zone_{i}", "A".repeat(28));
+    let cycle = move |offset: usize| (0..6).map(move |i| zone((i + offset) % 3));
+    points(6)
+        .add_shared_dict(
+            SharedDict::new("name:", StrEncoding::Plain)
+                .col("de", E::varint(), cycle(0))
+                .col("en", E::bitpacked(), cycle(1)),
+        )
+        .write_per_version(w, "props_shared_dict_codes-rust", "props_shared_dict_bp");
 }
