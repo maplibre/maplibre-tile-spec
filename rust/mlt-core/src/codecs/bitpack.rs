@@ -4,8 +4,8 @@
 //! LSB-first end to end, so value `i` occupies bits `i * width ..` of the byte run.
 
 use crate::MltError::{InvalidDecodingStreamSize, ParsingBitWidth};
+use crate::MltResult;
 use crate::codecs::bytes::PhysicalWord;
-use crate::{MltError, MltResult};
 
 /// Largest width the codec packs, which is what keeps the shift accumulator in range.
 pub(crate) const MAX_WIDTH: u32 = 32;
@@ -61,18 +61,16 @@ pub fn unpack<T: PhysicalWord>(data: &[u8], count: u32) -> MltResult<Vec<T>> {
     if packed.len() != expected {
         return Err(InvalidDecodingStreamSize(packed.len(), expected));
     }
-    let mask = if width == 64 {
-        u64::MAX
-    } else {
-        (1 << width) - 1
-    };
+    const { assert!(MAX_WIDTH < u64::BITS) };
+    let mask = (1_u64 << width) - 1;
     let mut values = Vec::with_capacity(count);
     let mut acc: u64 = 0;
     let mut bits = 0_u32;
     let mut bytes = packed.iter();
     for _ in 0..count {
         while bits < width {
-            let byte = *bytes.next().ok_or(MltError::BufferUnderflow(1, 0))?;
+            // The length check above leaves a byte for every bit the values take.
+            let byte = *bytes.next().expect("infallible: a byte per value");
             acc |= u64::from(byte) << bits;
             bits += 8;
         }
@@ -102,8 +100,24 @@ mod tests {
         let mut out = Vec::new();
         pack(values, width, &mut out);
         assert_eq!(out.len(), packed_len(values.len(), width));
-        let back: Vec<u32> = unpack(&out, u32::try_from(values.len()).unwrap()).unwrap();
+        let count = u32::try_from(values.len()).unwrap();
+        let back: Vec<u32> = unpack(&out, count).unwrap();
         assert_eq!(back, values);
+        let wide: Vec<u64> = unpack(&out, count).unwrap();
+        assert_eq!(
+            wide,
+            values.iter().copied().map(u64::from).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn u64_values_pack_at_the_width_their_largest_needs() {
+        let values: &[u64] = &[0, 1_000_000, u64::from(u32::MAX)];
+        let width = bit_width(values).unwrap();
+        assert_eq!(width, 32);
+        let mut out = Vec::new();
+        pack(values, width, &mut out);
+        assert_eq!(unpack::<u64>(&out, 3).unwrap(), values);
     }
 
     #[rstest]
@@ -112,6 +126,12 @@ mod tests {
     fn a_width_outside_the_codec_is_rejected(#[case] payload: &[u8]) {
         let err = unpack::<u32>(payload, 1).unwrap_err();
         assert!(matches!(err, ParsingBitWidth(_)), "{err:?}");
+    }
+
+    #[test]
+    fn a_payload_without_a_width_byte_is_rejected() {
+        let err = unpack::<u32>(&[], 0).unwrap_err();
+        assert!(matches!(err, InvalidDecodingStreamSize(0, 1)), "{err:?}");
     }
 
     #[test]
