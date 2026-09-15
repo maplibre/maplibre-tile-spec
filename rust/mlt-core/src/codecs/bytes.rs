@@ -1,11 +1,11 @@
 use integer_encoding::VarInt;
 use usize_cast::IntoUsize as _;
 
-use crate::MltError::{BufferUnderflow, UnsupportedPhysicalEncoding};
+use crate::MltError::UnsupportedPhysicalEncoding;
 use crate::codecs::fastpfor::decode_fastpfor;
 use crate::decoder::FastPForKind;
-use crate::utils::take;
-use crate::{Decoder, MltRefResult, MltResult};
+use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
+use crate::{Decoder, MltResult};
 
 /// Pack bools into bytes where each byte represents 8 booleans.
 pub fn encode_bools_to_bytes(
@@ -89,33 +89,22 @@ impl PhysicalWord for u64 {
     }
 }
 
-/// Decode a slice of bytes into a `Vec<T>` of little-endian words, charging `dec` for the allocation.
-/// Returns the remaining (unconsumed) input alongside the decoded values.
-/// TODO: ensure the entire input is consumed, and don't return it?
-pub fn decode_bytes_to_words<'a, T: PhysicalWord>(
-    mut input: &'a [u8],
+/// Decode a slice of exactly `num_values` little-endian words into a `Vec<T>`, charging `dec` for the allocation.
+pub fn decode_bytes_to_words<T: PhysicalWord>(
+    input: &[u8],
     num_values: u32,
     dec: &mut Decoder,
-) -> MltRefResult<'a, Vec<T>> {
-    let width = u32::try_from(size_of::<T>()).expect("word size fits u32");
-    let Some(expected_bytes) = num_values.checked_mul(width) else {
-        return Err(BufferUnderflow(u32::MAX, input.len()));
-    };
-    if input.len() < expected_bytes.into_usize() {
-        return Err(BufferUnderflow(expected_bytes, input.len()));
-    }
+) -> MltResult<Vec<T>> {
+    let width = size_of::<T>();
+    let expected_bytes = num_values.into_usize().checked_mul(width).or_overflow()?;
+    fail_if_invalid_stream_size(input.len(), expected_bytes)?;
 
     let alloc_size = num_values.into_usize();
     let mut values = dec.alloc(alloc_size)?;
-
-    for _ in 0..num_values {
-        let (new_input, bytes) = take(input, width)?;
-        values.push(T::from_le_word(bytes));
-        input = new_input;
-    }
+    values.extend(input.chunks_exact(width).map(T::from_le_word));
 
     debug_assert_length(&values, alloc_size);
-    Ok((input, values))
+    Ok(values)
 }
 
 #[inline]
@@ -134,7 +123,8 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
-    use crate::test_helpers::{assert_empty, dec};
+    use crate::MltError::InvalidDecodingStreamSize;
+    use crate::test_helpers::dec;
 
     proptest! {
         #[test]
@@ -151,7 +141,7 @@ mod tests {
             for val in &data {
                 encoded.extend_from_slice(&val.to_le_bytes());
             }
-            let decoded = assert_empty(decode_bytes_to_words::<u32>(&encoded, u32::try_from(data.len()).unwrap(), &mut dec()));
+            let decoded = decode_bytes_to_words::<u32>(&encoded, u32::try_from(data.len()).unwrap(), &mut dec()).unwrap();
             prop_assert_eq!(data, decoded);
         }
 
@@ -161,79 +151,51 @@ mod tests {
             for val in &data {
                 encoded.extend_from_slice(&val.to_le_bytes());
             }
-            let decoded = assert_empty(decode_bytes_to_words::<u64>(&encoded, u32::try_from(data.len()).unwrap(), &mut dec()));
+            let decoded = decode_bytes_to_words::<u64>(&encoded, u32::try_from(data.len()).unwrap(), &mut dec()).unwrap();
             prop_assert_eq!(data, decoded);
         }
     }
 
     #[test]
-    fn test_bytes_to_u32s_valid() {
-        // Little-endian representation:
-        // [0x04, 0x03, 0x02, 0x01] -> 0x01020304
-        // [0xDD, 0xCC, 0xBB, 0xAA] -> 0xAABBCCDD
-        let bytes: [u8; 8] = [0x04, 0x03, 0x02, 0x01, 0xDD, 0xCC, 0xBB, 0xAA];
-        let u32s = assert_empty(decode_bytes_to_words::<u32>(&bytes, 2, &mut dec()));
-        assert_eq!(
-            u32s,
-            vec![0x0102_0304, 0xAABB_CCDD],
-            "Decoded values should match"
-        );
+    fn decodes_u32_words_little_endian() {
+        let bytes = [0x04, 0x03, 0x02, 0x01, 0xDD, 0xCC, 0xBB, 0xAA];
+        let u32s = decode_bytes_to_words::<u32>(&bytes, 2, &mut dec()).unwrap();
+        assert_eq!(u32s, vec![0x0102_0304, 0xAABB_CCDD]);
     }
 
     #[test]
-    fn test_bytes_to_u32s_empty() {
-        let bytes: [u8; 0] = [];
-        let u32s = assert_empty(decode_bytes_to_words::<u32>(&bytes, 0, &mut dec()));
-        assert!(
-            u32s.is_empty(),
-            "Output should be an empty Vec for 0 values"
-        );
+    fn decodes_u64_words_little_endian() {
+        let bytes = [1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0];
+        let u64s = decode_bytes_to_words::<u64>(&bytes, 2, &mut dec()).unwrap();
+        assert_eq!(u64s, vec![1, 2]);
     }
 
     #[test]
-    fn test_bytes_to_u32s_buffer_underflow() {
-        // Only 4 bytes but requesting 2 values (8 bytes needed)
+    fn zero_words_decode_from_no_bytes() {
+        let u32s = decode_bytes_to_words::<u32>(&[], 0, &mut dec()).unwrap();
+        assert_eq!(u32s, [] as [u32; 0]);
+    }
+
+    #[test]
+    fn too_few_bytes_for_the_word_count_is_an_error() {
         let bytes = [0x01, 0x02, 0x03, 0x04];
-        let res = decode_bytes_to_words::<u32>(&bytes, 2, &mut dec());
-        assert!(
-            res.is_err(),
-            "Should error if not enough bytes for requested values"
-        );
+        let err = decode_bytes_to_words::<u32>(&bytes, 2, &mut dec()).unwrap_err();
+        assert!(matches!(err, InvalidDecodingStreamSize(4, 8)), "{err:?}");
     }
 
     #[test]
-    fn test_bytes_to_u32s_partial_consumption() {
-        // 12 bytes (3 values) but only requesting 2 values
-        let bytes: [u8; 12] = [
+    fn trailing_bytes_after_the_word_count_are_an_error() {
+        let bytes = [
             0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C,
         ];
-        let res = decode_bytes_to_words::<u32>(&bytes, 2, &mut dec());
-        assert!(res.is_ok(), "Should decode 2 values from larger buffer");
-        let (remaining, u32s) = res.unwrap();
-        assert_eq!(remaining.len(), 4, "Should have 4 bytes remaining");
-        assert_eq!(u32s.len(), 2);
-        assert_eq!(u32s, vec![0x0403_0201, 0x0807_0605]);
+        let err = decode_bytes_to_words::<u32>(&bytes, 2, &mut dec()).unwrap_err();
+        assert!(matches!(err, InvalidDecodingStreamSize(12, 8)), "{err:?}");
     }
 
     #[test]
-    fn test_decode_u32() {
-        let bytes = [1, 0, 0, 0, 2, 0, 0, 0];
-        let expected = (&[][..], vec![1, 2]);
-        let decoded = decode_bytes_to_words::<u32>(&bytes, 2, &mut dec()).unwrap();
-        assert_eq!(decoded, expected);
-    }
-
-    #[test]
-    fn test_decode_u64() {
-        let bytes = [1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0];
-        let expected = (&[][..], vec![1, 2]);
-        let decoded = decode_bytes_to_words::<u64>(&bytes, 2, &mut dec()).unwrap();
-        assert_eq!(decoded, expected);
-    }
-
-    #[test]
-    fn test_decode_bytes_to_u32s_empty() {
-        let decoded = assert_empty(decode_bytes_to_words::<u32>(&[], 0, &mut dec()));
-        assert_eq!(decoded, [] as [u32; 0]);
+    fn trailing_bytes_on_zero_words_are_an_error() {
+        let bytes = [0x01];
+        let err = decode_bytes_to_words::<u32>(&bytes, 0, &mut dec()).unwrap_err();
+        assert!(matches!(err, InvalidDecodingStreamSize(1, 0)), "{err:?}");
     }
 }

@@ -201,8 +201,7 @@ impl<'a> RawStream<'a> {
         buf.clear();
         match self.meta.encoding.physical {
             PhysicalEncoding::None => {
-                let (_, values) = decode_bytes_to_words::<T>(self.data, self.meta.num_values, dec)?;
-                *buf = values;
+                *buf = decode_bytes_to_words::<T>(self.data, self.meta.num_values, dec)?;
             }
             PhysicalEncoding::FastPFor(kind) => {
                 *buf = T::decode_fastpfor(self.data, self.meta.num_values, kind, dec)?;
