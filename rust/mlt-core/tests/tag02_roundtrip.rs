@@ -1046,6 +1046,19 @@ mod strings {
             layer(points(dict_masks[0]), None, &borrowed)
         }
 
+        /// A `u32` column over `before`, a shared-dictionary column over `dict_masks`, then a
+        /// `u32` column over `after`.
+        fn wrapped_dict_layer(before: &str, dict_masks: &[&str], after: &str) -> TileLayer {
+            let mut props = vec![("n0".to_owned(), opt_col(before))];
+            props.extend(dict_children(dict_masks));
+            props.push(("n1".to_owned(), opt_col(after)));
+            let borrowed: Vec<(&str, Vec<PropValue>)> = props
+                .iter()
+                .map(|(name, values)| (name.as_str(), values.clone()))
+                .collect();
+            layer(points(before), None, &borrowed)
+        }
+
         /// How often `needle` annotates the v2 dump of `l`.
         fn count(l: &TileLayer, needle: &str) -> usize {
             dump_text(&l.clone().encode(cfg_v2()).unwrap())
@@ -1090,6 +1103,17 @@ mod strings {
             // Neither mask is shared within the dictionary, so both slots are earned
             // only by counting the dict children alongside the scalar columns.
             let l = dict_layer(&["101101", "110011"], &["101101", "110011"]);
+            assert_differential(&l);
+
+            assert_eq!(count(&l, "shared presence bitfields = 2"), 1);
+            assert_eq!(count(&l, "presence = Shared(0)"), 2);
+            assert_eq!(count(&l, "presence = Shared(1)"), 2);
+            assert_eq!(count(&l, "[Present "), 2);
+        }
+
+        #[test]
+        fn a_dict_child_shares_with_the_columns_before_and_after_the_dict() {
+            let l = wrapped_dict_layer("101101", &["110011", "101101"], "110011");
             assert_differential(&l);
 
             assert_eq!(count(&l, "shared presence bitfields = 2"), 1);

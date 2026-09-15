@@ -1,0 +1,107 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "after": 0,
+        "before": 0,
+        "name:de": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "name:en": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "name:fr": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "after": 1,
+        "name:de": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "name:fr": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "name:fr": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "before": 3,
+        "name:en": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "name:fr": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "name:fr": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "after": 5,
+        "before": 5,
+        "name:de": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "name:en": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "name:fr": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ]
+      }
+    }
+  ]
+}

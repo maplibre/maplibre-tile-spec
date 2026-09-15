@@ -257,16 +257,14 @@ impl StagedSharedDictItem {
             .map(|&range| decode_shared_dict_range(range).is_some())
     }
 
-    /// The mask describing this child's nulls, or [`None`] when it has none to describe.
-    ///
-    /// A child with nothing to mask writes no presence bits at all, so it must not
-    /// claim one of the layer's shared bitfields either.
-    /// The v2 planner and writer both decide through this, so they cannot disagree.
+    /// The mask describing this child's nulls, or [`None`] when it has none.
     #[cfg(feature = "unstable-v2")]
     pub(crate) fn optional_presence(&self) -> Option<Vec<bool>> {
+        if !self.has_presence {
+            return None;
+        }
         let presence: Vec<bool> = self.presence_bools().collect();
-        let optional = self.has_presence && presence.iter().any(|&p| !p);
-        optional.then_some(presence)
+        presence.iter().any(|&p| !p).then_some(presence)
     }
 
     pub fn dense_spans(&self) -> impl Iterator<Item = (u32, u32)> + '_ {
