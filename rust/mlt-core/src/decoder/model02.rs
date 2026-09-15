@@ -137,10 +137,10 @@ pub(crate) struct ColumnType02 {
 
 impl ColumnType02 {
     /// Mask of the byte holding the [`Presence02`].
-    const PRESENCE_MASK: u8 = 0b1111_0000;
+    pub(crate) const PRESENCE_MASK: u8 = 0b1111_0000;
 
     /// Mask of the byte holding the [`DataType02`].
-    const DATA_TYPE_MASK: u8 = 0b0000_1111;
+    pub(crate) const DATA_TYPE_MASK: u8 = 0b0000_1111;
 
     #[must_use]
     pub(crate) fn new(presence: Presence02, data: DataType02) -> Self {
@@ -415,13 +415,13 @@ pub(crate) struct LayerLayout {
 
 impl LayerLayout {
     /// Mask of the byte held in reserve for a future layer-wide flag.
-    const RESERVED_MASK: u8 = 0b1000_0000;
+    pub(crate) const RESERVED_MASK: u8 = 0b1000_0000;
 
     /// Mask of the byte holding the shared presence column count.
-    const SHARED_PRESENCE_MASK: u8 = 0b0111_0000;
+    pub(crate) const SHARED_PRESENCE_MASK: u8 = 0b0111_0000;
 
     /// Mask of the byte holding the [`GeoLayout`].
-    const GEO_LAYOUT_MASK: u8 = 0b0000_1111;
+    pub(crate) const GEO_LAYOUT_MASK: u8 = 0b0000_1111;
 
     /// Largest shared presence column count the byte can express.
     /// The 8th value is spent on keeping bit 7 free for a future flag.

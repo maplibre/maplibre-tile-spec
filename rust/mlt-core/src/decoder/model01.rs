@@ -13,7 +13,11 @@ use crate::utils::{BinarySerializer as _, parse_string, parse_u8};
 use crate::{MltRefResult, Parser};
 
 /// Bit 0 of the column type byte: the column has a presence stream.
-const OPTIONAL_FLAG: u8 = 0b0000_0001;
+pub(crate) const OPTIONAL_FLAG: u8 = 0b0000_0001;
+
+/// Mask of the column type byte holding the base [`ColumnType`], i.e. everything
+/// [`OPTIONAL_FLAG`] does not claim.
+pub(crate) const BASE_TYPE_MASK: u8 = 0b1111_1110;
 
 /// Column definition
 #[derive(Debug, PartialEq)]
