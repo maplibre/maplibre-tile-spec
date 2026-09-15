@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::mem;
 
 use crate::{Decoder, MltError, MltResult};
@@ -89,8 +90,45 @@ impl<Raw: Decode<Parsed>, Parsed> LazyParsed<Raw, Parsed> {
     pub fn as_parsed(&self) -> MltResult<&Parsed> {
         match self {
             Self::Parsed(v) => Ok(v),
-            Self::Raw(_) => Err(MltError::NotDecoded("enc_dec value")), // TODO: I wonder if the str can be of the type name?
+            Self::Raw(_) => Err(MltError::NotDecoded(type_name::<Parsed>())),
             Self::ParsingFailed => Err(MltError::PriorParseFailure),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct RawWord(&'static str);
+
+    impl Decode<String> for RawWord {
+        fn decode(self, _decoder: &mut Decoder) -> MltResult<String> {
+            Ok(self.0.to_owned())
+        }
+    }
+
+    #[test]
+    fn as_parsed_on_raw_names_the_parsed_type() {
+        let lazy = LazyParsed::<RawWord, String>::Raw(RawWord("x"));
+        assert_eq!(
+            lazy.as_parsed().unwrap_err().to_string(),
+            "alloc::string::String is not decoded"
+        );
+    }
+
+    #[test]
+    fn as_parsed_on_parsed_returns_the_value() {
+        let lazy = LazyParsed::<RawWord, String>::Parsed("x".to_owned());
+        assert_eq!(lazy.as_parsed().unwrap(), "x");
+    }
+
+    #[test]
+    fn as_parsed_after_failure_reports_prior_failure() {
+        let lazy = LazyParsed::<RawWord, String>::ParsingFailed;
+        assert_eq!(
+            lazy.as_parsed().unwrap_err().to_string(),
+            "previous decode/parsing attempt failed"
+        );
     }
 }
