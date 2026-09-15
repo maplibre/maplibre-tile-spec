@@ -16,8 +16,8 @@
 //! * `tes` - includes tessellation triangles stream
 //! * `fs` - forces normally-empty streams to still be written, as the Java encoder used to do
 //! * `sp` - shared presence, i.e. columns null on the same features share one bitfield.
-//!   A v2-only encoding, so the v1 sibling of each `props_sp*` fixture holds the same
-//!   data under a `props_same_nulls*` name instead.
+//!   A v2-only encoding, so the v1 sibling of each `*_sp*` fixture holds the same
+//!   data under a `*_same_nulls*` name instead.
 
 mod layer;
 mod writer;
@@ -1025,6 +1025,63 @@ fn generate_shared_presence(w: &mut SynthWriter) {
             .add_prop(e, P::opt_u32(format!("b{i}"), masked(mask)));
     }
     layer.write_per_version(w, "props_same_nulls_max", "props_sp_max");
+
+    // A shared dictionary holds no values of its own, but each of its children is
+    // null on its own features, so each shares a bitfield like any other column.
+    masked_points(a)
+        .add_shared_dict(
+            SharedDict::new("name:", StrEncoding::Plain)
+                .opt("de", E::varint(), masked_strings(a))
+                .opt("en", E::varint(), masked_strings(a)),
+        )
+        .write_per_version(w, "props_shared_dict_same_nulls", "props_shared_dict_sp");
+
+    // The dictionary sits between two plain columns, so a child's mask is shared with
+    // one before it and one after it. `fr` is never null and shares nothing.
+    masked_points(a)
+        .add_prop(e, P::opt_u32("before", masked(a)))
+        .add_shared_dict(
+            SharedDict::new("name:", StrEncoding::Plain)
+                .opt("de", E::varint(), masked_strings(b))
+                .opt("en", E::varint(), masked_strings(a))
+                .col("fr", E::varint(), always_strings(a.len())),
+        )
+        .add_prop(e, P::opt_u32("after", masked(b)))
+        .write_per_version(
+            w,
+            "props_shared_dict_same_nulls_mixed",
+            "props_shared_dict_sp_mixed",
+        );
+
+    // Only one child has this mask, so it keeps its own bitfield rather than a slot.
+    masked_points(a)
+        .add_shared_dict(
+            SharedDict::new("name:", StrEncoding::Plain)
+                .opt("de", E::varint(), masked_strings(a))
+                .opt("en", E::varint(), masked_strings(lonely)),
+        )
+        .write_per_version(
+            w,
+            "props_shared_dict_same_nulls_lonely",
+            "props_shared_dict_sp_lonely",
+        );
+}
+
+/// The two long values a dictionary is for, alternating, with nulls where `mask` says.
+fn masked_strings(mask: &str) -> Vec<Option<String>> {
+    mask.bytes()
+        .enumerate()
+        .map(|(i, b)| (b != b'-').then(|| always_string(i)))
+        .collect()
+}
+
+/// As [`masked_strings`], for a child that is never null.
+fn always_strings(count: usize) -> Vec<String> {
+    (0..count).map(always_string).collect()
+}
+
+fn always_string(i: usize) -> String {
+    if i.is_multiple_of(2) { "A" } else { "B" }.repeat(30)
 }
 
 fn generate_props_i32(w: &mut SynthWriter) {

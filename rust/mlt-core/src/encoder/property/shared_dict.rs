@@ -257,6 +257,16 @@ impl StagedSharedDictItem {
             .map(|&range| decode_shared_dict_range(range).is_some())
     }
 
+    /// The mask describing this child's nulls, or [`None`] when it has none.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) fn optional_presence(&self) -> Option<Vec<bool>> {
+        if !self.has_presence {
+            return None;
+        }
+        let presence: Vec<bool> = self.presence_bools().collect();
+        presence.iter().any(|&p| !p).then_some(presence)
+    }
+
     pub fn dense_spans(&self) -> impl Iterator<Item = (u32, u32)> + '_ {
         self.ranges
             .iter()
