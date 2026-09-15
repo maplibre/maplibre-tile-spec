@@ -5,6 +5,8 @@ use num_traits::{PrimInt, WrappingSub};
 use zigzag::ZigZag;
 
 use crate::MltError::UnsupportedPhysicalEncoding;
+#[cfg(feature = "unstable-v2")]
+use crate::MltError::UnsupportedPhysicalEncodingForType;
 use crate::MltResult;
 #[cfg(feature = "unstable-v2")]
 use crate::codecs::bitpack;
@@ -92,8 +94,8 @@ impl PhysicalCodecs {
         &self.u8_tmp
     }
 
-    /// Pack `values` into the width their largest needs, or [`None`] when that width is
-    /// out of the codec's range or would not beat writing a varint each.
+    /// Pack `values` into the width their largest needs, or [`None`] when that
+    /// width is out of the codec's range.
     #[cfg(feature = "unstable-v2")]
     pub(crate) fn bitpack<T>(&mut self, values: &[T]) -> Option<&[u8]>
     where
@@ -138,6 +140,20 @@ impl PhysicalCodecs {
         let (pe, vals) = match encode_as {
             PhysicalEncoder::None => (PE::None, P::none(self, values)),
             PhysicalEncoder::VarInt => (PE::VarInt, self.varint(values)),
+            // v1 has no code for bit packing, and one layer is encoded as both versions.
+            #[cfg(feature = "unstable-v2")]
+            PhysicalEncoder::BitPacked if enc.config().wire_version() == WireVersion::V01 => {
+                (PE::VarInt, self.varint(values))
+            }
+            #[cfg(feature = "unstable-v2")]
+            PhysicalEncoder::BitPacked => (
+                PE::BitPacked,
+                self.bitpack(values)
+                    .ok_or(UnsupportedPhysicalEncodingForType(
+                        PE::BitPacked,
+                        "values that need more than 32 bits",
+                    ))?,
+            ),
             PhysicalEncoder::FastPFOR => {
                 #[cfg(feature = "unstable-v2")]
                 let kind = enc.config().wire_version().fastpfor_kind();
