@@ -297,6 +297,10 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
                         LengthType::VarBinary | LengthType::Symbol | LengthType::Dictionary => {
                             Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?
                         }
+                        #[cfg(feature = "unstable-v2")]
+                        LengthType::Nested => {
+                            Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?
+                        }
                     };
                     target.set_once(stream.decode_ints::<u32>(dec)?)?;
                 }

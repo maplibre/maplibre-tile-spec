@@ -195,6 +195,10 @@ pub(crate) enum StreamCtx02 {
     /// The triangle indices of a tessellated layer, three per triangle.
     GeomIndices,
     GeomOffsets(LengthType),
+    /// A nested list or map node's lengths, one per present value of the node.
+    NestedLengths,
+    /// A nested node's presence, one bit per value its parent hands it.
+    NestedPresence,
 }
 
 impl StreamCtx02 {
@@ -208,6 +212,7 @@ impl StreamCtx02 {
             | Self::PropertyDictionary(DataType02::F32 | DataType02::F64) => Family::Float,
             Self::StrData(layout) => Family::Str(layout),
             Self::StrBlob(_) => Family::Bytes,
+            Self::NestedPresence => Family::Bool,
             Self::Property(_)
             | Self::PropertyDictionary(_)
             | Self::StrDictLengths
@@ -215,7 +220,8 @@ impl StreamCtx02 {
             | Self::GeomTypes
             | Self::GeomVertexOffsets
             | Self::GeomIndices
-            | Self::GeomOffsets(_) => Family::Int,
+            | Self::GeomOffsets(_)
+            | Self::NestedLengths => Family::Int,
             Self::GeomVertices => Family::Vertex,
         }
     }
@@ -240,6 +246,8 @@ impl StreamCtx02 {
             Self::GeomVertexOffsets => StreamType::Offset(OffsetType::Vertex),
             Self::GeomIndices => StreamType::Offset(OffsetType::Index),
             Self::GeomOffsets(length_type) => StreamType::Length(length_type),
+            Self::NestedLengths => StreamType::Length(LengthType::Nested),
+            Self::NestedPresence => StreamType::Present,
         }
     }
 }

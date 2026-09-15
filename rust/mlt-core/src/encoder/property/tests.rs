@@ -395,6 +395,8 @@ fn encode_to_bytes_auto(props: Vec<StagedProperty>, cfg: EncoderConfig) -> Vec<u
         properties: props,
         #[cfg(feature = "unstable-v2")]
         m_values: vec![],
+        #[cfg(feature = "unstable-v2")]
+        nested: vec![],
     };
     let enc = Encoder::new(cfg);
     let mut codecs = Codecs::default();
@@ -703,6 +705,8 @@ fn try_tile_from_cols(cols: &[(&str, Vec<PropValue>)]) -> MltResult<TileLayer> {
             properties: cols.iter().map(|(_, vals)| vals[i].clone()).collect(),
             #[cfg(feature = "unstable-v2")]
             m_values: vec![],
+            #[cfg(feature = "unstable-v2")]
+            nested: vec![],
         })
         .collect();
     TileLayer::from_parts("test", 4096, property_names, features)
@@ -732,6 +736,8 @@ fn tile_from_ids(ids: &[Option<u64>]) -> TileLayer {
                 properties: vec![],
                 #[cfg(feature = "unstable-v2")]
                 m_values: vec![],
+                #[cfg(feature = "unstable-v2")]
+                nested: vec![],
             })
             .collect(),
     )

@@ -27,6 +27,9 @@ pub(crate) enum DataType02 {
     F32 = 0x09,
     F64 = 0x0A,
     Str = 0x0B,
+    Struct = 0x0C,
+    List = 0x0D,
+    Map = 0x0E,
 }
 
 impl DataType02 {
@@ -35,6 +38,151 @@ impl DataType02 {
     #[must_use]
     pub(crate) fn has_name(self) -> bool {
         !matches!(self, Self::Id | Self::LongId)
+    }
+}
+
+/// The interior nodes, the three data types that hold other nodes rather than values.
+///
+/// Split from [`DataType02`] so a nested column's root, which one of these must be,
+/// cannot be a scalar.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Interior02 {
+    Struct,
+    List,
+    Map,
+}
+
+impl Interior02 {
+    /// Whether a node of this kind ends the implied counts, which a lengths stream does.
+    #[must_use]
+    pub(crate) fn has_lengths(self) -> bool {
+        matches!(self, Self::List | Self::Map)
+    }
+}
+
+impl From<Interior02> for DataType02 {
+    fn from(interior: Interior02) -> Self {
+        match interior {
+            Interior02::Struct => Self::Struct,
+            Interior02::List => Self::List,
+            Interior02::Map => Self::Map,
+        }
+    }
+}
+
+/// Where a nested node's presence lives, the high nibble of its node type byte.
+///
+/// A node below a nested column's root cannot use the layer's shared bitfields,
+/// which run over features, so only two nibbles are assigned.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum NodePresence {
+    /// Every value the parent hands this node is present and nothing is stored.
+    AllPresent,
+    /// A `Bool`-family presence stream follows the node type byte and the field name.
+    Stream,
+}
+
+impl NodePresence {
+    /// Nibble of [`Self::AllPresent`], already shifted into place.
+    const ALL_PRESENT: u8 = 0b0000_0000;
+
+    /// Nibble of [`Self::Stream`], already shifted into place.
+    const STREAM: u8 = 0b0001_0000;
+
+    /// Read a masked nibble, or [`None`] for one this version has no meaning for.
+    #[must_use]
+    pub(crate) fn parse(nibble: u8) -> Option<Self> {
+        match nibble {
+            Self::ALL_PRESENT => Some(Self::AllPresent),
+            Self::STREAM => Some(Self::Stream),
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    fn to_nibble(self) -> u8 {
+        match self {
+            Self::AllPresent => Self::ALL_PRESENT,
+            Self::Stream => Self::STREAM,
+        }
+    }
+}
+
+/// What a nested node holds: a leaf's values, or more nodes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum NodeKind02 {
+    Leaf(ValueType02),
+    Struct,
+    List,
+    Map,
+}
+
+impl NodeKind02 {
+    /// The interior this kind names, or [`None`] for a leaf.
+    #[must_use]
+    pub(crate) fn interior(self) -> Option<Interior02> {
+        match self {
+            Self::Leaf(_) => None,
+            Self::Struct => Some(Interior02::Struct),
+            Self::List => Some(Interior02::List),
+            Self::Map => Some(Interior02::Map),
+        }
+    }
+}
+
+impl From<NodeKind02> for DataType02 {
+    fn from(kind: NodeKind02) -> Self {
+        match kind {
+            NodeKind02::Leaf(values) => values.into(),
+            NodeKind02::Struct => Self::Struct,
+            NodeKind02::List => Self::List,
+            NodeKind02::Map => Self::Map,
+        }
+    }
+}
+
+/// The type byte every node below a nested column's root begins with:
+/// [`NodePresence`] in bits 7-4, the data type in bits 3-0.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct NodeType02 {
+    pub(crate) presence: NodePresence,
+    pub(crate) data: NodeKind02,
+}
+
+impl NodeType02 {
+    #[must_use]
+    pub(crate) fn new(presence: NodePresence, data: NodeKind02) -> Self {
+        Self { presence, data }
+    }
+
+    /// Read a wire byte, rejecting the nibbles a node cannot hold.
+    pub(crate) fn parse(byte: u8) -> MltResult<Self> {
+        let err = || MltError::ParsingColumnType(byte);
+        let (presence, data) = ColumnType02::fields(byte);
+        let presence = NodePresence::parse(presence).ok_or_else(err)?;
+        let data = DataType02::try_from(data).map_err(|_| err())?;
+        let data = match data {
+            DataType02::Id | DataType02::LongId => return Err(err()),
+            DataType02::Struct => NodeKind02::Struct,
+            DataType02::List => NodeKind02::List,
+            DataType02::Map => NodeKind02::Map,
+            DataType02::Bool => NodeKind02::Leaf(ValueType02::Bool),
+            DataType02::I8 => NodeKind02::Leaf(ValueType02::I8),
+            DataType02::U8 => NodeKind02::Leaf(ValueType02::U8),
+            DataType02::I32 => NodeKind02::Leaf(ValueType02::I32),
+            DataType02::U32 => NodeKind02::Leaf(ValueType02::U32),
+            DataType02::I64 => NodeKind02::Leaf(ValueType02::I64),
+            DataType02::U64 => NodeKind02::Leaf(ValueType02::U64),
+            DataType02::F32 => NodeKind02::Leaf(ValueType02::F32),
+            DataType02::F64 => NodeKind02::Leaf(ValueType02::F64),
+            DataType02::Str => NodeKind02::Leaf(ValueType02::Str),
+        };
+        Ok(Self { presence, data })
+    }
+
+    #[must_use]
+    pub(crate) fn to_byte(self) -> u8 {
+        self.presence.to_nibble() | DataType02::from(self.data) as u8
     }
 }
 
@@ -240,6 +388,18 @@ impl ColumnType02 {
             DataType02::F32 => values(ValueType02::F32),
             DataType02::F64 => values(ValueType02::F64),
             DataType02::Str => values(ValueType02::Str),
+            DataType02::Struct => ColumnKind02::Nested(NestedColumn02 {
+                presence: self.presence,
+                root: Interior02::Struct,
+            }),
+            DataType02::List => ColumnKind02::Nested(NestedColumn02 {
+                presence: self.presence,
+                root: Interior02::List,
+            }),
+            DataType02::Map => ColumnKind02::Nested(NestedColumn02 {
+                presence: self.presence,
+                root: Interior02::Map,
+            }),
         }
     }
 
@@ -257,6 +417,15 @@ impl ColumnType02 {
 pub(crate) enum ColumnKind02 {
     Id(IdWidth02),
     Values(ValuesColumn02),
+    /// The root of a nested column, whose body is a tree of nodes rather than a stream set.
+    Nested(NestedColumn02),
+}
+
+/// A nested column's root: where its presence bitfield lives, and which interior it is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct NestedColumn02 {
+    pub(crate) presence: Presence02,
+    pub(crate) root: Interior02,
 }
 
 /// A v2 column of values: where its presence bitfield lives, and what its values are.
@@ -278,7 +447,7 @@ impl ValuesColumn02 {
     pub(crate) fn parse_m_value(byte: u8, shared_count: u8) -> MltResult<Self> {
         match ColumnType02::parse(byte, shared_count)?.split() {
             ColumnKind02::Values(column) => Ok(column),
-            ColumnKind02::Id(_) => Err(MltError::ParsingColumnType(byte)),
+            ColumnKind02::Id(_) | ColumnKind02::Nested(_) => Err(MltError::ParsingColumnType(byte)),
         }
     }
 }
@@ -648,7 +817,7 @@ mod tests {
 
     #[rstest]
     #[case::reserved_shared_dict_corpus(0b0010_1111)]
-    #[case::unassigned_data_type(0b0000_1100)]
+    #[case::reserved_presence_over_a_nested_root(0b1001_1100)]
     fn column_byte_rejects_unassigned(#[case] byte: u8) {
         let err = Column02::parse(byte, ALL_SHARED).unwrap_err();
         assert!(matches!(err, MltError::ParsingColumnType(b) if b == byte));
@@ -656,7 +825,7 @@ mod tests {
 
     #[rstest]
     #[case::shared_dict_is_not_a_data_type(0b0000_1111, ALL_SHARED)]
-    #[case::unassigned_data_type(0b0000_1100, ALL_SHARED)]
+    #[case::reserved_presence_over_a_nested_root(0b1001_1100, ALL_SHARED)]
     #[case::reserved_presence(0b1001_0101, ALL_SHARED)]
     #[case::reserved_presence_top(0b1111_0101, ALL_SHARED)]
     #[case::shared_ref_without_shared_columns(0b0010_0101, 0)]
@@ -759,7 +928,9 @@ mod tests {
     #[case::opt_id(0b0001_0000)]
     #[case::long_id(0b0000_0001)]
     #[case::shared_dict(0b0000_1111)]
-    #[case::unassigned_data_type(0b0000_1100)]
+    #[case::struct_root(0b0000_1100)]
+    #[case::list_root(0b0000_1101)]
+    #[case::map_root(0b0000_1110)]
     #[case::reserved_presence(0b1001_0101)]
     fn m_value_type_byte_rejects_what_a_vertex_cannot_hold(#[case] byte: u8) {
         let err = ValuesColumn02::parse_m_value(byte, ALL_SHARED).unwrap_err();
@@ -779,6 +950,57 @@ mod tests {
         #[case] allowed: bool,
     ) {
         assert_eq!(layout.allows_m_values(), allowed);
+    }
+
+    #[rstest]
+    #[case::i32_leaf(
+        0b0000_0101,
+        NodePresence::AllPresent,
+        NodeKind02::Leaf(ValueType02::I32)
+    )]
+    #[case::optional_str_leaf(
+        0b0001_1011,
+        NodePresence::Stream,
+        NodeKind02::Leaf(ValueType02::Str)
+    )]
+    #[case::struct_node(0b0000_1100, NodePresence::AllPresent, NodeKind02::Struct)]
+    #[case::optional_list_node(0b0001_1101, NodePresence::Stream, NodeKind02::List)]
+    #[case::map_node(0b0000_1110, NodePresence::AllPresent, NodeKind02::Map)]
+    fn node_type_byte_roundtrip(
+        #[case] byte: u8,
+        #[case] presence: NodePresence,
+        #[case] data: NodeKind02,
+    ) {
+        let typ = NodeType02::parse(byte).unwrap();
+        assert_eq!(typ, NodeType02::new(presence, data));
+        assert_eq!(typ.to_byte(), byte);
+    }
+
+    #[rstest]
+    #[case::id_is_a_features_own(0b0000_0000)]
+    #[case::long_id_is_a_features_own(0b0000_0001)]
+    #[case::shared_dict_introduces_columns(0b0000_1111)]
+    #[case::reserved_node_presence(0b0010_0101)]
+    #[case::reserved_node_presence_top(0b1111_0101)]
+    fn node_type_byte_rejects_what_a_node_cannot_hold(#[case] byte: u8) {
+        let err = NodeType02::parse(byte).unwrap_err();
+        assert!(matches!(err, MltError::ParsingColumnType(b) if b == byte));
+    }
+
+    #[rstest]
+    #[case::struct_root(0b0000_1100, Interior02::Struct)]
+    #[case::list_root(0b0001_1101, Interior02::List)]
+    #[case::map_root(0b0010_1110, Interior02::Map)]
+    fn a_nested_root_reads_as_the_interior_its_nibble_names(
+        #[case] byte: u8,
+        #[case] root: Interior02,
+    ) {
+        let typ = ColumnType02::parse(byte, ALL_SHARED).unwrap();
+        let ColumnKind02::Nested(column) = typ.split() else {
+            panic!("expected a nested root")
+        };
+        assert_eq!(column.root, root);
+        assert_eq!(typ.to_byte(), byte);
     }
 
     #[rstest]

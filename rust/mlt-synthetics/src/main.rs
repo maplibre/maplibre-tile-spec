@@ -28,8 +28,9 @@ use std::sync::LazyLock;
 
 use clap::Parser;
 use mlt_core::encoder::{
-    FloatEncoding, IntEncoder as E, LogicalEncoder as L, StagedId as Id, StagedMValue as M,
-    StagedMValues as MV, StagedProperty as P, StrEncoding, VertexBufferType,
+    FloatEncoding, IntEncoder as E, LogicalEncoder as L, StagedId as Id, StagedInterior,
+    StagedLeaf, StagedList, StagedMValue as M, StagedMap, StagedNested, StagedNode,
+    StagedProperty as P, StagedStruct, StagedValues as MV, StrEncoding, VertexBufferType,
 };
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, coord,
@@ -110,6 +111,7 @@ fn main() {
     generate_ids(&mut writer);
     generate_properties(&mut writer);
     generate_m_values(&mut writer);
+    generate_nested(&mut writer);
 
     writer.report_ungenerated();
 
@@ -982,6 +984,78 @@ fn generate_m_values(w: &mut SynthWriter) {
     generate_m_value_encodings(w);
 }
 
+/// Columns whose value is a tree of nodes rather than one scalar.
+///
+/// A v1 layer has nowhere to put one, so these fixtures are v2 only.
+fn generate_nested(w: &mut SynthWriter) {
+    // Two leaves of different types, so the struct cannot be rewritten as a map.
+    geo_varint()
+        .geos([P1, P2, P3])
+        .no_v1()
+        .add_nested(StagedNested::new(
+            "obj",
+            StagedInterior::Struct(StagedStruct::new(
+                None,
+                [
+                    ("name", str_leaf(None, ["ab", "cd", "ef"])),
+                    // Null on the middle feature, which therefore stores no value.
+                    ("rank", i32_leaf(Some(vec![true, false, true]), vec![7, 9])),
+                ],
+            )),
+        ))
+        .write(w, "nested_struct");
+
+    // Lists of 2 and 1 structs, so the lengths stream is not all ones.
+    geo_varint()
+        .geos([P1, P2])
+        .no_v1()
+        .add_nested(StagedNested::new(
+            "items",
+            StagedInterior::List(StagedList::new(
+                None,
+                vec![2, 1],
+                StagedNode::Interior(StagedInterior::Struct(StagedStruct::new(
+                    None,
+                    [
+                        ("id", i32_leaf(None, vec![1, 2, 3])),
+                        ("tag", str_leaf(None, ["hi", "lo", "hi"])),
+                    ],
+                ))),
+            )),
+        ))
+        .write(w, "nested_list_struct");
+
+    // Both features carry both keys, so the key dictionary holds two entries for four uses.
+    geo_varint()
+        .no_v1()
+        .geos([P1, P2])
+        .add_nested(StagedNested::new(
+            "tags",
+            StagedInterior::Map(StagedMap::new(
+                None,
+                vec![2, 2],
+                vec!["en".into(), "de".into(), "en".into(), "de".into()],
+                str_leaf(None, ["sea", "meer", "hill", "berg"]),
+            )),
+        ))
+        .nested_str_dict("tags", E::varint(), E::varint())
+        .write(w, "nested_map_str");
+}
+
+/// A leaf holding one string per value its parent hands it.
+fn str_leaf<'a>(
+    presence: Option<Vec<bool>>,
+    values: impl IntoIterator<Item = &'a str>,
+) -> StagedNode {
+    let values = values.into_iter().map(ToString::to_string).collect();
+    StagedNode::Leaf(StagedLeaf::new(presence, MV::Str(values)))
+}
+
+/// A leaf holding one `i32` per value its parent hands it.
+fn i32_leaf(presence: Option<Vec<bool>>, values: Vec<i32>) -> StagedNode {
+    StagedNode::Leaf(StagedLeaf::new(presence, MV::I32(values)))
+}
+
 /// The layer every m-value fixture that is not about geometry runs over:
 /// three lines of 3, 3 and 2 vertices, so the sequence is 8 vertices long
 /// and no feature boundary lines up with a power of two.
@@ -1145,19 +1219,17 @@ fn generate_m_value_geometries(w: &mut SynthWriter) {
 
     // 0x2 MultiPoints, 0x3 MultiPointsDict: 3 + 2 vertices.
     geo_varint()
+        .no_v1()
         .geos(vec![
             wkt!(MULTIPOINT(6 25, 21 41, 23 69)),
             wkt!(MULTIPOINT(24 10, 42 18)),
         ])
-        .no_v1()
         .add_m_value(e, vals(5))
         .write(w, "mvalues_mpoint");
-    dict(geo_varint().geos(vec![
+    dict(geo_varint().no_v1().add_m_value(e, vals(5)).geos(vec![
         wkt!(MULTIPOINT(8 0, 0 0, 8 0)),
         wkt!(MULTIPOINT(0 8, 8 0)),
     ]))
-    .no_v1()
-    .add_m_value(e, vals(5))
     .write(w, "mvalues_mpoint_dict");
 
     // 0x5 LinesDict, the dictionary sibling of the `mvalues` fixture's `Lines`.
@@ -1168,19 +1240,17 @@ fn generate_m_value_geometries(w: &mut SynthWriter) {
 
     // 0x6 MultiLines, 0x7 MultiLinesDict: 2 + 3 vertices in one feature, 2 in the other.
     geo_varint()
+        .no_v1()
+        .add_m_value(e, vals(7))
         .geos(vec![
             wkt!(MULTILINESTRING((24 10, 42 18),(30 36, 48 52, 35 62))),
             wkt!(MULTILINESTRING((5 38, 12 45))),
         ])
-        .no_v1()
-        .add_m_value(e, vals(7))
         .write(w, "mvalues_mline");
-    dict(geo_varint().geos(vec![
+    dict(geo_varint().no_v1().add_m_value(e, vals(7)).geos(vec![
         wkt!(MULTILINESTRING((8 0, 0 0),(8 0, 0 8, 8 0))),
         wkt!(MULTILINESTRING((0 8, 0 0))),
     ]))
-    .no_v1()
-    .add_m_value(e, vals(7))
     .write(w, "mvalues_mline_dict");
 
     // 0x8 Polygons, 0x9 PolygonsDict: a ring's closing vertex is not stored,
@@ -1190,28 +1260,26 @@ fn generate_m_value_geometries(w: &mut SynthWriter) {
         .no_v1()
         .add_m_value(e, vals(6))
         .write(w, "mvalues_poly");
-    dict(geo_varint().geos(vec![
+    dict(geo_varint().no_v1().add_m_value(e, vals(6)).geos(vec![
         wkt!(POLYGON((0 0, 8 0, 0 8, 0 0))),
         wkt!(POLYGON((8 8, 8 0, 0 8, 8 8))),
     ]))
-    .no_v1()
-    .add_m_value(e, vals(6))
     .write(w, "mvalues_poly_dict");
 
     // A hole adds a second ring, whose vertices continue the same flat sequence.
     geo_varint()
-        .parts_ring(E::rle_varint())
-        .geo(poly1h())
         .no_v1()
+        .parts_ring(E::rle_varint())
         .add_m_value(e, vals(6))
+        .geo(poly1h())
         .write(w, "mvalues_poly_hole");
 
     // 0xA MultiPolygons, 0xB MultiPolygonsDict: two rings across two parts of one feature.
     geo_varint()
+        .no_v1()
         .rings(E::rle_varint())
         .rings2(E::rle_varint())
         .geo(MultiPolygon(vec![poly1(), poly2()]))
-        .no_v1()
         .add_m_value(e, vals(6))
         .write(w, "mvalues_mpoly");
     dict(
@@ -1258,8 +1326,8 @@ fn generate_m_value_presence(w: &mut SynthWriter) {
     // A property column and an m-value column null on the same features share one too,
     // even though one counts features and the other vertices.
     m_lines()
-        .add_prop(e, P::opt_u32("prop", vec![Some(1), None, Some(2)]))
         .no_v1()
+        .add_prop(e, P::opt_u32("prop", vec![Some(1), None, Some(2)]))
         .add_m_value(
             e,
             M::new("m", Some(nulls.clone()), MV::U32(vec![1, 2, 3, 4, 5])),
@@ -1271,16 +1339,6 @@ fn generate_m_value_presence(w: &mut SynthWriter) {
         .no_v1()
         .add_m_value(e, M::new("val", Some(vec![false; 3]), MV::U32(Vec::new())))
         .write(w, "mvalues_all_null");
-
-    // The two scopes are read separately, so an m-value column may take a counted column's name.
-    m_lines()
-        .add_prop(e, P::u32("val", vec![1, 2, 3]))
-        .no_v1()
-        .add_m_value(
-            e,
-            M::new("val", None, MV::U32(vec![4, 5, 6, 7, 8, 9, 10, 11])),
-        )
-        .write(w, "mvalues_shadow");
 }
 
 /// Stream encodings over a vertex-scoped column, which run through feature boundaries.

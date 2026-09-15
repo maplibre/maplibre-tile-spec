@@ -3,8 +3,8 @@ use mlt_core::{Decoder, Layer, MltError, Parser, TileLayer};
 
 /// Encode `staged` with `cfg`, then parse and decode it back to a row-oriented [`TileLayer`].
 ///
-/// Returns `None` when the wire version cannot represent the layer, e.g. a v2 column
-/// whose stream wants an encoding this version has no header for.
+/// Returns `None` when the wire version cannot represent the layer, e.g. a v2-only
+/// column under a v1 config, or a stream whose wanted encoding has no header yet.
 /// Every other encode failure is a bug and panics.
 pub fn encode_decode(staged: StagedLayer, cfg: EncoderConfig) -> Option<TileLayer> {
     let bytes = encode(staged, cfg)?;
@@ -22,7 +22,8 @@ pub fn encode(staged: StagedLayer, cfg: EncoderConfig) -> Option<Vec<u8>> {
         Err(
             MltError::NotImplemented(_)
             | MltError::MValuesNeedV2(_)
-            | MltError::MValuesNeedVertexCounts(_),
+            | MltError::MValuesNeedVertexCounts(_)
+            | MltError::NestedNeedsV2(_),
         ) => None,
         Err(e) => panic!("encode should not fail: {e}"),
     }

@@ -12,12 +12,14 @@ pub struct StagedMValue {
     pub(crate) name: String,
     /// One bit per feature, or [`None`] when every feature carries values.
     pub(crate) presence: Option<Vec<bool>>,
-    pub(crate) values: StagedMValues,
+    pub(crate) values: StagedValues,
 }
 
-/// The values of a staged m-value column, of whichever type the column holds.
+/// The flat values of one staged column, of whichever type it holds.
+///
+/// An m-value column and a nested leaf hold the same ten, so both are staged as one of these.
 #[derive(Debug, Clone, PartialEq, strum::EnumCount)]
-pub enum StagedMValues {
+pub enum StagedValues {
     Bool(Vec<bool>),
     I8(Vec<i8>),
     U8(Vec<u8>),
@@ -35,7 +37,7 @@ macro_rules! impl_staged_m_values {
         scalar { $($sv:ident),* $(,)? }
         string { $($gv:ident),* $(,)? }
     ) => {
-        impl StagedMValues {
+        impl StagedValues {
             /// How many values the column holds, over every feature that has any.
             #[must_use]
             pub fn count(&self) -> usize {
@@ -54,11 +56,7 @@ impl StagedMValue {
     /// A column of `values`, carried by every feature whose bit in `presence` is
     /// set, or by all of them when there is no mask.
     #[must_use]
-    pub fn new(
-        name: impl Into<String>,
-        presence: Option<Vec<bool>>,
-        values: StagedMValues,
-    ) -> Self {
+    pub fn new(name: impl Into<String>, presence: Option<Vec<bool>>, values: StagedValues) -> Self {
         Self {
             name: name.into(),
             presence,
@@ -72,7 +70,7 @@ impl StagedMValue {
     }
 
     #[must_use]
-    pub fn values(&self) -> &StagedMValues {
+    pub fn values(&self) -> &StagedValues {
         &self.values
     }
 
