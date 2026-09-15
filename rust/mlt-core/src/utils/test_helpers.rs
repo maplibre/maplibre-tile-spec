@@ -67,6 +67,12 @@ pub fn dec() -> Decoder {
     Decoder::default()
 }
 
+/// Decoder whose memory budget is exhausted, so every charged allocation fails.
+#[must_use]
+pub fn starved_dec() -> Decoder {
+    Decoder::with_max_size(0)
+}
+
 /// Default parser for parsing in tests.
 #[must_use]
 pub fn parser() -> Parser {
