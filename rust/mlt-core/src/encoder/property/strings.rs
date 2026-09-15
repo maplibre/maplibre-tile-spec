@@ -343,7 +343,7 @@ pub(crate) fn sort_dictionary<'a>(unique: &[&'a str]) -> MltResult<(Vec<&'a str>
 #[cfg(feature = "unstable-v2")]
 fn front_coded_dict(unique: &[&str], codes: &[u32]) -> MltResult<(FrontCoded, Vec<u32>)> {
     let (sorted, rank) = sort_dictionary(unique)?;
-    Ok((front_code(&sorted)?, recode(codes, &rank)))
+    Ok((front_code(&sorted), recode(codes, &rank)))
 }
 
 /// Renumber codes into the order [`sort_dictionary`] put their dictionary in.

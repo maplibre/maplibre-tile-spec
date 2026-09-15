@@ -169,7 +169,10 @@ mod tests {
 
     #[test]
     fn every_candidate_keeps_f_no_greater_than_e() {
-        assert!(candidates().all(|p| p.f <= p.e && p.e <= AlpScale::MAX_EXPONENT));
+        for p in candidates() {
+            assert!(p.f <= p.e, "f exceeds e in {p:?}");
+            assert!(p.e <= AlpScale::MAX_EXPONENT, "e exceeds the cap in {p:?}");
+        }
     }
 
     #[test]
