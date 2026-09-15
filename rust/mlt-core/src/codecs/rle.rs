@@ -128,7 +128,7 @@ mod tests {
 
     use super::*;
     use crate::decoder::RleMeta;
-    use crate::test_helpers::dec;
+    use crate::test_helpers::{dec, starved_dec};
 
     proptest! {
         #[test]
@@ -168,5 +168,35 @@ mod tests {
     #[test]
     fn test_decode_byte_rle_empty() {
         assert_eq!(decode_byte_rle(&[], 0, &mut dec()).unwrap(), [] as [u8; 0]);
+    }
+
+    #[test]
+    fn a_truncated_literal_run_is_rejected() {
+        let err = decode_byte_rle(&[0xFF], 1, &mut dec()).unwrap_err();
+        assert!(matches!(err, MltError::BufferUnderflow(1, 0)), "{err:?}");
+    }
+
+    #[test]
+    fn a_repeating_run_without_its_value_is_rejected() {
+        let err = decode_byte_rle(&[0x00], 3, &mut dec()).unwrap_err();
+        assert!(matches!(err, MltError::BufferUnderflow(1, 0)), "{err:?}");
+    }
+
+    #[test]
+    fn a_run_overshooting_the_declared_length_is_rejected() {
+        let err = decode_byte_rle(&[0x00, 0x41], 1, &mut dec()).unwrap_err();
+        assert!(
+            matches!(err, MltError::InvalidDecodingStreamSize(3, 1)),
+            "{err:?}"
+        );
+    }
+
+    #[test]
+    fn decoding_past_the_memory_budget_is_rejected() {
+        let err = decode_byte_rle(&[0x00, 0x41], 3, &mut starved_dec()).unwrap_err();
+        assert!(
+            matches!(err, MltError::MemoryLimitExceeded { .. }),
+            "{err:?}"
+        );
     }
 }

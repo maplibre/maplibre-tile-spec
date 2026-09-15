@@ -47,10 +47,13 @@ pub(crate) fn front_code(sorted: &[&str]) -> MltResult<FrontCoded> {
     for entry in sorted {
         let entry = entry.as_bytes();
         let shared = common_prefix_len(previous, entry);
-        coded.prefix_lengths.push(u32::try_from(shared)?);
         coded
-            .suffix_lengths
-            .push(u32::try_from(entry.len() - shared)?);
+            .prefix_lengths
+            .push(u32::try_from(shared).expect("infallible: a tile's entries fit in u32 bytes"));
+        coded.suffix_lengths.push(
+            u32::try_from(entry.len() - shared)
+                .expect("infallible: a tile's entries fit in u32 bytes"),
+        );
         coded.suffixes.extend_from_slice(&entry[shared..]);
         previous = entry;
     }
@@ -125,7 +128,10 @@ pub(crate) fn front_decode(
         entries.extend_from_within(previous_start..previous_start + shared);
         entries.extend_from_slice(suffix);
         previous_start = start;
-        entry_lengths.push(u32::try_from(shared + suffix_len)?);
+        entry_lengths.push(
+            u32::try_from(shared + suffix_len)
+                .expect("infallible: an entry is bounded by the suffix blob, which fits u32"),
+        );
     }
     if !remaining.is_empty() {
         return Err(FrontCodedTrailingSuffixBytes(remaining.len()));
@@ -143,6 +149,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+    use crate::MltError;
 
     fn decode(lengths: &[u32], suffixes: &[u8]) -> MltResult<(String, Vec<u32>)> {
         front_decode(FrontLengths::split(lengths)?, suffixes)
@@ -240,5 +247,17 @@ mod tests {
     fn decode_rejects_suffix_bytes_after_the_last_entry() {
         let err = decode(&[0, 0, 2, 1], b"abcd").unwrap_err();
         assert!(matches!(err, FrontCodedTrailingSuffixBytes(1)), "{err:?}");
+    }
+
+    #[test]
+    fn decode_rejects_an_odd_lengths_stream() {
+        let err = decode(&[0, 1, 2], b"").unwrap_err();
+        assert!(matches!(err, FrontCodedOddLengthCount(3)), "{err:?}");
+    }
+
+    #[test]
+    fn decode_rejects_a_corpus_that_is_not_utf8() {
+        let err = decode(&[0, 1], &[0xFF]).unwrap_err();
+        assert!(matches!(err, MltError::FromUtf8(_)), "{err:?}");
     }
 }

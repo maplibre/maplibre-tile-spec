@@ -186,6 +186,10 @@ coverage *args='--open': (just 'cargo-install' 'cargo-llvm-cov') (just 'java::ge
     {{just}} rust::test
     cargo llvm-cov report --include-build-script {{args}}
 
+# Report per-file region, line and condition coverage for `sources`, the MC/DC stand-in
+mcdc *sources:
+    ./scripts/mcdc.sh {{sources}}
+
 # Run the encoder with hotpath profiling (timing + allocation tracking)
 profile *args:
     cargo run --release -p mlt --features='hotpath,hotpath-alloc,hotpath-mcp' -- {{args}}

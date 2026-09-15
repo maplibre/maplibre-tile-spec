@@ -22,7 +22,7 @@ pub fn parse_varint<T: VarInt>(input: &[u8]) -> MltRefResult<'_, T> {
             Ok((&input[consumed..], value))
         }
         None => Err(MltError::BufferUnderflow(
-            u32::try_from(input.len().saturating_add(1))?,
+            u32::try_from(input.len().saturating_add(1)).unwrap_or(u32::MAX),
             input.len(),
         )),
     }
@@ -59,7 +59,9 @@ pub fn parse_varint_vec_all<T: VarInt>(mut input: &[u8], dec: &mut Decoder) -> M
         (input, val) = parse_varint::<T>(input)?;
         values.push(val);
     }
-    dec.adjust_alloc(&values, alloc_size)?;
+    dec.adjust_alloc(&values, alloc_size).expect(
+        "infallible: every varint consumes at least one byte, so values.len() <= alloc_size",
+    );
     Ok(values)
 }
 
@@ -69,7 +71,7 @@ mod tests {
 
     use super::*;
     use crate::MltResult;
-    use crate::test_helpers::dec;
+    use crate::test_helpers::{dec, starved_dec};
 
     #[rstest]
     #[case::trailing_bytes(&[0x80, 0x01, 0x42], Ok((vec![0x42_u8], 128)))]
@@ -84,8 +86,6 @@ mod tests {
     #[case::underflow(&[0x80, 0x80, 0x80], Err(MltError::BufferUnderflow(4, 3)))]
     fn test_varint_parsing(#[case] bytes: &[u8], #[case] expected: MltResult<(Vec<u8>, u32)>) {
         let actual = parse_varint::<u32>(bytes);
-        // matching because MltError cannot implement PartialEq
-        // effectively assert_eq!(actual, expected);
         match (actual, expected) {
             (Ok((v1, s1)), Ok((v2, s2))) => assert_eq!((v1, s1), (v2.as_slice(), s2)),
             (Err(actual), Err(expected)) => assert_eq!(actual.to_string(), expected.to_string()),
@@ -95,7 +95,6 @@ mod tests {
 
     #[test]
     fn test_parse_varint_vec() {
-        // Encode [1u32, 2, 3] as varints and parse back.
         let mut buf = Vec::new();
         let mut buf_tmp = vec![0u8; 10];
         for v in [1u32, 2, 3] {
@@ -106,5 +105,57 @@ mod tests {
             parse_varint_vec::<u32>(&buf, 3, &mut dec()).expect("parse_varint_vec failed");
         assert_eq!(remaining, [] as [u8; 0]);
         assert_eq!(values, [1, 2, 3]);
+    }
+
+    #[test]
+    fn parse_varint_vec_all_reads_every_varint_to_the_end() {
+        let mut buf = Vec::new();
+        let mut tmp = vec![0u8; 10];
+        for v in [1u32, 300, 70_000] {
+            let written = v.encode_var(&mut tmp);
+            buf.extend_from_slice(&tmp[..written]);
+        }
+        assert_eq!(
+            parse_varint_vec_all::<u32>(&buf, &mut dec()).unwrap(),
+            [1, 300, 70_000]
+        );
+    }
+
+    #[test]
+    fn parse_varint_vec_all_accepts_an_empty_stream() {
+        assert_eq!(
+            parse_varint_vec_all::<u32>(&[], &mut dec()).unwrap(),
+            [] as [u32; 0]
+        );
+    }
+
+    #[test]
+    fn a_truncated_varint_in_a_counted_vec_is_rejected() {
+        let err = parse_varint_vec::<u32>(&[0x80], 1, &mut dec()).unwrap_err();
+        assert!(matches!(err, MltError::BufferUnderflow(2, 1)), "{err:?}");
+    }
+
+    #[test]
+    fn a_truncated_varint_in_an_unbounded_stream_is_rejected() {
+        let err = parse_varint_vec_all::<u32>(&[0x80], &mut dec()).unwrap_err();
+        assert!(matches!(err, MltError::BufferUnderflow(2, 1)), "{err:?}");
+    }
+
+    #[test]
+    fn a_counted_vec_past_the_memory_budget_is_rejected() {
+        let err = parse_varint_vec::<u32>(&[1, 2], 2, &mut starved_dec()).unwrap_err();
+        assert!(
+            matches!(err, MltError::MemoryLimitExceeded { .. }),
+            "{err:?}"
+        );
+    }
+
+    #[test]
+    fn an_unbounded_stream_past_the_memory_budget_is_rejected() {
+        let err = parse_varint_vec_all::<u32>(&[1, 2], &mut starved_dec()).unwrap_err();
+        assert!(
+            matches!(err, MltError::MemoryLimitExceeded { .. }),
+            "{err:?}"
+        );
     }
 }

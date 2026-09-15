@@ -116,6 +116,13 @@ fn encoding_byte(logical: LogicalCombination, physical: PhysicalEncoding) -> Mlt
                 "v1, whose FastPFor streams are 256-value big-endian blocks",
             ));
         }
+        #[cfg(feature = "unstable-v2")]
+        PhysicalEncoding::BitPacked => {
+            return Err(MltError::UnsupportedPhysicalEncodingForType(
+                physical,
+                "v1, which has no bit-packed streams",
+            ));
+        }
     };
     Ok(logical as u8 | field as u8)
 }

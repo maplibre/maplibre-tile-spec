@@ -4,7 +4,6 @@ use usize_cast::IntoUsize as _;
 use crate::MltError::{BufferUnderflow, UnsupportedPhysicalEncoding};
 use crate::codecs::fastpfor::decode_fastpfor;
 use crate::decoder::FastPForKind;
-use crate::utils::take;
 use crate::{Decoder, MltRefResult, MltResult};
 
 /// Pack bools into bytes where each byte represents 8 booleans.
@@ -27,6 +26,10 @@ pub trait PhysicalWord: Copy + Sized + VarInt {
     /// Read one little-endian word from exactly `size_of::<Self>()` bytes.
     fn from_le_word(bytes: &[u8]) -> Self;
 
+    /// Narrow a value the caller has already bounded to this word's width.
+    #[cfg(feature = "unstable-v2")]
+    fn from_u64(value: u64) -> Self;
+
     /// Physically decode a `FastPFOR`-compressed stream into `Vec<Self>`.
     /// `FastPFOR` only supports `u32`; the `u64` implementation returns an error.
     fn decode_fastpfor(
@@ -41,6 +44,16 @@ impl PhysicalWord for u32 {
     #[inline]
     fn from_le_word(bytes: &[u8]) -> Self {
         Self::from_le_bytes(bytes.try_into().expect("infallible: 4-byte chunk"))
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[inline]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "the caller bounds the value to this word's width"
+    )]
+    fn from_u64(value: u64) -> Self {
+        value as Self
     }
 
     fn decode_fastpfor(
@@ -59,6 +72,12 @@ impl PhysicalWord for u64 {
         Self::from_le_bytes(bytes.try_into().expect("infallible: 8-byte chunk"))
     }
 
+    #[cfg(feature = "unstable-v2")]
+    #[inline]
+    fn from_u64(value: u64) -> Self {
+        value
+    }
+
     fn decode_fastpfor(
         _data: &[u8],
         _num_values: u32,
@@ -73,7 +92,7 @@ impl PhysicalWord for u64 {
 /// Returns the remaining (unconsumed) input alongside the decoded values.
 /// TODO: ensure the entire input is consumed, and don't return it?
 pub fn decode_bytes_to_words<'a, T: PhysicalWord>(
-    mut input: &'a [u8],
+    input: &'a [u8],
     num_values: u32,
     dec: &mut Decoder,
 ) -> MltRefResult<'a, Vec<T>> {
@@ -88,10 +107,9 @@ pub fn decode_bytes_to_words<'a, T: PhysicalWord>(
     let alloc_size = num_values.into_usize();
     let mut values = dec.alloc(alloc_size)?;
 
-    for _ in 0..num_values {
-        let (new_input, bytes) = take(input, width)?;
+    let (words, input) = input.split_at(expected_bytes.into_usize());
+    for bytes in words.chunks_exact(width.into_usize()) {
         values.push(T::from_le_word(bytes));
-        input = new_input;
     }
 
     debug_assert_length(&values, alloc_size);
@@ -114,7 +132,7 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
-    use crate::test_helpers::{assert_empty, dec};
+    use crate::test_helpers::{assert_empty, dec, starved_dec};
 
     proptest! {
         #[test]
@@ -148,15 +166,12 @@ mod tests {
 
     #[test]
     fn test_bytes_to_u32s_valid() {
-        // Little-endian representation:
-        // [0x04, 0x03, 0x02, 0x01] -> 0x01020304
-        // [0xDD, 0xCC, 0xBB, 0xAA] -> 0xAABBCCDD
         let bytes: [u8; 8] = [0x04, 0x03, 0x02, 0x01, 0xDD, 0xCC, 0xBB, 0xAA];
         let u32s = assert_empty(decode_bytes_to_words::<u32>(&bytes, 2, &mut dec()));
         assert_eq!(
             u32s,
             vec![0x0102_0304, 0xAABB_CCDD],
-            "Decoded values should match"
+            "each 4-byte group reads little-endian"
         );
     }
 
@@ -172,7 +187,6 @@ mod tests {
 
     #[test]
     fn test_bytes_to_u32s_buffer_underflow() {
-        // Only 4 bytes but requesting 2 values (8 bytes needed)
         let bytes = [0x01, 0x02, 0x03, 0x04];
         let res = decode_bytes_to_words::<u32>(&bytes, 2, &mut dec());
         assert!(
@@ -183,7 +197,6 @@ mod tests {
 
     #[test]
     fn test_bytes_to_u32s_partial_consumption() {
-        // 12 bytes (3 values) but only requesting 2 values
         let bytes: [u8; 12] = [
             0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C,
         ];
@@ -209,6 +222,33 @@ mod tests {
         let expected = (&[][..], vec![1, 2]);
         let decoded = decode_bytes_to_words::<u64>(&bytes, 2, &mut dec()).unwrap();
         assert_eq!(decoded, expected);
+    }
+
+    #[test]
+    fn a_value_count_whose_byte_length_overflows_is_rejected() {
+        let err = decode_bytes_to_words::<u32>(&[0, 0, 0, 0], u32::MAX, &mut dec()).unwrap_err();
+        assert!(matches!(err, BufferUnderflow(u32::MAX, 4)), "{err:?}");
+    }
+
+    #[test]
+    fn decoding_past_the_memory_budget_is_rejected() {
+        let bytes: [u8; 8] = [0; 8];
+        let err = decode_bytes_to_words::<u32>(&bytes, 2, &mut starved_dec()).unwrap_err();
+        assert!(
+            matches!(err, crate::MltError::MemoryLimitExceeded { .. }),
+            "{err:?}"
+        );
+    }
+
+    #[test]
+    fn fastpfor_decoding_into_u64_words_is_unsupported() {
+        let err =
+            <u64 as PhysicalWord>::decode_fastpfor(&[], 0, FastPForKind::Block256Be, &mut dec())
+                .unwrap_err();
+        assert!(
+            matches!(err, UnsupportedPhysicalEncoding("FastPFOR decoding u64")),
+            "{err:?}"
+        );
     }
 
     #[test]

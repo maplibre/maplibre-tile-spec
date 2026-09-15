@@ -1,0 +1,101 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "name:de": "AAAAAAAAAAAAAAAAAAAAAAAAAAAA_zone_0",
+        "name:en": "AAAAAAAAAAAAAAAAAAAAAAAAAAAA_zone_1"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "name:de": "AAAAAAAAAAAAAAAAAAAAAAAAAAAA_zone_1",
+        "name:en": "AAAAAAAAAAAAAAAAAAAAAAAAAAAA_zone_2"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "name:de": "AAAAAAAAAAAAAAAAAAAAAAAAAAAA_zone_2",
+        "name:en": "AAAAAAAAAAAAAAAAAAAAAAAAAAAA_zone_0"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "name:de": "AAAAAAAAAAAAAAAAAAAAAAAAAAAA_zone_0",
+        "name:en": "AAAAAAAAAAAAAAAAAAAAAAAAAAAA_zone_1"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "name:de": "AAAAAAAAAAAAAAAAAAAAAAAAAAAA_zone_1",
+        "name:en": "AAAAAAAAAAAAAAAAAAAAAAAAAAAA_zone_2"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "name:de": "AAAAAAAAAAAAAAAAAAAAAAAAAAAA_zone_2",
+        "name:en": "AAAAAAAAAAAAAAAAAAAAAAAAAAAA_zone_0"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13,
+          42
+        ]
+      }
+    }
+  ]
+}
