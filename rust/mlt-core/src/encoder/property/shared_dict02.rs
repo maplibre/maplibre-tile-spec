@@ -44,7 +44,7 @@ impl Codecs {
         // Front coding needs the entries sorted, which renumbers every child's codes with them.
         let (sorted_entries, rank) = sort_dictionary(&plain.entries)?;
         let sorted_codes: Vec<Vec<u32>> = plain.codes.iter().map(|c| recode(c, &rank)).collect();
-        let front = front_code(&sorted_entries)?;
+        let front = front_code(&sorted_entries);
 
         // FSST is trained on what it compresses: the entries for a plain dictionary,
         // the suffixes for a front-coded one.
