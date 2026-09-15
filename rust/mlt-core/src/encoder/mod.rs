@@ -11,6 +11,8 @@ pub(crate) mod model;
 mod mvalue;
 #[cfg(feature = "unstable-v2")]
 mod nested;
+#[cfg(feature = "unstable-v2")]
+mod nested_dict;
 mod optimizer;
 mod property;
 mod sort;

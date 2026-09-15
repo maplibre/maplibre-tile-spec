@@ -18,6 +18,8 @@ pub fn annotate_tile(buf: &[u8]) -> MltResult<DumpTree> {
         out: Vec::new(),
         depth: 0,
         parser: Parser::default(),
+        #[cfg(feature = "unstable-v2")]
+        shared_leaves: 0,
     };
     w.walk_tile()?;
     Ok(DumpTree {
@@ -32,6 +34,10 @@ pub(super) struct Walker<'a> {
     pub(super) depth: usize,
     /// Throwaway budget for the authoritative stream-header parsers.
     pub(super) parser: Parser,
+    /// Leaves of the nested column being walked that index a corpus, which is what says
+    /// the column trails a corpus section at all.
+    #[cfg(feature = "unstable-v2")]
+    pub(super) shared_leaves: usize,
 }
 
 impl<'a> Walker<'a> {

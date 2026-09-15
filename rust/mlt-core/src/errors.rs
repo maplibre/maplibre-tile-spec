@@ -141,6 +141,9 @@ pub enum MltError {
     #[error("nested column {0} has a scalar root, which is an ordinary column")]
     NestedRootIsLeaf(String),
     #[cfg(feature = "unstable-v2")]
+    #[error("a nested leaf indexes corpus {index}, but its column holds {len}")]
+    NestedCorpusOutOfRange { index: u32, len: usize },
+    #[cfg(feature = "unstable-v2")]
     #[error("a nested column is {0} levels deep, more than the 8 the format allows")]
     NestedTooDeep(usize),
     #[cfg(feature = "unstable-v2")]

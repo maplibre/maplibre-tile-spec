@@ -20,7 +20,7 @@ use std::collections::HashMap;
 
 use integer_encoding::VarIntWriter as _;
 
-use crate::decoder::stream::header02::{Count02, Family};
+use crate::decoder::stream::header02::{Count02, Family, StrLayout};
 use crate::decoder::{
     BoolLogical, ColumnType02, DataType02, DictionaryType, LayerLayout, LengthType,
     LogicalEncoding, NodeKind02, NodePresence, NodeType02, PhysicalEncoding, Presence02,
@@ -28,13 +28,14 @@ use crate::decoder::{
 };
 use crate::encoder::geometry::encode02::encode_geometry02;
 use crate::encoder::model::{StagedLayer, StrAt, StreamCtx};
+use crate::encoder::nested_dict::{NestedDicts, SharedLeaf};
 use crate::encoder::{
     Codecs, Encoder, StagedId, StagedInterior, StagedLeaf, StagedMValue, StagedNested, StagedNode,
     StagedOptScalar, StagedProperty, StagedSharedDictItem, StagedStrings, StagedValues,
     write_stream_payload,
 };
 use crate::utils::BinarySerializer as _;
-use crate::{MltError, MltResult};
+use crate::{MltError, MltResult, OffsetType};
 
 /// The presence masks the layer stores once for several columns to read.
 ///
@@ -568,12 +569,19 @@ fn write_nested02(
     codecs: &mut Codecs,
 ) -> MltResult<()> {
     let name = column.name();
-    let Some(as_map) = column.root.as_map() else {
-        return write_nested_root02(name, &column.root, shared, enc, codecs);
-    };
+    let planned = NestedDicts::plan(std::slice::from_ref(column));
+    let alone = NestedDicts::default();
+    let as_map = column.root.as_map();
+
     let mut alt = enc.try_alternatives();
-    alt.with(|enc| write_nested_root02(name, &column.root, shared, enc, codecs))?;
-    alt.with(|enc| write_nested_root02(name, &as_map, shared, enc, codecs))?;
+    for root in [Some(&column.root), as_map.as_ref()].into_iter().flatten() {
+        alt.with(|enc| write_nested_root02(name, root, shared, enc, codecs, &alone))?;
+        // A shape that indexes no corpus writes what the plain candidate already wrote.
+        let dicts = planned.restrict(name, root);
+        if !dicts.is_empty() {
+            alt.with(|enc| write_nested_root02(name, root, shared, enc, codecs, &dicts))?;
+        }
+    }
     Ok(())
 }
 
@@ -587,6 +595,7 @@ fn write_nested_root02(
     shared: &SharedPresence,
     enc: &mut Encoder,
     codecs: &mut Codecs,
+    dicts: &NestedDicts,
 ) -> MltResult<()> {
     let presence = root.presence();
     let nibble = presence.map_or(Presence02::AllPresent, |mask| shared.nibble_for(mask));
@@ -604,9 +613,23 @@ fn write_nested_root02(
         },
     };
     enc.count_context = body_context02(root, Count02::Implied(values));
-    let result = write_interior02(root, name, "", enc, codecs);
+    let result = write_interior02(root, name, "", enc, codecs, dicts);
     enc.count_context = outer;
-    result
+    result?;
+
+    // The corpora this column's leaves index, so the shape race costs each candidate whole.
+    // They trail the body, which is what lets a column that shares nothing write the bytes
+    // it wrote before this existed: only a shared leaf says the section is there at all.
+    if !dicts.is_empty() {
+        enc.count_context = Count02::Explicit;
+        enc.data_mut()
+            .write_varint(u32::try_from(dicts.corpora.len())?)?;
+        for corpus in &dicts.corpora {
+            codecs.write_nested_corpus02(corpus, enc)?;
+        }
+        enc.count_context = outer;
+    }
+    Ok(())
 }
 
 /// What a node's body is counted against: nothing, once a lengths stream sits on
@@ -646,17 +669,18 @@ fn write_node02(
     field: Option<&str>,
     enc: &mut Encoder,
     codecs: &mut Codecs,
+    dicts: &NestedDicts,
 ) -> MltResult<()> {
     let as_map = match node {
         StagedNode::Interior(interior) => interior.as_map().map(StagedNode::Interior),
         StagedNode::Leaf(_) => None,
     };
     let Some(as_map) = as_map else {
-        return write_node_shape02(node, column, path, field, enc, codecs);
+        return write_node_shape02(node, column, path, field, enc, codecs, dicts);
     };
     let mut alt = enc.try_alternatives();
-    alt.with(|enc| write_node_shape02(node, column, path, field, enc, codecs))?;
-    alt.with(|enc| write_node_shape02(&as_map, column, path, field, enc, codecs))?;
+    alt.with(|enc| write_node_shape02(node, column, path, field, enc, codecs, dicts))?;
+    alt.with(|enc| write_node_shape02(&as_map, column, path, field, enc, codecs, dicts))?;
     Ok(())
 }
 
@@ -672,15 +696,23 @@ fn write_node_shape02(
     field: Option<&str>,
     enc: &mut Encoder,
     codecs: &mut Codecs,
+    dicts: &NestedDicts,
 ) -> MltResult<()> {
     let presence = match node {
         StagedNode::Interior(interior) => interior.presence(),
         StagedNode::Leaf(leaf) => leaf.presence.as_ref(),
     };
-    let node_presence = if presence.is_some() {
-        NodePresence::Stream
-    } else {
-        NodePresence::AllPresent
+    // A string leaf the plan holds writes its codes into a corpus column instead of a
+    // dictionary of its own, which the two shared presence nibbles say on the type byte.
+    let link =
+        matches!(node, StagedNode::Leaf(leaf) if matches!(leaf.values, StagedValues::Str(_)))
+            .then(|| dicts.get(column, path))
+            .flatten();
+    let node_presence = match (link.is_some(), presence.is_some()) {
+        (false, false) => NodePresence::AllPresent,
+        (false, true) => NodePresence::Stream,
+        (true, false) => NodePresence::SharedAllPresent,
+        (true, true) => NodePresence::SharedStream,
     };
     let kind = node_kind02(node);
     enc.data_mut()
@@ -703,12 +735,13 @@ fn write_node_shape02(
         Count02::Explicit => Count02::Explicit,
         Count02::Implied(_) => Count02::Implied(u32::try_from(node.present_count())?),
     };
-    let result = match node {
-        StagedNode::Interior(interior) => {
+    let result = match (link, node) {
+        (Some(link), _) => write_shared_leaf02(link, column, path, enc, codecs),
+        (None, StagedNode::Interior(interior)) => {
             enc.count_context = body_context02(interior, enc.count_context);
-            write_interior02(interior, column, path, enc, codecs)
+            write_interior02(interior, column, path, enc, codecs, dicts)
         }
-        StagedNode::Leaf(leaf) => write_leaf02(leaf, column, path, enc, codecs),
+        (None, StagedNode::Leaf(leaf)) => write_leaf02(leaf, column, path, enc, codecs),
     };
     enc.count_context = parent;
     result
@@ -721,6 +754,7 @@ fn write_interior02(
     path: &str,
     enc: &mut Encoder,
     codecs: &mut Codecs,
+    dicts: &NestedDicts,
 ) -> MltResult<()> {
     match interior {
         StagedInterior::Struct(node) => {
@@ -733,7 +767,7 @@ fn write_interior02(
             for (name, field) in &node.fields {
                 enc.count_context = fields;
                 let path = format!("{path}.{name}");
-                write_node02(field, column, &path, Some(name), enc, codecs)?;
+                write_node02(field, column, &path, Some(name), enc, codecs, dicts)?;
             }
             enc.count_context = fields;
             Ok(())
@@ -747,6 +781,7 @@ fn write_interior02(
                 None,
                 enc,
                 codecs,
+                dicts,
             )
         }
         StagedInterior::Map(node) => {
@@ -760,6 +795,7 @@ fn write_interior02(
                 None,
                 enc,
                 codecs,
+                dicts,
             )
         }
     }
@@ -776,6 +812,22 @@ fn write_lengths02(
     enc.family_context = Family::Int;
     let ctx = StreamCtx::prop2(StreamType::Length(LengthType::Nested), column, path);
     codecs.write_int_stream(lengths, &ctx, enc)
+}
+
+/// Write a shared leaf's body: which corpus column its codes index, then the codes.
+fn write_shared_leaf02(
+    link: &SharedLeaf,
+    column: &str,
+    path: &str,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    enc.data_mut().write_varint(link.corpus)?;
+    let ctx = StreamCtx::prop2(StreamType::Offset(OffsetType::String), column, path);
+    enc.family_context = Family::Str(StrLayout::Dict);
+    let result = codecs.write_int_stream(&link.codes, &ctx, enc);
+    enc.family_context = Family::Int;
+    result
 }
 
 /// Write a leaf's data streams, which are the ones a column of its type holds.

@@ -207,18 +207,101 @@ impl<'a> Walker<'a> {
         };
         let (input, presence_count) = self.walk_column_header02(input, column, typ)?;
         let input = match nested_root02(typ.data) {
-            // A nested column's body is a tree of nodes rather than a stream set.
+            // A nested column's body is a tree of nodes rather than a stream set,
+            // trailed by the corpora its string leaves index, where any of them do.
             Some(root) => {
                 let count = if root.has_lengths() {
                     Count02::Explicit
                 } else {
                     Count02::Implied(presence_count)
                 };
-                self.walk_nested_body02(input, root, count, 1)?
+                self.shared_leaves = 0;
+                let mut input = self.walk_nested_body02(input, root, count, 1)?;
+                if self.shared_leaves > 0 {
+                    let corpus_count;
+                    (input, corpus_count) =
+                        self.field(input, "corpus_count", parse_varint::<u32>, |c| {
+                            Some(c.to_string())
+                        })?;
+                    for c in 0..corpus_count {
+                        input = self.walk_nested_corpus02(input, c)?;
+                    }
+                }
+                input
             }
             None => self.walk_value_streams02(input, typ, Count02::Implied(presence_count))?,
         };
         self.close(ci, input);
+        Ok(input)
+    }
+
+    /// The corpus streams a shared dictionary ends with, in either of its two encodings.
+    ///
+    /// They mirror a lone string column's dictionary tail. Nothing implies the entry count,
+    /// so each stream writes its own.
+    fn walk_dict_tail02(
+        &mut self,
+        mut input: &'a [u8],
+        kind: SharedDictKind,
+    ) -> MltResult<&'a [u8]> {
+        (input, _) = self.walk_stream02(
+            input,
+            StreamCtx02::StrDictLengths,
+            Count02::Explicit,
+            "dict_lengths",
+            DecodeHint::U32,
+        )?;
+        if matches!(kind, SharedDictKind::Fsst | SharedDictKind::CorpusFsst) {
+            (input, _) = self.walk_stream02(
+                input,
+                StreamCtx02::StrSymbolLengths,
+                Count02::Explicit,
+                "symbol_lengths",
+                DecodeHint::U32,
+            )?;
+            (input, _) = self.walk_stream02(
+                input,
+                StreamCtx02::StrBlob(DictionaryType::Fsst),
+                Count02::Explicit,
+                "symbol_table",
+                DecodeHint::Bytes,
+            )?;
+        }
+        let name = if matches!(kind, SharedDictKind::Fsst | SharedDictKind::CorpusFsst) {
+            "corpus"
+        } else {
+            "dict_values"
+        };
+        let (input, _) = self.walk_stream02(
+            input,
+            StreamCtx02::StrBlob(DictionaryType::Shared),
+            Count02::Explicit,
+            name,
+            DecodeHint::Bytes,
+        )?;
+        Ok(input)
+    }
+
+    /// Mirror `parse_nested_corpus`: one corpus a column's string leaves index by position.
+    ///
+    /// It reads what a shared-dictionary column's corpus reads, and nothing else.
+    fn walk_nested_corpus02(&mut self, input: &'a [u8], i: u32) -> MltResult<&'a [u8]> {
+        let di = self.open(input, format!("corpus[{i}]"));
+        let (_, typ_byte) = parse_u8(input)?;
+        let Column02::SharedDict(kind) = Column02::parse(typ_byte, 0)? else {
+            return Err(MltError::ParsingColumnType(typ_byte));
+        };
+        let (mut input, _) = self.byte_field(
+            input,
+            "type",
+            |b| format!("0x{b:02X} {kind:?} SharedDict"),
+            shared_dict_type_bits02,
+        )?;
+        let name;
+        (input, name) = self.field(input, "name", parse_string, |s| Some(format!("{s:?}")))?;
+        self.relabel(di, format!("corpus[{i}] {name:?}"));
+        input = self.walk_dict_tail02(input, kind)?;
+        self.close(di, input);
         Ok(input)
     }
 
@@ -306,7 +389,7 @@ impl<'a> Walker<'a> {
             _ => parent_count,
         };
         let mut present = node_count;
-        if typ.presence == NodePresence::Stream {
+        if typ.presence.has_stream() {
             let ctx = StreamCtx02::NestedPresence;
             let (_, stream) = header02::parse_stream(input, ctx, node_count, &mut self.parser)?;
             let popcount = presence_popcount(&stream)?;
@@ -315,6 +398,18 @@ impl<'a> Walker<'a> {
             if node_count != Count02::Explicit {
                 present = Count02::Implied(popcount);
             }
+        }
+        // A shared leaf holds no dictionary of its own: the corpus column it indexes,
+        // then its codes into that corpus.
+        if typ.presence.is_shared() {
+            self.shared_leaves += 1;
+            let (mut input, _) = self.field(input, "corpus_index", parse_varint::<u32>, |c| {
+                Some(c.to_string())
+            })?;
+            let ctx = StreamCtx02::StrData(StrLayout::Dict);
+            (input, _) = self.walk_stream02(input, ctx, present, "codes", DecodeHint::U32)?;
+            self.close(ni, input);
+            return Ok(input);
         }
         let input = match typ.data {
             NodeKind02::Leaf(values) => {
@@ -482,61 +577,15 @@ impl<'a> Walker<'a> {
         let name;
         (input, name) = self.field(input, "name", parse_string, |s| Some(format!("{s:?}")))?;
         self.relabel(ci, format!("column[{i}] SharedDict {name:?}"));
-        let child_count;
-        (input, child_count) = self.field(input, "child_count", parse_varint::<u32>, |c| {
-            Some(c.to_string())
-        })?;
-
-        // The corpus streams mirror a lone string column's dictionary tail. Nothing
-        // implies the dictionary's entry count, so each writes its own.
-        match kind {
-            SharedDictKind::Plain => {
-                (input, _) = self.walk_stream02(
-                    input,
-                    StreamCtx02::StrDictLengths,
-                    Count02::Explicit,
-                    "dict_lengths",
-                    DecodeHint::U32,
-                )?;
-                (input, _) = self.walk_stream02(
-                    input,
-                    StreamCtx02::StrBlob(DictionaryType::Shared),
-                    Count02::Explicit,
-                    "dict_values",
-                    DecodeHint::Bytes,
-                )?;
-            }
-            SharedDictKind::Fsst => {
-                (input, _) = self.walk_stream02(
-                    input,
-                    StreamCtx02::StrDictLengths,
-                    Count02::Explicit,
-                    "dict_lengths",
-                    DecodeHint::U32,
-                )?;
-                (input, _) = self.walk_stream02(
-                    input,
-                    StreamCtx02::StrSymbolLengths,
-                    Count02::Explicit,
-                    "symbol_lengths",
-                    DecodeHint::U32,
-                )?;
-                (input, _) = self.walk_stream02(
-                    input,
-                    StreamCtx02::StrBlob(DictionaryType::Fsst),
-                    Count02::Explicit,
-                    "symbol_table",
-                    DecodeHint::Bytes,
-                )?;
-                (input, _) = self.walk_stream02(
-                    input,
-                    StreamCtx02::StrBlob(DictionaryType::Shared),
-                    Count02::Explicit,
-                    "corpus",
-                    DecodeHint::Bytes,
-                )?;
-            }
+        // A corpus-only column has no children; nodes elsewhere index it by column order.
+        let mut child_count = 0;
+        if !kind.is_corpus_only() {
+            (input, child_count) = self.field(input, "child_count", parse_varint::<u32>, |c| {
+                Some(c.to_string())
+            })?;
         }
+
+        input = self.walk_dict_tail02(input, kind)?;
 
         let shared_count = u8::try_from(shared.len())?;
         for child in 0..child_count {
