@@ -7,6 +7,8 @@ mod fuzzing;
 mod geometry;
 mod id;
 pub(crate) mod model;
+#[cfg(feature = "unstable-v2")]
+mod mvalue;
 mod optimizer;
 mod property;
 mod sort;
@@ -31,6 +33,10 @@ pub use model::{
 pub use model::{EncodedUnknown, EncoderConfig};
 #[cfg(all(test, not(feature = "__private")))]
 pub(crate) use model::{ExplicitEncoder, FloatEncoding, StagedLayer, StrEncoding};
+#[cfg(all(feature = "unstable-v2", not(feature = "__private")))]
+pub(crate) use mvalue::{StagedMValue, StagedMValues};
+#[cfg(all(feature = "unstable-v2", feature = "__private"))]
+pub use mvalue::{StagedMValue, StagedMValues};
 #[cfg(any(test, feature = "__private"))]
 pub use optimizer::Presence;
 pub(crate) use property::*;

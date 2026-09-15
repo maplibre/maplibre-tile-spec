@@ -1,13 +1,14 @@
 use std::collections::{HashMap, HashSet};
 use std::fs::{File, OpenOptions};
 use std::io;
+use std::panic::Location;
 use std::path::Path;
 
 use mlt_core::GeometryValues;
 use mlt_core::encoder::{
     Codecs, ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, FloatEncoding, IntEncoder,
-    Presence, StagedId, StagedLayer, StagedProperty, StagedSharedDict, StrEncoding, StreamCtx,
-    VertexBufferType, WireVersion,
+    Presence, StagedId, StagedLayer, StagedMValue, StagedProperty, StagedSharedDict, StrEncoding,
+    StreamCtx, VertexBufferType, WireVersion,
 };
 use mlt_core::geo_types::{Coord, Geometry};
 use mlt_core::wire::{LengthType, OffsetType, StreamType};
@@ -166,6 +167,8 @@ pub struct Layer {
     force_empty_streams: HashSet<&'static str>,
     geometry_items: Vec<Geometry<i32>>,
     props: Vec<(StagedProperty, PropConfig)>,
+    /// Vertex-scoped columns, which only v2 can hold.
+    m_values: Vec<(StagedMValue, PropConfig)>,
     extent: Option<u32>,
     ids: Option<(StagedId, IntEncoder)>,
     versions: &'static [WireVersion],
@@ -181,6 +184,7 @@ impl Layer {
             force_empty_streams: HashSet::new(),
             geometry_items: vec![],
             props: vec![],
+            m_values: vec![],
             extent: None,
             versions: &[WireVersion::V01, WireVersion::V02],
             ids: None,
@@ -189,10 +193,29 @@ impl Layer {
 
     /// Skip encoding this layer as v2 (tag `0x02`).
     #[must_use]
+    #[track_caller]
     pub fn no_v2(mut self) -> Self {
-        assert!(self.versions().contains(&WireVersion::V02));
+        assert!(
+            self.versions().contains(&WireVersion::V02),
+            "v2 must be enabled to be disabled. Called from {}",
+            Location::caller()
+        );
         assert_eq!(self.versions().len(), 2);
         self.versions = &[WireVersion::V01];
+        self
+    }
+
+    /// Skip encoding this layer as v1 (tag `0x01`).
+    #[must_use]
+    #[track_caller]
+    pub fn no_v1(mut self) -> Self {
+        assert!(
+            self.versions().contains(&WireVersion::V01),
+            "v1 must be enabled to be disabled. Called from {}",
+            Location::caller()
+        );
+        assert_eq!(self.versions().len(), 2);
+        self.versions = &[WireVersion::V02];
         self
     }
 
@@ -399,6 +422,80 @@ impl Layer {
         self
     }
 
+    /// Add a vertex-scoped column, which holds one value per vertex of every feature it is not null on.
+    #[must_use]
+    #[track_caller]
+    pub fn add_m_value(mut self, enc: IntEncoder, m_value: StagedMValue) -> Self {
+        assert!(
+            !self.versions().contains(&WireVersion::V01),
+            "v1 does not support m-values. Called from {}",
+            Location::caller()
+        );
+        self.m_values.push((m_value, PropConfig::Scalar(enc)));
+        self
+    }
+
+    /// Add a vertex-scoped float column whose logical encoding is pinned rather than costed.
+    #[must_use]
+    #[track_caller]
+    pub fn add_m_value_float(
+        mut self,
+        enc: IntEncoder,
+        float_enc: FloatEncoding,
+        m_value: StagedMValue,
+    ) -> Self {
+        assert!(
+            !self.versions().contains(&WireVersion::V01),
+            "v1 does not support m-values. Called from {}",
+            Location::caller()
+        );
+        self.m_values
+            .push((m_value, PropConfig::Float { enc, float_enc }));
+        self
+    }
+
+    /// Add a vertex-scoped Dictionary string column.
+    #[must_use]
+    #[track_caller]
+    pub fn add_m_value_str_dict(
+        mut self,
+        string_lengths: IntEncoder,
+        offsets: IntEncoder,
+        m_value: StagedMValue,
+    ) -> Self {
+        assert!(
+            !self.versions().contains(&WireVersion::V01),
+            "v1 does not support m-values. Called from {}",
+            Location::caller()
+        );
+        self.m_values.push((
+            m_value,
+            PropConfig::StrDict {
+                string_lengths,
+                offsets,
+            },
+        ));
+        self
+    }
+
+    /// Add a vertex-scoped FSST-compressed string column.
+    #[must_use]
+    pub fn add_m_value_str_fsst(
+        mut self,
+        sym_lengths: IntEncoder,
+        dict_lengths: IntEncoder,
+        m_value: StagedMValue,
+    ) -> Self {
+        self.m_values.push((
+            m_value,
+            PropConfig::StrFsst {
+                sym_lengths,
+                dict_lengths,
+            },
+        ));
+        self
+    }
+
     /// Add a shared dictionary column.
     #[must_use]
     pub fn add_shared_dict(mut self, shared_dict: SharedDict) -> Self {
@@ -477,6 +574,7 @@ impl Layer {
             force_empty_streams,
             geometry_items,
             props,
+            m_values,
             extent,
             ids,
             versions: _,
@@ -504,6 +602,11 @@ impl Layer {
         let prop_map: HashMap<String, PropConfig> = props
             .iter()
             .map(|(p, c)| (p.name().to_string(), c.clone()))
+            .chain(
+                m_values
+                    .iter()
+                    .map(|(m, c)| (m.name().to_string(), c.clone())),
+            )
             .collect();
 
         let cfg = ExplicitEncoder {
@@ -542,12 +645,13 @@ impl Layer {
         };
 
         let mut codecs = Codecs::default();
-        StagedLayer::new(
+        StagedLayer::with_m_values(
             "layer1",
             extent.unwrap_or(80),
             id,
             geometry,
             props.into_iter().map(|(p, _)| p).collect(),
+            m_values.into_iter().map(|(m, _)| m).collect(),
         )?
         .encode_into(Encoder::with_explicit(enc_cfg, cfg), &mut codecs)?
         .into_layer_bytes()

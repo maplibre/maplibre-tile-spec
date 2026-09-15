@@ -152,6 +152,24 @@ impl Family {
     }
 }
 
+/// What a v2 stream takes as its value count where its own header carries none.
+///
+/// Which of the two a stream was written against is what the encoding byte's
+/// `has_explicit_count` bit records, so one choice drives both directions.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Count02 {
+    /// The count context implies: the layer's `feature_count`, or the presence
+    /// popcount of an optional column's data stream.
+    Implied(u32),
+    /// Context implies no count, as for an m-value column or a shared dictionary's
+    /// corpus, so each of those streams carries its own.
+    ///
+    /// The default, since a stream that writes its own count is readable whatever
+    /// context it is written in.
+    #[default]
+    Explicit,
+}
+
 /// What a v2 stream holds.
 /// The context that fixes both its [`Family`] and the [`StreamType`] its position implies.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -744,15 +762,15 @@ fn wire_fields(encoding: IntEncoding, family: Family) -> MltResult<(Logical, u8)
 ///
 /// - `ctx` fixes both the stream's role, which v2 does not store, and the
 ///   [`Family`] its logical field is numbered in.
-/// - `implicit_count` is the count implied by context: `feature_count`, or the
-///   presence popcount for an optional column's data stream.
+/// - `count` is what the stream is read against where its header carries no count
+///   of its own, which only a [`Count02::Implied`] one can supply.
 ///
 /// Reserves an upper-bound estimate of decoded bytes (`num_values * 8`) on the
 /// parser, mirroring the v1 codec.
 pub(crate) fn parse_stream<'a>(
     input: &'a [u8],
     ctx: StreamCtx02,
-    implicit_count: u32,
+    count: Count02,
     parser: &mut Parser,
 ) -> MltRefResult<'a, RawStream<'a>> {
     let (input, enc_byte) = parse_u8(input)?;
@@ -764,17 +782,24 @@ pub(crate) fn parse_stream<'a>(
     if explicit && family == Family::Bytes {
         return Err(MltError::ParsingEncodingByte(enc_byte));
     }
-    let (input, num_values) = if explicit {
-        parse_varint::<u32>(input)?
+    let (input, wire_count) = if explicit {
+        let (input, wire_count) = parse_varint::<u32>(input)?;
+        (input, Some(wire_count))
     } else {
-        (input, implicit_count)
+        (input, None)
     };
 
     let (input, byte_length) = parse_varint::<u32>(input)?;
-    let num_values = if family == Family::Bytes {
-        byte_length
-    } else {
-        num_values
+    let num_values = match (family, wire_count) {
+        // A blob's count is its byte length, which every blob writes.
+        (Family::Bytes, _) => byte_length,
+        (_, Some(wire_count)) => wire_count,
+        (_, None) => match count {
+            Count02::Implied(count) => count,
+            Count02::Explicit => {
+                return Err(MltError::StreamWithoutCount(ctx.stream_type(), enc_byte));
+            }
+        },
     };
     // Reserve decoded memory upper bound: a blob decodes to its own bytes, any other stream to a u64 per value.
     parser.reserve(if family == Family::Bytes {
@@ -790,8 +815,9 @@ pub(crate) fn parse_stream<'a>(
 
 /// Serialize a v2 stream header for `meta`, numbering its logical field in `family`.
 ///
-/// `implicit_count` is the count the decoder will infer from context; an
-/// explicit count varint is emitted only when `meta.num_values` differs.
+/// `count` is what the decoder will read this stream against where its header
+/// carries no count; an explicit count varint is emitted only when the stream's
+/// own count differs from the one the decoder would infer.
 ///
 /// The physical field is emitted as `None-withLen` for raw streams - the
 /// `None-noLen` optimization (deriving byte length from an element width)
@@ -802,7 +828,7 @@ pub(crate) fn write_stream_meta<W: io::Write>(
     meta: &StreamMeta,
     writer: &mut W,
     byte_length: u32,
-    implicit_count: u32,
+    count: Count02,
     family: Family,
 ) -> MltResult<()> {
     use LogicalEncoding as LE;
@@ -823,7 +849,7 @@ pub(crate) fn write_stream_meta<W: io::Write>(
         | LE::Vertex(_) => meta.num_values,
     };
     // A blob's count is its byte length, which its length varint already carries.
-    let explicit = family != Family::Bytes && num_values != implicit_count;
+    let explicit = family != Family::Bytes && count != Count02::Implied(num_values);
     let extension = match family {
         Family::Str(layout) => layout as u8,
         Family::Int | Family::Bool | Family::Float | Family::Vertex | Family::Bytes => 0,
@@ -1133,7 +1159,7 @@ mod tests {
         #[case] expected: u8,
     ) {
         let mut buf = Vec::new();
-        write_stream_meta(&meta, &mut buf, 0, implicit_count, family).unwrap();
+        write_stream_meta(&meta, &mut buf, 0, Count02::Implied(implicit_count), family).unwrap();
         assert_eq!(buf[0], expected);
     }
 
@@ -1182,10 +1208,11 @@ mod tests {
         let payload = [1_u8, 2, 3];
         let mut buf = Vec::new();
         let byte_length = u32::try_from(payload.len()).unwrap();
-        write_stream_meta(&meta, &mut buf, byte_length, implicit_count, ctx.family()).unwrap();
+        let count = Count02::Implied(implicit_count);
+        write_stream_meta(&meta, &mut buf, byte_length, count, ctx.family()).unwrap();
         buf.extend_from_slice(&payload);
 
-        let (rest, parsed) = parse_stream(&buf, ctx, implicit_count, &mut parser()).unwrap();
+        let (rest, parsed) = parse_stream(&buf, ctx, count, &mut parser()).unwrap();
         assert!(rest.is_empty());
         assert_eq!(parsed.meta.encoding, meta.encoding);
         assert_eq!(parsed.meta.num_values, meta.num_values);
@@ -1216,7 +1243,7 @@ mod tests {
     #[case::blob_physical_varint(BLOB, 0b0000_1000)]
     fn parse_rejects_malformed_encoding_byte(#[case] ctx: StreamCtx02, #[case] enc_byte: u8) {
         let buf = [enc_byte, 0];
-        let err = parse_stream(&buf, ctx, 0, &mut parser()).unwrap_err();
+        let err = parse_stream(&buf, ctx, Count02::Implied(0), &mut parser()).unwrap_err();
         assert!(
             matches!(err, MltError::ParsingEncodingByte(b) if b == enc_byte),
             "{err:?}"
@@ -1234,7 +1261,7 @@ mod tests {
     fn parse_rejects_unimplemented_encoding(#[case] ctx: StreamCtx02, #[case] enc_byte: u8) {
         // Long enough for the widest header prefix any case here parses: ALP's three varints.
         let buf = [enc_byte, 0, 0, 0, 0];
-        let err = parse_stream(&buf, ctx, 0, &mut parser()).unwrap_err();
+        let err = parse_stream(&buf, ctx, Count02::Implied(0), &mut parser()).unwrap_err();
         assert!(matches!(err, MltError::NotImplemented(_)), "{err:?}");
     }
 
@@ -1247,10 +1274,10 @@ mod tests {
         #[case] as_int: LogicalEncoding,
     ) {
         let buf = [enc_byte, 0, 0, 0];
-        let (_, parsed) = parse_stream(&buf, INT, 1, &mut parser()).unwrap();
+        let (_, parsed) = parse_stream(&buf, INT, Count02::Implied(1), &mut parser()).unwrap();
         assert_eq!(parsed.meta.encoding.logical, as_int);
 
-        let as_float = parse_stream(&buf, FLOAT, 1, &mut parser())
+        let as_float = parse_stream(&buf, FLOAT, Count02::Implied(1), &mut parser())
             .ok()
             .map(|(_, p)| p.meta.encoding.logical);
         assert_ne!(as_float, Some(as_int));
@@ -1272,13 +1299,39 @@ mod tests {
     #[test]
     fn logical_code_one_is_delta_for_ints_and_rle_for_floats() {
         let buf = [0b0001_0000, 0];
-        let as_int = parse_stream(&buf, INT, 1, &mut parser()).unwrap_err();
-        let as_float = parse_stream(&buf, FLOAT, 1, &mut parser()).unwrap_err();
+        let as_int = parse_stream(&buf, INT, Count02::Implied(1), &mut parser()).unwrap_err();
+        let as_float = parse_stream(&buf, FLOAT, Count02::Implied(1), &mut parser()).unwrap_err();
         assert!(as_int.to_string().contains("None-noLen"), "{as_int}");
         assert!(
             as_float.to_string().contains("RLE over a float"),
             "{as_float}"
         );
+    }
+
+    #[test]
+    fn a_stream_with_neither_count_is_rejected() {
+        // VarInt ints with the explicit-count bit clear, so only context could count them.
+        let buf = [0b0000_1000, 0];
+        let err = parse_stream(&buf, INT, Count02::Explicit, &mut parser()).unwrap_err();
+        assert!(
+            matches!(err, MltError::StreamWithoutCount(t, b) if t == INT.stream_type() && b == buf[0]),
+            "{err:?}"
+        );
+    }
+
+    #[test]
+    fn a_stream_written_against_no_implied_count_carries_its_own() {
+        let payload = [1_u8, 2, 3];
+        let meta = int(IntLogical::None, PE::VarInt, 5);
+        let mut buf = Vec::new();
+        write_stream_meta(&meta, &mut buf, 3, Count02::Explicit, Family::Int).unwrap();
+        buf.extend_from_slice(&payload);
+        assert_eq!(buf, [0b1000_1000, 5, 3, 1, 2, 3]);
+
+        let (rest, parsed) = parse_stream(&buf, INT, Count02::Explicit, &mut parser()).unwrap();
+        assert!(rest.is_empty());
+        assert_eq!(parsed.meta.num_values, 5);
+        assert_eq!(parsed.data, payload);
     }
 
     #[test]
@@ -1290,11 +1343,11 @@ mod tests {
             u32::try_from(payload.len()).unwrap(),
         );
         let mut buf = Vec::new();
-        write_stream_meta(&meta, &mut buf, 3, 99, Family::Bytes).unwrap();
+        write_stream_meta(&meta, &mut buf, 3, Count02::Implied(99), Family::Bytes).unwrap();
         buf.extend_from_slice(&payload);
         assert_eq!(buf, [0b0000_0100, 3, 1, 2, 3]);
 
-        let (rest, parsed) = parse_stream(&buf, BLOB, 99, &mut parser()).unwrap();
+        let (rest, parsed) = parse_stream(&buf, BLOB, Count02::Implied(99), &mut parser()).unwrap();
         assert!(rest.is_empty());
         assert_eq!(parsed.meta.num_values, 3);
         assert_eq!(parsed.data, payload);
@@ -1315,7 +1368,8 @@ mod tests {
         };
         let meta = int(logical, PE::VarInt, 5);
         let mut buf = Vec::new();
-        let err = write_stream_meta(&meta, &mut buf, 0, 5, Family::Int).unwrap_err();
+        let err =
+            write_stream_meta(&meta, &mut buf, 0, Count02::Implied(5), Family::Int).unwrap_err();
         assert!(matches!(err, MltError::UnsupportedLogicalEncoding(_, _)));
     }
 
@@ -1351,7 +1405,7 @@ mod tests {
     ) {
         let meta = meta(logical, PE::None, 5);
         let mut buf = Vec::new();
-        let err = write_stream_meta(&meta, &mut buf, 0, 5, family).unwrap_err();
+        let err = write_stream_meta(&meta, &mut buf, 0, Count02::Implied(5), family).unwrap_err();
         assert!(
             matches!(
                 err,
