@@ -1608,6 +1608,10 @@ fn generate_props_i32(w: &mut SynthWriter) {
     four_points()
         .add_prop(E::delta_rle_varint(), opt_values())
         .write(w, "props_i32_delta_rle");
+    four_points()
+        .no_v2()
+        .add_prop(E::delta_rle_fastpfor(), opt_values())
+        .write(w, "props_i32_delta_rle_fpf");
 }
 
 fn generate_props_u32(w: &mut SynthWriter) {

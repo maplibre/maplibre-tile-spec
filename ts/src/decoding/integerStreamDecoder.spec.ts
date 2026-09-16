@@ -31,6 +31,7 @@ import {
 import { encodeUint64sLE } from "../encoding/encodingUtils";
 import {
     encodeDeltaRleInt32,
+    encodeFastPfor,
     encodeVarintFloat64,
     encodeVarintInt32,
     encodeVarintInt64,
@@ -115,6 +116,23 @@ describe("getVectorType", () => {
         const result = getVectorType(metadata, 5, twoRunUnitDeltaVarintPayload, offset);
 
         expect(result).toBe(VectorType.SEQUENCE);
+        expect(offset.get()).toBe(0);
+    });
+
+    it("should return FLAT for DELTA+RLE FastPFOR payloads", () => {
+        const values = new Int32Array([10, 11, 12, 13, 14]);
+        const { data: encodedWords, runs } = encodeDeltaRleInt32(values);
+        const data = encodeFastPfor(encodedWords);
+        const metadata = {
+            ...createRleMetadata(LogicalLevelTechnique.DELTA, LogicalLevelTechnique.RLE, runs, values.length),
+            physicalLevelTechnique: PhysicalLevelTechnique.FAST_PFOR,
+            byteLength: data.length,
+        };
+        const offset = new IntWrapper(0);
+
+        const result = getVectorType(metadata, values.length, data, offset);
+
+        expect(result).toBe(VectorType.FLAT);
         expect(offset.get()).toBe(0);
     });
 
