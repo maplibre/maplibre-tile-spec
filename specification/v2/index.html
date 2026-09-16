@@ -1,0 +1,1884 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="MapLibre Tile Specification">
+      
+      
+      
+        <link rel="canonical" href="https://www.maplibre.org/maplibre-tile-spec/specification/v2/">
+      
+      
+        <link rel="prev" href="../v1/">
+      
+      
+        <link rel="next" href="../../encodings/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="https://maplibre.org/favicon.ico">
+      <meta name="generator" content="zensical-0.0.62">
+    
+    
+      
+        <title>MLT v2 (experimental) - MapLibre Tile Specification</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.ce62732f.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.812a03bb.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#differences-from-v1" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="MapLibre Tile Specification" class="md-header__button md-logo" aria-label="MapLibre Tile Specification" data-md-component="logo">
+      
+  <img src="../../assets/logo.svg" alt="MapLibre Tile Specification">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            MapLibre Tile Specification
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              MLT v2 (experimental)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12zm-9.15 3.96h2.3L12 9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/maplibre/maplibre-tile-spec" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="MapLibre Tile Specification" class="md-nav__button md-logo" aria-label="MapLibre Tile Specification" data-md-component="logo">
+      
+  <img src="../../assets/logo.svg" alt="MapLibre Tile Specification">
+
+    </a>
+    MapLibre Tile Specification
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/maplibre/maplibre-tile-spec" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Specification
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Specification
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../v1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  MLT v1
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  MLT v2 (experimental)
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../encodings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Encoding Algorithms
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../implementation-status/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Implementation Status
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+  
+    <a href="https://github.com/maplibre/maplibre-tile-spec/edit/main/docs/specification/v2.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+    </a>
+  
+  
+
+
+<h1>MapLibre Tile Specification v2 <span class="experimental"></span></h1>
+
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This is a live specification that evolves continuously.
+Features marked as <span class="experimental"></span> are under active development and may change in future versions.
+Stable features are those without experimental tags.</p>
+</div>
+<div class="toc">
+<ul>
+<li><a href="#differences-from-v1">Differences from v1</a></li>
+<li><a href="#tile-layout">Tile Layout</a></li>
+<li><a href="#layer-body">Layer Body</a><ul>
+<li><a href="#layer-layout-byte">Layer Layout Byte</a></li>
+<li><a href="#shared-presence-bitfields">Shared Presence Bitfields</a></li>
+</ul>
+</li>
+<li><a href="#geometry-section">Geometry Section</a><ul>
+<li><a href="#geometry-layout">Geometry Layout</a></li>
+</ul>
+</li>
+<li><a href="#columns">Columns</a><ul>
+<li><a href="#column-type-byte">Column Type Byte</a><ul>
+<li><a href="#data-types">Data Types</a></li>
+<li><a href="#presence-nibble">Presence Nibble</a></li>
+</ul>
+</li>
+<li><a href="#scalar-columns">Scalar Columns</a></li>
+<li><a href="#string-columns">String Columns</a></li>
+<li><a href="#shared-dictionary-columns">Shared Dictionary Columns</a></li>
+</ul>
+</li>
+<li><a href="#m-values">M-Values</a><ul>
+<li><a href="#data-types-in-m-value-columns">Data Types in M-Value Columns</a></li>
+<li><a href="#the-vertex-sequence">The Vertex Sequence</a></li>
+<li><a href="#nulls">Nulls</a></li>
+<li><a href="#value-count">Value Count</a></li>
+<li><a href="#geometry-layouts">Geometry Layouts</a></li>
+</ul>
+</li>
+<li><a href="#streams">Streams</a><ul>
+<li><a href="#encoding-byte">Encoding Byte</a><ul>
+<li><a href="#value-count_1">Value Count</a></li>
+<li><a href="#byte-length">Byte Length</a></li>
+</ul>
+</li>
+<li><a href="#families">Families</a></li>
+<li><a href="#physical-field">Physical Field</a></li>
+<li><a href="#parameters">Parameters</a></li>
+<li><a href="#payload-encodings">Payload Encodings</a></li>
+</ul>
+</li>
+<li><a href="#examples">Examples</a></li>
+<li><a href="#planned-features">Planned Features</a><ul>
+<li><a href="#nested-properties">Nested Properties</a></li>
+<li><a href="#z-values">Z-Values</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<hr />
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><strong>MLT v2 is experimental.</strong>
+The layout on this page can change without a version bump, and no compatibility is promised between releases.
+Do not store v2 tiles in a cache that cannot be invalidated, and do not ship a v2 decoder that cannot be updated.</p>
+<p>v2 is implemented in the Rust <code>mlt-core</code> crate behind the <code>unstable-v2</code> cargo feature.
+This page describes that implementation.
+Where the two disagree, the implementation is authoritative.</p>
+</div>
+<p>v2 uses the same data model as <a href="../v1/">v1</a>: tiles, layers, features, columns and streams as described in the <a href="../../overview/">Overview</a>.
+Only the byte layout differs.
+A v2 layer decodes into the same in-memory representation as a v1 layer.</p>
+<h1 id="differences-from-v1">Differences from v1<a class="headerlink" href="#differences-from-v1" title="Link to this section">&para;</a></h1>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>v1</th>
+<th>v2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stream role</td>
+<td><code>stream_type</code> byte per stream</td>
+<td>Implied by position</td>
+</tr>
+<tr>
+<td>Stream value count</td>
+<td><code>num_values</code> varint per stream</td>
+<td>Omitted when it equals the context count</td>
+</tr>
+<tr>
+<td>Geometry stream set</td>
+<td><code>stream_count</code> + a <code>stream_type</code> byte each</td>
+<td>One <code>GeoLayout</code> nibble in the layer header</td>
+</tr>
+<tr>
+<td>Nullability</td>
+<td>Boolean-RLE <code>Present</code> stream</td>
+<td>Raw bitfield, shareable between columns</td>
+</tr>
+<tr>
+<td>Column metadata</td>
+<td>All columns' metadata, then all columns' data</td>
+<td>Metadata and data adjacent per column</td>
+</tr>
+<tr>
+<td>RLE</td>
+<td>All runs, then all values, with <code>runs</code> in the header</td>
+<td>Interleaved <code>(run, value)</code> pairs, no run count</td>
+</tr>
+<tr>
+<td>Integer payloads</td>
+<td>None, VarInt, FastPFOR (256-value big-endian blocks)</td>
+<td>Adds bit packing. FastPFOR uses 128-value little-endian blocks</td>
+</tr>
+<tr>
+<td>Float payloads</td>
+<td>Raw IEEE 754 words</td>
+<td>Adds <a href="../../encodings/#alp">ALP</a> and float dictionaries</td>
+</tr>
+<tr>
+<td>String dictionaries</td>
+<td>Plain, FSST</td>
+<td>Adds <a href="../../encodings/#front-coding">front coding</a></td>
+</tr>
+<tr>
+<td>Vertex-scoped values</td>
+<td>Not implemented</td>
+<td><a href="#m-values">M-value columns</a></td>
+</tr>
+</tbody>
+</table>
+<p>Encoders MUST select each encoding by comparing the stored size of each candidate.</p>
+<h1 id="tile-layout">Tile Layout<a class="headerlink" href="#tile-layout" title="Link to this section">&para;</a></h1>
+<p>Unchanged from <a href="../v1/#tile-layout">v1</a>.
+A tile is a concatenation of tagged layer records.
+A v2 layer has <code>tag = 0x02</code>.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>tile   := layer*
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>layer  := [varint size] [u8 tag] [u8 body[size - 1]]
+</span></code></pre></div>
+<p>A tile MAY contain both v1 and v2 layers.
+A decoder MUST skip a layer whose tag it does not know.</p>
+<h1 id="layer-body">Layer Body<a class="headerlink" href="#layer-body" title="Link to this section">&para;</a></h1>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>body := [string name]                    non-empty, UTF-8, VarInt length prefix
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>        [varint extent]                  non-zero
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>        [varint feature_count]
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>        [u8 layer_layout]
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>        [shared presence bitfield] * n   n = the layout byte's shared presence count
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        geometry_section
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>        [varint column_count]            ids and properties only; geometry and m-values are not counted
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>        column * column_count
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>        m_value_section                  only when the layout byte's m-value bit is set
+</span></code></pre></div>
+<p>The body MUST end exactly at the layer's <code>size</code>.
+Trailing bytes are an error.</p>
+<p><code>feature_count</code> is the default value count for every stream in the layer.
+See <a href="#value-count">Value Count</a>.</p>
+<h2 id="layer-layout-byte">Layer Layout Byte<a class="headerlink" href="#layer-layout-byte" title="Link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Bits</th>
+<th>Field</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>7</td>
+<td>An <a href="#m-values">m-value section</a> ends the body</td>
+</tr>
+<tr>
+<td>6-4</td>
+<td>Number of shared presence bitfields, <code>0</code>-<code>7</code></td>
+</tr>
+<tr>
+<td>3-0</td>
+<td><a href="#geometry-layout">Geometry layout</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="shared-presence-bitfields">Shared Presence Bitfields<a class="headerlink" href="#shared-presence-bitfields" title="Link to this section">&para;</a></h2>
+<p>A presence bitfield holds one bit per feature, set when the feature has a value.
+Several columns MAY reference the same bitfield.</p>
+<p>The <code>n</code> shared bitfields follow the layout byte back to back, in index order.
+Each is <code>ceil(feature_count / 8)</code> bytes, LSB-first: bit <code>i % 8</code> of byte <code>i / 8</code> is feature <code>i</code>.
+Bits past <code>feature_count</code> in the final byte are padding and MUST be ignored.</p>
+<p>A column references a shared bitfield through its <a href="#presence-nibble">presence nibble</a>.
+Encoders SHOULD only share a bitfield that more than one column references.
+Encoders SHOULD store an unshared bitfield inline.
+Shared bitfields are ordered by the first column that references each.</p>
+<h1 id="geometry-section">Geometry Section<a class="headerlink" href="#geometry-section" title="Link to this section">&para;</a></h1>
+<p>The geometry column is not counted in <code>column_count</code>.
+It always follows the shared presence bitfields.
+Which streams it contains is given by the geometry layout nibble.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>geometry_section := [types stream]              count = feature_count
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>                    [geo lengths]               \
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>                    [part lengths]               } present per the layout
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>                    [ring lengths]              /
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>                    [triangle lengths]          \ tessellated layouts only
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>                    [index buffer]              /
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>                    [vertex stream]             every vertex, or the distinct ones
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>                    [vertex offsets]            dictionary layouts only
+</span></code></pre></div>
+<p>Streams appear in exactly this order.
+Each stream's role is given by its position.</p>
+<h2 id="geometry-layout">Geometry Layout<a class="headerlink" href="#geometry-layout" title="Link to this section">&para;</a></h2>
+<p>The low nibble of the layer layout byte:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">Code</th>
+<th>Name</th>
+<th>Streams, in order</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;"><code>0x0</code></td>
+<td>Points</td>
+<td>Types, Vertices</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0x1</code></td>
+<td>PointsDict</td>
+<td>Types, VertexDict, VertexOffsets</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0x2</code></td>
+<td>MultiPoints</td>
+<td>Types, GeoLengths, Vertices</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0x3</code></td>
+<td>MultiPointsDict</td>
+<td>Types, GeoLengths, VertexDict, VertexOffsets</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0x4</code></td>
+<td>Lines</td>
+<td>Types, PartLengths, Vertices</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0x5</code></td>
+<td>LinesDict</td>
+<td>Types, PartLengths, VertexDict, VertexOffsets</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0x6</code></td>
+<td>MultiLines</td>
+<td>Types, GeoLengths, PartLengths, Vertices</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0x7</code></td>
+<td>MultiLinesDict</td>
+<td>Types, GeoLengths, PartLengths, VertexDict, VertexOffsets</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0x8</code></td>
+<td>Polygons</td>
+<td>Types, PartLengths, RingLengths, Vertices</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0x9</code></td>
+<td>PolygonsDict</td>
+<td>Types, PartLengths, RingLengths, VertexDict, VertexOffsets</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0xA</code></td>
+<td>MultiPolygons</td>
+<td>Types, GeoLengths, PartLengths, RingLengths, Vertices</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0xB</code></td>
+<td>MultiPolygonsDict</td>
+<td>Types, GeoLengths, PartLengths, RingLengths, VertexDict, VertexOffsets</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0xC</code></td>
+<td>TessPolygons</td>
+<td>Types, TriLengths, IndexBuffer, Vertices</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0xD</code></td>
+<td>TessPolygonsWithOutlines</td>
+<td>Types, GeoLengths, PartLengths, RingLengths, TriLengths, IndexBuffer, Vertices</td>
+</tr>
+</tbody>
+</table>
+<p><code>0xE</code> and <code>0xF</code> are unassigned and MUST be rejected.</p>
+<p>There is no layout with ring lengths but without part lengths.
+A tessellated layer either has no outline topology (<code>0xC</code>) or all three outline streams (<code>0xD</code>).
+A tessellated layer that needs only some of the outline streams uses <code>0xD</code> and writes the others as empty streams.</p>
+<p>The meaning of the topology streams, the length threshold rules, componentwise delta coding, Hilbert-sorted vertex dictionaries and Morton codes are unchanged from <a href="../v1/#geometry-column">v1</a>.</p>
+<h1 id="columns">Columns<a class="headerlink" href="#columns" title="Link to this section">&para;</a></h1>
+<p><code>column_count</code> columns follow the geometry section.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>column := [u8 column_type]
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>          [string name]              unless the data type is Id or LongId
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>          [presence bitfield]        only when the presence nibble is Inline
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>          [data streams]             one, or a set, per the data type
+</span></code></pre></div>
+<p>An inline presence bitfield is <code>ceil(feature_count / 8)</code> LSB-first bytes, laid out like a shared one.</p>
+<h2 id="column-type-byte">Column Type Byte<a class="headerlink" href="#column-type-byte" title="Link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Bits</th>
+<th>Field</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>7-4</td>
+<td><a href="#presence-nibble">Presence</a>, or the <a href="#shared-dictionary-columns">dictionary kind</a> when the data type is <code>0xF</code></td>
+</tr>
+<tr>
+<td>3-0</td>
+<td>Data type</td>
+</tr>
+</tbody>
+</table>
+<h3 id="data-types">Data Types<a class="headerlink" href="#data-types" title="Link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">Code</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;"><code>0x0</code></td>
+<td><code>Id</code></td>
+<td>Feature id, up to 32 bits. No name field.</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0x1</code></td>
+<td><code>LongId</code></td>
+<td>Feature id, up to 64 bits. No name field.</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0x2</code></td>
+<td><code>Bool</code></td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0x3</code></td>
+<td><code>Int8</code></td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0x4</code></td>
+<td><code>UInt8</code></td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0x5</code></td>
+<td><code>Int32</code></td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0x6</code></td>
+<td><code>UInt32</code></td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0x7</code></td>
+<td><code>Int64</code></td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0x8</code></td>
+<td><code>UInt64</code></td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0x9</code></td>
+<td><code>Float</code></td>
+<td>IEEE 754 binary32</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0xA</code></td>
+<td><code>Double</code></td>
+<td>IEEE 754 binary64</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0xB</code></td>
+<td><code>String</code></td>
+<td>Layout given by the leading stream, see <a href="#string-columns">String Columns</a></td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0xF</code></td>
+<td>Shared dictionary</td>
+<td>See <a href="#shared-dictionary-columns">Shared Dictionary Columns</a></td>
+</tr>
+</tbody>
+</table>
+<p><code>0xC</code>-<code>0xE</code> are unassigned and MUST be rejected.</p>
+<p>There are no nullable variants of these codes.
+Nullability is given by the presence nibble.
+There is no geometry code, since the geometry column is not a counted column.</p>
+<p>A layer MUST contain at most one <code>Id</code> or <code>LongId</code> column.</p>
+<h3 id="presence-nibble">Presence Nibble<a class="headerlink" href="#presence-nibble" title="Link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">Nibble</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;"><code>0</code></td>
+<td>Every feature has a value. No bitfield is stored.</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>1</code></td>
+<td>An inline bitfield follows the type byte and the name, if any.</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>2</code>-<code>8</code></td>
+<td>The layer's shared bitfield at index <code>nibble - 2</code>.</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>9</code>-<code>15</code></td>
+<td>Reserved, MUST be rejected.</td>
+</tr>
+</tbody>
+</table>
+<p>A shared reference at or past the count in the layout byte MUST be rejected.</p>
+<p>The presence nibble determines the column's value count: <code>feature_count</code> for nibble <code>0</code>, otherwise the population count of the referenced bitfield.</p>
+<h2 id="scalar-columns">Scalar Columns<a class="headerlink" href="#scalar-columns" title="Link to this section">&para;</a></h2>
+<p>Boolean, integer and id columns have a single data stream.</p>
+<p>A float or double column has a single data stream, unless its logical encoding is <code>Dict</code>.
+A <code>Dict</code> float column has a second stream holding the distinct values that the first stream's codes index into.</p>
+<h2 id="string-columns">String Columns<a class="headerlink" href="#string-columns" title="Link to this section">&para;</a></h2>
+<p>The extension bits of the leading stream's encoding byte give the column's layout:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">Extension</th>
+<th>Layout</th>
+<th>Streams, in order</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;"><code>00</code></td>
+<td>Plain</td>
+<td>Lengths, Values</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>01</code></td>
+<td>Dict</td>
+<td>Codes, DictLengths, DictValues</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>10</code></td>
+<td>FSST</td>
+<td>Lengths, SymbolLengths, SymbolTable, Corpus</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>11</code></td>
+<td>FsstDict</td>
+<td>Codes, DictLengths, SymbolLengths, SymbolTable, Corpus</td>
+</tr>
+</tbody>
+</table>
+<p><code>Lengths</code> and <code>Codes</code> hold one value per present value.
+The remaining streams carry their own counts, or, for byte blobs, take their count from <code>byte_length</code>.
+When the <code>DictValues</code> or <code>Corpus</code> stream's encoding byte names <a href="../../encodings/#front-coding">front coding</a>, the preceding lengths stream holds <code>2N</code> values: <code>N</code> shared-prefix lengths, then <code>N</code> suffix lengths.</p>
+<h2 id="shared-dictionary-columns">Shared Dictionary Columns<a class="headerlink" href="#shared-dictionary-columns" title="Link to this section">&para;</a></h2>
+<p>Data type <code>0xF</code> introduces a dictionary followed by the columns that index into it.
+Its high nibble gives the dictionary kind instead of a presence:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">Nibble</th>
+<th>Kind</th>
+<th>Corpus streams, in order</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;"><code>0</code></td>
+<td>Plain</td>
+<td>DictLengths, DictValues</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>1</code></td>
+<td>FSST</td>
+<td>DictLengths, SymbolLengths, SymbolTable, Corpus</td>
+</tr>
+</tbody>
+</table>
+<p>Other nibbles are reserved and MUST be rejected.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>shared_dict := [u8 column_type]        low nibble 0xF
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>               [string name]           the group's shared prefix
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>               [varint child_count]
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>               [corpus streams]        per the kind above
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>               child * child_count
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>child       := [u8 column_type]        data type MUST be String
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>               [string name]
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>               [presence bitfield]     only when the presence nibble is Inline
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>               [codes stream]          one dictionary index per present value
+</span></code></pre></div>
+<p>Each child has its own presence nibble and MAY reference any of the layer's shared bitfields.</p>
+<p>Front coding of the dictionary is given by the encoding byte of the last corpus stream, as for a lone string column.</p>
+<h1 id="m-values">M-Values<a class="headerlink" href="#m-values" title="Link to this section">&para;</a></h1>
+<p>An m-value is a measurement taken at a vertex rather than at a feature:</p>
+<ul>
+<li>a distance along a road,</li>
+<li>a timestamp per GPS fix,</li>
+<li>a width that varies along a river.</li>
+</ul>
+<p>A layer stores them as named columns that run over its vertices instead of its features.</p>
+<p>The section is present only when bit 7 of the <a href="#layer-layout-byte">layer layout byte</a> is set, and is then the last thing in the layer body.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>m_value_section := [varint m_value_count]     non-zero
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>                   m_value_column * m_value_count
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>m_value_column  := [u8 column_type]           presence nibble over data type, as for a column
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>                   [string name]
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>                   [presence bitfield]        only when the presence nibble is Inline
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>                   [data streams]             one, or a set, per the data type
+</span></code></pre></div>
+<p>An m-value column reads the same <a href="#column-type-byte">column type byte</a>, the same <a href="#presence-nibble">presence nibble</a> and the same data streams as a <a href="#columns">column</a>.
+Only its value count differs.
+Names MUST be unique, including the previous section and there MUST be an error if a name is repeated.
+An m-value column is not counted in <code>column_count</code>.</p>
+<h2 id="data-types-in-m-value-columns">Data Types in M-Value Columns<a class="headerlink" href="#data-types-in-m-value-columns" title="Link to this section">&para;</a></h2>
+<p><code>Bool</code> through <code>String</code>, codes <code>0x2</code>-<code>0xB</code>, carry exactly the streams they carry as a property column.
+<code>0x0</code>, <code>0x1</code> and <code>0xF</code>-<code>0xE</code> are reserved and MUST be rejected.</p>
+<h2 id="the-vertex-sequence">The Vertex Sequence<a class="headerlink" href="#the-vertex-sequence" title="Link to this section">&para;</a></h2>
+<p>A layer's vertex sequence is every vertex of every feature, in feature order, as the <a href="#geometry-section">geometry section</a>'s topology streams lay them out.
+Each feature holds one contiguous run of it, of <code>vertex_count(f)</code> vertices.</p>
+<p>An m-value column holds one value per vertex of that run, in the same order.</p>
+<ul>
+<li>A polygon ring's closing vertex is not stored, so it has no m-value.</li>
+<li>Under a dictionary layout the sequence is the one the vertex offsets stream spells out, not the distinct vertices the vertex stream holds.
+  Two vertices that share a dictionary entry still have an m-value each.</li>
+<li>Under <code>TessPolygonsWithOutlines</code> the sequence is the outline vertices, which the index buffer indexes into.</li>
+</ul>
+<h2 id="nulls">Nulls<a class="headerlink" href="#nulls" title="Link to this section">&para;</a></h2>
+<p>M-value columns are nullable, but they are at the feature level, not the vertex level.
+This means a single vertex cannot be null.
+A feature's m-value can be null though.</p>
+<h2 id="value-count">Value Count<a class="headerlink" href="#value-count" title="Link to this section">&para;</a></h2>
+<p>A column's value count is the sum of <code>vertex_count(f)</code> over the features whose presence bit is set, which is every feature under presence nibble <code>0</code>.</p>
+<p>That count is only known once the geometry topology has been decoded, which a decoder may defer, so it is not an implied count.
+An m-value column's leading data stream MUST set bit 7 of its <a href="#encoding-byte">encoding byte</a> and write the count explicitly.
+The remaining streams of a string or float-dictionary column carry their own counts, as they do on a counted column, and a decoder that reads a non-blob one without an explicit count takes the leading stream's count as the implied one.
+An encoder SHOULD write an explicit count on every stream that can carry one, since none of those counts are implied here.
+A byte blob is the exception. Bit 7 MUST be <code>0</code> on it and its count stays <code>byte_length</code>, as on any other column.
+A decoder that has decoded both the geometry and an m-value column MUST reject a count that disagrees with the geometry.</p>
+<p>Values are one flat sequence across feature boundaries.
+Delta coding and RLE run through them without a break at each feature.</p>
+<h2 id="geometry-layouts">Geometry Layouts<a class="headerlink" href="#geometry-layouts" title="Link to this section">&para;</a></h2>
+<p>An m-value section requires a <a href="#geometry-layout">geometry layout</a> whose topology gives every feature's vertex count.</p>
+<table>
+<thead>
+<tr>
+<th>Layout</th>
+<th>M-values</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0x0</code> Points, <code>0x1</code> PointsDict</td>
+<td>MUST be rejected</td>
+</tr>
+<tr>
+<td><code>0x2</code>-<code>0xB</code></td>
+<td>Allowed</td>
+</tr>
+<tr>
+<td><code>0xC</code> TessPolygons</td>
+<td>MUST be rejected</td>
+</tr>
+<tr>
+<td><code>0xD</code> TessPolygonsWithOutlines</td>
+<td>Allowed</td>
+</tr>
+</tbody>
+</table>
+<p>A point layer holds one vertex per feature, so a vertex-scoped column would be a property column with extra rules.
+Encode it as a property column.
+<code>TessPolygons</code> carries no outline topology, so no feature's vertex count can be read from it.
+A tessellated layer that needs m-values uses <code>0xD</code>.</p>
+<h1 id="streams">Streams<a class="headerlink" href="#streams" title="Link to this section">&para;</a></h1>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>stream := [u8 encoding_byte]
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>          [varint num_values]   only when bit 7 of the encoding byte is set
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>          [varint byte_length]
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>          [varint parameters]   per the logical encoding, see Parameters
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>          [u8 payload[byte_length]]
+</span></code></pre></div>
+<h2 id="encoding-byte">Encoding Byte<a class="headerlink" href="#encoding-byte" title="Link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Bits</th>
+<th>Field</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>7</td>
+<td>An explicit <code>num_values</code> varint follows</td>
+</tr>
+<tr>
+<td>6-4</td>
+<td>Logical encoding, numbered within the stream's <a href="#families">family</a></td>
+</tr>
+<tr>
+<td>3-2</td>
+<td><a href="#physical-field">Physical encoding</a>, interpreted per logical encoding</td>
+</tr>
+<tr>
+<td>1-0</td>
+<td>Extension. Carries the layout of a string column's leading stream. MUST be <code>0</code> on every other stream.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="value-count_1">Value Count<a class="headerlink" href="#value-count_1" title="Link to this section">&para;</a></h3>
+<p>Bit 7 is set only when the stream's value count differs from the implied count.
+The implied count is:</p>
+<ul>
+<li><code>feature_count</code>, for the geometry types stream and for the data stream of a column with presence nibble <code>0</code></li>
+<li>the presence bitfield's population count, for the data stream of any other column</li>
+<li><code>byte_length</code>, for a byte blob</li>
+</ul>
+<p>Bit 7 MUST be <code>0</code> on a byte blob.
+Bit 7 MUST be <code>1</code> on an <a href="#m-values">m-value column</a>'s leading data stream, which has no implied count.</p>
+<p>For an RLE stream the value count is the decoded element count.
+The number of <code>(run, value)</code> pairs is not stored.
+A decoder reads pairs until <code>byte_length</code> is exhausted.</p>
+<h3 id="byte-length">Byte Length<a class="headerlink" href="#byte-length" title="Link to this section">&para;</a></h3>
+<p><code>byte_length</code> is always present.
+The physical field reserves a pattern for a layout without <code>byte_length</code>.
+A decoder MUST reject that pattern.</p>
+<h2 id="families">Families<a class="headerlink" href="#families" title="Link to this section">&para;</a></h2>
+<p>The logical encodings available to a stream depend on what it holds.
+Each family numbers its own members from <code>0</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Family</th>
+<th>Used by</th>
+<th><code>0</code></th>
+<th><code>1</code></th>
+<th><code>2</code></th>
+<th><code>3</code></th>
+<th><code>4</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Int</strong></td>
+<td>Lengths, offsets, ids, integer columns, geometry topology</td>
+<td>None</td>
+<td>Delta</td>
+<td>RLE</td>
+<td>DeltaRLE</td>
+<td>BitPacked</td>
+</tr>
+<tr>
+<td><strong>Str</strong></td>
+<td>A string column's leading stream</td>
+<td>None</td>
+<td>Delta</td>
+<td>RLE</td>
+<td>DeltaRLE</td>
+<td>BitPacked</td>
+</tr>
+<tr>
+<td><strong>Bool</strong></td>
+<td>A boolean column's data stream</td>
+<td>None</td>
+<td>RLE†</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>Float</strong></td>
+<td>A float or double column's data stream</td>
+<td>None</td>
+<td>RLE†</td>
+<td><a href="../../encodings/#alp">ALP</a></td>
+<td>Dict</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>Vertex</strong></td>
+<td>The geometry vertex stream</td>
+<td>None</td>
+<td>Delta</td>
+<td>Componentwise Delta</td>
+<td>Morton</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>Bytes</strong></td>
+<td>Byte blobs: string values, dictionaries, FSST symbol tables</td>
+<td>None</td>
+<td><a href="../../encodings/#front-coding">FrontCoded</a></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>† Reserved but not implemented.
+A decoder MUST reject it.
+The payload format of RLE over booleans is not yet decided.</p>
+<p>The <code>Str</code> family has the same members as <code>Int</code>.
+It differs only in the use of the extension bits.
+A code not listed for the stream's family MUST be rejected.</p>
+<h2 id="physical-field">Physical Field<a class="headerlink" href="#physical-field" title="Link to this section">&para;</a></h2>
+<p>For a stream of integer words, meaning the <code>Int</code>, <code>Str</code> and <code>Vertex</code> families and the code or scaled-integer stream of a <code>Float</code> <code>Dict</code> or <code>Alp</code> encoding:</p>
+<table>
+<thead>
+<tr>
+<th>Bits</th>
+<th>Physical</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>00</code></td>
+<td>Reserved, MUST be rejected</td>
+</tr>
+<tr>
+<td><code>01</code></td>
+<td>None: fixed-width little-endian words</td>
+</tr>
+<tr>
+<td><code>10</code></td>
+<td>VarInt</td>
+</tr>
+<tr>
+<td><code>11</code></td>
+<td>SIMD-FastPFOR, 128-value little-endian blocks</td>
+</tr>
+</tbody>
+</table>
+<p>For a stream of opaque fixed-width elements, meaning a <code>Bool</code> bitmap, raw <code>Float</code> values or a <code>Bytes</code> blob:</p>
+<table>
+<thead>
+<tr>
+<th>Bits</th>
+<th>Physical</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>00</code></td>
+<td>Reserved, MUST be rejected</td>
+</tr>
+<tr>
+<td><code>01</code></td>
+<td>Elements as they are</td>
+</tr>
+<tr>
+<td><code>10</code>, <code>11</code></td>
+<td>Unassigned, MUST be rejected</td>
+</tr>
+</tbody>
+</table>
+<p><code>RLE</code>, <code>DeltaRLE</code> and <code>BitPacked</code> define their own physical layout.
+The physical field MUST be <code>0</code> for them.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>v1 FastPFOR uses 256-value big-endian blocks and v2 FastPFOR uses 128-value little-endian blocks.
+They are not interchangeable.
+A decoder MUST select the variant by the layer tag.</p>
+</div>
+<h2 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Link to this section">&para;</a></h2>
+<p>Two logical encodings carry parameters, written after <code>byte_length</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Encoding</th>
+<th>Parameters</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ALP</td>
+<td><code>e</code> (varint), <code>f</code> (varint), <code>base</code> (ZigZag varint). See <a href="../../encodings/#alp">ALP</a>.</td>
+</tr>
+<tr>
+<td>Morton</td>
+<td><code>bits</code> (varint), <code>shift</code> (varint). The grid the codes are laid on.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="payload-encodings">Payload Encodings<a class="headerlink" href="#payload-encodings" title="Link to this section">&para;</a></h2>
+<p>Logical encodings whose payload differs from v1, or which v1 does not have:</p>
+<ul>
+<li><strong>RLE / DeltaRLE</strong>: interleaved varint <code>(run_length, value)</code> pairs with no run count. v1 writes all runs, then all values, and stores <code>runs</code> in the header.</li>
+<li><strong>BitPacked</strong>: <code>[u8 width][ceil(count * width / 8) bytes]</code>. Values are laid LSB-first end to end, so value <code>i</code> occupies bits <code>i * width ..</code>. <code>width</code> is <code>1</code>-<code>32</code>.</li>
+<li><strong>Dict</strong> on a float column: one code per element, followed by a second stream of the distinct values.</li>
+<li><strong>Morton</strong> on a vertex stream: always delta-coded over a sorted dictionary. v2 has no plain or RLE Morton encoding.</li>
+<li><strong>FrontCoded</strong> on a byte blob: a sorted dictionary stored as shared-prefix lengths plus suffixes.</li>
+</ul>
+<p>All of these are specified in <a href="../../encodings/">Encoding Definitions</a>.</p>
+<h1 id="examples">Examples<a class="headerlink" href="#examples" title="Link to this section">&para;</a></h1>
+<p>Every fixture under <code>test/synthetic/0x02/</code> can be annotated as below hexdump.
+If you are building an decoder, the <code>.json</code> snapshot are what an decoder MUST produce from it.</p>
+<p>The same annotation can be produced for any tile with the <a href="https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt/README.md"><code>mlt</code> CLI</a>:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>mlt<span class="w"> </span>hexdump<span class="w"> </span>path/to/tile.mlt
+</span></code></pre></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:6"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><input id="__tabbed_1_5" name="__tabbed_1" type="radio" /><input id="__tabbed_1_6" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Minimal layer</label><label for="__tabbed_1_2">Polygon with a hole</label><label for="__tabbed_1_3">Shared presence</label><label for="__tabbed_1_4">String dictionary</label><label for="__tabbed_1_5">ALP floats</label><label for="__tabbed_1_6">M-values</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p>A single <code>Point</code> at <code>(13, 42)</code> with id <code>100</code>.</p>
+<p>The types stream has <code>feature_count</code> values, so bit 7 of its encoding byte is clear.
+The vertex stream has two words for one point, so it sets bit 7 and writes its count.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>00000000                                                                     | layer[0] (25 B)
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>00000000  18                                                .                |   size: 24 (varint) - tag + body
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>00000001  02                                                .                |   tag: 0x02 -&gt; Tag02
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>00000009  50                                                P                |   extent: 80
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>0000000a  01                                                .                |   feature_count: 1
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>0000000b  00                                                .                |   layout: 0x00 Points
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>                                                                             |     └ bit 7 = 0 -&gt; m-value section = 0
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>                                                                             |     └ bits 6-4 = 000 -&gt; shared presence bitfields = 0
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>                                                                             |     └ bits 3-0 = 0000 -&gt; geometry layout = Points
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>0000000c                                                                     |   geometry (8 B)
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>0000000c                                                                     |     types (3 B)
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>0000000c                                                                     |       header (2 B)
+</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>0000000c  08                                                .                |         encoding: 0x08 logical=None physical=VarInt
+</span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>                                                                             |           └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 1 values from context
+</span><span id="__span-8-16"><a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>                                                                             |           └ bits 6-4 = 000 -&gt; logical = None, numbered for integer stream
+</span><span id="__span-8-17"><a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a>                                                                             |           └ bits 3-2 = 10 -&gt; physical = VarInt
+</span><span id="__span-8-18"><a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a>                                                                             |           └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-8-19"><a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a>0000000d  01                                                .                |         byte_length: 1
+</span><span id="__span-8-20"><a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a>0000000e  00                                                .                |       data [Length(VarBinary) Int(None)/VarInt, 1 values, 1 B]
+</span><span id="__span-8-21"><a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a>                                                                             |         decoded: [0]
+</span><span id="__span-8-22"><a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a>0000000f                                                                     |     vertices (5 B)
+</span><span id="__span-8-23"><a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a>0000000f                                                                     |       header (3 B)
+</span><span id="__span-8-24"><a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a>0000000f  a8                                                .                |         encoding: 0xA8 logical=CwDelta physical=VarInt
+</span><span id="__span-8-25"><a id="__codelineno-8-25" name="__codelineno-8-25" href="#__codelineno-8-25"></a>                                                                             |           └ bit 7 = 1 -&gt; has_explicit_count = true -&gt; a num_values varint follows
+</span><span id="__span-8-26"><a id="__codelineno-8-26" name="__codelineno-8-26" href="#__codelineno-8-26"></a>                                                                             |           └ bits 6-4 = 010 -&gt; logical = CwDelta, numbered for vertex stream
+</span><span id="__span-8-27"><a id="__codelineno-8-27" name="__codelineno-8-27" href="#__codelineno-8-27"></a>                                                                             |           └ bits 3-2 = 10 -&gt; physical = VarInt
+</span><span id="__span-8-28"><a id="__codelineno-8-28" name="__codelineno-8-28" href="#__codelineno-8-28"></a>                                                                             |           └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-8-29"><a id="__codelineno-8-29" name="__codelineno-8-29" href="#__codelineno-8-29"></a>00000010  02                                                .                |         num_values: 2
+</span><span id="__span-8-30"><a id="__codelineno-8-30" name="__codelineno-8-30" href="#__codelineno-8-30"></a>00000011  02                                                .                |         byte_length: 2
+</span><span id="__span-8-31"><a id="__codelineno-8-31" name="__codelineno-8-31" href="#__codelineno-8-31"></a>00000012  1a 54                                             .T               |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 2 values, 2 B]
+</span><span id="__span-8-32"><a id="__codelineno-8-32" name="__codelineno-8-32" href="#__codelineno-8-32"></a>                                                                             |         decoded: [13, 42]
+</span><span id="__span-8-33"><a id="__codelineno-8-33" name="__codelineno-8-33" href="#__codelineno-8-33"></a>00000014  01                                                .                |   column_count: 1
+</span><span id="__span-8-34"><a id="__codelineno-8-34" name="__codelineno-8-34" href="#__codelineno-8-34"></a>00000015                                                                     |   columns (4 B)
+</span><span id="__span-8-35"><a id="__codelineno-8-35" name="__codelineno-8-35" href="#__codelineno-8-35"></a>00000015                                                                     |     column[0] Id (4 B)
+</span><span id="__span-8-36"><a id="__codelineno-8-36" name="__codelineno-8-36" href="#__codelineno-8-36"></a>00000015  00                                                .                |       type: 0x00 AllPresent Id
+</span><span id="__span-8-37"><a id="__codelineno-8-37" name="__codelineno-8-37" href="#__codelineno-8-37"></a>                                                                             |         └ bits 7-4 = 0000 -&gt; presence = AllPresent
+</span><span id="__span-8-38"><a id="__codelineno-8-38" name="__codelineno-8-38" href="#__codelineno-8-38"></a>                                                                             |         └ bits 3-0 = 0000 -&gt; data type = Id
+</span><span id="__span-8-39"><a id="__codelineno-8-39" name="__codelineno-8-39" href="#__codelineno-8-39"></a>00000016                                                                     |       data (3 B)
+</span><span id="__span-8-40"><a id="__codelineno-8-40" name="__codelineno-8-40" href="#__codelineno-8-40"></a>00000016                                                                     |         header (2 B)
+</span><span id="__span-8-41"><a id="__codelineno-8-41" name="__codelineno-8-41" href="#__codelineno-8-41"></a>00000016  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+</span><span id="__span-8-42"><a id="__codelineno-8-42" name="__codelineno-8-42" href="#__codelineno-8-42"></a>                                                                             |             └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 1 values from context
+</span><span id="__span-8-43"><a id="__codelineno-8-43" name="__codelineno-8-43" href="#__codelineno-8-43"></a>                                                                             |             └ bits 6-4 = 000 -&gt; logical = None, numbered for integer stream
+</span><span id="__span-8-44"><a id="__codelineno-8-44" name="__codelineno-8-44" href="#__codelineno-8-44"></a>                                                                             |             └ bits 3-2 = 10 -&gt; physical = VarInt
+</span><span id="__span-8-45"><a id="__codelineno-8-45" name="__codelineno-8-45" href="#__codelineno-8-45"></a>                                                                             |             └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-8-46"><a id="__codelineno-8-46" name="__codelineno-8-46" href="#__codelineno-8-46"></a>00000017  01                                                .                |           byte_length: 1
+</span><span id="__span-8-47"><a id="__codelineno-8-47" name="__codelineno-8-47" href="#__codelineno-8-47"></a>00000018  64                                                d                |         data [Data(None) Int(None)/VarInt, 1 values, 1 B]
+</span><span id="__span-8-48"><a id="__codelineno-8-48" name="__codelineno-8-48" href="#__codelineno-8-48"></a>                                                                             |           decoded: [100]
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<p>The <code>Polygons</code> geometry layout: part and ring length streams, no <code>GeoLengths</code>, no vertex offsets.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>00000000                                                                     | layer[0] (39 B)
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>00000000  26                                                &amp;                |   size: 38 (varint) - tag + body
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>00000001  02                                                .                |   tag: 0x02 -&gt; Tag02
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>00000009  50                                                P                |   extent: 80
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>0000000a  01                                                .                |   feature_count: 1
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>0000000b  08                                                .                |   layout: 0x08 Polygons
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>                                                                             |     └ bit 7 = 0 -&gt; m-value section = 0
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>                                                                             |     └ bits 6-4 = 000 -&gt; shared presence bitfields = 0
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>                                                                             |     └ bits 3-0 = 1000 -&gt; geometry layout = Polygons
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>0000000c                                                                     |   geometry (26 B)
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>0000000c                                                                     |     types (3 B)
+</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>0000000c                                                                     |       header (2 B)
+</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>0000000c  08                                                .                |         encoding: 0x08 logical=None physical=VarInt
+</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>                                                                             |           └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 1 values from context
+</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>                                                                             |           └ bits 6-4 = 000 -&gt; logical = None, numbered for integer stream
+</span><span id="__span-9-17"><a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a>                                                                             |           └ bits 3-2 = 10 -&gt; physical = VarInt
+</span><span id="__span-9-18"><a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a>                                                                             |           └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-9-19"><a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a>0000000d  01                                                .                |         byte_length: 1
+</span><span id="__span-9-20"><a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a>0000000e  02                                                .                |       data [Length(VarBinary) Int(None)/VarInt, 1 values, 1 B]
+</span><span id="__span-9-21"><a id="__codelineno-9-21" name="__codelineno-9-21" href="#__codelineno-9-21"></a>                                                                             |         decoded: [2]
+</span><span id="__span-9-22"><a id="__codelineno-9-22" name="__codelineno-9-22" href="#__codelineno-9-22"></a>0000000f                                                                     |     part_lengths (3 B)
+</span><span id="__span-9-23"><a id="__codelineno-9-23" name="__codelineno-9-23" href="#__codelineno-9-23"></a>0000000f                                                                     |       header (2 B)
+</span><span id="__span-9-24"><a id="__codelineno-9-24" name="__codelineno-9-24" href="#__codelineno-9-24"></a>0000000f  08                                                .                |         encoding: 0x08 logical=None physical=VarInt
+</span><span id="__span-9-25"><a id="__codelineno-9-25" name="__codelineno-9-25" href="#__codelineno-9-25"></a>                                                                             |           └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 1 values from context
+</span><span id="__span-9-26"><a id="__codelineno-9-26" name="__codelineno-9-26" href="#__codelineno-9-26"></a>                                                                             |           └ bits 6-4 = 000 -&gt; logical = None, numbered for integer stream
+</span><span id="__span-9-27"><a id="__codelineno-9-27" name="__codelineno-9-27" href="#__codelineno-9-27"></a>                                                                             |           └ bits 3-2 = 10 -&gt; physical = VarInt
+</span><span id="__span-9-28"><a id="__codelineno-9-28" name="__codelineno-9-28" href="#__codelineno-9-28"></a>                                                                             |           └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-9-29"><a id="__codelineno-9-29" name="__codelineno-9-29" href="#__codelineno-9-29"></a>00000010  01                                                .                |         byte_length: 1
+</span><span id="__span-9-30"><a id="__codelineno-9-30" name="__codelineno-9-30" href="#__codelineno-9-30"></a>00000011  02                                                .                |       data [Length(Parts) Int(None)/VarInt, 1 values, 1 B]
+</span><span id="__span-9-31"><a id="__codelineno-9-31" name="__codelineno-9-31" href="#__codelineno-9-31"></a>                                                                             |         decoded: [2]
+</span><span id="__span-9-32"><a id="__codelineno-9-32" name="__codelineno-9-32" href="#__codelineno-9-32"></a>00000012                                                                     |     ring_lengths (5 B)
+</span><span id="__span-9-33"><a id="__codelineno-9-33" name="__codelineno-9-33" href="#__codelineno-9-33"></a>00000012                                                                     |       header (3 B)
+</span><span id="__span-9-34"><a id="__codelineno-9-34" name="__codelineno-9-34" href="#__codelineno-9-34"></a>00000012  88                                                .                |         encoding: 0x88 logical=None physical=VarInt
+</span><span id="__span-9-35"><a id="__codelineno-9-35" name="__codelineno-9-35" href="#__codelineno-9-35"></a>                                                                             |           └ bit 7 = 1 -&gt; has_explicit_count = true -&gt; a num_values varint follows
+</span><span id="__span-9-36"><a id="__codelineno-9-36" name="__codelineno-9-36" href="#__codelineno-9-36"></a>                                                                             |           └ bits 6-4 = 000 -&gt; logical = None, numbered for integer stream
+</span><span id="__span-9-37"><a id="__codelineno-9-37" name="__codelineno-9-37" href="#__codelineno-9-37"></a>                                                                             |           └ bits 3-2 = 10 -&gt; physical = VarInt
+</span><span id="__span-9-38"><a id="__codelineno-9-38" name="__codelineno-9-38" href="#__codelineno-9-38"></a>                                                                             |           └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-9-39"><a id="__codelineno-9-39" name="__codelineno-9-39" href="#__codelineno-9-39"></a>00000013  02                                                .                |         num_values: 2
+</span><span id="__span-9-40"><a id="__codelineno-9-40" name="__codelineno-9-40" href="#__codelineno-9-40"></a>00000014  02                                                .                |         byte_length: 2
+</span><span id="__span-9-41"><a id="__codelineno-9-41" name="__codelineno-9-41" href="#__codelineno-9-41"></a>00000015  03 03                                             ..               |       data [Length(Rings) Int(None)/VarInt, 2 values, 2 B]
+</span><span id="__span-9-42"><a id="__codelineno-9-42" name="__codelineno-9-42" href="#__codelineno-9-42"></a>                                                                             |         decoded: [3, 3]
+</span><span id="__span-9-43"><a id="__codelineno-9-43" name="__codelineno-9-43" href="#__codelineno-9-43"></a>00000017                                                                     |     vertices (15 B)
+</span><span id="__span-9-44"><a id="__codelineno-9-44" name="__codelineno-9-44" href="#__codelineno-9-44"></a>00000017                                                                     |       header (3 B)
+</span><span id="__span-9-45"><a id="__codelineno-9-45" name="__codelineno-9-45" href="#__codelineno-9-45"></a>00000017  a8                                                .                |         encoding: 0xA8 logical=CwDelta physical=VarInt
+</span><span id="__span-9-46"><a id="__codelineno-9-46" name="__codelineno-9-46" href="#__codelineno-9-46"></a>                                                                             |           └ bit 7 = 1 -&gt; has_explicit_count = true -&gt; a num_values varint follows
+</span><span id="__span-9-47"><a id="__codelineno-9-47" name="__codelineno-9-47" href="#__codelineno-9-47"></a>                                                                             |           └ bits 6-4 = 010 -&gt; logical = CwDelta, numbered for vertex stream
+</span><span id="__span-9-48"><a id="__codelineno-9-48" name="__codelineno-9-48" href="#__codelineno-9-48"></a>                                                                             |           └ bits 3-2 = 10 -&gt; physical = VarInt
+</span><span id="__span-9-49"><a id="__codelineno-9-49" name="__codelineno-9-49" href="#__codelineno-9-49"></a>                                                                             |           └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-9-50"><a id="__codelineno-9-50" name="__codelineno-9-50" href="#__codelineno-9-50"></a>00000018  0c                                                .                |         num_values: 12
+</span><span id="__span-9-51"><a id="__codelineno-9-51" name="__codelineno-9-51" href="#__codelineno-9-51"></a>00000019  0c                                                .                |         byte_length: 12
+</span><span id="__span-9-52"><a id="__codelineno-9-52" name="__codelineno-9-52" href="#__codelineno-9-52"></a>0000001a  16 68 78 28 13 63 08 58 3b 13 28 27               .hx(.c.X;.('     |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 12 values, 12 B]
+</span><span id="__span-9-53"><a id="__codelineno-9-53" name="__codelineno-9-53" href="#__codelineno-9-53"></a>                                                                             |         decoded: [11, 52, 71, 72, 61, 22, 65, 66, 35, 56, 55, 36]
+</span><span id="__span-9-54"><a id="__codelineno-9-54" name="__codelineno-9-54" href="#__codelineno-9-54"></a>00000026  00                                                .                |   column_count: 0
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<p>Two columns referencing one shared bitfield, and an interleaved-RLE types stream.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>00000000                                                                     | layer[0] (43 B)
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>00000000  2a                                                *                |   size: 42 (varint) - tag + body
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>00000001  02                                                .                |   tag: 0x02 -&gt; Tag02
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>00000009  50                                                P                |   extent: 80
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>0000000a  04                                                .                |   feature_count: 4
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>0000000b  10                                                .                |   layout: 0x10 Points
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>                                                                             |     └ bit 7 = 0 -&gt; m-value section = 0
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>                                                                             |     └ bits 6-4 = 001 -&gt; shared presence bitfields = 1
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>                                                                             |     └ bits 3-0 = 0000 -&gt; geometry layout = Points
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>0000000c                                                                     |   shared_presence (1 B)
+</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>0000000c  05                                                .                |     present[0] [Present Bool(None)/None, 4 values, 1 B]
+</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>                                                                             |       decoded: 4 present-bits: 1010
+</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>0000000d                                                                     |   geometry (15 B)
+</span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>0000000d                                                                     |     types (4 B)
+</span><span id="__span-10-16"><a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>0000000d                                                                     |       header (2 B)
+</span><span id="__span-10-17"><a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>0000000d  20                                                                 |         encoding: 0x20 logical=Rle physical=implied
+</span><span id="__span-10-18"><a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>                                                                             |           └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 4 values from context
+</span><span id="__span-10-19"><a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>                                                                             |           └ bits 6-4 = 010 -&gt; logical = Rle, numbered for integer stream
+</span><span id="__span-10-20"><a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>                                                                             |           └ bits 3-2 = 00 -&gt; physical = implied
+</span><span id="__span-10-21"><a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a>                                                                             |           └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-10-22"><a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a>0000000e  02                                                .                |         byte_length: 2
+</span><span id="__span-10-23"><a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a>0000000f  04 00                                             ..               |       data [Length(VarBinary) Int(Rle(Interleaved { num_rle_values: 4 }))/VarInt, 4 values, 2 B]
+</span><span id="__span-10-24"><a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a>                                                                             |         decoded: [0, 0, 0, 0]
+</span><span id="__span-10-25"><a id="__codelineno-10-25" name="__codelineno-10-25" href="#__codelineno-10-25"></a>00000011                                                                     |     vertices (11 B)
+</span><span id="__span-10-26"><a id="__codelineno-10-26" name="__codelineno-10-26" href="#__codelineno-10-26"></a>00000011                                                                     |       header (3 B)
+</span><span id="__span-10-27"><a id="__codelineno-10-27" name="__codelineno-10-27" href="#__codelineno-10-27"></a>00000011  a8                                                .                |         encoding: 0xA8 logical=CwDelta physical=VarInt
+</span><span id="__span-10-28"><a id="__codelineno-10-28" name="__codelineno-10-28" href="#__codelineno-10-28"></a>                                                                             |           └ bit 7 = 1 -&gt; has_explicit_count = true -&gt; a num_values varint follows
+</span><span id="__span-10-29"><a id="__codelineno-10-29" name="__codelineno-10-29" href="#__codelineno-10-29"></a>                                                                             |           └ bits 6-4 = 010 -&gt; logical = CwDelta, numbered for vertex stream
+</span><span id="__span-10-30"><a id="__codelineno-10-30" name="__codelineno-10-30" href="#__codelineno-10-30"></a>                                                                             |           └ bits 3-2 = 10 -&gt; physical = VarInt
+</span><span id="__span-10-31"><a id="__codelineno-10-31" name="__codelineno-10-31" href="#__codelineno-10-31"></a>                                                                             |           └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-10-32"><a id="__codelineno-10-32" name="__codelineno-10-32" href="#__codelineno-10-32"></a>00000012  08                                                .                |         num_values: 8
+</span><span id="__span-10-33"><a id="__codelineno-10-33" name="__codelineno-10-33" href="#__codelineno-10-33"></a>00000013  08                                                .                |         byte_length: 8
+</span><span id="__span-10-34"><a id="__codelineno-10-34" name="__codelineno-10-34" href="#__codelineno-10-34"></a>00000014  1a 54 00 00 00 00 00 00                           .T......         |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 8 values, 8 B]
+</span><span id="__span-10-35"><a id="__codelineno-10-35" name="__codelineno-10-35" href="#__codelineno-10-35"></a>                                                                             |         decoded: [13, 42, 13, 42, 13, 42, 13, 42]
+</span><span id="__span-10-36"><a id="__codelineno-10-36" name="__codelineno-10-36" href="#__codelineno-10-36"></a>0000001c  02                                                .                |   column_count: 2
+</span><span id="__span-10-37"><a id="__codelineno-10-37" name="__codelineno-10-37" href="#__codelineno-10-37"></a>0000001d                                                                     |   columns (14 B)
+</span><span id="__span-10-38"><a id="__codelineno-10-38" name="__codelineno-10-38" href="#__codelineno-10-38"></a>0000001d                                                                     |     column[0] OptU32 "a" (7 B)
+</span><span id="__span-10-39"><a id="__codelineno-10-39" name="__codelineno-10-39" href="#__codelineno-10-39"></a>0000001d  26                                                &amp;                |       type: 0x26 Shared(0) U32
+</span><span id="__span-10-40"><a id="__codelineno-10-40" name="__codelineno-10-40" href="#__codelineno-10-40"></a>                                                                             |         └ bits 7-4 = 0010 -&gt; presence = Shared(0)
+</span><span id="__span-10-41"><a id="__codelineno-10-41" name="__codelineno-10-41" href="#__codelineno-10-41"></a>                                                                             |         └ bits 3-0 = 0110 -&gt; data type = U32
+</span><span id="__span-10-42"><a id="__codelineno-10-42" name="__codelineno-10-42" href="#__codelineno-10-42"></a>0000001e  01 61                                             .a               |       name: "a"
+</span><span id="__span-10-43"><a id="__codelineno-10-43" name="__codelineno-10-43" href="#__codelineno-10-43"></a>00000020                                                                     |       data (4 B)
+</span><span id="__span-10-44"><a id="__codelineno-10-44" name="__codelineno-10-44" href="#__codelineno-10-44"></a>00000020                                                                     |         header (2 B)
+</span><span id="__span-10-45"><a id="__codelineno-10-45" name="__codelineno-10-45" href="#__codelineno-10-45"></a>00000020  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+</span><span id="__span-10-46"><a id="__codelineno-10-46" name="__codelineno-10-46" href="#__codelineno-10-46"></a>                                                                             |             └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 2 values from context
+</span><span id="__span-10-47"><a id="__codelineno-10-47" name="__codelineno-10-47" href="#__codelineno-10-47"></a>                                                                             |             └ bits 6-4 = 000 -&gt; logical = None, numbered for integer stream
+</span><span id="__span-10-48"><a id="__codelineno-10-48" name="__codelineno-10-48" href="#__codelineno-10-48"></a>                                                                             |             └ bits 3-2 = 10 -&gt; physical = VarInt
+</span><span id="__span-10-49"><a id="__codelineno-10-49" name="__codelineno-10-49" href="#__codelineno-10-49"></a>                                                                             |             └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-10-50"><a id="__codelineno-10-50" name="__codelineno-10-50" href="#__codelineno-10-50"></a>00000021  02                                                .                |           byte_length: 2
+</span><span id="__span-10-51"><a id="__codelineno-10-51" name="__codelineno-10-51" href="#__codelineno-10-51"></a>00000022  00 02                                             ..               |         data [Data(None) Int(None)/VarInt, 2 values, 2 B]
+</span><span id="__span-10-52"><a id="__codelineno-10-52" name="__codelineno-10-52" href="#__codelineno-10-52"></a>                                                                             |           decoded: [0, 2]
+</span><span id="__span-10-53"><a id="__codelineno-10-53" name="__codelineno-10-53" href="#__codelineno-10-53"></a>00000024                                                                     |     column[1] OptU32 "b" (7 B)
+</span><span id="__span-10-54"><a id="__codelineno-10-54" name="__codelineno-10-54" href="#__codelineno-10-54"></a>00000024  26                                                &amp;                |       type: 0x26 Shared(0) U32
+</span><span id="__span-10-55"><a id="__codelineno-10-55" name="__codelineno-10-55" href="#__codelineno-10-55"></a>                                                                             |         └ bits 7-4 = 0010 -&gt; presence = Shared(0)
+</span><span id="__span-10-56"><a id="__codelineno-10-56" name="__codelineno-10-56" href="#__codelineno-10-56"></a>                                                                             |         └ bits 3-0 = 0110 -&gt; data type = U32
+</span><span id="__span-10-57"><a id="__codelineno-10-57" name="__codelineno-10-57" href="#__codelineno-10-57"></a>00000025  01 62                                             .b               |       name: "b"
+</span><span id="__span-10-58"><a id="__codelineno-10-58" name="__codelineno-10-58" href="#__codelineno-10-58"></a>00000027                                                                     |       data (4 B)
+</span><span id="__span-10-59"><a id="__codelineno-10-59" name="__codelineno-10-59" href="#__codelineno-10-59"></a>00000027                                                                     |         header (2 B)
+</span><span id="__span-10-60"><a id="__codelineno-10-60" name="__codelineno-10-60" href="#__codelineno-10-60"></a>00000027  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
+</span><span id="__span-10-61"><a id="__codelineno-10-61" name="__codelineno-10-61" href="#__codelineno-10-61"></a>                                                                             |             └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 2 values from context
+</span><span id="__span-10-62"><a id="__codelineno-10-62" name="__codelineno-10-62" href="#__codelineno-10-62"></a>                                                                             |             └ bits 6-4 = 000 -&gt; logical = None, numbered for integer stream
+</span><span id="__span-10-63"><a id="__codelineno-10-63" name="__codelineno-10-63" href="#__codelineno-10-63"></a>                                                                             |             └ bits 3-2 = 10 -&gt; physical = VarInt
+</span><span id="__span-10-64"><a id="__codelineno-10-64" name="__codelineno-10-64" href="#__codelineno-10-64"></a>                                                                             |             └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-10-65"><a id="__codelineno-10-65" name="__codelineno-10-65" href="#__codelineno-10-65"></a>00000028  02                                                .                |           byte_length: 2
+</span><span id="__span-10-66"><a id="__codelineno-10-66" name="__codelineno-10-66" href="#__codelineno-10-66"></a>00000029  00 02                                             ..               |         data [Data(None) Int(None)/VarInt, 2 values, 2 B]
+</span><span id="__span-10-67"><a id="__codelineno-10-67" name="__codelineno-10-67" href="#__codelineno-10-67"></a>                                                                             |           decoded: [0, 2]
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<p>A <code>Dict</code> string column.
+The extension bits of the leading stream give the layout.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>00000000                                                                     | layer[0] (70 B)
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>00000000  45                                                E                |   size: 69 (varint) - tag + body
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>00000001  02                                                .                |   tag: 0x02 -&gt; Tag02
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>00000009  50                                                P                |   extent: 80
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>0000000a  02                                                .                |   feature_count: 2
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>0000000b  00                                                .                |   layout: 0x00 Points
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>                                                                             |     └ bit 7 = 0 -&gt; m-value section = 0
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>                                                                             |     └ bits 6-4 = 000 -&gt; shared presence bitfields = 0
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>                                                                             |     └ bits 3-0 = 0000 -&gt; geometry layout = Points
+</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>0000000c                                                                     |   geometry (11 B)
+</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>0000000c                                                                     |     types (4 B)
+</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>0000000c                                                                     |       header (2 B)
+</span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>0000000c  20                                                                 |         encoding: 0x20 logical=Rle physical=implied
+</span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a>                                                                             |           └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 2 values from context
+</span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a>                                                                             |           └ bits 6-4 = 010 -&gt; logical = Rle, numbered for integer stream
+</span><span id="__span-11-17"><a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a>                                                                             |           └ bits 3-2 = 00 -&gt; physical = implied
+</span><span id="__span-11-18"><a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a>                                                                             |           └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-11-19"><a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a>0000000d  02                                                .                |         byte_length: 2
+</span><span id="__span-11-20"><a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a>0000000e  02 00                                             ..               |       data [Length(VarBinary) Int(Rle(Interleaved { num_rle_values: 2 }))/VarInt, 2 values, 2 B]
+</span><span id="__span-11-21"><a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a>                                                                             |         decoded: [0, 0]
+</span><span id="__span-11-22"><a id="__codelineno-11-22" name="__codelineno-11-22" href="#__codelineno-11-22"></a>00000010                                                                     |     vertices (7 B)
+</span><span id="__span-11-23"><a id="__codelineno-11-23" name="__codelineno-11-23" href="#__codelineno-11-23"></a>00000010                                                                     |       header (3 B)
+</span><span id="__span-11-24"><a id="__codelineno-11-24" name="__codelineno-11-24" href="#__codelineno-11-24"></a>00000010  a8                                                .                |         encoding: 0xA8 logical=CwDelta physical=VarInt
+</span><span id="__span-11-25"><a id="__codelineno-11-25" name="__codelineno-11-25" href="#__codelineno-11-25"></a>                                                                             |           └ bit 7 = 1 -&gt; has_explicit_count = true -&gt; a num_values varint follows
+</span><span id="__span-11-26"><a id="__codelineno-11-26" name="__codelineno-11-26" href="#__codelineno-11-26"></a>                                                                             |           └ bits 6-4 = 010 -&gt; logical = CwDelta, numbered for vertex stream
+</span><span id="__span-11-27"><a id="__codelineno-11-27" name="__codelineno-11-27" href="#__codelineno-11-27"></a>                                                                             |           └ bits 3-2 = 10 -&gt; physical = VarInt
+</span><span id="__span-11-28"><a id="__codelineno-11-28" name="__codelineno-11-28" href="#__codelineno-11-28"></a>                                                                             |           └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-11-29"><a id="__codelineno-11-29" name="__codelineno-11-29" href="#__codelineno-11-29"></a>00000011  04                                                .                |         num_values: 4
+</span><span id="__span-11-30"><a id="__codelineno-11-30" name="__codelineno-11-30" href="#__codelineno-11-30"></a>00000012  04                                                .                |         byte_length: 4
+</span><span id="__span-11-31"><a id="__codelineno-11-31" name="__codelineno-11-31" href="#__codelineno-11-31"></a>00000013  16 68 78 28                                       .hx(             |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 4 values, 4 B]
+</span><span id="__span-11-32"><a id="__codelineno-11-32" name="__codelineno-11-32" href="#__codelineno-11-32"></a>                                                                             |         decoded: [11, 52, 71, 72]
+</span><span id="__span-11-33"><a id="__codelineno-11-33" name="__codelineno-11-33" href="#__codelineno-11-33"></a>00000017  01                                                .                |   column_count: 1
+</span><span id="__span-11-34"><a id="__codelineno-11-34" name="__codelineno-11-34" href="#__codelineno-11-34"></a>00000018                                                                     |   columns (46 B)
+</span><span id="__span-11-35"><a id="__codelineno-11-35" name="__codelineno-11-35" href="#__codelineno-11-35"></a>00000018                                                                     |     column[0] OptStr "val" (46 B)
+</span><span id="__span-11-36"><a id="__codelineno-11-36" name="__codelineno-11-36" href="#__codelineno-11-36"></a>00000018  1b                                                .                |       type: 0x1B Inline Str
+</span><span id="__span-11-37"><a id="__codelineno-11-37" name="__codelineno-11-37" href="#__codelineno-11-37"></a>                                                                             |         └ bits 7-4 = 0001 -&gt; presence = Inline
+</span><span id="__span-11-38"><a id="__codelineno-11-38" name="__codelineno-11-38" href="#__codelineno-11-38"></a>                                                                             |         └ bits 3-0 = 1011 -&gt; data type = Str
+</span><span id="__span-11-39"><a id="__codelineno-11-39" name="__codelineno-11-39" href="#__codelineno-11-39"></a>00000019  03 76 61 6c                                       .val             |       name: "val"
+</span><span id="__span-11-40"><a id="__codelineno-11-40" name="__codelineno-11-40" href="#__codelineno-11-40"></a>0000001d  03                                                .                |       present [Present Bool(None)/None, 2 values, 1 B]
+</span><span id="__span-11-41"><a id="__codelineno-11-41" name="__codelineno-11-41" href="#__codelineno-11-41"></a>                                                                             |         decoded: 2 present-bits: 11
+</span><span id="__span-11-42"><a id="__codelineno-11-42" name="__codelineno-11-42" href="#__codelineno-11-42"></a>0000001e                                                                     |       codes (4 B)
+</span><span id="__span-11-43"><a id="__codelineno-11-43" name="__codelineno-11-43" href="#__codelineno-11-43"></a>0000001e                                                                     |         header (2 B)
+</span><span id="__span-11-44"><a id="__codelineno-11-44" name="__codelineno-11-44" href="#__codelineno-11-44"></a>0000001e  21                                                !                |           encoding: 0x21 logical=Rle physical=implied
+</span><span id="__span-11-45"><a id="__codelineno-11-45" name="__codelineno-11-45" href="#__codelineno-11-45"></a>                                                                             |             └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 2 values from context
+</span><span id="__span-11-46"><a id="__codelineno-11-46" name="__codelineno-11-46" href="#__codelineno-11-46"></a>                                                                             |             └ bits 6-4 = 010 -&gt; logical = Rle, numbered for string column
+</span><span id="__span-11-47"><a id="__codelineno-11-47" name="__codelineno-11-47" href="#__codelineno-11-47"></a>                                                                             |             └ bits 3-2 = 00 -&gt; physical = implied
+</span><span id="__span-11-48"><a id="__codelineno-11-48" name="__codelineno-11-48" href="#__codelineno-11-48"></a>                                                                             |             └ bits 1-0 = 01 -&gt; string layout = Dict
+</span><span id="__span-11-49"><a id="__codelineno-11-49" name="__codelineno-11-49" href="#__codelineno-11-49"></a>0000001f  02                                                .                |           byte_length: 2
+</span><span id="__span-11-50"><a id="__codelineno-11-50" name="__codelineno-11-50" href="#__codelineno-11-50"></a>00000020  02 00                                             ..               |         data [Offset(String) Int(Rle(Interleaved { num_rle_values: 2 }))/VarInt, 2 values, 2 B]
+</span><span id="__span-11-51"><a id="__codelineno-11-51" name="__codelineno-11-51" href="#__codelineno-11-51"></a>                                                                             |           decoded: [0, 0]
+</span><span id="__span-11-52"><a id="__codelineno-11-52" name="__codelineno-11-52" href="#__codelineno-11-52"></a>00000022                                                                     |       dict_lengths (4 B)
+</span><span id="__span-11-53"><a id="__codelineno-11-53" name="__codelineno-11-53" href="#__codelineno-11-53"></a>00000022                                                                     |         header (3 B)
+</span><span id="__span-11-54"><a id="__codelineno-11-54" name="__codelineno-11-54" href="#__codelineno-11-54"></a>00000022  88                                                .                |           encoding: 0x88 logical=None physical=VarInt
+</span><span id="__span-11-55"><a id="__codelineno-11-55" name="__codelineno-11-55" href="#__codelineno-11-55"></a>                                                                             |             └ bit 7 = 1 -&gt; has_explicit_count = true -&gt; a num_values varint follows
+</span><span id="__span-11-56"><a id="__codelineno-11-56" name="__codelineno-11-56" href="#__codelineno-11-56"></a>                                                                             |             └ bits 6-4 = 000 -&gt; logical = None, numbered for integer stream
+</span><span id="__span-11-57"><a id="__codelineno-11-57" name="__codelineno-11-57" href="#__codelineno-11-57"></a>                                                                             |             └ bits 3-2 = 10 -&gt; physical = VarInt
+</span><span id="__span-11-58"><a id="__codelineno-11-58" name="__codelineno-11-58" href="#__codelineno-11-58"></a>                                                                             |             └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-11-59"><a id="__codelineno-11-59" name="__codelineno-11-59" href="#__codelineno-11-59"></a>00000023  01                                                .                |           num_values: 1
+</span><span id="__span-11-60"><a id="__codelineno-11-60" name="__codelineno-11-60" href="#__codelineno-11-60"></a>00000024  01                                                .                |           byte_length: 1
+</span><span id="__span-11-61"><a id="__codelineno-11-61" name="__codelineno-11-61" href="#__codelineno-11-61"></a>00000025  1e                                                .                |         data [Length(Dictionary) Int(None)/VarInt, 1 values, 1 B]
+</span><span id="__span-11-62"><a id="__codelineno-11-62" name="__codelineno-11-62" href="#__codelineno-11-62"></a>                                                                             |           decoded: [30]
+</span><span id="__span-11-63"><a id="__codelineno-11-63" name="__codelineno-11-63" href="#__codelineno-11-63"></a>00000026                                                                     |       dict_values (32 B)
+</span><span id="__span-11-64"><a id="__codelineno-11-64" name="__codelineno-11-64" href="#__codelineno-11-64"></a>00000026                                                                     |         header (2 B)
+</span><span id="__span-11-65"><a id="__codelineno-11-65" name="__codelineno-11-65" href="#__codelineno-11-65"></a>00000026  04                                                .                |           encoding: 0x04 logical=None physical=WithLen
+</span><span id="__span-11-66"><a id="__codelineno-11-66" name="__codelineno-11-66" href="#__codelineno-11-66"></a>                                                                             |             └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; a blob's byte length is its value count
+</span><span id="__span-11-67"><a id="__codelineno-11-67" name="__codelineno-11-67" href="#__codelineno-11-67"></a>                                                                             |             └ bits 6-4 = 000 -&gt; logical = None, numbered for byte blob
+</span><span id="__span-11-68"><a id="__codelineno-11-68" name="__codelineno-11-68" href="#__codelineno-11-68"></a>                                                                             |             └ bits 3-2 = 01 -&gt; physical = WithLen
+</span><span id="__span-11-69"><a id="__codelineno-11-69" name="__codelineno-11-69" href="#__codelineno-11-69"></a>                                                                             |             └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-11-70"><a id="__codelineno-11-70" name="__codelineno-11-70" href="#__codelineno-11-70"></a>00000027  1e                                                .                |           byte_length: 30
+</span><span id="__span-11-71"><a id="__codelineno-11-71" name="__codelineno-11-71" href="#__codelineno-11-71"></a>00000028  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Single) Int(None)/None, 30 values, 30 B]
+</span><span id="__span-11-72"><a id="__codelineno-11-72" name="__codelineno-11-72" href="#__codelineno-11-72"></a>00000038  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   |
+</span><span id="__span-11-73"><a id="__codelineno-11-73" name="__codelineno-11-73" href="#__codelineno-11-73"></a>                                                                             |           decoded: utf-8 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<p>A double column stored as scaled integers, with <code>e</code>, <code>f</code> and <code>base</code> following the byte length.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>00000000                                                                     | layer[0] (51 B)
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>00000000  32                                                2                |   size: 50 (varint) - tag + body
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>00000001  02                                                .                |   tag: 0x02 -&gt; Tag02
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>00000009  50                                                P                |   extent: 80
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>0000000a  06                                                .                |   feature_count: 6
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>0000000b  00                                                .                |   layout: 0x00 Points
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>                                                                             |     └ bit 7 = 0 -&gt; m-value section = 0
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>                                                                             |     └ bits 6-4 = 000 -&gt; shared presence bitfields = 0
+</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>                                                                             |     └ bits 3-0 = 0000 -&gt; geometry layout = Points
+</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>0000000c                                                                     |   geometry (19 B)
+</span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>0000000c                                                                     |     types (4 B)
+</span><span id="__span-12-13"><a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>0000000c                                                                     |       header (2 B)
+</span><span id="__span-12-14"><a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>0000000c  20                                                                 |         encoding: 0x20 logical=Rle physical=implied
+</span><span id="__span-12-15"><a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>                                                                             |           └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 6 values from context
+</span><span id="__span-12-16"><a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a>                                                                             |           └ bits 6-4 = 010 -&gt; logical = Rle, numbered for integer stream
+</span><span id="__span-12-17"><a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a>                                                                             |           └ bits 3-2 = 00 -&gt; physical = implied
+</span><span id="__span-12-18"><a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a>                                                                             |           └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-12-19"><a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a>0000000d  02                                                .                |         byte_length: 2
+</span><span id="__span-12-20"><a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a>0000000e  06 00                                             ..               |       data [Length(VarBinary) Int(Rle(Interleaved { num_rle_values: 6 }))/VarInt, 6 values, 2 B]
+</span><span id="__span-12-21"><a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a>                                                                             |         decoded: [0, 0, 0, 0, 0, 0]
+</span><span id="__span-12-22"><a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a>00000010                                                                     |     vertices (15 B)
+</span><span id="__span-12-23"><a id="__codelineno-12-23" name="__codelineno-12-23" href="#__codelineno-12-23"></a>00000010                                                                     |       header (3 B)
+</span><span id="__span-12-24"><a id="__codelineno-12-24" name="__codelineno-12-24" href="#__codelineno-12-24"></a>00000010  a8                                                .                |         encoding: 0xA8 logical=CwDelta physical=VarInt
+</span><span id="__span-12-25"><a id="__codelineno-12-25" name="__codelineno-12-25" href="#__codelineno-12-25"></a>                                                                             |           └ bit 7 = 1 -&gt; has_explicit_count = true -&gt; a num_values varint follows
+</span><span id="__span-12-26"><a id="__codelineno-12-26" name="__codelineno-12-26" href="#__codelineno-12-26"></a>                                                                             |           └ bits 6-4 = 010 -&gt; logical = CwDelta, numbered for vertex stream
+</span><span id="__span-12-27"><a id="__codelineno-12-27" name="__codelineno-12-27" href="#__codelineno-12-27"></a>                                                                             |           └ bits 3-2 = 10 -&gt; physical = VarInt
+</span><span id="__span-12-28"><a id="__codelineno-12-28" name="__codelineno-12-28" href="#__codelineno-12-28"></a>                                                                             |           └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-12-29"><a id="__codelineno-12-29" name="__codelineno-12-29" href="#__codelineno-12-29"></a>00000011  0c                                                .                |         num_values: 12
+</span><span id="__span-12-30"><a id="__codelineno-12-30" name="__codelineno-12-30" href="#__codelineno-12-30"></a>00000012  0c                                                .                |         byte_length: 12
+</span><span id="__span-12-31"><a id="__codelineno-12-31" name="__codelineno-12-31" href="#__codelineno-12-31"></a>00000013  1a 54 00 00 00 00 00 00 00 00 00 00               .T..........     |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 12 values, 12 B]
+</span><span id="__span-12-32"><a id="__codelineno-12-32" name="__codelineno-12-32" href="#__codelineno-12-32"></a>                                                                             |         decoded: [13, 42, 13, 42, 13, 42, 13, 42, 13, 42, 13, 42]
+</span><span id="__span-12-33"><a id="__codelineno-12-33" name="__codelineno-12-33" href="#__codelineno-12-33"></a>0000001f  01                                                .                |   column_count: 1
+</span><span id="__span-12-34"><a id="__codelineno-12-34" name="__codelineno-12-34" href="#__codelineno-12-34"></a>00000020                                                                     |   columns (19 B)
+</span><span id="__span-12-35"><a id="__codelineno-12-35" name="__codelineno-12-35" href="#__codelineno-12-35"></a>00000020                                                                     |     column[0] OptF64 "val" (19 B)
+</span><span id="__span-12-36"><a id="__codelineno-12-36" name="__codelineno-12-36" href="#__codelineno-12-36"></a>00000020  1a                                                .                |       type: 0x1A Inline F64
+</span><span id="__span-12-37"><a id="__codelineno-12-37" name="__codelineno-12-37" href="#__codelineno-12-37"></a>                                                                             |         └ bits 7-4 = 0001 -&gt; presence = Inline
+</span><span id="__span-12-38"><a id="__codelineno-12-38" name="__codelineno-12-38" href="#__codelineno-12-38"></a>                                                                             |         └ bits 3-0 = 1010 -&gt; data type = F64
+</span><span id="__span-12-39"><a id="__codelineno-12-39" name="__codelineno-12-39" href="#__codelineno-12-39"></a>00000021  03 76 61 6c                                       .val             |       name: "val"
+</span><span id="__span-12-40"><a id="__codelineno-12-40" name="__codelineno-12-40" href="#__codelineno-12-40"></a>00000025  2d                                                -                |       present [Present Bool(None)/None, 6 values, 1 B]
+</span><span id="__span-12-41"><a id="__codelineno-12-41" name="__codelineno-12-41" href="#__codelineno-12-41"></a>                                                                             |         decoded: 6 present-bits: 101101
+</span><span id="__span-12-42"><a id="__codelineno-12-42" name="__codelineno-12-42" href="#__codelineno-12-42"></a>00000026                                                                     |       data (13 B)
+</span><span id="__span-12-43"><a id="__codelineno-12-43" name="__codelineno-12-43" href="#__codelineno-12-43"></a>00000026                                                                     |         header (6 B)
+</span><span id="__span-12-44"><a id="__codelineno-12-44" name="__codelineno-12-44" href="#__codelineno-12-44"></a>00000026  28                                                (                |           encoding: 0x28 logical=Alp physical=VarInt
+</span><span id="__span-12-45"><a id="__codelineno-12-45" name="__codelineno-12-45" href="#__codelineno-12-45"></a>                                                                             |             └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 4 values from context
+</span><span id="__span-12-46"><a id="__codelineno-12-46" name="__codelineno-12-46" href="#__codelineno-12-46"></a>                                                                             |             └ bits 6-4 = 010 -&gt; logical = Alp, numbered for float column
+</span><span id="__span-12-47"><a id="__codelineno-12-47" name="__codelineno-12-47" href="#__codelineno-12-47"></a>                                                                             |             └ bits 3-2 = 10 -&gt; physical = VarInt
+</span><span id="__span-12-48"><a id="__codelineno-12-48" name="__codelineno-12-48" href="#__codelineno-12-48"></a>                                                                             |             └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-12-49"><a id="__codelineno-12-49" name="__codelineno-12-49" href="#__codelineno-12-49"></a>00000027  07                                                .                |           byte_length: 7
+</span><span id="__span-12-50"><a id="__codelineno-12-50" name="__codelineno-12-50" href="#__codelineno-12-50"></a>00000028  02                                                .                |           alp_e: 2
+</span><span id="__span-12-51"><a id="__codelineno-12-51" name="__codelineno-12-51" href="#__codelineno-12-51"></a>00000029  00                                                .                |           alp_f: 0
+</span><span id="__span-12-52"><a id="__codelineno-12-52" name="__codelineno-12-52" href="#__codelineno-12-52"></a>0000002a  c1 03                                             ..               |           alp_base: -225
+</span><span id="__span-12-53"><a id="__codelineno-12-53" name="__codelineno-12-53" href="#__codelineno-12-53"></a>0000002c  96 01 fa 01 f7 02 00                              .......          |         data [Data(None) Float(Alp(Alp { e: 2, f: 0, base: -225 }))/VarInt, 4 values, 7 B]
+</span><span id="__span-12-54"><a id="__codelineno-12-54" name="__codelineno-12-54" href="#__codelineno-12-54"></a>                                                                             |           decoded: [-75, 25, 150, -225]
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<p>Two vertex-scoped columns over a line layer, one of them null on some features.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>00000000                                                                     | layer[0] (77 B)
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>00000000  4c                                                L                |   size: 76 (varint) - tag + body
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>00000001  02                                                .                |   tag: 0x02 -&gt; Tag02
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>00000009  50                                                P                |   extent: 80
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>0000000a  03                                                .                |   feature_count: 3
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>0000000b  84                                                .                |   layout: 0x84 Lines
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>                                                                             |     └ bit 7 = 1 -&gt; m-value section = 1
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>                                                                             |     └ bits 6-4 = 000 -&gt; shared presence bitfields = 0
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>                                                                             |     └ bits 3-0 = 0100 -&gt; geometry layout = Lines
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>0000000c                                                                     |   geometry (29 B)
+</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>0000000c                                                                     |     types (5 B)
+</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>0000000c                                                                     |       header (2 B)
+</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>0000000c  08                                                .                |         encoding: 0x08 logical=None physical=VarInt
+</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a>                                                                             |           └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 3 values from context
+</span><span id="__span-13-16"><a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a>                                                                             |           └ bits 6-4 = 000 -&gt; logical = None, numbered for integer stream
+</span><span id="__span-13-17"><a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>                                                                             |           └ bits 3-2 = 10 -&gt; physical = VarInt
+</span><span id="__span-13-18"><a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a>                                                                             |           └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-13-19"><a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a>0000000d  03                                                .                |         byte_length: 3
+</span><span id="__span-13-20"><a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a>0000000e  01 01 01                                          ...              |       data [Length(VarBinary) Int(None)/VarInt, 3 values, 3 B]
+</span><span id="__span-13-21"><a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a>                                                                             |         decoded: [1, 1, 1]
+</span><span id="__span-13-22"><a id="__codelineno-13-22" name="__codelineno-13-22" href="#__codelineno-13-22"></a>00000011                                                                     |     part_lengths (5 B)
+</span><span id="__span-13-23"><a id="__codelineno-13-23" name="__codelineno-13-23" href="#__codelineno-13-23"></a>00000011                                                                     |       header (2 B)
+</span><span id="__span-13-24"><a id="__codelineno-13-24" name="__codelineno-13-24" href="#__codelineno-13-24"></a>00000011  08                                                .                |         encoding: 0x08 logical=None physical=VarInt
+</span><span id="__span-13-25"><a id="__codelineno-13-25" name="__codelineno-13-25" href="#__codelineno-13-25"></a>                                                                             |           └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 3 values from context
+</span><span id="__span-13-26"><a id="__codelineno-13-26" name="__codelineno-13-26" href="#__codelineno-13-26"></a>                                                                             |           └ bits 6-4 = 000 -&gt; logical = None, numbered for integer stream
+</span><span id="__span-13-27"><a id="__codelineno-13-27" name="__codelineno-13-27" href="#__codelineno-13-27"></a>                                                                             |           └ bits 3-2 = 10 -&gt; physical = VarInt
+</span><span id="__span-13-28"><a id="__codelineno-13-28" name="__codelineno-13-28" href="#__codelineno-13-28"></a>                                                                             |           └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-13-29"><a id="__codelineno-13-29" name="__codelineno-13-29" href="#__codelineno-13-29"></a>00000012  03                                                .                |         byte_length: 3
+</span><span id="__span-13-30"><a id="__codelineno-13-30" name="__codelineno-13-30" href="#__codelineno-13-30"></a>00000013  03 03 02                                          ...              |       data [Length(Parts) Int(None)/VarInt, 3 values, 3 B]
+</span><span id="__span-13-31"><a id="__codelineno-13-31" name="__codelineno-13-31" href="#__codelineno-13-31"></a>                                                                             |         decoded: [3, 3, 2]
+</span><span id="__span-13-32"><a id="__codelineno-13-32" name="__codelineno-13-32" href="#__codelineno-13-32"></a>00000016                                                                     |     vertices (19 B)
+</span><span id="__span-13-33"><a id="__codelineno-13-33" name="__codelineno-13-33" href="#__codelineno-13-33"></a>00000016                                                                     |       header (3 B)
+</span><span id="__span-13-34"><a id="__codelineno-13-34" name="__codelineno-13-34" href="#__codelineno-13-34"></a>00000016  a8                                                .                |         encoding: 0xA8 logical=CwDelta physical=VarInt
+</span><span id="__span-13-35"><a id="__codelineno-13-35" name="__codelineno-13-35" href="#__codelineno-13-35"></a>                                                                             |           └ bit 7 = 1 -&gt; has_explicit_count = true -&gt; a num_values varint follows
+</span><span id="__span-13-36"><a id="__codelineno-13-36" name="__codelineno-13-36" href="#__codelineno-13-36"></a>                                                                             |           └ bits 6-4 = 010 -&gt; logical = CwDelta, numbered for vertex stream
+</span><span id="__span-13-37"><a id="__codelineno-13-37" name="__codelineno-13-37" href="#__codelineno-13-37"></a>                                                                             |           └ bits 3-2 = 10 -&gt; physical = VarInt
+</span><span id="__span-13-38"><a id="__codelineno-13-38" name="__codelineno-13-38" href="#__codelineno-13-38"></a>                                                                             |           └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-13-39"><a id="__codelineno-13-39" name="__codelineno-13-39" href="#__codelineno-13-39"></a>00000017  10                                                .                |         num_values: 16
+</span><span id="__span-13-40"><a id="__codelineno-13-40" name="__codelineno-13-40" href="#__codelineno-13-40"></a>00000018  10                                                .                |         byte_length: 16
+</span><span id="__span-13-41"><a id="__codelineno-13-41" name="__codelineno-13-41" href="#__codelineno-13-41"></a>00000019  16 68 78 28 13 63 4b 18 64 3b 77 28 0f 1c 0e 0e   .hx(.cK.d;w(.... |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 16 values, 16 B]
+</span><span id="__span-13-42"><a id="__codelineno-13-42" name="__codelineno-13-42" href="#__codelineno-13-42"></a>                                                                             |         decoded: [11, 52, 71, 72, 61, 22, 23, 34, 73, 4, 13, 24, 5, 38, 12, 45]
+</span><span id="__span-13-43"><a id="__codelineno-13-43" name="__codelineno-13-43" href="#__codelineno-13-43"></a>00000029  00                                                .                |   column_count: 0
+</span><span id="__span-13-44"><a id="__codelineno-13-44" name="__codelineno-13-44" href="#__codelineno-13-44"></a>0000002a                                                                     |   m_values (35 B)
+</span><span id="__span-13-45"><a id="__codelineno-13-45" name="__codelineno-13-45" href="#__codelineno-13-45"></a>0000002a  02                                                .                |     m_value_count: 2
+</span><span id="__span-13-46"><a id="__codelineno-13-46" name="__codelineno-13-46" href="#__codelineno-13-46"></a>0000002b                                                                     |     m_value[0] U32 "dist" (17 B)
+</span><span id="__span-13-47"><a id="__codelineno-13-47" name="__codelineno-13-47" href="#__codelineno-13-47"></a>0000002b  06                                                .                |       type: 0x06 AllPresent U32
+</span><span id="__span-13-48"><a id="__codelineno-13-48" name="__codelineno-13-48" href="#__codelineno-13-48"></a>                                                                             |         └ bits 7-4 = 0000 -&gt; presence = AllPresent
+</span><span id="__span-13-49"><a id="__codelineno-13-49" name="__codelineno-13-49" href="#__codelineno-13-49"></a>                                                                             |         └ bits 3-0 = 0110 -&gt; data type = U32
+</span><span id="__span-13-50"><a id="__codelineno-13-50" name="__codelineno-13-50" href="#__codelineno-13-50"></a>0000002c  04 64 69 73 74                                    .dist            |       name: "dist"
+</span><span id="__span-13-51"><a id="__codelineno-13-51" name="__codelineno-13-51" href="#__codelineno-13-51"></a>00000031                                                                     |       data (11 B)
+</span><span id="__span-13-52"><a id="__codelineno-13-52" name="__codelineno-13-52" href="#__codelineno-13-52"></a>00000031                                                                     |         header (3 B)
+</span><span id="__span-13-53"><a id="__codelineno-13-53" name="__codelineno-13-53" href="#__codelineno-13-53"></a>00000031  98                                                .                |           encoding: 0x98 logical=Delta physical=VarInt
+</span><span id="__span-13-54"><a id="__codelineno-13-54" name="__codelineno-13-54" href="#__codelineno-13-54"></a>                                                                             |             └ bit 7 = 1 -&gt; has_explicit_count = true -&gt; a num_values varint follows
+</span><span id="__span-13-55"><a id="__codelineno-13-55" name="__codelineno-13-55" href="#__codelineno-13-55"></a>                                                                             |             └ bits 6-4 = 001 -&gt; logical = Delta, numbered for integer stream
+</span><span id="__span-13-56"><a id="__codelineno-13-56" name="__codelineno-13-56" href="#__codelineno-13-56"></a>                                                                             |             └ bits 3-2 = 10 -&gt; physical = VarInt
+</span><span id="__span-13-57"><a id="__codelineno-13-57" name="__codelineno-13-57" href="#__codelineno-13-57"></a>                                                                             |             └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-13-58"><a id="__codelineno-13-58" name="__codelineno-13-58" href="#__codelineno-13-58"></a>00000032  08                                                .                |           num_values: 8
+</span><span id="__span-13-59"><a id="__codelineno-13-59" name="__codelineno-13-59" href="#__codelineno-13-59"></a>00000033  08                                                .                |           byte_length: 8
+</span><span id="__span-13-60"><a id="__codelineno-13-60" name="__codelineno-13-60" href="#__codelineno-13-60"></a>00000034  00 14 1e 31 1e 32 4f 18                           ...1.2O.         |         data [Data(None) Int(Delta)/VarInt, 8 values, 8 B]
+</span><span id="__span-13-61"><a id="__codelineno-13-61" name="__codelineno-13-61" href="#__codelineno-13-61"></a>                                                                             |           decoded: [0, 10, 25, 0, 15, 40, 0, 12]
+</span><span id="__span-13-62"><a id="__codelineno-13-62" name="__codelineno-13-62" href="#__codelineno-13-62"></a>0000003c                                                                     |     m_value[1] OptI32 "height" (17 B)
+</span><span id="__span-13-63"><a id="__codelineno-13-63" name="__codelineno-13-63" href="#__codelineno-13-63"></a>0000003c  15                                                .                |       type: 0x15 Inline I32
+</span><span id="__span-13-64"><a id="__codelineno-13-64" name="__codelineno-13-64" href="#__codelineno-13-64"></a>                                                                             |         └ bits 7-4 = 0001 -&gt; presence = Inline
+</span><span id="__span-13-65"><a id="__codelineno-13-65" name="__codelineno-13-65" href="#__codelineno-13-65"></a>                                                                             |         └ bits 3-0 = 0101 -&gt; data type = I32
+</span><span id="__span-13-66"><a id="__codelineno-13-66" name="__codelineno-13-66" href="#__codelineno-13-66"></a>0000003d  06 68 65 69 67 68 74                              .height          |       name: "height"
+</span><span id="__span-13-67"><a id="__codelineno-13-67" name="__codelineno-13-67" href="#__codelineno-13-67"></a>00000044  05                                                .                |       present [Present Bool(None)/None, 3 values, 1 B]
+</span><span id="__span-13-68"><a id="__codelineno-13-68" name="__codelineno-13-68" href="#__codelineno-13-68"></a>                                                                             |         decoded: 3 present-bits: 101
+</span><span id="__span-13-69"><a id="__codelineno-13-69" name="__codelineno-13-69" href="#__codelineno-13-69"></a>00000045                                                                     |       data (8 B)
+</span><span id="__span-13-70"><a id="__codelineno-13-70" name="__codelineno-13-70" href="#__codelineno-13-70"></a>00000045                                                                     |         header (3 B)
+</span><span id="__span-13-71"><a id="__codelineno-13-71" name="__codelineno-13-71" href="#__codelineno-13-71"></a>00000045  88                                                .                |           encoding: 0x88 logical=None physical=VarInt
+</span><span id="__span-13-72"><a id="__codelineno-13-72" name="__codelineno-13-72" href="#__codelineno-13-72"></a>                                                                             |             └ bit 7 = 1 -&gt; has_explicit_count = true -&gt; a num_values varint follows
+</span><span id="__span-13-73"><a id="__codelineno-13-73" name="__codelineno-13-73" href="#__codelineno-13-73"></a>                                                                             |             └ bits 6-4 = 000 -&gt; logical = None, numbered for integer stream
+</span><span id="__span-13-74"><a id="__codelineno-13-74" name="__codelineno-13-74" href="#__codelineno-13-74"></a>                                                                             |             └ bits 3-2 = 10 -&gt; physical = VarInt
+</span><span id="__span-13-75"><a id="__codelineno-13-75" name="__codelineno-13-75" href="#__codelineno-13-75"></a>                                                                             |             └ bits 1-0 = 00 -&gt; extension = 0
+</span><span id="__span-13-76"><a id="__codelineno-13-76" name="__codelineno-13-76" href="#__codelineno-13-76"></a>00000046  05                                                .                |           num_values: 5
+</span><span id="__span-13-77"><a id="__codelineno-13-77" name="__codelineno-13-77" href="#__codelineno-13-77"></a>00000047  05                                                .                |           byte_length: 5
+</span><span id="__span-13-78"><a id="__codelineno-13-78" name="__codelineno-13-78" href="#__codelineno-13-78"></a>00000048  05 08 12 04 0e                                    .....            |         data [Data(None) Int(None)/VarInt, 5 values, 5 B]
+</span><span id="__span-13-79"><a id="__codelineno-13-79" name="__codelineno-13-79" href="#__codelineno-13-79"></a>                                                                             |           decoded: [-3, 4, 9, 2, 7]
+</span></code></pre></div>
+</div>
+</div>
+</div>
+<h1 id="planned-features">Planned Features<a class="headerlink" href="#planned-features" title="Link to this section">&para;</a></h1>
+<p>The following are not yet specified or implemented.</p>
+<h2 id="nested-properties">Nested Properties<a class="headerlink" href="#nested-properties" title="Link to this section">&para;</a></h2>
+<p>Properties that are maps or lists with string keys, nestable.</p>
+<p>v2 will shred nested values as <a href="https://orc.apache.org/specification/ORCv1/">ORC</a> and Parquet do.
+A nested value is decomposed into one flat column per leaf path.
+Each leaf column is encoded like any other column.
+The structure is stored separately from the values.</p>
+<p>v1 sketched a <code>ComplexColumn</code> type with children, struct/list/map physical types and a control-value data stream.
+It was not implemented, and v2 does not reuse that design.</p>
+<h2 id="z-values">Z-Values<a class="headerlink" href="#z-values" title="Link to this section">&para;</a></h2>
+<p>Elevation as a third coordinate.</p>
+<p><code>z</code> could be interleaved with <code>x</code> and <code>y</code> in the vertex buffer, or stored as an <a href="#m-values">m-value</a> column.
+Interleaving suits GPU upload.
+A separate column compresses better and costs nothing when unused.
+Which of the two v2 uses is undecided.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+      
+    
+    
+    
+      
+      
+    
+    <a href="https://mastodon.social/@maplibre" target="_blank" rel="noopener me" title="mastodon.social" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M433 179.1c0-97.2-63.7-125.7-63.7-125.7-62.5-28.7-228.6-28.4-290.5 0 0 0-63.7 28.5-63.7 125.7 0 115.7-6.6 259.4 105.6 289.1 40.5 10.7 75.3 13 103.3 11.4 50.8-2.8 79.3-18.1 79.3-18.1l-1.7-36.9s-36.3 11.4-77.1 10.1c-40.4-1.4-83-4.4-89.6-54-.6-4.6-.9-9.3-.9-13.9 85.6 20.9 158.7 9.1 178.7 6.7 56.1-6.7 105-41.3 111.2-72.9 9.8-49.8 9-121.5 9-121.5zm-75.1 125.2h-46.6V190.1c0-49.7-64-51.6-64 6.9v62.5H201V197c0-58.5-64-56.6-64-6.9v114.2H90.3c0-122.1-5.2-147.9 18.4-175 25.9-28.9 79.8-30.8 103.8 6.1l11.6 19.5 11.6-19.5c24.1-37.1 78.1-34.8 103.8-6.1 23.7 27.3 18.4 53 18.4 175"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://twitter.com/maplibre" target="_blank" rel="noopener" title="twitter.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M357.2 48h70.6L273.6 224.2 455 464H313L201.7 318.6 74.5 464H3.8l164.9-188.5L-5.2 48h145.6l100.5 132.9zm-24.8 373.8h39.1L119.1 88h-42z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://www.linkedin.com/company/maplibre" target="_blank" rel="noopener" title="www.linkedin.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3M135.4 416H69V202.2h66.5V416zM102.2 96a38.5 38.5 0 1 1 0 77 38.5 38.5 0 1 1 0-77m282.1 320h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://osmus.slack.com/archives/C01G3D28DAB" target="_blank" rel="noopener" title="osmus.slack.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M94.1 315.1c0 25.9-21.2 47.1-47.1 47.1S0 341 0 315.1 21.2 268 47.1 268h47.1v47.1zm23.7 0c0-25.9 21.2-47.1 47.1-47.1s47.1 21.2 47.1 47.1v117.8c0 25.9-21.2 47.1-47.1 47.1s-47.1-21.2-47.1-47.1zm47.1-189c-25.9 0-47.1-21.2-47.1-47.1s21.2-47 47.1-47S212 53.2 212 79.1v47.1h-47.1zm0 23.7c25.9 0 47.1 21.2 47.1 47.1S190.8 244 164.9 244H47.1C21.2 244 0 222.8 0 196.9s21.2-47.1 47.1-47.1zm189 47.1c0-25.9 21.2-47.1 47.1-47.1s47 21.2 47 47.1-21.2 47.1-47.1 47.1h-47.1v-47.1zm-23.7 0c0 25.9-21.2 47.1-47.1 47.1S236 222.8 236 196.9V79.1c0-25.9 21.2-47.1 47.1-47.1s47.1 21.2 47.1 47.1zm-47.1 189c25.9 0 47.1 21.2 47.1 47.1s-21.2 47-47.1 47-47.1-21.2-47.1-47.1v-47.1h47.1zm0-23.7c-25.9 0-47.1-21.2-47.1-47.1s21.2-47.1 47.1-47.1h117.8c25.9 0 47.1 21.2 47.1 47.1s-21.2 47.1-47.1 47.1z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/maplibre" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M216.5 362.5c-66-8-112.5-55.5-112.5-117 0-25 9-52 24-70-6.5-16.5-5.5-51.5 2-66 20-2.5 47 8 63 22.5 19-6 39-9 63.5-9s44.5 3 62.5 8.5c15.5-14 43-24.5 63-22 7 13.5 8 48.5 1.5 65.5 16 19 24.5 44.5 24.5 70.5 0 61.5-46.5 108-113.5 116.5 17 11 28.5 35 28.5 62.5v52c0 15 12.5 23.5 27.5 17.5C441 459.5 512 369 512 257 512 115.5 397 0 255.5 0S0 115.5 0 257c0 111 70.5 203 165.5 237.5 13.5 5 26.5-4 26.5-17.5v-40c-7 3-16 5-24 5-33 0-52.5-18-66.5-51.5-5.5-13.5-11.5-21.5-23-23-6-.5-8-3-8-6 0-6 10-10.5 20-10.5 14.5 0 27 9 40 27.5 10 14.5 20.5 21 33 21s20.5-4.5 32-16c8.5-8.5 15-16 21-21"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.code.copy","search.suggest","navigation.instant","navigation.sections","content.action.edit","toc.integrate"],"redirect":null,"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
+      
+    
+  </body>
+</html>

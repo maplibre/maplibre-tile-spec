@@ -13,10 +13,10 @@
         <link rel="canonical" href="https://www.maplibre.org/maplibre-tile-spec/encodings/">
       
       
-        <link rel="prev" href="../implementation-status/">
+        <link rel="prev" href="../specification/v2/">
       
       
-        <link rel="next" href="../specification/">
+        <link rel="next" href="../implementation-status/">
       
       
         
@@ -276,14 +276,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../implementation-status/" class="md-nav__link">
+      <a href="../overview/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  Implementation Status
+  Overview
 
     
   </span>
@@ -297,6 +297,139 @@
     
       
       
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Specification
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Specification
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specification/v1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  MLT v1
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specification/v2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  MLT v2 (experimental)
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
   
   
     
@@ -330,6 +463,14 @@
     </li>
   
 
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
     
       
       
@@ -338,14 +479,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../specification/" class="md-nav__link">
+      <a href="../implementation-status/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  Specification
+  Implementation Status
 
     
   </span>
@@ -387,18 +528,6 @@
 <li><a href="#plain">Plain</a></li>
 <li><a href="#boolean-rle">Boolean-RLE</a></li>
 <li><a href="#byte-rle">Byte-RLE</a></li>
-<li><a href="#dictionary-encoding">Dictionary Encoding</a><ul>
-<li><a href="#string-dictionary-encoding">String Dictionary Encoding</a><ul>
-<li><a href="#fsst-dictionary-encoding">FSST Dictionary Encoding</a></li>
-<li><a href="#shared-dictionary-encoding">Shared Dictionary Encoding</a></li>
-</ul>
-</li>
-<li><a href="#vertex-dictionary-encoding">Vertex Dictionary Encoding</a><ul>
-<li><a href="#morton-vertex-dictionary-encoding">Morton Vertex Dictionary Encoding</a></li>
-</ul>
-</li>
-</ul>
-</li>
 <li><a href="#integer-encodings">Integer Encodings</a><ul>
 <li><a href="#logical-level-techniques">Logical-Level Techniques</a><ul>
 <li><a href="#delta-encoding">Delta Encoding</a></li>
@@ -409,14 +538,40 @@
 <li><a href="#physical-level-techniques">Physical-Level Techniques</a><ul>
 <li><a href="#zigzag-encoding">ZigZag Encoding</a></li>
 <li><a href="#varint-encoding">VarInt Encoding</a></li>
+<li><a href="#bit-packing">Bit Packing</a></li>
 <li><a href="#simd-fastpfor">SIMD-FastPFOR</a></li>
 </ul>
 </li>
 </ul>
 </li>
+<li><a href="#float-encodings">Float Encodings</a><ul>
+<li><a href="#plain-floats">Plain Floats</a></li>
+<li><a href="#alp">ALP</a></li>
+<li><a href="#float-dictionary">Float Dictionary</a></li>
+</ul>
+</li>
+<li><a href="#dictionary-encoding">Dictionary Encoding</a><ul>
+<li><a href="#string-dictionary-encoding">String Dictionary Encoding</a><ul>
+<li><a href="#fsst-dictionary-encoding">FSST Dictionary Encoding</a></li>
+<li><a href="#front-coding">Front Coding</a></li>
+<li><a href="#shared-dictionary-encoding">Shared Dictionary Encoding</a></li>
+</ul>
+</li>
+<li><a href="#vertex-dictionary-encoding">Vertex Dictionary Encoding</a><ul>
+<li><a href="#morton-vertex-dictionary-encoding">Morton Vertex Dictionary Encoding</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#choosing-an-encoding">Choosing an Encoding</a></li>
 </ul>
 </div>
 <hr />
+<p>This page specifies the compression schemes used by MLT streams.
+Which streams may use which scheme, and how the choice is encoded, is in the <a href="../specification/v1/">v1</a> and <a href="../specification/v2/">v2</a> specifications.</p>
+<p>Encodings are split into logical techniques, which transform the values (delta, RLE, dictionary), and physical techniques, which lay the resulting integers out in bytes (varint, bit packing, FastPFOR).
+Logical encodings can be cascaded: a dictionary turns strings into codes, and the codes are then delta-coded and bit-packed like any other integers.</p>
+<p>Encodings marked <span class="experimental"></span> exist only in <a href="../specification/v2/">MLT v2</a>.</p>
 <h1 id="plain">Plain<a class="headerlink" href="#plain" title="Link to this section">&para;</a></h1>
 <p>No compression is applied to the data.
 Depending on the data type, values are stored in the following formats:</p>
@@ -430,83 +585,83 @@ Depending on the data type, values are stored in the following formats:</p>
 <h1 id="boolean-rle">Boolean-RLE<a class="headerlink" href="#boolean-rle" title="Link to this section">&para;</a></h1>
 <p>This encoding compresses boolean columns using least-significant bit numbering (bit-endianness).
 Refer to the <a href="https://orc.apache.org/specification/ORCv1/#boolean-run-length-encoding">ORC specification</a> for implementation details.</p>
+<p>v1 uses it for <code>Present</code> streams.
+v2 uses a raw LSB-first bitfield instead, which can be shared between columns.</p>
 <h1 id="byte-rle">Byte-RLE<a class="headerlink" href="#byte-rle" title="Link to this section">&para;</a></h1>
 <p>This encoding compresses byte streams, such as the <code>GeometryType</code> stream in Geometry columns.
 Refer to the <a href="https://orc.apache.org/specification/ORCv1/#byte-run-length-encoding">ORC specification</a> for implementation details.</p>
-<h1 id="dictionary-encoding">Dictionary Encoding<a class="headerlink" href="#dictionary-encoding" title="Link to this section">&para;</a></h1>
-<p>Dictionary encoding compactly represents repeated values and can be applied to <code>String</code> and <code>Geometry</code> columns.
-Distinct values are stored in a <code>dictionary</code> stream, while a separate <code>data</code> stream stores indices into the dictionary.
-We allow the following encodings of this concept:</p>
-<h2 id="string-dictionary-encoding">String Dictionary Encoding<a class="headerlink" href="#string-dictionary-encoding" title="Link to this section">&para;</a></h2>
-<p>The dictionary stream contains distinct UTF-8 encoded string values.
-The data stream contains dictionary indices encoded as <code>UInt32</code>.
-A dictionary-encoded nullable string column consists of the following streams in order:
-<code>Present</code>, <code>Length</code>, <code>Dictionary</code>, <code>Data</code></p>
-<div class="admonition todo">
-<p class="admonition-title">Todo</p>
-<p>Is "can" (=&gt; MAY) here the right terminology?
-This implies that streams might be encoded by one of the options below, but also other options.
-If yes, what is the alternative options?
-If no, clarify this misunderstanding.</p>
-</div>
-<p>All streams can be further compressed using lightweight encodings:</p>
-<ul>
-<li><strong>Present Stream</strong>: Boolean-RLE</li>
-<li><strong>Length and Data Stream</strong>: See Integer encodings</li>
-<li><strong>Dictionary</strong>: See FSST Dictionary</li>
-</ul>
-<h3 id="fsst-dictionary-encoding">FSST Dictionary Encoding<a class="headerlink" href="#fsst-dictionary-encoding" title="Link to this section">&para;</a></h3>
-<p>Dictionary encoding requires fully repeating strings to reduce size. However, geospatial attributes often contain strings with common prefixes that are not identical (e.g., localized country names).
-FSST replaces frequently occurring substrings while supporting efficient scans and random lookups. It further compresses UTF-8 encoded dictionary values in MLT.
-An FSST dictionary-encoded nullable string column consists of the following streams in order:
-<code>Present</code>, <code>SymbolLength</code>, <code>SymbolTable</code>, <code>String Length</code>, <code>Dictionary</code> (Compressed Corpus)
-For implementation details, refer to <a href="https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf">this paper</a>.</p>
-<p><strong>Available implementations</strong>:</p>
-<ul>
-<li><strong>C++</strong>: <a href="https://github.com/cwida/fsst">https://github.com/cwida/fsst</a></li>
-<li><strong>Java</strong>: Work in progress</li>
-<li><strong>JS/WebAssembly decoder</strong>: Work in progress (simple to implement)</li>
-</ul>
-<h3 id="shared-dictionary-encoding">Shared Dictionary Encoding<a class="headerlink" href="#shared-dictionary-encoding" title="Link to this section">&para;</a></h3>
-<p>Shared dictionary encoding allows multiple columns to share a common dictionary.
-Nested fields can also use a shared dictionary (e.g., for localized values like <code>name:*</code> columns in an OSM dataset).
-If used for nested fields, all fields sharing the dictionary must be grouped together in the file and prefixed with the dictionary.</p>
-<p>A shared dictionary-encoded nullable string column consists of the following streams in order:
-<code>Length</code>, <code>Dictionary</code>, <code>Present1</code>, <code>Data1</code>, <code>Present2</code>, <code>Data2</code></p>
-<p>A shared FSST dictionary-encoded nullable string column consists of the following streams in order:
-<code>SymbolLength</code>, <code>SymbolTable</code>, <code>String Length</code>, <code>Dictionary</code> (Compressed Corpus), <code>Present1</code>, <code>Data1</code>, <code>Present2</code>, <code>Data2</code></p>
-<h2 id="vertex-dictionary-encoding">Vertex Dictionary Encoding<a class="headerlink" href="#vertex-dictionary-encoding" title="Link to this section">&para;</a></h2>
-<p>Uses an additional <code>VertexOffsets</code> stream to store indices for vertex coordinates in the <code>VertexBuffer</code> stream.
-Vertices in the VertexBuffer are sorted using a Hilbert curve and delta-encoded with null suppression.</p>
-<h3 id="morton-vertex-dictionary-encoding">Morton Vertex Dictionary Encoding<a class="headerlink" href="#morton-vertex-dictionary-encoding" title="Link to this section">&para;</a></h3>
-<p><code>VertexBuffer</code> coordinates are transformed into a 1D integer using Morton code.
-The data is sorted by Morton code and further compressed using integer compression techniques.</p>
 <h1 id="integer-encodings">Integer Encodings<a class="headerlink" href="#integer-encodings" title="Link to this section">&para;</a></h1>
 <p>Most data in MLT is stored as integer arrays, making efficient integer compression crucial.</p>
 <h2 id="logical-level-techniques">Logical-Level Techniques<a class="headerlink" href="#logical-level-techniques" title="Link to this section">&para;</a></h2>
 <p>Integers are encoded using delta encoding, run-length encoding (RLE), or a combination of both (delta-RLE).</p>
 <h3 id="delta-encoding">Delta Encoding<a class="headerlink" href="#delta-encoding" title="Link to this section">&para;</a></h3>
-<p>Computes differences between consecutive elements (e.g., x₂ - x₁, x₃ - x₂, ...).
+<p>Computes differences between consecutive elements (e.g., $x_2 - x_1$, $x_3 - x_2$, ...).
 Used with <a href="#physical-level-techniques">physical-level techniques</a> to reduce the number of bits required for storing delta values.</p>
 <h3 id="run-length-encoding-rle">Run-Length Encoding (RLE)<a class="headerlink" href="#run-length-encoding-rle" title="Link to this section">&para;</a></h3>
 <p>Refer to <a href="https://en.wikipedia.org/wiki/Run-length_encoding">Wikipedia</a> for a basic explanation.
-Runs and values are stored in separate buffers.
-For unsigned integers, ZigZag encoding is applied to the values buffer.
-Both buffers are further compressed using null suppression.</p>
+For unsigned integers, ZigZag encoding is applied to the values.</p>
+<p>The two wire formats lay the runs out differently:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Layout</th>
+<th>Run count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>v1</strong></td>
+<td>All run lengths, then all values</td>
+<td><code>runs</code> varint in the stream header</td>
+</tr>
+<tr>
+<td><strong>v2</strong></td>
+<td>Interleaved <code>(run_length, value)</code> pairs</td>
+<td>Not stored; scan the payload to <code>byte_length</code></td>
+</tr>
+</tbody>
+</table>
+<p>v1 example, for the input <code>[5, 5, 5, 3, 3, 3, 3]</code>:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Runs:   [3, 4]        // 3 fives, 4 threes
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>Values: [5, 3]
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>Output: [3, 4, 5, 3]  // runs concatenated with values
+</span></code></pre></div>
+<p>The same input in v2 is <code>[3, 5, 4, 3]</code>.
+Both formats know the decoded element count.
+v1 stores it in the stream header.
+v2 takes it from the stream's value count.</p>
 <h3 id="delta-rle">Delta-RLE<a class="headerlink" href="#delta-rle" title="Link to this section">&para;</a></h3>
 <p>Applies delta encoding followed by RLE.
 Efficient for ascending sequences like <code>id</code> fields.</p>
 <h2 id="physical-level-techniques">Physical-Level Techniques<a class="headerlink" href="#physical-level-techniques" title="Link to this section">&para;</a></h2>
 <p>Null suppression techniques are used to compress integer arrays by reducing the number of bits required to store each integer.</p>
 <h3 id="zigzag-encoding">ZigZag Encoding<a class="headerlink" href="#zigzag-encoding" title="Link to this section">&para;</a></h3>
-<p>Used for encoding unsigned integers in null suppression techniques.
+<p>Used for encoding signed integers in null suppression techniques.
 <a href="https://en.wikipedia.org/wiki/Variable-length_quantity#Zigzag_encoding">ZigZag encoding</a> uses the least significant bit to represent the sign.</p>
 <h3 id="varint-encoding">VarInt Encoding<a class="headerlink" href="#varint-encoding" title="Link to this section">&para;</a></h3>
 <p>A byte-aligned null suppression technique that compresses integers using a minimal number of bytes.
 For implementation details, refer to <a href="https://protobuf.dev/programming-guides/encoding/#varints">Protobuf</a>.</p>
+<h3 id="bit-packing">Bit Packing <span class="experimental"></span><a class="headerlink" href="#bit-packing" title="Link to this section">&para;</a></h3>
+<p>Every value is stored with the same bit width, which is the bit width of the largest value.</p>
+<p>The payload is <code>[u8 width][ceil(count * width / 8) bytes]</code>.
+Values are laid LSB-first end to end, so value <code>i</code> occupies bits <code>i * width ..</code> of the byte run.
+<code>width</code> is <code>1</code>-<code>32</code>.
+An all-zero or empty stream has <code>width = 1</code>.</p>
+<p>Bit packing is smaller than varint when the values have similar magnitudes.
+A few large values raise the width for every value.
+An encoder SHOULD compare the stored size of both before choosing.</p>
 <h3 id="simd-fastpfor">SIMD-FastPFOR<a class="headerlink" href="#simd-fastpfor" title="Link to this section">&para;</a></h3>
 <p>A bit-aligned null suppression technique that compresses integers using a minimal number of bits.
 Uses a patched approach to store exceptions (outliers) separately, keeping the overall bit width small.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The two wire formats use different FastPFOR variants and they are <strong>not</strong> interchangeable.</p>
+<ul>
+<li><strong>v1</strong>: 256-value blocks, big-endian</li>
+<li><strong>v2</strong>: 128-value blocks, little-endian</li>
+</ul>
+</div>
 <p>Refer to:</p>
 <ul>
 <li><a href="https://arxiv.org/pdf/1209.2137.pdf">https://arxiv.org/pdf/1209.2137.pdf</a></li>
@@ -519,6 +674,179 @@ Uses a patched approach to store exceptions (outliers) separately, keeping the o
 <li><strong>C#</strong>: <a href="https://github.com/Genbox/CSharpFastPFOR">https://github.com/Genbox/CSharpFastPFOR</a></li>
 <li><strong>JS/WebAssembly</strong>: Work in progress (higher implementation complexity)</li>
 </ul>
+<h1 id="float-encodings">Float Encodings<a class="headerlink" href="#float-encodings" title="Link to this section">&para;</a></h1>
+<h2 id="plain-floats">Plain Floats<a class="headerlink" href="#plain-floats" title="Link to this section">&para;</a></h2>
+<p>IEEE 754 words, little-endian, one per element.
+This is the only float encoding v1 has.</p>
+<h2 id="alp">ALP <span class="experimental"></span><a class="headerlink" href="#alp" title="Link to this section">&para;</a></h2>
+<p>Adaptive Lossless floating-Point compression stores a float column as integers, which are then compressed with the integer encodings above.</p>
+<p>Most floats in map data are decimals with few significant digits, such as <code>12.75</code> or <code>0.3</code>, and are exactly representable as a scaled integer.
+ALP finds one decimal scale for the whole column and stores <code>i = round(v · 10ᵉ / 10ᶠ)</code> per value.</p>
+<p>The parameters are three varints in the stream header:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>e</code></td>
+<td>Decimal exponent the values were scaled by, <code>0</code>-<code>18</code></td>
+</tr>
+<tr>
+<td><code>f</code></td>
+<td>Factor dividing out the trailing zeros <code>e</code> introduced, never exceeding <code>e</code></td>
+</tr>
+<tr>
+<td><code>base</code></td>
+<td>Frame of reference: the smallest scaled integer in the column, ZigZag-coded</td>
+</tr>
+</tbody>
+</table>
+<p>The payload holds unsigned offsets from <code>base</code>, so the smallest is <code>0</code> and every value is non-negative.
+The offsets are an ordinary integer stream and carry their own physical encoding.</p>
+<p><strong>Decoding</strong>: <code>v = (base + offset) · 10ᶠ / 10ᵉ</code>.</p>
+<p><code>e</code> and <code>f</code> are stored separately instead of a single <code>10^(e - f)</code>.
+Scaling by <code>10ᵉ</code> and then dividing by <code>10ᶠ</code> rounds twice, and some values are only exactly representable with <code>f &gt; 0</code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This arithmetic is normative and deviates from reference ALP, which multiplies by a rounded reciprocal (<code>v · EXP_ARR[e] · FRAC_ARR[f]</code>).
+The two disagree on roughly 0.75% of values.
+MLT ALP streams are not bit-interchangeable with a reference implementation.</p>
+<p>An encoder MUST decode every value back and compare bit patterns.
+If any value does not round-trip exactly, the encoder MUST use another encoding.</p>
+</div>
+<p><code>e</code> is at most <code>18</code> so that <code>v · 10ᵉ</code> fits in an <code>i64</code>.</p>
+<h2 id="float-dictionary">Float Dictionary <span class="experimental"></span><a class="headerlink" href="#float-dictionary" title="Link to this section">&para;</a></h2>
+<p>The distinct values are stored once, and a stream of codes holds one index into them per element.
+The codes are an integer stream.
+The dictionary follows as a second stream of raw values.</p>
+<h1 id="dictionary-encoding">Dictionary Encoding<a class="headerlink" href="#dictionary-encoding" title="Link to this section">&para;</a></h1>
+<p>Dictionary encoding compactly represents repeated values and can be applied to <code>String</code> and <code>Geometry</code> columns.
+Distinct values are stored in a <code>dictionary</code> stream, while a separate <code>data</code> stream stores indices into the dictionary.</p>
+<h2 id="string-dictionary-encoding">String Dictionary Encoding<a class="headerlink" href="#string-dictionary-encoding" title="Link to this section">&para;</a></h2>
+<p>The distinct UTF-8 values are stored once, and a stream of codes holds one index into them per present value.
+A dictionary-encoded nullable string column consists of the following streams in order:</p>
+<table>
+<thead>
+<tr>
+<th>Stream</th>
+<th>Holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Present</code></td>
+<td>Which features have a value. Omitted when the column is not nullable.</td>
+</tr>
+<tr>
+<td><code>Length</code></td>
+<td>The byte length of each distinct value</td>
+</tr>
+<tr>
+<td><code>Offset</code></td>
+<td>One dictionary index per present value</td>
+</tr>
+<tr>
+<td><code>Data</code></td>
+<td>The distinct values' bytes, back to back</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The stream order differs between versions.
+v2 puts the code stream first.
+v1 puts it between the lengths and the bytes, and last in the FSST dictionary layout.
+See the <a href="../specification/v1/#string-columns">v1</a> and <a href="../specification/v2/#string-columns">v2</a> specifications.</p>
+</div>
+<p>The streams are further compressed using the lightweight encodings above:</p>
+<ul>
+<li><strong>Present</strong>: Boolean-RLE in v1, a raw bitfield in v2</li>
+<li><strong>Length and Offset</strong>: any <a href="#integer-encodings">integer encoding</a></li>
+<li><strong>Data</strong>: <a href="#fsst-dictionary-encoding">FSST</a>, <a href="#front-coding">front coding</a>, or plain bytes</li>
+</ul>
+<h3 id="fsst-dictionary-encoding">FSST Dictionary Encoding<a class="headerlink" href="#fsst-dictionary-encoding" title="Link to this section">&para;</a></h3>
+<p>Dictionary encoding requires fully repeating strings to reduce size. However, geospatial attributes often contain strings with common prefixes that are not identical (e.g., localized country names).
+FSST replaces frequently occurring substrings while supporting efficient scans and random lookups. It further compresses UTF-8 encoded dictionary values in MLT.
+An FSST-compressed string column adds two streams to the layouts above:</p>
+<table>
+<thead>
+<tr>
+<th>Stream</th>
+<th>Holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SymbolLength</code></td>
+<td>The byte length of each symbol</td>
+</tr>
+<tr>
+<td><code>SymbolTable</code></td>
+<td>The symbols themselves</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>Data</code> stream then holds the compressed corpus rather than plain bytes.
+For implementation details, refer to <a href="https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf">this paper</a>.</p>
+<p><strong>Available implementations</strong>:</p>
+<ul>
+<li><strong>C++</strong>: <a href="https://github.com/cwida/fsst">https://github.com/cwida/fsst</a></li>
+<li><strong>Rust</strong>: <a href="https://crates.io/crates/fsst-rs">https://crates.io/crates/fsst-rs</a></li>
+<li><strong>Java</strong>: Work in progress</li>
+<li><strong>JS/WebAssembly decoder</strong>: Work in progress (simple to implement)</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Different FSST implementations train different symbol tables for the same input.
+A decoder reads the symbol table from the stream, so this only matters when comparing the output of two encoders.</p>
+</div>
+<h3 id="front-coding">Front Coding <span class="experimental"></span><a class="headerlink" href="#front-coding" title="Link to this section">&para;</a></h3>
+<p>Neighbouring entries of a sorted dictionary often share a prefix, for example <code>Main Street</code>, <code>Main Street North</code> and <code>Maple Avenue</code>.
+Front coding stores the length of the prefix shared with the previous entry, and only the suffix bytes.</p>
+<p>The lengths stream that precedes the blob holds <code>2N</code> values: <code>N</code> shared-prefix lengths, then <code>N</code> suffix lengths.
+Entry <code>i</code> is the first <code>prefix_lengths[i]</code> bytes of entry <code>i - 1</code>, followed by its own suffix.
+The first entry's prefix length is always <code>0</code>.</p>
+<p>Entries are reconstructed sequentially.
+Random access requires a scan from the start of the dictionary.
+Prefix lengths are in bytes and may split a multi-byte character.
+Only the reconstructed entry has to be valid UTF-8.</p>
+<p>Front coding can be combined with FSST.
+The corpus is front-coded first and then FSST-compressed.
+An encoder SHOULD compare the stored size of each combination.</p>
+<h3 id="shared-dictionary-encoding">Shared Dictionary Encoding<a class="headerlink" href="#shared-dictionary-encoding" title="Link to this section">&para;</a></h3>
+<p>Shared dictionary encoding allows multiple columns to share a common dictionary.
+Localized name columns such as <code>name:en</code>, <code>name:de</code> and <code>name:fr</code> in an OSM dataset are the main use case.</p>
+<p>Columns sharing a dictionary must be grouped together in the file and prefixed with the dictionary.
+Each member column then stores only its present stream and its codes:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Length, Data, Present₁, Offset₁, Present₂, Offset₂, ...
+</span></code></pre></div>
+<p>With FSST the dictionary is four streams instead of two:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>SymbolLength, SymbolTable, Length, Data, Present₁, Offset₁, Present₂, Offset₂, ...
+</span></code></pre></div>
+<p>In v2 presence bitfields are not streams and can be shared between columns.</p>
+<h2 id="vertex-dictionary-encoding">Vertex Dictionary Encoding<a class="headerlink" href="#vertex-dictionary-encoding" title="Link to this section">&para;</a></h2>
+<p>Uses an additional <code>VertexOffsets</code> stream to store indices for vertex coordinates in the <code>VertexBuffer</code> stream.
+Vertices in the VertexBuffer are sorted using a Hilbert curve and delta-encoded with null suppression.</p>
+<h3 id="morton-vertex-dictionary-encoding">Morton Vertex Dictionary Encoding<a class="headerlink" href="#morton-vertex-dictionary-encoding" title="Link to this section">&para;</a></h3>
+<p><code>VertexBuffer</code> coordinates are transformed into a 1D integer using Morton code.
+The data is sorted by Morton code and further compressed using integer compression techniques.
+The grid the codes are laid on is carried as two parameters, <code>bits</code> and <code>shift</code>.</p>
+<p>v1 can store Morton codes plain, delta-coded or run-length encoded.
+v2 stores them only delta-coded over a sorted dictionary.</p>
+<h1 id="choosing-an-encoding">Choosing an Encoding<a class="headerlink" href="#choosing-an-encoding" title="Link to this section">&para;</a></h1>
+<p>A brute-force search over every combination is too costly.
+Use the selection strategy from the <a href="https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrblocks.pdf">BTRBlocks</a> paper:</p>
+<ul>
+<li>Calculate data metrics to exclude unsuitable encodings early (e.g., exclude RLE if the average run length is less than 2).</li>
+<li>Use a sampling-based algorithm: randomly select parts of the data totaling ~1% of the full dataset and apply the candidate encodings from step 1.
+  Choose the scheme that produces the smallest output.</li>
+</ul>
+<p>Compare stored bytes, not an estimate.
+Do not assume a later gzip pass changes which candidate wins.</p>
 
 
 

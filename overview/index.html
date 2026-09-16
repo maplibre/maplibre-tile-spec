@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://www.maplibre.org/maplibre-tile-spec/specification/">
+        <link rel="canonical" href="https://www.maplibre.org/maplibre-tile-spec/overview/">
       
       
-        <link rel="prev" href="../overview/">
+        <link rel="prev" href="./..">
       
       
-        <link rel="next" href="./v1/">
+        <link rel="next" href="../specification/">
       
       
         
@@ -84,7 +84,8 @@
     <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
     <div data-md-component="skip">
       
-        <a href="#__skip" class="md-skip">
+        
+        <a href="#tiles" class="md-skip">
           Skip to content
         </a>
       
@@ -272,84 +273,6 @@
       
   
   
-  
-  
-    <li class="md-nav__item">
-      <a href="../overview/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Overview
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-    
-  
-  
-  
-    
-    
-    
-    
-      
-        
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
-        
-          
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Specification
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-  Specification
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
     
   
   
@@ -358,6 +281,8 @@
       
       
       
+      
+        
       
       
       <a href="././" class="md-nav__link md-nav__link--active">
@@ -379,6 +304,82 @@
     </li>
   
 
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Specification
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Specification
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -388,7 +389,7 @@
   
   
     <li class="md-nav__item">
-      <a href="./v1/" class="md-nav__link">
+      <a href="../specification/v1/" class="md-nav__link">
         
   
   
@@ -415,7 +416,7 @@
   
   
     <li class="md-nav__item">
-      <a href="./v2/" class="md-nav__link">
+      <a href="../specification/v2/" class="md-nav__link">
         
   
   
@@ -510,7 +511,7 @@
                 
                   
   
-    <a href="https://github.com/maplibre/maplibre-tile-spec/edit/main/docs/specification/index.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/maplibre/maplibre-tile-spec/edit/main/docs/overview.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
     </a>
@@ -518,7 +519,7 @@
   
 
 
-<h1>MapLibre Tile Specification</h1>
+<h1>Overview</h1>
 
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -526,29 +527,214 @@
 Features marked as <span class="experimental"></span> are under active development and may change in future versions.
 Stable features are those without experimental tags.</p>
 </div>
-<p>The wire format is versioned by the first byte of every tile.</p>
+<div class="toc">
+<ul>
+<li><a href="#tiles">Tiles</a></li>
+<li><a href="#extents">Extents</a></li>
+<li><a href="#layers-and-features">Layers and features</a></li>
+<li><a href="#columns-not-records">Columns, not records</a></li>
+<li><a href="#streams">Streams</a></li>
+<li><a href="#encodings">Encodings</a></li>
+<li><a href="#sorting">Sorting</a></li>
+<li><a href="#mvt-compatibility">MVT compatibility</a></li>
+<li><a href="#format-versions">Format versions</a></li>
+<li><a href="#in-memory-format">In-memory format</a></li>
+</ul>
+</div>
+<hr />
+<p>This page describes the MLT data model.
+The byte layout is in the <a href="../specification/v1/">v1 specification</a> and the <a href="../specification/v2/">v2 specification</a>.</p>
+<h1 id="tiles">Tiles<a class="headerlink" href="#tiles" title="Link to this section">&para;</a></h1>
+<p>MLT is a tiled format.
+A dataset is cut into a pyramid of square tiles, one per <code>z/x/y</code> address.
+A client fetches the tiles covering the current viewport at the current zoom.
+Each tile is self-contained: nothing outside it is needed to decode it.</p>
+<p>This is the same tiling model MVT uses.
+Tiles are commonly stored in <a href="https://github.com/protomaps/PMTiles">PMTiles</a> or MBTiles archives and served over HTTP, for example by the <a href="https://maplibre.org/martin/">Martin tile server</a>.</p>
+<h1 id="extents">Extents<a class="headerlink" href="#extents" title="Link to this section">&para;</a></h1>
+<p>Coordinates inside a tile are not longitude and latitude.
+Each tile declares an <code>extent</code>, and geometry coordinates are signed integers on the <code>0..=extent</code> grid, relative to the tile's own corner.
+The client maps the grid onto the screen using the tile's <code>z/x/y</code> address.</p>
+<p>Integer coordinates compress well, since neighbouring vertices differ by small numbers.</p>
+<p><code>4096</code> is the conventional extent and the encoder default.
+A larger extent gives more precision and costs more bytes.</p>
+<p>Coordinates MAY be negative or exceed <code>extent</code>.
+This lets geometry crossing a tile boundary keep its shape, so that lines and polygon edges meet across the seam instead of being clipped to it.</p>
+<h1 id="layers-and-features">Layers and features<a class="headerlink" href="#layers-and-features" title="Link to this section">&para;</a></h1>
+<p>A tile is a sequence of layers, called <code>FeatureTable</code>s in the specification.
+A layer is a thematic group of data such as <code>water</code>, <code>roads</code> or <code>place_labels</code>, and is the unit a <a href="https://maplibre.org/maplibre-style-spec/">MapLibre Style</a> targets.
+Layers are equivalent to layers in MVT.</p>
+<p>Each layer holds up to <code>2^31 - 1</code> features, so that a feature count fits a signed 32-bit integer.</p>
+<p>A feature has:</p>
+<ul>
+<li>a geometry, typed by the OGC Simple Feature Access model, excluding <code>GeometryCollection</code></li>
+<li>an optional id</li>
+<li>any number of properties</li>
+</ul>
+<p>Features in one layer share a single set of property columns and normally share one geometry type.
+Mixing geometry types in a layer is allowed, but one type per layer compresses better.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The terms <code>column</code>, <code>field</code>, and <code>property</code> are used interchangeably in the specification.</p>
+</div>
+<h1 id="columns-not-records">Columns, not records<a class="headerlink" href="#columns-not-records" title="Link to this section">&para;</a></h1>
+<p>MVT is record-oriented: it writes feature 1 whole, then feature 2 whole, each with its own tags and geometry commands.
+MLT is column-oriented: it writes every feature's <code>id</code>, then every feature's geometry, then every feature's <code>class</code>, and so on.</p>
+<pre class="mermaid"><code>graph TB
+    subgraph MVT["MVT (record-oriented)"]
+        direction LR
+        R["id₁ geom₁ class₁ · id₂ geom₂ class₂ · id₃ geom₃ class₃"]
+    end
+    subgraph MLT["MLT (column-oriented)"]
+        direction LR
+        C["id₁ id₂ id₃ · geom₁ geom₂ geom₃ · class₁ class₂ class₃"]
+    end
+    MVT ~~~ MLT</code></pre>
+<p>The column layout has the following consequences:</p>
+<ul>
+<li><strong>Compression.</strong> A column of road classes is a few distinct strings repeated many times, which a dictionary collapses. A column of ascending ids is a constant delta. Neither pattern is visible when the values are spread across records.</li>
+<li><strong>Decoding speed.</strong> A column decodes with one loop over one buffer, which vectorizes. A record stream decodes with a branchy loop over mixed types.</li>
+<li><strong>GPU upload.</strong> Vertices are already contiguous, so they can be copied to a GPU buffer without gathering.</li>
+<li><strong>Partial decoding.</strong> A renderer that needs only the geometry and one property can skip the other columns.</li>
+</ul>
+<h1 id="streams">Streams<a class="headerlink" href="#streams" title="Link to this section">&para;</a></h1>
+<p>A column is split into several streams, each a contiguous run of same-typed values.
+This follows the <a href="https://orc.apache.org/specification/ORCv1/">ORC</a> file format.
+Each stream carries its own metadata: value count, byte length and encoding.</p>
+<p>A nullable string column, for example, becomes:</p>
+<ul>
+<li>a present stream, one bit per feature, saying which features have a value</li>
+<li>a length stream, the byte length of each string</li>
+<li>a data stream, the UTF-8 bytes</li>
+</ul>
+<p>MLT defines these stream kinds:</p>
 <table>
 <thead>
 <tr>
+<th>Stream</th>
+<th>Holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Present</strong></td>
+<td>One bit per feature: does this feature have a value? Omitted for a column that cannot be null.</td>
+</tr>
+<tr>
+<td><strong>Data</strong></td>
+<td>The values themselves: booleans, integers, floats, strings, dictionary codes, or vertex coordinates.</td>
+</tr>
+<tr>
+<td><strong>Length</strong></td>
+<td>Element counts for variable-sized values: string byte lengths, ring vertex counts, list sizes.</td>
+</tr>
+<tr>
+<td><strong>Offset</strong></td>
+<td>Indices into another stream, used by dictionary encodings.</td>
+</tr>
+</tbody>
+</table>
+<p>Each stream is encoded independently.
+Lengths are usually small and repetitive and run-length encode well.
+String bytes do not, but often dictionary-encode well.</p>
+<h1 id="encodings">Encodings<a class="headerlink" href="#encodings" title="Link to this section">&para;</a></h1>
+<p>Every stream has its own lightweight encoding: delta, run-length, dictionary, bit packing, FSST, and others.
+Lightweight means cheap enough to decode at render time.</p>
+<p>Encodings cascade.
+Dictionary encoding turns a string column into a stream of integer codes, and that integer stream is then delta- or bit-packed like any other.</p>
+<p>Encoders choose encodings by sampling, since trying every combination is too expensive.
+The <a href="../encodings/">encoding algorithms</a> page describes each scheme.
+The specifications say which streams may use which.</p>
+<p>Tiles are usually also gzip- or brotli-compressed in transit.</p>
+<h1 id="sorting">Sorting<a class="headerlink" href="#sorting" title="Link to this section">&para;</a></h1>
+<p>Feature order is the encoder's choice.
+Sorting a layer by a low-cardinality property groups equal values into runs that RLE collapses.
+Sorting by spatial locality shortens vertex deltas.</p>
+<p>MLT does not fix an order.
+Encoders MAY reorder features.
+Applications that depend on source order must disable sorting or carry an explicit ordering property.</p>
+<h1 id="mvt-compatibility">MVT compatibility<a class="headerlink" href="#mvt-compatibility" title="Link to this section">&para;</a></h1>
+<p>MLT can represent the same common vector tile content as MVT, but it is not a byte-for-byte or schema-free replacement.
+The differences come from MVT's per-feature tag/value model versus MLT's per-layer column model:</p>
+<ul>
+<li><strong>Property types are fixed per layer.</strong>
+  In MVT, the same key can technically reference values of different data types on different features in a layer.
+  In MLT, one property name corresponds to one column, and that column has one declared type for the whole layer.
+  MVT data with mixed types must therefore be normalized before or during conversion, for example by lossless numeric widening, coercing values to strings, dropping mismatched values, or rejecting the tile.</li>
+<li><strong>Missing properties become typed nulls.</strong>
+  MVT normally represents a missing property by omitting the key/value tag from that feature; the MVT value union has no dedicated null type.
+  MLT represents the union of layer properties as columns, so a feature that lacks a property stores a null in that column and the column is marked nullable.
+  When converting MLT back to MVT, null property values should be omitted from the feature tags.</li>
+<li><strong>A feature has at most one value per property column.</strong>
+  MVT tag streams can encode the same key more than once for a single feature, even though most MVT APIs expose properties as a map and collapse such duplicates.
+  MLT has one cell per feature per column, so duplicate keys on one feature must be rejected, collapsed deterministically, or renamed before encoding.</li>
+<li><strong>Feature order is not necessarily a stable round-trip property.</strong>
+  MVT stores features in wire order.
+  MLT encoders may preserve order, but they may also sort features by id or spatial locality to improve compression when that optimization is enabled.</li>
+<li><strong>Layer names must be non-empty.</strong>
+  The MVT protobuf schema marks the layer <code>name</code> field as required, but some Mapbox-authored tooling validates that it is present as well as non-empty.
+  The written MVT specification does not explicitly say that the required name cannot be an empty string.
+  MLT treats that omission as an oversight: an empty layer name is invalid and must be rejected.</li>
+</ul>
+<h1 id="format-versions">Format versions<a class="headerlink" href="#format-versions" title="Link to this section">&para;</a></h1>
+<p>Every layer in a tile is prefixed with a one-byte tag naming the format of its body.
+A decoder skips a layer whose tag it does not know.
+Versions can therefore be mixed in one tile, and a new version does not break old readers.</p>
+<table>
+<thead>
+<tr>
+<th>Tag</th>
 <th>Version</th>
-<th>Page</th>
 <th>Status</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>0x01</code></td>
-<td><a href="v1/">MLT v1</a></td>
-<td>Stable.</td>
+<td><a href="../specification/v1/">MLT v1</a></td>
+<td>Stable. Implemented by every shipped encoder and decoder.</td>
 </tr>
 <tr>
 <td><code>0x02</code></td>
-<td><a href="v2/">MLT v2</a></td>
-<td><span class="experimental"></span> Under development.</td>
+<td><a href="../specification/v2/">MLT v2</a></td>
+<td><span class="experimental"></span> Under development. The wire format may change without notice.</td>
 </tr>
 </tbody>
 </table>
-<p>Both versions share the data model in the <a href="../overview/">Overview</a> and the compression schemes in <a href="../encodings/">Encoding Algorithms</a>.</p>
+<p>v2 uses the v1 data model described above and changes only the byte layout.</p>
+<h1 id="in-memory-format">In-memory format<a class="headerlink" href="#in-memory-format" title="Link to this section">&para;</a></h1>
+<p>The record-oriented, array-of-structures in-memory model used by libraries processing Mapbox Vector Tiles incurs considerable overhead.
+This includes creating many small objects (increasing memory allocation load) and placing additional strain on garbage collectors in browsers.</p>
+<p>MLT uses a columnar memory layout (data-oriented design) for its in-memory format to overcome these issues.
+This approach improves cache utilization for subsequent data access and enables the use of fast SIMD instructions.
+The MLT in-memory format incorporates ideas from analytical in-memory formats like Apache Arrow, Velox, and the DuckDB execution format, tailored for visualization use cases.
+It is also designed for future parallel processing on the GPU within compute shaders.</p>
+<p>The main design goals are:</p>
+<ul>
+<li>Define a platform-agnostic representation to avoid expensive materialization costs, especially for strings.</li>
+<li>Maximize CPU throughput by optimizing memory layout for cache locality and SIMD instructions.</li>
+<li>Allow random (preferably constant-time) access to all data for parallel processing on GPUs (compute shaders).</li>
+<li>Provide compressed data structures that can be processed directly without full decoding.</li>
+<li>Provide tile geometries in a representation that can be loaded into GPU buffers with minimal additional processing.</li>
+</ul>
+<p>Data is stored in contiguous memory buffers called <strong>vectors</strong>, accompanied by metadata and an optional null bitmap.
+An auxiliary offset buffer enables random access to variable-sized data types like strings or lists.
+The supported vector types are:</p>
+<ul>
+<li><a href="https://duckdb.org/internals/vector.html#flat-vectors">Flat Vectors</a></li>
+<li><a href="https://duckdb.org/internals/vector.html#constant-vectors">Constant Vectors</a></li>
+<li><a href="https://duckdb.org/internals/vector.html#sequence-vectors">Sequence Vectors</a></li>
+<li><a href="https://duckdb.org/internals/vector.html#dictionary-vectors">Dictionary Vectors</a></li>
+<li>FSST Dictionary Vectors</li>
+<li>Shared Dictionary Vectors</li>
+<li><a href="https://arrow.apache.org/docs/format/Columnar.html#run-end-encoded-layout">Run-End Encoded (REE) Vectors</a></li>
+</ul>
+<p>Using a compressed vector where possible makes the conversion from storage to in-memory format essentially a zero-copy operation.</p>
+<p>Following Apache Arrow's approach and the <a href="https://www.intel.com/content/www/us/en/developer/topic-technology/data-center/overview.html">Intel performance guide</a>, decoders should allocate memory on addresses aligned to a 64-byte multiple (where possible).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Further evaluation is needed to determine if <a href="https://arxiv.org/pdf/2306.15374.pdf">recent research</a> can enable random access on delta-encoded values.</p>
+</div>
 
 
 

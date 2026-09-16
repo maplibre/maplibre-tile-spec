@@ -14,7 +14,7 @@
       
       
       
-        <link rel="next" href="./implementation-status/">
+        <link rel="next" href="./overview/">
       
       
         
@@ -83,7 +83,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#introduction" class="md-skip">
+        <a href="#maplibre-tile-specification" class="md-skip">
           Skip to content
         </a>
       
@@ -257,6 +257,23 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="" class="md-nav__link md-nav__link--active">
         
   
@@ -273,6 +290,48 @@
 
       </a>
       
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why-mlt" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Why MLT
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Documentation
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -284,14 +343,14 @@
   
   
     <li class="md-nav__item">
-      <a href="./implementation-status/" class="md-nav__link">
+      <a href="./overview/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  Implementation Status
+  Overview
 
     
   </span>
@@ -305,6 +364,137 @@
     
       
       
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Specification
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Specification
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./specification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./specification/v1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  MLT v1
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./specification/v2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  MLT v2 (experimental)
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
   
   
   
@@ -328,6 +518,14 @@
     </li>
   
 
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
     
       
       
@@ -336,14 +534,14 @@
   
   
     <li class="md-nav__item">
-      <a href="./specification/" class="md-nav__link">
+      <a href="./implementation-status/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  Specification
+  Implementation Status
 
     
   </span>
@@ -378,13 +576,18 @@
   
 
 
-<h1 id="introduction">Introduction<a class="headerlink" href="#introduction" title="Link to this section">&para;</a></h1>
+<h1 id="maplibre-tile-specification">MapLibre Tile Specification<a class="headerlink" href="#maplibre-tile-specification" title="Link to this section">&para;</a></h1>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>This is a live specification that evolves continuously. Features marked as <span class="experimental"></span> are under active development and may change in future versions. Stable features are those without experimental tags.</p>
+<p>This is a live specification that evolves continuously.
+Features marked as <span class="experimental"></span> are under active development and may change in future versions.
+Stable features are those without experimental tags.</p>
 </div>
+<p>MLT (MapLibre Tile) is a vector tile format for map data.
+It stores the same content as an <a href="https://github.com/mapbox/vector-tile-spec">MVT</a> tile, layers of features with geometries and properties, in a column-oriented layout.</p>
 <p>MLT is natively supported by <a href="https://maplibre.org/maplibre-gl-js/">MapLibre GL JS</a> and <a href="https://maplibre.org/maplibre-native/">MapLibre Native</a>, and tiles can be served using the <a href="https://maplibre.org/martin/">Martin tile server</a>.</p>
-<p>The MLT format is mainly inspired by the <a href="https://github.com/mapbox/vector-tile-spec">MVT format</a>, but has been redesigned from the ground up to improve the following areas:</p>
+<h2 id="why-mlt">Why MLT<a class="headerlink" href="#why-mlt" title="Link to this section">&para;</a></h2>
+<p>MLT is mainly inspired by MVT, but has been redesigned from the ground up to improve the following areas:</p>
 <ul>
 <li><strong>Improved compression ratio</strong> - up to 6x on large tiles, based on a column oriented layout with (custom) lightweight encodings</li>
 <li><strong>Better decoding performance</strong> - fast lightweight encodings which can be used in combination with SIMD/vectorization instructions</li>
@@ -393,6 +596,39 @@
 <li><strong>Support complex types</strong>, including nested properties, lists and maps</li>
 <li><strong>Improved processing performance</strong>: Based on an in-memory format that can be processed efficiently on the CPU and GPU and loaded directly into GPU buffers partially (like polygons in WebGL) or completely (in case of WebGPU compute shader usage) without additional processing</li>
 </ul>
+<p>The last three are not yet implemented.
+They are planned for <a href="specification/v2/">MLT v2</a>, see <a href="specification/v2/#planned-features">Planned features</a>.</p>
+<h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Page</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="overview/">Overview</a></td>
+<td>The data model: tiles, extents, layers, features, columns and streams.</td>
+</tr>
+<tr>
+<td><a href="specification/v1/">Specification v1</a></td>
+<td>The stable wire format.</td>
+</tr>
+<tr>
+<td><a href="specification/v2/">Specification v2</a> <span class="experimental"></span></td>
+<td>The next wire format, under development.</td>
+</tr>
+<tr>
+<td><a href="encodings/">Encoding Algorithms</a></td>
+<td>The compression schemes used by both versions.</td>
+</tr>
+<tr>
+<td><a href="implementation-status/">Implementation Status</a></td>
+<td>Tools, libraries and datasets that support MLT.</td>
+</tr>
+</tbody>
+</table>
 
 
 

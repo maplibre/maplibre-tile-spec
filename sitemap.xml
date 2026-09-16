@@ -4,12 +4,21 @@
         <loc>https://www.maplibre.org/maplibre-tile-spec/</loc>
       </url>
       <url>
-        <loc>https://www.maplibre.org/maplibre-tile-spec/implementation-status/</loc>
+        <loc>https://www.maplibre.org/maplibre-tile-spec/overview/</loc>
+      </url>
+      <url>
+        <loc>https://www.maplibre.org/maplibre-tile-spec/specification/</loc>
+      </url>
+      <url>
+        <loc>https://www.maplibre.org/maplibre-tile-spec/specification/v1/</loc>
+      </url>
+      <url>
+        <loc>https://www.maplibre.org/maplibre-tile-spec/specification/v2/</loc>
       </url>
       <url>
         <loc>https://www.maplibre.org/maplibre-tile-spec/encodings/</loc>
       </url>
       <url>
-        <loc>https://www.maplibre.org/maplibre-tile-spec/specification/</loc>
+        <loc>https://www.maplibre.org/maplibre-tile-spec/implementation-status/</loc>
       </url>
 </urlset>
