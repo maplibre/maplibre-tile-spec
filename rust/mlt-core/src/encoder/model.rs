@@ -449,6 +449,9 @@ pub struct EncoderConfig {
     /// Allow the v2-only bit-packed physical encoding for dictionary code streams
     #[cfg(feature = "unstable-v2")]
     allow_packed_dict_codes: bool,
+    /// Code a nested struct's or map's row shapes instead of per-field presence or per-entry keys.
+    #[cfg(feature = "unstable-v2")]
+    allow_row_shapes: bool,
 }
 impl Default for EncoderConfig {
     fn default() -> Self {
@@ -467,6 +470,8 @@ impl Default for EncoderConfig {
             allow_float_dict: false,
             #[cfg(feature = "unstable-v2")]
             allow_float_alp: false,
+            #[cfg(feature = "unstable-v2")]
+            allow_row_shapes: false,
             #[cfg(feature = "unstable-v2")]
             allow_packed_dict_codes: false,
         }
@@ -524,6 +529,21 @@ impl EncoderConfig {
     #[must_use]
     pub fn allow_shared_dict(self) -> bool {
         self.allow_shared_dict
+    }
+
+    /// Whether a nested struct or map may code its row shapes, which only v2 can express.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn allow_row_shapes(self) -> bool {
+        self.allow_row_shapes
+    }
+
+    /// Let a nested struct or map replace per-field presence and per-entry keys with row shapes.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn with_row_shapes(mut self, enabled: bool) -> Self {
+        self.allow_row_shapes = enabled;
+        self
     }
 
     /// Whether float columns may use a dictionary, which only v2 can express.
