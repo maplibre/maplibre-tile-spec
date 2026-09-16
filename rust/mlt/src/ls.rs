@@ -15,8 +15,8 @@ use mlt_core::geojson::FeatureCollection;
 use mlt_core::mvt::mvt_to_feature_collection;
 use mlt_core::wire::StatType::{DecodedDataSize, DecodedMetaSize, FeatureCount};
 use mlt_core::wire::{
-    Analyze as _, DictionaryType, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding,
-    StreamMeta, StreamType,
+    Analyze as _, BoolLogical, DictionaryType, FloatLogical, IntLogical, LengthType,
+    LogicalEncoding, OffsetType, PhysicalEncoding, StreamMeta, StreamType, VertexLogical,
 };
 use mlt_core::{Decoder, GeometryType, Parser};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
@@ -168,12 +168,39 @@ impl std::fmt::Display for FileAlgorithm {
                         LengthType::Triangles => "TrianglesLen",
                         LengthType::Symbol => "SymbolLen",
                         LengthType::Dictionary => "DictLen",
+                        #[cfg(feature = "unstable-v2")]
+                        LengthType::Nested => "NestedLen",
+                        // `mlt-core` resolves its features separately, so it may hand this
+                        // build a nested length stream the match above cannot name.
+                        #[cfg(not(feature = "unstable-v2"))]
+                        #[allow(
+                            unreachable_patterns,
+                            reason = "reachable only when mlt-core has v2"
+                        )]
+                        _ => "NestedLen",
                     },
                 };
+                // `mlt-core` may carry v2-only encodings this build has no name for,
+                // since its features are resolved separately from this crate's.
+                #[cfg_attr(
+                    not(feature = "unstable-v2"),
+                    expect(
+                        clippy::wildcard_enum_match_arm,
+                        reason = "v2 encodings exist only when mlt-core has them"
+                    )
+                )]
                 let physical = match physical {
                     PhysicalEncoding::None => "",
-                    PhysicalEncoding::FastPFor256 => "FastPFOR",
+                    PhysicalEncoding::FastPFor(_) => "FastPFOR",
                     PhysicalEncoding::VarInt => "VarInt",
+                    #[cfg(feature = "unstable-v2")]
+                    PhysicalEncoding::BitPacked => "BitPacked",
+                    #[cfg(not(feature = "unstable-v2"))]
+                    #[allow(
+                        unreachable_patterns,
+                        reason = "reachable only when mlt-core has v2, but this crate doesn't"
+                    )]
+                    _ => "Unknown",
                 };
                 let logical = match logical {
                     StatLogicalCodec::None => "",
@@ -184,6 +211,8 @@ impl std::fmt::Display for FileAlgorithm {
                     StatLogicalCodec::Morton => "Morton",
                     StatLogicalCodec::MortonDelta => "MortonDelta",
                     StatLogicalCodec::MortonRle => "MortonRle",
+                    StatLogicalCodec::Dict => "Dict",
+                    StatLogicalCodec::Alp => "ALP",
                 };
                 write!(f, "{phys_type}")?;
                 if !physical.is_empty() {
@@ -666,19 +695,27 @@ pub enum StatLogicalCodec {
     Morton,
     MortonDelta,
     MortonRle,
+    Dict,
+    Alp,
 }
 
 impl From<LogicalEncoding> for StatLogicalCodec {
     fn from(ld: LogicalEncoding) -> Self {
+        use LogicalEncoding as LE;
         match ld {
-            LogicalEncoding::None => Self::None,
-            LogicalEncoding::Delta => Self::Delta,
-            LogicalEncoding::DeltaRle(_) => Self::DeltaRle,
-            LogicalEncoding::ComponentwiseDelta => Self::ComponentwiseDelta,
-            LogicalEncoding::Rle(_) => Self::Rle,
-            LogicalEncoding::Morton(_) => Self::Morton,
-            LogicalEncoding::MortonDelta(_) => Self::MortonDelta,
-            LogicalEncoding::MortonRle(_) => Self::MortonRle,
+            LE::Int(IntLogical::None)
+            | LE::Bool(BoolLogical::None)
+            | LE::Float(FloatLogical::None)
+            | LE::Vertex(VertexLogical::None) => Self::None,
+            LE::Int(IntLogical::Delta) | LE::Vertex(VertexLogical::Delta) => Self::Delta,
+            LE::Int(IntLogical::DeltaRle(_)) => Self::DeltaRle,
+            LE::Vertex(VertexLogical::ComponentwiseDelta) => Self::ComponentwiseDelta,
+            LE::Int(IntLogical::Rle(_)) | LE::Bool(BoolLogical::ByteRle(_)) => Self::Rle,
+            LE::Vertex(VertexLogical::Morton(_)) => Self::Morton,
+            LE::Vertex(VertexLogical::MortonDelta(_)) => Self::MortonDelta,
+            LE::Vertex(VertexLogical::MortonRle(_)) => Self::MortonRle,
+            LE::Float(FloatLogical::Dict) => Self::Dict,
+            LE::Float(FloatLogical::Alp(_)) => Self::Alp,
         }
     }
 }

@@ -1,9 +1,11 @@
+*.actual.json
 *.class
 *.diff.geojson
 *.gcov
+*.hexdump
+!docs/snippets/0x0*/*.mlt.hexdump
 *.log
 *.new.geojson
-*.actual.json
 .DS_Store
 .cache/
 .idea/
@@ -16,6 +18,6 @@ bin/
 build/
 coverage/
 dist/
+node_modules
 site/
 tmp/
-node_modules

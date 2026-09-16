@@ -6,14 +6,14 @@ use super::streams::{
     encode_level1_without_ring_buffer_length_stream, encode_level2_length_stream,
     encode_morton_vertex_streams, encode_ring_lengths_for_mixed, encode_root_length_stream,
     encode_vec2_vertex_stream, normalize_geometry_offsets, normalize_part_offsets_for_rings,
-    write_geo_u32_stream,
+    seed_curve_caches, write_geo_u32_stream,
 };
 use crate::MltResult;
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
 use crate::decoder::{
-    ColumnType, GeometryType, GeometryValues, LengthType, Morton, OffsetType, StreamType,
+    ColumnType, GeometryType, GeometryValues, LengthType, OffsetType, StreamType,
 };
-use crate::encoder::model::{CurveParams, StreamCtx};
+use crate::encoder::model::StreamCtx;
 use crate::encoder::{Codecs, Encoder};
 
 impl GeometryValues {
@@ -31,8 +31,6 @@ impl GeometryValues {
         } = self;
 
         // Flatten every Option<Vec> -> Vec  (empty == not present).
-        // triangles: None means no tessellation; Some([]) can't occur in practice (each
-        // push_geom appends a count), so empty == absent is safe here too.
         // vertices: None means no coordinate data (e.g. empty layer).
         let geom_offsets = geometry_offsets.unwrap_or_default();
         let part_offsets = part_offsets.unwrap_or_default();
@@ -41,16 +39,16 @@ impl GeometryValues {
         let triangles = triangles.unwrap_or_default();
         let vertices = vertices.unwrap_or_default();
 
-        // Direct callers (tests, custom drivers) skip `StagedLayer::encode_into`
-        // and arrive with empty caches; populate from `vertices` so the
-        // dictionary builders can rely on them unconditionally.
-        if enc.hilbert_cache.is_none() {
-            enc.hilbert_cache = Some(CurveParams::from_vertices(&vertices));
-        }
-        if enc.morton_cache.is_none() {
-            let p = enc.hilbert_cache.expect("populated above");
-            enc.morton_cache = Morton::new(p.bits, p.shift).ok();
-        }
+        // An empty index buffer means no polygon tessellated into a triangle, so both
+        // streams are dropped, as the v2 writer does. The triangle counts alone say
+        // nothing a reader could use.
+        let (triangles, index_buffer) = if index_buffer.is_empty() {
+            (Vec::new(), Vec::new())
+        } else {
+            (triangles, index_buffer)
+        };
+
+        seed_curve_caches(enc, &vertices);
 
         let meta: Vec<u32> = vector_types.iter().map(|t| *t as u32).collect();
 

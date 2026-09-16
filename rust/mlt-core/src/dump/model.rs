@@ -26,6 +26,9 @@ pub enum DecodeHint {
     U32,
     /// Signed 64-bit integers (`i64` columns).
     I64,
+    /// ALP offsets, put back on their frame of reference.
+    #[cfg(feature = "unstable-v2")]
+    Alp(crate::decoder::Alp),
     /// Unsigned 64-bit integers (`u64` columns, 64-bit ids).
     U64,
     /// 32-bit floats.
@@ -50,6 +53,56 @@ pub struct BitField {
     pub raw: u64,
     /// Human-readable meaning, e.g. `"physical = VarInt"`.
     pub meaning: String,
+}
+
+impl BitField {
+    /// One field of a packed byte, located by the same mask constant the parser reads it
+    /// with, so the dump cannot drift from the wire format.
+    ///
+    /// `raw` is the masked bits shifted down to bit 0, so it renders as the field's own
+    /// value rather than its in-byte position. `mask` must be one contiguous run of bits.
+    pub fn mask(mask: u8, byte: u8, meaning: impl Into<String>) -> Self {
+        let (hi, lo) = mask_bounds(mask);
+        Self {
+            hi,
+            lo,
+            raw: u64::from((byte & mask) >> lo),
+            meaning: meaning.into(),
+        }
+    }
+
+    /// A one-bit flag, worded as a phrase instead of a `0`/`1`.
+    ///
+    /// The renderer already prefixes every bit line with `bit N = V ->`, so `when_set`
+    /// and `when_clear` should say what the bit asserts about the tile rather than
+    /// repeat its value.
+    #[must_use]
+    pub fn flag(mask: u8, byte: u8, when_set: &str, when_clear: &str) -> Self {
+        debug_assert_eq!(mask.count_ones(), 1, "a flag occupies exactly one bit");
+        let meaning = if byte & mask == 0 {
+            when_clear
+        } else {
+            when_set
+        };
+        Self::mask(mask, byte, meaning)
+    }
+}
+
+/// Inclusive `(hi, lo)` bit indices spanned by `mask`.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "a u8 mask spans at most 8 bits"
+)]
+fn mask_bounds(mask: u8) -> (u8, u8) {
+    debug_assert!(mask != 0, "a bit field needs at least one bit");
+    let lo = mask.trailing_zeros() as u8;
+    let hi = (u8::BITS - 1 - mask.leading_zeros()) as u8;
+    debug_assert_eq!(
+        u32::from(hi - lo) + 1,
+        mask.count_ones(),
+        "a bit field's mask must be one contiguous run of bits"
+    );
+    (hi, lo)
 }
 
 /// Stream metadata attached to a [`RegionKind::DataBlob`] so the renderer can decode it.

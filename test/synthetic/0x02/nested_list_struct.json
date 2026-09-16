@@ -1,0 +1,49 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "items": [
+          {
+            "id": 1,
+            "tag": "hi"
+          },
+          {
+            "id": 2,
+            "tag": "lo"
+          }
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11,
+          52
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "items": [
+          {
+            "id": 3,
+            "tag": "hi"
+          }
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          71,
+          72
+        ]
+      }
+    }
+  ]
+}

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.9...rust-mlt-core-v0.13.0) - 2026-09-14
+
+### Added
+
+- *(rust)* give v2 dictionary and tessellated geometry layouts ([#1614](https://github.com/maplibre/maplibre-tile-spec/pull/1614))
+- *(rust)* front-code v2 string dictionaries and give v2 a shared one ([#1613](https://github.com/maplibre/maplibre-tile-spec/pull/1613))
+- *(rust)* give v2 ALP a frame of reference and let it race FastPFOR ([#1612](https://github.com/maplibre/maplibre-tile-spec/pull/1612))
+- *(rust)* add `FPF128` with `u32::from_le_bytes` ([#1611](https://github.com/maplibre/maplibre-tile-spec/pull/1611))
+- *(rust)* encode and decode v2 string columns ([#1609](https://github.com/maplibre/maplibre-tile-spec/pull/1609))
+- *(rust)* encode and decode v2 float columns as ALP ([#1603](https://github.com/maplibre/maplibre-tile-spec/pull/1603))
+- *(rust)* encode v2 float columns as a dictionary, behind a flag ([#1602](https://github.com/maplibre/maplibre-tile-spec/pull/1602))
+- *(rust)* decode dictionary-encoded v2 float columns ([#1601](https://github.com/maplibre/maplibre-tile-spec/pull/1601))
+- *(rust)* number the v2 encoding byte per stream family ([#1598](https://github.com/maplibre/maplibre-tile-spec/pull/1598))
+
+### Fixed
+
+- *(rust)* reject float streams tagged with an encoding floats do not have ([#1597](https://github.com/maplibre/maplibre-tile-spec/pull/1597))
+
+### Other
+
+- bound a v2 shared dictionary's child count by the bytes left ([#1690](https://github.com/maplibre/maplibre-tile-spec/pull/1690))
+- *(rust)* cover the v2 float encodings with synthetics ([#1606](https://github.com/maplibre/maplibre-tile-spec/pull/1606))
+- *(rust)* split the logical encoding per value kind ([#1600](https://github.com/maplibre/maplibre-tile-spec/pull/1600))
+- *(rust)* give float columns their own raw model ([#1599](https://github.com/maplibre/maplibre-tile-spec/pull/1599))
+
 ## [0.12.9](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.8...rust-mlt-core-v0.12.9) - 2026-09-07
 
 ### Other

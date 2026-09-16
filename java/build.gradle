@@ -1,0 +1,6 @@
+// Plugins applied in more than one subproject must be loaded once here.
+// Otherwise every subproject gets its own copy of the plugin classes and
+// shared build services (like Spotless') cannot be passed between them.
+plugins {
+    alias(libs.plugins.diffplug.spotless) apply false
+}

@@ -1,4 +1,3 @@
-// based on ../spec/schema/mlt_tileset_metadata.proto
 export const ColumnScope = {
     FEATURE: 0,
     VERTEX: 1,

@@ -15,6 +15,12 @@ impl IntEncoder {
         Self { logical, physical }
     }
 
+    /// The values as they are, each in the same number of bits.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn bitpacked() -> Self {
+        Self::new(LogicalEncoder::None, PhysicalEncoder::BitPacked)
+    }
     #[must_use]
     pub fn delta_fastpfor() -> Self {
         Self::new(LogicalEncoder::Delta, PhysicalEncoder::FastPFOR)

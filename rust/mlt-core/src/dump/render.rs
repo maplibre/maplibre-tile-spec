@@ -50,8 +50,6 @@ impl Default for RenderOpts {
     }
 }
 
-const SEP: &str = " | ";
-
 /// Render `tree` as an annotated hexdump.
 /// `buf` must be the buffer that was passed to [`super::annotate_tile`].
 pub fn render(
@@ -96,7 +94,7 @@ fn render_region(
             paint(&region.label, opts, Paint::Label),
             region.len
         );
-        writeln!(w, "{left:<left_len$}{SEP}{annot}")?;
+        writeln!(w, "{left:<left_len$} | {annot}")?;
         return Ok(());
     }
 
@@ -140,12 +138,7 @@ fn render_meta(
                 bf.meaning,
                 width = width
             );
-            writeln!(
-                w,
-                "{:<left_len$}{SEP}{}",
-                "",
-                paint(&annot, opts, Paint::Dim)
-            )?;
+            writeln!(w, "{:<left_len$} | {}", "", paint(&annot, opts, Paint::Dim))?;
         }
     }
     Ok(())
@@ -165,7 +158,7 @@ fn render_blob(
     if opts.data_mode == DataMode::Hidden {
         let annot = format!("{indent}{}", paint(&summary, opts, Paint::Dim));
         let left = format!("{:08x}", region.offset);
-        writeln!(w, "{left:<left_len$}{SEP}{annot}")?;
+        writeln!(w, "{left:<left_len$} | {annot}")?;
         return Ok(());
     }
 
@@ -180,15 +173,10 @@ fn render_blob(
         emit_bytes(w, region.offset, shown, opts, left_len, &annot)?;
         if shown.len() < bytes.len() {
             let note = format!(
-                "{indent}  … {} more bytes omitted (--max-blob to change)",
+                "{indent}  ... {} more bytes omitted (--max-blob to change)",
                 bytes.len() - shown.len()
             );
-            writeln!(
-                w,
-                "{:<left_len$}{SEP}{}",
-                "",
-                paint(&note, opts, Paint::Dim)
-            )?;
+            writeln!(w, "{:<left_len$} | {}", "", paint(&note, opts, Paint::Dim))?;
         }
     }
 
@@ -198,7 +186,7 @@ fn render_blob(
     {
         let decoded = decode_blob(info, bytes, dec);
         let annot = format!("{indent}  decoded: {}", paint(&decoded, opts, Paint::Value));
-        writeln!(w, "{:<left_len$}{SEP}{}", "", annot)?;
+        writeln!(w, "{:<left_len$} | {annot}", "")?;
     }
     Ok(())
 }
@@ -243,6 +231,10 @@ fn decode_blob(info: BlobInfo, data: &[u8], dec: &mut Decoder) -> String {
         DecodeHint::I32 => fmt_res(RawStream::new(meta, data).decode_ints::<i32>(dec)),
         DecodeHint::U32 => fmt_res(RawStream::new(meta, data).decode_ints::<u32>(dec)),
         DecodeHint::I64 => fmt_res(RawStream::new(meta, data).decode_ints::<i64>(dec)),
+        #[cfg(feature = "unstable-v2")]
+        DecodeHint::Alp(params) => {
+            fmt_res(RawStream::new(meta, data).decode_alp_codes(params, dec))
+        }
         DecodeHint::U64 => fmt_res(RawStream::new(meta, data).decode_ints::<u64>(dec)),
         DecodeHint::F32 => fmt_res(RawStream::new(meta, data).decode_floats::<f32>(dec)),
         DecodeHint::F64 => fmt_res(RawStream::new(meta, data).decode_floats::<f64>(dec)),
@@ -305,8 +297,7 @@ fn emit_bytes(
 ) -> io::Result<()> {
     if bytes.is_empty() {
         let left = format!("{offset:08x}");
-        writeln!(w, "{left:<left_len$}{SEP}{annotation}")?;
-        return Ok(());
+        return emit_row(w, &left, left_len, annotation);
     }
     for (row, chunk) in bytes.chunks(opts.width).enumerate() {
         let row_off = offset + row * opts.width;
@@ -327,13 +318,18 @@ fn emit_bytes(
             .collect();
         let hexw = opts.width * 3;
         let left = format!("{row_off:08x}  {hex:<hexw$}  {ascii}");
-        if row == 0 {
-            writeln!(w, "{left:<left_len$}{SEP}{annotation}")?;
-        } else {
-            writeln!(w, "{left:<left_len$}{SEP}")?;
-        }
+        emit_row(w, &left, left_len, if row == 0 { annotation } else { "" })?;
     }
     Ok(())
+}
+
+/// Emit one row without trailing whitespace when the annotation is empty.
+fn emit_row(w: &mut impl Write, left: &str, left_len: usize, annotation: &str) -> io::Result<()> {
+    if annotation.is_empty() {
+        writeln!(w, "{left:<left_len$} |")
+    } else {
+        writeln!(w, "{left:<left_len$} | {annotation}")
+    }
 }
 
 #[derive(Clone, Copy)]

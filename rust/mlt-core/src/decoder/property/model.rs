@@ -7,6 +7,8 @@ use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
 use enum_dispatch::enum_dispatch;
 
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::Alp;
 use crate::decoder::RawStream;
 use crate::utils::Presence;
 use crate::{DecodeState, Lazy};
@@ -36,6 +38,46 @@ impl<'a> RawScalar<'a> {
     }
 }
 
+/// Raw float column as read directly from the tile.
+/// Its encodings differ in how many streams they use, so it carries an encoding enum like [`RawStrings`] rather than one stream.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RawFloats<'a> {
+    pub name: &'a str,
+    pub presence: RawPresence<'a>,
+    pub encoding: RawFloatsEncoding<'a>,
+}
+
+impl<'a> RawFloats<'a> {
+    /// A column stored as one data stream.
+    pub(crate) fn single(name: &'a str, presence: RawPresence<'a>, data: RawStream<'a>) -> Self {
+        Self {
+            name,
+            presence,
+            encoding: RawFloatsEncoding::Single(data),
+        }
+    }
+}
+
+/// Raw encoding payload for a float column.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RawFloatsEncoding<'a> {
+    /// One data stream, its own logical encoding saying how to read it.
+    Single(RawStream<'a>),
+    /// Codes first, then the distinct values they index.
+    ///
+    /// Requires the `unstable-v2` feature.
+    #[cfg(feature = "unstable-v2")]
+    Dictionary {
+        codes: RawStream<'a>,
+        dictionary: RawStream<'a>,
+    },
+    /// Integers scaled by a power of ten, in one stream, with the parameters in its header.
+    ///
+    /// Requires the `unstable-v2` feature.
+    #[cfg(feature = "unstable-v2")]
+    Alp { params: Alp, data: RawStream<'a> },
+}
+
 /// Raw string column as read directly from the tile.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RawStrings<'a> {
@@ -55,6 +97,7 @@ pub enum RawStringsEncoding<'a> {
     Dictionary {
         plain_data: RawPlainData<'a>,
         offsets: RawStream<'a>,
+        dict: DictLayout,
     },
     /// FSST plain (4 streams): symbol lengths, symbol table, value lengths, compressed corpus. No offsets.
     FsstPlain(RawFsstData<'a>),
@@ -62,7 +105,19 @@ pub enum RawStringsEncoding<'a> {
     FsstDictionary {
         fsst_data: RawFsstData<'a>,
         offsets: RawStream<'a>,
+        dict: DictLayout,
     },
+}
+
+/// How a dictionary's entries sit in its blob.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::EnumIter)]
+pub enum DictLayout {
+    /// Entries back to back, the lengths stream holding one length each.
+    Plain,
+    /// Entries with the prefix each shares with its predecessor factored out, so the blob holds
+    /// only suffixes and the lengths stream holds every prefix length then every suffix length.
+    #[cfg(feature = "unstable-v2")]
+    FrontCoded,
 }
 
 /// Raw encoding payload for a `SharedDict` column.
@@ -83,6 +138,7 @@ pub enum RawSharedDictEncoding<'a> {
 pub struct RawSharedDict<'a> {
     pub name: &'a str,
     pub encoding: RawSharedDictEncoding<'a>,
+    pub dict: DictLayout,
     pub children: Vec<RawSharedDictItem<'a>>,
 }
 
@@ -96,8 +152,8 @@ pub enum RawProperty<'a> {
     U32(RawScalar<'a>),
     I64(RawScalar<'a>),
     U64(RawScalar<'a>),
-    F32(RawScalar<'a>),
-    F64(RawScalar<'a>),
+    F32(RawFloats<'a>),
+    F64(RawFloats<'a>),
     Str(RawStrings<'a>),
     SharedDict(RawSharedDict<'a>),
 }

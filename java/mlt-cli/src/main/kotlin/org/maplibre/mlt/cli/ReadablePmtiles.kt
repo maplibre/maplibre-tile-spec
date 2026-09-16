@@ -186,9 +186,7 @@ class ReadablePmtiles(
 
         val tileIds get() = (startTileId until startTileId + tileCount)
 
-        // Warning: this will only work on z15 or less pmtiles which planetiler creates
-        // TODO: Will extending `hilbertDecode` to Longs solve this?
-        val tileCoords get() = tileIds.map { TileCoord.hilbertDecode(it.toInt()) }
+        val tileCoords get() = tileIds.map { TileCoord.hilbertDecode(it) }
     }
 
     fun getTileCoordRanges(

@@ -251,17 +251,6 @@ public:
 private:
     IntegerDecoder& intDecoder;
 
-    /// Drop the useless codepoint produced when a UTF-16 Byte-Order-Mark is included in the conversion to UTF-8
-    // https://en.wikipedia.org/wiki/Byte_order_mark#UTF-8
-    // TODO: Can we force this on the encoding side instead?
-    static std::string_view view(const char* bytes, std::size_t length) {
-        if (length >= 3 && std::equal(bytes, bytes + 3, "\xEF\xBB\xBF")) {
-            bytes += 3;
-            length -= 3;
-        }
-        return {bytes, length};
-    }
-
     static void decodePlain(const std::vector<std::uint32_t>& lengthStream,
                             const std::vector<std::uint8_t>& utf8bytes,
                             std::vector<std::string_view>& out) {
@@ -271,7 +260,7 @@ private:
         for (std::uint32_t i = 0; i < lengthStream.size(); ++i) {
             const auto length = lengthStream[lengthOffset++];
             const char* bytes = reinterpret_cast<std::string::const_pointer>(utf8bytes.data() + dataOffset);
-            out.push_back(view(bytes, length));
+            out.emplace_back(bytes, length);
             dataOffset += length;
         }
     }
@@ -299,7 +288,7 @@ private:
 
         std::uint32_t dictionaryOffset = 0;
         for (const auto length : lengthStream) {
-            dictionary.push_back(view(utf8Ptr + dictionaryOffset, length));
+            dictionary.emplace_back(utf8Ptr + dictionaryOffset, length);
             dictionaryOffset += length;
         }
 

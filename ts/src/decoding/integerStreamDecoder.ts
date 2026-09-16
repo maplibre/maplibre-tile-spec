@@ -553,8 +553,7 @@ export function getVectorType(
         return streamMetadata.numValues === 1 ? VectorType.CONST : VectorType.FLAT;
     }
 
-    const byteOffset = offset.get();
-    const values = new Int32Array(data.buffer, data.byteOffset + byteOffset, 4);
+    const values = decodePhysicalLevelTechnique(data, offset, streamMetadata);
     offset.set(savedOffset);
     // Check if both deltas are encoded 1
     const zigZagOne = 2;

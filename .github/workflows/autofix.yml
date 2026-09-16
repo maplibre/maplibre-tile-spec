@@ -46,8 +46,14 @@ jobs:
             wasm:
               - '.github/workflows/autofix.yml'
               - 'rust/mlt-wasm/**'
+            hexdumps:
+              - '.github/workflows/autofix.yml'
+              - 'docs/snippets/**'
+              - 'test/synthetic/**'
+              - 'rust/mlt/**'
+              - 'rust/mlt-core/**'
 
-      - uses: taiki-e/install-action@e67fa11c4b9316fa714ddf0abed07a0c3143b95b # v2.87.4
+      - uses: taiki-e/install-action@c3ec0de9ae7f1019cea21aa96aa0a895b9552063 # v2.87.9
         with: { tool: 'just' }
 
       # TypeScript
@@ -59,7 +65,7 @@ jobs:
 
       # Rust
       # Also installs just and cargo-sort, so it has to come before the Rust fixups.
-      - if: steps.filter.outputs.rust == 'true'
+      - if: steps.filter.outputs.rust == 'true' || steps.filter.outputs.hexdumps == 'true'
         uses: ./.github/actions/mlt-setup-rust
       - name: Format Cargo.toml
         if: steps.filter.outputs.rust == 'true'
@@ -72,6 +78,10 @@ jobs:
       - name: Sync pyproject.toml version from Cargo.toml
         if: steps.filter.outputs.py == 'true'
         run: just rust::sync-pyo3-version
+
+      - name: Regenerate docs hexdump snippets from the synthetic fixtures
+        if: steps.filter.outputs.hexdumps == 'true'
+        run: just rust::sync-docs-hexdumps
 
       - name: Install clang-format and ktlint
         if: steps.filter.outputs.ffi == 'true'
@@ -126,7 +136,7 @@ jobs:
         run: rustup update stable && rustup default stable
 
       - name: Install just
-        uses: taiki-e/install-action@e67fa11c4b9316fa714ddf0abed07a0c3143b95b # v2.87.4
+        uses: taiki-e/install-action@c3ec0de9ae7f1019cea21aa96aa0a895b9552063 # v2.87.9
         with: { tool: 'just,cargo-binstall' }
 
       - name: Setup Node.js

@@ -1,15 +1,14 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
-use std::sync::Arc;
-use std::sync::mpsc;
+use std::sync::{Arc, mpsc};
 use std::time::Duration;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use mlt_core::GeometryType;
 use mlt_core::geo_types::{
-    Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
+    Coord, Geometry, GeometryCollection, Line, LineString, MultiLineString, MultiPoint,
+    MultiPolygon, Point, Polygon, Rect as GeoRect, Triangle,
 };
-use mlt_core::geo_types::{GeometryCollection, Line, Rect as GeoRect, Triangle};
 use mlt_core::geojson::{Feature, FeatureCollection};
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;

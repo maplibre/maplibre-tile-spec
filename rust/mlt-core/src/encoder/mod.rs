@@ -7,6 +7,10 @@ mod fuzzing;
 mod geometry;
 mod id;
 pub(crate) mod model;
+#[cfg(feature = "unstable-v2")]
+mod mvalue;
+#[cfg(feature = "unstable-v2")]
+mod nested;
 mod optimizer;
 mod property;
 mod sort;
@@ -22,11 +26,27 @@ pub(crate) use geometry::VertexBufferType;
 #[cfg(feature = "__private")]
 pub use geometry::VertexBufferType;
 pub use id::StagedId;
+#[cfg(feature = "unstable-v2")]
+pub use model::WireVersion;
 #[cfg(feature = "__private")]
-pub use model::{ColumnKind, CurveParams, ExplicitEncoder, StagedLayer, StrEncoding, StreamCtx};
-pub use model::{EncodedUnknown, EncoderConfig, WireVersion};
+pub use model::{
+    ColumnKind, CurveParams, ExplicitEncoder, FloatEncoding, StagedLayer, StrEncoding, StreamCtx,
+};
+pub use model::{EncodedUnknown, EncoderConfig};
 #[cfg(all(test, not(feature = "__private")))]
-pub(crate) use model::{ExplicitEncoder, StagedLayer, StrEncoding};
+pub(crate) use model::{ExplicitEncoder, FloatEncoding, StagedLayer, StrEncoding};
+#[cfg(all(feature = "unstable-v2", feature = "__private"))]
+pub use mvalue::{StagedMValue, StagedValues};
+#[cfg(all(feature = "unstable-v2", not(feature = "__private")))]
+pub(crate) use mvalue::{StagedMValue, StagedValues};
+#[cfg(all(feature = "unstable-v2", feature = "__private"))]
+pub use nested::{
+    StagedInterior, StagedLeaf, StagedList, StagedMap, StagedNested, StagedNode, StagedStruct,
+};
+#[cfg(all(feature = "unstable-v2", not(feature = "__private")))]
+pub(crate) use nested::{
+    StagedInterior, StagedLeaf, StagedList, StagedNested, StagedNode, StagedStruct,
+};
 #[cfg(any(test, feature = "__private"))]
 pub use optimizer::Presence;
 pub(crate) use property::*;

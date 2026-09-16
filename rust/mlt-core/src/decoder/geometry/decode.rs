@@ -4,7 +4,7 @@ use crate::codecs::varint::parse_varint;
 use crate::decoder::stream::header01;
 use crate::decoder::{
     DictionaryType, GeometryType, GeometryValues, IntEncoding, LengthType, OffsetType, RawGeometry,
-    RawStream, StreamMeta, StreamType,
+    RawStream, StreamMeta, StreamType, ValueKind,
 };
 use crate::errors::AsMltError as _;
 use crate::utils::SetOptionOnce as _;
@@ -230,7 +230,7 @@ impl<'a> RawGeometry<'a> {
                     meta: RawStream::new(
                         StreamMeta::new(
                             StreamType::Data(DictionaryType::None),
-                            IntEncoding::none(),
+                            IntEncoding::none(ValueKind::Int),
                             0,
                         ),
                         &[],
@@ -240,9 +240,10 @@ impl<'a> RawGeometry<'a> {
             ));
         }
 
-        let (input, meta) = header01::parse_stream(input, parser)?;
+        let (input, meta) = header01::parse_stream(input, ValueKind::Int, parser)?;
         // Safety: stream_count is validated != 0
-        let (input, items) = header01::parse_multiple_streams(input, stream_count - 1, parser)?;
+        let (input, items) =
+            header01::parse_multiple_streams(input, stream_count - 1, ValueKind::Int, parser)?;
 
         Ok((input, Self { meta, items }))
     }
@@ -294,6 +295,10 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
                         LengthType::Rings => &mut ring_offsets,
                         LengthType::Triangles => &mut triangles,
                         LengthType::VarBinary | LengthType::Symbol | LengthType::Dictionary => {
+                            Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?
+                        }
+                        #[cfg(feature = "unstable-v2")]
+                        LengthType::Nested => {
                             Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?
                         }
                     };

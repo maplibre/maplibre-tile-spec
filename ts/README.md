@@ -1,21 +1,43 @@
 # maplibre-tile-spec
 
-This package contains a JavaScript decoder for the experimental MapLibre Tile (MLT) vector tile format.
+This package contains a JavaScript encoder and decoder for the experimental MapLibre Tile (MLT) vector tile format.
 
 ## Install
 
-`npm install @maplibre/maplibre-tile-spec`
+`npm install @maplibre/mlt`
 
 ## Quickstart
 
-To decode a tile, you will want to load `MltDecoder`:
+### Decode a tile
 
 ```js
-import { decodeTile } from '@maplibre/maplibre-tile-spec';
+import { decodeTile } from '@maplibre/mlt';
 
 const data = fs.readFileSync(tilePath);
 const tile = decodeTile(data);
 ```
+
+### Encode a tile
+
+```ts
+import { encodeTile, type Layer } from '@maplibre/mlt';
+
+const layers: Layer[] = [
+    {
+        name: 'places',
+        features: [
+            {
+                id: 1,
+                geometry: { type: 'Point', coordinates: [10, 20] },
+                properties: { name: 'Example' },
+            },
+        ],
+    },
+];
+
+const data = encodeTile(layers);
+```
+
 ## Contents
 
 ### Code

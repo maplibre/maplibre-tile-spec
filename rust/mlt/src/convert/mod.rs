@@ -12,7 +12,9 @@ use clap::{Args, ValueEnum};
 use indicatif::ProgressState;
 use martin_tile_utils::{Encoding, Format, decode_brotli, decode_gzip, decode_zlib, decode_zstd};
 use mbtiles::{MbtType, NormalizedSchema};
-use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig, WireVersion};
+#[cfg(feature = "unstable-v2")]
+use mlt_core::encoder::WireVersion;
+use mlt_core::encoder::{EncodedUnknown, Encoder, EncoderConfig};
 use mlt_core::mvt::{mvt_to_tile_layers, tile_layers_to_mvt};
 use mlt_core::{Decoder, Layer, Parser};
 use pmtiles::Compression;
@@ -119,6 +121,7 @@ pub enum MltVersion {
     V2,
 }
 
+#[cfg(feature = "unstable-v2")]
 impl From<MltVersion> for WireVersion {
     fn from(version: MltVersion) -> Self {
         match version {
@@ -217,6 +220,18 @@ pub struct ConvertArgs {
     /// Disable `FSST` string compression
     #[clap(long)]
     no_fsst: bool,
+    /// Disable `ALP` float encoding, storing floats as decimal-scaled integers
+    #[cfg(feature = "unstable-v2")]
+    #[clap(long)]
+    no_alp: bool,
+    /// Disable float dictionary encoding
+    #[cfg(feature = "unstable-v2")]
+    #[clap(long)]
+    no_float_dict: bool,
+    /// Store dictionary codes bit-packed when that beats a varint each
+    #[cfg(feature = "unstable-v2")]
+    #[clap(long)]
+    packed_dict_codes: bool,
     /// Output tile format (`mlt` re-encodes; `mvt` decodes MLT inputs back to MVT)
     #[clap(long, default_value = "mlt")]
     to: TileFormat,
@@ -257,7 +272,6 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
     let hilbert = matches!(args.sort, SortMode::All | SortMode::Hilbert);
     let id_sort = matches!(args.sort, SortMode::All | SortMode::Id);
     let cfg = EncoderConfig::default()
-        .with_wire_version(args.mlt_version.into())
         .with_tessellation(args.tessellate)
         .with_spatial_morton_sort(morton)
         .with_spatial_hilbert_sort(hilbert)
@@ -265,6 +279,12 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         .with_shared_dict(!args.no_shared_dict)
         .with_fastpfor(!args.no_fastpfor)
         .with_fsst(!args.no_fsst);
+    #[cfg(feature = "unstable-v2")]
+    let cfg = cfg
+        .with_wire_version(args.mlt_version.into())
+        .with_float_alp(!args.no_alp)
+        .with_float_dict(!args.no_float_dict)
+        .with_packed_dict_codes(args.packed_dict_codes);
 
     let filter = BboxFilter::new(&args.bbox)?;
     let input_container = args.input_container();
@@ -362,21 +382,19 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
     let mut out: Vec<u8> = Vec::new();
 
     for layer in layers {
-        #[expect(clippy::wildcard_enum_match_arm, reason = "Layer is non_exhaustive")]
-        match layer {
-            Layer::Tag01(l) => {
-                let tile = l.into_tile(&mut dec)?;
-                out.extend_from_slice(&tile.encode(cfg)?);
-            }
-            Layer::Unknown(u) => {
-                out.extend(
-                    EncodedUnknown::from(u)
-                        .write_to(Encoder::default())?
-                        .into_raw_bytes(),
-                );
-            }
-            _ => {}
+        if let Layer::Unknown(u) = layer {
+            out.extend(
+                EncodedUnknown::from(u)
+                    .write_to(Encoder::default())?
+                    .into_raw_bytes(),
+            );
+            continue;
         }
+        let tile = layer
+            .into_layer01()
+            .expect("every layer but Unknown holds a Layer01")
+            .into_tile(&mut dec)?;
+        out.extend_from_slice(&tile.encode(cfg)?);
     }
 
     Ok(out)
@@ -399,18 +417,12 @@ fn mlt_buffer_to_tile_layers(buffer: &[u8]) -> AnyResult<Vec<mlt_core::TileLayer
     let mut dec = Decoder::default();
     let mut tiles = Vec::new();
     for layer in layers {
-        #[expect(clippy::wildcard_enum_match_arm, reason = "Layer is non_exhaustive")]
-        match layer {
-            Layer::Tag01(l) => {
-                tiles.push(l.into_tile(&mut dec)?);
-            }
-            Layer::Unknown(_) => {
-                bail!(
-                    "cannot convert MLT tile to MVT: tile contains unknown/extension layers that MVT cannot represent"
-                );
-            }
-            _ => {}
-        }
+        let Some(layer) = layer.into_layer01() else {
+            bail!(
+                "cannot convert MLT tile to MVT: tile contains unknown/extension layers that MVT cannot represent"
+            );
+        };
+        tiles.push(layer.into_tile(&mut dec)?);
     }
     Ok(tiles)
 }
@@ -449,6 +461,47 @@ fn convert_buffer(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(feature = "unstable-v2")]
+    const OMT_TILE: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../test/fixtures/omt/0_0_0.mvt"
+    );
+
+    #[cfg(feature = "unstable-v2")]
+    fn round_trip(mvt: Vec<u8>, version: WireVersion, to: TileFormat) -> Vec<u8> {
+        let cfg = EncoderConfig::default().with_wire_version(version);
+        let mlt = convert_buffer(mvt, TileFormat::Mvt, TileFormat::Mlt, cfg).unwrap();
+        convert_buffer(mlt, TileFormat::Mlt, to, cfg).unwrap()
+    }
+
+    /// Feature order is a per-version encoder choice, so only the layers themselves compare.
+    #[cfg(feature = "unstable-v2")]
+    fn layer_shape(mvt: Vec<u8>) -> Vec<(String, usize)> {
+        mvt_to_tile_layers(mvt)
+            .unwrap()
+            .iter()
+            .map(|layer| (layer.name().to_owned(), layer.features().len()))
+            .collect()
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn converting_a_v2_tile_back_to_mvt_keeps_every_layer() {
+        let mvt = std::fs::read(OMT_TILE).unwrap();
+        let back = round_trip(mvt.clone(), WireVersion::V02, TileFormat::Mvt);
+        assert_eq!(layer_shape(back), layer_shape(mvt));
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn re_encoding_a_v2_tile_keeps_every_layer() {
+        let mvt = std::fs::read(OMT_TILE).unwrap();
+        let expected = mvt_to_tile_layers(mvt.clone()).unwrap().len();
+        let mlt = round_trip(mvt, WireVersion::V02, TileFormat::Mlt);
+        let layers = Parser::default().parse_layers(&mlt).unwrap();
+        assert_eq!(layers.len(), expected);
+    }
 
     #[test]
     fn pmtiles_metadata_tracks_tile_compression() {

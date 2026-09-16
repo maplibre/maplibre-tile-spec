@@ -15,9 +15,12 @@
 //! * `plain` - `PhysicalLevelTechnique::NONE`, i.e. fixed-width little-endian ints
 //! * `tes` - includes tessellation triangles stream
 //! * `fs` - forces normally-empty streams to still be written, as the Java encoder used to do
+//! * `bp` - bit-packed dictionary codes, i.e. every code in the same number of bits.
+//!   A v2-only physical layout, so the v1 sibling of each `*_bp*` fixture holds the
+//!   same codes as varints.
 //! * `sp` - shared presence, i.e. columns null on the same features share one bitfield.
-//!   A v2-only encoding, so the v1 sibling of each `props_sp*` fixture holds the same
-//!   data under a `props_same_nulls*` name instead.
+//!   A v2-only encoding, so the v1 sibling of each `*_sp*` fixture holds the same
+//!   data under a `*_same_nulls*` name instead.
 
 mod layer;
 mod writer;
@@ -28,8 +31,9 @@ use std::sync::LazyLock;
 
 use clap::Parser;
 use mlt_core::encoder::{
-    IntEncoder as E, LogicalEncoder as L, StagedId as Id, StagedProperty as P, StrEncoding,
-    VertexBufferType,
+    FloatEncoding, IntEncoder as E, LogicalEncoder as L, StagedId as Id, StagedInterior,
+    StagedLeaf, StagedList, StagedMValue as M, StagedMap, StagedNested, StagedNode,
+    StagedProperty as P, StagedStruct, StagedValues as MV, StrEncoding, VertexBufferType,
 };
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, coord,
@@ -109,6 +113,8 @@ fn main() {
     generate_extent(&mut writer);
     generate_ids(&mut writer);
     generate_properties(&mut writer);
+    generate_m_values(&mut writer);
+    generate_nested(&mut writer);
 
     writer.report_ungenerated();
 
@@ -152,7 +158,6 @@ fn generate_geometry(w: &mut SynthWriter) {
         .geo(LineString::new(morton_curve()))
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
-        .no_v2()
         .write(w, "line_morton_curve_morton");
     geo_varint()
         .geo(LineString::new(morton_curve()))
@@ -164,15 +169,10 @@ fn generate_geometry(w: &mut SynthWriter) {
         .write(w, "line_zero_length");
 
     geo_varint().geo(poly1()).write(w, "poly");
-    geo_fastpfor().no_v2().geo(poly1()).write(w, "poly_fpf");
-    geo_varint()
-        .tessellate()
-        .no_v2()
-        .geo(poly1())
-        .write(w, "poly_tes");
+    geo_fastpfor().geo(poly1()).write(w, "poly_fpf");
+    geo_varint().tessellate().geo(poly1()).write(w, "poly_tes");
     geo_fastpfor()
         .tessellate()
-        .no_v2()
         .geo(poly1())
         .write(w, "poly_fpf_tes");
 
@@ -180,35 +180,21 @@ fn generate_geometry(w: &mut SynthWriter) {
         .geo(poly_collinear())
         .write(w, "poly_collinear");
     geo_fastpfor()
-        .no_v2()
         .geo(poly_collinear())
         .write(w, "poly_collinear_fpf");
-    geo_varint()
-        .tessellate()
-        .no_v2()
-        .geo(poly_collinear())
-        .write(w, "poly_collinear_tes");
-    geo_fastpfor()
-        .tessellate()
-        .no_v2()
-        .geo(poly_collinear())
-        .write(w, "poly_collinear_fpf_tes");
 
     geo_varint()
         .geo(poly_self_intersect())
         .write(w, "poly_self_intersect");
     geo_fastpfor()
-        .no_v2()
         .geo(poly_self_intersect())
         .write(w, "poly_self_intersect_fpf");
     geo_varint()
         .tessellate()
-        .no_v2()
         .geo(poly_self_intersect())
         .write(w, "poly_self_intersect_tes");
     geo_fastpfor()
         .tessellate()
-        .no_v2()
         .geo(poly_self_intersect())
         .write(w, "poly_self_intersect_fpf_tes");
 
@@ -218,19 +204,16 @@ fn generate_geometry(w: &mut SynthWriter) {
         .write(w, "poly_hole");
     geo_fastpfor()
         .parts_ring(E::rle_fastpfor())
-        .no_v2()
         .geo(poly1h())
         .write(w, "poly_hole_fpf");
     geo_varint()
         .parts_ring(E::rle_varint())
         .tessellate()
-        .no_v2()
         .geo(poly1h())
         .write(w, "poly_hole_tes");
     geo_fastpfor()
         .parts_ring(E::rle_fastpfor())
         .tessellate()
-        .no_v2()
         .geo(poly1h())
         .write(w, "poly_hole_fpf_tes");
 
@@ -240,19 +223,16 @@ fn generate_geometry(w: &mut SynthWriter) {
         .write(w, "poly_hole_touching");
     geo_fastpfor()
         .parts_ring(E::fastpfor())
-        .no_v2()
         .geo(poly_hole_touching())
         .write(w, "poly_hole_touching_fpf");
     geo_varint()
         .parts_ring(E::varint())
         .tessellate()
-        .no_v2()
         .geo(poly_hole_touching())
         .write(w, "poly_hole_touching_tes");
     geo_fastpfor()
         .parts_ring(E::fastpfor())
         .tessellate()
-        .no_v2()
         .geo(poly_hole_touching())
         .write(w, "poly_hole_touching_fpf_tes");
 
@@ -261,6 +241,7 @@ fn generate_geometry(w: &mut SynthWriter) {
         .rings2(E::rle_varint())
         .geo(MultiPolygon(vec![poly1(), poly2()]))
         .write(w, "poly_multi");
+    // v2's interleaved RLE is a varint pair stream, so RLE + FastPFor is v1-only.
     geo_fastpfor()
         .rings(E::rle_fastpfor())
         .rings2(E::rle_fastpfor())
@@ -271,9 +252,9 @@ fn generate_geometry(w: &mut SynthWriter) {
         .rings(E::rle_varint())
         .rings2(E::rle_varint())
         .tessellate()
-        .no_v2()
         .geo(MultiPolygon(vec![poly1(), poly2()]))
         .write(w, "poly_multi_tes");
+    // v1-only for the same reason as `poly_multi_fpf`.
     geo_fastpfor()
         .rings(E::rle_fastpfor())
         .rings2(E::rle_fastpfor())
@@ -292,7 +273,6 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
-        .no_v2()
         .geo(morton_poly)
         .write(w, "poly_morton_ring_morton");
 
@@ -317,7 +297,6 @@ fn generate_geometry(w: &mut SynthWriter) {
         .rings2(E::rle_varint())
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
-        .no_v2()
         .geo(mp_morton)
         .write(w, "poly_multi_morton_ring_morton");
 
@@ -327,9 +306,13 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
-        .no_v2()
         .geo(MultiPoint(morton_curve().into_iter().map(Point).collect()))
         .write(w, "multipoint_morton_dictionary-rust");
+    geo_varint()
+        .vertex_buffer_type(VertexBufferType::Morton)
+        .vertex_offsets(E::delta_rle_varint())
+        .geos(morton_curve().into_iter().map(Point))
+        .write(w, "point_morton_dictionary-rust");
     // Split the Morton curve at a different place so that the rings are different lengths,
     // use one as the shell and one as the hole of a single and multi-polygon.
     let quarter = mc.len() / 4;
@@ -341,13 +324,11 @@ fn generate_geometry(w: &mut SynthWriter) {
     geo_varint()
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
-        .no_v2()
         .geo(poly_with_hole.clone())
         .write(w, "poly_morton_hole_morton");
     geo_varint()
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
-        .no_v2()
         .geo(MultiPolygon(vec![poly_with_hole]))
         .write(w, "poly_multi_morton_hole_morton");
 
@@ -371,15 +352,14 @@ fn generate_geometry(w: &mut SynthWriter) {
         .no_rings(E::rle_varint())
         .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
-        .no_v2()
         .geo(MultiLineString(vec![mline1, mline2]))
         .write(w, "multiline_morton");
 }
 
 fn write_mix(w: &mut SynthWriter, current: &[usize]) {
     let mut builder = geo_varint();
-    let mut builder_t = Some(geo_varint().tessellate().no_v2());
-    let mut builder_t_with_lines = Some(geo_varint().tessellate().no_v2());
+    let mut builder_t = Some(geo_varint().tessellate());
+    let mut builder_t_with_lines = Some(geo_varint().tessellate());
     let mut has_polygon = false;
     let mut has_line = false;
     let mut name = format!("mix_{}", current.len());
@@ -564,13 +544,9 @@ fn generate_ids(w: &mut SynthWriter) {
         .write(w, "ids64_minmax_delta");
 
     // FastPFOR physical encoding for u32 IDs (Rust-only: Java encoder does not support this)
-    four_p0()
-        .ids(dup_id(), E::fastpfor())
-        .no_v2()
-        .write(w, "ids_fpf");
+    four_p0().ids(dup_id(), E::fastpfor()).write(w, "ids_fpf");
     four_p0()
         .ids(dup_id(), E::delta_fastpfor())
-        .no_v2()
         .write(w, "ids_delta_fpf");
 }
 
@@ -910,58 +886,44 @@ fn generate_properties(w: &mut SynthWriter) {
 
     let e_str = E::varint();
     p0().add_prop(e_str, P::str("val", [""]))
-        .no_v2()
         .write(w, "prop_str_empty_np");
     p0().add_prop(e_str, P::opt_str("val", [Some("")]))
-        .no_v2()
         .write(w, "prop_str_empty");
     p0().add_prop(e_str, P::str("val", ["42"]))
-        .no_v2()
         .write(w, "prop_str_ascii_np");
     p0().add_prop(e_str, P::opt_str("val", [Some("42")]))
-        .no_v2()
         .write(w, "prop_str_ascii");
     p0().add_prop(e_str, P::str("val", ["Line1\n\t\"quoted\"\\path"]))
-        .no_v2()
         .write(w, "prop_str_escape_np");
     p0().add_prop(
         e_str,
         P::opt_str("val", [Some("Line1\n\t\"quoted\"\\path")]),
     )
-    .no_v2()
     .write(w, "prop_str_escape");
     p0().add_prop(e_str, P::str("val", ["München 📍 cafe\u{0301}"]))
-        .no_v2()
         .write(w, "prop_str_unicode_np");
     p0().add_prop(e_str, P::opt_str("val", [Some("München 📍 cafe\u{0301}")]))
-        .no_v2()
         .write(w, "prop_str_unicode");
     p0().add_prop(e_str, P::str("val", ["hello\u{0000} world\n"]))
-        .no_v2()
         .write(w, "prop_str_special_np");
     p0().add_prop(e_str, P::opt_str("val", [Some("hello\u{0000} world\n")]))
-        .no_v2()
         .write(w, "prop_str_special");
     // Two-feature optional str variants
     geo_varint_with_rle()
         .geos([P0, P0])
         .add_prop(e_str, P::opt_str("val", [Some("42"), None]))
-        .no_v2()
         .write(w, "prop_str_val_null");
     geo_varint_with_rle()
         .geos([P0, P0])
         .add_prop(e_str, P::opt_str("val", [None, Some("42")]))
-        .no_v2()
         .write(w, "prop_str_null_val");
     geo_varint_with_rle()
         .geos([P0, P0])
         .add_prop(e_str, P::opt_str("val", [Some(""), None]))
-        .no_v2()
         .write(w, "prop_str_val_empty");
     geo_varint_with_rle()
         .geos([P0, P0])
         .add_prop(e_str, P::opt_str("val", [None, Some("")]))
-        .no_v2()
         .write(w, "prop_str_empty_val");
 
     p0().add_prop(E::varint(), P::bool("active", vec![true]))
@@ -972,7 +934,6 @@ fn generate_properties(w: &mut SynthWriter) {
         .add_prop(E::varint(), P::str("name", ["Test Point"]))
         .add_prop(E::varint(), P::f64("precision", vec![0.123_456_789]))
         .add_prop(E::varint(), P::f32("temp", vec![25.5]))
-        .no_v2()
         .write(w, "props_mixed_np");
     p0().add_prop(E::varint(), P::opt_bool("active", vec![Some(true)]))
         .add_prop(E::varint(), P::opt_u64("biggest", vec![Some(0)]))
@@ -985,15 +946,504 @@ fn generate_properties(w: &mut SynthWriter) {
             P::opt_f64("precision", vec![Some(0.123_456_789)]),
         )
         .add_prop(E::varint(), P::opt_f32("temp", vec![Some(25.5)]))
-        .no_v2()
         .write(w, "props_mixed");
 
     generate_props_i32(w);
     generate_props_u32(w);
     generate_props_u64(w);
+    generate_float_codecs(w);
     generate_props_str(w);
     generate_shared_presence(w);
     generate_shared_dictionaries(w);
+}
+
+/// Vertex-scoped columns, which hold one value per vertex instead of per feature.
+///
+/// A v1 layer has nowhere to put one, so these fixtures are v2 only.
+fn generate_m_values(w: &mut SynthWriter) {
+    // Three lines of 3, 3 and 2 vertices: 8 vertices in the layer's sequence.
+    let short = wkt!(LINESTRING(5 38, 12 45));
+    geo_varint()
+        .no_v1()
+        .geos(vec![line1(), line2(), short])
+        .add_m_value(
+            E::delta_varint(),
+            M::new("dist", None, MV::U32(vec![0, 10, 25, 0, 15, 40, 0, 12])),
+        )
+        .add_m_value(
+            E::varint(),
+            // Null on the middle line, which therefore stores no values at all.
+            M::new(
+                "height",
+                Some(vec![true, false, true]),
+                MV::I32(vec![-3, 4, 9, 2, 7]),
+            ),
+        )
+        .write(w, "mvalues");
+
+    generate_m_value_types(w);
+    generate_m_value_geometries(w);
+    generate_m_value_presence(w);
+    generate_m_value_encodings(w);
+}
+
+/// Columns whose value is a tree of nodes rather than one scalar.
+///
+/// A v1 layer has nowhere to put one, so these fixtures are v2 only.
+fn generate_nested(w: &mut SynthWriter) {
+    // Two leaves of different types, so the struct cannot be rewritten as a map.
+    geo_varint()
+        .geos([P1, P2, P3])
+        .no_v1()
+        .add_nested(StagedNested::new(
+            "obj",
+            StagedInterior::Struct(StagedStruct::new(
+                None,
+                [
+                    ("name", str_leaf(None, ["ab", "cd", "ef"])),
+                    // Null on the middle feature, which therefore stores no value.
+                    ("rank", i32_leaf(Some(vec![true, false, true]), vec![7, 9])),
+                ],
+            )),
+        ))
+        .write(w, "nested_struct");
+
+    // Lists of 2 and 1 structs, so the lengths stream is not all ones.
+    geo_varint()
+        .geos([P1, P2])
+        .no_v1()
+        .add_nested(StagedNested::new(
+            "items",
+            StagedInterior::List(StagedList::new(
+                None,
+                vec![2, 1],
+                StagedNode::Interior(StagedInterior::Struct(StagedStruct::new(
+                    None,
+                    [
+                        ("id", i32_leaf(None, vec![1, 2, 3])),
+                        ("tag", str_leaf(None, ["hi", "lo", "hi"])),
+                    ],
+                ))),
+            )),
+        ))
+        .write(w, "nested_list_struct");
+
+    // Both features carry both keys, so the key dictionary holds two entries for four uses.
+    geo_varint()
+        .no_v1()
+        .geos([P1, P2])
+        .add_nested(StagedNested::new(
+            "tags",
+            StagedInterior::Map(StagedMap::new(
+                None,
+                vec![2, 2],
+                vec!["en".into(), "de".into(), "en".into(), "de".into()],
+                str_leaf(None, ["sea", "meer", "hill", "berg"]),
+            )),
+        ))
+        .nested_str_dict("tags", E::varint(), E::varint())
+        .write(w, "nested_map_str");
+}
+
+/// A leaf holding one string per value its parent hands it.
+fn str_leaf<'a>(
+    presence: Option<Vec<bool>>,
+    values: impl IntoIterator<Item = &'a str>,
+) -> StagedNode {
+    let values = values.into_iter().map(ToString::to_string).collect();
+    StagedNode::Leaf(StagedLeaf::new(presence, MV::Str(values)))
+}
+
+/// A leaf holding one `i32` per value its parent hands it.
+fn i32_leaf(presence: Option<Vec<bool>>, values: Vec<i32>) -> StagedNode {
+    StagedNode::Leaf(StagedLeaf::new(presence, MV::I32(values)))
+}
+
+/// The layer every m-value fixture that is not about geometry runs over:
+/// three lines of 3, 3 and 2 vertices, so the sequence is 8 vertices long
+/// and no feature boundary lines up with a power of two.
+fn m_lines() -> Layer {
+    geo_varint().geos(vec![line1(), line2(), wkt!(LINESTRING(5 38, 12 45))])
+}
+
+/// One fixture per data type an m-value column may hold, codes `0x2`-`0xB`.
+fn generate_m_value_types(w: &mut SynthWriter) {
+    let e = E::varint();
+
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            e,
+            M::new(
+                "val",
+                None,
+                MV::Bool(vec![true, false, true, true, false, false, true, false]),
+            ),
+        )
+        .write(w, "mvalues_bool");
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            e,
+            M::new("val", None, MV::I8(vec![-128, -3, -1, 0, 1, 3, 126, 127])),
+        )
+        .write(w, "mvalues_i8");
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            e,
+            M::new("val", None, MV::U8(vec![0, 1, 2, 3, 128, 200, 254, 255])),
+        )
+        .write(w, "mvalues_u8");
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            e,
+            M::new(
+                "val",
+                None,
+                MV::I32(vec![i32::MIN, -70_000, -1, 0, 1, 70_000, 2, i32::MAX]),
+            ),
+        )
+        .write(w, "mvalues_i32");
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            e,
+            M::new(
+                "val",
+                None,
+                MV::U32(vec![0, 1, 127, 128, 16_383, 16_384, 70_000, u32::MAX]),
+            ),
+        )
+        .write(w, "mvalues_u32");
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            e,
+            M::new(
+                "val",
+                None,
+                MV::I64(vec![
+                    i64::MIN,
+                    -5_000_000_000,
+                    -1,
+                    0,
+                    1,
+                    2,
+                    5_000_000_000,
+                    i64::MAX,
+                ]),
+            ),
+        )
+        .write(w, "mvalues_i64");
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            e,
+            M::new(
+                "val",
+                None,
+                MV::U64(vec![0, 1, 2, 3, 5_000_000_000, 6_000_000_000, 7, u64::MAX]),
+            ),
+        )
+        .write(w, "mvalues_u64");
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            e,
+            M::new(
+                "val",
+                None,
+                MV::F32(vec![
+                    -1.5,
+                    0.0,
+                    0.25,
+                    1.5,
+                    f32::MIN,
+                    f32::MAX,
+                    f32::NAN,
+                    -0.0,
+                ]),
+            ),
+        )
+        .write(w, "mvalues_f32");
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            e,
+            M::new(
+                "val",
+                None,
+                MV::F64(vec![
+                    -1.5,
+                    0.0,
+                    0.25,
+                    1.5,
+                    f64::MIN,
+                    f64::MAX,
+                    f64::NAN,
+                    -0.0,
+                ]),
+            ),
+        )
+        .write(w, "mvalues_f64");
+    m_lines()
+        .no_v1()
+        .add_m_value(e, M::new("val", None, MV::Str(m_strings())))
+        .write(w, "mvalues_str_plain");
+}
+
+/// Eight strings for a vertex-scoped string column, repeating so a dictionary has something to fold.
+fn m_strings() -> Vec<String> {
+    [
+        "north", "east", "north", "south", "west", "east", "north", "",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect()
+}
+
+/// Every geometry layout an m-value section is allowed to sit on, `0x2`-`0xB` and `0xD`.
+///
+/// `Points`, `PointsDict` and `TessPolygons` carry no per-feature vertex count,
+/// so they are rejected rather than covered here.
+///
+/// Each dictionary layout repeats vertices, so its dictionary is shorter than the
+/// sequence the vertex offsets spell out and the column still holds one value per offset.
+fn generate_m_value_geometries(w: &mut SynthWriter) {
+    let e = E::delta_varint();
+    let vals = |n: u32| M::new("dist", None, MV::U32((0..n).map(|i| i * 5).collect()));
+    let dict = |layer: Layer| {
+        layer
+            .vertex_buffer_type(VertexBufferType::Morton)
+            .vertex_offsets(E::varint())
+    };
+
+    // 0x2 MultiPoints, 0x3 MultiPointsDict: 3 + 2 vertices.
+    geo_varint()
+        .no_v1()
+        .geos(vec![
+            wkt!(MULTIPOINT(6 25, 21 41, 23 69)),
+            wkt!(MULTIPOINT(24 10, 42 18)),
+        ])
+        .add_m_value(e, vals(5))
+        .write(w, "mvalues_mpoint");
+    dict(geo_varint().no_v1().add_m_value(e, vals(5)).geos(vec![
+        wkt!(MULTIPOINT(8 0, 0 0, 8 0)),
+        wkt!(MULTIPOINT(0 8, 8 0)),
+    ]))
+    .write(w, "mvalues_mpoint_dict");
+
+    // 0x5 LinesDict, the dictionary sibling of the `mvalues` fixture's `Lines`.
+    dict(geo_varint().geo(wkt!(LINESTRING(8 0, 0 0, 8 0, 0 8))))
+        .no_v1()
+        .add_m_value(e, vals(4))
+        .write(w, "mvalues_line_dict");
+
+    // 0x6 MultiLines, 0x7 MultiLinesDict: 2 + 3 vertices in one feature, 2 in the other.
+    geo_varint()
+        .no_v1()
+        .add_m_value(e, vals(7))
+        .geos(vec![
+            wkt!(MULTILINESTRING((24 10, 42 18),(30 36, 48 52, 35 62))),
+            wkt!(MULTILINESTRING((5 38, 12 45))),
+        ])
+        .write(w, "mvalues_mline");
+    dict(geo_varint().no_v1().add_m_value(e, vals(7)).geos(vec![
+        wkt!(MULTILINESTRING((8 0, 0 0),(8 0, 0 8, 8 0))),
+        wkt!(MULTILINESTRING((0 8, 0 0))),
+    ]))
+    .write(w, "mvalues_mline_dict");
+
+    // 0x8 Polygons, 0x9 PolygonsDict: a ring's closing vertex is not stored,
+    // so each triangle holds 3 values, not 4.
+    geo_varint()
+        .geos(vec![poly1(), poly2()])
+        .no_v1()
+        .add_m_value(e, vals(6))
+        .write(w, "mvalues_poly");
+    dict(geo_varint().no_v1().add_m_value(e, vals(6)).geos(vec![
+        wkt!(POLYGON((0 0, 8 0, 0 8, 0 0))),
+        wkt!(POLYGON((8 8, 8 0, 0 8, 8 8))),
+    ]))
+    .write(w, "mvalues_poly_dict");
+
+    // A hole adds a second ring, whose vertices continue the same flat sequence.
+    geo_varint()
+        .no_v1()
+        .parts_ring(E::rle_varint())
+        .add_m_value(e, vals(6))
+        .geo(poly1h())
+        .write(w, "mvalues_poly_hole");
+
+    // 0xA MultiPolygons, 0xB MultiPolygonsDict: two rings across two parts of one feature.
+    geo_varint()
+        .no_v1()
+        .rings(E::rle_varint())
+        .rings2(E::rle_varint())
+        .geo(MultiPolygon(vec![poly1(), poly2()]))
+        .add_m_value(e, vals(6))
+        .write(w, "mvalues_mpoly");
+    dict(
+        geo_varint()
+            .rings(E::rle_varint())
+            .rings2(E::rle_varint())
+            .geo(MultiPolygon(vec![
+                wkt!(POLYGON((0 0, 8 0, 0 8, 0 0))),
+                wkt!(POLYGON((8 8, 8 0, 0 8, 8 8))),
+            ])),
+    )
+    .no_v1()
+    .add_m_value(e, vals(6))
+    .write(w, "mvalues_mpoly_dict");
+
+    // 0xD TessPolygonsWithOutlines: the outline vertices are the sequence,
+    // which the index buffer indexes into rather than replaces.
+    geo_varint()
+        .tessellate()
+        .geos(vec![poly1(), poly2()])
+        .no_v1()
+        .add_m_value(e, vals(6))
+        .write(w, "mvalues_tes");
+}
+
+/// The presence nibbles an m-value column can carry, and how its mask joins the layer's pool.
+fn generate_m_value_presence(w: &mut SynthWriter) {
+    let e = E::varint();
+    let nulls = vec![true, false, true];
+
+    // Two m-value columns null on the same features share one bitfield.
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            e,
+            M::new("a", Some(nulls.clone()), MV::U32(vec![1, 2, 3, 4, 5])),
+        )
+        .add_m_value(
+            e,
+            M::new("b", Some(nulls.clone()), MV::U32(vec![6, 7, 8, 9, 10])),
+        )
+        .write(w, "mvalues_sp");
+
+    // A property column and an m-value column null on the same features share one too,
+    // even though one counts features and the other vertices.
+    m_lines()
+        .no_v1()
+        .add_prop(e, P::opt_u32("prop", vec![Some(1), None, Some(2)]))
+        .add_m_value(
+            e,
+            M::new("m", Some(nulls.clone()), MV::U32(vec![1, 2, 3, 4, 5])),
+        )
+        .write(w, "mvalues_sp_prop");
+
+    // Null on every feature, so the column stores a mask and an empty data stream.
+    m_lines()
+        .no_v1()
+        .add_m_value(e, M::new("val", Some(vec![false; 3]), MV::U32(Vec::new())))
+        .write(w, "mvalues_all_null");
+}
+
+/// Stream encodings over a vertex-scoped column, which run through feature boundaries.
+fn generate_m_value_encodings(w: &mut SynthWriter) {
+    // A run that starts in the first feature and ends in the second.
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            E::rle_varint(),
+            M::new("val", None, MV::U32(vec![5, 5, 5, 5, 5, 7, 7, 7])),
+        )
+        .write(w, "mvalues_rle");
+    // Constant deltas across all three features collapse to one run.
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            E::delta_rle_varint(),
+            M::new("val", None, MV::U32(vec![1, 2, 3, 4, 5, 6, 7, 8])),
+        )
+        .write(w, "mvalues_delta_rle");
+    m_lines()
+        .no_v1()
+        .add_m_value(
+            E::plain(),
+            M::new("val", None, MV::U32(vec![9, 8, 7, 6, 5, 4, 3, 2])),
+        )
+        .write(w, "mvalues_plain");
+    // Long enough for FastPFOR to have full blocks to work with.
+    geo_varint()
+        .geo(LineString::new(
+            (0..300)
+                .map(|i| c(i % 80, (i * 7) % 80))
+                .collect::<Vec<_>>(),
+        ))
+        .no_v1()
+        .add_m_value(
+            E::fastpfor(),
+            M::new("val", None, MV::U32((0..300).map(|i| i % 97).collect())),
+        )
+        .write(w, "mvalues_fpf");
+
+    // The v2-only float encodings, which an m-value column reaches exactly as a property does.
+    m_lines()
+        .no_v1()
+        .add_m_value_float(
+            E::varint(),
+            FloatEncoding::Alp,
+            M::new(
+                "val",
+                None,
+                MV::F64(vec![-0.75, -0.5, -0.25, 0.25, 0.5, 0.75, 1.25, 2.5]),
+            ),
+        )
+        .write(w, "mvalues_f64_alp");
+    m_lines()
+        .no_v1()
+        .add_m_value_float(
+            E::varint(),
+            FloatEncoding::Dict,
+            M::new(
+                "val",
+                None,
+                MV::F32(vec![1.5, 2.5, 1.5, 1.5, 2.5, 3.5, 1.5, 2.5]),
+            ),
+        )
+        .write(w, "mvalues_f32_dict");
+
+    // The string layouts, which the leading stream's extension bits name.
+    m_lines()
+        .no_v1()
+        .add_m_value_str_dict(
+            E::varint(),
+            E::varint(),
+            M::new("val", None, MV::Str(m_strings())),
+        )
+        .write(w, "mvalues_str_dict");
+    m_lines()
+        .no_v1()
+        .add_m_value_str_fsst(
+            E::varint(),
+            E::varint(),
+            M::new(
+                "val",
+                None,
+                MV::Str(
+                    [
+                        "residential_zone_north",
+                        "residential_zone_south",
+                        "commercial_zone_north",
+                        "commercial_zone_south",
+                        "industrial_zone_north",
+                        "industrial_zone_south",
+                        "park_zone_north",
+                        "park_zone_south",
+                    ]
+                    .into_iter()
+                    .map(String::from)
+                    .collect(),
+                ),
+            ),
+        )
+        .write(w, "mvalues_str_fsst");
 }
 
 /// A presence mask, where `x` is a value and `-` is a null.
@@ -1004,9 +1454,14 @@ fn masked(mask: &str) -> Vec<Option<u32>> {
         .collect()
 }
 
+/// One point per feature, all at the same coordinate.
+fn points(count: usize) -> Layer {
+    geo_varint_with_rle().geos(vec![P0; count])
+}
+
 /// One point per feature of a presence mask.
 fn masked_points(mask: &str) -> Layer {
-    geo_varint_with_rle().geos(vec![P0; mask.len()])
+    points(mask.len())
 }
 
 /// Columns that are null on exactly the same features.
@@ -1065,6 +1520,63 @@ fn generate_shared_presence(w: &mut SynthWriter) {
             .add_prop(e, P::opt_u32(format!("b{i}"), masked(mask)));
     }
     layer.write_per_version(w, "props_same_nulls_max", "props_sp_max");
+
+    // A shared dictionary holds no values of its own, but each of its children is
+    // null on its own features, so each shares a bitfield like any other column.
+    masked_points(a)
+        .add_shared_dict(
+            SharedDict::new("name:", StrEncoding::Plain)
+                .opt("de", E::varint(), masked_strings(a))
+                .opt("en", E::varint(), masked_strings(a)),
+        )
+        .write_per_version(w, "props_shared_dict_same_nulls", "props_shared_dict_sp");
+
+    // The dictionary sits between two plain columns, so a child's mask is shared with
+    // one before it and one after it. `fr` is never null and shares nothing.
+    masked_points(a)
+        .add_prop(e, P::opt_u32("before", masked(a)))
+        .add_shared_dict(
+            SharedDict::new("name:", StrEncoding::Plain)
+                .opt("de", E::varint(), masked_strings(b))
+                .opt("en", E::varint(), masked_strings(a))
+                .col("fr", E::varint(), always_strings(a.len())),
+        )
+        .add_prop(e, P::opt_u32("after", masked(b)))
+        .write_per_version(
+            w,
+            "props_shared_dict_same_nulls_mixed",
+            "props_shared_dict_sp_mixed",
+        );
+
+    // Only one child has this mask, so it keeps its own bitfield rather than a slot.
+    masked_points(a)
+        .add_shared_dict(
+            SharedDict::new("name:", StrEncoding::Plain)
+                .opt("de", E::varint(), masked_strings(a))
+                .opt("en", E::varint(), masked_strings(lonely)),
+        )
+        .write_per_version(
+            w,
+            "props_shared_dict_same_nulls_lonely",
+            "props_shared_dict_sp_lonely",
+        );
+}
+
+/// The two long values a dictionary is for, alternating, with nulls where `mask` says.
+fn masked_strings(mask: &str) -> Vec<Option<String>> {
+    mask.bytes()
+        .enumerate()
+        .map(|(i, b)| (b != b'-').then(|| always_string(i)))
+        .collect()
+}
+
+/// As [`masked_strings`], for a child that is never null.
+fn always_strings(count: usize) -> Vec<String> {
+    (0..count).map(always_string).collect()
+}
+
+fn always_string(i: usize) -> String {
+    if i.is_multiple_of(2) { "A" } else { "B" }.repeat(30)
 }
 
 fn generate_props_i32(w: &mut SynthWriter) {
@@ -1096,6 +1608,10 @@ fn generate_props_i32(w: &mut SynthWriter) {
     four_points()
         .add_prop(E::delta_rle_varint(), opt_values())
         .write(w, "props_i32_delta_rle");
+    four_points()
+        .no_v2()
+        .add_prop(E::delta_rle_fastpfor(), opt_values())
+        .write(w, "props_i32_delta_rle_fpf");
 }
 
 fn generate_props_u32(w: &mut SynthWriter) {
@@ -1133,6 +1649,8 @@ fn generate_props_u32(w: &mut SynthWriter) {
         .add_prop(E::delta_rle_varint(), opt_values())
         .write(w, "props_u32_delta_rle");
 
+    // Block boundaries of both FastPFor sizes, off by one either way.
+    // v1-only: v2's interleaved RLE is a varint pair stream, so RLE + FastPFor has no v2 encoding.
     for multiplier in [1, 2, 3, 4] {
         for offset in [-1, 0, 1] {
             let count = usize::try_from(128 * multiplier + offset).unwrap();
@@ -1195,6 +1713,130 @@ fn generate_props_u64(w: &mut SynthWriter) {
         .write(w, "props_u64_delta_rle");
 }
 
+/// Float columns under the two v2-only float encodings, one fixture per pinned encoding.
+///
+/// v1 can express neither, so its sibling holds the same values raw under a name describing the data.
+/// The macro runs the same set for both float widths so neither can drift ahead of the other.
+fn generate_float_codecs(w: &mut SynthWriter) {
+    let e = E::varint();
+
+    macro_rules! float_codec_fixtures {
+        ($name:literal, $ty:ty, $val:path, $opt:path) => {
+            points(6)
+                .add_prop_float(
+                    e,
+                    FloatEncoding::Dict,
+                    $val("val", vec![1.5, 2.5, 1.5, 1.5, 2.5, 3.5]),
+                )
+                .write_per_version(
+                    w,
+                    concat!("prop_", $name, "_repeated_np-rust"),
+                    concat!("prop_", $name, "_dict_np"),
+                );
+            points(6)
+                .add_prop_float(
+                    e,
+                    FloatEncoding::Dict,
+                    $opt(
+                        "val",
+                        vec![Some(1.5), None, Some(2.5), Some(1.5), None, Some(2.5)],
+                    ),
+                )
+                .write_per_version(
+                    w,
+                    concat!("prop_", $name, "_repeated-rust"),
+                    concat!("prop_", $name, "_dict"),
+                );
+            points(4)
+                .add_prop_float(
+                    e,
+                    FloatEncoding::Dict,
+                    $val("val", vec![0.0, -0.0, 0.0, -0.0]),
+                )
+                .write_per_version(
+                    w,
+                    concat!("prop_", $name, "_zeros_np-rust"),
+                    concat!("prop_", $name, "_dict_zeros_np"),
+                );
+            points(4)
+                .add_prop_float(
+                    e,
+                    FloatEncoding::Dict,
+                    $val("val", vec![<$ty>::NAN, 7.5, <$ty>::NAN, 7.5]),
+                )
+                .write_per_version(
+                    w,
+                    concat!("prop_", $name, "_nan_repeated_np-rust"),
+                    concat!("prop_", $name, "_dict_nan_np"),
+                );
+            points(6)
+                .add_prop_float(
+                    e,
+                    FloatEncoding::Dict,
+                    $val("val", vec![1.5, 2.5, 3.5, 4.5, 5.5, 6.5]),
+                )
+                .write_per_version(
+                    w,
+                    concat!("prop_", $name, "_distinct_np-rust"),
+                    concat!("prop_", $name, "_dict_distinct_np"),
+                );
+
+            points(6)
+                .add_prop_float(
+                    e,
+                    FloatEncoding::Alp,
+                    $val("val", vec![-0.75, -0.5, -0.25, 0.25, 0.5, 0.75]),
+                )
+                .write_per_version(
+                    w,
+                    concat!("prop_", $name, "_decimals_np-rust"),
+                    concat!("prop_", $name, "_alp_np"),
+                );
+            points(6)
+                .add_prop_float(
+                    e,
+                    FloatEncoding::Alp,
+                    $opt(
+                        "val",
+                        vec![Some(-0.75), None, Some(0.25), Some(1.5), None, Some(-2.25)],
+                    ),
+                )
+                .write_per_version(
+                    w,
+                    concat!("prop_", $name, "_decimals-rust"),
+                    concat!("prop_", $name, "_alp"),
+                );
+            points(6)
+                .add_prop_float(
+                    e,
+                    FloatEncoding::Alp,
+                    $val("val", vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0]),
+                )
+                .write_per_version(
+                    w,
+                    concat!("prop_", $name, "_whole_np-rust"),
+                    concat!("prop_", $name, "_alp_whole_np"),
+                );
+        };
+    }
+
+    float_codec_fixtures!("f32", f32, P::f32, P::opt_f32);
+    float_codec_fixtures!("f64", f64, P::f64, P::opt_f64);
+
+    // Long enough for FastPFOR to beat varint, and far enough from zero that only the
+    // frame of reference keeps the offsets narrow. The short fixtures above reach neither.
+    let elevations: Vec<f64> = (0..300)
+        .map(|i| 52_500_000.0 + f64::from(i % 97) * 0.25)
+        .collect();
+    points(300)
+        .add_prop_float(e, FloatEncoding::Alp, P::f64("val", elevations))
+        .write_per_version(
+            w,
+            "prop_f64_offset_decimals_np-rust",
+            "prop_f64_alp_offset_np",
+        );
+}
+
 fn generate_props_str(w: &mut SynthWriter) {
     let six_points = || geo_varint_with_rle().geos([P1, P2, P3, PH1, PH2, PH3]);
     let str_vals = [
@@ -1208,26 +1850,23 @@ fn generate_props_str(w: &mut SynthWriter) {
     // _np variant: non-optional (CT::Str, no presence stream)
     six_points()
         .add_prop(E::varint(), P::str("val", str_vals))
-        .no_v2()
-        .write(w, "props_str_np");
+        .write_per_version(w, "props_str_np", "props_str_plain_np");
     // canonical: all-present optional (CT::OptStr + presence), matching Java's format
     six_points()
         .add_prop(E::varint(), P::opt_str("val", str_vals.map(Some)))
-        .no_v2()
-        .write(w, "props_str");
+        .write_per_version(w, "props_str", "props_str_plain");
     // FSST variants - same split
     six_points()
         .add_prop_str_fsst(E::varint(), E::varint(), P::str("val", str_vals))
-        .no_v2()
-        .write(w, "props_str_fsst_np");
+        .write_per_version(w, "props_str_fsst_np", "props_str_fsst_np");
     six_points()
         .add_prop_str_fsst(
             E::varint(),
             E::varint(),
             P::opt_str("val", str_vals.map(Some)),
         )
-        .no_v2()
-        .write(w, "props_str_fsst"); // FSST compression output is not byte-for-byte consistent with Java's
+        // FSST compression output is not byte-for-byte consistent with Java's
+        .write_per_version(w, "props_str_fsst", "props_str_fsst");
 
     // Two features with the same 30-char value -> deduplicated dictionary encoding.
     // 30 chars because otherwise FSST is skipped.
@@ -1240,16 +1879,14 @@ fn generate_props_str(w: &mut SynthWriter) {
             E::rle_varint(),
             P::str("val", [long_string(), long_string()]),
         )
-        .no_v2()
-        .write(w, "props_offset_str_np");
+        .write_per_version(w, "props_offset_str_np", "props_str_dict_np");
     two_pts()
         .add_prop_str_dict(
             E::varint(),
             E::rle_varint(),
             P::opt_str("val", [Some(long_string()), Some(long_string())]),
         )
-        .no_v2()
-        .write(w, "props_offset_str");
+        .write_per_version(w, "props_offset_str", "props_str_dict");
     two_pts()
         .add_prop_str_fsst_dict(
             E::varint(),
@@ -1257,8 +1894,7 @@ fn generate_props_str(w: &mut SynthWriter) {
             E::rle_varint(),
             P::str("val", [long_string(), long_string()]),
         )
-        .no_v2()
-        .write(w, "props_offset_str_fsst_np");
+        .write_per_version(w, "props_offset_str_fsst_np", "props_str_fsst_dict_np");
     two_pts()
         .add_prop_str_fsst_dict(
             E::varint(),
@@ -1266,8 +1902,95 @@ fn generate_props_str(w: &mut SynthWriter) {
             E::rle_varint(),
             P::opt_str("val", [Some(long_string()), Some(long_string())]),
         )
-        .no_v2()
-        .write(w, "props_offset_str_fsst");
+        .write_per_version(w, "props_offset_str_fsst", "props_str_fsst_dict");
+
+    // Null-first columns, whose nulls v1 stores in a presence stream and v2 in the column's bitfield.
+    let sparse = |values: [&str; 4]| {
+        let mut vals: Vec<Option<String>> = vec![None; 6];
+        for (slot, value) in [1_usize, 2, 4, 5].into_iter().zip(values) {
+            vals[slot] = Some(value.to_string());
+        }
+        vals
+    };
+    let distinct = || sparse([str_vals[0], str_vals[1], str_vals[2], str_vals[3]]);
+    let repeated = || {
+        let long = long_string();
+        sparse([&long, &long, str_vals[0], &long])
+    };
+
+    six_points()
+        .add_prop(E::varint(), P::opt_str("val", distinct()))
+        .write_per_version(w, "props_str_nulls-rust", "props_str_plain_nulls");
+    six_points()
+        .add_prop_str_dict(E::varint(), E::rle_varint(), P::opt_str("val", repeated()))
+        .write_per_version(w, "props_offset_str_nulls-rust", "props_str_dict_nulls");
+    six_points()
+        .add_prop_str_fsst(E::varint(), E::varint(), P::opt_str("val", distinct()))
+        .write_per_version(w, "props_str_fsst_nulls", "props_str_fsst_nulls");
+    six_points()
+        .add_prop_str_fsst_dict(
+            E::varint(),
+            E::varint(),
+            E::rle_varint(),
+            P::opt_str("val", repeated()),
+        )
+        .write_per_version(
+            w,
+            "props_offset_str_fsst_nulls",
+            "props_str_fsst_dict_nulls",
+        );
+
+    // Dictionary entries sharing all but their last byte, which v2 front coding factors out.
+    // v1 has no front coding, so its sibling holds the same values in a full dictionary.
+    let prefixed = |n: u8| format!("residential_zone_north_sector_{n}");
+    let repeats = || [1, 2, 3, 1, 2, 3].map(prefixed);
+    let some_prefixed = || repeats().map(Some);
+    let sparse_prefixed = || sparse([&prefixed(1), &prefixed(2), &prefixed(1), &prefixed(3)]);
+    let e = E::varint();
+
+    six_points()
+        .add_prop_str_front_dict(e, e, P::str("val", repeats()))
+        .write_per_version(w, "props_str_prefixes_np", "props_str_front_dict_np");
+    six_points()
+        .add_prop_str_front_dict(e, e, P::opt_str("val", some_prefixed()))
+        .write_per_version(w, "props_str_prefixes", "props_str_front_dict");
+    six_points()
+        .add_prop_str_front_dict(e, e, P::opt_str("val", sparse_prefixed()))
+        .write_per_version(w, "props_str_prefixes_nulls", "props_str_front_dict_nulls");
+
+    six_points()
+        .add_prop_str_fsst_front_dict(e, e, e, P::str("val", repeats()))
+        .write_per_version(
+            w,
+            "props_str_prefixes_fsst_np",
+            "props_str_fsst_front_dict_np",
+        );
+    six_points()
+        .add_prop_str_fsst_front_dict(e, e, e, P::opt_str("val", some_prefixed()))
+        .write_per_version(w, "props_str_prefixes_fsst", "props_str_fsst_front_dict");
+    six_points()
+        .add_prop_str_fsst_front_dict(e, e, e, P::opt_str("val", sparse_prefixed()))
+        .write_per_version(
+            w,
+            "props_str_prefixes_fsst_nulls",
+            "props_str_fsst_front_dict_nulls",
+        );
+
+    // Three dictionary entries, so a code fits in two bits and the six of them
+    // cross a byte boundary and leave a partial one.
+    // The order is shuffled, since a run or a delta of codes would say nothing about packing.
+    // v1 has no code for bit packing, so its sibling holds the same codes as varints.
+    let shuffled = || [1, 3, 2, 3, 1, 2].map(prefixed);
+    six_points()
+        .add_prop_str_dict(e, E::bitpacked(), P::str("val", shuffled()))
+        .write_per_version(
+            w,
+            "props_offset_str_shuffled_np-rust",
+            "props_str_dict_bp_np",
+        );
+    six_points()
+        .add_prop_str_dict(e, E::bitpacked(), P::opt_str("val", shuffled().map(Some)))
+        .write_per_version(w, "props_offset_str_shuffled-rust", "props_str_dict_bp");
 }
 
 fn generate_shared_dictionaries(w: &mut SynthWriter) {
@@ -1527,4 +2250,17 @@ fn generate_shared_dictionaries(w: &mut SynthWriter) {
         )
         .no_v2()
         .write(w, "props_shared_dict_presence_variants");
+
+    // Each child's codes are a stream of its own, so one can pack them into two bits
+    // each while the other writes a varint apiece.
+    // The corpus lengths follow the first child's encoder, keeping this fixture about the codes.
+    let zone = |i: usize| format!("{}_zone_{i}", "A".repeat(28));
+    let cycle = move |offset: usize| (0..6).map(move |i| zone((i + offset) % 3));
+    points(6)
+        .add_shared_dict(
+            SharedDict::new("name:", StrEncoding::Plain)
+                .col("de", E::varint(), cycle(0))
+                .col("en", E::bitpacked(), cycle(1)),
+        )
+        .write_per_version(w, "props_shared_dict_codes-rust", "props_shared_dict_bp");
 }

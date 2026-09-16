@@ -1,7 +1,8 @@
 use crate::decoder::{
-    Geometry, GeometryType, GeometryValues, Id, Layer01, Property, RawFsstData, RawGeometry, RawId,
-    RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
-    RawSharedDictEncoding, RawSharedDictItem, RawStrings, RawStringsEncoding, StreamMeta,
+    Geometry, GeometryType, GeometryValues, Id, Layer01, Property, RawFloats, RawFloatsEncoding,
+    RawFsstData, RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar,
+    RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings, RawStringsEncoding,
+    StreamMeta,
 };
 use crate::{Analyze, DecodeState, StatType};
 
@@ -111,12 +112,17 @@ impl Analyze for RawStringsEncoding<'_> {
             Self::Dictionary {
                 plain_data,
                 offsets,
+                dict: _,
             } => {
                 plain_data.for_each_stream(cb);
                 offsets.for_each_stream(cb);
             }
             Self::FsstPlain(fsst_data) => fsst_data.for_each_stream(cb),
-            Self::FsstDictionary { fsst_data, offsets } => {
+            Self::FsstDictionary {
+                fsst_data,
+                offsets,
+                dict: _,
+            } => {
                 fsst_data.for_each_stream(cb);
                 offsets.for_each_stream(cb);
             }
@@ -128,6 +134,28 @@ impl Analyze for RawScalar<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         self.presence.for_each_stream(cb);
         self.data.for_each_stream(cb);
+    }
+}
+
+impl Analyze for RawFloats<'_> {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
+        self.presence.for_each_stream(cb);
+        self.encoding.for_each_stream(cb);
+    }
+}
+
+impl Analyze for RawFloatsEncoding<'_> {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
+        match self {
+            Self::Single(data) => data.for_each_stream(cb),
+            #[cfg(feature = "unstable-v2")]
+            Self::Dictionary { codes, dictionary } => {
+                codes.for_each_stream(cb);
+                dictionary.for_each_stream(cb);
+            }
+            #[cfg(feature = "unstable-v2")]
+            Self::Alp { data, .. } => data.for_each_stream(cb),
+        }
     }
 }
 
@@ -170,9 +198,8 @@ impl Analyze for RawProperty<'_> {
             | Self::I32(s)
             | Self::U32(s)
             | Self::I64(s)
-            | Self::U64(s)
-            | Self::F32(s)
-            | Self::F64(s) => s.for_each_stream(cb),
+            | Self::U64(s) => s.for_each_stream(cb),
+            Self::F32(s) | Self::F64(s) => s.for_each_stream(cb),
             Self::Str(s) => s.for_each_stream(cb),
             Self::SharedDict(s) => s.for_each_stream(cb),
         }

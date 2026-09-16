@@ -30,6 +30,19 @@ impl GeometryType {
     }
 }
 
+/// An offset level a geometry only needs when it addresses something in it.
+fn require<'a>(
+    level: Option<&'a [u32]>,
+    range: &Range<usize>,
+    missing: impl FnOnce() -> crate::MltError,
+) -> MltResult<&'a [u32]> {
+    match level {
+        Some(level) => Ok(level),
+        None if range.is_empty() => Ok(&[]),
+        None => Err(missing()),
+    }
+}
+
 impl GeometryValues {
     #[must_use]
     pub fn feature_count(&self) -> usize {
@@ -84,6 +97,49 @@ impl GeometryValues {
         self.vertices.as_deref()
     }
 
+    /// The range of the layer's vertex sequence that feature `index` owns.
+    ///
+    /// The sequence is every vertex of every feature in feature order, which is
+    /// what the vertex buffer holds and what an m-value column runs over.
+    /// A ring's closing vertex is not stored, so it is not in the range either.
+    pub fn vertex_range(&self, index: usize) -> MltResult<Range<usize>> {
+        let entry = |level: &[u32], idx: usize, field: &'static str| -> MltResult<usize> {
+            level
+                .get(idx)
+                .map(|&v| v.into_usize())
+                .ok_or(GeometryOutOfBounds {
+                    index,
+                    field,
+                    idx,
+                    len: level.len(),
+                })
+        };
+        // Every level addresses a contiguous run of the level below it, so descending
+        // a range through them lands on the vertices without caring which shape it is.
+        let mut range = match self.geometry_offsets.as_deref() {
+            Some(geoms) => {
+                entry(geoms, index, "geometry_offsets")?
+                    ..entry(geoms, index + 1, "geometry_offsets")?
+            }
+            None => index..index + 1,
+        };
+        for (level, field) in [
+            (self.part_offsets.as_deref(), "part_offsets"),
+            (self.ring_offsets.as_deref(), "ring_offsets"),
+        ] {
+            if let Some(level) = level {
+                range = entry(level, range.start, field)?..entry(level, range.end, field)?;
+            }
+        }
+        Ok(range)
+    }
+
+    /// How many vertices feature `index` owns, see [`Self::vertex_range`].
+    pub fn vertex_count(&self, index: usize) -> MltResult<usize> {
+        let range = self.vertex_range(index)?;
+        Ok(range.end.saturating_sub(range.start))
+    }
+
     /// Build a `GeoJSON` geometry for a single feature at index `i`.
     /// Polygon and `MultiPolygon` rings are closed per `GeoJSON` spec
     /// (MLT omits the closing vertex).
@@ -126,6 +182,9 @@ impl GeometryValues {
         };
         let line = |r: Range<usize>| -> MltResult<LineString<i32>> { r.map(&vert).collect() };
         let closed_ring = |r: Range<usize>| -> MltResult<LineString<i32>> {
+            if r.is_empty() {
+                return Ok(LineString(vec![]));
+            }
             let first = r.start;
             let mut coords: Vec<Coord<i32>> = r.map(&vert).collect::<Result<_, _>>()?;
             coords.push(vert(first)?);
@@ -198,8 +257,10 @@ impl GeometryValues {
             }
             GeometryType::MultiLineString => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
-                let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
                 let geom_rng = geom_range(geoms, index)?;
+                // A multi with no sub-geometries never indexes the levels below it,
+                // so it does not need them to be present.
+                let parts = require(parts, &geom_rng, || NoPartOffsets(index, geom_type))?;
                 // geometry_offsets indexes into part_offsets for each linestring.
                 // When ring_offsets exist (polygon geometry present), part_offsets indexes
                 // into ring_offsets for vertex ranges. Otherwise, part_offsets directly
@@ -214,9 +275,12 @@ impl GeometryValues {
             }
             GeometryType::MultiPolygon => {
                 let geoms = geoms.ok_or(NoGeometryOffsets(index, geom_type))?;
-                let parts = parts.ok_or(NoPartOffsets(index, geom_type))?;
-                let rings = rings.ok_or(NoRingOffsets(index, geom_type))?;
-                let polys: Vec<_> = geom_range(geoms, index)?
+                let geom_rng = geom_range(geoms, index)?;
+                // A multi with no sub-geometries never indexes the levels below it,
+                // so it does not need them to be present.
+                let parts = require(parts, &geom_rng, || NoPartOffsets(index, geom_type))?;
+                let rings = require(rings, &geom_rng, || NoRingOffsets(index, geom_type))?;
+                let polys: Vec<_> = geom_rng
                     .map(|idx| poly_from_rings(part_range(parts, idx)?, rings))
                     .collect::<Result<_, _>>()?;
                 Ok(Geometry::<i32>::MultiPolygon(MultiPolygon(polys)))

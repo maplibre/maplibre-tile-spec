@@ -1,12 +1,3 @@
-use crate::decoder::PhysicalEncoding;
-use crate::{MltError, MltResult};
-
-impl PhysicalEncoding {
-    pub fn parse(value: u8) -> MltResult<Self> {
-        Self::try_from(value).or(Err(MltError::ParsingPhysicalEncoding(value)))
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::EnumIter)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
@@ -19,4 +10,8 @@ pub enum PhysicalEncoder {
     ///
     /// Does not support u64/i64 integers
     FastPFOR,
+    /// Every value in the same number of bits, which a leading width byte names.
+    /// Only v2 has a code for it, so a v1 stream stores the values as varints instead.
+    #[cfg(feature = "unstable-v2")]
+    BitPacked,
 }

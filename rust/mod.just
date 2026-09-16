@@ -186,6 +186,10 @@ coverage *args='--open': (just 'cargo-install' 'cargo-llvm-cov') (just 'java::ge
     {{just}} rust::test
     cargo llvm-cov report --include-build-script {{args}}
 
+# Report per-file region, line and condition coverage for `sources`, the MC/DC stand-in
+mcdc *sources:
+    ./scripts/mcdc.sh {{sources}}
+
 # Run the encoder with hotpath profiling (timing + allocation tracking)
 profile *args:
     cargo run --release -p mlt --features='hotpath,hotpath-alloc,hotpath-mcp' -- {{args}}
@@ -422,6 +426,17 @@ sync-pyo3-version:
     sed -i "s/^version = \".*\"/version = \"$VERSION\"/" "$PYPROJECT"
     echo "Synced $PYPROJECT to version $VERSION"
 
+# Regenerate every docs/snippets/0x0N/*.mlt.hexdump from its test/synthetic/0x0N/*.mlt fixture
+sync-docs-hexdumps:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo build -p mlt -F unstable-v2
+    for dump in ../docs/snippets/0x0*/*.mlt.hexdump; do
+        fixture="../test/synthetic/$(basename "$(dirname "$dump")")/$(basename "$dump" .hexdump)"
+        cargo run -q -p mlt -F unstable-v2 -- hexdump "$fixture" > "$dump"
+        echo "Regenerated $dump from $fixture"
+    done
+
 # Sync the version field in mlt-wasm/package.json to match mlt-wasm/Cargo.toml
 sync-wasm-version:
     #!/usr/bin/env bash
@@ -485,6 +500,22 @@ generate-synthetic-mlts *args:
     cargo run -p mlt-synthetics -- {{args}}
     {{just}} rust::validate-synthetic
     {{just}} _assert-all-mlt-files-different
+
+# Write an annotated .mlt.hexdump next to every .mlt in test/synthetic
+generate-synthetic-hexdumps: (just 'cargo-install' 'fd' 'fd-find')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo build -q --bin mlt
+    fd . ../test/synthetic -e mlt -x bash -c '
+        code=0
+        err="$(target/debug/mlt hexdump --color never "$1" 2>&1 >"$1.hexdump")" || code=$?
+        if [ "$code" -ne 0 ]; then
+            printf "!! hexdump failed with exit code %s\n%s\n" "$code" "$err" > "$1.hexdump"
+        fi
+    ' _ {}
+    # Drop hexdumps whose .mlt is gone, so a renamed fixture cannot leave one behind
+    # --no-ignore --hidden because .gitignore hides *.hexdump from fd's default search
+    fd . ../test/synthetic -e hexdump --no-ignore --hidden -x bash -c '[ -f "${1%.hexdump}" ] || rm "$1"' _ {}
 
 # Create .dump files for all .mlt files in test/synthetic for all languages
 generate-synthetic-dumps: (just 'cargo-install' 'fd' 'fd-find')
