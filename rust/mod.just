@@ -514,7 +514,8 @@ generate-synthetic-hexdumps: (just 'cargo-install' 'fd' 'fd-find')
         fi
     ' _ {}
     # Drop hexdumps whose .mlt is gone, so a renamed fixture cannot leave one behind
-    fd . ../test/synthetic -e hexdump -x bash -c '[ -f "${1%.hexdump}" ] || rm "$1"' _ {}
+    # --no-ignore --hidden because .gitignore hides *.hexdump from fd's default search
+    fd . ../test/synthetic -e hexdump --no-ignore --hidden -x bash -c '[ -f "${1%.hexdump}" ] || rm "$1"' _ {}
 
 # Create .dump files for all .mlt files in test/synthetic for all languages
 generate-synthetic-dumps: (just 'cargo-install' 'fd' 'fd-find')

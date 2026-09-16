@@ -3,6 +3,7 @@
 *.diff.geojson
 *.gcov
 *.hexdump
+!docs/snippets/0x0*/*.mlt.hexdump
 *.log
 *.new.geojson
 .DS_Store
