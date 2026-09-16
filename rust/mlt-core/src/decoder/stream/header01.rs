@@ -34,16 +34,16 @@ use crate::utils::{BinarySerializer as _, parse_u8, take};
 use crate::{MltError, MltRefResult, MltResult, Parser};
 
 /// Mask of the `stream_type` byte holding the [`CategoryField`].
-const CATEGORY_MASK: u8 = 0b1111_0000;
+pub(crate) const CATEGORY_MASK: u8 = 0b1111_0000;
 
 /// Mask of the `stream_type` byte holding the subtype.
-const SUBTYPE_MASK: u8 = 0b0000_1111;
+pub(crate) const SUBTYPE_MASK: u8 = 0b0000_1111;
 
 /// Mask of the encoding byte holding the primary [`LogicalTechnique`].
-const LOGICAL1_MASK: u8 = 0b1110_0000;
+pub(crate) const LOGICAL1_MASK: u8 = 0b1110_0000;
 
 /// Mask of the encoding byte holding the secondary [`LogicalTechnique`].
-const LOGICAL2_MASK: u8 = 0b0001_1100;
+pub(crate) const LOGICAL2_MASK: u8 = 0b0001_1100;
 
 /// Distance between the primary logical field and the secondary one.
 const LOGICAL2_SHIFT: u32 = 3;
@@ -52,7 +52,7 @@ const LOGICAL2_SHIFT: u32 = 3;
 const LOGICAL_MASK: u8 = LOGICAL1_MASK | LOGICAL2_MASK;
 
 /// Mask of the encoding byte holding the [`PhysicalEncoding`].
-const PHYSICAL_MASK: u8 = 0b0000_0011;
+pub(crate) const PHYSICAL_MASK: u8 = 0b0000_0011;
 
 /// Physical field of the encoding byte, already masked into place.
 /// v1 codes only one `FastPFor` block size, so the field names it outright.

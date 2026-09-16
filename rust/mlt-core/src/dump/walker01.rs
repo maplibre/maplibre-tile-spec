@@ -5,8 +5,13 @@ use usize_cast::IntoUsize as _;
 use super::model::{BitField, BlobInfo, DecodeHint};
 use super::walker::Walker;
 use crate::codecs::varint::parse_varint;
-use crate::decoder::stream::header01::{PhysicalField, parse_stream_meta};
-use crate::decoder::{Column, ColumnType, DictionaryType, StreamType};
+use crate::decoder::stream::header01::{
+    CATEGORY_MASK, LOGICAL1_MASK, LOGICAL2_MASK, PHYSICAL_MASK, PhysicalField, SUBTYPE_MASK,
+    parse_stream_meta,
+};
+use crate::decoder::{
+    BASE_TYPE_MASK, Column, ColumnType, DictionaryType, OPTIONAL_FLAG, StreamType,
+};
 use crate::utils::{parse_string, take};
 use crate::wire::{
     BoolLogical, IntLogical, LogicalEncoding, LogicalTechnique, StreamMeta, ValueKind,
@@ -78,18 +83,13 @@ impl<'a> Walker<'a> {
         let (after_ty, typ) = ColumnType::from_bytes(input)?;
         let byte = typ as u8;
         let bits = vec![
-            BitField {
-                hi: 7,
-                lo: 1,
-                raw: u64::from(byte >> 1),
-                meaning: format!("base type = {typ:?}"),
-            },
-            BitField {
-                hi: 0,
-                lo: 0,
-                raw: u64::from(byte & 1),
-                meaning: format!("optional = {}", typ.is_optional()),
-            },
+            BitField::mask(BASE_TYPE_MASK, byte, format!("base type = {typ:?}")),
+            BitField::flag(
+                OPTIONAL_FLAG,
+                byte,
+                "optional: a Present stream precedes the data",
+                "not optional: each feature has a non-NULL value",
+            ),
         ];
         self.leaf_bits(
             input,
@@ -487,18 +487,8 @@ fn stream_type_bits(st: StreamType, byte: u8) -> Vec<BitField> {
         StreamType::Length(l) => format!("{l:?}"),
     };
     vec![
-        BitField {
-            hi: 7,
-            lo: 4,
-            raw: u64::from(byte >> 4),
-            meaning: format!("category = {category}"),
-        },
-        BitField {
-            hi: 3,
-            lo: 0,
-            raw: u64::from(byte & 0x0F),
-            meaning: format!("subtype = {subtype}"),
-        },
+        BitField::mask(CATEGORY_MASK, byte, format!("category = {category}")),
+        BitField::mask(SUBTYPE_MASK, byte, format!("subtype = {subtype}")),
     ]
 }
 
@@ -517,23 +507,8 @@ fn encoding_bits(byte: u8) -> Vec<BitField> {
         |p| <&str>::from(p).to_string(),
     );
     vec![
-        BitField {
-            hi: 7,
-            lo: 5,
-            raw: u64::from(l1),
-            meaning: format!("logical1 = {}", name_lt(l1)),
-        },
-        BitField {
-            hi: 4,
-            lo: 2,
-            raw: u64::from(l2),
-            meaning: format!("logical2 = {}", name_lt(l2)),
-        },
-        BitField {
-            hi: 1,
-            lo: 0,
-            raw: u64::from(ph),
-            meaning: format!("physical = {name_ph}"),
-        },
+        BitField::mask(LOGICAL1_MASK, byte, format!("logical1 = {}", name_lt(l1))),
+        BitField::mask(LOGICAL2_MASK, byte, format!("logical2 = {}", name_lt(l2))),
+        BitField::mask(PHYSICAL_MASK, byte, format!("physical = {name_ph}")),
     ]
 }

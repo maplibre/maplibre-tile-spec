@@ -502,21 +502,20 @@ generate-synthetic-mlts *args:
     {{just}} _assert-all-mlt-files-different
 
 # Write an annotated .mlt.hexdump next to every .mlt in test/synthetic
-generate-synthetic-hexdumps:
+generate-synthetic-hexdumps: (just 'cargo-install' 'fd' 'fd-find')
     #!/usr/bin/env bash
     set -euo pipefail
     cargo build -q --bin mlt
-    find ../test/synthetic -name '*.mlt' -print0 | while IFS= read -r -d '' f; do
+    fd . ../test/synthetic -e mlt -x bash -c '
         code=0
-        err="$(target/debug/mlt hexdump --color never "$f" 2>&1 >"$f.hexdump")" || code=$?
+        err="$(target/debug/mlt hexdump --color never "$1" 2>&1 >"$1.hexdump")" || code=$?
         if [ "$code" -ne 0 ]; then
-            printf '!! hexdump failed with exit code %s\n%s\n' "$code" "$err" > "$f.hexdump"
+            printf "!! hexdump failed with exit code %s\n%s\n" "$code" "$err" > "$1.hexdump"
         fi
-    done
+    ' _ {}
     # Drop hexdumps whose .mlt is gone, so a renamed fixture cannot leave one behind
-    find ../test/synthetic -name '*.mlt.hexdump' -print0 | while IFS= read -r -d '' h; do
-        [ -f "${h%.hexdump}" ] || rm "$h"
-    done
+    # --no-ignore --hidden because .gitignore hides *.hexdump from fd's default search
+    fd . ../test/synthetic -e hexdump --no-ignore --hidden -x bash -c '[ -f "${1%.hexdump}" ] || rm "$1"' _ {}
 
 # Create .dump files for all .mlt files in test/synthetic for all languages
 generate-synthetic-dumps: (just 'cargo-install' 'fd' 'fd-find')

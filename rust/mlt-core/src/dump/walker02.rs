@@ -14,7 +14,8 @@ use crate::codecs::varint::parse_varint;
 use crate::decoder::nested::presence_popcount;
 use crate::decoder::stream::header02;
 use crate::decoder::stream::header02::{
-    Count02, Family, HAS_EXPLICIT_COUNT, StrLayout, StreamCtx02, describe_encoding,
+    Count02, EXTENSION_MASK, Family, HAS_EXPLICIT_COUNT, LOGICAL_MASK, PHYSICAL_MASK, StrLayout,
+    StreamCtx02, describe_encoding,
 };
 use crate::decoder::{
     Column02, ColumnType02, DataType02, DictionaryType, GeoLayout, Interior02, LayerLayout,
@@ -783,23 +784,17 @@ struct Column<'l, 'a> {
 /// Bit breakdown of a shared-dictionary column's type byte, whose high nibble names the
 /// corpus encoding rather than presence.
 fn shared_dict_type_bits02(byte: u8) -> Vec<BitField> {
-    let (kind, data) = ColumnType02::fields(byte);
+    let (kind, _) = ColumnType02::fields(byte);
     vec![
-        BitField {
-            hi: 7,
-            lo: 4,
-            raw: u64::from(kind >> 4),
-            meaning: SharedDictKind::parse(kind).map_or_else(
+        BitField::mask(
+            ColumnType02::PRESENCE_MASK,
+            byte,
+            SharedDictKind::parse(kind).map_or_else(
                 || "corpus = reserved".to_string(),
                 |k| format!("corpus = {k:?}"),
             ),
-        },
-        BitField {
-            hi: 3,
-            lo: 0,
-            raw: u64::from(data),
-            meaning: "data type = SharedDict".to_string(),
-        },
+        ),
+        BitField::mask(ColumnType02::DATA_TYPE_MASK, byte, "data type = SharedDict"),
     ]
 }
 
@@ -873,29 +868,26 @@ fn hint_for(typ: DataType02) -> DecodeHint {
 /// - shared presence bitfield count (6-4),
 /// - geometry layout (3-0).
 fn layer_layout_bits02(byte: u8) -> Vec<BitField> {
-    let (m_values, shared_presence, geometry) = LayerLayout::fields(byte);
+    let (_, shared_presence, geometry) = LayerLayout::fields(byte);
     let name_geo = GeoLayout::try_from(geometry)
         .map_or_else(|_| format!("reserved({geometry})"), |g| format!("{g:?}"));
-    let m_values = u64::from(m_values != 0);
     vec![
-        BitField {
-            hi: 7,
-            lo: 7,
-            raw: m_values,
-            meaning: format!("m-value section = {m_values}"),
-        },
-        BitField {
-            hi: 6,
-            lo: 4,
-            raw: u64::from(shared_presence),
-            meaning: format!("shared presence bitfields = {shared_presence}"),
-        },
-        BitField {
-            hi: 3,
-            lo: 0,
-            raw: u64::from(geometry),
-            meaning: format!("geometry layout = {name_geo}"),
-        },
+        BitField::flag(
+            LayerLayout::M_VALUES_MASK,
+            byte,
+            "an m-value section ends the body",
+            "no m-value section",
+        ),
+        BitField::mask(
+            LayerLayout::SHARED_PRESENCE_MASK,
+            byte,
+            format!("shared presence bitfields = {shared_presence}"),
+        ),
+        BitField::mask(
+            LayerLayout::GEO_LAYOUT_MASK,
+            byte,
+            format!("geometry layout = {name_geo}"),
+        ),
     ]
 }
 
@@ -909,18 +901,16 @@ fn column_type_bits02(byte: u8, shared_count: u8) -> Vec<BitField> {
     let name_dt = DataType02::try_from(data)
         .map_or_else(|_| format!("reserved({data})"), |d| format!("{d:?}"));
     vec![
-        BitField {
-            hi: 7,
-            lo: 4,
-            raw: u64::from(presence >> 4),
-            meaning: format!("presence = {name_pr}"),
-        },
-        BitField {
-            hi: 3,
-            lo: 0,
-            raw: u64::from(data),
-            meaning: format!("data type = {name_dt}"),
-        },
+        BitField::mask(
+            ColumnType02::PRESENCE_MASK,
+            byte,
+            format!("presence = {name_pr}"),
+        ),
+        BitField::mask(
+            ColumnType02::DATA_TYPE_MASK,
+            byte,
+            format!("data type = {name_dt}"),
+        ),
     ]
 }
 
@@ -928,9 +918,7 @@ fn column_type_bits02(byte: u8, shared_count: u8) -> Vec<BitField> {
 /// physical (3-2), extension (1-0).
 fn encoding_bits02(byte: u8, count: Count02, family: Family) -> Vec<BitField> {
     let explicit = byte & HAS_EXPLICIT_COUNT != 0;
-    let logical = (byte >> 4) & 0x7;
-    let physical = (byte >> 2) & 0x3;
-    let extension = byte & 0x3;
+    let extension = byte & EXTENSION_MASK;
     let (name_lo, name_ph) = describe_encoding(family, byte);
     let family_name: &'static str = family.into();
     let count = if family == Family::Bytes {
@@ -949,34 +937,22 @@ fn encoding_bits02(byte: u8, count: Count02, family: Family) -> Vec<BitField> {
         }
     };
     vec![
-        BitField {
-            hi: 7,
-            lo: 7,
-            raw: u64::from(u8::from(explicit)),
-            meaning: count,
-        },
-        BitField {
-            hi: 6,
-            lo: 4,
-            raw: u64::from(logical),
-            meaning: format!("logical = {name_lo}, numbered for {family_name}"),
-        },
-        BitField {
-            hi: 3,
-            lo: 2,
-            raw: u64::from(physical),
-            meaning: format!("physical = {name_ph}"),
-        },
-        BitField {
-            hi: 1,
-            lo: 0,
-            raw: u64::from(extension),
-            meaning: match family {
+        BitField::mask(HAS_EXPLICIT_COUNT, byte, count),
+        BitField::mask(
+            LOGICAL_MASK,
+            byte,
+            format!("logical = {name_lo}, numbered for {family_name}"),
+        ),
+        BitField::mask(PHYSICAL_MASK, byte, format!("physical = {name_ph}")),
+        BitField::mask(
+            EXTENSION_MASK,
+            byte,
+            match family {
                 Family::Str(layout) => format!("string layout = {layout:?}"),
                 Family::Int | Family::Bool | Family::Float | Family::Vertex | Family::Bytes => {
                     format!("extension = {extension}")
                 }
             },
-        },
+        ),
     ]
 }

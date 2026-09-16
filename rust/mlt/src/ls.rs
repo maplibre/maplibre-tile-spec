@@ -195,6 +195,12 @@ impl std::fmt::Display for FileAlgorithm {
                     PhysicalEncoding::VarInt => "VarInt",
                     #[cfg(feature = "unstable-v2")]
                     PhysicalEncoding::BitPacked => "BitPacked",
+                    #[cfg(not(feature = "unstable-v2"))]
+                    #[allow(
+                        unreachable_patterns,
+                        reason = "reachable only when mlt-core has v2, but this crate doesn't"
+                    )]
+                    _ => "Unknown",
                 };
                 let logical = match logical {
                     StatLogicalCodec::None => "",
