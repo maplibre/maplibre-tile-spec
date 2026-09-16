@@ -81,6 +81,10 @@ mod tests {
             extent: Extent::new(4096).unwrap(),
             property_names: vec![],
             property_kinds: vec![],
+            #[cfg(feature = "unstable-v2")]
+            m_value_names: vec![],
+            #[cfg(feature = "unstable-v2")]
+            m_value_kinds: vec![],
             features: vec![],
         };
 
@@ -110,6 +114,8 @@ mod tests {
                 id: Some(1),
                 geometry: Geometry::Polygon(Polygon::new(LineString(ring), vec![])),
                 properties: vec![],
+                #[cfg(feature = "unstable-v2")]
+                m_values: vec![],
             }],
         )
         .unwrap();
