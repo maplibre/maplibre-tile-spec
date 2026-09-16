@@ -6,6 +6,11 @@ use strum::EnumCount as _;
 use crate::encoder::model::StagedLayer;
 use crate::encoder::optimizer::Presence;
 use crate::encoder::{EncoderConfig, StagedId, StagedProperty, StagedSharedDict};
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::{
+    StagedInterior, StagedLeaf, StagedList, StagedMValue, StagedNested, StagedNode, StagedStruct,
+    StagedValues,
+};
 
 impl Arbitrary<'_> for EncoderConfig {
     fn arbitrary(u: &mut Unstructured<'_>) -> Result<Self> {
@@ -67,8 +72,125 @@ impl Arbitrary<'_> for StagedLayer {
             .map(|i| generate_property(u, format!("prop{i}"), fc))
             .collect::<Result<_>>()?;
 
-        Self::new(name, extent, id, geometry, properties).map_err(|_| IncorrectFormat)
+        #[cfg(not(feature = "unstable-v2"))]
+        return Self::new(name, extent, id, geometry, properties).map_err(|_| IncorrectFormat);
+        // Bound m-value column count the same way, and against the same geometry:
+        // a column holds one value per vertex of every feature it marks present.
+        #[cfg(feature = "unstable-v2")]
+        {
+            let m_count = usize::from(u.int_in_range(0..=4u8)?);
+            let m_values: Vec<StagedMValue> = (0..m_count)
+                .map(|i| generate_m_value(u, format!("m{i}"), &geometry))
+                .collect::<Result<_>>()?;
+            // Bound the nested column count and each tree's depth the same way.
+            let nested_count = usize::from(u.int_in_range(0..=2u8)?);
+            let nested: Vec<StagedNested> = (0..nested_count)
+                .map(|i| generate_nested(u, format!("n{i}"), fc))
+                .collect::<Result<_>>()?;
+            Self::with_nested(name, extent, id, geometry, properties, m_values, nested)
+                .map_err(|_| IncorrectFormat)
+        }
     }
+}
+
+/// Generate an m-value column over `geometry`, of an arbitrary kind.
+///
+/// Which features carry values is arbitrary; how many values each of them carries
+/// is not, since the geometry says that.
+#[cfg(feature = "unstable-v2")]
+fn generate_m_value(
+    u: &mut Unstructured<'_>,
+    name: String,
+    geometry: &crate::decoder::GeometryValues,
+) -> Result<StagedMValue> {
+    let features = geometry.feature_count();
+    let presence: Option<Vec<bool>> = if u.arbitrary()? {
+        None
+    } else {
+        Some(generate_scalars(u, features)?)
+    };
+    let mut count = 0;
+    for index in 0..features {
+        if presence.as_ref().is_none_or(|mask| mask[index]) {
+            count += geometry.vertex_count(index).map_err(|_| IncorrectFormat)?;
+        }
+    }
+    Ok(StagedMValue::new(
+        name,
+        presence,
+        generate_values(u, count)?,
+    ))
+}
+
+/// Generate a nested column whose root is handed exactly `count` values.
+#[cfg(feature = "unstable-v2")]
+fn generate_nested(u: &mut Unstructured<'_>, name: String, count: usize) -> Result<StagedNested> {
+    let root = match generate_node(u, count, 1)? {
+        StagedNode::Interior(interior) => interior,
+        // A leaf root is an ordinary column, so a tree that shallow is regenerated as a struct.
+        StagedNode::Leaf(leaf) => StagedInterior::Struct(StagedStruct::new(
+            None,
+            vec![("f".to_string(), StagedNode::Leaf(leaf))],
+        )),
+    };
+    Ok(StagedNested::new(name, root))
+}
+
+/// Generate one node handed exactly `count` values, at most as deep as the format allows.
+#[cfg(feature = "unstable-v2")]
+fn generate_node(u: &mut Unstructured<'_>, count: usize, depth: usize) -> Result<StagedNode> {
+    let presence: Option<Vec<bool>> = if u.arbitrary()? {
+        None
+    } else {
+        Some(generate_scalars(u, count)?)
+    };
+    let present = presence
+        .as_ref()
+        .map_or(count, |mask| mask.iter().filter(|&&bit| bit).count());
+    // Four levels leaves room under the eight the format allows for the root above.
+    let interior = depth < 4 && u.arbitrary()?;
+    if !interior {
+        let values = generate_values(u, present)?;
+        return Ok(StagedNode::Leaf(StagedLeaf::new(presence, values)));
+    }
+    if u.arbitrary()? {
+        let field_count = usize::from(u.int_in_range(1..=3u8)?);
+        let fields = (0..field_count)
+            .map(|i| Ok((format!("f{i}"), generate_node(u, present, depth + 1)?)))
+            .collect::<Result<Vec<_>>>()?;
+        return Ok(StagedNode::Interior(StagedInterior::Struct(
+            StagedStruct::new(presence, fields),
+        )));
+    }
+    let lengths: Vec<u32> = (0..present)
+        .map(|_| Ok(u32::from(u.int_in_range(0..=3u8)?)))
+        .collect::<Result<_>>()?;
+    let entries = lengths.iter().sum::<u32>() as usize;
+    let element = generate_node(u, entries, depth + 1)?;
+    Ok(StagedNode::Interior(StagedInterior::List(StagedList::new(
+        presence, lengths, element,
+    ))))
+}
+
+/// Generate exactly `count` flat values of an arbitrary kind.
+#[cfg(feature = "unstable-v2")]
+fn generate_values(u: &mut Unstructured<'_>, count: usize) -> Result<StagedValues> {
+    const _: () = assert!(
+        StagedValues::COUNT == 10,
+        "needs new variant in match below"
+    );
+    Ok(match u.int_in_range(0..=StagedValues::COUNT - 1)? {
+        0 => StagedValues::Bool(generate_scalars(u, count)?),
+        1 => StagedValues::I8(generate_scalars(u, count)?),
+        2 => StagedValues::U8(generate_scalars(u, count)?),
+        3 => StagedValues::I32(generate_scalars(u, count)?),
+        4 => StagedValues::U32(generate_scalars(u, count)?),
+        5 => StagedValues::I64(generate_scalars(u, count)?),
+        6 => StagedValues::U64(generate_scalars(u, count)?),
+        7 => StagedValues::F32(generate_floats(u, count)?),
+        8 => StagedValues::F64(generate_floats(u, count)?),
+        _ => StagedValues::Str(generate_strings(u, count)?),
+    })
 }
 
 /// Generate a property column of an arbitrary kind holding exactly `count` values.

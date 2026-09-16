@@ -10,6 +10,11 @@ use serde_json::{Number, Value};
 
 use crate::decoder::PropValueRef;
 use crate::{LendingIterator, MltResult, ParsedLayer};
+#[cfg(feature = "unstable-v2")]
+use crate::{
+    ParsedLayer01,
+    tile::{MValue, NestedValue},
+};
 
 /// `GeoJSON` [`FeatureCollection`]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -30,6 +35,14 @@ impl FeatureCollection {
             };
             let layer_name = parsed.name();
             let extent = parsed.extent().get();
+            // Vertex-scoped columns have no GeoJSON of their own, so each rides
+            // along as an `m:`-prefixed array property of its feature.
+            #[cfg(feature = "unstable-v2")]
+            let mut m_values = m_value_properties(&parsed)?.into_iter();
+            // A nested column is an object or an array, so it serializes under its
+            // own name with nothing to mark it apart from a flat property.
+            #[cfg(feature = "unstable-v2")]
+            let mut nested = nested_properties(&parsed)?.into_iter();
             let mut feat_iter = parsed.iter_features();
             while let Some(feat) = feat_iter.next() {
                 let feat = feat?;
@@ -37,6 +50,10 @@ impl FeatureCollection {
                 for p in feat.iter_properties() {
                     properties.insert(p.name().to_string(), p.value().into());
                 }
+                #[cfg(feature = "unstable-v2")]
+                properties.extend(m_values.next().unwrap_or_default());
+                #[cfg(feature = "unstable-v2")]
+                properties.extend(nested.next().unwrap_or_default());
                 properties.insert("_layer".into(), Value::String(layer_name.to_string()));
                 properties.insert("_extent".into(), Value::Number(extent.into()));
                 features.push(Feature {
@@ -240,6 +257,103 @@ pub fn f64_to_json(f: f64) -> Value {
     } else {
         Number::from_f64(f).expect("finite f64").into()
     }
+}
+
+/// Every feature's m-values as `m:<name>` properties, in feature order.
+///
+/// A feature with no values for a column has no property for it, the way a null
+/// property is left out.
+#[cfg(feature = "unstable-v2")]
+fn m_value_properties(layer: &ParsedLayer01<'_>) -> MltResult<Vec<Vec<(String, Value)>>> {
+    let geometry = layer.geometry_values();
+    let mut features = vec![Vec::new(); geometry.feature_count()];
+    for column in layer.m_values() {
+        let key = format!("m:{}", column.name());
+        for (index, span) in column.spans(geometry).enumerate() {
+            let values = column.values().row(column.name(), span?)?;
+            if let Some(value) = m_value_to_json(&values) {
+                features[index].push((key.clone(), value));
+            }
+        }
+    }
+    Ok(features)
+}
+
+/// Every feature's nested columns as JSON, one entry per column under its own name.
+#[cfg(feature = "unstable-v2")]
+fn nested_properties(layer: &ParsedLayer01<'_>) -> MltResult<Vec<Vec<(String, Value)>>> {
+    let mut features = vec![Vec::new(); layer.geometry_values().feature_count()];
+    for column in layer.nested() {
+        for (index, feature) in features.iter_mut().enumerate() {
+            feature.push((
+                column.name().to_string(),
+                nested_to_json(&column.row(index)?),
+            ));
+        }
+    }
+    Ok(features)
+}
+
+/// One nested value as the JSON it stands for: an object, an array, a scalar or null.
+#[cfg(feature = "unstable-v2")]
+fn nested_to_json(value: &NestedValue) -> Value {
+    match value {
+        NestedValue::Leaf(leaf) => prop_to_json(leaf),
+        NestedValue::List(None) | NestedValue::Map(None) => Value::Null,
+        NestedValue::List(Some(items)) => Value::Array(items.iter().map(nested_to_json).collect()),
+        NestedValue::Map(Some(entries)) => Value::Object(
+            entries
+                .iter()
+                .map(|(key, value)| (key.clone(), nested_to_json(value)))
+                .collect(),
+        ),
+    }
+}
+
+/// One scalar as JSON, a null value included.
+#[cfg(feature = "unstable-v2")]
+fn prop_to_json(value: &crate::PropValue) -> Value {
+    use crate::PropValue as P;
+    match value {
+        P::Bool(v) => v.map_or(Value::Null, Value::Bool),
+        P::I8(v) => v.map_or(Value::Null, Value::from),
+        P::U8(v) => v.map_or(Value::Null, Value::from),
+        P::I32(v) => v.map_or(Value::Null, Value::from),
+        P::U32(v) => v.map_or(Value::Null, Value::from),
+        P::I64(v) => v.map_or(Value::Null, Value::from),
+        P::U64(v) => v.map_or(Value::Null, Value::from),
+        P::F32(v) => v.map_or(Value::Null, f32_to_json),
+        P::F64(v) => v.map_or(Value::Null, f64_to_json),
+        P::Str(v) => v.clone().map_or(Value::Null, Value::String),
+    }
+}
+
+/// One feature's m-values as a JSON array, or [`None`] when it carries none.
+#[cfg(feature = "unstable-v2")]
+fn m_value_to_json(values: &MValue) -> Option<Value> {
+    /// A present run, mapped value by value.
+    macro_rules! array {
+        ($values:expr, $to_json:expr) => {
+            Value::Array($values.iter().copied().map($to_json).collect())
+        };
+    }
+    Some(match values {
+        MValue::Bool(v) => array!(v.as_ref()?, Value::Bool),
+        MValue::I8(v) => array!(v.as_ref()?, Value::from),
+        MValue::U8(v) => array!(v.as_ref()?, Value::from),
+        MValue::I32(v) => array!(v.as_ref()?, Value::from),
+        MValue::U32(v) => array!(v.as_ref()?, Value::from),
+        MValue::I64(v) => array!(v.as_ref()?, Value::from),
+        MValue::U64(v) => array!(v.as_ref()?, Value::from),
+        MValue::F32(v) => array!(v.as_ref()?, f32_to_json),
+        MValue::F64(v) => array!(v.as_ref()?, f64_to_json),
+        MValue::Str(v) => Value::Array(
+            v.as_ref()?
+                .iter()
+                .map(|s| Value::String(s.clone()))
+                .collect(),
+        ),
+    })
 }
 
 impl From<PropValueRef<'_>> for Value {

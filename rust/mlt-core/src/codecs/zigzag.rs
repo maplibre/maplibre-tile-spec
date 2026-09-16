@@ -101,7 +101,8 @@ pub fn decode_componentwise_delta_vec2s<T: ZigZag + WrappingAdd>(
         result.push(last2);
     }
 
-    dec.adjust_alloc(&result, alloc_size)?;
+    dec.adjust_alloc(&result, alloc_size)
+        .expect("infallible: two values pushed per pair fill alloc_size exactly");
     Ok(result)
 }
 
@@ -110,7 +111,7 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
-    use crate::test_helpers::dec;
+    use crate::test_helpers::{dec, starved_dec};
 
     proptest! {
         #[test]
@@ -134,7 +135,6 @@ mod tests {
             if data.len() <= 1 {
                 return Err(TestCaseError::reject("data not valid vertices"))
             }
-            // done this way to not have to reject less
             let data_slice = if data.len().is_multiple_of(2) {
                 &data
             } else {
@@ -189,6 +189,39 @@ mod tests {
         assert_eq!(
             decode_zigzag_delta::<i32, i32>(&[], &mut dec()).unwrap(),
             [] as [i32; 0]
+        );
+    }
+
+    #[test]
+    fn an_odd_length_pair_stream_is_rejected() {
+        let err = decode_componentwise_delta_vec2s::<i32>(&[0, 1, 2], &mut dec()).unwrap_err();
+        assert!(matches!(err, InvalidPairStreamSize(3)), "{err:?}");
+    }
+
+    #[test]
+    fn zigzag_decoding_past_the_memory_budget_is_rejected() {
+        let err = decode_zigzag::<i32>(&[0, 1], &mut starved_dec()).unwrap_err();
+        assert!(
+            matches!(err, crate::MltError::MemoryLimitExceeded { .. }),
+            "{err:?}"
+        );
+    }
+
+    #[test]
+    fn delta_decoding_past_the_memory_budget_is_rejected() {
+        let err = decode_zigzag_delta::<i32, i32>(&[0, 1], &mut starved_dec()).unwrap_err();
+        assert!(
+            matches!(err, crate::MltError::MemoryLimitExceeded { .. }),
+            "{err:?}"
+        );
+    }
+
+    #[test]
+    fn pair_decoding_past_the_memory_budget_is_rejected() {
+        let err = decode_componentwise_delta_vec2s::<i32>(&[0, 1], &mut starved_dec()).unwrap_err();
+        assert!(
+            matches!(err, crate::MltError::MemoryLimitExceeded { .. }),
+            "{err:?}"
         );
     }
 

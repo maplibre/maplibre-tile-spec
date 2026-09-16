@@ -11,16 +11,18 @@ use usize_cast::IntoUsize as _;
 use super::model::{BitField, BlobInfo, DecodeHint};
 use super::walker::Walker;
 use crate::codecs::varint::parse_varint;
+use crate::decoder::nested::presence_popcount;
 use crate::decoder::stream::header02;
 use crate::decoder::stream::header02::{
-    EXTENSION_MASK, Family, HAS_EXPLICIT_COUNT, LOGICAL_MASK, PHYSICAL_MASK, StrLayout,
+    Count02, EXTENSION_MASK, Family, HAS_EXPLICIT_COUNT, LOGICAL_MASK, PHYSICAL_MASK, StrLayout,
     StreamCtx02, describe_encoding,
 };
 use crate::decoder::{
-    Column02, ColumnType02, DataType02, DictionaryType, GeoLayout, LayerLayout, LengthType,
-    Presence02, SharedDictKind, StreamType,
+    Column02, ColumnType02, DataType02, DictionaryType, GeoLayout, Interior02, LayerLayout,
+    LengthType, NodeKind02, NodePresence, NodeType02, Presence02, SharedDictKind, StreamType,
+    ValuesColumn02,
 };
-use crate::tile::Extent;
+use crate::tile::{Extent, MAX_NESTED_DEPTH};
 use crate::utils::{parse_string, parse_u8, take};
 use crate::wire::{
     FloatLogical, IntEncoding, LogicalEncoding, StreamMeta, ValueKind, VertexLogical,
@@ -93,6 +95,12 @@ impl<'a> Walker<'a> {
             self.close(di, input);
         }
 
+        if layout.m_values {
+            let mi = self.open(input, "m_values".to_string());
+            input = self.walk_m_values02(input, feature_count, &shared)?;
+            self.close(mi, input);
+        }
+
         // A well-formed layer consumes its whole body; record any trailing bytes.
         if !input.is_empty() {
             self.raw_blob(input, input.len(), "trailing bytes".to_string());
@@ -107,10 +115,12 @@ impl<'a> Walker<'a> {
         layout: GeoLayout,
         feature_count: u32,
     ) -> MltResult<&'a [u8]> {
+        // Every geometry stream is read against the feature count the header gave.
+        let count = Count02::Implied(feature_count);
         let (mut input, _) = self.walk_stream02(
             input,
             StreamCtx02::GeomTypes,
-            feature_count,
+            count,
             "types",
             DecodeHint::U32,
         )?;
@@ -127,19 +137,17 @@ impl<'a> Walker<'a> {
         for (present, length_type, label) in lengths {
             if present {
                 let ctx = StreamCtx02::GeomOffsets(length_type);
-                (input, _) =
-                    self.walk_stream02(input, ctx, feature_count, label, DecodeHint::U32)?;
+                (input, _) = self.walk_stream02(input, ctx, count, label, DecodeHint::U32)?;
             }
         }
 
         if layout.is_tess() {
             let ctx = StreamCtx02::GeomOffsets(LengthType::Triangles);
-            (input, _) =
-                self.walk_stream02(input, ctx, feature_count, "tri_lengths", DecodeHint::U32)?;
+            (input, _) = self.walk_stream02(input, ctx, count, "tri_lengths", DecodeHint::U32)?;
             (input, _) = self.walk_stream02(
                 input,
                 StreamCtx02::GeomIndices,
-                feature_count,
+                count,
                 "tri_indexes",
                 DecodeHint::U32,
             )?;
@@ -153,7 +161,7 @@ impl<'a> Walker<'a> {
         (input, _) = self.walk_stream02(
             input,
             StreamCtx02::GeomVertices,
-            feature_count,
+            count,
             label,
             DecodeHint::I32,
         )?;
@@ -161,7 +169,7 @@ impl<'a> Walker<'a> {
             (input, _) = self.walk_stream02(
                 input,
                 StreamCtx02::GeomVertexOffsets,
-                feature_count,
+                count,
                 "vertex_offsets",
                 DecodeHint::U32,
             )?;
@@ -192,6 +200,198 @@ impl<'a> Walker<'a> {
             }
             Column02::Values(typ) => typ,
         };
+        let column = Column {
+            region: ci,
+            label: &format!("column[{i}]"),
+            feature_count,
+            shared,
+        };
+        let (input, presence_count) = self.walk_column_header02(input, column, typ)?;
+        let input = match nested_root02(typ.data) {
+            // A nested column's body is a tree of nodes rather than a stream set.
+            Some(root) => {
+                let count = if root.has_lengths() {
+                    Count02::Explicit
+                } else {
+                    Count02::Implied(presence_count)
+                };
+                self.walk_nested_body02(input, root, count, 1)?
+            }
+            None => self.walk_value_streams02(input, typ, Count02::Implied(presence_count))?,
+        };
+        self.close(ci, input);
+        Ok(input)
+    }
+
+    /// Mirror `parse_interior`: the body of one interior node, in wire order.
+    fn walk_nested_body02(
+        &mut self,
+        input: &'a [u8],
+        kind: Interior02,
+        count: Count02,
+        depth: usize,
+    ) -> MltResult<&'a [u8]> {
+        match kind {
+            Interior02::Struct => {
+                let (mut input, field_count) =
+                    self.field(input, "field_count", parse_varint::<u32>, |c| {
+                        Some(c.to_string())
+                    })?;
+                if field_count == 0 {
+                    return Err(MltError::EmptyStructNode);
+                }
+                for i in 0..field_count {
+                    input = self.walk_node02(input, &format!("field[{i}]"), true, count, depth)?;
+                }
+                Ok(input)
+            }
+            Interior02::List => {
+                let ctx = StreamCtx02::NestedLengths;
+                let (input, _) =
+                    self.walk_stream02(input, ctx, count, "lengths", DecodeHint::U32)?;
+                self.walk_node02(input, "element", false, Count02::Explicit, depth)
+            }
+            Interior02::Map => {
+                let ctx = StreamCtx02::NestedLengths;
+                let (input, _) =
+                    self.walk_stream02(input, ctx, count, "lengths", DecodeHint::U32)?;
+                let ki = self.open(input, "keys".to_string());
+                let input = self.walk_strings02(input, Count02::Explicit)?;
+                self.close(ki, input);
+                self.walk_node02(input, "value", false, Count02::Explicit, depth)
+            }
+        }
+    }
+
+    /// Mirror `parse_node`: a node's type byte, its name, its presence stream, then its body.
+    fn walk_node02(
+        &mut self,
+        input: &'a [u8],
+        label: &str,
+        named: bool,
+        parent_count: Count02,
+        depth: usize,
+    ) -> MltResult<&'a [u8]> {
+        if depth >= MAX_NESTED_DEPTH {
+            return Err(MltError::NestedTooDeep(depth + 1));
+        }
+        let ni = self.open(input, label.to_string());
+        let (_, typ_byte) = parse_u8(input)?;
+        let typ = NodeType02::parse(typ_byte)?;
+        let (mut input, _) = self.byte_field(
+            input,
+            "type",
+            |b| {
+                format!(
+                    "0x{b:02X} {:?} {:?}",
+                    typ.presence,
+                    DataType02::from(typ.data)
+                )
+            },
+            node_type_bits02,
+        )?;
+        let mut name_suffix = String::new();
+        if named {
+            let name;
+            (input, name) = self.field(input, "name", parse_string, |s| Some(format!("{s:?}")))?;
+            name_suffix = format!(" {name:?}");
+        }
+        self.relabel(
+            ni,
+            format!("{label} {:?}{name_suffix}", DataType02::from(typ.data)),
+        );
+
+        // A list or a map ends the implied counts, its own streams included.
+        let node_count = match typ.data.interior() {
+            Some(kind) if kind.has_lengths() => Count02::Explicit,
+            _ => parent_count,
+        };
+        let mut present = node_count;
+        if typ.presence == NodePresence::Stream {
+            let ctx = StreamCtx02::NestedPresence;
+            let (_, stream) = header02::parse_stream(input, ctx, node_count, &mut self.parser)?;
+            let popcount = presence_popcount(&stream)?;
+            (input, _) =
+                self.walk_stream02(input, ctx, node_count, "present", DecodeHint::PackedBits)?;
+            if node_count != Count02::Explicit {
+                present = Count02::Implied(popcount);
+            }
+        }
+        let input = match typ.data {
+            NodeKind02::Leaf(values) => {
+                let typ = ColumnType02::new(Presence02::AllPresent, values.into());
+                self.walk_value_streams02(input, typ, present)?
+            }
+            NodeKind02::Struct => {
+                self.walk_nested_body02(input, Interior02::Struct, present, depth + 1)?
+            }
+            NodeKind02::List => {
+                self.walk_nested_body02(input, Interior02::List, present, depth + 1)?
+            }
+            NodeKind02::Map => {
+                self.walk_nested_body02(input, Interior02::Map, present, depth + 1)?
+            }
+        };
+        self.close(ni, input);
+        Ok(input)
+    }
+
+    /// Mirror `parse_m_values`: the vertex-scoped columns that end a layer body.
+    ///
+    /// Each reads what a counted column of its data type reads, over the vertex
+    /// sequence rather than the features, so none of their counts are implied.
+    fn walk_m_values02(
+        &mut self,
+        input: &'a [u8],
+        feature_count: u32,
+        shared: &[&'a BitSlice<u8, Lsb0>],
+    ) -> MltResult<&'a [u8]> {
+        let (mut input, count) = self.field(input, "m_value_count", parse_varint::<u32>, |c| {
+            Some(c.to_string())
+        })?;
+        if count == 0 {
+            return Err(MltError::EmptyMValueSection);
+        }
+        let shared_count = u8::try_from(shared.len())?;
+        for i in 0..count {
+            let mi = self.open(input, format!("m_value[{i}]"));
+            let (_, typ_byte) = parse_u8(input)?;
+            let typ = ValuesColumn02::parse_m_value(typ_byte, shared_count)?.into();
+            let column = Column {
+                region: mi,
+                label: &format!("m_value[{i}]"),
+                feature_count,
+                shared,
+            };
+            // An m-value column runs over the vertices, whose count only the geometry
+            // knows, so its presence popcount says nothing about its streams, which
+            // write their own counts.
+            let (rest, _) = self.walk_column_header02(input, column, typ)?;
+            input = self.walk_value_streams02(rest, typ, Count02::Explicit)?;
+            self.close(mi, input);
+        }
+        Ok(input)
+    }
+
+    /// Walk a column's type byte, then what `parse_column_header` reads: its name
+    /// and presence bitfield.
+    ///
+    /// Returns how many values that presence marks, the count a counted column's
+    /// data streams are read against.
+    fn walk_column_header02(
+        &mut self,
+        input: &'a [u8],
+        column: Column<'_, 'a>,
+        typ: ColumnType02,
+    ) -> MltResult<(&'a [u8], u32)> {
+        let Column {
+            region: ci,
+            label,
+            feature_count,
+            shared,
+        } = column;
+        let shared_count = u8::try_from(shared.len())?;
+        let typ_byte = typ.to_byte();
         let (mut input, _) = self.byte_field(
             input,
             "type",
@@ -211,12 +411,12 @@ impl<'a> Walker<'a> {
         } else {
             ""
         };
-        self.relabel(ci, format!("column[{i}] {opt}{:?}{name_suffix}", typ.data));
+        self.relabel(ci, format!("{label} {opt}{:?}{name_suffix}", typ.data));
 
-        // Presence is a raw LSB0 bitfield, not a stream, and sets the data count.
+        // Presence is a raw LSB0 bitfield, not a stream, and counts the data.
         // A shared bitfield was already walked at the layer root, so only its
         // popcount is needed here.
-        let data_count = match typ.presence {
+        let presence_count = match typ.presence {
             Presence02::AllPresent => feature_count,
             Presence02::Inline => {
                 let bits;
@@ -230,17 +430,24 @@ impl<'a> Walker<'a> {
                 u32::try_from(bits.count_ones())?
             }
         };
+        Ok((input, presence_count))
+    }
 
+    /// Walk the data streams a column of `typ` holds, read against `count`.
+    fn walk_value_streams02(
+        &mut self,
+        input: &'a [u8],
+        typ: ColumnType02,
+        count: Count02,
+    ) -> MltResult<&'a [u8]> {
         // A string column has a stream set of its own, the rest one data stream.
         if typ.data == DataType02::Str {
-            input = self.walk_strings02(input, data_count)?;
-            self.close(ci, input);
-            return Ok(input);
+            return self.walk_strings02(input, count);
         }
 
         let ctx = StreamCtx02::Property(typ.data);
-        let meta;
-        (input, meta) = self.walk_stream02(input, ctx, data_count, "data", hint_for(typ.data))?;
+        let (mut input, meta) =
+            self.walk_stream02(input, ctx, count, "data", hint_for(typ.data))?;
 
         // A dictionary column's data stream holds codes, and the values follow.
         if meta.encoding.logical == LogicalEncoding::Float(FloatLogical::Dict) {
@@ -248,13 +455,11 @@ impl<'a> Walker<'a> {
             (input, _) = self.walk_stream02(
                 input,
                 ctx,
-                meta.num_values,
+                Count02::Implied(meta.num_values),
                 "dictionary",
                 hint_for(typ.data),
             )?;
         }
-
-        self.close(ci, input);
         Ok(input)
     }
 
@@ -283,20 +488,21 @@ impl<'a> Walker<'a> {
             Some(c.to_string())
         })?;
 
-        // The corpus streams mirror a lone string column's dictionary tail.
+        // The corpus streams mirror a lone string column's dictionary tail. Nothing
+        // implies the dictionary's entry count, so each writes its own.
         match kind {
             SharedDictKind::Plain => {
                 (input, _) = self.walk_stream02(
                     input,
                     StreamCtx02::StrDictLengths,
-                    0,
+                    Count02::Explicit,
                     "dict_lengths",
                     DecodeHint::U32,
                 )?;
                 (input, _) = self.walk_stream02(
                     input,
                     StreamCtx02::StrBlob(DictionaryType::Shared),
-                    0,
+                    Count02::Explicit,
                     "dict_values",
                     DecodeHint::Bytes,
                 )?;
@@ -305,28 +511,28 @@ impl<'a> Walker<'a> {
                 (input, _) = self.walk_stream02(
                     input,
                     StreamCtx02::StrDictLengths,
-                    0,
+                    Count02::Explicit,
                     "dict_lengths",
                     DecodeHint::U32,
                 )?;
                 (input, _) = self.walk_stream02(
                     input,
                     StreamCtx02::StrSymbolLengths,
-                    0,
+                    Count02::Explicit,
                     "symbol_lengths",
                     DecodeHint::U32,
                 )?;
                 (input, _) = self.walk_stream02(
                     input,
                     StreamCtx02::StrBlob(DictionaryType::Fsst),
-                    0,
+                    Count02::Explicit,
                     "symbol_table",
                     DecodeHint::Bytes,
                 )?;
                 (input, _) = self.walk_stream02(
                     input,
                     StreamCtx02::StrBlob(DictionaryType::Shared),
-                    0,
+                    Count02::Explicit,
                     "corpus",
                     DecodeHint::Bytes,
                 )?;
@@ -366,7 +572,7 @@ impl<'a> Walker<'a> {
             (input, _) = self.walk_stream02(
                 input,
                 StreamCtx02::StrData(StrLayout::Dict),
-                count,
+                Count02::Implied(count),
                 "codes",
                 DecodeHint::U32,
             )?;
@@ -376,7 +582,7 @@ impl<'a> Walker<'a> {
     }
 
     /// Mirror `parse_strings`: the leading stream names the layout the rest of the streams follow.
-    fn walk_strings02(&mut self, input: &'a [u8], count: u32) -> MltResult<&'a [u8]> {
+    fn walk_strings02(&mut self, input: &'a [u8], count: Count02) -> MltResult<&'a [u8]> {
         /// One string stream: what it holds, what to call it, and how to read its payload.
         type Stream = (StreamCtx02, &'static str, DecodeHint);
         const DICT_LENGTHS: Stream = (StreamCtx02::StrDictLengths, "dict_lengths", DecodeHint::U32);
@@ -419,13 +625,15 @@ impl<'a> Walker<'a> {
             StrLayout::FsstDict => &[DICT_LENGTHS, SYMBOL_LENGTHS, SYMBOL_TABLE, CORPUS],
         };
 
-        let (mut input, _) = self.walk_stream02(
+        let (mut input, meta) = self.walk_stream02(
             input,
             StreamCtx02::StrData(layout),
             count,
             leading,
             DecodeHint::U32,
         )?;
+        // Every stream after the leading one runs over the values it counted.
+        let count = Count02::Implied(meta.num_values);
         for &(ctx, label, hint) in rest {
             (input, _) = self.walk_stream02(input, ctx, count, label, hint)?;
         }
@@ -462,20 +670,20 @@ impl<'a> Walker<'a> {
     /// Walk one v2 stream: the annotated header (via the authoritative
     /// [`header02::parse_stream`]) followed by the payload blob.
     ///
-    /// `ctx`, `implicit_count`, and `hint` are all supplied by the caller: none of them are on the wire.
+    /// `ctx`, `count`, and `hint` are all supplied by the caller: none of them are on the wire.
     /// `ctx` also names the family the encoding byte's logical field is read against.
     fn walk_stream02(
         &mut self,
         input: &'a [u8],
         ctx: StreamCtx02,
-        implicit_count: u32,
+        count: Count02,
         label: &str,
         hint: DecodeHint,
     ) -> MltResult<(&'a [u8], StreamMeta)> {
         let si = self.open(input, label.to_string());
 
         // parse -> synthesized meta.
-        let (rest, stream) = header02::parse_stream(input, ctx, implicit_count, &mut self.parser)?;
+        let (rest, stream) = header02::parse_stream(input, ctx, count, &mut self.parser)?;
 
         // Re-walk the consumed header bytes to annotate each field.
         let hi = self.open(input, "header".to_string());
@@ -487,7 +695,7 @@ impl<'a> Walker<'a> {
                 let (logical, physical) = describe_encoding(family, b);
                 format!("0x{b:02X} logical={logical} physical={physical}")
             },
-            move |b| encoding_bits02(b, implicit_count, family),
+            move |b| encoding_bits02(b, count, family),
         )?;
 
         if enc_byte & HAS_EXPLICIT_COUNT != 0 {
@@ -561,6 +769,18 @@ impl<'a> Walker<'a> {
     }
 }
 
+/// Where a column of values sits and what it reads its presence against.
+#[derive(Clone, Copy)]
+struct Column<'l, 'a> {
+    /// The region the column's fields are annotated into.
+    region: usize,
+    /// What to call it, which its data type and name are appended to.
+    label: &'l str,
+    feature_count: u32,
+    /// The layer's shared presence bitfields, one of which the column may read.
+    shared: &'l [&'a BitSlice<u8, Lsb0>],
+}
+
 /// Bit breakdown of a shared-dictionary column's type byte, whose high nibble names the
 /// corpus encoding rather than presence.
 fn shared_dict_type_bits02(byte: u8) -> Vec<BitField> {
@@ -578,6 +798,55 @@ fn shared_dict_type_bits02(byte: u8) -> Vec<BitField> {
     ]
 }
 
+/// The interior a nested column's root data type names, or [`None`] for a flat column.
+fn nested_root02(typ: DataType02) -> Option<Interior02> {
+    use DataType02 as D;
+    match typ {
+        D::Struct => Some(Interior02::Struct),
+        D::List => Some(Interior02::List),
+        D::Map => Some(Interior02::Map),
+        D::Id
+        | D::LongId
+        | D::Bool
+        | D::I8
+        | D::U8
+        | D::I32
+        | D::U32
+        | D::I64
+        | D::U64
+        | D::F32
+        | D::F64
+        | D::Str => None,
+    }
+}
+
+/// Bit breakdown of a nested node's type byte: node presence (7-4), data type (3-0).
+fn node_type_bits02(byte: u8) -> Vec<BitField> {
+    let (presence, data) = ColumnType02::fields(byte);
+    let name_pr = NodePresence::parse(presence).map_or_else(
+        || format!("reserved({})", presence >> 4),
+        |p| format!("{p:?}"),
+    );
+    let name_dt = NodeType02::parse(byte).map_or_else(
+        |_| format!("reserved({data})"),
+        |t| format!("{:?}", DataType02::from(t.data)),
+    );
+    vec![
+        BitField {
+            hi: 7,
+            lo: 4,
+            raw: u64::from(presence >> 4),
+            meaning: format!("node presence = {name_pr}"),
+        },
+        BitField {
+            hi: 3,
+            lo: 0,
+            raw: u64::from(data),
+            meaning: format!("data type = {name_dt}"),
+        },
+    ]
+}
+
 /// Decode hint for a column's data stream, keyed by the data type nibble.
 fn hint_for(typ: DataType02) -> DecodeHint {
     use DataType02 as D;
@@ -589,25 +858,25 @@ fn hint_for(typ: DataType02) -> DecodeHint {
         D::LongId | D::U64 => DecodeHint::U64,
         D::F32 => DecodeHint::F32,
         D::F64 => DecodeHint::F64,
-        D::Str => DecodeHint::Bytes,
+        // A nested column has no data stream of its own, only the tree below it.
+        D::Str | D::Struct | D::List | D::Map => DecodeHint::Bytes,
     }
 }
 
 /// Bit breakdown of the v2 layer layout byte:
-/// - reserved (7),
+/// - m-value section flag (7),
 /// - shared presence bitfield count (6-4),
 /// - geometry layout (3-0).
 fn layer_layout_bits02(byte: u8) -> Vec<BitField> {
-    let (reserved, shared_presence, geometry) = LayerLayout::fields(byte);
+    let (_, shared_presence, geometry) = LayerLayout::fields(byte);
     let name_geo = GeoLayout::try_from(geometry)
         .map_or_else(|_| format!("reserved({geometry})"), |g| format!("{g:?}"));
-    debug_assert_eq!(reserved, 0, "LayerLayout::parse rejects a set reserved bit");
     vec![
         BitField::flag(
-            LayerLayout::RESERVED_MASK,
+            LayerLayout::M_VALUES_MASK,
             byte,
-            "reserved bit is set",
-            "reserved bit is clear, as this version requires",
+            "an m-value section ends the body",
+            "no m-value section",
         ),
         BitField::mask(
             LayerLayout::SHARED_PRESENCE_MASK,
@@ -647,7 +916,7 @@ fn column_type_bits02(byte: u8, shared_count: u8) -> Vec<BitField> {
 
 /// Bit breakdown of the v2 encoding byte: explicit-count flag (7), logical (6-4),
 /// physical (3-2), extension (1-0).
-fn encoding_bits02(byte: u8, implicit_count: u32, family: Family) -> Vec<BitField> {
+fn encoding_bits02(byte: u8, count: Count02, family: Family) -> Vec<BitField> {
     let explicit = byte & HAS_EXPLICIT_COUNT != 0;
     let extension = byte & EXTENSION_MASK;
     let (name_lo, name_ph) = describe_encoding(family, byte);
@@ -657,7 +926,15 @@ fn encoding_bits02(byte: u8, implicit_count: u32, family: Family) -> Vec<BitFiel
     } else if explicit {
         "has_explicit_count = true -> a num_values varint follows".to_string()
     } else {
-        format!("has_explicit_count = false -> {implicit_count} values from context")
+        match count {
+            Count02::Implied(count) => {
+                format!("has_explicit_count = false -> {count} values from context")
+            }
+            // `parse_stream` has already rejected the stream this would describe.
+            Count02::Explicit => {
+                "has_explicit_count = false -> nothing implies a count".to_string()
+            }
+        }
     };
     vec![
         BitField::mask(HAS_EXPLICIT_COUNT, byte, count),

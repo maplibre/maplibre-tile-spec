@@ -357,4 +357,28 @@ mod tests {
         assert_eq!(corpus, "abz");
         assert_eq!(lengths, [3]);
     }
+
+    #[test]
+    fn a_corpus_expanding_to_invalid_utf8_is_rejected() {
+        let err = decode_malformed(&[1], &[0xFF], &[1], &[0x00]);
+        assert!(matches!(err, MltError::FromUtf8(_)), "{err:?}");
+    }
+
+    #[test]
+    fn every_charge_point_rejects_an_exhausted_budget() {
+        let blob = hand_built_blob(&[2], b"ab", &[0x00]);
+        let buffers = wire_streams(&blob, &[2]);
+        let threshold = (0..=64)
+            .find(|&b| decode_fsst(parse_streams(&buffers), &mut Decoder::with_max_size(b)).is_ok())
+            .expect("some budget must suffice for two bytes of output");
+        assert!(threshold > 0, "a zero budget must not suffice");
+        for budget in 0..threshold {
+            let err = decode_fsst(parse_streams(&buffers), &mut Decoder::with_max_size(budget))
+                .expect_err("a budget below the threshold must be rejected");
+            assert!(
+                matches!(err, MltError::MemoryLimitExceeded { .. }),
+                "budget {budget}: {err:?}"
+            );
+        }
+    }
 }

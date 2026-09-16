@@ -51,13 +51,11 @@ pub fn decode_fastpfor(
         }
     }
 
-    let Some(adjustment) = result
+    let adjustment = result
         .len()
         .checked_sub(num_values.into_usize())
         .and_then(|v| u32::try_from(v).ok())
-    else {
-        return Err(MltError::FastPforDecode(num_values, result.len()));
-    };
+        .expect("infallible: the codec rejects a short decode, so the excess is block padding");
 
     dec.adjust(adjustment);
     result.truncate(num_values.into_usize());
@@ -71,7 +69,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::test_helpers::dec;
+    use crate::test_helpers::{dec, starved_dec};
 
     fn encode(kind: FastPForKind, data: &[u32]) -> Vec<u8> {
         let mut words = Vec::new();
@@ -128,6 +126,54 @@ mod tests {
         assert_ne!(
             decode_fastpfor(&encoded, num_values, other, &mut dec()).ok(),
             Some(data)
+        );
+    }
+
+    #[rstest]
+    #[case(FastPForKind::Block256Be)]
+    #[cfg_attr(feature = "unstable-v2", case(FastPForKind::Block128Le))]
+    fn a_zero_value_stream_carrying_a_payload_is_rejected(#[case] kind: FastPForKind) {
+        let err = decode_fastpfor(&[0, 0, 0, 0], 0, kind, &mut dec()).unwrap_err();
+        assert!(
+            matches!(err, MltError::InvalidFastPforByteLength(0)),
+            "{err:?}"
+        );
+    }
+
+    #[rstest]
+    #[case(FastPForKind::Block256Be)]
+    #[cfg_attr(feature = "unstable-v2", case(FastPForKind::Block128Le))]
+    fn a_payload_that_is_not_whole_words_is_rejected(#[case] kind: FastPForKind) {
+        let err = decode_fastpfor(&[0, 0, 0], 1, kind, &mut dec()).unwrap_err();
+        assert!(
+            matches!(err, MltError::InvalidFastPforByteLength(3)),
+            "{err:?}"
+        );
+    }
+
+    #[rstest]
+    #[case(FastPForKind::Block256Be)]
+    #[cfg_attr(feature = "unstable-v2", case(FastPForKind::Block128Le))]
+    fn a_declared_count_the_codec_cannot_meet_is_rejected(#[case] kind: FastPForKind) {
+        let data: Vec<u32> = (0..500).map(|i| i * 7 + 3).collect();
+        let encoded = encode(kind, &data);
+        let err = decode_fastpfor(&encoded, 600, kind, &mut dec()).unwrap_err();
+        assert!(
+            matches!(err, MltError::FastPfor(_)),
+            "the codec must reject a short decode itself: {err:?}"
+        );
+    }
+
+    #[rstest]
+    #[case(FastPForKind::Block256Be)]
+    #[cfg_attr(feature = "unstable-v2", case(FastPForKind::Block128Le))]
+    fn decoding_past_the_memory_budget_is_rejected(#[case] kind: FastPForKind) {
+        let data: Vec<u32> = (0..500).map(|i| i * 7 + 3).collect();
+        let encoded = encode(kind, &data);
+        let err = decode_fastpfor(&encoded, 500, kind, &mut starved_dec()).unwrap_err();
+        assert!(
+            matches!(err, MltError::MemoryLimitExceeded { .. }),
+            "{err:?}"
         );
     }
 }

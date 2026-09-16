@@ -297,8 +297,7 @@ fn emit_bytes(
 ) -> io::Result<()> {
     if bytes.is_empty() {
         let left = format!("{offset:08x}");
-        writeln!(w, "{left:<left_len$} | {annotation}")?;
-        return Ok(());
+        return emit_row(w, &left, left_len, annotation);
     }
     for (row, chunk) in bytes.chunks(opts.width).enumerate() {
         let row_off = offset + row * opts.width;
@@ -319,13 +318,18 @@ fn emit_bytes(
             .collect();
         let hexw = opts.width * 3;
         let left = format!("{row_off:08x}  {hex:<hexw$}  {ascii}");
-        if row == 0 {
-            writeln!(w, "{left:<left_len$} | {annotation}")?;
-        } else {
-            writeln!(w, "{left:<left_len$} | ")?;
-        }
+        emit_row(w, &left, left_len, if row == 0 { annotation } else { "" })?;
     }
     Ok(())
+}
+
+/// Emit one row without trailing whitespace when the annotation is empty.
+fn emit_row(w: &mut impl Write, left: &str, left_len: usize, annotation: &str) -> io::Result<()> {
+    if annotation.is_empty() {
+        writeln!(w, "{left:<left_len$} |")
+    } else {
+        writeln!(w, "{left:<left_len$} | {annotation}")
+    }
 }
 
 #[derive(Clone, Copy)]

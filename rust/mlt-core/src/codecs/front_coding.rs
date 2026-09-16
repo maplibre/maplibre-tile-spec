@@ -37,7 +37,7 @@ impl FrontCoded {
 /// Factor out each entry's prefix shared with its predecessor.
 ///
 /// `sorted` is expected in lexicographic order, which is what makes neighbours share prefixes.
-pub(crate) fn front_code(sorted: &[&str]) -> MltResult<FrontCoded> {
+pub(crate) fn front_code(sorted: &[&str]) -> FrontCoded {
     let mut coded = FrontCoded {
         prefix_lengths: Vec::with_capacity(sorted.len()),
         suffix_lengths: Vec::with_capacity(sorted.len()),
@@ -47,14 +47,17 @@ pub(crate) fn front_code(sorted: &[&str]) -> MltResult<FrontCoded> {
     for entry in sorted {
         let entry = entry.as_bytes();
         let shared = common_prefix_len(previous, entry);
-        coded.prefix_lengths.push(u32::try_from(shared)?);
         coded
-            .suffix_lengths
-            .push(u32::try_from(entry.len() - shared)?);
+            .prefix_lengths
+            .push(u32::try_from(shared).expect("infallible: a tile's entries fit in u32 bytes"));
+        coded.suffix_lengths.push(
+            u32::try_from(entry.len() - shared)
+                .expect("infallible: a tile's entries fit in u32 bytes"),
+        );
         coded.suffixes.extend_from_slice(&entry[shared..]);
         previous = entry;
     }
-    Ok(coded)
+    coded
 }
 
 /// The two length runs of a front-coded dictionary, split out of the one stream that carries them.
@@ -125,7 +128,10 @@ pub(crate) fn front_decode(
         entries.extend_from_within(previous_start..previous_start + shared);
         entries.extend_from_slice(suffix);
         previous_start = start;
-        entry_lengths.push(u32::try_from(shared + suffix_len)?);
+        entry_lengths.push(
+            u32::try_from(shared + suffix_len)
+                .expect("infallible: an entry is bounded by the suffix blob, which fits u32"),
+        );
     }
     if !remaining.is_empty() {
         return Err(FrontCodedTrailingSuffixBytes(remaining.len()));
@@ -143,13 +149,14 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+    use crate::MltError;
 
     fn decode(lengths: &[u32], suffixes: &[u8]) -> MltResult<(String, Vec<u32>)> {
         front_decode(FrontLengths::split(lengths)?, suffixes)
     }
 
     fn roundtrip(entries: &[&str]) -> Vec<String> {
-        let coded = front_code(entries).unwrap();
+        let coded = front_code(entries);
         let (corpus, lengths) = decode(&coded.to_lengths(), &coded.suffixes).unwrap();
         let mut out = Vec::new();
         let mut at = 0_usize;
@@ -179,7 +186,7 @@ mod tests {
 
     #[test]
     fn a_shared_prefix_is_stored_once() {
-        let coded = front_code(&["name:de", "name:de:formal"]).unwrap();
+        let coded = front_code(&["name:de", "name:de:formal"]);
         assert_eq!(coded.prefix_lengths, [0, 7]);
         assert_eq!(coded.suffix_lengths, [7, 7]);
         assert_eq!(coded.suffixes, b"name:de:formal");
@@ -187,13 +194,13 @@ mod tests {
 
     #[test]
     fn lengths_carry_the_prefixes_then_the_suffixes() {
-        let coded = front_code(&["ab", "abc"]).unwrap();
+        let coded = front_code(&["ab", "abc"]);
         assert_eq!(coded.to_lengths(), [0, 2, 2, 1]);
     }
 
     #[test]
     fn a_suffix_blob_need_not_be_valid_utf8() {
-        let coded = front_code(&["aé", "aê"]).unwrap();
+        let coded = front_code(&["aé", "aê"]);
         assert_eq!(coded.suffixes, [0x61, 0xC3, 0xA9, 0xAA]);
         assert!(str::from_utf8(&coded.suffixes).is_err());
     }
@@ -240,5 +247,17 @@ mod tests {
     fn decode_rejects_suffix_bytes_after_the_last_entry() {
         let err = decode(&[0, 0, 2, 1], b"abcd").unwrap_err();
         assert!(matches!(err, FrontCodedTrailingSuffixBytes(1)), "{err:?}");
+    }
+
+    #[test]
+    fn decode_rejects_an_odd_lengths_stream() {
+        let err = decode(&[0, 1, 2], b"").unwrap_err();
+        assert!(matches!(err, FrontCodedOddLengthCount(3)), "{err:?}");
+    }
+
+    #[test]
+    fn decode_rejects_a_corpus_that_is_not_utf8() {
+        let err = decode(&[0, 1], &[0xFF]).unwrap_err();
+        assert!(matches!(err, MltError::FromUtf8(_)), "{err:?}");
     }
 }

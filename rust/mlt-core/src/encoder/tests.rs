@@ -58,8 +58,71 @@ pub fn stage_tile(
 #[cfg(test)]
 mod invariant_tests {
     use crate::decoder::GeometryValues;
+    #[cfg(feature = "unstable-v2")]
+    use crate::encoder::{
+        Presence, StagedInterior, StagedLeaf, StagedList, StagedMValue, StagedNested, StagedNode,
+        StagedSharedDict, StagedValues,
+    };
     use crate::encoder::{StagedId, StagedLayer, StagedProperty};
     use crate::{MltError, TileLayer};
+
+    #[cfg(feature = "unstable-v2")]
+    fn empty_shared_dict(prefix: &str, suffix: &str) -> StagedProperty {
+        let children = [(
+            suffix.to_string(),
+            Vec::<Option<String>>::new(),
+            Presence::AllPresent,
+        )];
+        StagedProperty::SharedDict(
+            StagedSharedDict::new(prefix, children).expect("build shared dict"),
+        )
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    fn empty_m_value(name: &str) -> StagedMValue {
+        StagedMValue::new(name, None, StagedValues::U32(Vec::new()))
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    fn empty_nested(name: &str) -> StagedNested {
+        let leaf = StagedNode::Leaf(StagedLeaf::new(None, StagedValues::U32(Vec::new())));
+        StagedNested::new(
+            name,
+            StagedInterior::List(StagedList::new(None, Vec::new(), leaf)),
+        )
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    fn staged_m_values(
+        properties: Vec<StagedProperty>,
+        m_values: Vec<StagedMValue>,
+    ) -> crate::MltResult<StagedLayer> {
+        StagedLayer::with_m_values(
+            "layer",
+            4096,
+            StagedId::None,
+            GeometryValues::default(),
+            properties,
+            m_values,
+        )
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    fn staged_nested(
+        properties: Vec<StagedProperty>,
+        m_values: Vec<StagedMValue>,
+        nested: Vec<StagedNested>,
+    ) -> crate::MltResult<StagedLayer> {
+        StagedLayer::with_nested(
+            "layer",
+            4096,
+            StagedId::None,
+            GeometryValues::default(),
+            properties,
+            m_values,
+            nested,
+        )
+    }
 
     #[test]
     fn tile_layer_constructor_rejects_empty_name() {
@@ -97,9 +160,123 @@ mod invariant_tests {
             StagedProperty::opt_u32("dup", Vec::<Option<u32>>::new()),
             StagedProperty::opt_u32("dup", Vec::<Option<u32>>::new()),
         ];
-        assert!(matches!(
-            StagedLayer::new("layer", 4096, StagedId::None, GeometryValues::default(), props),
-            Err(MltError::DuplicatePropertyName(name)) if name == "dup"
-        ));
+        assert_eq!(
+            StagedLayer::new(
+                "layer",
+                4096,
+                StagedId::None,
+                GeometryValues::default(),
+                props
+            )
+            .unwrap_err()
+            .to_string(),
+            "duplicate column name dup: the property column repeats the property column"
+        );
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn staged_layer_constructor_rejects_duplicate_m_value_names() {
+        assert_eq!(
+            staged_m_values(vec![], vec![empty_m_value("dup"), empty_m_value("dup")])
+                .unwrap_err()
+                .to_string(),
+            "duplicate column name dup: the m-value column repeats the m-value column"
+        );
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn staged_layer_constructor_rejects_an_m_value_repeating_a_property_name() {
+        let props = vec![StagedProperty::opt_u32("dup", Vec::<Option<u32>>::new())];
+        assert_eq!(
+            staged_m_values(props, vec![empty_m_value("dup")])
+                .unwrap_err()
+                .to_string(),
+            "duplicate column name dup: the m-value column repeats the property column"
+        );
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn staged_layer_constructor_rejects_an_m_value_repeating_a_shared_dict_child_name() {
+        assert_eq!(
+            staged_m_values(
+                vec![empty_shared_dict("a:", "b")],
+                vec![empty_m_value("a:b")]
+            )
+            .unwrap_err()
+            .to_string(),
+            "duplicate column name a:b: the m-value column repeats the property column"
+        );
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn staged_layer_constructor_allows_an_m_value_named_after_a_shared_dict_prefix() {
+        assert!(
+            staged_m_values(
+                vec![empty_shared_dict("a:", "b")],
+                vec![empty_m_value("a:")]
+            )
+            .is_ok()
+        );
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn staged_layer_constructor_rejects_duplicate_nested_names() {
+        assert_eq!(
+            staged_nested(
+                vec![],
+                vec![],
+                vec![empty_nested("dup"), empty_nested("dup")]
+            )
+            .unwrap_err()
+            .to_string(),
+            "duplicate column name dup: the nested column repeats the nested column"
+        );
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn staged_layer_constructor_rejects_a_nested_column_repeating_a_property_name() {
+        let props = vec![StagedProperty::opt_u32("dup", Vec::<Option<u32>>::new())];
+        assert_eq!(
+            staged_nested(props, vec![], vec![empty_nested("dup")])
+                .unwrap_err()
+                .to_string(),
+            "duplicate column name dup: the nested column repeats the property column"
+        );
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn staged_layer_constructor_rejects_a_nested_column_repeating_a_shared_dict_child_name() {
+        assert_eq!(
+            staged_nested(
+                vec![empty_shared_dict("a:", "b")],
+                vec![],
+                vec![empty_nested("a:b")]
+            )
+            .unwrap_err()
+            .to_string(),
+            "duplicate column name a:b: the nested column repeats the property column"
+        );
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn staged_layer_constructor_rejects_a_nested_column_repeating_an_m_value_name() {
+        assert_eq!(
+            staged_nested(
+                vec![],
+                vec![empty_m_value("dup")],
+                vec![empty_nested("dup")]
+            )
+            .unwrap_err()
+            .to_string(),
+            "duplicate column name dup: the nested column repeats the m-value column"
+        );
     }
 }

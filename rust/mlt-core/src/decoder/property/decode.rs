@@ -38,7 +38,18 @@ impl<'a> RawFloats<'a> {
         T: Copy + PartialEq + num_traits::FromBytes + crate::codecs::float::FloatValue,
         for<'b> <T as num_traits::FromBytes>::Bytes: TryFrom<&'b [u8]>,
     {
-        let values = match self.encoding {
+        let (name, presence) = (self.name, self.presence.clone());
+        let values = self.decode_values::<T>(dec)?;
+        ParsedScalar::from_parts(name, presence, values, dec)
+    }
+
+    /// Decode just the values, whichever stream set the encoding uses to hold them.
+    pub(crate) fn decode_values<T>(self, dec: &mut Decoder) -> MltResult<Vec<T>>
+    where
+        T: Copy + PartialEq + num_traits::FromBytes + crate::codecs::float::FloatValue,
+        for<'b> <T as num_traits::FromBytes>::Bytes: TryFrom<&'b [u8]>,
+    {
+        Ok(match self.encoding {
             RawFloatsEncoding::Single(data) => data.decode_floats::<T>(dec)?,
             #[cfg(feature = "unstable-v2")]
             RawFloatsEncoding::Alp { params, data } => {
@@ -61,8 +72,7 @@ impl<'a> RawFloats<'a> {
                     })
                     .collect::<MltResult<Vec<T>>>()?
             }
-        };
-        ParsedScalar::from_parts(self.name, self.presence, values, dec)
+        })
     }
 }
 

@@ -227,6 +227,10 @@ mod tests {
                 id: Some(id),
                 geometry: g.clone(),
                 properties: vec![],
+                #[cfg(feature = "unstable-v2")]
+                m_values: vec![],
+                #[cfg(feature = "unstable-v2")]
+                nested: vec![],
             })
             .collect();
 
@@ -377,6 +381,11 @@ mod tests {
                     id,
                     geometry: g.clone(),
                     properties: vec![],
+                    #[cfg(feature = "unstable-v2")]
+                    #[cfg(feature = "unstable-v2")]
+                    m_values: vec![],
+                    #[cfg(feature = "unstable-v2")]
+                    nested: vec![],
                 })
                 .collect(),
         )

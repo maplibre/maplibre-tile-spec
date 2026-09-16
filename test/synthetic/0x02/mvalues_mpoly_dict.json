@@ -1,0 +1,65 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "m:dist": [
+          0,
+          5,
+          10,
+          15,
+          20,
+          25
+        ]
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [
+                0,
+                0
+              ],
+              [
+                8,
+                0
+              ],
+              [
+                0,
+                8
+              ],
+              [
+                0,
+                0
+              ]
+            ]
+          ],
+          [
+            [
+              [
+                8,
+                8
+              ],
+              [
+                8,
+                0
+              ],
+              [
+                0,
+                8
+              ],
+              [
+                8,
+                8
+              ]
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

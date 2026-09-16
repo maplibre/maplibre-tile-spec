@@ -27,6 +27,9 @@ pub(crate) enum DataType02 {
     F32 = 0x09,
     F64 = 0x0A,
     Str = 0x0B,
+    Struct = 0x0C,
+    List = 0x0D,
+    Map = 0x0E,
 }
 
 impl DataType02 {
@@ -35,6 +38,202 @@ impl DataType02 {
     #[must_use]
     pub(crate) fn has_name(self) -> bool {
         !matches!(self, Self::Id | Self::LongId)
+    }
+}
+
+/// The interior nodes, the three data types that hold other nodes rather than values.
+///
+/// Split from [`DataType02`] so a nested column's root, which one of these must be,
+/// cannot be a scalar.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Interior02 {
+    Struct,
+    List,
+    Map,
+}
+
+impl Interior02 {
+    /// Whether a node of this kind ends the implied counts, which a lengths stream does.
+    #[must_use]
+    pub(crate) fn has_lengths(self) -> bool {
+        matches!(self, Self::List | Self::Map)
+    }
+}
+
+impl From<Interior02> for DataType02 {
+    fn from(interior: Interior02) -> Self {
+        match interior {
+            Interior02::Struct => Self::Struct,
+            Interior02::List => Self::List,
+            Interior02::Map => Self::Map,
+        }
+    }
+}
+
+/// Where a nested node's presence lives, the high nibble of its node type byte.
+///
+/// A node below a nested column's root cannot use the layer's shared bitfields,
+/// which run over features, so only two nibbles are assigned.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum NodePresence {
+    /// Every value the parent hands this node is present and nothing is stored.
+    AllPresent,
+    /// A `Bool`-family presence stream follows the node type byte and the field name.
+    Stream,
+}
+
+impl NodePresence {
+    /// Nibble of [`Self::AllPresent`], already shifted into place.
+    const ALL_PRESENT: u8 = 0b0000_0000;
+
+    /// Nibble of [`Self::Stream`], already shifted into place.
+    const STREAM: u8 = 0b0001_0000;
+
+    /// Read a masked nibble, or [`None`] for one this version has no meaning for.
+    #[must_use]
+    pub(crate) fn parse(nibble: u8) -> Option<Self> {
+        match nibble {
+            Self::ALL_PRESENT => Some(Self::AllPresent),
+            Self::STREAM => Some(Self::Stream),
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    fn to_nibble(self) -> u8 {
+        match self {
+            Self::AllPresent => Self::ALL_PRESENT,
+            Self::Stream => Self::STREAM,
+        }
+    }
+}
+
+/// What a nested node holds: a leaf's values, or more nodes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum NodeKind02 {
+    Leaf(ValueType02),
+    Struct,
+    List,
+    Map,
+}
+
+impl NodeKind02 {
+    /// The interior this kind names, or [`None`] for a leaf.
+    #[must_use]
+    pub(crate) fn interior(self) -> Option<Interior02> {
+        match self {
+            Self::Leaf(_) => None,
+            Self::Struct => Some(Interior02::Struct),
+            Self::List => Some(Interior02::List),
+            Self::Map => Some(Interior02::Map),
+        }
+    }
+}
+
+impl From<NodeKind02> for DataType02 {
+    fn from(kind: NodeKind02) -> Self {
+        match kind {
+            NodeKind02::Leaf(values) => values.into(),
+            NodeKind02::Struct => Self::Struct,
+            NodeKind02::List => Self::List,
+            NodeKind02::Map => Self::Map,
+        }
+    }
+}
+
+/// The type byte every node below a nested column's root begins with:
+/// [`NodePresence`] in bits 7-4, the data type in bits 3-0.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct NodeType02 {
+    pub(crate) presence: NodePresence,
+    pub(crate) data: NodeKind02,
+}
+
+impl NodeType02 {
+    #[must_use]
+    pub(crate) fn new(presence: NodePresence, data: NodeKind02) -> Self {
+        Self { presence, data }
+    }
+
+    /// Read a wire byte, rejecting the nibbles a node cannot hold.
+    pub(crate) fn parse(byte: u8) -> MltResult<Self> {
+        let err = || MltError::ParsingColumnType(byte);
+        let (presence, data) = ColumnType02::fields(byte);
+        let presence = NodePresence::parse(presence).ok_or_else(err)?;
+        let data = DataType02::try_from(data).map_err(|_| err())?;
+        let data = match data {
+            DataType02::Id | DataType02::LongId => return Err(err()),
+            DataType02::Struct => NodeKind02::Struct,
+            DataType02::List => NodeKind02::List,
+            DataType02::Map => NodeKind02::Map,
+            DataType02::Bool => NodeKind02::Leaf(ValueType02::Bool),
+            DataType02::I8 => NodeKind02::Leaf(ValueType02::I8),
+            DataType02::U8 => NodeKind02::Leaf(ValueType02::U8),
+            DataType02::I32 => NodeKind02::Leaf(ValueType02::I32),
+            DataType02::U32 => NodeKind02::Leaf(ValueType02::U32),
+            DataType02::I64 => NodeKind02::Leaf(ValueType02::I64),
+            DataType02::U64 => NodeKind02::Leaf(ValueType02::U64),
+            DataType02::F32 => NodeKind02::Leaf(ValueType02::F32),
+            DataType02::F64 => NodeKind02::Leaf(ValueType02::F64),
+            DataType02::Str => NodeKind02::Leaf(ValueType02::Str),
+        };
+        Ok(Self { presence, data })
+    }
+
+    #[must_use]
+    pub(crate) fn to_byte(self) -> u8 {
+        self.presence.to_nibble() | DataType02::from(self.data) as u8
+    }
+}
+
+/// The type of the values a v2 column holds, the data types that name values.
+///
+/// Split from [`DataType02`] so a feature id, which is a feature's own rather
+/// than one of its values, cannot stand in for a value type.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ValueType02 {
+    Bool,
+    I8,
+    U8,
+    I32,
+    U32,
+    I64,
+    U64,
+    F32,
+    F64,
+    Str,
+}
+
+impl From<ValueType02> for DataType02 {
+    fn from(values: ValueType02) -> Self {
+        match values {
+            ValueType02::Bool => Self::Bool,
+            ValueType02::I8 => Self::I8,
+            ValueType02::U8 => Self::U8,
+            ValueType02::I32 => Self::I32,
+            ValueType02::U32 => Self::U32,
+            ValueType02::I64 => Self::I64,
+            ValueType02::U64 => Self::U64,
+            ValueType02::F32 => Self::F32,
+            ValueType02::F64 => Self::F64,
+            ValueType02::Str => Self::Str,
+        }
+    }
+}
+
+/// The width of a v2 id column, which is all its data type says beyond it being one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum IdWidth02 {
+    Id32,
+    Id64,
+}
+
+impl From<IdWidth02> for DataType02 {
+    fn from(width: IdWidth02) -> Self {
+        match width {
+            IdWidth02::Id32 => Self::Id,
+            IdWidth02::Id64 => Self::LongId,
+        }
     }
 }
 
@@ -167,9 +366,95 @@ impl ColumnType02 {
         Ok(Self { presence, data })
     }
 
+    /// Read this column type as whichever of the two columns its data type names.
+    #[must_use]
+    pub(crate) fn split(self) -> ColumnKind02 {
+        let values = |values| {
+            ColumnKind02::Values(ValuesColumn02 {
+                presence: self.presence,
+                values,
+            })
+        };
+        match self.data {
+            DataType02::Id => ColumnKind02::Id(IdWidth02::Id32),
+            DataType02::LongId => ColumnKind02::Id(IdWidth02::Id64),
+            DataType02::Bool => values(ValueType02::Bool),
+            DataType02::I8 => values(ValueType02::I8),
+            DataType02::U8 => values(ValueType02::U8),
+            DataType02::I32 => values(ValueType02::I32),
+            DataType02::U32 => values(ValueType02::U32),
+            DataType02::I64 => values(ValueType02::I64),
+            DataType02::U64 => values(ValueType02::U64),
+            DataType02::F32 => values(ValueType02::F32),
+            DataType02::F64 => values(ValueType02::F64),
+            DataType02::Str => values(ValueType02::Str),
+            DataType02::Struct => ColumnKind02::Nested(NestedColumn02 {
+                presence: self.presence,
+                root: Interior02::Struct,
+            }),
+            DataType02::List => ColumnKind02::Nested(NestedColumn02 {
+                presence: self.presence,
+                root: Interior02::List,
+            }),
+            DataType02::Map => ColumnKind02::Nested(NestedColumn02 {
+                presence: self.presence,
+                root: Interior02::Map,
+            }),
+        }
+    }
+
     #[must_use]
     pub(crate) fn to_byte(self) -> u8 {
         self.presence.to_nibble() | self.data as u8
+    }
+}
+
+/// What a v2 column type byte names: a feature's id, or one column of its values.
+///
+/// The two read different fields after the byte - an id column has no name of its
+/// own - so nothing but this split can name what follows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ColumnKind02 {
+    Id(IdWidth02),
+    Values(ValuesColumn02),
+    /// The root of a nested column, whose body is a tree of nodes rather than a stream set.
+    Nested(NestedColumn02),
+}
+
+/// A nested column's root: where its presence bitfield lives, and which interior it is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct NestedColumn02 {
+    pub(crate) presence: Presence02,
+    pub(crate) root: Interior02,
+}
+
+/// A v2 column of values: where its presence bitfield lives, and what its values are.
+///
+/// Holding one is proof the column is not an id, so the streams and containers a
+/// column of values reads never have to consider one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ValuesColumn02 {
+    pub(crate) presence: Presence02,
+    pub(crate) values: ValueType02,
+}
+
+impl ValuesColumn02 {
+    /// Read the type byte of an [m-value column](super::root02), which holds neither
+    /// a feature id nor a shared dictionary.
+    ///
+    /// An id belongs to a feature rather than a vertex, and a shared dictionary
+    /// introduces counted columns, which the m-value section does not hold.
+    pub(crate) fn parse_m_value(byte: u8, shared_count: u8) -> MltResult<Self> {
+        match ColumnType02::parse(byte, shared_count)?.split() {
+            ColumnKind02::Values(column) => Ok(column),
+            ColumnKind02::Id(_) | ColumnKind02::Nested(_) => Err(MltError::ParsingColumnType(byte)),
+        }
+    }
+}
+
+impl From<ValuesColumn02> for ColumnType02 {
+    fn from(column: ValuesColumn02) -> Self {
+        Self::new(column.presence, column.values.into())
     }
 }
 
@@ -207,7 +492,7 @@ impl Column02 {
 ///
 /// Selects which geometry streams are present and in what fixed order,
 /// replacing v1's `stream_count` varint and per-stream `stream_type` bytes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive, strum::IntoStaticStr)]
 #[repr(u8)]
 pub(crate) enum GeoLayout {
     /// `Types`, `Vertices`
@@ -387,6 +672,17 @@ impl GeoLayout {
         )
     }
 
+    /// Whether the topology gives every feature's vertex count, which an
+    /// [m-value column](super::root02) needs to read its values back per feature.
+    ///
+    /// A point layer holds one vertex per feature, so a vertex-scoped column there
+    /// is a property column. A tessellated layer without outlines has no per-feature
+    /// vertex count at all.
+    #[must_use]
+    pub(crate) fn allows_m_values(self) -> bool {
+        !matches!(self, Self::Points | Self::PointsDict | Self::TessPolygons)
+    }
+
     /// Whether tessellation streams (`TriLengths`, `IndexBuffer`) are present.
     #[must_use]
     pub(crate) fn is_tess(self) -> bool {
@@ -394,13 +690,15 @@ impl GeoLayout {
     }
 }
 
-/// The v2 layer layout byte: reserved in bit 7, shared presence bitfield count in
-/// bits 6-4, [`GeoLayout`] in bits 3-0.
+/// The v2 layer layout byte: an m-value flag in bit 7, shared presence bitfield
+/// count in bits 6-4, [`GeoLayout`] in bits 3-0.
 ///
 /// It describes the layer as a whole and sits at the layer root, right after the
 /// header, so its spare bits are available to sections other than geometry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LayerLayout {
+    /// Whether an m-value section ends the layer body, after the counted columns.
+    pub(crate) m_values: bool,
     /// How many shared presence bitfields the layer stores, at most
     /// [`Self::MAX_SHARED_PRESENCE`].
     ///
@@ -414,8 +712,8 @@ pub(crate) struct LayerLayout {
 }
 
 impl LayerLayout {
-    /// Mask of the byte held in reserve for a future layer-wide flag.
-    pub(crate) const RESERVED_MASK: u8 = 0b1000_0000;
+    /// Mask of the bit saying an [m-value section](super::root02) ends the body.
+    pub(crate) const M_VALUES_MASK: u8 = 0b1000_0000;
 
     /// Mask of the byte holding the shared presence column count.
     pub(crate) const SHARED_PRESENCE_MASK: u8 = 0b0111_0000;
@@ -424,24 +722,25 @@ impl LayerLayout {
     pub(crate) const GEO_LAYOUT_MASK: u8 = 0b0000_1111;
 
     /// Largest shared presence column count the byte can express.
-    /// The 8th value is spent on keeping bit 7 free for a future flag.
+    /// The 8th value is spent on the m-value flag in bit 7.
     pub(crate) const MAX_SHARED_PRESENCE: u8 = Self::SHARED_PRESENCE_MASK >> 4;
 
     #[must_use]
-    pub(crate) fn new(geometry: GeoLayout, shared_presence: u8) -> Self {
+    pub(crate) fn new(geometry: GeoLayout, shared_presence: u8, m_values: bool) -> Self {
         debug_assert!(shared_presence <= Self::MAX_SHARED_PRESENCE);
         Self {
+            m_values,
             shared_presence,
             geometry,
         }
     }
 
     /// Split a wire byte into its three fields, without validating any of them.
-    /// The reserved bit stays in place, the other two are shifted down.
+    /// The m-value flag stays in place, the other two are shifted down.
     #[must_use]
     pub(crate) fn fields(byte: u8) -> (u8, u8, u8) {
         (
-            byte & Self::RESERVED_MASK,
+            byte & Self::M_VALUES_MASK,
             (byte & Self::SHARED_PRESENCE_MASK) >> 4,
             byte & Self::GEO_LAYOUT_MASK,
         )
@@ -449,13 +748,11 @@ impl LayerLayout {
 
     /// Split a wire byte into its three fields, rejecting reserved bit patterns.
     pub(crate) fn parse(byte: u8) -> MltResult<Self> {
-        let (reserved, shared_presence, geometry) = Self::fields(byte);
-        if reserved != 0 {
-            return Err(MltError::ParsingLayerLayout(byte));
-        }
+        let (m_values, shared_presence, geometry) = Self::fields(byte);
         let geometry =
             GeoLayout::try_from(geometry).map_err(|_| MltError::ParsingGeoLayout(geometry))?;
         Ok(Self {
+            m_values: m_values != 0,
             shared_presence,
             geometry,
         })
@@ -464,7 +761,12 @@ impl LayerLayout {
     #[must_use]
     pub(crate) fn to_byte(self) -> u8 {
         debug_assert!(self.shared_presence <= Self::MAX_SHARED_PRESENCE);
-        (self.shared_presence << 4) | self.geometry as u8
+        let m_values = if self.m_values {
+            Self::M_VALUES_MASK
+        } else {
+            0
+        };
+        m_values | (self.shared_presence << 4) | self.geometry as u8
     }
 }
 
@@ -515,7 +817,7 @@ mod tests {
 
     #[rstest]
     #[case::reserved_shared_dict_corpus(0b0010_1111)]
-    #[case::unassigned_data_type(0b0000_1100)]
+    #[case::reserved_presence_over_a_nested_root(0b1001_1100)]
     fn column_byte_rejects_unassigned(#[case] byte: u8) {
         let err = Column02::parse(byte, ALL_SHARED).unwrap_err();
         assert!(matches!(err, MltError::ParsingColumnType(b) if b == byte));
@@ -523,7 +825,7 @@ mod tests {
 
     #[rstest]
     #[case::shared_dict_is_not_a_data_type(0b0000_1111, ALL_SHARED)]
-    #[case::unassigned_data_type(0b0000_1100, ALL_SHARED)]
+    #[case::reserved_presence_over_a_nested_root(0b1001_1100, ALL_SHARED)]
     #[case::reserved_presence(0b1001_0101, ALL_SHARED)]
     #[case::reserved_presence_top(0b1111_0101, ALL_SHARED)]
     #[case::shared_ref_without_shared_columns(0b0010_0101, 0)]
@@ -589,18 +891,116 @@ mod tests {
     }
 
     #[rstest]
-    #[case::points(0b0000_0000, 0, GeoLayout::Points)]
-    #[case::multi_polygons(0b0000_1010, 0, GeoLayout::MultiPolygons)]
-    #[case::one_shared_presence(0b0001_0100, 1, GeoLayout::Lines)]
-    #[case::max_shared_presence(0b0111_0000, 7, GeoLayout::Points)]
+    #[case::points(0b0000_0000, 0, GeoLayout::Points, false)]
+    #[case::multi_polygons(0b0000_1010, 0, GeoLayout::MultiPolygons, false)]
+    #[case::one_shared_presence(0b0001_0100, 1, GeoLayout::Lines, false)]
+    #[case::max_shared_presence(0b0111_0000, 7, GeoLayout::Points, false)]
+    #[case::m_values(0b1000_0100, 0, GeoLayout::Lines, true)]
+    #[case::m_values_with_shared(0b1010_1000, 2, GeoLayout::Polygons, true)]
+    #[case::m_values_with_max_shared(0b1111_0110, 7, GeoLayout::MultiLines, true)]
     fn layer_layout_byte_roundtrip(
         #[case] byte: u8,
         #[case] shared_presence: u8,
         #[case] geometry: GeoLayout,
+        #[case] m_values: bool,
     ) {
         let layout = LayerLayout::parse(byte).unwrap();
-        assert_eq!(layout, LayerLayout::new(geometry, shared_presence));
+        assert_eq!(
+            layout,
+            LayerLayout::new(geometry, shared_presence, m_values)
+        );
         assert_eq!(layout.to_byte(), byte);
+    }
+
+    #[rstest]
+    #[case::bool(0b0000_0010, ValueType02::Bool)]
+    #[case::opt_i32(0b0001_0101, ValueType02::I32)]
+    #[case::shared_f64(0b0010_1010, ValueType02::F64)]
+    #[case::str(0b0000_1011, ValueType02::Str)]
+    fn m_value_type_byte_roundtrip(#[case] byte: u8, #[case] values: ValueType02) {
+        let column = ValuesColumn02::parse_m_value(byte, ALL_SHARED).unwrap();
+        assert_eq!(column.values, values);
+        assert_eq!(ColumnType02::from(column).to_byte(), byte);
+    }
+
+    #[rstest]
+    #[case::id(0b0000_0000)]
+    #[case::opt_id(0b0001_0000)]
+    #[case::long_id(0b0000_0001)]
+    #[case::shared_dict(0b0000_1111)]
+    #[case::struct_root(0b0000_1100)]
+    #[case::list_root(0b0000_1101)]
+    #[case::map_root(0b0000_1110)]
+    #[case::reserved_presence(0b1001_0101)]
+    fn m_value_type_byte_rejects_what_a_vertex_cannot_hold(#[case] byte: u8) {
+        let err = ValuesColumn02::parse_m_value(byte, ALL_SHARED).unwrap_err();
+        assert!(matches!(err, MltError::ParsingColumnType(b) if b == byte));
+    }
+
+    #[rstest]
+    #[case::points(GeoLayout::Points, false)]
+    #[case::points_dict(GeoLayout::PointsDict, false)]
+    #[case::multi_points(GeoLayout::MultiPoints, true)]
+    #[case::lines(GeoLayout::Lines, true)]
+    #[case::multi_polygons_dict(GeoLayout::MultiPolygonsDict, true)]
+    #[case::tess_polygons(GeoLayout::TessPolygons, false)]
+    #[case::tess_polygons_with_outlines(GeoLayout::TessPolygonsWithOutlines, true)]
+    fn only_a_layout_with_per_feature_vertex_counts_takes_m_values(
+        #[case] layout: GeoLayout,
+        #[case] allowed: bool,
+    ) {
+        assert_eq!(layout.allows_m_values(), allowed);
+    }
+
+    #[rstest]
+    #[case::i32_leaf(
+        0b0000_0101,
+        NodePresence::AllPresent,
+        NodeKind02::Leaf(ValueType02::I32)
+    )]
+    #[case::optional_str_leaf(
+        0b0001_1011,
+        NodePresence::Stream,
+        NodeKind02::Leaf(ValueType02::Str)
+    )]
+    #[case::struct_node(0b0000_1100, NodePresence::AllPresent, NodeKind02::Struct)]
+    #[case::optional_list_node(0b0001_1101, NodePresence::Stream, NodeKind02::List)]
+    #[case::map_node(0b0000_1110, NodePresence::AllPresent, NodeKind02::Map)]
+    fn node_type_byte_roundtrip(
+        #[case] byte: u8,
+        #[case] presence: NodePresence,
+        #[case] data: NodeKind02,
+    ) {
+        let typ = NodeType02::parse(byte).unwrap();
+        assert_eq!(typ, NodeType02::new(presence, data));
+        assert_eq!(typ.to_byte(), byte);
+    }
+
+    #[rstest]
+    #[case::id_is_a_features_own(0b0000_0000)]
+    #[case::long_id_is_a_features_own(0b0000_0001)]
+    #[case::shared_dict_introduces_columns(0b0000_1111)]
+    #[case::reserved_node_presence(0b0010_0101)]
+    #[case::reserved_node_presence_top(0b1111_0101)]
+    fn node_type_byte_rejects_what_a_node_cannot_hold(#[case] byte: u8) {
+        let err = NodeType02::parse(byte).unwrap_err();
+        assert!(matches!(err, MltError::ParsingColumnType(b) if b == byte));
+    }
+
+    #[rstest]
+    #[case::struct_root(0b0000_1100, Interior02::Struct)]
+    #[case::list_root(0b0001_1101, Interior02::List)]
+    #[case::map_root(0b0010_1110, Interior02::Map)]
+    fn a_nested_root_reads_as_the_interior_its_nibble_names(
+        #[case] byte: u8,
+        #[case] root: Interior02,
+    ) {
+        let typ = ColumnType02::parse(byte, ALL_SHARED).unwrap();
+        let ColumnKind02::Nested(column) = typ.split() else {
+            panic!("expected a nested root")
+        };
+        assert_eq!(column.root, root);
+        assert_eq!(typ.to_byte(), byte);
     }
 
     #[rstest]
@@ -611,13 +1011,5 @@ mod tests {
         assert!(
             matches!(err, MltError::ParsingGeoLayout(b) if b == byte & LayerLayout::GEO_LAYOUT_MASK)
         );
-    }
-
-    #[rstest]
-    #[case::reserved_bit(0b1000_0000)]
-    #[case::reserved_bit_with_shared(0b1111_0000)]
-    fn layer_layout_byte_rejects_reserved_bit(#[case] byte: u8) {
-        let err = LayerLayout::parse(byte).unwrap_err();
-        assert!(matches!(err, MltError::ParsingLayerLayout(b) if b == byte));
     }
 }
