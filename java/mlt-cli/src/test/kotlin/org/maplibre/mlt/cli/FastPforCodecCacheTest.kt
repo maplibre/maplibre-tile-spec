@@ -31,9 +31,9 @@ class FastPforCodecCacheTest {
                 finished.countDown()
             }
         thread.start()
-        started.await(5, TimeUnit.SECONDS)
+        check(started.await(5, TimeUnit.SECONDS))
         val thisThreadCodec = cache.forCurrentThread()
-        finished.await(5, TimeUnit.SECONDS)
+        check(finished.await(5, TimeUnit.SECONDS))
         thread.join(5_000)
 
         assertNotSame(thisThreadCodec, otherThreadCodec.get())
