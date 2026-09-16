@@ -8,7 +8,7 @@
 0000000b                                                                     |     column[0] (1 B)
 0000000b  04                                                .                |       type: 0x04 Geometry
                                                                              |         └ bits 7-1 = 0000010 -> base type = Geometry
-                                                                             |         └ bit 0 = 0 -> optional = false
+                                                                             |         └ bit 0 = 0 -> not optional: each feature has a non-NULL value
 0000000c                                                                     |   column data (35 B)
 0000000c                                                                     |     column[0] Geometry (35 B)
 0000000c  04                                                .                |       stream_count: 4

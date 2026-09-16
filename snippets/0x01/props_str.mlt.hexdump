@@ -8,11 +8,11 @@
 0000000c                                                                     |     column[0] (1 B)
 0000000c  04                                                .                |       type: 0x04 Geometry
                                                                              |         └ bits 7-1 = 0000010 -> base type = Geometry
-                                                                             |         └ bit 0 = 0 -> optional = false
+                                                                             |         └ bit 0 = 0 -> not optional: each feature has a non-NULL value
 0000000d                                                                     |     column[1] (5 B)
 0000000d  1d                                                .                |       type: 0x1D OptStr
                                                                              |         └ bits 7-1 = 0001110 -> base type = OptStr
-                                                                             |         └ bit 0 = 1 -> optional = true
+                                                                             |         └ bit 0 = 1 -> optional: a Present stream precedes the data
 0000000e  03 76 61 6c                                       .val             |       name: "val"
 00000012                                                                     |   column data (216 B)
 00000012                                                                     |     column[0] Geometry (25 B)
