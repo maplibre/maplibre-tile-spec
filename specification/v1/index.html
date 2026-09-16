@@ -85,7 +85,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tile-layout" class="md-skip">
+        <a href="#maplibre-tile-specification-v1" class="md-skip">
           Skip to content
         </a>
       
@@ -521,72 +521,7 @@
   
 
 
-<h1>MapLibre Tile Specification v1</h1>
-
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>This is a live specification that evolves continuously.
-Features marked as <span class="experimental"></span> are under active development and may change in future versions.
-Stable features are those without experimental tags.</p>
-</div>
-<div class="toc">
-<ul>
-<li><a href="#tile-layout">Tile Layout</a></li>
-<li><a href="#layer-body">Layer Body</a><ul>
-<li><a href="#column-metadata">Column Metadata</a><ul>
-<li><a href="#column-types">Column Types</a></li>
-</ul>
-</li>
-<li><a href="#column-data">Column Data</a></li>
-</ul>
-</li>
-<li><a href="#streams">Streams</a><ul>
-<li><a href="#stream-types">Stream Types</a></li>
-<li><a href="#encoding-byte">Encoding Byte</a></li>
-</ul>
-</li>
-<li><a href="#property-columns">Property Columns</a><ul>
-<li><a href="#id-column">ID Column</a></li>
-<li><a href="#scalar-columns">Scalar Columns</a></li>
-<li><a href="#string-columns">String Columns</a></li>
-<li><a href="#shared-dictionary-columns">Shared Dictionary Columns</a></li>
-</ul>
-</li>
-<li><a href="#geometry-column">Geometry Column</a><ul>
-<li><a href="#geometry-types">Geometry Types</a></li>
-<li><a href="#binary-structure">Binary Structure</a></li>
-<li><a href="#topology-encoding">Topology Encoding</a><ul>
-<li><a href="#conceptual-hierarchy">Conceptual Hierarchy</a></li>
-<li><a href="#which-streams-are-present">Which Streams Are Present</a></li>
-<li><a href="#length-stream-encoding-rules">Length Stream Encoding Rules</a></li>
-</ul>
-</li>
-<li><a href="#vertex-encoding">Vertex Encoding</a><ul>
-<li><a href="#componentwise-delta-encoding">Componentwise Delta Encoding</a></li>
-<li><a href="#dictionary-encoding-optional">Dictionary Encoding (Optional)</a></li>
-<li><a href="#morton-encoding-optional">Morton Encoding (Optional)</a></li>
-</ul>
-</li>
-<li><a href="#integer-stream-encoding">Integer Stream Encoding</a><ul>
-<li><a href="#rle-format">RLE Format</a></li>
-</ul>
-</li>
-<li><a href="#tessellation-data-optional">Tessellation Data (Optional)</a></li>
-<li><a href="#decoding-examples">Decoding Examples</a><ul>
-<li><a href="#point">Point</a></li>
-<li><a href="#linestring">LineString</a></li>
-<li><a href="#polygon-with-hole">Polygon with Hole</a></li>
-<li><a href="#multipolygon">MultiPolygon</a></li>
-</ul>
-</li>
-<li><a href="#mixed-geometry-columns">Mixed Geometry Columns</a></li>
-</ul>
-</li>
-<li><a href="#choosing-encodings">Choosing Encodings</a></li>
-<li><a href="#examples">Examples</a></li>
-</ul>
-</div>
-<hr />
+<h1 id="maplibre-tile-specification-v1">MapLibre Tile Specification v1<a class="headerlink" href="#maplibre-tile-specification-v1" title="Link to this section">&para;</a></h1>
 <p>This document specifies the byte layout of an MLT v1 layer.
 The data model it assumes, tiles, extents, layers, features, columns and streams, is described in the <a href="../../overview/">Overview</a>.</p>
 <p>Only implemented features are specified here.
