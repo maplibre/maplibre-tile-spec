@@ -3,6 +3,7 @@ package org.maplibre.mlt.converter.encodings;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
+import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -11,6 +12,7 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
+import me.lemire.integercompression.IntegerCODEC;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.CollectionUtils;
 import org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption;
@@ -53,7 +55,17 @@ public class IntegerEncoder {
   public static ArrayList<byte[]> encodeMortonStream(
       int[] values, int numBits, int coordinateShift, PhysicalLevelTechnique physicalLevelTechnique)
       throws IOException {
-    final var encodedValueStream = encodeMortonCodes(values, physicalLevelTechnique);
+    return encodeMortonStream(values, numBits, coordinateShift, physicalLevelTechnique, null);
+  }
+
+  public static ArrayList<byte[]> encodeMortonStream(
+      int[] values,
+      int numBits,
+      int coordinateShift,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      @Nullable IntegerCODEC fastPforCodec)
+      throws IOException {
+    final var encodedValueStream = encodeMortonCodes(values, physicalLevelTechnique, fastPforCodec);
     final var valuesMetadata =
         new MortonEncodedStreamMetadata(
             PhysicalStreamType.DATA,
@@ -84,7 +96,27 @@ public class IntegerEncoder {
         physicalLevelTechnique,
         isSigned,
         streamType,
-        logicalStreamType);
+        logicalStreamType,
+        IntegerEncodingOption.AUTO,
+        null);
+  }
+
+  public static ArrayList<byte[]> encodeIntStream(
+      Collection<Integer> values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean isSigned,
+      PhysicalStreamType streamType,
+      LogicalStreamType logicalStreamType,
+      @Nullable IntegerCODEC fastPforCodec)
+      throws IOException {
+    return encodeIntStream(
+        CollectionUtils.unboxInts(values),
+        physicalLevelTechnique,
+        isSigned,
+        streamType,
+        logicalStreamType,
+        IntegerEncodingOption.AUTO,
+        fastPforCodec);
   }
 
   // Encodes integer stream with AUTO encoding option (backward compatibility).
@@ -101,7 +133,26 @@ public class IntegerEncoder {
         isSigned,
         streamType,
         logicalStreamType,
-        IntegerEncodingOption.AUTO);
+        IntegerEncodingOption.AUTO,
+        null);
+  }
+
+  public static ArrayList<byte[]> encodeIntStream(
+      int[] values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean isSigned,
+      PhysicalStreamType streamType,
+      LogicalStreamType logicalStreamType,
+      @Nullable IntegerCODEC fastPforCodec)
+      throws IOException {
+    return encodeIntStream(
+        values,
+        physicalLevelTechnique,
+        isSigned,
+        streamType,
+        logicalStreamType,
+        IntegerEncodingOption.AUTO,
+        fastPforCodec);
   }
 
   public static ArrayList<byte[]> encodeIntStream(
@@ -118,7 +169,27 @@ public class IntegerEncoder {
         isSigned,
         streamType,
         logicalStreamType,
-        encodingOption);
+        encodingOption,
+        null);
+  }
+
+  public static ArrayList<byte[]> encodeIntStream(
+      List<Integer> values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean isSigned,
+      PhysicalStreamType streamType,
+      LogicalStreamType logicalStreamType,
+      @NotNull IntegerEncodingOption encodingOption,
+      @Nullable IntegerCODEC fastPforCodec)
+      throws IOException {
+    return encodeIntStream(
+        CollectionUtils.unboxInts(values),
+        physicalLevelTechnique,
+        isSigned,
+        streamType,
+        logicalStreamType,
+        encodingOption,
+        fastPforCodec);
   }
 
   public static ArrayList<byte[]> encodeIntStream(
@@ -135,7 +206,27 @@ public class IntegerEncoder {
         isSigned,
         streamType,
         logicalStreamType,
-        encodingOption);
+        encodingOption,
+        null);
+  }
+
+  public static ArrayList<byte[]> encodeIntStream(
+      Collection<Integer> values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean isSigned,
+      PhysicalStreamType streamType,
+      LogicalStreamType logicalStreamType,
+      @NotNull IntegerEncodingOption encodingOption,
+      @Nullable IntegerCODEC fastPforCodec)
+      throws IOException {
+    return encodeIntStream(
+        values.stream().mapToInt(Integer::intValue).toArray(),
+        physicalLevelTechnique,
+        isSigned,
+        streamType,
+        logicalStreamType,
+        encodingOption,
+        fastPforCodec);
   }
 
   public static ArrayList<byte[]> encodeIntStream(
@@ -146,8 +237,28 @@ public class IntegerEncoder {
       LogicalStreamType logicalStreamType,
       @NotNull IntegerEncodingOption encodingOption)
       throws IOException {
+    return encodeIntStream(
+        values,
+        physicalLevelTechnique,
+        isSigned,
+        streamType,
+        logicalStreamType,
+        encodingOption,
+        null);
+  }
+
+  public static ArrayList<byte[]> encodeIntStream(
+      final int[] values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean isSigned,
+      PhysicalStreamType streamType,
+      LogicalStreamType logicalStreamType,
+      @NotNull IntegerEncodingOption encodingOption,
+      @Nullable IntegerCODEC fastPforCodec)
+      throws IOException {
     final var encodedValueStream =
-        IntegerEncoder.encodeInt(values, physicalLevelTechnique, isSigned, encodingOption);
+        IntegerEncoder.encodeInt(
+            values, physicalLevelTechnique, isSigned, encodingOption, fastPforCodec);
     return encodeIntStream(
         values.length, encodedValueStream, physicalLevelTechnique, streamType, logicalStreamType);
   }
@@ -160,9 +271,29 @@ public class IntegerEncoder {
       LogicalStreamType logicalStreamType,
       @NotNull IntegerEncodingOption encodingOption)
       throws IOException {
+    return encodeIntStream(
+        values,
+        physicalLevelTechnique,
+        isSigned,
+        streamType,
+        logicalStreamType,
+        encodingOption,
+        null);
+  }
+
+  public static ArrayList<byte[]> encodeIntStream(
+      @NotNull final IntStream values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean isSigned,
+      PhysicalStreamType streamType,
+      LogicalStreamType logicalStreamType,
+      @NotNull IntegerEncodingOption encodingOption,
+      @Nullable IntegerCODEC fastPforCodec)
+      throws IOException {
     final var valueArray = values.toArray();
     final var encodedValueStream =
-        IntegerEncoder.encodeInt(valueArray, physicalLevelTechnique, isSigned, encodingOption);
+        IntegerEncoder.encodeInt(
+            valueArray, physicalLevelTechnique, isSigned, encodingOption, fastPforCodec);
     return encodeIntStream(
         valueArray.length,
         encodedValueStream,
@@ -286,6 +417,14 @@ public class IntegerEncoder {
   // TODO: make dependent on specified LogicalLevelTechnique
   public static IntegerEncodingResult encodeMortonCodes(
       int[] values, PhysicalLevelTechnique physicalLevelTechnique) throws IOException {
+    return encodeMortonCodes(values, physicalLevelTechnique, null);
+  }
+
+  public static IntegerEncodingResult encodeMortonCodes(
+      int[] values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      @Nullable IntegerCODEC fastPforCodec)
+      throws IOException {
     var previousValue = 0;
     int[] deltaValues = new int[values.length];
     for (var i = 0; i < values.length; i++) {
@@ -297,7 +436,7 @@ public class IntegerEncoder {
 
     var encodedValues =
         physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR
-            ? encodeFastPfor(deltaValues, false)
+            ? encodeFastPfor(deltaValues, false, fastPforCodec)
             : EncodingUtils.encodeVarints(deltaValues, false, false);
 
     var result = new IntegerEncodingResult();
@@ -312,7 +451,7 @@ public class IntegerEncoder {
   // Encodes integers with AUTO encoding option (backward compatibility).
   public static IntegerEncodingResult encodeInt(
       int[] values, PhysicalLevelTechnique physicalLevelTechnique, boolean isSigned) {
-    return encodeInt(values, physicalLevelTechnique, isSigned, IntegerEncodingOption.AUTO);
+    return encodeInt(values, physicalLevelTechnique, isSigned, IntegerEncodingOption.AUTO, null);
   }
 
   /*
@@ -328,7 +467,8 @@ public class IntegerEncoder {
         values.stream().mapToInt(Integer::intValue).toArray(),
         physicalLevelTechnique,
         isSigned,
-        encodingOption);
+        encodingOption,
+        null);
   }
 
   public static IntegerEncodingResult encodeInt(
@@ -336,6 +476,15 @@ public class IntegerEncoder {
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean isSigned,
       @NotNull IntegerEncodingOption encodingOption) {
+    return encodeInt(values, physicalLevelTechnique, isSigned, encodingOption, null);
+  }
+
+  public static IntegerEncodingResult encodeInt(
+      int[] values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean isSigned,
+      @NotNull IntegerEncodingOption encodingOption,
+      @Nullable IntegerCODEC fastPforCodec) {
     var previousValue = 0;
     var previousDelta = 0;
     var runs = 1;
@@ -360,7 +509,7 @@ public class IntegerEncoder {
 
     BiFunction<int[], Boolean, byte[]> encoder =
         physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR
-            ? IntegerEncoder::encodeFastPfor
+            ? (v, s) -> encodeFastPfor(v, s, fastPforCodec)
             : (v, s) -> {
               try {
                 return EncodingUtils.encodeVarints(v, s, false);
@@ -646,7 +795,12 @@ public class IntegerEncoder {
   }
 
   public static byte[] encodeFastPfor(int[] values, boolean signed) {
-    return EncodingUtils.encodeFastPfor128(values, signed, false);
+    return encodeFastPfor(values, signed, null);
+  }
+
+  public static byte[] encodeFastPfor(
+      int[] values, boolean signed, @Nullable IntegerCODEC fastPforCodec) {
+    return EncodingUtils.encodeFastPfor128(values, signed, false, fastPforCodec);
   }
 
   public static byte[] encodeVarint(int[] values, boolean signed) throws IOException {

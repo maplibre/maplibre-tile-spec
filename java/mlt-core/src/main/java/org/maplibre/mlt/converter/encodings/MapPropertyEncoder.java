@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.SequencedCollection;
 import java.util.TreeMap;
 import java.util.stream.Stream;
+import me.lemire.integercompression.IntegerCODEC;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.ConversionConfig;
 import org.maplibre.mlt.data.Feature;
@@ -29,6 +30,18 @@ public class MapPropertyEncoder {
       @NotNull final MltMetadata.Column columnMetadata,
       @NotNull final PhysicalLevelTechnique physicalLevelTechnique,
       @NotNull final ConversionConfig.IntegerEncodingOption encodingOption)
+      throws IOException {
+    return encodeMapPropertyColumn(
+        features, useFSST, columnMetadata, physicalLevelTechnique, encodingOption, null);
+  }
+
+  static ArrayList<byte[]> encodeMapPropertyColumn(
+      @NotNull final SequencedCollection<Feature> features,
+      final boolean useFSST,
+      @NotNull final MltMetadata.Column columnMetadata,
+      @NotNull final PhysicalLevelTechnique physicalLevelTechnique,
+      @NotNull final ConversionConfig.IntegerEncodingOption encodingOption,
+      @Nullable IntegerCODEC fastPforCodec)
       throws IOException {
 
     final var uniqueValues = new UniqueMapValues();
@@ -88,12 +101,14 @@ public class MapPropertyEncoder {
             false,
             PhysicalStreamType.LENGTH,
             null,
-            encodingOption));
+            encodingOption,
+            fastPforCodec));
 
     // Encode the non-empty unique dictionaries and the flattened/count streams
     if (!uniqueValues.strings().isEmpty()) {
       final var encoded =
-          StringEncoder.encode(uniqueValues.strings().keySet(), physicalLevelTechnique, useFSST);
+          StringEncoder.encode(
+              uniqueValues.strings().keySet(), physicalLevelTechnique, useFSST, fastPforCodec);
       numStreams += encoded.numStreams();
       encodedStreams.add(new byte[] {(byte) encoded.numStreams()});
       encodedStreams.addAll(encoded.encodedData());
@@ -110,7 +125,8 @@ public class MapPropertyEncoder {
                 true,
                 PhysicalStreamType.DATA,
                 null,
-                encodingOption));
+                encodingOption,
+                fastPforCodec));
       } else {
         mask |= MapMask.INT64;
         encodedStreams.addAll(
@@ -130,7 +146,8 @@ public class MapPropertyEncoder {
                 false,
                 PhysicalStreamType.DATA,
                 null,
-                encodingOption));
+                encodingOption,
+                fastPforCodec));
       } else {
         mask |= MapMask.UINT64;
         encodedStreams.addAll(
@@ -170,7 +187,8 @@ public class MapPropertyEncoder {
               physicalLevelTechnique,
               false,
               PhysicalStreamType.OFFSET,
-              null));
+              null,
+              fastPforCodec));
       numStreams++;
     }
 
