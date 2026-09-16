@@ -1049,6 +1049,7 @@ fn generate_nested(w: &mut SynthWriter) {
     let even = || Some(vec![true, false, true, false]);
     let odd = || Some(vec![false, true, false, true]);
     geo_varint()
+        .no_v1()
         .geos([P0, P1, P2, P3])
         .row_shapes()
         .add_nested(StagedNested::new(
@@ -1070,6 +1071,7 @@ fn generate_nested(w: &mut SynthWriter) {
     // Three key sets over four rows, and the entries of each run in key order, so the
     // shapes stand in for both the lengths and the one key per entry a map otherwise spends.
     geo_varint()
+        .no_v1()
         .geos([P0, P1, P2, P3])
         .row_shapes()
         .add_nested(StagedNested::new(

@@ -514,7 +514,7 @@ impl Layer {
     pub fn add_nested(mut self, nested: StagedNested) -> Self {
         assert!(
             !self.versions().contains(&WireVersion::V01),
-            "v1 does not support m-values. Called from {}",
+            "v1 does not support nested columns. Called from {}",
             Location::caller()
         );
         self.nested.push(nested);
