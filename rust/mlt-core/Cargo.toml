@@ -112,5 +112,9 @@ name = "tag02_mvalues"
 required-features = ["__private-v2"]
 
 [[test]]
+name = "tag02_nested"
+required-features = ["__private-v2"]
+
+[[test]]
 name = "tag02_roundtrip"
 required-features = ["unstable-v2"]

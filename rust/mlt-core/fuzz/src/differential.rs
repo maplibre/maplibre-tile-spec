@@ -29,7 +29,7 @@ impl arbitrary::Arbitrary<'_> for DifferentialInput {
 
 impl DifferentialInput {
     pub fn fuzz(self) {
-        // v1 is what the C++ decoder reads, and it has nowhere to put an m-value column.
+        // v1 is what the C++ decoder reads, and it has nowhere to put an m-value or nested column.
         let Some(buffer) = encode(self.layer, self.config) else {
             return;
         };

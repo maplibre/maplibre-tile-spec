@@ -1,7 +1,5 @@
 <h1>Encoding Definitions</h1>
 
-[TOC]
-
 ---
 
 This page specifies the compression schemes used by MLT streams.
