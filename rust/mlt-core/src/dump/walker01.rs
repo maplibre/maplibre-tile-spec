@@ -87,7 +87,7 @@ impl<'a> Walker<'a> {
             BitField::flag(
                 OPTIONAL_FLAG,
                 byte,
-                "has optional: a Present stream precedes the data",
+                "optional: a Present stream precedes the data",
                 "not optional: each feature has a non-NULL value",
             ),
         ];

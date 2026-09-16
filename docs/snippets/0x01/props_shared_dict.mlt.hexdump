@@ -8,22 +8,22 @@
 0000000b                                                                     |     column[0] (1 B)
 0000000b  04                                                .                |       type: 0x04 Geometry
                                                                              |         └ bits 7-1 = 0000010 -> base type = Geometry
-                                                                             |         └ bit 0 = 0 -> optional = false
+                                                                             |         └ bit 0 = 0 -> not optional: each feature has a non-NULL value
 0000000c                                                                     |     column[1] (16 B)
 0000000c  1e                                                .                |       type: 0x1E SharedDict
                                                                              |         └ bits 7-1 = 0001111 -> base type = SharedDict
-                                                                             |         └ bit 0 = 0 -> optional = false
+                                                                             |         └ bit 0 = 0 -> not optional: each feature has a non-NULL value
 0000000d  05 6e 61 6d 65 3a                                 .name:           |       name: "name:"
 00000013  02                                                .                |       child_count: 2
 00000014                                                                     |       column[0] (4 B)
 00000014  1d                                                .                |         type: 0x1D OptStr
                                                                              |           └ bits 7-1 = 0001110 -> base type = OptStr
-                                                                             |           └ bit 0 = 1 -> optional = true
+                                                                             |           └ bit 0 = 1 -> optional: a Present stream precedes the data
 00000015  02 64 65                                          .de              |         name: "de"
 00000018                                                                     |       column[1] (4 B)
 00000018  1d                                                .                |         type: 0x1D OptStr
                                                                              |           └ bits 7-1 = 0001110 -> base type = OptStr
-                                                                             |           └ bit 0 = 1 -> optional = true
+                                                                             |           └ bit 0 = 1 -> optional: a Present stream precedes the data
 00000019  02 65 6e                                          .en              |         name: "en"
 0000001c                                                                     |   column data (76 B)
 0000001c                                                                     |     column[0] Geometry (12 B)
