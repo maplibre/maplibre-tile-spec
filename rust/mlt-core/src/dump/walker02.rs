@@ -921,12 +921,7 @@ fn nested_root02(typ: DataType02) -> Option<Interior02> {
 
 /// Bit breakdown of the byte a shape-coded root carries in place of a node type byte.
 fn root_shapes_bits02(byte: u8) -> Vec<BitField> {
-    vec![BitField {
-        hi: 7,
-        lo: 0,
-        raw: u64::from(byte),
-        meaning: "children coded per row".to_string(),
-    }]
+    vec![BitField::mask(u8::MAX, byte, "children coded per row")]
 }
 
 /// Bit breakdown of a nested node's type byte: node presence (7-4), data type (3-0).
@@ -946,18 +941,16 @@ fn node_type_bits02(byte: u8) -> Vec<BitField> {
         " + row shapes"
     };
     vec![
-        BitField {
-            hi: 7,
-            lo: 4,
-            raw: u64::from(presence >> 4),
-            meaning: format!("node presence = {name_pr}{shapes}"),
-        },
-        BitField {
-            hi: 3,
-            lo: 0,
-            raw: u64::from(data),
-            meaning: format!("data type = {name_dt}"),
-        },
+        BitField::mask(
+            ColumnType02::PRESENCE_MASK,
+            byte,
+            format!("node presence = {name_pr}{shapes}"),
+        ),
+        BitField::mask(
+            ColumnType02::DATA_TYPE_MASK,
+            byte,
+            format!("data type = {name_dt}"),
+        ),
     ]
 }
 

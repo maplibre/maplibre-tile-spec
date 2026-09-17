@@ -1,5 +1,7 @@
 //! Data model for the annotated binary dump (see [`crate::dump`]).
 
+use std::fmt::{Display, Formatter, Result as FmtResult};
+
 use crate::wire::StreamMeta;
 
 /// Whether a region is tile metadata or an opaque data payload.
@@ -46,13 +48,13 @@ pub enum DecodeHint {
 #[derive(Debug, Clone)]
 pub struct BitField {
     /// Inclusive high bit index (7..=0, MSB first).
-    pub hi: u8,
+    hi: u8,
     /// Inclusive low bit index.
-    pub lo: u8,
-    /// The extracted field value.
-    pub raw: u64,
+    lo: u8,
+    /// The extracted field value, shifted down to bit 0.
+    raw: u64,
     /// Human-readable meaning, e.g. `"physical = VarInt"`.
-    pub meaning: String,
+    meaning: String,
 }
 
 impl BitField {
@@ -85,6 +87,29 @@ impl BitField {
             when_set
         };
         Self::mask(mask, byte, meaning)
+    }
+
+    /// What this field means in prose, without the `bit N = V ->` prefix
+    /// [`Display`] puts in front of it.
+    #[must_use]
+    pub fn meaning(&self) -> &str {
+        &self.meaning
+    }
+}
+
+impl Display for BitField {
+    /// `bit 7 = 1 -> meaning`, or `bits 6-4 = 011 -> meaning` for a multi-bit field.
+    ///
+    /// The value is printed as wide as the field, so the leading zeros of a nibble are
+    /// not mistaken for a narrower field. The caller adds any indent and color.
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        if self.hi == self.lo {
+            write!(f, "bit {}", self.hi)?;
+        } else {
+            write!(f, "bits {}-{}", self.hi, self.lo)?;
+        }
+        let width = usize::from(self.hi - self.lo + 1);
+        write!(f, " = {:0width$b} -> {}", self.raw, self.meaning)
     }
 }
 
