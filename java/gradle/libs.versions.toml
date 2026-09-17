@@ -2,7 +2,7 @@
 tileverse = "1.3.3"
 jmh = "1.37"
 junit-jupiter = "6.1.3"
-kotlin-jvm = "2.4.20"
+kotlin-jvm = "2.4.10"
 lombok = "1.18.48"
 
 [libraries]
