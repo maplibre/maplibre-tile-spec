@@ -985,6 +985,7 @@ fn generate_m_values(w: &mut SynthWriter) {
     generate_m_value_geometries(w);
     generate_m_value_presence(w);
     generate_m_value_encodings(w);
+    generate_m_value_counts(w);
 }
 
 /// Columns whose value is a tree of nodes rather than one scalar.
@@ -1493,6 +1494,35 @@ fn generate_m_value_encodings(w: &mut SynthWriter) {
             ),
         )
         .write(w, "mvalues_str_fsst");
+}
+
+/// The varint boundaries of the Morton-coded `column_counts` field.
+fn generate_m_value_counts(w: &mut SynthWriter) {
+    let e = E::varint();
+    let m_value = |i: u32| M::new(format!("m{i}"), None, MV::U32((i..i + 8).collect()));
+    let prop = |i: u32| {
+        P::bool(
+            format!("p{i}"),
+            vec![i.is_multiple_of(2), i.is_multiple_of(3), true],
+        )
+    };
+
+    // 8 m-values spill the code into a second byte, `0x80 0x01`.
+    (0..8)
+        .fold(m_lines().no_v1(), |l, i| l.add_m_value(e, m_value(i)))
+        .write(w, "mvalues_8cols");
+    // 16 properties spill the code into a second byte, `0x82 0x02`.
+    (0..16)
+        .fold(m_lines().no_v1(), |l, i| l.add_prop(e, prop(i)))
+        .add_m_value(e, m_value(0))
+        .write(w, "mvalues_16props");
+    // The largest counts that still fit one byte, `0x7F`.
+    (0..7)
+        .fold(
+            (0..15).fold(m_lines().no_v1(), |l, i| l.add_prop(e, prop(i))),
+            |l, i| l.add_m_value(e, m_value(i)),
+        )
+        .write(w, "mvalues_15props_7cols");
 }
 
 /// A presence mask, where `x` is a value and `-` is a null.

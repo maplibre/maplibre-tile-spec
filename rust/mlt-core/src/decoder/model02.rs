@@ -2,7 +2,9 @@
 
 use num_enum::TryFromPrimitive;
 
-use crate::{MltError, MltResult};
+use crate::codecs::morton::{deinterleave_u64, interleave_u32};
+use crate::codecs::varint::parse_varint;
+use crate::{MltError, MltRefResult, MltResult};
 
 /// Data type of a v2 property column, the low nibble of the column type byte.
 ///
@@ -797,6 +799,47 @@ impl LayerLayout {
     }
 }
 
+/// The column counts a v2 layer writes between its geometry section and its columns.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ColumnCounts {
+    /// Counted columns: ids, properties and nested columns.
+    pub(crate) columns: u32,
+    /// M-value columns, zero when the layout byte has no m-value section.
+    pub(crate) m_values: u32,
+}
+
+impl ColumnCounts {
+    /// Parse the counts varint, a Morton code of both counts when the layout byte says an m-value section follows.
+    pub(crate) fn parse(input: &[u8], layout: LayerLayout) -> MltRefResult<'_, Self> {
+        if !layout.m_values {
+            let (input, columns) = parse_varint::<u32>(input)?;
+            return Ok((
+                input,
+                Self {
+                    columns,
+                    m_values: 0,
+                },
+            ));
+        }
+        let (input, code) = parse_varint::<u64>(input)?;
+        let (columns, m_values) = deinterleave_u64(code);
+        if m_values == 0 {
+            return Err(MltError::EmptyMValueSection);
+        }
+        Ok((input, Self { columns, m_values }))
+    }
+
+    /// The varint value the counts are written as, the inverse of [`Self::parse`].
+    #[must_use]
+    pub(crate) fn to_varint(self) -> u64 {
+        if self.m_values == 0 {
+            u64::from(self.columns)
+        } else {
+            interleave_u32(self.columns, self.m_values)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
@@ -1042,6 +1085,47 @@ mod tests {
         };
         assert_eq!(column.root, root);
         assert_eq!(typ.to_byte(), byte);
+    }
+
+    fn varint(value: u64) -> Vec<u8> {
+        let mut buf = [0u8; 10];
+        let written = integer_encoding::VarInt::encode_var(value, &mut buf);
+        buf[..written].to_vec()
+    }
+
+    #[rstest]
+    #[case::no_m_values(false, 0, 0, &[0x00])]
+    #[case::three_columns(false, 3, 0, &[0x03])]
+    #[case::one_m_value(true, 0, 1, &[0x02])]
+    #[case::three_columns_two_m_values(true, 3, 2, &[0b0000_1101])]
+    #[case::one_byte_limits(true, 15, 7, &[0x7F])]
+    #[case::sixteen_columns_spill_over(true, 16, 1, &[0x82, 0x02])]
+    #[case::eight_m_values_spill_over(true, 0, 8, &[0x80, 0x01])]
+    fn column_counts_roundtrip(
+        #[case] m_values: bool,
+        #[case] columns: u32,
+        #[case] m_value_columns: u32,
+        #[case] bytes: &[u8],
+    ) {
+        let layout = LayerLayout::new(GeoLayout::Lines, 0, m_values);
+        let counts = ColumnCounts {
+            columns,
+            m_values: m_value_columns,
+        };
+        assert_eq!(varint(counts.to_varint()), bytes);
+        assert_eq!(
+            ColumnCounts::parse(bytes, layout).unwrap(),
+            (&[][..], counts)
+        );
+    }
+
+    #[rstest]
+    #[case::no_columns(&[0x00])]
+    #[case::columns_only(&[0x05])]
+    fn column_counts_reject_a_flagged_section_without_m_values(#[case] bytes: &[u8]) {
+        let layout = LayerLayout::new(GeoLayout::Lines, 0, true);
+        let err = ColumnCounts::parse(bytes, layout).unwrap_err();
+        assert!(matches!(err, MltError::EmptyMValueSection));
     }
 
     #[rstest]
