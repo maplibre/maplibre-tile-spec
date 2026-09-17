@@ -36,6 +36,7 @@ pub fn interleave_bits(coord: Coord<u32>) -> u32 {
 }
 
 /// Interleave two 32-bit values into a 64-bit Morton code, `even` on the even bits and `odd` on the odd bits.
+#[cfg(feature = "unstable-v2")]
 #[must_use]
 #[inline]
 pub fn interleave_u32(even: u32, odd: u32) -> u64 {
@@ -43,12 +44,14 @@ pub fn interleave_u32(even: u32, odd: u32) -> u64 {
 }
 
 /// Split a 64-bit Morton code back into its even-bit and odd-bit values.
+#[cfg(feature = "unstable-v2")]
 #[must_use]
 #[inline]
 pub fn deinterleave_u64(code: u64) -> (u32, u32) {
     (compact_u64(code), compact_u64(code >> 1))
 }
 
+#[cfg(feature = "unstable-v2")]
 fn spread_u32(value: u32) -> u64 {
     let mut s = u64::from(value);
     s = (s | (s << 16)) & 0x0000_FFFF_0000_FFFF;
@@ -59,6 +62,7 @@ fn spread_u32(value: u32) -> u64 {
     s
 }
 
+#[cfg(feature = "unstable-v2")]
 fn compact_u64(code: u64) -> u32 {
     let mut c = code & 0x5555_5555_5555_5555;
     c = (c | (c >> 1)) & 0x3333_3333_3333_3333;
@@ -312,6 +316,7 @@ mod tests {
         assert_eq!(spread_bits(4), 16);
     }
 
+    #[cfg(feature = "unstable-v2")]
     #[rstest]
     #[case::zero(0, 0, 0)]
     #[case::even_only(1, 0, 1)]
