@@ -156,7 +156,7 @@ class MapDecoderTest {
         MapPropertyDecoder.decodeMapPropertyColumn(
             new byte[] {0}, new IntWrapper(0), nonMapColumn, 0);
     assertNotNull(result);
-    if (result instanceof List list) {
+    if (result instanceof List<?> list) {
       assertTrue(list.isEmpty());
     } else {
       fail("Unexpected result type: " + result.getClass());

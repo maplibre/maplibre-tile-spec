@@ -21,6 +21,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import me.lemire.integercompression.IntegerCODEC;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.lang3.tuple.Pair;
@@ -530,13 +531,24 @@ public class MltConverter {
       ConversionConfig config,
       @Nullable URI tessellateSource)
       throws IOException {
+    return encode(sourceLayers, tilesetMetadata, config, tessellateSource, (IntegerCODEC) null);
+  }
+
+  public static byte[] encode(
+      LayerSource sourceLayers,
+      MltMetadata.TileSetMetadata tilesetMetadata,
+      ConversionConfig config,
+      @Nullable URI tessellateSource,
+      @Nullable IntegerCODEC fastPforCodec)
+      throws IOException {
     return encode(
             sourceLayers,
             tilesetMetadata,
             config,
             tessellateSource,
             ByteArrayOutputStream::new,
-            Optional.empty())
+            Optional.empty(),
+            fastPforCodec)
         .toByteArray();
   }
 
@@ -565,7 +577,8 @@ public class MltConverter {
             config,
             tessellateSource,
             ByteArrayOutputStream::new,
-            versionOut)
+            versionOut,
+            null)
         .toByteArray();
   }
 
@@ -588,6 +601,26 @@ public class MltConverter {
       @Nullable URI tessellateSource,
       @NotNull Function<Integer, T> outputStreamSupplier,
       @NotNull Optional<MutableInt> versionOut)
+      throws IOException {
+    return encode(
+        sourceLayers,
+        tilesetMetadata,
+        config,
+        tessellateSource,
+        outputStreamSupplier,
+        versionOut,
+        null);
+  }
+
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  public static <T extends OutputStream> T encode(
+      @NotNull LayerSource sourceLayers,
+      @NotNull MltMetadata.TileSetMetadata tilesetMetadata,
+      @NotNull ConversionConfig config,
+      @Nullable URI tessellateSource,
+      @NotNull Function<Integer, T> outputStreamSupplier,
+      @NotNull Optional<MutableInt> versionOut,
+      @Nullable IntegerCODEC fastPforCodec)
       throws IOException {
     // Convert the list of metadatas (one per layer) into a lookup by the first and only layer name
     // We assume that the names are unique.
@@ -642,14 +675,16 @@ public class MltConverter {
               sourceFeatures,
               physicalLevelTechnique,
               createPolygonOutline,
-              tessellateSource);
+              tessellateSource,
+              fastPforCodec);
       final var sortedFeatures = result.getLeft();
       final var encodedGeometryColumn = result.getRight();
       final var encodedGeometryFieldMetadata =
           EncodingUtils.encodeVarint(encodedGeometryColumn.numStreams(), false);
 
       final var encodedPropertyColumns =
-          encodePropertyColumns(config, layerMetadata, sortedFeatures, featureTableOptimizations);
+          encodePropertyColumns(
+              config, layerMetadata, sortedFeatures, featureTableOptimizations, fastPforCodec);
 
       final var featureTableBodyBuffer = new ArrayList<byte[]>(20);
       if (config.includeIds()) {
@@ -675,7 +710,8 @@ public class MltConverter {
                 physicalLevelTechnique,
                 config.useFSST(),
                 config.typeMismatchPolicy() == ConversionConfig.TypeMismatchPolicy.COERCE,
-                config.integerEncodingOption()));
+                config.integerEncodingOption(),
+                fastPforCodec));
       }
 
       featureTableBodyBuffer.add(encodedGeometryFieldMetadata);
@@ -713,7 +749,8 @@ public class MltConverter {
       ConversionConfig config,
       MltMetadata.FeatureTable featureTableMetadata,
       SequencedCollection<Feature> sortedFeatures,
-      @NotNull Optional<FeatureTableOptimizations> featureTableOptimizations)
+      @NotNull Optional<FeatureTableOptimizations> featureTableOptimizations,
+      @Nullable IntegerCODEC fastPforCodec)
       throws IOException {
     final var propertyColumns = filterPropertyColumns(featureTableMetadata);
     @NotNull
@@ -726,7 +763,8 @@ public class MltConverter {
         config.useFSST(),
         config.typeMismatchPolicy() == ConversionConfig.TypeMismatchPolicy.COERCE,
         columnMappings,
-        config.integerEncodingOption());
+        config.integerEncodingOption(),
+        fastPforCodec);
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -738,7 +776,8 @@ public class MltConverter {
           SequencedCollection<Feature> sourceFeatures,
           PhysicalLevelTechnique physicalLevelTechnique,
           boolean encodePolygonOutlines,
-          @Nullable URI tessellateSource)
+          @Nullable URI tessellateSource,
+          @Nullable IntegerCODEC fastPforCodec)
           throws IOException {
     /*
      * Following simple strategy is currently used for ordering the features when sorting is enabled:
@@ -786,7 +825,8 @@ public class MltConverter {
             config.preTessellatePolygons(),
             encodePolygonOutlines,
             tessellateSource,
-            geometryEncodingOption);
+            geometryEncodingOption,
+            fastPforCodec);
 
     if (encodedGeometryColumn.geometryColumnSorted()) {
       sortedFeatures =

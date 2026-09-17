@@ -198,6 +198,13 @@ fun convertTile(
         // Apply column mappings and update the conversion configuration.
         val targetConfig = applyColumnMappingsToConversionConfig(config, metadata)
 
+        val fastPforCodec =
+            if (targetConfig.useFastPFOR()) {
+                config.fastPforCodecCache.forCurrentThread()
+            } else {
+                null
+            }
+
         // Convert the tile using the updated configuration and tessellation source.
         var tileData =
             MltConverter.encode(
@@ -205,6 +212,7 @@ fun convertTile(
                 metadata,
                 targetConfig,
                 config.tessellateSource,
+                fastPforCodec,
             )
 
         // Apply compression if specified.

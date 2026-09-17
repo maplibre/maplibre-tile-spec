@@ -273,12 +273,20 @@ object Encode {
 
         val targetConfig = applyColumnMappingsToConversionConfig(config, metadata)
 
+        val fastPforCodec =
+            if (targetConfig.useFastPFOR()) {
+                config.fastPforCodecCache.forCurrentThread()
+            } else {
+                null
+            }
+
         val mlTile =
             MltConverter.encode(
                 decodedMvTile,
                 metadata,
                 targetConfig,
                 config.tessellateSource,
+                fastPforCodec,
             )
         timer?.stop("encoding")
 
