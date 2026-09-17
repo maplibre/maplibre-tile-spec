@@ -89,10 +89,17 @@ impl NodePresence {
     /// Nibble of [`Self::Stream`], already shifted into place.
     const STREAM: u8 = 0b0001_0000;
 
+    /// Nibble bit that says this node's children are shape-coded, already shifted into place.
+    ///
+    /// Nibble values `0b0010` and `0b0011` are reserved, so this sits above them.
+    pub(crate) const SHAPES: u8 = 0b0100_0000;
+
     /// Read a masked nibble, or [`None`] for one this version has no meaning for.
+    ///
+    /// The shapes bit is a separate axis and is masked off by the caller.
     #[must_use]
     pub(crate) fn parse(nibble: u8) -> Option<Self> {
-        match nibble {
+        match nibble & !Self::SHAPES {
             Self::ALL_PRESENT => Some(Self::AllPresent),
             Self::STREAM => Some(Self::Stream),
             _ => None,
@@ -146,20 +153,34 @@ impl From<NodeKind02> for DataType02 {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct NodeType02 {
     pub(crate) presence: NodePresence,
+    /// Whether this node's children's structure is coded as one shape id per row.
+    pub(crate) shapes: bool,
     pub(crate) data: NodeKind02,
 }
 
 impl NodeType02 {
     #[must_use]
     pub(crate) fn new(presence: NodePresence, data: NodeKind02) -> Self {
-        Self { presence, data }
+        Self {
+            presence,
+            shapes: false,
+            data,
+        }
+    }
+
+    /// The same node type with its children's structure coded as row shapes.
+    #[must_use]
+    pub(crate) fn shaped(mut self) -> Self {
+        self.shapes = true;
+        self
     }
 
     /// Read a wire byte, rejecting the nibbles a node cannot hold.
     pub(crate) fn parse(byte: u8) -> MltResult<Self> {
         let err = || MltError::ParsingColumnType(byte);
-        let (presence, data) = ColumnType02::fields(byte);
-        let presence = NodePresence::parse(presence).ok_or_else(err)?;
+        let (nibble, data) = ColumnType02::fields(byte);
+        let presence = NodePresence::parse(nibble).ok_or_else(err)?;
+        let shapes = nibble & NodePresence::SHAPES != 0;
         let data = DataType02::try_from(data).map_err(|_| err())?;
         let data = match data {
             DataType02::Id | DataType02::LongId => return Err(err()),
@@ -177,12 +198,18 @@ impl NodeType02 {
             DataType02::F64 => NodeKind02::Leaf(ValueType02::F64),
             DataType02::Str => NodeKind02::Leaf(ValueType02::Str),
         };
-        Ok(Self { presence, data })
+        Ok(Self {
+            presence,
+            shapes,
+            data,
+        })
     }
 
     #[must_use]
     pub(crate) fn to_byte(self) -> u8 {
-        self.presence.to_nibble() | DataType02::from(self.data) as u8
+        self.presence.to_nibble()
+            | if self.shapes { NodePresence::SHAPES } else { 0 }
+            | DataType02::from(self.data) as u8
     }
 }
 
@@ -973,6 +1000,20 @@ mod tests {
     ) {
         let typ = NodeType02::parse(byte).unwrap();
         assert_eq!(typ, NodeType02::new(presence, data));
+        assert_eq!(typ.to_byte(), byte);
+    }
+
+    #[rstest]
+    #[case::shaped_struct(0b0100_1100, NodePresence::AllPresent, NodeKind02::Struct)]
+    #[case::shaped_map_over_nulls(0b0101_1110, NodePresence::Stream, NodeKind02::Map)]
+    fn the_shapes_bit_reads_beside_a_nodes_own_presence(
+        #[case] byte: u8,
+        #[case] presence: NodePresence,
+        #[case] data: NodeKind02,
+    ) {
+        let typ = NodeType02::parse(byte).unwrap();
+        assert_eq!(typ, NodeType02::new(presence, data).shaped());
+        assert!(typ.shapes);
         assert_eq!(typ.to_byte(), byte);
     }
 
