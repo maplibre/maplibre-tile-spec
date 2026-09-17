@@ -335,7 +335,7 @@ fn a_nested_root_shares_a_bitfield_with_a_flat_column() {
         .regions
         .iter()
         .filter(|r| r.label == "type")
-        .filter_map(|r| r.bits.first().map(|b| b.meaning.clone()))
+        .filter_map(|r| r.bits.first().map(|b| b.meaning().to_string()))
         .collect();
     assert_eq!(
         nibbles,
@@ -464,7 +464,7 @@ fn root_data_type(bytes: &[u8]) -> String {
     tree.regions
         .iter()
         .filter(|r| r.label == "type")
-        .find_map(|r| r.bits.get(1).map(|b| b.meaning.clone()))
+        .find_map(|r| r.bits.get(1).map(|b| b.meaning().to_string()))
         .expect("a column type byte")
 }
 
@@ -907,7 +907,7 @@ fn type_nibbles(bytes: &[u8]) -> Vec<String> {
     tree.regions
         .iter()
         .filter(|r| r.label == "type")
-        .filter_map(|r| r.bits.first().map(|b| b.meaning.clone()))
+        .filter_map(|r| r.bits.first().map(|b| b.meaning().to_string()))
         .collect()
 }
 
