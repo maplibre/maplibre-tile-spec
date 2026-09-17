@@ -1,0 +1,135 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "m:m0": [
+          0,
+          1,
+          2
+        ],
+        "p0": true,
+        "p1": false,
+        "p10": true,
+        "p11": false,
+        "p12": true,
+        "p13": false,
+        "p14": true,
+        "p15": false,
+        "p2": true,
+        "p3": false,
+        "p4": true,
+        "p5": false,
+        "p6": true,
+        "p7": false,
+        "p8": true,
+        "p9": false
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            11,
+            52
+          ],
+          [
+            71,
+            72
+          ],
+          [
+            61,
+            22
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "m:m0": [
+          3,
+          4,
+          5
+        ],
+        "p0": true,
+        "p1": false,
+        "p10": false,
+        "p11": false,
+        "p12": true,
+        "p13": false,
+        "p14": false,
+        "p15": true,
+        "p2": false,
+        "p3": true,
+        "p4": false,
+        "p5": false,
+        "p6": true,
+        "p7": false,
+        "p8": false,
+        "p9": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            23,
+            34
+          ],
+          [
+            73,
+            4
+          ],
+          [
+            13,
+            24
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 80,
+        "_layer": "layer1",
+        "m:m0": [
+          6,
+          7
+        ],
+        "p0": true,
+        "p1": true,
+        "p10": true,
+        "p11": true,
+        "p12": true,
+        "p13": true,
+        "p14": true,
+        "p15": true,
+        "p2": true,
+        "p3": true,
+        "p4": true,
+        "p5": true,
+        "p6": true,
+        "p7": true,
+        "p8": true,
+        "p9": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            5,
+            38
+          ],
+          [
+            12,
+            45
+          ]
+        ]
+      }
+    }
+  ]
+}

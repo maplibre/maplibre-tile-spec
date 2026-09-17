@@ -35,6 +35,44 @@ pub fn interleave_bits(coord: Coord<u32>) -> u32 {
     sx | (sy << 1)
 }
 
+/// Interleave two 32-bit values into a 64-bit Morton code, `even` on the even bits and `odd` on the odd bits.
+#[cfg(feature = "unstable-v2")]
+#[must_use]
+#[inline]
+pub fn interleave_u32(even: u32, odd: u32) -> u64 {
+    spread_u32(even) | (spread_u32(odd) << 1)
+}
+
+/// Split a 64-bit Morton code back into its even-bit and odd-bit values.
+#[cfg(feature = "unstable-v2")]
+#[must_use]
+#[inline]
+pub fn deinterleave_u64(code: u64) -> (u32, u32) {
+    (compact_u64(code), compact_u64(code >> 1))
+}
+
+#[cfg(feature = "unstable-v2")]
+fn spread_u32(value: u32) -> u64 {
+    let mut s = u64::from(value);
+    s = (s | (s << 16)) & 0x0000_FFFF_0000_FFFF;
+    s = (s | (s << 8)) & 0x00FF_00FF_00FF_00FF;
+    s = (s | (s << 4)) & 0x0F0F_0F0F_0F0F_0F0F;
+    s = (s | (s << 2)) & 0x3333_3333_3333_3333;
+    s = (s | (s << 1)) & 0x5555_5555_5555_5555;
+    s
+}
+
+#[cfg(feature = "unstable-v2")]
+fn compact_u64(code: u64) -> u32 {
+    let mut c = code & 0x5555_5555_5555_5555;
+    c = (c | (c >> 1)) & 0x3333_3333_3333_3333;
+    c = (c | (c >> 2)) & 0x0F0F_0F0F_0F0F_0F0F;
+    c = (c | (c >> 4)) & 0x00FF_00FF_00FF_00FF;
+    c = (c | (c >> 8)) & 0x0000_FFFF_0000_FFFF;
+    c = (c | (c >> 16)) & 0x0000_0000_FFFF_FFFF;
+    u32::try_from(c).expect("infallible: the last mask keeps only the low 32 bits")
+}
+
 /// Compute a Z-order (Morton) sort key from signed integer coordinates.
 ///
 /// `shift` is applied to both axes before bit-interleaving to move the
@@ -276,6 +314,23 @@ mod tests {
     #[test]
     fn spread_bits_places_bit2_at_position4() {
         assert_eq!(spread_bits(4), 16);
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[rstest]
+    #[case::zero(0, 0, 0)]
+    #[case::even_only(1, 0, 1)]
+    #[case::odd_only(0, 1, 2)]
+    #[case::one_byte_varint(15, 7, 0x7F)]
+    #[case::u32_max_both(u32::MAX, u32::MAX, u64::MAX)]
+    #[case::u32_max_even(u32::MAX, 0, 0x5555_5555_5555_5555)]
+    fn interleave_u32_places_even_and_odd_bits(
+        #[case] even: u32,
+        #[case] odd: u32,
+        #[case] code: u64,
+    ) {
+        assert_eq!(interleave_u32(even, odd), code);
+        assert_eq!(deinterleave_u64(code), (even, odd));
     }
 
     #[test]

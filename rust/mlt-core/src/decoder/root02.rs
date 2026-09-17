@@ -19,7 +19,10 @@
 //! [length streams per layout]       explicit counts
 //! [vertex stream]                   explicit count
 //! ── counted columns ──────────────────────────────────
-//! [varint column_count]             ids + scalars only (geometry excluded)
+//! [varint column_count]             ids + scalars only (geometry excluded), or when
+//!                                   the layout byte says an m-value section follows,
+//!                                   a Morton code with column_count on the even bits
+//!                                   and the non-zero m_value_count on the odd bits
 //! per column:
 //!   [u8 column_type]                presence nibble | data type nibble,
 //!                                   see ColumnType02
@@ -29,7 +32,6 @@
 //!                                   nibble reads one of the layer's instead
 //!   [data stream]                   count = feature_count or presence popcount
 //! ── m-value section, only when the layout byte says so ─
-//! [varint m_value_count]            non-zero
 //! per m-value column:
 //!   [u8 column_type]                as for a counted column, but never an id
 //!                                   nor a shared dictionary
@@ -53,12 +55,12 @@ use crate::decoder::nested::parse_nested;
 use crate::decoder::stream::header02;
 use crate::decoder::stream::header02::{Count02, HAS_EXPLICIT_COUNT, StrLayout, StreamCtx02};
 use crate::decoder::{
-    Column02, ColumnKind02, ColumnType02, DataType02, Decoder, DictLayout, DictionaryType,
-    FloatLogical, GeoLayout, Id, IdWidth02, Layer01, LayerLayout, LengthType, LogicalEncoding,
-    MValues, Nested, Presence02, RawFloats, RawFloatsEncoding, RawFsstData, RawGeometry, RawId,
-    RawIdValue, RawMValue, RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict,
-    RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding,
-    SharedDictKind, ValueType02, ValuesColumn02,
+    Column02, ColumnCounts, ColumnKind02, ColumnType02, DataType02, Decoder, DictLayout,
+    DictionaryType, FloatLogical, GeoLayout, Id, IdWidth02, Layer01, LayerLayout, LengthType,
+    LogicalEncoding, MValues, Nested, Presence02, RawFloats, RawFloatsEncoding, RawFsstData,
+    RawGeometry, RawId, RawIdValue, RawMValue, RawPlainData, RawPresence, RawProperty, RawScalar,
+    RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings,
+    RawStringsEncoding, SharedDictKind, ValueType02, ValuesColumn02,
 };
 use crate::tile::{ColumnRole, Extent, reject_taken_name};
 use crate::utils::{SetOptionOnce as _, parse_string, parse_u8, take};
@@ -90,7 +92,8 @@ pub(crate) fn parse_layer02<'a>(
     let (input, geometry) = parse_geometry(input, layout.geometry, feature_count, parser)?;
 
     // ── Counted columns ───────────────────────────────────────────────────
-    let (mut input, column_count) = parse_varint::<u32>(input)?;
+    let (mut input, counts) = ColumnCounts::parse(input, layout)?;
+    let column_count = counts.columns;
     // Each column requires at least 1 byte (column type).
     if input.len() < column_count.into_usize() {
         return Err(BufferUnderflow(column_count, input.len()));
@@ -174,7 +177,7 @@ pub(crate) fn parse_layer02<'a>(
     // ── M-value section ───────────────────────────────────────────────────
     let m_values;
     (input, m_values) = if layout.m_values {
-        parse_m_values(input, &cols, &mut column_names, parser)?
+        parse_m_values(input, counts.m_values, &cols, &mut column_names, parser)?
     } else {
         (input, Vec::new())
     };
@@ -352,15 +355,12 @@ pub(super) fn parse_column_values<'a>(
 /// the column until [`ParsedMValue::spans`](crate::decoder::ParsedMValue::spans)
 /// checks the two against each other.
 fn parse_m_values<'a>(
-    input: &'a [u8],
+    mut input: &'a [u8],
+    count: u32,
     cols: &LayerCols<'a>,
     column_names: &mut Vec<(Cow<'a, str>, ColumnRole)>,
     parser: &mut Parser,
 ) -> MltRefResult<'a, Vec<crate::decoder::MValueColumn<'a, Lazy>>> {
-    let (mut input, count) = parse_varint::<u32>(input)?;
-    if count == 0 {
-        return Err(MltError::EmptyMValueSection);
-    }
     // Each column requires at least 1 byte (column type).
     if input.len() < count.into_usize() {
         return Err(BufferUnderflow(count, input.len()));
