@@ -79,7 +79,7 @@ fn layout_bits_and_column_types(bytes: &[u8]) -> String {
     let mut column = None;
     for region in &tree.regions {
         if region.label == "layout" {
-            lines.extend(region.bits.iter().map(|b| b.meaning.clone()));
+            lines.extend(region.bits.iter().map(|b| b.meaning().to_string()));
         }
         if region.container {
             column = Some(region.label.as_str());
@@ -87,7 +87,7 @@ fn layout_bits_and_column_types(bytes: &[u8]) -> String {
         if region.label == "type" {
             let label = column.expect("a column region opens before its type byte");
             let nibble = region.bits.first().expect("a type byte breaks into bits");
-            lines.push(format!("{label}: {}", nibble.meaning));
+            lines.push(format!("{label}: {}", nibble.meaning()));
         }
     }
     lines.join("\n")

@@ -126,18 +126,7 @@ fn render_meta(
 
     if opts.show_bits {
         for bf in &region.bits {
-            let range = if bf.hi == bf.lo {
-                format!("bit {}", bf.hi)
-            } else {
-                format!("bits {}-{}", bf.hi, bf.lo)
-            };
-            let width = usize::from(bf.hi - bf.lo + 1);
-            let annot = format!(
-                "{indent}  └ {range} = {:0width$b} -> {}",
-                bf.raw,
-                bf.meaning,
-                width = width
-            );
+            let annot = format!("{indent}  └ {bf}");
             writeln!(w, "{:<left_len$} | {}", "", paint(&annot, opts, Paint::Dim))?;
         }
     }
