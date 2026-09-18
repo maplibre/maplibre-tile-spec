@@ -20,6 +20,7 @@ import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import me.lemire.integercompression.IntegerCODEC;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.locationtech.jts.geom.Geometry;
@@ -74,6 +75,29 @@ public class GeometryEncoder {
       boolean encodePolygonOutlines,
       @Nullable URI tessellateSource,
       @NotNull IntegerEncodingOption encodingOption)
+      throws IOException {
+    return encodeGeometryColumn(
+        geometries,
+        physicalLevelTechnique,
+        sortSettings,
+        enableMortonEncoding,
+        enableTessellation,
+        encodePolygonOutlines,
+        tessellateSource,
+        encodingOption,
+        null);
+  }
+
+  public static EncodedGeometryColumn encodeGeometryColumn(
+      List<Geometry> geometries,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      SortSettings sortSettings,
+      boolean enableMortonEncoding,
+      boolean enableTessellation,
+      boolean encodePolygonOutlines,
+      @Nullable URI tessellateSource,
+      @NotNull IntegerEncodingOption encodingOption,
+      @Nullable IntegerCODEC fastPforCodec)
       throws IOException {
     final var geometryTypes = new ArrayList<Integer>();
     final var numGeometries = new ArrayList<Integer>();
@@ -157,7 +181,7 @@ public class GeometryEncoder {
 
     final var zigZagDeltaVertexBuffer = zigZagDeltaEncodeVertices(vertexBuffer);
     final var encodedVertexBufferStream =
-        encodeVertexBuffer(zigZagDeltaVertexBuffer, physicalLevelTechnique);
+        encodeVertexBuffer(zigZagDeltaVertexBuffer, physicalLevelTechnique, fastPforCodec);
 
     final var result =
         IntegerEncoder.encodeIntStream(
@@ -166,7 +190,8 @@ public class GeometryEncoder {
             false,
             PhysicalStreamType.LENGTH,
             null,
-            encodingOption);
+            encodingOption,
+            fastPforCodec);
     var numStreams = 1;
 
     /* Currently use pre-tessellation only if all geometries in a FeatureTable are Polygons or MultiPolygons */
@@ -177,6 +202,7 @@ public class GeometryEncoder {
               result,
               physicalLevelTechnique,
               encodingOption,
+              fastPforCodec,
               numGeometries,
               numParts,
               numRings,
@@ -189,15 +215,30 @@ public class GeometryEncoder {
     }
 
     if (appendLengthStream(
-        result, numGeometries, physicalLevelTechnique, LengthType.GEOMETRIES, encodingOption)) {
+        result,
+        numGeometries,
+        physicalLevelTechnique,
+        LengthType.GEOMETRIES,
+        encodingOption,
+        fastPforCodec)) {
       numStreams++;
     }
     if (appendLengthStream(
-        result, numParts, physicalLevelTechnique, LengthType.PARTS, encodingOption)) {
+        result,
+        numParts,
+        physicalLevelTechnique,
+        LengthType.PARTS,
+        encodingOption,
+        fastPforCodec)) {
       numStreams++;
     }
     if (appendLengthStream(
-        result, numRings, physicalLevelTechnique, LengthType.RINGS, encodingOption)) {
+        result,
+        numRings,
+        physicalLevelTechnique,
+        LengthType.RINGS,
+        encodingOption,
+        fastPforCodec)) {
       numStreams++;
     }
 
@@ -214,10 +255,12 @@ public class GeometryEncoder {
                         false,
                         PhysicalStreamType.OFFSET,
                         new LogicalStreamType(OffsetType.VERTEX),
-                        encodingOption)));
+                        encodingOption,
+                        fastPforCodec)));
     final var encodedDictVertexStream =
         zigZagDeltaVertexDictionary.map(
-            ExceptionUtil.unchecked(d -> encodeVertexBuffer(d, physicalLevelTechnique)));
+            ExceptionUtil.unchecked(
+                d -> encodeVertexBuffer(d, physicalLevelTechnique, fastPforCodec)));
     final var dictionaryEncodedSize =
         OptionalUtil.map(encodedDictOffsets, encodedDictVertexStream, GeometryEncoder::lengthSum);
 
@@ -229,7 +272,8 @@ public class GeometryEncoder {
                         d,
                         zOrderCurve.get().numBits(),
                         zOrderCurve.get().coordinateShift(),
-                        physicalLevelTechnique)));
+                        physicalLevelTechnique,
+                        fastPforCodec)));
     final var encodedMortonOffsetStream =
         mortonEncodedDictionaryOffsets.map(
             ExceptionUtil.unchecked(
@@ -240,7 +284,8 @@ public class GeometryEncoder {
                         false,
                         PhysicalStreamType.OFFSET,
                         new LogicalStreamType(OffsetType.VERTEX),
-                        encodingOption)));
+                        encodingOption,
+                        fastPforCodec)));
     final var mortonDictionaryEncodedSize =
         OptionalUtil.map(
             encodedMortonVertexStream, encodedMortonOffsetStream, GeometryEncoder::lengthSum);
@@ -394,6 +439,7 @@ public class GeometryEncoder {
       final ArrayList<byte[]> result,
       PhysicalLevelTechnique physicalLevelTechnique,
       @NotNull IntegerEncodingOption encodingOption,
+      @Nullable IntegerCODEC fastPforCodec,
       ArrayList<Integer> numGeometries,
       ArrayList<Integer> numParts,
       ArrayList<Integer> numRings,
@@ -410,20 +456,40 @@ public class GeometryEncoder {
 
     if (withOutlines) {
       if (appendLengthStream(
-          result, numGeometries, physicalLevelTechnique, LengthType.GEOMETRIES, encodingOption)) {
+          result,
+          numGeometries,
+          physicalLevelTechnique,
+          LengthType.GEOMETRIES,
+          encodingOption,
+          fastPforCodec)) {
         numStreams++;
       }
       if (appendLengthStream(
-          result, numParts, physicalLevelTechnique, LengthType.PARTS, encodingOption)) {
+          result,
+          numParts,
+          physicalLevelTechnique,
+          LengthType.PARTS,
+          encodingOption,
+          fastPforCodec)) {
         numStreams++;
       }
       if (appendLengthStream(
-          result, numRings, physicalLevelTechnique, LengthType.RINGS, encodingOption)) {
+          result,
+          numRings,
+          physicalLevelTechnique,
+          LengthType.RINGS,
+          encodingOption,
+          fastPforCodec)) {
         numStreams++;
       }
     }
     if (appendLengthStream(
-        result, numTriangles, physicalLevelTechnique, LengthType.TRIANGLES, encodingOption)) {
+        result,
+        numTriangles,
+        physicalLevelTechnique,
+        LengthType.TRIANGLES,
+        encodingOption,
+        fastPforCodec)) {
       numStreams++;
     }
     if (!indexBuffer.isEmpty()) {
@@ -434,7 +500,8 @@ public class GeometryEncoder {
               false,
               PhysicalStreamType.OFFSET,
               new LogicalStreamType(OffsetType.INDEX),
-              encodingOption));
+              encodingOption,
+              fastPforCodec));
       numStreams++;
     }
     return numStreams;
@@ -445,7 +512,8 @@ public class GeometryEncoder {
       @Nullable List<Integer> values,
       @NotNull PhysicalLevelTechnique physicalLevelTechnique,
       @NotNull LengthType lengthType,
-      @NotNull IntegerEncodingOption encodingOption)
+      @NotNull IntegerEncodingOption encodingOption,
+      @Nullable IntegerCODEC fastPforCodec)
       throws IOException {
     if (values != null && !values.isEmpty()) {
       result.addAll(
@@ -455,7 +523,8 @@ public class GeometryEncoder {
               false,
               PhysicalStreamType.LENGTH,
               new LogicalStreamType(lengthType),
-              encodingOption));
+              encodingOption,
+              fastPforCodec));
       return true;
     }
     return false;
@@ -633,10 +702,13 @@ public class GeometryEncoder {
    * Encodes the StreamMetadata and applies the specified physical level technique to the values.
    */
   private static ArrayList<byte[]> encodeVertexBuffer(
-      int[] values, PhysicalLevelTechnique physicalLevelTechnique) throws IOException {
+      int[] values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      @Nullable IntegerCODEC fastPforCodec)
+      throws IOException {
     final var encodedValues =
         physicalLevelTechnique == PhysicalLevelTechnique.FAST_PFOR
-            ? encodeFastPfor(values, false)
+            ? encodeFastPfor(values, false, fastPforCodec)
             : encodeVarint(values, false);
 
     final var result =

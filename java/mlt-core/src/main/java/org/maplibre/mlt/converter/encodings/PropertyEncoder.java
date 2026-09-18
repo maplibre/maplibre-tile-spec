@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.SequencedCollection;
 import java.util.stream.Collectors;
+import me.lemire.integercompression.IntegerCODEC;
 import org.jetbrains.annotations.NotNull;
 import org.maplibre.mlt.converter.CollectionUtils;
 import org.maplibre.mlt.converter.ColumnMapping;
@@ -37,6 +38,27 @@ public class PropertyEncoder {
       @Nullable SequencedCollection<ColumnMapping> columnMappings,
       @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption)
       throws IOException {
+    return encodePropertyColumns(
+        propertyColumns,
+        features,
+        useFastPFOR,
+        useFSST,
+        coercePropertyValues,
+        columnMappings,
+        integerEncodingOption,
+        null);
+  }
+
+  public static ArrayList<byte[]> encodePropertyColumns(
+      SequencedCollection<MltMetadata.Column> propertyColumns,
+      SequencedCollection<Feature> features,
+      boolean useFastPFOR,
+      boolean useFSST,
+      boolean coercePropertyValues,
+      @Nullable SequencedCollection<ColumnMapping> columnMappings,
+      @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption,
+      @Nullable IntegerCODEC fastPforCodec)
+      throws IOException {
     /*
      * TODOs: - detect if column is nullable to get rid of the present stream - test boolean rle
      * against roaring bitmaps and integer encoding for present stream and boolean values - Add
@@ -58,11 +80,17 @@ public class PropertyEncoder {
                 coercePropertyValues,
                 columnMetadata,
                 physicalLevelTechnique,
-                integerEncodingOption);
+                integerEncodingOption,
+                fastPforCodec);
       } else if (columnMetadata.is(MltMetadata.ComplexType.MAP)) {
         encodedColumn =
             MapPropertyEncoder.encodeMapPropertyColumn(
-                features, useFSST, columnMetadata, physicalLevelTechnique, integerEncodingOption);
+                features,
+                useFSST,
+                columnMetadata,
+                physicalLevelTechnique,
+                integerEncodingOption,
+                fastPforCodec);
       } else if (MltTypeMap.Tag0x02.isStruct(columnMetadata)) {
         if (columnMappingsIterator == null && columnMappings != null) {
           columnMappingsIterator = columnMappings.iterator();
@@ -74,7 +102,12 @@ public class PropertyEncoder {
         final var columnMapping = columnMappingsIterator.next();
         encodedColumn =
             encodeStructPropertyColumn(
-                features, useFSST, columnMetadata, columnMapping, physicalLevelTechnique);
+                features,
+                useFSST,
+                columnMetadata,
+                columnMapping,
+                physicalLevelTechnique,
+                fastPforCodec);
       } else {
         throw new IllegalArgumentException(
             "The specified data type for the field is currently not supported: " + columnMetadata);
@@ -91,7 +124,8 @@ public class PropertyEncoder {
       boolean useFSST,
       MltMetadata.Column columnMetadata,
       ColumnMapping columnMapping,
-      PhysicalLevelTechnique physicalLevelTechnique)
+      PhysicalLevelTechnique physicalLevelTechnique,
+      @Nullable IntegerCODEC fastPforCodec)
       throws IOException {
     // TODO: add present stream for struct column
 
@@ -142,7 +176,8 @@ public class PropertyEncoder {
       return new ArrayList<>(List.of(new byte[] {0}));
     }
     final var nestedColumns =
-        StringEncoder.encodeSharedDictionary(sharedDictionary, physicalLevelTechnique, useFSST);
+        StringEncoder.encodeSharedDictionary(
+            sharedDictionary, physicalLevelTechnique, useFSST, fastPforCodec);
     final var numStreams = nestedColumns.getLeft();
     final var encodedColumns = nestedColumns.getRight();
     assert (numStreams > 0); // encodeSharedDictionary cannot return zero streams
@@ -159,7 +194,8 @@ public class PropertyEncoder {
       boolean coercePropertyValues,
       MltMetadata.Column columnMetadata,
       PhysicalLevelTechnique physicalLevelTechnique,
-      @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption)
+      @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption,
+      @Nullable IntegerCODEC fastPforCodec)
       throws IOException {
     if (MltTypeMap.Tag0x02.hasStreamCount(columnMetadata)
         && features.stream().noneMatch(f -> f.findProperty(columnMetadata.getName()).isPresent())) {
@@ -175,7 +211,8 @@ public class PropertyEncoder {
         physicalLevelTechnique,
         useFSST,
         coercePropertyValues,
-        integerEncodingOption);
+        integerEncodingOption,
+        fastPforCodec);
   }
 
   private static @Nullable Boolean getBooleanPropertyValue(
@@ -318,6 +355,27 @@ public class PropertyEncoder {
       boolean coercePropertyValues,
       @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption)
       throws IOException {
+    return encodeScalarPropertyColumn(
+        columnMetadata,
+        isID,
+        features,
+        physicalLevelTechnique,
+        useFSST,
+        coercePropertyValues,
+        integerEncodingOption,
+        null);
+  }
+
+  public static ArrayList<byte[]> encodeScalarPropertyColumn(
+      MltMetadata.Column columnMetadata,
+      boolean isID,
+      SequencedCollection<Feature> features,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean useFSST,
+      boolean coercePropertyValues,
+      @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption,
+      @Nullable IntegerCODEC fastPforCodec)
+      throws IOException {
     final var scalarType =
         columnMetadata
             .getScalarType()
@@ -330,7 +388,13 @@ public class PropertyEncoder {
         final var signed = (scalarType == MltMetadata.ScalarType.INT_32);
         // no stream count
         yield encodeInt32Column(
-            features, columnMetadata, isID, physicalLevelTechnique, signed, integerEncodingOption);
+            features,
+            columnMetadata,
+            isID,
+            physicalLevelTechnique,
+            signed,
+            integerEncodingOption,
+            fastPforCodec);
       }
       case INT_64, UINT_64 -> {
         final var signed = (scalarType == MltMetadata.ScalarType.INT_64);
@@ -347,7 +411,12 @@ public class PropertyEncoder {
       }
       case STRING ->
           encodeStringColumn(
-              columnMetadata, features, physicalLevelTechnique, useFSST, coercePropertyValues);
+              columnMetadata,
+              features,
+              physicalLevelTechnique,
+              useFSST,
+              coercePropertyValues,
+              fastPforCodec);
       default ->
           throw new IllegalArgumentException(
               "The specified scalar data type is currently not supported: " + scalarType);
@@ -359,7 +428,8 @@ public class PropertyEncoder {
       SequencedCollection<Feature> features,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean useFSST,
-      boolean coercePropertyValues)
+      boolean coercePropertyValues,
+      @Nullable IntegerCODEC fastPforCodec)
       throws IOException {
     /*
      * -> Single Column
@@ -385,7 +455,8 @@ public class PropertyEncoder {
       presentStream = new ArrayList<>();
     }
 
-    final var stringColumn = StringEncoder.encode(stringValues, physicalLevelTechnique, useFSST);
+    final var stringColumn =
+        StringEncoder.encode(stringValues, physicalLevelTechnique, useFSST, fastPforCodec);
 
     /* Plus 1 for present stream */
     final var hasPresentStream = ByteArrayUtil.totalLength(presentStream) > 0;
@@ -512,7 +583,8 @@ public class PropertyEncoder {
       boolean isID,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean isSigned,
-      @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption)
+      @NotNull ConversionConfig.IntegerEncodingOption integerEncodingOption,
+      @Nullable IntegerCODEC fastPforCodec)
       throws IOException {
     final var values = new ArrayList<Integer>(features.size());
     final var presentValues = metadata.isNullable() ? new boolean[features.size()] : null;
@@ -548,7 +620,8 @@ public class PropertyEncoder {
             isSigned,
             PhysicalStreamType.DATA,
             null,
-            integerEncodingOption);
+            integerEncodingOption,
+            fastPforCodec);
 
     if (encodedPresentStream != null) {
       result.addAll(0, encodedPresentStream);

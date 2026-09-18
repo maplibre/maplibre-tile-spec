@@ -1,5 +1,6 @@
 package org.maplibre.mlt.converter.encodings;
 
+import jakarta.annotation.Nullable;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -12,6 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import me.lemire.integercompression.IntegerCODEC;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.lang3.tuple.Pair;
 import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
@@ -35,6 +37,15 @@ public class StringEncoder {
       List<List<String>> values,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean useFsstEncoding)
+      throws IOException {
+    return encodeSharedDictionary(values, physicalLevelTechnique, useFsstEncoding, null);
+  }
+
+  public static Pair<Integer, ArrayList<byte[]>> encodeSharedDictionary(
+      List<List<String>> values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean useFsstEncoding,
+      @Nullable IntegerCODEC fastPforCodec)
       throws IOException {
     /*
      * compare single column encoding with shared dictionary encoding
@@ -76,13 +87,13 @@ public class StringEncoder {
     }
 
     final var encodedSharedDictionary =
-        encodeDictionary(dictionary, physicalLevelTechnique, false, true);
+        encodeDictionary(dictionary, physicalLevelTechnique, false, true, fastPforCodec);
 
     final ArrayList<byte[]> encodedSharedFsstDictionary;
     if (useFsstEncoding) {
       encodedSharedFsstDictionary =
           encodeFsstDictionary(
-              dictionary, dictionarySize.intValue(), physicalLevelTechnique, false);
+              dictionary, dictionarySize.intValue(), physicalLevelTechnique, false, fastPforCodec);
     } else {
       encodedSharedFsstDictionary = null;
     }
@@ -123,7 +134,8 @@ public class StringEncoder {
               physicalLevelTechnique,
               false,
               PhysicalStreamType.OFFSET,
-              new LogicalStreamType(OffsetType.STRING));
+              new LogicalStreamType(OffsetType.STRING),
+              fastPforCodec);
 
       result.add(encodedFieldMetadata);
       result.addAll(encodedPresentStream);
@@ -140,6 +152,15 @@ public class StringEncoder {
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean useFsstEncoding)
       throws IOException {
+    return encode(values, physicalLevelTechnique, useFsstEncoding, null);
+  }
+
+  public static EncodingResult encode(
+      Collection<String> values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      boolean useFsstEncoding,
+      @Nullable IntegerCODEC fastPforCodec)
+      throws IOException {
     /*
      * convert a single string column -> check if plain, dictionary, fsst or fsstDictionary
      * -> plain -> length, data
@@ -150,15 +171,15 @@ public class StringEncoder {
      * -> based on statistics if dictionary encoding is used
      * -> compare four possible encodings in size based on samples
      * */
-    final var plainEncodedColumn = encodePlain(values, physicalLevelTechnique);
+    final var plainEncodedColumn = encodePlain(values, physicalLevelTechnique, fastPforCodec);
 
     final var dictionaryEncodedColumn =
-        encodeDictionary(values, physicalLevelTechnique, true, false);
+        encodeDictionary(values, physicalLevelTechnique, true, false, fastPforCodec);
 
     final ArrayList<byte[]> fsstEncodedDictionary;
     if (useFsstEncoding) {
       fsstEncodedDictionary =
-          encodeFsstDictionary(values, values.size(), physicalLevelTechnique, true);
+          encodeFsstDictionary(values, values.size(), physicalLevelTechnique, true, fastPforCodec);
     } else {
       fsstEncodedDictionary = null;
     }
@@ -176,7 +197,8 @@ public class StringEncoder {
       Collection<String> values,
       int valueCount,
       PhysicalLevelTechnique physicalLevelTechnique,
-      boolean encodeDataStream)
+      boolean encodeDataStream,
+      @Nullable IntegerCODEC fastPforCodec)
       throws IOException {
     final var dataStream = new ArrayList<Integer>(valueCount);
     final var dictionary = new ArrayList<String>(valueCount);
@@ -191,7 +213,7 @@ public class StringEncoder {
               }));
     }
 
-    final var symbolTable = encodeFsst(dictionary, physicalLevelTechnique, false);
+    final var symbolTable = encodeFsst(dictionary, physicalLevelTechnique, false, fastPforCodec);
 
     if (!encodeDataStream) {
       return symbolTable;
@@ -203,7 +225,8 @@ public class StringEncoder {
             physicalLevelTechnique,
             false,
             PhysicalStreamType.OFFSET,
-            new LogicalStreamType(OffsetType.STRING));
+            new LogicalStreamType(OffsetType.STRING),
+            fastPforCodec);
     symbolTable.addAll(encodedDataStream);
     return symbolTable;
   }
@@ -211,7 +234,8 @@ public class StringEncoder {
   private static ArrayList<byte[]> encodeFsst(
       Collection<String> values,
       PhysicalLevelTechnique physicalLevelTechnique,
-      @SuppressWarnings("SameParameterValue") boolean isSharedDictionary)
+      @SuppressWarnings("SameParameterValue") boolean isSharedDictionary,
+      @Nullable IntegerCODEC fastPforCodec)
       throws IOException {
     final var joinedValues = String.join("", values).getBytes(StandardCharsets.UTF_8);
     final var symbolTable = FsstEncoder.encode(joinedValues);
@@ -227,7 +251,8 @@ public class StringEncoder {
             physicalLevelTechnique,
             false,
             PhysicalStreamType.LENGTH,
-            new LogicalStreamType(LengthType.SYMBOL));
+            new LogicalStreamType(LengthType.SYMBOL),
+            fastPforCodec);
     final var symbolTableMetadata =
         new StreamMetadata(
                 PhysicalStreamType.DATA,
@@ -248,7 +273,8 @@ public class StringEncoder {
             physicalLevelTechnique,
             false,
             PhysicalStreamType.LENGTH,
-            new LogicalStreamType(LengthType.DICTIONARY));
+            new LogicalStreamType(LengthType.DICTIONARY),
+            fastPforCodec);
     final var compressedCorpusStreamMetadata =
         new StreamMetadata(
                 PhysicalStreamType.DATA,
@@ -279,7 +305,8 @@ public class StringEncoder {
       Collection<String> values,
       PhysicalLevelTechnique physicalLevelTechnique,
       boolean encodeOffsetStream,
-      boolean isSharedDictionary)
+      boolean isSharedDictionary,
+      @Nullable IntegerCODEC fastPforCodec)
       throws IOException {
     final var offsetStream = new ArrayList<Integer>(values.size());
     final var lengthStream = new ArrayList<Integer>(values.size());
@@ -310,7 +337,8 @@ public class StringEncoder {
             physicalLevelTechnique,
             false,
             PhysicalStreamType.LENGTH,
-            new LogicalStreamType(LengthType.DICTIONARY));
+            new LogicalStreamType(LengthType.DICTIONARY),
+            fastPforCodec);
     final var encodedDictionaryStreamMetadata =
         new StreamMetadata(
                 PhysicalStreamType.DATA,
@@ -336,7 +364,8 @@ public class StringEncoder {
             physicalLevelTechnique,
             false,
             PhysicalStreamType.OFFSET,
-            new LogicalStreamType(OffsetType.STRING));
+            new LogicalStreamType(OffsetType.STRING),
+            fastPforCodec);
     /* Length, Offset (String), Data (Dictionary -> Single) */
     final var result = encodedLengthStream;
     result.addAll(encodedOffsetStream);
@@ -347,6 +376,14 @@ public class StringEncoder {
 
   public static ArrayList<byte[]> encodePlain(
       Collection<String> values, PhysicalLevelTechnique physicalLevelTechnique) throws IOException {
+    return encodePlain(values, physicalLevelTechnique, null);
+  }
+
+  public static ArrayList<byte[]> encodePlain(
+      Collection<String> values,
+      PhysicalLevelTechnique physicalLevelTechnique,
+      @Nullable IntegerCODEC fastPforCodec)
+      throws IOException {
     final var lengthStream = new ArrayList<Integer>(values.size());
     final var dataStream = new ByteArrayOutputStream(totalLengthOf(values));
     for (var value : values) {
@@ -362,7 +399,8 @@ public class StringEncoder {
             physicalLevelTechnique,
             false,
             PhysicalStreamType.LENGTH,
-            new LogicalStreamType(LengthType.VAR_BINARY));
+            new LogicalStreamType(LengthType.VAR_BINARY),
+            fastPforCodec);
 
     final var dataStreamMetadata =
         new StreamMetadata(

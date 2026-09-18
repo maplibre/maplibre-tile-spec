@@ -20,9 +20,9 @@ use crate::decoder::stream::header02::{
     StreamCtx02, describe_encoding,
 };
 use crate::decoder::{
-    Column02, ColumnType02, DataType02, DictionaryType, GeoLayout, Interior02, LayerLayout,
-    LengthType, NodeKind02, NodePresence, NodeType02, Presence02, SharedDictKind, StreamType,
-    ValuesColumn02,
+    Column02, ColumnCounts, ColumnType02, DataType02, DictionaryType, GeoLayout, Interior02,
+    LayerLayout, LengthType, NodeKind02, NodePresence, NodeType02, Presence02, SharedDictKind,
+    StreamType, ValuesColumn02,
 };
 use crate::tile::{Extent, MAX_NESTED_DEPTH};
 use crate::utils::{parse_string, parse_u8, take};
@@ -77,12 +77,27 @@ impl<'a> Walker<'a> {
         input = self.walk_geometry02(input, layout.geometry, feature_count)?;
         self.close(gi, input);
 
-        let (rest, column_count) = self.field(
-            input,
-            "column_count",
-            |i| parse_varint::<u32>(i),
-            |v| Some(v.to_string()),
-        )?;
+        let (rest, counts) = if layout.m_values {
+            self.field(
+                input,
+                "column_counts",
+                |i| ColumnCounts::parse(i, layout),
+                |c| {
+                    Some(format!(
+                        "columns = {}, m-values = {}",
+                        c.columns, c.m_values
+                    ))
+                },
+            )?
+        } else {
+            self.field(
+                input,
+                "column_count",
+                |i| ColumnCounts::parse(i, layout),
+                |c| Some(c.columns.to_string()),
+            )?
+        };
+        let column_count = counts.columns;
         input = rest;
         // Each column requires at least 1 byte (column type).
         if input.len() < column_count.into_usize() {
@@ -99,7 +114,7 @@ impl<'a> Walker<'a> {
 
         if layout.m_values {
             let mi = self.open(input, "m_values".to_string());
-            input = self.walk_m_values02(input, feature_count, &shared)?;
+            input = self.walk_m_values02(input, counts.m_values, feature_count, &shared)?;
             self.close(mi, input);
         }
 
@@ -440,16 +455,11 @@ impl<'a> Walker<'a> {
     /// sequence rather than the features, so none of their counts are implied.
     fn walk_m_values02(
         &mut self,
-        input: &'a [u8],
+        mut input: &'a [u8],
+        count: u32,
         feature_count: u32,
         shared: &[&'a BitSlice<u8, Lsb0>],
     ) -> MltResult<&'a [u8]> {
-        let (mut input, count) = self.field(input, "m_value_count", parse_varint::<u32>, |c| {
-            Some(c.to_string())
-        })?;
-        if count == 0 {
-            return Err(MltError::EmptyMValueSection);
-        }
         let shared_count = u8::try_from(shared.len())?;
         for i in 0..count {
             let mi = self.open(input, format!("m_value[{i}]"));

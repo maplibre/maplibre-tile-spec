@@ -1,5 +1,6 @@
 package org.maplibre.mlt.converter.encodings;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
@@ -66,5 +67,34 @@ public class EncodingUtilsTest {
     for (var i = 0; i < numValues; i++) {
       assertFalse(decodeBooleans.get(i));
     }
+  }
+
+  @Test
+  public void encodeFastPfor128_ReusedCodec_RoundTripsIndependentArrays() {
+    var codec = EncodingUtils.createFastPforCodec();
+    var first = new int[] {5, 10, 15, 20, 25, 30, 35, 40};
+    var second = new int[] {1, 2, 3, 4, 100, 200, 300, 400, 500};
+
+    var encodedFirst = EncodingUtils.encodeFastPfor128(first, false, false, codec);
+    var encodedSecond = EncodingUtils.encodeFastPfor128(second, false, false, codec);
+
+    assertArrayEquals(
+        first,
+        DecodingUtils.decodeFastPfor(
+            encodedFirst, first.length, encodedFirst.length, new IntWrapper(0)));
+    assertArrayEquals(
+        second,
+        DecodingUtils.decodeFastPfor(
+            encodedSecond, second.length, encodedSecond.length, new IntWrapper(0)));
+  }
+
+  @Test
+  public void encodeFastPfor128_NullCodec_RoundTrips() {
+    var values = new int[] {5, 10, 15, 20, 25, 30, 35, 40};
+    var encoded = EncodingUtils.encodeFastPfor128(values, false, false, null);
+
+    assertArrayEquals(
+        values,
+        DecodingUtils.decodeFastPfor(encoded, values.length, encoded.length, new IntWrapper(0)));
   }
 }

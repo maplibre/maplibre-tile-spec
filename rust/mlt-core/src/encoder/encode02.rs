@@ -1,7 +1,7 @@
 //! Layer envelope and column writers for tag `0x02` (v2) layers.
 //!
 //! A v2 layer body is: header (`name`, `extent`, `feature_count`, layout byte),
-//! the layer's shared presence bitfields, geometry section, `column_count`
+//! the layer's shared presence bitfields, geometry section, the column counts
 //! varint, then each counted column as
 //! `[type byte][name?][presence bitfield?][data stream]` - metadata and data
 //! merged, unlike v1's split sections.
@@ -22,7 +22,7 @@ use integer_encoding::VarIntWriter as _;
 
 use crate::decoder::stream::header02::{Count02, Family, StreamCtx02, WordWidth};
 use crate::decoder::{
-    BoolLogical, ColumnType02, DataType02, DictionaryType, LayerLayout, LengthType,
+    BoolLogical, ColumnCounts, ColumnType02, DataType02, DictionaryType, LayerLayout, LengthType,
     LogicalEncoding, NodeKind02, NodePresence, NodeType02, PhysicalEncoding, Presence02,
     StreamMeta, StreamType, ValueType02,
 };
@@ -240,7 +240,11 @@ pub(crate) fn encode_into02(
 
     // ── Counted columns ───────────────────────────────────────────────────
     let column_count = usize::from(!matches!(id, StagedId::None)) + properties.len() + nested.len();
-    enc.data_mut().write_varint(u32::try_from(column_count)?)?;
+    let counts = ColumnCounts {
+        columns: u32::try_from(column_count)?,
+        m_values: u32::try_from(m_values.len())?,
+    };
+    enc.data_mut().write_varint(counts.to_varint())?;
 
     write_id02(&id, &shared, &mut enc, codecs)?;
     for prop in &properties {
@@ -251,12 +255,8 @@ pub(crate) fn encode_into02(
     }
 
     // ── M-value section (not part of column_count either) ─────────────────
-    if !m_values.is_empty() {
-        enc.data_mut()
-            .write_varint(u32::try_from(m_values.len())?)?;
-        for m_value in &m_values {
-            write_m_value02(m_value, &shared, &mut enc, codecs)?;
-        }
+    for m_value in &m_values {
+        write_m_value02(m_value, &shared, &mut enc, codecs)?;
     }
 
     enc.write_header02(&name, extent.get(), feature_count)?;

@@ -493,10 +493,26 @@ fn a_count_the_geometry_disagrees_with_is_rejected() {
 }
 
 #[test]
+fn both_column_counts_share_one_morton_coded_byte() {
+    let bytes = encode_four_one_byte_m_values();
+    let (counts, len) = region_after(&bytes, "column_counts", "column_counts");
+    assert_eq!(len, 1);
+    assert_eq!(
+        bytes[counts], 0b10,
+        "no columns on the even bits, one m-value on the odd bits"
+    );
+    assert_eq!(
+        region_after(&bytes, "column_counts", "m_values").0,
+        counts + 1,
+        "no m_value_count varint opens the section"
+    );
+}
+
+#[test]
 fn an_empty_m_value_section_is_rejected() {
     let mut bytes = encode_four_one_byte_m_values();
-    let (count, _) = region_after(&bytes, "m_values", "m_value_count");
-    bytes[count] = 0;
+    let (counts, _) = region_after(&bytes, "column_counts", "column_counts");
+    bytes[counts] = 0;
 
     assert!(
         matches!(decode_err(&bytes), MltError::EmptyMValueSection),

@@ -1,5 +1,6 @@
 package org.maplibre.mlt.converter.encodings;
 
+import jakarta.annotation.Nullable;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
@@ -295,7 +296,16 @@ public class EncodingUtils {
     return Pair.of(CollectionUtils.unboxLongs(runsBuffer), CollectionUtils.unboxLongs(valueBuffer));
   }
 
+  public static IntegerCODEC createFastPforCodec() {
+    return new Composition(new FastPFOR(), new VariableByte());
+  }
+
   public static byte[] encodeFastPfor128(int[] values, boolean zigZagEncode, boolean deltaEncode) {
+    return encodeFastPfor128(values, zigZagEncode, deltaEncode, null);
+  }
+
+  public static byte[] encodeFastPfor128(
+      int[] values, boolean zigZagEncode, boolean deltaEncode, @Nullable IntegerCODEC codec) {
     /*
      * Note that this does not use differential coding: if you are working on sorted lists,
      * you should first compute deltas, @see me.lemire.integercompression.differential.Delta#delta
@@ -309,7 +319,7 @@ public class EncodingUtils {
       encodedValues = encodeZigZag(encodedValues);
     }
 
-    IntegerCODEC ic = new Composition(new FastPFOR(), new VariableByte());
+    IntegerCODEC ic = codec != null ? codec : createFastPforCodec();
     IntWrapper inputoffset = new IntWrapper(0);
     IntWrapper outputoffset = new IntWrapper(0);
     final int[] compressed = new int[encodedValues.length + 1024];
