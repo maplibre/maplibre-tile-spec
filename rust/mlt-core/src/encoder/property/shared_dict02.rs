@@ -7,7 +7,7 @@ use integer_encoding::VarIntWriter as _;
 use crate::MltError::DictIndexOutOfBounds;
 use crate::codecs::front_coding::front_code;
 use crate::codecs::fsst::{compress_fsst_bytes, compress_fsst_with};
-use crate::decoder::stream::header02::{Count02, Family, StrLayout};
+use crate::decoder::stream::header02::{Count02, Family, StrLayout, WordWidth};
 use crate::decoder::{Column02, ColumnType02, DataType02, DictLayout, Presence02, SharedDictKind};
 use crate::encoder::encode02::{SharedPresence, write_presence_bits};
 use crate::encoder::model::{StrAt, StreamCtx};
@@ -130,7 +130,7 @@ fn begin_shared_dict02(
     kind: SharedDictKind,
     shared_dict: &StagedSharedDict,
 ) -> MltResult<()> {
-    enc.family_context = Family::Int;
+    enc.family_context = Family::Int(WordWidth::W32);
     enc.count_context = Count02::Explicit;
     let byte = kind as u8 | Column02::SHARED_DICT;
     let data = enc.data_mut();
@@ -169,7 +169,7 @@ fn write_children02(
         );
         enc.family_context = Family::Str(StrLayout::Dict);
         let result = codecs.write_int_stream(child_codes, &ctx, enc);
-        enc.family_context = Family::Int;
+        enc.family_context = Family::Int(WordWidth::W32);
         result?;
     }
     // Restore what the enclosing layer's remaining columns imply their counts from.
