@@ -370,7 +370,8 @@ jobs:
         run: |
           package_tgz="$(find mlt-wasm-pkg -type f -name 'maplibre-mlt-wasm-*.tgz' -print -quit)"
           test -n "$package_tgz" || { echo "::error::Package file not found in mlt-wasm-pkg"; exit 1; }
-          npm publish "$package_tgz" --access=public
+          # `./` so npm reads the argument as a path, not as a `user/repo` shorthand
+          npm publish "./$package_tgz" --access=public
 
       - name: Publish GitHub release (remove draft)
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
