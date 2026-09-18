@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.13.0...rust-mlt-core-v0.14.0) - 2026-09-17
+
+### Added
+
+- *(rust)* morton-code the v2 column and m-value counts into one varint ([#1714](https://github.com/maplibre/maplibre-tile-spec/pull/1714))
+- *(rust)* code a nested node's structure per row, not per entry ([#1684](https://github.com/maplibre/maplibre-tile-spec/pull/1684))
+- improve hexdump output ([#1707](https://github.com/maplibre/maplibre-tile-spec/pull/1707))
+- *(rust)* support nested propeties ([#1682](https://github.com/maplibre/maplibre-tile-spec/pull/1682))
+- *(rust)* m-value support ([#1680](https://github.com/maplibre/maplibre-tile-spec/pull/1680))
+- *(rust)* bit-pack v2 dictionary codes when that beats a varint each ([#1630](https://github.com/maplibre/maplibre-tile-spec/pull/1630))
+- *(rust)* share v2 presence bitfields with dictionary children ([#1625](https://github.com/maplibre/maplibre-tile-spec/pull/1625))
+
+### Other
+
+- more BitField cleanup ([#1713](https://github.com/maplibre/maplibre-tile-spec/pull/1713))
+- name the parsed type in the not-decoded error ([#1703](https://github.com/maplibre/maplibre-tile-spec/pull/1703))
+- require a raw word stream to be exactly its word count long ([#1702](https://github.com/maplibre/maplibre-tile-spec/pull/1702))
+- *(rust)* increase condition coverage on codecs  ([#1705](https://github.com/maplibre/maplibre-tile-spec/pull/1705))
+- Add v2 docs ([#1677](https://github.com/maplibre/maplibre-tile-spec/pull/1677))
+
 ## [0.13.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.9...rust-mlt-core-v0.13.0) - 2026-09-14
 
 ### Added
