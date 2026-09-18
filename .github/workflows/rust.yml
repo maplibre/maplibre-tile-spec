@@ -370,7 +370,6 @@ jobs:
         run: |
           package_tgz="$(find mlt-wasm-pkg -type f -name 'maplibre-mlt-wasm-*.tgz' -print -quit)"
           test -n "$package_tgz" || { echo "::error::Package file not found in mlt-wasm-pkg"; exit 1; }
-          # `./` so npm reads the argument as a path, not as a `user/repo` shorthand
           npm publish "./$package_tgz" --access=public
 
       - name: Publish GitHub release (remove draft)
