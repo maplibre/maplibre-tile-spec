@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.14.0...rust-mlt-core-v0.14.1) - 2026-09-18
+
+### Other
+
+- omit byte_length on v2 raw streams whose element width is fixed ([#1704](https://github.com/maplibre/maplibre-tile-spec/pull/1704))
+
 ## [0.14.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.13.0...rust-mlt-core-v0.14.0) - 2026-09-17
 
 ### Added
