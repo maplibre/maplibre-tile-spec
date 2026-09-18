@@ -273,7 +273,7 @@ fn begin_col02(
 ) -> MltResult<()> {
     // Every v2 column starts here, so this is where its data stream's family is fixed.
     // A string column's writer re-fixes it per stream, once it has picked a layout.
-    enc.family_context = family_of(typ);
+    enc.family_context = StreamCtx02::Property(typ).family();
 
     let data = enc.data_mut();
     data.push(ColumnType02::new(presence, typ).to_byte());
@@ -338,13 +338,6 @@ fn write_bool_stream02(
     )?;
     enc.family_context = Family::Bool;
     write_stream_payload(enc, meta, false, &packed)
-}
-
-/// The family a v2 column's data stream is numbered in, which is what a decoder reads it against.
-/// A string column's leading stream is an integer one whose extension bits name the layout,
-/// which only its writer knows.
-fn family_of(typ: DataType02) -> Family {
-    StreamCtx02::Property(typ).family()
 }
 
 fn write_id02(
@@ -906,7 +899,7 @@ fn write_leaf02(
     use StagedValues as V;
 
     let ctx = StreamCtx::prop2(StreamType::Data(DictionaryType::None), column, path);
-    enc.family_context = family_of(value_type02(&leaf.values).into());
+    enc.family_context = StreamCtx02::Property(value_type02(&leaf.values).into()).family();
     match &leaf.values {
         V::Bool(v) => write_bool_bitfield(enc, v),
         V::I8(v) => codecs.write_int_stream(v, &ctx, enc),

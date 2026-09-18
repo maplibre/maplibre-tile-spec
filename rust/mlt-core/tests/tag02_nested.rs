@@ -976,6 +976,13 @@ fn stream_field(bytes: &[u8], stream: &str, field: &str) -> usize {
         .offset
 }
 
+fn interleaved_rle<const N: usize>(pairs: [(u8, u8); N]) -> Vec<u8> {
+    pairs
+        .into_iter()
+        .flat_map(|(run, value)| [run, value])
+        .collect()
+}
+
 #[rstest]
 #[case::leaf(0x40 | 0x05, "leaf")]
 #[case::list(0x40 | 0x0D, "list")]
@@ -1015,9 +1022,13 @@ fn a_shape_id_no_shape_answers_to_is_rejected() {
     let mut bytes = six_field_struct_layer()
         .encode(cfg_row_shapes())
         .expect("encode");
-    let at = stream_field(&bytes, "shape_ids", "data");
-    assert_eq!(bytes[at..at + 4], [8, 0, 8, 1]);
-    bytes[at + 1] = 5;
+    let first_run = stream_field(&bytes, "shape_ids", "data");
+    let first_value = first_run + 1;
+    assert_eq!(
+        bytes[first_run..first_run + 4],
+        interleaved_rle([(8, 0), (8, 1)])
+    );
+    bytes[first_value] = 5;
     assert!(
         matches!(
             decode_err(&bytes),
@@ -1052,11 +1063,14 @@ fn a_shape_id_per_row_count_the_node_disagrees_with_is_rejected() {
         .encode(cfg_row_shapes())
         .expect("encode");
     let count_at = stream_field(&bytes, "shape_ids", "num_values");
-    let data_at = stream_field(&bytes, "shape_ids", "data");
+    let first_run = stream_field(&bytes, "shape_ids", "data");
     assert_eq!(bytes[count_at], 16);
-    assert_eq!(bytes[data_at..data_at + 4], [8, 0, 8, 1]);
+    assert_eq!(
+        bytes[first_run..first_run + 4],
+        interleaved_rle([(8, 0), (8, 1)])
+    );
     bytes[count_at] = 15;
-    bytes[data_at] = 7;
+    bytes[first_run] = 7;
     assert!(
         matches!(
             decode_err(&bytes),

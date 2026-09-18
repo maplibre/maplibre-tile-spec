@@ -1054,7 +1054,7 @@ fn generate_nested(w: &mut SynthWriter) {
         .no_v1()
         .geos((0..16).map(|i| Point(c(i, i))))
         .row_shapes()
-        .nested_int("obj", E::rle_varint())
+        .nested_shape_ids("obj", E::rle_varint())
         .add_nested(StagedNested::new(
             "obj",
             StagedInterior::Struct(StagedStruct::new(

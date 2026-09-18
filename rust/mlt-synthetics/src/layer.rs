@@ -35,6 +35,8 @@ pub fn geo_fastpfor() -> Layer {
 enum PropConfig {
     /// Int/Bool/Float: `enc` is used for integer streams; Bool/Float auto-detect from type.
     Scalar(IntEncoder),
+    /// A nested column whose root codes its rows as shape ids, `enc` pinning that one stream.
+    ShapeIds(IntEncoder),
     /// Float with its logical encoding pinned, `enc` carrying the dictionary codes or ALP integers.
     Float {
         enc: IntEncoder,
@@ -80,6 +82,7 @@ impl PropConfig {
         match self {
             Self::Float { float_enc, .. } => *float_enc,
             Self::Scalar(_)
+            | Self::ShapeIds(_)
             | Self::StrFsst { .. }
             | Self::StrFsstDict { .. }
             | Self::StrDict { .. }
@@ -91,7 +94,7 @@ impl PropConfig {
 
     fn str_encoding(&self) -> StrEncoding {
         match self {
-            Self::Scalar(_) | Self::Float { .. } => StrEncoding::Plain,
+            Self::Scalar(_) | Self::ShapeIds(_) | Self::Float { .. } => StrEncoding::Plain,
             Self::StrFsst { .. } => StrEncoding::Fsst,
             Self::StrFsstDict { .. } => StrEncoding::FsstDict,
             Self::StrDict { .. } => StrEncoding::Dict,
@@ -108,6 +111,10 @@ impl PropConfig {
         use StreamType as ST;
         match self {
             Self::Scalar(e) | Self::Float { enc: e, .. } => *e,
+            Self::ShapeIds(e) => match ctx.stream_type {
+                ST::Data(_) if ctx.subname.is_empty() => *e,
+                ST::Present | ST::Data(_) | ST::Offset(_) | ST::Length(_) => IntEncoder::varint(),
+            },
             Self::StrFsst {
                 sym_lengths,
                 dict_lengths,
@@ -536,7 +543,7 @@ impl Layer {
     ) -> Self {
         assert!(
             !self.versions().contains(&WireVersion::V01),
-            "v1 does not support m-values. Called from {}",
+            "v1 does not support nested columns. Called from {}",
             Location::caller()
         );
         self.nested_encodings.push((
@@ -549,17 +556,17 @@ impl Layer {
         self
     }
 
-    /// Pin the encoding of every integer stream inside a nested column, whose leaves and structure it covers alike.
+    /// Pin the encoding of the shape ids a nested column's root writes under [`Self::row_shapes`].
     #[must_use]
     #[track_caller]
-    pub fn nested_int(mut self, column: impl Into<String>, enc: IntEncoder) -> Self {
+    pub fn nested_shape_ids(mut self, column: impl Into<String>, enc: IntEncoder) -> Self {
         assert!(
             !self.versions().contains(&WireVersion::V01),
             "v1 does not support nested columns. Called from {}",
             Location::caller()
         );
         self.nested_encodings
-            .push((column.into(), PropConfig::Scalar(enc)));
+            .push((column.into(), PropConfig::ShapeIds(enc)));
         self
     }
 

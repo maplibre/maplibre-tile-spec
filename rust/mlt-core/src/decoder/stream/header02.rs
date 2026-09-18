@@ -469,9 +469,9 @@ fn physical_bits(enc_byte: u8) -> MltResult<PhysicalBits> {
         .map_err(|_| MltError::ParsingEncodingByte(enc_byte))
 }
 
-/// Require the physical field to say a byte length follows, for a blob, whose count that length is.
-fn blob_with_len(enc_byte: u8) -> MltResult<()> {
-    if enc_byte & PHYSICAL_MASK == PhysicalBits::WithLen as u8 {
+/// Require the physical field to be `bits`, for an encoding that admits one pattern.
+fn require_physical(enc_byte: u8, bits: u8) -> MltResult<()> {
+    if enc_byte & PHYSICAL_MASK == bits {
         Ok(())
     } else {
         Err(MltError::ParsingEncodingByte(enc_byte))
@@ -480,11 +480,7 @@ fn blob_with_len(enc_byte: u8) -> MltResult<()> {
 
 /// Require the physical field to be zero, for an encoding that implies it.
 fn no_physical(enc_byte: u8) -> MltResult<()> {
-    if enc_byte & PHYSICAL_MASK == 0 {
-        Ok(())
-    } else {
-        Err(MltError::ParsingEncodingByte(enc_byte))
-    }
+    require_physical(enc_byte, 0)
 }
 
 /// Require the extension field to be zero, for an encoding that defines nothing in it.
@@ -539,24 +535,22 @@ impl Encoding02 {
                 }
                 Self::Str(logical_int(family, enc_byte, logical)?, layout)
             }
-            Family::Bytes => Self::Bytes(match logical {
-                Logical::None => {
-                    blob_with_len(enc_byte)?;
-                    LogicalBytes::None
-                }
-                Logical::FrontCoded => {
-                    blob_with_len(enc_byte)?;
-                    LogicalBytes::FrontCoded
-                }
-                Logical::Delta
-                | Logical::CwDelta
-                | Logical::Rle
-                | Logical::DeltaRle
-                | Logical::Morton
-                | Logical::Alp
-                | Logical::Dict
-                | Logical::BitPacked => unreachable_member(family, logical),
-            }),
+            Family::Bytes => {
+                // A blob's count is its byte length, so every blob writes one.
+                require_physical(enc_byte, PhysicalBits::WithLen as u8)?;
+                Self::Bytes(match logical {
+                    Logical::None => LogicalBytes::None,
+                    Logical::FrontCoded => LogicalBytes::FrontCoded,
+                    Logical::Delta
+                    | Logical::CwDelta
+                    | Logical::Rle
+                    | Logical::DeltaRle
+                    | Logical::Morton
+                    | Logical::Alp
+                    | Logical::Dict
+                    | Logical::BitPacked => unreachable_member(family, logical),
+                })
+            }
             Family::Bool => Self::Bool(match logical {
                 Logical::None => LogicalBool::None(physical_bits(enc_byte)?),
                 Logical::Rle => {
@@ -802,17 +796,23 @@ fn physical_int_field(physical: PhysicalEncoding) -> MltResult<u8> {
     })
 }
 
-/// The logical encoding and physical field bits `encoding` is written as, the reverse of [`Encoding02::to_model`].
-/// The caller checks the result against the stream's family, which is where an illegal pairing is caught.
-///
-/// A raw stream of `num_values` elements whose width `family` fixes gets physical `00`, since
-/// `byte_length` then follows from the two and goes unwritten.
+/// The header fields an encoding is written as, the reverse of [`Encoding02::to_model`].
+struct WireFields {
+    logical: Logical,
+    physical_bits: u8,
+    /// Whether `byte_length` follows, which only a raw stream of physical `00` leaves out.
+    writes_length: bool,
+}
+
+/// The logical encoding and physical field bits `encoding` is written as, in `family`'s numbering.
+/// The caller checks the logical against the family, which is where an illegal pairing is caught.
+/// A raw stream of `num_values` elements whose width `family` fixes gets physical `00` and no `byte_length`.
 fn wire_fields(
     encoding: IntEncoding,
     family: Family,
     num_values: u32,
     byte_length: u32,
-) -> MltResult<(Logical, u8)> {
+) -> MltResult<WireFields> {
     use BoolLogical as BL;
     use FloatLogical as FL;
     use IntLogical as IL;
@@ -833,6 +833,12 @@ fn wire_fields(
         }
     };
 
+    let with_length = |logical: Logical, physical_bits: u8| WireFields {
+        logical,
+        physical_bits,
+        writes_length: true,
+    };
+
     // Bit packing has a logical code of its own, since the physical field has no spare pattern.
     if encoding.physical == PhysicalEncoding::BitPacked {
         if encoding.logical != LE::Int(IL::None) {
@@ -841,22 +847,27 @@ fn wire_fields(
                 "v2 bit packing, which stores values as they are",
             ));
         }
-        return Ok((Logical::BitPacked, 0));
+        return Ok(with_length(Logical::BitPacked, 0));
     }
 
     Ok(match encoding.logical {
         LE::Int(IL::None) | LE::Bool(BL::None) | LE::Float(FL::None) | LE::Vertex(VL::None) => {
-            let bits = match (encoding.physical, family.raw_byte_length(num_values)?) {
+            match (encoding.physical, family.raw_byte_length(num_values)?) {
                 (PhysicalEncoding::None, Some(expected)) => {
                     fail_if_invalid_stream_size(byte_length.into_usize(), expected.into_usize())?;
-                    NO_LEN
+                    WireFields {
+                        logical: Logical::None,
+                        physical_bits: NO_LEN,
+                        writes_length: false,
+                    }
                 }
-                _ => physical(encoding)?,
-            };
-            (Logical::None, bits)
+                _ => with_length(Logical::None, physical(encoding)?),
+            }
         }
-        LE::Int(IL::Delta) | LE::Vertex(VL::Delta) => (Logical::Delta, physical(encoding)?),
-        LE::Vertex(VL::ComponentwiseDelta) => (Logical::CwDelta, physical(encoding)?),
+        LE::Int(IL::Delta) | LE::Vertex(VL::Delta) => {
+            with_length(Logical::Delta, physical(encoding)?)
+        }
+        LE::Vertex(VL::ComponentwiseDelta) => with_length(Logical::CwDelta, physical(encoding)?),
         LE::Int(IL::Rle(rle) | IL::DeltaRle(rle)) => {
             if !matches!(rle, RleMeta::Interleaved { .. }) {
                 return Err(MltError::UnsupportedLogicalEncoding(
@@ -875,11 +886,11 @@ fn wire_fields(
                 Logical::DeltaRle
             };
             // The physical encoding is implied, so the field stays zero.
-            (logical, 0)
+            with_length(logical, 0)
         }
         // Codes and scaled integers are integer streams, whatever the column's type is.
-        LE::Float(FL::Dict) => (Logical::Dict, physical_int_field(encoding.physical)?),
-        LE::Float(FL::Alp(_)) => (Logical::Alp, physical_int_field(encoding.physical)?),
+        LE::Float(FL::Dict) => with_length(Logical::Dict, physical_int_field(encoding.physical)?),
+        LE::Float(FL::Alp(_)) => with_length(Logical::Alp, physical_int_field(encoding.physical)?),
         LE::Bool(BL::ByteRle(_)) => {
             return Err(MltError::UnsupportedLogicalEncoding(
                 encoding.logical,
@@ -887,7 +898,9 @@ fn wire_fields(
             ));
         }
         // v2 stores Morton codes only as a sorted dictionary, whose deltas are always the shorter form.
-        LE::Vertex(VL::MortonDelta(_)) => (Logical::Morton, physical_int_field(encoding.physical)?),
+        LE::Vertex(VL::MortonDelta(_)) => {
+            with_length(Logical::Morton, physical_int_field(encoding.physical)?)
+        }
         LE::Vertex(VL::Morton(_) | VL::MortonRle(_)) => {
             return Err(MltError::UnsupportedLogicalEncoding(
                 encoding.logical,
@@ -966,13 +979,8 @@ pub(crate) fn parse_stream<'a>(
 }
 
 /// Serialize a v2 stream header for `meta`, numbering its logical field in `family`.
-///
-/// `count` is what the decoder will read this stream against where its header
-/// carries no count; an explicit count varint is emitted only when the stream's
-/// own count differs from the one the decoder would infer.
-///
-/// A raw stream whose element width `family` fixes gets physical `00` and no
-/// `byte_length` varint, which is one byte shorter than writing the length.
+/// `count` is what the decoder will read this stream against, so a count varint is written only when the stream's own differs.
+/// A raw stream whose element width `family` fixes gets physical `00` and no `byte_length` varint.
 pub(crate) fn write_stream_meta<W: io::Write>(
     meta: &StreamMeta,
     writer: &mut W,
@@ -992,8 +1000,8 @@ pub(crate) fn write_stream_meta<W: io::Write>(
         | LE::Float(_)
         | LE::Vertex(_) => meta.num_values,
     };
-    let (logical, physical_bits) = wire_fields(meta.encoding, family, num_values, byte_length)?;
-    let code = family.code(logical).ok_or_else(|| {
+    let fields = wire_fields(meta.encoding, family, num_values, byte_length)?;
+    let code = family.code(fields.logical).ok_or_else(|| {
         MltError::UnsupportedLogicalEncoding(meta.encoding.logical, family.into())
     })?;
     // A blob's count is its byte length, which its length varint already carries.
@@ -1004,14 +1012,13 @@ pub(crate) fn write_stream_meta<W: io::Write>(
     };
     let enc_byte = if explicit { HAS_EXPLICIT_COUNT } else { 0 }
         | (code << LOGICAL_SHIFT)
-        | physical_bits
+        | fields.physical_bits
         | extension;
     writer.write_u8(enc_byte)?;
     if explicit {
         writer.write_varint(num_values)?;
     }
-    // Physical `00` on a raw stream is the one header that leaves the length to the decoder.
-    if logical != Logical::None || physical_bits != NO_LEN {
+    if fields.writes_length {
         writer.write_varint(byte_length)?;
     }
     if let LE::Float(FloatLogical::Alp(alp)) = meta.encoding.logical {
@@ -1348,7 +1355,6 @@ mod tests {
         #[case] family: Family,
         #[case] expected: u8,
     ) {
-        // Long enough for a raw stream of any width here, which the header must be written against.
         let byte_length = family
             .raw_byte_length(meta.num_values)
             .unwrap()
