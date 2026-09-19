@@ -60,18 +60,20 @@ fn a_layer_past_the_end_of_a_whole_tile_is_still_out_of_range() {
 }
 
 fn hexdump(tile: &Path) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_mlt"))
-        .args(["hexdump", tile.to_str().unwrap()])
-        .args(["--color", "never", "--no-bits"])
-        .output()
-        .expect("mlt hexdump")
+    mlt_hexdump(tile, &[])
 }
 
 fn hexdump_layer(tile: &Path, idx: usize) -> Output {
+    mlt_hexdump(tile, &["--layer", &idx.to_string()])
+}
+
+/// CI exports `RUST_BACKTRACE=1`, and an inherited backtrace on stderr would break every snapshot here.
+fn mlt_hexdump(tile: &Path, extra_args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_mlt"))
         .args(["hexdump", tile.to_str().unwrap()])
         .args(["--color", "never", "--no-bits"])
-        .args(["--layer", &idx.to_string()])
+        .args(extra_args)
+        .env_remove("RUST_BACKTRACE")
         .output()
         .expect("mlt hexdump")
 }
