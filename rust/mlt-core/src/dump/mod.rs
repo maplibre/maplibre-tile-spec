@@ -10,6 +10,8 @@ mod walker01;
 #[cfg(feature = "unstable-v2")]
 mod walker02;
 
-pub use model::{BitField, BlobInfo, DecodeHint, DumpTree, Region, RegionKind};
+pub use model::{
+    BitField, BlobInfo, DecodeHint, DumpTree, Region, RegionKind, UNANNOTATED, filter_layer,
+};
 pub use render::{DataMode, RenderOpts, render};
 pub use walker::annotate_tile;
