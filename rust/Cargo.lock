@@ -3489,6 +3489,7 @@ dependencies = [
  "size_format",
  "sqlx",
  "tabled",
+ "test_each_file",
  "thousands",
  "tilejson",
  "tokio",

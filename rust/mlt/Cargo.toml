@@ -59,6 +59,7 @@ xxhash-rust.workspace = true
 
 [dev-dependencies]
 insta.workspace = true
+test_each_file.workspace = true
 
 [lints]
 workspace = true

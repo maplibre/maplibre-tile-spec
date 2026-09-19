@@ -4,6 +4,7 @@
 //! `walker01` / `walker02` modules mirror their wire layout.
 //! Tile and layer framing is shared - only the layer body differs per tag.
 
+use super::UNANNOTATED;
 use super::model::{BitField, BlobInfo, DumpTree, Region, RegionKind};
 use crate::codecs::varint::parse_varint;
 use crate::utils::{parse_u8, take};
@@ -12,24 +13,34 @@ use crate::{MltError, MltRefResult, MltResult, Parser};
 /// Walk a whole tile buffer, producing an annotated [`DumpTree`].
 ///
 /// The returned tree references offsets into `buf`; keep `buf` alive to render it.
-pub fn annotate_tile(buf: &[u8]) -> MltResult<DumpTree> {
+/// A walk that bails still hands back everything it annotated, sealed into a tree whose
+/// leaves partition the buffer, alongside the error that stopped it.
+#[must_use]
+pub fn annotate_tile(buf: &[u8]) -> (DumpTree, Option<MltError>) {
     let mut w = Walker {
         buf,
         out: Vec::new(),
         depth: 0,
+        open_containers: Vec::new(),
         parser: Parser::default(),
     };
-    w.walk_tile()?;
-    Ok(DumpTree {
+    let err = w.walk_tile().err();
+    if err.is_some() {
+        w.seal_partial();
+    }
+    let tree = DumpTree {
         buf_len: buf.len(),
         regions: w.out,
-    })
+    };
+    (tree, err)
 }
 
 pub(super) struct Walker<'a> {
     pub(super) buf: &'a [u8],
     pub(super) out: Vec<Region>,
     pub(super) depth: usize,
+    /// Containers opened but not yet closed, innermost last.
+    open_containers: Vec<usize>,
     /// Throwaway budget for the authoritative stream-header parsers.
     pub(super) parser: Parser,
 }
@@ -58,12 +69,17 @@ impl<'a> Walker<'a> {
             blob: None,
         });
         self.depth += 1;
+        self.open_containers.push(idx);
         idx
     }
 
     /// Close the container opened at `idx`, ending it at `after`.
     pub(super) fn close(&mut self, idx: usize, after: &'a [u8]) {
         self.depth -= 1;
+        // Popped outside the assert: `debug_assert_eq!` drops its arguments in release, which
+        // would leave every closed container open for `seal_partial` to stretch.
+        let closed = self.open_containers.pop();
+        debug_assert_eq!(closed, Some(idx), "containers must close innermost first");
         let start = self.out[idx].offset;
         self.out[idx].len = self.off(after) - start;
     }
@@ -171,6 +187,44 @@ impl<'a> Walker<'a> {
             container: false,
             blob,
         });
+    }
+
+    /// Turn the regions of a bailed-out walk into a valid tree.
+    ///
+    /// A container left open keeps `len == 0`, which hides everything inside it from a
+    /// span query such as [`super::filter_layer`], and the bytes past the annotated
+    /// prefix would otherwise leave the leaves not partitioning the buffer.
+    fn seal_partial(&mut self) {
+        let end = self
+            .out
+            .iter()
+            .filter(|r| !r.container)
+            .map(|r| r.offset + r.len)
+            .max()
+            .unwrap_or(0);
+
+        for idx in self.open_containers.drain(..) {
+            let offset = self.out[idx].offset;
+            debug_assert!(
+                offset <= end,
+                "a container opens at the cursor, never past it"
+            );
+            self.out[idx].len = end.saturating_sub(offset);
+        }
+
+        if end < self.buf.len() {
+            self.out.push(Region {
+                offset: end,
+                len: self.buf.len() - end,
+                depth: 0,
+                label: UNANNOTATED.to_string(),
+                value: None,
+                bits: Vec::new(),
+                kind: RegionKind::DataBlob,
+                container: false,
+                blob: None,
+            });
+        }
     }
 
     fn walk_tile(&mut self) -> MltResult<()> {

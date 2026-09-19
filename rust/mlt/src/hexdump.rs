@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use anyhow::{Result as AnyResult, bail};
 use clap::{Args, ValueEnum};
-use mlt_core::dump::{self, DumpTree, RenderOpts};
+use mlt_core::dump::{self, RenderOpts};
 
 use crate::ls::is_mlt_extension;
 
@@ -73,11 +73,12 @@ pub fn hexdump(args: &HexdumpArgs) -> AnyResult<()> {
         bail!("`hexdump` only supports MLT files (.mlt); MVT/PBF tiles are protobuf-encoded");
     }
     let buffer = fs::read(&args.file)?;
-    let tree = dump::annotate_tile(&buffer)?;
+    let (tree, err) = dump::annotate_tile(&buffer);
 
-    let tree = match args.layer {
-        Some(idx) => filter_layer(&tree, idx)?,
-        None => tree,
+    // A layer the walk never reached is explained by `err`, not by being out of range.
+    let selected = match args.layer {
+        Some(idx) => dump::filter_layer(&tree, idx).ok_or(idx),
+        None => Ok(tree),
     };
 
     let color = match args.color {
@@ -93,31 +94,19 @@ pub fn hexdump(args: &HexdumpArgs) -> AnyResult<()> {
         max_blob: args.max_blob,
     };
 
-    let stdout = io::stdout();
-    let mut w = BufWriter::new(stdout.lock());
-    dump::render(&tree, &buffer, &opts, &mut w)?;
-    w.flush()?;
-    Ok(())
-}
+    if let Ok(tree) = &selected {
+        let stdout = io::stdout();
+        let mut w = BufWriter::new(stdout.lock());
+        dump::render(tree, &buffer, &opts, &mut w)?;
+        w.flush()?;
+    }
 
-/// Keep only the regions belonging to the `idx`-th top-level layer container.
-fn filter_layer(tree: &DumpTree, idx: usize) -> AnyResult<DumpTree> {
-    let layer = tree
-        .regions
-        .iter()
-        .filter(|r| r.depth == 0 && r.container)
-        .nth(idx)
-        .ok_or_else(|| anyhow::anyhow!("layer index {idx} out of range"))?;
-    let start = layer.offset;
-    let end = layer.offset + layer.len;
-    let regions = tree
-        .regions
-        .iter()
-        .filter(|r| r.offset >= start && r.offset + r.len <= end)
-        .cloned()
-        .collect();
-    Ok(DumpTree {
-        buf_len: tree.buf_len,
-        regions,
-    })
+    // Whatever is left only has to fail the exit code, the dump is already written.
+    if let Some(err) = err {
+        return Err(err.into());
+    }
+    match selected {
+        Ok(_) => Ok(()),
+        Err(idx) => bail!("layer index {idx} out of range"),
+    }
 }

@@ -1,6 +1,8 @@
 **/*.rs.bk
 *.pdb
+*.pending-snap
 *.proptest-regressions
+*.snap.new
 .idea/
 .vscode/
 debug/

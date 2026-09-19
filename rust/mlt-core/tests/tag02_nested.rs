@@ -1,12 +1,19 @@
 use std::collections::BTreeMap;
 
-use mlt_core::dump::{RenderOpts, annotate_tile, render};
+use mlt_core::dump::{DumpTree, RenderOpts, annotate_tile, render};
 use mlt_core::encoder::{EncoderConfig, WireVersion};
 use mlt_core::geo_types::{Coord, Geometry, LineString, Point};
 use mlt_core::{
     Decoder, Layer, MltError, NestedKind, NestedValue, Parser, PropKind, PropValue, TileLayer,
 };
 use rstest::rstest;
+
+/// The full annotation of `bytes`, which the walker must produce without bailing.
+fn annotate(bytes: &[u8]) -> DumpTree {
+    let (tree, err) = annotate_tile(bytes);
+    assert!(err.is_none(), "annotate_tile: {err:?}");
+    tree
+}
 
 fn cfg_v2() -> EncoderConfig {
     EncoderConfig::default()
@@ -57,7 +64,7 @@ fn assert_round_trips_with(layer: &TileLayer, cfg: EncoderConfig) -> Vec<u8> {
 }
 
 fn assert_dump_covers(bytes: &[u8]) {
-    let tree = annotate_tile(bytes).expect("annotate_tile");
+    let tree = annotate(bytes);
     let mut leaves: Vec<(usize, usize)> = tree
         .regions
         .iter()
@@ -323,7 +330,7 @@ fn a_nested_root_shares_a_bitfield_with_a_flat_column() {
     let layer = builder.finish();
     let bytes = assert_round_trips_as_v2(&layer);
 
-    let tree = annotate_tile(&bytes).expect("annotate_tile");
+    let tree = annotate(&bytes);
     let shared: Vec<&str> = tree
         .regions
         .iter()
@@ -449,7 +456,7 @@ fn nesting_past_eight_levels_is_rejected() {
 }
 
 fn region(bytes: &[u8], label: &str, n: usize) -> (usize, usize) {
-    let tree = annotate_tile(bytes).expect("annotate_tile");
+    let tree = annotate(bytes);
     let found = tree
         .regions
         .iter()
@@ -460,7 +467,7 @@ fn region(bytes: &[u8], label: &str, n: usize) -> (usize, usize) {
 }
 
 fn root_data_type(bytes: &[u8]) -> String {
-    let tree = annotate_tile(bytes).expect("annotate_tile");
+    let tree = annotate(bytes);
     tree.regions
         .iter()
         .filter(|r| r.label == "type")
@@ -469,7 +476,7 @@ fn root_data_type(bytes: &[u8]) -> String {
 }
 
 fn payload_of(bytes: &[u8], label: &str, n: usize) -> (usize, usize) {
-    let tree = annotate_tile(bytes).expect("annotate_tile");
+    let tree = annotate(bytes);
     let start = tree
         .regions
         .iter()
@@ -638,7 +645,7 @@ fn a_leading_stream_with_no_count_where_none_is_implied_is_rejected() {
 }
 
 fn encoding_index(bytes: &[u8], label: &str) -> usize {
-    let tree = annotate_tile(bytes).expect("annotate_tile");
+    let tree = annotate(bytes);
     let mut seen = 0;
     let mut inside = false;
     for r in &tree.regions {
@@ -795,7 +802,7 @@ fn a_node_presence_stream_that_is_not_a_raw_bitmap_is_rejected() {
 }
 
 fn shape_labels(bytes: &[u8]) -> Vec<String> {
-    let tree = annotate_tile(bytes).expect("annotate_tile");
+    let tree = annotate(bytes);
     tree.regions
         .iter()
         .map(|r| r.label.clone())
@@ -903,7 +910,7 @@ fn the_same_map_keeps_its_lengths_and_one_key_per_entry_with_row_shapes_off() {
 
 /// What the high nibble of every type byte in the tile means, in wire order.
 fn type_nibbles(bytes: &[u8]) -> Vec<String> {
-    let tree = annotate_tile(bytes).expect("annotate_tile");
+    let tree = annotate(bytes);
     tree.regions
         .iter()
         .filter(|r| r.label == "type")
@@ -962,7 +969,7 @@ fn a_struct_below_the_root_carries_the_shapes_bit_in_its_node_type() {
 }
 
 fn stream_field(bytes: &[u8], stream: &str, field: &str) -> usize {
-    let tree = annotate_tile(bytes).expect("annotate_tile");
+    let tree = annotate(bytes);
     let start = tree
         .regions
         .iter()
