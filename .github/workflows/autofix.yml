@@ -53,7 +53,7 @@ jobs:
               - 'rust/mlt/**'
               - 'rust/mlt-core/**'
 
-      - uses: taiki-e/install-action@c3ec0de9ae7f1019cea21aa96aa0a895b9552063 # v2.87.9
+      - uses: taiki-e/install-action@26e9283f268b880168bdbd2c545dfcd60ec2c6ab # v2.87.13
         with: { tool: 'just' }
 
       # TypeScript
@@ -101,7 +101,7 @@ jobs:
       # Formatting tiebreaker for the generated files
       - name: Install uv
         if: steps.filter.outputs.ffi == 'true' || steps.filter.outputs.py == 'true'
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
       - if: steps.filter.outputs.ffi == 'true' || steps.filter.outputs.py == 'true'
         run: uvx pre-commit run --all-files
         continue-on-error: true
@@ -136,7 +136,7 @@ jobs:
         run: rustup update stable && rustup default stable
 
       - name: Install just
-        uses: taiki-e/install-action@c3ec0de9ae7f1019cea21aa96aa0a895b9552063 # v2.87.9
+        uses: taiki-e/install-action@26e9283f268b880168bdbd2c545dfcd60ec2c6ab # v2.87.13
         with: { tool: 'just,cargo-binstall' }
 
       - name: Setup Node.js
@@ -147,7 +147,7 @@ jobs:
 
       # run pre-commit as a formatting tiebreaker
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
       - run: uvx pre-commit run --all-files
         continue-on-error: true
 
