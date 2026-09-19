@@ -17,20 +17,20 @@ test_each_path! { for ["mlt"] in "../test/synthetic/0x02-java" as dump_0x02_java
 fn check([path]: [&Path; 1]) {
     let buffer = fs::read(path).unwrap();
     let parse_ok = Parser::default().parse_layers(&buffer).is_ok();
-    let tree = annotate_tile(&buffer);
+    let (tree, err) = annotate_tile(&buffer);
 
-    match (parse_ok, tree) {
-        // Well-formed per the real parser -> the walker must succeed and cover everything.
-        (true, Ok(tree)) => assert_full_coverage(&tree, buffer.len(), path),
-        (true, Err(e)) => {
+    match (parse_ok, err) {
+        // Well-formed per the real parser -> the walker must succeed; malformed -> it must
+        // bail. Either way its leaves cover the buffer, a bailed walk's through the
+        // synthetic leaf, and it must never panic (reaching here proves it didn't).
+        (true, None) | (false, Some(_)) => assert_full_coverage(&tree, buffer.len(), path),
+        (true, Some(e)) => {
             panic!(
                 "{}: parser succeeded but annotate_tile failed: {e}",
                 path.display()
             )
         }
-        // Malformed -> the walker must error too; it must never panic (reaching here proves it didn't).
-        (false, Err(_)) => {}
-        (false, Ok(_)) => {
+        (false, None) => {
             panic!(
                 "{}: parser failed but annotate_tile succeeded",
                 path.display()

@@ -1,12 +1,19 @@
 //! Round-trip and differential tests for the experimental v2 (tag `0x02`) wire format.
 
-use mlt_core::dump::{RenderOpts, annotate_tile, render};
+use mlt_core::dump::{DumpTree, RenderOpts, annotate_tile, render};
 use mlt_core::encoder::{EncoderConfig, WireVersion};
 use mlt_core::geo_types::{
     Coord, Geometry, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 };
 use mlt_core::{Decoder, Layer, Parser, PropValue, TileFeature, TileLayer};
 use rstest::rstest;
+
+/// The full annotation of `bytes`, which the walker must produce without bailing.
+fn annotate(bytes: &[u8]) -> DumpTree {
+    let (tree, err) = annotate_tile(bytes);
+    assert!(err.is_none(), "annotate_tile: {err:?}");
+    tree
+}
 
 fn cfg_v1() -> EncoderConfig {
     // sorting because sort trials could otherwise pick different winners per format.
@@ -63,7 +70,7 @@ fn assert_differential_with(layer: &TileLayer, cfg: EncoderConfig) -> (usize, us
 
 /// The annotated dump of `bytes`, rendered as the `mlt dump` CLI would show it.
 fn dump_text(bytes: &[u8]) -> String {
-    let tree = annotate_tile(bytes).expect("annotate_tile");
+    let tree = annotate(bytes);
     let mut out = Vec::new();
     render(&tree, bytes, &RenderOpts::default(), &mut out).expect("render");
     String::from_utf8(out).expect("dump is utf8")
@@ -81,8 +88,7 @@ fn dump_fields(bytes: &[u8], label: &str) -> Vec<String> {
 /// The physical encoding the dump reports for every stream of `bytes`, in wire order.
 #[cfg(feature = "unstable-v2")]
 fn stream_physicals(bytes: &[u8]) -> Vec<mlt_core::wire::PhysicalEncoding> {
-    annotate_tile(bytes)
-        .expect("annotate_tile")
+    annotate(bytes)
         .regions
         .iter()
         .filter_map(|r| r.blob.as_ref())
@@ -91,7 +97,7 @@ fn stream_physicals(bytes: &[u8]) -> Vec<mlt_core::wire::PhysicalEncoding> {
 }
 
 fn assert_dump_covers(bytes: &[u8]) {
-    let tree = annotate_tile(bytes).expect("annotate_tile");
+    let tree = annotate(bytes);
     let mut leaves: Vec<(usize, usize)> = tree
         .regions
         .iter()
@@ -951,7 +957,7 @@ mod strings {
     #[test]
     fn a_child_count_larger_than_the_bytes_left_is_rejected() {
         let bytes = shared_dict_layer().encode(cfg_v2()).unwrap();
-        let tree = annotate_tile(&bytes).expect("annotate_tile");
+        let tree = annotate(&bytes);
         let count = tree
             .regions
             .iter()
@@ -1233,8 +1239,7 @@ mod float_codecs {
 
     /// The physical encoding each float stream in the tile carries, in wire order.
     pub fn float_physicals(bytes: &[u8]) -> Vec<PhysicalEncoding> {
-        annotate_tile(bytes)
-            .expect("annotate_tile")
+        annotate(bytes)
             .regions
             .iter()
             .filter_map(|r| r.blob)
@@ -1249,8 +1254,7 @@ mod float_codecs {
 
     /// The encoding each float stream in the tile carries, in wire order.
     pub fn float_encodings(bytes: &[u8]) -> Vec<FloatLogical> {
-        annotate_tile(bytes)
-            .expect("annotate_tile")
+        annotate(bytes)
             .regions
             .iter()
             .filter_map(|r| r.blob)
