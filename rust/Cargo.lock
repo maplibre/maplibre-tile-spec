@@ -1958,9 +1958,9 @@ checksum = "ef25905e51abafe4dcea6c15fec58c57b601cdbd0ee53d22ea1d3016c587d39b"
 
 [[package]]
 name = "finl_unicode"
-version = "1.4.0"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9844ddc3a6e533d62bba727eb6c28b5d360921d5175e9ff0f1e621a5c590a4d5"
+checksum = "80bb028c8b4148c9ee0cca68fcd9add6044e81d3619f48577ddf13a263d047a2"
 
 [[package]]
 name = "fixedbitset"
@@ -2183,7 +2183,7 @@ dependencies = [
  "i_overlay",
  "log",
  "num-traits",
- "rand 0.10.2",
+ "rand 0.10.3",
  "rand_pcg",
  "robust",
  "rstar 0.12.2",
@@ -3461,7 +3461,7 @@ dependencies = [
 
 [[package]]
 name = "mlt"
-version = "0.1.34"
+version = "0.1.35"
 dependencies = [
  "anyhow",
  "bytes",
@@ -3499,7 +3499,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-core"
-version = "0.14.1"
+version = "0.14.2"
 dependencies = [
  "arbitrary",
  "bitvec",
@@ -3540,7 +3540,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-ffi"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "diplomat",
  "diplomat-runtime",
@@ -3549,7 +3549,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-py"
-version = "0.1.34"
+version = "0.1.35"
 dependencies = [
  "mlt-core",
  "pyo3",
@@ -3570,7 +3570,7 @@ dependencies = [
 
 [[package]]
 name = "mlt-wasm"
-version = "0.1.26"
+version = "0.1.27"
 dependencies = [
  "js-sys",
  "mlt-core",
@@ -4505,7 +4505,7 @@ dependencies = [
  "bytes",
  "getrandom 0.4.3",
  "lru-slab",
- "rand 0.10.2",
+ "rand 0.10.3",
  "rand_pcg",
  "ring",
  "rustc-hash 2.1.3",
@@ -4595,9 +4595,9 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.10.2"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7f5fa3a058cd35567ef9bfa5e75732bee0f9e4c55fa90477bef2dfcdbc4be80"
+checksum = "65c9fb96cbc91e3478eaae79a69fcd3f1ae4ad052e471fe6732fff548984b4af"
 dependencies = [
  "chacha20",
  "getrandom 0.4.3",
@@ -5027,7 +5027,7 @@ dependencies = [
  "http-body-util",
  "pastey",
  "pin-project-lite",
- "rand 0.10.2",
+ "rand 0.10.3",
  "rmcp-macros",
  "schemars",
  "serde",
@@ -6011,7 +6011,7 @@ dependencies = [
  "log",
  "md-5",
  "memchr",
- "rand 0.10.2",
+ "rand 0.10.3",
  "serde",
  "serde_json",
  "sha2 0.11.0",

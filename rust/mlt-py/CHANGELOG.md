@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.35](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.34...python-mlt-v0.1.35) - 2026-09-20
+
+### Other
+
+- make autofix not self-cancel on release labels ([#1729](https://github.com/maplibre/maplibre-tile-spec/pull/1729))
+
 ## [0.1.34](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.1.33...python-mlt-v0.1.34) - 2026-09-18
 
 ### Other
