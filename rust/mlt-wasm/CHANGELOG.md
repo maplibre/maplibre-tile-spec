@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.27](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.26...rust-mlt-wasm-v0.1.27) - 2026-09-20
+
+### Other
+
+- make autofix not self-cancel on release labels ([#1729](https://github.com/maplibre/maplibre-tile-spec/pull/1729))
+
 ## [0.1.26](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.25...rust-mlt-wasm-v0.1.26) - 2026-09-18
 
 ### Other
