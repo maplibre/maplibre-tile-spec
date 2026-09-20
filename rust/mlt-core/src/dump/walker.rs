@@ -76,11 +76,10 @@ impl<'a> Walker<'a> {
     /// Close the container opened at `idx`, ending it at `after`.
     pub(super) fn close(&mut self, idx: usize, after: &'a [u8]) {
         self.depth -= 1;
-        debug_assert_eq!(
-            self.open_containers.pop(),
-            Some(idx),
-            "containers must close innermost first"
-        );
+        // Popped outside the assert: `debug_assert_eq!` drops its arguments in release, which
+        // would leave every closed container open for `seal_partial` to stretch.
+        let closed = self.open_containers.pop();
+        debug_assert_eq!(closed, Some(idx), "containers must close innermost first");
         let start = self.out[idx].offset;
         self.out[idx].len = self.off(after) - start;
     }
