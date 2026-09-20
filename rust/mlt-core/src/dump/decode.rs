@@ -10,7 +10,7 @@ use crate::decoder::RawStream;
 
 /// One data blob decoded for display, capped at the caller's value count.
 ///
-/// [`render`](super::render) formats the same payloads as text.
+/// [`render`](super::render()) formats the same payloads as text.
 /// This is the structured form, for the wasm binding and anything else that lays out its own view.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(
