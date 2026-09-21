@@ -4,7 +4,7 @@ import type {
   VectorTileLayerLike,
   VectorTileLike,
 } from "@maplibre/vt-pbf";
-import { decode_tile as wasmDecodeTile } from "../pkg/mlt_wasm.js";
+import { wasmDecodeTile } from "./wasm";
 
 // ---------------------------------------------------------------------------
 // WASM interface
