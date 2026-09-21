@@ -210,6 +210,14 @@ mod tests {
     }
 
     #[test]
+    fn a_three_decimal_f64_column_takes_no_alp() {
+        let values: Vec<f64> = (0..256)
+            .map(|i| f64::from(i * 7919 % 2_000_000 - 1_000_000) / 1000.0)
+            .collect();
+        assert!(AlpStream::smallest(&values).is_none());
+    }
+
+    #[test]
     fn two_decimal_values_pick_the_smallest_net_exponent() {
         let alp = AlpStream::smallest(&[1.25f64, 100.75, -0.25]).expect("some parameters fit");
         assert_eq!(alp.params.scale.net(), 2);

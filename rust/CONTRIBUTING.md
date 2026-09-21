@@ -6,6 +6,9 @@ Do **not** use bare `cargo` commands; `just` recipes ensure the correct feature 
 
 Before committing, make sure that `just rust::fmt`, `just rust::lint`, and `just rust::test` pass.
 
+The suite runs under [`cargo-nextest`](https://nexte.st), which `just` installs on first use.
+Doc-tests stay on `cargo test`, the only runner that executes them, via `just rust::test-doc`.
+
 | Command                              | Description                                                             |
 |:-------------------------------------|:------------------------------------------------------------------------|
 | `just rust::check`                   | Fast compilation check (no binaries).                                   |

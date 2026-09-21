@@ -156,7 +156,7 @@ When the fuzzer finds an issue, you can reproduce it using the test infrastructu
    ```
 4. Run the test:
    ```bash
-   cargo test
+   cargo nextest run
    ```
 
 This approach allows you to:

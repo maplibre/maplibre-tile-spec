@@ -18,7 +18,7 @@ runs:
   steps:
 
     - uses: taiki-e/install-action@v2
-      with: { tool: 'just,cargo-binstall,cargo-hack,fd-find,cargo-insta,cargo-sort,git-delta' }
+      with: { tool: 'just,cargo-binstall,cargo-hack,cargo-nextest,fd-find,cargo-insta,cargo-sort,git-delta' }
 
     # Install the requested toolchain (stable, nightly, or msrv)
     - if: ${{ inputs.toolchain == 'stable' }}
