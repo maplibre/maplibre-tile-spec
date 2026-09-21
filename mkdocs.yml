@@ -71,13 +71,13 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Overview: overview.md
+  - Implementation Status: implementation-status.md
   - Specification:
       - Overview: specification/index.md
+      - Tile Inspector: inspector/index.md
       - MLT v1: specification/v1.md
       - MLT v2 (experimental): specification/v2.md
       - Encoding Algorithms: encodings.md
-  - Implementation Status: implementation-status.md
-  - Tile Inspector: inspector/index.md
 
 extra:
   social:

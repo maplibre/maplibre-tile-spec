@@ -1,19 +1,12 @@
 <script setup lang="ts">
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  shallowRef,
-  watch,
-} from "vue";
+import { useDropZone } from "@vueuse/core";
+import { computed, nextTick, onMounted, ref, shallowRef, watch } from "vue";
 import {
   type AnnotatedTile,
   annotateTile,
   type DecodedBlob,
 } from "./annotate.ts";
-import { deepLinkSearch, readDeepLink, writeDeepLink } from "./deeplink.ts";
+import { readDeepLink, writeDeepLink } from "./deeplink.ts";
 import {
   type FixtureEntry,
   loadFixture,
@@ -28,9 +21,9 @@ import {
 } from "./hex.ts";
 import RenderControls from "./RenderControls.vue";
 import SourcePicker from "./SourcePicker.vue";
-import { followScheme, isEmbedded } from "./theme.ts";
+import { followScheme } from "./theme.ts";
 
-const embedded = isEmbedded();
+const root = ref<HTMLElement | null>(null);
 const index = ref<FixtureEntry[]>([]);
 const view = ref<ViewState>(defaultView());
 const tile = shallowRef<AnnotatedTile | null>(null);
@@ -38,7 +31,6 @@ const bytes = shallowRef<Uint8Array>(new Uint8Array());
 const fixture = ref<string | null>(null);
 const failure = ref<string | null>(null);
 const selected = ref<number | null>(null);
-const dragging = ref(false);
 
 const whole = computed(() => tile.value?.tree() ?? null);
 const layers = computed(() =>
@@ -105,30 +97,17 @@ async function pickUpload(file: File) {
   }
 }
 
-/** A tile can be dropped anywhere, including onto the hex map of the tile it replaces. */
-function onDragOver(event: DragEvent) {
-  event.preventDefault();
-  dragging.value = true;
-}
+/** The root fills the viewport, so a tile can be dropped anywhere, including onto the hex map. */
+const { isOverDropZone: dragging } = useDropZone(root, {
+  onDrop: (files) => {
+    const file = files?.[0];
+    if (file) void pickUpload(file);
+  },
+});
 
-function onDragLeave(event: DragEvent) {
-  if (event.relatedTarget === null) dragging.value = false;
-}
-
-function onDrop(event: DragEvent) {
-  event.preventDefault();
-  dragging.value = false;
-  const file = event.dataTransfer?.files?.[0];
-  if (file) void pickUpload(file);
-}
-
-let unfollow = () => {};
+followScheme();
 
 onMounted(async () => {
-  window.addEventListener("dragover", onDragOver);
-  window.addEventListener("dragleave", onDragLeave);
-  window.addEventListener("drop", onDrop);
-  unfollow = followScheme();
   const initial = readDeepLink(location.search);
   try {
     index.value = await loadFixtureIndex();
@@ -143,13 +122,6 @@ onMounted(async () => {
   selected.value = initial.region;
 });
 
-onBeforeUnmount(() => {
-  window.removeEventListener("dragover", onDragOver);
-  window.removeEventListener("dragleave", onDragLeave);
-  window.removeEventListener("drop", onDrop);
-  unfollow();
-});
-
 /** Changing the layer renumbers the tree, so a selection cannot survive it. */
 watch(layer, () => {
   selected.value = null;
@@ -161,38 +133,23 @@ const link = computed(() => ({
   region: selected.value,
 }));
 
-/** Standalone is the only route to the widest hex map, so its link carries the current finding. */
-const standalone = computed(
-  () => `${location.pathname}${deepLinkSearch(link.value)}`,
-);
-
 watch(link, (current) => {
   writeDeepLink(current);
 });
 </script>
 
 <template>
-  <div class="app" :class="{ dragging }">
-    <header>
+  <div ref="root" class="app" :class="{ dragging }">
+    <header v-if="tree">
       <SourcePicker
         :index="index"
         :current="fixture"
         @fixture="pickFixture"
         @upload="pickUpload"
       />
-      <RenderControls v-if="tree" v-model="view" :layers="layers" />
-      <a
-        v-if="embedded"
-        class="standalone"
-        :href="standalone"
-        target="_blank"
-        rel="noopener"
-        >open in a full window</a
-      >
+      <RenderControls v-model="view" :layers="layers" />
     </header>
-
     <p v-if="failure" class="failure" role="alert">{{ failure }}</p>
-
     <HexdumpView
       v-if="tree"
       v-model:view="view"
@@ -202,14 +159,15 @@ watch(link, (current) => {
       :decode="decode"
       :error="tile?.error ?? null"
     />
-
-    <!-- A view with no tile cannot render an empty state, so the shell owns this one. -->
     <section v-else class="empty">
-      <h1>Annotated hexdump</h1>
-      <p
-        >Choose a synthetic fixture above, or drop a <code>.mlt</code> tile
-        anywhere on this page.</p
-      >
+      <h1>Inspect MLT internals</h1>
+      <SourcePicker
+        hero
+        :index="index"
+        :current="fixture"
+        @fixture="pickFixture"
+        @upload="pickUpload"
+      />
     </section>
   </div>
 </template>
@@ -219,8 +177,11 @@ watch(link, (current) => {
 :root {
   color-scheme: light;
   --radius: 10px;
+  /* The docs site's two families, loaded from the same Google Fonts URL its pages use. */
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Helvetica, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
   /* Inline byte and tree-row highlights, which `--radius` would round into circles. */
-  --radius-inline: 2px;
+  --radius-inline: 5px;
   /* Gutter of every panel, card and bar. */
   --pad: 1.5rem;
   /* Padding of a row inside a list, and the vertical half of a control. */
@@ -239,41 +200,64 @@ watch(link, (current) => {
   --accent: #bfdcfb;
   --accent-text: #0d2540;
   --accent-rule: #285daa;
-  --container: #8a6414;
-  --value: #17714a;
-  --bits: #8a5d0a;
-  --warn: #a32b2b;
-  --warn-bg: #fae7e7;
+  /* --md-code-hl-keyword / -string / -constant, in the default scheme. */
+  --container: #3f6ec6;
+  --value: #1c7d4d;
+  --bits: #6e59d9;
+  /* The block palette: those three hues plus three more, cycled over the containers. */
+  --hue-0: #3f6ec6;
+  --hue-1: #1c7d4d;
+  --hue-2: #6e59d9;
+  --hue-3: #b26a12;
+  --hue-4: #12808f;
+  --hue-5: #b2437f;
+  /* How much of a hue a block tint carries, low enough to stay under the text on top of it. */
+  --tint: 15%;
+  --warn: #d52a2a;
+  --warn-bg: #fbeaea;
   --backdrop: #0f172a59;
 }
+/* The site's own slate tokens: three surfaces, one foreground ramp, one highlight. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #111725;
-  --panel: #161e30;
-  --control: #1b2437;
-  --line: #26304a;
-  --text: #d3e2ef;
-  --muted: #7386a1;
-  --dim: #4e5f7a;
-  --blob: #96aec4;
-  --faded: #3a4761;
-  --rule: #3b4c5e;
-  --hover: #1c2639;
-  --accent: #2e4f70;
-  --accent-text: #eaf4ff;
-  --accent-rule: #6fa8dc;
-  --container: #e8d9a0;
-  --value: #7fd6a0;
-  --bits: #d9a441;
-  --warn: #e5a0a0;
-  --warn-bg: #3a1b1b;
-  --backdrop: #0009;
+  /* --color-backdrop / --color-background / --color-background-subtle, the last of which is also the hover. */
+  --bg: #0b0c0f;
+  --panel: #16171a;
+  --control: #212226;
+  --hover: #212226;
+  /* --md-default-fg-color flattened onto the backdrop, at .12/.20/.28/.40/.56/.82. */
+  --line: #252629;
+  --faded: #36373b;
+  --rule: #47484c;
+  --dim: #616266;
+  --muted: #838589;
+  --text: #bbbdc2;
+  /* --md-code-fg-color's hue and saturation, dropped to sit under --text. */
+  --blob: #8b94b1;
+  /* --md-typeset-mark-color flattened, which is what the site highlights a run with. */
+  --accent: #1c3157;
+  --accent-text: #ffffff;
+  --accent-rule: #568ad6;
+  /* The same three --md-code-hl-* roles, in slate's values. */
+  --container: #6791e0;
+  --value: #2fb170;
+  --bits: #9383e2;
+  --hue-0: #6791e0;
+  --hue-1: #2fb170;
+  --hue-2: #9383e2;
+  --hue-3: #d0913a;
+  --hue-4: #3fb0c0;
+  --hue-5: #dd74ad;
+  --tint: 18%;
+  --warn: #e6695b;
+  --warn-bg: #2c1a1a;
+  --backdrop: #0b0c0fcc;
 }
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: ui-monospace, "SF Mono", "JetBrains Mono", monospace;
+  font-family: var(--font);
 }
 .sr-only {
   position: absolute;
@@ -309,13 +293,6 @@ header > * {
   flex: 0 0 auto;
   min-width: 0;
 }
-/* The embedded app is capped at 32 hex columns, so the way out sits in the header's far corner. */
-.standalone {
-  margin-left: auto;
-  color: var(--muted);
-  font-size: 0.78rem;
-  white-space: nowrap;
-}
 .failure {
   margin: 0;
   padding: var(--pad-tight) var(--pad);
@@ -323,23 +300,20 @@ header > * {
   color: var(--warn);
   font-size: 0.78rem;
 }
+/* No tile is loaded, so the whole page is the picker rather than a bar above one. */
 .empty {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.6rem;
+  gap: 0.8rem;
+  padding: var(--pad);
+  overflow: auto;
   text-align: center;
 }
 .empty h1 {
-  font:
-    600 1.1rem / 1.2 system-ui,
-    sans-serif;
-  margin: 0;
-}
-.empty p {
-  color: var(--muted);
+  font: 600 1.5rem / 1.2 var(--font);
   margin: 0;
 }
 </style>

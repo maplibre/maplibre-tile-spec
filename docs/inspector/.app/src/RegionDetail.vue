@@ -73,6 +73,12 @@ const note = computed(() => {
     : `${blob.values.length} of ${blob.truncatedFrom} values`;
 });
 
+const span = computed(() => {
+  const at = region.value;
+  if (!at) return "";
+  return `${hex8(at.offset)} ... ${hex8(at.offset + at.len - 1)} (${at.len} B)`;
+});
+
 const byte = computed(() =>
   region.value ? props.bytes[region.value.offset] : 0,
 );
@@ -84,14 +90,11 @@ const byte = computed(() =>
       <nav v-if="path.length">{{ path.join(" › ") }}</nav>
       <h2>
         {{ region.label }}
-        <em v-if="!props.sticky">hovering</em>
+        <em v-if="!props.sticky">click to pin</em>
       </h2>
       <dl>
         <dt>bytes</dt>
-        <dd>
-          {{ hex8(region.offset) }}
-          … {{ hex8(region.offset + region.len - 1) }} · {{ region.len }} B
-        </dd>
+        <dd>{{ span }}</dd>
         <template v-if="region.container">
           <dt>holds</dt>
           <dd>{{ childCount }} regions</dd>
@@ -106,12 +109,14 @@ const byte = computed(() =>
           <dt>encoding</dt>
           <dd>{{ region.blob.logical }} / {{ region.blob.physical }}</dd>
           <dt>values</dt>
-          <dd>{{ region.blob.numValues }} · {{ region.blob.hint.kind }}</dd>
+          <dd>{{ region.blob.numValues }}</dd>
+          <dt>decodes</dt>
+          <dd>{{ region.blob.hint.kind }}</dd>
         </template>
       </dl>
 
       <template v-if="region.bits.length">
-        <h3>bits of {{ hex2(byte) }}</h3>
+        <h3>bits of 0x{{ hex2(byte) }}</h3>
         <div v-for="field in region.bits" :key="field.hi" class="bitrow">
           <span class="bits"
             ><i
@@ -134,42 +139,39 @@ const byte = computed(() =>
         </div>
       </template>
     </template>
-    <p v-else class="idle">Hover a byte, or walk the regions with ↑ / ↓.</p>
+    <p v-else class="idle">
+      Hover a byte, or walk the regions with the arrow keys.
+    </p>
   </div>
 </template>
 
 <style scoped>
-/* flex-shrink stays 0: the region tree below must not squeeze this card down to its first line. */
+/* A fixed share rather than fit-to-content, so the tree below does not move as the pointer travels. */
 .detail {
+  box-sizing: border-box;
   padding: var(--pad);
   overflow: auto;
-  flex: 0 0 auto;
-  max-height: 58%;
+  flex: 0 0 30%;
   font-size: 0.76rem;
 }
 nav {
   color: var(--dim);
+  font-family: var(--mono);
   font-size: 0.7rem;
 }
 h2 {
-  font:
-    600 0.92rem / 1.3 ui-monospace,
-    monospace;
+  font: 600 0.92rem / 1.3 var(--mono);
   color: var(--container);
   margin: 0.05rem 0 0.45rem;
 }
 h2 em {
   color: var(--dim);
-  font:
-    400 0.68rem / 1 system-ui,
-    sans-serif;
+  font: 400 0.68rem / 1 var(--font);
   vertical-align: middle;
   margin-left: 0.35rem;
 }
 h3 {
-  font:
-    600 0.7rem / 1.4 system-ui,
-    sans-serif;
+  font: 600 0.7rem / 1.4 var(--font);
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -193,6 +195,7 @@ dt {
 dd {
   margin: 0;
   color: var(--text);
+  font-family: var(--mono);
 }
 dd.value {
   color: var(--value);
@@ -202,6 +205,9 @@ dd.value {
   gap: 0.55rem;
   align-items: baseline;
   line-height: 1.5;
+}
+.bits {
+  font-family: var(--mono);
 }
 .bits i {
   font-style: normal;
@@ -216,6 +222,7 @@ dd.value {
 }
 .values i {
   display: inline-block;
+  font-family: var(--mono);
   font-style: normal;
   color: var(--value);
   margin: 0 0.35rem 0.12rem 0;

@@ -6,6 +6,7 @@ import {
   groupFixtures,
   loadFixture,
   loadFixtureIndex,
+  starterFixtures,
 } from "./fixtures.ts";
 
 const entry: FixtureEntry = {
@@ -92,9 +93,27 @@ describe("groupFixtures", () => {
 
   it("orders by directory, then prefix, then name", () => {
     expect(groupFixtures(entries)).toEqual([
-      { label: "0x01 \u00b7 extent", entries: [entries[2]] },
-      { label: "0x01 \u00b7 ids", entries: [entries[3], entries[1]] },
-      { label: "0x02 \u00b7 point", entries: [entries[0]] },
+      { label: "0x01/extent", entries: [entries[2]] },
+      { label: "0x01/ids", entries: [entries[3], entries[1]] },
+      { label: "0x02/point", entries: [entries[0]] },
     ]);
+  });
+});
+
+describe("starterFixtures", () => {
+  it("keeps the starters the index carries", () => {
+    expect(
+      starterFixtures([{ name: "point.mlt", directory: "0x02", bytes: 21 }]),
+    ).toEqual([
+      {
+        key: "0x02/point.mlt",
+        title: "a single point",
+        note: "the smallest tile there is",
+      },
+    ]);
+  });
+
+  it("offers nothing from an index that carries no starter", () => {
+    expect(starterFixtures([entry])).toEqual([]);
   });
 });

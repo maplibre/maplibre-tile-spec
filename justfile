@@ -54,10 +54,10 @@ test: test-int
 # Run integration tests, ensuring that the output matches the expected output
 test-int: _clean-int-test _test-run-int (_diff-dirs "test/output" "test/expected")
 
-docs:
+docs: inspector::build
     docker run --rm -it -p 8000:8000 -v ${PWD}:/docs zensical/zensical:latest
 
-docs-build:
+docs-build: rust::wasm-build inspector::build
     docker run --rm -v ${PWD}:/docs zensical/zensical:latest build
 
 # Merge the lcov and JaCoCo coverage reports in `dir` into one Cobertura report at `out`

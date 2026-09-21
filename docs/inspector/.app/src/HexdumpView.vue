@@ -1,8 +1,16 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useEventListener, useResizeObserver } from "@vueuse/core";
+import { computed, onMounted, ref, watch } from "vue";
 import type { DecodedBlob, DumpTree } from "./annotate.ts";
 import HexMap from "./HexMap.vue";
-import { byteOwners, fitColumns, leafStep, type ViewState } from "./hex.ts";
+import {
+  byteOwners,
+  fitColumns,
+  leafStep,
+  regionBands,
+  showsSections,
+  type ViewState,
+} from "./hex.ts";
 import RegionDetail from "./RegionDetail.vue";
 import RegionTree from "./RegionTree.vue";
 
@@ -23,6 +31,10 @@ const hovered = ref<number | null>(null);
 
 const activeIndex = computed(() => selected.value ?? hovered.value);
 const owners = computed(() => byteOwners(props.tree));
+/** Shared by the map and the tree, so a row and its bytes take the same tint from one walk. */
+const bands = computed(() =>
+  showsSections(view.value) ? regionBands(props.tree) : null,
+);
 
 /** Set when this component moved the selection, so an outside change still scrolls the map. */
 let picked: number | null = null;
@@ -52,13 +64,21 @@ function consumesArrows(element: Element | null): boolean {
   );
 }
 
-/** ↑ / ↓ walk the leaves, on the window so they work before the map is ever clicked. */
+/** Both axes walk the same one-dimensional list of leaves. */
+const ARROW_STEPS = new Map([
+  ["ArrowDown", 1],
+  ["ArrowRight", 1],
+  ["ArrowUp", -1],
+  ["ArrowLeft", -1],
+]);
+
+/** The arrows walk the leaves, on the window so they work before the map is ever clicked. */
 function onKey(event: KeyboardEvent) {
-  if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+  const step = ARROW_STEPS.get(event.key);
+  if (step === undefined) return;
   if (document.activeElement?.closest("dialog[open]")) return;
   if (consumesArrows(document.activeElement)) return;
   event.preventDefault();
-  const step = event.key === "ArrowDown" ? 1 : -1;
   const from =
     selected.value ??
     hovered.value ??
@@ -71,21 +91,12 @@ function refit() {
   if (root.value) view.value.width = fitColumns(root.value.clientWidth);
 }
 
-let observer: ResizeObserver | null = null;
+useEventListener(window, "keydown", onKey);
+useResizeObserver(root, refit);
 
 onMounted(() => {
-  window.addEventListener("keydown", onKey);
-  if (root.value) {
-    observer = new ResizeObserver(refit);
-    observer.observe(root.value);
-  }
   refit();
   if (selected.value !== null) show(selected.value);
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener("keydown", onKey);
-  observer?.disconnect();
 });
 </script>
 
@@ -102,6 +113,7 @@ onBeforeUnmount(() => {
           :tree="props.tree"
           :bytes="props.bytes"
           :owners="owners"
+          :bands="bands"
           :view="view"
           :active-index="activeIndex"
           @hover="hovered = $event"
@@ -121,6 +133,7 @@ onBeforeUnmount(() => {
           ref="regions"
           :tree="props.tree"
           :active-index="activeIndex"
+          :bands="bands"
           @hover="hovered = $event"
           @pick="select($event, true)"
         />
@@ -135,6 +148,9 @@ onBeforeUnmount(() => {
   flex-direction: column;
   min-height: 0;
   flex: 1;
+}
+.walk-error code {
+  font-family: var(--mono);
 }
 .walk-error {
   margin: 0;

@@ -40,7 +40,7 @@ export function fixturePrefix(name: string): string {
   return name.replace(/\.mlt$/, "").split("_")[0];
 }
 
-/** The picker's `<dir> · <prefix>` groups, ordered directory, then prefix, then name. */
+/** The picker's `<dir>/<prefix>` groups, ordered directory, then prefix, then name. */
 export function groupFixtures(entries: FixtureEntry[]): FixtureGroup[] {
   const groups = new Map<string, FixtureEntry[]>();
   const sorted = [...entries].sort(
@@ -50,7 +50,7 @@ export function groupFixtures(entries: FixtureEntry[]): FixtureGroup[] {
       compare(a.name, b.name),
   );
   for (const entry of sorted) {
-    const label = `${entry.directory} · ${fixturePrefix(entry.name)}`;
+    const label = `${entry.directory}/${fixturePrefix(entry.name)}`;
     const group = groups.get(label);
     if (group) group.push(entry);
     else groups.set(label, [entry]);
@@ -60,4 +60,40 @@ export function groupFixtures(entries: FixtureEntry[]): FixtureGroup[] {
 
 function compare(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/** One of the few tiles the empty state offers by hand, ahead of the whole index. */
+export interface Starter {
+  key: string;
+  title: string;
+  note: string;
+}
+
+const STARTERS: Starter[] = [
+  {
+    key: "0x02/point.mlt",
+    title: "a single point",
+    note: "the smallest tile there is",
+  },
+  {
+    key: "0x02/mix_5_pt_line_poly_mpt_mline.mlt",
+    title: "five geometry kinds",
+    note: "point through multi-line, in one layer",
+  },
+  {
+    key: "0x02/props_str_fsst.mlt",
+    title: "compressed strings",
+    note: "an FSST-coded property column",
+  },
+  {
+    key: "0x02/nested_struct.mlt",
+    title: "nested properties",
+    note: "a struct column and its field tree",
+  },
+];
+
+/** The starters this index carries, so a renamed fixture drops out instead of 404ing. */
+export function starterFixtures(index: FixtureEntry[]): Starter[] {
+  const keys = new Set(index.map(fixtureKey));
+  return STARTERS.filter((starter) => keys.has(starter.key));
 }

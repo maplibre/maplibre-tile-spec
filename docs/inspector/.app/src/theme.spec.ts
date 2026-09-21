@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { followScheme, isEmbedded, resolveScheme } from "./theme.ts";
+import { followScheme, resolveScheme } from "./theme.ts";
 
 /** A same-origin parent the bridge can read and observe, which jsdom cannot hand over as a window. */
 function docsPage(scheme: string | null) {
@@ -24,17 +24,6 @@ function delivered() {
 afterEach(() => {
   vi.unstubAllGlobals();
   delete document.documentElement.dataset.theme;
-});
-
-describe("isEmbedded", () => {
-  it("is false when the app owns its window", () => {
-    expect(isEmbedded()).toBe(false);
-  });
-
-  it("is true once a parent window is above it", () => {
-    vi.stubGlobal("parent", docsPage("slate"));
-    expect(isEmbedded()).toBe(true);
-  });
 });
 
 describe("resolveScheme", () => {

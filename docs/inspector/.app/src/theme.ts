@@ -1,15 +1,12 @@
 /** The palette the app paints, which follows the docs page's toggle while embedded in one. */
 
+import { useEventListener, useMutationObserver } from "@vueuse/core";
+
 export type Scheme = "dark" | "light";
 
 /** What the bridge reads of the parent, so a test can hand it a document instead of a window. */
 export interface DocsParent {
   document: Document;
-}
-
-/** True while the app runs inside the docs page's iframe. */
-export function isEmbedded(): boolean {
-  return window.parent !== window;
 }
 
 /** The docs page's scheme, or the reader's OS preference when there is no readable parent. */
@@ -33,24 +30,18 @@ export function followScheme(
 ): () => void {
   const update = () => applyScheme(resolveScheme(parent));
   update();
-  const media = matchMedia("(prefers-color-scheme: dark)");
-  media.addEventListener("change", update);
-  const observer = observeParent(parent, update);
+  const unlisten = useEventListener(
+    matchMedia("(prefers-color-scheme: dark)"),
+    "change",
+    update,
+  );
+  const { stop } = useMutationObserver(parentBody(parent), update, {
+    attributeFilter: ["data-md-color-scheme"],
+  });
   return () => {
-    media.removeEventListener("change", update);
-    observer?.disconnect();
+    unlisten();
+    stop();
   };
-}
-
-function observeParent(
-  parent: DocsParent | Window,
-  update: () => void,
-): MutationObserver | null {
-  const body = parentBody(parent);
-  if (body === null) return null;
-  const observer = new MutationObserver(update);
-  observer.observe(body, { attributeFilter: ["data-md-color-scheme"] });
-  return observer;
 }
 
 /** The docs palette resolves its auto state before writing the attribute, so this is never auto. */

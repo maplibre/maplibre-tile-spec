@@ -5,8 +5,8 @@ import type { DumpTree, Region } from "./annotate.ts";
 /** Label of the synthetic leaf covering the bytes a bailed-out walk never reached. */
 export const UNANNOTATED = "<unannotated>";
 
-/** How much of a data blob the map draws brightly, and what the detail pane decodes. */
-export type DataMode = "both" | "blob" | "decoded" | "hidden";
+/** How much of a data blob the map draws brightly, and whether it tints the sections. */
+export type AnnotateMode = "sections" | "both" | "blob" | "decoded" | "hidden";
 
 /** Bytes of a data blob the map draws brightly, which is enough to find the blob and not read it. */
 export const MAX_BLOB = 1;
@@ -15,7 +15,7 @@ export const MAX_BLOB = 1;
 export interface ViewState {
   /** Hex columns per row, fitted to the pane rather than chosen. */
   width: number;
-  dataMode: DataMode;
+  annotate: AnnotateMode;
   layer: number | null;
 }
 
@@ -23,7 +23,7 @@ export interface ViewState {
 export function defaultView(): ViewState {
   return {
     width: 16,
-    dataMode: "both",
+    annotate: "both",
     layer: null,
   };
 }
@@ -40,12 +40,22 @@ export function printable(byte: number): string {
   return byte >= 0x20 && byte <= 0x7e ? String.fromCharCode(byte) : ".";
 }
 
+/** Row height in pixels, which HexMap's stylesheet pins and its virtualizer counts in. */
+export const ROW = 26;
+
+/** Width of one hex cell, and of one ascii glyph, at the map's 0.74rem mono. */
+const CELL = 23.2;
+const GLYPH = 7.1;
+
+/** The offset gutter, the ascii margin, the map's own padding and the detail pane beside it. */
+const CHROME = 468;
+
 /**
  * Hex columns that fill a pane of `paneWidth` pixels, fitted in #15 at 976, 1300 and 1700 px.
  * A terminal is 80 columns wide, a browser is not, so the row follows the pane instead.
  */
 export function fitColumns(paneWidth: number): number {
-  const cols = (4 * (paneWidth - 800)) / 100 + 12;
+  const cols = (paneWidth - CHROME) / (CELL + GLYPH);
   return Math.min(64, Math.max(8, Math.floor(cols / 4) * 4));
 }
 
@@ -57,6 +67,34 @@ export function byteOwners(tree: DumpTree): Int32Array {
     owners.fill(index, region.offset, region.offset + region.len);
   });
   return owners;
+}
+
+/** Block tints the map and the tree cycle over, which is enough that neighbouring bands differ. */
+export const BLOCKS = 6;
+
+/**
+ * Band per region, counted over the containers in pre-order.
+ * A leaf takes the band of the container holding it, so a block and its scalars paint as one.
+ * The count does not wrap, so two bands that touch stay apart once the tint has cycled.
+ */
+export function regionBands(tree: DumpTree): Int32Array {
+  const bands = new Int32Array(tree.regions.length).fill(-1);
+  const open: number[] = [];
+  let next = 0;
+  tree.regions.forEach((region, index) => {
+    if (region.container) {
+      open[region.depth] = next++;
+      bands[index] = open[region.depth];
+    } else if (region.depth > 0) {
+      bands[index] = open[region.depth - 1] ?? -1;
+    }
+  });
+  return bands;
+}
+
+/** Palette slot of a band, or -1 for a region no container holds. */
+export function bandTint(band: number): number {
+  return band < 0 ? -1 : band % BLOCKS;
 }
 
 /** Enclosing container labels, outermost first, found by walking back up the depths. */
@@ -96,14 +134,23 @@ export function layerLabels(tree: DumpTree): string[] {
 /** Offset from which a blob's bytes are drawn faded, which is what `data` means to a map that never drops a row. */
 export function fadedFrom(region: Region, view: ViewState): number {
   if (region.kind !== "dataBlob") return Number.POSITIVE_INFINITY;
-  if (view.dataMode === "hidden" || view.dataMode === "decoded")
+  if (view.annotate === "hidden" || view.annotate === "decoded")
     return region.offset;
   return region.offset + MAX_BLOB;
 }
 
 /** Whether the detail pane asks for decoded values at all. */
 export function showsDecoded(view: ViewState): boolean {
-  return view.dataMode === "both" || view.dataMode === "decoded";
+  return (
+    view.annotate === "sections" ||
+    view.annotate === "both" ||
+    view.annotate === "decoded"
+  );
+}
+
+/** Whether the map and the tree tint each section, which is what `sections` adds to `both`. */
+export function showsSections(view: ViewState): boolean {
+  return view.annotate === "sections";
 }
 
 /**

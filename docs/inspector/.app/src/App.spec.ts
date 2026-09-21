@@ -69,7 +69,46 @@ describe("the empty state", () => {
     serve();
     const app = mount(App);
     await flushPromises();
-    expect(app.get(".empty h1").text()).toBe("Annotated hexdump");
+    expect(app.get(".empty h1").text()).toBe("Inspect MLT internals");
+  });
+
+  it("counts the catalogue on the button that opens the sheet", async () => {
+    serve();
+    const app = mount(App);
+    await flushPromises();
+    expect(app.get("button.open").text()).toBe(
+      "Browse one of 2 synthetic fixtures",
+    );
+  });
+
+  it("omits the count while the index is still in flight", async () => {
+    serve();
+    const app = mount(App);
+    expect(app.get("button.open").text()).toBe("Browse the synthetic fixtures");
+    await flushPromises();
+  });
+
+  it("hides the starter cards when the index carries none of them", async () => {
+    serve();
+    const app = mount(App);
+    await flushPromises();
+    expect(app.find(".starters").exists()).toBe(false);
+  });
+
+  it("loads the tile a starter card names", async () => {
+    const fetched = vi.fn(async (url: string) =>
+      url === "fixtures.json"
+        ? Response.json([{ name: "point.mlt", directory: "0x02", bytes: 21 }])
+        : new Response(new Uint8Array(8)),
+    );
+    vi.stubGlobal("fetch", fetched);
+    const app = mount(App);
+    await flushPromises();
+    expect(app.get(".starter .title").text()).toBe("a single point");
+    await app.get("button.starter").trigger("click");
+    await flushPromises();
+    expect(fetched).toHaveBeenCalledWith("fixtures/0x02/point.mlt");
+    expect(app.get("button.open").text()).toBe("0x02/point.mlt");
   });
 
   it("offers every indexed fixture once the sheet is open", async () => {
@@ -78,8 +117,8 @@ describe("the empty state", () => {
     await flushPromises();
     await app.get("button.open").trigger("click");
     expect(app.findAll("dialog h3").map((group) => group.text())).toEqual([
-      "0x01 · point",
-      "0x02 · line",
+      "0x01/point",
+      "0x02/line",
     ]);
   });
 
@@ -149,6 +188,52 @@ describe("loading a fixture", () => {
   });
 });
 
+/** jsdom has no DragEvent, and the drop zone reads only `items` and `files` off the transfer. */
+function dragging(kind: string, file: File | null): Event {
+  const event = new Event(kind, { bubbles: true });
+  Object.defineProperty(event, "dataTransfer", {
+    value: {
+      items: file === null ? [] : [{ kind: "file", type: file.type }],
+      files: file === null ? [] : [file],
+    },
+  });
+  return event;
+}
+
+describe("a dropped tile", () => {
+  it("marks the app while a tile is over it", async () => {
+    serve();
+    const app = mount(App);
+    await flushPromises();
+    app.element.dispatchEvent(dragging("dragenter", new File([], "own.mlt")));
+    await flushPromises();
+    expect(app.classes()).toContain("dragging");
+  });
+
+  it("annotates the tile the drop carries and unmarks the app", async () => {
+    serve();
+    const app = mount(App);
+    await flushPromises();
+    const file = new File([new Uint8Array(8)], "own.mlt");
+    app.element.dispatchEvent(dragging("dragenter", file));
+    await flushPromises();
+    expect(app.classes()).toContain("dragging");
+    app.element.dispatchEvent(dragging("drop", file));
+    await flushPromises();
+    expect(annotateTile).toHaveBeenCalledOnce();
+    expect(app.classes()).not.toContain("dragging");
+  });
+
+  it("stays put when the drop carries no file", async () => {
+    serve();
+    const app = mount(App);
+    await flushPromises();
+    app.element.dispatchEvent(dragging("drop", null));
+    await flushPromises();
+    expect(annotateTile).not.toHaveBeenCalled();
+  });
+});
+
 describe("the deep link", () => {
   it("carries the fixture and the selected region", async () => {
     serve();
@@ -171,26 +256,6 @@ describe("the deep link", () => {
       .vm.$emit("upload", new File([new Uint8Array(8)], "own.mlt"));
     await flushPromises();
     expect(location.search).toBe("");
-  });
-});
-
-describe("the standalone link", () => {
-  it("stays out of the header while the app owns its window", async () => {
-    serve();
-    const app = mount(App);
-    await flushPromises();
-    expect(app.find("a.standalone").exists()).toBe(false);
-  });
-
-  it("carries the embedded app's fixture out to a full window", async () => {
-    serve();
-    vi.stubGlobal("parent", {});
-    history.replaceState(null, "", "/?fixture=0x01/point.mlt");
-    const app = mount(App);
-    await flushPromises();
-    expect(app.get("a.standalone").attributes("href")).toBe(
-      "/?fixture=0x01%2Fpoint.mlt",
-    );
   });
 });
 

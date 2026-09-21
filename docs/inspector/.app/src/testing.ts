@@ -51,3 +51,26 @@ export function tinyTree(last = "data"): DumpTree {
 export const TINY_BYTES = new Uint8Array([
   0x77, 0x61, 0x20, 0x01, 0x02, 0x03, 0x04, 0x05,
 ]);
+
+/** Six sibling containers under one layer, which is one more than the six-slot tint has. */
+export function wrappedTree(): DumpTree {
+  return {
+    bufLen: 7,
+    regions: [
+      region({ offset: 0, len: 7, label: "layer[0]", container: true }),
+      ...Array.from({ length: 6 }, (_, at) => [
+        region({
+          offset: at,
+          len: 1,
+          label: `column[${at}]`,
+          depth: 1,
+          container: true,
+        }),
+        region({ offset: at, len: 1, label: "present", depth: 2 }),
+      ]).flat(),
+      region({ offset: 6, len: 1, label: "trailer", depth: 1 }),
+    ],
+  };
+}
+
+export const WRAPPED_BYTES = new Uint8Array(7).fill(0x41);

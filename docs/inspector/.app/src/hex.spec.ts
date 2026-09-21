@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
+  type AnnotateMode,
   ancestors,
+  bandTint,
   byteOwners,
   defaultView,
   fadedFrom,
   fitColumns,
   hex8,
   leafStep,
+  regionBands,
   regionPath,
+  showsDecoded,
+  showsSections,
   wholeIndices,
 } from "./hex.ts";
 import { region, tinyTree } from "./testing.ts";
@@ -19,12 +24,12 @@ describe("fitColumns", () => {
     expect(fitColumns(976)).toBe(16);
   });
 
-  it("fits 32 columns into an uncapped page", () => {
-    expect(fitColumns(1300)).toBe(32);
+  it("fits 24 columns into an uncapped page", () => {
+    expect(fitColumns(1300)).toBe(24);
   });
 
-  it("fits 48 columns into a standalone 1700px window", () => {
-    expect(fitColumns(1700)).toBe(48);
+  it("fits 40 columns into a standalone 1700px window", () => {
+    expect(fitColumns(1700)).toBe(40);
   });
 
   it("clamps a narrow pane to eight columns", () => {
@@ -47,6 +52,68 @@ describe("byteOwners", () => {
       regions: [region({ offset: 0, len: 2, label: "name" })],
     };
     expect([...byteOwners(partial)]).toEqual([0, 0, -1, -1]);
+  });
+});
+
+describe("regionBands", () => {
+  it("counts a band per container and hands it to their leaves", () => {
+    expect([...regionBands(tree)]).toEqual([0, 0, 1, 1, 1]);
+  });
+
+  it("keeps counting past the sixth container, where the tint wraps", () => {
+    const nested = {
+      bufLen: 7,
+      regions: Array.from({ length: 7 }, (_, depth) =>
+        region({
+          offset: 0,
+          len: 7 - depth,
+          label: `c${depth}`,
+          depth,
+          container: true,
+        }),
+      ),
+    };
+    expect([...regionBands(nested)]).toEqual([0, 1, 2, 3, 4, 5, 6]);
+  });
+
+  it("parts a leaf from the seventh container it touches", () => {
+    const wrapped = {
+      bufLen: 7,
+      regions: [
+        region({ offset: 0, len: 7, label: "layer[0]", container: true }),
+        ...Array.from({ length: 6 }, (_, at) =>
+          region({
+            offset: at,
+            len: 1,
+            label: `c${at}`,
+            depth: 1,
+            container: true,
+          }),
+        ),
+        region({ offset: 6, len: 1, label: "tail", depth: 1 }),
+      ],
+    };
+    const bands = regionBands(wrapped);
+    expect(bandTint(bands[6])).toBe(bandTint(bands[7]));
+    expect(bands[6]).not.toBe(bands[7]);
+  });
+
+  it("leaves a top-level leaf untinted", () => {
+    const flat = {
+      bufLen: 2,
+      regions: [region({ offset: 0, len: 2, label: "name" })],
+    };
+    expect([...regionBands(flat)]).toEqual([-1]);
+  });
+});
+
+describe("bandTint", () => {
+  it("cycles the palette over the bands", () => {
+    expect([0, 5, 6, 7].map(bandTint)).toEqual([0, 5, 0, 1]);
+  });
+
+  it("leaves a bandless region untinted", () => {
+    expect(bandTint(-1)).toBe(-1);
   });
 });
 
@@ -79,14 +146,35 @@ describe("fadedFrom", () => {
 
   it("fades a whole blob that the data knob hides", () => {
     expect(
-      fadedFrom(tree.regions[4], { ...defaultView(), dataMode: "hidden" }),
+      fadedFrom(tree.regions[4], { ...defaultView(), annotate: "hidden" }),
     ).toBe(3);
   });
 
   it("fades the raw bytes the data knob replaces with decoded values", () => {
     expect(
-      fadedFrom(tree.regions[4], { ...defaultView(), dataMode: "decoded" }),
+      fadedFrom(tree.regions[4], { ...defaultView(), annotate: "decoded" }),
     ).toBe(3);
+  });
+});
+
+const MODES: AnnotateMode[] = ["sections", "both", "blob", "decoded", "hidden"];
+
+describe("the annotate knob", () => {
+  it("asks for decoded values everywhere but blob and hidden", () => {
+    expect(
+      MODES.filter((annotate) => showsDecoded({ ...defaultView(), annotate })),
+    ).toEqual(["sections", "both", "decoded"]);
+  });
+
+  it("tints the sections in the one mode named for them", () => {
+    expect(
+      MODES.filter((annotate) => showsSections({ ...defaultView(), annotate })),
+    ).toEqual(["sections"]);
+  });
+
+  it("starts on both, which tints nothing", () => {
+    expect(defaultView().annotate).toBe("both");
+    expect(showsSections(defaultView())).toBe(false);
   });
 });
 

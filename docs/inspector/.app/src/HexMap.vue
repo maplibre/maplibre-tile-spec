@@ -1,23 +1,26 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { useElementSize, useScroll } from "@vueuse/core";
+import { computed, ref } from "vue";
 import type { DumpTree } from "./annotate.ts";
 import {
+  bandTint,
   fadedFrom,
   hex2,
   hex8,
   printable,
+  ROW,
   UNANNOTATED,
   type ViewState,
 } from "./hex.ts";
 
-/** Row height in pixels, which the stylesheet below pins and the virtualizer counts in. */
-const ROW = 19;
 const OVERSCAN = 8;
 
 const props = defineProps<{
   tree: DumpTree;
   bytes: Uint8Array;
   owners: Int32Array;
+  /** Band per region, or null while the section knob is off. */
+  bands: Int32Array | null;
   view: ViewState;
   activeIndex: number | null;
 }>();
@@ -28,8 +31,13 @@ const emit = defineEmits<{
 
 const scroller = ref<HTMLElement | null>(null);
 let hovered: number | null = null;
-const scrollTop = ref(0);
-const viewportHeight = ref(600);
+const { y: scrollTop } = useScroll(scroller);
+/** Border-box, so the height keeps counting the padding the rows scroll through. */
+const { height: viewportHeight } = useElementSize(
+  scroller,
+  { width: 0, height: 600 },
+  { box: "border-box" },
+);
 
 const rowCount = computed(() =>
   Math.ceil(props.tree.bufLen / props.view.width),
@@ -44,15 +52,29 @@ const slice = computed(() => {
 interface Cell {
   hex: string;
   owner: number;
+  /** Band this byte sits in, or -1 where no container holds it. */
+  band: number;
   starts: boolean;
   faded: boolean;
+  opens: boolean;
+  closes: boolean;
 }
 
 interface Row {
   n: number;
   offset: number;
   cells: Cell[];
+  /** Blank cells the short last row needs to keep the ascii column under the one above. */
+  pad: number;
   ascii: string;
+}
+
+/** Band of the byte at `at`, or -1 past either end of the row and while the knob is off. */
+function bandAt(at: number, offset: number, end: number): number {
+  const bands = props.bands;
+  if (bands === null || at < offset || at >= end) return -1;
+  const owner = props.owners[at];
+  return owner < 0 ? -1 : bands[owner];
 }
 
 const rows = computed<Row[]>(() => {
@@ -65,15 +87,19 @@ const rows = computed<Row[]>(() => {
     for (let at = offset; at < end; at++) {
       const owner = props.owners[at];
       const region = props.tree.regions[owner];
+      const band = bandAt(at, offset, end);
       cells.push({
         hex: hex2(props.bytes[at]),
         owner,
+        band,
         starts: region !== undefined && at === region.offset,
         faded: region !== undefined && at >= fadedFrom(region, props.view),
+        opens: band !== bandAt(at - 1, offset, end),
+        closes: band !== bandAt(at + 1, offset, end),
       });
       ascii += printable(props.bytes[at]);
     }
-    out.push({ n, offset, cells, ascii });
+    out.push({ n, offset, cells, pad: props.view.width - cells.length, ascii });
   }
   return out;
 });
@@ -84,24 +110,34 @@ const active = computed(() =>
     : (props.tree.regions[props.activeIndex] ?? null),
 );
 
-/** A container owns no bytes of its own, so it lights the whole span it brackets. */
-function lit(owner: number, at: number): boolean {
-  const region = active.value;
-  if (!region) return false;
-  if (region.container)
-    return at >= region.offset && at < region.offset + region.len;
-  return owner === props.activeIndex;
-}
+/** Byte range the active region lights, which for a container is the whole span it brackets. */
+const litSpan = computed<[number, number] | null>(() =>
+  active.value
+    ? [active.value.offset, active.value.offset + active.value.len]
+    : null,
+);
 
-function classOf(cell: Cell, at: number): Record<string, boolean> {
+/**
+ * Only the two ends of a run round off, so a span of bytes reads as one band.
+ * A run that outlasts the row rounds at the row's ends too, since it resumes on the next.
+ */
+function classOf(row: Row, n: number): Record<string, boolean> {
+  const cell = row.cells[n];
+  const at = row.offset + n;
+  const span = litSpan.value;
   const region = props.tree.regions[cell.owner];
+  const on = span !== null && at >= span[0] && at < span[1];
   return {
     meta: region?.kind === "meta",
     blob: region?.kind === "dataBlob",
     unannotated: region?.label === UNANNOTATED,
-    on: lit(cell.owner, at),
+    [`b${bandTint(cell.band)}`]: cell.band >= 0,
+    tail: cell.band >= 0 && cell.closes && !on,
+    on,
     starts: cell.starts,
     faded: cell.faded,
+    opens: on ? n === 0 || at === span[0] : cell.opens,
+    closes: on ? n === row.cells.length - 1 || at === span[1] - 1 : cell.closes,
   };
 }
 
@@ -124,12 +160,6 @@ function onClick(event: MouseEvent) {
   if (owner !== null && owner >= 0) emit("pick", owner);
 }
 
-function onScroll(event: Event) {
-  const el = event.target as HTMLElement;
-  scrollTop.value = el.scrollTop;
-  viewportHeight.value = el.clientHeight;
-}
-
 /** Scrolls a region into view, but only when it is not on screen already. */
 function scrollToRegion(index: number) {
   const el = scroller.value;
@@ -141,24 +171,11 @@ function scrollToRegion(index: number) {
   el.scrollTop = Math.max(0, top - el.clientHeight / 3);
 }
 
-let observer: ResizeObserver | null = null;
-
-onMounted(() => {
-  if (!scroller.value) return;
-  viewportHeight.value = scroller.value.clientHeight;
-  observer = new ResizeObserver(() => {
-    if (scroller.value) viewportHeight.value = scroller.value.clientHeight;
-  });
-  observer.observe(scroller.value);
-});
-
-onBeforeUnmount(() => observer?.disconnect());
-
 defineExpose({ scrollToRegion });
 </script>
 
 <template>
-  <div ref="scroller" class="map" @scroll="onScroll">
+  <div ref="scroller" class="map">
     <!-- biome-ignore lint/a11y/useKeyWithClickEvents: the keyboard walks regions with the window's arrow keys, not by clicking a byte -->
     <table
       class="spacer"
@@ -175,7 +192,7 @@ defineExpose({ scrollToRegion });
           v-for="row in rows"
           :key="row.n"
           class="hexrow"
-          :style="{ top: `${row.n * ROW}px` }"
+          :style="{ top: `${row.n * ROW}px`, height: `${ROW}px` }"
         >
           <td class="off">{{ hex8(row.offset) }}</td>
           <td
@@ -183,9 +200,18 @@ defineExpose({ scrollToRegion });
             :key="n"
             class="cell"
             :data-owner="cell.owner"
-            :class="classOf(cell, row.offset + n)"
+            :class="classOf(row, n)"
             >{{
               cell.hex
+            }}</td
+          >
+          <td
+            v-for="n in row.pad"
+            :key="`pad${n}`"
+            class="pad"
+            aria-hidden="true"
+            >{{
+              "  "
             }}</td
           >
           <td class="ascii">{{ row.ascii }}</td>
@@ -198,20 +224,22 @@ defineExpose({ scrollToRegion });
 <style scoped>
 .map {
   flex: 1;
+  font-family: var(--mono);
   outline-offset: -2px;
   overflow: auto;
   position: relative;
-  padding: 0.9rem var(--pad) 1.5rem;
+  padding: 0.9rem 0.9rem 1.5rem;
   font-size: 0.74rem;
 }
 .spacer {
   position: relative;
 }
+/* The height is hex.ts's ROW, bound inline, since the virtualizer places every row by it. */
 .hexrow {
   position: absolute;
   left: 0;
   right: 0;
-  height: 19px;
+  line-height: 16px;
   display: flex;
   align-items: center;
   white-space: pre;
@@ -223,9 +251,8 @@ defineExpose({ scrollToRegion });
 .cell {
   color: var(--blob);
   cursor: pointer;
-  padding: 1px 2px 1px 1px;
+  padding: 3px 4px;
   border-left: 1px solid transparent;
-  border-radius: var(--radius-inline);
 }
 .cell.meta {
   color: var(--text);
@@ -235,6 +262,29 @@ defineExpose({ scrollToRegion });
 }
 .cell.faded {
   color: var(--faded);
+}
+.cell.b0 {
+  background: color-mix(in oklab, var(--hue-0) var(--tint), transparent);
+}
+.cell.b1 {
+  background: color-mix(in oklab, var(--hue-1) var(--tint), transparent);
+}
+.cell.b2 {
+  background: color-mix(in oklab, var(--hue-2) var(--tint), transparent);
+}
+.cell.b3 {
+  background: color-mix(in oklab, var(--hue-3) var(--tint), transparent);
+}
+.cell.b4 {
+  background: color-mix(in oklab, var(--hue-4) var(--tint), transparent);
+}
+.cell.b5 {
+  background: color-mix(in oklab, var(--hue-5) var(--tint), transparent);
+}
+/* The tint stops short of the next section, so two blocks that touch do not read as one. */
+.cell.tail {
+  padding-right: 0;
+  margin-right: 4px;
 }
 .cell.unannotated {
   color: var(--warn);
@@ -247,6 +297,18 @@ defineExpose({ scrollToRegion });
 }
 .cell.starts.on {
   border-left-color: var(--accent-rule);
+}
+.cell.opens {
+  border-start-start-radius: var(--radius-inline);
+  border-end-start-radius: var(--radius-inline);
+}
+.cell.closes {
+  border-start-end-radius: var(--radius-inline);
+  border-end-end-radius: var(--radius-inline);
+}
+.pad {
+  padding: 3px 4px;
+  border-left: 1px solid transparent;
 }
 .ascii {
   margin-left: 0.7rem;
