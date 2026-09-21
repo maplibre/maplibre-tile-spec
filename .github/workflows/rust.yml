@@ -137,7 +137,7 @@ jobs:
         with: { distribution: 'temurin', java-version: '21' }
       - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
       - run: just -v rust::ci-test-ffi
-      - run: just -v rust::coverage-report ffi
+      - run: just -v rust::coverage-report ffi --release  # the FFI tests run against the release cdylib
       - uses: ./.github/actions/mlt-upload-coverage
         with: { suite: rust-ffi, file: rust/target/lcov-ffi.info }
 

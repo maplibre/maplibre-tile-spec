@@ -61,8 +61,9 @@ coverage-env file: (just 'cargo-install' 'cargo-llvm-cov')
     cargo llvm-cov show-env | sed "s/'//g" >> {{quote(file)}}
 
 # Write the coverage recorded since `coverage-env` to `target/lcov-<suite>.info`
-coverage-report suite:
-    cargo llvm-cov report --include-build-script --lcov --output-path target/lcov-{{suite}}.info
+# Pass `--release` for a suite that ran against release artifacts, or it finds no objects
+coverage-report suite *args:
+    cargo llvm-cov report --include-build-script --lcov --output-path target/lcov-{{suite}}.info {{args}}
 
 # Run minimal subset of tests to ensure compatibility with MSRV
 ci-check: ci-env-info check
@@ -551,10 +552,10 @@ wasm-coverage: (just 'cargo-install' 'wasm-pack')
     PROFRAW_DIR="$PWD/../target/wasm-coverage"
     rm -rf "$PROFRAW_DIR"
     mkdir -p "$PROFRAW_DIR"
-    # A cached mlt-wasm would re-emit no LLVM IR, and stale IR would not match the counters
+    # Cargo emits the IR only when it recompiles mlt-wasm, and stale IR would not match the counters
     mkdir -p ../target/wasm32-unknown-unknown
     find ../target/wasm32-unknown-unknown -name 'mlt_wasm*.ll' -delete
-    cargo clean -p mlt-wasm --target wasm32-unknown-unknown
+    touch src/*.rs
     npm ci --no-fund --no-audit
     npm run build:wasm-coverage
     # Every test file gets its own wasm instance, so every one of them dumps its own .profraw
