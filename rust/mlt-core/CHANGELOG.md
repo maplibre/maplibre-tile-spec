@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.3](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.14.2...rust-mlt-core-v0.14.3) - 2026-09-21
+
+### Added
+
+- *(rust)* implement an inspector ([#1735](https://github.com/maplibre/maplibre-tile-spec/pull/1735))
+- *(rust)* wasm annotate binding ([#1725](https://github.com/maplibre/maplibre-tile-spec/pull/1725))
+- *(rust)* allow annotating partial trees ([#1724](https://github.com/maplibre/maplibre-tile-spec/pull/1724))
+
+### Fixed
+
+- *(rust)* reject lossy cases in ALP ([#1732](https://github.com/maplibre/maplibre-tile-spec/pull/1732))
+
 ## [0.14.2](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.14.1...rust-mlt-core-v0.14.2) - 2026-09-20
 
 ### Other
