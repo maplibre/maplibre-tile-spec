@@ -167,6 +167,11 @@ Scaling by `10ᵉ` and then dividing by `10ᶠ` rounds twice, and some values ar
 
 `e` is at most `18` so that `v · 10ᵉ` fits in an `i64`.
 
+!!! NOTE
+    The reference Rust encoder currently only emits scaled integers with `|i| ≤ 2⁵³ - 1`, where consecutive doubles are at most `1` apart.
+    Beyond that, floating-point scaling can land on a neighbouring integer that still passes its own round-trip check.
+    This is a limitation of that implementation, not of the format.
+
 ## Float Dictionary <span class="experimental"></span>
 
 The distinct values are stored once, and a stream of codes holds one index into them per element.
