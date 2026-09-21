@@ -429,3 +429,202 @@ fn json_values_equal(a: &Value, b: &Value) -> bool {
         _ => a == b,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use geo_types::{
+        Coord, GeometryCollection, Line, LineString, MultiLineString, MultiPoint, MultiPolygon,
+        Point, Polygon, Rect, Triangle,
+    };
+    use insta::assert_snapshot;
+    use rstest::rstest;
+
+    use super::*;
+
+    fn ring(pts: &[(i32, i32)]) -> LineString<i32> {
+        LineString::from(pts.iter().map(|&(x, y)| Coord { x, y }).collect::<Vec<_>>())
+    }
+
+    fn square_with_hole() -> Polygon<i32> {
+        Polygon::new(
+            ring(&[(0, 0), (8, 0), (8, 8), (0, 8), (0, 0)]),
+            vec![ring(&[(2, 2), (4, 2), (4, 4), (2, 2)])],
+        )
+    }
+
+    fn feature(geometry: Geometry<i32>) -> Feature {
+        Feature {
+            geometry,
+            id: None,
+            properties: BTreeMap::new(),
+            ty: "Feature".into(),
+        }
+    }
+
+    fn supported_geometries() -> Vec<Geometry<i32>> {
+        vec![
+            Geometry::Point(Point::new(1, -2)),
+            Geometry::LineString(ring(&[(0, 0), (1, 1)])),
+            Geometry::LineString(LineString(vec![])),
+            Geometry::Polygon(square_with_hole()),
+            Geometry::Polygon(Polygon::new(LineString(vec![]), vec![])),
+            Geometry::MultiPoint(MultiPoint(vec![Point::new(1, 2), Point::new(3, 4)])),
+            Geometry::MultiPoint(MultiPoint(vec![])),
+            Geometry::MultiLineString(MultiLineString(vec![ring(&[(0, 0), (1, 1)])])),
+            Geometry::MultiPolygon(MultiPolygon(vec![square_with_hole()])),
+        ]
+    }
+
+    #[test]
+    fn supported_geometries_round_trip_through_geojson() {
+        let mut rendered = Vec::new();
+        for geometry in supported_geometries() {
+            let json = serde_json::to_string(&feature(geometry.clone())).expect("serialize");
+            let back: Feature = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(back.geometry, geometry);
+            rendered.push(json);
+        }
+
+        assert_snapshot!(rendered.join("\n"), @r#"
+        {"type":"Feature","properties":{},"geometry":{"type":"Point","coordinates":[1,-2]}}
+        {"type":"Feature","properties":{},"geometry":{"type":"LineString","coordinates":[[0,0],[1,1]]}}
+        {"type":"Feature","properties":{},"geometry":{"type":"LineString","coordinates":[]}}
+        {"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":[[[0,0],[8,0],[8,8],[0,8],[0,0]],[[2,2],[4,2],[4,4],[2,2]]]}}
+        {"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":[[]]}}
+        {"type":"Feature","properties":{},"geometry":{"type":"MultiPoint","coordinates":[[1,2],[3,4]]}}
+        {"type":"Feature","properties":{},"geometry":{"type":"MultiPoint","coordinates":[]}}
+        {"type":"Feature","properties":{},"geometry":{"type":"MultiLineString","coordinates":[[[0,0],[1,1]]]}}
+        {"type":"Feature","properties":{},"geometry":{"type":"MultiPolygon","coordinates":[[[[0,0],[8,0],[8,8],[0,8],[0,0]],[[2,2],[4,2],[4,4],[2,2]]]]}}
+        "#);
+    }
+
+    #[rstest]
+    #[case::line(Geometry::Line(Line::new(Coord { x: 0, y: 0 }, Coord { x: 1, y: 1 })))]
+    #[case::rect(Geometry::Rect(Rect::new(Coord { x: 0, y: 0 }, Coord { x: 1, y: 1 })))]
+    #[case::triangle(Geometry::Triangle(Triangle::new(
+        Coord { x: 0, y: 0 },
+        Coord { x: 1, y: 0 },
+        Coord { x: 0, y: 1 },
+    )))]
+    #[case::collection(Geometry::GeometryCollection(GeometryCollection(vec![])))]
+    fn geometries_outside_geojson_fail_to_serialize(#[case] geometry: Geometry<i32>) {
+        let err = serde_json::to_string(&feature(geometry)).expect_err("must not serialize");
+        assert_eq!(err.to_string(), "unsupported geometry variant");
+    }
+
+    #[test]
+    fn unknown_geometry_type_fails_to_deserialize() {
+        let err = serde_json::from_str::<Feature>(
+            r#"{"type":"Feature","properties":{},"geometry":{"type":"Circle","coordinates":[0,0]}}"#,
+        )
+        .expect_err("must not deserialize");
+        assert_snapshot!(
+            err,
+            @"unknown variant `Circle`, expected one of `Point`, `LineString`, `Polygon`, `MultiPoint`, `MultiLineString`, `MultiPolygon` at line 1 column 83"
+        );
+    }
+
+    #[test]
+    fn a_feature_collection_round_trips_through_its_text_form() {
+        let collection = FeatureCollection {
+            ty: "FeatureCollection".into(),
+            features: vec![Feature {
+                geometry: Geometry::Point(Point::new(7, 9)),
+                id: Some(42),
+                properties: BTreeMap::from([
+                    ("name".into(), Value::String("ß".into())),
+                    ("rank".into(), Value::from(3)),
+                ]),
+                ty: "Feature".into(),
+            }],
+        };
+
+        let text = serde_json::to_string(&collection).expect("serialize");
+        assert_snapshot!(
+            text,
+            @r#"{"type":"FeatureCollection","features":[{"type":"Feature","id":42,"properties":{"name":"ß","rank":3},"geometry":{"type":"Point","coordinates":[7,9]}}]}"#
+        );
+        assert_eq!(
+            FeatureCollection::from_str(&text).expect("parse"),
+            collection
+        );
+    }
+
+    #[test]
+    fn floats_outside_the_json_number_range_become_names() {
+        let values = [
+            f32_to_json(1.5),
+            f32_to_json(f32::NAN),
+            f32_to_json(f32::INFINITY),
+            f32_to_json(f32::NEG_INFINITY),
+            f64_to_json(1.5),
+            f64_to_json(f64::NAN),
+            f64_to_json(f64::INFINITY),
+            f64_to_json(f64::NEG_INFINITY),
+        ];
+        assert_snapshot!(
+            Value::Array(values.to_vec()),
+            @r#"[1.5,"f32::NAN","f32::INFINITY","f32::NEG_INFINITY",1.5,"f64::NAN","f64::INFINITY","f64::NEG_INFINITY"]"#
+        );
+    }
+
+    #[test]
+    fn every_property_kind_becomes_json() {
+        let values = [
+            PropValueRef::Bool(true),
+            PropValueRef::I8(-8),
+            PropValueRef::U8(8),
+            PropValueRef::I32(i32::MIN),
+            PropValueRef::U32(u32::MAX),
+            PropValueRef::I64(i64::MIN),
+            PropValueRef::U64(u64::MAX),
+            PropValueRef::F32(0.5),
+            PropValueRef::F64(f64::NAN),
+            PropValueRef::Str("text"),
+        ];
+        let json = Value::Array(values.into_iter().map(Value::from).collect());
+        assert_snapshot!(
+            json,
+            @r#"[true,-8,8,-2147483648,4294967295,-9223372036854775808,18446744073709551615,0.5,"f64::NAN","text"]"#
+        );
+    }
+
+    fn collection_with(value: &str) -> FeatureCollection {
+        FeatureCollection::from_str(&format!(
+            r#"{{"type":"FeatureCollection","features":[{{"type":"Feature","properties":{{"a":{value}}},"geometry":{{"type":"Point","coordinates":[0,0]}}}}]}}"#
+        ))
+        .expect("parse")
+    }
+
+    #[rstest]
+    #[case::identical("3.14", "3.14", true)]
+    #[case::f32_round_trip("3.14", "3.140000104904175", true)]
+    #[case::denormal_against_zero("1e-41", "0.0", true)]
+    #[case::denormal_against_integer_zero("1e-41", "0", true)]
+    #[case::largest_f32("3.4028235e38", "3.4028234663852886e38", true)]
+    #[case::beyond_f32_tolerance("1.0", "1.001", false)]
+    #[case::different_integers("1", "2", false)]
+    #[case::nested_arrays("[1.0, [2.0]]", "[1.0, [2.0]]", true)]
+    #[case::shorter_array("[1.0, 2.0]", "[1.0]", false)]
+    #[case::nan_name(r#""f64::NAN""#, r#""f64::NAN""#, true)]
+    #[case::number_against_string("1.0", r#""1.0""#, false)]
+    fn equals_compares_with_float_tolerance(
+        #[case] left: &str,
+        #[case] right: &str,
+        #[case] expected: bool,
+    ) {
+        let (left, right) = (collection_with(left), collection_with(right));
+        assert_eq!(left.equals(&right).expect("compare"), expected);
+        assert_eq!(right.equals(&left).expect("compare"), expected);
+    }
+
+    #[test]
+    fn equals_is_false_for_a_missing_property() {
+        let with_extra = FeatureCollection::from_str(
+            r#"{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"a":1.0,"b":2.0},"geometry":{"type":"Point","coordinates":[0,0]}}]}"#,
+        )
+        .expect("parse");
+        assert!(!collection_with("1.0").equals(&with_extra).expect("compare"));
+        assert!(!with_extra.equals(&collection_with("1.0")).expect("compare"));
+    }
+}

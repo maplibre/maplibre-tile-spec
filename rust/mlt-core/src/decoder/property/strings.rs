@@ -557,3 +557,69 @@ pub(crate) fn encode_shared_dict_range(start: u32, end: u32) -> MltResult<DictRa
         end: i32::try_from(end)?,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use super::*;
+
+    #[rstest]
+    #[case::empty(&[], "", &[])]
+    #[case::all_present(&[1, 3, 6], "abbccc", &[Some("a"), Some("bb"), Some("ccc")])]
+    #[case::leading_null(&[-1, 1], "a", &[None, Some("a")])]
+    #[case::trailing_null(&[1, -2], "a", &[Some("a"), None])]
+    #[case::consecutive_nulls(&[1, -2, -2, 2], "ab", &[Some("a"), None, None, Some("b")])]
+    #[case::only_nulls(&[-1, -1], "", &[None, None])]
+    #[case::empty_string_after_a_value(&[1, 1, -2], "a", &[Some("a"), Some(""), None])]
+    #[case::empty_string_after_a_null(&[1, -2, 1], "a", &[Some("a"), None, Some("")])]
+    #[case::multibyte(&[2, 7], "µ€µ", &[Some("µ"), Some("€µ")])]
+    fn rows_read_back_from_the_length_stream(
+        #[case] lengths: &[i32],
+        #[case] data: &str,
+        #[case] expected: &[Option<&str>],
+    ) {
+        let strings = ParsedStrings::new("col", lengths.to_vec(), Cow::Borrowed(data));
+
+        assert_eq!(strings.feature_count(), expected.len());
+        assert_eq!(
+            strings.materialize(),
+            expected
+                .iter()
+                .map(|v| v.map(str::to_string))
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            strings.dense_values(),
+            expected
+                .iter()
+                .flatten()
+                .map(|v| (*v).to_string())
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            strings.presence_bools(),
+            expected.iter().map(Option::is_some).collect::<Vec<_>>()
+        );
+        for (idx, want) in expected.iter().enumerate() {
+            assert_eq!(strings.get(u32::try_from(idx).expect("small")), *want);
+        }
+        assert_eq!(
+            strings.get(u32::try_from(expected.len()).expect("small")),
+            None
+        );
+    }
+
+    #[rstest]
+    #[case::end_past_the_corpus(&[9], "ab")]
+    #[case::end_before_the_start(&[2, 1], "ab")]
+    #[case::split_multibyte(&[1], "µ")]
+    fn a_row_outside_the_corpus_reads_as_absent(#[case] lengths: &[i32], #[case] data: &str) {
+        let strings = ParsedStrings::new("col", lengths.to_vec(), Cow::Borrowed(data));
+        let last = u32::try_from(lengths.len() - 1).expect("small");
+
+        assert_eq!(strings.get(last), None);
+        assert!(strings.presence_bools().iter().all(|&p| p));
+        assert_eq!(strings.materialize().last(), Some(&None));
+    }
+}

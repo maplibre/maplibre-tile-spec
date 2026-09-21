@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.28](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.27...rust-mlt-wasm-v0.1.28) - 2026-09-21
+
+### Added
+
+- *(rust)* implement an inspector ([#1735](https://github.com/maplibre/maplibre-tile-spec/pull/1735))
+- *(rust)* wasm annotate binding ([#1725](https://github.com/maplibre/maplibre-tile-spec/pull/1725))
+
 ## [0.1.27](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.26...rust-mlt-wasm-v0.1.27) - 2026-09-20
 
 ### Other
