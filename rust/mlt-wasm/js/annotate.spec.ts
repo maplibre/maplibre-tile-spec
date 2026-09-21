@@ -1,10 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import {
-  annotateTile,
-  type DumpTree,
-  type Region,
-} from "./annotate";
+import { annotateTile, type DumpTree, type Region } from "./annotate";
 
 const SYNTHETIC = new URL("../../../test/synthetic/", import.meta.url);
 
