@@ -1253,16 +1253,13 @@ ALP finds one decimal scale for the whole column and stores <span class="arithma
 <p>The payload holds unsigned offsets from <code>base</code>, so the smallest is <code>0</code> and every value is non-negative.
 The offsets are an ordinary unsigned integer stream and carry their own physical encoding.
 Its words are 64-bit, except under FastPFOR, which only has 32-bit words.</p>
-<p><strong>Decoding</strong>: <span class="arithmatex">\(i = \mathit{base} + \mathit{offset}\)</span>, in 64-bit integer arithmetic, then <span class="arithmatex">\(v = i \cdot 10^f / 10^e\)</span>.</p>
+<p><strong>Decoding</strong>: <span class="arithmatex">\(i = \mathit{base} + \mathit{offset}\)</span>, in 64-bit integer arithmetic, then <span class="arithmatex">\(v = i \cdot 10^f \cdot 10^{-e}\)</span>, with <span class="arithmatex">\(10^{-e}\)</span> the nearest double and not an exact division.</p>
 <p>The sum MUST be formed as an integer before the conversion.
 A column spanning <span class="arithmatex">\([-2, 2^{53} - 1]\)</span> has an offset of <span class="arithmatex">\(2^{53} + 1\)</span>, which a double cannot hold.</p>
 <p><code>e</code> and <code>f</code> are stored separately instead of a single <code>10^(e - f)</code>.
-Scaling by <span class="arithmatex">\(10^e\)</span> and then dividing by <span class="arithmatex">\(10^f\)</span> rounds twice, and some values are only exactly representable with <span class="arithmatex">\(f &gt; 0\)</span>.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>This arithmetic is normative and deviates from reference ALP, which multiplies by a rounded reciprocal (<code>v * EXP_ARR[e] * FRAC_ARR[f]</code>).
-The two disagree on roughly 0.75% of values.
-MLT ALP streams are not bit-interchangeable with a reference implementation.</p>
+Scaling up by <span class="arithmatex">\(10^e\)</span> and then down by <span class="arithmatex">\(10^f\)</span> rounds twice, and some values are only exactly representable with <span class="arithmatex">\(f &gt; 0\)</span>.</p>
+<div class="admonition important">
+<p class="admonition-title">Rounding</p>
 <p>An encoder MUST decode every value back and compare bit patterns.
 If any value does not round-trip exactly, the encoder MUST use another encoding.</p>
 </div>
