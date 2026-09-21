@@ -1484,10 +1484,13 @@ mod alp {
     }
 
     /// `FastPFOR` codes `u32` words, so a column whose offsets overflow one is not a candidate.
+    /// The spread stays under `2^53` so that ALP still carries the column.
     #[test]
     fn a_column_whose_offsets_overflow_u32_keeps_varint() {
+        // Scaled by `10^1`, the odd values sit `1e10` from the base, past `u32::MAX` (~4.3e9)
+        // and well inside ALP's `2^53 - 1` code bound.
         let values: Vec<f64> = (0..1024)
-            .map(|i| if i % 2 == 0 { 0.5 } else { 1e15 + 0.5 })
+            .map(|i| if i % 2 == 0 { 0.5 } else { 1e9 + 0.5 })
             .collect();
         let bytes = column(&values).encode(cfg_alp()).unwrap();
         assert_eq!(float_physicals(&bytes)[..], [PhysicalEncoding::VarInt]);
