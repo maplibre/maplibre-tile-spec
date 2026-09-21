@@ -13,7 +13,7 @@ const props = defineProps<{ layers: string[] }>();
         <option :value="null">all ({{ props.layers.length }})</option>
         <option v-for="(layer, i) in props.layers" :key="layer" :value="i">
           {{ i }}
-          — {{ layer }}
+          - {{ layer }}
         </option>
       </select>
     </label>

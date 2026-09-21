@@ -267,7 +267,7 @@ describe("a tile the walker could not finish", () => {
     const app = mount(App);
     await flushPromises();
     expect(app.get("[role=alert]").text()).toBe(
-      "walk stopped: unexpected end of input — the remaining bytes are <unannotated>",
+      "walk stopped: unexpected end of input - the remaining bytes are <unannotated>",
     );
   });
 });

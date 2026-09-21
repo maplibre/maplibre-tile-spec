@@ -103,7 +103,7 @@ onMounted(() => {
 <template>
   <div ref="root" class="view">
     <p v-if="props.error" class="walk-error" role="alert">
-      <strong>walk stopped:</strong> {{ props.error }} — the remaining bytes are
+      <strong>walk stopped:</strong> {{ props.error }} - the remaining bytes are
       <code>&lt;unannotated&gt;</code>
     </p>
     <div class="panes">

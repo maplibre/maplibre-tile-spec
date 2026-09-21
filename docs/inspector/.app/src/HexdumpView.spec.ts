@@ -226,7 +226,7 @@ describe("the walker error", () => {
       },
     });
     expect(pane.get("[role=alert]").text()).toBe(
-      "walk stopped: unexpected end of input — the remaining bytes are <unannotated>",
+      "walk stopped: unexpected end of input - the remaining bytes are <unannotated>",
     );
   });
 });
