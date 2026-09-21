@@ -284,69 +284,255 @@ impl InferredType {
 
 #[cfg(test)]
 mod tests {
+    use std::num::NonZeroU32;
+
+    use rstest::rstest;
+
     use super::*;
 
-    #[test]
-    fn malformed_tags_are_reported() {
-        for (tags, expected) in [
-            (&[5, 0][..], "invalid key index 5"),
-            (&[0, 9][..], "invalid value index 9"),
-            (&[0][..], "invalid feature tags length: 1"),
-        ] {
-            let err = mvt_to_tile_layers(mvt_with_tags(tags))
+    #[rstest]
+    #[case::key_index_past_the_key_list(&[5, 0], "MVT error: invalid key index 5")]
+    #[case::value_index_past_the_value_list(&[0, 9], "MVT error: invalid value index 9")]
+    #[case::odd_tag_count(&[0], "MVT error: invalid feature tags length: 1")]
+    fn malformed_tags_are_reported(#[case] tags: &[u32], #[case] expected: &str) {
+        assert_eq!(
+            mvt_to_tile_layers(mvt_with_tags(tags))
                 .expect_err("malformed tags must error")
-                .to_string();
-            assert!(err.contains(expected), "got {err:?}, wanted {expected:?}");
+                .to_string(),
+            expected
+        );
+    }
+
+    #[rstest]
+    #[case::signed_then_unsigned(
+        &[MvtValue::SInt(-1), MvtValue::UInt(7)],
+        &[PropValue::I64(Some(-1)), PropValue::I64(Some(7))],
+    )]
+    #[case::unsigned_past_i64_max(
+        &[MvtValue::SInt(-1), MvtValue::UInt(u64::MAX)],
+        &[
+            PropValue::Str(Some("-1".into())),
+            PropValue::Str(Some("18446744073709551615".into())),
+        ],
+    )]
+    #[case::unsigned_only(
+        &[MvtValue::UInt(7), MvtValue::UInt(u64::MAX)],
+        &[PropValue::U64(Some(7)), PropValue::U64(Some(u64::MAX))],
+    )]
+    #[case::int_then_sint(
+        &[MvtValue::Int(i64::MIN), MvtValue::SInt(3)],
+        &[PropValue::I64(Some(i64::MIN)), PropValue::I64(Some(3))],
+    )]
+    #[case::float_then_double(
+        &[MvtValue::Float(1.5), MvtValue::Double(2.5)],
+        &[PropValue::F64(Some(1.5)), PropValue::F64(Some(2.5))],
+    )]
+    #[case::float_only(
+        &[MvtValue::Float(1.5)],
+        &[PropValue::F32(Some(1.5))],
+    )]
+    #[case::bool_then_int(
+        &[MvtValue::Bool(true), MvtValue::Int(5)],
+        &[PropValue::Str(Some("true".into())), PropValue::Str(Some("5".into()))],
+    )]
+    #[case::double_then_string(
+        &[MvtValue::Double(1.5), MvtValue::String("x".into())],
+        &[PropValue::Str(Some("1.5".into())), PropValue::Str(Some("x".into()))],
+    )]
+    #[case::null_between_bools(
+        &[MvtValue::Bool(true), MvtValue::Null, MvtValue::Bool(false)],
+        &[PropValue::Bool(Some(true)), PropValue::Bool(None), PropValue::Bool(Some(false))],
+    )]
+    #[case::null_only(
+        &[MvtValue::Null],
+        &[PropValue::Str(None)],
+    )]
+    fn a_column_takes_the_type_that_holds_every_value(
+        #[case] values: &[MvtValue],
+        #[case] expected: &[PropValue],
+    ) {
+        assert_eq!(single_column(values), expected);
+    }
+
+    /// Convert a one-column tile through both the borrowed and the owned path,
+    /// and return that column's value per feature.
+    fn single_column(values: &[MvtValue]) -> Vec<PropValue> {
+        let data = mvt_with_values(values);
+
+        let from_ref = mvt_to_tile_layers(&data).expect("borrowed conversion");
+        let owned: Vec<TileLayer> = MvtReaderRef::new(&data)
+            .expect("read")
+            .to_tile()
+            .expect("to_tile")
+            .layers
+            .into_iter()
+            .map(TileLayer::try_from)
+            .collect::<MltResult<_>>()
+            .expect("owned conversion");
+        assert_eq!(from_ref, owned);
+
+        let [layer] = &from_ref[..] else {
+            panic!("expected one layer, got {}", from_ref.len())
+        };
+        assert_eq!(layer.property_names(), ["k"]);
+        layer
+            .features()
+            .iter()
+            .map(|feat| feat.properties()[0].clone())
+            .collect()
+    }
+
+    #[test]
+    fn a_layer_without_a_name_is_rejected() {
+        let unnamed = mvt_layer(b"", &[vec![]], b"k", &[]);
+        assert_eq!(
+            mvt_to_tile_layers(&unnamed)
+                .expect_err("borrowed")
+                .to_string(),
+            "MVT error: missing required layer name"
+        );
+        assert_eq!(
+            mvt_to_feature_collection(&unnamed)
+                .expect_err("feature collection")
+                .to_string(),
+            "MVT error: missing required layer name"
+        );
+
+        let hand_built = MvtLayer {
+            name: String::new(),
+            extent: NonZeroU32::new(4096).expect("non-zero"),
+            features: Vec::new(),
+        };
+        assert_eq!(
+            TileLayer::try_from(hand_built)
+                .expect_err("owned")
+                .to_string(),
+            "missing layer name"
+        );
+    }
+
+    #[test]
+    fn features_carry_their_layer_name_and_extent() {
+        let collection = mvt_to_feature_collection(mvt_with_values(&[
+            MvtValue::String("a".into()),
+            MvtValue::Null,
+        ]))
+        .expect("convert");
+        insta::assert_snapshot!(
+            serde_json::to_string(&collection).expect("serialize"),
+            @r#"{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"_extent":4096,"_layer":"l","k":"a"},"geometry":{"type":"Point","coordinates":[1,1]}},{"type":"Feature","properties":{"_extent":4096,"_layer":"l","k":null},"geometry":{"type":"Point","coordinates":[1,1]}}]}"#
+        );
+    }
+
+    fn field(number: u32, wire: u32) -> u8 {
+        u8::try_from((number << 3) | wire).expect("small field number")
+    }
+
+    fn varint(mut value: u64, out: &mut Vec<u8>) {
+        loop {
+            let byte = u8::try_from(value & 0x7f).expect("masked");
+            value >>= 7;
+            if value == 0 {
+                out.push(byte);
+                return;
+            }
+            out.push(byte | 0x80);
         }
+    }
+
+    fn packed(number: u32, values: &[u64], out: &mut Vec<u8>) {
+        let mut body = Vec::new();
+        for value in values {
+            varint(*value, &mut body);
+        }
+        out.push(field(number, 2));
+        varint(u64::try_from(body.len()).expect("small"), out);
+        out.extend(&body);
+    }
+
+    fn bytes(number: u32, body: &[u8], out: &mut Vec<u8>) {
+        out.push(field(number, 2));
+        varint(u64::try_from(body.len()).expect("small"), out);
+        out.extend(body);
+    }
+
+    /// One `Value` message, its field number picking the type the reader infers.
+    fn value_message(value: &MvtValue) -> Vec<u8> {
+        let mut out = Vec::new();
+        match value {
+            MvtValue::String(s) => bytes(1, s.as_bytes(), &mut out),
+            MvtValue::Float(f) => {
+                out.push(field(2, 5));
+                out.extend(f.to_le_bytes());
+            }
+            MvtValue::Double(f) => {
+                out.push(field(3, 1));
+                out.extend(f.to_le_bytes());
+            }
+            MvtValue::Int(i) => {
+                out.push(field(4, 0));
+                varint(i.cast_unsigned(), &mut out);
+            }
+            MvtValue::UInt(u) => {
+                out.push(field(5, 0));
+                varint(*u, &mut out);
+            }
+            MvtValue::SInt(i) => {
+                out.push(field(6, 0));
+                varint(zigzag::ZigZag::encode(*i), &mut out);
+            }
+            MvtValue::Bool(b) => {
+                out.push(field(7, 0));
+                varint(u64::from(*b), &mut out);
+            }
+            // A `Value` with no field set is what the reader reports as `Null`.
+            MvtValue::Null => {}
+        }
+        out
+    }
+
+    /// Tile of one layer holding one point feature per `values` entry, all under key `k`.
+    fn mvt_with_values(values: &[MvtValue]) -> Vec<u8> {
+        let tags: Vec<Vec<u32>> = (0..values.len())
+            .map(|i| vec![0, u32::try_from(i).expect("small")])
+            .collect();
+        let messages: Vec<Vec<u8>> = values.iter().map(value_message).collect();
+        mvt_layer(b"l", &tags, b"k", &messages)
     }
 
     /// Minimal hand-written MVT tile with one point feature carrying `tags`.
     fn mvt_with_tags(tags: &[u32]) -> Vec<u8> {
-        fn field(number: u32, wire: u32) -> u8 {
-            u8::try_from((number << 3) | wire).expect("small field number")
-        }
-        fn varint(mut value: u64, out: &mut Vec<u8>) {
-            loop {
-                let byte = u8::try_from(value & 0x7f).expect("masked");
-                value >>= 7;
-                if value == 0 {
-                    out.push(byte);
-                    return;
-                }
-                out.push(byte | 0x80);
-            }
-        }
-        fn packed(number: u32, values: &[u64], out: &mut Vec<u8>) {
-            let mut body = Vec::new();
-            for value in values {
-                varint(*value, &mut body);
-            }
-            out.push(field(number, 2));
-            varint(u64::try_from(body.len()).expect("small"), out);
-            out.extend(&body);
-        }
-        fn bytes(number: u32, body: &[u8], out: &mut Vec<u8>) {
-            out.push(field(number, 2));
-            varint(u64::try_from(body.len()).expect("small"), out);
-            out.extend(body);
-        }
+        mvt_layer(b"l", &[tags.to_vec()], b"k", &[])
+    }
 
-        let mut feat = Vec::new();
-        packed(
-            2,
-            &tags.iter().copied().map(u64::from).collect::<Vec<_>>(),
-            &mut feat,
-        );
-        feat.push(field(3, 0));
-        varint(1, &mut feat); // POINT
-        packed(4, &[9, 2, 2], &mut feat); // MoveTo(1, 1)
-
+    /// Minimal hand-written MVT tile of one layer, one point feature per entry in
+    /// `feature_tags`, one key `key`, and `values` as its value list.
+    fn mvt_layer(
+        name: &[u8],
+        feature_tags: &[Vec<u32>],
+        key: &[u8],
+        values: &[Vec<u8>],
+    ) -> Vec<u8> {
         let mut layer = Vec::new();
         layer.push(field(15, 0));
         varint(2, &mut layer); // version
-        bytes(1, b"l", &mut layer); // name
-        bytes(2, &feat, &mut layer); // features
-        bytes(3, b"k", &mut layer); // keys
+        bytes(1, name, &mut layer);
+        for tags in feature_tags {
+            let mut feat = Vec::new();
+            packed(
+                2,
+                &tags.iter().copied().map(u64::from).collect::<Vec<_>>(),
+                &mut feat,
+            );
+            feat.push(field(3, 0));
+            varint(1, &mut feat); // POINT
+            packed(4, &[9, 2, 2], &mut feat); // MoveTo(1, 1)
+            bytes(2, &feat, &mut layer);
+        }
+        bytes(3, key, &mut layer);
+        for value in values {
+            bytes(4, value, &mut layer);
+        }
         layer.push(field(5, 0));
         varint(4096, &mut layer); // extent
 
