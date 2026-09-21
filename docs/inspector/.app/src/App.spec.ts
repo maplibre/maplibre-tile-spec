@@ -26,7 +26,6 @@ function handle(error: string | null = null): AnnotatedTile {
     tree: () => tree,
     error,
     decodeBlob: () => ({ kind: "numbers", values: [1], truncatedFrom: null }),
-    renderText: () => "",
     free: () => {},
   };
 }
