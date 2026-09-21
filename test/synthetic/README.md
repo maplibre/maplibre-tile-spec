@@ -13,4 +13,4 @@ decoding a file from `0x01-rust/` should produce the same `.json` as Rust did.
 ## Where to add a new synthetic
 
 - **`0x0N/`** - Java can encode it. Add to `SyntheticMltGenerator.java`.
-- **`0x0N-{rust,java}/`** - Java/rust specific encoding quirks, such as differing fsst implementations
+- **`0x0N-rust/`** - Rust specific encoding quirks, such as differing fsst implementations
