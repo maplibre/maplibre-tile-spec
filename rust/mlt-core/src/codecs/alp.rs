@@ -10,7 +10,8 @@ use crate::codecs::float::FloatValue;
 use crate::decoder::AlpScale;
 
 /// Powers of ten, indexed by exponent.
-/// Stopping at `10^18` keeps `v * 10^e` inside the `i64` range.
+/// Stopping at `10^18` keeps `v * 10^e` inside the `i64` range; the codes themselves are
+/// bounded tighter still, to [`MAX_CODE`].
 const POW10: [f64; 19] = [
     1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16,
     1e17, 1e18,
@@ -38,17 +39,27 @@ impl Powers {
     }
 }
 
-/// Encode one value, or [`None`] if it does not fit the integer range.
+/// Largest code magnitude, `2^53 - 1`: the last integer before `f64` stops representing
+/// every integer, so every code converts to `f64` exactly and a decoder sees the integer the
+/// encoder certified. `i64` would hold more, but nothing past this survives that conversion.
+///
+/// Only the codes are bounded, not the offsets from `base` the stream stores: a column
+/// spanning `[-2, 2^53 - 1]` has an offset of `2^53 + 1`, which `f64` cannot hold, so a decoder
+/// must add `base` and offset in integer arithmetic before converting.
+const MAX_CODE: f64 = 9_007_199_254_740_991.0;
+
+/// Encode one value, or [`None`] if it does not fit [`MAX_CODE`].
 fn encode_one<T: FloatValue>(value: T, powers: Powers) -> Option<i64> {
     let scaled = value.widen() * powers.up / powers.down;
     let rounded = scaled.round_ties_even();
-    // The bound below is `i64::MAX` as an f64, past which the cast would saturate.
     #[expect(
         clippy::cast_possible_truncation,
-        reason = "the bound below keeps the value inside the i64 range"
+        reason = "the bound below keeps the value well inside the i64 range"
     )]
     let code = rounded as i64;
-    (rounded.is_finite() && rounded.abs() < 9.223_372_036_854_776e18).then_some(code)
+    // Written as the accepting comparison: NaN compares false against everything, so it fails
+    // this along with the infinities and needs no separate finiteness check.
+    (rounded.abs() <= MAX_CODE).then_some(code)
 }
 
 /// Recover one value.
@@ -147,6 +158,58 @@ mod tests {
     #[case::too_many_digits(&[f64::MIN_POSITIVE])]
     fn values_that_cannot_return_bit_for_bit_have_no_parameters(#[case] values: &[f64]) {
         assert!(best(values).is_none(), "{values:?}");
+    }
+
+    /// `2^53`, the first integer `f64` cannot distinguish from its neighbour.
+    const BEYOND_F64_INTEGER_PRECISION: f64 = 9_007_199_254_740_992.0;
+
+    #[rstest]
+    #[case::two_pow_53(BEYOND_F64_INTEGER_PRECISION)]
+    #[case::negative_two_pow_53(-BEYOND_F64_INTEGER_PRECISION)]
+    #[case::two_pow_53_plus_two(BEYOND_F64_INTEGER_PRECISION + 2.0)]
+    #[case::inside_i64_but_beyond_two_pow_53(1e18)]
+    fn codes_beyond_f64_integer_precision_are_rejected(#[case] value: f64) {
+        assert!(best(&[value]).is_none(), "{value:?} must not carry");
+    }
+
+    /// Rejected by the range check itself, not only by the certification in `exact_one`.
+    #[rstest]
+    #[case::nan(f64::NAN)]
+    #[case::infinity(f64::INFINITY)]
+    #[case::neg_infinity(f64::NEG_INFINITY)]
+    fn non_finite_values_have_no_code_at_all(#[case] value: f64) {
+        for params in candidates() {
+            assert_eq!(
+                encode_one(value, Powers::of(params)),
+                None,
+                "{value:?} {params:?}"
+            );
+        }
+    }
+
+    /// `-0.0` does get a code, `0`, and only the bit-for-bit certification rejects it.
+    #[test]
+    fn negative_zero_is_caught_by_certification_not_the_range_check() {
+        let powers = Powers::of(AlpScale { e: 0, f: 0 });
+        assert_eq!(encode_one(-0.0, powers), Some(0));
+        assert_eq!(exact_one(-0.0, powers), None);
+    }
+
+    #[test]
+    fn codes_up_to_the_last_exact_f64_integer_are_accepted() {
+        let value = BEYOND_F64_INTEGER_PRECISION - 1.0;
+        let (params, codes) = best(&[value, -value]).expect("2^53 - 1 fits");
+        assert_eq!(params, AlpScale { e: 0, f: 0 });
+        assert_eq!(codes, [9_007_199_254_740_991, -9_007_199_254_740_991]);
+    }
+
+    #[test]
+    fn scales_that_push_a_small_value_past_f64_integer_precision_do_not_carry_it() {
+        let value = 1.5;
+        assert!(carries(value, AlpScale { e: 1, f: 0 }));
+        assert!(carries(value, AlpScale { e: 15, f: 0 }), "1.5e15 < 2^53");
+        assert!(!carries(value, AlpScale { e: 16, f: 0 }), "1.5e16 > 2^53");
+        assert!(!carries(value, AlpScale { e: 18, f: 0 }));
     }
 
     #[test]
