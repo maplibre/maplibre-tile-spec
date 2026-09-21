@@ -284,19 +284,15 @@ The payload holds unsigned offsets from `base`, so the smallest is `0` and every
 The offsets are an ordinary unsigned integer stream and carry their own physical encoding.
 Its words are 64-bit, except under FastPFOR, which only has 32-bit words.
 
-**Decoding**: $i = \mathit{base} + \mathit{offset}$, in 64-bit integer arithmetic, then $v = i \cdot 10^f / 10^e$.
+**Decoding**: $i = \mathit{base} + \mathit{offset}$, in 64-bit integer arithmetic, then $v = i \cdot 10^f \cdot 10^{-e}$, with $10^{-e}$ the nearest double and not an exact division.
 
 The sum MUST be formed as an integer before the conversion.
 A column spanning $[-2, 2^{53} - 1]$ has an offset of $2^{53} + 1$, which a double cannot hold.
 
 `e` and `f` are stored separately instead of a single `10^(e - f)`.
-Scaling by $10^e$ and then dividing by $10^f$ rounds twice, and some values are only exactly representable with $f > 0$.
+Scaling up by $10^e$ and then down by $10^f$ rounds twice, and some values are only exactly representable with $f > 0$.
 
-!!! NOTE
-    This arithmetic is normative and deviates from reference ALP, which multiplies by a rounded reciprocal (`v * EXP_ARR[e] * FRAC_ARR[f]`).
-    The two disagree on roughly 0.75% of values.
-    MLT ALP streams are not bit-interchangeable with a reference implementation.
-
+!!! important "Rounding"
     An encoder MUST decode every value back and compare bit patterns.
     If any value does not round-trip exactly, the encoder MUST use another encoding.
 
