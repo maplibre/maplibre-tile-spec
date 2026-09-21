@@ -168,7 +168,7 @@ Scaling by `10ᵉ` and then dividing by `10ᶠ` rounds twice, and some values ar
 `e` is at most `18` so that `v · 10ᵉ` fits in an `i64`.
 
 !!! NOTE
-    The reference Rust encoder currently only emits scaled integers with `|i| ≤ 2⁵³ − 1`, the range in which every integer is exactly representable as a double.
+    The reference Rust encoder currently only emits scaled integers with `|i| ≤ 2⁵³ - 1`, the range in which every integer is exactly representable as a double.
     Beyond that, its floating-point scaling can store an integer one off from `round(v · 10ᵉ / 10ᶠ)` that still passes its own round-trip check.
     This is a limitation of that implementation, not of the format.
 
