@@ -46,6 +46,7 @@ pub enum DecodedBlob {
 /// Decode `data` the way `info`'s hint says to, keeping at most `max_values` values.
 ///
 /// `max_values` of `0` keeps all of them.
+/// A bytes payload is one value rather than a list, so it crosses whole.
 /// Never panics: a decode failure comes back as [`DecodedBlob::Error`].
 pub fn decode_blob(
     info: BlobInfo,

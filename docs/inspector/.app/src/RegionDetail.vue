@@ -6,6 +6,9 @@ import { hex2, hex8, regionPath, showsDecoded, type ViewState } from "./hex.ts";
 /** Values the detail pane asks for at a time, which is what keeps a 369-blob tile lazy. */
 const MAX_VALUES = 64;
 
+/** A text payload crosses whole, and a real tile's string data runs to tens of kilobytes. */
+const MAX_CHARS = 256;
+
 const props = defineProps<{
   tree: DumpTree;
   bytes: Uint8Array;
@@ -55,7 +58,7 @@ const chips = computed(() => {
     case "bools":
       return blob.values.map((value) => (value ? "1" : "0"));
     case "text":
-      return [blob.value];
+      return [[...blob.value].slice(0, MAX_CHARS).join("")];
     case "binary":
       return [`${blob.len} binary bytes`];
     case "error":
@@ -67,7 +70,13 @@ const note = computed(() => {
   const blob = decoded.value;
   if (!blob) return "";
   if (blob.kind === "error") return "undecodable";
-  if (blob.kind === "text" || blob.kind === "binary") return blob.kind;
+  if (blob.kind === "binary") return blob.kind;
+  if (blob.kind === "text") {
+    const chars = [...blob.value].length;
+    return chars > MAX_CHARS
+      ? `text, ${MAX_CHARS} of ${chars} chars`
+      : `text, ${chars} chars`;
+  }
   return blob.truncatedFrom === null
     ? `${blob.values.length} values`
     : `${blob.values.length} of ${blob.truncatedFrom} values`;
@@ -226,6 +235,9 @@ dd.value {
   font-style: normal;
   color: var(--value);
   margin: 0 0.35rem 0.12rem 0;
+  /* String data has no spaces to break on, so the chip has to break anywhere. */
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 .values.error i,
 .values.binary i {

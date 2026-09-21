@@ -65,7 +65,7 @@ both annotate.
 import { annotateTile } from '@maplibre/mlt-wasm';
 
 const tile = annotateTile(data);
-const { bufLen, regions } = tile.tree();        // or tile.tree(layerIndex)
+const { bufLen, regions } = tile.tree();        // the whole tile
 
 for (const [i, region] of regions.entries()) {
     console.log(region.offset, region.len, region.label, region.value);
@@ -77,6 +77,9 @@ for (const [i, region] of regions.entries()) {
 console.log(tile.error);                        // null, or what stopped the walk
 tile.free();
 ```
+
+`tree(layerIndex)` narrows to one top-level layer, but `decodeBlob` keeps counting the regions of
+the whole tile.
 
 A handle, not a document: the tile bytes stay on the WASM side, `tree()` crosses once per layer
 and is memoized, and payload values are decoded one blob at a time with a cap the caller picks.

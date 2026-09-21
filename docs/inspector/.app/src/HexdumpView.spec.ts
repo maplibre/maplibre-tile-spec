@@ -148,6 +148,55 @@ describe("the detail pane", () => {
   });
 });
 
+describe("a decoded text payload", () => {
+  const blob = {
+    streamType: "Data(String)",
+    logical: "None",
+    physical: "None",
+    numValues: 1,
+    hint: { kind: "bytes" },
+  } as const;
+
+  const blobTree: DumpTree = {
+    bufLen: 8,
+    regions: [
+      region({ offset: 0, len: 8, label: "data", kind: "dataBlob", blob }),
+    ],
+  };
+
+  function pane(value: string) {
+    return mount(HexdumpView, {
+      props: {
+        tree: blobTree,
+        bytes: TINY_BYTES,
+        decode: (): DecodedBlob => ({ kind: "text", value }),
+        error: null,
+        view: defaultView(),
+        selected: 0,
+      },
+      attachTo: document.body,
+    });
+  }
+
+  it("shows a short string whole and counts its characters", () => {
+    const view = pane("water");
+    expect(view.get(".values i").text()).toBe("water");
+    expect(view.get("h3 small").text()).toBe("text, 5 chars");
+  });
+
+  it("clips a string dictionary to the preview length", () => {
+    const view = pane("a".repeat(9000));
+    expect(view.get(".values i").text()).toHaveLength(256);
+    expect(view.get("h3 small").text()).toBe("text, 256 of 9000 chars");
+  });
+
+  it("counts characters rather than UTF-16 units", () => {
+    const view = pane("\u{1f5fa}".repeat(300));
+    expect(view.get("h3 small").text()).toBe("text, 256 of 300 chars");
+    expect([...view.get(".values i").text()]).toHaveLength(256);
+  });
+});
+
 describe("arrow keys", () => {
   const press = (key: string) =>
     window.dispatchEvent(new KeyboardEvent("keydown", { key }));
