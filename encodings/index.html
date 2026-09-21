@@ -678,6 +678,12 @@ MLT ALP streams are not bit-interchangeable with a reference implementation.</p>
 If any value does not round-trip exactly, the encoder MUST use another encoding.</p>
 </div>
 <p><code>e</code> is at most <code>18</code> so that <code>v · 10ᵉ</code> fits in an <code>i64</code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The reference Rust encoder currently only emits scaled integers with <code>|i| ≤ 2⁵³ - 1</code>, where consecutive doubles are at most <code>1</code> apart.
+Beyond that, floating-point scaling can land on a neighbouring integer that still passes its own round-trip check.
+This is a limitation of that implementation, not of the format.</p>
+</div>
 <h2 id="float-dictionary">Float Dictionary <span class="experimental"></span><a class="headerlink" href="#float-dictionary" title="Link to this section">&para;</a></h2>
 <p>The distinct values are stored once, and a stream of codes holds one index into them per element.
 The codes are an integer stream.
