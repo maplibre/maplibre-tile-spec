@@ -11,7 +11,6 @@ export type {
   DecodeHint,
   DumpTree,
   Region,
-  RenderOpts,
 } from "./annotate";
 export { annotateTile } from "./annotate";
 export { decodeTile } from "./vectorTile";

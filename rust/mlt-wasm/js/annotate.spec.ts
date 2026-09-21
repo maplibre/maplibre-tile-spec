@@ -4,11 +4,9 @@ import {
   annotateTile,
   type DumpTree,
   type Region,
-  type RenderOpts,
 } from "./annotate";
 
 const SYNTHETIC = new URL("../../../test/synthetic/", import.meta.url);
-const SNIPPETS = new URL("../../../docs/snippets/", import.meta.url);
 
 describe("annotateTile", () => {
   it("annotates a v1 tile", async () => {
@@ -41,29 +39,6 @@ describe("annotateTile", () => {
     const tree = annotateTile(await fixture(name)).tree();
     expect(coveredBytes(tree)).toBe(tree.bufLen);
     expect(tree.bufLen).toBeGreaterThan(0);
-  });
-
-  it.each(["0x01/id.mlt", "0x02/prop_f64_alp.mlt"])(
-    "renders %s as the committed CLI hexdump",
-    async (name) => {
-      const tile = annotateTile(await fixture(name));
-      const expected = await readFile(
-        new URL(`${name}.hexdump`, SNIPPETS),
-        "utf-8",
-      );
-      expect(tile.renderText()).toBe(expected);
-    },
-  );
-
-  it("renders the knobs it is given", async () => {
-    const tile = annotateTile(await fixture("0x01/id.mlt"));
-    const opts: RenderOpts = {
-      width: 8,
-      showBits: false,
-      dataMode: "hidden",
-      maxBlob: 0,
-    };
-    expect(tile.renderText(opts)).toMatchSnapshot();
   });
 });
 

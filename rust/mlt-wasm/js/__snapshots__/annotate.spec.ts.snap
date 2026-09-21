@@ -1044,46 +1044,6 @@ exports[`annotateTile > annotates a v2 tile 1`] = `
 }
 `;
 
-exports[`annotateTile > renders the knobs it is given 1`] = `
-"00000000                                     | layer[0] (30 B)
-00000000  1d                        .        |   size: 29 (varint) - tag + body
-00000001  01                        .        |   tag: 0x01 -> Tag01
-00000002  06 6c 61 79 65 72 31      .layer1  |   name: "layer1"
-00000009  50                        P        |   extent: 80
-0000000a  02                        .        |   column_count: 2
-0000000b                                     |   schema (2 B)
-0000000b                                     |     column[0] (1 B)
-0000000b  00                        .        |       type: 0x00 Id
-0000000c                                     |     column[1] (1 B)
-0000000c  04                        .        |       type: 0x04 Geometry
-0000000d                                     |   column data (17 B)
-0000000d                                     |     column[0] Id (5 B)
-0000000d                                     |       id (5 B)
-0000000d                                     |         header (4 B)
-0000000d  10                        .        |           stream_type: 0x10 Data(None)
-0000000e  02                        .        |           encoding: 0x02 logical=Int(None) physical=VarInt
-0000000f  01                        .        |           num_values: 1
-00000010  01                        .        |           byte_length: 1
-00000011                                     |         data [Data(None) Int(None)/VarInt, 1 values, 1 B]
-00000012                                     |     column[1] Geometry (12 B)
-00000012  02                        .        |       stream_count: 2
-00000013                                     |       meta (5 B)
-00000013                                     |         header (4 B)
-00000013  30                        0        |           stream_type: 0x30 Length(VarBinary)
-00000014  02                        .        |           encoding: 0x02 logical=Int(None) physical=VarInt
-00000015  01                        .        |           num_values: 1
-00000016  01                        .        |           byte_length: 1
-00000017                                     |         data [Length(VarBinary) Int(None)/VarInt, 1 values, 1 B]
-00000018                                     |       stream[0] (6 B)
-00000018                                     |         header (4 B)
-00000018  13                        .        |           stream_type: 0x13 Data(Vertex)
-00000019  42                        B        |           encoding: 0x42 logical=Vertex(ComponentwiseDelta) physical=VarInt
-0000001a  02                        .        |           num_values: 2
-0000001b  02                        .        |           byte_length: 2
-0000001c                                     |         data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 2 values, 2 B]
-"
-`;
-
 exports[`decodeBlob > decodes a string payload as text 1`] = `
 {
   "kind": "text",

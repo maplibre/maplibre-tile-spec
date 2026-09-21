@@ -8,8 +8,6 @@ export interface AnnotatedTile {
   readonly error: string | null;
   /** Decoded values of the data blob at `regionIndex`, at most `maxValues` of them (0 = all). */
   decodeBlob(regionIndex: number, maxValues: number): DecodedBlob;
-  /** The annotated hexdump as text, the same rendering `mlt hexdump` prints. */
-  renderText(opts?: RenderOpts): string;
   /** Release the tile bytes and the region list. */
   free(): void;
 }
@@ -68,19 +66,6 @@ export type DecodedBlob =
   | { kind: "text"; value: string }
   | { kind: "binary"; len: number }
   | { kind: "error"; message: string };
-
-export interface RenderOpts {
-  /** Hex bytes per row. Default 16. */
-  width?: number;
-  /** Show the bit-level breakdown of packed bytes. Default true. */
-  showBits?: boolean;
-  /** Emit ANSI colour escapes. Default false. */
-  color?: boolean;
-  /** How to render data payloads. Default "both". */
-  dataMode?: "both" | "blob" | "decoded" | "hidden";
-  /** Truncate raw payload hex to this many bytes. Default 256, 0 = unlimited. */
-  maxBlob?: number;
-}
 
 /**
  * Annotate a raw MLT tile blob, region by region.

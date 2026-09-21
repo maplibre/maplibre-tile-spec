@@ -1,8 +1,5 @@
-use mlt_core::dump::{
-    DataMode, DecodedBlob, DumpTree, RenderOpts, annotate_tile, decode_blob, filter_layer, render,
-};
+use mlt_core::dump::{DecodedBlob, DumpTree, annotate_tile, decode_blob, filter_layer};
 use mlt_core::{Decoder, MltError};
-use serde::Deserialize;
 use serde_wasm_bindgen::Serializer;
 use wasm_bindgen::prelude::*;
 
@@ -98,20 +95,6 @@ impl AnnotatedTile {
         };
         to_js(&decoded)
     }
-
-    /// The annotated hexdump as text, the same rendering `mlt hexdump` prints.
-    #[wasm_bindgen(js_name = "renderText")]
-    pub fn render_text(&self, opts: JsValue) -> Result<String, JsError> {
-        let opts = if opts.is_undefined() || opts.is_null() {
-            RenderOptsJs::default()
-        } else {
-            serde_wasm_bindgen::from_value(opts)?
-        };
-        let mut out = Vec::new();
-        render(&self.tree, &self.buf, &opts.into(), &mut out)
-            .map_err(|e| JsError::new(&e.to_string()))?;
-        String::from_utf8(out).map_err(|e| JsError::new(&e.to_string()))
-    }
 }
 
 /// Offsets and counts cross as numbers, 64-bit payload values as `BigInt`, and `None` as `null`.
@@ -120,55 +103,4 @@ fn to_js<T: serde::Serialize>(value: &T) -> Result<JsValue, JsError> {
         .serialize_missing_as_null(true)
         .serialize_large_number_types_as_bigints(true);
     value.serialize(&ser).map_err(Into::into)
-}
-
-/// The JS spelling of [`RenderOpts`], whose defaults are the CLI's.
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-struct RenderOptsJs {
-    width: usize,
-    show_bits: bool,
-    color: bool,
-    data_mode: DataModeJs,
-    max_blob: usize,
-}
-
-#[derive(Deserialize, Default, Clone, Copy)]
-#[serde(rename_all = "camelCase")]
-enum DataModeJs {
-    #[default]
-    Both,
-    Blob,
-    Decoded,
-    Hidden,
-}
-
-impl Default for RenderOptsJs {
-    fn default() -> Self {
-        let defaults = RenderOpts::default();
-        Self {
-            width: defaults.width,
-            show_bits: defaults.show_bits,
-            color: defaults.color,
-            data_mode: DataModeJs::default(),
-            max_blob: defaults.max_blob,
-        }
-    }
-}
-
-impl From<RenderOptsJs> for RenderOpts {
-    fn from(opts: RenderOptsJs) -> Self {
-        Self {
-            width: opts.width,
-            show_bits: opts.show_bits,
-            color: opts.color,
-            data_mode: match opts.data_mode {
-                DataModeJs::Both => DataMode::Both,
-                DataModeJs::Blob => DataMode::Blob,
-                DataModeJs::Decoded => DataMode::Decoded,
-                DataModeJs::Hidden => DataMode::Hidden,
-            },
-            max_blob: opts.max_blob,
-        }
-    }
 }

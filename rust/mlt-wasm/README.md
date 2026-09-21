@@ -75,7 +75,6 @@ for (const [i, region] of regions.entries()) {
 }
 
 console.log(tile.error);                        // null, or what stopped the walk
-console.log(tile.renderText());                 // the text `mlt hexdump` prints
 tile.free();
 ```
 
