@@ -69,6 +69,7 @@ pub struct BitField {
     /// Inclusive low bit index.
     lo: u8,
     /// The extracted field value, shifted down to bit 0.
+    #[serde(serialize_with = "serialize_as_number")]
     raw: u64,
     /// Human-readable meaning, e.g. `"physical = VarInt"`.
     meaning: String,
@@ -167,6 +168,21 @@ impl Serialize for BlobInfo {
     }
 }
 
+/// Serialize an offset or a count as a 32-bit number.
+///
+/// Only the payload values a tile actually holds are 64-bit, and a transport that maps
+/// 64-bit integers to `BigInt` would otherwise hand every offset across as one.
+fn serialize_as_number<T, S>(v: &T, s: S) -> Result<S::Ok, S::Error>
+where
+    T: Copy + TryInto<u32>,
+    S: Serializer,
+{
+    let n = (*v)
+        .try_into()
+        .map_err(|_| serde::ser::Error::custom("offset or count exceeds u32"))?;
+    s.serialize_u32(n)
+}
+
 /// A single annotated span of the tile buffer.
 ///
 /// Emitted in pre-order. Containers bracket their children and may overlap them.
@@ -175,9 +191,12 @@ impl Serialize for BlobInfo {
 #[serde(rename_all = "camelCase")]
 pub struct Region {
     /// Absolute byte offset into the tile buffer.
+    #[serde(serialize_with = "serialize_as_number")]
     pub offset: usize,
+    #[serde(serialize_with = "serialize_as_number")]
     pub len: usize,
     /// Nesting depth, for indentation.
+    #[serde(serialize_with = "serialize_as_number")]
     pub depth: usize,
     /// Short label, e.g. `"column[2].type"` or `"num_values"`.
     pub label: String,
@@ -196,6 +215,7 @@ pub struct Region {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DumpTree {
+    #[serde(serialize_with = "serialize_as_number")]
     pub buf_len: usize,
     /// Regions in pre-order (containers before their children).
     pub regions: Vec<Region>,
