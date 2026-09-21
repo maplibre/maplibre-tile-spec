@@ -1,0 +1,5 @@
+# Used in CI via NEXTEST_PROFILE, see rust/mod.just
+# A local run stops at the first failure, CI reports every failure in one go
+[profile.ci]
+fail-fast = false
+failure-output = "immediate-final"
