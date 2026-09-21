@@ -8,22 +8,22 @@ export const UNANNOTATED = "<unannotated>";
 /** How much of a data blob the map draws brightly, and what the detail pane decodes. */
 export type DataMode = "both" | "blob" | "decoded" | "hidden";
 
-/** The four render knobs plus the layer filter, which is the only one the wasm sees. */
+/** Bytes of a data blob the map draws brightly, which is enough to find the blob and not read it. */
+export const MAX_BLOB = 1;
+
+/** The render knobs plus the layer filter, which is the only one the wasm sees. */
 export interface ViewState {
+  /** Hex columns per row, fitted to the pane rather than chosen. */
   width: number;
-  showBits: boolean;
   dataMode: DataMode;
-  maxBlob: number;
   layer: number | null;
 }
 
-/** The CLI's defaults, which `fit width` overrides for `width` as soon as the pane is measured. */
+/** The CLI's defaults, with `width` replaced by the fitted column count as soon as the pane is measured. */
 export function defaultView(): ViewState {
   return {
     width: 16,
-    showBits: true,
     dataMode: "both",
-    maxBlob: 256,
     layer: null,
   };
 }
@@ -93,23 +93,12 @@ export function layerLabels(tree: DumpTree): string[] {
     .map((r) => r.label);
 }
 
-/** Offset from which a blob's bytes are drawn faded, which is what `max blob` and `data` mean to a map that never drops a row. */
+/** Offset from which a blob's bytes are drawn faded, which is what `data` means to a map that never drops a row. */
 export function fadedFrom(region: Region, view: ViewState): number {
   if (region.kind !== "dataBlob") return Number.POSITIVE_INFINITY;
   if (view.dataMode === "hidden" || view.dataMode === "decoded")
     return region.offset;
-  if (view.maxBlob === 0) return Number.POSITIVE_INFINITY;
-  return region.offset + view.maxBlob;
-}
-
-/** Bytes the current knobs fade, so the footer can report the knob's own effect. */
-export function fadedBytes(tree: DumpTree, view: ViewState): number {
-  return tree.regions.reduce((total, region) => {
-    if (region.container) return total;
-    const from = fadedFrom(region, view);
-    if (from === Number.POSITIVE_INFINITY) return total;
-    return total + Math.max(0, region.offset + region.len - from);
-  }, 0);
+  return region.offset + MAX_BLOB;
 }
 
 /** Whether the detail pane asks for decoded values at all. */

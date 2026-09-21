@@ -11,7 +11,7 @@ describe("readDeepLink", () => {
   });
 
   it("ignores everything else in the query", () => {
-    expect(readDeepLink("?width=48&bits=0&maxBlob=0")).toEqual({
+    expect(readDeepLink("?width=48")).toEqual({
       fixture: null,
       layer: null,
       region: null,

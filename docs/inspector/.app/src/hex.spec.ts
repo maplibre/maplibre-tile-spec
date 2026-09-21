@@ -3,7 +3,6 @@ import {
   ancestors,
   byteOwners,
   defaultView,
-  fadedBytes,
   fadedFrom,
   fitColumns,
   hex8,
@@ -74,16 +73,8 @@ describe("fadedFrom", () => {
     );
   });
 
-  it("fades a blob past max blob", () => {
-    expect(fadedFrom(tree.regions[4], { ...defaultView(), maxBlob: 2 })).toBe(
-      5,
-    );
-  });
-
-  it("keeps the whole blob when max blob is off", () => {
-    expect(fadedFrom(tree.regions[4], { ...defaultView(), maxBlob: 0 })).toBe(
-      Number.POSITIVE_INFINITY,
-    );
+  it("fades a blob past its first byte", () => {
+    expect(fadedFrom(tree.regions[4], defaultView())).toBe(4);
   });
 
   it("fades a whole blob that the data knob hides", () => {
@@ -96,16 +87,6 @@ describe("fadedFrom", () => {
     expect(
       fadedFrom(tree.regions[4], { ...defaultView(), dataMode: "decoded" }),
     ).toBe(3);
-  });
-});
-
-describe("fadedBytes", () => {
-  it("counts what the knobs fade, so the footer can report it", () => {
-    expect(fadedBytes(tree, { ...defaultView(), maxBlob: 2 })).toBe(3);
-  });
-
-  it("counts nothing at the defaults", () => {
-    expect(fadedBytes(tree, defaultView())).toBe(0);
   });
 });
 

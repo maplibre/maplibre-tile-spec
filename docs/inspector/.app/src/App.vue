@@ -34,7 +34,6 @@ const view = ref<ViewState>(defaultView());
 const tile = shallowRef<AnnotatedTile | null>(null);
 const bytes = shallowRef<Uint8Array>(new Uint8Array());
 const fixture = ref<string | null>(null);
-const upload = ref<string | null>(null);
 const failure = ref<string | null>(null);
 const selected = ref<number | null>(null);
 const dragging = ref(false);
@@ -77,12 +76,11 @@ function decode(regionIndex: number, maxValues: number): DecodedBlob {
   }
 }
 
-function load(raw: Uint8Array, key: string | null, name: string | null) {
+function load(raw: Uint8Array, key: string | null) {
   tile.value?.free();
   tile.value = annotateTile(raw);
   bytes.value = raw;
   fixture.value = key;
-  upload.value = name;
   selected.value = null;
   view.value.layer = null;
 }
@@ -90,7 +88,7 @@ function load(raw: Uint8Array, key: string | null, name: string | null) {
 async function pickFixture(key: string) {
   failure.value = null;
   try {
-    load(await loadFixture(key), key, null);
+    load(await loadFixture(key), key);
   } catch (cause) {
     failure.value = String(cause);
   }
@@ -99,7 +97,7 @@ async function pickFixture(key: string) {
 async function pickUpload(file: File) {
   failure.value = null;
   try {
-    load(new Uint8Array(await file.arrayBuffer()), null, file.name);
+    load(new Uint8Array(await file.arrayBuffer()), null);
   } catch (cause) {
     failure.value = String(cause);
   }
@@ -169,7 +167,6 @@ watch([fixture, layer, selected], () => {
         @fixture="pickFixture"
         @upload="pickUpload"
       />
-      <span v-if="upload" class="uploaded">{{ upload }}</span>
       <RenderControls v-if="tree" v-model="view" :layers="layers" />
     </header>
 
@@ -199,6 +196,13 @@ watch([fixture, layer, selected], () => {
 <style>
 :root {
   color-scheme: dark;
+  --radius: 10px;
+  /* Inline byte and tree-row highlights, which `--radius` would round into circles. */
+  --radius-inline: 2px;
+  /* Gutter of every panel, card and bar. */
+  --pad: 1.5rem;
+  /* Padding of a row inside a list, and the vertical half of a control. */
+  --pad-tight: 0.55rem;
   --bg: #111725;
   --panel: #161e30;
   --control: #1b2437;
@@ -216,7 +220,6 @@ watch([fixture, layer, selected], () => {
   --container: #e8d9a0;
   --value: #7fd6a0;
   --bits: #d9a441;
-  --bits-bg: #3a2d12;
   --warn: #e5a0a0;
   --warn-bg: #3a1b1b;
 }
@@ -248,10 +251,10 @@ body {
 }
 header {
   display: flex;
-  gap: 1.25rem;
+  gap: var(--pad);
   align-items: center;
   flex-wrap: wrap;
-  padding: 0.45rem 0.75rem;
+  padding: 0.9rem var(--pad);
   border-bottom: 1px solid var(--line);
   background: var(--panel);
 }
@@ -260,13 +263,9 @@ header > * {
   flex: 0 0 auto;
   min-width: 0;
 }
-.uploaded {
-  color: var(--value);
-  font-size: 0.78rem;
-}
 .failure {
   margin: 0;
-  padding: 0.4rem 0.75rem;
+  padding: var(--pad-tight) var(--pad);
   background: var(--warn-bg);
   color: var(--warn);
   font-size: 0.78rem;

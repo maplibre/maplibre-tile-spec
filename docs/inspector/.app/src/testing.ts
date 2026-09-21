@@ -2,6 +2,18 @@
 
 import type { DumpTree, Region } from "./annotate.ts";
 
+/** jsdom 30 ships `<dialog>` without `showModal` and `close`, so the fixture sheet needs them. */
+export function stubDialog(): void {
+  HTMLDialogElement.prototype.showModal = function showModal(
+    this: HTMLDialogElement,
+  ) {
+    this.open = true;
+  };
+  HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
+    this.open = false;
+  };
+}
+
 export function region(
   fields: Pick<Region, "offset" | "len" | "label"> & Partial<Region>,
 ): Region {

@@ -95,7 +95,7 @@ defineExpose({ reveal });
           unannotated: node.region.label === UNANNOTATED,
           on: node.index === props.activeIndex,
         }"
-        :style="{ paddingLeft: `${node.region.depth * 0.7 + 0.3}rem` }"
+        :style="{ paddingLeft: `${node.region.depth * 0.8 + 0.3}rem` }"
       >
         <button
           v-if="node.hasChildren"
@@ -134,9 +134,9 @@ defineExpose({ reveal });
 }
 .treebar {
   display: flex;
-  gap: 0.3rem;
+  gap: 0.4rem;
   align-items: center;
-  padding: 0.3rem 0.7rem;
+  padding: var(--pad-tight) var(--pad);
   color: var(--muted);
   font-size: 0.7rem;
   text-transform: uppercase;
@@ -149,22 +149,23 @@ defineExpose({ reveal });
   background: var(--control);
   color: var(--muted);
   border: 1px solid var(--line);
-  border-radius: 3px;
+  border-radius: var(--radius);
   font: inherit;
+  padding: 0.15rem 0.6rem;
   text-transform: none;
   letter-spacing: 0;
   cursor: pointer;
 }
 .scroll {
   overflow: auto;
-  padding: 0 0.75rem 2.5rem 0.4rem;
+  padding: 0 var(--pad) 3rem 0.9rem;
   font-size: 0.74rem;
 }
 .node {
   display: flex;
   align-items: baseline;
   gap: 0.3rem;
-  border-radius: 2px;
+  border-radius: var(--radius-inline);
 }
 .node:hover {
   background: var(--hover);
@@ -194,7 +195,7 @@ defineExpose({ reveal });
   font: inherit;
   color: var(--text);
   cursor: pointer;
-  padding: 0.02rem 0.2rem;
+  padding: 0.16rem 0.3rem;
   text-align: left;
 }
 .name {

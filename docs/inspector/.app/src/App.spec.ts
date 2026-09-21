@@ -11,7 +11,7 @@ import {
 import App from "./App.vue";
 import { type AnnotatedTile, annotateTile } from "./annotate.ts";
 import SourcePicker from "./SourcePicker.vue";
-import { tinyTree } from "./testing.ts";
+import { stubDialog, tinyTree } from "./testing.ts";
 
 vi.mock("./annotate.ts", () => ({ annotateTile: vi.fn() }));
 
@@ -46,6 +46,7 @@ beforeAll(() => {
     unobserve() {}
     disconnect() {}
   };
+  stubDialog();
 });
 
 beforeEach(() => {
@@ -65,13 +66,47 @@ describe("the empty state", () => {
     expect(app.get(".empty h1").text()).toBe("Annotated hexdump");
   });
 
-  it("offers every indexed fixture", async () => {
+  it("offers every indexed fixture once the sheet is open", async () => {
     serve();
     const app = mount(App);
     await flushPromises();
-    expect(
-      app.findAll("optgroup").map((group) => group.attributes("label")),
-    ).toEqual(["0x01 · point", "0x02 · line"]);
+    await app.get("button.open").trigger("click");
+    expect(app.findAll("dialog h3").map((group) => group.text())).toEqual([
+      "0x01 · point",
+      "0x02 · line",
+    ]);
+  });
+
+  it("narrows the sheet to the fixtures the filter names", async () => {
+    serve();
+    const app = mount(App);
+    await flushPromises();
+    await app.get("button.open").trigger("click");
+    await app.get("dialog .filter").setValue("0x02");
+    expect(app.findAll("dialog .entry .name").map((e) => e.text())).toEqual([
+      "line.mlt",
+    ]);
+  });
+
+  it("says so when the filter matches no fixture", async () => {
+    serve();
+    const app = mount(App);
+    await flushPromises();
+    await app.get("button.open").trigger("click");
+    await app.get("dialog .filter").setValue("nothing");
+    expect(app.get("dialog .none").text()).toBe("no fixture matches");
+  });
+
+  it("loads the fixture the sheet picks and closes it", async () => {
+    serve();
+    const app = mount(App);
+    await flushPromises();
+    await app.get("button.open").trigger("click");
+    await app.get("dialog .entry").trigger("click");
+    await flushPromises();
+    expect(annotateTile).toHaveBeenCalledOnce();
+    expect(app.get<HTMLDialogElement>("dialog").element.open).toBe(false);
+    expect(app.get("button.open").text()).toBe("0x01/point.mlt");
   });
 });
 
@@ -104,7 +139,7 @@ describe("loading a fixture", () => {
       .vm.$emit("upload", new File([new Uint8Array(8)], "own.mlt"));
     await flushPromises();
     expect(annotateTile).toHaveBeenCalledOnce();
-    expect(app.get(".uploaded").text()).toBe("own.mlt");
+    expect(app.find(".empty").exists()).toBe(false);
   });
 });
 

@@ -201,7 +201,7 @@ defineExpose({ scrollToRegion });
   outline-offset: -2px;
   overflow: auto;
   position: relative;
-  padding: 0.4rem 0.75rem 1rem;
+  padding: 0.9rem var(--pad) 1.5rem;
   font-size: 0.74rem;
 }
 .spacer {
@@ -225,7 +225,7 @@ defineExpose({ scrollToRegion });
   cursor: pointer;
   padding: 1px 2px 1px 1px;
   border-left: 1px solid transparent;
-  border-radius: 2px;
+  border-radius: var(--radius-inline);
 }
 .cell.meta {
   color: var(--text);

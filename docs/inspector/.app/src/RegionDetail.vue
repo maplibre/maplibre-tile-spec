@@ -110,7 +110,7 @@ const byte = computed(() =>
         </template>
       </dl>
 
-      <template v-if="region.bits.length && props.view.showBits">
+      <template v-if="region.bits.length">
         <h3>bits of {{ hex2(byte) }}</h3>
         <div v-for="field in region.bits" :key="field.hi" class="bitrow">
           <span class="bits"
@@ -141,7 +141,7 @@ const byte = computed(() =>
 <style scoped>
 /* flex-shrink stays 0: the region tree below must not squeeze this card down to its first line. */
 .detail {
-  padding: 0.55rem 0.7rem 0.7rem;
+  padding: var(--pad);
   overflow: auto;
   flex: 0 0 auto;
   max-height: 58%;

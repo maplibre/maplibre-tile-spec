@@ -91,22 +91,28 @@ describe("arrow keys", () => {
     expect(pane.emitted("update:selected")).toBeUndefined();
   });
 
-  it("keeps walking while a checkbox has focus", () => {
-    const pane = view();
-    pane.get<HTMLInputElement>("input[type=checkbox]").element.focus();
-    press("ArrowDown");
-    expect(pane.emitted("update:selected")).toEqual([[1]]);
-  });
-
-  it("leaves the arrows to a focused number field", () => {
+  it("leaves the arrows to a focused text field", () => {
     const field = document.createElement("input");
-    field.type = "number";
+    field.type = "search";
     document.body.append(field);
     field.focus();
     const pane = view();
     press("ArrowDown");
     expect(pane.emitted("update:selected")).toBeUndefined();
     field.remove();
+  });
+
+  it("walks no regions behind an open dialog", () => {
+    const sheet = document.createElement("dialog");
+    const button = document.createElement("button");
+    sheet.append(button);
+    document.body.append(sheet);
+    sheet.setAttribute("open", "");
+    button.focus();
+    const pane = view();
+    press("ArrowDown");
+    expect(pane.emitted("update:selected")).toBeUndefined();
+    sheet.remove();
   });
 });
 

@@ -16,12 +16,6 @@ const props = defineProps<{ layers: string[] }>();
           — {{ layer }}
         </option>
       </select>
-      <em class="wasm" title="the only knob the wasm sees">wasm</em>
-    </label>
-    <label>
-      width
-      <input v-model.number="view.width" type="range" min="8" max="64" step="4">
-      <output>{{ view.width }}</output>
     </label>
     <label>
       data
@@ -32,21 +26,13 @@ const props = defineProps<{ layers: string[] }>();
         <option value="hidden">hidden</option>
       </select>
     </label>
-    <label>
-      max blob
-      <input v-model.number="view.maxBlob" type="number" min="0" step="64">
-    </label>
-    <label class="check">
-      <input v-model="view.showBits" type="checkbox">
-      bits
-    </label>
   </div>
 </template>
 
 <style scoped>
 .knobs {
   display: flex;
-  gap: 0.75rem;
+  gap: var(--pad);
   align-items: center;
   flex-wrap: wrap;
   font-size: 0.78rem;
@@ -54,34 +40,15 @@ const props = defineProps<{ layers: string[] }>();
 }
 label {
   display: flex;
-  gap: 0.3rem;
+  gap: 0.4rem;
   align-items: center;
 }
-select,
-input[type="number"] {
+select {
   background: var(--control);
   color: var(--text);
   border: 1px solid var(--line);
-  border-radius: 3px;
+  border-radius: var(--radius);
   font: inherit;
-  padding: 0.05rem 0.2rem;
-}
-input[type="number"] {
-  width: 4.5rem;
-}
-input[type="range"] {
-  width: 5.5rem;
-}
-output {
-  color: var(--text);
-  width: 1.5rem;
-}
-.wasm {
-  background: var(--bits-bg);
-  color: var(--bits);
-  border-radius: 2px;
-  padding: 0 0.25rem;
-  font-size: 0.68rem;
-  font-style: normal;
+  padding: var(--pad-tight) 0.7rem;
 }
 </style>

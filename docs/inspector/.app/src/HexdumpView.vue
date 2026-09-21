@@ -2,13 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { DecodedBlob, DumpTree } from "./annotate.ts";
 import HexMap from "./HexMap.vue";
-import {
-  byteOwners,
-  fadedBytes,
-  fitColumns,
-  leafStep,
-  type ViewState,
-} from "./hex.ts";
+import { byteOwners, fitColumns, leafStep, type ViewState } from "./hex.ts";
 import RegionDetail from "./RegionDetail.vue";
 import RegionTree from "./RegionTree.vue";
 
@@ -26,27 +20,9 @@ const root = ref<HTMLElement | null>(null);
 const map = ref<InstanceType<typeof HexMap> | null>(null);
 const regions = ref<InstanceType<typeof RegionTree> | null>(null);
 const hovered = ref<number | null>(null);
-const fit = ref(true);
 
 const activeIndex = computed(() => selected.value ?? hovered.value);
 const owners = computed(() => byteOwners(props.tree));
-const faded = computed(() => fadedBytes(props.tree, view.value));
-
-const status = computed(() => {
-  const tree = props.tree;
-  const blobs = tree.regions.filter((region) => region.kind === "dataBlob");
-  const blobBytes = blobs.reduce((total, region) => total + region.len, 0);
-  const owned = tree.regions
-    .filter((region) => !region.container)
-    .reduce((total, region) => total + region.len, 0);
-  const share = Math.round((100 * blobBytes) / Math.max(1, owned));
-  return [
-    `${tree.bufLen.toLocaleString()} B`,
-    `${tree.regions.length.toLocaleString()} regions`,
-    `${blobs.length} blobs (${share}% of annotated bytes)`,
-    `${Math.ceil(tree.bufLen / view.value.width).toLocaleString()} hex rows`,
-  ].join(" · ");
-});
 
 /** Set when this component moved the selection, so an outside change still scrolls the map. */
 let picked: number | null = null;
@@ -67,19 +43,19 @@ watch(selected, (index) => {
   if (index !== null && index !== picked) show(index);
 });
 
-/** Whether the focused control does its own thing with an arrow key, like a slider or a select. */
+/** Whether the focused control does its own thing with an arrow key, like the fixture filter or a select. */
 function consumesArrows(element: Element | null): boolean {
-  if (
+  return (
     element instanceof HTMLSelectElement ||
-    element instanceof HTMLTextAreaElement
-  )
-    return true;
-  return element instanceof HTMLInputElement && element.type !== "checkbox";
+    element instanceof HTMLTextAreaElement ||
+    element instanceof HTMLInputElement
+  );
 }
 
 /** ↑ / ↓ walk the leaves, on the window so they work before the map is ever clicked. */
 function onKey(event: KeyboardEvent) {
   if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+  if (document.activeElement?.closest("dialog[open]")) return;
   if (consumesArrows(document.activeElement)) return;
   event.preventDefault();
   const step = event.key === "ArrowDown" ? 1 : -1;
@@ -92,8 +68,7 @@ function onKey(event: KeyboardEvent) {
 }
 
 function refit() {
-  if (fit.value && root.value)
-    view.value.width = fitColumns(root.value.clientWidth);
+  if (root.value) view.value.width = fitColumns(root.value.clientWidth);
 }
 
 let observer: ResizeObserver | null = null;
@@ -112,8 +87,6 @@ onBeforeUnmount(() => {
   window.removeEventListener("keydown", onKey);
   observer?.disconnect();
 });
-
-watch(fit, refit);
 </script>
 
 <template>
@@ -134,16 +107,6 @@ watch(fit, refit);
           @hover="hovered = $event"
           @pick="select($event, false)"
         />
-        <footer>
-          <label class="fit"
-            ><input v-model="fit" type="checkbox">
-            fit width</label
-          >
-          <span>{{ status }}</span>
-          <span v-if="faded" class="faded"
-            >max blob fades {{ faded.toLocaleString() }} B</span
-          >
-        </footer>
       </section>
       <aside>
         <RegionDetail
@@ -175,7 +138,7 @@ watch(fit, refit);
 }
 .walk-error {
   margin: 0;
-  padding: 0.35rem 0.75rem;
+  padding: var(--pad-tight) var(--pad);
   background: var(--warn-bg);
   color: var(--warn);
   font-size: 0.76rem;
@@ -190,24 +153,6 @@ watch(fit, refit);
   display: flex;
   flex-direction: column;
   min-height: 0;
-}
-footer {
-  display: flex;
-  gap: 1rem;
-  padding: 0.3rem 0.75rem;
-  border-top: 1px solid var(--line);
-  background: var(--panel);
-  color: var(--muted);
-  font-size: 0.72rem;
-}
-.fit {
-  display: flex;
-  gap: 0.25rem;
-  align-items: center;
-}
-.faded {
-  margin-left: auto;
-  color: var(--bits);
 }
 aside {
   border-left: 1px solid var(--line);
