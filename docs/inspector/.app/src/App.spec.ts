@@ -1,42 +1,147 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import App from "./App.vue";
+import { type AnnotatedTile, annotateTile } from "./annotate.ts";
+import SourcePicker from "./SourcePicker.vue";
+import { tinyTree } from "./testing.ts";
+
+vi.mock("./annotate.ts", () => ({ annotateTile: vi.fn() }));
 
 const index = [
-  { name: "a.mlt", directory: "0x01", bytes: 10 },
-  { name: "b.mlt", directory: "0x01", bytes: 20 },
-  { name: "c.mlt", directory: "0x02", bytes: 5 },
+  { name: "point.mlt", directory: "0x01", bytes: 8 },
+  { name: "line.mlt", directory: "0x02", bytes: 8 },
 ];
 
-const rows = (html: string) => html.match(/<tbody>.*<\/tbody>/s)?.[0] ?? "";
+function handle(error: string | null = null): AnnotatedTile {
+  const tree = tinyTree(error === null ? "data" : "<unannotated>");
+  return {
+    tree: () => tree,
+    error,
+    decodeBlob: () => ({ kind: "numbers", values: [1], truncatedFrom: null }),
+    renderText: () => "",
+    free: () => {},
+  };
+}
+
+function serve(tile: Response | null = new Response(new Uint8Array(8))) {
+  const fetched = vi.fn(async (url: string) => {
+    if (url === "fixtures.json") return Response.json(index);
+    return tile ?? new Response(null, { status: 404, statusText: "Not Found" });
+  });
+  vi.stubGlobal("fetch", fetched);
+  return fetched;
+}
+
+beforeAll(() => {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+});
+
+beforeEach(() => {
+  history.replaceState(null, "", "/");
+  vi.mocked(annotateTile).mockReturnValue(handle());
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("App", () => {
-  it("groups the index by directory", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(index)));
+describe("the empty state", () => {
+  it("asks for a tile before one is loaded", async () => {
+    serve();
     const app = mount(App);
     await flushPromises();
-    expect(rows(app.html()).replace(/\s+/g, " ")).toBe(
-      "<tbody> <tr> <td>0x01</td> <td>2</td> <td>30</td> </tr> <tr> <td>0x02</td> <td>1</td> <td>5</td> </tr> </tbody>",
-    );
+    expect(app.get(".empty h1").text()).toBe("Annotated hexdump");
   });
 
-  it("reports an unreadable index", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(null, { status: 404, statusText: "Not Found" }),
-        ),
-    );
+  it("offers every indexed fixture", async () => {
+    serve();
+    const app = mount(App);
+    await flushPromises();
+    expect(
+      app.findAll("optgroup").map((group) => group.attributes("label")),
+    ).toEqual(["0x01 · point", "0x02 · line"]);
+  });
+});
+
+describe("loading a fixture", () => {
+  it("annotates the tile the deep link names", async () => {
+    serve();
+    history.replaceState(null, "", "/?fixture=0x01/point.mlt");
+    const app = mount(App);
+    await flushPromises();
+    expect(annotateTile).toHaveBeenCalledOnce();
+    expect(app.find(".empty").exists()).toBe(false);
+  });
+
+  it("reports a fixture that does not load", async () => {
+    serve(null);
+    history.replaceState(null, "", "/?fixture=0x01/gone.mlt");
     const app = mount(App);
     await flushPromises();
     expect(app.get("[role=alert]").text()).toBe(
-      "Error: fixtures.json: 404 Not Found",
+      "Error: 0x01/gone.mlt: 404 Not Found",
+    );
+  });
+
+  it("annotates an uploaded tile", async () => {
+    serve();
+    const app = mount(App);
+    await flushPromises();
+    app
+      .findComponent(SourcePicker)
+      .vm.$emit("upload", new File([new Uint8Array(8)], "own.mlt"));
+    await flushPromises();
+    expect(annotateTile).toHaveBeenCalledOnce();
+    expect(app.get(".uploaded").text()).toBe("own.mlt");
+  });
+});
+
+describe("the deep link", () => {
+  it("carries the fixture and the selected region", async () => {
+    serve();
+    history.replaceState(null, "", "/?fixture=0x01/point.mlt");
+    const app = mount(App);
+    await flushPromises();
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
+    await flushPromises();
+    expect(location.search).toBe("?fixture=0x01%2Fpoint.mlt&region=1");
+    app.unmount();
+  });
+
+  it("drops a region an upload cannot name", async () => {
+    serve();
+    history.replaceState(null, "", "/?fixture=0x01/point.mlt&region=1");
+    const app = mount(App);
+    await flushPromises();
+    app
+      .findComponent(SourcePicker)
+      .vm.$emit("upload", new File([new Uint8Array(8)], "own.mlt"));
+    await flushPromises();
+    expect(location.search).toBe("");
+  });
+});
+
+describe("a tile the walker could not finish", () => {
+  it("surfaces the error beside the partial tree", async () => {
+    serve();
+    vi.mocked(annotateTile).mockReturnValue(handle("unexpected end of input"));
+    history.replaceState(null, "", "/?fixture=0x01/point.mlt");
+    const app = mount(App);
+    await flushPromises();
+    expect(app.get("[role=alert]").text()).toBe(
+      "walk stopped: unexpected end of input — the remaining bytes are <unannotated>",
     );
   });
 });

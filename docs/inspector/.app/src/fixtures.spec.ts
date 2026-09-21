@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   type FixtureEntry,
   fixtureKey,
+  fixturePrefix,
+  groupFixtures,
   loadFixture,
   loadFixtureIndex,
 } from "./fixtures.ts";
@@ -67,5 +69,32 @@ describe("loadFixture", () => {
     await expect(loadFixture("0x01/point-int.mlt")).rejects.toThrow(
       "0x01/point-int.mlt: 500 Server Error",
     );
+  });
+});
+
+describe("fixturePrefix", () => {
+  it("takes everything up to the first underscore", () => {
+    expect(fixturePrefix("ids64_minmax_delta.mlt")).toBe("ids64");
+  });
+
+  it("takes the whole stem when there is no underscore", () => {
+    expect(fixturePrefix("point.mlt")).toBe("point");
+  });
+});
+
+describe("groupFixtures", () => {
+  const entries: FixtureEntry[] = [
+    { name: "point.mlt", directory: "0x02", bytes: 1 },
+    { name: "ids_rle.mlt", directory: "0x01", bytes: 2 },
+    { name: "extent_512.mlt", directory: "0x01", bytes: 3 },
+    { name: "ids.mlt", directory: "0x01", bytes: 4 },
+  ];
+
+  it("orders by directory, then prefix, then name", () => {
+    expect(groupFixtures(entries)).toEqual([
+      { label: "0x01 \u00b7 extent", entries: [entries[2]] },
+      { label: "0x01 \u00b7 ids", entries: [entries[3], entries[1]] },
+      { label: "0x02 \u00b7 point", entries: [entries[0]] },
+    ]);
   });
 });
