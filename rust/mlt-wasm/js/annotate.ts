@@ -6,7 +6,10 @@ export interface AnnotatedTile {
   tree(layer?: number): DumpTree;
   /** Walker failure message, or null. When set, `tree()` is partial. */
   readonly error: string | null;
-  /** Decoded values of the data blob at `regionIndex`, at most `maxValues` of them (0 = all). */
+  /**
+   * Decoded values of the data blob at `regionIndex`, at most `maxValues` of them (0 = all).
+   * The index counts the regions of the whole tile, never those of a filtered `tree()`.
+   */
   decodeBlob(regionIndex: number, maxValues: number): DecodedBlob;
   /** Release the tile bytes and the region list. */
   free(): void;

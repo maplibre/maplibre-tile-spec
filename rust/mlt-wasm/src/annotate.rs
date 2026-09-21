@@ -71,7 +71,8 @@ impl AnnotatedTile {
 
     /// Decode the payload of the data blob at `region_index`, keeping at most `max_values` values.
     ///
-    /// `max_values` of `0` keeps all of them.
+    /// `max_values` of `0` keeps all of them, and a bytes payload ignores the cap.
+    /// The index counts the regions of the whole tile, never those of a filtered [`Self::tree`].
     #[wasm_bindgen(js_name = "decodeBlob")]
     pub fn decode_blob(
         &mut self,
