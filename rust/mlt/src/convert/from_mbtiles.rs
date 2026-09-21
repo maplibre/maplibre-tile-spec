@@ -361,7 +361,6 @@ impl Drop for BboxExtract {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -579,7 +578,9 @@ mod tests {
         let mbt = Mbtiles::new(&output.0).expect("output opens");
         let mut conn = mbt.open_readonly().await.expect("output connects");
         assert_eq!(
-            mbt.detect_type(&mut conn).await.expect("type is detectable"),
+            mbt.detect_type(&mut conn)
+                .await
+                .expect("type is detectable"),
             MbtType::Flat
         );
         drop(conn);
@@ -632,7 +633,9 @@ mod tests {
         let mbt = Mbtiles::new(&output.0).expect("output opens");
         let mut conn = mbt.open_readonly().await.expect("output connects");
         assert_eq!(
-            mbt.detect_type(&mut conn).await.expect("type is detectable"),
+            mbt.detect_type(&mut conn)
+                .await
+                .expect("type is detectable"),
             MbtType::FlatWithHash
         );
     }

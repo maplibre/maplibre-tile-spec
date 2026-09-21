@@ -412,10 +412,7 @@ mod tests {
                 b"s".as_slice(),
             ],
             &messages,
-            &[
-                (None, &every_key, POINT_AT_1_1),
-                (None, &[], POINT_AT_1_1),
-            ],
+            &[(None, &every_key, POINT_AT_1_1), (None, &[], POINT_AT_1_1)],
         )]);
 
         let layers = both_paths(&data);
@@ -778,7 +775,12 @@ mod tests {
     }
 
     /// Tile of one default-extent layer with a single key and one point feature per tag list.
-    fn mvt_layer(name: &[u8], feature_tags: &[Vec<u32>], key: &[u8], values: &[Vec<u8>]) -> Vec<u8> {
+    fn mvt_layer(
+        name: &[u8],
+        feature_tags: &[Vec<u32>],
+        key: &[u8],
+        values: &[Vec<u8>],
+    ) -> Vec<u8> {
         let features: Vec<(Option<u64>, &[u32], &[u64])> = feature_tags
             .iter()
             .map(|tags| (None, tags.as_slice(), POINT_AT_1_1))

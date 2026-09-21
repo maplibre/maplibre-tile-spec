@@ -1126,7 +1126,7 @@ mod tests {
         insta::assert_snapshot!(
             render_table(&[info_row(mlt_info("a.mlt"))], LsFlags::default()),
             @"
-         File  |   Size | Enc % | Decoded | Meta | Meta % | Layer | Feature | Stream | Geometry Types 
+         File  |   Size | Enc % | Decoded | Meta | Meta % | Layer | Feature | Stream | Geometry Types
         -------+--------+-------+---------+------+--------+-------+---------+--------+----------------
          a.mlt | 12.3kB |   62% |  32.0kB | 900B |   2.8% |     3 |   1,234 |     42 | Pt,Poly
         "
@@ -1136,7 +1136,7 @@ mod tests {
     #[test]
     fn the_gzip_flag_adds_the_gzipped_and_gz_percent_columns() {
         insta::assert_snapshot!(render_table(&[info_row(mlt_info("a.mlt"))], GZIP), @"
-         File  |   Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types 
+         File  |   Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types
         -------+--------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------
          a.mlt | 12.3kB |   62% |  32.0kB | 900B |   2.8% |   9.0kB |  27% |     3 |   1,234 |     42 | Pt,Poly
         ");
@@ -1145,7 +1145,7 @@ mod tests {
     #[test]
     fn the_algorithms_flag_adds_the_algorithms_column() {
         insta::assert_snapshot!(render_table(&[info_row(mlt_info("a.mlt"))], ALGORITHMS), @"
-         File  |   Size | Enc % | Decoded | Meta | Meta % | Layer | Feature | Stream | Geometry Types | Algorithms           
+         File  |   Size | Enc % | Decoded | Meta | Meta % | Layer | Feature | Stream | Geometry Types | Algorithms
         -------+--------+-------+---------+------+--------+-------+---------+--------+----------------+----------------------
          a.mlt | 12.3kB |   62% |  32.0kB | 900B |   2.8% |     3 |   1,234 |     42 | Pt,Poly        | RawData-VarInt-Delta
         ");
@@ -1159,10 +1159,10 @@ mod tests {
                 GZIP
             ),
             @"
-         File  |   Size | Enc % | Decoded |  Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types 
+         File  |   Size | Enc % | Decoded |  Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types
         -------+--------+-------+---------+-------+--------+---------+------+-------+---------+--------+----------------
-         a.mlt | 12.3kB |   62% |  32.0kB |  900B |   2.8% |   9.0kB |  27% |     3 |   1,234 |     42 | Pt,Poly        
-         b.mlt | 12.3kB |   62% |  32.0kB |  900B |   2.8% |   9.0kB |  27% |     3 |   1,234 |     42 | Pt,Poly        
+         a.mlt | 12.3kB |   62% |  32.0kB |  900B |   2.8% |   9.0kB |  27% |     3 |   1,234 |     42 | Pt,Poly
+         b.mlt | 12.3kB |   62% |  32.0kB |  900B |   2.8% |   9.0kB |  27% |     3 |   1,234 |     42 | Pt,Poly
         -------+--------+-------+---------+-------+--------+---------+------+-------+---------+--------+----------------
          TOTAL | 24.6kB |   62% |  64.0kB | 1.8kB |   2.8% |  18.0kB |  27% |     6 |   2,468 |     84 |
         "
@@ -1177,10 +1177,10 @@ mod tests {
                 GZIP
             ),
             @"
-         File  |    Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types 
+         File  |    Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types
         -------+---------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------
-         a.mvt |  54.3kB |     - |       - |    - |      - |       - |    - |     2 |     500 |      - | Line           
-         b.mvt |  54.3kB |     - |       - |    - |      - |       - |    - |     2 |     500 |      - | Line           
+         a.mvt |  54.3kB |     - |       - |    - |      - |       - |    - |     2 |     500 |      - | Line
+         b.mvt |  54.3kB |     - |       - |    - |      - |       - |    - |     2 |     500 |      - | Line
         -------+---------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------
          TOTAL | 108.6kB |     - |       - |    - |      - |       - |    - |     4 |   1,000 |      - |
         "
@@ -1195,10 +1195,10 @@ mod tests {
                 GZIP
             ),
             @"
-         File  |   Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types 
+         File  |   Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types
         -------+--------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------
-         a.mlt | 12.3kB |   62% |  32.0kB | 900B |   2.8% |   9.0kB |  27% |     3 |   1,234 |     42 | Pt,Poly        
-         b.mvt | 54.3kB |     - |       - |    - |      - |       - |    - |     2 |     500 |      - | Line           
+         a.mlt | 12.3kB |   62% |  32.0kB | 900B |   2.8% |   9.0kB |  27% |     3 |   1,234 |     42 | Pt,Poly
+         b.mvt | 54.3kB |     - |       - |    - |      - |       - |    - |     2 |     500 |      - | Line
         -------+--------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------
          TOTAL | 66.6kB |     - |       - |    - |      - |   9.0kB |  86% |     5 |   1,734 |      - |
         "
@@ -1217,10 +1217,10 @@ mod tests {
                 LsFlags::default()
             ),
             @"
-         File        |   Size | Enc % | Decoded | Meta | Meta % | Layer | Feature | Stream | Geometry Types 
+         File        |   Size | Enc % | Decoded | Meta | Meta % | Layer | Feature | Stream | Geometry Types
         -------------+--------+-------+---------+------+--------+-------+---------+--------+----------------
-         a.mlt       | 12.3kB |   62% |  32.0kB | 900B |   2.8% |     3 |   1,234 |     42 | Pt,Poly        
-         broken.mlt  | 777B                                                                                 
+         a.mlt       | 12.3kB |   62% |  32.0kB | 900B |   2.8% |     3 |   1,234 |     42 | Pt,Poly
+         broken.mlt  | 777B
          missing.mlt |
         "
         );
@@ -1237,10 +1237,10 @@ mod tests {
                 VALIDATE
             ),
             @"
-         File  |   Size | Enc % | Decoded |  Meta | Meta % | Layer | Feature | Stream | Geometry Types | JSON 
+         File  |   Size | Enc % | Decoded |  Meta | Meta % | Layer | Feature | Stream | Geometry Types | JSON
         -------+--------+-------+---------+-------+--------+-------+---------+--------+----------------+------
-         a.mlt | 12.3kB |   62% |  32.0kB |  900B |   2.8% |     3 |   1,234 |     42 | Pt,Poly        | ✗    
-         b.mlt | 12.3kB |   62% |  32.0kB |  900B |   2.8% |     3 |   1,234 |     42 | Pt,Poly        | ✗    
+         a.mlt | 12.3kB |   62% |  32.0kB |  900B |   2.8% |     3 |   1,234 |     42 | Pt,Poly        | ✗
+         b.mlt | 12.3kB |   62% |  32.0kB |  900B |   2.8% |     3 |   1,234 |     42 | Pt,Poly        | ✗
         -------+--------+-------+---------+-------+--------+-------+---------+--------+----------------+------
          TOTAL | 24.6kB |   62% |  64.0kB | 1.8kB |   2.8% |     6 |   2,468 |     84 |                |
         "
@@ -1258,7 +1258,7 @@ mod tests {
                 VALIDATE
             ),
             @"
-         File       | Size |                      Enc % | Decoded | Meta | Meta % | Layer | Feature | Stream | Geometry Types | JSON 
+         File       | Size |                      Enc % | Decoded | Meta | Meta % | Layer | Feature | Stream | Geometry Types | JSON
         ------------+------+----------------------------+---------+------+--------+-------+---------+--------+----------------+------
          broken.mlt | 777B | ERROR: unsupported version |         |      |        |       |         |        |                |
         "
@@ -1270,7 +1270,7 @@ mod tests {
         insta::assert_snapshot!(
             render_table(&[info_row(mlt_info("a.mlt"))], VALIDATE),
             @"
-         File  |   Size | Enc % | Decoded | Meta | Meta % | Layer | Feature | Stream | Geometry Types | JSON 
+         File  |   Size | Enc % | Decoded | Meta | Meta % | Layer | Feature | Stream | Geometry Types | JSON
         -------+--------+-------+---------+------+--------+-------+---------+--------+----------------+------
          a.mlt | 12.3kB |   62% |  32.0kB | 900B |   2.8% |     3 |   1,234 |     42 | Pt,Poly        | -
         "

@@ -633,7 +633,10 @@ mod tests {
         LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta),
         "vertex/componentwise-delta"
     )]
-    #[case::vertex_morton(LogicalEncoding::Vertex(VertexLogical::Morton(morton())), "vertex/morton")]
+    #[case::vertex_morton(
+        LogicalEncoding::Vertex(VertexLogical::Morton(morton())),
+        "vertex/morton"
+    )]
     #[case::vertex_morton_delta(
         LogicalEncoding::Vertex(VertexLogical::MortonDelta(morton())),
         "vertex/morton-delta"
