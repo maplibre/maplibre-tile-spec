@@ -167,6 +167,9 @@ Scaling by `10ᵉ` and then dividing by `10ᶠ` rounds twice, and some values ar
 
 `e` is at most `18` so that `v · 10ᵉ` fits in an `i64`.
 
+Every scaled integer `i` MUST satisfy `|i| ≤ 2⁵³ − 1`, the largest magnitude at which every integer is exactly representable as a double.
+A decoder MUST add `base` and the offset in integer arithmetic before converting to a float; the offsets are not bounded the same way, and a column spanning `[−2, 2⁵³ − 1]` has an offset of `2⁵³ + 1`.
+
 ## Float Dictionary <span class="experimental"></span>
 
 The distinct values are stored once, and a stream of codes holds one index into them per element.

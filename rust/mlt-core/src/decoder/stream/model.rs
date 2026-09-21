@@ -119,6 +119,7 @@ pub struct Alp {
 #[cfg(feature = "unstable-v2")]
 impl AlpScale {
     /// Largest exponent the codes can carry, past which `v * 10^e` leaves the `i64` range.
+    /// The codes themselves are bounded tighter, to `2^53 - 1`, by the encoder.
     pub(crate) const MAX_EXPONENT: u8 = 18;
 
     /// Net power of ten the codes carry, which fixes their magnitude and so their stored size.
@@ -155,7 +156,8 @@ impl Alp {
     }
 
     /// Measure a scaled integer from the frame of reference, giving the offset the stream stores.
-    /// Wrapping, so a column spanning the whole `i64` range still subtracts exactly.
+    /// Wrapping, so a foreign stream whose codes span the whole `i64` range still subtracts
+    /// exactly; our own encoder keeps codes within `2^53 - 1`, so the spread fits `u64` easily.
     #[expect(
         clippy::cast_sign_loss,
         reason = "the bit pattern is the point; `code_at` casts it back"
