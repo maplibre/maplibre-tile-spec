@@ -7,6 +7,7 @@ just := quote(just_executable())
 ci_mode := if env('CI', '') != '' {'1'} else {''}
 export CARGO_BUILD_WARNINGS := env('CARGO_BUILD_WARNINGS', if ci_mode == '1' {'deny'} else {'warn'})
 export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'})
+export NEXTEST_PROFILE := env('NEXTEST_PROFILE', if ci_mode == '1' {'ci'} else {'default'})
 
 # Features excluded from cargo-hack --each-feature iterations (heavy optional instrumentation)
 hack_skip := '--exclude-features hotpath,hotpath-alloc,hotpath-mcp'
@@ -21,8 +22,8 @@ just *args:
     {{just}} {{args}}
 
 # Run integration tests and save its output as the new expected output
-bless *args: (just 'cargo-install' 'cargo-insta') (just 'cargo-install' 'cargo-hack')
-    cargo hack insta test --accept --unreferenced=delete --each-feature {{hack_skip}} \
+bless *args: (just 'cargo-install' 'cargo-insta') (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-nextest')
+    cargo hack insta test --test-runner nextest --accept --unreferenced=delete --each-feature {{hack_skip}} \
         --package mlt-core --package mlt --exclude-no-default-features --exclude-all-features \
         {{args}}
 
@@ -79,6 +80,7 @@ ci-env-info:
     rustup --version
     echo "CARGO_BUILD_WARNINGS='$CARGO_BUILD_WARNINGS'"
     echo "RUST_BACKTRACE='$RUST_BACKTRACE'"
+    echo "NEXTEST_PROFILE='$NEXTEST_PROFILE'"
     echo "::endgroup::"
 
     # Linux
@@ -121,8 +123,9 @@ ci-test-msrv: ci-env-info
     set -euo pipefail
     # For MSRV, relax all warnings to avoid different warnings per rust version
     unset CI CARGO_BUILD_WARNINGS RUSTDOCFLAGS RUST_BACKTRACE
-    # Pre-install cargo-hack to avoid CI binstall issues
+    # Pre-install cargo-hack and cargo-nextest to avoid CI binstall issues
     {{just}} cargo-install cargo-hack
+    {{just}} cargo-install cargo-nextest
     {{just}} rust::ci-check
     {{just}} java::gen-snippets
     {{just}} rust::test
@@ -453,13 +456,14 @@ sync-wasm-version:
 
 alias t := test
 # Run all tests
-test: (just 'cargo-install' 'cargo-hack')
-    cargo hack test --all-targets --each-feature {{hack_skip}} \
+test: (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-nextest')
+    cargo hack nextest run --all-targets --no-tests=warn --each-feature {{hack_skip}} \
         --workspace --exclude-no-default-features --exclude-all-features
     {{just}} rust::generate-synthetic-mlts
     {{just}} rust::test-doc
 
 # Test documentation generation
+# Doc-tests stay on `cargo test`, the only runner that executes them
 test-doc: (docs '--document-private-items')
     cargo test --doc --features arbitrary --package mlt-core
 
