@@ -39,9 +39,12 @@ impl Powers {
     }
 }
 
-/// Largest code magnitude, `2^53 - 1`: the last integer before `f64` stops representing
-/// every integer, so every code converts to `f64` exactly and a decoder sees the integer the
-/// encoder certified. `i64` would hold more, but nothing past this survives that conversion.
+/// Largest code magnitude this encoder emits, `2^53 - 1`: the last integer before `f64`
+/// stops representing every integer. Past it, the float scaling in [`encode_one`] can land
+/// one off from the true `round(v * 10^e / 10^f)`, and [`decode_one`] running the same
+/// arithmetic can undo that error, certifying a stream whose stored integer is wrong for
+/// any other decoder. The format itself allows the whole `i64` range; an encoder that
+/// scaled in exact integer arithmetic could use it.
 ///
 /// Only the codes are bounded, not the offsets from `base` the stream stores: a column
 /// spanning `[-2, 2^53 - 1]` has an offset of `2^53 + 1`, which `f64` cannot hold, so a decoder

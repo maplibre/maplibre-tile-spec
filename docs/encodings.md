@@ -167,8 +167,10 @@ Scaling by `10ᵉ` and then dividing by `10ᶠ` rounds twice, and some values ar
 
 `e` is at most `18` so that `v · 10ᵉ` fits in an `i64`.
 
-Every scaled integer `i` MUST satisfy `|i| ≤ 2⁵³ − 1`, the largest magnitude at which every integer is exactly representable as a double.
-A decoder MUST add `base` and the offset in integer arithmetic before converting to a float; the offsets are not bounded the same way, and a column spanning `[−2, 2⁵³ − 1]` has an offset of `2⁵³ + 1`.
+!!! NOTE
+    The reference Rust encoder currently only emits scaled integers with `|i| ≤ 2⁵³ − 1`, the range in which every integer is exactly representable as a double.
+    Beyond that, its floating-point scaling can store an integer one off from `round(v · 10ᵉ / 10ᶠ)` that still passes its own round-trip check.
+    This is a limitation of that implementation, not of the format.
 
 ## Float Dictionary <span class="experimental"></span>
 
