@@ -4,6 +4,24 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>MLT Tile Inspector</title>
+    <!-- The read src/theme.ts repeats on mount, blocking here so a scheme pinned against the OS never paints twice. -->
+    <script>
+    (() => {
+      let pinned = null;
+      try {
+        if (window.parent !== window)
+          pinned = window.parent.document.body.dataset.mdColorScheme ?? null;
+      } catch {}
+      document.documentElement.dataset.theme =
+        pinned === null
+          ? matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light"
+          : pinned === "slate"
+            ? "dark"
+            : "light";
+    })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

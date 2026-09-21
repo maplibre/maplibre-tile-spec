@@ -118,7 +118,7 @@ function choose(key: string) {
   height: 100%;
 }
 .sheet::backdrop {
-  background: #0009;
+  background: var(--backdrop);
 }
 .card {
   box-sizing: border-box;

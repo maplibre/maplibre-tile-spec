@@ -13,7 +13,7 @@ import {
   annotateTile,
   type DecodedBlob,
 } from "./annotate.ts";
-import { readDeepLink, writeDeepLink } from "./deeplink.ts";
+import { deepLinkSearch, readDeepLink, writeDeepLink } from "./deeplink.ts";
 import {
   type FixtureEntry,
   loadFixture,
@@ -28,7 +28,9 @@ import {
 } from "./hex.ts";
 import RenderControls from "./RenderControls.vue";
 import SourcePicker from "./SourcePicker.vue";
+import { followScheme, isEmbedded } from "./theme.ts";
 
+const embedded = isEmbedded();
 const index = ref<FixtureEntry[]>([]);
 const view = ref<ViewState>(defaultView());
 const tile = shallowRef<AnnotatedTile | null>(null);
@@ -120,28 +122,32 @@ function onDrop(event: DragEvent) {
   if (file) void pickUpload(file);
 }
 
+let unfollow = () => {};
+
 onMounted(async () => {
   window.addEventListener("dragover", onDragOver);
   window.addEventListener("dragleave", onDragLeave);
   window.addEventListener("drop", onDrop);
-  const link = readDeepLink(location.search);
+  unfollow = followScheme();
+  const initial = readDeepLink(location.search);
   try {
     index.value = await loadFixtureIndex();
   } catch (cause) {
     failure.value = String(cause);
   }
-  if (link.fixture === null) return;
-  await pickFixture(link.fixture);
+  if (initial.fixture === null) return;
+  await pickFixture(initial.fixture);
   if (tile.value === null) return;
-  view.value.layer = link.layer;
+  view.value.layer = initial.layer;
   await nextTick();
-  selected.value = link.region;
+  selected.value = initial.region;
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener("dragover", onDragOver);
   window.removeEventListener("dragleave", onDragLeave);
   window.removeEventListener("drop", onDrop);
+  unfollow();
 });
 
 /** Changing the layer renumbers the tree, so a selection cannot survive it. */
@@ -149,12 +155,19 @@ watch(layer, () => {
   selected.value = null;
 });
 
-watch([fixture, layer, selected], () => {
-  writeDeepLink({
-    fixture: fixture.value,
-    layer: layer.value,
-    region: selected.value,
-  });
+const link = computed(() => ({
+  fixture: fixture.value,
+  layer: layer.value,
+  region: selected.value,
+}));
+
+/** Standalone is the only route to the widest hex map, so its link carries the current finding. */
+const standalone = computed(
+  () => `${location.pathname}${deepLinkSearch(link.value)}`,
+);
+
+watch(link, (current) => {
+  writeDeepLink(current);
 });
 </script>
 
@@ -168,6 +181,14 @@ watch([fixture, layer, selected], () => {
         @upload="pickUpload"
       />
       <RenderControls v-if="tree" v-model="view" :layers="layers" />
+      <a
+        v-if="embedded"
+        class="standalone"
+        :href="standalone"
+        target="_blank"
+        rel="noopener"
+        >open in a full window</a
+      >
     </header>
 
     <p v-if="failure" class="failure" role="alert">{{ failure }}</p>
@@ -194,8 +215,9 @@ watch([fixture, layer, selected], () => {
 </template>
 
 <style>
+/* `data-theme` is written by the blocking read in index.html and kept by src/theme.ts. */
 :root {
-  color-scheme: dark;
+  color-scheme: light;
   --radius: 10px;
   /* Inline byte and tree-row highlights, which `--radius` would round into circles. */
   --radius-inline: 2px;
@@ -203,6 +225,29 @@ watch([fixture, layer, selected], () => {
   --pad: 1.5rem;
   /* Padding of a row inside a list, and the vertical half of a control. */
   --pad-tight: 0.55rem;
+  --bg: #ffffff;
+  --panel: #f2f5fa;
+  --control: #ffffff;
+  --line: #ccd6e5;
+  --text: #141c2c;
+  --muted: #5a6b86;
+  --dim: #76849c;
+  --blob: #4a5d78;
+  --faded: #a9b6c9;
+  --rule: #b0bdd0;
+  --hover: #e9eff8;
+  --accent: #bfdcfb;
+  --accent-text: #0d2540;
+  --accent-rule: #285daa;
+  --container: #8a6414;
+  --value: #17714a;
+  --bits: #8a5d0a;
+  --warn: #a32b2b;
+  --warn-bg: #fae7e7;
+  --backdrop: #0f172a59;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
   --bg: #111725;
   --panel: #161e30;
   --control: #1b2437;
@@ -222,6 +267,7 @@ watch([fixture, layer, selected], () => {
   --bits: #d9a441;
   --warn: #e5a0a0;
   --warn-bg: #3a1b1b;
+  --backdrop: #0009;
 }
 body {
   margin: 0;
@@ -262,6 +308,13 @@ header {
 header > * {
   flex: 0 0 auto;
   min-width: 0;
+}
+/* The embedded app is capped at 32 hex columns, so the way out sits in the header's far corner. */
+.standalone {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
 }
 .failure {
   margin: 0;

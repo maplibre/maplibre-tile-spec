@@ -46,6 +46,12 @@ beforeAll(() => {
     unobserve() {}
     disconnect() {}
   };
+  globalThis.matchMedia = () =>
+    ({
+      matches: false,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }) as unknown as MediaQueryList;
   stubDialog();
 });
 
@@ -165,6 +171,26 @@ describe("the deep link", () => {
       .vm.$emit("upload", new File([new Uint8Array(8)], "own.mlt"));
     await flushPromises();
     expect(location.search).toBe("");
+  });
+});
+
+describe("the standalone link", () => {
+  it("stays out of the header while the app owns its window", async () => {
+    serve();
+    const app = mount(App);
+    await flushPromises();
+    expect(app.find("a.standalone").exists()).toBe(false);
+  });
+
+  it("carries the embedded app's fixture out to a full window", async () => {
+    serve();
+    vi.stubGlobal("parent", {});
+    history.replaceState(null, "", "/?fixture=0x01/point.mlt");
+    const app = mount(App);
+    await flushPromises();
+    expect(app.get("a.standalone").attributes("href")).toBe(
+      "/?fixture=0x01%2Fpoint.mlt",
+    );
   });
 });
 

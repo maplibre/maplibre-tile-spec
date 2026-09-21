@@ -77,6 +77,7 @@ nav:
       - MLT v2 (experimental): specification/v2.md
       - Encoding Algorithms: encodings.md
   - Implementation Status: implementation-status.md
+  - Tile Inspector: inspector/index.md
 
 extra:
   social:
