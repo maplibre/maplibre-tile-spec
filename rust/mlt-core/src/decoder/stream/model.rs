@@ -557,3 +557,138 @@ impl Display for PhysicalEncoding {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use super::*;
+
+    fn morton() -> Morton {
+        Morton { bits: 4, shift: 0 }
+    }
+
+    fn alp() -> Alp {
+        Alp {
+            scale: AlpScale { e: 3, f: 1 },
+            base: -5,
+        }
+    }
+
+    fn rle() -> RleMeta {
+        RleMeta::Split {
+            runs: 2,
+            num_rle_values: 5,
+        }
+    }
+
+    #[rstest]
+    #[case::present(StreamType::Present, "present")]
+    #[case::data_none(StreamType::Data(DictionaryType::None), "data")]
+    #[case::data_single(StreamType::Data(DictionaryType::Single), "data[single]")]
+    #[case::data_shared(StreamType::Data(DictionaryType::Shared), "data[shared]")]
+    #[case::data_vertex(StreamType::Data(DictionaryType::Vertex), "data[vertex]")]
+    #[case::data_morton(StreamType::Data(DictionaryType::Morton), "data[morton]")]
+    #[case::data_fsst(StreamType::Data(DictionaryType::Fsst), "data[fsst]")]
+    #[case::offset_vertex(StreamType::Offset(OffsetType::Vertex), "offset[vertex]")]
+    #[case::offset_index(StreamType::Offset(OffsetType::Index), "offset[index]")]
+    #[case::offset_string(StreamType::Offset(OffsetType::String), "offset[string]")]
+    #[case::offset_key(StreamType::Offset(OffsetType::Key), "offset[key]")]
+    #[case::length_var_binary(StreamType::Length(LengthType::VarBinary), "length[var-binary]")]
+    #[case::length_geometries(StreamType::Length(LengthType::Geometries), "length[geometries]")]
+    #[case::length_parts(StreamType::Length(LengthType::Parts), "length[parts]")]
+    #[case::length_rings(StreamType::Length(LengthType::Rings), "length[rings]")]
+    #[case::length_triangles(StreamType::Length(LengthType::Triangles), "length[triangles]")]
+    #[case::length_symbol(StreamType::Length(LengthType::Symbol), "length[symbol]")]
+    #[case::length_dictionary(StreamType::Length(LengthType::Dictionary), "length[dictionary]")]
+    fn every_stream_type_renders_its_wire_label(
+        #[case] stream_type: StreamType,
+        #[case] expected: &str,
+    ) {
+        assert_eq!(stream_type.to_string(), expected);
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn a_nested_length_stream_renders_its_wire_label() {
+        assert_eq!(
+            StreamType::Length(LengthType::Nested).to_string(),
+            "length[nested]"
+        );
+    }
+
+    #[rstest]
+    #[case::int_none(LogicalEncoding::Int(IntLogical::None), "int/none")]
+    #[case::int_delta(LogicalEncoding::Int(IntLogical::Delta), "int/delta")]
+    #[case::int_rle(LogicalEncoding::Int(IntLogical::Rle(rle())), "int/rle")]
+    #[case::int_delta_rle(LogicalEncoding::Int(IntLogical::DeltaRle(rle())), "int/delta-rle")]
+    #[case::bool_none(LogicalEncoding::Bool(BoolLogical::None), "bool/none")]
+    #[case::bool_byte_rle(LogicalEncoding::Bool(BoolLogical::ByteRle(rle())), "bool/byte-rle")]
+    #[case::float_none(LogicalEncoding::Float(FloatLogical::None), "float/none")]
+    #[case::float_dict(LogicalEncoding::Float(FloatLogical::Dict), "float/dict")]
+    #[case::float_alp(LogicalEncoding::Float(FloatLogical::Alp(alp())), "float/alp")]
+    #[case::vertex_none(LogicalEncoding::Vertex(VertexLogical::None), "vertex/none")]
+    #[case::vertex_delta(LogicalEncoding::Vertex(VertexLogical::Delta), "vertex/delta")]
+    #[case::vertex_componentwise_delta(
+        LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta),
+        "vertex/componentwise-delta"
+    )]
+    #[case::vertex_morton(LogicalEncoding::Vertex(VertexLogical::Morton(morton())), "vertex/morton")]
+    #[case::vertex_morton_delta(
+        LogicalEncoding::Vertex(VertexLogical::MortonDelta(morton())),
+        "vertex/morton-delta"
+    )]
+    #[case::vertex_morton_rle(
+        LogicalEncoding::Vertex(VertexLogical::MortonRle(morton())),
+        "vertex/morton-rle"
+    )]
+    fn every_logical_encoding_renders_kind_then_encoding(
+        #[case] encoding: LogicalEncoding,
+        #[case] expected: &str,
+    ) {
+        assert_eq!(encoding.to_string(), expected);
+    }
+
+    #[rstest]
+    #[case::none(PhysicalEncoding::None, "none")]
+    #[case::varint(PhysicalEncoding::VarInt, "varint")]
+    #[case::fastpfor_256be(
+        PhysicalEncoding::FastPFor(FastPForKind::Block256Be),
+        "fastpfor[256be]"
+    )]
+    fn every_physical_encoding_renders_its_wire_label(
+        #[case] encoding: PhysicalEncoding,
+        #[case] expected: &str,
+    ) {
+        assert_eq!(encoding.to_string(), expected);
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[rstest]
+    #[case::fastpfor_128le(
+        PhysicalEncoding::FastPFor(FastPForKind::Block128Le),
+        "fastpfor[128le]"
+    )]
+    #[case::bit_packed(PhysicalEncoding::BitPacked, "bit-packed")]
+    fn every_v2_physical_encoding_renders_its_wire_label(
+        #[case] encoding: PhysicalEncoding,
+        #[case] expected: &str,
+    ) {
+        assert_eq!(encoding.to_string(), expected);
+    }
+
+    #[rstest]
+    #[case::int(LogicalEncoding::Int(IntLogical::None), ValueKind::Int)]
+    #[case::bool(LogicalEncoding::Bool(BoolLogical::None), ValueKind::Bool)]
+    #[case::float(LogicalEncoding::Float(FloatLogical::None), ValueKind::Float)]
+    #[case::vertex(LogicalEncoding::Vertex(VertexLogical::None), ValueKind::Vertex)]
+    fn the_identity_encoding_of_a_kind_reports_that_kind_back(
+        #[case] expected: LogicalEncoding,
+        #[case] kind: ValueKind,
+    ) {
+        let none = LogicalEncoding::none(kind);
+        assert_eq!(none, expected);
+        assert_eq!(none.kind(), kind);
+        assert!(none.is_identity());
+    }
+}

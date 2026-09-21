@@ -460,7 +460,86 @@ fn convert_buffer(
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    use futures::TryStreamExt as _;
+    use pmtiles::{AsyncPmTilesReader, HashMapCache, MmapBackend, TileCoord, TileType};
+
     use super::*;
+
+    #[derive(clap::Parser)]
+    struct ConvertCli {
+        #[command(flatten)]
+        args: ConvertArgs,
+    }
+
+    fn parse_args(argv: &[&str]) -> ConvertArgs {
+        <ConvertCli as clap::Parser>::parse_from(
+            std::iter::once("mlt-convert").chain(argv.iter().copied()),
+        )
+        .args
+    }
+
+    fn path_arg(path: &Path) -> &str {
+        path.to_str().expect("test paths are UTF-8")
+    }
+
+    static NEXT_TEMP_ID: AtomicU64 = AtomicU64::new(0);
+
+    /// A temp path deleted on drop, whether it became a file or a directory.
+    struct TempPath(PathBuf);
+
+    impl TempPath {
+        fn new(suffix: &str) -> Self {
+            let id = NEXT_TEMP_ID.fetch_add(1, Ordering::Relaxed);
+            Self(std::env::temp_dir().join(format!(
+                "mlt-convert-mod-test-{}-{id}{suffix}",
+                std::process::id()
+            )))
+        }
+    }
+
+    impl Drop for TempPath {
+        fn drop(&mut self) {
+            let _ = fs::remove_file(&self.0);
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    type TestReader = AsyncPmTilesReader<MmapBackend, HashMapCache>;
+
+    fn read_archive(path: &Path) -> (TileType, Bounds, Vec<(u8, u32, u32)>) {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime builds");
+        runtime.block_on(async {
+            let reader = Arc::new(
+                TestReader::new_with_cached_path(HashMapCache::default(), path)
+                    .await
+                    .expect("output archive opens"),
+            );
+            let header = reader.get_header();
+            let tile_type = header.tile_type;
+            let bounds = Bounds::new(
+                header.min_longitude,
+                header.min_latitude,
+                header.max_longitude,
+                header.max_latitude,
+            );
+            let mut coords = Vec::new();
+            let mut entries = reader.entries();
+            while let Some(entry) = entries.try_next().await.expect("tile directory reads") {
+                coords.extend(entry.iter_coords().map(|id| {
+                    let coord = TileCoord::from(id);
+                    (coord.z(), coord.x(), coord.y())
+                }));
+            }
+            (tile_type, bounds, coords)
+        })
+    }
 
     #[cfg(feature = "unstable-v2")]
     const OMT_TILE: &str = concat!(
@@ -520,5 +599,210 @@ mod tests {
         update_mlt_pmtiles_metadata(&mut metadata, Compression::Gzip);
         assert_eq!(metadata["format"], "mlt");
         assert_eq!(metadata["compression"], "gzip");
+    }
+
+    #[test]
+    fn container_format_comes_from_the_path_extension() {
+        assert_eq!(
+            ContainerFormat::from_path(Path::new("tiles.mbtiles")),
+            ContainerFormat::Mbtiles
+        );
+        assert_eq!(
+            ContainerFormat::from_path(Path::new("tiles.pmtiles")),
+            ContainerFormat::Pmtiles
+        );
+        assert_eq!(
+            ContainerFormat::from_path(Path::new("tiles.mvt")),
+            ContainerFormat::Files
+        );
+        assert_eq!(
+            ContainerFormat::from_path(Path::new("tiles")),
+            ContainerFormat::Files
+        );
+    }
+
+    #[test]
+    fn mbtiles_format_maps_to_the_mbtiles_schema_type() {
+        assert_eq!(MbtType::from(MbtFormat::Flat), MbtType::Flat);
+        assert_eq!(
+            MbtType::from(MbtFormat::FlatWithHash),
+            MbtType::FlatWithHash
+        );
+        assert_eq!(
+            MbtType::from(MbtFormat::Normalized),
+            MbtType::Normalized {
+                hash_view: true,
+                schema: NormalizedSchema::DedupId,
+            }
+        );
+    }
+
+    #[test]
+    fn tile_format_extension_matches_the_format() {
+        assert_eq!(TileFormat::Mlt.extension(), "mlt");
+        assert_eq!(TileFormat::Mvt.extension(), "mvt");
+    }
+
+    #[test]
+    fn tile_format_comes_from_the_path_extension() {
+        assert!(TileFormat::from_path(Path::new("tile.mvt")) == TileFormat::Mvt);
+        assert!(TileFormat::from_path(Path::new("tile.pbf")) == TileFormat::Mvt);
+        assert!(TileFormat::from_path(Path::new("tile.mlt")) == TileFormat::Mlt);
+        assert!(TileFormat::from_path(Path::new("tile")) == TileFormat::Mlt);
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn mlt_version_maps_to_the_wire_version() {
+        assert_eq!(WireVersion::from(MltVersion::V1), WireVersion::V01);
+        assert_eq!(WireVersion::from(MltVersion::V2), WireVersion::V02);
+    }
+
+    #[test]
+    fn containers_come_from_the_input_and_output_paths() {
+        let args = parse_args(&["src.mbtiles", "dst.pmtiles"]);
+        assert_eq!(args.input_container(), ContainerFormat::Mbtiles);
+        assert_eq!(args.output_container(), ContainerFormat::Pmtiles);
+    }
+
+    #[test]
+    fn a_bbox_without_an_archive_input_is_rejected() {
+        let err = convert(&parse_args(&["--bbox", "1,1,2,2", "tiles", "out"])).unwrap_err();
+        insta::assert_snapshot!(
+            err.to_string(),
+            @"--bbox currently requires an archive based input (mbtiles,pmtiles), but got tiles"
+        );
+    }
+
+    #[test]
+    fn tile_compression_without_an_archive_input_is_rejected() {
+        let err = convert(&parse_args(&[
+            "--tile-compression",
+            "gzip",
+            "tiles",
+            "out.pmtiles",
+        ]))
+        .unwrap_err();
+        insta::assert_snapshot!(
+            err.to_string(),
+            @"--tile-compression is currently only supported when converting .mbtiles or .pmtiles input to .pmtiles output"
+        );
+    }
+
+    #[test]
+    fn tile_compression_into_an_mbtiles_output_is_rejected() {
+        let err = convert(&parse_args(&[
+            "--tile-compression",
+            "gzip",
+            "src.mbtiles",
+            "dst.mbtiles",
+        ]))
+        .unwrap_err();
+        insta::assert_snapshot!(
+            err.to_string(),
+            @"--tile-compression is currently only supported when converting .mbtiles or .pmtiles input to .pmtiles output"
+        );
+    }
+
+    #[test]
+    fn converting_an_archive_to_mvt_is_rejected() {
+        let err = convert(&parse_args(&["--to", "mvt", "src.mbtiles", "dst.pmtiles"])).unwrap_err();
+        insta::assert_snapshot!(
+            err.to_string(),
+            @"--to mvt is not supported for .mbtiles/.pmtiles input/output yet; convert to a directory instead"
+        );
+    }
+
+    #[test]
+    fn converting_an_archive_into_a_directory_is_rejected() {
+        let err = convert(&parse_args(&["src.mbtiles", "out"])).unwrap_err();
+        insta::assert_snapshot!(
+            err.to_string(),
+            @"Output must be either an .mbtiles or a .pmtiles file when input is an .mbtiles/.pmtiles file, got: out"
+        );
+    }
+
+    #[test]
+    fn an_existing_archive_output_is_never_overwritten() {
+        let output = TempPath::new(".pmtiles");
+        fs::write(&output.0, b"not an archive").expect("placeholder is written");
+
+        let err = convert(&parse_args(&["src.mbtiles", path_arg(&output.0)])).unwrap_err();
+
+        assert_eq!(
+            err.to_string(),
+            format!(
+                "Output {} already exists; refusing to append. \
+                 Delete it first or choose a different path.",
+                output.0.display()
+            )
+        );
+    }
+
+    #[test]
+    fn converting_a_single_mvt_file_writes_one_mlt_file() {
+        let input = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test/fixtures/omt/0_0_0.mvt");
+        let output = TempPath::new("-tiles");
+
+        convert(&parse_args(&[path_arg(&input), path_arg(&output.0)]))
+            .expect("conversion succeeds");
+
+        let mlt = fs::read(output.0.join("0_0_0.mlt")).expect("output tile is written");
+        let expected = mvt_to_tile_layers(fs::read(&input).unwrap()).unwrap().len();
+        assert_eq!(
+            Parser::default().parse_layers(&mlt).unwrap().len(),
+            expected
+        );
+    }
+
+    #[test]
+    fn converting_a_pmtiles_archive_rewrites_every_tile_as_mlt() {
+        let input = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/fixtures/omt-planet-20260112.mvt.max1.pmtiles");
+        let output = TempPath::new(".pmtiles");
+
+        convert(&parse_args(&[path_arg(&input), path_arg(&output.0)]))
+            .expect("conversion succeeds");
+
+        let (tile_type, _, coords) = read_archive(&output.0);
+        assert_eq!(tile_type, TileType::Mlt);
+        assert_eq!(
+            coords,
+            [(0, 0, 0), (1, 0, 0), (1, 0, 1), (1, 1, 1), (1, 1, 0)]
+        );
+    }
+
+    #[test]
+    fn converting_an_mbtiles_archive_rewrites_every_tile_as_mlt() {
+        let input =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test/fixtures/omt.max1.mbtiles");
+        let output = TempPath::new(".pmtiles");
+
+        convert(&parse_args(&[path_arg(&input), path_arg(&output.0)]))
+            .expect("conversion succeeds");
+
+        let (tile_type, _, coords) = read_archive(&output.0);
+        assert_eq!(tile_type, TileType::Mlt);
+        assert_eq!(coords, [(0, 0, 0), (1, 1, 0)]);
+    }
+
+    #[test]
+    fn a_bbox_drops_the_mbtiles_tiles_outside_it_and_clips_the_recorded_bounds() {
+        let input =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test/fixtures/omt.max1.mbtiles");
+        let output = TempPath::new(".pmtiles");
+
+        convert(&parse_args(&[
+            "--bbox",
+            "-30,-30,-20,-20",
+            path_arg(&input),
+            path_arg(&output.0),
+        ]))
+        .expect("conversion succeeds");
+
+        let (tile_type, bounds, coords) = read_archive(&output.0);
+        assert_eq!(tile_type, TileType::Mlt);
+        assert_eq!(bounds, Bounds::new(-30.0, -30.0, -20.0, -20.0));
+        assert_eq!(coords, [(0, 0, 0)]);
     }
 }

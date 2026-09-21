@@ -361,11 +361,423 @@ impl Drop for BboxExtract {
     }
 }
 
+
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
+    use mlt_core::Parser;
+    use pmtiles::{AsyncPmTilesReader, HashMapCache};
     use tilejson::Center;
 
     use super::*;
+
+    const POINT_MVT: &[u8] = include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../test/fixtures/simple/point-boolean.mvt"
+    ));
+    const PNG_MAGIC: &[u8] = b"\x89PNG\r\n\x1a\n";
+
+    static NEXT_TEMP_ID: AtomicU64 = AtomicU64::new(0);
+
+    struct TempArchive(PathBuf);
+
+    impl TempArchive {
+        fn new(extension: &str) -> Self {
+            let id = NEXT_TEMP_ID.fetch_add(1, Ordering::Relaxed);
+            Self(std::env::temp_dir().join(format!(
+                "mlt-from-mbtiles-test-{}-{id}.{extension}",
+                std::process::id()
+            )))
+        }
+    }
+
+    impl Drop for TempArchive {
+        fn drop(&mut self) {
+            for suffix in ["", "-wal", "-shm", "-journal"] {
+                let mut path = self.0.clone().into_os_string();
+                path.push(suffix);
+                let _ = fs::remove_file(PathBuf::from(path));
+            }
+        }
+    }
+
+    async fn write_source(
+        path: &Path,
+        mbt_type: MbtType,
+        tiles: &[(i64, i64, i64, &[u8])],
+        metadata: &[(&str, &str)],
+    ) {
+        let mbt = Mbtiles::new(path).expect("archive path is usable");
+        let mut conn = mbt.open_or_new().await.expect("archive opens");
+        init_mbtiles_schema(&mut conn, mbt_type, false)
+            .await
+            .expect("schema initialises");
+        let insert = if matches!(mbt_type, MbtType::FlatWithHash) {
+            "INSERT INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_hash) \
+             VALUES (?, ?, ?, ?, '')"
+        } else {
+            "INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES (?, ?, ?, ?)"
+        };
+        for &(zoom, column, row, data) in tiles {
+            sqlx::query(insert)
+                .bind(zoom)
+                .bind(column)
+                .bind(row)
+                .bind(data.to_vec())
+                .execute(&mut conn)
+                .await
+                .expect("tile inserts");
+        }
+        for &(name, value) in metadata {
+            mbt.set_metadata_value(&mut conn, name, value)
+                .await
+                .expect("metadata inserts");
+        }
+    }
+
+    async fn write_two_tile_source(path: &Path, metadata: &[(&str, &str)]) {
+        write_source(
+            path,
+            MbtType::Flat,
+            &[(0, 0, 0, POINT_MVT), (1, 1, 1, POINT_MVT)],
+            metadata,
+        )
+        .await;
+    }
+
+    async fn output_tiles(path: &Path) -> Vec<(i64, i64, i64, Vec<u8>)> {
+        let mbt = Mbtiles::new(path).expect("output opens");
+        let mut conn = mbt.open_readonly().await.expect("output connects");
+        sqlx::query_as(
+            "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles ORDER BY 1, 2, 3",
+        )
+        .fetch_all(&mut conn)
+        .await
+        .expect("output is queryable")
+    }
+
+    async fn output_metadata_value(path: &Path, key: &str) -> Option<String> {
+        let mbt = Mbtiles::new(path).expect("output opens");
+        let mut conn = mbt.open_readonly().await.expect("output connects");
+        mbt.get_metadata_value(&mut conn, key)
+            .await
+            .expect("metadata is readable")
+    }
+
+    async fn open_pmtiles(path: &Path) -> AsyncPmTilesReader<pmtiles::MmapBackend, HashMapCache> {
+        AsyncPmTilesReader::new_with_cached_path(HashMapCache::default(), path)
+            .await
+            .expect("output opens")
+    }
+
+    #[tokio::test]
+    async fn reads_the_encoding_schema_and_tile_count_of_a_flat_archive() {
+        let source = TempArchive::new("mbtiles");
+        write_two_tile_source(&source.0, &[("name", "tiny"), ("format", "pbf")]).await;
+
+        let (encoding, src_type, metadata, total) =
+            get_metadata(&source.0).await.expect("metadata reads");
+
+        assert_eq!(encoding, Encoding::Uncompressed);
+        assert_eq!(src_type, MbtType::Flat);
+        assert_eq!(metadata.tilejson.name, Some("tiny".to_string()));
+        assert_eq!(metadata.tilejson.minzoom, Some(0));
+        assert_eq!(metadata.tilejson.maxzoom, Some(1));
+        assert_eq!(total, 2);
+    }
+
+    #[tokio::test]
+    async fn counts_a_flat_with_hash_archive_through_its_own_table() {
+        let source = TempArchive::new("mbtiles");
+        write_source(
+            &source.0,
+            MbtType::FlatWithHash,
+            &[(0, 0, 0, POINT_MVT), (1, 1, 1, POINT_MVT)],
+            &[("format", "pbf")],
+        )
+        .await;
+
+        let (_, src_type, _, total) = get_metadata(&source.0).await.expect("metadata reads");
+
+        assert_eq!(src_type, MbtType::FlatWithHash);
+        assert_eq!(total, 2);
+    }
+
+    #[tokio::test]
+    async fn rejects_an_archive_without_any_tiles() {
+        let source = TempArchive::new("mbtiles");
+        write_source(&source.0, MbtType::Flat, &[], &[("name", "empty")]).await;
+
+        let err = get_metadata(&source.0)
+            .await
+            .expect_err("an archive without tiles is rejected");
+
+        assert_eq!(
+            err.to_string(),
+            format!("{} appears to be empty", source.0.display())
+        );
+    }
+
+    #[tokio::test]
+    async fn rejects_an_archive_whose_tiles_are_not_mvt() {
+        let source = TempArchive::new("mbtiles");
+        write_source(
+            &source.0,
+            MbtType::Flat,
+            &[(0, 0, 0, PNG_MAGIC)],
+            &[("format", "png")],
+        )
+        .await;
+
+        let err = get_metadata(&source.0)
+            .await
+            .expect_err("a raster archive is rejected");
+
+        assert_eq!(
+            err.to_string(),
+            format!("Expected MVT tiles, got png in {}", source.0.display())
+        );
+    }
+
+    #[tokio::test]
+    async fn rejects_a_file_tree_output() {
+        let err = convert(
+            Path::new("input.mbtiles"),
+            (Path::new("tiles"), ContainerFormat::Files),
+            EncoderConfig::default(),
+            None,
+            Compression::None,
+            None,
+        )
+        .await
+        .expect_err("a directory output is rejected");
+
+        assert_eq!(
+            err.to_string(),
+            "Output must be either an .mbtiles or a .pmtiles file when input is an .mbtiles file, got: tiles"
+        );
+    }
+
+    #[tokio::test]
+    async fn converts_an_archive_into_an_mlt_mbtiles_keeping_the_source_schema() {
+        let source = TempArchive::new("mbtiles");
+        let output = TempArchive::new("mbtiles");
+        write_two_tile_source(&source.0, &[("name", "tiny"), ("format", "pbf")]).await;
+
+        convert(
+            &source.0,
+            (&output.0, ContainerFormat::Mbtiles),
+            EncoderConfig::default(),
+            None,
+            Compression::None,
+            None,
+        )
+        .await
+        .expect("conversion succeeds");
+
+        let mbt = Mbtiles::new(&output.0).expect("output opens");
+        let mut conn = mbt.open_readonly().await.expect("output connects");
+        assert_eq!(
+            mbt.detect_type(&mut conn).await.expect("type is detectable"),
+            MbtType::Flat
+        );
+        drop(conn);
+
+        assert_eq!(
+            output_metadata_value(&output.0, "format").await,
+            Some("mlt".to_string())
+        );
+        assert_eq!(
+            output_metadata_value(&output.0, "name").await,
+            Some("tiny".to_string())
+        );
+
+        let tiles = output_tiles(&output.0).await;
+        assert_eq!(
+            tiles
+                .iter()
+                .map(|&(zoom, column, row, _)| (zoom, column, row))
+                .collect::<Vec<_>>(),
+            [(0, 0, 0), (1, 1, 1)]
+        );
+        for (_, _, _, data) in &tiles {
+            assert_eq!(
+                Parser::default()
+                    .parse_layers(data)
+                    .expect("converted tile parses as MLT")
+                    .len(),
+                1
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn converts_an_archive_into_the_requested_schema() {
+        let source = TempArchive::new("mbtiles");
+        let output = TempArchive::new("mbtiles");
+        write_two_tile_source(&source.0, &[("format", "pbf")]).await;
+
+        convert(
+            &source.0,
+            (&output.0, ContainerFormat::Mbtiles),
+            EncoderConfig::default(),
+            Some(MbtType::FlatWithHash),
+            Compression::None,
+            None,
+        )
+        .await
+        .expect("conversion succeeds");
+
+        let mbt = Mbtiles::new(&output.0).expect("output opens");
+        let mut conn = mbt.open_readonly().await.expect("output connects");
+        assert_eq!(
+            mbt.detect_type(&mut conn).await.expect("type is detectable"),
+            MbtType::FlatWithHash
+        );
+    }
+
+    #[tokio::test]
+    async fn clipping_narrows_the_bounds_and_center_of_the_converted_mbtiles() {
+        let source = TempArchive::new("mbtiles");
+        let output = TempArchive::new("mbtiles");
+        write_two_tile_source(
+            &source.0,
+            &[
+                ("format", "pbf"),
+                ("bounds", "-180,-85,180,85"),
+                ("center", "0,0,3"),
+            ],
+        )
+        .await;
+
+        convert(
+            &source.0,
+            (&output.0, ContainerFormat::Mbtiles),
+            EncoderConfig::default(),
+            None,
+            Compression::None,
+            Some(Bounds::new(20.0, 20.0, 30.0, 30.0)),
+        )
+        .await
+        .expect("conversion succeeds");
+
+        assert_eq!(
+            output_metadata_value(&output.0, "bounds").await,
+            Some("20,20,30,30".to_string())
+        );
+        assert_eq!(
+            output_metadata_value(&output.0, "center").await,
+            Some("20,20,3".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn converts_an_archive_into_a_gzip_compressed_mlt_pmtiles() {
+        let source = TempArchive::new("mbtiles");
+        let output = TempArchive::new("pmtiles");
+        write_two_tile_source(&source.0, &[("name", "tiny"), ("format", "pbf")]).await;
+
+        convert(
+            &source.0,
+            (&output.0, ContainerFormat::Pmtiles),
+            EncoderConfig::default(),
+            None,
+            Compression::Gzip,
+            None,
+        )
+        .await
+        .expect("conversion succeeds");
+
+        let reader = open_pmtiles(&output.0).await;
+        let header = reader.get_header();
+        assert_eq!(header.tile_type, TileType::Mlt);
+        assert_eq!(header.tile_compression, Compression::Gzip);
+        assert_eq!((header.min_zoom, header.max_zoom), (0, 1));
+
+        let metadata: serde_json::Value =
+            serde_json::from_str(&reader.get_metadata().await.expect("metadata reads"))
+                .expect("metadata is JSON");
+        assert_eq!(metadata["format"], "mlt");
+        assert_eq!(metadata["compression"], "gzip");
+        assert_eq!(metadata["name"], "tiny");
+
+        for coord in [(0, 0, 0), (1, 1, 0)] {
+            let coord = TileCoord::new(coord.0, coord.1, coord.2).expect("coordinate is valid");
+            let raw = reader
+                .get_tile(coord)
+                .await
+                .expect("tile reads")
+                .expect("tile exists");
+            assert_eq!(&raw[..2], &[0x1f, 0x8b]);
+
+            let tile = reader
+                .get_tile_decompressed(coord)
+                .await
+                .expect("tile decompresses")
+                .expect("tile exists");
+            assert_eq!(
+                Parser::default()
+                    .parse_layers(&tile)
+                    .expect("converted tile parses as MLT")
+                    .len(),
+                1
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn clipping_narrows_the_geography_of_the_converted_pmtiles() {
+        let source = TempArchive::new("mbtiles");
+        let output = TempArchive::new("pmtiles");
+        let bbox = Bounds::new(20.0, 20.0, 30.0, 30.0);
+        write_two_tile_source(
+            &source.0,
+            &[
+                ("format", "pbf"),
+                ("bounds", "-180,-85,180,85"),
+                ("center", "0,0,3"),
+            ],
+        )
+        .await;
+
+        convert(
+            &source.0,
+            (&output.0, ContainerFormat::Pmtiles),
+            EncoderConfig::default(),
+            None,
+            Compression::None,
+            Some(bbox),
+        )
+        .await
+        .expect("conversion succeeds");
+
+        let reader = open_pmtiles(&output.0).await;
+        let header = reader.get_header();
+        assert_eq!(
+            Bounds::new(
+                header.min_longitude,
+                header.min_latitude,
+                header.max_longitude,
+                header.max_latitude
+            ),
+            bbox
+        );
+        assert_eq!(
+            Center::new(
+                header.center_longitude,
+                header.center_latitude,
+                header.center_zoom
+            ),
+            Center::new(20.0, 20.0, 3)
+        );
+
+        let metadata: serde_json::Value =
+            serde_json::from_str(&reader.get_metadata().await.expect("metadata reads"))
+                .expect("metadata is JSON");
+        assert_eq!(metadata["format"], "mlt");
+        assert_eq!(metadata["compression"], serde_json::Value::Null);
+    }
 
     #[tokio::test]
     async fn extracts_only_the_tiles_overlapping_the_bbox() {
@@ -405,6 +817,34 @@ mod tests {
         assert!(!path.exists());
     }
 
+    #[tokio::test]
+    async fn rejects_a_bbox_that_selects_no_tiles() {
+        let source = TempArchive::new("mbtiles");
+        let output = TempArchive::new("pmtiles");
+        write_source(
+            &source.0,
+            MbtType::Flat,
+            &[(1, 0, 0, POINT_MVT)],
+            &[("format", "pbf")],
+        )
+        .await;
+        let filter = BboxFilter::new(&[Bounds::new(20.0, 20.0, 30.0, 30.0)])
+            .expect("bbox is valid")
+            .expect("bbox is set");
+
+        let Err(err) = BboxExtract::create(&source.0, &output.0, &filter).await else {
+            panic!("an empty selection is rejected");
+        };
+
+        assert_eq!(
+            err.to_string(),
+            format!(
+                "--bbox 20,20,30,30 selected no tiles from {}",
+                source.0.display()
+            )
+        );
+    }
+
     #[test]
     fn reads_pmtiles_geography_from_mbtiles_metadata() {
         let metadata = Metadata {
@@ -437,5 +877,21 @@ mod tests {
                 center: Some(Center::new(11.223_344_5, -44.556_677_8, 8)),
             }
         );
+    }
+
+    #[test]
+    fn clipping_a_tilejson_narrows_its_bounds_and_pulls_the_center_in() {
+        let mut tilejson: TileJSON = serde_json::from_value(serde_json::json!({
+            "tilejson": "3.0.0",
+            "tiles": [],
+            "bounds": [-180.0, -85.0, 180.0, 85.0],
+            "center": [0.0, 0.0, 3]
+        }))
+        .expect("parse TileJSON metadata");
+
+        clip_tilejson(&mut tilejson, Bounds::new(20.0, 20.0, 30.0, 30.0));
+
+        assert_eq!(tilejson.bounds, Some(Bounds::new(20.0, 20.0, 30.0, 30.0)));
+        assert_eq!(tilejson.center, Some(Center::new(20.0, 20.0, 3)));
     }
 }
