@@ -92,6 +92,10 @@ name = "geojson"
 required-features = ["__private"]
 
 [[test]]
+name = "geojson02"
+required-features = ["__private-v2"]
+
+[[test]]
 name = "mvt_round_trip"
 required-features = ["__private"]
 
