@@ -8,7 +8,7 @@ Those pages define the headers.
 This page defines what the bytes after the header mean.
 
 !!! warning "Experimental encodings"
-    Encodings marked <span class="experimental"></span> exist only in [MLT v2](specification/v2.md).  
+    Encodings marked <span class="experimental"></span> exist only in [MLT v2](specification/v2.md).
     Streams are called by their [MLT v2](specification/v2.md#string-columns) names throughout.
 
 ## Integer Words
