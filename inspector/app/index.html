@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MLT Tile Inspector</title>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback"
+    >
+    <script>
+    (() => {
+      let pinned = null;
+      try {
+        if (window.parent !== window)
+          pinned = window.parent.document.body.dataset.mdColorScheme ?? null;
+      } catch {}
+      document.documentElement.dataset.theme =
+        pinned === null
+          ? matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light"
+          : pinned === "slate"
+            ? "dark"
+            : "light";
+    })();
+    </script>
+    <script type="module" crossorigin src="./assets/index-B7LOfDeS.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-Cvup6Qp1.css">
+  </head>
+  <body>
+    <div id="app"></div>
+  </body>
+</html>

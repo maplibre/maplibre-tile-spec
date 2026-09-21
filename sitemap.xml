@@ -7,7 +7,13 @@
         <loc>https://www.maplibre.org/maplibre-tile-spec/overview/</loc>
       </url>
       <url>
+        <loc>https://www.maplibre.org/maplibre-tile-spec/implementation-status/</loc>
+      </url>
+      <url>
         <loc>https://www.maplibre.org/maplibre-tile-spec/specification/</loc>
+      </url>
+      <url>
+        <loc>https://www.maplibre.org/maplibre-tile-spec/inspector/</loc>
       </url>
       <url>
         <loc>https://www.maplibre.org/maplibre-tile-spec/specification/v1/</loc>
@@ -17,8 +23,5 @@
       </url>
       <url>
         <loc>https://www.maplibre.org/maplibre-tile-spec/encodings/</loc>
-      </url>
-      <url>
-        <loc>https://www.maplibre.org/maplibre-tile-spec/implementation-status/</loc>
       </url>
 </urlset>

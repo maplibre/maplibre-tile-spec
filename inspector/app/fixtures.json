@@ -1,0 +1,5472 @@
+[
+  {
+    "name": "extent_1073741824.mlt",
+    "directory": "0x01",
+    "bytes": 43
+  },
+  {
+    "name": "extent_131072.mlt",
+    "directory": "0x01",
+    "bytes": 37
+  },
+  {
+    "name": "extent_4096.mlt",
+    "directory": "0x01",
+    "bytes": 34
+  },
+  {
+    "name": "extent_512.mlt",
+    "directory": "0x01",
+    "bytes": 34
+  },
+  {
+    "name": "extent_buf_1073741824.mlt",
+    "directory": "0x01",
+    "bytes": 43
+  },
+  {
+    "name": "extent_buf_131072.mlt",
+    "directory": "0x01",
+    "bytes": 37
+  },
+  {
+    "name": "extent_buf_4096.mlt",
+    "directory": "0x01",
+    "bytes": 34
+  },
+  {
+    "name": "extent_buf_512.mlt",
+    "directory": "0x01",
+    "bytes": 34
+  },
+  {
+    "name": "fpf_align_1.mlt",
+    "directory": "0x01",
+    "bytes": 199
+  },
+  {
+    "name": "fpf_align_2.mlt",
+    "directory": "0x01",
+    "bytes": 200
+  },
+  {
+    "name": "fpf_align_3.mlt",
+    "directory": "0x01",
+    "bytes": 201
+  },
+  {
+    "name": "fpf_align_4.mlt",
+    "directory": "0x01",
+    "bytes": 202
+  },
+  {
+    "name": "fpf_align_5.mlt",
+    "directory": "0x01",
+    "bytes": 203
+  },
+  {
+    "name": "fpf_align_6.mlt",
+    "directory": "0x01",
+    "bytes": 204
+  },
+  {
+    "name": "fpf_align_7.mlt",
+    "directory": "0x01",
+    "bytes": 205
+  },
+  {
+    "name": "fpf_align_8.mlt",
+    "directory": "0x01",
+    "bytes": 206
+  },
+  {
+    "name": "id.mlt",
+    "directory": "0x01",
+    "bytes": 30
+  },
+  {
+    "name": "id64.mlt",
+    "directory": "0x01",
+    "bytes": 34
+  },
+  {
+    "name": "id64_max.mlt",
+    "directory": "0x01",
+    "bytes": 39
+  },
+  {
+    "name": "id_max.mlt",
+    "directory": "0x01",
+    "bytes": 34
+  },
+  {
+    "name": "id_min.mlt",
+    "directory": "0x01",
+    "bytes": 30
+  },
+  {
+    "name": "ids.mlt",
+    "directory": "0x01",
+    "bytes": 42
+  },
+  {
+    "name": "ids64.mlt",
+    "directory": "0x01",
+    "bytes": 58
+  },
+  {
+    "name": "ids64_delta.mlt",
+    "directory": "0x01",
+    "bytes": 46
+  },
+  {
+    "name": "ids64_delta_rle.mlt",
+    "directory": "0x01",
+    "bytes": 48
+  },
+  {
+    "name": "ids64_minmax.mlt",
+    "directory": "0x01",
+    "bytes": 60
+  },
+  {
+    "name": "ids64_minmax_delta.mlt",
+    "directory": "0x01",
+    "bytes": 42
+  },
+  {
+    "name": "ids64_opt.mlt",
+    "directory": "0x01",
+    "bytes": 54
+  },
+  {
+    "name": "ids64_opt_delta.mlt",
+    "directory": "0x01",
+    "bytes": 58
+  },
+  {
+    "name": "ids64_rle.mlt",
+    "directory": "0x01",
+    "bytes": 46
+  },
+  {
+    "name": "ids_delta.mlt",
+    "directory": "0x01",
+    "bytes": 43
+  },
+  {
+    "name": "ids_delta_rle.mlt",
+    "directory": "0x01",
+    "bytes": 45
+  },
+  {
+    "name": "ids_opt.mlt",
+    "directory": "0x01",
+    "bytes": 50
+  },
+  {
+    "name": "ids_opt_delta.mlt",
+    "directory": "0x01",
+    "bytes": 51
+  },
+  {
+    "name": "ids_rle.mlt",
+    "directory": "0x01",
+    "bytes": 42
+  },
+  {
+    "name": "line.mlt",
+    "directory": "0x01",
+    "bytes": 33
+  },
+  {
+    "name": "line_morton_curve_morton.mlt",
+    "directory": "0x01",
+    "bytes": 55
+  },
+  {
+    "name": "line_morton_curve_no_morton.mlt",
+    "directory": "0x01",
+    "bytes": 59
+  },
+  {
+    "name": "line_zero_length.mlt",
+    "directory": "0x01",
+    "bytes": 31
+  },
+  {
+    "name": "mix_2_line_line.mlt",
+    "directory": "0x01",
+    "bytes": 41
+  },
+  {
+    "name": "mix_2_line_mline.mlt",
+    "directory": "0x01",
+    "bytes": 51
+  },
+  {
+    "name": "mix_2_line_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 66
+  },
+  {
+    "name": "mix_2_line_mpt.mlt",
+    "directory": "0x01",
+    "bytes": 45
+  },
+  {
+    "name": "mix_2_line_poly.mlt",
+    "directory": "0x01",
+    "bytes": 47
+  },
+  {
+    "name": "mix_2_line_polyh.mlt",
+    "directory": "0x01",
+    "bytes": 53
+  },
+  {
+    "name": "mix_2_mline_mline.mlt",
+    "directory": "0x01",
+    "bytes": 57
+  },
+  {
+    "name": "mix_2_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 72
+  },
+  {
+    "name": "mix_2_mpoly_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 84
+  },
+  {
+    "name": "mix_2_mpoly_mpoly_tes.mlt",
+    "directory": "0x01",
+    "bytes": 137
+  },
+  {
+    "name": "mix_2_mpt_mline.mlt",
+    "directory": "0x01",
+    "bytes": 51
+  },
+  {
+    "name": "mix_2_mpt_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 66
+  },
+  {
+    "name": "mix_2_mpt_mpt.mlt",
+    "directory": "0x01",
+    "bytes": 41
+  },
+  {
+    "name": "mix_2_poly_mline.mlt",
+    "directory": "0x01",
+    "bytes": 56
+  },
+  {
+    "name": "mix_2_poly_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 68
+  },
+  {
+    "name": "mix_2_poly_mpoly_tes.mlt",
+    "directory": "0x01",
+    "bytes": 102
+  },
+  {
+    "name": "mix_2_poly_mpt.mlt",
+    "directory": "0x01",
+    "bytes": 51
+  },
+  {
+    "name": "mix_2_poly_poly.mlt",
+    "directory": "0x01",
+    "bytes": 47
+  },
+  {
+    "name": "mix_2_poly_poly_tes.mlt",
+    "directory": "0x01",
+    "bytes": 63
+  },
+  {
+    "name": "mix_2_poly_polyh.mlt",
+    "directory": "0x01",
+    "bytes": 54
+  },
+  {
+    "name": "mix_2_poly_polyh_tes.mlt",
+    "directory": "0x01",
+    "bytes": 85
+  },
+  {
+    "name": "mix_2_polyh_mline.mlt",
+    "directory": "0x01",
+    "bytes": 63
+  },
+  {
+    "name": "mix_2_polyh_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 74
+  },
+  {
+    "name": "mix_2_polyh_mpoly_tes.mlt",
+    "directory": "0x01",
+    "bytes": 123
+  },
+  {
+    "name": "mix_2_polyh_mpt.mlt",
+    "directory": "0x01",
+    "bytes": 57
+  },
+  {
+    "name": "mix_2_polyh_polyh.mlt",
+    "directory": "0x01",
+    "bytes": 61
+  },
+  {
+    "name": "mix_2_polyh_polyh_tes.mlt",
+    "directory": "0x01",
+    "bytes": 107
+  },
+  {
+    "name": "mix_2_pt_line.mlt",
+    "directory": "0x01",
+    "bytes": 36
+  },
+  {
+    "name": "mix_2_pt_mline.mlt",
+    "directory": "0x01",
+    "bytes": 46
+  },
+  {
+    "name": "mix_2_pt_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 61
+  },
+  {
+    "name": "mix_2_pt_mpt.mlt",
+    "directory": "0x01",
+    "bytes": 36
+  },
+  {
+    "name": "mix_2_pt_poly.mlt",
+    "directory": "0x01",
+    "bytes": 41
+  },
+  {
+    "name": "mix_2_pt_polyh.mlt",
+    "directory": "0x01",
+    "bytes": 48
+  },
+  {
+    "name": "mix_2_pt_pt.mlt",
+    "directory": "0x01",
+    "bytes": 27
+  },
+  {
+    "name": "mix_3_line_mline_line.mlt",
+    "directory": "0x01",
+    "bytes": 59
+  },
+  {
+    "name": "mix_3_line_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 80
+  },
+  {
+    "name": "mix_3_line_mpoly_line.mlt",
+    "directory": "0x01",
+    "bytes": 75
+  },
+  {
+    "name": "mix_3_line_mpt_line.mlt",
+    "directory": "0x01",
+    "bytes": 53
+  },
+  {
+    "name": "mix_3_line_mpt_mline.mlt",
+    "directory": "0x01",
+    "bytes": 59
+  },
+  {
+    "name": "mix_3_line_mpt_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 74
+  },
+  {
+    "name": "mix_3_line_poly_line.mlt",
+    "directory": "0x01",
+    "bytes": 56
+  },
+  {
+    "name": "mix_3_line_poly_mline.mlt",
+    "directory": "0x01",
+    "bytes": 65
+  },
+  {
+    "name": "mix_3_line_poly_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 77
+  },
+  {
+    "name": "mix_3_line_poly_mpt.mlt",
+    "directory": "0x01",
+    "bytes": 60
+  },
+  {
+    "name": "mix_3_line_poly_polyh.mlt",
+    "directory": "0x01",
+    "bytes": 63
+  },
+  {
+    "name": "mix_3_line_polyh_line.mlt",
+    "directory": "0x01",
+    "bytes": 61
+  },
+  {
+    "name": "mix_3_line_polyh_mline.mlt",
+    "directory": "0x01",
+    "bytes": 71
+  },
+  {
+    "name": "mix_3_line_polyh_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 82
+  },
+  {
+    "name": "mix_3_line_polyh_mpt.mlt",
+    "directory": "0x01",
+    "bytes": 65
+  },
+  {
+    "name": "mix_3_line_pt_line.mlt",
+    "directory": "0x01",
+    "bytes": 44
+  },
+  {
+    "name": "mix_3_mline_line_mline.mlt",
+    "directory": "0x01",
+    "bytes": 65
+  },
+  {
+    "name": "mix_3_mline_mpoly_mline.mlt",
+    "directory": "0x01",
+    "bytes": 86
+  },
+  {
+    "name": "mix_3_mline_mpt_mline.mlt",
+    "directory": "0x01",
+    "bytes": 65
+  },
+  {
+    "name": "mix_3_mline_poly_mline.mlt",
+    "directory": "0x01",
+    "bytes": 70
+  },
+  {
+    "name": "mix_3_mline_polyh_mline.mlt",
+    "directory": "0x01",
+    "bytes": 77
+  },
+  {
+    "name": "mix_3_mline_pt_mline.mlt",
+    "directory": "0x01",
+    "bytes": 60
+  },
+  {
+    "name": "mix_3_mpoly_line_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 92
+  },
+  {
+    "name": "mix_3_mpoly_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 97
+  },
+  {
+    "name": "mix_3_mpoly_mpt_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 92
+  },
+  {
+    "name": "mix_3_mpoly_poly_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 93
+  },
+  {
+    "name": "mix_3_mpoly_poly_mpoly_tes.mlt",
+    "directory": "0x01",
+    "bytes": 150
+  },
+  {
+    "name": "mix_3_mpoly_polyh_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 99
+  },
+  {
+    "name": "mix_3_mpoly_polyh_mpoly_tes.mlt",
+    "directory": "0x01",
+    "bytes": 171
+  },
+  {
+    "name": "mix_3_mpoly_pt_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 86
+  },
+  {
+    "name": "mix_3_mpt_line_mpt.mlt",
+    "directory": "0x01",
+    "bytes": 53
+  },
+  {
+    "name": "mix_3_mpt_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 80
+  },
+  {
+    "name": "mix_3_mpt_mline_mpt.mlt",
+    "directory": "0x01",
+    "bytes": 59
+  },
+  {
+    "name": "mix_3_mpt_mpoly_mpt.mlt",
+    "directory": "0x01",
+    "bytes": 75
+  },
+  {
+    "name": "mix_3_mpt_poly_mpt.mlt",
+    "directory": "0x01",
+    "bytes": 59
+  },
+  {
+    "name": "mix_3_mpt_polyh_mpt.mlt",
+    "directory": "0x01",
+    "bytes": 65
+  },
+  {
+    "name": "mix_3_mpt_pt_mpt.mlt",
+    "directory": "0x01",
+    "bytes": 44
+  },
+  {
+    "name": "mix_3_poly_line_poly.mlt",
+    "directory": "0x01",
+    "bytes": 57
+  },
+  {
+    "name": "mix_3_poly_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 81
+  },
+  {
+    "name": "mix_3_poly_mline_poly.mlt",
+    "directory": "0x01",
+    "bytes": 65
+  },
+  {
+    "name": "mix_3_poly_mpoly_poly.mlt",
+    "directory": "0x01",
+    "bytes": 77
+  },
+  {
+    "name": "mix_3_poly_mpoly_poly_tes.mlt",
+    "directory": "0x01",
+    "bytes": 115
+  },
+  {
+    "name": "mix_3_poly_mpt_mline.mlt",
+    "directory": "0x01",
+    "bytes": 65
+  },
+  {
+    "name": "mix_3_poly_mpt_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 76
+  },
+  {
+    "name": "mix_3_poly_mpt_poly.mlt",
+    "directory": "0x01",
+    "bytes": 60
+  },
+  {
+    "name": "mix_3_poly_polyh_mline.mlt",
+    "directory": "0x01",
+    "bytes": 72
+  },
+  {
+    "name": "mix_3_poly_polyh_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 83
+  },
+  {
+    "name": "mix_3_poly_polyh_mpoly_tes.mlt",
+    "directory": "0x01",
+    "bytes": 137
+  },
+  {
+    "name": "mix_3_poly_polyh_mpt.mlt",
+    "directory": "0x01",
+    "bytes": 66
+  },
+  {
+    "name": "mix_3_poly_polyh_poly.mlt",
+    "directory": "0x01",
+    "bytes": 63
+  },
+  {
+    "name": "mix_3_poly_polyh_poly_tes.mlt",
+    "directory": "0x01",
+    "bytes": 98
+  },
+  {
+    "name": "mix_3_poly_pt_poly.mlt",
+    "directory": "0x01",
+    "bytes": 50
+  },
+  {
+    "name": "mix_3_polyh_line_polyh.mlt",
+    "directory": "0x01",
+    "bytes": 69
+  },
+  {
+    "name": "mix_3_polyh_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 88
+  },
+  {
+    "name": "mix_3_polyh_mline_polyh.mlt",
+    "directory": "0x01",
+    "bytes": 79
+  },
+  {
+    "name": "mix_3_polyh_mpoly_polyh.mlt",
+    "directory": "0x01",
+    "bytes": 90
+  },
+  {
+    "name": "mix_3_polyh_mpoly_polyh_tes.mlt",
+    "directory": "0x01",
+    "bytes": 159
+  },
+  {
+    "name": "mix_3_polyh_mpt_mline.mlt",
+    "directory": "0x01",
+    "bytes": 71
+  },
+  {
+    "name": "mix_3_polyh_mpt_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 82
+  },
+  {
+    "name": "mix_3_polyh_mpt_polyh.mlt",
+    "directory": "0x01",
+    "bytes": 73
+  },
+  {
+    "name": "mix_3_polyh_poly_polyh.mlt",
+    "directory": "0x01",
+    "bytes": 70
+  },
+  {
+    "name": "mix_3_polyh_poly_polyh_tes.mlt",
+    "directory": "0x01",
+    "bytes": 120
+  },
+  {
+    "name": "mix_3_polyh_pt_polyh.mlt",
+    "directory": "0x01",
+    "bytes": 64
+  },
+  {
+    "name": "mix_3_pt_line_mline.mlt",
+    "directory": "0x01",
+    "bytes": 54
+  },
+  {
+    "name": "mix_3_pt_line_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 69
+  },
+  {
+    "name": "mix_3_pt_line_mpt.mlt",
+    "directory": "0x01",
+    "bytes": 48
+  },
+  {
+    "name": "mix_3_pt_line_poly.mlt",
+    "directory": "0x01",
+    "bytes": 50
+  },
+  {
+    "name": "mix_3_pt_line_polyh.mlt",
+    "directory": "0x01",
+    "bytes": 56
+  },
+  {
+    "name": "mix_3_pt_line_pt.mlt",
+    "directory": "0x01",
+    "bytes": 39
+  },
+  {
+    "name": "mix_3_pt_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 75
+  },
+  {
+    "name": "mix_3_pt_mline_pt.mlt",
+    "directory": "0x01",
+    "bytes": 49
+  },
+  {
+    "name": "mix_3_pt_mpoly_pt.mlt",
+    "directory": "0x01",
+    "bytes": 64
+  },
+  {
+    "name": "mix_3_pt_mpt_mline.mlt",
+    "directory": "0x01",
+    "bytes": 54
+  },
+  {
+    "name": "mix_3_pt_mpt_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 69
+  },
+  {
+    "name": "mix_3_pt_mpt_pt.mlt",
+    "directory": "0x01",
+    "bytes": 39
+  },
+  {
+    "name": "mix_3_pt_poly_mline.mlt",
+    "directory": "0x01",
+    "bytes": 59
+  },
+  {
+    "name": "mix_3_pt_poly_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 71
+  },
+  {
+    "name": "mix_3_pt_poly_mpt.mlt",
+    "directory": "0x01",
+    "bytes": 54
+  },
+  {
+    "name": "mix_3_pt_poly_polyh.mlt",
+    "directory": "0x01",
+    "bytes": 57
+  },
+  {
+    "name": "mix_3_pt_poly_pt.mlt",
+    "directory": "0x01",
+    "bytes": 44
+  },
+  {
+    "name": "mix_3_pt_polyh_mline.mlt",
+    "directory": "0x01",
+    "bytes": 66
+  },
+  {
+    "name": "mix_3_pt_polyh_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 77
+  },
+  {
+    "name": "mix_3_pt_polyh_mpt.mlt",
+    "directory": "0x01",
+    "bytes": 60
+  },
+  {
+    "name": "mix_3_pt_polyh_pt.mlt",
+    "directory": "0x01",
+    "bytes": 51
+  },
+  {
+    "name": "mix_4_line_mpt_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 88
+  },
+  {
+    "name": "mix_4_line_poly_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 90
+  },
+  {
+    "name": "mix_4_line_poly_mpt_mline.mlt",
+    "directory": "0x01",
+    "bytes": 74
+  },
+  {
+    "name": "mix_4_line_poly_mpt_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 85
+  },
+  {
+    "name": "mix_4_line_poly_polyh_mline.mlt",
+    "directory": "0x01",
+    "bytes": 81
+  },
+  {
+    "name": "mix_4_line_poly_polyh_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 92
+  },
+  {
+    "name": "mix_4_line_poly_polyh_mpt.mlt",
+    "directory": "0x01",
+    "bytes": 75
+  },
+  {
+    "name": "mix_4_line_polyh_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 96
+  },
+  {
+    "name": "mix_4_line_polyh_mpt_mline.mlt",
+    "directory": "0x01",
+    "bytes": 79
+  },
+  {
+    "name": "mix_4_line_polyh_mpt_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 90
+  },
+  {
+    "name": "mix_4_poly_mpt_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 90
+  },
+  {
+    "name": "mix_4_poly_polyh_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 97
+  },
+  {
+    "name": "mix_4_poly_polyh_mpt_mline.mlt",
+    "directory": "0x01",
+    "bytes": 80
+  },
+  {
+    "name": "mix_4_poly_polyh_mpt_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 91
+  },
+  {
+    "name": "mix_4_polyh_mpt_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 96
+  },
+  {
+    "name": "mix_4_pt_line_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 83
+  },
+  {
+    "name": "mix_4_pt_line_mpt_mline.mlt",
+    "directory": "0x01",
+    "bytes": 62
+  },
+  {
+    "name": "mix_4_pt_line_mpt_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 77
+  },
+  {
+    "name": "mix_4_pt_line_poly_mline.mlt",
+    "directory": "0x01",
+    "bytes": 68
+  },
+  {
+    "name": "mix_4_pt_line_poly_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 80
+  },
+  {
+    "name": "mix_4_pt_line_poly_mpt.mlt",
+    "directory": "0x01",
+    "bytes": 63
+  },
+  {
+    "name": "mix_4_pt_line_poly_polyh.mlt",
+    "directory": "0x01",
+    "bytes": 66
+  },
+  {
+    "name": "mix_4_pt_line_polyh_mline.mlt",
+    "directory": "0x01",
+    "bytes": 74
+  },
+  {
+    "name": "mix_4_pt_line_polyh_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 85
+  },
+  {
+    "name": "mix_4_pt_line_polyh_mpt.mlt",
+    "directory": "0x01",
+    "bytes": 68
+  },
+  {
+    "name": "mix_4_pt_mpt_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 83
+  },
+  {
+    "name": "mix_4_pt_poly_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 84
+  },
+  {
+    "name": "mix_4_pt_poly_mpt_mline.mlt",
+    "directory": "0x01",
+    "bytes": 68
+  },
+  {
+    "name": "mix_4_pt_poly_mpt_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 79
+  },
+  {
+    "name": "mix_4_pt_poly_polyh_mline.mlt",
+    "directory": "0x01",
+    "bytes": 75
+  },
+  {
+    "name": "mix_4_pt_poly_polyh_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 86
+  },
+  {
+    "name": "mix_4_pt_poly_polyh_mpt.mlt",
+    "directory": "0x01",
+    "bytes": 69
+  },
+  {
+    "name": "mix_4_pt_polyh_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 91
+  },
+  {
+    "name": "mix_4_pt_polyh_mpt_mline.mlt",
+    "directory": "0x01",
+    "bytes": 74
+  },
+  {
+    "name": "mix_4_pt_polyh_mpt_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 85
+  },
+  {
+    "name": "mix_5_line_poly_mpt_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 99
+  },
+  {
+    "name": "mix_5_line_poly_polyh_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 106
+  },
+  {
+    "name": "mix_5_line_poly_polyh_mpt_mline.mlt",
+    "directory": "0x01",
+    "bytes": 89
+  },
+  {
+    "name": "mix_5_line_poly_polyh_mpt_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 100
+  },
+  {
+    "name": "mix_5_line_polyh_mpt_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 104
+  },
+  {
+    "name": "mix_5_poly_polyh_mpt_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 105
+  },
+  {
+    "name": "mix_5_pt_line_mpt_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 91
+  },
+  {
+    "name": "mix_5_pt_line_poly_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 93
+  },
+  {
+    "name": "mix_5_pt_line_poly_mpt_mline.mlt",
+    "directory": "0x01",
+    "bytes": 77
+  },
+  {
+    "name": "mix_5_pt_line_poly_mpt_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 88
+  },
+  {
+    "name": "mix_5_pt_line_poly_polyh_mline.mlt",
+    "directory": "0x01",
+    "bytes": 84
+  },
+  {
+    "name": "mix_5_pt_line_poly_polyh_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 95
+  },
+  {
+    "name": "mix_5_pt_line_poly_polyh_mpt.mlt",
+    "directory": "0x01",
+    "bytes": 78
+  },
+  {
+    "name": "mix_5_pt_line_polyh_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 99
+  },
+  {
+    "name": "mix_5_pt_line_polyh_mpt_mline.mlt",
+    "directory": "0x01",
+    "bytes": 82
+  },
+  {
+    "name": "mix_5_pt_line_polyh_mpt_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 93
+  },
+  {
+    "name": "mix_5_pt_poly_mpt_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 93
+  },
+  {
+    "name": "mix_5_pt_poly_polyh_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 100
+  },
+  {
+    "name": "mix_5_pt_poly_polyh_mpt_mline.mlt",
+    "directory": "0x01",
+    "bytes": 83
+  },
+  {
+    "name": "mix_5_pt_poly_polyh_mpt_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 94
+  },
+  {
+    "name": "mix_5_pt_polyh_mpt_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 99
+  },
+  {
+    "name": "mix_6_line_poly_polyh_mpt_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 114
+  },
+  {
+    "name": "mix_6_pt_line_poly_mpt_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 102
+  },
+  {
+    "name": "mix_6_pt_line_poly_polyh_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 109
+  },
+  {
+    "name": "mix_6_pt_line_poly_polyh_mpt_mline.mlt",
+    "directory": "0x01",
+    "bytes": 92
+  },
+  {
+    "name": "mix_6_pt_line_poly_polyh_mpt_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 103
+  },
+  {
+    "name": "mix_6_pt_line_polyh_mpt_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 107
+  },
+  {
+    "name": "mix_6_pt_poly_polyh_mpt_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 108
+  },
+  {
+    "name": "mix_7_pt_line_poly_polyh_mpt_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 117
+  },
+  {
+    "name": "multiline.mlt",
+    "directory": "0x01",
+    "bytes": 47
+  },
+  {
+    "name": "multiline_morton.mlt",
+    "directory": "0x01",
+    "bytes": 63
+  },
+  {
+    "name": "multipoint.mlt",
+    "directory": "0x01",
+    "bytes": 33
+  },
+  {
+    "name": "multipoint_morton.mlt",
+    "directory": "0x01",
+    "bytes": 43
+  },
+  {
+    "name": "point.mlt",
+    "directory": "0x01",
+    "bytes": 24
+  },
+  {
+    "name": "poly.mlt",
+    "directory": "0x01",
+    "bytes": 38
+  },
+  {
+    "name": "poly_collinear.mlt",
+    "directory": "0x01",
+    "bytes": 38
+  },
+  {
+    "name": "poly_collinear_fpf.mlt",
+    "directory": "0x01",
+    "bytes": 65
+  },
+  {
+    "name": "poly_fpf.mlt",
+    "directory": "0x01",
+    "bytes": 65
+  },
+  {
+    "name": "poly_fpf_tes.mlt",
+    "directory": "0x01",
+    "bytes": 89
+  },
+  {
+    "name": "poly_hole.mlt",
+    "directory": "0x01",
+    "bytes": 47
+  },
+  {
+    "name": "poly_hole_fpf.mlt",
+    "directory": "0x01",
+    "bytes": 71
+  },
+  {
+    "name": "poly_hole_fpf_tes.mlt",
+    "directory": "0x01",
+    "bytes": 111
+  },
+  {
+    "name": "poly_hole_tes.mlt",
+    "directory": "0x01",
+    "bytes": 74
+  },
+  {
+    "name": "poly_hole_touching.mlt",
+    "directory": "0x01",
+    "bytes": 47
+  },
+  {
+    "name": "poly_hole_touching_fpf.mlt",
+    "directory": "0x01",
+    "bytes": 73
+  },
+  {
+    "name": "poly_hole_touching_fpf_tes.mlt",
+    "directory": "0x01",
+    "bytes": 109
+  },
+  {
+    "name": "poly_hole_touching_tes.mlt",
+    "directory": "0x01",
+    "bytes": 71
+  },
+  {
+    "name": "poly_morton_hole_morton.mlt",
+    "directory": "0x01",
+    "bytes": 61
+  },
+  {
+    "name": "poly_morton_ring_morton.mlt",
+    "directory": "0x01",
+    "bytes": 60
+  },
+  {
+    "name": "poly_morton_ring_no_morton.mlt",
+    "directory": "0x01",
+    "bytes": 64
+  },
+  {
+    "name": "poly_multi.mlt",
+    "directory": "0x01",
+    "bytes": 55
+  },
+  {
+    "name": "poly_multi_fpf.mlt",
+    "directory": "0x01",
+    "bytes": 85
+  },
+  {
+    "name": "poly_multi_fpf_tes.mlt",
+    "directory": "0x01",
+    "bytes": 113
+  },
+  {
+    "name": "poly_multi_morton_hole_morton.mlt",
+    "directory": "0x01",
+    "bytes": 66
+  },
+  {
+    "name": "poly_multi_morton_ring_morton.mlt",
+    "directory": "0x01",
+    "bytes": 71
+  },
+  {
+    "name": "poly_multi_morton_ring_no_morton.mlt",
+    "directory": "0x01",
+    "bytes": 75
+  },
+  {
+    "name": "poly_multi_tes.mlt",
+    "directory": "0x01",
+    "bytes": 70
+  },
+  {
+    "name": "poly_self_intersect.mlt",
+    "directory": "0x01",
+    "bytes": 40
+  },
+  {
+    "name": "poly_self_intersect_fpf.mlt",
+    "directory": "0x01",
+    "bytes": 65
+  },
+  {
+    "name": "poly_self_intersect_fpf_tes.mlt",
+    "directory": "0x01",
+    "bytes": 89
+  },
+  {
+    "name": "poly_self_intersect_tes.mlt",
+    "directory": "0x01",
+    "bytes": 52
+  },
+  {
+    "name": "poly_tes.mlt",
+    "directory": "0x01",
+    "bytes": 50
+  },
+  {
+    "name": "prop_bool.mlt",
+    "directory": "0x01",
+    "bytes": 41
+  },
+  {
+    "name": "prop_bool_false.mlt",
+    "directory": "0x01",
+    "bytes": 41
+  },
+  {
+    "name": "prop_bool_false_null.mlt",
+    "directory": "0x01",
+    "bytes": 46
+  },
+  {
+    "name": "prop_bool_null_false.mlt",
+    "directory": "0x01",
+    "bytes": 46
+  },
+  {
+    "name": "prop_bool_null_true.mlt",
+    "directory": "0x01",
+    "bytes": 46
+  },
+  {
+    "name": "prop_bool_true_null.mlt",
+    "directory": "0x01",
+    "bytes": 46
+  },
+  {
+    "name": "prop_empty_name.mlt",
+    "directory": "0x01",
+    "bytes": 38
+  },
+  {
+    "name": "prop_f32.mlt",
+    "directory": "0x01",
+    "bytes": 43
+  },
+  {
+    "name": "prop_f32_max.mlt",
+    "directory": "0x01",
+    "bytes": 43
+  },
+  {
+    "name": "prop_f32_min_norm.mlt",
+    "directory": "0x01",
+    "bytes": 43
+  },
+  {
+    "name": "prop_f32_min_val.mlt",
+    "directory": "0x01",
+    "bytes": 43
+  },
+  {
+    "name": "prop_f32_nan.mlt",
+    "directory": "0x01",
+    "bytes": 43
+  },
+  {
+    "name": "prop_f32_neg_inf.mlt",
+    "directory": "0x01",
+    "bytes": 43
+  },
+  {
+    "name": "prop_f32_neg_zero.mlt",
+    "directory": "0x01",
+    "bytes": 43
+  },
+  {
+    "name": "prop_f32_null_val.mlt",
+    "directory": "0x01",
+    "bytes": 48
+  },
+  {
+    "name": "prop_f32_pos_inf.mlt",
+    "directory": "0x01",
+    "bytes": 43
+  },
+  {
+    "name": "prop_f32_val_null.mlt",
+    "directory": "0x01",
+    "bytes": 48
+  },
+  {
+    "name": "prop_f32_zero.mlt",
+    "directory": "0x01",
+    "bytes": 43
+  },
+  {
+    "name": "prop_f64.mlt",
+    "directory": "0x01",
+    "bytes": 47
+  },
+  {
+    "name": "prop_f64_max.mlt",
+    "directory": "0x01",
+    "bytes": 47
+  },
+  {
+    "name": "prop_f64_min_norm.mlt",
+    "directory": "0x01",
+    "bytes": 47
+  },
+  {
+    "name": "prop_f64_min_val.mlt",
+    "directory": "0x01",
+    "bytes": 47
+  },
+  {
+    "name": "prop_f64_nan.mlt",
+    "directory": "0x01",
+    "bytes": 47
+  },
+  {
+    "name": "prop_f64_neg_inf.mlt",
+    "directory": "0x01",
+    "bytes": 47
+  },
+  {
+    "name": "prop_f64_neg_zero.mlt",
+    "directory": "0x01",
+    "bytes": 47
+  },
+  {
+    "name": "prop_f64_null_val.mlt",
+    "directory": "0x01",
+    "bytes": 52
+  },
+  {
+    "name": "prop_f64_pos_inf.mlt",
+    "directory": "0x01",
+    "bytes": 47
+  },
+  {
+    "name": "prop_f64_val_null.mlt",
+    "directory": "0x01",
+    "bytes": 52
+  },
+  {
+    "name": "prop_f64_zero.mlt",
+    "directory": "0x01",
+    "bytes": 47
+  },
+  {
+    "name": "prop_i32.mlt",
+    "directory": "0x01",
+    "bytes": 40
+  },
+  {
+    "name": "prop_i32_delta.mlt",
+    "directory": "0x01",
+    "bytes": 40
+  },
+  {
+    "name": "prop_i32_max.mlt",
+    "directory": "0x01",
+    "bytes": 44
+  },
+  {
+    "name": "prop_i32_min.mlt",
+    "directory": "0x01",
+    "bytes": 44
+  },
+  {
+    "name": "prop_i32_neg.mlt",
+    "directory": "0x01",
+    "bytes": 40
+  },
+  {
+    "name": "prop_i32_null_val.mlt",
+    "directory": "0x01",
+    "bytes": 45
+  },
+  {
+    "name": "prop_i32_val_null.mlt",
+    "directory": "0x01",
+    "bytes": 45
+  },
+  {
+    "name": "prop_i64.mlt",
+    "directory": "0x01",
+    "bytes": 44
+  },
+  {
+    "name": "prop_i64_delta.mlt",
+    "directory": "0x01",
+    "bytes": 44
+  },
+  {
+    "name": "prop_i64_max.mlt",
+    "directory": "0x01",
+    "bytes": 49
+  },
+  {
+    "name": "prop_i64_min.mlt",
+    "directory": "0x01",
+    "bytes": 49
+  },
+  {
+    "name": "prop_i64_neg.mlt",
+    "directory": "0x01",
+    "bytes": 44
+  },
+  {
+    "name": "prop_i64_null_val.mlt",
+    "directory": "0x01",
+    "bytes": 49
+  },
+  {
+    "name": "prop_i64_val_null.mlt",
+    "directory": "0x01",
+    "bytes": 49
+  },
+  {
+    "name": "prop_special_name.mlt",
+    "directory": "0x01",
+    "bytes": 51
+  },
+  {
+    "name": "prop_str_ascii.mlt",
+    "directory": "0x01",
+    "bytes": 47
+  },
+  {
+    "name": "prop_str_empty.mlt",
+    "directory": "0x01",
+    "bytes": 45
+  },
+  {
+    "name": "prop_str_empty_val.mlt",
+    "directory": "0x01",
+    "bytes": 50
+  },
+  {
+    "name": "prop_str_escape.mlt",
+    "directory": "0x01",
+    "bytes": 65
+  },
+  {
+    "name": "prop_str_null_val.mlt",
+    "directory": "0x01",
+    "bytes": 52
+  },
+  {
+    "name": "prop_str_special.mlt",
+    "directory": "0x01",
+    "bytes": 58
+  },
+  {
+    "name": "prop_str_unicode.mlt",
+    "directory": "0x01",
+    "bytes": 65
+  },
+  {
+    "name": "prop_str_val_empty.mlt",
+    "directory": "0x01",
+    "bytes": 50
+  },
+  {
+    "name": "prop_str_val_null.mlt",
+    "directory": "0x01",
+    "bytes": 52
+  },
+  {
+    "name": "prop_u32.mlt",
+    "directory": "0x01",
+    "bytes": 40
+  },
+  {
+    "name": "prop_u32_delta.mlt",
+    "directory": "0x01",
+    "bytes": 40
+  },
+  {
+    "name": "prop_u32_max.mlt",
+    "directory": "0x01",
+    "bytes": 44
+  },
+  {
+    "name": "prop_u32_min.mlt",
+    "directory": "0x01",
+    "bytes": 40
+  },
+  {
+    "name": "prop_u32_null_val.mlt",
+    "directory": "0x01",
+    "bytes": 45
+  },
+  {
+    "name": "prop_u32_val_null.mlt",
+    "directory": "0x01",
+    "bytes": 45
+  },
+  {
+    "name": "prop_u64.mlt",
+    "directory": "0x01",
+    "bytes": 51
+  },
+  {
+    "name": "prop_u64_delta.mlt",
+    "directory": "0x01",
+    "bytes": 51
+  },
+  {
+    "name": "prop_u64_max.mlt",
+    "directory": "0x01",
+    "bytes": 52
+  },
+  {
+    "name": "prop_u64_min.mlt",
+    "directory": "0x01",
+    "bytes": 43
+  },
+  {
+    "name": "prop_u64_null_val.mlt",
+    "directory": "0x01",
+    "bytes": 53
+  },
+  {
+    "name": "prop_u64_val_null.mlt",
+    "directory": "0x01",
+    "bytes": 53
+  },
+  {
+    "name": "props_i32.mlt",
+    "directory": "0x01",
+    "bytes": 52
+  },
+  {
+    "name": "props_i32_delta.mlt",
+    "directory": "0x01",
+    "bytes": 52
+  },
+  {
+    "name": "props_i32_delta_rle.mlt",
+    "directory": "0x01",
+    "bytes": 54
+  },
+  {
+    "name": "props_i32_rle.mlt",
+    "directory": "0x01",
+    "bytes": 52
+  },
+  {
+    "name": "props_i64.mlt",
+    "directory": "0x01",
+    "bytes": 68
+  },
+  {
+    "name": "props_i64_delta.mlt",
+    "directory": "0x01",
+    "bytes": 56
+  },
+  {
+    "name": "props_i64_delta_rle.mlt",
+    "directory": "0x01",
+    "bytes": 58
+  },
+  {
+    "name": "props_i64_rle.mlt",
+    "directory": "0x01",
+    "bytes": 56
+  },
+  {
+    "name": "props_mixed.mlt",
+    "directory": "0x01",
+    "bytes": 202
+  },
+  {
+    "name": "props_no_shared_dict.mlt",
+    "directory": "0x01",
+    "bytes": 135
+  },
+  {
+    "name": "props_offset_str.mlt",
+    "directory": "0x01",
+    "bytes": 88
+  },
+  {
+    "name": "props_offset_str_fsst.mlt",
+    "directory": "0x01",
+    "bytes": 86
+  },
+  {
+    "name": "props_shared_dict.mlt",
+    "directory": "0x01",
+    "bytes": 104
+  },
+  {
+    "name": "props_shared_dict_2_same_prefix.mlt",
+    "directory": "0x01",
+    "bytes": 187
+  },
+  {
+    "name": "props_shared_dict_fsst.mlt",
+    "directory": "0x01",
+    "bytes": 102
+  },
+  {
+    "name": "props_shared_dict_no_child_name.mlt",
+    "directory": "0x01",
+    "bytes": 82
+  },
+  {
+    "name": "props_shared_dict_no_child_name_fsst.mlt",
+    "directory": "0x01",
+    "bytes": 80
+  },
+  {
+    "name": "props_shared_dict_no_struct_name.mlt",
+    "directory": "0x01",
+    "bytes": 97
+  },
+  {
+    "name": "props_shared_dict_no_struct_name_fsst.mlt",
+    "directory": "0x01",
+    "bytes": 95
+  },
+  {
+    "name": "props_shared_dict_one_child.mlt",
+    "directory": "0x01",
+    "bytes": 142
+  },
+  {
+    "name": "props_shared_dict_one_child_fsst.mlt",
+    "directory": "0x01",
+    "bytes": 140
+  },
+  {
+    "name": "props_str.mlt",
+    "directory": "0x01",
+    "bytes": 234
+  },
+  {
+    "name": "props_str_fsst.mlt",
+    "directory": "0x01",
+    "bytes": 228
+  },
+  {
+    "name": "props_u32.mlt",
+    "directory": "0x01",
+    "bytes": 56
+  },
+  {
+    "name": "props_u32_delta.mlt",
+    "directory": "0x01",
+    "bytes": 54
+  },
+  {
+    "name": "props_u32_delta_rle.mlt",
+    "directory": "0x01",
+    "bytes": 56
+  },
+  {
+    "name": "props_u32_fpf_127.mlt",
+    "directory": "0x01",
+    "bytes": 204
+  },
+  {
+    "name": "props_u32_fpf_128.mlt",
+    "directory": "0x01",
+    "bytes": 206
+  },
+  {
+    "name": "props_u32_fpf_129.mlt",
+    "directory": "0x01",
+    "bytes": 212
+  },
+  {
+    "name": "props_u32_fpf_255.mlt",
+    "directory": "0x01",
+    "bytes": 336
+  },
+  {
+    "name": "props_u32_fpf_256.mlt",
+    "directory": "0x01",
+    "bytes": 157
+  },
+  {
+    "name": "props_u32_fpf_257.mlt",
+    "directory": "0x01",
+    "bytes": 163
+  },
+  {
+    "name": "props_u32_fpf_383.mlt",
+    "directory": "0x01",
+    "bytes": 288
+  },
+  {
+    "name": "props_u32_fpf_384.mlt",
+    "directory": "0x01",
+    "bytes": 286
+  },
+  {
+    "name": "props_u32_fpf_385.mlt",
+    "directory": "0x01",
+    "bytes": 292
+  },
+  {
+    "name": "props_u32_fpf_511.mlt",
+    "directory": "0x01",
+    "bytes": 416
+  },
+  {
+    "name": "props_u32_fpf_512.mlt",
+    "directory": "0x01",
+    "bytes": 222
+  },
+  {
+    "name": "props_u32_fpf_513.mlt",
+    "directory": "0x01",
+    "bytes": 228
+  },
+  {
+    "name": "props_u32_rle.mlt",
+    "directory": "0x01",
+    "bytes": 53
+  },
+  {
+    "name": "props_u64.mlt",
+    "directory": "0x01",
+    "bytes": 56
+  },
+  {
+    "name": "props_u64_delta.mlt",
+    "directory": "0x01",
+    "bytes": 54
+  },
+  {
+    "name": "props_u64_delta_rle.mlt",
+    "directory": "0x01",
+    "bytes": 56
+  },
+  {
+    "name": "props_u64_rle.mlt",
+    "directory": "0x01",
+    "bytes": 53
+  },
+  {
+    "name": "id64_max_delta.mlt",
+    "directory": "0x01-rust",
+    "bytes": 30
+  },
+  {
+    "name": "id64_max_delta_rle.mlt",
+    "directory": "0x01-rust",
+    "bytes": 33
+  },
+  {
+    "name": "id64_max_rle.mlt",
+    "directory": "0x01-rust",
+    "bytes": 42
+  },
+  {
+    "name": "id_max_delta.mlt",
+    "directory": "0x01-rust",
+    "bytes": 30
+  },
+  {
+    "name": "id_max_delta_rle.mlt",
+    "directory": "0x01-rust",
+    "bytes": 33
+  },
+  {
+    "name": "id_max_rle.mlt",
+    "directory": "0x01-rust",
+    "bytes": 37
+  },
+  {
+    "name": "ids_delta_fpf.mlt",
+    "directory": "0x01-rust",
+    "bytes": 50
+  },
+  {
+    "name": "ids_fpf.mlt",
+    "directory": "0x01-rust",
+    "bytes": 46
+  },
+  {
+    "name": "mix_2_line_mpoly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 96
+  },
+  {
+    "name": "mix_2_line_poly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 59
+  },
+  {
+    "name": "mix_2_line_polyh_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 80
+  },
+  {
+    "name": "mix_2_mline_mpoly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 102
+  },
+  {
+    "name": "mix_2_poly_mline_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 68
+  },
+  {
+    "name": "mix_2_polyh_mline_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 90
+  },
+  {
+    "name": "mix_3_line_mline_mpoly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 110
+  },
+  {
+    "name": "mix_3_line_mpoly_line_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 105
+  },
+  {
+    "name": "mix_3_line_poly_line_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 68
+  },
+  {
+    "name": "mix_3_line_poly_mline_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 77
+  },
+  {
+    "name": "mix_3_line_poly_mpoly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 111
+  },
+  {
+    "name": "mix_3_line_poly_polyh_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 94
+  },
+  {
+    "name": "mix_3_line_polyh_line_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 88
+  },
+  {
+    "name": "mix_3_line_polyh_mline_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 98
+  },
+  {
+    "name": "mix_3_line_polyh_mpoly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 132
+  },
+  {
+    "name": "mix_3_mline_mpoly_mline_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 116
+  },
+  {
+    "name": "mix_3_mline_poly_mline_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 82
+  },
+  {
+    "name": "mix_3_mline_polyh_mline_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 104
+  },
+  {
+    "name": "mix_3_mpoly_line_mpoly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 145
+  },
+  {
+    "name": "mix_3_mpoly_mline_mpoly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 150
+  },
+  {
+    "name": "mix_3_poly_line_poly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 73
+  },
+  {
+    "name": "mix_3_poly_mline_mpoly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 115
+  },
+  {
+    "name": "mix_3_poly_mline_poly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 81
+  },
+  {
+    "name": "mix_3_poly_polyh_mline_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 103
+  },
+  {
+    "name": "mix_3_polyh_line_polyh_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 115
+  },
+  {
+    "name": "mix_3_polyh_mline_mpoly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 138
+  },
+  {
+    "name": "mix_3_polyh_mline_polyh_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 125
+  },
+  {
+    "name": "mix_4_line_poly_mline_mpoly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 124
+  },
+  {
+    "name": "mix_4_line_poly_polyh_mline_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 112
+  },
+  {
+    "name": "mix_4_line_poly_polyh_mpoly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 146
+  },
+  {
+    "name": "mix_4_line_polyh_mline_mpoly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 146
+  },
+  {
+    "name": "mix_4_poly_polyh_mline_mpoly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 151
+  },
+  {
+    "name": "mix_5_line_poly_polyh_mline_mpoly_tes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 160
+  },
+  {
+    "name": "multiline_meta_delta.mlt",
+    "directory": "0x01-rust",
+    "bytes": 47
+  },
+  {
+    "name": "multipoint_morton_dictionary.mlt",
+    "directory": "0x01-rust",
+    "bytes": 55
+  },
+  {
+    "name": "point_morton_dictionary.mlt",
+    "directory": "0x01-rust",
+    "bytes": 65
+  },
+  {
+    "name": "prop_bool_false_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 35
+  },
+  {
+    "name": "prop_bool_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 35
+  },
+  {
+    "name": "prop_empty_name_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 32
+  },
+  {
+    "name": "prop_f32_decimals.mlt",
+    "directory": "0x01-rust",
+    "bytes": 68
+  },
+  {
+    "name": "prop_f32_decimals_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 70
+  },
+  {
+    "name": "prop_f32_distinct_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 70
+  },
+  {
+    "name": "prop_f32_max_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 37
+  },
+  {
+    "name": "prop_f32_min_norm_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 37
+  },
+  {
+    "name": "prop_f32_min_val_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 37
+  },
+  {
+    "name": "prop_f32_nan_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 37
+  },
+  {
+    "name": "prop_f32_nan_repeated_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 58
+  },
+  {
+    "name": "prop_f32_neg_inf_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 37
+  },
+  {
+    "name": "prop_f32_neg_zero_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 37
+  },
+  {
+    "name": "prop_f32_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 37
+  },
+  {
+    "name": "prop_f32_pos_inf_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 37
+  },
+  {
+    "name": "prop_f32_repeated.mlt",
+    "directory": "0x01-rust",
+    "bytes": 68
+  },
+  {
+    "name": "prop_f32_repeated_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 70
+  },
+  {
+    "name": "prop_f32_whole_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 70
+  },
+  {
+    "name": "prop_f32_zero_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 37
+  },
+  {
+    "name": "prop_f32_zeros_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 58
+  },
+  {
+    "name": "prop_f64_decimals.mlt",
+    "directory": "0x01-rust",
+    "bytes": 84
+  },
+  {
+    "name": "prop_f64_decimals_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 94
+  },
+  {
+    "name": "prop_f64_distinct_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 94
+  },
+  {
+    "name": "prop_f64_max_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 41
+  },
+  {
+    "name": "prop_f64_min_norm_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 41
+  },
+  {
+    "name": "prop_f64_min_val_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 41
+  },
+  {
+    "name": "prop_f64_nan_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 41
+  },
+  {
+    "name": "prop_f64_nan_repeated_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 74
+  },
+  {
+    "name": "prop_f64_neg_inf_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 41
+  },
+  {
+    "name": "prop_f64_neg_zero_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 41
+  },
+  {
+    "name": "prop_f64_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 41
+  },
+  {
+    "name": "prop_f64_offset_decimals_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 3041
+  },
+  {
+    "name": "prop_f64_pos_inf_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 41
+  },
+  {
+    "name": "prop_f64_repeated.mlt",
+    "directory": "0x01-rust",
+    "bytes": 84
+  },
+  {
+    "name": "prop_f64_repeated_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 94
+  },
+  {
+    "name": "prop_f64_whole_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 94
+  },
+  {
+    "name": "prop_f64_zero_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 41
+  },
+  {
+    "name": "prop_f64_zeros_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 74
+  },
+  {
+    "name": "prop_i32_delta_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 34
+  },
+  {
+    "name": "prop_i32_delta_rle.mlt",
+    "directory": "0x01-rust",
+    "bytes": 43
+  },
+  {
+    "name": "prop_i32_delta_rle_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 37
+  },
+  {
+    "name": "prop_i32_max_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 38
+  },
+  {
+    "name": "prop_i32_min_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 38
+  },
+  {
+    "name": "prop_i32_neg_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 34
+  },
+  {
+    "name": "prop_i32_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 34
+  },
+  {
+    "name": "prop_i32_plain_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 37
+  },
+  {
+    "name": "prop_i32_rle.mlt",
+    "directory": "0x01-rust",
+    "bytes": 43
+  },
+  {
+    "name": "prop_i32_rle_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 37
+  },
+  {
+    "name": "prop_i64_delta_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 38
+  },
+  {
+    "name": "prop_i64_delta_rle.mlt",
+    "directory": "0x01-rust",
+    "bytes": 47
+  },
+  {
+    "name": "prop_i64_delta_rle_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 41
+  },
+  {
+    "name": "prop_i64_max_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 43
+  },
+  {
+    "name": "prop_i64_min_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 43
+  },
+  {
+    "name": "prop_i64_neg_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 38
+  },
+  {
+    "name": "prop_i64_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 38
+  },
+  {
+    "name": "prop_i64_plain_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 41
+  },
+  {
+    "name": "prop_i64_rle.mlt",
+    "directory": "0x01-rust",
+    "bytes": 47
+  },
+  {
+    "name": "prop_i64_rle_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 41
+  },
+  {
+    "name": "prop_special_name_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 45
+  },
+  {
+    "name": "prop_str_ascii_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 41
+  },
+  {
+    "name": "prop_str_empty_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 39
+  },
+  {
+    "name": "prop_str_escape_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 59
+  },
+  {
+    "name": "prop_str_special_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 52
+  },
+  {
+    "name": "prop_str_unicode_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 59
+  },
+  {
+    "name": "prop_u32_delta_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 34
+  },
+  {
+    "name": "prop_u32_delta_rle.mlt",
+    "directory": "0x01-rust",
+    "bytes": 43
+  },
+  {
+    "name": "prop_u32_delta_rle_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 37
+  },
+  {
+    "name": "prop_u32_max_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 38
+  },
+  {
+    "name": "prop_u32_min_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 34
+  },
+  {
+    "name": "prop_u32_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 34
+  },
+  {
+    "name": "prop_u32_plain_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 37
+  },
+  {
+    "name": "prop_u32_rle.mlt",
+    "directory": "0x01-rust",
+    "bytes": 43
+  },
+  {
+    "name": "prop_u32_rle_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 37
+  },
+  {
+    "name": "prop_u64_delta_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 45
+  },
+  {
+    "name": "prop_u64_delta_rle.mlt",
+    "directory": "0x01-rust",
+    "bytes": 54
+  },
+  {
+    "name": "prop_u64_delta_rle_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 48
+  },
+  {
+    "name": "prop_u64_max_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 46
+  },
+  {
+    "name": "prop_u64_min_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 37
+  },
+  {
+    "name": "prop_u64_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 45
+  },
+  {
+    "name": "prop_u64_plain_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 44
+  },
+  {
+    "name": "prop_u64_rle.mlt",
+    "directory": "0x01-rust",
+    "bytes": 54
+  },
+  {
+    "name": "prop_u64_rle_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 48
+  },
+  {
+    "name": "props_i32_delta_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 46
+  },
+  {
+    "name": "props_i32_delta_rle_fpf.mlt",
+    "directory": "0x01-rust",
+    "bytes": 58
+  },
+  {
+    "name": "props_i32_delta_rle_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 48
+  },
+  {
+    "name": "props_i32_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 46
+  },
+  {
+    "name": "props_i32_rle_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 46
+  },
+  {
+    "name": "props_mixed_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 154
+  },
+  {
+    "name": "props_no_shared_dict_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 122
+  },
+  {
+    "name": "props_offset_str_fsst.mlt",
+    "directory": "0x01-rust",
+    "bytes": 86
+  },
+  {
+    "name": "props_offset_str_fsst_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 80
+  },
+  {
+    "name": "props_offset_str_fsst_nulls.mlt",
+    "directory": "0x01-rust",
+    "bytes": 159
+  },
+  {
+    "name": "props_offset_str_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 82
+  },
+  {
+    "name": "props_offset_str_nulls.mlt",
+    "directory": "0x01-rust",
+    "bytes": 133
+  },
+  {
+    "name": "props_offset_str_shuffled.mlt",
+    "directory": "0x01-rust",
+    "bytes": 164
+  },
+  {
+    "name": "props_offset_str_shuffled_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 158
+  },
+  {
+    "name": "props_same_nulls.mlt",
+    "directory": "0x01-rust",
+    "bytes": 63
+  },
+  {
+    "name": "props_same_nulls_id.mlt",
+    "directory": "0x01-rust",
+    "bytes": 67
+  },
+  {
+    "name": "props_same_nulls_max.mlt",
+    "directory": "0x01-rust",
+    "bytes": 316
+  },
+  {
+    "name": "props_same_nulls_mixed.mlt",
+    "directory": "0x01-rust",
+    "bytes": 162
+  },
+  {
+    "name": "props_shared_dict_2_same_prefix_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 163
+  },
+  {
+    "name": "props_shared_dict_codes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 193
+  },
+  {
+    "name": "props_shared_dict_fsst.mlt",
+    "directory": "0x01-rust",
+    "bytes": 102
+  },
+  {
+    "name": "props_shared_dict_fsst_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 90
+  },
+  {
+    "name": "props_shared_dict_no_child_name_fsst.mlt",
+    "directory": "0x01-rust",
+    "bytes": 80
+  },
+  {
+    "name": "props_shared_dict_no_child_name_fsst_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 74
+  },
+  {
+    "name": "props_shared_dict_no_child_name_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 76
+  },
+  {
+    "name": "props_shared_dict_no_struct_name_fsst.mlt",
+    "directory": "0x01-rust",
+    "bytes": 95
+  },
+  {
+    "name": "props_shared_dict_no_struct_name_fsst_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 83
+  },
+  {
+    "name": "props_shared_dict_no_struct_name_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 85
+  },
+  {
+    "name": "props_shared_dict_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 92
+  },
+  {
+    "name": "props_shared_dict_one_child_fsst.mlt",
+    "directory": "0x01-rust",
+    "bytes": 140
+  },
+  {
+    "name": "props_shared_dict_one_child_fsst_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 127
+  },
+  {
+    "name": "props_shared_dict_one_child_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 130
+  },
+  {
+    "name": "props_shared_dict_presence_variants.mlt",
+    "directory": "0x01-rust",
+    "bytes": 646
+  },
+  {
+    "name": "props_shared_dict_presence_variants_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 610
+  },
+  {
+    "name": "props_shared_dict_same_nulls.mlt",
+    "directory": "0x01-rust",
+    "bytes": 153
+  },
+  {
+    "name": "props_shared_dict_same_nulls_lonely.mlt",
+    "directory": "0x01-rust",
+    "bytes": 153
+  },
+  {
+    "name": "props_shared_dict_same_nulls_mixed.mlt",
+    "directory": "0x01-rust",
+    "bytes": 209
+  },
+  {
+    "name": "props_str_fsst.mlt",
+    "directory": "0x01-rust",
+    "bytes": 262
+  },
+  {
+    "name": "props_str_fsst_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 256
+  },
+  {
+    "name": "props_str_fsst_nulls.mlt",
+    "directory": "0x01-rust",
+    "bytes": 207
+  },
+  {
+    "name": "props_str_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 228
+  },
+  {
+    "name": "props_str_nulls.mlt",
+    "directory": "0x01-rust",
+    "bytes": 175
+  },
+  {
+    "name": "props_str_prefixes.mlt",
+    "directory": "0x01-rust",
+    "bytes": 164
+  },
+  {
+    "name": "props_str_prefixes_fsst.mlt",
+    "directory": "0x01-rust",
+    "bytes": 139
+  },
+  {
+    "name": "props_str_prefixes_fsst_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 133
+  },
+  {
+    "name": "props_str_prefixes_fsst_nulls.mlt",
+    "directory": "0x01-rust",
+    "bytes": 137
+  },
+  {
+    "name": "props_str_prefixes_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 158
+  },
+  {
+    "name": "props_str_prefixes_nulls.mlt",
+    "directory": "0x01-rust",
+    "bytes": 162
+  },
+  {
+    "name": "props_u32_delta_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 48
+  },
+  {
+    "name": "props_u32_delta_rle_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 50
+  },
+  {
+    "name": "props_u32_fpf_127_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 196
+  },
+  {
+    "name": "props_u32_fpf_128_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 199
+  },
+  {
+    "name": "props_u32_fpf_129_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 203
+  },
+  {
+    "name": "props_u32_fpf_255_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 327
+  },
+  {
+    "name": "props_u32_fpf_256_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 150
+  },
+  {
+    "name": "props_u32_fpf_257_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 154
+  },
+  {
+    "name": "props_u32_fpf_383_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 279
+  },
+  {
+    "name": "props_u32_fpf_384_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 279
+  },
+  {
+    "name": "props_u32_fpf_385_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 283
+  },
+  {
+    "name": "props_u32_fpf_511_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 407
+  },
+  {
+    "name": "props_u32_fpf_512_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 215
+  },
+  {
+    "name": "props_u32_fpf_513_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 219
+  },
+  {
+    "name": "props_u32_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 50
+  },
+  {
+    "name": "props_u32_rle_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 47
+  },
+  {
+    "name": "props_u64_delta_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 48
+  },
+  {
+    "name": "props_u64_delta_rle_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 50
+  },
+  {
+    "name": "props_u64_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 50
+  },
+  {
+    "name": "props_u64_rle_np.mlt",
+    "directory": "0x01-rust",
+    "bytes": 47
+  },
+  {
+    "name": "extent_1073741824.mlt",
+    "directory": "0x02",
+    "bytes": 38
+  },
+  {
+    "name": "extent_131072.mlt",
+    "directory": "0x02",
+    "bytes": 32
+  },
+  {
+    "name": "extent_4096.mlt",
+    "directory": "0x02",
+    "bytes": 29
+  },
+  {
+    "name": "extent_512.mlt",
+    "directory": "0x02",
+    "bytes": 29
+  },
+  {
+    "name": "extent_buf_1073741824.mlt",
+    "directory": "0x02",
+    "bytes": 38
+  },
+  {
+    "name": "extent_buf_131072.mlt",
+    "directory": "0x02",
+    "bytes": 32
+  },
+  {
+    "name": "extent_buf_4096.mlt",
+    "directory": "0x02",
+    "bytes": 29
+  },
+  {
+    "name": "extent_buf_512.mlt",
+    "directory": "0x02",
+    "bytes": 29
+  },
+  {
+    "name": "id.mlt",
+    "directory": "0x02",
+    "bytes": 25
+  },
+  {
+    "name": "id64.mlt",
+    "directory": "0x02",
+    "bytes": 29
+  },
+  {
+    "name": "id64_max.mlt",
+    "directory": "0x02",
+    "bytes": 34
+  },
+  {
+    "name": "id64_max_delta.mlt",
+    "directory": "0x02",
+    "bytes": 25
+  },
+  {
+    "name": "id64_max_delta_rle.mlt",
+    "directory": "0x02",
+    "bytes": 26
+  },
+  {
+    "name": "id64_max_rle.mlt",
+    "directory": "0x02",
+    "bytes": 35
+  },
+  {
+    "name": "id_max.mlt",
+    "directory": "0x02",
+    "bytes": 29
+  },
+  {
+    "name": "id_max_delta.mlt",
+    "directory": "0x02",
+    "bytes": 25
+  },
+  {
+    "name": "id_max_delta_rle.mlt",
+    "directory": "0x02",
+    "bytes": 26
+  },
+  {
+    "name": "id_max_rle.mlt",
+    "directory": "0x02",
+    "bytes": 30
+  },
+  {
+    "name": "id_min.mlt",
+    "directory": "0x02",
+    "bytes": 25
+  },
+  {
+    "name": "ids.mlt",
+    "directory": "0x02",
+    "bytes": 35
+  },
+  {
+    "name": "ids64.mlt",
+    "directory": "0x02",
+    "bytes": 51
+  },
+  {
+    "name": "ids64_delta.mlt",
+    "directory": "0x02",
+    "bytes": 39
+  },
+  {
+    "name": "ids64_delta_rle.mlt",
+    "directory": "0x02",
+    "bytes": 39
+  },
+  {
+    "name": "ids64_minmax.mlt",
+    "directory": "0x02",
+    "bytes": 53
+  },
+  {
+    "name": "ids64_minmax_delta.mlt",
+    "directory": "0x02",
+    "bytes": 35
+  },
+  {
+    "name": "ids64_opt.mlt",
+    "directory": "0x02",
+    "bytes": 42
+  },
+  {
+    "name": "ids64_opt_delta.mlt",
+    "directory": "0x02",
+    "bytes": 46
+  },
+  {
+    "name": "ids64_rle.mlt",
+    "directory": "0x02",
+    "bytes": 37
+  },
+  {
+    "name": "ids_delta.mlt",
+    "directory": "0x02",
+    "bytes": 36
+  },
+  {
+    "name": "ids_delta_fpf.mlt",
+    "directory": "0x02",
+    "bytes": 43
+  },
+  {
+    "name": "ids_delta_rle.mlt",
+    "directory": "0x02",
+    "bytes": 36
+  },
+  {
+    "name": "ids_fpf.mlt",
+    "directory": "0x02",
+    "bytes": 39
+  },
+  {
+    "name": "ids_opt.mlt",
+    "directory": "0x02",
+    "bytes": 38
+  },
+  {
+    "name": "ids_opt_delta.mlt",
+    "directory": "0x02",
+    "bytes": 39
+  },
+  {
+    "name": "ids_rle.mlt",
+    "directory": "0x02",
+    "bytes": 33
+  },
+  {
+    "name": "line.mlt",
+    "directory": "0x02",
+    "bytes": 28
+  },
+  {
+    "name": "line_morton_curve_morton.mlt",
+    "directory": "0x02",
+    "bytes": 47
+  },
+  {
+    "name": "line_morton_curve_no_morton.mlt",
+    "directory": "0x02",
+    "bytes": 54
+  },
+  {
+    "name": "line_zero_length.mlt",
+    "directory": "0x02",
+    "bytes": 26
+  },
+  {
+    "name": "mix_2_line_line.mlt",
+    "directory": "0x02",
+    "bytes": 36
+  },
+  {
+    "name": "mix_2_line_mline.mlt",
+    "directory": "0x02",
+    "bytes": 46
+  },
+  {
+    "name": "mix_2_line_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 59
+  },
+  {
+    "name": "mix_2_line_mpoly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 87
+  },
+  {
+    "name": "mix_2_line_mpt.mlt",
+    "directory": "0x02",
+    "bytes": 40
+  },
+  {
+    "name": "mix_2_line_poly.mlt",
+    "directory": "0x02",
+    "bytes": 41
+  },
+  {
+    "name": "mix_2_line_poly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 54
+  },
+  {
+    "name": "mix_2_line_polyh.mlt",
+    "directory": "0x02",
+    "bytes": 48
+  },
+  {
+    "name": "mix_2_line_polyh_tes.mlt",
+    "directory": "0x02",
+    "bytes": 76
+  },
+  {
+    "name": "mix_2_mline_mline.mlt",
+    "directory": "0x02",
+    "bytes": 51
+  },
+  {
+    "name": "mix_2_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 64
+  },
+  {
+    "name": "mix_2_mline_mpoly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 92
+  },
+  {
+    "name": "mix_2_mpoly_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 77
+  },
+  {
+    "name": "mix_2_mpoly_mpoly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 126
+  },
+  {
+    "name": "mix_2_mpt_mline.mlt",
+    "directory": "0x02",
+    "bytes": 44
+  },
+  {
+    "name": "mix_2_mpt_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 58
+  },
+  {
+    "name": "mix_2_mpt_mpt.mlt",
+    "directory": "0x02",
+    "bytes": 36
+  },
+  {
+    "name": "mix_2_poly_mline.mlt",
+    "directory": "0x02",
+    "bytes": 50
+  },
+  {
+    "name": "mix_2_poly_mline_tes.mlt",
+    "directory": "0x02",
+    "bytes": 60
+  },
+  {
+    "name": "mix_2_poly_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 62
+  },
+  {
+    "name": "mix_2_poly_mpoly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 93
+  },
+  {
+    "name": "mix_2_poly_mpt.mlt",
+    "directory": "0x02",
+    "bytes": 45
+  },
+  {
+    "name": "mix_2_poly_poly.mlt",
+    "directory": "0x02",
+    "bytes": 40
+  },
+  {
+    "name": "mix_2_poly_poly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 56
+  },
+  {
+    "name": "mix_2_poly_polyh.mlt",
+    "directory": "0x02",
+    "bytes": 48
+  },
+  {
+    "name": "mix_2_poly_polyh_tes.mlt",
+    "directory": "0x02",
+    "bytes": 79
+  },
+  {
+    "name": "mix_2_polyh_mline.mlt",
+    "directory": "0x02",
+    "bytes": 57
+  },
+  {
+    "name": "mix_2_polyh_mline_tes.mlt",
+    "directory": "0x02",
+    "bytes": 82
+  },
+  {
+    "name": "mix_2_polyh_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 68
+  },
+  {
+    "name": "mix_2_polyh_mpoly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 114
+  },
+  {
+    "name": "mix_2_polyh_mpt.mlt",
+    "directory": "0x02",
+    "bytes": 50
+  },
+  {
+    "name": "mix_2_polyh_polyh.mlt",
+    "directory": "0x02",
+    "bytes": 55
+  },
+  {
+    "name": "mix_2_polyh_polyh_tes.mlt",
+    "directory": "0x02",
+    "bytes": 101
+  },
+  {
+    "name": "mix_2_pt_line.mlt",
+    "directory": "0x02",
+    "bytes": 32
+  },
+  {
+    "name": "mix_2_pt_mline.mlt",
+    "directory": "0x02",
+    "bytes": 40
+  },
+  {
+    "name": "mix_2_pt_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 54
+  },
+  {
+    "name": "mix_2_pt_mpt.mlt",
+    "directory": "0x02",
+    "bytes": 32
+  },
+  {
+    "name": "mix_2_pt_poly.mlt",
+    "directory": "0x02",
+    "bytes": 36
+  },
+  {
+    "name": "mix_2_pt_polyh.mlt",
+    "directory": "0x02",
+    "bytes": 42
+  },
+  {
+    "name": "mix_2_pt_pt.mlt",
+    "directory": "0x02",
+    "bytes": 24
+  },
+  {
+    "name": "mix_3_line_mline_line.mlt",
+    "directory": "0x02",
+    "bytes": 54
+  },
+  {
+    "name": "mix_3_line_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 74
+  },
+  {
+    "name": "mix_3_line_mline_mpoly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 102
+  },
+  {
+    "name": "mix_3_line_mpoly_line.mlt",
+    "directory": "0x02",
+    "bytes": 69
+  },
+  {
+    "name": "mix_3_line_mpoly_line_tes.mlt",
+    "directory": "0x02",
+    "bytes": 97
+  },
+  {
+    "name": "mix_3_line_mpt_line.mlt",
+    "directory": "0x02",
+    "bytes": 48
+  },
+  {
+    "name": "mix_3_line_mpt_mline.mlt",
+    "directory": "0x02",
+    "bytes": 53
+  },
+  {
+    "name": "mix_3_line_mpt_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 68
+  },
+  {
+    "name": "mix_3_line_poly_line.mlt",
+    "directory": "0x02",
+    "bytes": 50
+  },
+  {
+    "name": "mix_3_line_poly_line_tes.mlt",
+    "directory": "0x02",
+    "bytes": 62
+  },
+  {
+    "name": "mix_3_line_poly_mline.mlt",
+    "directory": "0x02",
+    "bytes": 59
+  },
+  {
+    "name": "mix_3_line_poly_mline_tes.mlt",
+    "directory": "0x02",
+    "bytes": 68
+  },
+  {
+    "name": "mix_3_line_poly_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 70
+  },
+  {
+    "name": "mix_3_line_poly_mpoly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 102
+  },
+  {
+    "name": "mix_3_line_poly_mpt.mlt",
+    "directory": "0x02",
+    "bytes": 54
+  },
+  {
+    "name": "mix_3_line_poly_polyh.mlt",
+    "directory": "0x02",
+    "bytes": 58
+  },
+  {
+    "name": "mix_3_line_poly_polyh_tes.mlt",
+    "directory": "0x02",
+    "bytes": 90
+  },
+  {
+    "name": "mix_3_line_polyh_line.mlt",
+    "directory": "0x02",
+    "bytes": 56
+  },
+  {
+    "name": "mix_3_line_polyh_line_tes.mlt",
+    "directory": "0x02",
+    "bytes": 84
+  },
+  {
+    "name": "mix_3_line_polyh_mline.mlt",
+    "directory": "0x02",
+    "bytes": 65
+  },
+  {
+    "name": "mix_3_line_polyh_mline_tes.mlt",
+    "directory": "0x02",
+    "bytes": 90
+  },
+  {
+    "name": "mix_3_line_polyh_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 75
+  },
+  {
+    "name": "mix_3_line_polyh_mpoly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 122
+  },
+  {
+    "name": "mix_3_line_polyh_mpt.mlt",
+    "directory": "0x02",
+    "bytes": 58
+  },
+  {
+    "name": "mix_3_line_pt_line.mlt",
+    "directory": "0x02",
+    "bytes": 40
+  },
+  {
+    "name": "mix_3_mline_line_mline.mlt",
+    "directory": "0x02",
+    "bytes": 60
+  },
+  {
+    "name": "mix_3_mline_mpoly_mline.mlt",
+    "directory": "0x02",
+    "bytes": 79
+  },
+  {
+    "name": "mix_3_mline_mpoly_mline_tes.mlt",
+    "directory": "0x02",
+    "bytes": 107
+  },
+  {
+    "name": "mix_3_mline_mpt_mline.mlt",
+    "directory": "0x02",
+    "bytes": 59
+  },
+  {
+    "name": "mix_3_mline_poly_mline.mlt",
+    "directory": "0x02",
+    "bytes": 64
+  },
+  {
+    "name": "mix_3_mline_poly_mline_tes.mlt",
+    "directory": "0x02",
+    "bytes": 73
+  },
+  {
+    "name": "mix_3_mline_polyh_mline.mlt",
+    "directory": "0x02",
+    "bytes": 71
+  },
+  {
+    "name": "mix_3_mline_polyh_mline_tes.mlt",
+    "directory": "0x02",
+    "bytes": 96
+  },
+  {
+    "name": "mix_3_mline_pt_mline.mlt",
+    "directory": "0x02",
+    "bytes": 55
+  },
+  {
+    "name": "mix_3_mpoly_line_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 86
+  },
+  {
+    "name": "mix_3_mpoly_line_mpoly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 137
+  },
+  {
+    "name": "mix_3_mpoly_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 90
+  },
+  {
+    "name": "mix_3_mpoly_mline_mpoly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 141
+  },
+  {
+    "name": "mix_3_mpoly_mpt_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 85
+  },
+  {
+    "name": "mix_3_mpoly_poly_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 87
+  },
+  {
+    "name": "mix_3_mpoly_poly_mpoly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 141
+  },
+  {
+    "name": "mix_3_mpoly_polyh_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 93
+  },
+  {
+    "name": "mix_3_mpoly_polyh_mpoly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 162
+  },
+  {
+    "name": "mix_3_mpoly_pt_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 80
+  },
+  {
+    "name": "mix_3_mpt_line_mpt.mlt",
+    "directory": "0x02",
+    "bytes": 48
+  },
+  {
+    "name": "mix_3_mpt_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 73
+  },
+  {
+    "name": "mix_3_mpt_mline_mpt.mlt",
+    "directory": "0x02",
+    "bytes": 53
+  },
+  {
+    "name": "mix_3_mpt_mpoly_mpt.mlt",
+    "directory": "0x02",
+    "bytes": 67
+  },
+  {
+    "name": "mix_3_mpt_poly_mpt.mlt",
+    "directory": "0x02",
+    "bytes": 53
+  },
+  {
+    "name": "mix_3_mpt_polyh_mpt.mlt",
+    "directory": "0x02",
+    "bytes": 59
+  },
+  {
+    "name": "mix_3_mpt_pt_mpt.mlt",
+    "directory": "0x02",
+    "bytes": 40
+  },
+  {
+    "name": "mix_3_poly_line_poly.mlt",
+    "directory": "0x02",
+    "bytes": 51
+  },
+  {
+    "name": "mix_3_poly_line_poly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 68
+  },
+  {
+    "name": "mix_3_poly_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 74
+  },
+  {
+    "name": "mix_3_poly_mline_mpoly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 106
+  },
+  {
+    "name": "mix_3_poly_mline_poly.mlt",
+    "directory": "0x02",
+    "bytes": 59
+  },
+  {
+    "name": "mix_3_poly_mline_poly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 73
+  },
+  {
+    "name": "mix_3_poly_mpoly_poly.mlt",
+    "directory": "0x02",
+    "bytes": 71
+  },
+  {
+    "name": "mix_3_poly_mpoly_poly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 106
+  },
+  {
+    "name": "mix_3_poly_mpt_mline.mlt",
+    "directory": "0x02",
+    "bytes": 58
+  },
+  {
+    "name": "mix_3_poly_mpt_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 69
+  },
+  {
+    "name": "mix_3_poly_mpt_poly.mlt",
+    "directory": "0x02",
+    "bytes": 54
+  },
+  {
+    "name": "mix_3_poly_polyh_mline.mlt",
+    "directory": "0x02",
+    "bytes": 66
+  },
+  {
+    "name": "mix_3_poly_polyh_mline_tes.mlt",
+    "directory": "0x02",
+    "bytes": 95
+  },
+  {
+    "name": "mix_3_poly_polyh_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 77
+  },
+  {
+    "name": "mix_3_poly_polyh_mpoly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 127
+  },
+  {
+    "name": "mix_3_poly_polyh_mpt.mlt",
+    "directory": "0x02",
+    "bytes": 59
+  },
+  {
+    "name": "mix_3_poly_polyh_poly.mlt",
+    "directory": "0x02",
+    "bytes": 57
+  },
+  {
+    "name": "mix_3_poly_polyh_poly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 92
+  },
+  {
+    "name": "mix_3_poly_pt_poly.mlt",
+    "directory": "0x02",
+    "bytes": 45
+  },
+  {
+    "name": "mix_3_polyh_line_polyh.mlt",
+    "directory": "0x02",
+    "bytes": 64
+  },
+  {
+    "name": "mix_3_polyh_line_polyh_tes.mlt",
+    "directory": "0x02",
+    "bytes": 111
+  },
+  {
+    "name": "mix_3_polyh_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 81
+  },
+  {
+    "name": "mix_3_polyh_mline_mpoly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 128
+  },
+  {
+    "name": "mix_3_polyh_mline_polyh.mlt",
+    "directory": "0x02",
+    "bytes": 73
+  },
+  {
+    "name": "mix_3_polyh_mline_polyh_tes.mlt",
+    "directory": "0x02",
+    "bytes": 117
+  },
+  {
+    "name": "mix_3_polyh_mpoly_polyh.mlt",
+    "directory": "0x02",
+    "bytes": 84
+  },
+  {
+    "name": "mix_3_polyh_mpoly_polyh_tes.mlt",
+    "directory": "0x02",
+    "bytes": 150
+  },
+  {
+    "name": "mix_3_polyh_mpt_mline.mlt",
+    "directory": "0x02",
+    "bytes": 65
+  },
+  {
+    "name": "mix_3_polyh_mpt_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 75
+  },
+  {
+    "name": "mix_3_polyh_mpt_polyh.mlt",
+    "directory": "0x02",
+    "bytes": 67
+  },
+  {
+    "name": "mix_3_polyh_poly_polyh.mlt",
+    "directory": "0x02",
+    "bytes": 64
+  },
+  {
+    "name": "mix_3_polyh_poly_polyh_tes.mlt",
+    "directory": "0x02",
+    "bytes": 114
+  },
+  {
+    "name": "mix_3_polyh_pt_polyh.mlt",
+    "directory": "0x02",
+    "bytes": 59
+  },
+  {
+    "name": "mix_3_pt_line_mline.mlt",
+    "directory": "0x02",
+    "bytes": 48
+  },
+  {
+    "name": "mix_3_pt_line_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 63
+  },
+  {
+    "name": "mix_3_pt_line_mpt.mlt",
+    "directory": "0x02",
+    "bytes": 43
+  },
+  {
+    "name": "mix_3_pt_line_poly.mlt",
+    "directory": "0x02",
+    "bytes": 45
+  },
+  {
+    "name": "mix_3_pt_line_polyh.mlt",
+    "directory": "0x02",
+    "bytes": 50
+  },
+  {
+    "name": "mix_3_pt_line_pt.mlt",
+    "directory": "0x02",
+    "bytes": 35
+  },
+  {
+    "name": "mix_3_pt_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 69
+  },
+  {
+    "name": "mix_3_pt_mline_pt.mlt",
+    "directory": "0x02",
+    "bytes": 44
+  },
+  {
+    "name": "mix_3_pt_mpoly_pt.mlt",
+    "directory": "0x02",
+    "bytes": 57
+  },
+  {
+    "name": "mix_3_pt_mpt_mline.mlt",
+    "directory": "0x02",
+    "bytes": 49
+  },
+  {
+    "name": "mix_3_pt_mpt_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 62
+  },
+  {
+    "name": "mix_3_pt_mpt_pt.mlt",
+    "directory": "0x02",
+    "bytes": 35
+  },
+  {
+    "name": "mix_3_pt_poly_mline.mlt",
+    "directory": "0x02",
+    "bytes": 52
+  },
+  {
+    "name": "mix_3_pt_poly_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 64
+  },
+  {
+    "name": "mix_3_pt_poly_mpt.mlt",
+    "directory": "0x02",
+    "bytes": 48
+  },
+  {
+    "name": "mix_3_pt_poly_polyh.mlt",
+    "directory": "0x02",
+    "bytes": 51
+  },
+  {
+    "name": "mix_3_pt_poly_pt.mlt",
+    "directory": "0x02",
+    "bytes": 39
+  },
+  {
+    "name": "mix_3_pt_polyh_mline.mlt",
+    "directory": "0x02",
+    "bytes": 60
+  },
+  {
+    "name": "mix_3_pt_polyh_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 70
+  },
+  {
+    "name": "mix_3_pt_polyh_mpt.mlt",
+    "directory": "0x02",
+    "bytes": 54
+  },
+  {
+    "name": "mix_3_pt_polyh_pt.mlt",
+    "directory": "0x02",
+    "bytes": 46
+  },
+  {
+    "name": "mix_4_line_mpt_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 82
+  },
+  {
+    "name": "mix_4_line_poly_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 84
+  },
+  {
+    "name": "mix_4_line_poly_mline_mpoly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 116
+  },
+  {
+    "name": "mix_4_line_poly_mpt_mline.mlt",
+    "directory": "0x02",
+    "bytes": 67
+  },
+  {
+    "name": "mix_4_line_poly_mpt_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 79
+  },
+  {
+    "name": "mix_4_line_poly_polyh_mline.mlt",
+    "directory": "0x02",
+    "bytes": 75
+  },
+  {
+    "name": "mix_4_line_poly_polyh_mline_tes.mlt",
+    "directory": "0x02",
+    "bytes": 104
+  },
+  {
+    "name": "mix_4_line_poly_polyh_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 85
+  },
+  {
+    "name": "mix_4_line_poly_polyh_mpoly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 137
+  },
+  {
+    "name": "mix_4_line_poly_polyh_mpt.mlt",
+    "directory": "0x02",
+    "bytes": 68
+  },
+  {
+    "name": "mix_4_line_polyh_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 90
+  },
+  {
+    "name": "mix_4_line_polyh_mline_mpoly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 138
+  },
+  {
+    "name": "mix_4_line_polyh_mpt_mline.mlt",
+    "directory": "0x02",
+    "bytes": 73
+  },
+  {
+    "name": "mix_4_line_polyh_mpt_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 84
+  },
+  {
+    "name": "mix_4_poly_mpt_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 84
+  },
+  {
+    "name": "mix_4_poly_polyh_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 90
+  },
+  {
+    "name": "mix_4_poly_polyh_mline_mpoly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 142
+  },
+  {
+    "name": "mix_4_poly_polyh_mpt_mline.mlt",
+    "directory": "0x02",
+    "bytes": 74
+  },
+  {
+    "name": "mix_4_poly_polyh_mpt_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 84
+  },
+  {
+    "name": "mix_4_polyh_mpt_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 90
+  },
+  {
+    "name": "mix_4_pt_line_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 77
+  },
+  {
+    "name": "mix_4_pt_line_mpt_mline.mlt",
+    "directory": "0x02",
+    "bytes": 57
+  },
+  {
+    "name": "mix_4_pt_line_mpt_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 70
+  },
+  {
+    "name": "mix_4_pt_line_poly_mline.mlt",
+    "directory": "0x02",
+    "bytes": 61
+  },
+  {
+    "name": "mix_4_pt_line_poly_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 74
+  },
+  {
+    "name": "mix_4_pt_line_poly_mpt.mlt",
+    "directory": "0x02",
+    "bytes": 57
+  },
+  {
+    "name": "mix_4_pt_line_poly_polyh.mlt",
+    "directory": "0x02",
+    "bytes": 60
+  },
+  {
+    "name": "mix_4_pt_line_polyh_mline.mlt",
+    "directory": "0x02",
+    "bytes": 68
+  },
+  {
+    "name": "mix_4_pt_line_polyh_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 79
+  },
+  {
+    "name": "mix_4_pt_line_polyh_mpt.mlt",
+    "directory": "0x02",
+    "bytes": 62
+  },
+  {
+    "name": "mix_4_pt_mpt_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 77
+  },
+  {
+    "name": "mix_4_pt_poly_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 78
+  },
+  {
+    "name": "mix_4_pt_poly_mpt_mline.mlt",
+    "directory": "0x02",
+    "bytes": 62
+  },
+  {
+    "name": "mix_4_pt_poly_mpt_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 72
+  },
+  {
+    "name": "mix_4_pt_poly_polyh_mline.mlt",
+    "directory": "0x02",
+    "bytes": 69
+  },
+  {
+    "name": "mix_4_pt_poly_polyh_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 79
+  },
+  {
+    "name": "mix_4_pt_poly_polyh_mpt.mlt",
+    "directory": "0x02",
+    "bytes": 63
+  },
+  {
+    "name": "mix_4_pt_polyh_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 85
+  },
+  {
+    "name": "mix_4_pt_polyh_mpt_mline.mlt",
+    "directory": "0x02",
+    "bytes": 67
+  },
+  {
+    "name": "mix_4_pt_polyh_mpt_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 79
+  },
+  {
+    "name": "mix_5_line_poly_mpt_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 93
+  },
+  {
+    "name": "mix_5_line_poly_polyh_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 100
+  },
+  {
+    "name": "mix_5_line_poly_polyh_mline_mpoly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 152
+  },
+  {
+    "name": "mix_5_line_poly_polyh_mpt_mline.mlt",
+    "directory": "0x02",
+    "bytes": 83
+  },
+  {
+    "name": "mix_5_line_poly_polyh_mpt_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 94
+  },
+  {
+    "name": "mix_5_line_polyh_mpt_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 98
+  },
+  {
+    "name": "mix_5_poly_polyh_mpt_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 99
+  },
+  {
+    "name": "mix_5_pt_line_mpt_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 85
+  },
+  {
+    "name": "mix_5_pt_line_poly_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 87
+  },
+  {
+    "name": "mix_5_pt_line_poly_mpt_mline.mlt",
+    "directory": "0x02",
+    "bytes": 71
+  },
+  {
+    "name": "mix_5_pt_line_poly_mpt_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 81
+  },
+  {
+    "name": "mix_5_pt_line_poly_polyh_mline.mlt",
+    "directory": "0x02",
+    "bytes": 78
+  },
+  {
+    "name": "mix_5_pt_line_poly_polyh_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 89
+  },
+  {
+    "name": "mix_5_pt_line_poly_polyh_mpt.mlt",
+    "directory": "0x02",
+    "bytes": 72
+  },
+  {
+    "name": "mix_5_pt_line_polyh_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 93
+  },
+  {
+    "name": "mix_5_pt_line_polyh_mpt_mline.mlt",
+    "directory": "0x02",
+    "bytes": 75
+  },
+  {
+    "name": "mix_5_pt_line_polyh_mpt_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 87
+  },
+  {
+    "name": "mix_5_pt_poly_mpt_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 87
+  },
+  {
+    "name": "mix_5_pt_poly_polyh_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 94
+  },
+  {
+    "name": "mix_5_pt_poly_polyh_mpt_mline.mlt",
+    "directory": "0x02",
+    "bytes": 76
+  },
+  {
+    "name": "mix_5_pt_poly_polyh_mpt_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 88
+  },
+  {
+    "name": "mix_5_pt_polyh_mpt_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 93
+  },
+  {
+    "name": "mix_6_line_poly_polyh_mpt_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 108
+  },
+  {
+    "name": "mix_6_pt_line_poly_mpt_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 96
+  },
+  {
+    "name": "mix_6_pt_line_poly_polyh_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 103
+  },
+  {
+    "name": "mix_6_pt_line_poly_polyh_mpt_mline.mlt",
+    "directory": "0x02",
+    "bytes": 85
+  },
+  {
+    "name": "mix_6_pt_line_poly_polyh_mpt_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 97
+  },
+  {
+    "name": "mix_6_pt_line_polyh_mpt_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 101
+  },
+  {
+    "name": "mix_6_pt_poly_polyh_mpt_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 102
+  },
+  {
+    "name": "mix_7_pt_line_poly_polyh_mpt_mline_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 111
+  },
+  {
+    "name": "multiline.mlt",
+    "directory": "0x02",
+    "bytes": 39
+  },
+  {
+    "name": "multiline_meta_delta.mlt",
+    "directory": "0x02",
+    "bytes": 39
+  },
+  {
+    "name": "multiline_morton.mlt",
+    "directory": "0x02",
+    "bytes": 52
+  },
+  {
+    "name": "multipoint.mlt",
+    "directory": "0x02",
+    "bytes": 28
+  },
+  {
+    "name": "multipoint_morton_dictionary.mlt",
+    "directory": "0x02",
+    "bytes": 47
+  },
+  {
+    "name": "mvalues.mlt",
+    "directory": "0x02",
+    "bytes": 76
+  },
+  {
+    "name": "mvalues_15props_7cols.mlt",
+    "directory": "0x02",
+    "bytes": 243
+  },
+  {
+    "name": "mvalues_16props.mlt",
+    "directory": "0x02",
+    "bytes": 161
+  },
+  {
+    "name": "mvalues_8cols.mlt",
+    "directory": "0x02",
+    "bytes": 164
+  },
+  {
+    "name": "mvalues_all_null.mlt",
+    "directory": "0x02",
+    "bytes": 51
+  },
+  {
+    "name": "mvalues_bool.mlt",
+    "directory": "0x02",
+    "bytes": 50
+  },
+  {
+    "name": "mvalues_delta_rle.mlt",
+    "directory": "0x02",
+    "bytes": 52
+  },
+  {
+    "name": "mvalues_f32.mlt",
+    "directory": "0x02",
+    "bytes": 81
+  },
+  {
+    "name": "mvalues_f32_dict.mlt",
+    "directory": "0x02",
+    "bytes": 72
+  },
+  {
+    "name": "mvalues_f64.mlt",
+    "directory": "0x02",
+    "bytes": 113
+  },
+  {
+    "name": "mvalues_f64_alp.mlt",
+    "directory": "0x02",
+    "bytes": 65
+  },
+  {
+    "name": "mvalues_fpf.mlt",
+    "directory": "0x02",
+    "bytes": 953
+  },
+  {
+    "name": "mvalues_i32.mlt",
+    "directory": "0x02",
+    "bytes": 70
+  },
+  {
+    "name": "mvalues_i64.mlt",
+    "directory": "0x02",
+    "bytes": 84
+  },
+  {
+    "name": "mvalues_i8.mlt",
+    "directory": "0x02",
+    "bytes": 61
+  },
+  {
+    "name": "mvalues_line_dict.mlt",
+    "directory": "0x02",
+    "bytes": 47
+  },
+  {
+    "name": "mvalues_mline.mlt",
+    "directory": "0x02",
+    "bytes": 60
+  },
+  {
+    "name": "mvalues_mline_dict.mlt",
+    "directory": "0x02",
+    "bytes": 61
+  },
+  {
+    "name": "mvalues_mpoint.mlt",
+    "directory": "0x02",
+    "bytes": 48
+  },
+  {
+    "name": "mvalues_mpoint_dict.mlt",
+    "directory": "0x02",
+    "bytes": 51
+  },
+  {
+    "name": "mvalues_mpoly.mlt",
+    "directory": "0x02",
+    "bytes": 59
+  },
+  {
+    "name": "mvalues_mpoly_dict.mlt",
+    "directory": "0x02",
+    "bytes": 62
+  },
+  {
+    "name": "mvalues_plain.mlt",
+    "directory": "0x02",
+    "bytes": 81
+  },
+  {
+    "name": "mvalues_poly.mlt",
+    "directory": "0x02",
+    "bytes": 55
+  },
+  {
+    "name": "mvalues_poly_dict.mlt",
+    "directory": "0x02",
+    "bytes": 58
+  },
+  {
+    "name": "mvalues_poly_hole.mlt",
+    "directory": "0x02",
+    "bytes": 54
+  },
+  {
+    "name": "mvalues_rle.mlt",
+    "directory": "0x02",
+    "bytes": 54
+  },
+  {
+    "name": "mvalues_sp.mlt",
+    "directory": "0x02",
+    "bytes": 65
+  },
+  {
+    "name": "mvalues_sp_prop.mlt",
+    "directory": "0x02",
+    "bytes": 64
+  },
+  {
+    "name": "mvalues_str_dict.mlt",
+    "directory": "0x02",
+    "bytes": 86
+  },
+  {
+    "name": "mvalues_str_fsst.mlt",
+    "directory": "0x02",
+    "bytes": 221
+  },
+  {
+    "name": "mvalues_str_plain.mlt",
+    "directory": "0x02",
+    "bytes": 92
+  },
+  {
+    "name": "mvalues_tes.mlt",
+    "directory": "0x02",
+    "bytes": 71
+  },
+  {
+    "name": "mvalues_u32.mlt",
+    "directory": "0x02",
+    "bytes": 68
+  },
+  {
+    "name": "mvalues_u64.mlt",
+    "directory": "0x02",
+    "bytes": 75
+  },
+  {
+    "name": "mvalues_u8.mlt",
+    "directory": "0x02",
+    "bytes": 62
+  },
+  {
+    "name": "nested_list_struct.mlt",
+    "directory": "0x02",
+    "bytes": 67
+  },
+  {
+    "name": "nested_map_shapes.mlt",
+    "directory": "0x02",
+    "bytes": 119
+  },
+  {
+    "name": "nested_map_str.mlt",
+    "directory": "0x02",
+    "bytes": 78
+  },
+  {
+    "name": "nested_struct.mlt",
+    "directory": "0x02",
+    "bytes": 64
+  },
+  {
+    "name": "nested_struct_shapes.mlt",
+    "directory": "0x02",
+    "bytes": 193
+  },
+  {
+    "name": "point.mlt",
+    "directory": "0x02",
+    "bytes": 21
+  },
+  {
+    "name": "point_morton_dictionary.mlt",
+    "directory": "0x02",
+    "bytes": 57
+  },
+  {
+    "name": "poly.mlt",
+    "directory": "0x02",
+    "bytes": 31
+  },
+  {
+    "name": "poly_collinear.mlt",
+    "directory": "0x02",
+    "bytes": 31
+  },
+  {
+    "name": "poly_collinear_fpf.mlt",
+    "directory": "0x02",
+    "bytes": 58
+  },
+  {
+    "name": "poly_fpf.mlt",
+    "directory": "0x02",
+    "bytes": 58
+  },
+  {
+    "name": "poly_fpf_tes.mlt",
+    "directory": "0x02",
+    "bytes": 82
+  },
+  {
+    "name": "poly_hole.mlt",
+    "directory": "0x02",
+    "bytes": 39
+  },
+  {
+    "name": "poly_hole_fpf.mlt",
+    "directory": "0x02",
+    "bytes": 63
+  },
+  {
+    "name": "poly_hole_fpf_tes.mlt",
+    "directory": "0x02",
+    "bytes": 103
+  },
+  {
+    "name": "poly_hole_tes.mlt",
+    "directory": "0x02",
+    "bytes": 66
+  },
+  {
+    "name": "poly_hole_touching.mlt",
+    "directory": "0x02",
+    "bytes": 41
+  },
+  {
+    "name": "poly_hole_touching_fpf.mlt",
+    "directory": "0x02",
+    "bytes": 67
+  },
+  {
+    "name": "poly_hole_touching_fpf_tes.mlt",
+    "directory": "0x02",
+    "bytes": 103
+  },
+  {
+    "name": "poly_hole_touching_tes.mlt",
+    "directory": "0x02",
+    "bytes": 65
+  },
+  {
+    "name": "poly_morton_hole_morton.mlt",
+    "directory": "0x02",
+    "bytes": 52
+  },
+  {
+    "name": "poly_morton_ring_morton.mlt",
+    "directory": "0x02",
+    "bytes": 50
+  },
+  {
+    "name": "poly_morton_ring_no_morton.mlt",
+    "directory": "0x02",
+    "bytes": 57
+  },
+  {
+    "name": "poly_multi.mlt",
+    "directory": "0x02",
+    "bytes": 44
+  },
+  {
+    "name": "poly_multi_morton_hole_morton.mlt",
+    "directory": "0x02",
+    "bytes": 55
+  },
+  {
+    "name": "poly_multi_morton_ring_morton.mlt",
+    "directory": "0x02",
+    "bytes": 57
+  },
+  {
+    "name": "poly_multi_morton_ring_no_morton.mlt",
+    "directory": "0x02",
+    "bytes": 64
+  },
+  {
+    "name": "poly_multi_tes.mlt",
+    "directory": "0x02",
+    "bytes": 56
+  },
+  {
+    "name": "poly_self_intersect.mlt",
+    "directory": "0x02",
+    "bytes": 33
+  },
+  {
+    "name": "poly_self_intersect_fpf.mlt",
+    "directory": "0x02",
+    "bytes": 58
+  },
+  {
+    "name": "poly_self_intersect_fpf_tes.mlt",
+    "directory": "0x02",
+    "bytes": 82
+  },
+  {
+    "name": "poly_self_intersect_tes.mlt",
+    "directory": "0x02",
+    "bytes": 45
+  },
+  {
+    "name": "poly_tes.mlt",
+    "directory": "0x02",
+    "bytes": 43
+  },
+  {
+    "name": "prop_bool.mlt",
+    "directory": "0x02",
+    "bytes": 29
+  },
+  {
+    "name": "prop_bool_false.mlt",
+    "directory": "0x02",
+    "bytes": 29
+  },
+  {
+    "name": "prop_bool_false_np.mlt",
+    "directory": "0x02",
+    "bytes": 28
+  },
+  {
+    "name": "prop_bool_false_null.mlt",
+    "directory": "0x02",
+    "bytes": 32
+  },
+  {
+    "name": "prop_bool_np.mlt",
+    "directory": "0x02",
+    "bytes": 28
+  },
+  {
+    "name": "prop_bool_null_false.mlt",
+    "directory": "0x02",
+    "bytes": 32
+  },
+  {
+    "name": "prop_bool_null_true.mlt",
+    "directory": "0x02",
+    "bytes": 32
+  },
+  {
+    "name": "prop_bool_true_null.mlt",
+    "directory": "0x02",
+    "bytes": 32
+  },
+  {
+    "name": "prop_empty_name.mlt",
+    "directory": "0x02",
+    "bytes": 26
+  },
+  {
+    "name": "prop_empty_name_np.mlt",
+    "directory": "0x02",
+    "bytes": 25
+  },
+  {
+    "name": "prop_f32.mlt",
+    "directory": "0x02",
+    "bytes": 32
+  },
+  {
+    "name": "prop_f32_alp.mlt",
+    "directory": "0x02",
+    "bytes": 51
+  },
+  {
+    "name": "prop_f32_alp_np.mlt",
+    "directory": "0x02",
+    "bytes": 50
+  },
+  {
+    "name": "prop_f32_alp_whole_np.mlt",
+    "directory": "0x02",
+    "bytes": 48
+  },
+  {
+    "name": "prop_f32_dict.mlt",
+    "directory": "0x02",
+    "bytes": 54
+  },
+  {
+    "name": "prop_f32_dict_distinct_np.mlt",
+    "directory": "0x02",
+    "bytes": 70
+  },
+  {
+    "name": "prop_f32_dict_nan_np.mlt",
+    "directory": "0x02",
+    "bytes": 49
+  },
+  {
+    "name": "prop_f32_dict_np.mlt",
+    "directory": "0x02",
+    "bytes": 59
+  },
+  {
+    "name": "prop_f32_dict_zeros_np.mlt",
+    "directory": "0x02",
+    "bytes": 49
+  },
+  {
+    "name": "prop_f32_max.mlt",
+    "directory": "0x02",
+    "bytes": 32
+  },
+  {
+    "name": "prop_f32_max_np.mlt",
+    "directory": "0x02",
+    "bytes": 31
+  },
+  {
+    "name": "prop_f32_min_norm.mlt",
+    "directory": "0x02",
+    "bytes": 32
+  },
+  {
+    "name": "prop_f32_min_norm_np.mlt",
+    "directory": "0x02",
+    "bytes": 31
+  },
+  {
+    "name": "prop_f32_min_val.mlt",
+    "directory": "0x02",
+    "bytes": 32
+  },
+  {
+    "name": "prop_f32_min_val_np.mlt",
+    "directory": "0x02",
+    "bytes": 31
+  },
+  {
+    "name": "prop_f32_nan.mlt",
+    "directory": "0x02",
+    "bytes": 32
+  },
+  {
+    "name": "prop_f32_nan_np.mlt",
+    "directory": "0x02",
+    "bytes": 31
+  },
+  {
+    "name": "prop_f32_neg_inf.mlt",
+    "directory": "0x02",
+    "bytes": 32
+  },
+  {
+    "name": "prop_f32_neg_inf_np.mlt",
+    "directory": "0x02",
+    "bytes": 31
+  },
+  {
+    "name": "prop_f32_neg_zero.mlt",
+    "directory": "0x02",
+    "bytes": 32
+  },
+  {
+    "name": "prop_f32_neg_zero_np.mlt",
+    "directory": "0x02",
+    "bytes": 31
+  },
+  {
+    "name": "prop_f32_np.mlt",
+    "directory": "0x02",
+    "bytes": 31
+  },
+  {
+    "name": "prop_f32_null_val.mlt",
+    "directory": "0x02",
+    "bytes": 35
+  },
+  {
+    "name": "prop_f32_pos_inf.mlt",
+    "directory": "0x02",
+    "bytes": 32
+  },
+  {
+    "name": "prop_f32_pos_inf_np.mlt",
+    "directory": "0x02",
+    "bytes": 31
+  },
+  {
+    "name": "prop_f32_val_null.mlt",
+    "directory": "0x02",
+    "bytes": 35
+  },
+  {
+    "name": "prop_f32_zero.mlt",
+    "directory": "0x02",
+    "bytes": 32
+  },
+  {
+    "name": "prop_f32_zero_np.mlt",
+    "directory": "0x02",
+    "bytes": 31
+  },
+  {
+    "name": "prop_f64.mlt",
+    "directory": "0x02",
+    "bytes": 36
+  },
+  {
+    "name": "prop_f64_alp.mlt",
+    "directory": "0x02",
+    "bytes": 51
+  },
+  {
+    "name": "prop_f64_alp_np.mlt",
+    "directory": "0x02",
+    "bytes": 50
+  },
+  {
+    "name": "prop_f64_alp_offset_np.mlt",
+    "directory": "0x02",
+    "bytes": 1128
+  },
+  {
+    "name": "prop_f64_alp_whole_np.mlt",
+    "directory": "0x02",
+    "bytes": 48
+  },
+  {
+    "name": "prop_f64_dict.mlt",
+    "directory": "0x02",
+    "bytes": 62
+  },
+  {
+    "name": "prop_f64_dict_distinct_np.mlt",
+    "directory": "0x02",
+    "bytes": 94
+  },
+  {
+    "name": "prop_f64_dict_nan_np.mlt",
+    "directory": "0x02",
+    "bytes": 57
+  },
+  {
+    "name": "prop_f64_dict_np.mlt",
+    "directory": "0x02",
+    "bytes": 71
+  },
+  {
+    "name": "prop_f64_dict_zeros_np.mlt",
+    "directory": "0x02",
+    "bytes": 57
+  },
+  {
+    "name": "prop_f64_max.mlt",
+    "directory": "0x02",
+    "bytes": 36
+  },
+  {
+    "name": "prop_f64_max_np.mlt",
+    "directory": "0x02",
+    "bytes": 35
+  },
+  {
+    "name": "prop_f64_min_norm.mlt",
+    "directory": "0x02",
+    "bytes": 36
+  },
+  {
+    "name": "prop_f64_min_norm_np.mlt",
+    "directory": "0x02",
+    "bytes": 35
+  },
+  {
+    "name": "prop_f64_min_val.mlt",
+    "directory": "0x02",
+    "bytes": 36
+  },
+  {
+    "name": "prop_f64_min_val_np.mlt",
+    "directory": "0x02",
+    "bytes": 35
+  },
+  {
+    "name": "prop_f64_nan.mlt",
+    "directory": "0x02",
+    "bytes": 36
+  },
+  {
+    "name": "prop_f64_nan_np.mlt",
+    "directory": "0x02",
+    "bytes": 35
+  },
+  {
+    "name": "prop_f64_neg_inf.mlt",
+    "directory": "0x02",
+    "bytes": 36
+  },
+  {
+    "name": "prop_f64_neg_inf_np.mlt",
+    "directory": "0x02",
+    "bytes": 35
+  },
+  {
+    "name": "prop_f64_neg_zero.mlt",
+    "directory": "0x02",
+    "bytes": 36
+  },
+  {
+    "name": "prop_f64_neg_zero_np.mlt",
+    "directory": "0x02",
+    "bytes": 35
+  },
+  {
+    "name": "prop_f64_np.mlt",
+    "directory": "0x02",
+    "bytes": 35
+  },
+  {
+    "name": "prop_f64_null_val.mlt",
+    "directory": "0x02",
+    "bytes": 39
+  },
+  {
+    "name": "prop_f64_pos_inf.mlt",
+    "directory": "0x02",
+    "bytes": 36
+  },
+  {
+    "name": "prop_f64_pos_inf_np.mlt",
+    "directory": "0x02",
+    "bytes": 35
+  },
+  {
+    "name": "prop_f64_val_null.mlt",
+    "directory": "0x02",
+    "bytes": 39
+  },
+  {
+    "name": "prop_f64_zero.mlt",
+    "directory": "0x02",
+    "bytes": 36
+  },
+  {
+    "name": "prop_f64_zero_np.mlt",
+    "directory": "0x02",
+    "bytes": 35
+  },
+  {
+    "name": "prop_i32.mlt",
+    "directory": "0x02",
+    "bytes": 30
+  },
+  {
+    "name": "prop_i32_delta.mlt",
+    "directory": "0x02",
+    "bytes": 30
+  },
+  {
+    "name": "prop_i32_delta_np.mlt",
+    "directory": "0x02",
+    "bytes": 29
+  },
+  {
+    "name": "prop_i32_delta_rle.mlt",
+    "directory": "0x02",
+    "bytes": 31
+  },
+  {
+    "name": "prop_i32_delta_rle_np.mlt",
+    "directory": "0x02",
+    "bytes": 30
+  },
+  {
+    "name": "prop_i32_max.mlt",
+    "directory": "0x02",
+    "bytes": 34
+  },
+  {
+    "name": "prop_i32_max_np.mlt",
+    "directory": "0x02",
+    "bytes": 33
+  },
+  {
+    "name": "prop_i32_min.mlt",
+    "directory": "0x02",
+    "bytes": 34
+  },
+  {
+    "name": "prop_i32_min_np.mlt",
+    "directory": "0x02",
+    "bytes": 33
+  },
+  {
+    "name": "prop_i32_neg.mlt",
+    "directory": "0x02",
+    "bytes": 30
+  },
+  {
+    "name": "prop_i32_neg_np.mlt",
+    "directory": "0x02",
+    "bytes": 29
+  },
+  {
+    "name": "prop_i32_np.mlt",
+    "directory": "0x02",
+    "bytes": 29
+  },
+  {
+    "name": "prop_i32_null_val.mlt",
+    "directory": "0x02",
+    "bytes": 33
+  },
+  {
+    "name": "prop_i32_plain_np.mlt",
+    "directory": "0x02",
+    "bytes": 31
+  },
+  {
+    "name": "prop_i32_rle.mlt",
+    "directory": "0x02",
+    "bytes": 31
+  },
+  {
+    "name": "prop_i32_rle_np.mlt",
+    "directory": "0x02",
+    "bytes": 30
+  },
+  {
+    "name": "prop_i32_val_null.mlt",
+    "directory": "0x02",
+    "bytes": 33
+  },
+  {
+    "name": "prop_i64.mlt",
+    "directory": "0x02",
+    "bytes": 34
+  },
+  {
+    "name": "prop_i64_delta.mlt",
+    "directory": "0x02",
+    "bytes": 34
+  },
+  {
+    "name": "prop_i64_delta_np.mlt",
+    "directory": "0x02",
+    "bytes": 33
+  },
+  {
+    "name": "prop_i64_delta_rle.mlt",
+    "directory": "0x02",
+    "bytes": 35
+  },
+  {
+    "name": "prop_i64_delta_rle_np.mlt",
+    "directory": "0x02",
+    "bytes": 34
+  },
+  {
+    "name": "prop_i64_max.mlt",
+    "directory": "0x02",
+    "bytes": 39
+  },
+  {
+    "name": "prop_i64_max_np.mlt",
+    "directory": "0x02",
+    "bytes": 38
+  },
+  {
+    "name": "prop_i64_min.mlt",
+    "directory": "0x02",
+    "bytes": 39
+  },
+  {
+    "name": "prop_i64_min_np.mlt",
+    "directory": "0x02",
+    "bytes": 38
+  },
+  {
+    "name": "prop_i64_neg.mlt",
+    "directory": "0x02",
+    "bytes": 34
+  },
+  {
+    "name": "prop_i64_neg_np.mlt",
+    "directory": "0x02",
+    "bytes": 33
+  },
+  {
+    "name": "prop_i64_np.mlt",
+    "directory": "0x02",
+    "bytes": 33
+  },
+  {
+    "name": "prop_i64_null_val.mlt",
+    "directory": "0x02",
+    "bytes": 37
+  },
+  {
+    "name": "prop_i64_plain_np.mlt",
+    "directory": "0x02",
+    "bytes": 35
+  },
+  {
+    "name": "prop_i64_rle.mlt",
+    "directory": "0x02",
+    "bytes": 35
+  },
+  {
+    "name": "prop_i64_rle_np.mlt",
+    "directory": "0x02",
+    "bytes": 34
+  },
+  {
+    "name": "prop_i64_val_null.mlt",
+    "directory": "0x02",
+    "bytes": 37
+  },
+  {
+    "name": "prop_special_name.mlt",
+    "directory": "0x02",
+    "bytes": 39
+  },
+  {
+    "name": "prop_special_name_np.mlt",
+    "directory": "0x02",
+    "bytes": 38
+  },
+  {
+    "name": "prop_str_ascii.mlt",
+    "directory": "0x02",
+    "bytes": 34
+  },
+  {
+    "name": "prop_str_ascii_np.mlt",
+    "directory": "0x02",
+    "bytes": 33
+  },
+  {
+    "name": "prop_str_empty.mlt",
+    "directory": "0x02",
+    "bytes": 32
+  },
+  {
+    "name": "prop_str_empty_np.mlt",
+    "directory": "0x02",
+    "bytes": 31
+  },
+  {
+    "name": "prop_str_empty_val.mlt",
+    "directory": "0x02",
+    "bytes": 35
+  },
+  {
+    "name": "prop_str_escape.mlt",
+    "directory": "0x02",
+    "bytes": 52
+  },
+  {
+    "name": "prop_str_escape_np.mlt",
+    "directory": "0x02",
+    "bytes": 51
+  },
+  {
+    "name": "prop_str_null_val.mlt",
+    "directory": "0x02",
+    "bytes": 37
+  },
+  {
+    "name": "prop_str_special.mlt",
+    "directory": "0x02",
+    "bytes": 45
+  },
+  {
+    "name": "prop_str_special_np.mlt",
+    "directory": "0x02",
+    "bytes": 44
+  },
+  {
+    "name": "prop_str_unicode.mlt",
+    "directory": "0x02",
+    "bytes": 52
+  },
+  {
+    "name": "prop_str_unicode_np.mlt",
+    "directory": "0x02",
+    "bytes": 51
+  },
+  {
+    "name": "prop_str_val_empty.mlt",
+    "directory": "0x02",
+    "bytes": 35
+  },
+  {
+    "name": "prop_str_val_null.mlt",
+    "directory": "0x02",
+    "bytes": 37
+  },
+  {
+    "name": "prop_u32.mlt",
+    "directory": "0x02",
+    "bytes": 30
+  },
+  {
+    "name": "prop_u32_delta.mlt",
+    "directory": "0x02",
+    "bytes": 30
+  },
+  {
+    "name": "prop_u32_delta_np.mlt",
+    "directory": "0x02",
+    "bytes": 29
+  },
+  {
+    "name": "prop_u32_delta_rle.mlt",
+    "directory": "0x02",
+    "bytes": 31
+  },
+  {
+    "name": "prop_u32_delta_rle_np.mlt",
+    "directory": "0x02",
+    "bytes": 30
+  },
+  {
+    "name": "prop_u32_max.mlt",
+    "directory": "0x02",
+    "bytes": 34
+  },
+  {
+    "name": "prop_u32_max_np.mlt",
+    "directory": "0x02",
+    "bytes": 33
+  },
+  {
+    "name": "prop_u32_min.mlt",
+    "directory": "0x02",
+    "bytes": 30
+  },
+  {
+    "name": "prop_u32_min_np.mlt",
+    "directory": "0x02",
+    "bytes": 29
+  },
+  {
+    "name": "prop_u32_np.mlt",
+    "directory": "0x02",
+    "bytes": 29
+  },
+  {
+    "name": "prop_u32_null_val.mlt",
+    "directory": "0x02",
+    "bytes": 33
+  },
+  {
+    "name": "prop_u32_plain_np.mlt",
+    "directory": "0x02",
+    "bytes": 31
+  },
+  {
+    "name": "prop_u32_rle.mlt",
+    "directory": "0x02",
+    "bytes": 31
+  },
+  {
+    "name": "prop_u32_rle_np.mlt",
+    "directory": "0x02",
+    "bytes": 30
+  },
+  {
+    "name": "prop_u32_val_null.mlt",
+    "directory": "0x02",
+    "bytes": 33
+  },
+  {
+    "name": "prop_u64.mlt",
+    "directory": "0x02",
+    "bytes": 41
+  },
+  {
+    "name": "prop_u64_delta.mlt",
+    "directory": "0x02",
+    "bytes": 41
+  },
+  {
+    "name": "prop_u64_delta_np.mlt",
+    "directory": "0x02",
+    "bytes": 40
+  },
+  {
+    "name": "prop_u64_delta_rle.mlt",
+    "directory": "0x02",
+    "bytes": 42
+  },
+  {
+    "name": "prop_u64_delta_rle_np.mlt",
+    "directory": "0x02",
+    "bytes": 41
+  },
+  {
+    "name": "prop_u64_max.mlt",
+    "directory": "0x02",
+    "bytes": 42
+  },
+  {
+    "name": "prop_u64_max_np.mlt",
+    "directory": "0x02",
+    "bytes": 41
+  },
+  {
+    "name": "prop_u64_min.mlt",
+    "directory": "0x02",
+    "bytes": 33
+  },
+  {
+    "name": "prop_u64_min_np.mlt",
+    "directory": "0x02",
+    "bytes": 32
+  },
+  {
+    "name": "prop_u64_np.mlt",
+    "directory": "0x02",
+    "bytes": 40
+  },
+  {
+    "name": "prop_u64_null_val.mlt",
+    "directory": "0x02",
+    "bytes": 41
+  },
+  {
+    "name": "prop_u64_plain_np.mlt",
+    "directory": "0x02",
+    "bytes": 38
+  },
+  {
+    "name": "prop_u64_rle.mlt",
+    "directory": "0x02",
+    "bytes": 42
+  },
+  {
+    "name": "prop_u64_rle_np.mlt",
+    "directory": "0x02",
+    "bytes": 41
+  },
+  {
+    "name": "prop_u64_val_null.mlt",
+    "directory": "0x02",
+    "bytes": 41
+  },
+  {
+    "name": "props_i32.mlt",
+    "directory": "0x02",
+    "bytes": 40
+  },
+  {
+    "name": "props_i32_delta.mlt",
+    "directory": "0x02",
+    "bytes": 40
+  },
+  {
+    "name": "props_i32_delta_np.mlt",
+    "directory": "0x02",
+    "bytes": 39
+  },
+  {
+    "name": "props_i32_delta_rle.mlt",
+    "directory": "0x02",
+    "bytes": 40
+  },
+  {
+    "name": "props_i32_delta_rle_np.mlt",
+    "directory": "0x02",
+    "bytes": 39
+  },
+  {
+    "name": "props_i32_np.mlt",
+    "directory": "0x02",
+    "bytes": 39
+  },
+  {
+    "name": "props_i32_rle.mlt",
+    "directory": "0x02",
+    "bytes": 38
+  },
+  {
+    "name": "props_i32_rle_np.mlt",
+    "directory": "0x02",
+    "bytes": 37
+  },
+  {
+    "name": "props_mixed.mlt",
+    "directory": "0x02",
+    "bytes": 128
+  },
+  {
+    "name": "props_mixed_np.mlt",
+    "directory": "0x02",
+    "bytes": 127
+  },
+  {
+    "name": "props_shared_dict_bp.mlt",
+    "directory": "0x02",
+    "bytes": 109
+  },
+  {
+    "name": "props_shared_dict_sp.mlt",
+    "directory": "0x02",
+    "bytes": 113
+  },
+  {
+    "name": "props_shared_dict_sp_lonely.mlt",
+    "directory": "0x02",
+    "bytes": 114
+  },
+  {
+    "name": "props_shared_dict_sp_mixed.mlt",
+    "directory": "0x02",
+    "bytes": 152
+  },
+  {
+    "name": "props_sp.mlt",
+    "directory": "0x02",
+    "bytes": 43
+  },
+  {
+    "name": "props_sp_id.mlt",
+    "directory": "0x02",
+    "bytes": 47
+  },
+  {
+    "name": "props_sp_max.mlt",
+    "directory": "0x02",
+    "bytes": 185
+  },
+  {
+    "name": "props_sp_mixed.mlt",
+    "directory": "0x02",
+    "bytes": 109
+  },
+  {
+    "name": "props_str_dict.mlt",
+    "directory": "0x02",
+    "bytes": 70
+  },
+  {
+    "name": "props_str_dict_bp.mlt",
+    "directory": "0x02",
+    "bytes": 145
+  },
+  {
+    "name": "props_str_dict_bp_np.mlt",
+    "directory": "0x02",
+    "bytes": 144
+  },
+  {
+    "name": "props_str_dict_np.mlt",
+    "directory": "0x02",
+    "bytes": 69
+  },
+  {
+    "name": "props_str_dict_nulls.mlt",
+    "directory": "0x02",
+    "bytes": 114
+  },
+  {
+    "name": "props_str_front_dict.mlt",
+    "directory": "0x02",
+    "bytes": 89
+  },
+  {
+    "name": "props_str_front_dict_np.mlt",
+    "directory": "0x02",
+    "bytes": 88
+  },
+  {
+    "name": "props_str_front_dict_nulls.mlt",
+    "directory": "0x02",
+    "bytes": 88
+  },
+  {
+    "name": "props_str_fsst.mlt",
+    "directory": "0x02",
+    "bytes": 234
+  },
+  {
+    "name": "props_str_fsst_dict.mlt",
+    "directory": "0x02",
+    "bytes": 65
+  },
+  {
+    "name": "props_str_fsst_dict_np.mlt",
+    "directory": "0x02",
+    "bytes": 64
+  },
+  {
+    "name": "props_str_fsst_dict_nulls.mlt",
+    "directory": "0x02",
+    "bytes": 138
+  },
+  {
+    "name": "props_str_fsst_front_dict.mlt",
+    "directory": "0x02",
+    "bytes": 124
+  },
+  {
+    "name": "props_str_fsst_front_dict_np.mlt",
+    "directory": "0x02",
+    "bytes": 123
+  },
+  {
+    "name": "props_str_fsst_front_dict_nulls.mlt",
+    "directory": "0x02",
+    "bytes": 123
+  },
+  {
+    "name": "props_str_fsst_np.mlt",
+    "directory": "0x02",
+    "bytes": 233
+  },
+  {
+    "name": "props_str_fsst_nulls.mlt",
+    "directory": "0x02",
+    "bytes": 181
+  },
+  {
+    "name": "props_str_plain.mlt",
+    "directory": "0x02",
+    "bytes": 219
+  },
+  {
+    "name": "props_str_plain_np.mlt",
+    "directory": "0x02",
+    "bytes": 218
+  },
+  {
+    "name": "props_str_plain_nulls.mlt",
+    "directory": "0x02",
+    "bytes": 160
+  },
+  {
+    "name": "props_u32.mlt",
+    "directory": "0x02",
+    "bytes": 44
+  },
+  {
+    "name": "props_u32_delta.mlt",
+    "directory": "0x02",
+    "bytes": 42
+  },
+  {
+    "name": "props_u32_delta_np.mlt",
+    "directory": "0x02",
+    "bytes": 41
+  },
+  {
+    "name": "props_u32_delta_rle.mlt",
+    "directory": "0x02",
+    "bytes": 42
+  },
+  {
+    "name": "props_u32_delta_rle_np.mlt",
+    "directory": "0x02",
+    "bytes": 41
+  },
+  {
+    "name": "props_u32_np.mlt",
+    "directory": "0x02",
+    "bytes": 43
+  },
+  {
+    "name": "props_u32_rle.mlt",
+    "directory": "0x02",
+    "bytes": 39
+  },
+  {
+    "name": "props_u32_rle_np.mlt",
+    "directory": "0x02",
+    "bytes": 38
+  },
+  {
+    "name": "props_u64.mlt",
+    "directory": "0x02",
+    "bytes": 44
+  },
+  {
+    "name": "props_u64_delta.mlt",
+    "directory": "0x02",
+    "bytes": 42
+  },
+  {
+    "name": "props_u64_delta_np.mlt",
+    "directory": "0x02",
+    "bytes": 41
+  },
+  {
+    "name": "props_u64_delta_rle.mlt",
+    "directory": "0x02",
+    "bytes": 42
+  },
+  {
+    "name": "props_u64_delta_rle_np.mlt",
+    "directory": "0x02",
+    "bytes": 41
+  },
+  {
+    "name": "props_u64_np.mlt",
+    "directory": "0x02",
+    "bytes": 43
+  },
+  {
+    "name": "props_u64_rle.mlt",
+    "directory": "0x02",
+    "bytes": 39
+  },
+  {
+    "name": "props_u64_rle_np.mlt",
+    "directory": "0x02",
+    "bytes": 38
+  },
+  {
+    "name": "prop_nested_big.mlt",
+    "directory": "0x02-java",
+    "bytes": 97
+  },
+  {
+    "name": "prop_nested_ints.mlt",
+    "directory": "0x02-java",
+    "bytes": 67
+  },
+  {
+    "name": "prop_nested_json.mlt",
+    "directory": "0x02-java",
+    "bytes": 252
+  },
+  {
+    "name": "prop_nested_list.mlt",
+    "directory": "0x02-java",
+    "bytes": 91
+  },
+  {
+    "name": "prop_nested_list_root.mlt",
+    "directory": "0x02-java",
+    "bytes": 113
+  },
+  {
+    "name": "prop_nested_mixed_root.mlt",
+    "directory": "0x02-java",
+    "bytes": 79
+  },
+  {
+    "name": "prop_nested_null.mlt",
+    "directory": "0x02-java",
+    "bytes": 64
+  },
+  {
+    "name": "prop_nested_shared.mlt",
+    "directory": "0x02-java",
+    "bytes": 116
+  },
+  {
+    "name": "prop_nested_specials.mlt",
+    "directory": "0x02-java",
+    "bytes": 91
+  }
+]

@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://www.maplibre.org/maplibre-tile-spec/specification/v1/">
       
       
-        <link rel="prev" href="../">
+        <link rel="prev" href="../../inspector/">
       
       
         <link rel="next" href="../v2/">
@@ -299,6 +299,32 @@
       
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../../implementation-status/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Implementation Status
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -317,10 +343,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
             
   
   
@@ -338,8 +364,8 @@
           </label>
         
         
-          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
-            <label class="md-nav__title" for="__nav_3">
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_4">
               <span class="md-nav__icon md-icon"></span>
               
   
@@ -363,6 +389,33 @@
     
   
   Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../inspector/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Tile Inspector
 
     
   </span>
@@ -470,32 +523,6 @@
           </nav>
         
       
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../implementation-status/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Implementation Status
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -703,7 +730,7 @@ Every <code>[stream]</code> below is one stream, laid out as described under <a 
 <td><code>[varint stream_count]</code> <code>[types stream]</code> <code>[stream * (stream_count - 1)]</code></td>
 </tr>
 <tr>
-<td>Scalar (<code>Bool</code> … <code>Double</code>)</td>
+<td>Scalar (<code>Bool</code> ... <code>Double</code>)</td>
 <td><code>[data stream]</code></td>
 </tr>
 <tr>
@@ -911,7 +938,7 @@ Boolean data streams are bit-packed, one bit per present value; float and double
 In a dictionary layout the <code>Offset/String</code> stream holds one dictionary index per present value, and the <code>Length</code> and <code>Data</code> streams describe the distinct values.
 FSST layouts compress the value bytes with a symbol table; see <a href="../../encodings/#fsst">FSST</a>.</p>
 <p>The offset stream comes last in the 5-stream layout and before the data stream in the 3-stream layout.
-An encoder MAY also use the 5-stream layout for an undeduplicated FSST corpus, writing the identity <code>[0, 1, 2, …]</code> as its offsets.</p>
+An encoder MAY also use the 5-stream layout for an undeduplicated FSST corpus, writing the identity <code>[0, 1, 2, ...]</code> as its offsets.</p>
 <h2 id="shared-dictionary-columns">Shared Dictionary Columns<a class="headerlink" href="#shared-dictionary-columns" title="Link to this section">&para;</a></h2>
 <p>Several string columns, such as <code>name:en</code>, <code>name:de</code> and <code>name:fr</code>, can share a single dictionary.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>shared_dict := [varint stream_count]
