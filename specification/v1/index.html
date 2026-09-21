@@ -909,7 +909,7 @@ Boolean data streams are bit-packed, one bit per present value; float and double
 <p>A nullable column's <code>Present</code> stream precedes these and is counted in <code>stream_count</code>.</p>
 <p>In the plain layout the <code>Length</code> stream holds the byte length of each present value and the <code>Data</code> stream holds their UTF-8 bytes back to back.
 In a dictionary layout the <code>Offset/String</code> stream holds one dictionary index per present value, and the <code>Length</code> and <code>Data</code> streams describe the distinct values.
-FSST layouts compress the value bytes with a symbol table; see <a href="../../encodings/#fsst-dictionary-encoding">FSST</a>.</p>
+FSST layouts compress the value bytes with a symbol table; see <a href="../../encodings/#fsst">FSST</a>.</p>
 <p>The offset stream comes last in the 5-stream layout and before the data stream in the 3-stream layout.
 An encoder MAY also use the 5-stream layout for an undeduplicated FSST corpus, writing the identity <code>[0, 1, 2, …]</code> as its offsets.</p>
 <h2 id="shared-dictionary-columns">Shared Dictionary Columns<a class="headerlink" href="#shared-dictionary-columns" title="Link to this section">&para;</a></h2>
@@ -2004,6 +2004,10 @@ The annotations are generated from the tiles.</p>
     
     
       <script src="../../assets/javascripts/bundle.8dcc8e9c.min.js"></script>
+      
+        <script src="../../assets/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>
