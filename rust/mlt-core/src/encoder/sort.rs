@@ -6,7 +6,7 @@ use geo_types::{Coord, Geometry};
 use crate::codecs::hilbert::{hilbert_curve_params_from_bounds, hilbert_sort_key};
 use crate::codecs::morton::morton_sort_key;
 use crate::encoder::model::CurveParams;
-use crate::tile::TileLayer;
+use crate::tile::{TileFeature, TileLayer};
 
 /// Controls how features inside a layer are reordered before encoding.
 ///
@@ -62,8 +62,7 @@ impl TileLayer {
                 });
             }
             SortStrategy::Id => {
-                self.features_mut()
-                    .sort_by_cached_key(|f| f.id().map_or(0, |v| v.saturating_add(1)));
+                self.features_mut().sort_by_cached_key(TileFeature::id);
             }
             SortStrategy::Unsorted => {
                 // do nothing
@@ -135,8 +134,8 @@ pub(crate) fn spatial_sort_likely_to_help(layer: &TileLayer) -> bool {
         return true;
     }
 
-    let range_x = f64::from(max_x - min_x);
-    let range_y = f64::from(max_y - min_y);
+    let range_x = f64::from(max_x) - f64::from(min_x);
+    let range_y = f64::from(max_y) - f64::from(min_y);
 
     let spread_x = range_x / extent;
     let spread_y = range_y / extent;
@@ -146,9 +145,15 @@ pub(crate) fn spatial_sort_likely_to_help(layer: &TileLayer) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use geo_types::{Coord, Geometry as GeoGeom, Geometry, LineString, Point, Polygon};
+    use geo_types::{
+        Coord, Geometry as GeoGeom, Geometry, GeometryCollection, Line, LineString,
+        MultiLineString, MultiPoint, MultiPolygon, Point, Polygon, Rect, Triangle,
+    };
+    use rstest::rstest;
 
+    use super::spatial_sort_likely_to_help;
     use crate::decoder::{GeometryType, GeometryValues, RawGeometry};
+    use crate::encoder::model::CurveParams;
     use crate::encoder::{
         Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, SortStrategy, stage_tile,
     };
@@ -491,5 +496,95 @@ mod tests {
         let verts = vertices_from_source(&source);
         // Expected vertices: LS(0,0,0,5), P2(1,0), P1(2,0)
         assert_eq!(verts, vec![0, 0, 0, 5, 1, 0, 2, 0]);
+    }
+
+    #[test]
+    fn id_sort_separates_the_two_largest_ids() {
+        let layer = layer_after_sort(
+            &[pt(0, 0), pt(1, 1)],
+            &[u64::MAX, u64::MAX - 1],
+            SortStrategy::Id,
+        );
+
+        let ids: Vec<Option<u64>> = layer.features().iter().map(TileFeature::id).collect();
+        assert_eq!(ids, vec![Some(u64::MAX - 1), Some(u64::MAX)]);
+    }
+
+    #[test]
+    fn id_sort_puts_the_missing_id_before_zero() {
+        let layer = build_tile_layer(&[pt(0, 0), pt(1, 1)], &[Some(0), None]);
+        let mut layer = layer;
+        layer.sort(SortStrategy::Id, CurveParams { shift: 0, bits: 1 });
+
+        let ids: Vec<Option<u64>> = layer.features().iter().map(TileFeature::id).collect();
+        assert_eq!(ids, vec![None, Some(0)]);
+    }
+
+    #[test]
+    fn spatial_sort_reads_the_first_vertex_of_every_geometry_kind() {
+        let at = |k: i32| Coord { x: k, y: k };
+        let geoms = [
+            GeoGeom::Rect(Rect::new(at(0), at(20))),
+            GeoGeom::Triangle(Triangle::new(at(1), at(11), at(21))),
+            GeoGeom::MultiPolygon(MultiPolygon(vec![Polygon::new(
+                LineString(vec![at(2), at(12), at(22), at(2)]),
+                vec![],
+            )])),
+            GeoGeom::MultiLineString(MultiLineString(vec![LineString(vec![at(3), at(13)])])),
+            GeoGeom::MultiPoint(MultiPoint(vec![Point::from(at(4)), Point::from(at(14))])),
+            GeoGeom::Polygon(Polygon::new(
+                LineString(vec![at(5), at(15), at(25), at(5)]),
+                vec![],
+            )),
+            GeoGeom::LineString(LineString(vec![at(6), at(16)])),
+            GeoGeom::Line(Line::new(at(7), at(17))),
+            GeoGeom::Point(Point::from(at(8))),
+            GeoGeom::GeometryCollection(GeometryCollection(vec![GeoGeom::Point(Point::from(at(
+                9,
+            )))])),
+            GeoGeom::LineString(LineString(vec![])),
+        ];
+        let ids: Vec<Option<u64>> = (0..u64::try_from(geoms.len()).unwrap()).map(Some).collect();
+
+        let mut layer = build_tile_layer(&geoms, &ids);
+        let params = layer.curve_params();
+        // Morton keys interleave the bits of x and y
+        // This means the diagonal they rise with the coordinate and the sorted order is the vertex order.
+        layer.sort(SortStrategy::SpatialMorton, params);
+
+        let sorted: Vec<Option<u64>> = layer.features().iter().map(TileFeature::id).collect();
+        assert_eq!(sorted, ids);
+    }
+
+    fn points_help_spatial_sort(coords: &[(i32, i32)]) -> bool {
+        let geoms: Vec<Geometry<i32>> = coords.iter().map(|&(x, y)| pt(x, y)).collect();
+        let ids = vec![None; geoms.len()];
+        spatial_sort_likely_to_help(&build_tile_layer(&geoms, &ids))
+    }
+
+    #[rstest]
+    #[case::no_features(&[], true)]
+    #[case::one_feature(&[(100, 100)], true)]
+    #[case::clustered(&[(0, 0), (100, 100)], true)]
+    #[case::spread_on_x_only(&[(0, 0), (4000, 100)], true)]
+    #[case::spread_on_both_axes(&[(0, 0), (4000, 4000)], false)]
+    #[case::exactly_at_the_coverage_limit(&[(0, 0), (3276, 3276)], true)]
+    #[case::wider_than_the_extent(&[(-9000, -9000), (9000, 9000)], false)]
+    #[case::wider_than_i32(&[(i32::MIN, i32::MIN), (i32::MAX, i32::MAX)], false)]
+    fn spatial_sort_help_heuristic(#[case] coords: &[(i32, i32)], #[case] expected: bool) {
+        assert_eq!(points_help_spatial_sort(coords), expected);
+    }
+
+    #[test]
+    fn vertexless_features_keep_the_spatial_sort() {
+        let geoms = [GeoGeom::LineString(LineString(vec![]))];
+        let layer = build_tile_layer(&geoms, &[None]);
+        assert!(spatial_sort_likely_to_help(&layer));
+    }
+
+    #[test]
+    fn curve_params_of_a_vertexless_layer_is_the_degenerate_grid() {
+        let layer = build_tile_layer(&[GeoGeom::LineString(LineString(vec![]))], &[None]);
+        assert_eq!(layer.curve_params(), CurveParams { shift: 0, bits: 1 });
     }
 }
