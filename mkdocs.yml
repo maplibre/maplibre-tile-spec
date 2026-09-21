@@ -5,6 +5,9 @@ site_description: MapLibre Tile Specification
 edit_uri: edit/main/docs
 extra_css:
   - assets/extra.css
+extra_javascript:
+  - assets/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
 theme:
   name: 'material'
   favicon: https://maplibre.org/favicon.ico
@@ -50,6 +53,8 @@ markdown_extensions:
         - name: mermaid
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.arithmatex:
+      generic: true
   - pymdownx.escapeall:
       hardbreak: True
       nbsp: True
