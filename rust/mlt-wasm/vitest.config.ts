@@ -13,7 +13,11 @@ export default defineConfig({
     coverage: {
       reportOnFailure: true,
       // pkg/ is wasm-bindgen's generated glue, js/coverage.setup.ts only runs under `wasm-coverage`
-      exclude: [...coverageConfigDefaults.exclude, "pkg/**", "js/coverage.setup.ts"],
+      exclude: [
+        ...coverageConfigDefaults.exclude,
+        "pkg/**",
+        "js/coverage.setup.ts",
+      ],
       // Cobertura file names are relative to `projectRoot`, and must be repository-relative for GitHub code coverage
       reporter: [
         ["text"],
