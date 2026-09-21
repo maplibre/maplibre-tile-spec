@@ -54,6 +54,10 @@ jobs:
 
   test-wasm:
     name: Test wasm
+    permissions:
+      contents: read
+      code-quality: write
+      pull-requests: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -66,6 +70,16 @@ jobs:
           cache: "npm"
           cache-dependency-path: "rust/mlt-wasm/package-lock.json"
       - run: just -v rust::ci-test-wasm
+      - name: Re-run the tests against an instrumented build for Rust coverage
+        run: just -v rust::wasm-coverage
+      - uses: ./.github/actions/mlt-upload-coverage
+        with: { suite: rust-wasm, file: rust/target/lcov-wasm.info }
+      - name: Publish the JS coverage of the wasm bindings
+        uses: ./.github/actions/mlt-publish-coverage
+        with:
+          file: rust/mlt-wasm/coverage/cobertura-coverage.xml
+          language: TypeScript
+          label: code-coverage/vitest-wasm
 
   fuzz:
     if: ${{ github.event_name != 'pull_request' || inputs.run-heavy }}
