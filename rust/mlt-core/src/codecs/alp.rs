@@ -1,40 +1,42 @@
 //! Exception-free Adaptive Lossless floating-Point compression (ALP), storing `v` as the integer `i = round(v * 10^e / 10^f)`.
-//!
-//! The arithmetic deviates from reference ALP, which multiplies by a rounded reciprocal
-//! (`v * EXP_ARR[e] * FRAC_ARR[f]`) where this divides exactly.
-//! The two disagree on roughly 0.75% of values, so these streams are not bit-interchangeable
-//! with a reference implementation, and `docs/encodings.md` states the division as normative.
-//! Either way is lossless here: every value is certified against [`decode_one`] before it is kept.
 
 use crate::codecs::float::FloatValue;
 use crate::decoder::AlpScale;
 
 /// Powers of ten, indexed by exponent.
-/// Stopping at `10^18` keeps `v * 10^e` inside the `i64` range; the codes themselves are
-/// bounded tighter still, to [`MAX_CODE`].
+/// Stopping at `10^18` keeps `v * 10^e` inside the `i64` range.
+/// Codes themselves have [`MAX_CODE`].
 const POW10: [f64; 19] = [
     1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16,
     1e17, 1e18,
 ];
 
-/// The two powers of ten a scale multiplies and divides by, looked up once per column.
+/// Rounded reciprocals of [`POW10`]
+const FRAC10: [f64; 19] = [
+    1e0, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10, 1e-11, 1e-12, 1e-13, 1e-14,
+    1e-15, 1e-16, 1e-17, 1e-18,
+];
+
+/// The two powers of ten a scale moves by, each with its reciprocal, looked up once per column.
 ///
-/// Deliberately two factors rather than one `10^(e - f)`: scaling then dividing rounds twice,
+/// Deliberately two factors rather than one `10^(e - f)`: scaling up then down rounds twice,
 /// and that second rounding is exactly what makes some `(e, f > 0)` exact where `(e - f, 0)`
 /// is not. Folding them would collapse the grid [`candidates`] walks.
 #[derive(Debug, Clone, Copy)]
 pub struct Powers {
     up: f64,
+    up_recip: f64,
     down: f64,
+    down_recip: f64,
 }
 
-impl Powers {
-    /// The factors for `scale`, whose exponents are bounded to `AlpScale::MAX_EXPONENT`.
-    #[must_use]
-    pub fn of(scale: AlpScale) -> Self {
+impl From<AlpScale> for Powers {
+    fn from(scale: AlpScale) -> Self {
         Self {
             up: POW10[usize::from(scale.e)],
+            up_recip: FRAC10[usize::from(scale.e)],
             down: POW10[usize::from(scale.f)],
+            down_recip: FRAC10[usize::from(scale.f)],
         }
     }
 }
@@ -51,7 +53,7 @@ const MAX_CODE: f64 = 9_007_199_254_740_991.0;
 
 /// Encode one value, or [`None`] if it does not fit [`MAX_CODE`].
 fn encode_one<T: FloatValue>(value: T, powers: Powers) -> Option<i64> {
-    let scaled = value.widen() * powers.up / powers.down;
+    let scaled = value.widen() * powers.up * powers.down_recip;
     let rounded = scaled.round_ties_even();
     #[expect(
         clippy::cast_possible_truncation,
@@ -70,7 +72,7 @@ pub fn decode_one<T: FloatValue>(code: i64, powers: Powers) -> T {
         clippy::cast_precision_loss,
         reason = "exactness is verified on encode"
     )]
-    let value = code as f64 * powers.down / powers.up;
+    let value = code as f64 * powers.down * powers.up_recip;
     T::narrow(value)
 }
 
@@ -84,7 +86,7 @@ fn exact_one<T: FloatValue>(value: T, powers: Powers) -> Option<i64> {
 
 /// Whether `params` carries this one value, the cheapest test that can rule a scale out.
 pub fn carries<T: FloatValue>(value: T, params: AlpScale) -> bool {
-    exact_one(value, Powers::of(params)).is_some()
+    exact_one(value, Powers::from(params)).is_some()
 }
 
 /// Encode `values` with `params`, or the index of the first value that would not return
@@ -94,7 +96,7 @@ pub fn encode_exact<T: FloatValue>(
     params: AlpScale,
     out: &mut Vec<i64>,
 ) -> Result<(), usize> {
-    let powers = Powers::of(params);
+    let powers = Powers::from(params);
     out.clear();
     out.reserve(values.len());
     for (i, &value) in values.iter().enumerate() {
@@ -106,7 +108,7 @@ pub fn encode_exact<T: FloatValue>(
 /// Decode a whole stream.
 #[must_use]
 pub fn decode<T: FloatValue>(codes: &[i64], params: AlpScale) -> Vec<T> {
-    let powers = Powers::of(params);
+    let powers = Powers::from(params);
     codes.iter().map(|&c| decode_one(c, powers)).collect()
 }
 
@@ -181,7 +183,7 @@ mod tests {
     fn non_finite_values_have_no_code_at_all(#[case] value: f64) {
         for params in candidates() {
             assert_eq!(
-                encode_one(value, Powers::of(params)),
+                encode_one(value, Powers::from(params)),
                 None,
                 "{value:?} {params:?}"
             );
@@ -191,9 +193,25 @@ mod tests {
     /// `-0.0` does get a code, `0`, and only the bit-for-bit certification rejects it.
     #[test]
     fn negative_zero_is_caught_by_certification_not_the_range_check() {
-        let powers = Powers::of(AlpScale { e: 0, f: 0 });
+        let powers = Powers::from(AlpScale { e: 0, f: 0 });
         assert_eq!(encode_one(-0.0, powers), Some(0));
         assert_eq!(exact_one(-0.0, powers), None);
+    }
+
+    #[test]
+    fn decoding_multiplies_by_the_reciprocal() {
+        let powers = Powers::from(AlpScale { e: 1, f: 0 });
+        let decoded: f64 = decode_one(3, powers);
+        assert_eq!(decoded.to_bits(), (3.0_f64 * 1e-1).to_bits());
+        assert_eq!(decoded.to_bits(), 0.300_000_000_000_000_04_f64.to_bits());
+        assert_ne!(decoded.to_bits(), 0.3_f64.to_bits());
+    }
+
+    #[test]
+    fn a_value_one_scale_cannot_hold_moves_to_another() {
+        assert!(!carries(0.3, AlpScale { e: 1, f: 0 }));
+        let (scale, codes) = best(&[0.3_f64]).expect("some scale holds 0.3");
+        assert_eq!(decode::<f64>(&codes, scale), [0.3]);
     }
 
     #[test]
@@ -208,7 +226,7 @@ mod tests {
     fn scales_that_push_a_small_value_past_f64_integer_precision_do_not_carry_it() {
         let value = 1.5;
         assert!(carries(value, AlpScale { e: 1, f: 0 }));
-        assert!(carries(value, AlpScale { e: 15, f: 0 }), "1.5e15 < 2^53");
+        assert!(carries(value, AlpScale { e: 14, f: 0 }), "1.5e14 < 2^53");
         assert!(!carries(value, AlpScale { e: 16, f: 0 }), "1.5e16 > 2^53");
         assert!(!carries(value, AlpScale { e: 18, f: 0 }));
     }
