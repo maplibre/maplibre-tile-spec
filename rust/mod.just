@@ -171,7 +171,10 @@ ci-get-release-info package='mlt':
 # Clean all build artifacts
 clean:
     cargo clean
-    rm -f Cargo.lock
+    rm -rf Cargo.lock
+    cargo -m mlt-core/fuzz clean
+    rm -rf mlt-core/fuzz/corpus mlt-core/fuzz/artifacts mlt-core/fuzz/coverage mlt-core/fuzz/Cargo.lock
+    rm -rf mlt-wasm/pkg mlt-wasm/dist mlt-wasm/node_modules
 
 # Run cargo clippy to lint the code
 clippy *args: (just 'cargo-install' 'cargo-hack')

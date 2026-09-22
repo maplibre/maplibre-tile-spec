@@ -1045,7 +1045,7 @@ fn layer_header_bits02(byte: u8, header: LayerHeader02) -> Vec<BitField> {
         BitField::mask(
             Extent02::EXPONENT_MASK,
             byte,
-            format!("extent = {}", header.extent.get()),
+            format!("extent 2^(n+6) = {}", header.extent.get()),
         ),
     ]
 }
