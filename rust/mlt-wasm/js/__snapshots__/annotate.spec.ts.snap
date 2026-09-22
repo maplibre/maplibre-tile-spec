@@ -646,7 +646,20 @@ exports[`annotateTile > annotates a v2 tile 1`] = `
       "value": ""layer1"",
     },
     {
-      "bits": [],
+      "bits": [
+        {
+          "hi": 7,
+          "lo": 4,
+          "meaning": "reserved",
+          "raw": 0,
+        },
+        {
+          "hi": 3,
+          "lo": 0,
+          "meaning": "extent = 64",
+          "raw": 1,
+        },
+      ],
       "blob": null,
       "container": false,
       "depth": 1,
