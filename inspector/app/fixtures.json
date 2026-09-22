@@ -5423,50 +5423,5 @@
     "name": "props_u64_rle_np.mlt",
     "directory": "0x02",
     "bytes": 38
-  },
-  {
-    "name": "prop_nested_big.mlt",
-    "directory": "0x02-java",
-    "bytes": 97
-  },
-  {
-    "name": "prop_nested_ints.mlt",
-    "directory": "0x02-java",
-    "bytes": 67
-  },
-  {
-    "name": "prop_nested_json.mlt",
-    "directory": "0x02-java",
-    "bytes": 252
-  },
-  {
-    "name": "prop_nested_list.mlt",
-    "directory": "0x02-java",
-    "bytes": 91
-  },
-  {
-    "name": "prop_nested_list_root.mlt",
-    "directory": "0x02-java",
-    "bytes": 113
-  },
-  {
-    "name": "prop_nested_mixed_root.mlt",
-    "directory": "0x02-java",
-    "bytes": 79
-  },
-  {
-    "name": "prop_nested_null.mlt",
-    "directory": "0x02-java",
-    "bytes": 64
-  },
-  {
-    "name": "prop_nested_shared.mlt",
-    "directory": "0x02-java",
-    "bytes": 116
-  },
-  {
-    "name": "prop_nested_specials.mlt",
-    "directory": "0x02-java",
-    "bytes": 91
   }
 ]
