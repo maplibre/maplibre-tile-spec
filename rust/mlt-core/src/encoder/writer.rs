@@ -5,7 +5,7 @@ use fsst::Compressor;
 use integer_encoding::VarIntWriter as _;
 
 #[cfg(feature = "unstable-v2")]
-use crate::decoder::Extent02;
+use crate::decoder::LayerHeader02;
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::stream::header02::{Count02, Family, WordWidth};
 use crate::decoder::{ColumnType, Morton};
@@ -300,7 +300,7 @@ impl Encoder {
     pub(crate) fn write_header02(
         &mut self,
         name: &str,
-        extent: Extent02,
+        header: LayerHeader02,
         feature_count: u32,
     ) -> MltResult<()> {
         if name.is_empty() {
@@ -311,7 +311,7 @@ impl Encoder {
             "write_header02 called with an open alternatives session"
         );
         self.hdr.write_string(name).map_err(MltError::from)?;
-        self.hdr.push(extent.to_byte());
+        self.hdr.push(header.to_byte());
         self.hdr
             .write_varint(feature_count)
             .map_err(MltError::from)?;

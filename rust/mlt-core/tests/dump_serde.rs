@@ -111,7 +111,7 @@ fn an_alp_hint_serializes_its_parameters_beside_its_tag() {
 
     insta::assert_snapshot!(json(region), @r#"
     {
-      "offset": 44,
+      "offset": 40,
       "len": 7,
       "depth": 4,
       "label": "data",

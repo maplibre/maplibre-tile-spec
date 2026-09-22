@@ -4,7 +4,7 @@ use geo_types::{Coord, Geometry, LineString, Point, Polygon, point, wkt};
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 
-use crate::decoder::RawGeometry;
+use crate::decoder::{GeoTypes, RawGeometry, RawStream};
 use crate::encoder::model::EncoderConfig;
 use crate::encoder::{Codecs, Encoder, ExplicitEncoder, IntEncoder, VertexBufferType};
 use crate::test_helpers::{assert_empty, dec, parser};
@@ -110,7 +110,7 @@ fn encoded_output_always_has_meta_stream() {
     let raw = assert_empty(RawGeometry::from_bytes(enc.data(), &mut parser()));
 
     assert_eq!(
-        raw.meta.meta.stream_type,
+        v1_types_stream(&raw).meta.stream_type,
         StreamType::Length(LengthType::VarBinary),
         "meta (VarBinary) stream must always be present"
     );
@@ -373,10 +373,19 @@ fn a_degenerate_geometry_survives_a_v1_roundtrip(
     assert_eq!(v1_geojson_roundtrip(&geoms, tessellate), geoms);
 }
 
+/// The types stream of a v1 section, which always spells its types out.
+fn v1_types_stream<'a>(raw: &'a RawGeometry<'a>) -> &'a RawStream<'a> {
+    match &raw.types {
+        GeoTypes::Stream(stream) => stream,
+        #[cfg(feature = "unstable-v2")]
+        GeoTypes::Uniform { .. } => panic!("a v1 geometry section always writes a types stream"),
+    }
+}
+
 /// Collect all stream types present in the encoded geometry bytes (meta + items).
 fn encoded_stream_types(data: &[u8]) -> HashSet<StreamType> {
     let raw = assert_empty(RawGeometry::from_bytes(data, &mut parser()));
-    std::iter::once(raw.meta.meta.stream_type)
+    std::iter::once(v1_types_stream(&raw).meta.stream_type)
         .chain(raw.items.iter().map(|s| s.meta.stream_type))
         .collect()
 }

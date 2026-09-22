@@ -3,8 +3,8 @@ use usize_cast::IntoUsize as _;
 use crate::codecs::varint::parse_varint;
 use crate::decoder::stream::header01;
 use crate::decoder::{
-    DictionaryType, GeometryType, GeometryValues, IntEncoding, LengthType, OffsetType, RawGeometry,
-    RawStream, StreamMeta, StreamType, ValueKind,
+    DictionaryType, GeoTypes, GeometryType, GeometryValues, IntEncoding, LengthType, OffsetType,
+    RawGeometry, RawStream, StreamMeta, StreamType, ValueKind,
 };
 use crate::errors::AsMltError as _;
 use crate::utils::SetOptionOnce as _;
@@ -27,11 +27,23 @@ fn push_consecutive_offsets(
 }
 
 pub fn decode_geometry_types(
-    meta: RawStream<'_>,
+    types: GeoTypes<'_>,
     dec: &mut Decoder,
 ) -> MltResult<Vec<GeometryType>> {
+    let stream = match types {
+        GeoTypes::Stream(stream) => stream,
+        #[cfg(feature = "unstable-v2")]
+        GeoTypes::Uniform {
+            geometry_type,
+            feature_count,
+        } => {
+            let mut vector_types = dec.alloc(feature_count.into_usize())?;
+            vector_types.resize(feature_count.into_usize(), geometry_type);
+            return Ok(vector_types);
+        }
+    };
     // TODO: simplify this, e.g. use u8 or even GeometryType directly rather than going via Vec<u32>
-    let vector_types: Vec<u32> = meta.decode_ints::<u32>(dec)?;
+    let vector_types: Vec<u32> = stream.decode_ints::<u32>(dec)?;
     let vector_types: Vec<GeometryType> = vector_types
         .into_iter()
         .map::<MltResult<GeometryType>, _>(|v| Ok(u8::try_from(v)?.try_into()?))
@@ -227,14 +239,14 @@ impl<'a> RawGeometry<'a> {
             return Ok((
                 input,
                 Self {
-                    meta: RawStream::new(
+                    types: GeoTypes::Stream(RawStream::new(
                         StreamMeta::new(
                             StreamType::Data(DictionaryType::None),
                             IntEncoding::none(ValueKind::Int),
                             0,
                         ),
                         &[],
-                    ),
+                    )),
                     items: Vec::new(),
                 },
             ));
@@ -245,7 +257,13 @@ impl<'a> RawGeometry<'a> {
         let (input, items) =
             header01::parse_multiple_streams(input, stream_count - 1, ValueKind::Int, parser)?;
 
-        Ok((input, Self { meta, items }))
+        Ok((
+            input,
+            Self {
+                types: GeoTypes::Stream(meta),
+                items,
+            },
+        ))
     }
 }
 
@@ -254,8 +272,8 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
     /// allocation.  All streams carry `num_values` in their metadata so every
     /// charge is pre-hoc.
     fn decode(self, dec: &mut Decoder) -> MltResult<GeometryValues> {
-        let RawGeometry { meta, items } = self;
-        let vector_types = decode_geometry_types(meta, dec)?;
+        let RawGeometry { types, items } = self;
+        let vector_types = decode_geometry_types(types, dec)?;
         let mut geometry_offsets: Option<Vec<u32>> = None;
         let mut part_offsets: Option<Vec<u32>> = None;
         let mut ring_offsets: Option<Vec<u32>> = None;

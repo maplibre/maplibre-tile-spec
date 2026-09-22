@@ -1,8 +1,8 @@
 use crate::decoder::{
-    Geometry, GeometryType, GeometryValues, Id, Layer01, Property, RawFloats, RawFloatsEncoding,
-    RawFsstData, RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar,
-    RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings, RawStringsEncoding,
-    StreamMeta,
+    GeoTypes, Geometry, GeometryType, GeometryValues, Id, Layer01, Property, RawFloats,
+    RawFloatsEncoding, RawFsstData, RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence,
+    RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings,
+    RawStringsEncoding, StreamMeta,
 };
 use crate::{Analyze, DecodeState, StatType};
 
@@ -33,7 +33,11 @@ where
 
 impl Analyze for RawGeometry<'_> {
     fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
-        self.meta.for_each_stream(cb);
+        match &self.types {
+            GeoTypes::Stream(types) => types.for_each_stream(cb),
+            #[cfg(feature = "unstable-v2")]
+            GeoTypes::Uniform { .. } => {}
+        }
         self.items.for_each_stream(cb);
     }
 }

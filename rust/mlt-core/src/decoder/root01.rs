@@ -11,8 +11,8 @@ use crate::MltError::{
 use crate::codecs::varint::parse_varint;
 use crate::decoder::stream::header01;
 use crate::decoder::{
-    Column, ColumnType, DictLayout, DictionaryType, Geometry, Id, Layer01, RawFloats, RawFsstData,
-    RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar,
+    Column, ColumnType, DictLayout, DictionaryType, GeoTypes, Geometry, Id, Layer01, RawFloats,
+    RawFsstData, RawGeometry, RawId, RawIdValue, RawPlainData, RawPresence, RawProperty, RawScalar,
     RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStrings, RawStringsEncoding,
     StreamType, ValueKind,
 };
@@ -213,7 +213,10 @@ fn parse_geometry_column<'a>(
     // geometry items
     let (input, items) =
         header01::parse_multiple_streams(input, stream_count_capa - 1, ValueKind::Int, parser)?;
-    geometry.set_once(Raw(RawGeometry { meta, items }))?;
+    geometry.set_once(Raw(RawGeometry {
+        types: GeoTypes::Stream(meta),
+        items,
+    }))?;
     Ok(input)
 }
 

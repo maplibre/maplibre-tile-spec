@@ -1,6 +1,6 @@
 //! Layer envelope and column writers for tag `0x02` (v2) layers.
 //!
-//! A v2 layer body is: header (`name`, `extent`, `feature_count`, layout byte),
+//! A v2 layer body is: header (`name`, header byte, `feature_count`, layout byte),
 //! the layer's shared presence bitfields, geometry section, the column counts
 //! varint, then each counted column as
 //! `[type byte][name?][presence bitfield?][data stream]` - metadata and data
@@ -22,9 +22,9 @@ use integer_encoding::VarIntWriter as _;
 
 use crate::decoder::stream::header02::{Count02, Family, StreamCtx02, WordWidth};
 use crate::decoder::{
-    BoolLogical, ColumnCounts, ColumnType02, DataType02, DictionaryType, Extent02, LayerLayout,
-    LengthType, LogicalEncoding, NodeKind02, NodePresence, NodeType02, PhysicalEncoding,
-    Presence02, StreamMeta, StreamType, ValueType02,
+    BoolLogical, ColumnCounts, ColumnType02, DataType02, DictionaryType, Extent02, LayerHeader02,
+    LayerLayout, LengthType, LogicalEncoding, NodeKind02, NodePresence, NodeType02,
+    PhysicalEncoding, Presence02, StreamMeta, StreamType, ValueType02,
 };
 use crate::encoder::geometry::encode02::encode_geometry02;
 use crate::encoder::model::{StagedLayer, StrAt, StreamCtx};
@@ -232,14 +232,13 @@ pub(crate) fn encode_into02(
     shared.write_to(&mut enc);
 
     // ── Geometry section (not part of column_count) ───────────────────────
-    let geo_layout = geometry.write_to(&mut enc, codecs)?;
+    let geo = geometry.write_to(&mut enc, codecs)?;
     // Only the geometry layout says whether a feature's vertex count can be read
     // back, which is the one thing an m-value column cannot do without.
-    if !m_values.is_empty() && !geo_layout.allows_m_values() {
-        return Err(MltError::MValuesNeedVertexCounts(geo_layout.into()));
+    if !m_values.is_empty() && !geo.layout.allows_m_values() {
+        return Err(MltError::MValuesNeedVertexCounts(geo.layout.into()));
     }
-    enc.data_mut()[layout_pos] =
-        LayerLayout::new(geo_layout, shared.count(), !m_values.is_empty()).to_byte();
+    enc.data_mut()[layout_pos] = LayerLayout::new(geo.layout, shared.count()).to_byte();
 
     // ── Counted columns ───────────────────────────────────────────────────
     let column_count = usize::from(!matches!(id, StagedId::None)) + properties.len() + nested.len();
@@ -262,7 +261,8 @@ pub(crate) fn encode_into02(
         write_m_value02(m_value, &shared, &mut enc, codecs)?;
     }
 
-    enc.write_header02(&name, extent, feature_count)?;
+    let header = LayerHeader02::new(extent, geo.uniform_type, !m_values.is_empty());
+    enc.write_header02(&name, header, feature_count)?;
     Ok(enc)
 }
 

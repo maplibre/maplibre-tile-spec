@@ -26,7 +26,7 @@ pub(crate) mod stream;
 // ── Crate-internal re-exports ─────────────────────────────────────────────────
 // Allow internal modules to keep using `crate::decoder::*` paths without
 // reaching into sub-module paths explicitly.
-pub(crate) use geometry::{Geometry, RawGeometry};
+pub(crate) use geometry::{GeoTypes, Geometry, RawGeometry};
 pub use geometry::{GeometryType, GeometryValues};
 pub use id::ParsedId;
 // pub (not pub(crate)) so __private module can re-export it
@@ -42,8 +42,8 @@ pub(crate) use model01::{BASE_TYPE_MASK, Column, OPTIONAL_FLAG};
 #[cfg(feature = "unstable-v2")]
 pub(crate) use model02::{
     Column02, ColumnCounts, ColumnKind02, ColumnType02, DataType02, Extent02, GeoLayout, IdWidth02,
-    Interior02, LayerLayout, NodeKind02, NodePresence, NodeType02, Presence02, SharedDictKind,
-    Topology, ValueType02, ValuesColumn02, VertexStorage,
+    Interior02, LayerHeader02, LayerLayout, NodeKind02, NodePresence, NodeType02, Presence02,
+    SharedDictKind, Topology, ValueType02, ValuesColumn02, VertexStorage,
 };
 #[cfg(feature = "unstable-v2")]
 pub use mvalue::{MValueColumn, MValueSpans, MValues, ParsedMValue, RawMValue};
