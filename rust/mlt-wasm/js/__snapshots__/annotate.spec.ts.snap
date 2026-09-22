@@ -104,7 +104,7 @@ exports[`annotateTile > annotates a v1 tile 1`] = `
       "label": "extent",
       "len": 1,
       "offset": 9,
-      "value": "80",
+      "value": "64",
     },
     {
       "bits": [],
@@ -654,7 +654,7 @@ exports[`annotateTile > annotates a v2 tile 1`] = `
       "label": "extent",
       "len": 1,
       "offset": 9,
-      "value": "80",
+      "value": "64",
     },
     {
       "bits": [],
