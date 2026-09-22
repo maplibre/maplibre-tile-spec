@@ -10,6 +10,16 @@
     "bytes": 37
   },
   {
+    "name": "extent_32.mlt",
+    "directory": "0x01",
+    "bytes": 31
+  },
+  {
+    "name": "extent_32768.mlt",
+    "directory": "0x01",
+    "bytes": 37
+  },
+  {
     "name": "extent_4096.mlt",
     "directory": "0x01",
     "bytes": 34
@@ -26,6 +36,16 @@
   },
   {
     "name": "extent_buf_131072.mlt",
+    "directory": "0x01",
+    "bytes": 37
+  },
+  {
+    "name": "extent_buf_32.mlt",
+    "directory": "0x01",
+    "bytes": 33
+  },
+  {
+    "name": "extent_buf_32768.mlt",
     "directory": "0x01",
     "bytes": 37
   },
@@ -2780,44 +2800,44 @@
     "bytes": 47
   },
   {
-    "name": "extent_1073741824.mlt",
-    "directory": "0x02",
-    "bytes": 38
-  },
-  {
     "name": "extent_131072.mlt",
     "directory": "0x02",
-    "bytes": 32
+    "bytes": 30
+  },
+  {
+    "name": "extent_32768.mlt",
+    "directory": "0x02",
+    "bytes": 30
   },
   {
     "name": "extent_4096.mlt",
     "directory": "0x02",
-    "bytes": 29
+    "bytes": 28
   },
   {
     "name": "extent_512.mlt",
     "directory": "0x02",
-    "bytes": 29
-  },
-  {
-    "name": "extent_buf_1073741824.mlt",
-    "directory": "0x02",
-    "bytes": 38
+    "bytes": 28
   },
   {
     "name": "extent_buf_131072.mlt",
     "directory": "0x02",
-    "bytes": 32
+    "bytes": 30
+  },
+  {
+    "name": "extent_buf_32768.mlt",
+    "directory": "0x02",
+    "bytes": 30
   },
   {
     "name": "extent_buf_4096.mlt",
     "directory": "0x02",
-    "bytes": 29
+    "bytes": 28
   },
   {
     "name": "extent_buf_512.mlt",
     "directory": "0x02",
-    "bytes": 29
+    "bytes": 28
   },
   {
     "name": "id.mlt",
