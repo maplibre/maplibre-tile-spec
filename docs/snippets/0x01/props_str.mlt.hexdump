@@ -2,7 +2,7 @@
 00000000  e8 01                                             ..               |   size: 232 (varint) - tag + body
 00000002  01                                                .                |   tag: 0x01 -> Tag01
 00000003  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
-0000000a  50                                                P                |   extent: 80
+0000000a  40                                                @                |   extent: 64
 0000000b  02                                                .                |   column_count: 2
 0000000c                                                                     |   schema (6 B)
 0000000c                                                                     |     column[0] (1 B)
