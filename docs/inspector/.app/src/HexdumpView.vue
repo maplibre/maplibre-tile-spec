@@ -3,10 +3,12 @@ import { useEventListener, useResizeObserver } from "@vueuse/core";
 import { computed, onMounted, ref, watch } from "vue";
 import type { DecodedBlob, DumpTree } from "./annotate.ts";
 import HexMap from "./HexMap.vue";
+import HexTip from "./HexTip.vue";
 import {
   byteOwners,
   fitColumns,
   leafStep,
+  type Pointer,
   regionBands,
   showsSections,
   type ViewState,
@@ -28,6 +30,8 @@ const root = ref<HTMLElement | null>(null);
 const map = ref<InstanceType<typeof HexMap> | null>(null);
 const regions = ref<InstanceType<typeof RegionTree> | null>(null);
 const hovered = ref<number | null>(null);
+/** Null while the hover came from the tree, which sits beside the pane the tip would repeat. */
+const pointer = ref<Pointer | null>(null);
 
 const activeIndex = computed(() => selected.value ?? hovered.value);
 const owners = computed(() => byteOwners(props.tree));
@@ -38,6 +42,16 @@ const bands = computed(() =>
 
 /** Set when this component moved the selection, so an outside change still scrolls the map. */
 let picked: number | null = null;
+
+function onMapHover(index: number | null, at: Pointer | null) {
+  hovered.value = index;
+  pointer.value = at;
+}
+
+function onTreeHover(index: number | null) {
+  hovered.value = index;
+  pointer.value = null;
+}
 
 function select(index: number, scroll: boolean) {
   picked = index;
@@ -116,7 +130,7 @@ onMounted(() => {
           :bands="bands"
           :view="view"
           :active-index="activeIndex"
-          @hover="hovered = $event"
+          @hover="onMapHover"
           @pick="select($event, false)"
         />
       </section>
@@ -134,11 +148,19 @@ onMounted(() => {
           :tree="props.tree"
           :active-index="activeIndex"
           :bands="bands"
-          @hover="hovered = $event"
+          @hover="onTreeHover"
           @pick="select($event, true)"
         />
       </aside>
     </div>
+    <HexTip
+      v-if="hovered !== null && pointer !== null"
+      :tree="props.tree"
+      :index="hovered"
+      :at="pointer"
+      :view="view"
+      :decode="props.decode"
+    />
   </div>
 </template>
 

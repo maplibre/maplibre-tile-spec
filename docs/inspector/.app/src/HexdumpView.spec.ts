@@ -197,6 +197,125 @@ describe("a decoded text payload", () => {
   });
 });
 
+describe("the hover tip", () => {
+  const hover = (pane: ReturnType<typeof view>, cell: number) =>
+    pane
+      .findAll("td.cell")
+      [cell].trigger("mousemove", { clientX: 120, clientY: 80 });
+
+  it("names the hovered byte by its path", async () => {
+    const pane = view();
+    await hover(pane, 2);
+    expect(pane.get(".tip .path").text()).toBe("layer[0].geometry.encoding");
+  });
+
+  it("measures the region the byte belongs to", async () => {
+    const pane = view();
+    await hover(pane, 2);
+    expect(pane.get(".tip .span").text()).toBe("1 B at 00000002");
+  });
+
+  it("shows the value the region carries", async () => {
+    const pane = view();
+    await hover(pane, 0);
+    expect(pane.get(".tip .value").text()).toBe("water");
+  });
+
+  it("sits below and right of the pointer", async () => {
+    const pane = view();
+    await hover(pane, 0);
+    expect(pane.get(".tip").attributes("style")).toBe(
+      "left: 134px; top: 94px;",
+    );
+  });
+
+  it("moves with the pointer inside one region", async () => {
+    const pane = view();
+    await hover(pane, 0);
+    await pane
+      .findAll("td.cell")[1]
+      .trigger("mousemove", { clientX: 300, clientY: 80 });
+    expect(pane.get(".tip").attributes("style")).toBe(
+      "left: 314px; top: 94px;",
+    );
+  });
+
+  it("goes away once the pointer leaves the map", async () => {
+    const pane = view();
+    await hover(pane, 0);
+    await pane.get("table.spacer").trigger("mouseleave");
+    expect(pane.find(".tip").exists()).toBe(false);
+  });
+
+  it("stays away from a region the tree hovers instead", async () => {
+    const pane = view();
+    await pane.get(".node button.label").trigger("mouseenter");
+    expect(pane.get(".detail h2").text()).toBe("layer[0] click to pin");
+    expect(pane.find(".tip").exists()).toBe(false);
+  });
+
+  it("spells out the bits of an encoding byte", async () => {
+    const bits = {
+      bufLen: 1,
+      regions: [
+        region({
+          offset: 0,
+          len: 1,
+          label: "encoding",
+          bits: [
+            { hi: 7, lo: 4, raw: 0, meaning: "logical: none" },
+            { hi: 3, lo: 0, raw: 1, meaning: "physical: varint" },
+          ],
+        }),
+      ],
+    };
+    const pane = view(bits, null, "both", new Uint8Array([0x01]));
+    await hover(pane, 0);
+    expect(pane.findAll(".tip .meaning").map((line) => line.text())).toEqual([
+      "logical: none",
+      "physical: varint",
+    ]);
+  });
+
+  it("previews the values a blob decodes to", async () => {
+    const pane = mount(HexdumpView, {
+      props: {
+        tree: {
+          bufLen: 8,
+          regions: [
+            region({
+              offset: 0,
+              len: 8,
+              label: "data",
+              kind: "dataBlob",
+              blob: {
+                streamType: "Data(Int)",
+                logical: "None",
+                physical: "Varint",
+                numValues: 9,
+                hint: { kind: "u32" },
+              },
+            }),
+          ],
+        },
+        bytes: TINY_BYTES,
+        decode: (): DecodedBlob => ({
+          kind: "numbers",
+          values: [1, 2, 3],
+          truncatedFrom: 9,
+        }),
+        error: null,
+        view: defaultView(),
+        selected: null,
+      },
+      attachTo: document.body,
+    });
+    await hover(pane, 0);
+    expect(pane.get(".tip .value").text()).toBe("1, 2, 3");
+    expect(pane.findAll(".tip .span")[1].text()).toBe("3 of 9 values");
+  });
+});
+
 describe("arrow keys", () => {
   const press = (key: string) =>
     window.dispatchEvent(new KeyboardEvent("keydown", { key }));

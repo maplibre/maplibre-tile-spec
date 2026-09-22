@@ -111,6 +111,11 @@ export function regionPath(regions: Region[], index: number): string[] {
   return path;
 }
 
+/** The same path as one name, which is how the hover tip and the detail pane title a region. */
+export function regionDotPath(regions: Region[], index: number): string {
+  return [...regionPath(regions, index), regions[index].label].join(".");
+}
+
 /** Indices of the containers `index` sits in, outermost first. */
 export function ancestors(regions: Region[], index: number): number[] {
   const out: number[] = [];
@@ -181,4 +186,33 @@ export function leafStep(
     if (!regions[at].container) return at;
   }
   return null;
+}
+
+/** Where the pointer is in the viewport, which is what places the hover tip. */
+export interface Pointer {
+  x: number;
+  y: number;
+}
+
+/** Gap the tip keeps from the pointer and from every edge. */
+const TIP_GAP = 14;
+
+/**
+ * Top-left corner of the hover tip, kept inside the viewport and clear of the pointer.
+ * A tip that would hang off the bottom sits above the pointer instead, since sliding it up would cover the byte.
+ */
+export function tipPlacement(
+  pointer: Pointer,
+  tip: { width: number; height: number },
+  viewport: { width: number; height: number },
+): Pointer {
+  const right = viewport.width - tip.width - TIP_GAP;
+  const below = pointer.y + TIP_GAP;
+  return {
+    x: Math.max(TIP_GAP, Math.min(pointer.x + TIP_GAP, right)),
+    y:
+      below + tip.height > viewport.height
+        ? Math.max(TIP_GAP, pointer.y - TIP_GAP - tip.height)
+        : below,
+  };
 }
