@@ -2,10 +2,15 @@
 import { useFileDialog } from "@vueuse/core";
 import { computed, ref } from "vue";
 import {
+  FIXTURE_FACETS,
   type FixtureEntry,
   fixtureKey,
+  fixtureTags,
+  fuzzyMatch,
   groupFixtures,
+  matchesTags,
   starterFixtures,
+  tagCounts,
 } from "./fixtures.ts";
 
 const props = defineProps<{
@@ -19,6 +24,7 @@ const emit = defineEmits<{ fixture: [key: string]; upload: [file: File] }>();
 
 const sheet = ref<HTMLDialogElement | null>(null);
 const filter = ref("");
+const picked = ref(new Set<string>());
 
 /** The bar names the loaded tile, which the hero has none of, so it counts the index instead. */
 const browse = computed(() => {
@@ -30,17 +36,32 @@ const browse = computed(() => {
 
 const starters = computed(() => starterFixtures(props.index));
 
-/** The index narrowed to the filter, which a thousand-odd fixtures make the sheet's only way in. */
-const groups = computed(() => {
+/** The index narrowed by the filter box alone, which is what the chips then count against. */
+const searched = computed(() => {
   const needle = filter.value.trim().toLowerCase();
-  const matches =
-    needle === ""
-      ? props.index
-      : props.index.filter((entry) =>
-          fixtureKey(entry).toLowerCase().includes(needle),
-        );
-  return groupFixtures(matches);
+  if (needle === "") return props.index;
+  return props.index.filter((entry) =>
+    fuzzyMatch(fixtureKey(entry).toLowerCase(), needle),
+  );
 });
+
+const counts = computed(() => tagCounts(searched.value, picked.value));
+
+/** Both narrowings at once, which a thousand-odd fixtures make the sheet's only way in. */
+const matches = computed(() =>
+  searched.value.filter((entry) =>
+    matchesTags(fixtureTags(entry), picked.value),
+  ),
+);
+
+const groups = computed(() => groupFixtures(matches.value));
+
+/** A new set each time, since a `Set` mutated in place is not a change Vue sees. */
+function toggle(tag: string) {
+  const next = new Set(picked.value);
+  if (!next.delete(tag)) next.add(tag);
+  picked.value = next;
+}
 
 /** Resets on open, so picking the same tile again after re-encoding it still loads it. */
 const { open: chooseFile, onChange } = useFileDialog({
@@ -92,18 +113,47 @@ function choose(key: string) {
     <dialog ref="sheet" class="sheet" aria-labelledby="fixtures-heading">
       <div class="card">
         <header>
-          <h2 id="fixtures-heading">synthetic fixtures</h2>
+          <h2 id="fixtures-heading"
+            >synthetic fixtures
+            <small>{{ matches.length }} of {{ props.index.length }}</small></h2
+          >
           <input
             v-model="filter"
             class="filter"
             type="search"
-            placeholder="filter..."
+            placeholder="fuzzy filter..."
             aria-label="filter fixtures"
           >
           <button type="button" class="close" @click="sheet?.close()"
             >close</button
           >
         </header>
+        <div class="facets">
+          <template v-for="facet in FIXTURE_FACETS" :key="facet.label">
+            <span class="what">{{ facet.label }}</span>
+            <div class="tags">
+              <button
+                v-for="tag in facet.tags"
+                :key="tag"
+                type="button"
+                class="tag"
+                :data-tag="tag"
+                :class="{ on: picked.has(tag) }"
+                :disabled="!picked.has(tag) && counts.get(tag) === 0"
+                :aria-pressed="picked.has(tag)"
+                @click="toggle(tag)"
+                >{{ tag }} <i>{{ counts.get(tag) }}</i></button
+              >
+            </div>
+          </template>
+          <button
+            v-if="picked.size"
+            type="button"
+            class="clear"
+            @click="picked = new Set()"
+            >clear filters</button
+          >
+        </div>
         <div class="groups">
           <section v-for="group in groups" :key="group.label">
             <h3>{{ group.label }}</h3>
@@ -232,7 +282,8 @@ function choose(key: string) {
 .card {
   box-sizing: border-box;
   margin: auto;
-  width: min(38rem, 100%);
+  /* Wide enough that the encoding chips take two rows rather than four. */
+  width: min(46rem, 100%);
   max-height: 100%;
   display: flex;
   flex-direction: column;
@@ -255,6 +306,83 @@ function choose(key: string) {
   text-transform: none;
   letter-spacing: normal;
   color: var(--text);
+}
+.card h2 small {
+  display: block;
+  color: var(--dim);
+  font-weight: 400;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+}
+
+/* One row per facet: its name in the first column, its chips in the second. */
+.facets {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  align-items: baseline;
+  gap: 0.45rem 0.9rem;
+  padding: var(--pad);
+  border-bottom: 1px solid var(--line);
+}
+.what {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font: 600 0.65rem / 1.6 var(--font);
+}
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.tag {
+  background: var(--control);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font: inherit;
+  font-size: 0.72rem;
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tag:hover:not(:disabled) {
+  border-color: var(--rule);
+}
+.tag i {
+  color: var(--dim);
+  font-style: normal;
+  font-family: var(--mono);
+  font-size: 0.66rem;
+}
+.tag.on {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent-rule);
+}
+.tag.on i {
+  color: var(--accent-text);
+}
+/* Nothing left to narrow, which is worth showing rather than hiding the chip over. */
+.tag:disabled {
+  color: var(--faded);
+  cursor: default;
+}
+.tag:disabled i {
+  color: var(--faded);
+}
+.clear {
+  grid-column: 2;
+  justify-self: start;
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.72rem;
+  padding: 0.25rem 0;
+  cursor: pointer;
+  text-decoration: underline;
 }
 .filter {
   flex: 1;

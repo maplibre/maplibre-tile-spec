@@ -132,6 +132,17 @@ describe("the empty state", () => {
     ]);
   });
 
+  it("finds a fixture from letters spread over its key", async () => {
+    serve();
+    const app = mount(App);
+    await flushPromises();
+    await app.get("button.open").trigger("click");
+    await app.get("dialog .filter").setValue("ln");
+    expect(app.findAll("dialog .entry .name").map((e) => e.text())).toEqual([
+      "line.mlt",
+    ]);
+  });
+
   it("says so when the filter matches no fixture", async () => {
     serve();
     const app = mount(App);
@@ -151,6 +162,83 @@ describe("the empty state", () => {
     expect(annotateTile).toHaveBeenCalledOnce();
     expect(app.get<HTMLDialogElement>("dialog").element.open).toBe(false);
     expect(app.get("button.open").text()).toBe("0x01/point.mlt");
+  });
+});
+
+describe("the sheet's quick filters", () => {
+  async function sheet() {
+    serve();
+    const app = mount(App);
+    await flushPromises();
+    await app.get("button.open").trigger("click");
+    return app;
+  }
+
+  const names = (app: Awaited<ReturnType<typeof sheet>>) =>
+    app.findAll("dialog .entry .name").map((entry) => entry.text());
+
+  it("counts what each chip would leave", async () => {
+    const app = await sheet();
+    expect(app.get("dialog .tag[data-tag=v1]").text()).toBe("v1 1");
+    expect(app.get("dialog .tag[data-tag=polygon]").text()).toBe("polygon 0");
+  });
+
+  it("counts the fixtures the sheet is showing", async () => {
+    const app = await sheet();
+    expect(app.get("dialog h2 small").text()).toBe("2 of 2");
+  });
+
+  it("narrows the sheet to a picked version", async () => {
+    const app = await sheet();
+    await app.get("dialog .tag[data-tag=v2]").trigger("click");
+    expect(names(app)).toEqual(["line.mlt"]);
+    expect(app.get("dialog h2 small").text()).toBe("1 of 2");
+  });
+
+  it("ors two chips of one facet", async () => {
+    const app = await sheet();
+    await app.get("dialog .tag[data-tag=v1]").trigger("click");
+    await app.get("dialog .tag[data-tag=v2]").trigger("click");
+    expect(names(app)).toEqual(["point.mlt", "line.mlt"]);
+  });
+
+  it("unpicks a chip that is picked", async () => {
+    const app = await sheet();
+    await app.get("dialog .tag[data-tag=v2]").trigger("click");
+    await app.get("dialog .tag[data-tag=v2]").trigger("click");
+    expect(names(app)).toEqual(["point.mlt", "line.mlt"]);
+  });
+
+  it("ands a chip onto the filter box", async () => {
+    const app = await sheet();
+    await app.get("dialog .filter").setValue("l");
+    expect(names(app)).toEqual(["point.mlt", "line.mlt"]);
+    await app.get("dialog .tag[data-tag=v2]").trigger("click");
+    expect(names(app)).toEqual(["line.mlt"]);
+  });
+
+  it("stops a chip the filter box has emptied", async () => {
+    const app = await sheet();
+    await app.get("dialog .filter").setValue("point");
+    expect(
+      app.get<HTMLButtonElement>("dialog .tag[data-tag=v2]").element.disabled,
+    ).toBe(true);
+  });
+
+  it("stops a chip with nothing left to narrow", async () => {
+    const app = await sheet();
+    expect(
+      app.get<HTMLButtonElement>("dialog .tag[data-tag=polygon]").element
+        .disabled,
+    ).toBe(true);
+  });
+
+  it("clears every picked chip at once", async () => {
+    const app = await sheet();
+    await app.get("dialog .tag[data-tag=v2]").trigger("click");
+    await app.get("dialog .clear").trigger("click");
+    expect(names(app)).toEqual(["point.mlt", "line.mlt"]);
+    expect(app.find("dialog .clear").exists()).toBe(false);
   });
 });
 
