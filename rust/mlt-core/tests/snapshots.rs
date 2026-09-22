@@ -13,7 +13,7 @@ use test_each_file::test_each_path;
 //             Geometry validation is done via `mlt ls --validate-to-json`.
 //             See the CLI integration tests / CI configuration for details.
 
-// test_each_path! { for ["mlt"] in "../test/expected/tag0x01" as parse => parse }
+// test_each_path! { for ["mlt"] in "../test/expected/0x01" as parse => parse }
 
 fn parse([path]: [&Path; 1]) {
     let mut snapshot_path = OsString::from("snapshots-");
@@ -65,7 +65,7 @@ fn parse_one_file(path: impl AsRef<Path>) {
     }
 }
 
-// test_each_path! { for ["mlt"] in "../test/expected/tag0x01" as decode => decode }
+// test_each_path! { for ["mlt"] in "../test/expected/0x01" as decode => decode }
 // fn decode([path]: [&Path; 1]) {
 //     let buffer = fs::read(path).unwrap();
 //     let mut layers = parse_layers(&buffer).expect("MLT file parse");
@@ -85,10 +85,10 @@ fn parse_one_file(path: impl AsRef<Path>) {
 #[test]
 #[ignore = "used for manual testing of a single file"]
 fn test_plain() {
-    // let path = "../../test/expected/tag0x01/simple/line-boolean.mlt";
-    let path = "../../test/expected/tag0x01/omt/11_1062_1368.mlt";
-    // let path = "../../test/expected/tag0x01/omt/11_1062_1368.mlt";
-    // let path = "../../test/expected/tag0x01/bing/6-32-21.mlt";
+    // let path = "../../test/expected/0x01/simple/line-boolean.mlt";
+    let path = "../../test/expected/0x01/omt/11_1062_1368.mlt";
+    // let path = "../../test/expected/0x01/omt/11_1062_1368.mlt";
+    // let path = "../../test/expected/0x01/bing/6-32-21.mlt";
 
     let path = Path::new(path);
     let buffer = fs::read(path).unwrap();

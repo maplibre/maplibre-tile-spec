@@ -1391,10 +1391,10 @@ std::vector<char> loadFile(const std::filesystem::path& path) {
 }
 
 std::filesystem::path fixtureBasePath() {
-    for (const auto& base : {"../test/expected/tag0x01/",
-                             "../../test/expected/tag0x01/",
-                             "../../../test/expected/tag0x01/",
-                             "test/expected/tag0x01/"}) {
+    for (const auto& base : {"../test/expected/0x01/",
+                             "../../test/expected/0x01/",
+                             "../../../test/expected/0x01/",
+                             "test/expected/0x01/"}) {
         if (std::filesystem::exists(base)) {
             return base;
         }

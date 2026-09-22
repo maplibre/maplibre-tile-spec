@@ -8,7 +8,7 @@ import type FeatureTable from "../../ts/src/vector/featureTable";
 import { decodeTile as wasmDecodeTile } from "./vectorTile";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const OMT = resolve(__dirname, "../../../test/expected/tag0x01/omt");
+const OMT = resolve(__dirname, "../../../test/expected/0x01/omt");
 
 function loadPool(zoom: number): Uint8Array[] {
   return readdirSync(OMT)

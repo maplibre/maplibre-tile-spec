@@ -71,7 +71,7 @@ bazel-build:
 
 # Sanity test for mlt-cpp-json tool
 test-json:
-    build/tool/mlt-cpp-json ../test/expected/tag0x01/bing/4-12-6.mlt | jq . >/dev/null
+    build/tool/mlt-cpp-json ../test/expected/0x01/bing/4-12-6.mlt | jq . >/dev/null
 
 # Build just the mlt-cpp-json tool in Release (oracle for the Rust differential fuzzer)
 build-json:
