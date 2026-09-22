@@ -15,6 +15,12 @@ use mlt_core::wire::{LengthType, OffsetType, StreamType};
 
 use crate::writer::{SynthErr, SynthResult, SynthWriter};
 
+/// Extent every fixture that does not name its own uses.
+///
+/// v2 codes the extent as a power of two in `64..=2097152`, so a fixture that wants
+/// the default must pick one of those.
+pub const DEFAULT_EXTENT: u32 = 64;
+
 /// Create a layer with all geometry encoders set to `VarInt`.
 pub fn geo_varint() -> Layer {
     Layer::new(IntEncoder::varint())
@@ -736,7 +742,7 @@ impl Layer {
         let mut codecs = Codecs::default();
         StagedLayer::with_nested(
             "layer1",
-            extent.unwrap_or(64),
+            extent.unwrap_or(DEFAULT_EXTENT),
             id,
             geometry,
             props.into_iter().map(|(p, _)| p).collect(),

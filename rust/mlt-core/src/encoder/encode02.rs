@@ -22,9 +22,9 @@ use integer_encoding::VarIntWriter as _;
 
 use crate::decoder::stream::header02::{Count02, Family, StreamCtx02, WordWidth};
 use crate::decoder::{
-    BoolLogical, ColumnCounts, ColumnType02, DataType02, DictionaryType, LayerLayout, LengthType,
-    LogicalEncoding, NodeKind02, NodePresence, NodeType02, PhysicalEncoding, Presence02,
-    StreamMeta, StreamType, ValueType02,
+    BoolLogical, ColumnCounts, ColumnType02, DataType02, DictionaryType, Extent02, LayerLayout,
+    LengthType, LogicalEncoding, NodeKind02, NodePresence, NodeType02, PhysicalEncoding,
+    Presence02, StreamMeta, StreamType, ValueType02,
 };
 use crate::encoder::geometry::encode02::encode_geometry02;
 use crate::encoder::model::{StagedLayer, StrAt, StreamCtx};
@@ -216,6 +216,9 @@ pub(crate) fn encode_into02(
         nested,
     } = layer;
 
+    // v2 spends one nibble on the extent, so an extent it cannot code is rejected
+    // before any of the layer is written.
+    let extent = Extent02::new(extent.get())?;
     let feature_count = u32::try_from(geometry.feature_count())?;
     enc.count_context = Count02::Implied(feature_count);
 
@@ -259,7 +262,7 @@ pub(crate) fn encode_into02(
         write_m_value02(m_value, &shared, &mut enc, codecs)?;
     }
 
-    enc.write_header02(&name, extent.get(), feature_count)?;
+    enc.write_header02(&name, extent, feature_count)?;
     Ok(enc)
 }
 

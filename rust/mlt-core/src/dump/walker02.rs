@@ -20,11 +20,11 @@ use crate::decoder::stream::header02::{
     StreamCtx02, describe_encoding,
 };
 use crate::decoder::{
-    Column02, ColumnCounts, ColumnType02, DataType02, DictionaryType, GeoLayout, Interior02,
-    LayerLayout, LengthType, NodeKind02, NodePresence, NodeType02, Presence02, SharedDictKind,
-    StreamType, ValuesColumn02,
+    Column02, ColumnCounts, ColumnType02, DataType02, DictionaryType, Extent02, GeoLayout,
+    Interior02, LayerLayout, LengthType, NodeKind02, NodePresence, NodeType02, Presence02,
+    SharedDictKind, StreamType, ValuesColumn02,
 };
-use crate::tile::{Extent, MAX_NESTED_DEPTH};
+use crate::tile::MAX_NESTED_DEPTH;
 use crate::utils::{parse_string, parse_u8, take};
 use crate::wire::{
     FloatLogical, IntEncoding, LogicalEncoding, StreamMeta, ValueKind, VertexLogical,
@@ -37,13 +37,14 @@ impl<'a> Walker<'a> {
         if name.is_empty() {
             return Err(MltError::MissingLayerName);
         }
-        let (input, extent) = self.field(
+        let (_, extent_byte) = parse_u8(input)?;
+        let extent = Extent02::parse(extent_byte)?;
+        let (input, _) = self.byte_field(
             input,
             "extent",
-            |i| parse_varint::<u32>(i),
-            |v| Some(v.to_string()),
+            |_| extent.get().to_string(),
+            |byte| extent_bits02(byte, extent),
         )?;
-        Extent::new(extent)?;
         let (input, feature_count) = self.field(
             input,
             "feature_count",
@@ -1010,6 +1011,18 @@ fn layer_layout_bits02(byte: u8) -> Vec<BitField> {
             LayerLayout::GEO_LAYOUT_MASK,
             byte,
             format!("geometry layout = {name_geo}"),
+        ),
+    ]
+}
+
+/// Bit breakdown of the v2 extent byte: reserved (7-4), extent code (3-0).
+fn extent_bits02(byte: u8, extent: Extent02) -> Vec<BitField> {
+    vec![
+        BitField::mask(Extent02::RESERVED_MASK, byte, "reserved".to_string()),
+        BitField::mask(
+            Extent02::EXPONENT_MASK,
+            byte,
+            format!("extent = {}", extent.get()),
         ),
     ]
 }
