@@ -1,6 +1,9 @@
 <style>
   /* Dropped on this page only: under the 61rem grid cap the hex map fits a fraction of the columns the viewport allows. */
   .md-main .md-grid { max-width: none; }
+  /* The page is a frame around the app, so editing its source leads nowhere a reader wants to go. */
+  /* Zensical has no per-page switch for the content actions yet: https://github.com/zensical/backlog/issues/120 */
+  .md-content__button { display: none; }
   .inspector-embed {
     display: block;
     width: 100%;
