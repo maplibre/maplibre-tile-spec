@@ -34,6 +34,8 @@
 //! decoded tile.
 
 mod annotate;
+#[cfg(feature = "coverage")]
+mod coverage;
 mod geometry;
 mod layer;
 mod properties;
