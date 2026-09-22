@@ -5,7 +5,7 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::{Command, Output, id};
 use std::sync::OnceLock;
 
 const FIXTURE: &str = concat!(
@@ -83,7 +83,8 @@ fn mlt_hexdump(tile: &Path, extra_args: &[&str]) -> Output {
 fn truncated_fixture() -> &'static Path {
     static PATH: OnceLock<PathBuf> = OnceLock::new();
     PATH.get_or_init(|| {
-        let path = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("truncated.mlt");
+        let path =
+            PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join(format!("truncated-{}.mlt", id()));
         fs::write(&path, &fs::read(FIXTURE).unwrap()[..20]).unwrap();
         path
     })
