@@ -5,8 +5,8 @@ import { join } from "node:path";
 import type { Plugin } from "vite";
 import type { FixtureEntry } from "../src/fixtures.ts";
 
-/** The four directories of synthetic tiles, which are disjoint sets rather than re-encodings of one another. */
-export const FIXTURE_DIRECTORIES = ["0x01", "0x01-rust", "0x02", "0x02-java"];
+/** The three directories of synthetic tiles, which are disjoint sets rather than re-encodings of one another. */
+export const FIXTURE_DIRECTORIES = ["0x01", "0x01-rust", "0x02"];
 
 /** Scans the fixture directories for tiles, ordered by directory then by name. */
 export function indexFixtures(root: string): FixtureEntry[] {
