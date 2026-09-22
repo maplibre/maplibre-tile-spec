@@ -567,7 +567,7 @@ mod tests {
     #[cfg(feature = "unstable-v2")]
     #[test]
     fn converting_a_v2_tile_back_to_mvt_keeps_every_layer() {
-        let mvt = std::fs::read(OMT_TILE).unwrap();
+        let mvt = fs::read(OMT_TILE).unwrap();
         let back = round_trip(mvt.clone(), WireVersion::V02, TileFormat::Mvt);
         assert_eq!(layer_shape(back), layer_shape(mvt));
     }
@@ -575,7 +575,7 @@ mod tests {
     #[cfg(feature = "unstable-v2")]
     #[test]
     fn re_encoding_a_v2_tile_keeps_every_layer() {
-        let mvt = std::fs::read(OMT_TILE).unwrap();
+        let mvt = fs::read(OMT_TILE).unwrap();
         let expected = mvt_to_tile_layers(mvt.clone()).unwrap().len();
         let mlt = round_trip(mvt, WireVersion::V02, TileFormat::Mlt);
         let layers = Parser::default().parse_layers(&mlt).unwrap();
