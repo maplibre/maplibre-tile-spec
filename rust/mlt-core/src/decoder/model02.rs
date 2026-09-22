@@ -729,22 +729,25 @@ pub(crate) struct Extent02(u8);
 
 impl Extent02 {
     /// Mask of the nibble holding the extent code.
-    pub(crate) const CODE_MASK: u8 = 0b0000_1111;
+    const MAX_EXPONENT: u8 = 0b0000_1111;
+    pub(crate) const EXPONENT_MASK: u8 = Self::MAX_EXPONENT;
 
     /// Mask of the reserved nibble, which MUST be zero.
     pub(crate) const RESERVED_MASK: u8 = 0b1111_0000;
 
     /// Exponent of the smallest extent, which the code is offset by.
-    const MIN_EXPONENT: u32 = 6;
+    const EXPONENT_OFFSET: u32 = 6;
+    const MIN_EXTENT_MASK: u32 = 2_u32.pow(Self::EXPONENT_OFFSET) - 1;
 
     /// Code an extent, rejecting one that is not a power of two in `64..=2097152`.
     pub(crate) fn new(extent: u32) -> MltResult<Self> {
-        let max_extent = 2_u32.pow(u32::from(Self::CODE_MASK) + Self::MIN_EXPONENT);
-        if extent.is_power_of_two()
-            | (extent >= 2_u32.pow(Self::MIN_EXPONENT))
-            | (extent <= max_extent)
+        if (extent & Self::MIN_EXTENT_MASK) == 0
+            && let Some(h) = extent.highest_one()
+            && h >= Self::EXPONENT_OFFSET
+            && h <= (u32::from(Self::MAX_EXPONENT) + Self::EXPONENT_OFFSET)
         {
-            Ok(Self((extent.ilog2() - Self::MIN_EXPONENT) as u8))
+            #[expect(clippy::cast_possible_truncation, reason = "16 < 256")]
+            Ok(Self((h - Self::EXPONENT_OFFSET) as u8))
         } else {
             Err(MltError::UnsupportedExtent02(extent))
         }
@@ -761,7 +764,7 @@ impl Extent02 {
     /// The extent itself, always a power of two in `64..=2097152`.
     #[must_use]
     pub(crate) fn get(self) -> u32 {
-        1 << (u32::from(self.0) + Self::MIN_EXPONENT)
+        1 << (u32::from(self.0) + Self::EXPONENT_OFFSET)
     }
 
     #[must_use]

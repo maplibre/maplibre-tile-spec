@@ -1020,7 +1020,7 @@ fn extent_bits02(byte: u8, extent: Extent02) -> Vec<BitField> {
     vec![
         BitField::mask(Extent02::RESERVED_MASK, byte, "reserved".to_string()),
         BitField::mask(
-            Extent02::CODE_MASK,
+            Extent02::EXPONENT_MASK,
             byte,
             format!("extent = {}", extent.get()),
         ),
