@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.4](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.14.3...rust-mlt-core-v0.14.4) - 2026-09-22
+
+### Added
+
+- *(rust)* code the v2 extent as one nibble ([#1749](https://github.com/maplibre/maplibre-tile-spec/pull/1749))
+
+### Other
+
+- *(rust)* add more test coverage ([#1740](https://github.com/maplibre/maplibre-tile-spec/pull/1740))
+- *(rust)* increase coverage ([#1745](https://github.com/maplibre/maplibre-tile-spec/pull/1745))
+- *(java)* drop the 0x02-java synthetic fixtures ([#1744](https://github.com/maplibre/maplibre-tile-spec/pull/1744))
+- migrate to cargo-nextest ([#1742](https://github.com/maplibre/maplibre-tile-spec/pull/1742))
+- *(rust)* multiply don't divide ALP ([#1741](https://github.com/maplibre/maplibre-tile-spec/pull/1741))
+
 ## [0.14.3](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.14.2...rust-mlt-core-v0.14.3) - 2026-09-21
 
 ### Added
