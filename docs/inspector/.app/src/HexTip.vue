@@ -3,14 +3,7 @@ import { useElementSize, useWindowSize } from "@vueuse/core";
 import { computed, ref } from "vue";
 import type { DecodedBlob, DumpTree } from "./annotate.ts";
 import { blobChips, blobNote } from "./blob.ts";
-import {
-  hex8,
-  type Pointer,
-  regionDotPath,
-  showsDecoded,
-  tipPlacement,
-  type ViewState,
-} from "./hex.ts";
+import { hexOffset, type Pointer, regionDotPath, tipPlacement } from "./hex.ts";
 
 /** Values the tip asks for, which is a glance at a stream rather than the detail pane's page of it. */
 const MAX_VALUES = 8;
@@ -23,7 +16,6 @@ const props = defineProps<{
   /** Leaf the pointer is over, which the map only ever hands a byte owner. */
   index: number;
   at: Pointer;
-  view: ViewState;
   decode: (regionIndex: number, maxValues: number) => DecodedBlob;
 }>();
 
@@ -36,13 +28,13 @@ const region = computed(() => props.tree.regions[props.index] ?? null);
 const path = computed(() => regionDotPath(props.tree.regions, props.index));
 
 const span = computed(() =>
-  region.value ? `${region.value.len} B at ${hex8(region.value.offset)}` : "",
+  region.value
+    ? `${region.value.len} B at ${hexOffset(region.value.offset, props.tree.bufLen)}`
+    : "",
 );
 
 const decoded = computed<DecodedBlob | null>(() =>
-  region.value?.blob && showsDecoded(props.view)
-    ? props.decode(props.index, MAX_VALUES)
-    : null,
+  region.value?.blob ? props.decode(props.index, MAX_VALUES) : null,
 );
 
 const values = computed(() =>

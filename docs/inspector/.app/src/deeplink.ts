@@ -1,7 +1,7 @@
 /** The `fixture`, `layer` and `region` query parameters, which are the whole deep-link contract. */
 
 export interface DeepLink {
-  /** Index key of a synthetic fixture, `<dir>/<name>`. An upload has none. */
+  /** Index key of a synthetic fixture, `<dir>/<name>`. An added tile has none. */
   fixture: string | null;
   /** Index of the top-level layer the tree is filtered to. */
   layer: number | null;

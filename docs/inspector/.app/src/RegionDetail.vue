@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import type { DecodedBlob, DumpTree } from "./annotate.ts";
 import { blobChips, blobNote } from "./blob.ts";
-import { hex2, hex8, regionPath, showsDecoded, type ViewState } from "./hex.ts";
+import { hex2, hexOffset, regionPath } from "./hex.ts";
 
 /** Values the detail pane asks for at a time, which is what keeps a 369-blob tile lazy. */
 const MAX_VALUES = 64;
@@ -16,7 +16,6 @@ const props = defineProps<{
   index: number | null;
   /** False while the pane follows the pointer rather than a selection. */
   sticky: boolean;
-  view: ViewState;
   decode: (regionIndex: number, maxValues: number) => DecodedBlob;
 }>();
 
@@ -44,8 +43,7 @@ const childCount = computed(() => {
 });
 
 const decoded = computed<DecodedBlob | null>(() => {
-  if (props.index === null || !region.value?.blob || !showsDecoded(props.view))
-    return null;
+  if (props.index === null || !region.value?.blob) return null;
   return props.decode(props.index, MAX_VALUES);
 });
 
@@ -60,7 +58,9 @@ const note = computed(() =>
 const span = computed(() => {
   const at = region.value;
   if (!at) return "";
-  return `${hex8(at.offset)} ... ${hex8(at.offset + at.len - 1)} (${at.len} B)`;
+  const last = at.offset + at.len - 1;
+  const bufLen = props.tree.bufLen;
+  return `${hexOffset(at.offset, bufLen)} ... ${hexOffset(last, bufLen)} (${at.len} B)`;
 });
 
 const byte = computed(() =>

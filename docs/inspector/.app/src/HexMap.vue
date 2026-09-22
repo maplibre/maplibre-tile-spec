@@ -6,7 +6,7 @@ import {
   bandTint,
   fadedFrom,
   hex2,
-  hex8,
+  hexOffset,
   type Pointer,
   printable,
   ROW,
@@ -67,7 +67,7 @@ interface Row {
   cells: Cell[];
   /** Blank cells the short last row needs to keep the ascii column under the one above. */
   pad: number;
-  ascii: string;
+  ascii: string[];
 }
 
 /** Band of the byte at `at`, or -1 past either end of the row and while the knob is off. */
@@ -84,7 +84,7 @@ const rows = computed<Row[]>(() => {
     const offset = n * props.view.width;
     const end = Math.min(offset + props.view.width, props.tree.bufLen);
     const cells: Cell[] = [];
-    let ascii = "";
+    const ascii: string[] = [];
     for (let at = offset; at < end; at++) {
       const owner = props.owners[at];
       const region = props.tree.regions[owner];
@@ -94,11 +94,11 @@ const rows = computed<Row[]>(() => {
         owner,
         band,
         starts: region !== undefined && at === region.offset,
-        faded: region !== undefined && at >= fadedFrom(region, props.view),
+        faded: region !== undefined && at >= fadedFrom(region),
         opens: band !== bandAt(at - 1, offset, end),
         closes: band !== bandAt(at + 1, offset, end),
       });
-      ascii += printable(props.bytes[at]);
+      ascii.push(printable(props.bytes[at]));
     }
     out.push({ n, offset, cells, pad: props.view.width - cells.length, ascii });
   }
@@ -137,8 +137,21 @@ function classOf(row: Row, n: number): Record<string, boolean> {
     on,
     starts: cell.starts,
     faded: cell.faded,
+    twin: at === hoveredByte.value,
     opens: on ? n === 0 || at === span[0] : cell.opens,
     closes: on ? n === row.cells.length - 1 || at === span[1] - 1 : cell.closes,
+  };
+}
+
+/** Byte under the pointer, which both its hex cell and its ascii glyph mark. */
+const hoveredByte = ref<number | null>(null);
+
+/** A glyph lights with its region and rings under the pointer, the same as its hex cell. */
+function glyphClassOf(at: number): Record<string, boolean> {
+  const span = litSpan.value;
+  return {
+    on: span !== null && at >= span[0] && at < span[1],
+    twin: at === hoveredByte.value,
   };
 }
 
@@ -148,8 +161,14 @@ function ownerOf(event: Event): number | null {
   return owner === undefined ? null : Number(owner);
 }
 
+function byteOf(event: Event): number | null {
+  const at = (event.target as HTMLElement).dataset?.at;
+  return at === undefined ? null : Number(at);
+}
+
 /** Every move, not only the ones that change region, since the tip travels with the pointer. */
 function onMove(event: MouseEvent) {
+  hoveredByte.value = byteOf(event);
   const owner = ownerOf(event);
   const index = owner === null || owner < 0 ? null : owner;
   emit(
@@ -157,6 +176,11 @@ function onMove(event: MouseEvent) {
     index,
     index === null ? null : { x: event.clientX, y: event.clientY },
   );
+}
+
+function onLeave() {
+  hoveredByte.value = null;
+  emit("hover", null, null);
 }
 
 function onClick(event: MouseEvent) {
@@ -185,7 +209,7 @@ defineExpose({ scrollToRegion });
       class="spacer"
       :style="{ height: `${rowCount * ROW}px` }"
       @mousemove="onMove"
-      @mouseleave="emit('hover', null, null)"
+      @mouseleave="onLeave"
       @click="onClick"
     >
       <caption class="sr-only"
@@ -198,12 +222,13 @@ defineExpose({ scrollToRegion });
           class="hexrow"
           :style="{ top: `${row.n * ROW}px`, height: `${ROW}px` }"
         >
-          <td class="off">{{ hex8(row.offset) }}</td>
+          <td class="off">{{ hexOffset(row.offset, props.tree.bufLen) }}</td>
           <td
             v-for="(cell, n) in row.cells"
             :key="n"
             class="cell"
             :data-owner="cell.owner"
+            :data-at="row.offset + n"
             :class="classOf(row, n)"
             >{{
               cell.hex
@@ -218,7 +243,19 @@ defineExpose({ scrollToRegion });
               "  "
             }}</td
           >
-          <td class="ascii">{{ row.ascii }}</td>
+          <td class="ascii"
+            ><span
+              v-for="(glyph, n) in row.ascii"
+              :key="n"
+              class="glyph"
+              :data-owner="row.cells[n].owner"
+              :data-at="row.offset + n"
+              :class="glyphClassOf(row.offset + n)"
+              >{{
+                glyph
+              }}</span
+            ></td
+          >
         </tr>
       </tbody>
     </table>
@@ -302,6 +339,11 @@ defineExpose({ scrollToRegion });
 .cell.starts.on {
   border-left-color: var(--accent-rule);
 }
+/* The byte under the pointer, ringed in both columns so the one beside it can be found. */
+.cell.twin,
+.glyph.twin {
+  box-shadow: inset 0 0 0 1px var(--text);
+}
 .cell.opens {
   border-start-start-radius: var(--radius-inline);
   border-end-start-radius: var(--radius-inline);
@@ -317,5 +359,12 @@ defineExpose({ scrollToRegion });
 .ascii {
   margin-left: 0.7rem;
   color: var(--dim);
+}
+.glyph {
+  cursor: pointer;
+}
+.glyph.on {
+  background: var(--accent);
+  color: var(--accent-text);
 }
 </style>

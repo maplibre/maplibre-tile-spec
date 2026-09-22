@@ -11,12 +11,12 @@ import {
 
 const props = defineProps<{
   index: FixtureEntry[];
-  /** Index key of the loaded fixture, or null while an upload is shown. */
+  /** Index key of the loaded fixture, or null while an added tile is shown. */
   current: string | null;
   /** Lay the picker out as the empty state rather than as a bar control. */
   hero?: boolean;
 }>();
-const emit = defineEmits<{ fixture: [key: string]; upload: [file: File] }>();
+const emit = defineEmits<{ fixture: [key: string]; file: [file: File] }>();
 
 const sheet = ref<HTMLDialogElement | null>(null);
 const filter = ref("");
@@ -51,7 +51,7 @@ const { open: chooseFile, onChange } = useFileDialog({
 
 onChange((files) => {
   const file = files?.[0];
-  if (file) emit("upload", file);
+  if (file) emit("file", file);
 });
 
 function choose(key: string) {
@@ -66,9 +66,7 @@ function choose(key: string) {
       <button type="button" class="open" @click="sheet?.showModal()">{{
         browse
       }}</button>
-      <button type="button" class="upload" @click="chooseFile()">{{
-        props.hero ? "Upload a .mlt file" : "upload .mlt"
-      }}</button>
+      <button type="button" class="add" @click="chooseFile()">Add tile</button>
     </div>
 
     <template v-if="props.hero">
@@ -149,7 +147,7 @@ function choose(key: string) {
   align-items: center;
   flex-wrap: wrap;
 }
-.upload,
+.add,
 .open {
   background: var(--control);
   color: var(--text);
@@ -173,7 +171,7 @@ function choose(key: string) {
   gap: 1.3rem;
   font-size: 0.85rem;
 }
-.hero .upload,
+.hero .add,
 .hero .open {
   padding: 0.8rem 1.3rem;
   font-size: 0.9rem;
