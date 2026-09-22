@@ -1123,157 +1123,79 @@ mod tests {
 
     #[test]
     fn a_lone_info_row_renders_without_a_total_row() {
-        insta::assert_snapshot!(
-            render_table(&[info_row(mlt_info("a.mlt"))], LsFlags::default()),
-            @"
-         File  |   Size | Enc % | Decoded | Meta | Meta % | Layer | Feature | Stream | Geometry Types
-        -------+--------+-------+---------+------+--------+-------+---------+--------+----------------
-         a.mlt | 12.3kB |   62% |  32.0kB | 900B |   2.8% |     3 |   1,234 |     42 | Pt,Poly
-        "
-        );
+        insta::assert_snapshot!(render_table(&[info_row(mlt_info("a.mlt"))], LsFlags::default()));
     }
 
     #[test]
     fn the_gzip_flag_adds_the_gzipped_and_gz_percent_columns() {
-        insta::assert_snapshot!(render_table(&[info_row(mlt_info("a.mlt"))], GZIP), @"
-         File  |   Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types
-        -------+--------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------
-         a.mlt | 12.3kB |   62% |  32.0kB | 900B |   2.8% |   9.0kB |  27% |     3 |   1,234 |     42 | Pt,Poly
-        ");
+        insta::assert_snapshot!(render_table(&[info_row(mlt_info("a.mlt"))], GZIP));
     }
 
     #[test]
     fn the_algorithms_flag_adds_the_algorithms_column() {
-        insta::assert_snapshot!(render_table(&[info_row(mlt_info("a.mlt"))], ALGORITHMS), @"
-         File  |   Size | Enc % | Decoded | Meta | Meta % | Layer | Feature | Stream | Geometry Types | Algorithms
-        -------+--------+-------+---------+------+--------+-------+---------+--------+----------------+----------------------
-         a.mlt | 12.3kB |   62% |  32.0kB | 900B |   2.8% |     3 |   1,234 |     42 | Pt,Poly        | RawData-VarInt-Delta
-        ");
+        insta::assert_snapshot!(render_table(&[info_row(mlt_info("a.mlt"))], ALGORITHMS));
     }
 
     #[test]
     fn two_mlt_rows_are_summed_into_a_total_row() {
-        insta::assert_snapshot!(
-            render_table(
+        insta::assert_snapshot!(render_table(
                 &[info_row(mlt_info("a.mlt")), info_row(mlt_info("b.mlt"))],
                 GZIP
-            ),
-            @"
-         File  |   Size | Enc % | Decoded |  Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types
-        -------+--------+-------+---------+-------+--------+---------+------+-------+---------+--------+----------------
-         a.mlt | 12.3kB |   62% |  32.0kB |  900B |   2.8% |   9.0kB |  27% |     3 |   1,234 |     42 | Pt,Poly
-         b.mlt | 12.3kB |   62% |  32.0kB |  900B |   2.8% |   9.0kB |  27% |     3 |   1,234 |     42 | Pt,Poly
-        -------+--------+-------+---------+-------+--------+---------+------+-------+---------+--------+----------------
-         TOTAL | 24.6kB |   62% |  64.0kB | 1.8kB |   2.8% |  18.0kB |  27% |     6 |   2,468 |     84 |
-        "
-        );
+            ));
     }
 
     #[test]
     fn a_total_row_over_files_without_decoded_or_gzip_sizes_shows_dashes() {
-        insta::assert_snapshot!(
-            render_table(
+        insta::assert_snapshot!(render_table(
                 &[info_row(mvt_info("a.mvt")), info_row(mvt_info("b.mvt"))],
                 GZIP
-            ),
-            @"
-         File  |    Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types
-        -------+---------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------
-         a.mvt |  54.3kB |     - |       - |    - |      - |       - |    - |     2 |     500 |      - | Line
-         b.mvt |  54.3kB |     - |       - |    - |      - |       - |    - |     2 |     500 |      - | Line
-        -------+---------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------
-         TOTAL | 108.6kB |     - |       - |    - |      - |       - |    - |     4 |   1,000 |      - |
-        "
-        );
+            ));
     }
 
     #[test]
     fn a_mixed_total_row_falls_back_to_dashes_for_the_decoded_columns() {
-        insta::assert_snapshot!(
-            render_table(
+        insta::assert_snapshot!(render_table(
                 &[info_row(mlt_info("a.mlt")), info_row(mvt_info("b.mvt"))],
                 GZIP
-            ),
-            @"
-         File  |   Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types
-        -------+--------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------
-         a.mlt | 12.3kB |   62% |  32.0kB | 900B |   2.8% |   9.0kB |  27% |     3 |   1,234 |     42 | Pt,Poly
-         b.mvt | 54.3kB |     - |       - |    - |      - |       - |    - |     2 |     500 |      - | Line
-        -------+--------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------
-         TOTAL | 66.6kB |     - |       - |    - |      - |   9.0kB |  86% |     5 |   1,734 |      - |
-        "
-        );
+            ));
     }
 
     #[test]
     fn an_error_row_spans_the_remaining_columns() {
-        insta::assert_snapshot!(
-            render_table(
+        insta::assert_snapshot!(render_table(
                 &[
                     info_row(mlt_info("a.mlt")),
                     error_row("broken.mlt", Some(777)),
                     error_row("missing.mlt", None),
                 ],
                 LsFlags::default()
-            ),
-            @"
-         File        |   Size | Enc % | Decoded | Meta | Meta % | Layer | Feature | Stream | Geometry Types
-        -------------+--------+-------+---------+------+--------+-------+---------+--------+----------------
-         a.mlt       | 12.3kB |   62% |  32.0kB | 900B |   2.8% |     3 |   1,234 |     42 | Pt,Poly
-         broken.mlt  | 777B
-         missing.mlt |
-        "
-        );
+            ));
     }
 
     #[test]
     fn validating_marks_every_mismatching_row_with_a_cross() {
-        insta::assert_snapshot!(
-            render_table(
+        insta::assert_snapshot!(render_table(
                 &[
                     info_row(validated(mlt_info("a.mlt"), false)),
                     info_row(validated(mlt_info("b.mlt"), false)),
                 ],
                 VALIDATE
-            ),
-            @"
-         File  |   Size | Enc % | Decoded |  Meta | Meta % | Layer | Feature | Stream | Geometry Types | JSON
-        -------+--------+-------+---------+-------+--------+-------+---------+--------+----------------+------
-         a.mlt | 12.3kB |   62% |  32.0kB |  900B |   2.8% |     3 |   1,234 |     42 | Pt,Poly        | ✗
-         b.mlt | 12.3kB |   62% |  32.0kB |  900B |   2.8% |     3 |   1,234 |     42 | Pt,Poly        | ✗
-        -------+--------+-------+---------+-------+--------+-------+---------+--------+----------------+------
-         TOTAL | 24.6kB |   62% |  64.0kB | 1.8kB |   2.8% |     6 |   2,468 |     84 |                |
-        "
-        );
+            ));
     }
 
     #[test]
     fn validating_hides_a_matching_row_but_keeps_an_error_row() {
-        insta::assert_snapshot!(
-            render_table(
+        insta::assert_snapshot!(render_table(
                 &[
                     info_row(validated(mlt_info("a.mlt"), true)),
                     error_row("broken.mlt", Some(777)),
                 ],
                 VALIDATE
-            ),
-            @"
-         File       | Size |                      Enc % | Decoded | Meta | Meta % | Layer | Feature | Stream | Geometry Types | JSON
-        ------------+------+----------------------------+---------+------+--------+-------+---------+--------+----------------+------
-         broken.mlt | 777B | ERROR: unsupported version |         |      |        |       |         |        |                |
-        "
-        );
+            ));
     }
 
     #[test]
     fn validating_an_unvalidated_row_shows_a_dash_in_the_json_column() {
-        insta::assert_snapshot!(
-            render_table(&[info_row(mlt_info("a.mlt"))], VALIDATE),
-            @"
-         File  |   Size | Enc % | Decoded | Meta | Meta % | Layer | Feature | Stream | Geometry Types | JSON
-        -------+--------+-------+---------+------+--------+-------+---------+--------+----------------+------
-         a.mlt | 12.3kB |   62% |  32.0kB | 900B |   2.8% |     3 |   1,234 |     42 | Pt,Poly        | -
-        "
-        );
+        insta::assert_snapshot!(render_table(&[info_row(mlt_info("a.mlt"))], VALIDATE));
     }
 }

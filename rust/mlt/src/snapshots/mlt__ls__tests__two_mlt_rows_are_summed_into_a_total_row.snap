@@ -1,0 +1,10 @@
+---
+source: mlt/src/ls.rs
+expression: "render_table(&[info_row(mlt_info(\"a.mlt\")), info_row(mlt_info(\"b.mlt\"))],\nGZIP)"
+---
+ File  |   Size | Enc % | Decoded |  Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types 
+-------+--------+-------+---------+-------+--------+---------+------+-------+---------+--------+----------------
+ a.mlt | 12.3kB |   62% |  32.0kB |  900B |   2.8% |   9.0kB |  27% |     3 |   1,234 |     42 | Pt,Poly        
+ b.mlt | 12.3kB |   62% |  32.0kB |  900B |   2.8% |   9.0kB |  27% |     3 |   1,234 |     42 | Pt,Poly        
+-------+--------+-------+---------+-------+--------+---------+------+-------+---------+--------+----------------
+ TOTAL | 24.6kB |   62% |  64.0kB | 1.8kB |   2.8% |  18.0kB |  27% |     6 |   2,468 |     84 |
