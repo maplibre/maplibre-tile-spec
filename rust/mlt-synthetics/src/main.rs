@@ -339,9 +339,11 @@ fn generate_geometry(w: &mut SynthWriter) {
 
     // Regression test for https://github.com/maplibre/maplibre-gl-js/issues/7659:
     // rust encoder and ts decoder disagreed on single-element geometry streams.
+    // v1-only: every feature here is a MultiLineString, so v2 writes no types stream to pin.
     geo_varint()
         .meta(E::delta_varint())
         .no_rings(E::rle_varint())
+        .no_v2()
         .geo(MultiLineString(vec![line1(), line2()]))
         .write(w, "multiline_meta_delta-rust");
 

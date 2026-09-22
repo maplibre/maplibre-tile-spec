@@ -74,8 +74,11 @@ pub enum MltError {
     #[error("error parsing v2 geometry layout: code={0}")]
     ParsingGeoLayout(u8),
     #[cfg(feature = "unstable-v2")]
-    #[error("error parsing v2 extent byte: 0x{0:02X}")]
-    ParsingExtent02(u8),
+    #[error("error parsing v2 layer header byte: 0x{0:02X}")]
+    ParsingLayerHeader02(u8),
+    #[cfg(feature = "unstable-v2")]
+    #[error("error parsing v2 layer layout byte: 0x{0:02X}")]
+    ParsingLayerLayout02(u8),
     #[cfg(feature = "unstable-v2")]
     #[error("v2 extent {0} is not a power of two in 64..=2097152")]
     UnsupportedExtent02(u32),
@@ -85,7 +88,7 @@ pub enum MltError {
     )]
     MValuesNeedVertexCounts(&'static str),
     #[cfg(feature = "unstable-v2")]
-    #[error("the v2 layer layout byte claims an m-value section, but it holds no columns")]
+    #[error("the v2 layer header byte claims an m-value section, but it holds no columns")]
     EmptyMValueSection,
     #[cfg(feature = "unstable-v2")]
     #[error(

@@ -9,18 +9,20 @@
 //!
 //! ```text
 //! [varint name_len] [name bytes]
-//! [u8 extent]                       reserved | extent code, see Extent02
+//! [u8 layer_header]                 m-value flag | uniform geometry type | extent code,
+//!                                   see LayerHeader02
 //! [varint feature_count]
-//! [u8 layer_layout]                 reserved | shared presence count | geometry layout, see LayerLayout
+//! [u8 layer_layout]                 shared presence count | geometry layout, see LayerLayout
 //! [shared presence bitfields]       ceil(feature_count/8) raw bytes each,
 //!                                   one per shared presence count
 //! ── geometry section ─────────────────────────────────
-//! [types stream]                    count = feature_count
+//! [types stream]                    count = feature_count, only when the header byte
+//!                                   names no uniform geometry type
 //! [length streams per layout]       explicit counts
 //! [vertex stream]                   explicit count
 //! ── counted columns ──────────────────────────────────
 //! [varint column_count]             ids + scalars only (geometry excluded), or when
-//!                                   the layout byte says an m-value section follows,
+//!                                   the header byte says an m-value section follows,
 //!                                   a Morton code with column_count on the even bits
 //!                                   and the non-zero m_value_count on the odd bits
 //! per column:
@@ -31,7 +33,7 @@
 //!                                   the presence nibble is Inline; a Shared
 //!                                   nibble reads one of the layer's instead
 //!   [data stream]                   count = feature_count or presence popcount
-//! ── m-value section, only when the layout byte says so ─
+//! ── m-value section, only when the header byte says so ─
 //! per m-value column:
 //!   [u8 column_type]                as for a counted column, but never an id
 //!                                   nor a shared dictionary
@@ -56,11 +58,11 @@ use crate::decoder::stream::header02;
 use crate::decoder::stream::header02::{Count02, HAS_EXPLICIT_COUNT, StrLayout, StreamCtx02};
 use crate::decoder::{
     Column02, ColumnCounts, ColumnKind02, ColumnType02, DataType02, Decoder, DictLayout,
-    DictionaryType, Extent02, FloatLogical, GeoLayout, Id, IdWidth02, Layer01, LayerLayout,
-    LengthType, LogicalEncoding, MValues, Nested, Presence02, RawFloats, RawFloatsEncoding,
-    RawFsstData, RawGeometry, RawId, RawIdValue, RawMValue, RawPlainData, RawPresence, RawProperty,
-    RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings,
-    RawStringsEncoding, SharedDictKind, ValueType02, ValuesColumn02,
+    DictionaryType, FloatLogical, GeoLayout, GeoTypes, Id, IdWidth02, Layer01, LayerHeader02,
+    LayerLayout, LengthType, LogicalEncoding, MValues, Nested, Presence02, RawFloats,
+    RawFloatsEncoding, RawFsstData, RawGeometry, RawId, RawIdValue, RawMValue, RawPlainData,
+    RawPresence, RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem,
+    RawStream, RawStrings, RawStringsEncoding, SharedDictKind, ValueType02, ValuesColumn02,
 };
 use crate::tile::{ColumnRole, Extent, reject_taken_name};
 use crate::utils::{SetOptionOnce as _, parse_string, parse_u8, take};
@@ -75,13 +77,14 @@ pub(crate) fn parse_layer02<'a>(
     if layer_name.is_empty() {
         return Err(MissingLayerName);
     }
-    let (input, extent_byte) = parse_u8(input)?;
-    let extent = Extent::new(Extent02::parse(extent_byte)?.get())?;
+    let (input, header_byte) = parse_u8(input)?;
+    let header = LayerHeader02::parse(header_byte)?;
+    let extent = Extent::new(header.extent.get())?;
     let (input, feature_count) = parse_varint::<u32>(input)?;
     let (input, layout_byte) = parse_u8(input)?;
     let layout = LayerLayout::parse(layout_byte)?;
 
-    if layout.m_values && !layout.geometry.allows_m_values() {
+    if header.m_values && !layout.geometry.allows_m_values() {
         return Err(MltError::MValuesNeedVertexCounts(layout.geometry.into()));
     }
 
@@ -89,10 +92,10 @@ pub(crate) fn parse_layer02<'a>(
     let (input, cols) = parse_shared_presence(input, layout, feature_count)?;
 
     // ── Geometry section ──────────────────────────────────────────────────
-    let (input, geometry) = parse_geometry(input, layout.geometry, feature_count, parser)?;
+    let (input, geometry) = parse_geometry(input, header, layout.geometry, feature_count, parser)?;
 
     // ── Counted columns ───────────────────────────────────────────────────
-    let (mut input, counts) = ColumnCounts::parse(input, layout)?;
+    let (mut input, counts) = ColumnCounts::parse(input, header.m_values)?;
     let column_count = counts.columns;
     // Each column requires at least 1 byte (column type).
     if input.len() < column_count.into_usize() {
@@ -176,7 +179,7 @@ pub(crate) fn parse_layer02<'a>(
 
     // ── M-value section ───────────────────────────────────────────────────
     let m_values;
-    (input, m_values) = if layout.m_values {
+    (input, m_values) = if header.m_values {
         parse_m_values(input, counts.m_values, &cols, &mut column_names, parser)?
     } else {
         (input, Vec::new())
@@ -681,13 +684,25 @@ fn parse_bitfield(input: &[u8], feature_count: u32) -> MltRefResult<'_, &BitSlic
 /// v1 encoder would have written, so [`RawGeometry`] decoding is shared.
 fn parse_geometry<'a>(
     input: &'a [u8],
+    header: LayerHeader02,
     layout: GeoLayout,
     feature_count: u32,
     parser: &mut Parser,
 ) -> MltRefResult<'a, RawGeometry<'a>> {
     // Every geometry stream is read against the feature count the header gave.
     let count = Count02::Implied(feature_count);
-    let (mut input, types) = header02::parse_stream(input, StreamCtx02::GeomTypes, count, parser)?;
+    // A uniform layer writes no types stream: the header byte holds the one type.
+    let mut input = input;
+    let types = if let Some(geometry_type) = header.uniform_type {
+        GeoTypes::Uniform {
+            geometry_type,
+            feature_count,
+        }
+    } else {
+        let stream;
+        (input, stream) = header02::parse_stream(input, StreamCtx02::GeomTypes, count, parser)?;
+        GeoTypes::Stream(stream)
+    };
 
     let mut items = Vec::with_capacity(6);
     // Each stream's role comes from its position, so they only differ in context.
@@ -721,5 +736,5 @@ fn parse_geometry<'a>(
         input = stream(input, StreamCtx02::GeomVertexOffsets, &mut items)?;
     }
 
-    Ok((input, RawGeometry { meta: types, items }))
+    Ok((input, RawGeometry { types, items }))
 }

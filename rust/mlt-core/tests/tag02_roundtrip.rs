@@ -612,10 +612,10 @@ fn columns_with_the_same_nulls_share_one_presence_bitfield() {
 
 #[test]
 fn shared_presence_count_is_capped_by_the_layout_byte() {
-    // Nine features give more than seven distinct masks to go around.
-    let masks: Vec<String> = (0..8)
+    // Sixteen features give more than fourteen distinct masks to go around.
+    let masks: Vec<String> = (0..15)
         .map(|i| {
-            let mut mask = vec![b'0'; 9];
+            let mut mask = vec![b'0'; 16];
             mask[0] = b'1';
             mask[i + 1] = b'1';
             String::from_utf8(mask).unwrap()
@@ -632,11 +632,11 @@ fn shared_presence_count_is_capped_by_the_layout_byte() {
     assert_differential(&l);
 
     let dump = dump_text(&l.encode(cfg_v2()).unwrap());
-    assert!(dump.contains("shared presence bitfields = 7"), "{dump}");
-    assert_eq!(dump.matches("presence = Shared(6)").count(), 2, "{dump}");
+    assert!(dump.contains("shared presence bitfields = 14"), "{dump}");
+    assert_eq!(dump.matches("presence = Shared(13)").count(), 2, "{dump}");
     // Every group is shared by two columns, so the last one loses the tie-break.
     assert_eq!(dump.matches("presence = Inline").count(), 2, "{dump}");
-    assert_eq!(dump.matches("[Present ").count(), 9, "{dump}");
+    assert_eq!(dump.matches("[Present ").count(), 16, "{dump}");
 }
 
 #[test]
@@ -721,6 +721,90 @@ mod geometry_layouts {
             "{dump}"
         );
         assert_differential_with(&l, cfg_tessellated());
+    }
+
+    /// The meaning of every bit field of the layer's two header bytes, in wire order.
+    fn header_bits(bytes: &[u8]) -> Vec<String> {
+        annotate(bytes)
+            .regions
+            .iter()
+            .filter(|r| r.label == "header" || r.label == "layout")
+            .flat_map(|r| r.bits.iter().map(|b| b.meaning().to_string()))
+            .collect()
+    }
+
+    /// The streams of the layer's geometry section, in wire order.
+    fn geometry_streams(bytes: &[u8]) -> Vec<String> {
+        let tree = annotate(bytes);
+        let geometry = tree
+            .regions
+            .iter()
+            .find(|r| r.label == "geometry")
+            .expect("a geometry section");
+        tree.regions
+            .iter()
+            .skip_while(|r| r.label != "geometry")
+            .skip(1)
+            .take_while(|r| r.depth > geometry.depth)
+            .filter(|r| r.depth == geometry.depth + 1)
+            .map(|r| r.label.clone())
+            .collect()
+    }
+
+    #[rstest]
+    #[case::points(vec![pt(1, 2), pt(3, 4)], "Point", "Points")]
+    #[case::lines(vec![line(&[(0, 0), (1, 1)]), line(&[(2, 2), (3, 3)])], "LineString", "Lines")]
+    #[case::polygons(vec![Geometry::Polygon(square(0, 0))], "Polygon", "Polygons")]
+    #[case::multi_points(
+        vec![Geometry::MultiPoint(MultiPoint(vec![Point::new(1, 2), Point::new(3, 4)]))],
+        "MultiPoint",
+        "MultiPoints"
+    )]
+    #[case::multi_polygons(
+        vec![Geometry::MultiPolygon(MultiPolygon(vec![square(0, 0), square(20, 20)]))],
+        "MultiPolygon",
+        "MultiPolygons"
+    )]
+    fn one_geometry_type_moves_into_the_header_byte(
+        #[case] geoms: Vec<Geometry<i32>>,
+        #[case] geometry_type: &str,
+        #[case] geo_layout: &str,
+    ) {
+        let l = layer(geoms, None, &[]);
+        let bytes = l.clone().encode(cfg_v2()).unwrap();
+        assert_eq!(
+            header_bits(&bytes),
+            [
+                "no m-value section".to_string(),
+                format!("every feature is a {geometry_type}, no types stream"),
+                "extent = 4096".to_string(),
+                "shared presence bitfields = 0".to_string(),
+                format!("geometry layout = {geo_layout}"),
+            ]
+        );
+        assert!(!geometry_streams(&bytes).contains(&"types".to_string()));
+        assert_differential(&l);
+    }
+
+    #[test]
+    fn mixed_geometry_types_keep_their_stream() {
+        let l = layer(vec![pt(5, 5), line(&[(0, 0), (10, 10)])], None, &[]);
+        let bytes = l.clone().encode(cfg_v2()).unwrap();
+        assert_eq!(
+            header_bits(&bytes),
+            [
+                "no m-value section",
+                "a types stream leads the geometry section",
+                "extent = 4096",
+                "shared presence bitfields = 0",
+                "geometry layout = Lines",
+            ]
+        );
+        assert_eq!(
+            geometry_streams(&bytes),
+            ["types", "part_lengths", "vertices"]
+        );
+        assert_differential(&l);
     }
 
     #[test]
@@ -1141,11 +1225,11 @@ mod strings {
         }
 
         #[test]
-        fn dict_children_compete_for_the_seven_slots_the_layout_byte_allows() {
-            // Eight masks, each held by two children: one group has to lose the tie-break.
-            let masks: Vec<String> = (0..8)
+        fn dict_children_compete_for_the_slots_the_layout_byte_allows() {
+            // Fifteen masks, each held by two children: one group has to lose the tie-break.
+            let masks: Vec<String> = (0..15)
                 .map(|i| {
-                    let mut mask = vec![b'0'; 9];
+                    let mut mask = vec![b'0'; 16];
                     mask[0] = b'1';
                     mask[1] = b'1';
                     if i > 0 {
@@ -1161,9 +1245,9 @@ mod strings {
             let l = dict_layer(&paired, &[]);
             assert_differential(&l);
 
-            assert_eq!(count(&l, "shared presence bitfields = 7"), 1);
+            assert_eq!(count(&l, "shared presence bitfields = 14"), 1);
             assert_eq!(count(&l, "presence = Inline"), 2);
-            assert_eq!(count(&l, "[Present "), 9);
+            assert_eq!(count(&l, "[Present "), 16);
         }
 
         #[test]
@@ -1618,7 +1702,6 @@ mod bit_packing {
         assert_eq!(
             stream_physicals(&packed),
             [
-                PhysicalEncoding::VarInt,
                 PhysicalEncoding::FastPFor(FastPForKind::Block128Le),
                 PhysicalEncoding::BitPacked,
                 PhysicalEncoding::VarInt,

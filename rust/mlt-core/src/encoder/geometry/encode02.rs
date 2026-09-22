@@ -32,7 +32,7 @@ struct Tessellation {
 
 /// The streams of a v2 geometry section, before the layout byte that declares them is settled.
 pub(crate) struct GeometrySection02 {
-    types: Vec<u32>,
+    types: Vec<GeometryType>,
     geo_lengths: Option<Vec<u32>>,
     topology: Topology,
     tessellation: Option<Tessellation>,
@@ -158,7 +158,7 @@ pub(crate) fn encode_geometry02(geometry: GeometryValues) -> MltResult<GeometryS
     }
 
     Ok(GeometrySection02 {
-        types: vector_types.iter().map(|t| *t as u32).collect(),
+        types: vector_types,
         geo_lengths,
         topology,
         tessellation,
@@ -166,7 +166,23 @@ pub(crate) fn encode_geometry02(geometry: GeometryValues) -> MltResult<GeometryS
     })
 }
 
+/// What a written geometry section puts in the layer's two header bytes.
+pub(crate) struct GeometryHeader02 {
+    pub(crate) layout: GeoLayout,
+    /// The type every feature has, when the section wrote no types stream.
+    pub(crate) uniform_type: Option<GeometryType>,
+}
+
 impl GeometrySection02 {
+    /// The one type every feature has, when they share one.
+    ///
+    /// Such a types stream is a single run saying nothing the header byte's nibble
+    /// cannot, so the section drops it and the nibble carries the type instead.
+    fn uniform_type(&self) -> Option<GeometryType> {
+        let (first, rest) = self.types.split_first()?;
+        rest.iter().all(|t| t == first).then_some(*first)
+    }
+
     /// The layout declaring these streams, once the vertex storage is known.
     fn layout(&self, vertices: VertexStorage) -> GeoLayout {
         if self.tessellation.is_some() {
@@ -176,20 +192,29 @@ impl GeometrySection02 {
         }
     }
 
-    /// Write the geometry streams to `enc` and return the [`GeoLayout`] declaring them.
+    /// Write the geometry streams to `enc` and return what the header bytes must say.
     ///
     /// The layout is only known once the vertex streams are written, since the
     /// dictionary layouts are picked by writing them and keeping the shortest, so
     /// the caller patches the layout byte it reserved before this call.
     ///
     /// Expects `enc.count_context` to hold the layer's `feature_count`.
-    pub(crate) fn write_to(self, enc: &mut Encoder, codecs: &mut Codecs) -> MltResult<GeoLayout> {
+    pub(crate) fn write_to(
+        self,
+        enc: &mut Encoder,
+        codecs: &mut Codecs,
+    ) -> MltResult<GeometryHeader02> {
         // Types and length streams are integer streams, only the vertex streams have their own family.
         enc.family_context = Family::Int(WordWidth::W32);
 
         // Types stream: implicit count = feature_count (the current count context).
-        let ctx = StreamCtx::geom(StreamType::Length(LengthType::VarBinary), "meta");
-        codecs.write_int_stream(&self.types, &ctx, enc)?;
+        // A layer whose features share a type writes the header byte's nibble instead.
+        let uniform_type = self.uniform_type();
+        if uniform_type.is_none() {
+            let types: Vec<u32> = self.types.iter().map(|t| *t as u32).collect();
+            let ctx = StreamCtx::geom(StreamType::Length(LengthType::VarBinary), "meta");
+            codecs.write_int_stream(&types, &ctx, enc)?;
+        }
 
         let (part_lengths, ring_lengths) = self.topology.streams();
         let lengths = [
@@ -216,7 +241,10 @@ impl GeometrySection02 {
         }
 
         let vertices = write_vertices(&self.vertices, self.tessellation.is_some(), enc, codecs)?;
-        Ok(self.layout(vertices))
+        Ok(GeometryHeader02 {
+            layout: self.layout(vertices),
+            uniform_type,
+        })
     }
 }
 

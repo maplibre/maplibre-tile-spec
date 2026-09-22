@@ -21,8 +21,8 @@ use crate::decoder::stream::header02::{
 };
 use crate::decoder::{
     Column02, ColumnCounts, ColumnType02, DataType02, DictionaryType, Extent02, GeoLayout,
-    Interior02, LayerLayout, LengthType, NodeKind02, NodePresence, NodeType02, Presence02,
-    SharedDictKind, StreamType, ValuesColumn02,
+    Interior02, LayerHeader02, LayerLayout, LengthType, NodeKind02, NodePresence, NodeType02,
+    Presence02, SharedDictKind, StreamType, ValuesColumn02,
 };
 use crate::tile::MAX_NESTED_DEPTH;
 use crate::utils::{parse_string, parse_u8, take};
@@ -37,13 +37,13 @@ impl<'a> Walker<'a> {
         if name.is_empty() {
             return Err(MltError::MissingLayerName);
         }
-        let (_, extent_byte) = parse_u8(input)?;
-        let extent = Extent02::parse(extent_byte)?;
+        let (_, header_byte) = parse_u8(input)?;
+        let header = LayerHeader02::parse(header_byte)?;
         let (input, _) = self.byte_field(
             input,
-            "extent",
-            |_| extent.get().to_string(),
-            |byte| extent_bits02(byte, extent),
+            "header",
+            |_| describe_header02(header),
+            |byte| layer_header_bits02(byte, header),
         )?;
         let (input, feature_count) = self.field(
             input,
@@ -75,14 +75,14 @@ impl<'a> Walker<'a> {
         }
 
         let gi = self.open(input, "geometry".to_string());
-        input = self.walk_geometry02(input, layout.geometry, feature_count)?;
+        input = self.walk_geometry02(input, header, layout.geometry, feature_count)?;
         self.close(gi, input);
 
-        let (rest, counts) = if layout.m_values {
+        let (rest, counts) = if header.m_values {
             self.field(
                 input,
                 "column_counts",
-                |i| ColumnCounts::parse(i, layout),
+                |i| ColumnCounts::parse(i, true),
                 |c| {
                     Some(format!(
                         "columns = {}, m-values = {}",
@@ -94,7 +94,7 @@ impl<'a> Walker<'a> {
             self.field(
                 input,
                 "column_count",
-                |i| ColumnCounts::parse(i, layout),
+                |i| ColumnCounts::parse(i, false),
                 |c| Some(c.columns.to_string()),
             )?
         };
@@ -113,7 +113,7 @@ impl<'a> Walker<'a> {
             self.close(di, input);
         }
 
-        if layout.m_values {
+        if header.m_values {
             let mi = self.open(input, "m_values".to_string());
             input = self.walk_m_values02(input, counts.m_values, feature_count, &shared)?;
             self.close(mi, input);
@@ -130,18 +130,23 @@ impl<'a> Walker<'a> {
     fn walk_geometry02(
         &mut self,
         input: &'a [u8],
+        header: LayerHeader02,
         layout: GeoLayout,
         feature_count: u32,
     ) -> MltResult<&'a [u8]> {
         // Every geometry stream is read against the feature count the header gave.
         let count = Count02::Implied(feature_count);
-        let (mut input, _) = self.walk_stream02(
-            input,
-            StreamCtx02::GeomTypes,
-            count,
-            "types",
-            DecodeHint::U32,
-        )?;
+        // A uniform layer writes no types stream: the header byte holds the one type.
+        let mut input = input;
+        if header.uniform_type.is_none() {
+            (input, _) = self.walk_stream02(
+                input,
+                StreamCtx02::GeomTypes,
+                count,
+                "types",
+                DecodeHint::U32,
+            )?;
+        }
 
         let lengths = [
             (
@@ -988,20 +993,13 @@ fn hint_for(typ: DataType02) -> DecodeHint {
 }
 
 /// Bit breakdown of the v2 layer layout byte:
-/// - m-value section flag (7),
-/// - shared presence bitfield count (6-4),
+/// - shared presence bitfield count (7-4),
 /// - geometry layout (3-0).
 fn layer_layout_bits02(byte: u8) -> Vec<BitField> {
-    let (_, shared_presence, geometry) = LayerLayout::fields(byte);
+    let (shared_presence, geometry) = LayerLayout::fields(byte);
     let name_geo = GeoLayout::try_from(geometry)
         .map_or_else(|_| format!("reserved({geometry})"), |g| format!("{g:?}"));
     vec![
-        BitField::flag(
-            LayerLayout::M_VALUES_MASK,
-            byte,
-            "an m-value section ends the body",
-            "no m-value section",
-        ),
         BitField::mask(
             LayerLayout::SHARED_PRESENCE_MASK,
             byte,
@@ -1015,14 +1013,39 @@ fn layer_layout_bits02(byte: u8) -> Vec<BitField> {
     ]
 }
 
-/// Bit breakdown of the v2 extent byte: reserved (7-4), extent code (3-0).
-fn extent_bits02(byte: u8, extent: Extent02) -> Vec<BitField> {
+/// One-line summary of the v2 layer header byte.
+fn describe_header02(header: LayerHeader02) -> String {
+    let mut parts = vec![format!("extent = {}", header.extent.get())];
+    if let Some(geometry_type) = header.uniform_type {
+        parts.push(format!("every feature is a {geometry_type}"));
+    }
+    if header.m_values {
+        parts.push("m-values".to_string());
+    }
+    parts.join(", ")
+}
+
+/// Bit breakdown of the v2 layer header byte:
+/// - m-value section flag (7),
+/// - uniform geometry type (6-4),
+/// - extent code (3-0).
+fn layer_header_bits02(byte: u8, header: LayerHeader02) -> Vec<BitField> {
+    let types = header.uniform_type.map_or_else(
+        || "a types stream leads the geometry section".to_string(),
+        |geometry_type| format!("every feature is a {geometry_type}, no types stream"),
+    );
     vec![
-        BitField::mask(Extent02::RESERVED_MASK, byte, "reserved".to_string()),
+        BitField::flag(
+            LayerHeader02::M_VALUES_MASK,
+            byte,
+            "an m-value section ends the body",
+            "no m-value section",
+        ),
+        BitField::mask(LayerHeader02::UNIFORM_TYPE_MASK, byte, types),
         BitField::mask(
             Extent02::EXPONENT_MASK,
             byte,
-            format!("extent = {}", extent.get()),
+            format!("extent = {}", header.extent.get()),
         ),
     ]
 }

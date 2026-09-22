@@ -80,12 +80,12 @@ fn assert_dump_covers(bytes: &[u8]) {
     render(&tree, bytes, &RenderOpts::default(), &mut Vec::new()).expect("render");
 }
 
-fn layout_bits_and_column_types(bytes: &[u8]) -> String {
+fn header_bits_and_column_types(bytes: &[u8]) -> String {
     let tree = annotate(bytes);
     let mut lines = Vec::new();
     let mut column = None;
     for region in &tree.regions {
-        if region.label == "layout" {
+        if region.label == "header" || region.label == "layout" {
             lines.extend(region.bits.iter().map(|b| b.meaning().to_string()));
         }
         if region.container {
@@ -158,8 +158,10 @@ fn a_line_layer_holds_one_value_per_vertex() {
         &[("dist", i32s(&[&[0, 10, 20], &[0, 30]]))],
     );
     let bytes = assert_round_trips_as_v2(&l);
-    insta::assert_snapshot!(layout_bits_and_column_types(&bytes), @r#"
+    insta::assert_snapshot!(header_bits_and_column_types(&bytes), @r#"
     an m-value section ends the body
+    every feature is a LineString, no types stream
+    extent = 4096
     shared presence bitfields = 0
     geometry layout = Lines
     m_value[0] I32 "dist": presence = AllPresent
@@ -299,8 +301,10 @@ fn a_feature_with_no_values_stores_an_inline_bitfield_and_no_values() {
         )],
     );
     let bytes = assert_round_trips_as_v2(&l);
-    insta::assert_snapshot!(layout_bits_and_column_types(&bytes), @r#"
+    insta::assert_snapshot!(header_bits_and_column_types(&bytes), @r#"
     an m-value section ends the body
+    every feature is a LineString, no types stream
+    extent = 4096
     shared presence bitfields = 0
     geometry layout = Lines
     m_value[0] OptI32 "m": presence = Inline
@@ -330,8 +334,10 @@ fn two_m_value_columns_with_the_same_nulls_share_one_bitfield() {
     };
     let l = layer(geoms, &[("a", column()), ("b", column())]);
     let bytes = assert_round_trips_as_v2(&l);
-    insta::assert_snapshot!(layout_bits_and_column_types(&bytes), @r#"
+    insta::assert_snapshot!(header_bits_and_column_types(&bytes), @r#"
     an m-value section ends the body
+    every feature is a LineString, no types stream
+    extent = 4096
     shared presence bitfields = 1
     geometry layout = Lines
     m_value[0] OptI32 "a": presence = Shared(0)
@@ -357,8 +363,10 @@ fn an_m_value_column_shares_a_bitfield_with_a_property_column() {
     }
     let l = builder.finish();
     let bytes = assert_round_trips_as_v2(&l);
-    insta::assert_snapshot!(layout_bits_and_column_types(&bytes), @r#"
+    insta::assert_snapshot!(header_bits_and_column_types(&bytes), @r#"
     an m-value section ends the body
+    every feature is a LineString, no types stream
+    extent = 4096
     shared presence bitfields = 1
     geometry layout = Lines
     column[0] OptU32 "p": presence = Shared(0)
@@ -675,8 +683,10 @@ fn encode_dictionary_vertex_layer() -> Vec<u8> {
 #[test]
 fn a_dictionary_vertex_layout_holds_one_value_per_offset() {
     let bytes = encode_dictionary_vertex_layer();
-    insta::assert_snapshot!(layout_bits_and_column_types(&bytes), @r#"
+    insta::assert_snapshot!(header_bits_and_column_types(&bytes), @r#"
     an m-value section ends the body
+    every feature is a LineString, no types stream
+    extent = 4096
     shared presence bitfields = 0
     geometry layout = LinesDict
     m_value[0] I32 "m": presence = AllPresent

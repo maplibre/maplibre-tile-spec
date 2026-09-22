@@ -15,8 +15,25 @@ pub type Geometry<'a, S = Lazy> = <S as DecodeState>::LazyOrParsed<RawGeometry<'
 /// Raw geometry data as read directly from the tile (borrows from input bytes)
 #[derive(Debug, PartialEq, Clone)]
 pub struct RawGeometry<'a> {
-    pub(crate) meta: RawStream<'a>,
+    pub(crate) types: GeoTypes<'a>,
     pub(crate) items: Vec<RawStream<'a>>,
+}
+
+/// Where a geometry section's per-feature [`GeometryType`]s come from.
+///
+/// A v1 section always spells them out. A v2 section may instead name one type in
+/// its [layer header byte](crate::decoder::LayerHeader02), which is all a layer of
+/// a single geometry type has to say.
+#[derive(Debug, PartialEq, Clone)]
+pub enum GeoTypes<'a> {
+    /// The leading stream of the section, one value per feature.
+    Stream(RawStream<'a>),
+    /// No stream: every one of `feature_count` features has this type.
+    #[cfg(feature = "unstable-v2")]
+    Uniform {
+        geometry_type: GeometryType,
+        feature_count: u32,
+    },
 }
 
 /// Parsed (decoded) geometry data
