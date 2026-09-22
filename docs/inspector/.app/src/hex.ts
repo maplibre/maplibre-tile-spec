@@ -97,18 +97,14 @@ export function bandTint(band: number): number {
   return band < 0 ? -1 : band % BLOCKS;
 }
 
-/** Enclosing container labels, outermost first, found by walking back up the depths. */
+/** Containers that only group indexed siblings, whose own label a path would repeat. */
+const GROUPINGS = new Set(["column data", "columns", "m_values", "header"]);
+
+/** Enclosing container labels, outermost first, without the pure groupings. */
 export function regionPath(regions: Region[], index: number): string[] {
-  const path: string[] = [];
-  let depth = regions[index].depth;
-  for (let at = index - 1; at >= 0 && depth > 0; at--) {
-    const region = regions[at];
-    if (region.container && region.depth < depth) {
-      path.unshift(region.label);
-      depth = region.depth;
-    }
-  }
-  return path;
+  return ancestors(regions, index)
+    .map((at) => regions[at].label)
+    .filter((label) => !GROUPINGS.has(label));
 }
 
 /** The same path as one name, which is how the hover tip and the detail pane title a region. */

@@ -124,6 +124,46 @@ describe("regionPath", () => {
   it("is empty for a top-level container", () => {
     expect(regionPath(tree.regions, 0)).toEqual([]);
   });
+
+  it("skips the column data and stream header groupings", () => {
+    const regions = [
+      region({ offset: 0, len: 4, label: "layer[0]", container: true }),
+      region({
+        offset: 0,
+        len: 4,
+        label: "column data",
+        depth: 1,
+        container: true,
+      }),
+      region({
+        offset: 0,
+        len: 4,
+        label: "column[1] Geometry",
+        depth: 2,
+        container: true,
+      }),
+      region({
+        offset: 0,
+        len: 4,
+        label: "stream[2]",
+        depth: 3,
+        container: true,
+      }),
+      region({
+        offset: 0,
+        len: 2,
+        label: "header",
+        depth: 4,
+        container: true,
+      }),
+      region({ offset: 0, len: 1, label: "stream_type", depth: 5 }),
+    ];
+    expect(regionPath(regions, 5)).toEqual([
+      "layer[0]",
+      "column[1] Geometry",
+      "stream[2]",
+    ]);
+  });
 });
 
 describe("regionDotPath", () => {
