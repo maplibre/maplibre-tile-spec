@@ -566,6 +566,16 @@
     border-radius: 10px;
     background: var(--md-default-bg-color);
   }
+  /* Tall enough for the app's floor, the page stops scrolling and the frame takes whatever the title leaves. */
+  @media (min-height: 44rem) {
+    body { height: 100dvh; }
+    .md-footer { display: none; }
+    .md-container, .md-main, .md-content { display: flex; flex-direction: column; min-height: 0; }
+    .md-main__inner, .md-content, .md-content__inner { flex: 1; min-height: 0; }
+    .md-main__inner { width: 100%; }
+    .md-content__inner { display: flex; flex-direction: column; }
+    .inspector-embed { flex: 1; height: auto; min-height: 0; }
+  }
 </style>
 
 <iframe class="inspector-embed" src="app/index.html" title="MLT Tile Inspector" loading="lazy"></iframe>
