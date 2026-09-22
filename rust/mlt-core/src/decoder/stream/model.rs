@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter, Result as FmtResult};
+
 use derive_debug::Dbg;
 use num_enum::TryFromPrimitive;
 
@@ -119,6 +121,7 @@ pub struct Alp {
 #[cfg(feature = "unstable-v2")]
 impl AlpScale {
     /// Largest exponent the codes can carry, past which `v * 10^e` leaves the `i64` range.
+    /// The codes themselves are bounded tighter, to `2^53 - 1`, by the encoder.
     pub(crate) const MAX_EXPONENT: u8 = 18;
 
     /// Net power of ten the codes carry, which fixes their magnitude and so their stored size.
@@ -132,7 +135,7 @@ impl AlpScale {
 
 /// Flattened, since the nesting is an encoder concern and these appear in stream labels.
 impl std::fmt::Debug for Alp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(
             f,
             "Alp {{ e: {}, f: {}, base: {} }}",
@@ -155,7 +158,8 @@ impl Alp {
     }
 
     /// Measure a scaled integer from the frame of reference, giving the offset the stream stores.
-    /// Wrapping, so a column spanning the whole `i64` range still subtracts exactly.
+    /// Wrapping, so a foreign stream whose codes span the whole `i64` range still subtracts
+    /// exactly; our own encoder keeps codes within `2^53 - 1`, so the spread fits `u64` easily.
     #[expect(
         clippy::cast_sign_loss,
         reason = "the bit pattern is the point; `code_at` casts it back"
@@ -439,5 +443,117 @@ impl<'a> RawStream<'a> {
     #[must_use]
     pub(crate) fn new(meta: StreamMeta, data: &'a [u8]) -> Self {
         Self { meta, data }
+    }
+}
+
+// Display impls the annotated dump's JSON carries instead of serde derives on this
+// vocabulary, so the wire enums do not become frozen public JSON API.
+
+impl Display for StreamType {
+    /// `present`, `data`, `data[fsst]`, `offset[string]`, `length[rings]`.
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match self {
+            Self::Present => f.write_str("present"),
+            Self::Data(dict) => {
+                let name = match dict {
+                    DictionaryType::None => return f.write_str("data"),
+                    DictionaryType::Single => "single",
+                    DictionaryType::Shared => "shared",
+                    DictionaryType::Vertex => "vertex",
+                    DictionaryType::Morton => "morton",
+                    DictionaryType::Fsst => "fsst",
+                };
+                write!(f, "data[{name}]")
+            }
+            Self::Offset(offset) => {
+                let name = match offset {
+                    OffsetType::Vertex => "vertex",
+                    OffsetType::Index => "index",
+                    OffsetType::String => "string",
+                    OffsetType::Key => "key",
+                };
+                write!(f, "offset[{name}]")
+            }
+            Self::Length(length) => {
+                let name = match length {
+                    LengthType::VarBinary => "var-binary",
+                    LengthType::Geometries => "geometries",
+                    LengthType::Parts => "parts",
+                    LengthType::Rings => "rings",
+                    LengthType::Triangles => "triangles",
+                    LengthType::Symbol => "symbol",
+                    LengthType::Dictionary => "dictionary",
+                    #[cfg(feature = "unstable-v2")]
+                    LengthType::Nested => "nested",
+                };
+                write!(f, "length[{name}]")
+            }
+        }
+    }
+}
+
+impl Display for LogicalEncoding {
+    /// The value kind, then its encoding: `int/rle`, `float/alp`, `vertex/morton-delta`.
+    ///
+    /// Run parameters are left out, they belong to the region's own annotation.
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let (kind, enc) = match self {
+            Self::Int(int) => (
+                "int",
+                match int {
+                    IntLogical::None => "none",
+                    IntLogical::Delta => "delta",
+                    IntLogical::Rle(_) => "rle",
+                    IntLogical::DeltaRle(_) => "delta-rle",
+                },
+            ),
+            Self::Bool(b) => (
+                "bool",
+                match b {
+                    BoolLogical::None => "none",
+                    BoolLogical::ByteRle(_) => "byte-rle",
+                },
+            ),
+            Self::Float(float) => (
+                "float",
+                match float {
+                    FloatLogical::None => "none",
+                    FloatLogical::Dict => "dict",
+                    FloatLogical::Alp(_) => "alp",
+                },
+            ),
+            Self::Vertex(vertex) => (
+                "vertex",
+                match vertex {
+                    VertexLogical::None => "none",
+                    VertexLogical::Delta => "delta",
+                    VertexLogical::ComponentwiseDelta => "componentwise-delta",
+                    VertexLogical::Morton(_) => "morton",
+                    VertexLogical::MortonDelta(_) => "morton-delta",
+                    VertexLogical::MortonRle(_) => "morton-rle",
+                },
+            ),
+        };
+        write!(f, "{kind}/{enc}")
+    }
+}
+
+impl Display for PhysicalEncoding {
+    /// `none`, `varint`, `fastpfor[256be]`, `bit-packed`.
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match self {
+            Self::None => f.write_str("none"),
+            Self::VarInt => f.write_str("varint"),
+            Self::FastPFor(kind) => {
+                let name = match kind {
+                    FastPForKind::Block256Be => "256be",
+                    #[cfg(feature = "unstable-v2")]
+                    FastPForKind::Block128Le => "128le",
+                };
+                write!(f, "fastpfor[{name}]")
+            }
+            #[cfg(feature = "unstable-v2")]
+            Self::BitPacked => f.write_str("bit-packed"),
+        }
     }
 }

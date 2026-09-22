@@ -5,7 +5,7 @@ use fsst::Compressor;
 use integer_encoding::VarIntWriter as _;
 
 #[cfg(feature = "unstable-v2")]
-use crate::decoder::stream::header02::{Count02, Family};
+use crate::decoder::stream::header02::{Count02, Family, WordWidth};
 use crate::decoder::{ColumnType, Morton};
 #[cfg(feature = "unstable-v2")]
 use crate::encoder::model::FloatEncoding;
@@ -202,7 +202,7 @@ impl Encoder {
             #[cfg(feature = "unstable-v2")]
             count_context: Count02::Explicit,
             #[cfg(feature = "unstable-v2")]
-            family_context: Family::Int,
+            family_context: Family::Int(WordWidth::W32),
             alt_stack: vec![],
         }
     }

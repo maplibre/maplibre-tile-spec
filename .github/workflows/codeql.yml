@@ -43,7 +43,6 @@ jobs:
             java-kotlin:
               - '.github/workflows/codeql.yml'
               - '**/*.java'
-              - '**/*.kt'
               - '**/*.gradle'
               - 'java/gradle/**'
             javascript-typescript:
@@ -75,6 +74,9 @@ jobs:
     if: needs.changes.outputs.languages != '[]'
     name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-latest
+    env:
+      # Kotlin extraction is off, so java-kotlin analyses Java only.
+      CODEQL_EXTRACTOR_JAVA_AGENT_DISABLE_KOTLIN: 'true'
     permissions:
       contents: read
       actions: read

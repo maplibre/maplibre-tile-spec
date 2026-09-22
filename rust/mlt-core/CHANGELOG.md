@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.3](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.14.2...rust-mlt-core-v0.14.3) - 2026-09-21
+
+### Added
+
+- *(rust)* implement an inspector ([#1735](https://github.com/maplibre/maplibre-tile-spec/pull/1735))
+- *(rust)* wasm annotate binding ([#1725](https://github.com/maplibre/maplibre-tile-spec/pull/1725))
+- *(rust)* allow annotating partial trees ([#1724](https://github.com/maplibre/maplibre-tile-spec/pull/1724))
+
+### Fixed
+
+- *(rust)* reject lossy cases in ALP ([#1732](https://github.com/maplibre/maplibre-tile-spec/pull/1732))
+
+## [0.14.2](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.14.1...rust-mlt-core-v0.14.2) - 2026-09-20
+
+### Other
+
+- update Cargo.toml dependencies
+
+## [0.14.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.14.0...rust-mlt-core-v0.14.1) - 2026-09-18
+
+### Other
+
+- omit byte_length on v2 raw streams whose element width is fixed ([#1704](https://github.com/maplibre/maplibre-tile-spec/pull/1704))
+
+## [0.14.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.13.0...rust-mlt-core-v0.14.0) - 2026-09-17
+
+### Added
+
+- *(rust)* morton-code the v2 column and m-value counts into one varint ([#1714](https://github.com/maplibre/maplibre-tile-spec/pull/1714))
+- *(rust)* code a nested node's structure per row, not per entry ([#1684](https://github.com/maplibre/maplibre-tile-spec/pull/1684))
+- improve hexdump output ([#1707](https://github.com/maplibre/maplibre-tile-spec/pull/1707))
+- *(rust)* support nested propeties ([#1682](https://github.com/maplibre/maplibre-tile-spec/pull/1682))
+- *(rust)* m-value support ([#1680](https://github.com/maplibre/maplibre-tile-spec/pull/1680))
+- *(rust)* bit-pack v2 dictionary codes when that beats a varint each ([#1630](https://github.com/maplibre/maplibre-tile-spec/pull/1630))
+- *(rust)* share v2 presence bitfields with dictionary children ([#1625](https://github.com/maplibre/maplibre-tile-spec/pull/1625))
+
+### Other
+
+- more BitField cleanup ([#1713](https://github.com/maplibre/maplibre-tile-spec/pull/1713))
+- name the parsed type in the not-decoded error ([#1703](https://github.com/maplibre/maplibre-tile-spec/pull/1703))
+- require a raw word stream to be exactly its word count long ([#1702](https://github.com/maplibre/maplibre-tile-spec/pull/1702))
+- *(rust)* increase condition coverage on codecs  ([#1705](https://github.com/maplibre/maplibre-tile-spec/pull/1705))
+- Add v2 docs ([#1677](https://github.com/maplibre/maplibre-tile-spec/pull/1677))
+
 ## [0.13.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.12.9...rust-mlt-core-v0.13.0) - 2026-09-14
 
 ### Added

@@ -3,7 +3,7 @@
 use std::fs;
 use std::path::Path;
 
-use mlt_core::dump::annotate_tile;
+use mlt_core::dump::{DumpTree, annotate_tile};
 use mlt_core::encoder::{EncoderConfig, WireVersion};
 use mlt_core::mvt::mvt_to_tile_layers;
 use mlt_core::{Decoder, Layer, MltError, Parser, TileLayer};
@@ -11,6 +11,13 @@ use rstest::rstest;
 use test_each_file::test_each_path;
 
 test_each_path! { for ["mvt"] in "../test/fixtures" as tag02_fixtures => differential_fixture }
+
+/// The full annotation of `bytes`, which the walker must produce without bailing.
+fn annotate(bytes: &[u8]) -> DumpTree {
+    let (tree, err) = annotate_tile(bytes);
+    assert!(err.is_none(), "annotate_tile: {err:?}");
+    tree
+}
 
 fn cfg(version: WireVersion) -> EncoderConfig {
     EncoderConfig::default()
@@ -41,7 +48,7 @@ fn decode(bytes: &[u8], expected_tag: u8) -> TileLayer {
 }
 
 fn assert_dump_covers(bytes: &[u8]) {
-    let tree = annotate_tile(bytes).expect("annotate_tile");
+    let tree = annotate(bytes);
     let mut leaves: Vec<(usize, usize)> = tree
         .regions
         .iter()

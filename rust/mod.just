@@ -7,9 +7,10 @@ just := quote(just_executable())
 ci_mode := if env('CI', '') != '' {'1'} else {''}
 export CARGO_BUILD_WARNINGS := env('CARGO_BUILD_WARNINGS', if ci_mode == '1' {'deny'} else {'warn'})
 export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'})
+export NEXTEST_PROFILE := env('NEXTEST_PROFILE', if ci_mode == '1' {'ci'} else {'default'})
 
 # Features excluded from cargo-hack --each-feature iterations (heavy optional instrumentation)
-hack_skip := '--exclude-features hotpath,hotpath-alloc,hotpath-mcp'
+hack_skip := '--exclude-features hotpath,hotpath-alloc,hotpath-mcp,coverage'
 
 _default: (just '--list' 'rust')
 
@@ -18,8 +19,8 @@ just *args:
     {{just}} {{args}}
 
 # Run integration tests and save its output as the new expected output
-bless *args: (just 'cargo-install' 'cargo-insta') (just 'cargo-install' 'cargo-hack')
-    cargo hack insta test --accept --unreferenced=delete --each-feature {{hack_skip}} \
+bless *args: (just 'cargo-install' 'cargo-insta') (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-nextest')
+    cargo hack insta test --test-runner nextest --accept --unreferenced=delete --each-feature {{hack_skip}} \
         --package mlt-core --package mlt --exclude-no-default-features --exclude-all-features \
         {{args}}
 
@@ -57,8 +58,9 @@ coverage-env file: (just 'cargo-install' 'cargo-llvm-cov')
     cargo llvm-cov show-env | sed "s/'//g" >> {{quote(file)}}
 
 # Write the coverage recorded since `coverage-env` to `target/lcov-<suite>.info`
-coverage-report suite:
-    cargo llvm-cov report --include-build-script --lcov --output-path target/lcov-{{suite}}.info
+# Pass `--release` for a suite that ran against release artifacts, or it finds no objects
+coverage-report suite *args:
+    cargo llvm-cov report --include-build-script --lcov --output-path target/lcov-{{suite}}.info {{args}}
 
 # Run minimal subset of tests to ensure compatibility with MSRV
 ci-check: ci-env-info check
@@ -76,6 +78,7 @@ ci-env-info:
     rustup --version
     echo "CARGO_BUILD_WARNINGS='$CARGO_BUILD_WARNINGS'"
     echo "RUST_BACKTRACE='$RUST_BACKTRACE'"
+    echo "NEXTEST_PROFILE='$NEXTEST_PROFILE'"
     echo "::endgroup::"
 
     # Linux
@@ -118,8 +121,9 @@ ci-test-msrv: ci-env-info
     set -euo pipefail
     # For MSRV, relax all warnings to avoid different warnings per rust version
     unset CI CARGO_BUILD_WARNINGS RUSTDOCFLAGS RUST_BACKTRACE
-    # Pre-install cargo-hack to avoid CI binstall issues
+    # Pre-install cargo-hack and cargo-nextest to avoid CI binstall issues
     {{just}} cargo-install cargo-hack
+    {{just}} cargo-install cargo-nextest
     {{just}} rust::ci-check
     {{just}} java::gen-snippets
     {{just}} rust::test
@@ -450,13 +454,14 @@ sync-wasm-version:
 
 alias t := test
 # Run all tests
-test: (just 'cargo-install' 'cargo-hack')
-    cargo hack test --all-targets --each-feature {{hack_skip}} \
+test: (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-nextest')
+    cargo hack nextest run --all-targets --no-tests=warn --each-feature {{hack_skip}} \
         --workspace --exclude-no-default-features --exclude-all-features
     {{just}} rust::generate-synthetic-mlts
     {{just}} rust::test-doc
 
 # Test documentation generation
+# Doc-tests stay on `cargo test`, the only runner that executes them
 test-doc: (docs '--document-private-items')
     cargo test --doc --features arbitrary --package mlt-core
 
@@ -534,6 +539,43 @@ wasm-build: (just 'cargo-install' 'wasm-pack')
 [working-directory: 'mlt-wasm']
 wasm-test: wasm-build
     npm run test
+
+# Run the mlt-wasm tests against an instrumented build and export LCOV to target/lcov-wasm.info
+[working-directory: 'mlt-wasm']
+wasm-coverage: (just 'cargo-install' 'wasm-pack')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rustup component add llvm-tools-preview --toolchain nightly
+    PROFRAW_DIR="$PWD/../target/wasm-coverage"
+    rm -rf "$PROFRAW_DIR"
+    mkdir -p "$PROFRAW_DIR"
+    # Cargo emits the IR only when it recompiles mlt-wasm, and stale IR would not match the counters
+    mkdir -p ../target/wasm32-unknown-unknown
+    find ../target/wasm32-unknown-unknown -name 'mlt_wasm*.ll' -delete
+    touch src/*.rs
+    npm ci --no-fund --no-audit
+    npm run build:wasm-coverage
+    # Every test file gets its own wasm instance, so every one of them dumps its own .profraw
+    MLT_WASM_PROFRAW_DIR="$PROFRAW_DIR" npm run test
+
+    HOST=$(rustup run nightly rustc -vV | sed -n 's/^host: //p')
+    LLVM_BIN="$(rustup run nightly rustc --print sysroot)/lib/rustlib/$HOST/bin"
+    # llvm-cov cannot read a coverage map out of a .wasm, so it reads mlt-wasm's own LLVM IR
+    # compiled for the host instead. mlt-core's IR does not survive that, it is covered natively.
+    mapfile -t LL_FILES < <(find ../target/wasm32-unknown-unknown -name 'mlt_wasm*.ll')
+    if [ ${#LL_FILES[@]} -eq 0 ]; then
+        echo "::error::the instrumented build emitted no LLVM IR for mlt-wasm"
+        exit 1
+    fi
+    OBJECTS=()
+    for i in "${!LL_FILES[@]}"; do
+        "$LLVM_BIN/llc" -mtriple="$HOST" -filetype=obj "${LL_FILES[$i]}" -o "$PROFRAW_DIR/mlt_wasm-$i.o"
+        OBJECTS+=(-object "$PROFRAW_DIR/mlt_wasm-$i.o")
+    done
+    "$LLVM_BIN/llvm-profdata" merge -sparse "$PROFRAW_DIR"/*.profraw -o "$PROFRAW_DIR/wasm.profdata"
+    "$LLVM_BIN/llvm-cov" export --format=lcov --ignore-filename-regex='/\.cargo/registry/|/rustc/' \
+        --instr-profile="$PROFRAW_DIR/wasm.profdata" "${OBJECTS[@]}" > ../target/lcov-wasm.info
+    echo "Wasm coverage LCOV: target/lcov-wasm.info"
 
 # Validate every .mlt in test/synthetic against corresponding .json (GeoJSON)
 validate-synthetic:

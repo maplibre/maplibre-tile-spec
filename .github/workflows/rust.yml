@@ -54,6 +54,10 @@ jobs:
 
   test-wasm:
     name: Test wasm
+    permissions:
+      contents: read
+      code-quality: write
+      pull-requests: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -66,6 +70,16 @@ jobs:
           cache: "npm"
           cache-dependency-path: "rust/mlt-wasm/package-lock.json"
       - run: just -v rust::ci-test-wasm
+      - name: Re-run the tests against an instrumented build for Rust coverage
+        run: just -v rust::wasm-coverage
+      - uses: ./.github/actions/mlt-upload-coverage
+        with: { suite: rust-wasm, file: rust/target/lcov-wasm.info }
+      - name: Publish the JS coverage of the wasm bindings
+        uses: ./.github/actions/mlt-publish-coverage
+        with:
+          file: rust/mlt-wasm/coverage/cobertura-coverage.xml
+          language: TypeScript
+          label: code-coverage/vitest-wasm
 
   fuzz:
     if: ${{ github.event_name != 'pull_request' || inputs.run-heavy }}
@@ -118,10 +132,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/mlt-setup-rust
+        with: { coverage: true }
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with: { distribution: 'temurin', java-version: '21' }
       - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
       - run: just -v rust::ci-test-ffi
+      - run: just -v rust::coverage-report ffi --release  # the FFI tests run against the release cdylib
+      - uses: ./.github/actions/mlt-upload-coverage
+        with: { suite: rust-ffi, file: rust/target/lcov-ffi.info }
 
   test-publish:
     name: Test workspace publishing using --dry-run
@@ -204,9 +222,14 @@ jobs:
 
   coverage:
     name: Merge and publish Rust coverage
-    needs: [ test, test-python, fuzz ]
+    needs: [ test, test-python, test-ffi, test-wasm, fuzz ]
     # Publish whatever ran: `fuzz` is skipped for pull requests that are not on top of their stack
-    if: ${{ !cancelled() && needs.test.result == 'success' && needs.test-python.result == 'success' }}
+    if: |
+      !cancelled()
+      && needs.test.result == 'success'
+      && needs.test-python.result == 'success'
+      && needs.test-ffi.result == 'success'
+      && needs.test-wasm.result == 'success'
     permissions:
       contents: read
       code-quality: write
@@ -217,7 +240,7 @@ jobs:
       - name: Download the per-suite lcov reports
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with: { pattern: 'coverage-rust-*', merge-multiple: true, path: 'rust/target/coverage' }
-      - uses: taiki-e/install-action@c3ec0de9ae7f1019cea21aa96aa0a895b9552063 # v2.87.9
+      - uses: taiki-e/install-action@76c2e6406e52637deed7160d77bded76bd83e06e # v2.87.14
         with: { tool: 'just,grcov' }
       - run: just -v coverage-merge rust/target/coverage rust/target/cobertura.xml
       - uses: ./.github/actions/mlt-publish-coverage
@@ -271,7 +294,7 @@ jobs:
       # A GitHub App token, so that the tags, releases and PRs release-plz creates
       # trigger workflows. Events created with GITHUB_TOKEN start no workflow.
       - name: Generate GitHub token
-        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         id: generate-token
         with:
           app-id: ${{ secrets.RELEASE_PLZ_APP_ID }}
@@ -280,14 +303,14 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
       - name: Publish to crates.io if crate's version is newer
-        uses: release-plz/action@346832d73e3415c2ebd0432cba3a2bf5881e5f7d # v0.5.135
+        uses: release-plz/action@d6c56271d640b6c1b61d1e00593641c400a9f4bd # v0.5.138
         id: release
         with: { command: release, manifest_path: ./rust/Cargo.toml }
         env:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: If version is the same, create a PR proposing new version and changelog for the next release
-        uses: release-plz/action@346832d73e3415c2ebd0432cba3a2bf5881e5f7d # v0.5.135
+        uses: release-plz/action@d6c56271d640b6c1b61d1e00593641c400a9f4bd # v0.5.138
         with: { command: release-pr, manifest_path: ./rust/Cargo.toml }
         env:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
@@ -304,7 +327,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: taiki-e/install-action@c3ec0de9ae7f1019cea21aa96aa0a895b9552063 # v2.87.9
+      - uses: taiki-e/install-action@76c2e6406e52637deed7160d77bded76bd83e06e # v2.87.14
         with: { tool: 'just' }
       - name: Get mlt version for release tag
         id: get_version
@@ -370,7 +393,7 @@ jobs:
         run: |
           package_tgz="$(find mlt-wasm-pkg -type f -name 'maplibre-mlt-wasm-*.tgz' -print -quit)"
           test -n "$package_tgz" || { echo "::error::Package file not found in mlt-wasm-pkg"; exit 1; }
-          npm publish "$package_tgz" --access=public
+          npm publish "./$package_tgz" --access=public
 
       - name: Publish GitHub release (remove draft)
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3

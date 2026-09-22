@@ -293,4 +293,31 @@ mod tests {
             assert!(!presence.is_present(want.len()));
         }
     }
+
+    #[rstest]
+    #[case::empty(&[])]
+    #[case::single_present(&[true])]
+    #[case::single_absent(&[false])]
+    #[case::alternating(&[true, false, true, false, true])]
+    #[case::all_present(&[true; 8])]
+    #[case::all_absent(&[false; 8])]
+    #[case::spans_two_bytes(&[true, false, true, true, false, false, true, false, true, true, false])]
+    fn iter_optional_meets_in_the_middle(#[case] pattern: &[bool]) {
+        let presence = sparse(pattern);
+        let want = expected(pattern);
+
+        let mut iter = presence.iter_optional();
+        let (mut front, mut back) = (Vec::new(), Vec::new());
+        while iter.len() > 0 {
+            assert_eq!(iter.len(), want.len() - front.len() - back.len());
+            front.extend(iter.next());
+            back.extend(iter.next_back());
+        }
+        back.reverse();
+        front.extend(back);
+
+        assert_eq!(front, want);
+        assert_eq!(iter.next(), None);
+        assert_eq!(iter.next_back(), None);
+    }
 }

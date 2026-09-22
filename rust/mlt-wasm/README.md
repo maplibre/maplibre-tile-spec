@@ -11,6 +11,8 @@ mlt-wasm/
 ├── src/lib.rs         # wasm-bindgen bindings
 ├── js/
 │   ├── index.ts       # package entry point
+│   ├── wasm.ts        # the one module that imports pkg/
+│   ├── annotate.ts    # annotated-dump wire contract
 │   └── vectorTile.ts  # VectorTileLike wrapper
 ├── pkg/               # wasm-pack output (gitignored)
 ├── dist/              # tsc output (gitignored)
@@ -52,3 +54,36 @@ for (const [name, layer] of Object.entries(tile.layers)) {
     }
 }
 ```
+
+## Annotate
+
+`annotateTile` walks a tile into the regions an annotated hexdump is made of: every byte beside
+the meaning of the field that owns it. The crate is built with `unstable-v2`, so v1 and v2 tiles
+both annotate.
+
+```ts
+import { annotateTile } from '@maplibre/mlt-wasm';
+
+const tile = annotateTile(data);
+const { bufLen, regions } = tile.tree();        // the whole tile
+
+for (const [i, region] of regions.entries()) {
+    console.log(region.offset, region.len, region.label, region.value);
+    if (region.blob) {
+        console.log(tile.decodeBlob(i, 64));    // decoded values, capped
+    }
+}
+
+console.log(tile.error);                        // null, or what stopped the walk
+tile.free();
+```
+
+`tree(layerIndex)` narrows to one top-level layer, but `decodeBlob` keeps counting the regions of
+the whole tile.
+
+A handle, not a document: the tile bytes stay on the WASM side, `tree()` crosses once per layer
+and is memoized, and payload values are decoded one blob at a time with a cap the caller picks.
+
+A malformed tile never throws. The walk hands back the regions it reached, `error` carries the
+failure, and a final `<unannotated>` leaf covers the bytes it never got to, so the leaves still
+partition the buffer.

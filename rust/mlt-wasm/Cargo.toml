@@ -1,7 +1,7 @@
 [package]
 name = "mlt-wasm"
 description = "WebAssembly bindings for the MapLibre Tile (MLT) format"
-version = "0.1.24"
+version = "0.1.28"
 authors.workspace = true
 categories.workspace = true
 edition.workspace = true
@@ -17,9 +17,16 @@ wasm-opt = ["-O3", "--enable-simd", "--enable-bulk-memory"]
 [lib]
 crate-type = ["cdylib"]
 
+[features]
+# Export the recorded LLVM coverage counters, for `just rust::wasm-coverage`
+coverage = ["dep:minicov"]
+
 [dependencies]
 js-sys.workspace = true
-mlt-core.workspace = true
+minicov = { workspace = true, optional = true }
+mlt-core = { workspace = true, features = ["unstable-v2"] }
+serde.workspace = true
+serde-wasm-bindgen.workspace = true
 wasm-bindgen.workspace = true
 
 [lints]

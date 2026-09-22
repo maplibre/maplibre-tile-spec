@@ -1,0 +1,21 @@
+{
+  "root": false,
+  "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
+  "extends": "//",
+  "files": {
+    "includes": ["**", "!fixtures"]
+  },
+  "html": {
+    "formatter": {
+      "indentWidth": 2,
+      "indentStyle": "space",
+      "whitespaceSensitivity": "strict"
+    }
+  },
+  "json": {
+    "formatter": {
+      "indentWidth": 2,
+      "indentStyle": "space"
+    }
+  }
+}

@@ -26,7 +26,16 @@
 //! expose all property columns as typed arrays built once per layer.  JS reads
 //! any feature's property with a single array index - zero WASM calls during
 //! traversal.
+//!
+//! ## Annotate
+//!
+//! `annotateTile` is the other entry point: it walks a tile into an `AnnotatedTile`
+//! handle over its regions, for tooling that shows the wire format rather than the
+//! decoded tile.
 
+mod annotate;
+#[cfg(feature = "coverage")]
+mod coverage;
 mod geometry;
 mod layer;
 mod properties;

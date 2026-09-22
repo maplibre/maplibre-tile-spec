@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.36](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.35...rust-mlt-v0.1.36) - 2026-09-21
+
+### Added
+
+- *(rust)* allow annotating partial trees ([#1724](https://github.com/maplibre/maplibre-tile-spec/pull/1724))
+
+## [0.1.35](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.34...rust-mlt-v0.1.35) - 2026-09-20
+
+### Other
+
+- update Cargo.toml dependencies
+
+## [0.1.34](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.33...rust-mlt-v0.1.34) - 2026-09-18
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.33](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.32...rust-mlt-v0.1.33) - 2026-09-17
+
+### Added
+
+- improve hexdump output ([#1707](https://github.com/maplibre/maplibre-tile-spec/pull/1707))
+- *(rust)* support nested propeties ([#1682](https://github.com/maplibre/maplibre-tile-spec/pull/1682))
+- *(rust)* bit-pack v2 dictionary codes when that beats a varint each ([#1630](https://github.com/maplibre/maplibre-tile-spec/pull/1630))
+
 ## [0.1.32](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.31...rust-mlt-v0.1.32) - 2026-09-14
 
 ### Added

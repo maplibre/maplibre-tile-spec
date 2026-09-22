@@ -2,10 +2,16 @@
 
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
+use serde::ser::SerializeStruct as _;
+use serde::{Serialize, Serializer};
+
+#[cfg(feature = "unstable-v2")]
+use crate::wire::Alp;
 use crate::wire::StreamMeta;
 
 /// Whether a region is tile metadata or an opaque data payload.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum RegionKind {
     /// Framing, schema, or stream-header bytes, annotated byte- and bit-for-byte.
     Meta,
@@ -16,7 +22,8 @@ pub enum RegionKind {
 /// How a [`RegionKind::DataBlob`] payload is decoded for display.
 ///
 /// Best-effort: on any decode error the renderer falls back to raw hex.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
 pub enum DecodeHint {
     /// Nullability bitmap (byte-RLE -> packed bits).
     Presence,
@@ -30,7 +37,7 @@ pub enum DecodeHint {
     I64,
     /// ALP offsets, put back on their frame of reference.
     #[cfg(feature = "unstable-v2")]
-    Alp(crate::decoder::Alp),
+    Alp(#[serde(serialize_with = "serialize_alp")] Alp),
     /// Unsigned 64-bit integers (`u64` columns, 64-bit ids).
     U64,
     /// 32-bit floats.
@@ -44,14 +51,25 @@ pub enum DecodeHint {
     PackedBits,
 }
 
+/// ALP's parameters flattened beside the hint's tag, keeping `Alp`'s fields crate-private.
+#[cfg(feature = "unstable-v2")]
+fn serialize_alp<S: Serializer>(alp: &Alp, s: S) -> Result<S::Ok, S::Error> {
+    let mut st = s.serialize_struct("Alp", 3)?;
+    st.serialize_field("e", &alp.scale.e)?;
+    st.serialize_field("f", &alp.scale.f)?;
+    st.serialize_field("base", &alp.base)?;
+    st.end()
+}
+
 /// One sub-field of a bit-packed byte, e.g. a nibble of `stream_type`.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct BitField {
     /// Inclusive high bit index (7..=0, MSB first).
     hi: u8,
     /// Inclusive low bit index.
     lo: u8,
     /// The extracted field value, shifted down to bit 0.
+    #[serde(serialize_with = "serialize_as_number")]
     raw: u64,
     /// Human-readable meaning, e.g. `"physical = VarInt"`.
     meaning: String,
@@ -137,16 +155,48 @@ pub struct BlobInfo {
     pub hint: DecodeHint,
 }
 
+impl Serialize for BlobInfo {
+    /// Flattens `meta` into display strings, so the wire vocabulary stays out of the JSON API.
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        let mut st = s.serialize_struct("BlobInfo", 5)?;
+        st.serialize_field("streamType", &self.meta.stream_type.to_string())?;
+        st.serialize_field("logical", &self.meta.encoding.logical.to_string())?;
+        st.serialize_field("physical", &self.meta.encoding.physical.to_string())?;
+        st.serialize_field("numValues", &self.meta.num_values)?;
+        st.serialize_field("hint", &self.hint)?;
+        st.end()
+    }
+}
+
+/// Serialize an offset or a count as a 32-bit number.
+///
+/// Only the payload values a tile actually holds are 64-bit, and a transport that maps
+/// 64-bit integers to `BigInt` would otherwise hand every offset across as one.
+fn serialize_as_number<T, S>(v: &T, s: S) -> Result<S::Ok, S::Error>
+where
+    T: Copy + TryInto<u32>,
+    S: Serializer,
+{
+    let n = (*v)
+        .try_into()
+        .map_err(|_| serde::ser::Error::custom("offset or count exceeds u32"))?;
+    s.serialize_u32(n)
+}
+
 /// A single annotated span of the tile buffer.
 ///
 /// Emitted in pre-order. Containers bracket their children and may overlap them.
 /// Leaf regions partition the buffer exactly; the coverage test relies on this.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Region {
     /// Absolute byte offset into the tile buffer.
+    #[serde(serialize_with = "serialize_as_number")]
     pub offset: usize,
+    #[serde(serialize_with = "serialize_as_number")]
     pub len: usize,
     /// Nesting depth, for indentation.
+    #[serde(serialize_with = "serialize_as_number")]
     pub depth: usize,
     /// Short label, e.g. `"column[2].type"` or `"num_values"`.
     pub label: String,
@@ -162,8 +212,38 @@ pub struct Region {
 }
 
 /// The full annotation of a tile: a flat, depth-tagged region list.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DumpTree {
+    #[serde(serialize_with = "serialize_as_number")]
     pub buf_len: usize,
     /// Regions in pre-order (containers before their children).
     pub regions: Vec<Region>,
+}
+
+/// Label of the synthetic leaf covering the bytes a bailed-out walk never reached.
+pub const UNANNOTATED: &str = "<unannotated>";
+
+/// The `idx`-th top-level layer's regions, or `None` when the tile has no such layer.
+///
+/// Containers span their children, so the layer is selected by byte range, not by depth.
+#[must_use]
+pub fn filter_layer(tree: &DumpTree, idx: usize) -> Option<DumpTree> {
+    let layer = tree
+        .regions
+        .iter()
+        .filter(|r| r.depth == 0 && r.container)
+        .nth(idx)?;
+    let start = layer.offset;
+    let end = layer.offset + layer.len;
+    let regions = tree
+        .regions
+        .iter()
+        .filter(|r| r.offset >= start && r.offset + r.len <= end)
+        .cloned()
+        .collect();
+    Some(DumpTree {
+        buf_len: tree.buf_len,
+        regions,
+    })
 }

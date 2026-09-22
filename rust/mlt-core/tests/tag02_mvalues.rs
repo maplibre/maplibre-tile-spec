@@ -1,6 +1,6 @@
 //! Round-trip and wire-level tests for v2 m-values, the vertex-scoped columns.
 
-use mlt_core::dump::{RenderOpts, annotate_tile, render};
+use mlt_core::dump::{DumpTree, RenderOpts, annotate_tile, render};
 use mlt_core::encoder::{
     Codecs, Encoder, EncoderConfig, ExplicitEncoder, FloatEncoding, IntEncoder, StagedId,
     StagedLayer, StagedMValue, StagedValues, StrEncoding, VertexBufferType, WireVersion,
@@ -13,6 +13,13 @@ use mlt_core::{
     TileLayer,
 };
 use rstest::rstest;
+
+/// The full annotation of `bytes`, which the walker must produce without bailing.
+fn annotate(bytes: &[u8]) -> DumpTree {
+    let (tree, err) = annotate_tile(bytes);
+    assert!(err.is_none(), "annotate_tile: {err:?}");
+    tree
+}
 
 fn cfg_v2() -> EncoderConfig {
     EncoderConfig::default()
@@ -55,7 +62,7 @@ fn assert_round_trips_as_v2(layer: &TileLayer) -> Vec<u8> {
 }
 
 fn assert_dump_covers(bytes: &[u8]) {
-    let tree = annotate_tile(bytes).expect("annotate_tile");
+    let tree = annotate(bytes);
     let mut leaves: Vec<(usize, usize)> = tree
         .regions
         .iter()
@@ -74,7 +81,7 @@ fn assert_dump_covers(bytes: &[u8]) {
 }
 
 fn layout_bits_and_column_types(bytes: &[u8]) -> String {
-    let tree = annotate_tile(bytes).expect("annotate_tile");
+    let tree = annotate(bytes);
     let mut lines = Vec::new();
     let mut column = None;
     for region in &tree.regions {
@@ -94,7 +101,7 @@ fn layout_bits_and_column_types(bytes: &[u8]) -> String {
 }
 
 fn region_after(bytes: &[u8], after_prefix: &str, label: &str) -> (usize, usize) {
-    let tree = annotate_tile(bytes).expect("annotate_tile");
+    let tree = annotate(bytes);
     let start = tree
         .regions
         .iter()

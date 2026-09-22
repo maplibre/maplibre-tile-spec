@@ -18,6 +18,7 @@ bin/
 build/
 coverage/
 dist/
+docs/inspector/app/
 node_modules
 site/
 tmp/

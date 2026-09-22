@@ -15,7 +15,7 @@ use crate::decoder::stream::header01;
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::stream::header02;
 #[cfg(feature = "unstable-v2")]
-use crate::decoder::stream::header02::{Family, StrLayout, StreamCtx02};
+use crate::decoder::stream::header02::{Family, StrLayout, StreamCtx02, WordWidth};
 use crate::decoder::strings::{checked_string_end, encode_null_end};
 use crate::decoder::{DictionaryType, LengthType, OffsetType, StreamMeta, StreamType, ValueKind};
 #[cfg(feature = "unstable-v2")]
@@ -233,7 +233,7 @@ fn write_str_leading02(
     let ctx = at.ctx(StreamCtx02::StrData(layout).stream_type());
     enc.family_context = Family::Str(layout);
     let result = codecs.write_int_stream(values, &ctx, enc);
-    enc.family_context = Family::Int;
+    enc.family_context = Family::Int(WordWidth::W32);
     result
 }
 
