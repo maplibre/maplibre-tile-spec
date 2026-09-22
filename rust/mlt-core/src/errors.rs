@@ -77,7 +77,7 @@ pub enum MltError {
     #[error("error parsing v2 extent byte: 0x{0:02X}")]
     ParsingExtent02(u8),
     #[cfg(feature = "unstable-v2")]
-    #[error("v2 extent {0} is not a power of two in 32..=1048576")]
+    #[error("v2 extent {0} is not a power of two in 64..=2097152")]
     UnsupportedExtent02(u32),
     #[cfg(feature = "unstable-v2")]
     #[error(

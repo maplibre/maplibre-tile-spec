@@ -17,7 +17,7 @@ use crate::writer::{SynthErr, SynthResult, SynthWriter};
 
 /// Extent every fixture that does not name its own uses.
 ///
-/// v2 codes the extent as a power of two in `32..=32768`, so a fixture that wants
+/// v2 codes the extent as a power of two in `64..=2097152`, so a fixture that wants
 /// the default must pick one of those.
 pub const DEFAULT_EXTENT: u32 = 64;
 

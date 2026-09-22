@@ -433,7 +433,7 @@ fn generate_mixed(w: &mut SynthWriter) {
 
 fn generate_extent(w: &mut SynthWriter) {
     for e in [32_i32, 512, 4096, 32_768, 131_072, 1_073_741_824] {
-        let v2_legal_extents = 32..=32_768;
+        let v2_legal_extents = 64..=2_097_152;
         let plain = geo_varint()
             .extent(e.cast_unsigned())
             .geo(line![c(0_i32, 0), c(e - 1, e - 1)]);

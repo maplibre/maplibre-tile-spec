@@ -721,8 +721,8 @@ impl GeoLayout {
 
 /// The v2 extent byte: a reserved nibble in bits 7-4, the extent code in bits 3-0.
 ///
-/// v2 stores only power-of-two extents, so the nibble holds `log2(extent) - 5`
-/// rather than the extent itself: `0x0` is 32 and `0xF` is 1048576.
+/// v2 stores only power-of-two extents, so the nibble holds `log2(extent) - 6`
+/// rather than the extent itself: `0x0` is 64 and `0xF` is 2097152.
 /// Every code is assigned, but a non-zero high nibble is reserved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Extent02(u8);
@@ -735,9 +735,9 @@ impl Extent02 {
     pub(crate) const RESERVED_MASK: u8 = 0b1111_0000;
 
     /// Exponent of the smallest extent, which the code is offset by.
-    const MIN_EXPONENT: u32 = 5;
+    const MIN_EXPONENT: u32 = 6;
 
-    /// Code an extent, rejecting one that is not a power of two in `32..=1048576`.
+    /// Code an extent, rejecting one that is not a power of two in `64..=2097152`.
     pub(crate) fn new(extent: u32) -> MltResult<Self> {
         (0..=Self::CODE_MASK)
             .map(Self)
@@ -753,7 +753,7 @@ impl Extent02 {
         Ok(Self(byte))
     }
 
-    /// The extent itself, always a power of two in `32..=1048576`.
+    /// The extent itself, always a power of two in `64..=2097152`.
     #[must_use]
     pub(crate) fn get(self) -> u32 {
         1 << (u32::from(self.0) + Self::MIN_EXPONENT)
@@ -932,11 +932,10 @@ mod tests {
     }
 
     #[rstest]
-    #[case::smallest(32, 0x00)]
-    #[case::default_synthetic(64, 0x01)]
-    #[case::mvt_default(4096, 0x07)]
-    #[case::widest_a_morton_code_takes(65_536, 0x0B)]
-    #[case::largest(1_048_576, 0x0F)]
+    #[case::smallest(64, 0x00)]
+    #[case::mvt_default(4096, 0x06)]
+    #[case::wider_than_a_morton_code(65_536, 0x0A)]
+    #[case::largest(2_097_152, 0x0F)]
     fn an_extent_round_trips_through_its_nibble(#[case] extent: u32, #[case] byte: u8) {
         let coded = Extent02::new(extent).unwrap();
         assert_eq!(coded.to_byte(), byte);
@@ -947,10 +946,10 @@ mod tests {
     #[rstest]
     #[case::zero(0)]
     #[case::one(1)]
-    #[case::below_the_smallest(16)]
+    #[case::below_the_smallest(32)]
     #[case::not_a_power_of_two(80)]
-    #[case::just_over_the_largest(1_048_577)]
-    #[case::a_power_of_two_over_the_largest(2_097_152)]
+    #[case::just_over_the_largest(2_097_153)]
+    #[case::a_power_of_two_over_the_largest(4_194_304)]
     fn an_extent_outside_the_nibble_is_rejected(#[case] extent: u32) {
         let err = Extent02::new(extent).unwrap_err();
         assert!(matches!(err, MltError::UnsupportedExtent02(e) if e == extent));
