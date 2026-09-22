@@ -91,3 +91,37 @@ describe("row bands", () => {
     expect(rowsWith(tree(), "tail")).toEqual([]);
   });
 });
+
+function placeRows(view: ReturnType<typeof tree>, rowHeight: number) {
+  const scroll = view.get(".scroll").element as HTMLElement;
+  scroll.getBoundingClientRect = () => new DOMRect(0, 0, 200, rowHeight * 2);
+  for (const node of view.findAll(".node")) {
+    const index = Number(node.attributes("data-index"));
+    node.element.getBoundingClientRect = () =>
+      new DOMRect(0, index * rowHeight - scroll.scrollTop, 200, rowHeight);
+  }
+  return scroll;
+}
+
+describe("revealing a region", () => {
+  it("scrolls a row below the fold to the top", async () => {
+    const view = tree();
+    const scroll = placeRows(view, 10);
+    await view.vm.reveal(4);
+    expect(scroll.scrollTop).toBe(40);
+  });
+
+  it("leaves a row already on screen where it is", async () => {
+    const view = tree();
+    const scroll = placeRows(view, 10);
+    await view.vm.reveal(1);
+    expect(scroll.scrollTop).toBe(0);
+  });
+
+  it("opens a collapsed container to reach the row", async () => {
+    const view = tree();
+    await bar(view).press();
+    await view.vm.reveal(4);
+    expect(view.findAll(".node")).toHaveLength(5);
+  });
+});
