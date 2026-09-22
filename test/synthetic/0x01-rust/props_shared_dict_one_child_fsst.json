@@ -3,10 +3,11 @@
   "features": [
     {
       "type": "Feature",
-      "id": 18446744073709551615,
       "properties": {
-        "_extent": 80,
-        "_layer": "layer1"
+        "_extent": 64,
+        "_layer": "layer1",
+        "name:en": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "place": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
       },
       "geometry": {
         "type": "Point",
