@@ -13,5 +13,5 @@
         "skipLibCheck": true
     },
     "include": ["js/**/*"],
-    "exclude": ["node_modules", "dist", "pkg", "**/*.spec.ts", "**/*.bench.ts"]
+    "exclude": ["node_modules", "dist", "pkg", "js/coverage.setup.ts", "**/*.spec.ts", "**/*.bench.ts"]
 }
