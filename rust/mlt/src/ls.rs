@@ -1123,7 +1123,10 @@ mod tests {
 
     #[test]
     fn a_lone_info_row_renders_without_a_total_row() {
-        insta::assert_snapshot!(render_table(&[info_row(mlt_info("a.mlt"))], LsFlags::default()));
+        insta::assert_snapshot!(render_table(
+            &[info_row(mlt_info("a.mlt"))],
+            LsFlags::default()
+        ));
     }
 
     #[test]
@@ -1139,59 +1142,59 @@ mod tests {
     #[test]
     fn two_mlt_rows_are_summed_into_a_total_row() {
         insta::assert_snapshot!(render_table(
-                &[info_row(mlt_info("a.mlt")), info_row(mlt_info("b.mlt"))],
-                GZIP
-            ));
+            &[info_row(mlt_info("a.mlt")), info_row(mlt_info("b.mlt"))],
+            GZIP
+        ));
     }
 
     #[test]
     fn a_total_row_over_files_without_decoded_or_gzip_sizes_shows_dashes() {
         insta::assert_snapshot!(render_table(
-                &[info_row(mvt_info("a.mvt")), info_row(mvt_info("b.mvt"))],
-                GZIP
-            ));
+            &[info_row(mvt_info("a.mvt")), info_row(mvt_info("b.mvt"))],
+            GZIP
+        ));
     }
 
     #[test]
     fn a_mixed_total_row_falls_back_to_dashes_for_the_decoded_columns() {
         insta::assert_snapshot!(render_table(
-                &[info_row(mlt_info("a.mlt")), info_row(mvt_info("b.mvt"))],
-                GZIP
-            ));
+            &[info_row(mlt_info("a.mlt")), info_row(mvt_info("b.mvt"))],
+            GZIP
+        ));
     }
 
     #[test]
     fn an_error_row_spans_the_remaining_columns() {
         insta::assert_snapshot!(render_table(
-                &[
-                    info_row(mlt_info("a.mlt")),
-                    error_row("broken.mlt", Some(777)),
-                    error_row("missing.mlt", None),
-                ],
-                LsFlags::default()
-            ));
+            &[
+                info_row(mlt_info("a.mlt")),
+                error_row("broken.mlt", Some(777)),
+                error_row("missing.mlt", None),
+            ],
+            LsFlags::default()
+        ));
     }
 
     #[test]
     fn validating_marks_every_mismatching_row_with_a_cross() {
         insta::assert_snapshot!(render_table(
-                &[
-                    info_row(validated(mlt_info("a.mlt"), false)),
-                    info_row(validated(mlt_info("b.mlt"), false)),
-                ],
-                VALIDATE
-            ));
+            &[
+                info_row(validated(mlt_info("a.mlt"), false)),
+                info_row(validated(mlt_info("b.mlt"), false)),
+            ],
+            VALIDATE
+        ));
     }
 
     #[test]
     fn validating_hides_a_matching_row_but_keeps_an_error_row() {
         insta::assert_snapshot!(render_table(
-                &[
-                    info_row(validated(mlt_info("a.mlt"), true)),
-                    error_row("broken.mlt", Some(777)),
-                ],
-                VALIDATE
-            ));
+            &[
+                info_row(validated(mlt_info("a.mlt"), true)),
+                error_row("broken.mlt", Some(777)),
+            ],
+            VALIDATE
+        ));
     }
 
     #[test]
