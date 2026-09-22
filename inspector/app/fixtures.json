@@ -2802,202 +2802,202 @@
   {
     "name": "extent_131072.mlt",
     "directory": "0x02",
-    "bytes": 30
+    "bytes": 27
   },
   {
     "name": "extent_32768.mlt",
     "directory": "0x02",
-    "bytes": 30
+    "bytes": 27
   },
   {
     "name": "extent_4096.mlt",
     "directory": "0x02",
-    "bytes": 28
+    "bytes": 25
   },
   {
     "name": "extent_512.mlt",
     "directory": "0x02",
-    "bytes": 28
+    "bytes": 25
   },
   {
     "name": "extent_buf_131072.mlt",
     "directory": "0x02",
-    "bytes": 30
+    "bytes": 27
   },
   {
     "name": "extent_buf_32768.mlt",
     "directory": "0x02",
-    "bytes": 30
+    "bytes": 27
   },
   {
     "name": "extent_buf_4096.mlt",
     "directory": "0x02",
-    "bytes": 28
+    "bytes": 25
   },
   {
     "name": "extent_buf_512.mlt",
     "directory": "0x02",
-    "bytes": 28
+    "bytes": 25
   },
   {
     "name": "id.mlt",
     "directory": "0x02",
-    "bytes": 25
+    "bytes": 22
   },
   {
     "name": "id64.mlt",
     "directory": "0x02",
-    "bytes": 29
+    "bytes": 26
   },
   {
     "name": "id64_max.mlt",
     "directory": "0x02",
-    "bytes": 34
+    "bytes": 31
   },
   {
     "name": "id64_max_delta.mlt",
     "directory": "0x02",
-    "bytes": 25
+    "bytes": 22
   },
   {
     "name": "id64_max_delta_rle.mlt",
     "directory": "0x02",
-    "bytes": 26
+    "bytes": 23
   },
   {
     "name": "id64_max_rle.mlt",
     "directory": "0x02",
-    "bytes": 35
+    "bytes": 32
   },
   {
     "name": "id_max.mlt",
     "directory": "0x02",
-    "bytes": 29
+    "bytes": 26
   },
   {
     "name": "id_max_delta.mlt",
     "directory": "0x02",
-    "bytes": 25
+    "bytes": 22
   },
   {
     "name": "id_max_delta_rle.mlt",
     "directory": "0x02",
-    "bytes": 26
+    "bytes": 23
   },
   {
     "name": "id_max_rle.mlt",
     "directory": "0x02",
-    "bytes": 30
+    "bytes": 27
   },
   {
     "name": "id_min.mlt",
     "directory": "0x02",
-    "bytes": 25
+    "bytes": 22
   },
   {
     "name": "ids.mlt",
     "directory": "0x02",
-    "bytes": 35
+    "bytes": 31
   },
   {
     "name": "ids64.mlt",
     "directory": "0x02",
-    "bytes": 51
+    "bytes": 47
   },
   {
     "name": "ids64_delta.mlt",
     "directory": "0x02",
-    "bytes": 39
+    "bytes": 35
   },
   {
     "name": "ids64_delta_rle.mlt",
     "directory": "0x02",
-    "bytes": 39
+    "bytes": 35
   },
   {
     "name": "ids64_minmax.mlt",
     "directory": "0x02",
-    "bytes": 53
+    "bytes": 49
   },
   {
     "name": "ids64_minmax_delta.mlt",
     "directory": "0x02",
-    "bytes": 35
+    "bytes": 31
   },
   {
     "name": "ids64_opt.mlt",
     "directory": "0x02",
-    "bytes": 42
+    "bytes": 38
   },
   {
     "name": "ids64_opt_delta.mlt",
     "directory": "0x02",
-    "bytes": 46
+    "bytes": 42
   },
   {
     "name": "ids64_rle.mlt",
     "directory": "0x02",
-    "bytes": 37
+    "bytes": 33
   },
   {
     "name": "ids_delta.mlt",
     "directory": "0x02",
-    "bytes": 36
+    "bytes": 32
   },
   {
     "name": "ids_delta_fpf.mlt",
     "directory": "0x02",
-    "bytes": 43
+    "bytes": 39
   },
   {
     "name": "ids_delta_rle.mlt",
     "directory": "0x02",
-    "bytes": 36
+    "bytes": 32
   },
   {
     "name": "ids_fpf.mlt",
     "directory": "0x02",
-    "bytes": 39
+    "bytes": 35
   },
   {
     "name": "ids_opt.mlt",
     "directory": "0x02",
-    "bytes": 38
+    "bytes": 34
   },
   {
     "name": "ids_opt_delta.mlt",
     "directory": "0x02",
-    "bytes": 39
+    "bytes": 35
   },
   {
     "name": "ids_rle.mlt",
     "directory": "0x02",
-    "bytes": 33
+    "bytes": 29
   },
   {
     "name": "line.mlt",
     "directory": "0x02",
-    "bytes": 28
+    "bytes": 25
   },
   {
     "name": "line_morton_curve_morton.mlt",
     "directory": "0x02",
-    "bytes": 47
+    "bytes": 44
   },
   {
     "name": "line_morton_curve_no_morton.mlt",
     "directory": "0x02",
-    "bytes": 54
+    "bytes": 51
   },
   {
     "name": "line_zero_length.mlt",
     "directory": "0x02",
-    "bytes": 26
+    "bytes": 23
   },
   {
     "name": "mix_2_line_line.mlt",
     "directory": "0x02",
-    "bytes": 36
+    "bytes": 32
   },
   {
     "name": "mix_2_line_mline.mlt",
@@ -3042,7 +3042,7 @@
   {
     "name": "mix_2_mline_mline.mlt",
     "directory": "0x02",
-    "bytes": 51
+    "bytes": 47
   },
   {
     "name": "mix_2_mline_mpoly.mlt",
@@ -3057,12 +3057,12 @@
   {
     "name": "mix_2_mpoly_mpoly.mlt",
     "directory": "0x02",
-    "bytes": 77
+    "bytes": 73
   },
   {
     "name": "mix_2_mpoly_mpoly_tes.mlt",
     "directory": "0x02",
-    "bytes": 126
+    "bytes": 122
   },
   {
     "name": "mix_2_mpt_mline.mlt",
@@ -3077,7 +3077,7 @@
   {
     "name": "mix_2_mpt_mpt.mlt",
     "directory": "0x02",
-    "bytes": 36
+    "bytes": 32
   },
   {
     "name": "mix_2_poly_mline.mlt",
@@ -3107,22 +3107,22 @@
   {
     "name": "mix_2_poly_poly.mlt",
     "directory": "0x02",
-    "bytes": 40
+    "bytes": 36
   },
   {
     "name": "mix_2_poly_poly_tes.mlt",
     "directory": "0x02",
-    "bytes": 56
+    "bytes": 52
   },
   {
     "name": "mix_2_poly_polyh.mlt",
     "directory": "0x02",
-    "bytes": 48
+    "bytes": 44
   },
   {
     "name": "mix_2_poly_polyh_tes.mlt",
     "directory": "0x02",
-    "bytes": 79
+    "bytes": 75
   },
   {
     "name": "mix_2_polyh_mline.mlt",
@@ -3152,12 +3152,12 @@
   {
     "name": "mix_2_polyh_polyh.mlt",
     "directory": "0x02",
-    "bytes": 55
+    "bytes": 51
   },
   {
     "name": "mix_2_polyh_polyh_tes.mlt",
     "directory": "0x02",
-    "bytes": 101
+    "bytes": 97
   },
   {
     "name": "mix_2_pt_line.mlt",
@@ -3192,7 +3192,7 @@
   {
     "name": "mix_2_pt_pt.mlt",
     "directory": "0x02",
-    "bytes": 24
+    "bytes": 20
   },
   {
     "name": "mix_3_line_mline_line.mlt",
@@ -3532,12 +3532,12 @@
   {
     "name": "mix_3_poly_polyh_poly.mlt",
     "directory": "0x02",
-    "bytes": 57
+    "bytes": 52
   },
   {
     "name": "mix_3_poly_polyh_poly_tes.mlt",
     "directory": "0x02",
-    "bytes": 92
+    "bytes": 87
   },
   {
     "name": "mix_3_poly_pt_poly.mlt",
@@ -3602,12 +3602,12 @@
   {
     "name": "mix_3_polyh_poly_polyh.mlt",
     "directory": "0x02",
-    "bytes": 64
+    "bytes": 59
   },
   {
     "name": "mix_3_polyh_poly_polyh_tes.mlt",
     "directory": "0x02",
-    "bytes": 114
+    "bytes": 109
   },
   {
     "name": "mix_3_polyh_pt_polyh.mlt",
@@ -4072,1376 +4072,1371 @@
   {
     "name": "multiline.mlt",
     "directory": "0x02",
-    "bytes": 39
-  },
-  {
-    "name": "multiline_meta_delta.mlt",
-    "directory": "0x02",
-    "bytes": 39
+    "bytes": 36
   },
   {
     "name": "multiline_morton.mlt",
     "directory": "0x02",
-    "bytes": 52
+    "bytes": 49
   },
   {
     "name": "multipoint.mlt",
     "directory": "0x02",
-    "bytes": 28
+    "bytes": 25
   },
   {
     "name": "multipoint_morton_dictionary.mlt",
     "directory": "0x02",
-    "bytes": 47
+    "bytes": 44
   },
   {
     "name": "mvalues.mlt",
     "directory": "0x02",
-    "bytes": 76
+    "bytes": 71
   },
   {
     "name": "mvalues_15props_7cols.mlt",
     "directory": "0x02",
-    "bytes": 243
+    "bytes": 238
   },
   {
     "name": "mvalues_16props.mlt",
     "directory": "0x02",
-    "bytes": 161
+    "bytes": 156
   },
   {
     "name": "mvalues_8cols.mlt",
     "directory": "0x02",
-    "bytes": 164
+    "bytes": 159
   },
   {
     "name": "mvalues_all_null.mlt",
     "directory": "0x02",
-    "bytes": 51
+    "bytes": 46
   },
   {
     "name": "mvalues_bool.mlt",
     "directory": "0x02",
-    "bytes": 50
+    "bytes": 45
   },
   {
     "name": "mvalues_delta_rle.mlt",
     "directory": "0x02",
-    "bytes": 52
+    "bytes": 47
   },
   {
     "name": "mvalues_f32.mlt",
     "directory": "0x02",
-    "bytes": 81
+    "bytes": 76
   },
   {
     "name": "mvalues_f32_dict.mlt",
     "directory": "0x02",
-    "bytes": 72
+    "bytes": 67
   },
   {
     "name": "mvalues_f64.mlt",
     "directory": "0x02",
-    "bytes": 113
+    "bytes": 108
   },
   {
     "name": "mvalues_f64_alp.mlt",
     "directory": "0x02",
-    "bytes": 65
+    "bytes": 60
   },
   {
     "name": "mvalues_fpf.mlt",
     "directory": "0x02",
-    "bytes": 924
+    "bytes": 921
   },
   {
     "name": "mvalues_i32.mlt",
     "directory": "0x02",
-    "bytes": 70
+    "bytes": 65
   },
   {
     "name": "mvalues_i64.mlt",
     "directory": "0x02",
-    "bytes": 84
+    "bytes": 79
   },
   {
     "name": "mvalues_i8.mlt",
     "directory": "0x02",
-    "bytes": 61
+    "bytes": 56
   },
   {
     "name": "mvalues_line_dict.mlt",
     "directory": "0x02",
-    "bytes": 47
+    "bytes": 44
   },
   {
     "name": "mvalues_mline.mlt",
     "directory": "0x02",
-    "bytes": 60
+    "bytes": 56
   },
   {
     "name": "mvalues_mline_dict.mlt",
     "directory": "0x02",
-    "bytes": 61
+    "bytes": 57
   },
   {
     "name": "mvalues_mpoint.mlt",
     "directory": "0x02",
-    "bytes": 48
+    "bytes": 44
   },
   {
     "name": "mvalues_mpoint_dict.mlt",
     "directory": "0x02",
-    "bytes": 51
+    "bytes": 47
   },
   {
     "name": "mvalues_mpoly.mlt",
     "directory": "0x02",
-    "bytes": 59
+    "bytes": 56
   },
   {
     "name": "mvalues_mpoly_dict.mlt",
     "directory": "0x02",
-    "bytes": 62
+    "bytes": 59
   },
   {
     "name": "mvalues_plain.mlt",
     "directory": "0x02",
-    "bytes": 81
+    "bytes": 76
   },
   {
     "name": "mvalues_poly.mlt",
     "directory": "0x02",
-    "bytes": 55
+    "bytes": 51
   },
   {
     "name": "mvalues_poly_dict.mlt",
     "directory": "0x02",
-    "bytes": 58
+    "bytes": 54
   },
   {
     "name": "mvalues_poly_hole.mlt",
     "directory": "0x02",
-    "bytes": 54
+    "bytes": 51
   },
   {
     "name": "mvalues_rle.mlt",
     "directory": "0x02",
-    "bytes": 54
+    "bytes": 49
   },
   {
     "name": "mvalues_sp.mlt",
     "directory": "0x02",
-    "bytes": 65
+    "bytes": 60
   },
   {
     "name": "mvalues_sp_prop.mlt",
     "directory": "0x02",
-    "bytes": 64
+    "bytes": 59
   },
   {
     "name": "mvalues_str_dict.mlt",
     "directory": "0x02",
-    "bytes": 86
+    "bytes": 81
   },
   {
     "name": "mvalues_str_fsst.mlt",
     "directory": "0x02",
-    "bytes": 221
+    "bytes": 216
   },
   {
     "name": "mvalues_str_plain.mlt",
     "directory": "0x02",
-    "bytes": 92
+    "bytes": 87
   },
   {
     "name": "mvalues_tes.mlt",
     "directory": "0x02",
-    "bytes": 71
+    "bytes": 67
   },
   {
     "name": "mvalues_u32.mlt",
     "directory": "0x02",
-    "bytes": 68
+    "bytes": 63
   },
   {
     "name": "mvalues_u64.mlt",
     "directory": "0x02",
-    "bytes": 75
+    "bytes": 70
   },
   {
     "name": "mvalues_u8.mlt",
     "directory": "0x02",
-    "bytes": 62
+    "bytes": 57
   },
   {
     "name": "nested_list_struct.mlt",
     "directory": "0x02",
-    "bytes": 67
+    "bytes": 63
   },
   {
     "name": "nested_map_shapes.mlt",
     "directory": "0x02",
-    "bytes": 119
+    "bytes": 113
   },
   {
     "name": "nested_map_str.mlt",
     "directory": "0x02",
-    "bytes": 78
+    "bytes": 74
   },
   {
     "name": "nested_struct.mlt",
     "directory": "0x02",
-    "bytes": 64
+    "bytes": 59
   },
   {
     "name": "nested_struct_shapes.mlt",
     "directory": "0x02",
-    "bytes": 193
+    "bytes": 175
   },
   {
     "name": "point.mlt",
     "directory": "0x02",
-    "bytes": 21
+    "bytes": 18
   },
   {
     "name": "point_morton_dictionary.mlt",
     "directory": "0x02",
-    "bytes": 57
+    "bytes": 39
   },
   {
     "name": "poly.mlt",
     "directory": "0x02",
-    "bytes": 31
+    "bytes": 28
   },
   {
     "name": "poly_collinear.mlt",
     "directory": "0x02",
-    "bytes": 31
+    "bytes": 28
   },
   {
     "name": "poly_collinear_fpf.mlt",
     "directory": "0x02",
-    "bytes": 58
+    "bytes": 48
   },
   {
     "name": "poly_fpf.mlt",
     "directory": "0x02",
-    "bytes": 58
+    "bytes": 48
   },
   {
     "name": "poly_fpf_tes.mlt",
     "directory": "0x02",
-    "bytes": 82
+    "bytes": 72
   },
   {
     "name": "poly_hole.mlt",
     "directory": "0x02",
-    "bytes": 39
+    "bytes": 36
   },
   {
     "name": "poly_hole_fpf.mlt",
     "directory": "0x02",
-    "bytes": 63
+    "bytes": 53
   },
   {
     "name": "poly_hole_fpf_tes.mlt",
     "directory": "0x02",
-    "bytes": 103
+    "bytes": 93
   },
   {
     "name": "poly_hole_tes.mlt",
     "directory": "0x02",
-    "bytes": 66
+    "bytes": 63
   },
   {
     "name": "poly_hole_touching.mlt",
     "directory": "0x02",
-    "bytes": 41
+    "bytes": 38
   },
   {
     "name": "poly_hole_touching_fpf.mlt",
     "directory": "0x02",
-    "bytes": 67
+    "bytes": 57
   },
   {
     "name": "poly_hole_touching_fpf_tes.mlt",
     "directory": "0x02",
-    "bytes": 103
+    "bytes": 93
   },
   {
     "name": "poly_hole_touching_tes.mlt",
     "directory": "0x02",
-    "bytes": 65
+    "bytes": 62
   },
   {
     "name": "poly_morton_hole_morton.mlt",
     "directory": "0x02",
-    "bytes": 52
+    "bytes": 49
   },
   {
     "name": "poly_morton_ring_morton.mlt",
     "directory": "0x02",
-    "bytes": 50
+    "bytes": 47
   },
   {
     "name": "poly_morton_ring_no_morton.mlt",
     "directory": "0x02",
-    "bytes": 57
+    "bytes": 54
   },
   {
     "name": "poly_multi.mlt",
     "directory": "0x02",
-    "bytes": 44
+    "bytes": 41
   },
   {
     "name": "poly_multi_morton_hole_morton.mlt",
     "directory": "0x02",
-    "bytes": 55
+    "bytes": 52
   },
   {
     "name": "poly_multi_morton_ring_morton.mlt",
     "directory": "0x02",
-    "bytes": 57
+    "bytes": 54
   },
   {
     "name": "poly_multi_morton_ring_no_morton.mlt",
     "directory": "0x02",
-    "bytes": 64
+    "bytes": 61
   },
   {
     "name": "poly_multi_tes.mlt",
     "directory": "0x02",
-    "bytes": 56
+    "bytes": 53
   },
   {
     "name": "poly_self_intersect.mlt",
     "directory": "0x02",
-    "bytes": 33
+    "bytes": 30
   },
   {
     "name": "poly_self_intersect_fpf.mlt",
     "directory": "0x02",
-    "bytes": 58
+    "bytes": 48
   },
   {
     "name": "poly_self_intersect_fpf_tes.mlt",
     "directory": "0x02",
-    "bytes": 82
+    "bytes": 72
   },
   {
     "name": "poly_self_intersect_tes.mlt",
     "directory": "0x02",
-    "bytes": 45
+    "bytes": 42
   },
   {
     "name": "poly_tes.mlt",
     "directory": "0x02",
-    "bytes": 43
+    "bytes": 40
   },
   {
     "name": "prop_bool.mlt",
     "directory": "0x02",
-    "bytes": 29
+    "bytes": 26
   },
   {
     "name": "prop_bool_false.mlt",
     "directory": "0x02",
-    "bytes": 29
+    "bytes": 26
   },
   {
     "name": "prop_bool_false_np.mlt",
     "directory": "0x02",
-    "bytes": 28
+    "bytes": 25
   },
   {
     "name": "prop_bool_false_null.mlt",
     "directory": "0x02",
-    "bytes": 32
+    "bytes": 28
   },
   {
     "name": "prop_bool_np.mlt",
     "directory": "0x02",
-    "bytes": 28
+    "bytes": 25
   },
   {
     "name": "prop_bool_null_false.mlt",
     "directory": "0x02",
-    "bytes": 32
+    "bytes": 28
   },
   {
     "name": "prop_bool_null_true.mlt",
     "directory": "0x02",
-    "bytes": 32
+    "bytes": 28
   },
   {
     "name": "prop_bool_true_null.mlt",
     "directory": "0x02",
-    "bytes": 32
+    "bytes": 28
   },
   {
     "name": "prop_empty_name.mlt",
     "directory": "0x02",
-    "bytes": 26
+    "bytes": 23
   },
   {
     "name": "prop_empty_name_np.mlt",
     "directory": "0x02",
-    "bytes": 25
+    "bytes": 22
   },
   {
     "name": "prop_f32.mlt",
     "directory": "0x02",
-    "bytes": 32
+    "bytes": 29
   },
   {
     "name": "prop_f32_alp.mlt",
     "directory": "0x02",
-    "bytes": 51
+    "bytes": 47
   },
   {
     "name": "prop_f32_alp_np.mlt",
     "directory": "0x02",
-    "bytes": 50
+    "bytes": 46
   },
   {
     "name": "prop_f32_alp_whole_np.mlt",
     "directory": "0x02",
-    "bytes": 48
+    "bytes": 44
   },
   {
     "name": "prop_f32_dict.mlt",
     "directory": "0x02",
-    "bytes": 54
+    "bytes": 50
   },
   {
     "name": "prop_f32_dict_distinct_np.mlt",
     "directory": "0x02",
-    "bytes": 70
+    "bytes": 66
   },
   {
     "name": "prop_f32_dict_nan_np.mlt",
     "directory": "0x02",
-    "bytes": 49
+    "bytes": 45
   },
   {
     "name": "prop_f32_dict_np.mlt",
     "directory": "0x02",
-    "bytes": 59
+    "bytes": 55
   },
   {
     "name": "prop_f32_dict_zeros_np.mlt",
     "directory": "0x02",
-    "bytes": 49
+    "bytes": 45
   },
   {
     "name": "prop_f32_max.mlt",
     "directory": "0x02",
-    "bytes": 32
+    "bytes": 29
   },
   {
     "name": "prop_f32_max_np.mlt",
     "directory": "0x02",
-    "bytes": 31
+    "bytes": 28
   },
   {
     "name": "prop_f32_min_norm.mlt",
     "directory": "0x02",
-    "bytes": 32
+    "bytes": 29
   },
   {
     "name": "prop_f32_min_norm_np.mlt",
     "directory": "0x02",
-    "bytes": 31
+    "bytes": 28
   },
   {
     "name": "prop_f32_min_val.mlt",
     "directory": "0x02",
-    "bytes": 32
+    "bytes": 29
   },
   {
     "name": "prop_f32_min_val_np.mlt",
     "directory": "0x02",
-    "bytes": 31
+    "bytes": 28
   },
   {
     "name": "prop_f32_nan.mlt",
     "directory": "0x02",
-    "bytes": 32
+    "bytes": 29
   },
   {
     "name": "prop_f32_nan_np.mlt",
     "directory": "0x02",
-    "bytes": 31
+    "bytes": 28
   },
   {
     "name": "prop_f32_neg_inf.mlt",
     "directory": "0x02",
-    "bytes": 32
+    "bytes": 29
   },
   {
     "name": "prop_f32_neg_inf_np.mlt",
     "directory": "0x02",
-    "bytes": 31
+    "bytes": 28
   },
   {
     "name": "prop_f32_neg_zero.mlt",
     "directory": "0x02",
-    "bytes": 32
+    "bytes": 29
   },
   {
     "name": "prop_f32_neg_zero_np.mlt",
     "directory": "0x02",
-    "bytes": 31
+    "bytes": 28
   },
   {
     "name": "prop_f32_np.mlt",
     "directory": "0x02",
-    "bytes": 31
+    "bytes": 28
   },
   {
     "name": "prop_f32_null_val.mlt",
     "directory": "0x02",
-    "bytes": 35
+    "bytes": 31
   },
   {
     "name": "prop_f32_pos_inf.mlt",
     "directory": "0x02",
-    "bytes": 32
+    "bytes": 29
   },
   {
     "name": "prop_f32_pos_inf_np.mlt",
     "directory": "0x02",
-    "bytes": 31
+    "bytes": 28
   },
   {
     "name": "prop_f32_val_null.mlt",
     "directory": "0x02",
-    "bytes": 35
+    "bytes": 31
   },
   {
     "name": "prop_f32_zero.mlt",
     "directory": "0x02",
-    "bytes": 32
+    "bytes": 29
   },
   {
     "name": "prop_f32_zero_np.mlt",
     "directory": "0x02",
-    "bytes": 31
+    "bytes": 28
   },
   {
     "name": "prop_f64.mlt",
     "directory": "0x02",
-    "bytes": 36
+    "bytes": 33
   },
   {
     "name": "prop_f64_alp.mlt",
     "directory": "0x02",
-    "bytes": 51
+    "bytes": 47
   },
   {
     "name": "prop_f64_alp_np.mlt",
     "directory": "0x02",
-    "bytes": 50
+    "bytes": 46
   },
   {
     "name": "prop_f64_alp_offset_np.mlt",
     "directory": "0x02",
-    "bytes": 1128
+    "bytes": 1123
   },
   {
     "name": "prop_f64_alp_whole_np.mlt",
     "directory": "0x02",
-    "bytes": 48
+    "bytes": 44
   },
   {
     "name": "prop_f64_dict.mlt",
     "directory": "0x02",
-    "bytes": 62
+    "bytes": 58
   },
   {
     "name": "prop_f64_dict_distinct_np.mlt",
     "directory": "0x02",
-    "bytes": 94
+    "bytes": 90
   },
   {
     "name": "prop_f64_dict_nan_np.mlt",
     "directory": "0x02",
-    "bytes": 57
+    "bytes": 53
   },
   {
     "name": "prop_f64_dict_np.mlt",
     "directory": "0x02",
-    "bytes": 71
+    "bytes": 67
   },
   {
     "name": "prop_f64_dict_zeros_np.mlt",
     "directory": "0x02",
-    "bytes": 57
+    "bytes": 53
   },
   {
     "name": "prop_f64_max.mlt",
     "directory": "0x02",
-    "bytes": 36
+    "bytes": 33
   },
   {
     "name": "prop_f64_max_np.mlt",
     "directory": "0x02",
-    "bytes": 35
+    "bytes": 32
   },
   {
     "name": "prop_f64_min_norm.mlt",
     "directory": "0x02",
-    "bytes": 36
+    "bytes": 33
   },
   {
     "name": "prop_f64_min_norm_np.mlt",
     "directory": "0x02",
-    "bytes": 35
+    "bytes": 32
   },
   {
     "name": "prop_f64_min_val.mlt",
     "directory": "0x02",
-    "bytes": 36
+    "bytes": 33
   },
   {
     "name": "prop_f64_min_val_np.mlt",
     "directory": "0x02",
-    "bytes": 35
+    "bytes": 32
   },
   {
     "name": "prop_f64_nan.mlt",
     "directory": "0x02",
-    "bytes": 36
+    "bytes": 33
   },
   {
     "name": "prop_f64_nan_np.mlt",
     "directory": "0x02",
-    "bytes": 35
+    "bytes": 32
   },
   {
     "name": "prop_f64_neg_inf.mlt",
     "directory": "0x02",
-    "bytes": 36
+    "bytes": 33
   },
   {
     "name": "prop_f64_neg_inf_np.mlt",
     "directory": "0x02",
-    "bytes": 35
+    "bytes": 32
   },
   {
     "name": "prop_f64_neg_zero.mlt",
     "directory": "0x02",
-    "bytes": 36
+    "bytes": 33
   },
   {
     "name": "prop_f64_neg_zero_np.mlt",
     "directory": "0x02",
-    "bytes": 35
+    "bytes": 32
   },
   {
     "name": "prop_f64_np.mlt",
     "directory": "0x02",
-    "bytes": 35
+    "bytes": 32
   },
   {
     "name": "prop_f64_null_val.mlt",
     "directory": "0x02",
-    "bytes": 39
+    "bytes": 35
   },
   {
     "name": "prop_f64_pos_inf.mlt",
     "directory": "0x02",
-    "bytes": 36
+    "bytes": 33
   },
   {
     "name": "prop_f64_pos_inf_np.mlt",
     "directory": "0x02",
-    "bytes": 35
+    "bytes": 32
   },
   {
     "name": "prop_f64_val_null.mlt",
     "directory": "0x02",
-    "bytes": 39
+    "bytes": 35
   },
   {
     "name": "prop_f64_zero.mlt",
     "directory": "0x02",
-    "bytes": 36
+    "bytes": 33
   },
   {
     "name": "prop_f64_zero_np.mlt",
     "directory": "0x02",
-    "bytes": 35
+    "bytes": 32
   },
   {
     "name": "prop_i32.mlt",
     "directory": "0x02",
-    "bytes": 30
+    "bytes": 27
   },
   {
     "name": "prop_i32_delta.mlt",
     "directory": "0x02",
-    "bytes": 30
+    "bytes": 27
   },
   {
     "name": "prop_i32_delta_np.mlt",
     "directory": "0x02",
-    "bytes": 29
+    "bytes": 26
   },
   {
     "name": "prop_i32_delta_rle.mlt",
     "directory": "0x02",
-    "bytes": 31
+    "bytes": 28
   },
   {
     "name": "prop_i32_delta_rle_np.mlt",
     "directory": "0x02",
-    "bytes": 30
+    "bytes": 27
   },
   {
     "name": "prop_i32_max.mlt",
     "directory": "0x02",
-    "bytes": 34
+    "bytes": 31
   },
   {
     "name": "prop_i32_max_np.mlt",
     "directory": "0x02",
-    "bytes": 33
+    "bytes": 30
   },
   {
     "name": "prop_i32_min.mlt",
     "directory": "0x02",
-    "bytes": 34
+    "bytes": 31
   },
   {
     "name": "prop_i32_min_np.mlt",
     "directory": "0x02",
-    "bytes": 33
+    "bytes": 30
   },
   {
     "name": "prop_i32_neg.mlt",
     "directory": "0x02",
-    "bytes": 30
+    "bytes": 27
   },
   {
     "name": "prop_i32_neg_np.mlt",
     "directory": "0x02",
-    "bytes": 29
+    "bytes": 26
   },
   {
     "name": "prop_i32_np.mlt",
     "directory": "0x02",
-    "bytes": 29
+    "bytes": 26
   },
   {
     "name": "prop_i32_null_val.mlt",
     "directory": "0x02",
-    "bytes": 33
+    "bytes": 29
   },
   {
     "name": "prop_i32_plain_np.mlt",
     "directory": "0x02",
-    "bytes": 31
+    "bytes": 28
   },
   {
     "name": "prop_i32_rle.mlt",
     "directory": "0x02",
-    "bytes": 31
+    "bytes": 28
   },
   {
     "name": "prop_i32_rle_np.mlt",
     "directory": "0x02",
-    "bytes": 30
+    "bytes": 27
   },
   {
     "name": "prop_i32_val_null.mlt",
     "directory": "0x02",
-    "bytes": 33
+    "bytes": 29
   },
   {
     "name": "prop_i64.mlt",
     "directory": "0x02",
-    "bytes": 34
+    "bytes": 31
   },
   {
     "name": "prop_i64_delta.mlt",
     "directory": "0x02",
-    "bytes": 34
+    "bytes": 31
   },
   {
     "name": "prop_i64_delta_np.mlt",
     "directory": "0x02",
-    "bytes": 33
+    "bytes": 30
   },
   {
     "name": "prop_i64_delta_rle.mlt",
     "directory": "0x02",
-    "bytes": 35
+    "bytes": 32
   },
   {
     "name": "prop_i64_delta_rle_np.mlt",
     "directory": "0x02",
-    "bytes": 34
+    "bytes": 31
   },
   {
     "name": "prop_i64_max.mlt",
     "directory": "0x02",
-    "bytes": 39
+    "bytes": 36
   },
   {
     "name": "prop_i64_max_np.mlt",
     "directory": "0x02",
-    "bytes": 38
+    "bytes": 35
   },
   {
     "name": "prop_i64_min.mlt",
     "directory": "0x02",
-    "bytes": 39
+    "bytes": 36
   },
   {
     "name": "prop_i64_min_np.mlt",
     "directory": "0x02",
-    "bytes": 38
+    "bytes": 35
   },
   {
     "name": "prop_i64_neg.mlt",
     "directory": "0x02",
-    "bytes": 34
+    "bytes": 31
   },
   {
     "name": "prop_i64_neg_np.mlt",
     "directory": "0x02",
-    "bytes": 33
+    "bytes": 30
   },
   {
     "name": "prop_i64_np.mlt",
     "directory": "0x02",
-    "bytes": 33
+    "bytes": 30
   },
   {
     "name": "prop_i64_null_val.mlt",
     "directory": "0x02",
-    "bytes": 37
+    "bytes": 33
   },
   {
     "name": "prop_i64_plain_np.mlt",
     "directory": "0x02",
-    "bytes": 35
+    "bytes": 32
   },
   {
     "name": "prop_i64_rle.mlt",
     "directory": "0x02",
-    "bytes": 35
+    "bytes": 32
   },
   {
     "name": "prop_i64_rle_np.mlt",
     "directory": "0x02",
-    "bytes": 34
+    "bytes": 31
   },
   {
     "name": "prop_i64_val_null.mlt",
     "directory": "0x02",
-    "bytes": 37
+    "bytes": 33
   },
   {
     "name": "prop_special_name.mlt",
     "directory": "0x02",
-    "bytes": 39
+    "bytes": 36
   },
   {
     "name": "prop_special_name_np.mlt",
     "directory": "0x02",
-    "bytes": 38
+    "bytes": 35
   },
   {
     "name": "prop_str_ascii.mlt",
     "directory": "0x02",
-    "bytes": 34
+    "bytes": 31
   },
   {
     "name": "prop_str_ascii_np.mlt",
     "directory": "0x02",
-    "bytes": 33
+    "bytes": 30
   },
   {
     "name": "prop_str_empty.mlt",
     "directory": "0x02",
-    "bytes": 32
+    "bytes": 29
   },
   {
     "name": "prop_str_empty_np.mlt",
     "directory": "0x02",
-    "bytes": 31
+    "bytes": 28
   },
   {
     "name": "prop_str_empty_val.mlt",
     "directory": "0x02",
-    "bytes": 35
+    "bytes": 31
   },
   {
     "name": "prop_str_escape.mlt",
     "directory": "0x02",
-    "bytes": 52
+    "bytes": 49
   },
   {
     "name": "prop_str_escape_np.mlt",
     "directory": "0x02",
-    "bytes": 51
+    "bytes": 48
   },
   {
     "name": "prop_str_null_val.mlt",
     "directory": "0x02",
-    "bytes": 37
+    "bytes": 33
   },
   {
     "name": "prop_str_special.mlt",
     "directory": "0x02",
-    "bytes": 45
+    "bytes": 42
   },
   {
     "name": "prop_str_special_np.mlt",
     "directory": "0x02",
-    "bytes": 44
+    "bytes": 41
   },
   {
     "name": "prop_str_unicode.mlt",
     "directory": "0x02",
-    "bytes": 52
+    "bytes": 49
   },
   {
     "name": "prop_str_unicode_np.mlt",
     "directory": "0x02",
-    "bytes": 51
+    "bytes": 48
   },
   {
     "name": "prop_str_val_empty.mlt",
     "directory": "0x02",
-    "bytes": 35
+    "bytes": 31
   },
   {
     "name": "prop_str_val_null.mlt",
     "directory": "0x02",
-    "bytes": 37
+    "bytes": 33
   },
   {
     "name": "prop_u32.mlt",
     "directory": "0x02",
-    "bytes": 30
+    "bytes": 27
   },
   {
     "name": "prop_u32_delta.mlt",
     "directory": "0x02",
-    "bytes": 30
+    "bytes": 27
   },
   {
     "name": "prop_u32_delta_np.mlt",
     "directory": "0x02",
-    "bytes": 29
+    "bytes": 26
   },
   {
     "name": "prop_u32_delta_rle.mlt",
     "directory": "0x02",
-    "bytes": 31
+    "bytes": 28
   },
   {
     "name": "prop_u32_delta_rle_np.mlt",
     "directory": "0x02",
-    "bytes": 30
+    "bytes": 27
   },
   {
     "name": "prop_u32_max.mlt",
     "directory": "0x02",
-    "bytes": 34
+    "bytes": 31
   },
   {
     "name": "prop_u32_max_np.mlt",
     "directory": "0x02",
-    "bytes": 33
+    "bytes": 30
   },
   {
     "name": "prop_u32_min.mlt",
     "directory": "0x02",
-    "bytes": 30
+    "bytes": 27
   },
   {
     "name": "prop_u32_min_np.mlt",
     "directory": "0x02",
-    "bytes": 29
+    "bytes": 26
   },
   {
     "name": "prop_u32_np.mlt",
     "directory": "0x02",
-    "bytes": 29
+    "bytes": 26
   },
   {
     "name": "prop_u32_null_val.mlt",
     "directory": "0x02",
-    "bytes": 33
+    "bytes": 29
   },
   {
     "name": "prop_u32_plain_np.mlt",
     "directory": "0x02",
-    "bytes": 31
+    "bytes": 28
   },
   {
     "name": "prop_u32_rle.mlt",
     "directory": "0x02",
-    "bytes": 31
+    "bytes": 28
   },
   {
     "name": "prop_u32_rle_np.mlt",
     "directory": "0x02",
-    "bytes": 30
+    "bytes": 27
   },
   {
     "name": "prop_u32_val_null.mlt",
     "directory": "0x02",
-    "bytes": 33
+    "bytes": 29
   },
   {
     "name": "prop_u64.mlt",
     "directory": "0x02",
-    "bytes": 41
+    "bytes": 38
   },
   {
     "name": "prop_u64_delta.mlt",
     "directory": "0x02",
-    "bytes": 41
+    "bytes": 38
   },
   {
     "name": "prop_u64_delta_np.mlt",
     "directory": "0x02",
-    "bytes": 40
+    "bytes": 37
   },
   {
     "name": "prop_u64_delta_rle.mlt",
     "directory": "0x02",
-    "bytes": 42
+    "bytes": 39
   },
   {
     "name": "prop_u64_delta_rle_np.mlt",
     "directory": "0x02",
-    "bytes": 41
+    "bytes": 38
   },
   {
     "name": "prop_u64_max.mlt",
     "directory": "0x02",
-    "bytes": 42
+    "bytes": 39
   },
   {
     "name": "prop_u64_max_np.mlt",
     "directory": "0x02",
-    "bytes": 41
+    "bytes": 38
   },
   {
     "name": "prop_u64_min.mlt",
     "directory": "0x02",
-    "bytes": 33
+    "bytes": 30
   },
   {
     "name": "prop_u64_min_np.mlt",
     "directory": "0x02",
-    "bytes": 32
+    "bytes": 29
   },
   {
     "name": "prop_u64_np.mlt",
     "directory": "0x02",
-    "bytes": 40
+    "bytes": 37
   },
   {
     "name": "prop_u64_null_val.mlt",
     "directory": "0x02",
-    "bytes": 41
+    "bytes": 37
   },
   {
     "name": "prop_u64_plain_np.mlt",
     "directory": "0x02",
-    "bytes": 38
+    "bytes": 35
   },
   {
     "name": "prop_u64_rle.mlt",
     "directory": "0x02",
-    "bytes": 42
+    "bytes": 39
   },
   {
     "name": "prop_u64_rle_np.mlt",
     "directory": "0x02",
-    "bytes": 41
+    "bytes": 38
   },
   {
     "name": "prop_u64_val_null.mlt",
     "directory": "0x02",
-    "bytes": 41
+    "bytes": 37
   },
   {
     "name": "props_i32.mlt",
     "directory": "0x02",
-    "bytes": 40
+    "bytes": 36
   },
   {
     "name": "props_i32_delta.mlt",
     "directory": "0x02",
-    "bytes": 40
+    "bytes": 36
   },
   {
     "name": "props_i32_delta_np.mlt",
     "directory": "0x02",
-    "bytes": 39
+    "bytes": 35
   },
   {
     "name": "props_i32_delta_rle.mlt",
     "directory": "0x02",
-    "bytes": 40
+    "bytes": 36
   },
   {
     "name": "props_i32_delta_rle_np.mlt",
     "directory": "0x02",
-    "bytes": 39
+    "bytes": 35
   },
   {
     "name": "props_i32_np.mlt",
     "directory": "0x02",
-    "bytes": 39
+    "bytes": 35
   },
   {
     "name": "props_i32_rle.mlt",
     "directory": "0x02",
-    "bytes": 38
+    "bytes": 34
   },
   {
     "name": "props_i32_rle_np.mlt",
     "directory": "0x02",
-    "bytes": 37
+    "bytes": 33
   },
   {
     "name": "props_mixed.mlt",
     "directory": "0x02",
-    "bytes": 128
+    "bytes": 125
   },
   {
     "name": "props_mixed_np.mlt",
     "directory": "0x02",
-    "bytes": 127
+    "bytes": 124
   },
   {
     "name": "props_shared_dict_bp.mlt",
     "directory": "0x02",
-    "bytes": 109
+    "bytes": 105
   },
   {
     "name": "props_shared_dict_sp.mlt",
     "directory": "0x02",
-    "bytes": 113
+    "bytes": 109
   },
   {
     "name": "props_shared_dict_sp_lonely.mlt",
     "directory": "0x02",
-    "bytes": 114
+    "bytes": 110
   },
   {
     "name": "props_shared_dict_sp_mixed.mlt",
     "directory": "0x02",
-    "bytes": 152
+    "bytes": 148
   },
   {
     "name": "props_sp.mlt",
     "directory": "0x02",
-    "bytes": 43
+    "bytes": 39
   },
   {
     "name": "props_sp_id.mlt",
     "directory": "0x02",
-    "bytes": 47
+    "bytes": 43
   },
   {
     "name": "props_sp_max.mlt",
     "directory": "0x02",
-    "bytes": 185
+    "bytes": 179
   },
   {
     "name": "props_sp_mixed.mlt",
     "directory": "0x02",
-    "bytes": 109
+    "bytes": 105
   },
   {
     "name": "props_str_dict.mlt",
     "directory": "0x02",
-    "bytes": 70
+    "bytes": 66
   },
   {
     "name": "props_str_dict_bp.mlt",
     "directory": "0x02",
-    "bytes": 145
+    "bytes": 141
   },
   {
     "name": "props_str_dict_bp_np.mlt",
     "directory": "0x02",
-    "bytes": 144
+    "bytes": 140
   },
   {
     "name": "props_str_dict_np.mlt",
     "directory": "0x02",
-    "bytes": 69
+    "bytes": 65
   },
   {
     "name": "props_str_dict_nulls.mlt",
     "directory": "0x02",
-    "bytes": 114
+    "bytes": 110
   },
   {
     "name": "props_str_front_dict.mlt",
     "directory": "0x02",
-    "bytes": 89
+    "bytes": 85
   },
   {
     "name": "props_str_front_dict_np.mlt",
     "directory": "0x02",
-    "bytes": 88
+    "bytes": 84
   },
   {
     "name": "props_str_front_dict_nulls.mlt",
     "directory": "0x02",
-    "bytes": 88
+    "bytes": 84
   },
   {
     "name": "props_str_fsst.mlt",
     "directory": "0x02",
-    "bytes": 234
+    "bytes": 230
   },
   {
     "name": "props_str_fsst_dict.mlt",
     "directory": "0x02",
-    "bytes": 65
+    "bytes": 61
   },
   {
     "name": "props_str_fsst_dict_np.mlt",
     "directory": "0x02",
-    "bytes": 64
+    "bytes": 60
   },
   {
     "name": "props_str_fsst_dict_nulls.mlt",
     "directory": "0x02",
-    "bytes": 138
+    "bytes": 134
   },
   {
     "name": "props_str_fsst_front_dict.mlt",
     "directory": "0x02",
-    "bytes": 124
+    "bytes": 120
   },
   {
     "name": "props_str_fsst_front_dict_np.mlt",
     "directory": "0x02",
-    "bytes": 123
+    "bytes": 119
   },
   {
     "name": "props_str_fsst_front_dict_nulls.mlt",
     "directory": "0x02",
-    "bytes": 123
+    "bytes": 119
   },
   {
     "name": "props_str_fsst_np.mlt",
     "directory": "0x02",
-    "bytes": 233
+    "bytes": 229
   },
   {
     "name": "props_str_fsst_nulls.mlt",
     "directory": "0x02",
-    "bytes": 181
+    "bytes": 177
   },
   {
     "name": "props_str_plain.mlt",
     "directory": "0x02",
-    "bytes": 219
+    "bytes": 215
   },
   {
     "name": "props_str_plain_np.mlt",
     "directory": "0x02",
-    "bytes": 218
+    "bytes": 214
   },
   {
     "name": "props_str_plain_nulls.mlt",
     "directory": "0x02",
-    "bytes": 160
+    "bytes": 156
   },
   {
     "name": "props_u32.mlt",
     "directory": "0x02",
-    "bytes": 44
+    "bytes": 40
   },
   {
     "name": "props_u32_delta.mlt",
     "directory": "0x02",
-    "bytes": 42
+    "bytes": 38
   },
   {
     "name": "props_u32_delta_np.mlt",
     "directory": "0x02",
-    "bytes": 41
+    "bytes": 37
   },
   {
     "name": "props_u32_delta_rle.mlt",
     "directory": "0x02",
-    "bytes": 42
+    "bytes": 38
   },
   {
     "name": "props_u32_delta_rle_np.mlt",
     "directory": "0x02",
-    "bytes": 41
+    "bytes": 37
   },
   {
     "name": "props_u32_np.mlt",
     "directory": "0x02",
-    "bytes": 43
+    "bytes": 39
   },
   {
     "name": "props_u32_rle.mlt",
     "directory": "0x02",
-    "bytes": 39
+    "bytes": 35
   },
   {
     "name": "props_u32_rle_np.mlt",
     "directory": "0x02",
-    "bytes": 38
+    "bytes": 34
   },
   {
     "name": "props_u64.mlt",
     "directory": "0x02",
-    "bytes": 44
+    "bytes": 40
   },
   {
     "name": "props_u64_delta.mlt",
     "directory": "0x02",
-    "bytes": 42
+    "bytes": 38
   },
   {
     "name": "props_u64_delta_np.mlt",
     "directory": "0x02",
-    "bytes": 41
+    "bytes": 37
   },
   {
     "name": "props_u64_delta_rle.mlt",
     "directory": "0x02",
-    "bytes": 42
+    "bytes": 38
   },
   {
     "name": "props_u64_delta_rle_np.mlt",
     "directory": "0x02",
-    "bytes": 41
+    "bytes": 37
   },
   {
     "name": "props_u64_np.mlt",
     "directory": "0x02",
-    "bytes": 43
+    "bytes": 39
   },
   {
     "name": "props_u64_rle.mlt",
     "directory": "0x02",
-    "bytes": 39
+    "bytes": 35
   },
   {
     "name": "props_u64_rle_np.mlt",
     "directory": "0x02",
-    "bytes": 38
+    "bytes": 34
   }
 ]
