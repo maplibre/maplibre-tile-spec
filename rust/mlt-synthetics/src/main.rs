@@ -440,7 +440,7 @@ fn generate_extent(w: &mut SynthWriter) {
         let buffered = geo_varint()
             .extent(e.cast_unsigned())
             .geo(line![c(-42_i32, -42), c(e + 42, e + 42)]);
-        if v2 {
+        if v2_legal_extents.contains(&e) {
             plain.write(w, format!("extent_{e}"));
             buffered.write(w, format!("extent_buf_{e}"));
         } else {
