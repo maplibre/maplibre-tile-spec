@@ -46,10 +46,12 @@ class SyntheticMltUtil {
   static final Path SYNTHETICS_DIR = Paths.get("../test/synthetic");
 
   // Output directory holding the fixtures Java generates for the given wire tag.
-  // Tag 0x02 is suffixed because 0x02 holds the Rust v2 fixtures.
+  // Java only generates tag 0x01 fixtures.
   static Path syntheticsDir(int tag) {
-    final var name = String.format("0x%02x", tag);
-    return SYNTHETICS_DIR.resolve(tag == MltTypeMap.Tag0x02.TAG ? name + "-java" : name);
+    if (tag != MltTypeMap.Tag0x01.TAG) {
+      throw new IllegalArgumentException("Java only generates tag 0x01 fixtures, got tag " + tag);
+    }
+    return SYNTHETICS_DIR.resolve(String.format("0x%02x", tag));
   }
 
   static final String DEFAULT_LAYER_NAME = "layer1";
@@ -113,11 +115,6 @@ class SyntheticMltUtil {
 
     public Cfg geomEnc(ConversionConfig.IntegerEncodingOption encoding) {
       super.geometryEncodingOption(encoding);
-      return this;
-    }
-
-    public Cfg coercePropValues() {
-      super.typeMismatchPolicy(ConversionConfig.TypeMismatchPolicy.COERCE);
       return this;
     }
 

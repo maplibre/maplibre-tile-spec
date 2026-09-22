@@ -756,6 +756,10 @@ fn algorithms_display(algorithms: &HashSet<FileAlgorithm>) -> String {
 }
 
 fn print_table(rows: &[LsRow], flags: LsFlags) {
+    println!("{}", render_table(rows, flags));
+}
+
+fn render_table(rows: &[LsRow], flags: LsFlags) -> String {
     let fmt_size = |n: usize| format!("{:.1}B", SizeFormatterSI::new(u64::from_usize(n)));
 
     let infos: Vec<&MltFileInfo> = rows
@@ -932,7 +936,7 @@ fn print_table(rows: &[LsRow], flags: LsFlags) {
         table.modify(Cell::new(row_idx, 1), Alignment::left());
     }
 
-    println!("{table}");
+    table.to_string()
 }
 
 fn fmt_pct(v: f64) -> String {
@@ -942,5 +946,259 @@ fn fmt_pct(v: f64) -> String {
         format!("{v:.1}%")
     } else {
         format!("{v:.2}%")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn mlt_info(path: &str) -> MltFileInfo {
+        MltFileInfo {
+            path: path.to_string(),
+            size: 12_345,
+            encoding_pct: Some(62.5),
+            data_size: Some(32_000),
+            meta_size: Some(900),
+            meta_pct: Some(2.8),
+            gzipped_size: Some(9_000),
+            gzip_pct: Some(27.1),
+            layers: 3,
+            features: 1_234,
+            streams: Some(42),
+            algorithms: std::iter::once(FileAlgorithm::Mlt(
+                StreamType::Data(DictionaryType::None),
+                PhysicalEncoding::VarInt,
+                StatLogicalCodec::Delta,
+            ))
+            .collect(),
+            geometries: [GeometryType::Polygon, GeometryType::Point]
+                .into_iter()
+                .collect(),
+            matches_json: None,
+        }
+    }
+
+    fn mvt_info(path: &str) -> MltFileInfo {
+        MltFileInfo {
+            path: path.to_string(),
+            size: 54_321,
+            layers: 2,
+            features: 500,
+            algorithms: std::iter::once(FileAlgorithm::Mvt).collect(),
+            geometries: std::iter::once(GeometryType::LineString).collect(),
+            ..MltFileInfo::default()
+        }
+    }
+
+    fn info_row(info: MltFileInfo) -> LsRow {
+        LsRow::Info {
+            path: PathBuf::from(&info.path),
+            info,
+        }
+    }
+
+    fn error_row(path: &str, size: Option<usize>) -> LsRow {
+        LsRow::Error {
+            path: PathBuf::from(path),
+            size,
+            error: "unsupported version".to_string(),
+        }
+    }
+
+    fn validated(mut info: MltFileInfo, matches: bool) -> MltFileInfo {
+        info.matches_json = Some(matches);
+        info
+    }
+
+    const GZIP: LsFlags = LsFlags {
+        gzip: true,
+        algorithms: false,
+        validate: false,
+    };
+    const ALGORITHMS: LsFlags = LsFlags {
+        gzip: false,
+        algorithms: true,
+        validate: false,
+    };
+    const VALIDATE: LsFlags = LsFlags {
+        gzip: false,
+        algorithms: false,
+        validate: true,
+    };
+
+    #[test]
+    fn a_file_algorithm_serializes_as_its_display_string() {
+        let algorithms = [
+            FileAlgorithm::Mvt,
+            FileAlgorithm::Mlt(
+                StreamType::Present,
+                PhysicalEncoding::None,
+                StatLogicalCodec::None,
+            ),
+            FileAlgorithm::Mlt(
+                StreamType::Data(DictionaryType::Vertex),
+                PhysicalEncoding::VarInt,
+                StatLogicalCodec::DeltaRle,
+            ),
+            FileAlgorithm::Mlt(
+                StreamType::Offset(OffsetType::String),
+                PhysicalEncoding::None,
+                StatLogicalCodec::Rle,
+            ),
+            FileAlgorithm::Mlt(
+                StreamType::Length(LengthType::Rings),
+                PhysicalEncoding::None,
+                StatLogicalCodec::None,
+            ),
+        ];
+        insta::assert_snapshot!(
+            serde_json::to_string(&algorithms).expect("algorithms serialize"),
+            @r#"["Protobuf","Present","Vertex-VarInt-DeltaRle","StringOffset-Rle","RingsLen"]"#
+        );
+    }
+
+    #[test]
+    fn path_display_without_a_base_keeps_the_whole_path() {
+        insta::assert_snapshot!(path_display(Path::new("/tiles/omt/5_16_11.mlt"), None), @"/tiles/omt/5_16_11.mlt");
+    }
+
+    #[test]
+    fn path_display_with_a_file_base_keeps_only_the_file_name() {
+        let base = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+        insta::assert_snapshot!(
+            path_display(Path::new("/tiles/omt/5_16_11.mlt"), Some(&base)),
+            @"5_16_11.mlt"
+        );
+    }
+
+    #[test]
+    fn path_display_with_a_directory_base_strips_the_prefix() {
+        let base = Path::new(env!("CARGO_MANIFEST_DIR"));
+        insta::assert_snapshot!(path_display(&base.join("Cargo.toml"), Some(base)), @"Cargo.toml");
+    }
+
+    #[test]
+    fn path_display_with_an_unrelated_base_keeps_the_whole_path() {
+        insta::assert_snapshot!(
+            path_display(
+                Path::new("/tiles/omt/5_16_11.mlt"),
+                Some(Path::new("/no/such/base"))
+            ),
+            @"/tiles/omt/5_16_11.mlt"
+        );
+    }
+
+    #[test]
+    fn an_extension_filter_matches_case_insensitively() {
+        assert!(matches_extension_filter(
+            Path::new("/tiles/A.MLT"),
+            &["mlt".to_string()]
+        ));
+    }
+
+    #[test]
+    fn an_extension_filter_ignores_a_leading_dot_in_the_pattern() {
+        assert!(matches_extension_filter(
+            Path::new("/tiles/a.pbf"),
+            &[".mvt".to_string(), ".pbf".to_string()]
+        ));
+    }
+
+    #[test]
+    fn an_extension_filter_rejects_a_different_extension() {
+        assert!(!matches_extension_filter(
+            Path::new("/tiles/a.mvt"),
+            &["mlt".to_string()]
+        ));
+    }
+
+    #[test]
+    fn an_extension_filter_rejects_a_path_without_an_extension() {
+        assert!(!matches_extension_filter(
+            Path::new("/tiles/README"),
+            &["mlt".to_string()]
+        ));
+    }
+
+    #[test]
+    fn a_lone_info_row_renders_without_a_total_row() {
+        insta::assert_snapshot!(render_table(
+            &[info_row(mlt_info("a.mlt"))],
+            LsFlags::default()
+        ));
+    }
+
+    #[test]
+    fn the_gzip_flag_adds_the_gzipped_and_gz_percent_columns() {
+        insta::assert_snapshot!(render_table(&[info_row(mlt_info("a.mlt"))], GZIP));
+    }
+
+    #[test]
+    fn the_algorithms_flag_adds_the_algorithms_column() {
+        insta::assert_snapshot!(render_table(&[info_row(mlt_info("a.mlt"))], ALGORITHMS));
+    }
+
+    #[test]
+    fn two_mlt_rows_are_summed_into_a_total_row() {
+        insta::assert_snapshot!(render_table(
+            &[info_row(mlt_info("a.mlt")), info_row(mlt_info("b.mlt"))],
+            GZIP
+        ));
+    }
+
+    #[test]
+    fn a_total_row_over_files_without_decoded_or_gzip_sizes_shows_dashes() {
+        insta::assert_snapshot!(render_table(
+            &[info_row(mvt_info("a.mvt")), info_row(mvt_info("b.mvt"))],
+            GZIP
+        ));
+    }
+
+    #[test]
+    fn a_mixed_total_row_falls_back_to_dashes_for_the_decoded_columns() {
+        insta::assert_snapshot!(render_table(
+            &[info_row(mlt_info("a.mlt")), info_row(mvt_info("b.mvt"))],
+            GZIP
+        ));
+    }
+
+    #[test]
+    fn an_error_row_spans_the_remaining_columns() {
+        insta::assert_snapshot!(render_table(
+            &[
+                info_row(mlt_info("a.mlt")),
+                error_row("broken.mlt", Some(777)),
+                error_row("missing.mlt", None),
+            ],
+            LsFlags::default()
+        ));
+    }
+
+    #[test]
+    fn validating_marks_every_mismatching_row_with_a_cross() {
+        insta::assert_snapshot!(render_table(
+            &[
+                info_row(validated(mlt_info("a.mlt"), false)),
+                info_row(validated(mlt_info("b.mlt"), false)),
+            ],
+            VALIDATE
+        ));
+    }
+
+    #[test]
+    fn validating_hides_a_matching_row_but_keeps_an_error_row() {
+        insta::assert_snapshot!(render_table(
+            &[
+                info_row(validated(mlt_info("a.mlt"), true)),
+                error_row("broken.mlt", Some(777)),
+            ],
+            VALIDATE
+        ));
+    }
+
+    #[test]
+    fn validating_an_unvalidated_row_shows_a_dash_in_the_json_column() {
+        insta::assert_snapshot!(render_table(&[info_row(mlt_info("a.mlt"))], VALIDATE));
     }
 }
