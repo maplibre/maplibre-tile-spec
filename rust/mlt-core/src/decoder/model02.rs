@@ -739,10 +739,15 @@ impl Extent02 {
 
     /// Code an extent, rejecting one that is not a power of two in `64..=2097152`.
     pub(crate) fn new(extent: u32) -> MltResult<Self> {
-        (0..=Self::CODE_MASK)
-            .map(Self)
-            .find(|code| code.get() == extent)
-            .ok_or(MltError::UnsupportedExtent02(extent))
+        let max_extent = 2_u32.pow(u32::from(Self::CODE_MASK) + Self::MIN_EXPONENT);
+        if extent.is_power_of_two()
+            | (extent >= 2_u32.pow(Self::MIN_EXPONENT))
+            | (extent <= max_extent)
+        {
+            Ok(Self((extent.ilog2() - Self::MIN_EXPONENT) as u8))
+        } else {
+            Err(MltError::UnsupportedExtent02(extent))
+        }
     }
 
     /// Read a wire byte, rejecting a non-zero high nibble.
