@@ -65,7 +65,7 @@ class SyntheticMltUtil {
   // Use coordinates X in 0..180, Y in 0..85 space to match lon/lat ranges and help QGIS vis.
   // Try to keep all values unique to simplify validation and debugging.
   // Use tiny tile extent 64 for most geometry tests to focus on encoding correctness.
-  // v2 codes the extent as a power of two in 32..=32768, so 64 is the smallest realistic one.
+  // v2 codes the extent as a power of two in 64..=2097152, so 64 is the smallest one.
   static final GeometryFactory gf = new GeometryFactory(new PrecisionModel(), 4326);
   static final Coordinate c0 = c(13, 42);
   // triangle 1, clockwise winding, X ends in 1, Y ends in 2

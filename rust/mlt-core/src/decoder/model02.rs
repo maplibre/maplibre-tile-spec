@@ -737,17 +737,15 @@ impl Extent02 {
 
     /// Exponent of the smallest extent, which the code is offset by.
     const EXPONENT_OFFSET: u32 = 6;
-    const MIN_EXTENT_MASK: u32 = 2_u32.pow(Self::EXPONENT_OFFSET) - 1;
 
     /// Code an extent, rejecting one that is not a power of two in `64..=2097152`.
     pub(crate) fn new(extent: u32) -> MltResult<Self> {
-        if (extent & Self::MIN_EXTENT_MASK) == 0
-            && let Some(h) = extent.highest_one()
-            && h >= Self::EXPONENT_OFFSET
-            && h <= (u32::from(Self::MAX_EXPONENT) + Self::EXPONENT_OFFSET)
+        if extent.is_power_of_two()
+            && let Some(code) = extent.ilog2().checked_sub(Self::EXPONENT_OFFSET)
+            && code <= u32::from(Self::MAX_EXPONENT)
         {
             #[expect(clippy::cast_possible_truncation, reason = "16 < 256")]
-            Ok(Self((h - Self::EXPONENT_OFFSET) as u8))
+            Ok(Self(code as u8))
         } else {
             Err(MltError::UnsupportedExtent02(extent))
         }
@@ -956,6 +954,8 @@ mod tests {
     #[case::one(1)]
     #[case::below_the_smallest(32)]
     #[case::not_a_power_of_two(80)]
+    #[case::a_multiple_of_the_smallest(192)]
+    #[case::a_power_of_two_plus_a_multiple_of_the_smallest(33_024)]
     #[case::just_over_the_largest(2_097_153)]
     #[case::a_power_of_two_over_the_largest(4_194_304)]
     fn an_extent_outside_the_nibble_is_rejected(#[case] extent: u32) {
