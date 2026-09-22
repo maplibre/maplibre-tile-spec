@@ -14,7 +14,7 @@ type FsstVectorData = {
 };
 
 describe("cold FSST dictionary access", () => {
-    const tileData = readFileSync(new URL("../../../../test/expected/tag0x01/omt/14_8299_10748.mlt", import.meta.url));
+    const tileData = readFileSync(new URL("../../../../test/expected/0x01/omt/14_8299_10748.mlt", import.meta.url));
     const featureTable = decodeTile(new Uint8Array(tileData.buffer, tileData.byteOffset, tileData.byteLength)).find(
         (table) => table.name === "poi",
     );

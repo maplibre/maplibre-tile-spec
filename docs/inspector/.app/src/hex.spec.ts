@@ -1,19 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
-  type AnnotateMode,
   ancestors,
   bandTint,
   byteOwners,
   defaultView,
   fadedFrom,
   fitColumns,
-  hex8,
+  hexOffset,
   leafStep,
   regionBands,
   regionDotPath,
   regionPath,
-  showsDecoded,
-  showsSections,
   tipPlacement,
   wholeIndices,
 } from "./hex.ts";
@@ -127,6 +124,46 @@ describe("regionPath", () => {
   it("is empty for a top-level container", () => {
     expect(regionPath(tree.regions, 0)).toEqual([]);
   });
+
+  it("skips the column data and stream header groupings", () => {
+    const regions = [
+      region({ offset: 0, len: 4, label: "layer[0]", container: true }),
+      region({
+        offset: 0,
+        len: 4,
+        label: "column data",
+        depth: 1,
+        container: true,
+      }),
+      region({
+        offset: 0,
+        len: 4,
+        label: "column[1] Geometry",
+        depth: 2,
+        container: true,
+      }),
+      region({
+        offset: 0,
+        len: 4,
+        label: "stream[2]",
+        depth: 3,
+        container: true,
+      }),
+      region({
+        offset: 0,
+        len: 2,
+        label: "header",
+        depth: 4,
+        container: true,
+      }),
+      region({ offset: 0, len: 1, label: "stream_type", depth: 5 }),
+    ];
+    expect(regionPath(regions, 5)).toEqual([
+      "layer[0]",
+      "column[1] Geometry",
+      "stream[2]",
+    ]);
+  });
 });
 
 describe("regionDotPath", () => {
@@ -180,46 +217,17 @@ describe("ancestors", () => {
 
 describe("fadedFrom", () => {
   it("never fades metadata", () => {
-    expect(fadedFrom(tree.regions[1], defaultView())).toBe(
-      Number.POSITIVE_INFINITY,
-    );
+    expect(fadedFrom(tree.regions[1])).toBe(Number.POSITIVE_INFINITY);
   });
 
   it("fades a blob past its first byte", () => {
-    expect(fadedFrom(tree.regions[4], defaultView())).toBe(4);
-  });
-
-  it("fades a whole blob that the data knob hides", () => {
-    expect(
-      fadedFrom(tree.regions[4], { ...defaultView(), annotate: "hidden" }),
-    ).toBe(3);
-  });
-
-  it("fades the raw bytes the data knob replaces with decoded values", () => {
-    expect(
-      fadedFrom(tree.regions[4], { ...defaultView(), annotate: "decoded" }),
-    ).toBe(3);
+    expect(fadedFrom(tree.regions[4])).toBe(4);
   });
 });
 
-const MODES: AnnotateMode[] = ["sections", "both", "blob", "decoded", "hidden"];
-
-describe("the annotate knob", () => {
-  it("asks for decoded values everywhere but blob and hidden", () => {
-    expect(
-      MODES.filter((annotate) => showsDecoded({ ...defaultView(), annotate })),
-    ).toEqual(["sections", "both", "decoded"]);
-  });
-
-  it("tints the sections in the one mode named for them", () => {
-    expect(
-      MODES.filter((annotate) => showsSections({ ...defaultView(), annotate })),
-    ).toEqual(["sections"]);
-  });
-
-  it("starts on both, which tints nothing", () => {
-    expect(defaultView().annotate).toBe("both");
-    expect(showsSections(defaultView())).toBe(false);
+describe("defaultView", () => {
+  it("starts with the sections untinted", () => {
+    expect(defaultView().colorful).toBe(false);
   });
 });
 
@@ -249,8 +257,16 @@ describe("leafStep", () => {
   });
 });
 
-describe("hex8", () => {
-  it("pads an offset to eight digits", () => {
-    expect(hex8(0x2a)).toBe("0000002a");
+describe("hexOffset", () => {
+  it("pads an offset to four digits", () => {
+    expect(hexOffset(0x2a, 0x100)).toBe("002a");
+  });
+
+  it("keeps four digits for a tile of exactly 64 KiB", () => {
+    expect(hexOffset(0x2a, 0x10000)).toBe("002a");
+  });
+
+  it("widens every offset of a tile past 64 KiB", () => {
+    expect(hexOffset(0x2a, 0x10001)).toBe("0002a");
   });
 });

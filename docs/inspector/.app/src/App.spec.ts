@@ -187,13 +187,13 @@ describe("loading a fixture", () => {
     );
   });
 
-  it("annotates an uploaded tile", async () => {
+  it("annotates an added tile", async () => {
     serve();
     const app = mount(App);
     await flushPromises();
     app
       .findComponent(SourcePicker)
-      .vm.$emit("upload", new File([new Uint8Array(8)], "own.mlt"));
+      .vm.$emit("file", new File([new Uint8Array(8)], "own.mlt"));
     await flushPromises();
     expect(annotateTile).toHaveBeenCalledOnce();
     expect(app.find(".empty").exists()).toBe(false);
@@ -258,14 +258,14 @@ describe("the deep link", () => {
     app.unmount();
   });
 
-  it("drops a region an upload cannot name", async () => {
+  it("drops a region an added tile cannot name", async () => {
     serve();
     history.replaceState(null, "", "/?fixture=0x01/point.mlt&region=1");
     const app = mount(App);
     await flushPromises();
     app
       .findComponent(SourcePicker)
-      .vm.$emit("upload", new File([new Uint8Array(8)], "own.mlt"));
+      .vm.$emit("file", new File([new Uint8Array(8)], "own.mlt"));
     await flushPromises();
     expect(location.search).toBe("");
   });

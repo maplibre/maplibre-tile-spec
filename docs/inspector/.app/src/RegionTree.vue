@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import type { DumpTree, Region } from "./annotate.ts";
 import { ancestors, bandTint, UNANNOTATED } from "./hex.ts";
 
@@ -18,6 +18,7 @@ const emit = defineEmits<{
 }>();
 
 const collapsed = ref(new Set<number>());
+const scroller = ref<HTMLElement | null>(null);
 
 watch(
   () => props.tree,
@@ -90,12 +91,25 @@ function toggle(index: number) {
   collapsed.value = next;
 }
 
-/** Opens every container on the way to `index`, so revealing from the map cannot land nowhere. */
-function reveal(index: number) {
+/** Opens every container on the way to `index` and scrolls to its row, so revealing from the map cannot land nowhere. */
+async function reveal(index: number) {
   if (!props.tree.regions[index]) return;
   const next = new Set(collapsed.value);
   for (const at of ancestors(props.tree.regions, index)) next.delete(at);
   collapsed.value = next;
+  await nextTick();
+  scrollToRow(index);
+}
+
+/** Scrolls a row into view, but only when it is not on screen already. */
+function scrollToRow(index: number) {
+  const el = scroller.value;
+  const row = el?.querySelector(`[data-index="${index}"]`);
+  if (!el || !row) return;
+  const box = el.getBoundingClientRect();
+  const at = row.getBoundingClientRect();
+  if (at.top >= box.top && at.bottom <= box.bottom) return;
+  el.scrollTop += at.top - box.top - el.clientHeight / 3;
 }
 
 function containers(
@@ -122,10 +136,11 @@ defineExpose({ reveal });
         {{ opens ? "expand all" : "collapse all" }}
       </button>
     </div>
-    <div class="scroll">
+    <div ref="scroller" class="scroll">
       <div
         v-for="node in nodes"
         :key="node.index"
+        :data-index="node.index"
         class="node"
         :class="{
           [`b${bandTint(node.band)}`]: node.band >= 0,

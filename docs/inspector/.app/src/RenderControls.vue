@@ -17,15 +17,9 @@ const props = defineProps<{ layers: string[] }>();
         </option>
       </select>
     </label>
-    <label>
-      annotate
-      <select v-model="view.annotate">
-        <option value="sections">sections</option>
-        <option value="both">both</option>
-        <option value="blob">blob</option>
-        <option value="decoded">decoded</option>
-        <option value="hidden">hidden</option>
-      </select>
+    <label class="toggle">
+      <input v-model="view.colorful" type="checkbox">
+      Colorful
     </label>
   </div>
 </template>
@@ -56,8 +50,16 @@ select {
   appearance: none;
   padding: var(--pad-tight) 2rem var(--pad-tight) 0.9rem;
 }
+.toggle {
+  cursor: pointer;
+}
+input {
+  accent-color: var(--accent);
+  margin: 0;
+  cursor: pointer;
+}
 /* The select is the label's last child, so the label's right edge is the select's. */
-label::after {
+label:not(.toggle)::after {
   content: "";
   position: absolute;
   right: 0.9rem;

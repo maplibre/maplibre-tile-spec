@@ -52,7 +52,7 @@ pub fn load_all_mvt_bytes() -> Vec<(String, Vec<u8>)> {
 
 #[must_use]
 pub fn load_mlt_tiles(zoom: u8) -> Vec<(String, Vec<u8>)> {
-    load_tiles(zoom, "expected/tag0x01/omt", ".mlt")
+    load_tiles(zoom, "expected/0x01/omt", ".mlt")
 }
 
 #[must_use]

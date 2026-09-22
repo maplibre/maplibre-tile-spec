@@ -88,7 +88,7 @@ async function pickFixture(key: string) {
   }
 }
 
-async function pickUpload(file: File) {
+async function pickFile(file: File) {
   failure.value = null;
   try {
     load(new Uint8Array(await file.arrayBuffer()), null);
@@ -101,7 +101,7 @@ async function pickUpload(file: File) {
 const { isOverDropZone: dragging } = useDropZone(root, {
   onDrop: (files) => {
     const file = files?.[0];
-    if (file) void pickUpload(file);
+    if (file) void pickFile(file);
   },
 });
 
@@ -145,7 +145,7 @@ watch(link, (current) => {
         :index="index"
         :current="fixture"
         @fixture="pickFixture"
-        @upload="pickUpload"
+        @file="pickFile"
       />
       <RenderControls v-model="view" :layers="layers" />
     </header>
@@ -166,7 +166,7 @@ watch(link, (current) => {
         :index="index"
         :current="fixture"
         @fixture="pickFixture"
-        @upload="pickUpload"
+        @file="pickFile"
       />
     </section>
   </div>

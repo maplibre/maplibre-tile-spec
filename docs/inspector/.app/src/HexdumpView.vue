@@ -10,7 +10,6 @@ import {
   leafStep,
   type Pointer,
   regionBands,
-  showsSections,
   type ViewState,
 } from "./hex.ts";
 import RegionDetail from "./RegionDetail.vue";
@@ -37,7 +36,7 @@ const activeIndex = computed(() => selected.value ?? hovered.value);
 const owners = computed(() => byteOwners(props.tree));
 /** Shared by the map and the tree, so a row and its bytes take the same tint from one walk. */
 const bands = computed(() =>
-  showsSections(view.value) ? regionBands(props.tree) : null,
+  view.value.colorful ? regionBands(props.tree) : null,
 );
 
 /** Set when this component moved the selection, so an outside change still scrolls the map. */
@@ -140,7 +139,6 @@ onMounted(() => {
           :bytes="props.bytes"
           :index="activeIndex"
           :sticky="selected !== null"
-          :view="view"
           :decode="props.decode"
         />
         <RegionTree
@@ -158,7 +156,6 @@ onMounted(() => {
       :tree="props.tree"
       :index="hovered"
       :at="pointer"
-      :view="view"
       :decode="props.decode"
     />
   </div>

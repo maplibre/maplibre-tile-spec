@@ -55,7 +55,7 @@ gen-tests: (just 'cargo-install' 'fd' 'fd-find')
     set -euo pipefail
     ./gradlew cli
     fd . ../test/fixtures -e pbf -x bash -c 'java -jar mlt-cli/build/libs/encode.jar --mvt {} \
-        --mlt "$(tmp={.}; echo ${tmp/fixtures/expected/tag0x01/}).mlt" \
+        --mlt "$(tmp={.}; echo ${tmp/fixtures/expected/0x01/}).mlt" \
         --outlines "\*" --tessellate --coerce-mismatch --verbose || echo "### Some snippets failed to generate ###"'
 
 # Generate synthetic .mlt files and ensure there are no duplicates
@@ -120,7 +120,7 @@ _generate-one-expected-mlt file:
         -Dcom.google.protobuf.use_unsafe_pre22_gencode \
         -jar mlt-cli/build/libs/encode.jar \
         --mvt {{quote(file)}} \
-        --mlt {{quote(replace(without_extension(file) + '.mlt', '/fixtures/', '/expected/tag0x01/'))}} \
+        --mlt {{quote(replace(without_extension(file) + '.mlt', '/fixtures/', '/expected/0x01/'))}} \
         --outlines ALL \
         --colmap-delim '[.*]name/[:_]/' \
         --enable-fsst \

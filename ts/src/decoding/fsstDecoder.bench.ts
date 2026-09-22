@@ -51,14 +51,14 @@ function consume(decoded: Uint8Array): void {
 }
 
 describe("decode whole FSST dictionary", () => {
-    const typical = loadDictionary("../../../test/expected/tag0x01/amazon_here/5_16_10.mlt", "pois", "name");
+    const typical = loadDictionary("../../../test/expected/0x01/amazon_here/5_16_10.mlt", "pois", "name");
     bench(
         `typical: ${typical.compressed.length} compressed bytes to ${typical.decodedLength} decoded bytes`,
         () => consume(decodeFsst(typical.symbols, typical.symbolLengths, typical.compressed)),
         { warmupTime: 500, time: 5_000 },
     );
 
-    const large = loadDictionary("../../../test/expected/tag0x01/omt/14_8299_10748.mlt", "poi", "name");
+    const large = loadDictionary("../../../test/expected/0x01/omt/14_8299_10748.mlt", "poi", "name");
     bench(
         `large: ${large.compressed.length} compressed bytes to ${large.decodedLength} decoded bytes`,
         () => consume(decodeFsst(large.symbols, large.symbolLengths, large.compressed)),

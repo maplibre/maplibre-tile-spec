@@ -5,9 +5,6 @@ import type { DumpTree, Region } from "./annotate.ts";
 /** Label of the synthetic leaf covering the bytes a bailed-out walk never reached. */
 export const UNANNOTATED = "<unannotated>";
 
-/** How much of a data blob the map draws brightly, and whether it tints the sections. */
-export type AnnotateMode = "sections" | "both" | "blob" | "decoded" | "hidden";
-
 /** Bytes of a data blob the map draws brightly, which is enough to find the blob and not read it. */
 export const MAX_BLOB = 1;
 
@@ -15,7 +12,8 @@ export const MAX_BLOB = 1;
 export interface ViewState {
   /** Hex columns per row, fitted to the pane rather than chosen. */
   width: number;
-  annotate: AnnotateMode;
+  /** Whether the map and the tree tint each section. */
+  colorful: boolean;
   layer: number | null;
 }
 
@@ -23,7 +21,7 @@ export interface ViewState {
 export function defaultView(): ViewState {
   return {
     width: 16,
-    annotate: "both",
+    colorful: false,
     layer: null,
   };
 }
@@ -32,8 +30,10 @@ export function hex2(byte: number): string {
   return byte.toString(16).padStart(2, "0");
 }
 
-export function hex8(offset: number): string {
-  return offset.toString(16).padStart(8, "0");
+/** Offset in hex, padded to four digits or to as many as the last byte of a larger tile needs. */
+export function hexOffset(offset: number, bufLen: number): string {
+  const digits = Math.max(4, Math.max(0, bufLen - 1).toString(16).length);
+  return offset.toString(16).padStart(digits, "0");
 }
 
 export function printable(byte: number): string {
@@ -97,18 +97,14 @@ export function bandTint(band: number): number {
   return band < 0 ? -1 : band % BLOCKS;
 }
 
-/** Enclosing container labels, outermost first, found by walking back up the depths. */
+/** Containers that only group indexed siblings, whose own label a path would repeat. */
+const GROUPINGS = new Set(["column data", "columns", "m_values", "header"]);
+
+/** Enclosing container labels, outermost first, without the pure groupings. */
 export function regionPath(regions: Region[], index: number): string[] {
-  const path: string[] = [];
-  let depth = regions[index].depth;
-  for (let at = index - 1; at >= 0 && depth > 0; at--) {
-    const region = regions[at];
-    if (region.container && region.depth < depth) {
-      path.unshift(region.label);
-      depth = region.depth;
-    }
-  }
-  return path;
+  return ancestors(regions, index)
+    .map((at) => regions[at].label)
+    .filter((label) => !GROUPINGS.has(label));
 }
 
 /** The same path as one name, which is how the hover tip and the detail pane title a region. */
@@ -137,25 +133,9 @@ export function layerLabels(tree: DumpTree): string[] {
 }
 
 /** Offset from which a blob's bytes are drawn faded, which is what `data` means to a map that never drops a row. */
-export function fadedFrom(region: Region, view: ViewState): number {
+export function fadedFrom(region: Region): number {
   if (region.kind !== "dataBlob") return Number.POSITIVE_INFINITY;
-  if (view.annotate === "hidden" || view.annotate === "decoded")
-    return region.offset;
   return region.offset + MAX_BLOB;
-}
-
-/** Whether the detail pane asks for decoded values at all. */
-export function showsDecoded(view: ViewState): boolean {
-  return (
-    view.annotate === "sections" ||
-    view.annotate === "both" ||
-    view.annotate === "decoded"
-  );
-}
-
-/** Whether the map and the tree tint each section, which is what `sections` adds to `both`. */
-export function showsSections(view: ViewState): boolean {
-  return view.annotate === "sections";
 }
 
 /**

@@ -9,28 +9,28 @@ import { type FeatureTable, type Feature, decodeTile } from ".";
 import path from "node:path";
 import fs from "node:fs";
 
-const ITERATOR_TILE = path.resolve(__dirname, "../../test/expected/tag0x01/simple/multiline-boolean.mlt");
+const ITERATOR_TILE = path.resolve(__dirname, "../../test/expected/0x01/simple/multiline-boolean.mlt");
 
 describe("MLT Decoder - MVT comparison for SIMPLE tiles", () => {
-    const simpleMltTileDir = "../test/expected/tag0x01/simple";
+    const simpleMltTileDir = "../test/expected/0x01/simple";
     const simpleMvtTileDir = "../test/fixtures/simple";
     testTiles(simpleMltTileDir, simpleMvtTileDir);
 });
 
 describe("MLT Decoder - MVT comparison for Amazon tiles", () => {
-    const amazonMltTileDir = "../test/expected/tag0x01/amazon";
+    const amazonMltTileDir = "../test/expected/0x01/amazon";
     const amazonMvtTileDir = "../test/fixtures/amazon";
     testTiles(amazonMltTileDir, amazonMvtTileDir);
 });
 
 describe("MLT Decoder - MVT comparison for OMT tiles", () => {
-    const omtMltTileDir = "../test/expected/tag0x01/omt";
+    const omtMltTileDir = "../test/expected/0x01/omt";
     const omtMvtTileDir = "../test/fixtures/omt";
     testTiles(omtMltTileDir, omtMvtTileDir);
 }, 150000);
 
 describe("MLT Decoder - MVT comparison for Bing tiles", () => {
-    const bingMltTileDir = "../test/expected/tag0x01/bing";
+    const bingMltTileDir = "../test/expected/0x01/bing";
     const bingMvtTileDir = "../test/fixtures/bing";
     testTiles(bingMltTileDir, bingMvtTileDir);
 }, 150000);
