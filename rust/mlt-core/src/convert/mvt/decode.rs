@@ -276,8 +276,12 @@ impl InferredType {
             (Self::F64, MvtValue::Double(f)) => PropValue::F64(Some(f)),
             (Self::F64, MvtValue::Float(f)) => PropValue::F64(Some(f64::from(f))),
             (_, MvtValue::String(s)) => PropValue::Str(Some(s)),
-            // Type conflict at runtime: fall back to a debug string.
-            (_, v) => PropValue::Str(Some(format!("{v:?}"))),
+            // A column that mixes types keeps every value as its text form.
+            (_, MvtValue::Bool(b)) => PropValue::Str(Some(b.to_string())),
+            (_, MvtValue::Int(i) | MvtValue::SInt(i)) => PropValue::Str(Some(i.to_string())),
+            (_, MvtValue::UInt(u)) => PropValue::Str(Some(u.to_string())),
+            (_, MvtValue::Float(f)) => PropValue::Str(Some(f.to_string())),
+            (_, MvtValue::Double(f)) => PropValue::Str(Some(f.to_string())),
         }
     }
 }
@@ -344,17 +348,11 @@ mod tests {
     )]
     #[case::bool_then_int(
         vec![MvtValue::Bool(true), MvtValue::Int(5)],
-        vec![
-            PropValue::Str(Some("Bool(true)".into())),
-            PropValue::Str(Some("Int(5)".into())),
-        ],
+        vec![PropValue::Str(Some("true".into())), PropValue::Str(Some("5".into()))],
     )]
     #[case::double_then_string(
         vec![MvtValue::Double(1.5), MvtValue::String("x".into())],
-        vec![
-            PropValue::Str(Some("Double(1.5)".into())),
-            PropValue::Str(Some("x".into())),
-        ],
+        vec![PropValue::Str(Some("1.5".into())), PropValue::Str(Some("x".into()))],
     )]
     #[case::null_between_bools(
         vec![MvtValue::Bool(true), MvtValue::Null, MvtValue::Bool(false)],
@@ -380,7 +378,7 @@ mod tests {
         let data = mvt_with_values(&[MvtValue::SInt(-1), MvtValue::UInt(u64::MAX)]);
         assert_eq!(
             mvt_to_tile_layers(&data)
-                .expect_err("the debug-string fallback leaves the column mixed")
+                .expect_err("the string fallback leaves the column mixed")
                 .to_string(),
             "property 0 kind mismatch: expected I64, got Str"
         );
