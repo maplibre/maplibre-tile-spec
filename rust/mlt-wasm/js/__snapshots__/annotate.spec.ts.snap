@@ -657,7 +657,7 @@ exports[`annotateTile > annotates a v2 tile 1`] = `
           "hi": 3,
           "lo": 0,
           "meaning": "extent = 64",
-          "raw": 1,
+          "raw": 0,
         },
       ],
       "blob": null,
