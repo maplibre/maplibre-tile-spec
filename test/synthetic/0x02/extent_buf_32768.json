@@ -4,7 +4,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 131072,
+        "_extent": 32768,
         "_layer": "layer1"
       },
       "geometry": {
@@ -15,8 +15,8 @@
             -42
           ],
           [
-            131114,
-            131114
+            32810,
+            32810
           ]
         ]
       }

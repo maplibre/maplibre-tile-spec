@@ -4,6 +4,7 @@ import static org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption.
 import static org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption.DELTA_RLE;
 import static org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption.PLAIN;
 import static org.maplibre.mlt.converter.ConversionConfig.IntegerEncodingOption.RLE;
+import static org.maplibre.mlt.tools.SyntheticMltUtil.DEFAULT_EXTENT;
 import static org.maplibre.mlt.tools.SyntheticMltUtil.array;
 import static org.maplibre.mlt.tools.SyntheticMltUtil.c;
 import static org.maplibre.mlt.tools.SyntheticMltUtil.c1;
@@ -279,7 +280,7 @@ public class SyntheticMltGenerator {
   }
 
   private static void generateExtent() throws IOException {
-    int[] extents = {512, 4096, 131072, 1073741824};
+    int[] extents = {32, 512, 4096, 32768, 131072, 1073741824};
     for (int e : extents) {
       write(layer("extent_" + e, e, feat(line(c(0, 0), c(e - 1, e - 1)))), cfg());
       write(layer("extent_buf_" + e, e, feat(line(c(-42, -42), c(e + 42, e + 42)))), cfg());
@@ -561,7 +562,7 @@ public class SyntheticMltGenerator {
     for (var pad = 0; pad < 8; pad++) {
       write(
           "fpf_align_" + (pad + 1),
-          List.of(new Layer("a".repeat(pad + 1), Arrays.asList(features), 64)),
+          List.of(new Layer("a".repeat(pad + 1), Arrays.asList(features), DEFAULT_EXTENT)),
           cfg().fastPFOR());
     }
   }

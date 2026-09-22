@@ -719,6 +719,57 @@ impl GeoLayout {
     }
 }
 
+/// The v2 extent byte: a reserved nibble in bits 7-4, the extent code in bits 3-0.
+///
+/// v2 stores only power-of-two extents, so the nibble holds `log2(extent) - 5`
+/// rather than the extent itself: `0x0` is 32 and `0xA` is 32768.
+/// Codes `0xB`-`0xF` are reserved, as is a non-zero high nibble.
+/// The cap keeps every coordinate of a tile inside the 16 bits a Morton code is laid on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Extent02(u8);
+
+impl Extent02 {
+    /// Mask of the nibble holding the extent code.
+    pub(crate) const CODE_MASK: u8 = 0b0000_1111;
+
+    /// Mask of the reserved nibble, which MUST be zero.
+    pub(crate) const RESERVED_MASK: u8 = 0b1111_0000;
+
+    /// Exponent of the smallest extent, which the code is offset by.
+    const MIN_EXPONENT: u32 = 5;
+
+    /// Largest assigned code; the rest of the nibble is reserved.
+    pub(crate) const MAX_CODE: u8 = 10;
+
+    /// Code an extent, rejecting one that is not a power of two in `32..=32768`.
+    pub(crate) fn new(extent: u32) -> MltResult<Self> {
+        (0..=Self::MAX_CODE)
+            .map(Self)
+            .find(|code| code.get() == extent)
+            .ok_or(MltError::UnsupportedExtent02(extent))
+    }
+
+    /// Read a wire byte, rejecting a reserved code and a non-zero high nibble.
+    pub(crate) fn parse(byte: u8) -> MltResult<Self> {
+        let code = byte & Self::CODE_MASK;
+        if byte & Self::RESERVED_MASK != 0 || code > Self::MAX_CODE {
+            return Err(MltError::ParsingExtent02(byte));
+        }
+        Ok(Self(code))
+    }
+
+    /// The extent itself, always a power of two in `32..=32768`.
+    #[must_use]
+    pub(crate) fn get(self) -> u32 {
+        1 << (u32::from(self.0) + Self::MIN_EXPONENT)
+    }
+
+    #[must_use]
+    pub(crate) fn to_byte(self) -> u8 {
+        self.0
+    }
+}
+
 /// The v2 layer layout byte: an m-value flag in bit 7, shared presence bitfield
 /// count in bits 6-4, [`GeoLayout`] in bits 3-0.
 ///
@@ -883,6 +934,40 @@ mod tests {
     #[case::fsst_shared_dict(0b0001_1111, Column02::SharedDict(SharedDictKind::Fsst))]
     fn column_byte_names_the_shape_it_holds(#[case] byte: u8, #[case] column: Column02) {
         assert_eq!(Column02::parse(byte, ALL_SHARED).unwrap(), column);
+    }
+
+    #[rstest]
+    #[case::smallest(32, 0x00)]
+    #[case::default_synthetic(64, 0x01)]
+    #[case::mvt_default(4096, 0x07)]
+    #[case::largest(32_768, 0x0A)]
+    fn an_extent_round_trips_through_its_nibble(#[case] extent: u32, #[case] byte: u8) {
+        let coded = Extent02::new(extent).unwrap();
+        assert_eq!(coded.to_byte(), byte);
+        assert_eq!(coded.get(), extent);
+        assert_eq!(Extent02::parse(byte).unwrap(), coded);
+    }
+
+    #[rstest]
+    #[case::zero(0)]
+    #[case::one(1)]
+    #[case::below_the_smallest(16)]
+    #[case::not_a_power_of_two(80)]
+    #[case::just_over_the_largest(32_769)]
+    #[case::a_power_of_two_over_the_largest(65_536)]
+    fn an_extent_outside_the_nibble_is_rejected(#[case] extent: u32) {
+        let err = Extent02::new(extent).unwrap_err();
+        assert!(matches!(err, MltError::UnsupportedExtent02(e) if e == extent));
+    }
+
+    #[rstest]
+    #[case::first_unassigned_code(0x0B)]
+    #[case::last_unassigned_code(0x0F)]
+    #[case::reserved_nibble_set(0x10)]
+    #[case::reserved_nibble_over_an_assigned_code(0xF7)]
+    fn an_extent_byte_outside_the_assigned_codes_is_rejected(#[case] byte: u8) {
+        let err = Extent02::parse(byte).unwrap_err();
+        assert!(matches!(err, MltError::ParsingExtent02(b) if b == byte));
     }
 
     #[rstest]

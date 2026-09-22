@@ -4,19 +4,19 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 131072,
+        "_extent": 32,
         "_layer": "layer1"
       },
       "geometry": {
         "type": "LineString",
         "coordinates": [
           [
-            0,
-            0
+            -42,
+            -42
           ],
           [
-            131071,
-            131071
+            74,
+            74
           ]
         ]
       }

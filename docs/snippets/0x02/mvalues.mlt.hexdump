@@ -2,7 +2,9 @@
 00000000  4b                                                K                |   size: 75 (varint) - tag + body
 00000001  02                                                .                |   tag: 0x02 -> Tag02
 00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
-00000009  40                                                @                |   extent: 64
+00000009  01                                                .                |   extent: 64
+                                                                             |     └ bits 7-4 = 0000 -> reserved
+                                                                             |     └ bits 3-0 = 0001 -> extent = 64
 0000000a  03                                                .                |   feature_count: 3
 0000000b  84                                                .                |   layout: 0x84 Lines
                                                                              |     └ bit 7 = 1 -> an m-value section ends the body

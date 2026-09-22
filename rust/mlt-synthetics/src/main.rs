@@ -432,15 +432,23 @@ fn generate_mixed(w: &mut SynthWriter) {
 }
 
 fn generate_extent(w: &mut SynthWriter) {
-    for e in [512_i32, 4096, 131_072, 1_073_741_824] {
-        geo_varint()
+    // 32 and 32768 are the extents the v2 nibble's assigned codes end at.
+    for e in [32_i32, 512, 4096, 32_768, 131_072, 1_073_741_824] {
+        // v2 codes the extent in a nibble, so only a power of two in 32..=32768 reaches it.
+        let v2 = (32..=32_768).contains(&e);
+        let plain = geo_varint()
             .extent(e.cast_unsigned())
-            .geo(line![c(0_i32, 0), c(e - 1, e - 1)])
-            .write(w, format!("extent_{e}"));
-        geo_varint()
+            .geo(line![c(0_i32, 0), c(e - 1, e - 1)]);
+        let buffered = geo_varint()
             .extent(e.cast_unsigned())
-            .geo(line![c(-42_i32, -42), c(e + 42, e + 42)])
-            .write(w, format!("extent_buf_{e}"));
+            .geo(line![c(-42_i32, -42), c(e + 42, e + 42)]);
+        if v2 {
+            plain.write(w, format!("extent_{e}"));
+            buffered.write(w, format!("extent_buf_{e}"));
+        } else {
+            plain.no_v2().write(w, format!("extent_{e}"));
+            buffered.no_v2().write(w, format!("extent_buf_{e}"));
+        }
     }
 }
 

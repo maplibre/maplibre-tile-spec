@@ -9,7 +9,7 @@
 //!
 //! ```text
 //! [varint name_len] [name bytes]
-//! [varint extent]
+//! [u8 extent]                       reserved | extent code, see Extent02
 //! [varint feature_count]
 //! [u8 layer_layout]                 reserved | shared presence count | geometry layout, see LayerLayout
 //! [shared presence bitfields]       ceil(feature_count/8) raw bytes each,
@@ -56,10 +56,10 @@ use crate::decoder::stream::header02;
 use crate::decoder::stream::header02::{Count02, HAS_EXPLICIT_COUNT, StrLayout, StreamCtx02};
 use crate::decoder::{
     Column02, ColumnCounts, ColumnKind02, ColumnType02, DataType02, Decoder, DictLayout,
-    DictionaryType, FloatLogical, GeoLayout, Id, IdWidth02, Layer01, LayerLayout, LengthType,
-    LogicalEncoding, MValues, Nested, Presence02, RawFloats, RawFloatsEncoding, RawFsstData,
-    RawGeometry, RawId, RawIdValue, RawMValue, RawPlainData, RawPresence, RawProperty, RawScalar,
-    RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings,
+    DictionaryType, Extent02, FloatLogical, GeoLayout, Id, IdWidth02, Layer01, LayerLayout,
+    LengthType, LogicalEncoding, MValues, Nested, Presence02, RawFloats, RawFloatsEncoding,
+    RawFsstData, RawGeometry, RawId, RawIdValue, RawMValue, RawPlainData, RawPresence, RawProperty,
+    RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem, RawStream, RawStrings,
     RawStringsEncoding, SharedDictKind, ValueType02, ValuesColumn02,
 };
 use crate::tile::{ColumnRole, Extent, reject_taken_name};
@@ -75,8 +75,8 @@ pub(crate) fn parse_layer02<'a>(
     if layer_name.is_empty() {
         return Err(MissingLayerName);
     }
-    let (input, extent) = parse_varint::<u32>(input)?;
-    let extent = Extent::new(extent)?;
+    let (input, extent_byte) = parse_u8(input)?;
+    let extent = Extent::new(Extent02::parse(extent_byte)?.get())?;
     let (input, feature_count) = parse_varint::<u32>(input)?;
     let (input, layout_byte) = parse_u8(input)?;
     let layout = LayerLayout::parse(layout_byte)?;

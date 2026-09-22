@@ -56,6 +56,8 @@ class SyntheticMltUtil {
 
   static final String DEFAULT_LAYER_NAME = "layer1";
 
+  static final int DEFAULT_EXTENT = 64;
+
   // Using common coordinates everywhere to make sure generated MLT files are very similar,
   // ensuring we observe difference in encoding rather than geometry variations.
   // Use SRID 4326 for visualization - all coords are in positive longitude/latitude
@@ -63,6 +65,7 @@ class SyntheticMltUtil {
   // Use coordinates X in 0..180, Y in 0..85 space to match lon/lat ranges and help QGIS vis.
   // Try to keep all values unique to simplify validation and debugging.
   // Use tiny tile extent 64 for most geometry tests to focus on encoding correctness.
+  // v2 codes the extent as a power of two in 32..=32768, so 64 is the smallest realistic one.
   static final GeometryFactory gf = new GeometryFactory(new PrecisionModel(), 4326);
   static final Coordinate c0 = c(13, 42);
   // triangle 1, clockwise winding, X ends in 1, Y ends in 2
@@ -279,7 +282,7 @@ class SyntheticMltUtil {
   }
 
   static Layer layer(String name, Feature... features) {
-    return new Layer(name, Arrays.asList(features), 64);
+    return new Layer(name, Arrays.asList(features), DEFAULT_EXTENT);
   }
 
   static Layer layer(String name, int extent, Feature... features) {

@@ -74,6 +74,12 @@ pub enum MltError {
     #[error("error parsing v2 geometry layout: code={0}")]
     ParsingGeoLayout(u8),
     #[cfg(feature = "unstable-v2")]
+    #[error("error parsing v2 extent byte: 0x{0:02X}")]
+    ParsingExtent02(u8),
+    #[cfg(feature = "unstable-v2")]
+    #[error("v2 extent {0} is not a power of two in 32..=32768")]
+    UnsupportedExtent02(u32),
+    #[cfg(feature = "unstable-v2")]
     #[error(
         "v2 geometry layout {0} gives no per-feature vertex count, so it cannot carry m-values"
     )]

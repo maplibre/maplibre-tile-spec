@@ -2,7 +2,9 @@
 00000000  26                                                &                |   size: 38 (varint) - tag + body
 00000001  02                                                .                |   tag: 0x02 -> Tag02
 00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
-00000009  40                                                @                |   extent: 64
+00000009  01                                                .                |   extent: 64
+                                                                             |     └ bits 7-4 = 0000 -> reserved
+                                                                             |     └ bits 3-0 = 0001 -> extent = 64
 0000000a  01                                                .                |   feature_count: 1
 0000000b  08                                                .                |   layout: 0x08 Polygons
                                                                              |     └ bit 7 = 0 -> no m-value section
