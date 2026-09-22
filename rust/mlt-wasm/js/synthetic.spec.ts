@@ -16,15 +16,6 @@ import {
 
 const UNIMPLEMENTED_SYNTHETICS = new Map([
   ["0x02", "the v2 wire format is behind the unstable-v2 feature"],
-  ["0x02-java/prop_nested_big", "not supported"],
-  ["0x02-java/prop_nested_ints", "not supported"],
-  ["0x02-java/prop_nested_json", "not supported"],
-  ["0x02-java/prop_nested_list_root", "not supported"],
-  ["0x02-java/prop_nested_list", "not supported"],
-  ["0x02-java/prop_nested_mixed_root", "not supported"],
-  ["0x02-java/prop_nested_null", "not supported"],
-  ["0x02-java/prop_nested_shared", "not supported"],
-  ["0x02-java/prop_nested_specials", "not supported"],
 ]);
 
 describe("MLT WASM Decoder - Synthetic tests", () => {

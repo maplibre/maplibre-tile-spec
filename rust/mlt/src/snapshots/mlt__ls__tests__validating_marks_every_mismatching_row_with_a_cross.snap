@@ -1,0 +1,10 @@
+---
+source: mlt/src/ls.rs
+expression: "render_table(&[info_row(validated(mlt_info(\"a.mlt\"), false)),\ninfo_row(validated(mlt_info(\"b.mlt\"), false)),], VALIDATE)"
+---
+ File  |   Size | Enc % | Decoded |  Meta | Meta % | Layer | Feature | Stream | Geometry Types | JSON 
+-------+--------+-------+---------+-------+--------+-------+---------+--------+----------------+------
+ a.mlt | 12.3kB |   62% |  32.0kB |  900B |   2.8% |     3 |   1,234 |     42 | Pt,Poly        | ✗    
+ b.mlt | 12.3kB |   62% |  32.0kB |  900B |   2.8% |     3 |   1,234 |     42 | Pt,Poly        | ✗    
+-------+--------+-------+---------+-------+--------+-------+---------+--------+----------------+------
+ TOTAL | 24.6kB |   62% |  64.0kB | 1.8kB |   2.8% |     6 |   2,468 |     84 |                |

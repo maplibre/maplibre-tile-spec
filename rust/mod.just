@@ -12,9 +12,6 @@ export NEXTEST_PROFILE := env('NEXTEST_PROFILE', if ci_mode == '1' {'ci'} else {
 # Features excluded from cargo-hack --each-feature iterations (heavy optional instrumentation)
 hack_skip := '--exclude-features hotpath,hotpath-alloc,hotpath-mcp,coverage'
 
-# Files excluded from `mlt ls --validate-to-json ...`
-validate_excludes := "--exclude '../test/synthetic/0x02-java/prop_nested*'"
-
 _default: (just '--list' 'rust')
 
 [private]
@@ -582,7 +579,7 @@ wasm-coverage: (just 'cargo-install' 'wasm-pack')
 
 # Validate every .mlt in test/synthetic against corresponding .json (GeoJSON)
 validate-synthetic:
-    {{just}} mlt ls --validate-to-json {{validate_excludes}} --details basic ../test/synthetic/
+    {{just}} mlt ls --validate-to-json --details basic ../test/synthetic/
 
 [private]
 [working-directory: 'mlt-core']

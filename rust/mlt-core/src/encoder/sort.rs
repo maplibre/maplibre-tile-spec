@@ -387,7 +387,6 @@ mod tests {
                     geometry: g.clone(),
                     properties: vec![],
                     #[cfg(feature = "unstable-v2")]
-                    #[cfg(feature = "unstable-v2")]
                     m_values: vec![],
                     #[cfg(feature = "unstable-v2")]
                     nested: vec![],
@@ -568,7 +567,9 @@ mod tests {
     #[case::clustered(&[(0, 0), (100, 100)], true)]
     #[case::spread_on_x_only(&[(0, 0), (4000, 100)], true)]
     #[case::spread_on_both_axes(&[(0, 0), (4000, 4000)], false)]
+    #[case::spread_on_y_only(&[(0, 0), (100, 4000)], true)]
     #[case::exactly_at_the_coverage_limit(&[(0, 0), (3276, 3276)], true)]
+    #[case::just_past_the_coverage_limit(&[(0, 0), (3277, 3277)], false)]
     #[case::wider_than_the_extent(&[(-9000, -9000), (9000, 9000)], false)]
     #[case::wider_than_i32(&[(i32::MIN, i32::MIN), (i32::MAX, i32::MAX)], false)]
     fn spatial_sort_help_heuristic(#[case] coords: &[(i32, i32)], #[case] expected: bool) {
@@ -586,5 +587,92 @@ mod tests {
     fn curve_params_of_a_vertexless_layer_is_the_degenerate_grid() {
         let layer = build_tile_layer(&[GeoGeom::LineString(LineString(vec![]))], &[None]);
         assert_eq!(layer.curve_params(), CurveParams { shift: 0, bits: 1 });
+    }
+
+    #[rstest]
+    #[case::morton(SortStrategy::SpatialMorton, &[0, 1, 2, 3])]
+    #[case::hilbert(SortStrategy::SpatialHilbert, &[0, 2, 3, 1])]
+    fn spatial_sort_of_the_unit_square_follows_the_chosen_curve(
+        #[case] strategy: SortStrategy,
+        #[case] expected: &[u64],
+    ) {
+        let geoms = [pt(0, 0), pt(1, 0), pt(0, 1), pt(1, 1)];
+        let ids: Vec<Option<u64>> = (0..4).map(Some).collect();
+
+        let mut layer = build_tile_layer(&geoms, &ids);
+        let params = layer.curve_params();
+        assert_eq!(params, CurveParams { shift: 0, bits: 1 });
+        layer.sort(strategy, params);
+
+        let sorted: Vec<Option<u64>> = layer.features().iter().map(TileFeature::id).collect();
+        assert_eq!(
+            sorted,
+            expected.iter().copied().map(Some).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn unsorted_leaves_the_feature_order_alone() {
+        let geoms = [pt(9, 9), pt(0, 0), pt(5, 5)];
+        let ids = [Some(3u64), Some(1), Some(2)];
+
+        let mut layer = build_tile_layer(&geoms, &ids);
+        let params = layer.curve_params();
+        layer.sort(SortStrategy::Unsorted, params);
+
+        let sorted: Vec<Option<u64>> = layer.features().iter().map(TileFeature::id).collect();
+        assert_eq!(sorted, ids.to_vec());
+    }
+
+    #[test]
+    fn every_vertexless_geometry_kind_sorts_after_the_one_feature_with_a_vertex() {
+        let empty_ring = || Polygon::new(LineString(vec![]), vec![]);
+        let geoms = [
+            GeoGeom::LineString(LineString(vec![])),
+            GeoGeom::Polygon(empty_ring()),
+            GeoGeom::MultiPoint(MultiPoint(vec![])),
+            GeoGeom::MultiLineString(MultiLineString(vec![])),
+            GeoGeom::MultiLineString(MultiLineString(vec![LineString(vec![])])),
+            GeoGeom::MultiPolygon(MultiPolygon(vec![])),
+            GeoGeom::MultiPolygon(MultiPolygon(vec![empty_ring()])),
+            GeoGeom::GeometryCollection(GeometryCollection(vec![])),
+            GeoGeom::GeometryCollection(GeometryCollection(vec![GeoGeom::LineString(LineString(
+                vec![],
+            ))])),
+            pt(1, 1),
+        ];
+        let ids: Vec<Option<u64>> = (0..u64::try_from(geoms.len()).unwrap()).map(Some).collect();
+
+        let mut layer = build_tile_layer(&geoms, &ids);
+        let params = layer.curve_params();
+        layer.sort(SortStrategy::SpatialMorton, params);
+
+        let sorted: Vec<Option<u64>> = layer.features().iter().map(TileFeature::id).collect();
+        assert_eq!(
+            sorted,
+            vec![
+                Some(9),
+                Some(0),
+                Some(1),
+                Some(2),
+                Some(3),
+                Some(4),
+                Some(5),
+                Some(6),
+                Some(7),
+                Some(8)
+            ]
+        );
+    }
+
+    #[test]
+    fn the_spatial_sort_heuristic_ignores_features_without_a_vertex() {
+        let geoms = [
+            pt(0, 0),
+            GeoGeom::LineString(LineString(vec![])),
+            pt(4000, 4000),
+        ];
+        let layer = build_tile_layer(&geoms, &[None, None, None]);
+        assert!(!spatial_sort_likely_to_help(&layer));
     }
 }
