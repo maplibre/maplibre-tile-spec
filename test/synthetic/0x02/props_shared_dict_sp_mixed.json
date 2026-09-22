@@ -4,7 +4,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "after": 0,
         "before": 0,
@@ -23,7 +23,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "after": 1,
         "name:de": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
@@ -40,7 +40,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "name:fr": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
       },
@@ -55,7 +55,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "before": 3,
         "name:en": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
@@ -72,7 +72,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "name:fr": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
       },
@@ -87,7 +87,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "after": 5,
         "before": 5,

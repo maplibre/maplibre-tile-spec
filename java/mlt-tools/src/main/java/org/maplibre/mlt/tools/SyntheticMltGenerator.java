@@ -561,7 +561,7 @@ public class SyntheticMltGenerator {
     for (var pad = 0; pad < 8; pad++) {
       write(
           "fpf_align_" + (pad + 1),
-          List.of(new Layer("a".repeat(pad + 1), Arrays.asList(features), 80)),
+          List.of(new Layer("a".repeat(pad + 1), Arrays.asList(features), 64)),
           cfg().fastPFOR());
     }
   }

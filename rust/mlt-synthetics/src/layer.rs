@@ -736,7 +736,7 @@ impl Layer {
         let mut codecs = Codecs::default();
         StagedLayer::with_nested(
             "layer1",
-            extent.unwrap_or(80),
+            extent.unwrap_or(64),
             id,
             geometry,
             props.into_iter().map(|(p, _)| p).collect(),

@@ -16,7 +16,7 @@
         "6-a": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
         "7-b": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
         "8-b": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1"
       },
       "geometry": {
@@ -36,7 +36,7 @@
         "3-a": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
         "4-b": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
         "7-b": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1"
       },
       "geometry": {
@@ -62,7 +62,7 @@
         "6-a": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
         "7-b": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
         "8-b": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1"
       },
       "geometry": {

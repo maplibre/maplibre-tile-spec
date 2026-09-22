@@ -4,7 +4,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "val": "residential_zone_north_sector_1"
       },
@@ -19,7 +19,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "val": "residential_zone_north_sector_3"
       },
@@ -34,7 +34,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "val": "residential_zone_north_sector_2"
       },
@@ -49,7 +49,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "val": "residential_zone_north_sector_3"
       },
@@ -64,7 +64,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "val": "residential_zone_north_sector_1"
       },
@@ -79,7 +79,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "val": "residential_zone_north_sector_2"
       },

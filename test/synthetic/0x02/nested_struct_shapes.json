@@ -4,7 +4,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "obj": {
           "a": 1,
@@ -23,7 +23,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "obj": {
           "a": 2,
@@ -42,7 +42,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "obj": {
           "a": 3,
@@ -61,7 +61,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "obj": {
           "a": 4,
@@ -80,7 +80,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "obj": {
           "a": 5,
@@ -99,7 +99,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "obj": {
           "a": 6,
@@ -118,7 +118,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "obj": {
           "a": 7,
@@ -137,7 +137,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "obj": {
           "a": 8,
@@ -156,7 +156,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "obj": {
           "x": "p",
@@ -175,7 +175,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "obj": {
           "x": "q",
@@ -194,7 +194,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "obj": {
           "x": "p",
@@ -213,7 +213,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "obj": {
           "x": "q",
@@ -232,7 +232,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "obj": {
           "x": "p",
@@ -251,7 +251,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "obj": {
           "x": "q",
@@ -270,7 +270,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "obj": {
           "x": "p",
@@ -289,7 +289,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "obj": {
           "x": "q",

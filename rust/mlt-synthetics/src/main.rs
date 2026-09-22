@@ -1434,7 +1434,7 @@ fn generate_m_value_encodings(w: &mut SynthWriter) {
     geo_varint()
         .geo(LineString::new(
             (0..300)
-                .map(|i| c(i % 80, (i * 7) % 80))
+                .map(|i| c(i % 64, (i * 7) % 64))
                 .collect::<Vec<_>>(),
         ))
         .no_v1()

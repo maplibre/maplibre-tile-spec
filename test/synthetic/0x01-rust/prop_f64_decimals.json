@@ -4,7 +4,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "val": -0.75
       },
@@ -19,7 +19,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1"
       },
       "geometry": {
@@ -33,7 +33,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "val": 0.25
       },
@@ -48,7 +48,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "val": 1.5
       },
@@ -63,7 +63,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1"
       },
       "geometry": {
@@ -77,7 +77,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "val": -2.25
       },

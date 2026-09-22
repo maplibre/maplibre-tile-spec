@@ -4,7 +4,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "m:dist": [
           0,
@@ -39,7 +39,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "m:dist": [
           15,

@@ -4,7 +4,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "name:de": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
       },
@@ -19,7 +19,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "name:en": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
       },
@@ -34,7 +34,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1"
       },
       "geometry": {
@@ -48,7 +48,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "name:de": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
         "name:en": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
@@ -64,7 +64,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1"
       },
       "geometry": {
@@ -78,7 +78,7 @@
     {
       "type": "Feature",
       "properties": {
-        "_extent": 80,
+        "_extent": 64,
         "_layer": "layer1",
         "name:de": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
         "name:en": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"

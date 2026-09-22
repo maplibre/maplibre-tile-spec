@@ -17,11 +17,11 @@ const FIXTURE: &str = concat!(
 fn a_truncated_tile_prints_its_annotated_prefix_and_the_unannotated_rest() {
     let out = hexdump(truncated_fixture());
 
-    insta::assert_snapshot!(String::from_utf8(out.stdout).unwrap(), @r"
+    insta::assert_snapshot!(String::from_utf8(out.stdout).unwrap(), @"
     00000000                                                                     | layer[0] (2 B)
     00000000  51                                                Q                |   size: 81 (varint) - tag + body
     00000001  01                                                .                |   tag: 0x01 -> Tag01
-    00000002  06 6c 61 79 65 72 31 50 02 04 1e 01 61 01 1d 00   .layer1P....a... | <unannotated> [18 B]
+    00000002  06 6c 61 79 65 72 31 40 02 04 1e 01 61 01 1d 00   .layer1@....a... | <unannotated> [18 B]
     00000012  02 30                                             .0               |
     ");
 }
