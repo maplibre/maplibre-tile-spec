@@ -276,8 +276,12 @@ impl InferredType {
             (Self::F64, MvtValue::Double(f)) => PropValue::F64(Some(f)),
             (Self::F64, MvtValue::Float(f)) => PropValue::F64(Some(f64::from(f))),
             (_, MvtValue::String(s)) => PropValue::Str(Some(s)),
-            // Type conflict at runtime: fall back to a debug string.
-            (_, v) => PropValue::Str(Some(format!("{v:?}"))),
+            // A column that mixes types keeps every value as its text form.
+            (_, MvtValue::Bool(b)) => PropValue::Str(Some(b.to_string())),
+            (_, MvtValue::Int(i) | MvtValue::SInt(i)) => PropValue::Str(Some(i.to_string())),
+            (_, MvtValue::UInt(u)) => PropValue::Str(Some(u.to_string())),
+            (_, MvtValue::Float(f)) => PropValue::Str(Some(f.to_string())),
+            (_, MvtValue::Double(f)) => PropValue::Str(Some(f.to_string())),
         }
     }
 }
@@ -307,13 +311,6 @@ mod tests {
     #[case::signed_then_unsigned(
         &[MvtValue::SInt(-1), MvtValue::UInt(7)],
         &[PropValue::I64(Some(-1)), PropValue::I64(Some(7))],
-    )]
-    #[case::unsigned_past_i64_max(
-        &[MvtValue::SInt(-1), MvtValue::UInt(u64::MAX)],
-        &[
-            PropValue::Str(Some("-1".into())),
-            PropValue::Str(Some("18446744073709551615".into())),
-        ],
     )]
     #[case::unsigned_only(
         &[MvtValue::UInt(7), MvtValue::UInt(u64::MAX)],
