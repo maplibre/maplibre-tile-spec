@@ -132,13 +132,26 @@ describe("the empty state", () => {
     ]);
   });
 
+  it("finds a fixture from letters spread over its key", async () => {
+    serve();
+    const app = mount(App);
+    await flushPromises();
+    await app.get("button.open").trigger("click");
+    await app.get("dialog .filter").setValue("ln");
+    expect(app.findAll("dialog .entry .name").map((e) => e.text())).toEqual([
+      "line.mlt",
+    ]);
+  });
+
   it("says so when the filter matches no fixture", async () => {
     serve();
     const app = mount(App);
     await flushPromises();
     await app.get("button.open").trigger("click");
     await app.get("dialog .filter").setValue("nothing");
-    expect(app.get("dialog .none").text()).toBe("no fixture matches");
+    expect(app.get("dialog .none").text()).toBe(
+      "No fixture matches that filter.",
+    );
   });
 
   it("loads the fixture the sheet picks and closes it", async () => {

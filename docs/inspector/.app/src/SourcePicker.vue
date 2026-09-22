@@ -4,6 +4,7 @@ import { computed, ref } from "vue";
 import {
   type FixtureEntry,
   fixtureKey,
+  fuzzyMatch,
   groupFixtures,
   starterFixtures,
 } from "./fixtures.ts";
@@ -30,17 +31,16 @@ const browse = computed(() => {
 
 const starters = computed(() => starterFixtures(props.index));
 
-/** The index narrowed to the filter, which a thousand-odd fixtures make the sheet's only way in. */
-const groups = computed(() => {
+/** A thousand-odd fixtures make the filter box the sheet's only way in. */
+const matches = computed(() => {
   const needle = filter.value.trim().toLowerCase();
-  const matches =
-    needle === ""
-      ? props.index
-      : props.index.filter((entry) =>
-          fixtureKey(entry).toLowerCase().includes(needle),
-        );
-  return groupFixtures(matches);
+  if (needle === "") return props.index;
+  return props.index.filter((entry) =>
+    fuzzyMatch(fixtureKey(entry).toLowerCase(), needle),
+  );
 });
+
+const groups = computed(() => groupFixtures(matches.value));
 
 /** Resets on open, so picking the same tile again after re-encoding it still loads it. */
 const { open: chooseFile, onChange } = useFileDialog({
@@ -92,16 +92,23 @@ function choose(key: string) {
     <dialog ref="sheet" class="sheet" aria-labelledby="fixtures-heading">
       <div class="card">
         <header>
-          <h2 id="fixtures-heading">synthetic fixtures</h2>
+          <div class="titles">
+            <h2 id="fixtures-heading">Synthetic fixtures</h2>
+            <button
+              type="button"
+              class="close"
+              aria-label="Close"
+              @click="sheet?.close()"
+              >&times;</button
+            >
+          </div>
           <input
             v-model="filter"
             class="filter"
             type="search"
-            placeholder="filter..."
-            aria-label="filter fixtures"
-          >
-          <button type="button" class="close" @click="sheet?.close()"
-            >close</button
+            autofocus
+            placeholder="Filter by name - fsst, polygon, nested..."
+            aria-label="Filter fixtures"
           >
         </header>
         <div class="groups">
@@ -119,7 +126,9 @@ function choose(key: string) {
               <span class="bytes">{{ entry.bytes }} B</span>
             </button>
           </section>
-          <p v-if="groups.length === 0" class="none">no fixture matches</p>
+          <p v-if="groups.length === 0" class="none"
+            >No fixture matches that filter.</p
+          >
         </div>
       </div>
     </dialog>
@@ -220,7 +229,7 @@ function choose(key: string) {
   box-sizing: border-box;
   border: none;
   background: none;
-  padding: 4rem var(--pad);
+  padding: min(4rem, 8vh) var(--pad);
   max-width: none;
   max-height: none;
   width: 100%;
@@ -240,25 +249,48 @@ function choose(key: string) {
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  font-size: 0.78rem;
+  box-shadow: 0 1.5rem 3rem -1rem var(--backdrop);
+  font-size: 0.8125rem;
+  /* The empty state centres its column, which the sheet is a child of. */
+  text-align: left;
 }
 .card header {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 0.9rem;
   padding: var(--pad);
   border-bottom: 1px solid var(--line);
 }
+.titles {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pad-tight);
+}
 .card h2 {
   margin: 0;
-  font: 600 0.9rem / 1.3 inherit;
-  text-transform: none;
-  letter-spacing: normal;
+  font: 600 1.0625rem / 1.3 var(--font);
+}
+.close {
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  flex: none;
+  background: none;
+  color: var(--muted);
+  border: none;
+  border-radius: var(--radius);
+  font: 1.25rem / 1 var(--font);
+  cursor: pointer;
+}
+.close:hover {
+  background: var(--hover);
   color: var(--text);
 }
 .filter {
-  flex: 1;
-  min-width: 0;
+  box-sizing: border-box;
+  width: 100%;
   background: var(--control);
   color: var(--text);
   border: 1px solid var(--line);
@@ -266,30 +298,29 @@ function choose(key: string) {
   font: inherit;
   padding: var(--pad-tight) 0.9rem;
 }
-.close {
-  background: var(--control);
-  color: var(--muted);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  font: inherit;
-  padding: var(--pad-tight) 0.9rem;
-  cursor: pointer;
+.filter:focus-visible {
+  outline: 2px solid var(--accent-rule);
+  outline-offset: 1px;
+  border-color: var(--accent-rule);
 }
 .groups {
   overflow: auto;
-  padding: 0.5rem var(--pad) var(--pad);
+  padding: var(--pad-tight) var(--pad) var(--pad);
 }
+/* The directory a run of rows belongs to, kept in sight while that run scrolls. */
 h3 {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 1.4rem 0 0.5rem;
-  padding: 0 0.6rem;
-  font: 600 0.7rem / 1.4 var(--font);
+  margin: 0;
+  padding: 0.9rem 0.75rem 0.4rem;
+  font: 600 0.6875rem / 1.4 var(--mono);
 }
 .entry {
   display: flex;
-  gap: 0.6rem;
+  align-items: baseline;
+  gap: 0.9rem;
   width: 100%;
   background: none;
   border: none;
@@ -298,7 +329,7 @@ h3 {
   font: inherit;
   font-family: var(--mono);
   text-align: left;
-  padding: 0.45rem 0.6rem;
+  padding: var(--pad-tight) 0.75rem;
   cursor: pointer;
 }
 .entry:hover {
@@ -317,12 +348,15 @@ h3 {
 .bytes {
   color: var(--dim);
   flex: none;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
 }
 .entry.on .bytes {
   color: var(--accent-text);
 }
 .none {
   color: var(--muted);
-  margin: 1.4rem 0.6rem;
+  margin: 0;
+  padding: var(--pad) 0.75rem;
 }
 </style>

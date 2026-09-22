@@ -3,6 +3,7 @@ import {
   type FixtureEntry,
   fixtureKey,
   fixturePrefix,
+  fuzzyMatch,
   groupFixtures,
   loadFixture,
   loadFixtureIndex,
@@ -97,6 +98,32 @@ describe("groupFixtures", () => {
       { label: "0x01/ids", entries: [entries[3], entries[1]] },
       { label: "0x02/point", entries: [entries[0]] },
     ]);
+  });
+});
+
+describe("fuzzyMatch", () => {
+  it("matches a subsequence spread over the name", () => {
+    expect(fuzzyMatch("props_str_fsst", "pstrf")).toBe(true);
+  });
+
+  it("matches a plain substring", () => {
+    expect(fuzzyMatch("props_str_fsst", "fsst")).toBe(true);
+  });
+
+  it("rejects the same letters out of order", () => {
+    expect(fuzzyMatch("props_str_fsst", "fsstp")).toBe(false);
+  });
+
+  it("rejects a letter the name does not carry", () => {
+    expect(fuzzyMatch("props_str_fsst", "psz")).toBe(false);
+  });
+
+  it("matches everything on an empty needle", () => {
+    expect(fuzzyMatch("props_str_fsst", "")).toBe(true);
+  });
+
+  it("needs as many of a letter as the needle asks for", () => {
+    expect(fuzzyMatch("point", "ttt")).toBe(false);
   });
 });
 

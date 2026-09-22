@@ -7,6 +7,7 @@ import {
   fadedFrom,
   hex2,
   hex8,
+  type Pointer,
   printable,
   ROW,
   UNANNOTATED,
@@ -25,12 +26,12 @@ const props = defineProps<{
   activeIndex: number | null;
 }>();
 const emit = defineEmits<{
-  hover: [index: number | null];
+  /** Where the pointer is too, since the tip that follows it lives beside the map. */
+  hover: [index: number | null, at: Pointer | null];
   pick: [index: number];
 }>();
 
 const scroller = ref<HTMLElement | null>(null);
-let hovered: number | null = null;
 const { y: scrollTop } = useScroll(scroller);
 /** Border-box, so the height keeps counting the padding the rows scroll through. */
 const { height: viewportHeight } = useElementSize(
@@ -147,12 +148,15 @@ function ownerOf(event: Event): number | null {
   return owner === undefined ? null : Number(owner);
 }
 
+/** Every move, not only the ones that change region, since the tip travels with the pointer. */
 function onMove(event: MouseEvent) {
   const owner = ownerOf(event);
-  if (owner !== hovered) {
-    hovered = owner;
-    emit("hover", owner === null || owner < 0 ? null : owner);
-  }
+  const index = owner === null || owner < 0 ? null : owner;
+  emit(
+    "hover",
+    index,
+    index === null ? null : { x: event.clientX, y: event.clientY },
+  );
 }
 
 function onClick(event: MouseEvent) {
@@ -181,7 +185,7 @@ defineExpose({ scrollToRegion });
       class="spacer"
       :style="{ height: `${rowCount * ROW}px` }"
       @mousemove="onMove"
-      @mouseleave="emit('hover', null)"
+      @mouseleave="emit('hover', null, null)"
       @click="onClick"
     >
       <caption class="sr-only"

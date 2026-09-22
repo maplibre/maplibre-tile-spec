@@ -10,9 +10,11 @@ import {
   hex8,
   leafStep,
   regionBands,
+  regionDotPath,
   regionPath,
   showsDecoded,
   showsSections,
+  tipPlacement,
   wholeIndices,
 } from "./hex.ts";
 import { region, tinyTree } from "./testing.ts";
@@ -124,6 +126,49 @@ describe("regionPath", () => {
 
   it("is empty for a top-level container", () => {
     expect(regionPath(tree.regions, 0)).toEqual([]);
+  });
+});
+
+describe("regionDotPath", () => {
+  it("names a leaf by the containers holding it", () => {
+    expect(regionDotPath(tree.regions, 3)).toBe("layer[0].geometry.encoding");
+  });
+
+  it("names a top-level container by itself", () => {
+    expect(regionDotPath(tree.regions, 0)).toBe("layer[0]");
+  });
+});
+
+describe("tipPlacement", () => {
+  const tip = { width: 200, height: 100 };
+  const viewport = { width: 1000, height: 800 };
+
+  it("sits below and right of the pointer", () => {
+    expect(tipPlacement({ x: 300, y: 400 }, tip, viewport)).toEqual({
+      x: 314,
+      y: 414,
+    });
+  });
+
+  it("stops short of the right edge", () => {
+    expect(tipPlacement({ x: 980, y: 400 }, tip, viewport).x).toBe(786);
+  });
+
+  it("flips above a pointer near the bottom edge", () => {
+    expect(tipPlacement({ x: 300, y: 760 }, tip, viewport).y).toBe(646);
+  });
+
+  it("keeps a tip wider than the viewport at the left edge", () => {
+    expect(
+      tipPlacement({ x: 300, y: 400 }, { width: 2000, height: 100 }, viewport)
+        .x,
+    ).toBe(14);
+  });
+
+  it("keeps a tip taller than the viewport at the top edge", () => {
+    expect(
+      tipPlacement({ x: 300, y: 400 }, { width: 200, height: 900 }, viewport).y,
+    ).toBe(14);
   });
 });
 

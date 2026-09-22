@@ -62,6 +62,19 @@ function compare(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
+/**
+ * fzf-style subsequence match, so `pstrf` finds `props_str_fsst`.
+ * A thousand-odd fixtures are named in abbreviations, which are quicker to half-remember than to spell.
+ */
+export function fuzzyMatch(haystack: string, needle: string): boolean {
+  let at = 0;
+  for (const char of needle) {
+    at = haystack.indexOf(char, at) + 1;
+    if (at === 0) return false;
+  }
+  return true;
+}
+
 /** One of the few tiles the empty state offers by hand, ahead of the whole index. */
 export interface Starter {
   key: string;

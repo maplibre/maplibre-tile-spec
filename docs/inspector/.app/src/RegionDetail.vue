@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { DecodedBlob, DumpTree } from "./annotate.ts";
+import { blobChips, blobNote } from "./blob.ts";
 import { hex2, hex8, regionPath, showsDecoded, type ViewState } from "./hex.ts";
 
 /** Values the detail pane asks for at a time, which is what keeps a 369-blob tile lazy. */
@@ -48,39 +49,13 @@ const decoded = computed<DecodedBlob | null>(() => {
   return props.decode(props.index, MAX_VALUES);
 });
 
-const chips = computed(() => {
-  const blob = decoded.value;
-  if (!blob) return [];
-  switch (blob.kind) {
-    case "numbers":
-    case "bigints":
-      return blob.values.map(String);
-    case "bools":
-      return blob.values.map((value) => (value ? "1" : "0"));
-    case "text":
-      return [[...blob.value].slice(0, MAX_CHARS).join("")];
-    case "binary":
-      return [`${blob.len} binary bytes`];
-    case "error":
-      return [blob.message];
-  }
-});
+const chips = computed(() =>
+  decoded.value === null ? [] : blobChips(decoded.value, MAX_CHARS),
+);
 
-const note = computed(() => {
-  const blob = decoded.value;
-  if (!blob) return "";
-  if (blob.kind === "error") return "undecodable";
-  if (blob.kind === "binary") return blob.kind;
-  if (blob.kind === "text") {
-    const chars = [...blob.value].length;
-    return chars > MAX_CHARS
-      ? `text, ${MAX_CHARS} of ${chars} chars`
-      : `text, ${chars} chars`;
-  }
-  return blob.truncatedFrom === null
-    ? `${blob.values.length} values`
-    : `${blob.values.length} of ${blob.truncatedFrom} values`;
-});
+const note = computed(() =>
+  decoded.value === null ? "" : blobNote(decoded.value, MAX_CHARS),
+);
 
 const span = computed(() => {
   const at = region.value;
