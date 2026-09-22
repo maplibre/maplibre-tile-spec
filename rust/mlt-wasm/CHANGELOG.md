@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.29](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.28...rust-mlt-wasm-v0.1.29) - 2026-09-22
+
+### Added
+
+- *(rust)* code the v2 extent as one nibble ([#1749](https://github.com/maplibre/maplibre-tile-spec/pull/1749))
+
+### Other
+
+- move the default extent in the synthetics to 64 instead of 80 ([#1751](https://github.com/maplibre/maplibre-tile-spec/pull/1751))
+- *(java)* drop the 0x02-java synthetic fixtures ([#1744](https://github.com/maplibre/maplibre-tile-spec/pull/1744))
+- *(rust)* maybe increase coverage in CI by being more accurate ([#1743](https://github.com/maplibre/maplibre-tile-spec/pull/1743))
+
 ## [0.1.28](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.27...rust-mlt-wasm-v0.1.28) - 2026-09-21
 
 ### Added

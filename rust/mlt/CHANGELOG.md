@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.37](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.36...rust-mlt-v0.1.37) - 2026-09-22
+
+### Other
+
+- move the default extent in the synthetics to 64 instead of 80 ([#1751](https://github.com/maplibre/maplibre-tile-spec/pull/1751))
+- *(rust)* increase coverage ([#1745](https://github.com/maplibre/maplibre-tile-spec/pull/1745))
+
 ## [0.1.36](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.35...rust-mlt-v0.1.36) - 2026-09-21
 
 ### Added
