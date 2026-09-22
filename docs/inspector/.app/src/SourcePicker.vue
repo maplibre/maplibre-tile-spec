@@ -107,7 +107,7 @@ function choose(key: string) {
             class="filter"
             type="search"
             autofocus
-            placeholder="Filter by name — fsst, polygon, nested..."
+            placeholder="Filter by name - fsst, polygon, nested..."
             aria-label="Filter fixtures"
           >
         </header>
