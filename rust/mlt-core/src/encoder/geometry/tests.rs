@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use geo_types::{Coord, Geometry, LineString, Point, Polygon, point, wkt};
+use insta::assert_debug_snapshot;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 
@@ -47,7 +48,7 @@ fn automatic_optimization_distinct_points_picks_vec2() {
             .map(|i| point! { x: i, y: i }.into())
             .collect::<Vec<_>>(),
     );
-    insta::assert_debug_snapshot!(auto_mode_streams(&decoded), @r"
+    assert_debug_snapshot!(auto_mode_streams(&decoded), @r"
     [
         Data(
             Vertex,
@@ -64,7 +65,7 @@ fn automatic_optimization_repeated_points_beyond_curve_range_picks_vec2() {
     let decoded = push_geoms(
         &std::iter::repeat_n(point! { x: 2_686_984, y: 0 }.into(), 20).collect::<Vec<_>>(),
     );
-    insta::assert_debug_snapshot!(auto_mode_streams(&decoded), @r"
+    assert_debug_snapshot!(auto_mode_streams(&decoded), @r"
     [
         Data(
             Vertex,
@@ -84,7 +85,7 @@ fn automatic_optimization_repeated_points_picks_dict() {
     // or the heuristic ever changes it should fail loudly.
     let decoded =
         push_geoms(&std::iter::repeat_n(point! { x: 5, y: 5 }.into(), 20).collect::<Vec<_>>());
-    insta::assert_debug_snapshot!(auto_mode_streams(&decoded), @r"
+    assert_debug_snapshot!(auto_mode_streams(&decoded), @r"
     [
         Data(
             Vertex,
@@ -175,7 +176,7 @@ fn repeated_multipoint() -> GeometryValues {
 #[test]
 fn forced_vec2_streams() {
     let streams = forced_vertex_strategy_streams(&repeated_multipoint(), VertexBufferType::Vec2);
-    insta::assert_debug_snapshot!(streams, @r"
+    assert_debug_snapshot!(streams, @r"
     [
         Data(
             Vertex,
@@ -193,7 +194,7 @@ fn forced_vec2_streams() {
 #[test]
 fn forced_morton_streams() {
     let streams = forced_vertex_strategy_streams(&repeated_multipoint(), VertexBufferType::Morton);
-    insta::assert_debug_snapshot!(streams, @r"
+    assert_debug_snapshot!(streams, @r"
     [
         Data(
             Morton,
@@ -214,7 +215,7 @@ fn forced_morton_streams() {
 #[test]
 fn forced_hilbert_streams() {
     let streams = forced_vertex_strategy_streams(&repeated_multipoint(), VertexBufferType::Hilbert);
-    insta::assert_debug_snapshot!(streams, @r"
+    assert_debug_snapshot!(streams, @r"
     [
         Data(
             Vertex,

@@ -4,6 +4,7 @@ use std::sync::{Arc, mpsc};
 use std::time::Duration;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+use insta::assert_snapshot;
 use mlt_core::GeometryType;
 use mlt_core::geo_types::{
     Coord, Geometry, GeometryCollection, Line, LineString, MultiLineString, MultiPoint,
@@ -154,38 +155,7 @@ fn file_browser_app() -> App {
 #[test]
 fn layer_overview_starts_on_all_layers() {
     let mut app = sample_app();
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌sample.mlt - h:help, q:quit,┐┌Map View────────────────────────────────────────────────────────────┐"
-    "│>> All                      ││                                                                    │"
-    "│     Layer: water (2 feature││                                                                    │"
-    "│     Layer: roads (2 feature││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
-    "│     Layer: poi (2 features,││     ⢸                           ⢸                 ⡤⠤⠤⠤⠤⠤⠤⢤⡔⠁ ⡇     │"
-    "│                            ││     ⢸                           ⢸                 ⡇    ⡠⠊⠁⡇  ⡇     │"
-    "│                            ││     ⢸      ⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣸⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣇⣀⣀⠔⠊   ⡇  ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸                 ⣧⣒⣹⣀⣀⣀⣀⣀⡇  ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸              ⢀⠤⠊  ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸      ×             ⢸            ⣀⠔⠁    ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸         ⢀⡠⠊       ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸       ⢀⠔⠁         ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸             ⡖⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⡲⡎⠁           ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸             ⡇      ⢸  ⢀⠔⠊ ⡇            ⢸        ⡇     │"
-    "└◄██████████════════════════►┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
-    "┌Properties (all layers)─────┐│     ⢸⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⢉⠭⢻⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
-    "│Layers: 3                   ││     ⢸      ⢸             ⡇  ⡠⠔⠁ ⢸      ⡇            ⢸        ⡇     │"
-    "│Features: 6                 ││     ⢸      ⢸             ⣇⡠⠊    ⢸      ⡇            ⢸        ⡇     │"
-    "│water: 2 features           ││     ⢸      ⢸           ⢀⠔⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠁            ⢸        ⡇     │"
-    "│roads: 2 features           ││     ⢸      ⢸         ⡠⠊⠁        ⢸               ×   ⢸        ⡇     │"
-    "│poi: 2 features             ││     ⢸      ⢸      ⢀⠔⠉           ⢸            ×      ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸    ⡠⠒⠁             ⢸                   ⢸        ⡇     │"
-    "└────────────────────────────┘│     ⢸  ⢸⠉⠉⠉⢹⠉⢉⠭⢻                ⢸                   ⢸        ⡇     │"
-    "┌Geometry (all layers)───────┐│     ⢸  ⢸   ⡸⠴⠥⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼        ⡇     │"
-    "│Vertices: 29                ▲│     ⢸  ⢸⢀⡠⠊    ⢸                ⢸                            ⡇     │"
-    "│Point: 1                    █│     ⢸ ⢀⠜⠓⠒⠒⠒⠒⠒⠒⠚                ⢸                            ⡇     │"
-    "│LineString: 1               ║│     ⠸⠮⠥⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│Polygon: 1                  ║│                                                                    │"
-    "│MultiPoint: 1               ▼│                                                                    │"
-    "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
 }
 
 #[test]
@@ -194,38 +164,7 @@ fn keys_expand_a_layer_and_select_a_feature() {
     press(&mut app, KeyCode::Down);
     press(&mut app, KeyCode::Enter);
     press(&mut app, KeyCode::Down);
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌sample.mlt - h:help, q:quit,┐┌Map View────────────────────────────────────────────────────────────┐"
-    "│   All                      ││                                                                    │"
-    "│     Layer: water (2 feature││                                                                    │"
-    "│>>     Feat 0: Polygon (10v,││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
-    "│       Feat 1: MultiPolygon ││     ⢸                           ⢸                 ⡤⠤⠤⠤⠤⠤⠤⢤⡔⠁ ⡇     │"
-    "│     Layer: roads (2 feature││     ⢸                           ⢸                 ⡇    ⡠⠊⠁⡇  ⡇     │"
-    "│     Layer: poi (2 features,││     ⢸      ⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣸⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣇⣀⣀⠔⠊   ⡇  ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸                 ⣧⣒⣹⣀⣀⣀⣀⣀⡇  ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸              ⢀⠤⠊  ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸      ×             ⢸            ⣀⠔⠁    ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸         ⢀⡠⠊       ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸       ⢀⠔⠁         ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸             ⡖⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⡲⡎⠁           ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸             ⡇      ⢸  ⢀⠔⠊ ⡇            ⢸        ⡇     │"
-    "└◄██████████════════════════►┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
-    "┌Properties (feat 0)─────────┐│     ⢸⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⢉⠭⢻⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
-    "│class: lake                 ││     ⢸      ⢸             ⡇  ⡠⠔⠁ ⢸      ⡇            ⢸        ⡇     │"
-    "│name: Loch                  ││     ⢸      ⢸             ⣇⡠⠊    ⢸      ⡇            ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸           ⢀⠔⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠁            ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸         ⡠⠊⠁        ⢸               ×   ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸      ⢀⠔⠉           ⢸            ×      ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸    ⡠⠒⠁             ⢸                   ⢸        ⡇     │"
-    "└────────────────────────────┘│     ⢸  ⢸⠉⠉⠉⢹⠉⢉⠭⢻                ⢸                   ⢸        ⡇     │"
-    "┌Geometry────────────────────┐│     ⢸  ⢸   ⡸⠴⠥⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼        ⡇     │"
-    "│Type: Polygon               ││     ⢸  ⢸⢀⡠⠊    ⢸                ⢸                            ⡇     │"
-    "│Vertices: 10                ││     ⢸ ⢀⠜⠓⠒⠒⠒⠒⠒⠒⠚                ⢸                            ⡇     │"
-    "│Rings: 2                    ││     ⠸⠮⠥⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│  Ring 0: 5v, CCW           ││                                                                    │"
-    "│  Ring 1: 5v, CW            ││                                                                    │"
-    "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
 }
 
 #[test]
@@ -237,38 +176,7 @@ fn keys_drill_into_a_multipolygon_part() {
     press(&mut app, KeyCode::Down);
     press(&mut app, KeyCode::Char('+'));
     press(&mut app, KeyCode::Down);
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌sample.mlt - h:help, q:quit,┐┌Map View────────────────────────────────────────────────────────────┐"
-    "│   All                      ││                                                                    │"
-    "│     Layer: water (2 feature││                                                                    │"
-    "│       Feat 0: Polygon (10v,││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
-    "│       Feat 1: MultiPolygon ││     ⢸                           ⢸                 ⡤⠤⠤⠤⠤⠤⠤⢤⡔⠁ ⡇     │"
-    "│>>       Part 0: Polygon (5v││     ⢸                           ⢸                 ⡇    ⡠⠊⠁⡇  ⡇     │"
-    "│         Part 1: Polygon (5v││     ⢸      ⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣸⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣇⣀⣀⠔⠊   ⡇  ⡇     │"
-    "│     Layer: roads (2 feature││     ⢸      ⢸                    ⢸                 ⣧⣒⣹⣀⣀⣀⣀⣀⡇  ⡇     │"
-    "│     Layer: poi (2 features,││     ⢸      ⢸                    ⢸              ⢀⠤⠊  ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸      ×             ⢸            ⣀⠔⠁    ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸         ⢀⡠⠊       ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸       ⢀⠔⠁         ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸             ⡖⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⡲⡎⠁           ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸             ⡇      ⢸  ⢀⠔⠊ ⡇            ⢸        ⡇     │"
-    "└◄██████████════════════════►┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
-    "┌Properties (feat 1)─────────┐│     ⢸⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⢉⠭⢻⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
-    "│class: pond                 ││     ⢸      ⢸             ⡇  ⡠⠔⠁ ⢸      ⡇            ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸             ⣇⡠⠊    ⢸      ⡇            ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸           ⢀⠔⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠁            ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸         ⡠⠊⠁        ⢸               ×   ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸      ⢀⠔⠉           ⢸            ×      ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸    ⡠⠒⠁             ⢸                   ⢸        ⡇     │"
-    "└────────────────────────────┘│     ⢸  ⢸⠉⠉⠉⢹⠉⢉⠭⢻                ⢸                   ⢸        ⡇     │"
-    "┌Geometry────────────────────┐│     ⢸  ⢸   ⡸⠴⠥⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼        ⡇     │"
-    "│Component: part #0 of a     ▲│     ⢸  ⢸⢀⡠⠊    ⢸                ⢸                            ⡇     │"
-    "│MultiPolygon                █│     ⢸ ⢀⠜⠓⠒⠒⠒⠒⠒⠒⠚                ⢸                            ⡇     │"
-    "│Type: Polygon               █│     ⠸⠮⠥⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│Vertices: 5                 ║│                                                                    │"
-    "│Rings: 1                    ▼│                                                                    │"
-    "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
 }
 
 #[test]
@@ -276,38 +184,7 @@ fn star_expands_every_layer_and_end_jumps_to_the_last_row() {
     let mut app = sample_app();
     press(&mut app, KeyCode::Char('*'));
     press(&mut app, KeyCode::End);
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌sample.mlt - h:help, q:quit,┐┌Map View────────────────────────────────────────────────────────────┐"
-    "│   All                      ││                                                                    │"
-    "│     Layer: water (2 feature││                                                                    │"
-    "│       Feat 0: Polygon (10v,││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
-    "│       Feat 1: MultiPolygon ││     ⢸                           ⢸                 ⡤⠤⠤⠤⠤⠤⠤⢤⡔⠁ ⡇     │"
-    "│     Layer: roads (2 feature││     ⢸                           ⢸                 ⡇    ⡠⠊⠁⡇  ⡇     │"
-    "│       Feat 0: LineString (2││     ⢸      ⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣸⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣇⣀⣀⠔⠊   ⡇  ⡇     │"
-    "│       Feat 1: MultiLineStri││     ⢸      ⢸                    ⢸                 ⣧⣒⣹⣀⣀⣀⣀⣀⡇  ⡇     │"
-    "│     Layer: poi (2 features,││     ⢸      ⢸                    ⢸              ⢀⠤⠊  ⢸        ⡇     │"
-    "│       Feat 0: Point        ││     ⢸      ⢸      ×             ⢸            ⣀⠔⠁    ⢸        ⡇     │"
-    "│>>     Feat 1: MultiPoint (2││     ⢸      ⢸                    ⢸         ⢀⡠⠊       ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸       ⢀⠔⠁         ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸             ⡖⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⡲⡎⠁           ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸             ⡇      ⢸  ⢀⠔⠊ ⡇            ⢸        ⡇     │"
-    "└◄██████████════════════════►┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
-    "┌Properties (feat 1)─────────┐│     ⢸⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⢉⠭⢻⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
-    "│name: Twin peaks            ││     ⢸      ⢸             ⡇  ⡠⠔⠁ ⢸      ⡇            ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸             ⣇⡠⠊    ⢸      ⡇            ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸           ⢀⠔⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠁            ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸         ⡠⠊⠁        ⢸               ×   ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸      ⢀⠔⠉           ⢸            ×      ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸    ⡠⠒⠁             ⢸                   ⢸        ⡇     │"
-    "└────────────────────────────┘│     ⢸  ⢸⠉⠉⠉⢹⠉⢉⠭⢻                ⢸                   ⢸        ⡇     │"
-    "┌Geometry────────────────────┐│     ⢸  ⢸   ⡸⠴⠥⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼        ⡇     │"
-    "│Type: MultiPoint            ││     ⢸  ⢸⢀⡠⠊    ⢸                ⢸                            ⡇     │"
-    "│Points: 2                   ││     ⢸ ⢀⠜⠓⠒⠒⠒⠒⠒⠒⠚                ⢸                            ⡇     │"
-    "│                            ││     ⠸⠮⠥⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│                            ││                                                                    │"
-    "│                            ││                                                                    │"
-    "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
 }
 
 #[test]
@@ -315,76 +192,14 @@ fn hovering_the_map_highlights_the_nearest_feature() {
     let mut app = sample_app();
     let bounds = app.get_bounds();
     app.find_hovered_feature(1000.0, 3000.0, bounds);
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌sample.mlt - h:help, q:quit,┐┌Map View────────────────────────────────────────────────────────────┐"
-    "│>> All                      ││                                                                    │"
-    "│     Layer: water (2 feature││                                                                    │"
-    "│     Layer: roads (2 feature││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
-    "│     Layer: poi (2 features,││     ⢸                           ⢸                 ⡤⠤⠤⠤⠤⠤⠤⢤⡔⠁ ⡇     │"
-    "│                            ││     ⢸                           ⢸                 ⡇    ⡠⠊⠁⡇  ⡇     │"
-    "│                            ││     ⢸      ⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣸⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣇⣀⣀⠔⠊   ⡇  ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸                 ⣧⣒⣹⣀⣀⣀⣀⣀⡇  ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸              ⢀⠤⠊  ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸      ×             ⢸            ⣀⠔⠁    ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸         ⢀⡠⠊       ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸       ⢀⠔⠁         ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸             ⡖⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⡲⡎⠁           ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸             ⡇      ⢸  ⢀⠔⠊ ⡇            ⢸        ⡇     │"
-    "└◄██████████════════════════►┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
-    "┌Properties (layer poi, hover┐│     ⢸⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⢉⠭⢻⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
-    "│Features: 2                 ││     ⢸      ⢸             ⡇  ⡠⠔⠁ ⢸      ⡇            ⢸        ⡇     │"
-    "│Properties: 2               ││     ⢸      ⢸             ⣇⡠⠊    ⢸      ⡇            ⢸        ⡇     │"
-    "│name: string                ││     ⢸      ⢸           ⢀⠔⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠁            ⢸        ⡇     │"
-    "│rank: number                ││     ⢸      ⢸         ⡠⠊⠁        ⢸               ×   ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸      ⢀⠔⠉           ⢸            ×      ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸    ⡠⠒⠁             ⢸                   ⢸        ⡇     │"
-    "└────────────────────────────┘│     ⢸  ⢸⠉⠉⠉⢹⠉⢉⠭⢻                ⢸                   ⢸        ⡇     │"
-    "┌Geometry (layer poi)────────┐│     ⢸  ⢸   ⡸⠴⠥⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼        ⡇     │"
-    "│Vertices: 3                 ││     ⢸  ⢸⢀⡠⠊    ⢸                ⢸                            ⡇     │"
-    "│Point: 1                    ││     ⢸ ⢀⠜⠓⠒⠒⠒⠒⠒⠒⠚                ⢸                            ⡇     │"
-    "│MultiPoint: 1               ││     ⠸⠮⠥⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│                            ││                                                                    │"
-    "│                            ││                                                                    │"
-    "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
 }
 
 #[test]
 fn help_overlay_lists_the_layer_overview_keys() {
     let mut app = sample_app();
     press(&mut app, KeyCode::Char('?'));
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌sample.mlt - h:help, q:quit,┐┌Map View────────────────────────────────────────────────────────────┐"
-    "│>> All            ┌Help (↑/↓/scroll to navigate, any other key to close)───────┐                  │"
-    "│     Layer: water │Keyboard                                                    ▲                  │"
-    "│     Layer: roads │  ?  h  F1            Toggle this help                      █⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
-    "│     Layer: poi (2│  q  Ctrl+c           Quit                                  █ ⡤⠤⠤⠤⠤⠤⠤⢤⡔⠁ ⡇     │"
-    "│                  │  Esc                 Back to file browser                  █ ⡇    ⡠⠊⠁⡇  ⡇     │"
-    "│                  │  Up/Down  j/k        Navigate feature tree                 █⣀⣇⣀⣀⠔⠊   ⡇  ⡇     │"
-    "│                  │  PageUp/PageDown     Scroll by page                        █ ⣧⣒⣹⣀⣀⣀⣀⣀⡇  ⡇     │"
-    "│                  │  Home/End            Jump to first/last                    █⠊  ⢸        ⡇     │"
-    "│                  │  Enter               Expand/collapse layer or feature      █   ⢸        ⡇     │"
-    "│                  │  +  =  Right         Expand selected node                  █   ⢸        ⡇     │"
-    "│                  │  -                   Collapse (or jump to parent)          █   ⢸        ⡇     │"
-    "│                  │  *                   Expand/collapse all layers            ║   ⢸        ⡇     │"
-    "│                  │  Left                Jump to parent node                   ║   ⢸        ⡇     │"
-    "└◄██████████═══════│  <  >                Scroll the tree sideways              ║   ⢸        ⡇     │"
-    "┌Properties (all la│  Shift+Left/Right    Scroll the tree sideways              ║⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
-    "│Layers: 3         │  Ctrl+h / Ctrl+l     Resize left/right split               ║   ⢸        ⡇     │"
-    "│Features: 6       │  Shift+J / Shift+K   Resize top/bottom split               ║   ⢸        ⡇     │"
-    "│water: 2 features │                                                            ║   ⢸        ⡇     │"
-    "│roads: 2 features │Mouse                                                       ║   ⢸        ⡇     │"
-    "│poi: 2 features   │  Click tree item     Select (drill into level)             ║   ⢸        ⡇     │"
-    "│                  │  Double-click        Expand/collapse                       ║   ⢸        ⡇     │"
-    "└──────────────────│  Hover tree/map      Highlight the layer, feature, or part ║   ⢸        ⡇     │"
-    "┌Geometry (all laye│                      at the current level                  ║⠤⠤⠤⠼        ⡇     │"
-    "│Vertices: 29      │  Click on map        Select the hovered item               ║            ⡇     │"
-    "│Point: 1          │  Scroll panels       Scroll tree/properties/geometry       ║            ⡇     │"
-    "│LineString: 1     │  Scroll sideways     Scroll the tree horizontally          ║⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│Polygon: 1        │  Drag dividers       Resize panels                         ▼                  │"
-    "│MultiPoint: 1     └────────────────────────────────────────────────────────────┘                  │"
-    "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
     press(&mut app, KeyCode::Char('x'));
     assert!(!app.show_help);
 }
@@ -393,38 +208,7 @@ fn help_overlay_lists_the_layer_overview_keys() {
 fn error_popup_shows_the_message_until_a_key_is_pressed() {
     let mut app = sample_app();
     app.error_popup = Some(("broken.mlt".into(), "unexpected end of buffer".into()));
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌sample.mlt - h:help, q:quit,┐┌Map View────────────────────────────────────────────────────────────┐"
-    "│>> All                      ││                                                                    │"
-    "│     Layer: water (2 feature││                                                                    │"
-    "│     Layer: roads (2 feature││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
-    "│     Layer: poi (2 features,││     ⢸                           ⢸                 ⡤⠤⠤⠤⠤⠤⠤⢤⡔⠁ ⡇     │"
-    "│                            ││     ⢸                           ⢸                 ⡇    ⡠⠊⠁⡇  ⡇     │"
-    "│                            ││     ⢸      ⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣸⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣇⣀⣀⠔⠊   ⡇  ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸                 ⣧⣒⣹⣀⣀⣀⣀⣀⡇  ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸              ⢀⠤⠊  ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸      ×             ⢸            ⣀⠔⠁    ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸         ⢀⡠⠊       ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸       ⢀⠔⠁         ⢸        ⡇     │"
-    "│         ┌ Unable to open broken.mlt ───────────────────────────────────────────────────┐   ⡇     │"
-    "│         │                                                                              │   ⡇     │"
-    "└◄████████│                           unexpected end of buffer                           │   ⡇     │"
-    "┌Propertie│                                                                              │⠉⠉⠉⡇     │"
-    "│Layers: 3│                                                                              │   ⡇     │"
-    "│Features:└──────────────────────────────────────────────────────────────any key to close┘   ⡇     │"
-    "│water: 2 features           ││     ⢸      ⢸           ⢀⠔⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠁            ⢸        ⡇     │"
-    "│roads: 2 features           ││     ⢸      ⢸         ⡠⠊⠁        ⢸               ×   ⢸        ⡇     │"
-    "│poi: 2 features             ││     ⢸      ⢸      ⢀⠔⠉           ⢸            ×      ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸    ⡠⠒⠁             ⢸                   ⢸        ⡇     │"
-    "└────────────────────────────┘│     ⢸  ⢸⠉⠉⠉⢹⠉⢉⠭⢻                ⢸                   ⢸        ⡇     │"
-    "┌Geometry (all layers)───────┐│     ⢸  ⢸   ⡸⠴⠥⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼        ⡇     │"
-    "│Vertices: 29                ▲│     ⢸  ⢸⢀⡠⠊    ⢸                ⢸                            ⡇     │"
-    "│Point: 1                    █│     ⢸ ⢀⠜⠓⠒⠒⠒⠒⠒⠒⠚                ⢸                            ⡇     │"
-    "│LineString: 1               ║│     ⠸⠮⠥⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│Polygon: 1                  ║│                                                                    │"
-    "│MultiPoint: 1               ▼│                                                                    │"
-    "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
     press(&mut app, KeyCode::Enter);
     assert!(app.error_popup.is_none());
 }
@@ -446,38 +230,7 @@ fn quit_keys() {
 #[test]
 fn file_browser_lists_the_directory() {
     let mut app = file_browser_app();
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌MLT Files (6 found) - ↑/↓ navigate, Enter open, h help, q quit Click┐┌Tile Preview────────────────┐"
-    "│   File                         Size   Enc % Layers   Features Notes││Select a tile file (.mlt /  │"
-    "│>> line-boolean.mvt              40B      -       1          1      ││.mvt) to preview            │"
-    "│   multiline-boolean.mvt         46B      -       1          1      ││                            │"
-    "│   multipoint-boolean.mvt        37B      -       1          1      ││                            │"
-    "│   multipolygon-boolean.mvt      65B      -       1          1      ││                            │"
-    "│   point-boolean.mvt             35B      -       1          1      ││                            │"
-    "│   polygon-boolean.mvt           41B      -       1          1      ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    │└────────────────────────────┘"
-    "│                                                                    │┌Filter (click to toggle)────┐"
-    "│                                                                    ││[Reset filters]             ▲"
-    "│                                                                    ││                            █"
-    "│                                                                    ││Extensions:                 █"
-    "│                                                                    ││  [ ] mvt                   ║"
-    "│                                                                    ││                            ║"
-    "│                                                                    ││Geometry Types:             ║"
-    "│                                                                    ││  [ ] Point                 ║"
-    "│                                                                    ││  [ ] LineString            ▼"
-    "│                                                                    │└────────────────────────────┘"
-    "│                                                                    │┌File Info───────────────────┐"
-    "│                                                                    ││File: line-boolean.mvt      ▲"
-    "│                                                                    ││Size: 40B  raw MLT file size█"
-    "│                                                                    ││Encoding: -  MLT / (data +  █"
-    "│                                                                    ││metadata)                   ║"
-    "│                                                                    ││Data: -  decoded payload    ║"
-    "│                                                                    ││size                        ║"
-    "│                                                                    ││Metadata: -  encoding       ║"
-    "│                                                                    ││overhead                    ▼"
-    "└────────────────────────────────────────────────────────────────────┘└────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
 }
 
 #[test]
@@ -487,76 +240,14 @@ fn file_browser_previews_the_selected_tile() {
     let path = app.get_selected_file().unwrap().path().to_path_buf();
     app.preview = Some(app.tile_cache.load(&path).unwrap());
     app.preview_tile_path = Some(path);
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌MLT Files (6 found) - ↑/↓ navigate, Enter open, h help, q quit Click┐┌Tile Preview────────────────┐"
-    "│   File                         Size   Enc % Layers   Features Notes││⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹│"
-    "│   line-boolean.mvt              40B      -       1          1      ││⡇                          ⢸│"
-    "│>> multiline-boolean.mvt         46B      -       1          1      ││⡇                          ⢸│"
-    "│   multipoint-boolean.mvt        37B      -       1          1      ││⡇                          ⢸│"
-    "│   multipolygon-boolean.mvt      65B      -       1          1      ││⡇                          ⢸│"
-    "│   point-boolean.mvt             35B      -       1          1      ││⡇                          ⢸│"
-    "│   polygon-boolean.mvt           41B      -       1          1      ││⡇                          ⢸│"
-    "│                                                                    ││⣇⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣸│"
-    "│                                                                    │└────────────────────────────┘"
-    "│                                                                    │┌Filter (click to toggle)────┐"
-    "│                                                                    ││[Reset filters]             ▲"
-    "│                                                                    ││                            █"
-    "│                                                                    ││Extensions:                 █"
-    "│                                                                    ││  [ ] mvt                   ║"
-    "│                                                                    ││                            ║"
-    "│                                                                    ││Geometry Types:             ║"
-    "│                                                                    ││  [ ] Point                 ║"
-    "│                                                                    ││  [ ] LineString            ▼"
-    "│                                                                    │└────────────────────────────┘"
-    "│                                                                    │┌File Info───────────────────┐"
-    "│                                                                    ││File: multiline-boolean.mvt ▲"
-    "│                                                                    ││Size: 46B  raw MLT file size█"
-    "│                                                                    ││Encoding: -  MLT / (data +  █"
-    "│                                                                    ││metadata)                   ║"
-    "│                                                                    ││Data: -  decoded payload    ║"
-    "│                                                                    ││size                        ║"
-    "│                                                                    ││Metadata: -  encoding       ║"
-    "│                                                                    ││overhead                    ▼"
-    "└────────────────────────────────────────────────────────────────────┘└────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
 }
 
 #[test]
 fn file_browser_sorts_by_a_clicked_header() {
     let mut app = file_browser_app();
     app.handle_file_header_click(FileSortColumn::Size);
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌MLT Files (6 found) - ↑/↓ navigate, Enter open, h help, q quit Click┐┌Tile Preview────────────────┐"
-    "│   File                         Size   Enc % Layers   Features Notes││Select a tile file (.mlt /  │"
-    "│   point-boolean.mvt             35B      -       1          1      ││.mvt) to preview            │"
-    "│   multipoint-boolean.mvt        37B      -       1          1      ││                            │"
-    "│>> line-boolean.mvt              40B      -       1          1      ││                            │"
-    "│   polygon-boolean.mvt           41B      -       1          1      ││                            │"
-    "│   multiline-boolean.mvt         46B      -       1          1      ││                            │"
-    "│   multipolygon-boolean.mvt      65B      -       1          1      ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    │└────────────────────────────┘"
-    "│                                                                    │┌Filter (click to toggle)────┐"
-    "│                                                                    ││[Reset filters]             ▲"
-    "│                                                                    ││                            █"
-    "│                                                                    ││Extensions:                 █"
-    "│                                                                    ││  [ ] mvt                   ║"
-    "│                                                                    ││                            ║"
-    "│                                                                    ││Geometry Types:             ║"
-    "│                                                                    ││  [ ] Point                 ║"
-    "│                                                                    ││  [ ] LineString            ▼"
-    "│                                                                    │└────────────────────────────┘"
-    "│                                                                    │┌File Info───────────────────┐"
-    "│                                                                    ││File: line-boolean.mvt      ▲"
-    "│                                                                    ││Size: 40B  raw MLT file size█"
-    "│                                                                    ││Encoding: -  MLT / (data +  █"
-    "│                                                                    ││metadata)                   ║"
-    "│                                                                    ││Data: -  decoded payload    ║"
-    "│                                                                    ││size                        ║"
-    "│                                                                    ││Metadata: -  encoding       ║"
-    "│                                                                    ││overhead                    ▼"
-    "└────────────────────────────────────────────────────────────────────┘└────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
 }
 
 #[test]
@@ -564,38 +255,7 @@ fn filter_click_narrows_the_file_list() {
     let mut app = file_browser_app();
     let first_geometry_row = 3 + collect_extensions(&app.files).len() + 2;
     handle_filter_click(&mut app, first_geometry_row);
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌MLT Files (1/6 found) - ↑/↓ navigate, Enter open, h help, q quit Cli┐┌Tile Preview────────────────┐"
-    "│   File                         Size   Enc % Layers   Features Notes││Select a tile file (.mlt /  │"
-    "│>> point-boolean.mvt             35B      -       1          1      ││.mvt) to preview            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    │└────────────────────────────┘"
-    "│                                                                    │┌Filter (click to toggle)────┐"
-    "│                                                                    ││[Reset filters]             ▲"
-    "│                                                                    ││                            █"
-    "│                                                                    ││Extensions:                 █"
-    "│                                                                    ││  [ ] mvt                   ║"
-    "│                                                                    ││                            ║"
-    "│                                                                    ││Geometry Types:             ║"
-    "│                                                                    ││  [x] Point                 ║"
-    "│                                                                    ││  [ ] LineString            ▼"
-    "│                                                                    │└────────────────────────────┘"
-    "│                                                                    │┌File Info───────────────────┐"
-    "│                                                                    ││File: point-boolean.mvt     ▲"
-    "│                                                                    ││Size: 35B  raw MLT file size█"
-    "│                                                                    ││Encoding: -  MLT / (data +  █"
-    "│                                                                    ││metadata)                   ║"
-    "│                                                                    ││Data: -  decoded payload    ║"
-    "│                                                                    ││size                        ║"
-    "│                                                                    ││Metadata: -  encoding       ║"
-    "│                                                                    ││overhead                    ▼"
-    "└────────────────────────────────────────────────────────────────────┘└────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
 }
 
 #[test]
@@ -603,38 +263,7 @@ fn enter_opens_a_file_and_escape_returns_to_the_browser() {
     let mut app = file_browser_app();
     press(&mut app, KeyCode::Enter);
     assert_eq!(app.mode, ViewMode::LayerOverview);
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌line-boolean.mvt - h:help, q┐┌Map View────────────────────────────────────────────────────────────┐"
-    "│>> All                      ││                                                                    │"
-    "│     Layer: layer (1 LineStr││                                                                    │"
-    "│       Feat 0: LineString (3││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⡆     │"
-    "│                            ││     ⢸                                                        ⡇     │"
-    "│                            ││     ⢸                                                        ⡇     │"
-    "│                            ││     ⢸                                                        ⡇     │"
-    "│                            ││     ⢸                                                        ⡇     │"
-    "│                            ││     ⢸                                                        ⡇     │"
-    "│                            ││     ⢸                                                        ⡇     │"
-    "│                            ││     ⢸                                                        ⡇     │"
-    "│                            ││     ⢸                                                        ⡇     │"
-    "│                            ││     ⢸                                                        ⡇     │"
-    "│                            ││     ⢸                                                        ⡇     │"
-    "└◄██████████════════════════►┘│     ⢸                                                        ⡇     │"
-    "┌Properties (all layers)─────┐│     ⢸                                                        ⡇     │"
-    "│Layers: 1                   ││     ⢸                                                        ⡇     │"
-    "│Features: 1                 ││     ⢸                                                        ⡇     │"
-    "│layer: 1 features           ││     ⢸                                                        ⡇     │"
-    "│                            ││     ⢸                                                        ⡇     │"
-    "│                            ││     ⢸                                                        ⡇     │"
-    "│                            ││     ⢸                                                        ⡇     │"
-    "└────────────────────────────┘│     ⢸                                                        ⡇     │"
-    "┌Geometry (all layers)───────┐│     ⢸                                                        ⡇     │"
-    "│Vertices: 3                 ││     ⢸                                                        ⡇     │"
-    "│LineString: 1               ││     ⢸                                                        ⡇     │"
-    "│                            ││     ⠸⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│                            ││                                                                    │"
-    "│                            ││                                                                    │"
-    "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
     press(&mut app, KeyCode::Esc);
     assert_eq!(app.mode, ViewMode::FileBrowser);
 }
@@ -644,38 +273,7 @@ fn layer_selection_summarizes_properties_and_geometry() {
     let mut app = sample_app();
     press(&mut app, KeyCode::Down);
     press(&mut app, KeyCode::Down);
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌sample.mlt - h:help, q:quit,┐┌Map View────────────────────────────────────────────────────────────┐"
-    "│   All                      ││                                                                    │"
-    "│     Layer: water (2 feature││                                                                    │"
-    "│>>   Layer: roads (2 feature││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
-    "│     Layer: poi (2 features,││     ⢸                           ⢸                 ⡤⠤⠤⠤⠤⠤⠤⢤⡔⠁ ⡇     │"
-    "│                            ││     ⢸                           ⢸                 ⡇    ⡠⠊⠁⡇  ⡇     │"
-    "│                            ││     ⢸      ⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣸⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣇⣀⣀⠔⠊   ⡇  ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸                 ⣧⣒⣹⣀⣀⣀⣀⣀⡇  ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸              ⢀⠤⠊  ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸      ×             ⢸            ⣀⠔⠁    ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸         ⢀⡠⠊       ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸       ⢀⠔⠁         ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸             ⡖⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⡲⡎⠁           ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸             ⡇      ⢸  ⢀⠔⠊ ⡇            ⢸        ⡇     │"
-    "└◄██████████════════════════►┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
-    "┌Properties (layer roads)────┐│     ⢸⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⢉⠭⢻⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
-    "│Features: 2                 ││     ⢸      ⢸             ⡇  ⡠⠔⠁ ⢸      ⡇            ⢸        ⡇     │"
-    "│Properties: 2               ││     ⢸      ⢸             ⣇⡠⠊    ⢸      ⡇            ⢸        ⡇     │"
-    "│class: string               ││     ⢸      ⢸           ⢀⠔⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠁            ⢸        ⡇     │"
-    "│oneway: bool                ││     ⢸      ⢸         ⡠⠊⠁        ⢸               ×   ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸      ⢀⠔⠉           ⢸            ×      ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸    ⡠⠒⠁             ⢸                   ⢸        ⡇     │"
-    "└────────────────────────────┘│     ⢸  ⢸⠉⠉⠉⢹⠉⢉⠭⢻                ⢸                   ⢸        ⡇     │"
-    "┌Geometry (layer roads)──────┐│     ⢸  ⢸   ⡸⠴⠥⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼        ⡇     │"
-    "│Vertices: 6                 ││     ⢸  ⢸⢀⡠⠊    ⢸                ⢸                            ⡇     │"
-    "│LineString: 1               ││     ⢸ ⢀⠜⠓⠒⠒⠒⠒⠒⠒⠚                ⢸                            ⡇     │"
-    "│MultiLineString: 1          ││     ⠸⠮⠥⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│                            ││                                                                    │"
-    "│                            ││                                                                    │"
-    "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
 }
 
 #[test]
@@ -688,38 +286,7 @@ fn hovering_inside_a_layer_targets_a_feature() {
         app.hovered.as_ref().map(|h| &h.item),
         Some(&TreeItem::Feature { layer: 0, feat: 1 })
     );
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌sample.mlt - h:help, q:quit,┐┌Map View────────────────────────────────────────────────────────────┐"
-    "│   All                      ││                                                                    │"
-    "│>>   Layer: water (2 feature││                                                                    │"
-    "│     Layer: roads (2 feature││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
-    "│     Layer: poi (2 features,││     ⢸                           ⢸                 ⡤⠤⠤⠤⠤⠤⠤⢤⡔⠁ ⡇     │"
-    "│                            ││     ⢸                           ⢸                 ⡇    ⡠⠊⠁⡇  ⡇     │"
-    "│                            ││     ⢸      ⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣸⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣇⣀⣀⠔⠊   ⡇  ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸                 ⣧⣒⣹⣀⣀⣀⣀⣀⡇  ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸              ⢀⠤⠊  ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸      ×             ⢸            ⣀⠔⠁    ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸         ⢀⡠⠊       ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸       ⢀⠔⠁         ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸             ⡖⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⡲⡎⠁           ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸             ⡇      ⢸  ⢀⠔⠊ ⡇            ⢸        ⡇     │"
-    "└◄██████████════════════════►┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
-    "┌Properties (feat 1, hover)──┐│     ⢸⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⢉⠭⢻⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
-    "│class: pond                 ││     ⢸      ⢸             ⡇  ⡠⠔⠁ ⢸      ⡇            ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸             ⣇⡠⠊    ⢸      ⡇            ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸           ⢀⠔⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠁            ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸         ⡠⠊⠁        ⢸               ×   ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸      ⢀⠔⠉           ⢸            ×      ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸    ⡠⠒⠁             ⢸                   ⢸        ⡇     │"
-    "└────────────────────────────┘│     ⢸  ⢸⠉⠉⠉⢹⠉⢉⠭⢻                ⢸                   ⢸        ⡇     │"
-    "┌Geometry────────────────────┐│     ⢸  ⢸   ⡸⠴⠥⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼        ⡇     │"
-    "│Type: MultiPolygon          ││     ⢸  ⢸⢀⡠⠊    ⢸                ⢸                            ⡇     │"
-    "│Parts: 2                    ││     ⢸ ⢀⠜⠓⠒⠒⠒⠒⠒⠒⠚                ⢸                            ⡇     │"
-    "│Total vertices: 10          ││     ⠸⠮⠥⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│Total rings: 2              ││                                                                    │"
-    "│                            ││                                                                    │"
-    "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
 }
 
 #[test]
@@ -739,38 +306,7 @@ fn hovering_inside_a_feature_targets_a_part() {
             part: 1
         })
     );
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌sample.mlt - h:help, q:quit,┐┌Map View────────────────────────────────────────────────────────────┐"
-    "│   All                      ││                                                                    │"
-    "│     Layer: water (2 feature││                                                                    │"
-    "│       Feat 0: Polygon (10v,││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
-    "│>>     Feat 1: MultiPolygon ││     ⢸                           ⢸                 ⡤⠤⠤⠤⠤⠤⠤⢤⡔⠁ ⡇     │"
-    "│     Layer: roads (2 feature││     ⢸                           ⢸                 ⡇    ⡠⠊⠁⡇  ⡇     │"
-    "│     Layer: poi (2 features,││     ⢸      ⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣸⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣇⣀⣀⠔⠊   ⡇  ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸                 ⣧⣒⣹⣀⣀⣀⣀⣀⡇  ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸              ⢀⠤⠊  ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸      ×             ⢸            ⣀⠔⠁    ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸         ⢀⡠⠊       ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸       ⢀⠔⠁         ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸             ⡖⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⡲⡎⠁           ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸             ⡇      ⢸  ⢀⠔⠊ ⡇            ⢸        ⡇     │"
-    "└◄██████████════════════════►┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
-    "┌Properties (feat 1, hover)──┐│     ⢸⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⢉⠭⢻⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
-    "│class: pond                 ││     ⢸      ⢸             ⡇  ⡠⠔⠁ ⢸      ⡇            ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸             ⣇⡠⠊    ⢸      ⡇            ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸           ⢀⠔⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠁            ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸         ⡠⠊⠁        ⢸               ×   ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸      ⢀⠔⠉           ⢸            ×      ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸    ⡠⠒⠁             ⢸                   ⢸        ⡇     │"
-    "└────────────────────────────┘│     ⢸  ⢸⠉⠉⠉⢹⠉⢉⠭⢻                ⢸                   ⢸        ⡇     │"
-    "┌Geometry────────────────────┐│     ⢸  ⢸   ⡸⠴⠥⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼        ⡇     │"
-    "│Component: part #1 of a     ▲│     ⢸  ⢸⢀⡠⠊    ⢸                ⢸                            ⡇     │"
-    "│MultiPolygon                █│     ⢸ ⢀⠜⠓⠒⠒⠒⠒⠒⠒⠚                ⢸                            ⡇     │"
-    "│Type: Polygon               █│     ⠸⠮⠥⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│Vertices: 5                 ║│                                                                    │"
-    "│Rings: 1                    ▼│                                                                    │"
-    "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
 }
 
 #[test]
@@ -825,83 +361,18 @@ fn hovering_a_tree_row_targets_that_row() {
         tree_idx: Some(2),
         item: TreeItem::Layer(1),
     });
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌sample.mlt - h:help, q:quit,┐┌Map View────────────────────────────────────────────────────────────┐"
-    "│>> All                      ││                                                                    │"
-    "│     Layer: water (2 feature││                                                                    │"
-    "│     Layer: roads (2 feature││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
-    "│     Layer: poi (2 features,││     ⢸                           ⢸                 ⡤⠤⠤⠤⠤⠤⠤⢤⡔⠁ ⡇     │"
-    "│                            ││     ⢸                           ⢸                 ⡇    ⡠⠊⠁⡇  ⡇     │"
-    "│                            ││     ⢸      ⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣸⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣇⣀⣀⠔⠊   ⡇  ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸                 ⣧⣒⣹⣀⣀⣀⣀⣀⡇  ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸              ⢀⠤⠊  ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸      ×             ⢸            ⣀⠔⠁    ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸         ⢀⡠⠊       ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸       ⢀⠔⠁         ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸             ⡖⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⡲⡎⠁           ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸             ⡇      ⢸  ⢀⠔⠊ ⡇            ⢸        ⡇     │"
-    "└◄██████████════════════════►┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
-    "┌Properties (layer roads, hov┐│     ⢸⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⢉⠭⢻⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
-    "│Features: 2                 ││     ⢸      ⢸             ⡇  ⡠⠔⠁ ⢸      ⡇            ⢸        ⡇     │"
-    "│Properties: 2               ││     ⢸      ⢸             ⣇⡠⠊    ⢸      ⡇            ⢸        ⡇     │"
-    "│class: string               ││     ⢸      ⢸           ⢀⠔⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠁            ⢸        ⡇     │"
-    "│oneway: bool                ││     ⢸      ⢸         ⡠⠊⠁        ⢸               ×   ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸      ⢀⠔⠉           ⢸            ×      ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸    ⡠⠒⠁             ⢸                   ⢸        ⡇     │"
-    "└────────────────────────────┘│     ⢸  ⢸⠉⠉⠉⢹⠉⢉⠭⢻                ⢸                   ⢸        ⡇     │"
-    "┌Geometry (layer roads)──────┐│     ⢸  ⢸   ⡸⠴⠥⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼        ⡇     │"
-    "│Vertices: 6                 ││     ⢸  ⢸⢀⡠⠊    ⢸                ⢸                            ⡇     │"
-    "│LineString: 1               ││     ⢸ ⢀⠜⠓⠒⠒⠒⠒⠒⠒⠚                ⢸                            ⡇     │"
-    "│MultiLineString: 1          ││     ⠸⠮⠥⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│                            ││                                                                    │"
-    "│                            ││                                                                    │"
-    "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
 }
 
 #[test]
 fn small_terminal_shows_scrollbars_and_scrolls_the_tree_sideways() {
     let mut app = sample_app();
     press(&mut app, KeyCode::Char('*'));
-    insta::assert_snapshot!(render_sized(&mut app, 60, 16), @r#"
-    "┌sample.mlt - h:h┐┌Map View────────────────────────────────┐"
-    "│>> All          ▲│                                        │"
-    "│     Layer: wate█│   ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⣒⣒⣒⣒⣒⠶⡆   │"
-    "│       Feat 0: P█│   ⢸   ⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣸⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣇⣀⡠⠊⢹ ⡇   │"
-    "│       Feat 1: M║│   ⢸   ⢸   ×       ⢸        ⢀⡠⠓⢻⠒⠒⠚ ⡇   │"
-    "│     Layer: road║│   ⢸   ⢸           ⢸      ⡠⠒⠁  ⢸    ⡇   │"
-    "│       Feat 0: L▼│   ⢸   ⢸       ⢠⠤⠤⠤⢼⠤⠤⠤⣤⠔⠉     ⢸    ⡇   │"
-    "└◄████══════════►┘│   ⢸   ⢸       ⢸   ⢸⡠⠔⠉⢸       ⢸    ⡇   │"
-    "┌Properties (all ┐│   ⢸⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⢹⠉⣉⠝⢻⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⡇   │"
-    "│Layers: 3       ││   ⢸   ⢸      ⣀⠼⠮⠤⠤⢼⠤⠤⠤⠼    ×  ⢸    ⡇   │"
-    "│Features: 6     ││   ⢸   ⢸   ⢀⠤⠊     ⢸       ×   ⢸    ⡇   │"
-    "└────────────────┘│   ⢸ ⡖⠒⢺⢒⢶⠊⠁       ⢸           ⢸    ⡇   │"
-    "┌Geometry (all la┐│   ⢸ ⣇⡠⠚⠓⢺⠒⠒⠒⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠚    ⡇   │"
-    "│Vertices: 29    ││   ⠸⠶⠭⠭⠭⠭⠭⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇   │"
-    "│Point: 1        ││                                        │"
-    "└────────────────┘└────────────────────────────────────────┘"
-    "#);
+    assert_snapshot!(render_sized(&mut app, 60, 16));
     let shift_right = KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT);
     assert!(!handle_key(&mut app, shift_right));
     assert!(!handle_key(&mut app, shift_right));
-    insta::assert_snapshot!(render_sized(&mut app, 60, 16), @r#"
-    "┌sample.mlt - h:h┐┌Map View────────────────────────────────┐"
-    "│                ▲│                                        │"
-    "│er: water (2 fea█│   ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⣒⣒⣒⣒⣒⠶⡆   │"
-    "│eat 0: Polygon (█│   ⢸   ⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣸⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣇⣀⡠⠊⢹ ⡇   │"
-    "│eat 1: MultiPoly║│   ⢸   ⢸   ×       ⢸        ⢀⡠⠓⢻⠒⠒⠚ ⡇   │"
-    "│er: roads (2 fea║│   ⢸   ⢸           ⢸      ⡠⠒⠁  ⢸    ⡇   │"
-    "│eat 0: LineStrin▼│   ⢸   ⢸       ⢠⠤⠤⠤⢼⠤⠤⠤⣤⠔⠉     ⢸    ⡇   │"
-    "└◄══████════════►┘│   ⢸   ⢸       ⢸   ⢸⡠⠔⠉⢸       ⢸    ⡇   │"
-    "┌Properties (all ┐│   ⢸⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⢹⠉⣉⠝⢻⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⡇   │"
-    "│Layers: 3       ││   ⢸   ⢸      ⣀⠼⠮⠤⠤⢼⠤⠤⠤⠼    ×  ⢸    ⡇   │"
-    "│Features: 6     ││   ⢸   ⢸   ⢀⠤⠊     ⢸       ×   ⢸    ⡇   │"
-    "└────────────────┘│   ⢸ ⡖⠒⢺⢒⢶⠊⠁       ⢸           ⢸    ⡇   │"
-    "┌Geometry (all la┐│   ⢸ ⣇⡠⠚⠓⢺⠒⠒⠒⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠚    ⡇   │"
-    "│Vertices: 29    ││   ⠸⠶⠭⠭⠭⠭⠭⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇   │"
-    "│Point: 1        ││                                        │"
-    "└────────────────┘└────────────────────────────────────────┘"
-    "#);
+    assert_snapshot!(render_sized(&mut app, 60, 16));
 }
 
 #[test]
@@ -949,38 +420,7 @@ fn tessellated_polygons_show_their_triangles() {
     press(&mut app, KeyCode::Down);
     press(&mut app, KeyCode::Down);
     press(&mut app, KeyCode::Down);
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌mix_2_poly_polyh_tes.mlt - h┐┌Map View────────────────────────────────────────────────────────────┐"
-    "│   All                      ││                                                                    │"
-    "│     Layer: layer1 (2 Polygo││                                                                    │"
-    "│       Feat 0: Polygon (4v) ││                                                      ⣀⣀⣤⠤⡲         │"
-    "│>>     Feat 1: Polygon (8v, ││                                               ⣀⡠⠤⣔⡲⠮⠛⠉⠁ ⢀⠇         │"
-    "│                            ││                                       ⢀⣀⡠⠤⠒⠒⣉⡩⠔⠒⠉       ⡜          │"
-    "│                            ││     ⢸⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⣉⣉⠭⠝⠛⠋⠉⢉⣉⠭⠝⠋⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢩⠋⠉⠉⠉⠉⡇     │"
-    "│                            ││     ⢸                  ⢀⣀⡠⠤⠔⢒⣉⣉⣀⠤⣤⡤⠶⡖⢎⠁                ⡎     ⡇     │"
-    "│                            ││     ⢸            ⣀⣤⣤⣶⡶⠛⠓⠒⠊⢉⣉⠥⠔⠒⠊⠉ ⢀⠜  ⠣⡀              ⢸      ⡇     │"
-    "│                            ││     ⢸             ⠉⠛⠳⠾⣛⠭⠭⣉⣑⠢⢄⣀   ⢠⠊    ⠈⠢⡀           ⢀⠇      ⡇     │"
-    "│                            ││     ⢸                  ⠉⠑⠢⠤⣉⠉⠑⠛⠲⠤⣃       ⠘⢄          ⡸       ⡇     │"
-    "│                            ││     ⢸                       ⠉⠑⠒⠤⣀⡀⠉⠒⠤⣀     ⠑⢄       ⢠⠃       ⡇     │"
-    "│                            ││     ⢸                            ⠈⠑⠒⠤⣀⡉⠒⠤⣀   ⠣⡀     ⡜        ⡇     │"
-    "│                            ││     ⢸                                 ⠈⠉⠒⠤⢕⡢⢄⡀⠈⠢⡀  ⢰⠁        ⡇     │"
-    "└◄███████████═══════════════►┘│     ⢸                                      ⠈⠉⠚⠵⢦⣜⣄ ⡇         ⡇     │"
-    "┌Properties (feat 1)─────────┐│     ⢸                                            ⠉⠛          ⡇     │"
-    "│(no properties)             ││     ⢸                                                        ⡇     │"
-    "│                            ││     ⢸                                                  ⢠⠤⣀⣀  ⡇     │"
-    "│                            ││     ⢸                                                  ⡎   ⠉⠉⡗⠒⠢⠤⢄⣀│"
-    "│                            ││     ⢸                                                 ⢀⠇     ⡇     │"
-    "│                            ││     ⢸                                                 ⢸      ⡇    ⢀│"
-    "│                            ││     ⢸                                                 ⡎      ⡇ ⣀⠔⠊⠁│"
-    "└────────────────────────────┘│     ⢸                                                ⢀⠇    ⢀⡠⡗⠉    │"
-    "┌Geometry────────────────────┐│     ⢸                                                ⢸  ⣀⠤⠊⠁ ⡇     │"
-    "│Type: Polygon               ▲│     ⢸                                                ⡮⠔⠊     ⡇     │"
-    "│Vertices: 8                 █│     ⢸                                                        ⡇     │"
-    "│Rings: 2                    █│     ⠸⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│  Ring 0: 4v, CW            ║│                                                                    │"
-    "│  Ring 1: 4v, CCW           ▼│                                                                    │"
-    "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
 }
 
 #[test]
@@ -989,38 +429,7 @@ fn scan_streams_files_into_the_browser() {
     let rx = start_scan(base.clone(), SCAN_FLAGS);
     let mut app = App::new_file_browser(Vec::new(), Some(rx), base);
     assert!(!app.data_loaded());
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌MLT Files (0 found, scanning…) - ↑/↓ navigate, Enter open, h help, q┐┌Tile Preview────────────────┐"
-    "│   File     Size   Enc % Layers   Features Notes                    ││Select a tile file (.mlt /  │"
-    "│                                                                    ││.mvt) to preview            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    │└────────────────────────────┘"
-    "│                                                                    │┌Filter (click to toggle)────┐"
-    "│                                                                    ││[Reset filters]             │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    │└────────────────────────────┘"
-    "│                                                                    │┌File Info───────────────────┐"
-    "│                                                                    ││Scanning                    │"
-    "│                                                                    ││../../test/fixtures/simple… │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "└────────────────────────────────────────────────────────────────────┘└────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
     app.finish_scan();
     assert!(app.data_loaded());
     assert_eq!(app.files.len(), 6);
@@ -1036,38 +445,7 @@ fn preview_failures_are_reported() {
     let path = app.get_selected_file().unwrap().path().to_path_buf();
     app.preview_tile_path = Some(path);
     app.preview_error = Some("unexpected end of buffer".into());
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌MLT Files (6 found) - ↑/↓ navigate, Enter open, h help, q quit Click┐┌Tile Preview────────────────┐"
-    "│   File                         Size   Enc % Layers   Features Notes││Preview failed: unexpected  │"
-    "│>> line-boolean.mvt              40B      -       1          1      ││end of buffer               │"
-    "│   multiline-boolean.mvt         46B      -       1          1      ││                            │"
-    "│   multipoint-boolean.mvt        37B      -       1          1      ││                            │"
-    "│   multipolygon-boolean.mvt      65B      -       1          1      ││                            │"
-    "│   point-boolean.mvt             35B      -       1          1      ││                            │"
-    "│   polygon-boolean.mvt           41B      -       1          1      ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    │└────────────────────────────┘"
-    "│                                                                    │┌Filter (click to toggle)────┐"
-    "│                                                                    ││[Reset filters]             ▲"
-    "│                                                                    ││                            █"
-    "│                                                                    ││Extensions:                 █"
-    "│                                                                    ││  [ ] mvt                   ║"
-    "│                                                                    ││                            ║"
-    "│                                                                    ││Geometry Types:             ║"
-    "│                                                                    ││  [ ] Point                 ║"
-    "│                                                                    ││  [ ] LineString            ▼"
-    "│                                                                    │└────────────────────────────┘"
-    "│                                                                    │┌File Info───────────────────┐"
-    "│                                                                    ││File: line-boolean.mvt      ▲"
-    "│                                                                    ││Size: 40B  raw MLT file size█"
-    "│                                                                    ││Encoding: -  MLT / (data +  █"
-    "│                                                                    ││metadata)                   ║"
-    "│                                                                    ││Data: -  decoded payload    ║"
-    "│                                                                    ││size                        ║"
-    "│                                                                    ││Metadata: -  encoding       ║"
-    "│                                                                    ││overhead                    ▼"
-    "└────────────────────────────────────────────────────────────────────┘└────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
 }
 
 #[test]
@@ -1103,38 +481,7 @@ fn mbtiles_map_renders_the_world_tile() {
         mbt(&mut app).tiles.get(&(0, 0, 0)),
         Some(MbtTileData::Loaded { .. })
     ));
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌Properties──────────────────┐┌World Map - 0/0/0 - zoom 0.0  drag=pan  hover=info  q/Esc quit──────┐"
-    "│Hover over a feature to     ││⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹│"
-    "│inspect properties          ││⡇×               ⢀⣠⠤⠤⠤⡄  ⣠⣴⡏⠒⠤⡀                                    ⢸│"
-    "│                            ││⡇               ⣴⡊⡁ ⢀⣶⡯⠭⠾⠽⠉⠲⢭⠻⢴⡶     ⢀⡀   ⣀⣀       ⢠⡀              ⢸│"
-    "│                            ││⡇           ⢀⡄⣤⣼⣤⣸⠍⢠⣺⡵⠊      ⢉⡟    ⠐⡝⢓⡟⠁  ⠈⠁       ⠱⣱⢄             ⢸│"
-    "│                            ││⡇         ⠠⣊⠿⣧⣬⣽⣷⣿⣥⠊⠙⠷⠤⡀     ⢾⡗     ⠙⠋⠋     ⢀⢤⡶   ⢀⡤⡨⠛⠦⡄   ⢀⠤⣀     ⢸│"
-    "│                            ││⡇         ⡰⣳⠯⢽⣧⢿⡿⡿⢽⡧⡀  ⢣⡀   ⢰⣾⠃            ⢠⡟⠁⢠⢤⣄⡖⠋   ⠐⠗⠦⠖⣄⣀⡿⢍⡁    ⢸│"
-    "│                            ││⡯⣀⢠⡖⠉⠉⠑⢲⠔⠚⠚⢻⣯⣤⣽⣻⡜⣿⢲⢲⡉⢇⡀⢘⢧  ⣠⡿⠟      ⢀⡴⡾⣟⠢⢄⣤⣀⠭⠖⠺⢹⡅         ⠉⠉  ⠈⠙⠒⠲⠖⢺│"
-    "│                            ││⡗⠻⢝⠿ ⢀ ⢸  ⠘⢛⣄×  ⢠⠼⣷⣒⡧⢽⠃⠈⢿⣠⡞⠉ ⠹⠭⠃  ⢀⡰⡵⣵⠟⢸⣽⠛⠉    ⠉   ×           ⣀⢀ ⢀⣺│"
-    "│                            ││⡇ ⠈⣙⡶⠞⠉⠙⠺⣆  ⠉⠒⠲⢀⠳⢄⣀⡣⠈⠚⢄⡀⠈⠉      ×⣦⠈⢲⣷⣪⣿⢏⠉     ⣀⣀⡀     ⣀    ⣠⢔⠒⠛⡖⡯⠉⠁⢸│"
-    "│                            ││⡇        ⠻⢦⡤⠤×⠤⠽⢄⣤⡘⠃⢀⣠⣤⣿⡄       ⠻×××⣽⣦⣿⣞⣓⡢⢰⣖⠒⡛ ⢉⣉⢒×⡒⠖⠾⠥⢤⡜⠹⢄⣌⢿⠄ ⠛⠁  ⢸│"
-    "│                            ││⡇         ⢸ ⠰ ×  ⠘⠛⢻⠽⠙⠋   ×     ×⣹⣖⣻⣻⡿⣿×⣛⣗⣾×⣟⡷⣧⣾⡾⠃ ⠉⠒×⠚⠉⣤×⡞⢊⡾⠃     ⢸│"
-    "│                            ││⡇×         ⠙⣶⣒×⣤⠤⠤⣴⣊           ⢠⣮⠟ ⢻⠓⠲×⠚⣿×⠼⣄⣀⣿×⡻×⢤⣤⣠⣄   ⢹⠈⠛⠋⠁      ⢸│"
-    "│                            ││⡇   ⠰       ⠈⠁⠣⢜⢴⣶⡊⠿⠶⠤        ⢰⣟⣸⣉×⡚×⠑⡞⠒×⣧⠤⣬⠿⠉⠘⢳ ⡔⠚⢫⣿×⣶⠊⢽⡀         ⢸│"
-    "│                            ││⡇         ×      ⠈⢓×⢛⣭⣽⣤⣄     ⠈⠙⠻⠿⠿⢼⣻×⠿⢮×⢬⡿⠋   ⠈⠚⠇ ⠠⣿⣝⣁⡴⣟⣿⡀ ×      ⢸│"
-    "│                            ││⡇                 ⠘×⢿⣀⡀×⠈⠉⠉⡆       ⠈⢟⠧⣄⣿⣍⣏ ⡀  ×     ⠈⠻⠭⠽⢿⡿⣛×⢷⢶⡓⢤⡀  ⢸│"
-    "│                            ││⡇                  ⠈⢹⣦×⢆ ⣀⡜         ⢳⢲×⣯⢿⠜⣎⠇           ⡤⠤⠊×⠉⠊⠣⡀ ⠠⡅ ⢺│"
-    "│                            ││⡇                   ⢸× ⣯⠜           ⠘⣞⣉⠾⠃ ⠈            ⢣⣀⡤⠤⣤⡀ ⡸   ⣀⢸│"
-    "│                            ││⡇        ×         ⢀⣟⣰⠎⠁      ×                             ⠑⠿⠁  ⣠⡾⢿│"
-    "│                            ││⡇                  ⠸⣯⡏⠠⠄                      ⠐⠂                 ⠉ ⢸│"
-    "│                            ││⡇                   ⠉⠉                            ×                ⢸│"
-    "│                            ││⡇                    ⢀⡤⠂                   ⢀⣀     ⡀  ⡀⢀⣀⢀⣀⣀⣄       ⢸│"
-    "│                            ││⡇                   ⡰⡟⡆         ⣀⣀⣀⡤⣠⠤⣄⡠⠒⠖⠊⠉ ⠉⢩⢦⠴⠉⠉⠉⠉⠈⠁ ⠉  ⠈⠉⠙⠒⠤⣀⣀ ⢸│"
-    "│                            ││⡇      ⣀⣀⣀⣦⣦⢤⡀⣸⡿⠴⠒⠴⠬⠿⠃⡕       ⢠⡎⠉⠉            ⠈⠁                 ⡤⠃⢸│"
-    "│                            ││⡇   ⡤⡤⠚      ⠈ ⠁   ⢰⡒⠊  ⢀⣀ ⣀⠔⠒⠁  ×                              ⢸  ⢸│"
-    "│                            ││⡇  ⠹⠕⠒⢄            ⢏⡀⢀⣠⢀⠎⢸ ⠧⢆                                  ⢀⠞⠁ ⢸│"
-    "│                            ││⡇   ⠐⡗⠁             ⠈⠚⢍⢈⡩⢥⠖⠊⠁                                  ⠈⡆  ⢸│"
-    "│                            ││⡇ ⡀  ⣇                ⠈⠊                                        ⠈⢢ ⢸│"
-    "│                            ││⣗⣋⣑⣄⣀⣈⣒⣆⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣋⣺│"
-    "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
 }
 
 #[test]
@@ -1150,38 +497,7 @@ fn mbtiles_hover_describes_the_nearest_feature() {
     };
     mbt(&mut app).find_hovered(vertex[0], vertex[1]);
     assert!(mbt(&mut app).hovered.is_some());
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌Properties - place feat 5 (t┐┌World Map - 0/0/0 - zoom 0.0  drag=pan  hover=info  q/Esc quit──────┐"
-    "│class: continent            ▲│⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹│"
-    "│name: Oceania               █│⡇×               ⢀⣠⠤⠤⠤⡄  ⣠⣴⡏⠒⠤⡀                                    ⢸│"
-    "│name:ar: أوقيانوسيا         █│⡇               ⣴⡊⡁ ⢀⣶⡯⠭⠾⠽⠉⠲⢭⠻⢴⡶     ⢀⡀   ⣀⣀       ⢠⡀              ⢸│"
-    "│name:be: Акіянія            █│⡇           ⢀⡄⣤⣼⣤⣸⠍⢠⣺⡵⠊      ⢉⡟    ⠐⡝⢓⡟⠁  ⠈⠁       ⠱⣱⢄             ⢸│"
-    "│name:ca: Oceania            █│⡇         ⠠⣊⠿⣧⣬⣽⣷⣿⣥⠊⠙⠷⠤⡀     ⢾⡗     ⠙⠋⠋     ⢀⢤⡶   ⢀⡤⡨⠛⠦⡄   ⢀⠤⣀     ⢸│"
-    "│name:cs: Oceánie            █│⡇         ⡰⣳⠯⢽⣧⢿⡿⡿⢽⡧⡀  ⢣⡀   ⢰⣾⠃            ⢠⡟⠁⢠⢤⣄⡖⠋   ⠐⠗⠦⠖⣄⣀⡿⢍⡁    ⢸│"
-    "│name:da: Oceanien           █│⡯⣀⢠⡖⠉⠉⠑⢲⠔⠚⠚⢻⣯⣤⣽⣻⡜⣿⢲⢲⡉⢇⡀⢘⢧  ⣠⡿⠟      ⢀⡴⡾⣟⠢⢄⣤⣀⠭⠖⠺⢹⡅         ⠉⠉  ⠈⠙⠒⠲⠖⢺│"
-    "│name:de: Ozeanien           █│⡗⠻⢝⠿ ⢀ ⢸  ⠘⢛⣄×  ⢠⠼⣷⣒⡧⢽⠃⠈⢿⣠⡞⠉ ⠹⠭⠃  ⢀⡰⡵⣵⠟⢸⣽⠛⠉    ⠉   ×           ⣀⢀ ⢀⣺│"
-    "│name:el: Ωκεανία            █│⡇ ⠈⣙⡶⠞⠉⠙⠺⣆  ⠉⠒⠲⢀⠳⢄⣀⡣⠈⠚⢄⡀⠈⠉      ×⣦⠈⢲⣷⣪⣿⢏⠉     ⣀⣀⡀     ⣀    ⣠⢔⠒⠛⡖⡯⠉⠁⢸│"
-    "│name:en: Oceania            █│⡇        ⠻⢦⡤⠤×⠤⠽⢄⣤⡘⠃⢀⣠⣤⣿⡄       ⠻×××⣽⣦⣿⣞⣓⡢⢰⣖⠒⡛ ⢉⣉⢒×⡒⠖⠾⠥⢤⡜⠹⢄⣌⢿⠄ ⠛⠁  ⢸│"
-    "│name:eo: Oceanio            █│⡇         ⢸ ⠰ ×  ⠘⠛⢻⠽⠙⠋   ×     ×⣹⣖⣻⣻⡿⣿×⣛⣗⣾×⣟⡷⣧⣾⡾⠃ ⠉⠒×⠚⠉⣤×⡞⢊⡾⠃     ⢸│"
-    "│name:es: Oceanía            █│⡇×         ⠙⣶⣒×⣤⠤⠤⣴⣊           ⢠⣮⠟ ⢻⠓⠲×⠚⣿×⠼⣄⣀⣿×⡻×⢤⣤⣠⣄   ⢹⠈⠛⠋⠁      ⢸│"
-    "│name:fi: Oseania            ║│⡇   ⠰       ⠈⠁⠣⢜⢴⣶⡊⠿⠶⠤        ⢰⣟⣸⣉×⡚×⠑⡞⠒×⣧⠤⣬⠿⠉⠘⢳ ⡔⠚⢫⣿×⣶⠊⢽⡀         ⢸│"
-    "│name:fr: Océanie            ║│⡇         ×      ⠈⢓×⢛⣭⣽⣤⣄     ⠈⠙⠻⠿⠿⢼⣻×⠿⢮×⢬⡿⠋   ⠈⠚⠇ ⠠⣿⣝⣁⡴⣟⣿⡀ ×      ⢸│"
-    "│name:fy: Oseaanje           ║│⡇                 ⠘×⢿⣀⡀×⠈⠉⠉⡆       ⠈⢟⠧⣄⣿⣍⣏ ⡀  ×     ⠈⠻⠭⠽⢿⡿⣛×⢷⢶⡓⢤⡀  ⢸│"
-    "│name:ga: An Aigéine         ║│⡇                  ⠈⢹⣦×⢆ ⣀⡜         ⢳⢲×⣯⢿⠜⣎⠇           ⡤⠤⠊×⠉⠊⠣⡀ ⠠⡅ ⢺│"
-    "│name:hi: ओशिआनिया           ║│⡇                   ⢸× ⣯⠜           ⠘⣞⣉⠾⠃ ⠈            ⢣⣀⡤⠤⣤⡀ ⡸   ⣀⢸│" Hidden by multi-width symbols: [(12, " "), (15, " "), (17, " ")]
-    "│name:hr: Oceanija           ║│⡇        ×         ⢀⣟⣰⠎⠁      ×                             ⠑⠿⠁  ⣠⡾⢿│"
-    "│name:hu: Óceánia            ║│⡇                  ⠸⣯⡏⠠⠄                      ⠐⠂                 ⠉ ⢸│"
-    "│name:is: Eyjaálfa           ║│⡇                   ⠉⠉                            ×                ⢸│"
-    "│name:it: Oceania            ║│⡇                    ⢀⡤⠂                   ⢀⣀     ⡀  ⡀⢀⣀⢀⣀⣀⣄       ⢸│"
-    "│name:kn: ಒಷ್ಯಾನಿಯ             ║│⡇                   ⡰⡟⡆         ⣀⣀⣀⡤⣠⠤⣄⡠⠒⠖⠊⠉ ⠉⢩⢦⠴⠉⠉⠉⠉⠈⠁ ⠉  ⠈⠉⠙⠒⠤⣀⣀ ⢸│" Hidden by multi-width symbols: [(13, " ")]
-    "│name:ku: Okyanûsya          ║│⡇      ⣀⣀⣀⣦⣦⢤⡀⣸⡿⠴⠒⠴⠬⠿⠃⡕       ⢠⡎⠉⠉            ⠈⠁                 ⡤⠃⢸│"
-    "│name:la: Oceania            ║│⡇   ⡤⡤⠚      ⠈ ⠁   ⢰⡒⠊  ⢀⣀ ⣀⠔⠒⠁  ×                              ⢸  ⢸│"
-    "│name:latin: Oceania         ║│⡇  ⠹⠕⠒⢄            ⢏⡀⢀⣠⢀⠎⢸ ⠧⢆                                  ⢀⠞⠁ ⢸│"
-    "│name:lt: Okeanija           ║│⡇   ⠐⡗⠁             ⠈⠚⢍⢈⡩⢥⠖⠊⠁                                  ⠈⡆  ⢸│"
-    "│name:nl: Oceanië            ║│⡇ ⡀  ⣇                ⠈⠊                                        ⠈⢢ ⢸│"
-    "│name:no: Oseania            ▼│⣗⣋⣑⣄⣀⣈⣒⣆⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣋⣺│"
-    "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
 }
 
 #[test]
@@ -1198,38 +514,7 @@ fn mbtiles_center_tile_zoom_and_pan_move_the_viewport() {
         "panning left moves the viewport east"
     );
     mbt(&mut app).wait_for_visible_tiles();
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌Properties──────────────────┐┌World Map - 2/1/1 - zoom 2.0  drag=pan  hover=info  q/Esc quit──────┐"
-    "│Hover over a feature to     ││⡇⢠⡪⠜      ⠰⡁  ⣀⠤⠒⡡⠊                                 ⣼⠃             ⢸│"
-    "│inspect properties          ││⡧⠓⡣⡄     ⢀⠔⠁⢰⠭⣤⠒⠊                                  ⡰⢹              ⢸│"
-    "│                            ││⡇⢸⠈⠙⠄   ⡠⠊   ⠉⠒⠭⣶⣤⣀                              ⢀ ⡇⠸⡀             ⢸│"
-    "│                            ││⣷⠊     ⠈⢒⠆    ⠲⡛⠫⡍                              ⢰⠙⣤⡣⠔⠓             ⢸│"
-    "│                            ││⡏⠉⠒⠒⠊⠉⠑⠊⠁      ⠑⠼⠶⠖⠚⠛⠭⣒⢄                        ⠸⠊⢈⠎⢢              ⢸│"
-    "│                            ││⡏⠉⠒⠊⠉⠉⠉⢢               ⢹⢆                         ⢸ ⡬⠆             ⢸│"
-    "│                            ││⡗⠤⠤⠔⠒⠒⠤⠊                ⠹⣆                    ⢀⣀⡀⢠⠼⢀⡸⠄             ⢸│"
-    "│                            ││⡇⡤⢔⠆⡠⠔⡄⡖⠒⢢               ⠹⣆                   ⠸⡀⠈⠁⣀⡨⠆              ⢸│"
-    "│                            ││⡟ ⠘⠜  ⠈⡎⣒⠶⢗               ⢹⢆⢀                  ⢧ ⣠⣘⡄               ⢸│"
-    "│                            ││⣇⡀     ⠉   ⠉⣆⢤           ⠠⣃⢌⠛⡄               ⢀⠖⠉⢠⡀⠑⡅               ⢸│"
-    "│                            ││⡗⠥⣀⣀    ⢀     ⠉⠒⢄          ⡖⠳⢼               ⢠⠃⢀⣜⣑⣤⡃               ⢸│"
-    "│                            ││⣇  ⢸⠉⠛⢖⠊⠁⠑⢄     ⠈⣆        ⠘⠢⠔⣺               ⡬⢍⡹⡻⠝⠉                ⢸│"
-    "│                            ││⡇⢱⢀⠎  ⡜   ⡭⡒⢄   ⠉⠒⠤⡀       ⢀⠔⠁⡇            ⡷⠴⠕⠒⠉                   ⢸│"
-    "│                            ││⡇⠈⠊⣀ ⢀⡸  ⠘⠴⠁⢀⠇     ⠘⠤⡄     ⢎  ⡇        ⢀⠤⣀⡼⠁                       ⢸│"
-    "│                            ││⡏⠉⢹⡭⡉⠉⠉⠉⠉⣉⣉⣉⡏⠉⠉⠉⠹⡉⠫⡉⡩⠋⠉⠉⠉⠉⠉⠫⡉⢝⠋⠉⠉⠉⠉⠉⠉⢉⡽⠝⠛⠉⠉⠉⠉⠉⠉⠉⠉⠽⢍⡙⠝⠉⠛⠉⠹⡉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹│"
-    "│                            ││⣇⡠⢳⠁⠈⡑⢢⡀⠐⠥⠤⠴⠤⡀   ⠈⢢⠈        ⠸⡈⢢     ⢠⠇           ⠈⢛⣅⡀ ⢀⣀⠤⠊         ⢸│"
-    "│                            ││⡇ ⠉⠣⢊⢬⠍⢉ ⢀⣀ ⡀⠘⠤⣀⡑⡦⢄⠇         ⢣⡱    ⢠⠏               ⠈⠉⠁            ⢸│"
-    "│                            ││⡇    ⠁ ⠘⠃⡇ ⠉⠈⠢⣀⣀⠈⠙⠂           ⠫⢕⣤⣄⡀⣼                               ⢸│"
-    "│                            ││⡇        ⡸     ⢸  ⢠⢢             ⠈⠚⠃                               ⢸│"
-    "│                            ││⡇       ⠈⢢     ⠈⠣⠒⠁ ⠣⡀                                         ⢰⢒⣖⡀⢸│"
-    "│                            ││⡗⠤⢄⡀     ⢈⠆          ⠵⣀                                        ⢇×⣰⡁⢸│"
-    "│                            ││⡇  ⠈⠉⠑⡆⠠⡔⠊             ⠑⠢⡀                                  ⣀⠤⣖⣪⠒⢄⠘⣼│"
-    "│                            ││⡇     ⢇ ⢱                ⢱                                  ⣱ ⣠⢃⣏⠁ ⢸│"
-    "│                            ││⡇      ⠑⠁        ⢀⣀⣀⣀⣀⣀⠤⡪⣳⡁                                  ⠉ ⣨⠽⡡⣤⢼│"
-    "│                            ││⣧⠴⣢⣀⡀          ⣠⡴⠕⢒⠖⠉⠂ ⢴⠁⠈⠉⣽                                    ⣤⠒⠵⢹│"
-    "│                            ││⡗⠙⣤⠿⣷⡢⢄⡀      ⢊⠏⢱ ⠈⠶⣖⣄⢆⠉⠉⠙⠋⠓⠁                                    ⠉⢢⢸│"
-    "│                            ││⡇⢐⢯⠊⢠⣻⡜⢙⣠⣤⡤⠊⠉⠉⠁⡤⠒⠉⣟⡡⠔⠊⠁                                      ⡠⠤⠤⣀⣀⣎⢸│"
-    "│                            ││⡇⠈⠦⠃ ⠾⠶⠟⠋   ⢀⣀⠼⠄                                            ⠘⡶⢴    ⢹│"
-    "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
 }
 
 #[test]
@@ -1940,38 +1225,7 @@ fn scan_events_drive_the_browser_through_poll() {
     assert!(app.poll_scan());
     assert_eq!(app.files.len(), 1);
     assert!(!app.data_loaded());
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌MLT Files (1 found, 1 analyzing…) - ↑/↓ navigate, Enter open, h help┐┌Tile Preview────────────────┐"
-    "│   File                  Size   Enc % Layers   Features Notes       ││Select a tile file (.mlt /  │"
-    "│>> point-boolean.mvt …        …       …      …                      ││.mvt) to preview            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    │└────────────────────────────┘"
-    "│                                                                    │┌Filter (click to toggle)────┐"
-    "│                                                                    ││[Reset filters]             │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││Extensions:                 │"
-    "│                                                                    ││  [ ] mvt                   │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    │└────────────────────────────┘"
-    "│                                                                    │┌File Info───────────────────┐"
-    "│                                                                    ││Analyzing…                  │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "│                                                                    ││                            │"
-    "└────────────────────────────────────────────────────────────────────┘└────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
     let row = analyze_tile_row(&path, &base, SCAN_FLAGS);
     tx.send(ScanEvent::Analyzed(0, Box::new(row))).unwrap();
     assert!(app.poll_scan());
@@ -2217,38 +1471,7 @@ fn layer_view_dividers_tree_hover_and_map_wheel() {
             item: TreeItem::Layer(0)
         })
     );
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌sample.mlt - h:help, q:quit,┐┌Map View────────────────────────────────────────────────────────────┐"
-    "│>> All                      ││                                                                    │"
-    "│     Layer: water (2 feature││                                                                    │"
-    "│     Layer: roads (2 feature││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢲⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⢒⡲⡆     │"
-    "│     Layer: poi (2 features,││     ⢸                           ⢸                 ⡤⠤⠤⠤⠤⠤⠤⢤⡔⠁ ⡇     │"
-    "│                            ││     ⢸                           ⢸                 ⡇    ⡠⠊⠁⡇  ⡇     │"
-    "│                            ││     ⢸      ⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣸⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣇⣀⣀⠔⠊   ⡇  ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸                 ⣧⣒⣹⣀⣀⣀⣀⣀⡇  ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸              ⢀⠤⠊  ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸      ×             ⢸            ⣀⠔⠁    ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸         ⢀⡠⠊       ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸                    ⢸       ⢀⠔⠁         ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸             ⡖⠒⠒⠒⠒⠒⠒⢺⠒⠒⠒⠒⠒⡲⡎⠁           ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸             ⡇      ⢸  ⢀⠔⠊ ⡇            ⢸        ⡇     │"
-    "└◄██████████════════════════►┘│     ⢸      ⢸             ⡇      ⢸⡠⠒⠁   ⡇            ⢸        ⡇     │"
-    "┌Properties (layer water, hov┐│     ⢸⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⢉⠭⢻⠉⠉⠉⠉⠉⠉⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠉⠉⡇     │"
-    "│Features: 2                 ││     ⢸      ⢸             ⡇  ⡠⠔⠁ ⢸      ⡇            ⢸        ⡇     │"
-    "│Properties: 2               ││     ⢸      ⢸             ⣇⡠⠊    ⢸      ⡇            ⢸        ⡇     │"
-    "│class: string               ││     ⢸      ⢸           ⢀⠔⠉⠉⠉⠉⠉⠉⠉⢹⠉⠉⠉⠉⠉⠉⠁            ⢸        ⡇     │"
-    "│name: string                ││     ⢸      ⢸         ⡠⠊⠁        ⢸               ×   ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸      ⢀⠔⠉           ⢸            ×      ⢸        ⡇     │"
-    "│                            ││     ⢸      ⢸    ⡠⠒⠁             ⢸                   ⢸        ⡇     │"
-    "└────────────────────────────┘│     ⢸  ⢸⠉⠉⠉⢹⠉⢉⠭⢻                ⢸                   ⢸        ⡇     │"
-    "┌Geometry (layer water)──────┐│     ⢸  ⢸   ⡸⠴⠥⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⢼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼        ⡇     │"
-    "│Vertices: 20                ││     ⢸  ⢸⢀⡠⠊    ⢸                ⢸                            ⡇     │"
-    "│Polygon: 1                  ││     ⢸ ⢀⠜⠓⠒⠒⠒⠒⠒⠒⠚                ⢸                            ⡇     │"
-    "│MultiPolygon: 1             ││     ⠸⠮⠥⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠼⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│                            ││                                                                    │"
-    "│                            ││                                                                    │"
-    "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
 
     send(
         &mut app,
@@ -2478,38 +1701,7 @@ fn layer_summary_lists_every_value_type_and_skips_unknown_geometries() {
     let tile = Arc::new(ParsedTile::from_fc(fc));
     let mut app = App::new_single_file(tile, Some(PathBuf::from("odd.mlt")));
     press(&mut app, KeyCode::Down);
-    insta::assert_snapshot!(render(&mut app), @r#"
-    "┌odd.mlt - h:help, q:quit, En┐┌Map View────────────────────────────────────────────────────────────┐"
-    "│   All                      ││                                                                    │"
-    "│>>   Layer: odd (5 features,││                                                                    │"
-    "│       Feat 0: Point        ││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⡆     │"
-    "│       Feat 1: Unknown      ││     ⢸                                                        ⡇     │"
-    "│       Feat 2: Unknown      ││     ⢸                                                        ⡇     │"
-    "│       Feat 3: Unknown      ││     ⢸                                                        ⡇     │"
-    "│       Feat 4: Unknown      ││     ⢸                                                        ⡇     │"
-    "│                            ││     ⢸                                                        ⡇     │"
-    "│                            ││     ⢸                                                        ⡇     │"
-    "│                            ││     ⢸                                                        ⡇     │"
-    "│                            ││     ⢸                                                        ⡇     │"
-    "│                            ││     ⢸                                                        ⡇     │"
-    "│                            ││     ⢸                                                        ⡇     │"
-    "└◄███████████═══════════════►┘│     ⢸                                                        ⡇     │"
-    "┌Properties (layer odd)──────┐│     ⢸                                                        ⡇     │"
-    "│Features: 5                 ││     ⢸                                                        ⡇     │"
-    "│Properties: 4               ││     ⢸                                                        ⡇     │"
-    "│a: array                    ││     ⢸                                                        ⡇     │"
-    "│b: bool                     ││     ⢸                                                        ⡇     │"
-    "│n: null | string            ││     ⢸                                                        ⡇     │"
-    "│o: object                   ││     ⢸                                                        ⡇     │"
-    "└────────────────────────────┘│     ⢸                                                        ⡇     │"
-    "┌Geometry (layer odd)────────┐│     ⢸                                                        ⡇     │"
-    "│Vertices: 9                 ││     ⢸                                                        ⡇     │"
-    "│Point: 1                    ││     ×                                                        ⡇     │"
-    "│                            ││     ⠸⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠇     │"
-    "│                            ││                                                                    │"
-    "│                            ││                                                                    │"
-    "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
-    "#);
+    assert_snapshot!(render(&mut app));
 }
 
 #[test]
@@ -2526,58 +1718,7 @@ fn tessellated_multipolygon_parts_carry_their_own_triangles() {
     press(&mut app, KeyCode::Down);
     press(&mut app, KeyCode::Char('+'));
     press(&mut app, KeyCode::Down);
-    insta::assert_snapshot!(render_sized(&mut app, 100, 50), @r#"
-    "┌unknown - h:help, q:quit, En┐┌Map View────────────────────────────────────────────────────────────┐"
-    "│   All                      ││                                                                    │"
-    "│     Layer: layer1 (2 featur││                                                                    │"
-    "│       Feat 0: Polygon (4v) ││                                                                    │"
-    "│       Feat 1: MultiPolygon ││                                                                    │"
-    "│>>       Part 0: Polygon (8v││                                                            ⢸⢆      │"
-    "│         Part 1: Polygon (4v││     ⢰⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⡆    ⡇⢈⠆     │"
-    "│                            ││     ⢸                                                 ⡇    ⡇⡜      │"
-    "│                            ││     ⢸                                                 ⡇   ⢸⡰⠁      │"
-    "│                            ││     ⢸                                                 ⡇   ⣸⠃       │"
-    "│                            ││     ⢸                                                 ⡇   ⠏        │"
-    "│                            ││     ⢸                                                 ⡇            │"
-    "│                            ││     ⢸                                                 ⡇            │"
-    "│                            ││     ⢸                                                 ⡇            │"
-    "│                            ││     ⢸                                                 ⡇            │"
-    "│                            ││     ⢸                                                 ⡇            │"
-    "│                            ││     ⢸                                                 ⡇            │"
-    "│                            ││     ⢸                                                 ⡇            │"
-    "│                            ││     ⢸                                                 ⡇            │"
-    "│                            ││     ⢸                                                 ⡇            │"
-    "│                            ││     ⢸                                                 ⡇            │"
-    "│                            ││     ⢸                                                 ⡇            │"
-    "│                            ││     ⢸                                                 ⡇            │"
-    "│                            ││     ⢸                                                 ⡇            │"
-    "└◄███████████═══════════════►┘│     ⢸                                                 ⡇            │"
-    "┌Properties (feat 1)─────────┐│     ⢸                                                 ⡇            │"
-    "│(no properties)             ││     ⢸               ⣴⡇                                ⡇            │"
-    "│                            ││     ⢸             ⡠⠊⡎⢸                                ⡇            │"
-    "│                            ││     ⢸           ⢀⠜ ⡸ ⢸                           ⢸⠒⠤⣀ ⡇            │"
-    "│                            ││     ⢸          ⡰⠁ ⢠⠃  ⡇                          ⡜   ⠉⡗⠤⡀          │"
-    "│                            ││     ⢸        ⢠⠊⢀⡠⢊⢿⡆  ⢇                          ⡇    ⡇ ⠈⠑⠢⢄⡀      │"
-    "│                            ││     ⢸      ⢀⢔⡡⠒⠁ ⡜ ⡿⡀ ⢸                          ⡇    ⡇     ⠈⠑⡢    │"
-    "│                            ││     ⢸     ⣠⣗⣁⣀⣀⣀⡜  ⡇⢇ ⠸⡀                        ⢰⠁    ⡇     ⢀⠜     │"
-    "│                            ││     ⢸     ⠈⠳⣢⣀  ⠘⢄ ⢸⠘⡄ ⡇                        ⢸     ⡇    ⡠⠃      │"
-    "│                            ││     ⢸        ⠑⢍⠢⢄⡈⢢⢸ ⢱ ⢇                        ⢸     ⡇  ⢀⠜        │"
-    "│                            ││     ⢸          ⠑⢄⠈⠒⠵⡇ ⢇⢸                        ⡇     ⡇ ⡠⠃         │"
-    "│                            ││     ⢸            ⠉⠢⡀⠘⢄⠘⡜⡄                       ⡇     ⣇⠜           │"
-    "└────────────────────────────┘│     ⢸              ⠈⠢⡈⢆⢣⡇                      ⢀⠇    ⡠⡇            │"
-    "┌Geometry────────────────────┐│     ⢸                ⠈⠒⢯⣧                      ⢸   ⢀⠜ ⡇            │"
-    "│Component: part #0 of a     ││     ⢸                   ⠙                      ⢸  ⡠⠃  ⡇            │"
-    "│MultiPolygon                ││     ⢸                                          ⡜⢀⠜    ⡇            │"
-    "│Type: Polygon               ││     ⢸                                          ⡧⠃     ⡇            │"
-    "│Vertices: 8                 ││     ⢸                                                 ⡇            │"
-    "│Rings: 2                    ││     ⢸                                                 ⡇            │"
-    "│  Ring 0: 4v, CW            ││     ⢸⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⡇            │"
-    "│  Ring 1: 4v, CCW           ││                                                                    │"
-    "│Triangles: 6                ││                                                                    │"
-    "│                            ││                                                                    │"
-    "│                            ││                                                                    │"
-    "└────────────────────────────┘└────────────────────────────────────────────────────────────────────┘"
-    "#);
+    assert_snapshot!(render_sized(&mut app, 100, 50));
 
     let mixed = cache
         .load(&test_dir("synthetic/0x01-rust/mix_2_line_poly_tes.mlt"))

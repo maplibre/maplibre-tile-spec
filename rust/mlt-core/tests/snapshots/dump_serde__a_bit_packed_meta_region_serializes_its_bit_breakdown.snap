@@ -1,0 +1,28 @@
+---
+source: mlt-core/tests/dump_serde.rs
+expression: json(region)
+---
+{
+  "offset": 11,
+  "len": 1,
+  "depth": 3,
+  "label": "type",
+  "value": "0x04 Geometry",
+  "bits": [
+    {
+      "hi": 7,
+      "lo": 1,
+      "raw": 2,
+      "meaning": "base type = Geometry"
+    },
+    {
+      "hi": 0,
+      "lo": 0,
+      "raw": 0,
+      "meaning": "not optional: each feature has a non-NULL value"
+    }
+  ],
+  "kind": "meta",
+  "container": false,
+  "blob": null
+}
