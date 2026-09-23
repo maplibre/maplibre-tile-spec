@@ -1,4 +1,4 @@
-/** Indexes the symlinked synthetic fixtures and serves only the tiles it indexed. */
+/** Indexes the synthetic and real-world fixtures and serves only the tiles it indexed. */
 
 import { execFileSync } from "node:child_process";
 import {
@@ -8,7 +8,7 @@ import {
   realpathSync,
   statSync,
 } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import type { Plugin } from "vite";
 import type { FixtureEntry } from "../src/fixtures.ts";
 
@@ -32,7 +32,7 @@ interface LsRow {
 
 /**
  * Geometry and encoding facets per tile, read from `mlt ls`.
- * The binary is optional: without it the picker simply has fewer buttons.
+ * `just inspector::build` builds the binary, and without it the picker simply has fewer buttons.
  */
 function readFacets(
   dirs: { directory: string; path: string }[],
@@ -48,7 +48,14 @@ function readFacets(
   try {
     const out = execFileSync(
       binary,
-      ["ls", "--format", "json", ...dirs.map((d) => d.path)],
+      [
+        "ls",
+        "--format",
+        "json",
+        "--details",
+        "algorithms",
+        ...dirs.map((d) => d.path),
+      ],
       { encoding: "utf8", maxBuffer: 256 << 20 },
     );
     rows = JSON.parse(out) as LsRow[];
@@ -65,7 +72,7 @@ function readFacets(
     const directory = label.get(dirname(row.path));
     if (!row.info || directory === undefined) continue;
     const algorithms = (row.info.algorithms ?? []).join(" ");
-    facets.set(`${directory}/${row.path.split("/").pop()}`, {
+    facets.set(`${directory}/${basename(row.path)}`, {
       geometries: row.info.geometries ?? [],
       encodings: ENCODINGS.flatMap(([needle, label]) =>
         algorithms.includes(needle) ? [label] : [],

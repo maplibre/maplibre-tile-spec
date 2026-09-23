@@ -37,6 +37,21 @@ describe("indexFixtures", () => {
     expect(index.filter((entry) => entry.bytes <= 0)).toEqual([]);
   });
 
+  it("reads geometry and encoding facets from mlt ls", () => {
+    expect(
+      index.find(
+        (entry) =>
+          entry.directory === "0x02" && entry.name === "props_str_fsst.mlt",
+      ),
+    ).toEqual({
+      name: "props_str_fsst.mlt",
+      directory: "0x02",
+      bytes: 230,
+      geometries: ["Point"],
+      encodings: ["FSST", "Dictionary"],
+    });
+  });
+
   it("orders by directory then by name", () => {
     const keys = index.map((entry) => `${entry.directory}/${entry.name}`);
     const ordered = FIXTURE_DIRECTORIES.flatMap((directory) =>

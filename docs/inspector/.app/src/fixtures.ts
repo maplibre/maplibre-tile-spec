@@ -1,6 +1,6 @@
-/** The synthetic fixture index the app is built against. */
+/** The fixture index the app is built against. */
 
-/** One synthetic fixture, as the build-time index records it. */
+/** One fixture tile, as the build-time index records it. */
 export interface FixtureEntry {
   /** File name including the `.mlt` extension. */
   name: string;
@@ -14,7 +14,7 @@ export interface FixtureEntry {
   encodings?: string[];
 }
 
-/** Wire tag the fixture's directory names, which is the first half of `0x02-rust`. */
+/** Wire tag of the fixture's directory, e.g. `0x02` for `0x02-rust`. */
 export function fixtureTag(entry: FixtureEntry): string {
   return entry.directory.split("-")[0];
 }

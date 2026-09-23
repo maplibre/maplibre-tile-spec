@@ -111,15 +111,13 @@ describe("the empty state", () => {
     serve();
     const app = mount(App);
     await flushPromises();
-    expect(app.get("button.open").text()).toBe(
-      "Browse one of 2 synthetic fixtures",
-    );
+    expect(app.get("button.open").text()).toBe("Browse one of 2 fixtures");
   });
 
   it("omits the count while the index is still in flight", async () => {
     serve();
     const app = mount(App);
-    expect(app.get("button.open").text()).toBe("Browse the synthetic fixtures");
+    expect(app.get("button.open").text()).toBe("Browse the fixtures");
     await flushPromises();
   });
 

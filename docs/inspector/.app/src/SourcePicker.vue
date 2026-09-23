@@ -53,12 +53,22 @@ function sortBy(key: SortKey) {
   }
 }
 
+function columnName(key: SortKey): string {
+  return key === "bytes" ? "size" : "name";
+}
+
+/** `aria-sort` belongs to table headers, so a plain button says its direction in its label. */
+function sortLabel(key: SortKey): string {
+  if (sortKey.value !== key) return `sort by ${columnName(key)}`;
+  return `sorted by ${columnName(key)}, ${descending.value ? "descending" : "ascending"}`;
+}
+
 /** The bar names the loaded tile, which the hero has none of, so it counts the index instead. */
 const browse = computed(() => {
   if (!props.hero) return props.current ?? "choose a fixture...";
   // The index arrives a fetch later, so a count is not available on the first frame.
-  if (props.index.length === 0) return "Browse the synthetic fixtures";
-  return `Browse one of ${props.index.length} synthetic fixtures`;
+  if (props.index.length === 0) return "Browse the fixtures";
+  return `Browse one of ${props.index.length} fixtures`;
 });
 
 const starters = computed(() => starterFixtures(props.index));
@@ -128,7 +138,7 @@ function choose(key: string) {
       <div class="card">
         <header>
           <div class="titles">
-            <h2 id="fixtures-heading">Synthetic fixtures</h2>
+            <h2 id="fixtures-heading">Fixtures</h2>
             <button
               type="button"
               class="close"
@@ -178,19 +188,18 @@ function choose(key: string) {
             type="button"
             class="column"
             :class="{ on: sortKey === column, bytes: column === 'bytes' }"
-            :aria-sort="
-              sortKey === column
-                ? descending
-                  ? 'descending'
-                  : 'ascending'
-                : 'none'
-            "
+            :aria-label="sortLabel(column)"
             @click="sortBy(column)"
           >
-            {{ column === "bytes" ? "size" : "name"
-            }}<span v-if="sortKey === column" class="arrow">{{
-              descending ? "▾" : "▴"
-            }}</span>
+            {{ columnName(column)
+            }}<span
+              v-if="sortKey === column"
+              class="arrow"
+              aria-hidden="true"
+              >{{
+                descending ? "▾" : "▴"
+              }}</span
+            >
           </button>
         </div>
         <div class="groups">
