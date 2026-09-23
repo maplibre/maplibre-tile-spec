@@ -151,9 +151,9 @@ describe("the empty state", () => {
     const app = mount(App);
     await flushPromises();
     await app.get("button.open").trigger("click");
-    expect(app.findAll("dialog h3").map((group) => group.text())).toEqual([
-      "0x01/point",
-      "0x02/line",
+    expect(app.findAll("dialog .entry .name").map((e) => e.text())).toEqual([
+      "0x01/point.mlt",
+      "0x02/line.mlt",
     ]);
   });
 
@@ -164,7 +164,7 @@ describe("the empty state", () => {
     await app.get("button.open").trigger("click");
     await app.get("dialog .filter").setValue("0x02");
     expect(app.findAll("dialog .entry .name").map((e) => e.text())).toEqual([
-      "line.mlt",
+      "0x02/line.mlt",
     ]);
   });
 
@@ -175,7 +175,7 @@ describe("the empty state", () => {
     await app.get("button.open").trigger("click");
     await app.get("dialog .filter").setValue("ln");
     expect(app.findAll("dialog .entry .name").map((e) => e.text())).toEqual([
-      "line.mlt",
+      "0x02/line.mlt",
     ]);
   });
 

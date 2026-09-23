@@ -19,11 +19,6 @@ export function fixtureTag(entry: FixtureEntry): string {
   return entry.directory.split("-")[0];
 }
 
-/** Which encoder wrote the corpus, which the directory's `-rust` suffix names. */
-export function fixtureEncoder(entry: FixtureEntry): string {
-  return entry.directory.endsWith("-rust") ? "rust" : "java";
-}
-
 /** One row of filter buttons, and the entry field it reads. */
 export interface Facet {
   label: string;
@@ -34,7 +29,6 @@ export interface Facet {
 
 const FACET_FIELDS: { label: string; of: (e: FixtureEntry) => string[] }[] = [
   { label: "tag", of: (e) => [fixtureTag(e)] },
-  { label: "encoder", of: (e) => [fixtureEncoder(e)] },
   { label: "geometry", of: (e) => e.geometries ?? [] },
   { label: "encoding", of: (e) => e.encodings ?? [] },
 ];
@@ -90,6 +84,25 @@ export async function loadFixture(key: string): Promise<Uint8Array> {
   if (!response.ok)
     throw new Error(`${key}: ${response.status} ${response.statusText}`);
   return new Uint8Array(await response.arrayBuffer());
+}
+
+/** What the picker's two column buttons sort on. */
+export type SortKey = "name" | "bytes";
+
+/** Sorted copy of `entries`; name falls back to the key so a tie is still stable. */
+export function sortFixtures(
+  entries: FixtureEntry[],
+  key: SortKey,
+  descending: boolean,
+): FixtureEntry[] {
+  const direction = descending ? -1 : 1;
+  return [...entries].sort((a, b) => {
+    const by =
+      key === "bytes"
+        ? a.bytes - b.bytes || compare(fixtureKey(a), fixtureKey(b))
+        : compare(fixtureKey(a), fixtureKey(b));
+    return by * direction;
+  });
 }
 
 /** One `<optgroup>` of the Source picker. */

@@ -7,8 +7,9 @@ import {
   facetsOf,
   fixtureKey,
   fuzzyMatch,
-  groupFixtures,
   matchesFacets,
+  type SortKey,
+  sortFixtures,
   starterFixtures,
 } from "./fixtures.ts";
 
@@ -39,6 +40,18 @@ function clearFacets() {
   picked.value = new Set();
 }
 
+const sortKey = ref<SortKey>("name");
+const descending = ref(false);
+
+/** A second click on the active column reverses it rather than re-sorting the same way. */
+function sortBy(key: SortKey) {
+  if (sortKey.value === key) descending.value = !descending.value;
+  else {
+    sortKey.value = key;
+    descending.value = false;
+  }
+}
+
 /** The bar names the loaded tile, which the hero has none of, so it counts the index instead. */
 const browse = computed(() => {
   if (!props.hero) return props.current ?? "choose a fixture...";
@@ -61,7 +74,9 @@ const matches = computed(() => {
   );
 });
 
-const groups = computed(() => groupFixtures(matches.value));
+const listed = computed(() =>
+  sortFixtures(matches.value, sortKey.value, descending.value),
+);
 
 /** Resets on open, so picking the same tile again after re-encoding it still loads it. */
 const { open: chooseFile, onChange } = useFileDialog({
@@ -155,22 +170,41 @@ function choose(key: string) {
             >
           </p>
         </header>
+        <div class="columns">
+          <button
+            v-for="column in (['name', 'bytes'] as SortKey[])"
+            :key="column"
+            type="button"
+            class="column"
+            :class="{ on: sortKey === column, bytes: column === 'bytes' }"
+            :aria-sort="
+              sortKey === column
+                ? descending
+                  ? 'descending'
+                  : 'ascending'
+                : 'none'
+            "
+            @click="sortBy(column)"
+          >
+            {{ column === "bytes" ? "size" : "name"
+            }}<span v-if="sortKey === column" class="arrow">{{
+              descending ? "▾" : "▴"
+            }}</span>
+          </button>
+        </div>
         <div class="groups">
-          <section v-for="group in groups" :key="group.label">
-            <h3>{{ group.label }}</h3>
-            <button
-              v-for="entry in group.entries"
-              :key="entry.name"
-              type="button"
-              class="entry"
-              :class="{ on: fixtureKey(entry) === props.current }"
-              @click="choose(fixtureKey(entry))"
-            >
-              <span class="name">{{ entry.name }}</span>
-              <span class="bytes">{{ entry.bytes }} B</span>
-            </button>
-          </section>
-          <p v-if="groups.length === 0" class="none"
+          <button
+            v-for="entry in listed"
+            :key="fixtureKey(entry)"
+            type="button"
+            class="entry"
+            :class="{ on: fixtureKey(entry) === props.current }"
+            @click="choose(fixtureKey(entry))"
+          >
+            <span class="name">{{ fixtureKey(entry) }}</span>
+            <span class="bytes">{{ entry.bytes }} B</span>
+          </button>
+          <p v-if="listed.length === 0" class="none"
             >No fixture matches that filter.</p
           >
         </div>
@@ -180,6 +214,32 @@ function choose(key: string) {
 </template>
 
 <style scoped>
+.columns {
+  display: flex;
+  gap: 0.4rem;
+  padding: var(--pad-tight) var(--pad) 0;
+  border-top: 1px solid var(--line);
+}
+.column {
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  padding: 0.1rem 0.2rem;
+}
+.column.bytes {
+  margin-left: auto;
+}
+.column.on {
+  color: var(--text);
+}
+.arrow {
+  padding-left: 0.2rem;
+}
 .facet {
   display: flex;
   gap: 0.3rem;

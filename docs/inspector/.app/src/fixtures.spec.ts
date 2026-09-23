@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   type FixtureEntry,
   facetsOf,
-  fixtureEncoder,
   fixtureKey,
   fixturePrefix,
   fixtureTag,
@@ -11,6 +10,7 @@ import {
   loadFixture,
   loadFixtureIndex,
   matchesFacets,
+  sortFixtures,
   starterFixtures,
 } from "./fixtures.ts";
 
@@ -173,10 +173,56 @@ const faceted = [
   },
 ];
 
-describe("fixtureTag and fixtureEncoder", () => {
-  it("reads the wire tag and the encoder out of the directory", () => {
+describe("fixtureTag", () => {
+  it("reads the wire tag out of the directory", () => {
     expect(faceted.map(fixtureTag)).toEqual(["0x01", "0x01", "0x02"]);
-    expect(faceted.map(fixtureEncoder)).toEqual(["java", "rust", "java"]);
+  });
+});
+
+describe("sortFixtures", () => {
+  const rows = [
+    { name: "b.mlt", directory: "0x01", bytes: 30 },
+    { name: "a.mlt", directory: "0x01", bytes: 10 },
+    { name: "c.mlt", directory: "0x01", bytes: 20 },
+  ];
+
+  it("sorts by key, and reverses it", () => {
+    expect(sortFixtures(rows, "name", false).map((e) => e.name)).toEqual([
+      "a.mlt",
+      "b.mlt",
+      "c.mlt",
+    ]);
+    expect(sortFixtures(rows, "name", true).map((e) => e.name)).toEqual([
+      "c.mlt",
+      "b.mlt",
+      "a.mlt",
+    ]);
+  });
+
+  it("sorts by size, and reverses it", () => {
+    expect(sortFixtures(rows, "bytes", false).map((e) => e.bytes)).toEqual([
+      10, 20, 30,
+    ]);
+    expect(sortFixtures(rows, "bytes", true).map((e) => e.bytes)).toEqual([
+      30, 20, 10,
+    ]);
+  });
+
+  it("breaks a size tie on the key, so the order is stable", () => {
+    const tied = [
+      { name: "b.mlt", directory: "0x02", bytes: 5 },
+      { name: "a.mlt", directory: "0x01", bytes: 5 },
+    ];
+    expect(sortFixtures(tied, "bytes", false).map((e) => e.name)).toEqual([
+      "a.mlt",
+      "b.mlt",
+    ]);
+  });
+
+  it("leaves the input alone", () => {
+    const before = rows.map((e) => e.name);
+    sortFixtures(rows, "bytes", true);
+    expect(rows.map((e) => e.name)).toEqual(before);
   });
 });
 
