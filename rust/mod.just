@@ -20,16 +20,18 @@ just *args:
 
 # Regenerate every generated file that `just rust::test` verifies. Needs nightly for wasm.
 bless *args: (just 'cargo-install' 'cargo-insta') (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-nextest')
-    # fixtures first: the snapshots and the docs snippets derive from them
+    # fixtures first, then the snippets: mlt's docs_hexdumps test reads them, so it fails the
+    # insta run below unless they are already current
     {{just}} rust::generate-synthetic-mlts
-    cargo hack insta test --test-runner nextest --accept --unreferenced=delete --each-feature {{hack_skip}} \
+    {{just}} rust::sync-docs-hexdumps
+
+    cargo hack insta test --test-runner nextest --dnd --accept --unreferenced=delete --each-feature {{hack_skip}} \
         --package mlt-core --exclude-no-default-features --exclude-all-features \
         {{args}}
     # mlt is binary-only: without explicit targets cargo-insta demands a lib target
-    cargo hack insta test --test-runner nextest --accept --unreferenced=delete --each-feature {{hack_skip}} \
+    cargo hack insta test --test-runner nextest --dnd --accept --unreferenced=delete --each-feature {{hack_skip}} \
         --package mlt --bins --tests --exclude-no-default-features --exclude-all-features \
         {{args}}
-    {{just}} rust::sync-docs-hexdumps
     {{just}} rust::wasm-bless
 
 # Run benchmarks

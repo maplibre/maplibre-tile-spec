@@ -40,11 +40,9 @@ impl<'a> Walker<'a> {
         let (mut input, columns) = self.walk_schema(input, column_count)?;
 
         if !columns.is_empty() {
-            let di = self.open(input, "column data".to_string());
             for (ci, col) in columns.iter().enumerate() {
                 input = self.walk_column_data(input, ci, col)?;
             }
-            self.close(di, input);
         }
 
         // A well-formed layer consumes its whole body; record any trailing bytes.

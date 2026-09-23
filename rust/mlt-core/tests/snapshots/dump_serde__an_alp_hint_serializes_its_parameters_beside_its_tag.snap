@@ -5,7 +5,7 @@ expression: json(region)
 {
   "offset": 40,
   "len": 7,
-  "depth": 4,
+  "depth": 3,
   "label": "data",
   "value": null,
   "bits": [],

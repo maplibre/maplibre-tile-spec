@@ -91,6 +91,16 @@ function toggle(index: number) {
   collapsed.value = next;
 }
 
+/** Picking a header only ever opens its section; the caret is what closes one again. */
+function pick(node: Node) {
+  if (node.hasChildren && collapsed.value.has(node.index)) {
+    const next = new Set(collapsed.value);
+    next.delete(node.index);
+    collapsed.value = next;
+  }
+  emit("pick", node.index);
+}
+
 /** Opens every container on the way to `index` and scrolls to its row, so revealing from the map cannot land nowhere. */
 async function reveal(index: number) {
   if (!props.tree.regions[index]) return;
@@ -186,7 +196,7 @@ defineExpose({ reveal });
           class="label"
           @mouseenter="emit('hover', node.index)"
           @focus="emit('hover', node.index)"
-          @click="emit('pick', node.index)"
+          @click="pick(node)"
         >
           <span class="name">{{ node.region.label }}</span>
           <span class="size">{{ node.region.len }} B</span>

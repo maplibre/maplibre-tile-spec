@@ -26,13 +26,12 @@ fn a_tile_cut_inside_a_stream_payload_seals_every_container_it_left_open() {
         column[0] 11..12
         column[1] 12..18
           column[0] 16..18
-      column data 18..40
-        column[0] Geometry 18..30
-          meta 19..24
-          stream[0] 24..30
-        column[1] SharedDict "a" 30..40
-          dict_stream[0] 31..36
-          dict_stream[1] 36..40
+      column[0] Geometry 18..30
+        meta 19..24
+        stream[0] 24..30
+      column[1] SharedDict "a" 30..40
+        dict_stream[0] 31..36
+        dict_stream[1] 36..40
     "#);
 }
 

@@ -753,23 +753,20 @@ mod geometry_layouts {
     }
 
     #[rstest]
-    #[case::points(vec![pt(1, 2), pt(3, 4)], "Point", "Points")]
-    #[case::lines(vec![line(&[(0, 0), (1, 1)]), line(&[(2, 2), (3, 3)])], "LineString", "Lines")]
-    #[case::polygons(vec![Geometry::Polygon(square(0, 0))], "Polygon", "Polygons")]
+    #[case::points(vec![pt(1, 2), pt(3, 4)], "Point")]
+    #[case::lines(vec![line(&[(0, 0), (1, 1)]), line(&[(2, 2), (3, 3)])], "LineString")]
+    #[case::polygons(vec![Geometry::Polygon(square(0, 0))], "Polygon")]
     #[case::multi_points(
         vec![Geometry::MultiPoint(MultiPoint(vec![Point::new(1, 2), Point::new(3, 4)]))],
-        "MultiPoint",
-        "MultiPoints"
+        "MultiPoint"
     )]
     #[case::multi_polygons(
         vec![Geometry::MultiPolygon(MultiPolygon(vec![square(0, 0), square(20, 20)]))],
-        "MultiPolygon",
-        "MultiPolygons"
+        "MultiPolygon"
     )]
     fn one_geometry_type_moves_into_the_header_byte(
         #[case] geoms: Vec<Geometry<i32>>,
         #[case] geometry_type: &str,
-        #[case] geo_layout: &str,
     ) {
         let l = layer(geoms, None, &[]);
         let bytes = l.clone().encode(cfg_v2()).unwrap();

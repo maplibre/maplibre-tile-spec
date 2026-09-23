@@ -106,17 +106,13 @@ impl<'a> Walker<'a> {
         }
 
         if column_count > 0 {
-            let di = self.open(input, "columns".to_string());
             for i in 0..column_count {
                 input = self.walk_column02(input, i, feature_count, &shared)?;
             }
-            self.close(di, input);
         }
 
         if header.m_values {
-            let mi = self.open(input, "m_values".to_string());
             input = self.walk_m_values02(input, counts.m_values, feature_count, &shared)?;
-            self.close(mi, input);
         }
 
         // A well-formed layer consumes its whole body; record any trailing bytes.

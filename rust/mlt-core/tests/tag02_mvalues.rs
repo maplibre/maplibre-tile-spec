@@ -310,7 +310,7 @@ fn a_feature_with_no_values_stores_an_inline_bitfield_and_no_values() {
     m_value[0] OptI32 "m": presence = Inline
     "#);
     // Four values for the two features that have them, not six.
-    let (count, _) = region_after(&bytes, "m_values", "num_values");
+    let (count, _) = region_after(&bytes, "m_value[", "num_values");
     assert_eq!(bytes[count], 4);
     assert_eq!(
         decode(&bytes).features()[1].m_values()[0],
@@ -466,8 +466,8 @@ fn encode_four_one_byte_m_values() -> Vec<u8> {
 #[test]
 fn a_leading_stream_without_its_own_count_is_rejected() {
     let mut bytes = encode_four_one_byte_m_values();
-    let (encoding, _) = region_after(&bytes, "m_values", "encoding");
-    let (count, count_len) = region_after(&bytes, "m_values", "num_values");
+    let (encoding, _) = region_after(&bytes, "m_value[", "encoding");
+    let (count, count_len) = region_after(&bytes, "m_value[", "num_values");
     assert_eq!(count_len, 1, "the count has to be a single byte to drop it");
     bytes[encoding] &= 0b0111_1111;
     bytes.remove(count);
@@ -484,8 +484,8 @@ fn a_leading_stream_without_its_own_count_is_rejected() {
 #[test]
 fn a_count_the_geometry_disagrees_with_is_rejected() {
     let mut bytes = encode_four_one_byte_m_values();
-    let (count, _) = region_after(&bytes, "m_values", "num_values");
-    let (byte_length, _) = region_after(&bytes, "m_values", "byte_length");
+    let (count, _) = region_after(&bytes, "m_value[", "num_values");
+    let (byte_length, _) = region_after(&bytes, "m_value[", "byte_length");
     assert_eq!(bytes[count], 4);
     assert_eq!(bytes[byte_length], 4);
     bytes[count] = 3;
@@ -517,7 +517,7 @@ fn both_column_counts_share_one_morton_coded_byte() {
         "no columns on the even bits, one m-value on the odd bits"
     );
     assert_eq!(
-        region_after(&bytes, "column_counts", "m_values").0,
+        region_after(&bytes, "m_value[", "type").0,
         counts + 1,
         "no m_value_count varint opens the section"
     );
@@ -542,7 +542,7 @@ fn an_empty_m_value_section_is_rejected() {
 #[case::unassigned(0x0C)]
 fn a_type_byte_no_vertex_can_hold_is_rejected(#[case] data_type: u8) {
     let mut bytes = encode_four_one_byte_m_values();
-    let (typ, _) = region_after(&bytes, "m_values", "type");
+    let (typ, _) = region_after(&bytes, "m_value[", "type");
     bytes[typ] = (bytes[typ] & 0b1111_0000) | data_type;
 
     let err = decode_err(&bytes);
@@ -691,7 +691,7 @@ fn a_dictionary_vertex_layout_holds_one_value_per_offset() {
     geometry layout = LinesDict
     m_value[0] I32 "m": presence = AllPresent
     "#);
-    let (count, _) = region_after(&bytes, "m_values", "num_values");
+    let (count, _) = region_after(&bytes, "m_value[", "num_values");
     // Six vertices over a dictionary of three.
     assert_eq!(bytes[count], 6);
 
