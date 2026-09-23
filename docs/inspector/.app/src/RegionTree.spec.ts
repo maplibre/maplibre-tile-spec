@@ -29,6 +29,31 @@ const flat: DumpTree = {
   regions: [region({ offset: 0, len: 2, label: "name", value: "water" })],
 };
 
+describe("picking a section header", () => {
+  it("expands a collapsed section", async () => {
+    const view = tree();
+    await view.findAll("button.caret")[1].trigger("click");
+    expect(view.findAll(".node")).toHaveLength(3);
+    await view.findAll("button.label")[2].trigger("click");
+    expect(view.findAll(".node")).toHaveLength(5);
+  });
+
+  it("collapses an open section", async () => {
+    const view = tree();
+    expect(view.findAll(".node")).toHaveLength(5);
+    await view.findAll("button.label")[2].trigger("click");
+    expect(view.findAll(".node")).toHaveLength(3);
+  });
+
+  it("still reports the pick either way", async () => {
+    const view = tree();
+    await view.findAll("button.caret")[1].trigger("click");
+    await view.findAll("button.label")[2].trigger("click");
+    await view.findAll("button.label")[2].trigger("click");
+    expect(view.emitted("pick")).toEqual([[2], [2]]);
+  });
+});
+
 describe("the expand and collapse button", () => {
   it("collapses an open tree", async () => {
     const view = tree();

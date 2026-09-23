@@ -18,11 +18,21 @@ _default: (just '--list' 'rust')
 just *args:
     {{just}} {{args}}
 
-# Run integration tests and save its output as the new expected output
+# Regenerate every generated file that `just rust::test` verifies. Needs nightly for wasm.
 bless *args: (just 'cargo-install' 'cargo-insta') (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-nextest')
-    cargo hack insta test --test-runner nextest --accept --unreferenced=delete --each-feature {{hack_skip}} \
-        --package mlt-core --package mlt --exclude-no-default-features --exclude-all-features \
+    # fixtures first, then the snippets: mlt's docs_hexdumps test reads them, so it fails the
+    # insta run below unless they are already current
+    {{just}} rust::generate-synthetic-mlts
+    {{just}} rust::sync-docs-hexdumps
+
+    # __private-v2 is the union of mlt-core's test-gating features, so one pass reaches every
+    # snapshot; hotpath stays off because two of mlt's test files are gated on not(hotpath)
+    cargo hack insta test --test-runner nextest --dnd --accept --unreferenced=delete \
+        --all-targets --ignore-unknown-features \
+        --features __private-v2,arbitrary,unstable-v2 \
+        --package mlt-core --package mlt \
         {{args}}
+    {{just}} rust::wasm-bless
 
 # Run benchmarks
 bench *args: (just 'cargo-install' 'cargo-hack')
@@ -171,7 +181,9 @@ ci-get-release-info package='mlt':
 # Clean all build artifacts
 clean:
     cargo clean
-    rm -f Cargo.lock
+    cargo clean --manifest-path mlt-core/fuzz/Cargo.toml
+    rm -rf mlt-core/fuzz/corpus mlt-core/fuzz/artifacts mlt-core/fuzz/coverage mlt-core/fuzz/Cargo.lock
+    rm -rf mlt-wasm/pkg mlt-wasm/dist mlt-wasm/node_modules
 
 # Run cargo clippy to lint the code
 clippy *args: (just 'cargo-install' 'cargo-hack')
@@ -369,9 +381,12 @@ sync-ffi-bindings: (just 'cargo-install' 'diplomat-tool') (just 'assert-cmd' 'cl
     clang-format -style=WebKit -i tests/c/*.c tests/cpp/*.cpp generated/c/* generated/cpp/*
     ktlint --format ./**/*.kt
 
-[private]
 _build-ffi-lib:
     cargo build --release -p mlt-ffi
+
+# Build the release `mlt` binary that the hexdump recipes shell out to, once per run
+_build-mlt-release:
+    cargo build --bin mlt --release --features unstable-v2
 
 # Run the C FFI round-trip test (builds cdylib, compiles + runs test)
 test-ffi-c: _build-ffi-lib
@@ -428,13 +443,13 @@ sync-pyo3-version:
     echo "Synced $PYPROJECT to version $VERSION"
 
 # Regenerate every docs/snippets/0x0N/*.mlt.hexdump from its test/synthetic/0x0N/*.mlt fixture
-sync-docs-hexdumps:
+sync-docs-hexdumps: _build-mlt-release (just 'cargo-install' 'fd' 'fd-find')
     #!/usr/bin/env bash
     set -euo pipefail
     cargo build -p mlt -F unstable-v2
     for dump in ../docs/snippets/0x0*/*.mlt.hexdump; do
         fixture="../test/synthetic/$(basename "$(dirname "$dump")")/$(basename "$dump" .hexdump)"
-        cargo run -q -p mlt -F unstable-v2 -- hexdump "$fixture" > "$dump"
+        target/release/mlt hexdump "$fixture" > "$dump"
         echo "Regenerated $dump from $fixture"
     done
 
@@ -504,25 +519,28 @@ generate-synthetic-mlts *args:
     {{just}} _assert-all-mlt-files-different
 
 # Write an annotated .mlt.hexdump next to every .mlt in test/synthetic
-generate-synthetic-hexdumps: (just 'cargo-install' 'fd' 'fd-find')
-    #!/usr/bin/env bash
-    set -euo pipefail
-    cargo build -q --bin mlt
-    fd . ../test/synthetic -e mlt -x bash -c '
-        code=0
-        err="$(target/debug/mlt hexdump --color never "$1" 2>&1 >"$1.hexdump")" || code=$?
-        if [ "$code" -ne 0 ]; then
-            printf "!! hexdump failed with exit code %s\n%s\n" "$code" "$err" > "$1.hexdump"
-        fi
-    ' _ {}
+generate-synthetic-hexdumps: _build-mlt-release (just 'cargo-install' 'fd' 'fd-find')
+    fd . ../test/synthetic -e mlt -x {{just}} rust::_hexdump-one {} {}.hexdump
     # Drop hexdumps whose .mlt is gone, so a renamed fixture cannot leave one behind
     # --no-ignore --hidden because .gitignore hides *.hexdump from fd's default search
     fd . ../test/synthetic -e hexdump --no-ignore --hidden -x bash -c '[ -f "${1%.hexdump}" ] || rm "$1"' _ {}
 
+# Write the annotated hexdump of the `src` .mlt fixture to `dest`.
+# A failure is recorded in `dest` rather than aborting, so one broken fixture cannot
+# hide every other file's diff. Callers build the binary first via _build-mlt-release.
+[private]
+_hexdump-one src dest:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    code=0
+    err="$(target/release/mlt hexdump --color never {{quote(src)}} 2>&1 >{{quote(dest)}})" || code=$?
+    if [ "$code" -ne 0 ]; then
+        printf '!! hexdump failed with exit code %s\n%s\n' "$code" "$err" > {{quote(dest)}}
+    fi
+
 # Create .dump files for all .mlt files in test/synthetic for all languages
-generate-synthetic-dumps: (just 'cargo-install' 'fd' 'fd-find')
-    cargo build --bin mlt
-    fd . ../test/synthetic -e mlt -x sh -c 'target/debug/mlt dump {} > {.}.dump || echo "Failed to dump {}"'
+generate-synthetic-dumps: _build-mlt-release (just 'cargo-install' 'fd' 'fd-find')
+    fd . ../test/synthetic -e mlt -x sh -c 'target/release/mlt dump {} > {.}.dump || echo "Failed to dump {}"'
 
 # Run mlt-wasm benches
 [working-directory: 'mlt-wasm']
@@ -539,6 +557,11 @@ wasm-build: (just 'cargo-install' 'wasm-pack')
 [working-directory: 'mlt-wasm']
 wasm-test: wasm-build
     npm run test
+
+# Update the committed mlt-wasm vitest snapshots, which `wasm-test` only verifies
+[working-directory: 'mlt-wasm']
+wasm-bless: wasm-build
+    npm run test:bless
 
 # Run the mlt-wasm tests against an instrumented build and export LCOV to target/lcov-wasm.info
 [working-directory: 'mlt-wasm']

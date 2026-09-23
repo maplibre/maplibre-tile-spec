@@ -5,42 +5,39 @@
 00000009  10                                                .                |   header: extent = 64, every feature is a Point
                                                                              |     └ bit 7 = 0 -> no m-value section
                                                                              |     └ bits 6-4 = 001 -> every feature is a Point, no types stream
-                                                                             |     └ bits 3-0 = 0000 -> extent = 64
+                                                                             |     └ bits 3-0 = 0000 -> extent 2^(n+6) = 64
 0000000a  06                                                .                |   feature_count: 6
 0000000b  00                                                .                |   layout: 0x00 Points
                                                                              |     └ bits 7-4 = 0000 -> shared presence bitfields = 0
                                                                              |     └ bits 3-0 = 0000 -> geometry layout = Points
 0000000c                                                                     |   geometry (15 B)
 0000000c                                                                     |     vertices (15 B)
-0000000c                                                                     |       header (3 B)
-0000000c  a8                                                .                |         encoding: 0xA8 logical=CwDelta physical=VarInt
-                                                                             |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
-                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
-                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
-                                                                             |           └ bits 1-0 = 00 -> extension = 0
-0000000d  0c                                                .                |         num_values: 12
-0000000e  0c                                                .                |         byte_length: 12
+0000000c  a8                                                .                |       encoding: 0xA8 logical=CwDelta physical=VarInt
+                                                                             |         └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |         └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
+                                                                             |         └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |         └ bits 1-0 = 00 -> extension = 0
+0000000d  0c                                                .                |       num_values: 12
+0000000e  0c                                                .                |       byte_length: 12
 0000000f  1a 54 00 00 00 00 00 00 00 00 00 00               .T..........     |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 12 values, 12 B]
                                                                              |         decoded: [13, 42, 13, 42, 13, 42, 13, 42, 13, 42, 13, 42]
 0000001b  01                                                .                |   column_count: 1
-0000001c                                                                     |   columns (19 B)
-0000001c                                                                     |     column[0] OptF64 "val" (19 B)
-0000001c  1a                                                .                |       type: 0x1A Inline F64
-                                                                             |         └ bits 7-4 = 0001 -> presence = Inline
-                                                                             |         └ bits 3-0 = 1010 -> data type = F64
-0000001d  03 76 61 6c                                       .val             |       name: "val"
-00000021  2d                                                -                |       present [Present Bool(None)/None, 6 values, 1 B]
-                                                                             |         decoded: 6 present-bits: 101101
-00000022                                                                     |       data (13 B)
-00000022                                                                     |         header (6 B)
-00000022  28                                                (                |           encoding: 0x28 logical=Alp physical=VarInt
-                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 4 values from context
-                                                                             |             └ bits 6-4 = 010 -> logical = Alp, numbered for float column
-                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
-                                                                             |             └ bits 1-0 = 00 -> extension = 0
-00000023  07                                                .                |           byte_length: 7
-00000024  02                                                .                |           alp_e: 2
-00000025  00                                                .                |           alp_f: 0
-00000026  c1 03                                             ..               |           alp_base: -225
-00000028  96 01 fa 01 f7 02 00                              .......          |         data [Data(None) Float(Alp(Alp { e: 2, f: 0, base: -225 }))/VarInt, 4 values, 7 B]
-                                                                             |           decoded: [-75, 25, 150, -225]
+0000001c                                                                     |   column[0] OptF64 "val" (19 B)
+0000001c  1a                                                .                |     type: 0x1A Inline F64
+                                                                             |       └ bits 7-4 = 0001 -> presence = Inline
+                                                                             |       └ bits 3-0 = 1010 -> data type = F64
+0000001d  03 76 61 6c                                       .val             |     name: "val"
+00000021  2d                                                -                |     present [Present Bool(None)/None, 6 values, 1 B]
+                                                                             |       decoded: 6 present-bits: 101101
+00000022                                                                     |     data (13 B)
+00000022  28                                                (                |       encoding: 0x28 logical=Alp physical=VarInt
+                                                                             |         └ bit 7 = 0 -> has_explicit_count = false -> 4 values from context
+                                                                             |         └ bits 6-4 = 010 -> logical = Alp, numbered for float column
+                                                                             |         └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |         └ bits 1-0 = 00 -> extension = 0
+00000023  07                                                .                |       byte_length: 7
+00000024  02                                                .                |       alp_e: 2
+00000025  00                                                .                |       alp_f: 0
+00000026  c1 03                                             ..               |       alp_base: -225
+00000028  96 01 fa 01 f7 02 00                              .......          |       data [Data(None) Float(Alp(Alp { e: 2, f: 0, base: -225 }))/VarInt, 4 values, 7 B]
+                                                                             |         decoded: [-75, 25, 150, -225]

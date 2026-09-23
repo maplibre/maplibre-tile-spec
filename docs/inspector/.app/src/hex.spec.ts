@@ -19,16 +19,22 @@ import { region, tinyTree } from "./testing.ts";
 const tree = tinyTree();
 
 describe("fitColumns", () => {
-  it("fits 16 columns into the docs page's 61rem cap", () => {
-    expect(fitColumns(976)).toBe(16);
+  it("fits 16 columns into the map pane of the docs page's 61rem cap", () => {
+    expect(fitColumns(624)).toBe(16);
   });
 
-  it("fits 24 columns into an uncapped page", () => {
-    expect(fitColumns(1300)).toBe(24);
+  it("fits 28 columns into the map pane of an uncapped page", () => {
+    expect(fitColumns(948)).toBe(28);
   });
 
-  it("fits 40 columns into a standalone 1700px window", () => {
-    expect(fitColumns(1700)).toBe(40);
+  it("fits 40 columns into the map pane of a standalone 1700px window", () => {
+    expect(fitColumns(1348)).toBe(40);
+  });
+
+  it("leaves under one column of slack, so the bytes reach the gutter", () => {
+    const pane = 900;
+    const used = 84 + fitColumns(pane) * 30.3;
+    expect(pane - used).toBeLessThan(4 * 30.3);
   });
 
   it("clamps a narrow pane to eight columns", () => {

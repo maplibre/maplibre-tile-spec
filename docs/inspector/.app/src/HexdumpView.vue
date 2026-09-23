@@ -25,12 +25,89 @@ const props = defineProps<{
 const view = defineModel<ViewState>("view", { required: true });
 const selected = defineModel<number | null>("selected", { required: true });
 
-const root = ref<HTMLElement | null>(null);
 const map = ref<InstanceType<typeof HexMap> | null>(null);
 const regions = ref<InstanceType<typeof RegionTree> | null>(null);
 const hovered = ref<number | null>(null);
 /** Null while the hover came from the tree, which sits beside the pane the tip would repeat. */
 const pointer = ref<Pointer | null>(null);
+
+const panes = ref<HTMLElement | null>(null);
+const left = ref<HTMLElement | null>(null);
+const side = ref<HTMLElement | null>(null);
+/** Width of the right column in px, and the detail pane's share of it as a percentage. */
+const sideWidth = ref(352);
+const detailShare = ref(30);
+
+const SIDE_MIN = 220;
+/** Leaves the map enough for fitColumns' eight-column floor, so a drag cannot clip the bytes. */
+const MAP_MIN = 330;
+const SHARE_MIN = 10;
+const SHARE_MAX = 85;
+
+const clamp = (v: number, lo: number, hi: number) =>
+  Math.min(Math.max(v, lo), hi);
+
+function sideMax() {
+  const total = panes.value?.clientWidth ?? 0;
+  return Math.max(SIDE_MIN, total - MAP_MIN);
+}
+
+/** Drags the column gutter: the aside is on the right, so leftward widens it. */
+function dragSide(event: PointerEvent) {
+  const startX = event.clientX;
+  const startWidth = sideWidth.value;
+  track(event, (move) => {
+    sideWidth.value = clamp(
+      startWidth - (move.clientX - startX),
+      SIDE_MIN,
+      sideMax(),
+    );
+  });
+}
+
+/** Drags the row gutter, which splits the aside between the detail and the tree. */
+function dragDetail(event: PointerEvent) {
+  track(event, (move) => {
+    const box = side.value?.getBoundingClientRect();
+    if (!box || box.height === 0) return;
+    detailShare.value = clamp(
+      ((move.clientY - box.top) / box.height) * 100,
+      SHARE_MIN,
+      SHARE_MAX,
+    );
+  });
+}
+
+/** Pointer capture keeps the drag alive over the map's canvas and past the window edge. */
+function track(event: PointerEvent, onMove: (move: PointerEvent) => void) {
+  const handle = event.currentTarget as HTMLElement;
+  handle.setPointerCapture(event.pointerId);
+  const move = (at: PointerEvent) => onMove(at);
+  const stop = () => {
+    handle.removeEventListener("pointermove", move);
+    handle.removeEventListener("pointerup", stop);
+    handle.removeEventListener("pointercancel", stop);
+  };
+  handle.addEventListener("pointermove", move);
+  handle.addEventListener("pointerup", stop);
+  handle.addEventListener("pointercancel", stop);
+}
+
+/** Arrow keys move a gutter too, which is the only way to reach one without a pointer.
+ * Written out rather than using `@keydown.left`, whose modifier guards a mouse button. */
+function onGutterKey(event: KeyboardEvent, column: boolean) {
+  const steps: Record<string, number> = column
+    ? { ArrowLeft: 16, ArrowRight: -16 }
+    : { ArrowUp: -4, ArrowDown: 4 };
+  const by = steps[event.key];
+  if (by === undefined) return;
+  event.preventDefault();
+  // onKey would otherwise walk the region list out from under the gutter.
+  event.stopPropagation();
+  if (column)
+    sideWidth.value = clamp(sideWidth.value + by, SIDE_MIN, sideMax());
+  else detailShare.value = clamp(detailShare.value + by, SHARE_MIN, SHARE_MAX);
+}
 
 const activeIndex = computed(() => selected.value ?? hovered.value);
 const owners = computed(() => byteOwners(props.tree));
@@ -101,11 +178,12 @@ function onKey(event: KeyboardEvent) {
 }
 
 function refit() {
-  if (root.value) view.value.width = fitColumns(root.value.clientWidth);
+  // The left pane, not the whole view: the sidebar's width is not the map's to use.
+  if (left.value) view.value.width = fitColumns(left.value.clientWidth);
 }
 
 useEventListener(window, "keydown", onKey);
-useResizeObserver(root, refit);
+useResizeObserver(left, refit);
 
 onMounted(() => {
   refit();
@@ -114,13 +192,13 @@ onMounted(() => {
 </script>
 
 <template>
-  <div ref="root" class="view">
+  <div class="view">
     <p v-if="props.error" class="walk-error" role="alert">
       <strong>walk stopped:</strong> {{ props.error }} - the remaining bytes are
       <code>&lt;unannotated&gt;</code>
     </p>
-    <div class="panes">
-      <section class="left">
+    <div ref="panes" class="panes" :style="{ '--side': `${sideWidth}px` }">
+      <section ref="left" class="left">
         <HexMap
           ref="map"
           :tree="props.tree"
@@ -133,14 +211,37 @@ onMounted(() => {
           @pick="select($event, false)"
         />
       </section>
-      <aside>
+      <hr
+        class="gutter col"
+        aria-orientation="vertical"
+        aria-label="Resize the side panel"
+        :aria-valuenow="Math.round(sideWidth)"
+        :aria-valuemin="SIDE_MIN"
+        :aria-valuemax="Math.round(sideMax())"
+        tabindex="0"
+        @pointerdown.prevent="dragSide"
+        @keydown="onGutterKey($event, true)"
+      >
+      <aside ref="side">
         <RegionDetail
+          :style="{ flexBasis: `${detailShare}%` }"
           :tree="props.tree"
           :bytes="props.bytes"
           :index="activeIndex"
           :sticky="selected !== null"
           :decode="props.decode"
         />
+        <hr
+          class="gutter row"
+          aria-orientation="horizontal"
+          aria-label="Resize the region detail"
+          :aria-valuenow="Math.round(detailShare)"
+          :aria-valuemin="SHARE_MIN"
+          :aria-valuemax="SHARE_MAX"
+          tabindex="0"
+          @pointerdown.prevent="dragDetail"
+          @keydown="onGutterKey($event, false)"
+        >
         <RegionTree
           ref="regions"
           :tree="props.tree"
@@ -181,8 +282,39 @@ onMounted(() => {
 .panes {
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr 22rem;
+  grid-template-columns: 1fr auto var(--side, 22rem);
   min-height: 0;
+}
+/* Sits where the panel border used to, and carries that border itself. */
+.gutter {
+  background: var(--line);
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.gutter:hover,
+.gutter:focus-visible {
+  background: var(--accent-rule);
+  outline: none;
+}
+.gutter.col {
+  width: 1px;
+  cursor: col-resize;
+  /* The hit area is wider than the line, without moving the layout. */
+  border-left: 3px solid transparent;
+  border-right: 3px solid transparent;
+  background-clip: padding-box;
+  margin: 0 -3px;
+  z-index: 1;
+}
+.gutter.row {
+  height: 1px;
+  cursor: row-resize;
+  border-top: 3px solid transparent;
+  border-bottom: 3px solid transparent;
+  background-clip: padding-box;
+  margin: -3px 0;
+  z-index: 1;
 }
 .left {
   display: flex;
@@ -190,7 +322,6 @@ onMounted(() => {
   min-height: 0;
 }
 aside {
-  border-left: 1px solid var(--line);
   background: var(--panel);
   display: flex;
   flex-direction: column;

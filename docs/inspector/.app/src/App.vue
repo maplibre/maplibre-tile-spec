@@ -79,6 +79,17 @@ function load(raw: Uint8Array, key: string | null) {
   view.value.layer = null;
 }
 
+/** Drops the tile so the empty state takes over, which is the app's home screen. */
+function goHome() {
+  tile.value?.free();
+  tile.value = null;
+  bytes.value = new Uint8Array();
+  fixture.value = null;
+  failure.value = null;
+  selected.value = null;
+  view.value.layer = null;
+}
+
 async function pickFixture(key: string) {
   failure.value = null;
   try {
@@ -141,6 +152,15 @@ watch(link, (current) => {
 <template>
   <div ref="root" class="app" :class="{ dragging }">
     <header v-if="tree">
+      <button
+        type="button"
+        class="home"
+        title="Home"
+        aria-label="Home"
+        @click="goHome"
+      >
+        &#x2302;
+      </button>
       <SourcePicker
         :index="index"
         :current="fixture"
@@ -292,6 +312,20 @@ header {
 header > * {
   flex: 0 0 auto;
   min-width: 0;
+}
+.home {
+  background: var(--control);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  /* U+2302 sits small on its em, so it needs more than the text size around it. */
+  font-size: 1.2rem;
+  line-height: 1;
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+}
+.home:hover {
+  background: var(--hover);
 }
 .failure {
   margin: 0;

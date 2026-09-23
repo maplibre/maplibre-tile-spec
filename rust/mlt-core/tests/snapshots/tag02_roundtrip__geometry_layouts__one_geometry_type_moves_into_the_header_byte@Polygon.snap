@@ -1,0 +1,9 @@
+---
+source: mlt-core/tests/tag02_roundtrip.rs
+expression: "header_bits(&bytes).join(\"\\n\")"
+---
+no m-value section
+every feature is a Polygon, no types stream
+extent 2^(n+6) = 4096
+shared presence bitfields = 0
+geometry layout = Polygons

@@ -106,17 +106,13 @@ impl<'a> Walker<'a> {
         }
 
         if column_count > 0 {
-            let di = self.open(input, "columns".to_string());
             for i in 0..column_count {
                 input = self.walk_column02(input, i, feature_count, &shared)?;
             }
-            self.close(di, input);
         }
 
         if header.m_values {
-            let mi = self.open(input, "m_values".to_string());
             input = self.walk_m_values02(input, counts.m_values, feature_count, &shared)?;
-            self.close(mi, input);
         }
 
         // A well-formed layer consumes its whole body; record any trailing bytes.
@@ -801,7 +797,6 @@ impl<'a> Walker<'a> {
         let (rest, stream) = header02::parse_stream(input, ctx, count, &mut self.parser)?;
 
         // Re-walk the consumed header bytes to annotate each field.
-        let hi = self.open(input, "header".to_string());
         let family = ctx.family();
         let (mut c, enc_byte) = self.byte_field(
             input,
@@ -859,8 +854,6 @@ impl<'a> Walker<'a> {
                     self.field(c, name, |i| parse_varint::<u32>(i), |v| Some(v.to_string()))?;
             }
         }
-        self.close(hi, c);
-
         let (after_payload, payload) = take(c, byte_length)?;
         // Consistency guard: the hand re-walk must land exactly on the authoritative tail.
         if self.off(after_payload) != self.off(rest) {
@@ -1045,7 +1038,7 @@ fn layer_header_bits02(byte: u8, header: LayerHeader02) -> Vec<BitField> {
         BitField::mask(
             Extent02::EXPONENT_MASK,
             byte,
-            format!("extent = {}", header.extent.get()),
+            format!("extent 2^(n+6) = {}", header.extent.get()),
         ),
     ]
 }

@@ -1,5 +1,6 @@
 //! Round-trip and differential tests for the experimental v2 (tag `0x02`) wire format.
 
+use insta::{assert_snapshot, with_settings};
 use mlt_core::dump::{DumpTree, RenderOpts, annotate_tile, render};
 use mlt_core::encoder::{EncoderConfig, WireVersion};
 use mlt_core::geo_types::{
@@ -752,36 +753,26 @@ mod geometry_layouts {
     }
 
     #[rstest]
-    #[case::points(vec![pt(1, 2), pt(3, 4)], "Point", "Points")]
-    #[case::lines(vec![line(&[(0, 0), (1, 1)]), line(&[(2, 2), (3, 3)])], "LineString", "Lines")]
-    #[case::polygons(vec![Geometry::Polygon(square(0, 0))], "Polygon", "Polygons")]
+    #[case::points(vec![pt(1, 2), pt(3, 4)], "Point")]
+    #[case::lines(vec![line(&[(0, 0), (1, 1)]), line(&[(2, 2), (3, 3)])], "LineString")]
+    #[case::polygons(vec![Geometry::Polygon(square(0, 0))], "Polygon")]
     #[case::multi_points(
         vec![Geometry::MultiPoint(MultiPoint(vec![Point::new(1, 2), Point::new(3, 4)]))],
-        "MultiPoint",
-        "MultiPoints"
+        "MultiPoint"
     )]
     #[case::multi_polygons(
         vec![Geometry::MultiPolygon(MultiPolygon(vec![square(0, 0), square(20, 20)]))],
-        "MultiPolygon",
-        "MultiPolygons"
+        "MultiPolygon"
     )]
     fn one_geometry_type_moves_into_the_header_byte(
         #[case] geoms: Vec<Geometry<i32>>,
         #[case] geometry_type: &str,
-        #[case] geo_layout: &str,
     ) {
         let l = layer(geoms, None, &[]);
         let bytes = l.clone().encode(cfg_v2()).unwrap();
-        assert_eq!(
-            header_bits(&bytes),
-            [
-                "no m-value section".to_string(),
-                format!("every feature is a {geometry_type}, no types stream"),
-                "extent = 4096".to_string(),
-                "shared presence bitfields = 0".to_string(),
-                format!("geometry layout = {geo_layout}"),
-            ]
-        );
+        with_settings!({snapshot_suffix => geometry_type}, {
+            assert_snapshot!(header_bits(&bytes).join("\n"));
+        });
         assert!(!geometry_streams(&bytes).contains(&"types".to_string()));
         assert_differential(&l);
     }
@@ -790,20 +781,18 @@ mod geometry_layouts {
     fn mixed_geometry_types_keep_their_stream() {
         let l = layer(vec![pt(5, 5), line(&[(0, 0), (10, 10)])], None, &[]);
         let bytes = l.clone().encode(cfg_v2()).unwrap();
-        assert_eq!(
-            header_bits(&bytes),
-            [
-                "no m-value section",
-                "a types stream leads the geometry section",
-                "extent = 4096",
-                "shared presence bitfields = 0",
-                "geometry layout = Lines",
-            ]
-        );
-        assert_eq!(
-            geometry_streams(&bytes),
-            ["types", "part_lengths", "vertices"]
-        );
+        assert_snapshot!(header_bits(&bytes).join("\n"), @"
+        no m-value section
+        a types stream leads the geometry section
+        extent 2^(n+6) = 4096
+        shared presence bitfields = 0
+        geometry layout = Lines
+        ");
+        assert_snapshot!(geometry_streams(&bytes).join("\n"), @"
+        types
+        part_lengths
+        vertices
+        ");
         assert_differential(&l);
     }
 

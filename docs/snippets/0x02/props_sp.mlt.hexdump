@@ -5,7 +5,7 @@
 00000009  10                                                .                |   header: extent = 64, every feature is a Point
                                                                              |     └ bit 7 = 0 -> no m-value section
                                                                              |     └ bits 6-4 = 001 -> every feature is a Point, no types stream
-                                                                             |     └ bits 3-0 = 0000 -> extent = 64
+                                                                             |     └ bits 3-0 = 0000 -> extent 2^(n+6) = 64
 0000000a  04                                                .                |   feature_count: 4
 0000000b  10                                                .                |   layout: 0x10 Points
                                                                              |     └ bits 7-4 = 0001 -> shared presence bitfields = 1
@@ -15,45 +15,41 @@
                                                                              |       decoded: 4 present-bits: 1010
 0000000d                                                                     |   geometry (11 B)
 0000000d                                                                     |     vertices (11 B)
-0000000d                                                                     |       header (3 B)
-0000000d  a8                                                .                |         encoding: 0xA8 logical=CwDelta physical=VarInt
-                                                                             |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
-                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
-                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
-                                                                             |           └ bits 1-0 = 00 -> extension = 0
-0000000e  08                                                .                |         num_values: 8
-0000000f  08                                                .                |         byte_length: 8
+0000000d  a8                                                .                |       encoding: 0xA8 logical=CwDelta physical=VarInt
+                                                                             |         └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |         └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
+                                                                             |         └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |         └ bits 1-0 = 00 -> extension = 0
+0000000e  08                                                .                |       num_values: 8
+0000000f  08                                                .                |       byte_length: 8
 00000010  1a 54 00 00 00 00 00 00                           .T......         |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 8 values, 8 B]
                                                                              |         decoded: [13, 42, 13, 42, 13, 42, 13, 42]
 00000018  02                                                .                |   column_count: 2
-00000019                                                                     |   columns (14 B)
-00000019                                                                     |     column[0] OptU32 "a" (7 B)
-00000019  26                                                &                |       type: 0x26 Shared(0) U32
-                                                                             |         └ bits 7-4 = 0010 -> presence = Shared(0)
-                                                                             |         └ bits 3-0 = 0110 -> data type = U32
-0000001a  01 61                                             .a               |       name: "a"
-0000001c                                                                     |       data (4 B)
-0000001c                                                                     |         header (2 B)
-0000001c  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
-                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
-                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for integer stream
-                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
-                                                                             |             └ bits 1-0 = 00 -> extension = 0
-0000001d  02                                                .                |           byte_length: 2
-0000001e  00 02                                             ..               |         data [Data(None) Int(None)/VarInt, 2 values, 2 B]
-                                                                             |           decoded: [0, 2]
-00000020                                                                     |     column[1] OptU32 "b" (7 B)
-00000020  26                                                &                |       type: 0x26 Shared(0) U32
-                                                                             |         └ bits 7-4 = 0010 -> presence = Shared(0)
-                                                                             |         └ bits 3-0 = 0110 -> data type = U32
-00000021  01 62                                             .b               |       name: "b"
-00000023                                                                     |       data (4 B)
-00000023                                                                     |         header (2 B)
-00000023  08                                                .                |           encoding: 0x08 logical=None physical=VarInt
-                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
-                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for integer stream
-                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
-                                                                             |             └ bits 1-0 = 00 -> extension = 0
-00000024  02                                                .                |           byte_length: 2
-00000025  00 02                                             ..               |         data [Data(None) Int(None)/VarInt, 2 values, 2 B]
-                                                                             |           decoded: [0, 2]
+00000019                                                                     |   column[0] OptU32 "a" (7 B)
+00000019  26                                                &                |     type: 0x26 Shared(0) U32
+                                                                             |       └ bits 7-4 = 0010 -> presence = Shared(0)
+                                                                             |       └ bits 3-0 = 0110 -> data type = U32
+0000001a  01 61                                             .a               |     name: "a"
+0000001c                                                                     |     data (4 B)
+0000001c  08                                                .                |       encoding: 0x08 logical=None physical=VarInt
+                                                                             |         └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
+                                                                             |         └ bits 6-4 = 000 -> logical = None, numbered for integer stream
+                                                                             |         └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |         └ bits 1-0 = 00 -> extension = 0
+0000001d  02                                                .                |       byte_length: 2
+0000001e  00 02                                             ..               |       data [Data(None) Int(None)/VarInt, 2 values, 2 B]
+                                                                             |         decoded: [0, 2]
+00000020                                                                     |   column[1] OptU32 "b" (7 B)
+00000020  26                                                &                |     type: 0x26 Shared(0) U32
+                                                                             |       └ bits 7-4 = 0010 -> presence = Shared(0)
+                                                                             |       └ bits 3-0 = 0110 -> data type = U32
+00000021  01 62                                             .b               |     name: "b"
+00000023                                                                     |     data (4 B)
+00000023  08                                                .                |       encoding: 0x08 logical=None physical=VarInt
+                                                                             |         └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
+                                                                             |         └ bits 6-4 = 000 -> logical = None, numbered for integer stream
+                                                                             |         └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |         └ bits 1-0 = 00 -> extension = 0
+00000024  02                                                .                |       byte_length: 2
+00000025  00 02                                             ..               |       data [Data(None) Int(None)/VarInt, 2 values, 2 B]
+                                                                             |         decoded: [0, 2]

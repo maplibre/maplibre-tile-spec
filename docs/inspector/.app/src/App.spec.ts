@@ -63,6 +63,42 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe("the home button", () => {
+  it("is absent until a tile is loaded", async () => {
+    serve();
+    const app = mount(App);
+    await flushPromises();
+    expect(app.find("button.home").exists()).toBe(false);
+  });
+
+  it("returns a loaded tile to the empty state and clears the deep link", async () => {
+    serve();
+    const app = mount(App);
+    await flushPromises();
+    await app.getComponent(SourcePicker).vm.$emit("fixture", "0x01/point.mlt");
+    await flushPromises();
+    expect(app.find(".empty").exists()).toBe(false);
+    expect(location.search).toBe("?fixture=0x01%2Fpoint.mlt");
+
+    await app.get("button.home").trigger("click");
+    await flushPromises();
+    expect(app.get(".empty h1").text()).toBe("Inspect MLT internals");
+    expect(location.search).toBe("");
+  });
+
+  it("frees the tile it drops", async () => {
+    serve();
+    const free = vi.fn();
+    vi.mocked(annotateTile).mockReturnValue({ ...handle(), free });
+    const app = mount(App);
+    await flushPromises();
+    await app.getComponent(SourcePicker).vm.$emit("fixture", "0x01/point.mlt");
+    await flushPromises();
+    await app.get("button.home").trigger("click");
+    expect(free).toHaveBeenCalledOnce();
+  });
+});
+
 describe("the empty state", () => {
   it("asks for a tile before one is loaded", async () => {
     serve();

@@ -40,11 +40,9 @@ impl<'a> Walker<'a> {
         let (mut input, columns) = self.walk_schema(input, column_count)?;
 
         if !columns.is_empty() {
-            let di = self.open(input, "column data".to_string());
             for (ci, col) in columns.iter().enumerate() {
                 input = self.walk_column_data(input, ci, col)?;
             }
-            self.close(di, input);
         }
 
         // A well-formed layer consumes its whole body; record any trailing bytes.
@@ -60,7 +58,6 @@ impl<'a> Walker<'a> {
         mut input: &'a [u8],
         column_count: u32,
     ) -> MltResult<(&'a [u8], Vec<Column<'a>>)> {
-        let si = self.open(input, "schema".to_string());
         if input.len() < column_count.into_usize() {
             return Err(MltError::BufferUnderflow(column_count, input.len()));
         }
@@ -70,14 +67,13 @@ impl<'a> Walker<'a> {
             input = rest;
             cols.push(col);
         }
-        self.close(si, input);
         Ok((input, cols))
     }
 
     /// Mirror `Column::from_bytes` (plus inline `SharedDict` children), split into
     /// `[type u8][optional name]` (and child defs).
     fn walk_column_def(&mut self, input: &'a [u8], i: u32) -> MltResult<(&'a [u8], Column<'a>)> {
-        let ci = self.open(input, format!("column[{i}]"));
+        let ci = self.open(input, format!("column_schema[{i}]"));
 
         // Column-type byte, with the optional-flag bit broken out.
         let (after_ty, typ) = ColumnType::from_bytes(input)?;
@@ -353,7 +349,6 @@ impl<'a> Walker<'a> {
             parse_stream_meta(input, kind, is_bool, &mut self.parser)?;
 
         // Re-walk the consumed header bytes to annotate each field.
-        let hi = self.open(input, "header");
         let mut c = input;
 
         (c, _) = self.byte_field(
@@ -430,7 +425,6 @@ impl<'a> Walker<'a> {
                 VertexLogical::None | VertexLogical::Delta | VertexLogical::ComponentwiseDelta,
             ) => {}
         }
-        self.close(hi, c);
 
         // Consistency guard: the hand re-walk must land exactly on the authoritative tail.
         if self.off(c) != self.off(after_hdr) {
