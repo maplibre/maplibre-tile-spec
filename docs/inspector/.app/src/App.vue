@@ -6,7 +6,7 @@ import {
   annotateTile,
   type DecodedBlob,
 } from "./annotate.ts";
-import { readDeepLink, writeDeepLink } from "./deeplink.ts";
+import { deepLinkSearch, readDeepLink, writeDeepLink } from "./deeplink.ts";
 import {
   type FixtureEntry,
   loadFixture,
@@ -148,6 +148,14 @@ watch(link, (current) => {
   writeDeepLink(current);
 });
 
+/** Only the docs page frames the app; a window of its own has nothing to pop out of. */
+const framed = window.parent !== window;
+
+/** Carries the tile, layer and region on screen, so the new window opens on this same view. */
+const popout = computed(
+  () => `${location.pathname}${deepLinkSearch(link.value)}`,
+);
+
 /** Tells the docs page framing us whether the app is on its home screen, so the page can
  * drop its own heading and hand the whole viewport to a loaded tile. */
 watch(
@@ -162,7 +170,7 @@ watch(
 
 <template>
   <div ref="root" class="app" :class="{ dragging }">
-    <header v-if="tree">
+    <header v-if="tree" :class="{ framed }">
       <button
         type="button"
         class="home"
@@ -179,6 +187,17 @@ watch(
         @file="pickFile"
       />
       <RenderControls v-model="view" :layers="layers" />
+      <a
+        v-if="framed"
+        class="popout"
+        :href="popout"
+        target="_blank"
+        rel="noopener"
+        title="Open in a new window"
+        aria-label="Open in a new window"
+      >
+        &#x2197;
+      </a>
     </header>
     <p v-if="failure" class="failure" role="alert">{{ failure }}</p>
     <HexdumpView
@@ -191,6 +210,17 @@ watch(
       :error="tile?.error ?? null"
     />
     <section v-else class="empty">
+      <a
+        v-if="framed"
+        class="popout"
+        :href="popout"
+        target="_blank"
+        rel="noopener"
+        title="Open in a new window"
+        aria-label="Open in a new window"
+      >
+        &#x2197;
+      </a>
       <h1>MapLibre Tile Analyzer</h1>
       <SourcePicker
         hero
@@ -324,7 +354,8 @@ header > * {
   flex: 0 0 auto;
   min-width: 0;
 }
-.home {
+.home,
+.popout {
   background: var(--control);
   color: var(--text);
   border: 1px solid var(--line);
@@ -334,9 +365,27 @@ header > * {
   line-height: 1;
   padding: 0.4rem 0.7rem;
   cursor: pointer;
+  text-decoration: none;
 }
-.home:hover {
+.home:hover,
+.popout:hover {
   background: var(--hover);
+}
+/* The same corner in both states. Out of the flow, or a header wide enough to wrap
+   would strand it alone on a second row; the padding keeps the controls from under it. */
+header.framed {
+  position: relative;
+  padding-right: calc(var(--pad) + 2.6rem);
+}
+header .popout {
+  position: absolute;
+  top: 0.9rem;
+  right: var(--pad);
+}
+.empty .popout {
+  position: absolute;
+  top: var(--pad);
+  right: var(--pad);
 }
 .failure {
   margin: 0;
@@ -347,6 +396,7 @@ header > * {
 }
 /* No tile is loaded, so the whole page is the picker rather than a bar above one. */
 .empty {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;

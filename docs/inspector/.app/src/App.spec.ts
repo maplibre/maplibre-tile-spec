@@ -63,6 +63,50 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe("the pop-out link", () => {
+  /** The docs page frames the app; standing on its own, `parent` is the window itself. */
+  function frame() {
+    vi.stubGlobal("parent", { postMessage: () => {} });
+  }
+
+  it("is offered on the home screen, before any tile is loaded", async () => {
+    frame();
+    serve();
+    const app = mount(App);
+    await flushPromises();
+    expect(app.find(".empty a.popout").exists()).toBe(true);
+  });
+
+  it("stays offered once a tile is loaded", async () => {
+    frame();
+    serve();
+    const app = mount(App);
+    await flushPromises();
+    await app.getComponent(SourcePicker).vm.$emit("fixture", "0x01/point.mlt");
+    await flushPromises();
+    expect(app.find("header a.popout").exists()).toBe(true);
+  });
+
+  it("carries the view on screen, so the new window opens on the same tile", async () => {
+    frame();
+    serve();
+    const app = mount(App);
+    await flushPromises();
+    await app.getComponent(SourcePicker).vm.$emit("fixture", "0x01/point.mlt");
+    await flushPromises();
+    expect(app.get("header a.popout").attributes("href")).toContain(
+      "fixture=0x01%2Fpoint.mlt",
+    );
+  });
+
+  it("is absent in a window of its own, which has nothing to pop out of", async () => {
+    serve();
+    const app = mount(App);
+    await flushPromises();
+    expect(app.find("a.popout").exists()).toBe(false);
+  });
+});
+
 describe("the home button", () => {
   it("is absent until a tile is loaded", async () => {
     serve();
