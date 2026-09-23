@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.38](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.37...rust-mlt-v0.1.38) - 2026-09-23
+
+### Other
+
+- *(rust)* cleanup cmd, rm aws-sdk dep from mlt ([#1757](https://github.com/maplibre/maplibre-tile-spec/pull/1757))
+
 ## [0.1.37](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.36...rust-mlt-v0.1.37) - 2026-09-22
 
 ### Other
