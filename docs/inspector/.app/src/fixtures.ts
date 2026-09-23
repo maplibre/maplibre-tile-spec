@@ -1,6 +1,6 @@
-/** The synthetic fixture index the app is built against. */
+/** The fixture index the app is built against. */
 
-/** One synthetic fixture, as the build-time index records it. */
+/** One fixture tile, as the build-time index records it. */
 export interface FixtureEntry {
   /** File name including the `.mlt` extension. */
   name: string;
@@ -8,6 +8,63 @@ export interface FixtureEntry {
   directory: string;
   /** Size of the tile on disk. */
   bytes: number;
+  /** Geometry types `mlt ls` found, absent when it could not read the tile. */
+  geometries?: string[];
+  /** Coarse encodings `mlt ls` found, named as the facet bar shows them. */
+  encodings?: string[];
+}
+
+/** Wire tag of the fixture's directory, e.g. `0x02` for `0x02-rust`. */
+export function fixtureTag(entry: FixtureEntry): string {
+  return entry.directory.split("-")[0];
+}
+
+/** One row of filter buttons, and the entry field it reads. */
+export interface Facet {
+  label: string;
+  /** Values in the order the bar shows them, each with the entries it matches. */
+  values: { value: string; count: number }[];
+  of: (entry: FixtureEntry) => string[];
+}
+
+const FACET_FIELDS: { label: string; of: (e: FixtureEntry) => string[] }[] = [
+  { label: "tag", of: (e) => [fixtureTag(e)] },
+  { label: "geometry", of: (e) => e.geometries ?? [] },
+  { label: "encoding", of: (e) => e.encodings ?? [] },
+];
+
+/**
+ * The filter bar's buttons, counted over `entries`.
+ * A value every entry carries cannot narrow anything, so it is left out.
+ */
+export function facetsOf(entries: FixtureEntry[]): Facet[] {
+  return FACET_FIELDS.flatMap(({ label, of }) => {
+    const counts = new Map<string, number>();
+    for (const entry of entries)
+      for (const value of of(entry))
+        counts.set(value, (counts.get(value) ?? 0) + 1);
+    const values = [...counts]
+      .filter(([, count]) => count < entries.length)
+      .sort((a, b) => b[1] - a[1] || compare(a[0], b[0]))
+      .map(([value, count]) => ({ value, count }));
+    return values.length > 1 ? [{ label, values, of }] : [];
+  });
+}
+
+/** Within a facet the picked values are alternatives; across facets they all have to hold. */
+export function matchesFacets(
+  entry: FixtureEntry,
+  facets: Facet[],
+  picked: Set<string>,
+): boolean {
+  return facets.every((facet) => {
+    const wanted = facet.values
+      .map(({ value }) => value)
+      .filter((value) => picked.has(`${facet.label}:${value}`));
+    if (wanted.length === 0) return true;
+    const has = facet.of(entry);
+    return wanted.some((value) => has.includes(value));
+  });
 }
 
 /** Key of a fixture in the index, and the value of the `fixture` deep link. */
@@ -27,6 +84,25 @@ export async function loadFixture(key: string): Promise<Uint8Array> {
   if (!response.ok)
     throw new Error(`${key}: ${response.status} ${response.statusText}`);
   return new Uint8Array(await response.arrayBuffer());
+}
+
+/** What the picker's two column buttons sort on. */
+export type SortKey = "name" | "bytes";
+
+/** Sorted copy of `entries`; name falls back to the key so a tie is still stable. */
+export function sortFixtures(
+  entries: FixtureEntry[],
+  key: SortKey,
+  descending: boolean,
+): FixtureEntry[] {
+  const direction = descending ? -1 : 1;
+  return [...entries].sort((a, b) => {
+    const by =
+      key === "bytes"
+        ? a.bytes - b.bytes || compare(fixtureKey(a), fixtureKey(b))
+        : compare(fixtureKey(a), fixtureKey(b));
+    return by * direction;
+  });
 }
 
 /** One `<optgroup>` of the Source picker. */

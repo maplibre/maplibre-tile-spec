@@ -2,10 +2,14 @@
 import { useFileDialog } from "@vueuse/core";
 import { computed, ref } from "vue";
 import {
+  type Facet,
   type FixtureEntry,
+  facetsOf,
   fixtureKey,
   fuzzyMatch,
-  groupFixtures,
+  matchesFacets,
+  type SortKey,
+  sortFixtures,
   starterFixtures,
 } from "./fixtures.ts";
 
@@ -20,13 +24,51 @@ const emit = defineEmits<{ fixture: [key: string]; file: [file: File] }>();
 
 const sheet = ref<HTMLDialogElement | null>(null);
 const filter = ref("");
+/** Picked buttons, keyed `<facet>:<value>` so one set covers every row. */
+const picked = ref(new Set<string>());
+
+const facets = computed(() => facetsOf(props.index));
+
+function toggle(facet: Facet, value: string) {
+  const key = `${facet.label}:${value}`;
+  const next = new Set(picked.value);
+  if (!next.delete(key)) next.add(key);
+  picked.value = next;
+}
+
+function clearFacets() {
+  picked.value = new Set();
+}
+
+const columns: SortKey[] = ["name", "bytes"];
+const sortKey = ref<SortKey>("name");
+const descending = ref(false);
+
+/** A second click on the active column reverses it rather than re-sorting the same way. */
+function sortBy(key: SortKey) {
+  if (sortKey.value === key) descending.value = !descending.value;
+  else {
+    sortKey.value = key;
+    descending.value = false;
+  }
+}
+
+function columnName(key: SortKey): string {
+  return key === "bytes" ? "size" : "name";
+}
+
+/** `aria-sort` belongs to table headers, so a plain button says its direction in its label. */
+function sortLabel(key: SortKey): string {
+  if (sortKey.value !== key) return `sort by ${columnName(key)}`;
+  return `sorted by ${columnName(key)}, ${descending.value ? "descending" : "ascending"}`;
+}
 
 /** The bar names the loaded tile, which the hero has none of, so it counts the index instead. */
 const browse = computed(() => {
   if (!props.hero) return props.current ?? "choose a fixture...";
   // The index arrives a fetch later, so a count is not available on the first frame.
-  if (props.index.length === 0) return "Browse the synthetic fixtures";
-  return `Browse one of ${props.index.length} synthetic fixtures`;
+  if (props.index.length === 0) return "Browse the fixtures";
+  return `Browse one of ${props.index.length} fixtures`;
 });
 
 const starters = computed(() => starterFixtures(props.index));
@@ -34,13 +76,18 @@ const starters = computed(() => starterFixtures(props.index));
 /** A thousand-odd fixtures make the filter box the sheet's only way in. */
 const matches = computed(() => {
   const needle = filter.value.trim().toLowerCase();
-  if (needle === "") return props.index;
-  return props.index.filter((entry) =>
-    fuzzyMatch(fixtureKey(entry).toLowerCase(), needle),
+  const chosen = facets.value;
+  const marks = picked.value;
+  return props.index.filter(
+    (entry) =>
+      matchesFacets(entry, chosen, marks) &&
+      (needle === "" || fuzzyMatch(fixtureKey(entry).toLowerCase(), needle)),
   );
 });
 
-const groups = computed(() => groupFixtures(matches.value));
+const listed = computed(() =>
+  sortFixtures(matches.value, sortKey.value, descending.value),
+);
 
 /** Resets on open, so picking the same tile again after re-encoding it still loads it. */
 const { open: chooseFile, onChange } = useFileDialog({
@@ -91,7 +138,7 @@ function choose(key: string) {
       <div class="card">
         <header>
           <div class="titles">
-            <h2 id="fixtures-heading">Synthetic fixtures</h2>
+            <h2 id="fixtures-heading">Fixtures</h2>
             <button
               type="button"
               class="close"
@@ -108,23 +155,66 @@ function choose(key: string) {
             placeholder="Filter by name - fsst, polygon, nested..."
             aria-label="Filter fixtures"
           >
-        </header>
-        <div class="groups">
-          <section v-for="group in groups" :key="group.label">
-            <h3>{{ group.label }}</h3>
+          <div v-for="facet in facets" :key="facet.label" class="facet">
+            <span class="facet-label">{{ facet.label }}</span>
             <button
-              v-for="entry in group.entries"
-              :key="entry.name"
+              v-for="option in facet.values"
+              :key="option.value"
               type="button"
-              class="entry"
-              :class="{ on: fixtureKey(entry) === props.current }"
-              @click="choose(fixtureKey(entry))"
+              class="chip"
+              :class="{ on: picked.has(`${facet.label}:${option.value}`) }"
+              :aria-pressed="picked.has(`${facet.label}:${option.value}`)"
+              @click="toggle(facet, option.value)"
             >
-              <span class="name">{{ entry.name }}</span>
-              <span class="bytes">{{ entry.bytes }} B</span>
+              {{ option.value }}<span class="tally">{{ option.count }}</span>
             </button>
-          </section>
-          <p v-if="groups.length === 0" class="none"
+          </div>
+          <p class="tally-line">
+            {{ matches.length }}
+            of {{ props.index.length }}
+            <button
+              v-if="picked.size"
+              type="button"
+              class="clear"
+              @click="clearFacets"
+              >clear filters</button
+            >
+          </p>
+        </header>
+        <div class="columns">
+          <button
+            v-for="column in columns"
+            :key="column"
+            type="button"
+            class="column"
+            :class="{ on: sortKey === column, bytes: column === 'bytes' }"
+            :aria-label="sortLabel(column)"
+            @click="sortBy(column)"
+          >
+            {{ columnName(column)
+            }}<span
+              v-if="sortKey === column"
+              class="arrow"
+              aria-hidden="true"
+              >{{
+                descending ? "▾" : "▴"
+              }}</span
+            >
+          </button>
+        </div>
+        <div class="groups">
+          <button
+            v-for="entry in listed"
+            :key="fixtureKey(entry)"
+            type="button"
+            class="entry"
+            :class="{ on: fixtureKey(entry) === props.current }"
+            @click="choose(fixtureKey(entry))"
+          >
+            <span class="name">{{ fixtureKey(entry) }}</span>
+            <span class="bytes">{{ entry.bytes }} B</span>
+          </button>
+          <p v-if="listed.length === 0" class="none"
             >No fixture matches that filter.</p
           >
         </div>
@@ -134,6 +224,90 @@ function choose(key: string) {
 </template>
 
 <style scoped>
+.columns {
+  display: flex;
+  gap: 0.4rem;
+  padding: var(--pad-tight) var(--pad) 0;
+  border-top: 1px solid var(--line);
+}
+.column {
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  padding: 0.1rem 0.2rem;
+}
+.column.bytes {
+  margin-left: auto;
+}
+.column.on {
+  color: var(--text);
+}
+.arrow {
+  padding-left: 0.2rem;
+}
+.facet {
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+.facet-label {
+  color: var(--muted);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  width: 4.6rem;
+  flex: 0 0 auto;
+}
+.chip {
+  display: inline-flex;
+  gap: 0.3rem;
+  align-items: baseline;
+  background: var(--control);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-inline);
+  font: inherit;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.45rem;
+  cursor: pointer;
+}
+.chip:hover {
+  background: var(--hover);
+}
+.chip.on {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent-rule);
+}
+.tally {
+  color: var(--dim);
+  font-size: 0.62rem;
+}
+.chip.on .tally {
+  color: inherit;
+}
+.tally-line {
+  margin: 0.55rem 0 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+.clear {
+  background: none;
+  border: 0;
+  color: var(--accent-rule);
+  font: inherit;
+  font-size: 0.68rem;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0 0 0 0.4rem;
+}
 .source {
   display: flex;
   gap: 0.75rem;
