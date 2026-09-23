@@ -22,10 +22,9 @@ fn a_tile_cut_inside_a_stream_payload_seals_every_container_it_left_open() {
     assert!(err.is_some(), "the walk must still report why it bailed");
     insta::assert_snapshot!(container_spans(&tree), @r#"
     layer[0] 0..40
-      schema 11..18
-        column[0] 11..12
-        column[1] 12..18
-          column[0] 16..18
+      column_schema[0] 11..12
+      column_schema[1] 12..18
+        column_schema[0] 16..18
       column[0] Geometry 18..30
         meta 19..24
         stream[0] 24..30

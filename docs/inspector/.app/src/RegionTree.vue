@@ -91,13 +91,9 @@ function toggle(index: number) {
   collapsed.value = next;
 }
 
-/** Picking a header only ever opens its section; the caret is what closes one again. */
+/** Picking a header toggles its section, the same as its caret. */
 function pick(node: Node) {
-  if (node.hasChildren && collapsed.value.has(node.index)) {
-    const next = new Set(collapsed.value);
-    next.delete(node.index);
-    collapsed.value = next;
-  }
+  if (node.hasChildren) toggle(node.index);
   emit("pick", node.index);
 }
 

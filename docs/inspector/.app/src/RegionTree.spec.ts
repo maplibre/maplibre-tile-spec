@@ -38,11 +38,11 @@ describe("picking a section header", () => {
     expect(view.findAll(".node")).toHaveLength(5);
   });
 
-  it("leaves an open section open rather than toggling it shut", async () => {
+  it("collapses an open section", async () => {
     const view = tree();
     expect(view.findAll(".node")).toHaveLength(5);
     await view.findAll("button.label")[2].trigger("click");
-    expect(view.findAll(".node")).toHaveLength(5);
+    expect(view.findAll(".node")).toHaveLength(3);
   });
 
   it("still reports the pick either way", async () => {
