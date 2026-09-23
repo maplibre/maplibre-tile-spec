@@ -47,11 +47,12 @@ export const ROW = 26;
 const CELL = 23.2;
 const GLYPH = 7.1;
 
-/** The offset gutter, the ascii margin, the map's own padding and the detail pane beside it. */
-const CHROME = 468;
+/** The offset gutter, the two column gaps and the map's own padding, measured at 8 columns.
+ * Only what sits beside the bytes inside the left pane - the sidebar is not this pane's. */
+const CHROME = 84;
 
 /**
- * Hex columns that fill a pane of `paneWidth` pixels, fitted in #15 at 976, 1300 and 1700 px.
+ * Hex columns that fill the map pane's `paneWidth` pixels.
  * A terminal is 80 columns wide, a browser is not, so the row follows the pane instead.
  */
 export function fitColumns(paneWidth: number): number {

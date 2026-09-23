@@ -204,7 +204,6 @@ defineExpose({ reveal });
 
 <style scoped>
 .tree {
-  border-top: 1px solid var(--line);
   display: flex;
   flex-direction: column;
   min-height: 0;
