@@ -566,6 +566,8 @@
     border-radius: 10px;
     background: var(--md-default-bg-color);
   }
+  /* A loaded tile wants the height the page heading was taking. */
+  body.inspector-loaded .md-content__inner > h1 { display: none; }
   /* Tall enough for the app's floor, the page stops scrolling and the frame takes whatever the title leaves. */
   @media (min-height: 44rem) {
     body { height: 100dvh; }
@@ -579,6 +581,18 @@
 </style>
 
 <iframe class="inspector-embed" src="app/index.html" title="MLT Tile Inspector" loading="lazy"></iframe>
+
+<script>
+  // The app reports whether it is on its home screen; once a tile is open the page heading
+  // is just a band of chrome above it, so it steps out of the way.
+  addEventListener("message", (event) => {
+    const frame = document.querySelector(".inspector-embed");
+    if (event.origin !== location.origin || event.source !== frame?.contentWindow) return;
+    const state = event.data?.mltInspector;
+    if (!state) return;
+    document.body.classList.toggle("inspector-loaded", state.loaded === true);
+  });
+</script>
 
 
 
