@@ -32,13 +32,25 @@
 <iframe class="inspector-embed" src="app/index.html" title="MLT Tile Inspector" loading="lazy"></iframe>
 
 <script>
-  // The app reports whether it is on its home screen; once a tile is open the page heading
-  // is just a band of chrome above it, so it steps out of the way.
-  addEventListener("message", (event) => {
-    const frame = document.querySelector(".inspector-embed");
-    if (event.origin !== location.origin || event.source !== frame?.contentWindow) return;
-    const state = event.data?.mltInspector;
-    if (!state) return;
-    document.body.classList.toggle("inspector-loaded", state.loaded === true);
-  });
+  // Scoped, not top-level: `navigation.instant` re-runs this script in the page's own
+  // global, where a second `const` of the same name would throw.
+  (() => {
+    const embed = document.querySelector(".inspector-embed");
+
+    // A link back from the app's own window carries the tile in this page's query, which
+    // only the frame can act on, so it is handed over before the frame settles on a URL.
+    if (location.search) embed.src = "app/index.html" + location.search;
+
+    // The app reports whether it is on its home screen; once a tile is open the page heading
+    // is just a band of chrome above it, so it steps out of the way. Its deep link comes with,
+    // so this page's address bar names the tile on screen and a reload keeps it.
+    addEventListener("message", (event) => {
+      if (event.origin !== location.origin || event.source !== embed.contentWindow) return;
+      const state = event.data?.mltInspector;
+      if (!state) return;
+      document.body.classList.toggle("inspector-loaded", state.loaded === true);
+      if (typeof state.search === "string")
+        history.replaceState(null, "", location.pathname + state.search + location.hash);
+    });
+  })();
 </script>

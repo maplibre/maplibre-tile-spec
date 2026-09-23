@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { deepLinkSearch, readDeepLink } from "./deeplink.ts";
+import { beforeEach, describe, expect, it } from "vitest";
+import { deepLinkSearch, readDeepLink, writeDeepLink } from "./deeplink.ts";
 
 describe("readDeepLink", () => {
   it("reads the three parameters of the contract", () => {
@@ -38,5 +38,34 @@ describe("deepLinkSearch", () => {
     expect(deepLinkSearch({ fixture: null, layer: null, region: null })).toBe(
       "",
     );
+  });
+});
+
+describe("writeDeepLink", () => {
+  beforeEach(() => {
+    history.replaceState(null, "", "/");
+  });
+
+  it("stays on one entry for a move within a tile", () => {
+    const entries = history.length;
+    writeDeepLink({ fixture: "0x01/point.mlt", layer: null, region: 4 });
+    expect(location.search).toBe("?fixture=0x01%2Fpoint.mlt&region=4");
+    expect(history.length).toBe(entries);
+  });
+
+  it("leaves one behind for a link that opens another tile", () => {
+    const entries = history.length;
+    writeDeepLink(
+      { fixture: "0x01/point.mlt", layer: null, region: null },
+      true,
+    );
+    expect(location.search).toBe("?fixture=0x01%2Fpoint.mlt");
+    expect(history.length).toBe(entries + 1);
+  });
+
+  it("keeps a fragment, which names nothing this app owns", () => {
+    history.replaceState(null, "", "/#annotating");
+    writeDeepLink({ fixture: null, layer: null, region: null });
+    expect(location.hash).toBe("#annotating");
   });
 });

@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { useElementSize } from "@vueuse/core";
+import { useElementSize, useWindowSize } from "@vueuse/core";
 import { geoIdentity, geoPath } from "d3-geo";
 import type { Feature, FeatureCollection } from "geojson";
 import { computed, ref, watch } from "vue";
 import { extentOf, factsOf, hueOf, layerOf } from "./geometry.ts";
+import { tipPlacement } from "./hex.ts";
+import ValueText from "./ValueText.vue";
 
 const props = defineProps<{
   /** The decoded tile, or null while none is loaded or it could not be decoded. */
@@ -118,10 +120,36 @@ const fit = computed(() => {
 });
 
 const hovered = ref<Shape | null>(null);
+/** Viewport coordinates: the panel sits at the foot of the window, and the tip leaves it. */
 const at = ref({ x: 0, y: 0 });
 
 const facts = computed(() =>
   hovered.value === null ? null : factsOf(hovered.value.feature),
+);
+
+/**
+ * Where the tip goes, by the same rule the hex map's tip follows: clear of the pointer,
+ * and above it rather than off the bottom of a window this panel is already at the foot of.
+ */
+const tip = ref<HTMLElement | null>(null);
+/** The tip is capped and scrolls, so only what is inside it still has its full height.
+ * Border-box, and the padding sits on the body rather than the tip, so the measurement is
+ * the whole of what has to fit rather than the text alone. */
+const body = ref<HTMLElement | null>(null);
+const { width: tipWidth } = useElementSize(tip);
+const { height: tipHeight } = useElementSize(
+  body,
+  { width: 0, height: 0 },
+  { box: "border-box" },
+);
+const { width: windowWidth, height: windowHeight } = useWindowSize();
+
+const placed = computed(() =>
+  tipPlacement(
+    at.value,
+    { width: tipWidth.value, height: tipHeight.value },
+    { width: windowWidth.value, height: windowHeight.value },
+  ),
 );
 
 /** A hovered feature is the whole scope, and it draws on its own over a subdued tile. */
@@ -256,7 +284,7 @@ function onMove(event: PointerEvent) {
   const rect = holder.getBoundingClientRect();
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
-  at.value = { x, y };
+  at.value = { x: event.clientX, y: event.clientY };
   const { scale, dx, dy } = fit.value;
   const dpr = devicePixelRatio || 1;
   hovered.value = pick(
@@ -282,41 +310,39 @@ function spans(count: number): boolean {
     />
     <p v-if="shapes.length === 0" class="none">this tile draws no geometry</p>
 
-    <div
-      v-if="facts"
-      class="tip"
-      :style="{ left: `${at.x}px`, top: `${at.y}px` }"
-    >
-      <p class="head">
-        <strong>{{ facts.type }}</strong>
-        <span v-if="facts.vertices !== null" class="count">
-          {{ facts.vertices }}
-          vertices
-        </span>
-        <span class="layer">{{ facts.layer }}</span>
-      </p>
-      <dl v-if="facts.properties.length > 0">
-        <template v-for="[ name, value ] in facts.properties" :key="name">
-          <dt>{{ name }}</dt>
-          <dd>{{ value }}</dd>
-        </template>
-      </dl>
-      <table v-for="column in facts.mValues" :key="column.name">
-        <caption>
-          {{ column.name }}
-        </caption>
-        <tbody>
-          <tr v-for="run in column.runs" :key="run.from">
-            <td class="range">
-              {{ run.from
-              }}<template v-if="spans(run.to - run.from + 1)"
-                >..{{ run.to }}</template
-              >
-            </td>
-            <td>{{ run.value }}</td>
-          </tr>
-        </tbody>
-      </table>
+    <div v-if="facts" ref="tip" class="tip" :style="placed">
+      <div ref="body" class="body">
+        <p class="head">
+          <strong>{{ facts.type }}</strong>
+          <span v-if="facts.vertices !== null" class="count">
+            {{ facts.vertices }}
+            vertices
+          </span>
+          <span class="layer">{{ facts.layer }}</span>
+        </p>
+        <dl v-if="facts.properties.length > 0">
+          <template v-for="[ name, value ] in facts.properties" :key="name">
+            <dt>{{ name }}</dt>
+            <dd><ValueText :value="value" /></dd>
+          </template>
+        </dl>
+        <table v-for="column in facts.mValues" :key="column.name">
+          <caption>
+            {{ column.name }}
+          </caption>
+          <tbody>
+            <tr v-for="run in column.runs" :key="run.from">
+              <td class="range">
+                {{ run.from
+                }}<template v-if="spans(run.to - run.from + 1)"
+                  >..{{ run.to }}</template
+                >
+              </td>
+              <td><ValueText :value="run.value" /></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </section>
 </template>
@@ -325,6 +351,10 @@ function spans(count: number): boolean {
 .geo {
   position: relative;
   min-height: 0;
+  /* The canvas is sized in pixels from the last measurement, which would otherwise
+     hold the column open at that width and stop a gutter ever narrowing it. */
+  min-width: 0;
+  overflow: hidden;
   display: flex;
   background: var(--panel);
   border-top: 1px solid var(--line);
@@ -339,20 +369,23 @@ canvas {
   color: var(--muted);
   font-size: 0.8rem;
 }
+/* Fixed, not absolute: the panel clips its overflow, and a tip at the foot of the window
+   has to be free to sit above the pointer and outside the panel to stay whole. */
 .tip {
-  position: absolute;
+  position: fixed;
   z-index: 2;
   max-width: 22rem;
-  max-height: 60%;
+  /* The placement caps the height to the room beside the pointer; the rest scrolls. */
   overflow: auto;
-  /* Off the pointer, which would otherwise sit on the feature the tip describes. */
-  transform: translate(0.9rem, 0.9rem);
-  padding: var(--pad-tight);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--control);
   font-size: 0.72rem;
   pointer-events: none;
+}
+/* On the body, not the tip: what scrolls is then the whole of what was measured. */
+.body {
+  padding: var(--pad-tight);
 }
 .head {
   margin: 0 0 0.3rem;

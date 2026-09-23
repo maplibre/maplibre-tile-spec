@@ -3,6 +3,7 @@ import { computed } from "vue";
 import type { DecodedBlob, DumpTree } from "./annotate.ts";
 import { blobChips, blobNote } from "./blob.ts";
 import { hex2, hexOffset, regionPath } from "./hex.ts";
+import ValueText from "./ValueText.vue";
 
 /** Values the detail pane asks for at a time, which is what keeps a 369-blob tile lazy. */
 const MAX_VALUES = 64;
@@ -85,7 +86,7 @@ const byte = computed(() =>
         </template>
         <template v-if="region.value">
           <dt>value</dt>
-          <dd class="value">{{ region.value }}</dd>
+          <dd class="value"><ValueText :value="region.value" quoted /></dd>
         </template>
         <template v-if="region.blob">
           <dt>stream</dt>

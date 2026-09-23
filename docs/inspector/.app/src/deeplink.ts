@@ -28,13 +28,17 @@ export function deepLinkSearch(link: DeepLink): string {
   return search === "" ? "" : `?${search}`;
 }
 
-/** Puts the link in the address bar without adding a history entry per hovered region. */
-export function writeDeepLink(link: DeepLink): void {
-  history.replaceState(
-    null,
-    "",
-    `${location.pathname}${deepLinkSearch(link)}${location.hash}`,
-  );
+/**
+ * Puts the link in the address bar.
+ *
+ * A `fresh` link is one that opened another tile, which is a place the Back button should
+ * return to; a layer or a region is a move within the tile, and replaces what is there
+ * rather than leaving an entry behind every byte the reader walks over.
+ */
+export function writeDeepLink(link: DeepLink, fresh = false): void {
+  const url = `${location.pathname}${deepLinkSearch(link)}${location.hash}`;
+  if (fresh) history.pushState(null, "", url);
+  else history.replaceState(null, "", url);
 }
 
 function index(raw: string | null): number | null {
