@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.30](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.29...rust-mlt-wasm-v0.1.30) - 2026-09-23
+
+### Added
+
+- *(rust)* fill the v2 layer header byte's reserved nibble ([#1753](https://github.com/maplibre/maplibre-tile-spec/pull/1753))
+
+### Fixed
+
+- minor issues in the tile inspector ([#1755](https://github.com/maplibre/maplibre-tile-spec/pull/1755))
+
+### Other
+
+- *(rust)* cleanup cmd, rm aws-sdk dep from mlt ([#1757](https://github.com/maplibre/maplibre-tile-spec/pull/1757))
+
 ## [0.1.29](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.28...rust-mlt-wasm-v0.1.29) - 2026-09-22
 
 ### Added
