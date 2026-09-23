@@ -58,7 +58,6 @@ impl<'a> Walker<'a> {
         mut input: &'a [u8],
         column_count: u32,
     ) -> MltResult<(&'a [u8], Vec<Column<'a>>)> {
-        let si = self.open(input, "schema".to_string());
         if input.len() < column_count.into_usize() {
             return Err(MltError::BufferUnderflow(column_count, input.len()));
         }
@@ -68,14 +67,13 @@ impl<'a> Walker<'a> {
             input = rest;
             cols.push(col);
         }
-        self.close(si, input);
         Ok((input, cols))
     }
 
     /// Mirror `Column::from_bytes` (plus inline `SharedDict` children), split into
     /// `[type u8][optional name]` (and child defs).
     fn walk_column_def(&mut self, input: &'a [u8], i: u32) -> MltResult<(&'a [u8], Column<'a>)> {
-        let ci = self.open(input, format!("column[{i}]"));
+        let ci = self.open(input, format!("column_schema[{i}]"));
 
         // Column-type byte, with the optional-flag bit broken out.
         let (after_ty, typ) = ColumnType::from_bytes(input)?;
