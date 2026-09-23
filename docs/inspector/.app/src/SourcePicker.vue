@@ -40,6 +40,7 @@ function clearFacets() {
   picked.value = new Set();
 }
 
+const columns: SortKey[] = ["name", "bytes"];
 const sortKey = ref<SortKey>("name");
 const descending = ref(false);
 
@@ -172,7 +173,7 @@ function choose(key: string) {
         </header>
         <div class="columns">
           <button
-            v-for="column in (['name', 'bytes'] as SortKey[])"
+            v-for="column in columns"
             :key="column"
             type="button"
             class="column"
