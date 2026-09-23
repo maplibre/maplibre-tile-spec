@@ -172,7 +172,7 @@ ci-get-release-info package='mlt':
 clean:
     cargo clean
     rm -rf Cargo.lock
-    cargo -m mlt-core/fuzz clean
+    cargo clean --manifest-path mlt-core/fuzz
     rm -rf mlt-core/fuzz/corpus mlt-core/fuzz/artifacts mlt-core/fuzz/coverage mlt-core/fuzz/Cargo.lock
     rm -rf mlt-wasm/pkg mlt-wasm/dist mlt-wasm/node_modules
 
@@ -372,9 +372,12 @@ sync-ffi-bindings: (just 'cargo-install' 'diplomat-tool') (just 'assert-cmd' 'cl
     clang-format -style=WebKit -i tests/c/*.c tests/cpp/*.cpp generated/c/* generated/cpp/*
     ktlint --format ./**/*.kt
 
-[private]
 _build-ffi-lib:
     cargo build --release -p mlt-ffi
+
+# Build the release `mlt` binary that the hexdump recipes shell out to, once per run
+_build-mlt-release:
+    cargo build --bin mlt --release --features unstable-v2
 
 # Run the C FFI round-trip test (builds cdylib, compiles + runs test)
 test-ffi-c: _build-ffi-lib
@@ -431,15 +434,20 @@ sync-pyo3-version:
     echo "Synced $PYPROJECT to version $VERSION"
 
 # Regenerate every docs/snippets/0x0N/*.mlt.hexdump from its test/synthetic/0x0N/*.mlt fixture
-sync-docs-hexdumps:
+sync-docs-hexdumps: _build-mlt-release (just 'cargo-install' 'fd' 'fd-find')
+    # The tracked snippets are a curated subset of the fixtures, so the existing dumps
+    # drive the loop rather than test/synthetic. `.gitignore` hides *.hexdump but
+    # re-includes these, which fd honours, so no --no-ignore is needed here.
+    fd . ../docs/snippets -e hexdump -x {{just}} rust::_sync-one-docs-hexdump {}
+
+# Regenerate one docs snippet from the test/synthetic fixture of the same name
+[private]
+_sync-one-docs-hexdump dump:
     #!/usr/bin/env bash
     set -euo pipefail
-    cargo build -p mlt -F unstable-v2
-    for dump in ../docs/snippets/0x0*/*.mlt.hexdump; do
-        fixture="../test/synthetic/$(basename "$(dirname "$dump")")/$(basename "$dump" .hexdump)"
-        cargo run -q -p mlt -F unstable-v2 -- hexdump "$fixture" > "$dump"
-        echo "Regenerated $dump from $fixture"
-    done
+    fixture="../test/synthetic/$(basename "$(dirname {{quote(dump)}})")/$(basename "$dump" .hexdump)"
+    {{just}} rust::_hexdump-one "$fixture" {{quote(dump)}}
+    echo "Regenerated {{quote(dump)}} from $fixture"
 
 # Sync the version field in mlt-wasm/package.json to match mlt-wasm/Cargo.toml
 sync-wasm-version:
@@ -507,25 +515,28 @@ generate-synthetic-mlts *args:
     {{just}} _assert-all-mlt-files-different
 
 # Write an annotated .mlt.hexdump next to every .mlt in test/synthetic
-generate-synthetic-hexdumps: (just 'cargo-install' 'fd' 'fd-find')
-    #!/usr/bin/env bash
-    set -euo pipefail
-    cargo build -q --bin mlt
-    fd . ../test/synthetic -e mlt -x bash -c '
-        code=0
-        err="$(target/debug/mlt hexdump --color never "$1" 2>&1 >"$1.hexdump")" || code=$?
-        if [ "$code" -ne 0 ]; then
-            printf "!! hexdump failed with exit code %s\n%s\n" "$code" "$err" > "$1.hexdump"
-        fi
-    ' _ {}
+generate-synthetic-hexdumps: _build-mlt-release (just 'cargo-install' 'fd' 'fd-find')
+    fd . ../test/synthetic -e mlt -x {{just}} rust::_hexdump-one {} {}.hexdump
     # Drop hexdumps whose .mlt is gone, so a renamed fixture cannot leave one behind
     # --no-ignore --hidden because .gitignore hides *.hexdump from fd's default search
     fd . ../test/synthetic -e hexdump --no-ignore --hidden -x bash -c '[ -f "${1%.hexdump}" ] || rm "$1"' _ {}
 
+# Write the annotated hexdump of the `src` .mlt fixture to `dest`.
+# A failure is recorded in `dest` rather than aborting, so one broken fixture cannot
+# hide every other file's diff. Callers build the binary first via _build-mlt-release.
+[private]
+_hexdump-one src dest:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    code=0
+    err="$(target/release/mlt hexdump --color never {{quote(src)}} 2>&1 >{{quote(dest)}})" || code=$?
+    if [ "$code" -ne 0 ]; then
+        printf '!! hexdump failed with exit code %s\n%s\n' "$code" "$err" > {{quote(dest)}}
+    fi
+
 # Create .dump files for all .mlt files in test/synthetic for all languages
-generate-synthetic-dumps: (just 'cargo-install' 'fd' 'fd-find')
-    cargo build --bin mlt
-    fd . ../test/synthetic -e mlt -x sh -c 'target/debug/mlt dump {} > {.}.dump || echo "Failed to dump {}"'
+generate-synthetic-dumps: _build-mlt-release (just 'cargo-install' 'fd' 'fd-find')
+    fd . ../test/synthetic -e mlt -x sh -c 'target/release/mlt dump {} > {.}.dump || echo "Failed to dump {}"'
 
 # Run mlt-wasm benches
 [working-directory: 'mlt-wasm']

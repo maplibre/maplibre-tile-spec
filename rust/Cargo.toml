@@ -55,7 +55,7 @@ mlt-core = { version = "0.14.4", path = "mlt-core" }
 moka = { version = "0.12", features = ["sync"] }
 num-traits = "0.2.19"
 num_enum = "0.7.6"
-pmtiles = "0.24.0"
+pmtiles = { version = "0.24.0", default-features = false, features = ["write", "mmap-async-tokio", "iter-async"] }
 pretty_assertions = "1.4"
 probabilistic-collections = "0.7"
 proptest = "1.11"
