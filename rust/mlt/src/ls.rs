@@ -256,13 +256,14 @@ pub struct MltFileInfo {
     pub gzip_pct: Option<f64>,
     pub layers: usize,
     pub features: usize,
+    /// What the tile holds, as flags: the data types of its property and m-value
+    /// columns, plus `m_values` when it has any.
+    pub content: HashSet<&'static str>,
     pub streams: Option<usize>,
     pub algorithms: HashSet<FileAlgorithm>,
     pub geometries: HashSet<GeometryType>,
     pub matches_json: Option<bool>,
 }
-
-impl MltFileInfo {}
 
 impl MltFileInfo {
     #[must_use]
@@ -609,6 +610,7 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
     let mut feature_count = 0;
     let mut data_size = 0;
     let mut meta_size = 0;
+    let mut content: HashSet<&'static str> = HashSet::new();
 
     for layer in &layers {
         if let Some(layer01) = layer.as_layer01() {
@@ -617,6 +619,15 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
             feature_count += layer01.collect_statistic(FeatureCount);
             for &geom_type in layer01.geometry_values().vector_types() {
                 geometries.insert(geom_type);
+            }
+            for property in layer01.properties() {
+                content.insert(property.kind().into());
+            }
+            // an m-value column's type counts the same as a property column's
+            #[cfg(feature = "unstable-v2")]
+            for column in layer01.m_values() {
+                content.insert("m_values");
+                content.insert(column.values().kind().into());
             }
         }
     }
@@ -649,6 +660,7 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
         meta_pct: Some(percent_of(meta_size, data_size)),
         layers: layer_count,
         features: feature_count,
+        content,
         streams: Some(stream_count),
         algorithms,
         geometries,
@@ -965,6 +977,7 @@ mod tests {
             gzip_pct: Some(27.1),
             layers: 3,
             features: 1_234,
+            content: ["str", "i32", "m_values"].into_iter().collect(),
             streams: Some(42),
             algorithms: std::iter::once(FileAlgorithm::Mlt(
                 StreamType::Data(DictionaryType::None),

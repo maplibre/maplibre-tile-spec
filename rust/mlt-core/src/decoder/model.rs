@@ -6,7 +6,7 @@
 
 use std::fmt;
 
-use crate::decoder::{Geometry, GeometryValues, Id, Property};
+use crate::decoder::{Geometry, GeometryValues, Id, ParsedProperty, Property};
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::{MValueColumn, Nested};
 use crate::tile::Extent;
@@ -127,6 +127,12 @@ impl ParsedLayer01<'_> {
     #[must_use]
     pub fn feature_count(&self) -> usize {
         self.geometry.vector_types.len()
+    }
+
+    /// The layer's property columns, in wire order.
+    #[must_use]
+    pub fn properties(&self) -> &[ParsedProperty<'_>] {
+        &self.properties
     }
 
     /// The layer's vertex-scoped columns, each running over every vertex of

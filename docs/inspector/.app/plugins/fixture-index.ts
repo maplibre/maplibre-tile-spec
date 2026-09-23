@@ -27,7 +27,11 @@ const ENCODINGS: [needle: string, label: string][] = [
 
 interface LsRow {
   path: string;
-  info?: { geometries?: string[]; algorithms?: string[] };
+  info?: {
+    geometries?: string[];
+    algorithms?: string[];
+    content?: string[];
+  };
 }
 
 /**
@@ -77,6 +81,9 @@ function readFacets(
       encodings: ENCODINGS.flatMap(([needle, label]) =>
         algorithms.includes(needle) ? [label] : [],
       ),
+      content: (row.info.content ?? [])
+        .map((flag) => flag.replaceAll("_", "-"))
+        .sort(),
     });
   }
   return facets;

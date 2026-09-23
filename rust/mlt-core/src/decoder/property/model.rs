@@ -11,7 +11,7 @@ use enum_dispatch::enum_dispatch;
 use crate::decoder::Alp;
 use crate::decoder::RawStream;
 use crate::utils::Presence;
-use crate::{DecodeState, Lazy};
+use crate::{DecodeState, Lazy, PropKind};
 
 /// Property column representation, parameterized by decode state.
 ///
@@ -175,6 +175,28 @@ pub enum ParsedProperty<'a> {
     Str(ParsedStrings<'a>),
     SharedDict(ParsedSharedDict<'a>),
 }
+
+macro_rules! impl_parsed_property_kind {
+    (
+        scalar { $($sv:ident),* $(,)? }
+        string { $($gv:ident),* $(,)? }
+    ) => {
+        impl ParsedProperty<'_> {
+            /// The column's data type. A shared dictionary is a way of storing strings
+            /// rather than a type of its own, so it reads as [`PropKind::Str`].
+            #[must_use]
+            pub fn kind(&self) -> PropKind {
+                match self {
+                    $(Self::$sv(_) => PropKind::$sv,)*
+                    $(Self::$gv(_) => PropKind::$gv,)*
+                    Self::SharedDict(_) => PropKind::Str,
+                }
+            }
+        }
+    };
+}
+
+with_kinds!(impl_parsed_property_kind);
 
 /// Decoded scalar property column (bool, integer, or float).
 ///

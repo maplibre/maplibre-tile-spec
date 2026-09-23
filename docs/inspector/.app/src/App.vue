@@ -147,6 +147,17 @@ const link = computed(() => ({
 watch(link, (current) => {
   writeDeepLink(current);
 });
+
+/** Tells the docs page framing us whether the app is on its home screen, so the page can
+ * drop its own heading and hand the whole viewport to a loaded tile. */
+watch(
+  () => tree.value !== null,
+  (loaded) => {
+    if (window.parent === window) return;
+    window.parent.postMessage({ mltInspector: { loaded } }, location.origin);
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -180,7 +191,7 @@ watch(link, (current) => {
       :error="tile?.error ?? null"
     />
     <section v-else class="empty">
-      <h1>Inspect MLT internals</h1>
+      <h1>MapLibre Tile Analyzer</h1>
       <SourcePicker
         hero
         :index="index"

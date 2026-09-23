@@ -82,7 +82,7 @@ describe("the home button", () => {
 
     await app.get("button.home").trigger("click");
     await flushPromises();
-    expect(app.get(".empty h1").text()).toBe("Inspect MLT internals");
+    expect(app.get(".empty h1").text()).toBe("MapLibre Tile Analyzer");
     expect(location.search).toBe("");
   });
 
@@ -104,7 +104,7 @@ describe("the empty state", () => {
     serve();
     const app = mount(App);
     await flushPromises();
-    expect(app.get(".empty h1").text()).toBe("Inspect MLT internals");
+    expect(app.get(".empty h1").text()).toBe("MapLibre Tile Analyzer");
   });
 
   it("counts the catalogue on the button that opens the sheet", async () => {
