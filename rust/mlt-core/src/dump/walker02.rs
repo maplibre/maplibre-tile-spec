@@ -801,7 +801,6 @@ impl<'a> Walker<'a> {
         let (rest, stream) = header02::parse_stream(input, ctx, count, &mut self.parser)?;
 
         // Re-walk the consumed header bytes to annotate each field.
-        let hi = self.open(input, "header".to_string());
         let family = ctx.family();
         let (mut c, enc_byte) = self.byte_field(
             input,
@@ -859,8 +858,6 @@ impl<'a> Walker<'a> {
                     self.field(c, name, |i| parse_varint::<u32>(i), |v| Some(v.to_string()))?;
             }
         }
-        self.close(hi, c);
-
         let (after_payload, payload) = take(c, byte_length)?;
         // Consistency guard: the hand re-walk must land exactly on the authoritative tail.
         if self.off(after_payload) != self.off(rest) {

@@ -12,14 +12,13 @@
                                                                              |     └ bits 3-0 = 0000 -> geometry layout = Points
 0000000c                                                                     |   geometry (7 B)
 0000000c                                                                     |     vertices (7 B)
-0000000c                                                                     |       header (3 B)
-0000000c  a8                                                .                |         encoding: 0xA8 logical=CwDelta physical=VarInt
-                                                                             |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
-                                                                             |           └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
-                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
-                                                                             |           └ bits 1-0 = 00 -> extension = 0
-0000000d  04                                                .                |         num_values: 4
-0000000e  04                                                .                |         byte_length: 4
+0000000c  a8                                                .                |       encoding: 0xA8 logical=CwDelta physical=VarInt
+                                                                             |         └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |         └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
+                                                                             |         └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |         └ bits 1-0 = 00 -> extension = 0
+0000000d  04                                                .                |       num_values: 4
+0000000e  04                                                .                |       byte_length: 4
 0000000f  16 68 78 28                                       .hx(             |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 4 values, 4 B]
                                                                              |         decoded: [11, 52, 71, 72]
 00000013  01                                                .                |   column_count: 1
@@ -32,34 +31,31 @@
 00000019  03                                                .                |       present [Present Bool(None)/None, 2 values, 1 B]
                                                                              |         decoded: 2 present-bits: 11
 0000001a                                                                     |       codes (4 B)
-0000001a                                                                     |         header (2 B)
-0000001a  21                                                !                |           encoding: 0x21 logical=Rle physical=implied
-                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
-                                                                             |             └ bits 6-4 = 010 -> logical = Rle, numbered for string column
-                                                                             |             └ bits 3-2 = 00 -> physical = implied
-                                                                             |             └ bits 1-0 = 01 -> string layout = Dict
-0000001b  02                                                .                |           byte_length: 2
+0000001a  21                                                !                |         encoding: 0x21 logical=Rle physical=implied
+                                                                             |           └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
+                                                                             |           └ bits 6-4 = 010 -> logical = Rle, numbered for string column
+                                                                             |           └ bits 3-2 = 00 -> physical = implied
+                                                                             |           └ bits 1-0 = 01 -> string layout = Dict
+0000001b  02                                                .                |         byte_length: 2
 0000001c  02 00                                             ..               |         data [Offset(String) Int(Rle(Interleaved { num_rle_values: 2 }))/VarInt, 2 values, 2 B]
                                                                              |           decoded: [0, 0]
 0000001e                                                                     |       dict_lengths (4 B)
-0000001e                                                                     |         header (3 B)
-0000001e  88                                                .                |           encoding: 0x88 logical=None physical=VarInt
-                                                                             |             └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
-                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for integer stream
-                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
-                                                                             |             └ bits 1-0 = 00 -> extension = 0
-0000001f  01                                                .                |           num_values: 1
-00000020  01                                                .                |           byte_length: 1
+0000001e  88                                                .                |         encoding: 0x88 logical=None physical=VarInt
+                                                                             |           └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |           └ bits 6-4 = 000 -> logical = None, numbered for integer stream
+                                                                             |           └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+0000001f  01                                                .                |         num_values: 1
+00000020  01                                                .                |         byte_length: 1
 00000021  1e                                                .                |         data [Length(Dictionary) Int(None)/VarInt, 1 values, 1 B]
                                                                              |           decoded: [30]
 00000022                                                                     |       dict_values (32 B)
-00000022                                                                     |         header (2 B)
-00000022  04                                                .                |           encoding: 0x04 logical=None physical=WithLen
-                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> a blob's byte length is its value count
-                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for byte blob
-                                                                             |             └ bits 3-2 = 01 -> physical = WithLen
-                                                                             |             └ bits 1-0 = 00 -> extension = 0
-00000023  1e                                                .                |           byte_length: 30
+00000022  04                                                .                |         encoding: 0x04 logical=None physical=WithLen
+                                                                             |           └ bit 7 = 0 -> has_explicit_count = false -> a blob's byte length is its value count
+                                                                             |           └ bits 6-4 = 000 -> logical = None, numbered for byte blob
+                                                                             |           └ bits 3-2 = 01 -> physical = WithLen
+                                                                             |           └ bits 1-0 = 00 -> extension = 0
+00000023  1e                                                .                |         byte_length: 30
 00000024  41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA |         data [Data(Single) Int(None)/None, 30 values, 30 B]
 00000034  41 41 41 41 41 41 41 41 41 41 41 41 41 41         AAAAAAAAAAAAAA   |
                                                                              |           decoded: utf-8 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"

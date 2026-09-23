@@ -353,7 +353,6 @@ impl<'a> Walker<'a> {
             parse_stream_meta(input, kind, is_bool, &mut self.parser)?;
 
         // Re-walk the consumed header bytes to annotate each field.
-        let hi = self.open(input, "header");
         let mut c = input;
 
         (c, _) = self.byte_field(
@@ -430,7 +429,6 @@ impl<'a> Walker<'a> {
                 VertexLogical::None | VertexLogical::Delta | VertexLogical::ComponentwiseDelta,
             ) => {}
         }
-        self.close(hi, c);
 
         // Consistency guard: the hand re-walk must land exactly on the authoritative tail.
         if self.off(c) != self.off(after_hdr) {

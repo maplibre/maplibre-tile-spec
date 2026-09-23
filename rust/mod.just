@@ -171,7 +171,6 @@ ci-get-release-info package='mlt':
 # Clean all build artifacts
 clean:
     cargo clean
-    rm -rf Cargo.lock
     cargo clean --manifest-path mlt-core/fuzz/Cargo.toml
     rm -rf mlt-core/fuzz/corpus mlt-core/fuzz/artifacts mlt-core/fuzz/coverage mlt-core/fuzz/Cargo.lock
     rm -rf mlt-wasm/pkg mlt-wasm/dist mlt-wasm/node_modules
@@ -435,19 +434,14 @@ sync-pyo3-version:
 
 # Regenerate every docs/snippets/0x0N/*.mlt.hexdump from its test/synthetic/0x0N/*.mlt fixture
 sync-docs-hexdumps: _build-mlt-release (just 'cargo-install' 'fd' 'fd-find')
-    # The tracked snippets are a curated subset of the fixtures, so the existing dumps
-    # drive the loop rather than test/synthetic. `.gitignore` hides *.hexdump but
-    # re-includes these, which fd honours, so no --no-ignore is needed here.
-    fd . ../docs/snippets -e hexdump -x {{just}} rust::_sync-one-docs-hexdump {}
-
-# Regenerate one docs snippet from the test/synthetic fixture of the same name
-[private]
-_sync-one-docs-hexdump dump:
     #!/usr/bin/env bash
     set -euo pipefail
-    fixture="../test/synthetic/$(basename "$(dirname {{quote(dump)}})")/$(basename "$dump" .hexdump)"
-    {{just}} rust::_hexdump-one "$fixture" {{quote(dump)}}
-    echo "Regenerated {{quote(dump)}} from $fixture"
+    cargo build -p mlt -F unstable-v2
+    for dump in ../docs/snippets/0x0*/*.mlt.hexdump; do
+        fixture="../test/synthetic/$(basename "$(dirname "$dump")")/$(basename "$dump" .hexdump)"
+        target/release/mlt hexdump "$fixture" > "$dump"
+        echo "Regenerated $dump from $fixture"
+    done
 
 # Sync the version field in mlt-wasm/package.json to match mlt-wasm/Cargo.toml
 sync-wasm-version:
