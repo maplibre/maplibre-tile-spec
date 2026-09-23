@@ -172,7 +172,7 @@ ci-get-release-info package='mlt':
 clean:
     cargo clean
     rm -rf Cargo.lock
-    cargo clean --manifest-path mlt-core/fuzz
+    cargo clean --manifest-path mlt-core/fuzz/Cargo.toml
     rm -rf mlt-core/fuzz/corpus mlt-core/fuzz/artifacts mlt-core/fuzz/coverage mlt-core/fuzz/Cargo.lock
     rm -rf mlt-wasm/pkg mlt-wasm/dist mlt-wasm/node_modules
 
