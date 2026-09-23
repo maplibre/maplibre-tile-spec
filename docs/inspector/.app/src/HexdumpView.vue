@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { useEventListener, useResizeObserver } from "@vueuse/core";
+import type { FeatureCollection } from "geojson";
 import { computed, onMounted, ref, watch } from "vue";
 import type { DecodedBlob, DumpTree } from "./annotate.ts";
+import GeometryView from "./GeometryView.vue";
+import { layersOf } from "./geometry.ts";
 import HexMap from "./HexMap.vue";
 import HexTip from "./HexTip.vue";
 import {
+  ancestors,
   byteOwners,
   fitColumns,
   leafStep,
@@ -21,6 +25,8 @@ const props = defineProps<{
   decode: (regionIndex: number, maxValues: number) => DecodedBlob;
   /** The walker failure that stopped the annotation, or null. */
   error: string | null;
+  /** The decoded tile the geometry panel draws, absent when it could not be decoded. */
+  tile?: FeatureCollection | null;
 }>();
 const view = defineModel<ViewState>("view", { required: true });
 const selected = defineModel<number | null>("selected", { required: true });
@@ -37,6 +43,8 @@ const side = ref<HTMLElement | null>(null);
 /** Width of the right column in px, and the detail pane's share of it as a percentage. */
 const sideWidth = ref(352);
 const detailShare = ref(30);
+/** The geometry panel's share of the left column, as a percentage. */
+const geoShare = ref(38);
 
 const SIDE_MIN = 220;
 /** Leaves the map enough for fitColumns' eight-column floor, so a drag cannot clip the bytes. */
@@ -78,6 +86,19 @@ function dragDetail(event: PointerEvent) {
   });
 }
 
+/** Drags the row gutter over the map, which the geometry panel grows upwards into. */
+function dragGeo(event: PointerEvent) {
+  track(event, (move) => {
+    const box = left.value?.getBoundingClientRect();
+    if (!box || box.height === 0) return;
+    geoShare.value = clamp(
+      ((box.bottom - move.clientY) / box.height) * 100,
+      SHARE_MIN,
+      SHARE_MAX,
+    );
+  });
+}
+
 /** Pointer capture keeps the drag alive over the map's canvas and past the window edge. */
 function track(event: PointerEvent, onMove: (move: PointerEvent) => void) {
   const handle = event.currentTarget as HTMLElement;
@@ -95,21 +116,45 @@ function track(event: PointerEvent, onMove: (move: PointerEvent) => void) {
 
 /** Arrow keys move a gutter too, which is the only way to reach one without a pointer.
  * Written out rather than using `@keydown.left`, whose modifier guards a mouse button. */
-function onGutterKey(event: KeyboardEvent, column: boolean) {
-  const steps: Record<string, number> = column
-    ? { ArrowLeft: 16, ArrowRight: -16 }
-    : { ArrowUp: -4, ArrowDown: 4 };
+function onGutterKey(event: KeyboardEvent, which: "side" | "detail" | "geo") {
+  const steps: Record<string, number> =
+    which === "side"
+      ? { ArrowLeft: 16, ArrowRight: -16 }
+      : { ArrowUp: -4, ArrowDown: 4 };
   const by = steps[event.key];
   if (by === undefined) return;
   event.preventDefault();
   // onKey would otherwise walk the region list out from under the gutter.
   event.stopPropagation();
-  if (column)
+  if (which === "side")
     sideWidth.value = clamp(sideWidth.value + by, SIDE_MIN, sideMax());
-  else detailShare.value = clamp(detailShare.value + by, SHARE_MIN, SHARE_MAX);
+  else if (which === "detail")
+    detailShare.value = clamp(detailShare.value + by, SHARE_MIN, SHARE_MAX);
+  // The panel is below its gutter, so up has to grow it rather than shrink it.
+  else geoShare.value = clamp(geoShare.value - by, SHARE_MIN, SHARE_MAX);
 }
 
 const activeIndex = computed(() => selected.value ?? hovered.value);
+
+/** Walking every feature is not something a hover can afford, so the names are kept. */
+const layerNames = computed(() => (props.tile ? layersOf(props.tile) : []));
+
+/**
+ * Layer the geometry panel singles out, which only ever comes from the pointer.
+ *
+ * Nothing else narrows it: a selection stays put while the eye moves on, and the layer
+ * knob is about which bytes to read, so neither should quietly hide the rest of the tile.
+ * Sweeping the tree or the map walks the layers, and leaving it shows the whole tile again.
+ */
+const scopeLayer = computed(() => {
+  const names = layerNames.value;
+  const index = hovered.value;
+  if (names.length === 0 || index === null) return null;
+  const regions = props.tree.regions;
+  const top = ancestors(regions, index)[0] ?? index;
+  const at = /^layer\[(\d+)\]$/.exec(regions[top].label);
+  return at === null ? null : (names[Number(at[1])] ?? null);
+});
 const owners = computed(() => byteOwners(props.tree));
 /** Shared by the map and the tree, so a row and its bytes take the same tint from one walk. */
 const bands = computed(() =>
@@ -210,6 +255,22 @@ onMounted(() => {
           @hover="onMapHover"
           @pick="select($event, false)"
         />
+        <hr
+          class="gutter row"
+          aria-orientation="horizontal"
+          aria-label="Resize the geometry panel"
+          :aria-valuenow="Math.round(geoShare)"
+          :aria-valuemin="SHARE_MIN"
+          :aria-valuemax="SHARE_MAX"
+          tabindex="0"
+          @pointerdown.prevent="dragGeo"
+          @keydown="onGutterKey($event, 'geo')"
+        >
+        <GeometryView
+          :style="{ flexBasis: `${geoShare}%` }"
+          :tile="props.tile ?? null"
+          :layer="scopeLayer"
+        />
       </section>
       <hr
         class="gutter col"
@@ -220,7 +281,7 @@ onMounted(() => {
         :aria-valuemax="Math.round(sideMax())"
         tabindex="0"
         @pointerdown.prevent="dragSide"
-        @keydown="onGutterKey($event, true)"
+        @keydown="onGutterKey($event, 'side')"
       >
       <aside ref="side">
         <RegionDetail
@@ -240,7 +301,7 @@ onMounted(() => {
           :aria-valuemax="SHARE_MAX"
           tabindex="0"
           @pointerdown.prevent="dragDetail"
-          @keydown="onGutterKey($event, false)"
+          @keydown="onGutterKey($event, 'detail')"
         >
         <RegionTree
           ref="regions"

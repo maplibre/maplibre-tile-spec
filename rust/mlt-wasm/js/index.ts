@@ -13,4 +13,5 @@ export type {
   Region,
 } from "./annotate";
 export { annotateTile } from "./annotate";
+export { tileGeoJson } from "./geojson";
 export { decodeTile } from "./vectorTile";

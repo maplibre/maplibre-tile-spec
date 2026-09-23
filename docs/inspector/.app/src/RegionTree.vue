@@ -3,9 +3,6 @@ import { computed, nextTick, ref, watch } from "vue";
 import type { DumpTree, Region } from "./annotate.ts";
 import { ancestors, bandTint, UNANNOTATED } from "./hex.ts";
 
-/** Containers deeper than this start collapsed, which opens a z14 tile on its ten layers. */
-const AUTO_OPEN_DEPTH = 1;
-
 const props = defineProps<{
   tree: DumpTree;
   activeIndex: number | null;
@@ -20,11 +17,18 @@ const emit = defineEmits<{
 const collapsed = ref(new Set<number>());
 const scroller = ref<HTMLElement | null>(null);
 
+/**
+ * A tile of one layer opens it a single level, which is the whole tile at a glance.
+ * Several layers stay shut: opening them all buries the list a reader came to skim.
+ */
 watch(
   () => props.tree,
   () => {
+    const layers = props.tree.regions.filter(
+      (region) => region.depth === 0 && region.container,
+    ).length;
     collapsed.value = new Set(
-      containers(props.tree, (region) => region.depth > AUTO_OPEN_DEPTH),
+      containers(props.tree, (region) => layers > 1 || region.depth > 0),
     );
   },
   { immediate: true },
