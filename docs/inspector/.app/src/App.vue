@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { useDropZone } from "@vueuse/core";
+import type { FeatureCollection } from "geojson";
 import { computed, nextTick, onMounted, ref, shallowRef, watch } from "vue";
 import {
   type AnnotatedTile,
   annotateTile,
   type DecodedBlob,
+  tileGeoJson,
 } from "./annotate.ts";
 import { deepLinkSearch, readDeepLink, writeDeepLink } from "./deeplink.ts";
 import {
@@ -27,6 +29,7 @@ const root = ref<HTMLElement | null>(null);
 const index = ref<FixtureEntry[]>([]);
 const view = ref<ViewState>(defaultView());
 const tile = shallowRef<AnnotatedTile | null>(null);
+const decoded = shallowRef<FeatureCollection | null>(null);
 const bytes = shallowRef<Uint8Array>(new Uint8Array());
 const fixture = ref<string | null>(null);
 const failure = ref<string | null>(null);
@@ -73,6 +76,13 @@ function decode(regionIndex: number, maxValues: number): DecodedBlob {
 function load(raw: Uint8Array, key: string | null) {
   tile.value?.free();
   tile.value = annotateTile(raw);
+  // The annotated walk survives a tile the decoder chokes on, so the panel goes quiet
+  // rather than taking the whole view down with it.
+  try {
+    decoded.value = tileGeoJson(raw);
+  } catch {
+    decoded.value = null;
+  }
   bytes.value = raw;
   fixture.value = key;
   selected.value = null;
@@ -83,6 +93,7 @@ function load(raw: Uint8Array, key: string | null) {
 function goHome() {
   tile.value?.free();
   tile.value = null;
+  decoded.value = null;
   bytes.value = new Uint8Array();
   fixture.value = null;
   failure.value = null;
@@ -208,6 +219,7 @@ watch(
       :bytes="bytes"
       :decode="decode"
       :error="tile?.error ?? null"
+      :tile="decoded"
     />
     <section v-else class="empty">
       <a

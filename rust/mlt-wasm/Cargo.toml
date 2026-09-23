@@ -27,6 +27,7 @@ minicov = { workspace = true, optional = true }
 mlt-core = { workspace = true, features = ["unstable-v2"] }
 serde.workspace = true
 serde-wasm-bindgen.workspace = true
+serde_json.workspace = true
 wasm-bindgen.workspace = true
 
 [lints]

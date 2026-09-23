@@ -43,6 +43,7 @@ mod tile;
 
 use js_sys::Uint8Array;
 use layer::DecodedLayer;
+use mlt_core::geojson::FeatureCollection;
 use mlt_core::{Decoder, GeometryType, MltError, Parser};
 use tile::MltTile;
 use wasm_bindgen::prelude::*;
@@ -101,6 +102,26 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
     }
 
     Ok(MltTile { layers })
+}
+
+/// Decode a raw MLT tile blob into `GeoJSON`, as the serialized text.
+///
+/// Every feature carries `_layer` and `_extent`, and a v2 tile's vertex-scoped columns ride
+/// along as `m:`-prefixed arrays, one value per vertex.
+///
+/// Text rather than a `JsValue`: building the object graph across the boundary costs a
+/// crossing per value, where one string plus `JSON.parse` is a single copy.
+#[wasm_bindgen(js_name = "tileGeoJson")]
+pub fn tile_geojson(data: &[u8]) -> Result<String, JsError> {
+    let mut parser = Parser::default();
+    let raw_layers = parser.parse_layers(data).map_err(|e| to_js_err(&e))?;
+    let mut dec = Decoder::default();
+    let mut layers = Vec::with_capacity(raw_layers.len());
+    for raw_layer in raw_layers {
+        layers.push(raw_layer.decode_all(&mut dec).map_err(|e| to_js_err(&e))?);
+    }
+    let collection = FeatureCollection::from_layers(layers).map_err(|e| to_js_err(&e))?;
+    Ok(serde_json::to_string(&collection)?)
 }
 
 pub(crate) fn to_js_err(e: &MltError) -> JsError {

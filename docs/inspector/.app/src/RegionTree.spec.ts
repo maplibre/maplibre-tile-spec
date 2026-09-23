@@ -15,6 +15,13 @@ function tree(dump: DumpTree = tinyTree(), sections = false) {
   });
 }
 
+/** A tree opened all the way, which is what most of these cases are about. */
+async function openTree(dump: DumpTree = tinyTree(), sections = false) {
+  const view = tree(dump, sections);
+  await view.get(".treebar button").trigger("click");
+  return view;
+}
+
 function bar(view: ReturnType<typeof tree>) {
   const button = view.get(".treebar button");
   return {
@@ -29,17 +36,36 @@ const flat: DumpTree = {
   regions: [region({ offset: 0, len: 2, label: "name", value: "water" })],
 };
 
+describe("opening a fresh tree", () => {
+  it("opens a lone layer one level, which is the tile at a glance", () => {
+    // layer[0] and what it holds directly, but not inside `geometry`.
+    expect(tree().findAll(".node")).toHaveLength(3);
+  });
+
+  it("leaves every layer shut when the tile has several", () => {
+    const two: DumpTree = {
+      bufLen: 4,
+      regions: [
+        region({ offset: 0, len: 2, label: "layer[0]", container: true }),
+        region({ offset: 0, len: 2, label: "name", depth: 1 }),
+        region({ offset: 2, len: 2, label: "layer[1]", container: true }),
+        region({ offset: 2, len: 2, label: "name", depth: 1 }),
+      ],
+    };
+    expect(tree(two).findAll(".node")).toHaveLength(2);
+  });
+});
+
 describe("picking a section header", () => {
   it("expands a collapsed section", async () => {
     const view = tree();
-    await view.findAll("button.caret")[1].trigger("click");
     expect(view.findAll(".node")).toHaveLength(3);
     await view.findAll("button.label")[2].trigger("click");
     expect(view.findAll(".node")).toHaveLength(5);
   });
 
   it("collapses an open section", async () => {
-    const view = tree();
+    const view = await openTree();
     expect(view.findAll(".node")).toHaveLength(5);
     await view.findAll("button.label")[2].trigger("click");
     expect(view.findAll(".node")).toHaveLength(3);
@@ -47,7 +73,6 @@ describe("picking a section header", () => {
 
   it("still reports the pick either way", async () => {
     const view = tree();
-    await view.findAll("button.caret")[1].trigger("click");
     await view.findAll("button.label")[2].trigger("click");
     await view.findAll("button.label")[2].trigger("click");
     expect(view.emitted("pick")).toEqual([[2], [2]]);
@@ -56,14 +81,14 @@ describe("picking a section header", () => {
 
 describe("the expand and collapse button", () => {
   it("collapses an open tree", async () => {
-    const view = tree();
+    const view = await openTree();
     expect(bar(view).label).toBe("collapse all");
     await bar(view).press();
     expect(view.findAll(".node")).toHaveLength(1);
   });
 
   it("expands again once collapsed", async () => {
-    const view = tree();
+    const view = await openTree();
     await bar(view).press();
     expect(bar(view).label).toBe("expand all");
     await bar(view).press();
@@ -72,7 +97,6 @@ describe("the expand and collapse button", () => {
 
   it("expands first from a half-open tree", async () => {
     const view = tree();
-    await view.findAll("button.caret")[1].trigger("click");
     expect(bar(view).label).toBe("expand all");
     await bar(view).press();
     expect(view.findAll(".node")).toHaveLength(5);
@@ -90,24 +114,24 @@ function rowsWith(view: ReturnType<typeof tree>, name: string): number[] {
 }
 
 describe("row bands", () => {
-  it("tints a container and the rows it holds as one block", () => {
-    const view = tree(tinyTree(), true);
+  it("tints a container and the rows it holds as one block", async () => {
+    const view = await openTree(tinyTree(), true);
     expect(rowsWith(view, "b0")).toEqual([0, 1]);
     expect(rowsWith(view, "b1")).toEqual([2, 3, 4]);
   });
 
-  it("rounds a block off where the next one starts", () => {
-    const view = tree(tinyTree(), true);
+  it("rounds a block off where the next one starts", async () => {
+    const view = await openTree(tinyTree(), true);
     expect(rowsWith(view, "top")).toEqual([0, 2]);
     expect(rowsWith(view, "bottom")).toEqual([1, 4]);
   });
 
-  it("parts a block from the one below it", () => {
-    expect(rowsWith(tree(tinyTree(), true), "tail")).toEqual([1, 4]);
+  it("parts a block from the one below it", async () => {
+    expect(rowsWith(await openTree(tinyTree(), true), "tail")).toEqual([1, 4]);
   });
 
-  it("parts two neighbouring blocks the tint wraps onto one slot", () => {
-    const view = tree(wrappedTree(), true);
+  it("parts two neighbouring blocks the tint wraps onto one slot", async () => {
+    const view = await openTree(wrappedTree(), true);
     expect(rowsWith(view, "b0")).toEqual([0, 11, 12, 13]);
     expect(rowsWith(view, "top")).toEqual([0, 1, 3, 5, 7, 9, 11, 13]);
   });
@@ -130,7 +154,7 @@ function placeRows(view: ReturnType<typeof tree>, rowHeight: number) {
 
 describe("revealing a region", () => {
   it("scrolls a row below the fold to the top", async () => {
-    const view = tree();
+    const view = await openTree();
     const scroll = placeRows(view, 10);
     await view.vm.reveal(4);
     expect(scroll.scrollTop).toBe(40);
