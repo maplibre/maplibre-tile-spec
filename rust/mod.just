@@ -18,11 +18,19 @@ _default: (just '--list' 'rust')
 just *args:
     {{just}} {{args}}
 
-# Run integration tests and save its output as the new expected output
+# Regenerate every generated file that `just rust::test` verifies. Needs nightly for wasm.
 bless *args: (just 'cargo-install' 'cargo-insta') (just 'cargo-install' 'cargo-hack') (just 'cargo-install' 'cargo-nextest')
+    # fixtures first: the snapshots and the docs snippets derive from them
+    {{just}} rust::generate-synthetic-mlts
     cargo hack insta test --test-runner nextest --accept --unreferenced=delete --each-feature {{hack_skip}} \
-        --package mlt-core --package mlt --exclude-no-default-features --exclude-all-features \
+        --package mlt-core --exclude-no-default-features --exclude-all-features \
         {{args}}
+    # mlt is binary-only: without explicit targets cargo-insta demands a lib target
+    cargo hack insta test --test-runner nextest --accept --unreferenced=delete --each-feature {{hack_skip}} \
+        --package mlt --bins --tests --exclude-no-default-features --exclude-all-features \
+        {{args}}
+    {{just}} rust::sync-docs-hexdumps
+    {{just}} rust::wasm-bless
 
 # Run benchmarks
 bench *args: (just 'cargo-install' 'cargo-hack')
@@ -547,6 +555,11 @@ wasm-build: (just 'cargo-install' 'wasm-pack')
 [working-directory: 'mlt-wasm']
 wasm-test: wasm-build
     npm run test
+
+# Update the committed mlt-wasm vitest snapshots, which `wasm-test` only verifies
+[working-directory: 'mlt-wasm']
+wasm-bless: wasm-build
+    npm run test:bless
 
 # Run the mlt-wasm tests against an instrumented build and export LCOV to target/lcov-wasm.info
 [working-directory: 'mlt-wasm']

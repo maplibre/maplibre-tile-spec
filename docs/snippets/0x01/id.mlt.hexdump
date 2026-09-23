@@ -16,7 +16,7 @@
 0000000d                                                                     |   column data (17 B)
 0000000d                                                                     |     column[0] Id (5 B)
 0000000d                                                                     |       id (5 B)
-0000000d  10                                               .                |         stream_type: 0x10 Data(None)
+0000000d  10                                                .                |         stream_type: 0x10 Data(None)
                                                                              |           └ bits 7-4 = 0001 -> category = Data
                                                                              |           └ bits 3-0 = 0000 -> subtype = None
 0000000e  02                                                .                |         encoding: 0x02 logical=Int(None) physical=VarInt

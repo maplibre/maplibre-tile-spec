@@ -777,7 +777,7 @@ mod geometry_layouts {
             [
                 "no m-value section".to_string(),
                 format!("every feature is a {geometry_type}, no types stream"),
-                "extent = 4096".to_string(),
+                "extent 2^(n+6) = 4096".to_string(),
                 "shared presence bitfields = 0".to_string(),
                 format!("geometry layout = {geo_layout}"),
             ]
@@ -790,20 +790,18 @@ mod geometry_layouts {
     fn mixed_geometry_types_keep_their_stream() {
         let l = layer(vec![pt(5, 5), line(&[(0, 0), (10, 10)])], None, &[]);
         let bytes = l.clone().encode(cfg_v2()).unwrap();
-        assert_eq!(
-            header_bits(&bytes),
-            [
-                "no m-value section",
-                "a types stream leads the geometry section",
-                "extent = 4096",
-                "shared presence bitfields = 0",
-                "geometry layout = Lines",
-            ]
-        );
-        assert_eq!(
-            geometry_streams(&bytes),
-            ["types", "part_lengths", "vertices"]
-        );
+        insta::assert_snapshot!(header_bits(&bytes).join("\n"), @"
+        no m-value section
+        a types stream leads the geometry section
+        extent 2^(n+6) = 4096
+        shared presence bitfields = 0
+        geometry layout = Lines
+        ");
+        insta::assert_snapshot!(geometry_streams(&bytes).join("\n"), @"
+        types
+        part_lengths
+        vertices
+        ");
         assert_differential(&l);
     }
 

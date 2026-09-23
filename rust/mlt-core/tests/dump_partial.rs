@@ -29,14 +29,10 @@ fn a_tile_cut_inside_a_stream_payload_seals_every_container_it_left_open() {
       column data 18..40
         column[0] Geometry 18..30
           meta 19..24
-            header 19..23
           stream[0] 24..30
-            header 24..28
         column[1] SharedDict "a" 30..40
           dict_stream[0] 31..36
-            header 31..35
           dict_stream[1] 36..40
-            header 36..40
     "#);
 }
 
