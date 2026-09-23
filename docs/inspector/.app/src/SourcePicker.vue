@@ -66,7 +66,7 @@ function choose(key: string) {
       <button type="button" class="open" @click="sheet?.showModal()">{{
         browse
       }}</button>
-      <button type="button" class="add" @click="chooseFile()">Add tile</button>
+      <button type="button" class="add" @click="chooseFile()">Load Tile</button>
     </div>
 
     <template v-if="props.hero">

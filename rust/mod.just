@@ -25,12 +25,12 @@ bless *args: (just 'cargo-install' 'cargo-insta') (just 'cargo-install' 'cargo-h
     {{just}} rust::generate-synthetic-mlts
     {{just}} rust::sync-docs-hexdumps
 
-    cargo hack insta test --test-runner nextest --dnd --accept --unreferenced=delete --each-feature {{hack_skip}} \
-        --package mlt-core --exclude-no-default-features --exclude-all-features \
-        {{args}}
-    # mlt is binary-only: without explicit targets cargo-insta demands a lib target
-    cargo hack insta test --test-runner nextest --dnd --accept --unreferenced=delete --each-feature {{hack_skip}} \
-        --package mlt --bins --tests --exclude-no-default-features --exclude-all-features \
+    # __private-v2 is the union of mlt-core's test-gating features, so one pass reaches every
+    # snapshot; hotpath stays off because two of mlt's test files are gated on not(hotpath)
+    cargo hack insta test --test-runner nextest --dnd --accept --unreferenced=delete \
+        --all-targets --ignore-unknown-features \
+        --features __private-v2,arbitrary,unstable-v2 \
+        --package mlt-core --package mlt \
         {{args}}
     {{just}} rust::wasm-bless
 
