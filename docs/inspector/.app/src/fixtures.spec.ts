@@ -235,6 +235,34 @@ describe("facetsOf", () => {
     ]);
   });
 
+  it("keeps a lone value when only some entries carry it, which is how a flag reads", () => {
+    const flagged = [
+      { name: "a.mlt", directory: "0x01", bytes: 1, content: ["m-values"] },
+      { name: "b.mlt", directory: "0x01", bytes: 1, content: [] },
+    ];
+    const has = facetsOf(flagged).find((f) => f.label === "has");
+    expect(has?.values).toEqual([{ value: "m-values", count: 1 }]);
+  });
+
+  it("puts data types and tile flags on one row", () => {
+    const mixed = [
+      {
+        name: "a.mlt",
+        directory: "0x01",
+        bytes: 1,
+        content: ["bool", "m-values"],
+      },
+      { name: "b.mlt", directory: "0x01", bytes: 1, content: ["str"] },
+    ];
+    const rows = facetsOf(mixed).filter((f) => f.label === "has");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].values.map((v) => v.value).sort()).toEqual([
+      "bool",
+      "m-values",
+      "str",
+    ]);
+  });
+
   it("drops a value every entry carries, which could not narrow anything", () => {
     const all = [
       { name: "a.mlt", directory: "0x01", bytes: 1, geometries: ["Point"] },
@@ -254,11 +282,18 @@ describe("matchesFacets", () => {
     ).toHaveLength(3);
   });
 
-  it("treats values within one facet as alternatives", () => {
+  it("requires every picked value within one facet, not just one of them", () => {
     const hit = faceted.filter((e) =>
       matchesFacets(e, facets, pick("geometry:Point", "geometry:Polygon")),
     );
-    expect(hit.map((e) => e.name)).toEqual(["a.mlt", "b.mlt", "c.mlt"]);
+    expect(hit.map((e) => e.name)).toEqual(["b.mlt"]);
+  });
+
+  it("finds nothing for two tags, since a tile carries exactly one", () => {
+    const hit = faceted.filter((e) =>
+      matchesFacets(e, facets, pick("tag:0x01", "tag:0x02")),
+    );
+    expect(hit).toEqual([]);
   });
 
   it("requires every picked facet to hold", () => {
@@ -266,5 +301,23 @@ describe("matchesFacets", () => {
       matchesFacets(e, facets, pick("geometry:Polygon", "tag:0x02")),
     );
     expect(hit.map((e) => e.name)).toEqual(["c.mlt"]);
+  });
+
+  it("requires a tile to carry every picked `has` value", () => {
+    const rows = [
+      {
+        name: "both.mlt",
+        directory: "0x02",
+        bytes: 1,
+        content: ["str", "bool"],
+      },
+      { name: "one.mlt", directory: "0x02", bytes: 1, content: ["str"] },
+      { name: "other.mlt", directory: "0x02", bytes: 1, content: ["bool"] },
+    ];
+    const has = facetsOf(rows);
+    const hit = rows.filter((e) =>
+      matchesFacets(e, has, pick("has:str", "has:bool")),
+    );
+    expect(hit.map((e) => e.name)).toEqual(["both.mlt"]);
   });
 });

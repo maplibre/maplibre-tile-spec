@@ -49,7 +49,51 @@ describe("indexFixtures", () => {
       bytes: 230,
       geometries: ["Point"],
       encodings: ["FSST", "Dictionary"],
+      content: ["str"],
     });
+  });
+
+  it("reads property data types from mlt ls", () => {
+    expect(
+      index.filter((entry) => entry.content?.length).length,
+    ).toBeGreaterThan(0);
+    expect(
+      index.find(
+        (entry) => entry.directory === "0x01" && entry.name === "prop_bool.mlt",
+      )?.content,
+    ).toEqual(["bool"]);
+  });
+
+  it("reads a shared-dict column as str, since SharedDict is an encoding", () => {
+    expect(index.some((entry) => entry.content?.includes("shared-dict"))).toBe(
+      false,
+    );
+    const shared = index.find(
+      (entry) =>
+        entry.directory === "0x01" &&
+        entry.name === "props_shared_dict_no_child_name.mlt",
+    );
+    expect(shared?.content).toContain("str");
+    expect(shared?.encodings).toContain("SharedDict");
+  });
+
+  it("flags the tiles that carry m-values", () => {
+    const flagged = index.filter((entry) =>
+      entry.content?.includes("m-values"),
+    );
+    expect(flagged.length).toBeGreaterThan(0);
+    expect(flagged.every((entry) => entry.directory.startsWith("0x02"))).toBe(
+      true,
+    );
+  });
+
+  it("counts an m-value column's data type like a property column's", () => {
+    // mvalues.mlt has no property columns at all, only i32 and u32 m-values
+    expect(
+      index.find(
+        (entry) => entry.directory === "0x02" && entry.name === "mvalues.mlt",
+      )?.content,
+    ).toEqual(["i32", "m-values", "u32"]);
   });
 
   it("orders by directory then by name", () => {

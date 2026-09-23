@@ -12,6 +12,8 @@ export interface FixtureEntry {
   geometries?: string[];
   /** Coarse encodings `mlt ls` found, named as the facet bar shows them. */
   encodings?: string[];
+  /** What the tile holds, as `mlt ls` flags it: str, i32, bool, m-values... */
+  content?: string[];
 }
 
 /** Wire tag of the fixture's directory, e.g. `0x02` for `0x02-rust`. */
@@ -27,10 +29,11 @@ export interface Facet {
   of: (entry: FixtureEntry) => string[];
 }
 
-const FACET_FIELDS: { label: string; of: (e: FixtureEntry) => string[] }[] = [
+const FACET_FIELDS: Omit<Facet, "values">[] = [
   { label: "tag", of: (e) => [fixtureTag(e)] },
   { label: "geometry", of: (e) => e.geometries ?? [] },
   { label: "encoding", of: (e) => e.encodings ?? [] },
+  { label: "has", of: (e) => e.content ?? [] },
 ];
 
 /**
@@ -38,7 +41,8 @@ const FACET_FIELDS: { label: string; of: (e: FixtureEntry) => string[] }[] = [
  * A value every entry carries cannot narrow anything, so it is left out.
  */
 export function facetsOf(entries: FixtureEntry[]): Facet[] {
-  return FACET_FIELDS.flatMap(({ label, of }) => {
+  return FACET_FIELDS.flatMap((field) => {
+    const { of } = field;
     const counts = new Map<string, number>();
     for (const entry of entries)
       for (const value of of(entry))
@@ -47,11 +51,11 @@ export function facetsOf(entries: FixtureEntry[]): Facet[] {
       .filter(([, count]) => count < entries.length)
       .sort((a, b) => b[1] - a[1] || compare(a[0], b[0]))
       .map(([value, count]) => ({ value, count }));
-    return values.length > 1 ? [{ label, values, of }] : [];
+    return values.length > 0 ? [{ ...field, values }] : [];
   });
 }
 
-/** Within a facet the picked values are alternatives; across facets they all have to hold. */
+/** Every picked value has to hold, within a facet and across them: each one narrows. */
 export function matchesFacets(
   entry: FixtureEntry,
   facets: Facet[],
@@ -63,7 +67,7 @@ export function matchesFacets(
       .filter((value) => picked.has(`${facet.label}:${value}`));
     if (wanted.length === 0) return true;
     const has = facet.of(entry);
-    return wanted.some((value) => has.includes(value));
+    return wanted.every((value) => has.includes(value));
   });
 }
 
