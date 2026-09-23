@@ -2,10 +2,13 @@
 import { useFileDialog } from "@vueuse/core";
 import { computed, ref } from "vue";
 import {
+  type Facet,
   type FixtureEntry,
+  facetsOf,
   fixtureKey,
   fuzzyMatch,
   groupFixtures,
+  matchesFacets,
   starterFixtures,
 } from "./fixtures.ts";
 
@@ -20,6 +23,21 @@ const emit = defineEmits<{ fixture: [key: string]; file: [file: File] }>();
 
 const sheet = ref<HTMLDialogElement | null>(null);
 const filter = ref("");
+/** Picked buttons, keyed `<facet>:<value>` so one set covers every row. */
+const picked = ref(new Set<string>());
+
+const facets = computed(() => facetsOf(props.index));
+
+function toggle(facet: Facet, value: string) {
+  const key = `${facet.label}:${value}`;
+  const next = new Set(picked.value);
+  if (!next.delete(key)) next.add(key);
+  picked.value = next;
+}
+
+function clearFacets() {
+  picked.value = new Set();
+}
 
 /** The bar names the loaded tile, which the hero has none of, so it counts the index instead. */
 const browse = computed(() => {
@@ -34,9 +52,12 @@ const starters = computed(() => starterFixtures(props.index));
 /** A thousand-odd fixtures make the filter box the sheet's only way in. */
 const matches = computed(() => {
   const needle = filter.value.trim().toLowerCase();
-  if (needle === "") return props.index;
-  return props.index.filter((entry) =>
-    fuzzyMatch(fixtureKey(entry).toLowerCase(), needle),
+  const chosen = facets.value;
+  const marks = picked.value;
+  return props.index.filter(
+    (entry) =>
+      matchesFacets(entry, chosen, marks) &&
+      (needle === "" || fuzzyMatch(fixtureKey(entry).toLowerCase(), needle)),
   );
 });
 
@@ -108,6 +129,31 @@ function choose(key: string) {
             placeholder="Filter by name - fsst, polygon, nested..."
             aria-label="Filter fixtures"
           >
+          <div v-for="facet in facets" :key="facet.label" class="facet">
+            <span class="facet-label">{{ facet.label }}</span>
+            <button
+              v-for="option in facet.values"
+              :key="option.value"
+              type="button"
+              class="chip"
+              :class="{ on: picked.has(`${facet.label}:${option.value}`) }"
+              :aria-pressed="picked.has(`${facet.label}:${option.value}`)"
+              @click="toggle(facet, option.value)"
+            >
+              {{ option.value }}<span class="tally">{{ option.count }}</span>
+            </button>
+          </div>
+          <p class="tally-line">
+            {{ matches.length }}
+            of {{ props.index.length }}
+            <button
+              v-if="picked.size"
+              type="button"
+              class="clear"
+              @click="clearFacets"
+              >clear filters</button
+            >
+          </p>
         </header>
         <div class="groups">
           <section v-for="group in groups" :key="group.label">
@@ -134,6 +180,64 @@ function choose(key: string) {
 </template>
 
 <style scoped>
+.facet {
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+.facet-label {
+  color: var(--muted);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  width: 4.6rem;
+  flex: 0 0 auto;
+}
+.chip {
+  display: inline-flex;
+  gap: 0.3rem;
+  align-items: baseline;
+  background: var(--control);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-inline);
+  font: inherit;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.45rem;
+  cursor: pointer;
+}
+.chip:hover {
+  background: var(--hover);
+}
+.chip.on {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent-rule);
+}
+.tally {
+  color: var(--dim);
+  font-size: 0.62rem;
+}
+.chip.on .tally {
+  color: inherit;
+}
+.tally-line {
+  margin: 0.55rem 0 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+.clear {
+  background: none;
+  border: 0;
+  color: var(--accent-rule);
+  font: inherit;
+  font-size: 0.68rem;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0 0 0 0.4rem;
+}
 .source {
   display: flex;
   gap: 0.75rem;
