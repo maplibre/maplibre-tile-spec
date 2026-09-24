@@ -193,6 +193,35 @@ describe("the history a tile leaves", () => {
     app.unmount();
   });
 
+  /** Back twice in a row, where the first tile is still in flight when the second lands. */
+  it("drops a tile that arrives after the move away from it", async () => {
+    const pending: ((tile: Response) => void)[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url === "fixtures.json") return Response.json(index);
+        if (url === "fixtures/0x01/point.mlt")
+          return new Promise<Response>((resolve) => pending.push(resolve));
+        return new Response(new Uint8Array(8));
+      }),
+    );
+    history.replaceState(null, "", "/?fixture=0x02/line.mlt");
+    const app = mount(App);
+    await flushPromises();
+
+    history.replaceState(null, "", "/?fixture=0x01/point.mlt");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    history.replaceState(null, "", "/");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    await flushPromises();
+    expect(app.find(".empty").exists()).toBe(true);
+
+    pending[0]?.(new Response(new Uint8Array(8)));
+    await flushPromises();
+    expect(app.find(".empty").exists()).toBe(true);
+    app.unmount();
+  });
+
   it("returns to the home screen on the way back past the first tile", async () => {
     const { app } = await opened();
     history.replaceState(null, "", "/");

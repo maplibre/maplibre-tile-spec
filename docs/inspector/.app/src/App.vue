@@ -94,8 +94,28 @@ function load(raw: Uint8Array, key: string | null) {
   view.value.layer = null;
 }
 
+/**
+ * Counts the moves between views, so a tile that arrives after the next move began is
+ * dropped rather than shown. Back pressed twice starts a restore while the one before it
+ * is still fetching, and the slower of the two would otherwise land last and leave the app
+ * on a tile the address bar no longer names.
+ */
+let moves = 0;
+
+/** Begins a move and hands back its number, which every step after an await re-checks. */
+function move(): number {
+  moves += 1;
+  return moves;
+}
+
+/** Whether `at` is still the move in hand, or a later one has taken the view over. */
+function current(at: number): boolean {
+  return at === moves;
+}
+
 /** Drops the tile so the empty state takes over, which is the app's home screen. */
 function goHome() {
+  move();
   tile.value?.free();
   tile.value = null;
   decoded.value = null;
@@ -106,21 +126,29 @@ function goHome() {
   view.value.layer = null;
 }
 
-async function pickFixture(key: string) {
+/** Fetches `key` and shows it, as the move `at`, which a later move cancels. */
+async function open(key: string, at: number) {
   failure.value = null;
   try {
-    load(await loadFixture(key), key);
+    const raw = await loadFixture(key);
+    if (current(at)) load(raw, key);
   } catch (cause) {
-    failure.value = String(cause);
+    if (current(at)) failure.value = String(cause);
   }
 }
 
+function pickFixture(key: string): Promise<void> {
+  return open(key, move());
+}
+
 async function pickFile(file: File) {
+  const at = move();
   failure.value = null;
   try {
-    load(new Uint8Array(await file.arrayBuffer()), null);
+    const raw = new Uint8Array(await file.arrayBuffer());
+    if (current(at)) load(raw, null);
   } catch (cause) {
-    failure.value = String(cause);
+    if (current(at)) failure.value = String(cause);
   }
 }
 
@@ -143,13 +171,14 @@ async function restore(target: DeepLink) {
     goHome();
     return;
   }
+  const at = move();
   if (target.fixture !== fixture.value) {
-    await pickFixture(target.fixture);
-    if (tile.value === null) return;
+    await open(target.fixture, at);
+    if (!current(at) || tile.value === null) return;
   }
   view.value.layer = target.layer;
   await nextTick();
-  selected.value = target.region;
+  if (current(at)) selected.value = target.region;
 }
 
 onMounted(async () => {
