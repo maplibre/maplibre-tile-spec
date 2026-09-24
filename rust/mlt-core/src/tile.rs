@@ -360,6 +360,24 @@ impl TileLayer {
         &mut self.features
     }
 
+    /// Widen every `I8` and `U8` property column to `I32` and `U32`.
+    pub(crate) fn widen_8bit_ints(&mut self) {
+        for kind in &mut self.property_kinds {
+            if *kind == PropKind::I8 {
+                *kind = PropKind::I32;
+            } else if *kind == PropKind::U8 {
+                *kind = PropKind::U32;
+            }
+        }
+        for prop in self.features.iter_mut().flat_map(|f| &mut f.properties) {
+            if let PropValue::I8(v) = *prop {
+                *prop = PropValue::I32(v.map(i32::from));
+            } else if let PropValue::U8(v) = *prop {
+                *prop = PropValue::U32(v.map(u32::from));
+            }
+        }
+    }
+
     #[must_use]
     pub fn feature_count(&self) -> usize {
         self.features.len()

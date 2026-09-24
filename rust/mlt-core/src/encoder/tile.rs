@@ -530,8 +530,6 @@ mod tests {
     fn null_first_feature_across_types() {
         let props = vec![
             StagedProperty::opt_bool("b", vec![None, Some(true)]),
-            StagedProperty::opt_i8("i8", vec![None, Some(-1)]),
-            StagedProperty::opt_u8("u8", vec![None, Some(2)]),
             StagedProperty::opt_i32("i32", vec![None, Some(-3)]),
             StagedProperty::opt_u32("u32", vec![None, Some(4)]),
             StagedProperty::opt_i64("i64", vec![None, Some(-5)]),
@@ -546,27 +544,23 @@ mod tests {
         // Feature 0: every column is null -> typed null for each column
         let n = tile.features()[0].properties();
         assert_eq!(n[0], PropValue::Bool(None));
-        assert_eq!(n[1], PropValue::I8(None));
-        assert_eq!(n[2], PropValue::U8(None));
-        assert_eq!(n[3], PropValue::I32(None));
-        assert_eq!(n[4], PropValue::U32(None));
-        assert_eq!(n[5], PropValue::I64(None));
-        assert_eq!(n[6], PropValue::U64(None));
-        assert_eq!(n[7], PropValue::F32(None));
-        assert_eq!(n[8], PropValue::F64(None));
-        assert_eq!(n[9], PropValue::Str(None));
+        assert_eq!(n[1], PropValue::I32(None));
+        assert_eq!(n[2], PropValue::U32(None));
+        assert_eq!(n[3], PropValue::I64(None));
+        assert_eq!(n[4], PropValue::U64(None));
+        assert_eq!(n[5], PropValue::F32(None));
+        assert_eq!(n[6], PropValue::F64(None));
+        assert_eq!(n[7], PropValue::Str(None));
 
         // Feature 1: every column has its typed non-null value
         let p = tile.features()[1].properties();
         assert_eq!(p[0], PropValue::Bool(Some(true)));
-        assert_eq!(p[1], PropValue::I8(Some(-1)));
-        assert_eq!(p[2], PropValue::U8(Some(2)));
-        assert_eq!(p[3], PropValue::I32(Some(-3)));
-        assert_eq!(p[4], PropValue::U32(Some(4)));
-        assert_eq!(p[5], PropValue::I64(Some(-5)));
-        assert_eq!(p[6], PropValue::U64(Some(6)));
-        assert_eq!(p[7], PropValue::F32(Some(7.0)));
-        assert_eq!(p[8], PropValue::F64(Some(8.0)));
-        assert_eq!(p[9], PropValue::Str(Some("ok".into())));
+        assert_eq!(p[1], PropValue::I32(Some(-3)));
+        assert_eq!(p[2], PropValue::U32(Some(4)));
+        assert_eq!(p[3], PropValue::I64(Some(-5)));
+        assert_eq!(p[4], PropValue::U64(Some(6)));
+        assert_eq!(p[5], PropValue::F32(Some(7.0)));
+        assert_eq!(p[6], PropValue::F64(Some(8.0)));
+        assert_eq!(p[7], PropValue::Str(Some("ok".into())));
     }
 }

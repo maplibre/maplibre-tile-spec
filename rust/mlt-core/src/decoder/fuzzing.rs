@@ -28,10 +28,8 @@ impl From<ColumnType> for LayerOrdering {
         use ColumnType::*;
         match typ {
             OptId | Id | LongId | OptLongId => Self::Id,
-            Bool | OptBool | I8 | OptI8 | U8 | OptU8 | I32 | OptI32 | U32 | OptU32 | I64
-            | OptI64 | U64 | OptU64 | F32 | OptF32 | F64 | OptF64 | Str | OptStr | SharedDict => {
-                Self::Property
-            }
+            Bool | OptBool | I32 | OptI32 | U32 | OptU32 | I64 | OptI64 | U64 | OptU64 | F32
+            | OptF32 | F64 | OptF64 | Str | OptStr | SharedDict => Self::Property,
             Geometry => Self::Geometry,
         }
     }

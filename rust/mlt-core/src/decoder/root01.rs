@@ -83,16 +83,6 @@ impl<'a> Layer01<'a, Lazy> {
                     (input, value) = header01::parse_bool_stream(input, parser)?;
                     properties.push(Raw(RP::Bool(RawScalar::new(name, presence, value))));
                 }
-                ColumnType::I8 | ColumnType::OptI8 => {
-                    (input, presence) = parse_optional(column.typ, input, parser)?;
-                    (input, value) = header01::parse_stream(input, ValueKind::Int, parser)?;
-                    properties.push(Raw(RP::I8(RawScalar::new(name, presence, value))));
-                }
-                ColumnType::U8 | ColumnType::OptU8 => {
-                    (input, presence) = parse_optional(column.typ, input, parser)?;
-                    (input, value) = header01::parse_stream(input, ValueKind::Int, parser)?;
-                    properties.push(Raw(RP::U8(RawScalar::new(name, presence, value))));
-                }
                 ColumnType::I32 | ColumnType::OptI32 => {
                     (input, presence) = parse_optional(column.typ, input, parser)?;
                     (input, value) = header01::parse_stream(input, ValueKind::Int, parser)?;
@@ -350,8 +340,8 @@ fn parse_columns_meta<'a>(
     parser: &mut Parser,
 ) -> MltRefResult<'a, (Vec<Column<'a>>, u32)> {
     use crate::decoder::ColumnType::{
-        Bool, F32, F64, Geometry, I8, I32, I64, Id, LongId, OptBool, OptF32, OptF64, OptI8, OptI32,
-        OptI64, OptId, OptLongId, OptStr, OptU8, OptU32, OptU64, SharedDict, Str, U8, U32, U64,
+        Bool, F32, F64, Geometry, I32, I64, Id, LongId, OptBool, OptF32, OptF64, OptI32, OptI64,
+        OptId, OptLongId, OptStr, OptU32, OptU64, SharedDict, Str, U32, U64,
     };
 
     let mut col_info = Vec::with_capacity(column_count.into_usize());
@@ -381,8 +371,8 @@ fn parse_columns_meta<'a>(
                 }
                 typ.children = children;
             }
-            Bool | OptBool | I8 | OptI8 | U8 | OptU8 | I32 | OptI32 | U32 | OptU32 | I64
-            | OptI64 | U64 | OptU64 | F32 | OptF32 | F64 | OptF64 | Str | OptStr => {}
+            Bool | OptBool | I32 | OptI32 | U32 | OptU32 | I64 | OptI64 | U64 | OptU64 | F32
+            | OptF32 | F64 | OptF64 | Str | OptStr => {}
         }
         col_info.push(typ);
     }
