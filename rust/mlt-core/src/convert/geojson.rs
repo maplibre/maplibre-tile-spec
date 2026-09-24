@@ -33,14 +33,14 @@ impl FeatureCollection {
             // Read the v2-only columns first: the rest of the loop needs only the
             // shared ones, which is all `parsed` keeps.
             #[cfg(feature = "unstable-v2")]
-            let (mut m_values, mut nested) = match &layer {
-                ParsedLayer::Tag01(_) | ParsedLayer::Unknown(_) => {
-                    (Vec::new().into_iter(), Vec::new().into_iter())
-                }
-                ParsedLayer::Tag02(l) => (
-                    m_value_properties(l)?.into_iter(),
-                    nested_properties(l)?.into_iter(),
-                ),
+            let mut m_values = match &layer {
+                ParsedLayer::Tag01(_) | ParsedLayer::Unknown(_) => Vec::new().into_iter(),
+                ParsedLayer::Tag02(l) => m_value_properties(l)?.into_iter(),
+            };
+            #[cfg(feature = "unstable-v2")]
+            let mut nested = match &layer {
+                ParsedLayer::Tag01(_) | ParsedLayer::Unknown(_) => Vec::new().into_iter(),
+                ParsedLayer::Tag02(l) => nested_properties(l)?.into_iter(),
             };
             let parsed = match layer {
                 ParsedLayer::Tag01(l) => l,
