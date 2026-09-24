@@ -152,7 +152,8 @@ const scopeLayer = computed(() => {
   if (names.length === 0 || index === null) return null;
   const regions = props.tree.regions;
   const top = ancestors(regions, index)[0] ?? index;
-  const at = /^layer\[(\d+)\]$/.exec(regions[top].label);
+  // Unanchored at the end: the label carries the layer's name after its index.
+  const at = /^layer\[(\d+)\]/.exec(regions[top].label);
   return at === null ? null : (names[Number(at[1])] ?? null);
 });
 const owners = computed(() => byteOwners(props.tree));

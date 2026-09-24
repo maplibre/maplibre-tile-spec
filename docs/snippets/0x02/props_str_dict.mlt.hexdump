@@ -1,4 +1,4 @@
-00000000                                                                     | layer[0] (66 B)
+00000000                                                                     | layer[0] "layer1" (66 B)
 00000000  41                                                A                |   size: 65 (varint) - tag + body
 00000001  02                                                .                |   tag: 0x02 -> Tag02
 00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"

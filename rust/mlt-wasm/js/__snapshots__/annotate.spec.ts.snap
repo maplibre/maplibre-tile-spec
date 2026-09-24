@@ -4,7 +4,7 @@ exports[`a tile truncated mid-layer > carries the walker failure on the handle 1
 
 exports[`a tile truncated mid-layer > keeps the regions the walk did reach 1`] = `
 [
-  "layer[0]",
+  "layer[0] "layer1"",
   "size",
   "tag",
   "name",
@@ -52,7 +52,7 @@ exports[`annotateTile > annotates a v1 tile 1`] = `
       "container": true,
       "depth": 0,
       "kind": "meta",
-      "label": "layer[0]",
+      "label": "layer[0] "layer1"",
       "len": 30,
       "offset": 0,
       "value": null,
@@ -547,7 +547,7 @@ exports[`annotateTile > annotates a v2 tile 1`] = `
       "container": true,
       "depth": 0,
       "kind": "meta",
-      "label": "layer[0]",
+      "label": "layer[0] "layer1"",
       "len": 22,
       "offset": 0,
       "value": null,

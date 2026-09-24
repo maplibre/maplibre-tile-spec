@@ -436,9 +436,9 @@ describe("arrow keys", () => {
 const pairTree: DumpTree = {
   bufLen: 4,
   regions: [
-    region({ offset: 0, len: 2, label: "layer[0]", container: true }),
+    region({ offset: 0, len: 2, label: 'layer[0] "roads"', container: true }),
     region({ offset: 0, len: 2, label: "name", depth: 1 }),
-    region({ offset: 2, len: 2, label: "layer[1]", container: true }),
+    region({ offset: 2, len: 2, label: 'layer[1] "water"', container: true }),
     region({ offset: 2, len: 2, label: "name", depth: 1 }),
   ],
 };
