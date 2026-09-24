@@ -23,11 +23,11 @@
                                                                              |         decoded: [13, 42, 13, 42, 13, 42, 13, 42, 13, 42, 13, 42]
 0000001b  01                                                .                |   column_count: 1
 0000001c                                                                     |   column[0] OptF64 "val" (19 B)
-0000001c  1a                                                .                |     type: 0x1A Inline F64
-                                                                             |       └ bits 7-4 = 0001 -> presence = Inline
+0000001c  1a                                                .                |     type: 0x1A Inline(Bitmap) F64
+                                                                             |       └ bits 7-4 = 0001 -> presence = Inline(Bitmap)
                                                                              |       └ bits 3-0 = 1010 -> data type = F64
 0000001d  03 76 61 6c                                       .val             |     name: "val"
-00000021  2d                                                -                |     present [Present Bool(None)/None, 6 values, 1 B]
+00000021  2d                                                -                |     present (bitmap) [Present Bool(None)/None, 6 values, 1 B]
                                                                              |       decoded: 6 present-bits: 101101
 00000022                                                                     |     data (13 B)
 00000022  28                                                (                |       encoding: 0x28 logical=Alp physical=VarInt

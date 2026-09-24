@@ -23,11 +23,11 @@
                                                                              |         decoded: [11, 52, 71, 72]
 00000013  01                                                .                |   column_count: 1
 00000014                                                                     |   column[0] OptStr "val" (46 B)
-00000014  1b                                                .                |     type: 0x1B Inline Str
-                                                                             |       └ bits 7-4 = 0001 -> presence = Inline
+00000014  1b                                                .                |     type: 0x1B Inline(Bitmap) Str
+                                                                             |       └ bits 7-4 = 0001 -> presence = Inline(Bitmap)
                                                                              |       └ bits 3-0 = 1011 -> data type = Str
 00000015  03 76 61 6c                                       .val             |     name: "val"
-00000019  03                                                .                |     present [Present Bool(None)/None, 2 values, 1 B]
+00000019  03                                                .                |     present (bitmap) [Present Bool(None)/None, 2 values, 1 B]
                                                                              |       decoded: 2 present-bits: 11
 0000001a                                                                     |     codes (4 B)
 0000001a  21                                                !                |       encoding: 0x21 logical=Rle physical=implied

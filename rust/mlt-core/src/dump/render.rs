@@ -208,6 +208,13 @@ fn decode_blob(info: BlobInfo, data: &[u8], dec: &mut Decoder) -> String {
             Err(e) => format!("<undecodable: {e}>"),
         },
         #[cfg(feature = "unstable-v2")]
+        DecodeHint::PresenceCoded(coding) => {
+            match crate::codecs::presence_coding::read(data, meta.num_values, coding) {
+                Ok((_, bits)) => fmt_bits(bits.len(), |i| bits[i]),
+                Err(e) => format!("<undecodable: {e}>"),
+            }
+        }
+        #[cfg(feature = "unstable-v2")]
         DecodeHint::PackedBits => {
             let n = meta.num_values.into_usize();
             let available = data.len() * 8;

@@ -307,7 +307,7 @@ fn a_feature_with_no_values_stores_an_inline_bitfield_and_no_values() {
     extent 2^(n+6) = 4096
     shared presence bitfields = 0
     geometry layout = Lines
-    m_value[0] OptI32 "m": presence = Inline
+    m_value[0] OptI32 "m": presence = Inline(Bitmap)
     "#);
     // Four values for the two features that have them, not six.
     let (count, _) = region_after(&bytes, "m_value[", "num_values");

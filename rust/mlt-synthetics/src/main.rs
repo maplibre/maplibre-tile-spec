@@ -962,6 +962,7 @@ fn generate_properties(w: &mut SynthWriter) {
     generate_float_codecs(w);
     generate_props_str(w);
     generate_shared_presence(w);
+    generate_presence_codings(w);
     generate_shared_dictionaries(w);
 }
 
@@ -1560,6 +1561,73 @@ fn points(count: usize) -> Layer {
 /// One point per feature of a presence mask.
 fn masked_points(mask: &str) -> Layer {
     points(mask.len())
+}
+
+/// A mask of `len` features, present exactly where `present` says.
+fn mask_of(len: usize, present: impl Fn(usize) -> bool) -> String {
+    (0..len)
+        .map(|i| if present(i) { 'x' } else { '-' })
+        .collect()
+}
+
+/// One fixture per presence coding, each over a mask that coding stores smallest.
+///
+/// The three compete by size on every column, so a mask is what picks the coding:
+/// scattered bits over few features favor the bitmap, one block of present features
+/// favors runs, and a handful of present features spread over many favors indices.
+///
+/// v2 only: v1 has one way of storing presence and nothing here would vary it.
+fn generate_presence_codings(w: &mut SynthWriter) {
+    let e = E::varint();
+
+    // Eight features, every other one present. Runs would take a varint each and
+    // indices four, where the whole bitmap is one byte.
+    let scattered = mask_of(8, |i| i % 2 == 0);
+    masked_points(&scattered)
+        .no_v1()
+        .add_prop(e, P::opt_u32("val", masked(&scattered)))
+        .write(w, "presence_bitmap");
+
+    // One block of present features: three runs against a 25-byte bitmap.
+    let block = mask_of(200, |i| (50..150).contains(&i));
+    masked_points(&block)
+        .no_v1()
+        .add_prop(e, P::opt_u32("val", masked(&block)))
+        .write(w, "presence_runs");
+
+    // Two present features in three hundred: two gaps against a 38-byte bitmap.
+    let sparse = mask_of(300, |i| i == 100 || i == 250);
+    masked_points(&sparse)
+        .no_v1()
+        .add_prop(e, P::opt_u32("val", masked(&sparse)))
+        .write(w, "presence_indices");
+
+    // All three in one layer, which is what a column-by-column choice is for:
+    // a layer's columns do not agree on how their nulls are shaped.
+    masked_points(&block)
+        .no_v1()
+        .add_prop(
+            e,
+            P::opt_u32("bitmap", masked(&mask_of(200, |i| i % 2 == 0))),
+        )
+        .add_prop(e, P::opt_u32("runs", masked(&block)))
+        .add_prop(e, P::opt_u32("indices", masked(&mask_of(200, |i| i == 77))))
+        .add_prop(e, P::u32("always", vec![7; block.len()]))
+        .write(w, "presence_mixed");
+
+    // The same three codings again, this time on shared fields, which name their
+    // coding in a byte of their own rather than in a column's nibble.
+    for (name, mask) in [
+        ("presence_shared_bitmap", &scattered),
+        ("presence_shared_runs", &block),
+        ("presence_shared_indices", &sparse),
+    ] {
+        masked_points(mask)
+            .no_v1()
+            .add_prop(e, P::opt_u32("a", masked(mask)))
+            .add_prop(e, P::opt_u32("b", masked(mask)))
+            .write(w, name);
+    }
 }
 
 /// Columns that are null on exactly the same features.

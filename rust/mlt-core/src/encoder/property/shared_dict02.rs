@@ -9,7 +9,7 @@ use crate::codecs::front_coding::front_code;
 use crate::codecs::fsst::{compress_fsst_bytes, compress_fsst_with};
 use crate::decoder::stream::header02::{Count02, Family, StrLayout, WordWidth};
 use crate::decoder::{Column02, ColumnType02, DataType02, DictLayout, Presence02, SharedDictKind};
-use crate::encoder::encode02::{SharedPresence, write_presence_bits};
+use crate::encoder::encode02::{SharedPresence, write_inline_presence};
 use crate::encoder::model::{StrAt, StreamCtx};
 use crate::encoder::property::shared_dict::collect_staged_shared_dict_spans;
 use crate::encoder::property::strings::{
@@ -157,8 +157,8 @@ fn write_children02(
         let data = enc.data_mut();
         data.push(ColumnType02::new(where_, DataType02::Str).to_byte());
         data.write_string(&item.suffix)?;
-        if let (Presence02::Inline, Some(mask)) = (where_, &presence) {
-            write_presence_bits(enc.data_mut(), mask);
+        if let Some(mask) = &presence {
+            write_inline_presence(enc.data_mut(), where_, mask);
         }
 
         enc.count_context = Count02::Implied(u32::try_from(child_codes.len())?);

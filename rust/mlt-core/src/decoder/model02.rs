@@ -3,6 +3,7 @@
 use num_enum::TryFromPrimitive;
 
 use crate::codecs::morton::{deinterleave_u64, interleave_u32};
+use crate::codecs::presence_coding::PresenceCoding;
 use crate::codecs::varint::parse_varint;
 use crate::decoder::GeometryType;
 use crate::{MltError, MltRefResult, MltResult};
@@ -292,17 +293,21 @@ impl SharedDictKind {
     }
 }
 
-/// Where a v2 column's presence bitfield lives, the high nibble of the column
-/// type byte.
+/// Where a v2 column's presence bits live and how they are coded, the high nibble
+/// of the column type byte.
 ///
-/// Nibbles `0` and `1` describe a bitfield the column owns, `2..=8` point at one
-/// of the layer's shared bitfields, and `9..=15` are reserved.
+/// Nibble `0` says there are none; `1`-`3` name a [`PresenceCoding`] the column
+/// carries itself; `4`-`15` point at one of the layer's shared bitfields.
+///
+/// The coding rides in the nibble rather than in a byte of its own because the
+/// bitmap is still the right answer for most columns, and a tag byte would charge
+/// every one of those for the two that are not.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Presence02 {
-    /// Every feature has a value and no bitfield is stored.
+    /// Every feature has a value and nothing is stored.
     AllPresent,
-    /// A `ceil(feature_count/8)` byte bitfield follows the column name.
-    Inline,
+    /// The column carries its own presence bits, in this coding, after its name.
+    Inline(PresenceCoding),
     /// The column reads the layer's shared presence bitfield at this index, so
     /// columns that are null on the same features store one bitfield between them.
     /// See [`LayerLayout::shared_presence`].
@@ -313,11 +318,8 @@ impl Presence02 {
     /// Nibble of [`Self::AllPresent`], already shifted into place.
     const ALL_PRESENT: u8 = 0b0000_0000;
 
-    /// Nibble of [`Self::Inline`], already shifted into place.
-    const INLINE: u8 = 0b0001_0000;
-
     /// Nibble of `Shared(0)`; `Shared(i)` is this plus `i << 4`.
-    const SHARED_BASE: u8 = 0b0010_0000;
+    const SHARED_BASE: u8 = 0b0100_0000;
 
     /// Read a masked presence nibble against a layer that stores `shared_count`
     /// shared bitfields.
@@ -328,8 +330,9 @@ impl Presence02 {
     pub(crate) fn parse(nibble: u8, shared_count: u8) -> Option<Self> {
         match nibble {
             Self::ALL_PRESENT => Some(Self::AllPresent),
-            Self::INLINE => Some(Self::Inline),
-            // Both arms above are below SHARED_BASE, so this cannot underflow.
+            _ if nibble < Self::SHARED_BASE => {
+                PresenceCoding::from_byte(nibble >> 4).map(Self::Inline)
+            }
             _ => {
                 let index = (nibble - Self::SHARED_BASE) >> 4;
                 (index < shared_count).then_some(Self::Shared(index))
@@ -347,7 +350,7 @@ impl Presence02 {
     fn to_nibble(self) -> u8 {
         match self {
             Self::AllPresent => Self::ALL_PRESENT,
-            Self::Inline => Self::INLINE,
+            Self::Inline(coding) => (coding as u8) << 4,
             Self::Shared(index) => {
                 debug_assert!(index < LayerLayout::MAX_SHARED_PRESENCE);
                 Self::SHARED_BASE + (index << 4)
@@ -880,9 +883,10 @@ impl LayerLayout {
     pub(crate) const GEO_LAYOUT_MASK: u8 = 0b0000_1111;
 
     /// Largest shared presence column count a layer can use.
-    /// A column names one through its [`Presence02::Shared`] nibble, which reaches
-    /// index 13, so the 15th count the nibble can express is one no column could read.
-    pub(crate) const MAX_SHARED_PRESENCE: u8 = 14;
+    /// A column names one through its [`Presence02::Shared`] nibble, which starts at
+    /// `4` and so reaches index 11; a larger count declares a bitfield no column
+    /// could read.
+    pub(crate) const MAX_SHARED_PRESENCE: u8 = 12;
 
     #[must_use]
     pub(crate) fn new(geometry: GeoLayout, shared_presence: u8) -> Self {
@@ -982,12 +986,26 @@ mod tests {
 
     #[rstest]
     #[case::id(0b0000_0000, Presence02::AllPresent, DataType02::Id)]
-    #[case::opt_id(0b0001_0000, Presence02::Inline, DataType02::Id)]
+    #[case::opt_id(
+        0b0001_0000,
+        Presence02::Inline(PresenceCoding::Bitmap),
+        DataType02::Id
+    )]
     #[case::i32(0b0000_0101, Presence02::AllPresent, DataType02::I32)]
-    #[case::opt_f64(0b0001_1010, Presence02::Inline, DataType02::F64)]
+    #[case::opt_f64(
+        0b0001_1010,
+        Presence02::Inline(PresenceCoding::Bitmap),
+        DataType02::F64
+    )]
+    #[case::runs(0b0010_0101, Presence02::Inline(PresenceCoding::Runs), DataType02::I32)]
+    #[case::indices(
+        0b0011_1010,
+        Presence02::Inline(PresenceCoding::Indices),
+        DataType02::F64
+    )]
     #[case::str(0b0000_1011, Presence02::AllPresent, DataType02::Str)]
-    #[case::first_shared(0b0010_0101, Presence02::Shared(0), DataType02::I32)]
-    #[case::last_shared(0b1111_1010, Presence02::Shared(13), DataType02::F64)]
+    #[case::first_shared(0b0100_0101, Presence02::Shared(0), DataType02::I32)]
+    #[case::last_shared(0b1111_1010, Presence02::Shared(11), DataType02::F64)]
     fn column_type_byte_roundtrip(
         #[case] byte: u8,
         #[case] presence: Presence02,
@@ -1001,7 +1019,10 @@ mod tests {
     #[rstest]
     #[case::values(
         0b0001_0101,
-        Column02::Values(ColumnType02::new(Presence02::Inline, DataType02::I32))
+        Column02::Values(ColumnType02::new(
+            Presence02::Inline(PresenceCoding::Bitmap),
+            DataType02::I32
+        ))
     )]
     #[case::plain_shared_dict(0b0000_1111, Column02::SharedDict(SharedDictKind::Plain))]
     #[case::fsst_shared_dict(0b0001_1111, Column02::SharedDict(SharedDictKind::Fsst))]
@@ -1076,10 +1097,11 @@ mod tests {
     #[rstest]
     #[case::shared_dict_is_not_a_data_type(0b0000_1111, ALL_SHARED)]
     #[case::shared_ref_past_declared_count_over_a_nested_root(0b1001_1100, 4)]
-    #[case::shared_ref_past_declared_count(0b1001_0101, 7)]
-    #[case::shared_ref_one_past_the_last_bitfield(0b1111_0101, 13)]
-    #[case::shared_ref_without_shared_columns(0b0010_0101, 0)]
-    #[case::shared_ref_past_declared_count(0b0100_0101, 1)]
+    #[case::shared_ref_past_declared_count(0b1011_0101, 7)]
+    #[case::shared_ref_one_past_the_last_bitfield(0b1111_0101, 11)]
+    #[case::shared_ref_without_shared_columns(0b0100_0101, 0)]
+    #[case::shared_ref_past_declared_count(0b0101_0101, 1)]
+    #[case::unassigned_inline_coding(0b0101_0101, 0)]
     fn column_type_byte_rejects_unassigned(#[case] byte: u8, #[case] shared_count: u8) {
         let err = ColumnType02::parse(byte, shared_count).unwrap_err();
         assert!(matches!(err, MltError::ParsingColumnType(b) if b == byte));
@@ -1145,7 +1167,7 @@ mod tests {
     #[case::multi_polygons(0b0000_1010, 0, GeoLayout::MultiPolygons)]
     #[case::one_shared_presence(0b0001_0100, 1, GeoLayout::Lines)]
     #[case::eight_shared_presence(0b1000_0110, 8, GeoLayout::MultiLines)]
-    #[case::max_shared_presence(0b1110_0000, ALL_SHARED, GeoLayout::Points)]
+    #[case::max_shared_presence(0b1100_0000, ALL_SHARED, GeoLayout::Points)]
     fn layer_layout_byte_roundtrip(
         #[case] byte: u8,
         #[case] shared_presence: u8,

@@ -4,12 +4,12 @@
 //! role comes from its position, the count from the envelope unless the header carries one.
 
 use bitvec::order::Lsb0;
-use bitvec::slice::BitSlice;
-use bitvec::view::BitView as _;
+use bitvec::vec::BitVec;
 use usize_cast::IntoUsize as _;
 
 use super::model::{BitField, BlobInfo, DecodeHint};
 use super::walker::Walker;
+use crate::codecs::presence_coding::{self, PresenceCoding};
 use crate::codecs::varint::parse_varint;
 use crate::decoder::nested::{
     RowShapes, parse_row_shapes, presence_popcount, reject_shaped_child_presence,
@@ -67,9 +67,18 @@ impl<'a> Walker<'a> {
         if layout.shared_presence > 0 {
             let pi = self.open(input, "shared_presence".to_string());
             for i in 0..layout.shared_presence {
+                let byte;
+                (input, byte) = self.field(input, "coding", parse_u8, |b| {
+                    Some(match PresenceCoding::from_byte(*b) {
+                        Some(c) => format!("0x{b:02X} {c:?}"),
+                        None => format!("0x{b:02X} unknown"),
+                    })
+                })?;
+                let coding =
+                    PresenceCoding::from_byte(byte).ok_or(MltError::PresenceCodingByte(byte))?;
                 let bits;
                 (input, bits) =
-                    self.walk_bitfield02(input, feature_count, &format!("present[{i}]"))?;
+                    self.walk_presence02(input, feature_count, coding, &format!("present[{i}]"))?;
                 shared.push(bits);
             }
             self.close(pi, input);
@@ -206,7 +215,7 @@ impl<'a> Walker<'a> {
         input: &'a [u8],
         i: u32,
         feature_count: u32,
-        shared: &[&'a BitSlice<u8, Lsb0>],
+        shared: &[BitVec<u8, Lsb0>],
     ) -> MltResult<&'a [u8]> {
         let ci = self.open(input, format!("column[{i}]"));
 
@@ -461,7 +470,7 @@ impl<'a> Walker<'a> {
         mut input: &'a [u8],
         count: u32,
         feature_count: u32,
-        shared: &[&'a BitSlice<u8, Lsb0>],
+        shared: &[BitVec<u8, Lsb0>],
     ) -> MltResult<&'a [u8]> {
         let shared_count = u8::try_from(shared.len())?;
         for i in 0..count {
@@ -492,7 +501,7 @@ impl<'a> Walker<'a> {
     fn walk_column_header02(
         &mut self,
         input: &'a [u8],
-        column: Column<'_, 'a>,
+        column: Column<'_>,
         typ: ColumnType02,
     ) -> MltResult<(&'a [u8], u32)> {
         let Column {
@@ -529,9 +538,9 @@ impl<'a> Walker<'a> {
         // popcount is needed here.
         let presence_count = match typ.presence {
             Presence02::AllPresent => feature_count,
-            Presence02::Inline => {
+            Presence02::Inline(coding) => {
                 let bits;
-                (input, bits) = self.walk_bitfield02(input, feature_count, "present")?;
+                (input, bits) = self.walk_presence02(input, feature_count, coding, "present")?;
                 u32::try_from(bits.count_ones())?
             }
             Presence02::Shared(index) => {
@@ -583,7 +592,7 @@ impl<'a> Walker<'a> {
         i: u32,
         kind: SharedDictKind,
         feature_count: u32,
-        shared: &[&'a BitSlice<u8, Lsb0>],
+        shared: &[BitVec<u8, Lsb0>],
     ) -> MltResult<&'a [u8]> {
         let (mut input, _) = self.byte_field(
             input,
@@ -669,9 +678,10 @@ impl<'a> Walker<'a> {
 
             let count = match child_typ.presence {
                 Presence02::AllPresent => feature_count,
-                Presence02::Inline => {
+                Presence02::Inline(coding) => {
                     let bits;
-                    (input, bits) = self.walk_bitfield02(input, feature_count, "present")?;
+                    (input, bits) =
+                        self.walk_presence02(input, feature_count, coding, "present")?;
                     u32::try_from(bits.count_ones())?
                 }
                 Presence02::Shared(index) => {
@@ -753,16 +763,22 @@ impl<'a> Walker<'a> {
     }
 
     /// Annotate one raw `ceil(feature_count/8)` byte presence bitfield.
-    fn walk_bitfield02(
+    fn walk_presence02(
         &mut self,
         input: &'a [u8],
         feature_count: u32,
+        coding: PresenceCoding,
         label: &str,
-    ) -> MltResult<(&'a [u8], &'a BitSlice<u8, Lsb0>)> {
-        let (rest, bytes) = take(input, feature_count.div_ceil(8))?;
+    ) -> MltResult<(&'a [u8], BitVec<u8, Lsb0>)> {
+        // Runs and indices are self-delimiting, so the span is whatever reading took.
+        let (rest, bits) = presence_coding::read(input, feature_count, coding)?;
+        let taken = input.len() - rest.len();
+        let bytes = &input[..taken];
         self.stream_blob(
             bytes,
             bytes.len(),
+            // The label stays the region's name; the coding is already on the
+            // nibble breakdown, or on a shared field's own coding byte.
             label.to_string(),
             BlobInfo {
                 meta: StreamMeta::new(
@@ -770,13 +786,13 @@ impl<'a> Walker<'a> {
                     IntEncoding::none(ValueKind::Bool),
                     feature_count,
                 ),
-                hint: DecodeHint::PackedBits,
+                hint: match coding {
+                    PresenceCoding::Bitmap => DecodeHint::PackedBits,
+                    other => DecodeHint::PresenceCoded(other),
+                },
             },
         );
-        Ok((
-            rest,
-            &bytes.view_bits::<Lsb0>()[..feature_count.into_usize()],
-        ))
+        Ok((rest, bits.into_owned()))
     }
 
     /// Walk one v2 stream: the annotated header (via the authoritative
@@ -886,14 +902,14 @@ impl<'a> Walker<'a> {
 
 /// Where a column of values sits and what it reads its presence against.
 #[derive(Clone, Copy)]
-struct Column<'l, 'a> {
+struct Column<'l> {
     /// The region the column's fields are annotated into.
     region: usize,
     /// What to call it, which its data type and name are appended to.
     label: &'l str,
     feature_count: u32,
     /// The layer's shared presence bitfields, one of which the column may read.
-    shared: &'l [&'a BitSlice<u8, Lsb0>],
+    shared: &'l [BitVec<u8, Lsb0>],
 }
 
 /// Bit breakdown of a shared-dictionary column's type byte, whose high nibble names the

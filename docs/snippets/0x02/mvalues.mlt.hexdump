@@ -47,11 +47,11 @@
 0000002e  00 14 1e 31 1e 32 4f 18                           ...1.2O.         |       data [Data(None) Int(Delta)/VarInt, 8 values, 8 B]
                                                                              |         decoded: [0, 10, 25, 0, 15, 40, 0, 12]
 00000036                                                                     |   m_value[1] OptI32 "height" (17 B)
-00000036  15                                                .                |     type: 0x15 Inline I32
-                                                                             |       └ bits 7-4 = 0001 -> presence = Inline
+00000036  15                                                .                |     type: 0x15 Inline(Bitmap) I32
+                                                                             |       └ bits 7-4 = 0001 -> presence = Inline(Bitmap)
                                                                              |       └ bits 3-0 = 0101 -> data type = I32
 00000037  06 68 65 69 67 68 74                              .height          |     name: "height"
-0000003e  05                                                .                |     present [Present Bool(None)/None, 3 values, 1 B]
+0000003e  05                                                .                |     present (bitmap) [Present Bool(None)/None, 3 values, 1 B]
                                                                              |       decoded: 3 present-bits: 101
 0000003f                                                                     |     data (8 B)
 0000003f  88                                                .                |       encoding: 0x88 logical=None physical=VarInt

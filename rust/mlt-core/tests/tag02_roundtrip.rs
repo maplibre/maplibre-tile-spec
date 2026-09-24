@@ -613,7 +613,7 @@ fn columns_with_the_same_nulls_share_one_presence_bitfield() {
 
 #[test]
 fn shared_presence_count_is_capped_by_the_layout_byte() {
-    // Sixteen features give more than fourteen distinct masks to go around.
+    // Sixteen features give more than twelve distinct masks to go around.
     let masks: Vec<String> = (0..15)
         .map(|i| {
             let mut mask = vec![b'0'; 16];
@@ -633,11 +633,11 @@ fn shared_presence_count_is_capped_by_the_layout_byte() {
     assert_differential(&l);
 
     let dump = dump_text(&l.encode(cfg_v2()).unwrap());
-    assert!(dump.contains("shared presence bitfields = 14"), "{dump}");
-    assert_eq!(dump.matches("presence = Shared(13)").count(), 2, "{dump}");
-    // Every group is shared by two columns, so the last one loses the tie-break.
-    assert_eq!(dump.matches("presence = Inline").count(), 2, "{dump}");
-    assert_eq!(dump.matches("[Present ").count(), 16, "{dump}");
+    assert!(dump.contains("shared presence bitfields = 12"), "{dump}");
+    assert_eq!(dump.matches("presence = Shared(11)").count(), 2, "{dump}");
+    // Three of the fifteen groups lose the tie-break, and both their columns go inline.
+    assert_eq!(dump.matches("presence = Inline").count(), 6, "{dump}");
+    assert_eq!(dump.matches("[Present ").count(), 18, "{dump}");
 }
 
 #[test]
@@ -1215,7 +1215,7 @@ mod strings {
 
         #[test]
         fn dict_children_compete_for_the_slots_the_layout_byte_allows() {
-            // Fifteen masks, each held by two children: one group has to lose the tie-break.
+            // Fifteen masks, each held by two children: three groups lose the tie-break.
             let masks: Vec<String> = (0..15)
                 .map(|i| {
                     let mut mask = vec![b'0'; 16];
@@ -1234,9 +1234,9 @@ mod strings {
             let l = dict_layer(&paired, &[]);
             assert_differential(&l);
 
-            assert_eq!(count(&l, "shared presence bitfields = 14"), 1);
-            assert_eq!(count(&l, "presence = Inline"), 2);
-            assert_eq!(count(&l, "[Present "), 16);
+            assert_eq!(count(&l, "shared presence bitfields = 12"), 1);
+            assert_eq!(count(&l, "presence = Inline"), 6);
+            assert_eq!(count(&l, "[Present "), 18);
         }
 
         #[test]
