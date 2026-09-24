@@ -55,6 +55,10 @@ jobs:
               - '.github/**'
               - 'docs/**'
               - 'mkdocs.yml'
+              # The inspector indexes every tile under test/ and reads their facets
+              # from the mlt CLI, so both change what its tests assert.
+              - 'rust/**'
+              - 'test/**'
 
   rust:
     needs: changes

@@ -17,6 +17,10 @@ assert-wasm-built:
 build-mlt:
     cargo build --release --manifest-path ../../../rust/Cargo.toml --package mlt --features unstable-v2
 
+# Update the committed vitest inline snapshots, which `test` only verifies
+bless: install build-mlt
+    npm run test:bless
+
 # Build the app into docs/inspector/app
 build: install assert-wasm-built build-mlt
     npm run build

@@ -9,6 +9,7 @@
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:bless": "vitest run --update",
     "lint": "biome check",
     "format": "biome check --write"
   },
