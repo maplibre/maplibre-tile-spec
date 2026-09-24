@@ -132,7 +132,8 @@ describe("tree", () => {
   it("filters to one layer", async () => {
     const tile = annotateTile(await fixture("0x01/id.mlt"));
     const layer = tile.tree(0);
-    expect(layer.regions[0].label).toBe("layer[0]");
+    // The label carries the layer's own name after its index, as a column's does.
+    expect(layer.regions[0].label).toBe('layer[0] "layer1"');
     expect(layer.regions.length).toBeLessThanOrEqual(
       tile.tree().regions.length,
     );

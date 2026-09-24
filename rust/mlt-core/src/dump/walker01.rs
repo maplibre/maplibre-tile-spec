@@ -21,9 +21,9 @@ use crate::{MltError, MltResult};
 
 impl<'a> Walker<'a> {
     /// Mirror [`crate::decoder::Layer01::from_bytes`].
-    /// `body` must be consumed fully.
-    pub(super) fn walk_layer01(&mut self, input: &'a [u8]) -> MltResult<()> {
-        let (input, _name) = self.field(input, "name", parse_string, |s| Some(format!("{s:?}")))?;
+    /// `body` must be consumed fully. Hands back the layer's name, which labels it.
+    pub(super) fn walk_layer01(&mut self, input: &'a [u8]) -> MltResult<&'a str> {
+        let (input, name) = self.field(input, "name", parse_string, |s| Some(format!("{s:?}")))?;
         let (input, _extent) = self.field(
             input,
             "extent",
@@ -49,7 +49,7 @@ impl<'a> Walker<'a> {
         if !input.is_empty() {
             self.raw_blob(input, input.len(), "trailing bytes".to_string());
         }
-        Ok(())
+        Ok(name)
     }
 
     /// Mirror `parse_columns_meta`: `column_count` column definitions.

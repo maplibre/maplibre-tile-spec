@@ -85,7 +85,6 @@ impl<'a> Walker<'a> {
     }
 
     /// Rename the container opened at `idx`.
-    #[cfg(feature = "unstable-v2")]
     pub(super) fn relabel(&mut self, idx: usize, label: impl Into<String>) {
         self.out[idx].label = label.into();
     }
@@ -252,10 +251,18 @@ impl<'a> Walker<'a> {
         let body_len = size.checked_sub(1).ok_or(MltError::ZeroLayerSize)?;
         let (rest, body) = take(input, body_len)?;
 
+        // The name is only known once the body has been read, so the layer takes its label
+        // afterwards, reading `layer[0] "water"` the way a column reads `column[0] Str "name"`.
         match tag {
-            1 => self.walk_layer01(body)?,
+            1 => {
+                let name = self.walk_layer01(body)?;
+                self.relabel(ci, format!("layer[{idx}] {name:?}"));
+            }
             #[cfg(feature = "unstable-v2")]
-            2 => self.walk_layer02(body)?,
+            2 => {
+                let name = self.walk_layer02(body)?;
+                self.relabel(ci, format!("layer[{idx}] {name:?}"));
+            }
             _ => self.raw_blob(body, body.len(), format!("value (Unknown tag 0x{tag:02X})")),
         }
 
