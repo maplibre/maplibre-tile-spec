@@ -1,8 +1,12 @@
-/** The `fixture`, `layer` and `region` query parameters, which are the whole deep-link contract. */
+/** The `fixture`, `url`, `layer` and `region` query parameters, the whole deep-link contract. */
+
+import { tileAddress } from "./fixtures.ts";
 
 export interface DeepLink {
   /** Index key of a synthetic fixture, `<dir>/<name>`. An added tile has none. */
   fixture: string | null;
+  /** Address a tile was fetched from, for one that is not in the index. */
+  url: string | null;
   /** Index of the top-level layer the tree is filtered to. */
   layer: number | null;
   /** Index of the selected region in the tree as filtered by `layer`. */
@@ -11,8 +15,10 @@ export interface DeepLink {
 
 export function readDeepLink(search: string): DeepLink {
   const params = new URLSearchParams(search);
+  const raw = params.get("url");
   return {
     fixture: params.get("fixture") || null,
+    url: raw === null ? null : tileAddress(raw),
     layer: index(params.get("layer")),
     region: index(params.get("region")),
   };
@@ -22,6 +28,7 @@ export function readDeepLink(search: string): DeepLink {
 export function deepLinkSearch(link: DeepLink): string {
   const params = new URLSearchParams();
   if (link.fixture !== null) params.set("fixture", link.fixture);
+  if (link.url !== null) params.set("url", link.url);
   if (link.layer !== null) params.set("layer", String(link.layer));
   if (link.region !== null) params.set("region", String(link.region));
   const search = params.toString();

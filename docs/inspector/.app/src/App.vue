@@ -18,6 +18,7 @@ import {
   type FixtureEntry,
   loadFixture,
   loadFixtureIndex,
+  loadTile,
 } from "./fixtures.ts";
 import HexdumpView from "./HexdumpView.vue";
 import {
@@ -36,7 +37,10 @@ const view = ref<ViewState>(defaultView());
 const tile = shallowRef<AnnotatedTile | null>(null);
 const decoded = shallowRef<FeatureCollection | null>(null);
 const bytes = shallowRef<Uint8Array>(new Uint8Array());
+/** Index key of the loaded tile, or null when it came from anywhere but the index. */
 const fixture = ref<string | null>(null);
+/** Address the loaded tile was fetched from, or null when it was not fetched from one. */
+const href = ref<string | null>(null);
 const failure = ref<string | null>(null);
 const selected = ref<number | null>(null);
 
@@ -78,7 +82,8 @@ function decode(regionIndex: number, maxValues: number): DecodedBlob {
   }
 }
 
-function load(raw: Uint8Array, key: string | null) {
+/** Only this writes where the tile came from, so the two can never name different ones. */
+function load(raw: Uint8Array, from: { fixture?: string; href?: string }) {
   tile.value?.free();
   tile.value = annotateTile(raw);
   // The annotated walk survives a tile the decoder chokes on, so the panel goes quiet
@@ -89,7 +94,8 @@ function load(raw: Uint8Array, key: string | null) {
     decoded.value = null;
   }
   bytes.value = raw;
-  fixture.value = key;
+  fixture.value = from.fixture ?? null;
+  href.value = from.href ?? null;
   selected.value = null;
   view.value.layer = null;
 }
@@ -121,6 +127,7 @@ function goHome() {
   decoded.value = null;
   bytes.value = new Uint8Array();
   fixture.value = null;
+  href.value = null;
   failure.value = null;
   selected.value = null;
   view.value.layer = null;
@@ -131,7 +138,7 @@ async function open(key: string, at: number) {
   failure.value = null;
   try {
     const raw = await loadFixture(key);
-    if (current(at)) load(raw, key);
+    if (current(at)) load(raw, { fixture: key });
   } catch (cause) {
     if (current(at)) failure.value = String(cause);
   }
@@ -141,12 +148,34 @@ function pickFixture(key: string): Promise<void> {
   return open(key, move());
 }
 
+/** The same, for a tile named by its address rather than by an index key. */
+async function fetchTile(address: string, at: number) {
+  failure.value = null;
+  try {
+    const raw = await loadTile(address);
+    if (current(at)) load(raw, { href: address });
+  } catch (cause) {
+    if (current(at)) failure.value = fetchFailure(address, cause);
+  }
+}
+
+function pickUrl(address: string): Promise<void> {
+  return fetchTile(address, move());
+}
+
+/** A blocked cross-origin fetch rejects with "Failed to fetch" and names no cause. */
+function fetchFailure(address: string, cause: unknown): string {
+  return cause instanceof TypeError
+    ? `${address} could not be fetched - the server it is on may not allow requests from other sites`
+    : String(cause);
+}
+
 async function pickFile(file: File) {
   const at = move();
   failure.value = null;
   try {
     const raw = new Uint8Array(await file.arrayBuffer());
-    if (current(at)) load(raw, null);
+    if (current(at)) load(raw, {});
   } catch (cause) {
     if (current(at)) failure.value = String(cause);
   }
@@ -162,20 +191,26 @@ const { isOverDropZone: dragging } = useDropZone(root, {
 
 followScheme();
 
+/** What names the tile in a link, whichever of the two ways it was given. */
+function tileOf(link: DeepLink): string | null {
+  return link.fixture ?? link.url;
+}
+
 /** Tile the address bar is already on, so restoring a link does not double its entry. */
-let shown = readDeepLink(location.search).fixture;
+let shown = tileOf(readDeepLink(location.search));
 
 /** Puts the app on the view a link names, reloading the tile only when it is another one. */
 async function restore(target: DeepLink) {
-  if (target.fixture === null) {
+  if (tileOf(target) === null) {
     goHome();
     return;
   }
   const at = move();
-  if (target.fixture !== fixture.value) {
+  if (target.fixture !== null && target.fixture !== fixture.value)
     await open(target.fixture, at);
-    if (!current(at) || tile.value === null) return;
-  }
+  else if (target.url !== null && target.url !== href.value)
+    await fetchTile(target.url, at);
+  if (!current(at) || tile.value === null) return;
   view.value.layer = target.layer;
   await nextTick();
   if (current(at)) selected.value = target.region;
@@ -190,14 +225,14 @@ onMounted(async () => {
   }
   // Not `restore`: with no tile to open there is nothing to go home from, and the reset
   // would take an index failure off the screen with it.
-  if (initial.fixture !== null) await restore(initial);
+  if (tileOf(initial) !== null) await restore(initial);
   booted.value = true;
 });
 
 /** The Back button walks the tiles this app has shown before it leaves the app. */
 useEventListener(window, "popstate", () => {
   const target = readDeepLink(location.search);
-  shown = target.fixture;
+  shown = tileOf(target);
   void restore(target);
 });
 
@@ -206,16 +241,17 @@ watch(layer, () => {
   selected.value = null;
 });
 
-const link = computed(() => ({
+const link = computed<DeepLink>(() => ({
   fixture: fixture.value,
+  url: href.value,
   layer: layer.value,
   region: selected.value,
 }));
 
-watch(link, (current) => {
-  const fresh = current.fixture !== shown;
-  shown = current.fixture;
-  writeDeepLink(current, fresh);
+watch(link, (moved) => {
+  const fresh = tileOf(moved) !== shown;
+  shown = tileOf(moved);
+  writeDeepLink(moved, fresh);
 });
 
 /** Only the docs page frames the app; a window of its own has nothing to pop out of. */
@@ -289,9 +325,10 @@ watch(
       </button>
       <SourcePicker
         :index="index"
-        :current="fixture"
+        :current="fixture ?? href"
         @fixture="pickFixture"
         @file="pickFile"
+        @url="pickUrl"
       />
       <RenderControls v-model="view" :layers="layers" />
       <a
@@ -333,9 +370,10 @@ watch(
       <SourcePicker
         hero
         :index="index"
-        :current="fixture"
+        :current="fixture ?? href"
         @fixture="pickFixture"
         @file="pickFile"
+        @url="pickUrl"
       />
     </section>
   </div>

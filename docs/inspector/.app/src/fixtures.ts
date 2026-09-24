@@ -1,4 +1,4 @@
-/** The fixture index the app is built against. */
+/** The fixture index the app is built against, and the tiles it hands over. */
 
 /** One fixture tile, as the build-time index records it. */
 export interface FixtureEntry {
@@ -130,6 +130,39 @@ export async function loadFixture(key: string): Promise<Uint8Array> {
   const response = await fetch(`fixtures/${key}`);
   if (!response.ok)
     throw new Error(`${key}: ${response.status} ${response.statusText}`);
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+/**
+ * The address `raw` names, or null for one no tile could be fetched from.
+ *
+ * Relative reads against the page, so a tile beside it can be named as one. Only the two
+ * web schemes come back: a link is something a stranger can hand over, and `file:` or
+ * `data:` in it would ask the app to open something it was never pointed at.
+ *
+ * Nothing at all is not an address either: resolved against the page it would come back as
+ * the page, and `?url=` would have the app fetch its own HTML and read it as a tile.
+ */
+export function tileAddress(raw: string): string | null {
+  const text = raw.trim();
+  if (text === "") return null;
+  try {
+    const address = new URL(text, location.href);
+    const web = address.protocol === "http:" || address.protocol === "https:";
+    return web ? address.href : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetches a tile from anywhere, without credentials: an address a link handed over is not
+ * one to send this reader's cookies to.
+ */
+export async function loadTile(address: string): Promise<Uint8Array> {
+  const response = await fetch(address, { credentials: "omit" });
+  if (!response.ok)
+    throw new Error(`${address}: ${response.status} ${response.statusText}`);
   return new Uint8Array(await response.arrayBuffer());
 }
 
