@@ -1529,7 +1529,7 @@ The annotations are generated from the tiles.</p>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p>One point with one id: the tile envelope, the column metadata section and the data section.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>00000000                                                                     | layer[0] (30 B)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>00000000                                                                     | layer[0] "layer1" (30 B)
 </span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>00000000  1d                                                .                |   size: 29 (varint) - tag + body
 </span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>00000001  01                                                .                |   tag: 0x01 -&gt; Tag01
 </span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
@@ -1586,7 +1586,7 @@ The annotations are generated from the tiles.</p>
 </div>
 <div class="tabbed-block">
 <p>Part and ring length streams.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>00000000                                                                     | layer[0] (47 B)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>00000000                                                                     | layer[0] "layer1" (47 B)
 </span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>00000000  2e                                                .                |   size: 46 (varint) - tag + body
 </span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>00000001  01                                                .                |   tag: 0x01 -&gt; Tag01
 </span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
@@ -1652,7 +1652,7 @@ The annotations are generated from the tiles.</p>
 </div>
 <div class="tabbed-block">
 <p>A plain string column: its <code>stream_count</code>, then its length and data streams.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>00000000                                                                     | layer[0] (234 B)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>00000000                                                                     | layer[0] "layer1" (234 B)
 </span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>00000000  e8 01                                             ..               |   size: 232 (varint) - tag + body
 </span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>00000002  01                                                .                |   tag: 0x01 -&gt; Tag01
 </span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>00000003  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
@@ -1747,7 +1747,7 @@ The annotations are generated from the tiles.</p>
 </div>
 <div class="tabbed-block">
 <p>A dictionary and the child columns that index into it, each with its own presence and offset stream.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>00000000                                                                     | layer[0] (104 B)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>00000000                                                                     | layer[0] "layer1" (104 B)
 </span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>00000000  67                                                g                |   size: 103 (varint) - tag + body
 </span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>00000001  01                                                .                |   tag: 0x01 -&gt; Tag01
 </span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"

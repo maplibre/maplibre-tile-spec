@@ -2355,7 +2355,7 @@ If you are building an decoder, the <code>.json</code> snapshot are what an deco
 <p>A single <code>Point</code> at <code>(13, 42)</code> with id <code>100</code>.</p>
 <p>Every feature is a <code>Point</code>, so the header byte's uniform type nibble replaces the types stream.
 The vertex stream has two words for one point, so it sets bit 7 of its encoding byte and writes its count.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>00000000                                                                     | layer[0] (22 B)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>00000000                                                                     | layer[0] "layer1" (22 B)
 </span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>00000000  15                                                .                |   size: 21 (varint) - tag + body
 </span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>00000001  02                                                .                |   tag: 0x02 -&gt; Tag02
 </span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
@@ -2396,7 +2396,7 @@ The vertex stream has two words for one point, so it sets bit 7 of its encoding 
 </div>
 <div class="tabbed-block">
 <p>The <code>Polygons</code> geometry layout: part and ring length streams, no <code>GeoLengths</code>, no vertex offsets.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>00000000                                                                     | layer[0] (36 B)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>00000000                                                                     | layer[0] "layer1" (36 B)
 </span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>00000000  23                                                #                |   size: 35 (varint) - tag + body
 </span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>00000001  02                                                .                |   tag: 0x02 -&gt; Tag02
 </span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
@@ -2443,7 +2443,7 @@ The vertex stream has two words for one point, so it sets bit 7 of its encoding 
 </div>
 <div class="tabbed-block">
 <p>Two columns referencing one shared bitfield, which the layout byte counts.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>00000000                                                                     | layer[0] (39 B)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>00000000                                                                     | layer[0] "layer1" (39 B)
 </span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>00000000  26                                                &amp;                |   size: 38 (varint) - tag + body
 </span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>00000001  02                                                .                |   tag: 0x02 -&gt; Tag02
 </span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
@@ -2503,7 +2503,7 @@ The vertex stream has two words for one point, so it sets bit 7 of its encoding 
 <div class="tabbed-block">
 <p>A <code>Dict</code> string column.
 The extension bits of the leading stream give the layout.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>00000000                                                                     | layer[0] (66 B)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>00000000                                                                     | layer[0] "layer1" (66 B)
 </span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>00000000  41                                                A                |   size: 65 (varint) - tag + body
 </span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>00000001  02                                                .                |   tag: 0x02 -&gt; Tag02
 </span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
@@ -2567,7 +2567,7 @@ The extension bits of the leading stream give the layout.</p>
 </div>
 <div class="tabbed-block">
 <p>A double column stored as scaled integers, with <code>e</code>, <code>f</code> and <code>base</code> following the byte length.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>00000000                                                                     | layer[0] (47 B)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>00000000                                                                     | layer[0] "layer1" (47 B)
 </span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>00000000  2e                                                .                |   size: 46 (varint) - tag + body
 </span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>00000001  02                                                .                |   tag: 0x02 -&gt; Tag02
 </span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
@@ -2614,7 +2614,7 @@ The extension bits of the leading stream give the layout.</p>
 </div>
 <div class="tabbed-block">
 <p>Two vertex-scoped columns over a line layer, one of them null on some features.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>00000000                                                                     | layer[0] (71 B)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>00000000                                                                     | layer[0] "layer1" (71 B)
 </span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>00000000  46                                                F                |   size: 70 (varint) - tag + body
 </span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>00000001  02                                                .                |   tag: 0x02 -&gt; Tag02
 </span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
@@ -2685,7 +2685,7 @@ The extension bits of the leading stream give the layout.</p>
 <p>A <code>Struct</code> column of two fields, one of them null on some features.
 The field names are written once, in the tree.
 The nullable field's presence stream is a raw bitmap, so its header carries no byte length.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>00000000                                                                     | layer[0] (59 B)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>00000000                                                                     | layer[0] "layer1" (59 B)
 </span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>00000000  3a                                                :                |   size: 58 (varint) - tag + body
 </span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>00000001  02                                                .                |   tag: 0x02 -&gt; Tag02
 </span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
@@ -2765,7 +2765,7 @@ The nullable field's presence stream is a raw bitmap, so its header carries no b
 <div class="tabbed-block">
 <p>A <code>List</code> of structs.
 The lengths stream counts elements per feature, and it and every stream below it write their own count.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>00000000                                                                     | layer[0] (63 B)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>00000000                                                                     | layer[0] "layer1" (63 B)
 </span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>00000000  3e                                                &gt;                |   size: 62 (varint) - tag + body
 </span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>00000001  02                                                .                |   tag: 0x02 -&gt; Tag02
 </span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
@@ -2852,7 +2852,7 @@ The lengths stream counts elements per feature, and it and every stream below it
 </div>
 <div class="tabbed-block">
 <p>A <code>Map</code> of strings, its keys a dictionary-coded string stream set.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>00000000                                                                     | layer[0] (74 B)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>00000000                                                                     | layer[0] "layer1" (74 B)
 </span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>00000000  49                                                I                |   size: 73 (varint) - tag + body
 </span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>00000001  02                                                .                |   tag: 0x02 -&gt; Tag02
 </span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
