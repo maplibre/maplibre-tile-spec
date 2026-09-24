@@ -11,16 +11,21 @@ import {
   type SortKey,
   sortFixtures,
   starterFixtures,
+  tileAddress,
 } from "./fixtures.ts";
 
 const props = defineProps<{
   index: FixtureEntry[];
-  /** Index key of the loaded fixture, or null while an added tile is shown. */
+  /** What names the loaded tile - an index key or an address - or null for an added one. */
   current: string | null;
   /** Lay the picker out as the empty state rather than as a bar control. */
   hero?: boolean;
 }>();
-const emit = defineEmits<{ fixture: [key: string]; file: [file: File] }>();
+const emit = defineEmits<{
+  fixture: [key: string];
+  file: [file: File];
+  url: [address: string];
+}>();
 
 const sheet = ref<HTMLDialogElement | null>(null);
 const filter = ref("");
@@ -105,6 +110,26 @@ function choose(key: string) {
   emit("fixture", key);
   sheet.value?.close();
 }
+
+const urlbox = ref<HTMLDialogElement | null>(null);
+const typed = ref("");
+
+/** Resolved here rather than after the dialog closes, so a bad address is said so in place. */
+const address = computed(() =>
+  typed.value.trim() === "" ? null : tileAddress(typed.value),
+);
+
+function askUrl() {
+  typed.value = "";
+  urlbox.value?.showModal();
+}
+
+function fetchUrl() {
+  const found = address.value;
+  if (found === null) return;
+  emit("url", found);
+  urlbox.value?.close();
+}
 </script>
 
 <template>
@@ -114,6 +139,7 @@ function choose(key: string) {
         browse
       }}</button>
       <button type="button" class="add" @click="chooseFile()">Load Tile</button>
+      <button type="button" class="add" @click="askUrl()">From URL</button>
     </div>
 
     <template v-if="props.hero">
@@ -133,6 +159,45 @@ function choose(key: string) {
         </div>
       </div>
     </template>
+
+    <dialog ref="urlbox" class="sheet" aria-labelledby="url-heading">
+      <form class="card urlcard" @submit.prevent="fetchUrl">
+        <header>
+          <div class="titles">
+            <h2 id="url-heading">Tile from a URL</h2>
+            <button
+              type="button"
+              class="close"
+              aria-label="Close"
+              @click="urlbox?.close()"
+              >&times;</button
+            >
+          </div>
+          <input
+            v-model="typed"
+            class="address"
+            type="url"
+            autofocus
+            placeholder="https://example.org/14/8298/10748.mlt"
+            aria-label="Address of a tile"
+          >
+          <p class="hint">
+            <template v-if="typed.trim() !== '' && address === null"
+              >Not a web address this app could fetch a tile from.</template
+            >
+            <template v-else
+              >Fetched by your browser, so the site holding it has to allow
+              requests from other sites.</template
+            >
+          </p>
+          <div class="go">
+            <button type="submit" class="add" :disabled="address === null"
+              >Load</button
+            >
+          </div>
+        </header>
+      </form>
+    </dialog>
 
     <dialog ref="sheet" class="sheet" aria-labelledby="fixtures-heading">
       <div class="card">
@@ -426,6 +491,23 @@ function choose(key: string) {
   /* The empty state centres its column, which the sheet is a child of. */
   text-align: left;
 }
+/* Nothing scrolls here, so the card is only as tall as the one question it asks. */
+.urlcard {
+  max-height: none;
+}
+.hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+.go {
+  display: flex;
+  justify-content: flex-end;
+}
+.go .add:disabled {
+  color: var(--dim);
+  cursor: default;
+}
 .card header {
   display: flex;
   flex-direction: column;
@@ -460,7 +542,8 @@ function choose(key: string) {
   background: var(--hover);
   color: var(--text);
 }
-.filter {
+.filter,
+.address {
   box-sizing: border-box;
   width: 100%;
   background: var(--control);
@@ -470,7 +553,8 @@ function choose(key: string) {
   font: inherit;
   padding: var(--pad-tight) 0.9rem;
 }
-.filter:focus-visible {
+.filter:focus-visible,
+.address:focus-visible {
   outline: 2px solid var(--accent-rule);
   outline-offset: 1px;
   border-color: var(--accent-rule);
