@@ -16,6 +16,9 @@ jobs:
       - run: rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
       - uses: ./.github/actions/mlt-setup-node
 
+      - name: Lint and test the inspector app
+        run: just -v inspector::ci-test
+
       - name: Build MLT documentation
         run: just -v docs-build
 
