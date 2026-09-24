@@ -253,6 +253,12 @@ describe("tileAddress", () => {
   it("refuses one that is not an address at all", () => {
     expect(tileAddress("http://")).toBeNull();
   });
+
+  /** Resolved against the page, nothing comes back as the page, which is not a tile. */
+  it("refuses nothing at all rather than resolving it to the page itself", () => {
+    expect(tileAddress("")).toBeNull();
+    expect(tileAddress("   ")).toBeNull();
+  });
 });
 
 describe("facetsOf", () => {

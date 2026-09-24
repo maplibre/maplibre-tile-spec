@@ -139,10 +139,15 @@ export async function loadFixture(key: string): Promise<Uint8Array> {
  * Relative reads against the page, so a tile beside it can be named as one. Only the two
  * web schemes come back: a link is something a stranger can hand over, and `file:` or
  * `data:` in it would ask the app to open something it was never pointed at.
+ *
+ * Nothing at all is not an address either: resolved against the page it would come back as
+ * the page, and `?url=` would have the app fetch its own HTML and read it as a tile.
  */
 export function tileAddress(raw: string): string | null {
+  const text = raw.trim();
+  if (text === "") return null;
   try {
-    const address = new URL(raw.trim(), location.href);
+    const address = new URL(text, location.href);
     const web = address.protocol === "http:" || address.protocol === "https:";
     return web ? address.href : null;
   } catch {

@@ -39,6 +39,11 @@ describe("the url parameter", () => {
     expect(readDeepLink("?url=file%3A%2F%2F%2Fetc%2Fpasswd").url).toBeNull();
   });
 
+  /** A bare `?url=` would otherwise resolve to this page, and be read as a tile. */
+  it("drops a blank one rather than pointing the app at itself", () => {
+    expect(readDeepLink("?url=").url).toBeNull();
+  });
+
   it("writes it back, so a tile from anywhere can be linked to", () => {
     expect(deepLinkSearch({ ...bare, url: "https://example.org/a.mlt" })).toBe(
       "?url=https%3A%2F%2Fexample.org%2Fa.mlt",

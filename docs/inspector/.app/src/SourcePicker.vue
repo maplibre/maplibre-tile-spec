@@ -114,7 +114,11 @@ function choose(key: string) {
 const urlbox = ref<HTMLDialogElement | null>(null);
 const typed = ref("");
 
-/** Resolved here rather than after the dialog closes, so a bad address is said so in place. */
+/**
+ * Resolved here rather than after the dialog closes, so a bad address is said so in place.
+ * This is the only check: `type="url"` would turn a relative address away before submit
+ * ever ran, and a relative one is exactly how a tile beside the page is named.
+ */
 const address = computed(() =>
   typed.value.trim() === "" ? null : tileAddress(typed.value),
 );
@@ -176,7 +180,10 @@ function fetchUrl() {
           <input
             v-model="typed"
             class="address"
-            type="url"
+            type="text"
+            inputmode="url"
+            spellcheck="false"
+            autocomplete="off"
             autofocus
             placeholder="https://example.org/14/8298/10748.mlt"
             aria-label="Address of a tile"
