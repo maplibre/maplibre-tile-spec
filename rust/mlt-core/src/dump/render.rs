@@ -209,7 +209,13 @@ fn decode_blob(info: BlobInfo, data: &[u8], dec: &mut Decoder) -> String {
         },
         #[cfg(feature = "unstable-v2")]
         DecodeHint::PresenceCoded(coding) => {
-            match crate::codecs::presence_coding::read(data, meta.num_values, coding) {
+            use crate::codecs::presence_coding::{Unmetered, read};
+            match read(
+                data,
+                meta.num_values,
+                coding,
+                &mut Unmetered,
+            ) {
                 Ok((_, bits)) => fmt_bits(bits.len(), |i| bits[i]),
                 Err(e) => format!("<undecodable: {e}>"),
             }

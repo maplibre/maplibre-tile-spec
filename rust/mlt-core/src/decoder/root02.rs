@@ -45,8 +45,6 @@
 
 use std::borrow::Cow;
 
-use bitvec::order::Lsb0;
-use bitvec::slice::BitSlice;
 use usize_cast::IntoUsize as _;
 
 use crate::LazyParsed::Raw;
@@ -89,7 +87,7 @@ pub(crate) fn parse_layer02<'a>(
     }
 
     // ── Shared presence bitfields ─────────────────────────────────────────
-    let (input, cols) = parse_shared_presence(input, layout, feature_count)?;
+    let (input, cols) = parse_shared_presence(input, layout, feature_count, parser)?;
 
     // ── Geometry section ──────────────────────────────────────────────────
     let (input, geometry) = parse_geometry(input, header, layout.geometry, feature_count, parser)?;
@@ -131,7 +129,7 @@ pub(crate) fn parse_layer02<'a>(
         };
         let name;
         let presence;
-        (input, name, presence) = parse_column_header(input, typ, &cols)?;
+        (input, name, presence) = parse_column_header(input, typ, &cols, parser)?;
         let data_count = cols.count(&presence)?;
 
         match typ.split() {
@@ -280,13 +278,14 @@ fn parse_column_header<'a>(
     input: &'a [u8],
     typ: ColumnType02,
     cols: &LayerCols<'a>,
+    parser: &mut Parser,
 ) -> MltResult<(&'a [u8], &'a str, RawPresence<'a>)> {
     let (input, name) = if typ.data.has_name() {
         parse_string(input)?
     } else {
         (input, "")
     };
-    let (input, presence) = cols.presence(typ, input)?;
+    let (input, presence) = cols.presence(typ, input, parser)?;
     Ok((input, name, presence))
 }
 
@@ -378,7 +377,7 @@ fn parse_m_values<'a>(
         let column = ValuesColumn02::parse_m_value(typ_byte, cols.shared_count()?)?;
         let name;
         let presence;
-        (input, name, presence) = parse_column_header(input, column.into(), cols)?;
+        (input, name, presence) = parse_column_header(input, column.into(), cols, parser)?;
         reject_column_name(column_names, name, ColumnRole::MValue)?;
         column_names.push((Cow::Borrowed(name), ColumnRole::MValue));
 
@@ -493,7 +492,7 @@ fn parse_shared_dict02<'a>(
         let child_name;
         (input, child_name) = parse_string(input)?;
         let presence;
-        (input, presence) = cols.presence(child_typ, input)?;
+        (input, presence) = cols.presence(child_typ, input, parser)?;
         let count = cols.count(&presence)?;
         let data;
         (input, data) = header02::parse_stream(
@@ -616,11 +615,17 @@ impl<'a> LayerCols<'a> {
 
     /// Resolve a column's presence nibble into the bits that describe its nulls,
     /// consuming the column's own bitfield only when it has one.
-    fn presence(&self, typ: ColumnType02, input: &'a [u8]) -> MltRefResult<'a, RawPresence<'a>> {
+    fn presence(
+        &self,
+        typ: ColumnType02,
+        input: &'a [u8],
+        parser: &mut Parser,
+    ) -> MltRefResult<'a, RawPresence<'a>> {
         match typ.presence {
             Presence02::AllPresent => Ok((input, RawPresence::AllPresent)),
             Presence02::Inline(coding) => {
-                let (input, bits) = presence_coding::read(input, self.feature_count, coding)?;
+                let (input, bits) =
+                    presence_coding::read(input, self.feature_count, coding, parser)?;
                 Ok((input, RawPresence::from_bits(bits)))
             }
             // `ColumnType02::parse` rejected any index past the declared count.
@@ -648,11 +653,12 @@ impl<'a> LayerCols<'a> {
 ///
 /// The layout byte caps the count at [`LayerLayout::MAX_SHARED_PRESENCE`], so this
 /// allocates nothing worth charging to the parser's budget.
-fn parse_shared_presence(
-    input: &[u8],
+fn parse_shared_presence<'a>(
+    input: &'a [u8],
     layout: LayerLayout,
     feature_count: u32,
-) -> MltRefResult<'_, LayerCols<'_>> {
+    parser: &mut Parser,
+) -> MltRefResult<'a, LayerCols<'a>> {
     let mut input = input;
     let mut shared = Vec::with_capacity(usize::from(layout.shared_presence));
     for _ in 0..layout.shared_presence {
@@ -661,7 +667,7 @@ fn parse_shared_presence(
         (input, byte) = parse_u8(input)?;
         let coding = PresenceCoding::from_byte(byte).ok_or(MltError::PresenceCodingByte(byte))?;
         let bits;
-        (input, bits) = presence_coding::read(input, feature_count, coding)?;
+        (input, bits) = presence_coding::read(input, feature_count, coding, parser)?;
         shared.push(RawPresence::from_bits(bits));
     }
     Ok((

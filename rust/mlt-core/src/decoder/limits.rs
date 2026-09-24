@@ -170,6 +170,15 @@ impl Parser {
     }
 }
 
+/// A presence field that is not a bitmap is built rather than borrowed, so what it builds
+/// is charged here before it is allocated - a few bytes of runs can name any feature count.
+#[cfg(feature = "unstable-v2")]
+impl crate::codecs::presence_coding::PresenceBudget for Parser {
+    fn reserve_bits(&mut self, count: u32) -> MltResult<()> {
+        self.reserve(count.div_ceil(8))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct MemBudget {
     /// Hard ceiling: total decoded bytes may not exceed this value.

@@ -18,9 +18,26 @@ use integer_encoding::VarIntWriter as _;
 use usize_cast::IntoUsize as _;
 
 use crate::MltError::{PresenceIndexOrder, PresenceRunOverflow, PresenceRunShort};
-use crate::MltRefResult;
 use crate::codecs::varint::parse_varint;
 use crate::utils::take;
+use crate::{MltRefResult, MltResult};
+
+/// Charges the bits a coding builds, so a tile cannot ask for an allocation far larger
+/// than the bytes it spent asking.
+pub(crate) trait PresenceBudget {
+    /// Reserve room for `count` bits, or fail rather than allocate it.
+    fn reserve_bits(&mut self, count: u32) -> MltResult<()>;
+}
+
+/// For the readers that hold no budget of their own - the dump walker and the renderer,
+/// which are handed a payload whose length already bounds what it can name.
+pub(crate) struct Unmetered;
+
+impl PresenceBudget for Unmetered {
+    fn reserve_bits(&mut self, _count: u32) -> MltResult<()> {
+        Ok(())
+    }
+}
 
 /// How a presence bitfield is stored, named by the presence nibble of a column type byte
 /// and by the coding byte of a shared bitfield.
@@ -151,15 +168,18 @@ pub(crate) fn smallest(bits: &[bool]) -> PresenceCoding {
         .expect("ALL is not empty")
 }
 
-/// Read `count` presence bits stored in `coding`.
+/// Read `count` presence bits stored in `coding`, charging what it builds to `budget`.
 ///
-/// A bitmap is borrowed from the tile bytes; the other two are built, since their bits are
-/// not laid out in memory as bits.
-pub(crate) fn read(
-    input: &[u8],
+/// A bitmap is borrowed from the tile bytes, and needs `ceil(count/8)` of them to be there
+/// at all, so the input bounds it. Runs and indices are built, and a handful of bytes can
+/// ask for any `count` the layer declared, so the allocation is reserved before it is made
+/// rather than trusted.
+pub(crate) fn read<'a>(
+    input: &'a [u8],
     count: u32,
     coding: PresenceCoding,
-) -> MltRefResult<'_, Cow<'_, BitSlice<u8, Lsb0>>> {
+    budget: &mut dyn PresenceBudget,
+) -> MltRefResult<'a, Cow<'a, BitSlice<u8, Lsb0>>> {
     let n = count.into_usize();
     match coding {
         PresenceCoding::Bitmap => {
@@ -167,6 +187,7 @@ pub(crate) fn read(
             Ok((input, Cow::Borrowed(&bytes.view_bits::<Lsb0>()[..n])))
         }
         PresenceCoding::Runs => {
+            budget.reserve_bits(count)?;
             let mut bits = BitVec::<u8, Lsb0>::repeat(false, n);
             let mut input = input;
             let mut at = 0usize;
@@ -194,6 +215,7 @@ pub(crate) fn read(
             if len > count {
                 return Err(PresenceRunShort(len, count));
             }
+            budget.reserve_bits(count)?;
             let mut bits = BitVec::<u8, Lsb0>::repeat(false, n);
             let mut prev: Option<usize> = None;
             for _ in 0..len {
@@ -225,7 +247,7 @@ pub(crate) fn round_trip(bits: &[bool], coding: PresenceCoding) -> Vec<bool> {
     write(&mut buf, bits, coding);
     assert_eq!(buf.len(), size(bits, coding), "size disagrees with write");
     let count = u32::try_from(bits.len()).unwrap();
-    let (rest, out) = read(&buf, count, coding).unwrap();
+    let (rest, out) = read(&buf, count, coding, &mut Unmetered).unwrap();
     assert!(rest.is_empty(), "{coding:?} left {} bytes", rest.len());
     out.iter().by_vals().collect()
 }
@@ -298,7 +320,7 @@ mod tests {
         let mut buf = Vec::new();
         buf.write_varint(0u64).unwrap();
         buf.write_varint(99u64).unwrap();
-        assert!(read(&buf, 8, PresenceCoding::Runs).is_err());
+        assert!(read(&buf, 8, PresenceCoding::Runs, &mut Unmetered).is_err());
     }
 
     #[test]
@@ -306,13 +328,39 @@ mod tests {
         let mut buf = Vec::new();
         buf.write_varint(1u64).unwrap();
         buf.write_varint(99u64).unwrap();
-        assert!(read(&buf, 8, PresenceCoding::Indices).is_err());
+        assert!(read(&buf, 8, PresenceCoding::Indices, &mut Unmetered).is_err());
+    }
+
+    /// Counts the bits a reader was asked to build, standing in for a real budget.
+    struct Counted(u32);
+    impl PresenceBudget for Counted {
+        fn reserve_bits(&mut self, count: u32) -> MltResult<()> {
+            self.0 += count;
+            Ok(())
+        }
+    }
+
+    #[rstest::rstest]
+    #[case::runs(PresenceCoding::Runs)]
+    #[case::indices(PresenceCoding::Indices)]
+    fn a_tiny_payload_cannot_ask_for_a_huge_allocation_unmetered(#[case] coding: PresenceCoding) {
+        // Two bytes naming four billion features: the budget has to hear about it
+        // before anything is allocated, or a tile of nothing OOMs the reader.
+        let mut buf = Vec::new();
+        buf.write_varint(0u64).unwrap();
+        let mut budget = Counted(0);
+        let _ = read(&buf, u32::MAX, coding, &mut budget);
+        assert_eq!(
+            budget.0,
+            u32::MAX,
+            "{coding:?} allocated without charging the budget"
+        );
     }
 
     #[test]
     fn more_indices_than_features_is_rejected() {
         let mut buf = Vec::new();
         buf.write_varint(9u64).unwrap();
-        assert!(read(&buf, 8, PresenceCoding::Indices).is_err());
+        assert!(read(&buf, 8, PresenceCoding::Indices, &mut Unmetered).is_err());
     }
 }

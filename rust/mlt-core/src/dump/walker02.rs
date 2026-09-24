@@ -771,7 +771,12 @@ impl<'a> Walker<'a> {
         label: &str,
     ) -> MltResult<(&'a [u8], BitVec<u8, Lsb0>)> {
         // Runs and indices are self-delimiting, so the span is whatever reading took.
-        let (rest, bits) = presence_coding::read(input, feature_count, coding)?;
+        let (rest, bits) = presence_coding::read(
+            input,
+            feature_count,
+            coding,
+            &mut presence_coding::Unmetered,
+        )?;
         let taken = input.len() - rest.len();
         let bytes = &input[..taken];
         self.stream_blob(

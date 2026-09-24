@@ -51,7 +51,7 @@
                                                                              |       └ bits 7-4 = 0001 -> presence = Inline(Bitmap)
                                                                              |       └ bits 3-0 = 0101 -> data type = I32
 00000037  06 68 65 69 67 68 74                              .height          |     name: "height"
-0000003e  05                                                .                |     present (bitmap) [Present Bool(None)/None, 3 values, 1 B]
+0000003e  05                                                .                |     present [Present Bool(None)/None, 3 values, 1 B]
                                                                              |       decoded: 3 present-bits: 101
 0000003f                                                                     |     data (8 B)
 0000003f  88                                                .                |       encoding: 0x88 logical=None physical=VarInt

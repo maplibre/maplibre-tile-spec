@@ -1712,3 +1712,42 @@ mod bit_packing {
         );
     }
 }
+
+/// A presence field that is not a bitmap builds its bits instead of borrowing them, so a
+/// tile can name far more of them than the bytes it spent naming them. The bits are
+/// charged to the parse budget before they are allocated, which this holds to.
+#[test]
+fn a_run_coded_presence_is_charged_to_the_parse_budget() {
+    // One block of present features over enough of them that the mask costs runs, not a
+    // bitmap: three varints on the wire, 2000 bits once read.
+    let mask: String = (0..2000)
+        .map(|i| if (500..1500).contains(&i) { 'x' } else { '-' })
+        .collect();
+    let values: Vec<PropValue> = mask
+        .chars()
+        .map(|c| {
+            if c == 'x' {
+                PropValue::U32(Some(1))
+            } else {
+                PropValue::U32(None)
+            }
+        })
+        .collect();
+    let layer = layer(points(&mask), None, &[("v", values)]);
+    let tile = layer.encode(cfg_v2()).unwrap();
+
+    // The field is tiny on the wire, so a budget that small still reads the header.
+    assert!(
+        tile.len() < 4096,
+        "the mask should cost runs, not a bitmap: {}",
+        tile.len()
+    );
+
+    // A budget with room decodes it; one without fails rather than allocating the bits.
+    assert!(Parser::default().parse_layers(&tile).is_ok());
+    let err = Parser::with_max_size(64).parse_layers(&tile).unwrap_err();
+    assert!(
+        matches!(err, mlt_core::MltError::MemoryLimitExceeded { .. }),
+        "the bits should be refused by the budget, not by something else: {err}"
+    );
+}

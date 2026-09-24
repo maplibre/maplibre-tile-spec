@@ -12,7 +12,7 @@
                                                                              |     └ bits 3-0 = 0000 -> geometry layout = Points
 0000000c                                                                     |   shared_presence (2 B)
 0000000c  01                                                .                |     coding: 0x01 Bitmap
-0000000d  05                                                .                |     present[0] (bitmap) [Present Bool(None)/None, 4 values, 1 B]
+0000000d  05                                                .                |     present[0] [Present Bool(None)/None, 4 values, 1 B]
                                                                              |       decoded: 4 present-bits: 1010
 0000000e                                                                     |   geometry (11 B)
 0000000e                                                                     |     vertices (11 B)
