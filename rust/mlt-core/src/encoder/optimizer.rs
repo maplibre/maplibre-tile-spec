@@ -56,12 +56,15 @@ impl TileLayer {
     /// All encoding choices - sort order, per-stream integer encodings, string compression,
     /// vertex buffer layout - are selected automatically to minimize output size.
     #[hotpath::measure]
-    pub fn encode(self, cfg: EncoderConfig) -> MltResult<Vec<u8>> {
+    pub fn encode(mut self, cfg: EncoderConfig) -> MltResult<Vec<u8>> {
         if self.name().is_empty() {
             return Err(MltError::MissingLayerName);
         }
         if self.features().is_empty() {
             return Ok(Vec::new());
+        }
+        if !cfg.allow_8bit_ints() {
+            self.widen_8bit_ints();
         }
 
         let mut sort_by = vec![SortStrategy::Unsorted];

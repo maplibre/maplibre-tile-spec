@@ -134,6 +134,8 @@ pub enum MltError {
         expected: usize,
         actual: usize,
     },
+    #[error("8-bit integers are a v2 feature, so column {0} cannot be written as v1")]
+    EightBitNeedsV2(String),
     #[cfg(feature = "unstable-v2")]
     #[error("m-values are a v2 feature, so layer {0} cannot be written as v1")]
     MValuesNeedV2(String),

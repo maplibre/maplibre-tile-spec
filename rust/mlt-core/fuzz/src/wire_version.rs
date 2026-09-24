@@ -27,7 +27,7 @@ impl WireVersionInput {
         let cfg_v1 = self.config;
         let cfg_v2 = cfg_v1.with_wire_version(WireVersion::V02);
 
-        // v1 represents every staged layer but one with m-value or nested columns,
+        // v1 represents every staged layer but one with m-value, nested or 8-bit columns,
         // which are v2-only and so not a pair this target can compare.
         let Some(v1) = encode_decode(self.layer.clone(), cfg_v1) else {
             return;

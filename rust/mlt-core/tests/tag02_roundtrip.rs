@@ -277,20 +277,6 @@ fn all_scalar_types_non_optional() {
                 .collect(),
         ),
         (
-            "i8",
-            vec![-1_i8, 0, 127]
-                .into_iter()
-                .map(|v| PropValue::I8(Some(v)))
-                .collect(),
-        ),
-        (
-            "u8",
-            vec![0_u8, 128, 255]
-                .into_iter()
-                .map(|v| PropValue::U8(Some(v)))
-                .collect(),
-        ),
-        (
             "i32",
             vec![-100_000_i32, 0, 100_000]
                 .into_iter()
@@ -337,6 +323,43 @@ fn all_scalar_types_non_optional() {
 }
 
 #[test]
+fn eight_bit_ints_widen_in_v1_only() {
+    let geoms = vec![pt(0, 0), pt(1, 1)];
+    let props = [
+        (
+            "i8",
+            vec![PropValue::I8(Some(i8::MIN)), PropValue::I8(None)],
+        ),
+        (
+            "u8",
+            vec![PropValue::U8(None), PropValue::U8(Some(u8::MAX))],
+        ),
+    ];
+    let src = layer(geoms, None, &props);
+    let props_of = |cfg: EncoderConfig| -> Vec<Vec<PropValue>> {
+        let (_, tile) = decode(&src.clone().encode(cfg).expect("encode"));
+        tile.features()
+            .iter()
+            .map(|f| f.properties().to_vec())
+            .collect()
+    };
+    assert_eq!(
+        props_of(cfg_v1()),
+        [
+            [PropValue::I32(Some(-128)), PropValue::U32(None)],
+            [PropValue::I32(None), PropValue::U32(Some(255))],
+        ]
+    );
+    assert_eq!(
+        props_of(cfg_v2()),
+        [
+            [PropValue::I8(Some(i8::MIN)), PropValue::U8(None)],
+            [PropValue::I8(None), PropValue::U8(Some(u8::MAX))],
+        ]
+    );
+}
+
+#[test]
 fn all_scalar_types_optional_with_nulls() {
     let geoms = vec![pt(0, 0), pt(1, 1), pt(2, 2), pt(3, 3)];
     let props = [
@@ -347,24 +370,6 @@ fn all_scalar_types_optional_with_nulls() {
                 PropValue::Bool(Some(true)),
                 PropValue::Bool(None),
                 PropValue::Bool(Some(false)),
-            ],
-        ),
-        (
-            "i8",
-            vec![
-                PropValue::I8(None),
-                PropValue::I8(Some(-5)),
-                PropValue::I8(Some(5)),
-                PropValue::I8(None),
-            ],
-        ),
-        (
-            "u8",
-            vec![
-                PropValue::U8(Some(9)),
-                PropValue::U8(None),
-                PropValue::U8(None),
-                PropValue::U8(Some(200)),
             ],
         ),
         (

@@ -170,13 +170,13 @@ impl<'a> Walker<'a> {
                     .walk_stream(input, ValueKind::Bool, "data", |_| DecodeHint::Bool)?
                     .0;
             }
-            C::I8 | C::OptI8 | C::I32 | C::OptI32 => {
+            C::I32 | C::OptI32 => {
                 input = self.walk_optional(input, typ)?;
                 input = self
                     .walk_stream(input, ValueKind::Int, "data", |_| DecodeHint::I32)?
                     .0;
             }
-            C::U8 | C::OptU8 | C::U32 | C::OptU32 => {
+            C::U32 | C::OptU32 => {
                 input = self.walk_optional(input, typ)?;
                 input = self
                     .walk_stream(input, ValueKind::Int, "data", |_| DecodeHint::U32)?
