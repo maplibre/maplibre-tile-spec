@@ -5,16 +5,15 @@ use num_enum::TryFromPrimitive;
 use crate::codecs::morton::{deinterleave_u64, interleave_u32};
 use crate::codecs::presence_coding::PresenceCoding;
 use crate::codecs::varint::parse_varint;
-use crate::decoder::GeometryType;
+use crate::decoder::{GeometryType, ParsedMValue, ParsedNested};
 use crate::{
     DecodeState, Layer01, Lazy, MValueColumn, MltError, MltRefResult, MltResult, Nested, Parsed,
 };
 
 /// A tag `0x02` layer: the shared [`Layer01`] core plus the columns only v2 has.
 ///
-/// v1 is a subset of v2, so the shared parts live on `Layer01` and are reached
-/// through [`Self::layer`]. A later wire version whose model diverges further gets
-/// its own type here rather than more optional fields on the shared one.
+/// v1 is a subset of v2, so a later version that diverges further gets its own type
+/// here rather than more optional fields on the shared one.
 #[cfg(feature = "unstable-v2")]
 #[derive(Debug, Clone)]
 pub struct Layer02<'a, S: DecodeState = Lazy> {
@@ -46,16 +45,13 @@ impl<'a, S: DecodeState> Layer02<'a, S> {
 
 #[cfg(feature = "unstable-v2")]
 impl ParsedLayer02<'_> {
-    /// The layer's vertex-scoped columns, each running over every vertex of
-    /// every feature it marks present.
     #[must_use]
-    pub fn m_values(&self) -> &[crate::decoder::ParsedMValue<'_>] {
+    pub fn m_values(&self) -> &[ParsedMValue<'_>] {
         &self.m_values
     }
 
-    /// The layer's nested columns, each a tree over the features it marks present.
     #[must_use]
-    pub fn nested(&self) -> &[crate::decoder::ParsedNested<'_>] {
+    pub fn nested(&self) -> &[ParsedNested<'_>] {
         &self.nested
     }
 }

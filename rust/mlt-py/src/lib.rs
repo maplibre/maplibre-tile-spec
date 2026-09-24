@@ -292,6 +292,13 @@ mod tests {
 
     use super::*;
 
+    fn first_layer01<'a, 'b>(layers: &'b [ParsedLayer<'a>]) -> &'b ParsedLayer01<'a> {
+        let ParsedLayer::Tag01(l) = &layers[0] else {
+            panic!("first layer should be v0.1")
+        };
+        l
+    }
+
     fn geom_to_wkb(
         geom: &GeometryValues,
         index: usize,
@@ -394,9 +401,7 @@ mod tests {
         let decoded = dec.decode_all(layers).expect("decode_all should succeed");
 
         assert!(!decoded.is_empty(), "should parse at least one layer");
-        let ParsedLayer::Tag01(l) = &decoded[0] else {
-            panic!("first layer should be v0.1")
-        };
+        let l = first_layer01(&decoded);
         assert!(!l.name().is_empty(), "layer name should be non-empty");
 
         let fc = FeatureCollection::from_layers(decoded).expect("FeatureCollection should succeed");
@@ -418,9 +423,7 @@ mod tests {
         let mut dec = Decoder::default();
         let decoded = dec.decode_all(layers).expect("decode_all should succeed");
 
-        let ParsedLayer::Tag01(l) = &decoded[0] else {
-            panic!("first layer should be v0.1")
-        };
+        let l = first_layer01(&decoded);
         let geom = l.geometry_values();
 
         let wkb = geom_to_wkb(geom, 0, None).expect("geom_to_wkb should succeed");
@@ -448,9 +451,7 @@ mod tests {
         let mut dec = Decoder::default();
         let decoded = dec.decode_all(layers).expect("decode_all should succeed");
 
-        let ParsedLayer::Tag01(l) = &decoded[0] else {
-            panic!("first layer should be v0.1")
-        };
+        let l = first_layer01(&decoded);
         let geom = l.geometry_values();
 
         let xf = TileTransform::from_zxy(0, 0, 0, l.extent().get(), false).unwrap();
@@ -481,9 +482,7 @@ mod tests {
         let mut dec = Decoder::default();
         let decoded = dec.decode_all(layers).expect("decode_all should succeed");
 
-        let ParsedLayer::Tag01(l) = &decoded[0] else {
-            panic!("first layer should be v0.1")
-        };
+        let l = first_layer01(&decoded);
         let geom = l.geometry_values();
 
         let wkb = geom_to_wkb(geom, 0, None).expect("geom_to_wkb should succeed");

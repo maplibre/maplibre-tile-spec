@@ -10,12 +10,8 @@ use crate::{
 };
 
 impl<'a, S: DecodeState> Layer<'a, S> {
-    /// The layer's name, whatever its tag, or `None` for a tag this build does not
-    /// know.
-    ///
-    /// Returning the value rather than the layer is what makes this safe to offer:
-    /// handing back one version's layer type would quietly drop the columns another
-    /// version adds, which is why there is no such accessor.
+    /// The layer's name whatever its tag, or `None` for a tag this build does not
+    /// know. A value, unlike a layer, cannot silently lose a version's columns.
     #[must_use]
     pub fn name(&self) -> Option<&'a str> {
         match self {
@@ -88,7 +84,7 @@ impl<'a> Layer01<'a, Lazy> {
 
 #[cfg(feature = "unstable-v2")]
 impl<'a> Layer02<'a, Lazy> {
-    /// Decode every column, the shared ones and the two only v2 has.
+    /// Decode every column, shared and v2-only.
     pub fn decode_all(self, dec: &mut Decoder) -> MltResult<ParsedLayer02<'a>> {
         let layer = Layer02 {
             layer: self.layer.decode_all(dec)?,

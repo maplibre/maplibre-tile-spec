@@ -622,7 +622,6 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
             ParsedLayer::Tag01(l) => l,
             #[cfg(feature = "unstable-v2")]
             ParsedLayer::Tag02(l) => l.layer(),
-            // Unknown, and any tag a later version adds
             _ => continue,
         };
         data_size += layer01.collect_statistic(DecodedDataSize);
@@ -634,8 +633,7 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
         for property in layer01.properties() {
             content.insert(property.kind().into());
         }
-        // an m-value column's type counts the same as a property column's, and
-        // only a v2 layer has any
+        // an m-value column's type counts the same as a property column's
         #[cfg(feature = "unstable-v2")]
         if let ParsedLayer::Tag02(layer02) = layer {
             for column in layer02.m_values() {

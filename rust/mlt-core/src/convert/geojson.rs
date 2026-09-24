@@ -30,15 +30,18 @@ impl FeatureCollection {
     pub fn from_layers<'a>(layers: impl IntoIterator<Item = ParsedLayer<'a>>) -> MltResult<Self> {
         let mut features = Vec::new();
         for layer in layers {
-            // Read the v2-only columns before dropping down to the shared layer,
-            // which is all the rest of this loop needs.
+            // Read the v2-only columns first: the rest of the loop needs only the
+            // shared ones, which is all `parsed` keeps.
             #[cfg(feature = "unstable-v2")]
-            let (m_props, nested_props) = match &layer {
-                ParsedLayer::Tag01(_) | ParsedLayer::Unknown(_) => (Vec::new(), Vec::new()),
-                ParsedLayer::Tag02(l) => (m_value_properties(l)?, nested_properties(l)?),
+            let (mut m_values, mut nested) = match &layer {
+                ParsedLayer::Tag01(_) | ParsedLayer::Unknown(_) => {
+                    (Vec::new().into_iter(), Vec::new().into_iter())
+                }
+                ParsedLayer::Tag02(l) => (
+                    m_value_properties(l)?.into_iter(),
+                    nested_properties(l)?.into_iter(),
+                ),
             };
-            // Dropping to the shared columns is deliberate here: the v2-only ones
-            // were read just above, and the rest of this loop needs only these.
             let parsed = match layer {
                 ParsedLayer::Tag01(l) => l,
                 #[cfg(feature = "unstable-v2")]
@@ -47,14 +50,6 @@ impl FeatureCollection {
             };
             let layer_name = parsed.name();
             let extent = parsed.extent().get();
-            // Vertex-scoped columns have no GeoJSON of their own, so each rides
-            // along as an `m:`-prefixed array property of its feature.
-            #[cfg(feature = "unstable-v2")]
-            let mut m_values = m_props.into_iter();
-            // A nested column is an object or an array, so it serializes under its
-            // own name with nothing to mark it apart from a flat property.
-            #[cfg(feature = "unstable-v2")]
-            let mut nested = nested_props.into_iter();
             let mut feat_iter = parsed.iter_features();
             while let Some(feat) = feat_iter.next() {
                 let feat = feat?;

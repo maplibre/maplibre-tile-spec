@@ -7,9 +7,7 @@
 
 use crate::decoder::{Layer, Layer01, ParsedLayer, ParsedLayer01, ParsedProperty, PropValueRef};
 #[cfg(feature = "unstable-v2")]
-use crate::decoder::{Layer02, ParsedLayer02};
-#[cfg(feature = "unstable-v2")]
-use crate::decoder::{MValueSpans, ParsedMValue, ParsedNested};
+use crate::decoder::{Layer02, MValueSpans, ParsedLayer02, ParsedMValue, ParsedNested};
 use crate::errors::AsMltError as _;
 #[cfg(feature = "unstable-v2")]
 use crate::tile::{MValue, NestedKind, NestedValue};
@@ -24,19 +22,21 @@ struct TileParts {
     features: Vec<TileFeature>,
 }
 
+impl TileParts {
+    fn finish(self) -> MltResult<TileLayer> {
+        TileLayer::from_parts(self.name, self.extent, self.names, self.features)
+    }
+}
+
 impl ParsedLayer01<'_> {
     /// Decode and convert into a row-oriented [`TileLayer`], charging every
     /// heap allocation against `dec`.
     pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer> {
-        let parts = self.collect_parts(dec)?;
-        TileLayer::from_parts(parts.name, parts.extent, parts.names, parts.features)
+        self.collect_parts(dec)?.finish()
     }
 
-    /// One [`TileFeature`] per map feature, carrying only the columns every
-    /// version has. A version that adds its own fills them in afterwards.
-    ///
-    /// Borrows rather than consumes, so a caller holding a larger layer can keep
-    /// using the columns its own version adds.
+    /// One [`TileFeature`] per map feature, carrying only the columns every version
+    /// has. Borrows, so a version that adds its own can fill them in afterwards.
     fn collect_parts(&self, dec: &mut Decoder) -> MltResult<TileParts> {
         let name = self.name().to_string();
         let extent = self.extent().get();
@@ -87,7 +87,6 @@ impl ParsedLayer02<'_> {
     /// Decode and convert into a row-oriented [`TileLayer`], adding the m-value
     /// and nested columns only v2 carries.
     pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer> {
-        let parts = self.layer.collect_parts(dec)?;
         let m_names: Vec<String> = self.m_values.iter().map(|m| m.name().to_string()).collect();
         let nested_names: Vec<String> = self.nested.iter().map(|n| n.name().to_string()).collect();
         let nested_kinds: Vec<NestedKind> = self.nested.iter().map(ParsedNested::kind).collect();
@@ -97,18 +96,13 @@ impl ParsedLayer02<'_> {
         let mut m_spans = dec.alloc::<MValueSpans>(self.m_values.len())?;
         m_spans.extend(self.m_values.iter().map(|m| m.spans(&self.layer.geometry)));
 
-        let TileParts {
-            name,
-            extent,
-            names,
-            mut features,
-        } = parts;
-        for (index, feature) in features.iter_mut().enumerate() {
+        let mut parts = self.layer.collect_parts(dec)?;
+        for (index, feature) in parts.features.iter_mut().enumerate() {
             feature.m_values = m_values_of(&self.m_values, &mut m_spans, dec)?;
             feature.nested = nested_of(&self.nested, index, dec)?;
         }
-
-        TileLayer::from_parts(name, extent, names, features)?
+        parts
+            .finish()?
             .with_m_value_names(m_names)?
             .with_nested(nested_names, nested_kinds)
     }
@@ -123,18 +117,14 @@ impl Layer02<'_> {
 }
 
 impl ParsedLayer<'_> {
-    /// Convert into a row-oriented [`TileLayer`], whatever the layer's tag, or
-    /// `None` for a tag this build does not know.
-    ///
-    /// This is the version-agnostic way to read a layer: every version's columns
-    /// land in the same row model, so nothing is dropped the way reaching for one
-    /// version's type would drop another's columns.
+    /// Convert into a row-oriented [`TileLayer`] whatever the tag, or `None` for a
+    /// tag this build does not know. Keeps every version's columns.
     pub fn into_tile(self, dec: &mut Decoder) -> MltResult<Option<TileLayer>> {
         match self {
-            Layer::Tag01(l) => l.into_tile(dec).map(Some),
+            Self::Tag01(l) => l.into_tile(dec).map(Some),
             #[cfg(feature = "unstable-v2")]
-            Layer::Tag02(l) => l.into_tile(dec).map(Some),
-            Layer::Unknown(_) => Ok(None),
+            Self::Tag02(l) => l.into_tile(dec).map(Some),
+            Self::Unknown(_) => Ok(None),
         }
     }
 }
