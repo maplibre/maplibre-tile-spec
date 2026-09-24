@@ -415,6 +415,79 @@ function dragging(kind: string, file: File | null): Event {
   return event;
 }
 
+describe("a tile named by its address", () => {
+  const ADDRESS = "https://example.org/14/8298/10748.mlt";
+
+  /** The picker asks for an address; the app is what fetches it. */
+  function ask(app: ReturnType<typeof mount>, address: string) {
+    app.getComponent(SourcePicker).vm.$emit("url", address);
+    return flushPromises();
+  }
+
+  it("fetches it without this reader's cookies", async () => {
+    const fetched = serve();
+    const app = mount(App);
+    await flushPromises();
+    await ask(app, ADDRESS);
+    expect(fetched).toHaveBeenCalledWith(ADDRESS, { credentials: "omit" });
+    expect(annotateTile).toHaveBeenCalledOnce();
+  });
+
+  it("names it on the picker, which has no index key to show", async () => {
+    serve();
+    const app = mount(App);
+    await flushPromises();
+    await ask(app, ADDRESS);
+    expect(app.get("button.open").text()).toBe(ADDRESS);
+  });
+
+  it("carries it in the deep link, so the tile can be linked to", async () => {
+    serve();
+    const app = mount(App);
+    await flushPromises();
+    await ask(app, ADDRESS);
+    expect(location.search).toBe(
+      "?url=https%3A%2F%2Fexample.org%2F14%2F8298%2F10748.mlt",
+    );
+  });
+
+  it("opens the one a deep link names", async () => {
+    const fetched = serve();
+    history.replaceState(null, "", `/?url=${encodeURIComponent(ADDRESS)}`);
+    const app = mount(App);
+    await flushPromises();
+    expect(fetched).toHaveBeenCalledWith(ADDRESS, { credentials: "omit" });
+    expect(app.find(".empty").exists()).toBe(false);
+  });
+
+  it("says what went wrong when the site holding it refuses the request", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url === "fixtures.json") return Response.json(index);
+        throw new TypeError("Failed to fetch");
+      }),
+    );
+    const app = mount(App);
+    await flushPromises();
+    await ask(app, ADDRESS);
+    expect(app.get("[role=alert]").text()).toContain(
+      "may not allow requests from other sites",
+    );
+    expect(app.find(".empty").exists()).toBe(true);
+  });
+
+  it("leaves an entry behind the tile it replaces, the same as a fixture does", async () => {
+    serve();
+    history.replaceState(null, "", "/?fixture=0x01/point.mlt");
+    const app = mount(App);
+    await flushPromises();
+    const push = vi.spyOn(history, "pushState");
+    await ask(app, ADDRESS);
+    expect(push).toHaveBeenCalledOnce();
+  });
+});
+
 describe("a dropped tile", () => {
   it("marks the app while a tile is over it", async () => {
     serve();

@@ -12,6 +12,7 @@ import {
   matchesFacets,
   sortFixtures,
   starterFixtures,
+  tileAddress,
 } from "./fixtures.ts";
 
 const entry: FixtureEntry = {
@@ -223,6 +224,40 @@ describe("sortFixtures", () => {
     const before = rows.map((e) => e.name);
     sortFixtures(rows, "bytes", true);
     expect(rows.map((e) => e.name)).toEqual(before);
+  });
+});
+
+describe("tileAddress", () => {
+  it("takes a web address as it is given", () => {
+    expect(tileAddress("https://example.org/a.mlt")).toBe(
+      "https://example.org/a.mlt",
+    );
+  });
+
+  it("reads a relative one against the page, so a tile beside it can be named", () => {
+    expect(tileAddress("fixtures/0x02/point.mlt")).toBe(
+      `${location.origin}/fixtures/0x02/point.mlt`,
+    );
+  });
+
+  it("trims what was pasted, which often arrives with a space on it", () => {
+    expect(tileAddress("  https://example.org/a.mlt ")).toBe(
+      "https://example.org/a.mlt",
+    );
+  });
+
+  it("refuses a scheme a link could point at this reader's own machine", () => {
+    expect(tileAddress("file:///etc/passwd")).toBeNull();
+  });
+
+  it("refuses one that is not an address at all", () => {
+    expect(tileAddress("http://")).toBeNull();
+  });
+
+  /** Resolved against the page, nothing comes back as the page, which is not a tile. */
+  it("refuses nothing at all rather than resolving it to the page itself", () => {
+    expect(tileAddress("")).toBeNull();
+    expect(tileAddress("   ")).toBeNull();
   });
 });
 
