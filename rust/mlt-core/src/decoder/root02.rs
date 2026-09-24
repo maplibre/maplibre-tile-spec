@@ -56,11 +56,12 @@ use crate::decoder::stream::header02;
 use crate::decoder::stream::header02::{Count02, HAS_EXPLICIT_COUNT, StrLayout, StreamCtx02};
 use crate::decoder::{
     Column02, ColumnCounts, ColumnKind02, ColumnType02, DataType02, Decoder, DictLayout,
-    DictionaryType, FloatLogical, GeoLayout, GeoTypes, Id, IdWidth02, Layer01, LayerHeader02,
-    LayerLayout, LengthType, LogicalEncoding, MValues, Nested, Presence02, RawFloats,
-    RawFloatsEncoding, RawFsstData, RawGeometry, RawId, RawIdValue, RawMValue, RawPlainData,
-    RawPresence, RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding, RawSharedDictItem,
-    RawStream, RawStrings, RawStringsEncoding, SharedDictKind, ValueType02, ValuesColumn02,
+    DictionaryType, FloatLogical, GeoLayout, GeoTypes, Id, IdWidth02, Layer01, Layer02,
+    LayerHeader02, LayerLayout, LengthType, LogicalEncoding, MValues, Nested, Presence02,
+    RawFloats, RawFloatsEncoding, RawFsstData, RawGeometry, RawId, RawIdValue, RawMValue,
+    RawPlainData, RawPresence, RawProperty, RawScalar, RawSharedDict, RawSharedDictEncoding,
+    RawSharedDictItem, RawStream, RawStrings, RawStringsEncoding, SharedDictKind, ValueType02,
+    ValuesColumn02,
 };
 use crate::tile::{ColumnRole, Extent, reject_taken_name};
 use crate::utils::{SetOptionOnce as _, parse_string, parse_u8};
@@ -70,7 +71,7 @@ use crate::{Lazy, MltError, MltRefResult, MltResult, Parser};
 pub(crate) fn parse_layer02<'a>(
     input: &'a [u8],
     parser: &mut Parser,
-) -> MltResult<Layer01<'a, Lazy>> {
+) -> MltResult<Layer02<'a, Lazy>> {
     let (input, layer_name) = parse_string(input)?;
     if layer_name.is_empty() {
         return Err(MissingLayerName);
@@ -186,16 +187,18 @@ pub(crate) fn parse_layer02<'a>(
     if !input.is_empty() {
         return Err(TrailingLayerData(input.len()));
     }
-    Ok(Layer01 {
-        name: layer_name,
-        extent,
-        id: id_column,
-        geometry: Raw(geometry),
-        properties,
+    Ok(Layer02 {
+        layer: Layer01 {
+            name: layer_name,
+            extent,
+            id: id_column,
+            geometry: Raw(geometry),
+            properties,
+            #[cfg(fuzzing)]
+            layer_order,
+        },
         nested,
         m_values,
-        #[cfg(fuzzing)]
-        layer_order,
     })
 }
 

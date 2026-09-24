@@ -90,8 +90,30 @@ pub fn into_layer01(layer: Layer) -> Layer01 {
     match layer {
         Layer::Tag01(v) => v,
         #[cfg(feature = "unstable-v2")]
-        Layer::Tag02(v) => v,
+        Layer::Tag02(v) => v.into_layer(),
         Layer::Unknown(v) => panic!("expected Tag01/02 layer, got Tag{:02x}", v.tag),
+    }
+}
+
+/// Test-only shorthand for the shared columns of a layer, dropping any that a
+/// single version adds.
+///
+/// Deliberately not offered to users: silently losing a version's columns is a
+/// hazard in real code, where the whole layer goes through `into_tile` or the
+/// caller matches on the version it means.
+pub trait IntoLayer01<'a> {
+    /// The shared columns, or `None` for a tag this build does not know.
+    fn into_layer01(self) -> Option<Layer01<'a, crate::Lazy>>;
+}
+
+impl<'a> IntoLayer01<'a> for Layer<'a, crate::Lazy> {
+    fn into_layer01(self) -> Option<Layer01<'a, crate::Lazy>> {
+        match self {
+            Layer::Tag01(v) => Some(v),
+            #[cfg(feature = "unstable-v2")]
+            Layer::Tag02(v) => Some(v.into_layer()),
+            Layer::Unknown(_) => None,
+        }
     }
 }
 

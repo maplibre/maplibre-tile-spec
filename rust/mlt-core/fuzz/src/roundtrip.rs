@@ -41,10 +41,9 @@ pub fn decode(bytes: &[u8], tag: u8) -> TileLayer {
     let layer = layers.remove(0);
     assert_eq!(actual_tag(&layer), tag, "encoder wrote the wrong layer tag");
     layer
-        .into_layer01()
-        .expect("layer01 representation")
         .into_tile(&mut Decoder::default())
         .expect("into_tile should not fail")
+        .expect("a known layer tag")
 }
 
 pub fn expected_tag(cfg: EncoderConfig) -> u8 {

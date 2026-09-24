@@ -163,8 +163,12 @@ fn tessellation_vertices(geom: &Geometry<i32>) -> Option<(Vec<Coord<i32>>, Vec<u
 fn layer_triangles(layers: &[ParsedLayer<'_>]) -> anyhow::Result<Vec<Option<Tessellation>>> {
     let mut out = Vec::new();
     for layer in layers {
-        let Some(layer) = layer.as_layer01() else {
-            continue;
+        let layer = match layer {
+            ParsedLayer::Tag01(l) => l,
+            #[cfg(feature = "unstable-v2")]
+            ParsedLayer::Tag02(l) => l.layer(),
+            // Unknown, and any tag a later version adds
+            _ => continue,
         };
         let values = layer.geometry_values();
         let (Some(counts), Some(indices)) = (values.triangles(), values.index_buffer()) else {

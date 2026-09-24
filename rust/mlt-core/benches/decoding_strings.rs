@@ -6,7 +6,7 @@ use mlt_core::encoder::{
     Codecs, Encoder, EncoderConfig, ExplicitEncoder, IntEncoder, LogicalEncoder, PhysicalEncoder,
     Presence, StagedId, StagedLayer, StagedProperty, StagedSharedDict, StrEncoding,
 };
-use mlt_core::test_helpers::{dec, parser};
+use mlt_core::test_helpers::{IntoLayer01 as _, dec, parser};
 use mlt_core::{GeometryValues, LendingIterator, ParsedLayer01, PropValueRef};
 use strum::IntoEnumIterator as _;
 use usize_cast::FromUsize as _;

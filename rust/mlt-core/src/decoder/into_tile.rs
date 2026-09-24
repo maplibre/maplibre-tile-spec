@@ -5,40 +5,44 @@
 //! feature, owning its geometry and property values outright. That is the form
 //! the optimizer, the sorting pipeline, and the converters work in.
 
-use crate::decoder::{Layer01, ParsedLayer01, ParsedProperty, PropValueRef};
+use crate::decoder::{Layer, Layer01, ParsedLayer, ParsedLayer01, ParsedProperty, PropValueRef};
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::{Layer02, ParsedLayer02};
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::{MValueSpans, ParsedMValue, ParsedNested};
 use crate::errors::AsMltError as _;
 #[cfg(feature = "unstable-v2")]
 use crate::tile::{MValue, NestedKind, NestedValue};
 use crate::tile::{PropValue, TileFeature, TileLayer};
-use crate::{Decoder, LendingIterator, MltResult};
+use crate::{Decoder, Lazy, LendingIterator, MltResult};
+
+/// The parts of a [`TileLayer`] every wire version produces the same way.
+struct TileParts {
+    name: String,
+    extent: u32,
+    names: Vec<String>,
+    features: Vec<TileFeature>,
+}
 
 impl ParsedLayer01<'_> {
     /// Decode and convert into a row-oriented [`TileLayer`], charging every
     /// heap allocation against `dec`.
     pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer> {
-        // Extract owned/copied fields before borrowing self for the feature iterator.
+        let parts = self.collect_parts(dec)?;
+        TileLayer::from_parts(parts.name, parts.extent, parts.names, parts.features)
+    }
+
+    /// One [`TileFeature`] per map feature, carrying only the columns every
+    /// version has. A version that adds its own fills them in afterwards.
+    ///
+    /// Borrows rather than consumes, so a caller holding a larger layer can keep
+    /// using the columns its own version adds.
+    fn collect_parts(&self, dec: &mut Decoder) -> MltResult<TileParts> {
         let name = self.name().to_string();
         let extent = self.extent().get();
         let names: Vec<String> = self.iterate_prop_names().map(|n| n.to_string()).collect();
         let col_nulls = typed_nulls(&self.properties);
-        #[cfg(feature = "unstable-v2")]
-        let m_names: Vec<String> = self.m_values.iter().map(|m| m.name().to_string()).collect();
-        #[cfg(feature = "unstable-v2")]
-        let nested_names: Vec<String> = self.nested.iter().map(|n| n.name().to_string()).collect();
-        #[cfg(feature = "unstable-v2")]
-        let nested_kinds: Vec<NestedKind> = self.nested.iter().map(ParsedNested::kind).collect();
-        // One walk per m-value column, stepped alongside the features. Cutting the
-        // columns up front instead would cost a span per feature per column, which is
-        // memory the tile declares rather than memory it carries.
-        #[cfg(feature = "unstable-v2")]
-        let mut m_spans = dec.alloc::<MValueSpans>(self.m_values.len())?;
-        #[cfg(feature = "unstable-v2")]
-        m_spans.extend(self.m_values.iter().map(|m| m.spans(&self.geometry)));
         let mut features = dec.alloc::<TileFeature>(self.feature_count())?;
-        #[cfg(feature = "unstable-v2")]
-        let mut index = 0_usize;
         let mut feat_iter = self.iter_features();
         while let Some(feat) = feat_iter.next() {
             let feat = feat?;
@@ -57,28 +61,88 @@ impl ParsedLayer01<'_> {
                 geometry: feat.geometry().clone(),
                 properties: values,
                 #[cfg(feature = "unstable-v2")]
-                m_values: m_values_of(&self.m_values, &mut m_spans, dec)?,
+                m_values: Vec::new(),
                 #[cfg(feature = "unstable-v2")]
-                nested: nested_of(&self.nested, index, dec)?,
+                nested: Vec::new(),
             });
-            #[cfg(feature = "unstable-v2")]
-            {
-                index += 1;
-            }
         }
-
-        let layer = TileLayer::from_parts(name, extent, names, features)?;
-        #[cfg(feature = "unstable-v2")]
-        let layer = layer
-            .with_m_value_names(m_names)?
-            .with_nested(nested_names, nested_kinds)?;
-        Ok(layer)
+        Ok(TileParts {
+            name,
+            extent,
+            names,
+            features,
+        })
     }
 }
 
 impl Layer01<'_> {
     /// Decode and convert into a row-oriented [`TileLayer`]
     pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer> {
+        self.decode_all(dec)?.into_tile(dec)
+    }
+}
+
+#[cfg(feature = "unstable-v2")]
+impl ParsedLayer02<'_> {
+    /// Decode and convert into a row-oriented [`TileLayer`], adding the m-value
+    /// and nested columns only v2 carries.
+    pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer> {
+        let parts = self.layer.collect_parts(dec)?;
+        let m_names: Vec<String> = self.m_values.iter().map(|m| m.name().to_string()).collect();
+        let nested_names: Vec<String> = self.nested.iter().map(|n| n.name().to_string()).collect();
+        let nested_kinds: Vec<NestedKind> = self.nested.iter().map(ParsedNested::kind).collect();
+        // One walk per m-value column, stepped alongside the features. Cutting the
+        // columns up front instead would cost a span per feature per column, which is
+        // memory the tile declares rather than memory it carries.
+        let mut m_spans = dec.alloc::<MValueSpans>(self.m_values.len())?;
+        m_spans.extend(self.m_values.iter().map(|m| m.spans(&self.layer.geometry)));
+
+        let TileParts {
+            name,
+            extent,
+            names,
+            mut features,
+        } = parts;
+        for (index, feature) in features.iter_mut().enumerate() {
+            feature.m_values = m_values_of(&self.m_values, &mut m_spans, dec)?;
+            feature.nested = nested_of(&self.nested, index, dec)?;
+        }
+
+        TileLayer::from_parts(name, extent, names, features)?
+            .with_m_value_names(m_names)?
+            .with_nested(nested_names, nested_kinds)
+    }
+}
+
+#[cfg(feature = "unstable-v2")]
+impl Layer02<'_> {
+    /// Decode and convert into a row-oriented [`TileLayer`]
+    pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer> {
+        self.decode_all(dec)?.into_tile(dec)
+    }
+}
+
+impl ParsedLayer<'_> {
+    /// Convert into a row-oriented [`TileLayer`], whatever the layer's tag, or
+    /// `None` for a tag this build does not know.
+    ///
+    /// This is the version-agnostic way to read a layer: every version's columns
+    /// land in the same row model, so nothing is dropped the way reaching for one
+    /// version's type would drop another's columns.
+    pub fn into_tile(self, dec: &mut Decoder) -> MltResult<Option<TileLayer>> {
+        match self {
+            Layer::Tag01(l) => l.into_tile(dec).map(Some),
+            #[cfg(feature = "unstable-v2")]
+            Layer::Tag02(l) => l.into_tile(dec).map(Some),
+            Layer::Unknown(_) => Ok(None),
+        }
+    }
+}
+
+impl Layer<'_, Lazy> {
+    /// Decode every column, then convert into a row-oriented [`TileLayer`], or
+    /// `None` for a tag this build does not know.
+    pub fn into_tile(self, dec: &mut Decoder) -> MltResult<Option<TileLayer>> {
         self.decode_all(dec)?.into_tile(dec)
     }
 }

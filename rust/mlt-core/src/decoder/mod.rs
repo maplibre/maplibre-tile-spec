@@ -37,6 +37,8 @@ pub use iterators::{
 };
 pub use limits::{Decoder, Parser};
 pub use model::{Layer, Layer01, ParsedLayer, ParsedLayer01, Unknown};
+#[cfg(feature = "unstable-v2")]
+pub use model::{Layer02, ParsedLayer02};
 pub use model01::ColumnType;
 pub(crate) use model01::{BASE_TYPE_MASK, Column, OPTIONAL_FLAG};
 #[cfg(feature = "unstable-v2")]

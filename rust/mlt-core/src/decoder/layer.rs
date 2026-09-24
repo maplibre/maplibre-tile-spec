@@ -2,32 +2,26 @@ use crate::codecs::varint::parse_varint;
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::root02::parse_layer02;
 use crate::decoder::{Layer01, ParsedLayer01, Unknown};
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::{Layer02, ParsedLayer02};
 use crate::utils::{parse_u8, take};
 use crate::{
     DecodeState, Decoder, Layer, Lazy, MltError, MltRefResult, MltResult, ParsedLayer, Parser,
 };
 
 impl<'a, S: DecodeState> Layer<'a, S> {
-    /// Returns the inner [`Layer01`] for any layer stored in the `Layer01`
-    /// in-memory representation (both `Tag01` and `Tag02`), or `None` otherwise.
+    /// The layer's name, whatever its tag, or `None` for a tag this build does not
+    /// know.
+    ///
+    /// Returning the value rather than the layer is what makes this safe to offer:
+    /// handing back one version's layer type would quietly drop the columns another
+    /// version adds, which is why there is no such accessor.
     #[must_use]
-    pub fn as_layer01(&self) -> Option<&Layer01<'a, S>> {
+    pub fn name(&self) -> Option<&'a str> {
         match self {
-            Self::Tag01(l) => Some(l),
+            Self::Tag01(l) => Some(l.name()),
             #[cfg(feature = "unstable-v2")]
-            Self::Tag02(l) => Some(l),
-            Self::Unknown(_) => None,
-        }
-    }
-
-    /// Consumes this layer and returns the inner [`Layer01`] for any layer stored
-    /// in the `Layer01` in-memory representation, or `None` otherwise.
-    #[must_use]
-    pub fn into_layer01(self) -> Option<Layer01<'a, S>> {
-        match self {
-            Self::Tag01(l) => Some(l),
-            #[cfg(feature = "unstable-v2")]
-            Self::Tag02(l) => Some(l),
+            Self::Tag02(l) => Some(l.layer().name()),
             Self::Unknown(_) => None,
         }
     }
@@ -76,7 +70,7 @@ impl<'a> Layer01<'a, Lazy> {
     /// Consumes `self` (a `Layer01<Lazy>`) and returns a `Layer01<Parsed>` where every
     /// column field holds its parsed value directly, enabling infallible readonly access.
     pub fn decode_all(self, dec: &mut Decoder) -> MltResult<ParsedLayer01<'a>> {
-        let layer: ParsedLayer01<'a> = Layer01 {
+        Ok(Layer01 {
             name: self.name,
             extent: self.extent,
             id: self.id.map(|id| id.into_parsed(dec)).transpose()?,
@@ -86,26 +80,33 @@ impl<'a> Layer01<'a, Lazy> {
                 .into_iter()
                 .map(|p| p.into_parsed(dec))
                 .collect::<MltResult<Vec<_>>>()?,
-            #[cfg(feature = "unstable-v2")]
+            #[cfg(fuzzing)]
+            layer_order: self.layer_order,
+        })
+    }
+}
+
+#[cfg(feature = "unstable-v2")]
+impl<'a> Layer02<'a, Lazy> {
+    /// Decode every column, the shared ones and the two only v2 has.
+    pub fn decode_all(self, dec: &mut Decoder) -> MltResult<ParsedLayer02<'a>> {
+        let layer = Layer02 {
+            layer: self.layer.decode_all(dec)?,
             nested: self
                 .nested
                 .into_iter()
                 .map(|n| n.into_parsed(dec))
                 .collect::<MltResult<Vec<_>>>()?,
-            #[cfg(feature = "unstable-v2")]
             m_values: self
                 .m_values
                 .into_iter()
                 .map(|m| m.into_parsed(dec))
                 .collect::<MltResult<Vec<_>>>()?,
-            #[cfg(fuzzing)]
-            layer_order: self.layer_order,
         };
         // An m-value column's length is only checkable once the geometry is decoded
         // too, which it now is. Every later walk of a column relies on this check.
-        #[cfg(feature = "unstable-v2")]
         for column in &layer.m_values {
-            column.check_length(&layer.geometry)?;
+            column.check_length(&layer.layer.geometry)?;
         }
         Ok(layer)
     }

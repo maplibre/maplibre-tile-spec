@@ -23,27 +23,41 @@ pub enum Layer<'a, S: DecodeState = Lazy> {
     Tag01(Layer01<'a, S>),
     /// Experimental v2 layer (tag = 2).
     ///
-    /// Parsed into the same in-memory columnar representation as `Tag01` but with an more compact wire format.
+    /// Carries the same columnar representation as `Tag01` plus the columns only
+    /// v2 has, in a more compact wire format.
     #[cfg(feature = "unstable-v2")]
-    Tag02(Layer01<'a, S>),
+    Tag02(Layer02<'a, S>),
     /// Unknown layer with tag, size, and value
     Unknown(Unknown<'a>),
 }
 pub type ParsedLayer<'a> = Layer<'a, Parsed>;
 
-impl<'a, S: DecodeState> fmt::Debug for Layer<'a, S>
-where
-    Layer01<'a, S>: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Tag01(l) => f.debug_tuple("Tag01").field(l).finish(),
-            #[cfg(feature = "unstable-v2")]
-            Self::Tag02(l) => f.debug_tuple("Tag02").field(l).finish(),
-            Self::Unknown(u) => f.debug_tuple("Unknown").field(u).finish(),
+/// [`fmt::Debug`] for a layer, whose per-version bounds a `where` clause has to
+/// spell out because the decode state hides the columns behind a projection.
+/// Invoked with the v2 layer type in a v2 build and with nothing at all otherwise.
+macro_rules! layer_debug {
+    ($($layer02:ty)?) => {
+        impl<'a, S: DecodeState> fmt::Debug for Layer<'a, S>
+        where
+            Layer01<'a, S>: fmt::Debug,
+            $($layer02: fmt::Debug,)?
+        {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                match self {
+                    Self::Tag01(l) => f.debug_tuple("Tag01").field(l).finish(),
+                    #[cfg(feature = "unstable-v2")]
+                    Self::Tag02(l) => f.debug_tuple("Tag02").field(l).finish(),
+                    Self::Unknown(u) => f.debug_tuple("Unknown").field(u).finish(),
+                }
+            }
         }
-    }
+    };
 }
+
+#[cfg(feature = "unstable-v2")]
+layer_debug!(Layer02<'a, S>);
+#[cfg(not(feature = "unstable-v2"))]
+layer_debug!();
 
 /// Unknown layer data, stored as encoded bytes.
 ///
@@ -72,7 +86,8 @@ impl<'a> Unknown<'a> {
 
 /// Representation of an MLT feature table layer during decoding.
 ///
-/// Used for both tag `0x01` and tag `0x02` layers - the name is historical.
+/// Holds what every layer version has. A v1 layer is exactly this; a v2 layer is
+/// this plus the columns only v2 carries, which [`Layer02`] adds around it.
 ///
 /// The type parameter `S` controls how columns are stored:
 ///
@@ -88,12 +103,6 @@ pub struct Layer01<'a, S: DecodeState = Lazy> {
     pub(crate) id: Option<Id<'a, S>>,
     pub(crate) geometry: Geometry<'a, S>,
     pub(crate) properties: Vec<Property<'a, S>>,
-    /// Nested columns, which only a v2 layer carries.
-    #[cfg(feature = "unstable-v2")]
-    pub(crate) nested: Vec<Nested<'a, S>>,
-    /// Vertex-scoped columns, which only a v2 layer carries.
-    #[cfg(feature = "unstable-v2")]
-    pub(crate) m_values: Vec<MValueColumn<'a, S>>,
     #[cfg(fuzzing)]
     pub(crate) layer_order: Vec<crate::decoder::fuzzing::LayerOrdering>,
 }
@@ -134,84 +143,129 @@ impl ParsedLayer01<'_> {
     pub fn properties(&self) -> &[ParsedProperty<'_>] {
         &self.properties
     }
+}
 
+/// [`fmt::Debug`] and [`Clone`] for a layer, whose column bounds a `where` clause
+/// has to spell out because the decode state hides them behind a projection.
+impl<'a, S> fmt::Debug for Layer01<'a, S>
+where
+    S: DecodeState,
+    Option<Id<'a, S>>: fmt::Debug,
+    Geometry<'a, S>: fmt::Debug,
+    Vec<Property<'a, S>>: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut s = f.debug_struct("Layer01");
+        s.field("name", &self.name)
+            .field("extent", &self.extent)
+            .field("id", &self.id)
+            .field("geometry", &self.geometry)
+            .field("properties", &self.properties);
+        #[cfg(fuzzing)]
+        s.field("layer_order", &self.layer_order);
+        s.finish()
+    }
+}
+
+impl<'a, S> Clone for Layer01<'a, S>
+where
+    S: DecodeState,
+    Option<Id<'a, S>>: Clone,
+    Geometry<'a, S>: Clone,
+    Vec<Property<'a, S>>: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            name: self.name,
+            extent: self.extent,
+            id: self.id.clone(),
+            geometry: self.geometry.clone(),
+            properties: self.properties.clone(),
+            #[cfg(fuzzing)]
+            layer_order: self.layer_order.clone(),
+        }
+    }
+}
+
+/// A tag `0x02` layer: the shared [`Layer01`] core plus the columns only v2 has.
+///
+/// v1 is a subset of v2, so the shared parts live on `Layer01` and are reached
+/// through [`Self::layer`]. A later wire version whose model diverges further gets
+/// its own type here rather than more optional fields on the shared one.
+#[cfg(feature = "unstable-v2")]
+pub struct Layer02<'a, S: DecodeState = Lazy> {
+    pub(crate) layer: Layer01<'a, S>,
+    /// Nested columns, each a tree over the features it marks present.
+    pub(crate) nested: Vec<Nested<'a, S>>,
+    /// Vertex-scoped columns, each running over every vertex of every feature
+    /// it marks present.
+    pub(crate) m_values: Vec<MValueColumn<'a, S>>,
+}
+
+#[cfg(feature = "unstable-v2")]
+pub type ParsedLayer02<'a> = Layer02<'a, Parsed>;
+
+#[cfg(feature = "unstable-v2")]
+impl<'a, S: DecodeState> Layer02<'a, S> {
+    /// The parts this layer shares with every other version.
+    #[must_use]
+    pub fn layer(&self) -> &Layer01<'a, S> {
+        &self.layer
+    }
+
+    /// Drop the v2-only columns, keeping the shared core.
+    #[must_use]
+    pub fn into_layer(self) -> Layer01<'a, S> {
+        self.layer
+    }
+}
+
+#[cfg(feature = "unstable-v2")]
+impl ParsedLayer02<'_> {
     /// The layer's vertex-scoped columns, each running over every vertex of
     /// every feature it marks present.
-    #[cfg(feature = "unstable-v2")]
     #[must_use]
     pub fn m_values(&self) -> &[crate::decoder::ParsedMValue<'_>] {
         &self.m_values
     }
 
     /// The layer's nested columns, each a tree over the features it marks present.
-    #[cfg(feature = "unstable-v2")]
     #[must_use]
     pub fn nested(&self) -> &[crate::decoder::ParsedNested<'_>] {
         &self.nested
     }
 }
 
-/// [`fmt::Debug`] and [`Clone`] for a layer, whose column bounds a `where` clause
-/// has to spell out because the decode state hides them behind a projection.
-///
-/// The m-value columns are only a field in a v2 build, so the bound on them only
-/// exists there, which a `where` clause cannot say for itself. Invoked with the
-/// column type in a v2 build and with nothing at all otherwise.
-macro_rules! layer01_traits {
-    ($($m_values:ty, $nested:ty)?) => {
-        impl<'a, S> fmt::Debug for Layer01<'a, S>
-        where
-            S: DecodeState,
-            Option<Id<'a, S>>: fmt::Debug,
-            Geometry<'a, S>: fmt::Debug,
-            Vec<Property<'a, S>>: fmt::Debug,
-            $($m_values: fmt::Debug, $nested: fmt::Debug,)?
-        {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                let mut s = f.debug_struct("Layer01");
-                s.field("name", &self.name)
-                    .field("extent", &self.extent)
-                    .field("id", &self.id)
-                    .field("geometry", &self.geometry)
-                    .field("properties", &self.properties);
-                #[cfg(feature = "unstable-v2")]
-                s.field("nested", &self.nested);
-                #[cfg(feature = "unstable-v2")]
-                s.field("m_values", &self.m_values);
-                #[cfg(fuzzing)]
-                s.field("layer_order", &self.layer_order);
-                s.finish()
-            }
-        }
-
-        impl<'a, S> Clone for Layer01<'a, S>
-        where
-            S: DecodeState,
-            Option<Id<'a, S>>: Clone,
-            Geometry<'a, S>: Clone,
-            Vec<Property<'a, S>>: Clone,
-            $($m_values: Clone, $nested: Clone,)?
-        {
-            fn clone(&self) -> Self {
-                Self {
-                    name: self.name,
-                    extent: self.extent,
-                    id: self.id.clone(),
-                    geometry: self.geometry.clone(),
-                    properties: self.properties.clone(),
-                    #[cfg(feature = "unstable-v2")]
-                    nested: self.nested.clone(),
-                    #[cfg(feature = "unstable-v2")]
-                    m_values: self.m_values.clone(),
-                    #[cfg(fuzzing)]
-                    layer_order: self.layer_order.clone(),
-                }
-            }
-        }
-    };
+#[cfg(feature = "unstable-v2")]
+impl<'a, S> fmt::Debug for Layer02<'a, S>
+where
+    S: DecodeState,
+    Layer01<'a, S>: fmt::Debug,
+    Vec<Nested<'a, S>>: fmt::Debug,
+    Vec<MValueColumn<'a, S>>: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Layer02")
+            .field("layer", &self.layer)
+            .field("nested", &self.nested)
+            .field("m_values", &self.m_values)
+            .finish()
+    }
 }
 
 #[cfg(feature = "unstable-v2")]
-layer01_traits!(Vec<MValueColumn<'a, S>>, Vec<Nested<'a, S>>);
-#[cfg(not(feature = "unstable-v2"))]
-layer01_traits!();
+impl<'a, S> Clone for Layer02<'a, S>
+where
+    S: DecodeState,
+    Layer01<'a, S>: Clone,
+    Vec<Nested<'a, S>>: Clone,
+    Vec<MValueColumn<'a, S>>: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            layer: self.layer.clone(),
+            nested: self.nested.clone(),
+            m_values: self.m_values.clone(),
+        }
+    }
+}

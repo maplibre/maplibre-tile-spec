@@ -391,9 +391,8 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
             continue;
         }
         let tile = layer
-            .into_layer01()
-            .expect("every layer but Unknown holds a Layer01")
-            .into_tile(&mut dec)?;
+            .into_tile(&mut dec)?
+            .expect("unknown layers are handled above");
         out.extend_from_slice(&tile.encode(cfg)?);
     }
 
@@ -417,12 +416,12 @@ fn mlt_buffer_to_tile_layers(buffer: &[u8]) -> AnyResult<Vec<mlt_core::TileLayer
     let mut dec = Decoder::default();
     let mut tiles = Vec::new();
     for layer in layers {
-        let Some(layer) = layer.into_layer01() else {
+        let Some(tile) = layer.into_tile(&mut dec)? else {
             bail!(
                 "cannot convert MLT tile to MVT: tile contains unknown/extension layers that MVT cannot represent"
             );
         };
-        tiles.push(layer.into_tile(&mut dec)?);
+        tiles.push(tile);
     }
     Ok(tiles)
 }
