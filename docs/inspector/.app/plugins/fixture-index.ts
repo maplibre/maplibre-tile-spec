@@ -12,25 +12,43 @@ import { basename, dirname, join } from "node:path";
 import type { Plugin } from "vite";
 import type { FixtureEntry } from "../src/fixtures.ts";
 
-/** Coarse encoding names, keyed by the substring `mlt ls` spells them with. */
-const ENCODINGS: [needle: string, label: string][] = [
-  ["FastPFOR", "FastPFOR"],
-  ["BitPacked", "BitPacked"],
-  ["Rle", "RLE"],
-  ["Morton", "Morton"],
-  ["Fsst", "FSST"],
-  ["Shared", "SharedDict"],
-  ["Dict", "Dictionary"],
-  ["Present", "Presence"],
-  ["Triangles", "Tessellated"],
+/** The axes `mlt ls --format json` reports, each a sorted array of spec names. */
+type LsFacets = Record<string, string[]>;
+
+/**
+ * The coarse encoding names the facet bar shows, each read off the axes that
+ * actually carry it rather than matched against one concatenated label.
+ *
+ * `Presence` holds only for v1: v2 stores a presence field as a bare bitfield with
+ * no stream header, so it never appears as a stream type. Giving v2 a presence facet
+ * needs `mlt ls` to report the coding, which its parser currently discards.
+ */
+const ENCODINGS: [name: string, of: (f: LsFacets) => boolean][] = [
+  ["FastPFOR", (f) => has(f.physical, (v) => v.startsWith("fastpfor"))],
+  ["BitPacked", (f) => has(f.physical, (v) => v === "bitpacked")],
+  ["RLE", (f) => has(f.logical, (v) => v.endsWith("rle"))],
+  ["Morton", (f) => has(f.logical, (v) => v.startsWith("morton"))],
+  ["FSST", (f) => has(f.strLayout, (v) => v.startsWith("fsst"))],
+  ["SharedDict", (f) => has(f.streamType, (v) => v === "data[shared]")],
+  [
+    "Dictionary",
+    (f) =>
+      has(f.strLayout, (v) => v.endsWith("dict")) ||
+      has(f.logical, (v) => v === "dict"),
+  ],
+  ["Presence", (f) => has(f.streamType, (v) => v === "present")],
+  ["Tessellated", (f) => has(f.geomLayout, (v) => v.startsWith("tess"))],
 ];
+
+const has = (values: string[] | undefined, hit: (v: string) => boolean) =>
+  (values ?? []).some(hit);
 
 interface LsRow {
   path: string;
   info?: {
     geometries?: string[];
-    algorithms?: string[];
     content?: string[];
+    facets?: LsFacets;
   };
 }
 
@@ -75,15 +93,12 @@ function readFacets(
   for (const row of rows) {
     const directory = label.get(dirname(row.path));
     if (!row.info || directory === undefined) continue;
-    const algorithms = (row.info.algorithms ?? []).join(" ");
+    const axes = row.info.facets ?? {};
     facets.set(`${directory}/${basename(row.path)}`, {
-      geometries: row.info.geometries ?? [],
-      encodings: ENCODINGS.flatMap(([needle, label]) =>
-        algorithms.includes(needle) ? [label] : [],
-      ),
-      content: (row.info.content ?? [])
-        .map((flag) => flag.replaceAll("_", "-"))
-        .sort(),
+      geometries: axes.geometry ?? row.info.geometries ?? [],
+      encodings: ENCODINGS.flatMap(([name, of]) => (of(axes) ? [name] : [])),
+      content: axes.dataType ?? row.info.content ?? [],
+      facets: axes,
     });
   }
   return facets;

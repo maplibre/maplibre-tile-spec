@@ -1,0 +1,31 @@
+---
+source: mlt/src/ls.rs
+expression: "serde_json::to_string_pretty(&algorithms).expect(\"algorithms serialize\")"
+---
+[
+  {
+    "stream": "protobuf",
+    "physical": null,
+    "logical": null
+  },
+  {
+    "stream": "present",
+    "physical": null,
+    "logical": null
+  },
+  {
+    "stream": "data[vertex]",
+    "physical": "varint",
+    "logical": "delta-rle"
+  },
+  {
+    "stream": "offset[string]",
+    "physical": null,
+    "logical": "rle"
+  },
+  {
+    "stream": "length[rings]",
+    "physical": null,
+    "logical": null
+  }
+]

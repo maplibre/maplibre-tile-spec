@@ -40,19 +40,71 @@ describe("indexFixtures", () => {
   });
 
   it("reads geometry and encoding facets from mlt ls", () => {
-    expect(
-      index.find(
-        (entry) =>
-          entry.directory === "0x02" && entry.name === "props_str_fsst.mlt",
-      ),
-    ).toEqual({
-      name: "props_str_fsst.mlt",
-      directory: "0x02",
-      bytes: 230,
-      geometries: ["Point"],
-      encodings: ["FSST", "Dictionary"],
-      content: ["str"],
-    });
+    const entry = index.find(
+      (entry) =>
+        entry.directory === "0x02" && entry.name === "props_str_fsst.mlt",
+    );
+    // Not `Dictionary`: an FSST-plain column has a symbol table but no value
+    // dictionary. The old substring match read one out of the `length[dictionary]`
+    // stream's name, which is what reading the axes separately avoids.
+    expect(entry?.encodings).toEqual(["FSST"]);
+    expect(entry).toMatchInlineSnapshot(`
+      {
+        "bytes": 230,
+        "content": [
+          "str",
+        ],
+        "directory": "0x02",
+        "encodings": [
+          "FSST",
+        ],
+        "facets": {
+          "dataType": [
+            "str",
+          ],
+          "dictLayout": [],
+          "extent": [
+            "64",
+          ],
+          "geomLayout": [
+            "points",
+          ],
+          "geometry": [
+            "point",
+          ],
+          "logical": [
+            "componentwise-delta",
+          ],
+          "physical": [
+            "varint",
+          ],
+          "strLayout": [
+            "fsst",
+          ],
+          "streamType": [
+            "data[fsst]",
+            "data[single]",
+            "data[vertex]",
+            "length[dictionary]",
+            "length[symbol]",
+          ],
+        },
+        "geometries": [
+          "point",
+        ],
+        "name": "props_str_fsst.mlt",
+      }
+    `);
+  });
+
+  it("names a dictionary column's layout without matching stream names", () => {
+    const dict = index.find(
+      (entry) =>
+        entry.directory === "0x02" && entry.name === "props_str_front_dict.mlt",
+    );
+    expect(dict?.facets?.strLayout).toEqual(["dict"]);
+    expect(dict?.facets?.dictLayout).toEqual(["front-coded"]);
+    expect(dict?.encodings).toContain("Dictionary");
   });
 
   it("reads property data types from mlt ls", () => {

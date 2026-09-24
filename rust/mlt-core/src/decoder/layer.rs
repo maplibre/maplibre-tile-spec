@@ -1,12 +1,13 @@
 use crate::codecs::varint::parse_varint;
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::root02::parse_layer02;
-use crate::decoder::{Layer01, ParsedLayer01, Unknown};
+use crate::decoder::{ColumnStorage, Layer01, ParsedLayer01, Unknown};
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::{Layer02, ParsedLayer02};
 use crate::utils::{parse_u8, take};
 use crate::{
-    DecodeState, Decoder, Layer, Lazy, MltError, MltRefResult, MltResult, ParsedLayer, Parser,
+    DecodeState, Decoder, Layer, Lazy, LazyParsed, MltError, MltRefResult, MltResult, ParsedLayer,
+    Parser,
 };
 
 impl<'a, S: DecodeState> Layer<'a, S> {
@@ -61,6 +62,21 @@ impl<'a> Layer<'a> {
 }
 
 impl<'a> Layer01<'a, Lazy> {
+    /// Call `cb` with the [`ColumnStorage`] of every column that has one to report.
+    ///
+    /// Decoding a string column reconstructs its values, leaving nothing to say whether
+    /// they arrived plain, dictionary-coded, FSST-compressed or front-coded, so a caller
+    /// reporting on how a tile is stored has to ask before [`Self::decode_all`] runs.
+    pub fn for_each_column_storage(&self, cb: &mut dyn FnMut(ColumnStorage)) {
+        for column in &self.properties {
+            if let LazyParsed::Raw(raw) = column
+                && let Some(storage) = raw.storage()
+            {
+                cb(storage);
+            }
+        }
+    }
+
     /// Decode all columns and transition to [`Layer01<Parsed>`].
     ///
     /// Consumes `self` (a `Layer01<Lazy>`) and returns a `Layer01<Parsed>` where every
@@ -98,6 +114,7 @@ impl<'a> Layer02<'a, Lazy> {
                 .into_iter()
                 .map(|m| m.into_parsed(dec))
                 .collect::<MltResult<Vec<_>>>()?,
+            layout: self.layout,
         };
         // An m-value column's length is only checkable once the geometry is decoded
         // too, which it now is. Every later walk of a column relies on this check.

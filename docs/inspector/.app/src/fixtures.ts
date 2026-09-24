@@ -14,6 +14,12 @@ export interface FixtureEntry {
   encodings?: string[];
   /** What the tile holds, as `mlt ls` flags it: str, i32, bool, m-values... */
   content?: string[];
+  /**
+   * Every axis `mlt ls --format json` reports, keyed as its `facets` object spells them:
+   * extent, geometry, geomLayout, dataType, strLayout, dictLayout, streamType,
+   * physical, logical. The values are the spec's own names, so they are shown as they are.
+   */
+  facets?: Record<string, string[]>;
 }
 
 /** Wire tag of the fixture's directory, e.g. `0x02` for `0x02-rust`. */

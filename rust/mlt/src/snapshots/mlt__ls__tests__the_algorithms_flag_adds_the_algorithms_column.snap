@@ -2,6 +2,6 @@
 source: mlt/src/ls.rs
 expression: "render_table(&[info_row(mlt_info(\"a.mlt\"))], ALGORITHMS)"
 ---
- File  |   Size | Enc % | Decoded | Meta | Meta % | Layer | Feature | Stream | Geometry Types | Algorithms           
--------+--------+-------+---------+------+--------+-------+---------+--------+----------------+----------------------
- a.mlt | 12.3kB |   62% |  32.0kB | 900B |   2.8% |     3 |   1,234 |     42 | Pt,Poly        | RawData-VarInt-Delta
+ File  |   Size | Enc % | Decoded | Meta | Meta % | Layer | Feature | Stream | Geometry Types | Algorithms        
+-------+--------+-------+---------+------+--------+-------+---------+--------+----------------+-------------------
+ a.mlt | 12.3kB |   62% |  32.0kB | 900B |   2.8% |     3 |   1,234 |     42 | Pt,Poly        | data/varint/delta
