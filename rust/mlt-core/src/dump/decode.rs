@@ -63,6 +63,16 @@ pub fn decode_blob(
             Err(e) => error(&e),
         },
         #[cfg(feature = "unstable-v2")]
+        DecodeHint::PresenceCoded(coding) => {
+            use crate::codecs::presence_coding::{Unmetered, read};
+            match read(data, meta.num_values, coding, &mut Unmetered) {
+                Ok((_, bits)) => bools(bits.iter().by_vals().collect(), max_values),
+                Err(e) => DecodedBlob::Error {
+                    message: e.to_string(),
+                },
+            }
+        }
+        #[cfg(feature = "unstable-v2")]
         DecodeHint::PackedBits => {
             let n = meta.num_values.into_usize();
             let available = data.len() * 8;

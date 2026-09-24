@@ -630,6 +630,12 @@ exports[`annotateTile > annotates a v2 tile 1`] = `
       "bits": [
         {
           "hi": 7,
+          "lo": 7,
+          "meaning": "shared bitfields are bitmaps",
+          "raw": 0,
+        },
+        {
+          "hi": 6,
           "lo": 4,
           "meaning": "shared presence bitfields = 0",
           "raw": 0,

@@ -618,7 +618,7 @@ fn columns_with_the_same_nulls_share_one_presence_bitfield() {
 
 #[test]
 fn shared_presence_count_is_capped_by_the_layout_byte() {
-    // Sixteen features give more than fourteen distinct masks to go around.
+    // Sixteen features give more than seven distinct masks to go around.
     let masks: Vec<String> = (0..15)
         .map(|i| {
             let mut mask = vec![b'0'; 16];
@@ -638,11 +638,11 @@ fn shared_presence_count_is_capped_by_the_layout_byte() {
     assert_differential(&l);
 
     let dump = dump_text(&l.encode(cfg_v2()).unwrap());
-    assert!(dump.contains("shared presence bitfields = 14"), "{dump}");
-    assert_eq!(dump.matches("presence = Shared(13)").count(), 2, "{dump}");
-    // Every group is shared by two columns, so the last one loses the tie-break.
-    assert_eq!(dump.matches("presence = Inline").count(), 2, "{dump}");
-    assert_eq!(dump.matches("[Present ").count(), 16, "{dump}");
+    assert!(dump.contains("shared presence bitfields = 7"), "{dump}");
+    assert_eq!(dump.matches("presence = Shared(6)").count(), 2, "{dump}");
+    // Eight of the fifteen groups lose the tie-break, and both their columns go inline.
+    assert_eq!(dump.matches("presence = Inline").count(), 16, "{dump}");
+    assert_eq!(dump.matches("[Present ").count(), 23, "{dump}");
 }
 
 #[test]
@@ -790,6 +790,7 @@ mod geometry_layouts {
         no m-value section
         a types stream leads the geometry section
         extent 2^(n+6) = 4096
+        shared bitfields are bitmaps
         shared presence bitfields = 0
         geometry layout = Lines
         ");
@@ -1220,7 +1221,7 @@ mod strings {
 
         #[test]
         fn dict_children_compete_for_the_slots_the_layout_byte_allows() {
-            // Fifteen masks, each held by two children: one group has to lose the tie-break.
+            // Fifteen masks, each held by two children: eight groups lose the tie-break.
             let masks: Vec<String> = (0..15)
                 .map(|i| {
                     let mut mask = vec![b'0'; 16];
@@ -1239,9 +1240,9 @@ mod strings {
             let l = dict_layer(&paired, &[]);
             assert_differential(&l);
 
-            assert_eq!(count(&l, "shared presence bitfields = 14"), 1);
-            assert_eq!(count(&l, "presence = Inline"), 2);
-            assert_eq!(count(&l, "[Present "), 16);
+            assert_eq!(count(&l, "shared presence bitfields = 7"), 1);
+            assert_eq!(count(&l, "presence = Inline"), 16);
+            assert_eq!(count(&l, "[Present "), 23);
         }
 
         #[test]
@@ -1716,4 +1717,43 @@ mod bit_packing {
             l.encode(cfg_v1()).unwrap()
         );
     }
+}
+
+/// A presence field that is not a bitmap builds its bits instead of borrowing them, so a
+/// tile can name far more of them than the bytes it spent naming them. The bits are
+/// charged to the parse budget before they are allocated, which this holds to.
+#[test]
+fn a_run_coded_presence_is_charged_to_the_parse_budget() {
+    // One block of present features over enough of them that the mask costs runs, not a
+    // bitmap: three varints on the wire, 2000 bits once read.
+    let mask: String = (0..2000)
+        .map(|i| if (500..1500).contains(&i) { 'x' } else { '-' })
+        .collect();
+    let values: Vec<PropValue> = mask
+        .chars()
+        .map(|c| {
+            if c == 'x' {
+                PropValue::U32(Some(1))
+            } else {
+                PropValue::U32(None)
+            }
+        })
+        .collect();
+    let layer = layer(points(&mask), None, &[("v", values)]);
+    let tile = layer.encode(cfg_v2()).unwrap();
+
+    // The field is tiny on the wire, so a budget that small still reads the header.
+    assert!(
+        tile.len() < 4096,
+        "the mask should cost runs, not a bitmap: {}",
+        tile.len()
+    );
+
+    // A budget with room decodes it; one without fails rather than allocating the bits.
+    assert!(Parser::default().parse_layers(&tile).is_ok());
+    let err = Parser::with_max_size(64).parse_layers(&tile).unwrap_err();
+    assert!(
+        matches!(err, mlt_core::MltError::MemoryLimitExceeded { .. }),
+        "the bits should be refused by the budget, not by something else: {err}"
+    );
 }

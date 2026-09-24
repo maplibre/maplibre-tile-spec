@@ -1,10 +1,14 @@
 use std::borrow::Cow;
 use std::ops::Deref;
+#[cfg(feature = "unstable-v2")]
+use std::rc::Rc;
 
 #[cfg(feature = "unstable-v2")]
 use bitvec::order::Lsb0;
 #[cfg(feature = "unstable-v2")]
 use bitvec::slice::BitSlice;
+#[cfg(feature = "unstable-v2")]
+use bitvec::vec::BitVec;
 use enum_dispatch::enum_dispatch;
 
 #[cfg(feature = "unstable-v2")]
@@ -318,6 +322,27 @@ pub enum RawPresence<'a> {
     /// Requires the `unstable-v2` feature.
     #[cfg(feature = "unstable-v2")]
     Bitfield(&'a BitSlice<u8, Lsb0>),
+    /// Tag `0x02`: presence that arrived run-coded or as a list of indices, so the
+    /// bits had to be built rather than borrowed.
+    ///
+    /// Behind an [`Rc`] because a shared field is read by every column that names it,
+    /// and one materialisation is enough for all of them: resolving a column's presence
+    /// costs a reference count either way, and only a reader that actually asks for the
+    /// bits of a field another column still holds pays to copy them.
+    /// Requires the `unstable-v2` feature.
+    #[cfg(feature = "unstable-v2")]
+    Decoded(Rc<BitVec<u8, Lsb0>>),
+}
+
+#[cfg(feature = "unstable-v2")]
+impl<'a> RawPresence<'a> {
+    /// Keep bits that were borrowed borrowed, and bits that were built built.
+    pub(crate) fn from_bits(bits: Cow<'a, BitSlice<u8, Lsb0>>) -> Self {
+        match bits {
+            Cow::Borrowed(bits) => Self::Bitfield(bits),
+            Cow::Owned(bits) => Self::Decoded(Rc::new(bits)),
+        }
+    }
 }
 
 impl RawPresence<'_> {

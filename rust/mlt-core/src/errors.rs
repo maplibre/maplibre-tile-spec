@@ -253,6 +253,14 @@ pub enum MltError {
     FastPforDecode(u32, usize),
     #[error("invalid RLE run length (cannot convert to usize): value={0}")]
     RleRunLenInvalid(i128),
+    #[error("presence runs overflow the {0} features they cover")]
+    PresenceRunOverflow(u32),
+    #[error("presence names {0} present features out of {1}")]
+    PresenceRunShort(u32, u32),
+    #[error("presence indices are not strictly increasing within {0} features")]
+    PresenceIndexOrder(u32),
+    #[error("unknown presence coding byte: 0x{0:02X}")]
+    PresenceCodingByte(u8),
 
     // Structural constraints (lengths, counts, shapes)
     #[error("geometry requires at least 1 stream, got 0")]

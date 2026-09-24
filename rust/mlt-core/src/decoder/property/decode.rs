@@ -27,6 +27,12 @@ impl<'a> RawPresence<'a> {
             Self::Stream(s) => Ok(Some(s.decode_bitvec(dec)?)),
             #[cfg(feature = "unstable-v2")]
             Self::Bitfield(bits) => Ok(Some(Cow::Borrowed(bits))),
+            // The last reader takes the bits rather than copying them, which for a
+            // column's own field - the common case - is every reader.
+            #[cfg(feature = "unstable-v2")]
+            Self::Decoded(bits) => Ok(Some(Cow::Owned(
+                std::rc::Rc::try_unwrap(bits).unwrap_or_else(|bits| (*bits).clone()),
+            ))),
         }
     }
 }

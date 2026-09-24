@@ -6,6 +6,8 @@ use serde::ser::SerializeStruct as _;
 use serde::{Serialize, Serializer};
 
 #[cfg(feature = "unstable-v2")]
+use crate::codecs::presence_coding::PresenceCoding;
+#[cfg(feature = "unstable-v2")]
 use crate::wire::Alp;
 use crate::wire::StreamMeta;
 
@@ -49,6 +51,9 @@ pub enum DecodeHint {
     /// A raw LSB0 bitfield, not a stream: `ceil(num_values/8)` packed bytes.
     #[cfg(feature = "unstable-v2")]
     PackedBits,
+    /// Presence bits that are not laid out as bits: runs, or a list of indices.
+    #[cfg(feature = "unstable-v2")]
+    PresenceCoded(PresenceCoding),
 }
 
 /// ALP's parameters flattened beside the hint's tag, keeping `Alp`'s fields crate-private.

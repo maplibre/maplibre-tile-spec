@@ -162,6 +162,7 @@ fn a_line_layer_holds_one_value_per_vertex() {
     an m-value section ends the body
     every feature is a LineString, no types stream
     extent 2^(n+6) = 4096
+    shared bitfields are bitmaps
     shared presence bitfields = 0
     geometry layout = Lines
     m_value[0] I32 "dist": presence = AllPresent
@@ -305,9 +306,10 @@ fn a_feature_with_no_values_stores_an_inline_bitfield_and_no_values() {
     an m-value section ends the body
     every feature is a LineString, no types stream
     extent 2^(n+6) = 4096
+    shared bitfields are bitmaps
     shared presence bitfields = 0
     geometry layout = Lines
-    m_value[0] OptI32 "m": presence = Inline
+    m_value[0] OptI32 "m": presence = Inline(Bitmap)
     "#);
     // Four values for the two features that have them, not six.
     let (count, _) = region_after(&bytes, "m_value[", "num_values");
@@ -338,6 +340,7 @@ fn two_m_value_columns_with_the_same_nulls_share_one_bitfield() {
     an m-value section ends the body
     every feature is a LineString, no types stream
     extent 2^(n+6) = 4096
+    shared bitfields are bitmaps
     shared presence bitfields = 1
     geometry layout = Lines
     m_value[0] OptI32 "a": presence = Shared(0)
@@ -367,6 +370,7 @@ fn an_m_value_column_shares_a_bitfield_with_a_property_column() {
     an m-value section ends the body
     every feature is a LineString, no types stream
     extent 2^(n+6) = 4096
+    shared bitfields are bitmaps
     shared presence bitfields = 1
     geometry layout = Lines
     column[0] OptU32 "p": presence = Shared(0)
@@ -687,6 +691,7 @@ fn a_dictionary_vertex_layout_holds_one_value_per_offset() {
     an m-value section ends the body
     every feature is a LineString, no types stream
     extent 2^(n+6) = 4096
+    shared bitfields are bitmaps
     shared presence bitfields = 0
     geometry layout = LinesDict
     m_value[0] I32 "m": presence = AllPresent
