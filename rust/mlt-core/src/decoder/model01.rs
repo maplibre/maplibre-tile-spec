@@ -9,8 +9,10 @@ use std::io::Write;
 use num_enum::TryFromPrimitive;
 
 use crate::MltError::ParsingColumnType;
+use crate::decoder::{Geometry, GeometryValues, Id, ParsedProperty, Property};
+use crate::tile::Extent;
 use crate::utils::{BinarySerializer as _, parse_string, parse_u8};
-use crate::{MltRefResult, Parser};
+use crate::{DecodeState, Lazy, MltRefResult, Parsed, Parser};
 
 /// Bit 0 of the column type byte: the column has a presence stream.
 pub(crate) const OPTIONAL_FLAG: u8 = 0b0000_0001;
@@ -18,6 +20,68 @@ pub(crate) const OPTIONAL_FLAG: u8 = 0b0000_0001;
 /// Mask of the column type byte holding the base [`ColumnType`], i.e. everything
 /// [`OPTIONAL_FLAG`] does not claim.
 pub(crate) const BASE_TYPE_MASK: u8 = 0b1111_1110;
+
+/// Representation of an MLT feature table layer during decoding.
+///
+/// Holds what every layer version has. A v1 layer is exactly this; a v2 layer is
+/// this plus the columns only v2 carries, which `Layer02` adds around it.
+///
+/// The type parameter `S` controls how columns are stored:
+///
+/// - `Layer01<'a>` / `Layer01<'a, Lazy>` (default) - columns are `LazyParsed` enums
+///   that may be raw or decoded. Use [`Layer01::decode_all`] to transition to `Layer01<Parsed>`.
+///
+/// - `Layer01<'a, Parsed>` - all columns are fully decoded. The fields `id`, `geometry`, and
+///   `properties` hold the parsed types directly, allowing infallible readonly access.
+///   There is a `ParsedLayer01<'a>` type alias for this.
+#[derive(Debug, Clone)]
+pub struct Layer01<'a, S: DecodeState = Lazy> {
+    pub(crate) name: &'a str,
+    pub(crate) extent: Extent,
+    pub(crate) id: Option<Id<'a, S>>,
+    pub(crate) geometry: Geometry<'a, S>,
+    pub(crate) properties: Vec<Property<'a, S>>,
+    #[cfg(fuzzing)]
+    pub(crate) layer_order: Vec<crate::decoder::fuzzing::LayerOrdering>,
+}
+
+pub type ParsedLayer01<'a> = Layer01<'a, Parsed>;
+
+impl<'a, S: DecodeState> Layer01<'a, S> {
+    #[must_use]
+    pub fn name(&self) -> &'a str {
+        self.name
+    }
+
+    #[must_use]
+    pub fn extent(&self) -> Extent {
+        self.extent
+    }
+}
+
+impl ParsedLayer01<'_> {
+    /// Returns the decoded geometry buffer for this layer.
+    ///
+    /// Provides access to the columnar geometry arrays (vertex buffer, offset arrays, geometry
+    /// types) for advanced use cases such as building typed arrays for WebAssembly or
+    /// performing spatial indexing. For iterating feature geometries as `geo_types` values,
+    /// prefer [`iter_features`](Self::iter_features) instead.
+    #[must_use]
+    pub fn geometry_values(&self) -> &GeometryValues {
+        &self.geometry
+    }
+
+    #[must_use]
+    pub fn feature_count(&self) -> usize {
+        self.geometry.vector_types.len()
+    }
+
+    /// The layer's property columns, in wire order.
+    #[must_use]
+    pub fn properties(&self) -> &[ParsedProperty<'_>] {
+        &self.properties
+    }
+}
 
 /// Column definition
 #[derive(Debug, PartialEq)]
