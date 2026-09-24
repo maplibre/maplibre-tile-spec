@@ -38,10 +38,6 @@ pub enum ColumnType {
     Geometry = 0b0000_0100,
     Bool = 0b0000_1010,
     OptBool = 0b0000_1011,
-    I8 = 0b0000_1100,
-    OptI8 = 0b0000_1101,
-    U8 = 0b0000_1110,
-    OptU8 = 0b0000_1111,
     I32 = 0b0001_0000,
     OptI32 = 0b0001_0001,
     U32 = 0b0001_0010,
@@ -112,5 +108,19 @@ impl ColumnType {
     #[must_use]
     pub(crate) fn is_optional(self) -> bool {
         (self as u8) & OPTIONAL_FLAG != 0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use super::ColumnType;
+    use crate::MltError;
+
+    #[rstest]
+    fn column_type_rejects_unassigned(#[values(5, 6, 7, 8, 9, 12, 13, 14, 15, 31)] byte: u8) {
+        let err = ColumnType::from_bytes(&[byte]).unwrap_err();
+        assert!(matches!(err, MltError::ParsingColumnType(b) if b == byte));
     }
 }

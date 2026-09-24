@@ -556,6 +556,15 @@ impl EncoderConfig {
         self
     }
 
+    /// Whether 8-bit integer columns stay 8-bit, which only v2 can express.
+    #[must_use]
+    pub fn allow_8bit_ints(self) -> bool {
+        #[cfg(feature = "unstable-v2")]
+        return self.wire_version != WireVersion::V01;
+        #[cfg(not(feature = "unstable-v2"))]
+        return false;
+    }
+
     /// Whether float columns may use a dictionary, which only v2 can express.
     #[cfg(feature = "unstable-v2")]
     #[must_use]

@@ -219,9 +219,7 @@ macro_rules! integer_roundtrip_proptests {
     };
 }
 
-// i8, u8, i32, u32 - all physical encoders are valid.
-integer_roundtrip_proptests!(i8_present, i8_absent, I8, opt_i8, i8, i8, arb_int_encoder());
-integer_roundtrip_proptests!(u8_present, u8_absent, U8, opt_u8, u8, u8, arb_int_encoder());
+// i32, u32 - all physical encoders are valid.
 integer_roundtrip_proptests!(
     i32_present,
     i32_absent,
@@ -1199,6 +1197,16 @@ fn no_nulls_produces_encoded_output() {
         !enc.meta().is_empty(),
         "non-null column should write one column"
     );
+}
+
+#[rstest]
+#[case::i8(StagedProperty::i8("x", vec![1]))]
+#[case::opt_i8(StagedProperty::opt_i8("x", vec![Some(1)]))]
+#[case::u8(StagedProperty::u8("x", vec![1]))]
+#[case::opt_u8(StagedProperty::opt_u8("x", vec![Some(1)]))]
+fn eight_bit_column_is_rejected_in_v1(#[case] prop: StagedProperty) {
+    let err = write_prop(&prop, &mut Encoder::default(), &mut Codecs::default()).unwrap_err();
+    assert!(matches!(err, MltError::EightBitNeedsV2(name) if name == "x"));
 }
 
 #[test]
