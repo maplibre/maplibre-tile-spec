@@ -8,7 +8,8 @@
                                                                              |     └ bits 3-0 = 0000 -> extent 2^(n+6) = 64
 0000000a  04                                                .                |   feature_count: 4
 0000000b  10                                                .                |   layout: 0x10 Points
-                                                                             |     └ bits 7-4 = 0001 -> shared presence bitfields = 1
+                                                                             |     └ bit 7 = 0 -> shared bitfields are bitmaps
+                                                                             |     └ bits 6-4 = 001 -> shared presence bitfields = 1
                                                                              |     └ bits 3-0 = 0000 -> geometry layout = Points
 0000000c                                                                     |   shared_presence (1 B)
 0000000c  05                                                .                |     present[0] [Present Bool(None)/None, 4 values, 1 B]
@@ -26,8 +27,8 @@
                                                                              |         decoded: [13, 42, 13, 42, 13, 42, 13, 42]
 00000018  02                                                .                |   column_count: 2
 00000019                                                                     |   column[0] OptU32 "a" (7 B)
-00000019  26                                                &                |     type: 0x26 Shared(0) U32
-                                                                             |       └ bits 7-4 = 0010 -> presence = Shared(0)
+00000019  46                                                F                |     type: 0x46 Shared(0) U32
+                                                                             |       └ bits 7-4 = 0100 -> presence = Shared(0)
                                                                              |       └ bits 3-0 = 0110 -> data type = U32
 0000001a  01 61                                             .a               |     name: "a"
 0000001c                                                                     |     data (4 B)
@@ -40,8 +41,8 @@
 0000001e  00 02                                             ..               |       data [Data(None) Int(None)/VarInt, 2 values, 2 B]
                                                                              |         decoded: [0, 2]
 00000020                                                                     |   column[1] OptU32 "b" (7 B)
-00000020  26                                                &                |     type: 0x26 Shared(0) U32
-                                                                             |       └ bits 7-4 = 0010 -> presence = Shared(0)
+00000020  46                                                F                |     type: 0x46 Shared(0) U32
+                                                                             |       └ bits 7-4 = 0100 -> presence = Shared(0)
                                                                              |       └ bits 3-0 = 0110 -> data type = U32
 00000021  01 62                                             .b               |     name: "b"
 00000023                                                                     |     data (4 B)
