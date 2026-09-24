@@ -20,7 +20,7 @@ use std::collections::HashMap;
 
 use integer_encoding::VarIntWriter as _;
 
-use crate::codecs::presence_coding;
+use crate::codecs::presence_coding::{self, PresenceCoding};
 use crate::decoder::stream::header02::{Count02, Family, StreamCtx02, WordWidth};
 use crate::decoder::{
     BoolLogical, ColumnCounts, ColumnType02, DataType02, DictionaryType, Extent02, LayerHeader02,
@@ -54,6 +54,8 @@ use crate::{MltError, MltResult};
 pub(crate) struct SharedPresence {
     /// The masks in wire index order.
     masks: Vec<Vec<bool>>,
+    /// The smallest coding of each mask, in the same order.
+    codings: Vec<PresenceCoding>,
     /// Wire index of each mask, for resolving a column's nibble.
     index: HashMap<Vec<bool>, u8>,
 }
@@ -97,12 +99,23 @@ impl SharedPresence {
                 )
             })
             .collect();
-        Self { masks, index }
+        let codings = masks.iter().map(|m| presence_coding::smallest(m)).collect();
+        Self {
+            masks,
+            codings,
+            index,
+        }
     }
 
     /// How many masks the layout byte declares.
     fn count(&self) -> u8 {
         u8::try_from(self.masks.len()).expect("at most MAX_SHARED_PRESENCE masks")
+    }
+
+    /// Whether any mask codes smaller than a bitmap, which is what earns every
+    /// shared bitfield a byte naming its coding.
+    fn coded(&self) -> bool {
+        self.codings.iter().any(|&c| c != PresenceCoding::Bitmap)
     }
 
     /// Where an optional column's nulls live: this layer's shared bitfield when
@@ -114,13 +127,16 @@ impl SharedPresence {
         )
     }
 
-    /// Write the bitfields in index order, right after the layout byte, each behind
-    /// the byte naming its coding - a shared field has no nibble to ride in.
+    /// Write the bitfields in index order, right after the layout byte.
+    /// Each leads with the byte naming its coding only when [`Self::coded`] - a
+    /// shared field has no nibble to ride in.
     fn write_to(&self, enc: &mut Encoder) {
-        for mask in &self.masks {
-            let coding = presence_coding::smallest(mask);
-            let data = enc.data_mut();
-            data.push(coding as u8);
+        let coded = self.coded();
+        let data = enc.data_mut();
+        for (mask, &coding) in self.masks.iter().zip(&self.codings) {
+            if coded {
+                data.push(coding as u8);
+            }
             presence_coding::write(data, mask, coding);
         }
     }
@@ -252,7 +268,8 @@ pub(crate) fn encode_into02(
     if !m_values.is_empty() && !geo.layout.allows_m_values() {
         return Err(MltError::MValuesNeedVertexCounts(geo.layout.into()));
     }
-    enc.data_mut()[layout_pos] = LayerLayout::new(geo.layout, shared.count()).to_byte();
+    enc.data_mut()[layout_pos] =
+        LayerLayout::new(geo.layout, shared.count(), shared.coded()).to_byte();
 
     // ── Counted columns ───────────────────────────────────────────────────
     let column_count = usize::from(!matches!(id, StagedId::None)) + properties.len() + nested.len();

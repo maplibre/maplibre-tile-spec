@@ -8,7 +8,8 @@
                                                                              |     └ bits 3-0 = 0000 -> extent 2^(n+6) = 64
 0000000a  06                                                .                |   feature_count: 6
 0000000b  00                                                .                |   layout: 0x00 Points
-                                                                             |     └ bits 7-4 = 0000 -> shared presence bitfields = 0
+                                                                             |     └ bit 7 = 0 -> shared bitfields are bitmaps
+                                                                             |     └ bits 6-4 = 000 -> shared presence bitfields = 0
                                                                              |     └ bits 3-0 = 0000 -> geometry layout = Points
 0000000c                                                                     |   geometry (15 B)
 0000000c                                                                     |     vertices (15 B)

@@ -649,7 +649,7 @@ impl<'a> LayerCols<'a> {
 }
 
 /// Parse the layer's shared presence bitfields: `shared_presence` back-to-back
-/// bitfields, each headed by the byte naming its coding.
+/// bitfields, each headed by the byte naming its coding when the layout says so.
 ///
 /// The layout byte caps the count at [`LayerLayout::MAX_SHARED_PRESENCE`], so this
 /// allocates nothing worth charging to the parser's budget.
@@ -662,10 +662,13 @@ fn parse_shared_presence<'a>(
     let mut input = input;
     let mut shared = Vec::with_capacity(usize::from(layout.shared_presence));
     for _ in 0..layout.shared_presence {
-        // A shared field has no nibble to ride in, so it says its coding itself.
-        let byte;
-        (input, byte) = parse_u8(input)?;
-        let coding = PresenceCoding::from_byte(byte).ok_or(MltError::PresenceCodingByte(byte))?;
+        let coding = if layout.shared_coded {
+            let byte;
+            (input, byte) = parse_u8(input)?;
+            PresenceCoding::from_byte(byte).ok_or(MltError::PresenceCodingByte(byte))?
+        } else {
+            PresenceCoding::Bitmap
+        };
         let bits;
         (input, bits) = presence_coding::read(input, feature_count, coding, parser)?;
         shared.push(RawPresence::from_bits(bits));

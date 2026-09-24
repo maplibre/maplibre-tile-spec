@@ -613,7 +613,7 @@ fn columns_with_the_same_nulls_share_one_presence_bitfield() {
 
 #[test]
 fn shared_presence_count_is_capped_by_the_layout_byte() {
-    // Sixteen features give more than twelve distinct masks to go around.
+    // Sixteen features give more than seven distinct masks to go around.
     let masks: Vec<String> = (0..15)
         .map(|i| {
             let mut mask = vec![b'0'; 16];
@@ -633,11 +633,11 @@ fn shared_presence_count_is_capped_by_the_layout_byte() {
     assert_differential(&l);
 
     let dump = dump_text(&l.encode(cfg_v2()).unwrap());
-    assert!(dump.contains("shared presence bitfields = 12"), "{dump}");
-    assert_eq!(dump.matches("presence = Shared(11)").count(), 2, "{dump}");
-    // Three of the fifteen groups lose the tie-break, and both their columns go inline.
-    assert_eq!(dump.matches("presence = Inline").count(), 6, "{dump}");
-    assert_eq!(dump.matches("[Present ").count(), 18, "{dump}");
+    assert!(dump.contains("shared presence bitfields = 7"), "{dump}");
+    assert_eq!(dump.matches("presence = Shared(6)").count(), 2, "{dump}");
+    // Eight of the fifteen groups lose the tie-break, and both their columns go inline.
+    assert_eq!(dump.matches("presence = Inline").count(), 16, "{dump}");
+    assert_eq!(dump.matches("[Present ").count(), 23, "{dump}");
 }
 
 #[test]
@@ -785,6 +785,7 @@ mod geometry_layouts {
         no m-value section
         a types stream leads the geometry section
         extent 2^(n+6) = 4096
+        shared bitfields are bitmaps
         shared presence bitfields = 0
         geometry layout = Lines
         ");
@@ -1215,7 +1216,7 @@ mod strings {
 
         #[test]
         fn dict_children_compete_for_the_slots_the_layout_byte_allows() {
-            // Fifteen masks, each held by two children: three groups lose the tie-break.
+            // Fifteen masks, each held by two children: eight groups lose the tie-break.
             let masks: Vec<String> = (0..15)
                 .map(|i| {
                     let mut mask = vec![b'0'; 16];
@@ -1234,9 +1235,9 @@ mod strings {
             let l = dict_layer(&paired, &[]);
             assert_differential(&l);
 
-            assert_eq!(count(&l, "shared presence bitfields = 12"), 1);
-            assert_eq!(count(&l, "presence = Inline"), 6);
-            assert_eq!(count(&l, "[Present "), 18);
+            assert_eq!(count(&l, "shared presence bitfields = 7"), 1);
+            assert_eq!(count(&l, "presence = Inline"), 16);
+            assert_eq!(count(&l, "[Present "), 23);
         }
 
         #[test]

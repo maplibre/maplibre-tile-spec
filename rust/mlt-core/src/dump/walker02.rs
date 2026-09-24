@@ -67,15 +67,18 @@ impl<'a> Walker<'a> {
         if layout.shared_presence > 0 {
             let pi = self.open(input, "shared_presence".to_string());
             for i in 0..layout.shared_presence {
-                let byte;
-                (input, byte) = self.field(input, "coding", parse_u8, |b| {
-                    Some(match PresenceCoding::from_byte(*b) {
-                        Some(c) => format!("0x{b:02X} {c:?}"),
-                        None => format!("0x{b:02X} unknown"),
-                    })
-                })?;
-                let coding =
-                    PresenceCoding::from_byte(byte).ok_or(MltError::PresenceCodingByte(byte))?;
+                let coding = if layout.shared_coded {
+                    let byte;
+                    (input, byte) = self.field(input, "coding", parse_u8, |b| {
+                        Some(match PresenceCoding::from_byte(*b) {
+                            Some(c) => format!("0x{b:02X} {c:?}"),
+                            None => format!("0x{b:02X} unknown"),
+                        })
+                    })?;
+                    PresenceCoding::from_byte(byte).ok_or(MltError::PresenceCodingByte(byte))?
+                } else {
+                    PresenceCoding::Bitmap
+                };
                 let bits;
                 (input, bits) =
                     self.walk_presence02(input, feature_count, coding, &format!("present[{i}]"))?;
@@ -1005,13 +1008,20 @@ fn hint_for(typ: DataType02) -> DecodeHint {
 }
 
 /// Bit breakdown of the v2 layer layout byte:
-/// - shared presence bitfield count (7-4),
+/// - shared coding flag (7),
+/// - shared presence bitfield count (6-4),
 /// - geometry layout (3-0).
 fn layer_layout_bits02(byte: u8) -> Vec<BitField> {
-    let (shared_presence, geometry) = LayerLayout::fields(byte);
+    let (shared_coded, shared_presence, geometry) = LayerLayout::fields(byte);
     let name_geo = GeoLayout::try_from(geometry)
         .map_or_else(|_| format!("reserved({geometry})"), |g| format!("{g:?}"));
+    let coded = if shared_coded {
+        "shared bitfields name their coding"
+    } else {
+        "shared bitfields are bitmaps"
+    };
     vec![
+        BitField::mask(LayerLayout::SHARED_CODED_BIT, byte, coded.to_string()),
         BitField::mask(
             LayerLayout::SHARED_PRESENCE_MASK,
             byte,

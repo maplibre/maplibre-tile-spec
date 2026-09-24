@@ -8,7 +8,8 @@
                                                                              |     └ bits 3-0 = 0000 -> extent 2^(n+6) = 64
 0000000a  03                                                .                |   feature_count: 3
 0000000b  04                                                .                |   layout: 0x04 Lines
-                                                                             |     └ bits 7-4 = 0000 -> shared presence bitfields = 0
+                                                                             |     └ bit 7 = 0 -> shared bitfields are bitmaps
+                                                                             |     └ bits 6-4 = 000 -> shared presence bitfields = 0
                                                                              |     └ bits 3-0 = 0100 -> geometry layout = Lines
 0000000c                                                                     |   geometry (24 B)
 0000000c                                                                     |     part_lengths (5 B)
