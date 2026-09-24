@@ -647,18 +647,6 @@ A nullable column writes a <code>Present</code> stream before its data.</p>
 <td></td>
 </tr>
 <tr>
-<td style="text-align: right;"><code>12</code></td>
-<td><code>Int8</code></td>
-<td style="text-align: right;"><code>13</code></td>
-<td></td>
-</tr>
-<tr>
-<td style="text-align: right;"><code>14</code></td>
-<td><code>UInt8</code></td>
-<td style="text-align: right;"><code>15</code></td>
-<td></td>
-</tr>
-<tr>
 <td style="text-align: right;"><code>16</code></td>
 <td><code>Int32</code></td>
 <td style="text-align: right;"><code>17</code></td>
@@ -708,7 +696,7 @@ A nullable column writes a <code>Present</code> stream before its data.</p>
 </tr>
 </tbody>
 </table>
-<p>Codes <code>5</code>-<code>9</code> and <code>31</code> are unassigned.
+<p>Codes <code>5</code>-<code>9</code>, <code>12</code>-<code>15</code> and <code>31</code> are unassigned.
 A decoder MUST reject a column whose type byte is unassigned.</p>
 <h2 id="column-data">Column Data<a class="headerlink" href="#column-data" title="Link to this section">&para;</a></h2>
 <p>What follows in the data section depends on the column's type.

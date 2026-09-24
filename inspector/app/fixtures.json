@@ -538,8 +538,8 @@
     "directory": "0x01",
     "bytes": 66,
     "geometries": [
-      "LineString",
-      "MultiPolygon"
+      "MultiPolygon",
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -560,8 +560,8 @@
     "directory": "0x01",
     "bytes": 47,
     "geometries": [
-      "Polygon",
-      "LineString"
+      "LineString",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -625,8 +625,8 @@
     "directory": "0x01",
     "bytes": 51,
     "geometries": [
-      "MultiPoint",
-      "MultiLineString"
+      "MultiLineString",
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -636,8 +636,8 @@
     "directory": "0x01",
     "bytes": 66,
     "geometries": [
-      "MultiPoint",
-      "MultiPolygon"
+      "MultiPolygon",
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -657,8 +657,8 @@
     "directory": "0x01",
     "bytes": 56,
     "geometries": [
-      "Polygon",
-      "MultiLineString"
+      "MultiLineString",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -679,8 +679,8 @@
     "directory": "0x01",
     "bytes": 102,
     "geometries": [
-      "Polygon",
-      "MultiPolygon"
+      "MultiPolygon",
+      "Polygon"
     ],
     "encodings": [
       "Tessellated"
@@ -758,8 +758,8 @@
     "directory": "0x01",
     "bytes": 74,
     "geometries": [
-      "Polygon",
-      "MultiPolygon"
+      "MultiPolygon",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -769,8 +769,8 @@
     "directory": "0x01",
     "bytes": 123,
     "geometries": [
-      "Polygon",
-      "MultiPolygon"
+      "MultiPolygon",
+      "Polygon"
     ],
     "encodings": [
       "Tessellated"
@@ -782,8 +782,8 @@
     "directory": "0x01",
     "bytes": 57,
     "geometries": [
-      "Polygon",
-      "MultiPoint"
+      "MultiPoint",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -815,8 +815,8 @@
     "directory": "0x01",
     "bytes": 36,
     "geometries": [
-      "Point",
-      "LineString"
+      "LineString",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -837,8 +837,8 @@
     "directory": "0x01",
     "bytes": 61,
     "geometries": [
-      "Point",
-      "MultiPolygon"
+      "MultiPolygon",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -859,8 +859,8 @@
     "directory": "0x01",
     "bytes": 41,
     "geometries": [
-      "Point",
-      "Polygon"
+      "Polygon",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -870,8 +870,8 @@
     "directory": "0x01",
     "bytes": 48,
     "geometries": [
-      "Polygon",
-      "Point"
+      "Point",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -891,8 +891,8 @@
     "directory": "0x01",
     "bytes": 59,
     "geometries": [
-      "LineString",
-      "MultiLineString"
+      "MultiLineString",
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -902,8 +902,8 @@
     "directory": "0x01",
     "bytes": 80,
     "geometries": [
-      "LineString",
       "MultiLineString",
+      "LineString",
       "MultiPolygon"
     ],
     "encodings": [],
@@ -914,8 +914,8 @@
     "directory": "0x01",
     "bytes": 75,
     "geometries": [
-      "MultiPolygon",
-      "LineString"
+      "LineString",
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -925,8 +925,8 @@
     "directory": "0x01",
     "bytes": 53,
     "geometries": [
-      "MultiPoint",
-      "LineString"
+      "LineString",
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -948,9 +948,9 @@
     "directory": "0x01",
     "bytes": 74,
     "geometries": [
+      "LineString",
       "MultiPoint",
-      "MultiPolygon",
-      "LineString"
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -960,8 +960,8 @@
     "directory": "0x01",
     "bytes": 56,
     "geometries": [
-      "LineString",
-      "Polygon"
+      "Polygon",
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -971,8 +971,8 @@
     "directory": "0x01",
     "bytes": 65,
     "geometries": [
-      "Polygon",
       "LineString",
+      "Polygon",
       "MultiLineString"
     ],
     "encodings": [],
@@ -983,8 +983,8 @@
     "directory": "0x01",
     "bytes": 77,
     "geometries": [
-      "MultiPolygon",
       "Polygon",
+      "MultiPolygon",
       "LineString"
     ],
     "encodings": [],
@@ -995,9 +995,9 @@
     "directory": "0x01",
     "bytes": 60,
     "geometries": [
-      "LineString",
+      "Polygon",
       "MultiPoint",
-      "Polygon"
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -1007,8 +1007,8 @@
     "directory": "0x01",
     "bytes": 63,
     "geometries": [
-      "Polygon",
-      "LineString"
+      "LineString",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -1029,8 +1029,8 @@
     "directory": "0x01",
     "bytes": 71,
     "geometries": [
-      "MultiLineString",
       "LineString",
+      "MultiLineString",
       "Polygon"
     ],
     "encodings": [],
@@ -1042,8 +1042,8 @@
     "bytes": 82,
     "geometries": [
       "MultiPolygon",
-      "Polygon",
-      "LineString"
+      "LineString",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -1053,9 +1053,9 @@
     "directory": "0x01",
     "bytes": 65,
     "geometries": [
+      "MultiPoint",
       "Polygon",
-      "LineString",
-      "MultiPoint"
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -1175,8 +1175,8 @@
     "directory": "0x01",
     "bytes": 93,
     "geometries": [
-      "MultiPolygon",
-      "Polygon"
+      "Polygon",
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -1210,8 +1210,8 @@
     "directory": "0x01",
     "bytes": 171,
     "geometries": [
-      "MultiPolygon",
-      "Polygon"
+      "Polygon",
+      "MultiPolygon"
     ],
     "encodings": [
       "Tessellated"
@@ -1234,8 +1234,8 @@
     "directory": "0x01",
     "bytes": 53,
     "geometries": [
-      "MultiPoint",
-      "LineString"
+      "LineString",
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -1245,9 +1245,9 @@
     "directory": "0x01",
     "bytes": 80,
     "geometries": [
-      "MultiPolygon",
+      "MultiLineString",
       "MultiPoint",
-      "MultiLineString"
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -1257,8 +1257,8 @@
     "directory": "0x01",
     "bytes": 59,
     "geometries": [
-      "MultiLineString",
-      "MultiPoint"
+      "MultiPoint",
+      "MultiLineString"
     ],
     "encodings": [],
     "content": []
@@ -1290,8 +1290,8 @@
     "directory": "0x01",
     "bytes": 65,
     "geometries": [
-      "MultiPoint",
-      "Polygon"
+      "Polygon",
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -1323,8 +1323,8 @@
     "directory": "0x01",
     "bytes": 81,
     "geometries": [
-      "MultiLineString",
       "MultiPolygon",
+      "MultiLineString",
       "Polygon"
     ],
     "encodings": [],
@@ -1346,8 +1346,8 @@
     "directory": "0x01",
     "bytes": 77,
     "geometries": [
-      "MultiPolygon",
-      "Polygon"
+      "Polygon",
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -1382,8 +1382,8 @@
     "directory": "0x01",
     "bytes": 76,
     "geometries": [
-      "Polygon",
       "MultiPolygon",
+      "Polygon",
       "MultiPoint"
     ],
     "encodings": [],
@@ -1405,8 +1405,8 @@
     "directory": "0x01",
     "bytes": 72,
     "geometries": [
-      "Polygon",
-      "MultiLineString"
+      "MultiLineString",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -1440,8 +1440,8 @@
     "directory": "0x01",
     "bytes": 66,
     "geometries": [
-      "MultiPoint",
-      "Polygon"
+      "Polygon",
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -1484,8 +1484,8 @@
     "directory": "0x01",
     "bytes": 69,
     "geometries": [
-      "LineString",
-      "Polygon"
+      "Polygon",
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -1495,9 +1495,9 @@
     "directory": "0x01",
     "bytes": 88,
     "geometries": [
+      "MultiPolygon",
       "MultiLineString",
-      "Polygon",
-      "MultiPolygon"
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -1507,8 +1507,8 @@
     "directory": "0x01",
     "bytes": 79,
     "geometries": [
-      "Polygon",
-      "MultiLineString"
+      "MultiLineString",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -1543,8 +1543,8 @@
     "bytes": 71,
     "geometries": [
       "MultiPoint",
-      "Polygon",
-      "MultiLineString"
+      "MultiLineString",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -1554,9 +1554,9 @@
     "directory": "0x01",
     "bytes": 82,
     "geometries": [
+      "Polygon",
       "MultiPoint",
-      "MultiPolygon",
-      "Polygon"
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -1610,9 +1610,9 @@
     "directory": "0x01",
     "bytes": 54,
     "geometries": [
+      "MultiLineString",
       "Point",
-      "LineString",
-      "MultiLineString"
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -1634,8 +1634,8 @@
     "directory": "0x01",
     "bytes": 48,
     "geometries": [
-      "LineString",
       "Point",
+      "LineString",
       "MultiPoint"
     ],
     "encodings": [],
@@ -1658,9 +1658,9 @@
     "directory": "0x01",
     "bytes": 56,
     "geometries": [
-      "Polygon",
       "Point",
-      "LineString"
+      "LineString",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -1693,8 +1693,8 @@
     "directory": "0x01",
     "bytes": 49,
     "geometries": [
-      "MultiLineString",
-      "Point"
+      "Point",
+      "MultiLineString"
     ],
     "encodings": [],
     "content": []
@@ -1704,8 +1704,8 @@
     "directory": "0x01",
     "bytes": 64,
     "geometries": [
-      "Point",
-      "MultiPolygon"
+      "MultiPolygon",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -1715,9 +1715,9 @@
     "directory": "0x01",
     "bytes": 54,
     "geometries": [
+      "Point",
       "MultiLineString",
-      "MultiPoint",
-      "Point"
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -1750,9 +1750,9 @@
     "directory": "0x01",
     "bytes": 59,
     "geometries": [
+      "Polygon",
       "Point",
-      "MultiLineString",
-      "Polygon"
+      "MultiLineString"
     ],
     "encodings": [],
     "content": []
@@ -1762,9 +1762,9 @@
     "directory": "0x01",
     "bytes": 71,
     "geometries": [
-      "Point",
+      "Polygon",
       "MultiPolygon",
-      "Polygon"
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -1774,9 +1774,9 @@
     "directory": "0x01",
     "bytes": 54,
     "geometries": [
+      "Point",
       "Polygon",
-      "MultiPoint",
-      "Point"
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -1786,8 +1786,8 @@
     "directory": "0x01",
     "bytes": 57,
     "geometries": [
-      "Point",
-      "Polygon"
+      "Polygon",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -1797,8 +1797,8 @@
     "directory": "0x01",
     "bytes": 44,
     "geometries": [
-      "Point",
-      "Polygon"
+      "Polygon",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -1808,9 +1808,9 @@
     "directory": "0x01",
     "bytes": 66,
     "geometries": [
-      "Point",
       "MultiLineString",
-      "Polygon"
+      "Polygon",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -1820,8 +1820,8 @@
     "directory": "0x01",
     "bytes": 77,
     "geometries": [
-      "Polygon",
       "MultiPolygon",
+      "Polygon",
       "Point"
     ],
     "encodings": [],
@@ -1856,9 +1856,9 @@
     "bytes": 88,
     "geometries": [
       "MultiPoint",
+      "LineString",
       "MultiLineString",
-      "MultiPolygon",
-      "LineString"
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -1881,10 +1881,10 @@
     "directory": "0x01",
     "bytes": 74,
     "geometries": [
-      "MultiPoint",
+      "LineString",
       "MultiLineString",
       "Polygon",
-      "LineString"
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -1931,9 +1931,9 @@
     "directory": "0x01",
     "bytes": 75,
     "geometries": [
+      "Polygon",
       "LineString",
-      "MultiPoint",
-      "Polygon"
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -1943,10 +1943,10 @@
     "directory": "0x01",
     "bytes": 96,
     "geometries": [
-      "Polygon",
       "MultiLineString",
-      "MultiPolygon",
-      "LineString"
+      "Polygon",
+      "LineString",
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -1957,9 +1957,9 @@
     "bytes": 79,
     "geometries": [
       "LineString",
-      "Polygon",
+      "MultiPoint",
       "MultiLineString",
-      "MultiPoint"
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -1969,10 +1969,10 @@
     "directory": "0x01",
     "bytes": 90,
     "geometries": [
-      "LineString",
-      "MultiPolygon",
+      "Polygon",
       "MultiPoint",
-      "Polygon"
+      "LineString",
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -1981,6 +1981,55 @@
     "name": "mix_4_poly_mpt_mline_mpoly.mlt",
     "directory": "0x01",
     "bytes": 90,
+    "geometries": [
+      "MultiLineString",
+      "MultiPolygon",
+      "Polygon",
+      "MultiPoint"
+    ],
+    "encodings": [],
+    "content": []
+  },
+  {
+    "name": "mix_4_poly_polyh_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 97,
+    "geometries": [
+      "MultiPolygon",
+      "Polygon",
+      "MultiLineString"
+    ],
+    "encodings": [],
+    "content": []
+  },
+  {
+    "name": "mix_4_poly_polyh_mpt_mline.mlt",
+    "directory": "0x01",
+    "bytes": 80,
+    "geometries": [
+      "Polygon",
+      "MultiLineString",
+      "MultiPoint"
+    ],
+    "encodings": [],
+    "content": []
+  },
+  {
+    "name": "mix_4_poly_polyh_mpt_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 91,
+    "geometries": [
+      "MultiPolygon",
+      "Polygon",
+      "MultiPoint"
+    ],
+    "encodings": [],
+    "content": []
+  },
+  {
+    "name": "mix_4_polyh_mpt_mline_mpoly.mlt",
+    "directory": "0x01",
+    "bytes": 96,
     "geometries": [
       "MultiPolygon",
       "MultiPoint",
@@ -1991,62 +2040,13 @@
     "content": []
   },
   {
-    "name": "mix_4_poly_polyh_mline_mpoly.mlt",
-    "directory": "0x01",
-    "bytes": 97,
-    "geometries": [
-      "Polygon",
-      "MultiLineString",
-      "MultiPolygon"
-    ],
-    "encodings": [],
-    "content": []
-  },
-  {
-    "name": "mix_4_poly_polyh_mpt_mline.mlt",
-    "directory": "0x01",
-    "bytes": 80,
-    "geometries": [
-      "MultiLineString",
-      "MultiPoint",
-      "Polygon"
-    ],
-    "encodings": [],
-    "content": []
-  },
-  {
-    "name": "mix_4_poly_polyh_mpt_mpoly.mlt",
-    "directory": "0x01",
-    "bytes": 91,
-    "geometries": [
-      "MultiPoint",
-      "MultiPolygon",
-      "Polygon"
-    ],
-    "encodings": [],
-    "content": []
-  },
-  {
-    "name": "mix_4_polyh_mpt_mline_mpoly.mlt",
-    "directory": "0x01",
-    "bytes": 96,
-    "geometries": [
-      "MultiLineString",
-      "MultiPolygon",
-      "Polygon",
-      "MultiPoint"
-    ],
-    "encodings": [],
-    "content": []
-  },
-  {
     "name": "mix_4_pt_line_mline_mpoly.mlt",
     "directory": "0x01",
     "bytes": 83,
     "geometries": [
-      "Point",
       "LineString",
       "MultiLineString",
+      "Point",
       "MultiPolygon"
     ],
     "encodings": [],
@@ -2057,10 +2057,10 @@
     "directory": "0x01",
     "bytes": 62,
     "geometries": [
-      "Point",
+      "LineString",
       "MultiLineString",
-      "MultiPoint",
-      "LineString"
+      "Point",
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -2071,8 +2071,8 @@
     "bytes": 77,
     "geometries": [
       "LineString",
-      "MultiPoint",
       "MultiPolygon",
+      "MultiPoint",
       "Point"
     ],
     "encodings": [],
@@ -2084,8 +2084,8 @@
     "bytes": 68,
     "geometries": [
       "Point",
-      "LineString",
       "MultiLineString",
+      "LineString",
       "Polygon"
     ],
     "encodings": [],
@@ -2096,10 +2096,10 @@
     "directory": "0x01",
     "bytes": 80,
     "geometries": [
-      "LineString",
-      "Point",
       "MultiPolygon",
-      "Polygon"
+      "Point",
+      "Polygon",
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -2109,9 +2109,9 @@
     "directory": "0x01",
     "bytes": 63,
     "geometries": [
-      "LineString",
       "Polygon",
       "Point",
+      "LineString",
       "MultiPoint"
     ],
     "encodings": [],
@@ -2122,9 +2122,9 @@
     "directory": "0x01",
     "bytes": 66,
     "geometries": [
-      "Polygon",
+      "Point",
       "LineString",
-      "Point"
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -2134,8 +2134,8 @@
     "directory": "0x01",
     "bytes": 74,
     "geometries": [
-      "Point",
       "MultiLineString",
+      "Point",
       "Polygon",
       "LineString"
     ],
@@ -2147,10 +2147,10 @@
     "directory": "0x01",
     "bytes": 85,
     "geometries": [
-      "Point",
-      "MultiPolygon",
       "LineString",
-      "Polygon"
+      "MultiPolygon",
+      "Polygon",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -2160,9 +2160,9 @@
     "directory": "0x01",
     "bytes": 68,
     "geometries": [
+      "Polygon",
       "Point",
       "LineString",
-      "Polygon",
       "MultiPoint"
     ],
     "encodings": [],
@@ -2174,9 +2174,9 @@
     "bytes": 83,
     "geometries": [
       "MultiPolygon",
-      "MultiLineString",
+      "MultiPoint",
       "Point",
-      "MultiPoint"
+      "MultiLineString"
     ],
     "encodings": [],
     "content": []
@@ -2186,10 +2186,10 @@
     "directory": "0x01",
     "bytes": 84,
     "geometries": [
-      "Point",
-      "Polygon",
       "MultiLineString",
-      "MultiPolygon"
+      "MultiPolygon",
+      "Polygon",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -2201,8 +2201,8 @@
     "geometries": [
       "MultiPoint",
       "Point",
-      "MultiLineString",
-      "Polygon"
+      "Polygon",
+      "MultiLineString"
     ],
     "encodings": [],
     "content": []
@@ -2213,9 +2213,9 @@
     "bytes": 79,
     "geometries": [
       "MultiPolygon",
-      "Point",
+      "Polygon",
       "MultiPoint",
-      "Polygon"
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -2237,9 +2237,9 @@
     "directory": "0x01",
     "bytes": 86,
     "geometries": [
-      "Point",
+      "Polygon",
       "MultiPolygon",
-      "Polygon"
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -2249,8 +2249,8 @@
     "directory": "0x01",
     "bytes": 69,
     "geometries": [
-      "Polygon",
       "MultiPoint",
+      "Polygon",
       "Point"
     ],
     "encodings": [],
@@ -2261,10 +2261,10 @@
     "directory": "0x01",
     "bytes": 91,
     "geometries": [
-      "Point",
-      "MultiPolygon",
       "Polygon",
-      "MultiLineString"
+      "Point",
+      "MultiLineString",
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -2274,10 +2274,10 @@
     "directory": "0x01",
     "bytes": 74,
     "geometries": [
-      "MultiPoint",
       "MultiLineString",
+      "Polygon",
       "Point",
-      "Polygon"
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -2287,10 +2287,10 @@
     "directory": "0x01",
     "bytes": 85,
     "geometries": [
-      "Polygon",
-      "Point",
+      "MultiPolygon",
       "MultiPoint",
-      "MultiPolygon"
+      "Point",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -2300,9 +2300,9 @@
     "directory": "0x01",
     "bytes": 99,
     "geometries": [
-      "LineString",
       "MultiPolygon",
       "Polygon",
+      "LineString",
       "MultiPoint",
       "MultiLineString"
     ],
@@ -2314,10 +2314,10 @@
     "directory": "0x01",
     "bytes": 106,
     "geometries": [
-      "LineString",
+      "MultiPolygon",
       "MultiLineString",
       "Polygon",
-      "MultiPolygon"
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -2327,9 +2327,9 @@
     "directory": "0x01",
     "bytes": 89,
     "geometries": [
-      "MultiLineString",
       "Polygon",
       "MultiPoint",
+      "MultiLineString",
       "LineString"
     ],
     "encodings": [],
@@ -2340,10 +2340,10 @@
     "directory": "0x01",
     "bytes": 100,
     "geometries": [
-      "Polygon",
       "MultiPoint",
       "MultiPolygon",
-      "LineString"
+      "LineString",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -2353,11 +2353,11 @@
     "directory": "0x01",
     "bytes": 104,
     "geometries": [
-      "MultiPolygon",
-      "MultiPoint",
-      "Polygon",
+      "LineString",
       "MultiLineString",
-      "LineString"
+      "Polygon",
+      "MultiPoint",
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -2367,10 +2367,10 @@
     "directory": "0x01",
     "bytes": 105,
     "geometries": [
-      "MultiPoint",
+      "Polygon",
       "MultiPolygon",
-      "MultiLineString",
-      "Polygon"
+      "MultiPoint",
+      "MultiLineString"
     ],
     "encodings": [],
     "content": []
@@ -2380,10 +2380,10 @@
     "directory": "0x01",
     "bytes": 91,
     "geometries": [
-      "Point",
-      "LineString",
-      "MultiPoint",
       "MultiLineString",
+      "Point",
+      "MultiPoint",
+      "LineString",
       "MultiPolygon"
     ],
     "encodings": [],
@@ -2394,10 +2394,10 @@
     "directory": "0x01",
     "bytes": 93,
     "geometries": [
+      "LineString",
+      "MultiLineString",
       "Polygon",
       "Point",
-      "MultiLineString",
-      "LineString",
       "MultiPolygon"
     ],
     "encodings": [],
@@ -2408,11 +2408,11 @@
     "directory": "0x01",
     "bytes": 77,
     "geometries": [
-      "MultiLineString",
-      "Point",
+      "MultiPoint",
       "LineString",
       "Polygon",
-      "MultiPoint"
+      "MultiLineString",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -2422,10 +2422,10 @@
     "directory": "0x01",
     "bytes": 88,
     "geometries": [
-      "Point",
       "Polygon",
       "LineString",
       "MultiPoint",
+      "Point",
       "MultiPolygon"
     ],
     "encodings": [],
@@ -2436,10 +2436,10 @@
     "directory": "0x01",
     "bytes": 84,
     "geometries": [
-      "Point",
       "LineString",
       "Polygon",
-      "MultiLineString"
+      "MultiLineString",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -2449,10 +2449,10 @@
     "directory": "0x01",
     "bytes": 95,
     "geometries": [
-      "MultiPolygon",
-      "LineString",
+      "Point",
       "Polygon",
-      "Point"
+      "MultiPolygon",
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -2463,9 +2463,9 @@
     "bytes": 78,
     "geometries": [
       "LineString",
-      "Point",
+      "MultiPoint",
       "Polygon",
-      "MultiPoint"
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -2476,9 +2476,9 @@
     "bytes": 99,
     "geometries": [
       "MultiPolygon",
-      "LineString",
       "Polygon",
       "MultiLineString",
+      "LineString",
       "Point"
     ],
     "encodings": [],
@@ -2489,11 +2489,11 @@
     "directory": "0x01",
     "bytes": 82,
     "geometries": [
-      "LineString",
+      "Point",
       "MultiPoint",
       "Polygon",
-      "MultiLineString",
-      "Point"
+      "LineString",
+      "MultiLineString"
     ],
     "encodings": [],
     "content": []
@@ -2503,11 +2503,11 @@
     "directory": "0x01",
     "bytes": 93,
     "geometries": [
-      "MultiPolygon",
       "Point",
-      "LineString",
+      "Polygon",
       "MultiPoint",
-      "Polygon"
+      "LineString",
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -2518,10 +2518,10 @@
     "bytes": 93,
     "geometries": [
       "MultiLineString",
+      "Polygon",
       "MultiPoint",
       "MultiPolygon",
-      "Point",
-      "Polygon"
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -2531,10 +2531,10 @@
     "directory": "0x01",
     "bytes": 100,
     "geometries": [
+      "MultiLineString",
       "Point",
       "Polygon",
-      "MultiPolygon",
-      "MultiLineString"
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -2544,10 +2544,10 @@
     "directory": "0x01",
     "bytes": 83,
     "geometries": [
-      "MultiLineString",
       "Point",
-      "Polygon",
-      "MultiPoint"
+      "MultiLineString",
+      "MultiPoint",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -2557,10 +2557,10 @@
     "directory": "0x01",
     "bytes": 94,
     "geometries": [
-      "Polygon",
-      "MultiPoint",
       "Point",
-      "MultiPolygon"
+      "MultiPolygon",
+      "Polygon",
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -2571,10 +2571,10 @@
     "bytes": 99,
     "geometries": [
       "Polygon",
-      "MultiLineString",
       "MultiPoint",
       "Point",
-      "MultiPolygon"
+      "MultiPolygon",
+      "MultiLineString"
     ],
     "encodings": [],
     "content": []
@@ -2584,11 +2584,11 @@
     "directory": "0x01",
     "bytes": 114,
     "geometries": [
-      "MultiPolygon",
-      "Polygon",
+      "MultiLineString",
       "LineString",
+      "MultiPolygon",
       "MultiPoint",
-      "MultiLineString"
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -2598,12 +2598,12 @@
     "directory": "0x01",
     "bytes": 102,
     "geometries": [
-      "Point",
-      "MultiPolygon",
-      "MultiLineString",
       "LineString",
+      "MultiPoint",
       "Polygon",
-      "MultiPoint"
+      "MultiLineString",
+      "MultiPolygon",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -2613,11 +2613,11 @@
     "directory": "0x01",
     "bytes": 109,
     "geometries": [
-      "MultiLineString",
-      "LineString",
       "Polygon",
-      "Point",
-      "MultiPolygon"
+      "MultiLineString",
+      "MultiPolygon",
+      "LineString",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -2627,11 +2627,11 @@
     "directory": "0x01",
     "bytes": 92,
     "geometries": [
-      "Polygon",
+      "LineString",
       "MultiPoint",
-      "Point",
       "MultiLineString",
-      "LineString"
+      "Point",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -2641,11 +2641,11 @@
     "directory": "0x01",
     "bytes": 103,
     "geometries": [
-      "Point",
-      "MultiPoint",
       "MultiPolygon",
-      "LineString",
-      "Polygon"
+      "Polygon",
+      "MultiPoint",
+      "Point",
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -2655,12 +2655,12 @@
     "directory": "0x01",
     "bytes": 107,
     "geometries": [
-      "Polygon",
-      "MultiLineString",
       "MultiPoint",
-      "MultiPolygon",
+      "MultiLineString",
+      "Point",
+      "Polygon",
       "LineString",
-      "Point"
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -2670,11 +2670,11 @@
     "directory": "0x01",
     "bytes": 108,
     "geometries": [
-      "MultiLineString",
-      "MultiPolygon",
-      "Point",
+      "MultiPoint",
       "Polygon",
-      "MultiPoint"
+      "MultiLineString",
+      "Point",
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -2684,12 +2684,12 @@
     "directory": "0x01",
     "bytes": 117,
     "geometries": [
-      "MultiPoint",
-      "Point",
-      "Polygon",
       "MultiPolygon",
+      "MultiLineString",
+      "Polygon",
+      "MultiPoint",
       "LineString",
-      "MultiLineString"
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -4850,8 +4850,8 @@
     "directory": "0x01-rust",
     "bytes": 96,
     "geometries": [
-      "LineString",
-      "MultiPolygon"
+      "MultiPolygon",
+      "LineString"
     ],
     "encodings": [
       "Tessellated"
@@ -4889,8 +4889,8 @@
     "directory": "0x01-rust",
     "bytes": 102,
     "geometries": [
-      "MultiPolygon",
-      "MultiLineString"
+      "MultiLineString",
+      "MultiPolygon"
     ],
     "encodings": [
       "Tessellated"
@@ -4928,9 +4928,9 @@
     "directory": "0x01-rust",
     "bytes": 110,
     "geometries": [
-      "LineString",
       "MultiLineString",
-      "MultiPolygon"
+      "MultiPolygon",
+      "LineString"
     ],
     "encodings": [
       "Tessellated"
@@ -4942,8 +4942,8 @@
     "directory": "0x01-rust",
     "bytes": 105,
     "geometries": [
-      "MultiPolygon",
-      "LineString"
+      "LineString",
+      "MultiPolygon"
     ],
     "encodings": [
       "Tessellated"
@@ -4955,8 +4955,8 @@
     "directory": "0x01-rust",
     "bytes": 68,
     "geometries": [
-      "Polygon",
-      "LineString"
+      "LineString",
+      "Polygon"
     ],
     "encodings": [
       "Tessellated"
@@ -4968,9 +4968,9 @@
     "directory": "0x01-rust",
     "bytes": 77,
     "geometries": [
-      "LineString",
+      "Polygon",
       "MultiLineString",
-      "Polygon"
+      "LineString"
     ],
     "encodings": [
       "Tessellated"
@@ -4982,8 +4982,8 @@
     "directory": "0x01-rust",
     "bytes": 111,
     "geometries": [
-      "MultiPolygon",
       "LineString",
+      "MultiPolygon",
       "Polygon"
     ],
     "encodings": [
@@ -5009,8 +5009,8 @@
     "directory": "0x01-rust",
     "bytes": 88,
     "geometries": [
-      "Polygon",
-      "LineString"
+      "LineString",
+      "Polygon"
     ],
     "encodings": [
       "Tessellated"
@@ -5022,9 +5022,9 @@
     "directory": "0x01-rust",
     "bytes": 98,
     "geometries": [
-      "MultiLineString",
+      "LineString",
       "Polygon",
-      "LineString"
+      "MultiLineString"
     ],
     "encodings": [
       "Tessellated"
@@ -5036,9 +5036,9 @@
     "directory": "0x01-rust",
     "bytes": 132,
     "geometries": [
-      "LineString",
+      "Polygon",
       "MultiPolygon",
-      "Polygon"
+      "LineString"
     ],
     "encodings": [
       "Tessellated"
@@ -5050,8 +5050,8 @@
     "directory": "0x01-rust",
     "bytes": 116,
     "geometries": [
-      "MultiLineString",
-      "MultiPolygon"
+      "MultiPolygon",
+      "MultiLineString"
     ],
     "encodings": [
       "Tessellated"
@@ -5115,8 +5115,8 @@
     "directory": "0x01-rust",
     "bytes": 73,
     "geometries": [
-      "Polygon",
-      "LineString"
+      "LineString",
+      "Polygon"
     ],
     "encodings": [
       "Tessellated"
@@ -5128,9 +5128,9 @@
     "directory": "0x01-rust",
     "bytes": 115,
     "geometries": [
+      "MultiPolygon",
       "MultiLineString",
-      "Polygon",
-      "MultiPolygon"
+      "Polygon"
     ],
     "encodings": [
       "Tessellated"
@@ -5168,8 +5168,8 @@
     "directory": "0x01-rust",
     "bytes": 115,
     "geometries": [
-      "Polygon",
-      "LineString"
+      "LineString",
+      "Polygon"
     ],
     "encodings": [
       "Tessellated"
@@ -5195,8 +5195,8 @@
     "directory": "0x01-rust",
     "bytes": 125,
     "geometries": [
-      "MultiLineString",
-      "Polygon"
+      "Polygon",
+      "MultiLineString"
     ],
     "encodings": [
       "Tessellated"
@@ -5208,10 +5208,10 @@
     "directory": "0x01-rust",
     "bytes": 124,
     "geometries": [
-      "MultiPolygon",
       "Polygon",
+      "LineString",
       "MultiLineString",
-      "LineString"
+      "MultiPolygon"
     ],
     "encodings": [
       "Tessellated"
@@ -5224,8 +5224,8 @@
     "bytes": 112,
     "geometries": [
       "Polygon",
-      "LineString",
-      "MultiLineString"
+      "MultiLineString",
+      "LineString"
     ],
     "encodings": [
       "Tessellated"
@@ -5237,9 +5237,9 @@
     "directory": "0x01-rust",
     "bytes": 146,
     "geometries": [
-      "LineString",
       "MultiPolygon",
-      "Polygon"
+      "Polygon",
+      "LineString"
     ],
     "encodings": [
       "Tessellated"
@@ -5251,10 +5251,10 @@
     "directory": "0x01-rust",
     "bytes": 146,
     "geometries": [
+      "Polygon",
       "LineString",
       "MultiPolygon",
-      "MultiLineString",
-      "Polygon"
+      "MultiLineString"
     ],
     "encodings": [
       "Tessellated"
@@ -5266,9 +5266,9 @@
     "directory": "0x01-rust",
     "bytes": 151,
     "geometries": [
+      "MultiPolygon",
       "Polygon",
-      "MultiLineString",
-      "MultiPolygon"
+      "MultiLineString"
     ],
     "encodings": [
       "Tessellated"
@@ -5280,10 +5280,10 @@
     "directory": "0x01-rust",
     "bytes": 160,
     "geometries": [
-      "MultiLineString",
       "LineString",
+      "MultiPolygon",
       "Polygon",
-      "MultiPolygon"
+      "MultiLineString"
     ],
     "encodings": [
       "Tessellated"
@@ -7886,8 +7886,8 @@
     "directory": "0x02",
     "bytes": 59,
     "geometries": [
-      "LineString",
-      "MultiPolygon"
+      "MultiPolygon",
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -7897,8 +7897,8 @@
     "directory": "0x02",
     "bytes": 87,
     "geometries": [
-      "MultiPolygon",
-      "LineString"
+      "LineString",
+      "MultiPolygon"
     ],
     "encodings": [
       "Tessellated"
@@ -7910,8 +7910,8 @@
     "directory": "0x02",
     "bytes": 40,
     "geometries": [
-      "LineString",
-      "MultiPoint"
+      "MultiPoint",
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -7932,8 +7932,8 @@
     "directory": "0x02",
     "bytes": 54,
     "geometries": [
-      "Polygon",
-      "LineString"
+      "LineString",
+      "Polygon"
     ],
     "encodings": [
       "Tessellated"
@@ -7945,8 +7945,8 @@
     "directory": "0x02",
     "bytes": 48,
     "geometries": [
-      "LineString",
-      "Polygon"
+      "Polygon",
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -7956,8 +7956,8 @@
     "directory": "0x02",
     "bytes": 76,
     "geometries": [
-      "Polygon",
-      "LineString"
+      "LineString",
+      "Polygon"
     ],
     "encodings": [
       "Tessellated"
@@ -7979,8 +7979,8 @@
     "directory": "0x02",
     "bytes": 64,
     "geometries": [
-      "MultiPolygon",
-      "MultiLineString"
+      "MultiLineString",
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -8036,8 +8036,8 @@
     "directory": "0x02",
     "bytes": 58,
     "geometries": [
-      "MultiPoint",
-      "MultiPolygon"
+      "MultiPolygon",
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -8057,8 +8057,8 @@
     "directory": "0x02",
     "bytes": 50,
     "geometries": [
-      "MultiLineString",
-      "Polygon"
+      "Polygon",
+      "MultiLineString"
     ],
     "encodings": [],
     "content": []
@@ -8105,8 +8105,8 @@
     "directory": "0x02",
     "bytes": 45,
     "geometries": [
-      "MultiPoint",
-      "Polygon"
+      "Polygon",
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -8160,8 +8160,8 @@
     "directory": "0x02",
     "bytes": 57,
     "geometries": [
-      "MultiLineString",
-      "Polygon"
+      "Polygon",
+      "MultiLineString"
     ],
     "encodings": [],
     "content": []
@@ -8171,8 +8171,8 @@
     "directory": "0x02",
     "bytes": 82,
     "geometries": [
-      "MultiLineString",
-      "Polygon"
+      "Polygon",
+      "MultiLineString"
     ],
     "encodings": [
       "Tessellated"
@@ -8195,8 +8195,8 @@
     "directory": "0x02",
     "bytes": 114,
     "geometries": [
-      "MultiPolygon",
-      "Polygon"
+      "Polygon",
+      "MultiPolygon"
     ],
     "encodings": [
       "Tessellated"
@@ -8241,8 +8241,8 @@
     "directory": "0x02",
     "bytes": 32,
     "geometries": [
-      "Point",
-      "LineString"
+      "LineString",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -8252,8 +8252,8 @@
     "directory": "0x02",
     "bytes": 40,
     "geometries": [
-      "Point",
-      "MultiLineString"
+      "MultiLineString",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -8263,8 +8263,8 @@
     "directory": "0x02",
     "bytes": 54,
     "geometries": [
-      "Point",
-      "MultiPolygon"
+      "MultiPolygon",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -8285,8 +8285,8 @@
     "directory": "0x02",
     "bytes": 36,
     "geometries": [
-      "Point",
-      "Polygon"
+      "Polygon",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -8328,8 +8328,8 @@
     "directory": "0x02",
     "bytes": 74,
     "geometries": [
-      "MultiPolygon",
       "LineString",
+      "MultiPolygon",
       "MultiLineString"
     ],
     "encodings": [],
@@ -8340,8 +8340,8 @@
     "directory": "0x02",
     "bytes": 102,
     "geometries": [
-      "MultiPolygon",
       "LineString",
+      "MultiPolygon",
       "MultiLineString"
     ],
     "encodings": [
@@ -8365,8 +8365,8 @@
     "directory": "0x02",
     "bytes": 97,
     "geometries": [
-      "MultiPolygon",
-      "LineString"
+      "LineString",
+      "MultiPolygon"
     ],
     "encodings": [
       "Tessellated"
@@ -8378,8 +8378,8 @@
     "directory": "0x02",
     "bytes": 48,
     "geometries": [
-      "LineString",
-      "MultiPoint"
+      "MultiPoint",
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -8389,9 +8389,9 @@
     "directory": "0x02",
     "bytes": 53,
     "geometries": [
+      "MultiPoint",
       "MultiLineString",
-      "LineString",
-      "MultiPoint"
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -8401,9 +8401,9 @@
     "directory": "0x02",
     "bytes": 68,
     "geometries": [
-      "LineString",
+      "MultiPoint",
       "MultiPolygon",
-      "MultiPoint"
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -8413,8 +8413,8 @@
     "directory": "0x02",
     "bytes": 50,
     "geometries": [
-      "LineString",
-      "Polygon"
+      "Polygon",
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -8424,8 +8424,8 @@
     "directory": "0x02",
     "bytes": 62,
     "geometries": [
-      "LineString",
-      "Polygon"
+      "Polygon",
+      "LineString"
     ],
     "encodings": [
       "Tessellated"
@@ -8449,9 +8449,9 @@
     "directory": "0x02",
     "bytes": 68,
     "geometries": [
-      "LineString",
+      "MultiLineString",
       "Polygon",
-      "MultiLineString"
+      "LineString"
     ],
     "encodings": [
       "Tessellated"
@@ -8463,9 +8463,9 @@
     "directory": "0x02",
     "bytes": 70,
     "geometries": [
-      "MultiPolygon",
       "LineString",
-      "Polygon"
+      "Polygon",
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -8475,8 +8475,8 @@
     "directory": "0x02",
     "bytes": 102,
     "geometries": [
-      "LineString",
       "Polygon",
+      "LineString",
       "MultiPolygon"
     ],
     "encodings": [
@@ -8489,9 +8489,9 @@
     "directory": "0x02",
     "bytes": 54,
     "geometries": [
+      "LineString",
       "Polygon",
-      "MultiPoint",
-      "LineString"
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -8501,8 +8501,8 @@
     "directory": "0x02",
     "bytes": 58,
     "geometries": [
-      "Polygon",
-      "LineString"
+      "LineString",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -8512,8 +8512,8 @@
     "directory": "0x02",
     "bytes": 90,
     "geometries": [
-      "LineString",
-      "Polygon"
+      "Polygon",
+      "LineString"
     ],
     "encodings": [
       "Tessellated"
@@ -8536,8 +8536,8 @@
     "directory": "0x02",
     "bytes": 84,
     "geometries": [
-      "LineString",
-      "Polygon"
+      "Polygon",
+      "LineString"
     ],
     "encodings": [
       "Tessellated"
@@ -8549,8 +8549,8 @@
     "directory": "0x02",
     "bytes": 65,
     "geometries": [
-      "Polygon",
       "LineString",
+      "Polygon",
       "MultiLineString"
     ],
     "encodings": [],
@@ -8562,8 +8562,8 @@
     "bytes": 90,
     "geometries": [
       "Polygon",
-      "LineString",
-      "MultiLineString"
+      "MultiLineString",
+      "LineString"
     ],
     "encodings": [
       "Tessellated"
@@ -8575,9 +8575,9 @@
     "directory": "0x02",
     "bytes": 75,
     "geometries": [
+      "Polygon",
       "MultiPolygon",
-      "LineString",
-      "Polygon"
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -8587,9 +8587,9 @@
     "directory": "0x02",
     "bytes": 122,
     "geometries": [
-      "Polygon",
       "MultiPolygon",
-      "LineString"
+      "LineString",
+      "Polygon"
     ],
     "encodings": [
       "Tessellated"
@@ -8601,8 +8601,8 @@
     "directory": "0x02",
     "bytes": 58,
     "geometries": [
-      "LineString",
       "Polygon",
+      "LineString",
       "MultiPoint"
     ],
     "encodings": [],
@@ -8613,8 +8613,8 @@
     "directory": "0x02",
     "bytes": 40,
     "geometries": [
-      "Point",
-      "LineString"
+      "LineString",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -8681,8 +8681,8 @@
     "directory": "0x02",
     "bytes": 73,
     "geometries": [
-      "MultiLineString",
-      "Polygon"
+      "Polygon",
+      "MultiLineString"
     ],
     "encodings": [
       "Tessellated"
@@ -8753,8 +8753,8 @@
     "directory": "0x02",
     "bytes": 90,
     "geometries": [
-      "MultiPolygon",
-      "MultiLineString"
+      "MultiLineString",
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -8777,8 +8777,8 @@
     "directory": "0x02",
     "bytes": 85,
     "geometries": [
-      "MultiPolygon",
-      "MultiPoint"
+      "MultiPoint",
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -8812,8 +8812,8 @@
     "directory": "0x02",
     "bytes": 93,
     "geometries": [
-      "Polygon",
-      "MultiPolygon"
+      "MultiPolygon",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -8858,9 +8858,9 @@
     "directory": "0x02",
     "bytes": 73,
     "geometries": [
-      "MultiLineString",
       "MultiPoint",
-      "MultiPolygon"
+      "MultiPolygon",
+      "MultiLineString"
     ],
     "encodings": [],
     "content": []
@@ -8870,8 +8870,8 @@
     "directory": "0x02",
     "bytes": 53,
     "geometries": [
-      "MultiLineString",
-      "MultiPoint"
+      "MultiPoint",
+      "MultiLineString"
     ],
     "encodings": [],
     "content": []
@@ -8881,8 +8881,8 @@
     "directory": "0x02",
     "bytes": 67,
     "geometries": [
-      "MultiPoint",
-      "MultiPolygon"
+      "MultiPolygon",
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -8903,8 +8903,8 @@
     "directory": "0x02",
     "bytes": 59,
     "geometries": [
-      "MultiPoint",
-      "Polygon"
+      "Polygon",
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -8914,8 +8914,8 @@
     "directory": "0x02",
     "bytes": 40,
     "geometries": [
-      "Point",
-      "MultiPoint"
+      "MultiPoint",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -8936,8 +8936,8 @@
     "directory": "0x02",
     "bytes": 68,
     "geometries": [
-      "Polygon",
-      "LineString"
+      "LineString",
+      "Polygon"
     ],
     "encodings": [
       "Tessellated"
@@ -8949,9 +8949,9 @@
     "directory": "0x02",
     "bytes": 74,
     "geometries": [
-      "Polygon",
       "MultiLineString",
-      "MultiPolygon"
+      "MultiPolygon",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -8986,8 +8986,8 @@
     "directory": "0x02",
     "bytes": 73,
     "geometries": [
-      "Polygon",
-      "MultiLineString"
+      "MultiLineString",
+      "Polygon"
     ],
     "encodings": [
       "Tessellated"
@@ -9010,8 +9010,8 @@
     "directory": "0x02",
     "bytes": 106,
     "geometries": [
-      "MultiPolygon",
-      "Polygon"
+      "Polygon",
+      "MultiPolygon"
     ],
     "encodings": [
       "Tessellated"
@@ -9024,8 +9024,8 @@
     "bytes": 58,
     "geometries": [
       "Polygon",
-      "MultiLineString",
-      "MultiPoint"
+      "MultiPoint",
+      "MultiLineString"
     ],
     "encodings": [],
     "content": []
@@ -9035,9 +9035,9 @@
     "directory": "0x02",
     "bytes": 69,
     "geometries": [
+      "MultiPoint",
       "Polygon",
-      "MultiPolygon",
-      "MultiPoint"
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -9047,8 +9047,8 @@
     "directory": "0x02",
     "bytes": 54,
     "geometries": [
-      "MultiPoint",
-      "Polygon"
+      "Polygon",
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -9058,8 +9058,8 @@
     "directory": "0x02",
     "bytes": 66,
     "geometries": [
-      "MultiLineString",
-      "Polygon"
+      "Polygon",
+      "MultiLineString"
     ],
     "encodings": [],
     "content": []
@@ -9150,8 +9150,8 @@
     "directory": "0x02",
     "bytes": 64,
     "geometries": [
-      "Polygon",
-      "LineString"
+      "LineString",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -9174,8 +9174,8 @@
     "directory": "0x02",
     "bytes": 81,
     "geometries": [
-      "MultiLineString",
       "Polygon",
+      "MultiLineString",
       "MultiPolygon"
     ],
     "encodings": [],
@@ -9186,8 +9186,8 @@
     "directory": "0x02",
     "bytes": 128,
     "geometries": [
-      "MultiLineString",
       "MultiPolygon",
+      "MultiLineString",
       "Polygon"
     ],
     "encodings": [
@@ -9224,8 +9224,8 @@
     "directory": "0x02",
     "bytes": 84,
     "geometries": [
-      "MultiPolygon",
-      "Polygon"
+      "Polygon",
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -9249,8 +9249,8 @@
     "bytes": 65,
     "geometries": [
       "MultiLineString",
-      "Polygon",
-      "MultiPoint"
+      "MultiPoint",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -9260,9 +9260,9 @@
     "directory": "0x02",
     "bytes": 75,
     "geometries": [
-      "MultiPoint",
       "Polygon",
-      "MultiPolygon"
+      "MultiPolygon",
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -9316,9 +9316,9 @@
     "directory": "0x02",
     "bytes": 48,
     "geometries": [
-      "LineString",
+      "MultiLineString",
       "Point",
-      "MultiLineString"
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -9329,8 +9329,8 @@
     "bytes": 63,
     "geometries": [
       "MultiPolygon",
-      "LineString",
-      "Point"
+      "Point",
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -9340,9 +9340,9 @@
     "directory": "0x02",
     "bytes": 43,
     "geometries": [
-      "MultiPoint",
       "Point",
-      "LineString"
+      "LineString",
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -9352,9 +9352,9 @@
     "directory": "0x02",
     "bytes": 45,
     "geometries": [
-      "Polygon",
       "Point",
-      "LineString"
+      "LineString",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -9364,9 +9364,9 @@
     "directory": "0x02",
     "bytes": 50,
     "geometries": [
+      "Point",
       "Polygon",
-      "LineString",
-      "Point"
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -9376,8 +9376,8 @@
     "directory": "0x02",
     "bytes": 35,
     "geometries": [
-      "Point",
-      "LineString"
+      "LineString",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -9387,9 +9387,9 @@
     "directory": "0x02",
     "bytes": 69,
     "geometries": [
-      "Point",
+      "MultiPolygon",
       "MultiLineString",
-      "MultiPolygon"
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -9421,9 +9421,9 @@
     "directory": "0x02",
     "bytes": 49,
     "geometries": [
-      "MultiLineString",
       "MultiPoint",
-      "Point"
+      "Point",
+      "MultiLineString"
     ],
     "encodings": [],
     "content": []
@@ -9434,8 +9434,8 @@
     "bytes": 62,
     "geometries": [
       "MultiPolygon",
-      "MultiPoint",
-      "Point"
+      "Point",
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -9445,8 +9445,8 @@
     "directory": "0x02",
     "bytes": 35,
     "geometries": [
-      "MultiPoint",
-      "Point"
+      "Point",
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -9456,9 +9456,9 @@
     "directory": "0x02",
     "bytes": 52,
     "geometries": [
+      "MultiLineString",
       "Point",
-      "Polygon",
-      "MultiLineString"
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -9468,9 +9468,9 @@
     "directory": "0x02",
     "bytes": 64,
     "geometries": [
-      "Polygon",
+      "MultiPolygon",
       "Point",
-      "MultiPolygon"
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -9480,9 +9480,9 @@
     "directory": "0x02",
     "bytes": 48,
     "geometries": [
-      "Polygon",
+      "MultiPoint",
       "Point",
-      "MultiPoint"
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -9492,8 +9492,8 @@
     "directory": "0x02",
     "bytes": 51,
     "geometries": [
-      "Point",
-      "Polygon"
+      "Polygon",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -9503,8 +9503,8 @@
     "directory": "0x02",
     "bytes": 39,
     "geometries": [
-      "Polygon",
-      "Point"
+      "Point",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -9514,9 +9514,9 @@
     "directory": "0x02",
     "bytes": 60,
     "geometries": [
-      "Polygon",
       "MultiLineString",
-      "Point"
+      "Point",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -9527,8 +9527,8 @@
     "bytes": 70,
     "geometries": [
       "Polygon",
-      "Point",
-      "MultiPolygon"
+      "MultiPolygon",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -9538,9 +9538,9 @@
     "directory": "0x02",
     "bytes": 54,
     "geometries": [
-      "Polygon",
       "MultiPoint",
-      "Point"
+      "Point",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -9550,8 +9550,8 @@
     "directory": "0x02",
     "bytes": 46,
     "geometries": [
-      "Polygon",
-      "Point"
+      "Point",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -9561,9 +9561,9 @@
     "directory": "0x02",
     "bytes": 82,
     "geometries": [
+      "LineString",
       "MultiPolygon",
       "MultiLineString",
-      "LineString",
       "MultiPoint"
     ],
     "encodings": [],
@@ -9574,9 +9574,9 @@
     "directory": "0x02",
     "bytes": 84,
     "geometries": [
+      "MultiLineString",
       "LineString",
       "MultiPolygon",
-      "MultiLineString",
       "Polygon"
     ],
     "encodings": [],
@@ -9587,10 +9587,10 @@
     "directory": "0x02",
     "bytes": 116,
     "geometries": [
-      "Polygon",
+      "MultiLineString",
       "LineString",
-      "MultiPolygon",
-      "MultiLineString"
+      "Polygon",
+      "MultiPolygon"
     ],
     "encodings": [
       "Tessellated"
@@ -9615,10 +9615,10 @@
     "directory": "0x02",
     "bytes": 79,
     "geometries": [
-      "LineString",
       "Polygon",
-      "MultiPolygon",
-      "MultiPoint"
+      "LineString",
+      "MultiPoint",
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -9629,8 +9629,8 @@
     "bytes": 75,
     "geometries": [
       "MultiLineString",
-      "Polygon",
-      "LineString"
+      "LineString",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -9640,8 +9640,8 @@
     "directory": "0x02",
     "bytes": 104,
     "geometries": [
-      "LineString",
       "Polygon",
+      "LineString",
       "MultiLineString"
     ],
     "encodings": [
@@ -9654,9 +9654,9 @@
     "directory": "0x02",
     "bytes": 85,
     "geometries": [
-      "Polygon",
+      "MultiPolygon",
       "LineString",
-      "MultiPolygon"
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -9692,10 +9692,10 @@
     "directory": "0x02",
     "bytes": 90,
     "geometries": [
-      "Polygon",
+      "MultiPolygon",
       "MultiLineString",
       "LineString",
-      "MultiPolygon"
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -9705,9 +9705,9 @@
     "directory": "0x02",
     "bytes": 138,
     "geometries": [
-      "LineString",
-      "MultiLineString",
       "MultiPolygon",
+      "MultiLineString",
+      "LineString",
       "Polygon"
     ],
     "encodings": [
@@ -9720,9 +9720,9 @@
     "directory": "0x02",
     "bytes": 73,
     "geometries": [
-      "MultiLineString",
-      "LineString",
       "MultiPoint",
+      "LineString",
+      "MultiLineString",
       "Polygon"
     ],
     "encodings": [],
@@ -9746,10 +9746,10 @@
     "directory": "0x02",
     "bytes": 84,
     "geometries": [
-      "Polygon",
+      "MultiPoint",
       "MultiLineString",
-      "MultiPolygon",
-      "MultiPoint"
+      "Polygon",
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -9759,9 +9759,9 @@
     "directory": "0x02",
     "bytes": 90,
     "geometries": [
+      "Polygon",
       "MultiPolygon",
-      "MultiLineString",
-      "Polygon"
+      "MultiLineString"
     ],
     "encodings": [],
     "content": []
@@ -9771,9 +9771,9 @@
     "directory": "0x02",
     "bytes": 142,
     "geometries": [
+      "MultiPolygon",
       "MultiLineString",
-      "Polygon",
-      "MultiPolygon"
+      "Polygon"
     ],
     "encodings": [
       "Tessellated"
@@ -9785,8 +9785,8 @@
     "directory": "0x02",
     "bytes": 74,
     "geometries": [
-      "Polygon",
       "MultiPoint",
+      "Polygon",
       "MultiLineString"
     ],
     "encodings": [],
@@ -9797,8 +9797,8 @@
     "directory": "0x02",
     "bytes": 84,
     "geometries": [
-      "MultiPoint",
       "MultiPolygon",
+      "MultiPoint",
       "Polygon"
     ],
     "encodings": [],
@@ -9809,10 +9809,10 @@
     "directory": "0x02",
     "bytes": 90,
     "geometries": [
-      "Polygon",
       "MultiLineString",
-      "MultiPoint",
-      "MultiPolygon"
+      "MultiPolygon",
+      "Polygon",
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -9822,10 +9822,10 @@
     "directory": "0x02",
     "bytes": 77,
     "geometries": [
-      "Point",
-      "MultiLineString",
+      "MultiPolygon",
       "LineString",
-      "MultiPolygon"
+      "Point",
+      "MultiLineString"
     ],
     "encodings": [],
     "content": []
@@ -9835,10 +9835,10 @@
     "directory": "0x02",
     "bytes": 57,
     "geometries": [
-      "MultiPoint",
       "MultiLineString",
-      "LineString",
-      "Point"
+      "Point",
+      "MultiPoint",
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -9848,9 +9848,9 @@
     "directory": "0x02",
     "bytes": 70,
     "geometries": [
-      "MultiPolygon",
-      "Point",
       "MultiPoint",
+      "Point",
+      "MultiPolygon",
       "LineString"
     ],
     "encodings": [],
@@ -9861,10 +9861,10 @@
     "directory": "0x02",
     "bytes": 61,
     "geometries": [
-      "MultiLineString",
       "Point",
-      "LineString",
-      "Polygon"
+      "Polygon",
+      "MultiLineString",
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -9874,10 +9874,10 @@
     "directory": "0x02",
     "bytes": 74,
     "geometries": [
+      "MultiPolygon",
       "Polygon",
-      "Point",
       "LineString",
-      "MultiPolygon"
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -9888,8 +9888,8 @@
     "bytes": 57,
     "geometries": [
       "LineString",
-      "Polygon",
       "MultiPoint",
+      "Polygon",
       "Point"
     ],
     "encodings": [],
@@ -9900,8 +9900,8 @@
     "directory": "0x02",
     "bytes": 60,
     "geometries": [
-      "Polygon",
       "Point",
+      "Polygon",
       "LineString"
     ],
     "encodings": [],
@@ -9913,9 +9913,9 @@
     "bytes": 68,
     "geometries": [
       "LineString",
-      "Point",
+      "Polygon",
       "MultiLineString",
-      "Polygon"
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -9925,9 +9925,9 @@
     "directory": "0x02",
     "bytes": 79,
     "geometries": [
+      "Point",
       "LineString",
       "Polygon",
-      "Point",
       "MultiPolygon"
     ],
     "encodings": [],
@@ -9938,10 +9938,10 @@
     "directory": "0x02",
     "bytes": 62,
     "geometries": [
-      "MultiPoint",
       "Point",
-      "LineString",
-      "Polygon"
+      "MultiPoint",
+      "Polygon",
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -9952,9 +9952,9 @@
     "bytes": 77,
     "geometries": [
       "Point",
-      "MultiPoint",
+      "MultiLineString",
       "MultiPolygon",
-      "MultiLineString"
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -9966,8 +9966,8 @@
     "geometries": [
       "Polygon",
       "MultiPolygon",
-      "MultiLineString",
-      "Point"
+      "Point",
+      "MultiLineString"
     ],
     "encodings": [],
     "content": []
@@ -9977,10 +9977,10 @@
     "directory": "0x02",
     "bytes": 62,
     "geometries": [
-      "MultiLineString",
       "Point",
       "Polygon",
-      "MultiPoint"
+      "MultiPoint",
+      "MultiLineString"
     ],
     "encodings": [],
     "content": []
@@ -9992,8 +9992,8 @@
     "geometries": [
       "Polygon",
       "MultiPoint",
-      "Point",
-      "MultiPolygon"
+      "MultiPolygon",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -10003,9 +10003,9 @@
     "directory": "0x02",
     "bytes": 69,
     "geometries": [
-      "Point",
+      "MultiLineString",
       "Polygon",
-      "MultiLineString"
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -10027,9 +10027,9 @@
     "directory": "0x02",
     "bytes": 63,
     "geometries": [
-      "Polygon",
       "MultiPoint",
-      "Point"
+      "Point",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -10039,10 +10039,10 @@
     "directory": "0x02",
     "bytes": 85,
     "geometries": [
-      "Polygon",
-      "MultiPolygon",
       "Point",
-      "MultiLineString"
+      "MultiPolygon",
+      "MultiLineString",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -10052,10 +10052,10 @@
     "directory": "0x02",
     "bytes": 67,
     "geometries": [
+      "Polygon",
       "MultiPoint",
-      "Point",
       "MultiLineString",
-      "Polygon"
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -10065,8 +10065,8 @@
     "directory": "0x02",
     "bytes": 79,
     "geometries": [
-      "MultiPoint",
       "Point",
+      "MultiPoint",
       "Polygon",
       "MultiPolygon"
     ],
@@ -10079,10 +10079,10 @@
     "bytes": 93,
     "geometries": [
       "MultiPolygon",
+      "LineString",
       "MultiLineString",
-      "Polygon",
       "MultiPoint",
-      "LineString"
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -10092,10 +10092,10 @@
     "directory": "0x02",
     "bytes": 100,
     "geometries": [
-      "MultiPolygon",
       "LineString",
-      "Polygon",
-      "MultiLineString"
+      "MultiLineString",
+      "MultiPolygon",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -10106,9 +10106,9 @@
     "bytes": 152,
     "geometries": [
       "MultiPolygon",
+      "MultiLineString",
       "Polygon",
-      "LineString",
-      "MultiLineString"
+      "LineString"
     ],
     "encodings": [
       "Tessellated"
@@ -10120,10 +10120,10 @@
     "directory": "0x02",
     "bytes": 83,
     "geometries": [
-      "Polygon",
       "MultiPoint",
-      "MultiLineString",
-      "LineString"
+      "Polygon",
+      "LineString",
+      "MultiLineString"
     ],
     "encodings": [],
     "content": []
@@ -10133,10 +10133,10 @@
     "directory": "0x02",
     "bytes": 94,
     "geometries": [
+      "MultiPolygon",
       "LineString",
       "Polygon",
-      "MultiPoint",
-      "MultiPolygon"
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -10146,10 +10146,10 @@
     "directory": "0x02",
     "bytes": 98,
     "geometries": [
+      "MultiLineString",
       "Polygon",
       "MultiPolygon",
       "LineString",
-      "MultiLineString",
       "MultiPoint"
     ],
     "encodings": [],
@@ -10160,10 +10160,10 @@
     "directory": "0x02",
     "bytes": 99,
     "geometries": [
-      "MultiPoint",
-      "MultiLineString",
+      "MultiPolygon",
       "Polygon",
-      "MultiPolygon"
+      "MultiPoint",
+      "MultiLineString"
     ],
     "encodings": [],
     "content": []
@@ -10173,11 +10173,11 @@
     "directory": "0x02",
     "bytes": 85,
     "geometries": [
-      "MultiPoint",
+      "LineString",
       "MultiPolygon",
       "MultiLineString",
       "Point",
-      "LineString"
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -10187,11 +10187,11 @@
     "directory": "0x02",
     "bytes": 87,
     "geometries": [
-      "LineString",
-      "Point",
+      "MultiLineString",
       "MultiPolygon",
+      "Point",
       "Polygon",
-      "MultiLineString"
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -10201,11 +10201,11 @@
     "directory": "0x02",
     "bytes": 71,
     "geometries": [
-      "MultiLineString",
       "MultiPoint",
+      "MultiLineString",
+      "LineString",
       "Polygon",
-      "Point",
-      "LineString"
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -10215,11 +10215,11 @@
     "directory": "0x02",
     "bytes": 81,
     "geometries": [
-      "Point",
-      "Polygon",
-      "MultiPoint",
+      "LineString",
       "MultiPolygon",
-      "LineString"
+      "MultiPoint",
+      "Point",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -10230,8 +10230,8 @@
     "bytes": 78,
     "geometries": [
       "Point",
-      "Polygon",
       "LineString",
+      "Polygon",
       "MultiLineString"
     ],
     "encodings": [],
@@ -10243,9 +10243,9 @@
     "bytes": 89,
     "geometries": [
       "MultiPolygon",
+      "Point",
       "Polygon",
-      "LineString",
-      "Point"
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -10268,9 +10268,9 @@
     "directory": "0x02",
     "bytes": 93,
     "geometries": [
+      "MultiLineString",
       "Point",
       "Polygon",
-      "MultiLineString",
       "LineString",
       "MultiPolygon"
     ],
@@ -10282,11 +10282,11 @@
     "directory": "0x02",
     "bytes": 75,
     "geometries": [
-      "Polygon",
-      "MultiLineString",
-      "LineString",
       "Point",
-      "MultiPoint"
+      "Polygon",
+      "LineString",
+      "MultiPoint",
+      "MultiLineString"
     ],
     "encodings": [],
     "content": []
@@ -10296,11 +10296,11 @@
     "directory": "0x02",
     "bytes": 87,
     "geometries": [
-      "Point",
-      "LineString",
+      "MultiPoint",
       "Polygon",
       "MultiPolygon",
-      "MultiPoint"
+      "LineString",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -10310,11 +10310,11 @@
     "directory": "0x02",
     "bytes": 87,
     "geometries": [
-      "MultiPoint",
-      "MultiLineString",
       "MultiPolygon",
+      "Polygon",
+      "MultiLineString",
       "Point",
-      "Polygon"
+      "MultiPoint"
     ],
     "encodings": [],
     "content": []
@@ -10324,10 +10324,10 @@
     "directory": "0x02",
     "bytes": 94,
     "geometries": [
-      "Polygon",
-      "Point",
       "MultiLineString",
-      "MultiPolygon"
+      "MultiPolygon",
+      "Point",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -10338,8 +10338,8 @@
     "bytes": 76,
     "geometries": [
       "Polygon",
-      "Point",
       "MultiPoint",
+      "Point",
       "MultiLineString"
     ],
     "encodings": [],
@@ -10350,10 +10350,10 @@
     "directory": "0x02",
     "bytes": 88,
     "geometries": [
-      "MultiPolygon",
-      "Polygon",
+      "MultiPoint",
       "Point",
-      "MultiPoint"
+      "MultiPolygon",
+      "Polygon"
     ],
     "encodings": [],
     "content": []
@@ -10363,11 +10363,11 @@
     "directory": "0x02",
     "bytes": 93,
     "geometries": [
-      "MultiPoint",
       "MultiPolygon",
       "Polygon",
-      "Point",
-      "MultiLineString"
+      "MultiPoint",
+      "MultiLineString",
+      "Point"
     ],
     "encodings": [],
     "content": []
@@ -10377,11 +10377,11 @@
     "directory": "0x02",
     "bytes": 108,
     "geometries": [
-      "LineString",
-      "Polygon",
+      "MultiLineString",
       "MultiPolygon",
+      "Polygon",
       "MultiPoint",
-      "MultiLineString"
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -10391,12 +10391,12 @@
     "directory": "0x02",
     "bytes": 96,
     "geometries": [
-      "MultiLineString",
       "Polygon",
-      "MultiPolygon",
-      "Point",
+      "MultiLineString",
       "LineString",
-      "MultiPoint"
+      "MultiPoint",
+      "Point",
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -10406,11 +10406,11 @@
     "directory": "0x02",
     "bytes": 103,
     "geometries": [
-      "MultiPolygon",
-      "Polygon",
+      "Point",
       "LineString",
+      "Polygon",
       "MultiLineString",
-      "Point"
+      "MultiPolygon"
     ],
     "encodings": [],
     "content": []
@@ -10420,9 +10420,9 @@
     "directory": "0x02",
     "bytes": 85,
     "geometries": [
-      "Polygon",
-      "LineString",
       "Point",
+      "LineString",
+      "Polygon",
       "MultiLineString",
       "MultiPoint"
     ],
@@ -10434,9 +10434,9 @@
     "directory": "0x02",
     "bytes": 97,
     "geometries": [
+      "Point",
       "LineString",
       "MultiPolygon",
-      "Point",
       "MultiPoint",
       "Polygon"
     ],
@@ -10448,11 +10448,11 @@
     "directory": "0x02",
     "bytes": 101,
     "geometries": [
-      "Point",
-      "MultiPoint",
-      "MultiLineString",
-      "Polygon",
       "MultiPolygon",
+      "Polygon",
+      "MultiPoint",
+      "Point",
+      "MultiLineString",
       "LineString"
     ],
     "encodings": [],
@@ -10465,9 +10465,9 @@
     "geometries": [
       "MultiPoint",
       "Polygon",
-      "MultiLineString",
       "MultiPolygon",
-      "Point"
+      "Point",
+      "MultiLineString"
     ],
     "encodings": [],
     "content": []
@@ -10477,12 +10477,12 @@
     "directory": "0x02",
     "bytes": 111,
     "geometries": [
-      "MultiPoint",
-      "LineString",
-      "MultiLineString",
-      "Polygon",
       "Point",
-      "MultiPolygon"
+      "Polygon",
+      "MultiPoint",
+      "MultiPolygon",
+      "MultiLineString",
+      "LineString"
     ],
     "encodings": [],
     "content": []
@@ -12652,6 +12652,218 @@
     ]
   },
   {
+    "name": "prop_i8.mlt",
+    "directory": "0x02",
+    "bytes": 27,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [],
+    "content": [
+      "i8"
+    ]
+  },
+  {
+    "name": "prop_i8_delta.mlt",
+    "directory": "0x02",
+    "bytes": 27,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [],
+    "content": [
+      "i8"
+    ]
+  },
+  {
+    "name": "prop_i8_delta_np.mlt",
+    "directory": "0x02",
+    "bytes": 26,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [],
+    "content": [
+      "i8"
+    ]
+  },
+  {
+    "name": "prop_i8_delta_rle.mlt",
+    "directory": "0x02",
+    "bytes": 28,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [
+      "RLE"
+    ],
+    "content": [
+      "i8"
+    ]
+  },
+  {
+    "name": "prop_i8_delta_rle_np.mlt",
+    "directory": "0x02",
+    "bytes": 27,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [
+      "RLE"
+    ],
+    "content": [
+      "i8"
+    ]
+  },
+  {
+    "name": "prop_i8_max.mlt",
+    "directory": "0x02",
+    "bytes": 28,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [],
+    "content": [
+      "i8"
+    ]
+  },
+  {
+    "name": "prop_i8_max_np.mlt",
+    "directory": "0x02",
+    "bytes": 27,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [],
+    "content": [
+      "i8"
+    ]
+  },
+  {
+    "name": "prop_i8_min.mlt",
+    "directory": "0x02",
+    "bytes": 28,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [],
+    "content": [
+      "i8"
+    ]
+  },
+  {
+    "name": "prop_i8_min_np.mlt",
+    "directory": "0x02",
+    "bytes": 27,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [],
+    "content": [
+      "i8"
+    ]
+  },
+  {
+    "name": "prop_i8_neg.mlt",
+    "directory": "0x02",
+    "bytes": 27,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [],
+    "content": [
+      "i8"
+    ]
+  },
+  {
+    "name": "prop_i8_neg_np.mlt",
+    "directory": "0x02",
+    "bytes": 26,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [],
+    "content": [
+      "i8"
+    ]
+  },
+  {
+    "name": "prop_i8_np.mlt",
+    "directory": "0x02",
+    "bytes": 26,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [],
+    "content": [
+      "i8"
+    ]
+  },
+  {
+    "name": "prop_i8_null_val.mlt",
+    "directory": "0x02",
+    "bytes": 29,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [],
+    "content": [
+      "i8"
+    ]
+  },
+  {
+    "name": "prop_i8_plain_np.mlt",
+    "directory": "0x02",
+    "bytes": 28,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [],
+    "content": [
+      "i8"
+    ]
+  },
+  {
+    "name": "prop_i8_rle.mlt",
+    "directory": "0x02",
+    "bytes": 28,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [
+      "RLE"
+    ],
+    "content": [
+      "i8"
+    ]
+  },
+  {
+    "name": "prop_i8_rle_np.mlt",
+    "directory": "0x02",
+    "bytes": 27,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [
+      "RLE"
+    ],
+    "content": [
+      "i8"
+    ]
+  },
+  {
+    "name": "prop_i8_val_null.mlt",
+    "directory": "0x02",
+    "bytes": 29,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [],
+    "content": [
+      "i8"
+    ]
+  },
+  {
     "name": "prop_special_name.mlt",
     "directory": "0x02",
     "bytes": 36,
@@ -13217,6 +13429,194 @@
     "encodings": [],
     "content": [
       "u64"
+    ]
+  },
+  {
+    "name": "prop_u8.mlt",
+    "directory": "0x02",
+    "bytes": 27,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [],
+    "content": [
+      "u8"
+    ]
+  },
+  {
+    "name": "prop_u8_delta.mlt",
+    "directory": "0x02",
+    "bytes": 27,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [],
+    "content": [
+      "u8"
+    ]
+  },
+  {
+    "name": "prop_u8_delta_np.mlt",
+    "directory": "0x02",
+    "bytes": 26,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [],
+    "content": [
+      "u8"
+    ]
+  },
+  {
+    "name": "prop_u8_delta_rle.mlt",
+    "directory": "0x02",
+    "bytes": 28,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [
+      "RLE"
+    ],
+    "content": [
+      "u8"
+    ]
+  },
+  {
+    "name": "prop_u8_delta_rle_np.mlt",
+    "directory": "0x02",
+    "bytes": 27,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [
+      "RLE"
+    ],
+    "content": [
+      "u8"
+    ]
+  },
+  {
+    "name": "prop_u8_max.mlt",
+    "directory": "0x02",
+    "bytes": 28,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [],
+    "content": [
+      "u8"
+    ]
+  },
+  {
+    "name": "prop_u8_max_np.mlt",
+    "directory": "0x02",
+    "bytes": 27,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [],
+    "content": [
+      "u8"
+    ]
+  },
+  {
+    "name": "prop_u8_min.mlt",
+    "directory": "0x02",
+    "bytes": 27,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [],
+    "content": [
+      "u8"
+    ]
+  },
+  {
+    "name": "prop_u8_min_np.mlt",
+    "directory": "0x02",
+    "bytes": 26,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [],
+    "content": [
+      "u8"
+    ]
+  },
+  {
+    "name": "prop_u8_np.mlt",
+    "directory": "0x02",
+    "bytes": 26,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [],
+    "content": [
+      "u8"
+    ]
+  },
+  {
+    "name": "prop_u8_null_val.mlt",
+    "directory": "0x02",
+    "bytes": 29,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [],
+    "content": [
+      "u8"
+    ]
+  },
+  {
+    "name": "prop_u8_plain_np.mlt",
+    "directory": "0x02",
+    "bytes": 28,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [],
+    "content": [
+      "u8"
+    ]
+  },
+  {
+    "name": "prop_u8_rle.mlt",
+    "directory": "0x02",
+    "bytes": 28,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [
+      "RLE"
+    ],
+    "content": [
+      "u8"
+    ]
+  },
+  {
+    "name": "prop_u8_rle_np.mlt",
+    "directory": "0x02",
+    "bytes": 27,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [
+      "RLE"
+    ],
+    "content": [
+      "u8"
+    ]
+  },
+  {
+    "name": "prop_u8_val_null.mlt",
+    "directory": "0x02",
+    "bytes": 29,
+    "geometries": [
+      "Point"
+    ],
+    "encodings": [],
+    "content": [
+      "u8"
     ]
   },
   {
@@ -14068,10 +14468,10 @@
     "directory": "0x01-omt",
     "bytes": 81726,
     "geometries": [
-      "MultiPolygon",
-      "LineString",
       "Polygon",
-      "Point"
+      "MultiPolygon",
+      "Point",
+      "LineString"
     ],
     "encodings": [
       "RLE",
@@ -14092,8 +14492,8 @@
     "geometries": [
       "MultiPolygon",
       "Polygon",
-      "LineString",
-      "Point"
+      "Point",
+      "LineString"
     ],
     "encodings": [
       "RLE",
@@ -14114,9 +14514,9 @@
     "geometries": [
       "LineString",
       "Polygon",
-      "Point",
+      "MultiLineString",
       "MultiPolygon",
-      "MultiLineString"
+      "Point"
     ],
     "encodings": [
       "RLE",
@@ -14137,8 +14537,8 @@
     "geometries": [
       "MultiPolygon",
       "LineString",
-      "Polygon",
-      "Point"
+      "Point",
+      "Polygon"
     ],
     "encodings": [
       "RLE",
@@ -14158,9 +14558,9 @@
     "bytes": 123904,
     "geometries": [
       "MultiLineString",
+      "LineString",
       "Polygon",
       "Point",
-      "LineString",
       "MultiPolygon"
     ],
     "encodings": [
@@ -14181,9 +14581,9 @@
     "bytes": 122456,
     "geometries": [
       "Point",
-      "LineString",
       "MultiPolygon",
-      "Polygon"
+      "Polygon",
+      "LineString"
     ],
     "encodings": [
       "RLE",
@@ -14202,10 +14602,10 @@
     "directory": "0x01-omt",
     "bytes": 69929,
     "geometries": [
+      "MultiPolygon",
       "Point",
       "LineString",
-      "Polygon",
-      "MultiPolygon"
+      "Polygon"
     ],
     "encodings": [
       "RLE",
@@ -14224,11 +14624,11 @@
     "directory": "0x01-omt",
     "bytes": 123238,
     "geometries": [
+      "MultiPolygon",
       "MultiLineString",
-      "Point",
       "LineString",
       "Polygon",
-      "MultiPolygon"
+      "Point"
     ],
     "encodings": [
       "RLE",
@@ -14247,11 +14647,11 @@
     "directory": "0x01-omt",
     "bytes": 128312,
     "geometries": [
-      "MultiPolygon",
+      "MultiLineString",
       "Polygon",
-      "LineString",
       "Point",
-      "MultiLineString"
+      "MultiPolygon",
+      "LineString"
     ],
     "encodings": [
       "RLE",
@@ -14270,9 +14670,9 @@
     "directory": "0x01-omt",
     "bytes": 79083,
     "geometries": [
-      "Point",
-      "LineString",
       "Polygon",
+      "LineString",
+      "Point",
       "MultiPolygon"
     ],
     "encodings": [
@@ -14292,8 +14692,8 @@
     "directory": "0x01-omt",
     "bytes": 105459,
     "geometries": [
-      "MultiPolygon",
       "Polygon",
+      "MultiPolygon",
       "LineString",
       "Point"
     ],
@@ -14314,10 +14714,10 @@
     "directory": "0x01-omt",
     "bytes": 113369,
     "geometries": [
+      "Polygon",
       "MultiLineString",
       "MultiPolygon",
       "Point",
-      "Polygon",
       "LineString"
     ],
     "encodings": [
@@ -14337,10 +14737,10 @@
     "directory": "0x01-omt",
     "bytes": 70034,
     "geometries": [
-      "LineString",
-      "MultiLineString",
       "Point",
       "Polygon",
+      "LineString",
+      "MultiLineString",
       "MultiPolygon"
     ],
     "encodings": [
@@ -14360,9 +14760,9 @@
     "directory": "0x01-omt",
     "bytes": 74945,
     "geometries": [
-      "LineString",
-      "Point",
       "MultiPolygon",
+      "Point",
+      "LineString",
       "Polygon"
     ],
     "encodings": [
@@ -14382,11 +14782,11 @@
     "directory": "0x01-omt",
     "bytes": 52644,
     "geometries": [
-      "LineString",
-      "MultiLineString",
       "MultiPolygon",
+      "Point",
+      "LineString",
       "Polygon",
-      "Point"
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -14405,11 +14805,11 @@
     "directory": "0x01-omt",
     "bytes": 39020,
     "geometries": [
-      "Point",
-      "MultiPolygon",
-      "Polygon",
       "LineString",
-      "MultiLineString"
+      "MultiPolygon",
+      "Point",
+      "MultiLineString",
+      "Polygon"
     ],
     "encodings": [
       "RLE",
@@ -14429,9 +14829,9 @@
     "bytes": 88794,
     "geometries": [
       "Polygon",
-      "LineString",
       "MultiPolygon",
-      "Point"
+      "Point",
+      "LineString"
     ],
     "encodings": [
       "RLE",
@@ -14450,11 +14850,11 @@
     "directory": "0x01-omt",
     "bytes": 59547,
     "geometries": [
-      "MultiPolygon",
       "MultiLineString",
-      "LineString",
+      "MultiPolygon",
+      "Polygon",
       "Point",
-      "Polygon"
+      "LineString"
     ],
     "encodings": [
       "RLE",
@@ -14473,9 +14873,9 @@
     "directory": "0x01-omt",
     "bytes": 42402,
     "geometries": [
-      "Polygon",
       "LineString",
       "MultiPolygon",
+      "Polygon",
       "Point"
     ],
     "encodings": [
@@ -14495,11 +14895,11 @@
     "directory": "0x01-omt",
     "bytes": 82176,
     "geometries": [
-      "MultiLineString",
-      "Polygon",
       "Point",
+      "MultiPolygon",
       "LineString",
-      "MultiPolygon"
+      "Polygon",
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -14518,11 +14918,11 @@
     "directory": "0x01-omt",
     "bytes": 76716,
     "geometries": [
-      "Point",
-      "MultiPolygon",
-      "MultiLineString",
       "LineString",
-      "Polygon"
+      "MultiLineString",
+      "Polygon",
+      "Point",
+      "MultiPolygon"
     ],
     "encodings": [
       "RLE",
@@ -14541,11 +14941,11 @@
     "directory": "0x01-omt",
     "bytes": 50262,
     "geometries": [
+      "MultiPolygon",
+      "Polygon",
       "Point",
       "MultiLineString",
-      "LineString",
-      "Polygon",
-      "MultiPolygon"
+      "LineString"
     ],
     "encodings": [
       "RLE",
@@ -14564,11 +14964,11 @@
     "directory": "0x01-omt",
     "bytes": 89056,
     "geometries": [
+      "Polygon",
       "LineString",
-      "Point",
-      "MultiPolygon",
       "MultiLineString",
-      "Polygon"
+      "MultiPolygon",
+      "Point"
     ],
     "encodings": [
       "RLE",
@@ -14587,11 +14987,11 @@
     "directory": "0x01-omt",
     "bytes": 64541,
     "geometries": [
-      "Point",
       "MultiLineString",
+      "Point",
+      "MultiPolygon",
       "Polygon",
-      "LineString",
-      "MultiPolygon"
+      "LineString"
     ],
     "encodings": [
       "RLE",
@@ -14610,10 +15010,10 @@
     "directory": "0x01-omt",
     "bytes": 40151,
     "geometries": [
+      "Point",
       "LineString",
       "MultiPolygon",
-      "Polygon",
-      "Point"
+      "Polygon"
     ],
     "encodings": [
       "RLE",
@@ -14632,11 +15032,11 @@
     "directory": "0x01-omt",
     "bytes": 115073,
     "geometries": [
-      "Point",
-      "MultiLineString",
+      "MultiPolygon",
       "Polygon",
       "LineString",
-      "MultiPolygon"
+      "MultiLineString",
+      "Point"
     ],
     "encodings": [
       "RLE",
@@ -14656,9 +15056,9 @@
     "bytes": 81333,
     "geometries": [
       "MultiLineString",
-      "Polygon",
-      "Point",
       "MultiPolygon",
+      "Point",
+      "Polygon",
       "LineString"
     ],
     "encodings": [
@@ -14678,11 +15078,11 @@
     "directory": "0x01-omt",
     "bytes": 89509,
     "geometries": [
-      "MultiLineString",
-      "LineString",
-      "Point",
       "Polygon",
-      "MultiPolygon"
+      "MultiLineString",
+      "MultiPolygon",
+      "LineString",
+      "Point"
     ],
     "encodings": [
       "RLE",
@@ -14701,11 +15101,11 @@
     "directory": "0x01-omt",
     "bytes": 66200,
     "geometries": [
-      "MultiPolygon",
       "Point",
-      "Polygon",
+      "LineString",
+      "MultiPolygon",
       "MultiLineString",
-      "LineString"
+      "Polygon"
     ],
     "encodings": [
       "RLE",
@@ -14725,10 +15125,10 @@
     "bytes": 84942,
     "geometries": [
       "Point",
-      "LineString",
       "MultiPolygon",
+      "MultiLineString",
       "Polygon",
-      "MultiLineString"
+      "LineString"
     ],
     "encodings": [
       "RLE",
@@ -14747,11 +15147,11 @@
     "directory": "0x01-omt",
     "bytes": 81643,
     "geometries": [
-      "Point",
-      "LineString",
       "MultiLineString",
       "Polygon",
-      "MultiPolygon"
+      "MultiPolygon",
+      "LineString",
+      "Point"
     ],
     "encodings": [
       "RLE",
@@ -14770,11 +15170,11 @@
     "directory": "0x01-omt",
     "bytes": 80922,
     "geometries": [
-      "LineString",
       "MultiPolygon",
-      "MultiLineString",
       "Polygon",
-      "Point"
+      "Point",
+      "LineString",
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -14794,10 +15194,10 @@
     "bytes": 73989,
     "geometries": [
       "Point",
-      "Polygon",
+      "LineString",
       "MultiPolygon",
-      "MultiLineString",
-      "LineString"
+      "Polygon",
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -14816,11 +15216,11 @@
     "directory": "0x01-omt",
     "bytes": 51829,
     "geometries": [
-      "MultiLineString",
+      "LineString",
+      "Point",
       "MultiPolygon",
       "Polygon",
-      "Point",
-      "LineString"
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -14839,10 +15239,10 @@
     "directory": "0x01-omt",
     "bytes": 50980,
     "geometries": [
-      "Polygon",
-      "MultiPolygon",
       "Point",
-      "LineString"
+      "MultiPolygon",
+      "LineString",
+      "Polygon"
     ],
     "encodings": [
       "RLE",
@@ -14861,10 +15261,10 @@
     "directory": "0x01-omt",
     "bytes": 71407,
     "geometries": [
+      "MultiLineString",
       "MultiPolygon",
       "Point",
       "LineString",
-      "MultiLineString",
       "Polygon"
     ],
     "encodings": [
@@ -14884,9 +15284,9 @@
     "bytes": 61769,
     "geometries": [
       "Point",
-      "Polygon",
       "MultiPolygon",
       "MultiLineString",
+      "Polygon",
       "LineString"
     ],
     "encodings": [
@@ -14905,11 +15305,11 @@
     "directory": "0x01-omt",
     "bytes": 73486,
     "geometries": [
-      "LineString",
+      "MultiPolygon",
       "Polygon",
+      "LineString",
       "MultiLineString",
-      "Point",
-      "MultiPolygon"
+      "Point"
     ],
     "encodings": [
       "RLE",
@@ -14927,10 +15327,10 @@
     "directory": "0x01-omt",
     "bytes": 84846,
     "geometries": [
-      "MultiLineString",
-      "MultiPolygon",
       "LineString",
       "Point",
+      "MultiPolygon",
+      "MultiLineString",
       "Polygon"
     ],
     "encodings": [
@@ -14949,11 +15349,11 @@
     "directory": "0x01-omt",
     "bytes": 80728,
     "geometries": [
-      "Polygon",
-      "MultiPolygon",
       "LineString",
+      "MultiPolygon",
+      "Point",
       "MultiLineString",
-      "Point"
+      "Polygon"
     ],
     "encodings": [
       "RLE",
@@ -14971,11 +15371,11 @@
     "directory": "0x01-omt",
     "bytes": 68668,
     "geometries": [
-      "MultiLineString",
       "MultiPolygon",
+      "Polygon",
       "LineString",
       "Point",
-      "Polygon"
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -14993,11 +15393,11 @@
     "directory": "0x01-omt",
     "bytes": 71847,
     "geometries": [
-      "LineString",
+      "MultiPolygon",
       "Polygon",
       "Point",
-      "MultiPolygon",
-      "MultiLineString"
+      "MultiLineString",
+      "LineString"
     ],
     "encodings": [
       "RLE",
@@ -15016,10 +15416,10 @@
     "bytes": 60537,
     "geometries": [
       "MultiPolygon",
+      "MultiLineString",
       "Point",
-      "Polygon",
       "LineString",
-      "MultiLineString"
+      "Polygon"
     ],
     "encodings": [
       "RLE",
@@ -15037,10 +15437,10 @@
     "directory": "0x01-omt",
     "bytes": 439422,
     "geometries": [
+      "MultiPolygon",
+      "Point",
       "MultiLineString",
       "Polygon",
-      "Point",
-      "MultiPolygon",
       "LineString"
     ],
     "encodings": [
@@ -15063,8 +15463,8 @@
       "Point",
       "MultiPolygon",
       "MultiLineString",
-      "Polygon",
-      "LineString"
+      "LineString",
+      "Polygon"
     ],
     "encodings": [
       "RLE",
@@ -15084,10 +15484,10 @@
     "bytes": 503246,
     "geometries": [
       "Polygon",
-      "Point",
-      "MultiLineString",
+      "MultiPolygon",
       "LineString",
-      "MultiPolygon"
+      "MultiLineString",
+      "Point"
     ],
     "encodings": [
       "RLE",
@@ -15108,10 +15508,10 @@
     "bytes": 532723,
     "geometries": [
       "Polygon",
-      "MultiLineString",
-      "Point",
+      "LineString",
       "MultiPolygon",
-      "LineString"
+      "MultiLineString",
+      "Point"
     ],
     "encodings": [
       "RLE",
@@ -15130,11 +15530,11 @@
     "directory": "0x01-omt",
     "bytes": 763267,
     "geometries": [
-      "LineString",
       "Point",
+      "MultiPolygon",
       "Polygon",
-      "MultiLineString",
-      "MultiPolygon"
+      "LineString",
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -15154,10 +15554,10 @@
     "directory": "0x01-omt",
     "bytes": 680406,
     "geometries": [
-      "Point",
-      "Polygon",
       "MultiLineString",
+      "Point",
       "LineString",
+      "Polygon",
       "MultiPolygon"
     ],
     "encodings": [
@@ -15179,9 +15579,9 @@
     "bytes": 747243,
     "geometries": [
       "Point",
-      "LineString",
       "MultiLineString",
       "Polygon",
+      "LineString",
       "MultiPolygon"
     ],
     "encodings": [
@@ -15202,11 +15602,11 @@
     "directory": "0x01-omt",
     "bytes": 496868,
     "geometries": [
-      "MultiPolygon",
-      "Point",
+      "LineString",
       "Polygon",
-      "MultiLineString",
-      "LineString"
+      "Point",
+      "MultiPolygon",
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -15225,11 +15625,11 @@
     "directory": "0x01-omt",
     "bytes": 551370,
     "geometries": [
-      "MultiLineString",
       "Polygon",
-      "LineString",
       "Point",
-      "MultiPolygon"
+      "LineString",
+      "MultiPolygon",
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -15249,11 +15649,11 @@
     "directory": "0x01-omt",
     "bytes": 344054,
     "geometries": [
-      "LineString",
       "MultiLineString",
-      "Point",
+      "LineString",
       "Polygon",
-      "MultiPolygon"
+      "MultiPolygon",
+      "Point"
     ],
     "encodings": [
       "RLE",
@@ -15273,10 +15673,10 @@
     "directory": "0x01-omt",
     "bytes": 260825,
     "geometries": [
-      "Polygon",
-      "MultiPolygon",
-      "LineString",
       "Point",
+      "MultiPolygon",
+      "Polygon",
+      "LineString",
       "MultiLineString"
     ],
     "encodings": [
@@ -15297,10 +15697,10 @@
     "bytes": 335632,
     "geometries": [
       "MultiPolygon",
-      "LineString",
-      "Polygon",
+      "Point",
       "MultiLineString",
-      "Point"
+      "Polygon",
+      "LineString"
     ],
     "encodings": [
       "RLE",
@@ -15319,11 +15719,11 @@
     "directory": "0x01-omt",
     "bytes": 241066,
     "geometries": [
-      "Point",
+      "LineString",
       "Polygon",
       "MultiPolygon",
-      "LineString",
-      "MultiLineString"
+      "MultiLineString",
+      "Point"
     ],
     "encodings": [
       "RLE",
@@ -15342,11 +15742,11 @@
     "directory": "0x01-omt",
     "bytes": 136457,
     "geometries": [
-      "Point",
-      "MultiLineString",
       "LineString",
       "Polygon",
-      "MultiPolygon"
+      "Point",
+      "MultiPolygon",
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -15365,10 +15765,10 @@
     "directory": "0x01-omt",
     "bytes": 439358,
     "geometries": [
-      "MultiLineString",
-      "LineString",
-      "MultiPolygon",
       "Point",
+      "MultiPolygon",
+      "LineString",
+      "MultiLineString",
       "Polygon"
     ],
     "encodings": [
@@ -15388,11 +15788,11 @@
     "directory": "0x01-omt",
     "bytes": 260830,
     "geometries": [
-      "Point",
-      "MultiPolygon",
       "LineString",
       "Polygon",
-      "MultiLineString"
+      "Point",
+      "MultiLineString",
+      "MultiPolygon"
     ],
     "encodings": [
       "RLE",
@@ -15412,10 +15812,10 @@
     "bytes": 260830,
     "geometries": [
       "Point",
-      "LineString",
-      "MultiLineString",
+      "Polygon",
       "MultiPolygon",
-      "Polygon"
+      "LineString",
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -15434,11 +15834,11 @@
     "directory": "0x01-omt",
     "bytes": 300867,
     "geometries": [
-      "Point",
       "Polygon",
+      "MultiPolygon",
       "LineString",
       "MultiLineString",
-      "MultiPolygon"
+      "Point"
     ],
     "encodings": [
       "RLE",
@@ -15457,11 +15857,11 @@
     "directory": "0x01-omt",
     "bytes": 248026,
     "geometries": [
+      "Polygon",
       "MultiPolygon",
       "LineString",
-      "Point",
-      "Polygon",
-      "MultiLineString"
+      "MultiLineString",
+      "Point"
     ],
     "encodings": [
       "RLE",
@@ -15481,10 +15881,10 @@
     "bytes": 183042,
     "geometries": [
       "MultiPolygon",
-      "Point",
       "MultiLineString",
+      "Polygon",
       "LineString",
-      "Polygon"
+      "Point"
     ],
     "encodings": [
       "RLE",
@@ -15503,11 +15903,11 @@
     "directory": "0x01-omt",
     "bytes": 146911,
     "geometries": [
-      "MultiLineString",
-      "Polygon",
-      "Point",
+      "LineString",
       "MultiPolygon",
-      "LineString"
+      "Point",
+      "Polygon",
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -15527,8 +15927,8 @@
     "bytes": 234560,
     "geometries": [
       "LineString",
-      "Point",
       "MultiLineString",
+      "Point",
       "Polygon",
       "MultiPolygon"
     ],
@@ -15549,11 +15949,11 @@
     "directory": "0x01-omt",
     "bytes": 244698,
     "geometries": [
-      "MultiLineString",
       "LineString",
-      "Point",
+      "Polygon",
+      "MultiLineString",
       "MultiPolygon",
-      "Polygon"
+      "Point"
     ],
     "encodings": [
       "RLE",
@@ -15572,11 +15972,11 @@
     "directory": "0x01-omt",
     "bytes": 276173,
     "geometries": [
-      "MultiLineString",
-      "Polygon",
       "MultiPolygon",
-      "Point",
-      "LineString"
+      "MultiLineString",
+      "LineString",
+      "Polygon",
+      "Point"
     ],
     "encodings": [
       "RLE",
@@ -15595,10 +15995,10 @@
     "directory": "0x01-omt",
     "bytes": 208157,
     "geometries": [
-      "LineString",
+      "MultiPolygon",
       "Point",
       "MultiLineString",
-      "MultiPolygon",
+      "LineString",
       "Polygon"
     ],
     "encodings": [
@@ -15618,10 +16018,10 @@
     "directory": "0x01-omt",
     "bytes": 176998,
     "geometries": [
-      "MultiLineString",
-      "LineString",
-      "Polygon",
       "Point",
+      "Polygon",
+      "LineString",
+      "MultiLineString",
       "MultiPolygon"
     ],
     "encodings": [
@@ -15642,10 +16042,10 @@
     "bytes": 273552,
     "geometries": [
       "LineString",
-      "MultiLineString",
       "Point",
+      "Polygon",
       "MultiPolygon",
-      "Polygon"
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -15664,11 +16064,11 @@
     "directory": "0x01-omt",
     "bytes": 285863,
     "geometries": [
-      "LineString",
       "Point",
-      "Polygon",
       "MultiLineString",
-      "MultiPolygon"
+      "MultiPolygon",
+      "LineString",
+      "Polygon"
     ],
     "encodings": [
       "RLE",
@@ -15687,11 +16087,11 @@
     "directory": "0x01-omt",
     "bytes": 299602,
     "geometries": [
-      "LineString",
-      "Point",
       "MultiPolygon",
-      "MultiLineString",
-      "Polygon"
+      "LineString",
+      "Polygon",
+      "Point",
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -15710,11 +16110,11 @@
     "directory": "0x01-omt",
     "bytes": 221876,
     "geometries": [
-      "Polygon",
       "Point",
+      "Polygon",
+      "MultiLineString",
       "LineString",
-      "MultiPolygon",
-      "MultiLineString"
+      "MultiPolygon"
     ],
     "encodings": [
       "RLE",
@@ -15734,8 +16134,8 @@
     "bytes": 215708,
     "geometries": [
       "LineString",
-      "Point",
       "MultiLineString",
+      "Point",
       "Polygon",
       "MultiPolygon"
     ],
@@ -15756,10 +16156,10 @@
     "directory": "0x01-omt",
     "bytes": 210505,
     "geometries": [
-      "LineString",
-      "Polygon",
       "MultiPolygon",
-      "Point"
+      "LineString",
+      "Point",
+      "Polygon"
     ],
     "encodings": [
       "RLE",
@@ -15778,11 +16178,11 @@
     "directory": "0x01-omt",
     "bytes": 203019,
     "geometries": [
-      "Polygon",
-      "Point",
-      "MultiPolygon",
       "MultiLineString",
-      "LineString"
+      "Polygon",
+      "MultiPolygon",
+      "LineString",
+      "Point"
     ],
     "encodings": [
       "RLE",
@@ -15801,10 +16201,10 @@
     "directory": "0x01-omt",
     "bytes": 185460,
     "geometries": [
+      "MultiLineString",
+      "LineString",
       "Point",
       "Polygon",
-      "LineString",
-      "MultiLineString",
       "MultiPolygon"
     ],
     "encodings": [
@@ -15824,9 +16224,9 @@
     "directory": "0x01-omt",
     "bytes": 183842,
     "geometries": [
+      "Polygon",
       "MultiPolygon",
       "MultiLineString",
-      "Polygon",
       "Point",
       "LineString"
     ],
@@ -15848,9 +16248,9 @@
     "bytes": 301480,
     "geometries": [
       "Point",
-      "LineString",
       "Polygon",
-      "MultiPolygon"
+      "MultiPolygon",
+      "LineString"
     ],
     "encodings": [
       "RLE",
@@ -15869,10 +16269,10 @@
     "directory": "0x01-omt",
     "bytes": 173259,
     "geometries": [
-      "Polygon",
+      "MultiPolygon",
       "Point",
-      "LineString",
-      "MultiPolygon"
+      "Polygon",
+      "LineString"
     ],
     "encodings": [
       "RLE",
@@ -15891,10 +16291,10 @@
     "directory": "0x01-omt",
     "bytes": 265749,
     "geometries": [
+      "LineString",
       "MultiLineString",
       "Point",
       "Polygon",
-      "LineString",
       "MultiPolygon"
     ],
     "encodings": [
@@ -15914,11 +16314,11 @@
     "directory": "0x01-omt",
     "bytes": 141110,
     "geometries": [
-      "Polygon",
-      "MultiPolygon",
-      "LineString",
       "Point",
-      "MultiLineString"
+      "MultiPolygon",
+      "Polygon",
+      "MultiLineString",
+      "LineString"
     ],
     "encodings": [
       "RLE",
@@ -15937,11 +16337,11 @@
     "directory": "0x01-omt",
     "bytes": 169653,
     "geometries": [
-      "Polygon",
       "Point",
+      "Polygon",
+      "MultiPolygon",
       "LineString",
-      "MultiLineString",
-      "MultiPolygon"
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -15960,11 +16360,11 @@
     "directory": "0x01-omt",
     "bytes": 177836,
     "geometries": [
-      "LineString",
-      "Polygon",
-      "Point",
       "MultiPolygon",
-      "MultiLineString"
+      "Point",
+      "MultiLineString",
+      "Polygon",
+      "LineString"
     ],
     "encodings": [
       "RLE",
@@ -15983,9 +16383,9 @@
     "directory": "0x01-omt",
     "bytes": 151643,
     "geometries": [
-      "Polygon",
-      "MultiPolygon",
       "MultiLineString",
+      "MultiPolygon",
+      "Polygon",
       "Point",
       "LineString"
     ],
@@ -16007,10 +16407,10 @@
     "bytes": 185835,
     "geometries": [
       "LineString",
+      "MultiPolygon",
       "Point",
       "MultiLineString",
-      "Polygon",
-      "MultiPolygon"
+      "Polygon"
     ],
     "encodings": [
       "RLE",
@@ -16029,11 +16429,11 @@
     "directory": "0x01-omt",
     "bytes": 139881,
     "geometries": [
-      "LineString",
-      "MultiPolygon",
-      "Point",
       "MultiLineString",
-      "Polygon"
+      "MultiPolygon",
+      "LineString",
+      "Polygon",
+      "Point"
     ],
     "encodings": [
       "RLE",
@@ -16052,10 +16452,10 @@
     "directory": "0x01-omt",
     "bytes": 100739,
     "geometries": [
-      "Point",
-      "LineString",
       "MultiPolygon",
-      "Polygon"
+      "Point",
+      "Polygon",
+      "LineString"
     ],
     "encodings": [
       "RLE",
@@ -16074,10 +16474,10 @@
     "directory": "0x01-omt",
     "bytes": 117422,
     "geometries": [
-      "LineString",
       "Polygon",
+      "MultiPolygon",
       "Point",
-      "MultiPolygon"
+      "LineString"
     ],
     "encodings": [
       "RLE",
@@ -16096,11 +16496,11 @@
     "directory": "0x01-omt",
     "bytes": 166937,
     "geometries": [
-      "MultiPolygon",
       "MultiLineString",
-      "Point",
       "LineString",
-      "Polygon"
+      "Polygon",
+      "MultiPolygon",
+      "Point"
     ],
     "encodings": [
       "RLE",
@@ -16119,11 +16519,11 @@
     "directory": "0x01-omt",
     "bytes": 194605,
     "geometries": [
+      "MultiPolygon",
       "Polygon",
-      "MultiLineString",
-      "Point",
       "LineString",
-      "MultiPolygon"
+      "Point",
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -16142,11 +16542,11 @@
     "directory": "0x01-omt",
     "bytes": 85277,
     "geometries": [
-      "MultiPolygon",
       "Polygon",
+      "MultiPolygon",
       "Point",
-      "MultiLineString",
-      "LineString"
+      "LineString",
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -16165,11 +16565,11 @@
     "directory": "0x01-omt",
     "bytes": 151686,
     "geometries": [
-      "Point",
+      "Polygon",
+      "MultiPolygon",
       "MultiLineString",
       "LineString",
-      "Polygon",
-      "MultiPolygon"
+      "Point"
     ],
     "encodings": [
       "RLE",
@@ -16188,9 +16588,9 @@
     "directory": "0x01-omt",
     "bytes": 214707,
     "geometries": [
+      "Polygon",
       "LineString",
       "MultiPolygon",
-      "Polygon",
       "MultiLineString",
       "Point"
     ],
@@ -16211,11 +16611,11 @@
     "directory": "0x01-omt",
     "bytes": 106139,
     "geometries": [
+      "Point",
+      "MultiLineString",
       "Polygon",
       "MultiPolygon",
-      "LineString",
-      "Point",
-      "MultiLineString"
+      "LineString"
     ],
     "encodings": [
       "RLE",
@@ -16234,11 +16634,11 @@
     "directory": "0x01-bing",
     "bytes": 238413,
     "geometries": [
-      "LineString",
+      "Point",
       "MultiLineString",
-      "MultiPolygon",
       "Polygon",
-      "Point"
+      "LineString",
+      "MultiPolygon"
     ],
     "encodings": [
       "RLE",
@@ -16260,10 +16660,10 @@
     "bytes": 226367,
     "geometries": [
       "MultiPolygon",
-      "Polygon",
-      "Point",
       "MultiLineString",
-      "LineString"
+      "LineString",
+      "Point",
+      "Polygon"
     ],
     "encodings": [
       "RLE",
@@ -16284,11 +16684,11 @@
     "directory": "0x01-bing",
     "bytes": 244697,
     "geometries": [
-      "LineString",
-      "MultiLineString",
       "Point",
       "Polygon",
-      "MultiPolygon"
+      "MultiPolygon",
+      "LineString",
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -16309,9 +16709,9 @@
     "directory": "0x01-bing",
     "bytes": 77147,
     "geometries": [
-      "MultiPolygon",
       "MultiLineString",
       "LineString",
+      "MultiPolygon",
       "Polygon",
       "Point"
     ],
@@ -16334,11 +16734,11 @@
     "directory": "0x01-bing",
     "bytes": 98837,
     "geometries": [
-      "MultiPolygon",
-      "Polygon",
-      "MultiLineString",
       "Point",
-      "LineString"
+      "MultiPolygon",
+      "LineString",
+      "Polygon",
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -16360,8 +16760,8 @@
     "bytes": 238754,
     "geometries": [
       "MultiPolygon",
-      "Polygon",
       "MultiLineString",
+      "Polygon",
       "LineString",
       "Point"
     ],
@@ -16384,11 +16784,11 @@
     "directory": "0x01-bing",
     "bytes": 67119,
     "geometries": [
-      "Point",
-      "LineString",
-      "MultiLineString",
       "MultiPolygon",
-      "Polygon"
+      "LineString",
+      "Point",
+      "Polygon",
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -16409,10 +16809,10 @@
     "bytes": 139746,
     "geometries": [
       "MultiLineString",
-      "Polygon",
-      "Point",
       "LineString",
-      "MultiPolygon"
+      "Polygon",
+      "MultiPolygon",
+      "Point"
     ],
     "encodings": [
       "RLE",
@@ -16433,11 +16833,11 @@
     "directory": "0x01-bing",
     "bytes": 141593,
     "geometries": [
-      "Polygon",
-      "Point",
       "MultiPolygon",
+      "Point",
       "LineString",
-      "MultiLineString"
+      "MultiLineString",
+      "Polygon"
     ],
     "encodings": [
       "RLE",
@@ -16458,11 +16858,11 @@
     "directory": "0x01-bing",
     "bytes": 57623,
     "geometries": [
-      "Point",
-      "LineString",
       "Polygon",
+      "Point",
       "MultiLineString",
-      "MultiPolygon"
+      "MultiPolygon",
+      "LineString"
     ],
     "encodings": [
       "RLE",
@@ -16483,11 +16883,11 @@
     "directory": "0x01-bing",
     "bytes": 84466,
     "geometries": [
-      "MultiLineString",
       "Polygon",
-      "Point",
       "MultiPolygon",
-      "LineString"
+      "MultiLineString",
+      "LineString",
+      "Point"
     ],
     "encodings": [
       "RLE",
@@ -16508,10 +16908,10 @@
     "directory": "0x01-bing",
     "bytes": 71894,
     "geometries": [
-      "Polygon",
       "MultiPolygon",
       "MultiLineString",
       "Point",
+      "Polygon",
       "LineString"
     ],
     "encodings": [
@@ -16533,11 +16933,11 @@
     "directory": "0x01-bing",
     "bytes": 96548,
     "geometries": [
-      "Polygon",
       "MultiPolygon",
-      "Point",
       "LineString",
-      "MultiLineString"
+      "MultiLineString",
+      "Point",
+      "Polygon"
     ],
     "encodings": [
       "RLE",
@@ -16559,10 +16959,10 @@
     "bytes": 147539,
     "geometries": [
       "LineString",
-      "Point",
-      "MultiLineString",
       "Polygon",
-      "MultiPolygon"
+      "MultiPolygon",
+      "Point",
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -16583,11 +16983,11 @@
     "directory": "0x01-bing",
     "bytes": 156936,
     "geometries": [
-      "MultiLineString",
-      "Point",
-      "MultiPolygon",
+      "Polygon",
       "LineString",
-      "Polygon"
+      "MultiPolygon",
+      "MultiLineString",
+      "Point"
     ],
     "encodings": [
       "RLE",
@@ -16608,11 +17008,11 @@
     "directory": "0x01-bing",
     "bytes": 133461,
     "geometries": [
-      "MultiLineString",
+      "LineString",
       "Point",
       "MultiPolygon",
       "Polygon",
-      "LineString"
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -16633,11 +17033,11 @@
     "directory": "0x01-bing",
     "bytes": 160616,
     "geometries": [
-      "MultiLineString",
-      "LineString",
-      "Point",
       "MultiPolygon",
-      "Polygon"
+      "Point",
+      "Polygon",
+      "LineString",
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -16658,10 +17058,10 @@
     "directory": "0x01-amazon",
     "bytes": 127977,
     "geometries": [
+      "MultiLineString",
+      "Polygon",
       "LineString",
       "MultiPolygon",
-      "Polygon",
-      "MultiLineString",
       "Point"
     ],
     "encodings": [
@@ -16680,11 +17080,11 @@
     "directory": "0x01-amazon",
     "bytes": 98555,
     "geometries": [
-      "LineString",
-      "Point",
       "MultiPolygon",
       "Polygon",
-      "MultiLineString"
+      "Point",
+      "MultiLineString",
+      "LineString"
     ],
     "encodings": [
       "RLE",
@@ -16703,11 +17103,11 @@
     "directory": "0x01-amazon",
     "bytes": 636540,
     "geometries": [
-      "LineString",
-      "MultiLineString",
-      "Point",
+      "MultiPolygon",
       "Polygon",
-      "MultiPolygon"
+      "LineString",
+      "Point",
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -16726,11 +17126,11 @@
     "directory": "0x01-amazon",
     "bytes": 564317,
     "geometries": [
-      "LineString",
-      "MultiPolygon",
       "Polygon",
       "MultiLineString",
-      "Point"
+      "LineString",
+      "Point",
+      "MultiPolygon"
     ],
     "encodings": [
       "RLE",
@@ -16749,10 +17149,10 @@
     "directory": "0x01-amazon",
     "bytes": 681021,
     "geometries": [
-      "LineString",
-      "Polygon",
       "MultiPolygon",
+      "Polygon",
       "MultiLineString",
+      "LineString",
       "Point"
     ],
     "encodings": [
@@ -16772,10 +17172,10 @@
     "directory": "0x01-amazon",
     "bytes": 623968,
     "geometries": [
+      "LineString",
       "MultiPolygon",
       "MultiLineString",
       "Polygon",
-      "LineString",
       "Point"
     ],
     "encodings": [
@@ -16795,11 +17195,11 @@
     "directory": "0x01-amazon",
     "bytes": 396832,
     "geometries": [
-      "MultiLineString",
-      "Point",
       "MultiPolygon",
-      "LineString",
-      "Polygon"
+      "Point",
+      "Polygon",
+      "MultiLineString",
+      "LineString"
     ],
     "encodings": [
       "RLE",
@@ -16818,11 +17218,11 @@
     "directory": "0x01-amazon",
     "bytes": 519405,
     "geometries": [
-      "MultiLineString",
       "Polygon",
-      "LineString",
+      "MultiLineString",
+      "Point",
       "MultiPolygon",
-      "Point"
+      "LineString"
     ],
     "encodings": [
       "RLE",
@@ -16841,11 +17241,11 @@
     "directory": "0x01-amazon",
     "bytes": 223295,
     "geometries": [
+      "MultiPolygon",
       "Point",
       "Polygon",
-      "MultiLineString",
-      "MultiPolygon",
-      "LineString"
+      "LineString",
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -16865,9 +17265,9 @@
     "bytes": 155551,
     "geometries": [
       "MultiLineString",
+      "LineString",
       "Point",
       "MultiPolygon",
-      "LineString",
       "Polygon"
     ],
     "encodings": [
@@ -16887,11 +17287,11 @@
     "directory": "0x01-amazon",
     "bytes": 206255,
     "geometries": [
-      "MultiPolygon",
-      "LineString",
-      "MultiLineString",
+      "Polygon",
       "Point",
-      "Polygon"
+      "MultiLineString",
+      "MultiPolygon",
+      "LineString"
     ],
     "encodings": [
       "RLE",
@@ -16911,10 +17311,10 @@
     "bytes": 304610,
     "geometries": [
       "MultiLineString",
-      "MultiPolygon",
       "Point",
+      "LineString",
       "Polygon",
-      "LineString"
+      "MultiPolygon"
     ],
     "encodings": [
       "RLE",
@@ -16935,10 +17335,10 @@
     "directory": "0x01-amazon_here",
     "bytes": 226575,
     "geometries": [
-      "Point",
-      "MultiLineString",
       "MultiPolygon",
-      "Polygon"
+      "Point",
+      "Polygon",
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -16961,8 +17361,8 @@
     "geometries": [
       "Point",
       "LineString",
-      "MultiLineString",
-      "MultiPolygon"
+      "MultiPolygon",
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -16985,9 +17385,9 @@
     "geometries": [
       "MultiPolygon",
       "LineString",
-      "MultiLineString",
+      "Polygon",
       "Point",
-      "Polygon"
+      "MultiLineString"
     ],
     "encodings": [
       "RLE",
@@ -17007,11 +17407,11 @@
     "directory": "0x01-amazon_here",
     "bytes": 177375,
     "geometries": [
-      "LineString",
+      "MultiPoint",
+      "Point",
       "MultiPolygon",
       "MultiLineString",
-      "Point",
-      "MultiPoint"
+      "LineString"
     ],
     "encodings": [
       "RLE",
