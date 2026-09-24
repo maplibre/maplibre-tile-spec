@@ -599,6 +599,80 @@ fn generate_properties(w: &mut SynthWriter) {
         .write(w, "prop_bool_null_false");
 
     let e_int = E::varint();
+    p0().add_prop(e_int, P::i8("val", vec![42]))
+        .write(w, "prop_i8_np");
+    p0().add_prop(e_int, P::opt_i8("val", vec![Some(42)]))
+        .write(w, "prop_i8");
+    p0().add_prop(E::delta_varint(), P::i8("val", vec![42]))
+        .write(w, "prop_i8_delta_np");
+    p0().add_prop(E::delta_varint(), P::opt_i8("val", vec![Some(42)]))
+        .write(w, "prop_i8_delta");
+    p0().add_prop(E::rle_varint(), P::i8("val", vec![42]))
+        .write(w, "prop_i8_rle_np");
+    p0().add_prop(E::rle_varint(), P::opt_i8("val", vec![Some(42)]))
+        .write(w, "prop_i8_rle-rust");
+    p0().add_prop(E::delta_rle_varint(), P::i8("val", vec![42]))
+        .write(w, "prop_i8_delta_rle_np");
+    p0().add_prop(E::delta_rle_varint(), P::opt_i8("val", vec![Some(42)]))
+        .write(w, "prop_i8_delta_rle-rust");
+    p0().add_prop(e_int, P::i8("val", vec![-42]))
+        .write(w, "prop_i8_neg_np");
+    p0().add_prop(e_int, P::opt_i8("val", vec![Some(-42)]))
+        .write(w, "prop_i8_neg");
+    p0().add_prop(E::plain(), P::i8("val", vec![-0x12]))
+        .write(w, "prop_i8_plain_np-rust");
+    p0().add_prop(e_int, P::i8("val", vec![i8::MIN]))
+        .write(w, "prop_i8_min_np");
+    p0().add_prop(e_int, P::opt_i8("val", vec![Some(i8::MIN)]))
+        .write(w, "prop_i8_min");
+    p0().add_prop(e_int, P::i8("val", vec![i8::MAX]))
+        .write(w, "prop_i8_max_np");
+    p0().add_prop(e_int, P::opt_i8("val", vec![Some(i8::MAX)]))
+        .write(w, "prop_i8_max");
+    geo_varint_with_rle()
+        .geos([P0, P0])
+        .add_prop(e_int, P::opt_i8("val", vec![Some(42), None]))
+        .write(w, "prop_i8_val_null");
+    geo_varint_with_rle()
+        .geos([P0, P0])
+        .add_prop(e_int, P::opt_i8("val", vec![None, Some(42)]))
+        .write(w, "prop_i8_null_val");
+
+    p0().add_prop(e_int, P::u8("val", vec![42]))
+        .write(w, "prop_u8_np");
+    p0().add_prop(e_int, P::opt_u8("val", vec![Some(42)]))
+        .write(w, "prop_u8");
+    p0().add_prop(E::delta_varint(), P::u8("val", vec![42]))
+        .write(w, "prop_u8_delta_np");
+    p0().add_prop(E::delta_varint(), P::opt_u8("val", vec![Some(42)]))
+        .write(w, "prop_u8_delta");
+    p0().add_prop(E::rle_varint(), P::u8("val", vec![42]))
+        .write(w, "prop_u8_rle_np");
+    p0().add_prop(E::rle_varint(), P::opt_u8("val", vec![Some(42)]))
+        .write(w, "prop_u8_rle-rust");
+    p0().add_prop(E::delta_rle_varint(), P::u8("val", vec![42]))
+        .write(w, "prop_u8_delta_rle_np");
+    p0().add_prop(E::delta_rle_varint(), P::opt_u8("val", vec![Some(42)]))
+        .write(w, "prop_u8_delta_rle-rust");
+    p0().add_prop(E::plain(), P::u8("val", vec![0x12]))
+        .write(w, "prop_u8_plain_np-rust");
+    p0().add_prop(e_int, P::u8("val", vec![0]))
+        .write(w, "prop_u8_min_np");
+    p0().add_prop(e_int, P::opt_u8("val", vec![Some(0)]))
+        .write(w, "prop_u8_min");
+    p0().add_prop(e_int, P::u8("val", vec![u8::MAX]))
+        .write(w, "prop_u8_max_np");
+    p0().add_prop(e_int, P::opt_u8("val", vec![Some(u8::MAX)]))
+        .write(w, "prop_u8_max");
+    geo_varint_with_rle()
+        .geos([P0, P0])
+        .add_prop(e_int, P::opt_u8("val", vec![Some(42), None]))
+        .write(w, "prop_u8_val_null");
+    geo_varint_with_rle()
+        .geos([P0, P0])
+        .add_prop(e_int, P::opt_u8("val", vec![None, Some(42)]))
+        .write(w, "prop_u8_null_val");
+
     p0().add_prop(e_int, P::i32("val", vec![42]))
         .write(w, "prop_i32_np");
     p0().add_prop(e_int, P::opt_i32("val", vec![Some(42)]))
