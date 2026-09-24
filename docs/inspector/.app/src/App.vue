@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useDropZone } from "@vueuse/core";
+import { useDropZone, useEventListener } from "@vueuse/core";
 import type { FeatureCollection } from "geojson";
 import { computed, nextTick, onMounted, ref, shallowRef, watch } from "vue";
 import {
@@ -8,7 +8,12 @@ import {
   type DecodedBlob,
   tileGeoJson,
 } from "./annotate.ts";
-import { deepLinkSearch, readDeepLink, writeDeepLink } from "./deeplink.ts";
+import {
+  type DeepLink,
+  deepLinkSearch,
+  readDeepLink,
+  writeDeepLink,
+} from "./deeplink.ts";
 import {
   type FixtureEntry,
   loadFixture,
@@ -89,8 +94,28 @@ function load(raw: Uint8Array, key: string | null) {
   view.value.layer = null;
 }
 
+/**
+ * Counts the moves between views, so a tile that arrives after the next move began is
+ * dropped rather than shown. Back pressed twice starts a restore while the one before it
+ * is still fetching, and the slower of the two would otherwise land last and leave the app
+ * on a tile the address bar no longer names.
+ */
+let moves = 0;
+
+/** Begins a move and hands back its number, which every step after an await re-checks. */
+function move(): number {
+  moves += 1;
+  return moves;
+}
+
+/** Whether `at` is still the move in hand, or a later one has taken the view over. */
+function current(at: number): boolean {
+  return at === moves;
+}
+
 /** Drops the tile so the empty state takes over, which is the app's home screen. */
 function goHome() {
+  move();
   tile.value?.free();
   tile.value = null;
   decoded.value = null;
@@ -101,21 +126,29 @@ function goHome() {
   view.value.layer = null;
 }
 
-async function pickFixture(key: string) {
+/** Fetches `key` and shows it, as the move `at`, which a later move cancels. */
+async function open(key: string, at: number) {
   failure.value = null;
   try {
-    load(await loadFixture(key), key);
+    const raw = await loadFixture(key);
+    if (current(at)) load(raw, key);
   } catch (cause) {
-    failure.value = String(cause);
+    if (current(at)) failure.value = String(cause);
   }
 }
 
+function pickFixture(key: string): Promise<void> {
+  return open(key, move());
+}
+
 async function pickFile(file: File) {
+  const at = move();
   failure.value = null;
   try {
-    load(new Uint8Array(await file.arrayBuffer()), null);
+    const raw = new Uint8Array(await file.arrayBuffer());
+    if (current(at)) load(raw, null);
   } catch (cause) {
-    failure.value = String(cause);
+    if (current(at)) failure.value = String(cause);
   }
 }
 
@@ -129,6 +162,25 @@ const { isOverDropZone: dragging } = useDropZone(root, {
 
 followScheme();
 
+/** Tile the address bar is already on, so restoring a link does not double its entry. */
+let shown = readDeepLink(location.search).fixture;
+
+/** Puts the app on the view a link names, reloading the tile only when it is another one. */
+async function restore(target: DeepLink) {
+  if (target.fixture === null) {
+    goHome();
+    return;
+  }
+  const at = move();
+  if (target.fixture !== fixture.value) {
+    await open(target.fixture, at);
+    if (!current(at) || tile.value === null) return;
+  }
+  view.value.layer = target.layer;
+  await nextTick();
+  if (current(at)) selected.value = target.region;
+}
+
 onMounted(async () => {
   const initial = readDeepLink(location.search);
   try {
@@ -136,12 +188,17 @@ onMounted(async () => {
   } catch (cause) {
     failure.value = String(cause);
   }
-  if (initial.fixture === null) return;
-  await pickFixture(initial.fixture);
-  if (tile.value === null) return;
-  view.value.layer = initial.layer;
-  await nextTick();
-  selected.value = initial.region;
+  // Not `restore`: with no tile to open there is nothing to go home from, and the reset
+  // would take an index failure off the screen with it.
+  if (initial.fixture !== null) await restore(initial);
+  booted.value = true;
+});
+
+/** The Back button walks the tiles this app has shown before it leaves the app. */
+useEventListener(window, "popstate", () => {
+  const target = readDeepLink(location.search);
+  shown = target.fixture;
+  void restore(target);
 });
 
 /** Changing the layer renumbers the tree, so a selection cannot survive it. */
@@ -156,24 +213,63 @@ const link = computed(() => ({
 }));
 
 watch(link, (current) => {
-  writeDeepLink(current);
+  const fresh = current.fixture !== shown;
+  shown = current.fixture;
+  writeDeepLink(current, fresh);
 });
 
 /** Only the docs page frames the app; a window of its own has nothing to pop out of. */
 const framed = window.parent !== window;
 
-/** Carries the tile, layer and region on screen, so the new window opens on this same view. */
-const popout = computed(
-  () => `${location.pathname}${deepLinkSearch(link.value)}`,
-);
+/**
+ * The docs page embeds the app from an `app/` folder beside itself, so a window of its own
+ * finds the page it came from by dropping that folder. Served bare in development there is
+ * no such page, and the corner stays empty.
+ */
+const EMBED = /app\/(index\.html)?$/;
+const embedded = !framed && EMBED.test(location.pathname);
+
+/** The way out of the frame, whichever side it is on. */
+interface Corner {
+  href: string;
+  /** A new window for the way out; the way back replaces the one it is in. */
+  target?: string;
+  glyph: string;
+  label: string;
+}
+
+/** Carries the view on screen, so the page or window it opens lands on this same tile. */
+const corner = computed<Corner>(() => {
+  const search = deepLinkSearch(link.value);
+  return framed
+    ? {
+        href: `${location.pathname}${search}`,
+        target: "_blank",
+        glyph: "\u2197",
+        label: "Open in a new window",
+      }
+    : {
+        href: `${location.pathname.replace(EMBED, "")}${search}`,
+        glyph: "\u2199",
+        label: "Back to the documentation page",
+      };
+});
+
+/** Set once the link the app opened on has been applied, so nothing half-loaded is reported. */
+const booted = ref(false);
 
 /** Tells the docs page framing us whether the app is on its home screen, so the page can
- * drop its own heading and hand the whole viewport to a loaded tile. */
+ * drop its own heading and hand the whole viewport to a loaded tile. The deep link rides
+ * along, so the page's own address bar names the tile on screen rather than the one it was
+ * opened on, and a reload or a copied URL keeps it. */
 watch(
-  () => tree.value !== null,
-  (loaded) => {
-    if (window.parent === window) return;
-    window.parent.postMessage({ mltInspector: { loaded } }, location.origin);
+  [booted, () => tree.value !== null, link],
+  ([ready, loaded]) => {
+    if (!framed || !ready) return;
+    window.parent.postMessage(
+      { mltInspector: { loaded, search: deepLinkSearch(link.value) } },
+      location.origin,
+    );
   },
   { immediate: true },
 );
@@ -181,7 +277,7 @@ watch(
 
 <template>
   <div ref="root" class="app" :class="{ dragging }">
-    <header v-if="tree" :class="{ framed }">
+    <header v-if="tree" :class="{ corner: framed || embedded }">
       <button
         type="button"
         class="home"
@@ -199,15 +295,15 @@ watch(
       />
       <RenderControls v-model="view" :layers="layers" />
       <a
-        v-if="framed"
+        v-if="framed || embedded"
         class="popout"
-        :href="popout"
-        target="_blank"
+        :href="corner.href"
+        :target="corner.target"
         rel="noopener"
-        title="Open in a new window"
-        aria-label="Open in a new window"
+        :title="corner.label"
+        :aria-label="corner.label"
       >
-        &#x2197;
+        {{ corner.glyph }}
       </a>
     </header>
     <p v-if="failure" class="failure" role="alert">{{ failure }}</p>
@@ -223,15 +319,15 @@ watch(
     />
     <section v-else class="empty">
       <a
-        v-if="framed"
+        v-if="framed || embedded"
         class="popout"
-        :href="popout"
-        target="_blank"
+        :href="corner.href"
+        :target="corner.target"
         rel="noopener"
-        title="Open in a new window"
-        aria-label="Open in a new window"
+        :title="corner.label"
+        :aria-label="corner.label"
       >
-        &#x2197;
+        {{ corner.glyph }}
       </a>
       <h1>MapLibre Tile Analyzer</h1>
       <SourcePicker
@@ -385,7 +481,7 @@ header > * {
 }
 /* The same corner in both states. Out of the flow, or a header wide enough to wrap
    would strand it alone on a second row; the padding keeps the controls from under it. */
-header.framed {
+header.corner {
   position: relative;
   padding-right: calc(var(--pad) + 2.6rem);
 }

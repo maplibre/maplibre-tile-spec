@@ -188,30 +188,63 @@ describe("tipPlacement", () => {
 
   it("sits below and right of the pointer", () => {
     expect(tipPlacement({ x: 300, y: 400 }, tip, viewport)).toEqual({
-      x: 314,
-      y: 414,
+      left: "314px",
+      top: "414px",
+      maxHeight: "372px",
     });
   });
 
   it("stops short of the right edge", () => {
-    expect(tipPlacement({ x: 980, y: 400 }, tip, viewport).x).toBe(786);
+    expect(tipPlacement({ x: 980, y: 400 }, tip, viewport).left).toBe("786px");
   });
 
   it("flips above a pointer near the bottom edge", () => {
-    expect(tipPlacement({ x: 300, y: 760 }, tip, viewport).y).toBe(646);
+    expect(tipPlacement({ x: 300, y: 760 }, tip, viewport)).toEqual({
+      left: "314px",
+      bottom: "54px",
+      maxHeight: "732px",
+    });
+  });
+
+  it("hangs a flipped tip from its foot, which a late height cannot then move", () => {
+    const short = tipPlacement({ x: 300, y: 760 }, tip, viewport);
+    const grown = tipPlacement(
+      { x: 300, y: 760 },
+      { width: 200, height: 400 },
+      viewport,
+    );
+    expect(grown.bottom).toBe(short.bottom);
+  });
+
+  /** The cap must never decide the side, or a tip walked down the screen would never flip. */
+  it("flips on the height a tip wants, not the height a cap would leave it", () => {
+    const at = { x: 300, y: 700 };
+    expect(tipPlacement(at, { width: 200, height: 200 }, viewport).bottom).toBe(
+      "114px",
+    );
+    // 72px is the room below, which is exactly what the cap there would have left it.
+    expect(tipPlacement(at, { width: 200, height: 72 }, viewport).top).toBe(
+      "714px",
+    );
+  });
+
+  it("stays below a pointer at the top, where squeezing in above would leave nothing", () => {
+    expect(
+      tipPlacement({ x: 300, y: 30 }, { width: 200, height: 900 }, viewport),
+    ).toEqual({ left: "314px", top: "44px", maxHeight: "742px" });
   });
 
   it("keeps a tip wider than the viewport at the left edge", () => {
     expect(
       tipPlacement({ x: 300, y: 400 }, { width: 2000, height: 100 }, viewport)
-        .x,
-    ).toBe(14);
+        .left,
+    ).toBe("14px");
   });
 
-  it("keeps a tip taller than the viewport at the top edge", () => {
+  it("caps a tip taller than the room it has, rather than running off the edge", () => {
     expect(
-      tipPlacement({ x: 300, y: 400 }, { width: 200, height: 900 }, viewport).y,
-    ).toBe(14);
+      tipPlacement({ x: 300, y: 500 }, { width: 200, height: 900 }, viewport),
+    ).toEqual({ left: "314px", bottom: "314px", maxHeight: "472px" });
   });
 });
 

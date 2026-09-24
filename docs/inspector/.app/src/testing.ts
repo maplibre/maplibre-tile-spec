@@ -14,6 +14,19 @@ export function stubDialog(): void {
   };
 }
 
+/**
+ * jsdom has no canvas: `getContext` answers null after warning once per call, which buries
+ * a run in the same line, and `Path2D` it does not define at all. The panel reads a context
+ * before it draws and gives up without one, so null is the answer it already handles.
+ */
+export function stubCanvas(): void {
+  HTMLCanvasElement.prototype.getContext = (() =>
+    null) as typeof HTMLCanvasElement.prototype.getContext;
+  globalThis.Path2D = class {
+    addPath() {}
+  } as unknown as typeof Path2D;
+}
+
 export function region(
   fields: Pick<Region, "offset" | "len" | "label"> & Partial<Region>,
 ): Region {

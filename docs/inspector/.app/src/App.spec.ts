@@ -11,7 +11,7 @@ import {
 import App from "./App.vue";
 import { type AnnotatedTile, annotateTile } from "./annotate.ts";
 import SourcePicker from "./SourcePicker.vue";
-import { stubDialog, tinyTree } from "./testing.ts";
+import { stubCanvas, stubDialog, tinyTree } from "./testing.ts";
 
 vi.mock("./annotate.ts", () => ({ annotateTile: vi.fn() }));
 
@@ -33,7 +33,10 @@ function handle(error: string | null = null): AnnotatedTile {
 function serve(tile: Response | null = new Response(new Uint8Array(8))) {
   const fetched = vi.fn(async (url: string) => {
     if (url === "fixtures.json") return Response.json(index);
-    return tile ?? new Response(null, { status: 404, statusText: "Not Found" });
+    // Cloned: a body reads once, and a case that opens a second tile fetches twice.
+    return tile === null
+      ? new Response(null, { status: 404, statusText: "Not Found" })
+      : tile.clone();
   });
   vi.stubGlobal("fetch", fetched);
   return fetched;
@@ -52,6 +55,7 @@ beforeAll(() => {
       removeEventListener: () => {},
     }) as unknown as MediaQueryList;
   stubDialog();
+  stubCanvas();
 });
 
 beforeEach(() => {
@@ -61,9 +65,10 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
-describe("the pop-out link", () => {
+describe("the corner link", () => {
   /** The docs page frames the app; standing on its own, `parent` is the window itself. */
   function frame() {
     vi.stubGlobal("parent", { postMessage: () => {} });
@@ -99,11 +104,131 @@ describe("the pop-out link", () => {
     );
   });
 
-  it("is absent in a window of its own, which has nothing to pop out of", async () => {
+  it("is absent where the app is served bare, with no page on either side of it", async () => {
     serve();
     const app = mount(App);
     await flushPromises();
     expect(app.find("a.popout").exists()).toBe(false);
+  });
+
+  /** Published, the app sits in an `app/` folder of the page it is framed by. */
+  it("points a window of its own back at the page it was popped out of", async () => {
+    serve();
+    history.replaceState(
+      null,
+      "",
+      "/inspector/app/index.html?fixture=0x01/point.mlt",
+    );
+    const app = mount(App);
+    await flushPromises();
+    const link = app.get("header a.popout");
+    expect(link.attributes("href")).toBe(
+      "/inspector/?fixture=0x01%2Fpoint.mlt",
+    );
+  });
+
+  it("stays in the same window on the way back, unlike the way out", async () => {
+    serve();
+    history.replaceState(null, "", "/inspector/app/?fixture=0x01/point.mlt");
+    const app = mount(App);
+    await flushPromises();
+    expect(app.get("header a.popout").attributes("target")).toBeUndefined();
+  });
+});
+
+describe("the history a tile leaves", () => {
+  /** Every case starts on a tile, which is the entry the next move is measured against. */
+  async function opened() {
+    serve();
+    history.replaceState(null, "", "/?fixture=0x01/point.mlt");
+    const app = mount(App);
+    await flushPromises();
+    return { app, push: vi.spyOn(history, "pushState") };
+  }
+
+  it("replaces the entry the app was opened on, which is already the tile's own", async () => {
+    serve();
+    history.replaceState(null, "", "/?fixture=0x01/point.mlt");
+    const push = vi.spyOn(history, "pushState");
+    mount(App);
+    await flushPromises();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("leaves an entry behind the tile another one replaces", async () => {
+    const { app, push } = await opened();
+    await app.getComponent(SourcePicker).vm.$emit("fixture", "0x02/line.mlt");
+    await flushPromises();
+    expect(push).toHaveBeenCalledOnce();
+    expect(location.search).toBe("?fixture=0x02%2Fline.mlt");
+  });
+
+  it("leaves one behind the tile the home button drops", async () => {
+    const { app, push } = await opened();
+    await app.get("button.home").trigger("click");
+    await flushPromises();
+    expect(push).toHaveBeenCalledOnce();
+    expect(location.search).toBe("");
+  });
+
+  it("keeps a walked region on the entry its tile opened", async () => {
+    const { app, push } = await opened();
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
+    await flushPromises();
+    expect(location.search).toBe("?fixture=0x01%2Fpoint.mlt&region=1");
+    expect(push).not.toHaveBeenCalled();
+    app.unmount();
+  });
+
+  it("reopens the tile the Back button lands on", async () => {
+    const { app } = await opened();
+    await app.getComponent(SourcePicker).vm.$emit("fixture", "0x02/line.mlt");
+    await flushPromises();
+    expect(app.get("button.open").text()).toBe("0x02/line.mlt");
+
+    history.replaceState(null, "", "/?fixture=0x01/point.mlt");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    await flushPromises();
+    expect(app.get("button.open").text()).toBe("0x01/point.mlt");
+    app.unmount();
+  });
+
+  /** Back twice in a row, where the first tile is still in flight when the second lands. */
+  it("drops a tile that arrives after the move away from it", async () => {
+    const pending: ((tile: Response) => void)[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url === "fixtures.json") return Response.json(index);
+        if (url === "fixtures/0x01/point.mlt")
+          return new Promise<Response>((resolve) => pending.push(resolve));
+        return new Response(new Uint8Array(8));
+      }),
+    );
+    history.replaceState(null, "", "/?fixture=0x02/line.mlt");
+    const app = mount(App);
+    await flushPromises();
+
+    history.replaceState(null, "", "/?fixture=0x01/point.mlt");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    history.replaceState(null, "", "/");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    await flushPromises();
+    expect(app.find(".empty").exists()).toBe(true);
+
+    pending[0]?.(new Response(new Uint8Array(8)));
+    await flushPromises();
+    expect(app.find(".empty").exists()).toBe(true);
+    app.unmount();
+  });
+
+  it("returns to the home screen on the way back past the first tile", async () => {
+    const { app } = await opened();
+    history.replaceState(null, "", "/");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    await flushPromises();
+    expect(app.get(".empty h1").text()).toBe("MapLibre Tile Analyzer");
+    app.unmount();
   });
 });
 

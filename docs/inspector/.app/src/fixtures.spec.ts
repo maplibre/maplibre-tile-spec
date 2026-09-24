@@ -263,6 +263,43 @@ describe("facetsOf", () => {
     ]);
   });
 
+  it("orders the types by family, and the flag last however common it is", () => {
+    const rows = [
+      {
+        name: "a.mlt",
+        directory: "0x01",
+        bytes: 1,
+        content: ["m-values", "str", "u8", "i32", "bool", "f64", "i8"],
+      },
+      { name: "b.mlt", directory: "0x01", bytes: 1, content: ["m-values"] },
+      { name: "c.mlt", directory: "0x01", bytes: 1, content: [] },
+    ];
+    const has = facetsOf(rows).find((f) => f.label === "has");
+    expect(has?.values.map((v) => v.value)).toEqual([
+      "bool",
+      "i8",
+      "i32",
+      "u8",
+      "f64",
+      "str",
+      "m-values",
+    ]);
+  });
+
+  it("puts a type the table does not name past the end, not silently first", () => {
+    const rows = [
+      {
+        name: "a.mlt",
+        directory: "0x01",
+        bytes: 1,
+        content: ["quantized", "str"],
+      },
+      { name: "b.mlt", directory: "0x01", bytes: 1, content: [] },
+    ];
+    const has = facetsOf(rows).find((f) => f.label === "has");
+    expect(has?.values.map((v) => v.value)).toEqual(["str", "quantized"]);
+  });
+
   it("drops a value every entry carries, which could not narrow anything", () => {
     const all = [
       { name: "a.mlt", directory: "0x01", bytes: 1, geometries: ["Point"] },

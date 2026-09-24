@@ -343,7 +343,8 @@ onMounted(() => {
 .panes {
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr auto var(--side, 22rem);
+  /* minmax over 1fr, so the gutter can take width off this column rather than off the window. */
+  grid-template-columns: minmax(0, 1fr) auto var(--side, 22rem);
   min-height: 0;
 }
 /* Sits where the panel border used to, and carries that border itself. */
@@ -381,6 +382,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
 }
 aside {
   background: var(--panel);

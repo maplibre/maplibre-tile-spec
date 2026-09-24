@@ -1,10 +1,14 @@
 import { mount } from "@vue/test-utils";
+import type { FeatureCollection } from "geojson";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { DecodedBlob, DumpTree } from "./annotate.ts";
+import GeometryView from "./GeometryView.vue";
 import HexdumpView from "./HexdumpView.vue";
 import { defaultView } from "./hex.ts";
+import RegionTree from "./RegionTree.vue";
 import {
   region,
+  stubCanvas,
   TINY_BYTES,
   tinyTree,
   WRAPPED_BYTES,
@@ -17,6 +21,7 @@ beforeAll(() => {
     unobserve() {}
     disconnect() {}
   };
+  stubCanvas();
 });
 
 const decode = (): DecodedBlob => ({
@@ -265,12 +270,16 @@ describe("the hover tip", () => {
     expect(pane.get(".tip .value").text()).toBe("water");
   });
 
+  /** Where the corner landed; the placement also caps the height, which is its own case. */
+  function corner(pane: ReturnType<typeof view>) {
+    const { left, top } = (pane.get(".tip").element as HTMLElement).style;
+    return { left, top };
+  }
+
   it("sits below and right of the pointer", async () => {
     const pane = view();
     await hover(pane, 0);
-    expect(pane.get(".tip").attributes("style")).toBe(
-      "left: 134px; top: 94px;",
-    );
+    expect(corner(pane)).toEqual({ left: "134px", top: "94px" });
   });
 
   it("moves with the pointer inside one region", async () => {
@@ -279,9 +288,7 @@ describe("the hover tip", () => {
     await pane
       .findAll("td.cell")[1]
       .trigger("mousemove", { clientX: 300, clientY: 80 });
-    expect(pane.get(".tip").attributes("style")).toBe(
-      "left: 314px; top: 94px;",
-    );
+    expect(corner(pane)).toEqual({ left: "314px", top: "94px" });
   });
 
   it("goes away once the pointer leaves the map", async () => {
@@ -422,6 +429,80 @@ describe("arrow keys", () => {
     press("ArrowDown");
     expect(pane.emitted("update:selected")).toBeUndefined();
     sheet.remove();
+  });
+});
+
+/** Two layers, so a scope narrowed to one tells apart from the whole tile. */
+const pairTree: DumpTree = {
+  bufLen: 4,
+  regions: [
+    region({ offset: 0, len: 2, label: "layer[0]", container: true }),
+    region({ offset: 0, len: 2, label: "name", depth: 1 }),
+    region({ offset: 2, len: 2, label: "layer[1]", container: true }),
+    region({ offset: 2, len: 2, label: "name", depth: 1 }),
+  ],
+};
+
+const pairTile: FeatureCollection = {
+  type: "FeatureCollection",
+  features: ["roads", "water"].map((name) => ({
+    type: "Feature",
+    geometry: { type: "Point", coordinates: [0, 0] },
+    properties: { _layer: name, _extent: 4096 },
+  })),
+};
+
+describe("the geometry panel", () => {
+  function panel(selected: number | null = null) {
+    return mount(HexdumpView, {
+      props: {
+        tree: pairTree,
+        bytes: new Uint8Array(4),
+        decode,
+        error: null,
+        view: defaultView(),
+        selected,
+        tile: pairTile,
+      },
+      attachTo: document.body,
+    });
+  }
+
+  /** Null is the whole tile drawn in its own colours; a name subdues everything else. */
+  function scope(pane: ReturnType<typeof panel>) {
+    return pane.getComponent(GeometryView).props("layer");
+  }
+
+  async function hover(pane: ReturnType<typeof panel>, index: number | null) {
+    pane.getComponent(RegionTree).vm.$emit("hover", index);
+    await pane.vm.$nextTick();
+  }
+
+  it("draws the whole tile while the pointer is away", () => {
+    expect(scope(panel())).toBeNull();
+  });
+
+  it("singles out the layer the pointer is over", async () => {
+    const pane = panel();
+    await hover(pane, 2);
+    expect(scope(pane)).toBe("water");
+  });
+
+  it("takes the layer from the container a row sits in, not the row", async () => {
+    const pane = panel();
+    await hover(pane, 3);
+    expect(scope(pane)).toBe("water");
+  });
+
+  it("shows everything again once the pointer leaves", async () => {
+    const pane = panel();
+    await hover(pane, 2);
+    await hover(pane, null);
+    expect(scope(pane)).toBeNull();
+  });
+
+  it("leaves a selected layer drawn like the rest, since a selection stays put", () => {
+    expect(scope(panel(2))).toBeNull();
   });
 });
 

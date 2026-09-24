@@ -21,19 +21,62 @@ export function fixtureTag(entry: FixtureEntry): string {
   return entry.directory.split("-")[0];
 }
 
+/** One button of a facet row: a value, and how many entries carry it. */
+export interface FacetValue {
+  value: string;
+  count: number;
+}
+
 /** One row of filter buttons, and the entry field it reads. */
 export interface Facet {
   label: string;
   /** Values in the order the bar shows them, each with the entries it matches. */
-  values: { value: string; count: number }[];
+  values: FacetValue[];
   of: (entry: FixtureEntry) => string[];
 }
 
-const FACET_FIELDS: Omit<Facet, "values">[] = [
+/** Commonest first, which is the order a facet takes unless it asks for another. */
+function byCount(a: FacetValue, b: FacetValue): number {
+  return b.count - a.count || compare(a.value, b.value);
+}
+
+/**
+ * The `has` row written out in reading order: booleans, signed, unsigned, floats, the
+ * string type, then the tile flags. Alphabetical would file `i8` after `i64` and split
+ * each family across the row, so the precedence is spelled out rather than derived.
+ */
+const CONTENT_ORDER = [
+  "bool",
+  "i8",
+  "i32",
+  "i64",
+  "u8",
+  "u32",
+  "u64",
+  "f32",
+  "f64",
+  "str",
+  "m-values",
+];
+const CONTENT_RANK = new Map(CONTENT_ORDER.map((value, at) => [value, at]));
+
+/** A value the table does not name is one this app has not met, so it sorts past the end. */
+function byKind(a: FacetValue, b: FacetValue): number {
+  const rank = (value: string) =>
+    CONTENT_RANK.get(value) ?? CONTENT_ORDER.length;
+  return rank(a.value) - rank(b.value) || compare(a.value, b.value);
+}
+
+interface FacetField extends Omit<Facet, "values"> {
+  order?: (a: FacetValue, b: FacetValue) => number;
+}
+
+const FACET_FIELDS: FacetField[] = [
   { label: "tag", of: (e) => [fixtureTag(e)] },
   { label: "geometry", of: (e) => e.geometries ?? [] },
   { label: "encoding", of: (e) => e.encodings ?? [] },
-  { label: "has", of: (e) => e.content ?? [] },
+  // A list of types is scanned for one in particular, so it reads as a table, not a ranking.
+  { label: "has", of: (e) => e.content ?? [], order: byKind },
 ];
 
 /**
@@ -41,7 +84,7 @@ const FACET_FIELDS: Omit<Facet, "values">[] = [
  * A value every entry carries cannot narrow anything, so it is left out.
  */
 export function facetsOf(entries: FixtureEntry[]): Facet[] {
-  return FACET_FIELDS.flatMap((field) => {
+  return FACET_FIELDS.flatMap(({ order, ...field }) => {
     const { of } = field;
     const counts = new Map<string, number>();
     for (const entry of entries)
@@ -49,8 +92,8 @@ export function facetsOf(entries: FixtureEntry[]): Facet[] {
         counts.set(value, (counts.get(value) ?? 0) + 1);
     const values = [...counts]
       .filter(([, count]) => count < entries.length)
-      .sort((a, b) => b[1] - a[1] || compare(a[0], b[0]))
-      .map(([value, count]) => ({ value, count }));
+      .map(([value, count]) => ({ value, count }))
+      .sort(order ?? byCount);
     return values.length > 0 ? [{ ...field, values }] : [];
   });
 }

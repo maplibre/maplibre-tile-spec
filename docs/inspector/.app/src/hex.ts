@@ -179,21 +179,32 @@ export interface Pointer {
 const TIP_GAP = 14;
 
 /**
- * Top-left corner of the hover tip, kept inside the viewport and clear of the pointer.
- * A tip that would hang off the bottom sits above the pointer instead, since sliding it up would cover the byte.
+ * Where the hover tip sits: inside the viewport and clear of the pointer. One that will not
+ * fit below goes above instead, since sliding it up would cover the byte it describes, and
+ * one that fits neither side takes the roomier one rather than squeezing in at an edge.
+ *
+ * A flipped tip hangs from its foot rather than standing on its head, and either side is
+ * capped to the room it has, so a height measured a frame late changes how much of the tip
+ * scrolls instead of pushing its end off the screen.
+ *
+ * `tip.height` must be the height the tip wants, not the height the cap left it: measuring
+ * a capped tip would feed this back on itself, and a tip walked down the screen in small
+ * steps would shrink against the bottom edge rather than ever flipping.
  */
 export function tipPlacement(
   pointer: Pointer,
   tip: { width: number; height: number },
   viewport: { width: number; height: number },
-): Pointer {
+): Record<string, string> {
   const right = viewport.width - tip.width - TIP_GAP;
-  const below = pointer.y + TIP_GAP;
-  return {
-    x: Math.max(TIP_GAP, Math.min(pointer.x + TIP_GAP, right)),
-    y:
-      below + tip.height > viewport.height
-        ? Math.max(TIP_GAP, pointer.y - TIP_GAP - tip.height)
-        : below,
-  };
+  const left = `${Math.max(TIP_GAP, Math.min(pointer.x + TIP_GAP, right))}px`;
+  const under = Math.max(0, viewport.height - pointer.y - TIP_GAP * 2);
+  const over = Math.max(0, pointer.y - TIP_GAP * 2);
+  return tip.height > under && over > under
+    ? {
+        left,
+        bottom: `${viewport.height - pointer.y + TIP_GAP}px`,
+        maxHeight: `${over}px`,
+      }
+    : { left, top: `${pointer.y + TIP_GAP}px`, maxHeight: `${under}px` };
 }
