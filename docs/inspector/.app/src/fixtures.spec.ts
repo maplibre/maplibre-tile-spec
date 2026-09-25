@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  axisKey,
+  axisRows,
+  coverageGaps,
   type FixtureEntry,
-  facetsOf,
   fixtureKey,
   fixturePrefix,
   fixtureTag,
@@ -9,7 +11,9 @@ import {
   groupFixtures,
   loadFixture,
   loadFixtureIndex,
-  matchesFacets,
+  matchesAxes,
+  searchVocabulary,
+  sectionRows,
   sortFixtures,
   starterFixtures,
   tileAddress,
@@ -150,27 +154,24 @@ describe("starterFixtures", () => {
   });
 });
 
-const faceted = [
+const faceted: FixtureEntry[] = [
   {
     name: "a.mlt",
     directory: "0x01",
     bytes: 1,
-    geometries: ["Point"],
-    encodings: ["RLE"],
+    facets: { geometry: ["point"], logical: ["rle"] },
   },
   {
     name: "b.mlt",
     directory: "0x01-rust",
     bytes: 1,
-    geometries: ["Point", "Polygon"],
-    encodings: [],
+    facets: { geometry: ["point", "polygon"] },
   },
   {
     name: "c.mlt",
     directory: "0x02",
     bytes: 1,
-    geometries: ["Polygon"],
-    encodings: ["RLE", "FSST"],
+    facets: { geometry: ["polygon"], logical: ["rle"], strLayout: ["fsst"] },
   },
 ];
 
@@ -261,135 +262,211 @@ describe("tileAddress", () => {
   });
 });
 
-describe("facetsOf", () => {
-  it("counts each value over the entries", () => {
-    const geometry = facetsOf(faceted).find((f) => f.label === "geometry");
-    expect(geometry?.values).toEqual([
-      { value: "Point", count: 2 },
-      { value: "Polygon", count: 2 },
-    ]);
+describe("axisRows", () => {
+  const rows = axisRows(faceted, faceted);
+  const row = (key: string) => rows.find((r) => r.key === key);
+  const shown = (key: string) => row(key)?.values.map((v) => v.value);
+  const count = (key: string, value: string) =>
+    row(key)?.values.find((v) => v.value === value);
+
+  it("counts each value over the matching entries", () => {
+    expect(count("geometry", "point")).toEqual({
+      value: "point",
+      count: 2,
+      total: 2,
+    });
   });
 
-  it("keeps a lone value when only some entries carry it, which is how a flag reads", () => {
-    const flagged = [
-      { name: "a.mlt", directory: "0x01", bytes: 1, content: ["m-values"] },
-      { name: "b.mlt", directory: "0x01", bytes: 1, content: [] },
-    ];
-    const has = facetsOf(flagged).find((f) => f.label === "has");
-    expect(has?.values).toEqual([{ value: "m-values", count: 1 }]);
+  /** The point of a spec-first vocabulary: the gap is the interesting part. */
+  it("offers a value no entry carries, rather than hiding it", () => {
+    expect(shown("geometry")).toContain("multi-polygon");
+    expect(count("geometry", "multi-polygon")).toEqual({
+      value: "multi-polygon",
+      count: 0,
+      total: 0,
+    });
   });
 
-  it("puts data types and tile flags on one row", () => {
-    const mixed = [
+  it("keeps a value every entry carries, which the old bar dropped", () => {
+    const all: FixtureEntry[] = [
       {
         name: "a.mlt",
         directory: "0x01",
         bytes: 1,
-        content: ["bool", "m-values"],
+        facets: { geometry: ["point"] },
       },
-      { name: "b.mlt", directory: "0x01", bytes: 1, content: ["str"] },
-    ];
-    const rows = facetsOf(mixed).filter((f) => f.label === "has");
-    expect(rows).toHaveLength(1);
-    expect(rows[0].values.map((v) => v.value).sort()).toEqual([
-      "bool",
-      "m-values",
-      "str",
-    ]);
-  });
-
-  it("orders the types by family, and the flag last however common it is", () => {
-    const rows = [
       {
-        name: "a.mlt",
+        name: "b.mlt",
         directory: "0x01",
         bytes: 1,
-        content: ["m-values", "str", "u8", "i32", "bool", "f64", "i8"],
+        facets: { geometry: ["point"] },
       },
-      { name: "b.mlt", directory: "0x01", bytes: 1, content: ["m-values"] },
-      { name: "c.mlt", directory: "0x01", bytes: 1, content: [] },
     ];
-    const has = facetsOf(rows).find((f) => f.label === "has");
-    expect(has?.values.map((v) => v.value)).toEqual([
+    const geometry = axisRows(all, all).find((r) => r.key === "geometry");
+    expect(geometry?.values.find((v) => v.value === "point")?.count).toBe(2);
+  });
+
+  it("separates what the filter would narrow to from what the index holds", () => {
+    const narrowed = axisRows(faceted, [faceted[0]]);
+    const point = narrowed
+      .find((r) => r.key === "geometry")
+      ?.values.find((v) => v.value === "point");
+    expect(point).toEqual({ value: "point", count: 1, total: 2 });
+  });
+
+  it("orders the data types by family, not alphabetically", () => {
+    expect(shown("dataType")?.slice(0, 5)).toEqual([
       "bool",
       "i8",
       "i32",
+      "i64",
       "u8",
-      "f64",
-      "str",
-      "m-values",
     ]);
   });
 
-  it("puts a type the table does not name past the end, not silently first", () => {
-    const rows = [
+  it("puts a value the vocabulary does not name past the end, not silently first", () => {
+    const odd: FixtureEntry[] = [
       {
         name: "a.mlt",
-        directory: "0x01",
+        directory: "0x02",
         bytes: 1,
-        content: ["quantized", "str"],
+        facets: { logical: ["quantized"] },
       },
-      { name: "b.mlt", directory: "0x01", bytes: 1, content: [] },
     ];
-    const has = facetsOf(rows).find((f) => f.label === "has");
-    expect(has?.values.map((v) => v.value)).toEqual(["str", "quantized"]);
+    const logical = axisRows(odd, odd).find((r) => r.key === "logical");
+    const names = logical?.values.map((v) => v.value) ?? [];
+    expect(names.at(-1)).toBe("quantized");
+    expect(names.indexOf("alp")).toBeLessThan(names.indexOf("quantized"));
   });
 
-  it("drops a value every entry carries, which could not narrow anything", () => {
-    const all = [
-      { name: "a.mlt", directory: "0x01", bytes: 1, geometries: ["Point"] },
-      { name: "b.mlt", directory: "0x01", bytes: 1, geometries: ["Point"] },
+  it("lists only the extents the index holds, smallest first", () => {
+    const sized: FixtureEntry[] = [
+      {
+        name: "a.mlt",
+        directory: "0x02",
+        bytes: 1,
+        facets: { extent: ["4096"] },
+      },
+      {
+        name: "b.mlt",
+        directory: "0x02",
+        bytes: 1,
+        facets: { extent: ["512"] },
+      },
+      {
+        name: "c.mlt",
+        directory: "0x02",
+        bytes: 1,
+        facets: { extent: ["64"] },
+      },
     ];
-    expect(facetsOf(all).map((f) => f.label)).not.toContain("geometry");
+    const extent = axisRows(sized, sized).find((r) => r.key === "extent");
+    // Not the 16 codes v2 allows: the 13 nobody uses are not gaps worth showing.
+    // Numeric, so "512" does not file between "4096" and "64".
+    expect(extent?.values.map((v) => v.value)).toEqual(["64", "512", "4096"]);
+  });
+
+  it("reads nothing off a tile mlt ls could not read", () => {
+    const broken: FixtureEntry[] = [
+      { name: "x.mlt", directory: "0x02", bytes: 1 },
+    ];
+    const geometry = axisRows(broken, broken).find((r) => r.key === "geometry");
+    expect(geometry?.values.every((v) => v.total === 0)).toBe(true);
   });
 });
 
-describe("matchesFacets", () => {
-  const facets = facetsOf(faceted);
+describe("sectionRows", () => {
+  it("groups the axes under the heading the sheet stacks them by", () => {
+    const rows = axisRows(faceted, faceted);
+    expect(sectionRows(rows, "Streams").map((r) => r.key)).toEqual([
+      "streamType",
+      "physical",
+      "logical",
+    ]);
+  });
+});
+
+describe("matchesAxes", () => {
   const pick = (...keys: string[]) => new Set(keys);
 
   it("keeps everything when nothing is picked", () => {
-    expect(
-      faceted.filter((e) => matchesFacets(e, facets, pick())),
-    ).toHaveLength(3);
+    expect(faceted.filter((e) => matchesAxes(e, pick()))).toHaveLength(3);
   });
 
-  it("requires every picked value within one facet, not just one of them", () => {
+  it("requires every picked value within one axis, not just one of them", () => {
     const hit = faceted.filter((e) =>
-      matchesFacets(e, facets, pick("geometry:Point", "geometry:Polygon")),
+      matchesAxes(e, pick("geometry:point", "geometry:polygon")),
     );
     expect(hit.map((e) => e.name)).toEqual(["b.mlt"]);
   });
 
   it("finds nothing for two tags, since a tile carries exactly one", () => {
-    const hit = faceted.filter((e) =>
-      matchesFacets(e, facets, pick("tag:0x01", "tag:0x02")),
-    );
-    expect(hit).toEqual([]);
+    expect(
+      faceted.filter((e) => matchesAxes(e, pick("tag:0x01", "tag:0x02"))),
+    ).toEqual([]);
   });
 
-  it("requires every picked facet to hold", () => {
+  it("requires every picked axis to hold", () => {
     const hit = faceted.filter((e) =>
-      matchesFacets(e, facets, pick("geometry:Polygon", "tag:0x02")),
+      matchesAxes(e, pick("geometry:polygon", "tag:0x02")),
     );
     expect(hit.map((e) => e.name)).toEqual(["c.mlt"]);
   });
 
-  it("requires a tile to carry every picked `has` value", () => {
-    const rows = [
+  /** `data` is a prefix of `data[vertex]`, so a sloppy key split would confuse them. */
+  it("tells one axis from another whose value contains a colon-free prefix", () => {
+    const rows: FixtureEntry[] = [
       {
-        name: "both.mlt",
+        name: "a.mlt",
         directory: "0x02",
         bytes: 1,
-        content: ["str", "bool"],
+        facets: { streamType: ["data"] },
       },
-      { name: "one.mlt", directory: "0x02", bytes: 1, content: ["str"] },
-      { name: "other.mlt", directory: "0x02", bytes: 1, content: ["bool"] },
+      {
+        name: "b.mlt",
+        directory: "0x02",
+        bytes: 1,
+        facets: { streamType: ["data[vertex]"] },
+      },
     ];
-    const has = facetsOf(rows);
     const hit = rows.filter((e) =>
-      matchesFacets(e, has, pick("has:str", "has:bool")),
+      matchesAxes(e, pick("streamType:data[vertex]")),
     );
-    expect(hit.map((e) => e.name)).toEqual(["both.mlt"]);
+    expect(hit.map((e) => e.name)).toEqual(["b.mlt"]);
+  });
+});
+
+describe("searchVocabulary", () => {
+  const rows = axisRows(faceted, faceted);
+
+  it("offers a chip for a word that is in no file name", () => {
+    const hits = searchVocabulary(rows, "alp");
+    expect(hits.map((h) => `${h.axis.key}:${h.value.value}`)).toEqual([
+      "logical:alp",
+    ]);
+  });
+
+  it("matches across axes", () => {
+    const hits = searchVocabulary(rows, "front");
+    expect(hits.map((h) => h.axis.key)).toEqual(["dictLayout"]);
+  });
+
+  it("offers nothing for an empty box", () => {
+    expect(searchVocabulary(rows, "   ")).toEqual([]);
+  });
+
+  it("leaves out a chip that is already picked", () => {
+    const hits = searchVocabulary(rows, "alp", new Set(["logical:alp"]));
+    expect(hits).toEqual([]);
+  });
+});
+
+describe("coverageGaps", () => {
+  it("names every value no fixture in the index carries", () => {
+    const gaps = coverageGaps(axisRows(faceted, faceted));
+    const keys = gaps.map((g) => axisKey(g.axis, g.value.value));
+    expect(keys).toContain("geometry:multi-polygon");
+    expect(keys).toContain("logical:alp");
+    expect(keys).not.toContain("geometry:point");
   });
 });

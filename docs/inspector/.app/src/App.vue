@@ -202,6 +202,7 @@ let shown = tileOf(readDeepLink(location.search));
 /** Puts the app on the view a link names, reloading the tile only when it is another one. */
 async function restore(target: DeepLink) {
   if (tileOf(target) === null) {
+    filters.value = target.filters;
     goHome();
     return;
   }
@@ -212,6 +213,9 @@ async function restore(target: DeepLink) {
     await fetchTile(target.url, at);
   if (!current(at) || tile.value === null) return;
   view.value.layer = target.layer;
+  // With layer and region rather than before the awaits: on its own it would be a link
+  // naming no tile yet, which the watcher would push as an entry of its own.
+  filters.value = target.filters;
   await nextTick();
   if (current(at)) selected.value = target.region;
 }
@@ -236,6 +240,9 @@ useEventListener(window, "popstate", () => {
   void restore(target);
 });
 
+/** Picked filter chips, held here so the address bar carries them. */
+const filters = ref<string[]>(readDeepLink(location.search).filters);
+
 /** Changing the layer renumbers the tree, so a selection cannot survive it. */
 watch(layer, () => {
   selected.value = null;
@@ -246,6 +253,7 @@ const link = computed<DeepLink>(() => ({
   url: href.value,
   layer: layer.value,
   region: selected.value,
+  filters: filters.value,
 }));
 
 watch(link, (moved) => {
@@ -324,6 +332,7 @@ watch(
         &#x2302;
       </button>
       <SourcePicker
+        v-model:filters="filters"
         :index="index"
         :current="fixture ?? href"
         @fixture="pickFixture"
@@ -369,6 +378,7 @@ watch(
       <h1>MapLibre Tile Analyzer</h1>
       <SourcePicker
         hero
+        v-model:filters="filters"
         :index="index"
         :current="fixture ?? href"
         @fixture="pickFixture"

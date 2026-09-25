@@ -8,16 +8,12 @@ export interface FixtureEntry {
   directory: string;
   /** Size of the tile on disk. */
   bytes: number;
-  /** Geometry types `mlt ls` found, absent when it could not read the tile. */
-  geometries?: string[];
-  /** Coarse encodings `mlt ls` found, named as the facet bar shows them. */
-  encodings?: string[];
-  /** What the tile holds, as `mlt ls` flags it: str, i32, bool, m-values... */
-  content?: string[];
   /**
    * Every axis `mlt ls --format json` reports, keyed as its `facets` object spells them:
    * extent, geometry, geomLayout, dataType, strLayout, dictLayout, streamType,
    * physical, logical. The values are the spec's own names, so they are shown as they are.
+   *
+   * Absent for a tile `mlt ls` could not read, which then carries no axis at all.
    */
   facets?: Record<string, string[]>;
 }
@@ -27,31 +23,24 @@ export function fixtureTag(entry: FixtureEntry): string {
   return entry.directory.split("-")[0];
 }
 
-/** One button of a facet row: a value, and how many entries carry it. */
-export interface FacetValue {
-  value: string;
-  count: number;
-}
+/**
+ * The v2 vocabulary, spelled as the spec names it.
+ *
+ * Written out rather than gathered from the index on purpose: a value no fixture
+ * carries is the interesting one, and an index-derived list is exactly the list that
+ * cannot show it. Every axis therefore offers what v2 *can* hold, and the counts say
+ * what this index actually has.
+ */
 
-/** One row of filter buttons, and the entry field it reads. */
-export interface Facet {
-  label: string;
-  /** Values in the order the bar shows them, each with the entries it matches. */
-  values: FacetValue[];
-  of: (entry: FixtureEntry) => string[];
-}
-
-/** Commonest first, which is the order a facet takes unless it asks for another. */
-function byCount(a: FacetValue, b: FacetValue): number {
-  return b.count - a.count || compare(a.value, b.value);
-}
+/** Section headings, in the order the sheet stacks them. */
+export const SECTIONS = ["Layer", "Geometry", "Columns", "Streams"] as const;
+export type Section = (typeof SECTIONS)[number];
 
 /**
- * The `has` row written out in reading order: booleans, signed, unsigned, floats, the
- * string type, then the tile flags. Alphabetical would file `i8` after `i64` and split
- * each family across the row, so the precedence is spelled out rather than derived.
+ * Data types in reading order: booleans, signed, unsigned, floats, the string type, then
+ * the tile flags. Alphabetical would file `i8` after `i64` and split each family up.
  */
-const CONTENT_ORDER = [
+const DATA_TYPES = [
   "bool",
   "i8",
   "i32",
@@ -64,60 +53,271 @@ const CONTENT_ORDER = [
   "str",
   "m-values",
 ];
-const CONTENT_RANK = new Map(CONTENT_ORDER.map((value, at) => [value, at]));
 
-/** A value the table does not name is one this app has not met, so it sorts past the end. */
-function byKind(a: FacetValue, b: FacetValue): number {
-  const rank = (value: string) =>
-    CONTENT_RANK.get(value) ?? CONTENT_ORDER.length;
-  return rank(a.value) - rank(b.value) || compare(a.value, b.value);
+/** One filter axis: where its values come from, and every value v2 defines for it. */
+export interface Axis {
+  /** Key the picked set and the deep link use, and the `facets` field it reads. */
+  key: string;
+  /** Row label in the sheet. */
+  label: string;
+  section: Section;
+  /** What v2 can hold, in spec order. The index may carry none of it. */
+  vocabulary: readonly string[];
+  /** The values one entry carries. */
+  of: (entry: FixtureEntry) => string[];
+  /** Orders the values the vocabulary does not name. Alphabetical unless given. */
+  sort?: (a: string, b: string) => number;
 }
 
-interface FacetField extends Omit<Facet, "values"> {
-  order?: (a: FacetValue, b: FacetValue) => number;
-}
+/** Reads one axis off the entry, tolerating a tile `mlt ls` could not read. */
+const field =
+  (key: string) =>
+  (entry: FixtureEntry): string[] =>
+    entry.facets?.[key] ?? [];
 
-const FACET_FIELDS: FacetField[] = [
-  { label: "tag", of: (e) => [fixtureTag(e)] },
-  { label: "geometry", of: (e) => e.geometries ?? [] },
-  { label: "encoding", of: (e) => e.encodings ?? [] },
-  // A list of types is scanned for one in particular, so it reads as a table, not a ranking.
-  { label: "has", of: (e) => e.content ?? [], order: byKind },
+export const AXES: Axis[] = [
+  {
+    key: "tag",
+    label: "tag",
+    section: "Layer",
+    vocabulary: ["0x01", "0x02"],
+    of: (entry) => [fixtureTag(entry)],
+  },
+  {
+    key: "extent",
+    label: "extent",
+    section: "Layer",
+    // Listed from the index rather than from the spec, unlike every other axis. v2 codes
+    // a power of two from 64 to 2097152 and v1 restricts nothing, so no one vocabulary
+    // covers the row: the corpus has both 32 and 1073741824. An extent is a measurement
+    // of the tile rather than a feature to show off, so a value nothing uses is not a gap.
+    vocabulary: [],
+    sort: (a, b) => Number(a) - Number(b),
+    of: field("extent"),
+  },
+  {
+    key: "geometry",
+    label: "geometry",
+    section: "Geometry",
+    vocabulary: [
+      "point",
+      "line-string",
+      "polygon",
+      "multi-point",
+      "multi-line-string",
+      "multi-polygon",
+    ],
+    of: field("geometry"),
+  },
+  {
+    key: "geomLayout",
+    label: "layout",
+    section: "Geometry",
+    vocabulary: [
+      "points",
+      "points-dict",
+      "multi-points",
+      "multi-points-dict",
+      "lines",
+      "lines-dict",
+      "multi-lines",
+      "multi-lines-dict",
+      "polygons",
+      "polygons-dict",
+      "multi-polygons",
+      "multi-polygons-dict",
+      "tess-polygons",
+      "tess-polygons-with-outlines",
+    ],
+    of: field("geomLayout"),
+  },
+  {
+    key: "dataType",
+    label: "types",
+    section: "Columns",
+    vocabulary: DATA_TYPES,
+    of: field("dataType"),
+  },
+  {
+    key: "strLayout",
+    label: "strings",
+    section: "Columns",
+    vocabulary: ["plain", "dict", "fsst", "fsst-dict"],
+    of: field("strLayout"),
+  },
+  {
+    key: "dictLayout",
+    label: "dictionary",
+    section: "Columns",
+    vocabulary: ["plain", "front-coded"],
+    of: field("dictLayout"),
+  },
+  {
+    key: "streamType",
+    label: "stream",
+    section: "Streams",
+    vocabulary: [
+      "present",
+      "data",
+      "data[single]",
+      "data[shared]",
+      "data[vertex]",
+      "data[morton]",
+      "data[fsst]",
+      "offset[vertex]",
+      "offset[index]",
+      "offset[string]",
+      "offset[key]",
+      "length[varbinary]",
+      "length[geometries]",
+      "length[parts]",
+      "length[rings]",
+      "length[triangles]",
+      "length[symbol]",
+      "length[dictionary]",
+      "length[nested]",
+    ],
+    of: field("streamType"),
+  },
+  {
+    key: "physical",
+    label: "physical",
+    section: "Streams",
+    vocabulary: ["varint", "bitpacked", "fastpfor[256be]", "fastpfor[128le]"],
+    of: field("physical"),
+  },
+  {
+    key: "logical",
+    label: "logical",
+    section: "Streams",
+    vocabulary: [
+      "delta",
+      "rle",
+      "delta-rle",
+      "componentwise-delta",
+      "morton",
+      "morton-delta",
+      "morton-rle",
+      "dict",
+      "alp",
+    ],
+    of: field("logical"),
+  },
 ];
 
+/** One chip: a value, what it would narrow to, and what the whole index holds. */
+export interface AxisValue {
+  value: string;
+  /** Entries among the current matches that carry it: what picking it narrows to. */
+  count: number;
+  /** Entries in the whole index. `0` means no fixture shows this off at all. */
+  total: number;
+}
+
+/** One row of chips. */
+export interface AxisRow extends Axis {
+  values: AxisValue[];
+}
+
+/** How many entries carry each value of `axis`. */
+function tally(entries: FixtureEntry[], axis: Axis): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const entry of entries)
+    for (const value of axis.of(entry))
+      counts.set(value, (counts.get(value) ?? 0) + 1);
+  return counts;
+}
+
 /**
- * The filter bar's buttons, counted over `entries`.
- * A value every entry carries cannot narrow anything, so it is left out.
+ * Every axis, with its whole vocabulary counted twice: over `matching` for what a chip
+ * would narrow to, and over `index` for whether any fixture has it at all.
+ *
+ * A value the vocabulary does not name is one this app has not met - a newer encoder, or
+ * a spelling that drifted - so it is kept, after the named ones, rather than hidden.
  */
-export function facetsOf(entries: FixtureEntry[]): Facet[] {
-  return FACET_FIELDS.flatMap(({ order, ...field }) => {
-    const { of } = field;
-    const counts = new Map<string, number>();
-    for (const entry of entries)
-      for (const value of of(entry))
-        counts.set(value, (counts.get(value) ?? 0) + 1);
-    const values = [...counts]
-      .filter(([, count]) => count < entries.length)
-      .map(([value, count]) => ({ value, count }))
-      .sort(order ?? byCount);
-    return values.length > 0 ? [{ ...field, values }] : [];
+export function axisRows(
+  index: FixtureEntry[],
+  matching: FixtureEntry[],
+): AxisRow[] {
+  return AXES.map((axis) => {
+    const here = tally(matching, axis);
+    const all = tally(index, axis);
+    const extra = [...all.keys()]
+      .filter((value) => !axis.vocabulary.includes(value))
+      .sort(axis.sort ?? compare);
+    const values = [...axis.vocabulary, ...extra].map((value) => ({
+      value,
+      count: here.get(value) ?? 0,
+      total: all.get(value) ?? 0,
+    }));
+    return { ...axis, values };
   });
 }
 
-/** Every picked value has to hold, within a facet and across them: each one narrows. */
-export function matchesFacets(
-  entry: FixtureEntry,
-  facets: Facet[],
-  picked: Set<string>,
-): boolean {
-  return facets.every((facet) => {
-    const wanted = facet.values
-      .map(({ value }) => value)
-      .filter((value) => picked.has(`${facet.label}:${value}`));
+/** The picked values of one axis, keyed `<axis>:<value>`. */
+function pickedIn(axis: Axis, picked: Set<string>): string[] {
+  return [...picked].flatMap((key) => {
+    const at = key.indexOf(":");
+    return key.slice(0, at) === axis.key ? [key.slice(at + 1)] : [];
+  });
+}
+
+/** Every picked value has to hold, within an axis and across them: each one narrows. */
+export function matchesAxes(entry: FixtureEntry, picked: Set<string>): boolean {
+  if (picked.size === 0) return true;
+  return AXES.every((axis) => {
+    const wanted = pickedIn(axis, picked);
     if (wanted.length === 0) return true;
-    const has = facet.of(entry);
+    const has = axis.of(entry);
     return wanted.every((value) => has.includes(value));
   });
+}
+
+/** The chip key the picked set and the deep link share. */
+export function axisKey(axis: Pick<Axis, "key">, value: string): string {
+  return `${axis.key}:${value}`;
+}
+
+/** One vocabulary hit: what typing in the filter box offers besides file names. */
+export interface VocabHit {
+  axis: AxisRow;
+  value: AxisValue;
+}
+
+/**
+ * Axis values whose name contains `needle`, so typing `alp` or `front` offers the chip
+ * rather than searching a thousand file names for a word that is not in any of them.
+ */
+export function searchVocabulary(
+  rows: AxisRow[],
+  needle: string,
+  picked: Set<string> = new Set(),
+): VocabHit[] {
+  const text = needle.trim().toLowerCase();
+  if (text === "") return [];
+  return rows.flatMap((axis) =>
+    axis.values
+      .filter(
+        (value) =>
+          value.value.toLowerCase().includes(text) &&
+          !picked.has(axisKey(axis, value.value)),
+      )
+      .map((value) => ({ axis, value })),
+  );
+}
+
+/** The rows of one section, for the sheet and the coverage view. */
+export function sectionRows(rows: AxisRow[], section: Section): AxisRow[] {
+  return rows.filter((row) => row.section === section);
+}
+
+/** Values v2 defines that no fixture in the index carries: the gaps worth filling. */
+export function coverageGaps(rows: AxisRow[]): VocabHit[] {
+  return rows.flatMap((axis) =>
+    axis.values
+      .filter((value) => value.total === 0)
+      .map((value) => ({ axis, value })),
+  );
 }
 
 /** Key of a fixture in the index, and the value of the `fixture` deep link. */

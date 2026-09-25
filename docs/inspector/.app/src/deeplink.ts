@@ -11,6 +11,8 @@ export interface DeepLink {
   layer: number | null;
   /** Index of the selected region in the tree as filtered by `layer`. */
   region: number | null;
+  /** Picked filter chips, each `<axis>:<value>`, so a combination can be handed over. */
+  filters: string[];
 }
 
 export function readDeepLink(search: string): DeepLink {
@@ -21,6 +23,8 @@ export function readDeepLink(search: string): DeepLink {
     url: raw === null ? null : tileAddress(raw),
     layer: index(params.get("layer")),
     region: index(params.get("region")),
+    // Repeated rather than joined: a value may hold any punctuation the spec spells it with.
+    filters: params.getAll("f").filter((value) => value.includes(":")),
   };
 }
 
@@ -31,6 +35,7 @@ export function deepLinkSearch(link: DeepLink): string {
   if (link.url !== null) params.set("url", link.url);
   if (link.layer !== null) params.set("layer", String(link.layer));
   if (link.region !== null) params.set("region", String(link.region));
+  for (const picked of link.filters) params.append("f", picked);
   const search = params.toString();
   return search === "" ? "" : `?${search}`;
 }

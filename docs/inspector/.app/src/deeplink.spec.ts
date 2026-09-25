@@ -7,7 +7,36 @@ import {
 } from "./deeplink.ts";
 
 /** A link carrying nothing, which each case names only the parameters it is about over. */
-const bare: DeepLink = { fixture: null, url: null, layer: null, region: null };
+const bare: DeepLink = {
+  fixture: null,
+  url: null,
+  layer: null,
+  region: null,
+  filters: [],
+};
+
+describe("the filter parameter", () => {
+  it("reads every picked chip, repeated rather than joined", () => {
+    expect(readDeepLink("?f=tag:0x02&f=logical:alp").filters).toEqual([
+      "tag:0x02",
+      "logical:alp",
+    ]);
+  });
+
+  /** Values carry brackets, so they have to survive the round trip intact. */
+  it("round-trips a value spelled with punctuation", () => {
+    const link = { ...bare, filters: ["streamType:data[vertex]"] };
+    expect(readDeepLink(deepLinkSearch(link)).filters).toEqual(link.filters);
+  });
+
+  it("ignores a chip that names no axis", () => {
+    expect(readDeepLink("?f=nonsense").filters).toEqual([]);
+  });
+
+  it("writes nothing when nothing is picked", () => {
+    expect(deepLinkSearch(bare)).toBe("");
+  });
+});
 
 describe("readDeepLink", () => {
   it("reads the three parameters of the contract", () => {
