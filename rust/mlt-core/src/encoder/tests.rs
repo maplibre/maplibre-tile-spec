@@ -8,6 +8,7 @@ impl ExplicitEncoder {
     pub fn all(enc: IntEncoder) -> Self {
         Self {
             vertex_buffer_type: VertexBufferType::Vec2,
+            morton_dict_variant: crate::encoder::model::MortonDictVariant::default(),
             force_stream: Box::new(|_| false),
             get_int_encoder: Box::new(move |_| enc),
             get_str_encoding: Box::new(|_| crate::encoder::StrEncoding::Plain),

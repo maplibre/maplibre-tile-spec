@@ -30,7 +30,8 @@ pub use id::StagedId;
 pub use model::WireVersion;
 #[cfg(feature = "__private")]
 pub use model::{
-    ColumnKind, CurveParams, ExplicitEncoder, FloatEncoding, StagedLayer, StrEncoding, StreamCtx,
+    ColumnKind, CurveParams, ExplicitEncoder, FloatEncoding, MortonDictVariant, StagedLayer,
+    StrEncoding, StreamCtx,
 };
 pub use model::{EncodedUnknown, EncoderConfig};
 #[cfg(all(test, not(feature = "__private")))]

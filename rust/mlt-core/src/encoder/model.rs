@@ -792,6 +792,17 @@ impl<'a> StreamCtx<'a> {
     }
 }
 
+/// How a Morton vertex dictionary is coded in v1 geometry streams.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum MortonDictVariant {
+    /// Delta-encode the sorted unique codes (the default, always used in v2).
+    #[default]
+    Delta,
+    /// Write the sorted unique codes as-is, no delta.
+    #[cfg(feature = "unstable-v2")]
+    Plain,
+}
+
 /// Explicit, deterministic encoding configuration for synthetics and tests.
 ///
 /// All encoding choices are caller-specified via callbacks so one struct can cover any combination without per-stream boilerplate.
@@ -799,6 +810,8 @@ impl<'a> StreamCtx<'a> {
 pub struct ExplicitEncoder {
     /// Vertex buffer layout for geometry streams.
     pub vertex_buffer_type: VertexBufferType,
+    /// How the Morton dictionary stream is logically coded (v2 only; v1 always uses delta).
+    pub morton_dict_variant: MortonDictVariant,
     /// Per-stream override for the skip-empty-stream rule used by `write_geo_u32_stream`.
     #[dbg(skip)]
     pub force_stream: Box<dyn for<'a> Fn(&'a StreamCtx<'a>) -> bool>,

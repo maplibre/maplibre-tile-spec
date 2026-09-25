@@ -4,9 +4,9 @@ use super::model::VertexBufferType;
 use super::streams::{
     dict_may_be_beneficial, encode_hilbert_vertex_streams02, encode_level1_length_stream,
     encode_level1_without_ring_buffer_length_stream, encode_level2_length_stream,
-    encode_morton_vertex_streams02, encode_ring_lengths_for_mixed, encode_root_length_stream,
-    encode_vec2_vertex_stream02, normalize_geometry_offsets, normalize_part_offsets_for_rings,
-    seed_curve_caches,
+    encode_morton_plain_vertex_streams02, encode_morton_vertex_streams02,
+    encode_ring_lengths_for_mixed, encode_root_length_stream, encode_vec2_vertex_stream02,
+    normalize_geometry_offsets, normalize_part_offsets_for_rings, seed_curve_caches,
 };
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
 use crate::decoder::stream::header02::{Family, WordWidth};
@@ -273,7 +273,15 @@ fn write_vertices(
                 VertexStorage::Plain
             }
             VertexBufferType::Morton => {
-                encode_morton_vertex_streams02(vertices, enc, codecs)?;
+                use crate::encoder::model::MortonDictVariant;
+                match enc.morton_dict_variant() {
+                    MortonDictVariant::Plain => {
+                        encode_morton_plain_vertex_streams02(vertices, enc, codecs)?
+                    }
+                    MortonDictVariant::Delta => {
+                        encode_morton_vertex_streams02(vertices, enc, codecs)?
+                    }
+                }
                 VertexStorage::Dict
             }
             VertexBufferType::Hilbert => {

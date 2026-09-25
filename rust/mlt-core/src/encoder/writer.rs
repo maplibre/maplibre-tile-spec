@@ -347,6 +347,15 @@ impl Encoder {
         self.explicit.as_ref().map(|e| e.vertex_buffer_type)
     }
 
+    #[inline]
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) fn morton_dict_variant(&self) -> crate::encoder::model::MortonDictVariant {
+        self.explicit
+            .as_ref()
+            .map(|e| e.morton_dict_variant)
+            .unwrap_or_default()
+    }
+
     /// Whether to force writing a geometry stream even when its data is empty.
     ///
     /// Delegates to [`ExplicitEncoder::force_stream`]; returns `false` when no explicit

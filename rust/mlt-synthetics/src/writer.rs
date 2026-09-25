@@ -92,7 +92,9 @@ impl SynthWriter {
         for d in &ref_dirs {
             assert!(d.is_dir());
         }
-        let out_dirs = [root.join("0x01-rust"), root.join("0x02-rust")];
+        // v1 rust-only fixtures go to 0x01-rust/ (Java is the v1 canonical encoder).
+        // v2 rust-only fixtures go directly to 0x02/ (Rust is the only v2 encoder).
+        let out_dirs = [root.join("0x01-rust"), root.join("0x02")];
 
         println!(
             "Verifying synthetics against\n- {}",
@@ -103,12 +105,8 @@ impl SynthWriter {
                 .join("\n- ")
         );
         println!(
-            "Writing rust-only files to\n- {}\n",
-            out_dirs
-                .iter()
-                .map(|p| format!("{}", p.display()))
-                .collect::<Vec<_>>()
-                .join("\n- ")
+            "Writing v1 rust-only files to\n- {}\n",
+            out_dirs[0].display()
         );
         for d in &out_dirs {
             fs::create_dir_all(d).unwrap_or_else(|e| panic!("cannot create {}: {e}", d.display()));

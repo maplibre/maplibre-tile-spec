@@ -869,7 +869,7 @@ impl<'a> Walker<'a> {
         // So do the Morton grid's, for a vertex dictionary keyed by Morton code.
         if matches!(
             stream.meta.encoding.logical,
-            LogicalEncoding::Vertex(VertexLogical::MortonDelta(_))
+            LogicalEncoding::Vertex(VertexLogical::MortonDelta(_) | VertexLogical::Morton(_))
         ) {
             for name in ["morton_bits", "morton_shift"] {
                 (c, _) =

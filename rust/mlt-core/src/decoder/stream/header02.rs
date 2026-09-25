@@ -81,6 +81,8 @@ pub(crate) enum Logical {
     Dict,
     FrontCoded,
     BitPacked,
+    /// Raw (non-delta) Morton codes in a sorted vertex dictionary.
+    MortonPlain,
 }
 
 /// How a string column lays its streams out, named by the extension bits of its leading stream.
@@ -166,7 +168,7 @@ impl Family {
             Self::Int(_) | Self::Str(_) => &[L::None, L::Delta, L::Rle, L::DeltaRle, L::BitPacked],
             Self::Bool => &[L::None, L::Rle],
             Self::Float(_) => &[L::None, L::Rle, L::Alp, L::Dict],
-            Self::Vertex => &[L::None, L::Delta, L::CwDelta, L::Morton],
+            Self::Vertex => &[L::None, L::Delta, L::CwDelta, L::Morton, L::MortonPlain],
             Self::Bytes => &[L::None, L::FrontCoded],
         }
     }
@@ -434,6 +436,9 @@ pub(crate) enum LogicalVertex {
     /// Deltas between the Morton codes of a sorted vertex dictionary.
     /// The grid the codes are laid on follows the byte length as two varints.
     Morton(PhysicalInt),
+    /// Raw (non-delta) Morton codes in a sorted vertex dictionary.
+    /// The grid the codes are laid on follows the byte length as two varints.
+    MortonPlain(PhysicalInt),
 }
 
 /// One encoding byte's logical and physical fields, read in its family's terms.
@@ -509,9 +514,12 @@ fn logical_int(family: Family, enc_byte: u8, logical: Logical) -> MltResult<Logi
             no_physical(enc_byte)?;
             LogicalInt::BitPacked
         }
-        Logical::CwDelta | Logical::Morton | Logical::Alp | Logical::Dict | Logical::FrontCoded => {
-            unreachable_member(family, logical)
-        }
+        Logical::CwDelta
+        | Logical::Morton
+        | Logical::Alp
+        | Logical::Dict
+        | Logical::FrontCoded
+        | Logical::MortonPlain => unreachable_member(family, logical),
     })
 }
 
@@ -548,7 +556,8 @@ impl Encoding02 {
                     | Logical::Morton
                     | Logical::Alp
                     | Logical::Dict
-                    | Logical::BitPacked => unreachable_member(family, logical),
+                    | Logical::BitPacked
+                    | Logical::MortonPlain => unreachable_member(family, logical),
                 })
             }
             Family::Bool => Self::Bool(match logical {
@@ -564,7 +573,8 @@ impl Encoding02 {
                 | Logical::Alp
                 | Logical::Dict
                 | Logical::FrontCoded
-                | Logical::BitPacked => unreachable_member(family, logical),
+                | Logical::BitPacked
+                | Logical::MortonPlain => unreachable_member(family, logical),
             }),
             Family::Float(_) => Self::Float(match logical {
                 Logical::None => LogicalFloat::None(physical_bits(enc_byte)?),
@@ -579,13 +589,15 @@ impl Encoding02 {
                 | Logical::DeltaRle
                 | Logical::Morton
                 | Logical::FrontCoded
-                | Logical::BitPacked => unreachable_member(family, logical),
+                | Logical::BitPacked
+                | Logical::MortonPlain => unreachable_member(family, logical),
             }),
             Family::Vertex => Self::Vertex(match logical {
                 Logical::None => LogicalVertex::None(raw_int(enc_byte)?),
                 Logical::Delta => LogicalVertex::Delta(physical_int(enc_byte)?),
                 Logical::CwDelta => LogicalVertex::CwDelta(physical_int(enc_byte)?),
                 Logical::Morton => LogicalVertex::Morton(physical_int(enc_byte)?),
+                Logical::MortonPlain => LogicalVertex::MortonPlain(physical_int(enc_byte)?),
                 Logical::Rle
                 | Logical::DeltaRle
                 | Logical::Alp
@@ -615,6 +627,7 @@ impl Encoding02 {
             Self::Int(LogicalInt::DeltaRle) => Logical::DeltaRle,
             Self::Int(LogicalInt::BitPacked) => Logical::BitPacked,
             Self::Vertex(LogicalVertex::Morton(_)) => Logical::Morton,
+            Self::Vertex(LogicalVertex::MortonPlain(_)) => Logical::MortonPlain,
             Self::Float(LogicalFloat::Alp(_)) => Logical::Alp,
             Self::Float(LogicalFloat::Dict(_)) => Logical::Dict,
             Self::Bytes(LogicalBytes::FrontCoded) => Logical::FrontCoded,
@@ -631,7 +644,10 @@ impl Encoding02 {
             Self::Int(LogicalInt::Delta(p))
             | Self::Float(LogicalFloat::Dict(p) | LogicalFloat::Alp(p))
             | Self::Vertex(
-                LogicalVertex::Delta(p) | LogicalVertex::CwDelta(p) | LogicalVertex::Morton(p),
+                LogicalVertex::Delta(p)
+                | LogicalVertex::CwDelta(p)
+                | LogicalVertex::Morton(p)
+                | LogicalVertex::MortonPlain(p),
             ) => p.into(),
             Self::Bool(LogicalBool::None(p)) | Self::Float(LogicalFloat::None(p)) => p.into(),
             Self::Bytes(LogicalBytes::None | LogicalBytes::FrontCoded) => {
@@ -743,6 +759,15 @@ impl Encoding02 {
                 rest = after;
                 IntEncoding::new(
                     LogicalEncoding::Vertex(VertexLogical::MortonDelta(Morton::new(bits, shift)?)),
+                    flat_int(p),
+                )
+            }
+            Self::Vertex(LogicalVertex::MortonPlain(p)) => {
+                let (after, bits) = parse_varint::<u32>(input)?;
+                let (after, shift) = parse_varint::<u32>(after)?;
+                rest = after;
+                IntEncoding::new(
+                    LogicalEncoding::Vertex(VertexLogical::Morton(Morton::new(bits, shift)?)),
                     flat_int(p),
                 )
             }
@@ -897,14 +922,16 @@ fn wire_fields(
                 "v2, whose bool columns have no byte-RLE",
             ));
         }
-        // v2 stores Morton codes only as a sorted dictionary, whose deltas are always the shorter form.
         LE::Vertex(VL::MortonDelta(_)) => {
             with_length(Logical::Morton, physical_int_field(encoding.physical)?)
         }
-        LE::Vertex(VL::Morton(_) | VL::MortonRle(_)) => {
+        LE::Vertex(VL::Morton(_)) => {
+            with_length(Logical::MortonPlain, physical_int_field(encoding.physical)?)
+        }
+        LE::Vertex(VL::MortonRle(_)) => {
             return Err(MltError::UnsupportedLogicalEncoding(
                 encoding.logical,
-                "v2, whose Morton streams are always delta-coded",
+                "v2 Morton streams",
             ));
         }
     })
@@ -1026,7 +1053,9 @@ pub(crate) fn write_stream_meta<W: io::Write>(
         writer.write_varint(alp.scale.f)?;
         writer.write_varint(alp.base)?;
     }
-    if let LE::Vertex(VertexLogical::MortonDelta(morton)) = meta.encoding.logical {
+    if let LE::Vertex(VertexLogical::MortonDelta(morton) | VertexLogical::Morton(morton)) =
+        meta.encoding.logical
+    {
         writer.write_varint(morton.bits)?;
         writer.write_varint(morton.shift)?;
     }
@@ -1559,7 +1588,7 @@ mod tests {
     #[case::bool_logical_past_table(BOOL, 0b0010_0100)]
     #[case::float_dict_with_extension(FLOAT, 0b0011_0101)]
     #[case::float_alp_with_extension(FLOAT, 0b0010_1001)]
-    #[case::vertex_logical_past_table(VERTEX, 0b0100_1000)]
+    #[case::vertex_logical_past_table(VERTEX, 0b0101_1000)]
     #[case::float_physical_varint(FLOAT, 0b0000_1000)]
     #[case::float_physical_fastpfor(FLOAT, 0b0000_1100)]
     #[case::bool_physical_varint(BOOL, 0b0000_1000)]

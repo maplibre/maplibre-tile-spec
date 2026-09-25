@@ -509,6 +509,28 @@ pub(super) fn encode_hilbert_vertex_streams(
     Ok(n)
 }
 
+/// Encode a Morton-keyed vertex dictionary the way v2 orders it with raw (non-delta) codes:
+/// the plain Morton-code dictionary, then the per-vertex offsets into it.
+#[cfg(feature = "unstable-v2")]
+pub(super) fn encode_morton_plain_vertex_streams02(
+    vertices: &[i32],
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    let morton = get_morton(enc);
+    let (dict, offsets) = build_morton_dict(vertices, morton)?;
+
+    let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Morton), "vertex");
+    let logical = LogicalEncoding::Vertex(VertexLogical::Morton(morton));
+    enc.family_context = Family::Vertex;
+    write_geo_precomputed_stream(&dict, ctx, logical, enc, &mut codecs.physical, true)?;
+
+    let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Vertex), "vertex_offsets");
+    enc.family_context = Family::Int(WordWidth::W32);
+    write_geo_u32_stream(&offsets, ctx, enc, codecs)?;
+    Ok(())
+}
+
 /// Encode a Morton-keyed vertex dictionary the way v2 orders it: the delta-coded
 /// Morton-code dictionary, then the per-vertex offsets into it.
 #[cfg(feature = "unstable-v2")]

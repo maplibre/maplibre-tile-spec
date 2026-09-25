@@ -1,12 +1,13 @@
 //! Rust synthetic MLT file generator.
 //!
-//! Verifies non-rust synthetics in-memory against the reference `0x01/` dir.
+//! Verifies v1 synthetics against the reference `0x01/` dir (Java is the canonical v1 encoder).
+//! Rust is the only v2 encoder, so all v2 fixtures live directly in `0x02/`.
 //!
-//! * If the test exists in `0x01/` dir, validates that Rust-generated one is identical
-//! * If the test does not match the one in `0x01/` dir, it gets written to `0x01-rust/` dir.
+//! * If the v1 test exists in `0x01/` dir, validates that Rust-generated one is identical
+//! * If the v1 test does not match `0x01/`, it gets written to `0x01-rust/` dir.
 //! * Tests with `_fsst` in their name are expected to produce different-but-compatible output,
-//!   and their output is placed into `0x01-rust/` dir.
-//! * Tests with the `-rust` suffix are also written to `0x01-rust/` dir, except without the suffix.
+//!   and their v1 output is placed into `0x01-rust/` dir.
+//! * Tests with the `-rust` suffix are written to `0x01-rust/` (v1) or `0x02/` (v2), without the suffix.
 //! * All tests written to `0x01-rust/` are also validated against the .json file with the same name in `0x01/`
 //!
 //! ### Common filename abbreviations
@@ -161,6 +162,13 @@ fn generate_geometry(w: &mut SynthWriter) {
         .write(w, "line_morton_curve_morton");
     geo_varint()
         .geo(LineString::new(morton_curve()))
+        .vertex_buffer_type(VertexBufferType::Morton)
+        .morton_plain()
+        .vertex_offsets(E::delta_rle_varint())
+        .no_v1()
+        .write(w, "line_morton_curve_morton_plain");
+    geo_varint()
+        .geo(LineString::new(morton_curve()))
         .vertex_buffer_type(VertexBufferType::Vec2)
         .vertex_offsets(E::delta_rle_varint())
         .write(w, "line_morton_curve_no_morton");
@@ -310,9 +318,23 @@ fn generate_geometry(w: &mut SynthWriter) {
         .write(w, "multipoint_morton_dictionary-rust");
     geo_varint()
         .vertex_buffer_type(VertexBufferType::Morton)
+        .morton_plain()
+        .vertex_offsets(E::delta_rle_varint())
+        .no_v1()
+        .geo(MultiPoint(morton_curve().into_iter().map(Point).collect()))
+        .write(w, "multipoint_morton_plain");
+    geo_varint()
+        .vertex_buffer_type(VertexBufferType::Morton)
         .vertex_offsets(E::delta_rle_varint())
         .geos(morton_curve().into_iter().map(Point))
         .write(w, "point_morton_dictionary-rust");
+    geo_varint()
+        .vertex_buffer_type(VertexBufferType::Morton)
+        .morton_plain()
+        .vertex_offsets(E::delta_rle_varint())
+        .no_v1()
+        .geos(morton_curve().into_iter().map(Point))
+        .write(w, "point_morton_plain");
     // Split the Morton curve at a different place so that the rings are different lengths,
     // use one as the shell and one as the hole of a single and multi-polygon.
     let quarter = mc.len() / 4;

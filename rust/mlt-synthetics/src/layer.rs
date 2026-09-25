@@ -7,8 +7,8 @@ use std::path::Path;
 use mlt_core::GeometryValues;
 use mlt_core::encoder::{
     Codecs, ColumnKind, Encoder, EncoderConfig, ExplicitEncoder, FloatEncoding, IntEncoder,
-    Presence, StagedId, StagedLayer, StagedMValue, StagedNested, StagedProperty, StagedSharedDict,
-    StrEncoding, StreamCtx, VertexBufferType, WireVersion,
+    MortonDictVariant, Presence, StagedId, StagedLayer, StagedMValue, StagedNested, StagedProperty,
+    StagedSharedDict, StrEncoding, StreamCtx, VertexBufferType, WireVersion,
 };
 use mlt_core::geo_types::{Coord, Geometry};
 use mlt_core::wire::{LengthType, OffsetType, StreamType};
@@ -174,6 +174,7 @@ pub struct Layer {
     /// Per-stream overrides; key is the stream name (e.g. `"meta"`, `"rings"`).
     geo_stream_overrides: HashMap<&'static str, IntEncoder>,
     vertex_buffer_type: VertexBufferType,
+    morton_dict_variant: MortonDictVariant,
     tessellate: bool,
     /// Geometry stream names that must be written even when their data is empty.
     /// See [`ExplicitEncoder::force_stream`] for details.
@@ -200,6 +201,7 @@ impl Layer {
             default_geo_enc: default_enc,
             geo_stream_overrides: HashMap::new(),
             vertex_buffer_type: VertexBufferType::Vec2,
+            morton_dict_variant: MortonDictVariant::default(),
             tessellate: false,
             force_empty_streams: HashSet::new(),
             geometry_items: vec![],
@@ -275,6 +277,13 @@ impl Layer {
     #[must_use]
     pub fn vertex_buffer_type(mut self, v: VertexBufferType) -> Self {
         self.vertex_buffer_type = v;
+        self
+    }
+    /// Write the Morton vertex dictionary as raw sorted codes rather than delta-encoded.
+    /// Only affects v2; v1 always uses delta. Requires `vertex_buffer_type(Morton)`.
+    #[must_use]
+    pub fn morton_plain(mut self) -> Self {
+        self.morton_dict_variant = MortonDictVariant::Plain;
         self
     }
     #[must_use]
@@ -660,6 +669,7 @@ impl Layer {
             default_geo_enc,
             geo_stream_overrides,
             vertex_buffer_type,
+            morton_dict_variant,
             tessellate,
             force_empty_streams,
             geometry_items,
@@ -706,6 +716,7 @@ impl Layer {
 
         let cfg = ExplicitEncoder {
             vertex_buffer_type,
+            morton_dict_variant,
             force_stream: Box::new(move |ctx: &StreamCtx<'_>| {
                 ctx.kind == ColumnKind::Geometry && force_empty_streams.contains(ctx.name)
             }),
