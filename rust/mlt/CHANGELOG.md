@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.2.0...rust-mlt-v0.2.1) - 2026-09-25
+
+### Added
+
+- *(docs)* show all possible filters with dynamic counts ([#1773](https://github.com/maplibre/maplibre-tile-spec/pull/1773))
+
 ## [0.2.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-v0.1.38...rust-mlt-v0.2.0) - 2026-09-25
 
 ### Other
