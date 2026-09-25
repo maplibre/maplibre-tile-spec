@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.31](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.30...rust-mlt-wasm-v0.1.31) - 2026-09-25
+
+### Added
+
+- *(docs)* add layer name to the inspector ([#1767](https://github.com/maplibre/maplibre-tile-spec/pull/1767))
+- *(docs)* show geometry visualization in inspector ([#1763](https://github.com/maplibre/maplibre-tile-spec/pull/1763))
+
+### Other
+
+- *(rust)* re-add ByteRLE for presence variants ([#1768](https://github.com/maplibre/maplibre-tile-spec/pull/1768))
+
 ## [0.1.30](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.29...rust-mlt-wasm-v0.1.30) - 2026-09-23
 
 ### Added

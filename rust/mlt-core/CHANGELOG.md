@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.14.5...rust-mlt-core-v0.15.0) - 2026-09-25
+
+### Added
+
+- *(docs)* add layer name to the inspector ([#1767](https://github.com/maplibre/maplibre-tile-spec/pull/1767))
+
+### Other
+
+- *(rust)* [**breaking**] split Layer01 and Layer02 ([#1771](https://github.com/maplibre/maplibre-tile-spec/pull/1771))
+- *(rust)* re-add ByteRLE for presence variants ([#1768](https://github.com/maplibre/maplibre-tile-spec/pull/1768))
+- *(rust)* add i8 and u8 property synthetics, mark them as stable in v2 and remove them from v1 because broken ([#1769](https://github.com/maplibre/maplibre-tile-spec/pull/1769))
+- *(docs)* inspector m-value and types filter ([#1760](https://github.com/maplibre/maplibre-tile-spec/pull/1760))
+
 ## [0.14.5](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.14.4...rust-mlt-core-v0.14.5) - 2026-09-23
 
 ### Added
