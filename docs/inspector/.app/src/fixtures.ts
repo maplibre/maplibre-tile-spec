@@ -33,7 +33,7 @@ export function fixtureTag(entry: FixtureEntry): string {
  */
 
 /** Section headings, in the order the sheet stacks them. */
-export const SECTIONS = ["Layer", "Geometry", "Columns", "Streams"] as const;
+export const SECTIONS = ["Geometry", "Columns", "Streams"] as const;
 export type Section = (typeof SECTIONS)[number];
 
 /**
@@ -60,7 +60,8 @@ export interface Axis {
   key: string;
   /** Row label in the sheet. */
   label: string;
-  section: Section;
+  /** Section the row sits under, or `null` to sit above them all, always in view. */
+  section: Section | null;
   /** What v2 can hold, in spec order. The index may carry none of it. */
   vocabulary: readonly string[];
   /** The values one entry carries. */
@@ -79,21 +80,11 @@ export const AXES: Axis[] = [
   {
     key: "tag",
     label: "tag",
-    section: "Layer",
+    // Above the sections: which wire version a tile is written in is the one thing worth
+    // narrowing by before anything else, and there are only two of them.
+    section: null,
     vocabulary: ["0x01", "0x02"],
     of: (entry) => [fixtureTag(entry)],
-  },
-  {
-    key: "extent",
-    label: "extent",
-    section: "Layer",
-    // Listed from the index rather than from the spec, unlike every other axis. v2 codes
-    // a power of two from 64 to 2097152 and v1 restricts nothing, so no one vocabulary
-    // covers the row: the corpus has both 32 and 1073741824. An extent is a measurement
-    // of the tile rather than a feature to show off, so a value nothing uses is not a gap.
-    vocabulary: [],
-    sort: (a, b) => Number(a) - Number(b),
-    of: field("extent"),
   },
   {
     key: "geometry",
@@ -130,6 +121,18 @@ export const AXES: Axis[] = [
       "tess-polygons-with-outlines",
     ],
     of: field("geomLayout"),
+  },
+  {
+    key: "extent",
+    label: "extent",
+    section: "Geometry",
+    // Listed from the index rather than from the spec, unlike every other axis. v2 codes
+    // a power of two from 64 to 2097152 and v1 restricts nothing, so no one vocabulary
+    // covers the row: the corpus has both 32 and 1073741824. An extent is a measurement
+    // of the tile rather than a feature to show off, so a value nothing uses is not a gap.
+    vocabulary: [],
+    sort: (a, b) => Number(a) - Number(b),
+    of: field("extent"),
   },
   {
     key: "dataType",
@@ -309,6 +312,11 @@ export function searchVocabulary(
 /** The rows of one section, for the sheet and the coverage view. */
 export function sectionRows(rows: AxisRow[], section: Section): AxisRow[] {
   return rows.filter((row) => row.section === section);
+}
+
+/** The rows that sit above the sections, shown whichever section is open. */
+export function pinnedRows(rows: AxisRow[]): AxisRow[] {
+  return rows.filter((row) => row.section === null);
 }
 
 /** Values v2 defines that no fixture in the index carries: the gaps worth filling. */

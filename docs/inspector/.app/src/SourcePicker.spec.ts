@@ -114,8 +114,25 @@ describe("the filter sheet", () => {
   it("starts with every section collapsed, so the list stays in view", async () => {
     const view = picker();
     await view.get(".open").trigger("click");
-    expect(view.findAll(".section-head")).toHaveLength(4);
-    expect(view.findAll(".facet")).toHaveLength(0);
+    expect(view.findAll(".section-head")).toHaveLength(3);
+    // The pinned tag row is the only one shown, since it sits above the sections.
+    expect(
+      view.findAll(".facet").map((it) => it.get(".facet-label").text()),
+    ).toEqual(["tag"]);
+  });
+
+  it("keeps one section open at a time, so the list is never pushed off", async () => {
+    const view = await sheetWith(picker(), "Geometry");
+    expect(chips(view, "geometry")).not.toHaveLength(0);
+    await sheetWith(view, "Streams");
+    expect(chips(view, "logical")).not.toHaveLength(0);
+    expect(chips(view, "geometry")).toHaveLength(0);
+  });
+
+  it("closes the open section when its heading is clicked again", async () => {
+    const view = await sheetWith(picker(), "Geometry");
+    await sheetWith(view, "Geometry");
+    expect(chips(view, "geometry")).toHaveLength(0);
   });
 
   it("offers the whole vocabulary, not just what the index carries", async () => {
@@ -162,14 +179,21 @@ describe("the filter sheet", () => {
     expect(view.emitted("update:filters")).toEqual([[[]]]);
   });
 
-  it("shows the section holding a pick already open, with a count", async () => {
+  /** The badge is what says where the picks are; opening the section is the reader's call. */
+  it("counts the picks on a collapsed section rather than opening it", async () => {
     const view = picker(["geometry:point"]);
     await view.get(".open").trigger("click");
     const head = view
       .findAll(".section-head")
       .find((it) => it.text().includes("Geometry"));
-    expect(head?.attributes("aria-expanded")).toBe("true");
+    expect(head?.attributes("aria-expanded")).toBe("false");
     expect(head?.get(".badge").text()).toBe("1");
+  });
+
+  it("shows the tag row without opening anything, since it sits above the sections", async () => {
+    const view = picker();
+    await view.get(".open").trigger("click");
+    expect(chips(view, "tag").map(textOf)).toEqual(["0x011", "0x021"]);
   });
 
   it("offers a chip for a word that is in no file name", async () => {

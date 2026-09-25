@@ -10,6 +10,7 @@ import {
   fixtureKey,
   fuzzyMatch,
   matchesAxes,
+  pinnedRows,
   SECTIONS,
   type Section,
   type SortKey,
@@ -50,17 +51,18 @@ function clearFacets() {
   filters.value = [];
 }
 
-/** Sections the reader opened. One holding a pick is shown open whatever this says. */
-const opened = ref(new Set<Section>());
+/**
+ * The one open section, if any: a second one would push the fixture list off the screen,
+ * which is the thing the sheet is for. A closed section still shows its pick count.
+ */
+const opened = ref<Section | null>(null);
 
 function openSection(section: Section) {
-  const next = new Set(opened.value);
-  if (!next.delete(section)) next.add(section);
-  opened.value = next;
+  opened.value = opened.value === section ? null : section;
 }
 
 function isOpen(section: Section): boolean {
-  return opened.value.has(section) || picksIn(section) > 0;
+  return opened.value === section;
 }
 
 function picksIn(section: Section): number {
@@ -325,6 +327,29 @@ function fetchUrl() {
               <span class="axis">{{ chip.row.label }}</span>
               {{ chip.value.value
               }}<span class="drop" aria-hidden="true">&times;</span>
+            </button>
+          </div>
+
+          <div
+            v-for="row in pinnedRows(rows)"
+            :key="row.key"
+            class="facet pinned"
+          >
+            <span class="facet-label">{{ row.label }}</span>
+            <button
+              v-for="option in row.values"
+              :key="option.value"
+              type="button"
+              class="chip"
+              :class="chipClass(row, option)"
+              :aria-pressed="picked.has(axisKey(row, option.value))"
+              :disabled="!coverage && chipOff(row, option)"
+              @click="toggle(axisKey(row, option.value))"
+            >
+              {{ option.value
+              }}<span class="tally">{{
+                coverage ? option.total : option.count
+              }}</span>
             </button>
           </div>
 
