@@ -163,7 +163,7 @@ fn stream_token(stream: StreamType) -> &'static str {
             OffsetType::Key => "offset[key]",
         },
         StreamType::Length(v) => match v {
-            LengthType::VarBinary => "length[varbinary]",
+            LengthType::VarBinary => "length[var-binary]",
             LengthType::Geometries => "length[geometries]",
             LengthType::Parts => "length[parts]",
             LengthType::Rings => "length[rings]",
@@ -205,7 +205,7 @@ fn physical_token(physical: PhysicalEncoding) -> Option<&'static str> {
         },
         PhysicalEncoding::VarInt => "varint",
         #[cfg(feature = "unstable-v2")]
-        PhysicalEncoding::BitPacked => "bitpacked",
+        PhysicalEncoding::BitPacked => "bit-packed",
         #[cfg(not(feature = "unstable-v2"))]
         #[allow(
             unreachable_patterns,
@@ -753,24 +753,29 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
     // Column storage and the geometry layout are only readable before decoding
     // resolves them away, so they are collected on this pass rather than the next.
     for layer in &layers {
-        let layer01 = match layer {
-            Layer::Tag01(l) => l,
+        match layer {
+            Layer::Tag01(l) => {
+                l.for_each_stream(&mut |stream_meta| {
+                    stream_count += 1;
+                    collect_stream_info(stream_meta, &mut algorithms);
+                });
+                l.for_each_column_storage(&mut |storage| facets.add_storage(storage));
+                facets.extent.insert(l.extent().get().to_string());
+            }
             #[cfg(feature = "unstable-v2")]
-            Layer::Tag02(l) => l.layer(),
+            Layer::Tag02(l) => {
+                l.for_each_stream(&mut |stream_meta| {
+                    stream_count += 1;
+                    collect_stream_info(stream_meta, &mut algorithms);
+                });
+                l.for_each_column_storage(&mut |storage| facets.add_storage(storage));
+                facets.extent.insert(l.layer().extent().get().to_string());
+                facets
+                    .geom_layout
+                    .insert(geom_layout_token(l.layout().geometry).to_string());
+            }
             // Unknown, and any tag a later version adds
-            _ => continue,
-        };
-        layer01.for_each_stream(&mut |stream_meta| {
-            stream_count += 1;
-            collect_stream_info(stream_meta, &mut algorithms);
-        });
-        layer01.for_each_column_storage(&mut |storage| facets.add_storage(storage));
-        facets.extent.insert(layer01.extent().get().to_string());
-        #[cfg(feature = "unstable-v2")]
-        if let Layer::Tag02(layer02) = layer {
-            facets
-                .geom_layout
-                .insert(geom_layout_token(layer02.layout().geometry).to_string());
+            _ => {}
         }
     }
 

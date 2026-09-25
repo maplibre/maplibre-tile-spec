@@ -6,8 +6,10 @@ use crate::codecs::morton::{deinterleave_u64, interleave_u32};
 use crate::codecs::presence_coding::PresenceCoding;
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{GeometryType, ParsedMValue, ParsedNested};
+use crate::decoder::{ColumnStorage, StreamMeta};
 use crate::{
-    DecodeState, Layer01, Lazy, MValueColumn, MltError, MltRefResult, MltResult, Nested, Parsed,
+    Analyze as _, DecodeState, LazyParsed, Layer01, Lazy, MValueColumn, MltError, MltRefResult,
+    MltResult, Nested, Parsed,
 };
 
 /// A tag `0x02` layer: the shared [`Layer01`] core plus the columns only v2 has.
@@ -49,6 +51,41 @@ impl<'a, S: DecodeState> Layer02<'a, S> {
     #[must_use]
     pub fn layout(&self) -> LayerLayout {
         self.layout
+    }
+}
+
+#[cfg(feature = "unstable-v2")]
+impl<'a> Layer02<'a, Lazy> {
+    /// Walk every stream in this layer, including the v2-only nested and m-value columns.
+    pub fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
+        self.layer.for_each_stream(cb);
+        for nested in &self.nested {
+            if let LazyParsed::Raw(raw) = nested {
+                raw.for_each_stream(cb);
+            }
+        }
+        for mvalue in &self.m_values {
+            if let LazyParsed::Raw(raw) = mvalue {
+                raw.for_each_stream(cb);
+            }
+        }
+    }
+
+    /// Walk every column's storage descriptor, including v2-only string m-values and nested string leaves.
+    pub fn for_each_column_storage(&self, cb: &mut dyn FnMut(ColumnStorage)) {
+        self.layer.for_each_column_storage(cb);
+        for mvalue in &self.m_values {
+            if let LazyParsed::Raw(raw) = mvalue {
+                if let Some(storage) = raw.storage() {
+                    cb(storage);
+                }
+            }
+        }
+        for nested in &self.nested {
+            if let LazyParsed::Raw(raw) = nested {
+                raw.for_each_string_storage(cb);
+            }
+        }
     }
 }
 

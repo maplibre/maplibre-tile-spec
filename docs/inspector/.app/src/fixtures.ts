@@ -171,7 +171,7 @@ export const AXES: Axis[] = [
       "offset[index]",
       "offset[string]",
       "offset[key]",
-      "length[varbinary]",
+      "length[var-binary]",
       "length[geometries]",
       "length[parts]",
       "length[rings]",
@@ -186,7 +186,7 @@ export const AXES: Axis[] = [
     key: "physical",
     label: "physical",
     section: "Streams",
-    vocabulary: ["varint", "bitpacked", "fastpfor[256be]", "fastpfor[128le]"],
+    vocabulary: ["varint", "bit-packed", "fastpfor[256be]", "fastpfor[128le]"],
     of: field("physical"),
   },
   {

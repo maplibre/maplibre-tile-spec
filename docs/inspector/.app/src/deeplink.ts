@@ -1,6 +1,6 @@
 /** The `fixture`, `url`, `layer` and `region` query parameters, the whole deep-link contract. */
 
-import { tileAddress } from "./fixtures.ts";
+import { AXES, tileAddress } from "./fixtures.ts";
 
 export interface DeepLink {
   /** Index key of a synthetic fixture, `<dir>/<name>`. An added tile has none. */
@@ -15,6 +15,8 @@ export interface DeepLink {
   filters: string[];
 }
 
+const knownAxes = new Set(AXES.map((a) => a.key));
+
 export function readDeepLink(search: string): DeepLink {
   const params = new URLSearchParams(search);
   const raw = params.get("url");
@@ -24,7 +26,10 @@ export function readDeepLink(search: string): DeepLink {
     layer: index(params.get("layer")),
     region: index(params.get("region")),
     // Repeated rather than joined: a value may hold any punctuation the spec spells it with.
-    filters: params.getAll("f").filter((value) => value.includes(":")),
+    filters: params.getAll("f").filter((value) => {
+      const colon = value.indexOf(":");
+      return colon > 0 && knownAxes.has(value.slice(0, colon));
+    }),
   };
 }
 

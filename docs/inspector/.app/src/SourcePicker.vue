@@ -306,6 +306,7 @@ function fetchUrl() {
               type="button"
               class="chip hit"
               :class="chipClass(hit.axis, hit.value)"
+              :disabled="!coverage && chipOff(hit.axis, hit.value)"
               @click="toggle(axisKey(hit.axis, hit.value.value))"
             >
               <span class="axis">{{ hit.axis.label }}</span>
