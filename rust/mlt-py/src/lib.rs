@@ -294,7 +294,7 @@ mod tests {
 
     fn first_layer01<'a, 'b>(layers: &'b [ParsedLayer<'a>]) -> &'b ParsedLayer01<'a> {
         let ParsedLayer::Tag01(l) = &layers[0] else {
-            panic!("first layer should be v0.1")
+            panic!("first layer should be 0x01")
         };
         l
     }
