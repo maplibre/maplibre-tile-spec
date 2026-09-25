@@ -265,7 +265,7 @@ fn list_layers(
     let layers = Parser::default().parse_layers(data).map_err(mlt_err)?;
     Ok(layers
         .iter()
-        .filter_map(|l| l.as_layer01().map(|l| l.name().to_string()))
+        .filter_map(|l| l.name().map(str::to_string))
         .collect())
 }
 
@@ -288,9 +288,16 @@ mod tests {
     use std::f64::consts::PI;
     use std::fs;
 
-    use mlt_core::{Decoder, GeometryValues};
+    use mlt_core::{Decoder, GeometryValues, ParsedLayer};
 
     use super::*;
+
+    fn first_layer01<'a, 'b>(layers: &'b [ParsedLayer<'a>]) -> &'b ParsedLayer01<'a> {
+        let ParsedLayer::Tag01(l) = &layers[0] else {
+            panic!("first layer should be 0x01")
+        };
+        l
+    }
 
     fn geom_to_wkb(
         geom: &GeometryValues,
@@ -394,7 +401,7 @@ mod tests {
         let decoded = dec.decode_all(layers).expect("decode_all should succeed");
 
         assert!(!decoded.is_empty(), "should parse at least one layer");
-        let l = decoded[0].as_layer01().expect("first layer should be v0.1");
+        let l = first_layer01(&decoded);
         assert!(!l.name().is_empty(), "layer name should be non-empty");
 
         let fc = FeatureCollection::from_layers(decoded).expect("FeatureCollection should succeed");
@@ -416,7 +423,7 @@ mod tests {
         let mut dec = Decoder::default();
         let decoded = dec.decode_all(layers).expect("decode_all should succeed");
 
-        let l = decoded[0].as_layer01().expect("first layer should be v0.1");
+        let l = first_layer01(&decoded);
         let geom = l.geometry_values();
 
         let wkb = geom_to_wkb(geom, 0, None).expect("geom_to_wkb should succeed");
@@ -444,7 +451,7 @@ mod tests {
         let mut dec = Decoder::default();
         let decoded = dec.decode_all(layers).expect("decode_all should succeed");
 
-        let l = decoded[0].as_layer01().expect("first layer should be v0.1");
+        let l = first_layer01(&decoded);
         let geom = l.geometry_values();
 
         let xf = TileTransform::from_zxy(0, 0, 0, l.extent().get(), false).unwrap();
@@ -475,7 +482,7 @@ mod tests {
         let mut dec = Decoder::default();
         let decoded = dec.decode_all(layers).expect("decode_all should succeed");
 
-        let l = decoded[0].as_layer01().expect("first layer should be v0.1");
+        let l = first_layer01(&decoded);
         let geom = l.geometry_values();
 
         let wkb = geom_to_wkb(geom, 0, None).expect("geom_to_wkb should succeed");

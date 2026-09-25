@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Debug;
 
 use crate::decoder::Layer01;
-use crate::{Decoder, Layer, MltRefResult, Parser, PropValue, TileLayer};
+use crate::{Decoder, Layer, Lazy, MltRefResult, Parser, PropValue, TileLayer};
 
 /// Assert that `len`/`size_hint` equal the number of items actually left, at every
 /// position reachable by consuming from the front, the back, or both alternately.
@@ -87,11 +87,25 @@ pub fn assert_empty<T>(result: MltRefResult<T>) -> T {
 
 #[must_use]
 pub fn into_layer01(layer: Layer) -> Layer01 {
-    match layer {
-        Layer::Tag01(v) => v,
-        #[cfg(feature = "unstable-v2")]
-        Layer::Tag02(v) => v,
-        Layer::Unknown(v) => panic!("expected Tag01/02 layer, got Tag{:02x}", v.tag),
+    layer.into_layer01().expect("expected a Tag01/02 layer")
+}
+
+/// Test-only shorthand for a layer's shared columns, dropping any a version adds.
+///
+/// Not offered to users: real code takes the whole layer through `into_tile`, or
+/// matches on the version it means.
+pub trait IntoLayer01<'a> {
+    fn into_layer01(self) -> Option<Layer01<'a, Lazy>>;
+}
+
+impl<'a> IntoLayer01<'a> for Layer<'a, Lazy> {
+    fn into_layer01(self) -> Option<Layer01<'a, Lazy>> {
+        match self {
+            Layer::Tag01(v) => Some(v),
+            #[cfg(feature = "unstable-v2")]
+            Layer::Tag02(v) => Some(v.into_layer()),
+            Layer::Unknown(_) => None,
+        }
     }
 }
 

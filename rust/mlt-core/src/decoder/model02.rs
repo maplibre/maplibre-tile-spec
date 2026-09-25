@@ -5,8 +5,56 @@ use num_enum::TryFromPrimitive;
 use crate::codecs::morton::{deinterleave_u64, interleave_u32};
 use crate::codecs::presence_coding::PresenceCoding;
 use crate::codecs::varint::parse_varint;
-use crate::decoder::GeometryType;
-use crate::{MltError, MltRefResult, MltResult};
+use crate::decoder::{GeometryType, ParsedMValue, ParsedNested};
+use crate::{
+    DecodeState, Layer01, Lazy, MValueColumn, MltError, MltRefResult, MltResult, Nested, Parsed,
+};
+
+/// A tag `0x02` layer: the shared [`Layer01`] core plus the columns only v2 has.
+///
+/// v1 is a subset of v2, so a later version that diverges further gets its own type
+/// here rather than more optional fields on the shared one.
+#[cfg(feature = "unstable-v2")]
+#[derive(Debug, Clone)]
+pub struct Layer02<'a, S: DecodeState = Lazy> {
+    pub(crate) layer: Layer01<'a, S>,
+    /// Nested columns, each a tree over the features it marks present.
+    pub(crate) nested: Vec<Nested<'a, S>>,
+    /// Vertex-scoped columns, each running over every vertex of every feature
+    /// it marks present.
+    pub(crate) m_values: Vec<MValueColumn<'a, S>>,
+}
+
+#[cfg(feature = "unstable-v2")]
+pub type ParsedLayer02<'a> = Layer02<'a, Parsed>;
+
+#[cfg(feature = "unstable-v2")]
+impl<'a, S: DecodeState> Layer02<'a, S> {
+    /// The parts this layer shares with every other version.
+    #[must_use]
+    pub fn layer(&self) -> &Layer01<'a, S> {
+        &self.layer
+    }
+
+    /// Drop the v2-only columns, keeping the shared core.
+    #[must_use]
+    pub fn into_layer(self) -> Layer01<'a, S> {
+        self.layer
+    }
+}
+
+#[cfg(feature = "unstable-v2")]
+impl ParsedLayer02<'_> {
+    #[must_use]
+    pub fn m_values(&self) -> &[ParsedMValue<'_>] {
+        &self.m_values
+    }
+
+    #[must_use]
+    pub fn nested(&self) -> &[ParsedNested<'_>] {
+        &self.nested
+    }
+}
 
 /// Data type of a v2 property column, the low nibble of the column type byte.
 ///

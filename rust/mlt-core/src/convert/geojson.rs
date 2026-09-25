@@ -12,7 +12,7 @@ use crate::decoder::PropValueRef;
 use crate::{LendingIterator, MltResult, ParsedLayer};
 #[cfg(feature = "unstable-v2")]
 use crate::{
-    ParsedLayer01,
+    ParsedLayer02,
     tile::{MValue, NestedValue},
 };
 
@@ -30,19 +30,26 @@ impl FeatureCollection {
     pub fn from_layers<'a>(layers: impl IntoIterator<Item = ParsedLayer<'a>>) -> MltResult<Self> {
         let mut features = Vec::new();
         for layer in layers {
-            let Some(parsed) = layer.into_layer01() else {
-                continue;
+            // Read the v2-only columns first: the rest of the loop needs only the
+            // shared ones, which is all `parsed` keeps.
+            #[cfg(feature = "unstable-v2")]
+            let mut m_values = match &layer {
+                ParsedLayer::Tag01(_) | ParsedLayer::Unknown(_) => Vec::new().into_iter(),
+                ParsedLayer::Tag02(l) => m_value_properties(l)?.into_iter(),
+            };
+            #[cfg(feature = "unstable-v2")]
+            let mut nested = match &layer {
+                ParsedLayer::Tag01(_) | ParsedLayer::Unknown(_) => Vec::new().into_iter(),
+                ParsedLayer::Tag02(l) => nested_properties(l)?.into_iter(),
+            };
+            let parsed = match layer {
+                ParsedLayer::Tag01(l) => l,
+                #[cfg(feature = "unstable-v2")]
+                ParsedLayer::Tag02(l) => l.into_layer(),
+                ParsedLayer::Unknown(_) => continue,
             };
             let layer_name = parsed.name();
             let extent = parsed.extent().get();
-            // Vertex-scoped columns have no GeoJSON of their own, so each rides
-            // along as an `m:`-prefixed array property of its feature.
-            #[cfg(feature = "unstable-v2")]
-            let mut m_values = m_value_properties(&parsed)?.into_iter();
-            // A nested column is an object or an array, so it serializes under its
-            // own name with nothing to mark it apart from a flat property.
-            #[cfg(feature = "unstable-v2")]
-            let mut nested = nested_properties(&parsed)?.into_iter();
             let mut feat_iter = parsed.iter_features();
             while let Some(feat) = feat_iter.next() {
                 let feat = feat?;
@@ -264,8 +271,8 @@ pub fn f64_to_json(f: f64) -> Value {
 /// A feature with no values for a column has no property for it, the way a null
 /// property is left out.
 #[cfg(feature = "unstable-v2")]
-fn m_value_properties(layer: &ParsedLayer01<'_>) -> MltResult<Vec<Vec<(String, Value)>>> {
-    let geometry = layer.geometry_values();
+fn m_value_properties(layer: &ParsedLayer02<'_>) -> MltResult<Vec<Vec<(String, Value)>>> {
+    let geometry = layer.layer().geometry_values();
     let mut features = vec![Vec::new(); geometry.feature_count()];
     for column in layer.m_values() {
         let key = format!("m:{}", column.name());
@@ -281,8 +288,8 @@ fn m_value_properties(layer: &ParsedLayer01<'_>) -> MltResult<Vec<Vec<(String, V
 
 /// Every feature's nested columns as JSON, one entry per column under its own name.
 #[cfg(feature = "unstable-v2")]
-fn nested_properties(layer: &ParsedLayer01<'_>) -> MltResult<Vec<Vec<(String, Value)>>> {
-    let mut features = vec![Vec::new(); layer.geometry_values().feature_count()];
+fn nested_properties(layer: &ParsedLayer02<'_>) -> MltResult<Vec<Vec<(String, Value)>>> {
+    let mut features = vec![Vec::new(); layer.layer().geometry_values().feature_count()];
     for column in layer.nested() {
         for (index, feature) in features.iter_mut().enumerate() {
             feature.push((

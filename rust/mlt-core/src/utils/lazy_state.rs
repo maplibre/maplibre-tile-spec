@@ -1,5 +1,5 @@
 use std::any::type_name;
-use std::mem;
+use std::{fmt, mem};
 
 use crate::{Decoder, MltError, MltResult};
 
@@ -17,7 +17,7 @@ mod sealed {
 /// - [`Lazy`] stores an [`LazyParsed<Raw, Parsed>`] enum that can be in `Raw`, `Parsed`, or `ParsingFailed` state.
 /// - [`Parsed`] stores only `Parsed`, giving zero-cost infallible field access.
 pub trait DecodeState: sealed::Sealed {
-    type LazyOrParsed<Raw, Parsed>;
+    type LazyOrParsed<Raw: fmt::Debug + Clone, Parsed: fmt::Debug + Clone>: fmt::Debug + Clone;
 }
 
 /// Lazy state: individual columns may still be raw or already decoded.
@@ -40,11 +40,12 @@ impl sealed::Sealed for Lazy {}
 impl sealed::Sealed for Parsed {}
 
 impl DecodeState for Lazy {
-    type LazyOrParsed<Raw, Parsed> = LazyParsed<Raw, Parsed>;
+    type LazyOrParsed<Raw: fmt::Debug + Clone, Parsed: fmt::Debug + Clone> =
+        LazyParsed<Raw, Parsed>;
 }
 impl DecodeState for Parsed {
     /// In the decoded state the column IS the parsed value - no enum wrapper.
-    type LazyOrParsed<Raw, Parsed> = Parsed;
+    type LazyOrParsed<Raw: fmt::Debug + Clone, Parsed: fmt::Debug + Clone> = Parsed;
 }
 
 /// Shared wrapper for values that may still be in the original (raw) format or

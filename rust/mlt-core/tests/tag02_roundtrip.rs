@@ -38,14 +38,15 @@ fn decode(bytes: &[u8]) -> (u8, TileLayer) {
         Layer::Tag02(_) => 2,
         _ => panic!("unexpected layer kind"),
     };
-    let layer = layers
+    let mut dec = Decoder::default();
+    let tile = layers
         .into_iter()
         .next()
         .unwrap()
-        .into_layer01()
-        .expect("layer01 representation");
-    let mut dec = Decoder::default();
-    (tag, layer.into_tile(&mut dec).expect("into_tile"))
+        .into_tile(&mut dec)
+        .expect("into_tile")
+        .expect("a known layer tag");
+    (tag, tile)
 }
 
 fn assert_differential(layer: &TileLayer) -> (usize, usize) {
@@ -483,7 +484,7 @@ fn multiple_layers() {
     let mut dec = Decoder::default();
     for l in layers {
         assert!(matches!(l, Layer::Tag02(_)));
-        l.into_layer01().unwrap().into_tile(&mut dec).unwrap();
+        l.into_tile(&mut dec).unwrap().expect("a known layer tag");
     }
 }
 

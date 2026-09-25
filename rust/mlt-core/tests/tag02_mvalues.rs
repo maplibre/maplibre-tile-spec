@@ -47,8 +47,6 @@ fn decode_err(bytes: &[u8]) -> MltError {
             .into_iter()
             .next()
             .expect("a layer")
-            .into_layer01()
-            .expect("layer01")
             .into_tile(&mut Decoder::default())
             .expect_err("expected a rejection"),
     }

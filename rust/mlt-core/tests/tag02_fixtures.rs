@@ -38,13 +38,13 @@ fn decode(bytes: &[u8], expected_tag: u8) -> TileLayer {
         _ => panic!("unexpected layer kind"),
     };
     assert_eq!(tag, expected_tag);
-    let layer = layers
+    layers
         .into_iter()
         .next()
         .unwrap()
-        .into_layer01()
-        .expect("layer01 representation");
-    layer.into_tile(&mut Decoder::default()).expect("into_tile")
+        .into_tile(&mut Decoder::default())
+        .expect("into_tile")
+        .expect("a known layer tag")
 }
 
 fn assert_dump_covers(bytes: &[u8]) {

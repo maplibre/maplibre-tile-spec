@@ -54,9 +54,9 @@ pub(crate) use decoder::{
 };
 #[cfg(feature = "unstable-v2")]
 pub use decoder::{
-    MValueColumn, MValueSpans, MValues, Nested, ParsedInterior, ParsedLeaf, ParsedList,
-    ParsedMValue, ParsedMap, ParsedNested, ParsedNode, ParsedStruct, RawInterior, RawLeaf, RawList,
-    RawMValue, RawMap, RawNested, RawNode, RawStruct,
+    Layer02, MValueColumn, MValueSpans, MValues, Nested, ParsedInterior, ParsedLayer02, ParsedLeaf,
+    ParsedList, ParsedMValue, ParsedMap, ParsedNested, ParsedNode, ParsedStruct, RawInterior,
+    RawLeaf, RawList, RawMValue, RawMap, RawNested, RawNode, RawStruct,
 };
 pub(crate) use errors::MltRefResult;
 pub use errors::{MltError, MltResult};

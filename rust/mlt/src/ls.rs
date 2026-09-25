@@ -18,7 +18,7 @@ use mlt_core::wire::{
     Analyze as _, BoolLogical, DictionaryType, FloatLogical, IntLogical, LengthType,
     LogicalEncoding, OffsetType, PhysicalEncoding, StreamMeta, StreamType, VertexLogical,
 };
-use mlt_core::{Decoder, GeometryType, Parser};
+use mlt_core::{Decoder, GeometryType, Layer, ParsedLayer, Parser};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use serde::Serialize;
 use size_format::SizeFormatterSI;
@@ -596,12 +596,17 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
     let mut stream_count = 0;
     let mut algorithms: HashSet<StreamStat> = HashSet::new();
     for layer in &layers {
-        if let Some(layer01) = layer.as_layer01() {
-            layer01.for_each_stream(&mut |stream_meta| {
-                stream_count += 1;
-                collect_stream_info(stream_meta, &mut algorithms);
-            });
-        }
+        let layer01 = match layer {
+            Layer::Tag01(l) => l,
+            #[cfg(feature = "unstable-v2")]
+            Layer::Tag02(l) => l.layer(),
+            // Unknown, and any tag a later version adds
+            _ => continue,
+        };
+        layer01.for_each_stream(&mut |stream_meta| {
+            stream_count += 1;
+            collect_stream_info(stream_meta, &mut algorithms);
+        });
     }
 
     let layers = Decoder::default().decode_all(layers)?;
@@ -613,19 +618,25 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
     let mut content: HashSet<&'static str> = HashSet::new();
 
     for layer in &layers {
-        if let Some(layer01) = layer.as_layer01() {
-            data_size += layer01.collect_statistic(DecodedDataSize);
-            meta_size += layer01.collect_statistic(DecodedMetaSize);
-            feature_count += layer01.collect_statistic(FeatureCount);
-            for &geom_type in layer01.geometry_values().vector_types() {
-                geometries.insert(geom_type);
-            }
-            for property in layer01.properties() {
-                content.insert(property.kind().into());
-            }
-            // an m-value column's type counts the same as a property column's
+        let layer01 = match layer {
+            ParsedLayer::Tag01(l) => l,
             #[cfg(feature = "unstable-v2")]
-            for column in layer01.m_values() {
+            ParsedLayer::Tag02(l) => l.layer(),
+            _ => continue,
+        };
+        data_size += layer01.collect_statistic(DecodedDataSize);
+        meta_size += layer01.collect_statistic(DecodedMetaSize);
+        feature_count += layer01.collect_statistic(FeatureCount);
+        for &geom_type in layer01.geometry_values().vector_types() {
+            geometries.insert(geom_type);
+        }
+        for property in layer01.properties() {
+            content.insert(property.kind().into());
+        }
+        // an m-value column's type counts the same as a property column's
+        #[cfg(feature = "unstable-v2")]
+        if let ParsedLayer::Tag02(layer02) = layer {
+            for column in layer02.m_values() {
                 content.insert("m_values");
                 content.insert(column.values().kind().into());
             }

@@ -36,15 +36,17 @@ pub use iterators::{
     PropValueRef,
 };
 pub use limits::{Decoder, Parser};
-pub use model::{Layer, Layer01, ParsedLayer, ParsedLayer01, Unknown};
-pub use model01::ColumnType;
+pub use model::{Layer, ParsedLayer, Unknown};
 pub(crate) use model01::{BASE_TYPE_MASK, Column, OPTIONAL_FLAG};
+pub use model01::{ColumnType, Layer01, ParsedLayer01};
 #[cfg(feature = "unstable-v2")]
 pub(crate) use model02::{
     Column02, ColumnCounts, ColumnKind02, ColumnType02, DataType02, Extent02, GeoLayout, IdWidth02,
     Interior02, LayerHeader02, LayerLayout, NodeKind02, NodePresence, NodeType02, Presence02,
     SharedDictKind, Topology, ValueType02, ValuesColumn02, VertexStorage,
 };
+#[cfg(feature = "unstable-v2")]
+pub use model02::{Layer02, ParsedLayer02};
 #[cfg(feature = "unstable-v2")]
 pub use mvalue::{MValueColumn, MValueSpans, MValues, ParsedMValue, RawMValue};
 #[cfg(feature = "unstable-v2")]
