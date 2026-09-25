@@ -227,7 +227,7 @@ pub enum VertexLogical {
     None,
     Delta,
     ComponentwiseDelta,
-   MortonDelta(Morton),
+    MortonDelta(Morton),
 }
 
 /// How should the stream be interpreted at the logical level (second pass of decoding)
