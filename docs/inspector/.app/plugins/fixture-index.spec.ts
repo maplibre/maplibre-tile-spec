@@ -39,49 +39,90 @@ describe("indexFixtures", () => {
     expect(index.filter((entry) => entry.bytes <= 0)).toEqual([]);
   });
 
-  it("reads geometry and encoding facets from mlt ls", () => {
-    expect(
-      index.find(
-        (entry) =>
-          entry.directory === "0x02" && entry.name === "props_str_fsst.mlt",
-      ),
-    ).toEqual({
-      name: "props_str_fsst.mlt",
-      directory: "0x02",
-      bytes: 230,
-      geometries: ["Point"],
-      encodings: ["FSST", "Dictionary"],
-      content: ["str"],
-    });
+  it("reads every facet axis from mlt ls", () => {
+    const entry = index.find(
+      (entry) =>
+        entry.directory === "0x02" && entry.name === "props_str_fsst.mlt",
+    );
+    // `strLayout` is `fsst`, not `fsst-dict`: an FSST-plain column has a symbol
+    // table but no value dictionary. Reading the axes rather than matching one
+    // concatenated label is what keeps `length[dictionary]` from reading as one.
+    expect(entry).toMatchInlineSnapshot(`
+      {
+        "bytes": 230,
+        "directory": "0x02",
+        "facets": {
+          "dataType": [
+            "str",
+          ],
+          "dictLayout": [],
+          "extent": [
+            "64",
+          ],
+          "geomLayout": [
+            "points",
+          ],
+          "geometry": [
+            "point",
+          ],
+          "logical": [
+            "componentwise-delta",
+          ],
+          "physical": [
+            "varint",
+          ],
+          "strLayout": [
+            "fsst",
+          ],
+          "streamType": [
+            "data[fsst]",
+            "data[single]",
+            "data[vertex]",
+            "length[dictionary]",
+            "length[symbol]",
+          ],
+        },
+        "name": "props_str_fsst.mlt",
+      }
+    `);
+  });
+
+  it("names a dictionary column's layout without matching stream names", () => {
+    const dict = index.find(
+      (entry) =>
+        entry.directory === "0x02" && entry.name === "props_str_front_dict.mlt",
+    );
+    expect(dict?.facets?.strLayout).toEqual(["dict"]);
+    expect(dict?.facets?.dictLayout).toEqual(["front-coded"]);
   });
 
   it("reads property data types from mlt ls", () => {
     expect(
-      index.filter((entry) => entry.content?.length).length,
+      index.filter((entry) => entry.facets?.dataType?.length).length,
     ).toBeGreaterThan(0);
     expect(
       index.find(
         (entry) => entry.directory === "0x01" && entry.name === "prop_bool.mlt",
-      )?.content,
+      )?.facets?.dataType,
     ).toEqual(["bool"]);
   });
 
-  it("reads a shared-dict column as str, since SharedDict is an encoding", () => {
-    expect(index.some((entry) => entry.content?.includes("shared-dict"))).toBe(
-      false,
-    );
+  it("reads a shared-dict column as str, since a shared dictionary is an encoding", () => {
+    expect(
+      index.some((entry) => entry.facets?.dataType?.includes("shared-dict")),
+    ).toBe(false);
     const shared = index.find(
       (entry) =>
         entry.directory === "0x01" &&
         entry.name === "props_shared_dict_no_child_name.mlt",
     );
-    expect(shared?.content).toContain("str");
-    expect(shared?.encodings).toContain("SharedDict");
+    expect(shared?.facets?.dataType).toContain("str");
+    expect(shared?.facets?.streamType).toContain("data[shared]");
   });
 
   it("flags the tiles that carry m-values", () => {
     const flagged = index.filter((entry) =>
-      entry.content?.includes("m-values"),
+      entry.facets?.dataType?.includes("m-values"),
     );
     expect(flagged.length).toBeGreaterThan(0);
     expect(flagged.every((entry) => entry.directory.startsWith("0x02"))).toBe(
@@ -94,7 +135,7 @@ describe("indexFixtures", () => {
     expect(
       index.find(
         (entry) => entry.directory === "0x02" && entry.name === "mvalues.mlt",
-      )?.content,
+      )?.facets?.dataType,
     ).toEqual(["i32", "m-values", "u32"]);
   });
 

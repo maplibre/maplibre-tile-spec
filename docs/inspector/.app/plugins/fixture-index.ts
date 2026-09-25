@@ -12,25 +12,13 @@ import { basename, dirname, join } from "node:path";
 import type { Plugin } from "vite";
 import type { FixtureEntry } from "../src/fixtures.ts";
 
-/** Coarse encoding names, keyed by the substring `mlt ls` spells them with. */
-const ENCODINGS: [needle: string, label: string][] = [
-  ["FastPFOR", "FastPFOR"],
-  ["BitPacked", "BitPacked"],
-  ["Rle", "RLE"],
-  ["Morton", "Morton"],
-  ["Fsst", "FSST"],
-  ["Shared", "SharedDict"],
-  ["Dict", "Dictionary"],
-  ["Present", "Presence"],
-  ["Triangles", "Tessellated"],
-];
+/** The axes `mlt ls --format json` reports, each a sorted array of spec names. */
+type LsFacets = Record<string, string[]>;
 
 interface LsRow {
   path: string;
   info?: {
-    geometries?: string[];
-    algorithms?: string[];
-    content?: string[];
+    facets?: LsFacets;
   };
 }
 
@@ -75,15 +63,8 @@ function readFacets(
   for (const row of rows) {
     const directory = label.get(dirname(row.path));
     if (!row.info || directory === undefined) continue;
-    const algorithms = (row.info.algorithms ?? []).join(" ");
     facets.set(`${directory}/${basename(row.path)}`, {
-      geometries: row.info.geometries ?? [],
-      encodings: ENCODINGS.flatMap(([needle, label]) =>
-        algorithms.includes(needle) ? [label] : [],
-      ),
-      content: (row.info.content ?? [])
-        .map((flag) => flag.replaceAll("_", "-"))
-        .sort(),
+      facets: row.info.facets ?? {},
     });
   }
   return facets;

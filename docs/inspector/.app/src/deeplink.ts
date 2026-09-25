@@ -1,6 +1,6 @@
 /** The `fixture`, `url`, `layer` and `region` query parameters, the whole deep-link contract. */
 
-import { tileAddress } from "./fixtures.ts";
+import { AXES, tileAddress } from "./fixtures.ts";
 
 export interface DeepLink {
   /** Index key of a synthetic fixture, `<dir>/<name>`. An added tile has none. */
@@ -11,7 +11,11 @@ export interface DeepLink {
   layer: number | null;
   /** Index of the selected region in the tree as filtered by `layer`. */
   region: number | null;
+  /** Picked filter chips, each `<axis>:<value>`, so a combination can be handed over. */
+  filters: string[];
 }
+
+const knownAxes = new Set(AXES.map((a) => a.key));
 
 export function readDeepLink(search: string): DeepLink {
   const params = new URLSearchParams(search);
@@ -21,6 +25,11 @@ export function readDeepLink(search: string): DeepLink {
     url: raw === null ? null : tileAddress(raw),
     layer: index(params.get("layer")),
     region: index(params.get("region")),
+    // Repeated rather than joined: a value may hold any punctuation the spec spells it with.
+    filters: params.getAll("f").filter((value) => {
+      const colon = value.indexOf(":");
+      return colon > 0 && knownAxes.has(value.slice(0, colon));
+    }),
   };
 }
 
@@ -31,6 +40,7 @@ export function deepLinkSearch(link: DeepLink): string {
   if (link.url !== null) params.set("url", link.url);
   if (link.layer !== null) params.set("layer", String(link.layer));
   if (link.region !== null) params.set("region", String(link.region));
+  for (const picked of link.filters) params.append("f", picked);
   const search = params.toString();
   return search === "" ? "" : `?${search}`;
 }

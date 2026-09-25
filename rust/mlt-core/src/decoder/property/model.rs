@@ -114,7 +114,7 @@ pub enum RawStringsEncoding<'a> {
 }
 
 /// How a dictionary's entries sit in its blob.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::EnumIter)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, strum::EnumIter)]
 pub enum DictLayout {
     /// Entries back to back, the lengths stream holding one length each.
     Plain,
@@ -122,6 +122,32 @@ pub enum DictLayout {
     /// only suffixes and the lengths stream holds every prefix length then every suffix length.
     #[cfg(feature = "unstable-v2")]
     FrontCoded,
+}
+
+/// How a string column's values sit in the tile, as the extension bits of its
+/// leading stream name.
+///
+/// Decoding reconstructs the values and resolves this away, so it is readable
+/// only from a column that has not been decoded yet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum StringLayout {
+    /// Lengths, then the values' bytes.
+    Plain,
+    /// Codes, then the distinct values' lengths and bytes.
+    Dict,
+    /// Lengths, then the FSST symbol table and the compressed corpus.
+    Fsst,
+    /// Codes, then the distinct values' lengths, the FSST symbol table and the corpus.
+    FsstDict,
+}
+
+/// How a column stores its values, beyond what its streams' encodings already say.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct ColumnStorage {
+    /// The layout of a string or shared-dictionary column; `None` for any other column.
+    pub string: Option<StringLayout>,
+    /// How the column's dictionary blob is laid out, when it carries one.
+    pub dictionary: Option<DictLayout>,
 }
 
 /// Raw encoding payload for a `SharedDict` column.
@@ -350,5 +376,41 @@ impl RawPresence<'_> {
     #[must_use]
     pub(crate) fn is_optional(&self) -> bool {
         !matches!(self, Self::AllPresent)
+    }
+}
+
+impl RawProperty<'_> {
+    /// How this column stores its values, or `None` when it has no layout to report.
+    #[must_use]
+    pub(crate) fn storage(&self) -> Option<ColumnStorage> {
+        let (string, dictionary) = match self {
+            Self::Str(column) => match &column.encoding {
+                RawStringsEncoding::Plain(_) => (StringLayout::Plain, None),
+                RawStringsEncoding::Dictionary { dict, .. } => (StringLayout::Dict, Some(*dict)),
+                RawStringsEncoding::FsstPlain(_) => (StringLayout::Fsst, None),
+                RawStringsEncoding::FsstDictionary { dict, .. } => {
+                    (StringLayout::FsstDict, Some(*dict))
+                }
+            },
+            // A shared dictionary's children are dictionary-coded strings, so it reports
+            // the layout its corpus is stored with, as a lone string column would.
+            Self::SharedDict(column) => match &column.encoding {
+                RawSharedDictEncoding::Plain(_) => (StringLayout::Dict, Some(column.dict)),
+                RawSharedDictEncoding::FsstPlain(_) => (StringLayout::FsstDict, Some(column.dict)),
+            },
+            Self::Bool(_)
+            | Self::I8(_)
+            | Self::U8(_)
+            | Self::I32(_)
+            | Self::U32(_)
+            | Self::I64(_)
+            | Self::U64(_)
+            | Self::F32(_)
+            | Self::F64(_) => return None,
+        };
+        Some(ColumnStorage {
+            string: Some(string),
+            dictionary,
+        })
     }
 }

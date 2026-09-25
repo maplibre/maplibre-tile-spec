@@ -75,12 +75,14 @@ pub(crate) use utils::lazy_state::{Decode, DecodeState, Lazy, LazyParsed, Parsed
 /// MLT tile. Normal tile consumers (parse -> iterate features) do not need this
 /// module; it is intended for tools that inspect or report encoding statistics.
 pub mod wire {
-    pub use crate::decoder::ColumnType;
     pub use crate::decoder::stream::model::{
         Alp, BoolLogical, DictionaryType, FastPForKind, FloatLogical, IntEncoding, IntLogical,
         LengthType, LogicalEncoding, LogicalTechnique, Morton, OffsetType, PhysicalEncoding,
         RleLayout, RleMeta, StreamMeta, StreamType, ValueKind, VertexLogical,
     };
+    pub use crate::decoder::{ColumnStorage, ColumnType, DictLayout, StringLayout};
+    #[cfg(feature = "unstable-v2")]
+    pub use crate::decoder::{GeoLayout, LayerLayout};
     pub use crate::utils::analyze::{Analyze, StatType};
 }
 

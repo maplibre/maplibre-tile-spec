@@ -199,6 +199,7 @@ pub(crate) fn parse_layer02<'a>(
         },
         nested,
         m_values,
+        layout,
     })
 }
 

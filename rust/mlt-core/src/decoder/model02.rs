@@ -5,9 +5,11 @@ use num_enum::TryFromPrimitive;
 use crate::codecs::morton::{deinterleave_u64, interleave_u32};
 use crate::codecs::presence_coding::PresenceCoding;
 use crate::codecs::varint::parse_varint;
+use crate::decoder::{ColumnStorage, StreamMeta};
 use crate::decoder::{GeometryType, ParsedMValue, ParsedNested};
 use crate::{
-    DecodeState, Layer01, Lazy, MValueColumn, MltError, MltRefResult, MltResult, Nested, Parsed,
+    Analyze as _, DecodeState, Layer01, Lazy, LazyParsed, MValueColumn, MltError, MltRefResult,
+    MltResult, Nested, Parsed,
 };
 
 /// A tag `0x02` layer: the shared [`Layer01`] core plus the columns only v2 has.
@@ -23,6 +25,9 @@ pub struct Layer02<'a, S: DecodeState = Lazy> {
     /// Vertex-scoped columns, each running over every vertex of every feature
     /// it marks present.
     pub(crate) m_values: Vec<MValueColumn<'a, S>>,
+    /// The layer layout byte as parsed. Decoding resolves all three of its fields
+    /// away, so it is kept for tools reporting on how a tile is stored.
+    pub(crate) layout: LayerLayout,
 }
 
 #[cfg(feature = "unstable-v2")]
@@ -40,6 +45,47 @@ impl<'a, S: DecodeState> Layer02<'a, S> {
     #[must_use]
     pub fn into_layer(self) -> Layer01<'a, S> {
         self.layer
+    }
+
+    /// The layer layout byte this layer was written with.
+    #[must_use]
+    pub fn layout(&self) -> LayerLayout {
+        self.layout
+    }
+}
+
+#[cfg(feature = "unstable-v2")]
+impl Layer02<'_, Lazy> {
+    /// Walk every stream in this layer, including the v2-only nested and m-value columns.
+    pub fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
+        self.layer.for_each_stream(cb);
+        for nested in &self.nested {
+            if let LazyParsed::Raw(raw) = nested {
+                raw.for_each_stream(cb);
+            }
+        }
+        for mvalue in &self.m_values {
+            if let LazyParsed::Raw(raw) = mvalue {
+                raw.for_each_stream(cb);
+            }
+        }
+    }
+
+    /// Walk every column's storage descriptor, including v2-only string m-values and nested string leaves.
+    pub fn for_each_column_storage(&self, cb: &mut dyn FnMut(ColumnStorage)) {
+        self.layer.for_each_column_storage(cb);
+        for mvalue in &self.m_values {
+            if let LazyParsed::Raw(raw) = mvalue
+                && let Some(storage) = raw.storage()
+            {
+                cb(storage);
+            }
+        }
+        for nested in &self.nested {
+            if let LazyParsed::Raw(raw) = nested {
+                raw.for_each_string_storage(cb);
+            }
+        }
     }
 }
 
@@ -569,13 +615,13 @@ impl Column02 {
     }
 }
 
-/// v2 geometry section layout, the low nibble of the [`LayerLayout`] byte.
+/// v2 geometry section layout, the low nibble of the layer layout byte.
 ///
 /// Selects which geometry streams are present and in what fixed order,
 /// replacing v1's `stream_count` varint and per-stream `stream_type` bytes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive, strum::IntoStaticStr)]
 #[repr(u8)]
-pub(crate) enum GeoLayout {
+pub enum GeoLayout {
     /// `Types`, `Vertices`
     Points = 0x00,
     /// `Types`, `VertexData` (dict), `VertexOffsets`
@@ -908,22 +954,23 @@ impl LayerHeader02 {
 /// The v2 layer layout byte: the shared coding flag in bit 7, the shared presence
 /// bitfield count in bits 6-4, [`GeoLayout`] in bits 3-0.
 ///
-/// It sits at the layer root, right after the [`LayerHeader02`] byte, and every
-/// bit of it is spent.
+/// It sits at the layer root, right after the layer header byte, and every
+/// bit of it is spent. Decoding resolves all three fields away, so a layer keeps
+/// the parsed byte for tools reporting on how a tile is stored.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct LayerLayout {
-    /// How many shared presence bitfields the layer stores, at most
-    /// [`Self::MAX_SHARED_PRESENCE`].
+pub struct LayerLayout {
+    /// How many shared presence bitfields the layer stores, at most 7.
     ///
     /// The bitfields themselves follow this byte immediately, before the geometry
-    /// section, in index order. Columns read one through their [`Presence02::Shared`]
+    /// section, in index order. Columns read one through their shared presence
     /// nibble, so a set of columns that are null on the same features pays for one
     /// bitfield rather than one each.
-    pub(crate) shared_presence: u8,
-    /// Whether each shared bitfield leads with the byte naming its [`PresenceCoding`].
-    /// Without it every shared bitfield is a [`PresenceCoding::Bitmap`].
-    pub(crate) shared_coded: bool,
-    pub(crate) geometry: GeoLayout,
+    pub shared_presence: u8,
+    /// Whether each shared bitfield leads with the byte naming its presence coding.
+    /// Without it every shared bitfield is a plain bitmap.
+    pub shared_coded: bool,
+    /// Which streams the geometry section holds, and in what order.
+    pub geometry: GeoLayout,
 }
 
 impl LayerLayout {

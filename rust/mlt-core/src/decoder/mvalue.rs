@@ -342,6 +342,37 @@ impl RawMValue<'_> {
             Self::Str(v) => v.name,
         }
     }
+
+    pub(crate) fn storage(&self) -> Option<crate::decoder::ColumnStorage> {
+        use crate::decoder::{ColumnStorage, RawStringsEncoding, StringLayout};
+        match self {
+            Self::Str(column) => {
+                let (string, dictionary) = match &column.encoding {
+                    RawStringsEncoding::Plain(_) => (StringLayout::Plain, None),
+                    RawStringsEncoding::Dictionary { dict, .. } => {
+                        (StringLayout::Dict, Some(*dict))
+                    }
+                    RawStringsEncoding::FsstPlain(_) => (StringLayout::Fsst, None),
+                    RawStringsEncoding::FsstDictionary { dict, .. } => {
+                        (StringLayout::FsstDict, Some(*dict))
+                    }
+                };
+                Some(ColumnStorage {
+                    string: Some(string),
+                    dictionary,
+                })
+            }
+            Self::Bool(_)
+            | Self::I8(_)
+            | Self::U8(_)
+            | Self::I32(_)
+            | Self::U32(_)
+            | Self::I64(_)
+            | Self::U64(_)
+            | Self::F32(_)
+            | Self::F64(_) => None,
+        }
+    }
 }
 
 #[cfg(test)]

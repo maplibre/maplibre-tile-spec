@@ -2,13 +2,20 @@
 import { useFileDialog } from "@vueuse/core";
 import { computed, ref } from "vue";
 import {
-  type Facet,
+  type AxisRow,
+  type AxisValue,
+  axisKey,
+  axisRows,
   type FixtureEntry,
-  facetsOf,
   fixtureKey,
   fuzzyMatch,
-  matchesFacets,
+  matchesAxes,
+  pinnedRows,
+  SECTIONS,
+  type Section,
   type SortKey,
+  searchVocabulary,
+  sectionRows,
   sortFixtures,
   starterFixtures,
   tileAddress,
@@ -29,21 +36,46 @@ const emit = defineEmits<{
 
 const sheet = ref<HTMLDialogElement | null>(null);
 const filter = ref("");
-/** Picked buttons, keyed `<facet>:<value>` so one set covers every row. */
-const picked = ref(new Set<string>());
 
-const facets = computed(() => facetsOf(props.index));
+/** Picked chips, keyed `<axis>:<value>`, in the URL so a combination can be handed over. */
+const filters = defineModel<string[]>("filters", { default: () => [] });
+const picked = computed(() => new Set(filters.value));
 
-function toggle(facet: Facet, value: string) {
-  const key = `${facet.label}:${value}`;
-  const next = new Set(picked.value);
+function toggle(key: string) {
+  const next = new Set(filters.value);
   if (!next.delete(key)) next.add(key);
-  picked.value = next;
+  filters.value = [...next];
 }
 
 function clearFacets() {
-  picked.value = new Set();
+  filters.value = [];
 }
+
+/**
+ * The one open section, if any: a second one would push the fixture list off the screen,
+ * which is the thing the sheet is for. A closed section still shows its pick count.
+ */
+const opened = ref<Section | null>(null);
+
+function openSection(section: Section) {
+  opened.value = opened.value === section ? null : section;
+}
+
+function isOpen(section: Section): boolean {
+  return opened.value === section;
+}
+
+function picksIn(section: Section): number {
+  return sectionRows(rows.value, section).reduce(
+    (sum, row) =>
+      sum +
+      row.values.filter((v) => picked.value.has(axisKey(row, v.value))).length,
+    0,
+  );
+}
+
+/** Coverage reads the same rows, but by what the index holds rather than what is picked. */
+const coverage = ref(false);
 
 const columns: SortKey[] = ["name", "bytes"];
 const sortKey = ref<SortKey>("name");
@@ -78,17 +110,56 @@ const browse = computed(() => {
 
 const starters = computed(() => starterFixtures(props.index));
 
-/** A thousand-odd fixtures make the filter box the sheet's only way in. */
+/** What the chips alone narrow to, which is what every chip is counted against. */
+const chosen = computed(() =>
+  props.index.filter((entry) => matchesAxes(entry, picked.value)),
+);
+
+/**
+ * A thousand-odd fixtures make the filter box the sheet's only way in.
+ *
+ * Counted over `chosen` rather than over these: the box also searches the vocabulary,
+ * and a word like `alp` is in no file name, so counting after it would zero every chip.
+ */
 const matches = computed(() => {
   const needle = filter.value.trim().toLowerCase();
-  const chosen = facets.value;
-  const marks = picked.value;
-  return props.index.filter(
-    (entry) =>
-      matchesFacets(entry, chosen, marks) &&
-      (needle === "" || fuzzyMatch(fixtureKey(entry).toLowerCase(), needle)),
+  if (needle === "") return chosen.value;
+  return chosen.value.filter((entry) =>
+    fuzzyMatch(fixtureKey(entry).toLowerCase(), needle),
   );
 });
+
+const rows = computed(() => axisRows(props.index, chosen.value));
+
+/** Typing offers the chips whose names contain it, which no file-name search would find. */
+const hits = computed(() =>
+  searchVocabulary(rows.value, filter.value, picked.value),
+);
+
+/** The picked chips themselves, so the summary can name and drop them one at a time. */
+const chosenChips = computed(() =>
+  rows.value.flatMap((row) =>
+    row.values
+      .filter((value) => picked.value.has(axisKey(row, value.value)))
+      .map((value) => ({ row, value })),
+  ),
+);
+
+function chipClass(row: AxisRow, value: AxisValue) {
+  const on = picked.value.has(axisKey(row, value.value));
+  return {
+    on,
+    // Nothing carries it anywhere: a gap in the fixtures, not a miss in this filter.
+    gap: !on && value.total === 0,
+    // It exists, but not alongside what is already picked, so picking it dead-ends.
+    empty: !on && value.total > 0 && value.count === 0,
+  };
+}
+
+/** A chip that would narrow to nothing is not worth a click, unless it is how you undo one. */
+function chipOff(row: AxisRow, value: AxisValue): boolean {
+  return !picked.value.has(axisKey(row, value.value)) && value.count === 0;
+}
 
 const listed = computed(() =>
   sortFixtures(matches.value, sortKey.value, descending.value),
@@ -227,23 +298,120 @@ function fetchUrl() {
             placeholder="Filter by name - fsst, polygon, nested..."
             aria-label="Filter fixtures"
           >
-          <div v-for="facet in facets" :key="facet.label" class="facet">
-            <span class="facet-label">{{ facet.label }}</span>
+          <div v-if="hits.length" class="hits">
+            <span class="facet-label">matching</span>
             <button
-              v-for="option in facet.values"
+              v-for="hit in hits"
+              :key="axisKey(hit.axis, hit.value.value)"
+              type="button"
+              class="chip hit"
+              :class="chipClass(hit.axis, hit.value)"
+              :disabled="!coverage && chipOff(hit.axis, hit.value)"
+              @click="toggle(axisKey(hit.axis, hit.value.value))"
+            >
+              <span class="axis">{{ hit.axis.label }}</span>
+              {{ hit.value.value
+              }}<span class="tally">{{ hit.value.count }}</span>
+            </button>
+          </div>
+
+          <div v-if="chosenChips.length" class="chosen">
+            <span class="facet-label">filtering</span>
+            <button
+              v-for="chip in chosenChips"
+              :key="axisKey(chip.row, chip.value.value)"
+              type="button"
+              class="chip on"
+              :aria-label="`Remove ${chip.row.label} ${chip.value.value}`"
+              @click="toggle(axisKey(chip.row, chip.value.value))"
+            >
+              <span class="axis">{{ chip.row.label }}</span>
+              {{ chip.value.value
+              }}<span class="drop" aria-hidden="true">&times;</span>
+            </button>
+          </div>
+
+          <div
+            v-for="row in pinnedRows(rows)"
+            :key="row.key"
+            class="facet pinned"
+          >
+            <span class="facet-label">{{ row.label }}</span>
+            <button
+              v-for="option in row.values"
               :key="option.value"
               type="button"
               class="chip"
-              :class="{ on: picked.has(`${facet.label}:${option.value}`) }"
-              :aria-pressed="picked.has(`${facet.label}:${option.value}`)"
-              @click="toggle(facet, option.value)"
+              :class="chipClass(row, option)"
+              :aria-pressed="picked.has(axisKey(row, option.value))"
+              :disabled="!coverage && chipOff(row, option)"
+              @click="toggle(axisKey(row, option.value))"
             >
-              {{ option.value }}<span class="tally">{{ option.count }}</span>
+              {{ option.value
+              }}<span class="tally">{{
+                coverage ? option.total : option.count
+              }}</span>
             </button>
           </div>
+
+          <div v-for="section in SECTIONS" :key="section" class="section">
+            <button
+              type="button"
+              class="section-head"
+              :aria-expanded="isOpen(section)"
+              @click="openSection(section)"
+            >
+              <span class="caret" aria-hidden="true">{{
+                isOpen(section) ? "▾" : "▸"
+              }}</span>
+              {{ section }}
+              <span v-if="picksIn(section)" class="badge">{{
+                picksIn(section)
+              }}</span>
+            </button>
+            <template v-if="isOpen(section)">
+              <div
+                v-for="row in sectionRows(rows, section)"
+                :key="row.key"
+                class="facet"
+              >
+                <span class="facet-label">{{ row.label }}</span>
+                <button
+                  v-for="option in row.values"
+                  :key="option.value"
+                  type="button"
+                  class="chip"
+                  :class="chipClass(row, option)"
+                  :aria-pressed="picked.has(axisKey(row, option.value))"
+                  :disabled="!coverage && chipOff(row, option)"
+                  :title="
+                    option.total === 0
+                      ? 'No fixture shows this off yet'
+                      : undefined
+                  "
+                  @click="toggle(axisKey(row, option.value))"
+                >
+                  {{ option.value
+                  }}<span class="tally">{{
+                    coverage ? option.total : option.count
+                  }}</span>
+                </button>
+              </div>
+            </template>
+          </div>
+
           <p class="tally-line">
             {{ matches.length }}
             of {{ props.index.length }}
+            <button
+              type="button"
+              class="clear"
+              :aria-pressed="coverage"
+              @click="coverage = !coverage"
+              >{{
+                coverage ? "counting matches" : "counting coverage"
+              }}</button
+            >
             <button
               v-if="picked.size"
               type="button"
@@ -322,12 +490,82 @@ function fetchUrl() {
 .arrow {
   padding-left: 0.2rem;
 }
-.facet {
+.facet,
+.hits,
+.chosen {
   display: flex;
   gap: 0.3rem;
   align-items: center;
   flex-wrap: wrap;
   margin-top: 0.5rem;
+}
+/* The two standing rows sit above the sections, so they are set off from them. */
+.hits,
+.chosen {
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--line);
+}
+.section {
+  margin-top: 0.55rem;
+}
+.section-head {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  padding: 0.1rem 0;
+}
+.section-head:hover {
+  color: var(--text);
+}
+.caret {
+  width: 0.7rem;
+}
+.badge {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-radius: var(--radius-inline);
+  font-size: 0.6rem;
+  padding: 0 0.3rem;
+}
+/* Which axis a chip belongs to, for the rows that mix them. */
+.chip .axis {
+  color: var(--dim);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.chip.on .axis {
+  color: inherit;
+  opacity: 0.75;
+}
+.drop {
+  color: inherit;
+  opacity: 0.75;
+  font-size: 0.75rem;
+}
+/* Nothing in the index has it: a gap in the fixtures rather than a filter miss. */
+.chip.gap {
+  border-style: dashed;
+  color: var(--dim);
+}
+/* It exists, but not next to what is already picked, so it would narrow to nothing. */
+.chip.empty {
+  color: var(--dim);
+  opacity: 0.55;
+}
+.chip:disabled {
+  cursor: default;
+}
+.chip:disabled:hover {
+  background: var(--control);
 }
 .facet-label {
   color: var(--muted);
