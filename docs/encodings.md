@@ -586,17 +586,12 @@ let sy = compact(code >> 1);
 ```
 
 The codes are stored as an integer stream of unsigned 32-bit words.
-The variants:
-
-| Encoding | Payload | Versions |
-|---|---|---|
-| `Morton` | The codes themselves | v1 |
-| `MortonDelta` | The first code, then each code's difference to the previous one | v1, v2 |
-| `MortonRle` | Reserved in v1. The reference Rust decoder rejects it | v1 |
+The stream holds the first code, then each code's difference to the previous one.
+v1 names this `MortonDelta`, v2 names it `Morton` in the `Vertex` family.
+There is no plain or RLE Morton encoding.
 
 The deltas are plain differences, not ZigZag-coded.
 The dictionary is sorted ascending by code, so every difference is non-negative.
-v2 only has `MortonDelta` over a sorted dictionary, and names it `Morton` in the `Vertex` family.
 
 ```
 dict codes: [27, 30, 45]

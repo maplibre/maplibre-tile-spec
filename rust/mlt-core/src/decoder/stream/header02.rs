@@ -901,12 +901,6 @@ fn wire_fields(
         LE::Vertex(VL::MortonDelta(_)) => {
             with_length(Logical::Morton, physical_int_field(encoding.physical)?)
         }
-        LE::Vertex(VL::Morton(_) | VL::MortonRle(_)) => {
-            return Err(MltError::UnsupportedLogicalEncoding(
-                encoding.logical,
-                "v2, whose Morton streams are always delta-coded",
-            ));
-        }
     })
 }
 
@@ -1717,7 +1711,7 @@ mod tests {
         INT_FAMILY
     )]
     #[case::morton_on_a_property_column(
-        LogicalEncoding::Vertex(VertexLogical::Morton(Morton::new(4, 0).unwrap())),
+        LogicalEncoding::Vertex(VertexLogical::MortonDelta(Morton::new(4, 0).unwrap())),
         INT_FAMILY
     )]
     #[case::byte_rle_on_a_bool_column(

@@ -241,7 +241,7 @@ pub(crate) fn parse_stream_meta<'a>(
                 _ => return Err(not_in_kind()),
             }
         }
-        LC::Morton | LC::MortonRle | LC::MortonDelta => {
+        LC::MortonDelta => {
             // Reserve decoded memory upper bound: worst case u64 = 8 bytes per value
             let decoded_bytes = num_values.saturating_mul(8);
             parser.reserve(decoded_bytes)?;
@@ -253,13 +253,7 @@ pub(crate) fn parse_stream_meta<'a>(
             if kind != ValueKind::Vertex {
                 return Err(not_in_kind());
             }
-            if logical == LC::MortonRle {
-                LogicalEncoding::Vertex(VertexLogical::MortonRle(morton))
-            } else if logical == LC::MortonDelta {
-                LogicalEncoding::Vertex(VertexLogical::MortonDelta(morton))
-            } else {
-                LogicalEncoding::Vertex(VertexLogical::Morton(morton))
-            }
+            LogicalEncoding::Vertex(VertexLogical::MortonDelta(morton))
         }
     };
 
@@ -297,9 +291,7 @@ pub(crate) fn write_stream_meta<W: io::Write>(
         LE::Int(IL::Rle(_)) | LE::Bool(BL::ByteRle(_)) => LC::Rle,
         LE::Int(IL::DeltaRle(_)) => LC::DeltaRle,
         LE::Vertex(VL::ComponentwiseDelta) => LC::ComponentwiseDelta,
-        LE::Vertex(VL::Morton(_)) => LC::Morton,
         LE::Vertex(VL::MortonDelta(_)) => LC::MortonDelta,
-        LE::Vertex(VL::MortonRle(_)) => LC::MortonRle,
         LE::Float(FL::Dict | FL::Alp(_)) => {
             return Err(UnsupportedLogicalEncoding(
                 meta.encoding.logical,
@@ -343,7 +335,7 @@ pub(crate) fn write_stream_meta<W: io::Write>(
                 "v1 stream header codec requires the Split RLE layout",
             ));
         }
-        LE::Vertex(VL::Morton(m) | VL::MortonDelta(m) | VL::MortonRle(m)) => {
+        LE::Vertex(VL::MortonDelta(m)) => {
             writer.write_varint(m.bits)?;
             writer.write_varint(m.shift)?;
         }
@@ -551,7 +543,7 @@ mod tests {
     #[rstest]
     #[case::cw_delta_on_an_int_column(LogicalCombination::ComponentwiseDelta, ValueKind::Int)]
     #[case::delta_on_a_float_column(LogicalCombination::Delta, ValueKind::Float)]
-    #[case::morton_on_an_int_column(LogicalCombination::Morton, ValueKind::Int)]
+    #[case::morton_on_an_int_column(LogicalCombination::MortonDelta, ValueKind::Int)]
     fn rejects_an_encoding_the_kind_does_not_have(
         #[case] logical: LogicalCombination,
         #[case] hint: ValueKind,
@@ -616,20 +608,10 @@ mod tests {
         LogicalTechnique::None
     )]
     #[case::rle(LogicalCombination::Rle, LogicalTechnique::Rle, LogicalTechnique::None)]
-    #[case::morton(
-        LogicalCombination::Morton,
-        LogicalTechnique::Morton,
-        LogicalTechnique::None
-    )]
     #[case::morton_delta(
         LogicalCombination::MortonDelta,
         LogicalTechnique::Morton,
         LogicalTechnique::Delta
-    )]
-    #[case::morton_rle(
-        LogicalCombination::MortonRle,
-        LogicalTechnique::Morton,
-        LogicalTechnique::Rle
     )]
     fn combination_holds_both_field_bits(
         #[case] combination: LogicalCombination,
@@ -656,11 +638,17 @@ mod tests {
         assert!(matches!(err, UnsupportedLogicalEncoding(_, _)));
     }
 
-    #[test]
-    fn rejects_invalid_logical_combination() {
-        let enc_byte = logical_bits(LogicalTechnique::ComponentwiseDelta, LogicalTechnique::Rle);
+    #[rstest]
+    #[case::cw_delta_rle(LogicalTechnique::ComponentwiseDelta, LogicalTechnique::Rle)]
+    #[case::plain_morton(LogicalTechnique::Morton, LogicalTechnique::None)]
+    #[case::morton_rle(LogicalTechnique::Morton, LogicalTechnique::Rle)]
+    fn rejects_invalid_logical_combination(
+        #[case] primary: LogicalTechnique,
+        #[case] secondary: LogicalTechnique,
+    ) {
+        let enc_byte = logical_bits(primary, secondary);
         let buf = [0u8, enc_byte, 0, 0];
-        let err = parse_stream(&buf, ValueKind::Int, &mut parser()).unwrap_err();
+        let err = parse_stream(&buf, ValueKind::Vertex, &mut parser()).unwrap_err();
         assert!(matches!(err, MltError::InvalidLogicalEncodings(_, _)));
     }
 }

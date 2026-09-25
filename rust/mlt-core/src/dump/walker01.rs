@@ -400,11 +400,7 @@ impl<'a> Walker<'a> {
                     |v| Some(v.to_string()),
                 )?;
             }
-            LogicalEncoding::Vertex(
-                VertexLogical::Morton(_)
-                | VertexLogical::MortonDelta(_)
-                | VertexLogical::MortonRle(_),
-            ) => {
+            LogicalEncoding::Vertex(VertexLogical::MortonDelta(_)) => {
                 (c, _) = self.field(
                     c,
                     "bits",
