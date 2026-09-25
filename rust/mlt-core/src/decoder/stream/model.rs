@@ -34,9 +34,7 @@ pub enum LogicalCombination {
     DeltaRle = 0b0010_1100,
     ComponentwiseDelta = 0b0100_0000,
     Rle = 0b0110_0000,
-    Morton = 0b1000_0000,
     MortonDelta = 0b1000_0100,
-    MortonRle = 0b1000_1100,
 }
 
 /// Which RLE stream layout the encoder should produce.
@@ -229,9 +227,9 @@ pub enum VertexLogical {
     None,
     Delta,
     ComponentwiseDelta,
-    Morton(Morton),
+    /// Deltas between the codes of a sorted Morton dictionary.
+    /// Plain and RLE Morton codes are not part of either wire format.
     MortonDelta(Morton),
-    MortonRle(Morton),
 }
 
 /// How should the stream be interpreted at the logical level (second pass of decoding)
@@ -528,9 +526,7 @@ impl Display for LogicalEncoding {
                     VertexLogical::None => "none",
                     VertexLogical::Delta => "delta",
                     VertexLogical::ComponentwiseDelta => "componentwise-delta",
-                    VertexLogical::Morton(_) => "morton",
                     VertexLogical::MortonDelta(_) => "morton-delta",
-                    VertexLogical::MortonRle(_) => "morton-rle",
                 },
             ),
         };
@@ -633,17 +629,9 @@ mod tests {
         LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta),
         "vertex/componentwise-delta"
     )]
-    #[case::vertex_morton(
-        LogicalEncoding::Vertex(VertexLogical::Morton(morton())),
-        "vertex/morton"
-    )]
     #[case::vertex_morton_delta(
         LogicalEncoding::Vertex(VertexLogical::MortonDelta(morton())),
         "vertex/morton-delta"
-    )]
-    #[case::vertex_morton_rle(
-        LogicalEncoding::Vertex(VertexLogical::MortonRle(morton())),
-        "vertex/morton-rle"
     )]
     fn every_logical_encoding_renders_kind_then_encoding(
         #[case] encoding: LogicalEncoding,

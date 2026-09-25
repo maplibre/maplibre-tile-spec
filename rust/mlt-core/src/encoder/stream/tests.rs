@@ -291,7 +291,7 @@ fn allow_fastpfor_gates_fastpfor_selection() {
 )]
 #[case::rle(StreamType::Data(DictionaryType::None), 5, LogicalEncoding::Int(IntLogical::DeltaRle(RleMeta::Split { runs: 2, num_rle_values: 5 })), PhysicalEncoding::VarInt, vec![0x03, 0x02, 0x00, 0x02], false
 )]
-#[case::morton(StreamType::Data(DictionaryType::Morton), 4, LogicalEncoding::Vertex(VertexLogical::Morton(Morton { bits: 16, shift: 0 })), PhysicalEncoding::VarInt, vec![0x01, 0x02, 0x03, 0x04], false
+#[case::morton(StreamType::Data(DictionaryType::Morton), 4, LogicalEncoding::Vertex(VertexLogical::MortonDelta(Morton { bits: 16, shift: 0 })), PhysicalEncoding::VarInt, vec![0x01, 0x02, 0x03, 0x04], false
 )]
 #[case::boolean(StreamType::Present, 16, LogicalEncoding::Bool(BoolLogical::ByteRle(RleMeta::Split { runs: 2, num_rle_values: 2 })), PhysicalEncoding::VarInt, vec![0xFF, 0x00], true
 )]
@@ -338,7 +338,7 @@ fn test_morton_parse_rejects_too_many_bits() {
         meta: StreamMeta::new(
             StreamType::Data(DictionaryType::Morton),
             IntEncoding::new(
-                LogicalEncoding::Vertex(VertexLogical::Morton(Morton { bits: 17, shift: 0 })),
+                LogicalEncoding::Vertex(VertexLogical::MortonDelta(Morton { bits: 17, shift: 0 })),
                 PhysicalEncoding::VarInt,
             ),
             1,

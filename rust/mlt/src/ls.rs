@@ -224,9 +224,7 @@ fn logical_token(logical: StatLogicalCodec) -> Option<&'static str> {
         StatLogicalCodec::DeltaRle => "delta-rle",
         StatLogicalCodec::Rle => "rle",
         StatLogicalCodec::ComponentwiseDelta => "componentwise-delta",
-        StatLogicalCodec::Morton => "morton",
         StatLogicalCodec::MortonDelta => "morton-delta",
-        StatLogicalCodec::MortonRle => "morton-rle",
         StatLogicalCodec::Dict => "dict",
         StatLogicalCodec::Alp => "alp",
     })
@@ -902,9 +900,7 @@ pub enum StatLogicalCodec {
     DeltaRle,
     ComponentwiseDelta,
     Rle,
-    Morton,
     MortonDelta,
-    MortonRle,
     Dict,
     Alp,
 }
@@ -921,9 +917,7 @@ impl From<LogicalEncoding> for StatLogicalCodec {
             LE::Int(IntLogical::DeltaRle(_)) => Self::DeltaRle,
             LE::Vertex(VertexLogical::ComponentwiseDelta) => Self::ComponentwiseDelta,
             LE::Int(IntLogical::Rle(_)) | LE::Bool(BoolLogical::ByteRle(_)) => Self::Rle,
-            LE::Vertex(VertexLogical::Morton(_)) => Self::Morton,
             LE::Vertex(VertexLogical::MortonDelta(_)) => Self::MortonDelta,
-            LE::Vertex(VertexLogical::MortonRle(_)) => Self::MortonRle,
             LE::Float(FloatLogical::Dict) => Self::Dict,
             LE::Float(FloatLogical::Alp(_)) => Self::Alp,
         }

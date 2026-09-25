@@ -137,12 +137,7 @@ impl LogicalValue {
                 let expanded = v.decode(data, dec)?;
                 decode_zigzag_delta::<i32, _>(&expanded, dec)
             }
-            LE::Vertex(VL::Morton(v)) => v.decode_codes(data, dec),
             LE::Vertex(VL::MortonDelta(v)) => v.decode_delta(data, dec),
-            LE::Vertex(VL::MortonRle(_)) => Err(UnsupportedLogicalEncoding(
-                self.meta.encoding.logical,
-                "i32 (MortonRle)",
-            )),
             LE::Bool(_) | LE::Float(_) => Err(UnsupportedLogicalEncoding(
                 self.meta.encoding.logical,
                 "i32",

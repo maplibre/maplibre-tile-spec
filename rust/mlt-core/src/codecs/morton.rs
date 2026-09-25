@@ -163,34 +163,6 @@ impl Morton {
         }
     }
 
-    /// Decode Morton codes (no delta) to flat `[x0, y0, x1, y1, ...]`, charging `dec` for the output.
-    ///
-    /// Processes 8 codes at a time with `wide::u32x8`. Each lane extracts the
-    /// compacted even-bit (x) and odd-bit (y) components in parallel, then applies
-    /// the coordinate shift. A scalar tail handles any remaining codes.
-    pub fn decode_codes(self, data: &[u32], dec: &mut Decoder) -> MltResult<Vec<i32>> {
-        let alloc_size = data.len() * 2;
-        let mut out = dec.alloc(alloc_size)?;
-        let shift_vec = u32x8::splat(self.shift);
-
-        let (chunks, remainder) = data.as_chunks::<LANES>();
-
-        for &chunk in chunks {
-            self.decode_chunk(chunk, shift_vec, &mut out);
-        }
-
-        // Scalar tail for any codes that didn't fill a full SIMD chunk.
-        for &code in remainder {
-            let coord = self.decode_one(code);
-            out.push(coord.x);
-            out.push(coord.y);
-        }
-
-        dec.adjust_alloc(&out, alloc_size)
-            .expect("infallible: two coordinates pushed per code fill alloc_size exactly");
-        Ok(out)
-    }
-
     /// Decode delta-encoded Morton codes to flat `[x0, y0, x1, y1, ...]`, charging `dec` for the output.
     ///
     /// Each input value is a signed delta (stored as u32 with wrapping arithmetic)
@@ -429,17 +401,9 @@ mod tests {
     }
 
     #[test]
-    fn test_decode_morton_codes_empty() {
-        assert_eq!(
-            MORTON.decode_codes(&[], &mut dec()).unwrap(),
-            [] as [i32; 0]
-        );
-    }
-
-    #[test]
-    fn test_decode_morton_codes_origin() {
+    fn test_decode_morton_delta_origin() {
         let code = encode_morton_15((COORD_SHIFT, COORD_SHIFT).into());
-        let decoded = MORTON.decode_codes(&[code], &mut dec()).unwrap();
+        let decoded = MORTON.decode_delta(&[code], &mut dec()).unwrap();
         assert_eq!(
             decoded,
             [0, 0],
@@ -448,13 +412,13 @@ mod tests {
     }
 
     #[test]
-    fn test_decode_morton_codes_known_values() {
+    fn test_decode_morton_delta_known_values() {
         let x: u32 = 1;
         let y: u32 = 2;
         let code = encode_morton_15((x, y).into());
         let expected_x = x.cast_signed() - COORD_SHIFT.cast_signed();
         let expected_y = y.cast_signed() - COORD_SHIFT.cast_signed();
-        let decoded = MORTON.decode_codes(&[code], &mut dec()).unwrap();
+        let decoded = MORTON.decode_delta(&[code], &mut dec()).unwrap();
         assert_eq!(
             decoded,
             [expected_x, expected_y],
@@ -463,16 +427,18 @@ mod tests {
     }
 
     #[test]
-    fn test_decode_morton_codes_scalar_tail() {
+    fn test_decode_morton_delta_scalar_tail() {
         let pairs: [Coord<u32>; _] = [(0, 1).into(), (2, 3).into(), (4, 5).into()];
         let codes: Vec<u32> = pairs.iter().map(|&c| encode_morton_15(c)).collect();
-        let result = MORTON.decode_codes(&codes, &mut dec()).unwrap();
+        let result = MORTON
+            .decode_delta(&signed_deltas(&codes), &mut dec())
+            .unwrap();
         let expected = expected_coords(&pairs);
         assert_eq!(result, expected, "3 codes take the scalar tail alone");
     }
 
     #[test]
-    fn test_decode_morton_codes_full_simd_chunk() {
+    fn test_decode_morton_delta_full_simd_chunk() {
         let pairs: [Coord<u32>; _] = [
             (0, 0).into(),
             (1, 0).into(),
@@ -484,18 +450,22 @@ mod tests {
             (15, 15).into(),
         ];
         let codes: Vec<u32> = pairs.iter().map(|&c| encode_morton_15(c)).collect();
-        let result = MORTON.decode_codes(&codes, &mut dec()).unwrap();
+        let result = MORTON
+            .decode_delta(&signed_deltas(&codes), &mut dec())
+            .unwrap();
         let expected = expected_coords(&pairs);
         assert_eq!(result, expected, "8 codes fill one SIMD chunk with no tail");
     }
 
     #[test]
-    fn test_decode_morton_codes_simd_plus_tail() {
+    fn test_decode_morton_delta_simd_plus_tail() {
         let pairs: Vec<Coord<u32>> = (0..11u32)
             .map(|i| (i * 3 % 100, i * 7 % 100).into())
             .collect();
         let codes: Vec<u32> = pairs.iter().map(|&c| encode_morton_15(c)).collect();
-        let result = MORTON.decode_codes(&codes, &mut dec()).unwrap();
+        let result = MORTON
+            .decode_delta(&signed_deltas(&codes), &mut dec())
+            .unwrap();
         let expected = expected_coords(&pairs);
         assert_eq!(
             result, expected,
@@ -529,55 +499,26 @@ mod tests {
             .map(|i| (i * 5 % 200, i * 9 % 200).into())
             .collect();
         let codes: Vec<u32> = pairs.iter().map(|&c| encode_morton_15(c)).collect();
-        let deltas = signed_deltas(&codes);
-
-        let from_codes = MORTON.decode_codes(&codes, &mut dec()).unwrap();
-        let from_deltas = MORTON.decode_delta(&deltas, &mut dec()).unwrap();
+        let result = MORTON
+            .decode_delta(&signed_deltas(&codes), &mut dec())
+            .unwrap();
         assert_eq!(
-            from_codes, from_deltas,
+            result,
+            expected_coords(&pairs),
             "the prefix sum rebuilds the absolute codes"
         );
     }
 
     #[test]
-    fn test_decode_morton_delta_scalar_tail() {
-        let codes: Vec<u32> = vec![
-            encode_morton_15((10, 20).into()),
-            encode_morton_15((30, 40).into()),
-            encode_morton_15((50, 60).into()),
-        ];
-        let deltas = signed_deltas(&codes);
-        let from_codes = MORTON.decode_codes(&codes, &mut dec()).unwrap();
-        let from_deltas = MORTON.decode_delta(&deltas, &mut dec()).unwrap();
-        assert_eq!(
-            from_codes, from_deltas,
-            "3 deltas take the scalar tail alone"
-        );
-    }
-
-    #[test]
     fn test_decode_morton_delta_wrapping() {
-        let code_a = encode_morton_15((500, 300).into());
-        let code_b = encode_morton_15((10, 10).into());
-        let delta_b = code_b
-            .cast_signed()
-            .wrapping_sub(code_a.cast_signed())
-            .cast_unsigned();
+        let pairs: [Coord<u32>; _] = [(500, 300).into(), (10, 10).into()];
+        let codes: Vec<u32> = pairs.iter().map(|&c| encode_morton_15(c)).collect();
         assert_eq!(
-            MORTON.decode_delta(&[code_a, delta_b], &mut dec()).unwrap(),
-            MORTON.decode_codes(&[code_a, code_b], &mut dec()).unwrap(),
+            MORTON
+                .decode_delta(&signed_deltas(&codes), &mut dec())
+                .unwrap(),
+            expected_coords(&pairs),
             "a delta onto a smaller code wraps and still resolves"
-        );
-    }
-
-    #[test]
-    fn decode_codes_past_the_memory_budget_is_rejected() {
-        let err = MORTON
-            .decode_codes(&[0, 1], &mut starved_dec())
-            .unwrap_err();
-        assert!(
-            matches!(err, MltError::MemoryLimitExceeded { .. }),
-            "{err:?}"
         );
     }
 
@@ -635,9 +576,9 @@ mod tests {
     #[case::y_only(0, 1)]
     #[case::both_axes(500, 300)]
     #[case::negative_coords(-4000, -9000)]
-    fn encode_morton_round_trips_through_decode_codes(#[case] x: i32, #[case] y: i32) {
+    fn encode_morton_round_trips_through_decode_delta(#[case] x: i32, #[case] y: i32) {
         let code = MORTON.encode_morton(x, y).unwrap();
-        assert_eq!(MORTON.decode_codes(&[code], &mut dec()).unwrap(), [x, y]);
+        assert_eq!(MORTON.decode_delta(&[code], &mut dec()).unwrap(), [x, y]);
     }
 
     #[rstest]
