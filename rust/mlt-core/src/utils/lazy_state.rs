@@ -17,8 +17,6 @@ mod sealed {
 /// - [`Lazy`] stores an [`LazyParsed<Raw, Parsed>`] enum that can be in `Raw`, `Parsed`, or `ParsingFailed` state.
 /// - [`Parsed`] stores only `Parsed`, giving zero-cost infallible field access.
 pub trait DecodeState: sealed::Sealed {
-    /// Both sides are [`fmt::Debug`], so a type holding columns is `Debug` without
-    /// having to restate that for a projection the compiler cannot see through.
     type LazyOrParsed<Raw: fmt::Debug + Clone, Parsed: fmt::Debug + Clone>: fmt::Debug + Clone;
 }
 
