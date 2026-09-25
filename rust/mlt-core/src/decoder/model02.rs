@@ -55,7 +55,7 @@ impl<'a, S: DecodeState> Layer02<'a, S> {
 }
 
 #[cfg(feature = "unstable-v2")]
-impl<'a> Layer02<'a, Lazy> {
+impl Layer02<'_, Lazy> {
     /// Walk every stream in this layer, including the v2-only nested and m-value columns.
     pub fn for_each_stream(&self, cb: &mut dyn FnMut(StreamMeta)) {
         self.layer.for_each_stream(cb);
@@ -75,10 +75,10 @@ impl<'a> Layer02<'a, Lazy> {
     pub fn for_each_column_storage(&self, cb: &mut dyn FnMut(ColumnStorage)) {
         self.layer.for_each_column_storage(cb);
         for mvalue in &self.m_values {
-            if let LazyParsed::Raw(raw) = mvalue {
-                if let Some(storage) = raw.storage() {
-                    cb(storage);
-                }
+            if let LazyParsed::Raw(raw) = mvalue
+                && let Some(storage) = raw.storage()
+            {
+                cb(storage);
             }
         }
         for nested in &self.nested {
