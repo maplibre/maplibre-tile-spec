@@ -227,9 +227,7 @@ pub enum VertexLogical {
     None,
     Delta,
     ComponentwiseDelta,
-    /// Deltas between the codes of a sorted Morton dictionary.
-    /// Plain and RLE Morton codes are not part of either wire format.
-    MortonDelta(Morton),
+   MortonDelta(Morton),
 }
 
 /// How should the stream be interpreted at the logical level (second pass of decoding)
