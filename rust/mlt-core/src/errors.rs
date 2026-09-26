@@ -313,6 +313,8 @@ pub enum MltError {
     NoAlpParameters,
     #[error("invalid ALP parameters: e={0}, f={1}")]
     InvalidAlpParams(u8, u8),
+    #[error("invalid ALP scale byte {0}")]
+    InvalidAlpScale(u8),
     #[error("presence stream has {0} bits set but {1} values provided")]
     PresenceValueCountMismatch(usize, usize),
     #[error("need to encode before being able to write")]

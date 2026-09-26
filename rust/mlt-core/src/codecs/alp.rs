@@ -273,4 +273,28 @@ mod tests {
         let max = usize::from(AlpScale::MAX_EXPONENT);
         assert_eq!(found, (max + 1) * (max + 2) / 2);
     }
+
+    #[test]
+    fn scale_bytes_number_every_candidate_densely() {
+        let mut bytes: Vec<u8> = candidates().map(AlpScale::to_byte).collect();
+        bytes.sort_unstable();
+        assert_eq!(bytes, (0..190).collect::<Vec<u8>>());
+    }
+
+    #[test]
+    fn scale_byte_round_trips_every_candidate() {
+        for p in candidates() {
+            assert_eq!(AlpScale::from_byte(p.to_byte()).unwrap(), p);
+        }
+    }
+
+    #[test]
+    fn scale_bytes_past_the_last_pair_are_rejected() {
+        for byte in 190..=u8::MAX {
+            assert!(matches!(
+                AlpScale::from_byte(byte),
+                Err(crate::MltError::InvalidAlpScale(b)) if b == byte
+            ));
+        }
+    }
 }
