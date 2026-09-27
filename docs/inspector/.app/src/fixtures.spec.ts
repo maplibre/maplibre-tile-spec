@@ -315,13 +315,26 @@ describe("axisRows", () => {
   });
 
   it("orders the data types by family, not alphabetically", () => {
-    expect(shown("dataType")?.slice(0, 5)).toEqual([
-      "bool",
-      "i8",
-      "i32",
-      "i64",
-      "u8",
-    ]);
+    // Width order within each family: alphabetical would file `i8` after `i64` and
+    // split the families up. Both paired rows offer the same list.
+    for (const row of ["required", "optional"]) {
+      expect(shown(row)?.slice(0, 8)).toEqual([
+        "any",
+        "id",
+        "id64",
+        "bool",
+        "i8",
+        "i32",
+        "i64",
+        "u8",
+      ]);
+    }
+  });
+
+  it("leads the m-values row with the chip that asks only for a tile with any", () => {
+    // No ids: a vertex carries a measurement, not a feature.
+    expect(shown("mValue")?.slice(0, 3)).toEqual(["any", "bool", "i8"]);
+    expect(shown("mValue")).not.toContain("id");
   });
 
   it("puts a value the vocabulary does not name past the end, not silently first", () => {

@@ -37,10 +37,13 @@ export const SECTIONS = ["Geometry", "Columns", "Streams"] as const;
 export type Section = (typeof SECTIONS)[number];
 
 /**
- * Data types in reading order: booleans, signed, unsigned, floats, the string type, then
- * the tile flags. Alphabetical would file `i8` after `i64` and split each family up.
+ * Data types in reading order: the two id widths, booleans, signed, unsigned, floats,
+ * the string type, then the tile flags. Alphabetical would file `i8` after `i64` and
+ * split each family up.
  */
-const DATA_TYPES = [
+const TYPES = [
+  "id",
+  "id64",
   "bool",
   "i8",
   "i32",
@@ -51,8 +54,48 @@ const DATA_TYPES = [
   "f32",
   "f64",
   "str",
-  "m-values",
 ];
+
+/**
+ * Types an m-value column may carry.
+ *
+ * An m-value column reads the same column type byte as any other column, so this is
+ * the same list less the ids, which a vertex cannot carry: a measurement is not a
+ * feature. A type v2 gains later is therefore offered here without further work.
+ */
+const M_VALUE_TYPES = TYPES.filter((type) => type !== "id" && type !== "id64");
+
+/**
+ * The chip that asks only that a row is not empty, which every column row leads with.
+ *
+ * Synthesised here rather than reported by `mlt ls`: it is a way of asking, not
+ * something a tile holds, and chips are AND-ed so the row cannot otherwise say
+ * "one of these" at all.
+ */
+export const ANY = "any";
+
+const withAny =
+  (of: (entry: FixtureEntry) => string[]) =>
+  (entry: FixtureEntry): string[] => {
+    const values = of(entry);
+    return values.length === 0 ? values : [ANY, ...values];
+  };
+
+/**
+ * Reads one run of `dataType` off an entry, dropping the suffix the run is named by.
+ *
+ * `mlt ls` reports every column as a type paired with its nullability, `i32!` or
+ * `i32?`, because the pairing has to sit in one value: chips are AND-ed, so a plain
+ * type chip and a separate nullability chip would match a tile holding an `i32` and,
+ * quite separately, some optional column of another type. Splitting the runs back out
+ * here lets both rows offer the same short list.
+ */
+const types =
+  (suffix: "!" | "?") =>
+  (entry: FixtureEntry): string[] =>
+    (entry.facets?.dataType ?? []).flatMap((value) =>
+      value.endsWith(suffix) ? [value.slice(0, -1)] : [],
+    );
 
 /** One filter axis: where its values come from, and every value v2 defines for it. */
 export interface Axis {
@@ -135,11 +178,25 @@ export const AXES: Axis[] = [
     of: field("extent"),
   },
   {
-    key: "dataType",
-    label: "types",
+    key: "required",
+    label: "required",
     section: "Columns",
-    vocabulary: DATA_TYPES,
-    of: field("dataType"),
+    vocabulary: [ANY, ...TYPES],
+    of: withAny(types("!")),
+  },
+  {
+    key: "optional",
+    label: "optional",
+    section: "Columns",
+    vocabulary: [ANY, ...TYPES],
+    of: withAny(types("?")),
+  },
+  {
+    key: "mValue",
+    label: "m-values",
+    section: "Columns",
+    vocabulary: [ANY, ...M_VALUE_TYPES],
+    of: withAny(field("mValue")),
   },
   {
     key: "strLayout",

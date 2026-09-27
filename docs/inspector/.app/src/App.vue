@@ -33,7 +33,11 @@ import { followScheme } from "./theme.ts";
 
 const root = ref<HTMLElement | null>(null);
 const index = ref<FixtureEntry[]>([]);
-const view = ref<ViewState>(defaultView());
+/** Seeded from the link, which carries `geo` whether or not it names a tile to restore. */
+const view = ref<ViewState>({
+  ...defaultView(),
+  geo: readDeepLink(location.search).geo,
+});
 const tile = shallowRef<AnnotatedTile | null>(null);
 const decoded = shallowRef<FeatureCollection | null>(null);
 const bytes = shallowRef<Uint8Array>(new Uint8Array());
@@ -203,6 +207,8 @@ let shown = tileOf(readDeepLink(location.search));
 async function restore(target: DeepLink) {
   if (tileOf(target) === null) {
     filters.value = target.filters;
+    query.value = target.query;
+    view.value.geo = target.geo;
     goHome();
     return;
   }
@@ -213,9 +219,11 @@ async function restore(target: DeepLink) {
     await fetchTile(target.url, at);
   if (!current(at) || tile.value === null) return;
   view.value.layer = target.layer;
+  view.value.geo = target.geo;
   // With layer and region rather than before the awaits: on its own it would be a link
   // naming no tile yet, which the watcher would push as an entry of its own.
   filters.value = target.filters;
+  query.value = target.query;
   await nextTick();
   if (current(at)) selected.value = target.region;
 }
@@ -240,8 +248,9 @@ useEventListener(window, "popstate", () => {
   void restore(target);
 });
 
-/** Picked filter chips, held here so the address bar carries them. */
+/** The picker's filters, held here so the address bar carries them. */
 const filters = ref<string[]>(readDeepLink(location.search).filters);
+const query = ref(readDeepLink(location.search).query);
 
 /** Changing the layer renumbers the tree, so a selection cannot survive it. */
 watch(layer, () => {
@@ -254,6 +263,8 @@ const link = computed<DeepLink>(() => ({
   layer: layer.value,
   region: selected.value,
   filters: filters.value,
+  query: query.value,
+  geo: view.value.geo,
 }));
 
 watch(link, (moved) => {
@@ -333,6 +344,7 @@ watch(
       </button>
       <SourcePicker
         v-model:filters="filters"
+        v-model:query="query"
         :index="index"
         :current="fixture ?? href"
         @fixture="pickFixture"
@@ -379,6 +391,7 @@ watch(
       <SourcePicker
         hero
         v-model:filters="filters"
+        v-model:query="query"
         :index="index"
         :current="fixture ?? href"
         @fixture="pickFixture"

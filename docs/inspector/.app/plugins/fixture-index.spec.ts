@@ -53,7 +53,7 @@ describe("indexFixtures", () => {
         "directory": "0x02",
         "facets": {
           "dataType": [
-            "str",
+            "str?",
           ],
           "dictLayout": [],
           "extent": [
@@ -68,6 +68,7 @@ describe("indexFixtures", () => {
           "logical": [
             "componentwise-delta",
           ],
+          "mValue": [],
           "physical": [
             "varint",
           ],
@@ -104,7 +105,8 @@ describe("indexFixtures", () => {
       index.find(
         (entry) => entry.directory === "0x01" && entry.name === "prop_bool.mlt",
       )?.facets?.dataType,
-    ).toEqual(["bool"]);
+      // Type and nullability in one token: this column declares a presence field.
+    ).toEqual(["bool?"]);
   });
 
   it("reads a shared-dict column as str, since a shared dictionary is an encoding", () => {
@@ -116,27 +118,37 @@ describe("indexFixtures", () => {
         entry.directory === "0x01" &&
         entry.name === "props_shared_dict_no_child_name.mlt",
     );
-    expect(shared?.facets?.dataType).toContain("str");
+    expect(shared?.facets?.dataType).toContain("str?");
     expect(shared?.facets?.streamType).toContain("data[shared]");
   });
 
-  it("flags the tiles that carry m-values", () => {
-    const flagged = index.filter((entry) =>
-      entry.facets?.dataType?.includes("m-values"),
+  it("reads a mixed shared dictionary as both, each child carrying its own presence", () => {
+    // The group declares no presence of its own, so collapsing its children would hide
+    // the required ones behind the optional ones.
+    const entry = index.find(
+      (it) =>
+        it.directory === "0x01-rust" &&
+        it.name === "props_shared_dict_same_nulls_mixed.mlt",
     );
+    expect(entry?.facets?.dataType).toEqual(["str!", "str?", "u32?"]);
+  });
+
+  it("flags the tiles that carry m-values", () => {
+    const flagged = index.filter((entry) => entry.facets?.mValue?.length);
     expect(flagged.length).toBeGreaterThan(0);
     expect(flagged.every((entry) => entry.directory.startsWith("0x02"))).toBe(
       true,
     );
   });
 
-  it("counts an m-value column's data type like a property column's", () => {
-    // mvalues.mlt has no property columns at all, only i32 and u32 m-values
-    expect(
-      index.find(
-        (entry) => entry.directory === "0x02" && entry.name === "mvalues.mlt",
-      )?.facets?.dataType,
-    ).toEqual(["i32", "m-values", "u32"]);
+  it("keeps an m-value column off the axis that counts feature columns", () => {
+    const entry = index.find(
+      (it) => it.directory === "0x02" && it.name === "mvalues.mlt",
+    );
+    // This tile declares no property columns at all, only i32 and u32 m-values,
+    // which run over vertices: nothing here answers "a column every feature has".
+    expect(entry?.facets?.dataType).toEqual([]);
+    expect(entry?.facets?.mValue).toEqual(["i32", "u32"]);
   });
 
   it("orders by directory then by name", () => {

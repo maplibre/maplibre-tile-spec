@@ -3,6 +3,7 @@ import { computed } from "vue";
 import type { DecodedBlob, DumpTree } from "./annotate.ts";
 import { blobChips, blobNote } from "./blob.ts";
 import { hex2, hexOffset, regionPath } from "./hex.ts";
+import { layerSummary } from "./layerSummary.ts";
 import ValueText from "./ValueText.vue";
 
 /** Values the detail pane asks for at a time, which is what keeps a 369-blob tile lazy. */
@@ -28,24 +29,50 @@ const path = computed(() =>
   props.index === null ? [] : regionPath(props.tree.regions, props.index),
 );
 
-const childCount = computed(() => {
+const layer = computed(() =>
+  props.index === null ? null : layerSummary(props.tree.regions, props.index),
+);
+
+/** A column's presence bitfield says whether values are there, not what they are. */
+const PRESENCE = "present";
+
+/**
+ * The blob this region reports: its own, or the one payload it opens.
+ *
+ * A stream is a header and a payload, so selecting the stream should say what the
+ * payload says rather than nothing. Only when there is exactly one payload left once
+ * presence is set aside: a column holds several streams, and picking one would be
+ * arbitrary.
+ */
+const payload = computed<number | null>(() => {
   const at = props.index;
-  if (at === null || !props.tree.regions[at]?.container) return 0;
-  const depth = props.tree.regions[at].depth;
-  let count = 0;
+  const here = at === null ? undefined : props.tree.regions[at];
+  if (here === undefined) return null;
+  if (here.blob) return at;
+  if (!here.container) return null;
+  let only: number | null = null;
   for (
-    let i = at + 1;
-    i < props.tree.regions.length && props.tree.regions[i].depth > depth;
+    let i = (at as number) + 1;
+    i < props.tree.regions.length && props.tree.regions[i].depth > here.depth;
     i++
   ) {
-    count += 1;
+    const blob = props.tree.regions[i].blob;
+    if (!blob || blob.streamType === PRESENCE) continue;
+    if (only !== null) return null;
+    only = i;
   }
-  return count;
+  return only;
 });
 
+const blob = computed(() =>
+  payload.value === null
+    ? null
+    : (props.tree.regions[payload.value]?.blob ?? null),
+);
+
 const decoded = computed<DecodedBlob | null>(() => {
-  if (props.index === null || !region.value?.blob) return null;
-  return props.decode(props.index, MAX_VALUES);
+  if (payload.value === null) return null;
+  return props.decode(payload.value, MAX_VALUES);
 });
 
 const chips = computed(() =>
@@ -54,6 +81,11 @@ const chips = computed(() =>
 
 const note = computed(() =>
   decoded.value === null ? "" : blobNote(decoded.value, MAX_CHARS),
+);
+
+/** The decoded section already counts them, and for an RLE stream it counts them right. */
+const countedBelow = computed(() =>
+  ["numbers", "bigints", "bools"].includes(decoded.value?.kind ?? ""),
 );
 
 const span = computed(() => {
@@ -80,25 +112,45 @@ const byte = computed(() =>
       <dl>
         <dt>bytes</dt>
         <dd>{{ span }}</dd>
-        <template v-if="region.container">
-          <dt>holds</dt>
-          <dd>{{ childCount }} regions</dd>
+        <template v-if="layer">
+          <dt>tag</dt>
+          <dd>{{ layer.tag }}</dd>
+          <template v-if="layer.extent">
+            <dt>extent</dt>
+            <dd>{{ layer.extent }}</dd>
+          </template>
+          <template v-if="layer.features !== null">
+            <dt>features</dt>
+            <dd>{{ layer.features }}</dd>
+          </template>
         </template>
         <template v-if="region.value">
           <dt>value</dt>
           <dd class="value"><ValueText :value="region.value" quoted /></dd>
         </template>
-        <template v-if="region.blob">
+        <template v-if="blob">
           <dt>stream</dt>
-          <dd>{{ region.blob.streamType }}</dd>
+          <dd>{{ blob.streamType }}</dd>
           <dt>encoding</dt>
-          <dd>{{ region.blob.logical }} / {{ region.blob.physical }}</dd>
-          <dt>values</dt>
-          <dd>{{ region.blob.numValues }}</dd>
+          <dd>{{ blob.logical }} / {{ blob.physical }}</dd>
+          <template v-if="!countedBelow">
+            <dt>values</dt>
+            <dd>{{ blob.numValues }}</dd>
+          </template>
           <dt>decodes</dt>
-          <dd>{{ region.blob.hint.kind }}</dd>
+          <dd>{{ blob.hint.kind }}</dd>
         </template>
       </dl>
+
+      <template v-if="layer">
+        <h3>columns <small>({{ layer.columns.length }})</small></h3>
+        <ol v-if="layer.columns.length" class="columns">
+          <li v-for="(column, n) in layer.columns" :key="n">
+            {{ column.type }}
+            <span v-if="column.name" class="cname">"{{ column.name }}"</span>
+          </li>
+        </ol>
+      </template>
 
       <template v-if="region.bits.length">
         <h3>bits of 0x{{ hex2(byte) }}</h3>
@@ -183,6 +235,19 @@ dd {
   font-family: var(--mono);
 }
 dd.value {
+  color: var(--value);
+}
+.columns {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--mono);
+}
+.columns li {
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.cname {
   color: var(--value);
 }
 .bitrow {

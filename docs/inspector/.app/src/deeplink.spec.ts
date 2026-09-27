@@ -13,6 +13,8 @@ const bare: DeepLink = {
   layer: null,
   region: null,
   filters: [],
+  query: "",
+  geo: true,
 };
 
 describe("the filter parameter", () => {
@@ -35,6 +37,31 @@ describe("the filter parameter", () => {
 
   it("writes nothing when nothing is picked", () => {
     expect(deepLinkSearch(bare)).toBe("");
+  });
+
+  it("carries the filter box beside the chips", () => {
+    expect(readDeepLink("?q=fsst").query).toBe("fsst");
+    expect(deepLinkSearch({ ...bare, query: "fsst" })).toBe("?q=fsst");
+  });
+
+  it("round-trips a chip and a typed word together", () => {
+    const link = { ...bare, filters: ["logical:alp"], query: "f64" };
+    const back = readDeepLink(deepLinkSearch(link));
+    expect([back.filters, back.query]).toEqual([link.filters, link.query]);
+  });
+});
+
+describe("the graphics parameter", () => {
+  /** Shown unless said otherwise, so a bare link opens the whole app. */
+  it("draws the panel when the link says nothing", () => {
+    expect(readDeepLink("").geo).toBe(true);
+    expect(deepLinkSearch(bare)).toBe("");
+  });
+
+  it("writes only the hidden state, and reads it back", () => {
+    const hidden = { ...bare, geo: false };
+    expect(deepLinkSearch(hidden)).toBe("?geo=0");
+    expect(readDeepLink(deepLinkSearch(hidden)).geo).toBe(false);
   });
 });
 

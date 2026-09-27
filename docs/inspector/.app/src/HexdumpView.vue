@@ -41,12 +41,14 @@ const panes = ref<HTMLElement | null>(null);
 const left = ref<HTMLElement | null>(null);
 const side = ref<HTMLElement | null>(null);
 /** Width of the right column in px, and the detail pane's share of it as a percentage. */
-const sideWidth = ref(352);
-const detailShare = ref(30);
+const sideWidth = ref(0);
+const detailShare = ref(55);
 /** The geometry panel's share of the left column, as a percentage. */
 const geoShare = ref(38);
 
 const SIDE_MIN = 220;
+/** A third of the window to start with, which the gutter then moves in pixels. */
+const SIDE_SHARE = 1 / 3;
 /** Leaves the map enough for fitColumns' eight-column floor, so a drag cannot clip the bytes. */
 const MAP_MIN = 330;
 const SHARE_MIN = 10;
@@ -59,6 +61,11 @@ function sideMax() {
   const total = panes.value?.clientWidth ?? 0;
   return Math.max(SIDE_MIN, total - MAP_MIN);
 }
+
+sideWidth.value = Math.max(
+  SIDE_MIN,
+  Math.round(window.innerWidth * SIDE_SHARE),
+);
 
 /** Drags the column gutter: the aside is on the right, so leftward widens it. */
 function dragSide(event: PointerEvent) {
@@ -257,6 +264,7 @@ onMounted(() => {
           @pick="select($event, false)"
         />
         <hr
+          v-if="view.geo"
           class="gutter row"
           aria-orientation="horizontal"
           aria-label="Resize the geometry panel"
@@ -268,6 +276,7 @@ onMounted(() => {
           @keydown="onGutterKey($event, 'geo')"
         >
         <GeometryView
+          v-if="view.geo"
           :style="{ flexBasis: `${geoShare}%` }"
           :tile="props.tile ?? null"
           :layer="scopeLayer"

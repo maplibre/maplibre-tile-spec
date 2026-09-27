@@ -4,7 +4,7 @@
 00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
 00000009  40                                                @                |   extent: 64
 0000000a  01                                                .                |   column_count: 1
-0000000b                                                                     |   column_schema[0] (1 B)
+0000000b                                                                     |   column_schema[0] Geometry (1 B)
 0000000b  04                                                .                |     type: 0x04 Geometry
                                                                              |       └ bits 7-1 = 0000010 -> base type = Geometry
                                                                              |       └ bit 0 = 0 -> not optional: each feature has a non-NULL value
@@ -22,7 +22,7 @@
 00000010  01                                                .                |       byte_length: 1
 00000011  02                                                .                |       data [Length(VarBinary) Int(None)/VarInt, 1 values, 1 B]
                                                                              |         decoded: [2]
-00000012                                                                     |     stream[0] (5 B)
+00000012                                                                     |     stream[0] Length(Parts) (5 B)
 00000012  32                                                2                |       stream_type: 0x32 Length(Parts)
                                                                              |         └ bits 7-4 = 0011 -> category = Length
                                                                              |         └ bits 3-0 = 0010 -> subtype = Parts
@@ -34,7 +34,7 @@
 00000015  01                                                .                |       byte_length: 1
 00000016  02                                                .                |       data [Length(Parts) Int(None)/VarInt, 1 values, 1 B]
                                                                              |         decoded: [2]
-00000017                                                                     |     stream[1] (8 B)
+00000017                                                                     |     stream[1] Length(Rings) (8 B)
 00000017  33                                                3                |       stream_type: 0x33 Length(Rings)
                                                                              |         └ bits 7-4 = 0011 -> category = Length
                                                                              |         └ bits 3-0 = 0011 -> subtype = Rings
@@ -48,7 +48,7 @@
 0000001c  02                                                .                |       num_rle_values: 2
 0000001d  02 03                                             ..               |       data [Length(Rings) Int(Rle(Split { runs: 1, num_rle_values: 2 }))/VarInt, 2 values, 2 B]
                                                                              |         decoded: [3, 3]
-0000001f                                                                     |     stream[2] (16 B)
+0000001f                                                                     |     stream[2] Data(Vertex) (16 B)
 0000001f  13                                                .                |       stream_type: 0x13 Data(Vertex)
                                                                              |         └ bits 7-4 = 0001 -> category = Data
                                                                              |         └ bits 3-0 = 0011 -> subtype = Vertex

@@ -141,6 +141,20 @@ pub enum StringLayout {
     FsstDict,
 }
 
+/// What a column declares on the wire, before decoding resolves it away.
+///
+/// Decoding reconstructs values and drops how they were stored: every id widens to
+/// `u64`, and a presence field is consumed into the values themselves. A caller
+/// reporting on a tile therefore has to read this off the parsed-but-not-decoded
+/// stage, which is the only one that still represents the data as written.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ColumnDecl {
+    /// The layer's id column, 64-bit or 32-bit.
+    Id { wide: bool, optional: bool },
+    /// A property column, by the type its values decode to.
+    Value { kind: PropKind, optional: bool },
+}
+
 /// How a column stores its values, beyond what its streams' encodings already say.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ColumnStorage {
@@ -412,5 +426,36 @@ impl RawProperty<'_> {
             string: Some(string),
             dictionary,
         })
+    }
+}
+
+impl RawProperty<'_> {
+    /// Call `cb` with what this column declares. A shared dictionary stores strings, so
+    /// it reads as [`PropKind::Str`], as the decoded form does.
+    pub(crate) fn for_each_decl(&self, cb: &mut dyn FnMut(ColumnDecl)) {
+        let (kind, optional) = match self {
+            Self::Bool(c) => (PropKind::Bool, c.presence.is_optional()),
+            Self::I8(c) => (PropKind::I8, c.presence.is_optional()),
+            Self::U8(c) => (PropKind::U8, c.presence.is_optional()),
+            Self::I32(c) => (PropKind::I32, c.presence.is_optional()),
+            Self::U32(c) => (PropKind::U32, c.presence.is_optional()),
+            Self::I64(c) => (PropKind::I64, c.presence.is_optional()),
+            Self::U64(c) => (PropKind::U64, c.presence.is_optional()),
+            Self::F32(c) => (PropKind::F32, c.presence.is_optional()),
+            Self::F64(c) => (PropKind::F64, c.presence.is_optional()),
+            Self::Str(c) => (PropKind::Str, c.presence.is_optional()),
+            // A shared dictionary holds no values of its own and declares no presence:
+            // its children are the columns, and each carries its own.
+            Self::SharedDict(c) => {
+                for child in &c.children {
+                    cb(ColumnDecl::Value {
+                        kind: PropKind::Str,
+                        optional: child.presence.is_optional(),
+                    });
+                }
+                return;
+            }
+        };
+        cb(ColumnDecl::Value { kind, optional });
     }
 }

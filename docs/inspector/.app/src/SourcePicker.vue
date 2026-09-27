@@ -34,8 +34,63 @@ const emit = defineEmits<{
   url: [address: string];
 }>();
 
+/** How each column row qualifies the type its chips name. */
+const COLUMN_ROWS: Record<string, string> = {
+  required: "non-optional ",
+  optional: "optional ",
+};
+
+/** What the chip at the head of each column row asks, which names no type at all. */
+const ANY_HINTS: Record<string, string> = {
+  required: "require a column every feature has a value for",
+  optional: "require a column some features may have no value for",
+  mValue: "require a tile with m-values",
+};
+
+/** What a row narrows by, for readers who have not met the term. */
+const ROW_HINTS: Record<string, string> = {
+  required: "Filter to files with columns every feature has a value for",
+  optional: "Filter to files with columns some features may have no value for",
+  mValue: "Filter to files with per-vertex values",
+};
+
+const rowHint = (row: AxisRow) => ROW_HINTS[row.key];
+
+/** Types that name a column outright, rather than something a column holds. */
+const COLUMN_KINDS: Record<string, string> = {
+  id: "ID",
+  id64: "64-bit ID",
+};
+
+const article = (phrase: string) => (/^[aeiou]/i.test(phrase) ? "an" : "a");
+
+/** What picking a chip would ask of a tile, and whether anything answers to it. */
+function chipHint(row: AxisRow, option: AxisValue): string | undefined {
+  const qualifier = COLUMN_ROWS[row.key];
+  const kind = COLUMN_KINDS[option.value];
+  let hint: string | undefined;
+  if (option.value === "any") {
+    hint = ANY_HINTS[row.key];
+  } else if (row.key === "mValue") {
+    hint = `require an m-value column of ${option.value}`;
+  } else if (qualifier === undefined) {
+    hint = undefined;
+  } else if (kind === undefined) {
+    hint = `require a column with ${qualifier}${option.value}`;
+  } else {
+    const what = `${qualifier}${kind}`;
+    hint = `require ${article(what)} ${what} column`;
+  }
+  if (option.total > 0) return hint;
+  const none = "no fixture shows this off yet";
+  return hint === undefined
+    ? none.charAt(0).toUpperCase() + none.slice(1)
+    : `${hint} - ${none}`;
+}
+
 const sheet = ref<HTMLDialogElement | null>(null);
-const filter = ref("");
+/** The filter box, in the URL beside the chips: half a filter is not worth handing over. */
+const filter = defineModel<string>("query", { default: "" });
 
 /** Picked chips, keyed `<axis>:<value>`, in the URL so a combination can be handed over. */
 const filters = defineModel<string[]>("filters", { default: () => [] });
@@ -134,15 +189,6 @@ const rows = computed(() => axisRows(props.index, chosen.value));
 /** Typing offers the chips whose names contain it, which no file-name search would find. */
 const hits = computed(() =>
   searchVocabulary(rows.value, filter.value, picked.value),
-);
-
-/** The picked chips themselves, so the summary can name and drop them one at a time. */
-const chosenChips = computed(() =>
-  rows.value.flatMap((row) =>
-    row.values
-      .filter((value) => picked.value.has(axisKey(row, value.value)))
-      .map((value) => ({ row, value })),
-  ),
 );
 
 function chipClass(row: AxisRow, value: AxisValue) {
@@ -315,28 +361,14 @@ function fetchUrl() {
             </button>
           </div>
 
-          <div v-if="chosenChips.length" class="chosen">
-            <span class="facet-label">filtering</span>
-            <button
-              v-for="chip in chosenChips"
-              :key="axisKey(chip.row, chip.value.value)"
-              type="button"
-              class="chip on"
-              :aria-label="`Remove ${chip.row.label} ${chip.value.value}`"
-              @click="toggle(axisKey(chip.row, chip.value.value))"
-            >
-              <span class="axis">{{ chip.row.label }}</span>
-              {{ chip.value.value
-              }}<span class="drop" aria-hidden="true">&times;</span>
-            </button>
-          </div>
-
           <div
             v-for="row in pinnedRows(rows)"
             :key="row.key"
             class="facet pinned"
           >
-            <span class="facet-label">{{ row.label }}</span>
+            <span class="facet-label" :title="rowHint(row)">{{
+              row.label
+            }}</span>
             <button
               v-for="option in row.values"
               :key="option.value"
@@ -375,7 +407,9 @@ function fetchUrl() {
                 :key="row.key"
                 class="facet"
               >
-                <span class="facet-label">{{ row.label }}</span>
+                <span class="facet-label" :title="rowHint(row)">{{
+                  row.label
+                }}</span>
                 <button
                   v-for="option in row.values"
                   :key="option.value"
@@ -384,11 +418,7 @@ function fetchUrl() {
                   :class="chipClass(row, option)"
                   :aria-pressed="picked.has(axisKey(row, option.value))"
                   :disabled="!coverage && chipOff(row, option)"
-                  :title="
-                    option.total === 0
-                      ? 'No fixture shows this off yet'
-                      : undefined
-                  "
+                  :title="chipHint(row, option)"
                   @click="toggle(axisKey(row, option.value))"
                 >
                   {{ option.value
@@ -491,17 +521,15 @@ function fetchUrl() {
   padding-left: 0.2rem;
 }
 .facet,
-.hits,
-.chosen {
+.hits {
   display: flex;
   gap: 0.3rem;
   align-items: center;
   flex-wrap: wrap;
   margin-top: 0.5rem;
 }
-/* The two standing rows sit above the sections, so they are set off from them. */
-.hits,
-.chosen {
+/* The hits row sits above the sections, so it is set off from them. */
+.hits {
   padding-bottom: 0.45rem;
   border-bottom: 1px solid var(--line);
 }
@@ -545,11 +573,6 @@ function fetchUrl() {
 .chip.on .axis {
   color: inherit;
   opacity: 0.75;
-}
-.drop {
-  color: inherit;
-  opacity: 0.75;
-  font-size: 0.75rem;
 }
 /* Nothing in the index has it: a gap in the fixtures rather than a filter miss. */
 .chip.gap {
@@ -759,6 +782,10 @@ function fetchUrl() {
   gap: 0.9rem;
   padding: var(--pad);
   border-bottom: 1px solid var(--line);
+  /* Opened sections can outgrow the card, which is already as tall as the sheet
+     allows. Without these the header refuses to shrink and spills out of it. */
+  min-height: 0;
+  overflow: auto;
 }
 .titles {
   display: flex;
@@ -807,6 +834,11 @@ function fetchUrl() {
 .groups {
   overflow: auto;
   padding: var(--pad-tight) var(--pad) var(--pad);
+  /* Basis 0 so the list takes what is left rather than its own huge content height,
+     which would otherwise dominate the shrink and crush the header to nothing.
+     The floor keeps a few rows in view once an opened section wants the room. */
+  flex: 1 1 0;
+  min-height: 6rem;
 }
 /* The directory a run of rows belongs to, kept in sight while that run scrolls. */
 h3 {
