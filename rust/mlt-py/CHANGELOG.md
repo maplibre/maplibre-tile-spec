@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.2.1...python-mlt-v0.2.2) - 2026-09-27
+
+### Other
+
+- updated the following local packages: mlt-core
+
 ## [0.2.1](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.2.0...python-mlt-v0.2.1) - 2026-09-27
 
 ### Other
