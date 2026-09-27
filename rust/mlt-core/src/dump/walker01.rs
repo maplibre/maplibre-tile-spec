@@ -152,11 +152,6 @@ impl<'a> Walker<'a> {
         let name_suffix = col.name.map(|n| format!(" {n:?}")).unwrap_or_default();
         let gi = self.open(input, format!("column[{ci}] {typ:?}{name_suffix}"));
 
-        // The table is the whole mapping for a column whose body is a single data
-        // stream: an id names its stream `id` rather than `data` and its width picks
-        // the hint, while every value column reads the same way. The three that are not
-        // one stream walk themselves, so the match stays exhaustive and a column type
-        // added later fails to compile here.
         let mut input = input;
         let stream = match typ {
             C::Id | C::OptId => Some(("id", ValueKind::Int, DecodeHint::U32)),
