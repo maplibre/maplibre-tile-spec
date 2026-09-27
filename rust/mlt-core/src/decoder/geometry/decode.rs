@@ -3,8 +3,8 @@ use usize_cast::IntoUsize as _;
 use crate::codecs::varint::parse_varint;
 use crate::decoder::stream::header01;
 use crate::decoder::{
-    DictionaryType, GeoTypes, GeometryType, GeometryValues, IntEncoding, LengthType, OffsetType,
-    RawGeometry, RawStream, StreamMeta, StreamType, ValueKind,
+    DictionaryType, GeoTypes, GeometryType, GeometryValues, IndexBase, IntEncoding, LengthType,
+    OffsetType, RawGeometry, RawStream, StreamMeta, StreamType, ValueKind,
 };
 use crate::errors::AsMltError as _;
 use crate::utils::SetOptionOnce as _;
@@ -312,6 +312,19 @@ pub(crate) fn decode_topology(
     })
 }
 
+/// Turn one triangle count per polygon feature into offsets, starting at `0`.
+fn decode_triangle_offsets(lengths: &[u32], dec: &mut Decoder) -> MltResult<Vec<u32>> {
+    let alloc_size = lengths.len().checked_add(1).or_overflow()?;
+    let mut offsets = dec.alloc(alloc_size)?;
+    offsets.push(0);
+    let mut total = 0_u32;
+    for &len in lengths {
+        total = total.checked_add(len).or_overflow()?;
+        offsets.push(total);
+    }
+    Ok(offsets)
+}
+
 impl<'a> RawGeometry<'a> {
     /// Parse encoded geometry from bytes (expects varint stream count + streams).
     /// Reserves decoded memory against the parser's budget.
@@ -330,6 +343,7 @@ impl<'a> RawGeometry<'a> {
                         ),
                         &[],
                     )),
+                    index_base: IndexBase::Feature,
                     items: Vec::new(),
                 },
             ));
@@ -344,6 +358,7 @@ impl<'a> RawGeometry<'a> {
             input,
             Self {
                 types: GeoTypes::Stream(meta),
+                index_base: IndexBase::Feature,
                 items,
             },
         ))
@@ -355,7 +370,11 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
     /// allocation.  All streams carry `num_values` in their metadata so every
     /// charge is pre-hoc.
     fn decode(self, dec: &mut Decoder) -> MltResult<GeometryValues> {
-        let RawGeometry { types, items } = self;
+        let RawGeometry {
+            types,
+            index_base,
+            items,
+        } = self;
         let vector_types = decode_geometry_types(types, dec)?;
         let mut geometry_offsets: Option<Vec<u32>> = None;
         let mut part_offsets: Option<Vec<u32>> = None;
@@ -431,9 +450,9 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             },
             dec,
         )?;
-
-        // Case when the indices of a Polygon outline are encoded in the tile
-        // This is handled by including index_buffer in the GeometryValues
+        let triangle_offsets = triangles
+            .map(|lengths| decode_triangle_offsets(&lengths, dec))
+            .transpose()?;
 
         // Expand vertex dictionary:
         // If a vertex offset stream was present,
@@ -467,14 +486,18 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             )?);
         }
 
-        Ok(GeometryValues {
+        let mut values = GeometryValues {
             vector_types,
             geometry_offsets,
             part_offsets,
             ring_offsets,
             index_buffer,
-            triangles,
+            triangle_offsets,
             vertices,
-        })
+        };
+        if index_base == IndexBase::Feature {
+            values.rebase_indices_to_layer()?;
+        }
+        Ok(values)
     }
 }

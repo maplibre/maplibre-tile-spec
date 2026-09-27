@@ -53,7 +53,7 @@ impl Analyze for GeometryValues {
                     + self.part_offsets.collect_statistic(stat)
                     + self.ring_offsets.collect_statistic(stat)
                     + self.index_buffer.collect_statistic(stat)
-                    + self.triangles.collect_statistic(stat)
+                    + self.triangle_offsets.collect_statistic(stat)
                     + self.vertices.collect_statistic(stat)
             }
             StatType::DecodedMetaSize => 0,

@@ -49,47 +49,45 @@ fn earcut_into(polygon: &Polygon<i32>, vertex_offset: u32, index_buf: &mut Vec<u
 }
 
 impl GeometryValues {
-    /// Returns a [`GeometryValues`] with an empty `triangles` buffer pre-initialized.
+    /// Returns a [`GeometryValues`] with its triangle offsets pre-initialized.
     ///
-    /// When `triangles` is `Some`, polygon push methods automatically compute and store
+    /// When they are `Some`, polygon push methods automatically compute and store
     /// Earcut tessellation data as geometries are added.
     /// Use [`Self::default`] when tessellation is not required.
     #[must_use]
     pub fn new_tessellated() -> Self {
         Self {
-            triangles: Some(vec![]),
+            triangle_offsets: Some(vec![0]),
             ..Default::default()
         }
     }
 
-    /// Tessellate `polygon` using the Earcut algorithm and append the results directly into
-    /// `self.index_buffer` and `self.triangles`.
-    fn tessellate_polygon(&mut self, polygon: &Polygon<i32>) {
-        if let Some(triangles) = self.triangles.as_mut() {
-            let (num_triangles, _) =
-                earcut_into(polygon, 0, self.index_buffer.get_or_insert_with(Vec::new));
-            triangles.push(num_triangles);
-        }
+    /// How many vertices the layer holds so far, which is where the next feature starts.
+    fn stored_vertex_count(&self) -> u32 {
+        let len = self.vertices.as_ref().map_or(0, Vec::len) / 2;
+        u32::try_from(len).expect("vertex count overflow")
     }
 
-    /// Tessellate all polygons in `mp` and append the combined results into
-    /// `self.index_buffer` and `self.triangles`.
+    /// Tessellate the polygons of one feature, whose vertices start at `first_vertex`,
+    /// into `self.index_buffer` and `self.triangle_offsets`.
     ///
-    /// Indices for each constituent polygon are offset by the cumulative vertex count of all
-    /// preceding polygons so they reference the correct positions in the shared vertex buffer.
-    /// A single total triangle count (summed over all constituent polygons) is pushed into
-    /// `self.triangles`.
-    fn tessellate_multi_polygon(&mut self, mp: &MultiPolygon<i32>) {
-        if let Some(triangles) = self.triangles.as_mut() {
-            let mut total_triangles = 0u32;
-            let mut vertex_offset = 0u32;
+    /// Each polygon's indices are shifted past the vertices of the ones before it,
+    /// so every index names a vertex of the whole layer.
+    fn tessellate_polygons<'p>(
+        &mut self,
+        polygons: impl IntoIterator<Item = &'p Polygon<i32>>,
+        first_vertex: u32,
+    ) {
+        if let Some(offsets) = self.triangle_offsets.as_mut() {
+            let mut total = *offsets.last().expect("offsets start at 0");
+            let mut vertex_offset = first_vertex;
             let index_buffer = self.index_buffer.get_or_insert_with(Vec::new);
-            for poly in &mp.0 {
+            for poly in polygons {
                 let (num_triangles, num_verts) = earcut_into(poly, vertex_offset, index_buffer);
-                total_triangles += num_triangles;
+                total += num_triangles;
                 vertex_offset += num_verts;
             }
-            triangles.push(total_triangles);
+            offsets.push(total);
         }
     }
 
@@ -152,13 +150,14 @@ impl GeometryValues {
         // part_offsets holds polygon ring-range data - leave both alone.
         self.vector_types.push(GeometryType::Polygon);
         self.init_polygon_offsets();
+        let first_vertex = self.stored_vertex_count();
 
         let verts = self.vertices.get_or_insert_with(Vec::new);
         let rings = self.ring_offsets.as_mut().unwrap();
         let parts = self.part_offsets.as_mut().unwrap();
 
         push_polygon_rings(poly, verts, rings, parts);
-        self.tessellate_polygon(poly);
+        self.tessellate_polygons([poly], first_vertex);
     }
 
     /// Initialize offset arrays for polygon storage. On the first polygon,
@@ -206,6 +205,7 @@ impl GeometryValues {
 
     fn push_multi_polygon(&mut self, mp: &MultiPolygon<i32>) {
         self.vector_types.push(GeometryType::MultiPolygon);
+        let first_vertex = self.stored_vertex_count();
 
         // An empty multi contributes no part and no ring, so it must not bring those
         // levels into existence either: the offset arrays a layer has must be ones it
@@ -224,7 +224,7 @@ impl GeometryValues {
         }
 
         self.push_geometry_count(u32::try_from(mp.0.len()).expect("polygon count overflow"));
-        self.tessellate_multi_polygon(mp);
+        self.tessellate_polygons(mp, first_vertex);
     }
 
     /// Initialize and update `geometry_offsets` with a sub-geometry count.
@@ -659,8 +659,8 @@ mod tests {
             let polygon = Polygon::new(exterior, vec![]);
             let mut g = GeometryValues::new_tessellated();
             g.push_geom(&Geometry::<i32>::Polygon(polygon));
-            let tris = g.triangles().expect("triangles");
-            let n = tris[0];
+            let tris = g.triangle_offsets().expect("triangle offsets");
+            let n = tris[1];
             assert!(n > 0, "expected at least one triangle");
             let ib = g.index_buffer().expect("index buffer");
             assert_eq!(ib.len(), n.into_usize() * 3);
@@ -679,9 +679,9 @@ mod tests {
                 poly1, poly2,
             ])));
             let ib = g.index_buffer().expect("index buffer");
-            let tris = g.triangles().expect("triangles");
-            assert_eq!(tris.len(), 1);
-            let total = tris[0].into_usize();
+            let tris = g.triangle_offsets().expect("triangle offsets");
+            assert_eq!(tris.len(), 2);
+            let total = tris[1].into_usize();
             assert_eq!(ib.len(), total * 3);
             // First quad: 4 verts -> 2 triangles, 6 indices
             let split = 6;

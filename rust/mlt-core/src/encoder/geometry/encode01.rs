@@ -8,13 +8,14 @@ use super::streams::{
     encode_vec2_vertex_stream, normalize_geometry_offsets, normalize_part_offsets_for_rings,
     seed_curve_caches, write_geo_u32_stream,
 };
-use crate::MltResult;
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
 use crate::decoder::{
     ColumnType, GeometryType, GeometryValues, LengthType, OffsetType, StreamType,
 };
+use crate::decoder::{Levels, decode_topology};
 use crate::encoder::model::StreamCtx;
 use crate::encoder::{Codecs, Encoder};
+use crate::{Decoder, MltResult};
 
 impl GeometryValues {
     /// Write the geometry column to `enc`.
@@ -26,7 +27,7 @@ impl GeometryValues {
             part_offsets,
             ring_offsets,
             index_buffer,
-            triangles,
+            triangle_offsets,
             vertices,
         } = self;
 
@@ -36,16 +37,16 @@ impl GeometryValues {
         let part_offsets = part_offsets.unwrap_or_default();
         let ring_offsets = ring_offsets.unwrap_or_default();
         let index_buffer = index_buffer.unwrap_or_default();
-        let triangles = triangles.unwrap_or_default();
+        let triangle_offsets = triangle_offsets.unwrap_or_default();
         let vertices = vertices.unwrap_or_default();
 
         // An empty index buffer means no polygon tessellated into a triangle, so both
         // streams are dropped, as the v2 writer does. The triangle counts alone say
         // nothing a reader could use.
-        let (triangles, index_buffer) = if index_buffer.is_empty() {
+        let (triangle_offsets, index_buffer) = if index_buffer.is_empty() {
             (Vec::new(), Vec::new())
         } else {
-            (triangles, index_buffer)
+            (triangle_offsets, index_buffer)
         };
 
         seed_curve_caches(enc, &vertices);
@@ -76,6 +77,7 @@ impl GeometryValues {
         n += 1;
 
         // Topology: compute each length stream and write it immediately.
+        let mut seen = Levels::default();
         if !geom_offsets.is_empty() {
             let geom_offsets = if geom_offsets.len() == vector_types.len() + 1 {
                 geom_offsets
@@ -84,7 +86,7 @@ impl GeometryValues {
             };
             let data = encode_root_length_stream(&vector_types, &geom_offsets, Polygon);
             let ctx = StreamCtx::geom(StreamType::Length(LengthType::Geometries), "geometries");
-            n += write_geo_u32_stream(&data, ctx, enc, codecs)?;
+            n += write_length(data, ctx, enc, codecs, &mut seen.geometries)?;
 
             // part_offsets is intentionally kept sparse here (polygon-only cumulative
             // ring counts). encode_level1/2_length_stream navigate it with a running
@@ -100,7 +102,7 @@ impl GeometryValues {
                         &part_offsets,
                     );
                     let ctx = StreamCtx::geom(StreamType::Length(LengthType::Parts), "no_rings");
-                    n += write_geo_u32_stream(&data, ctx, enc, codecs)?;
+                    n += write_length(data, ctx, enc, codecs, &mut seen.parts)?;
                 } else {
                     // Full topology: geom -> parts -> rings.
                     // LineStrings contribute to rings here, not to parts.
@@ -111,7 +113,7 @@ impl GeometryValues {
                         false,
                     );
                     let ctx = StreamCtx::geom(StreamType::Length(LengthType::Parts), "rings");
-                    n += write_geo_u32_stream(&data, ctx, enc, codecs)?;
+                    n += write_length(data, ctx, enc, codecs, &mut seen.parts)?;
 
                     let data = encode_level2_length_stream(
                         &vector_types,
@@ -120,24 +122,24 @@ impl GeometryValues {
                         &ring_offsets,
                     );
                     let ctx = StreamCtx::geom(StreamType::Length(LengthType::Rings), "rings2");
-                    n += write_geo_u32_stream(&data, ctx, enc, codecs)?;
+                    n += write_length(data, ctx, enc, codecs, &mut seen.rings)?;
                 }
             }
         } else if !part_offsets.is_empty() {
             if ring_offsets.is_empty() {
                 let data = encode_root_length_stream(&vector_types, &part_offsets, Point);
                 let ctx = StreamCtx::geom(StreamType::Length(LengthType::Parts), "no_rings");
-                n += write_geo_u32_stream(&data, ctx, enc, codecs)?;
+                n += write_length(data, ctx, enc, codecs, &mut seen.parts)?;
             } else {
                 // No Multi* types; parts -> rings (Polygon / mixed Point+Polygon).
                 // Java writes an empty GEOMETRIES stream here for tessellated polygons; only do
                 // so when explicitly forced (e.g. to preserve byte-for-byte Java compatibility).
                 let ctx = StreamCtx::geom(StreamType::Length(LengthType::Geometries), "geometries");
-                n += write_geo_u32_stream(&[], ctx, enc, codecs)?;
+                n += write_length(Vec::new(), ctx, enc, codecs, &mut seen.geometries)?;
 
                 let data = encode_root_length_stream(&vector_types, &part_offsets, LineString);
                 let ctx = StreamCtx::geom(StreamType::Length(LengthType::Parts), "parts");
-                n += write_geo_u32_stream(&data, ctx, enc, codecs)?;
+                n += write_length(data, ctx, enc, codecs, &mut seen.parts)?;
 
                 // part_offs is a dense N+1 array (one slot per geometry incl. Points);
                 // ring_offs stores vertex offsets per slot.  The dense-aware helper skips
@@ -153,10 +155,12 @@ impl GeometryValues {
                     has_line_string,
                 );
                 let ctx = StreamCtx::geom(StreamType::Length(LengthType::Rings), "parts_ring");
-                n += write_geo_u32_stream(&data, ctx, enc, codecs)?;
+                n += write_length(data, ctx, enc, codecs, &mut seen.rings)?;
             }
         }
 
+        let (triangles, index_buffer) =
+            feature_relative_triangles(vector_types, seen, triangle_offsets, index_buffer)?;
         let ctx = StreamCtx::geom(StreamType::Length(LengthType::Triangles), "triangles");
         n += write_geo_u32_stream(&triangles, ctx, enc, codecs)?;
         let ctx = StreamCtx::geom(StreamType::Offset(OffsetType::Index), "triangles_indexes");
@@ -212,4 +216,45 @@ impl GeometryValues {
         enc.data_mut()[stream_count_pos] = n;
         Ok(())
     }
+}
+
+/// Write a length stream, recording it in `seen` if it reached the tile.
+fn write_length(
+    data: Vec<u32>,
+    ctx: StreamCtx,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+    seen: &mut Option<Vec<u32>>,
+) -> MltResult<u8> {
+    let n = write_geo_u32_stream(&data, ctx, enc, codecs)?;
+    if n != 0 {
+        *seen = Some(data);
+    }
+    Ok(n)
+}
+
+/// The triangle counts and per-feature indices v1 stores for the layer-wide ones.
+fn feature_relative_triangles(
+    vector_types: Vec<GeometryType>,
+    seen: Levels,
+    triangle_offsets: Vec<u32>,
+    index_buffer: Vec<u32>,
+) -> MltResult<(Vec<u32>, Vec<u32>)> {
+    if index_buffer.is_empty() {
+        return Ok((Vec::new(), Vec::new()));
+    }
+    let triangles = triangle_offsets.windows(2).map(|w| w[1] - w[0]).collect();
+    let mut dec = Decoder::default();
+    let offsets = decode_topology(&vector_types, seen, &mut dec)?;
+    let mut dense = GeometryValues {
+        vector_types,
+        geometry_offsets: offsets.geometries,
+        part_offsets: offsets.parts,
+        ring_offsets: offsets.rings,
+        index_buffer: Some(index_buffer),
+        triangle_offsets: Some(triangle_offsets),
+        vertices: None,
+    };
+    dense.rebase_indices_to_feature()?;
+    Ok((triangles, dense.index_buffer.unwrap_or_default()))
 }
