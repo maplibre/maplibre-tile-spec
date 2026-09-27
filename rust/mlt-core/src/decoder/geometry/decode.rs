@@ -229,6 +229,89 @@ pub fn decode_level2_length_stream(
     Ok(level2_buffer_offsets)
 }
 
+/// The geometry, part and ring levels of a section's topology, each present or not.
+#[derive(Default)]
+pub(crate) struct Levels {
+    pub(crate) geometries: Option<Vec<u32>>,
+    pub(crate) parts: Option<Vec<u32>>,
+    pub(crate) rings: Option<Vec<u32>>,
+}
+
+/// Rebuild the dense offset levels from the length streams a section stores.
+pub(crate) fn decode_topology(
+    vector_types: &[GeometryType],
+    lengths: Levels,
+    dec: &mut Decoder,
+) -> MltResult<Levels> {
+    let Levels {
+        geometries: mut geometry_offsets,
+        parts: mut part_offsets,
+        rings: mut ring_offsets,
+    } = lengths;
+    if let Some(offsets) = geometry_offsets.take() {
+        geometry_offsets = Some(decode_root_length_stream(
+            vector_types,
+            &offsets,
+            GeometryType::Polygon,
+            dec,
+        )?);
+        if let Some(part_offsets_copy) = part_offsets.take() {
+            if let Some(ring_offsets_copy) = ring_offsets.take() {
+                part_offsets = Some(decode_level1_length_stream(
+                    vector_types,
+                    geometry_offsets.as_ref().unwrap(),
+                    &part_offsets_copy,
+                    false, // isLineStringPresent
+                    dec,
+                )?);
+                ring_offsets = Some(decode_level2_length_stream(
+                    vector_types,
+                    geometry_offsets.as_ref().unwrap(),
+                    part_offsets.as_ref().unwrap(),
+                    &ring_offsets_copy,
+                    dec,
+                )?);
+            } else {
+                part_offsets = Some(decode_level1_without_ring_buffer_length_stream(
+                    vector_types,
+                    geometry_offsets.as_ref().unwrap(),
+                    &part_offsets_copy,
+                    dec,
+                )?);
+            }
+        }
+    } else if let Some(offsets) = part_offsets.take() {
+        if let Some(ring_offsets_copy) = ring_offsets.take() {
+            let is_line_string_present = vector_types.iter().any(|t| t.is_linestring());
+            part_offsets = Some(decode_root_length_stream(
+                vector_types,
+                &offsets,
+                GeometryType::LineString,
+                dec,
+            )?);
+            ring_offsets = Some(decode_level1_length_stream(
+                vector_types,
+                part_offsets.as_ref().unwrap(),
+                &ring_offsets_copy,
+                is_line_string_present,
+                dec,
+            )?);
+        } else {
+            part_offsets = Some(decode_root_length_stream(
+                vector_types,
+                &offsets,
+                GeometryType::Point,
+                dec,
+            )?);
+        }
+    }
+    Ok(Levels {
+        geometries: geometry_offsets,
+        parts: part_offsets,
+        rings: ring_offsets,
+    })
+}
+
 impl<'a> RawGeometry<'a> {
     /// Parse encoded geometry from bytes (expects varint stream count + streams).
     /// Reserves decoded memory against the parser's budget.
@@ -335,64 +418,19 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             ));
         }
 
-        // Use decode_root_length_stream if geometry_offsets is present
-        if let Some(offsets) = geometry_offsets.take() {
-            geometry_offsets = Some(decode_root_length_stream(
-                &vector_types,
-                &offsets,
-                GeometryType::Polygon,
-                dec,
-            )?);
-            if let Some(part_offsets_copy) = part_offsets.take() {
-                if let Some(ring_offsets_copy) = ring_offsets.take() {
-                    part_offsets = Some(decode_level1_length_stream(
-                        &vector_types,
-                        geometry_offsets.as_ref().unwrap(),
-                        &part_offsets_copy,
-                        false, // isLineStringPresent
-                        dec,
-                    )?);
-                    ring_offsets = Some(decode_level2_length_stream(
-                        &vector_types,
-                        geometry_offsets.as_ref().unwrap(),
-                        part_offsets.as_ref().unwrap(),
-                        &ring_offsets_copy,
-                        dec,
-                    )?);
-                } else {
-                    part_offsets = Some(decode_level1_without_ring_buffer_length_stream(
-                        &vector_types,
-                        geometry_offsets.as_ref().unwrap(),
-                        &part_offsets_copy,
-                        dec,
-                    )?);
-                }
-            }
-        } else if let Some(offsets) = part_offsets.take() {
-            if let Some(ring_offsets_copy) = ring_offsets.take() {
-                let is_line_string_present = vector_types.iter().any(|t| t.is_linestring());
-                part_offsets = Some(decode_root_length_stream(
-                    &vector_types,
-                    &offsets,
-                    GeometryType::LineString,
-                    dec,
-                )?);
-                ring_offsets = Some(decode_level1_length_stream(
-                    &vector_types,
-                    part_offsets.as_ref().unwrap(),
-                    &ring_offsets_copy,
-                    is_line_string_present,
-                    dec,
-                )?);
-            } else {
-                part_offsets = Some(decode_root_length_stream(
-                    &vector_types,
-                    &offsets,
-                    GeometryType::Point,
-                    dec,
-                )?);
-            }
-        }
+        let Levels {
+            geometries: geometry_offsets,
+            parts: part_offsets,
+            rings: ring_offsets,
+        } = decode_topology(
+            &vector_types,
+            Levels {
+                geometries: geometry_offsets,
+                parts: part_offsets,
+                rings: ring_offsets,
+            },
+            dec,
+        )?;
 
         // Case when the indices of a Polygon outline are encoded in the tile
         // This is handled by including index_buffer in the GeometryValues
