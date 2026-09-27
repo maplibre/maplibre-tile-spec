@@ -110,7 +110,7 @@ pub struct AlpScale {
 }
 
 /// ALP parameters: `v = (base + offset) * 10^f / 10^e`.
-/// Written as three header varints, the stream itself holding the unsigned offsets.
+/// Written as a scale byte and a base varint, the stream itself holding the unsigned offsets.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Alp {
     pub(crate) scale: AlpScale,
@@ -131,6 +131,26 @@ impl AlpScale {
     pub(crate) fn net(self) -> u8 {
         self.e - self.f
     }
+
+    /// The header byte naming this scale, the pairs with `f <= e` numbered row by row.
+    pub(crate) fn to_byte(self) -> u8 {
+        Self::row_start(self.e) + self.f
+    }
+
+    /// Read a scale back from its header byte, rejecting the codes past the last pair.
+    pub(crate) fn from_byte(byte: u8) -> MltResult<Self> {
+        (0..=Self::MAX_EXPONENT)
+            .find_map(|e| {
+                let f = byte.checked_sub(Self::row_start(e))?;
+                (f <= e).then_some(Self { e, f })
+            })
+            .ok_or(MltError::InvalidAlpScale(byte))
+    }
+
+    /// First byte of the row for `e`, which is `e * (e + 1) / 2`.
+    fn row_start(e: u8) -> u8 {
+        (1..=e).sum()
+    }
 }
 
 /// Flattened, since the nesting is an encoder concern and these appear in stream labels.
@@ -146,6 +166,7 @@ impl std::fmt::Debug for Alp {
 
 #[cfg(feature = "unstable-v2")]
 impl Alp {
+    #[cfg(test)]
     pub(crate) fn new(e: u8, f: u8, base: i64) -> MltResult<Self> {
         if e <= AlpScale::MAX_EXPONENT && f <= e {
             Ok(Self {

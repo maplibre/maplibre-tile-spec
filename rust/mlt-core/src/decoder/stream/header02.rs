@@ -38,7 +38,7 @@ use usize_cast::IntoUsize as _;
 
 use crate::codecs::varint::parse_varint;
 use crate::decoder::{
-    Alp, BoolLogical, DataType02, DictLayout, DictionaryType, FastPForKind, FloatLogical,
+    Alp, AlpScale, BoolLogical, DataType02, DictLayout, DictionaryType, FastPForKind, FloatLogical,
     IntEncoding, IntLogical, LengthType, LogicalEncoding, Morton, OffsetType, PhysicalEncoding,
     RawStream, RleMeta, StreamMeta, StreamType, VertexLogical,
 };
@@ -725,12 +725,12 @@ impl Encoding02 {
                 return Err(MltError::NotImplemented("v2 RLE over a float column"));
             }
             Self::Float(LogicalFloat::Alp(p)) => {
-                let (after, e) = parse_varint::<u8>(input)?;
-                let (after, f) = parse_varint::<u8>(after)?;
+                let (after, scale) = parse_u8(input)?;
                 let (after, base) = parse_varint::<i64>(after)?;
                 rest = after;
+                let scale = AlpScale::from_byte(scale)?;
                 IntEncoding::new(
-                    LogicalEncoding::Float(FloatLogical::Alp(Alp::new(e, f, base)?)),
+                    LogicalEncoding::Float(FloatLogical::Alp(Alp { scale, base })),
                     flat_int(p),
                 )
             }
@@ -1022,8 +1022,7 @@ pub(crate) fn write_stream_meta<W: io::Write>(
         writer.write_varint(byte_length)?;
     }
     if let LE::Float(FloatLogical::Alp(alp)) = meta.encoding.logical {
-        writer.write_varint(alp.scale.e)?;
-        writer.write_varint(alp.scale.f)?;
+        writer.write_u8(alp.scale.to_byte())?;
         writer.write_varint(alp.base)?;
     }
     if let LE::Vertex(VertexLogical::MortonDelta(morton)) = meta.encoding.logical {

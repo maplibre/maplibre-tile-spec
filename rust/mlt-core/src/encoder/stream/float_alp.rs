@@ -122,6 +122,9 @@ impl AlpStream {
     }
 }
 
+/// Bytes the scale occupies in the header, `e` and `f` packed into one.
+const SCALE_BYTE: usize = 1;
+
 /// The frame of reference for these scaled integers: the smallest, so every offset is non-negative.
 fn frame(codes: &[i64], scale: AlpScale) -> Alp {
     Alp {
@@ -130,12 +133,9 @@ fn frame(codes: &[i64], scale: AlpScale) -> Alp {
     }
 }
 
-/// Bytes an ALP stream's header occupies: the encoding byte and the three parameter varints.
+/// Bytes an ALP stream's header occupies: the encoding byte, the scale byte and the base varint.
 fn header_bytes(params: Alp) -> usize {
-    ENCODING_BYTE
-        + varint_len(params.scale.e)
-        + varint_len(params.scale.f)
-        + varint_len(params.base)
+    ENCODING_BYTE + SCALE_BYTE + varint_len(params.base)
 }
 
 #[cfg(test)]

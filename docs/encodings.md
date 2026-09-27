@@ -270,15 +270,41 @@ Adaptive Lossless floating-Point compression stores a float column as integers, 
 Most floats in map data are decimals with few significant digits, such as `12.75` or `0.3`, and are exactly representable as a scaled integer.
 ALP finds one decimal scale for the whole column and stores $i = \operatorname{round}(v \cdot 10^e / 10^f)$ per value.
 
-The parameters are three varints in the stream header:
+$e$ is the decimal exponent the values were scaled by, $0 \le e \le 18$.
+$f$ is the factor dividing out the trailing zeros $e$ introduced, $0 \le f \le e$.
+
+The parameters are two values in the stream header:
 
 | Parameter | Meaning |
 |---|---|
-| `e` | Decimal exponent the values were scaled by, `0`-`18` |
-| `f` | Factor dividing out the trailing zeros `e` introduced, never exceeding `e` |
-| `base` | Frame of reference: the smallest scaled integer in the column, ZigZag-coded |
+| `scale` | One byte packing $e$ and $f$ as $\frac{e(e+1)}{2} + f$, from $0$ to $189$ |
+| `base` | Frame of reference: the smallest scaled integer in the column, ZigZag varint |
 
-`e > 18` or `f > e` MUST be rejected.
+`scale` numbers only the valid pairs, row by row.
+One 4-bit nibble each would be simpler, but cannot hold $e = 18$.
+Two 5-bit fields would not fit a byte, while the $190$ valid pairs up to $(e, f) = (18, 18)$ do.
+A `scale` above $189$ MUST be rejected.
+
+To decode, $e$ is the largest integer with $\frac{e(e+1)}{2} \le \mathit{scale}$, and $f$ is what remains:
+
+$$
+e = \left\lfloor \frac{\sqrt{8 \cdot \mathit{scale} + 1} - 1}{2} \right\rfloor
+\qquad
+f = \mathit{scale} - \frac{e(e+1)}{2}
+$$
+
+The square root is exact enough in double precision for every valid `scale`.
+
+| `scale` | $e$ | $f$ |
+|---:|---:|---:|
+| $0$ | $0$ | $0$ |
+| $1$ | $1$ | $0$ |
+| $2$ | $1$ | $1$ |
+| $3$ | $2$ | $0$ |
+| $4$ | $2$ | $1$ |
+| $5$ | $2$ | $2$ |
+| $\vdots$ | $\vdots$ | $\vdots$ |
+| $189$ | $18$ | $18$ |
 
 The payload holds unsigned offsets from `base`, so the smallest is `0` and every value is non-negative.
 The offsets are an ordinary unsigned integer stream and carry their own physical encoding.
@@ -289,14 +315,14 @@ Its words are 64-bit, except under FastPFOR, which only has 32-bit words.
 The sum MUST be formed as an integer before the conversion.
 A column spanning $[-2, 2^{53} - 1]$ has an offset of $2^{53} + 1$, which a double cannot hold.
 
-`e` and `f` are stored separately instead of a single `10^(e - f)`.
+$e$ and $f$ are stored separately instead of a single $10^{e - f}$.
 Scaling up by $10^e$ and then down by $10^f$ rounds twice, and some values are only exactly representable with $f > 0$.
 
 !!! important "Rounding"
     An encoder MUST decode every value back and compare bit patterns.
     If any value does not round-trip exactly, the encoder MUST use another encoding.
 
-`e` is at most `18` so that $v \cdot 10^e$ fits in an `i64`.
+$e$ is at most $18$ so that $v \cdot 10^e$ fits in an `i64`.
 
 !!! NOTE
     The reference Rust encoder currently only emits scaled integers with $|i| \le 2^{53} - 1$, where consecutive doubles are at most $1$ apart.
@@ -309,7 +335,7 @@ e = 2, f = 0:  i = [-75, 25, 150, -225]
 base = -225:   offsets = [150, 250, 375, 0]
 ```
 
-The header stores `e = 2`, `f = 0` and `base` as the ZigZag varint `c1 03`, and the payload the four offsets as varints.
+The header stores `e = 2`, `f = 0` as the `scale` byte `03` and `base` as the ZigZag varint `c1 03`, and the payload the four offsets as varints.
 See the [ALP example](specification/v2.md#examples) on the v2 page for the whole layer.
 
 ### Float Dictionary <span class="experimental"></span>
