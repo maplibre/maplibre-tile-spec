@@ -37,12 +37,6 @@ const region = computed(() => props.tree.regions[props.index] ?? null);
 
 const path = computed(() => regionDotPath(props.tree.regions, props.index));
 
-const span = computed(() =>
-  region.value
-    ? `${region.value.len} B at ${hexOffset(region.value.offset, props.tree.bufLen)}`
-    : "",
-);
-
 const decoded = computed<DecodedBlob | null>(() =>
   region.value?.blob ? props.decode(props.index, MAX_VALUES) : null,
 );
@@ -54,6 +48,13 @@ const values = computed(() =>
 const note = computed(() =>
   decoded.value === null ? "" : blobNote(decoded.value, MAX_CHARS),
 );
+
+/** Where the bytes are, and what they hold, which read as one line rather than two. */
+const span = computed(() => {
+  if (!region.value) return "";
+  const where = `${region.value.len} B at ${hexOffset(region.value.offset, props.tree.bufLen)}`;
+  return note.value === "" ? where : `${where}, ${note.value}`;
+});
 
 /** Fixed rather than absolute, since the map scrolls under the pointer the tip follows. */
 const placed = computed(() =>
@@ -77,10 +78,7 @@ const placed = computed(() =>
       <p v-for="field in region.bits" :key="field.hi" class="meaning">{{
         field.meaning
       }}</p>
-      <template v-if="decoded">
-        <p class="value" :class="decoded.kind">{{ values }}</p>
-        <p class="span">{{ note }}</p>
-      </template>
+      <p v-if="decoded" class="value" :class="decoded.kind">{{ values }}</p>
     </div>
   </div>
 </template>

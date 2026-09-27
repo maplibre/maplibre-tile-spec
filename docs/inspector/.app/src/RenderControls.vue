@@ -17,14 +17,45 @@ const props = defineProps<{ layers: string[] }>();
         </option>
       </select>
     </label>
-    <label class="toggle">
-      <input v-model="view.colorful" type="checkbox">
-      Colorful
-    </label>
+    <button
+      type="button"
+      class="knob"
+      :class="{ on: view.geo }"
+      :aria-pressed="view.geo"
+      @click="view.geo = !view.geo"
+    >
+      Geometries
+    </button>
+    <button
+      type="button"
+      class="knob"
+      :class="{ on: view.colorful }"
+      :aria-pressed="view.colorful"
+      @click="view.colorful = !view.colorful"
+    >
+      Tints
+    </button>
   </div>
 </template>
 
 <style scoped>
+.knob {
+  background: var(--control);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-inline);
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 0.1rem 0.5rem;
+  cursor: pointer;
+}
+.knob:hover {
+  background: var(--hover);
+}
+.knob.on {
+  color: var(--text);
+  border-color: var(--accent-rule);
+}
 .knobs {
   display: flex;
   gap: var(--pad);
@@ -50,16 +81,8 @@ select {
   appearance: none;
   padding: var(--pad-tight) 2rem var(--pad-tight) 0.9rem;
 }
-.toggle {
-  cursor: pointer;
-}
-input {
-  accent-color: var(--accent);
-  margin: 0;
-  cursor: pointer;
-}
 /* The select is the label's last child, so the label's right edge is the select's. */
-label:not(.toggle)::after {
+label::after {
   content: "";
   position: absolute;
   right: 0.9rem;

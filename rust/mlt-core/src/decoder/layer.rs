@@ -1,7 +1,7 @@
 use crate::codecs::varint::parse_varint;
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::root02::parse_layer02;
-use crate::decoder::{ColumnStorage, Layer01, ParsedLayer01, Unknown};
+use crate::decoder::{ColumnDecl, ColumnStorage, Layer01, ParsedLayer01, Unknown};
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::{Layer02, ParsedLayer02};
 use crate::utils::{parse_u8, take};
@@ -73,6 +73,21 @@ impl<'a> Layer01<'a, Lazy> {
                 && let Some(storage) = raw.storage()
             {
                 cb(storage);
+            }
+        }
+    }
+
+    /// Call `cb` with the [`ColumnDecl`] of every column the layer stores, id first.
+    ///
+    /// Decoding resolves these away, so a caller reporting on a tile has to ask before
+    /// [`Self::decode_all`] runs.
+    pub fn for_each_column_decl(&self, cb: &mut dyn FnMut(ColumnDecl)) {
+        if let Some(LazyParsed::Raw(id)) = self.id.as_ref() {
+            cb(id.decl());
+        }
+        for column in &self.properties {
+            if let LazyParsed::Raw(raw) = column {
+                raw.for_each_decl(cb);
             }
         }
     }

@@ -57,25 +57,104 @@ describe("opening a fresh tree", () => {
 });
 
 describe("picking a section header", () => {
+  it("leaves the section as it was", async () => {
+    const view = tree();
+    await view.findAll("button.label")[2].trigger("click");
+    expect(view.findAll(".node")).toHaveLength(3);
+  });
+
+  it("reports the pick", async () => {
+    const view = tree();
+    await view.findAll("button.label")[2].trigger("click");
+    await view.findAll("button.label")[2].trigger("click");
+    expect(view.emitted("pick")).toEqual([[2], [2]]);
+  });
+});
+
+describe("double clicking a section header", () => {
   it("expands a collapsed section", async () => {
     const view = tree();
     expect(view.findAll(".node")).toHaveLength(3);
-    await view.findAll("button.label")[2].trigger("click");
+    await view.findAll("button.label")[2].trigger("dblclick");
     expect(view.findAll(".node")).toHaveLength(5);
   });
 
   it("collapses an open section", async () => {
     const view = await openTree();
     expect(view.findAll(".node")).toHaveLength(5);
-    await view.findAll("button.label")[2].trigger("click");
+    await view.findAll("button.label")[2].trigger("dblclick");
     expect(view.findAll(".node")).toHaveLength(3);
   });
 
-  it("still reports the pick either way", async () => {
+  it("leaves a leaf alone", async () => {
+    const view = await openTree();
+    await view.findAll("button.label")[1].trigger("dblclick");
+    expect(view.findAll(".node")).toHaveLength(5);
+  });
+});
+
+/** An `Id` column holds one stream and nothing else, which is the shape that folds. */
+const wrapped: DumpTree = {
+  bufLen: 6,
+  regions: [
+    region({ offset: 0, len: 6, label: "layer[0]", container: true }),
+    region({ offset: 0, len: 1, label: "name", depth: 1, value: "water" }),
+    region({
+      offset: 1,
+      len: 5,
+      label: "column[0] Id",
+      depth: 1,
+      container: true,
+    }),
+    region({ offset: 1, len: 5, label: "id", depth: 2, container: true }),
+    region({ offset: 1, len: 1, label: "num_values", depth: 3, value: "2" }),
+    region({ offset: 2, len: 4, label: "data", depth: 3, kind: "dataBlob" }),
+  ],
+};
+
+describe("a container that holds one container and nothing else", () => {
+  it("shows the parent alone, the wrapper's own name being implied", async () => {
+    const view = await openTree(wrapped);
+    const labels = view.findAll(".name").map((at) => at.text());
+    expect(labels).toEqual([
+      "layer[0]",
+      "name",
+      "column[0] Id",
+      "num_values",
+      "data",
+    ]);
+  });
+
+  it("opens onto what the wrapper held, not the wrapper", async () => {
+    const view = tree(wrapped);
+    await view.get('[data-index="2"] button.caret').trigger("click");
+    expect(view.findAll(".name")).toHaveLength(5);
+  });
+
+  it("reports the row it folded into, not the region picked", async () => {
+    const view = await openTree(wrapped);
+    await view.findAll("button.label")[2].trigger("click");
+    expect(view.emitted("pick")).toEqual([[2]]);
+  });
+
+  it("lights up the row when the map selects a region it swallowed", async () => {
+    const view = await openTree(wrapped);
+    await view.setProps({ activeIndex: 3 });
+    expect(view.get(".node.on").get(".name").text()).toBe("column[0] Id");
+  });
+
+  it("leaves a lone leaf where it is", async () => {
+    const view = await openTree();
+    expect(view.findAll(".name").map((at) => at.text())).toContain("geometry");
+  });
+});
+
+describe("the caret", () => {
+  it("toggles on a single click without selecting", async () => {
     const view = tree();
-    await view.findAll("button.label")[2].trigger("click");
-    await view.findAll("button.label")[2].trigger("click");
-    expect(view.emitted("pick")).toEqual([[2], [2]]);
+    await view.get('[data-index="2"] button.caret').trigger("click");
+    expect(view.findAll(".node")).toHaveLength(5);
+    expect(view.emitted("pick")).toBeUndefined();
   });
 });
 

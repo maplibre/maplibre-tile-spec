@@ -363,7 +363,7 @@ describe("the hover tip", () => {
     });
     await hover(pane, 0);
     expect(pane.get(".tip .value").text()).toBe("1, 2, 3");
-    expect(pane.findAll(".tip .span")[1].text()).toBe("3 of 9 values");
+    expect(pane.get(".tip .span").text()).toBe("8 B at 0000, 3 of 9 values");
   });
 });
 

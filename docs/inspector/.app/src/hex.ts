@@ -14,6 +14,8 @@ export interface ViewState {
   width: number;
   /** Whether the map and the tree tint each section. */
   colorful: boolean;
+  /** Whether the geometry panel is drawn, which a narrow window may not have room for. */
+  geo: boolean;
   layer: number | null;
 }
 
@@ -22,6 +24,7 @@ export function defaultView(): ViewState {
   return {
     width: 16,
     colorful: false,
+    geo: true,
     layer: null,
   };
 }

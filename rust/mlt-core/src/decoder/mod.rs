@@ -56,7 +56,7 @@ pub use nested::{
 };
 // Re-export strings sub-module so encoder can use `crate::decoder::strings::*`
 pub(crate) use property::strings;
-pub use property::{ColumnStorage, DictLayout, StringLayout};
+pub use property::{ColumnDecl, ColumnStorage, DictLayout, StringLayout};
 pub(crate) use property::{
     DictRange, ParsedProperty, ParsedScalar, ParsedSharedDict, ParsedSharedDictItem, ParsedStrings,
     Property, RawFloats, RawFloatsEncoding, RawFsstData, RawPlainData, RawPresence, RawProperty,

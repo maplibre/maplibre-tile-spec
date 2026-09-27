@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use crate::decoder::{RawPresence, RawStream};
+use crate::decoder::{ColumnDecl, RawPresence, RawStream};
 use crate::utils::Presence;
 use crate::utils::analyze::AnalyzeViaDeref;
 use crate::{DecodeState, Lazy};
@@ -23,6 +23,16 @@ pub struct RawId<'a> {
 pub enum RawIdValue<'a> {
     Id32(RawStream<'a>),
     Id64(RawStream<'a>),
+}
+
+impl RawId<'_> {
+    /// What this column declares, the id width included.
+    pub(crate) fn decl(&self) -> ColumnDecl {
+        ColumnDecl::Id {
+            wide: matches!(self.value, RawIdValue::Id64(_)),
+            optional: self.presence.is_optional(),
+        }
+    }
 }
 
 /// Decoded ID column.

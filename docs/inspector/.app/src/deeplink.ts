@@ -13,6 +13,10 @@ export interface DeepLink {
   region: number | null;
   /** Picked filter chips, each `<axis>:<value>`, so a combination can be handed over. */
   filters: string[];
+  /** What the picker's filter box holds, which narrows by name and offers chips. */
+  query: string;
+  /** Whether the geometry panel is drawn. Only the off state is written down. */
+  geo: boolean;
 }
 
 const knownAxes = new Set(AXES.map((a) => a.key));
@@ -30,6 +34,9 @@ export function readDeepLink(search: string): DeepLink {
       const colon = value.indexOf(":");
       return colon > 0 && knownAxes.has(value.slice(0, colon));
     }),
+    query: params.get("q") ?? "",
+    // Shown unless the link says otherwise, so a bare URL opens the whole app.
+    geo: params.get("geo") !== "0",
   };
 }
 
@@ -41,6 +48,8 @@ export function deepLinkSearch(link: DeepLink): string {
   if (link.layer !== null) params.set("layer", String(link.layer));
   if (link.region !== null) params.set("region", String(link.region));
   for (const picked of link.filters) params.append("f", picked);
+  if (link.query !== "") params.set("q", link.query);
+  if (!link.geo) params.set("geo", "0");
   const search = params.toString();
   return search === "" ? "" : `?${search}`;
 }

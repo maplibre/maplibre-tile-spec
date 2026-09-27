@@ -155,6 +155,18 @@ describe("the history a tile leaves", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
+  /** `geo=0` rides a link that names no tile, so `restore` never runs to apply it. */
+  it("takes the geometry panel off a link that opens no tile", async () => {
+    serve();
+    history.replaceState(null, "", "/?geo=0");
+    const app = mount(App);
+    await flushPromises();
+    await app.getComponent(SourcePicker).vm.$emit("fixture", "0x01/point.mlt");
+    await flushPromises();
+    expect(location.search).toBe("?fixture=0x01%2Fpoint.mlt&geo=0");
+    app.unmount();
+  });
+
   it("leaves an entry behind the tile another one replaces", async () => {
     const { app, push } = await opened();
     await app.getComponent(SourcePicker).vm.$emit("fixture", "0x02/line.mlt");

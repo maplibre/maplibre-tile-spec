@@ -169,13 +169,14 @@ describe("the filter sheet", () => {
     expect(alp?.attributes("disabled")).toBeDefined();
   });
 
-  it("names each picked chip so it can be dropped on its own", async () => {
-    const view = picker(["geometry:point"]);
-    await view.get(".open").trigger("click");
-    const chosen = view.findAll(".chosen .chip");
-    expect(chosen.map(textOf)).toEqual(["geometry point×"]);
-    await chosen[0].trigger("click");
-    expect(view.props("filters")).toEqual(["geometry:point"]);
+  it("drops a pick from the chip that made it, there being no summary row", async () => {
+    const view = await sheetWith(picker(["geometry:point"]), "Geometry");
+    expect(view.findAll(".chosen")).toHaveLength(0);
+    const point = chips(view, "geometry").find((c) =>
+      c.classes().includes("on"),
+    );
+    expect(textOf(point as { text: () => string })).toBe("point1");
+    await point?.trigger("click");
     expect(view.emitted("update:filters")).toEqual([[[]]]);
   });
 

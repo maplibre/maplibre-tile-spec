@@ -15,11 +15,11 @@ use mlt_core::geojson::FeatureCollection;
 use mlt_core::mvt::mvt_to_feature_collection;
 use mlt_core::wire::StatType::{DecodedDataSize, DecodedMetaSize, FeatureCount};
 use mlt_core::wire::{
-    Analyze as _, BoolLogical, ColumnStorage, DictLayout, DictionaryType, FastPForKind,
+    Analyze as _, BoolLogical, ColumnDecl, ColumnStorage, DictLayout, DictionaryType, FastPForKind,
     FloatLogical, IntLogical, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding,
     StreamMeta, StreamType, StringLayout, VertexLogical,
 };
-use mlt_core::{Decoder, GeometryType, Layer, ParsedLayer, Parser};
+use mlt_core::{Decoder, GeometryType, Layer, ParsedLayer, Parser, PropKind};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use serde::Serialize;
 use size_format::SizeFormatterSI;
@@ -232,6 +232,50 @@ fn logical_token(logical: StatLogicalCodec) -> Option<&'static str> {
     })
 }
 
+/// A type paired with whether the column declares a presence field
+fn optionality_token(decl: ColumnDecl) -> &'static str {
+    match decl {
+        ColumnDecl::Id {
+            wide: false,
+            optional: false,
+        } => "id!",
+        ColumnDecl::Id {
+            wide: false,
+            optional: true,
+        } => "id?",
+        ColumnDecl::Id {
+            wide: true,
+            optional: false,
+        } => "id64!",
+        ColumnDecl::Id {
+            wide: true,
+            optional: true,
+        } => "id64?",
+        ColumnDecl::Value { kind, optional } => match (kind, optional) {
+            (PropKind::Bool, false) => "bool!",
+            (PropKind::Bool, true) => "bool?",
+            (PropKind::I8, false) => "i8!",
+            (PropKind::I8, true) => "i8?",
+            (PropKind::U8, false) => "u8!",
+            (PropKind::U8, true) => "u8?",
+            (PropKind::I32, false) => "i32!",
+            (PropKind::I32, true) => "i32?",
+            (PropKind::U32, false) => "u32!",
+            (PropKind::U32, true) => "u32?",
+            (PropKind::I64, false) => "i64!",
+            (PropKind::I64, true) => "i64?",
+            (PropKind::U64, false) => "u64!",
+            (PropKind::U64, true) => "u64?",
+            (PropKind::F32, false) => "f32!",
+            (PropKind::F32, true) => "f32?",
+            (PropKind::F64, false) => "f64!",
+            (PropKind::F64, true) => "f64?",
+            (PropKind::Str, false) => "str!",
+            (PropKind::Str, true) => "str?",
+        },
+    }
+}
+
 fn geometry_token(geometry: GeometryType) -> &'static str {
     match geometry {
         GeometryType::Point => "point",
@@ -339,9 +383,9 @@ pub fn na(v: Option<String>) -> String {
 /// The filter vocabulary a tile answers to, one sorted array of strings per axis.
 ///
 /// Every value is spelled as the v2 spec names it, lowercased and hyphenated, so a
-/// caller can show them as they are. `geometry` and `dataType` restate what
-/// `geometries` and `content` already hold: those keep the shapes their own
-/// consumers need, while this is the one flat surface a facet filter reads.
+/// caller can show them as they are. `geometry` restates what `geometries` already
+/// holds: that keeps the shape its own consumers need, while this is the one flat
+/// surface a facet filter reads.
 ///
 /// TODO: a `presence` axis (bitmap / runs / indices / shared) belongs here, but
 /// `RawPresence` collapses `Runs` and `Indices` into one variant and does not record
@@ -350,24 +394,29 @@ pub fn na(v: Option<String>) -> String {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Facets {
-    /// The tile extent of each layer, in coordinate units.
+    /// The tile extent of each layer, in coordinate units. The one axis whose values
+    /// are measured rather than named, so the only one that owns its strings.
     pub extent: BTreeSet<String>,
     /// The geometry types the layers hold.
-    pub geometry: BTreeSet<String>,
+    pub geometry: BTreeSet<&'static str>,
     /// The geometry section layout each layer was written with. v2 only.
-    pub geom_layout: BTreeSet<String>,
-    /// The data types of the property and m-value columns.
-    pub data_type: BTreeSet<String>,
+    pub geom_layout: BTreeSet<&'static str>,
+    /// Each feature-scoped column as a type paired with its nullability, `i32!` or
+    /// `i32?`, the id column included.
+    pub data_type: BTreeSet<&'static str>,
+    /// The data types carried by m-value columns, which run over vertices rather than
+    /// features and so count on their own.
+    pub m_value: BTreeSet<&'static str>,
     /// How the string columns store their values.
-    pub str_layout: BTreeSet<String>,
+    pub str_layout: BTreeSet<&'static str>,
     /// How the dictionary blobs are laid out.
-    pub dict_layout: BTreeSet<String>,
+    pub dict_layout: BTreeSet<&'static str>,
     /// The kinds of stream present, unpaired from their encodings.
-    pub stream_type: BTreeSet<String>,
+    pub stream_type: BTreeSet<&'static str>,
     /// The physical encodings present, unpaired from the streams carrying them.
-    pub physical: BTreeSet<String>,
+    pub physical: BTreeSet<&'static str>,
     /// The logical encodings present, unpaired from the streams carrying them.
-    pub logical: BTreeSet<String>,
+    pub logical: BTreeSet<&'static str>,
 }
 
 impl Facets {
@@ -375,23 +424,28 @@ impl Facets {
         let FileAlgorithm::Mlt(stream, physical, logical) = algorithm else {
             return;
         };
-        self.stream_type.insert(stream_token(stream).to_string());
+        self.stream_type.insert(stream_token(stream));
         if let Some(physical) = physical_token(physical) {
-            self.physical.insert(physical.to_string());
+            self.physical.insert(physical);
         }
         if let Some(logical) = logical_token(logical) {
-            self.logical.insert(logical.to_string());
+            self.logical.insert(logical);
         }
+    }
+
+    fn add_decl(&mut self, decl: ColumnDecl) {
+        // Type and nullability in one token: chips are AND-ed, so a bare type and a
+        // separate nullability chip could not say "an optional i32" from "an i32 and,
+        // separately, something optional".
+        self.data_type.insert(optionality_token(decl));
     }
 
     fn add_storage(&mut self, storage: ColumnStorage) {
         if let Some(layout) = storage.string {
-            self.str_layout
-                .insert(string_layout_token(layout).to_string());
+            self.str_layout.insert(string_layout_token(layout));
         }
         if let Some(layout) = storage.dictionary {
-            self.dict_layout
-                .insert(dict_layout_token(layout).to_string());
+            self.dict_layout.insert(dict_layout_token(layout));
         }
     }
 }
@@ -760,6 +814,7 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
                     collect_stream_info(stream_meta, &mut algorithms);
                 });
                 l.for_each_column_storage(&mut |storage| facets.add_storage(storage));
+                l.for_each_column_decl(&mut |decl| facets.add_decl(decl));
                 facets.extent.insert(l.extent().get().to_string());
             }
             #[cfg(feature = "unstable-v2")]
@@ -769,10 +824,12 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
                     collect_stream_info(stream_meta, &mut algorithms);
                 });
                 l.for_each_column_storage(&mut |storage| facets.add_storage(storage));
+                l.layer()
+                    .for_each_column_decl(&mut |decl| facets.add_decl(decl));
                 facets.extent.insert(l.layer().extent().get().to_string());
                 facets
                     .geom_layout
-                    .insert(geom_layout_token(l.layout().geometry).to_string());
+                    .insert(geom_layout_token(l.layout().geometry));
             }
             // Unknown, and any tag a later version adds
             _ => {}
@@ -809,6 +866,9 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
             for column in layer02.m_values() {
                 content.insert("m-values");
                 content.insert(column.values().kind().into());
+                // An m-value runs over vertices, so its type counts on its own axis
+                // rather than among the columns a feature has values for.
+                facets.m_value.insert(column.values().kind().into());
             }
         }
     }
@@ -835,11 +895,7 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
     for &algorithm in &algorithms {
         facets.add_algorithm(algorithm);
     }
-    facets.data_type = content.iter().map(|&kind| kind.to_string()).collect();
-    facets.geometry = geometries
-        .iter()
-        .map(|&g| geometry_token(g).to_string())
-        .collect();
+    facets.geometry = geometries.iter().map(|&g| geometry_token(g)).collect();
 
     Ok(MltFileInfo {
         size: buffer.len(),
@@ -875,10 +931,7 @@ fn analyze_mvt_buffer(buffer: &[u8]) -> AnyResult<MltFileInfo> {
     }
 
     let facets = Facets {
-        geometry: geometries
-            .iter()
-            .map(|&g| geometry_token(g).to_string())
-            .collect(),
+        geometry: geometries.iter().map(|&g| geometry_token(g)).collect(),
         ..Facets::default()
     };
     Ok(MltFileInfo {
