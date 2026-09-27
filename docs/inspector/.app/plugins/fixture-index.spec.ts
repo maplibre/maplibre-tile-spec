@@ -105,7 +105,6 @@ describe("indexFixtures", () => {
       index.find(
         (entry) => entry.directory === "0x01" && entry.name === "prop_bool.mlt",
       )?.facets?.dataType,
-      // Type and nullability in one token: this column declares a presence field.
     ).toEqual(["bool?"]);
   });
 
