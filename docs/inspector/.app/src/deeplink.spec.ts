@@ -52,7 +52,6 @@ describe("the filter parameter", () => {
 });
 
 describe("the graphics parameter", () => {
-  /** Shown unless said otherwise, so a bare link opens the whole app. */
   it("draws the panel when the link says nothing", () => {
     expect(readDeepLink("").geo).toBe(true);
     expect(deepLinkSearch(bare)).toBe("");
