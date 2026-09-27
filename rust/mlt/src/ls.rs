@@ -232,11 +232,7 @@ fn logical_token(logical: StatLogicalCodec) -> Option<&'static str> {
     })
 }
 
-/// A type paired with whether the column declares a presence field, which v1 spells as
-/// a type of its own (`OptI32`) and v2 as a presence nibble.
-///
-/// Spelled out rather than formatted, so the vocabulary stays a fixed set of names and
-/// a type added later fails to compile here rather than inventing a token at runtime.
+/// A type paired with whether the column declares a presence field
 fn optionality_token(decl: ColumnDecl) -> &'static str {
     match decl {
         ColumnDecl::Id {
