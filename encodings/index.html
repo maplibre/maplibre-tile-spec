@@ -1226,7 +1226,9 @@ This is the only float encoding v1 has.</p>
 <p>Adaptive Lossless floating-Point compression stores a float column as integers, which are then <a href="#physical-encodings">physically encoded</a> like any other integer stream.</p>
 <p>Most floats in map data are decimals with few significant digits, such as <code>12.75</code> or <code>0.3</code>, and are exactly representable as a scaled integer.
 ALP finds one decimal scale for the whole column and stores <span class="arithmatex">\(i = \operatorname{round}(v \cdot 10^e / 10^f)\)</span> per value.</p>
-<p>The parameters are three varints in the stream header:</p>
+<p><span class="arithmatex">\(e\)</span> is the decimal exponent the values were scaled by, <span class="arithmatex">\(0 \le e \le 18\)</span>.
+<span class="arithmatex">\(f\)</span> is the factor dividing out the trailing zeros <span class="arithmatex">\(e\)</span> introduced, <span class="arithmatex">\(0 \le f \le e\)</span>.</p>
+<p>The parameters are two values in the stream header:</p>
 <table>
 <thead>
 <tr>
@@ -1236,34 +1238,91 @@ ALP finds one decimal scale for the whole column and stores <span class="arithma
 </thead>
 <tbody>
 <tr>
-<td><code>e</code></td>
-<td>Decimal exponent the values were scaled by, <code>0</code>-<code>18</code></td>
-</tr>
-<tr>
-<td><code>f</code></td>
-<td>Factor dividing out the trailing zeros <code>e</code> introduced, never exceeding <code>e</code></td>
+<td><code>scale</code></td>
+<td>One byte packing <span class="arithmatex">\(e\)</span> and <span class="arithmatex">\(f\)</span> as <span class="arithmatex">\(\frac{e(e+1)}{2} + f\)</span>, from <span class="arithmatex">\(0\)</span> to <span class="arithmatex">\(189\)</span></td>
 </tr>
 <tr>
 <td><code>base</code></td>
-<td>Frame of reference: the smallest scaled integer in the column, ZigZag-coded</td>
+<td>Frame of reference: the smallest scaled integer in the column, ZigZag varint</td>
 </tr>
 </tbody>
 </table>
-<p><code>e &gt; 18</code> or <code>f &gt; e</code> MUST be rejected.</p>
+<p><code>scale</code> numbers only the valid pairs, row by row.
+One 4-bit nibble each would be simpler, but cannot hold <span class="arithmatex">\(e = 18\)</span>.
+Two 5-bit fields would not fit a byte, while the <span class="arithmatex">\(190\)</span> valid pairs up to <span class="arithmatex">\((e, f) = (18, 18)\)</span> do.
+A <code>scale</code> above <span class="arithmatex">\(189\)</span> MUST be rejected.</p>
+<p>To decode, <span class="arithmatex">\(e\)</span> is the largest integer with <span class="arithmatex">\(\frac{e(e+1)}{2} \le \mathit{scale}\)</span>, and <span class="arithmatex">\(f\)</span> is what remains:</p>
+<div class="arithmatex">\[
+e = \left\lfloor \frac{\sqrt{8 \cdot \mathit{scale} + 1} - 1}{2} \right\rfloor
+\qquad
+f = \mathit{scale} - \frac{e(e+1)}{2}
+\]</div>
+<p>The square root is exact enough in double precision for every valid <code>scale</code>.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;"><code>scale</code></th>
+<th style="text-align: right;"><span class="arithmatex">\(e\)</span></th>
+<th style="text-align: right;"><span class="arithmatex">\(f\)</span></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;"><span class="arithmatex">\(0\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(0\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(0\)</span></td>
+</tr>
+<tr>
+<td style="text-align: right;"><span class="arithmatex">\(1\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(1\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(0\)</span></td>
+</tr>
+<tr>
+<td style="text-align: right;"><span class="arithmatex">\(2\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(1\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(1\)</span></td>
+</tr>
+<tr>
+<td style="text-align: right;"><span class="arithmatex">\(3\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(2\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(0\)</span></td>
+</tr>
+<tr>
+<td style="text-align: right;"><span class="arithmatex">\(4\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(2\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(1\)</span></td>
+</tr>
+<tr>
+<td style="text-align: right;"><span class="arithmatex">\(5\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(2\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(2\)</span></td>
+</tr>
+<tr>
+<td style="text-align: right;"><span class="arithmatex">\(\vdots\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(\vdots\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(\vdots\)</span></td>
+</tr>
+<tr>
+<td style="text-align: right;"><span class="arithmatex">\(189\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(18\)</span></td>
+<td style="text-align: right;"><span class="arithmatex">\(18\)</span></td>
+</tr>
+</tbody>
+</table>
 <p>The payload holds unsigned offsets from <code>base</code>, so the smallest is <code>0</code> and every value is non-negative.
 The offsets are an ordinary unsigned integer stream and carry their own physical encoding.
 Its words are 64-bit, except under FastPFOR, which only has 32-bit words.</p>
 <p><strong>Decoding</strong>: <span class="arithmatex">\(i = \mathit{base} + \mathit{offset}\)</span>, in 64-bit integer arithmetic, then <span class="arithmatex">\(v = i \cdot 10^f \cdot 10^{-e}\)</span>, with <span class="arithmatex">\(10^{-e}\)</span> the nearest double and not an exact division.</p>
 <p>The sum MUST be formed as an integer before the conversion.
 A column spanning <span class="arithmatex">\([-2, 2^{53} - 1]\)</span> has an offset of <span class="arithmatex">\(2^{53} + 1\)</span>, which a double cannot hold.</p>
-<p><code>e</code> and <code>f</code> are stored separately instead of a single <code>10^(e - f)</code>.
+<p><span class="arithmatex">\(e\)</span> and <span class="arithmatex">\(f\)</span> are stored separately instead of a single <span class="arithmatex">\(10^{e - f}\)</span>.
 Scaling up by <span class="arithmatex">\(10^e\)</span> and then down by <span class="arithmatex">\(10^f\)</span> rounds twice, and some values are only exactly representable with <span class="arithmatex">\(f &gt; 0\)</span>.</p>
 <div class="admonition important">
 <p class="admonition-title">Rounding</p>
 <p>An encoder MUST decode every value back and compare bit patterns.
 If any value does not round-trip exactly, the encoder MUST use another encoding.</p>
 </div>
-<p><code>e</code> is at most <code>18</code> so that <span class="arithmatex">\(v \cdot 10^e\)</span> fits in an <code>i64</code>.</p>
+<p><span class="arithmatex">\(e\)</span> is at most <span class="arithmatex">\(18\)</span> so that <span class="arithmatex">\(v \cdot 10^e\)</span> fits in an <code>i64</code>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>The reference Rust encoder currently only emits scaled integers with <span class="arithmatex">\(|i| \le 2^{53} - 1\)</span>, where consecutive doubles are at most <span class="arithmatex">\(1\)</span> apart.
@@ -1274,7 +1333,7 @@ This is a limitation of that implementation, not of the format.</p>
 </span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>e = 2, f = 0:  i = [-75, 25, 150, -225]
 </span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>base = -225:   offsets = [150, 250, 375, 0]
 </span></code></pre></div>
-<p>The header stores <code>e = 2</code>, <code>f = 0</code> and <code>base</code> as the ZigZag varint <code>c1 03</code>, and the payload the four offsets as varints.
+<p>The header stores <code>e = 2</code>, <code>f = 0</code> as the <code>scale</code> byte <code>03</code> and <code>base</code> as the ZigZag varint <code>c1 03</code>, and the payload the four offsets as varints.
 See the <a href="../specification/v2/#examples">ALP example</a> on the v2 page for the whole layer.</p>
 <h3 id="float-dictionary">Float Dictionary <span class="experimental"></span><a class="headerlink" href="#float-dictionary" title="Link to this section">&para;</a></h3>
 <p>The distinct values are stored once, and a stream of codes holds one index into them per element.</p>

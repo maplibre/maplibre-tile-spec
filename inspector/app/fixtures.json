@@ -26883,7 +26883,7 @@
   {
     "name": "mvalues_f64_alp.mlt",
     "directory": "0x02",
-    "bytes": 60,
+    "bytes": 59,
     "facets": {
       "extent": [
         "64"
@@ -29397,7 +29397,7 @@
   {
     "name": "prop_f32_alp.mlt",
     "directory": "0x02",
-    "bytes": 47,
+    "bytes": 46,
     "facets": {
       "extent": [
         "64"
@@ -29429,7 +29429,7 @@
   {
     "name": "prop_f32_alp_np.mlt",
     "directory": "0x02",
-    "bytes": 46,
+    "bytes": 45,
     "facets": {
       "extent": [
         "64"
@@ -29461,7 +29461,7 @@
   {
     "name": "prop_f32_alp_whole_np.mlt",
     "directory": "0x02",
-    "bytes": 44,
+    "bytes": 43,
     "facets": {
       "extent": [
         "64"
@@ -30278,7 +30278,7 @@
   {
     "name": "prop_f64_alp.mlt",
     "directory": "0x02",
-    "bytes": 47,
+    "bytes": 46,
     "facets": {
       "extent": [
         "64"
@@ -30310,7 +30310,7 @@
   {
     "name": "prop_f64_alp_np.mlt",
     "directory": "0x02",
-    "bytes": 46,
+    "bytes": 45,
     "facets": {
       "extent": [
         "64"
@@ -30342,7 +30342,7 @@
   {
     "name": "prop_f64_alp_offset_np.mlt",
     "directory": "0x02",
-    "bytes": 1123,
+    "bytes": 1122,
     "facets": {
       "extent": [
         "64"
@@ -30375,7 +30375,7 @@
   {
     "name": "prop_f64_alp_whole_np.mlt",
     "directory": "0x02",
-    "bytes": 44,
+    "bytes": 43,
     "facets": {
       "extent": [
         "64"

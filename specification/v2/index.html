@@ -2390,7 +2390,7 @@ A decoder MUST select the variant by the layer tag.</p>
 <tbody>
 <tr>
 <td>ALP</td>
-<td><code>e</code> (varint), <code>f</code> (varint), <code>base</code> (ZigZag varint). See <a href="../../encodings/#alp">ALP</a>.</td>
+<td><code>scale</code> (byte), <code>base</code> (ZigZag varint). See <a href="../../encodings/#alp">ALP</a>.</td>
 </tr>
 <tr>
 <td>Morton</td>
@@ -2635,9 +2635,9 @@ The extension bits of the leading stream give the layout.</p>
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
-<p>A double column stored as scaled integers, with <code>e</code>, <code>f</code> and <code>base</code> following the byte length.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>00000000                                                                     | layer[0] "layer1" (47 B)
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>00000000  2e                                                .                |   size: 46 (varint) - tag + body
+<p>A double column stored as scaled integers, with the <code>scale</code> byte and <code>base</code> following the byte length.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>00000000                                                                     | layer[0] "layer1" (46 B)
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>00000000  2d                                                -                |   size: 45 (varint) - tag + body
 </span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>00000001  02                                                .                |   tag: 0x02 -&gt; Tag02
 </span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
 </span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>00000009  10                                                .                |   header: extent = 64, every feature is a Point
@@ -2661,25 +2661,24 @@ The extension bits of the leading stream give the layout.</p>
 </span><span id="__span-17-23"><a id="__codelineno-17-23" name="__codelineno-17-23" href="#__codelineno-17-23"></a>0000000f  1a 54 00 00 00 00 00 00 00 00 00 00               .T..........     |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 12 values, 12 B]
 </span><span id="__span-17-24"><a id="__codelineno-17-24" name="__codelineno-17-24" href="#__codelineno-17-24"></a>                                                                             |         decoded: [13, 42, 13, 42, 13, 42, 13, 42, 13, 42, 13, 42]
 </span><span id="__span-17-25"><a id="__codelineno-17-25" name="__codelineno-17-25" href="#__codelineno-17-25"></a>0000001b  01                                                .                |   column_count: 1
-</span><span id="__span-17-26"><a id="__codelineno-17-26" name="__codelineno-17-26" href="#__codelineno-17-26"></a>0000001c                                                                     |   column[0] OptF64 "val" (19 B)
+</span><span id="__span-17-26"><a id="__codelineno-17-26" name="__codelineno-17-26" href="#__codelineno-17-26"></a>0000001c                                                                     |   column[0] OptF64 "val" (18 B)
 </span><span id="__span-17-27"><a id="__codelineno-17-27" name="__codelineno-17-27" href="#__codelineno-17-27"></a>0000001c  1a                                                .                |     type: 0x1A Inline(Bitmap) F64
 </span><span id="__span-17-28"><a id="__codelineno-17-28" name="__codelineno-17-28" href="#__codelineno-17-28"></a>                                                                             |       └ bits 7-4 = 0001 -&gt; presence = Inline(Bitmap)
 </span><span id="__span-17-29"><a id="__codelineno-17-29" name="__codelineno-17-29" href="#__codelineno-17-29"></a>                                                                             |       └ bits 3-0 = 1010 -&gt; data type = F64
 </span><span id="__span-17-30"><a id="__codelineno-17-30" name="__codelineno-17-30" href="#__codelineno-17-30"></a>0000001d  03 76 61 6c                                       .val             |     name: "val"
 </span><span id="__span-17-31"><a id="__codelineno-17-31" name="__codelineno-17-31" href="#__codelineno-17-31"></a>00000021  2d                                                -                |     present [Present Bool(None)/None, 6 values, 1 B]
 </span><span id="__span-17-32"><a id="__codelineno-17-32" name="__codelineno-17-32" href="#__codelineno-17-32"></a>                                                                             |       decoded: 6 present-bits: 101101
-</span><span id="__span-17-33"><a id="__codelineno-17-33" name="__codelineno-17-33" href="#__codelineno-17-33"></a>00000022                                                                     |     data (13 B)
+</span><span id="__span-17-33"><a id="__codelineno-17-33" name="__codelineno-17-33" href="#__codelineno-17-33"></a>00000022                                                                     |     data (12 B)
 </span><span id="__span-17-34"><a id="__codelineno-17-34" name="__codelineno-17-34" href="#__codelineno-17-34"></a>00000022  28                                                (                |       encoding: 0x28 logical=Alp physical=VarInt
 </span><span id="__span-17-35"><a id="__codelineno-17-35" name="__codelineno-17-35" href="#__codelineno-17-35"></a>                                                                             |         └ bit 7 = 0 -&gt; has_explicit_count = false -&gt; 4 values from context
 </span><span id="__span-17-36"><a id="__codelineno-17-36" name="__codelineno-17-36" href="#__codelineno-17-36"></a>                                                                             |         └ bits 6-4 = 010 -&gt; logical = Alp, numbered for float column
 </span><span id="__span-17-37"><a id="__codelineno-17-37" name="__codelineno-17-37" href="#__codelineno-17-37"></a>                                                                             |         └ bits 3-2 = 10 -&gt; physical = VarInt
 </span><span id="__span-17-38"><a id="__codelineno-17-38" name="__codelineno-17-38" href="#__codelineno-17-38"></a>                                                                             |         └ bits 1-0 = 00 -&gt; extension = 0
 </span><span id="__span-17-39"><a id="__codelineno-17-39" name="__codelineno-17-39" href="#__codelineno-17-39"></a>00000023  07                                                .                |       byte_length: 7
-</span><span id="__span-17-40"><a id="__codelineno-17-40" name="__codelineno-17-40" href="#__codelineno-17-40"></a>00000024  02                                                .                |       alp_e: 2
-</span><span id="__span-17-41"><a id="__codelineno-17-41" name="__codelineno-17-41" href="#__codelineno-17-41"></a>00000025  00                                                .                |       alp_f: 0
-</span><span id="__span-17-42"><a id="__codelineno-17-42" name="__codelineno-17-42" href="#__codelineno-17-42"></a>00000026  c1 03                                             ..               |       alp_base: -225
-</span><span id="__span-17-43"><a id="__codelineno-17-43" name="__codelineno-17-43" href="#__codelineno-17-43"></a>00000028  96 01 fa 01 f7 02 00                              .......          |       data [Data(None) Float(Alp(Alp { e: 2, f: 0, base: -225 }))/VarInt, 4 values, 7 B]
-</span><span id="__span-17-44"><a id="__codelineno-17-44" name="__codelineno-17-44" href="#__codelineno-17-44"></a>                                                                             |         decoded: [-75, 25, 150, -225]
+</span><span id="__span-17-40"><a id="__codelineno-17-40" name="__codelineno-17-40" href="#__codelineno-17-40"></a>00000024  03                                                .                |       alp_scale: e=2, f=0
+</span><span id="__span-17-41"><a id="__codelineno-17-41" name="__codelineno-17-41" href="#__codelineno-17-41"></a>00000025  c1 03                                             ..               |       alp_base: -225
+</span><span id="__span-17-42"><a id="__codelineno-17-42" name="__codelineno-17-42" href="#__codelineno-17-42"></a>00000027  96 01 fa 01 f7 02 00                              .......          |       data [Data(None) Float(Alp(Alp { e: 2, f: 0, base: -225 }))/VarInt, 4 values, 7 B]
+</span><span id="__span-17-43"><a id="__codelineno-17-43" name="__codelineno-17-43" href="#__codelineno-17-43"></a>                                                                             |         decoded: [-75, 25, 150, -225]
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
