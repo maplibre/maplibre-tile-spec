@@ -443,8 +443,6 @@ impl<'a> Walker<'a> {
     }
 }
 
-/// A stream's label. A name the format gives it stands alone; a position does not, so
-/// `stream[4]` gets the type it turns out to hold appended once the header is read.
 #[derive(Clone, Copy)]
 enum StreamLabel {
     Named(&'static str),
