@@ -374,6 +374,51 @@ fn a_degenerate_geometry_survives_a_v1_roundtrip(
     assert_eq!(v1_geojson_roundtrip(&geoms, tessellate), geoms);
 }
 
+fn two_squares() -> Vec<Geometry<i32>> {
+    vec![
+        wkt!(POLYGON((0 0, 10 0, 10 10, 0 10, 0 0))).into(),
+        wkt!(POLYGON((20 20, 30 20, 30 30, 20 30, 20 20))).into(),
+    ]
+}
+
+fn squares_after_a_point_and_a_line() -> Vec<Geometry<i32>> {
+    vec![
+        wkt!(POINT(1 2)).into(),
+        wkt!(LINESTRING(0 0, 5 5, 9 0)).into(),
+        wkt!(POLYGON((0 0, 10 0, 10 10, 0 10, 0 0))).into(),
+        wkt!(MULTIPOLYGON(((20 20, 30 20, 30 30, 20 30, 20 20)), ((40 40, 50 40, 50 50, 40 50, 40 40)))).into(),
+    ]
+}
+
+#[test]
+fn triangle_indices_count_from_the_layer_first_vertex() {
+    let staged = push_geoms_tessellated(&two_squares());
+    assert_eq!(staged.triangle_offsets(), Some(&[0, 2, 4][..]));
+    assert_eq!(
+        staged.index_buffer(),
+        Some(&[2, 3, 0, 0, 1, 2, 6, 7, 4, 4, 5, 6][..])
+    );
+}
+
+#[rstest]
+#[case::two_squares(two_squares())]
+#[case::squares_after_a_point_and_a_line(squares_after_a_point_and_a_line())]
+fn triangle_indices_survive_a_v1_roundtrip(#[case] geoms: Vec<Geometry<i32>>) {
+    let staged = push_geoms_tessellated(&geoms);
+    let mut enc = Encoder::default();
+    let mut codecs = Codecs::default();
+    staged
+        .clone()
+        .write_to(&mut enc, &mut codecs)
+        .expect("encode failed");
+    let raw = assert_empty(RawGeometry::from_bytes(enc.data(), &mut parser()));
+    let out = raw.decode(&mut dec()).unwrap();
+    assert_eq!(
+        (out.triangle_offsets(), out.index_buffer()),
+        (staged.triangle_offsets(), staged.index_buffer())
+    );
+}
+
 /// The types stream of a v1 section, which always spells its types out.
 fn v1_types_stream<'a>(raw: &'a RawGeometry<'a>) -> &'a RawStream<'a> {
     match &raw.types {

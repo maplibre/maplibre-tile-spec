@@ -16,7 +16,18 @@ pub type Geometry<'a, S = Lazy> = <S as DecodeState>::LazyOrParsed<RawGeometry<'
 #[derive(Debug, PartialEq, Clone)]
 pub struct RawGeometry<'a> {
     pub(crate) types: GeoTypes<'a>,
+    pub(crate) index_base: IndexBase,
     pub(crate) items: Vec<RawStream<'a>>,
+}
+
+/// Which vertex a section's triangle index `0` names.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum IndexBase {
+    /// The first vertex of the index's own feature, as v1 stores it.
+    Feature,
+    /// The first vertex of the layer, as v2 stores it.
+    #[cfg(feature = "unstable-v2")]
+    Layer,
 }
 
 /// Where a geometry section's per-feature [`GeometryType`]s come from.
@@ -50,7 +61,7 @@ pub struct GeometryValues {
     #[dbg(formatter = "opt_vec_seq")]
     pub(crate) index_buffer: Option<Vec<u32>>,
     #[dbg(formatter = "opt_vec_seq")]
-    pub(crate) triangles: Option<Vec<u32>>,
+    pub(crate) triangle_offsets: Option<Vec<u32>>,
     #[dbg(formatter = "opt_vec_seq")]
     pub(crate) vertices: Option<Vec<i32>>,
 }

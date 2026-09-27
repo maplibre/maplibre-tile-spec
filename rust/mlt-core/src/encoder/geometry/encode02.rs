@@ -47,7 +47,7 @@ pub(crate) fn encode_geometry02(geometry: GeometryValues) -> MltResult<GeometryS
         part_offsets,
         ring_offsets,
         index_buffer,
-        triangles,
+        triangle_offsets,
         vertices,
     } = geometry;
 
@@ -55,7 +55,11 @@ pub(crate) fn encode_geometry02(geometry: GeometryValues) -> MltResult<GeometryS
     let part_offsets = part_offsets.unwrap_or_default();
     let ring_offsets = ring_offsets.unwrap_or_default();
     let vertices = vertices.unwrap_or_default();
-    let triangles = triangles.unwrap_or_default();
+    let triangles = triangle_offsets
+        .unwrap_or_default()
+        .windows(2)
+        .map(|w| w[1] - w[0])
+        .collect();
     let index_buffer = index_buffer.unwrap_or_default();
 
     // Same part-offset normalization as the v1 writer.

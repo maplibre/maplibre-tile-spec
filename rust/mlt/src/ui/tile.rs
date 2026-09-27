@@ -171,41 +171,42 @@ fn layer_triangles(layers: &[ParsedLayer<'_>]) -> anyhow::Result<Vec<Option<Tess
             _ => continue,
         };
         let values = layer.geometry_values();
-        let (Some(counts), Some(indices)) = (values.triangles(), values.index_buffer()) else {
+        let (Some(offsets), Some(indices)) = (values.triangle_offsets(), values.index_buffer())
+        else {
             out.extend(std::iter::repeat_n(None, layer.feature_count()));
             continue;
         };
-        let mut counts = counts.iter();
-        let mut next_index = 0usize;
+        let verts = values.vertices().unwrap_or(&[]);
+        let vert = |i: u32| {
+            let i = i.into_usize() * 2;
+            verts.get(i..i + 2).map(|v| Coord { x: v[0], y: v[1] })
+        };
+        let mut runs = offsets.windows(2);
         let mut features = layer.iter_features();
-        while let Some(feat) = features.next() {
+        for feature in 0..layer.feature_count() {
+            let Some(feat) = features.next() else { break };
             let feat = feat?;
-            let Some((verts, starts)) = tessellation_vertices(feat.geometry()) else {
+            let Some((_, starts)) = tessellation_vertices(feat.geometry()) else {
                 out.push(None);
                 continue;
             };
-            let Some(count) = counts.next() else {
+            let base = values.vertex_range(feature)?.start;
+            let Some(run) = runs.next() else {
                 out.push(None);
                 continue;
             };
-            let end = next_index + count.into_usize() * 3;
+            let run = run[0].into_usize() * 3..run[1].into_usize() * 3;
             let mut parts: Tessellation = vec![Vec::new(); starts.len()];
-            let feature_indices = indices.get(next_index..end).unwrap_or(&[]);
-            for t in feature_indices.as_chunks::<3>().0 {
-                let idx = [t[0].into_usize(), t[1].into_usize(), t[2].into_usize()];
-                let Some(tri) = idx
-                    .iter()
-                    .map(|&i| verts.get(i).copied())
-                    .collect::<Option<Vec<_>>>()
-                else {
+            for t in indices.get(run).unwrap_or(&[]).as_chunks::<3>().0 {
+                let [Some(a), Some(b), Some(c)] = t.map(vert) else {
                     continue;
                 };
-                let part = starts.partition_point(|&s| s <= idx[0]).saturating_sub(1);
+                let local = t[0].into_usize().saturating_sub(base);
+                let part = starts.partition_point(|&s| s <= local).saturating_sub(1);
                 if let Some(slot) = parts.get_mut(part) {
-                    slot.push([tri[0], tri[1], tri[2]]);
+                    slot.push([a, b, c]);
                 }
             }
-            next_index = end;
             out.push(Some(parts));
         }
     }

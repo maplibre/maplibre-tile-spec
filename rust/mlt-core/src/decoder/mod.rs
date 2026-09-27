@@ -26,7 +26,8 @@ pub(crate) mod stream;
 // ── Crate-internal re-exports ─────────────────────────────────────────────────
 // Allow internal modules to keep using `crate::decoder::*` paths without
 // reaching into sub-module paths explicitly.
-pub(crate) use geometry::{GeoTypes, Geometry, RawGeometry};
+pub(crate) use geometry::decode::{Levels, decode_topology};
+pub(crate) use geometry::{GeoTypes, Geometry, IndexBase, RawGeometry};
 pub use geometry::{GeometryType, GeometryValues};
 pub use id::ParsedId;
 // pub (not pub(crate)) so __private module can re-export it

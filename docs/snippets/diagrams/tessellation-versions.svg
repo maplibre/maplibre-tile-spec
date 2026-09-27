@@ -1,0 +1,154 @@
+<svg class="mlt-diagram" viewBox="0 0 710 172" role="img" aria-label="v1 indices plus each feature's first vertex give the v2 indices" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="58">v1 index</text>
+<rect class="f0" x="130" y="44" width="20" height="28" rx="3"/>
+<text class="cell" x="140" y="58">1</text>
+<rect class="f0" x="152" y="44" width="20" height="28" rx="3"/>
+<text class="cell" x="162" y="58">0</text>
+<rect class="f0" x="174" y="44" width="20" height="28" rx="3"/>
+<text class="cell" x="184" y="58">2</text>
+<rect class="f1" x="202" y="44" width="20" height="28" rx="3"/>
+<text class="cell" x="212" y="58">0</text>
+<rect class="f1" x="224" y="44" width="20" height="28" rx="3"/>
+<text class="cell" x="234" y="58">3</text>
+<rect class="f1" x="246" y="44" width="20" height="28" rx="3"/>
+<text class="cell" x="256" y="58">5</text>
+<rect class="f1" x="274" y="44" width="20" height="28" rx="3"/>
+<text class="cell" x="284" y="58">4</text>
+<rect class="f1" x="296" y="44" width="20" height="28" rx="3"/>
+<text class="cell" x="306" y="58">3</text>
+<rect class="f1" x="318" y="44" width="20" height="28" rx="3"/>
+<text class="cell" x="328" y="58">0</text>
+<rect class="f1" x="346" y="44" width="20" height="28" rx="3"/>
+<text class="cell" x="356" y="58">1</text>
+<rect class="f1" x="368" y="44" width="20" height="28" rx="3"/>
+<text class="cell" x="378" y="58">0</text>
+<rect class="f1" x="390" y="44" width="20" height="28" rx="3"/>
+<text class="cell" x="400" y="58">5</text>
+<rect class="f1" x="418" y="44" width="20" height="28" rx="3"/>
+<text class="cell" x="428" y="58">4</text>
+<rect class="f1" x="440" y="44" width="20" height="28" rx="3"/>
+<text class="cell" x="450" y="58">0</text>
+<rect class="f1" x="462" y="44" width="20" height="28" rx="3"/>
+<text class="cell" x="472" y="58">2</text>
+<rect class="f1" x="490" y="44" width="20" height="28" rx="3"/>
+<text class="cell" x="500" y="58">2</text>
+<rect class="f1" x="512" y="44" width="20" height="28" rx="3"/>
+<text class="cell" x="522" y="58">1</text>
+<rect class="f1" x="534" y="44" width="20" height="28" rx="3"/>
+<text class="cell" x="544" y="58">5</text>
+<rect class="f1" x="562" y="44" width="20" height="28" rx="3"/>
+<text class="cell" x="572" y="58">5</text>
+<rect class="f1" x="584" y="44" width="20" height="28" rx="3"/>
+<text class="cell" x="594" y="58">4</text>
+<rect class="f1" x="606" y="44" width="20" height="28" rx="3"/>
+<text class="cell" x="616" y="58">2</text>
+<rect class="f1" x="634" y="44" width="20" height="28" rx="3"/>
+<text class="cell" x="644" y="58">7</text>
+<rect class="f1" x="656" y="44" width="20" height="28" rx="3"/>
+<text class="cell" x="666" y="58">6</text>
+<rect class="f1" x="678" y="44" width="20" height="28" rx="3"/>
+<text class="cell" x="688" y="58">8</text>
+<text class="row" x="0" y="98">+ first vertex</text>
+<rect class="plain" x="130" y="84" width="20" height="28" rx="3"/>
+<text class="cell muted small" x="140" y="98">+0</text>
+<rect class="plain" x="152" y="84" width="20" height="28" rx="3"/>
+<text class="cell muted small" x="162" y="98">+0</text>
+<rect class="plain" x="174" y="84" width="20" height="28" rx="3"/>
+<text class="cell muted small" x="184" y="98">+0</text>
+<rect class="plain" x="202" y="84" width="20" height="28" rx="3"/>
+<text class="cell muted small" x="212" y="98">+3</text>
+<rect class="plain" x="224" y="84" width="20" height="28" rx="3"/>
+<text class="cell muted small" x="234" y="98">+3</text>
+<rect class="plain" x="246" y="84" width="20" height="28" rx="3"/>
+<text class="cell muted small" x="256" y="98">+3</text>
+<rect class="plain" x="274" y="84" width="20" height="28" rx="3"/>
+<text class="cell muted small" x="284" y="98">+3</text>
+<rect class="plain" x="296" y="84" width="20" height="28" rx="3"/>
+<text class="cell muted small" x="306" y="98">+3</text>
+<rect class="plain" x="318" y="84" width="20" height="28" rx="3"/>
+<text class="cell muted small" x="328" y="98">+3</text>
+<rect class="plain" x="346" y="84" width="20" height="28" rx="3"/>
+<text class="cell muted small" x="356" y="98">+3</text>
+<rect class="plain" x="368" y="84" width="20" height="28" rx="3"/>
+<text class="cell muted small" x="378" y="98">+3</text>
+<rect class="plain" x="390" y="84" width="20" height="28" rx="3"/>
+<text class="cell muted small" x="400" y="98">+3</text>
+<rect class="plain" x="418" y="84" width="20" height="28" rx="3"/>
+<text class="cell muted small" x="428" y="98">+3</text>
+<rect class="plain" x="440" y="84" width="20" height="28" rx="3"/>
+<text class="cell muted small" x="450" y="98">+3</text>
+<rect class="plain" x="462" y="84" width="20" height="28" rx="3"/>
+<text class="cell muted small" x="472" y="98">+3</text>
+<rect class="plain" x="490" y="84" width="20" height="28" rx="3"/>
+<text class="cell muted small" x="500" y="98">+3</text>
+<rect class="plain" x="512" y="84" width="20" height="28" rx="3"/>
+<text class="cell muted small" x="522" y="98">+3</text>
+<rect class="plain" x="534" y="84" width="20" height="28" rx="3"/>
+<text class="cell muted small" x="544" y="98">+3</text>
+<rect class="plain" x="562" y="84" width="20" height="28" rx="3"/>
+<text class="cell muted small" x="572" y="98">+3</text>
+<rect class="plain" x="584" y="84" width="20" height="28" rx="3"/>
+<text class="cell muted small" x="594" y="98">+3</text>
+<rect class="plain" x="606" y="84" width="20" height="28" rx="3"/>
+<text class="cell muted small" x="616" y="98">+3</text>
+<rect class="plain" x="634" y="84" width="20" height="28" rx="3"/>
+<text class="cell muted small" x="644" y="98">+3</text>
+<rect class="plain" x="656" y="84" width="20" height="28" rx="3"/>
+<text class="cell muted small" x="666" y="98">+3</text>
+<rect class="plain" x="678" y="84" width="20" height="28" rx="3"/>
+<text class="cell muted small" x="688" y="98">+3</text>
+<text class="row" x="0" y="150">v2 index</text>
+<rect class="f0" x="130" y="136" width="20" height="28" rx="3"/>
+<text class="cell" x="140" y="150">1</text>
+<rect class="f0" x="152" y="136" width="20" height="28" rx="3"/>
+<text class="cell" x="162" y="150">0</text>
+<rect class="f0" x="174" y="136" width="20" height="28" rx="3"/>
+<text class="cell" x="184" y="150">2</text>
+<rect class="f1" x="202" y="136" width="20" height="28" rx="3"/>
+<text class="cell" x="212" y="150">3</text>
+<rect class="f1" x="224" y="136" width="20" height="28" rx="3"/>
+<text class="cell" x="234" y="150">6</text>
+<rect class="f1" x="246" y="136" width="20" height="28" rx="3"/>
+<text class="cell" x="256" y="150">8</text>
+<rect class="f1" x="274" y="136" width="20" height="28" rx="3"/>
+<text class="cell" x="284" y="150">7</text>
+<rect class="f1" x="296" y="136" width="20" height="28" rx="3"/>
+<text class="cell" x="306" y="150">6</text>
+<rect class="f1" x="318" y="136" width="20" height="28" rx="3"/>
+<text class="cell" x="328" y="150">3</text>
+<rect class="f1" x="346" y="136" width="20" height="28" rx="3"/>
+<text class="cell" x="356" y="150">4</text>
+<rect class="f1" x="368" y="136" width="20" height="28" rx="3"/>
+<text class="cell" x="378" y="150">3</text>
+<rect class="f1" x="390" y="136" width="20" height="28" rx="3"/>
+<text class="cell" x="400" y="150">8</text>
+<rect class="f1" x="418" y="136" width="20" height="28" rx="3"/>
+<text class="cell" x="428" y="150">7</text>
+<rect class="f1" x="440" y="136" width="20" height="28" rx="3"/>
+<text class="cell" x="450" y="150">3</text>
+<rect class="f1" x="462" y="136" width="20" height="28" rx="3"/>
+<text class="cell" x="472" y="150">5</text>
+<rect class="f1" x="490" y="136" width="20" height="28" rx="3"/>
+<text class="cell" x="500" y="150">5</text>
+<rect class="f1" x="512" y="136" width="20" height="28" rx="3"/>
+<text class="cell" x="522" y="150">4</text>
+<rect class="f1" x="534" y="136" width="20" height="28" rx="3"/>
+<text class="cell" x="544" y="150">8</text>
+<rect class="f1" x="562" y="136" width="20" height="28" rx="3"/>
+<text class="cell" x="572" y="150">8</text>
+<rect class="f1" x="584" y="136" width="20" height="28" rx="3"/>
+<text class="cell" x="594" y="150">7</text>
+<rect class="f1" x="606" y="136" width="20" height="28" rx="3"/>
+<text class="cell" x="616" y="150">5</text>
+<rect class="f1" x="634" y="136" width="20" height="28" rx="3"/>
+<text class="cell" x="644" y="150">10</text>
+<rect class="f1" x="656" y="136" width="20" height="28" rx="3"/>
+<text class="cell" x="666" y="150">9</text>
+<rect class="f1" x="678" y="136" width="20" height="28" rx="3"/>
+<text class="cell" x="688" y="150">11</text>
+<path class="bracket" d="M130 126H698"/>
+<text class="t0 bold" x="194" y="14" text-anchor="end">feature 0</text>
+<path class="bracket t0" d="M130 34V28H194V34"/>
+<text class="t1 bold" x="202" y="14">feature 1</text>
+<path class="bracket t1" d="M202 34V28H698V34"/>
+</svg>
