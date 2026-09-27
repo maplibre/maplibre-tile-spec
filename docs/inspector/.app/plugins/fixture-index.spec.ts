@@ -144,8 +144,6 @@ describe("indexFixtures", () => {
     const entry = index.find(
       (it) => it.directory === "0x02" && it.name === "mvalues.mlt",
     );
-    // This tile declares no property columns at all, only i32 and u32 m-values,
-    // which run over vertices: nothing here answers "a column every feature has".
     expect(entry?.facets?.dataType).toEqual([]);
     expect(entry?.facets?.mValue).toEqual(["i32", "u32"]);
   });
