@@ -181,32 +181,50 @@ fn layer_triangles(layers: &[ParsedLayer<'_>]) -> anyhow::Result<Vec<Option<Tess
             let i = i.into_usize() * 2;
             verts.get(i..i + 2).map(|v| Coord { x: v[0], y: v[1] })
         };
+        let has_outlines = values.part_offsets().is_some();
         let mut runs = offsets.windows(2);
         let mut features = layer.iter_features();
         for feature in 0..layer.feature_count() {
             let Some(feat) = features.next() else { break };
             let feat = feat?;
-            let Some((_, starts)) = tessellation_vertices(feat.geometry()) else {
-                out.push(None);
-                continue;
+            let starts = if has_outlines {
+                let Some((_, starts)) = tessellation_vertices(feat.geometry()) else {
+                    out.push(None);
+                    continue;
+                };
+                Some((values.vertex_range(feature)?.start, starts))
+            } else {
+                None
             };
-            let base = values.vertex_range(feature)?.start;
             let Some(run) = runs.next() else {
                 out.push(None);
                 continue;
             };
             let run = run[0].into_usize() * 3..run[1].into_usize() * 3;
-            let mut parts: Tessellation = vec![Vec::new(); starts.len()];
-            for t in indices.get(run).unwrap_or(&[]).as_chunks::<3>().0 {
-                let [Some(a), Some(b), Some(c)] = t.map(vert) else {
-                    continue;
-                };
-                let local = t[0].into_usize().saturating_sub(base);
-                let part = starts.partition_point(|&s| s <= local).saturating_sub(1);
-                if let Some(slot) = parts.get_mut(part) {
-                    slot.push([a, b, c]);
+            let triangles = indices.get(run).unwrap_or(&[]).as_chunks::<3>().0;
+            let parts = match starts {
+                Some((base, starts)) => {
+                    let mut parts: Tessellation = vec![Vec::new(); starts.len()];
+                    for t in triangles {
+                        let [Some(a), Some(b), Some(c)] = t.map(vert) else {
+                            continue;
+                        };
+                        let local = t[0].into_usize().saturating_sub(base);
+                        let part = starts.partition_point(|&s| s <= local).saturating_sub(1);
+                        if let Some(slot) = parts.get_mut(part) {
+                            slot.push([a, b, c]);
+                        }
+                    }
+                    parts
                 }
-            }
+                None => triangles
+                    .iter()
+                    .filter_map(|t| {
+                        let [a, b, c] = t.map(vert);
+                        Some(vec![[a?, b?, c?]])
+                    })
+                    .collect(),
+            };
             out.push(Some(parts));
         }
     }

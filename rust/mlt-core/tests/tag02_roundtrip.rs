@@ -814,6 +814,136 @@ mod geometry_layouts {
         assert!(dump.contains("geometry layout = Lines"), "{dump}");
         assert_differential_with(&l, cfg_tessellated());
     }
+
+    fn cfg_triangles_only() -> EncoderConfig {
+        cfg_tessellated()
+            .with_wire_version(WireVersion::V02)
+            .with_triangles_only(true)
+    }
+
+    fn exteriors(tile: &TileLayer) -> Vec<Vec<Vec<(i32, i32)>>> {
+        tile.features()
+            .iter()
+            .map(|f| {
+                let Geometry::MultiPolygon(mp) = f.geometry() else {
+                    panic!("expected a MultiPolygon, got {:?}", f.geometry());
+                };
+                mp.iter()
+                    .map(|p| p.exterior().coords().map(|c| (c.x, c.y)).collect())
+                    .collect()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_polygon_layer_stores_only_its_triangles() {
+        let l = layer(
+            vec![
+                Geometry::Polygon(square(0, 0)),
+                Geometry::MultiPolygon(MultiPolygon(vec![square(20, 20), square(40, 40)])),
+            ],
+            None,
+            &[],
+        );
+        let bytes = l.encode(cfg_triangles_only()).unwrap();
+        assert_snapshot!(header_bits(&bytes).join("\n"), @"
+        no m-value section
+        a types stream leads the geometry section
+        extent 2^(n+6) = 4096
+        shared bitfields are bitmaps
+        shared presence bitfields = 0
+        geometry layout = TessPolygons
+        ");
+        assert_snapshot!(geometry_streams(&bytes).join("\n"), @"
+        types
+        tri_lengths
+        tri_indexes
+        vertices
+        ");
+        let (_, tile) = decode(&bytes);
+        assert_snapshot!(format!("{:?}", exteriors(&tile)), @"[[[(10, 10), (0, 10), (0, 0), (10, 10)], [(0, 0), (10, 0), (10, 10), (0, 0)]], [[(30, 30), (20, 30), (20, 20), (30, 30)], [(20, 20), (30, 20), (30, 30), (20, 20)], [(50, 50), (40, 50), (40, 40), (50, 50)], [(40, 40), (50, 40), (50, 50), (40, 40)]]]");
+    }
+
+    #[test]
+    fn a_polygon_with_no_triangles_decodes_as_an_empty_multipolygon() {
+        let collinear = Polygon::new(ring(&[(0, 0), (10, 0), (20, 0)]), vec![]);
+        let l = layer(
+            vec![
+                Geometry::Polygon(collinear),
+                Geometry::Polygon(square(40, 40)),
+            ],
+            None,
+            &[],
+        );
+        let (_, tile) = decode(&l.encode(cfg_triangles_only()).unwrap());
+        assert_snapshot!(format!("{:?}", exteriors(&tile)), @"[[], [[(50, 50), (40, 50), (40, 40), (50, 50)], [(40, 40), (50, 40), (50, 50), (40, 40)]]]");
+    }
+
+    #[test]
+    fn dropping_the_outlines_is_smaller() {
+        let l = layer(
+            vec![
+                Geometry::Polygon(square(0, 0)),
+                Geometry::MultiPolygon(MultiPolygon(vec![square(20, 20), square(40, 40)])),
+            ],
+            None,
+            &[],
+        );
+        let with_outlines = l
+            .clone()
+            .encode(cfg_tessellated().with_wire_version(WireVersion::V02))
+            .unwrap();
+        let triangles_only = l.encode(cfg_triangles_only()).unwrap();
+        assert_eq!((with_outlines.len(), triangles_only.len()), (87, 73));
+    }
+
+    #[rstest]
+    #[case::lines_and_polygons(vec![
+        line(&[(0, 0), (10, 10), (20, 0)]),
+        Geometry::Polygon(square(40, 40)),
+    ])]
+    #[case::points_and_polygons(vec![pt(5, 5), Geometry::Polygon(square(20, 20))])]
+    fn a_layer_with_more_than_polygons_keeps_its_outlines(#[case] geoms: Vec<Geometry<i32>>) {
+        let l = layer(geoms, None, &[]);
+        let bytes = l.clone().encode(cfg_triangles_only()).unwrap();
+        assert_eq!(
+            header_bits(&bytes).last().map(String::as_str),
+            Some("geometry layout = TessPolygonsWithOutlines"),
+        );
+        assert_differential_with(&l, cfg_tessellated().with_triangles_only(true));
+    }
+
+    #[test]
+    fn v1_ignores_triangles_only() {
+        let l = layer(vec![Geometry::Polygon(square(0, 0))], None, &[]);
+        let v1 = cfg_tessellated();
+        assert_eq!(
+            l.clone().encode(v1.with_triangles_only(true)).unwrap(),
+            l.encode(v1).unwrap(),
+        );
+    }
+
+    #[test]
+    fn a_point_among_bare_triangles_is_rejected() {
+        let l = layer(vec![Geometry::Polygon(square(0, 0))], None, &[]);
+        let mut bytes = l.encode(cfg_triangles_only()).unwrap();
+        let header = annotate(&bytes)
+            .regions
+            .iter()
+            .find(|r| r.label == "header")
+            .expect("a header region")
+            .offset;
+        let uniform_point = 1 << 4;
+        bytes[header] = (bytes[header] & 0b1000_1111) | uniform_point;
+        let layers = Parser::default().parse_layers(&bytes).expect("parse");
+        let err = layers
+            .into_iter()
+            .next()
+            .unwrap()
+            .into_tile(&mut Decoder::default())
+            .expect_err("a point has no triangles");
+        assert_snapshot!(err, @"geometry[0]: Point requires outlines, which a triangles-only layer does not store");
+    }
 }
 
 mod strings {

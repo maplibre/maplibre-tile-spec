@@ -255,6 +255,32 @@ impl GeometryValues {
             .get(index)
             .ok_or(GeometryIndexOutOfBounds(index))?;
 
+        if parts.is_none()
+            && let Some(indices) = self.index_buffer.as_deref()
+        {
+            let tris = self.triangle_offsets.as_deref().unwrap_or(&[]);
+            let run = off_pair(tris, index, "triangle_offsets")?;
+            let run = run.start.saturating_mul(3)..run.end.saturating_mul(3);
+            let len = indices.len();
+            let corners = indices.get(run.clone()).ok_or(GeometryOutOfBounds {
+                index,
+                field: "index_buffer",
+                idx: run.end,
+                len,
+            })?;
+            let triangles = corners
+                .as_chunks::<3>()
+                .0
+                .iter()
+                .map(|tri| {
+                    let [a, b, c] = tri.map(|i| vert(i.into_usize()));
+                    let (a, b, c) = (a?, b?, c?);
+                    Ok(Polygon::new(LineString(vec![a, b, c, a]), vec![]))
+                })
+                .collect::<MltResult<_>>()?;
+            return Ok(Geometry::<i32>::MultiPolygon(MultiPolygon(triangles)));
+        }
+
         match geom_type {
             GeometryType::Point => {
                 // Resolve through hierarchy: geoms? -> parts? -> rings? -> vertex

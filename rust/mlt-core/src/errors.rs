@@ -385,6 +385,8 @@ pub enum MltError {
     UnexpectedOffsetCombination(usize, GeometryType),
     #[error("geometry: ring lengths without part lengths")]
     RingLengthsWithoutPartLengths,
+    #[error("geometry[{0}]: {1} requires outlines, which a triangles-only layer does not store")]
+    NonPolygonWithoutOutlines(usize, GeometryType),
 
     #[error("FastPFor error: {0}")]
     FastPfor(#[from] fastpfor::FastPForError),
