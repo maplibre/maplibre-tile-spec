@@ -3,6 +3,8 @@ import { useElementSize, useWindowSize } from "@vueuse/core";
 import { computed, ref } from "vue";
 import type { DecodedBlob, DumpTree } from "./annotate.ts";
 import { blobChips, blobNote } from "./blob.ts";
+import EncodingDocs from "./EncodingDocs.vue";
+import { regionAnchors, specPage } from "./encodingDocs.ts";
 import { hexOffset, type Pointer, regionDotPath, tipPlacement } from "./hex.ts";
 import ValueText from "./ValueText.vue";
 
@@ -56,6 +58,10 @@ const span = computed(() => {
   return note.value === "" ? where : `${where}, ${note.value}`;
 });
 
+const anchors = computed(() =>
+  regionAnchors(props.tree.regions, props.index, specPage(props.tree)),
+);
+
 /** Fixed rather than absolute, since the map scrolls under the pointer the tip follows. */
 const placed = computed(() =>
   tipPlacement(
@@ -79,6 +85,7 @@ const placed = computed(() =>
         field.meaning
       }}</p>
       <p v-if="decoded" class="value" :class="decoded.kind">{{ values }}</p>
+      <EncodingDocs v-if="anchors.length" class="docs" :anchors="anchors" />
     </div>
   </div>
 </template>
@@ -128,5 +135,11 @@ p {
 .value.error,
 .value.binary {
   color: var(--warn);
+}
+.docs {
+  display: block;
+  margin-top: var(--pad-tight);
+  border-top: 1px solid var(--rule);
+  padding-top: var(--pad-tight);
 }
 </style>

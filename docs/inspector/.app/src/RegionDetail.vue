@@ -2,6 +2,8 @@
 import { computed } from "vue";
 import type { DecodedBlob, DumpTree } from "./annotate.ts";
 import { blobChips, blobNote } from "./blob.ts";
+import EncodingDocs from "./EncodingDocs.vue";
+import { regionAnchors, specPage } from "./encodingDocs.ts";
 import { hex2, hexOffset, regionPath } from "./hex.ts";
 import { layerSummary } from "./layerSummary.ts";
 import ValueText from "./ValueText.vue";
@@ -99,6 +101,11 @@ const span = computed(() => {
 const byte = computed(() =>
   region.value ? props.bytes[region.value.offset] : 0,
 );
+
+/** What the encodings page says about this region's fields and its stream. */
+const anchors = computed(() =>
+  regionAnchors(props.tree.regions, props.index, specPage(props.tree)),
+);
 </script>
 
 <template>
@@ -174,6 +181,11 @@ const byte = computed(() =>
         <div class="values" :class="decoded.kind">
           <i v-for="(chip, n) in chips" :key="n">{{ chip }}</i>
         </div>
+      </template>
+
+      <template v-if="anchors.length">
+        <h3>encodings</h3>
+        <EncodingDocs :anchors="anchors" editable />
       </template>
     </template>
     <p v-else class="idle">

@@ -1,10 +1,11 @@
 import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vitest/config";
+import { encodingDocs } from "./plugins/encoding-docs.ts";
 import { fixtureIndex } from "./plugins/fixture-index.ts";
 
 export default defineConfig({
   base: "./",
-  plugins: [vue(), fixtureIndex()],
+  plugins: [vue(), fixtureIndex(), encodingDocs()],
   build: {
     outDir: "../app",
     emptyOutDir: true,
