@@ -20322,6 +20322,37 @@
     }
   },
   {
+    "name": "mix_2_mpoly_mpoly_tri.mlt",
+    "directory": "0x02",
+    "bytes": 102,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "multi-polygon"
+      ],
+      "geomLayout": [
+        "tess-polygons"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[triangles]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
     "name": "mix_2_mpt_mline.mlt",
     "directory": "0x02",
     "bytes": 44,
@@ -20559,6 +20590,39 @@
     }
   },
   {
+    "name": "mix_2_poly_mpoly_tri.mlt",
+    "directory": "0x02",
+    "bytes": 76,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "multi-polygon",
+        "polygon"
+      ],
+      "geomLayout": [
+        "tess-polygons"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
     "name": "mix_2_poly_mpt.mlt",
     "directory": "0x02",
     "bytes": 45,
@@ -20658,6 +20722,37 @@
     }
   },
   {
+    "name": "mix_2_poly_poly_tri.mlt",
+    "directory": "0x02",
+    "bytes": 41,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "polygon"
+      ],
+      "geomLayout": [
+        "tess-polygons"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[triangles]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
     "name": "mix_2_poly_polyh.mlt",
     "directory": "0x02",
     "bytes": 44,
@@ -20711,6 +20806,37 @@
         "length[geometries]",
         "length[parts]",
         "length[rings]",
+        "length[triangles]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
+    "name": "mix_2_poly_polyh_tri.mlt",
+    "directory": "0x02",
+    "bytes": 62,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "polygon"
+      ],
+      "geomLayout": [
+        "tess-polygons"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
         "length[triangles]",
         "offset[index]"
       ],
@@ -20863,6 +20989,39 @@
     }
   },
   {
+    "name": "mix_2_polyh_mpoly_tri.mlt",
+    "directory": "0x02",
+    "bytes": 96,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "multi-polygon",
+        "polygon"
+      ],
+      "geomLayout": [
+        "tess-polygons"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
     "name": "mix_2_polyh_mpt.mlt",
     "directory": "0x02",
     "bytes": 50,
@@ -20950,6 +21109,37 @@
         "length[geometries]",
         "length[parts]",
         "length[rings]",
+        "length[triangles]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
+    "name": "mix_2_polyh_polyh_tri.mlt",
+    "directory": "0x02",
+    "bytes": 83,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "polygon"
+      ],
+      "geomLayout": [
+        "tess-polygons"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
         "length[triangles]",
         "offset[index]"
       ],
@@ -22615,6 +22805,39 @@
     }
   },
   {
+    "name": "mix_3_mpoly_poly_mpoly_tri.mlt",
+    "directory": "0x02",
+    "bytes": 117,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "multi-polygon",
+        "polygon"
+      ],
+      "geomLayout": [
+        "tess-polygons"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
     "name": "mix_3_mpoly_polyh_mpoly.mlt",
     "directory": "0x02",
     "bytes": 93,
@@ -22672,6 +22895,39 @@
         "length[geometries]",
         "length[parts]",
         "length[rings]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
+    "name": "mix_3_mpoly_polyh_mpoly_tri.mlt",
+    "directory": "0x02",
+    "bytes": 138,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "multi-polygon",
+        "polygon"
+      ],
+      "geomLayout": [
+        "tess-polygons"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
         "length[triangles]",
         "length[var-binary]",
         "offset[index]"
@@ -23235,6 +23491,39 @@
     }
   },
   {
+    "name": "mix_3_poly_mpoly_poly_tri.mlt",
+    "directory": "0x02",
+    "bytes": 87,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "multi-polygon",
+        "polygon"
+      ],
+      "geomLayout": [
+        "tess-polygons"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
     "name": "mix_3_poly_mpt_mline.mlt",
     "directory": "0x02",
     "bytes": 58,
@@ -23479,6 +23768,39 @@
     }
   },
   {
+    "name": "mix_3_poly_polyh_mpoly_tri.mlt",
+    "directory": "0x02",
+    "bytes": 107,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "multi-polygon",
+        "polygon"
+      ],
+      "geomLayout": [
+        "tess-polygons"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
     "name": "mix_3_poly_polyh_mpt.mlt",
     "directory": "0x02",
     "bytes": 59,
@@ -23566,6 +23888,37 @@
         "length[geometries]",
         "length[parts]",
         "length[rings]",
+        "length[triangles]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
+    "name": "mix_3_poly_polyh_poly_tri.mlt",
+    "directory": "0x02",
+    "bytes": 72,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "polygon"
+      ],
+      "geomLayout": [
+        "tess-polygons"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
         "length[triangles]",
         "offset[index]"
       ],
@@ -23892,6 +24245,39 @@
     }
   },
   {
+    "name": "mix_3_polyh_mpoly_polyh_tri.mlt",
+    "directory": "0x02",
+    "bytes": 128,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "multi-polygon",
+        "polygon"
+      ],
+      "geomLayout": [
+        "tess-polygons"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[triangles]",
+        "length[var-binary]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
     "name": "mix_3_polyh_mpt_mline.mlt",
     "directory": "0x02",
     "bytes": 65,
@@ -24049,6 +24435,37 @@
         "length[geometries]",
         "length[parts]",
         "length[rings]",
+        "length[triangles]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
+    "name": "mix_3_polyh_poly_polyh_tri.mlt",
+    "directory": "0x02",
+    "bytes": 93,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "polygon"
+      ],
+      "geomLayout": [
+        "tess-polygons"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
         "length[triangles]",
         "offset[index]"
       ],
@@ -29373,6 +29790,68 @@
     }
   },
   {
+    "name": "poly_hole_touching_tri.mlt",
+    "directory": "0x02",
+    "bytes": 51,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "polygon"
+      ],
+      "geomLayout": [
+        "tess-polygons"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[triangles]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
+    "name": "poly_hole_tri.mlt",
+    "directory": "0x02",
+    "bytes": 52,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "polygon"
+      ],
+      "geomLayout": [
+        "tess-polygons"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[triangles]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
     "name": "poly_morton_hole_morton.mlt",
     "directory": "0x02",
     "bytes": 49,
@@ -29640,6 +30119,37 @@
     }
   },
   {
+    "name": "poly_multi_tri.mlt",
+    "directory": "0x02",
+    "bytes": 40,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "multi-polygon"
+      ],
+      "geomLayout": [
+        "tess-polygons"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[triangles]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
     "name": "poly_self_intersect.mlt",
     "directory": "0x02",
     "bytes": 30,
@@ -29770,6 +30280,37 @@
     }
   },
   {
+    "name": "poly_self_intersect_tri.mlt",
+    "directory": "0x02",
+    "bytes": 33,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "polygon"
+      ],
+      "geomLayout": [
+        "tess-polygons"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[triangles]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
     "name": "poly_tes.mlt",
     "directory": "0x02",
     "bytes": 40,
@@ -29792,6 +30333,37 @@
         "length[geometries]",
         "length[parts]",
         "length[rings]",
+        "length[triangles]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "componentwise-delta"
+      ]
+    }
+  },
+  {
+    "name": "poly_tri.mlt",
+    "directory": "0x02",
+    "bytes": 31,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "polygon"
+      ],
+      "geomLayout": [
+        "tess-polygons"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
         "length[triangles]",
         "offset[index]"
       ],
