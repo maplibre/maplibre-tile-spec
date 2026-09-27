@@ -4,11 +4,11 @@
 00000003  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
 0000000a  40                                                @                |   extent: 64
 0000000b  02                                                .                |   column_count: 2
-0000000c                                                                     |   column_schema[0] (1 B)
+0000000c                                                                     |   column_schema[0] Geometry (1 B)
 0000000c  04                                                .                |     type: 0x04 Geometry
                                                                              |       └ bits 7-1 = 0000010 -> base type = Geometry
                                                                              |       └ bit 0 = 0 -> not optional: each feature has a non-NULL value
-0000000d                                                                     |   column_schema[1] (5 B)
+0000000d                                                                     |   column_schema[1] OptStr "val" (5 B)
 0000000d  1d                                                .                |     type: 0x1D OptStr
                                                                              |       └ bits 7-1 = 0001110 -> base type = OptStr
                                                                              |       └ bit 0 = 1 -> optional: a Present stream precedes the data
@@ -29,7 +29,7 @@
 00000018  06                                                .                |       num_rle_values: 6
 00000019  06 00                                             ..               |       data [Length(VarBinary) Int(Rle(Split { runs: 1, num_rle_values: 6 }))/VarInt, 2 values, 2 B]
                                                                              |         decoded: [0, 0, 0, 0, 0, 0]
-0000001b                                                                     |     stream[0] (16 B)
+0000001b                                                                     |     stream[0] Data(Vertex) (16 B)
 0000001b  13                                                .                |       stream_type: 0x13 Data(Vertex)
                                                                              |         └ bits 7-4 = 0001 -> category = Data
                                                                              |         └ bits 3-0 = 0011 -> subtype = Vertex
@@ -55,7 +55,7 @@
 0000002f  02                                                .                |       byte_length: 2
 00000030  ff 3f                                             .?               |       data [Present Bool(ByteRle(Split { runs: 1, num_rle_values: 2 }))/None, 6 values, 2 B]
                                                                              |         decoded: 6 present-bits: 111111
-00000032                                                                     |     stream[0] (10 B)
+00000032                                                                     |     stream[0] Length(VarBinary) (10 B)
 00000032  30                                                0                |       stream_type: 0x30 Length(VarBinary)
                                                                              |         └ bits 7-4 = 0011 -> category = Length
                                                                              |         └ bits 3-0 = 0000 -> subtype = VarBinary
@@ -67,7 +67,7 @@
 00000035  06                                                .                |       byte_length: 6
 00000036  1f 1e 1d 17 19 1f                                 ......           |       data [Length(VarBinary) Int(None)/VarInt, 6 values, 6 B]
                                                                              |         decoded: [31, 30, 29, 23, 25, 31]
-0000003c                                                                     |     stream[1] (174 B)
+0000003c                                                                     |     stream[1] Data(None) (174 B)
 0000003c  10                                                .                |       stream_type: 0x10 Data(None)
                                                                              |         └ bits 7-4 = 0001 -> category = Data
                                                                              |         └ bits 3-0 = 0000 -> subtype = None
