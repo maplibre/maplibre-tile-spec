@@ -1186,7 +1186,7 @@ Bits past <code>count</code> in the final byte are padding and MUST be ignored.<
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>byte:   0b00_101101 = 0x2D
 </span></code></pre></div>
 <p>v2 stores every presence bitfield and boolean column as a raw bitmap.
-A bitmap can be shared between columns; see <a href="../specification/v2/#shared-presence-bitfields">Shared Presence Bitfields</a>.</p>
+A bitmap can be shared between columns; see <a href="../specification/v2/#shared-presence-fields">Shared Presence Fields</a>.</p>
 <h3 id="boolean-rle">Boolean RLE<a class="headerlink" href="#boolean-rle" title="Link to this section">&para;</a></h3>
 <p>v1 compresses the <a href="#bitmap">bitmap</a> with the byte-level run-length encoding of <a href="https://orc.apache.org/specification/ORCv1/#byte-run-length-encoding">ORC</a>.
 The payload is a sequence of runs, each a control byte and what it names:</p>
