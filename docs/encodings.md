@@ -230,7 +230,7 @@ byte:   0b00_101101 = 0x2D
 ```
 
 v2 stores every presence bitfield and boolean column as a raw bitmap.
-A bitmap can be shared between columns; see [Shared Presence Bitfields](specification/v2.md#shared-presence-bitfields).
+A bitmap can be shared between columns; see [Shared Presence Fields](specification/v2.md#shared-presence-fields).
 
 ### Boolean RLE
 
