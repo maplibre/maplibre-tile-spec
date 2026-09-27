@@ -392,6 +392,29 @@ fn m_values_on_a_point_layer_are_rejected() {
 }
 
 #[test]
+fn m_values_keep_the_outlines_of_a_triangles_only_layer() {
+    let l = layer(
+        vec![Geometry::Polygon(Polygon::new(
+            ring(&[(0, 0), (10, 0), (10, 10), (0, 10)]),
+            vec![],
+        ))],
+        &[("m", i32s(&[&[1, 2, 3, 4]]))],
+    );
+    let cfg = cfg_v2().with_tessellation(true).with_triangles_only(true);
+    let bytes = l.clone().encode(cfg).unwrap();
+    assert_eq!(&decode(&bytes), &l);
+    insta::assert_snapshot!(header_bits_and_column_types(&bytes), @r#"
+    an m-value section ends the body
+    every feature is a Polygon, no types stream
+    extent 2^(n+6) = 4096
+    shared bitfields are bitmaps
+    shared presence bitfields = 0
+    geometry layout = TessPolygonsWithOutlines
+    m_value[0] I32 "m": presence = AllPresent
+    "#);
+}
+
+#[test]
 fn a_layer_with_m_values_cannot_be_written_as_v1() {
     let l = layer(vec![line(&[(0, 0), (1, 1)])], &[("m", i32s(&[&[1, 2]]))]);
     let err = l

@@ -14,6 +14,8 @@
 //! * `fpf` - uses `FastPFor` compression
 //! * `plain` - `PhysicalLevelTechnique::NONE`, i.e. fixed-width little-endian ints
 //! * `tes` - includes tessellation triangles stream
+//! * `tri` - stores only the tessellation triangles, without the polygon outlines.
+//!   A v2-only layout, so a `*_tri` fixture has no v1 sibling.
 //! * `fs` - forces normally-empty streams to still be written, as the Java encoder used to do
 //! * `bp` - bit-packed dictionary codes, i.e. every code in the same number of bits.
 //!   A v2-only physical layout, so the v1 sibling of each `*_bp*` fixture holds the
@@ -175,6 +177,10 @@ fn generate_geometry(w: &mut SynthWriter) {
         .tessellate()
         .geo(poly1())
         .write(w, "poly_fpf_tes");
+    geo_varint()
+        .triangles_only()
+        .geo(poly1())
+        .write(w, "poly_tri");
 
     geo_varint()
         .geo(poly_collinear())
@@ -197,6 +203,10 @@ fn generate_geometry(w: &mut SynthWriter) {
         .tessellate()
         .geo(poly_self_intersect())
         .write(w, "poly_self_intersect_fpf_tes");
+    geo_varint()
+        .triangles_only()
+        .geo(poly_self_intersect())
+        .write(w, "poly_self_intersect_tri");
 
     geo_varint()
         .parts_ring(E::rle_varint())
@@ -216,6 +226,10 @@ fn generate_geometry(w: &mut SynthWriter) {
         .tessellate()
         .geo(poly1h())
         .write(w, "poly_hole_fpf_tes");
+    geo_varint()
+        .triangles_only()
+        .geo(poly1h())
+        .write(w, "poly_hole_tri");
 
     geo_varint()
         .parts_ring(E::varint())
@@ -235,6 +249,10 @@ fn generate_geometry(w: &mut SynthWriter) {
         .tessellate()
         .geo(poly_hole_touching())
         .write(w, "poly_hole_touching_fpf_tes");
+    geo_varint()
+        .triangles_only()
+        .geo(poly_hole_touching())
+        .write(w, "poly_hole_touching_tri");
 
     geo_varint()
         .rings(E::rle_varint())
@@ -254,6 +272,10 @@ fn generate_geometry(w: &mut SynthWriter) {
         .tessellate()
         .geo(MultiPolygon(vec![poly1(), poly2()]))
         .write(w, "poly_multi_tes");
+    geo_varint()
+        .triangles_only()
+        .geo(MultiPolygon(vec![poly1(), poly2()]))
+        .write(w, "poly_multi_tri");
     // v1-only for the same reason as `poly_multi_fpf`.
     geo_fastpfor()
         .rings(E::rle_fastpfor())
@@ -361,6 +383,7 @@ fn generate_geometry(w: &mut SynthWriter) {
 fn write_mix(w: &mut SynthWriter, current: &[usize]) {
     let mut builder = geo_varint();
     let mut builder_t = Some(geo_varint().tessellate());
+    let mut builder_tri = Some(geo_varint().triangles_only());
     let mut builder_t_with_lines = Some(geo_varint().tessellate());
     let mut has_polygon = false;
     let mut has_line = false;
@@ -386,6 +409,9 @@ fn write_mix(w: &mut SynthWriter, current: &[usize]) {
                 builder_t = None;
             }
         }
+        if let Some(bldr) = builder_tri {
+            builder_tri = is_polygon.then(|| bldr.geo(mix_type.1.clone()));
+        }
         if let Some(b) = builder_t_with_lines {
             if is_polygon || is_line {
                 builder_t_with_lines = Some(b.geo(mix_type.1.clone()));
@@ -393,6 +419,9 @@ fn write_mix(w: &mut SynthWriter, current: &[usize]) {
                 builder_t_with_lines = None;
             }
         }
+    }
+    if let Some(bldr) = builder_tri {
+        bldr.write(w, format!("{name}_tri"));
     }
     if let Some(bldr) = builder_t {
         bldr.write(w, format!("{name}_tes"));

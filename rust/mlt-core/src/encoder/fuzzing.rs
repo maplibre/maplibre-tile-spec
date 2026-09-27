@@ -26,7 +26,8 @@ impl Arbitrary<'_> for EncoderConfig {
         let config = config
             .with_wire_version(u.arbitrary()?)
             .with_float_dict(u.arbitrary()?)
-            .with_float_alp(u.arbitrary()?);
+            .with_float_alp(u.arbitrary()?)
+            .with_triangles_only(u.arbitrary()?);
         Ok(config)
     }
 }

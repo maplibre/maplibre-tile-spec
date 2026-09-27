@@ -427,14 +427,20 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             }
         }
 
-        if index_buffer.is_some() && part_offsets.is_none() {
-            // Case when the indices of a Polygon outline are not encoded in the data so no
-            // topology data are present in the tile
-            //
-            // return FlatGpuVector::new(vector_types, triangles, index_buffer, vertices);
-            return Err(MltError::NotImplemented(
-                "index_buffer.is_some() && part_offsets.is_none() case",
-            ));
+        let triangles_only = index_buffer.is_some() && part_offsets.is_none();
+        if triangles_only {
+            if index_base == IndexBase::Feature {
+                return Err(MltError::NotImplemented(
+                    "v1 triangles without outline topology",
+                ));
+            }
+            if let Some((index, &geom_type)) = vector_types
+                .iter()
+                .enumerate()
+                .find(|(_, t)| !t.is_polygon())
+            {
+                return Err(MltError::NonPolygonWithoutOutlines(index, geom_type));
+            }
         }
 
         let Levels {

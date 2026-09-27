@@ -232,6 +232,10 @@ pub struct ConvertArgs {
     #[cfg(feature = "unstable-v2")]
     #[clap(long)]
     packed_dict_codes: bool,
+    /// With `--tessellate`, store only the triangles of an all-polygon layer, without its outlines
+    #[cfg(feature = "unstable-v2")]
+    #[clap(long, requires = "tessellate")]
+    triangles_only: bool,
     /// Output tile format (`mlt` re-encodes; `mvt` decodes MLT inputs back to MVT)
     #[clap(long, default_value = "mlt")]
     to: TileFormat,
@@ -284,7 +288,8 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         .with_wire_version(args.mlt_version.into())
         .with_float_alp(!args.no_alp)
         .with_float_dict(!args.no_float_dict)
-        .with_packed_dict_codes(args.packed_dict_codes);
+        .with_packed_dict_codes(args.packed_dict_codes)
+        .with_triangles_only(args.triangles_only);
 
     let filter = BboxFilter::new(&args.bbox)?;
     let input_container = args.input_container();

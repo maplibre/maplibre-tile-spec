@@ -30,6 +30,15 @@ struct Tessellation {
     index_buffer: Vec<u32>,
 }
 
+/// Whether a tessellated layer keeps the outline topology next to its triangles.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Outlines {
+    /// Keep every topology stream, as a layer with anything but polygons must.
+    Keep,
+    /// Drop them when every feature is a polygon, so only the triangles are stored.
+    DropForPolygons,
+}
+
 /// The streams of a v2 geometry section, before the layout byte that declares them is settled.
 pub(crate) struct GeometrySection02 {
     types: Vec<GeometryType>,
@@ -40,7 +49,10 @@ pub(crate) struct GeometrySection02 {
 }
 
 /// Turn a layer's geometries into the v2 stream set.
-pub(crate) fn encode_geometry02(geometry: GeometryValues) -> MltResult<GeometrySection02> {
+pub(crate) fn encode_geometry02(
+    geometry: GeometryValues,
+    outlines: Outlines,
+) -> MltResult<GeometrySection02> {
     let GeometryValues {
         vector_types,
         geometry_offsets,
@@ -157,8 +169,14 @@ pub(crate) fn encode_geometry02(geometry: GeometryValues) -> MltResult<GeometryS
     // missing one fills the gap with an empty stream rather than dropping the others:
     // the decoder then rebuilds what the stream would have said.
     if tessellation.is_some() {
-        topology = topology.with_rings();
-        geo_lengths.get_or_insert_with(Vec::new);
+        let polygons_only = vector_types.iter().all(|t| t.is_polygon());
+        if outlines == Outlines::DropForPolygons && polygons_only {
+            topology = Topology::Flat;
+            geo_lengths = None;
+        } else {
+            topology = topology.with_rings();
+            geo_lengths.get_or_insert_with(Vec::new);
+        }
     }
 
     Ok(GeometrySection02 {
