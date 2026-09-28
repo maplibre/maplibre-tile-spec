@@ -33,7 +33,7 @@ Delta arithmetic wraps at the word width.
 
 ## Physical Encodings
 
-### ZigZag
+### ZigZag {#zigzag}
 
 Used wherever a signed value has to become an unsigned word.
 It is not an encoding a stream names; the logical encodings below say where it applies.
@@ -55,14 +55,14 @@ For 64-bit values the shift is `63`.
 | `-2` | `3` |
 | `2` | `4` |
 
-### None
+### None {#physical-none}
 
 Each word is stored as it is, little-endian, 4 or 8 bytes per word.
 
 In v2 a stream whose logical encoding is also `None` may leave out `byte_length`, since the value count and the word width give it.
 See [Byte Length](specification/v2.md#byte-length).
 
-### VarInt
+### VarInt {#varint}
 
 Each word is stored in 7-bit groups, least significant group first.
 Bit 7 of each byte is set when another byte follows.
@@ -77,7 +77,7 @@ A 32-bit word takes 1 to 5 bytes and a 64-bit word 1 to 10.
 This is the unsigned varint of [Protocol Buffers](https://protobuf.dev/programming-guides/encoding/#varints) and the length prefix every MLT header uses.
 Signed values go through [ZigZag](#zigzag) first, where the logical encoding says so.
 
-### Bit Packing <span class="experimental"></span>
+### Bit Packing <span class="experimental"></span> {#bit-packing}
 
 Every word is stored in the same number of bits, the bit width of the largest value.
 
@@ -108,7 +108,7 @@ Bit packing beats varint when the values are of similar magnitude, since varint 
 One large value raises the width for every value.
 An encoder SHOULD compare the stored size of both.
 
-### FastPFOR
+### FastPFOR {#fastpfor}
 
 A block codec that stores each block of words in the bit width most of them need, and patches the few words that need more as exceptions in a separate area.
 Unlike bit packing it is not sensitive to a handful of outliers.
@@ -142,12 +142,12 @@ An [ALP](#alp) offset stream can, and then has 32-bit words.
 
 The logical encoding is applied to the words the physical step produced.
 
-### None
+### None {#logical-none}
 
 The words are the values.
 On a signed stream each word is [ZigZag](#zigzag)-decoded.
 
-### Delta
+### Delta {#delta}
 
 Each word is the difference to the previous value.
 The first value's predecessor is `0`.
@@ -170,7 +170,7 @@ words:  [200, 10, 5]           zigzag
 
 Delta suits monotonic sequences such as ids and offsets, whose differences are small however large the values are.
 
-### RLE
+### RLE {#rle}
 
 The values are stored as runs, each a `(run_length, value)` pair that expands to `run_length` copies of `value`.
 On a signed stream `value` is [ZigZag](#zigzag)-coded.
@@ -199,7 +199,7 @@ v2 takes it from the stream's value count.
 Run lengths that do not sum to exactly that count MUST be rejected.
 A v2 payload with an odd number of varints MUST be rejected.
 
-### Delta-RLE
+### Delta-RLE {#delta-rle}
 
 [Delta](#delta) followed by [RLE](#rle).
 The deltas are ZigZag-coded, and it is those unsigned words that are run-length coded.
@@ -218,7 +218,7 @@ Delta-RLE suits sequences with a constant step, such as `[1, 2, 3, ...]`, which 
 
 Boolean columns and v1 `Present` streams hold one bit per value.
 
-### Bitmap
+### Bitmap {#bitmap}
 
 Bit `i % 8` of byte `i / 8` is value `i`, LSB-first.
 The bitmap is `ceil(count / 8)` bytes.
@@ -232,7 +232,7 @@ byte:   0b00_101101 = 0x2D
 v2 stores every presence bitfield and boolean column as a raw bitmap.
 A bitmap can be shared between columns; see [Shared Presence Fields](specification/v2.md#shared-presence-fields).
 
-### Boolean RLE
+### Boolean RLE {#boolean-rle}
 
 v1 compresses the [bitmap](#bitmap) with the byte-level run-length encoding of [ORC](https://orc.apache.org/specification/ORCv1/#byte-run-length-encoding).
 The payload is a sequence of runs, each a control byte and what it names:
@@ -258,12 +258,12 @@ Both follow from `num_values`.
 
 ## Float Streams
 
-### Plain Floats
+### Plain Floats {#plain-floats}
 
 IEEE 754 words, little-endian, 4 bytes for a `Float` and 8 for a `Double`.
 This is the only float encoding v1 has.
 
-### ALP <span class="experimental"></span>
+### ALP <span class="experimental"></span> {#alp}
 
 Adaptive Lossless floating-Point compression stores a float column as integers, which are then [physically encoded](#physical-encodings) like any other integer stream.
 
@@ -338,7 +338,7 @@ base = -225:   offsets = [150, 250, 375, 0]
 The header stores `e = 2`, `f = 0` as the `scale` byte `03` and `base` as the ZigZag varint `c1 03`, and the payload the four offsets as varints.
 See the [ALP example](specification/v2.md#examples) on the v2 page for the whole layer.
 
-### Float Dictionary <span class="experimental"></span>
+### Float Dictionary <span class="experimental"></span> {#float-dictionary}
 
 The distinct values are stored once, and a stream of codes holds one index into them per element.
 
@@ -361,13 +361,13 @@ A code at or past the dictionary's count MUST be rejected.
 String values, dictionary values and FSST symbol tables are byte blobs.
 A blob's count is its `byte_length`, and a lengths stream beside it says where each value ends.
 
-### Plain Bytes
+### Plain Bytes {#plain-bytes}
 
 The bytes as they are.
 Value `i` is the `lengths[i]` bytes that follow the first `lengths[0] + ... + lengths[i - 1]`.
 Each value MUST be valid UTF-8.
 
-### Front Coding <span class="experimental"></span>
+### Front Coding <span class="experimental"></span> {#front-coding}
 
 Neighbouring entries of a sorted dictionary often share a prefix, for example `Main Street`, `Main Street North` and `Maple Avenue`.
 Front coding stores the length of the prefix shared with the previous entry, and only the suffix bytes.
@@ -399,7 +399,7 @@ Front coding can be combined with [FSST](#fsst).
 The corpus is front-coded first and then FSST-compressed.
 An encoder SHOULD compare the stored size of each combination.
 
-### FSST
+### FSST {#fsst}
 
 Fast Static Symbol Table compression replaces frequent byte sequences of up to 8 bytes with one-byte codes.
 Unlike a dictionary it compresses strings that merely share substrings, such as localized country names.
@@ -437,7 +437,7 @@ The algorithm that trains the table is described by [Boncz, Neumann and Leis, *F
 Different implementations train different tables for the same input.
 A decoder reads the table from the stream, so that only matters when comparing the output of two encoders.
 
-## String Layouts
+## String Layouts {#string-layouts}
 
 A string column is a set of the streams above.
 The four layouts, in the v2 names:
@@ -458,7 +458,7 @@ v1 counts the streams and puts `Codes` after the dictionary lengths, or last wit
 v2 puts `Codes` first and names the layout in the extension bits of that stream.
 See [v1 string columns](specification/v1.md#string-columns) and [v2 string columns](specification/v2.md#string-columns).
 
-### Shared Dictionary
+### Shared Dictionary {#shared-dictionary}
 
 Several string columns, such as `name:en`, `name:de` and `name:fr`, index into one dictionary.
 The dictionary streams are written once, and each member column then stores only its presence and its `Codes`.
@@ -481,7 +481,7 @@ See [v1](specification/v1.md#shared-dictionary-columns) and [v2](specification/v
 The vertex buffer holds $x$ and $y$ interleaved: $[x_0, y_0, x_1, y_1, \ldots]$.
 Its words are 32-bit and signed.
 
-### Componentwise Delta
+### Componentwise Delta {#componentwise-delta}
 
 Each coordinate is a delta to the same coordinate of the previous vertex.
 `x` and `y` keep separate predecessors, both starting at `0`.
@@ -501,7 +501,7 @@ words:    [200, 400, 10, 20, 5, 10]
 
 The v2 `Vertex` family also has a plain `Delta`, which is the integer [Delta](#delta) over the flat word sequence and does not separate the components.
 
-### Vertex Dictionary
+### Vertex Dictionary {#vertex-dictionary}
 
 The distinct vertices are stored once in a `VertexDict` stream, and a `VertexOffsets` stream holds one index into them per vertex.
 `VertexOffsets` is an ordinary unsigned integer stream.
@@ -525,7 +525,7 @@ The reference encoders use the curve of the [`hilbert_2d`](https://crates.io/cra
 `shift` and `bits` are derived as for [Morton](#morton) below, and each shifted coordinate is masked to 16 bits before it is placed on the grid.
 Two vertices with the same curve key are one dictionary entry.
 
-### Morton
+### Morton {#morton}
 
 A Morton, or Z-order, code interleaves the bits of a coordinate pair into one integer.
 Nearby vertices get nearby codes, so a sorted Morton dictionary has small deltas.
