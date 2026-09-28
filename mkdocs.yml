@@ -1,7 +1,8 @@
 site_name: MapLibre Tile Specification
-site_url: https://www.maplibre.org/maplibre-tile-spec
+site_url: https://maplibre.org/maplibre-tile-spec
 repo_url: https://github.com/maplibre/maplibre-tile-spec
 site_description: MapLibre Tile Specification
+copyright: "&copy; 2024 MapLibre contributors"
 edit_uri: edit/main/docs
 extra_css:
   - assets/extra.css
@@ -16,9 +17,19 @@ theme:
     - content.code.copy
     - search.suggest
     - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.progress
+    - navigation.path
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.sections
+    - navigation.footer
+    - navigation.top
     - content.action.edit
+    - toc.follow
     - toc.integrate
+    - header.autohide
   palette:
     - media: "(prefers-color-scheme)"
       toggle:
@@ -66,8 +77,7 @@ markdown_extensions:
   - toc:
       permalink: true
       permalink_title: "Link to this section"
-      baselevel: 1
-      toc_depth: 6
+      toc_depth: 3
 nav:
   - Home: index.md
   - Overview: overview.md

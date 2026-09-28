@@ -20,7 +20,7 @@ const DOCS = "../../";
  * at a path it cannot load its own data from. The published pages are the only place
  * such a link can usefully go.
  */
-const SITE = "https://www.maplibre.org/maplibre-tile-spec/";
+const SITE = "https://maplibre.org/maplibre-tile-spec/";
 /** `repo_url` and `edit_uri` of mkdocs.yml, which is where these pages are written. */
 const EDIT = "https://github.com/maplibre/maplibre-tile-spec/edit/main/docs";
 
