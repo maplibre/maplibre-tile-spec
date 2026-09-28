@@ -96,6 +96,11 @@
   fill: none;
   stroke: var(--md-default-fg-color--lightest);
 }
+.mlt-diagram .implicit {
+  fill: none;
+  stroke: var(--md-default-fg-color--light);
+  stroke-dasharray: 3 3;
+}
 .mlt-diagram .cell,
 .mlt-diagram .tri,
 .mlt-diagram .vert,
