@@ -1,0 +1,40 @@
+<svg class="mlt-diagram" viewBox="0 0 710 380" role="img" aria-label="The two features of mix_2_polyh_mpoly with their vertex positions" xmlns="http://www.w3.org/2000/svg">
+<path class="f0" fill-rule="evenodd" d="M260,155L70,255L300,340ZM160,230L180,280L120,250Z"/>
+<path class="f1" fill-rule="evenodd" d="M35,80L105,135L130,25ZM75,80L100,55L90,105Z"/>
+<path class="f1" fill-rule="evenodd" d="M345,265L355,310L365,300Z"/>
+<circle class="dot" cx="260" cy="155" r="3.5"/>
+<circle class="dot" cx="70" cy="255" r="3.5"/>
+<circle class="dot" cx="300" cy="340" r="3.5"/>
+<circle class="dot" cx="160" cy="230" r="3.5"/>
+<circle class="dot" cx="180" cy="280" r="3.5"/>
+<circle class="dot" cx="120" cy="250" r="3.5"/>
+<circle class="dot" cx="35" cy="80" r="3.5"/>
+<circle class="dot" cx="105" cy="135" r="3.5"/>
+<circle class="dot" cx="130" cy="25" r="3.5"/>
+<circle class="dot" cx="75" cy="80" r="3.5"/>
+<circle class="dot" cx="100" cy="55" r="3.5"/>
+<circle class="dot" cx="90" cy="105" r="3.5"/>
+<circle class="dot" cx="345" cy="265" r="3.5"/>
+<circle class="dot" cx="355" cy="310" r="3.5"/>
+<circle class="dot" cx="365" cy="300" r="3.5"/>
+<text class="vert halo" x="268" y="143">0</text>
+<text class="vert halo" x="56" y="255">1</text>
+<text class="vert halo" x="300" y="356">2</text>
+<text class="vert halo" x="160" y="218">3</text>
+<text class="vert halo" x="180" y="296">4</text>
+<text class="vert halo" x="106" y="250">5</text>
+<text class="vert halo" x="21" y="80">6</text>
+<text class="vert halo" x="105" y="151">7</text>
+<text class="vert halo" x="130" y="13">8</text>
+<text class="vert halo" x="63" y="80">9</text>
+<text class="vert halo" x="100" y="43">10</text>
+<text class="vert halo" x="80" y="117">11</text>
+<text class="vert halo" x="345" y="253">12</text>
+<text class="vert halo" x="355" y="326">13</text>
+<text class="vert halo" x="379" y="300">14</text>
+<text class="t0 bold" x="460" y="20">feature 0<tspan class="muted"> · Polygon</tspan></text>
+<text class="muted small" x="460" y="40">shell, hole</text>
+<text class="t1 bold" x="460" y="74">feature 1<tspan class="muted"> · MultiPolygon</tspan></text>
+<text class="muted small" x="460" y="94">shell and hole, then a triangle</text>
+<text class="muted" x="460" y="360"><tspan class="fg">0-14</tspan> vertex position</text>
+</svg>
