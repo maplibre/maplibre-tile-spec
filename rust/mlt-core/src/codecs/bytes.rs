@@ -4,7 +4,7 @@ use usize_cast::IntoUsize as _;
 use crate::MltError::UnsupportedPhysicalEncoding;
 use crate::codecs::fastpfor::decode_fastpfor;
 use crate::decoder::FastPForKind;
-use crate::errors::{AsMltError as _, fail_if_invalid_stream_size};
+use crate::errors::fail_if_invalid_stream_size;
 use crate::{Decoder, MltResult};
 
 /// Pack bools into bytes where each byte represents 8 booleans.
@@ -96,7 +96,8 @@ pub fn decode_bytes_to_words<T: PhysicalWord>(
     dec: &mut Decoder,
 ) -> MltResult<Vec<T>> {
     let width = size_of::<T>();
-    let expected_bytes = num_values.into_usize().checked_mul(width).or_overflow()?;
+    // Saturating is exact on 64-bit, and elsewhere no slice is `usize::MAX` long, so the size check still fails.
+    let expected_bytes = num_values.into_usize().saturating_mul(width);
     fail_if_invalid_stream_size(input.len(), expected_bytes)?;
 
     let alloc_size = num_values.into_usize();

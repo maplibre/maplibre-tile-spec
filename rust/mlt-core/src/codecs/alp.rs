@@ -291,10 +291,8 @@ mod tests {
     #[test]
     fn scale_bytes_past_the_last_pair_are_rejected() {
         for byte in 190..=u8::MAX {
-            assert!(matches!(
-                AlpScale::from_byte(byte),
-                Err(crate::MltError::InvalidAlpScale(b)) if b == byte
-            ));
+            let err = AlpScale::from_byte(byte).unwrap_err();
+            assert_eq!(err.to_string(), format!("invalid ALP scale byte {byte}"));
         }
     }
 }
