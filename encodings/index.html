@@ -576,7 +576,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#none" class="md-nav__link">
+  <a href="#physical-none" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         None
@@ -637,7 +637,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#none_1" class="md-nav__link">
+  <a href="#logical-none" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         None
@@ -1035,7 +1035,7 @@ It is not an encoding a stream names; the logical encodings below say where it a
 </tr>
 </tbody>
 </table>
-<h3 id="none">None<a class="headerlink" href="#none" title="Link to this section">&para;</a></h3>
+<h3 id="physical-none">None<a class="headerlink" href="#physical-none" title="Link to this section">&para;</a></h3>
 <p>Each word is stored as it is, little-endian, 4 or 8 bytes per word.</p>
 <p>In v2 a stream whose logical encoding is also <code>None</code> may leave out <code>byte_length</code>, since the value count and the word width give it.
 See <a href="../specification/v2/#byte-length">Byte Length</a>.</p>
@@ -1110,7 +1110,7 @@ A 64-bit integer column cannot use it.
 An <a href="#alp">ALP</a> offset stream can, and then has 32-bit words.</p>
 <h2 id="logical-encodings">Logical Encodings<a class="headerlink" href="#logical-encodings" title="Link to this section">&para;</a></h2>
 <p>The logical encoding is applied to the words the physical step produced.</p>
-<h3 id="none_1">None<a class="headerlink" href="#none_1" title="Link to this section">&para;</a></h3>
+<h3 id="logical-none">None<a class="headerlink" href="#logical-none" title="Link to this section">&para;</a></h3>
 <p>The words are the values.
 On a signed stream each word is <a href="#zigzag">ZigZag</a>-decoded.</p>
 <h3 id="delta">Delta<a class="headerlink" href="#delta" title="Link to this section">&para;</a></h3>
