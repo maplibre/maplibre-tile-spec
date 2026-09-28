@@ -1,27 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
       <url>
-        <loc>https://www.maplibre.org/maplibre-tile-spec/</loc>
+        <loc>https://maplibre.org/maplibre-tile-spec/</loc>
       </url>
       <url>
-        <loc>https://www.maplibre.org/maplibre-tile-spec/overview/</loc>
+        <loc>https://maplibre.org/maplibre-tile-spec/encodings/</loc>
       </url>
       <url>
-        <loc>https://www.maplibre.org/maplibre-tile-spec/implementation-status/</loc>
+        <loc>https://maplibre.org/maplibre-tile-spec/implementation-status/</loc>
       </url>
       <url>
-        <loc>https://www.maplibre.org/maplibre-tile-spec/specification/</loc>
+        <loc>https://maplibre.org/maplibre-tile-spec/inspector/</loc>
       </url>
       <url>
-        <loc>https://www.maplibre.org/maplibre-tile-spec/inspector/</loc>
+        <loc>https://maplibre.org/maplibre-tile-spec/overview/</loc>
       </url>
       <url>
-        <loc>https://www.maplibre.org/maplibre-tile-spec/specification/v1/</loc>
+        <loc>https://maplibre.org/maplibre-tile-spec/specification/</loc>
       </url>
       <url>
-        <loc>https://www.maplibre.org/maplibre-tile-spec/specification/v2/</loc>
+        <loc>https://maplibre.org/maplibre-tile-spec/specification/v1/</loc>
       </url>
       <url>
-        <loc>https://www.maplibre.org/maplibre-tile-spec/encodings/</loc>
+        <loc>https://maplibre.org/maplibre-tile-spec/specification/v2/</loc>
       </url>
 </urlset>

@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://www.maplibre.org/maplibre-tile-spec/specification/v2/">
+        <link rel="canonical" href="https://maplibre.org/maplibre-tile-spec/specification/v2/">
       
       
         <link rel="prev" href="../v1/">
@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="https://maplibre.org/favicon.ico">
-      <meta name="generator" content="zensical-0.0.65">
+      <meta name="generator" content="zensical-0.0.66">
     
     
       
@@ -34,7 +34,7 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.40d3fdbb.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.1502b751.min.css">
       
         
           
@@ -99,7 +99,7 @@
 
   
 
-<header class="md-header md-header--shadow" data-md-component="header">
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href="../.." title="MapLibre Tile Specification" class="md-header__button md-logo" aria-label="MapLibre Tile Specification" data-md-component="logo">
       
@@ -196,13 +196,94 @@
     </div>
   </nav>
   
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../overview/" class="md-tabs__link">
+        
+  
+  Overview
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../implementation-status/" class="md-tabs__link">
+        
+  
+  Implementation Status
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  Specification
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
 </header>
     
     <div class="md-container" data-md-component="container">
       
       
-        
-          
         
       
       <main class="md-main" data-md-component="main">
@@ -216,10 +297,12 @@
                     
 
 
+  
+
 
   
 
-<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
     <a href="../.." title="MapLibre Tile Specification" class="md-nav__button md-logo" aria-label="MapLibre Tile Specification" data-md-component="logo">
       
@@ -335,6 +418,9 @@
     
       
         
+        
+      
+      
         
       
     
@@ -559,34 +645,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Layer Header Byte">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#extent" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Extent
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#uniform-geometry-type" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Uniform Geometry Type
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
         
           <li class="md-nav__item">
@@ -681,23 +739,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Tessellation">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#outlines" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Outlines
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
         
       </ul>
@@ -737,34 +778,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Column Type Byte">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#data-types" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Data Types
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#presence-nibble" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Presence Nibble
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
         
           <li class="md-nav__item">
@@ -800,12 +813,7 @@
   
 </li>
         
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
+          <li class="md-nav__item">
   <a href="#nested-properties" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -814,169 +822,13 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Nested Properties">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#node-type-byte" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Node Type Byte
-      </span>
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Node Type Byte">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#node-presence-nibble" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Node Presence Nibble
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
         
           <li class="md-nav__item">
-  <a href="#counts" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Counts
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#struct-nodes" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Struct Nodes
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#list-nodes" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        List Nodes
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#map-nodes" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Map Nodes
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#leaf-nodes" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Leaf Nodes
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#where-nested-columns-may-appear" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Where Nested Columns May Appear
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#m-values" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         M-Values
-      </span>
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="M-Values">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#data-types-in-m-value-columns" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Data Types in M-Value Columns
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#the-vertex-sequence" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        The Vertex Sequence
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#nulls" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Nulls
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#value-count" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Value Count
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#geometry-layouts" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Geometry Layouts
       </span>
     </span>
   </a>
@@ -1008,34 +860,6 @@
       </span>
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Encoding Byte">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#value-count_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Value Count
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#byte-length" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Byte Length
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
         
@@ -1099,34 +923,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#planned-features" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Planned Features
-      </span>
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Planned Features">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#z-values" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Z-Values
-      </span>
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -1182,6 +978,59 @@
           
             <div class="md-content" data-md-component="content">
               
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
               <article class="md-content__inner md-typeset">
                 
                   
@@ -1210,6 +1059,16 @@ Do not store v2 tiles in a cache that cannot be invalidated, and do not ship a v
 <p>v2 is implemented in the Rust <code>mlt-core</code> crate behind the <code>unstable-v2</code> cargo feature.
 This page describes that implementation.
 Where the two disagree, the implementation is authoritative.</p>
+</div>
+<div class="admonition info">
+<p class="admonition-title">Planned features</p>
+<p>The following are not yet specified or implemented.</p>
+<p><strong>Z-Values</strong>:
+Elevation as a third coordinate.
+<code>z</code> could be interleaved with <code>x</code> and <code>y</code> in the vertex buffer, or stored as an <a href="#m-values">m-value</a> column.
+Interleaving suits GPU upload.
+A separate column compresses better and costs nothing when unused.
+Which of the two v2 uses is undecided.</p>
 </div>
 <p>v2 uses the same data model as <a href="../v1/">v1</a>: tiles, layers, features, columns and streams as described in the <a href="../../overview/">Overview</a>.
 Only the byte layout differs.
@@ -2395,7 +2254,7 @@ Its high nibble gives the dictionary kind instead of a presence:</p>
 </span></code></pre></div>
 <p>Each child has its own presence nibble and MAY reference any of the layer's shared fields.</p>
 <p>Front coding of the dictionary is given by the encoding byte of the last corpus stream, as for a lone string column.</p>
-<h2 id="nested-properties">Nested Properties<a class="headerlink" href="#nested-properties" title="Link to this section">&para;</a></h2>
+<h3 id="nested-properties">Nested Properties<a class="headerlink" href="#nested-properties" title="Link to this section">&para;</a></h3>
 <p>A property whose value is a map or a list, nestable.</p>
 <p>v2 shreds a nested value the way <a href="https://orc.apache.org/specification/ORCv1/">ORC</a> does.
 The column is a tree of nodes.
@@ -2412,7 +2271,7 @@ A key that every feature shares is written once, in the tree, rather than once p
 Its name comes from the layer's one namespace of <a href="#column-names">column names</a>.
 The type byte is an ordinary <a href="#column-type-byte">column type byte</a>: the high nibble is the column's <a href="#presence-nibble">presence</a> over the layer's features, and MAY name a shared field.
 The low nibble MUST be <code>0xC</code>, <code>0xD</code> or <code>0xE</code>; a scalar root is an ordinary column and MUST be written as one.</p>
-<h3 id="node-type-byte">Node Type Byte<a class="headerlink" href="#node-type-byte" title="Link to this section">&para;</a></h3>
+<h4 id="node-type-byte">Node Type Byte<a class="headerlink" href="#node-type-byte" title="Link to this section">&para;</a></h4>
 <p>Every node below the root begins with one:</p>
 <table>
 <thead>
@@ -2434,7 +2293,7 @@ The low nibble MUST be <code>0xC</code>, <code>0xD</code> or <code>0xE</code>; a
 </table>
 <p><code>0x2</code>-<code>0xB</code> name a leaf, <code>0xC</code>-<code>0xE</code> name an interior node.
 <code>0x0</code>, <code>0x1</code> and <code>0xF</code> MUST be rejected: a feature id belongs to a feature, and a shared dictionary introduces counted columns.</p>
-<h4 id="node-presence-nibble">Node Presence Nibble<a class="headerlink" href="#node-presence-nibble" title="Link to this section">&para;</a></h4>
+<h5 id="node-presence-nibble">Node Presence Nibble<a class="headerlink" href="#node-presence-nibble" title="Link to this section">&para;</a></h5>
 <table>
 <thead>
 <tr>
@@ -2461,7 +2320,7 @@ The low nibble MUST be <code>0xC</code>, <code>0xD</code> or <code>0xE</code>; a
 Those are <code>feature_count</code> bits long, and only the root of a nested column runs over features.</p>
 <p>A presence stream is a <code>Bool</code>-family stream of logical <code>None</code> over physical <code>00</code> or <code>01</code>, one bit per value the parent hands the node, LSB-first.
 It is a stream rather than the bare field a column writes, because under a <a href="#list-nodes"><code>List</code></a> or a <a href="#map-nodes"><code>Map</code></a> the number of bits is not known until the lengths have been decoded, and the stream header lets a decoder step over it either way.</p>
-<h3 id="counts">Counts<a class="headerlink" href="#counts" title="Link to this section">&para;</a></h3>
+<h4 id="counts">Counts<a class="headerlink" href="#counts" title="Link to this section">&para;</a></h4>
 <p>Each node is handed a number of values by its parent, its <strong>parent count</strong>:</p>
 <table>
 <thead>
@@ -2527,7 +2386,7 @@ The streams after a string stream set's leading one read as they do in a <a href
 A byte blob is the exception it always is: bit 7 MUST be <code>0</code> and its count stays <code>byte_length</code>.</p>
 <p>A decoder that has decoded both a lengths stream and the counts below it MUST reject a disagreement.</p>
 <p>A nested column MUST NOT nest more than 8 levels deep, counting the root as the first.</p>
-<h3 id="struct-nodes">Struct Nodes<a class="headerlink" href="#struct-nodes" title="Link to this section">&para;</a></h3>
+<h4 id="struct-nodes">Struct Nodes<a class="headerlink" href="#struct-nodes" title="Link to this section">&para;</a></h4>
 <p><code>0xC</code>. A fixed set of named, individually typed fields.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>struct_body := [varint field_count]      non-zero
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>               field * field_count
@@ -2539,7 +2398,7 @@ A byte blob is the exception it always is: bit 7 MUST be <code>0</code> and its 
 <p>A field reads like a counted column: its type byte, then its name, then its nulls, then its data.
 Field names MUST be unique within their struct.
 A field present on every value of its struct stores no presence at all, which is what makes a struct the cheap shredding of a stable key set: the key is paid for once, in the tree.</p>
-<h3 id="list-nodes">List Nodes<a class="headerlink" href="#list-nodes" title="Link to this section">&para;</a></h3>
+<h4 id="list-nodes">List Nodes<a class="headerlink" href="#list-nodes" title="Link to this section">&para;</a></h4>
 <p><code>0xD</code>. A repeated value of one type.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>list_body := [lengths stream]            Int family, one length per present list
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>             [u8 node_type]              the element node
@@ -2549,7 +2408,7 @@ A field present on every value of its struct stores no presence at all, which is
 <p>The lengths stream holds element counts, not offsets, as the geometry section's do.
 The element node has no name.</p>
 <p>A list that is null and a list that is empty are different: a null list has its presence bit clear and no length, an empty list has its presence bit set and a length of <code>0</code>.</p>
-<h3 id="map-nodes">Map Nodes<a class="headerlink" href="#map-nodes" title="Link to this section">&para;</a></h3>
+<h4 id="map-nodes">Map Nodes<a class="headerlink" href="#map-nodes" title="Link to this section">&para;</a></h4>
 <p><code>0xE</code>. String keys chosen per value, over one value type.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>map_body := [lengths stream]             Int family, one length per present map
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>            [key streams]                a string column's stream set, one key per entry
@@ -2564,10 +2423,10 @@ The value node has no name.</p>
 A <code>Struct</code> spends one presence stream per key and nothing per entry; a <code>Map</code> spends one key per entry and nothing per key.
 Encoders MUST pick between them by comparing the stored size, as they do for every other encoding.
 A value whose keys hold different types is only a <code>Struct</code>.</p>
-<h3 id="leaf-nodes">Leaf Nodes<a class="headerlink" href="#leaf-nodes" title="Link to this section">&para;</a></h3>
+<h4 id="leaf-nodes">Leaf Nodes<a class="headerlink" href="#leaf-nodes" title="Link to this section">&para;</a></h4>
 <p><code>0x2</code>-<code>0xB</code>. A leaf holds exactly the data streams a <a href="#columns">column</a> of the same data type holds: one stream for a boolean or integer, one or two for a float, and the set its leading stream's extension bits name for a string.
 It reads them against its own count, and is otherwise the same column.</p>
-<h3 id="where-nested-columns-may-appear">Where Nested Columns May Appear<a class="headerlink" href="#where-nested-columns-may-appear" title="Link to this section">&para;</a></h3>
+<h4 id="where-nested-columns-may-appear">Where Nested Columns May Appear<a class="headerlink" href="#where-nested-columns-may-appear" title="Link to this section">&para;</a></h4>
 <table>
 <thead>
 <tr>
@@ -2594,7 +2453,7 @@ It reads them against its own count, and is otherwise the same column.</p>
 </tr>
 </tbody>
 </table>
-<h2 id="m-values">M-Values<a class="headerlink" href="#m-values" title="Link to this section">&para;</a></h2>
+<h3 id="m-values">M-Values<a class="headerlink" href="#m-values" title="Link to this section">&para;</a></h3>
 <p>An m-value is a measurement taken at a vertex rather than at a feature:</p>
 <ul>
 <li>a distance along a road,</li>
@@ -2614,11 +2473,11 @@ Its column count comes from the layer's <a href="#column-counts">column counts</
 Only its value count differs.
 Its name comes from the layer's one namespace of <a href="#column-names">column names</a>, which the counted columns share.
 An m-value column is not counted in <code>column_count</code>.</p>
-<h3 id="data-types-in-m-value-columns">Data Types in M-Value Columns<a class="headerlink" href="#data-types-in-m-value-columns" title="Link to this section">&para;</a></h3>
+<h4 id="data-types-in-m-value-columns">Data Types in M-Value Columns<a class="headerlink" href="#data-types-in-m-value-columns" title="Link to this section">&para;</a></h4>
 <p><code>Bool</code> through <code>String</code>, codes <code>0x2</code>-<code>0xB</code>, carry exactly the streams they carry as a property column.
 <code>0x0</code>, <code>0x1</code> and <code>0xC</code>-<code>0xF</code> are reserved and MUST be rejected.
 A vertex carries a measurement, not a structure.</p>
-<h3 id="the-vertex-sequence">The Vertex Sequence<a class="headerlink" href="#the-vertex-sequence" title="Link to this section">&para;</a></h3>
+<h4 id="the-vertex-sequence">The Vertex Sequence<a class="headerlink" href="#the-vertex-sequence" title="Link to this section">&para;</a></h4>
 <p>A layer's vertex sequence is every vertex of every feature, in feature order, as the <a href="#geometry-section">geometry section</a>'s topology streams lay them out.
 Each feature holds one contiguous run of it, of <code>vertex_count(f)</code> vertices.</p>
 <p>An m-value column holds one value per vertex of that run, in the same order.</p>
@@ -2628,11 +2487,11 @@ Each feature holds one contiguous run of it, of <code>vertex_count(f)</code> ver
   Two vertices that share a dictionary entry still have an m-value each.</li>
 <li>Under <code>TessPolygonsWithOutlines</code> the sequence is the outline vertices, which the index buffer indexes into.</li>
 </ul>
-<h3 id="nulls">Nulls<a class="headerlink" href="#nulls" title="Link to this section">&para;</a></h3>
+<h4 id="nulls">Nulls<a class="headerlink" href="#nulls" title="Link to this section">&para;</a></h4>
 <p>M-value columns are nullable, but they are at the feature level, not the vertex level.
 This means a single vertex cannot be null.
 A feature's m-value can be null though.</p>
-<h3 id="value-count">Value Count<a class="headerlink" href="#value-count" title="Link to this section">&para;</a></h3>
+<h4 id="value-count">Value Count<a class="headerlink" href="#value-count" title="Link to this section">&para;</a></h4>
 <p>A column's value count is the sum of <code>vertex_count(f)</code> over the features whose presence bit is set, which is every feature under presence nibble <code>0</code>.</p>
 <p>That count is only known once the geometry topology has been decoded, which a decoder may defer, so it is not an implied count.
 An m-value column's leading data stream MUST set bit 7 of its <a href="#encoding-byte">encoding byte</a> and write the count explicitly.
@@ -2642,7 +2501,7 @@ A byte blob is the exception. Bit 7 MUST be <code>0</code> on it and its count s
 A decoder that has decoded both the geometry and an m-value column MUST reject a count that disagrees with the geometry.</p>
 <p>Values are one flat sequence across feature boundaries.
 Delta coding and RLE run through them without a break at each feature.</p>
-<h3 id="geometry-layouts">Geometry Layouts<a class="headerlink" href="#geometry-layouts" title="Link to this section">&para;</a></h3>
+<h4 id="geometry-layouts">Geometry Layouts<a class="headerlink" href="#geometry-layouts" title="Link to this section">&para;</a></h4>
 <p>An m-value section requires a <a href="#geometry-layout">geometry layout</a> whose topology gives every feature's vertex count.</p>
 <table>
 <thead>
@@ -3598,14 +3457,6 @@ The lengths stream counts elements per feature, and it and every stream below it
 </div>
 </div>
 </div>
-<h2 id="planned-features">Planned Features<a class="headerlink" href="#planned-features" title="Link to this section">&para;</a></h2>
-<p>The following are not yet specified or implemented.</p>
-<h3 id="z-values">Z-Values<a class="headerlink" href="#z-values" title="Link to this section">&para;</a></h3>
-<p>Elevation as a third coordinate.</p>
-<p><code>z</code> could be interleaved with <code>x</code> and <code>y</code> in the vertex buffer, or stored as an <a href="#m-values">m-value</a> column.
-Interleaving suits GPU upload.
-A separate column compresses better and costs nothing when unused.
-Which of the two v2 uses is undecided.</p>
 
 
 
@@ -3628,13 +3479,63 @@ Which of the two v2 uses is undecided.</p>
 <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
         </div>
         
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
       </main>
       
         <footer class="md-footer">
   
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../v1/" class="md-footer__link md-footer__link--prev" aria-label="Previous: MLT v1">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                MLT v1
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../../encodings/" class="md-footer__link md-footer__link--next" aria-label="Next: Encoding Algorithms">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Encoding Algorithms
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">
       <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      &copy; 2024 MapLibre contributors
+    </div>
   
   
     Made with
@@ -3715,6 +3616,8 @@ Which of the two v2 uses is undecided.</p>
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
     
     
       
@@ -3723,10 +3626,10 @@ Which of the two v2 uses is undecided.</p>
       
         
         
-      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.code.copy","search.suggest","navigation.instant","navigation.sections","content.action.edit","toc.integrate"],"redirect":null,"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.code.copy","search.suggest","navigation.instant","navigation.instant.prefetch","navigation.instant.progress","navigation.path","navigation.tracking","navigation.tabs","navigation.tabs.sticky","navigation.sections","navigation.footer","navigation.top","content.action.edit","toc.follow","toc.integrate","header.autohide"],"redirect":null,"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c04ba553.min.js"></script>
+      <script src="../../assets/javascripts/bundle.b7d3f789.min.js"></script>
       
         <script src="../../assets/mathjax.js"></script>
       

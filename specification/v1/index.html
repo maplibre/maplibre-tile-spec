@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://www.maplibre.org/maplibre-tile-spec/specification/v1/">
+        <link rel="canonical" href="https://maplibre.org/maplibre-tile-spec/specification/v1/">
       
       
         <link rel="prev" href="../../inspector/">
@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="https://maplibre.org/favicon.ico">
-      <meta name="generator" content="zensical-0.0.65">
+      <meta name="generator" content="zensical-0.0.66">
     
     
       
@@ -34,7 +34,7 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.40d3fdbb.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.1502b751.min.css">
       
         
           
@@ -99,7 +99,7 @@
 
   
 
-<header class="md-header md-header--shadow" data-md-component="header">
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href="../.." title="MapLibre Tile Specification" class="md-header__button md-logo" aria-label="MapLibre Tile Specification" data-md-component="logo">
       
@@ -196,13 +196,94 @@
     </div>
   </nav>
   
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../overview/" class="md-tabs__link">
+        
+  
+  Overview
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../implementation-status/" class="md-tabs__link">
+        
+  
+  Implementation Status
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  Specification
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
 </header>
     
     <div class="md-container" data-md-component="container">
       
       
-        
-          
         
       
       <main class="md-main" data-md-component="main">
@@ -216,10 +297,12 @@
                     
 
 
+  
+
 
   
 
-<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
     <a href="../.." title="MapLibre Tile Specification" class="md-nav__button md-logo" aria-label="MapLibre Tile Specification" data-md-component="logo">
       
@@ -337,6 +420,9 @@
         
         
       
+      
+        
+      
     
     
     <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
@@ -444,6 +530,23 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  MLT v1
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="././" class="md-nav__link md-nav__link--active">
         
   
@@ -459,6 +562,303 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#tile-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Tile Layout
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#layer-body" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Layer Body
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Layer Body">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#column-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Column Metadata
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#column-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Column Data
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#streams" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Streams
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Streams">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#stream-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Stream Types
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#encoding-byte" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Encoding Byte
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#property-columns" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Property Columns
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Property Columns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#id-column" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        ID Column
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scalar-columns" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Scalar Columns
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#string-columns" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        String Columns
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shared-dictionary-columns" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Shared Dictionary Columns
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#geometry-column" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Geometry Column
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Geometry Column">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geometry-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Geometry Types
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#binary-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Binary Structure
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#topology-encoding" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Topology Encoding
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vertex-encoding" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Vertex Encoding
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#integer-stream-encoding" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Integer Stream Encoding
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tessellation-data-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Tessellation Data (Optional)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#decoding-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Decoding Examples
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mixed-geometry-columns" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Mixed Geometry Columns
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#choosing-encodings" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Choosing Encodings
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Examples
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -538,6 +938,59 @@
           
             <div class="md-content" data-md-component="content">
               
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+    
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
               <article class="md-content__inner md-typeset">
                 
                   
@@ -560,7 +1013,7 @@ They are being redesigned for <a href="../v2/">MLT v2</a>.</p>
 All integers are <code>VarInt</code>-encoded unless stated otherwise.
 <code>VarInt</code> is <a href="https://protobuf.dev/programming-guides/encoding/#varints">Protobuf's base 128 varint</a>, least significant group first.
 Signed varints are ZigZag-encoded before being written.</p>
-<h1 id="tile-layout">Tile Layout<a class="headerlink" href="#tile-layout" title="Link to this section">&para;</a></h1>
+<h2 id="tile-layout">Tile Layout<a class="headerlink" href="#tile-layout" title="Link to this section">&para;</a></h2>
 <p>A tile is a concatenation of tagged layer records.
 There is no tile header.
 Layers are encoded independently and can be concatenated without re-encoding.</p>
@@ -573,7 +1026,7 @@ Layers are encoded independently and can be concatenated without re-encoding.</p
 <li>A decoder MUST skip a layer whose <code>tag</code> it does not recognize, using <code>size</code> to find the next one.</li>
 </ul>
 <p>A decoder MUST NOT assume layer names are unique or ordered.</p>
-<h1 id="layer-body">Layer Body<a class="headerlink" href="#layer-body" title="Link to this section">&para;</a></h1>
+<h2 id="layer-body">Layer Body<a class="headerlink" href="#layer-body" title="Link to this section">&para;</a></h2>
 <p>A v1 layer body is a header, then every column's metadata, then every column's data:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>body := [string name]
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>        [varint extent]
@@ -601,7 +1054,7 @@ Values MAY be negative or exceed <code>extent</code> for geometry that crosses t
 Encoders MAY default to <code>4096</code> when a user does not specify the extent.</p>
 <p>Metadata and data are in two separate sections, both in <code>column_count</code> order.</p>
 <p>A layer MUST contain exactly one geometry column and at most one id column.</p>
-<h2 id="column-metadata">Column Metadata<a class="headerlink" href="#column-metadata" title="Link to this section">&para;</a></h2>
+<h3 id="column-metadata">Column Metadata<a class="headerlink" href="#column-metadata" title="Link to this section">&para;</a></h3>
 <p>Each column's metadata is a single type byte, optionally followed by a name and, for shared dictionaries, its children:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>column_meta := [u8 column_type]
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>               [string name]                              -- unless the type is Id or Geometry
@@ -609,7 +1062,7 @@ Encoders MAY default to <code>4096</code> when a user does not specify the exten
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>child_meta  := [u8 column_type] [string name]
 </span></code></pre></div>
 <p>Id and Geometry columns are named implicitly by their type and carry no name field.</p>
-<h3 id="column-types">Column Types<a class="headerlink" href="#column-types" title="Link to this section">&para;</a></h3>
+<h4 id="column-types">Column Types<a class="headerlink" href="#column-types" title="Link to this section">&para;</a></h4>
 <p>The low bit of the type byte is the nullability flag: an odd code is the nullable variant of the even code below it.
 A nullable column writes a <code>Present</code> stream before its data.</p>
 <table>
@@ -698,7 +1151,7 @@ A nullable column writes a <code>Present</code> stream before its data.</p>
 </table>
 <p>Codes <code>5</code>-<code>9</code>, <code>12</code>-<code>15</code> and <code>31</code> are unassigned.
 A decoder MUST reject a column whose type byte is unassigned.</p>
-<h2 id="column-data">Column Data<a class="headerlink" href="#column-data" title="Link to this section">&para;</a></h2>
+<h3 id="column-data">Column Data<a class="headerlink" href="#column-data" title="Link to this section">&para;</a></h3>
 <p>What follows in the data section depends on the column's type.
 Every <code>[stream]</code> below is one stream, laid out as described under <a href="#streams">Streams</a>.</p>
 <table>
@@ -732,7 +1185,7 @@ Every <code>[stream]</code> below is one stream, laid out as described under <a 
 </tbody>
 </table>
 <p>A nullable column prefixes its data with a <code>Present</code> stream, which is counted in <code>stream_count</code> where one is present.</p>
-<h1 id="streams">Streams<a class="headerlink" href="#streams" title="Link to this section">&para;</a></h1>
+<h2 id="streams">Streams<a class="headerlink" href="#streams" title="Link to this section">&para;</a></h2>
 <p>A logical column is separated into several physical <code>streams</code> (sub-columns), inspired by the ORC file format.
 These streams are stored contiguously.
 A stream is a sequence of values of a known length in a continuous memory chunk, all sharing the same type.</p>
@@ -750,7 +1203,7 @@ A stream is a sequence of values of a known length in a continuous memory chunk,
 <p><code>num_values</code> is the number of values the stream holds after decoding.
 <code>byte_length</code> is the payload size and allows a decoder to skip the stream.</p>
 <p>A <code>Present</code> stream is always boolean and derives its RLE parameters from <code>num_values</code>.</p>
-<h2 id="stream-types">Stream Types<a class="headerlink" href="#stream-types" title="Link to this section">&para;</a></h2>
+<h3 id="stream-types">Stream Types<a class="headerlink" href="#stream-types" title="Link to this section">&para;</a></h3>
 <p>The <code>stream_type</code> byte names what role the stream plays.
 The high nibble is the category and the low nibble is a category-specific subtype.</p>
 <table>
@@ -791,7 +1244,7 @@ The high nibble is the category and the low nibble is a category-specific subtyp
 <li><strong>Length</strong>: the number of elements for variable-sized data types like strings or rings.</li>
 <li><strong>Offset</strong>: offsets into a data stream when using dictionary encoding, for strings or vertices.</li>
 </ul>
-<h2 id="encoding-byte">Encoding Byte<a class="headerlink" href="#encoding-byte" title="Link to this section">&para;</a></h2>
+<h3 id="encoding-byte">Encoding Byte<a class="headerlink" href="#encoding-byte" title="Link to this section">&para;</a></h3>
 <p>The encoding byte gives the encoding of the payload.
 The two logical fields form one combination.
 Any combination not listed below is invalid.</p>
@@ -880,15 +1333,15 @@ Any combination not listed below is invalid.</p>
 </table>
 <p>RLE streams store all run lengths first, then all values, and carry <code>runs</code> and <code>num_rle_values</code> in the header.</p>
 <p>The algorithms themselves are specified in <a href="../../encodings/">Encoding Definitions</a>.</p>
-<h1 id="property-columns">Property Columns<a class="headerlink" href="#property-columns" title="Link to this section">&para;</a></h1>
-<h2 id="id-column">ID Column<a class="headerlink" href="#id-column" title="Link to this section">&para;</a></h2>
+<h2 id="property-columns">Property Columns<a class="headerlink" href="#property-columns" title="Link to this section">&para;</a></h2>
+<h3 id="id-column">ID Column<a class="headerlink" href="#id-column" title="Link to this section">&para;</a></h3>
 <p>An <code>id</code> column is not mandatory.
 If included, it should be <code>UInt64</code> or narrower (<code>UInt32</code> if possible) for MVT compatibility.
 A narrower type enables the use of efficient encodings like SIMD-FastPFOR.</p>
-<h2 id="scalar-columns">Scalar Columns<a class="headerlink" href="#scalar-columns" title="Link to this section">&para;</a></h2>
+<h3 id="scalar-columns">Scalar Columns<a class="headerlink" href="#scalar-columns" title="Link to this section">&para;</a></h3>
 <p>Boolean, integer and floating-point columns are a <code>Present</code> stream when nullable, then one data stream.
 Boolean data streams are bit-packed, one bit per present value; float and double data streams hold fixed-width IEEE 754 words.</p>
-<h2 id="string-columns">String Columns<a class="headerlink" href="#string-columns" title="Link to this section">&para;</a></h2>
+<h3 id="string-columns">String Columns<a class="headerlink" href="#string-columns" title="Link to this section">&para;</a></h3>
 <p>A string column declares how many streams follow, and the number of streams determines its layout:</p>
 <table>
 <thead>
@@ -927,7 +1380,7 @@ In a dictionary layout the <code>Offset/String</code> stream holds one dictionar
 FSST layouts compress the value bytes with a symbol table; see <a href="../../encodings/#fsst">FSST</a>.</p>
 <p>The offset stream comes last in the 5-stream layout and before the data stream in the 3-stream layout.
 An encoder MAY also use the 5-stream layout for an undeduplicated FSST corpus, writing the identity <code>[0, 1, 2, ...]</code> as its offsets.</p>
-<h2 id="shared-dictionary-columns">Shared Dictionary Columns<a class="headerlink" href="#shared-dictionary-columns" title="Link to this section">&para;</a></h2>
+<h3 id="shared-dictionary-columns">Shared Dictionary Columns<a class="headerlink" href="#shared-dictionary-columns" title="Link to this section">&para;</a></h3>
 <p>Several string columns, such as <code>name:en</code>, <code>name:de</code> and <code>name:fr</code>, can share a single dictionary.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>shared_dict := [varint stream_count]
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>               [dictionary streams]     2 (plain) or 4 (FSST), as in the table above
@@ -945,7 +1398,7 @@ The children begin after it.</p>
 Decoders SHOULD accept <code>expected + 1</code> as well so those files still parse.</p>
 </div>
 <p>Each child's own <code>stream_count</code> is <code>1</code>, plus <code>1</code> when it is nullable.</p>
-<h1 id="geometry-column">Geometry Column<a class="headerlink" href="#geometry-column" title="Link to this section">&para;</a></h1>
+<h2 id="geometry-column">Geometry Column<a class="headerlink" href="#geometry-column" title="Link to this section">&para;</a></h2>
 <p>The geometry column uses a Structure of Arrays (SoA) layout (data-oriented design).
 The <code>x</code>, <code>y</code> coordinates are stored interleaved in a <code>VertexBuffer</code> for efficient CPU processing and direct copying to GPU buffers.</p>
 <p>The geometry information is separated into different streams, partly inspired by the <a href="https://github.com/geoarrow/geoarrow">geoarrow</a> specification.
@@ -1024,7 +1477,7 @@ Pre-tessellated polygon meshes can also be stored directly to avoid runtime tria
 <p>When LineString and Polygon types are mixed in the same column, LineString vertex counts are stored in the NumRings stream (see <a href="#length-stream-encoding-rules">Length Stream Encoding Rules</a> below).</p>
 <p>An additional <code>VertexOffsets</code> stream is present when using Dictionary or Morton-Dictionary encoding.
 If geometries (mainly polygons) are pre-tessellated for direct GPU use, <code>NumTriangles</code> and <code>IndexBuffer</code> streams must be provided.</p>
-<h2 id="geometry-types">Geometry Types<a class="headerlink" href="#geometry-types" title="Link to this section">&para;</a></h2>
+<h3 id="geometry-types">Geometry Types<a class="headerlink" href="#geometry-types" title="Link to this section">&para;</a></h3>
 <p>Six geometry types are supported, encoded as unsigned integers:</p>
 <table>
 <thead>
@@ -1067,7 +1520,7 @@ If geometries (mainly polygons) are pre-tessellated for direct GPU use, <code>Nu
 </tr>
 </tbody>
 </table>
-<h2 id="binary-structure">Binary Structure<a class="headerlink" href="#binary-structure" title="Link to this section">&para;</a></h2>
+<h3 id="binary-structure">Binary Structure<a class="headerlink" href="#binary-structure" title="Link to this section">&para;</a></h3>
 <p>A geometry column is stored as a sequence of streams, prefixed by a stream count:</p>
 <pre class="mermaid"><code>graph LR
     subgraph "Stream Count"
@@ -1154,9 +1607,9 @@ If geometries (mainly polygons) are pre-tessellated for direct GPU use, <code>Nu
 </tr>
 </tbody>
 </table>
-<h2 id="topology-encoding">Topology Encoding<a class="headerlink" href="#topology-encoding" title="Link to this section">&para;</a></h2>
+<h3 id="topology-encoding">Topology Encoding<a class="headerlink" href="#topology-encoding" title="Link to this section">&para;</a></h3>
 <p>MLT uses a <strong>length-based</strong> encoding for geometry topology rather than explicit drawing commands. This enables efficient random access to individual features.</p>
-<h3 id="conceptual-hierarchy">Conceptual Hierarchy<a class="headerlink" href="#conceptual-hierarchy" title="Link to this section">&para;</a></h3>
+<h4 id="conceptual-hierarchy">Conceptual Hierarchy<a class="headerlink" href="#conceptual-hierarchy" title="Link to this section">&para;</a></h4>
 <pre class="mermaid"><code>graph TD
     subgraph "Feature Table"
         GT["Geometry Types Stream&lt;br/&gt;[Point, Polygon, MultiPolygon, ...]"]
@@ -1179,7 +1632,7 @@ If geometries (mainly polygons) are pre-tessellated for direct GPU use, <code>Nu
     end
 
     GT --&gt; GL --&gt; PL --&gt; RL --&gt; VB</code></pre>
-<h3 id="which-streams-are-present">Which Streams Are Present<a class="headerlink" href="#which-streams-are-present" title="Link to this section">&para;</a></h3>
+<h4 id="which-streams-are-present">Which Streams Are Present<a class="headerlink" href="#which-streams-are-present" title="Link to this section">&para;</a></h4>
 <p>The streams included depend on the geometry types in the column:</p>
 <table>
 <thead>
@@ -1230,7 +1683,7 @@ If geometries (mainly polygons) are pre-tessellated for direct GPU use, <code>Nu
 </tbody>
 </table>
 <p>*LineString and MultiLineString parts are stored in the Rings stream when Polygons are also present in the same column.</p>
-<h3 id="length-stream-encoding-rules">Length Stream Encoding Rules<a class="headerlink" href="#length-stream-encoding-rules" title="Link to this section">&para;</a></h3>
+<h4 id="length-stream-encoding-rules">Length Stream Encoding Rules<a class="headerlink" href="#length-stream-encoding-rules" title="Link to this section">&para;</a></h4>
 <p>Length values are stored only for geometry types that need them. The key insight is that <strong>simple types have an implicit count of 1</strong>, while <strong>Multi* types store their sub-geometry counts explicitly</strong>.</p>
 <p>The encoding uses a <strong>type threshold</strong> to determine which geometries need explicit lengths:</p>
 <table>
@@ -1271,8 +1724,8 @@ If geometries (mainly polygons) are pre-tessellated for direct GPU use, <code>Nu
 </span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
 </span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>Result: geometry_offsets = [0, 1, 4, 5]
 </span></code></pre></div>
-<h2 id="vertex-encoding">Vertex Encoding<a class="headerlink" href="#vertex-encoding" title="Link to this section">&para;</a></h2>
-<h3 id="componentwise-delta-encoding">Componentwise Delta Encoding<a class="headerlink" href="#componentwise-delta-encoding" title="Link to this section">&para;</a></h3>
+<h3 id="vertex-encoding">Vertex Encoding<a class="headerlink" href="#vertex-encoding" title="Link to this section">&para;</a></h3>
+<h4 id="componentwise-delta-encoding">Componentwise Delta Encoding<a class="headerlink" href="#componentwise-delta-encoding" title="Link to this section">&para;</a></h4>
 <p>Vertices are stored as interleaved (x, y) coordinate pairs using <strong>componentwise delta encoding</strong>:</p>
 <pre class="mermaid"><code>graph LR
     subgraph "Original Coordinates"
@@ -1305,7 +1758,7 @@ If geometries (mainly polygons) are pre-tessellated for direct GPU use, <code>Nu
 <li>Apply zigzag decoding: <code>n = (zigzag &gt;&gt; 1) ^ -(zigzag &amp; 1)</code></li>
 <li>Accumulate: <code>x = prev_x + delta_x</code>, <code>y = prev_y + delta_y</code></li>
 </ol>
-<h3 id="dictionary-encoding-optional">Dictionary Encoding (Optional)<a class="headerlink" href="#dictionary-encoding-optional" title="Link to this section">&para;</a></h3>
+<h4 id="dictionary-encoding-optional">Dictionary Encoding (Optional)<a class="headerlink" href="#dictionary-encoding-optional" title="Link to this section">&para;</a></h4>
 <p>When vertices repeat frequently, a dictionary encoding may be used:</p>
 <pre class="mermaid"><code>graph TD
     subgraph "With Dictionary"
@@ -1320,7 +1773,7 @@ If geometries (mainly polygons) are pre-tessellated for direct GPU use, <code>Nu
     VO --&gt; RV
     VD --&gt; RV</code></pre>
 <p>The vertex dictionary is sorted by <a href="https://en.wikipedia.org/wiki/Hilbert_curve">Hilbert curve</a> index for spatial locality. The <code>OFFSET/VERTEX</code> stream contains indices into this dictionary.</p>
-<h3 id="morton-encoding-optional">Morton Encoding (Optional)<a class="headerlink" href="#morton-encoding-optional" title="Link to this section">&para;</a></h3>
+<h4 id="morton-encoding-optional">Morton Encoding (Optional)<a class="headerlink" href="#morton-encoding-optional" title="Link to this section">&para;</a></h4>
 <p>For spatial optimization, vertices can be <a href="https://en.wikipedia.org/wiki/Z-order_curve">Morton-encoded</a> (Z-order curve):</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>Coordinate (5, 3):
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>  X bits: 1 0 1
@@ -1330,7 +1783,7 @@ If geometries (mainly polygons) are pre-tessellated for direct GPU use, <code>Nu
 </span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>Stored as: Morton code + metadata (numBits, coordinateShift)
 </span></code></pre></div>
 <p>Morton encoding enables efficient spatial clustering and range queries.</p>
-<h2 id="integer-stream-encoding">Integer Stream Encoding<a class="headerlink" href="#integer-stream-encoding" title="Link to this section">&para;</a></h2>
+<h3 id="integer-stream-encoding">Integer Stream Encoding<a class="headerlink" href="#integer-stream-encoding" title="Link to this section">&para;</a></h3>
 <p>Topology streams (lengths, offsets) use adaptive encoding selected for minimal size. All integer encodings use <a href="https://en.wikipedia.org/wiki/Variable-length_quantity">variable-length quantity (varint)</a> as the base encoding:</p>
 <table>
 <thead>
@@ -1363,7 +1816,7 @@ If geometries (mainly polygons) are pre-tessellated for direct GPU use, <code>Nu
 </tr>
 </tbody>
 </table>
-<h3 id="rle-format">RLE Format<a class="headerlink" href="#rle-format" title="Link to this section">&para;</a></h3>
+<h4 id="rle-format">RLE Format<a class="headerlink" href="#rle-format" title="Link to this section">&para;</a></h4>
 <p><a href="https://en.wikipedia.org/wiki/Run-length_encoding">Run-length encoding</a> stores runs followed by values:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>Input:  [5, 5, 5, 3, 3, 3, 3]
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>Runs:   [3, 4]        // 3 fives, 4 threes
@@ -1371,7 +1824,7 @@ If geometries (mainly polygons) are pre-tessellated for direct GPU use, <code>Nu
 </span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>Output: [3, 4, 5, 3]  // runs concatenated with values
 </span></code></pre></div>
 <p>Stream metadata includes <code>runs</code> and <code>num_rle_values</code> counts for decoding.</p>
-<h2 id="tessellation-data-optional">Tessellation Data (Optional)<a class="headerlink" href="#tessellation-data-optional" title="Link to this section">&para;</a></h2>
+<h3 id="tessellation-data-optional">Tessellation Data (Optional)<a class="headerlink" href="#tessellation-data-optional" title="Link to this section">&para;</a></h3>
 <p>Pre-tessellated polygons include additional streams for direct GPU rendering:</p>
 <pre class="mermaid"><code>graph TD
     subgraph "Tessellated Polygon Data"
@@ -1388,8 +1841,8 @@ If geometries (mainly polygons) are pre-tessellated for direct GPU use, <code>Nu
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>Triangles: [2]                    // This polygon has 2 triangles
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>Index buffer: [0, 1, 2, 0, 2, 3]  // Triangle 1: v0,v1,v2; Triangle 2: v0,v2,v3
 </span></code></pre></div>
-<h2 id="decoding-examples">Decoding Examples<a class="headerlink" href="#decoding-examples" title="Link to this section">&para;</a></h2>
-<h3 id="point">Point<a class="headerlink" href="#point" title="Link to this section">&para;</a></h3>
+<h3 id="decoding-examples">Decoding Examples<a class="headerlink" href="#decoding-examples" title="Link to this section">&para;</a></h3>
+<h4 id="point">Point<a class="headerlink" href="#point" title="Link to this section">&para;</a></h4>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>Streams:
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>  META: types = [0]          // Point
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>  DATA/VERTEX: [200, 400]    // zigzag-encoded deltas
@@ -1398,7 +1851,7 @@ If geometries (mainly polygons) are pre-tessellated for direct GPU use, <code>Nu
 </span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>  zigzag(200) = 100, zigzag(400) = 200
 </span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>  Result: Point(100, 200)
 </span></code></pre></div>
-<h3 id="linestring">LineString<a class="headerlink" href="#linestring" title="Link to this section">&para;</a></h3>
+<h4 id="linestring">LineString<a class="headerlink" href="#linestring" title="Link to this section">&para;</a></h4>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>Streams:
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>  META: types = [1]                 // LineString
 </span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>  LENGTH/PARTS: [3]                 // 3 vertices
@@ -1409,7 +1862,7 @@ If geometries (mainly polygons) are pre-tessellated for direct GPU use, <code>Nu
 </span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>  vertices = [(0,0), (100,0), (100,100)]  // delta-decoded
 </span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>  Result: LineString with 3 vertices
 </span></code></pre></div>
-<h3 id="polygon-with-hole">Polygon with Hole<a class="headerlink" href="#polygon-with-hole" title="Link to this section">&para;</a></h3>
+<h4 id="polygon-with-hole">Polygon with Hole<a class="headerlink" href="#polygon-with-hole" title="Link to this section">&para;</a></h4>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>Streams:
 </span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>  META: types = [2]          // Polygon
 </span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>  LENGTH/PARTS: [2]          // 2 rings (exterior + 1 hole)
@@ -1421,7 +1874,7 @@ If geometries (mainly polygons) are pre-tessellated for direct GPU use, <code>Nu
 </span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>  ring_offsets = [0, 4, 8]   // ring boundaries
 </span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>  Result: Polygon with exterior ring (4 verts) and hole (4 verts)
 </span></code></pre></div>
-<h3 id="multipolygon">MultiPolygon<a class="headerlink" href="#multipolygon" title="Link to this section">&para;</a></h3>
+<h4 id="multipolygon">MultiPolygon<a class="headerlink" href="#multipolygon" title="Link to this section">&para;</a></h4>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>Streams:
 </span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>  META: types = [5]          // MultiPolygon
 </span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>  LENGTH/GEOMETRIES: [2]     // 2 polygons
@@ -1435,7 +1888,7 @@ If geometries (mainly polygons) are pre-tessellated for direct GPU use, <code>Nu
 </span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>  ring_offsets = [0, 4, 8]   // vertex boundaries
 </span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>  Result: MultiPolygon with 2 simple polygons
 </span></code></pre></div>
-<h2 id="mixed-geometry-columns">Mixed Geometry Columns<a class="headerlink" href="#mixed-geometry-columns" title="Link to this section">&para;</a></h2>
+<h3 id="mixed-geometry-columns">Mixed Geometry Columns<a class="headerlink" href="#mixed-geometry-columns" title="Link to this section">&para;</a></h3>
 <p>A single column can contain mixed geometry types. The decoding logic handles this by:</p>
 <ol>
 <li>Reading geometry types to determine which length streams to expect</li>
@@ -1455,7 +1908,7 @@ If geometries (mainly polygons) are pre-tessellated for direct GPU use, <code>Nu
 </span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>  Polygon: vertices[4..8]    // from ring_offsets
 </span></code></pre></div>
 <p>The integer and vertex encodings referenced above are specified in detail in the <a href="../../encodings/">Encoding Definitions</a> document.</p>
-<h1 id="choosing-encodings">Choosing Encodings<a class="headerlink" href="#choosing-encodings" title="Link to this section">&para;</a></h1>
+<h2 id="choosing-encodings">Choosing Encodings<a class="headerlink" href="#choosing-encodings" title="Link to this section">&para;</a></h2>
 <p>MLT uses various lightweight compression schemes for space-efficient storage and fast decoding.
 Encodings can be recursively cascaded (hybrid encodings) to a certain degree.
 For example, integer columns resulting from dictionary encoding can be further compressed using integer encoding schemes.</p>
@@ -1507,7 +1960,7 @@ Instead, we recommend the selection strategy from the <a href="https://www.cs.ci
 </ul>
 <p>Choosing the right column to sort features by can also significantly reduce the size of a layer, and is crucial for leveraging the columnar layout fully.
 Exhaustively testing every possible sorting order for every column in every layer is computationally expensive, so the same sampling heuristic applies.</p>
-<h1 id="examples">Examples<a class="headerlink" href="#examples" title="Link to this section">&para;</a></h1>
+<h2 id="examples">Examples<a class="headerlink" href="#examples" title="Link to this section">&para;</a></h2>
 <p>Every fixture under <code>test/synthetic/0x01/</code> has an annotated hexdump and the <code>.json</code> a decoder MUST produce from it.
 The annotations are generated from the tiles.</p>
 <p>The same annotation can be produced for any tile with the <a href="https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt/README.md"><code>mlt</code> CLI</a>:</p>
@@ -1892,13 +2345,63 @@ The annotations are generated from the tiles.</p>
 <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
         </div>
         
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
       </main>
       
         <footer class="md-footer">
   
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../../inspector/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Tile Inspector">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Tile Inspector
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../v2/" class="md-footer__link md-footer__link--next" aria-label="Next: MLT v2 (experimental)">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                MLT v2 (experimental)
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">
       <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      &copy; 2024 MapLibre contributors
+    </div>
   
   
     Made with
@@ -1979,6 +2482,8 @@ The annotations are generated from the tiles.</p>
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
     
     
       
@@ -1987,10 +2492,10 @@ The annotations are generated from the tiles.</p>
       
         
         
-      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.code.copy","search.suggest","navigation.instant","navigation.sections","content.action.edit","toc.integrate"],"redirect":null,"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.code.copy","search.suggest","navigation.instant","navigation.instant.prefetch","navigation.instant.progress","navigation.path","navigation.tracking","navigation.tabs","navigation.tabs.sticky","navigation.sections","navigation.footer","navigation.top","content.action.edit","toc.follow","toc.integrate","header.autohide"],"redirect":null,"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c04ba553.min.js"></script>
+      <script src="../../assets/javascripts/bundle.b7d3f789.min.js"></script>
       
         <script src="../../assets/mathjax.js"></script>
       
