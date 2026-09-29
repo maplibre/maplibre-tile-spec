@@ -521,7 +521,7 @@ exports[`annotateTile > annotates a v1 tile 1`] = `
           "kind": "i32",
         },
         "logical": "vertex/componentwise-delta",
-        "numValues": 2,
+        "numValues": 1,
         "physical": "varint",
         "streamType": "data[vertex]",
       },
@@ -539,7 +539,7 @@ exports[`annotateTile > annotates a v1 tile 1`] = `
 
 exports[`annotateTile > annotates a v2 tile 1`] = `
 {
-  "bufLen": 22,
+  "bufLen": 21,
   "regions": [
     {
       "bits": [],
@@ -548,7 +548,7 @@ exports[`annotateTile > annotates a v2 tile 1`] = `
       "depth": 0,
       "kind": "meta",
       "label": "layer[0] "layer1"",
-      "len": 22,
+      "len": 21,
       "offset": 0,
       "value": null,
     },
@@ -561,7 +561,7 @@ exports[`annotateTile > annotates a v2 tile 1`] = `
       "label": "size",
       "len": 1,
       "offset": 0,
-      "value": "21 (varint) - tag + body",
+      "value": "20 (varint) - tag + body",
     },
     {
       "bits": [],
@@ -663,7 +663,7 @@ exports[`annotateTile > annotates a v2 tile 1`] = `
       "depth": 1,
       "kind": "meta",
       "label": "geometry",
-      "len": 5,
+      "len": 4,
       "offset": 12,
       "value": null,
     },
@@ -674,7 +674,7 @@ exports[`annotateTile > annotates a v2 tile 1`] = `
       "depth": 2,
       "kind": "meta",
       "label": "vertices",
-      "len": 5,
+      "len": 4,
       "offset": 12,
       "value": null,
     },
@@ -683,8 +683,8 @@ exports[`annotateTile > annotates a v2 tile 1`] = `
         {
           "hi": 7,
           "lo": 7,
-          "meaning": "has_explicit_count = true -> a num_values varint follows",
-          "raw": 1,
+          "meaning": "has_explicit_count = false -> 1 values from context",
+          "raw": 0,
         },
         {
           "hi": 6,
@@ -712,18 +712,7 @@ exports[`annotateTile > annotates a v2 tile 1`] = `
       "label": "encoding",
       "len": 1,
       "offset": 12,
-      "value": "0xA8 logical=CwDelta physical=VarInt",
-    },
-    {
-      "bits": [],
-      "blob": null,
-      "container": false,
-      "depth": 3,
-      "kind": "meta",
-      "label": "num_values",
-      "len": 1,
-      "offset": 13,
-      "value": "2",
+      "value": "0x28 logical=CwDelta physical=VarInt",
     },
     {
       "bits": [],
@@ -733,7 +722,7 @@ exports[`annotateTile > annotates a v2 tile 1`] = `
       "kind": "meta",
       "label": "byte_length",
       "len": 1,
-      "offset": 14,
+      "offset": 13,
       "value": "2",
     },
     {
@@ -743,7 +732,7 @@ exports[`annotateTile > annotates a v2 tile 1`] = `
           "kind": "i32",
         },
         "logical": "vertex/componentwise-delta",
-        "numValues": 2,
+        "numValues": 1,
         "physical": "varint",
         "streamType": "data[vertex]",
       },
@@ -752,7 +741,7 @@ exports[`annotateTile > annotates a v2 tile 1`] = `
       "kind": "dataBlob",
       "label": "data",
       "len": 2,
-      "offset": 15,
+      "offset": 14,
       "value": null,
     },
     {
@@ -763,7 +752,7 @@ exports[`annotateTile > annotates a v2 tile 1`] = `
       "kind": "meta",
       "label": "column_count",
       "len": 1,
-      "offset": 17,
+      "offset": 16,
       "value": "1",
     },
     {
@@ -774,7 +763,7 @@ exports[`annotateTile > annotates a v2 tile 1`] = `
       "kind": "meta",
       "label": "column[0] Id",
       "len": 4,
-      "offset": 18,
+      "offset": 17,
       "value": null,
     },
     {
@@ -798,7 +787,7 @@ exports[`annotateTile > annotates a v2 tile 1`] = `
       "kind": "meta",
       "label": "type",
       "len": 1,
-      "offset": 18,
+      "offset": 17,
       "value": "0x00 AllPresent Id",
     },
     {
@@ -809,7 +798,7 @@ exports[`annotateTile > annotates a v2 tile 1`] = `
       "kind": "meta",
       "label": "data",
       "len": 3,
-      "offset": 19,
+      "offset": 18,
       "value": null,
     },
     {
@@ -845,7 +834,7 @@ exports[`annotateTile > annotates a v2 tile 1`] = `
       "kind": "meta",
       "label": "encoding",
       "len": 1,
-      "offset": 19,
+      "offset": 18,
       "value": "0x08 logical=None physical=VarInt",
     },
     {
@@ -856,7 +845,7 @@ exports[`annotateTile > annotates a v2 tile 1`] = `
       "kind": "meta",
       "label": "byte_length",
       "len": 1,
-      "offset": 20,
+      "offset": 19,
       "value": "1",
     },
     {
@@ -875,7 +864,7 @@ exports[`annotateTile > annotates a v2 tile 1`] = `
       "kind": "dataBlob",
       "label": "data",
       "len": 1,
-      "offset": 21,
+      "offset": 20,
       "value": null,
     },
   ],
