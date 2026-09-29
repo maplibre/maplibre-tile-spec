@@ -49,5 +49,5 @@
                                                                              |         └ bits 1-0 = 10 -> physical = VarInt
 0000001a  02                                                .                |       num_values: 2
 0000001b  02                                                .                |       byte_length: 2
-0000001c  1a 54                                             .T               |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 2 values, 2 B]
+0000001c  1a 54                                             .T               |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 1 values, 2 B]
                                                                              |         decoded: [13, 42]
