@@ -27,25 +27,73 @@ impl TryFrom<&Geometry<i32>> for GeometryType {
 
 /// Run the Earcut algorithm on `polygon`, append triangle indices (shifted by `vertex_offset`)
 /// into `index_buf`, and return `(num_triangles, num_vertices)`.
+///
+/// `num_vertices` is how many vertices MLT stores for the polygon, which is where the next one starts.
+/// A ring whose points all lie on a line is left out of the cut, since it holds no triangle and `earcut` can loop forever on one.
+/// Indices are mapped back past it.
 fn earcut_into(polygon: &Polygon<i32>, vertex_offset: u32, index_buf: &mut Vec<u32>) -> (u32, u32) {
-    // An empty ring underflows inside `geo` 0.33's earcut, and tessellates to nothing anyway.
-    if polygon.exterior().0.is_empty() {
-        return (0, 0);
+    let rings: Vec<&LineString<i32>> = std::iter::once(polygon.exterior())
+        .chain(polygon.interiors())
+        .collect();
+    let stored: usize = rings.iter().copied().map(stored_ring_len).sum();
+    let num_vertices = u32::try_from(stored).expect("too many vertices");
+    if !has_area(polygon.exterior()) {
+        return (0, num_vertices);
     }
-    let polygon_f64: Polygon<f64> = polygon.convert();
+
+    // Where each ring earcut sees starts among the vertices MLT stores.
+    let mut kept = Vec::with_capacity(rings.len());
+    let mut stored_starts = Vec::with_capacity(rings.len());
+    let mut stored_start = 0;
+    for ring in rings {
+        if has_area(ring) {
+            kept.push(ring.clone());
+            stored_starts.push(stored_start);
+        }
+        stored_start += stored_ring_len(ring);
+    }
+    let exterior = kept.remove(0);
+    let polygon_f64: Polygon<f64> = Polygon::new(exterior, kept).convert();
     let raw = polygon_f64.earcut_triangles_raw();
     let num_triangles = u32::try_from(raw.triangle_indices.len() / 3).expect("too many triangles");
-    let num_vertices = u32::try_from(raw.vertices.len()).expect("too many vertices");
 
+    // Earcut numbers the kept rings' vertices back to back, one per coordinate but the closing one.
+    let mut earcut_starts = Vec::with_capacity(stored_starts.len());
+    let mut earcut_start = 0;
+    for ring in std::iter::once(polygon_f64.exterior()).chain(polygon_f64.interiors()) {
+        earcut_starts.push(earcut_start);
+        earcut_start += ring.0.len() - 1;
+    }
     for i in raw.triangle_indices {
-        let base = u32::try_from(i).expect("mlt vertex index overflow");
-        let idx = base
-            .checked_add(vertex_offset)
+        let ring = earcut_starts.partition_point(|&start| start <= i) - 1;
+        let stored = stored_starts[ring] + (i - earcut_starts[ring]);
+        let idx = u32::try_from(stored)
+            .ok()
+            .and_then(|s| s.checked_add(vertex_offset))
             .expect("vertex index overflow");
         index_buf.push(idx);
     }
 
     (num_triangles, num_vertices)
+}
+
+/// Whether a closed ring encloses any area, which one whose points all lie on a line does not.
+///
+/// A signed area would not do, since the lobes of a self-intersecting ring can cancel to `0`.
+fn has_area(ring: &LineString<i32>) -> bool {
+    let coords = &ring.0;
+    if coords.len() < 4 {
+        return false;
+    }
+    let origin = coords[0];
+    let Some(&other) = coords.iter().find(|&&c| c != origin) else {
+        return false;
+    };
+    let cross = |c: Coord<i32>| {
+        (i64::from(other.x) - i64::from(origin.x)) * (i64::from(c.y) - i64::from(origin.y))
+            - (i64::from(other.y) - i64::from(origin.y)) * (i64::from(c.x) - i64::from(origin.x))
+    };
+    coords.iter().any(|&c| cross(c) != 0)
 }
 
 impl GeometryValues {
@@ -694,6 +742,79 @@ mod tests {
                 second.iter().all(|&i| (4..8).contains(&i)),
                 "second polygon indices should reference verts 4..8: {second:?}"
             );
+        }
+
+        fn square(x: i32) -> Polygon<i32> {
+            Polygon::new(
+                LineString::from(vec![(x, 0), (x + 10, 0), (x + 10, 10), (x, 10), (x, 0)]),
+                vec![],
+            )
+        }
+
+        fn triangles(geometry: &Geometry<i32>) -> Vec<u32> {
+            let mut g = GeometryValues::new_tessellated();
+            g.push_geom(geometry);
+            g.index_buffer().unwrap_or_default().to_vec()
+        }
+
+        #[test]
+        fn a_polygon_of_one_repeated_coordinate_has_no_triangles() {
+            let point = Polygon::new(LineString::from(vec![(5, 5), (5, 5), (5, 5)]), vec![]);
+            assert_eq!(triangles(&Geometry::Polygon(point)), Vec::<u32>::new());
+        }
+
+        #[test]
+        fn a_one_coordinate_polygon_still_shifts_the_next_polygons_indices() {
+            let point = Polygon::new(LineString::from(vec![(5, 5)]), vec![]);
+            let geometry = Geometry::MultiPolygon(MultiPolygon(vec![point, square(20)]));
+            assert_eq!(triangles(&geometry), [3, 4, 1, 1, 2, 3]);
+        }
+
+        #[test]
+        fn a_self_intersecting_ring_is_cut_although_its_signed_area_is_zero() {
+            let bowtie = Polygon::new(
+                LineString::from(vec![(0, 0), (10, 10), (0, 10), (10, 0), (0, 0)]),
+                vec![],
+            );
+            assert_eq!(triangles(&Geometry::Polygon(bowtie)), [1, 0, 3]);
+        }
+
+        #[test]
+        fn a_spike_with_a_hole_of_one_repeated_point_is_cut_without_the_hole() {
+            let spike = Polygon::new(
+                LineString::from(vec![
+                    (542, 543),
+                    (543, 543),
+                    (543, 2657),
+                    (543, 543),
+                    (543, 543),
+                    (543, 543),
+                    (543, 543),
+                    (543, 543),
+                    (542, 543),
+                ]),
+                vec![
+                    LineString::from(vec![(1232, 1232); 8]),
+                    LineString::from(vec![
+                        (1232, 1232),
+                        (1232, 716),
+                        (1232, 1232),
+                        (1232, 2096),
+                        (2096, 2096),
+                        (2096, 2096),
+                        (1232, 1232),
+                    ]),
+                ],
+            );
+            assert_eq!(triangles(&Geometry::Polygon(spike)), Vec::<u32>::new());
+        }
+
+        #[test]
+        fn a_hole_without_area_is_skipped_but_counted() {
+            let mut holed = square(0);
+            holed.interiors_push(LineString::from(vec![(2, 2), (3, 3)]));
+            let geometry = Geometry::MultiPolygon(MultiPolygon(vec![holed, square(20)]));
+            assert_eq!(triangles(&geometry), [2, 3, 0, 0, 1, 2, 8, 9, 6, 6, 7, 8]);
         }
     }
 }
