@@ -34,7 +34,7 @@ jobs:
             ts:
               - '.github/workflows/autofix.yml'
               - 'ts/**'
-              - 'docs/inspector/.app/**'
+              - 'inspector/**'
             rust:
               - '.github/workflows/autofix.yml'
               - 'rust/**'

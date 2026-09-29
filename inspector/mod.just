@@ -9,13 +9,13 @@ just *args:
 # Fail before the bundler does when the workspace mlt-wasm the app links against is missing
 [private]
 assert-wasm-built:
-    @test -f ../../../rust/mlt-wasm/dist/index.js \
+    @test -f ../rust/mlt-wasm/dist/index.js \
       || (echo 'the app links @maplibre/mlt-wasm from the workspace: run "just rust::wasm-build" first' && exit 1)
 
 # Build the mlt CLI the fixture index reads geometry and encoding facets from
 [private]
 build-mlt:
-    cargo build --release --manifest-path ../../../rust/Cargo.toml --package mlt --features unstable-v2
+    cargo build --release --manifest-path ../rust/Cargo.toml --package mlt --features unstable-v2
 
 # Update the committed vitest inline snapshots, which `test` only verifies
 bless: install build-mlt
@@ -31,7 +31,7 @@ ci-test: lint test build
 
 # Delete build artifacts
 clean:
-    rm -rf node_modules ../app
+    rm -rf node_modules ../docs/inspector/app
 
 # Serve the app with the fixtures it indexed
 dev: install assert-wasm-built build-mlt
