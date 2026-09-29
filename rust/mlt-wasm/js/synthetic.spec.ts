@@ -1,3 +1,4 @@
+import { readdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import type { VectorTileLike } from "@maplibre/vt-pbf";
 import { describe, expect, it } from "vitest";
@@ -14,9 +15,29 @@ import {
   type MltLayer,
 } from "./vectorTile";
 
-const UNIMPLEMENTED_SYNTHETICS = new Map([
-  ["0x02", "the v2 wire format is behind the unstable-v2 feature"],
-]);
+const DECODES_V2 = (process.env.MLT_WASM_FEATURES ?? "")
+  .split(/[\s,]+/)
+  .includes("unstable-v2");
+
+const V2_GAPS: [RegExp, string][] = [
+  [/^mvalues(?!_all_null$)/, "the vector-tile API has no m-value columns"],
+  [/^nested_/, "the vector-tile API has no nested columns"],
+  [/_tri$/, "a triangles-only layer has no offsets for loadGeometry to walk"],
+];
+
+const UNIMPLEMENTED_SYNTHETICS = DECODES_V2
+  ? new Map(
+      readdirSync(new URL("../../../test/synthetic/0x02", import.meta.url))
+        .filter((file) => file.endsWith(".mlt"))
+        .map((file) => file.slice(0, -".mlt".length))
+        .flatMap((name) => {
+          const gap = V2_GAPS.find(([pattern]) => pattern.test(name));
+          return gap ? [[`0x02/${name}`, gap[1]] as const] : [];
+        }),
+    )
+  : new Map([
+      ["0x02", "decode_tile reads v2 layers only with the unstable-v2 feature"],
+    ]);
 
 describe("MLT WASM Decoder - Synthetic tests", () => {
   expect.addEqualityTesters([compareWithTolerance]);
