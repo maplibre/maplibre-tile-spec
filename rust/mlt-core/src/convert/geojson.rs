@@ -42,6 +42,11 @@ impl FeatureCollection {
                 ParsedLayer::Tag01(_) | ParsedLayer::Unknown(_) => Vec::new().into_iter(),
                 ParsedLayer::Tag02(l) => nested_properties(l)?.into_iter(),
             };
+            #[cfg(feature = "unstable-v2")]
+            let mut z = match &layer {
+                ParsedLayer::Tag01(_) | ParsedLayer::Unknown(_) => Vec::new().into_iter(),
+                ParsedLayer::Tag02(l) => z_properties(l)?.into_iter(),
+            };
             let parsed = match layer {
                 ParsedLayer::Tag01(l) => l,
                 #[cfg(feature = "unstable-v2")]
@@ -61,6 +66,8 @@ impl FeatureCollection {
                 properties.extend(m_values.next().unwrap_or_default());
                 #[cfg(feature = "unstable-v2")]
                 properties.extend(nested.next().unwrap_or_default());
+                #[cfg(feature = "unstable-v2")]
+                properties.extend(z.next().unwrap_or_default());
                 properties.insert("_layer".into(), Value::String(layer_name.to_string()));
                 properties.insert("_extent".into(), Value::Number(extent.into()));
                 features.push(Feature {
@@ -284,6 +291,25 @@ fn m_value_properties(layer: &ParsedLayer02<'_>) -> MltResult<Vec<Vec<(String, V
         }
     }
     Ok(features)
+}
+
+/// Every feature's z coordinates as a `_z` array in vertex order, and the grid they lie on as `_z_step`.
+///
+/// A layer without z coordinates gives no property at all.
+#[cfg(feature = "unstable-v2")]
+fn z_properties(layer: &ParsedLayer02<'_>) -> MltResult<Vec<Vec<(String, Value)>>> {
+    let geometry = layer.layer().geometry_values();
+    let Some(step) = geometry.z_step() else {
+        return Ok(Vec::new());
+    };
+    (0..geometry.feature_count())
+        .map(|index| {
+            Ok(vec![
+                ("_z".to_string(), geometry.z(index)?.into()),
+                ("_z_step".to_string(), step.exponent().into()),
+            ])
+        })
+        .collect()
 }
 
 /// Every feature's nested columns as JSON, one entry per column under its own name.

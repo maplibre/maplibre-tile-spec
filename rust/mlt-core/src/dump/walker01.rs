@@ -420,6 +420,9 @@ impl<'a> Walker<'a> {
             | LogicalEncoding::Vertex(
                 VertexLogical::None | VertexLogical::Delta | VertexLogical::ComponentwiseDelta,
             ) => {}
+            // A v1 header never parses into one.
+            #[cfg(feature = "unstable-v2")]
+            LogicalEncoding::Vertex(VertexLogical::Xyz(..)) => {}
         }
 
         // Consistency guard: the hand re-walk must land exactly on the authoritative tail.

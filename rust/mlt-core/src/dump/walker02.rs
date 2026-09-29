@@ -17,14 +17,14 @@ use crate::decoder::nested::{
 use crate::decoder::stream::header02;
 use crate::decoder::stream::header02::{
     Count02, EXTENSION_MASK, Family, HAS_EXPLICIT_COUNT, LOGICAL_MASK, PHYSICAL_MASK, StrLayout,
-    StreamCtx02, describe_encoding,
+    StreamCtx02, XYZ, describe_encoding,
 };
 use crate::decoder::{
     AlpScale, Column02, ColumnCounts, ColumnType02, DataType02, DictionaryType, Extent02,
     GeoLayout, Interior02, LayerHeader02, LayerLayout, LengthType, NodeKind02, NodePresence,
     NodeType02, Presence02, SharedDictKind, StreamType, ValuesColumn02,
 };
-use crate::tile::MAX_NESTED_DEPTH;
+use crate::tile::{MAX_NESTED_DEPTH, ZStep};
 use crate::utils::{parse_string, parse_u8, take};
 use crate::wire::{
     FloatLogical, IntEncoding, LogicalEncoding, StreamMeta, ValueKind, VertexLogical,
@@ -873,6 +873,22 @@ impl<'a> Walker<'a> {
                 |v| Some(v.to_string()),
             )?;
         }
+        // So does the z grid of (x, y, z) vertices.
+        if matches!(
+            stream.meta.encoding.logical,
+            LogicalEncoding::Vertex(VertexLogical::Xyz(..))
+        ) {
+            (c, _) = self.field(
+                c,
+                "z_step",
+                |i| parse_u8(i),
+                |v| {
+                    ZStep::from_code(*v)
+                        .ok()
+                        .map(|s| format!("10^{} m", s.exponent()))
+                },
+            )?;
+        }
         // So do the Morton grid's, for a vertex dictionary keyed by Morton code.
         if matches!(
             stream.meta.encoding.logical,
@@ -1137,6 +1153,9 @@ fn encoding_bits02(byte: u8, count: Count02, family: Family) -> Vec<BitField> {
             byte,
             match family {
                 Family::Str(layout) => format!("string layout = {layout:?}"),
+                Family::Vertex if extension == XYZ => {
+                    "xyz = true -> (x, y, z) triples, a z step byte follows".to_string()
+                }
                 Family::Int(_)
                 | Family::Bool
                 | Family::Float(_)

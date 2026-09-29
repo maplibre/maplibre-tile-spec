@@ -705,6 +705,8 @@ fn try_tile_from_cols(cols: &[(&str, Vec<PropValue>)]) -> MltResult<TileLayer> {
             m_values: vec![],
             #[cfg(feature = "unstable-v2")]
             nested: vec![],
+            #[cfg(feature = "unstable-v2")]
+            z: Vec::new(),
         })
         .collect();
     TileLayer::from_parts("test", 4096, property_names, features)
@@ -736,6 +738,8 @@ fn tile_from_ids(ids: &[Option<u64>]) -> TileLayer {
                 m_values: vec![],
                 #[cfg(feature = "unstable-v2")]
                 nested: vec![],
+                #[cfg(feature = "unstable-v2")]
+                z: Vec::new(),
             })
             .collect(),
     )

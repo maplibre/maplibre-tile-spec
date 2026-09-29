@@ -1,0 +1,11 @@
+---
+source: mlt-core/tests/tag02_z.rs
+expression: "fields.join(\"\\n\")"
+---
+encoding = 0x29 logical=CwDelta physical=VarInt
+  has_explicit_count = false -> 1 values from context
+  logical = CwDelta, numbered for vertex stream
+  physical = VarInt
+  xyz = true -> (x, y, z) triples, a z step byte follows
+byte_length = 3
+z_step = 10^-1 m

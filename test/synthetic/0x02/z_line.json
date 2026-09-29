@@ -1,0 +1,35 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "_extent": 64,
+        "_layer": "layer1",
+        "_z": [
+          100030,
+          100050,
+          100080
+        ],
+        "_z_step": -1
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            11,
+            52
+          ],
+          [
+            71,
+            72
+          ],
+          [
+            61,
+            22
+          ]
+        ]
+      }
+    }
+  ]
+}

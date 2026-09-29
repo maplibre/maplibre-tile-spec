@@ -57,6 +57,31 @@ where
     target
 }
 
+/// Encode signed integer vec3 values using componentwise delta + zigzag into `target`.
+///
+/// Input: `[x0, y0, z0, x1, y1, z1, ...]`
+/// `target` is treated as a scratch buffer: cleared before writing.
+/// This is the inverse of `decode_componentwise_delta_vec3s`.
+#[cfg(feature = "unstable-v2")]
+pub fn encode_componentwise_delta_vec3s<'a, T>(
+    data: &[T],
+    target: &'a mut Vec<T::UInt>,
+) -> &'a [T::UInt]
+where
+    T: ZigZag + WrappingSub,
+{
+    target.clear();
+    target.reserve(data.len());
+    let mut prev = [T::zero(); 3];
+    for triple in data.as_chunks::<3>().0 {
+        for (&v, p) in triple.iter().zip(&mut prev) {
+            target.push(T::encode(v.wrapping_sub(p)));
+            *p = v;
+        }
+    }
+    target
+}
+
 /// ZigZag-decode a slice, charging `dec` for the output allocation.
 pub fn decode_zigzag<T: ZigZag>(data: &[T::UInt], dec: &mut Decoder) -> MltResult<Vec<T>> {
     dec.consume_items::<T>(data.len())?;
@@ -106,6 +131,29 @@ pub fn decode_componentwise_delta_vec2s<T: ZigZag + WrappingAdd>(
     Ok(result)
 }
 
+/// Decode ([`ZigZag`] + delta) for Vec3s, charging `dec` for the output allocation.
+#[cfg(feature = "unstable-v2")]
+pub fn decode_componentwise_delta_vec3s<T: ZigZag + WrappingAdd>(
+    data: &[T::UInt],
+    dec: &mut Decoder,
+) -> MltResult<Vec<T>> {
+    if !data.len().is_multiple_of(3) {
+        return Err(crate::MltError::InvalidTripleStreamSize(data.len()));
+    }
+    let alloc_size = data.len();
+    let mut result = dec.alloc(alloc_size)?;
+    let mut last = [T::zero(); 3];
+    for triple in data.as_chunks::<3>().0 {
+        for (&v, l) in triple.iter().zip(&mut last) {
+            *l = l.wrapping_add(&T::decode(v));
+            result.push(*l);
+        }
+    }
+    dec.adjust_alloc(&result, alloc_size)
+        .expect("infallible: three values pushed per triple fill alloc_size exactly");
+    Ok(result)
+}
+
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;
@@ -145,6 +193,28 @@ mod tests {
             let decoded = decode_componentwise_delta_vec2s::<i32>(data, &mut dec()).unwrap();
             prop_assert_eq!(data_slice, &decoded);
         }
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    proptest! {
+        #[test]
+        fn componentwise_delta_vec3s_round_trip(data: Vec<[i32; 3]>) {
+            let flat = data.as_flattened();
+            let mut encoded = Vec::new();
+            let encoded = encode_componentwise_delta_vec3s(flat, &mut encoded);
+            let decoded = decode_componentwise_delta_vec3s::<i32>(encoded, &mut dec()).unwrap();
+            prop_assert_eq!(flat, &decoded[..]);
+        }
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn a_vec3_stream_of_partial_triples_is_rejected() {
+        let err = decode_componentwise_delta_vec3s::<i32>(&[0, 1, 2, 3], &mut dec()).unwrap_err();
+        assert!(
+            matches!(err, crate::MltError::InvalidTripleStreamSize(4)),
+            "{err:?}"
+        );
     }
 
     #[test]

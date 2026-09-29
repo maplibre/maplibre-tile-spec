@@ -65,7 +65,7 @@ pub use tile::{
     TileLayer, TileLayerBuilder,
 };
 #[cfg(feature = "unstable-v2")]
-pub use tile::{MValue, MValueKey, NestedKey, NestedKind, NestedValue};
+pub use tile::{MValue, MValueKey, NestedKey, NestedKind, NestedValue, ZStep};
 pub(crate) use utils::analyze::{Analyze, StatType};
 pub(crate) use utils::lazy_state::{Decode, DecodeState, Lazy, LazyParsed, Parsed};
 
@@ -75,6 +75,8 @@ pub(crate) use utils::lazy_state::{Decode, DecodeState, Lazy, LazyParsed, Parsed
 /// MLT tile. Normal tile consumers (parse -> iterate features) do not need this
 /// module; it is intended for tools that inspect or report encoding statistics.
 pub mod wire {
+    #[cfg(feature = "unstable-v2")]
+    pub use crate::decoder::stream::model::XyzLogical;
     pub use crate::decoder::stream::model::{
         Alp, BoolLogical, DictionaryType, FastPForKind, FloatLogical, IntEncoding, IntLogical,
         LengthType, LogicalEncoding, LogicalTechnique, Morton, OffsetType, PhysicalEncoding,

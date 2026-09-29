@@ -142,6 +142,29 @@ pub enum MltError {
     #[error("a vertex stream of {0} words does not hold whole vertices of {1} words")]
     PartialVertex(u32, u32),
     #[cfg(feature = "unstable-v2")]
+    #[error("z coordinates are a v2 feature, so layer {0} cannot be written as v1")]
+    ZNeedsV2(String),
+    #[cfg(feature = "unstable-v2")]
+    #[error("a z step of 10^{0} m is outside 10^-3..=10^4 m")]
+    InvalidZStep(i8),
+    #[cfg(feature = "unstable-v2")]
+    #[error("z step code {0} is outside 0..=7")]
+    InvalidZStepCode(u8),
+    #[cfg(feature = "unstable-v2")]
+    #[error(
+        "layer {0} already holds features without z coordinates, so it cannot be given a z step"
+    )]
+    ZStepOnNonEmptyLayer(String),
+    #[cfg(feature = "unstable-v2")]
+    #[error("a feature carries {actual} z coordinates, but the layer expects {expected}")]
+    ZVertexCountMismatch { expected: usize, actual: usize },
+    #[cfg(feature = "unstable-v2")]
+    #[error("the vertices already carry z coordinates")]
+    ZAlreadySet,
+    #[cfg(feature = "unstable-v2")]
+    #[error("a vertex stream of {0} words does not hold whole (x, y, z) triples")]
+    InvalidTripleStreamSize(usize),
+    #[cfg(feature = "unstable-v2")]
     #[error("nested properties are a v2 feature, so layer {0} cannot be written as v1")]
     NestedNeedsV2(String),
     #[cfg(feature = "unstable-v2")]

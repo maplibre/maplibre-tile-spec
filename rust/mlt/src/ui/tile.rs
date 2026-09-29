@@ -177,8 +177,9 @@ fn layer_triangles(layers: &[ParsedLayer<'_>]) -> anyhow::Result<Vec<Option<Tess
             continue;
         };
         let verts = values.vertices().unwrap_or(&[]);
+        let stride = values.stride();
         let vert = |i: u32| {
-            let i = i.into_usize().checked_mul(2)?;
+            let i = i.into_usize().checked_mul(stride)?;
             verts
                 .get(i..i.checked_add(2)?)
                 .map(|v| Coord { x: v[0], y: v[1] })

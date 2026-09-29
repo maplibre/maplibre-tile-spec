@@ -89,6 +89,8 @@ mod tests {
             nested_names: vec![],
             #[cfg(feature = "unstable-v2")]
             nested_kinds: vec![],
+            #[cfg(feature = "unstable-v2")]
+            z_step: None,
             features: vec![],
         };
 
@@ -122,6 +124,8 @@ mod tests {
                 m_values: vec![],
                 #[cfg(feature = "unstable-v2")]
                 nested: vec![],
+                #[cfg(feature = "unstable-v2")]
+                z: Vec::new(),
             }],
         )
         .unwrap();

@@ -121,6 +121,8 @@ fn tile_layer_from_ref(layer: MvtLayerRef<'_>) -> MltResult<TileLayer> {
             m_values: Vec::new(),
             #[cfg(feature = "unstable-v2")]
             nested: Vec::new(),
+            #[cfg(feature = "unstable-v2")]
+            z: Vec::new(),
         });
     }
 
@@ -180,6 +182,8 @@ impl TryFrom<MvtLayer> for TileLayer {
                 m_values: Vec::new(),
                 #[cfg(feature = "unstable-v2")]
                 nested: Vec::new(),
+                #[cfg(feature = "unstable-v2")]
+                z: Vec::new(),
             });
         }
 

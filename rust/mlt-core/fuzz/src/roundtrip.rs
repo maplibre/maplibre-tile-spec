@@ -26,6 +26,7 @@ pub fn encode(staged: StagedLayer, cfg: EncoderConfig) -> Option<Vec<u8>> {
             | MltError::MValuesNeedVertexCounts(_)
             | MltError::NestedNeedsV2(_)
             | MltError::EightBitNeedsV2(_)
+            | MltError::ZNeedsV2(_)
             | MltError::UnsupportedExtent02(_),
         ) => None,
         Err(e) => panic!("encode should not fail: {e}"),

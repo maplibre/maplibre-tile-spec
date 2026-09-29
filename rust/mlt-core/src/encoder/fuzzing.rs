@@ -87,6 +87,15 @@ impl Arbitrary<'_> for StagedLayer {
         // a column holds one value per vertex of every feature it marks present.
         #[cfg(feature = "unstable-v2")]
         {
+            let mut geometry = geometry;
+            if u.arbitrary()? {
+                let exponent =
+                    u.int_in_range(crate::ZStep::MIN_EXPONENT..=crate::ZStep::MAX_EXPONENT)?;
+                let step = crate::ZStep::new(exponent).map_err(|_| IncorrectFormat)?;
+                let vertices = geometry.vertices().map_or(0, |v| v.len() / 2);
+                let z: Vec<i32> = generate_scalars(u, vertices)?;
+                geometry.add_z(step, &z).map_err(|_| IncorrectFormat)?;
+            }
             let m_count = usize::from(u.int_in_range(0..=4u8)?);
             let m_values: Vec<StagedMValue> = (0..m_count)
                 .map(|i| generate_m_value(u, format!("m{i}"), &geometry))

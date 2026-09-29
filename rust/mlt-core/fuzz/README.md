@@ -19,6 +19,7 @@ fuzz/
 │   ├── decoded_layer.rs    # Encode -> decode -> re-encode fixpoint, per wire version
 │   ├── wire_version.rs     # v1 vs v2 encoder differential
 │   ├── mvt_roundtrip.rs    # TileLayer -> MVT -> TileLayer fixpoint
+│   ├── z.rs                # v2 z coordinates: z-free geometry, z per vertex, fixpoint
 │   └── differential.rs     # Rust vs C++ decoder differential
 ├── tests/
 │   └── reproduce.rs        # Template for reproducing fuzzer-found issues

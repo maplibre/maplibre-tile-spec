@@ -10,6 +10,8 @@ use std::collections::BTreeMap;
 use std::num::NonZeroU32;
 
 use geo_types::{Geometry, LineString};
+#[cfg(feature = "unstable-v2")]
+use num_traits::ToPrimitive as _;
 
 use crate::{MltError, MltResult};
 
@@ -36,6 +38,90 @@ impl Extent {
 impl From<Extent> for NonZeroU32 {
     fn from(value: Extent) -> Self {
         value.0
+    }
+}
+
+/// The vertical grid a layer's z coordinates lie on, a power-of-ten step in metres.
+///
+/// A z of `0` sits at Terrain-RGB's base of -10000 m, so a coordinate's elevation is `-10000 + z * step`.
+#[cfg(feature = "unstable-v2")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ZStep(i8);
+
+#[cfg(feature = "unstable-v2")]
+impl ZStep {
+    /// The finest step, 10^-3 m.
+    pub const MIN_EXPONENT: i8 = -3;
+    /// The coarsest step, 10^4 m.
+    pub const MAX_EXPONENT: i8 = 4;
+    /// The elevation of `z = 0`, in metres.
+    pub const BASE_METRES: f64 = -10_000.0;
+
+    /// A step of `10^exponent` metres.
+    pub fn new(exponent: i8) -> MltResult<Self> {
+        if (Self::MIN_EXPONENT..=Self::MAX_EXPONENT).contains(&exponent) {
+            Ok(Self(exponent))
+        } else {
+            Err(MltError::InvalidZStep(exponent))
+        }
+    }
+
+    #[must_use]
+    pub fn exponent(self) -> i8 {
+        self.0
+    }
+
+    /// The byte a vertex stream stores this step as, `exponent + 3`.
+    pub(crate) fn code(self) -> u8 {
+        (self.0 - Self::MIN_EXPONENT).cast_unsigned()
+    }
+
+    /// The step a vertex stream's byte names.
+    pub(crate) fn from_code(code: u8) -> MltResult<Self> {
+        i8::try_from(code)
+            .ok()
+            .and_then(|c| Self::new(c + Self::MIN_EXPONENT).ok())
+            .ok_or(MltError::InvalidZStepCode(code))
+    }
+
+    /// The step in metres.
+    #[must_use]
+    pub fn metres(self) -> f64 {
+        if self.0 < 0 {
+            1.0 / self.power()
+        } else {
+            self.power()
+        }
+    }
+
+    /// The elevation of `z`, in metres.
+    ///
+    /// A fine step moves the base onto the grid and divides by an exact integer last, so `1_001_234` at `10^-2` reads as `12.34`.
+    #[must_use]
+    pub fn elevation(self, z: i32) -> f64 {
+        let power = self.power();
+        if self.0 < 0 {
+            (f64::from(z) + Self::BASE_METRES * power) / power
+        } else {
+            Self::BASE_METRES + f64::from(z) * power
+        }
+    }
+
+    /// The grid value nearest `elevation` metres, or [`None`] when it falls outside `i32`.
+    #[must_use]
+    pub fn z(self, elevation: f64) -> Option<i32> {
+        let power = self.power();
+        let z = if self.0 < 0 {
+            elevation * power - Self::BASE_METRES * power
+        } else {
+            (elevation - Self::BASE_METRES) / power
+        };
+        z.round().to_i32()
+    }
+
+    /// `10^|exponent|`, an integer `f64` holds exactly.
+    fn power(self) -> f64 {
+        10f64.powi(self.0.unsigned_abs().into())
     }
 }
 
@@ -80,6 +166,9 @@ pub struct TileLayer {
     /// Nested column shapes, parallel to `TileFeature::nested`.
     #[cfg(feature = "unstable-v2")]
     pub(crate) nested_kinds: Vec<NestedKind>,
+    /// The grid of every feature's `TileFeature::z`, or [`None`] for a flat layer.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) z_step: Option<ZStep>,
     pub(crate) features: Vec<TileFeature>,
 }
 
@@ -100,6 +189,9 @@ pub struct TileFeature {
     /// One value per nested column, in the same order as [`TileLayer::nested_names`].
     #[cfg(feature = "unstable-v2")]
     pub(crate) nested: Vec<NestedValue>,
+    /// One z per vertex of the geometry on the layer's [`ZStep`] grid, or none in a flat layer.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) z: Vec<i32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -302,6 +394,8 @@ impl TileLayer {
             nested_names: Vec::new(),
             #[cfg(feature = "unstable-v2")]
             nested_kinds: Vec::new(),
+            #[cfg(feature = "unstable-v2")]
+            z_step: None,
             features: Vec::with_capacity(features),
         })
     }
@@ -330,6 +424,8 @@ impl TileLayer {
             nested_names: Vec::new(),
             #[cfg(feature = "unstable-v2")]
             nested_kinds: Vec::new(),
+            #[cfg(feature = "unstable-v2")]
+            z_step: None,
             features,
         };
         Ok(layer)
@@ -472,6 +568,35 @@ impl TileLayer {
         &self.nested_kinds
     }
 
+    /// The grid the features' z coordinates lie on, or [`None`] for a flat layer.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn z_step(&self) -> Option<ZStep> {
+        self.z_step
+    }
+
+    /// Give the layer z coordinates on `step`, which every feature pushed after this must carry.
+    ///
+    /// A layer that already holds features is rejected, since they carry none.
+    #[cfg(feature = "unstable-v2")]
+    pub fn set_z_step(&mut self, step: ZStep) -> MltResult<()> {
+        if !self.features.is_empty() {
+            return Err(MltError::ZStepOnNonEmptyLayer(self.name.clone()));
+        }
+        self.z_step = Some(step);
+        Ok(())
+    }
+
+    /// Put the features, which already carry their z coordinates, on `step`.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) fn with_z_step(mut self, step: Option<ZStep>) -> MltResult<Self> {
+        self.z_step = step;
+        for feature in &self.features {
+            self.validate_z(feature)?;
+        }
+        Ok(self)
+    }
+
     /// Declare a nested column of the given shape, which every feature then holds a value of.
     ///
     /// A scalar root is an ordinary property column, so [`NestedKind::Leaf`] is rejected here.
@@ -533,7 +658,27 @@ impl TileLayer {
         self.validate_m_values(feature)?;
         #[cfg(feature = "unstable-v2")]
         self.validate_nested(feature)?;
+        #[cfg(feature = "unstable-v2")]
+        self.validate_z(feature)?;
         Ok(())
+    }
+
+    /// Check a feature's z coordinates against the layer: one per vertex on a z layer, none on a flat one.
+    #[cfg(feature = "unstable-v2")]
+    fn validate_z(&self, feature: &TileFeature) -> MltResult<()> {
+        let expected = if self.z_step.is_some() {
+            feature.vertex_count()
+        } else {
+            0
+        };
+        if feature.z.len() == expected {
+            Ok(())
+        } else {
+            Err(MltError::ZVertexCountMismatch {
+                expected,
+                actual: feature.z.len(),
+            })
+        }
     }
 
     /// Check a feature's nested values against the layer's columns: one value per
@@ -589,6 +734,8 @@ impl TileFeature {
             m_values: Vec::new(),
             #[cfg(feature = "unstable-v2")]
             nested: Vec::new(),
+            #[cfg(feature = "unstable-v2")]
+            z: Vec::new(),
         }
     }
 
@@ -602,6 +749,8 @@ impl TileFeature {
             m_values: Vec::new(),
             #[cfg(feature = "unstable-v2")]
             nested: Vec::new(),
+            #[cfg(feature = "unstable-v2")]
+            z: Vec::new(),
         }
     }
 
@@ -639,6 +788,27 @@ impl TileFeature {
     #[must_use]
     pub fn m_values(&self) -> &[MValue] {
         &self.m_values
+    }
+
+    /// One z per vertex, in the order [`Self::vertex_count`] counts them, or none in a flat layer.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn z(&self) -> &[i32] {
+        &self.z
+    }
+
+    /// Set this feature's z coordinates, one per vertex it stores.
+    #[cfg(feature = "unstable-v2")]
+    pub fn set_z(&mut self, z: Vec<i32>) -> MltResult<()> {
+        let expected = self.vertex_count();
+        if z.len() != expected {
+            return Err(MltError::ZVertexCountMismatch {
+                expected,
+                actual: z.len(),
+            });
+        }
+        self.z = z;
+        Ok(())
     }
 
     /// Set this feature's values for one m-value column, which must hold one
@@ -749,6 +919,11 @@ impl TileLayerBuilder {
         self.layer.add_nested(name, kind)
     }
 
+    #[cfg(feature = "unstable-v2")]
+    pub fn set_z_step(&mut self, step: ZStep) -> MltResult<()> {
+        self.layer.set_z_step(step)
+    }
+
     pub fn feature(&mut self, geometry: Geometry<i32>) -> TileFeatureBuilder<'_> {
         let properties = self
             .layer
@@ -782,6 +957,8 @@ impl TileLayerBuilder {
                 m_values,
                 #[cfg(feature = "unstable-v2")]
                 nested,
+                #[cfg(feature = "unstable-v2")]
+                z: Vec::new(),
             },
         }
     }
@@ -821,6 +998,12 @@ impl TileFeatureBuilder<'_> {
     #[cfg(feature = "unstable-v2")]
     pub fn nested(&mut self, key: NestedKey, value: NestedValue) -> MltResult<&mut Self> {
         self.feature.set_nested(key, value)?;
+        Ok(self)
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    pub fn z(&mut self, z: Vec<i32>) -> MltResult<&mut Self> {
+        self.feature.set_z(z)?;
         Ok(self)
     }
 
@@ -1163,6 +1346,8 @@ mod tests {
             m_values: Vec::new(),
             #[cfg(feature = "unstable-v2")]
             nested: Vec::new(),
+            #[cfg(feature = "unstable-v2")]
+            z: Vec::new(),
         }
     }
 

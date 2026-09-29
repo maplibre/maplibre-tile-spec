@@ -6,6 +6,8 @@ use crate::decoder::{
     DictionaryType, GeoTypes, GeometryType, GeometryValues, IndexBase, IntEncoding, LengthType,
     OffsetType, RawGeometry, RawStream, StreamMeta, StreamType, ValueKind,
 };
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::{LogicalEncoding, VertexLogical};
 use crate::errors::AsMltError as _;
 use crate::utils::SetOptionOnce as _;
 use crate::{Decode, Decoder, MltError, MltResult, Parser};
@@ -383,12 +385,20 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
         let mut index_buffer: Option<Vec<u32>> = None;
         let mut triangles: Option<Vec<u32>> = None;
         let mut vertices: Option<Vec<i32>> = None;
+        #[cfg(feature = "unstable-v2")]
+        let mut z_step = None;
 
         for stream in items {
             match stream.meta.stream_type {
                 StreamType::Present => {}
                 StreamType::Data(v) => match v {
                     DictionaryType::Vertex | DictionaryType::Morton => {
+                        #[cfg(feature = "unstable-v2")]
+                        if let LogicalEncoding::Vertex(VertexLogical::Xyz(step, _)) =
+                            stream.meta.encoding.logical
+                        {
+                            z_step = Some(step);
+                        }
                         vertices.set_once(stream.decode_ints::<i32>(dec)?)?;
                     }
                     DictionaryType::None
@@ -465,28 +475,31 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
         // - `vertices` holds only the unique dictionary entries and
         // - `vertex_offsets` holds per-vertex indices into it.
         //
-        // Expand them into a single flat (x, y) sequence so that `GeometryValues` always
-        // represents fully decoded data, regardless of the encoding that was used.
+        // Expand them into a single flat (x, y) or (x, y, z) sequence so that `GeometryValues`
+        // always represents fully decoded data, regardless of the encoding that was used.
+        #[cfg(feature = "unstable-v2")]
+        let stride = if z_step.is_some() { 3 } else { 2 };
+        #[cfg(not(feature = "unstable-v2"))]
+        let stride = 2;
         if let Some(offsets) = vertex_offsets.take()
             && let Some(dict) = vertices.as_deref()
         {
-            dec.consume_items::<[i32; 2]>(offsets.len())?;
+            dec.consume_items::<i32>(offsets.len().saturating_mul(stride))?;
             // SAFETY:
             // Check before multiplying: i < dict_vertex_count guarantees
-            // i * 2 + 1 < dict.len() with no risk of overflow, because
+            // i * stride + stride - 1 < dict.len() with no risk of overflow, because
             // Rust limits Vec::len() to isize::MAX, so
-            // dict_vertex_count <= isize::MAX / 2, meaning
-            // i * 2 + 1 <= isize::MAX < usize::MAX.
-            let dict_vertex_count = dict.len() / 2;
+            // dict_vertex_count <= isize::MAX / stride, meaning
+            // i * stride + stride - 1 <= isize::MAX < usize::MAX.
+            let dict_vertex_count = dict.len() / stride;
             vertices = Some(offsets.iter().try_fold(
-                Vec::with_capacity(offsets.len() * 2),
+                Vec::with_capacity(offsets.len() * stride),
                 |mut acc, &idx| -> MltResult<_> {
                     let i = idx.into_usize();
                     if i >= dict_vertex_count {
                         return Err(MltError::DictIndexOutOfBounds(idx, dict_vertex_count));
                     }
-                    acc.push(dict[i * 2]);
-                    acc.push(dict[i * 2 + 1]);
+                    acc.extend_from_slice(&dict[i * stride..(i + 1) * stride]);
                     Ok(acc)
                 },
             )?);
@@ -500,6 +513,8 @@ impl Decode<GeometryValues> for RawGeometry<'_> {
             index_buffer,
             triangle_offsets,
             vertices,
+            #[cfg(feature = "unstable-v2")]
+            z_step,
         };
         if index_base == IndexBase::Feature {
             values.rebase_indices_to_layer()?;

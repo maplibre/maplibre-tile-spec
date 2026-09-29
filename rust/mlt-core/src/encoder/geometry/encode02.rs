@@ -2,11 +2,12 @@
 
 use super::model::VertexBufferType;
 use super::streams::{
-    dict_may_be_beneficial, encode_hilbert_vertex_streams02, encode_level1_length_stream,
-    encode_level1_without_ring_buffer_length_stream, encode_level2_length_stream,
-    encode_morton_vertex_streams02, encode_ring_lengths_for_mixed, encode_root_length_stream,
-    encode_vec2_vertex_stream02, normalize_geometry_offsets, normalize_part_offsets_for_rings,
-    seed_curve_caches,
+    dict_may_be_beneficial, encode_hilbert_vertex_streams02, encode_hilbert_xyz_vertex_streams02,
+    encode_level1_length_stream, encode_level1_without_ring_buffer_length_stream,
+    encode_level2_length_stream, encode_morton_vertex_streams02, encode_ring_lengths_for_mixed,
+    encode_root_length_stream, encode_vec2_vertex_stream02, encode_vec3_vertex_stream02,
+    normalize_geometry_offsets, normalize_part_offsets_for_rings, seed_curve_caches,
+    xyz_dict_may_be_beneficial,
 };
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
 use crate::decoder::stream::header02::{Family, WordWidth};
@@ -16,6 +17,7 @@ use crate::decoder::{
 };
 use crate::encoder::model::StreamCtx;
 use crate::encoder::{Codecs, Encoder};
+use crate::tile::ZStep;
 use crate::{MltError, MltResult};
 
 /// Wrap a computed length stream: an empty stream is not written (and not
@@ -46,6 +48,8 @@ pub(crate) struct GeometrySection02 {
     topology: Topology,
     tessellation: Option<Tessellation>,
     vertices: Vec<i32>,
+    /// The grid of each vertex's third word, or [`None`] when the vertices are `(x, y)` pairs.
+    z_step: Option<ZStep>,
 }
 
 /// Turn a layer's geometries into the v2 stream set.
@@ -61,6 +65,7 @@ pub(crate) fn encode_geometry02(
         index_buffer,
         triangle_offsets,
         vertices,
+        z_step,
     } = geometry;
 
     let geom_offsets = geometry_offsets.unwrap_or_default();
@@ -185,6 +190,7 @@ pub(crate) fn encode_geometry02(
         topology,
         tessellation,
         vertices,
+        z_step,
     })
 }
 
@@ -262,7 +268,11 @@ impl GeometrySection02 {
             codecs.write_int_stream(&tess.index_buffer, &ctx, enc)?;
         }
 
-        let vertices = write_vertices(&self.vertices, self.tessellation.is_some(), enc, codecs)?;
+        let tessellated = self.tessellation.is_some();
+        let vertices = match self.z_step {
+            Some(step) => write_xyz_vertices(&self.vertices, step, tessellated, enc, codecs)?,
+            None => write_vertices(&self.vertices, tessellated, enc, codecs)?,
+        };
         Ok(GeometryHeader02 {
             layout: self.layout(vertices),
             uniform_type,
@@ -312,12 +322,39 @@ fn write_vertices(
 
     // Morton fits (the gate above ensures it), so race all three layouts and keep
     // the shortest, as the v1 writer does.
+    keep_shortest(
+        enc,
+        codecs,
+        &[
+            (VertexStorage::Plain, &|enc, codecs| {
+                encode_vec2_vertex_stream02(vertices, enc, codecs)
+            }),
+            (VertexStorage::Dict, &|enc, codecs| {
+                encode_hilbert_vertex_streams02(vertices, enc, codecs)
+            }),
+            (VertexStorage::Dict, &|enc, codecs| {
+                encode_morton_vertex_streams02(vertices, enc, codecs)
+            }),
+        ],
+    )
+}
+
+/// A way of writing a layer's vertex streams, and the storage it declares.
+type VertexCandidate<'a> = (
+    VertexStorage,
+    &'a dyn Fn(&mut Encoder, &mut Codecs) -> MltResult<()>,
+);
+
+/// Write every candidate, keep the one that stores the fewest bytes, and report its storage.
+fn keep_shortest(
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+    candidates: &[VertexCandidate<'_>],
+) -> MltResult<VertexStorage> {
     let mut winner = VertexStorage::Plain;
     let mut winner_size = usize::MAX;
     let mut alt = enc.try_alternatives();
-    let mut candidate = |storage: VertexStorage,
-                         write: &dyn Fn(&mut Encoder, &mut Codecs) -> MltResult<()>|
-     -> MltResult<()> {
+    for &(storage, write) in candidates {
         alt.with(|enc| {
             let (data, meta) = (enc.data().len(), enc.meta().len());
             enc.family_context = Family::Vertex;
@@ -328,17 +365,69 @@ fn write_vertices(
                 winner_size = size;
             }
             Ok(())
-        })
-    };
-    candidate(VertexStorage::Plain, &|enc, codecs| {
-        encode_vec2_vertex_stream02(vertices, enc, codecs)
-    })?;
-    candidate(VertexStorage::Dict, &|enc, codecs| {
-        encode_hilbert_vertex_streams02(vertices, enc, codecs)
-    })?;
-    candidate(VertexStorage::Dict, &|enc, codecs| {
-        encode_morton_vertex_streams02(vertices, enc, codecs)
-    })?;
+        })?;
+    }
     drop(alt);
     Ok(winner)
+}
+
+/// Write `(x, y, z)` vertex streams and report the storage they used.
+///
+/// A Morton code spans only `x` and `y`, so the plain triples race only the Hilbert dictionary.
+fn write_xyz_vertices(
+    vertices: &[i32],
+    step: ZStep,
+    tessellated: bool,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<VertexStorage> {
+    if enc.hilbert_cache.is_none() || enc.morton_cache.is_none() {
+        let xy: Vec<i32> = vertices
+            .as_chunks::<3>()
+            .0
+            .iter()
+            .flat_map(|&[x, y, _]| [x, y])
+            .collect();
+        seed_curve_caches(enc, &xy);
+    }
+    enc.family_context = Family::Vertex;
+
+    if tessellated {
+        encode_vec3_vertex_stream02(vertices, step, enc, codecs)?;
+        return Ok(VertexStorage::Plain);
+    }
+
+    if let Some(forced) = enc.override_vertex_buffer_type() {
+        return match forced {
+            VertexBufferType::Vec2 => {
+                encode_vec3_vertex_stream02(vertices, step, enc, codecs)?;
+                Ok(VertexStorage::Plain)
+            }
+            VertexBufferType::Hilbert => {
+                encode_hilbert_xyz_vertex_streams02(vertices, step, enc, codecs)?;
+                Ok(VertexStorage::Dict)
+            }
+            VertexBufferType::Morton => Err(MltError::NotImplemented(
+                "Morton vertices with z coordinates, since a Morton code spans only x and y",
+            )),
+        };
+    }
+
+    if !xyz_dict_may_be_beneficial(vertices, enc) {
+        encode_vec3_vertex_stream02(vertices, step, enc, codecs)?;
+        return Ok(VertexStorage::Plain);
+    }
+
+    keep_shortest(
+        enc,
+        codecs,
+        &[
+            (VertexStorage::Plain, &|enc, codecs| {
+                encode_vec3_vertex_stream02(vertices, step, enc, codecs)
+            }),
+            (VertexStorage::Dict, &|enc, codecs| {
+                encode_hilbert_xyz_vertex_streams02(vertices, step, enc, codecs)
+            }),
+        ],
+    )
 }

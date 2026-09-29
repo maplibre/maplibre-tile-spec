@@ -4,6 +4,8 @@ use derive_debug::Dbg;
 use num_enum::TryFromPrimitive;
 
 use crate::errors::AsMltError as _;
+#[cfg(feature = "unstable-v2")]
+use crate::tile::ZStep;
 use crate::utils::formatter::{bytes_dbg, compact_dbg};
 use crate::{MltError, MltResult};
 
@@ -254,6 +256,9 @@ pub enum VertexLogical {
     Morton(Morton),
     MortonDelta(Morton),
     MortonRle(Morton),
+    /// Interleaved `(x, y, z)` triples, whose z lie on the grid of the step.
+    #[cfg(feature = "unstable-v2")]
+    Xyz(ZStep, XyzLogical),
 }
 
 impl VertexLogical {
@@ -263,8 +268,21 @@ impl VertexLogical {
         match self {
             Self::None | Self::Delta | Self::ComponentwiseDelta => 2,
             Self::Morton(_) | Self::MortonDelta(_) | Self::MortonRle(_) => 1,
+            #[cfg(feature = "unstable-v2")]
+            Self::Xyz(..) => 3,
         }
     }
+}
+
+/// Logical encoding of an `(x, y, z)` vertex stream.
+///
+/// A Morton code spans only `x` and `y`, so there is no Morton member.
+#[cfg(feature = "unstable-v2")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum XyzLogical {
+    None,
+    Delta,
+    ComponentwiseDelta,
 }
 
 /// How should the stream be interpreted at the logical level (second pass of decoding)
@@ -587,6 +605,14 @@ impl Display for LogicalEncoding {
                     VertexLogical::Morton(_) => "morton",
                     VertexLogical::MortonDelta(_) => "morton-delta",
                     VertexLogical::MortonRle(_) => "morton-rle",
+                    #[cfg(feature = "unstable-v2")]
+                    VertexLogical::Xyz(_, XyzLogical::None) => "xyz-none",
+                    #[cfg(feature = "unstable-v2")]
+                    VertexLogical::Xyz(_, XyzLogical::Delta) => "xyz-delta",
+                    #[cfg(feature = "unstable-v2")]
+                    VertexLogical::Xyz(_, XyzLogical::ComponentwiseDelta) => {
+                        "xyz-componentwise-delta"
+                    }
                 },
             ),
         };
@@ -709,6 +735,22 @@ mod tests {
         assert_eq!(encoding.to_string(), expected);
     }
 
+    #[cfg(feature = "unstable-v2")]
+    #[rstest]
+    #[case::none(XyzLogical::None, "vertex/xyz-none")]
+    #[case::delta(XyzLogical::Delta, "vertex/xyz-delta")]
+    #[case::componentwise_delta(XyzLogical::ComponentwiseDelta, "vertex/xyz-componentwise-delta")]
+    fn every_xyz_encoding_renders_kind_then_encoding(
+        #[case] xyz: XyzLogical,
+        #[case] expected: &str,
+    ) {
+        let step = ZStep::new(0).unwrap();
+        assert_eq!(
+            LogicalEncoding::Vertex(VertexLogical::Xyz(step, xyz)).to_string(),
+            expected
+        );
+    }
+
     #[rstest]
     #[case::none(PhysicalEncoding::None, "none")]
     #[case::varint(PhysicalEncoding::VarInt, "varint")]
@@ -741,6 +783,11 @@ mod tests {
     #[case::ints(LogicalEncoding::Int(IntLogical::Delta), 6, 6)]
     #[case::pairs(LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta), 6, 3)]
     #[case::morton_codes(LogicalEncoding::Vertex(VertexLogical::MortonDelta(morton())), 6, 6)]
+    #[cfg_attr(feature = "unstable-v2", case::triples(
+        LogicalEncoding::Vertex(VertexLogical::Xyz(ZStep::new(0).unwrap(), XyzLogical::Delta)),
+        6,
+        2
+    ))]
     fn a_stream_counts_its_words_as_values(
         #[case] logical: LogicalEncoding,
         #[case] words: usize,
@@ -759,6 +806,11 @@ mod tests {
 
     #[rstest]
     #[case::pairs(LogicalEncoding::Vertex(VertexLogical::Delta), 5, 2)]
+    #[cfg_attr(feature = "unstable-v2", case::triples(
+        LogicalEncoding::Vertex(VertexLogical::Xyz(ZStep::new(0).unwrap(), XyzLogical::Delta)),
+        4,
+        3
+    ))]
     fn a_stream_of_partial_vertices_is_rejected(
         #[case] logical: LogicalEncoding,
         #[case] words: u32,

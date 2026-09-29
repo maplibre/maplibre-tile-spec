@@ -236,6 +236,8 @@ mod tests {
                 m_values: vec![],
                 #[cfg(feature = "unstable-v2")]
                 nested: vec![],
+                #[cfg(feature = "unstable-v2")]
+                z: Vec::new(),
             })
             .collect();
 
@@ -390,6 +392,8 @@ mod tests {
                     m_values: vec![],
                     #[cfg(feature = "unstable-v2")]
                     nested: vec![],
+                    #[cfg(feature = "unstable-v2")]
+                    z: Vec::new(),
                 })
                 .collect(),
         )

@@ -441,10 +441,30 @@ mod v2 {
     use pretty_assertions::assert_eq;
 
     use super::*;
-    use crate::TileLayer;
     use crate::encoder::model::WireVersion;
     use crate::encoder::{StagedId, StagedLayer};
     use crate::test_helpers::into_layer01;
+    use crate::{MltResult, TileLayer, ZStep};
+
+    /// Encode `decoded` as a whole layer with the vertex layout pinned to `strategy`.
+    fn forced_layer_bytes(
+        decoded: &GeometryValues,
+        strategy: VertexBufferType,
+        version: WireVersion,
+    ) -> MltResult<Vec<u8>> {
+        let staged = StagedLayer::new("test", 4096, StagedId::None, decoded.clone(), Vec::new())?;
+        let explicit = ExplicitEncoder {
+            vertex_buffer_type: strategy,
+            ..ExplicitEncoder::all(IntEncoder::varint())
+        };
+        let cfg = EncoderConfig::default().with_wire_version(version);
+        staged
+            .encode_into(
+                Encoder::with_explicit(cfg, explicit),
+                &mut Codecs::default(),
+            )?
+            .into_layer_bytes()
+    }
 
     /// Encode `decoded` as a whole layer with the vertex layout pinned to `strategy`,
     /// then read it back through the layer envelope.
@@ -453,21 +473,7 @@ mod v2 {
         strategy: VertexBufferType,
         version: WireVersion,
     ) -> TileLayer {
-        let staged = StagedLayer::new("test", 4096, StagedId::None, decoded.clone(), Vec::new())
-            .expect("stage failed");
-        let explicit = ExplicitEncoder {
-            vertex_buffer_type: strategy,
-            ..ExplicitEncoder::all(IntEncoder::varint())
-        };
-        let cfg = EncoderConfig::default().with_wire_version(version);
-        let bytes = staged
-            .encode_into(
-                Encoder::with_explicit(cfg, explicit),
-                &mut Codecs::default(),
-            )
-            .expect("encode failed")
-            .into_layer_bytes()
-            .expect("layer bytes");
+        let bytes = forced_layer_bytes(decoded, strategy, version).expect("encode failed");
         let mut layers = crate::Parser::default()
             .parse_layers(&bytes)
             .expect("parse");
@@ -500,5 +506,16 @@ mod v2 {
         let decoded = repeated_multipoint();
         let v1 = forced_layer(&decoded, VertexBufferType::Vec2, WireVersion::V01);
         assert_eq!(v1, forced_layer(&decoded, strategy, WireVersion::V02));
+    }
+
+    #[test]
+    fn a_forced_morton_layout_rejects_z() {
+        let mut decoded = repeated_multipoint();
+        decoded
+            .add_z(ZStep::new(0).unwrap(), &[1, 2, 3, 4, 5, 6])
+            .unwrap();
+        let err =
+            forced_layer_bytes(&decoded, VertexBufferType::Morton, WireVersion::V02).unwrap_err();
+        insta::assert_snapshot!(err, @"not implemented: Morton vertices with z coordinates, since a Morton code spans only x and y");
     }
 }

@@ -112,7 +112,7 @@ impl GeometryValues {
 
     /// How many vertices the layer holds so far, which is where the next feature starts.
     fn stored_vertex_count(&self) -> u32 {
-        let len = self.vertices.as_ref().map_or(0, Vec::len) / 2;
+        let len = self.vertices.as_ref().map_or(0, Vec::len) / self.stride();
         u32::try_from(len).expect("vertex count overflow")
     }
 
@@ -149,7 +149,11 @@ impl GeometryValues {
     }
 
     /// Add a geometry to this decoded geometry collection (mutable version).
+    ///
+    /// Its vertices are `(x, y)` pairs, so it must come before [`Self::add_z`].
     pub fn push_geom(&mut self, geom: &Geometry<i32>) {
+        #[cfg(feature = "unstable-v2")]
+        debug_assert!(self.z_step.is_none(), "push_geom after add_z");
         match geom {
             Geometry::<i32>::Point(p) => self.push_point(p.0),
             Geometry::<i32>::Line(l) => self.push_linestring(&LineString(vec![l.start, l.end])),

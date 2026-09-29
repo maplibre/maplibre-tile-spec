@@ -93,6 +93,7 @@ jobs:
           - target: decoded-layer
           - target: mvt-roundtrip
           - target: wire-version
+          - target: z
           - target: differential
     env:
       MLT_CPP_JSON_BIN: ${{ github.workspace }}/cpp/build/tool/mlt-cpp-json
