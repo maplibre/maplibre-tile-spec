@@ -16,10 +16,10 @@ import io.tileverse.cache.CacheManager
 import io.tileverse.cache.CaffeineCache
 import io.tileverse.cache.CaffeineCacheManager
 import io.tileverse.io.ByteRange
-import io.tileverse.rangereader.AbstractRangeReader
-import io.tileverse.rangereader.RangeReader
-import io.tileverse.rangereader.RangeReaderFactory
-import io.tileverse.rangereader.cache.CachingRangeReader
+import io.tileverse.storage.AbstractRangeReader
+import io.tileverse.storage.RangeReader
+import io.tileverse.storage.StorageFactory
+import io.tileverse.storage.cache.CachingRangeReader
 import org.apache.commons.lang3.ArrayUtils
 import org.apache.commons.lang3.mutable.MutableBoolean
 import java.io.ByteArrayInputStream
@@ -45,31 +45,34 @@ fun encodePMTiles(
     config: EncodeConfig,
 ): Boolean {
     val cacheManager = getCacheManager(config)
-    return RangeReaderFactory.create(inputURI).use { rawReader ->
-        logger.debug("Opened '{}' for reading", inputURI)
-        getCachingReader(rawReader, cacheManager).use { cachingReader ->
-            val adapter = getReaderAdapter(cachingReader)
-            ReadablePmtiles(adapter)
-                .use { pmTilesReader ->
-                    WriteablePmtiles.newWriteToFile(outputPath).use { writer ->
-                        logger.debug("Opened '{}' for writing", outputPath)
-                        encodePMTiles(inputURI, pmTilesReader, writer, outputPath, config)
+    // A Storage is rooted at a container, never at a single file
+    return StorageFactory.open(inputURI.resolve(".")).use { storage ->
+        storage.openRangeReader(inputURI).use { rawReader ->
+            logger.debug("Opened '{}' for reading", inputURI)
+            getCachingReader(rawReader, cacheManager).use { cachingReader ->
+                val adapter = getReaderAdapter(cachingReader)
+                ReadablePmtiles(adapter)
+                    .use { pmTilesReader ->
+                        WriteablePmtiles.newWriteToFile(outputPath).use { writer ->
+                            logger.debug("Opened '{}' for writing", outputPath)
+                            encodePMTiles(inputURI, pmTilesReader, writer, outputPath, config)
+                        }
+                    }.also {
+                        if (config.logCacheStats) {
+                            rangeReaderCache.get()?.also(::logCacheStats)
+                        }
                     }
-                }.also {
-                    if (config.logCacheStats) {
-                        rangeReaderCache.get()?.also(::logCacheStats)
-                    }
-                }
+            }
         }
     }
 }
 
 // To have any effect on the cache size limit, we have to entirely replace the cache setup.
-// See `io.tileverse.rangereader.cache.RangeReaderCache.buildSharedCache`
+// See `io.tileverse.storage.cache.RangeReaderCache.buildSharedCache`
 private fun getCacheManager(config: EncodeConfig) =
     CaffeineCacheManager().also {
         // `RangeReaderCache.SHARED_CACHE_NAME` is private
-        val cacheName = "tileverse-rangereader-cache"
+        val cacheName = "tileverse-storage-cache"
         val maxMemory = Runtime.getRuntime().maxMemory()
         val cacheSize =
             if (cacheMaxHeapPercent > 0) {

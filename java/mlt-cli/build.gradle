@@ -51,7 +51,7 @@ dependencies {
     // pmtiles support
     implementation(libs.planetiler.core)
     implementation(platform(libs.tileverse.io))
-    implementation(libs.tileverse.rangereader.all)
+    implementation(libs.tileverse.storage.all)
 
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
