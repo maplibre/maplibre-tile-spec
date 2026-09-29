@@ -257,6 +257,59 @@ mod tests {
         assert!(matches!(err, InvalidDecodingStreamSize(3, 4)));
     }
 
+    fn value(logical: LogicalEncoding) -> LogicalValue {
+        use crate::decoder::{DictionaryType, IntEncoding, PhysicalEncoding, StreamType};
+
+        let encoding = IntEncoding::new(logical, PhysicalEncoding::VarInt);
+        LogicalValue::new(StreamMeta::new(
+            StreamType::Data(DictionaryType::None),
+            encoding,
+            2,
+        ))
+    }
+
+    #[test]
+    fn morton_codes_decode_to_vertices() {
+        let morton = crate::decoder::Morton::new(4, 0).unwrap();
+        let decoded = value(LogicalEncoding::Vertex(VertexLogical::Morton(morton)))
+            .decode_i32(&[1, 2, 3], &mut dec())
+            .unwrap();
+        assert_eq!(decoded, [1, 0, 0, 1, 1, 1]);
+    }
+
+    #[test]
+    fn a_raw_u64_stream_passes_through() {
+        let decoded = value(LogicalEncoding::Int(IntLogical::None))
+            .decode_u64(&[7, 9], &mut dec())
+            .unwrap();
+        assert_eq!(decoded, [7, 9]);
+    }
+
+    #[rstest::rstest]
+    #[case::i32_morton_rle(
+        LogicalEncoding::Vertex(VertexLogical::MortonRle(crate::decoder::Morton::new(4, 0).unwrap())),
+        "i32 (MortonRle)"
+    )]
+    #[case::i32_bool(LogicalEncoding::Bool(crate::decoder::BoolLogical::None), "i32")]
+    #[case::i32_float(LogicalEncoding::Float(FloatLogical::None), "i32")]
+    #[case::u32_vertex(LogicalEncoding::Vertex(VertexLogical::None), "u32")]
+    #[case::i64_bool(LogicalEncoding::Bool(crate::decoder::BoolLogical::None), "i64")]
+    #[case::u64_float(LogicalEncoding::Float(FloatLogical::None), "u64")]
+    fn a_decoder_rejects_an_encoding_of_another_kind(
+        #[case] logical: LogicalEncoding,
+        #[case] target: &str,
+    ) {
+        let v = value(logical);
+        let err = match target {
+            "u32" => v.decode_u32(&[], &mut dec()).map(drop),
+            "i64" => v.decode_i64(&[], &mut dec()).map(drop),
+            "u64" => v.decode_u64(&[], &mut dec()).map(drop),
+            _ => v.decode_i32(&[], &mut dec()).map(drop),
+        }
+        .unwrap_err();
+        assert!(matches!(err, UnsupportedLogicalEncoding(l, t) if l == logical && t == target));
+    }
+
     #[cfg(feature = "unstable-v2")]
     #[test]
     fn test_decode_rle_interleaved() {

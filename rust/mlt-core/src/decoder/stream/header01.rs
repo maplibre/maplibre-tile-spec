@@ -539,6 +539,30 @@ mod tests {
         PhysicalEncoding::VarInt,
         5
     ))]
+    #[case::bool_raw(meta(
+        DATA,
+        LogicalEncoding::Bool(BoolLogical::None),
+        PhysicalEncoding::None,
+        5
+    ))]
+    #[case::vertex_raw(meta(
+        VERTEX,
+        LogicalEncoding::Vertex(VertexLogical::None),
+        PhysicalEncoding::VarInt,
+        5
+    ))]
+    #[case::vertex_delta(meta(
+        VERTEX,
+        LogicalEncoding::Vertex(VertexLogical::Delta),
+        PhysicalEncoding::VarInt,
+        5
+    ))]
+    #[case::morton_rle(meta(
+        VERTEX,
+        LogicalEncoding::Vertex(VertexLogical::MortonRle(Morton::new(4, 0).unwrap())),
+        PhysicalEncoding::VarInt,
+        5
+    ))]
     fn header_roundtrip(#[case] meta: StreamMeta) {
         let payload = [1_u8, 2, 3];
         let mut buf = Vec::new();
@@ -557,6 +581,7 @@ mod tests {
     #[case::cw_delta_on_an_int_column(LogicalCombination::ComponentwiseDelta, ValueKind::Int)]
     #[case::delta_on_a_float_column(LogicalCombination::Delta, ValueKind::Float)]
     #[case::morton_on_an_int_column(LogicalCombination::Morton, ValueKind::Int)]
+    #[case::rle_on_a_vertex_column(LogicalCombination::Rle, ValueKind::Vertex)]
     fn rejects_an_encoding_the_kind_does_not_have(
         #[case] logical: LogicalCombination,
         #[case] hint: ValueKind,
@@ -642,6 +667,69 @@ mod tests {
         #[case] secondary: LogicalTechnique,
     ) {
         assert_eq!(combination as u8, logical_bits(primary, secondary));
+    }
+
+    #[test]
+    fn write_rejects_a_float_dictionary() {
+        let meta = meta(
+            DATA,
+            LogicalEncoding::Float(FloatLogical::Dict),
+            PhysicalEncoding::VarInt,
+            5,
+        );
+        let err = write_stream_meta(&meta, &mut Vec::new(), false, 0).unwrap_err();
+        insta::assert_snapshot!(err, @"unsupported logical encoding Float(Dict) for v1, whose float columns are stored raw");
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[rstest]
+    #[case::fastpfor_128le(
+        PhysicalEncoding::FastPFor(FastPForKind::Block128Le),
+        "unsupported physical encoding: FastPFor(Block128Le) for v1, whose FastPFor streams are 256-value big-endian blocks"
+    )]
+    #[case::bit_packed(
+        PhysicalEncoding::BitPacked,
+        "unsupported physical encoding: BitPacked for v1, which has no bit-packed streams"
+    )]
+    fn write_rejects_a_v2_physical_encoding(
+        #[case] physical: PhysicalEncoding,
+        #[case] expected: &str,
+    ) {
+        let meta = meta(DATA, LogicalEncoding::Int(IntLogical::None), physical, 5);
+        let err = write_stream_meta(&meta, &mut Vec::new(), false, 0).unwrap_err();
+        assert_eq!(err.to_string(), expected);
+    }
+
+    #[test]
+    fn a_vertex_stream_of_an_odd_word_count_is_rejected() {
+        let buf = [
+            stream_type_to_byte(VERTEX),
+            LogicalCombination::ComponentwiseDelta as u8,
+            5,
+            0,
+        ];
+        let err = parse_stream(&buf, ValueKind::Vertex, &mut parser()).unwrap_err();
+        insta::assert_snapshot!(err, @"a vertex stream of 5 words does not hold whole vertices of 2 words");
+    }
+
+    #[test]
+    fn rle_runs_that_miss_their_total_are_rejected() {
+        let payload = [2_u8, 3, 10, 20];
+        let buf = [
+            [
+                stream_type_to_byte(DATA),
+                LogicalCombination::Rle as u8 | PhysicalField::VarInt as u8,
+                4,
+                4,
+                2,
+                6,
+            ]
+            .as_slice(),
+            &payload,
+        ]
+        .concat();
+        let err = parse_stream(&buf, ValueKind::Int, &mut parser()).unwrap_err();
+        insta::assert_snapshot!(err, @"decodable stream size expected 6, got 5");
     }
 
     #[cfg(feature = "unstable-v2")]

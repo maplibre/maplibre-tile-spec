@@ -1269,6 +1269,14 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn with_id_is_new_with_that_id() {
+        let geometry = Geometry::Point(Point::new(1, 2));
+        let mut expected = TileFeature::new(geometry.clone());
+        expected.id = Some(7);
+        assert_eq!(TileFeature::with_id(geometry, 7), expected);
+    }
+
     #[cfg(feature = "unstable-v2")]
     #[test]
     fn push_feature_validates_one_value_per_vertex() {

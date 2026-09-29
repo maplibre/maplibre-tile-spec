@@ -1691,6 +1691,12 @@ mod tests {
     }
 
     #[test]
+    fn a_raw_vertex_byte_names_both_fields() {
+        let (logical, physical) = describe_encoding(Family::Vertex, 0);
+        assert_eq!(format!("{logical} {physical}"), "None NoneNoLen");
+    }
+
+    #[test]
     fn a_stream_with_neither_count_is_rejected() {
         // VarInt ints with the explicit-count bit clear, so only context could count them.
         let buf = [0b0000_1000, 0];
