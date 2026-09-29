@@ -36,12 +36,7 @@ npm run build:wasm
 npm run build:ts
 ```
 
-`MLT_WASM_FEATURES` passes Cargo features to the wasm build.
-`decodeTile` skips v2 layers unless it holds `unstable-v2`:
-
-```sh
-MLT_WASM_FEATURES=unstable-v2 npm run build
-```
+`decodeTile` skips v2 layers unless the wasm is built with the `unstable-v2` feature, as `npm run build:test` does.
 
 ## Usage
 

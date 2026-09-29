@@ -553,14 +553,20 @@ wasm-build: (just 'cargo-install' 'wasm-pack')
     npm ci --no-fund --no-audit
     npm run build
 
+# Build the mlt-wasm package as its tests need it, decoding v2 layers
+[working-directory: 'mlt-wasm']
+_wasm-build-test: (just 'cargo-install' 'wasm-pack')
+    npm ci --no-fund --no-audit
+    npm run build:test
+
 # Run mlt-wasm tests
 [working-directory: 'mlt-wasm']
-wasm-test: wasm-build
+wasm-test: _wasm-build-test
     npm run test
 
 # Update the committed mlt-wasm vitest snapshots, which `wasm-test` only verifies
 [working-directory: 'mlt-wasm']
-wasm-bless: wasm-build
+wasm-bless: _wasm-build-test
     npm run test:bless
 
 # Run the mlt-wasm tests against an instrumented build and export LCOV to target/lcov-wasm.info
