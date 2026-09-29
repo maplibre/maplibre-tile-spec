@@ -37,7 +37,7 @@ log4j-api = { group = "org.apache.logging.log4j", name = "log4j-api", version = 
 log4j-slf4j-impl = { group = "org.apache.logging.log4j", name = "log4j-slf4j-impl", version = "2.26.1" }
 sqlite-jdbc = { group = "org.xerial", name = "sqlite-jdbc", version = "3.53.4.0" }
 tileverse-io = { group = "io.tileverse", name = "tileverse-bom", version.ref = "tileverse" }
-tileverse-rangereader-all = { module= "io.tileverse.rangereader:tileverse-rangereader-all" }
+tileverse-storage-all = { module = "io.tileverse.storage:tileverse-storage-all" }
 lombok = { group = "org.projectlombok", name = "lombok", version.ref = "lombok" }
 
 [plugins]
