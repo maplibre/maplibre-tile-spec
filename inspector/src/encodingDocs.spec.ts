@@ -11,7 +11,7 @@ import {
   sectionsFor,
 } from "./encodingDocs.ts";
 
-const docs = readEncodingDocs(join(import.meta.dirname, "..", "..", ".."));
+const docs = readEncodingDocs(join(import.meta.dirname, "..", "..", "docs"));
 
 describe("the docs the app points at", () => {
   it("resolves every section it can ask for", () => {

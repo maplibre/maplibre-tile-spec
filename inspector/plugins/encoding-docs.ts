@@ -203,7 +203,7 @@ export function encodingDocs(): Plugin {
     configResolved(config) {
       isBuild = config.command === "build";
       docs = readEncodingDocs(
-        join(config.root, "..", ".."),
+        join(config.root, "..", "docs"),
         isBuild ? DOCS : SITE,
       );
       assertEveryKeyResolves(docs);

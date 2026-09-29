@@ -7,7 +7,7 @@ export default defineConfig({
   base: "./",
   plugins: [vue(), fixtureIndex(), encodingDocs()],
   build: {
-    outDir: "../app",
+    outDir: "../docs/inspector/app",
     emptyOutDir: true,
   },
   server: {

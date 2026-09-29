@@ -2,7 +2,7 @@
 
 mod cpp
 mod java
-mod inspector 'docs/inspector/.app'
+mod inspector 'inspector'
 mod rust
 mod ts
 
