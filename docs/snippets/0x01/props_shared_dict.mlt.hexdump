@@ -48,7 +48,7 @@
                                                                              |         └ bits 1-0 = 10 -> physical = VarInt
 00000024  02                                                .                |       num_values: 2
 00000025  02                                                .                |       byte_length: 2
-00000026  1a 54                                             .T               |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 2 values, 2 B]
+00000026  1a 54                                             .T               |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 1 values, 2 B]
                                                                              |         decoded: [13, 42]
 00000028                                                                     |   column[1] SharedDict "name:" (64 B)
 00000028  06                                                .                |     stream_count: 6

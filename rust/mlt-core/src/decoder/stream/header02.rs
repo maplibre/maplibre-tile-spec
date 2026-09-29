@@ -644,6 +644,21 @@ impl Encoding02 {
         }
     }
 
+    /// The words one counted value spans, which only a vertex stream makes more than one.
+    fn words_per_value(self) -> u32 {
+        match self {
+            Self::Vertex(
+                LogicalVertex::None(_) | LogicalVertex::Delta(_) | LogicalVertex::CwDelta(_),
+            ) => 2,
+            Self::Int(_)
+            | Self::Bool(_)
+            | Self::Float(_)
+            | Self::Vertex(LogicalVertex::Morton(_))
+            | Self::Str(..)
+            | Self::Bytes(_) => 1,
+        }
+    }
+
     /// Whether the header leaves `byte_length` out, which only a raw stream's physical `00` says.
     /// The length then follows from the count and the element width the family fixes.
     fn omits_byte_length(self) -> bool {
@@ -806,11 +821,11 @@ struct WireFields {
 
 /// The logical encoding and physical field bits `encoding` is written as, in `family`'s numbering.
 /// The caller checks the logical against the family, which is where an illegal pairing is caught.
-/// A raw stream of `num_values` elements whose width `family` fixes gets physical `00` and no `byte_length`.
+/// A raw stream of `num_words` elements whose width `family` fixes gets physical `00` and no `byte_length`.
 fn wire_fields(
     encoding: IntEncoding,
     family: Family,
-    num_values: u32,
+    num_words: u32,
     byte_length: u32,
 ) -> MltResult<WireFields> {
     use BoolLogical as BL;
@@ -852,7 +867,7 @@ fn wire_fields(
 
     Ok(match encoding.logical {
         LE::Int(IL::None) | LE::Bool(BL::None) | LE::Float(FL::None) | LE::Vertex(VL::None) => {
-            match (encoding.physical, family.raw_byte_length(num_values)?) {
+            match (encoding.physical, family.raw_byte_length(num_words)?) {
                 (PhysicalEncoding::None, Some(expected)) => {
                     fail_if_invalid_stream_size(byte_length.into_usize(), expected.into_usize())?;
                     WireFields {
@@ -918,7 +933,7 @@ fn wire_fields(
 /// - `count` is what the stream is read against where its header carries no count
 ///   of its own, which only a [`Count02::Implied`] one can supply.
 ///
-/// Reserves an upper-bound estimate of decoded bytes (`num_values * 8`) on the
+/// Reserves an upper-bound estimate of decoded bytes (eight per word) on the
 /// parser, mirroring the v1 codec.
 pub(crate) fn parse_stream<'a>(
     input: &'a [u8],
@@ -930,14 +945,20 @@ pub(crate) fn parse_stream<'a>(
     let family = ctx.family();
     let encoding = Encoding02::parse(family, enc_byte)?;
 
+    let num_words = |num_values: u32| {
+        num_values
+            .checked_mul(encoding.words_per_value())
+            .or_overflow()
+    };
+
     let explicit = enc_byte & HAS_EXPLICIT_COUNT != 0;
     // A blob's count is its byte length, so it has nothing for a count varint to say.
     if explicit && family == Family::Bytes {
         return Err(MltError::ParsingEncodingByte(enc_byte));
     }
-    let (input, wire_count) = if explicit {
-        let (input, wire_count) = parse_varint::<u32>(input)?;
-        (input, Some(wire_count))
+    let (input, explicit_count) = if explicit {
+        let (input, explicit_count) = parse_varint::<u32>(input)?;
+        (input, Some(explicit_count))
     } else {
         (input, None)
     };
@@ -947,8 +968,8 @@ pub(crate) fn parse_stream<'a>(
         let (input, byte_length) = parse_varint::<u32>(input)?;
         (input, byte_length, byte_length)
     } else {
-        let num_values = match wire_count {
-            Some(wire_count) => wire_count,
+        let num_values = match explicit_count {
+            Some(explicit_count) => explicit_count,
             None => match count {
                 Count02::Implied(count) => count,
                 Count02::Explicit => {
@@ -958,7 +979,7 @@ pub(crate) fn parse_stream<'a>(
         };
         if encoding.omits_byte_length() {
             let byte_length = family
-                .raw_byte_length(num_values)?
+                .raw_byte_length(num_words(num_values)?)?
                 .ok_or(MltError::ParsingEncodingByte(enc_byte))?;
             (input, num_values, byte_length)
         } else {
@@ -970,7 +991,7 @@ pub(crate) fn parse_stream<'a>(
     parser.reserve(if family == Family::Bytes {
         byte_length
     } else {
-        num_values.saturating_mul(8)
+        num_words(num_values)?.saturating_mul(8)
     })?;
     let (input, encoding) = encoding.to_model(input, num_values)?;
     let (input, data) = take(input, byte_length)?;
@@ -1000,7 +1021,10 @@ pub(crate) fn write_stream_meta<W: io::Write>(
         | LE::Float(_)
         | LE::Vertex(_) => meta.num_values,
     };
-    let fields = wire_fields(meta.encoding, family, num_values, byte_length)?;
+    let num_words = num_values
+        .checked_mul(meta.encoding.logical.words_per_value())
+        .or_overflow()?;
+    let fields = wire_fields(meta.encoding, family, num_words, byte_length)?;
     let code = family.code(fields.logical).ok_or_else(|| {
         MltError::UnsupportedLogicalEncoding(meta.encoding.logical, family.into())
     })?;
@@ -1355,7 +1379,7 @@ mod tests {
         #[case] expected: u8,
     ) {
         let byte_length = family
-            .raw_byte_length(meta.num_values)
+            .raw_byte_length(meta.num_words().unwrap())
             .unwrap()
             .unwrap_or(0);
         let mut buf = Vec::new();
@@ -1452,10 +1476,10 @@ mod tests {
     )]
     #[case::bitmap(boolean(BoolLogical::None, PE::None, 9), BOOL, &[0b1010_1010, 1], &[0b1000_0000, 9])]
     #[case::bitmap_of_no_bits(boolean(BoolLogical::None, PE::None, 0), BOOL, &[], &[0b1000_0000, 0])]
-    #[case::vertex_words(
+    #[case::vertex_pairs(
         vertex(VertexLogical::None, PE::None, 2),
         VERTEX,
-        &[1, 0, 0, 0, 2, 0, 0, 0],
+        &[1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 4, 0, 0, 0],
         &[0b0000_0000]
     )]
     #[case::str_dict_codes(
@@ -1483,6 +1507,27 @@ mod tests {
         assert_eq!(parsed.meta.encoding, meta.encoding);
         assert_eq!(parsed.meta.num_values, meta.num_values);
         assert_eq!(parsed.data, payload);
+    }
+
+    #[rstest]
+    #[case::pairs(vertex(VertexLogical::ComponentwiseDelta, PE::VarInt, 3), 3)]
+    #[case::morton_codes(vertex(VertexLogical::MortonDelta(Morton::new(0, 0).unwrap()), PE::VarInt, 5), 5)]
+    fn a_vertex_stream_count_on_the_wire(#[case] meta: StreamMeta, #[case] count: u8) {
+        let mut buf = Vec::new();
+        write_stream_meta(&meta, &mut buf, 0, Count02::Explicit, Family::Vertex).unwrap();
+        assert_eq!(buf[1], count);
+
+        let (_, parsed) = parse_stream(&buf, VERTEX, Count02::Explicit, &mut parser()).unwrap();
+        assert_eq!(parsed.meta.num_values, meta.num_values);
+    }
+
+    #[test]
+    fn a_vertex_count_whose_word_count_overflows_is_rejected() {
+        let mut buf = vec![0b1010_1000];
+        buf.write_varint(u32::MAX / 2 + 1).unwrap();
+        buf.push(0);
+        let err = parse_stream(&buf, VERTEX, Count02::Explicit, &mut parser()).unwrap_err();
+        assert!(matches!(err, MltError::IntegerOverflow), "{err:?}");
     }
 
     #[test]
@@ -1531,7 +1576,7 @@ mod tests {
         12
     )]
     #[case::bitmap(boolean(BoolLogical::None, PE::None, 9), Family::Bool, 9, 2)]
-    #[case::vertex_words(vertex(VertexLogical::None, PE::None, 3), Family::Vertex, 6, 12)]
+    #[case::vertex_pairs(vertex(VertexLogical::None, PE::None, 3), Family::Vertex, 12, 24)]
     fn write_rejects_a_raw_payload_that_is_not_its_count_of_elements(
         #[case] meta: StreamMeta,
         #[case] family: Family,

@@ -263,10 +263,15 @@ pub(crate) fn parse_stream_meta<'a>(
         }
     };
 
+    // The v1 wire counts words, which a vertex stream holds in memory as vertices.
+    let per_value = logical_encoding.words_per_value();
+    if !num_values.is_multiple_of(per_value) {
+        return Err(MltError::PartialVertex(num_values, per_value));
+    }
     let meta = StreamMeta::new(
         stream_type,
         IntEncoding::new(logical_encoding, physical_encoding),
-        num_values,
+        num_values / per_value,
     );
     Ok((input, (meta, byte_length)))
 }
@@ -308,7 +313,7 @@ pub(crate) fn write_stream_meta<W: io::Write>(
         }
     };
     writer.write_u8(encoding_byte(logical, meta.encoding.physical)?)?;
-    writer.write_varint(meta.num_values)?;
+    writer.write_varint(meta.num_words()?)?;
     writer.write_varint(byte_length)?;
 
     // some encoding have settings inside them

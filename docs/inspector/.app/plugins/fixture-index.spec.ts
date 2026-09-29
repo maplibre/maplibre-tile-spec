@@ -49,7 +49,7 @@ describe("indexFixtures", () => {
     // concatenated label is what keeps `length[dictionary]` from reading as one.
     expect(entry).toMatchInlineSnapshot(`
       {
-        "bytes": 230,
+        "bytes": 229,
         "directory": "0x02",
         "facets": {
           "dataType": [

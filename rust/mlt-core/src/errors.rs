@@ -139,6 +139,8 @@ pub enum MltError {
     #[cfg(feature = "unstable-v2")]
     #[error("m-values are a v2 feature, so layer {0} cannot be written as v1")]
     MValuesNeedV2(String),
+    #[error("a vertex stream of {0} words does not hold whole vertices of {1} words")]
+    PartialVertex(u32, u32),
     #[cfg(feature = "unstable-v2")]
     #[error("nested properties are a v2 feature, so layer {0} cannot be written as v1")]
     NestedNeedsV2(String),

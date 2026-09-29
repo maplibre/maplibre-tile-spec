@@ -199,17 +199,18 @@ impl<'a> RawStream<'a> {
         dec: &mut Decoder,
     ) -> MltResult<()> {
         buf.clear();
+        let num_words = self.meta.num_words()?;
         match self.meta.encoding.physical {
             PhysicalEncoding::None => {
-                *buf = decode_bytes_to_words::<T>(self.data, self.meta.num_values, dec)?;
+                *buf = decode_bytes_to_words::<T>(self.data, num_words, dec)?;
             }
             PhysicalEncoding::FastPFor(kind) => {
-                *buf = T::decode_fastpfor(self.data, self.meta.num_values, kind, dec)?;
+                *buf = T::decode_fastpfor(self.data, num_words, kind, dec)?;
             }
             #[cfg(feature = "unstable-v2")]
             PhysicalEncoding::BitPacked => {
-                dec.consume_items::<T>(self.meta.num_values.into_usize())?;
-                *buf = crate::codecs::bitpack::unpack(self.data, self.meta.num_values)?;
+                dec.consume_items::<T>(num_words.into_usize())?;
+                *buf = crate::codecs::bitpack::unpack(self.data, num_words)?;
             }
             PhysicalEncoding::VarInt => {
                 // v2 interleaved-RLE stores no run count on the wire: `num_values`
@@ -217,7 +218,7 @@ impl<'a> RawStream<'a> {
                 *buf = if self.meta.encoding.logical.scans_to_end() {
                     parse_varint_vec_all::<T>(self.data, dec)?
                 } else {
-                    let (_, values) = parse_varint_vec::<T>(self.data, self.meta.num_values, dec)?;
+                    let (_, values) = parse_varint_vec::<T>(self.data, num_words, dec)?;
                     values
                 };
             }
