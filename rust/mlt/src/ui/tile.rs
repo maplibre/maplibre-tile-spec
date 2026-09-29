@@ -178,8 +178,10 @@ fn layer_triangles(layers: &[ParsedLayer<'_>]) -> anyhow::Result<Vec<Option<Tess
         };
         let verts = values.vertices().unwrap_or(&[]);
         let vert = |i: u32| {
-            let i = i.into_usize() * 2;
-            verts.get(i..i + 2).map(|v| Coord { x: v[0], y: v[1] })
+            let i = i.into_usize().checked_mul(2)?;
+            verts
+                .get(i..i.checked_add(2)?)
+                .map(|v| Coord { x: v[0], y: v[1] })
         };
         let has_outlines = values.part_offsets().is_some();
         let mut runs = offsets.windows(2);

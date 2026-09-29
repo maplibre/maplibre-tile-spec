@@ -220,8 +220,8 @@ impl GeometryValues {
         let ring_range = |s: &[u32], i: usize| off_pair(s, i, "ring_offsets");
 
         let vert = |idx: usize| -> MltResult<Coord<i32>> {
-            verts
-                .get(idx * 2..idx * 2 + 2)
+            idx.checked_mul(2)
+                .and_then(|w| verts.get(w..w.checked_add(2)?))
                 .map(|s| Coord { x: s[0], y: s[1] })
                 .ok_or(GeometryVertexOutOfBounds {
                     index,
