@@ -19,6 +19,10 @@ interface LayerGeometry {
   ring_offsets(): Uint32Array;
   /** Flat [x0, y0, x1, y1, …] vertex buffer in tile coordinates. */
   vertices(): Int32Array;
+  /** One z per vertex, parallel to vertices(). Zero-length when the layer has none. */
+  z(): Int32Array;
+  /** The z grid as the power of ten of its step in metres, or undefined when the layer has none. */
+  zStep(): number | undefined;
 }
 
 interface WasmMltTile {
@@ -196,6 +200,21 @@ function loadGeometry(
   return [];
 }
 
+/** Returns the feature's vertex span, since every layout stores a feature's vertices contiguously. */
+function vertexRange(
+  featureIdx: number,
+  geomOffsets: Uint32Array,
+  partOffsets: Uint32Array,
+  ringOffsets: Uint32Array,
+): [number, number] {
+  let start = featureIdx;
+  let end = featureIdx + 1;
+  for (const offsets of [geomOffsets, partOffsets, ringOffsets]) {
+    if (offsets.length > 0) [start, end] = [offsets[start], offsets[end]];
+  }
+  return [start, end];
+}
+
 /** Returns rings grouped by polygon using offset arrays instead of winding-order heuristics. */
 function loadPolygons(
   featureIdx: number,
@@ -257,6 +276,8 @@ export class MltFeature implements VectorTileFeatureLike {
     private readonly _partOffsets: Uint32Array,
     private readonly _ringOffsets: Uint32Array,
     private readonly _verts: Int32Array,
+    private readonly _z: Int32Array,
+    readonly zStep: number | undefined,
     private readonly propertyKeys: string[],
     private readonly propertyColumns: Array<
       | Int8Array
@@ -314,6 +335,18 @@ export class MltFeature implements VectorTileFeatureLike {
     );
   }
 
+  /** Returns one z per vertex in storage order, or an empty array when the layer has none. */
+  loadZ(): number[] {
+    if (this._z.length === 0) return [];
+    const [start, end] = vertexRange(
+      this._featureIdx,
+      this._geomOffsets,
+      this._partOffsets,
+      this._ringOffsets,
+    );
+    return Array.from(this._z.subarray(start, end));
+  }
+
   /** Returns rings grouped by polygon - avoids the lossy winding-order heuristic in MVT's classifyRings. */
   loadPolygons(): Point[][][] {
     if (this.type !== POLYGON) return [this.loadGeometry()];
@@ -344,6 +377,8 @@ export class MltLayer implements VectorTileLayerLike {
   private readonly _partOffsets: Uint32Array;
   private readonly _ringOffsets: Uint32Array;
   private readonly _verts: Int32Array;
+  private readonly _z: Int32Array;
+  readonly zStep: number | undefined;
   readonly propertyKeys: string[];
   readonly propertyColumns: Array<
     | Int8Array
@@ -371,6 +406,8 @@ export class MltLayer implements VectorTileLayerLike {
     this._partOffsets = geom.part_offsets();
     this._ringOffsets = geom.ring_offsets();
     this._verts = geom.vertices();
+    this._z = geom.z();
+    this.zStep = geom.zStep();
     this.propertyKeys = _tile.layer_property_keys(_layerIdx);
     this.propertyColumns = _tile.layer_properties(_layerIdx);
   }
@@ -386,6 +423,8 @@ export class MltLayer implements VectorTileLayerLike {
       this._partOffsets,
       this._ringOffsets,
       this._verts,
+      this._z,
+      this.zStep,
       this.propertyKeys,
       this.propertyColumns,
     );

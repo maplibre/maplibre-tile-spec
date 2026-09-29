@@ -16,7 +16,7 @@ import {
 } from "./vectorTile";
 
 const V2_GAPS: [RegExp, string][] = [
-  [/^mvalues(?!_all_null$)/, "the vector-tile API has no m-value columns"],
+  [/^(z_)?mvalues(?!_all_null$)/, "the vector-tile API has no m-value columns"],
   [/^nested_/, "the vector-tile API has no nested columns"],
   [/_tri$/, "a triangles-only layer has no offsets for loadGeometry to walk"],
 ];
@@ -76,7 +76,7 @@ function tileToFeatureCollection(
 
     for (let i = 0; i < mltLayer.length; i++) {
       const feature = mltLayer.feature(i);
-      const properties: Record<string, number | string | boolean> = {
+      const properties: Record<string, number | string | boolean | number[]> = {
         _layer: mltLayer.name,
         _extent: mltLayer.extent,
       };
@@ -101,6 +101,11 @@ function tileToFeatureCollection(
         if (val !== undefined) {
           properties[key] = val;
         }
+      }
+
+      if (feature.zStep !== undefined) {
+        properties._z = feature.loadZ();
+        properties._z_step = feature.zStep;
       }
 
       const geojsonFeature: GeoJSON.Feature = {
