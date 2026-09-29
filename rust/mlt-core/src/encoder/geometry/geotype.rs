@@ -817,4 +817,57 @@ mod tests {
             assert_eq!(triangles(&geometry), [2, 3, 0, 0, 1, 2, 8, 9, 6, 6, 7, 8]);
         }
     }
+
+    #[rstest::rstest]
+    #[case::line(
+        Geometry::Line(geo_types::Line::new((0, 0), (5, 5))),
+        wkt!(LINESTRING(0 0, 5 5)).into()
+    )]
+    #[case::triangle(
+        Geometry::Triangle(geo_types::Triangle::new((0, 0).into(), (5, 0).into(), (0, 5).into())),
+        wkt!(POLYGON((0 0, 5 0, 0 5, 0 0))).into()
+    )]
+    #[case::rect(
+        Geometry::Rect(geo_types::Rect::new((0, 0), (5, 5))),
+        wkt!(POLYGON((5 0, 5 5, 0 5, 0 0, 5 0))).into()
+    )]
+    fn a_geometry_without_its_own_type_pushes_as_its_equivalent(
+        #[case] geometry: Geometry<i32>,
+        #[case] equivalent: Geometry<i32>,
+    ) {
+        assert_eq!(
+            GeometryValues::default().with_geom(&geometry),
+            GeometryValues::default().with_geom(&equivalent)
+        );
+    }
+
+    #[test]
+    fn a_geometry_collection_pushes_each_member_as_a_feature() {
+        let point: Geometry<i32> = wkt!(POINT(1 2)).into();
+        let line: Geometry<i32> = wkt!(LINESTRING(0 0, 5 5)).into();
+        let collection = Geometry::GeometryCollection(geo_types::GeometryCollection(vec![
+            point.clone(),
+            line.clone(),
+        ]));
+        assert_eq!(
+            GeometryValues::default().with_geom(&collection),
+            GeometryValues::default().with_geom(&point).with_geom(&line)
+        );
+    }
+
+    #[test]
+    fn a_multi_polygon_fills_every_offset_level() {
+        let geometry = GeometryValues::default().with_geom(
+            &wkt!(MULTIPOLYGON(((0 0, 5 0, 0 5, 0 0)), ((10 10, 15 10, 10 15, 10 10)))).into(),
+        );
+        assert_snapshot!(
+            format!(
+                "{:?} {:?} {:?}",
+                geometry.geometry_offsets(),
+                geometry.part_offsets(),
+                geometry.ring_offsets()
+            ),
+            @"Some([0, 2]) Some([0, 1, 2]) Some([0, 3, 6])"
+        );
+    }
 }
