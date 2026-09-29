@@ -44,7 +44,7 @@ mod tile;
 use js_sys::Uint8Array;
 use layer::DecodedLayer;
 use mlt_core::geojson::FeatureCollection;
-use mlt_core::{Decoder, GeometryType, MltError, Parser};
+use mlt_core::{Decoder, GeometryType, MltError, ParsedLayer, Parser};
 use tile::MltTile;
 use wasm_bindgen::prelude::*;
 
@@ -60,17 +60,21 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
     let mut layers = Vec::with_capacity(raw_layers.len());
 
     for raw_layer in raw_layers {
-        // Skip non-Tag01 layers.
-        let mlt_core::Layer::Tag01(layer01) = raw_layer else {
+        #[cfg(not(feature = "unstable-v2"))]
+        if !matches!(raw_layer, mlt_core::Layer::Tag01(_)) {
             continue;
+        }
+
+        // Decode all columns at once, then clone the geometry, already columnar, before the
+        // layer is consumed into its tile.
+        let decoded = raw_layer.decode_all(&mut dec).map_err(|e| to_js_err(&e))?;
+        let (parsed_geometry, tile) = match decoded {
+            ParsedLayer::Tag01(l) => (l.geometry_values().clone(), l.into_tile(&mut dec)),
+            #[cfg(feature = "unstable-v2")]
+            ParsedLayer::Tag02(l) => (l.layer().geometry_values().clone(), l.into_tile(&mut dec)),
+            _ => continue,
         };
-
-        // Decode all columns at once, then extract geometry arrays before consuming into tile.
-        let parsed_layer = layer01.decode_all(&mut dec).map_err(|e| to_js_err(&e))?;
-
-        // Clone geometry values for building WASM typed arrays (zero wire-decode overhead:
-        // geometry is already in columnar form from decode_all).
-        let parsed_geometry = parsed_layer.geometry_values().clone();
+        let tile = tile.map_err(|e| to_js_err(&e))?;
 
         let (types_bytes, mlt_types_bytes): (Vec<u8>, Vec<u8>) = parsed_geometry
             .vector_types()
@@ -88,10 +92,6 @@ pub fn decode_tile(data: &[u8]) -> Result<MltTile, JsError> {
             .unzip();
         let types_array = Uint8Array::from(types_bytes.as_slice());
         let mlt_types_array = Uint8Array::from(mlt_types_bytes.as_slice());
-
-        let tile = parsed_layer
-            .into_tile(&mut dec)
-            .map_err(|e| to_js_err(&e))?;
 
         layers.push(DecodedLayer {
             tile,

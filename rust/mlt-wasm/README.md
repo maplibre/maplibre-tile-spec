@@ -36,6 +36,8 @@ npm run build:wasm
 npm run build:ts
 ```
 
+`decodeTile` skips v2 layers unless the wasm is built with the `unstable-v2` feature, as `npm run build:test` does.
+
 ## Usage
 
 ```ts
