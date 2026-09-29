@@ -173,8 +173,6 @@ decode.manifest.attributes 'Implementation-Title': 'decode an mlt',
         'Main-Class': 'org.maplibre.mlt.cli.Decode'
 
 tasks.register('cli') {
-    // Uncomment the following line to clear out the jars before rebuilding
-    delete "${layout.buildDirectory}/libs"
     dependsOn encode
     dependsOn decode
 }
