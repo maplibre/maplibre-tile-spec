@@ -96,7 +96,8 @@ const placed = computed(() =>
   z-index: 1;
   pointer-events: none;
   box-sizing: border-box;
-  max-width: 22rem;
+  /* Wide enough for the docs table, but never wider than the window it is pinned over. */
+  max-width: min(30rem, calc(100vw - 2rem));
   /* The placement caps the height to the room beside the pointer; the rest scrolls. */
   overflow: auto;
   background: var(--panel);

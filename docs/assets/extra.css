@@ -51,7 +51,7 @@
   overflow: visible;
 }
 
-/* Inline spec diagrams: theme colours come from Material's variables */
+/* Inline spec diagrams: theme colors come from Material's variables */
 .mlt-diagram {
   --mlt-f0: #3f7ad6;
   --mlt-f1: #e07a2e;

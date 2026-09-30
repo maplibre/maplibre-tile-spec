@@ -12,6 +12,7 @@ const bare: DeepLink = {
   url: null,
   layer: null,
   region: null,
+  at: null,
   filters: [],
   query: "",
   geo: true,
@@ -141,5 +142,20 @@ describe("writeDeepLink", () => {
     history.replaceState(null, "", "/#annotating");
     writeDeepLink({ ...bare });
     expect(location.hash).toBe("#annotating");
+  });
+});
+
+describe("a link that names its region", () => {
+  it("reads `at` for a hand-written link", () => {
+    expect(readDeepLink("?fixture=0x02%2Fpoly_tri.mlt&at=tri_lengths").at).toBe(
+      "tri_lengths",
+    );
+  });
+
+  /** The app resolves it to a number, so the address bar carries that instead. */
+  it("never writes it back", () => {
+    expect(deepLinkSearch({ ...bare, at: "tri_lengths", region: 8 })).toBe(
+      "?region=8",
+    );
   });
 });

@@ -10,6 +10,7 @@ import {
   leafStep,
   regionBands,
   regionDotPath,
+  regionNamed,
   regionPath,
   tipPlacement,
   wholeIndices,
@@ -307,5 +308,33 @@ describe("hexOffset", () => {
 
   it("widens every offset of a tile past 64 KiB", () => {
     expect(hexOffset(0x2a, 0x10001)).toBe("0002a");
+  });
+});
+
+describe("naming a region in a link", () => {
+  const regions = [
+    region({ offset: 0, len: 9, label: 'layer[0] "x"', container: true }),
+    region({ offset: 0, len: 1, label: "size", depth: 1 }),
+    region({ offset: 1, len: 1, label: "tri_lengths", depth: 1 }),
+    region({ offset: 2, len: 1, label: 'column[0] OptI32 "val"', depth: 1 }),
+    region({ offset: 3, len: 1, label: "name", depth: 1 }),
+    region({ offset: 4, len: 1, label: "name", depth: 1 }),
+  ];
+
+  it("finds a region by its whole label", () => {
+    expect(regionNamed(regions, "tri_lengths")).toBe(2);
+  });
+
+  /** `column[0]` without having to spell out the type and name the walker appends. */
+  it("finds one by the part of the label that names it", () => {
+    expect(regionNamed(regions, "column[0]")).toBe(3);
+  });
+
+  it("refuses a label two regions answer to", () => {
+    expect(regionNamed(regions, "name")).toBeNull();
+  });
+
+  it("refuses one no region answers to", () => {
+    expect(regionNamed(regions, "nope")).toBeNull();
   });
 });

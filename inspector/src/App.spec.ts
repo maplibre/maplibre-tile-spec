@@ -10,6 +10,7 @@ import {
 } from "vitest";
 import App from "./App.vue";
 import { type AnnotatedTile, annotateTile } from "./annotate.ts";
+import HexdumpView from "./HexdumpView.vue";
 import SourcePicker from "./SourcePicker.vue";
 import { stubCanvas, stubDialog, tinyTree } from "./testing.ts";
 
@@ -379,6 +380,46 @@ describe("the empty state", () => {
     expect(annotateTile).toHaveBeenCalledOnce();
     expect(app.get<HTMLDialogElement>("dialog").element.open).toBe(false);
     expect(app.get("button.open").text()).toBe("0x01/point.mlt");
+  });
+});
+
+describe("a link that names its region", () => {
+  /** The docs link by label, since a region index shifts whenever the walker gains a field. */
+  async function opened(at: string) {
+    serve();
+    history.replaceState(null, "", `/?fixture=0x01/point.mlt&at=${at}`);
+    const app = mount(App);
+    await flushPromises();
+    return app;
+  }
+
+  it("selects the region the label names and settles the link on its index", async () => {
+    // tinyTree: layer[0], name, geometry, encoding, data.
+    const app = await opened("encoding");
+    expect(app.getComponent(HexdumpView).props("selected")).toBe(3);
+    expect(location.search).toBe("?fixture=0x01%2Fpoint.mlt&region=3");
+    app.unmount();
+  });
+
+  it("selects nothing when no region answers to the label", async () => {
+    const app = await opened("nope");
+    expect(app.getComponent(HexdumpView).props("selected")).toBeNull();
+    expect(location.search).toBe("?fixture=0x01%2Fpoint.mlt");
+    app.unmount();
+  });
+
+  /** A number in hand is already the thing `at` resolves to, so it wins. */
+  it("prefers a region the link numbers outright", async () => {
+    serve();
+    history.replaceState(
+      null,
+      "",
+      "/?fixture=0x01/point.mlt&region=1&at=encoding",
+    );
+    const app = mount(App);
+    await flushPromises();
+    expect(app.getComponent(HexdumpView).props("selected")).toBe(1);
+    app.unmount();
   });
 });
 
