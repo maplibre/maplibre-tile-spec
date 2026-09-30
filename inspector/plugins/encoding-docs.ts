@@ -157,7 +157,9 @@ function readPage(
       open = null;
       continue;
     }
-    if (open) body.push(line);
+    // A link back into the inspector is noise inside it, and its `{target=_blank}`
+    // would show as the text the renderer has no attribute list to make sense of.
+    if (open && !line.includes("inspector/app/?fixture=")) body.push(line);
   }
   close();
   return docs;

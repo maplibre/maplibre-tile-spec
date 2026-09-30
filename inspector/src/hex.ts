@@ -211,3 +211,21 @@ export function tipPlacement(
       }
     : { left, top: `${pointer.y + TIP_GAP}px`, maxHeight: `${under}px` };
 }
+
+/**
+ * The region a hand-written link names, or null when the tile has no such region.
+ *
+ * A label is matched whole or up to its first detail, so `column[0]` finds
+ * `column[0] OptI32 "val"` without having to spell the type out. Ambiguity is a miss
+ * rather than a guess: naming two regions means the link says nothing definite.
+ */
+export function regionNamed(regions: Region[], label: string): number | null {
+  const hits = regions.flatMap((region, at) =>
+    region.label === label ||
+    region.label.startsWith(`${label} `) ||
+    region.label.startsWith(`${label}[`)
+      ? [at]
+      : [],
+  );
+  return hits.length === 1 ? hits[0] : null;
+}

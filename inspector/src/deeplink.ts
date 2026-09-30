@@ -11,6 +11,15 @@ export interface DeepLink {
   layer: number | null;
   /** Index of the selected region in the tree as filtered by `layer`. */
   region: number | null;
+  /**
+   * Label of the region to select, for a link written by hand.
+   *
+   * The docs point at a section of a tile by what it is called rather than by where it
+   * falls, since a position shifts whenever the format or the walker gains a field, and
+   * would then quietly name the wrong bytes. Read on the way in and resolved to
+   * `region`, never written back.
+   */
+  at: string | null;
   /** Picked filter chips, each `<axis>:<value>`, so a combination can be handed over. */
   filters: string[];
   /** What the picker's filter box holds, which narrows by name and offers chips. */
@@ -29,6 +38,7 @@ export function readDeepLink(search: string): DeepLink {
     url: raw === null ? null : tileAddress(raw),
     layer: index(params.get("layer")),
     region: index(params.get("region")),
+    at: params.get("at") || null,
     // Repeated rather than joined: a value may hold any punctuation the spec spells it with.
     filters: params.getAll("f").filter((value) => {
       const colon = value.indexOf(":");

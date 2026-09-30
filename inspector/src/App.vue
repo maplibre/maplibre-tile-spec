@@ -24,6 +24,7 @@ import HexdumpView from "./HexdumpView.vue";
 import {
   defaultView,
   layerLabels,
+  regionNamed,
   type ViewState,
   wholeIndices,
 } from "./hex.ts";
@@ -225,7 +226,13 @@ async function restore(target: DeepLink) {
   filters.value = target.filters;
   query.value = target.query;
   await nextTick();
-  if (current(at)) selected.value = target.region;
+  if (!current(at)) return;
+  // A link may name the region instead of numbering it; the tree is here to resolve it.
+  selected.value =
+    target.region ??
+    (target.at === null || tree.value === null
+      ? null
+      : regionNamed(tree.value.regions, target.at));
 }
 
 onMounted(async () => {
@@ -262,6 +269,8 @@ const link = computed<DeepLink>(() => ({
   url: href.value,
   layer: layer.value,
   region: selected.value,
+  // Resolved on the way in, so the address bar carries the number it settled on.
+  at: null,
   filters: filters.value,
   query: query.value,
   geo: view.value.geo,

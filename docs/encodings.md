@@ -68,6 +68,8 @@ Each word is stored in 7-bit groups, least significant group first.
 Bit 7 of each byte is set when another byte follows.
 A 32-bit word takes 1 to 5 bytes and a 64-bit word 1 to 10.
 
+[See `point.mlt` in the inspector](inspector/app/?fixture=0x02%2Fpoint.mlt&at=vertices){target=_blank} - every length and word in this tile is a varint.
+
 ```
 300 = 0b1_0010_1100
     -> groups (LSB first): 0101100, 0000010
@@ -80,6 +82,8 @@ Signed values go through [ZigZag](#zigzag) first, where the logical encoding say
 ### Bit Packing <span class="experimental"></span> {#bit-packing}
 
 Every word is stored in the same number of bits, the bit width of the largest value.
+
+[See `props_shared_dict_bp.mlt` in the inspector](inspector/app/?fixture=0x02%2Fprops_shared_dict_bp.mlt&at=column%5B0%5D){target=_blank} - a shared dictionary whose codes are bit-packed.
 
 v2 numbers bit packing as a logical encoding, and its physical field is reserved as `0`.
 It stands in for the whole physical step: the words come straight out of the packed bits, and no other logical transform is applied.
@@ -112,6 +116,8 @@ An encoder SHOULD compare the stored size of both.
 
 A block codec that stores each block of words in the bit width most of them need, and patches the few words that need more as exceptions in a separate area.
 Unlike bit packing it is not sensitive to a handful of outliers.
+
+[See `ids_fpf.mlt` in the inspector](inspector/app/?fixture=0x02%2Fids_fpf.mlt&at=column%5B0%5D){target=_blank} - an id stream in the v2 `128le` variant.
 
 The payload is the output of the composite codec `Composition(FastPFOR, VariableByte)` of the [FastPFOR library](https://github.com/fast-pack/FastPFOR), stored as whole 32-bit words:
 
@@ -153,6 +159,8 @@ Each word is the difference to the previous value.
 The first value's predecessor is `0`.
 Each difference is [ZigZag](#zigzag)-coded before it becomes a word, whatever the stream's type.
 
+[See `id64_max_delta.mlt` in the inspector](inspector/app/?fixture=0x02%2Fid64_max_delta.mlt&at=column%5B0%5D){target=_blank} - 64-bit ids stored as deltas.
+
 ```
 delta[0] = values[0] - 0
 delta[i] = values[i] - values[i - 1]
@@ -175,6 +183,8 @@ Delta suits monotonic sequences such as ids and offsets, whose differences are s
 The values are stored as runs, each a `(run_length, value)` pair that expands to `run_length` copies of `value`.
 On a signed stream `value` is [ZigZag](#zigzag)-coded.
 Run lengths never are.
+
+[See `id_max_rle.mlt` in the inspector](inspector/app/?fixture=0x02%2Fid_max_rle.mlt&at=column%5B0%5D){target=_blank} - an id stream of runs.
 
 The two tile versions lay the runs out differently:
 
@@ -205,6 +215,8 @@ A v2 payload with an odd number of varints MUST be rejected.
 The deltas are ZigZag-coded, and it is those unsigned words that are run-length coded.
 Decoding undoes them in reverse: expand the runs, then undo ZigZag and prefix-sum.
 
+[See `id64_max_delta_rle.mlt` in the inspector](inspector/app/?fixture=0x02%2Fid64_max_delta_rle.mlt&at=column%5B0%5D){target=_blank} - deltas that then run-length code.
+
 ```
 values: [10, 11, 12, 13, 20, 20, 20]
 deltas: [10, 1, 1, 1, 7, 0, 0]
@@ -224,6 +236,8 @@ Bit `i % 8` of byte `i / 8` is value `i`, LSB-first.
 The bitmap is `ceil(count / 8)` bytes.
 Bits past `count` in the final byte are padding and MUST be ignored.
 
+[See `prop_i32.mlt` in the inspector](inspector/app/?fixture=0x02%2Fprop_i32.mlt&at=present){target=_blank} - one optional column, so one presence bitmap.
+
 ```
 values: [1, 0, 1, 1, 0, 1]
 byte:   0b00_101101 = 0x2D
@@ -236,6 +250,8 @@ A bitmap can be shared between columns; see [Shared Presence Fields](specificati
 
 v1 compresses the [bitmap](#bitmap) with the byte-level run-length encoding of [ORC](https://orc.apache.org/specification/ORCv1/#byte-run-length-encoding).
 The payload is a sequence of runs, each a control byte and what it names:
+
+[See `prop_i32.mlt` in the inspector](inspector/app/?fixture=0x01%2Fprop_i32.mlt&at=present){target=_blank} - v1 codes its presence stream as byte RLE.
 
 | Control byte `c` | Meaning |
 |---|---|
@@ -263,9 +279,13 @@ Both follow from `num_values`.
 IEEE 754 words, little-endian, 4 bytes for a `Float` and 8 for a `Double`.
 This is the only float encoding v1 has.
 
+[See `prop_f64_max_np.mlt` in the inspector](inspector/app/?fixture=0x02%2Fprop_f64_max_np.mlt&at=column%5B0%5D){target=_blank} - raw IEEE 754 words.
+
 ### ALP <span class="experimental"></span> {#alp}
 
 Adaptive Lossless floating-Point compression stores a float column as integers, which are then [physically encoded](#physical-encodings) like any other integer stream.
+
+[See `prop_f32_alp_whole_np.mlt` in the inspector](inspector/app/?fixture=0x02%2Fprop_f32_alp_whole_np.mlt&at=column%5B0%5D){target=_blank} - floats that are whole numbers, so the exponent does the work.
 
 Most floats in map data are decimals with few significant digits, such as `12.75` or `0.3`, and are exactly representable as a scaled integer.
 ALP finds one decimal scale for the whole column and stores $i = \operatorname{round}(v \cdot 10^e / 10^f)$ per value.
@@ -342,6 +362,8 @@ See the [ALP example](specification/v2.md#examples) on the v2 page for the whole
 
 The distinct values are stored once, and a stream of codes holds one index into them per element.
 
+[See `prop_f32_dict_nan_np.mlt` in the inspector](inspector/app/?fixture=0x02%2Fprop_f32_dict_nan_np.mlt&at=column%5B0%5D){target=_blank} - repeated floats, `NaN` among them.
+
 The column has two streams.
 The first is the codes: an integer stream of 32-bit words, logical `Dict` in the `Float` family, with its own physical encoding.
 The second is the dictionary: [plain floats](#plain-floats), one per distinct value, with an explicit count in its header.
@@ -367,10 +389,14 @@ The bytes as they are.
 Value `i` is the `lengths[i]` bytes that follow the first `lengths[0] + ... + lengths[i - 1]`.
 Each value MUST be valid UTF-8.
 
+[See `prop_str_empty_np.mlt` in the inspector](inspector/app/?fixture=0x02%2Fprop_str_empty_np.mlt&at=column%5B0%5D){target=_blank} - a string column stored as it is.
+
 ### Front Coding <span class="experimental"></span> {#front-coding}
 
 Neighbouring entries of a sorted dictionary often share a prefix, for example `Main Street`, `Main Street North` and `Maple Avenue`.
 Front coding stores the length of the prefix shared with the previous entry, and only the suffix bytes.
+
+[See `props_str_front_dict_np.mlt` in the inspector](inspector/app/?fixture=0x02%2Fprops_str_front_dict_np.mlt&at=column%5B0%5D){target=_blank} - a dictionary whose entries share prefixes.
 
 The lengths stream that precedes the blob holds `2N` values: `N` shared-prefix lengths, then `N` suffix lengths.
 The blob holds the `N` suffixes back to back.
@@ -404,6 +430,8 @@ An encoder SHOULD compare the stored size of each combination.
 Fast Static Symbol Table compression replaces frequent byte sequences of up to 8 bytes with one-byte codes.
 Unlike a dictionary it compresses strings that merely share substrings, such as localized country names.
 It supports random access to one value once its lengths are known, since every code is one byte.
+
+[See `props_str_fsst_dict_np.mlt` in the inspector](inspector/app/?fixture=0x02%2Fprops_str_fsst_dict_np.mlt&at=column%5B0%5D){target=_blank} - a symbol table and the codes into it.
 
 An FSST-compressed blob comes with two streams that carry its symbol table:
 
@@ -442,6 +470,8 @@ A decoder reads the table from the stream, so that only matters when comparing t
 A string column is a set of the streams above.
 The four layouts, in the v2 names:
 
+[See `nested_map_str.mlt` in the inspector](inspector/app/?fixture=0x02%2Fnested_map_str.mlt&at=column%5B0%5D){target=_blank} - plain and dictionary-coded strings in one tile.
+
 | Layout | Streams, in order |
 |---|---|
 | Plain | `Lengths`, `Values` |
@@ -462,6 +492,8 @@ See [v1 string columns](specification/v1.md#string-columns) and [v2 string colum
 
 Several string columns, such as `name:en`, `name:de` and `name:fr`, index into one dictionary.
 The dictionary streams are written once, and each member column then stores only its presence and its `Codes`.
+
+[See `props_shared_dict_no_child_name_np.mlt` in the inspector](inspector/app/?fixture=0x01-rust%2Fprops_shared_dict_no_child_name_np.mlt&at=column%5B1%5D){target=_blank} - several columns reading one corpus.
 
 ```
 DictLengths, DictValues, Present_1, Codes_1, Present_2, Codes_2, ...
@@ -487,6 +519,8 @@ Each coordinate is a delta to the same coordinate of the previous vertex.
 `x` and `y` keep separate predecessors, both starting at `0`.
 Each delta is [ZigZag](#zigzag)-coded.
 
+[See `point.mlt` in the inspector](inspector/app/?fixture=0x02%2Fpoint.mlt&at=vertices){target=_blank} - x and y each delta against the previous vertex.
+
 ```
 dx[i] = x[i] - x[i - 1]        x[-1] = 0
 dy[i] = y[i] - y[i - 1]        y[-1] = 0
@@ -506,6 +540,8 @@ The v2 `Vertex` family also has a plain `Delta`, which is the integer [Delta](#d
 The distinct vertices are stored once in a `VertexDict` stream, and a `VertexOffsets` stream holds one index into them per vertex.
 `VertexOffsets` is an ordinary unsigned integer stream.
 `VertexDict` is a vertex stream and carries any of the encodings in this section.
+
+[See `point_morton_dictionary.mlt` in the inspector](inspector/app/?fixture=0x02%2Fpoint_morton_dictionary.mlt&at=vertex_dict){target=_blank} - vertices stored once and indexed.
 
 ```
 VertexOffsets: [0, 1, 2, 1, 0, 2]
@@ -530,6 +566,8 @@ Two vertices with the same curve key are one dictionary entry.
 A Morton, or Z-order, code interleaves the bits of a coordinate pair into one integer.
 Nearby vertices get nearby codes, so a sorted Morton dictionary has small deltas.
 Only a `VertexDict` stream uses it.
+
+[See `point_morton_dictionary.mlt` in the inspector](inspector/app/?fixture=0x02%2Fpoint_morton_dictionary.mlt&at=vertex_dict){target=_blank} - vertices as Morton codes, delta coded.
 
 The parameters are two varints in the stream header:
 
