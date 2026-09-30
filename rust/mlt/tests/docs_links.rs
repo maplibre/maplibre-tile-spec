@@ -102,3 +102,38 @@ fn unescape(raw: &str) -> String {
         .replace("%5B", "[")
         .replace("%5D", "]")
 }
+
+/// A link that leaves the block it sits in takes the block's own body with it: the
+/// text after it reparses as an indented code block, so a tab renders empty and its
+/// prose turns into literal markdown. The build still succeeds, hence this check.
+#[test]
+fn every_inspector_link_stays_inside_its_block() {
+    for page in PAGES {
+        let text = fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join(page))
+            .unwrap_or_else(|e| panic!("{page}: {e}"));
+        let lines: Vec<&str> = text.lines().collect();
+        for (at, line) in lines.iter().enumerate() {
+            if !line.contains("inspector/app/?fixture=") {
+                continue;
+            }
+            let Some(above) = lines[..at].iter().rev().find(|l| !l.trim().is_empty()) else {
+                continue;
+            };
+            let (deep, over) = (indent(line), indent(above));
+            let opens = ["=== ", "??? ", "!!! ", "+++ "]
+                .iter()
+                .any(|p| above.trim_start().starts_with(p));
+            assert!(
+                if opens { deep > over } else { deep >= over },
+                "{page}:{}: the link is indented {deep} under a line indented {over} \
+                 ({:?}), so it falls out of that block. Indent it into the body.",
+                at + 1,
+                above.trim()
+            );
+        }
+    }
+}
+
+fn indent(line: &str) -> usize {
+    line.len() - line.trim_start().len()
+}

@@ -58,6 +58,21 @@ describe("the docs the app points at", () => {
     expect(varint.html).toContain("7-bit groups");
   });
 
+  /** A link back into the app is noise inside it, and the renderer has no attr_list. */
+  it("drops the inspector examples but keeps the prose beside them", () => {
+    const [varint] = sectionsFor(["encodings#varint"], docs);
+    expect(varint.html).toContain("7-bit groups");
+    expect(varint.html).not.toContain("in the inspector");
+    expect(varint.html).not.toContain("{target=_blank}");
+
+    const all = Object.values(docs).map((doc) => doc.html);
+    expect(all.some((html) => html.includes("7-bit groups"))).toBe(true);
+    for (const html of all) {
+      expect(html).not.toContain("inspector/app/?fixture=");
+      expect(html).not.toContain("{target=_blank}");
+    }
+  });
+
   /** The app ships inside the site, so a fork or a preview links into its own pages. */
   it("links a section relative to where the site embeds the app", () => {
     expect(docs["encodings#alp"]?.site).toBe("../../encodings/#alp");
