@@ -1,14 +1,15 @@
-<svg class="mlt-diagram" viewBox="0 0 710 362" role="img" aria-label="Triangle lengths point into the index buffer, whose entries point at vertices of their own feature" xmlns="http://www.w3.org/2000/svg">
-<defs><marker id="tess1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker></defs><defs><marker id="tess1-arrow1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<svg class="mlt-diagram" viewBox="0 0 710 396" role="img" aria-label="Triangle lengths point into the index buffer, whose entries name x,y vertices of their own feature" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="tess1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker></defs>
+<defs><marker id="tess1-arrow1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
 <text class="row" x="0" y="54">lengths</text>
 <rect class="f0" x="126" y="40" width="28" height="28" rx="3"/>
 <text class="cell" x="140" y="54">1</text>
 <path class="link" d="M140 68V114" marker-end="url(#tess1-arrow)"/>
-<text class="muted small" x="147" y="96">3 × 0</text>
+<text class="muted small" x="147" y="96">3 × 1</text>
 <rect class="f1" x="198" y="40" width="28" height="28" rx="3"/>
 <text class="cell" x="212" y="54">7</text>
 <path class="link" d="M212 68V114" marker-end="url(#tess1-arrow)"/>
-<text class="muted small" x="219" y="96">3 × 1</text>
+<text class="muted small" x="219" y="96">3 × 7</text>
 <text class="row" x="0" y="134">index buffer</text>
 <rect class="f0" x="130" y="120" width="20" height="28" rx="3"/>
 <text class="cell" x="140" y="134">1</text>
@@ -66,39 +67,65 @@
 <path class="link t1" d="M644 151C644 205 620 205 620 256" marker-end="url(#tess1-arrow1)"/>
 <path class="link t1" d="M666 151C666 205 576 205 576 256" marker-end="url(#tess1-arrow1)"/>
 <path class="link t1" d="M688 151C688 205 664 205 664 256" marker-end="url(#tess1-arrow1)"/>
-<text class="row" x="0" y="274">vertices</text>
-<rect class="f0" x="130" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="150" y="274">0</text>
-<rect class="f0" x="174" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="194" y="274">1</text>
-<rect class="f0" x="218" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="238" y="274">2</text>
-<rect class="f1" x="272" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="292" y="274">0</text>
-<rect class="f1" x="316" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="336" y="274">1</text>
-<rect class="f1" x="360" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="380" y="274">2</text>
-<rect class="f1" x="414" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="434" y="274">3</text>
-<rect class="f1" x="458" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="478" y="274">4</text>
-<rect class="f1" x="502" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="522" y="274">5</text>
-<rect class="f1" x="556" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="576" y="274">6</text>
-<rect class="f1" x="600" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="620" y="274">7</text>
-<rect class="f1" x="644" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="664" y="274">8</text>
-<path class="bracket" d="M272 294V300H400V294"/>
-<text class="muted small mid" x="336" y="316">shell</text>
-<path class="bracket" d="M414 294V300H542V294"/>
-<text class="muted small mid" x="478" y="316">hole</text>
-<path class="bracket" d="M556 294V300H684V294"/>
-<text class="muted small mid" x="620" y="316">2nd polygon</text>
-<path class="bracket t0" d="M130 330V336H258V330"/>
-<text class="t0 bold" x="130" y="350">feature 0</text>
-<path class="bracket t1" d="M272 330V336H684V330"/>
-<text class="t1 bold" x="272" y="350">feature 1</text>
+<text class="row" x="0" y="280">vertices</text>
+<text class="muted small" x="122" y="274" text-anchor="end">x</text>
+<text class="muted small" x="122" y="288" text-anchor="end">y</text>
+<rect class="f0" x="130" y="260" width="40" height="40" rx="3"/>
+<text class="cell small" x="150" y="274">55</text>
+<text class="cell small" x="150" y="288">5</text>
+<text class="muted small mid" x="150" y="314">0</text>
+<rect class="f0" x="174" y="260" width="40" height="40" rx="3"/>
+<text class="cell small" x="194" y="274">58</text>
+<text class="cell small" x="194" y="288">28</text>
+<text class="muted small mid" x="194" y="314">1</text>
+<rect class="f0" x="218" y="260" width="40" height="40" rx="3"/>
+<text class="cell small" x="238" y="274">75</text>
+<text class="cell small" x="238" y="288">22</text>
+<text class="muted small mid" x="238" y="314">2</text>
+<rect class="f1" x="272" y="260" width="40" height="40" rx="3"/>
+<text class="cell small" x="292" y="274">7</text>
+<text class="cell small" x="292" y="288">20</text>
+<text class="muted small mid" x="292" y="314">0</text>
+<rect class="f1" x="316" y="260" width="40" height="40" rx="3"/>
+<text class="cell small" x="336" y="274">21</text>
+<text class="cell small" x="336" y="288">31</text>
+<text class="muted small mid" x="336" y="314">1</text>
+<rect class="f1" x="360" y="260" width="40" height="40" rx="3"/>
+<text class="cell small" x="380" y="274">26</text>
+<text class="cell small" x="380" y="288">9</text>
+<text class="muted small mid" x="380" y="314">2</text>
+<rect class="f1" x="414" y="260" width="40" height="40" rx="3"/>
+<text class="cell small" x="434" y="274">15</text>
+<text class="cell small" x="434" y="288">20</text>
+<text class="muted small mid" x="434" y="314">3</text>
+<rect class="f1" x="458" y="260" width="40" height="40" rx="3"/>
+<text class="cell small" x="478" y="274">20</text>
+<text class="cell small" x="478" y="288">15</text>
+<text class="muted small mid" x="478" y="314">4</text>
+<rect class="f1" x="502" y="260" width="40" height="40" rx="3"/>
+<text class="cell small" x="522" y="274">18</text>
+<text class="cell small" x="522" y="288">25</text>
+<text class="muted small mid" x="522" y="314">5</text>
+<rect class="f1" x="556" y="260" width="40" height="40" rx="3"/>
+<text class="cell small" x="576" y="274">69</text>
+<text class="cell small" x="576" y="288">57</text>
+<text class="muted small mid" x="576" y="314">6</text>
+<rect class="f1" x="600" y="260" width="40" height="40" rx="3"/>
+<text class="cell small" x="620" y="274">71</text>
+<text class="cell small" x="620" y="288">66</text>
+<text class="muted small mid" x="620" y="314">7</text>
+<rect class="f1" x="644" y="260" width="40" height="40" rx="3"/>
+<text class="cell small" x="664" y="274">73</text>
+<text class="cell small" x="664" y="288">64</text>
+<text class="muted small mid" x="664" y="314">8</text>
+<path class="bracket" d="M272 326V332H400V326"/>
+<text class="muted small mid" x="336" y="349">shell</text>
+<path class="bracket" d="M414 326V332H542V326"/>
+<text class="muted small mid" x="478" y="349">hole</text>
+<path class="bracket" d="M556 326V332H684V326"/>
+<text class="muted small mid" x="620" y="349">2nd polygon</text>
+<path class="bracket t0" d="M130 362V368H258V362"/>
+<text class="t0 bold" x="130" y="383">feature 0</text>
+<path class="bracket t1" d="M272 362V368H684V362"/>
+<text class="t1 bold" x="272" y="383">feature 1</text>
 </svg>
