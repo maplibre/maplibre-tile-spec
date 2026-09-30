@@ -23,7 +23,7 @@ Coordinates inside a tile are not longitude and latitude.
 Each tile declares an `extent`, and geometry coordinates are signed integers on the `0..=extent` grid, relative to the tile's own corner.
 The client maps the grid onto the screen using the tile's `z/x/y` address.
 
-Integer coordinates compress well, since neighbouring vertices differ by small numbers.
+Integer coordinates compress well, since neighboring vertices differ by small numbers.
 
 `4096` is the conventional extent and the encoder default.
 A larger extent gives more precision and costs more bytes.

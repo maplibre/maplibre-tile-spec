@@ -346,7 +346,7 @@ $e$ is at most $18$ so that $v \cdot 10^e$ fits in an `i64`.
 
 !!! NOTE
     The reference Rust encoder currently only emits scaled integers with $|i| \le 2^{53} - 1$, where consecutive doubles are at most $1$ apart.
-    Beyond that, floating-point scaling can land on a neighbouring integer that still passes its own round-trip check.
+    Beyond that, floating-point scaling can land on a neighboring integer that still passes its own round-trip check.
     This is a limitation of that implementation, not of the format.
 
 ```
@@ -393,7 +393,7 @@ Each value MUST be valid UTF-8.
 
 ### Front Coding <span class="experimental"></span> {#front-coding}
 
-Neighbouring entries of a sorted dictionary often share a prefix, for example `Main Street`, `Main Street North` and `Maple Avenue`.
+Neighboring entries of a sorted dictionary often share a prefix, for example `Main Street`, `Main Street North` and `Maple Avenue`.
 Front coding stores the length of the prefix shared with the previous entry, and only the suffix bytes.
 
 [See `props_str_front_dict_np.mlt` in the inspector](inspector/app/?fixture=0x02%2Fprops_str_front_dict_np.mlt&at=column%5B0%5D){target=_blank} - a dictionary whose entries share prefixes.
@@ -553,7 +553,7 @@ An offset at or past the dictionary's vertex count MUST be rejected.
 
 #### Hilbert Order
 
-Encoders SHOULD sort the dictionary along a Hilbert curve, so that the deltas between neighbouring entries stay short.
+Encoders SHOULD sort the dictionary along a Hilbert curve, so that the deltas between neighboring entries stay short.
 The order is not part of the format.
 A decoder resolves vertices through `VertexOffsets` and never depends on it.
 
