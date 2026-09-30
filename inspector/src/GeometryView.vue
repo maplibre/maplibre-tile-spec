@@ -374,7 +374,8 @@ canvas {
 .tip {
   position: fixed;
   z-index: 2;
-  max-width: 22rem;
+  /* Wide enough for the docs table, but never wider than the window it is pinned over. */
+  max-width: min(30rem, calc(100vw - 2rem));
   /* The placement caps the height to the room beside the pointer; the rest scrolls. */
   overflow: auto;
   border: 1px solid var(--line);
