@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="https://maplibre.org/favicon.ico">
-      <meta name="generator" content="zensical-0.0.66">
+      <meta name="generator" content="zensical-0.0.67">
     
     
       
@@ -34,12 +34,12 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.1502b751.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.4ae390e2.min.css">
       
         
           
         
-        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.812a03bb.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.96d1a7e4.min.css">
       
       
 
@@ -66,7 +66,19 @@
 
     
     
-  </head>
+  <meta property="og:type" content="website" />
+<meta property="og:title" content="MLT v2 (experimental) - MapLibre Tile Specification" />
+<meta property="og:description" content="MapLibre Tile Specification" />
+<meta property="og:image" content="https://maplibre.org/maplibre-tile-spec/assets/images/social/specification/v2.png" />
+<meta property="og:image:type" content="image/png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:url" content="https://maplibre.org/maplibre-tile-spec/specification/v2/" />
+<meta property="twitter:card" content="summary_large_image" />
+<meta property="twitter:title" content="MLT v2 (experimental) - MapLibre Tile Specification" />
+<meta property="twitter:description" content="MapLibre Tile Specification" />
+<meta property="twitter:image" content="https://maplibre.org/maplibre-tile-spec/assets/images/social/specification/v2.png" />
+</head>
   
   
     
@@ -1034,6 +1046,7 @@
               <article class="md-content__inner md-typeset">
                 
                   
+
   
     <a href="https://github.com/maplibre/maplibre-tile-spec/edit/main/docs/specification/v2.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
@@ -1175,6 +1188,7 @@ A v2 layer decodes into the same in-memory representation as a v1 layer.</p>
 <p>Unchanged from <a href="../v1/#tile-layout">v1</a>.
 A tile is a concatenation of tagged layer records.
 A v2 layer has <code>tag = 0x02</code>.</p>
+<p><a href="../../inspector/app/?fixture=0x02%2Fpoint.mlt&amp;at=size" target="_blank">See <code>point.mlt</code> in the inspector</a> - a single <code>Point</code>, the smallest tile in the corpus at 17 bytes.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>tile   := layer*
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>layer  := [varint size] [u8 tag] [u8 body[size - 1]]
 </span></code></pre></div>
@@ -1221,6 +1235,7 @@ See <a href="#value-count">Value Count</a>.</p>
 <p>Every field here is one a decoder needs before it can read anything the layer sizes itself by.</p>
 <h4 id="extent">Extent<a class="headerlink" href="#extent" title="Link to this section">&para;</a></h4>
 <p>v2 stores only power-of-two extents, so the nibble holds <code>log2(extent) - 6</code>:</p>
+<p><a href="../../inspector/app/?fixture=0x02%2Fextent_512.mlt&amp;at=header" target="_blank">See <code>extent_512.mlt</code> in the inspector</a> - the extent nibble coding <code>512</code>.</p>
 <table>
 <thead>
 <tr>
@@ -1266,19 +1281,21 @@ An encoder given an extent v2 cannot code MUST reject the layer rather than roun
 </tr>
 </tbody>
 </table>
+<p><a href="../../inspector/app/?fixture=0x02%2Fpoint.mlt&amp;at=header" target="_blank">See <code>point.mlt</code> in the inspector</a> - every feature is a <code>Point</code>, so no types stream is written.</p>
 <p>To potimise for the common case of uniform geometries per layer, we allow skipping to write the respective metadata.
 MUST agree with the topology the <a href="#geometry-layout">geometry layout</a> declares.</p>
 <h3 id="column-counts">Column Counts<a class="headerlink" href="#column-counts" title="Link to this section">&para;</a></h3>
 <p>We have two kinds of cloumns, so we need to know how many colllumns of each type there are.</p>
+<p><a href="../../inspector/app/?fixture=0x02%2Fmvalues.mlt&amp;at=column_counts" target="_blank">See <code>mvalues.mlt</code> in the inspector</a> - a layer counting columns and m-values separately.</p>
 <p><code>column_count</code> is the number of ids and properties, not counting geometry or m-values.
 <code>m_value_count</code> is the number of <a href="#m-values">m-value columns</a>.</p>
-<p>To optimise the transfer size, if the header byte's m-value bit
+<p>To optimize the transfer size, if the header byte's m-value bit
 - is <code>0</code>, <code>column_counts</code> is <code>column_count</code> as a plain varint and <code>m_value_count</code> is <code>0</code>.
 - is <code>1</code>, <code>column_counts</code> is the Morton code of both counts as a varint.
   Bit <code>i</code> of <code>column_count</code> sits at bit <code>2i</code> and bit <code>i</code> of <code>m_value_count</code> at bit <code>2i + 1</code>.
   A layer with up to 15 counted columns and up to 7 m-value columns fits both counts in one byte.
   <code>m_value_count</code> MUST be non-zero when the bit is set, so a code whose odd bits are all clear MUST be rejected.</p>
-<p>Visualised, this is:</p>
+<p>Visualized, this is:</p>
 <table>
 <thead>
 <tr>
@@ -1368,6 +1385,7 @@ A column present over one run of features, or on a handful of them, carries far 
 Decoders MUST reject run lengths that do not sum to <code>N</code>, a <code>K</code> greater than <code>N</code>, and indices that do not strictly increase or that reach <code>N</code>.</p>
 <h3 id="shared-presence-fields">Shared Presence Fields<a class="headerlink" href="#shared-presence-fields" title="Link to this section">&para;</a></h3>
 <p>Several columns MAY reference the same presence field.</p>
+<p><a href="../../inspector/app/?fixture=0x02%2Fprops_sp.mlt&amp;at=shared_presence" target="_blank">See <code>props_sp.mlt</code> in the inspector</a> - two columns referencing one shared field.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>shared_presence := [u8 coding]   only when the layout byte's coding flag is set; 1, 2 or 3, see Presence Codings
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>                   [payload]     per that coding, self-delimiting
 </span></code></pre></div>
@@ -1422,10 +1440,12 @@ Each stream's role is given by its position.</p>
 </tr>
 </tbody>
 </table>
+<p><a href="../../inspector/app/?fixture=0x02%2Fmix_6_pt_line_poly_mpt_mline_mpoly.mlt&amp;at=types" target="_blank">See <code>mix_6_pt_line_poly_mpt_mline_mpoly.mlt</code> in the inspector</a> - all six kinds in one layer, so the types stream carries each.</p>
 <p>The types stream holds one of these per feature.
 A layer whose features all share one writes the <a href="#uniform-geometry-type">uniform geometry type</a> nibble instead.</p>
 <h3 id="geometry-layout">Geometry Layout<a class="headerlink" href="#geometry-layout" title="Link to this section">&para;</a></h3>
 <p>The low nibble of the layer layout byte:</p>
+<p><a href="../../inspector/app/?fixture=0x02%2Fpoly.mlt&amp;at=layout" target="_blank">See <code>poly.mlt</code> in the inspector</a> - the <code>Polygons</code> layout: part and ring lengths, no vertex offsets.</p>
 <table>
 <thead>
 <tr>
@@ -1514,6 +1534,7 @@ A tessellated layer that needs only some of the outline streams uses <code>0xD</
 <p>The meaning of the topology streams, the length threshold rules, componentwise delta coding, Hilbert-sorted vertex dictionaries and Morton codes are unchanged from <a href="../v1/#geometry-column">v1</a>.</p>
 <h3 id="tessellation">Tessellation<a class="headerlink" href="#tessellation" title="Link to this section">&para;</a></h3>
 <p>A tessellated layer stores the triangles its polygons were cut into, next to their vertices.</p>
+<p><a href="../../inspector/app/?fixture=0x02%2Fpoly_tri.mlt&amp;at=tri_lengths" target="_blank">See <code>poly_tri.mlt</code> in the inspector</a> - one polygon cut into triangles, with no outlines.</p>
 <p>Two streams carry the triangles:</p>
 <ul>
 <li><strong>Triangle lengths</strong> hold one triangle count per polygon feature, in feature order.
@@ -1528,8 +1549,6 @@ An index MUST name a vertex of the layer.</p>
 <p>A feature's triangles are one contiguous run of the index buffer.
 Feature <code>i</code> starts at three times the sum of the triangle lengths before it, and spans three times its own length.</p>
 <p>A tessellated layer either stores only the triangles (<code>0xC</code>) or keeps the outlines next to them (<code>0xD</code>).</p>
-<details class="example">
-<summary>Example</summary>
 <p>A <code>Polygon</code> triangle, then a <code>MultiPolygon</code> of a polygon with a hole and a second triangle, from <a href="#examples"><code>mix_2_poly_mpoly_tes</code></a>.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:4"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Triangles</label><label for="__tabbed_1_2">Streams</label><label for="__tabbed_1_3">v1 and v2</label><label for="__tabbed_1_4">Values</label></div>
 <div class="tabbed-content">
@@ -1586,109 +1605,168 @@ Feature <code>i</code> starts at three times the sum of the triangle lengths bef
 </svg></p>
 </div>
 <div class="tabbed-block">
-<p><svg class="mlt-diagram" viewBox="0 0 710 362" role="img" aria-label="Triangle lengths point into the index buffer, whose entries point at layer vertices" xmlns="http://www.w3.org/2000/svg">
-<defs><marker id="tess-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker></defs><defs><marker id="tess-arrow1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
-<text class="row" x="0" y="54">lengths</text>
-<rect class="f0" x="126" y="40" width="28" height="28" rx="3"/>
-<text class="cell" x="140" y="54">1</text>
-<path class="link" d="M140 68V114" marker-end="url(#tess-arrow)"/>
-<text class="muted small" x="147" y="96">3 × 0</text>
-<rect class="f1" x="198" y="40" width="28" height="28" rx="3"/>
-<text class="cell" x="212" y="54">7</text>
-<path class="link" d="M212 68V114" marker-end="url(#tess-arrow)"/>
-<text class="muted small" x="219" y="96">3 × 1</text>
-<text class="row" x="0" y="134">index buffer</text>
-<rect class="f0" x="130" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="140" y="134">1</text>
-<rect class="f0" x="152" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="162" y="134">0</text>
-<rect class="f0" x="174" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="184" y="134">2</text>
-<rect class="f1" x="202" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="212" y="134">3</text>
-<rect class="f1" x="224" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="234" y="134">6</text>
-<rect class="f1" x="246" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="256" y="134">8</text>
-<rect class="f1" x="274" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="284" y="134">7</text>
-<rect class="f1" x="296" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="306" y="134">6</text>
-<rect class="f1" x="318" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="328" y="134">3</text>
-<rect class="f1" x="346" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="356" y="134">4</text>
-<rect class="f1" x="368" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="378" y="134">3</text>
-<rect class="f1" x="390" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="400" y="134">8</text>
-<rect class="f1" x="418" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="428" y="134">7</text>
-<rect class="f1" x="440" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="450" y="134">3</text>
-<rect class="f1" x="462" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="472" y="134">5</text>
-<rect class="f1" x="490" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="500" y="134">5</text>
-<rect class="f1" x="512" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="522" y="134">4</text>
-<rect class="f1" x="534" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="544" y="134">8</text>
-<rect class="f1" x="562" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="572" y="134">8</text>
-<rect class="f1" x="584" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="594" y="134">7</text>
-<rect class="f1" x="606" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="616" y="134">5</text>
-<rect class="f1" x="634" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="644" y="134">10</text>
-<rect class="f1" x="656" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="666" y="134">9</text>
-<rect class="f1" x="678" y="120" width="20" height="28" rx="3"/>
-<text class="cell" x="688" y="134">11</text>
-<rect class="pick" x="199" y="117" width="70" height="34" rx="5"/>
-<path class="link t1" d="M212 151C212 205 292 205 292 256" marker-end="url(#tess-arrow1)"/>
-<path class="link t1" d="M234 151C234 205 434 205 434 256" marker-end="url(#tess-arrow1)"/>
-<path class="link t1" d="M256 151C256 205 522 205 522 256" marker-end="url(#tess-arrow1)"/>
-<rect class="pick" x="631" y="117" width="70" height="34" rx="5"/>
-<path class="link t1" d="M644 151C644 205 620 205 620 256" marker-end="url(#tess-arrow1)"/>
-<path class="link t1" d="M666 151C666 205 576 205 576 256" marker-end="url(#tess-arrow1)"/>
-<path class="link t1" d="M688 151C688 205 664 205 664 256" marker-end="url(#tess-arrow1)"/>
-<text class="row" x="0" y="274">vertices</text>
-<rect class="f0" x="130" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="150" y="274">0</text>
-<rect class="f0" x="174" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="194" y="274">1</text>
-<rect class="f0" x="218" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="238" y="274">2</text>
-<rect class="f1" x="272" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="292" y="274">3</text>
-<rect class="f1" x="316" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="336" y="274">4</text>
-<rect class="f1" x="360" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="380" y="274">5</text>
-<rect class="f1" x="414" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="434" y="274">6</text>
-<rect class="f1" x="458" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="478" y="274">7</text>
-<rect class="f1" x="502" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="522" y="274">8</text>
-<rect class="f1" x="556" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="576" y="274">9</text>
-<rect class="f1" x="600" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="620" y="274">10</text>
-<rect class="f1" x="644" y="260" width="40" height="28" rx="3"/>
-<text class="cell" x="664" y="274">11</text>
-<path class="bracket" d="M272 294V300H400V294"/>
-<text class="muted small mid" x="336" y="316">shell</text>
-<path class="bracket" d="M414 294V300H542V294"/>
-<text class="muted small mid" x="478" y="316">hole</text>
-<path class="bracket" d="M556 294V300H684V294"/>
-<text class="muted small mid" x="620" y="316">2nd polygon</text>
-<path class="bracket t0" d="M130 330V336H258V330"/>
-<text class="t0 bold" x="130" y="350">feature 0</text>
-<path class="bracket t1" d="M272 330V336H684V330"/>
-<text class="t1 bold" x="272" y="350">feature 1</text>
+<p><svg class="mlt-diagram" viewBox="0 0 710 632" role="img" aria-label="The two features and their triangles, then triangle lengths pointing into the index buffer, whose entries name x,y vertices of the layer" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="tess-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker></defs>
+<defs><marker id="tess-arrow1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<polygon class="f0" points="192.5,227 165.5,20 345.5,173"/>
+<polygon class="f1" points="400.5,119 472.5,119 499.5,164"/>
+<polygon class="f1" points="517.5,74 472.5,119 400.5,119"/>
+<polygon class="f1" points="526.5,218 400.5,119 499.5,164"/>
+<polygon class="f1" points="517.5,74 400.5,119 571.5,20"/>
+<polygon class="f1" points="571.5,20 526.5,218 499.5,164"/>
+<polygon class="f1" points="499.5,164 517.5,74 571.5,20"/>
+<polygon class="f1" points="644.5,101 626.5,20 662.5,83"/>
+<circle class="dot" cx="165.5" cy="20" r="3.5"/>
+<text class="vert halo" x="158.5" y="8">0</text>
+<circle class="dot" cx="192.5" cy="227" r="3.5"/>
+<text class="vert halo" x="186.5" y="240">1</text>
+<circle class="dot" cx="345.5" cy="173" r="3.5"/>
+<text class="vert halo" x="358.5" y="177">2</text>
+<circle class="dot" cx="400.5" cy="119" r="3.5"/>
+<text class="vert halo" x="386.5" y="119">3</text>
+<circle class="dot" cx="526.5" cy="218" r="3.5"/>
+<text class="vert halo" x="530.5" y="232">4</text>
+<circle class="dot" cx="571.5" cy="20" r="3.5"/>
+<text class="vert halo" x="579.5" y="9">5</text>
+<circle class="dot" cx="472.5" cy="119" r="3.5"/>
+<text class="vert halo" x="458.5" y="119">6</text>
+<circle class="dot" cx="517.5" cy="74" r="3.5"/>
+<text class="vert halo" x="523.5" y="61">7</text>
+<circle class="dot" cx="499.5" cy="164" r="3.5"/>
+<text class="vert halo" x="500.5" y="178">8</text>
+<circle class="dot" cx="626.5" cy="20" r="3.5"/>
+<text class="vert halo" x="621.5" y="7">9</text>
+<circle class="dot" cx="644.5" cy="101" r="3.5"/>
+<text class="vert halo" x="644.5" y="115">10</text>
+<circle class="dot" cx="662.5" cy="83" r="3.5"/>
+<text class="vert halo" x="673.5" y="92">11</text>
+<text class="row" x="0" y="290">lengths</text>
+<rect class="f0" x="126" y="276" width="28" height="28" rx="3"/>
+<text class="cell" x="140" y="290">1</text>
+<path class="link" d="M140 304V350" marker-end="url(#tess-arrow)"/>
+<text class="muted small" x="147" y="332">3 × 1</text>
+<rect class="f1" x="198" y="276" width="28" height="28" rx="3"/>
+<text class="cell" x="212" y="290">7</text>
+<path class="link" d="M212 304V350" marker-end="url(#tess-arrow)"/>
+<text class="muted small" x="219" y="332">3 × 7</text>
+<text class="row" x="0" y="370">index buffer</text>
+<rect class="f0" x="130" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="140" y="370">1</text>
+<rect class="f0" x="152" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="162" y="370">0</text>
+<rect class="f0" x="174" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="184" y="370">2</text>
+<rect class="f1" x="202" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="212" y="370">3</text>
+<rect class="f1" x="224" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="234" y="370">6</text>
+<rect class="f1" x="246" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="256" y="370">8</text>
+<rect class="f1" x="274" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="284" y="370">7</text>
+<rect class="f1" x="296" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="306" y="370">6</text>
+<rect class="f1" x="318" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="328" y="370">3</text>
+<rect class="f1" x="346" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="356" y="370">4</text>
+<rect class="f1" x="368" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="378" y="370">3</text>
+<rect class="f1" x="390" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="400" y="370">8</text>
+<rect class="f1" x="418" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="428" y="370">7</text>
+<rect class="f1" x="440" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="450" y="370">3</text>
+<rect class="f1" x="462" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="472" y="370">5</text>
+<rect class="f1" x="490" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="500" y="370">5</text>
+<rect class="f1" x="512" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="522" y="370">4</text>
+<rect class="f1" x="534" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="544" y="370">8</text>
+<rect class="f1" x="562" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="572" y="370">8</text>
+<rect class="f1" x="584" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="594" y="370">7</text>
+<rect class="f1" x="606" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="616" y="370">5</text>
+<rect class="f1" x="634" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="644" y="370">10</text>
+<rect class="f1" x="656" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="666" y="370">9</text>
+<rect class="f1" x="678" y="356" width="20" height="28" rx="3"/>
+<text class="cell" x="688" y="370">11</text>
+<rect class="pick" x="199" y="353" width="70" height="34" rx="5"/>
+<path class="link t1" d="M212 387C212 441 292 441 292 492" marker-end="url(#tess-arrow1)"/>
+<path class="link t1" d="M234 387C234 441 434 441 434 492" marker-end="url(#tess-arrow1)"/>
+<path class="link t1" d="M256 387C256 441 522 441 522 492" marker-end="url(#tess-arrow1)"/>
+<rect class="pick" x="631" y="353" width="70" height="34" rx="5"/>
+<path class="link t1" d="M644 387C644 441 620 441 620 492" marker-end="url(#tess-arrow1)"/>
+<path class="link t1" d="M666 387C666 441 576 441 576 492" marker-end="url(#tess-arrow1)"/>
+<path class="link t1" d="M688 387C688 441 664 441 664 492" marker-end="url(#tess-arrow1)"/>
+<text class="row" x="0" y="516">vertices</text>
+<text class="muted small" x="122" y="510" text-anchor="end">x</text>
+<text class="muted small" x="122" y="524" text-anchor="end">y</text>
+<rect class="f0" x="130" y="496" width="40" height="40" rx="3"/>
+<text class="cell small" x="150" y="510">55</text>
+<text class="cell small" x="150" y="524">5</text>
+<text class="muted small mid" x="150" y="550">0</text>
+<rect class="f0" x="174" y="496" width="40" height="40" rx="3"/>
+<text class="cell small" x="194" y="510">58</text>
+<text class="cell small" x="194" y="524">28</text>
+<text class="muted small mid" x="194" y="550">1</text>
+<rect class="f0" x="218" y="496" width="40" height="40" rx="3"/>
+<text class="cell small" x="238" y="510">75</text>
+<text class="cell small" x="238" y="524">22</text>
+<text class="muted small mid" x="238" y="550">2</text>
+<rect class="f1" x="272" y="496" width="40" height="40" rx="3"/>
+<text class="cell small" x="292" y="510">7</text>
+<text class="cell small" x="292" y="524">20</text>
+<text class="muted small mid" x="292" y="550">3</text>
+<rect class="f1" x="316" y="496" width="40" height="40" rx="3"/>
+<text class="cell small" x="336" y="510">21</text>
+<text class="cell small" x="336" y="524">31</text>
+<text class="muted small mid" x="336" y="550">4</text>
+<rect class="f1" x="360" y="496" width="40" height="40" rx="3"/>
+<text class="cell small" x="380" y="510">26</text>
+<text class="cell small" x="380" y="524">9</text>
+<text class="muted small mid" x="380" y="550">5</text>
+<rect class="f1" x="414" y="496" width="40" height="40" rx="3"/>
+<text class="cell small" x="434" y="510">15</text>
+<text class="cell small" x="434" y="524">20</text>
+<text class="muted small mid" x="434" y="550">6</text>
+<rect class="f1" x="458" y="496" width="40" height="40" rx="3"/>
+<text class="cell small" x="478" y="510">20</text>
+<text class="cell small" x="478" y="524">15</text>
+<text class="muted small mid" x="478" y="550">7</text>
+<rect class="f1" x="502" y="496" width="40" height="40" rx="3"/>
+<text class="cell small" x="522" y="510">18</text>
+<text class="cell small" x="522" y="524">25</text>
+<text class="muted small mid" x="522" y="550">8</text>
+<rect class="f1" x="556" y="496" width="40" height="40" rx="3"/>
+<text class="cell small" x="576" y="510">69</text>
+<text class="cell small" x="576" y="524">57</text>
+<text class="muted small mid" x="576" y="550">9</text>
+<rect class="f1" x="600" y="496" width="40" height="40" rx="3"/>
+<text class="cell small" x="620" y="510">71</text>
+<text class="cell small" x="620" y="524">66</text>
+<text class="muted small mid" x="620" y="550">10</text>
+<rect class="f1" x="644" y="496" width="40" height="40" rx="3"/>
+<text class="cell small" x="664" y="510">73</text>
+<text class="cell small" x="664" y="524">64</text>
+<text class="muted small mid" x="664" y="550">11</text>
+<path class="bracket" d="M272 562V568H400V562"/>
+<text class="muted small mid" x="336" y="585">shell</text>
+<path class="bracket" d="M414 562V568H542V562"/>
+<text class="muted small mid" x="478" y="585">hole</text>
+<path class="bracket" d="M556 562V568H684V562"/>
+<text class="muted small mid" x="620" y="585">2nd polygon</text>
+<path class="bracket t0" d="M130 598V604H258V598"/>
+<text class="t0 bold" x="130" y="619">feature 0</text>
+<path class="bracket t1" d="M272 598V604H684V598"/>
+<text class="t1 bold" x="272" y="619">feature 1</text>
 </svg></p>
 </div>
 <div class="tabbed-block">
@@ -1908,7 +1986,6 @@ Feature <code>i</code> starts at three times the sum of the triangle lengths bef
 </div>
 </div>
 </div>
-</details>
 <details class="note">
 <summary>Converting from v1</summary>
 <p><a href="../v1/#tessellation-data-optional">v1</a> counts each index from the first vertex of its own feature instead.
@@ -1958,8 +2035,6 @@ The index buffer is the only reader of the vertex stream, so a vertex belongs to
 Each polygon is a single ring: the triangle's three vertices in index order, then the first one again to close it.
 A <code>Polygon</code> feature decodes as a <code>MultiPolygon</code> too, since its shell and holes are not stored.
 A feature with a triangle count of <code>0</code>, such as a polygon whose vertices are collinear, decodes as an empty <code>MultiPolygon</code>.</p>
-<details class="example">
-<summary>Example</summary>
 <p><svg class="mlt-diagram" viewBox="0 0 710 552" role="img" aria-label="Feature 1 of mix_2_poly_mpoly_tri filled and stroked under TessPolygonsWithOutlines and under TessPolygons" xmlns="http://www.w3.org/2000/svg">
 <text class="t1 bold" x="40" y="14">0xD<tspan class="muted"> · with outlines</tspan></text>
 <text class="t1 bold" x="420" y="14">0xC<tspan class="muted"> · without outlines</tspan></text>
@@ -1970,18 +2045,16 @@ A feature with a triangle count of <code>0</code>, such as a polygon whose verti
 <path class="line" d="M40,437.6L174.4,543.2L222.4,332ZM116.8,437.6L164.8,389.6L145.6,485.6ZM264,332L283.2,418.4L302.4,399.2Z"/>
 <path class="line" d="M420,437.6L496.8,437.6L525.6,485.6ZM544.8,389.6L496.8,437.6L420,437.6ZM554.4,543.2L420,437.6L525.6,485.6ZM544.8,389.6L420,437.6L602.4,332ZM602.4,332L554.4,543.2L525.6,485.6ZM525.6,485.6L544.8,389.6L602.4,332ZM663.2,418.4L644,332L682.4,399.2Z"/>
 </svg></p>
-</details>
 <p>A decoder cannot stroke an outline, count a feature's vertices, or rebuild the geometry the encoder was given.
 That is why <code>0xC</code> cannot carry <a href="#m-values">m-values</a>.</p>
 </div>
 <div class="tabbed-block">
+<p><a href="../../inspector/app/?fixture=0x02%2Fpoly_tes.mlt&amp;at=tri_lengths" target="_blank">See <code>poly_tes.mlt</code> in the inspector</a> - the same polygon keeping its outline beside the triangles.</p>
 <p><code>0xD</code> keeps the full outline topology next to the triangles.
 Each feature decodes as the geometry it was encoded from, and the triangles come on top.</p>
 <p>The vertex stream is the outline vertices, in feature order, as the topology streams lay them out.
 A ring's closing vertex is not stored, so no index names it.
 A feature that is not a polygon stores no triangle count and owns no run of the index buffer.</p>
-<details class="example">
-<summary>Example</summary>
 <p><svg class="mlt-diagram" viewBox="0 0 710 552" role="img" aria-label="Feature 1 of mix_2_poly_mpoly_tri filled and stroked under TessPolygonsWithOutlines and under TessPolygons" xmlns="http://www.w3.org/2000/svg">
 <text class="t1 bold" x="40" y="14">0xD<tspan class="muted"> · with outlines</tspan></text>
 <text class="t1 bold" x="420" y="14">0xC<tspan class="muted"> · without outlines</tspan></text>
@@ -1992,7 +2065,6 @@ A feature that is not a polygon stores no triangle count and owns no run of the 
 <path class="line" d="M40,437.6L174.4,543.2L222.4,332ZM116.8,437.6L164.8,389.6L145.6,485.6ZM264,332L283.2,418.4L302.4,399.2Z"/>
 <path class="line" d="M420,437.6L496.8,437.6L525.6,485.6ZM544.8,389.6L496.8,437.6L420,437.6ZM554.4,543.2L420,437.6L525.6,485.6ZM544.8,389.6L420,437.6L602.4,332ZM602.4,332L554.4,543.2L525.6,485.6ZM525.6,485.6L544.8,389.6L602.4,332ZM663.2,418.4L644,332L682.4,399.2Z"/>
 </svg></p>
-</details>
 <p>A layer needs <code>0xD</code> to stroke its polygon outlines, to hold anything but polygons, or to carry <a href="#m-values">m-values</a>.</p>
 </div>
 </div>
@@ -2007,6 +2079,7 @@ A feature that is not a polygon stores no triangle count and owns no run of the 
 <p>An inline presence field is written in the <a href="#presence-codings">coding</a> its nibble names.</p>
 <h3 id="column-names">Column Names<a class="headerlink" href="#column-names" title="Link to this section">&para;</a></h3>
 <p>A layer has one namespace of column names, so a name identifies exactly one column of it and a style expression such as <code>["get", "foo"]</code> resolves to that column:</p>
+<p><a href="../../inspector/app/?fixture=0x02%2Fprop_i32.mlt&amp;at=column%5B0%5D" target="_blank">See <code>prop_i32.mlt</code> in the inspector</a> - one named <code>i32</code> column.</p>
 <table>
 <thead>
 <tr>
@@ -2148,6 +2221,7 @@ A <a href="#struct-nodes">struct</a> field name and a <a href="#map-nodes">map</
 </tr>
 </tbody>
 </table>
+<p><a href="../../inspector/app/?fixture=0x02%2Fprops_mixed_np.mlt" target="_blank">See <code>props_mixed_np.mlt</code> in the inspector</a> - seven of the data types in one layer.</p>
 <p>There are no nullable variants of these codes.
 Nullability is given by the presence nibble.
 There is no geometry code, since the geometry column is not a counted column.</p>
@@ -2179,15 +2253,18 @@ There is no geometry code, since the geometry column is not a counted column.</p
 </tr>
 </tbody>
 </table>
+<p><a href="../../inspector/app/?fixture=0x02%2Fprop_i32.mlt&amp;at=present" target="_blank">See <code>prop_i32.mlt</code> in the inspector</a> - an optional column, so the nibble names an inline bitmap.</p>
 <p>The coding rides in the nibble rather than in a byte of its own because a bitmap is still the right answer for most columns, and a tag byte would charge every one of those for the two that are not.</p>
 <p>A shared reference at or past the count in the layout byte MUST be rejected.</p>
 <p>The presence nibble determines the column's value count: <code>feature_count</code> for nibble <code>0</code>, otherwise the number of present values the field names.</p>
 <h3 id="scalar-columns">Scalar Columns<a class="headerlink" href="#scalar-columns" title="Link to this section">&para;</a></h3>
 <p>Boolean, integer and id columns have a single data stream.</p>
+<p><a href="../../inspector/app/?fixture=0x02%2Fprop_i32_delta_np.mlt&amp;at=column%5B0%5D" target="_blank">See <code>prop_i32_delta_np.mlt</code> in the inspector</a> - a non-optional <code>i32</code> column.</p>
 <p>A float or double column has a single data stream, unless its logical encoding is <code>Dict</code>.
 A <code>Dict</code> float column has a second stream holding the distinct values that the first stream's codes index into.</p>
 <h3 id="string-columns">String Columns<a class="headerlink" href="#string-columns" title="Link to this section">&para;</a></h3>
 <p>The extension bits of the leading stream's encoding byte give the column's layout:</p>
+<p><a href="../../inspector/app/?fixture=0x02%2Fprop_str_empty_np.mlt&amp;at=column%5B0%5D" target="_blank">See <code>prop_str_empty_np.mlt</code> in the inspector</a> - a plain string column.</p>
 <table>
 <thead>
 <tr>
@@ -2225,6 +2302,7 @@ When the <code>DictValues</code> or <code>Corpus</code> stream's encoding byte n
 <h3 id="shared-dictionary-columns">Shared Dictionary Columns<a class="headerlink" href="#shared-dictionary-columns" title="Link to this section">&para;</a></h3>
 <p>Data type <code>0xF</code> introduces a dictionary followed by the columns that index into it.
 Its high nibble gives the dictionary kind instead of a presence:</p>
+<p><a href="../../inspector/app/?fixture=0x02%2Fprops_shared_dict_sp.mlt&amp;at=column%5B0%5D" target="_blank">See <code>props_shared_dict_sp.mlt</code> in the inspector</a> - child columns reading one dictionary.</p>
 <table>
 <thead>
 <tr>
@@ -2393,6 +2471,7 @@ A byte blob is the exception it always is: bit 7 MUST be <code>0</code> and its 
 <p>A nested column MUST NOT nest more than 8 levels deep, counting the root as the first.</p>
 <h4 id="struct-nodes">Struct Nodes<a class="headerlink" href="#struct-nodes" title="Link to this section">&para;</a></h4>
 <p><code>0xC</code>. A fixed set of named, individually typed fields.</p>
+<p><a href="../../inspector/app/?fixture=0x02%2Fnested_struct.mlt&amp;at=column%5B0%5D" target="_blank">See <code>nested_struct.mlt</code> in the inspector</a> - a struct column with two leaves.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>struct_body := [varint field_count]      non-zero
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>               field * field_count
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>field       := [u8 node_type]
@@ -2405,6 +2484,7 @@ Field names MUST be unique within their struct.
 A field present on every value of its struct stores no presence at all, which is what makes a struct the cheap shredding of a stable key set: the key is paid for once, in the tree.</p>
 <h4 id="list-nodes">List Nodes<a class="headerlink" href="#list-nodes" title="Link to this section">&para;</a></h4>
 <p><code>0xD</code>. A repeated value of one type.</p>
+<p><a href="../../inspector/app/?fixture=0x02%2Fnested_list_struct.mlt&amp;at=column%5B0%5D" target="_blank">See <code>nested_list_struct.mlt</code> in the inspector</a> - a list of structs.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>list_body := [lengths stream]            Int family, one length per present list
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>             [u8 node_type]              the element node
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>             [presence stream]           only when the node presence nibble is 1
@@ -2415,6 +2495,7 @@ The element node has no name.</p>
 <p>A list that is null and a list that is empty are different: a null list has its presence bit clear and no length, an empty list has its presence bit set and a length of <code>0</code>.</p>
 <h4 id="map-nodes">Map Nodes<a class="headerlink" href="#map-nodes" title="Link to this section">&para;</a></h4>
 <p><code>0xE</code>. String keys chosen per value, over one value type.</p>
+<p><a href="../../inspector/app/?fixture=0x02%2Fnested_map_str.mlt&amp;at=column%5B0%5D" target="_blank">See <code>nested_map_str.mlt</code> in the inspector</a> - a map with string values.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>map_body := [lengths stream]             Int family, one length per present map
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>            [key streams]                a string column's stream set, one key per entry
 </span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>            [u8 node_type]               the value node
@@ -2460,6 +2541,7 @@ It reads them against its own count, and is otherwise the same column.</p>
 </table>
 <h3 id="m-values">M-Values<a class="headerlink" href="#m-values" title="Link to this section">&para;</a></h3>
 <p>An m-value is a measurement taken at a vertex rather than at a feature:</p>
+<p><a href="../../inspector/app/?fixture=0x02%2Fmvalues.mlt&amp;at=m_value%5B0%5D" target="_blank">See <code>mvalues.mlt</code> in the inspector</a> - two m-value columns over the vertices.</p>
 <ul>
 <li>a distance along a road,</li>
 <li>a timestamp per GPS fix,</li>
@@ -2482,6 +2564,7 @@ An m-value column is not counted in <code>column_count</code>.</p>
 <p><code>Bool</code> through <code>String</code>, codes <code>0x2</code>-<code>0xB</code>, carry exactly the streams they carry as a property column.
 <code>0x0</code>, <code>0x1</code> and <code>0xC</code>-<code>0xF</code> are reserved and MUST be rejected.
 A vertex carries a measurement, not a structure.</p>
+<p><a href="../../inspector/app/?fixture=0x02%2Fmvalues.mlt" target="_blank">See <code>mvalues.mlt</code> in the inspector</a> - an <code>i32</code> and a <code>u32</code> m-value column.</p>
 <h4 id="the-vertex-sequence">The Vertex Sequence<a class="headerlink" href="#the-vertex-sequence" title="Link to this section">&para;</a></h4>
 <p>A layer's vertex sequence is every vertex of every feature, in feature order, as the <a href="#geometry-section">geometry section</a>'s topology streams lay them out.
 Each feature holds one contiguous run of it, of <code>vertex_count(f)</code> vertices.</p>
@@ -2801,6 +2884,8 @@ If you are building an decoder, the <code>.json</code> snapshot are what an deco
 <p>The same annotation can be produced for any tile with the <a href="https://github.com/maplibre/maplibre-tile-spec/blob/main/rust/mlt/README.md"><code>mlt</code> CLI</a>:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>mlt<span class="w"> </span>hexdump<span class="w"> </span>path/to/tile.mlt
 </span></code></pre></div>
+<details class="example">
+<summary>Annotated hexdumps</summary>
 <div class="tabbed-set tabbed-alternate" data-tabs="3:10"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><input id="__tabbed_3_3" name="__tabbed_3" type="radio" /><input id="__tabbed_3_4" name="__tabbed_3" type="radio" /><input id="__tabbed_3_5" name="__tabbed_3" type="radio" /><input id="__tabbed_3_6" name="__tabbed_3" type="radio" /><input id="__tabbed_3_7" name="__tabbed_3" type="radio" /><input id="__tabbed_3_8" name="__tabbed_3" type="radio" /><input id="__tabbed_3_9" name="__tabbed_3" type="radio" /><input id="__tabbed_3_10" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Minimal layer</label><label for="__tabbed_3_2">Polygon with a hole</label><label for="__tabbed_3_3">Triangles without outlines</label><label for="__tabbed_3_4">Shared presence</label><label for="__tabbed_3_5">String dictionary</label><label for="__tabbed_3_6">ALP floats</label><label for="__tabbed_3_7">M-values</label><label for="__tabbed_3_8">Nested struct</label><label for="__tabbed_3_9">Nested list</label><label for="__tabbed_3_10">Nested map</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
@@ -3460,6 +3545,7 @@ The lengths stream counts elements per feature, and it and every stream below it
 </div>
 </div>
 </div>
+</details>
 
 
 
@@ -3615,7 +3701,7 @@ The lengths stream counts elements per feature, and it and every stream below it
 </footer>
       
     </div>
-    <div class="md-dialog" data-md-component="dialog">
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
@@ -3629,10 +3715,10 @@ The lengths stream counts elements per feature, and it and every stream below it
       
         
         
-      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.code.copy","search.suggest","navigation.instant","navigation.instant.prefetch","navigation.instant.progress","navigation.path","navigation.tracking","navigation.tabs","navigation.tabs.sticky","navigation.sections","navigation.footer","navigation.top","content.action.edit","toc.follow","toc.integrate","header.autohide"],"redirect":null,"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.code.copy","search.suggest","navigation.instant","navigation.instant.prefetch","navigation.instant.progress","navigation.path","navigation.tracking","navigation.tabs","navigation.tabs.sticky","navigation.sections","navigation.footer","navigation.top","content.action.edit","toc.follow","toc.integrate","header.autohide"],"redirect":null,"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.b7d3f789.min.js"></script>
+      <script src="../../assets/javascripts/bundle.67a597eb.min.js"></script>
       
         <script src="../../assets/mathjax.js"></script>
       

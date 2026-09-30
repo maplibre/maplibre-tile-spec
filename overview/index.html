@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="https://maplibre.org/favicon.ico">
-      <meta name="generator" content="zensical-0.0.66">
+      <meta name="generator" content="zensical-0.0.67">
     
     
       
@@ -34,12 +34,12 @@
       
         
       
-      <link rel="stylesheet" href="../assets/stylesheets/modern/main.1502b751.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.4ae390e2.min.css">
       
         
           
         
-        <link rel="stylesheet" href="../assets/stylesheets/modern/palette.812a03bb.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/modern/palette.96d1a7e4.min.css">
       
       
 
@@ -66,7 +66,19 @@
 
     
     
-  </head>
+  <meta property="og:type" content="website" />
+<meta property="og:title" content="Overview - MapLibre Tile Specification" />
+<meta property="og:description" content="MapLibre Tile Specification" />
+<meta property="og:image" content="https://maplibre.org/maplibre-tile-spec/assets/images/social/overview.png" />
+<meta property="og:image:type" content="image/png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:url" content="https://maplibre.org/maplibre-tile-spec/overview/" />
+<meta property="twitter:card" content="summary_large_image" />
+<meta property="twitter:title" content="Overview - MapLibre Tile Specification" />
+<meta property="twitter:description" content="MapLibre Tile Specification" />
+<meta property="twitter:image" content="https://maplibre.org/maplibre-tile-spec/assets/images/social/overview.png" />
+</head>
   
   
     
@@ -630,6 +642,7 @@
               <article class="md-content__inner md-typeset">
                 
                   
+
   
     <a href="https://github.com/maplibre/maplibre-tile-spec/edit/main/docs/overview.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
@@ -661,7 +674,7 @@ Tiles are commonly stored in <a href="https://github.com/protomaps/PMTiles">PMTi
 <p>Coordinates inside a tile are not longitude and latitude.
 Each tile declares an <code>extent</code>, and geometry coordinates are signed integers on the <code>0..=extent</code> grid, relative to the tile's own corner.
 The client maps the grid onto the screen using the tile's <code>z/x/y</code> address.</p>
-<p>Integer coordinates compress well, since neighbouring vertices differ by small numbers.</p>
+<p>Integer coordinates compress well, since neighboring vertices differ by small numbers.</p>
 <p><code>4096</code> is the conventional extent and the encoder default.
 A larger extent gives more precision and costs more bytes.</p>
 <p>Coordinates MAY be negative or exceed <code>extent</code>.
@@ -996,7 +1009,7 @@ The supported vector types are:</p>
 </footer>
       
     </div>
-    <div class="md-dialog" data-md-component="dialog">
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
@@ -1010,10 +1023,10 @@ The supported vector types are:</p>
       
         
         
-      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["content.code.copy","search.suggest","navigation.instant","navigation.instant.prefetch","navigation.instant.progress","navigation.path","navigation.tracking","navigation.tabs","navigation.tabs.sticky","navigation.sections","navigation.footer","navigation.top","content.action.edit","toc.follow","toc.integrate","header.autohide"],"redirect":null,"search":"../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["content.code.copy","search.suggest","navigation.instant","navigation.instant.prefetch","navigation.instant.progress","navigation.path","navigation.tracking","navigation.tabs","navigation.tabs.sticky","navigation.sections","navigation.footer","navigation.top","content.action.edit","toc.follow","toc.integrate","header.autohide"],"redirect":null,"search":"../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../assets/javascripts/bundle.b7d3f789.min.js"></script>
+      <script src="../assets/javascripts/bundle.67a597eb.min.js"></script>
       
         <script src="../assets/mathjax.js"></script>
       
