@@ -1,0 +1,116 @@
+/* Spec diagrams, loaded by the docs site and by the inspector's docs panel alike.
+   Theme colors come from Material's variables, which the inspector maps onto its own. */
+.mlt-diagram {
+  --mlt-f0: #3f7ad6;
+  --mlt-f1: #e07a2e;
+  display: block;
+  width: 100%;
+  max-width: 36rem;
+  height: auto;
+  margin: 1em auto;
+  font-family: var(--md-code-font-family, monospace);
+  font-size: 13px;
+}
+.mlt-diagram text {
+  fill: var(--md-default-fg-color);
+  dominant-baseline: central;
+}
+.mlt-diagram .f0,
+.mlt-diagram .f1 {
+  fill-opacity: 0.2;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+.mlt-diagram .f0 {
+  fill: var(--mlt-f0);
+  stroke: var(--mlt-f0);
+}
+.mlt-diagram .f1 {
+  fill: var(--mlt-f1);
+  stroke: var(--mlt-f1);
+}
+.mlt-diagram .fill {
+  fill: var(--mlt-f1);
+  fill-opacity: 0.3;
+  stroke: none;
+}
+.mlt-diagram .line {
+  fill: none;
+  stroke: var(--mlt-f1);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+.mlt-diagram .plain {
+  fill: none;
+  stroke: var(--md-default-fg-color--lightest);
+}
+.mlt-diagram .implicit {
+  fill: none;
+  stroke: var(--md-default-fg-color--light);
+  stroke-dasharray: 3 3;
+}
+.mlt-diagram .cell,
+.mlt-diagram .tri,
+.mlt-diagram .vert,
+.mlt-diagram .mid {
+  text-anchor: middle;
+}
+.mlt-diagram .tri,
+.mlt-diagram .bold {
+  font-weight: 700;
+}
+.mlt-diagram text.t0,
+.mlt-diagram tspan.t0 {
+  fill: var(--mlt-f0);
+}
+.mlt-diagram text.t1,
+.mlt-diagram tspan.t1 {
+  fill: var(--mlt-f1);
+}
+.mlt-diagram .halo {
+  paint-order: stroke;
+  stroke: var(--md-default-bg-color);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+.mlt-diagram .dot {
+  fill: var(--md-default-fg-color);
+}
+.mlt-diagram .muted {
+  fill: var(--md-default-fg-color--light);
+}
+.mlt-diagram .small {
+  font-size: 11px;
+}
+.mlt-diagram .row {
+  font-weight: 700;
+}
+.mlt-diagram .link,
+.mlt-diagram .bracket {
+  fill: none;
+  stroke: var(--md-default-fg-color--light);
+  stroke-width: 1.25;
+}
+.mlt-diagram .link.t1 {
+  stroke: var(--mlt-f1);
+}
+.mlt-diagram .pick {
+  fill: none;
+  stroke: var(--mlt-f1);
+  stroke-width: 1.5;
+}
+.mlt-diagram .head {
+  fill: var(--md-default-fg-color--light);
+}
+.mlt-diagram .head.t1 {
+  fill: var(--mlt-f1);
+}
+.mlt-diagram .bracket.t0 {
+  stroke: var(--mlt-f0);
+}
+.mlt-diagram .bracket.t1 {
+  stroke: var(--mlt-f1);
+}
+.mlt-diagram tspan.fg {
+  fill: var(--md-default-fg-color);
+}

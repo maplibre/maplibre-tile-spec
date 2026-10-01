@@ -20,6 +20,8 @@ use mlt_core::wire::{
     StreamMeta, StreamType, StringLayout, VertexLogical,
 };
 use mlt_core::{Decoder, GeometryType, Layer, ParsedLayer, Parser, PropKind};
+#[cfg(feature = "unstable-v2")]
+use mlt_core::{ZStep, wire::XyzLogical};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use serde::Serialize;
 use size_format::SizeFormatterSI;
@@ -229,8 +231,21 @@ fn logical_token(logical: StatLogicalCodec) -> Option<&'static str> {
         StatLogicalCodec::MortonDelta => "morton-delta",
         StatLogicalCodec::Dict => "dict",
         StatLogicalCodec::Alp => "alp",
-        StatLogicalCodec::Xyz => "xyz",
     })
+}
+
+#[cfg(feature = "unstable-v2")]
+fn z_step_token(step: ZStep) -> &'static str {
+    match step.exponent() {
+        -3 => "1mm",
+        -2 => "1cm",
+        -1 => "1dm",
+        0 => "1m",
+        1 => "10m",
+        2 => "100m",
+        3 => "1km",
+        _ => "10km",
+    }
 }
 
 /// A type paired with whether the column declares a presence field
@@ -402,6 +417,9 @@ pub struct Facets {
     pub geometry: BTreeSet<&'static str>,
     /// The geometry section layout each layer was written with. v2 only.
     pub geom_layout: BTreeSet<&'static str>,
+    /// The step of the elevation a vertex stream carries, as the spec's table names it.
+    /// v2 only, and empty for a tile whose vertices are `(x, y)` pairs.
+    pub z_step: BTreeSet<&'static str>,
     /// Each feature-scoped column as a type paired with its nullability, `i32!` or
     /// `i32?`, the id column included.
     pub data_type: BTreeSet<&'static str>,
@@ -431,6 +449,13 @@ impl Facets {
         }
         if let Some(logical) = logical_token(logical) {
             self.logical.insert(logical);
+        }
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    fn add_z(&mut self, logical: LogicalEncoding) {
+        if let LogicalEncoding::Vertex(VertexLogical::Xyz(step, _)) = logical {
+            self.z_step.insert(z_step_token(step));
         }
     }
 
@@ -822,6 +847,7 @@ pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResu
             Layer::Tag02(l) => {
                 l.for_each_stream(&mut |stream_meta| {
                     stream_count += 1;
+                    facets.add_z(stream_meta.encoding.logical);
                     collect_stream_info(stream_meta, &mut algorithms);
                 });
                 l.for_each_column_storage(&mut |storage| facets.add_storage(storage));
@@ -961,8 +987,6 @@ pub enum StatLogicalCodec {
     MortonDelta,
     Dict,
     Alp,
-    /// Vertices of three coordinates, whatever codec they use.
-    Xyz,
 }
 
 impl From<LogicalEncoding> for StatLogicalCodec {
@@ -991,11 +1015,20 @@ impl From<LogicalEncoding> for StatLogicalCodec {
             LE::Float(FloatLogical::Alp(_)) => Self::Alp,
             LE::Int(IntLogical::Delta2) => Self::Delta2,
             LE::Vertex(VertexLogical::ComponentwiseDelta2) => Self::ComponentwiseDelta2,
+            // z is the extension bit, not a codec: report the codec the triples use,
+            // and leave the step to the `zStep` facet.
             #[cfg(feature = "unstable-v2")]
-            LE::Vertex(VertexLogical::Xyz(..)) => Self::Xyz,
+            LE::Vertex(VertexLogical::Xyz(_, XyzLogical::None)) => Self::None,
+            #[cfg(feature = "unstable-v2")]
+            LE::Vertex(VertexLogical::Xyz(_, XyzLogical::Delta)) => Self::Delta,
+            #[cfg(feature = "unstable-v2")]
+            LE::Vertex(VertexLogical::Xyz(_, XyzLogical::ComponentwiseDelta)) => {
+                Self::ComponentwiseDelta
+            }
+            // Without the feature a v2 layer is skipped before its streams are read.
             #[cfg(not(feature = "unstable-v2"))]
             #[allow(unreachable_patterns, reason = "reachable only when mlt-core has v2")]
-            _ => Self::Xyz,
+            _ => Self::None,
         }
     }
 }
@@ -1359,7 +1392,7 @@ mod tests {
             Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test/synthetic/0x02/z_line.mlt");
         let buffer = fs::read(&path).expect("fixture");
         let info = analyze_mlt_buffer(&buffer, &path, ALGORITHMS).expect("analyze");
-        insta::assert_snapshot!(info.algorithms_display(), @"data[vertex]/varint/xyz,length[parts]/varint");
+        insta::assert_snapshot!(info.algorithms_display(), @"data[vertex]/varint/componentwise-delta,length[parts]/varint");
     }
 
     #[test]
