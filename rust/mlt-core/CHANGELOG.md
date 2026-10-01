@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.16.0...rust-mlt-core-v0.17.0) - 2026-10-01
+
+### Added
+
+- *(rust)* store z coordinates as a third component of each vertex if extension is set ([#1795](https://github.com/maplibre/maplibre-tile-spec/pull/1795))
+- *(rust)* opt-in second-order delta encodings for v2 integer and vertex streams ([#1806](https://github.com/maplibre/maplibre-tile-spec/pull/1806))
+
+### Fixed
+
+- [**breaking**] remove not very sensible & not implemented MortonRle and plain Morton encodings ([#1777](https://github.com/maplibre/maplibre-tile-spec/pull/1777))
+- *(rust)* vertex count as `n` instead of `2*bytes` ([#1800](https://github.com/maplibre/maplibre-tile-spec/pull/1800))
+- *(rust)* check vertex index arithmetic for overflow ([#1798](https://github.com/maplibre/maplibre-tile-spec/pull/1798))
+- *(rust)* skip rings without area when tessellating ([#1797](https://github.com/maplibre/maplibre-tile-spec/pull/1797))
+
+### Other
+
+- rename ALP to mach implementation ([#1810](https://github.com/maplibre/maplibre-tile-spec/pull/1810))
+- *(rust)* fix clippy 1.99 lints and the wasm-bindgen install ([#1807](https://github.com/maplibre/maplibre-tile-spec/pull/1807))
+- *(rust)* cover v1 header rejections, logical decoder fallbacks and geometry pushes ([#1803](https://github.com/maplibre/maplibre-tile-spec/pull/1803))
+- *(rust)* inclrease coverage of coding error cases ([#1792](https://github.com/maplibre/maplibre-tile-spec/pull/1792))
+
 ## [0.16.0](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-core-v0.15.1...rust-mlt-core-v0.16.0) - 2026-09-27
 
 ### Added

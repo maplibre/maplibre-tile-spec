@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.34](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.33...rust-mlt-wasm-v0.1.34) - 2026-10-01
+
+### Added
+
+- *(rust)* store z coordinates as a third component of each vertex if extension is set ([#1795](https://github.com/maplibre/maplibre-tile-spec/pull/1795))
+
+### Fixed
+
+- *(rust)* decode v2 wasm layers in `decode_tile` behind the `unstable-v2` feature ([#1804](https://github.com/maplibre/maplibre-tile-spec/pull/1804))
+- *(rust)* vertex count as `n` instead of `2*bytes` ([#1800](https://github.com/maplibre/maplibre-tile-spec/pull/1800))
+- *(rust)* check vertex index arithmetic for overflow ([#1798](https://github.com/maplibre/maplibre-tile-spec/pull/1798))
+
+### Other
+
+- rename ALP to mach implementation ([#1810](https://github.com/maplibre/maplibre-tile-spec/pull/1810))
+
 ## [0.1.33](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-wasm-v0.1.32...rust-mlt-wasm-v0.1.33) - 2026-09-27
 
 ### Added

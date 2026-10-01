@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.2.2...python-mlt-v0.2.3) - 2026-10-01
+
+### Added
+
+- *(rust)* store z coordinates as a third component of each vertex if extension is set ([#1795](https://github.com/maplibre/maplibre-tile-spec/pull/1795))
+
 ## [0.2.2](https://github.com/maplibre/maplibre-tile-spec/compare/python-mlt-v0.2.1...python-mlt-v0.2.2) - 2026-09-27
 
 ### Other
