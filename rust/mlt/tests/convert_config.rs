@@ -438,6 +438,82 @@ fn an_unknown_column_is_rejected() {
 }
 
 #[test]
+fn a_misspelled_layers_table_is_rejected() {
+    let err = convert(
+        "a_misspelled_layers_table_is_rejected",
+        "[layer.l]\nf = { split = ',', kind = 'u64' }",
+        strings(&[]),
+    );
+    insta::assert_snapshot!(err.unwrap_err(), @"
+    Error: parsing config.toml
+
+    Caused by:
+        TOML parse error at line 1, column 2
+          |
+        1 | [layer.l]
+          |  ^^^^^
+        unknown field `layer`, expected `layers`
+    ");
+}
+
+#[test]
+fn an_unknown_key_in_a_form_table_is_rejected() {
+    let err = convert(
+        "an_unknown_key_in_a_form_table_is_rejected",
+        "[layers.l.f]\nsplit = ','\nkind = 'u64'\ndelta = true",
+        strings(&[]),
+    );
+    insta::assert_snapshot!(err.unwrap_err(), @"
+    Error: parsing config.toml
+
+    Caused by:
+        TOML parse error at line 4, column 1
+          |
+        4 | delta = true
+          | ^^^^^
+        unknown field `delta`, expected one of `split`, `kind`, `running-sum`, `into`
+    ");
+}
+
+#[test]
+fn a_snake_case_column_is_rejected() {
+    let err = convert(
+        "a_snake_case_column_is_rejected",
+        "[layers.l]\nf = { split = ',', kind = 'u64', into = 'm_value' }",
+        strings(&[]),
+    );
+    insta::assert_snapshot!(err.unwrap_err(), @"
+    Error: parsing config.toml
+
+    Caused by:
+        TOML parse error at line 2, column 41
+          |
+        2 | f = { split = ',', kind = 'u64', into = 'm_value' }
+          |                                         ^^^^^^^^^
+        unknown variant `m_value`, expected `list` or `m-value`
+    ");
+}
+
+#[test]
+fn an_unknown_kind_is_rejected() {
+    let err = convert(
+        "an_unknown_kind_is_rejected",
+        "[layers.l]\nf = { split = ',', kind = 'f32' }",
+        strings(&[]),
+    );
+    insta::assert_snapshot!(err.unwrap_err(), @"
+    Error: parsing config.toml
+
+    Caused by:
+        TOML parse error at line 2, column 27
+          |
+        2 | f = { split = ',', kind = 'f32' }
+          |                           ^^^^^
+        unknown variant `f32`, expected one of `i32`, `u32`, `i64`, `u64`, `str`
+    ");
+}
+
+#[test]
 fn a_missing_kind_is_rejected() {
     let err = convert(
         "a_missing_kind_is_rejected",

@@ -30,7 +30,7 @@ pub struct FieldConfig {
 /// Every form formats back to the exact string it parsed, which [`FieldConfig::apply`] checks.
 /// Only the combinations with exactly one string form load.
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
-#[serde(try_from = "FormToml")]
+#[serde(deny_unknown_fields, try_from = "FormToml")]
 pub struct FieldForm {
     split: Split,
     kind: ScalarKind,
@@ -89,7 +89,7 @@ impl TryFrom<FormToml> for FieldForm {
 
 /// The column a parsed property becomes.
 #[derive(Debug, Default, Clone, Copy, Deserialize, PartialEq)]
-#[serde(rename_all = "kebab-case")]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub enum Column {
     /// A nested list per feature.
     #[default]
@@ -100,7 +100,7 @@ pub enum Column {
 
 /// Where one value ends and the next begins.
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
-#[serde(try_from = "String")]
+#[serde(deny_unknown_fields, try_from = "String")]
 pub enum Split {
     /// `"5,6"`: at each occurrence of the character.
     At(char),
@@ -159,7 +159,7 @@ impl Split {
 
 /// The type of each parsed value.
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
-#[serde(rename_all = "lowercase")]
+#[serde(deny_unknown_fields, rename_all = "lowercase")]
 pub enum ScalarKind {
     I32,
     U32,
