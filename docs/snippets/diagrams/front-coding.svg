@@ -1,0 +1,143 @@
+<svg class="mlt-diagram" viewBox="0 0 710 158" role="img" aria-label="Three sorted entries that each copy a prefix of the one before and store only their suffix" xmlns="http://www.w3.org/2000/svg">
+<text class="row" x="0" y="14">entry 0</text>
+<rect class="f0" x="130" y="0" width="16" height="28" rx="3"/>
+<text class="cell" x="138" y="14">M</text>
+<rect class="f0" x="148" y="0" width="16" height="28" rx="3"/>
+<text class="cell" x="156" y="14">a</text>
+<rect class="f0" x="166" y="0" width="16" height="28" rx="3"/>
+<text class="cell" x="174" y="14">i</text>
+<rect class="f0" x="184" y="0" width="16" height="28" rx="3"/>
+<text class="cell" x="192" y="14">n</text>
+<rect class="f0" x="202" y="0" width="16" height="28" rx="3"/>
+<text class="cell" x="210" y="14">·</text>
+<rect class="f0" x="220" y="0" width="16" height="28" rx="3"/>
+<text class="cell" x="228" y="14">S</text>
+<rect class="f0" x="238" y="0" width="16" height="28" rx="3"/>
+<text class="cell" x="246" y="14">t</text>
+<rect class="f0" x="256" y="0" width="16" height="28" rx="3"/>
+<text class="cell" x="264" y="14">r</text>
+<rect class="f0" x="274" y="0" width="16" height="28" rx="3"/>
+<text class="cell" x="282" y="14">e</text>
+<rect class="f0" x="292" y="0" width="16" height="28" rx="3"/>
+<text class="cell" x="300" y="14">e</text>
+<rect class="f0" x="310" y="0" width="16" height="28" rx="3"/>
+<text class="cell" x="318" y="14">t</text>
+<text class="muted small" x="452" y="14">prefix 0, suffix 11</text>
+<text class="row" x="0" y="54">entry 1</text>
+<rect class="implicit" x="130" y="40" width="16" height="28" rx="3"/>
+<text class="cell muted" x="138" y="54">M</text>
+<rect class="implicit" x="148" y="40" width="16" height="28" rx="3"/>
+<text class="cell muted" x="156" y="54">a</text>
+<rect class="implicit" x="166" y="40" width="16" height="28" rx="3"/>
+<text class="cell muted" x="174" y="54">i</text>
+<rect class="implicit" x="184" y="40" width="16" height="28" rx="3"/>
+<text class="cell muted" x="192" y="54">n</text>
+<rect class="implicit" x="202" y="40" width="16" height="28" rx="3"/>
+<text class="cell muted" x="210" y="54">·</text>
+<rect class="implicit" x="220" y="40" width="16" height="28" rx="3"/>
+<text class="cell muted" x="228" y="54">S</text>
+<rect class="implicit" x="238" y="40" width="16" height="28" rx="3"/>
+<text class="cell muted" x="246" y="54">t</text>
+<rect class="implicit" x="256" y="40" width="16" height="28" rx="3"/>
+<text class="cell muted" x="264" y="54">r</text>
+<rect class="implicit" x="274" y="40" width="16" height="28" rx="3"/>
+<text class="cell muted" x="282" y="54">e</text>
+<rect class="implicit" x="292" y="40" width="16" height="28" rx="3"/>
+<text class="cell muted" x="300" y="54">e</text>
+<rect class="implicit" x="310" y="40" width="16" height="28" rx="3"/>
+<text class="cell muted" x="318" y="54">t</text>
+<rect class="f1" x="328" y="40" width="16" height="28" rx="3"/>
+<text class="cell" x="336" y="54">·</text>
+<rect class="f1" x="346" y="40" width="16" height="28" rx="3"/>
+<text class="cell" x="354" y="54">N</text>
+<rect class="f1" x="364" y="40" width="16" height="28" rx="3"/>
+<text class="cell" x="372" y="54">o</text>
+<rect class="f1" x="382" y="40" width="16" height="28" rx="3"/>
+<text class="cell" x="390" y="54">r</text>
+<rect class="f1" x="400" y="40" width="16" height="28" rx="3"/>
+<text class="cell" x="408" y="54">t</text>
+<rect class="f1" x="418" y="40" width="16" height="28" rx="3"/>
+<text class="cell" x="426" y="54">h</text>
+<text class="muted small" x="452" y="54">prefix 11, suffix 6</text>
+<text class="row" x="0" y="94">entry 2</text>
+<rect class="implicit" x="130" y="80" width="16" height="28" rx="3"/>
+<text class="cell muted" x="138" y="94">M</text>
+<rect class="implicit" x="148" y="80" width="16" height="28" rx="3"/>
+<text class="cell muted" x="156" y="94">a</text>
+<rect class="f0" x="166" y="80" width="16" height="28" rx="3"/>
+<text class="cell" x="174" y="94">p</text>
+<rect class="f0" x="184" y="80" width="16" height="28" rx="3"/>
+<text class="cell" x="192" y="94">l</text>
+<rect class="f0" x="202" y="80" width="16" height="28" rx="3"/>
+<text class="cell" x="210" y="94">e</text>
+<rect class="f0" x="220" y="80" width="16" height="28" rx="3"/>
+<text class="cell" x="228" y="94">·</text>
+<rect class="f0" x="238" y="80" width="16" height="28" rx="3"/>
+<text class="cell" x="246" y="94">A</text>
+<rect class="f0" x="256" y="80" width="16" height="28" rx="3"/>
+<text class="cell" x="264" y="94">v</text>
+<rect class="f0" x="274" y="80" width="16" height="28" rx="3"/>
+<text class="cell" x="282" y="94">e</text>
+<rect class="f0" x="292" y="80" width="16" height="28" rx="3"/>
+<text class="cell" x="300" y="94">n</text>
+<rect class="f0" x="310" y="80" width="16" height="28" rx="3"/>
+<text class="cell" x="318" y="94">u</text>
+<rect class="f0" x="328" y="80" width="16" height="28" rx="3"/>
+<text class="cell" x="336" y="94">e</text>
+<text class="muted small" x="452" y="94">prefix 2, suffix 10</text>
+<text class="row" x="0" y="144">blob</text>
+<rect class="f0" x="130" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="138" y="144">M</text>
+<rect class="f0" x="148" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="156" y="144">a</text>
+<rect class="f0" x="166" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="174" y="144">i</text>
+<rect class="f0" x="184" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="192" y="144">n</text>
+<rect class="f0" x="202" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="210" y="144">·</text>
+<rect class="f0" x="220" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="228" y="144">S</text>
+<rect class="f0" x="238" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="246" y="144">t</text>
+<rect class="f0" x="256" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="264" y="144">r</text>
+<rect class="f0" x="274" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="282" y="144">e</text>
+<rect class="f0" x="292" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="300" y="144">e</text>
+<rect class="f0" x="310" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="318" y="144">t</text>
+<rect class="f1" x="328" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="336" y="144">·</text>
+<rect class="f1" x="346" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="354" y="144">N</text>
+<rect class="f1" x="364" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="372" y="144">o</text>
+<rect class="f1" x="382" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="390" y="144">r</text>
+<rect class="f1" x="400" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="408" y="144">t</text>
+<rect class="f1" x="418" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="426" y="144">h</text>
+<rect class="f0" x="436" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="444" y="144">p</text>
+<rect class="f0" x="454" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="462" y="144">l</text>
+<rect class="f0" x="472" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="480" y="144">e</text>
+<rect class="f0" x="490" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="498" y="144">·</text>
+<rect class="f0" x="508" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="516" y="144">A</text>
+<rect class="f0" x="526" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="534" y="144">v</text>
+<rect class="f0" x="544" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="552" y="144">e</text>
+<rect class="f0" x="562" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="570" y="144">n</text>
+<rect class="f0" x="580" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="588" y="144">u</text>
+<rect class="f0" x="598" y="130" width="16" height="28" rx="3"/>
+<text class="cell" x="606" y="144">e</text>
+</svg>

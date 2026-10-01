@@ -1,0 +1,75 @@
+<svg class="mlt-diagram" viewBox="0 0 710 186" role="img" aria-label="300 split into two 7-bit groups, written low group first with the continuation bit set on the first byte: AC 02" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="vi" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="vi-t1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="muted small mid" x="273" y="14">bits 13-7</text>
+<path class="bracket t1" d="M162 34V28H384V34"/>
+<text class="muted small mid" x="553" y="14">bits 6-0</text>
+<path class="bracket t0" d="M442 34V28H664V34"/>
+<text class="row" x="0" y="54">300</text>
+<text class="row" x="0" y="134">bytes</text>
+<rect class="f1" x="162" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="177" y="54">0</text>
+<rect class="f0" x="442" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="457" y="54">0</text>
+<rect class="f1" x="194" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="209" y="54">0</text>
+<rect class="f0" x="474" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="489" y="54">1</text>
+<rect class="f1" x="226" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="241" y="54">0</text>
+<rect class="f0" x="506" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="521" y="54">0</text>
+<rect class="f1" x="258" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="273" y="54">0</text>
+<rect class="f0" x="538" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="553" y="54">1</text>
+<rect class="f1" x="290" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="305" y="54">0</text>
+<rect class="f0" x="570" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="585" y="54">1</text>
+<rect class="f1" x="322" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="337" y="54">1</text>
+<rect class="f0" x="602" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="617" y="54">0</text>
+<rect class="f1" x="354" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="369" y="54">0</text>
+<rect class="f0" x="634" y="40" width="30" height="28" rx="3"/>
+<text class="cell" x="649" y="54">0</text>
+<rect class="plain" x="130" y="120" width="30" height="28" rx="3"/>
+<text class="cell bold" x="145" y="134">1</text>
+<rect class="plain" x="410" y="120" width="30" height="28" rx="3"/>
+<text class="cell bold" x="425" y="134">0</text>
+<rect class="f0" x="162" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="177" y="134">0</text>
+<rect class="f1" x="442" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="457" y="134">0</text>
+<rect class="f0" x="194" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="209" y="134">1</text>
+<rect class="f1" x="474" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="489" y="134">0</text>
+<rect class="f0" x="226" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="241" y="134">0</text>
+<rect class="f1" x="506" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="521" y="134">0</text>
+<rect class="f0" x="258" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="273" y="134">1</text>
+<rect class="f1" x="538" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="553" y="134">0</text>
+<rect class="f0" x="290" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="305" y="134">1</text>
+<rect class="f1" x="570" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="585" y="134">0</text>
+<rect class="f0" x="322" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="337" y="134">0</text>
+<rect class="f1" x="602" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="617" y="134">1</text>
+<rect class="f0" x="354" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="369" y="134">0</text>
+<rect class="f1" x="634" y="120" width="30" height="28" rx="3"/>
+<text class="cell" x="649" y="134">0</text>
+<path class="link" d="M553 68C553 92 273 92 273 116" marker-end="url(#vi)"/>
+<path class="link t1" d="M273 68C273 92 553 92 553 116" marker-end="url(#vi-t1)"/>
+<path class="bracket" d="M130 154V160H384V154"/>
+<text class="bold mid" x="257" y="174">AC</text>
+<path class="bracket" d="M410 154V160H664V154"/>
+<text class="bold mid" x="537" y="174">02</text>
+</svg>

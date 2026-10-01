@@ -1,0 +1,38 @@
+<svg class="mlt-diagram" viewBox="0 0 710 184" role="img" aria-label="Six vertices as offsets 0, 1, 2, 1, 0, 2 into a three entry vertex dictionary" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="vd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="vd-t1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="row" x="0" y="54">offsets</text>
+<text class="row" x="0" y="144">dictionary</text>
+<text class="muted small mid" x="152" y="14">0,0</text>
+<rect class="f0" x="130" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="152" y="54">0</text>
+<text class="muted small mid" x="200" y="14">10,10</text>
+<rect class="f1" x="178" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="200" y="54">1</text>
+<text class="muted small mid" x="248" y="14">20,20</text>
+<rect class="plain" x="226" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="248" y="54">2</text>
+<text class="muted small mid" x="296" y="14">10,10</text>
+<rect class="f1" x="274" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="296" y="54">1</text>
+<text class="muted small mid" x="344" y="14">0,0</text>
+<rect class="f0" x="322" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="344" y="54">0</text>
+<text class="muted small mid" x="392" y="14">20,20</text>
+<rect class="plain" x="370" y="40" width="44" height="28" rx="3"/>
+<text class="cell" x="392" y="54">2</text>
+<rect class="f0" x="130" y="130" width="72" height="28" rx="3"/>
+<text class="cell" x="166" y="144">0,0</text>
+<text class="muted small mid" x="166" y="172">0</text>
+<rect class="f1" x="210" y="130" width="72" height="28" rx="3"/>
+<text class="cell" x="246" y="144">10,10</text>
+<text class="muted small mid" x="246" y="172">1</text>
+<rect class="plain" x="290" y="130" width="72" height="28" rx="3"/>
+<text class="cell" x="326" y="144">20,20</text>
+<text class="muted small mid" x="326" y="172">2</text>
+<path class="link" d="M152 68C152 97 166 97 166 126" marker-end="url(#vd)"/>
+<path class="link t1" d="M200 68C200 97 246 97 246 126" marker-end="url(#vd-t1)"/>
+<path class="link" d="M248 68C248 97 326 97 326 126" marker-end="url(#vd)"/>
+<path class="link t1" d="M296 68C296 97 246 97 246 126" marker-end="url(#vd-t1)"/>
+<path class="link" d="M344 68C344 97 166 97 166 126" marker-end="url(#vd)"/>
+<path class="link" d="M392 68C392 97 326 97 326 126" marker-end="url(#vd)"/>
+</svg>

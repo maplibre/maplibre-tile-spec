@@ -47,13 +47,19 @@ unzigzag(u) = (u >> 1) ^ -(u & 1)         // logical shift
 
 For 64-bit values the shift is `63`.
 
-| `n` | `zigzag(n)` |
-|----:|------------:|
-| `0` | `0` |
-| `-1` | `1` |
-| `1` | `2` |
-| `-2` | `3` |
-| `2` | `4` |
+=== "Mapping"
+
+    --8<-- "diagrams/zigzag.svg"
+
+=== "Values"
+
+    | `n` | `zigzag(n)` |
+    |----:|------------:|
+    | `0` | `0` |
+    | `-1` | `1` |
+    | `1` | `2` |
+    | `-2` | `3` |
+    | `2` | `4` |
 
 ### None {#physical-none}
 
@@ -70,11 +76,17 @@ A 32-bit word takes 1 to 5 bytes and a 64-bit word 1 to 10.
 
 [View example](inspector/app/?fixture=0x02%2Fprops_u32_np.mlt&at=column%5B0%5D){target=_blank .inspector-example} - four `9000`s, two bytes each, the first with bit 7 set.
 
-```
-300 = 0b0000_0001_0010_1100
-    -> groups (LSB first): 0101100, 0000010
-    -> bytes:              0xAC,    0x02
-```
+=== "Bits"
+
+    --8<-- "diagrams/varint.svg"
+
+=== "Values"
+
+    ```
+    300 = 0b0000_0001_0010_1100
+        -> groups (LSB first): 0101100, 0000010
+        -> bytes:              0xAC,    0x02
+    ```
 
 This is the unsigned varint of [Protocol Buffers](https://protobuf.dev/programming-guides/encoding/#varints) and the length prefix every MLT header uses.
 Signed values go through [ZigZag](#zigzag) first, where the logical encoding says so.
@@ -233,13 +245,19 @@ The two tile versions lay the runs out differently:
 
 For the input `[5, 5, 5, 3, 3, 3, 3]`:
 
-```
-runs:   [3, 4]
-values: [5, 3]
+=== "Runs"
 
-v1 words: [3, 4, 5, 3]         header: runs = 2, num_rle_values = 7
-v2 bytes: 03 05 04 03          header: 7 values from context
-```
+    --8<-- "diagrams/rle.svg"
+
+=== "Values"
+
+    ```
+    runs:   [3, 4]
+    values: [5, 3]
+
+    v1 words: [3, 4, 5, 3]         header: runs = 2, num_rle_values = 7
+    v2 bytes: 03 05 04 03          header: 7 values from context
+    ```
 
 In both versions the decoded element count is known before the payload is read.
 v1 stores it in the header as `num_rle_values`.
@@ -255,12 +273,18 @@ Decoding undoes them in reverse: expand the runs, then undo ZigZag and prefix-su
 
 [View example](inspector/app/?fixture=0x02%2Fids_delta_rle.mlt&at=column%5B0%5D){target=_blank .inspector-example} - four equal ids: one step of `103`, then a run of three `0`s.
 
-```
-values: [10, 11, 12, 13, 20, 20, 20]
-deltas: [10, 1, 1, 1, 7, 0, 0]
-words:  [20, 2, 2, 2, 14, 0, 0]          zigzag
-runs:   (1, 20) (3, 2) (1, 14) (2, 0)
-```
+=== "Runs"
+
+    --8<-- "diagrams/delta-rle.svg"
+
+=== "Values"
+
+    ```
+    values: [10, 11, 12, 13, 20, 20, 20]
+    deltas: [10, 1, 1, 1, 7, 0, 0]
+    words:  [20, 2, 2, 2, 14, 0, 0]          zigzag
+    runs:   (1, 20) (3, 2) (1, 14) (2, 0)
+    ```
 
 Delta-RLE suits sequences with a constant step, such as `[1, 2, 3, ...]`, which become one run.
 
@@ -276,10 +300,16 @@ Bits past `count` in the final byte are padding and MUST be ignored.
 
 [View example](inspector/app/?fixture=0x02%2Fprop_i32_val_null.mlt&at=present){target=_blank .inspector-example} - a value, then a null: bits `1` and `0`.
 
-```
-values: [1, 0, 1, 1, 0, 1]
-byte:   0b0010_1101 = 0x2D
-```
+=== "Bits"
+
+    --8<-- "diagrams/bitmap.svg"
+
+=== "Values"
+
+    ```
+    values: [1, 0, 1, 1, 0, 1]
+    byte:   0b0010_1101 = 0x2D
+    ```
 
 v2 stores every presence bitfield and boolean column as a raw bitmap.
 A bitmap can be shared between columns; see [Shared Presence Fields](specification/v2.md#shared-presence-fields).
@@ -300,12 +330,18 @@ A repeated run is 3 to 130 bytes and a literal run 1 to 128.
 The runs expand to exactly `ceil(count / 8)` bitmap bytes.
 A payload that expands to more, or ends before that, MUST be rejected.
 
-```
-bitmap:  FF FF FF FF FF 2D
-payload: 02 FF FF 2D
-         02 FF          repeated run: 2 + 3 = 5 copies of FF
-         FF 2D          literal run: 256 - 255 = 1 byte, 2D
-```
+=== "Runs"
+
+    --8<-- "diagrams/boolean-rle.svg"
+
+=== "Values"
+
+    ```
+    bitmap:  FF FF FF FF FF 2D
+    payload: 02 FF FF 2D
+             02 FF          repeated run: 2 + 3 = 5 copies of FF
+             FF 2D          literal run: 256 - 255 = 1 byte, 2D
+    ```
 
 The v1 stream header carries no `runs` or `num_rle_values` for a boolean stream.
 Both follow from `num_values`.
@@ -387,11 +423,17 @@ $e$ is at most $18$ so that $v \cdot 10^e$ fits in an `i64`.
     Beyond that, floating-point scaling can land on a neighboring integer that still passes its own round-trip check.
     This is a limitation of that implementation, not of the format.
 
-```
-values:  [-0.75, 0.25, 1.5, -2.25]
-e = 2, f = 0:  i = [-75, 25, 150, -225]
-base = -225:   offsets = [150, 250, 375, 0]
-```
+=== "Offsets"
+
+    --8<-- "diagrams/alp.svg"
+
+=== "Values"
+
+    ```
+    values:  [-0.75, 0.25, 1.5, -2.25]
+    e = 2, f = 0:  i = [-75, 25, 150, -225]
+    base = -225:   offsets = [150, 250, 375, 0]
+    ```
 
 The header stores `e = 2`, `f = 0` as the `scale` byte `03` and `base` as the ZigZag varint `c1 03`, and the payload the four offsets as varints.
 See the [Framed, Exception-Free ALP example](specification/v2.md#examples) on the v2 page for the whole layer.
@@ -406,11 +448,17 @@ The column has two streams.
 The first is the codes: an integer stream of 32-bit words, logical `Dict` in the `Float` family, with its own physical encoding.
 The second is the dictionary: [plain floats](#plain-floats), one per distinct value, with an explicit count in its header.
 
-```
-values: [1.5, 0.25, 1.5, 1.5, 0.25]
-codes:  [0, 1, 0, 0, 1]
-dict:   [1.5, 0.25]
-```
+=== "Codes"
+
+    --8<-- "diagrams/float-dictionary.svg"
+
+=== "Values"
+
+    ```
+    values: [1.5, 0.25, 1.5, 1.5, 0.25]
+    codes:  [0, 1, 0, 0, 1]
+    dict:   [1.5, 0.25]
+    ```
 
 Entries are distinct by bit pattern.
 `-0.0` and `0.0` are two entries, and a `NaN` is never equal to any entry.
@@ -451,13 +499,19 @@ Random access requires a scan from the start of the dictionary.
 Prefix lengths are in bytes and may split a multi-byte character.
 Only the reconstructed entry has to be valid UTF-8.
 
-```
-entries:  ["Main Street", "Main Street North", "Maple Avenue"]
-prefixes: [0, 11, 2]
-suffixes: [11, 6, 10]
-lengths:  [0, 11, 2, 11, 6, 10]
-blob:     "Main Street" " North" "ple Avenue"
-```
+=== "Prefixes"
+
+    --8<-- "diagrams/front-coding.svg"
+
+=== "Values"
+
+    ```
+    entries:  ["Main Street", "Main Street North", "Maple Avenue"]
+    prefixes: [0, 11, 2]
+    suffixes: [11, 6, 10]
+    lengths:  [0, 11, 2, 11, 6, 10]
+    blob:     "Main Street" " North" "ple Avenue"
+    ```
 
 Front coding can be combined with [FSST](#fsst).
 The corpus is front-coded first and then FSST-compressed.
@@ -493,11 +547,17 @@ The corpus compresses all values as one buffer, so a symbol may span two values.
 The lengths stream beside the corpus holds the **uncompressed** length of each value.
 A decoder expands the whole corpus and then splits it by those lengths.
 
-```
-symbols:      ["ab", "cd"]           SymbolLengths = [2, 2], SymbolTable = "abcd"
-values:       ["abcd", "abz"]        Lengths = [4, 3]
-corpus bytes: 00 01 00 FF 7A         ab cd ab <esc> z
-```
+=== "Expansion"
+
+    --8<-- "diagrams/fsst.svg"
+
+=== "Values"
+
+    ```
+    symbols:      ["ab", "cd"]           SymbolLengths = [2, 2], SymbolTable = "abcd"
+    values:       ["abcd", "abz"]        Lengths = [4, 3]
+    corpus bytes: 00 01 00 FF 7A         ab cd ab <esc> z
+    ```
 
 The algorithm that trains the table is described by [Boncz, Neumann and Leis, *FSST: Fast Random Access String Compression*](https://www.vldb.org/pvldb/vol13/p2649-boncz.pdf).
 Different implementations train different tables for the same input.
@@ -590,11 +650,17 @@ The distinct vertices are stored once in a `VertexDict` stream, and a `VertexOff
 
 [View example](inspector/app/?fixture=0x02%2Fpoint_morton_dictionary.mlt&at=vertex_dict){target=_blank .inspector-example} - vertices stored once and indexed.
 
-```
-VertexOffsets: [0, 1, 2, 1, 0, 2]
-VertexDict:    [(0,0), (10,10), (20,20)]
-vertices:      (0,0), (10,10), (20,20), (10,10), (0,0), (20,20)
-```
+=== "Offsets"
+
+    --8<-- "diagrams/vertex-dictionary-offsets.svg"
+
+=== "Values"
+
+    ```
+    VertexOffsets: [0, 1, 2, 1, 0, 2]
+    VertexDict:    [(0,0), (10,10), (20,20)]
+    vertices:      (0,0), (10,10), (20,20), (10,10), (0,0), (20,20)
+    ```
 
 An offset at or past the dictionary's vertex count MUST be rejected.
 

@@ -1,0 +1,40 @@
+<svg class="mlt-diagram" viewBox="0 0 710 186" role="img" aria-label="The payload 02 FF FF 2D expands to five FF bytes from a repeated run and one 2D byte from a literal run" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="brle" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker><marker id="brle-t1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head t1" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="bold mid t0" x="180" y="14">repeated run</text>
+<path class="bracket t0" d="M130 34V28H230V34"/>
+<text class="bold mid t1" x="304" y="14">literal run</text>
+<path class="bracket t1" d="M254 34V28H354V34"/>
+<text class="row" x="0" y="54">payload</text>
+<text class="row" x="0" y="134">bitmap</text>
+<rect class="plain" x="130" y="40" width="48" height="28" rx="3"/>
+<text class="cell bold" x="154" y="54">02</text>
+<rect class="f0" x="182" y="40" width="48" height="28" rx="3"/>
+<text class="cell" x="206" y="54">FF</text>
+<rect class="plain" x="254" y="40" width="48" height="28" rx="3"/>
+<text class="cell bold" x="278" y="54">FF</text>
+<rect class="f1" x="306" y="40" width="48" height="28" rx="3"/>
+<text class="cell" x="330" y="54">2D</text>
+<text class="muted small" x="370" y="54">control bytes bold</text>
+<rect class="f0" x="130" y="120" width="48" height="28" rx="3"/>
+<text class="cell" x="154" y="134">FF</text>
+<path class="link" d="M206 68C206 92 154 92 154 116" marker-end="url(#brle)"/>
+<rect class="f0" x="182" y="120" width="48" height="28" rx="3"/>
+<text class="cell" x="206" y="134">FF</text>
+<path class="link" d="M206 68C206 92 206 92 206 116" marker-end="url(#brle)"/>
+<rect class="f0" x="234" y="120" width="48" height="28" rx="3"/>
+<text class="cell" x="258" y="134">FF</text>
+<path class="link" d="M206 68C206 92 258 92 258 116" marker-end="url(#brle)"/>
+<rect class="f0" x="286" y="120" width="48" height="28" rx="3"/>
+<text class="cell" x="310" y="134">FF</text>
+<path class="link" d="M206 68C206 92 310 92 310 116" marker-end="url(#brle)"/>
+<rect class="f0" x="338" y="120" width="48" height="28" rx="3"/>
+<text class="cell" x="362" y="134">FF</text>
+<path class="link" d="M206 68C206 92 362 92 362 116" marker-end="url(#brle)"/>
+<rect class="f1" x="390" y="120" width="48" height="28" rx="3"/>
+<text class="cell" x="414" y="134">2D</text>
+<path class="link t1" d="M330 68C330 92 414 92 414 116" marker-end="url(#brle-t1)"/>
+<path class="bracket t0" d="M130 154V160H386V154"/>
+<text class="small mid t0" x="258" y="174">2 + 3 = 5 copies</text>
+<path class="bracket t1" d="M390 154V160H438V154"/>
+<text class="small mid t1" x="414" y="174">256 − 255 = 1</text>
+</svg>
