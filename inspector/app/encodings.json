@@ -25,7 +25,7 @@
   },
   "encodings#varint": {
     "title": "VarInt",
-    "html": "<p>Each word is stored in 7-bit groups, least significant group first.\nBit 7 of each byte is set when another byte follows.\nA 32-bit word takes 1 to 5 bytes and a 64-bit word 1 to 10.</p>\n<pre><code>300 = 0b1_0010_1100\n    -&gt; groups (LSB first): 0101100, 0000010\n    -&gt; bytes:              0xAC,    0x02\n</code></pre>\n<p>This is the unsigned varint of <a href=\"https://protobuf.dev/programming-guides/encoding/#varints\" target=\"_blank\" rel=\"noreferrer\">Protocol Buffers</a> and the length prefix every MLT header uses.\nSigned values go through <a href=\"../../encodings/#zigzag\" target=\"_blank\" rel=\"noreferrer\">ZigZag</a> first, where the logical encoding says so.</p>\n",
+    "html": "<p>Each word is stored in 7-bit groups, least significant group first.\nBit 7 of each byte is set when another byte follows.\nA 32-bit word takes 1 to 5 bytes and a 64-bit word 1 to 10.</p>\n<pre><code>300 = 0b0000_0001_0010_1100\n    -&gt; groups (LSB first): 0101100, 0000010\n    -&gt; bytes:              0xAC,    0x02\n</code></pre>\n<p>This is the unsigned varint of <a href=\"https://protobuf.dev/programming-guides/encoding/#varints\" target=\"_blank\" rel=\"noreferrer\">Protocol Buffers</a> and the length prefix every MLT header uses.\nSigned values go through <a href=\"../../encodings/#zigzag\" target=\"_blank\" rel=\"noreferrer\">ZigZag</a> first, where the logical encoding says so.</p>\n",
     "site": "../../encodings/#varint",
     "edit": "https://github.com/maplibre/maplibre-tile-spec/edit/main/docs/encodings.md#L65"
   },
@@ -85,7 +85,7 @@
   },
   "encodings#bitmap": {
     "title": "Bitmap",
-    "html": "<p>Bit <code>i % 8</code> of byte <code>i / 8</code> is value <code>i</code>, LSB-first.\nThe bitmap is <code>ceil(count / 8)</code> bytes.\nBits past <code>count</code> in the final byte are padding and MUST be ignored.</p>\n<pre><code>values: [1, 0, 1, 1, 0, 1]\nbyte:   0b00_101101 = 0x2D\n</code></pre>\n<p>v2 stores every presence bitfield and boolean column as a raw bitmap.\nA bitmap can be shared between columns; see <a href=\"../../specification/v2/#shared-presence-fields\" target=\"_blank\" rel=\"noreferrer\">Shared Presence Fields</a>.</p>\n",
+    "html": "<p>Bit <code>i % 8</code> of byte <code>i / 8</code> is value <code>i</code>, LSB-first.\nThe bitmap is <code>ceil(count / 8)</code> bytes.\nBits past <code>count</code> in the final byte are padding and MUST be ignored.</p>\n<pre><code>values: [1, 0, 1, 1, 0, 1]\nbyte:   0b0010_1101 = 0x2D\n</code></pre>\n<p>v2 stores every presence bitfield and boolean column as a raw bitmap.\nA bitmap can be shared between columns; see <a href=\"../../specification/v2/#shared-presence-fields\" target=\"_blank\" rel=\"noreferrer\">Shared Presence Fields</a>.</p>\n",
     "site": "../../encodings/#bitmap",
     "edit": "https://github.com/maplibre/maplibre-tile-spec/edit/main/docs/encodings.md#L265"
   },

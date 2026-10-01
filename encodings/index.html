@@ -1203,7 +1203,7 @@ See <a href="../specification/v2/#byte-length">Byte Length</a>.</p>
 Bit 7 of each byte is set when another byte follows.
 A 32-bit word takes 1 to 5 bytes and a 64-bit word 1 to 10.</p>
 <p><a class="inspector-example" href="../inspector/app/?fixture=0x02%2Fprops_u32_np.mlt&amp;at=column%5B0%5D" target="_blank">View example</a> - four <code>9000</code>s, two bytes each, the first with bit 7 set.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>300 = 0b1_0010_1100
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>300 = 0b0000_0001_0010_1100
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    -&gt; groups (LSB first): 0101100, 0000010
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    -&gt; bytes:              0xAC,    0x02
 </span></code></pre></div>
@@ -1372,7 +1372,7 @@ The bitmap is <code>ceil(count / 8)</code> bytes.
 Bits past <code>count</code> in the final byte are padding and MUST be ignored.</p>
 <p><a class="inspector-example" href="../inspector/app/?fixture=0x02%2Fprop_i32_val_null.mlt&amp;at=present" target="_blank">View example</a> - a value, then a null: bits <code>1</code> and <code>0</code>.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>values: [1, 0, 1, 1, 0, 1]
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>byte:   0b00_101101 = 0x2D
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>byte:   0b0010_1101 = 0x2D
 </span></code></pre></div>
 <p>v2 stores every presence bitfield and boolean column as a raw bitmap.
 A bitmap can be shared between columns; see <a href="../specification/v2/#shared-presence-fields">Shared Presence Fields</a>.</p>
