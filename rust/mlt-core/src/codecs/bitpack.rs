@@ -16,7 +16,7 @@ pub(crate) const MAX_WIDTH: u32 = 32;
 /// would leave the value count as the only thing the payload says.
 pub(crate) fn bit_width<T: Copy + Into<u64>>(values: &[T]) -> Option<u32> {
     let max = values.iter().copied().map(Into::into).max().unwrap_or(0);
-    let width = (u64::BITS - max.leading_zeros()).max(1);
+    let width = max.bit_width().max(1);
     (width <= MAX_WIDTH).then_some(width)
 }
 

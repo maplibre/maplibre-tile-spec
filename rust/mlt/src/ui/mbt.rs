@@ -817,13 +817,13 @@ mod tests {
             .len(),
             16
         );
-        assert!(
-            t.geom_verts(&Geometry::Rect(Rect::new(c(0, 0), c(1, 1))))
-                .is_empty()
+        assert_eq!(
+            t.geom_verts(&Geometry::Rect(Rect::new(c(0, 0), c(1, 1)))),
+            Vec::<[f64; 2]>::new()
         );
-        assert!(
-            t.geom_verts(&Geometry::GeometryCollection(GeometryCollection(vec![])))
-                .is_empty()
+        assert_eq!(
+            t.geom_verts(&Geometry::GeometryCollection(GeometryCollection(vec![]))),
+            Vec::<[f64; 2]>::new()
         );
     }
 

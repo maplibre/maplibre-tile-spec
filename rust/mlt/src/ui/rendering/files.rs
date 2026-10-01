@@ -237,7 +237,7 @@ pub fn render_file_info_panel(f: &mut Frame<'_>, area: Rect, app: &mut App) {
                 na(info.encoding_pct.map(|p| format!("{p:.1}%"))),
                 "MLT / (data + metadata)",
             ),
-            row("Data", na(info.data_size.map(&sz)), "decoded payload size"),
+            row("Data", na(info.data_size.map(sz)), "decoded payload size"),
             row(
                 "Metadata",
                 match (info.meta_size, info.meta_pct) {
