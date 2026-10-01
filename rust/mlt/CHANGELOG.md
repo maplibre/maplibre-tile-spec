@@ -72,9 +72,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - *(rust)* give v2 dictionary and tessellated geometry layouts ([#1614](https://github.com/maplibre/maplibre-tile-spec/pull/1614))
-- *(rust)* give v2 ALP a frame of reference and let it race FastPFOR ([#1612](https://github.com/maplibre/maplibre-tile-spec/pull/1612))
+- *(rust)* give v2 Framed, Exception-Free ALP a frame of reference and let it race FastPFOR ([#1612](https://github.com/maplibre/maplibre-tile-spec/pull/1612))
 - *(rust)* add `FPF128` with `u32::from_le_bytes` ([#1611](https://github.com/maplibre/maplibre-tile-spec/pull/1611))
-- *(rust)* encode and decode v2 float columns as ALP ([#1603](https://github.com/maplibre/maplibre-tile-spec/pull/1603))
+- *(rust)* encode and decode v2 float columns as Framed, Exception-Free ALP ([#1603](https://github.com/maplibre/maplibre-tile-spec/pull/1603))
 - *(rust)* decode dictionary-encoded v2 float columns ([#1601](https://github.com/maplibre/maplibre-tile-spec/pull/1601))
 
 ### Fixed

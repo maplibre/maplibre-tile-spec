@@ -43,7 +43,7 @@ enum PropConfig {
     Scalar(IntEncoder),
     /// A nested column whose root codes its rows as shape ids, `enc` pinning that one stream.
     ShapeIds(IntEncoder),
-    /// Float with its logical encoding pinned, `enc` carrying the dictionary codes or ALP integers.
+    /// Float with its logical encoding pinned, `enc` carrying the dictionary codes or Framed, Exception-Free ALP integers.
     Float {
         enc: IntEncoder,
         float_enc: FloatEncoding,

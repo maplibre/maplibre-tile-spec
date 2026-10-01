@@ -86,7 +86,7 @@ describe("decodeBlob", () => {
     });
   });
 
-  it("hands ALP parameters across as a BigInt", async () => {
+  it("hands Framed, Exception-Free ALP parameters across as a BigInt", async () => {
     const tree = annotateTile(await fixture("0x02/prop_f64_alp.mlt")).tree();
     const hint = tree.regions[blobIndex(tree, "alp")].blob?.hint;
     expect(hint).toMatchSnapshot();

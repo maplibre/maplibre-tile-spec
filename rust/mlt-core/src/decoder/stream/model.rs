@@ -100,7 +100,7 @@ impl Morton {
     }
 }
 
-/// The decimal scaling an ALP column uses: `i = round(v * 10^e / 10^f)`.
+/// The decimal scaling a Framed, Exception-Free ALP column uses: `i = round(v * 10^e / 10^f)`.
 /// Chosen before any value is seen, so it carries no frame of reference.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AlpScale {
@@ -110,7 +110,7 @@ pub struct AlpScale {
     pub(crate) f: u8,
 }
 
-/// ALP parameters: `v = (base + offset) * 10^f / 10^e`.
+/// Framed, Exception-Free ALP parameters: `v = (base + offset) * 10^f / 10^e`.
 /// Written as a scale byte and a base varint, the stream itself holding the unsigned offsets.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Alp {
@@ -316,7 +316,7 @@ impl LogicalEncoding {
 
     /// Whether the stream's own logical pass is a no-op, so the physical words are already the output.
     /// True for a float dictionary's codes, which the column turns back into floats.
-    /// Not true for ALP, whose offsets still need the frame of reference added back.
+    /// Not true for Framed, Exception-Free ALP, whose offsets still need the frame of reference added back.
     #[must_use]
     pub(crate) fn is_identity(self) -> bool {
         matches!(
