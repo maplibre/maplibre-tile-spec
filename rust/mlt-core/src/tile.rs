@@ -125,6 +125,23 @@ impl ZStep {
     }
 }
 
+/// The step as the spec's table names it, e.g. `1 dm`.
+#[cfg(feature = "unstable-v2")]
+impl std::fmt::Display for ZStep {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self.0 {
+            -3 => "1 mm",
+            -2 => "1 cm",
+            -1 => "1 dm",
+            0 => "1 m",
+            1 => "10 m",
+            2 => "100 m",
+            3 => "1 km",
+            _ => "10 km",
+        })
+    }
+}
+
 /// The kind of column a name belongs to, which a layer's names are unique across.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display)]
 pub enum ColumnRole {
