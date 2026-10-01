@@ -1,0 +1,249 @@
+package org.maplibre.mlt;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import org.maplibre.mlt.converter.encodings.EncodingUtils;
+import org.maplibre.mlt.converter.mvt.MvtUtils;
+import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Fork;
+import org.openjdk.jmh.annotations.Level;
+import org.openjdk.jmh.annotations.Measurement;
+import org.openjdk.jmh.annotations.Mode;
+import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Scope;
+import org.openjdk.jmh.annotations.Setup;
+import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.Threads;
+import org.openjdk.jmh.annotations.Warmup;
+import org.springmeyer.VectorTileLayer;
+
+/**
+ * Benchmarks for the decoding performance of OpenMapTiles schema based tiles into the MVT and MLT
+ * in-memory representations.
+ */
+@State(Scope.Benchmark)
+@OutputTimeUnit(TimeUnit.MILLISECONDS)
+@BenchmarkMode(Mode.AverageTime)
+@Threads(value = 1)
+@Warmup(iterations = 5)
+@Measurement(iterations = 5)
+@Fork(value = 1)
+public class OmtDecoderBenchmark {
+  /* java-vector-tile library */
+  private static final Map<Integer, byte[]> encodedMvtTiles = new HashMap<>();
+  /* mapbox-vector-tile-java library */
+  private static final Map<Integer, ByteArrayInputStream> encodedMvtTiles2 = new HashMap<>();
+  private static final Map<Integer, byte[]> compressedMVTiles = new HashMap<>();
+  private static final Map<Integer, byte[]> encodedMltTiles = new HashMap<>();
+  private static final String SEPARATOR = "_";
+
+  @Setup
+  public void setup() throws IOException {
+    encodeTile(2, 2, 2);
+    encodeTile(3, 4, 5);
+    encodeTile(4, 8, 10);
+    encodeTile(5, 16, 21);
+    encodeTile(6, 32, 41);
+    encodeTile(7, 66, 84);
+    encodeTile(8, 134, 171);
+    encodeTile(9, 265, 341);
+    encodeTile(10, 532, 682);
+    encodeTile(11, 1064, 1367);
+    encodeTile(12, 2132, 2734);
+    encodeTile(13, 4265, 5467);
+    encodeTile(14, 8298, 10748);
+  }
+
+  @Setup(Level.Invocation)
+  public void resetInputStreams() {
+    for (var is : encodedMvtTiles2.values()) {
+      is.reset();
+    }
+  }
+
+  private void encodeTile(int z, int x, int y) throws IOException {
+    BenchmarkUtils.encodeTile(
+        z,
+        x,
+        y,
+        encodedMvtTiles,
+        encodedMvtTiles2,
+        compressedMVTiles,
+        encodedMltTiles,
+        TestSettings.OMT_MVT_PATH,
+        SEPARATOR);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeMvtMapboxZ2() throws IOException {
+    var mvTile = encodedMvtTiles.get(2);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeMvtMapboxZ3() throws IOException {
+    var mvTile = encodedMvtTiles.get(3);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeMvtMapboxZ4() throws IOException {
+    var mvTile = encodedMvtTiles.get(4);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeMvtMapboxZ5() throws IOException {
+    var mvTile = encodedMvtTiles.get(5);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeMvtMapboxZ6() throws IOException {
+    var mvTile = encodedMvtTiles.get(6);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeMvtMapboxZ7() throws IOException {
+    var mvTile = encodedMvtTiles.get(7);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeMvtMapboxZ8() throws IOException {
+    var mvTile = encodedMvtTiles.get(8);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeMvtMapboxZ9() throws IOException {
+    var mvTile = encodedMvtTiles.get(9);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeMvtMapboxZ10() throws IOException {
+    var mvTile = encodedMvtTiles.get(10);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeMvtMapboxZ11() throws IOException {
+    var mvTile = encodedMvtTiles.get(11);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeMvtMapboxZ12() throws IOException {
+    var mvTile = encodedMvtTiles.get(12);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeMvtMapboxZ13() throws IOException {
+    var mvTile = encodedMvtTiles.get(13);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeMvtMapboxZ14() throws IOException {
+    var mvTile = encodedMvtTiles.get(14);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeCompressedMvtMapboxZ2() throws IOException {
+    var compressedMvTile = compressedMVTiles.get(2);
+    var mvTile = EncodingUtils.unzip(compressedMvTile);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeCompressedMvtMapboxZ3() throws IOException {
+    var compressedMvTile = compressedMVTiles.get(3);
+    var mvTile = EncodingUtils.unzip(compressedMvTile);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeCompressedMvtMapboxZ4() throws IOException {
+    var compressedMvTile = compressedMVTiles.get(4);
+    var mvTile = EncodingUtils.unzip(compressedMvTile);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeCompressedMvtMapboxZ5() throws IOException {
+    var compressedMvTile = compressedMVTiles.get(5);
+    var mvTile = EncodingUtils.unzip(compressedMvTile);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeCompressedMvtMapboxZ6() throws IOException {
+    var compressedMvTile = compressedMVTiles.get(6);
+    var mvTile = EncodingUtils.unzip(compressedMvTile);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeCompressedMvtMapboxZ7() throws IOException {
+    var compressedMvTile = compressedMVTiles.get(7);
+    var mvTile = EncodingUtils.unzip(compressedMvTile);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeCompressedMvtMapboxZ8() throws IOException {
+    var compressedMvTile = compressedMVTiles.get(8);
+    var mvTile = EncodingUtils.unzip(compressedMvTile);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeCompressedMvtMapboxZ9() throws IOException {
+    var compressedMvTile = compressedMVTiles.get(9);
+    var mvTile = EncodingUtils.unzip(compressedMvTile);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeCompressedMvtMapboxZ10() throws IOException {
+    var compressedMvTile = compressedMVTiles.get(10);
+    var mvTile = EncodingUtils.unzip(compressedMvTile);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeCompressedMvtMapboxZ11() throws IOException {
+    var compressedMvTile = compressedMVTiles.get(11);
+    var mvTile = EncodingUtils.unzip(compressedMvTile);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeCompressedMvtMapboxZ12() throws IOException {
+    var compressedMvTile = compressedMVTiles.get(12);
+    var mvTile = EncodingUtils.unzip(compressedMvTile);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeCompressedMvtMapboxZ13() throws IOException {
+    var compressedMvTile = compressedMVTiles.get(13);
+    var mvTile = EncodingUtils.unzip(compressedMvTile);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+
+  @Benchmark
+  public Map<String, VectorTileLayer> decodeCompressedMvtMapboxZ14() throws IOException {
+    var compressedMvTile = compressedMVTiles.get(14);
+    var mvTile = EncodingUtils.unzip(compressedMvTile);
+    return MvtUtils.decodeMvtMapbox(mvTile);
+  }
+}

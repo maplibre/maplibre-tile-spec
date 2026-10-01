@@ -1,0 +1,255 @@
+import { describe, expect, it } from "vitest";
+import {
+    encodeBooleanRle,
+    encodeByteRle,
+    encodeDoubleLE,
+    encodeFloatsLE,
+    encodeUint32sLE,
+    encodeUint64sLE,
+    encodeStrings,
+} from "../encoding/encodingUtils";
+import BitVector from "../vector/flat/bitVector";
+import {
+    decodeBooleanRle,
+    decodeByteRle,
+    decodeDoublesLE,
+    decodeFloatsLE,
+    decodeString,
+    decodeUint32sLE,
+    decodeUint64sLE,
+} from "./decodingUtils";
+import IntWrapper from "./intWrapper";
+
+describe("decodingUtils", () => {
+    describe("decodeFloatsLE", () => {
+        it("should decode float values from little-endian bytes", () => {
+            const data = new Float32Array([1.5, 2.5]);
+            const encoded = encodeFloatsLE(data);
+            const offset = new IntWrapper(0);
+            const result = decodeFloatsLE(encoded, offset, 2);
+
+            expect(result).toEqual(data);
+            expect(offset.get()).toBe(8);
+        });
+    });
+
+    describe("decodeDoublesLE", () => {
+        it("should decode double values from little-endian bytes", () => {
+            const data = new Float64Array([Math.PI, Math.E]);
+            const encoded = encodeDoubleLE(data);
+            const offset = new IntWrapper(0);
+            const result = decodeDoublesLE(encoded, offset, 2);
+
+            expect(result[0]).toBeCloseTo(Math.PI);
+            expect(result[1]).toBeCloseTo(Math.E);
+            expect(offset.get()).toBe(Float64Array.BYTES_PER_ELEMENT * 2);
+        });
+    });
+
+    describe("decodeUint32sLE", () => {
+        it("should encode and decode uint32 values in little-endian byte order", () => {
+            const expectedValues = new Uint32Array([0x01020304]);
+            const expectedBytes = new Uint8Array([0x04, 0x03, 0x02, 0x01]);
+
+            expect(encodeUint32sLE(expectedValues)).toEqual(expectedBytes);
+
+            const offset = new IntWrapper(0);
+            const result = decodeUint32sLE(expectedBytes, offset, expectedValues.length);
+
+            expect(result).toEqual(expectedValues);
+            expect(offset.get()).toBe(expectedBytes.length);
+        });
+
+        it("should not read past the provided Uint8Array view", () => {
+            const backingBuffer = new Uint8Array([0x04, 0x03, 0x02, 0x01, 0x08, 0x07, 0x06, 0x05]);
+            const data = backingBuffer.subarray(0, Uint32Array.BYTES_PER_ELEMENT);
+            const offset = new IntWrapper(0);
+
+            expect(() => decodeUint32sLE(data, offset, 2)).toThrow(RangeError);
+            expect(offset.get()).toBe(0);
+        });
+    });
+
+    describe("decodeUint64sLE", () => {
+        it("should encode and decode uint64 values in little-endian byte order", () => {
+            const expectedValues = new BigUint64Array([0x0102030405060708n]);
+            const expectedBytes = new Uint8Array([0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01]);
+
+            expect(encodeUint64sLE(expectedValues)).toEqual(expectedBytes);
+
+            const offset = new IntWrapper(0);
+            const result = decodeUint64sLE(expectedBytes, offset, expectedValues.length);
+
+            expect(result).toEqual(expectedValues);
+            expect(offset.get()).toBe(expectedBytes.length);
+        });
+
+        it("should not read past the provided Uint8Array view", () => {
+            const backingBuffer = new Uint8Array([
+                0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x10, 0x0f, 0x0e, 0x0d, 0x0c, 0x0b, 0x0a, 0x09,
+            ]);
+            const data = backingBuffer.subarray(0, BigUint64Array.BYTES_PER_ELEMENT);
+            const offset = new IntWrapper(0);
+
+            expect(() => decodeUint64sLE(data, offset, 2)).toThrow(RangeError);
+            expect(offset.get()).toBe(0);
+        });
+    });
+
+    describe("decodeFloatsLE with nullability", () => {
+        it("should decode nullable float values with nullability buffer", () => {
+            const data = new Float32Array([1.5, 2.5]);
+            const encoded = encodeFloatsLE(data);
+            const offset = new IntWrapper(0);
+            const bitVectorData = new Uint8Array([0b00000101]);
+            const nullabilityBuffer = new BitVector(bitVectorData, 3);
+
+            const result = decodeFloatsLE(encoded, offset, 2, nullabilityBuffer);
+
+            expect(result.length).toBe(3);
+            expect(result[0]).toBeCloseTo(1.5);
+            expect(result[1]).toBe(0);
+            expect(result[2]).toBeCloseTo(2.5);
+        });
+    });
+
+    describe("decodeDoublesLE with nullability", () => {
+        it("should decode nullable double values with nullability buffer", () => {
+            const data = new Float32Array([Math.PI, Math.E]);
+            const encoded = encodeDoubleLE(data);
+            const offset = new IntWrapper(0);
+            const bitVectorData = new Uint8Array([0b00000011]);
+            const nullabilityBuffer = new BitVector(bitVectorData, 2);
+
+            const result = decodeDoublesLE(encoded, offset, 2, nullabilityBuffer);
+
+            expect(result.length).toBe(2);
+            expect(result[0]).toBeCloseTo(Math.PI);
+            expect(result[1]).toBeCloseTo(Math.E);
+        });
+    });
+
+    describe("decodeBooleanRle", () => {
+        it("should decode boolean RLE", () => {
+            // Create 8 true boolean values
+            const data = [true, true, true, true, true, true, true, true];
+            const encoded = encodeBooleanRle(data);
+            const offset = new IntWrapper(0);
+            const result = decodeBooleanRle(encoded, 8, encoded.length, offset);
+
+            // All 8 bits should be set in the first byte
+            expect(result[0]).toBe(0xff);
+        });
+
+        it("should round trip more booleans than one literal run can hold", () => {
+            // 1032 booleans pack into 129 bytes, one more than a literal run can carry
+            const data = Array.from({ length: 1032 }, (_, i) => i % 3 === 0);
+            const encoded = encodeBooleanRle(data);
+            const offset = new IntWrapper(0);
+            const bits = new BitVector(decodeBooleanRle(encoded, data.length, encoded.length, offset), data.length);
+
+            expect(data.map((_, i) => bits.get(i))).toEqual(data);
+        });
+    });
+
+    describe("decodeByteRle", () => {
+        it("should decode byte RLE with runs", () => {
+            // Encode 5 identical bytes
+            const data = new Uint8Array([42, 42, 42, 42, 42]);
+            const encoded = encodeByteRle(data);
+            const offset = new IntWrapper(0);
+            const result = decodeByteRle(encoded, 5, encoded.length, offset);
+
+            expect(result).toEqual(data);
+        });
+
+        it("should decode byte RLE with literals", () => {
+            // Encode 3 different bytes (will be encoded as literals)
+            const data = new Uint8Array([1, 2, 3]);
+            const encoded = encodeByteRle(data);
+            const offset = new IntWrapper(0);
+            const result = decodeByteRle(encoded, 3, encoded.length, offset);
+
+            expect(result).toEqual(data);
+            expect(offset.get()).toBe(encoded.length);
+        });
+
+        it("should handle truncated stream when byteLength runs out before numBytes", () => {
+            // Request 10 bytes but byteLength only allows 2 bytes (header + value)
+            // header=0 means numRuns=3, but stream ends after value byte
+            const data = new Uint8Array([0, 42]);
+            const offset = new IntWrapper(0);
+            const result = decodeByteRle(data, 10, 2, offset);
+
+            // Should only fill 3 bytes (what the run specified) then stop at stream boundary
+            expect(result.length).toBe(10);
+            expect(result[0]).toBe(42);
+            expect(result[1]).toBe(42);
+            expect(result[2]).toBe(42);
+            // Remaining bytes should be 0
+            expect(result[3]).toBe(0);
+            expect(result[9]).toBe(0);
+            expect(offset.get()).toBe(2); // Should stop at byteLength boundary
+        });
+
+        it("should decode mixed literals and runs", () => {
+            const data = new Uint8Array([1, 2, 5, 5, 5, 5, 5, 7, 8]);
+            const encoded = encodeByteRle(data);
+            const offset = new IntWrapper(0);
+            const result = decodeByteRle(encoded, 9, encoded.length, offset);
+
+            expect(result).toEqual(data);
+        });
+
+        it("should handle 128 literal max", () => {
+            const data = new Uint8Array(130);
+            for (let i = 0; i < 130; i++) {
+                data[i] = i % 256;
+            }
+            const encoded = encodeByteRle(data);
+            const offset = new IntWrapper(0);
+            const result = decodeByteRle(encoded, 130, encoded.length, offset);
+
+            expect(result).toEqual(data);
+        });
+
+        it("should handle 130 run max", () => {
+            // A run of 131 identical bytes needs a 130 byte run plus a literal
+            const data = new Uint8Array(131).fill(7);
+            const encoded = encodeByteRle(data);
+            const offset = new IntWrapper(0);
+            const result = decodeByteRle(encoded, 131, encoded.length, offset);
+
+            expect(result).toEqual(data);
+        });
+    });
+
+    describe("decodeString", () => {
+        it("should decode short string", () => {
+            const data = "Hello";
+            const encoded = encodeStrings([data]);
+            const result = decodeString(encoded, 0, encoded.length);
+
+            expect(result).toBe(data);
+        });
+
+        it("should decode long string", () => {
+            const data = "This is a longer string for testing TextDecoder path";
+            const encoded = encodeStrings([data]);
+            const result = decodeString(encoded, 0, encoded.length);
+
+            expect(result).toBe(data);
+        });
+
+        it("should handle string with offset", () => {
+            const prefix = "Hello";
+            const expectedText = "World";
+            const encoded = encodeStrings([prefix, expectedText]);
+            const prefixLength = new TextEncoder().encode(prefix).length;
+
+            const result = decodeString(encoded, prefixLength, encoded.length);
+
+            expect(result).toBe(expectedText);
+        });
+    });
+});

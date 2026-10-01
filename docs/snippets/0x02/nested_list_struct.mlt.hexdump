@@ -1,0 +1,83 @@
+00000000                                                                     | layer[0] "layer1" (62 B)
+00000000  3d                                                =                |   size: 61 (varint) - tag + body
+00000001  02                                                .                |   tag: 0x02 -> Tag02
+00000002  06 6c 61 79 65 72 31                              .layer1          |   name: "layer1"
+00000009  10                                                .                |   header: extent = 64, every feature is a Point
+                                                                             |     └ bit 7 = 0 -> no m-value section
+                                                                             |     └ bits 6-4 = 001 -> every feature is a Point, no types stream
+                                                                             |     └ bits 3-0 = 0000 -> extent 2^(n+6) = 64
+0000000a  02                                                .                |   feature_count: 2
+0000000b  00                                                .                |   layout: 0x00 Points
+                                                                             |     └ bit 7 = 0 -> shared bitfields are bitmaps
+                                                                             |     └ bits 6-4 = 000 -> shared presence bitfields = 0
+                                                                             |     └ bits 3-0 = 0000 -> geometry layout = Points
+0000000c                                                                     |   geometry (6 B)
+0000000c                                                                     |     vertices (6 B)
+0000000c  28                                                (                |       encoding: 0x28 logical=CwDelta physical=VarInt
+                                                                             |         └ bit 7 = 0 -> has_explicit_count = false -> 2 values from context
+                                                                             |         └ bits 6-4 = 010 -> logical = CwDelta, numbered for vertex stream
+                                                                             |         └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |         └ bits 1-0 = 00 -> extension = 0
+0000000d  04                                                .                |       byte_length: 4
+0000000e  16 68 78 28                                       .hx(             |       data [Data(Vertex) Vertex(ComponentwiseDelta)/VarInt, 2 values, 4 B]
+                                                                             |         decoded: [11, 52, 71, 72]
+00000012  01                                                .                |   column_count: 1
+00000013                                                                     |   column[0] List "items" (43 B)
+00000013  0d                                                .                |     type: 0x0D AllPresent List
+                                                                             |       └ bits 7-4 = 0000 -> presence = AllPresent
+                                                                             |       └ bits 3-0 = 1101 -> data type = List
+00000014  05 69 74 65 6d 73                                 .items           |     name: "items"
+0000001a                                                                     |     lengths (5 B)
+0000001a  88                                                .                |       encoding: 0x88 logical=None physical=VarInt
+                                                                             |         └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |         └ bits 6-4 = 000 -> logical = None, numbered for integer stream
+                                                                             |         └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |         └ bits 1-0 = 00 -> extension = 0
+0000001b  02                                                .                |       num_values: 2
+0000001c  02                                                .                |       byte_length: 2
+0000001d  02 01                                             ..               |       data [Length(Nested) Int(None)/VarInt, 2 values, 2 B]
+                                                                             |         decoded: [2, 1]
+0000001f                                                                     |     element Struct (31 B)
+0000001f  0c                                                .                |       type: 0x0C AllPresent Struct
+                                                                             |         └ bits 7-4 = 0000 -> node presence = AllPresent
+                                                                             |         └ bits 3-0 = 1100 -> data type = Struct
+00000020  02                                                .                |       field_count: 2
+00000021                                                                     |       field[0] I32 "id" (10 B)
+00000021  05                                                .                |         type: 0x05 AllPresent I32
+                                                                             |           └ bits 7-4 = 0000 -> node presence = AllPresent
+                                                                             |           └ bits 3-0 = 0101 -> data type = I32
+00000022  02 69 64                                          .id              |         name: "id"
+00000025                                                                     |         data (6 B)
+00000025  88                                                .                |           encoding: 0x88 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for integer stream
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+00000026  03                                                .                |           num_values: 3
+00000027  03                                                .                |           byte_length: 3
+00000028  02 04 06                                          ...              |           data [Data(None) Int(None)/VarInt, 3 values, 3 B]
+                                                                             |             decoded: [1, 2, 3]
+0000002b                                                                     |       field[1] Str "tag" (19 B)
+0000002b  0b                                                .                |         type: 0x0B AllPresent Str
+                                                                             |           └ bits 7-4 = 0000 -> node presence = AllPresent
+                                                                             |           └ bits 3-0 = 1011 -> data type = Str
+0000002c  03 74 61 67                                       .tag             |         name: "tag"
+00000030                                                                     |         lengths (6 B)
+00000030  88                                                .                |           encoding: 0x88 logical=None physical=VarInt
+                                                                             |             └ bit 7 = 1 -> has_explicit_count = true -> a num_values varint follows
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for string column
+                                                                             |             └ bits 3-2 = 10 -> physical = VarInt
+                                                                             |             └ bits 1-0 = 00 -> string layout = Plain
+00000031  03                                                .                |           num_values: 3
+00000032  03                                                .                |           byte_length: 3
+00000033  02 02 02                                          ...              |           data [Length(VarBinary) Int(None)/VarInt, 3 values, 3 B]
+                                                                             |             decoded: [2, 2, 2]
+00000036                                                                     |         values (8 B)
+00000036  04                                                .                |           encoding: 0x04 logical=None physical=WithLen
+                                                                             |             └ bit 7 = 0 -> has_explicit_count = false -> a blob's byte length is its value count
+                                                                             |             └ bits 6-4 = 000 -> logical = None, numbered for byte blob
+                                                                             |             └ bits 3-2 = 01 -> physical = WithLen
+                                                                             |             └ bits 1-0 = 00 -> extension = 0
+00000037  06                                                .                |           byte_length: 6
+00000038  68 69 6c 6f 68 69                                 hilohi           |           data [Data(None) Int(None)/None, 6 values, 6 B]
+                                                                             |             decoded: utf-8 "hilohi"

@@ -1,0 +1,10 @@
+---
+source: mlt/src/ls.rs
+expression: "render_table(&[info_row(mvt_info(\"a.mvt\")), info_row(mvt_info(\"b.mvt\"))],\nGZIP)"
+---
+ File  |    Size | Enc % | Decoded | Meta | Meta % | Gzipped | Gz % | Layer | Feature | Stream | Geometry Types 
+-------+---------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------
+ a.mvt |  54.3kB |     - |       - |    - |      - |       - |    - |     2 |     500 |      - | Line           
+ b.mvt |  54.3kB |     - |       - |    - |      - |       - |    - |     2 |     500 |      - | Line           
+-------+---------+-------+---------+------+--------+---------+------+-------+---------+--------+----------------
+ TOTAL | 108.6kB |     - |       - |    - |      - |       - |    - |     4 |   1,000 |      - |

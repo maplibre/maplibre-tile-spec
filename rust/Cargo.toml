@@ -1,38 +1,111 @@
-[package]
-name = "wasm-test"
-version = "0.1.0"
-edition = "2018"
+[workspace]
+resolver = "3"
+members = ["mlt", "mlt-core", "mlt-ffi", "mlt-py", "mlt-synthetics", "mlt-wasm"]
+default-members = ["mlt", "mlt-core", "mlt-ffi", "mlt-synthetics"]
+# Exclusions:
+#  - mlt-core/fuzz: cargo-fuzz does not have workspace support
+exclude = ["mlt-core/fuzz"]
 
-[lib]
-crate-type = ["cdylib", "rlib"]
+[workspace.package]
+authors = ["Maplibre Contributors"]
+categories = ["science::geo"]
+edition = "2024"
+homepage = "https://maplibre.org"
+keywords = ["maplibre", "tile", "mlt", "mvt", "map"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/maplibre/maplibre-tile-spec"
+rust-version = "1.98"
 
-#[features]
-#default = ["console_error_panic_hook"]
+[workspace.dependencies]
+anyhow = "1"
+arbitrary = { version = "1.4", features = ["derive"] }
+bitvec = "1"
+brotli = "9"
+bytemuck = "1.25.0"
+bytes = "1"
+clap = { version = "4.6.0", features = ["derive"] }
+criterion = { version = "0.8", features = ["html_reports"] }
+crossbeam-channel = "0.5"
+crossterm = "0.29.0"
+derive-debug = "0.1.2"
+diplomat = "0.16.0"
+diplomat-runtime = "0.16.0"
+enum_dispatch = "0.3"
+fast-mvt = "0.6.0"
+fastpfor = { version = "0.9", features = ["rust"] }
+flate2 = "1"
+fsst-rs = "0.6"
+futures = "0.3"
+geo = { version = "0.33.1", default-features = false }
+geo-types = "0.7.19"
+glob = "0.3"
+globset = "0.4"
+hex = "0.4.3"
+hilbert_2d = "1.1.0"
+hotpath = "0.26"
+indicatif = "0.18"
+insta = "1.47.2"
+integer-encoding = "4.0.2"
+js-sys = "0.3"
+martin-tile-utils = "0.7"
+mbtiles = { version = "0.19", default-features = false, features = ["transcode"] }
+mimalloc = "0.1.52"
+minicov = "0.3.9"
+mlt-core = { version = "0.16.0", path = "mlt-core" }
+moka = { version = "0.12", features = ["sync"] }
+num-traits = "0.2.19"
+num_enum = "0.7.6"
+pmtiles = { version = "0.24.0", default-features = false, features = ["mmap-async-tokio", "write", "tilejson", "iter-async", "brotli", "zstd"] }
+pretty_assertions = "1.4"
+probabilistic-collections = "0.7"
+proptest = "1.11"
+proptest-derive = "0.8"
+pyo3 = "0.29.0"
+pyo3-stub-gen = "0.23.0"
+pythonize = "0.29"
+ratatui = { version = "0.30.1", default-features = false, features = ["crossterm", "layout-cache", "underline-color"] }
+rayon = "1"
+rstar = "0.13"
+rstest = "0.27.0"
+serde = { version = "1", features = ["derive"] }
+serde-wasm-bindgen = "0.6.5"
+serde_json = "1.0.150"
+size_format = "1"
+sqlx = { version = "0.9", default-features = false, features = ["sqlite", "runtime-tokio"] }
+strum = { version = "0.28.0", default-features = false, features = ["derive"] }
+tabled = { version = "0.22", default-features = false, features = ["std", "derive"] }
+test_each_file = "0.3.5"
+thiserror = "2.0.11"
+thousands = "0.2"
+tilejson = "0.4"
+tokio = { version = "1", features = ["macros", "rt", "sync", "time"] }
+union-find = "0.4.4"
+usize_cast = "1.1.0"
+walkdir = "2"
+wasm-bindgen = "0.2"
+wide = "1.5.0"
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+zigzag = "0.1.0"
+zstd = "0.14"
 
-[dependencies]
-wasm-bindgen = { version = "0.2.74", features = ["serde-serialize"]  }
-js-sys = "0.3.51"
-wasm-bindgen-futures = "0.4.24"
-serde = { version = "1.0.203", features = ["derive"] }
-serde_derive = "^1.0.59"
+[workspace.lints.rust]
+unsafe_code = "deny"
+unused_qualifications = "warn"
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }
 
-[dependencies.web-sys]
-version = "0.3.4"
-features = [
-    'Headers',
-    'Request',
-    'RequestInit',
-    'RequestMode',
-    'Response',
-    'Window',
-]
+[workspace.lints.clippy]
+cargo = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
 
-#console_error_panic_hook = { version = "0.1.6", optional = true }
-#wee_alloc = { version = "0.4.5", optional = true }
+# Restrictions
+panic_in_result_fn = "warn"
+todo = "warn"
+unimplemented = "warn"
+use_self = "warn"
+wildcard_enum_match_arm = "warn"
 
-[dev-dependencies]
-wasm-bindgen-test = "0.3.42"
-
-#[profile.release]
-# Tell `rustc` to optimize for small code size.
-#opt-level = "s"
+# Too noisy
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+multiple_crate_versions = "allow"
+too_many_lines = "allow"

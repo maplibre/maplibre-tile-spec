@@ -1,0 +1,53 @@
+---
+Checks: [
+    android-*,
+    boost-*,
+    bugprone-*,
+    clang-analyzer-core*,
+    clang-analyzer-cplusplus*,
+    clang-analyzer-deadcode*,
+    clang-analyzer-optin.cplusplus*,
+    clang-analyzer-optin.performance.Padding,
+    clang-analyzer-security*,
+    clang-diagnostic-*,
+    cppcoreguidelines-avoid-goto,
+    cppcoreguidelines-no-malloc,
+    google-*,
+    llvm-*,
+    misc-*,
+    modernize-*,
+    performance-*,
+    portability-*,
+    readability-*,
+    -boost-use-ranges,
+    -bugprone-easily-swappable-parameters,
+    -bugprone-implicit-widening-of-multiplication-result,
+    -bugprone-narrowing-conversions,
+    -bugprone-unchecked-optional-access,
+    -google-build-namespaces,
+    -google-build-using-namespace,
+    -google-explicit-constructor,
+    -google-readability-todo,
+    -llvm-header-guard,
+    -llvm-prefer-static-over-anonymous-namespace,
+    -misc-no-recursion,
+    -misc-non-private-member-variables-in-classes,
+    -modernize-avoid-c-arrays,
+    -modernize-use-nodiscard,
+    -modernize-use-trailing-return-type,
+    -portability-avoid-pragma-once,
+    -readability-function-cognitive-complexity,
+    -readability-identifier-length,
+    -readability-implicit-bool-conversion,
+    -readability-inconsistent-declaration-parameter-name,
+    -readability-isolate-declaration,
+    -readability-magic-numbers,
+    -readability-named-parameter,
+    -readability-uppercase-literal-suffix,
+]
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*'
+CheckOptions:
+  - key:   performance-unnecessary-value-param.AllowedTypes
+    value: 'exception_ptr'
+ExcludeHeaderFilterRegex: '.*/vendor/.*'

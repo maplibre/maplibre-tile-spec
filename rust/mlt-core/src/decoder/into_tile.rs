@@ -1,0 +1,255 @@
+//! Conversion from the decoded columnar form into the row-oriented
+//! [`crate::tile`] model.
+//!
+//! [`ParsedLayer01::into_tile`] materializes one [`TileFeature`] per map
+//! feature, owning its geometry and property values outright. That is the form
+//! the optimizer, the sorting pipeline, and the converters work in.
+
+use crate::decoder::{Layer, Layer01, ParsedLayer, ParsedLayer01, ParsedProperty, PropValueRef};
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::{Layer02, MValueSpans, ParsedLayer02, ParsedMValue, ParsedNested};
+use crate::errors::AsMltError as _;
+#[cfg(feature = "unstable-v2")]
+use crate::tile::{MValue, NestedKind, NestedValue};
+use crate::tile::{PropValue, TileFeature, TileLayer};
+use crate::{Decoder, Lazy, LendingIterator, MltResult};
+
+/// The parts of a [`TileLayer`] every wire version produces the same way.
+struct TileParts {
+    name: String,
+    extent: u32,
+    names: Vec<String>,
+    features: Vec<TileFeature>,
+}
+
+impl TileParts {
+    fn finish(self) -> MltResult<TileLayer> {
+        TileLayer::from_parts(self.name, self.extent, self.names, self.features)
+    }
+}
+
+impl ParsedLayer01<'_> {
+    /// Decode and convert into a row-oriented [`TileLayer`], charging every
+    /// heap allocation against `dec`.
+    pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer> {
+        self.collect_parts(dec)?.finish()
+    }
+
+    /// One [`TileFeature`] per map feature, carrying only the columns every version
+    /// has. Borrows, so a version that adds its own can fill them in afterwards.
+    fn collect_parts(&self, dec: &mut Decoder) -> MltResult<TileParts> {
+        let name = self.name().to_string();
+        let extent = self.extent().get();
+        let names: Vec<String> = self.iterate_prop_names().map(|n| n.to_string()).collect();
+        let col_nulls = typed_nulls(&self.properties);
+        let mut features = dec.alloc::<TileFeature>(self.feature_count())?;
+        let mut feat_iter = self.iter_features();
+        while let Some(feat) = feat_iter.next() {
+            let feat = feat?;
+            let mut values = dec.alloc::<PropValue>(names.len())?;
+            for (col_idx, value) in feat.iter_all_properties().enumerate() {
+                values.push(match value {
+                    Some(v) => prop_value_from_ref(v),
+                    None => col_nulls[col_idx].clone(),
+                });
+            }
+
+            charge_str_props(dec, &values)?;
+
+            features.push(TileFeature {
+                id: feat.id(),
+                geometry: feat.geometry().clone(),
+                properties: values,
+                #[cfg(feature = "unstable-v2")]
+                m_values: Vec::new(),
+                #[cfg(feature = "unstable-v2")]
+                nested: Vec::new(),
+                #[cfg(feature = "unstable-v2")]
+                z: Vec::new(),
+            });
+        }
+        Ok(TileParts {
+            name,
+            extent,
+            names,
+            features,
+        })
+    }
+}
+
+impl Layer01<'_> {
+    /// Decode and convert into a row-oriented [`TileLayer`]
+    pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer> {
+        self.decode_all(dec)?.into_tile(dec)
+    }
+}
+
+#[cfg(feature = "unstable-v2")]
+impl ParsedLayer02<'_> {
+    /// Decode and convert into a row-oriented [`TileLayer`], adding the m-value
+    /// and nested columns only v2 carries.
+    pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer> {
+        let m_names: Vec<String> = self.m_values.iter().map(|m| m.name().to_string()).collect();
+        let nested_names: Vec<String> = self.nested.iter().map(|n| n.name().to_string()).collect();
+        let nested_kinds: Vec<NestedKind> = self.nested.iter().map(ParsedNested::kind).collect();
+        // One walk per m-value column, stepped alongside the features. Cutting the
+        // columns up front instead would cost a span per feature per column, which is
+        // memory the tile declares rather than memory it carries.
+        let mut m_spans = dec.alloc::<MValueSpans>(self.m_values.len())?;
+        m_spans.extend(self.m_values.iter().map(|m| m.spans(&self.layer.geometry)));
+
+        let geometry = &self.layer.geometry;
+        let mut parts = self.layer.collect_parts(dec)?;
+        for (index, feature) in parts.features.iter_mut().enumerate() {
+            feature.m_values = m_values_of(&self.m_values, &mut m_spans, dec)?;
+            feature.nested = nested_of(&self.nested, index, dec)?;
+            let run = geometry.z_run(index)?;
+            let mut z = dec.alloc::<i32>(run.len())?;
+            for value in run {
+                z.push(value?);
+            }
+            feature.z = z;
+        }
+        parts
+            .finish()?
+            .with_m_value_names(m_names)?
+            .with_nested(nested_names, nested_kinds)?
+            .with_z_step(geometry.z_step())
+    }
+}
+
+#[cfg(feature = "unstable-v2")]
+impl Layer02<'_> {
+    /// Decode and convert into a row-oriented [`TileLayer`]
+    pub fn into_tile(self, dec: &mut Decoder) -> MltResult<TileLayer> {
+        self.decode_all(dec)?.into_tile(dec)
+    }
+}
+
+impl ParsedLayer<'_> {
+    /// Convert into a row-oriented [`TileLayer`] whatever the tag, or `None` for a
+    /// tag this build does not know. Keeps every version's columns.
+    pub fn into_tile(self, dec: &mut Decoder) -> MltResult<Option<TileLayer>> {
+        match self {
+            Self::Tag01(l) => l.into_tile(dec).map(Some),
+            #[cfg(feature = "unstable-v2")]
+            Self::Tag02(l) => l.into_tile(dec).map(Some),
+            Self::Unknown(_) => Ok(None),
+        }
+    }
+}
+
+impl Layer<'_, Lazy> {
+    /// Decode every column, then convert into a row-oriented [`TileLayer`], or
+    /// `None` for a tag this build does not know.
+    pub fn into_tile(self, dec: &mut Decoder) -> MltResult<Option<TileLayer>> {
+        self.decode_all(dec)?.into_tile(dec)
+    }
+}
+
+/// The m-values of the next feature, one per column, charged against `dec`.
+///
+/// Every column's walk is stepped once per feature, which is what pairs a feature
+/// with its run.
+#[cfg(feature = "unstable-v2")]
+fn m_values_of(
+    columns: &[ParsedMValue<'_>],
+    spans: &mut [MValueSpans<'_>],
+    dec: &mut Decoder,
+) -> MltResult<Vec<MValue>> {
+    let mut values = dec.alloc::<MValue>(columns.len())?;
+    for (column, spans) in columns.iter().zip(spans) {
+        let span = spans.next().transpose()?.flatten();
+        if let Some(span) = &span {
+            dec.consume(u32::try_from(column.values().row_bytes(span)).or_overflow()?)?;
+        }
+        values.push(column.values().row(column.name(), span)?);
+    }
+    Ok(values)
+}
+
+/// The nested values of feature `index`, one per column, charged against `dec`.
+#[cfg(feature = "unstable-v2")]
+fn nested_of(
+    columns: &[ParsedNested<'_>],
+    index: usize,
+    dec: &mut Decoder,
+) -> MltResult<Vec<NestedValue>> {
+    let mut values = dec.alloc::<NestedValue>(columns.len())?;
+    for column in columns {
+        let value = column.row(index)?;
+        dec.consume(u32::try_from(value.heap_bytes()).or_overflow()?)?;
+        values.push(value);
+    }
+    Ok(values)
+}
+
+/// Convert a [`PropValueRef`] (as yielded by [`crate::FeatureRef::iter_all_properties`])
+/// into an owned [`PropValue`].
+fn prop_value_from_ref(value: PropValueRef<'_>) -> PropValue {
+    match value {
+        PropValueRef::Bool(v) => PropValue::Bool(Some(v)),
+        PropValueRef::I8(v) => PropValue::I8(Some(v)),
+        PropValueRef::U8(v) => PropValue::U8(Some(v)),
+        PropValueRef::I32(v) => PropValue::I32(Some(v)),
+        PropValueRef::U32(v) => PropValue::U32(Some(v)),
+        PropValueRef::I64(v) => PropValue::I64(Some(v)),
+        PropValueRef::U64(v) => PropValue::U64(Some(v)),
+        PropValueRef::F32(v) => PropValue::F32(Some(v)),
+        PropValueRef::F64(v) => PropValue::F64(Some(v)),
+        PropValueRef::Str(s) => PropValue::Str(Some(s.to_string())),
+    }
+}
+
+/// Build a flat list of typed null [`PropValue`]s, one per logical column position
+/// as yielded by [`crate::FeatureRef::iter_all_properties`].
+///
+/// Each scalar column contributes one entry with its specific null variant (e.g.
+/// `PropValue::Bool(None)`).  A `SharedDict` column expands to one `PropValue::Str(None)`
+/// entry per sub-item.
+fn typed_nulls(properties: &[ParsedProperty<'_>]) -> Vec<PropValue> {
+    use ParsedProperty as PP;
+    use PropValue as PV;
+    let mut nulls = Vec::new();
+    for prop in properties {
+        match prop {
+            PP::Bool(_) => nulls.push(PV::Bool(None)),
+            PP::I8(_) => nulls.push(PV::I8(None)),
+            PP::U8(_) => nulls.push(PV::U8(None)),
+            PP::I32(_) => nulls.push(PV::I32(None)),
+            PP::U32(_) => nulls.push(PV::U32(None)),
+            PP::I64(_) => nulls.push(PV::I64(None)),
+            PP::U64(_) => nulls.push(PV::U64(None)),
+            PP::F32(_) => nulls.push(PV::F32(None)),
+            PP::F64(_) => nulls.push(PV::F64(None)),
+            PP::Str(_) => nulls.push(PV::Str(None)),
+            PP::SharedDict(d) => {
+                for _ in &d.items {
+                    nulls.push(PV::Str(None));
+                }
+            }
+        }
+    }
+    nulls
+}
+
+/// Charge `dec` for the heap bytes of owned `String` values inside `PropValue::Str`.
+fn charge_str_props(dec: &mut Decoder, props: &[PropValue]) -> MltResult<()> {
+    let str_bytes = props
+        .iter()
+        .filter_map(|p| {
+            if let PropValue::Str(Some(s)) = p {
+                Some(s.len())
+            } else {
+                None
+            }
+        })
+        .try_fold(0u32, |acc, n| {
+            acc.checked_add(u32::try_from(n).or_overflow()?)
+                .or_overflow()
+        })?;
+    if str_bytes > 0 {
+        dec.consume(str_bytes)?;
+    }
+    Ok(())
+}

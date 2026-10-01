@@ -1,0 +1,59 @@
+plugins {
+    alias(libs.plugins.diffplug.spotless)
+    id 'java-library'
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        url = 'https://maven.ecc.no/releases'
+    }
+    maven {
+        url = 'https://repo.osgeo.org/repository/release/'
+        content {
+            includeGroup 'org.geotools'
+            includeGroup 'org.geotools.ogc'
+            includeGroup 'org.eclipse.imagen'
+            includeGroup 'it.geosolutions.jgridshift'
+        }
+    }
+}
+
+dependencies {
+    implementation project(':mlt-core')
+    implementation(libs.jts.core)
+    implementation(libs.gson)
+    implementation(libs.commons.lang3)
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+spotless {
+    java {
+        importOrder()
+        target 'src/*/java/**/*.java'
+        googleJavaFormat()
+        removeUnusedImports()
+    }
+}
+
+gradle.projectsEvaluated {
+    tasks.withType(JavaCompile).tap {
+        configureEach {
+            options.compilerArgs << "-Xlint:unchecked"
+            options.compilerArgs << "-Xlint:deprecation"
+            options.compilerArgs << "-Xlint:all"
+        }
+    }
+}
+
+tasks.register('generateSyntheticMlt', JavaExec) {
+    description = 'Generates synthetic MLT test fixtures'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.maplibre.mlt.tools.SyntheticMltGenerator'
+    workingDir = project.projectDir.parentFile
+}

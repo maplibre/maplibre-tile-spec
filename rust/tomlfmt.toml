@@ -1,0 +1,14 @@
+table_order = [
+    'workspace',
+    'package',
+    'lib',
+    'bin',
+    'example',
+    'bench',
+    'features',
+    'dependencies',
+    'build-dependencies',
+    'dev-dependencies',
+    'profile',
+    'lints',
+]

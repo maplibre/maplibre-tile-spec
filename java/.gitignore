@@ -1,0 +1,5 @@
+.gradle/
+build/
+output/
+*.mlt.mbtiles
+*.mlt.pmtiles

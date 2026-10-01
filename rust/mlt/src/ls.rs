@@ -1,0 +1,1508 @@
+use std::collections::{BTreeSet, HashSet};
+use std::ffi::OsStr;
+use std::fs;
+use std::io::Write as _;
+use std::path::{Path, PathBuf};
+use std::str::FromStr as _;
+use std::string::ToString;
+
+use anyhow::Result as AnyResult;
+use clap::{Args, ValueEnum};
+use flate2::Compression;
+use flate2::write::GzEncoder;
+use globset::{GlobSet, GlobSetBuilder};
+use mlt_core::geojson::FeatureCollection;
+use mlt_core::mvt::mvt_to_feature_collection;
+use mlt_core::wire::StatType::{DecodedDataSize, DecodedMetaSize, FeatureCount};
+use mlt_core::wire::{
+    Analyze as _, BoolLogical, ColumnDecl, ColumnStorage, DictLayout, DictionaryType, FastPForKind,
+    FloatLogical, IntLogical, LengthType, LogicalEncoding, OffsetType, PhysicalEncoding,
+    StreamMeta, StreamType, StringLayout, VertexLogical,
+};
+use mlt_core::{Decoder, GeometryType, Layer, ParsedLayer, Parser, PropKind};
+use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
+use serde::Serialize;
+use size_format::SizeFormatterSI;
+use tabled::Table;
+use tabled::builder::Builder;
+use tabled::settings::object::{Cell, Columns};
+use tabled::settings::span::ColumnSpan;
+use tabled::settings::style::HorizontalLine;
+use tabled::settings::{Alignment, Style};
+use thousands::Separable as _;
+use usize_cast::FromUsize as _;
+
+#[derive(Debug, Args)]
+pub struct LsArgs {
+    /// Paths to tile files (.mlt, .mvt, .pbf) or directories
+    #[arg(required = true)]
+    paths: Vec<PathBuf>,
+
+    /// Filter by file extension (e.g. mlt, mvt, pbf). Can be specified multiple times.
+    #[arg(short = 'e', long)]
+    extension: Vec<String>,
+
+    /// Exclude paths matching the given glob (e.g. "**/fixtures/**", "**/*.pbf"). Can be specified multiple times.
+    #[arg(short = 'E', long = "exclude")]
+    exclude: Vec<String>,
+
+    /// Disable recursive directory traversal
+    #[arg(long)]
+    no_recursive: bool,
+
+    /// Level of detail to show (can be specified multiple times for more details)
+    #[arg(short, long, value_enum, default_values = ["basic", "gzip"])]
+    details: Vec<Detail>,
+
+    /// Output format (table or JSON)
+    #[arg(short, long, default_value = "table", value_enum)]
+    format: LsFormat,
+
+    /// Validate tile files against JSON validation files in the same directory (with .json extension)
+    #[arg(long)]
+    validate_to_json: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum Detail {
+    /// Show basic statistics: file size, encoding %, layers, features
+    Basic,
+    /// Show all available statistics
+    All,
+    /// Show gzip size estimation and compression ratio
+    #[clap(name = "gzip")]
+    GZip,
+    /// Show stream/encoding algorithms used (Algorithms column)
+    Algorithms,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct LsFlags {
+    pub gzip: bool,
+    pub algorithms: bool,
+    pub validate: bool,
+}
+
+impl From<&LsArgs> for LsFlags {
+    fn from(args: &LsArgs) -> Self {
+        use Detail::{Algorithms, All, GZip};
+        let details = args.details.as_slice();
+        Self {
+            gzip: details.contains(&GZip) || details.contains(&All),
+            algorithms: details.contains(&Algorithms) || details.contains(&All),
+            validate: args.validate_to_json,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, ValueEnum)]
+pub enum LsFormat {
+    /// Table output with aligned columns
+    Table,
+    /// JSON output
+    Json,
+}
+
+/// Compression reduction: `(1 - compressed/original) * 100`.
+/// Returns 0 if `original` is 0.
+#[expect(clippy::cast_precision_loss)]
+fn percent(compressed: usize, original: usize) -> f64 {
+    if original > 0 {
+        (1.0 - compressed as f64 / original as f64) * 100.0
+    } else {
+        0.0
+    }
+}
+
+#[expect(clippy::cast_precision_loss)]
+fn percent_of(part: usize, whole: usize) -> f64 {
+    if whole > 0 {
+        (part as f64 / whole as f64) * 100.0
+    } else {
+        0.0
+    }
+}
+
+/// Column index for file table sorting in the UI.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FileSortColumn {
+    File,
+    Size,
+    EncPct,
+    Layers,
+    Features,
+}
+
+/// Algorithm description for a file (MLT stream combo or protobuf for MVT).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum FileAlgorithm {
+    Mlt(StreamType, PhysicalEncoding, StatLogicalCodec),
+    Mvt,
+}
+
+/// Spec vocabulary for the wire enums.
+///
+/// These live here rather than as `Serialize` derives on the wire types themselves,
+/// which deliberately carry none so they do not become frozen public JSON API.
+/// Every token is the name the v2 spec uses, lowercased and hyphenated.
+fn stream_token(stream: StreamType) -> &'static str {
+    match stream {
+        StreamType::Present => "present",
+        StreamType::Data(v) => match v {
+            DictionaryType::None => "data",
+            DictionaryType::Single => "data[single]",
+            DictionaryType::Shared => "data[shared]",
+            DictionaryType::Vertex => "data[vertex]",
+            DictionaryType::Morton => "data[morton]",
+            DictionaryType::Fsst => "data[fsst]",
+        },
+        StreamType::Offset(v) => match v {
+            OffsetType::Vertex => "offset[vertex]",
+            OffsetType::Index => "offset[index]",
+            OffsetType::String => "offset[string]",
+            OffsetType::Key => "offset[key]",
+        },
+        StreamType::Length(v) => match v {
+            LengthType::VarBinary => "length[var-binary]",
+            LengthType::Geometries => "length[geometries]",
+            LengthType::Parts => "length[parts]",
+            LengthType::Rings => "length[rings]",
+            LengthType::Triangles => "length[triangles]",
+            LengthType::Symbol => "length[symbol]",
+            LengthType::Dictionary => "length[dictionary]",
+            #[cfg(feature = "unstable-v2")]
+            LengthType::Nested => "length[nested]",
+            // `mlt-core` resolves its features separately, so it may hand this
+            // build a nested length stream the match above cannot name.
+            #[cfg(not(feature = "unstable-v2"))]
+            #[allow(unreachable_patterns, reason = "reachable only when mlt-core has v2")]
+            _ => "length[nested]",
+        },
+    }
+}
+
+/// `None` for a stream that names no physical encoding, which JSON spells as `null`
+/// rather than as an empty string that would read as a value of its own.
+fn physical_token(physical: PhysicalEncoding) -> Option<&'static str> {
+    // `mlt-core` may carry v2-only encodings this build has no name for,
+    // since its features are resolved separately from this crate's.
+    #[cfg_attr(
+        not(feature = "unstable-v2"),
+        expect(
+            clippy::wildcard_enum_match_arm,
+            reason = "v2 encodings exist only when mlt-core has them"
+        )
+    )]
+    let token = match physical {
+        PhysicalEncoding::None => return None,
+        PhysicalEncoding::FastPFor(kind) => match kind {
+            FastPForKind::Block256Be => "fastpfor[256be]",
+            #[cfg(feature = "unstable-v2")]
+            FastPForKind::Block128Le => "fastpfor[128le]",
+            #[cfg(not(feature = "unstable-v2"))]
+            #[allow(unreachable_patterns, reason = "reachable only when mlt-core has v2")]
+            _ => "fastpfor[128le]",
+        },
+        PhysicalEncoding::VarInt => "varint",
+        #[cfg(feature = "unstable-v2")]
+        PhysicalEncoding::BitPacked => "bit-packed",
+        #[cfg(not(feature = "unstable-v2"))]
+        #[allow(
+            unreachable_patterns,
+            reason = "reachable only when mlt-core has v2, but this crate doesn't"
+        )]
+        _ => "unknown",
+    };
+    Some(token)
+}
+
+/// `None` for a stream stored as it is, matching [`physical_token`].
+fn logical_token(logical: StatLogicalCodec) -> Option<&'static str> {
+    Some(match logical {
+        StatLogicalCodec::None => return None,
+        StatLogicalCodec::Delta => "delta",
+        StatLogicalCodec::Delta2 => "delta2",
+        StatLogicalCodec::DeltaRle => "delta-rle",
+        StatLogicalCodec::Rle => "rle",
+        StatLogicalCodec::ComponentwiseDelta => "componentwise-delta",
+        StatLogicalCodec::ComponentwiseDelta2 => "componentwise-delta2",
+        StatLogicalCodec::MortonDelta => "morton-delta",
+        StatLogicalCodec::Dict => "dict",
+        StatLogicalCodec::Alp => "alp",
+        StatLogicalCodec::Xyz => "xyz",
+    })
+}
+
+/// A type paired with whether the column declares a presence field
+fn optionality_token(decl: ColumnDecl) -> &'static str {
+    match decl {
+        ColumnDecl::Id {
+            wide: false,
+            optional: false,
+        } => "id!",
+        ColumnDecl::Id {
+            wide: false,
+            optional: true,
+        } => "id?",
+        ColumnDecl::Id {
+            wide: true,
+            optional: false,
+        } => "id64!",
+        ColumnDecl::Id {
+            wide: true,
+            optional: true,
+        } => "id64?",
+        ColumnDecl::Value { kind, optional } => match (kind, optional) {
+            (PropKind::Bool, false) => "bool!",
+            (PropKind::Bool, true) => "bool?",
+            (PropKind::I8, false) => "i8!",
+            (PropKind::I8, true) => "i8?",
+            (PropKind::U8, false) => "u8!",
+            (PropKind::U8, true) => "u8?",
+            (PropKind::I32, false) => "i32!",
+            (PropKind::I32, true) => "i32?",
+            (PropKind::U32, false) => "u32!",
+            (PropKind::U32, true) => "u32?",
+            (PropKind::I64, false) => "i64!",
+            (PropKind::I64, true) => "i64?",
+            (PropKind::U64, false) => "u64!",
+            (PropKind::U64, true) => "u64?",
+            (PropKind::F32, false) => "f32!",
+            (PropKind::F32, true) => "f32?",
+            (PropKind::F64, false) => "f64!",
+            (PropKind::F64, true) => "f64?",
+            (PropKind::Str, false) => "str!",
+            (PropKind::Str, true) => "str?",
+        },
+    }
+}
+
+fn geometry_token(geometry: GeometryType) -> &'static str {
+    match geometry {
+        GeometryType::Point => "point",
+        GeometryType::LineString => "line-string",
+        GeometryType::Polygon => "polygon",
+        GeometryType::MultiPoint => "multi-point",
+        GeometryType::MultiLineString => "multi-line-string",
+        GeometryType::MultiPolygon => "multi-polygon",
+    }
+}
+
+fn string_layout_token(layout: StringLayout) -> &'static str {
+    match layout {
+        StringLayout::Plain => "plain",
+        StringLayout::Dict => "dict",
+        StringLayout::Fsst => "fsst",
+        StringLayout::FsstDict => "fsst-dict",
+    }
+}
+
+fn dict_layout_token(layout: DictLayout) -> &'static str {
+    match layout {
+        DictLayout::Plain => "plain",
+        #[cfg(feature = "unstable-v2")]
+        DictLayout::FrontCoded => "front-coded",
+        #[cfg(not(feature = "unstable-v2"))]
+        #[allow(unreachable_patterns, reason = "reachable only when mlt-core has v2")]
+        _ => "front-coded",
+    }
+}
+
+#[cfg(feature = "unstable-v2")]
+fn geom_layout_token(layout: mlt_core::wire::GeoLayout) -> &'static str {
+    use mlt_core::wire::GeoLayout as G;
+    match layout {
+        G::Points => "points",
+        G::PointsDict => "points-dict",
+        G::MultiPoints => "multi-points",
+        G::MultiPointsDict => "multi-points-dict",
+        G::Lines => "lines",
+        G::LinesDict => "lines-dict",
+        G::MultiLines => "multi-lines",
+        G::MultiLinesDict => "multi-lines-dict",
+        G::Polygons => "polygons",
+        G::PolygonsDict => "polygons-dict",
+        G::MultiPolygons => "multi-polygons",
+        G::MultiPolygonsDict => "multi-polygons-dict",
+        G::TessPolygons => "tess-polygons",
+        G::TessPolygonsWithOutlines => "tess-polygons-with-outlines",
+    }
+}
+
+/// The human-readable form, which only the table and the TUI's filter list read.
+///
+/// Unlike the JSON form this joins the three fields into one string, and carries no
+/// compatibility guarantee: a caller that needs the parts reads them from JSON.
+impl std::fmt::Display for FileAlgorithm {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Mvt => write!(f, "protobuf"),
+            Self::Mlt(stream, physical, logical) => {
+                write!(f, "{}", stream_token(*stream))?;
+                if let Some(physical) = physical_token(*physical) {
+                    write!(f, "/{physical}")?;
+                }
+                if let Some(logical) = logical_token(*logical) {
+                    write!(f, "/{logical}")?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+impl Serialize for FileAlgorithm {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct as _;
+        let mut row = serializer.serialize_struct("FileAlgorithm", 3)?;
+        let (stream, physical, logical) = match self {
+            Self::Mvt => ("protobuf", None, None),
+            Self::Mlt(stream, physical, logical) => (
+                stream_token(*stream),
+                physical_token(*physical),
+                logical_token(*logical),
+            ),
+        };
+        row.serialize_field("stream", stream)?;
+        row.serialize_field("physical", &physical)?;
+        row.serialize_field("logical", &logical)?;
+        row.end()
+    }
+}
+
+/// Dash shown when a numeric column is not applicable (e.g. MVT has no Enc %).
+pub const NA: &str = "-";
+
+#[must_use]
+pub fn na(v: Option<String>) -> String {
+    v.unwrap_or_else(|| NA.to_string())
+}
+
+/// The filter vocabulary a tile answers to, one sorted array of strings per axis.
+///
+/// Every value is spelled as the v2 spec names it, lowercased and hyphenated, so a
+/// caller can show them as they are. `geometry` restates what `geometries` already
+/// holds: that keeps the shape its own consumers need, while this is the one flat
+/// surface a facet filter reads.
+///
+/// TODO: a `presence` axis (bitmap / runs / indices / shared) belongs here, but
+/// `RawPresence` collapses `Runs` and `Indices` into one variant and does not record
+/// whether a bitfield was inline or shared, so the coding is lost during parsing.
+/// Reporting it needs the coding retained in `mlt-core`'s v2 parse path first.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Facets {
+    /// The tile extent of each layer, in coordinate units. The one axis whose values
+    /// are measured rather than named, so the only one that owns its strings.
+    pub extent: BTreeSet<String>,
+    /// The geometry types the layers hold.
+    pub geometry: BTreeSet<&'static str>,
+    /// The geometry section layout each layer was written with. v2 only.
+    pub geom_layout: BTreeSet<&'static str>,
+    /// Each feature-scoped column as a type paired with its nullability, `i32!` or
+    /// `i32?`, the id column included.
+    pub data_type: BTreeSet<&'static str>,
+    /// The data types carried by m-value columns, which run over vertices rather than
+    /// features and so count on their own.
+    pub m_value: BTreeSet<&'static str>,
+    /// How the string columns store their values.
+    pub str_layout: BTreeSet<&'static str>,
+    /// How the dictionary blobs are laid out.
+    pub dict_layout: BTreeSet<&'static str>,
+    /// The kinds of stream present, unpaired from their encodings.
+    pub stream_type: BTreeSet<&'static str>,
+    /// The physical encodings present, unpaired from the streams carrying them.
+    pub physical: BTreeSet<&'static str>,
+    /// The logical encodings present, unpaired from the streams carrying them.
+    pub logical: BTreeSet<&'static str>,
+}
+
+impl Facets {
+    fn add_algorithm(&mut self, algorithm: FileAlgorithm) {
+        let FileAlgorithm::Mlt(stream, physical, logical) = algorithm else {
+            return;
+        };
+        self.stream_type.insert(stream_token(stream));
+        if let Some(physical) = physical_token(physical) {
+            self.physical.insert(physical);
+        }
+        if let Some(logical) = logical_token(logical) {
+            self.logical.insert(logical);
+        }
+    }
+
+    fn add_decl(&mut self, decl: ColumnDecl) {
+        // Type and nullability in one token: chips are AND-ed, so a bare type and a
+        // separate nullability chip could not say "an optional i32" from "an i32 and,
+        // separately, something optional".
+        self.data_type.insert(optionality_token(decl));
+    }
+
+    fn add_storage(&mut self, storage: ColumnStorage) {
+        if let Some(layout) = storage.string {
+            self.str_layout.insert(string_layout_token(layout));
+        }
+        if let Some(layout) = storage.dictionary {
+            self.dict_layout.insert(dict_layout_token(layout));
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct MltFileInfo {
+    pub path: String,
+    pub size: usize,
+    pub encoding_pct: Option<f64>,
+    pub data_size: Option<usize>,
+    pub meta_size: Option<usize>,
+    pub meta_pct: Option<f64>,
+    pub gzipped_size: Option<usize>,
+    pub gzip_pct: Option<f64>,
+    pub layers: usize,
+    pub features: usize,
+    /// What the tile holds, as flags: the data types of its property and m-value
+    /// columns, plus `m_values` when it has any.
+    pub content: BTreeSet<&'static str>,
+    pub streams: Option<usize>,
+    pub algorithms: BTreeSet<FileAlgorithm>,
+    pub geometries: BTreeSet<GeometryType>,
+    pub matches_json: Option<bool>,
+    /// The flat per-axis vocabulary a facet filter reads.
+    pub facets: Facets,
+}
+
+impl MltFileInfo {
+    #[must_use]
+    pub fn geometries_display(&self) -> String {
+        geometries_display(&self.geometries)
+    }
+    #[must_use]
+    pub fn algorithms_display(&self) -> String {
+        algorithms_display(&self.algorithms)
+    }
+}
+
+#[derive(serde::Serialize, Clone)]
+#[serde(untagged)]
+#[expect(clippy::large_enum_variant)]
+pub enum LsRow {
+    Info {
+        path: PathBuf,
+        info: MltFileInfo,
+    },
+    Error {
+        path: PathBuf,
+        size: Option<usize>,
+        error: String,
+    },
+    /// Placeholder while analysis is in progress
+    Loading {
+        path: PathBuf,
+    },
+}
+
+impl LsRow {
+    /// Path for this row (file path, or path that failed/loading).
+    #[must_use]
+    pub fn path(&self) -> &Path {
+        match self {
+            Self::Info { path, .. } | Self::Error { path, .. } | Self::Loading { path } => {
+                path.as_path()
+            }
+        }
+    }
+}
+
+/// True if the path string contains glob metacharacters `"*?[{"`.
+fn has_glob_metachars(path: &Path) -> bool {
+    let s = path.to_string_lossy();
+    s.contains('*') || s.contains('?') || s.contains('[') || s.contains('{')
+}
+
+/// Expand path arguments: if a path contains glob metacharacters, expand it to matching paths;
+/// otherwise use the path as-is. Directories are left as-is so `collect_tile_files` can recurse into them.
+fn expand_path_args(paths: &[PathBuf]) -> AnyResult<Vec<PathBuf>> {
+    let mut out = Vec::new();
+    for path in paths {
+        if has_glob_metachars(path) {
+            for entry in glob::glob(path.to_string_lossy().as_ref())? {
+                out.push(entry?);
+            }
+        } else {
+            out.push(path.clone());
+        }
+    }
+    Ok(out)
+}
+
+/// Build a `GlobSet` from patterns; returns None if patterns is empty.
+fn build_exclude_set(patterns: &[String]) -> AnyResult<Option<GlobSet>> {
+    if patterns.is_empty() {
+        return Ok(None);
+    }
+    let mut builder = GlobSetBuilder::new();
+    for p in patterns {
+        builder.add(globset::Glob::new(p)?);
+    }
+    Ok(Some(builder.build()?))
+}
+
+/// List tile files with statistics.
+/// Returns `true` if all files were valid, `false` if any file had an error, or no files.
+pub fn ls(args: &LsArgs) -> AnyResult<bool> {
+    let flags = LsFlags::from(args);
+    let mut all_files = Vec::new();
+
+    // Expand path arguments as globs when they contain *?[{; directories are left as-is and handled below.
+    let expanded_paths = expand_path_args(&args.paths)?;
+    let exclude = build_exclude_set(&args.exclude)?;
+
+    for path in &expanded_paths {
+        let files = collect_tile_files(path, args, exclude.as_ref())?;
+        all_files.extend(files);
+    }
+
+    if all_files.is_empty() {
+        eprintln!("No tile files found");
+        return Ok(false);
+    }
+
+    let base_path = if args.paths.len() == 1 && !has_glob_metachars(&args.paths[0]) {
+        &args.paths[0]
+    } else {
+        Path::new(".")
+    };
+
+    let result = analyze_tile_files(all_files.as_slice(), base_path, flags);
+    match args.format {
+        LsFormat::Table => print_table(&result, flags),
+        LsFormat::Json => println!("{}", serde_json::to_string_pretty(&result)?),
+    }
+
+    Ok(result.iter().all(|r| match r {
+        LsRow::Info {
+            info: MltFileInfo { matches_json, .. },
+            ..
+        } => matches_json.unwrap_or(true),
+        LsRow::Error { .. } | LsRow::Loading { .. } => false,
+    }))
+}
+
+/// Analyze tile files (MLT and MVT) and return rows (for reuse by UI).
+#[must_use]
+pub fn analyze_tile_files(paths: &[PathBuf], base_path: &Path, flags: LsFlags) -> Vec<LsRow> {
+    paths
+        .par_iter()
+        .map(|path| analyze_tile_row(path, base_path, flags))
+        .collect()
+}
+
+/// Analyze one tile file into a row, turning failures into `LsRow::Error`.
+#[must_use]
+pub fn analyze_tile_row(path: &Path, base_path: &Path, flags: LsFlags) -> LsRow {
+    match analyze_tile_file(path, base_path, flags) {
+        Ok(info) => LsRow::Info {
+            path: path.to_path_buf(),
+            info,
+        },
+        Err(e) => LsRow::Error {
+            path: path.to_path_buf(),
+            error: e.to_string(),
+            size: fs::metadata(path)
+                .ok()
+                .and_then(|m| usize::try_from(m.len()).ok()),
+        },
+    }
+}
+
+/// Return cells for UI table display: [File, Size, Enc%, Layers, Features].
+#[must_use]
+pub fn row_cells(row: &LsRow) -> [String; 5] {
+    let fmt_size = |n: usize| format!("{:.1}B", SizeFormatterSI::new(u64::from_usize(n)));
+    match row {
+        LsRow::Info { info, .. } => [
+            info.path.clone(),
+            format!("{:>8}", fmt_size(info.size)),
+            format!("{:>6}", na(info.encoding_pct.map(fmt_pct))),
+            format!("{:>6}", info.layers),
+            format!("{:>10}", info.features.separate_with_commas()),
+        ],
+        LsRow::Error {
+            path,
+            error: _,
+            size,
+        } => [
+            path.display().to_string(),
+            size.map_or_else(String::new, |n| {
+                format!(
+                    "{:>8}",
+                    format!("{:.1}B", SizeFormatterSI::new(u64::from_usize(n)))
+                )
+            }),
+            String::new(),
+            String::new(),
+            String::new(),
+        ],
+        LsRow::Loading { path } => [
+            path.display().to_string(),
+            "…".to_string(),
+            "…".to_string(),
+            "…".to_string(),
+            "…".to_string(),
+        ],
+    }
+}
+
+/// Path string for UI display; when `base` is given, returns path relative to base (same as Info row display).
+#[must_use]
+pub fn path_display(path: &Path, base: Option<&Path>) -> String {
+    match base {
+        None => path.display().to_string(),
+        Some(b) if b.is_file() => path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_string(),
+        Some(b) => path.strip_prefix(b).map_or_else(
+            |_| path.display().to_string(),
+            |p| p.to_string_lossy().to_string(),
+        ),
+    }
+}
+
+/// Six-column cells for UI table: [File, Size, Enc %, Layers, Features, Notes]. Uses `path_display(path, base)` for the file column. Notes column is error message for Error rows, empty otherwise.
+#[must_use]
+pub fn row_cells_6(row: &LsRow, base: Option<&Path>) -> [String; 6] {
+    let cells5 = row_cells(row);
+    let file_col = path_display(row.path(), base);
+    let notes = match row {
+        LsRow::Error { error, .. } => error.clone(),
+        LsRow::Info { .. } | LsRow::Loading { .. } => String::new(),
+    };
+    [
+        file_col,
+        cells5[1].clone(),
+        cells5[2].clone(),
+        cells5[3].clone(),
+        cells5[4].clone(),
+        notes,
+    ]
+}
+
+pub(crate) fn is_tile_extension(path: &Path) -> bool {
+    matches!(
+        path.extension().and_then(OsStr::to_str),
+        Some("mlt" | "mvt" | "pbf")
+    )
+}
+
+pub(crate) fn is_mlt_extension(path: &Path) -> bool {
+    matches!(path.extension().and_then(OsStr::to_str), Some("mlt"))
+}
+
+pub(crate) fn is_mbt_extension(path: &Path) -> bool {
+    matches!(path.extension().and_then(OsStr::to_str), Some("mbtiles"))
+}
+
+fn matches_extension_filter(path: &Path, extensions: &[String]) -> bool {
+    let ext = path
+        .extension()
+        .and_then(OsStr::to_str)
+        .map(str::to_lowercase);
+    match ext {
+        Some(ext) => extensions
+            .iter()
+            .any(|e| e.trim_start_matches('.').to_lowercase() == ext),
+        None => false,
+    }
+}
+
+fn collect_tile_files(
+    path: &Path,
+    args: &LsArgs,
+    exclude_set: Option<&GlobSet>,
+) -> AnyResult<Vec<PathBuf>> {
+    let matches_ext = |p: &Path| {
+        if args.extension.is_empty() {
+            is_tile_extension(p)
+        } else {
+            matches_extension_filter(p, &args.extension)
+        }
+    };
+    let excluded = |p: &Path| exclude_set.is_some_and(|s| s.is_match(p));
+
+    let mut files = Vec::new();
+    if path.is_dir() {
+        collect_from_dir(
+            path,
+            &mut files,
+            !args.no_recursive,
+            &matches_ext,
+            exclude_set,
+        )?;
+    } else if path.is_file() && !excluded(path) && matches_ext(path) {
+        files.push(path.to_path_buf());
+    }
+
+    Ok(files)
+}
+
+fn collect_from_dir<F>(
+    dir: &Path,
+    files: &mut Vec<PathBuf>,
+    recursive: bool,
+    matches_ext: &F,
+    exclude_set: Option<&GlobSet>,
+) -> AnyResult<()>
+where
+    F: Fn(&Path) -> bool,
+{
+    for entry in fs::read_dir(dir)? {
+        let path = entry?.path();
+        if path.is_file() {
+            if !exclude_set.is_some_and(|s| s.is_match(&path)) && matches_ext(&path) {
+                files.push(path);
+            }
+        } else if recursive && path.is_dir() && !exclude_set.is_some_and(|s| s.is_match(&path)) {
+            collect_from_dir(&path, files, recursive, matches_ext, exclude_set)?;
+        }
+    }
+    Ok(())
+}
+
+pub fn analyze_tile_file(path: &Path, base_path: &Path, flags: LsFlags) -> AnyResult<MltFileInfo> {
+    let buffer = fs::read(path)?;
+    let mut info = if is_mlt_extension(path) {
+        analyze_mlt_buffer(&buffer, path, flags)?
+    } else {
+        analyze_mvt_buffer(&buffer)?
+    };
+    info.path = if base_path.is_file() {
+        path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_string()
+    } else {
+        path.strip_prefix(base_path)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .to_string()
+    };
+    if flags.gzip {
+        let gzip_size = estimate_gzip_size(&buffer)?;
+        info.gzipped_size = Some(gzip_size);
+        info.gzip_pct = Some(percent(gzip_size, buffer.len()));
+    }
+    Ok(info)
+}
+
+pub fn analyze_mlt_buffer(buffer: &[u8], path: &Path, flags: LsFlags) -> AnyResult<MltFileInfo> {
+    let layers = Parser::default().parse_layers(buffer)?;
+
+    let mut stream_count = 0;
+    let mut algorithms: HashSet<StreamStat> = HashSet::new();
+    let mut facets = Facets::default();
+    // Column storage and the geometry layout are only readable before decoding
+    // resolves them away, so they are collected on this pass rather than the next.
+    for layer in &layers {
+        match layer {
+            Layer::Tag01(l) => {
+                l.for_each_stream(&mut |stream_meta| {
+                    stream_count += 1;
+                    collect_stream_info(stream_meta, &mut algorithms);
+                });
+                l.for_each_column_storage(&mut |storage| facets.add_storage(storage));
+                l.for_each_column_decl(&mut |decl| facets.add_decl(decl));
+                facets.extent.insert(l.extent().get().to_string());
+            }
+            #[cfg(feature = "unstable-v2")]
+            Layer::Tag02(l) => {
+                l.for_each_stream(&mut |stream_meta| {
+                    stream_count += 1;
+                    collect_stream_info(stream_meta, &mut algorithms);
+                });
+                l.for_each_column_storage(&mut |storage| facets.add_storage(storage));
+                l.layer()
+                    .for_each_column_decl(&mut |decl| facets.add_decl(decl));
+                facets.extent.insert(l.layer().extent().get().to_string());
+                facets
+                    .geom_layout
+                    .insert(geom_layout_token(l.layout().geometry));
+            }
+            // Unknown, and any tag a later version adds
+            _ => {}
+        }
+    }
+
+    let layers = Decoder::default().decode_all(layers)?;
+
+    let mut geometries = BTreeSet::new();
+    let mut feature_count = 0;
+    let mut data_size = 0;
+    let mut meta_size = 0;
+    let mut content: BTreeSet<&'static str> = BTreeSet::new();
+
+    for layer in &layers {
+        let layer01 = match layer {
+            ParsedLayer::Tag01(l) => l,
+            #[cfg(feature = "unstable-v2")]
+            ParsedLayer::Tag02(l) => l.layer(),
+            _ => continue,
+        };
+        data_size += layer01.collect_statistic(DecodedDataSize);
+        meta_size += layer01.collect_statistic(DecodedMetaSize);
+        feature_count += layer01.collect_statistic(FeatureCount);
+        for &geom_type in layer01.geometry_values().vector_types() {
+            geometries.insert(geom_type);
+        }
+        for property in layer01.properties() {
+            content.insert(property.kind().into());
+        }
+        // an m-value column's type counts the same as a property column's
+        #[cfg(feature = "unstable-v2")]
+        if let ParsedLayer::Tag02(layer02) = layer {
+            for column in layer02.m_values() {
+                content.insert("m-values");
+                content.insert(column.values().kind().into());
+                // An m-value runs over vertices, so its type counts on its own axis
+                // rather than among the columns a feature has values for.
+                facets.m_value.insert(column.values().kind().into());
+            }
+        }
+    }
+
+    let layer_count = layers.len();
+    let matches_json = if flags.validate {
+        let json_path = path.with_extension("json");
+        if json_path.is_file() {
+            let expected = FeatureCollection::from_str(&fs::read_to_string(&json_path)?)
+                .map_err(|e| anyhow::anyhow!("{e}"))?;
+            let actual = FeatureCollection::from_layers(layers)?;
+            Some(actual.equals(&expected)?)
+        } else {
+            Some(false)
+        }
+    } else {
+        None
+    };
+
+    let algorithms: BTreeSet<FileAlgorithm> = algorithms
+        .into_iter()
+        .map(|(a, b, c)| FileAlgorithm::Mlt(a, b, c))
+        .collect();
+    for &algorithm in &algorithms {
+        facets.add_algorithm(algorithm);
+    }
+    facets.geometry = geometries.iter().map(|&g| geometry_token(g)).collect();
+
+    Ok(MltFileInfo {
+        size: buffer.len(),
+        encoding_pct: Some(percent(buffer.len(), data_size + meta_size)),
+        data_size: Some(data_size),
+        meta_size: Some(meta_size),
+        meta_pct: Some(percent_of(meta_size, data_size)),
+        layers: layer_count,
+        features: feature_count,
+        content,
+        streams: Some(stream_count),
+        algorithms,
+        geometries,
+        matches_json,
+        facets,
+        ..MltFileInfo::default()
+    })
+}
+
+fn analyze_mvt_buffer(buffer: &[u8]) -> AnyResult<MltFileInfo> {
+    let fc = mvt_to_feature_collection(buffer)?;
+
+    let mut layer_names = HashSet::new();
+    let mut geometries = BTreeSet::new();
+    for feat in &fc.features {
+        // FIXME: we shouldn't use "magical" properties to pass values around
+        if let Some(name) = feat.properties.get("_layer").and_then(|v| v.as_str()) {
+            layer_names.insert(name.to_string());
+        }
+        if let Ok(gt) = GeometryType::try_from(&feat.geometry) {
+            geometries.insert(gt);
+        }
+    }
+
+    let facets = Facets {
+        geometry: geometries.iter().map(|&g| geometry_token(g)).collect(),
+        ..Facets::default()
+    };
+    Ok(MltFileInfo {
+        size: buffer.len(),
+        layers: layer_names.len(),
+        features: fc.features.len(),
+        algorithms: std::iter::once(FileAlgorithm::Mvt).collect(),
+        geometries,
+        facets,
+        ..MltFileInfo::default()
+    })
+}
+
+type StreamStat = (StreamType, PhysicalEncoding, StatLogicalCodec);
+
+/// Mirrors [`LogicalEncoding`] without associated metadata values.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum StatLogicalCodec {
+    None,
+    Delta,
+    Delta2,
+    DeltaRle,
+    ComponentwiseDelta,
+    ComponentwiseDelta2,
+    Rle,
+    MortonDelta,
+    Dict,
+    Alp,
+    /// Vertices of three coordinates, whatever codec they use.
+    Xyz,
+}
+
+impl From<LogicalEncoding> for StatLogicalCodec {
+    fn from(ld: LogicalEncoding) -> Self {
+        use LogicalEncoding as LE;
+        // `mlt-core` may carry v2-only encodings this build has no name for,
+        // since its features are resolved separately from this crate's.
+        #[cfg_attr(
+            not(feature = "unstable-v2"),
+            allow(
+                clippy::wildcard_enum_match_arm,
+                reason = "v2 encodings exist only when mlt-core has them"
+            )
+        )]
+        match ld {
+            LE::Int(IntLogical::None)
+            | LE::Bool(BoolLogical::None)
+            | LE::Float(FloatLogical::None)
+            | LE::Vertex(VertexLogical::None) => Self::None,
+            LE::Int(IntLogical::Delta) | LE::Vertex(VertexLogical::Delta) => Self::Delta,
+            LE::Int(IntLogical::DeltaRle(_)) => Self::DeltaRle,
+            LE::Vertex(VertexLogical::ComponentwiseDelta) => Self::ComponentwiseDelta,
+            LE::Int(IntLogical::Rle(_)) | LE::Bool(BoolLogical::ByteRle(_)) => Self::Rle,
+            LE::Vertex(VertexLogical::MortonDelta(_)) => Self::MortonDelta,
+            LE::Float(FloatLogical::Dict) => Self::Dict,
+            LE::Float(FloatLogical::Alp(_)) => Self::Alp,
+            LE::Int(IntLogical::Delta2) => Self::Delta2,
+            LE::Vertex(VertexLogical::ComponentwiseDelta2) => Self::ComponentwiseDelta2,
+            #[cfg(feature = "unstable-v2")]
+            LE::Vertex(VertexLogical::Xyz(..)) => Self::Xyz,
+            #[cfg(not(feature = "unstable-v2"))]
+            #[allow(unreachable_patterns, reason = "reachable only when mlt-core has v2")]
+            _ => Self::Xyz,
+        }
+    }
+}
+
+fn collect_stream_info(meta: StreamMeta, algo: &mut HashSet<StreamStat>) {
+    algo.insert((
+        meta.stream_type,
+        meta.encoding.physical,
+        StatLogicalCodec::from(meta.encoding.logical),
+    ));
+}
+
+fn estimate_gzip_size(data: &[u8]) -> AnyResult<usize> {
+    let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+    encoder.write_all(data)?;
+    let compressed = encoder.finish()?;
+    Ok(compressed.len())
+}
+
+fn geometries_display(geometries: &BTreeSet<GeometryType>) -> String {
+    let abbrev = |g: GeometryType| match g {
+        GeometryType::Point => "Pt",
+        GeometryType::LineString => "Line",
+        GeometryType::Polygon => "Poly",
+        GeometryType::MultiPoint => "MPt",
+        GeometryType::MultiLineString => "MLine",
+        GeometryType::MultiPolygon => "MPoly",
+    };
+    let mut v: Vec<GeometryType> = geometries.iter().copied().collect();
+    v.sort_unstable();
+    v.iter().map(|g| abbrev(*g)).collect::<Vec<_>>().join(",")
+}
+
+fn algorithms_display(algorithms: &BTreeSet<FileAlgorithm>) -> String {
+    let mut v: Vec<_> = algorithms.iter().map(ToString::to_string).collect();
+    v.sort_unstable();
+    v.join(",")
+}
+
+fn print_table(rows: &[LsRow], flags: LsFlags) {
+    println!("{}", render_table(rows, flags));
+}
+
+fn render_table(rows: &[LsRow], flags: LsFlags) -> String {
+    let fmt_size = |n: usize| format!("{:.1}B", SizeFormatterSI::new(u64::from_usize(n)));
+
+    let infos: Vec<&MltFileInfo> = rows
+        .iter()
+        .filter_map(|r| match r {
+            LsRow::Info { info, .. } => Some(info),
+            LsRow::Error { .. } | LsRow::Loading { .. } => None,
+        })
+        .collect();
+    let has_total = infos.len() > 1;
+    let mut error_table_rows = Vec::new();
+    let mut builder = Builder::default();
+
+    let mut header = vec!["File", "Size", "Enc %", "Decoded", "Meta", "Meta %"];
+    if flags.gzip {
+        header.push("Gzipped");
+        header.push("Gz %");
+    }
+    header.extend(["Layer", "Feature", "Stream", "Geometry Types"]);
+    if flags.validate {
+        header.push("JSON");
+    }
+    if flags.algorithms {
+        header.push("Algorithms");
+    }
+    let num_cols = header.len();
+    builder.push_record(header);
+
+    for (i, row) in rows.iter().enumerate() {
+        match row {
+            LsRow::Info { info, .. } => {
+                if let Some(true) = info.matches_json
+                    && flags.validate
+                {
+                    continue; // When validating, no need to show valid rows
+                }
+                let mut data_row = vec![
+                    info.path.clone(),
+                    fmt_size(info.size),
+                    na(info.encoding_pct.map(fmt_pct)),
+                    na(info.data_size.map(fmt_size)),
+                    na(info.meta_size.map(fmt_size)),
+                    na(info.meta_pct.map(fmt_pct)),
+                ];
+                if flags.gzip {
+                    data_row.push(na(info.gzipped_size.map(fmt_size)));
+                    data_row.push(na(info.gzip_pct.map(fmt_pct)));
+                }
+                data_row.extend([
+                    info.layers.separate_with_commas(),
+                    info.features.separate_with_commas(),
+                    na(info.streams.map(|n| n.separate_with_commas())),
+                    info.geometries_display(),
+                ]);
+                if flags.validate {
+                    data_row.push(match info.matches_json {
+                        Some(true) => "✓".to_string(),
+                        Some(false) => "✗".to_string(),
+                        None => NA.to_string(),
+                    });
+                }
+                if flags.algorithms {
+                    data_row.push(info.algorithms_display());
+                }
+                builder.push_record(data_row);
+            }
+            LsRow::Error { path, error, size } => {
+                let size_str = size.map_or_else(String::new, fmt_size);
+                let mut data_row = vec![
+                    path.display().to_string(),
+                    size_str,
+                    format!("ERROR: {error}"),
+                ];
+                data_row.resize(num_cols, String::new());
+                builder.push_record(data_row);
+                error_table_rows.push(i + 1);
+            }
+            LsRow::Loading { .. } => unreachable!("Loading?"),
+        }
+    }
+
+    if has_total {
+        let total_size: usize = infos.iter().map(|i| i.size).sum();
+        let total_data: Option<usize> = infos
+            .iter()
+            .try_fold(0usize, |acc, i| i.data_size.map(|d| acc + d));
+        let total_meta: Option<usize> = infos
+            .iter()
+            .try_fold(0usize, |acc, i| i.meta_size.map(|m| acc + m));
+        let total_gzipped: usize = infos.iter().filter_map(|i| i.gzipped_size).sum();
+        let total_layers: usize = infos.iter().map(|i| i.layers).sum();
+        let total_features: usize = infos.iter().map(|i| i.features).sum();
+        let total_streams: Option<usize> = infos
+            .iter()
+            .try_fold(0usize, |acc, i| i.streams.map(|s| acc + s));
+
+        let (enc_pct, decoded, meta, meta_pct) = match (total_data, total_meta) {
+            (Some(d), Some(m)) => (
+                fmt_pct(percent(total_size, d + m)),
+                fmt_size(d),
+                fmt_size(m),
+                fmt_pct(percent_of(m, d)),
+            ),
+            _ => (
+                NA.to_string(),
+                NA.to_string(),
+                NA.to_string(),
+                NA.to_string(),
+            ),
+        };
+        let mut row = vec![
+            "TOTAL".to_string(),
+            fmt_size(total_size),
+            enc_pct,
+            decoded,
+            meta,
+            meta_pct,
+        ];
+        if flags.gzip {
+            let has_any_gzip = infos.iter().any(|i| i.gzipped_size.is_some());
+            let gzip_size_str = if has_any_gzip {
+                fmt_size(total_gzipped)
+            } else {
+                NA.to_string()
+            };
+            let gzip_pct_str = if has_any_gzip {
+                fmt_pct(percent(total_gzipped, total_size))
+            } else {
+                NA.to_string()
+            };
+            row.push(gzip_size_str);
+            row.push(gzip_pct_str);
+        }
+        row.extend([
+            total_layers.separate_with_commas(),
+            total_features.separate_with_commas(),
+            na(total_streams.map(|s| s.separate_with_commas())),
+            String::new(),
+        ]);
+        if flags.validate {
+            row.push(String::new());
+        }
+        if flags.algorithms {
+            row.push(String::new());
+        }
+        builder.push_record(row);
+    }
+
+    let header_line = HorizontalLine::new('-').intersection('+');
+    let mut table = Table::from(builder);
+
+    #[expect(clippy::cast_possible_wrap)]
+    let col_span = ColumnSpan::new((num_cols - 1) as isize);
+    for &row_idx in &error_table_rows {
+        table.modify(Cell::new(row_idx, 1), col_span);
+    }
+
+    if has_total {
+        let total_row = rows.len() + 1;
+        table.with(
+            Style::empty()
+                .vertical('|')
+                .horizontals([(1, header_line), (total_row, header_line)]),
+        );
+    } else {
+        table.with(Style::empty().vertical('|').horizontals([(1, header_line)]));
+    }
+    // File - left aligned, size..stream (9-11) right, two more left
+    table.modify(
+        Columns::new(1..9 + if flags.gzip { 2 } else { 0 }),
+        Alignment::right(),
+    );
+    for &row_idx in &error_table_rows {
+        table.modify(Cell::new(row_idx, 1), Alignment::left());
+    }
+
+    table.to_string()
+}
+
+fn fmt_pct(v: f64) -> String {
+    if v.abs() >= 10.0 {
+        format!("{v:.0}%")
+    } else if v.abs() >= 1.0 {
+        format!("{v:.1}%")
+    } else {
+        format!("{v:.2}%")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn mlt_info(path: &str) -> MltFileInfo {
+        MltFileInfo {
+            path: path.to_string(),
+            size: 12_345,
+            encoding_pct: Some(62.5),
+            data_size: Some(32_000),
+            meta_size: Some(900),
+            meta_pct: Some(2.8),
+            gzipped_size: Some(9_000),
+            gzip_pct: Some(27.1),
+            layers: 3,
+            features: 1_234,
+            content: ["str", "i32", "m-values"].into_iter().collect(),
+            streams: Some(42),
+            algorithms: std::iter::once(FileAlgorithm::Mlt(
+                StreamType::Data(DictionaryType::None),
+                PhysicalEncoding::VarInt,
+                StatLogicalCodec::Delta,
+            ))
+            .collect(),
+            geometries: [GeometryType::Polygon, GeometryType::Point]
+                .into_iter()
+                .collect(),
+            matches_json: None,
+            facets: Facets::default(),
+        }
+    }
+
+    fn mvt_info(path: &str) -> MltFileInfo {
+        MltFileInfo {
+            path: path.to_string(),
+            size: 54_321,
+            layers: 2,
+            features: 500,
+            algorithms: std::iter::once(FileAlgorithm::Mvt).collect(),
+            geometries: std::iter::once(GeometryType::LineString).collect(),
+            ..MltFileInfo::default()
+        }
+    }
+
+    fn info_row(info: MltFileInfo) -> LsRow {
+        LsRow::Info {
+            path: PathBuf::from(&info.path),
+            info,
+        }
+    }
+
+    fn error_row(path: &str, size: Option<usize>) -> LsRow {
+        LsRow::Error {
+            path: PathBuf::from(path),
+            size,
+            error: "unsupported version".to_string(),
+        }
+    }
+
+    fn validated(mut info: MltFileInfo, matches: bool) -> MltFileInfo {
+        info.matches_json = Some(matches);
+        info
+    }
+
+    const GZIP: LsFlags = LsFlags {
+        gzip: true,
+        algorithms: false,
+        validate: false,
+    };
+    const ALGORITHMS: LsFlags = LsFlags {
+        gzip: false,
+        algorithms: true,
+        validate: false,
+    };
+    const VALIDATE: LsFlags = LsFlags {
+        gzip: false,
+        algorithms: false,
+        validate: true,
+    };
+
+    #[test]
+    fn a_file_algorithm_serializes_as_its_three_wire_fields() {
+        let algorithms = [
+            FileAlgorithm::Mvt,
+            FileAlgorithm::Mlt(
+                StreamType::Present,
+                PhysicalEncoding::None,
+                StatLogicalCodec::None,
+            ),
+            FileAlgorithm::Mlt(
+                StreamType::Data(DictionaryType::Vertex),
+                PhysicalEncoding::VarInt,
+                StatLogicalCodec::DeltaRle,
+            ),
+            FileAlgorithm::Mlt(
+                StreamType::Offset(OffsetType::String),
+                PhysicalEncoding::None,
+                StatLogicalCodec::Rle,
+            ),
+            FileAlgorithm::Mlt(
+                StreamType::Length(LengthType::Rings),
+                PhysicalEncoding::None,
+                StatLogicalCodec::None,
+            ),
+        ];
+        insta::assert_snapshot!(
+            serde_json::to_string_pretty(&algorithms).expect("algorithms serialize")
+        );
+    }
+
+    #[test]
+    fn a_file_algorithm_displays_as_one_slash_joined_string() {
+        insta::assert_snapshot!(
+            FileAlgorithm::Mlt(
+                StreamType::Data(DictionaryType::Vertex),
+                PhysicalEncoding::VarInt,
+                StatLogicalCodec::ComponentwiseDelta,
+            )
+            .to_string(),
+            @"data[vertex]/varint/componentwise-delta"
+        );
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn an_xyz_vertex_stream_lists_its_logical_encoding() {
+        let path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test/synthetic/0x02/z_line.mlt");
+        let buffer = fs::read(&path).expect("fixture");
+        let info = analyze_mlt_buffer(&buffer, &path, ALGORITHMS).expect("analyze");
+        insta::assert_snapshot!(info.algorithms_display(), @"data[vertex]/varint/xyz,length[parts]/varint");
+    }
+
+    #[test]
+    fn path_display_without_a_base_keeps_the_whole_path() {
+        insta::assert_snapshot!(path_display(Path::new("/tiles/omt/5_16_11.mlt"), None), @"/tiles/omt/5_16_11.mlt");
+    }
+
+    #[test]
+    fn path_display_with_a_file_base_keeps_only_the_file_name() {
+        let base = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+        insta::assert_snapshot!(
+            path_display(Path::new("/tiles/omt/5_16_11.mlt"), Some(&base)),
+            @"5_16_11.mlt"
+        );
+    }
+
+    #[test]
+    fn path_display_with_a_directory_base_strips_the_prefix() {
+        let base = Path::new(env!("CARGO_MANIFEST_DIR"));
+        insta::assert_snapshot!(path_display(&base.join("Cargo.toml"), Some(base)), @"Cargo.toml");
+    }
+
+    #[test]
+    fn path_display_with_an_unrelated_base_keeps_the_whole_path() {
+        insta::assert_snapshot!(
+            path_display(
+                Path::new("/tiles/omt/5_16_11.mlt"),
+                Some(Path::new("/no/such/base"))
+            ),
+            @"/tiles/omt/5_16_11.mlt"
+        );
+    }
+
+    #[test]
+    fn an_extension_filter_matches_case_insensitively() {
+        assert!(matches_extension_filter(
+            Path::new("/tiles/A.MLT"),
+            &["mlt".to_string()]
+        ));
+    }
+
+    #[test]
+    fn an_extension_filter_ignores_a_leading_dot_in_the_pattern() {
+        assert!(matches_extension_filter(
+            Path::new("/tiles/a.pbf"),
+            &[".mvt".to_string(), ".pbf".to_string()]
+        ));
+    }
+
+    #[test]
+    fn an_extension_filter_rejects_a_different_extension() {
+        assert!(!matches_extension_filter(
+            Path::new("/tiles/a.mvt"),
+            &["mlt".to_string()]
+        ));
+    }
+
+    #[test]
+    fn an_extension_filter_rejects_a_path_without_an_extension() {
+        assert!(!matches_extension_filter(
+            Path::new("/tiles/README"),
+            &["mlt".to_string()]
+        ));
+    }
+
+    #[test]
+    fn a_lone_info_row_renders_without_a_total_row() {
+        insta::assert_snapshot!(render_table(
+            &[info_row(mlt_info("a.mlt"))],
+            LsFlags::default()
+        ));
+    }
+
+    #[test]
+    fn the_gzip_flag_adds_the_gzipped_and_gz_percent_columns() {
+        insta::assert_snapshot!(render_table(&[info_row(mlt_info("a.mlt"))], GZIP));
+    }
+
+    #[test]
+    fn the_algorithms_flag_adds_the_algorithms_column() {
+        insta::assert_snapshot!(render_table(&[info_row(mlt_info("a.mlt"))], ALGORITHMS));
+    }
+
+    #[test]
+    fn two_mlt_rows_are_summed_into_a_total_row() {
+        insta::assert_snapshot!(render_table(
+            &[info_row(mlt_info("a.mlt")), info_row(mlt_info("b.mlt"))],
+            GZIP
+        ));
+    }
+
+    #[test]
+    fn a_total_row_over_files_without_decoded_or_gzip_sizes_shows_dashes() {
+        insta::assert_snapshot!(render_table(
+            &[info_row(mvt_info("a.mvt")), info_row(mvt_info("b.mvt"))],
+            GZIP
+        ));
+    }
+
+    #[test]
+    fn a_mixed_total_row_falls_back_to_dashes_for_the_decoded_columns() {
+        insta::assert_snapshot!(render_table(
+            &[info_row(mlt_info("a.mlt")), info_row(mvt_info("b.mvt"))],
+            GZIP
+        ));
+    }
+
+    #[test]
+    fn an_error_row_spans_the_remaining_columns() {
+        insta::assert_snapshot!(render_table(
+            &[
+                info_row(mlt_info("a.mlt")),
+                error_row("broken.mlt", Some(777)),
+                error_row("missing.mlt", None),
+            ],
+            LsFlags::default()
+        ));
+    }
+
+    #[test]
+    fn validating_marks_every_mismatching_row_with_a_cross() {
+        insta::assert_snapshot!(render_table(
+            &[
+                info_row(validated(mlt_info("a.mlt"), false)),
+                info_row(validated(mlt_info("b.mlt"), false)),
+            ],
+            VALIDATE
+        ));
+    }
+
+    #[test]
+    fn validating_hides_a_matching_row_but_keeps_an_error_row() {
+        insta::assert_snapshot!(render_table(
+            &[
+                info_row(validated(mlt_info("a.mlt"), true)),
+                error_row("broken.mlt", Some(777)),
+            ],
+            VALIDATE
+        ));
+    }
+
+    #[test]
+    fn validating_an_unvalidated_row_shows_a_dash_in_the_json_column() {
+        insta::assert_snapshot!(render_table(&[info_row(mlt_info("a.mlt"))], VALIDATE));
+    }
+}

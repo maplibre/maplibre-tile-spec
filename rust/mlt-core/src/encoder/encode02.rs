@@ -1,0 +1,1044 @@
+//! Layer envelope and column writers for tag `0x02` (v2) layers.
+//!
+//! A v2 layer body is: header (`name`, header byte, `feature_count`, layout byte),
+//! the layer's shared presence bitfields, geometry section, the column counts
+//! varint, then each counted column as
+//! `[type byte][name?][presence bitfield?][data stream]` - metadata and data
+//! merged, unlike v1's split sections.
+//!
+//! The type byte packs the presence nibble over the data type nibble, so
+//! nullability is a property of the column rather than a separate `Opt` code.
+//! Columns that are null on exactly the same features share one bitfield, stored
+//! once at the layer root - see [`SharedPresence`].
+//!
+//! Stream payload encodings (and their size competitions) are shared with v1
+//! via [`Codecs::write_int_stream`]; only the envelope, presence
+//! representation, and stream headers differ.
+
+use std::cmp::Reverse;
+use std::collections::HashMap;
+
+use integer_encoding::VarIntWriter as _;
+
+use crate::codecs::presence_coding::{self, PresenceCoding};
+use crate::decoder::stream::header02::{Count02, Family, StreamCtx02, WordWidth};
+use crate::decoder::{
+    BoolLogical, ColumnCounts, ColumnType02, DataType02, DictionaryType, Extent02, LayerHeader02,
+    LayerLayout, LengthType, LogicalEncoding, NodeKind02, NodePresence, NodeType02,
+    PhysicalEncoding, Presence02, StreamMeta, StreamType, ValueType02,
+};
+use crate::encoder::geometry::encode02::{Outlines, encode_geometry02};
+use crate::encoder::model::{StagedLayer, StrAt, StreamCtx};
+use crate::encoder::nested::RowShapes;
+use crate::encoder::{
+    Codecs, Encoder, StagedId, StagedInterior, StagedLeaf, StagedMValue, StagedNested, StagedNode,
+    StagedOptScalar, StagedProperty, StagedSharedDictItem, StagedStrings, StagedValues,
+    write_stream_payload,
+};
+use crate::utils::BinarySerializer as _;
+use crate::{MltError, MltResult};
+
+/// The presence masks the layer stores once for several columns to read.
+///
+/// Planned before any bytes are written, because the layout byte declares how
+/// many masks there are and the block right after it holds them - both come
+/// before the geometry section.
+///
+/// A mask only earns a slot when more than one column reads it; a mask read once is
+/// no cheaper shared than inline. Each child of a shared dictionary counts as a
+/// reader in its own right, since each writes its own bitfield otherwise. The layout
+/// byte fits at most [`LayerLayout::MAX_SHARED_PRESENCE`] of them, so when more
+/// groups qualify the most-read ones win, since every extra reader saves exactly
+/// one copy of the same `ceil(feature_count/8)` bytes.
+#[derive(Debug)]
+pub(crate) struct SharedPresence {
+    /// The masks in wire index order.
+    masks: Vec<Vec<bool>>,
+    /// The smallest coding of each mask, in the same order.
+    codings: Vec<PresenceCoding>,
+    /// Wire index of each mask, for resolving a column's nibble.
+    index: HashMap<Vec<bool>, u8>,
+}
+
+impl SharedPresence {
+    /// Group the layer's optional columns and dictionary children by mask and keep the shared ones.
+    fn plan(
+        id: &StagedId,
+        properties: &[StagedProperty],
+        nested: &[StagedNested],
+        m_values: &[StagedMValue],
+    ) -> Self {
+        // (column count, index of the first column with this mask) per mask.
+        let mut groups: HashMap<Vec<bool>, (usize, usize)> = HashMap::new();
+        for (column, mask) in column_masks(id, properties, nested, m_values).enumerate() {
+            let group = groups.entry(mask).or_insert((0, column));
+            group.0 += 1;
+        }
+
+        let mut shared: Vec<(Vec<bool>, usize, usize)> = groups
+            .into_iter()
+            .filter(|&(_, (count, _))| count > 1)
+            .map(|(mask, (count, first))| (mask, count, first))
+            .collect();
+        // Most-shared first, then first-seen, so the winners do not depend on
+        // `HashMap` iteration order.
+        shared.sort_unstable_by_key(|&(_, count, first)| (Reverse(count), first));
+        shared.truncate(usize::from(LayerLayout::MAX_SHARED_PRESENCE));
+        // Wire order is first-seen order, so the bitfields appear in the order
+        // the columns that read them do.
+        shared.sort_unstable_by_key(|&(_, _, first)| first);
+
+        let masks: Vec<Vec<bool>> = shared.into_iter().map(|(mask, _, _)| mask).collect();
+        let index = masks
+            .iter()
+            .enumerate()
+            .map(|(i, mask)| {
+                (
+                    mask.clone(),
+                    u8::try_from(i).expect("at most MAX_SHARED_PRESENCE masks"),
+                )
+            })
+            .collect();
+        let codings = masks.iter().map(|m| presence_coding::smallest(m)).collect();
+        Self {
+            masks,
+            codings,
+            index,
+        }
+    }
+
+    /// How many masks the layout byte declares.
+    fn count(&self) -> u8 {
+        u8::try_from(self.masks.len()).expect("at most MAX_SHARED_PRESENCE masks")
+    }
+
+    /// Whether any mask codes smaller than a bitmap, which is what earns every
+    /// shared bitfield a byte naming its coding.
+    fn coded(&self) -> bool {
+        self.codings.iter().any(|&c| c != PresenceCoding::Bitmap)
+    }
+
+    /// Where an optional column's nulls live: this layer's shared bitfield when
+    /// another column has the same mask, the column's own bitfield otherwise.
+    pub(crate) fn nibble_for(&self, mask: &[bool]) -> Presence02 {
+        self.index.get(mask).map_or_else(
+            || Presence02::Inline(presence_coding::smallest(mask)),
+            |&i| Presence02::Shared(i),
+        )
+    }
+
+    /// Write the bitfields in index order, right after the layout byte.
+    /// Each leads with the byte naming its coding only when [`Self::coded`] - a
+    /// shared field has no nibble to ride in.
+    fn write_to(&self, enc: &mut Encoder) {
+        let coded = self.coded();
+        let data = enc.data_mut();
+        for (mask, &coding) in self.masks.iter().zip(&self.codings) {
+            if coded {
+                data.push(coding as u8);
+            }
+            presence_coding::write(data, mask, coding);
+        }
+    }
+}
+
+/// The presence mask of everything that writes one, in the order it is written:
+/// the ID column first, then the properties, then the m-values, a shared
+/// dictionary contributing one mask per child at its parent column's position.
+///
+/// Owned, because a string column derives its mask from its lengths rather than storing one.
+/// Columns that cannot be null contribute nothing - there is no mask to share.
+fn column_masks<'a>(
+    id: &'a StagedId,
+    properties: &'a [StagedProperty],
+    nested: &'a [StagedNested],
+    m_values: &'a [StagedMValue],
+) -> impl Iterator<Item = Vec<bool>> + 'a {
+    /// `presence` of an optional staged column.
+    fn mask<T: Copy + PartialEq>(v: &StagedOptScalar<T>) -> Vec<bool> {
+        v.presence.clone()
+    }
+
+    let id = match id {
+        StagedId::OptU32(v) => Some(mask(v)),
+        StagedId::OptU64(v) => Some(mask(v)),
+        StagedId::None | StagedId::U32(_) | StagedId::U64(_) => None,
+    };
+    let props = properties.iter().flat_map(|prop| {
+        use StagedProperty as D;
+        match prop {
+            D::OptBool(v) => vec![mask(v)],
+            D::OptI8(v) => vec![mask(v)],
+            D::OptU8(v) => vec![mask(v)],
+            D::OptI32(v) => vec![mask(v)],
+            D::OptU32(v) => vec![mask(v)],
+            D::OptI64(v) => vec![mask(v)],
+            D::OptU64(v) => vec![mask(v)],
+            D::OptF32(v) => vec![mask(v)],
+            D::OptF64(v) => vec![mask(v)],
+            D::OptStr(v) => vec![v.presence_bools().collect()],
+            // A shared dictionary holds no values of its own, but each of its
+            // children is null on its own features, so each is a sharer in its
+            // own right - listed here, where its parent column sits.
+            D::SharedDict(v) => v
+                .items
+                .iter()
+                .filter_map(StagedSharedDictItem::optional_presence)
+                .collect(),
+            // A column with no null mask has no presence bits.
+            D::Bool(_)
+            | D::I8(_)
+            | D::U8(_)
+            | D::I32(_)
+            | D::U32(_)
+            | D::I64(_)
+            | D::U64(_)
+            | D::F32(_)
+            | D::F64(_)
+            | D::Str(_) => vec![],
+        }
+    });
+    // An m-value column is null on features, exactly as a property column is, so
+    // the two share a bitfield whenever their masks agree.
+    // A nested column's root is null on features exactly as a flat column is, so
+    // its mask competes for a shared bitfield alongside them.
+    let nested = nested.iter().filter_map(|n| n.presence().cloned());
+    let m_values = m_values.iter().filter_map(|m| m.presence.clone());
+    id.into_iter().chain(props).chain(nested).chain(m_values)
+}
+
+/// Append a column's own presence bits in whichever coding `nibble` named, which is
+/// nothing at all when every feature has a value or a shared field holds them.
+pub(crate) fn write_inline_presence(data: &mut Vec<u8>, nibble: Presence02, bits: &[bool]) {
+    if let Presence02::Inline(coding) = nibble {
+        presence_coding::write(data, bits, coding);
+    }
+}
+
+/// Append `bits` as `ceil(len/8)` LSB-first packed bytes - the layout v2 uses for
+/// bool column data.
+pub(crate) fn write_presence_bits(data: &mut Vec<u8>, bits: &[bool]) {
+    let start = data.len();
+    data.resize(start + bits.len().div_ceil(8), 0);
+    for (i, &bit) in bits.iter().enumerate() {
+        if bit {
+            data[start + i / 8] |= 1 << (i % 8);
+        }
+    }
+}
+
+/// Encode and serialize a staged layer as a v2 (tag `0x02`) body into `enc`.
+///
+/// The v2 counterpart of the v1 `StagedLayer::encode_into` body; dispatched
+/// from there based on [`EncoderConfig::wire_version`](crate::encoder::EncoderConfig::wire_version).
+pub(crate) fn encode_into02(
+    layer: StagedLayer,
+    mut enc: Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<Encoder> {
+    let StagedLayer {
+        name,
+        extent,
+        id,
+        geometry,
+        properties,
+        m_values,
+        nested,
+    } = layer;
+
+    // v2 spends one nibble on the extent, so an extent it cannot code is rejected
+    // before any of the layer is written.
+    let extent = Extent02::new(extent.get())?;
+    let feature_count = u32::try_from(geometry.feature_count())?;
+    enc.count_context = Count02::Implied(feature_count);
+
+    // ── Layer layout byte + shared presence bitfields ─────────────────────
+    let shared = SharedPresence::plan(&id, &properties, &nested, &m_values);
+    // An m-value column reads its vertex counts from the outlines.
+    let outlines = if enc.config().allow_triangles_only() && m_values.is_empty() {
+        Outlines::DropForPolygons
+    } else {
+        Outlines::Keep
+    };
+    let geometry = encode_geometry02(geometry, outlines)?;
+    // The geometry layout is only settled once its vertex streams are written, so
+    // the byte is reserved here and patched below.
+    let layout_pos = enc.data().len();
+    enc.data_mut().push(0);
+    shared.write_to(&mut enc);
+
+    // ── Geometry section (not part of column_count) ───────────────────────
+    let geo = geometry.write_to(&mut enc, codecs)?;
+    // Only the geometry layout says whether a feature's vertex count can be read
+    // back, which is the one thing an m-value column cannot do without.
+    if !m_values.is_empty() && !geo.layout.allows_m_values() {
+        return Err(MltError::MValuesNeedVertexCounts(geo.layout.into()));
+    }
+    enc.data_mut()[layout_pos] =
+        LayerLayout::new(geo.layout, shared.count(), shared.coded()).to_byte();
+
+    // ── Counted columns ───────────────────────────────────────────────────
+    let column_count = usize::from(!matches!(id, StagedId::None)) + properties.len() + nested.len();
+    let counts = ColumnCounts {
+        columns: u32::try_from(column_count)?,
+        m_values: u32::try_from(m_values.len())?,
+    };
+    enc.data_mut().write_varint(counts.to_varint())?;
+
+    write_id02(&id, &shared, &mut enc, codecs)?;
+    for prop in &properties {
+        write_prop02(prop, &shared, &mut enc, codecs)?;
+    }
+    for column in &nested {
+        write_nested02(column, &shared, &mut enc, codecs)?;
+    }
+
+    // ── M-value section (not part of column_count either) ─────────────────
+    for m_value in &m_values {
+        write_m_value02(m_value, &shared, &mut enc, codecs)?;
+    }
+
+    let header = LayerHeader02::new(extent, geo.uniform_type, !m_values.is_empty());
+    enc.write_header02(&name, header, feature_count)?;
+    Ok(enc)
+}
+
+/// Write a column's type byte and, for named columns, its name - inline in the
+/// data section (v2 has no separate metadata section).
+fn begin_col02(
+    enc: &mut Encoder,
+    presence: Presence02,
+    typ: DataType02,
+    name: Option<&str>,
+) -> MltResult<()> {
+    // Every v2 column starts here, so this is where its data stream's family is fixed.
+    // A string column's writer re-fixes it per stream, once it has picked a layout.
+    enc.family_context = StreamCtx02::Property(typ).family();
+
+    let data = enc.data_mut();
+    data.push(ColumnType02::new(presence, typ).to_byte());
+    debug_assert_eq!(typ.has_name(), name.is_some());
+    if let Some(name) = name {
+        data.write_string(name)?;
+    }
+    Ok(())
+}
+
+/// Write an optional column's header - type byte, name, and its own presence
+/// bitfield unless the layer already stores that mask as a shared one - then run
+/// `write_data` with [`Encoder::count_context`] set to the presence popcount, the
+/// count a decoder infers for the optional column's data stream.
+fn write_opt_col02<F>(
+    enc: &mut Encoder,
+    shared: &SharedPresence,
+    typ: DataType02,
+    name: Option<&str>,
+    presence: &[bool],
+    write_data: F,
+) -> MltResult<()>
+where
+    F: FnOnce(&mut Encoder) -> MltResult<()>,
+{
+    let nibble = shared.nibble_for(presence);
+    begin_col02(enc, nibble, typ, name)?;
+    write_inline_presence(enc.data_mut(), nibble, presence);
+
+    let popcount = u32::try_from(presence.iter().filter(|&&p| p).count())?;
+    let feature_count = enc.count_context;
+    enc.count_context = Count02::Implied(popcount);
+    let result = write_data(enc);
+    enc.count_context = feature_count;
+    result
+}
+
+/// Write a boolean data stream as a raw LSB-first packed bitfield - one bit per
+/// value, `ceil(len/8)` bytes, framed as a `logical=None` / `physical=None`
+/// stream. This mirrors how v2 presence bitfields are stored and is up to 8×
+/// smaller than one byte per value; [`crate::decoder::RawStream::decode_bools`] reads it back
+/// via the same bitmap unpacker as v1's byte-RLE bools.
+fn write_bool_bitfield(enc: &mut Encoder, values: &[bool]) -> MltResult<()> {
+    write_bool_stream02(enc, values, StreamType::Data(DictionaryType::None))
+}
+
+/// Write `values` as a raw LSB-first packed bitfield in the role `stream_type` names.
+fn write_bool_stream02(
+    enc: &mut Encoder,
+    values: &[bool],
+    stream_type: StreamType,
+) -> MltResult<()> {
+    let mut packed = Vec::with_capacity(values.len().div_ceil(8));
+    write_presence_bits(&mut packed, values);
+    let meta = StreamMeta::new2(
+        stream_type,
+        LogicalEncoding::Bool(BoolLogical::None),
+        PhysicalEncoding::None,
+        values.len(),
+    )?;
+    enc.family_context = Family::Bool;
+    write_stream_payload(enc, meta, false, &packed)
+}
+
+fn write_id02(
+    id: &StagedId,
+    shared: &SharedPresence,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    use DataType02 as DT;
+    use Presence02::AllPresent;
+    let ctx = StreamCtx::id(StreamType::Data(DictionaryType::None));
+    match id {
+        StagedId::None => Ok(()),
+        StagedId::U32(v) => {
+            begin_col02(enc, AllPresent, DT::Id, None)?;
+            codecs.write_int_stream(&v.values, &ctx, enc)
+        }
+        StagedId::OptU32(v) => write_opt_col02(enc, shared, DT::Id, None, &v.presence, |enc| {
+            codecs.write_int_stream(&v.values, &ctx, enc)
+        }),
+        StagedId::U64(v) => {
+            begin_col02(enc, AllPresent, DT::LongId, None)?;
+            codecs.write_int_stream(&v.values, &ctx, enc)
+        }
+        StagedId::OptU64(v) => write_opt_col02(enc, shared, DT::LongId, None, &v.presence, |enc| {
+            codecs.write_int_stream(&v.values, &ctx, enc)
+        }),
+    }
+}
+
+/// Encode a single property column, dispatching on variant.
+///
+/// The v2 counterpart of the v1 `write_prop`: the column header goes inline
+/// into the data section, presence is a raw bitfield, and bool data is written
+/// as an ordinary 0/1 integer stream (racing raw vs RLE) instead of v1's
+/// special bool-RLE bitset.
+fn write_prop02(
+    prop: &StagedProperty,
+    shared: &SharedPresence,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    use DataType02 as DT;
+    use Presence02::AllPresent;
+    use StagedProperty as D;
+
+    /// Non-optional scalar: `[type][name][data stream]`.
+    macro_rules! scalar {
+        ($ct:ident, $v:expr) => {{
+            begin_col02(enc, AllPresent, DT::$ct, Some(&$v.name))?;
+            codecs.write_int_stream(&$v.values, &StreamCtx::prop_data(&$v.name), enc)
+        }};
+    }
+    /// Optional scalar: `[type][name][presence bitfield?][data stream]`.
+    macro_rules! opt_scalar {
+        ($ct:ident, $v:expr) => {{
+            write_opt_col02(enc, shared, DT::$ct, Some(&$v.name), &$v.presence, |enc| {
+                codecs.write_int_stream(&$v.values, &StreamCtx::prop_data(&$v.name), enc)
+            })
+        }};
+    }
+    /// Optional float, whose data stream is written by its own codec.
+    macro_rules! opt_float {
+        ($ct:ident, $v:expr) => {{
+            write_opt_col02(enc, shared, DT::$ct, Some(&$v.name), &$v.presence, |enc| {
+                codecs.write_float_stream(&$v.values, &StreamCtx::prop_data(&$v.name), enc)
+            })
+        }};
+    }
+
+    match prop {
+        D::Bool(v) => {
+            begin_col02(enc, AllPresent, DT::Bool, Some(&v.name))?;
+            write_bool_bitfield(enc, &v.values)
+        }
+        D::OptBool(v) => {
+            write_opt_col02(enc, shared, DT::Bool, Some(&v.name), &v.presence, |enc| {
+                write_bool_bitfield(enc, &v.values)
+            })
+        }
+        D::F32(v) => {
+            begin_col02(enc, AllPresent, DT::F32, Some(&v.name))?;
+            codecs.write_float_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)
+        }
+        D::OptF32(v) => opt_float!(F32, v),
+        D::F64(v) => {
+            begin_col02(enc, AllPresent, DT::F64, Some(&v.name))?;
+            codecs.write_float_stream(&v.values, &StreamCtx::prop_data(&v.name), enc)
+        }
+        D::OptF64(v) => opt_float!(F64, v),
+        D::I8(v) => scalar!(I8, v),
+        D::OptI8(v) => opt_scalar!(I8, v),
+        D::U8(v) => scalar!(U8, v),
+        D::OptU8(v) => opt_scalar!(U8, v),
+        D::I32(v) => scalar!(I32, v),
+        D::OptI32(v) => opt_scalar!(I32, v),
+        D::U32(v) => scalar!(U32, v),
+        D::OptU32(v) => opt_scalar!(U32, v),
+        D::I64(v) => scalar!(I64, v),
+        D::OptI64(v) => opt_scalar!(I64, v),
+        D::U64(v) => scalar!(U64, v),
+        D::OptU64(v) => opt_scalar!(U64, v),
+        D::Str(v) => {
+            begin_col02(enc, AllPresent, DT::Str, Some(&v.name))?;
+            codecs.write_str_col02(v, StrAt::flat(&v.name), enc)
+        }
+        D::OptStr(v) => {
+            let presence: Vec<bool> = v.presence_bools().collect();
+            write_opt_col02(enc, shared, DT::Str, Some(&v.name), &presence, |enc| {
+                codecs.write_str_col02(v, StrAt::flat(&v.name), enc)
+            })
+        }
+        D::SharedDict(v) => codecs.write_shared_dict02(v, shared, enc),
+    }
+}
+
+macro_rules! impl_m_value_type02 {
+    (
+        scalar { $($sv:ident),* $(,)? }
+        string { $($gv:ident),* $(,)? }
+    ) => {
+        /// The type byte an m-value column of these values is written with.
+        fn m_value_type02(values: &StagedValues) -> DataType02 {
+            match values {
+                $(StagedValues::$sv(_) => DataType02::$sv,)*
+                $(StagedValues::$gv(_) => DataType02::$gv,)*
+            }
+        }
+    };
+}
+
+with_kinds!(impl_m_value_type02);
+
+/// Write one m-value column: `[type byte][name][presence bitfield?][data streams]`.
+///
+/// Its streams hold one value per vertex rather than per feature, a count only the
+/// geometry knows, so the column is written with no count context at all and every
+/// stream states its own.
+fn write_m_value02(
+    m_value: &StagedMValue,
+    shared: &SharedPresence,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    use StagedValues as V;
+
+    let name = m_value.name();
+    let typ = m_value_type02(m_value.values());
+    let nibble = match &m_value.presence {
+        Some(mask) => shared.nibble_for(mask),
+        None => Presence02::AllPresent,
+    };
+    begin_col02(enc, nibble, typ, Some(name))?;
+    if let Some(mask) = &m_value.presence {
+        write_inline_presence(enc.data_mut(), nibble, mask);
+    }
+
+    let features = enc.count_context;
+    // Only the geometry knows how many vertices an m-value column runs over, so
+    // nothing lets a decoder infer its counts and each of its streams writes one.
+    enc.count_context = Count02::Explicit;
+    let ctx = StreamCtx::prop_data(name);
+    let result = match m_value.values() {
+        V::Bool(v) => write_bool_bitfield(enc, v),
+        V::I8(v) => codecs.write_int_stream(v, &ctx, enc),
+        V::U8(v) => codecs.write_int_stream(v, &ctx, enc),
+        V::I32(v) => codecs.write_int_stream(v, &ctx, enc),
+        V::U32(v) => codecs.write_int_stream(v, &ctx, enc),
+        V::I64(v) => codecs.write_int_stream(v, &ctx, enc),
+        V::U64(v) => codecs.write_int_stream(v, &ctx, enc),
+        V::F32(v) => codecs.write_float_stream(v, &ctx, enc),
+        V::F64(v) => codecs.write_float_stream(v, &ctx, enc),
+        V::Str(v) => codecs.write_str_col02(&m_value.strings(v), StrAt::flat(name), enc),
+    };
+    // Restore what the columns after this one imply their counts from.
+    enc.count_context = features;
+    result
+}
+
+macro_rules! impl_value_type02 {
+    (
+        scalar { $($sv:ident),* $(,)? }
+        string { $($gv:ident),* $(,)? }
+    ) => {
+        /// The value type a leaf of these values is written with.
+        fn value_type02(values: &StagedValues) -> ValueType02 {
+            match values {
+                $(StagedValues::$sv(_) => ValueType02::$sv,)*
+                $(StagedValues::$gv(_) => ValueType02::$gv,)*
+            }
+        }
+    };
+}
+
+with_kinds!(impl_value_type02);
+
+/// Write one nested column, keeping whichever of its wire shapes is smaller.
+///
+/// A struct whose fields all hold one type says the same thing as a map, so both
+/// are written and the shorter one is kept, exactly as a string column's layouts race.
+fn write_nested02(
+    column: &StagedNested,
+    shared: &SharedPresence,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    let name = column.name();
+    let as_map = column.root.as_map();
+    let mut roots = Vec::new();
+    for root in std::iter::once(&column.root).chain(as_map.iter()) {
+        roots.push((root, Axis::PerEntry));
+        if per_row_allowed(root, enc) {
+            roots.push((root, Axis::PerRow));
+        }
+    }
+    if let [(root, axis)] = roots[..] {
+        return write_nested_root02(name, root, axis, shared, enc, codecs);
+    }
+    let mut alt = enc.try_alternatives();
+    for (root, axis) in roots {
+        alt.with(|enc| write_nested_root02(name, root, axis, shared, enc, codecs))?;
+    }
+    Ok(())
+}
+
+/// Which axis a node's structure is coded along.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Axis {
+    /// One key per map entry, or one presence bit per struct field and row.
+    PerEntry,
+    /// One shape id per row, into a table of key-set bitmaps.
+    PerRow,
+}
+
+/// How a node's own structure is coded, and who codes its presence.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Coding {
+    axis: Axis,
+    owner: Presence,
+}
+
+impl Coding {
+    /// A node that codes its children per entry and stores its own presence.
+    const PER_ENTRY: Self = Self {
+        axis: Axis::PerEntry,
+        owner: Presence::Own,
+    };
+
+    #[must_use]
+    fn with_axis(self, axis: Axis) -> Self {
+        Self { axis, ..self }
+    }
+
+    #[must_use]
+    fn owned_by(self, owner: Presence) -> Self {
+        Self { owner, ..self }
+    }
+}
+
+/// Whether this node has row shapes to code and the encoder is allowed to try them.
+fn per_row_allowed(interior: &StagedInterior, enc: &Encoder) -> bool {
+    enc.config().allow_row_shapes() && interior.row_shapes().is_some()
+}
+
+/// Write a node's row shapes: the key-set table as one run of bits, then one id per row.
+///
+/// Neither stream needs a declared length. The table's own value count is
+/// `shape_count * key_count`, and the key count is what the node already declared -
+/// a struct's `field_count` or the length of a map's key list.
+fn write_shapes02(
+    shapes: &RowShapes,
+    column: &str,
+    path: &str,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    let outer = enc.count_context;
+    enc.count_context = Count02::Explicit;
+    write_bool_stream02(enc, &shapes.table_bits(), StreamType::Present)?;
+    enc.family_context = Family::Int(WordWidth::W32);
+    let ctx = StreamCtx::prop2(StreamType::Data(DictionaryType::None), column, path);
+    let result = codecs.write_int_stream(&shapes.ids, &ctx, enc);
+    enc.count_context = outer;
+    result
+}
+
+/// Write a nested column's root: `[type byte][name][presence bitfield?][body]`.
+///
+/// The root reads the layer's presence nibble rather than a node type byte, so it
+/// may share a bitfield with any other column.
+fn write_nested_root02(
+    name: &str,
+    root: &StagedInterior,
+    axis: Axis,
+    shared: &SharedPresence,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    let presence = root.presence();
+    let nibble = presence.map_or(Presence02::AllPresent, |mask| shared.nibble_for(mask));
+    begin_col02(enc, nibble, interior_type02(root), Some(name))?;
+    if let Some(mask) = presence {
+        write_inline_presence(enc.data_mut(), nibble, mask);
+    }
+    // A root has no node type byte to carry the shapes bit: its high nibble is the
+    // column's presence, which uses all sixteen values. One byte is what either
+    // production codepoint costs, so the size this measures is the size either way.
+    if axis == Axis::PerRow {
+        enc.data_mut().push(NodePresence::SHAPES);
+    }
+
+    let outer = enc.count_context;
+    let values = match presence {
+        Some(mask) => u32::try_from(mask.iter().filter(|&&bit| bit).count())?,
+        None => match outer {
+            Count02::Implied(count) => count,
+            Count02::Explicit => u32::try_from(root.parent_count())?,
+        },
+    };
+    enc.count_context = body_context02(root, Count02::Implied(values));
+    let result = write_interior02(root, name, "", axis, enc, codecs);
+    enc.count_context = outer;
+    result
+}
+
+/// What a node's body is counted against: nothing, once a lengths stream sits on
+/// the path from the root, and its own present count until then.
+fn body_context02(interior: &StagedInterior, present: Count02) -> Count02 {
+    match interior {
+        StagedInterior::Struct(_) => present,
+        StagedInterior::List(_) | StagedInterior::Map(_) => Count02::Explicit,
+    }
+}
+
+fn interior_type02(interior: &StagedInterior) -> DataType02 {
+    match interior {
+        StagedInterior::Struct(_) => DataType02::Struct,
+        StagedInterior::List(_) => DataType02::List,
+        StagedInterior::Map(_) => DataType02::Map,
+    }
+}
+
+fn node_kind02(node: &StagedNode) -> NodeKind02 {
+    match node {
+        StagedNode::Interior(StagedInterior::Struct(_)) => NodeKind02::Struct,
+        StagedNode::Interior(StagedInterior::List(_)) => NodeKind02::List,
+        StagedNode::Interior(StagedInterior::Map(_)) => NodeKind02::Map,
+        StagedNode::Leaf(leaf) => NodeKind02::Leaf(value_type02(&leaf.values)),
+    }
+}
+
+/// Write one node below the root, keeping whichever of its wire shapes is smaller.
+///
+/// A struct one level down races a map exactly as the root does, since the two say
+/// the same thing wherever the struct holds leaves of one type.
+fn write_node02(
+    node: &StagedNode,
+    column: &str,
+    path: &str,
+    field: Option<&str>,
+    coding: Coding,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    let as_map = match node {
+        StagedNode::Interior(interior) => interior.as_map().map(StagedNode::Interior),
+        StagedNode::Leaf(_) => None,
+    };
+    let mut nodes = Vec::new();
+    for candidate in std::iter::once(node).chain(as_map.iter()) {
+        nodes.push((candidate, coding));
+        if let StagedNode::Interior(interior) = candidate
+            && per_row_allowed(interior, enc)
+        {
+            nodes.push((candidate, coding.with_axis(Axis::PerRow)));
+        }
+    }
+    if let [(node, coding)] = nodes[..] {
+        return write_node_shape02(node, column, path, field, coding, enc, codecs);
+    }
+    let mut alt = enc.try_alternatives();
+    for (node, coding) in nodes {
+        alt.with(|enc| write_node_shape02(node, column, path, field, coding, enc, codecs))?;
+    }
+    Ok(())
+}
+
+/// Write one node below the root: `[type byte][name?][presence stream?][body]`.
+///
+/// `field` is the name a struct field carries and is absent for a list element or
+/// a map value. `path` is where the node sits inside `column`, which is what an
+/// explicit encoder pins a stream's encoding by.
+fn write_node_shape02(
+    node: &StagedNode,
+    column: &str,
+    path: &str,
+    field: Option<&str>,
+    coding: Coding,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    // A per-row parent already said which of its rows hold this node, so the node
+    // stores no presence of its own however many of them are null.
+    let presence = match (coding.owner, node) {
+        (Presence::Parent, _) => None,
+        (Presence::Own, StagedNode::Interior(interior)) => interior.presence(),
+        (Presence::Own, StagedNode::Leaf(leaf)) => leaf.presence.as_ref(),
+    };
+    let node_presence = if presence.is_some() {
+        NodePresence::Stream
+    } else {
+        NodePresence::AllPresent
+    };
+    let kind = node_kind02(node);
+    let typ = NodeType02::new(node_presence, kind);
+    let typ = match coding.axis {
+        Axis::PerRow => typ.shaped(),
+        Axis::PerEntry => typ,
+    };
+    enc.data_mut().push(typ.to_byte());
+    if let Some(field) = field {
+        enc.data_mut().write_string(field)?;
+    }
+
+    // A list or a map ends the implied counts, its own streams included.
+    let parent = enc.count_context;
+    let node_count = match kind {
+        NodeKind02::List | NodeKind02::Map => Count02::Explicit,
+        NodeKind02::Struct | NodeKind02::Leaf(_) => parent,
+    };
+    if let Some(mask) = presence {
+        enc.count_context = node_count;
+        write_bool_stream02(enc, mask, StreamType::Present)?;
+    }
+    enc.count_context = match node_count {
+        Count02::Explicit => Count02::Explicit,
+        Count02::Implied(_) => Count02::Implied(u32::try_from(node.present_count())?),
+    };
+    let result = match node {
+        StagedNode::Interior(interior) => {
+            enc.count_context = body_context02(interior, enc.count_context);
+            write_interior02(interior, column, path, coding.axis, enc, codecs)
+        }
+        StagedNode::Leaf(leaf) => write_leaf02(leaf, column, path, enc, codecs),
+    };
+    enc.count_context = parent;
+    result
+}
+
+/// Write the body of an interior node, whose presence the caller has already written.
+fn write_interior02(
+    interior: &StagedInterior,
+    column: &str,
+    path: &str,
+    axis: Axis,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    let shapes = match axis {
+        Axis::PerRow => interior.row_shapes(),
+        Axis::PerEntry => None,
+    };
+    match interior {
+        StagedInterior::Struct(node) => {
+            if node.fields.is_empty() {
+                return Err(MltError::EmptyStructNode);
+            }
+            enc.data_mut()
+                .write_varint(u32::try_from(node.fields.len())?)?;
+            let fields = enc.count_context;
+            // The shapes run over the fields in declaration order, so they are what
+            // each field's presence is read out of and no field writes its own.
+            let owner = match &shapes {
+                Some(shapes) => {
+                    write_shapes02(shapes, column, path, enc, codecs)?;
+                    Presence::Parent
+                }
+                None => Presence::Own,
+            };
+            for (name, field) in &node.fields {
+                enc.count_context = fields;
+                let path = format!("{path}.{name}");
+                let coding = Coding::PER_ENTRY.owned_by(owner);
+                write_node02(field, column, &path, Some(name), coding, enc, codecs)?;
+            }
+            enc.count_context = fields;
+            Ok(())
+        }
+        StagedInterior::List(node) => {
+            write_lengths02(&node.lengths, column, path, enc, codecs)?;
+            write_node02(
+                &node.element,
+                column,
+                &format!("{path}[]"),
+                None,
+                Coding::PER_ENTRY,
+                enc,
+                codecs,
+            )
+        }
+        StagedInterior::Map(node) => {
+            // A shape's population count is the row's entry count, so the lengths
+            // are implied, and the key stream holds the key list rather than one
+            // key per entry.
+            if let Some(shapes) = &shapes {
+                let keys = StagedStrings::from_strings(column, &shapes.keys);
+                codecs.write_str_col02(&keys, StrAt::nested(column, path), enc)?;
+                write_shapes02(shapes, column, path, enc, codecs)?;
+            } else {
+                write_lengths02(&node.lengths, column, path, enc, codecs)?;
+                let keys = StagedStrings::from_strings(column, &node.keys);
+                codecs.write_str_col02(&keys, StrAt::nested(column, path), enc)?;
+            }
+            // A map value's presence runs over entries, not rows, so the shapes
+            // above say nothing about it and it keeps its own.
+            write_node02(
+                &node.value,
+                column,
+                &format!("{path}{{}}"),
+                None,
+                Coding::PER_ENTRY,
+                enc,
+                codecs,
+            )
+        }
+    }
+}
+
+/// Which node stores the presence of the values a node is handed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Presence {
+    /// The node's own presence stream.
+    Own,
+    /// The parent's row shapes, which already name this node's rows.
+    Parent,
+}
+
+/// Write a list or map node's lengths, one per value the node marks present.
+fn write_lengths02(
+    lengths: &[u32],
+    column: &str,
+    path: &str,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    enc.family_context = Family::Int(WordWidth::W32);
+    let ctx = StreamCtx::prop2(StreamType::Length(LengthType::Nested), column, path);
+    codecs.write_int_stream(lengths, &ctx, enc)
+}
+
+/// Write a leaf's data streams, which are the ones a column of its type holds.
+fn write_leaf02(
+    leaf: &StagedLeaf,
+    column: &str,
+    path: &str,
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    use StagedValues as V;
+
+    let ctx = StreamCtx::prop2(StreamType::Data(DictionaryType::None), column, path);
+    enc.family_context = StreamCtx02::Property(value_type02(&leaf.values).into()).family();
+    match &leaf.values {
+        V::Bool(v) => write_bool_bitfield(enc, v),
+        V::I8(v) => codecs.write_int_stream(v, &ctx, enc),
+        V::U8(v) => codecs.write_int_stream(v, &ctx, enc),
+        V::I32(v) => codecs.write_int_stream(v, &ctx, enc),
+        V::U32(v) => codecs.write_int_stream(v, &ctx, enc),
+        V::I64(v) => codecs.write_int_stream(v, &ctx, enc),
+        V::U64(v) => codecs.write_int_stream(v, &ctx, enc),
+        V::F32(v) => codecs.write_float_stream(v, &ctx, enc),
+        V::F64(v) => codecs.write_float_stream(v, &ctx, enc),
+        V::Str(v) => codecs.write_str_col02(
+            &StagedStrings::from_strings(column, v),
+            StrAt::nested(column, path),
+            enc,
+        ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::decoder::GeometryValues;
+    use crate::encoder::{EncoderConfig, StagedStruct, WireVersion};
+    use crate::geo_types::{Geometry, Point};
+
+    fn points(count: usize) -> GeometryValues {
+        let mut geometry = GeometryValues::default();
+        for _ in 0..count {
+            geometry.push_geom(&Geometry::<i32>::Point(Point::new(0, 0)));
+        }
+        geometry
+    }
+
+    fn str_leaf(presence: Option<Vec<bool>>, values: &[&str]) -> StagedNode {
+        let values = values.iter().map(|v| (*v).to_string()).collect();
+        StagedNode::Leaf(StagedLeaf::new(presence, StagedValues::Str(values)))
+    }
+
+    /// Wrap `inner` in a root struct that holds nothing else, and encode it over `rows` features.
+    fn encode_one_field(inner: StagedNode, rows: usize) -> Vec<u8> {
+        let root = StagedInterior::Struct(StagedStruct::new(None, vec![("inner", inner)]));
+        StagedLayer::with_nested(
+            "layer",
+            4096,
+            StagedId::None,
+            points(rows),
+            Vec::new(),
+            Vec::new(),
+            vec![StagedNested::new("n", root)],
+        )
+        .expect("staged layer")
+        .encode_into(
+            Encoder::new(EncoderConfig::default().with_wire_version(WireVersion::V02)),
+            &mut Codecs::default(),
+        )
+        .expect("encode")
+        .into_layer_bytes()
+        .expect("layer bytes")
+    }
+
+    /// The node type byte of the field named `field`, which the wire puts right before its name.
+    fn field_type_byte(bytes: &[u8], field: &str) -> u8 {
+        let mut name = vec![u8::try_from(field.len()).expect("a short name")];
+        name.extend_from_slice(field.as_bytes());
+        let at = bytes
+            .windows(name.len())
+            .position(|window| window == name.as_slice())
+            .expect("the field name");
+        bytes[at - 1]
+    }
+
+    #[test]
+    fn an_interior_struct_of_sparse_keys_is_written_as_a_map() {
+        let rows = 12;
+        let fields: Vec<(String, StagedNode)> = (0..rows)
+            .map(|row| {
+                let mut presence = vec![false; rows];
+                presence[row] = true;
+                (format!("key{row}"), str_leaf(Some(presence), &["v"]))
+            })
+            .collect();
+        let inner = StagedNode::Interior(StagedInterior::Struct(StagedStruct::new(None, fields)));
+        assert_eq!(
+            field_type_byte(&encode_one_field(inner, rows), "inner"),
+            NodeType02::new(NodePresence::AllPresent, NodeKind02::Map).to_byte()
+        );
+    }
+
+    #[test]
+    fn an_interior_struct_of_dense_keys_stays_a_struct() {
+        let rows = 12;
+        let inner = StagedNode::Interior(StagedInterior::Struct(StagedStruct::new(
+            None,
+            vec![
+                ("alpha", str_leaf(None, &["a"; 12])),
+                ("beta", str_leaf(None, &["b"; 12])),
+            ],
+        )));
+        assert_eq!(
+            field_type_byte(&encode_one_field(inner, rows), "inner"),
+            NodeType02::new(NodePresence::AllPresent, NodeKind02::Struct).to_byte()
+        );
+    }
+}

@@ -1,117 +1,170 @@
 #!/usr/bin/env just --justfile
 
+mod cpp
+mod java
+mod inspector 'inspector'
+mod rust
+mod ts
+
+just := quote(just_executable())
+ci_mode := if env('CI', '') != '' {'1'} else {''}
+
 # By default, show the list of all available commands
 @_default:
-    {{ just_executable() }} --list --unsorted
+    {{just}} --list --list-submodules
 
-# Delete all build files for multiple languages
-clean: clean-java clean-js clean-rust
-
-# Delete build files for Java
-clean-java:
-    echo "TODO: Add java cleanup command"
-
-# Delete build files for JavaScript
-clean-js:
-    echo "TODO: Add js cleanup command"
-
-# Delete build files for Rust
-clean-rust:
-    cd rust && cargo clean
-
-# Run all tests in every language, including integration tests
-test: test-java test-java-cli test-js test-rust test-int
-
-# Run tests for Java
-test-java:
-    cd java && ./gradlew test
-
-# Run Java cli tests
-test-java-cli:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    cd java  # Changing directory requires this recipe to have the #!/... line at the top, i.e. be a proper script
-    ./gradlew cli
-    # Test the encoding CLI
-    java -jar ./build/libs/encode.jar -mvt ../test/fixtures/omt/10_530_682.mvt -metadata -mlt output/varint.mlt
-    # ensure expected size
-    python3 -c 'import os; expected=2432; ts=os.path.getsize("output/varint.mlt.meta.pbf"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
-    # Test the meta CLI and ensure it doesn't overwrite the metadata (a sign it correctly matches the encode output)
-    java -jar ./build/libs/meta.jar -mvt ../test/fixtures/omt/10_530_682.mvt -meta output/varint.mlt.meta.pbf
-    # ensure expected size is maintained (meta writes the same meta file as encode)
-    python3 -c 'import os; expected=2432; ts=os.path.getsize("output/varint.mlt.meta.pbf"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
-    # Test the using advanced encodings
-    java -jar ./build/libs/encode.jar -mvt ../test/fixtures/omt/10_530_682.mvt -metadata -advanced -mlt output/advanced.mlt
-    # ensure expected sizes
-    python3 -c 'import os; expected=67011; ts=os.path.getsize("output/varint.mlt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
-    python3 -c 'import os; expected=64776; ts=os.path.getsize("output/advanced.mlt"); assert ts == expected, f"tile size changed from expected ({expected}), got: {ts}"'
-    # ensure we can decode the advanced tile
-    java -jar ./build/libs/decode.jar -mlt output/advanced.mlt -vectorized
-
-
-# Run tests for JavaScript
-test-js:
-    cd js && npm ci
-    cd js && npm test
-
-# Run tests for Rust
-test-rust:
-    cd rust && cargo test
-
-# Run integration tests, ensuring that the output matches the expected output
-test-int: clean-int-test test-run-int (diff-dirs "test/output" "test/expected")
+bench:
+    {{just}} rust::bench
+    {{just}} java::bench
+    {{just}} ts::bench
 
 # Run integration tests, and override what we expect the output to be with the actual output
-bless: clean-int-test test-run-int
+bless: _clean-int-test _test-run-int
+    {{just}} rust::bless
+    # after rust::bless, which regenerates the synthetic tiles the inspector indexes
+    {{just}} inspector::bless
     rm -rf test/expected && mv test/output test/expected
 
-# Run linting in every language, failing on lint suggestion or bad formatting. Run `just fmt` to fix formatting issues.
-lint: lint-java lint-js lint-rust
-
-# Run linting for Java
-lint-java:
-    cd java && ./gradlew spotlessJavaCheck
-
-# Run linting for JavaScript
-lint-js:
-    echo "TODO: Add js lint command (e.g. eslint)"
-
-# Run linting for Rust
-lint-rust:
-    cd rust && cargo clippy
-    cd rust && cargo fmt --all -- --check
+# Delete all build files for multiple languages
+clean:
+    {{just}} rust::clean
+    {{just}} java::clean
+    {{just}} ts::clean
+    {{just}} cpp::clean
 
 # Run all formatting in every language
-fmt: fmt-java fmt-js fmt-rust
+fmt:
+    {{just}} rust::fmt
+    {{just}} java::fmt
+    {{just}} ts::fmt
+    {{just}} cpp::fmt
 
-# Run formatting for Java
-fmt-java:
-     cd java && ./gradlew spotlessApply
+# Run linting in every language. Run `just fmt` to fix formatting issues.
+lint:
+    {{just}} rust::lint
+    {{just}} java::lint
+    {{just}} ts::lint
+    {{just}} cpp::lint
 
-# Run formatting for JavaScript
-fmt-js:
-    echo "TODO: Add js fmt command (e.g. prettier)"
+# Run all tests in every language, including integration tests
+test: test-int
+    {{just}} rust::test
+    {{just}} java::test
+    {{just}} ts::test
+    {{just}} cpp::test
 
-# Run formatting for Rust
-fmt-rust:
-    cd rust && cargo fmt --all
+# Run integration tests, ensuring that the output matches the expected output
+test-int: _clean-int-test _test-run-int (_diff-dirs "test/output" "test/expected")
 
-# Delete integration test output files
-[private]
-clean-int-test:
+docs: inspector::build
+    docker run --rm -it -p 8000:8000 -v ${PWD}:/docs zensical/zensical:latest
+
+docs-build: rust::wasm-build inspector::build
+    docker run --rm -v ${PWD}:/docs zensical/zensical:latest build
+
+# Merge the lcov and JaCoCo coverage reports in `dir` into one Cobertura report at `out`
+coverage-merge dir out: (cargo-install 'grcov')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p "$(dirname {{quote(out)}})"
+    grcov {{quote(dir)}} --source-dir . \
+        --ignore '**/build/**' --ignore '**/target/**' --ignore '**/node_modules/**' \
+        --output-types cobertura --output-path {{quote(out)}}
+
+# Extract version from a tag by removing language prefix and 'v' prefix
+ci-extract-version language tag:
+    @echo "{{replace(replace(tag, language + '-', ''), 'v', '')}}"
+
+# Run the mlt CLI tool with the given arguments from current dir.
+[no-cd]
+[positional-arguments]  # avoids shell expansions
+mlt *args:
+    cargo run --manifest-path {{join(justfile_directory(), 'rust', 'Cargo.toml')}} --package mlt --features unstable-v2 -- "$@"
+
+# Run the mlt CLI tool with the given arguments from current dir.
+[no-cd]
+[positional-arguments]  # avoids shell expansions
+mlt-rel *args:
+    cargo run --release --manifest-path {{join(justfile_directory(), 'rust', 'Cargo.toml')}} --package mlt --features unstable-v2 -- "$@"
+
+# Ensure a command is available
+assert-cmd command:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! type {{command}} > /dev/null; then
+        echo "Command '{{command}}' could not be found. Please make sure it has been installed on your computer."
+        exit 1
+    fi
+
+# Install a Cargo tool if missing (uses cargo-binstall when available)
+cargo-install $COMMAND $INSTALL_CMD='' *args='':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    unset CARGO_BUILD_WARNINGS
+    binstall_args="{{ if env('CI', '') != '' {'--no-confirm --no-track --disable-telemetry'} else {''} }}"
+    if ! command -v $COMMAND > /dev/null; then
+        if ! command -v cargo-binstall > /dev/null; then
+            echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}"
+            cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}
+        else
+            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} $binstall_args --locked"
+            cargo binstall ${INSTALL_CMD:-$COMMAND} $binstall_args --locked
+        fi
+    fi
+
+# Install the pmtiles CLI and Python pmtiles library (needed by download-benchmark-tiles)
+install-pmtiles:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! command -v pmtiles > /dev/null; then
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        ARCH=$(uname -m)
+        case "$OS-$ARCH" in
+            linux-x86_64)   SUFFIX="Linux_x86_64"   ;;
+            linux-aarch64)  SUFFIX="Linux_arm64"     ;;
+            darwin-x86_64)  SUFFIX="Darwin_x86_64"   ;;
+            darwin-arm64)   SUFFIX="Darwin_arm64"    ;;
+            *) echo "Unsupported platform: $OS-$ARCH"; exit 1 ;;
+        esac
+        AUTH=()
+        if [ -n "${GITHUB_TOKEN:-}" ]; then
+            AUTH=(-H "Authorization: Bearer ${GITHUB_TOKEN}")
+        fi
+        ASSET_URL=$(curl -sSf "${AUTH[@]}" https://api.github.com/repos/protomaps/go-pmtiles/releases/latest | \
+            jq -r ".assets[] | select(.name | test(\"${SUFFIX}\")) | .browser_download_url")
+        if [ -z "$ASSET_URL" ] || [ "$ASSET_URL" = "null" ]; then
+            echo "Could not find pmtiles release for $SUFFIX"; exit 1
+        fi
+        curl -sSfL "$ASSET_URL" | sudo tar -xz -C /usr/local/bin pmtiles
+    fi
+    echo "pmtiles: $(pmtiles version)"
+    pip install --break-system-packages pmtiles 2>/dev/null \
+        || pip install pmtiles
+
+# Make sure the git repo has no uncommitted changes. Fails only if CI envvar is set.
+assert-git-is-clean:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+        >&2 echo "::error::git repo is not clean. Make sure compilation and tests artifacts are in the .gitignore, and no repo files are modified."
+        if [[ "{{ci_mode}}" == "1" ]]; then
+            >&2 echo "::group::git status"
+            git status
+            >&2 echo "::endgroup::"
+            >&2 echo "::group::git diff (tracked changes)"
+            git add . --intent-to-add
+            git --no-pager diff
+            >&2 echo "::endgroup::"
+            exit 1
+        else
+            >&2 echo "git repo is not clean, but not failing because CI mode is not enabled."
+        fi
+    fi
+
+_clean-int-test:
     rm -rf test/output && mkdir -p test/output
 
-# Run integration tests
-[private]
-test-run-int:
-    echo "TODO: Add integration test command, outputting to test/output"
-    echo "fake output by copying expected into output so that the rest of the script works"
-    # TODO: REMOVE THIS, and replace it with a real integration test run
-    cp -r test/expected/* test/output
-
-# Compare two directories to ensure they are the same
-[private]
-diff-dirs OUTPUT_DIR EXPECTED_DIR:
+_diff-dirs OUTPUT_DIR EXPECTED_DIR:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "** Comparing {{OUTPUT_DIR}} with {{EXPECTED_DIR}}..."
@@ -121,4 +174,25 @@ diff-dirs OUTPUT_DIR EXPECTED_DIR:
         exit 1
     else
         echo "** Expected output matches actual output"
+    fi
+
+_test-run-int:
+    echo "TODO: Add integration test command, outputting to test/output"
+    echo "fake output by copying expected into output so that the rest of the script works"
+    # TODO: REMOVE THIS, and replace it with a real integration test run
+    cp -r test/expected/* test/output
+
+# Ensure there are no duplicate synthetic MLT files by comparing their hashes.
+_assert-all-mlt-files-different dir='test/synthetic':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    all_hashes=$(find {{quote(dir)}} -name '*.mlt' -exec sha256sum {} \; | sort)
+    duplicates=$(echo "$all_hashes" | awk '{print $1}' | uniq -d)
+    if [ -n "$duplicates" ]; then
+        echo "::error::Duplicate synthetic MLT files found"
+        while IFS= read -r hash; do
+            echo ""
+            echo "$all_hashes" | grep "^$hash " | awk '{print "  - " $2}'
+        done <<< "$duplicates"
+        exit 1
     fi

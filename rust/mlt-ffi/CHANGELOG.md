@@ -1,0 +1,159 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.1.27](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.26...rust-mlt-ffi-v0.1.27) - 2026-09-27
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.26](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.25...rust-mlt-ffi-v0.1.26) - 2026-09-27
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.25](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.24...rust-mlt-ffi-v0.1.25) - 2026-09-25
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.24](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.23...rust-mlt-ffi-v0.1.24) - 2026-09-23
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.23](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.22...rust-mlt-ffi-v0.1.23) - 2026-09-22
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.22](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.21...rust-mlt-ffi-v0.1.22) - 2026-09-21
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.21](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.20...rust-mlt-ffi-v0.1.21) - 2026-09-20
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.20](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.19...rust-mlt-ffi-v0.1.20) - 2026-09-18
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.19](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.18...rust-mlt-ffi-v0.1.19) - 2026-09-17
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.18](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.17...rust-mlt-ffi-v0.1.18) - 2026-09-14
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.17](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.16...rust-mlt-ffi-v0.1.17) - 2026-09-07
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.16](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.15...rust-mlt-ffi-v0.1.16) - 2026-09-04
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.15](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.14...rust-mlt-ffi-v0.1.15) - 2026-08-31
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.14](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.13...rust-mlt-ffi-v0.1.14) - 2026-08-21
+
+### Other
+
+- *(rust)* fixes new issues uncovered by clippy with bumped rust-version ([#1568](https://github.com/maplibre/maplibre-tile-spec/pull/1568))
+- add an anti-vibing pre-commit to clean up weird unicode and tabs ([#1566](https://github.com/maplibre/maplibre-tile-spec/pull/1566))
+
+## [0.1.13](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.12...rust-mlt-ffi-v0.1.13) - 2026-08-19
+
+### Other
+
+- *(rust)* speed up MVT-to-MLT ~30% by not calling fast-mvt's to_tile() ([#1545](https://github.com/maplibre/maplibre-tile-spec/pull/1545))
+
+## [0.1.12](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.11...rust-mlt-ffi-v0.1.12) - 2026-07-18
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.11](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.10...rust-mlt-ffi-v0.1.11) - 2026-07-01
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.10](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.9...rust-mlt-ffi-v0.1.10) - 2026-06-29
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.9](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.8...rust-mlt-ffi-v0.1.9) - 2026-06-20
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.8](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.7...rust-mlt-ffi-v0.1.8) - 2026-06-19
+
+### Other
+
+- *(rust)* rm pub fields, builder pattern ([#1428](https://github.com/maplibre/maplibre-tile-spec/pull/1428))
+
+## [0.1.7](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.6...rust-mlt-ffi-v0.1.7) - 2026-06-18
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.6](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.5...rust-mlt-ffi-v0.1.6) - 2026-06-15
+
+### Added
+
+- *(py)* make `mlt.encode_geojson` configurable ([#1427](https://github.com/maplibre/maplibre-tile-spec/pull/1427))
+
+## [0.1.5](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.4...rust-mlt-ffi-v0.1.5) - 2026-06-13
+
+### Other
+
+- updated the following local packages: mlt-core
+
+## [0.1.4](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.3...rust-mlt-ffi-v0.1.4) - 2026-06-08
+
+### Other
+
+- *(rust)* migrate to fast-mvt crate ([#1415](https://github.com/maplibre/maplibre-tile-spec/pull/1415))
+
+## [0.1.1](https://github.com/maplibre/maplibre-tile-spec/compare/rust-mlt-ffi-v0.1.0...rust-mlt-ffi-v0.1.1) - 2026-05-15
+
+### Other
+
+- *(release)* Add gradle config ([#1383](https://github.com/maplibre/maplibre-tile-spec/pull/1383))

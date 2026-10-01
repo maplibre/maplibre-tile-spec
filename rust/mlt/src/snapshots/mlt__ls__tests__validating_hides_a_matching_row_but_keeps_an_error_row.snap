@@ -1,0 +1,7 @@
+---
+source: mlt/src/ls.rs
+expression: "render_table(&[info_row(validated(mlt_info(\"a.mlt\"), true)),\nerror_row(\"broken.mlt\", Some(777)),], VALIDATE)"
+---
+ File       | Size |                      Enc % | Decoded | Meta | Meta % | Layer | Feature | Stream | Geometry Types | JSON 
+------------+------+----------------------------+---------+------+--------+-------+---------+--------+----------------+------
+ broken.mlt | 777B | ERROR: unsupported version |         |      |        |       |         |        |                |

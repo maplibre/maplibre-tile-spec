@@ -1,5 +1,0 @@
-version: v1
-plugins:
-   - plugin: es
-     opt: target=ts
-     out: src/decoder

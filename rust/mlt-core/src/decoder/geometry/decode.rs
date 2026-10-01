@@ -1,0 +1,524 @@
+use usize_cast::IntoUsize as _;
+
+use crate::codecs::varint::parse_varint;
+use crate::decoder::stream::header01;
+use crate::decoder::{
+    DictionaryType, GeoTypes, GeometryType, GeometryValues, IndexBase, IntEncoding, LengthType,
+    OffsetType, RawGeometry, RawStream, StreamMeta, StreamType, ValueKind,
+};
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::{LogicalEncoding, VertexLogical};
+use crate::errors::AsMltError as _;
+use crate::utils::SetOptionOnce as _;
+use crate::{Decode, Decoder, MltError, MltResult, Parser};
+
+/// Advance `offset` by `count` and extend `buffer` with the consecutive values
+/// `old_offset + 1, old_offset + 2, …, new_offset`.
+fn push_consecutive_offsets(
+    buffer: &mut Vec<u32>,
+    offset: &mut u32,
+    count: usize,
+) -> MltResult<()> {
+    if count > 0 {
+        let count = u32::try_from(count).or_overflow()?;
+        *offset = offset.checked_add(count).or_overflow()?;
+        // Safety: offset+1 cannot overflow because offset+count didn't and count >= 1.
+        buffer.extend((*offset - count + 1)..=*offset);
+    }
+    Ok(())
+}
+
+pub fn decode_geometry_types(
+    types: GeoTypes<'_>,
+    dec: &mut Decoder,
+) -> MltResult<Vec<GeometryType>> {
+    let stream = match types {
+        GeoTypes::Stream(stream) => stream,
+        #[cfg(feature = "unstable-v2")]
+        GeoTypes::Uniform {
+            geometry_type,
+            feature_count,
+        } => {
+            let mut vector_types = dec.alloc(feature_count.into_usize())?;
+            vector_types.resize(feature_count.into_usize(), geometry_type);
+            return Ok(vector_types);
+        }
+    };
+    // TODO: simplify this, e.g. use u8 or even GeometryType directly rather than going via Vec<u32>
+    let vector_types: Vec<u32> = stream.decode_ints::<u32>(dec)?;
+    let vector_types: Vec<GeometryType> = vector_types
+        .into_iter()
+        .map::<MltResult<GeometryType>, _>(|v| Ok(u8::try_from(v)?.try_into()?))
+        .collect::<Result<_, _>>()?;
+    Ok(vector_types)
+}
+
+/// Handle the parsing of the different topology length buffers separate not generic to reduce the
+/// branching and improve the performance
+pub fn decode_root_length_stream(
+    geometry_types: &[GeometryType],
+    root_length_stream: &[u32],
+    buffer_id: GeometryType,
+    dec: &mut Decoder,
+) -> MltResult<Vec<u32>> {
+    let alloc_size = geometry_types.len().checked_add(1).or_overflow()?;
+    let mut root_buffer_offsets = dec.alloc(alloc_size)?;
+
+    root_buffer_offsets.push(0);
+    let mut offset = 0_u32;
+    let mut root_length_counter = 0_usize;
+    for &geom_type in geometry_types {
+        let increment = if geom_type > buffer_id {
+            let val = *root_length_stream
+                .get(root_length_counter)
+                .ok_or(MltError::GeometryIndexOutOfBounds(root_length_counter))?;
+            // Safety: counter bounded by `geometry_types.len()`, which fits in usize.
+            root_length_counter += 1;
+            val
+        } else {
+            1
+        };
+        offset = offset.checked_add(increment).or_overflow()?;
+        root_buffer_offsets.push(offset);
+    }
+
+    dec.adjust_alloc(&root_buffer_offsets, alloc_size)?;
+    Ok(root_buffer_offsets)
+}
+
+/// Case where no ring buffer exists so no `MultiPolygon` or `Polygon` geometry is part of the buffer
+pub fn decode_level1_without_ring_buffer_length_stream(
+    geometry_types: &[GeometryType],
+    root_offset_buffer: &[u32],
+    level1_length_buffer: &[u32],
+    dec: &mut Decoder,
+) -> MltResult<Vec<u32>> {
+    // Safety: root_offset_buffer is produced by decode_root_length_stream, which always
+    // pushes an initial 0, so it is never empty.
+    let alloc_size = root_offset_buffer[root_offset_buffer.len() - 1]
+        .into_usize()
+        .checked_add(1)
+        .or_overflow()?;
+    let mut level1_buffer_offsets = dec.alloc(alloc_size)?;
+    level1_buffer_offsets.push(0);
+    let mut offset = 0_u32;
+    let mut level1_length_counter = 0_usize;
+
+    for (&geometry_type, w) in geometry_types.iter().zip(root_offset_buffer.windows(2)) {
+        let num_geometries = w[1].checked_sub(w[0]).or_overflow()?.into_usize();
+
+        if geometry_type.is_linestring() {
+            // For MultiLineString and LineString a value in the level1LengthBuffer exists
+            for _j in 0..num_geometries {
+                let val = *level1_length_buffer
+                    .get(level1_length_counter)
+                    .ok_or(MltError::GeometryIndexOutOfBounds(level1_length_counter))?;
+                offset = offset.checked_add(val).or_overflow()?;
+                level1_buffer_offsets.push(offset);
+                // Safety: counter bounded by slice lengths, which fit in usize.
+                level1_length_counter += 1;
+            }
+        } else {
+            // For MultiPoint and Point no value in level1LengthBuffer exists
+            push_consecutive_offsets(&mut level1_buffer_offsets, &mut offset, num_geometries)?;
+        }
+    }
+
+    dec.adjust_alloc(&level1_buffer_offsets, alloc_size)?;
+    Ok(level1_buffer_offsets)
+}
+
+pub fn decode_level1_length_stream(
+    geometry_types: &[GeometryType],
+    root_offset_buffer: &[u32],
+    level1_length_buffer: &[u32],
+    is_line_string_present: bool,
+    dec: &mut Decoder,
+) -> MltResult<Vec<u32>> {
+    // Safety: root_offset_buffer is produced by decode_root_length_stream, which always
+    // pushes an initial 0, so it is never empty.
+    let alloc_size = root_offset_buffer[root_offset_buffer.len() - 1]
+        .into_usize()
+        .checked_add(1)
+        .or_overflow()?;
+    let mut level1_buffer_offsets = dec.alloc(alloc_size)?;
+    level1_buffer_offsets.push(0);
+    let mut offset = 0_u32;
+    let mut level1_length_buffer_counter = 0_usize;
+
+    for (&geometry_type, w) in geometry_types.iter().zip(root_offset_buffer.windows(2)) {
+        let num_geometries = w[1].checked_sub(w[0]).or_overflow()?.into_usize();
+
+        if geometry_type.is_polygon() || (is_line_string_present && geometry_type.is_linestring()) {
+            // For MultiPolygon, Polygon and in some cases for MultiLineString and LineString
+            // a value in the level1LengthBuffer exists
+            for _j in 0..num_geometries {
+                let val = *level1_length_buffer
+                    .get(level1_length_buffer_counter)
+                    .ok_or(MltError::GeometryIndexOutOfBounds(
+                        level1_length_buffer_counter,
+                    ))?;
+                offset = offset.checked_add(val).or_overflow()?;
+                level1_buffer_offsets.push(offset);
+                // Safety: counter bounded by slice lengths, which fit in usize.
+                level1_length_buffer_counter += 1;
+            }
+        } else {
+            // For MultiPoint and Point and in some cases for MultiLineString and LineString
+            // no value in the level1LengthBuffer exists
+            push_consecutive_offsets(&mut level1_buffer_offsets, &mut offset, num_geometries)?;
+        }
+    }
+
+    dec.adjust_alloc(&level1_buffer_offsets, alloc_size)?;
+    Ok(level1_buffer_offsets)
+}
+
+pub fn decode_level2_length_stream(
+    geometry_types: &[GeometryType],
+    root_offset_buffer: &[u32],
+    level1_offset_buffer: &[u32],
+    level2_length_buffer: &[u32],
+    dec: &mut Decoder,
+) -> MltResult<Vec<u32>> {
+    // Safety: level1_offset_buffer is produced by decode_level1_*_length_stream, which
+    // always pushes an initial 0, so it is never empty.
+    let last = level1_offset_buffer[level1_offset_buffer.len() - 1];
+    let alloc_size = last.into_usize().checked_add(1).or_overflow()?;
+    let mut level2_buffer_offsets = dec.alloc(alloc_size)?;
+    level2_buffer_offsets.push(0);
+    let mut previous_offset = 0_u32;
+    let mut level1_tail = level1_offset_buffer;
+    let mut level2_pos = 0_usize;
+
+    for (&geometry_type, w) in geometry_types.iter().zip(root_offset_buffer.windows(2)) {
+        let num_geometries = w[1].checked_sub(w[0]).or_overflow()?.into_usize();
+
+        if geometry_type != GeometryType::Point && geometry_type != GeometryType::MultiPoint {
+            // For MultiPolygon, MultiLineString, Polygon and LineString a value in level2LengthBuffer
+            // exists
+            for _j in 0..num_geometries {
+                let [base, next, ..] = *level1_tail else {
+                    return Err(MltError::IntegerOverflow);
+                };
+                let num_parts = next.checked_sub(base).or_overflow()?.into_usize();
+                level1_tail = &level1_tail[1..];
+                for _k in 0..num_parts {
+                    let val = *level2_length_buffer
+                        .get(level2_pos)
+                        .ok_or(MltError::GeometryIndexOutOfBounds(level2_pos))?;
+                    previous_offset = previous_offset.checked_add(val).or_overflow()?;
+                    // Safety: counter bounded by slice lengths, which fit in usize.
+                    level2_pos += 1;
+                    level2_buffer_offsets.push(previous_offset);
+                }
+            }
+        } else {
+            // For MultiPoint and Point no value in level2LengthBuffer exists
+            push_consecutive_offsets(
+                &mut level2_buffer_offsets,
+                &mut previous_offset,
+                num_geometries,
+            )?;
+            if num_geometries > level1_tail.len() {
+                return Err(MltError::IntegerOverflow);
+            }
+            level1_tail = &level1_tail[num_geometries..];
+        }
+    }
+
+    dec.adjust_alloc(&level2_buffer_offsets, alloc_size)?;
+    Ok(level2_buffer_offsets)
+}
+
+/// The geometry, part and ring levels of a section's topology, each present or not.
+#[derive(Default)]
+pub(crate) struct Levels {
+    pub(crate) geometries: Option<Vec<u32>>,
+    pub(crate) parts: Option<Vec<u32>>,
+    pub(crate) rings: Option<Vec<u32>>,
+}
+
+/// Rebuild the dense offset levels from the length streams a section stores.
+pub(crate) fn decode_topology(
+    vector_types: &[GeometryType],
+    lengths: Levels,
+    dec: &mut Decoder,
+) -> MltResult<Levels> {
+    let Levels {
+        geometries: mut geometry_offsets,
+        parts: mut part_offsets,
+        rings: mut ring_offsets,
+    } = lengths;
+    if let Some(offsets) = geometry_offsets.take() {
+        geometry_offsets = Some(decode_root_length_stream(
+            vector_types,
+            &offsets,
+            GeometryType::Polygon,
+            dec,
+        )?);
+        if let Some(part_offsets_copy) = part_offsets.take() {
+            if let Some(ring_offsets_copy) = ring_offsets.take() {
+                part_offsets = Some(decode_level1_length_stream(
+                    vector_types,
+                    geometry_offsets.as_ref().unwrap(),
+                    &part_offsets_copy,
+                    false, // isLineStringPresent
+                    dec,
+                )?);
+                ring_offsets = Some(decode_level2_length_stream(
+                    vector_types,
+                    geometry_offsets.as_ref().unwrap(),
+                    part_offsets.as_ref().unwrap(),
+                    &ring_offsets_copy,
+                    dec,
+                )?);
+            } else {
+                part_offsets = Some(decode_level1_without_ring_buffer_length_stream(
+                    vector_types,
+                    geometry_offsets.as_ref().unwrap(),
+                    &part_offsets_copy,
+                    dec,
+                )?);
+            }
+        }
+    } else if let Some(offsets) = part_offsets.take() {
+        if let Some(ring_offsets_copy) = ring_offsets.take() {
+            let is_line_string_present = vector_types.iter().any(|t| t.is_linestring());
+            part_offsets = Some(decode_root_length_stream(
+                vector_types,
+                &offsets,
+                GeometryType::LineString,
+                dec,
+            )?);
+            ring_offsets = Some(decode_level1_length_stream(
+                vector_types,
+                part_offsets.as_ref().unwrap(),
+                &ring_offsets_copy,
+                is_line_string_present,
+                dec,
+            )?);
+        } else {
+            part_offsets = Some(decode_root_length_stream(
+                vector_types,
+                &offsets,
+                GeometryType::Point,
+                dec,
+            )?);
+        }
+    }
+    Ok(Levels {
+        geometries: geometry_offsets,
+        parts: part_offsets,
+        rings: ring_offsets,
+    })
+}
+
+/// Turn one triangle count per polygon feature into offsets, starting at `0`.
+fn decode_triangle_offsets(lengths: &[u32], dec: &mut Decoder) -> MltResult<Vec<u32>> {
+    let alloc_size = lengths.len().checked_add(1).or_overflow()?;
+    let mut offsets = dec.alloc(alloc_size)?;
+    offsets.push(0);
+    let mut total = 0_u32;
+    for &len in lengths {
+        total = total.checked_add(len).or_overflow()?;
+        offsets.push(total);
+    }
+    Ok(offsets)
+}
+
+impl<'a> RawGeometry<'a> {
+    /// Parse encoded geometry from bytes (expects varint stream count + streams).
+    /// Reserves decoded memory against the parser's budget.
+    pub fn from_bytes(input: &'a [u8], parser: &mut Parser) -> crate::MltRefResult<'a, Self> {
+        let (input, stream_count) = parse_varint::<u32>(input)?;
+        let stream_count = stream_count.into_usize();
+        if stream_count == 0 {
+            return Ok((
+                input,
+                Self {
+                    types: GeoTypes::Stream(RawStream::new(
+                        StreamMeta::new(
+                            StreamType::Data(DictionaryType::None),
+                            IntEncoding::none(ValueKind::Int),
+                            0,
+                        ),
+                        &[],
+                    )),
+                    index_base: IndexBase::Feature,
+                    items: Vec::new(),
+                },
+            ));
+        }
+
+        let (input, meta) = header01::parse_stream(input, ValueKind::Int, parser)?;
+        // Safety: stream_count is validated != 0
+        let (input, items) =
+            header01::parse_multiple_streams(input, stream_count - 1, ValueKind::Int, parser)?;
+
+        Ok((
+            input,
+            Self {
+                types: GeoTypes::Stream(meta),
+                index_base: IndexBase::Feature,
+                items,
+            },
+        ))
+    }
+}
+
+impl Decode<GeometryValues> for RawGeometry<'_> {
+    /// Decode into [`GeometryValues`], charging `dec` before each `Vec<T>`
+    /// allocation.  All streams carry `num_values` in their metadata so every
+    /// charge is pre-hoc.
+    fn decode(self, dec: &mut Decoder) -> MltResult<GeometryValues> {
+        let RawGeometry {
+            types,
+            index_base,
+            items,
+        } = self;
+        let vector_types = decode_geometry_types(types, dec)?;
+        let mut geometry_offsets: Option<Vec<u32>> = None;
+        let mut part_offsets: Option<Vec<u32>> = None;
+        let mut ring_offsets: Option<Vec<u32>> = None;
+        let mut vertex_offsets: Option<Vec<u32>> = None;
+        let mut index_buffer: Option<Vec<u32>> = None;
+        let mut triangles: Option<Vec<u32>> = None;
+        let mut vertices: Option<Vec<i32>> = None;
+        #[cfg(feature = "unstable-v2")]
+        let mut z_step = None;
+
+        for stream in items {
+            match stream.meta.stream_type {
+                StreamType::Present => {}
+                StreamType::Data(v) => match v {
+                    DictionaryType::Vertex | DictionaryType::Morton => {
+                        #[cfg(feature = "unstable-v2")]
+                        if let LogicalEncoding::Vertex(VertexLogical::Xyz(step, _)) =
+                            stream.meta.encoding.logical
+                        {
+                            z_step = Some(step);
+                        }
+                        vertices.set_once(stream.decode_ints::<i32>(dec)?)?;
+                    }
+                    DictionaryType::None
+                    | DictionaryType::Single
+                    | DictionaryType::Shared
+                    | DictionaryType::Fsst => {
+                        Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?;
+                    }
+                },
+                StreamType::Offset(v) => {
+                    let target = match v {
+                        OffsetType::Vertex => &mut vertex_offsets,
+                        OffsetType::Index => &mut index_buffer,
+                        OffsetType::String | OffsetType::Key => {
+                            Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?
+                        }
+                    };
+                    target.set_once(stream.decode_ints::<u32>(dec)?)?;
+                }
+                StreamType::Length(v) => {
+                    let target = match v {
+                        LengthType::Geometries => &mut geometry_offsets,
+                        LengthType::Parts => &mut part_offsets,
+                        LengthType::Rings => &mut ring_offsets,
+                        LengthType::Triangles => &mut triangles,
+                        LengthType::VarBinary | LengthType::Symbol | LengthType::Dictionary => {
+                            Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?
+                        }
+                        #[cfg(feature = "unstable-v2")]
+                        LengthType::Nested => {
+                            Err(MltError::UnexpectedStreamType(stream.meta.stream_type))?
+                        }
+                    };
+                    target.set_once(stream.decode_ints::<u32>(dec)?)?;
+                }
+            }
+        }
+
+        let triangles_only = index_buffer.is_some() && part_offsets.is_none();
+        if triangles_only {
+            if index_base == IndexBase::Feature {
+                return Err(MltError::NotImplemented(
+                    "v1 triangles without outline topology",
+                ));
+            }
+            if let Some((index, &geom_type)) = vector_types
+                .iter()
+                .enumerate()
+                .find(|(_, t)| !t.is_polygon())
+            {
+                return Err(MltError::NonPolygonWithoutOutlines(index, geom_type));
+            }
+        }
+
+        let Levels {
+            geometries: geometry_offsets,
+            parts: part_offsets,
+            rings: ring_offsets,
+        } = decode_topology(
+            &vector_types,
+            Levels {
+                geometries: geometry_offsets,
+                parts: part_offsets,
+                rings: ring_offsets,
+            },
+            dec,
+        )?;
+        let triangle_offsets = triangles
+            .map(|lengths| decode_triangle_offsets(&lengths, dec))
+            .transpose()?;
+
+        // Expand vertex dictionary:
+        // If a vertex offset stream was present,
+        // - `vertices` holds only the unique dictionary entries and
+        // - `vertex_offsets` holds per-vertex indices into it.
+        //
+        // Expand them into a single flat (x, y) or (x, y, z) sequence so that `GeometryValues`
+        // always represents fully decoded data, regardless of the encoding that was used.
+        #[cfg(feature = "unstable-v2")]
+        let stride = if z_step.is_some() { 3 } else { 2 };
+        #[cfg(not(feature = "unstable-v2"))]
+        let stride = 2;
+        if let Some(offsets) = vertex_offsets.take()
+            && let Some(dict) = vertices.as_deref()
+        {
+            dec.consume_items::<i32>(offsets.len().saturating_mul(stride))?;
+            // SAFETY:
+            // Check before multiplying: i < dict_vertex_count guarantees
+            // i * stride + stride - 1 < dict.len() with no risk of overflow, because
+            // Rust limits Vec::len() to isize::MAX, so
+            // dict_vertex_count <= isize::MAX / stride, meaning
+            // i * stride + stride - 1 <= isize::MAX < usize::MAX.
+            let dict_vertex_count = dict.len() / stride;
+            vertices = Some(offsets.iter().try_fold(
+                Vec::with_capacity(offsets.len() * stride),
+                |mut acc, &idx| -> MltResult<_> {
+                    let i = idx.into_usize();
+                    if i >= dict_vertex_count {
+                        return Err(MltError::DictIndexOutOfBounds(idx, dict_vertex_count));
+                    }
+                    acc.extend_from_slice(&dict[i * stride..(i + 1) * stride]);
+                    Ok(acc)
+                },
+            )?);
+        }
+
+        let mut values = GeometryValues {
+            vector_types,
+            geometry_offsets,
+            part_offsets,
+            ring_offsets,
+            index_buffer,
+            triangle_offsets,
+            vertices,
+            #[cfg(feature = "unstable-v2")]
+            z_step,
+        };
+        if index_base == IndexBase::Feature {
+            values.rebase_indices_to_layer()?;
+        }
+        Ok(values)
+    }
+}

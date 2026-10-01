@@ -1,0 +1,23 @@
+---
+source: mlt-core/tests/dump_serde.rs
+expression: json(region)
+---
+{
+  "offset": 23,
+  "len": 1,
+  "depth": 3,
+  "label": "data",
+  "value": null,
+  "bits": [],
+  "kind": "dataBlob",
+  "container": false,
+  "blob": {
+    "streamType": "length[var-binary]",
+    "logical": "int/none",
+    "physical": "varint",
+    "numValues": 1,
+    "hint": {
+      "kind": "u32"
+    }
+  }
+}

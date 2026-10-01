@@ -1,0 +1,521 @@
+use std::collections::HashSet;
+
+use geo_types::{Coord, Geometry, LineString, Point, Polygon, point, wkt};
+use insta::assert_debug_snapshot;
+use pretty_assertions::assert_eq;
+use rstest::rstest;
+
+use crate::decoder::{GeoTypes, RawGeometry, RawStream};
+use crate::encoder::model::EncoderConfig;
+use crate::encoder::{Codecs, Encoder, ExplicitEncoder, IntEncoder, VertexBufferType};
+use crate::test_helpers::{assert_empty, dec, parser};
+use crate::{Decode as _, DictionaryType, GeometryValues, LengthType, StreamType};
+
+#[rstest]
+#[case::single_point(push_geoms(&[wkt!(POINT(10 20)).into()]))]
+#[case::linestring(push_geoms(&[wkt!(LINESTRING(10 20, 30 40, 50 60)).into()]))]
+#[case::polygon(push_geoms(&[wkt!(POLYGON((0 0, 100 0, 100 100, 0 100, 0 0))).into()]))]
+#[case::multi_polygon(push_geoms(&[wkt!(MULTIPOLYGON(((0 0, 10 0, 10 10, 0 0),(5 5, 15 5, 15 15, 5 15)))).into()]))]
+fn automatic_optimization_roundtrip(#[case] decoded: GeometryValues) {
+    let mut enc = Encoder::default();
+    let mut codecs = Codecs::default();
+    decoded
+        .clone()
+        .write_to(&mut enc, &mut codecs)
+        .expect("optimize failed");
+    assert_geometry_roundtrip(enc.data(), &decoded);
+}
+
+fn auto_mode_streams(decoded: &GeometryValues) -> Vec<StreamType> {
+    let mut enc = Encoder::default();
+    let mut codecs = Codecs::default();
+    decoded
+        .clone()
+        .write_to(&mut enc, &mut codecs)
+        .expect("encode failed");
+
+    let mut stream_types: Vec<StreamType> = encoded_stream_types(enc.data()).into_iter().collect();
+    stream_types.sort();
+
+    assert_geometry_roundtrip(enc.data(), decoded);
+    stream_types
+}
+
+#[test]
+fn automatic_optimization_distinct_points_picks_vec2() {
+    let decoded = push_geoms(
+        &(0i32..10)
+            .map(|i| point! { x: i, y: i }.into())
+            .collect::<Vec<_>>(),
+    );
+    assert_debug_snapshot!(auto_mode_streams(&decoded), @r"
+    [
+        Data(
+            Vertex,
+        ),
+        Length(
+            VarBinary,
+        ),
+    ]
+    ");
+}
+
+#[test]
+fn automatic_optimization_repeated_points_beyond_curve_range_picks_vec2() {
+    let decoded = push_geoms(
+        &std::iter::repeat_n(point! { x: 2_686_984, y: 0 }.into(), 20).collect::<Vec<_>>(),
+    );
+    assert_debug_snapshot!(auto_mode_streams(&decoded), @r"
+    [
+        Data(
+            Vertex,
+        ),
+        Length(
+            VarBinary,
+        ),
+    ]
+    ");
+}
+
+#[test]
+fn automatic_optimization_repeated_points_picks_dict() {
+    // The Hilbert vs. Morton race resolves deterministically for this input -
+    // Hilbert wins, so the encoded streams use `Data(Vertex)` + a vertex
+    // offset stream. The snapshot pins that outcome; if the race tie-break
+    // or the heuristic ever changes it should fail loudly.
+    let decoded =
+        push_geoms(&std::iter::repeat_n(point! { x: 5, y: 5 }.into(), 20).collect::<Vec<_>>());
+    assert_debug_snapshot!(auto_mode_streams(&decoded), @r"
+    [
+        Data(
+            Vertex,
+        ),
+        Offset(
+            Vertex,
+        ),
+        Length(
+            VarBinary,
+        ),
+    ]
+    ");
+}
+
+#[test]
+fn encoded_output_always_has_meta_stream() {
+    let decoded = push_geoms(&[Geometry::<i32>::Point(Point(Coord::<i32> { x: 1, y: 1 }))]);
+    let mut enc = Encoder::default();
+    let mut codecs = Codecs::default();
+    decoded
+        .write_to(&mut enc, &mut codecs)
+        .expect("encode failed");
+    let raw = assert_empty(RawGeometry::from_bytes(enc.data(), &mut parser()));
+
+    assert_eq!(
+        v1_types_stream(&raw).meta.stream_type,
+        StreamType::Length(LengthType::VarBinary),
+        "meta (VarBinary) stream must always be present"
+    );
+}
+
+#[test]
+fn encoded_polygon_has_topology_streams() {
+    let coords: Vec<Coord<i32>> = [(0, 0), (10, 0), (10, 10), (0, 0)]
+        .into_iter()
+        .map(|(x, y)| Coord::<i32> { x, y })
+        .collect();
+    let decoded = push_geoms(&[Geometry::<i32>::Polygon(Polygon::new(
+        LineString(coords),
+        vec![],
+    ))]);
+    let mut enc = Encoder::default();
+    let mut codecs = Codecs::default();
+    decoded
+        .write_to(&mut enc, &mut codecs)
+        .expect("encode failed");
+
+    let stream_types = encoded_stream_types(enc.data());
+    assert!(
+        stream_types.contains(&StreamType::Length(LengthType::Rings))
+            || stream_types.contains(&StreamType::Length(LengthType::Parts)),
+        "polygon must produce at least a Parts or Rings length stream"
+    );
+}
+
+/// Encode `decoded` with the vertex layout pinned to `strategy`, return the
+/// (sorted) stream types in the wire output, and assert the bytes round-trip
+/// back to the same `GeometryValues`.
+fn forced_vertex_strategy_streams(
+    decoded: &GeometryValues,
+    strategy: VertexBufferType,
+) -> Vec<StreamType> {
+    let explicit = ExplicitEncoder {
+        vertex_buffer_type: strategy,
+        ..ExplicitEncoder::all(IntEncoder::varint())
+    };
+    let mut enc = Encoder::with_explicit(EncoderConfig::default(), explicit);
+    let mut codecs = Codecs::default();
+    decoded
+        .clone()
+        .write_to(&mut enc, &mut codecs)
+        .expect("encode failed");
+
+    let mut stream_types: Vec<StreamType> = encoded_stream_types(enc.data()).into_iter().collect();
+    stream_types.sort();
+
+    assert_geometry_roundtrip(enc.data(), decoded);
+    stream_types
+}
+
+/// Multipoint with repeated coordinates so dict paths actually dedup.
+fn repeated_multipoint() -> GeometryValues {
+    let mut g = GeometryValues::default();
+    g.push_geom(&wkt!(MULTIPOINT(5 5, 10 10, 5 5, 10 10, 0 0, 5 5)).into());
+    g
+}
+
+#[test]
+fn forced_vec2_streams() {
+    let streams = forced_vertex_strategy_streams(&repeated_multipoint(), VertexBufferType::Vec2);
+    assert_debug_snapshot!(streams, @r"
+    [
+        Data(
+            Vertex,
+        ),
+        Length(
+            VarBinary,
+        ),
+        Length(
+            Geometries,
+        ),
+    ]
+    ");
+}
+
+#[test]
+fn forced_morton_streams() {
+    let streams = forced_vertex_strategy_streams(&repeated_multipoint(), VertexBufferType::Morton);
+    assert_debug_snapshot!(streams, @r"
+    [
+        Data(
+            Morton,
+        ),
+        Offset(
+            Vertex,
+        ),
+        Length(
+            VarBinary,
+        ),
+        Length(
+            Geometries,
+        ),
+    ]
+    ");
+}
+
+#[test]
+fn forced_hilbert_streams() {
+    let streams = forced_vertex_strategy_streams(&repeated_multipoint(), VertexBufferType::Hilbert);
+    assert_debug_snapshot!(streams, @r"
+    [
+        Data(
+            Vertex,
+        ),
+        Offset(
+            Vertex,
+        ),
+        Length(
+            VarBinary,
+        ),
+        Length(
+            Geometries,
+        ),
+    ]
+    ");
+}
+
+#[test]
+fn manual_encode_works() {
+    let decoded = push_geoms(&[wkt!(POINT(10 20)).into()]);
+
+    let mut enc = Encoder::default();
+    let mut codecs = Codecs::default();
+    decoded
+        .clone()
+        .write_to(&mut enc, &mut codecs)
+        .expect("encode failed");
+    let types = encoded_stream_types(enc.data());
+    assert!(types.contains(&StreamType::Data(DictionaryType::Vertex)));
+
+    assert_geometry_roundtrip(enc.data(), &decoded);
+}
+
+/// Round-trip geometry bytes: parse then decode and compare.
+fn assert_geometry_roundtrip(data: &[u8], expected: &GeometryValues) {
+    let mut p = parser();
+    let mut d = dec();
+    let raw = assert_empty(RawGeometry::from_bytes(data, &mut p));
+    let result = raw.decode(&mut d).unwrap();
+    assert!(
+        d.consumed() > 0,
+        "decoder should consume bytes after decode"
+    );
+    assert_eq!(expected, &result);
+}
+
+fn push_geoms(geoms: &[Geometry<i32>]) -> GeometryValues {
+    let mut d = GeometryValues::default();
+    for g in geoms {
+        d.push_geom(g);
+    }
+    d
+}
+
+fn push_geoms_tessellated(geoms: &[Geometry<i32>]) -> GeometryValues {
+    let mut d = GeometryValues::new_tessellated();
+    for g in geoms {
+        d.push_geom(g);
+    }
+    d
+}
+
+fn stage(geoms: &[Geometry<i32>], tessellate: bool) -> GeometryValues {
+    if tessellate {
+        push_geoms_tessellated(geoms)
+    } else {
+        push_geoms(geoms)
+    }
+}
+
+fn geojson(values: &GeometryValues) -> Vec<Result<Geometry<i32>, String>> {
+    (0..values.feature_count())
+        .map(|i| values.to_geojson(i).map_err(|e| e.to_string()))
+        .collect()
+}
+
+/// Encode as v1, decode, and read every feature back as `GeoJSON`.
+fn v1_geojson_roundtrip(geoms: &[Geometry<i32>], tessellate: bool) -> Vec<Geometry<i32>> {
+    let decoded = stage(geoms, tessellate);
+    let mut enc = Encoder::default();
+    let mut codecs = Codecs::default();
+    decoded
+        .write_to(&mut enc, &mut codecs)
+        .expect("encode failed");
+    let raw = assert_empty(RawGeometry::from_bytes(enc.data(), &mut parser()));
+    let out = raw.decode(&mut dec()).unwrap();
+    geojson(&out)
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()
+        .expect("to_geojson failed")
+}
+
+fn empty_multi_polygon() -> Vec<Geometry<i32>> {
+    vec![wkt!(MULTIPOLYGON EMPTY).into()]
+}
+
+fn empty_multi_polygon_then_linestring() -> Vec<Geometry<i32>> {
+    vec![
+        wkt!(MULTIPOLYGON EMPTY).into(),
+        wkt!(LINESTRING(0 0, 10 10)).into(),
+    ]
+}
+
+fn empty_polygon_then_point() -> Vec<Geometry<i32>> {
+    vec![wkt!(POLYGON EMPTY).into(), wkt!(POINT(7 8)).into()]
+}
+
+fn empty_multi_line_string_then_linestring() -> Vec<Geometry<i32>> {
+    vec![
+        wkt!(MULTILINESTRING EMPTY).into(),
+        wkt!(LINESTRING(0 0, 10 10)).into(),
+    ]
+}
+
+#[rstest]
+#[case::empty_multi_polygon(empty_multi_polygon())]
+#[case::empty_multi_polygon_then_linestring(empty_multi_polygon_then_linestring())]
+#[case::empty_polygon_then_point(empty_polygon_then_point())]
+#[case::empty_multi_line_string_then_linestring(empty_multi_line_string_then_linestring())]
+fn a_degenerate_geometry_reads_back_as_itself(
+    #[case] geoms: Vec<Geometry<i32>>,
+    #[values(false, true)] tessellate: bool,
+) {
+    assert_eq!(
+        geojson(&stage(&geoms, tessellate)),
+        geoms.iter().cloned().map(Ok).collect::<Vec<_>>()
+    );
+}
+
+#[rstest]
+fn a_multi_after_a_single_still_misaligns_the_geometry_offsets(
+    #[values(false, true)] tessellate: bool,
+) {
+    let geoms = vec![
+        wkt!(LINESTRING(0 0, 10 10)).into(),
+        wkt!(MULTIPOLYGON EMPTY).into(),
+    ];
+    assert_eq!(
+        geojson(&stage(&geoms, tessellate)),
+        vec![
+            Ok(wkt!(LINESTRING(0 0, 10 10)).into()),
+            Err("geometry[1]: geometry_offsets[2] out of bounds (len=2)".to_string()),
+        ]
+    );
+}
+
+#[rstest]
+#[case::empty_multi_polygon(empty_multi_polygon())]
+#[case::empty_multi_polygon_then_linestring(empty_multi_polygon_then_linestring())]
+#[case::empty_polygon_then_point(empty_polygon_then_point())]
+#[case::empty_multi_line_string_then_linestring(empty_multi_line_string_then_linestring())]
+fn a_degenerate_geometry_survives_a_v1_roundtrip(
+    #[case] geoms: Vec<Geometry<i32>>,
+    #[values(false, true)] tessellate: bool,
+) {
+    assert_eq!(v1_geojson_roundtrip(&geoms, tessellate), geoms);
+}
+
+fn two_squares() -> Vec<Geometry<i32>> {
+    vec![
+        wkt!(POLYGON((0 0, 10 0, 10 10, 0 10, 0 0))).into(),
+        wkt!(POLYGON((20 20, 30 20, 30 30, 20 30, 20 20))).into(),
+    ]
+}
+
+fn squares_after_a_point_and_a_line() -> Vec<Geometry<i32>> {
+    vec![
+        wkt!(POINT(1 2)).into(),
+        wkt!(LINESTRING(0 0, 5 5, 9 0)).into(),
+        wkt!(POLYGON((0 0, 10 0, 10 10, 0 10, 0 0))).into(),
+        wkt!(MULTIPOLYGON(((20 20, 30 20, 30 30, 20 30, 20 20)), ((40 40, 50 40, 50 50, 40 50, 40 40)))).into(),
+    ]
+}
+
+#[test]
+fn triangle_indices_count_from_the_layer_first_vertex() {
+    let staged = push_geoms_tessellated(&two_squares());
+    assert_eq!(staged.triangle_offsets(), Some(&[0, 2, 4][..]));
+    assert_eq!(
+        staged.index_buffer(),
+        Some(&[2, 3, 0, 0, 1, 2, 6, 7, 4, 4, 5, 6][..])
+    );
+}
+
+#[rstest]
+#[case::two_squares(two_squares())]
+#[case::squares_after_a_point_and_a_line(squares_after_a_point_and_a_line())]
+fn triangle_indices_survive_a_v1_roundtrip(#[case] geoms: Vec<Geometry<i32>>) {
+    let staged = push_geoms_tessellated(&geoms);
+    let mut enc = Encoder::default();
+    let mut codecs = Codecs::default();
+    staged
+        .clone()
+        .write_to(&mut enc, &mut codecs)
+        .expect("encode failed");
+    let raw = assert_empty(RawGeometry::from_bytes(enc.data(), &mut parser()));
+    let out = raw.decode(&mut dec()).unwrap();
+    assert_eq!(
+        (out.triangle_offsets(), out.index_buffer()),
+        (staged.triangle_offsets(), staged.index_buffer())
+    );
+}
+
+/// The types stream of a v1 section, which always spells its types out.
+fn v1_types_stream<'a>(raw: &'a RawGeometry<'a>) -> &'a RawStream<'a> {
+    match &raw.types {
+        GeoTypes::Stream(stream) => stream,
+        #[cfg(feature = "unstable-v2")]
+        GeoTypes::Uniform { .. } => panic!("a v1 geometry section always writes a types stream"),
+    }
+}
+
+/// Collect all stream types present in the encoded geometry bytes (meta + items).
+fn encoded_stream_types(data: &[u8]) -> HashSet<StreamType> {
+    let raw = assert_empty(RawGeometry::from_bytes(data, &mut parser()));
+    std::iter::once(v1_types_stream(&raw).meta.stream_type)
+        .chain(raw.items.iter().map(|s| s.meta.stream_type))
+        .collect()
+}
+
+#[cfg(feature = "unstable-v2")]
+mod v2 {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+    use crate::encoder::model::WireVersion;
+    use crate::encoder::{StagedId, StagedLayer};
+    use crate::test_helpers::into_layer01;
+    use crate::{MltResult, TileLayer, ZStep};
+
+    /// Encode `decoded` as a whole layer with the vertex layout pinned to `strategy`.
+    fn forced_layer_bytes(
+        decoded: &GeometryValues,
+        strategy: VertexBufferType,
+        version: WireVersion,
+    ) -> MltResult<Vec<u8>> {
+        let staged = StagedLayer::new("test", 4096, StagedId::None, decoded.clone(), Vec::new())?;
+        let explicit = ExplicitEncoder {
+            vertex_buffer_type: strategy,
+            ..ExplicitEncoder::all(IntEncoder::varint())
+        };
+        let cfg = EncoderConfig::default().with_wire_version(version);
+        staged
+            .encode_into(
+                Encoder::with_explicit(cfg, explicit),
+                &mut Codecs::default(),
+            )?
+            .into_layer_bytes()
+    }
+
+    /// Encode `decoded` as a whole layer with the vertex layout pinned to `strategy`,
+    /// then read it back through the layer envelope.
+    fn forced_layer(
+        decoded: &GeometryValues,
+        strategy: VertexBufferType,
+        version: WireVersion,
+    ) -> TileLayer {
+        let bytes = forced_layer_bytes(decoded, strategy, version).expect("encode failed");
+        let mut layers = crate::Parser::default()
+            .parse_layers(&bytes)
+            .expect("parse");
+        assert_eq!(layers.len(), 1);
+        into_layer01(layers.remove(0))
+            .into_tile(&mut dec())
+            .expect("decode failed")
+    }
+
+    #[rstest]
+    #[case::empty_multi_polygon(empty_multi_polygon())]
+    #[case::empty_multi_polygon_then_linestring(empty_multi_polygon_then_linestring())]
+    #[case::empty_polygon_then_point(empty_polygon_then_point())]
+    #[case::empty_multi_line_string_then_linestring(empty_multi_line_string_then_linestring())]
+    fn a_degenerate_geometry_survives_a_v2_roundtrip(
+        #[case] geoms: Vec<Geometry<i32>>,
+        #[values(false, true)] tessellate: bool,
+    ) {
+        let decoded = stage(&geoms, tessellate);
+        let layer = forced_layer(&decoded, VertexBufferType::Vec2, WireVersion::V02);
+        let read_back: Vec<_> = layer.features.into_iter().map(|f| f.geometry).collect();
+        assert_eq!(read_back, geoms);
+    }
+
+    #[rstest]
+    #[case::vec2(VertexBufferType::Vec2)]
+    #[case::morton(VertexBufferType::Morton)]
+    #[case::hilbert(VertexBufferType::Hilbert)]
+    fn a_forced_vertex_layout_decodes_as_v1_does(#[case] strategy: VertexBufferType) {
+        let decoded = repeated_multipoint();
+        let v1 = forced_layer(&decoded, VertexBufferType::Vec2, WireVersion::V01);
+        assert_eq!(v1, forced_layer(&decoded, strategy, WireVersion::V02));
+    }
+
+    #[test]
+    fn a_forced_morton_layout_rejects_z() {
+        let mut decoded = repeated_multipoint();
+        decoded
+            .add_z(ZStep::new(0).unwrap(), &[1, 2, 3, 4, 5, 6])
+            .unwrap();
+        let err =
+            forced_layer_bytes(&decoded, VertexBufferType::Morton, WireVersion::V02).unwrap_err();
+        insta::assert_snapshot!(err, @"not implemented: Morton vertices with z coordinates, since a Morton code spans only x and y");
+    }
+}

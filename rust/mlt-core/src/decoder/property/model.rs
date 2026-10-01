@@ -1,0 +1,461 @@
+use std::borrow::Cow;
+use std::ops::Deref;
+#[cfg(feature = "unstable-v2")]
+use std::rc::Rc;
+
+#[cfg(feature = "unstable-v2")]
+use bitvec::order::Lsb0;
+#[cfg(feature = "unstable-v2")]
+use bitvec::slice::BitSlice;
+#[cfg(feature = "unstable-v2")]
+use bitvec::vec::BitVec;
+use enum_dispatch::enum_dispatch;
+
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::Alp;
+use crate::decoder::RawStream;
+use crate::utils::Presence;
+use crate::{DecodeState, Lazy, PropKind};
+
+/// Property column representation, parameterized by decode state.
+///
+/// - `Property<'a>` / `Property<'a, Lazy>` - either raw bytes or decoded, in an [`crate::LazyParsed`] enum.
+/// - `Property<'a, Parsed>` - decoded [`ParsedProperty`] directly (no enum wrapper).
+pub type Property<'a, S = Lazy> =
+    <S as DecodeState>::LazyOrParsed<RawProperty<'a>, ParsedProperty<'a>>;
+
+/// Raw scalar column (bool, integer, or float) as read directly from the tile.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RawScalar<'a> {
+    pub(crate) name: &'a str,
+    pub(crate) presence: RawPresence<'a>,
+    pub(crate) data: RawStream<'a>,
+}
+
+impl<'a> RawScalar<'a> {
+    pub(crate) fn new(name: &'a str, presence: RawPresence<'a>, data: RawStream<'a>) -> Self {
+        Self {
+            name,
+            presence,
+            data,
+        }
+    }
+}
+
+/// Raw float column as read directly from the tile.
+/// Its encodings differ in how many streams they use, so it carries an encoding enum like [`RawStrings`] rather than one stream.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RawFloats<'a> {
+    pub name: &'a str,
+    pub presence: RawPresence<'a>,
+    pub encoding: RawFloatsEncoding<'a>,
+}
+
+impl<'a> RawFloats<'a> {
+    /// A column stored as one data stream.
+    pub(crate) fn single(name: &'a str, presence: RawPresence<'a>, data: RawStream<'a>) -> Self {
+        Self {
+            name,
+            presence,
+            encoding: RawFloatsEncoding::Single(data),
+        }
+    }
+}
+
+/// Raw encoding payload for a float column.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RawFloatsEncoding<'a> {
+    /// One data stream, its own logical encoding saying how to read it.
+    Single(RawStream<'a>),
+    /// Codes first, then the distinct values they index.
+    ///
+    /// Requires the `unstable-v2` feature.
+    #[cfg(feature = "unstable-v2")]
+    Dictionary {
+        codes: RawStream<'a>,
+        dictionary: RawStream<'a>,
+    },
+    /// Integers scaled by a power of ten, in one stream, with the parameters in its header.
+    ///
+    /// Requires the `unstable-v2` feature.
+    #[cfg(feature = "unstable-v2")]
+    Alp { params: Alp, data: RawStream<'a> },
+}
+
+/// Raw string column as read directly from the tile.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RawStrings<'a> {
+    pub name: &'a str,
+    pub presence: RawPresence<'a>,
+    pub encoding: RawStringsEncoding<'a>,
+}
+
+/// Raw encoding payload for a string column (plain, dictionary, or FSST variants).
+///
+/// `RawStream` order matches the encoder: see `StringEncoder.encode()`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RawStringsEncoding<'a> {
+    /// Plain: length stream + data stream
+    Plain(RawPlainData<'a>),
+    /// Dictionary: lengths + offsets + dictionary data
+    Dictionary {
+        plain_data: RawPlainData<'a>,
+        offsets: RawStream<'a>,
+        dict: DictLayout,
+    },
+    /// FSST plain (4 streams): symbol lengths, symbol table, value lengths, compressed corpus. No offsets.
+    FsstPlain(RawFsstData<'a>),
+    /// FSST dictionary (5 streams): symbol lengths, symbol table, value lengths, compressed corpus, offsets.
+    FsstDictionary {
+        fsst_data: RawFsstData<'a>,
+        offsets: RawStream<'a>,
+        dict: DictLayout,
+    },
+}
+
+/// How a dictionary's entries sit in its blob.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, strum::EnumIter)]
+pub enum DictLayout {
+    /// Entries back to back, the lengths stream holding one length each.
+    Plain,
+    /// Entries with the prefix each shares with its predecessor factored out, so the blob holds
+    /// only suffixes and the lengths stream holds every prefix length then every suffix length.
+    #[cfg(feature = "unstable-v2")]
+    FrontCoded,
+}
+
+/// How a string column's values sit in the tile, as the extension bits of its
+/// leading stream name.
+///
+/// Decoding reconstructs the values and resolves this away, so it is readable
+/// only from a column that has not been decoded yet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum StringLayout {
+    /// Lengths, then the values' bytes.
+    Plain,
+    /// Codes, then the distinct values' lengths and bytes.
+    Dict,
+    /// Lengths, then the FSST symbol table and the compressed corpus.
+    Fsst,
+    /// Codes, then the distinct values' lengths, the FSST symbol table and the corpus.
+    FsstDict,
+}
+
+/// What a column declares on the wire, before decoding resolves it away.
+///
+/// Decoding reconstructs values and drops how they were stored: every id widens to
+/// `u64`, and a presence field is consumed into the values themselves. A caller
+/// reporting on a tile therefore has to read this off the parsed-but-not-decoded
+/// stage, which is the only one that still represents the data as written.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ColumnDecl {
+    /// The layer's id column, 64-bit or 32-bit.
+    Id { wide: bool, optional: bool },
+    /// A property column, by the type its values decode to.
+    Value { kind: PropKind, optional: bool },
+}
+
+/// How a column stores its values, beyond what its streams' encodings already say.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct ColumnStorage {
+    /// The layout of a string or shared-dictionary column; `None` for any other column.
+    pub string: Option<StringLayout>,
+    /// How the column's dictionary blob is laid out, when it carries one.
+    pub dictionary: Option<DictLayout>,
+}
+
+/// Raw encoding payload for a `SharedDict` column.
+///
+/// Unlike [`RawStringsEncoding`], shared dictionaries do NOT have their own offset stream.
+/// Instead, each child column has its own offset stream that references the shared dictionary.
+/// This is why only `Plain` and `FsstPlain` variants exist here.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RawSharedDictEncoding<'a> {
+    /// Plain shared dict (2 streams): lengths + data.
+    Plain(RawPlainData<'a>),
+    /// FSST plain shared dict (4 streams): symbol lengths, symbol table, lengths, corpus.
+    FsstPlain(RawFsstData<'a>),
+}
+
+/// Raw shared-dictionary column as read directly from the tile.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RawSharedDict<'a> {
+    pub name: &'a str,
+    pub encoding: RawSharedDictEncoding<'a>,
+    pub dict: DictLayout,
+    pub children: Vec<RawSharedDictItem<'a>>,
+}
+
+/// Raw property data as read directly from the tile.
+#[derive(Debug, PartialEq, Clone)]
+pub enum RawProperty<'a> {
+    Bool(RawScalar<'a>),
+    I8(RawScalar<'a>),
+    U8(RawScalar<'a>),
+    I32(RawScalar<'a>),
+    U32(RawScalar<'a>),
+    I64(RawScalar<'a>),
+    U64(RawScalar<'a>),
+    F32(RawFloats<'a>),
+    F64(RawFloats<'a>),
+    Str(RawStrings<'a>),
+    SharedDict(RawSharedDict<'a>),
+}
+
+/// Parsed property values in a typed enum form.
+#[derive(Clone, Debug, PartialEq, strum::IntoStaticStr)]
+#[strum(serialize_all = "snake_case")]
+#[enum_dispatch(Analyze)]
+pub enum ParsedProperty<'a> {
+    Bool(ParsedScalar<'a, bool>),
+    I8(ParsedScalar<'a, i8>),
+    U8(ParsedScalar<'a, u8>),
+    I32(ParsedScalar<'a, i32>),
+    U32(ParsedScalar<'a, u32>),
+    I64(ParsedScalar<'a, i64>),
+    U64(ParsedScalar<'a, u64>),
+    F32(ParsedScalar<'a, f32>),
+    F64(ParsedScalar<'a, f64>),
+    Str(ParsedStrings<'a>),
+    SharedDict(ParsedSharedDict<'a>),
+}
+
+macro_rules! impl_parsed_property_kind {
+    (
+        scalar { $($sv:ident),* $(,)? }
+        string { $($gv:ident),* $(,)? }
+    ) => {
+        impl ParsedProperty<'_> {
+            /// The column's data type. A shared dictionary is a way of storing strings
+            /// rather than a type of its own, so it reads as [`PropKind::Str`].
+            #[must_use]
+            pub fn kind(&self) -> PropKind {
+                match self {
+                    $(Self::$sv(_) => PropKind::$sv,)*
+                    $(Self::$gv(_) => PropKind::$gv,)*
+                    Self::SharedDict(_) => PropKind::Str,
+                }
+            }
+        }
+    };
+}
+
+with_kinds!(impl_parsed_property_kind);
+
+/// Decoded scalar property column (bool, integer, or float).
+///
+/// `presence` carries both the optional bitvector and the dense values.
+/// For a non-optional column, `presence` is [`Presence::AllPresent`] with all
+/// values inline. For an optional column, `presence` is [`Presence::Bits`] with
+/// `bits.count_ones() == values.len()`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ParsedScalar<'a, T: Copy + PartialEq> {
+    pub(crate) name: &'a str,
+    pub(crate) presence: Presence<'a, T>,
+}
+impl<'a, T: Copy + PartialEq> Deref for ParsedScalar<'a, T> {
+    type Target = Presence<'a, T>;
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.presence
+    }
+}
+
+/// Per-feature byte range into a shared dictionary corpus.
+///
+/// `start` and `end` are signed byte offsets into the corpus string.
+/// The sentinel value [`DictRange::NULL`] (`-1, -1`) indicates a NULL (absent) entry.
+/// Equal `start` and `end` indicate an empty string.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+pub struct DictRange {
+    pub start: i32,
+    pub end: i32,
+}
+impl DictRange {
+    /// Sentinel value indicating a NULL (absent) entry.
+    pub const NULL: Self = Self { start: -1, end: -1 };
+}
+
+/// A single sub-property within a shared dictionary parsed value.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(all(not(test), feature = "arbitrary"), derive(arbitrary::Arbitrary))]
+pub struct ParsedSharedDictItem<'a> {
+    /// The suffix name of this sub-property (appended to parent struct name).
+    pub(crate) suffix: &'a str,
+    /// Per-feature byte ranges into the parsed shared corpus.
+    /// Non-null entries indicate a present string stored as
+    /// `shared_dict.corpus()[start..end]`.
+    /// [`DictRange::NULL`] indicates a NULL value.
+    /// Equal `start` and `end` indicate an empty string.
+    pub(crate) ranges: Vec<DictRange>,
+}
+
+/// Parsed string values for a single property.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParsedStrings<'a> {
+    pub(crate) name: &'a str,
+    /// Per-feature cumulative end offsets into `data`.
+    /// Non-negative values indicate a present string and store its exclusive
+    /// end offset in `data`.
+    /// Negative values indicate NULL and encode the current offset as `-end-1`,
+    /// which is equivalent to `!end` in two's-complement form,
+    /// so the next item can still recover its start offset without scanning back
+    /// to the previous non-null value. This allows even the first item to be NULL.
+    /// In other words, if `lengths == [5, 5, -6, 8]`, then the strings are:
+    /// ```ignore
+    /// data[0..5], // 0th string
+    /// data[5..5], // 1st string is empty
+    /// NULL,       // 2nd string, offset stays 5 because -6 == -5-1
+    /// data[5..8], // 3rd string
+    /// ```
+    pub(crate) lengths: Vec<i32>,
+    pub(crate) data: Cow<'a, str>,
+}
+
+/// Parsed shared dictionary payload shared by one or more child string properties.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParsedSharedDict<'a> {
+    pub(crate) prefix: &'a str,
+    pub(crate) data: Cow<'a, str>,
+    pub(crate) items: Vec<ParsedSharedDictItem<'a>>,
+}
+
+/// A single child field within a `SharedDict` raw column
+#[derive(Clone, Debug, PartialEq)]
+pub struct RawSharedDictItem<'a> {
+    pub name: &'a str,
+    pub presence: RawPresence<'a>,
+    pub data: RawStream<'a>,
+}
+
+/// Raw plain data (length stream + data stream) borrowed from input bytes.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RawPlainData<'a> {
+    pub lengths: RawStream<'a>,
+    pub data: RawStream<'a>,
+}
+
+/// Raw FSST-compressed data (4 streams) borrowed from input bytes.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RawFsstData<'a> {
+    pub symbol_lengths: RawStream<'a>,
+    pub symbol_table: RawStream<'a>,
+    pub lengths: RawStream<'a>,
+    pub corpus: RawStream<'a>,
+}
+
+/// Raw presence/nullability data for a column.
+///
+/// `AllPresent` represents a non-optional column; other variants encode presence in a
+/// layer-format-specific way. Decode through [`RawPresence::decode_bits`]
+/// instead of matching on it.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum RawPresence<'a> {
+    /// Non-optional column - every feature has a value; nothing is stored.
+    #[default]
+    AllPresent,
+    /// Tag `0x01`: bool-RLE presence stream with a full stream header.
+    Stream(RawStream<'a>),
+    /// Tag `0x02`: raw packed bitfield (LSB-first per byte, one bit per feature),
+    /// borrowed zero-copy from the tile bytes. No header precedes it.
+    /// Requires the `unstable-v2` feature.
+    #[cfg(feature = "unstable-v2")]
+    Bitfield(&'a BitSlice<u8, Lsb0>),
+    /// Tag `0x02`: presence that arrived run-coded or as a list of indices, so the
+    /// bits had to be built rather than borrowed.
+    ///
+    /// Behind an [`Rc`] because a shared field is read by every column that names it,
+    /// and one materialisation is enough for all of them: resolving a column's presence
+    /// costs a reference count either way, and only a reader that actually asks for the
+    /// bits of a field another column still holds pays to copy them.
+    /// Requires the `unstable-v2` feature.
+    #[cfg(feature = "unstable-v2")]
+    Decoded(Rc<BitVec<u8, Lsb0>>),
+}
+
+#[cfg(feature = "unstable-v2")]
+impl<'a> RawPresence<'a> {
+    /// Keep bits that were borrowed borrowed, and bits that were built built.
+    pub(crate) fn from_bits(bits: Cow<'a, BitSlice<u8, Lsb0>>) -> Self {
+        match bits {
+            Cow::Borrowed(bits) => Self::Bitfield(bits),
+            Cow::Owned(bits) => Self::Decoded(Rc::new(bits)),
+        }
+    }
+}
+
+impl RawPresence<'_> {
+    /// Whether this column carries presence data (some features may be null).
+    #[must_use]
+    pub(crate) fn is_optional(&self) -> bool {
+        !matches!(self, Self::AllPresent)
+    }
+}
+
+impl RawProperty<'_> {
+    /// How this column stores its values, or `None` when it has no layout to report.
+    #[must_use]
+    pub(crate) fn storage(&self) -> Option<ColumnStorage> {
+        let (string, dictionary) = match self {
+            Self::Str(column) => match &column.encoding {
+                RawStringsEncoding::Plain(_) => (StringLayout::Plain, None),
+                RawStringsEncoding::Dictionary { dict, .. } => (StringLayout::Dict, Some(*dict)),
+                RawStringsEncoding::FsstPlain(_) => (StringLayout::Fsst, None),
+                RawStringsEncoding::FsstDictionary { dict, .. } => {
+                    (StringLayout::FsstDict, Some(*dict))
+                }
+            },
+            // A shared dictionary's children are dictionary-coded strings, so it reports
+            // the layout its corpus is stored with, as a lone string column would.
+            Self::SharedDict(column) => match &column.encoding {
+                RawSharedDictEncoding::Plain(_) => (StringLayout::Dict, Some(column.dict)),
+                RawSharedDictEncoding::FsstPlain(_) => (StringLayout::FsstDict, Some(column.dict)),
+            },
+            Self::Bool(_)
+            | Self::I8(_)
+            | Self::U8(_)
+            | Self::I32(_)
+            | Self::U32(_)
+            | Self::I64(_)
+            | Self::U64(_)
+            | Self::F32(_)
+            | Self::F64(_) => return None,
+        };
+        Some(ColumnStorage {
+            string: Some(string),
+            dictionary,
+        })
+    }
+}
+
+impl RawProperty<'_> {
+    /// Call `cb` with what this column declares. A shared dictionary stores strings, so
+    /// it reads as [`PropKind::Str`], as the decoded form does.
+    pub(crate) fn for_each_decl(&self, cb: &mut dyn FnMut(ColumnDecl)) {
+        let (kind, optional) = match self {
+            Self::Bool(c) => (PropKind::Bool, c.presence.is_optional()),
+            Self::I8(c) => (PropKind::I8, c.presence.is_optional()),
+            Self::U8(c) => (PropKind::U8, c.presence.is_optional()),
+            Self::I32(c) => (PropKind::I32, c.presence.is_optional()),
+            Self::U32(c) => (PropKind::U32, c.presence.is_optional()),
+            Self::I64(c) => (PropKind::I64, c.presence.is_optional()),
+            Self::U64(c) => (PropKind::U64, c.presence.is_optional()),
+            Self::F32(c) => (PropKind::F32, c.presence.is_optional()),
+            Self::F64(c) => (PropKind::F64, c.presence.is_optional()),
+            Self::Str(c) => (PropKind::Str, c.presence.is_optional()),
+            // A shared dictionary holds no values of its own and declares no presence:
+            // its children are the columns, and each carries its own.
+            Self::SharedDict(c) => {
+                for child in &c.children {
+                    cb(ColumnDecl::Value {
+                        kind: PropKind::Str,
+                        optional: child.presence.is_optional(),
+                    });
+                }
+                return;
+            }
+        };
+        cb(ColumnDecl::Value { kind, optional });
+    }
+}

@@ -1,0 +1,1188 @@
+//! Nested property columns, the shredded trees that only a v2 layer carries.
+
+use std::borrow::Cow;
+use std::collections::BTreeMap;
+use std::ops::Range;
+
+use bitvec::order::Lsb0;
+use bitvec::slice::BitSlice;
+use bitvec::view::BitView as _;
+use usize_cast::IntoUsize as _;
+
+use crate::codecs::varint::parse_varint;
+use crate::decoder::root02::{ColumnValues, parse_column_values, parse_strings};
+use crate::decoder::stream::header02;
+use crate::decoder::stream::header02::{
+    Count02, HAS_EXPLICIT_COUNT, StreamCtx02, is_packed_bitmap,
+};
+use crate::decoder::{
+    BoolLogical, Interior02, LogicalEncoding, MValues, NodeKind02, NodePresence, NodeType02,
+    ParsedStrings, PhysicalEncoding, RawPresence, RawStream, RawStrings,
+};
+use crate::tile::{MAX_NESTED_DEPTH, NestedKind, NestedValue, PropValue};
+use crate::utils::{parse_string, parse_u8};
+use crate::{Decode, DecodeState, Decoder, Lazy, MltError, MltRefResult, MltResult, Parser};
+
+/// A nested column, parameterized by decode state, mirroring `Property`.
+pub type Nested<'a, S = Lazy> = <S as DecodeState>::LazyOrParsed<RawNested<'a>, ParsedNested<'a>>;
+
+/// What one node of a tree costs the parser's budget, so a deep or wide tree is
+/// charged for even before its streams are.
+const NODE_COST: u32 = 64;
+
+/// A raw nested column as read directly from the tile.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RawNested<'a> {
+    name: &'a str,
+    presence: RawPresence<'a>,
+    /// The column's value count, which is what its root is handed.
+    value_count: u32,
+    root: RawInterior<'a>,
+}
+
+/// A raw node of a nested tree: more nodes, or the values a leaf holds.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RawNode<'a> {
+    Interior(RawInterior<'a>),
+    Leaf(RawLeaf<'a>),
+}
+
+/// A raw interior node, which holds other nodes rather than values.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RawInterior<'a> {
+    Struct(RawStruct<'a>),
+    List(RawList<'a>),
+    Map(RawMap<'a>),
+}
+
+/// A raw struct node: a fixed set of named, individually typed fields.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RawStruct<'a> {
+    presence: Option<RawStream<'a>>,
+    /// The key sets its fields' presence is read out of, for a shape-coded struct.
+    shapes: Option<RowShapes>,
+    fields: Vec<(&'a str, RawNode<'a>)>,
+}
+
+/// A raw list node: one length per present list, then the element node.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RawList<'a> {
+    presence: Option<RawStream<'a>>,
+    lengths: RawStream<'a>,
+    element: Box<RawNode<'a>>,
+}
+
+/// A raw map node: which keys each row holds, the keys themselves, then the value node.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RawMap<'a> {
+    presence: Option<RawStream<'a>>,
+    shape: RawMapShape<'a>,
+    /// Boxed, since a string column's stream set dwarfs every other node's fields.
+    keys: Box<RawStrings<'a>>,
+    value: Box<RawNode<'a>>,
+}
+
+/// How a raw map node says which keys each of its rows holds.
+#[derive(Debug, Clone, PartialEq)]
+enum RawMapShape<'a> {
+    /// One length per present map, over a key list of one key per entry.
+    PerEntry(RawStream<'a>),
+    /// One shape id per present map, over the distinct key list, its lengths implied.
+    PerRow(RowShapes),
+}
+
+/// A raw leaf node, holding the stream set a column of its data type holds.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RawLeaf<'a> {
+    presence: Option<RawStream<'a>>,
+    /// Boxed, since a string column's stream set dwarfs every other node's fields.
+    values: Box<ColumnValues<'a>>,
+}
+
+impl RawNested<'_> {
+    #[must_use]
+    pub fn name(&self) -> &str {
+        self.name
+    }
+
+    pub(crate) fn for_each_stream(&self, cb: &mut dyn FnMut(crate::decoder::StreamMeta)) {
+        use crate::Analyze as _;
+        self.presence.for_each_stream(cb);
+        self.root.for_each_stream(cb);
+    }
+}
+
+impl RawNode<'_> {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(crate::decoder::StreamMeta)) {
+        match self {
+            Self::Interior(i) => i.for_each_stream(cb),
+            Self::Leaf(l) => l.for_each_stream(cb),
+        }
+    }
+}
+
+impl RawInterior<'_> {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(crate::decoder::StreamMeta)) {
+        match self {
+            Self::Struct(s) => s.for_each_stream(cb),
+            Self::List(l) => l.for_each_stream(cb),
+            Self::Map(m) => m.for_each_stream(cb),
+        }
+    }
+}
+
+impl RawStruct<'_> {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(crate::decoder::StreamMeta)) {
+        use crate::Analyze as _;
+        self.presence.for_each_stream(cb);
+        for (_, node) in &self.fields {
+            node.for_each_stream(cb);
+        }
+    }
+}
+
+impl RawList<'_> {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(crate::decoder::StreamMeta)) {
+        use crate::Analyze as _;
+        self.presence.for_each_stream(cb);
+        self.lengths.for_each_stream(cb);
+        self.element.for_each_stream(cb);
+    }
+}
+
+impl RawMap<'_> {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(crate::decoder::StreamMeta)) {
+        use crate::Analyze as _;
+        self.presence.for_each_stream(cb);
+        if let RawMapShape::PerEntry(s) = &self.shape {
+            s.for_each_stream(cb);
+        }
+        self.keys.for_each_stream(cb);
+        self.value.for_each_stream(cb);
+    }
+}
+
+impl RawLeaf<'_> {
+    fn for_each_stream(&self, cb: &mut dyn FnMut(crate::decoder::StreamMeta)) {
+        use crate::Analyze as _;
+        self.presence.for_each_stream(cb);
+        self.values.for_each_stream(cb);
+    }
+}
+
+impl RawNested<'_> {
+    pub(crate) fn for_each_string_storage(
+        &self,
+        cb: &mut dyn FnMut(crate::decoder::ColumnStorage),
+    ) {
+        self.root.for_each_string_storage(cb);
+    }
+}
+
+impl RawNode<'_> {
+    fn for_each_string_storage(&self, cb: &mut dyn FnMut(crate::decoder::ColumnStorage)) {
+        match self {
+            Self::Interior(i) => i.for_each_string_storage(cb),
+            Self::Leaf(l) => l.for_each_string_storage(cb),
+        }
+    }
+}
+
+impl RawInterior<'_> {
+    fn for_each_string_storage(&self, cb: &mut dyn FnMut(crate::decoder::ColumnStorage)) {
+        match self {
+            Self::Struct(s) => {
+                for (_, node) in &s.fields {
+                    node.for_each_string_storage(cb);
+                }
+            }
+            Self::List(l) => l.element.for_each_string_storage(cb),
+            Self::Map(m) => {
+                cb(strings_storage(&m.keys));
+                m.value.for_each_string_storage(cb);
+            }
+        }
+    }
+}
+
+impl RawLeaf<'_> {
+    fn for_each_string_storage(&self, cb: &mut dyn FnMut(crate::decoder::ColumnStorage)) {
+        if let ColumnValues::Str(s) = &*self.values {
+            cb(strings_storage(s));
+        }
+    }
+}
+
+fn strings_storage(s: &RawStrings<'_>) -> crate::decoder::ColumnStorage {
+    use crate::decoder::{ColumnStorage, RawStringsEncoding, StringLayout};
+    let (string, dictionary) = match &s.encoding {
+        RawStringsEncoding::Plain(_) => (StringLayout::Plain, None),
+        RawStringsEncoding::Dictionary { dict, .. } => (StringLayout::Dict, Some(*dict)),
+        RawStringsEncoding::FsstPlain(_) => (StringLayout::Fsst, None),
+        RawStringsEncoding::FsstDictionary { dict, .. } => (StringLayout::FsstDict, Some(*dict)),
+    };
+    ColumnStorage {
+        string: Some(string),
+        dictionary,
+    }
+}
+
+/// Which keys each row of a shape-coded node holds, one id per row into a table of bitmaps.
+///
+/// A struct's keys are its fields and a map's are its key list, so the same table
+/// stands in for either one presence stream per field or one key per entry.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct RowShapes {
+    /// The key-set table, one `width`-bit bitmap per distinct shape, LSB-first.
+    table: Vec<bool>,
+    /// How many keys every bitmap runs over.
+    width: usize,
+    /// One index into [`Self::table`] per row the node marks present.
+    ids: Vec<u32>,
+}
+
+impl RowShapes {
+    /// The shapes a table of `width`-key bitmaps and one id per row name.
+    fn new(table: Vec<bool>, width: usize, ids: Vec<u32>) -> MltResult<Self> {
+        if width == 0 || !table.len().is_multiple_of(width) {
+            return Err(MltError::NestedRowShapeTableSize {
+                bits: table.len(),
+                keys: width,
+            });
+        }
+        let shapes = table.len() / width;
+        if let Some(&id) = ids.iter().find(|&&id| id.into_usize() >= shapes) {
+            return Err(MltError::NestedRowShapeOutOfRange { id, len: shapes });
+        }
+        Ok(Self { table, width, ids })
+    }
+
+    /// How many rows the node marks present, which is what it holds one id for.
+    fn rows(&self) -> usize {
+        self.ids.len()
+    }
+
+    /// Whether row `row` holds key `key`.
+    fn holds(&self, row: usize, key: usize) -> bool {
+        if key >= self.width {
+            return false;
+        }
+        let Some(&id) = self.ids.get(row) else {
+            return false;
+        };
+        self.table
+            .get(id.into_usize() * self.width + key)
+            .copied()
+            .unwrap_or(false)
+    }
+
+    /// One bool per row, which is the presence stream key `key` would have stored.
+    fn held(&self, key: usize, dec: &mut Decoder) -> MltResult<Vec<bool>> {
+        let mut held = dec.alloc(self.rows())?;
+        held.extend((0..self.rows()).map(|row| self.holds(row, key)));
+        Ok(held)
+    }
+
+    /// How many rows hold key `key`, which is what that child's streams run over.
+    fn present_count(&self, key: usize) -> MltResult<u32> {
+        Ok(u32::try_from(
+            (0..self.rows()).filter(|&row| self.holds(row, key)).count(),
+        )?)
+    }
+
+    /// What a child's streams are counted against, once anything implies a count at all.
+    pub(crate) fn child_count(&self, key: usize, parent: Count02) -> MltResult<Count02> {
+        Ok(match parent {
+            Count02::Explicit => Count02::Explicit,
+            Count02::Implied(_) => Count02::Implied(self.present_count(key)?),
+        })
+    }
+
+    /// How many keys row `row` holds, which is the entry count a map's lengths would have said.
+    fn length(&self, row: usize) -> usize {
+        (0..self.width).filter(|&key| self.holds(row, key)).count()
+    }
+
+    /// One entry count per row, which is what a map's lengths stream would have held.
+    fn lengths(&self, dec: &mut Decoder) -> MltResult<Vec<u32>> {
+        let mut lengths = dec.alloc(self.rows())?;
+        for row in 0..self.rows() {
+            lengths.push(u32::try_from(self.length(row))?);
+        }
+        Ok(lengths)
+    }
+
+    /// One key index per entry, each row's keys in ascending bit order.
+    fn codes(&self, dec: &mut Decoder) -> MltResult<Vec<u32>> {
+        let entries = (0..self.rows()).map(|row| self.length(row)).sum();
+        let mut codes = dec.alloc(entries)?;
+        for row in 0..self.rows() {
+            for key in 0..self.width {
+                if self.holds(row, key) {
+                    codes.push(u32::try_from(key)?);
+                }
+            }
+        }
+        Ok(codes)
+    }
+}
+
+// ── Parsing ───────────────────────────────────────────────────────────────────
+
+/// Parse a nested column's body: the tree its root type byte named.
+///
+/// `value_count` is the column's value count, which is what the root is handed.
+pub(crate) fn parse_nested<'a>(
+    input: &'a [u8],
+    name: &'a str,
+    presence: RawPresence<'a>,
+    kind: Interior02,
+    value_count: u32,
+    parser: &mut Parser,
+) -> MltRefResult<'a, RawNested<'a>> {
+    parser.reserve(NODE_COST)?;
+    // A lengths stream's sum is only known once it is decoded, so nothing implies
+    // a count at or below the first list or map on the path from the root.
+    let count = if kind.has_lengths() {
+        Count02::Explicit
+    } else {
+        Count02::Implied(value_count)
+    };
+    let (input, per_row) = parse_root_per_row(input);
+    let body = Body {
+        presence: None,
+        count,
+        per_row,
+    };
+    let (input, root) = parse_interior(input, name, kind, body, 1, parser)?;
+    Ok((
+        input,
+        RawNested {
+            name,
+            presence,
+            value_count,
+            root,
+        },
+    ))
+}
+
+/// Read the prefix byte that says a root's children are shape-coded, where one is there.
+///
+/// A root has no node type byte to carry the bit: its high nibble is the column's
+/// presence, which uses all sixteen values. The byte this experiment writes instead
+/// is a placeholder, and it collides with the field count of a struct root of
+/// exactly `0x40` fields, which is therefore read as shape-coded.
+fn parse_root_per_row(input: &[u8]) -> (&[u8], bool) {
+    match input.split_first() {
+        Some((&NodePresence::SHAPES, rest)) => (rest, true),
+        Some(_) | None => (input, false),
+    }
+}
+
+/// Parse one node below the root: its type byte, its name if it has one, its
+/// presence stream, then its body.
+///
+/// `named` is true for a struct field and false for a list element or a map value.
+fn parse_node<'a>(
+    input: &'a [u8],
+    path: &str,
+    named: bool,
+    parent_count: Count02,
+    depth: usize,
+    parser: &mut Parser,
+) -> MltRefResult<'a, (&'a str, RawNode<'a>)> {
+    if depth > MAX_NESTED_DEPTH {
+        return Err(MltError::NestedTooDeep(depth));
+    }
+    parser.reserve(NODE_COST)?;
+    let (input, typ_byte) = parse_u8(input)?;
+    let typ = NodeType02::parse(typ_byte)?;
+    let (input, name) = if named {
+        parse_string(input)?
+    } else {
+        (input, "")
+    };
+    let path = if name.is_empty() {
+        path.to_string()
+    } else {
+        format!("{path}.{name}")
+    };
+
+    // A list or a map ends the implied counts, its own streams included.
+    let node_count = match typ.data.interior() {
+        Some(kind) if kind.has_lengths() => Count02::Explicit,
+        _ => parent_count,
+    };
+    let (input, presence) = match typ.presence {
+        NodePresence::AllPresent => (input, None),
+        NodePresence::Stream => {
+            require_bitmap_presence(input, &path)?;
+            require_explicit_count(input, &path, node_count)?;
+            let (input, stream) =
+                header02::parse_stream(input, StreamCtx02::NestedPresence, node_count, parser)?;
+            (input, Some(stream))
+        }
+    };
+    // A node's data streams run over the values it marks present, its presence
+    // stream over every value its parent handed it.
+    let body_count = match (node_count, &presence) {
+        (Count02::Explicit, _) => Count02::Explicit,
+        (Count02::Implied(_), Some(stream)) => Count02::Implied(presence_popcount(stream)?),
+        (Count02::Implied(count), None) => Count02::Implied(count),
+    };
+
+    let (input, node) = match typ.data {
+        NodeKind02::Leaf(values) => {
+            if typ.shapes {
+                return Err(MltError::NestedRowShapeUnsupported {
+                    name: path,
+                    kind: "leaf",
+                });
+            }
+            require_explicit_count(input, &path, body_count)?;
+            let (input, values) = parse_column_values(
+                input,
+                values,
+                name,
+                RawPresence::AllPresent,
+                body_count,
+                parser,
+            )?;
+            let values = Box::new(values);
+            (input, RawNode::Leaf(RawLeaf { presence, values }))
+        }
+        NodeKind02::Struct | NodeKind02::List | NodeKind02::Map => {
+            let kind = typ
+                .data
+                .interior()
+                .expect("an interior node names an interior");
+            let body = Body {
+                presence,
+                count: body_count,
+                per_row: typ.shapes,
+            };
+            let (input, interior) = parse_interior(input, &path, kind, body, depth, parser)?;
+            (input, RawNode::Interior(interior))
+        }
+    };
+    Ok((input, (name, node)))
+}
+
+/// What an interior node's parent has already read for its body.
+struct Body<'a> {
+    /// The node's own presence stream, which the parent read from its type byte.
+    presence: Option<RawStream<'a>>,
+    /// What the node's own streams are counted against.
+    count: Count02,
+    /// Whether the node codes its children's structure as one shape id per row.
+    per_row: bool,
+}
+
+/// Parse the body of an interior node, which its own presence has already been read for.
+fn parse_interior<'a>(
+    input: &'a [u8],
+    path: &str,
+    kind: Interior02,
+    body: Body<'a>,
+    depth: usize,
+    parser: &mut Parser,
+) -> MltRefResult<'a, RawInterior<'a>> {
+    let Body {
+        presence,
+        count,
+        per_row,
+    } = body;
+    Ok(match kind {
+        Interior02::Struct => {
+            let (mut input, field_count) = parse_varint::<u32>(input)?;
+            if field_count == 0 {
+                return Err(MltError::EmptyStructNode);
+            }
+            // Each field requires at least 1 byte (node type).
+            if input.len() < field_count.into_usize() {
+                return Err(MltError::BufferUnderflow(field_count, input.len()));
+            }
+            parser.reserve(field_count.saturating_mul(NODE_COST))?;
+            let mut shapes = None;
+            if per_row {
+                let found;
+                (input, found) = parse_row_shapes(input, field_count, count, path, parser)?;
+                shapes = Some(found);
+            }
+            let mut fields: Vec<(&'a str, RawNode<'a>)> =
+                Vec::with_capacity(field_count.into_usize());
+            for index in 0..field_count.into_usize() {
+                // The shapes run over the fields in declaration order, so they are
+                // what each field's presence is read out of and no field stores one.
+                let count = match &shapes {
+                    Some(shapes) => {
+                        reject_shaped_child_presence(input, path)?;
+                        shapes.child_count(index, count)?
+                    }
+                    None => count,
+                };
+                let field;
+                (input, field) = parse_node(input, path, true, count, depth + 1, parser)?;
+                if fields.iter().any(|(name, _)| *name == field.0) {
+                    return Err(MltError::DuplicateFieldName(field.0.to_string()));
+                }
+                fields.push(field);
+            }
+            (
+                input,
+                RawInterior::Struct(RawStruct {
+                    presence,
+                    shapes,
+                    fields,
+                }),
+            )
+        }
+        Interior02::List => {
+            if per_row {
+                return Err(MltError::NestedRowShapeUnsupported {
+                    name: path.to_string(),
+                    kind: "list",
+                });
+            }
+            require_explicit_count(input, path, count)?;
+            let (input, lengths) =
+                header02::parse_stream(input, StreamCtx02::NestedLengths, count, parser)?;
+            let (input, (_, element)) =
+                parse_node(input, path, false, Count02::Explicit, depth + 1, parser)?;
+            (
+                input,
+                RawInterior::List(RawList {
+                    presence,
+                    lengths,
+                    element: Box::new(element),
+                }),
+            )
+        }
+        Interior02::Map => {
+            // Shape-coded, the key stream holds the distinct key list rather than one
+            // key per entry, and a row's entry count is its shape's population count.
+            let (input, keys, shape) = if per_row {
+                require_explicit_count(input, path, Count02::Explicit)?;
+                let (input, keys) = parse_strings(
+                    input,
+                    "",
+                    RawPresence::AllPresent,
+                    Count02::Explicit,
+                    parser,
+                )?;
+                let (input, shapes) =
+                    parse_row_shapes(input, keys.value_count(), count, path, parser)?;
+                (input, keys, RawMapShape::PerRow(shapes))
+            } else {
+                require_explicit_count(input, path, count)?;
+                let (input, lengths) =
+                    header02::parse_stream(input, StreamCtx02::NestedLengths, count, parser)?;
+                require_explicit_count(input, path, Count02::Explicit)?;
+                let (input, keys) = parse_strings(
+                    input,
+                    "",
+                    RawPresence::AllPresent,
+                    Count02::Explicit,
+                    parser,
+                )?;
+                (input, keys, RawMapShape::PerEntry(lengths))
+            };
+            // A map value's presence runs over entries, not rows, so the shapes say
+            // nothing about it and it keeps its own.
+            let (input, (_, value)) =
+                parse_node(input, path, false, Count02::Explicit, depth + 1, parser)?;
+            (
+                input,
+                RawInterior::Map(RawMap {
+                    presence,
+                    shape,
+                    keys: Box::new(keys),
+                    value: Box::new(value),
+                }),
+            )
+        }
+    })
+}
+
+/// Read a shape-coded node's key-set table and its one shape id per row.
+///
+/// Both are decoded here rather than in the decode pass: unlike a lengths stream,
+/// whose sum only the decode pass wants, the ids say how many values each child
+/// holds, which is what sizes the child's streams.
+pub(crate) fn parse_row_shapes<'a>(
+    input: &'a [u8],
+    keys: u32,
+    rows: Count02,
+    path: &str,
+    parser: &mut Parser,
+) -> MltRefResult<'a, RowShapes> {
+    require_explicit_count(input, path, Count02::Explicit)?;
+    require_bitmap_presence(input, path)?;
+    let (input, table) = header02::parse_stream(
+        input,
+        StreamCtx02::NestedShapeTable,
+        Count02::Explicit,
+        parser,
+    )?;
+    require_explicit_count(input, path, Count02::Explicit)?;
+    let (input, ids) = header02::parse_stream(
+        input,
+        StreamCtx02::NestedShapeIds,
+        Count02::Explicit,
+        parser,
+    )?;
+
+    // Both headers charged the parse budget eight bytes per value, which is what
+    // decoding them costs, so the scratch decoder needs no ceiling of its own.
+    let mut dec = Decoder::default();
+    let shapes = RowShapes::new(
+        table.decode_bools(&mut dec)?,
+        keys.into_usize(),
+        ids.decode_ints::<u32>(&mut dec)?,
+    )?;
+    if let Count02::Implied(expected) = rows
+        && u32::try_from(shapes.rows())? != expected
+    {
+        return Err(MltError::NestedRowShapeCount {
+            name: path.to_string(),
+            expected,
+            actual: u32::try_from(shapes.rows())?,
+        });
+    }
+    Ok((input, shapes))
+}
+
+/// Reject a child of a shape-coded node that stores the presence its parent already holds.
+pub(crate) fn reject_shaped_child_presence(input: &[u8], path: &str) -> MltResult<()> {
+    let (_, typ_byte) = parse_u8(input)?;
+    if NodeType02::parse(typ_byte)?.presence == NodePresence::Stream {
+        return Err(MltError::NestedRowShapeChildPresence {
+            name: path.to_string(),
+        });
+    }
+    Ok(())
+}
+
+/// Reject a stream whose header carries no count where nothing in its context implies one.
+fn require_explicit_count(input: &[u8], path: &str, count: Count02) -> MltResult<()> {
+    if count != Count02::Explicit {
+        return Ok(());
+    }
+    let (_, enc_byte) = parse_u8(input)?;
+    if enc_byte & HAS_EXPLICIT_COUNT == 0 {
+        return Err(MltError::NestedImplicitCount {
+            name: path.to_string(),
+            byte: enc_byte,
+        });
+    }
+    Ok(())
+}
+
+/// Reject a presence stream that is not the raw bitmap the format writes one as.
+/// Its encoding byte must name the `Bool` family's logical `None`, with or without a byte length.
+fn require_bitmap_presence(input: &[u8], path: &str) -> MltResult<()> {
+    let (_, enc_byte) = parse_u8(input)?;
+    if !is_packed_bitmap(enc_byte) {
+        return Err(MltError::NestedPresenceEncoding {
+            name: path.to_string(),
+            byte: enc_byte,
+        });
+    }
+    Ok(())
+}
+
+/// How many values a presence stream marks present, read straight off its payload.
+/// A raw packed bitmap needs no decode pass and no budget of its own.
+pub(crate) fn presence_popcount(stream: &RawStream<'_>) -> MltResult<u32> {
+    let encoding = stream.meta.encoding;
+    if encoding.logical != LogicalEncoding::Bool(BoolLogical::None) {
+        return Err(MltError::UnsupportedLogicalEncoding(
+            encoding.logical,
+            "a nested presence stream, which is a raw packed bitmap",
+        ));
+    }
+    if encoding.physical != PhysicalEncoding::None {
+        return Err(MltError::UnsupportedPhysicalEncodingForType(
+            encoding.physical,
+            "a nested presence stream, which is a raw packed bitmap",
+        ));
+    }
+    let count = stream.meta.num_values.into_usize();
+    let bytes = stream
+        .data
+        .get(..count.div_ceil(8))
+        .ok_or(MltError::UnableToTake(stream.meta.num_values))?;
+    Ok(u32::try_from(
+        bytes.view_bits::<Lsb0>()[..count].count_ones(),
+    )?)
+}
+
+// ── Decoded form ──────────────────────────────────────────────────────────────
+
+/// A decoded nested column: which features carry a value, and the tree they carry it in.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ParsedNested<'a> {
+    name: &'a str,
+    /// One bit per feature, or [`None`] when every feature carries a value.
+    presence: Option<Cow<'a, BitSlice<u8, Lsb0>>>,
+    root: ParsedInterior<'a>,
+}
+
+/// A decoded node of a nested tree.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ParsedNode<'a> {
+    Interior(ParsedInterior<'a>),
+    Leaf(ParsedLeaf<'a>),
+}
+
+/// A decoded interior node.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ParsedInterior<'a> {
+    Struct(ParsedStruct<'a>),
+    List(ParsedList<'a>),
+    Map(ParsedMap<'a>),
+}
+
+/// A decoded struct node.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ParsedStruct<'a> {
+    presence: Option<Vec<bool>>,
+    fields: Vec<(&'a str, ParsedNode<'a>)>,
+}
+
+/// A decoded list node.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ParsedList<'a> {
+    presence: Option<Vec<bool>>,
+    lengths: Vec<u32>,
+    element: Box<ParsedNode<'a>>,
+}
+
+/// A decoded map node.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ParsedMap<'a> {
+    presence: Option<Vec<bool>>,
+    lengths: Vec<u32>,
+    keys: MapKeys<'a>,
+    value: Box<ParsedNode<'a>>,
+}
+
+/// How a decoded map node names the key of each of its entries.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum MapKeys<'a> {
+    /// One key per entry, in entry order.
+    PerEntry(ParsedStrings<'a>),
+    /// The distinct keys, with one code per entry naming which of them it holds.
+    Coded {
+        keys: ParsedStrings<'a>,
+        codes: Vec<u32>,
+    },
+}
+
+impl<'a> MapKeys<'a> {
+    /// The column the key strings live in: one per entry, or the distinct list.
+    fn strings(&self) -> &ParsedStrings<'a> {
+        match self {
+            Self::PerEntry(keys) | Self::Coded { keys, .. } => keys,
+        }
+    }
+
+    /// How many entries these keys name, which is what the map's lengths sum to.
+    fn entry_count(&self) -> usize {
+        match self {
+            Self::PerEntry(keys) => keys.feature_count(),
+            Self::Coded { codes, .. } => codes.len(),
+        }
+    }
+
+    /// The key entry `entry` holds, or [`None`] where it names none.
+    fn key(&self, entry: usize) -> Option<&str> {
+        match self {
+            Self::PerEntry(keys) => keys.get(u32::try_from(entry).ok()?),
+            Self::Coded { keys, codes } => keys.get(*codes.get(entry)?),
+        }
+    }
+}
+
+/// A decoded leaf node, holding one flat run of values.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ParsedLeaf<'a> {
+    presence: Option<Vec<bool>>,
+    values: MValues<'a>,
+}
+
+impl<'a> Decode<ParsedNested<'a>> for RawNested<'a> {
+    fn decode(self, dec: &mut Decoder) -> MltResult<ParsedNested<'a>> {
+        let root = self.root.decode(dec)?;
+        let parsed = ParsedNested {
+            name: self.name,
+            presence: self.presence.decode_bits(dec)?,
+            root,
+        };
+        parsed.root.check_counts()?;
+        let handed = parsed.root.parent_count();
+        if handed != self.value_count.into_usize() {
+            return Err(MltError::NestedRootCountMismatch {
+                name: self.name.to_string(),
+                expected: self.value_count,
+                actual: u32::try_from(handed)?,
+            });
+        }
+        Ok(parsed)
+    }
+}
+
+impl<'a> Decode<ParsedNode<'a>> for RawNode<'a> {
+    fn decode(self, dec: &mut Decoder) -> MltResult<ParsedNode<'a>> {
+        Ok(match self {
+            Self::Interior(interior) => ParsedNode::Interior(interior.decode(dec)?),
+            Self::Leaf(leaf) => ParsedNode::Leaf(ParsedLeaf {
+                presence: decode_node_presence(leaf.presence, dec)?,
+                values: (*leaf.values).decode(dec)?,
+            }),
+        })
+    }
+}
+
+impl<'a> Decode<ParsedInterior<'a>> for RawInterior<'a> {
+    fn decode(self, dec: &mut Decoder) -> MltResult<ParsedInterior<'a>> {
+        Ok(match self {
+            Self::Struct(node) => {
+                let presence = decode_node_presence(node.presence, dec)?;
+                let mut fields = dec.alloc::<(&'a str, ParsedNode<'a>)>(node.fields.len())?;
+                for (index, (name, field)) in node.fields.into_iter().enumerate() {
+                    let mut field = field.decode(dec)?;
+                    // A shape-coded struct stores no presence per field, so each field
+                    // takes the bit its parent's shapes hold for it.
+                    if let Some(shapes) = &node.shapes {
+                        field.set_presence(shapes.held(index, dec)?);
+                    }
+                    fields.push((name, field));
+                }
+                ParsedInterior::Struct(ParsedStruct { presence, fields })
+            }
+            Self::List(node) => ParsedInterior::List(ParsedList {
+                presence: decode_node_presence(node.presence, dec)?,
+                lengths: node.lengths.decode_ints::<u32>(dec)?,
+                element: Box::new(node.element.decode(dec)?),
+            }),
+            Self::Map(node) => {
+                let presence = decode_node_presence(node.presence, dec)?;
+                let keys = node.keys.decode(dec)?;
+                let (lengths, keys) = match node.shape {
+                    RawMapShape::PerEntry(lengths) => {
+                        (lengths.decode_ints::<u32>(dec)?, MapKeys::PerEntry(keys))
+                    }
+                    RawMapShape::PerRow(shapes) => (
+                        shapes.lengths(dec)?,
+                        MapKeys::Coded {
+                            codes: shapes.codes(dec)?,
+                            keys,
+                        },
+                    ),
+                };
+                ParsedInterior::Map(ParsedMap {
+                    presence,
+                    lengths,
+                    keys,
+                    value: Box::new(node.value.decode(dec)?),
+                })
+            }
+        })
+    }
+}
+
+impl ParsedNode<'_> {
+    /// Take the presence a shape-coded parent holds for this node, which stores none of its own.
+    fn set_presence(&mut self, presence: Vec<bool>) {
+        *match self {
+            Self::Interior(ParsedInterior::Struct(node)) => &mut node.presence,
+            Self::Interior(ParsedInterior::List(node)) => &mut node.presence,
+            Self::Interior(ParsedInterior::Map(node)) => &mut node.presence,
+            Self::Leaf(leaf) => &mut leaf.presence,
+        } = Some(presence);
+    }
+}
+
+/// Decode a node's presence stream into one bool per value its parent handed it.
+fn decode_node_presence(
+    presence: Option<RawStream<'_>>,
+    dec: &mut Decoder,
+) -> MltResult<Option<Vec<bool>>> {
+    presence.map(|stream| stream.decode_bools(dec)).transpose()
+}
+
+impl<'a> ParsedNested<'a> {
+    #[must_use]
+    pub fn name(&self) -> &'a str {
+        self.name
+    }
+
+    /// Whether feature `index` carries a value.
+    #[must_use]
+    pub fn is_present(&self, index: usize) -> bool {
+        self.presence
+            .as_deref()
+            .is_none_or(|bits| bits.get(index).as_deref().copied().unwrap_or(false))
+    }
+
+    /// The shape every value of this column has, read back out of the tree.
+    #[must_use]
+    pub fn kind(&self) -> NestedKind {
+        self.root.kind()
+    }
+
+    /// The value feature `index` carries, or the column's null when it carries none.
+    pub fn row(&self, index: usize) -> MltResult<NestedValue> {
+        if !self.is_present(index) {
+            return Ok(self.root.kind().null_value());
+        }
+        let row = match self.presence.as_deref() {
+            Some(bits) => bits[..index].count_ones(),
+            None => index,
+        };
+        Ok(self
+            .root
+            .row(row)?
+            .unwrap_or_else(|| self.root.kind().null_value()))
+    }
+}
+
+impl ParsedInterior<'_> {
+    /// How many values the parent of this node hands it.
+    fn parent_count(&self) -> usize {
+        match self {
+            Self::Struct(node) => node
+                .presence
+                .as_ref()
+                .map_or_else(|| node.present_count(), Vec::len),
+            Self::List(node) => node.presence.as_ref().map_or(node.lengths.len(), Vec::len),
+            Self::Map(node) => node.presence.as_ref().map_or(node.lengths.len(), Vec::len),
+        }
+    }
+
+    /// Check every lengths stream against the node it counts, top down.
+    fn check_counts(&self) -> MltResult<()> {
+        match self {
+            Self::Struct(node) => {
+                let present = node.present_count();
+                for (_, field) in &node.fields {
+                    expect_count(present, field.parent_count())?;
+                    field.check_counts()?;
+                }
+            }
+            Self::List(node) => {
+                let entries = sum_lengths(&node.lengths)?;
+                expect_count(entries.into_usize(), node.element.parent_count())?;
+                node.element.check_counts()?;
+            }
+            Self::Map(node) => {
+                let entries = sum_lengths(&node.lengths)?;
+                expect_count(entries.into_usize(), node.keys.entry_count())?;
+                expect_count(entries.into_usize(), node.value.parent_count())?;
+                node.value.check_counts()?;
+            }
+        }
+        Ok(())
+    }
+
+    fn kind(&self) -> NestedKind {
+        match self {
+            Self::Struct(node) => NestedKind::Map(
+                node.fields
+                    .iter()
+                    .map(|(name, field)| ((*name).to_string(), field.kind()))
+                    .collect(),
+            ),
+            Self::List(node) => NestedKind::List(Box::new(node.element.kind())),
+            // A map names its keys rather than declaring them, so the shape it reads
+            // back as is the keys it actually holds, all of one value type.
+            Self::Map(node) => {
+                let keys = node.keys.strings();
+                NestedKind::Map(
+                    (0..keys.feature_count())
+                        .filter_map(|i| keys.get(u32::try_from(i).ok()?))
+                        .map(|key| (key.to_string(), node.value.kind()))
+                        .collect(),
+                )
+            }
+        }
+    }
+
+    /// The value at `row` of this node, or [`None`] when the node marks it absent.
+    fn row(&self, row: usize) -> MltResult<Option<NestedValue>> {
+        match self {
+            Self::Struct(node) => {
+                let Some(own) = dense_index(node.presence.as_deref(), row) else {
+                    return Ok(None);
+                };
+                let mut entries = BTreeMap::new();
+                for (name, field) in &node.fields {
+                    if let Some(value) = field.row(own)? {
+                        entries.insert((*name).to_string(), value);
+                    }
+                }
+                Ok(Some(NestedValue::Map(Some(entries))))
+            }
+            Self::List(node) => {
+                let Some(own) = dense_index(node.presence.as_deref(), row) else {
+                    return Ok(None);
+                };
+                let span = span_of(&node.lengths, own)?;
+                let mut items = Vec::with_capacity(span.len());
+                for entry in span {
+                    items.push(
+                        node.element
+                            .row(entry)?
+                            .unwrap_or_else(|| node.element.kind().null_value()),
+                    );
+                }
+                Ok(Some(NestedValue::List(Some(items))))
+            }
+            Self::Map(node) => {
+                let Some(own) = dense_index(node.presence.as_deref(), row) else {
+                    return Ok(None);
+                };
+                let span = span_of(&node.lengths, own)?;
+                let mut entries = BTreeMap::new();
+                for entry in span {
+                    let key = node.keys.key(entry).ok_or(MltError::NestedKeyOutOfRange {
+                        entry,
+                        len: node.keys.entry_count(),
+                    })?;
+                    if let Some(value) = node.value.row(entry)? {
+                        entries.insert(key.to_string(), value);
+                    }
+                }
+                Ok(Some(NestedValue::Map(Some(entries))))
+            }
+        }
+    }
+}
+
+impl ParsedStruct<'_> {
+    /// How many values this node marks present, which is what its fields are handed.
+    fn present_count(&self) -> usize {
+        match &self.presence {
+            Some(bits) => bits.iter().filter(|&&bit| bit).count(),
+            // With no mask of its own a struct is handed exactly what its fields hold.
+            None => self.fields.first().map_or(0, |(_, f)| f.parent_count()),
+        }
+    }
+}
+
+impl ParsedNode<'_> {
+    fn parent_count(&self) -> usize {
+        match self {
+            Self::Interior(interior) => interior.parent_count(),
+            Self::Leaf(leaf) => leaf
+                .presence
+                .as_ref()
+                .map_or_else(|| leaf.values.len(), Vec::len),
+        }
+    }
+
+    fn check_counts(&self) -> MltResult<()> {
+        match self {
+            Self::Interior(interior) => interior.check_counts(),
+            Self::Leaf(_) => Ok(()),
+        }
+    }
+
+    fn kind(&self) -> NestedKind {
+        match self {
+            Self::Interior(interior) => interior.kind(),
+            Self::Leaf(leaf) => NestedKind::Leaf(leaf.values.kind()),
+        }
+    }
+
+    fn row(&self, row: usize) -> MltResult<Option<NestedValue>> {
+        match self {
+            Self::Interior(interior) => interior.row(row),
+            Self::Leaf(leaf) => {
+                let Some(own) = dense_index(leaf.presence.as_deref(), row) else {
+                    return Ok(None);
+                };
+                let value = leaf.values.value(own)?;
+                Ok(Some(NestedValue::Leaf(value)))
+            }
+        }
+    }
+}
+
+/// Where `row` sits among the values a mask marks present, or [`None`] when it is absent.
+fn dense_index(presence: Option<&[bool]>, row: usize) -> Option<usize> {
+    match presence {
+        None => Some(row),
+        Some(bits) => bits
+            .get(row)
+            .copied()
+            .unwrap_or(false)
+            .then(|| bits[..row].iter().filter(|&&bit| bit).count()),
+    }
+}
+
+/// The entries of value `row` of a lengths stream, as a range of entry indices.
+fn span_of(lengths: &[u32], row: usize) -> MltResult<Range<usize>> {
+    let start: usize = lengths[..row.min(lengths.len())]
+        .iter()
+        .map(|&len| len.into_usize())
+        .sum();
+    let len = lengths
+        .get(row)
+        .copied()
+        .ok_or(MltError::NestedRowOutOfRange {
+            row,
+            len: lengths.len(),
+        })?
+        .into_usize();
+    Ok(start..start + len)
+}
+
+fn sum_lengths(lengths: &[u32]) -> MltResult<u32> {
+    lengths
+        .iter()
+        .try_fold(0_u32, |acc, &len| acc.checked_add(len))
+        .ok_or(MltError::IntegerOverflow)
+}
+
+fn expect_count(expected: usize, actual: usize) -> MltResult<()> {
+    if expected == actual {
+        return Ok(());
+    }
+    Err(MltError::NestedCountMismatch {
+        expected: u32::try_from(expected)?,
+        actual: u32::try_from(actual)?,
+    })
+}
+
+impl MValues<'_> {
+    /// The value at `index`, as the row model holds it.
+    pub(crate) fn value(&self, index: usize) -> MltResult<PropValue> {
+        let missing = || MltError::NestedValueOutOfRange {
+            index,
+            len: self.len(),
+        };
+        /// One value out of a column's flat values.
+        macro_rules! one {
+            ($values:expr, $variant:ident) => {
+                PropValue::$variant(Some(*$values.get(index).ok_or_else(missing)?))
+            };
+        }
+        Ok(match self {
+            Self::Bool(v) => one!(v, Bool),
+            Self::I8(v) => one!(v, I8),
+            Self::U8(v) => one!(v, U8),
+            Self::I32(v) => one!(v, I32),
+            Self::U32(v) => one!(v, U32),
+            Self::I64(v) => one!(v, I64),
+            Self::U64(v) => one!(v, U64),
+            Self::F32(v) => one!(v, F32),
+            Self::F64(v) => one!(v, F64),
+            Self::Str(v) => {
+                let value = v.get(u32::try_from(index)?).ok_or_else(missing)?;
+                PropValue::Str(Some(value.to_string()))
+            }
+        })
+    }
+}

@@ -1,0 +1,178 @@
+plugins {
+    id 'java-library'
+    id 'jacoco'
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.diffplug.spotless)
+    alias(libs.plugins.gradleup.shadow)
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        url = 'https://maven.ecc.no/releases'
+    }
+    maven {
+        url = 'https://repo.osgeo.org/repository/release/'
+        content {
+            includeGroup 'org.geotools'
+            includeGroup 'org.geotools.ogc'
+            includeGroup 'org.eclipse.imagen'
+            includeGroup 'it.geosolutions.jgridshift'
+        }
+    }
+}
+
+dependencies {
+    // Core library dependency
+    implementation project(':mlt-core')
+
+    // CLI-specific dependencies
+    implementation(libs.commons.cli)
+    implementation(libs.commons.compress)
+
+    implementation(libs.mbtiles4j)
+    implementation(libs.sqlite.jdbc)
+
+    // Additional dependencies needed by CLI classes
+    implementation(libs.gson)
+    implementation(libs.protobuf.java)
+    implementation(libs.jakarta.annotation.api)
+    implementation(libs.jetbrains.annotations)
+    implementation(libs.jts.core)
+    implementation(libs.jts.io.common)
+
+    implementation(libs.log4j.api)
+    implementation(libs.log4j.slf4j.impl)
+    runtimeOnly(libs.jackson.databind)  // Required for JSON configuration of log4j2
+
+    // Kotlin
+    implementation(libs.kotlin.stdlib)
+
+    // pmtiles support
+    implementation(libs.planetiler.core)
+    implementation(platform(libs.tileverse.io))
+    implementation(libs.tileverse.storage.all)
+
+    testImplementation(libs.junit.jupiter.api)
+    testRuntimeOnly(libs.junit.jupiter.engine)
+    testRuntimeOnly(libs.junit.jupiter.platform.launcher)
+    testImplementation(libs.junit.jupiter.params)
+
+    testImplementation(libs.mockito.core)
+    testImplementation(libs.mockito.kotlin)
+}
+
+// Exclude slf4j-simple from all configurations to prevent conflicts with log4j-slf4j-impl
+configurations.all {
+    exclude group: 'org.slf4j', module: 'slf4j-simple' // no control over log output
+    exclude group: 'org.slf4j', module: 'log4j-over-slf4j' // only for log4j 1.x
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        outputs.upToDateWhen { false }
+        showStandardStreams = true
+        events "passed", "skipped", "failed"
+        exceptionFormat = "full"
+    }
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    reports {
+        xml.required = true
+        html.required = false
+    }
+    dependsOn test
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+kotlin {
+    jvmToolchain { languageVersion.set(JavaLanguageVersion.of(21)) }
+}
+
+spotless {
+    groovy {
+        target 'build.gradle'
+        leadingTabsToSpaces(4)
+        trimTrailingWhitespace()
+        endWithNewline()
+
+    }
+    kotlin {
+        target 'src/**/*.kt'
+        ktlint()
+    }
+    java {
+        importOrder()
+        target 'src/*/java/**/*.java'
+        googleJavaFormat()
+        removeUnusedImports()
+    }
+}
+
+gradle.projectsEvaluated {
+    tasks.withType(JavaCompile).tap {
+        configureEach {
+            options.compilerArgs << "-Xlint:unchecked"
+            options.compilerArgs << "-Xlint:deprecation"
+            options.compilerArgs << "-Xlint:all"
+        }
+    }
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
+
+// Create CLI JARs
+["encode", "decode"].each { name ->
+    task "$name"(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar, dependsOn: [compileJava, ':mlt-core:jar']) {
+        archiveFileName = name + ".jar"
+        archiveClassifier = "cli"
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        configurations = project.configurations.named('runtimeClasspath').map { [it] }
+
+        // Exclude the log config file from some dependency and include our own.
+        // This only works because they use different extensions, else the exclude would remove both.
+        exclude 'log4j2.properties'
+        from('src/main/resources') {
+            include 'log4j2.json'
+            duplicatesStrategy = DuplicatesStrategy.WARN
+        }
+
+        // Filter out dependency JAR signatures to prevent
+        // `SecurityException: Invalid signature file digest for Manifest main attributes`
+        exclude 'META-INF/*.RSA', 'META-INF/*.SF', 'META-INF/*.DSA'
+
+        // Tileverse relies on the contents of META-INF/services to register service providers.
+        // By default, these are ignored when building a fat JAR, so we need to merge them.
+        filesMatching('META-INF/services/**') {
+            duplicatesStrategy = DuplicatesStrategy.INCLUDE
+        }
+        // Log4j relies on the contents of META-INF/org/apache/logging/log4j/core/config/plugins to register plugins.
+        filesMatching('META-INF/org/apache/logging/log4j/core/config/plugins/**') {
+            duplicatesStrategy = DuplicatesStrategy.INCLUDE
+        }
+        mergeServiceFiles()
+
+        manifest.from jar.manifest
+        with jar
+    }
+}
+
+encode.manifest.attributes 'Implementation-Title': 'encode an mlt from an mvt',
+        'Main-Class': 'org.maplibre.mlt.cli.Encode'
+decode.manifest.attributes 'Implementation-Title': 'decode an mlt',
+        'Main-Class': 'org.maplibre.mlt.cli.Decode'
+
+tasks.register('cli') {
+    dependsOn encode
+    dependsOn decode
+}

@@ -1,0 +1,128 @@
+site_name: MapLibre Tile Specification
+site_url: https://maplibre.org/maplibre-tile-spec
+repo_url: https://github.com/maplibre/maplibre-tile-spec
+site_description: MapLibre Tile Specification
+copyright: "&copy; 2024 MapLibre contributors"
+edit_uri: edit/main/docs
+extra_css:
+  - assets/extra.css
+extra_javascript:
+  - assets/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+theme:
+  name: 'material'
+  favicon: https://maplibre.org/favicon.ico
+  logo: assets/logo.svg
+  features:
+    - content.code.copy
+    - search.suggest
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.progress
+    - navigation.path
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.footer
+    - navigation.top
+    - content.action.edit
+    - toc.follow
+    - toc.integrate
+    - header.autohide
+  # Social cards read primary/accent off the palette and crash when either is absent.
+  palette:
+    - media: "(prefers-color-scheme)"
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      dedent_subsections: true
+      check_paths: true
+      base_path:
+        - docs/snippets
+        - test/synthetic
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.escapeall:
+      hardbreak: True
+      nbsp: True
+  - admonition
+  - pymdownx.details
+  - footnotes
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+      permalink_title: "Link to this section"
+      toc_depth: 3
+nav:
+  - Home: index.md
+  - Overview: overview.md
+  - Implementation Status: implementation-status.md
+  - Specification:
+      - Overview: specification/index.md
+      - Tile Inspector: inspector/index.md
+      - MLT v1: specification/v1.md
+      - MLT v2 (experimental): specification/v2.md
+      - Encoding Algorithms: encodings.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/mastodon
+      link: https://mastodon.social/@maplibre
+    - icon: fontawesome/brands/x-twitter
+      link: https://twitter.com/maplibre
+    - icon: fontawesome/brands/linkedin
+      link: https://www.linkedin.com/company/maplibre
+    - icon: fontawesome/brands/slack
+      link: https://osmus.slack.com/archives/C01G3D28DAB
+    - icon: fontawesome/brands/github
+      link: https://github.com/maplibre
+plugins:
+  - search
+  - callouts
+  - social:
+      cards_layout_options:
+        background_color: '#295DAA'
+  - panzoom
+  - add-number:
+      excludes: ['*']
+      includes:
+        - specification/v1.md
+        - specification/v2.md
+        - overview.md
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn

@@ -1,0 +1,96 @@
+export const ColumnScope = {
+    FEATURE: 0,
+    VERTEX: 1,
+} as const;
+
+export const ScalarType = {
+    BOOLEAN: 0,
+    INT_8: 1,
+    UINT_8: 2,
+    INT_32: 3,
+    UINT_32: 4,
+    INT_64: 5,
+    UINT_64: 6,
+    FLOAT: 7,
+    DOUBLE: 8,
+    STRING: 9,
+} as const;
+
+export const ComplexType = {
+    GEOMETRY: 0,
+    STRUCT: 1,
+    MAP: 2,
+} as const;
+
+export const LogicalScalarType = {
+    ID: 0,
+} as const;
+
+export const LogicalComplexType = {
+    BINARY: 0,
+    RANGE_MAP: 1,
+} as const;
+
+export type TileSetMetadata = {
+    version?: number;
+    featureTables: FeatureTableSchema[];
+    name?: string;
+    description?: string;
+    attribution?: string;
+    minZoom?: number;
+    maxZoom?: number;
+    bounds: number[];
+    center: number[];
+};
+
+export type FeatureTableSchema = {
+    name: string;
+    columns: Column[];
+};
+
+export type Column = {
+    name: string;
+    nullable: boolean;
+    columnScope: number;
+} & (
+    | { type: "scalarType"; scalarType: ScalarColumn; complexType?: undefined }
+    | { type: "complexType"; complexType: ComplexColumn; scalarType?: undefined }
+);
+
+/** `Omit` that distributes over the union members of {@link Column}, preserving the `type` discriminant. */
+export type ColumnWithoutName = Column extends infer C ? (C extends Column ? Omit<C, "name"> : never) : never;
+
+export type ScalarColumn = {
+    longID: boolean;
+    physicalType?: number;
+    logicalType?: number;
+    type?: "physicalType" | "logicalType";
+};
+
+export type ComplexColumn = {
+    physicalType?: number;
+    logicalType?: number;
+    children: Field[];
+    type?: "physicalType" | "logicalType";
+};
+
+export type Field = {
+    name?: string;
+    nullable?: boolean;
+} & (
+    | { type: "scalarField"; scalarField: ScalarField; complexField?: undefined }
+    | { type: "complexField"; complexField: ComplexField; scalarField?: undefined }
+);
+
+export type ScalarField = {
+    physicalType?: number;
+    logicalType?: number;
+    type?: "physicalType" | "logicalType";
+};
+
+export type ComplexField = {
+    physicalType?: number;
+    logicalType?: number;
+    children: Field[];
+    type?: "physicalType" | "logicalType";
+};

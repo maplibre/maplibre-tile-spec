@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": false,
+    "resolveJsonModule": true,
+    "module": "es2022",
+    "declaration": true,
+    "sourceMap": true,
+    "inlineSources": true,
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": [
+      "node",
+      "geojson"
+    ]
+  },
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/*.spec.ts",
+    "**/*.bench.ts",
+  ]
+}

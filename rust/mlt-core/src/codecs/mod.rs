@@ -1,0 +1,17 @@
+#[cfg(feature = "unstable-v2")]
+pub mod alp;
+#[cfg(feature = "unstable-v2")]
+pub mod bitpack;
+pub mod bytes;
+pub mod fastpfor;
+pub mod float;
+#[cfg(feature = "unstable-v2")]
+pub mod front_coding;
+pub mod fsst;
+pub mod hilbert;
+pub mod morton;
+#[cfg(feature = "unstable-v2")]
+pub mod presence_coding;
+pub mod rle;
+pub mod varint;
+pub mod zigzag;

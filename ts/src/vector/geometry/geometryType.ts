@@ -1,0 +1,14 @@
+export enum GEOMETRY_TYPE {
+    POINT = 0,
+    LINESTRING = 1,
+    POLYGON = 2,
+    MULTIPOINT = 3,
+    MULTILINESTRING = 4,
+    MULTIPOLYGON = 5,
+}
+
+export enum SINGLE_PART_GEOMETRY_TYPE {
+    POINT = 0,
+    LINESTRING = 1,
+    POLYGON = 2,
+}

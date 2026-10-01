@@ -1,0 +1,24 @@
+name: mlt-publish-coverage
+description: >-
+  Publish a Cobertura report to GitHub code coverage.
+  The calling job needs the `code-quality: write` permission.
+
+inputs:
+  file:
+    description: Cobertura XML report to publish, with repository-relative file names.
+    required: true
+  language:
+    description: Linguist language name the report covers, e.g. "Rust".
+    required: true
+  label:
+    description: Label the report shows up under, e.g. "code-coverage/llvm-cov".
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/upload-code-coverage@d8e329117199404bba6fc81efe8093dc7c015e34 # v1.4.2
+      with:
+        file: ${{ inputs.file }}
+        language: ${{ inputs.language }}
+        label: ${{ inputs.label }}

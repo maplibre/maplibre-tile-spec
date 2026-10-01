@@ -1,0 +1,50 @@
+<svg class="mlt-diagram" viewBox="0 0 710 202" role="img" aria-label="Two polygons sharing an edge index a Hilbert-sorted vertex dictionary" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="dict-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="t0 bold" x="130" y="14">feature 0</text>
+<path class="bracket t0" d="M130 34V28H242V34"/>
+<text class="t1 bold" x="266" y="14">feature 1</text>
+<path class="bracket t1" d="M266 34V28H378V34"/>
+<text class="row" x="0" y="54">offsets</text>
+<rect class="f0" x="130" y="40" width="36" height="28" rx="3"/>
+<text class="cell" x="148" y="54">0</text>
+<rect class="f0" x="168" y="40" width="36" height="28" rx="3"/>
+<text class="cell" x="186" y="54">3</text>
+<rect class="f0" x="206" y="40" width="36" height="28" rx="3"/>
+<text class="cell" x="224" y="54">1</text>
+<rect class="f1" x="266" y="40" width="36" height="28" rx="3"/>
+<text class="cell" x="284" y="54">3</text>
+<rect class="f1" x="304" y="40" width="36" height="28" rx="3"/>
+<text class="cell" x="322" y="54">2</text>
+<rect class="f1" x="342" y="40" width="36" height="28" rx="3"/>
+<text class="cell" x="360" y="54">1</text>
+<path class="link" d="M148 68C148 107 166 107 166 146" marker-end="url(#dict-arrow)"/>
+<path class="link" d="M186 68C186 107 406 107 406 146" marker-end="url(#dict-arrow)"/>
+<path class="link" d="M224 68C224 107 246 107 246 146" marker-end="url(#dict-arrow)"/>
+<path class="link" d="M284 68C284 107 406 107 406 146" marker-end="url(#dict-arrow)"/>
+<path class="link" d="M322 68C322 107 326 107 326 146" marker-end="url(#dict-arrow)"/>
+<path class="link" d="M360 68C360 107 246 107 246 146" marker-end="url(#dict-arrow)"/>
+<text class="row" x="0" y="164">dictionary</text>
+<rect class="plain" x="130" y="150" width="72" height="28" rx="3"/>
+<text class="cell" x="166" y="164">8,8</text>
+<text class="muted small mid" x="166" y="192">0</text>
+<rect class="plain" x="210" y="150" width="72" height="28" rx="3"/>
+<text class="cell" x="246" y="164">20,40</text>
+<text class="muted small mid" x="246" y="192">1</text>
+<rect class="plain" x="290" y="150" width="72" height="28" rx="3"/>
+<text class="cell" x="326" y="164">52,44</text>
+<text class="muted small mid" x="326" y="192">2</text>
+<rect class="plain" x="370" y="150" width="72" height="28" rx="3"/>
+<text class="cell" x="406" y="164">40,12</text>
+<text class="muted small mid" x="406" y="192">3</text>
+<rect class="plain" x="520" y="40" width="153.6" height="153.6"/>
+<polygon class="f0" points="539.2,59.2 616,68.8 568,136"/>
+<polygon class="f1" points="616,68.8 644.8,145.6 568,136"/>
+<circle class="dot" cx="539.2" cy="59.2" r="3.5"/>
+<text class="vert halo" x="529.2" y="51.2">0</text>
+<circle class="dot" cx="568" cy="136" r="3.5"/>
+<text class="vert halo" x="558" y="146">1</text>
+<circle class="dot" cx="644.8" cy="145.6" r="3.5"/>
+<text class="vert halo" x="654.8" y="153.6">2</text>
+<circle class="dot" cx="616" cy="68.8" r="3.5"/>
+<text class="vert halo" x="624" y="60.8">3</text>
+</svg>

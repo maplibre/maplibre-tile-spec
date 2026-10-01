@@ -1,0 +1,286 @@
+package org.maplibre.mlt.decoder;
+
+import jakarta.annotation.Nullable;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.BitSet;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import me.lemire.integercompression.IntWrapper;
+import org.apache.commons.lang3.NotImplementedException;
+import org.apache.commons.lang3.tuple.Triple;
+import org.jetbrains.annotations.NotNull;
+import org.maplibre.mlt.converter.encodings.fsst.FsstEncoder;
+import org.maplibre.mlt.metadata.stream.DictionaryType;
+import org.maplibre.mlt.metadata.stream.LengthType;
+import org.maplibre.mlt.metadata.stream.StreamMetadataDecoder;
+import org.maplibre.mlt.metadata.tileset.MltMetadata;
+
+public final class StringDecoder {
+
+  private StringDecoder() {}
+
+  public static Triple<HashMap<String, Integer>, HashMap<String, BitSet>, Map<String, List<String>>>
+      decodeSharedDictionary(byte[] data, IntWrapper offset, MltMetadata.Column column)
+          throws IOException {
+    List<Integer> dictionaryLengthStream = null;
+    byte[] dictionaryStream = null;
+    List<Integer> symbolLengthStream = null;
+    byte[] symbolTableStream = null;
+
+    // TODO: refactor to be spec compliant -> start by decoding the FieldMetadata, StreamMetadata
+    // and PresentStream
+    boolean dictionaryStreamDecoded = false;
+    while (!dictionaryStreamDecoded) {
+      var streamMetadata = StreamMetadataDecoder.decode(data, offset);
+      switch (streamMetadata.physicalStreamType()) {
+        case LENGTH:
+          {
+            if (LengthType.DICTIONARY.equals(streamMetadata.logicalStreamType().lengthType())) {
+              dictionaryLengthStream =
+                  IntegerDecoder.decodeIntStream(data, offset, streamMetadata, false);
+            } else {
+              symbolLengthStream =
+                  IntegerDecoder.decodeIntStream(data, offset, streamMetadata, false);
+            }
+            break;
+          }
+        case DATA:
+          {
+            // TODO: fix -> only shared should be allowed in that case
+            if (DictionaryType.SINGLE.equals(streamMetadata.logicalStreamType().dictionaryType())
+                || DictionaryType.SHARED.equals(
+                    streamMetadata.logicalStreamType().dictionaryType())) {
+              dictionaryStream =
+                  Arrays.copyOfRange(
+                      data, offset.get(), offset.get() + streamMetadata.byteLength());
+              offset.set(offset.get() + streamMetadata.byteLength());
+              dictionaryStreamDecoded = true;
+            } else {
+              symbolTableStream =
+                  Arrays.copyOfRange(
+                      data, offset.get(), offset.get() + streamMetadata.byteLength());
+              offset.set(offset.get() + streamMetadata.byteLength());
+            }
+            break;
+          }
+      }
+    }
+
+    List<String> dictionary;
+    if (symbolLengthStream != null && symbolTableStream != null && dictionaryLengthStream != null) {
+      var decompressedLength = dictionaryLengthStream.stream().mapToInt(i -> i).sum();
+      var utf8Values =
+          FsstEncoder.decode(
+              symbolTableStream,
+              symbolLengthStream.stream().mapToInt(i -> i).toArray(),
+              dictionaryStream,
+              decompressedLength);
+      dictionary = decodeDictionary(dictionaryLengthStream, utf8Values);
+    } else if (dictionaryLengthStream != null) {
+      dictionary = decodeDictionary(dictionaryLengthStream, dictionaryStream);
+    } else {
+      throw new NotImplementedException("Expected streams missing in shared dictionary decoding");
+    }
+
+    var presentStreams = new HashMap<String, BitSet>();
+    var numValues = new HashMap<String, Integer>();
+    var values = new HashMap<String, List<String>>();
+    for (var childField : column.field().type().complexType().children()) {
+      var numStreams = DecodingUtils.decodeVarints(data, offset, 1)[0];
+      if (childField.type().scalarType() == null
+          || childField.type().scalarType().physicalType() != MltMetadata.ScalarType.STRING) {
+        throw new IllegalArgumentException(
+            "Currently only scalar string fields are implemented for a struct.");
+      }
+      if ((numStreams > 1) != childField.type().isNullable()) {
+        throw new IllegalArgumentException(
+            "The number of streams for the child field "
+                + childField.name()
+                + " does not match its nullability.");
+      }
+
+      @Nullable BitSet presentStream = null;
+      int presentCount = 0;
+      if (childField.type().isNullable()) {
+        final var presentStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+        presentCount = presentStreamMetadata.numValues();
+        presentStream =
+            DecodingUtils.decodeBooleanRle(
+                data, presentCount, presentStreamMetadata.byteLength(), offset);
+        numStreams -= 1;
+      }
+
+      final var dataStreamMetadata = StreamMetadataDecoder.decode(data, offset);
+      final var dataReferenceStream =
+          IntegerDecoder.decodeIntStream(data, offset, dataStreamMetadata, false);
+
+      final var valueCount = (presentStream != null) ? presentCount : dataReferenceStream.size();
+      final var propertyValues = new ArrayList<String>(valueCount);
+      var counter = 0;
+      for (var i = 0; i < valueCount; i++) {
+        final var present = (presentStream == null) || presentStream.get(i);
+        propertyValues.add(present ? dictionary.get(dataReferenceStream.get(counter++)) : null);
+      }
+
+      final var columnName = column.getName() + childField.name();
+      numValues.put(columnName, valueCount);
+      presentStreams.put(columnName, presentStream);
+      values.put(columnName, propertyValues);
+    }
+
+    return Triple.of(numValues, presentStreams, values);
+  }
+
+  private static List<String> decodeDictionary(List<Integer> lengthStream, byte[] utf8Values) {
+    // var strValues = new String(utf8Values, StandardCharsets.UTF_8);
+    var dictionary = new ArrayList<String>();
+    var dictionaryOffset = 0;
+    for (var length : lengthStream) {
+      // var value = strValues.substring(dictionaryOffset, dictionaryOffset + length);
+      var value = Arrays.copyOfRange(utf8Values, dictionaryOffset, dictionaryOffset + length);
+      dictionary.add(new String(value, StandardCharsets.UTF_8));
+      dictionaryOffset += length;
+    }
+
+    return dictionary;
+  }
+
+  public record StringDecodingResult(BitSet presentStream, List<String> strings) {}
+
+  public static StringDecodingResult decode(
+      final byte[] data,
+      @NotNull final IntWrapper offset,
+      final int numStreams,
+      @Nullable final BitSet presentStream,
+      final int presentCount)
+      throws IOException {
+    /*
+     * String column layouts:
+     * -> plain -> present, length, data
+     * -> dictionary -> present, length, dictionary, data
+     * -> fsst dictionary -> symbolTable, symbolLength, dictionary, length, present, data
+     * */
+
+    List<Integer> dictionaryLengthStream = null;
+    List<Integer> offsetStream = null;
+    byte[] dictionaryStream = null;
+    List<Integer> symbolLengthStream = null;
+    byte[] symbolTableStream = null;
+    for (var i = 0; i < numStreams; i++) {
+      final var streamMetadata = StreamMetadataDecoder.decode(data, offset);
+      switch (streamMetadata.physicalStreamType()) {
+        case OFFSET:
+          {
+            offsetStream = IntegerDecoder.decodeIntStream(data, offset, streamMetadata, false);
+            break;
+          }
+        case LENGTH:
+          {
+            var ls = IntegerDecoder.decodeIntStream(data, offset, streamMetadata, false);
+            if (LengthType.DICTIONARY.equals(streamMetadata.logicalStreamType().lengthType())) {
+              dictionaryLengthStream = ls;
+            } else {
+              symbolLengthStream = ls;
+            }
+
+            break;
+          }
+        case DATA:
+          {
+            var ds =
+                Arrays.copyOfRange(data, offset.get(), offset.get() + streamMetadata.byteLength());
+            offset.add(streamMetadata.byteLength());
+            if (DictionaryType.SINGLE.equals(streamMetadata.logicalStreamType().dictionaryType())) {
+              dictionaryStream = ds;
+            } else {
+              symbolTableStream = ds;
+            }
+            break;
+          }
+        default:
+          throw new IllegalArgumentException(
+              "Unexpected stream type in string column decoding: "
+                  + streamMetadata.physicalStreamType());
+      }
+    }
+
+    if (symbolTableStream != null && symbolLengthStream != null && dictionaryLengthStream != null) {
+      final var decompressedLength = dictionaryLengthStream.stream().mapToInt(x -> x).sum();
+      final var utf8Values =
+          FsstEncoder.decode(
+              symbolTableStream,
+              symbolLengthStream.stream().mapToInt(x -> x).toArray(),
+              dictionaryStream,
+              decompressedLength);
+      final var strings =
+          decodeDictionary(
+              presentStream, dictionaryLengthStream, utf8Values, offsetStream, presentCount);
+      return new StringDecodingResult(presentStream, strings);
+    } else if (dictionaryStream != null && dictionaryLengthStream != null) {
+      final var strings =
+          decodeDictionary(
+              presentStream, dictionaryLengthStream, dictionaryStream, offsetStream, presentCount);
+      return new StringDecodingResult(presentStream, strings);
+    } else {
+      final var strings =
+          decodePlain(presentStream, symbolLengthStream, symbolTableStream, presentCount);
+      return new StringDecodingResult(presentStream, strings);
+    }
+  }
+
+  private static List<String> decodePlain(
+      @Nullable BitSet presentStream,
+      List<Integer> lengthStream,
+      byte[] utf8Values,
+      int presentCount) {
+    final var numValues = (presentStream != null) ? presentCount : lengthStream.size();
+    final var decodedValues = new ArrayList<String>(numValues);
+    var lengthOffset = 0;
+    var strOffset = 0;
+    for (var i = 0; i < numValues; i++) {
+      final var present = (presentStream == null) || presentStream.get(i);
+      if (present) {
+        final var length = lengthStream.get(lengthOffset++);
+        final var value = new String(utf8Values, strOffset, length, StandardCharsets.UTF_8);
+        decodedValues.add(value);
+        strOffset += length;
+      } else {
+        decodedValues.add(null);
+      }
+    }
+
+    return decodedValues;
+  }
+
+  private static List<String> decodeDictionary(
+      @Nullable BitSet presentStream,
+      List<Integer> lengthStream,
+      byte[] utf8Values,
+      List<Integer> dictionaryOffsets,
+      int presentCount) {
+    final var dictionary = new ArrayList<String>();
+    var dictionaryOffset = 0;
+    for (var length : lengthStream) {
+      final var value =
+          new String(
+              Arrays.copyOfRange(utf8Values, dictionaryOffset, dictionaryOffset + length),
+              StandardCharsets.UTF_8);
+      dictionary.add(value);
+      dictionaryOffset += length;
+    }
+
+    final var numValues = (presentStream != null) ? presentCount : dictionaryOffsets.size();
+    final var values = new ArrayList<String>(numValues);
+    var offset = 0;
+    for (var i = 0; i < numValues; i++) {
+      final var present = (presentStream == null) || presentStream.get(i);
+      values.add(present ? dictionary.get(dictionaryOffsets.get(offset++)) : null);
+    }
+
+    return values;
+  }
+}

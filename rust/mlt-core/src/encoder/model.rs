@@ -1,0 +1,899 @@
+use std::borrow::Cow;
+#[cfg(feature = "unstable-v2")]
+use std::collections::HashSet;
+
+use derive_debug::Dbg;
+
+#[cfg(feature = "unstable-v2")]
+use crate::decoder::RleLayout;
+use crate::decoder::{DictionaryType, FastPForKind, GeometryValues, PhysicalEncoding, StreamType};
+use crate::encoder::geometry::VertexBufferType;
+use crate::encoder::{IntEncoder, StagedId, StagedProperty};
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::{StagedInterior, StagedMValue, StagedNested, StagedNode};
+#[cfg(feature = "unstable-v2")]
+use crate::tile::MAX_NESTED_DEPTH;
+use crate::tile::{ColumnRole, Extent, reject_taken_name};
+use crate::{MltError, MltResult};
+
+/// Owned variant of `Unknown`.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct EncodedUnknown {
+    pub(crate) tag: u8,
+    pub(crate) value: Vec<u8>,
+}
+
+impl EncodedUnknown {
+    pub fn new(tag: u8, value: Vec<u8>) -> MltResult<Self> {
+        if tag == 1 {
+            return Err(MltError::ParsingColumnType(tag));
+        }
+        Ok(Self { tag, value })
+    }
+
+    #[must_use]
+    pub fn tag(&self) -> u32 {
+        u32::from(self.tag)
+    }
+
+    #[must_use]
+    pub fn data(&self) -> &[u8] {
+        &self.value
+    }
+}
+
+/// Parameters derived from the vertex set of a feature collection, used to
+/// normalize coordinates before space-filling-curve key computation.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CurveParams {
+    pub shift: u32,
+    pub bits: u32,
+}
+
+impl Default for CurveParams {
+    fn default() -> Self {
+        Self { shift: 0, bits: 1 }
+    }
+}
+
+impl CurveParams {
+    /// Compute params from a flat `[x0, y0, x1, y1, …]` vertex slice.
+    #[must_use]
+    pub fn from_vertices(vertices: &[i32]) -> Self {
+        if vertices.is_empty() {
+            return Self::default();
+        }
+        let (min, max) = vertices
+            .iter()
+            .fold((i32::MAX, i32::MIN), |(mn, mx), &v| (mn.min(v), mx.max(v)));
+        crate::codecs::hilbert::hilbert_curve_params_from_bounds(min, max)
+    }
+}
+
+/// Columnar layer data being prepared for encoding (stage 2 of the encoding pipeline).
+///
+/// Holds fully-owned columnar data. Constructed directly (synthetics, benches) or
+/// converted from [`TileLayer`](crate::TileLayer).
+/// Consumed by encoding via [`StagedLayer::encode_into`] or `StagedLayer::encode_explicit`
+/// (with explicit encoding mode enabled).
+#[derive(Debug, PartialEq, Clone)]
+pub struct StagedLayer {
+    pub(crate) name: String,
+    pub(crate) extent: Extent,
+    pub(crate) id: StagedId,
+    pub(crate) geometry: GeometryValues,
+    pub(crate) properties: Vec<StagedProperty>,
+    /// Vertex-scoped columns, which only a v2 layer can be written with.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) m_values: Vec<StagedMValue>,
+    /// Nested columns, which only a v2 layer can be written with.
+    #[cfg(feature = "unstable-v2")]
+    pub(crate) nested: Vec<StagedNested>,
+}
+
+#[cfg_attr(not(feature = "__private"), allow(dead_code))]
+impl StagedLayer {
+    pub fn new(
+        name: impl Into<String>,
+        extent: u32,
+        id: StagedId,
+        geometry: GeometryValues,
+        properties: Vec<StagedProperty>,
+    ) -> MltResult<Self> {
+        let (name, extent, _) = validate_staged(name, extent, &id, &geometry, &properties)?;
+        Ok(Self {
+            name,
+            extent,
+            id,
+            geometry,
+            properties,
+            #[cfg(feature = "unstable-v2")]
+            m_values: Vec::new(),
+            #[cfg(feature = "unstable-v2")]
+            nested: Vec::new(),
+        })
+    }
+
+    /// As [`Self::new`], with the layer's vertex-scoped columns.
+    #[cfg(feature = "unstable-v2")]
+    pub fn with_m_values(
+        name: impl Into<String>,
+        extent: u32,
+        id: StagedId,
+        geometry: GeometryValues,
+        properties: Vec<StagedProperty>,
+        m_values: Vec<StagedMValue>,
+    ) -> MltResult<Self> {
+        let (name, extent, columns) = validate_staged(name, extent, &id, &geometry, &properties)?;
+        validate_m_values(&geometry, &columns, &m_values)?;
+        Ok(Self {
+            name,
+            extent,
+            id,
+            geometry,
+            properties,
+            m_values,
+            nested: Vec::new(),
+        })
+    }
+
+    /// As [`Self::new`], with both the layer's vertex-scoped and its nested columns.
+    #[cfg(feature = "unstable-v2")]
+    pub fn with_nested(
+        name: impl Into<String>,
+        extent: u32,
+        id: StagedId,
+        geometry: GeometryValues,
+        properties: Vec<StagedProperty>,
+        m_values: Vec<StagedMValue>,
+        nested: Vec<StagedNested>,
+    ) -> MltResult<Self> {
+        let (name, extent, columns) = validate_staged(name, extent, &id, &geometry, &properties)?;
+        validate_m_values(&geometry, &columns, &m_values)?;
+        validate_nested(&geometry, &columns, &m_values, &nested)?;
+        Ok(Self {
+            name,
+            extent,
+            id,
+            geometry,
+            properties,
+            m_values,
+            nested,
+        })
+    }
+
+    #[must_use]
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    #[must_use]
+    pub fn extent(&self) -> Extent {
+        self.extent
+    }
+
+    #[must_use]
+    pub fn id(&self) -> &StagedId {
+        &self.id
+    }
+
+    #[must_use]
+    pub fn geometry(&self) -> &GeometryValues {
+        &self.geometry
+    }
+
+    #[must_use]
+    pub fn properties(&self) -> &[StagedProperty] {
+        &self.properties
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn m_values(&self) -> &[StagedMValue] {
+        &self.m_values
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn nested(&self) -> &[StagedNested] {
+        &self.nested
+    }
+}
+
+/// Check a staged layer's name, extent and columns, returning the validated fields and the column names.
+fn validate_staged<'p>(
+    name: impl Into<String>,
+    extent: u32,
+    id: &StagedId,
+    geometry: &GeometryValues,
+    properties: &'p [StagedProperty],
+) -> MltResult<(String, Extent, Vec<Cow<'p, str>>)> {
+    let name = name.into();
+    if name.is_empty() {
+        return Err(MltError::MissingLayerName);
+    }
+    let extent = Extent::new(extent)?;
+    let feature_count = geometry.feature_count();
+    if let Some(actual) = id.feature_count()
+        && actual != feature_count
+    {
+        return Err(MltError::StagedFeatureCountMismatch {
+            column: "id".into(),
+            expected: feature_count,
+            actual,
+        });
+    }
+    // A shared dictionary's `name()` is only its prefix, which may repeat.
+    // Its real columns are `{prefix}{suffix}`, so those are the names the layer's namespace holds.
+    let mut columns: Vec<Cow<'p, str>> = Vec::with_capacity(properties.len());
+    for property in properties {
+        let actual = property.feature_count();
+        if actual != feature_count {
+            return Err(MltError::StagedFeatureCountMismatch {
+                column: property.name().to_string(),
+                expected: feature_count,
+                actual,
+            });
+        }
+        if let StagedProperty::SharedDict(sd) = property {
+            for item in &sd.items {
+                let name = format!("{}{}", sd.prefix, item.suffix);
+                reject_taken_name(&name, ColumnRole::Property, property_columns(&columns))?;
+                columns.push(Cow::Owned(name));
+            }
+        } else {
+            reject_taken_name(
+                property.name(),
+                ColumnRole::Property,
+                property_columns(&columns),
+            )?;
+            columns.push(Cow::Borrowed(property.name()));
+        }
+    }
+    Ok((name, extent, columns))
+}
+
+/// Pair every property column's name with its kind, as the uniqueness check reads them.
+fn property_columns<'a>(
+    columns: &'a [Cow<'a, str>],
+) -> impl Iterator<Item = (&'a str, ColumnRole)> + 'a {
+    columns
+        .iter()
+        .map(|name| (name.as_ref(), ColumnRole::Property))
+}
+
+/// Check every m-value column against the geometry it runs over: a unique name, a mask of one
+/// bit per feature, and one value per vertex of every feature it marks present.
+#[cfg(feature = "unstable-v2")]
+fn validate_m_values(
+    geometry: &GeometryValues,
+    columns: &[Cow<'_, str>],
+    m_values: &[StagedMValue],
+) -> MltResult<()> {
+    let feature_count = geometry.feature_count();
+    let mut seen: Vec<&str> = Vec::with_capacity(m_values.len());
+    for column in m_values {
+        reject_taken_name(
+            column.name(),
+            ColumnRole::MValue,
+            property_columns(columns).chain(seen.iter().map(|n| (*n, ColumnRole::MValue))),
+        )?;
+        seen.push(column.name());
+        if let Some(actual) = column.feature_count()
+            && actual != feature_count
+        {
+            return Err(MltError::StagedFeatureCountMismatch {
+                column: column.name().to_string(),
+                expected: feature_count,
+                actual,
+            });
+        }
+        let mut expected = 0;
+        for index in 0..feature_count {
+            let present = column
+                .presence
+                .as_ref()
+                .is_none_or(|mask| mask.get(index).copied().unwrap_or(false));
+            if present {
+                expected += geometry.vertex_count(index)?;
+            }
+        }
+        if expected != column.values().count() {
+            return Err(MltError::MValueColumnLengthMismatch {
+                name: column.name().to_string(),
+                expected,
+                actual: column.values().count(),
+            });
+        }
+    }
+    Ok(())
+}
+
+/// Check every nested column against the layer: a unique name, a mask of one bit
+/// per feature, and a tree the wire can hold.
+#[cfg(feature = "unstable-v2")]
+fn validate_nested(
+    geometry: &GeometryValues,
+    columns: &[Cow<'_, str>],
+    m_values: &[StagedMValue],
+    nested: &[StagedNested],
+) -> MltResult<()> {
+    let feature_count = geometry.feature_count();
+    let mut seen: Vec<&str> = Vec::with_capacity(nested.len());
+    for column in nested {
+        reject_taken_name(
+            column.name(),
+            ColumnRole::Nested,
+            property_columns(columns)
+                .chain(m_values.iter().map(|c| (c.name(), ColumnRole::MValue)))
+                .chain(seen.iter().map(|n| (*n, ColumnRole::Nested))),
+        )?;
+        seen.push(column.name());
+        if column.root.parent_count() != feature_count {
+            return Err(MltError::StagedFeatureCountMismatch {
+                column: column.name().to_string(),
+                expected: feature_count,
+                actual: column.root.parent_count(),
+            });
+        }
+        validate_nested_interior(&column.root, 1)?;
+    }
+    Ok(())
+}
+
+/// Check one node of a nested tree against the depth the wire allows, then its own children.
+#[cfg(feature = "unstable-v2")]
+fn validate_nested_node(node: &StagedNode, depth: usize) -> MltResult<()> {
+    if depth > MAX_NESTED_DEPTH {
+        return Err(MltError::NestedTooDeep(depth));
+    }
+    match node {
+        StagedNode::Leaf(_) => Ok(()),
+        StagedNode::Interior(interior) => validate_nested_interior(interior, depth),
+    }
+}
+
+/// Check an interior node's children: unique field names, and no level the wire cannot reach.
+#[cfg(feature = "unstable-v2")]
+fn validate_nested_interior(interior: &StagedInterior, depth: usize) -> MltResult<()> {
+    match interior {
+        StagedInterior::Struct(node) => {
+            let mut seen: HashSet<&str> = HashSet::with_capacity(node.fields.len());
+            for (name, field) in &node.fields {
+                if !seen.insert(name.as_str()) {
+                    return Err(MltError::DuplicateFieldName(name.clone()));
+                }
+                validate_nested_node(field, depth + 1)?;
+            }
+            Ok(())
+        }
+        StagedInterior::List(node) => validate_nested_node(&node.element, depth + 1),
+        StagedInterior::Map(node) => validate_nested_node(&node.value, depth + 1),
+    }
+}
+
+/// Which wire format layers are encoded to.
+#[cfg(feature = "unstable-v2")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+pub enum WireVersion {
+    /// Tag `0x01` - the stable v1 format.
+    #[default]
+    V01,
+    /// Tag `0x02` - the experimental v2 format (see `docs/migrating-to-v2.md`).
+    ///
+    /// Currently limited to ID, scalar, string, shared-dictionary and geometry columns.
+    V02,
+}
+
+#[cfg(feature = "unstable-v2")]
+impl WireVersion {
+    /// The layer tag byte identifying this format on the wire.
+    #[must_use]
+    pub(crate) fn tag(self) -> u8 {
+        match self {
+            Self::V01 => 1,
+            Self::V02 => 2,
+        }
+    }
+
+    /// The `FastPFor` block size and word order used by this format.
+    #[must_use]
+    pub(crate) fn fastpfor_kind(self) -> FastPForKind {
+        match self {
+            Self::V01 => FastPForKind::Block256Be,
+            Self::V02 => FastPForKind::Block128Le,
+        }
+    }
+
+    /// The RLE stream data layout used by this format.
+    #[must_use]
+    pub(crate) fn rle_layout(self) -> RleLayout {
+        match self {
+            Self::V01 => RleLayout::Split,
+            Self::V02 => RleLayout::Interleaved,
+        }
+    }
+
+    /// The header bytes a raw stream of fixed-width words saves over any other physical encoding.
+    /// v2 leaves such a stream's `byte_length` varint out, since its count and width give it.
+    #[must_use]
+    pub(crate) fn raw_header_saving(self) -> usize {
+        match self {
+            Self::V01 => 0,
+            Self::V02 => 1,
+        }
+    }
+}
+
+/// Global encoder settings controlling which optimization strategies are attempted.
+#[derive(Debug, Clone, Copy, PartialEq, Hash)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "enums would not model this better, not a state machine"
+)]
+pub struct EncoderConfig {
+    /// The wire format to encode layers to.
+    #[cfg(feature = "unstable-v2")]
+    wire_version: WireVersion,
+    /// Generate tessellation data for polygons and multi-polygons.
+    tessellate: bool,
+    /// Try sorting features by the Z-order (Morton) curve index of their first vertex.
+    attempt_spatial_morton_sort: bool,
+    /// Try sorting features by the Hilbert curve index of their first vertex.
+    attempt_spatial_hilbert_sort: bool,
+    /// Try sorting features by their feature ID in ascending order.
+    attempt_id_sort: bool,
+    /// Allow `FSST` string compression
+    allow_fsst: bool,
+    /// Allow `FastPFOR` integer compression
+    allow_fastpfor: bool,
+    /// Allow string grouping into shared dictionaries
+    allow_shared_dict: bool,
+    /// Allow the v2-only float dictionary encoding
+    #[cfg(feature = "unstable-v2")]
+    allow_float_dict: bool,
+    /// Allow the v2-only Framed, Exception-Free ALP float encoding
+    #[cfg(feature = "unstable-v2")]
+    allow_float_alp: bool,
+    /// Allow the v2-only bit-packed physical encoding for dictionary code streams
+    #[cfg(feature = "unstable-v2")]
+    allow_packed_dict_codes: bool,
+    /// Code a nested struct's or map's row shapes instead of per-field presence or per-entry keys.
+    #[cfg(feature = "unstable-v2")]
+    allow_row_shapes: bool,
+    /// Let a tessellated all-polygon layer store its triangles without the outlines.
+    #[cfg(feature = "unstable-v2")]
+    allow_triangles_only: bool,
+    /// Allow the v2-only second-order delta encodings of integer and vertex streams
+    #[cfg(feature = "unstable-v2")]
+    allow_delta2: bool,
+}
+impl Default for EncoderConfig {
+    fn default() -> Self {
+        Self {
+            #[cfg(feature = "unstable-v2")]
+            wire_version: WireVersion::V01,
+            tessellate: false,
+            attempt_spatial_morton_sort: true,
+            attempt_spatial_hilbert_sort: true,
+            attempt_id_sort: true,
+            allow_fsst: true,
+            allow_fastpfor: true,
+            allow_shared_dict: true,
+            // Off by default while the encoding is still being measured.
+            #[cfg(feature = "unstable-v2")]
+            allow_float_dict: false,
+            #[cfg(feature = "unstable-v2")]
+            allow_float_alp: false,
+            #[cfg(feature = "unstable-v2")]
+            allow_row_shapes: false,
+            #[cfg(feature = "unstable-v2")]
+            allow_packed_dict_codes: false,
+            #[cfg(feature = "unstable-v2")]
+            allow_triangles_only: false,
+            #[cfg(feature = "unstable-v2")]
+            allow_delta2: false,
+        }
+    }
+}
+
+impl EncoderConfig {
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn wire_version(self) -> WireVersion {
+        self.wire_version
+    }
+
+    #[must_use]
+    pub fn tessellate(self) -> bool {
+        self.tessellate
+    }
+
+    #[must_use]
+    pub fn attempt_spatial_morton_sort(self) -> bool {
+        self.attempt_spatial_morton_sort
+    }
+
+    #[must_use]
+    pub fn attempt_spatial_hilbert_sort(self) -> bool {
+        self.attempt_spatial_hilbert_sort
+    }
+
+    #[must_use]
+    pub fn attempt_id_sort(self) -> bool {
+        self.attempt_id_sort
+    }
+
+    #[must_use]
+    pub fn allow_fsst(self) -> bool {
+        self.allow_fsst
+    }
+
+    #[must_use]
+    pub fn allow_fastpfor(self) -> bool {
+        self.allow_fastpfor
+    }
+
+    /// The `FastPFor` encoding to race, or `None` when `FastPFor` is switched off.
+    #[must_use]
+    pub(crate) fn fastpfor(self) -> Option<PhysicalEncoding> {
+        #[cfg(feature = "unstable-v2")]
+        let kind = self.wire_version.fastpfor_kind();
+        #[cfg(not(feature = "unstable-v2"))]
+        let kind = FastPForKind::Block256Be;
+        self.allow_fastpfor
+            .then_some(PhysicalEncoding::FastPFor(kind))
+    }
+
+    #[must_use]
+    pub fn allow_shared_dict(self) -> bool {
+        self.allow_shared_dict
+    }
+
+    /// Whether a nested struct or map may code its row shapes, which only v2 can express.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn allow_row_shapes(self) -> bool {
+        self.allow_row_shapes
+    }
+
+    /// Let a nested struct or map replace per-field presence and per-entry keys with row shapes.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn with_row_shapes(mut self, enabled: bool) -> Self {
+        self.allow_row_shapes = enabled;
+        self
+    }
+
+    /// Whether 8-bit integer columns stay 8-bit, which only v2 can express.
+    #[must_use]
+    pub fn allow_8bit_ints(self) -> bool {
+        #[cfg(feature = "unstable-v2")]
+        return self.wire_version != WireVersion::V01;
+        #[cfg(not(feature = "unstable-v2"))]
+        return false;
+    }
+
+    /// Whether float columns may use a dictionary, which only v2 can express.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn allow_float_dict(self) -> bool {
+        self.allow_float_dict && self.wire_version != WireVersion::V01
+    }
+
+    /// Whether float columns may use Framed, Exception-Free ALP, which only v2 can express.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn allow_float_alp(self) -> bool {
+        self.allow_float_alp && self.wire_version != WireVersion::V01
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn with_wire_version(mut self, version: WireVersion) -> Self {
+        self.wire_version = version;
+        self
+    }
+
+    #[must_use]
+    pub fn with_tessellation(mut self, enabled: bool) -> Self {
+        self.tessellate = enabled;
+        self
+    }
+
+    /// Whether a tessellated layer may drop its outlines, which only v2 can express.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn allow_triangles_only(self) -> bool {
+        self.allow_triangles_only && self.wire_version != WireVersion::V01
+    }
+
+    /// Let a tessellated layer of only polygons, with no m-values, store its triangles without the outlines.
+    /// Each of its polygons then decodes as the triangles it was cut into.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn with_triangles_only(mut self, enabled: bool) -> Self {
+        self.allow_triangles_only = enabled;
+        self
+    }
+
+    /// Whether integer and vertex streams may store the deltas of their deltas, which only v2 can express.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn allow_delta2(self) -> bool {
+        self.allow_delta2 && self.wire_version != WireVersion::V01
+    }
+
+    /// Allow integer and vertex streams to store the deltas of their deltas.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn with_delta2(mut self, enabled: bool) -> Self {
+        self.allow_delta2 = enabled;
+        self
+    }
+
+    #[must_use]
+    pub fn with_spatial_morton_sort(mut self, enabled: bool) -> Self {
+        self.attempt_spatial_morton_sort = enabled;
+        self
+    }
+
+    #[must_use]
+    pub fn with_spatial_hilbert_sort(mut self, enabled: bool) -> Self {
+        self.attempt_spatial_hilbert_sort = enabled;
+        self
+    }
+
+    #[must_use]
+    pub fn with_id_sort(mut self, enabled: bool) -> Self {
+        self.attempt_id_sort = enabled;
+        self
+    }
+
+    #[must_use]
+    pub fn with_fsst(mut self, enabled: bool) -> Self {
+        self.allow_fsst = enabled;
+        self
+    }
+
+    #[must_use]
+    pub fn with_fastpfor(mut self, enabled: bool) -> Self {
+        self.allow_fastpfor = enabled;
+        self
+    }
+
+    #[must_use]
+    pub fn with_shared_dict(mut self, enabled: bool) -> Self {
+        self.allow_shared_dict = enabled;
+        self
+    }
+
+    /// Allow float columns to store one code per value into a dictionary of the distinct ones.
+    /// Off by default, and only v2 can express it.
+    /// A column takes it only when it comes out strictly smaller in stored bytes.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn with_float_dict(mut self, enabled: bool) -> Self {
+        self.allow_float_dict = enabled;
+        self
+    }
+
+    /// Allow float columns to store each value as a decimal-scaled integer.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn with_float_alp(mut self, enabled: bool) -> Self {
+        self.allow_float_alp = enabled;
+        self
+    }
+
+    /// Whether dictionary code streams may be stored bit-packed.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn allow_packed_dict_codes(self) -> bool {
+        self.allow_packed_dict_codes && self.wire_version != WireVersion::V01
+    }
+
+    /// Allow dictionary code streams to store every code in the same
+    /// `ceil(log2(dict_len))` bits instead of a varint each.
+    #[cfg(feature = "unstable-v2")]
+    #[must_use]
+    pub fn with_packed_dict_codes(mut self, enabled: bool) -> Self {
+        self.allow_packed_dict_codes = enabled;
+        self
+    }
+}
+
+/// How to encode a string column.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StrEncoding {
+    Plain,
+    Dict,
+    Fsst,
+    FsstDict,
+    FrontDict,
+    FsstFrontDict,
+}
+
+/// How to encode a float column, pinned rather than costed against the alternatives.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FloatEncoding {
+    None,
+    #[cfg(feature = "unstable-v2")]
+    Dict,
+    #[cfg(feature = "unstable-v2")]
+    Alp,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ColumnKind {
+    Id,
+    Geometry,
+    Property,
+}
+
+/// Where one string stream set sits: the column that holds it, and the path
+/// through a nested column's tree that leads to it.
+///
+/// A flat column's path is empty, so its streams are named exactly as before.
+#[cfg(feature = "unstable-v2")]
+#[derive(Clone, Copy, Debug)]
+pub struct StrAt<'a> {
+    pub name: &'a str,
+    pub subname: &'a str,
+}
+
+#[cfg(feature = "unstable-v2")]
+impl<'a> StrAt<'a> {
+    #[must_use]
+    pub const fn flat(name: &'a str) -> Self {
+        Self { name, subname: "" }
+    }
+
+    #[must_use]
+    pub const fn nested(name: &'a str, subname: &'a str) -> Self {
+        Self { name, subname }
+    }
+
+    pub(crate) fn ctx(self, stream_type: StreamType) -> StreamCtx<'a> {
+        StreamCtx::prop2(stream_type, self.name, self.subname)
+    }
+
+    /// The name an [`ExplicitEncoder`] pins an encoding by, the column's plus the path.
+    pub(crate) fn qualified(self) -> Cow<'a, str> {
+        StreamCtx::prop2(StreamType::Present, self.name, self.subname).qualified()
+    }
+}
+
+/// Context for per-stream encoding decisions in [`ExplicitEncoder`] callbacks.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct StreamCtx<'a> {
+    pub kind: ColumnKind,
+    pub stream_type: StreamType,
+    pub name: &'a str,
+    pub subname: &'a str,
+}
+impl<'a> StreamCtx<'a> {
+    /// Stream with a logical sub-part (e.g. string column `"lengths"` / `"offsets"`, shared-dict child suffix).
+    #[inline]
+    #[must_use]
+    pub const fn new(
+        kind: ColumnKind,
+        stream_type: StreamType,
+        name: &'a str,
+        subname: &'a str,
+    ) -> Self {
+        Self {
+            kind,
+            stream_type,
+            name,
+            subname,
+        }
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn id(stream_type: StreamType) -> Self {
+        Self::new(ColumnKind::Id, stream_type, "", "")
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn geom(stream_type: StreamType, name: &'a str) -> Self {
+        Self::new(ColumnKind::Geometry, stream_type, name, "")
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn prop(stream_type: StreamType, name: &'a str) -> Self {
+        Self::new(ColumnKind::Property, stream_type, name, "")
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn prop_data(name: &'a str) -> Self {
+        let stream_type = StreamType::Data(DictionaryType::None);
+        Self::new(ColumnKind::Property, stream_type, name, "")
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn prop2(stream_type: StreamType, prefix: &'a str, suffix: &'a str) -> Self {
+        Self::new(ColumnKind::Property, stream_type, prefix, suffix)
+    }
+
+    /// The name an [`ExplicitEncoder`] pins an encoding by, the column's plus any path within it.
+    #[must_use]
+    pub fn qualified(&self) -> Cow<'a, str> {
+        if self.subname.is_empty() {
+            Cow::Borrowed(self.name)
+        } else {
+            Cow::Owned(format!("{}{}", self.name, self.subname))
+        }
+    }
+}
+
+/// Explicit, deterministic encoding configuration for synthetics and tests.
+///
+/// All encoding choices are caller-specified via callbacks so one struct can cover any combination without per-stream boilerplate.
+#[derive(Dbg)]
+pub struct ExplicitEncoder {
+    /// Vertex buffer layout for geometry streams.
+    pub vertex_buffer_type: VertexBufferType,
+    /// Per-stream override for the skip-empty-stream rule used by `write_geo_u32_stream`.
+    #[dbg(skip)]
+    pub force_stream: Box<dyn for<'a> Fn(&'a StreamCtx<'a>) -> bool>,
+    /// Return the [`IntEncoder`] for a stream identified by [`StreamCtx`].
+    #[dbg(skip)]
+    pub get_int_encoder: Box<dyn for<'a> Fn(&'a StreamCtx<'a>) -> IntEncoder>,
+    /// Return the string encoding strategy for a string property column.
+    #[dbg(skip)]
+    pub get_str_encoding: Box<dyn Fn(&str) -> StrEncoding>,
+    /// Return the logical encoding for a float property column.
+    #[dbg(skip)]
+    pub get_float_encoding: Box<dyn Fn(&str) -> FloatEncoding>,
+}
+
+#[cfg(all(test, feature = "unstable-v2"))]
+mod tests {
+    use insta::assert_snapshot;
+
+    use super::*;
+    use crate::encoder::{StagedLeaf, StagedList, StagedStruct, StagedValues};
+
+    fn leaf() -> StagedNode {
+        StagedNode::Leaf(StagedLeaf::new(None, StagedValues::I32(vec![1])))
+    }
+
+    /// A tree of `depth` levels: nested lists all the way down to one leaf.
+    fn lists(depth: usize) -> StagedInterior {
+        let mut node = leaf();
+        for _ in 2..depth {
+            node = StagedNode::Interior(StagedInterior::List(StagedList::new(None, vec![1], node)));
+        }
+        StagedInterior::List(StagedList::new(None, vec![1], node))
+    }
+
+    #[test]
+    fn a_struct_repeating_a_field_name() {
+        let root =
+            StagedInterior::Struct(StagedStruct::new(None, vec![("a", leaf()), ("a", leaf())]));
+        assert_snapshot!(
+            validate_nested_interior(&root, 1).unwrap_err(),
+            @"duplicate field name in a struct node: a"
+        );
+    }
+
+    #[test]
+    fn a_tree_one_level_past_the_limit() {
+        assert_snapshot!(
+            validate_nested_interior(&lists(MAX_NESTED_DEPTH + 1), 1).unwrap_err(),
+            @"a nested column is 9 levels deep, more than the 8 the format allows"
+        );
+    }
+
+    #[test]
+    fn a_tree_at_the_limit() {
+        validate_nested_interior(&lists(MAX_NESTED_DEPTH), 1).expect("a tree at the limit");
+    }
+}

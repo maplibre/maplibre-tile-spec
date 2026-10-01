@@ -1,0 +1,61 @@
+name: Java - Release
+
+on:
+  push:
+    tags:
+      - 'java-v*.*.*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up JDK
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with: { java-version: '21', distribution: 'temurin' }
+
+      - uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2.87.19
+        with: { tool: 'just,cargo-binstall' }
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          version="$(just ci-extract-version java ${{ github.ref_name }})"
+          echo version="$version" >> "$GITHUB_ENV"
+
+      - name: Make gradlew executable
+        run: chmod +x ./java/gradlew
+
+      - name: Publish to Maven Central
+        working-directory: java
+        run: ./gradlew publishToMavenCentral -Pversion=${{ env.version }}
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_PRIVATE_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
+
+      - name: Build CLI tool
+        working-directory: java
+        run: ./gradlew cli
+      - run: just -v assert-git-is-clean
+
+      - name: Rename CLI artifacts
+        run: |
+          cp java/mlt-cli/build/libs/encode.jar mlt-encode.jar
+          cp java/mlt-cli/build/libs/decode.jar mlt-decode.jar
+
+      - name: Add CLI artifacts to GitHub release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: java-v${{ env.version }}
+          fail_on_unmatched_files: true
+          name: java-v${{ env.version }}
+          files: |
+            mlt-encode.jar
+            mlt-decode.jar

@@ -1,0 +1,575 @@
+//! Row-oriented "source form" for the optimizer.
+//!
+//! [`TileLayer`] holds one [`TileFeature`] per map feature, each owning
+//! its geometry as a [`geo_types::Geometry<i32>`] and its property values as a
+//! plain `Vec<PropValue>`.  This is the working form used throughout the
+//! optimizer and sorting pipeline: it is cheap to clone, trivially sortable,
+//! and free from any encoded/decoded duality.
+//!
+//! Conversion from [`TileLayer`] to [`StagedLayer`] is done via
+//! [`StagedLayer::from_tile`] with pre-computed layer statistics.
+
+#[cfg(feature = "unstable-v2")]
+use std::collections::BTreeMap;
+
+use crate::decoder::GeometryValues;
+use crate::encoder::model::{CurveParams, StagedLayer};
+use crate::encoder::optimizer::{LayerStats, Presence, PropertyTypedStats, SharedDictRole};
+use crate::encoder::{SortStrategy, StagedId, StagedProperty, StagedSharedDict};
+#[cfg(feature = "unstable-v2")]
+use crate::encoder::{
+    StagedInterior, StagedLeaf, StagedList, StagedMValue, StagedNested, StagedNode, StagedStruct,
+    StagedValues,
+};
+#[cfg(feature = "unstable-v2")]
+use crate::tile::{MValue, NestedKind, NestedValue, PropKind};
+use crate::tile::{PropValue, TileFeature, TileLayer};
+
+impl StagedLayer {
+    /// Construct a [`StagedLayer`] from a row-oriented [`TileLayer`] using
+    /// pre-computed layer statistics and curve parameters.
+    ///
+    /// `curve_params` is taken as a parameter (rather than recomputed here)
+    /// so a single [`TileLayer::curve_params`] scan feeds every sort trial
+    /// and the encoder's dictionary builders.
+    ///
+    /// When `tessellate` is `true`, polygon and multi-polygon geometries have
+    /// their triangulation stored alongside the geometry.
+    #[must_use]
+    #[hotpath::measure]
+    pub fn from_tile(
+        mut source: TileLayer,
+        sort: SortStrategy,
+        stats: &LayerStats,
+        tessellate: bool,
+        curve_params: CurveParams,
+    ) -> Self {
+        assert!(source.feature_count() != 0, "empty tile");
+        source.sort(sort, curve_params);
+        let TileLayer {
+            name,
+            extent,
+            mut property_names,
+            property_kinds: _,
+            #[cfg(feature = "unstable-v2")]
+            m_value_names,
+            #[cfg(feature = "unstable-v2")]
+            m_value_kinds,
+            #[cfg(feature = "unstable-v2")]
+            nested_names,
+            #[cfg(feature = "unstable-v2")]
+            nested_kinds,
+            #[cfg(feature = "unstable-v2")]
+            z_step,
+            mut features,
+        } = source;
+        let mut geometry = if tessellate {
+            GeometryValues::new_tessellated()
+        } else {
+            GeometryValues::default()
+        };
+        for f in &features {
+            geometry.push_geom(f.geometry());
+        }
+        #[cfg(feature = "unstable-v2")]
+        if let Some(step) = z_step {
+            let z: Vec<i32> = features.iter().flat_map(|f| f.z.iter().copied()).collect();
+            geometry
+                .add_z(step, &z)
+                .expect("TileLayer holds one z per stored vertex");
+        }
+
+        let id = StagedId::from_optional_with_presence(
+            features.iter().map(TileFeature::id),
+            stats.id.as_ref(),
+        );
+
+        let shared_dict_columns = shared_dict_columns(stats);
+        let mut properties = Vec::with_capacity(property_names.len());
+        for (col_idx, shared_cols) in shared_dict_columns
+            .iter()
+            .enumerate()
+            .take(property_names.len())
+        {
+            let prop_analysis = stats
+                .properties
+                .get(col_idx)
+                .expect("analysis matches source property columns");
+            match prop_analysis.stats.shared_dict() {
+                SharedDictRole::Owner(prefix) => {
+                    properties.push(build_shared_dict(
+                        col_idx,
+                        &prefix,
+                        shared_cols,
+                        &property_names,
+                        stats,
+                        &mut features,
+                    ));
+                }
+                SharedDictRole::Member(_) => {}
+                SharedDictRole::None => {
+                    if let Some(prop) = build_scalar_column(
+                        std::mem::take(&mut property_names[col_idx]),
+                        col_idx,
+                        prop_analysis.presence,
+                        &prop_analysis.stats,
+                        &mut features,
+                    ) {
+                        properties.push(prop);
+                    }
+                }
+            }
+        }
+
+        #[cfg(feature = "unstable-v2")]
+        let nested = build_nested(&nested_names, &nested_kinds, &features);
+        #[cfg(feature = "unstable-v2")]
+        let m_values = build_m_values(&m_value_names, &m_value_kinds, &mut features);
+
+        Self {
+            name,
+            extent,
+            id,
+            geometry,
+            properties,
+            #[cfg(feature = "unstable-v2")]
+            m_values,
+            #[cfg(feature = "unstable-v2")]
+            nested,
+        }
+    }
+}
+
+/// Gather each m-value column out of the features, in the row order the sort left them in.
+///
+/// A feature with no values for a column clears its presence bit and contributes
+/// nothing to the values, which is the whole of how m-values are null.
+#[cfg(feature = "unstable-v2")]
+fn build_m_values(
+    names: &[String],
+    kinds: &[PropKind],
+    features: &mut [TileFeature],
+) -> Vec<StagedMValue> {
+    /// Gather one column, naming the run and the staged column that hold its kind of values.
+    macro_rules! column {
+        ($index:expr, $variant:ident) => {{
+            let (presence, values) = take_column($index, features, |m_value| match m_value {
+                MValue::$variant(run) => Some(run),
+                _ => None,
+            });
+            (presence, StagedValues::$variant(values))
+        }};
+    }
+
+    let mut columns = Vec::with_capacity(names.len());
+    for (index, (name, &kind)) in names.iter().zip(kinds).enumerate() {
+        let (presence, values) = match kind {
+            PropKind::Bool => column!(index, Bool),
+            PropKind::I8 => column!(index, I8),
+            PropKind::U8 => column!(index, U8),
+            PropKind::I32 => column!(index, I32),
+            PropKind::U32 => column!(index, U32),
+            PropKind::I64 => column!(index, I64),
+            PropKind::U64 => column!(index, U64),
+            PropKind::F32 => column!(index, F32),
+            PropKind::F64 => column!(index, F64),
+            PropKind::Str => column!(index, Str),
+        };
+        // A column no feature is null on needs no mask at all.
+        let presence = if presence.iter().all(|&p| p) {
+            None
+        } else {
+            Some(presence)
+        };
+        columns.push(StagedMValue::new(name.clone(), presence, values));
+    }
+    columns
+}
+
+/// Move column `index` out of the features: which of them carry values, and the
+/// values themselves, flat in row order.
+///
+/// `run` projects a feature's value to its run of `T`, and is [`None`] only for a
+/// value of another kind, which [`TileLayer`] rejects when the feature is pushed.
+#[cfg(feature = "unstable-v2")]
+fn take_column<T>(
+    index: usize,
+    features: &mut [TileFeature],
+    run: fn(&mut MValue) -> Option<&mut Option<Vec<T>>>,
+) -> (Vec<bool>, Vec<T>) {
+    let mut presence = Vec::with_capacity(features.len());
+    let mut values = Vec::new();
+    for feature in features {
+        let Some(m_value) = feature.m_values.get_mut(index) else {
+            presence.push(false);
+            continue;
+        };
+        let run = run(m_value).expect("m-value kind matches its column");
+        presence.push(run.is_some());
+        values.extend(run.take().into_iter().flatten());
+    }
+    (presence, values)
+}
+
+/// Shred each nested column out of the features, in the row order the sort left them in.
+///
+/// A map is shredded as a struct here, whichever of the two the writer then picks.
+#[cfg(feature = "unstable-v2")]
+fn build_nested(
+    names: &[String],
+    kinds: &[NestedKind],
+    features: &[TileFeature],
+) -> Vec<StagedNested> {
+    let mut columns = Vec::with_capacity(names.len());
+    for (index, (name, kind)) in names.iter().zip(kinds).enumerate() {
+        let inputs: Vec<Option<&NestedValue>> =
+            features.iter().map(|f| f.nested.get(index)).collect();
+        let StagedNode::Interior(root) = shred(kind, &inputs) else {
+            unreachable!("a nested column's root is never a leaf")
+        };
+        columns.push(StagedNested::new(name.clone(), root));
+    }
+    columns
+}
+
+/// Shred one node's worth of values, one per value its parent hands it.
+///
+/// An input that is missing or null clears the node's presence bit and contributes
+/// nothing below it, which is the whole of how a nested value is null.
+#[cfg(feature = "unstable-v2")]
+fn shred(kind: &NestedKind, inputs: &[Option<&NestedValue>]) -> StagedNode {
+    let present = |value: Option<&NestedValue>| value.is_some_and(|v| !v.is_null());
+    let mask: Vec<bool> = inputs.iter().map(|value| present(*value)).collect();
+    let presence = if mask.iter().all(|&bit| bit) {
+        None
+    } else {
+        Some(mask)
+    };
+    let dense: Vec<&NestedValue> = inputs
+        .iter()
+        .copied()
+        .filter(|value| present(*value))
+        .flatten()
+        .collect();
+
+    match kind {
+        NestedKind::Leaf(leaf) => {
+            StagedNode::Leaf(StagedLeaf::new(presence, leaf_values(*leaf, &dense)))
+        }
+        NestedKind::List(element) => {
+            let mut lengths = Vec::with_capacity(dense.len());
+            let mut items: Vec<Option<&NestedValue>> = Vec::new();
+            for value in &dense {
+                let NestedValue::List(Some(list)) = value else {
+                    continue;
+                };
+                lengths.push(u32::try_from(list.len()).unwrap_or(u32::MAX));
+                items.extend(list.iter().map(Some));
+            }
+            StagedNode::Interior(StagedInterior::List(StagedList::new(
+                presence,
+                lengths,
+                shred(element, &items),
+            )))
+        }
+        NestedKind::Map(fields) => {
+            let entries: Vec<&BTreeMap<String, NestedValue>> = dense
+                .iter()
+                .filter_map(|value| match value {
+                    NestedValue::Map(entries) => entries.as_ref(),
+                    NestedValue::Leaf(_) | NestedValue::List(_) => None,
+                })
+                .collect();
+            let fields = fields
+                .iter()
+                .map(|(key, kind)| {
+                    let values: Vec<Option<&NestedValue>> =
+                        entries.iter().map(|entry| entry.get(key)).collect();
+                    (key.clone(), shred(kind, &values))
+                })
+                .collect::<Vec<_>>();
+            StagedNode::Interior(StagedInterior::Struct(StagedStruct::new(presence, fields)))
+        }
+    }
+}
+
+/// Gather a leaf's non-null values into the staged column that holds its type.
+#[cfg(feature = "unstable-v2")]
+fn leaf_values(kind: PropKind, dense: &[&NestedValue]) -> StagedValues {
+    /// Pick the values of one type out of the leaves that hold them.
+    macro_rules! leaf {
+        ($variant:ident) => {
+            StagedValues::$variant(
+                dense
+                    .iter()
+                    .filter_map(|value| match value {
+                        NestedValue::Leaf(PropValue::$variant(Some(v))) => Some(v.clone()),
+                        _ => None,
+                    })
+                    .collect(),
+            )
+        };
+    }
+    match kind {
+        PropKind::Bool => leaf!(Bool),
+        PropKind::I8 => leaf!(I8),
+        PropKind::U8 => leaf!(U8),
+        PropKind::I32 => leaf!(I32),
+        PropKind::U32 => leaf!(U32),
+        PropKind::I64 => leaf!(I64),
+        PropKind::U64 => leaf!(U64),
+        PropKind::F32 => leaf!(F32),
+        PropKind::F64 => leaf!(F64),
+        PropKind::Str => leaf!(Str),
+    }
+}
+
+fn shared_dict_columns(stats: &LayerStats) -> Vec<Vec<usize>> {
+    let mut columns = vec![Vec::new(); stats.properties.len()];
+    for (col_idx, prop) in stats.properties.iter().enumerate() {
+        match prop.stats.shared_dict() {
+            SharedDictRole::Owner(_) => columns[col_idx].push(col_idx),
+            SharedDictRole::Member(owner_col) => columns[owner_col].push(col_idx),
+            SharedDictRole::None => {}
+        }
+    }
+    columns
+}
+
+fn build_scalar_column(
+    name: String,
+    col: usize,
+    presence: Presence,
+    stats: &PropertyTypedStats,
+    features: &mut [TileFeature],
+) -> Option<StagedProperty> {
+    if presence == Presence::AllNull {
+        return None;
+    }
+
+    // Determine the variant by peeking at the first feature value.
+    // Typed nulls (e.g. `PropValue::Bool(None)`) already carry the column type,
+    // so no filtering is needed; only a fully-absent column returns `None` here.
+    // Fall back to `Str` if every feature has no value for this column.
+    let first_val = features.iter().find_map(|f| f.properties().get(col));
+
+    // Presence is precomputed before sort trials; this pass only gathers values
+    // in the selected row order.
+    macro_rules! scalar_col {
+        ($opt_ctor:ident, $non_opt_ctor:ident, $ty:ty, $sv:ident) => {{
+            Some(match presence {
+                Presence::AllNull => unreachable!("handled before variant dispatch"),
+                Presence::AllPresent => StagedProperty::$non_opt_ctor(
+                    name,
+                    features
+                        .iter()
+                        .map(|f| match f.properties().get(col) {
+                            Some(PropValue::$sv(Some(v))) => *v,
+                            _ => unreachable!("analysis guarantees present typed values"),
+                        })
+                        .collect(),
+                ),
+                Presence::Mixed | Presence::SameAsProp(_) => StagedProperty::$opt_ctor(
+                    name,
+                    features.iter().map(|f| match f.properties().get(col) {
+                        Some(PropValue::$sv(v)) => *v,
+                        _ => None,
+                    }),
+                ),
+            })
+        }};
+    }
+
+    // Narrows a 64-bit source column to a 32-bit destination, so the
+    // `FastPFOR` codec (32-bit only) becomes eligible.
+    macro_rules! narrow_col {
+        ($opt_ctor:ident, $non_opt_ctor:ident, $dst:ty, $sv:ident) => {{
+            Some(match presence {
+                Presence::AllNull => unreachable!("handled before variant dispatch"),
+                Presence::AllPresent => StagedProperty::$non_opt_ctor(
+                    name,
+                    features
+                        .iter()
+                        .map(|f| match f.properties().get(col) {
+                            Some(PropValue::$sv(Some(v))) => <$dst>::try_from(*v)
+                                .expect("analyzed range guarantees value fits narrowed type"),
+                            _ => unreachable!("analysis guarantees present typed values"),
+                        })
+                        .collect(),
+                ),
+                Presence::Mixed | Presence::SameAsProp(_) => StagedProperty::$opt_ctor(
+                    name,
+                    features.iter().map(|f| match f.properties().get(col) {
+                        Some(PropValue::$sv(Some(v))) => Some(
+                            <$dst>::try_from(*v)
+                                .expect("analyzed range guarantees value fits narrowed type"),
+                        ),
+                        _ => None,
+                    }),
+                ),
+            })
+        }};
+    }
+
+    match first_val {
+        Some(PropValue::Bool(_)) => scalar_col!(opt_bool, bool, bool, Bool),
+        Some(PropValue::I8(_)) => scalar_col!(opt_i8, i8, i8, I8),
+        Some(PropValue::U8(_)) => scalar_col!(opt_u8, u8, u8, U8),
+        Some(PropValue::I32(_)) => scalar_col!(opt_i32, i32, i32, I32),
+        Some(PropValue::U32(_)) => scalar_col!(opt_u32, u32, u32, U32),
+        // `u32` is tried before `i32` since `values_fit_u32` requires `min >= 0`.
+        Some(PropValue::I64(_)) if stats.values_fit_u32() => narrow_col!(opt_u32, u32, u32, I64),
+        Some(PropValue::I64(_)) if stats.values_fit_i32() => narrow_col!(opt_i32, i32, i32, I64),
+        Some(PropValue::I64(_)) => scalar_col!(opt_i64, i64, i64, I64),
+        Some(PropValue::U64(_)) if stats.values_fit_u32() => narrow_col!(opt_u32, u32, u32, U64),
+        Some(PropValue::U64(_)) => scalar_col!(opt_u64, u64, u64, U64),
+        Some(PropValue::F32(_)) => scalar_col!(opt_f32, f32, f32, F32),
+        Some(PropValue::F64(_)) => scalar_col!(opt_f64, f64, f64, F64),
+        Some(PropValue::Str(_)) | None => Some(match presence {
+            Presence::AllNull => unreachable!("handled before variant dispatch"),
+            Presence::AllPresent => StagedProperty::str(
+                name,
+                features
+                    .iter_mut()
+                    .map(|f| match f.properties_mut().get_mut(col) {
+                        Some(PropValue::Str(Some(v))) => std::mem::take(v),
+                        _ => unreachable!("analysis guarantees present string values"),
+                    }),
+            ),
+            Presence::Mixed | Presence::SameAsProp(_) => StagedProperty::opt_str(
+                name,
+                features
+                    .iter_mut()
+                    .map(|f| match f.properties_mut().get_mut(col) {
+                        Some(PropValue::Str(v)) => v.take(),
+                        _ => None,
+                    }),
+            ),
+        }),
+    }
+}
+
+fn build_shared_dict(
+    owner_col: usize,
+    prefix: &str,
+    shared_dict_columns: &[usize],
+    property_names: &[String],
+    analysis: &LayerStats,
+    features: &mut [TileFeature],
+) -> StagedProperty {
+    debug_assert_eq!(shared_dict_columns.first(), Some(&owner_col));
+    let columns = shared_dict_columns.iter().copied().map(|col_idx| {
+        let name = &property_names[col_idx];
+        let suffix = name.strip_prefix(prefix).unwrap_or(name).to_owned();
+        let values: Vec<Option<String>> = features
+            .iter_mut()
+            .map(|f| match f.properties_mut().get_mut(col_idx) {
+                Some(PropValue::Str(s)) => s.take(),
+                _ => None,
+            })
+            .collect();
+        let presence = analysis.properties[col_idx].presence;
+        (suffix, values, presence)
+    });
+
+    StagedProperty::SharedDict(
+        StagedSharedDict::new(prefix.to_owned(), columns).expect("StagedSharedDict succeed"),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use geo_types::Point;
+
+    use super::*;
+    use crate::Layer;
+    use crate::decoder::GeometryValues;
+    use crate::encoder::{Codecs, Encoder};
+    use crate::test_helpers::{dec, parser};
+
+    fn layer_tile(staged: StagedLayer) -> TileLayer {
+        let mut codecs = Codecs::default();
+        let buf = staged
+            .encode_into(Encoder::default(), &mut codecs)
+            .unwrap()
+            .into_layer_bytes()
+            .unwrap();
+        let (_, layer) = Layer::from_bytes(&buf, &mut parser()).unwrap();
+        let Layer::Tag01(lazy) = layer else { panic!() };
+        let mut d = dec();
+        lazy.decode_all(&mut d).unwrap().into_tile(&mut d).unwrap()
+    }
+
+    fn two_points() -> GeometryValues {
+        let mut g = GeometryValues::default();
+        g.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(0, 0)));
+        g.push_geom(&geo_types::Geometry::<i32>::Point(Point::new(1, 1)));
+        g
+    }
+
+    /// `into_tile` must produce a **typed** null (e.g. `PropValue::Bool(None)`)
+    /// for null slots, matching the column's actual type, even when the **first**
+    /// feature is null.
+    #[test]
+    fn null_first_feature_preserves_later_typed_value() {
+        let tile = layer_tile(
+            StagedLayer::new(
+                "t",
+                4096,
+                StagedId::None,
+                two_points(),
+                vec![StagedProperty::opt_bool("flag", vec![None, Some(false)])],
+            )
+            .unwrap(),
+        );
+
+        assert_eq!(tile.property_names(), &["flag"]);
+        // Null slot -> typed null matching the column type
+        assert_eq!(tile.features()[0].properties()[0], PropValue::Bool(None));
+        // Non-null value after the null must not be dropped
+        assert_eq!(
+            tile.features()[1].properties()[0],
+            PropValue::Bool(Some(false))
+        );
+    }
+
+    /// Every scalar type must produce a typed null for null slots and a typed
+    /// non-null value for present slots, even when the first feature is null.
+    #[test]
+    fn null_first_feature_across_types() {
+        let props = vec![
+            StagedProperty::opt_bool("b", vec![None, Some(true)]),
+            StagedProperty::opt_i32("i32", vec![None, Some(-3)]),
+            StagedProperty::opt_u32("u32", vec![None, Some(4)]),
+            StagedProperty::opt_i64("i64", vec![None, Some(-5)]),
+            StagedProperty::opt_u64("u64", vec![None, Some(6)]),
+            StagedProperty::opt_f32("f32", vec![None, Some(7.0)]),
+            StagedProperty::opt_f64("f64", vec![None, Some(8.0)]),
+            StagedProperty::opt_str("s", vec![None, Some("ok")]),
+        ];
+        let tile =
+            layer_tile(StagedLayer::new("t", 4096, StagedId::None, two_points(), props).unwrap());
+
+        // Feature 0: every column is null -> typed null for each column
+        let n = tile.features()[0].properties();
+        assert_eq!(n[0], PropValue::Bool(None));
+        assert_eq!(n[1], PropValue::I32(None));
+        assert_eq!(n[2], PropValue::U32(None));
+        assert_eq!(n[3], PropValue::I64(None));
+        assert_eq!(n[4], PropValue::U64(None));
+        assert_eq!(n[5], PropValue::F32(None));
+        assert_eq!(n[6], PropValue::F64(None));
+        assert_eq!(n[7], PropValue::Str(None));
+
+        // Feature 1: every column has its typed non-null value
+        let p = tile.features()[1].properties();
+        assert_eq!(p[0], PropValue::Bool(Some(true)));
+        assert_eq!(p[1], PropValue::I32(Some(-3)));
+        assert_eq!(p[2], PropValue::U32(Some(4)));
+        assert_eq!(p[3], PropValue::I64(Some(-5)));
+        assert_eq!(p[4], PropValue::U64(Some(6)));
+        assert_eq!(p[5], PropValue::F32(Some(7.0)));
+        assert_eq!(p[6], PropValue::F64(Some(8.0)));
+        assert_eq!(p[7], PropValue::Str(Some("ok".into())));
+    }
+}
