@@ -1,10 +1,15 @@
 mod bbox;
 mod common;
+#[cfg(feature = "unstable-v2")]
+pub mod fields;
 mod from_files;
 mod from_mbtiles;
 mod from_pmtiles;
+pub mod verify;
 
 use std::path::{Path, PathBuf};
+#[cfg(feature = "unstable-v2")]
+use std::sync::Arc;
 
 use anyhow::{Result as AnyResult, bail};
 use bytes::Bytes;
@@ -21,6 +26,8 @@ use pmtiles::Compression;
 use tilejson::Bounds;
 
 use crate::convert::bbox::BboxFilter;
+#[cfg(feature = "unstable-v2")]
+use crate::convert::fields::FieldConfig;
 use crate::convert::from_mbtiles::BboxExtract;
 
 #[expect(
@@ -192,6 +199,44 @@ fn update_mlt_pmtiles_metadata(
     }
 }
 
+/// Everything a tile is re-encoded with.
+#[derive(Clone, Default)]
+pub(crate) struct ConvertConfig {
+    encoder: EncoderConfig,
+    #[cfg(feature = "unstable-v2")]
+    fields: Arc<FieldConfig>,
+    /// Decode every encoded layer and require it to match its input.
+    verify: bool,
+}
+
+impl ConvertConfig {
+    fn encode(&self, layer: mlt_core::TileLayer) -> AnyResult<Vec<u8>> {
+        let source = self.verify.then(|| layer.clone());
+        #[cfg(feature = "unstable-v2")]
+        let layer = self.fields.apply(layer)?;
+        let encoded = layer.encode(self.encoder)?;
+        if let Some(source) = source {
+            verify::check_round_trip(&source, &encoded, |decoded| self.restore(decoded))?;
+        }
+        Ok(encoded)
+    }
+
+    #[cfg_attr(
+        not(feature = "unstable-v2"),
+        expect(
+            clippy::unnecessary_wraps,
+            clippy::unused_self,
+            reason = "only v2 parses fields"
+        )
+    )]
+    fn restore(&self, layer: mlt_core::TileLayer) -> AnyResult<mlt_core::TileLayer> {
+        #[cfg(feature = "unstable-v2")]
+        return self.fields.restore(layer);
+        #[cfg(not(feature = "unstable-v2"))]
+        Ok(layer)
+    }
+}
+
 #[derive(Args)]
 #[expect(
     clippy::struct_excessive_bools,
@@ -240,6 +285,19 @@ pub struct ConvertArgs {
     #[cfg(feature = "unstable-v2")]
     #[clap(long)]
     delta2: bool,
+    /// Decode every encoded layer and fail unless it matches the input, parsed fields formatted back
+    #[clap(long)]
+    verify: bool,
+    /// TOML file naming the string properties to parse into typed columns, per layer
+    ///
+    /// Each `[layers.<name>]` table maps a property to `{ split, kind, running-sum, into }`.
+    /// `split` is `"sign"` or one character, and `kind` is one of `i32`, `u32`, `i64`, `u64` or `str`.
+    /// `running-sum` stores each value after the first as its difference from the one before.
+    /// `into` is `list` (the default) or `m-value`, which needs one value per vertex.
+    /// A string that would not format back to itself fails the conversion.
+    #[cfg(feature = "unstable-v2")]
+    #[clap(long, value_name = "FILE")]
+    config: Option<PathBuf>,
     /// Output tile format (`mlt` re-encodes; `mvt` decodes MLT inputs back to MVT)
     #[clap(long, default_value = "mlt")]
     to: TileFormat,
@@ -276,6 +334,15 @@ impl ConvertArgs {
 }
 
 pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
+    if args.to == TileFormat::Mvt {
+        if args.verify {
+            bail!("--verify checks MLT encoding, so it needs --to mlt");
+        }
+        #[cfg(feature = "unstable-v2")]
+        if args.config.is_some() {
+            bail!("--config parses fields into MLT columns, so it needs --to mlt");
+        }
+    }
     let morton = matches!(args.sort, SortMode::All | SortMode::Auto | SortMode::Morton);
     let hilbert = matches!(args.sort, SortMode::All | SortMode::Hilbert);
     let id_sort = matches!(args.sort, SortMode::All | SortMode::Id);
@@ -295,6 +362,21 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         .with_packed_dict_codes(args.packed_dict_codes)
         .with_triangles_only(args.triangles_only)
         .with_delta2(args.delta2);
+    let cfg = ConvertConfig {
+        encoder: cfg,
+        #[cfg(feature = "unstable-v2")]
+        fields: Arc::new(match &args.config {
+            Some(path) => FieldConfig::load(path)?,
+            None => FieldConfig::default(),
+        }),
+        verify: args.verify,
+    };
+    #[cfg(feature = "unstable-v2")]
+    if !cfg.fields.is_empty() && args.mlt_version != MltVersion::V2 {
+        bail!(
+            "--config parses fields into m-values and nested columns, which need --mlt-version 2"
+        );
+    }
 
     let filter = BboxFilter::new(&args.bbox)?;
     let input_container = args.input_container();
@@ -343,12 +425,12 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
             ContainerFormat::Pmtiles => runtime.block_on(from_pmtiles::convert(
                 &args.input,
                 output,
-                cfg,
+                &cfg,
                 args.tile_compression.into(),
                 filter.as_ref(),
             )),
             ContainerFormat::Mbtiles => {
-                runtime.block_on(convert_mbtiles(args, output, cfg, filter.as_ref()))
+                runtime.block_on(convert_mbtiles(args, output, &cfg, filter.as_ref()))
             }
             ContainerFormat::Files => {
                 unreachable!("`has_archive_input` above rules out a directory input")
@@ -356,7 +438,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
         };
     }
 
-    from_files::convert(&args.input, &args.output, cfg, args.to)
+    from_files::convert(&args.input, &args.output, &cfg, args.to)
 }
 
 /// Converts an `.mbtiles` input, first extracting the requested boxes into a temporary
@@ -364,7 +446,7 @@ pub fn convert(args: &ConvertArgs) -> AnyResult<()> {
 async fn convert_mbtiles(
     args: &ConvertArgs,
     output: (&Path, ContainerFormat),
-    cfg: EncoderConfig,
+    cfg: &ConvertConfig,
     filter: Option<&BboxFilter>,
 ) -> AnyResult<()> {
     let dst_type = args.mbtiles_format.map(MbtType::from);
@@ -386,7 +468,7 @@ async fn convert_mbtiles(
     .await
 }
 
-fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
+fn convert_mlt_buffer(buffer: &[u8], cfg: &ConvertConfig) -> AnyResult<Vec<u8>> {
     let layers = Parser::default().parse_layers(buffer)?;
     let mut dec = Decoder::default();
     let mut out: Vec<u8> = Vec::new();
@@ -403,16 +485,16 @@ fn convert_mlt_buffer(buffer: &[u8], cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
         let tile = layer
             .into_tile(&mut dec)?
             .expect("unknown layers are handled above");
-        out.extend_from_slice(&tile.encode(cfg)?);
+        out.extend_from_slice(&cfg.encode(tile)?);
     }
 
     Ok(out)
 }
 
-fn convert_mvt_buffer(buffer: Vec<u8>, cfg: EncoderConfig) -> AnyResult<Vec<u8>> {
+fn convert_mvt_buffer(buffer: Vec<u8>, cfg: &ConvertConfig) -> AnyResult<Vec<u8>> {
     let mut out: Vec<u8> = Vec::new();
     for tile in mvt_to_tile_layers(buffer)? {
-        out.extend_from_slice(&tile.encode(cfg)?);
+        out.extend_from_slice(&cfg.encode(tile)?);
     }
     Ok(out)
 }
@@ -436,7 +518,7 @@ fn mlt_buffer_to_tile_layers(buffer: &[u8]) -> AnyResult<Vec<mlt_core::TileLayer
     Ok(tiles)
 }
 
-fn encode_one(data: Vec<u8>, encoding: Encoding, cfg: EncoderConfig) -> AnyResult<(Bytes, u64)> {
+fn encode_one(data: Vec<u8>, encoding: Encoding, cfg: &ConvertConfig) -> AnyResult<(Bytes, u64)> {
     let mvt = match encoding {
         Encoding::Gzip => decode_gzip(&data)?,
         Encoding::Zlib => decode_zlib(&data)?,
@@ -453,7 +535,7 @@ fn convert_buffer(
     buffer: Vec<u8>,
     from: TileFormat,
     to: TileFormat,
-    cfg: EncoderConfig,
+    cfg: &ConvertConfig,
 ) -> AnyResult<Vec<u8>> {
     match (from, to) {
         (TileFormat::Mlt, TileFormat::Mlt) => convert_mlt_buffer(&buffer, cfg),
@@ -558,9 +640,12 @@ mod tests {
 
     #[cfg(feature = "unstable-v2")]
     fn round_trip(mvt: Vec<u8>, version: WireVersion, to: TileFormat) -> Vec<u8> {
-        let cfg = EncoderConfig::default().with_wire_version(version);
-        let mlt = convert_buffer(mvt, TileFormat::Mvt, TileFormat::Mlt, cfg).unwrap();
-        convert_buffer(mlt, TileFormat::Mlt, to, cfg).unwrap()
+        let cfg = ConvertConfig {
+            encoder: EncoderConfig::default().with_wire_version(version),
+            ..ConvertConfig::default()
+        };
+        let mlt = convert_buffer(mvt, TileFormat::Mvt, TileFormat::Mlt, &cfg).unwrap();
+        convert_buffer(mlt, TileFormat::Mlt, to, &cfg).unwrap()
     }
 
     /// Feature order is a per-version encoder choice, so only the layers themselves compare.
@@ -714,6 +799,27 @@ mod tests {
     }
 
     #[test]
+    fn verifying_a_conversion_to_mvt_is_rejected() {
+        let err = convert(&parse_args(&["--verify", "--to", "mvt", "src", "dst"])).unwrap_err();
+        insta::assert_snapshot!(err.to_string(), @"--verify checks MLT encoding, so it needs --to mlt");
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn a_field_config_for_a_conversion_to_mvt_is_rejected() {
+        let err = convert(&parse_args(&[
+            "--config",
+            "fields.toml",
+            "--to",
+            "mvt",
+            "src",
+            "dst",
+        ]))
+        .unwrap_err();
+        insta::assert_snapshot!(err.to_string(), @"--config parses fields into MLT columns, so it needs --to mlt");
+    }
+
+    #[test]
     fn converting_an_archive_to_mvt_is_rejected() {
         let err = convert(&parse_args(&["--to", "mvt", "src.mbtiles", "dst.pmtiles"])).unwrap_err();
         insta::assert_snapshot!(
@@ -793,6 +899,89 @@ mod tests {
         let (tile_type, _, coords) = read_archive(&output.0);
         assert_eq!(tile_type, TileType::Mlt);
         assert_eq!(coords, [(0, 0, 0), (1, 1, 0)]);
+    }
+
+    fn verify_omt_conversion(flags: &[&str]) {
+        let input =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test/fixtures/omt.max1.mbtiles");
+        let output = TempPath::new(".pmtiles");
+        let mut argv = vec!["--verify"];
+        argv.extend_from_slice(flags);
+        argv.extend([path_arg(&input), path_arg(&output.0)]);
+        convert(&parse_args(&argv)).expect("every tile decodes back to its input");
+    }
+
+    #[test]
+    fn an_omt_archive_decodes_back_to_its_input() {
+        verify_omt_conversion(&[]);
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn an_omt_archive_decodes_back_to_its_input_through_v2_delta2() {
+        verify_omt_conversion(&["--mlt-version", "2", "--delta2"]);
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    fn field_config(toml: &str) -> TempPath {
+        let config = TempPath::new(".toml");
+        fs::write(&config.0, toml).unwrap();
+        config
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn an_omt_archive_decodes_back_to_its_input_through_a_field_config() {
+        let config = field_config("[layers.water]\nclass = { split = \"-\", kind = \"str\" }\n");
+        verify_omt_conversion(&["--config", path_arg(&config.0)]);
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn an_mbtiles_tile_that_fails_its_field_config_fails_the_conversion() {
+        let input =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test/fixtures/omt.max1.mbtiles");
+        let config = field_config("[layers.water]\nclass = { split = \",\", kind = \"u64\" }\n");
+        let output = TempPath::new(".mbtiles");
+
+        let err = convert(&parse_args(&[
+            "--config",
+            path_arg(&config.0),
+            path_arg(&input),
+            path_arg(&output.0),
+        ]))
+        .unwrap_err();
+
+        assert_eq!(
+            err.to_string(),
+            format!(
+                "2 tiles failed to convert and are missing from {}, the first with: \
+                 layer water: field class of feature 1: \"ocean\" is not a number: \
+                 invalid digit found in string",
+                output.0.display()
+            )
+        );
+    }
+
+    #[cfg(feature = "unstable-v2")]
+    #[test]
+    fn a_field_config_without_v2_is_rejected() {
+        let config = field_config("[layers.water]\nclass = { split = \",\", kind = \"str\" }\n");
+
+        let err = convert(&parse_args(&[
+            "--config",
+            path_arg(&config.0),
+            "--mlt-version",
+            "1",
+            "src.mbtiles",
+            "dst.mbtiles",
+        ]))
+        .unwrap_err();
+
+        insta::assert_snapshot!(
+            err.to_string(),
+            @"--config parses fields into m-values and nested columns, which need --mlt-version 2"
+        );
     }
 
     #[test]

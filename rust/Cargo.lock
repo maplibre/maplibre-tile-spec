@@ -2817,6 +2817,7 @@ dependencies = [
  "thousands",
  "tilejson",
  "tokio",
+ "toml",
  "usize_cast",
  "walkdir",
  "xxhash-rust",

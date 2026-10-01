@@ -8,7 +8,6 @@ use anyhow::{Result as AnyResult, bail};
 use bytes::Bytes;
 use futures::TryStreamExt;
 use martin_tile_utils::Encoding;
-use mlt_core::encoder::EncoderConfig;
 use pmtiles::{
     AsyncPmTilesReader, Compression, HashMapCache, Header, MmapBackend, PmTilesWriter, TileCoord,
     TileId, TileType,
@@ -20,13 +19,13 @@ use super::common::{
     EncodeCache, EncodedTile, PmTilesGeography, TileStats, encode_tile, make_encode_cache,
     make_progress_bar,
 };
-use super::{ContainerFormat, update_mlt_pmtiles_metadata};
+use super::{ContainerFormat, ConvertConfig, update_mlt_pmtiles_metadata};
 
 /// Re-encode a `.pmtiles` input (MVT) into the requested container.
 pub async fn convert(
     input: &Path,
     output: (&Path, ContainerFormat),
-    cfg: EncoderConfig,
+    cfg: &ConvertConfig,
     tile_compression: Compression,
     filter: Option<&BboxFilter>,
 ) -> AnyResult<()> {
@@ -155,7 +154,7 @@ fn spawn_encode_pipeline(
     reader: Arc<PmReader>,
     ids: Vec<TileId>,
     encoding: Encoding,
-    cfg: EncoderConfig,
+    cfg: ConvertConfig,
     cache: EncodeCache,
 ) -> tokio::sync::mpsc::Receiver<AnyResult<EncodedTile>> {
     let parallelism = thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
@@ -224,9 +223,10 @@ fn spawn_encode_pipeline(
                 let raw_rx = raw_rx.clone();
                 let res_tx = res_tx.clone();
                 let cache = cache.clone();
+                let cfg = cfg.clone();
                 thread::spawn(move || {
                     for (seq, coord, data) in raw_rx {
-                        let result = encode_tile(&cache, &data, encoding, cfg).map(
+                        let result = encode_tile(&cache, &data, encoding, &cfg).map(
                             |(data, raw_mvt_size, hit)| {
                                 (
                                     seq,
@@ -290,7 +290,7 @@ fn spawn_encode_pipeline(
 async fn convert_pmtiles_to_pmtiles(
     input: &Path,
     output: &Path,
-    cfg: EncoderConfig,
+    cfg: &ConvertConfig,
     tile_compression: Compression,
     filter: Option<&BboxFilter>,
 ) -> AnyResult<()> {
@@ -332,7 +332,7 @@ async fn convert_pmtiles_to_pmtiles(
         .metadata(&metadata_str)
         .create(file)?;
 
-    let mut tiles = spawn_encode_pipeline(reader, ids, encoding, cfg, make_encode_cache());
+    let mut tiles = spawn_encode_pipeline(reader, ids, encoding, cfg.clone(), make_encode_cache());
     let mut stats = TileStats::default();
     // The bar renders nothing when stderr isn't a terminal, so log progress periodically instead.
     let log_progress = bar.is_hidden();
@@ -458,7 +458,7 @@ mod tests {
         convert_pmtiles_to_pmtiles(
             &input,
             &output.0,
-            EncoderConfig::default(),
+            &ConvertConfig::default(),
             Compression::None,
             Some(&filter),
         )
@@ -508,7 +508,7 @@ mod tests {
         convert_pmtiles_to_pmtiles(
             &input,
             &output.0,
-            EncoderConfig::default(),
+            &ConvertConfig::default(),
             Compression::Gzip,
             None,
         )

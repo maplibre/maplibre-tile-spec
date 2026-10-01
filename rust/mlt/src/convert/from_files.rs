@@ -14,7 +14,7 @@ use usize_cast::FromUsize as _;
 use walkdir::WalkDir;
 use xxhash_rust::xxh3::xxh3_128;
 
-use super::{EncoderConfig, TileFormat, convert_buffer, whole_rate_per_sec};
+use super::{ConvertConfig, TileFormat, convert_buffer, whole_rate_per_sec};
 
 /// Only tiles below this size are cached; larger tiles rarely repeat across a tileset.
 const MAX_TILE_TRACK_SIZE: usize = 1024;
@@ -82,13 +82,13 @@ fn is_convert_extension(path: &Path) -> bool {
 struct WalkCtx<'a> {
     base: &'a Path,
     output: &'a Path,
-    cfg: EncoderConfig,
+    cfg: &'a ConvertConfig,
     to: TileFormat,
     cache: &'a EncodedCache,
     stats: &'a DedupStats,
 }
 
-pub fn convert(input: &Path, output: &Path, cfg: EncoderConfig, to: TileFormat) -> AnyResult<()> {
+pub fn convert(input: &Path, output: &Path, cfg: &ConvertConfig, to: TileFormat) -> AnyResult<()> {
     // For a single file, use the parent so `strip_prefix` yields just the filename.
     let base = if input.is_dir() {
         input
@@ -353,7 +353,7 @@ mod tests {
         let ctx = WalkCtx {
             base: &base,
             output: &output,
-            cfg: EncoderConfig::default(),
+            cfg: &ConvertConfig::default(),
             to: TileFormat::Mlt,
             cache: &cache,
             stats: &stats,
@@ -393,7 +393,7 @@ mod tests {
         let ctx = WalkCtx {
             base: &base,
             output: &output,
-            cfg: EncoderConfig::default(),
+            cfg: &ConvertConfig::default(),
             to: TileFormat::Mvt,
             cache: &cache,
             stats: &stats,
@@ -425,7 +425,7 @@ mod tests {
         let ctx = WalkCtx {
             base: &base,
             output: &output,
-            cfg: EncoderConfig::default(),
+            cfg: &ConvertConfig::default(),
             to: TileFormat::Mlt,
             cache: &cache,
             stats: &stats,
@@ -449,7 +449,7 @@ mod tests {
         let input = tree.join("in");
         let output = tree.join("out");
 
-        convert(&input, &output, EncoderConfig::default(), TileFormat::Mlt)
+        convert(&input, &output, &ConvertConfig::default(), TileFormat::Mlt)
             .expect("the directory converts");
 
         assert_eq!(
@@ -475,7 +475,7 @@ mod tests {
         let input = tree.write("in/point.mvt", &read_fixture(POINT_MVT));
         let output = tree.join("out");
 
-        convert(&input, &output, EncoderConfig::default(), TileFormat::Mlt)
+        convert(&input, &output, &ConvertConfig::default(), TileFormat::Mlt)
             .expect("the file converts");
 
         assert_eq!(output_paths(&output), [PathBuf::from("point.mlt")]);
@@ -492,7 +492,7 @@ mod tests {
         let input = tree.join("in");
         let output = tree.join("out");
 
-        convert(&input, &output, EncoderConfig::default(), TileFormat::Mlt)
+        convert(&input, &output, &ConvertConfig::default(), TileFormat::Mlt)
             .expect("a directory without tiles is not an error");
 
         assert_eq!(output_paths(&output), Vec::<PathBuf>::new());
@@ -506,7 +506,7 @@ mod tests {
         let input = tree.join("in");
         let output = tree.join("out");
 
-        let err = convert(&input, &output, EncoderConfig::default(), TileFormat::Mlt)
+        let err = convert(&input, &output, &ConvertConfig::default(), TileFormat::Mlt)
             .expect_err("a broken tile fails the walk");
 
         assert_eq!(err.to_string(), "1 file(s) failed to convert");

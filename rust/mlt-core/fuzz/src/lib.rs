@@ -1,5 +1,7 @@
 mod decoded_layer;
 mod differential;
+mod field_config;
+mod field_values;
 mod layer;
 mod mvt_roundtrip;
 mod roundtrip;
@@ -7,6 +9,8 @@ mod wire_version;
 mod z;
 pub use decoded_layer::*;
 pub use differential::*;
+pub use field_config::*;
+pub use field_values::*;
 pub use layer::*;
 pub use mvt_roundtrip::*;
 pub use wire_version::*;
