@@ -2881,7 +2881,6 @@ A decoder MUST select the variant by the layer tag.</p>
 <li><strong>RLE / DeltaRLE</strong>: interleaved varint <code>(run_length, value)</code> pairs with no run count. v1 writes all runs, then all values, and stores <code>runs</code> in the header.</li>
 <li><strong>BitPacked</strong>: <code>[u8 width][ceil(count * width / 8) bytes]</code>. Values are laid LSB-first end to end, so value <code>i</code> occupies bits <code>i * width ..</code>. <code>width</code> is <code>1</code>-<code>32</code>.</li>
 <li><strong>Dict</strong> on a float column: one code per element, followed by a second stream of the distinct values.</li>
-<li><strong>Morton</strong> on a vertex stream: always delta-coded over a sorted dictionary. v2 has no plain or RLE Morton encoding.</li>
 <li><strong>Delta2</strong> and <strong>Componentwise Delta2</strong>: second differences, each ZigZag-coded, over the physical encodings Delta admits.</li>
 <li><strong>FrontCoded</strong> on a byte blob: a sorted dictionary stored as shared-prefix lengths plus suffixes.</li>
 </ul>

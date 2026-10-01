@@ -1798,36 +1798,11 @@ The reference Rust codec spreads all 16 bits of an axis at once with masks, whic
 </span><span id="__span-29-23"><a id="__codelineno-29-23" name="__codelineno-29-23" href="#__codelineno-29-23"></a><span class="kd">let</span><span class="w"> </span><span class="n">sy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">compact</span><span class="p">(</span><span class="n">code</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
 </span></code></pre></div>
 <p>The codes are stored as an integer stream of unsigned 32-bit words.
-The variants:</p>
-<table>
-<thead>
-<tr>
-<th>Encoding</th>
-<th>Payload</th>
-<th>Versions</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Morton</code></td>
-<td>The codes themselves</td>
-<td>v1</td>
-</tr>
-<tr>
-<td><code>MortonDelta</code></td>
-<td>The first code, then each code's difference to the previous one</td>
-<td>v1, v2</td>
-</tr>
-<tr>
-<td><code>MortonRle</code></td>
-<td>Reserved in v1. The reference Rust decoder rejects it</td>
-<td>v1</td>
-</tr>
-</tbody>
-</table>
+The stream holds the first code, then each code's difference to the previous one.
+v1 names this <code>MortonDelta</code>, v2 names it <code>Morton</code> in the <code>Vertex</code> family.
+There is no plain or RLE Morton encoding.</p>
 <p>The deltas are plain differences, not ZigZag-coded.
-The dictionary is sorted ascending by code, so every difference is non-negative.
-v2 only has <code>MortonDelta</code> over a sorted dictionary, and names it <code>Morton</code> in the <code>Vertex</code> family.</p>
+The dictionary is sorted ascending by code, so every difference is non-negative.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>dict codes: [27, 30, 45]
 </span><span id="__span-30-2"><a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>words:      [27, 3, 15]
 </span></code></pre></div>
