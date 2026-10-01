@@ -121,4 +121,4 @@ required-features = ["__private-v2"]
 
 [[test]]
 name = "tag02_roundtrip"
-required-features = ["unstable-v2"]
+required-features = ["__private-v2"]
