@@ -239,7 +239,6 @@ impl<'feat, 'layer: 'feat> FeatureRef<'feat, 'layer> {
     /// - `None` - the slot is null / absent.
     ///
     /// Use [`Layer01::iterate_prop_names`] to pair values with their column names.
-    #[must_use]
     pub fn iter_all_properties(
         &self,
     ) -> impl ExactSizeIterator<Item = Option<PropValueRef<'layer>>>
@@ -253,7 +252,6 @@ impl<'feat, 'layer: 'feat> FeatureRef<'feat, 'layer> {
     ///
     /// `SharedDict` columns are transparently expanded into one [`ColumnRef`] per sub-item.
     /// Null / absent values are skipped entirely. The iterator is infallible.
-    #[must_use]
     pub fn iter_properties(
         &self,
     ) -> impl DoubleEndedIterator<Item = ColumnRef<'layer>> + FusedIterator + '_ {
