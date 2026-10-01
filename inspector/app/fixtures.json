@@ -38363,6 +38363,380 @@
     }
   },
   {
+    "name": "z_line.mlt",
+    "directory": "0x02",
+    "bytes": 31,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "line-string"
+      ],
+      "geomLayout": [
+        "lines"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[parts]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "xyz"
+      ]
+    }
+  },
+  {
+    "name": "z_line_fpf.mlt",
+    "directory": "0x02",
+    "bytes": 43,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "line-string"
+      ],
+      "geomLayout": [
+        "lines"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[parts]"
+      ],
+      "physical": [
+        "fastpfor[128le]"
+      ],
+      "logical": [
+        "xyz"
+      ]
+    }
+  },
+  {
+    "name": "z_mix.mlt",
+    "directory": "0x02",
+    "bytes": 145,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "line-string",
+        "multi-line-string",
+        "multi-point",
+        "multi-polygon",
+        "point",
+        "polygon"
+      ],
+      "geomLayout": [
+        "multi-polygons"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[var-binary]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "xyz"
+      ]
+    }
+  },
+  {
+    "name": "z_mvalues.mlt",
+    "directory": "0x02",
+    "bytes": 43,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "line-string"
+      ],
+      "geomLayout": [
+        "lines"
+      ],
+      "dataType": [],
+      "mValue": [
+        "u32"
+      ],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data",
+        "data[vertex]",
+        "length[parts]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "delta",
+        "xyz"
+      ]
+    }
+  },
+  {
+    "name": "z_point.mlt",
+    "directory": "0x02",
+    "bytes": 21,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "point"
+      ],
+      "geomLayout": [
+        "points"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "xyz"
+      ]
+    }
+  },
+  {
+    "name": "z_points.mlt",
+    "directory": "0x02",
+    "bytes": 32,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "point"
+      ],
+      "geomLayout": [
+        "points"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "xyz"
+      ]
+    }
+  },
+  {
+    "name": "z_points_hilbert.mlt",
+    "directory": "0x02",
+    "bytes": 38,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "point"
+      ],
+      "geomLayout": [
+        "points-dict"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "offset[vertex]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "xyz"
+      ]
+    }
+  },
+  {
+    "name": "z_poly_hole.mlt",
+    "directory": "0x02",
+    "bytes": 46,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "polygon"
+      ],
+      "geomLayout": [
+        "polygons"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[parts]",
+        "length[rings]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "xyz"
+      ]
+    }
+  },
+  {
+    "name": "z_poly_hole_tes.mlt",
+    "directory": "0x02",
+    "bytes": 73,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "polygon"
+      ],
+      "geomLayout": [
+        "tess-polygons-with-outlines"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[geometries]",
+        "length[parts]",
+        "length[rings]",
+        "length[triangles]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "xyz"
+      ]
+    }
+  },
+  {
+    "name": "z_poly_hole_tri.mlt",
+    "directory": "0x02",
+    "bytes": 62,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "polygon"
+      ],
+      "geomLayout": [
+        "tess-polygons"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]",
+        "length[triangles]",
+        "offset[index]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "xyz"
+      ]
+    }
+  },
+  {
+    "name": "z_step_coarsest.mlt",
+    "directory": "0x02",
+    "bytes": 22,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "point"
+      ],
+      "geomLayout": [
+        "points"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "xyz"
+      ]
+    }
+  },
+  {
+    "name": "z_step_finest.mlt",
+    "directory": "0x02",
+    "bytes": 25,
+    "facets": {
+      "extent": [
+        "64"
+      ],
+      "geometry": [
+        "point"
+      ],
+      "geomLayout": [
+        "points"
+      ],
+      "dataType": [],
+      "mValue": [],
+      "strLayout": [],
+      "dictLayout": [],
+      "streamType": [
+        "data[vertex]"
+      ],
+      "physical": [
+        "varint"
+      ],
+      "logical": [
+        "xyz"
+      ]
+    }
+  },
+  {
     "name": "line-boolean.mlt",
     "directory": "0x01-simple",
     "bytes": 56,
