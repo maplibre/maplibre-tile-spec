@@ -1,10 +1,11 @@
-//! Checks how `mlt convert --config` parses string properties into typed columns, and what `--verify` accepts.
+//! Checks how `mlt convert --fields` parses string properties into typed columns, and what `--verify` accepts.
 #![cfg(all(feature = "unstable-v2", not(feature = "hotpath")))]
 
 use std::fmt::Write as _;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
+use std::thread;
 
 use mlt::convert::fields::FieldConfig;
 use mlt_core::encoder::{EncoderConfig, WireVersion};
@@ -17,7 +18,6 @@ use mlt_core::{
 #[test]
 fn comma_separated_u64s_become_a_list() {
     let report = parsed(
-        "comma_separated_u64s_become_a_list",
         "[layers.l]\nf = { split = ',', kind = 'u64' }",
         &[(2, "5,6"), (2, "18446744073709551615,0")],
     );
@@ -30,7 +30,6 @@ fn comma_separated_u64s_become_a_list() {
 #[test]
 fn strings_split_at_a_character_keep_empty_and_padded_items() {
     let report = parsed(
-        "strings_split_at_a_character_keep_empty_and_padded_items",
         "[layers.l]\nf = { split = ';', kind = 'str' }",
         &[
             (2, "cafe;wifi"),
@@ -50,7 +49,6 @@ fn strings_split_at_a_character_keep_empty_and_padded_items() {
 #[test]
 fn a_sign_split_starts_a_value_at_each_sign_after_the_first() {
     let report = parsed(
-        "a_sign_split_starts_a_value_at_each_sign_after_the_first",
         "[layers.l]\nf = { split = 'sign', kind = 'i32' }",
         &[(2, "10+1-2+0"), (2, "-5-5"), (2, "-2147483648+2147483647")],
     );
@@ -64,7 +62,6 @@ fn a_sign_split_starts_a_value_at_each_sign_after_the_first() {
 #[test]
 fn a_running_sum_adds_each_value_to_the_one_before() {
     let report = parsed(
-        "a_running_sum_adds_each_value_to_the_one_before",
         "[layers.l]\nf = { split = 'sign', kind = 'i64', running-sum = true }",
         &[(2, "10+1-2+0"), (2, "-100+0-1")],
     );
@@ -77,7 +74,6 @@ fn a_running_sum_adds_each_value_to_the_one_before() {
 #[test]
 fn a_running_sum_of_unsigned_values_takes_negative_differences() {
     let report = parsed(
-        "a_running_sum_of_unsigned_values_takes_negative_differences",
         "[layers.l]\nf = { split = ',', kind = 'u32', running-sum = true }",
         &[(2, "3,1,0,2"), (2, "4,-1")],
     );
@@ -90,7 +86,6 @@ fn a_running_sum_of_unsigned_values_takes_negative_differences() {
 #[test]
 fn a_running_sum_becomes_one_m_value_per_vertex() {
     let report = parsed(
-        "a_running_sum_becomes_one_m_value_per_vertex",
         "[layers.l]\nf = { split = 'sign', kind = 'i32', running-sum = true, into = 'm-value' }",
         &[(4, "10+1-2+0")],
     );
@@ -100,7 +95,6 @@ fn a_running_sum_becomes_one_m_value_per_vertex() {
 #[test]
 fn u32s_become_one_m_value_per_vertex() {
     let report = parsed(
-        "u32s_become_one_m_value_per_vertex",
         "[layers.l]\nf = { split = ',', kind = 'u32', into = 'm-value' }",
         &[(3, "0,7,4294967295")],
     );
@@ -110,7 +104,6 @@ fn u32s_become_one_m_value_per_vertex() {
 #[test]
 fn i64s_become_one_m_value_per_vertex() {
     let report = parsed(
-        "i64s_become_one_m_value_per_vertex",
         "[layers.l]\nf = { split = 'sign', kind = 'i64', into = 'm-value' }",
         &[(2, "-9223372036854775808+9223372036854775807")],
     );
@@ -120,7 +113,6 @@ fn i64s_become_one_m_value_per_vertex() {
 #[test]
 fn strings_become_one_m_value_per_vertex() {
     let report = parsed(
-        "strings_become_one_m_value_per_vertex",
         "[layers.l]\nf = { split = '|', kind = 'str', into = 'm-value' }",
         &[(3, "gravel|gravel|asphalt"), (3, "gravel||")],
     );
@@ -133,7 +125,6 @@ fn strings_become_one_m_value_per_vertex() {
 #[test]
 fn z_and_unparsed_properties_are_kept() {
     let out = convert(
-        "z_and_unparsed_properties_are_kept",
         "[layers.l]\nf = { split = ',', kind = 'u64' }",
         strings(&[(2, "5,6")]),
     )
@@ -151,7 +142,6 @@ fn z_and_unparsed_properties_are_kept() {
 #[test]
 fn a_leading_zero_is_rejected() {
     let err = convert(
-        "a_leading_zero_is_rejected",
         "[layers.l]\nf = { split = ',', kind = 'u64' }",
         strings(&[(2, "007,1")]),
     );
@@ -164,7 +154,6 @@ fn a_leading_zero_is_rejected() {
 #[test]
 fn a_space_after_the_split_is_rejected() {
     let err = convert(
-        "a_space_after_the_split_is_rejected",
         "[layers.l]\nf = { split = ',', kind = 'u64' }",
         strings(&[(2, "5, 6")]),
     );
@@ -177,12 +166,11 @@ fn a_space_after_the_split_is_rejected() {
 #[test]
 fn a_negative_u64_is_rejected() {
     let err = convert(
-        "a_negative_u64_is_rejected",
         "[layers.l]\nf = { split = ',', kind = 'u64' }",
         strings(&[(2, "-1")]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @r#"
-    error: in/tile.mlt: converting MLT in/tile.mlt: layer l: field f of feature 1: "-1" is not a number: invalid digit found in string
+    error: in/tile.mlt: converting MLT in/tile.mlt: layer l: field f of feature 1: "-1" does not fit u64
     Error: 1 file(s) failed to convert
     "#);
 }
@@ -190,7 +178,6 @@ fn a_negative_u64_is_rejected() {
 #[test]
 fn a_plus_on_the_first_value_is_rejected() {
     let err = convert(
-        "a_plus_on_the_first_value_is_rejected",
         "[layers.l]\nf = { split = 'sign', kind = 'i32' }",
         strings(&[(2, "+7")]),
     );
@@ -203,7 +190,6 @@ fn a_plus_on_the_first_value_is_rejected() {
 #[test]
 fn two_signs_in_a_row_are_rejected() {
     let err = convert(
-        "two_signs_in_a_row_are_rejected",
         "[layers.l]\nf = { split = 'sign', kind = 'i32' }",
         strings(&[(2, "10++1")]),
     );
@@ -216,7 +202,6 @@ fn two_signs_in_a_row_are_rejected() {
 #[test]
 fn a_running_sum_past_the_kind_is_rejected() {
     let err = convert(
-        "a_running_sum_past_the_kind_is_rejected",
         "[layers.l]\nf = { split = 'sign', kind = 'i64', running-sum = true }",
         strings(&[(2, "9223372036854775807+1")]),
     );
@@ -229,7 +214,6 @@ fn a_running_sum_past_the_kind_is_rejected() {
 #[test]
 fn a_running_sum_below_zero_for_unsigned_values_is_rejected() {
     let err = convert(
-        "a_running_sum_below_zero_for_unsigned_values_is_rejected",
         "[layers.l]\nf = { split = ',', kind = 'u32', running-sum = true }",
         strings(&[(2, "4,-5")]),
     );
@@ -242,7 +226,6 @@ fn a_running_sum_below_zero_for_unsigned_values_is_rejected() {
 #[test]
 fn a_plus_on_a_comma_separated_difference_is_rejected() {
     let err = convert(
-        "a_plus_on_a_comma_separated_difference_is_rejected",
         "[layers.l]\nf = { split = ',', kind = 'u32', running-sum = true }",
         strings(&[(2, "4,+1")]),
     );
@@ -255,7 +238,6 @@ fn a_plus_on_a_comma_separated_difference_is_rejected() {
 #[test]
 fn more_m_values_than_vertices_are_rejected() {
     let err = convert(
-        "more_m_values_than_vertices_are_rejected",
         "[layers.l]\nf = { split = 'sign', kind = 'i32', into = 'm-value' }",
         strings(&[(2, "10+1-2")]),
     );
@@ -268,7 +250,6 @@ fn more_m_values_than_vertices_are_rejected() {
 #[test]
 fn fewer_m_values_than_vertices_are_rejected() {
     let err = convert(
-        "fewer_m_values_than_vertices_are_rejected",
         "[layers.l]\nf = { split = 'sign', kind = 'i32', into = 'm-value' }",
         strings(&[(4, "10+1-2")]),
     );
@@ -293,7 +274,6 @@ fn a_configured_field_that_is_already_a_nested_column_is_rejected() {
     row.finish().unwrap();
 
     let err = convert(
-        "a_configured_field_that_is_already_a_nested_column_is_rejected",
         "[layers.l]\nf = { split = ',', kind = 'u64' }",
         layer.finish(),
     );
@@ -307,12 +287,11 @@ fn a_configured_field_that_is_already_a_nested_column_is_rejected() {
 #[test]
 fn a_running_sum_on_strings_is_rejected() {
     let err = convert(
-        "a_running_sum_on_strings_is_rejected",
         "[layers.l]\nf = { split = ';', kind = 'str', running-sum = true }",
         strings(&[]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @"
-    Error: parsing config.toml
+    Error: parsing fields.toml
 
     Caused by:
         TOML parse error at line 2, column 5
@@ -326,12 +305,11 @@ fn a_running_sum_on_strings_is_rejected() {
 #[test]
 fn a_sign_split_on_strings_is_rejected() {
     let err = convert(
-        "a_sign_split_on_strings_is_rejected",
         "[layers.l]\nf = { split = 'sign', kind = 'str' }",
         strings(&[]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @"
-    Error: parsing config.toml
+    Error: parsing fields.toml
 
     Caused by:
         TOML parse error at line 2, column 5
@@ -345,12 +323,11 @@ fn a_sign_split_on_strings_is_rejected() {
 #[test]
 fn a_minus_as_the_split_for_numbers_is_rejected() {
     let err = convert(
-        "a_minus_as_the_split_for_numbers_is_rejected",
         "[layers.l]\nf = { split = '-', kind = 'i32' }",
         strings(&[]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @"
-    Error: parsing config.toml
+    Error: parsing fields.toml
 
     Caused by:
         TOML parse error at line 2, column 5
@@ -364,12 +341,11 @@ fn a_minus_as_the_split_for_numbers_is_rejected() {
 #[test]
 fn a_digit_as_the_split_for_numbers_is_rejected() {
     let err = convert(
-        "a_digit_as_the_split_for_numbers_is_rejected",
         "[layers.l]\nf = { split = '0', kind = 'u32' }",
         strings(&[]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @"
-    Error: parsing config.toml
+    Error: parsing fields.toml
 
     Caused by:
         TOML parse error at line 2, column 5
@@ -383,12 +359,11 @@ fn a_digit_as_the_split_for_numbers_is_rejected() {
 #[test]
 fn a_split_of_two_characters_is_rejected() {
     let err = convert(
-        "a_split_of_two_characters_is_rejected",
         "[layers.l]\nf = { split = ', ', kind = 'u64' }",
         strings(&[]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @r#"
-    Error: parsing config.toml
+    Error: parsing fields.toml
 
     Caused by:
         TOML parse error at line 2, column 15
@@ -402,12 +377,11 @@ fn a_split_of_two_characters_is_rejected() {
 #[test]
 fn an_unknown_key_is_rejected() {
     let err = convert(
-        "an_unknown_key_is_rejected",
         "[layers.l]\nf = { split = ',', kind = 'u64', delta = true }",
         strings(&[]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @"
-    Error: parsing config.toml
+    Error: parsing fields.toml
 
     Caused by:
         TOML parse error at line 2, column 34
@@ -421,12 +395,11 @@ fn an_unknown_key_is_rejected() {
 #[test]
 fn an_unknown_column_is_rejected() {
     let err = convert(
-        "an_unknown_column_is_rejected",
         "[layers.l]\nf = { split = 'sign', kind = 'i32', into = 'z' }",
         strings(&[]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @"
-    Error: parsing config.toml
+    Error: parsing fields.toml
 
     Caused by:
         TOML parse error at line 2, column 44
@@ -439,13 +412,9 @@ fn an_unknown_column_is_rejected() {
 
 #[test]
 fn a_misspelled_layers_table_is_rejected() {
-    let err = convert(
-        "a_misspelled_layers_table_is_rejected",
-        "[layer.l]\nf = { split = ',', kind = 'u64' }",
-        strings(&[]),
-    );
+    let err = convert("[layer.l]\nf = { split = ',', kind = 'u64' }", strings(&[]));
     insta::assert_snapshot!(err.unwrap_err(), @"
-    Error: parsing config.toml
+    Error: parsing fields.toml
 
     Caused by:
         TOML parse error at line 1, column 2
@@ -459,12 +428,11 @@ fn a_misspelled_layers_table_is_rejected() {
 #[test]
 fn an_unknown_key_in_a_form_table_is_rejected() {
     let err = convert(
-        "an_unknown_key_in_a_form_table_is_rejected",
         "[layers.l.f]\nsplit = ','\nkind = 'u64'\ndelta = true",
         strings(&[]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @"
-    Error: parsing config.toml
+    Error: parsing fields.toml
 
     Caused by:
         TOML parse error at line 4, column 1
@@ -478,12 +446,11 @@ fn an_unknown_key_in_a_form_table_is_rejected() {
 #[test]
 fn a_snake_case_column_is_rejected() {
     let err = convert(
-        "a_snake_case_column_is_rejected",
         "[layers.l]\nf = { split = ',', kind = 'u64', into = 'm_value' }",
         strings(&[]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @"
-    Error: parsing config.toml
+    Error: parsing fields.toml
 
     Caused by:
         TOML parse error at line 2, column 41
@@ -495,14 +462,58 @@ fn a_snake_case_column_is_rejected() {
 }
 
 #[test]
+fn a_snake_case_running_sum_is_rejected() {
+    let err = convert(
+        "[layers.l]\nf = { split = ',', kind = 'u64', running_sum = true }",
+        strings(&[]),
+    );
+    insta::assert_snapshot!(err.unwrap_err(), @"
+    Error: parsing fields.toml
+
+    Caused by:
+        TOML parse error at line 2, column 34
+          |
+        2 | f = { split = ',', kind = 'u64', running_sum = true }
+          |                                  ^^^^^^^^^^^
+        unknown field `running_sum`, expected one of `split`, `kind`, `running-sum`, `into`
+    ");
+}
+
+#[test]
+fn an_upper_case_kind_is_rejected() {
+    let err = convert(
+        "[layers.l]\nf = { split = ',', kind = 'U64' }",
+        strings(&[]),
+    );
+    insta::assert_snapshot!(err.unwrap_err(), @"
+    Error: parsing fields.toml
+
+    Caused by:
+        TOML parse error at line 2, column 27
+          |
+        2 | f = { split = ',', kind = 'U64' }
+          |                           ^^^^^
+        unknown variant `U64`, expected one of `i32`, `u32`, `i64`, `u64`, `str`
+    ");
+}
+
+#[test]
+fn layers_and_fields_no_applied_layer_held_are_unused() {
+    let fields: FieldConfig = "[layers.l]\nf = { split = ',', kind = 'u64' }\ntypo = { split = ',', kind = 'u64' }\n[layers.other]\nf = { split = ',', kind = 'u64' }"
+        .parse()
+        .unwrap();
+    fields.apply(strings(&[(2, "5,6")])).unwrap();
+    assert_eq!(fields.unused(), ["field typo of layer l", "layer other"]);
+}
+
+#[test]
 fn an_unknown_kind_is_rejected() {
     let err = convert(
-        "an_unknown_kind_is_rejected",
         "[layers.l]\nf = { split = ',', kind = 'f32' }",
         strings(&[]),
     );
     insta::assert_snapshot!(err.unwrap_err(), @"
-    Error: parsing config.toml
+    Error: parsing fields.toml
 
     Caused by:
         TOML parse error at line 2, column 27
@@ -515,13 +526,9 @@ fn an_unknown_kind_is_rejected() {
 
 #[test]
 fn a_missing_kind_is_rejected() {
-    let err = convert(
-        "a_missing_kind_is_rejected",
-        "[layers.l]\nf = { split = ',' }",
-        strings(&[]),
-    );
+    let err = convert("[layers.l]\nf = { split = ',' }", strings(&[]));
     insta::assert_snapshot!(err.unwrap_err(), @"
-    Error: parsing config.toml
+    Error: parsing fields.toml
 
     Caused by:
         TOML parse error at line 2, column 5
@@ -535,7 +542,6 @@ fn a_missing_kind_is_rejected() {
 #[test]
 fn a_null_field_stays_null_in_a_list() {
     let out = convert(
-        "a_null_field_stays_null_in_a_list",
         "[layers.l]\nf = { split = ',', kind = 'u64' }",
         strings_or_null(&[(2, Some("5,6")), (2, None)]),
     )
@@ -547,7 +553,6 @@ fn a_null_field_stays_null_in_a_list() {
 #[test]
 fn a_null_field_stays_null_in_an_m_value_column() {
     let out = convert(
-        "a_null_field_stays_null_in_an_m_value_column",
         "[layers.l]\nf = { split = ',', kind = 'u64', into = 'm-value' }",
         strings_or_null(&[(2, Some("5,6")), (2, None)]),
     )
@@ -578,7 +583,6 @@ fn existing_m_values_and_nested_columns_are_kept() {
     row.finish().unwrap();
 
     let out = convert(
-        "existing_m_values_and_nested_columns_are_kept",
         "[layers.l]\nf = { split = ',', kind = 'u64' }",
         layer.finish(),
     )
@@ -609,7 +613,6 @@ fn a_configured_property_that_is_not_a_string_is_rejected() {
     row.finish().unwrap();
 
     let err = convert(
-        "a_configured_property_that_is_not_a_string_is_rejected",
         "[layers.l]\nf = { split = ',', kind = 'u64' }",
         layer.finish(),
     );
@@ -629,7 +632,6 @@ fn a_rejected_feature_without_an_id_is_named_by_its_field_alone() {
     row.finish().unwrap();
 
     let err = convert(
-        "a_rejected_feature_without_an_id_is_named_by_its_field_alone",
         "[layers.l]\nf = { split = ',', kind = 'u64' }",
         layer.finish(),
     );
@@ -725,48 +727,26 @@ fn every_column_kind_survives_verify() {
         row.finish().unwrap();
     }
 
-    run("every_column_kind_survives_verify", None, layer.finish()).unwrap();
+    run(None, layer.finish()).unwrap();
 }
 
 #[test]
 fn an_empty_mvt_layer_survives_verify() {
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
-        .join("convert_config")
-        .join("an_empty_mvt_layer_survives_verify");
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(dir.join("in")).unwrap();
     let mvt = tile_layers_to_mvt(vec![TileLayer::new("l", 4096).unwrap()]).unwrap();
-    fs::write(dir.join("in/tile.mvt"), mvt).unwrap();
-
-    let out = Command::new(env!("CARGO_BIN_EXE_mlt"))
-        .arg("convert")
-        .arg("--verify")
-        .arg(dir.join("in"))
-        .arg(dir.join("out"))
-        .output()
-        .expect("mlt convert");
-
-    assert!(
-        out.status.success(),
-        "{}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    assert_eq!(
-        fs::read(dir.join("out/tile.mlt")).unwrap(),
-        Vec::<u8>::new()
-    );
+    let mlt = run_tile(None, "tile.mvt", &mvt).unwrap();
+    assert_eq!(mlt, Vec::<u8>::new());
 }
 
 #[test]
 fn an_empty_string_list_is_not_restored() {
     let err = restored("[layers.l]\nf = { split = ',', kind = 'str' }", &[]).unwrap_err();
-    insta::assert_snapshot!(format!("{err:#}"), @r#"layer l: field f of feature 1: Str([]) formats as "", which parses to other values"#);
+    insta::assert_snapshot!(format!("{err:#}"), @r#"layer l: field f of feature 1: Strings([]) formats as "", which parses to other values"#);
 }
 
 #[test]
 fn a_string_holding_the_split_is_not_restored() {
     let err = restored("[layers.l]\nf = { split = ',', kind = 'str' }", &["a,b"]).unwrap_err();
-    insta::assert_snapshot!(format!("{err:#}"), @r#"layer l: field f of feature 1: Str(["a,b"]) formats as "a,b", which parses to other values"#);
+    insta::assert_snapshot!(format!("{err:#}"), @r#"layer l: field f of feature 1: Strings(["a,b"]) formats as "a,b", which parses to other values"#);
 }
 
 fn restored(config: &str, items: &[&str]) -> anyhow::Result<TileLayer> {
@@ -787,24 +767,36 @@ fn restored(config: &str, items: &[&str]) -> anyhow::Result<TileLayer> {
         .restore(layer.finish())
 }
 
-fn convert(name: &str, config: &str, layer: TileLayer) -> Result<TileLayer, String> {
-    run(name, Some(config), layer)
+fn convert(config: &str, layer: TileLayer) -> Result<TileLayer, String> {
+    run(Some(config), layer)
 }
 
-fn run(name: &str, config: Option<&str>, layer: TileLayer) -> Result<TileLayer, String> {
+/// `layer` encoded as v2, converted with `--verify` and the `--fields` file `config`, and decoded again.
+fn run(config: Option<&str>, layer: TileLayer) -> Result<TileLayer, String> {
+    let v2 = EncoderConfig::default().with_wire_version(WireVersion::V02);
+    let bytes = run_tile(config, "tile.mlt", &layer.encode(v2).unwrap())?;
+    let [layer] = <[_; 1]>::try_from(Parser::default().parse_layers(&bytes).unwrap()).unwrap();
+    Ok(layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+}
+
+/// The bytes `mlt convert --verify` writes for the tile `file` holding `bytes`, or its stderr if it fails.
+fn run_tile(config: Option<&str>, file: &str, bytes: &[u8]) -> Result<Vec<u8>, String> {
+    let name = thread::current()
+        .name()
+        .expect("libtest names each test's thread")
+        .to_owned();
     let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
-        .join("convert_config")
+        .join("convert_fields")
         .join(name);
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(dir.join("in")).unwrap();
-    let v2 = EncoderConfig::default().with_wire_version(WireVersion::V02);
-    fs::write(dir.join("in/tile.mlt"), layer.encode(v2).unwrap()).unwrap();
+    fs::write(dir.join("in").join(file), bytes).unwrap();
 
     let mut command = Command::new(env!("CARGO_BIN_EXE_mlt"));
     command.arg("convert").arg("--verify");
     if let Some(config) = config {
-        fs::write(dir.join("config.toml"), config).unwrap();
-        command.arg("--config").arg(dir.join("config.toml"));
+        fs::write(dir.join("fields.toml"), config).unwrap();
+        command.arg("--fields").arg(dir.join("fields.toml"));
     }
     let out = command
         .arg(dir.join("in"))
@@ -816,14 +808,11 @@ fn run(name: &str, config: Option<&str>, layer: TileLayer) -> Result<TileLayer, 
         let stderr = String::from_utf8(out.stderr).unwrap();
         return Err(stderr.replace(&format!("{}/", dir.display()), ""));
     }
-
-    let bytes = fs::read(dir.join("out/tile.mlt")).unwrap();
-    let [layer] = <[_; 1]>::try_from(Parser::default().parse_layers(&bytes).unwrap()).unwrap();
-    Ok(layer.into_tile(&mut Decoder::default()).unwrap().unwrap())
+    Ok(fs::read(dir.join("out/tile.mlt")).unwrap())
 }
 
-fn parsed(name: &str, config: &str, cases: &[(i32, &str)]) -> String {
-    let out = convert(name, config, strings(cases)).unwrap();
+fn parsed(config: &str, cases: &[(i32, &str)]) -> String {
+    let out = convert(config, strings(cases)).unwrap();
     let mut report = String::new();
     for (id, &(_, input)) in (1..).zip(cases) {
         let feature = out.features().iter().find(|f| f.id() == Some(id)).unwrap();

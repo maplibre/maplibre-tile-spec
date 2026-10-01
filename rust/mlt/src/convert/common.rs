@@ -11,7 +11,7 @@ use tilejson::{Bounds, Center};
 use xxhash_rust::xxh3::Xxh3Builder;
 
 use super::bbox::{clip_bounds, clip_center};
-use super::{ConvertConfig, encode_one, whole_rate_per_sec};
+use super::{Reencoder, encode_one, whole_rate_per_sec};
 
 /// Geographic fields carried into a new `PMTiles` archive.
 /// Optional because sources like `MBTiles` may not have every value; unset fields keep the writer's defaults.
@@ -106,17 +106,17 @@ pub fn encode_tile(
     cache: &EncodeCache,
     data: &[u8],
     encoding: Encoding,
-    cfg: &ConvertConfig,
+    reencoder: &Reencoder,
 ) -> AnyResult<(Bytes, u64, bool)> {
     if data.len() > MAX_TILE_CACHE_TRACK_SIZE_BYTES {
-        let (encoded, raw_mvt_size) = encode_one(data.to_vec(), encoding, cfg)?;
+        let (encoded, raw_mvt_size) = encode_one(data.to_vec(), encoding, reencoder)?;
         return Ok((encoded, raw_mvt_size, false));
     }
     let mut hit = true;
     let encoded = cache
         .try_get_with_by_ref(data, || {
             hit = false;
-            encode_one(data.to_vec(), encoding, cfg)
+            encode_one(data.to_vec(), encoding, reencoder)
         })
         .map_err(|e| anyhow!("{e}"))?;
     Ok((encoded.0, encoded.1, hit))

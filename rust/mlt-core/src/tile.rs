@@ -447,6 +447,11 @@ impl TileLayer {
     }
 
     #[must_use]
+    pub fn property_kinds(&self) -> &[PropKind] {
+        &self.property_kinds
+    }
+
+    #[must_use]
     pub fn features(&self) -> &[TileFeature] {
         &self.features
     }
@@ -650,6 +655,29 @@ impl TileLayer {
         Ok(TileLayerBuilder {
             layer: Self::new(name, extent)?,
         })
+    }
+
+    /// A builder for a layer with the name, extent and z step of this one, and no columns or features.
+    #[must_use]
+    pub fn builder_like(&self) -> TileLayerBuilder {
+        let layer = Self {
+            name: self.name.clone(),
+            extent: self.extent,
+            property_names: Vec::new(),
+            property_kinds: Vec::new(),
+            #[cfg(feature = "unstable-v2")]
+            m_value_names: Vec::new(),
+            #[cfg(feature = "unstable-v2")]
+            m_value_kinds: Vec::new(),
+            #[cfg(feature = "unstable-v2")]
+            nested_names: Vec::new(),
+            #[cfg(feature = "unstable-v2")]
+            nested_kinds: Vec::new(),
+            #[cfg(feature = "unstable-v2")]
+            z_step: self.z_step,
+            features: Vec::new(),
+        };
+        TileLayerBuilder { layer }
     }
 
     fn validate_feature(&self, feature: &TileFeature) -> MltResult<()> {
@@ -961,6 +989,38 @@ impl TileLayerBuilder {
                 z: Vec::new(),
             },
         }
+    }
+
+    /// Declare every property column of `layer`, in its order.
+    pub fn add_properties_like(&mut self, layer: &TileLayer) -> MltResult<Vec<PropertyKey>> {
+        (layer.property_names.iter().zip(&layer.property_kinds))
+            .map(|(name, &kind)| self.add_property(name, kind))
+            .collect()
+    }
+
+    /// Declare every m-value column of `layer`, in its order.
+    #[cfg(feature = "unstable-v2")]
+    pub fn add_m_values_like(&mut self, layer: &TileLayer) -> MltResult<Vec<MValueKey>> {
+        (layer.m_value_names.iter().zip(&layer.m_value_kinds))
+            .map(|(name, &kind)| self.add_m_value(name, kind))
+            .collect()
+    }
+
+    /// Declare every nested column of `layer`, in its order.
+    #[cfg(feature = "unstable-v2")]
+    pub fn add_nested_like(&mut self, layer: &TileLayer) -> MltResult<Vec<NestedKey>> {
+        (layer.nested_names.iter().zip(&layer.nested_kinds))
+            .map(|(name, kind)| self.add_nested(name, kind.clone()))
+            .collect()
+    }
+
+    /// A feature with the geometry, id and z of `feature`, and no values yet.
+    pub fn feature_like(&mut self, feature: &TileFeature) -> TileFeatureBuilder<'_> {
+        let mut row = self.feature(feature.geometry.clone());
+        row.feature.id = feature.id;
+        #[cfg(feature = "unstable-v2")]
+        row.feature.z.clone_from(&feature.z);
+        row
     }
 
     pub fn push_feature(&mut self, feature: TileFeature) -> MltResult<()> {

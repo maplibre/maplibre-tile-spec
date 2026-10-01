@@ -9,12 +9,13 @@ use mlt_core::{
     MValue, MltError, NestedKind, NestedValue, PropKind, PropValue, TileFeature, TileLayer, ZStep,
 };
 
+use crate::fields_file::{SPLITS, fields_file, form_table, token};
 use crate::z::geometry;
 
 /// The names the generated layers and configs draw from, so that most configured names hit a column.
-pub(crate) const NAMES: [&str; 6] = ["a", "b", "c", "m", "n", "x"];
+const NAMES: [&str; 6] = ["a", "b", "c", "m", "n", "x"];
 
-/// A layer of packed string properties and a `--config` naming some of them, re-encoded as v2.
+/// A layer of packed string properties and a `--fields` file naming some of them, re-encoded as v2.
 ///
 /// Whenever the config loads and parses the layer, its encoding must verify against the layer,
 /// and the verifier must refuse the encoding once one value of the restored layer changes.
@@ -41,7 +42,7 @@ impl Arbitrary<'_> for FieldConfigInput {
     fn arbitrary(u: &mut Unstructured<'_>) -> arbitrary::Result<Self> {
         let layer = layer(u)?;
         let config = config(u, layer.name())?;
-        // Storing only triangles drops the outlines the verifier compares.
+        // `mlt convert` refuses `--verify` with `--triangles-only`, which drops the outlines it compares.
         let encoder = EncoderConfig::arbitrary(u)?
             .with_wire_version(WireVersion::V02)
             .with_triangles_only(false);
@@ -156,66 +157,36 @@ fn packed(u: &mut Unstructured<'_>) -> arbitrary::Result<String> {
     Ok(tokens.join(separator))
 }
 
-pub(crate) fn token(u: &mut Unstructured<'_>) -> arbitrary::Result<String> {
-    Ok(match u.int_in_range(0..=6u8)? {
-        0 => u.arbitrary::<i64>()?.to_string(),
-        1 => u.arbitrary::<u64>()?.to_string(),
-        2 => u.arbitrary::<i8>()?.to_string(),
-        3 => format!("+{}", u.arbitrary::<u8>()?),
-        4 => (*u.choose(&[
-            "-0",
-            "00",
-            "01",
-            "-2147483648",
-            "2147483647",
-            "4294967295",
-            "4294967296",
-            "-9223372036854775808",
-            "9223372036854775807",
-            "18446744073709551615",
-            "18446744073709551616",
-        ])?)
-        .to_owned(),
-        5 => String::new(),
-        _ => (0..u.int_in_range(1..=3u8)?)
-            .map(|_| {
-                u.choose(&['0', '7', '+', '-', ',', ';', ' ', 'é', 'a', '\0'])
-                    .copied()
-            })
-            .collect::<arbitrary::Result<_>>()?,
-    })
-}
-
-/// A `--config` file with a form for some of [`NAMES`], mostly under `layer`.
-pub(crate) fn config(u: &mut Unstructured<'_>, layer: &str) -> arbitrary::Result<String> {
+/// A `--fields` file with a form for some of [`NAMES`], mostly under `layer`.
+fn config(u: &mut Unstructured<'_>, layer: &str) -> arbitrary::Result<String> {
     let mut forms = toml::Table::new();
     for name in NAMES {
         if u.arbitrary()? {
             forms.insert(name.to_owned(), form(u)?.into());
         }
     }
-    let name = if u.ratio(7, 8)? { layer } else { "other" };
-    let mut layers = toml::Table::new();
-    layers.insert(name.to_owned(), forms.into());
-    let mut config = toml::Table::new();
-    config.insert("layers".to_owned(), layers.into());
-    Ok(config.to_string())
+    let layer = if u.ratio(7, 8)? { layer } else { "other" };
+    Ok(fields_file(layer, forms))
 }
 
 fn form(u: &mut Unstructured<'_>) -> arbitrary::Result<toml::Table> {
-    let mut form = toml::Table::new();
-    let split = *u.choose(&[",", ";", " ", "|", "é", "+", "-", "1", "sign", "", ",,"])?;
-    form.insert("split".to_owned(), split.into());
+    let split = if u.ratio(1, 8)? {
+        *u.choose(&["", ",,"])?
+    } else {
+        *u.choose(&SPLITS)?
+    };
     let kind = *u.choose(&["i32", "u32", "i64", "u64", "str", "str", "f32"])?;
-    form.insert("kind".to_owned(), kind.into());
-    if u.arbitrary()? {
-        form.insert("running-sum".to_owned(), u.arbitrary::<bool>()?.into());
-    }
-    if u.arbitrary()? {
-        let into = *u.choose(&["list", "m-value", "m-value", "nested"])?;
-        form.insert("into".to_owned(), into.into());
-    }
-    Ok(form)
+    let running_sum = if u.arbitrary()? {
+        Some(u.arbitrary()?)
+    } else {
+        None
+    };
+    let into = if u.arbitrary()? {
+        Some(*u.choose(&["list", "m-value", "m-value", "nested"])?)
+    } else {
+        None
+    };
+    Ok(form_table(split, kind, running_sum, into))
 }
 
 impl FieldConfigInput {
@@ -277,35 +248,14 @@ fn mutate(layer: &TileLayer, mutation: Mutation) -> Option<TileLayer> {
         return None;
     }
 
-    let mut out = TileLayer::builder(layer.name(), layer.extent().get()).expect("a valid layer");
-    if let (Some(step), false) = (layer.z_step(), drop_z) {
-        out.set_z_step(step).expect("an empty layer");
-    }
-    let kinds: Vec<PropKind> = (0..layer.property_names().len())
-        .map(|i| {
-            features
-                .first()
-                .map_or(PropKind::Str, |f| f.properties()[i].kind())
-        })
-        .collect();
-    let property_keys: Vec<_> = layer
-        .property_names()
-        .iter()
-        .zip(&kinds)
-        .map(|(name, &kind)| out.add_property(name, kind).expect("a unique name"))
-        .collect();
-    let m_keys: Vec<_> = layer
-        .m_value_names()
-        .iter()
-        .zip(layer.m_value_kinds())
-        .map(|(name, &kind)| out.add_m_value(name, kind).expect("a unique name"))
-        .collect();
-    let nested_keys: Vec<_> = layer
-        .nested_names()
-        .iter()
-        .zip(layer.nested_kinds())
-        .map(|(name, kind)| out.add_nested(name, kind.clone()).expect("a unique name"))
-        .collect();
+    let mut out = if drop_z {
+        TileLayer::builder(layer.name(), layer.extent().get()).expect("a valid layer")
+    } else {
+        layer.builder_like()
+    };
+    let property_keys = out.add_properties_like(layer).expect("unique names");
+    let m_keys = out.add_m_values_like(layer).expect("unique names");
+    let nested_keys = out.add_nested_like(layer).expect("unique names");
 
     for (index, feature) in features.iter().enumerate() {
         let here = target == Some(index);

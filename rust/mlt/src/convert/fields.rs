@@ -1,57 +1,82 @@
 //! Typed columns parsed out of string properties that pack structured values, and the strings formatted back.
 
-use std::collections::BTreeMap;
-use std::fmt::Display;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 use std::str::FromStr;
+use std::sync::{Mutex, PoisonError};
 
 use anyhow::{Context as _, Result as AnyResult, anyhow, ensure};
 use mlt_core::{
-    MValue, MValueKey, NestedKey, NestedKind, NestedValue, PropKind, PropValue, PropertyKey,
-    TileFeature, TileFeatureBuilder, TileLayer, TileLayerBuilder,
+    MValue, MValueKey, MltResult, NestedKey, NestedKind, NestedValue, PropKind, PropValue,
+    PropertyKey, TileFeature, TileFeatureBuilder, TileLayer, TileLayerBuilder,
 };
 use serde::Deserialize;
 
-/// How each layer's string properties are parsed, read from a `--config` TOML file.
+/// How each layer's string properties are parsed, read from a `--fields` TOML file.
 ///
 /// ```toml
 /// [layers.items]
 /// ids = { split = ",", kind = "u64" }
 /// ```
-#[derive(Debug, Default, Deserialize, PartialEq)]
+#[derive(Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FieldConfig {
     #[serde(default)]
     layers: BTreeMap<String, BTreeMap<String, FieldForm>>,
+    /// The configured fields that some applied layer held, by layer name.
+    #[serde(skip)]
+    seen: Mutex<BTreeMap<String, BTreeSet<String>>>,
+}
+
+/// How one string property is written, and the column it becomes.
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields, try_from = "FormToml")]
+struct FieldForm {
+    syntax: Syntax,
+    into: Column,
 }
 
 /// The syntax a string property is written in.
 ///
-/// Every form formats back to the exact string it parsed, which [`FieldConfig::apply`] checks.
-/// Only the combinations with exactly one string form load.
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
-#[serde(deny_unknown_fields, try_from = "FormToml")]
-pub struct FieldForm {
-    split: Split,
-    kind: ScalarKind,
-    running_sum: bool,
-    into: Column,
+/// Every syntax formats back to the exact string it parsed, which [`FieldConfig::apply`] checks.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Syntax {
+    Numbers {
+        split: Split,
+        kind: IntKind,
+        /// Whether each value after the first is written as its difference from the one before.
+        running_sum: bool,
+    },
+    Strings {
+        split: char,
+    },
 }
 
-/// A field's table in the `--config` file, before its keys are checked against each other.
+/// A field's table in the `--fields` file, before its keys are checked against each other.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct FormToml {
     /// Where one value ends and the next begins.
     split: Split,
     /// The type of each value.
-    kind: ScalarKind,
+    kind: KindToml,
     /// Whether each value after the first is written as its difference from the one before.
     #[serde(default)]
     running_sum: bool,
     /// The column the values land in.
     #[serde(default)]
     into: Column,
+}
+
+/// The `kind` of a field's table.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "lowercase")]
+enum KindToml {
+    I32,
+    U32,
+    I64,
+    U64,
+    Str,
 }
 
 impl TryFrom<FormToml> for FieldForm {
@@ -64,33 +89,34 @@ impl TryFrom<FormToml> for FieldForm {
             running_sum,
             into,
         } = form;
-        if kind != ScalarKind::Str
-            && let Split::At(c) = split
-            && (c.is_ascii_digit() || matches!(c, '+' | '-'))
-        {
-            return Err("a number kind cannot split at a digit or sign");
-        }
-        if kind == ScalarKind::Str {
-            if running_sum {
-                return Err("a running sum needs a number kind");
+        let kind = match kind {
+            KindToml::I32 => Some(IntKind::I32),
+            KindToml::U32 => Some(IntKind::U32),
+            KindToml::I64 => Some(IntKind::I64),
+            KindToml::U64 => Some(IntKind::U64),
+            KindToml::Str => None,
+        };
+        let syntax = match (kind, split) {
+            (Some(_), Split::At(c)) if c.is_ascii_digit() || matches!(c, '+' | '-') => {
+                return Err("a number kind cannot split at a digit or sign");
             }
-            if split == Split::Sign {
-                return Err("splitting at signs needs a number kind");
-            }
-        }
-        Ok(Self {
-            split,
-            kind,
-            running_sum,
-            into,
-        })
+            (Some(kind), split) => Syntax::Numbers {
+                split,
+                kind,
+                running_sum,
+            },
+            (None, _) if running_sum => return Err("a running sum needs a number kind"),
+            (None, Split::Sign) => return Err("splitting at signs needs a number kind"),
+            (None, Split::At(split)) => Syntax::Strings { split },
+        };
+        Ok(Self { syntax, into })
     }
 }
 
 /// The column a parsed property becomes.
 #[derive(Debug, Default, Clone, Copy, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
-pub enum Column {
+enum Column {
     /// A nested list per feature.
     #[default]
     List,
@@ -101,7 +127,7 @@ pub enum Column {
 /// Where one value ends and the next begins.
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields, try_from = "String")]
-pub enum Split {
+enum Split {
     /// `"5,6"`: at each occurrence of the character.
     At(char),
     /// `"10+1-2"`: before each `+` or `-` after the first character, which every later value carries.
@@ -157,40 +183,78 @@ impl Split {
     }
 }
 
-/// The type of each parsed value.
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
-#[serde(deny_unknown_fields, rename_all = "lowercase")]
-pub enum ScalarKind {
+/// The type each parsed number is stored as.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum IntKind {
     I32,
     U32,
     I64,
     U64,
-    Str,
 }
 
-impl ScalarKind {
+impl IntKind {
+    fn name(self) -> &'static str {
+        self.prop_kind().into()
+    }
+
     fn prop_kind(self) -> PropKind {
         match self {
             Self::I32 => PropKind::I32,
             Self::U32 => PropKind::U32,
             Self::I64 => PropKind::I64,
             Self::U64 => PropKind::U64,
-            Self::Str => PropKind::Str,
         }
+    }
+
+    /// `value` as a leaf of this kind, or [`None`] if it does not fit.
+    fn leaf(self, value: i128) -> Option<PropValue> {
+        Some(match self {
+            Self::I32 => PropValue::I32(Some(value.try_into().ok()?)),
+            Self::U32 => PropValue::U32(Some(value.try_into().ok()?)),
+            Self::I64 => PropValue::I64(Some(value.try_into().ok()?)),
+            Self::U64 => PropValue::U64(Some(value.try_into().ok()?)),
+        })
+    }
+
+    /// `values` as an m-value of this kind, or [`None`] if one does not fit.
+    fn m_value(self, values: &[i128]) -> Option<MValue> {
+        fn fit<T: TryFrom<i128>>(values: &[i128]) -> Option<Vec<T>> {
+            values.iter().map(|&v| T::try_from(v).ok()).collect()
+        }
+        Some(match self {
+            Self::I32 => MValue::I32(Some(fit(values)?)),
+            Self::U32 => MValue::U32(Some(fit(values)?)),
+            Self::I64 => MValue::I64(Some(fit(values)?)),
+            Self::U64 => MValue::U64(Some(fit(values)?)),
+        })
     }
 }
 
-impl FieldForm {
+impl Syntax {
+    fn split(self) -> Split {
+        match self {
+            Self::Numbers { split, .. } => split,
+            Self::Strings { split } => Split::At(split),
+        }
+    }
+
+    fn prop_kind(self) -> PropKind {
+        match self {
+            Self::Numbers { kind, .. } => kind.prop_kind(),
+            Self::Strings { .. } => PropKind::Str,
+        }
+    }
+
     /// `s` as its values, checked to format back to `s`.
     fn parse(self, s: &str) -> AnyResult<Values> {
-        let tokens = self.split.tokens(s);
-        let sum = self.running_sum;
-        let values = match self.kind {
-            ScalarKind::I32 => Values::I32(numbers(&tokens, sum)?),
-            ScalarKind::U32 => Values::U32(numbers(&tokens, sum)?),
-            ScalarKind::I64 => Values::I64(numbers(&tokens, sum)?),
-            ScalarKind::U64 => Values::U64(numbers(&tokens, sum)?),
-            ScalarKind::Str => Values::Str(tokens.into_iter().map(str::to_owned).collect()),
+        let tokens = self.split().tokens(s);
+        let values = match self {
+            Self::Numbers {
+                kind, running_sum, ..
+            } => Values::Numbers(kind, numbers(&tokens, kind, running_sum)?),
+            Self::Strings { .. } => {
+                Values::Strings(tokens.into_iter().map(str::to_owned).collect())
+            }
         };
         let back = self.format(&values);
         ensure!(back == s, "{s:?} formats back as {back:?}");
@@ -205,7 +269,7 @@ impl FieldForm {
         Ok(values)
     }
 
-    /// `values` written in this form, checked to parse back to `values`.
+    /// `values` written in this syntax, checked to parse back to `values`.
     fn write(self, values: &Values) -> AnyResult<String> {
         let s = self.format(values);
         ensure!(
@@ -215,126 +279,164 @@ impl FieldForm {
         Ok(s)
     }
 
-    /// `values` written in this form.
+    /// `values` written in this syntax.
     fn format(self, values: &Values) -> String {
-        let tokens: Vec<String> = match values {
-            Values::I32(v) => number_tokens(v, self.running_sum),
-            Values::U32(v) => number_tokens(v, self.running_sum),
-            Values::I64(v) => number_tokens(v, self.running_sum),
-            Values::U64(v) => number_tokens(v, self.running_sum),
-            Values::Str(v) => v.clone(),
+        let running_sum = matches!(
+            self,
+            Self::Numbers {
+                running_sum: true,
+                ..
+            }
+        );
+        let tokens = match values {
+            Values::Numbers(_, v) => number_tokens(v, running_sum),
+            Values::Strings(v) => v.clone(),
         };
-        self.split.join(&tokens)
+        self.split().join(&tokens)
+    }
+
+    /// `numbers` read back for this syntax, or [`None`] for a null.
+    fn numbers(self, numbers: Option<Vec<i128>>) -> AnyResult<Option<Values>> {
+        match self {
+            Self::Numbers { kind, .. } => Ok(numbers.map(|v| Values::Numbers(kind, v))),
+            Self::Strings { .. } => Err(anyhow!("integers where strings belong")),
+        }
+    }
+
+    /// `strings` read back for this syntax, or [`None`] for a null.
+    fn strings(self, strings: Option<Vec<String>>) -> AnyResult<Option<Values>> {
+        match self {
+            Self::Strings { .. } => Ok(strings.map(Values::Strings)),
+            Self::Numbers { kind, .. } => {
+                Err(anyhow!("strings where {} values belong", kind.name()))
+            }
+        }
     }
 }
 
-/// The values one string parses into.
+/// The values one string parses into, each number checked to fit its kind.
 #[derive(Debug, PartialEq)]
 enum Values {
-    I32(Vec<i32>),
-    U32(Vec<u32>),
-    I64(Vec<i64>),
-    U64(Vec<u64>),
-    Str(Vec<String>),
+    Numbers(IntKind, Vec<i128>),
+    Strings(Vec<String>),
 }
 
 impl Values {
     fn len(&self) -> usize {
         match self {
-            Self::I32(v) => v.len(),
-            Self::U32(v) => v.len(),
-            Self::I64(v) => v.len(),
-            Self::U64(v) => v.len(),
-            Self::Str(v) => v.len(),
+            Self::Numbers(_, v) => v.len(),
+            Self::Strings(v) => v.len(),
         }
     }
 
-    fn into_m_value(self) -> MValue {
+    fn into_m_value(self) -> AnyResult<MValue> {
         match self {
-            Self::I32(v) => MValue::I32(Some(v)),
-            Self::U32(v) => MValue::U32(Some(v)),
-            Self::I64(v) => MValue::I64(Some(v)),
-            Self::U64(v) => MValue::U64(Some(v)),
-            Self::Str(v) => MValue::Str(Some(v)),
+            Self::Numbers(kind, v) => kind
+                .m_value(&v)
+                .ok_or_else(|| anyhow!("{v:?} do not fit {}", kind.name())),
+            Self::Strings(v) => Ok(MValue::Str(Some(v))),
         }
     }
 
     /// These values as the leaves of a nested list.
-    fn into_list(self) -> NestedValue {
-        fn leaves<T>(values: Vec<T>, leaf: fn(Option<T>) -> PropValue) -> NestedValue {
-            NestedValue::list(values.into_iter().map(|v| NestedValue::Leaf(leaf(Some(v)))))
-        }
-        match self {
-            Self::I32(v) => leaves(v, PropValue::I32),
-            Self::U32(v) => leaves(v, PropValue::U32),
-            Self::I64(v) => leaves(v, PropValue::I64),
-            Self::U64(v) => leaves(v, PropValue::U64),
-            Self::Str(v) => leaves(v, PropValue::Str),
-        }
+    fn into_list(self) -> AnyResult<NestedValue> {
+        let leaves = match self {
+            Self::Numbers(kind, v) => v
+                .into_iter()
+                .map(|x| {
+                    kind.leaf(x)
+                        .ok_or_else(|| anyhow!("{x} does not fit {}", kind.name()))
+                })
+                .collect::<AnyResult<Vec<_>>>()?,
+            Self::Strings(v) => v.into_iter().map(|s| PropValue::Str(Some(s))).collect(),
+        };
+        Ok(NestedValue::list(leaves.into_iter().map(NestedValue::Leaf)))
     }
 
-    /// The values [`Self::into_m_value`] wrote as `kind`, or [`None`] for a null.
-    fn from_m_value(kind: ScalarKind, value: &MValue) -> AnyResult<Option<Self>> {
-        Ok(match (kind, value) {
-            (ScalarKind::I32, MValue::I32(v)) => v.clone().map(Self::I32),
-            (ScalarKind::U32, MValue::U32(v)) => v.clone().map(Self::U32),
-            (ScalarKind::I64, MValue::I64(v)) => v.clone().map(Self::I64),
-            (ScalarKind::U64, MValue::U64(v)) => v.clone().map(Self::U64),
-            (ScalarKind::Str, MValue::Str(v)) => v.clone().map(Self::Str),
-            _ => return Err(anyhow!("{value:?} is not a {kind:?} m-value")),
-        })
+    /// The values [`Self::into_m_value`] wrote for `syntax`, or [`None`] for a null.
+    fn from_m_value(syntax: Syntax, value: &MValue) -> AnyResult<Option<Self>> {
+        fn ints<T: Copy + Into<i128>>(values: Option<&Vec<T>>) -> Option<Vec<i128>> {
+            values.map(|v| v.iter().map(|&x| x.into()).collect())
+        }
+        let numbers = match value {
+            MValue::I8(v) => ints(v.as_ref()),
+            MValue::U8(v) => ints(v.as_ref()),
+            MValue::I32(v) => ints(v.as_ref()),
+            MValue::U32(v) => ints(v.as_ref()),
+            MValue::I64(v) => ints(v.as_ref()),
+            MValue::U64(v) => ints(v.as_ref()),
+            MValue::Str(v) => return syntax.strings(v.clone()),
+            MValue::Bool(_) | MValue::F32(_) | MValue::F64(_) => {
+                return Err(anyhow!("{value:?} holds neither integers nor strings"));
+            }
+        };
+        syntax.numbers(numbers)
     }
 
-    /// The values [`Self::into_list`] wrote as `kind`, or [`None`] for a null.
-    fn from_list(kind: ScalarKind, value: &NestedValue) -> AnyResult<Option<Self>> {
+    /// The values [`Self::into_list`] wrote for `syntax`, or [`None`] for a null.
+    fn from_list(syntax: Syntax, value: &NestedValue) -> AnyResult<Option<Self>> {
         let NestedValue::List(items) = value else {
             return Err(anyhow!("{value:?} is not a list"));
         };
         let Some(items) = items else {
             return Ok(None);
         };
-        let mut values = Self::empty(kind);
-        for item in items {
-            let NestedValue::Leaf(leaf) = item else {
-                return Err(anyhow!("{item:?} is not a {kind:?} value"));
-            };
-            match (&mut values, leaf) {
-                (Self::I32(v), PropValue::I32(Some(x))) => v.push(*x),
-                (Self::U32(v), PropValue::U32(Some(x))) => v.push(*x),
-                (Self::I64(v), PropValue::I64(Some(x))) => v.push(*x),
-                (Self::U64(v), PropValue::U64(Some(x))) => v.push(*x),
-                (Self::Str(v), PropValue::Str(Some(x))) => v.push(x.clone()),
-                _ => return Err(anyhow!("{leaf:?} is not a {kind:?} value")),
+        let leaves = items.iter().map(|item| match item {
+            NestedValue::Leaf(leaf) => Ok(leaf),
+            NestedValue::List(_) | NestedValue::Map(_) => Err(anyhow!("{item:?} is not a leaf")),
+        });
+        match syntax {
+            Syntax::Numbers { .. } => {
+                let numbers = leaves
+                    .map(|leaf| integer(leaf?))
+                    .collect::<AnyResult<_>>()?;
+                syntax.numbers(Some(numbers))
             }
-        }
-        Ok(Some(values))
-    }
-
-    fn empty(kind: ScalarKind) -> Self {
-        match kind {
-            ScalarKind::I32 => Self::I32(Vec::new()),
-            ScalarKind::U32 => Self::U32(Vec::new()),
-            ScalarKind::I64 => Self::I64(Vec::new()),
-            ScalarKind::U64 => Self::U64(Vec::new()),
-            ScalarKind::Str => Self::Str(Vec::new()),
+            Syntax::Strings { .. } => {
+                let strings = leaves.map(|leaf| string(leaf?)).collect::<AnyResult<_>>()?;
+                syntax.strings(Some(strings))
+            }
         }
     }
 }
 
-/// `tokens` as numbers, each after the first added to the one before when `running_sum` is set.
-fn numbers<T>(tokens: &[&str], running_sum: bool) -> AnyResult<Vec<T>>
-where
-    T: FromStr + Copy + Into<i128> + TryFrom<i128> + Display,
-    T::Err: std::error::Error + Send + Sync + 'static,
-{
-    let mut values: Vec<T> = Vec::with_capacity(tokens.len());
+fn string(leaf: &PropValue) -> AnyResult<String> {
+    let PropValue::Str(Some(s)) = leaf else {
+        return Err(anyhow!("{leaf:?} is not a string"));
+    };
+    Ok(s.clone())
+}
+
+fn integer(leaf: &PropValue) -> AnyResult<i128> {
+    let number = match leaf {
+        PropValue::I8(v) => v.map(i128::from),
+        PropValue::U8(v) => v.map(i128::from),
+        PropValue::I32(v) => v.map(i128::from),
+        PropValue::U32(v) => v.map(i128::from),
+        PropValue::I64(v) => v.map(i128::from),
+        PropValue::U64(v) => v.map(i128::from),
+        PropValue::Bool(_) | PropValue::F32(_) | PropValue::F64(_) | PropValue::Str(_) => None,
+    };
+    number.ok_or_else(|| anyhow!("{leaf:?} is not an integer"))
+}
+
+/// `tokens` as numbers of `kind`, each after the first added to the one before when `running_sum` is set.
+fn numbers(tokens: &[&str], kind: IntKind, running_sum: bool) -> AnyResult<Vec<i128>> {
+    let fits = |v: i128| kind.leaf(v).is_some();
+    let mut values: Vec<i128> = Vec::with_capacity(tokens.len());
     for token in tokens {
+        let number: i128 = token
+            .parse()
+            .with_context(|| format!("{token:?} is not a number"))?;
         let value = match values.last() {
-            Some(&prev) if running_sum => {
-                let sum = prev.into() + number::<i128>(token)?;
-                T::try_from(sum).map_err(|_| anyhow!("{prev} plus {token} overflows"))?
+            Some(&prev) if running_sum => prev
+                .checked_add(number)
+                .filter(|&v| fits(v))
+                .ok_or_else(|| anyhow!("{prev} plus {token} overflows"))?,
+            _ => {
+                ensure!(fits(number), "{token:?} does not fit {}", kind.name());
+                number
             }
-            _ => number(token)?,
         };
         values.push(value);
     }
@@ -342,26 +444,19 @@ where
 }
 
 /// `values` as tokens, each after the first written as its difference from the one before when `running_sum` is set.
-fn number_tokens<T: Copy + Into<i128> + Display>(values: &[T], running_sum: bool) -> Vec<String> {
+fn number_tokens(values: &[i128], running_sum: bool) -> Vec<String> {
     let mut prev: Option<i128> = None;
     values
         .iter()
         .map(|&v| {
             let token = match prev {
-                Some(p) if running_sum => (v.into() - p).to_string(),
+                Some(p) if running_sum => (v - p).to_string(),
                 _ => v.to_string(),
             };
-            prev = Some(v.into());
+            prev = Some(v);
             token
         })
         .collect()
-}
-
-fn number<T: FromStr>(s: &str) -> AnyResult<T>
-where
-    T::Err: std::error::Error + Send + Sync + 'static,
-{
-    s.parse().with_context(|| format!("{s:?} is not a number"))
 }
 
 impl FieldConfig {
@@ -382,6 +477,7 @@ impl FieldConfig {
         let Some(forms) = self.layers.get(layer.name()) else {
             return Ok(layer);
         };
+        self.see(&layer, forms);
         parse_fields(&layer, forms).with_context(|| format!("layer {}", layer.name()))
     }
 
@@ -391,6 +487,30 @@ impl FieldConfig {
             return Ok(layer);
         };
         format_fields(&layer, forms).with_context(|| format!("layer {}", layer.name()))
+    }
+
+    /// The configured layers and fields that no layer passed to [`Self::apply`] held.
+    #[must_use]
+    pub fn unused(&self) -> Vec<String> {
+        let seen = self.seen.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut unused = Vec::new();
+        for (layer, forms) in &self.layers {
+            let Some(held) = seen.get(layer) else {
+                unused.push(format!("layer {layer}"));
+                continue;
+            };
+            let missing = forms.keys().filter(|name| !held.contains(*name));
+            unused.extend(missing.map(|name| format!("field {name} of layer {layer}")));
+        }
+        unused
+    }
+
+    /// Record `layer` and which of `forms` its properties hold.
+    fn see(&self, layer: &TileLayer, forms: &BTreeMap<String, FieldForm>) {
+        let mut seen = self.seen.lock().unwrap_or_else(PoisonError::into_inner);
+        let held = seen.entry(layer.name().to_owned()).or_default();
+        let names = layer.property_names().iter();
+        held.extend(names.filter(|name| forms.contains_key(*name)).cloned());
     }
 }
 
@@ -405,8 +525,8 @@ impl FromStr for FieldConfig {
 /// Where one source property lands in the parsed layer.
 enum Parsed {
     Property(PropertyKey),
-    List(NestedKey, FieldForm),
-    MValue(MValueKey, FieldForm),
+    List(NestedKey, Syntax),
+    MValue(MValueKey, Syntax),
 }
 
 fn parse_fields(layer: &TileLayer, forms: &BTreeMap<String, FieldForm>) -> AnyResult<TileLayer> {
@@ -416,11 +536,10 @@ fn parse_fields(layer: &TileLayer, forms: &BTreeMap<String, FieldForm>) -> AnyRe
             "{name} is already a typed column"
         );
     }
-    let mut out = empty_like(layer)?;
+    let mut out = layer.builder_like();
     let mut targets = Vec::with_capacity(layer.property_names().len());
-    for (index, name) in layer.property_names().iter().enumerate() {
-        let kind = property_kind(layer, index);
-        let Some(&form) = forms.get(name) else {
+    for (name, &kind) in layer.property_names().iter().zip(layer.property_kinds()) {
+        let Some(&FieldForm { syntax, into }) = forms.get(name) else {
             targets.push(Parsed::Property(out.add_property(name, kind)?));
             continue;
         };
@@ -429,19 +548,20 @@ fn parse_fields(layer: &TileLayer, forms: &BTreeMap<String, FieldForm>) -> AnyRe
             "{name} holds {} values, but only strings are parsed",
             <&str>::from(kind)
         );
-        targets.push(match form.into {
+        let kind = syntax.prop_kind();
+        targets.push(match into {
             Column::List => {
-                let list = NestedKind::list(NestedKind::Leaf(form.kind.prop_kind()));
-                Parsed::List(out.add_nested(name, list)?, form)
+                let list = NestedKind::list(NestedKind::Leaf(kind));
+                Parsed::List(out.add_nested(name, list)?, syntax)
             }
-            Column::MValue => Parsed::MValue(out.add_m_value(name, form.kind.prop_kind())?, form),
+            Column::MValue => Parsed::MValue(out.add_m_value(name, kind)?, syntax),
         });
     }
-    let m_keys = copy_m_value_columns(layer, &mut out)?;
-    let nested_keys = copy_nested_columns(layer, &mut out)?;
+    let m_keys = out.add_m_values_like(layer)?;
+    let nested_keys = out.add_nested_like(layer)?;
 
     for feature in layer.features() {
-        let mut row = row_like(&mut out, feature)?;
+        let mut row = out.feature_like(feature);
         for ((target, value), name) in targets
             .iter()
             .zip(feature.properties())
@@ -451,17 +571,19 @@ fn parse_fields(layer: &TileLayer, forms: &BTreeMap<String, FieldForm>) -> AnyRe
                 (Parsed::Property(key), value) => {
                     row.property(*key, value.clone())?;
                 }
-                (Parsed::List(key, form), PropValue::Str(Some(s))) => {
-                    let values = form
+                (Parsed::List(key, syntax), PropValue::Str(Some(s))) => {
+                    let list = syntax
                         .parse(s)
+                        .and_then(Values::into_list)
                         .with_context(|| field_context(name, feature))?;
-                    row.nested(*key, values.into_list())?;
+                    row.nested(*key, list)?;
                 }
-                (Parsed::MValue(key, form), PropValue::Str(Some(s))) => {
-                    let values = form
+                (Parsed::MValue(key, syntax), PropValue::Str(Some(s))) => {
+                    let m_value = syntax
                         .parse_per_vertex(s, feature)
+                        .and_then(Values::into_m_value)
                         .with_context(|| field_context(name, feature))?;
-                    row.m_value(*key, values.into_m_value())?;
+                    row.m_value(*key, m_value)?;
                 }
                 // A missing value stays null in its new column.
                 (Parsed::List(..) | Parsed::MValue(..), _) => {}
@@ -481,132 +603,103 @@ fn parse_fields(layer: &TileLayer, forms: &BTreeMap<String, FieldForm>) -> AnyRe
 /// Where one parsed column lands back in the restored layer.
 enum Restored<K> {
     Kept(K),
-    Formatted(PropertyKey, FieldForm),
+    Formatted(PropertyKey, Syntax),
 }
 
 fn format_fields(layer: &TileLayer, forms: &BTreeMap<String, FieldForm>) -> AnyResult<TileLayer> {
-    let mut out = empty_like(layer)?;
-    let properties = (0..layer.property_names().len())
-        .map(|index| out.add_property(&layer.property_names()[index], property_kind(layer, index)))
-        .collect::<Result<Vec<_>, _>>()?;
-    let formatted = |name: &str, into: Column| forms.get(name).filter(|form| form.into == into);
-    let m_values = layer
-        .m_value_names()
-        .iter()
-        .zip(layer.m_value_kinds())
-        .map(|(name, &kind)| match formatted(name, Column::MValue) {
-            Some(&form) => out
-                .add_property(name, PropKind::Str)
-                .map(|key| Restored::Formatted(key, form)),
-            None => out.add_m_value(name, kind).map(Restored::Kept),
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    let nested = layer
-        .nested_names()
-        .iter()
-        .zip(layer.nested_kinds())
-        .map(|(name, kind)| match formatted(name, Column::List) {
-            Some(&form) => out
-                .add_property(name, PropKind::Str)
-                .map(|key| Restored::Formatted(key, form)),
-            None => out.add_nested(name, kind.clone()).map(Restored::Kept),
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+    let mut out = layer.builder_like();
+    let properties = out.add_properties_like(layer)?;
+    let formatted = |into: Column| {
+        move |name: &str| {
+            forms
+                .get(name)
+                .filter(|form| form.into == into)
+                .map(|form| form.syntax)
+        }
+    };
+    let m_values = restored_columns(
+        &mut out,
+        layer.m_value_names(),
+        layer.m_value_kinds(),
+        formatted(Column::MValue),
+        |out, name, &kind| out.add_m_value(name, kind),
+    )?;
+    let nested = restored_columns(
+        &mut out,
+        layer.nested_names(),
+        layer.nested_kinds(),
+        formatted(Column::List),
+        |out, name, kind| out.add_nested(name, kind.clone()),
+    )?;
 
     for feature in layer.features() {
-        let mut row = row_like(&mut out, feature)?;
+        let mut row = out.feature_like(feature);
         for (key, value) in properties.iter().zip(feature.properties()) {
             row.property(*key, value.clone())?;
         }
-        for ((restored, value), name) in m_values
-            .iter()
-            .zip(feature.m_values())
-            .zip(layer.m_value_names())
-        {
-            match restored {
-                Restored::Kept(key) => {
-                    row.m_value(*key, value.clone())?;
-                }
-                Restored::Formatted(key, form) => {
-                    let s = Values::from_m_value(form.kind, value)?
-                        .map(|v| form.write(&v))
-                        .transpose()
-                        .with_context(|| field_context(name, feature))?;
-                    row.property(*key, PropValue::Str(s))?;
-                }
-            }
-        }
-        for ((restored, value), name) in nested
-            .iter()
-            .zip(feature.nested())
-            .zip(layer.nested_names())
-        {
-            match restored {
-                Restored::Kept(key) => {
-                    row.nested(*key, value.clone())?;
-                }
-                Restored::Formatted(key, form) => {
-                    let s = Values::from_list(form.kind, value)?
-                        .map(|v| form.write(&v))
-                        .transpose()
-                        .with_context(|| field_context(name, feature))?;
-                    row.property(*key, PropValue::Str(s))?;
-                }
-            }
-        }
+        restore_values(
+            &mut row,
+            &m_values,
+            layer.m_value_names(),
+            feature.m_values(),
+            feature,
+            Values::from_m_value,
+            |row, key, value| row.m_value(key, value.clone()).map(drop),
+        )?;
+        restore_values(
+            &mut row,
+            &nested,
+            layer.nested_names(),
+            feature.nested(),
+            feature,
+            Values::from_list,
+            |row, key, value| row.nested(key, value.clone()).map(drop),
+        )?;
         row.finish()?;
     }
     Ok(out.finish())
 }
 
-/// A builder for a layer with the name, extent and z step of `layer`, and no columns yet.
-fn empty_like(layer: &TileLayer) -> AnyResult<TileLayerBuilder> {
-    let mut out = TileLayer::builder(layer.name(), layer.extent().get())?;
-    if let Some(step) = layer.z_step() {
-        out.set_z_step(step)?;
-    }
-    Ok(out)
-}
-
-/// A row with the geometry, z and id of `feature`, and no values yet.
-fn row_like<'a>(
-    out: &'a mut TileLayerBuilder,
-    feature: &TileFeature,
-) -> AnyResult<TileFeatureBuilder<'a>> {
-    let mut row = out.feature(feature.geometry().clone());
-    row.id(feature.id());
-    if !feature.z().is_empty() {
-        row.z(feature.z().to_vec())?;
-    }
-    Ok(row)
-}
-
-fn property_kind(layer: &TileLayer, index: usize) -> PropKind {
-    layer
-        .features()
-        .first()
-        .map_or(PropKind::Str, |f| f.properties()[index].kind())
-}
-
-fn copy_m_value_columns(
-    layer: &TileLayer,
+/// One column per name, kept as `add` declares it unless `formatted` names a syntax to write it as a string in.
+fn restored_columns<K, T>(
     out: &mut TileLayerBuilder,
-) -> AnyResult<Vec<MValueKey>> {
-    Ok(layer
-        .m_value_names()
-        .iter()
-        .zip(layer.m_value_kinds())
-        .map(|(name, &kind)| out.add_m_value(name, kind))
-        .collect::<Result<Vec<_>, _>>()?)
+    names: &[String],
+    kinds: &[T],
+    formatted: impl Fn(&str) -> Option<Syntax>,
+    add: impl Fn(&mut TileLayerBuilder, &str, &T) -> MltResult<K>,
+) -> AnyResult<Vec<Restored<K>>> {
+    let mut columns = Vec::with_capacity(names.len());
+    for (name, kind) in names.iter().zip(kinds) {
+        columns.push(match formatted(name) {
+            Some(syntax) => Restored::Formatted(out.add_property(name, PropKind::Str)?, syntax),
+            None => Restored::Kept(add(out, name, kind)?),
+        });
+    }
+    Ok(columns)
 }
 
-fn copy_nested_columns(layer: &TileLayer, out: &mut TileLayerBuilder) -> AnyResult<Vec<NestedKey>> {
-    Ok(layer
-        .nested_names()
-        .iter()
-        .zip(layer.nested_kinds())
-        .map(|(name, kind)| out.add_nested(name, kind.clone()))
-        .collect::<Result<Vec<_>, _>>()?)
+/// Copy each kept value of `feature` with `keep`, and write each formatted one as the string `read` finds in it.
+fn restore_values<K: Copy, V>(
+    row: &mut TileFeatureBuilder<'_>,
+    columns: &[Restored<K>],
+    names: &[String],
+    values: &[V],
+    feature: &TileFeature,
+    read: fn(Syntax, &V) -> AnyResult<Option<Values>>,
+    keep: impl Fn(&mut TileFeatureBuilder<'_>, K, &V) -> MltResult<()>,
+) -> AnyResult<()> {
+    for ((column, value), name) in columns.iter().zip(values).zip(names) {
+        match *column {
+            Restored::Kept(key) => keep(row, key, value)?,
+            Restored::Formatted(key, syntax) => {
+                let s = read(syntax, value)
+                    .and_then(|v| v.map(|v| syntax.write(&v)).transpose())
+                    .with_context(|| field_context(name, feature))?;
+                row.property(key, PropValue::Str(s))?;
+            }
+        }
+    }
+    Ok(())
 }
 
 fn field_context(name: &str, feature: &TileFeature) -> String {

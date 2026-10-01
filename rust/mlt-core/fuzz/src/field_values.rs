@@ -2,10 +2,10 @@ use arbitrary::{Arbitrary, Unstructured};
 use mlt::convert::fields::FieldConfig;
 use mlt_core::{MValue, NestedKind, NestedValue, PropKind, PropValue, TileFeature, TileLayer};
 
-use crate::field_config::token;
+use crate::fields_file::{SPLITS, fields_file, form_table, token};
 use crate::z::geometry;
 
-/// A layer of typed columns, formatted back into strings by a `--config` and parsed again.
+/// A layer of typed columns, formatted back into strings by a `--fields` file and parsed again.
 ///
 /// Values the config cannot write may be refused, but whatever parses must be the values it was formatted from.
 #[derive(Debug)]
@@ -56,27 +56,25 @@ impl Arbitrary<'_> for FieldValuesInput {
             row.finish().expect("a complete row");
         }
         let mut forms = toml::Table::new();
-        forms.insert("m".to_owned(), form(u, m_name, "m-value")?.into());
-        forms.insert("n".to_owned(), form(u, n_name, "list")?.into());
-        let mut layers = toml::Table::new();
-        layers.insert("l".to_owned(), forms.into());
-        let mut config = toml::Table::new();
-        config.insert("layers".to_owned(), layers.into());
+        let m_form = form_table(
+            u.choose(&SPLITS)?,
+            m_name,
+            Some(u.arbitrary()?),
+            Some("m-value"),
+        );
+        forms.insert("m".to_owned(), m_form.into());
+        let n_form = form_table(
+            u.choose(&SPLITS)?,
+            n_name,
+            Some(u.arbitrary()?),
+            Some("list"),
+        );
+        forms.insert("n".to_owned(), n_form.into());
         Ok(Self {
             layer: out.finish(),
-            config: config.to_string(),
+            config: fields_file("l", forms),
         })
     }
-}
-
-fn form(u: &mut Unstructured<'_>, kind: &str, into: &str) -> arbitrary::Result<toml::Table> {
-    let mut form = toml::Table::new();
-    let split = *u.choose(&[",", ";", " ", "|", "é", "+", "-", "1", "sign"])?;
-    form.insert("split".to_owned(), split.into());
-    form.insert("kind".to_owned(), kind.into());
-    form.insert("running-sum".to_owned(), u.arbitrary::<bool>()?.into());
-    form.insert("into".to_owned(), into.into());
-    Ok(form)
 }
 
 #[expect(

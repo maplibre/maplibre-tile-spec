@@ -2,6 +2,7 @@ mod decoded_layer;
 mod differential;
 mod field_config;
 mod field_values;
+mod fields_file;
 mod layer;
 mod mvt_roundtrip;
 mod roundtrip;

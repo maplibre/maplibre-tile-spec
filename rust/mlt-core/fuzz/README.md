@@ -100,16 +100,16 @@ Inputs v2 cannot yet encode are skipped.
 
 **Location:** `fuzz_targets/field_config.rs`
 
-Generates a layer of packed string properties and a `mlt convert --config` naming some of them.
+Generates a layer of packed string properties and a `mlt convert --fields` file naming some of them.
 Whenever the config loads and parses the layer, its v2 encoding must pass `--verify`.
 The verifier must then refuse the encoding once one id, geometry, z, value or feature of the restored layer changes.
-Encodings with `--triangles-only` are not generated, since they drop the outlines the verifier compares.
+Encodings with `--triangles-only` are not generated, since `mlt convert` refuses them with `--verify`.
 
 ### `field-values`
 
 **Location:** `fuzz_targets/field_values.rs`
 
-Generates typed m-value and list columns, formats them into strings with a `--config`, and parses them again.
+Generates typed m-value and list columns, formats them into strings with a `--fields` file, and parses them again.
 A value the config cannot write may be refused, but whatever parses must equal the columns it was formatted from.
 
 ### `differential`

@@ -1,10 +1,11 @@
 //! Checks that an encoded layer decodes back to the layer it was encoded from.
 
+use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::fmt;
 
 use anyhow::{Context as _, Result as AnyResult, anyhow, bail, ensure};
-use mlt_core::geo_types::Geometry;
+use mlt_core::geo_types::{Coord, Geometry, LineString, Polygon};
 use mlt_core::{Decoder, Parser, PropValue, TileFeature, TileLayer};
 #[cfg(feature = "unstable-v2")]
 use mlt_core::{MValue, NestedValue};
@@ -72,7 +73,6 @@ fn same_layer(expected: &TileLayer, actual: &TileLayer) -> AnyResult<()> {
             e.geometry == a.geometry,
             "feature {id} has another geometry"
         );
-        #[cfg(feature = "unstable-v2")]
         ensure!(
             e.z == a.z,
             "feature {id} has other z: {:?}, not {:?}",
@@ -90,7 +90,7 @@ fn same_layer(expected: &TileLayer, actual: &TileLayer) -> AnyResult<()> {
 struct Row<'a> {
     id: Option<u64>,
     geometry: &'a Geometry<i32>,
-    #[cfg(feature = "unstable-v2")]
+    /// Empty in a flat layer.
     z: &'a [i32],
     values: BTreeMap<(Role, &'a str), Value<'a>>,
 }
@@ -105,7 +105,7 @@ enum Role {
 }
 
 /// A value with its storage type left out: integers by number, floats by their `f64` bits.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum Value<'a> {
     Bool(bool),
     Int(i128),
@@ -124,6 +124,20 @@ struct Bits(f64);
 impl PartialEq for Bits {
     fn eq(&self, other: &Self) -> bool {
         self.0.to_bits() == other.0.to_bits()
+    }
+}
+
+impl Eq for Bits {}
+
+impl PartialOrd for Bits {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Bits {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.0.to_bits().cmp(&other.0.to_bits())
     }
 }
 
@@ -195,20 +209,56 @@ impl<'a> Value<'a> {
 
 /// The features of `layer` in an order the encoder cannot change.
 fn rows(layer: &TileLayer) -> Vec<Row<'_>> {
-    let mut rows: Vec<Row<'_>> = layer.features().iter().map(|f| row(layer, f)).collect();
-    rows.sort_by(|a, b| {
-        a.id.cmp(&b.id)
-            .then_with(|| a.sort_key().cmp(&b.sort_key()))
+    let mut rows: Vec<(Shape, Row<'_>)> = layer
+        .features()
+        .iter()
+        .map(|f| (Shape::of(f.geometry()), row(layer, f)))
+        .collect();
+    rows.sort_by(|(a_shape, a), (b_shape, b)| {
+        (a.id, a_shape, a.z, &a.values).cmp(&(b.id, b_shape, b.z, &b.values))
     });
-    rows
+    rows.into_iter().map(|(_, row)| row).collect()
 }
 
-impl Row<'_> {
-    fn sort_key(&self) -> String {
-        #[cfg(feature = "unstable-v2")]
-        return format!("{:?}{:?}{:?}", self.geometry, self.z, self.values);
-        #[cfg(not(feature = "unstable-v2"))]
-        format!("{:?}{:?}", self.geometry, self.values)
+/// A geometry's coordinates, which unlike [`Geometry`] are ordered.
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+enum Shape {
+    Point(Xy),
+    Line(Xy, Xy),
+    LineString(Vec<Xy>),
+    Polygon(Vec<Vec<Xy>>),
+    MultiPoint(Vec<Xy>),
+    MultiLineString(Vec<Vec<Xy>>),
+    MultiPolygon(Vec<Vec<Vec<Xy>>>),
+    Rect(Xy, Xy),
+    Triangle(Xy, Xy, Xy),
+    Collection(Vec<Self>),
+}
+
+type Xy = (i32, i32);
+
+impl Shape {
+    fn of(geometry: &Geometry<i32>) -> Self {
+        let xy = |c: Coord<i32>| (c.x, c.y);
+        let line = |l: &LineString<i32>| l.coords().copied().map(xy).collect::<Vec<_>>();
+        let polygon = |p: &Polygon<i32>| {
+            std::iter::once(p.exterior())
+                .chain(p.interiors())
+                .map(line)
+                .collect::<Vec<_>>()
+        };
+        match geometry {
+            Geometry::Point(p) => Self::Point(xy(p.0)),
+            Geometry::Line(l) => Self::Line(xy(l.start), xy(l.end)),
+            Geometry::LineString(l) => Self::LineString(line(l)),
+            Geometry::Polygon(p) => Self::Polygon(polygon(p)),
+            Geometry::MultiPoint(mp) => Self::MultiPoint(mp.iter().map(|p| xy(p.0)).collect()),
+            Geometry::MultiLineString(ml) => Self::MultiLineString(ml.iter().map(line).collect()),
+            Geometry::MultiPolygon(mp) => Self::MultiPolygon(mp.iter().map(polygon).collect()),
+            Geometry::Rect(r) => Self::Rect(xy(r.min()), xy(r.max())),
+            Geometry::Triangle(t) => Self::Triangle(xy(t.v1()), xy(t.v2()), xy(t.v3())),
+            Geometry::GeometryCollection(gc) => Self::Collection(gc.iter().map(Self::of).collect()),
+        }
     }
 }
 
@@ -237,6 +287,8 @@ fn row<'a>(layer: &'a TileLayer, feature: &'a TileFeature) -> Row<'a> {
         geometry: feature.geometry(),
         #[cfg(feature = "unstable-v2")]
         z: feature.z(),
+        #[cfg(not(feature = "unstable-v2"))]
+        z: &[],
         values,
     }
 }
