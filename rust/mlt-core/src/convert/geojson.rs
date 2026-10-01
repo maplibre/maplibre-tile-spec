@@ -690,8 +690,8 @@ mod tests {
             z: Some((1..=7).collect()),
             ..feature(Geometry::Polygon(square_with_hole()))
         };
-        insta::assert_json_snapshot!(
-            with_z,
+        insta::assert_snapshot!(
+            serde_json::to_string(&with_z).expect("serialize"),
             @r#"{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":[[[0,0,1],[8,0,2],[8,8,3],[0,8,4],[0,0,1]],[[2,2,5],[4,2,6],[4,4,7],[2,2,5]]]}}"#
         );
     }

@@ -10,6 +10,8 @@ use crate::MltError::UnsupportedPhysicalEncodingForType;
 use crate::MltResult;
 #[cfg(feature = "unstable-v2")]
 use crate::codecs::bitpack;
+#[cfg(feature = "unstable-v2")]
+use crate::codecs::zigzag::encode_zigzag_delta2;
 use crate::codecs::zigzag::{encode_zigzag, encode_zigzag_delta};
 use crate::decoder::stream::header01;
 #[cfg(feature = "unstable-v2")]
@@ -240,6 +242,10 @@ pub(crate) trait LogicalIntCodec<T: LogicalIntStreamKind + ?Sized> {
 
     fn delta<'a>(&'a mut self, values: &'a T) -> &'a [<T::Output as PhysicalIntStreamKind>::Value];
 
+    #[cfg(feature = "unstable-v2")]
+    fn delta2<'a>(&'a mut self, values: &'a T)
+    -> &'a [<T::Output as PhysicalIntStreamKind>::Value];
+
     fn rle<'a>(
         &'a mut self,
         values: &'a T,
@@ -294,6 +300,12 @@ impl LogicalIntStreamKind for [u8] {
 }
 
 impl LogicalIntCodec<[u8]> for LogicalCodecs {
+    #[cfg(feature = "unstable-v2")]
+    fn delta2<'a>(&'a mut self, values: &'a [u8]) -> &'a [u32] {
+        let wide: Vec<i32> = values.iter().map(|&v| i32::from(v)).collect();
+        encode_zigzag_delta2(&wide, &mut self.u32_tmp)
+    }
+
     fn none<'a>(&'a mut self, values: &'a [u8]) -> &'a [u32] {
         encode_u8_as_u32(values, &mut self.u32_tmp)
     }
@@ -333,6 +345,12 @@ impl LogicalIntStreamKind for [i8] {
 }
 
 impl LogicalIntCodec<[i8]> for LogicalCodecs {
+    #[cfg(feature = "unstable-v2")]
+    fn delta2<'a>(&'a mut self, values: &'a [i8]) -> &'a [u32] {
+        let wide: Vec<i32> = values.iter().map(|&v| i32::from(v)).collect();
+        encode_zigzag_delta2(&wide, &mut self.u32_tmp)
+    }
+
     fn none<'a>(&'a mut self, values: &'a [i8]) -> &'a [u32] {
         encode_i8_zigzag(values, &mut self.u32_tmp)
     }
@@ -372,6 +390,11 @@ impl LogicalIntStreamKind for [u32] {
 }
 
 impl LogicalIntCodec<[u32]> for LogicalCodecs {
+    #[cfg(feature = "unstable-v2")]
+    fn delta2<'a>(&'a mut self, values: &'a [u32]) -> &'a [u32] {
+        encode_zigzag_delta2(cast_slice::<u32, i32>(values), &mut self.u32_tmp)
+    }
+
     fn none<'a>(&'a mut self, values: &'a [u32]) -> &'a [u32] {
         values
     }
@@ -410,6 +433,11 @@ impl LogicalIntStreamKind for [i32] {
 }
 
 impl LogicalIntCodec<[i32]> for LogicalCodecs {
+    #[cfg(feature = "unstable-v2")]
+    fn delta2<'a>(&'a mut self, values: &'a [i32]) -> &'a [u32] {
+        encode_zigzag_delta2(values, &mut self.u32_tmp)
+    }
+
     fn none<'a>(&'a mut self, values: &'a [i32]) -> &'a [u32] {
         encode_zigzag(values, &mut self.u32_tmp)
     }
@@ -449,6 +477,11 @@ impl LogicalIntStreamKind for [u64] {
 }
 
 impl LogicalIntCodec<[u64]> for LogicalCodecs {
+    #[cfg(feature = "unstable-v2")]
+    fn delta2<'a>(&'a mut self, values: &'a [u64]) -> &'a [u64] {
+        encode_zigzag_delta2(cast_slice::<u64, i64>(values), &mut self.u64_tmp)
+    }
+
     fn none<'a>(&'a mut self, values: &'a [u64]) -> &'a [u64] {
         values
     }
@@ -487,6 +520,11 @@ impl LogicalIntStreamKind for [i64] {
 }
 
 impl LogicalIntCodec<[i64]> for LogicalCodecs {
+    #[cfg(feature = "unstable-v2")]
+    fn delta2<'a>(&'a mut self, values: &'a [i64]) -> &'a [u64] {
+        encode_zigzag_delta2(values, &mut self.u64_tmp)
+    }
+
     fn none<'a>(&'a mut self, values: &'a [i64]) -> &'a [u64] {
         encode_zigzag(values, &mut self.u64_tmp)
     }

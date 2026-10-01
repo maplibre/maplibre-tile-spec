@@ -221,9 +221,11 @@ fn logical_token(logical: StatLogicalCodec) -> Option<&'static str> {
     Some(match logical {
         StatLogicalCodec::None => return None,
         StatLogicalCodec::Delta => "delta",
+        StatLogicalCodec::Delta2 => "delta2",
         StatLogicalCodec::DeltaRle => "delta-rle",
         StatLogicalCodec::Rle => "rle",
         StatLogicalCodec::ComponentwiseDelta => "componentwise-delta",
+        StatLogicalCodec::ComponentwiseDelta2 => "componentwise-delta2",
         StatLogicalCodec::Morton => "morton",
         StatLogicalCodec::MortonDelta => "morton-delta",
         StatLogicalCodec::MortonRle => "morton-rle",
@@ -953,8 +955,10 @@ type StreamStat = (StreamType, PhysicalEncoding, StatLogicalCodec);
 pub enum StatLogicalCodec {
     None,
     Delta,
+    Delta2,
     DeltaRle,
     ComponentwiseDelta,
+    ComponentwiseDelta2,
     Rle,
     Morton,
     MortonDelta,
@@ -991,6 +995,8 @@ impl From<LogicalEncoding> for StatLogicalCodec {
             LE::Vertex(VertexLogical::MortonRle(_)) => Self::MortonRle,
             LE::Float(FloatLogical::Dict) => Self::Dict,
             LE::Float(FloatLogical::Alp(_)) => Self::Alp,
+            LE::Int(IntLogical::Delta2) => Self::Delta2,
+            LE::Vertex(VertexLogical::ComponentwiseDelta2) => Self::ComponentwiseDelta2,
             #[cfg(feature = "unstable-v2")]
             LE::Vertex(VertexLogical::Xyz(..)) => Self::Xyz,
             #[cfg(not(feature = "unstable-v2"))]

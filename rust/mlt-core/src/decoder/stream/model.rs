@@ -221,6 +221,8 @@ pub enum IntLogical {
     Delta,
     Rle(RleMeta),
     DeltaRle(RleMeta),
+    /// Deltas of the deltas, both running from zero.
+    Delta2,
 }
 
 /// Logical encoding of a bool column's data stream or a presence bitfield.
@@ -253,6 +255,8 @@ pub enum VertexLogical {
     None,
     Delta,
     ComponentwiseDelta,
+    /// Componentwise deltas of the componentwise deltas.
+    ComponentwiseDelta2,
     Morton(Morton),
     MortonDelta(Morton),
     MortonRle(Morton),
@@ -266,7 +270,7 @@ impl VertexLogical {
     #[must_use]
     pub fn words_per_vertex(self) -> u32 {
         match self {
-            Self::None | Self::Delta | Self::ComponentwiseDelta => 2,
+            Self::None | Self::Delta | Self::ComponentwiseDelta | Self::ComponentwiseDelta2 => 2,
             Self::Morton(_) | Self::MortonDelta(_) | Self::MortonRle(_) => 1,
             #[cfg(feature = "unstable-v2")]
             Self::Xyz(..) => 3,
@@ -579,6 +583,7 @@ impl Display for LogicalEncoding {
                     IntLogical::Delta => "delta",
                     IntLogical::Rle(_) => "rle",
                     IntLogical::DeltaRle(_) => "delta-rle",
+                    IntLogical::Delta2 => "delta2",
                 },
             ),
             Self::Bool(b) => (
@@ -602,6 +607,7 @@ impl Display for LogicalEncoding {
                     VertexLogical::None => "none",
                     VertexLogical::Delta => "delta",
                     VertexLogical::ComponentwiseDelta => "componentwise-delta",
+                    VertexLogical::ComponentwiseDelta2 => "componentwise-delta2",
                     VertexLogical::Morton(_) => "morton",
                     VertexLogical::MortonDelta(_) => "morton-delta",
                     VertexLogical::MortonRle(_) => "morton-rle",

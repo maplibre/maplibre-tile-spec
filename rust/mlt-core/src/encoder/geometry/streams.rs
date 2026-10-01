@@ -12,7 +12,7 @@ use crate::MltResult;
 use crate::codecs::hilbert::hilbert_sort_key;
 use crate::codecs::zigzag::encode_componentwise_delta_vec2s;
 #[cfg(feature = "unstable-v2")]
-use crate::codecs::zigzag::encode_componentwise_delta_vec3s;
+use crate::codecs::zigzag::{encode_componentwise_delta_vec3s, encode_componentwise_delta2_vec2s};
 use crate::decoder::GeometryType::Point;
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::XyzLogical;
@@ -442,6 +442,19 @@ pub(super) fn encode_vec2_vertex_stream02(
     codecs: &mut Codecs,
 ) -> MltResult<()> {
     vec2_vertex_stream(vertices, enc, codecs, false).map(|_| ())
+}
+
+/// The plain vertex layout as componentwise deltas of the componentwise deltas.
+#[cfg(feature = "unstable-v2")]
+pub(super) fn encode_vec2_delta2_vertex_stream02(
+    vertices: &[i32],
+    enc: &mut Encoder,
+    codecs: &mut Codecs,
+) -> MltResult<()> {
+    let delta2 = encode_componentwise_delta2_vec2s(vertices, &mut codecs.logical.u32_tmp);
+    let ctx = StreamCtx::geom(StreamType::Data(DictionaryType::Vertex), "vertex");
+    let logical = LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta2);
+    write_geo_precomputed_stream(delta2, ctx, logical, enc, &mut codecs.physical, false).map(|_| ())
 }
 
 fn vec2_vertex_stream(

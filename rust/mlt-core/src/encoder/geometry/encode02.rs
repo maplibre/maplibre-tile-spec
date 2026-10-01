@@ -5,9 +5,9 @@ use super::streams::{
     dict_may_be_beneficial, encode_hilbert_vertex_streams02, encode_hilbert_xyz_vertex_streams02,
     encode_level1_length_stream, encode_level1_without_ring_buffer_length_stream,
     encode_level2_length_stream, encode_morton_vertex_streams02, encode_ring_lengths_for_mixed,
-    encode_root_length_stream, encode_vec2_vertex_stream02, encode_vec3_vertex_stream02,
-    normalize_geometry_offsets, normalize_part_offsets_for_rings, seed_curve_caches,
-    xyz_dict_may_be_beneficial,
+    encode_root_length_stream, encode_vec2_delta2_vertex_stream02, encode_vec2_vertex_stream02,
+    encode_vec3_vertex_stream02, normalize_geometry_offsets, normalize_part_offsets_for_rings,
+    seed_curve_caches, xyz_dict_may_be_beneficial,
 };
 use crate::decoder::GeometryType::{LineString, Point, Polygon};
 use crate::decoder::stream::header02::{Family, WordWidth};
@@ -294,7 +294,7 @@ fn write_vertices(
     enc.family_context = Family::Vertex;
 
     if tessellated {
-        encode_vec2_vertex_stream02(vertices, enc, codecs)?;
+        write_plain_vertices(vertices, enc, codecs)?;
         return Ok(VertexStorage::Plain);
     }
 
@@ -316,7 +316,7 @@ fn write_vertices(
     }
 
     if !dict_may_be_beneficial(vertices, enc) {
-        encode_vec2_vertex_stream02(vertices, enc, codecs)?;
+        write_plain_vertices(vertices, enc, codecs)?;
         return Ok(VertexStorage::Plain);
     }
 
@@ -327,7 +327,7 @@ fn write_vertices(
         codecs,
         &[
             (VertexStorage::Plain, &|enc, codecs| {
-                encode_vec2_vertex_stream02(vertices, enc, codecs)
+                write_plain_vertices(vertices, enc, codecs)
             }),
             (VertexStorage::Dict, &|enc, codecs| {
                 encode_hilbert_vertex_streams02(vertices, enc, codecs)
@@ -430,4 +430,14 @@ fn write_xyz_vertices(
             }),
         ],
     )
+}
+
+/// The plain vertex stream the encoder picks itself: componentwise delta, raced against second-order deltas when the config allows them.
+fn write_plain_vertices(vertices: &[i32], enc: &mut Encoder, codecs: &mut Codecs) -> MltResult<()> {
+    if vertices.is_empty() || !enc.config().allow_delta2() {
+        return encode_vec2_vertex_stream02(vertices, enc, codecs);
+    }
+    let mut alt = enc.try_alternatives();
+    alt.with(|enc| encode_vec2_vertex_stream02(vertices, enc, codecs))?;
+    alt.with(|enc| encode_vec2_delta2_vertex_stream02(vertices, enc, codecs))
 }

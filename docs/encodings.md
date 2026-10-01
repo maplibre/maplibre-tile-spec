@@ -178,6 +178,38 @@ words:  [200, 10, 5]           zigzag
 
 Delta suits monotonic sequences such as ids and offsets, whose differences are small however large the values are.
 
+### Delta2 <span class="experimental"></span> {#delta2}
+
+Each item is the [Delta](#delta) of the deltas.
+Both predecessors start at `0`, so the first two words are
+- `values[0]` and
+- `values[1] - 2 * values[0]`.
+
+Each second difference is [ZigZag](#zigzag)-coded, and the arithmetic wraps at the stream's width.
+
+This means that encoding is:
+```
+delta[i]  = values[i] - values[i - 1]      values[-1] = 0
+delta2[i] = delta[i] - delta[i - 1]        delta[-1] = 0
+```
+
+and decoding is:
+```
+delta[i] = delta[i - 1] + delta2[i]
+values[i] = values[i - 1] + delta[i]
+```
+
+!!! example
+
+    ```
+    values: [10, 13, 16, 20]
+    deltas: [10, 3, 3, 4]
+    delta2: [10, -7, 0, 1]
+    words:  [20, 13, 0, 2]         zigzag
+    ```
+
+Delta2 suits smooth sequences, such as a per-vertex elevation along a densely sampled line, whose steps change little from one to the next.
+
 ### RLE {#rle}
 
 The values are stored as runs, each a `(run_length, value)` pair that expands to `run_length` copies of `value`.
@@ -534,6 +566,17 @@ words:    [200, 400, 10, 20, 5, 10]
 ```
 
 The v2 `Vertex` family also has a plain `Delta`, which is the integer [Delta](#delta) over the flat word sequence and does not separate the components.
+
+### Componentwise Delta2 <span class="experimental"></span> {#componentwise-delta2}
+
+[Delta2](#delta2) of each coordinate, with `x` and `y` keeping separate predecessors.
+
+```
+vertices: (0, 0), (70, 1), (140, 3), (210, 6)
+deltas:   (0, 0), (70, 1), (70, 2), (70, 3)
+delta2:   (0, 0), (70, 1), (0, 1), (0, 1)
+words:    [0, 0, 140, 2, 0, 2, 0, 2]
+```
 
 ### Vertex Dictionary {#vertex-dictionary}
 

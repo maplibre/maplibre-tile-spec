@@ -1888,3 +1888,112 @@ fn a_run_coded_presence_is_charged_to_the_parse_budget() {
         "the bits should be refused by the budget, not by something else: {err}"
     );
 }
+
+mod delta2 {
+    use mlt_core::test_helpers::stream_logicals;
+    use mlt_core::wire::{DictionaryType, IntLogical, LogicalEncoding, StreamType, VertexLogical};
+    use mlt_core::{MValue, PropKind};
+
+    use super::*;
+
+    fn cfg_delta2() -> EncoderConfig {
+        cfg_v2().with_delta2(true)
+    }
+
+    fn vertex_logicals(bytes: &[u8]) -> Vec<LogicalEncoding> {
+        stream_logicals(bytes, StreamType::Data(DictionaryType::Vertex))
+    }
+
+    fn data_logicals(bytes: &[u8]) -> Vec<LogicalEncoding> {
+        stream_logicals(bytes, StreamType::Data(DictionaryType::None))
+    }
+
+    /// A gently curving line sampled every ~70 units, as resampled lane geometry is.
+    fn arc(x: i32, y: i32, n: i32) -> Vec<(i32, i32)> {
+        (0..n).map(|i| (x + 70 * i, y + i * i / 40)).collect()
+    }
+
+    fn smooth_lines() -> Vec<Geometry<i32>> {
+        (0..6).map(|i| line(&arc(i * 900, i * 400, 400))).collect()
+    }
+
+    fn elevated_lines() -> TileLayer {
+        let mut builder = TileLayer::builder("test_layer", 131_072).unwrap();
+        let elev = builder.add_m_value("elev", PropKind::I32).unwrap();
+        for i in 0..6 {
+            let pts = arc(i * 900, i * 400, 400);
+            let heights = (0..400)
+                .map(|v| 372_000 + v * 9 + v * v / 50 - i * 300)
+                .collect();
+            let mut feature = builder.feature(line(&pts));
+            feature.m_value(elev, MValue::I32(Some(heights))).unwrap();
+            feature.finish().unwrap();
+        }
+        builder.finish()
+    }
+
+    #[test]
+    fn smooth_vertices_take_second_order_deltas_and_decode_unchanged() {
+        let l = layer(smooth_lines(), None, &[]);
+        let plain = l.clone().encode(cfg_v2()).unwrap();
+        let delta2 = l.encode(cfg_delta2()).unwrap();
+        assert_eq!(
+            vertex_logicals(&plain),
+            [LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta)]
+        );
+        assert_eq!(
+            vertex_logicals(&delta2),
+            [LogicalEncoding::Vertex(VertexLogical::ComponentwiseDelta2)]
+        );
+        assert!(
+            delta2.len() < plain.len(),
+            "{} vs {}",
+            delta2.len(),
+            plain.len()
+        );
+        assert_eq!(decode(&delta2).1, decode(&plain).1);
+        assert_dump_covers(&delta2);
+    }
+
+    #[test]
+    fn a_smooth_m_value_column_takes_second_order_deltas_and_decodes_unchanged() {
+        let l = elevated_lines();
+        let plain = l.clone().encode(cfg_v2()).unwrap();
+        let delta2 = l.clone().encode(cfg_delta2()).unwrap();
+        assert_eq!(
+            data_logicals(&delta2),
+            [LogicalEncoding::Int(IntLogical::Delta2)]
+        );
+        assert!(
+            delta2.len() < plain.len(),
+            "{} vs {}",
+            delta2.len(),
+            plain.len()
+        );
+        assert_eq!(decode(&delta2).1, l);
+        assert_dump_covers(&delta2);
+    }
+
+    #[rstest]
+    #[case::i8(|i: i32| PropValue::I8(Some(i8::try_from(i % 100 - 50).unwrap())))]
+    #[case::u8(|i: i32| PropValue::U8(Some(u8::try_from(i % 200).unwrap())))]
+    #[case::i32(|i: i32| PropValue::I32(Some(i * i - 900)))]
+    #[case::u32(|i: i32| PropValue::U32(Some(i.unsigned_abs() * 1_000_003)))]
+    #[case::i64(|i: i32| PropValue::I64(Some(i64::from(i).pow(3) - 9_000_000_000)))]
+    #[case::u64(|i: i32| PropValue::U64(Some(u64::from(i.unsigned_abs()).pow(3) << 20)))]
+    fn an_integer_column_round_trips_through_delta2(#[case] value: fn(i32) -> PropValue) {
+        let values: Vec<PropValue> = (0..300).map(value).collect();
+        let l = layer((0..300).map(|i| pt(i, i)).collect(), None, &[("v", values)]);
+        let coded = l.clone().encode(cfg_delta2()).unwrap();
+        assert_eq!(decode(&coded).1, l);
+        assert_dump_covers(&coded);
+    }
+
+    #[test]
+    fn v1_ignores_delta2() {
+        let values = (0..6).map(|i| PropValue::I32(Some(i * i))).collect();
+        let l = layer(smooth_lines(), None, &[("v", values)]);
+        let v1 = cfg_v1().with_delta2(true);
+        assert_eq!(l.clone().encode(v1).unwrap(), l.encode(cfg_v1()).unwrap());
+    }
+}

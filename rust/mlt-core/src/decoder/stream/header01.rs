@@ -318,6 +318,12 @@ pub(crate) fn write_stream_meta<W: io::Write>(
                 "v1, whose vertices are (x, y) pairs",
             ));
         }
+        LE::Int(IL::Delta2) | LE::Vertex(VL::ComponentwiseDelta2) => {
+            return Err(UnsupportedLogicalEncoding(
+                meta.encoding.logical,
+                "v1, which has no second-order deltas",
+            ));
+        }
     };
     writer.write_u8(encoding_byte(logical, meta.encoding.physical)?)?;
     writer.write_varint(meta.num_words()?)?;
@@ -366,6 +372,7 @@ pub(crate) fn write_stream_meta<W: io::Write>(
         // Rejected before the header is written.
         #[cfg(feature = "unstable-v2")]
         LE::Vertex(VL::Xyz(..)) => {}
+        LE::Int(IL::Delta2) | LE::Vertex(VL::ComponentwiseDelta2) => {}
     }
     Ok(())
 }

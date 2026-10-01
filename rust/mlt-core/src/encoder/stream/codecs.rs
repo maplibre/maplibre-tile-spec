@@ -289,6 +289,8 @@ impl Codecs {
         #[cfg(feature = "unstable-v2")]
         let bitpacked = enc.config().allow_packed_dict_codes()
             && matches!(ctx.stream_type, StreamType::Offset(OffsetType::String));
+        #[cfg(feature = "unstable-v2")]
+        let delta2 = enc.config().allow_delta2();
         let mut alt = enc.try_alternatives();
 
         let sample = logical.none(DataProfile::take_sample(values));
@@ -317,6 +319,18 @@ impl Codecs {
                 ctx.stream_type,
                 fastpfor,
                 #[cfg(feature = "unstable-v2")]
+                bitpacked,
+            )?;
+        }
+        #[cfg(feature = "unstable-v2")]
+        if delta2 && profile.delta_is_beneficial() {
+            let values = logical.delta2(values);
+            physical.write_alternatives::<Output<T>>(
+                &mut alt,
+                values,
+                LE::Int(IntLogical::Delta2),
+                ctx.stream_type,
+                fastpfor,
                 bitpacked,
             )?;
         }

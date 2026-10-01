@@ -7,7 +7,10 @@ use usize_cast::IntoUsize as _;
 use crate::MltError::{ParsingLogicalTechnique, RleRunLenInvalid, UnsupportedLogicalEncoding};
 #[cfg(feature = "unstable-v2")]
 use crate::codecs::zigzag::decode_componentwise_delta_vec3s;
-use crate::codecs::zigzag::{decode_componentwise_delta_vec2s, decode_zigzag, decode_zigzag_delta};
+use crate::codecs::zigzag::{
+    decode_componentwise_delta_vec2s, decode_componentwise_delta2_vec2s, decode_zigzag,
+    decode_zigzag_delta, decode_zigzag_delta2,
+};
 #[cfg(feature = "unstable-v2")]
 use crate::decoder::XyzLogical;
 use crate::decoder::{
@@ -141,6 +144,8 @@ impl LogicalValue {
                 let expanded = v.decode(data, dec)?;
                 decode_zigzag_delta::<i32, _>(&expanded, dec)
             }
+            LE::Int(IL::Delta2) => decode_zigzag_delta2::<i32, _>(data, dec),
+            LE::Vertex(VL::ComponentwiseDelta2) => decode_componentwise_delta2_vec2s(data, dec),
             LE::Vertex(VL::Morton(v)) => v.decode_codes(data, dec),
             LE::Vertex(VL::MortonDelta(v)) => v.decode_delta(data, dec),
             #[cfg(feature = "unstable-v2")]
@@ -182,6 +187,7 @@ impl LogicalValue {
             LogicalEncoding::Int(IntLogical::DeltaRle(rle)) => {
                 decode_zigzag_delta::<i32, _>(&rle.decode(data, dec)?, dec)
             }
+            LogicalEncoding::Int(IntLogical::Delta2) => decode_zigzag_delta2::<i32, _>(data, dec),
             LogicalEncoding::Bool(_) | LogicalEncoding::Float(_) | LogicalEncoding::Vertex(_) => {
                 Err(UnsupportedLogicalEncoding(
                     self.meta.encoding.logical,
@@ -208,6 +214,7 @@ impl LogicalValue {
                 let expanded = rle.decode(data, dec)?;
                 decode_zigzag(&expanded, dec)
             }
+            LogicalEncoding::Int(IntLogical::Delta2) => decode_zigzag_delta2::<i64, _>(data, dec),
             LogicalEncoding::Bool(_) | LogicalEncoding::Float(_) | LogicalEncoding::Vertex(_) => {
                 Err(UnsupportedLogicalEncoding(
                     self.meta.encoding.logical,
@@ -235,6 +242,7 @@ impl LogicalValue {
                 let expanded = rle.decode(data, dec)?;
                 decode_zigzag_delta::<i64, _>(&expanded, dec)
             }
+            LogicalEncoding::Int(IntLogical::Delta2) => decode_zigzag_delta2::<i64, _>(data, dec),
             LogicalEncoding::Bool(_) | LogicalEncoding::Float(_) | LogicalEncoding::Vertex(_) => {
                 Err(UnsupportedLogicalEncoding(
                     self.meta.encoding.logical,
