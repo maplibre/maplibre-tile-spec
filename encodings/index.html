@@ -860,7 +860,7 @@
   <a href="#alp" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        ALP <span class="experimental"></span>
+        Framed, Exception-Free ALP <span class="experimental"></span>
       </span>
     </span>
   </a>
@@ -1141,11 +1141,11 @@ Streams are called by their <a href="../specification/v2/#string-columns">MLT v2
 </div>
 <h2 id="integer-words">Integer Words<a class="headerlink" href="#integer-words" title="Link to this section">&para;</a></h2>
 <p>Most of MLT is integers.
-Lengths, offsets, ids, dictionary codes, geometry topology and the vertex buffer are all streams of integer words, and so are the scaled integers of an <a href="#alp">ALP</a> float column.</p>
+Lengths, offsets, ids, dictionary codes, geometry topology and the vertex buffer are all streams of integer words, and so are the scaled integers of an <a href="#alp">Framed, Exception-Free ALP</a> float column.</p>
 <p>An integer stream is decoded in two steps.
 The <strong>physical</strong> encoding turns the payload bytes into a sequence of unsigned words.
 The <strong>logical</strong> encoding turns those words into the values.
-A stream of <code>Int64</code>, <code>UInt64</code> or <code>LongId</code> values has 64-bit words, and so does an <a href="#alp">ALP</a> offset stream.
+A stream of <code>Int64</code>, <code>UInt64</code> or <code>LongId</code> values has 64-bit words, and so does an <a href="#alp">Framed, Exception-Free ALP</a> offset stream.
 Every other integer stream has 32-bit words.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>values = logical_decode(physical_decode(payload))
 </span></code></pre></div>
@@ -1267,7 +1267,7 @@ A stream of zero values has an empty payload.</p>
 <p>A decoder selects the variant by the layer tag.</p>
 <p>FastPFOR only produces 32-bit words.
 A 64-bit integer column cannot use it.
-An <a href="#alp">ALP</a> offset stream can, and then has 32-bit words.</p>
+An <a href="#alp">Framed, Exception-Free ALP</a> offset stream can, and then has 32-bit words.</p>
 <h2 id="logical-encodings">Logical Encodings<a class="headerlink" href="#logical-encodings" title="Link to this section">&para;</a></h2>
 <p>The logical encoding is applied to the words the physical step produced.</p>
 <h3 id="logical-none">None<a class="headerlink" href="#logical-none" title="Link to this section">&para;</a></h3>
@@ -1411,11 +1411,11 @@ Both follow from <code>num_values</code>.</p>
 <p>IEEE 754 words, little-endian, 4 bytes for a <code>Float</code> and 8 for a <code>Double</code>.
 This is the only float encoding v1 has.</p>
 <p><a href="../inspector/app/?fixture=0x02%2Fprop_f64_max_np.mlt&amp;at=column%5B0%5D" target="_blank">See <code>prop_f64_max_np.mlt</code> in the inspector</a> - raw IEEE 754 words.</p>
-<h3 id="alp">ALP <span class="experimental"></span><a class="headerlink" href="#alp" title="Link to this section">&para;</a></h3>
-<p>Adaptive Lossless floating-Point compression stores a float column as integers, which are then <a href="#physical-encodings">physically encoded</a> like any other integer stream.</p>
+<h3 id="alp">Framed, Exception-Free ALP <span class="experimental"></span><a class="headerlink" href="#alp" title="Link to this section">&para;</a></h3>
+<p>Framed, Exception-Free ALP (Adaptive Lossless floating-Point compression) stores a float column as integers, which are then <a href="#physical-encodings">physically encoded</a> like any other integer stream.</p>
 <p><a href="../inspector/app/?fixture=0x02%2Fprop_f32_alp_whole_np.mlt&amp;at=column%5B0%5D" target="_blank">See <code>prop_f32_alp_whole_np.mlt</code> in the inspector</a> - floats that are whole numbers, so the exponent does the work.</p>
 <p>Most floats in map data are decimals with few significant digits, such as <code>12.75</code> or <code>0.3</code>, and are exactly representable as a scaled integer.
-ALP finds one decimal scale for the whole column and stores <span class="arithmatex">\(i = \operatorname{round}(v \cdot 10^e / 10^f)\)</span> per value.</p>
+Framed, Exception-Free ALP finds one decimal scale for the whole column and stores <span class="arithmatex">\(i = \operatorname{round}(v \cdot 10^e / 10^f)\)</span> per value.</p>
 <p><span class="arithmatex">\(e\)</span> is the decimal exponent the values were scaled by, <span class="arithmatex">\(0 \le e \le 18\)</span>.
 <span class="arithmatex">\(f\)</span> is the factor dividing out the trailing zeros <span class="arithmatex">\(e\)</span> introduced, <span class="arithmatex">\(0 \le f \le e\)</span>.</p>
 <p>The parameters are two values in the stream header:</p>
@@ -1524,7 +1524,7 @@ This is a limitation of that implementation, not of the format.</p>
 </span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>base = -225:   offsets = [150, 250, 375, 0]
 </span></code></pre></div>
 <p>The header stores <code>e = 2</code>, <code>f = 0</code> as the <code>scale</code> byte <code>03</code> and <code>base</code> as the ZigZag varint <code>c1 03</code>, and the payload the four offsets as varints.
-See the <a href="../specification/v2/#examples">ALP example</a> on the v2 page for the whole layer.</p>
+See the <a href="../specification/v2/#examples">Framed, Exception-Free ALP example</a> on the v2 page for the whole layer.</p>
 <h3 id="float-dictionary">Float Dictionary <span class="experimental"></span><a class="headerlink" href="#float-dictionary" title="Link to this section">&para;</a></h3>
 <p>The distinct values are stored once, and a stream of codes holds one index into them per element.</p>
 <p><a href="../inspector/app/?fixture=0x02%2Fprop_f32_dict_nan_np.mlt&amp;at=column%5B0%5D" target="_blank">See <code>prop_f32_dict_nan_np.mlt</code> in the inspector</a> - repeated floats, <code>NaN</code> among them.</p>

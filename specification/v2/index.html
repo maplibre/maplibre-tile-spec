@@ -1164,7 +1164,7 @@ A v2 layer decodes into the same in-memory representation as a v1 layer.</p>
 <tr>
 <td>Float payloads</td>
 <td>Raw IEEE 754 words</td>
-<td>Adds <a href="../../encodings/#alp">ALP</a> and float dictionaries</td>
+<td>Adds <a href="../../encodings/#alp">Framed, Exception-Free ALP</a> and float dictionaries</td>
 </tr>
 <tr>
 <td>String dictionaries</td>
@@ -2763,7 +2763,7 @@ Each family numbers its own members from <code>0</code>.</p>
 <td>A float or double column's data stream</td>
 <td>None</td>
 <td>RLE†</td>
-<td><a href="../../encodings/#alp">ALP</a></td>
+<td><a href="../../encodings/#alp">Framed, Exception-Free ALP</a></td>
 <td>Dict</td>
 <td></td>
 <td></td>
@@ -2866,8 +2866,8 @@ A decoder MUST select the variant by the layer tag.</p>
 </thead>
 <tbody>
 <tr>
-<td>ALP</td>
-<td><code>scale</code> (byte), <code>base</code> (ZigZag varint). See <a href="../../encodings/#alp">ALP</a>.</td>
+<td>Framed, Exception-Free ALP</td>
+<td><code>scale</code> (byte), <code>base</code> (ZigZag varint). See <a href="../../encodings/#alp">Framed, Exception-Free ALP</a>.</td>
 </tr>
 <tr>
 <td>Morton</td>
@@ -2894,7 +2894,7 @@ If you are building an decoder, the <code>.json</code> snapshot are what an deco
 </span></code></pre></div>
 <details class="example">
 <summary>Annotated hexdumps</summary>
-<div class="tabbed-set tabbed-alternate" data-tabs="3:10"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><input id="__tabbed_3_3" name="__tabbed_3" type="radio" /><input id="__tabbed_3_4" name="__tabbed_3" type="radio" /><input id="__tabbed_3_5" name="__tabbed_3" type="radio" /><input id="__tabbed_3_6" name="__tabbed_3" type="radio" /><input id="__tabbed_3_7" name="__tabbed_3" type="radio" /><input id="__tabbed_3_8" name="__tabbed_3" type="radio" /><input id="__tabbed_3_9" name="__tabbed_3" type="radio" /><input id="__tabbed_3_10" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Minimal layer</label><label for="__tabbed_3_2">Polygon with a hole</label><label for="__tabbed_3_3">Triangles without outlines</label><label for="__tabbed_3_4">Shared presence</label><label for="__tabbed_3_5">String dictionary</label><label for="__tabbed_3_6">ALP floats</label><label for="__tabbed_3_7">M-values</label><label for="__tabbed_3_8">Nested struct</label><label for="__tabbed_3_9">Nested list</label><label for="__tabbed_3_10">Nested map</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:10"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><input id="__tabbed_3_3" name="__tabbed_3" type="radio" /><input id="__tabbed_3_4" name="__tabbed_3" type="radio" /><input id="__tabbed_3_5" name="__tabbed_3" type="radio" /><input id="__tabbed_3_6" name="__tabbed_3" type="radio" /><input id="__tabbed_3_7" name="__tabbed_3" type="radio" /><input id="__tabbed_3_8" name="__tabbed_3" type="radio" /><input id="__tabbed_3_9" name="__tabbed_3" type="radio" /><input id="__tabbed_3_10" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Minimal layer</label><label for="__tabbed_3_2">Polygon with a hole</label><label for="__tabbed_3_3">Triangles without outlines</label><label for="__tabbed_3_4">Shared presence</label><label for="__tabbed_3_5">String dictionary</label><label for="__tabbed_3_6">Framed, Exception-Free ALP floats</label><label for="__tabbed_3_7">M-values</label><label for="__tabbed_3_8">Nested struct</label><label for="__tabbed_3_9">Nested list</label><label for="__tabbed_3_10">Nested map</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p>A single <code>Point</code> at <code>(13, 42)</code> with id <code>100</code>.</p>
