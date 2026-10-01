@@ -1393,6 +1393,8 @@ mod tests {
         let buffer = fs::read(&path).expect("fixture");
         let info = analyze_mlt_buffer(&buffer, &path, ALGORITHMS).expect("analyze");
         insta::assert_snapshot!(info.algorithms_display(), @"data[vertex]/varint/componentwise-delta,length[parts]/varint");
+        // the step moves to its own facet rather than vanishing with the codec rename
+        assert_eq!(info.facets.z_step, BTreeSet::from(["1dm"]));
     }
 
     #[test]
