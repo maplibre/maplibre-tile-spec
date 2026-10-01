@@ -96,6 +96,7 @@ nav:
       - MLT v1: specification/v1.md
       - MLT v2 (experimental): specification/v2.md
       - Encoding Algorithms: encodings.md
+      - Implementation Guide: implementation-guide.md
 
 extra:
   social:

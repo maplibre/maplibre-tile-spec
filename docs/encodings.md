@@ -714,15 +714,3 @@ The dictionary is sorted ascending by code, so every difference is non-negative.
 dict codes: [27, 30, 45]
 words:      [27, 3, 15]
 ```
-
-## Choosing an Encoding
-
-A brute-force search over every combination is too costly.
-Use the selection strategy from the [BTRBlocks](https://www.cs.cit.tum.de/fileadmin/w00cfj/dis/papers/btrblocks.pdf) paper:
-
-- Calculate data metrics to exclude unsuitable encodings early (e.g., exclude RLE if the average run length is less than 2).
-- Use a sampling-based algorithm: randomly select parts of the data totaling ~1% of the full dataset and apply the candidate encodings from step 1.
-  Choose the scheme that produces the smallest output.
-
-Compare stored bytes, not an estimate.
-Do not assume a later gzip pass changes which candidate wins.
